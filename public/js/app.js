@@ -9551,7 +9551,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const vals = _jrOptions({ ...(_JR_BUILTIN[k] || {}), k, builtin: true });   // builtin:true → _jrOptions lit le champ natif + gabarit DTP (sinon lit props, vide)
       const cur = _jrFilter[k];
       return '<select class="jr-flt-sel" data-f="' + k + '"><option value="">' + lbl + '</option>'
-        + vals.map(v => '<option value="' + _esc(v) + '"' + (String(cur).toLowerCase() === String(v).toLowerCase() ? ' selected' : '') + '>' + _esc((k === 'dir' && _JR_DIR_DISP[v]) || v) + '</option>').join('') + '</select>';
+        + vals.map(v => '<option value="' + _esc(v) + '"' + (String(cur).toLowerCase() === String(v).toLowerCase() ? ' selected' : '') + '>' + _esc(_jrDisp(k, v)) + '</option>').join('') + '</select>';
     };
     host.innerHTML =
       '<span class="jr-flt-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>'
@@ -9588,12 +9588,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ═══ TRADE LOG : GRILLE ÉDITABLE FAÇON NOTION (colonnes/propriétés de l'utilisateur) ═══
   const _JR_DIR_DISP = { BUY: 'Long', SELL: 'Short' };
+  // Traduction À L'AFFICHAGE des valeurs par défaut anglaises du gabarit DTP. Les valeurs STOCKÉES restent
+  // en anglais → le winrate, les couleurs sémantiques (_JR_SEMCOL), le donut (_RES_COL / _jrResOf) et l'export
+  // continuent de mapper sur l'anglais. Aucune migration de données. (Même mécanisme que dir → Long/Short.)
+  const _JR_RES_DISP     = { Loss: 'Perte' };                                          // Profit / TP / BE / SL inchangés (mot FR ou acronyme)
+  const _JR_SESSION_DISP = { London: 'Londres', Asia: 'Asie' };                        // New York / Sydney identiques
+  const _JR_ACCOUNT_DISP = { 'Main Account': 'Compte principal', Funded: 'Financé' };  // Démo identique
+  const _JR_DISP_BY_KEY  = { dir: _JR_DIR_DISP, result: _JR_RES_DISP, session: _JR_SESSION_DISP, account: _JR_ACCOUNT_DISP };
+  function _jrDisp(k, v) { const m = _JR_DISP_BY_KEY[k]; return (m && m[v]) || v; }     // valeur EN → libellé FR (repli = brut : valeurs perso intactes)
   const _JR_COLDEF = [
     { k: 'pair',    label: 'Paires',         type: 'title',    w: 94 },
     { k: 'ts',      label: 'Date',           type: 'date',     w: 120 },
-    { k: 'result',  label: 'Résultat',       type: 'select',   w: 86 },
+    { k: 'result',  label: 'Résultat',       type: 'select',   w: 86, disp: _JR_RES_DISP },
     { k: 'day',     label: 'Jour',           type: 'day',      w: 100 },
-    { k: 'session', label: 'Session',        type: 'select',   w: 92 },
+    { k: 'session', label: 'Session',        type: 'select',   w: 92, disp: _JR_SESSION_DISP },
     { k: 'dir',     label: 'Direction',      type: 'select',   w: 92, disp: _JR_DIR_DISP },
     { k: 'fonda',   label: 'Force Fonda',    type: 'progress', w: 128, max: 100 },
     { k: 'conf',    label: 'Confluence',     type: 'multi',    w: 172 },
@@ -9609,7 +9617,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     { k: 'pl',      label: '$PNL',           type: 'money',    w: 106, signed: true },
     { k: 'equity',  label: '$ Capital',      type: 'money',    w: 124 },
     { k: 'err',     label: 'ERREUR',         type: 'multi',    w: 132 },
-    { k: 'account', label: 'Compte',         type: 'select',   w: 124 },
+    { k: 'account', label: 'Compte',         type: 'select',   w: 124, disp: _JR_ACCOUNT_DISP },
   ];
   // ── COLONNES PERSONNALISABLES (façon Notion), PAR COMPTE : ajout / suppr / renommer / masquer / réordonner ──
   const _JR_BUILTIN = {}; _JR_COLDEF.forEach(c => { _JR_BUILTIN[c.k] = c; });
@@ -10669,7 +10677,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     series.children.push(am5.Label.new(root, { text: "[bold #ffffff fontSize:17px]" + total + "[/]\n[#8a8a92 fontSize:8.5px]TRADES", textAlign: 'center', centerX: am5.p50, centerY: am5.p50, populateText: false }));
     series.appear(600);
   }
-  function _jrResultLegend(resMap) { return '<div class="jrd-legend">' + _JR_RES.filter(k => resMap[k]).map(k => '<span class="jrd-leg"><i style="background:' + _RES_COL[k] + '"></i>' + k + ' <b>' + resMap[k] + '</b></span>').join('') + '</div>'; }
+  function _jrResultLegend(resMap) { return '<div class="jrd-legend">' + _JR_RES.filter(k => resMap[k]).map(k => '<span class="jrd-leg"><i style="background:' + _RES_COL[k] + '"></i>' + _jrDisp('result', k) + ' <b>' + resMap[k] + '</b></span>').join('') + '</div>'; }
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
