@@ -7034,6 +7034,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-kb-quote::before { content: '« '; color: #6f6f79; }
 .cal-kb-quote::after  { content: ' »'; color: #6f6f79; }   /* guillemets hors texte → la traduction FR en place ne les mange pas */
 .cal-kb-sub { color: #8a9097; font-size: 11px; margin-top: 2px; }
+/* Extrait du discours : 1 propos par ligne = tag signal (hawkish/dovish/neutre) + citation VO + attribution/date */
+.cal-kb-qline { margin: 5px 0; line-height: 1.5; }
+.cal-kb-qtone { display: inline-block; font-size: 9px; font-weight: 700; border: 1px solid; border-radius: 3px; padding: 0 4px; margin-right: 6px; letter-spacing: .03em; text-transform: uppercase; vertical-align: middle; }
+.cal-kb-qwho { color: #7f858e; font-size: 10.5px; font-style: normal; white-space: nowrap; }
+.cal-kb-muted { color: #8a9097; }
 /* Chip « Clé » (23/07) : discours de tête de BC / audition / minutes — repérable d'un coup d'œil dans la liste */
 .cal-key-chip { display: inline-block; margin-left: 6px; padding: 0 5px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #e3b23a; border: 1px solid rgba(227,178,58,.38); border-radius: 3px; vertical-align: middle; line-height: 1.5; }
 

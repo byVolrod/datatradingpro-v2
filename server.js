@@ -656,7 +656,7 @@ app.post('/api/widgets-new-seen', async (req, res) => {
 // mémoire → souvent aucun propos. Le SERVEUR balaie 14 j d'allNews (cap 2000) : extraits du SPEAKER
 // si possible, sinon de la banque. Quotes = titres « Fed's X: … » (le « : » = propos rapporté).
 // Déterministe, zéro IA — un scan de tableau, négligeable.
-const _CBQ_RX = { USD: /\b(?:fed|fomc|powell)\b/i, EUR: /\b(?:ecb|bce|lagarde)\b/i, GBP: /\b(?:boe|bank of england|bailey)\b/i, JPY: /\b(?:boj|bank of japan|ueda)\b/i, CHF: /\b(?:snb|swiss national bank)\b/i, CAD: /\b(?:boc|bank of canada|macklem)\b/i, AUD: /\b(?:rba|reserve bank of australia)\b/i, NZD: /\b(?:rbnz|reserve bank of new zealand)\b/i };
+const _CBQ_RX = { USD: /\b(?:fed|fomc|powell|waller|bostic|musalem|kashkari|goolsbee|logan)\b/i, EUR: /\b(?:ecb|bce|lagarde|schnabel|villeroy|nagel|rehn|makhlouf|de\s+guindos)\b/i, GBP: /\b(?:boe|bank of england|bailey|pill|dhingra|breeden|mann)\b/i, JPY: /\b(?:boj|bank of japan|ueda|uchida|himino)\b/i, CHF: /\b(?:snb|swiss national bank|schlegel)\b/i, CAD: /\b(?:boc|bank of canada|macklem|rogers)\b/i, AUD: /\b(?:rba|reserve bank of australia|bullock)\b/i, NZD: /\b(?:rbnz|reserve bank of new zealand|orr|hawkesby)\b/i };
 app.get('/api/cb-quotes', (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
   const ccy = String(req.query.ccy || '').toUpperCase();
@@ -664,7 +664,7 @@ app.get('/api/cb-quotes', (req, res) => {
   if (!rx) return res.json({ quotes: [] });
   const spk = String(req.query.speaker || '').trim().slice(0, 40);
   const spkRx = spk ? new RegExp('\\b' + spk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : null;
-  const cutoff = Date.now() - 14 * 86400e3;
+  const cutoff = Date.now() - 30 * 86400e3;   // 30 j (était 14) : capte aussi les discours d'avant la période de réserve
   // Vrai PROPOS RAPPORTÉ = « <banque/speaker>: … » → la banque doit apparaître AVANT le premier « : »
   // (« Fed's Waller: … » ✓ ; « PRIMER : Daily Recap: Fed hikes… » ✗ = briefing DTP, pas un discours).
   // On exclut aussi explicitement les items internes (PRIMER/briefing/recaps DTP) par sécurité.
