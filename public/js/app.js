@@ -6719,6 +6719,26 @@ function _wrInline(t){
        .replace(/^\s*sous-th[eè]me\s*:\s*/i, '');   // retire le placeholder « Sous-thème : » laissé LITTÉRALEMENT par l'IA (bug) → puce nette
   return _wrEsc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, '');
 }
+// Décryptage d'une donnée éco du FX Daily Recap = MÊME système que le calendrier (clic → déroulé), RÉUTILISE
+// _calValueBlockHtml(ev) de charts.js (base pédagogique CAL_KB : ce que ça mesure / lecture réel vs prévision /
+// conclusion / prochaine échéance ; un titre de décision de taux bascule sur le bloc BANQUE CENTRALE complet).
+// Construit une fois au 1er clic (lazy), puis repli/déplie. Le bloc rendu est stylé par les .cal-kb existants.
+window._fxrToggleData = function (el) {
+  try {
+    var det = el && el.querySelector('.fxdr-data-detail'); if (!det) return;
+    if (!det.hasAttribute('hidden')) { det.setAttribute('hidden', ''); el.classList.remove('open'); return; }   // replier
+    el.classList.add('open');
+    if (!det.dataset.built) {
+      det.dataset.built = '1';
+      det.innerHTML = '<div class="fxdr-data-loading">Décryptage…</div>';
+      var ev = { title: el.dataset.title || '', currency: el.dataset.ccy || '', actual: el.dataset.actual || '', forecast: el.dataset.forecast || '', previous: el.dataset.previous || '', timestamp: +el.dataset.ts || 0 };
+      Promise.resolve(typeof _calValueBlockHtml === 'function' ? _calValueBlockHtml(ev) : '')
+        .then(function (html) { det.innerHTML = html || '<div class="cal-kb"><div class="cal-kb-row"><span class="cal-kb-val">Décryptage indisponible pour cet indicateur.</span></div></div>'; })
+        .catch(function () { det.innerHTML = '<div class="cal-kb"><div class="cal-kb-row"><span class="cal-kb-val">Décryptage indisponible.</span></div></div>'; });
+    }
+    det.removeAttribute('hidden');
+  } catch (e) {}
+};
 function _wrParas(t){
   return String(t||'').split(/\n{2,}|\n/).map(p=>p.trim()).filter(Boolean)
     .map(p=>`<p class="wr-p">${_wrInline(p)}</p>`).join('');
@@ -7286,10 +7306,13 @@ function _renderFXDailyRecap(item) {
       const _sd = (_hasSess && _sk && Array.isArray(w.dataBySession[_sk])) ? w.dataBySession[_sk] : [];
       if (_sd.length) {
         body += `<div class="fxdr-grp-title">Données publiées</div>`;
+        const _atr = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
         _sd.forEach(d => {
           const nums = [`<b>${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
           const who = d.country ? `${_wrEsc(d.country)} · ` : '';
-          body += `<div class="wr-bullet wr-cat">${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact">→ ${_wrEsc(d.lean)}</span>` : ''}</div>`;
+          const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact">→ ${_wrEsc(d.lean)}</span>` : ''}`;
+          // Cliquable → déroulé « Décryptage » (même système que le calendrier, via _fxrToggleData → _calValueBlockHtml)
+          body += `<div class="fxdr-data" role="button" tabindex="0" onclick="_fxrToggleData(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleData(this);}" data-title="${_atr(d.label)}" data-ccy="${_atr(d.ccy)}" data-actual="${_atr(d.actual)}" data-forecast="${_atr(d.forecast)}" data-previous="${_atr(d.previous)}" data-ts="${d.ts || 0}"><div class="fxdr-data-row"><span class="fxdr-data-txt">${txt}</span><span class="fxdr-data-chev">›</span></div><div class="fxdr-data-detail" hidden></div></div>`;
         });
       }
       body += `</div>`;

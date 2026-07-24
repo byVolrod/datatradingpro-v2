@@ -5257,7 +5257,21 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cat b { color:#fff; font-weight:var(--fw-semibold); }
 .wr-cat-impact { color:#9aa4b2; }
 /* Heure de sortie d'une donnée rattachée à sa session (FX Daily Recap → « à quel moment ») */
-.fxdr-dtime { display:inline-block; min-width:38px; font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:#e3b23a; background:rgba(227,178,58,.12); border:1px solid rgba(227,178,58,.28); border-radius:3px; padding:0 4px; margin-right:4px; letter-spacing:.02em; }
+.fxdr-dtime { display:inline-block; min-width:38px; font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:#e3b23a; background:rgba(227,178,58,.12); border:1px solid rgba(227,178,58,.28); border-radius:3px; padding:0 4px; margin-right:4px; letter-spacing:.02em; text-align:center; }
+/* Donnée cliquable → déroulé « Décryptage » (même système que le calendrier, look propre) */
+.fxdr-data { border:1px solid transparent; border-radius:6px; padding:5px 9px; margin:3px 0; cursor:pointer; transition:background .15s, border-color .15s; }
+.fxdr-data:hover { background:rgba(255,255,255,.035); border-color:rgba(255,255,255,.07); }
+.fxdr-data.open { background:rgba(227,178,58,.05); border-color:rgba(227,178,58,.20); }
+.fxdr-data-row { display:flex; align-items:center; gap:8px; font-size:12.5px; line-height:1.5; color:#c8ccd4; }
+.fxdr-data-txt { flex:1 1 auto; min-width:0; }
+.fxdr-data-chev { flex:0 0 auto; color:#6f6f79; font-weight:700; font-size:14px; line-height:1; transition:transform .18s var(--ease-out, ease), color .15s; }
+.fxdr-data:hover .fxdr-data-chev { color:#e3b23a; }
+.fxdr-data.open .fxdr-data-chev { transform:rotate(90deg); color:#e3b23a; }
+.fxdr-data-detail { margin:7px 0 2px; animation:fxdrDetailIn .2s var(--ease-out, ease) both; }
+.fxdr-data-detail .cal-kb { margin:0; }
+.fxdr-data-loading { color:#8a9097; font-size:11px; padding:4px 2px; }
+@keyframes fxdrDetailIn { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .fxdr-data-detail { animation:none; } .fxdr-data-chev { transition:color .15s; } }
 /* Puces déterministes v39 (intervenants BC + prints réel/attendu) — façon note institutionnelle */
 .wr-print-ctry { color:#9aa4b2; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
 .wr-print-date { color:#7e8590; font-size:10.5px; }
