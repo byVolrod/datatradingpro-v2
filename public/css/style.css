@@ -11213,10 +11213,24 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-calc-open { background: none; border: 0; padding: 0; font-size: 10px; color: #e3b23a; cursor: pointer; }
 .wdg-calc-open:hover { text-decoration: underline; }
 
-/* ── Widget Journal de trading (lecture seule du compte) ── */
-.wdg-jr { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow-x: auto; }   /* carte très étroite (gw 1-3) : l'ensemble en-tête+lignes scrolle horizontalement d'un bloc (5 colonnes ≈ 340px mini) */
-.wdg-jr-stats, .wdg-jr-head, .wdg-jr-list { min-width: 340px; }
-.wdg-jr-stats { display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #232429); font-size: 11.5px; color: #b6bdc9; flex: 0 0 auto; }
+/* ── Widget Journal de trading (MIROIR du vrai : mêmes colonnes perso, mêmes cellules) ── */
+.wdg-jr { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+/* Tableau IDENTIQUE au desk (24/07) : toutes les colonnes perso du compte, scroll horizontal DANS le tableau
+   (stats + courbe + onglets restent fixes) ; cellules = classes globales .jr-chip/.jr-cv-*/.jr-ring/.jr-prog. */
+.wdg-jrt-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.wdg-jrt { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 11.5px; }
+.wdg-jrt-th { position: sticky; top: 0; z-index: 2; background: #0d0d10; text-align: left; padding: 6px 10px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; border-bottom: 1px solid var(--hud-line, #1c1c20); white-space: nowrap; }
+.wdg-jrt-th--act, .wdg-jrt-c--act { width: 34px; min-width: 34px; text-align: center; }
+.wdg-jrt-c { padding: 5px 10px; border-bottom: 1px solid #121215; vertical-align: middle; white-space: nowrap; }
+.wdg-jrt-c.jr-c--multi { white-space: normal; }   /* chips multiples : peuvent s'empiler dans la largeur de colonne, comme le desk */
+.wdg-jrt-c--act { padding: 0 6px; }
+.wdg-jrt-row { cursor: pointer; }
+.wdg-jrt-row:hover { background: #101014; }
+.wdg-jrt-edit { width: 24px; height: 22px; display: inline-flex; align-items: center; justify-content: center; color: #8b93a1; background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer; opacity: 0; transition: opacity .1s, color .1s, border-color .1s; }
+.wdg-jrt-row:hover .wdg-jrt-edit { opacity: 1; }
+.wdg-jrt-edit:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); background: #14141a; }
+@media (hover: none) { .wdg-jrt-edit { opacity: 1; } }
+.wdg-jr-stats { display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #232429); font-size: 11.5px; color: #b6bdc9; flex: 0 0 auto; flex-wrap: wrap; }
 .wdg-jr-stats b { color: #e6e8ec; }
 .wdg-jr-stats b.up { color: #2ae389; } .wdg-jr-stats b.down { color: #ff7259; }
 .wdg-jr-openbtn { margin-left: auto; background: none; border: 0; padding: 0; font-size: 10.5px; font-weight: 600; color: #e3b23a; cursor: pointer; }
