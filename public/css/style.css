@@ -11416,14 +11416,14 @@ body.wdg-mode #topbar-nav { display: none; }
 /* Onglets de templates = MÊME GRAMMAIRE que la nav du desk (.nav-item) : plat, mono capitales, soulignement or actif */
 .wdg-lay {
   display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; max-width: 190px;
-  padding: 7px 11px; cursor: pointer; font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-semibold, 600);
+  padding: 7px 11px; cursor: pointer; font-family: var(--tight); font-size: 11px; font-weight: var(--fw-semibold, 600);
   letter-spacing: .06em; text-transform: uppercase; color: var(--text3, #6b7280);
-  background: transparent; border: none; border-bottom: 2px solid transparent; white-space: nowrap;
+  background: transparent; border: none; border-radius: 0; border-bottom: 2px solid transparent; white-space: nowrap;
   transition: color .15s, border-color .15s;
 }
 .wdg-lay:hover { color: var(--text, #e6e8ec); background: rgba(255,255,255,0.035); }
 /* Onglet ACTIF = grammaire EXACTE de la nav ACTUS (.nav-item--active) : texte clair + soulignement or, aucun fond */
-.wdg-lay.on { color: var(--text, #e6e8ec); background: transparent; border-bottom-color: #e3b23a; }
+.wdg-lay.on { color: #fff; font-weight: var(--fw-bold); background: transparent; border-bottom-color: #e3b23a; }
 .wdg-lay-chv { color: var(--text3, #6b7280); font-weight: 400; margin-right: 1px; }   /* chevron › comme la nav */
 .wdg-lay.on .wdg-lay-chv { color: #e3b23a; }
 .wdg-lay-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
