@@ -506,6 +506,18 @@ function _isJunkBullet(s) {
   if (/^[\w.\-]+\.(?:com|org|net|io|co|gov|edu|news|tv|us|uk|eu|fr)\/?[\w.\-\/]*$/i.test(t)) return true; // domaine nu
   return false;
 }
+// Intertitre-déchet : libellé d'introduction de liste GÉNÉRIQUE laissé par l'IA/le scrape
+// (« Four points: », « Key points: », « Points clés: », « Highlights: »…) — sans valeur, souvent en anglais
+// sur un desk FR. On l'ÉCARTE (les puces qui suivent restent). Ne matche PAS les vraies sections (FX:, EQUITIES:, IRAN CONFLICT:).
+function _isNoiseHead(s) {
+  const t = String(s == null ? '' : s).replace(/\*\*/g, '').replace(/[:\s]+$/, '').trim().toLowerCase();
+  if (!t) return false;
+  return /^(?:one|two|three|four|five|six|seven|eight|nine|ten|un|deux|trois|quatre|cinq|sept|huit|neuf|dix|\d{1,2})\s+points?$/.test(t)
+      || /^(?:key|main|notable|other|additional|further|more|salient|several)\s+points?$/.test(t)
+      || /^points?(?:\s+(?:cl[eé]s?|essentiels?|principaux|importants?|[aà]\s+retenir))?$/.test(t)
+      || /^key\s+takeaways?$/.test(t)
+      || /^highlights?$/.test(t);
+}
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // coupe toute attribution de source ("via NYT", "- Reuters", "(Mehr News)") en fin de puce
@@ -518,6 +530,7 @@ function _renderInfoBullets(bullets) {
     const noMd = it.replace(/\*\*/g, '').trim();
     // sous-titre : ligne courte finissant par ":" (ex. « Four points: ») → libellé, pas une puce
     if (noMd.length <= 44 && /\S.{1,42}:$/.test(noMd) && !/[.!?]/.test(noMd.slice(0, -1))) {
+      if (_isNoiseHead(noMd)) return '';   // intertitre générique parasite (« Four points: ») → retiré
       return `<li class="ip-head">${esc(stripSrc(noMd))}</li>`;
     }
     // garde le GRAS markdown **…** → <strong>
@@ -2469,6 +2482,7 @@ function buildNewsItem(item) {
         const lines = String(item.description || '').split(/\n+/).map(l => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean);
         const html = lines.map(t => {
           const isHead = _isSectionHead(t) || (t.length <= 46 && /:$/.test(t) && !/[.!?]/.test(t.slice(0, -1)));
+          if (isHead && _isNoiseHead(t)) return '';   // intertitre générique parasite (« Four points: ») → retiré
           if (isHead) return `<li class="ip-head">${esc(t.replace(/\s*:\s*$/, ''))}</li>`;
           return `<li>${_reportLead(t)}</li>`;
         }).join('');
@@ -2482,6 +2496,7 @@ function buildNewsItem(item) {
         const lines = String(item.description || '').split(/\n+/).map(l => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean);
         const html = lines.map(t => {
           const isHead = _isSectionHead(t) || (t.length <= 46 && /:$/.test(t) && !/[.!?]/.test(t.slice(0, -1)));
+          if (isHead && _isNoiseHead(t)) return '';   // intertitre générique parasite (« Four points: ») → retiré
           if (isHead) return `<li class="ip-head">${esc(t.replace(/\s*:\s*$/, ''))}</li>`;
           return `<li>${esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</li>`;
         }).join('');
@@ -7666,6 +7681,7 @@ function renderArlibReader(item) {
         const _isColonHead = /^[\w\s&/':()#–-]{1,45}:$/.test(text) && text.length <= 46;
         if (_skipAuthor(text, _isColonHead)) return;         // bio / nom d'auteur → ignoré
         if (_isColonHead) {
+          if (_isNoiseHead(text)) return;   // intertitre générique parasite (« Four points: ») → ignoré
           html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${text.slice(0,-1).toUpperCase()}</div>`;
           return;
         }
