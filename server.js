@@ -297,6 +297,22 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// CSRF (défense same-origin, 24/07) — appliqué aux endpoints admin en GET qui MUTENT / ENVOIENT.
+// Le cookie de session est SameSite=Lax (bloque déjà <img>/sous-requêtes/POST cross-site) ; le SEUL trou
+// résiduel = un GET-qui-mute déclenché par une NAVIGATION top-level depuis un lien piégé (Lax envoie le
+// cookie). On le ferme : Sec-Fetch-Site=cross-site → refus. Les fetch same-origin du panel admin passent
+// (Sec-Fetch-Site: same-origin) ; les appels NON-navigateur (curl/cron interne, sans ces en-têtes) passent
+// aussi — un CSRF exige forcément un navigateur.
+const _CSRF_OK_ORIGINS = new Set(['https://desk.datatradingpro.com', 'https://datatradingpro.com', 'https://www.datatradingpro.com', 'http://localhost:3000']);
+function requireSameOrigin(req, res, next) {
+  const sfs = req.headers['sec-fetch-site'];
+  if (sfs) return (sfs === 'same-origin' || sfs === 'same-site' || sfs === 'none') ? next() : res.status(403).json({ error: 'Origine refusée (protection CSRF)' });
+  const src = req.headers.origin || req.headers.referer;   // repli navigateurs anciens sans Sec-Fetch-Site
+  if (!src) return next();                                  // appelant non-navigateur (curl/cron/interne) → OK
+  try { if (_CSRF_OK_ORIGINS.has(new URL(src).origin)) return next(); } catch {}
+  return res.status(403).json({ error: 'Origine refusée (protection CSRF)' });
+}
+
 // Staff (admin OU agent de support) — accès à la messagerie support, mais PAS à la gestion utilisateurs
 function requireSupport(req, res, next) {
   const role = req.session?.user?.role;
@@ -1098,7 +1114,7 @@ app.get('/api/admin/ai-status', requireAdmin, async (req, res) => {
 
 // TEST IA LISIBLE (admin) : lance une VRAIE génération et affiche QUEL provider a répondu + latence.
 // Ouvre /api/admin/ai-test dans le navigateur (connecté en admin) — page HTML, pas du JSON brut.
-app.get('/api/admin/ai-test', requireAdmin, async (_req, res) => {
+app.get('/api/admin/ai-test', requireSameOrigin, requireAdmin, async (_req, res) => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const snap = () => { try { return ai.status().usageToday || {}; } catch { return {}; } };
   const u0 = snap(); const t0 = Date.now();
@@ -1133,7 +1149,7 @@ app.get('/api/admin/ai-test', requireAdmin, async (_req, res) => {
 // TEST D'ENVOI EMAIL (admin) : envoie un vrai email et affiche le canal qui a réussi.
 // Ouvre dans le navigateur (connecté en admin) : /api/admin/mail-test  → vers ton propre email
 //   ou /api/admin/mail-test?to=client@example.com  → vers une adresse précise.
-app.get('/api/admin/mail-test', requireAdmin, async (req, res) => {
+app.get('/api/admin/mail-test', requireSameOrigin, requireAdmin, async (req, res) => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const to = String(req.query.to || req.session.user.email || '').trim();
   const r = await mailer.sendTest(to).catch(e => ({ ok: false, provider: null, lastError: String(e && e.message || e) }));
@@ -1296,7 +1312,7 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 // Purge des « comptes bug » : ceux dont le nom est UNIQUEMENT numérique/symbolique (« 1 », « 20 », « 1-2 »…)
 // = comptes de test. SÉCURISÉ : DRY-RUN par défaut (liste seulement) ; suppression réelle UNIQUEMENT avec
 // ?confirm=1 explicite. Même regex que le garde-fou de auth.createUser → cohérent.
-app.get('/api/admin/purge-test-accounts', requireAdmin, async (req, res) => {
+app.get('/api/admin/purge-test-accounts', requireSameOrigin, requireAdmin, async (req, res) => {
   try {
     const confirm = req.query.confirm === '1';
     const NUM_NAME = /^[\d\s.\-_/\\]+$/;
@@ -1336,7 +1352,7 @@ app.post('/api/admin/users/:id/password', requireAdmin, async (req, res) => {
 //     réinitialise rien) aux comptes CLIENTS qui ne l'ont jamais reçu. DRY-RUN par défaut (liste + nombre) ;
 //     ?send=1 = envoi réel. Anti-doublon via email_log (welcome:<email> / whop-welcome:<email>). Aussi auto
 //     pour chaque nouvel arrivant (création admin + Whop écrivent déjà le marqueur).
-app.get('/api/admin/welcome-backfill', requireAdmin, async (req, res) => {
+app.get('/api/admin/welcome-backfill', requireSameOrigin, requireAdmin, async (req, res) => {
   const send = req.query.send === '1';
   let users = []; try { users = await auth.getAllUsers(); } catch { return res.status(500).json({ error: 'users indisponibles' }); }
   // ?all=1 → inclut aussi les comptes DÉJÀ connectés (déconseillé : « bienvenue » à un actif = mail confus).
@@ -1369,7 +1385,7 @@ app.get('/api/admin/welcome-backfill', requireAdmin, async (req, res) => {
 //     (défaut all), &force=1 (ignore l'anti-doublon → renvoi), ?status=1 (progression du dernier envoi).
 //     L'envoi RÉEL est déclenché par l'admin lui-même depuis son navigateur — jamais automatique.
 let _broadcastV2 = { running: false, audience: null, eligible: 0, sent: 0, skipped: 0, failed: 0, startedAt: null, finishedAt: null };
-app.get('/api/admin/broadcast-v2', requireAdmin, async (req, res) => {
+app.get('/api/admin/broadcast-v2', requireSameOrigin, requireAdmin, async (req, res) => {
   if (req.query.status === '1') return res.json(_broadcastV2);
   const send = req.query.send === '1';
   const force = req.query.force === '1';
@@ -1657,12 +1673,12 @@ async function _welcomeAutoHeal(send = true, cap = 20) {
 // Planif : boot+120 s (après le 1er reconcile) puis toutes les 6 h. Déclencheur/inspection admin ci-dessous.
 setTimeout(() => { _welcomeAutoHeal(true).catch(e => console.error('[Welcome auto-heal] boot:', e.message)); }, 120 * 1000);
 setInterval(() => { _welcomeAutoHeal(true).catch(e => console.error('[Welcome auto-heal] cycle:', e.message)); }, 6 * 60 * 60 * 1000);
-app.get('/api/admin/welcome-heal', requireAdmin, async (req, res) => {
+app.get('/api/admin/welcome-heal', requireSameOrigin, requireAdmin, async (req, res) => {
   try { const r = await _welcomeAutoHeal(req.query.send === '1', parseInt(req.query.cap, 10) || 20); res.json(r); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 // Déclencheur manuel (admin) + état de la dernière réconciliation
-app.get('/api/admin/whop-reconcile', requireAdmin, async (_req, res) => {
+app.get('/api/admin/whop-reconcile', requireSameOrigin, requireAdmin, async (_req, res) => {
   try { const r = await _whopReconcile(); res.json(Object.assign({ last: _whopReconLast }, r)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -4438,7 +4454,7 @@ async function _resegmentTodayWraps(force = false) {
   return { total: today.length, withFX, regen };
 }
 setTimeout(() => { _resegmentTodayWraps().catch(e => console.error('[Wraps today] boot:', e.message)); }, 95 * 1000);
-app.get('/api/admin/wraps-resegment-today', requireAdmin, async (req, res) => {
+app.get('/api/admin/wraps-resegment-today', requireSameOrigin, requireAdmin, async (req, res) => {
   try { res.json(await _resegmentTodayWraps(req.query.force === '1')); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -15316,7 +15332,7 @@ async function _invitationTick() {
 setInterval(_invitationTick, 20 * 60 * 1000);
 setTimeout(_invitationTick, 60 * 1000);
 // Admin : statut / activer / pause / test-to-self / envoi manuel immediat de la campagne Invitation.
-app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
+app.get('/api/admin/campaign-invitation', requireSameOrigin, requireAdmin, async (req, res) => {
   const action = String(req.query.action || 'status');
   try {
     if (action === 'activate') { _invitSchedule.active = true; _invitSchedule.launchedAt = _invitSchedule.launchedAt || Date.now(); _saveInvitSchedule(); }
@@ -15493,7 +15509,7 @@ setInterval(_dripTick, 30 * 60 * 1000);   // toutes les 30 min (la fenetre + syn
 setTimeout(_dripTick, 90 * 1000);         // 1er check apres le boot
 
 // Etat + pilotage de la boucle (admin). ?action=status(defaut)|activate|pause
-app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
+app.get('/api/admin/campaign-drip', requireSameOrigin, requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
   if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // reprise : purge la cause de pause ; le blast hebdo est mis en pause (un seul moteur) ; ecriture IMMEDIATE
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // PAUSE = ARRET TOTAL (drip + blast hebdo) + persistance immediate -> reste en pause meme apres redemarrage
@@ -15685,7 +15701,7 @@ function requireAdminOrInternal(req, res, next) {
     && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')) return next();
   return requireAdmin(req, res, next);
 }
-app.get('/api/admin/campaign-send', requireAdminOrInternal, async (req, res) => {
+app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, async (req, res) => {
   if (req.query.status === '1') return res.json(_campaignSend);
   const test = req.query.test === '1', send = req.query.send === '1', force = req.query.force === '1';
 
