@@ -10922,8 +10922,10 @@ window._dtpJournalBadgeInit = function () {
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(fallback); else fallback();
       });
     }
-    ['calc-acct', 'calc-balance', 'calc-risk', 'calc-sl', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', _calcCompute); });
-    const bal = document.getElementById('calc-balance'); if (bal) bal.addEventListener('input', () => {});
+    // .onchange / .oninput (affectation de propriété) et non addEventListener → IDEMPOTENT : _wire() tourne à
+    // CHAQUE ouverture de la Calculatrice (loadCalculatorView) ; addEventListener empilait un handler de plus par
+    // ouverture → _calcCompute se déclenchait N fois par changement. L'affectation remplace, jamais n'empile.
+    ['calc-acct', 'calc-balance', 'calc-risk', 'calc-sl', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.onchange = _calcCompute; });
     const mode = document.getElementById('calc-risk-mode');
     if (mode) mode.onclick = () => {
       _riskMode = _riskMode === 'pct' ? 'amount' : 'pct';
