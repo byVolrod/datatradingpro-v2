@@ -4564,7 +4564,7 @@ const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXE
 // ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
 // (Supabase). Renvoie le HTML des items (.nc-item). Repli (IA indispo) = titres bruts → la section ne
 // disparaît jamais s'il y a des news. ZÉRO invention (prompt + dépêches réelles du jour seulement).
-const NC_VER = 1;
+const NC_VER = 2;   // v2 : « Commentaires marquants » = titre + UNE phrase essentielle (avant : 2-3 paragraphes verbeux)
 const _NC_RX = /\b(hormu?z|oil|crude|brent|wti|opep|opec|gold|s&p|nasdaq|dow|nikkei|stoxx|dax|\bcac\b|earnings?|micron|nvidia|fed|fomc|powell|ecb|bce|lagarde|boe|boj|snb|boc|rba|tariff|tarif|sanction|\bwar\b|guerre|missile|ceasefire|iran|israel|china|chine|russia|russie|treasur|yield|rendement|inflation|\bcpi\b|\bnfp\b|\bgdp\b|\bpib\b|recession|récession)\b/i;
 function _ncEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 async function _generateNotableComments(dayKey) {
@@ -4582,12 +4582,12 @@ async function _generateNotableComments(dayKey) {
     if (aiAllowed('analyst', { priority: 'user' })) {
       _aiReset();
       const ctx = uniq.map(n => '- ' + _stripMd(n.headline || '') + (n.description ? ' — ' + _stripMd(String(n.description)).replace(/\s+/g, ' ').slice(0, 340) : '')).join('\n');
-      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 14 mots) ET 2 à 3 paragraphes d'analyse (ce qui s'est passé, pourquoi ça compte, l'impact marché et les actifs concernés). Base-toi UNIQUEMENT sur les dépêches fournies + le contexte de marché évident ; n'invente AUCUN chiffre ni fait absent. Style sobre, factuel, façon note de marché.
-Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","paragraphs":["...","..."]}]}
+      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 12 mots) ET UNE SEULE phrase de synthèse (≤ 30 mots) qui va DROIT À L'ESSENTIEL — le fait clé + l'impact marché direct (devise / actif concerné). ZÉRO remplissage, aucun contexte superflu, PAS de deuxième phrase. Base-toi UNIQUEMENT sur les dépêches fournies ; n'invente AUCUN chiffre ni fait absent.
+Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","point":"..."}]}
 
 ACTUALITÉS DU JOUR :
 ${ctx}`;
-      const text = await ai.generateText(prompt, 4200);
+      const text = await ai.generateText(prompt, 2000);
       aiNote('analyst');
       const m = text.match(/\{[\s\S]*\}/);
       items = m ? (JSON.parse(m[0]).items || null) : null;
@@ -4597,10 +4597,11 @@ ${ctx}`;
   if (Array.isArray(items) && items.length) {
     html = items.filter(it => it && it.headline).slice(0, 6).map(it => {
       const h = _ncEsc(_stripMd(String(it.headline)).slice(0, 150));
-      const ps = (Array.isArray(it.paragraphs) ? it.paragraphs : [it.paragraphs])
-        .map(p => _stripMd(String(p == null ? '' : p)).trim()).filter(Boolean).slice(0, 4)
-        .map(p => '<p>' + _ncEsc(p) + '</p>').join('');
-      return '<div class="nc-item"><div class="nc-h">' + h + '</div>' + ps + '</div>';
+      // UNE seule phrase de synthèse, droit à l'essentiel (repli : 1er paragraphe des anciennes générations « paragraphs »)
+      const raw = it.point != null ? it.point : (Array.isArray(it.paragraphs) ? (it.paragraphs[0] || '') : (it.paragraphs || ''));
+      const point = _stripMd(String(raw)).replace(/\s+/g, ' ').trim();
+      const p = point ? '<p>' + _ncEsc(point.slice(0, 240)) + '</p>' : '';
+      return '<div class="nc-item"><div class="nc-h">' + h + '</div>' + p + '</div>';
     }).join('');
   }
   if (!html) return uniq.slice(0, 5).map(n => '<div class="nc-item"><div class="nc-h">' + _ncEsc(_stripMd(n.headline || '').slice(0, 150)) + '</div></div>').join('');   // repli non caché
