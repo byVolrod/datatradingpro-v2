@@ -11644,3 +11644,63 @@ body.wdg-mode #topbar-nav { display: none; }
   .br-pdf-bar-lbl:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .br-pdf-bar .br-pdf-bar-lbl + .br-pdf-bar-lbl { flex: 0 0 auto; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE — passe 3 (≤560px) : audit 11 surfaces restantes, 11 constats
+   CONFIRMÉS après vérification adversariale (6 réfutés écartés). Vérifiés au bench.
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 560px) {
+
+  /* [HIGH] JOURNAL — barre d'outils : 4 boutons (dont « ↑ Importer (Notion / CSV) », « ↓ Exporter (CSV) »)
+     + spacer flex:1 + badge de mode débordaient (Exporter/badge rognés). flex-wrap + spacer masqué → 2 rangées. */
+  .jr-toolbar { flex-wrap: wrap; }
+  .jr-tb-spacer { display: none; }
+
+  /* [HIGH] CALENDRIER — en-tête (ligne 1) : titre MAJ + flèches ‹ › + plage de dates (nowrap) débordaient.
+     La ligne grandit, le bloc titre s'enroule en interne (la plage passe sous le titre), les icônes restent à droite. */
+  .cal-title-row { height: auto; min-height: 32px; padding: 4px 10px; }
+  .cal-title-block { flex: 1 1 auto; min-width: 0; white-space: normal; flex-wrap: wrap; row-gap: 1px; }
+  .cal-daterange { font-size: 10px; }
+
+  /* [MEDIUM] CALENDRIER — barre de filtres (ligne 2) : impacts + recherche + badge DIRECT en nowrap débordaient.
+     Les 4 boutons d'impact tiennent en ligne 1, la recherche passe pleine largeur en ligne 2. */
+  .cal-filter-row { flex-wrap: wrap; gap: 6px; padding: 6px 10px 7px; }
+  .cal-imp-btn { padding: 4px 11px; }
+  .cal-search-wrap { flex: 1 1 100%; max-width: none; order: 3; }
+
+  /* [LOW] CALENDRIER — décryptage : l'attribution de citation BC (« — Speaker · date ») en nowrap forçait
+     un scroll horizontal du déroulé dans la colonne valeur étroite → on l'autorise à revenir à la ligne. */
+  .cal-kb-qwho { white-space: normal; }
+
+  /* [MEDIUM] ANALYSTES — bandeau du lecteur : le titre du rapport était écrasé/illisible. Même parade que le
+     lecteur Institutions : le titre reprend une ligne pleine largeur, le bouton « ‹ Retour » reste intact. */
+  .arlib-rnav { flex-wrap: wrap; height: auto; min-height: 44px; padding: 6px 12px; row-gap: 6px; }
+  .arlib-rnav-title { flex: 1 1 100%; order: 3; text-align: left; }
+
+  /* [MEDIUM] ACTUS — menu « Sections d'actualités » : son top figé (calc(--toolbar-h)+32px) pointait dans la
+     barre repliée (2 lignes) et recouvrait la recherche → top:auto suit la hauteur réelle du bandeau. */
+  .section-dropdown { top: auto; left: 8px; right: 8px; width: auto; }
+
+  /* [LOW] SEMAINE À VENIR — bouton « Lire la suite » : zone d'appui ~20px < 34px → agrandie (look inchangé). */
+  .wa-more { padding: 8px 0; min-height: 34px; align-items: center; }
+
+  /* [MEDIUM] MON DESK — widget Calendrier : la table n'héritait pas du fit-to-width (table-layout:fixed est
+     scopé #cal-table-wrap) → colonne drapeau réapparaît + scroll horizontal. On applique le fit dans le widget. */
+  #view-widgets .wdg-cal-wrap .cal-table { table-layout: fixed; width: 100%; }
+  #view-widgets .wdg-cal-wrap { overflow-x: hidden; }
+
+  /* [LOW] MON DESK — widget Taux directeurs : grille 4 colonnes à mini figés (≈344px incompressible) débordait
+     ~11px → minmax(0,…) compressibles + gaps/paddings resserrés. */
+  .wdg-taux-head, .wdg-taux-row { grid-template-columns: minmax(0, 1.2fr) 50px minmax(0, 1.1fr) minmax(0, .8fr); gap: 6px; padding: 6px 9px; }
+  .wdg-taux-head { font-size: 9px; letter-spacing: .03em; }
+
+  /* [LOW] MON DESK — contrôles d'en-tête/redimension du widget sous la cible tactile 34px : zone de tap agrandie
+     (les glyphes/SVG ne changent pas, densité visuelle intacte). */
+  .wdg-ico { width: 30px; height: 28px; }
+  .wdg-step { width: 30px; height: 28px; }
+  .wdg-grip { width: 26px; height: 28px; }
+  .wdg-resize { width: 26px; height: 26px; }
+
+  /* [LOW] CALCULATRICE — bouton « Copier » (22px) sous la cible tactile → aligné sur la hauteur de contrôle desk. */
+  .calc-copy { height: 30px; padding: 0 12px; }
+}
