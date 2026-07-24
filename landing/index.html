@@ -160,12 +160,15 @@
   .nav-links a:hover{color:var(--text)}
   .nav-links a:hover::after{transform:scaleX(1);transform-origin:left}
   .nav-r{margin-left:auto;display:flex;align-items:center;gap:15px}
-  /* Bascule de langue FR/EN (i18n.js) */
-  .lang-tog{display:inline-flex;border:1px solid rgba(255,255,255,.14);border-radius:7px;overflow:hidden;font-family:var(--tight);font-size:11px;font-weight:800;letter-spacing:.04em;line-height:1}
-  .lang-tog button{background:none;border:0;color:var(--text3);padding:6px 9px;cursor:pointer;transition:color .16s,background .16s}
+  /* Bascule de langue FR/EN (i18n.js) — sélecteur segmenté soigné, avec globe */
+  .lang-tog{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.025);font-family:var(--tight);font-size:11px;font-weight:700;letter-spacing:.03em;line-height:1;transition:border-color .18s}
+  .lang-tog:hover{border-color:rgba(255,255,255,.2)}
+  .lang-tog-globe{display:flex;align-items:center;color:var(--text3);margin:0 2px 0 3px}
+  .lang-tog-globe svg{width:13px;height:13px;display:block}
+  .lang-tog button{background:none;border:0;color:var(--text3);padding:5px 9px;border-radius:6px;cursor:pointer;transition:color .18s,background .18s,box-shadow .18s;-webkit-tap-highlight-color:transparent}
   .lang-tog button:hover{color:var(--text)}
-  .lang-tog button.on{background:rgba(227,178,58,.16)!important;color:#e3b23a!important}
-  .lang-tog button:focus-visible{outline:2px solid rgba(227,178,58,.5);outline-offset:-2px}
+  .lang-tog button.on{background:rgba(227,178,58,.14)!important;color:#e3b23a!important;box-shadow:inset 0 0 0 1px rgba(227,178,58,.36)}
+  .lang-tog button:focus-visible{outline:2px solid rgba(227,178,58,.5);outline-offset:1px}
   .nav-login{color:var(--text);font-size:14px;font-weight:600;border:1px solid rgba(184,134,11,.45);border-radius:var(--r-btn);padding:8px 16px;transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast)}
   .nav-login:hover{border-color:rgba(184,134,11,.85);background:rgba(184,134,11,.06)}
   .btn{font-family:var(--font);font-weight:600;border:none;cursor:pointer;border-radius:var(--r-btn);transition:transform var(--t-fast),box-shadow var(--t-fast),background var(--t-fast),border-color var(--t-fast);display:inline-flex;align-items:center;gap:9px;justify-content:center}
@@ -898,7 +901,7 @@
       <a href="https://whop.com/joined/justonetrader/products/jot-dtp/" class="btn btn-cta nav-mob-extra">Accéder au terminal</a>
     </div>
     <div class="nav-r">
-      <div class="lang-tog" id="langTog" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" aria-label="Français">FR</button><button type="button" data-lang="en" aria-label="English">EN</button></div>
+      <div class="lang-tog" id="langTog" role="group" aria-label="Language / Langue"><span class="lang-tog-globe" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.7 3.8 5.8 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.8-3.8-9s1.3-6.3 3.8-9Z"/></svg></span><button type="button" data-lang="fr" aria-label="Français">FR</button><button type="button" data-lang="en" aria-label="English">EN</button></div>
       <a href="https://desk.datatradingpro.com/" class="nav-login">Se connecter</a>
       <a href="https://whop.com/joined/justonetrader/products/jot-dtp/" class="btn btn-cta">Accéder au terminal</a>
       <button class="nav-burger" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
