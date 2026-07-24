@@ -1197,18 +1197,15 @@ function computeExpiry({ duration, expiresAt, startDate }) {
 }
 
 // Message d'accueil envoyé automatiquement par le support à chaque NOUVEAU client (dans le chat).
-// Message de bienvenue DYNAMIQUE : s'adapte à l'heure (Paris) → session active + recap d'analyste qui arrive.
+// Message STATIQUE (demande user 25/07) : présentation des fonctionnalités (dont les widgets) + invitation à
+// explorer/personnaliser son espace, SANS référence à la session en cours ni au recap « qui arrive ».
 function welcomeChat() {
-  let h = 12;
-  try { h = parseInt(new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hour12: false }).slice(0, 2), 10) || 12; } catch {}
-  let sess, recap;
-  if (h < 8)       { sess = 'asiatique';  recap = 'de la session américaine'; }   // nuit/tôt → US vient de clôturer
-  else if (h < 13) { sess = 'de Londres'; recap = 'de la session asiatique'; }     // matin → l'Asie vient de clôturer
-  else if (h < 17) { sess = 'américaine'; recap = 'de la session de Londres'; }    // après-midi → Londres clôture
-  else             { sess = 'américaine'; recap = 'de la session américaine'; }    // soir → US en cours
-  return "Bonjour et bienvenue sur DataTradingPro 👋\n\nJe suis là pour t'accompagner. Ton accès est activé : tu as le flux de news en temps réel, le calendrier économique, la force des devises et les analyses institutionnelles.\n\n"
-    + `Pour bien démarrer pendant la session ${sess} : ouvre le rapport d'analyste (le recap ${recap} qui arrive) et le calendrier économique.\n\n`
-    + "Une question ou besoin d'un coup de main ? Écris-moi directement ici, je te réponds. Bons trades !\n\nL'équipe DataTradingPro";
+  return "Bonjour et bienvenue sur DataTradingPro 👋\n\n"
+    + "Je suis là pour t'accompagner. Ton accès est activé : tu peux dès maintenant profiter de toutes les fonctionnalités de la plateforme, notamment le flux de news en temps réel, le calendrier économique, la force des devises, le radar de biais, les notes d'analystes, les analyses institutionnelles ainsi que l'ensemble des widgets disponibles.\n\n"
+    + "Prends le temps d'explorer la plateforme et de personnaliser ton espace de travail selon tes besoins.\n\n"
+    + "Une question ou besoin d'un coup de main ? Écris-moi directement ici, je te répondrai avec plaisir.\n\n"
+    + "Bons trades ! 📈\n\n"
+    + "L'équipe DataTradingPro";
 }
 function _sendWelcomeChat(userId) {
   if (!userId) return;
