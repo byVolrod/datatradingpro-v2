@@ -2203,6 +2203,8 @@ function _assetBadgePrefix(text) {
 // ── Met en gras les chiffres et mots-clés de verdict d'une puce ──────────────
 function _emphasize(text) {
   return String(text || '')
+    // Gras Markdown ** ** venant du prompt (devises, banques centrales, indicateurs : **USD**, **Fed**, **CPI m/m**…) → <strong>
+    .replace(/\*\*([^*]{1,80}?)\*\*/g, '<strong>$1</strong>')
     // Nombres (55.1, +0.4%, 250K, 1.2bln…)
     .replace(/(?<![\w>])([+\-]?\d[\d.,]*\s?(?:%|K|M|bln|bn|mln|bps|pts)?)/g, '<strong>$1</strong>')
     // Verdicts clés

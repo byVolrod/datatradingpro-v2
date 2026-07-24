@@ -4258,7 +4258,7 @@ function _aiMonthProjection() {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v8:';   // bump → régénère (v8 : écarte les puces sans valeur — titre/annonce sans fait/chiffre, ex. « Analyse du Bitcoin au cours du week-end ») ; v7 : section FX détaillée par devise
+const SW_SEG_VER  = 'v9:';   // bump → régénère (v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -4407,23 +4407,31 @@ async function _prewarmBrSegs() {
 
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
 async function _segmentWrapAI(points, _opts = {}) {
-  const prompt = `Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
-Produis un rapport PROPRE et PROFESSIONNEL façon DataTradingPro (ton d'analyste institutionnel) :
-- 🧭 RUBRIQUE « LEAD » EN TÊTE (obligatoire) : commence TOUJOURS le rapport par une rubrique \`LEAD\` = 3 à 4 puces de SYNTHÈSE de la séance (les mouvements clés, décisions/commentaires de banques centrales, données majeures, et « à surveiller » à venir), rédigées UNIQUEMENT à partir des points ci-dessous (ne JAMAIS inventer de fait, ni de chiffre). C'est l'intro narrative qui résume la séance AVANT les rubriques détaillées (EQUITIES, FX, …) — comme l'accroche d'une note de desk.
-- Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", etc.) et garde-les EXACTEMENT tels quels (ne traduis pas, ne renomme pas).
-- ⚠️ Si le rapport est surtout une LISTE PLATE de titres sous un en-tête générique ("HEADLINES", "NEWS"…), NE laisse PAS tout sous "HEADLINES" : RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, ENERGY, TRADE/TARIFFS, CRYPTO…). Regroupe les puces par thème, dans un ordre logique. C'est la règle CLÉ : un récap doit toujours être catégorisé, jamais un simple tas de titres.
-- 💱 RUBRIQUE « FX » GARANTIE & DÉTAILLÉE (obligatoire, façon la référence) : produis TOUJOURS une rubrique \`FX\` regroupant TOUT ce qui touche aux DEVISES (dollar/DXY, EUR, JPY, GBP, AUD/NZD, CAD, CHF, CNY, paires, interventions/verbal, flux, et le commentaire des banques centrales SOUS L'ANGLE FX). Rédige-la en phrases ANALYTIQUES de note de desk : couvre DXY EN PREMIER, puis CHAQUE devise majeure qui a bougé (EUR, JPY, GBP, AUD…), en EXPLIQUANT le mouvement ET SON DRIVER tel qu'indiqué dans la source — à quelle ANNONCE ÉCONOMIQUE / décision de banque centrale / actualité MACRO la réaction est liée. ⚠️ EXCEPTION à la règle des puces courtes : ICI des phrases plus longues et explicatives (2 à 4 par devise, comme la référence) sont ATTENDUES — JAMAIS des puces génériques type « L'EUR a surperformé sur la séance ». (Sans rien inventer : si la source ne donne pas le driver d'un mouvement, énonce le mouvement sans inventer de cause.) Si vraiment aucune info FX, mets UNE seule puce « Activité FX limitée sur la séance ».
-- Privilégie les RUBRIQUES CANONIQUES façon la référence et place-les dans CET ordre : LEAD (l'intro/synthèse) D'ABORD, puis EQUITIES, FX, FIXED INCOME, COMMODITIES — puis CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, et le reste (CRYPTO, TRADE/TARIFFS, headlines divers…) ensuite.
-- Sous chaque en-tête, PEAUFINE/REFORMULE les puces en phrases claires, concises et professionnelles : corrige la grammaire, supprime les fragments, répétitions et le cruft, fais des phrases complètes qui se lisent comme un vrai récap d'analyste (pas un copier-coller brut).
-RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, pourcentages, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN. Tu améliores UNIQUEMENT la formulation et la clarté, jamais le contenu factuel.
-- Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel/hors-sujet ("...at investingLive.com", etc.).
-- EN-TÊTES COURTS type catégorie (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, CRYPTO…). Un sous-rapport au titre LONG en minuscules (ex: "New Zealand Manufacturing Returns to Contraction…") → NE le garde PAS comme en-tête : range son contenu sous une catégorie COURTE adaptée.
-- Chaque puce = UNE idée concise (≤30 mots), jamais un pavé multi-phrases (découpe les longs paragraphes en plusieurs puces courtes).
-- ⚠️ ÉCARTE les puces SANS VALEUR : un simple titre/annonce de sujet — sans aucun fait, chiffre, niveau, citation ni analyse concrète (ex. « Analyse du Bitcoin au cours du week-end », « Le point sur les cryptos », « Tour d'horizon des marchés ») — n'apporte RIEN au lecteur → NE le garde PAS. Toute puce doit porter une information concrète. Si, après ce tri, une rubrique n'a plus aucune puce de valeur, OMETS la rubrique entière (jamais de section réduite à un titre creux).
-Réponds UNIQUEMENT en JSON valide, la rubrique LEAD EN PREMIER : [{"section":"LEAD","items":["synthèse 1","synthèse 2","synthèse 3"]},{"section":"FX","items":["phrase reformulée 1","phrase 2"]}]
+  const prompt = `Tu es un analyste d'un desk macro (hedge fund). Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de SÉANCE de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu. Transforme-les en une NOTE DE DESK ultra-condensée, factuelle et directe, façon DataTradingPro (ton d'analyste institutionnel).
+
+STYLE (impératif) :
+- Puces SYNTHÉTIQUES et percutantes. AUCUNE liaison inutile (« par ailleurs », « en outre », « de plus ») : va droit au fait.
+- FLÈCHE D'IMPACT « → » : relie SYSTÉMATIQUEMENT un événement / un chiffre / une décision à SA CONSÉQUENCE (mouvement de devise, bascule risk-on / risk-off, lecture de marché). Ex : « **CPI** US +0,4% m/m (vs +0,2% att., +0,1% préc.) → surprise haussière, **USD** se renforce ».
+- GRAS Markdown ** ** OBLIGATOIRE autour des DEVISES, BANQUES CENTRALES, INSTITUTIONS, ACRONYMES et INDICATEURS clés : **USD**, **EUR**, **JPY**, **DXY**, **Fed**, **BCE**, **BoC**, **BoE**, **CPI**, **PPI m/m**, **PMI Flash**, **NFP**…
+- DONNÉES MACRO : dès qu'un chiffre sort (CPI, PPI, emploi, PMI, PIB…), donne le détail DISPONIBLE dans la source — m/m et/ou a/a, réel, attendu, précédent — puis « → » et la lecture (surprise haussière / baissière, accélération, ralentissement, impact sur la banque centrale). Format : « **Indicateur** : réel (vs attendu, précédent) → conséquence ».
+- Puces ≤ 30 mots, UNE idée par puce (SEULE EXCEPTION : la rubrique FX, voir plus bas).
+
+RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, %, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN, jamais un attendu/précédent absent de la source. Tu améliores UNIQUEMENT la forme et la clarté, jamais le contenu factuel.
+
+STRUCTURE — rubriques dans CET ordre, OMETS toute rubrique sans contenu réel :
+1. LEAD (obligatoire, EN PREMIER) : 3-4 puces de SYNTHÈSE de la séance (mouvements clés, décisions / propos de banques centrales, données majeures, et « à surveiller »). L'accroche narrative avant le détail, UNIQUEMENT à partir des points ci-dessous.
+2. LE DOSSIER GÉOPOLITIQUE majeur s'il existe : GARDE le nom RÉEL de la source (ex « IRAN CONFLICT », sinon « GEOPOLITICS »). Faits marquants → impact sur le sentiment de risque (risk-off / risk-on) ; statut diplomatique / médiations ; énergie & risques collatéraux (Hormuz, Houthis, fret) → impact pétrole / prime de risque.
+3. CENTRAL BANKS & DATA : décisions et propos (interprète le TON — hawkish / dovish / hold — et ce que la banque SURVEILLE pour la prochaine réunion), PUIS toutes les données macro de la séance au format strict ci-dessus. Écarte si aucune donnée ni propos réels.
+4. FX (TOUJOURS présente, DÉTAILLÉE) : couvre **DXY** EN PREMIER, puis CHAQUE devise majeure qui a bougé (**EUR**, **JPY**, **GBP**, **AUD**, **NZD**, **CAD**, **CHF**, **CNY**), en EXPLIQUANT le mouvement ET SON DRIVER (l'annonce macro / décision / actualité liée). ICI, 2 à 4 phrases par devise sont ATTENDUES (jamais une puce générique « L'EUR a surperformé »). Si la source ne donne pas le driver, énonce le mouvement sans inventer de cause. Si aucune info FX : UNE seule puce « Activité FX limitée sur la séance ».
+5. LES AUTRES RUBRIQUES présentes : EQUITIES, COMMODITIES, FIXED INCOME, CRYPTO, TRADE/TARIFFS… GARDE les en-têtes RÉELS tels quels (ne traduis pas, ne renomme pas). Si le brut est un tas plat sous « HEADLINES » / « NEWS », NE laisse rien sous « HEADLINES » : RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet. Un récap est TOUJOURS catégorisé, jamais un tas de titres.
+6. ON WATCH (à surveiller) EN DERNIER, si la source évoque des échéances : prochains catalyseurs (discours, statistiques clés, décisions de taux) → ce qu'ils peuvent déclencher. Termine sur cette rubrique, sans conclusion ni fioriture.
+
+TRI : une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel / hors-sujet (« …at investingLive.com »). ÉCARTE les puces SANS VALEUR — un simple titre / annonce sans aucun fait, chiffre, niveau, citation ni analyse (ex « Le point sur les cryptos », « Tour d'horizon des marchés ») : elles n'apportent rien. Découpe les longs paragraphes en puces courtes. Si après tri une rubrique est vide, OMETS-la entièrement.
+
+Réponds UNIQUEMENT en JSON valide, LEAD EN PREMIER : [{"section":"LEAD","items":["synthèse 1","synthèse 2"]},{"section":"CENTRAL BANKS & DATA","items":["**CPI** US +0,4% m/m (vs +0,2% att.) → **USD** se renforce"]},{"section":"FX","items":["**DXY** …","**EUR** …"]}]
 Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
-  const text = await ai.generateText(prompt, 2500, _opts);   // _opts.noClaude=true depuis le préchauffage (pas de crédits payants en fond)
+  const text = await ai.generateText(prompt, 2800, _opts);   // _opts.noClaude=true depuis le préchauffage (pas de crédits payants en fond)
   const m = text.match(/\[[\s\S]*\]/);
   if (!m) return null;
   const arr = JSON.parse(m[0]);
