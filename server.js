@@ -219,7 +219,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/robots.txt', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
+  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/api/geo', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/', '/api/v1/'];   // /api/v1/ = API programmatique : le gate SESSION est bypassé mais CHAQUE route v1 exige une CLÉ API (requireApiKey)   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
 
 // Jeton d'appel INTERNE (préchauffage → 127.0.0.1) : généré à chaque boot (surclassable via env pour
@@ -16271,6 +16271,22 @@ app.get('/api/hero-strength', async (_req, res) => {
     if (!_heroStrCache || now - _heroStrTs > _HERO_STR_TTL) { const d = await _buildHeroStrength(); if (d) { _heroStrCache = d; _heroStrTs = now; } }
     res.json(_heroStrCache || { currencies: [], updatedAt: 0 });
   } catch { res.json({ currencies: [], updatedAt: 0 }); }
+});
+
+// ── Géolocalisation → langue (public + CORS) : détecte le CONTINENT du visiteur par IP pour choisir
+//    la langue au 1er chargement de datatradingpro.com. Base MaxMind EMBARQUÉE (geoip-lite, hors-ligne,
+//    aucun appel tiers). IP réelle via X-Forwarded-For (nginx). N'expose QUE {country, europe} — jamais
+//    de ville/coordonnées. Le CLIENT combine : hors Europe → EN ; en Europe/inconnu → langue navigateur. ──
+const geoip = require('geoip-lite');
+const _GEO_EUROPE = new Set(['AL','AD','AT','BA','BE','BG','BY','CH','CY','CZ','DE','DK','EE','ES','FI','FO','FR','GB','GG','GI','GR','HR','HU','IE','IM','IS','IT','JE','LI','LT','LU','LV','MC','MD','ME','MK','MT','NL','NO','PL','PT','RO','RS','RU','SE','SI','SK','SM','UA','VA','XK']);
+app.get('/api/geo', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Vary', 'Origin');
+  res.set('Cache-Control', 'no-store');                       // dépend de l'IP appelante → jamais mutualisé
+  let country = null;
+  try { const ip = _clientIp(req); const g = ip && geoip.lookup(ip); country = (g && g.country) || null; } catch {}
+  const europe = country ? _GEO_EUROPE.has(country) : null;   // null = IP non résolue (privée/inconnue) → le client repli sur la langue navigateur
+  res.json({ country, europe });
 });
 
 // ─── FX List Overview ─────────────────────────────────────────────────────────
