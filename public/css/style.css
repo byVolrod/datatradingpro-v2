@@ -10063,6 +10063,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* ════════ Journal — TRADE LOG : toolbar + grille éditable façon Notion (HUD pro) ════════ */
 #jr-log-view { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+/* Barre de FILTRES / recherche / tri de la grille Trades (24/07) */
+.jr-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.jr-filters:empty { display: none; }
+.jr-flt-ic { display: inline-flex; color: var(--text3); margin-right: -2px; }
+.jr-flt-search { height: 28px; min-width: 190px; flex: 1 1 190px; max-width: 320px; padding: 0 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: var(--fs-title); font-family: var(--font-ui); }
+.jr-flt-search::placeholder { color: var(--text3); }
+.jr-flt-search:focus, .jr-flt-sel:focus { outline: none; border-color: rgba(227,178,58,0.5); }
+.jr-flt-sel { height: 28px; padding: 0 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; max-width: 168px; }
+.jr-flt-sel:hover { border-color: var(--border2); color: var(--text); }
+.jr-flt-clear { height: 28px; padding: 0 11px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--text3); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; }
+.jr-flt-clear:hover { color: var(--orange); border-color: rgba(227,178,58,0.45); }
+.jr-flt-clear[hidden] { display: none; }
+.jr-flt-count { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text3); white-space: nowrap; }
+.jr-flt-count--on { color: var(--orange); }
 .jr-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
 .jr-tb-btn { height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease); white-space: nowrap; }
 .jr-tb-btn:hover { color: var(--text); border-color: var(--border2); background: var(--bg2); }
