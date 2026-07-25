@@ -1079,6 +1079,7 @@
   function defaultCfg() {
     return {
       active: 'mon-desk',
+      gap: 'loose',                                    // densité : 'loose' = espacés (défaut) / 'tight' = collés
       // Le nom du layout ne doit PAS reprendre celui du panneau : l'en-tête affichait
       // « Mon Desk · Mon Desk · BÊTA » (constaté au banc d'essai).
       layouts: [{
@@ -1101,6 +1102,7 @@
       c.layouts.unshift(JSON.parse(JSON.stringify(defaultCfg().layouts[0])));
       c.layouts[0].fav = false;                       // ne vole jamais l'étoile d'un template choisi par le user
     }
+    if (c.gap !== 'tight' && c.gap !== 'loose') c.gap = 'loose';   // migration : cfg antérieurs sans densité
     return c;
   }
   function load() {
@@ -1172,23 +1174,27 @@
       dragIdx = null; clearHints();
     });
     host.addEventListener('dragend', function () { dragIdx = null; clearHints(); host.querySelectorAll('.wdg-dragging').forEach(function (c) { c.classList.remove('wdg-dragging'); }); });
-    // — Redimensionnement LIBRE par la poignée de COIN : largeur en COLONNES (1→12, jusqu'à 100%) + hauteur en
-    //   LIGNES, avec SNAP sur la grille et aperçu live. (demande user : resize libre, largeur pleine, snap.)
-    var GAP = 10;
+    // — Redimensionnement LIBRE : poignée de COIN (largeur+hauteur) OU poignée de BORD DROIT (largeur seule),
+    //   avec SNAP sur la grille et aperçu live. Le GAP est lu DYNAMIQUEMENT (getComputedStyle) car la densité
+    //   « collés/espacés » le fait varier — un gap codé en dur ferait dériver le snap.
     host.addEventListener('pointerdown', function (e) {
-      var h = e.target.closest && e.target.closest('.wdg-resize'); var card = h && h.closest('.wdg-card');
+      var h = e.target.closest && e.target.closest('.wdg-resize, .wdg-resize-e'); var card = h && h.closest('.wdg-card');
       if (!card) return; e.preventDefault();
       var l = activeLayout(); var idx = +card.getAttribute('data-idx'); var it = l && l.items[idx];
       if (!it || it.locked) return; _normItem(it);
+      var cs = getComputedStyle(host);
+      var gapC = parseFloat(cs.columnGap), gapR = parseFloat(cs.rowGap);
+      if (!isFinite(gapC)) gapC = 10; if (!isFinite(gapR)) gapR = 10;
       rz = { it: it, card: card, x0: e.clientX, y0: e.clientY, gw0: it.gw, gh0: it.gh, gw: it.gw, gh: it.gh,
-             colUnit: (card.offsetWidth + GAP) / Math.max(1, it.gw) };
+             mode: (h.classList.contains('wdg-resize-e') ? 'e' : 'se'),          // 'e' = bord droit → LARGEUR seule
+             gapR: gapR, colUnit: (card.offsetWidth + gapC) / Math.max(1, it.gw) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
     });
     host.addEventListener('pointermove', function (e) {
       if (!rz) return;
       rz.gw = _clamp(rz.gw0 + Math.round((e.clientX - rz.x0) / rz.colUnit), 1, GRID_COLS);
-      rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / (ROW_PX + GAP)), 3, 60);
+      if (rz.mode !== 'e') rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / (ROW_PX + rz.gapR)), 3, 60);
       rz.card.style.setProperty('--gw', rz.gw); rz.card.style.setProperty('--gh', rz.gh);   // aperçu live (snap)
     });
     var endResize = function (e) {
@@ -1208,6 +1214,8 @@
     var host = document.getElementById(HOST_ID); if (!host) return;
     _wireGrid(host);
     unmountAll();
+    host.classList.toggle('wdg-gap-tight', (STATE.cfg && STATE.cfg.gap) === 'tight');   // densité : collés/espacés
+    _syncDensity();
     var lay = activeLayout();
     if (!lay || !lay.items.length) {
       host.innerHTML = '<div class="wdg-blank"><div class="wdg-blank-t">Ton desk est vide</div>'
@@ -1216,6 +1224,16 @@
       return;
     }
     host.innerHTML = lay.items.map(function (it, idx) {
+      // EMPLACEMENT VIDE (création guidée par disposition) : carte pointillée « + Choisir un widget ».
+      // Le choix dans la bibliothèque REMPLACE l'emplacement en gardant sa géométrie (gw/gh de la disposition).
+      if (it.w === 'slot') {
+        _normItem(it);
+        return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
+          + '<button class="wdg-slot-x" title="Retirer l\'emplacement" onclick="DTPWidgets.remove(' + idx + ')">×</button>'
+          + '<button class="wdg-slot-add" onclick="DTPWidgets.pickFor(' + idx + ')">+<span>Choisir un widget</span></button>'
+          + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
+          + '<div class="wdg-resize-e" title="Glisser pour élargir"></div></section>';
+      }
       var w = byId(it.w);
       if (!w) return '';                                                     // widget retiré du catalogue → ignoré
       _normItem(it);
@@ -1246,7 +1264,8 @@
         +   step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
         + '</div>'
         + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
-        + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div></section>';
+        + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
+        + '<div class="wdg-resize-e" title="Glisser pour élargir"></div></section>';
     }).join('');
     // Plein écran : la carte ciblée recouvre la zone de travail (overlay), la grille est figée derrière.
     if (_fullscreenIdx != null) {
@@ -1289,8 +1308,15 @@
     }).join('');
     el.innerHTML = tabs
       + (c.layouts.length < _LMAX
-          ? '<button class="wdg-lay wdg-lay-add" title="Créer un layout" onclick="DTPWidgets.createLayout()">+</button>'
+          ? '<button class="wdg-lay wdg-lay-add" title="Créer un layout" onclick="DTPWidgets.newLayout()">+</button>'
           : '');
+  }
+  // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
+  function _syncDensity() {
+    var g = (STATE.cfg && STATE.cfg.gap) === 'tight' ? 'tight' : 'loose';
+    document.querySelectorAll('#wdg-density .wdg-dens-b').forEach(function (b) {
+      b.classList.toggle('wdg-btn--on', b.getAttribute('data-g') === g);
+    });
   }
   // Renommage INLINE d'un onglet (double-clic) : le nom devient un champ, Entrée/blur valide, Échap annule.
   function editTab(id) {
@@ -1317,9 +1343,26 @@
     input.addEventListener('click', function (e) { e.stopPropagation(); });   // ne pas re-déclencher switchLayout
   }
   // Gestionnaire de layouts (overlay) : favori · renommer (inline) · ouvrir · supprimer (confirmation inline).
+  // 2 écrans : la LISTE (tes layouts, rien d'autre — les modèles prêts vivent dans la bibliothèque pour ne pas
+  // brouiller la création) et le CHOIX DE DISPOSITION (création guidée, mini-schémas façon « Select Layout »).
+  var _mgrMode = null;                       // null = liste · 'dispo' = choix de disposition
   function renderManager() {
     var box = document.getElementById('wdg-mgr-list'); var c = STATE.cfg;
     if (!box || !c) return;
+    if (_mgrMode === 'dispo') {
+      box.innerHTML = '<div class="wdg-dispo-head">'
+        + '<button class="wdg-btn" onclick="DTPWidgets.backManager()">‹ Retour</button>'
+        + '<span class="wdg-dispo-t">Choisis une disposition</span></div>'
+        + '<div class="wdg-dispo-grid">'
+        + DISPOS.map(function (d, i) {
+            return '<button class="wdg-dispo-card" onclick="DTPWidgets.createLayout(' + i + ')" title="' + esc(d.name) + '">'
+              + (d.items.length ? _thumb(d.items) : '<span class="wdg-thumb wdg-thumb--free">∞</span>')
+              + '<span class="wdg-dispo-name">' + esc(d.name) + '</span></button>';
+          }).join('')
+        + '</div>'
+        + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » — remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
+      return;
+    }
     box.innerHTML = c.layouts.map(function (l) {
       var active = l.id === c.active;
       var del = (l.id === PROTECTED_ID)
@@ -1337,18 +1380,10 @@
         + del + '</div>';
     }).join('')
       + (c.layouts.length < _LMAX
-          ? '<button class="wdg-mgr-new" onclick="DTPWidgets.createLayout()">+ Créer un layout</button>'
+          ? '<button class="wdg-mgr-new" onclick="DTPWidgets.newLayout()">+ Créer un layout</button>'
           : '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>')
-      // MODÈLES PRÊTS : agencements pré-composés — un clic crée un NOUVEAU layout (rien d'écrasé).
-      + '<div class="wdg-lib-sec">Modèles prêts</div>'
-      + PRESETS.map(function (p, i) {
-          var names = p.items.map(function (it) { var w = byId(it.w); return w ? w.name : ''; }).filter(Boolean).join(' · ');
-          return '<div class="wdg-mgr-row wdg-mgr-row--preset">'
-            + _thumb(p.items)
-            + '<span class="wdg-mgr-pname">' + esc(p.name) + '<em>' + esc(names) + '</em></span>'
-            + '<button class="wdg-mgr-open" onclick="DTPWidgets.usePreset(' + i + ')"'
-            + (c.layouts.length >= _LMAX ? ' disabled title="Plafond de layouts atteint"' : '') + '>Utiliser</button></div>';
-        }).join('');
+      // Les MODÈLES PRÊTS ne vivent plus ici (ils brouillaient la création) : ils restent dans la bibliothèque.
+      + '<div class="wdg-mgr-tplhint">Envie d\'un desk pré-composé ? Les modèles prêts sont dans la <button class="wdg-mgr-tpllink" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">bibliothèque de widgets</button>.</div>';
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
@@ -1368,7 +1403,28 @@
     'calculatrice': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01"/></svg>',
     'journal-mini': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 12h5.5"/></svg>',
   };
+  // APERÇUS visuels de widget (vignettes de la bibliothèque, façon terminal pro) — dessins DTP originaux,
+  // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
+  var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
+  var WPREV = {
+    'force-devises': '<svg ' + _PV + '><line x1="6" y1="28" x2="114" y2="28" stroke="#23232a" stroke-dasharray="2 3"/><polyline fill="none" stroke="#e3b23a" stroke-width="1.4" points="6,34 22,30 36,36 52,26 68,30 84,20 100,24 114,14"/><polyline fill="none" stroke="#22c55e" stroke-width="1.4" points="6,24 22,28 36,22 52,30 68,24 84,28 100,32 114,36"/><polyline fill="none" stroke="#3b82f6" stroke-width="1.4" points="6,30 22,34 36,28 52,36 68,40 84,36 100,42 114,44"/><circle cx="114" cy="14" r="2" fill="#e3b23a"/><circle cx="114" cy="36" r="2" fill="#22c55e"/><circle cx="114" cy="44" r="2" fill="#3b82f6"/></svg>',
+    'barometre': '<svg ' + _PV + '><line x1="6" y1="28" x2="114" y2="28" stroke="#3a3d44"/><rect x="10" y="12" width="7" height="16" fill="#22c55e"/><rect x="23" y="18" width="7" height="10" fill="#22c55e"/><rect x="36" y="8" width="7" height="20" fill="#22c55e"/><rect x="49" y="22" width="7" height="6" fill="#22c55e"/><rect x="62" y="28" width="7" height="9" fill="#ef4444"/><rect x="75" y="28" width="7" height="16" fill="#ef4444"/><rect x="88" y="28" width="7" height="6" fill="#ef4444"/><rect x="101" y="28" width="7" height="19" fill="#ef4444"/></svg>',
+    'risque-historique': '<svg ' + _PV + '><line x1="6" y1="28" x2="114" y2="28" stroke="#ff9800" stroke-width="1.2"/><rect x="8" y="18" width="5" height="10" fill="#22c55e"/><rect x="16" y="22" width="5" height="6" fill="#22c55e"/><rect x="24" y="14" width="5" height="14" fill="#22c55e"/><rect x="32" y="28" width="5" height="7" fill="#ef4444"/><rect x="40" y="28" width="5" height="12" fill="#ef4444"/><rect x="48" y="28" width="5" height="17" fill="#ef4444"/><rect x="56" y="28" width="5" height="8" fill="#ef4444"/><rect x="64" y="16" width="5" height="12" fill="#22c55e"/><rect x="72" y="12" width="5" height="16" fill="#22c55e"/><rect x="80" y="20" width="5" height="8" fill="#22c55e"/><rect x="88" y="28" width="5" height="6" fill="#ef4444"/><rect x="96" y="18" width="5" height="10" fill="#22c55e"/><rect x="104" y="14" width="5" height="14" fill="#22c55e"/></svg>',
+    'calendrier-jour': '<svg ' + _PV + '><g font-family="monospace" font-size="6" fill="#5b5d66"><text x="8" y="13">08:30</text><text x="8" y="26">10:00</text><text x="8" y="39">14:30</text><text x="8" y="52">16:00</text></g><rect x="34" y="7" width="52" height="6" rx="2" fill="#2b2b31"/><rect x="34" y="20" width="64" height="6" rx="2" fill="#2b2b31"/><rect x="34" y="33" width="44" height="6" rx="2" fill="#2b2b31"/><rect x="34" y="46" width="58" height="6" rx="2" fill="#2b2b31"/><circle cx="108" cy="10" r="3" fill="#ef4444"/><circle cx="108" cy="23" r="3" fill="#ffb300"/><circle cx="108" cy="36" r="3" fill="#5b5d66"/><circle cx="108" cy="49" r="3" fill="#ef4444"/></svg>',
+    'radar-biais': '<svg ' + _PV + '><g font-family="monospace" font-size="6.5" fill="#9aa1ac"><text x="7" y="14">USD</text><text x="7" y="28">EUR</text><text x="7" y="42">GBP</text><text x="7" y="55">JPY</text></g><g rx="2"><rect x="30" y="7" width="24" height="9" rx="2" fill="#047857"/><rect x="58" y="7" width="24" height="9" rx="2" fill="#059669"/><rect x="86" y="7" width="26" height="9" rx="2" fill="#047857"/><rect x="30" y="21" width="24" height="9" rx="2" fill="#6b7280"/><rect x="58" y="21" width="24" height="9" rx="2" fill="#059669"/><rect x="86" y="21" width="26" height="9" rx="2" fill="#6b7280"/><rect x="30" y="35" width="24" height="9" rx="2" fill="#059669"/><rect x="58" y="35" width="24" height="9" rx="2" fill="#6b7280"/><rect x="86" y="35" width="26" height="9" rx="2" fill="#059669"/><rect x="30" y="49" width="24" height="6" rx="2" fill="#dc2626"/><rect x="58" y="49" width="24" height="6" rx="2" fill="#991b1b"/><rect x="86" y="49" width="26" height="6" rx="2" fill="#dc2626"/></g></svg>',
+    'taux-cb': '<svg ' + _PV + '><g font-family="monospace" font-size="6.5" fill="#9aa1ac"><text x="7" y="15">FED</text><text x="7" y="31">BCE</text><text x="7" y="47">BOE</text></g><rect x="30" y="8" width="56" height="8" rx="2" fill="#2b2b31"/><rect x="30" y="24" width="42" height="8" rx="2" fill="#2b2b31"/><rect x="30" y="40" width="48" height="8" rx="2" fill="#2b2b31"/><g font-family="monospace" font-size="7" fill="#e3b23a"><text x="92" y="15">4.50</text><text x="92" y="31">2.15</text><text x="92" y="47">4.00</text></g></svg>',
+    'risque-jauge': '<svg ' + _PV + '><path d="M 24 48 A 36 36 0 0 1 60 12" fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round"/><path d="M 60 12 A 36 36 0 0 1 96 48" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="48" x2="78" y2="24" stroke="#e6e8ec" stroke-width="2"/><circle cx="60" cy="48" r="3.5" fill="#e6e8ec"/></svg>',
+    'cot-inst': '<svg ' + _PV + '><line x1="60" y1="4" x2="60" y2="52" stroke="#3a3d44"/><rect x="60" y="7" width="34" height="7" fill="#22c55e"/><rect x="34" y="18" width="26" height="7" fill="#ef4444"/><rect x="60" y="29" width="20" height="7" fill="#22c55e"/><rect x="18" y="40" width="42" height="7" fill="#ef4444"/></svg>',
+    'dmx-retail': '<svg ' + _PV + '><g font-family="monospace" font-size="6" fill="#9aa1ac"><text x="6" y="13">EURUSD</text><text x="6" y="27">GBPJPY</text><text x="6" y="41">AUDUSD</text><text x="6" y="55">USDCAD</text></g><rect x="40" y="7" width="22" height="8" fill="#22c55e"/><rect x="62" y="7" width="52" height="8" fill="#ef4444"/><rect x="40" y="21" width="44" height="8" fill="#22c55e"/><rect x="84" y="21" width="30" height="8" fill="#ef4444"/><rect x="40" y="35" width="14" height="8" fill="#22c55e"/><rect x="54" y="35" width="60" height="8" fill="#ef4444"/><rect x="40" y="49" width="52" height="6" fill="#22c55e"/><rect x="92" y="49" width="22" height="6" fill="#ef4444"/></svg>',
+    'saison': '<svg ' + _PV + '>' + (function () { var cells = '', G = '#14532d', g = '#22c55e', R = '#7f1d1d', r = '#ef4444', D = '#26262c'; var M = [[g, G, D, r, g, G, g, D], [R, g, G, g, D, r, G, g], [g, D, r, G, g, g, R, D]]; for (var yy = 0; yy < 3; yy++) for (var xx = 0; xx < 8; xx++) cells += '<rect x="' + (7 + xx * 14) + '" y="' + (7 + yy * 15) + '" width="12" height="13" rx="2" fill="' + M[yy][xx] + '"/>'; return cells; })() + '</svg>',
+    'sessions': '<svg ' + _PV + '><g font-family="monospace" font-size="6" fill="#9aa1ac"><text x="6" y="13">SYD</text><text x="6" y="26">TOK</text><text x="6" y="39">LON</text><text x="6" y="52">NY</text></g><rect x="24" y="7" width="34" height="7" rx="3" fill="#3a3d44"/><rect x="34" y="20" width="36" height="7" rx="3" fill="#3a3d44"/><rect x="56" y="33" width="38" height="7" rx="3" fill="#e3b23a"/><rect x="76" y="46" width="38" height="7" rx="3" fill="#e3b23a" opacity=".65"/></svg>',
+    'horloge': '<svg ' + _PV + '><g stroke="#5b5d66" fill="none"><circle cx="26" cy="28" r="13"/><circle cx="60" cy="28" r="13"/><circle cx="94" cy="28" r="13"/></g><g stroke="#e3b23a" stroke-width="1.6" stroke-linecap="round"><path d="M26 28V19M26 28l6 4"/><path d="M60 28v-9M60 28h8"/><path d="M94 28v-9M94 28l-6 6"/></g></svg>',
+    'fil-news': '<svg ' + _PV + '><rect x="8" y="8" width="76" height="5" rx="2" fill="#3a3d44"/><rect x="8" y="17" width="26" height="6" rx="3" fill="#2b2b31"/><rect x="38" y="17" width="20" height="6" rx="3" fill="#2b2b31"/><rect x="8" y="31" width="88" height="5" rx="2" fill="#3a3d44"/><rect x="8" y="40" width="22" height="6" rx="3" fill="#7f1d1d"/><rect x="34" y="40" width="24" height="6" rx="3" fill="#2b2b31"/><circle cx="106" cy="10" r="3" fill="#e3b23a"/></svg>',
+    'calculatrice': '<svg ' + _PV + '><rect x="34" y="5" width="52" height="10" rx="2" fill="#0f0f12" stroke="#2b2b31"/><text x="80" y="13" text-anchor="end" font-family="monospace" font-size="7" fill="#e3b23a">0.42</text>' + (function () { var k = ''; for (var yy = 0; yy < 3; yy++) for (var xx = 0; xx < 4; xx++) k += '<rect x="' + (34 + xx * 14) + '" y="' + (19 + yy * 11) + '" width="10" height="8" rx="2" fill="' + (xx === 3 ? '#3d3320' : '#26262c') + '"/>'; return k; })() + '</svg>',
+    'journal-mini': '<svg ' + _PV + '><g fill="#3a3d44"><rect x="8" y="8" width="42" height="5" rx="2"/><rect x="8" y="21" width="36" height="5" rx="2"/><rect x="8" y="34" width="46" height="5" rx="2"/><rect x="8" y="47" width="32" height="5" rx="2"/></g><g font-family="monospace" font-size="6"><rect x="86" y="6" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="12.5" text-anchor="middle" fill="#22c55e">+1.8R</text><rect x="86" y="19" width="26" height="8" rx="3" fill="#3a1416"/><text x="99" y="25.5" text-anchor="middle" fill="#ef4444">-1.0R</text><rect x="86" y="32" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="38.5" text-anchor="middle" fill="#22c55e">+2.4R</text><rect x="86" y="45" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="51.5" text-anchor="middle" fill="#22c55e">+0.6R</text></g></svg>',
+  };
   var _libQ = '';                            // filtre de recherche de la bibliothèque (volatil)
+  var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
     var lay = activeLayout(), used = {};
@@ -1404,8 +1460,9 @@
       var list = CATALOG.filter(function (w) { return (FAM_OF[w.id] || 'Fonctions') === fam && match(w); });
       if (!list.length) return '';
       var cards = list.map(function (w) {
-        return '<button class="wdg-lib-card" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
-          + '<span class="wdg-lib-ico">' + (WICO[w.id] || '') + '</span>'
+        // Carte façon terminal pro : APERÇU visuel du widget (vignette dessinée) au-dessus, nom + description dessous.
+        return '<button class="wdg-lib-card wdg-lib-card--prev" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
+          + '<span class="wdg-lib-prev">' + (WPREV[w.id] || WICO[w.id] || '') + '</span>'
           + '<span class="wdg-lib-main"><span class="wdg-lib-name">' + esc(w.name) + '</span>'
           + '<span class="wdg-lib-desc">' + esc(w.desc) + '</span></span>'
           + (used[w.id] ? '<span class="wdg-lib-used">' + used[w.id] + '×</span>' : '<span class="wdg-lib-plus">+</span>')
@@ -1428,6 +1485,20 @@
     { name: 'Desk complet', items: [{ w: 'force-devises', gw: 8, gh: 12 }, { w: 'calendrier-jour', gw: 4, gh: 12 }, { w: 'fil-news', gw: 7, gh: 11 }, { w: 'barometre', gw: 5, gh: 11 }] },
     { name: 'Focus macro', items: [{ w: 'calendrier-jour', gw: 7, gh: 15 }, { w: 'radar-biais', gw: 5, gh: 8 }, { w: 'taux-cb', gw: 5, gh: 7 }] },
     { name: 'Trading actif', items: [{ w: 'journal-mini', gw: 7, gh: 12 }, { w: 'calculatrice', gw: 5, gh: 12 }, { w: 'force-devises', gw: 12, gh: 10 }] },
+  ];
+  /* ── DISPOSITIONS (création guidée) : squelettes d'EMPLACEMENTS vides, façon « Select Layout » d'un terminal
+     pro. Chaque emplacement devient une carte « + Choisir un widget » (id spécial 'slot'). ── */
+  var DISPOS = [
+    { name: 'Libre',       items: [] },
+    { name: '1 panneau',   items: [{ gw: 12, gh: 14 }] },
+    { name: '2 colonnes',  items: [{ gw: 6, gh: 14 }, { gw: 6, gh: 14 }] },
+    { name: '2 lignes',    items: [{ gw: 12, gh: 9 }, { gw: 12, gh: 9 }] },
+    { name: '3 colonnes',  items: [{ gw: 4, gh: 14 }, { gw: 4, gh: 14 }, { gw: 4, gh: 14 }] },
+    { name: 'Principal + colonne', items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 7 }, { gw: 4, gh: 7 }] },
+    { name: '1 + 2',       items: [{ gw: 12, gh: 9 }, { gw: 6, gh: 9 }, { gw: 6, gh: 9 }] },
+    { name: '2 × 2',       items: [{ gw: 6, gh: 9 }, { gw: 6, gh: 9 }, { gw: 6, gh: 9 }, { gw: 6, gh: 9 }] },
+    { name: '1 + 3',       items: [{ gw: 12, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }] },
+    { name: '6 panneaux',  items: [{ gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }] },
   ];
   // Miniature d'un agencement : la grille 12 colonnes en réduction (aperçu visuel, gestionnaire + modèles).
   function _thumb(items) {
@@ -1501,15 +1572,23 @@
     toggleSettings: function (i) { _togglePop(i, 's'); },
     add: function (wid) {
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
-      l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) }); save(); API.closeLib(); renderGrid();
+      if (_pickIdx != null && l.items[_pickIdx] && l.items[_pickIdx].w === 'slot') {
+        // Remplit l'EMPLACEMENT ciblé : le widget hérite de la géométrie du slot (celle de la disposition choisie).
+        var s = l.items[_pickIdx];
+        l.items[_pickIdx] = { w: wid, gw: s.gw, gh: s.gh };
+      } else {
+        l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) });
+      }
+      save(); API.closeLib(); renderGrid();
     },
+    pickFor: function (i) { API.openLib(); _pickIdx = i; },   // (après openLib, qui remet _pickIdx à null)
     openLib: function () {
       var d = document.getElementById('wdg-lib'); if (!d) return;
-      d.classList.add('open'); _libQ = '';
+      d.classList.add('open'); _libQ = ''; _pickIdx = null;
       var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
       renderLib();
     },
-    closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); },
+    closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _pickIdx = null; },
     filterLib: function (q) { _libQ = String(q || '').trim(); renderLib(); },
 
     // ── MODÈLES PRÊTS : crée un NOUVEAU layout depuis le preset (jamais d'écrasement) et l'ouvre. ──
@@ -1543,7 +1622,7 @@
           var c = STATE.cfg, added = 0;
           lays.forEach(function (l) {
             if (!l || !Array.isArray(l.items) || c.layouts.length >= _LMAX) return;
-            var items = l.items.filter(function (it) { return it && byId(it.w); }).map(function (it) {
+            var items = l.items.filter(function (it) { return it && (it.w === 'slot' || byId(it.w)); }).map(function (it) {
               return _normItem({ w: it.w, gw: it.gw, gh: it.gh, h: it.h, col: it.col, locked: !!it.locked });
             });
             c.layouts.push({ id: 'lay-' + uid(), name: String(l.name || '').replace(/[<>"']/g, '').trim().slice(0, 40) || 'Importé', fav: false, items: items });
@@ -1562,12 +1641,24 @@
       var c = STATE.cfg; if (!c || !layoutById(id)) return;
       _delConfirm = null; c.active = id; save(); renderBar(); renderManager(); renderGrid();
     },
-    createLayout: function () {
+    // Création GUIDÉE : « + » ouvre le CHOIX DE DISPOSITION (mini-schémas) ; createLayout(i) crée le layout
+    // avec les emplacements du squelette DISPOS[i] (ou vide pour « Libre »).
+    newLayout: function () {
       var c = STATE.cfg; if (!c || c.layouts.length >= _LMAX) return;
-      _delConfirm = null;
+      _mgrMode = 'dispo';
+      API.openManager();
+    },
+    backManager: function () { _mgrMode = null; renderManager(); },
+    createLayout: function (di) {
+      var c = STATE.cfg; if (!c || c.layouts.length >= _LMAX) return;
+      _delConfirm = null; _mgrMode = null;
       var id = 'lay-' + uid();
-      c.layouts.push({ id: id, name: 'Nouveau layout', fav: false, items: [] });
-      c.active = id; save(); renderBar(); renderManager(); renderGrid();
+      var dispo = (di == null) ? null : DISPOS[di | 0];
+      var items = (dispo && dispo.items.length)
+        ? dispo.items.map(function (s) { return { w: 'slot', gw: s.gw, gh: s.gh }; })
+        : [];
+      c.layouts.push({ id: id, name: 'Nouveau layout', fav: false, items: items });
+      c.active = id; save(); API.closeManager(); renderBar(); renderGrid();
       setTimeout(function () { editTab(id); }, 60);   // le NOM passe direct en édition (demande user : renommer l'onglet à la création)
     },
     renameLayout: function (id, name) {
@@ -1618,8 +1709,15 @@
         API.openManager();   // rafraîchit la date de sauvegarde (désormais = l'ancien état courant, ré-échangeable)
       }).catch(function () {});
     },
-    closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); },
+    closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); _mgrMode = null; },
     editTab: editTab,                                     // double-clic sur un onglet → renommage inline
+
+    // Densité de la grille : 'loose' = espacés (défaut) / 'tight' = collés. Persistée dans le cfg KV (par compte).
+    setGap: function (m) {
+      var c = STATE.cfg; if (!c) return;
+      c.gap = (m === 'tight' ? 'tight' : 'loose');
+      save(); renderGrid();
+    },
 
     reset: function () { _delConfirm = null; STATE.cfg = defaultCfg(); save(); renderBar(); renderManager(); renderGrid(); },
   };
