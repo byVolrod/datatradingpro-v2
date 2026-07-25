@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260725bbg326" />
+  <link rel="stylesheet" href="/css/style.css?v=20260725bbg327" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -551,9 +551,12 @@
           <div class="wdg-layouts" id="wdg-layouts"></div>
         </div>
         <div class="panel-header-controls">
-          <!-- Barre PROPRE (demande user 25/07) : 2 boutons seulement — la densité vit DANS la bibliothèque -->
-          <button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.openLib()">+ Ajouter un widget</button>
-          <button class="wdg-btn" onclick="DTPWidgets.openManager()" title="Créer et gérer mes templates">Mes layouts</button>
+          <!-- UN SEUL point d'entrée (mieux que les 3 icônes PMT) : le panneau « Personnaliser » unifie
+               Widgets + Layouts via ses onglets internes -->
+          <button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.openLib()" title="Personnaliser mon desk — widgets & layouts">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M17 13.5v7M13.5 17h7"/></svg>
+            Personnaliser
+          </button>
         </div>
       </div>
       <div class="wdg-grid custom-scrollbar" id="wdg-grid"></div>
@@ -563,8 +566,13 @@
     <div class="wdg-lib" id="wdg-lib">
       <div class="wdg-lib-backdrop" onclick="DTPWidgets.closeLib()"></div>
       <div class="wdg-lib-box">
+        <!-- Panneau UNIFIÉ « Personnaliser » : onglets internes Widgets | Layouts (grammaire nav du desk) -->
         <div class="wdg-lib-head">
-          <span class="wdg-lib-title">Bibliothèque de widgets</span>
+          <span class="wdg-lib-title">Personnaliser</span>
+          <div class="wdg-panel-tabs">
+            <button class="wdg-ptab on">› Widgets</button>
+            <button class="wdg-ptab" onclick="DTPWidgets.closeLib();DTPWidgets.openManager()">› Layouts</button>
+          </div>
           <button class="wdg-lib-x" onclick="DTPWidgets.closeLib()" title="Fermer">×</button>
         </div>
         <div class="wdg-lib-search-row">
@@ -595,7 +603,11 @@
       <div class="wdg-lib-backdrop" onclick="DTPWidgets.closeManager()"></div>
       <div class="wdg-lib-box wdg-mgr-box">
         <div class="wdg-lib-head">
-          <span class="wdg-lib-title">Mes layouts</span>
+          <span class="wdg-lib-title">Personnaliser</span>
+          <div class="wdg-panel-tabs">
+            <button class="wdg-ptab" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">› Widgets</button>
+            <button class="wdg-ptab on">› Layouts</button>
+          </div>
           <button class="wdg-lib-x" onclick="DTPWidgets.closeManager()" title="Fermer">×</button>
         </div>
         <div class="wdg-mgr-list" id="wdg-mgr-list"></div>
@@ -825,7 +837,7 @@
 <script defer src="/js/sessionmap.js?v=20260723bbg301"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260725bbg326"></script>
+<script defer src="/js/widgets.js?v=20260725bbg327"></script>
 <script defer src="/js/i18n-dicts.js?v=20260723bbg304"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
 
