@@ -11120,7 +11120,8 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 
 /* ── Barre Mon Desk : contrôles COMPACTS façon desk (demande user « les 2 boutons sont gros » —
      alignés sur les contrôles du desk type .sbs-cdd : 11px, fonds feutrés, or en accent, pas de pilule massive) ── */
-#view-widgets .panel-header { padding: 7px 12px; gap: 9px; }
+#view-widgets .panel-header { padding: 0 12px; gap: 9px; height: var(--navbar-h, 40px); }   /* barre = MÊME hauteur que la navbar → onglets de layout identiques à la nav */
+#view-widgets .panel-header-left { align-self: stretch; }   /* les onglets remplissent la hauteur → soulignement or FLUSH en bas (comme .nav-item) */
 .wdg-btn {
   display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 11px; font-size: 11px; font-weight: 600;
   font-family: var(--tight, 'Inter Tight', sans-serif); letter-spacing: .01em;
@@ -11432,25 +11433,32 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-clocks-bar .clock-item--local { border: 1px solid var(--border2); }
 
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
-.wdg-layouts { display: flex; align-items: center; gap: 4px; margin-left: 12px; overflow-x: auto; max-width: 52vw; }
+.wdg-layouts { display: flex; align-items: stretch; height: 100%; gap: 0; overflow-x: auto; max-width: 52vw; }
 .wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
-/* Onglets de templates = MÊME GRAMMAIRE que la nav du desk (.nav-item) : plat, mono capitales, soulignement or actif */
+/* Onglets de templates = IDENTIQUES à la nav du desk (.nav-item) : plat, capitales, chevron ›, pleine hauteur,
+   soulignement or ANIMÉ ::after quand actif (même mécanisme + même animation navUnderlineIn que .nav-item--active). */
 .wdg-lay {
-  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; max-width: 190px;
-  padding: 7px 11px; cursor: pointer; font-family: var(--tight); font-size: 11px; font-weight: var(--fw-semibold, 600);
+  position: relative;
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; max-width: 190px; height: 100%;
+  padding: 0 14px; cursor: pointer; font-family: var(--tight); font-size: 11px; font-weight: var(--fw-semibold, 600);
   letter-spacing: .06em; text-transform: uppercase; color: var(--text3, #6b7280);
-  background: transparent; border: none; border-radius: 0; border-bottom: 2px solid transparent; white-space: nowrap;
-  transition: color .15s, border-color .15s;
+  background: transparent; border: none; border-radius: 0; white-space: nowrap;
+  transition: color .15s, background .15s;
 }
 .wdg-lay:hover { color: var(--text, #e6e8ec); background: rgba(255,255,255,0.035); }
-/* Onglet ACTIF = grammaire EXACTE de la nav ACTUS (.nav-item--active) : texte clair + soulignement or, aucun fond */
-.wdg-lay.on { color: #fff; font-weight: var(--fw-bold); background: transparent; border-bottom-color: #e3b23a; }
+/* Onglet ACTIF = grammaire EXACTE de .nav-item--active : texte blanc gras, aucun fond, soulignement or ::after animé */
+.wdg-lay.on { color: #fff; font-weight: var(--fw-bold); background: transparent; }
+.wdg-lay.on::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--orange, #e3b23a); border-radius: 2px 2px 0 0;
+  transform-origin: center; animation: navUnderlineIn var(--t-med) var(--ease-out) both;
+}
 .wdg-lay-chv { color: var(--text3, #6b7280); font-weight: 400; margin-right: 1px; }   /* chevron › comme la nav */
-.wdg-lay.on .wdg-lay-chv { color: #e3b23a; }
+.wdg-lay.on .wdg-lay-chv { color: inherit; }                    /* › blanc quand actif (comme « › ACTUS »), pas d'or */
 .wdg-lay-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wdg-lay-star { color: #e3b23a; font-size: 10px; line-height: 1; }
 .wdg-lay-edit { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #e6e8ec; background: #16171b; border: 1px solid #e3b23a; border-radius: 3px; padding: 2px 6px; max-width: 150px; }
-.wdg-lay-add { color: #6b7280; font-size: 15px; font-weight: 700; padding: 6px 10px; border-bottom-color: transparent !important; }
+.wdg-lay-add { color: #6b7280; font-size: 15px; font-weight: 700; height: 100%; padding: 0 12px; display: inline-flex; align-items: center; }
 .wdg-lay-add:hover { color: #e3b23a; }
 
 /* ── Gestionnaire de layouts (overlay, réutilise .wdg-lib) ── */
