@@ -1080,6 +1080,7 @@
     return {
       active: 'mon-desk',
       gap: 'loose',                                    // densité : 'loose' = espacés (défaut) / 'tight' = collés
+      tipSeen: 0,                                      // astuce gestes (bord droit / coin / ⠿) pas encore fermée
       // Le nom du layout ne doit PAS reprendre celui du panneau : l'en-tête affichait
       // « Mon Desk · Mon Desk · BÊTA » (constaté au banc d'essai).
       layouts: [{
@@ -1103,6 +1104,7 @@
       c.layouts[0].fav = false;                       // ne vole jamais l'étoile d'un template choisi par le user
     }
     if (c.gap !== 'tight' && c.gap !== 'loose') c.gap = 'loose';   // migration : cfg antérieurs sans densité
+    if (c.tipSeen !== 1) c.tipSeen = 0;                            // migration : astuce gestes
     return c;
   }
   function load() {
@@ -1237,6 +1239,16 @@
         + '</div></div>';
       return;
     }
+    // ASTUCE GESTES (une fois par compte, fermable) : bandeau AU-DESSUS de la grille (jamais un item de grille :
+    // avec des pistes implicites — gw > colonnes responsive — « 1/-1 » ne couvrirait pas toute la largeur).
+    var wantTip = ((STATE.cfg && STATE.cfg.tipSeen) !== 1);
+    var tipHost = document.getElementById('wdg-tipbar');
+    if (wantTip) {
+      if (!tipHost) { tipHost = document.createElement('div'); tipHost.id = 'wdg-tipbar'; tipHost.className = 'wdg-tipbar'; host.parentNode.insertBefore(tipHost, host); }
+      tipHost.innerHTML = '<div class="wdg-tip"><span class="wdg-tip-ico">💡</span>'
+        + '<span class="wdg-tip-txt"><b>Astuce :</b> tire le <b>bord droit</b> d\'un widget pour l\'élargir, le <b>coin</b> pour largeur + hauteur, la poignée <b>⠿</b> pour le déplacer.</span>'
+        + '<button class="wdg-tip-x" title="Compris, ne plus afficher" onclick="DTPWidgets.dismissTip()">×</button></div>';
+    } else if (tipHost) { tipHost.remove(); }
     host.innerHTML = lay.items.map(function (it, idx) {
       // EMPLACEMENT VIDE (création guidée par disposition) : carte pointillée « + Choisir un widget ».
       // Le choix dans la bibliothèque REMPLACE l'emplacement en gardant sa géométrie (gw/gh de la disposition).
@@ -1378,14 +1390,15 @@
         + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » — remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
       return;
     }
-    box.innerHTML = c.layouts.map(function (l) {
+    box.innerHTML = c.layouts.map(function (l, li) {
       var active = l.id === c.active;
       var del = (l.id === PROTECTED_ID)
         ? '<span class="wdg-mgr-lock" title="Desk par défaut — non supprimable">' + ICO.lock + '</span>'
         : (l.id === _delConfirm)
           ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
           : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
-      return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '">'
+      return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '" data-i="' + li + '">'
+        + '<button class="wdg-mgr-grip" draggable="true" title="Glisser pour réordonner">⠿</button>'
         + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
         + _thumb(l.items)
         + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
@@ -1441,6 +1454,7 @@
   var _libQ = '';                            // filtre de recherche de la bibliothèque (volatil)
   var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analytics' · 'Fonctions' · '_tpl' = modèles)
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
+  var _justAdded = null;                     // id du widget qu'on vient d'ajouter (flash « ✓ Ajouté » sur sa carte)
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
     var lay = activeLayout(), used = {};
@@ -1479,7 +1493,7 @@
       if (!list.length) return '';
       var cards = list.map(function (w) {
         // Carte façon terminal pro : APERÇU visuel du widget (vignette dessinée) au-dessus, nom + description dessous.
-        return '<button class="wdg-lib-card wdg-lib-card--prev" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
+        return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
           + '<span class="wdg-lib-prev">' + (WPREV[w.id] || WICO[w.id] || '') + '</span>'
           + '<span class="wdg-lib-main"><span class="wdg-lib-name">' + esc(w.name) + '</span>'
           + '<span class="wdg-lib-desc">' + esc(w.desc) + '</span></span>'
@@ -1603,9 +1617,20 @@
       // Le compteur « N× » de la carte se met à jour ; le desk se re-rend derrière le voile. Fermer = croix/voile.
       l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) });
       save(); renderGrid();
+      // FEEDBACK : le nouveau widget flashe + on scrolle jusqu'à lui (visible derrière le voile de la modale).
+      var host = document.getElementById(HOST_ID);
+      requestAnimationFrame(function () {
+        var card = host && host.querySelector('.wdg-card[data-idx="' + (l.items.length - 1) + '"]');
+        if (card) { card.classList.add('wdg-refresh'); try { card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {} }
+      });
+      _justAdded = wid;                                                       // la carte cliquée affiche « ✓ Ajouté »
       var g = document.getElementById('wdg-lib-grid'); var st = g ? g.scrollTop : 0;
       renderLib();
       if (g) g.scrollTop = st;                                                // ne pas perdre la position de lecture
+      setTimeout(function () {
+        _justAdded = null;
+        var el = g && g.querySelector('.wdg-lib-card--added'); if (el) el.classList.remove('wdg-lib-card--added');
+      }, 950);
     },
     pickFor: function (i) { API.openLib(); _pickIdx = i; },   // (après openLib, qui remet _pickIdx à null)
     openLib: function () {
@@ -1740,6 +1765,7 @@
     },
     openManager: function () {
       var d = document.getElementById('wdg-mgr'); if (!d) return;
+      _wireMgr();                                                  // réordonner par ⠿ (câblé une fois)
       _delConfirm = null; d.classList.add('open'); renderManager();
       // SAUVEGARDE PAR COMPTE (demande user « récupérable si un souci s'impose ») : affiche la date du
       // snapshot serveur + bouton Restaurer (réversible : la config courante devient la sauvegarde).
@@ -1770,10 +1796,63 @@
       c.gap = (m === 'tight' ? 'tight' : 'loose');
       save(); renderGrid();
     },
+    dismissTip: function () {                           // astuce gestes : fermée une fois pour toutes (par compte)
+      var c = STATE.cfg; if (!c) return;
+      c.tipSeen = 1; save(); renderGrid();
+    },
 
     reset: function () { _delConfirm = null; STATE.cfg = defaultCfg(); save(); renderBar(); renderManager(); renderGrid(); },
   };
   window.DTPWidgets = API;
+
+  // ÉCHAP = fermer ce qui est ouvert (bibliothèque → gestionnaire [dispo → retour liste] → plein écran).
+  // Uniquement en mode Mon Desk ; les inputs (renommage inline) stoppent déjà la propagation.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !document.body.classList.contains('wdg-mode')) return;
+    var lib = document.getElementById('wdg-lib'), mgr = document.getElementById('wdg-mgr');
+    if (lib && lib.classList.contains('open')) { API.closeLib(); return; }
+    if (mgr && mgr.classList.contains('open')) { if (_mgrMode === 'dispo') API.backManager(); else API.closeManager(); return; }
+    if (_fullscreenIdx != null) API.fullscreen(_fullscreenIdx);
+  });
+
+  // RÉORDONNER SES LAYOUTS au glisser-déposer (poignée ⠿ des lignes du gestionnaire, façon terminal pro).
+  // Délégation sur #wdg-mgr-list (statique) → câblé UNE fois ; l'ordre des onglets de la barre suit.
+  function _wireMgr() {
+    var list = document.getElementById('wdg-mgr-list');
+    if (!list || list._wdgWired) return; list._wdgWired = true;
+    var from = null;
+    var clear = function () { list.querySelectorAll('.wdg-drop-before,.wdg-drop-after').forEach(function (r) { r.classList.remove('wdg-drop-before', 'wdg-drop-after'); }); };
+    list.addEventListener('dragstart', function (e) {
+      var grip = e.target.closest && e.target.closest('.wdg-mgr-grip');
+      var row = grip && grip.closest('.wdg-mgr-row');
+      if (!row) { if (e.preventDefault) e.preventDefault(); return; }
+      from = +row.getAttribute('data-i');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(from)); } catch (_) {}
+    });
+    list.addEventListener('dragover', function (e) {
+      if (from == null) return; e.preventDefault();
+      var row = e.target.closest && e.target.closest('.wdg-mgr-row'); clear();
+      if (!row || +row.getAttribute('data-i') === from) return;
+      var r = row.getBoundingClientRect();
+      row.classList.add((e.clientY - r.top) > r.height / 2 ? 'wdg-drop-after' : 'wdg-drop-before');
+    });
+    list.addEventListener('drop', function (e) {
+      if (from == null) return; e.preventDefault();
+      var row = e.target.closest && e.target.closest('.wdg-mgr-row');
+      if (row) {
+        var to = +row.getAttribute('data-i'), r = row.getBoundingClientRect();
+        var before = (e.clientY - r.top) > r.height / 2 ? to + 1 : to;
+        var c = STATE.cfg;
+        var moved = c.layouts.splice(from, 1)[0];
+        if (from < before) before--;
+        before = Math.max(0, Math.min(c.layouts.length, before));
+        c.layouts.splice(before, 0, moved);
+        save(); renderBar(); renderManager();
+      }
+      from = null; clear();
+    });
+    list.addEventListener('dragend', function () { from = null; clear(); });
+  }
 
   /* ── AMORÇAGE ──────────────────────────────────────────────────────────────────────────────────
      L'ICÔNE n'est créée QUE pour l'admin : tant que le système n'est pas validé, aucun client ne la
