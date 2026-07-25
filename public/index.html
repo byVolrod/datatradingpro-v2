@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260725bbg324" />
+  <link rel="stylesheet" href="/css/style.css?v=20260725bbg325" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -551,11 +551,7 @@
           <div class="wdg-layouts" id="wdg-layouts"></div>
         </div>
         <div class="panel-header-controls">
-          <!-- Densité de la grille (persistée par compte) : Espacés = gap normal / Collés = widgets bord à bord -->
-          <div class="wdg-density" id="wdg-density" title="Espacement entre les widgets">
-            <button class="wdg-btn wdg-dens-b" data-g="loose" onclick="DTPWidgets.setGap('loose')">Espacés</button>
-            <button class="wdg-btn wdg-dens-b" data-g="tight" onclick="DTPWidgets.setGap('tight')">Collés</button>
-          </div>
+          <!-- Barre PROPRE (demande user 25/07) : 2 boutons seulement — la densité vit DANS la bibliothèque -->
           <button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.openLib()">+ Ajouter un widget</button>
           <button class="wdg-btn" onclick="DTPWidgets.openManager()" title="Créer et gérer mes templates">Mes layouts</button>
         </div>
@@ -574,6 +570,21 @@
         <div class="wdg-lib-search-row">
           <input type="text" id="wdg-lib-search" class="wdg-lib-search" placeholder="Rechercher un widget…"
                  autocomplete="off" spellcheck="false" oninput="DTPWidgets.filterLib(this.value)">
+        </div>
+        <!-- Rangée d'outils (organisation façon panneau Widgets d'un terminal pro, identité DTP) :
+             puces de CATÉGORIES à gauche + réglage d'ESPACEMENT du desk à droite (déplacé depuis la barre) -->
+        <div class="wdg-lib-tools">
+          <div class="wdg-lib-chips" id="wdg-lib-chips">
+            <button class="wdg-chip on" data-fam="" onclick="DTPWidgets.filterFam('')">Tous</button>
+            <button class="wdg-chip" data-fam="Analytics" onclick="DTPWidgets.filterFam('Analytics')">Analyse de marché</button>
+            <button class="wdg-chip" data-fam="Fonctions" onclick="DTPWidgets.filterFam('Fonctions')">Données &amp; outils</button>
+            <button class="wdg-chip" data-fam="_tpl" onclick="DTPWidgets.filterFam('_tpl')">Modèles prêts</button>
+          </div>
+          <div class="wdg-density" id="wdg-density" title="Espacement entre les widgets du desk">
+            <span class="wdg-density-lbl">Espacement</span>
+            <button class="wdg-btn wdg-dens-b" data-g="loose" onclick="DTPWidgets.setGap('loose')">Espacés</button>
+            <button class="wdg-btn wdg-dens-b" data-g="tight" onclick="DTPWidgets.setGap('tight')">Collés</button>
+          </div>
         </div>
         <div class="wdg-lib-grid" id="wdg-lib-grid"></div>
       </div>
@@ -814,7 +825,7 @@
 <script defer src="/js/sessionmap.js?v=20260723bbg301"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260725bbg324"></script>
+<script defer src="/js/widgets.js?v=20260725bbg325"></script>
 <script defer src="/js/i18n-dicts.js?v=20260723bbg304"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
 

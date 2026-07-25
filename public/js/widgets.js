@@ -1218,9 +1218,23 @@
     _syncDensity();
     var lay = activeLayout();
     if (!lay || !lay.items.length) {
-      host.innerHTML = '<div class="wdg-blank"><div class="wdg-blank-t">Ton desk est vide</div>'
-        + '<div class="wdg-blank-s">Ajoute tes premiers widgets depuis la bibliothèque.</div>'
-        + '<button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.openLib()">+ Ajouter un widget</button></div>';
+      // ÉCRAN GUIDÉ (desk vide) : 3 chemins clairs pour composer — disposition, bibliothèque, ou modèle en 1 clic.
+      host.innerHTML = '<div class="wdg-blank">'
+        + '<div class="wdg-blank-t">Compose ton desk</div>'
+        + '<div class="wdg-blank-s">Pars d\'une disposition, choisis un modèle prêt, ou ajoute tes widgets un à un.</div>'
+        + '<div class="wdg-blank-actions">'
+        +   '<button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.pickDispo()">Choisir une disposition</button>'
+        +   '<button class="wdg-btn" onclick="DTPWidgets.openLib()">Parcourir la bibliothèque</button>'
+        + '</div>'
+        + '<div class="wdg-blank-sec">Modèles prêts</div>'
+        + '<div class="wdg-blank-tpls">'
+        +   PRESETS.map(function (p, i) {
+              return '<button class="wdg-tpl-card" onclick="DTPWidgets.applyPreset(' + i + ')" title="Composer ce desk ici">'
+                + _thumb(p.items)
+                + '<span class="wdg-tpl-name">' + esc(p.name) + '</span>'
+                + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span></button>';
+            }).join('')
+        + '</div></div>';
       return;
     }
     host.innerHTML = lay.items.map(function (it, idx) {
@@ -1346,6 +1360,7 @@
   // 2 écrans : la LISTE (tes layouts, rien d'autre — les modèles prêts vivent dans la bibliothèque pour ne pas
   // brouiller la création) et le CHOIX DE DISPOSITION (création guidée, mini-schémas façon « Select Layout »).
   var _mgrMode = null;                       // null = liste · 'dispo' = choix de disposition
+  var _dispoTarget = 'new';                  // 'new' = créer un layout · 'current' = remplir le desk VIDE actif (écran guidé)
   function renderManager() {
     var box = document.getElementById('wdg-mgr-list'); var c = STATE.cfg;
     if (!box || !c) return;
@@ -1424,6 +1439,7 @@
     'journal-mini': '<svg ' + _PV + '><g fill="#3a3d44"><rect x="8" y="8" width="42" height="5" rx="2"/><rect x="8" y="21" width="36" height="5" rx="2"/><rect x="8" y="34" width="46" height="5" rx="2"/><rect x="8" y="47" width="32" height="5" rx="2"/></g><g font-family="monospace" font-size="6"><rect x="86" y="6" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="12.5" text-anchor="middle" fill="#22c55e">+1.8R</text><rect x="86" y="19" width="26" height="8" rx="3" fill="#3a1416"/><text x="99" y="25.5" text-anchor="middle" fill="#ef4444">-1.0R</text><rect x="86" y="32" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="38.5" text-anchor="middle" fill="#22c55e">+2.4R</text><rect x="86" y="45" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="51.5" text-anchor="middle" fill="#22c55e">+0.6R</text></g></svg>',
   };
   var _libQ = '';                            // filtre de recherche de la bibliothèque (volatil)
+  var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analytics' · 'Fonctions' · '_tpl' = modèles)
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
@@ -1453,10 +1469,12 @@
         + '<span class="wdg-tpl-name">' + esc(p.name) + '</span>'
         + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span></button>';
     }).join('');
-    var tplHtml = PRESETS.some(pmatch) ? '<div class="wdg-lib-sec">Modèles prêts</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
+    var tplHtml = (PRESETS.some(pmatch) && (_libFam === '' || _libFam === '_tpl'))
+      ? '<div class="wdg-lib-sec">Modèles prêts</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
 
     var FAM_SUB = { Analytics: 'Analyse de marché', Fonctions: 'Données & outils' };
-    var html = FAMS.map(function (fam) {
+    var html = (_libFam === '_tpl' ? [] : FAMS).map(function (fam) {
+      if (_libFam && _libFam !== fam) return '';                              // puce de catégorie active → une seule famille
       var list = CATALOG.filter(function (w) { return (FAM_OF[w.id] || 'Fonctions') === fam && match(w); });
       if (!list.length) return '';
       var cards = list.map(function (w) {
@@ -1468,7 +1486,8 @@
           + (used[w.id] ? '<span class="wdg-lib-used">' + used[w.id] + '×</span>' : '<span class="wdg-lib-plus">+</span>')
           + '</button>';
       }).join('');
-      return '<div class="wdg-lib-sec">' + esc(fam) + '<span class="wdg-lib-sub">' + esc(FAM_SUB[fam] || '') + '</span></div><div class="wdg-lib-row">' + cards + '</div>';
+      return '<div class="wdg-lib-sec">' + esc(fam) + '<span class="wdg-lib-cnt">(' + list.length + ')</span>'
+        + '<span class="wdg-lib-sub">' + esc(FAM_SUB[fam] || '') + '</span></div><div class="wdg-lib-row">' + cards + '</div>';
     }).join('');
     box.innerHTML = (tplHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
   }
@@ -1574,22 +1593,37 @@
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
       if (_pickIdx != null && l.items[_pickIdx] && l.items[_pickIdx].w === 'slot') {
         // Remplit l'EMPLACEMENT ciblé : le widget hérite de la géométrie du slot (celle de la disposition choisie).
+        // Ici on FERME (retour au desk : on voit le widget prendre sa place, puis on clique l'emplacement suivant).
         var s = l.items[_pickIdx];
         l.items[_pickIdx] = { w: wid, gw: s.gw, gh: s.gh };
-      } else {
-        l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) });
+        save(); API.closeLib(); renderGrid();
+        return;
       }
-      save(); API.closeLib(); renderGrid();
+      // AJOUT MULTIPLE (parcours guidé) : la bibliothèque RESTE OUVERTE → on compose plusieurs widgets d'affilée.
+      // Le compteur « N× » de la carte se met à jour ; le desk se re-rend derrière le voile. Fermer = croix/voile.
+      l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) });
+      save(); renderGrid();
+      var g = document.getElementById('wdg-lib-grid'); var st = g ? g.scrollTop : 0;
+      renderLib();
+      if (g) g.scrollTop = st;                                                // ne pas perdre la position de lecture
     },
     pickFor: function (i) { API.openLib(); _pickIdx = i; },   // (après openLib, qui remet _pickIdx à null)
     openLib: function () {
       var d = document.getElementById('wdg-lib'); if (!d) return;
       d.classList.add('open'); _libQ = ''; _pickIdx = null;
       var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
-      renderLib();
+      _syncDensity();                                           // le réglage d'espacement vit ICI (barre épurée)
+      API.filterFam('');                                        // repart sur « Tous » (chips + rendu)
     },
     closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _pickIdx = null; },
     filterLib: function (q) { _libQ = String(q || '').trim(); renderLib(); },
+    filterFam: function (f) {                                   // puces de catégories (Tous · Analyse · Données · Modèles)
+      _libFam = String(f || '');
+      document.querySelectorAll('#wdg-lib-chips .wdg-chip').forEach(function (b) {
+        b.classList.toggle('on', b.getAttribute('data-fam') === _libFam);
+      });
+      renderLib();
+    },
 
     // ── MODÈLES PRÊTS : crée un NOUVEAU layout depuis le preset (jamais d'écrasement) et l'ouvre. ──
     usePreset: function (i) {
@@ -1645,21 +1679,39 @@
     // avec les emplacements du squelette DISPOS[i] (ou vide pour « Libre »).
     newLayout: function () {
       var c = STATE.cfg; if (!c || c.layouts.length >= _LMAX) return;
-      _mgrMode = 'dispo';
+      _dispoTarget = 'new'; _mgrMode = 'dispo';
+      API.openManager();
+    },
+    pickDispo: function () {                            // écran guidé (desk vide) : la disposition remplit CE desk
+      _dispoTarget = 'current'; _mgrMode = 'dispo';
       API.openManager();
     },
     backManager: function () { _mgrMode = null; renderManager(); },
     createLayout: function (di) {
-      var c = STATE.cfg; if (!c || c.layouts.length >= _LMAX) return;
+      var c = STATE.cfg; if (!c) return;
       _delConfirm = null; _mgrMode = null;
-      var id = 'lay-' + uid();
       var dispo = (di == null) ? null : DISPOS[di | 0];
-      var items = (dispo && dispo.items.length)
+      var slots = (dispo && dispo.items.length)
         ? dispo.items.map(function (s) { return { w: 'slot', gw: s.gw, gh: s.gh }; })
         : [];
-      c.layouts.push({ id: id, name: 'Nouveau layout', fav: false, items: items });
+      if (_dispoTarget === 'current') {                 // remplir le desk VIDE actif (pas de nouveau layout)
+        _dispoTarget = 'new';
+        var l = activeLayout();
+        if (!l || l.items.length) { API.closeManager(); return; }
+        l.items = slots;
+        save(); API.closeManager(); renderGrid();
+        return;
+      }
+      if (c.layouts.length >= _LMAX) return;
+      var id = 'lay-' + uid();
+      c.layouts.push({ id: id, name: 'Nouveau layout', fav: false, items: slots });
       c.active = id; save(); API.closeManager(); renderBar(); renderGrid();
       setTimeout(function () { editTab(id); }, 60);   // le NOM passe direct en édition (demande user : renommer l'onglet à la création)
+    },
+    applyPreset: function (i) {                         // écran guidé : composer un modèle prêt DANS ce desk vide
+      var l = activeLayout(), p = PRESETS[i]; if (!l || !p || l.items.length) return;
+      l.items = JSON.parse(JSON.stringify(p.items));
+      save(); renderGrid();
     },
     renameLayout: function (id, name) {
       var l = layoutById(id); if (!l) return;
@@ -1709,7 +1761,7 @@
         API.openManager();   // rafraîchit la date de sauvegarde (désormais = l'ancien état courant, ré-échangeable)
       }).catch(function () {});
     },
-    closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); _mgrMode = null; },
+    closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); _mgrMode = null; _dispoTarget = 'new'; },
     editTab: editTab,                                     // double-clic sur un onglet → renommage inline
 
     // Densité de la grille : 'loose' = espacés (défaut) / 'tight' = collés. Persistée dans le cfg KV (par compte).
