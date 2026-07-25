@@ -249,43 +249,30 @@
     {
       id: 'radar-biais', name: 'Radar de Biais', cat: 'Macro', h: 320,
       desc: 'Le biais net de chaque devise, du plus haussier au plus baissier.',
-      // AUTONOME : lit /api/smart-bias (auth-gaté, cookie desk) et rend une synthèse compacte HTML — biais net
-      // (conclusion, la source de vérité du desk) coloré selon la charte sémantique DTP + les 4 piliers en FR.
-      // Aucun état partagé, aucun root amCharts → cleanup null.
+      // IDENTIQUE AU DESK : réutilise le VRAI builder de l'onglet BIAIS (_sbRenderMacroTable, global app.js) +
+      // la même donnée (/api/smart-bias : currencies + macroTable) → tableau Radar de Biais RIGOUREUSEMENT identique
+      // (mêmes colonnes Devise/Politique monétaire/Inflation/Croissance/Emploi/Driver/Biais, mêmes tags sémantiques).
+      // Plus AUCUNE version simplifiée maison (règle établie). Aucun état partagé, aucun root amCharts → cleanup null.
       mount: function (host) {
         host.innerHTML = '<div class="wdg-load">Chargement du biais…</div>';
-        var COL = {
-          'Very Bullish': 'vb', 'Bullish': 'b', 'Weak Bullish': 'wb', 'Neutral': 'n',
-          'Weak Bearish': 'wr', 'Bearish': 'r', 'Very Bearish': 'vr',
-        };
-        var LBL = {
-          'Very Bullish': 'Très haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Faible hausse',
-          'Neutral': 'Neutre', 'Weak Bearish': 'Faible baisse', 'Bearish': 'Baissier', 'Very Bearish': 'Très baissier',
-        };
-        var RANK = { 'Very Bullish': 3, 'Bullish': 2, 'Weak Bullish': 1, 'Neutral': 0, 'Weak Bearish': -1, 'Bearish': -2, 'Very Bearish': -3 };
-        var LVL = { High: 'Élevée', Moderate: 'Modérée', Low: 'Basse' };
-        var GE  = { Strong: 'Solide', Weak: 'Faible', Neutral: 'Neutre' };
-        var DIR = { Hike: 'Hausse', Cut: 'Baisse', Hold: 'Maintien' };
-        var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
         fetch('/api/smart-bias').then(function (r) { return r.json(); }).then(function (d) {
           if (!host.isConnected) return;
-          var curr = d && d.currencies, concl = (d && d.conclusion) || {}, mt = (d && d.macroTable) || {};
-          if (!curr || !curr.length) return fallback(host, 'Biais indisponible.');
-          var ordered = curr.slice().sort(function (a, b) { return (RANK[concl[b]] || 0) - (RANK[concl[a]] || 0); });
-          var rows = ordered.map(function (c) {
-            var bias = concl[c] || 'Neutral';
-            var m = mt[c] || {};
-            var sub = [];
-            if (m.monetary && m.monetary.stance) sub.push('Monét. ' + esc(m.monetary.stance));
-            if (m.inflation && m.inflation.level) sub.push('Infl. ' + (LVL[m.inflation.level] || m.inflation.level));
-            if (m.growth) sub.push('Crois. ' + (GE[m.growth] || m.growth));
-            if (m.employment) sub.push('Empl. ' + (GE[m.employment] || m.employment));
-            return '<div class="wdg-bias-row">'
-              + '<span class="wdg-bias-cur">' + flag(c) + '<b>' + esc(c) + '</b></span>'
-              + '<span class="wdg-bias-tag wdg-bias-' + (COL[bias] || 'n') + '">' + esc(LBL[bias] || bias) + '</span>'
-              + '<span class="wdg-bias-sub">' + sub.join(' · ') + '</span></div>';
-          }).join('');
-          host.innerHTML = '<div class="wdg-bias custom-scrollbar">' + rows + '</div>';
+          var cur = d && d.currencies;
+          if (!cur || !cur.length || typeof _sbRenderMacroTable !== 'function') return fallback(host, 'Biais indisponible.');
+          // Source de vérité serveur (macroTable) ; repli dérivé des piliers si cache ancien — EXACTEMENT comme le desk.
+          var macro = (d.macroTable && Object.keys(d.macroTable).length) ? d.macroTable
+                    : (typeof _sbMacroFromRows === 'function' ? _sbMacroFromRows(d) : {});
+          // Le panneau de détail (clic sur une ligne) n'a pas sa place dans une carte → on retire le onclick baké
+          // et un clic sur une devise ouvre l'onglet BIAIS complet (avec son détail).
+          var tbl = _sbRenderMacroTable(cur, macro).replace(/ onclick="_sbOpenDetail\([^"]*\)"/g, '');
+          host.innerHTML = '<div class="wdg-biaswrap macro-wrap custom-scrollbar">' + tbl + '</div>';
+          var wrap = host.querySelector('.macro-wrap');
+          if (wrap) wrap.addEventListener('click', function (e) {
+            var row = e.target.closest('.mt-row'); if (!row) return;
+            var c = row.getAttribute('data-cur');
+            if (typeof activateView === 'function') activateView('bias');
+            if (typeof _sbOpenDetail === 'function') setTimeout(function () { try { _sbOpenDetail(c); } catch (err) {} }, 140);
+          });
         }).catch(function () { fallback(host, 'Biais indisponible.'); });
         return null;
       },

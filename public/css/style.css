@@ -11370,19 +11370,10 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-jr-ph { font-style: normal; color: #5b5d66; }
 .wdg-jr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 100%; font-size: 11.5px; color: #8b93a1; }
 
-/* ── Widget Radar de Biais : biais net par devise (couleurs sémantiques DTP), du + haussier au + baissier ── */
-.wdg-bias { height: 100%; overflow-y: auto; padding: 2px 0; }
-.wdg-bias-row { display: grid; grid-template-columns: 62px minmax(96px, 1fr) auto; align-items: center; gap: 10px; padding: 7px 12px; border-bottom: 1px solid #121215; }
-.wdg-bias-row:last-child { border-bottom: none; }
-.wdg-bias-cur { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #e6e8ec; }
-.wdg-bias-cur b { font-weight: 700; }
-.wdg-bias-cur .cal-flag-img { width: 15px; height: 15px; border-radius: 50%; object-fit: cover; display: block; }
-.wdg-bias-cur .cal-flag-wrap { display: inline-flex; flex: 0 0 auto; }
-.wdg-bias-tag { justify-self: start; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 2px 9px; border-radius: 3px; white-space: nowrap; }
-.wdg-bias-vb { background: #047857; color: #eafff4; } .wdg-bias-b { background: #059669; color: #eafff4; }
-.wdg-bias-wb { background: rgba(5,150,105,.20); color: #4ade80; } .wdg-bias-n { background: rgba(107,114,128,.22); color: #c2c6d6; }
-.wdg-bias-wr { background: rgba(220,38,38,.20); color: #f87171; } .wdg-bias-r { background: #dc2626; color: #fff; } .wdg-bias-vr { background: #991b1b; color: #fff; }
-.wdg-bias-sub { grid-column: 2 / -1; font-size: 10px; color: #7e8590; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ── Widget Radar de Biais : réutilise le VRAI tableau du desk (.macro-table dans .macro-wrap, builder
+   _sbRenderMacroTable) → rendu IDENTIQUE à l'onglet BIAIS. Ici on ne fait que le laisser remplir la carte
+   et défiler (les styles de la table/tags viennent des classes desk globales .macro-* / .mt-*). ── */
+.wdg-biaswrap { height: 100%; width: 100%; overflow: auto; }
 
 /* ── Widget Taux directeurs : taux actuel + scénario de base de la prochaine réunion, par banque centrale ── */
 .wdg-taux { height: 100%; overflow-y: auto; }
