@@ -11155,7 +11155,7 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 
 /* ── Barre Mon Desk : contrôles COMPACTS façon desk (demande user « les 2 boutons sont gros » —
      alignés sur les contrôles du desk type .sbs-cdd : 11px, fonds feutrés, or en accent, pas de pilule massive) ── */
-#view-widgets .panel-header { padding: 0 12px; gap: 9px; height: var(--navbar-h, 40px); }   /* barre = MÊME hauteur que la navbar → onglets de layout identiques à la nav */
+#view-widgets .panel-header { padding: 0 12px 0 0; gap: 9px; height: var(--navbar-h, 40px); }   /* barre = MÊME hauteur que la navbar ET padding-left 0 comme .navbar → les onglets démarrent au MÊME x que › ACTUS (les items portent leur 14px) */
 #view-widgets .panel-header-left { align-self: stretch; }   /* les onglets remplissent la hauteur → soulignement or FLUSH en bas (comme .nav-item) */
 .wdg-btn {
   display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 11px; font-size: 11px; font-weight: 600;
@@ -11167,15 +11167,22 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 .wdg-btn:active { transform: translateY(1px); }
 .wdg-btn--gold { color: #e3b23a; background: transparent; border-color: rgba(227,178,58,.45); }
 .wdg-btn--gold:hover { background: rgba(227,178,58,.12); border-color: #e3b23a; box-shadow: none; }
-/* Contrôle de DENSITÉ (segmenté « Espacés | Collés ») dans la barre Mon Desk */
-.wdg-density { display: inline-flex; }
-.wdg-density .wdg-dens-b { border-radius: 0; }
-.wdg-density .wdg-dens-b:first-child { border-radius: 4px 0 0 4px; }
-.wdg-density .wdg-dens-b:last-child { border-radius: 0 4px 4px 0; border-left: none; }
-.wdg-density .wdg-dens-b.wdg-btn--on {
-  color: #e3b23a; border-color: rgba(227,178,58,.5); background: rgba(227,178,58,.1); position: relative; z-index: 1;
+/* Contrôle de DENSITÉ : GROUPE pilule propre — libellé intégré + 2 segments (l'actif en or plein).
+   (le libellé est le 1er enfant → ne jamais styler les segments via :first-child) */
+.wdg-density {
+  display: inline-flex; align-items: center; gap: 2px;
+  border: 1px solid var(--hud-line, #232429); border-radius: 6px; background: #101014;
+  padding: 3px 3px 3px 10px;
 }
-@media (max-width: 560px) { .wdg-density .wdg-dens-b { padding: 0 6px; font-size: 10px; } }
+.wdg-density-lbl { font-size: 9.5px; color: #7e8590; letter-spacing: .06em; text-transform: uppercase; margin-right: 7px; white-space: nowrap; }
+.wdg-density .wdg-dens-b {
+  border: none; background: transparent; height: 22px; padding: 0 10px;
+  border-radius: 4px; box-shadow: none; color: #9aa0aa;
+}
+.wdg-density .wdg-dens-b:hover { color: #e6e8ec; background: #1a1b20; transform: none; }
+.wdg-density .wdg-dens-b.wdg-btn--on { color: #0c0c0e; background: #e3b23a; font-weight: 700; }
+.wdg-density .wdg-dens-b.wdg-btn--on:hover { background: #eec253; color: #0c0c0e; }
+@media (max-width: 560px) { .wdg-density .wdg-dens-b { padding: 0 7px; font-size: 10px; } .wdg-density-lbl { display: none; } }
 .wdg-lay {
   display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11.5px; font-weight: 600;
   color: #9aa0aa; background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer;
@@ -11584,8 +11591,8 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-dispo-name { font-size: 10.5px; color: #c8cbd2; text-align: center; }
 .wdg-dispo-hint { margin-top: 12px; font-size: 10.5px; color: #7e8590; line-height: 1.5; }
 
-/* ── BIBLIOTHÈQUE : cartes avec APERÇU visuel (vignette du rendu du widget) ── */
-.wdg-lib-card--prev { flex-direction: column; align-items: stretch; gap: 8px; position: relative; }
+/* ── BIBLIOTHÈQUE : cartes avec APERÇU visuel (vignette à gauche, nom + description à droite) ── */
+.wdg-lib-card--prev { position: relative; align-items: center; gap: 10px; }
 .wdg-lib-prev {
   display: block; height: 58px; background: #0b0b0e; border: 1px solid #17171b; border-radius: 4px;
   overflow: hidden; pointer-events: none;
@@ -11599,8 +11606,12 @@ body.wdg-mode #topbar-nav { display: none; }
   padding: 0 14px 10px; border-bottom: 1px solid var(--hud-line, #1c1c20);
 }
 .wdg-lib-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.wdg-density-lbl { font-size: 10px; color: #7e8590; letter-spacing: .04em; text-transform: uppercase; margin-right: 6px; }
+.wdg-lib-chips .wdg-chip { padding: 4px 11px; font-size: 10.5px; }
 .wdg-lib-cnt { font-size: 10px; color: #5b5d66; margin-left: 5px; font-weight: 400; }
+@media (max-width: 640px) {
+  .wdg-lib-tools { flex-direction: column; align-items: stretch; gap: 8px; }
+  .wdg-lib-tools .wdg-density { align-self: flex-start; }
+}
 
 /* ── Écran guidé du desk VIDE : « Compose ton desk » (3 chemins : disposition · bibliothèque · modèles) ── */
 .wdg-blank-actions { display: flex; gap: 8px; margin-top: 4px; }
@@ -11611,6 +11622,44 @@ body.wdg-mode #topbar-nav { display: none; }
   display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 148px)); gap: 10px;
   justify-content: center; margin-top: 10px; width: min(680px, 92%);
 }
+
+/* ── ASTUCE GESTES (1re visite, fermable — persistée par compte) ── */
+.wdg-tip {
+  grid-column: 1 / -1; grid-row: span 1;
+  display: flex; align-items: center; gap: 9px; padding: 0 12px;
+  background: rgba(227,178,58,.06); border: 1px solid rgba(227,178,58,.28); border-radius: var(--radius);
+  font-size: 11px; color: #c9b078; line-height: 1.35; overflow: hidden;
+}
+.wdg-tip-ico { flex: 0 0 auto; font-size: 12px; }
+.wdg-tip-txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdg-tip-txt b { color: #e3b23a; font-weight: 600; }
+.wdg-tip-x { flex: 0 0 auto; background: none; border: none; color: #8a7440; cursor: pointer; font-size: 14px; padding: 2px 4px; }
+.wdg-tip-x:hover { color: #e3b23a; }
+@media (max-width: 900px) { .wdg-tip { grid-row: span 2; } .wdg-tip-txt { white-space: normal; } }
+
+/* ── Feedback « ✓ Ajouté » sur la carte cliquée de la bibliothèque ── */
+.wdg-lib-card--added { border-color: rgba(34,197,94,.65) !important; }
+.wdg-lib-card--added::after {
+  content: '✓ Ajouté'; position: absolute; top: 8px; left: 8px; z-index: 2;
+  font-size: 9.5px; font-weight: 700; color: #22c55e; background: rgba(19,29,23,.95);
+  border: 1px solid rgba(34,197,94,.4); padding: 2px 8px; border-radius: 3px;
+  animation: wdgCardIn .18s ease both;
+}
+
+/* ── Réordonner les layouts (poignée ⠿ du gestionnaire) ── */
+.wdg-mgr-grip {
+  flex: 0 0 auto; background: none; border: none; color: #4c4f57; cursor: grab;
+  font-size: 13px; padding: 2px 2px; line-height: 1; touch-action: none;
+}
+.wdg-mgr-grip:hover { color: #e3b23a; }
+.wdg-mgr-grip:active { cursor: grabbing; }
+.wdg-mgr-row.wdg-drop-before { box-shadow: 0 -2px 0 0 #e3b23a; }
+.wdg-mgr-row.wdg-drop-after  { box-shadow: 0 2px 0 0 #e3b23a; }
+
+/* Aperçu de carte : largeur FIXE (rangée homogène) + transition douce de densité de la grille */
+.wdg-lib-card--prev .wdg-lib-prev { flex: 0 0 112px; height: 54px; }
+.wdg-grid { transition: gap .25s ease, padding .25s ease; }
+@media (max-width: 560px) { .wdg-resize-e { width: 18px; } }
 
 /* Mobile : une seule colonne (le demi-largeur n'a plus de sens sous 900px) */
 @media (max-width: 900px) {
