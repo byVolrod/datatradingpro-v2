@@ -772,7 +772,13 @@ function _wdgClean(body) {
         items,
       };
     });
-  return { layouts, active: (typeof b.active === 'string' && seen.has(b.active)) ? b.active : (layouts[0] ? layouts[0].id : null) };
+  return {
+    layouts,
+    active: (typeof b.active === 'string' && seen.has(b.active)) ? b.active : (layouts[0] ? layouts[0].id : null),
+    // Préférence GLOBALE « densité » (widgets collés/espacés). ⚠️ Tout champ absent de ce return est
+    // SILENCIEUSEMENT détruit au save/reload (même piège que gw/gh, cf. commentaire plus haut).
+    gap: (b.gap === 'tight' ? 'tight' : 'loose'),
+  };
 }
 app.get('/api/widgets', async (req, res) => {
   if (!req.session?.userId) return res.json({ cfg: null });
