@@ -1271,16 +1271,21 @@
       var cs = getComputedStyle(host);
       var gapC = parseFloat(cs.columnGap), gapR = parseFloat(cs.rowGap);
       if (!isFinite(gapC)) gapC = 10; if (!isFinite(gapR)) gapR = 10;
+      // Hauteur de ligne MESURÉE sur la carte elle-même : depuis que les lignes s'étirent pour remplir
+      // l'écran (grid-auto-rows: minmax(26px,1fr)), elle n'est plus égale à ROW_PX — un pas figé à 26px
+      // ferait grandir le widget beaucoup trop vite. Repli sur ROW_PX si la mesure est aberrante.
+      var rowUnit = (card.offsetHeight + gapR) / Math.max(1, it.gh);
+      if (!isFinite(rowUnit) || rowUnit < 4) rowUnit = ROW_PX + gapR;
       rz = { it: it, card: card, x0: e.clientX, y0: e.clientY, gw0: it.gw, gh0: it.gh, gw: it.gw, gh: it.gh,
              mode: (h.classList.contains('wdg-resize-e') ? 'e' : 'se'),          // 'e' = bord droit → LARGEUR seule
-             gapR: gapR, colUnit: (card.offsetWidth + gapC) / Math.max(1, it.gw) };
+             gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, it.gw) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
     });
     host.addEventListener('pointermove', function (e) {
       if (!rz) return;
       rz.gw = _clamp(rz.gw0 + Math.round((e.clientX - rz.x0) / rz.colUnit), 1, GRID_COLS);
-      if (rz.mode !== 'e') rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / (ROW_PX + rz.gapR)), 3, 60);
+      if (rz.mode !== 'e') rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / rz.rowUnit), 3, 60);
       rz.card.style.setProperty('--gw', rz.gw); rz.card.style.setProperty('--gh', rz.gh);   // aperçu live (snap)
     });
     var endResize = function (e) {
@@ -1325,16 +1330,11 @@
         + '</div></div>';
       return;
     }
-    // ASTUCE GESTES (une fois par compte, fermable) : bandeau AU-DESSUS de la grille (jamais un item de grille :
-    // avec des pistes implicites — gw > colonnes responsive — « 1/-1 » ne couvrirait pas toute la largeur).
-    var wantTip = ((STATE.cfg && STATE.cfg.tipSeen) !== 1);
+    // BANDEAU D'ASTUCE RETIRÉ (demande user 26/07 « enlève cette bande ») : il mangeait une bande de
+    // hauteur en permanence en haut du desk. Les gestes restent découvrables par les poignées elles-mêmes
+    // (bord droit, coin, ⠿) et par leurs infobulles. On nettoie un bandeau resté en place d'un rendu passé.
     var tipHost = document.getElementById('wdg-tipbar');
-    if (wantTip) {
-      if (!tipHost) { tipHost = document.createElement('div'); tipHost.id = 'wdg-tipbar'; tipHost.className = 'wdg-tipbar'; host.parentNode.insertBefore(tipHost, host); }
-      tipHost.innerHTML = '<div class="wdg-tip"><span class="wdg-tip-ico">💡</span>'
-        + '<span class="wdg-tip-txt"><b>Astuce :</b> tire le <b>bord droit</b> d\'un widget pour l\'élargir, le <b>coin</b> pour largeur + hauteur, la poignée <b>⠿</b> pour le déplacer.</span>'
-        + '<button class="wdg-tip-x" title="Compris, ne plus afficher" onclick="DTPWidgets.dismissTip()">×</button></div>';
-    } else if (tipHost) { tipHost.remove(); }
+    if (tipHost) tipHost.remove();
     host.innerHTML = lay.items.map(function (it, idx) {
       // EMPLACEMENT VIDE (création guidée par disposition) : carte pointillée « + Choisir un widget ».
       // Le choix dans la bibliothèque REMPLACE l'emplacement en gardant sa géométrie (gw/gh de la disposition).

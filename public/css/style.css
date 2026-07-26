@@ -11039,10 +11039,15 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 /* ── VRAIE GRILLE 12 COLONNES (refonte) : chaque widget occupe --gw colonnes (1→12 = 100 %) × --gh lignes.
    Densité automatique (grid-auto-flow dense) → AUCUN vide à droite, toute la largeur du Desk est utilisée.
    Responsive : 12 → 8 → 4 → 1 colonnes ; les spans se clampent tout seuls à la largeur dispo. */
+/* HAUTEUR : les lignes s'ÉTIRENT pour remplir l'écran (demande user 26/07 « les widgets doivent couvrir
+   le vide en bas »). `minmax(26px, 1fr)` = 26px est un PLANCHER, pas une taille : quand le desk tient dans
+   la fenêtre, l'espace libre est réparti entre les lignes (les proportions entre widgets sont conservées) ;
+   quand il déborde, chaque ligne retombe à 26px et la grille scrolle comme avant.
+   ⚠️ La hauteur de ligne n'est donc plus constante → le snap du redimensionnement la MESURE (voir widgets.js). */
 .wdg-grid {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px;
-  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: 26px;
-  grid-auto-flow: row dense; gap: var(--wdg-gap, 10px); align-content: start; position: relative;
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: minmax(26px, 1fr);
+  grid-auto-flow: row dense; gap: var(--wdg-gap, 10px); align-content: stretch; position: relative;
 }
 /* Densité « Collés » (choix utilisateur, persisté) : widgets bord à bord — 1px de respiration, les bordures
    des cartes font la séparation. Le JS lit le gap RÉEL (getComputedStyle) → le snap du resize suit. */
