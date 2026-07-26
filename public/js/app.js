@@ -4241,12 +4241,15 @@ function _sbRenderMacroTable(cur, macro) {
 //    marché. Source = macroTable[c].detail (serveur v36) ; repli sur les tags macro si cache ancien. Panneau SOUS
 //    le tableau (choix user), redimensionnable via le splitter horizontal. 0 invention.
 const _MDET_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-function _sbOpenDetail(curr) {
-  const host = document.getElementById('bias-content');
-  const wrap = document.getElementById('sbm-summary');
-  const zone = document.getElementById('sbm-matrix-zone');
-  const d = _biasView || _biasData;
-  if (!host || !wrap || !d) return;
+function _sbOpenDetail(curr, opts) {
+  // Mode WIDGET (Mon Desk) : opts = { wrap, data } → rend le MÊME détail dans le conteneur fourni, sans
+  // toucher au DOM de l'onglet BIAIS (host/zone/scanner). Appel desk (sans opts) : strictement inchangé.
+  const ext = (opts && opts.wrap) ? opts : null;
+  const host = ext ? null : document.getElementById('bias-content');
+  const wrap = ext ? ext.wrap : document.getElementById('sbm-summary');
+  const zone = ext ? null : document.getElementById('sbm-matrix-zone');
+  const d = (ext && ext.data) || _biasView || _biasData;
+  if (!wrap || !d || (!ext && !host)) return;
   _sbActiveCur = curr;
   document.querySelectorAll('.mt-row').forEach(r => r.classList.toggle('mt-row--active', r.getAttribute('data-cur') === curr));
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -4349,10 +4352,10 @@ function _sbOpenDetail(curr) {
       </div>
       <div class="mdet-grid">${cards}</div>
     </div>`;
-  host.classList.add('has-detail');
+  if (host) host.classList.add('has-detail');
   if (zone) { zone.classList.remove('sbm-matrix-zone--full'); zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, Math.round(host.clientHeight * 0.46))) + 'px'; }
-  _sbRenderHeadDd(curr);   // synchronise le dropdown « Scanner » de l'en-tête sur la devise active
-  requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+  if (!ext) _sbRenderHeadDd(curr);   // synchronise le dropdown « Scanner » de l'en-tête sur la devise active
+  if (!ext) requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
 window._sbOpenDetail = _sbOpenDetail;
 function _sbCloseDetail() {

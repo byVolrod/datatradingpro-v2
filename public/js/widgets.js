@@ -262,16 +262,14 @@
           // Source de vérité serveur (macroTable) ; repli dérivé des piliers si cache ancien — EXACTEMENT comme le desk.
           var macro = (d.macroTable && Object.keys(d.macroTable).length) ? d.macroTable
                     : (typeof _sbMacroFromRows === 'function' ? _sbMacroFromRows(d) : {});
-          // Le panneau de détail (clic sur une ligne) n'a pas sa place dans une carte → on retire le onclick baké
-          // et un clic sur une devise ouvre l'onglet BIAIS complet (avec son détail).
+          // Clic sur une devise = le VRAI détail macro de CETTE devise, en OVERLAY dans Mon Desk (demande user
+          // 26/07 : « ça ne doit pas me rediriger vers l'onglet biais »). On retire le onclick baké du desk.
           var tbl = _sbRenderMacroTable(cur, macro).replace(/ onclick="_sbOpenDetail\([^"]*\)"/g, '');
           host.innerHTML = '<div class="wdg-biaswrap macro-wrap custom-scrollbar">' + tbl + '</div>';
           var wrap = host.querySelector('.macro-wrap');
           if (wrap) wrap.addEventListener('click', function (e) {
             var row = e.target.closest('.mt-row'); if (!row) return;
-            var c = row.getAttribute('data-cur');
-            if (typeof activateView === 'function') activateView('bias');
-            if (typeof _sbOpenDetail === 'function') setTimeout(function () { try { _sbOpenDetail(c); } catch (err) {} }, 140);
+            _wdgBiasDetail(row.getAttribute('data-cur'), d);
           });
         }).catch(function () { fallback(host, 'Biais indisponible.'); });
         return null;
@@ -1094,15 +1092,10 @@
   }
 
   /* ── PERSISTANCE PAR COMPTE ── */
-  // 'mon-desk' = le DESK PAR DÉFAUT, PROTÉGÉ (demande user 23/07) : toujours présent (recréé s'il a été
-  // supprimé par une ancienne version) et NON SUPPRIMABLE (garde dans deleteLayout + cadenas au gestionnaire).
-  var PROTECTED_ID = 'mon-desk';
+  // Plus AUCUN layout protégé (demande user 26/07 : « pouvoir supprimer la Vue générale pour partir de 0 ») —
+  // la seule garantie est « jamais 0 layout » : supprimer le dernier crée un desk VIDE (écran guidé).
   function ensureDefaultLayout(c) {
     if (!c || !Array.isArray(c.layouts)) return c;
-    if (!c.layouts.some(function (l) { return l && l.id === PROTECTED_ID; })) {
-      c.layouts.unshift(JSON.parse(JSON.stringify(defaultCfg().layouts[0])));
-      c.layouts[0].fav = false;                       // ne vole jamais l'étoile d'un template choisi par le user
-    }
     if (c.gap !== 'tight' && c.gap !== 'loose') c.gap = 'loose';   // migration : cfg antérieurs sans densité
     if (c.tipSeen !== 1) c.tipSeen = 0;                            // migration : astuce gestes
     return c;
@@ -1392,11 +1385,9 @@
     }
     box.innerHTML = c.layouts.map(function (l, li) {
       var active = l.id === c.active;
-      var del = (l.id === PROTECTED_ID)
-        ? '<span class="wdg-mgr-lock" title="Desk par défaut — non supprimable">' + ICO.lock + '</span>'
-        : (l.id === _delConfirm)
-          ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
-          : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
+      var del = (l.id === _delConfirm)
+        ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
+        : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
       return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '" data-i="' + li + '">'
         + '<button class="wdg-mgr-grip" draggable="true" title="Glisser pour réordonner">⠿</button>'
         + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
@@ -1699,6 +1690,7 @@
     switchLayout: function (id) {
       var c = STATE.cfg; if (!c || !layoutById(id)) return;
       _delConfirm = null; c.active = id; save(); renderBar(); renderManager(); renderGrid();
+      API.closeManager();   // « Ouvrir » depuis le gestionnaire → on ATTERRIT sur le desk choisi (vide → écran guidé widgets)
     },
     // Création GUIDÉE : « + » ouvre le CHOIX DE DISPOSITION (mini-schémas) ; createLayout(i) crée le layout
     // avec les emplacements du squelette DISPOS[i] (ou vide pour « Libre »).
@@ -1753,14 +1745,15 @@
       l.fav = !was;
       save(); renderBar(); renderManager();
     },
-    askDelete: function (id) { if (id === PROTECTED_ID) return; _delConfirm = id; renderManager(); },   // 1er clic : confirmation inline (jamais pour le desk par défaut)
+    askDelete: function (id) { _delConfirm = id; renderManager(); },   // 1er clic : confirmation inline (jamais de dialog natif)
     deleteLayout: function (id) {
       var c = STATE.cfg; if (!c) return;
       _delConfirm = null;
-      if (id === PROTECTED_ID) return;                                       // desk par défaut = NON supprimable
-      if (c.layouts.length <= 1) { API.reset(); API.openManager(); return; } // jamais 0 layout → retour au défaut
       c.layouts = c.layouts.filter(function (l) { return l.id !== id; });
-      if (c.active === id) c.active = c.layouts[0].id;
+      if (!c.layouts.length) {                                             // « partir de 0 » : plus aucun layout → desk VIDE guidé
+        c.layouts.push({ id: 'lay-' + uid(), name: 'Mon desk', fav: false, items: [] });
+      }
+      if (c.active === id || !layoutById(c.active)) c.active = c.layouts[0].id;
       save(); renderBar(); renderManager(); renderGrid();
     },
     openManager: function () {
@@ -1805,10 +1798,35 @@
   };
   window.DTPWidgets = API;
 
-  // ÉCHAP = fermer ce qui est ouvert (bibliothèque → gestionnaire [dispo → retour liste] → plein écran).
+  // ── DÉTAIL MACRO d'une devise (widget Radar de Biais) : le VRAI panneau du desk (_sbOpenDetail mode widget),
+  //    rendu dans un overlay Mon Desk (mêmes classes .wdg-lib → backdrop flouté + boîte, identité desk). ──
+  function _wdgBiasDetail(curr, data) {
+    if (!curr || typeof _sbOpenDetail !== 'function') return;
+    var ov = document.getElementById('wdg-mdet');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'wdg-mdet'; ov.className = 'wdg-lib';
+      ov.innerHTML = '<div class="wdg-lib-backdrop"></div><div class="wdg-lib-box wdg-mdet-box custom-scrollbar"></div>';
+      var vw = document.getElementById('view-widgets'); (vw || document.body).appendChild(ov);
+      ov.querySelector('.wdg-lib-backdrop').addEventListener('click', _wdgBiasDetailClose);
+    }
+    var box = ov.querySelector('.wdg-mdet-box');
+    try { _sbOpenDetail(curr, { wrap: box, data: data }); } catch (e) { return; }
+    var x = box.querySelector('.mdet-close');
+    if (x) { x.removeAttribute('onclick'); x.onclick = _wdgBiasDetailClose; }   // la croix ferme l'OVERLAY (pas le détail du desk)
+    ov.classList.add('open');
+  }
+  function _wdgBiasDetailClose() {
+    var ov = document.getElementById('wdg-mdet'); if (ov) ov.classList.remove('open');
+    document.querySelectorAll('#view-widgets .mt-row--active').forEach(function (r) { r.classList.remove('mt-row--active'); });
+  }
+
+  // ÉCHAP = fermer ce qui est ouvert (détail devise → bibliothèque → gestionnaire [dispo → retour liste] → plein écran).
   // Uniquement en mode Mon Desk ; les inputs (renommage inline) stoppent déjà la propagation.
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape' || !document.body.classList.contains('wdg-mode')) return;
+    var md = document.getElementById('wdg-mdet');
+    if (md && md.classList.contains('open')) { _wdgBiasDetailClose(); return; }
     var lib = document.getElementById('wdg-lib'), mgr = document.getElementById('wdg-mgr');
     if (lib && lib.classList.contains('open')) { API.closeLib(); return; }
     if (mgr && mgr.classList.contains('open')) { if (_mgrMode === 'dispo') API.backManager(); else API.closeManager(); return; }

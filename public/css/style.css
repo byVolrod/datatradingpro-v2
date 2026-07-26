@@ -11599,6 +11599,10 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-lib-prev svg { width: 100%; height: 100%; display: block; }
 .wdg-lib-card--prev .wdg-lib-plus, .wdg-lib-card--prev .wdg-lib-used { position: absolute; top: 8px; right: 8px; }
 
+/* ── Overlay DÉTAIL MACRO d'une devise (widget Radar de Biais) : le vrai .mdet-panel du desk dans une boîte large ── */
+.wdg-mdet-box { width: min(980px, 96%); max-height: 88%; overflow-y: auto; padding: 0; }
+.wdg-mdet-box .mdet-panel { padding: 12px 14px; }
+
 /* ── Panneau UNIFIÉ « Personnaliser » : onglets internes Widgets | Layouts (grammaire nav du desk :
    chevron ›, capitales, actif blanc/gras + soulignement OR flush sur la bordure de l'en-tête) ── */
 .wdg-lib-head { padding: 0 14px; min-height: 42px; gap: 12px; }
