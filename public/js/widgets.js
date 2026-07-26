@@ -1129,11 +1129,14 @@
       tipSeen: 0,                                      // astuce gestes (bord droit / coin / ⠿) pas encore fermée
       // Le nom du layout ne doit PAS reprendre celui du panneau : l'en-tête affichait
       // « Mon Desk · Mon Desk · BÊTA » (constaté au banc d'essai).
+      // DÉFAUT = MIROIR DU DESK CLASSIQUE (demande user 26/07, capture ACTUS) : fil d'actualité à gauche,
+      // horloge mondiale en haut à droite, DEUX Force des Devises côte à côte dessous (TD + TW au choix).
       layouts: [{
         id: 'mon-desk', name: 'Vue générale', fav: true, items: [
-          { w: 'force-devises', gw: 8, gh: 12 },
-          { w: 'calendrier-jour', gw: 4, gh: 12 },
-          { w: 'fil-news', gw: 12, gh: 11 },
+          { w: 'fil-news', gw: 6, gh: 26 },
+          { w: 'horloge', gw: 6, gh: 8 },
+          { w: 'force-devises', gw: 3, gh: 18 },
+          { w: 'force-devises', gw: 3, gh: 18 },
         ],
       }],
     };
@@ -1152,6 +1155,8 @@
     }
     if (c.gap !== 'tight' && c.gap !== 'loose') c.gap = 'loose';   // migration : cfg antérieurs sans densité
     if (c.tipSeen !== 1) c.tipSeen = 0;                            // migration : astuce gestes
+    c.layouts.forEach(function (l) { if (l) l.hidden = !!l.hidden; });          // migration : état masqué (fermé)
+    if (c.layouts.length && c.layouts.every(function (l) { return l.hidden; })) c.layouts[0].hidden = false;   // jamais 0 onglet visible
     return c;
   }
   function load() {
@@ -1374,7 +1379,7 @@
     var el = document.getElementById('wdg-layouts'); var c = STATE.cfg;
     if (!el) return;
     if (!c || !c.layouts.length) { el.innerHTML = ''; return; }
-    var tabs = c.layouts.map(function (l) {
+    var tabs = c.layouts.filter(function (l) { return !l.hidden; }).map(function (l) {   // les layouts MASQUÉS (fermés) n'ont pas d'onglet
       return '<button class="wdg-lay' + (l.id === c.active ? ' on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         + '<span class="wdg-lay-chv">›</span>'                                    // chevron › = grammaire nav ACTUS
@@ -1435,6 +1440,7 @@
       box.innerHTML = '<div class="wdg-dispo-head">'
         + '<button class="wdg-btn" onclick="DTPWidgets.backManager()">‹ Retour</button>'
         + '<span class="wdg-dispo-t">Choisis une disposition</span></div>'
+        + '<div class="wdg-dispo-namerow"><input id="wdg-newname" class="wdg-lib-search" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Nom du layout (optionnel — modifiable ensuite)"></div>'
         + DISPO_ORDER.map(function (n) {
             var cards = DISPOS.map(function (d, i) { return d.n === n ? _dCard(d, i) : ''; }).join('');
             if (!cards) return '';
@@ -1456,7 +1462,13 @@
         + _thumb(l.items)
         + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
         +   ' onchange="DTPWidgets.renameLayout(\'' + l.id + '\', this.value)">'
+        + (l.hidden ? '<span class="wdg-mgr-closed">Fermé</span>' : '')
         + '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
+        + '<button class="wdg-mgr-eye' + (l.hidden ? '' : ' on') + '" title="' + (l.hidden ? 'Ré-ouvrir — l\'onglet réapparaît dans la barre' : 'Masquer — l\'onglet disparaît de la barre') + '" onclick="DTPWidgets.toggleHide(\'' + l.id + '\')">'
+        +   (l.hidden
+              ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/></svg>'
+              : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h6.5A1.5 1.5 0 0 1 19 9v1.5"/><path d="M4.8 10.5h15.4l-2 7a1.5 1.5 0 0 1-1.4 1H6.1a1.5 1.5 0 0 1-1.4-1.1z"/></svg>')
+        + '</button>'
         + '<button class="wdg-mgr-open" onclick="DTPWidgets.switchLayout(\'' + l.id + '\')">' + (active ? 'Actif' : 'Ouvrir') + '</button>'
         + del + '</div>';
     }).join('')
@@ -1640,7 +1652,7 @@
       var _applyDefault = function () {
         var c = STATE.cfg; if (!c) return;
         var fav = (c.layouts || []).find(function (l) { return l && l.fav; });
-        if (fav) c.active = fav.id;
+        if (fav) { c.active = fav.id; fav.hidden = false; }   // le ★ par défaut est toujours ré-affiché à l'arrivée
       };
       if (!STATE.booted) { STATE.booted = true; load().then(function () { _applyDefault(); renderBar(); renderGrid(); }); }
       else { _applyDefault(); renderBar(); renderGrid(); }
@@ -1786,8 +1798,21 @@
     },
 
     // ── LAYOUTS (templates) ──
+    // Masquer / ré-ouvrir un layout : masqué = son onglet DISPARAÎT de la barre (le layout reste au gestionnaire).
+    // Jamais 0 onglet visible ; masquer l'ACTIF bascule sur le premier visible.
+    toggleHide: function (id) {
+      var c = STATE.cfg, l = layoutById(id); if (!c || !l) return;
+      _delConfirm = null;
+      if (!l.hidden) {
+        if (c.layouts.filter(function (x) { return !x.hidden; }).length <= 1) return;   // dernier visible → refus
+        l.hidden = true;
+        if (c.active === id) { var nxt = c.layouts.find(function (x) { return !x.hidden; }); if (nxt) c.active = nxt.id; }
+      } else l.hidden = false;
+      save(); renderBar(); renderManager(); renderGrid();
+    },
     switchLayout: function (id) {
       var c = STATE.cfg; if (!c || !layoutById(id)) return;
+      var lsw = layoutById(id); if (lsw && lsw.hidden) lsw.hidden = false;   // « Ouvrir » un layout fermé = le ré-afficher
       _delConfirm = null; c.active = id; save(); renderBar(); renderManager(); renderGrid();
       // Parcours guidé (demande user) : layout choisi → s'il y a DE QUOI COMPOSER (vide ou emplacements),
       // on ATTERRIT sur › Widgets ; s'il est déjà composé, on montre directement le desk choisi.
@@ -1827,10 +1852,12 @@
         return;
       }
       if (c.layouts.length >= _LMAX) return;
+      // Nom saisi à l'étape de création (parcours ordonné : nom → disposition → widgets) ; sinon édition inline.
+      var nm = String((document.getElementById('wdg-newname') || {}).value || '').replace(/[<>]/g, '').trim().slice(0, 40);
       var id = 'lay-' + uid();
-      c.layouts.push({ id: id, name: 'Nouveau layout', fav: false, items: slots });
+      c.layouts.push({ id: id, name: nm || 'Nouveau layout', fav: false, items: slots });
       c.active = id; save(); API.closeManager(); renderBar(); renderGrid();
-      setTimeout(function () { editTab(id); }, 60);   // le NOM passe direct en édition (demande user : renommer l'onglet à la création)
+      if (!nm) setTimeout(function () { editTab(id); }, 60);   // pas de nom fourni → l'onglet passe en édition
     },
     applyPreset: function (i) {                         // écran guidé : composer un modèle prêt DANS ce desk vide
       var l = activeLayout(), p = PRESETS[i]; if (!l || !p || l.items.length) return;

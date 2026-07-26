@@ -11583,6 +11583,22 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-mgr-pname em { font-style: normal; font-size: 10px; font-weight: 400; color: #7e8590; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wdg-mgr-open:disabled { opacity: .4; cursor: not-allowed; }
 .wdg-mgr-note { padding: 6px 10px; font-size: 11px; color: #2ae389; }
+/* Masquer / ré-ouvrir un layout (dossier) : ouvert = or, fermé = gris + badge « Fermé » ; l'onglet suit */
+.wdg-mgr-eye {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; background: none; border: none; cursor: pointer;
+  color: #5b5d66; border-radius: 4px; transition: color .13s, background .13s;
+}
+.wdg-mgr-eye:hover { background: #1a1b20; color: #e6e8ec; }
+.wdg-mgr-eye.on { color: #e3b23a; }
+.wdg-mgr-closed {
+  flex: 0 0 auto; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #8b93a1; background: #1a1b20; border: 1px solid var(--hud-line, #232429);
+  padding: 2px 7px; border-radius: 3px;
+}
+/* Étape de création : champ NOM au-dessus des dispositions (parcours nom → disposition → widgets) */
+.wdg-dispo-namerow { margin: 0 0 12px; }
+
 /* Manquantes historiques : cadenas du desk protégé + ligne sauvegarde du pied de modale */
 .wdg-mgr-lock { display: inline-flex; align-items: center; color: #5b5d66; padding: 0 6px; }
 .wdg-mgr-bak { display: flex; align-items: center; gap: 10px; margin-right: auto; }

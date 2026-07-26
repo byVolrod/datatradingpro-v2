@@ -775,6 +775,7 @@ function _wdgClean(body) {
         id,
         name: String(l.name || 'Sans nom').replace(/[<>]/g, '').trim().slice(0, 40) || 'Sans nom',
         fav: !!l.fav,
+        hidden: !!l.hidden,   // layout MASQUÉ (fermé) : absent de la barre d'onglets, ré-ouvrable au gestionnaire
         items,
       };
     });
