@@ -6388,7 +6388,7 @@ app.post('/api/news-info', async (req, res) => {
   // Résumé Info en FRANÇAIS pour TOUTES les news (demande user 2026-07-01) — « important » ne pilote plus que le budget.
   const _imp = _isImportantNews(headline, category, '') || !!req.body.important;
   _expandNote(category);   // signal d'HABITUDE : l'utilisateur déplie cette catégorie → l'enrichissement de fond la priorisera
-  const cacheKey = (_CB_NEWS.has(category) ? 'frcb2:' : 'fr3:') + (id || headline.substring(0, 120));   // frcb2/fr3 = + puce finale « Pourquoi » (raison fondamentale, demande user 16/07) ; bump = régénération
+  const cacheKey = (_CB_NEWS.has(category) ? 'frcb3:' : 'fr4:') + (id || headline.substring(0, 120));   // frcb3/fr4 = + règles de desk mentor (_MENTOR_RULES) ; bump = régénération. (frcb2/fr3 : puce « Pourquoi », 16/07)
   // Retrait du LIBELLÉ « Pourquoi : » (demande user 21/07 : garder la raison, sans le terme) — appliqué au
   // SERVICE pour couvrir aussi les analyses déjà en cache durable (pas de régénération, 0 coût IA).
   const _stripPourquoiLbl = o => (o && Array.isArray(o.bullets))
@@ -6416,6 +6416,7 @@ RULES:
 - If the story enumerates a list (e.g. four demands/points/conditions), you MAY add ONE short header line ending with a colon (e.g. "Four points:") then that list as bullets right after.
 - One clear idea per bullet, neutral factual tone, no investment advice.${_CB_NEWS.has(category) ? "\n- BANQUE CENTRALE (Fed/BCE/BoE/BoJ/BoC/RBA/RBNZ/SNB) : précise le TON de la communication — hawkish, dovish ou neutre (attentiste) — ET la ou les FORMULATIONS qui le justifient ; dis si c'est plus hawkish/dovish que d'habitude si c'est perceptible. Base-toi UNIQUEMENT sur le contenu, sans rien inventer." : ""}
 - NEVER mention the news outlet or source: drop any "via X", "Reuters reports", "according to <agency/newspaper>", and all outlet names.
+- ${_MENTOR_RULES}
 - LAST bullet (mandatory): explain in ONE sentence the FUNDAMENTAL reason behind this news or market reaction — the underlying economic/monetary/geopolitical driver (e.g. WHY the index moved, WHY this decision matters), so a beginner understands the cause. Write the sentence DIRECTLY, with NO label or prefix (do NOT write "Pourquoi :" or similar). Base it ONLY on the story's content and standard economic logic; never invent figures; no advice.
 - Réponds en FRANÇAIS (traduis si la source est dans une autre langue).
 - Reply ONLY with the lines: bullets start with •, the optional single header line ends with ":". No preamble, no conclusion.
