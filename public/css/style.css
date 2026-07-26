@@ -3469,7 +3469,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 14px;
+  background: var(--head-bg);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.03), transparent 72%);   /* chrome de panneau du desk */
   border-bottom: 1px solid var(--border);
   font-size: 13px;
 }
@@ -3516,10 +3518,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .bank-exp { width: 26px; text-align: center; color: var(--text3); }
 .bank-chev { display: inline-block; transition: transform var(--t-fast); }
 .bank-chev--open { transform: rotate(90deg); color: var(--orange); }
-.bank-status { font-weight: var(--fw-semibold); }
-.bank-st-active { color: var(--neutral); }   /* position ouverte = NEUTRE (ni gain ni perte) */
-.bank-st-tp { color: #00e676; }               /* TP atteint = BUY */
-.bank-st-sl { color: #ff3d00; }               /* SL touché = SELL */
+.bank-status { display: inline-block; font-weight: var(--fw-semibold); font-size: 11px; padding: 2px 9px; border-radius: 3px; white-space: nowrap; }
+.bank-st-active { color: var(--neutral); background: rgba(255,179,0,.10); border: 1px solid rgba(255,179,0,.32); }   /* position ouverte = NEUTRE (ni gain ni perte) */
+.bank-st-tp { color: #00e676; background: rgba(0,230,118,.10); border: 1px solid rgba(0,230,118,.32); }               /* TP atteint = BUY */
+.bank-st-sl { color: #ff3d00; background: rgba(255,61,0,.10); border: 1px solid rgba(255,61,0,.32); }               /* SL touché = SELL */
 .bank-chart-cell { color: var(--text3); transition: color var(--t-fast); }
 .bank-chart-cell:hover { color: var(--orange); }
 .bank-chart-cell svg { transition: transform var(--t-fast); }
@@ -3529,6 +3531,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Ligne de détail (dépliée) */
 .bank-detail-row.hidden { display: none; }
 .bank-detail-row td { padding: 0; background: rgba(227,178,58,0.06); border-bottom: 1px solid var(--border); }
+.bank-detail-row:hover td { background: rgba(227,178,58,0.06); }
 .bank-detail {
   display: grid;
   grid-template-columns: 1fr 1.4fr 1.4fr;
@@ -3715,7 +3718,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .logo-text { font-size: 15px; white-space: nowrap; }
   /* Onglet BANK : empilé, table scrollable, graphique dessous */
   .bank-layout { flex-direction: column; }
-  .bank-chart-col { width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: 320px; }
+  .bank-chart-col { width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: 340px; }   /* unifié avec le bloc ≤1100px */
   .bank-table-wrap { overflow-x: auto; }
   /* Smart Bias : grille scrollable horizontalement, horloges en grille */
   .sbm-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }   /* (était .sb-grid-wrap : classe morte — la classe réelle générée par app.js est .sbm-grid-wrap) */

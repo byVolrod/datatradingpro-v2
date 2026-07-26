@@ -4956,6 +4956,8 @@ function _bankStatusCls(s) {
   return 'bank-st-active';
 }
 
+// Lignes DÉPLIÉES conservées entre deux refresh 60 s (avant : renderBankTable refermait tout — perte d'état).
+const _bankOpenIds = new Set();
 function renderBankTable() {
   const tb = document.getElementById('bank-tbody');
   if (!tb) return;
@@ -4963,9 +4965,10 @@ function renderBankTable() {
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   tb.innerHTML = _bankPositions.map(p => {
     const active = p.id === _bankActiveId ? ' bank-row--active' : '';
+    const opened = _bankOpenIds.has(p.id);
     return `
     <tr class="bank-row${active}" data-id="${p.id}">
-      <td class="bank-exp" data-act="exp"><span class="bank-chev">›</span></td>
+      <td class="bank-exp" data-act="exp"><span class="bank-chev${opened ? ' bank-chev--open' : ''}">›</span></td>
       <td class="bank-name">${esc(p.bank)}</td>
       <td class="bank-otype">${esc(p.orderType)}</td>
       <td class="bank-pair">${esc(p.pair)}</td>
@@ -4978,7 +4981,7 @@ function renderBankTable() {
         <svg width="16" height="14" viewBox="0 0 16 14" fill="none"><path d="M1 13V1M1 13h14M4 10l3-4 3 2 4-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </td>
     </tr>
-    <tr class="bank-detail-row hidden" data-detail="${p.id}">
+    <tr class="bank-detail-row${_bankOpenIds.has(p.id) ? '' : ' hidden'}" data-detail="${p.id}">
       <td colspan="10">
         <div class="bank-detail">
           <div class="bank-detail-col">
@@ -5007,6 +5010,8 @@ function renderBankTable() {
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (act === 'exp') { _toggleBankDetail(id, row); return; }
       selectBankRow(id);
+      // Icône graphique : en plus de sélectionner, amène le graphe en vue (utile en empilement ≤1100px)
+      if (act === 'chart') { try { document.getElementById('bank-chart-col')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {} }
     });
   });
 }
@@ -5015,6 +5020,7 @@ function _toggleBankDetail(id, row) {
   const det = document.querySelector(`[data-detail="${id}"]`);
   if (!det) return;
   const open = det.classList.toggle('hidden') === false;
+  if (open) _bankOpenIds.add(id); else _bankOpenIds.delete(id);   // survit au refresh 60 s
   row.querySelector('.bank-chev')?.classList.toggle('bank-chev--open', open);
 }
 
@@ -5034,8 +5040,19 @@ function _updateBankChartPrice(p) {
     try {
       _bankLiveGuide.di.set('value', p.currentPrice);
       _bankLiveGuide.di.get('label')?.set('text', _bankFmt(p.pair, p.currentPrice));
+      // Anti-clip permanent : si le prix live sort de la plage affichée, on re-cale l'axe (avant : badge invisible)
+      if (_bankLiveGuide.yAxis && _bankLiveGuide.candles) _bankFitAxis(_bankLiveGuide.yAxis, _bankLiveGuide.candles, p);
     } catch {}
   }
+}
+
+// Cale l'axe Y pour montrer TOUT le trade (bougies + Entrée/Objectif/Stop + prix live) avec 6 % de marge.
+// Appelée au build ET à chaque refresh du prix live (le prix ne se clippe plus jamais hors plage).
+function _bankFitAxis(yAxis, candles, p) {
+  let lo = Infinity, hi = -Infinity;
+  candles.forEach(c => { if (c.Low < lo) lo = c.Low; if (c.High > hi) hi = c.High; });
+  [p.entry, p.tp, p.sl, p.currentPrice].forEach(v => { const n = +v; if (n) { if (n < lo) lo = n; if (n > hi) hi = n; } });
+  if (isFinite(lo) && isFinite(hi) && hi > lo) { const pad = (hi - lo) * 0.06; yAxis.set('min', lo - pad); yAxis.set('max', hi + pad); }
 }
 
 // Double drapeau rond de la paire (façon pro) dans l'en-tête du chart
@@ -5168,23 +5185,22 @@ function buildBankChart(p) {
         }
         return di;
       };
-      if (p.entry) mkGuide(p.entry, 'Entry',       0x2962ff, [4, 3]);
-      if (p.tp)    mkGuide(p.tp,    'Take Profit', 0x26a69a, [4, 3]);
-      if (p.sl)    mkGuide(p.sl,    'Stop Loss',   0xef5350, [4, 3]);
+      // Niveaux du trade — LIBELLÉS FRANÇAIS + palette CHARTE DTP, alignés sur les statuts de la table :
+      // Objectif (TP) vert #00e676 · Stop rouge #ff3d00 · Entrée bleu · PRIX LIVE = OR signature (distinct
+      // du vert TP — avant, prix et objectif partageaient la même couleur → illisible quand proches).
+      if (p.entry) mkGuide(p.entry, 'Entrée',   0x3b82f6, [4, 3]);
+      if (p.tp)    mkGuide(p.tp,    'Objectif', 0x00c853, [4, 3]);
+      if (p.sl)    mkGuide(p.sl,    'Stop',     0xff3d00, [4, 3]);
       if (p.currentPrice) {
-        const di = mkGuide(p.currentPrice, '', 0x26a69a, [1, 2]);   // prix live = vert pointillé (la référence)
+        const di = mkGuide(p.currentPrice, '', 0xe3b23a, [1, 2]);   // prix live = OR DTP pointillé
         _bankLiveGuide = { di, pair: p.pair, dec };
       }
 
-      // FIX : l'axe Y auto-calé sur les BOUGIES → toute ligne Entry/TP/SL/prix HORS de cette plage était
-      // CLIPPÉE (ex. SL 162,50 au-dessus du plus haut 162 = invisible). On étend min/max pour TOUJOURS
-      // afficher l'intégralité du trade (entrée + objectif + stop + prix live), avec une marge de respiration.
-      {
-        let lo = Infinity, hi = -Infinity;
-        candles.forEach(c => { if (c.Low < lo) lo = c.Low; if (c.High > hi) hi = c.High; });
-        [p.entry, p.tp, p.sl, p.currentPrice].forEach(v => { const n = +v; if (n) { if (n < lo) lo = n; if (n > hi) hi = n; } });
-        if (isFinite(lo) && isFinite(hi) && hi > lo) { const pad = (hi - lo) * 0.06; yAxis.set('min', lo - pad); yAxis.set('max', hi + pad); }
-      }
+      // FIX : l'axe Y auto-calé sur les BOUGIES → toute ligne Entrée/Objectif/Stop/prix HORS de cette plage
+      // était CLIPPÉE. _bankFitAxis étend min/max pour TOUJOURS montrer l'intégralité du trade — et il est
+      // RAPPELÉ par _updateBankChartPrice (refresh 60 s) : un prix live qui sort de la plage ne se clippe plus.
+      _bankFitAxis(yAxis, candles, p);
+      _bankLiveGuide = _bankLiveGuide ? { ..._bankLiveGuide, yAxis, candles } : _bankLiveGuide;
 
       series.appear(500);
       chart.appear(500, 60);
