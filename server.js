@@ -9186,7 +9186,7 @@ ${biasLine || '(n/d)'}`;
 // (rendue en primer structuré côté front via isPrimerItem, jamais re-résumée). Dédup par événement/jour
 // (l'historique persiste l'item → pas de doublon après redéploiement). Budget IA négligeable (FOMC ~8×/an,
 // NFP ~1×/mois). [[markdown-strip-rule]]
-const EVA_VER = 7;   // v7 = ARTICLES LIÉS (demande user 26/07 « related stories ») : le contexte ÉVÉNEMENT joint un EXTRAIT du corps de chaque dépêche liée (lignes « › ») — l'IA y RÉCUPÈRE les détails puis les raffine, équivalent du dossier Related Stories de FF (même source première que notre flux) ; + règle PMI corrigée (Services prioritaires UNIQUEMENT pour l'US). v6 = RÈGLES DE DESK mentor (_MENTOR_RULES : mispricing CPI vs pricing, MPS = texte→dépêches liées, PMI Services > Manufacturing + Flash = signal principal, emploi saisonnier vs durable) — le bump régénère les analyses DU JOUR (fenêtre 1h-14h, jamais les anciennes : leur contexte de dépêches a expiré) ; v5 = enrichissement CB (section « Interprétation de marché » : renforce/affaiblit le scénario + classes d'actifs ; ton hawkish/dovish + changement de formulation vs communiqué précédent) ; v4 = rigueur analyste (priced-in ≠ surprise) + retrait conclusion directionnelle
+const EVA_VER = 8;   // v8 = RELATED STORIES EXTERNES (demande user 26/07 « scrape ForexFactory, + de fiabilité ») : dossier de presse de l'événement injecté au prompt via _relatedStoriesFor (FF direct → FF puppeteer → repli Google News RSS ; l'IP du VPS étant fichée Cloudflare, en prod c'est le repli qui sert tant que FF bloque). v7 = ARTICLES LIÉS (demande user 26/07 « related stories ») : le contexte ÉVÉNEMENT joint un EXTRAIT du corps de chaque dépêche liée (lignes « › ») — l'IA y RÉCUPÈRE les détails puis les raffine, équivalent du dossier Related Stories de FF (même source première que notre flux) ; + règle PMI corrigée (Services prioritaires UNIQUEMENT pour l'US). v6 = RÈGLES DE DESK mentor (_MENTOR_RULES : mispricing CPI vs pricing, MPS = texte→dépêches liées, PMI Services > Manufacturing + Flash = signal principal, emploi saisonnier vs durable) — le bump régénère les analyses DU JOUR (fenêtre 1h-14h, jamais les anciennes : leur contexte de dépêches a expiré) ; v5 = enrichissement CB (section « Interprétation de marché » : renforce/affaiblit le scénario + classes d'actifs ; ton hawkish/dovish + changement de formulation vs communiqué précédent) ; v4 = rigueur analyste (priced-in ≠ surprise) + retrait conclusion directionnelle
 const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l'item est persisté dans l'historique)
 let _evaBusy = false;
 // Dépêches de RÉACTION de prix à joindre (en plus des dépêches de l'événement) pour la section « RÉACTION DE MARCHÉ »
@@ -9195,35 +9195,35 @@ const _EVA_CB_SECTIONS   = '["Décision & taux","Communiqué (forward guidance)"
 const _EVA_DATA_SECTIONS = '["Chiffre clé (vs attendu)","Détails","Ce qui a surpris","Réaction de marché","Implications banque centrale","À suivre"]';
 // Événements MAJEURS uniquement (flux sélectif, premium) — une SEULE analyse riche par événement/jour.
 const EVA_CFG = {
-  fomc: { label: 'FED',    report: 'FOMC Analysis', category: 'Fed',                 tags: ['Fed', 'Rates', 'Inflation'], ccy: 'USD', cb: true,
+  fomc: { label: 'FED',    report: 'FOMC Analysis', category: 'Fed',                 tags: ['Fed', 'Rates', 'Inflation'], ccy: 'USD', cb: true, gnq: 'Federal Reserve FOMC rate decision',
     calRe:  /\b(fed funds|federal funds|fomc|interest rate decision)\b/i,
     newsRe: /\b(fed|fomc|powell|warsh|federal reserve|dot[\s-]?plot|forward guidance|rate decision|federal funds|projections?|\bsep\b)\b/i,
     sections: _EVA_CB_SECTIONS, intro: 'La décision de politique monétaire du FOMC (Réserve fédérale)' },
-  ecb:  { label: 'BCE',    report: 'ECB Analysis',  category: 'ECB',                 tags: ['ECB', 'Rates', 'Inflation'], ccy: 'EUR', cb: true,
+  ecb:  { label: 'BCE',    report: 'ECB Analysis',  category: 'ECB',                 tags: ['ECB', 'Rates', 'Inflation'], ccy: 'EUR', cb: true, gnq: 'ECB rate decision Lagarde',
     calRe:  /\b(ecb (?:interest )?rate|deposit facility|main refinancing)\b/i,
     newsRe: /\b(ecb|bce|lagarde|deposit facility|refinancing|governing council|rate decision)\b/i,
     sections: _EVA_CB_SECTIONS, intro: 'La décision de politique monétaire de la BCE (Banque centrale européenne)' },
-  boe:  { label: 'BOE',    report: 'BoE Analysis',  category: 'BoE',                 tags: ['BoE', 'Rates', 'Inflation'], ccy: 'GBP', cb: true,
+  boe:  { label: 'BOE',    report: 'BoE Analysis',  category: 'BoE',                 tags: ['BoE', 'Rates', 'Inflation'], ccy: 'GBP', cb: true, gnq: 'Bank of England rate decision',
     calRe:  /\b(boe (?:interest )?rate|bank of england|bank rate|\bmpc\b)\b/i,
     newsRe: /\b(boe|bank of england|bailey|bank rate|\bmpc\b|rate decision)\b/i,
     sections: _EVA_CB_SECTIONS, intro: "La décision de politique monétaire de la Banque d'Angleterre (BoE)" },
-  nfp:  { label: 'NFP',    report: 'NFP Analysis',  category: 'Economic Commentary', tags: ['Jobs', 'NFP', 'USD'],        ccy: 'USD', cb: false,
+  nfp:  { label: 'NFP',    report: 'NFP Analysis',  category: 'Economic Commentary', tags: ['Jobs', 'NFP', 'USD'],        ccy: 'USD', cb: false, gnq: 'nonfarm payrolls jobs report',
     calRe:  /\b(non.?farm payrolls?|nonfarm payrolls?)\b/i,
     newsRe: /\b(payrolls?|non.?farm|nfp|unemployment|jobless|wages?|average hourly|participation|\bbls\b|jobs report|labou?r market)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "Le rapport sur l'emploi américain (Non-Farm Payrolls)" },
-  cpi:  { label: 'CPI US', report: 'CPI Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'CPI', 'USD'],   ccy: 'USD', cb: false,
+  cpi:  { label: 'CPI US', report: 'CPI Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'CPI', 'USD'],   ccy: 'USD', cb: false, gnq: 'CPI inflation report',
     calRe:  /\b(inflation rate|consumer price|core inflation|\bcpi\b)\b/i,
     newsRe: /\b(\bcpi\b|inflation|consumer price|\bcore\b|shelter|services|goods|disinflation|supercore)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "L'inflation américaine (CPI — indice des prix à la consommation)" },
-  pce:  { label: 'PCE US', report: 'PCE Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'PCE', 'USD'],   ccy: 'USD', cb: false,
+  pce:  { label: 'PCE US', report: 'PCE Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'PCE', 'USD'],   ccy: 'USD', cb: false, gnq: 'PCE inflation Fed',
     calRe:  /\b(\bpce\b|personal consumption|core pce)\b/i,
     newsRe: /\b(\bpce\b|personal consumption|\bcore\b|inflation|deflator|personal income|personal spending)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "L'inflation PCE américaine (mesure d'inflation préférée de la Fed)" },
-  gdp:  { label: 'PIB US', report: 'GDP Analysis',  category: 'Economic Commentary', tags: ['GDP', 'Growth', 'USD'],      ccy: 'USD', cb: false,
+  gdp:  { label: 'PIB US', report: 'GDP Analysis',  category: 'Economic Commentary', tags: ['GDP', 'Growth', 'USD'],      ccy: 'USD', cb: false, gnq: 'GDP economy growth report',
     calRe:  /\b(gdp growth|gross domestic product|\bgdp\b)\b/i,
     newsRe: /\b(\bgdp\b|gross domestic product|growth rate|consumption|investment|inventories|net exports)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: 'La croissance américaine (PIB / GDP)' },
-  ism:  { label: 'ISM US', report: 'ISM Analysis',  category: 'Economic Commentary', tags: ['ISM', 'PMI', 'USD'],         ccy: 'USD', cb: false,
+  ism:  { label: 'ISM US', report: 'ISM Analysis',  category: 'Economic Commentary', tags: ['ISM', 'PMI', 'USD'],         ccy: 'USD', cb: false, gnq: 'ISM PMI services manufacturing',
     calRe:  /\bism\b/i,
     newsRe: /\b(\bism\b|\bpmi\b|manufacturing|services|new orders|prices paid|employment index)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "L'activité américaine (ISM — PMI manufacturier / services)" },
@@ -9237,6 +9237,153 @@ function _evaHead(s) {
 function _evaSubHead(s) {
   let t = _stripMd(String(s || '')).replace(/\s*:\s*$/, '').replace(/\s+/g, ' ').replace(/[.!?]+$/, '').trim();
   return t ? t.slice(0, 42).trim() + ' :' : '';
+}
+// ═══ « RELATED STORIES » — dossier d'articles de presse lié à un événement calendrier (demande user 26/07 :
+// « scrape ForexFactory, ça ajoutera + de fiabilité »). CHAÎNE, testée le 26/07 depuis le VPS :
+//   1) ForexFactory DIRECT (page /calendar?day=… pour les ids + /calendar/details/1-<id> = JSON avec
+//      linked_threads.news) — fonctionne depuis une IP résidentielle, mais l'IP du VPS est FICHÉE
+//      Cloudflare (403 « Just a moment », curl ET puppeteer-stealth) → backoff, on retente rarement.
+//   2) ForexFactory via PUPPETEER+STEALTH (Chromium du conteneur, même config que emailWidget) —
+//      tenté seulement si le direct est bloqué, backoff 24 h en cas d'échec du challenge.
+//   3) REPLI Google News RSS (news.google.com/rss/search — testé 200 depuis le VPS) : titres + sources
+//      de presse autour de l'événement (pays + mots-clés + fenêtre 2 j) — même finalité, fiable.
+// Tout est caché en KV (ffrel:<slug>:<jour>, 12 h). Échec total → l'analyse sort sans le bloc (jamais bloquant).
+const _FF_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const _ffState = { blockedUntil: 0, pptrBlockedUntil: 0 };
+function _relHtmlDec(s) { return String(s || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' '); }
+async function _ffHttp(url, accept) {
+  if (Date.now() < _ffState.blockedUntil) return null;
+  try {
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 10000);
+    const r = await fetch(url, { signal: ac.signal, headers: { 'User-Agent': _FF_UA, 'Accept': accept || 'text/html,application/xhtml+xml,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9', 'Referer': 'https://www.forexfactory.com/calendar' } });
+    clearTimeout(t);
+    const txt = (await r.text()).slice(0, 900000);
+    if (r.status === 403 || r.status === 503 || /Just a moment/i.test(txt.slice(0, 600))) {
+      _ffState.blockedUntil = Date.now() + 6 * 3600e3;   // IP fichée Cloudflare → on n'insiste pas 6 h
+      console.log('[FFrel] direct bloqué (Cloudflare) → backoff 6 h');
+      return null;
+    }
+    return r.ok ? txt : null;
+  } catch { return null; }
+}
+// Récupération via le Chromium du conteneur (stealth) — UNIQUEMENT quand le direct est bloqué. Un seul
+// navigateur éphémère pour tout le lot d'URLs, refermé aussitôt (RAM VPS). Échec challenge → backoff 24 h.
+async function _ffPptrFetchMany(urls) {
+  if (Date.now() < _ffState.pptrBlockedUntil || !urls.length) return null;
+  let browser = null;
+  try {
+    const puppeteer = require('puppeteer-extra');
+    try { if (!(puppeteer.plugins || []).length) puppeteer.use(require('puppeteer-extra-plugin-stealth')()); } catch {}
+    const { CHROME_PATH } = require('./emailWidget');
+    browser = await puppeteer.launch({ executablePath: CHROME_PATH, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+    const page = await browser.newPage();
+    const out = {};
+    for (const url of urls) {
+      let got = null;
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        for (let i = 0; i < 8; i++) {   // laisse le challenge JS se résoudre (~20 s max)
+          const title = await page.title().catch(() => '');
+          if (!/just a moment/i.test(title)) { got = await page.evaluate(() => document.body ? (document.body.innerText || '') : '').catch(() => null); if (got) break; }
+          await new Promise(rs => setTimeout(rs, 2500));
+        }
+      } catch {}
+      if (!got) { _ffState.pptrBlockedUntil = Date.now() + 24 * 3600e3; console.log('[FFrel] puppeteer : challenge non résolu → backoff 24 h'); return null; }
+      out[url] = got;
+    }
+    return out;
+  } catch (e) { _ffState.pptrBlockedUntil = Date.now() + 24 * 3600e3; console.warn('[FFrel] puppeteer KO :', e.message); return null; }
+  finally { try { if (browser) await browser.close(); } catch {} }
+}
+function _ffDayKey(ts) { const d = new Date(ts); return ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][d.getUTCMonth()] + d.getUTCDate() + '.' + d.getUTCFullYear(); }
+// La page calendrier embarque un état JS : chaque événement est un objet JSON {"id":…,"soloUrl":"…"} → parsés un à un.
+function _ffEventsFromHtml(html) {
+  const out = []; const re = /\{"id":\d+,"ebaseId":[\s\S]*?"soloUrl":"[^"]*"\}/g; let m;
+  while ((m = re.exec(html))) { try { const e = JSON.parse(m[0]); out.push({ id: e.id, name: e.name || '', currency: e.currency || '', dateline: (e.dateline || 0) * 1000, impact: e.impactName || '', linked: !!e.hasLinkedThreads }); } catch {} }
+  return out;
+}
+// linked_threads.news[].html (fragments FF) → { title, source, when, excerpt }
+function _ffParseStories(det) {
+  const arr = det && det.data && det.data.linked_threads && Array.isArray(det.data.linked_threads.news) ? det.data.linked_threads.news : [];
+  return arr.map(n => {
+    const h = String(n.html || '');
+    const title = _relHtmlDec((h.match(/\stitle="([^"]{4,220})"/) || [])[1] || '');
+    const source = (h.match(/data-source="([^"]+)"/) || [])[1] || '';
+    const when = (h.match(/flexposts__time[^>]*"\s+title="([^"]+)"/) || (h.match(/flexposts__time[^>]*>([^<]+)</) || []))[1] || '';
+    const prev = (h.match(/flexposts__preview[^>]*>([\s\S]*?)<\/p>/) || [])[1] || '';
+    const excerpt = _relHtmlDec(prev.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+    return { id: n.id, title, source, when: String(when).trim(), excerpt };
+  }).filter(s => s.title);
+}
+// Repli Google News RSS : pays (devise) + mots-clés de l'intitulé + fenêtre 2 jours.
+const _GN_LOC = {
+  USD: { q: 'US', hl: 'en-US', gl: 'US', ceid: 'US:en' }, CAD: { q: 'Canada', hl: 'en-CA', gl: 'CA', ceid: 'CA:en' },
+  GBP: { q: 'UK', hl: 'en-GB', gl: 'GB', ceid: 'GB:en' }, EUR: { q: 'euro zone', hl: 'en-US', gl: 'US', ceid: 'US:en' },
+  AUD: { q: 'Australia', hl: 'en-AU', gl: 'AU', ceid: 'AU:en' }, NZD: { q: 'New Zealand', hl: 'en-NZ', gl: 'NZ', ceid: 'NZ:en' },
+  JPY: { q: 'Japan', hl: 'en-US', gl: 'US', ceid: 'US:en' }, CHF: { q: 'Switzerland', hl: 'en-US', gl: 'US', ceid: 'US:en' },
+};
+async function _gnRelated(title, ccy) {
+  try {
+    const loc = _GN_LOC[ccy] || _GN_LOC.USD;
+    const kw = String(title || '').replace(/m\/m|y\/y|q\/q/gi, ' ').replace(/\b(mom|yoy|qoq|prelim|flash|final|adv|nsa|sa)\b/gi, ' ')
+      .replace(/[^a-zA-Z ]+/g, ' ').replace(/\s+/g, ' ').trim().split(' ').slice(0, 5).join(' ');
+    if (!kw) return null;
+    const url = 'https://news.google.com/rss/search?q=' + encodeURIComponent('"' + loc.q + '" ' + kw + ' when:2d') + '&hl=' + loc.hl + '&gl=' + loc.gl + '&ceid=' + encodeURIComponent(loc.ceid);
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 9000);
+    const r = await fetch(url, { signal: ac.signal, headers: { 'User-Agent': _FF_UA } });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const xml = (await r.text()).slice(0, 400000);
+    const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+    const tag = (x, tg) => { const m = x.match(new RegExp('<' + tg + '[^>]*>([\\s\\S]*?)</' + tg + '>', 'i')); return m ? _relHtmlDec(m[1].replace(/<!\[CDATA\[|\]\]>/g, '')).trim() : ''; };
+    // FILTRE DE PERTINENCE (banc 26/07 : requête vague → bruit finances perso / « Mortgage Rates ») :
+    // le titre doit porter un mot-clé SPÉCIFIQUE de la requête (cpi, payrolls, fomc…) — les mots
+    // GÉNÉRIQUES (report, rate, jobs…) ne comptent que s'il y en a au moins deux.
+    const _GN_GENERIC = { report: 1, reports: 1, decision: 1, economy: 1, growth: 1, jobs: 1, rate: 1, rates: 1, services: 1, manufacturing: 1, federal: 1, bank: 1, england: 1, reserve: 1 };
+    const toks = kw.toLowerCase().split(' ').filter(w => w.length >= 3);
+    const out = items.slice(0, 12).map(x => {
+      let ti = tag(x, 'title'); const src = tag(x, 'source');
+      if (src && ti.endsWith(' - ' + src)) ti = ti.slice(0, -(' - ' + src).length);
+      return { title: ti, source: src, when: (tag(x, 'pubDate') || '').replace(/ \+0000$/, ''), excerpt: '' };
+    }).filter(s => s.title && s.title.length > 8)
+      .filter(s => {
+        const t2 = s.title.toLowerCase();
+        let spec = 0, gen = 0;
+        for (const w of toks) { if (t2.indexOf(w) >= 0) { if (_GN_GENERIC[w]) gen++; else spec++; } }
+        return spec >= 1 || gen >= 2;
+      });
+    return out.length ? out.slice(0, 8) : null;
+  } catch { return null; }
+}
+// Orchestrateur : renvoie { src: 'forexfactory'|'gnews', stories: [...] } ou null. Cache KV 12 h.
+async function _relatedStoriesFor(evTitle, evTs, ccy) {
+  const slug = String(evTitle || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  const kvKey = 'ffrel:' + slug + ':' + new Date(evTs).toISOString().slice(0, 10);
+  try { const c = await auth.aiCacheGet(kvKey, 12 * 3600e3); if (c && c.stories) return c; } catch {}
+  let res = null;
+  try {
+    // 1+2) ForexFactory (direct puis puppeteer) : ids du jour → détails des candidats (même devise, ±150 s)
+    let dayHtml = await _ffHttp('https://www.forexfactory.com/calendar?day=' + _ffDayKey(evTs));
+    if (!dayHtml) { const p = await _ffPptrFetchMany(['https://www.forexfactory.com/calendar?day=' + _ffDayKey(evTs)]); dayHtml = p && Object.values(p)[0]; }
+    if (dayHtml) {
+      const evs = _ffEventsFromHtml(dayHtml);
+      const cand = evs.filter(e => e.linked && (!ccy || e.currency === ccy) && Math.abs(e.dateline - evTs) <= 150e3)
+        .sort((a, b) => ((b.impact === 'high' ? 1 : 0) - (a.impact === 'high' ? 1 : 0))).slice(0, 3);
+      const stories = []; const seen = new Set();
+      for (const c of cand) {
+        const dtxt = await _ffHttp('https://www.forexfactory.com/calendar/details/1-' + c.id, 'application/json, text/plain, */*');
+        if (!dtxt) break;
+        let det = null; try { det = JSON.parse(dtxt); } catch {}
+        for (const s of _ffParseStories(det)) { const k = s.id || s.title; if (!seen.has(k)) { seen.add(k); stories.push(s); } }
+        if (stories.length >= 8) break;
+      }
+      if (stories.length) res = { src: 'forexfactory', stories: stories.slice(0, 8) };
+    }
+  } catch {}
+  // 3) Repli Google News RSS (fiable depuis le VPS)
+  if (!res) { const gn = await _gnRelated(evTitle, ccy); if (gn) res = { src: 'gnews', stories: gn.slice(0, 8) }; }
+  if (res) { try { await auth.aiCacheSet(kvKey, res); } catch {} }
+  return res;
 }
 // Anticipations de taux du marché pour la devise (depuis rateprobability, cache _rpCache) → contexte « ANTICIPATIONS DE TAUX ».
 function _evaPricingCtx(ccy) {
@@ -9269,6 +9416,16 @@ async function generateEventAnalysis(kind, ev, evKey, idPrefix) {
   if (evCtx.length < 4) { console.log(`[EVA ${kind}] trop peu de matière (${evCtx.length} dépêches) → skip`); return null; }
   const actualLine = `${ev.title} : actuel ${ev.actual}${ev.forecast ? ` (attendu ${ev.forecast})` : ''}${ev.previous ? ` (précédent ${ev.previous})` : ''}`;
   const pricing = cfg.cb ? _evaPricingCtx(cfg.ccy) : '';
+  // RELATED STORIES (demande user 26/07) : dossier d'articles de presse lié à l'événement — FF si accessible,
+  // sinon Google News. Jamais bloquant : échec → l'analyse sort sans le bloc.
+  let relCtx = [];
+  try {
+    const rel = await _relatedStoriesFor(cfg.gnq || ev.title, evTs, cfg.ccy);
+    if (rel && Array.isArray(rel.stories)) {
+      relCtx = rel.stories.map(s => `- [${s.source || 'presse'}] ${s.title}${s.when ? ` (${s.when})` : ''}${s.excerpt ? `\n  › ${s.excerpt.slice(0, 320)}` : ''}`);
+      console.log(`[EVA ${kind}] related stories : ${rel.stories.length} via ${rel.src}`);
+    }
+  } catch {}
   if (ai.backoffActive && ai.backoffActive()) return null;   // IA indispo (panne totale) → on s'abstient (pas de rapport creux)
   let parsed = null;
   try {
@@ -9284,7 +9441,7 @@ Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
 🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) — VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
 ${_MENTOR_RULES}
-ARTICLES LIÉS : sous certains titres de dépêches, une ligne « › » donne un EXTRAIT du corps de l'article lié. EXPLOITE ces extraits comme un dossier d'articles liés à l'événement : va y RÉCUPÉRER les détails (composition d'un chiffre, votes, changements de formulation, nuances) puis RAFFINE-les dans ton analyse — ne recopie jamais un extrait brut.
+ARTICLES LIÉS : sous certains titres de dépêches, une ligne « › » donne un EXTRAIT du corps de l'article lié. EXPLOITE ces extraits comme un dossier d'articles liés à l'événement : va y RÉCUPÉRER les détails (composition d'un chiffre, votes, changements de formulation, nuances) puis RAFFINE-les dans ton analyse — ne recopie jamais un extrait brut. Si une section « RELATED STORIES » est fournie, RECOUPE tes conclusions avec ce dossier de presse (angles, chiffres confirmés par plusieurs sources, éléments de contexte absents des dépêches) — sans jamais citer le nom d'un agrégateur ni recopier un titre mot à mot.
 Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).${cfg.cb ? "\nBANQUE CENTRALE — précisions attendues : dans « Communiqué (forward guidance) », qualifie EXPLICITEMENT le ton (hawkish / dovish / neutre) et signale tout CHANGEMENT DE FORMULATION vs le communiqué précédent (même subtil, les marchés y sont très sensibles). Dans « Interprétation de marché », dis si l'intervention RENFORCE, AFFAIBLIT ou NE CHANGE PAS le scénario de politique monétaire, et quelles classes d'actifs ont réagi (devises, taux, actions, or) — UNIQUEMENT d'après les dépêches fournies, sans aucun chiffre inventé." : ""}
 
 === RÉSULTAT (calendrier) ===
@@ -9292,6 +9449,7 @@ ${actualLine}
 ${pricing ? `\n=== ANTICIPATIONS DE TAUX (marché ${cfg.ccy}, via rateprobability) ===\n${pricing}\n` : ''}
 === DÉPÊCHES — ÉVÉNEMENT (${evCtx.length}) ===
 ${evCtx.join('\n').slice(0, 9500)}
+${relCtx.length ? `\n=== RELATED STORIES — DOSSIER DE PRESSE DE L'ÉVÉNEMENT (${relCtx.length}) ===\n${relCtx.join('\n').slice(0, 3500)}\n` : ''}
 
 === DÉPÊCHES — RÉACTION DE MARCHÉ (${mktCtx.length}) ===
 ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
@@ -10576,7 +10734,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v17-fr-full';   // v17 : descriptions COMPLÈTES (trim à la dernière phrase, plus de coupe en plein mot) → force la régén
+const WA_VER = 'v18-risk-rel';   // v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour. v17 : descriptions COMPLÈTES (trim à la dernière phrase, plus de coupe en plein mot) → force la régén
 let _weekAhead = null;
 try { _weekAhead = _noDashDeep(JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8'))); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = _noDashDeep(d); }).catch(() => {}); } catch {}
@@ -10623,11 +10781,24 @@ async function generateWeekAhead(force = false, genEditorial = false) {
   const DAY_FR = { Monday: 'lundi', Tuesday: 'mardi', Wednesday: 'mercredi', Thursday: 'jeudi', Friday: 'vendredi', Saturday: 'samedi', Sunday: 'dimanche' };
   const _cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  // PROFIL DE RISQUE « PARLANT » (demande user 26/07) : l'ancienne formule ×9 SATURAIT à 100 dès ~4
+  // événements High (semaine chargée → tous les jours à 100 → courbe PLATE). Nouveau : score BRUT
+  // (High=3, Med=1, décision de taux +4 — le point d'orgue pèse) puis NORMALISATION RELATIVE sur la
+  // semaine (20..95) → le relief inter-jours est toujours visible. Le chiffre est un INDICE relatif
+  // de la semaine, pas une échelle absolue inter-semaines.
+  const _rawRisk = {};
+  keys.forEach(k => {
+    const evs = byDay[k];
+    const cb = evs.some(e => /rate decision|interest rate decision|monetary policy|rate statement|deposit facility|refinancing/i.test(e.title || ''));
+    _rawRisk[k] = evs.reduce((s, e) => s + (e.impact === 'High' ? 3 : 1), 0) + (cb ? 4 : 0);
+  });
+  const _rMin = Math.min(...keys.map(k => _rawRisk[k])), _rMax = Math.max(...keys.map(k => _rawRisk[k]));
+  const _riskOf = k => _rMax === _rMin ? 55 : Math.round(20 + 75 * (_rawRisk[k] - _rMin) / (_rMax - _rMin));
   const days = keys.map(k => {
     const evs = byDay[k].slice().sort((a, b) => (b.impact === 'High' ? 1 : 0) - (a.impact === 'High' ? 1 : 0));
     const d = new Date(k + 'T12:00:00Z');
     const hiEvs = evs.filter(e => e.impact === 'High');
-    const risk = Math.max(15, Math.min(100, Math.round(evs.reduce((s, e) => s + (e.impact === 'High' ? 3 : 1), 0) * 9)));
+    const risk = _riskOf(k);
     const ccys = [...new Set([...hiEvs, ...evs].map(e => e.currency).filter(Boolean))].slice(0, 4);
     const themes = [...new Set(evs.map(e => _theme(e.title || '')).filter(Boolean))].slice(0, 2);
     const dowEn = d.toLocaleDateString('en-US', { weekday: 'long' });
@@ -10665,6 +10836,7 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     return {
       dow: dowEn, date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
       title: _noDash(title).slice(0, 170), description: _waTrim(description, 1200), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+      hiN: hiEvs.length, medN: evs.length - hiEvs.length,   // compteurs RÉELS du jour (l'infobulle du profil de risque les affiche ; `events` est plafonné à 10 → ne pas compter dessus)
     };
   });
   if (!days.length) return _weekAhead;
