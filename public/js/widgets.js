@@ -1149,12 +1149,18 @@
 
   function byId(id) { for (var i = 0; i < CATALOG.length; i++) if (CATALOG[i].id === id) return CATALOG[i]; return null; }
 
-  /* ── PRESET proposé au premier lancement ── */
+  /* ── PRESET proposé au premier lancement ──
+     DESK_V = version de la COMPOSITION du layout par défaut. À BUMPER dès qu'on change les items de
+     « Vue générale » : sans ça, les comptes qui ont déjà un cfg enregistré gardent l'ANCIENNE composition
+     pour toujours (ensureDefaultLayout ne recomposait pas un layout existant) — c'est ce qui a privé le
+     desk de sa barre d'onglets après l'ajout du widget « Panneau à onglets » (constaté user 26/07). */
+  var DESK_V = 2;
   function defaultCfg() {
     return {
       active: 'mon-desk',
       gap: 'tight',                                    // densité : 'tight' = COLLÉS (défaut, demande user 26/07) / 'loose' = espacés
       gapV: 2,                                         // version de la préférence densité (migration one-shot loose→tight)
+      deskV: DESK_V,                                   // version de la COMPOSITION du layout par défaut (migration one-shot)
       tipSeen: 0,                                      // astuce gestes (bord droit / coin / ⠿) pas encore fermée
       // Le nom du layout ne doit PAS reprendre celui du panneau : l'en-tête affichait
       // « Mon Desk · Mon Desk · BÊTA » (constaté au banc d'essai).
@@ -1186,6 +1192,21 @@
     // ONE-SHOT (gapV 2) : le tout premier déploiement avait écrit 'loose' partout sans choix utilisateur →
     // on bascule ces comptes sur le nouveau défaut 'tight' UNE fois ; ensuite le choix de l'utilisateur fait foi.
     if (c.gapV !== 2) { if (c.gap === 'loose') c.gap = 'tight'; c.gapV = 2; }
+    // MIGRATION ONE-SHOT de la COMPOSITION du layout par défaut : « Vue générale » doit refléter le desk
+    // classique (fil d'actualité + horloge + barre d'onglets). Un compte créé avant l'ajout du panneau à
+    // onglets gardait sa vieille composition, donc PAS de barre de nav (demande user 26/07 « ajoute la nav
+    // barre ici comme dans le desk de base »). On ne recompose QUE le layout protégé et UNE seule fois —
+    // les layouts personnels et les modifications ultérieures de celui-ci ne sont plus jamais touchés.
+    if (c.deskV !== DESK_V) {
+      var _ref = defaultCfg().layouts[0];
+      for (var _i = 0; _i < c.layouts.length; _i++) {
+        var _l = c.layouts[_i];
+        if (_l && _l.id === PROTECTED_ID) { _l.items = JSON.parse(JSON.stringify(_ref.items)); break; }
+      }
+      c.deskV = DESK_V;
+      c.__migrated = 1;      // → load() SAUVEGARDE : sans ça deskV ne serait jamais persisté et la
+                             //   recomposition se rejouerait à CHAQUE ouverture, écrasant les réglages.
+    }
     if (c.tipSeen !== 1) c.tipSeen = 0;                            // migration : astuce gestes
     c.layouts.forEach(function (l) { if (l) l.hidden = !!l.hidden; });          // migration : état masqué (fermé)
     if (c.layouts.length && c.layouts.every(function (l) { return l.hidden; })) c.layouts[0].hidden = false;   // jamais 0 onglet visible
@@ -1194,6 +1215,7 @@
   function load() {
     return fetch('/api/widgets').then(function (r) { return r.json(); }).then(function (j) {
       STATE.cfg = ensureDefaultLayout((j && j.cfg && j.cfg.layouts && j.cfg.layouts.length) ? j.cfg : defaultCfg());
+      if (STATE.cfg.__migrated) { delete STATE.cfg.__migrated; save(); }   // fige la migration (voir ensureDefaultLayout)
     }).catch(function () { STATE.cfg = defaultCfg(); });
   }
   function save() {                        // débouncé ; le serveur re-sanitise de toute façon
