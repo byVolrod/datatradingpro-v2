@@ -566,6 +566,15 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .camp-bl-row .camp-bl-x { margin-left: auto; }
 .camp-recip-list, .camp-bl-list { flex-direction: column; gap: 0; }
 .camp-btn--armed { background: rgba(231, 76, 60, .14); border-color: rgba(231, 76, 60, .55); color: #f0857a; }
+/* Sélecteur de campagne des statistiques : « Total » (vue consolidée) est détaché du reste par un
+   séparateur, les campagnes individuelles suivent. L'actif reprend le liseré or des onglets. */
+#camp-campsel { align-items: center; }
+.camp-selbtn--on { border-color: rgba(227, 178, 58, .55); color: var(--orange); background: var(--orange-bg); }
+.camp-selbtn--total { font-weight: var(--fw-bold); margin-right: var(--sp-2); position: relative; }
+.camp-selbtn--total::after {
+  content: ''; position: absolute; right: calc(var(--sp-2) * -1 + 3px); top: 4px; bottom: 4px;
+  width: 1px; background: var(--border);
+}
 
 /* ── IA & quotas : fournisseurs, paires clé/valeur, prévision, journal ── */
 .aim-card .panel-body { padding: var(--sp-3); }

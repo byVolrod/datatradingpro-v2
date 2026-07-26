@@ -286,8 +286,10 @@
   }
   // Sélecteur de campagne pour les statistiques (l'ancien code figeait intro-v1 : le drip hebdo,
   // le digest et les nouveaux templates étaient invisibles dans la vue Statistiques).
-  let _campStatsId = 'intro-v1';
-  const _CAMP_STAT_IDS = [ ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['app-desktop-v1', 'Annonce app desktop'] ];
+  // « Total » = vue consolidée de TOUTES les campagnes, et c'est le DÉFAUT (demande user 26/07) : on veut
+  // d'abord voir la performance globale, puis creuser par contenu.
+  let _campStatsId = 'all';
+  const _CAMP_STAT_IDS = [ ['all', 'Total'], ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['app-desktop-v1', 'Annonce app desktop'] ];
   // Export CSV du tableau AFFICHÉ (respecte le filtre actif) — réutilise les lignes déjà chargées, zéro fetch.
   function campStatsExport(){
     var rows = _campStatRows;
@@ -309,9 +311,12 @@
   function _campStatsPick(id){ _campStatsId = id; loadCampStats(); }
   function _renderCampSel(){
     const host = document.getElementById('camp-campsel'); if (!host) return;
+    // « Total » est mis en avant (classe --total : séparateur + libellé or) : c'est une vue d'une autre
+    // nature que les campagnes individuelles qui suivent.
     host.innerHTML = _CAMP_STAT_IDS.map(function(c){
       const on = c[0] === _campStatsId;
-      return '<button class="camp-btn" style="' + (on ? 'border-color:#e3b23a;color:#e3b23a;' : '') + '" onclick="_campStatsPick(\'' + c[0] + '\')">' + c[1] + '</button>';
+      return '<button class="camp-btn camp-selbtn' + (c[0] === 'all' ? ' camp-selbtn--total' : '') + (on ? ' camp-selbtn--on' : '')
+        + '" onclick="_campStatsPick(\'' + c[0] + '\')">' + c[1] + '</button>';
     }).join('');
   }
   async function loadCampStats(){
@@ -326,7 +331,12 @@
       document.getElementById('camp-kpis').innerHTML = kpis.map(function(kv){ return '<div class="camp-kpi"><div class="camp-kpi-v">' + kv[1] + '</div><div class="camp-kpi-k">' + kv[0] + '</div></div>'; }).join('');
       _campStatRows = (d.recipients || []);
       renderCampStatRows();
-      document.getElementById('camp-stats-sub').textContent = s.sent + ' envoyé' + (s.sent > 1 ? 's' : '') + ' · ' + s.uniqueOpens + ' ouvert' + (s.uniqueOpens > 1 ? 's' : '');
+      // En vue Total, « envoyés » = personnes TOUCHÉES au moins une fois (fusion par destinataire) : on le
+      // dit explicitement, sinon le chiffre paraît incohérent avec la somme des campagnes.
+      const sub = document.getElementById('camp-stats-sub');
+      if (sub) sub.textContent = (_campStatsId === 'all')
+        ? s.sent + ' destinataire' + (s.sent > 1 ? 's' : '') + ' touché' + (s.sent > 1 ? 's' : '') + ' (toutes campagnes) · ' + s.uniqueOpens + ' ayant ouvert'
+        : s.sent + ' envoyé' + (s.sent > 1 ? 's' : '') + ' · ' + s.uniqueOpens + ' ouvert' + (s.uniqueOpens > 1 ? 's' : '');
     } catch {}
   }
   async function campExtraAdd(){
