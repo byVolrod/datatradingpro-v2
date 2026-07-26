@@ -14923,8 +14923,29 @@ app.get('/api/track/click', (req, res) => {
 // Stats de campagne (admin) : envoyes / ouvertures uniques + taux / clics + taux / desabos + detail destinataire.
 app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
   try {
-    const c = String(req.query.campaign || 'intro-v1');
-    const s = _campaignStats[c] || { sent: {}, opens: {}, clicks: {} };
+    const c = String(req.query.campaign || 'all');
+    // « TOTAL » (campaign=all, demande user 26/07 « il manque stats global aussi ») : vue CONSOLIDÉE de
+    // toutes les campagnes. On FUSIONNE PAR DESTINATAIRE (pas une somme de compteurs) → « envoyés » = nombre
+    // de personnes TOUCHÉES au moins une fois, « ouvertures uniques » = personnes ayant ouvert AU MOINS un
+    // e-mail. Les taux gardent ainsi un sens (sinon quelqu'un qui reçoit 5 mails compterait 5 fois).
+    // Les clés techniques `_unsub`/`_meta` du store ne sont PAS des campagnes → exclues.
+    const s = (c === 'all') ? (() => {
+      const agg = { sent: {}, opens: {}, clicks: {} };
+      for (const k of Object.keys(_campaignStats)) {
+        if (k.charAt(0) === '_') continue;
+        const st = _campaignStats[k]; if (!st) continue;
+        for (const e in (st.sent || {})) agg.sent[e] = Math.max(agg.sent[e] || 0, st.sent[e]);   // dernier envoi connu
+        for (const e in (st.opens || {})) {
+          const o = st.opens[e] || {}; const cur = agg.opens[e] || { n: 0, last: 0 };
+          agg.opens[e] = { n: cur.n + (o.n || 0), last: Math.max(cur.last || 0, o.last || 0) };
+        }
+        for (const e in (st.clicks || {})) {
+          const o = st.clicks[e] || {}; const cur = agg.clicks[e] || { n: 0, last: 0 };
+          agg.clicks[e] = { n: cur.n + (o.n || 0), last: Math.max(cur.last || 0, o.last || 0) };
+        }
+      }
+      return agg;
+    })() : (_campaignStats[c] || { sent: {}, opens: {}, clicks: {} });
     const sentEmails = Object.keys(s.sent), openEmails = Object.keys(s.opens), clickEmails = Object.keys(s.clicks);
     const totalOpens = openEmails.reduce((a, e) => a + ((s.opens[e] && s.opens[e].n) || 0), 0);
     const totalClicks = clickEmails.reduce((a, e) => a + ((s.clicks[e] && s.clicks[e].n) || 0), 0);
