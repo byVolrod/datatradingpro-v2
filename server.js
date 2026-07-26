@@ -10557,7 +10557,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
 //                 (→ si une conclusion bascule, l'écart `narrativeBias ≠ conclusion` fait régénérer CE
 //                 paragraphe par le cycle IA existant : la cohérence texte/tag se répare toute seule).
 // Diffusion : uniquement si quelque chose a VRAIMENT changé (diff), via le `smartbias_update` déjà en place.
-let _sbLiveBusy = false, _sbLivePersistAt = 0;
+let _sbLiveBusy = false, _sbLivePersistAt = 0, _sbLiveSeen = false;
 function _sbLiveFingerprint(b) {
   try {
     return JSON.stringify([
@@ -10623,6 +10623,9 @@ async function _sbRecomputeLive() {
     const next = Object.assign({}, _smartBias, { dataAt: Date.now(), rows, conclusion, technical, sentiment, macroTable });
     const after = _sbLiveFingerprint(next);
     _smartBias = next;
+    // Trace UNIQUE au premier recalcul de la vie du process : confirme que la couche est bien armée.
+    // Ensuite, silence total tant que rien ne change (sinon un tic toutes les 3 min inonderait les logs).
+    if (!_sbLiveSeen) { _sbLiveSeen = true; console.log('[SmartBias live] couche temps réel armée (recalcul toutes les 3 min, diffusion seulement si changement)' + (after === before ? ' — 1er passage : aucun changement' : '')); }
     if (after === before) return null;                          // rien n'a bougé → ni écriture ni diffusion
     // Persistance ESPACÉE (30 min) : inutile de réécrire un JSON de plusieurs ko à chaque tic ; le cycle
     // lourd, lui, persiste toujours. En cas de redémarrage on repart au pire d'un socle vieux de 30 min.
