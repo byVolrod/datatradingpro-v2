@@ -11055,7 +11055,7 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
   padding: 7px 10px; background: #101012; border-bottom: 1px solid var(--hud-line, #232429);
 }
 .wdg-title {
-  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 700; color: #e6e8ec;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: var(--fs-title, 11.5px); font-weight: 700; color: var(--text, #e8eaed);
   text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }   /* en-tête façon panneaux du desk (Inter Tight capitales) — plus de serif dans le module widgets (cohérence police desk) */
 .wdg-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
@@ -11084,8 +11084,8 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 .wdg-set-lbl { flex: 0 0 auto; width: 52px; font-size: 10px; color: #8b9099; }
 .wdg-set-btns { display: flex; gap: 4px; flex-wrap: wrap; }
 .wdg-chip {
-  padding: 3px 8px; font-size: 10px; border-radius: 3px; cursor: pointer;
-  background: #16171b; color: #c8ccd4; border: 1px solid var(--hud-line, #232429);
+  padding: 3px 8px; font-size: 10.5px; border-radius: 3px; cursor: pointer;
+  background: #16171b; color: var(--text2, #b4b8bf); border: 1px solid var(--hud-line, #232429);
   transition: border-color .12s, color .12s, background .12s;
 }
 .wdg-chip:hover { border-color: rgba(227,178,58,.5); color: #e3b23a; }
@@ -11225,7 +11225,7 @@ body.wdg-mode #topbar-nav { display: none; }
 
 .wdg-empty, .wdg-load {
   display: flex; align-items: center; justify-content: center; height: 100%;
-  font-size: 11px; color: #6b7280; text-align: center; padding: 12px;
+  font-size: var(--fs-body, 12px); color: var(--text3, #888d96); text-align: center; padding: 12px;
 }
 .wdg-blank {
   flex: 1 1 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -11276,13 +11276,13 @@ body.wdg-mode #topbar-nav { display: none; }
 }
 .wdg-lib-card:hover { border-color: rgba(227,178,58,.55); background: #131316; }
 .wdg-lib-cat { font-size: 8.5px; font-weight: 700; letter-spacing: .8px; color: #e3b23a; text-transform: uppercase; }
-.wdg-lib-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: 700; color: #e6e8ec; }   /* police du DESK (cohérence) */
-.wdg-lib-desc { font-size: 10.5px; color: #8b93a1; line-height: 1.45; }
+.wdg-lib-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: 700; color: var(--text, #e8eaed); }   /* police du DESK (cohérence) */
+.wdg-lib-desc { font-size: 11px; color: var(--text2, #b4b8bf); line-height: 1.5; }
 .wdg-lib-used { font-size: 9.5px; color: #8b93a1; font-style: italic; flex: 0 0 auto; }
 
 /* ── Bibliothèque v2 : sections par CATÉGORIE + cartes horizontales avec icône (refonte UX/UI) ── */
 .wdg-lib-sec { grid-column: 1 / -1; margin: 6px 2px 0; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #e3b23a; display: flex; align-items: baseline; gap: 8px; }
-.wdg-lib-sub { font-weight: 500; letter-spacing: .02em; text-transform: none; color: #6b7280; font-size: 9.5px; }
+.wdg-lib-sub { font-weight: 500; letter-spacing: .02em; text-transform: none; color: var(--text3, #888d96); font-size: 10px; }
 .wdg-lib-sec:first-child { margin-top: 0; }
 .wdg-lib-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 8px; }
 .wdg-lib-row .wdg-lib-card { flex-direction: row; align-items: center; gap: 11px; text-align: left; padding: 10px 12px; }
@@ -11531,12 +11531,12 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-mgr-star:hover { color: #e3b23a; }
 .wdg-mgr-star.on { color: #e3b23a; }
 .wdg-mgr-name {
-  flex: 1 1 auto; min-width: 0; padding: 5px 8px; font-size: 12px; font-family: 'Fraunces', Georgia, serif;
-  color: #e6e8ec; background: #16171b; border: 1px solid transparent; border-radius: 3px;
+  flex: 1 1 auto; min-width: 0; padding: 5px 8px; font-size: 12.5px; font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 600;
+  color: var(--text, #e8eaed); background: #16171b; border: 1px solid transparent; border-radius: 3px;
 }
 .wdg-mgr-name:hover { border-color: var(--hud-line, #232429); }
 .wdg-mgr-name:focus { outline: none; border-color: #e3b23a; background: #0d0e11; }
-.wdg-mgr-count { flex: 0 0 auto; font-size: 10px; color: #6b7280; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wdg-mgr-count { flex: 0 0 auto; font-size: 10.5px; color: var(--text3, #888d96); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wdg-mgr-open {
   flex: 0 0 auto; padding: 4px 10px; font-size: 10.5px; font-weight: 600; border-radius: 3px; cursor: pointer;
   background: rgba(227,178,58,.1); color: #e3b23a; border: 1px solid rgba(227,178,58,.38);
@@ -11574,8 +11574,8 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-tpl-card:hover:not(:disabled) { border-color: rgba(227,178,58,.55); background: #131316; }
 .wdg-tpl-card:disabled { opacity: .45; cursor: not-allowed; }
 .wdg-tpl-card .wdg-thumb { width: 100%; grid-auto-rows: 6px; padding: 5px; }
-.wdg-tpl-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12px; font-weight: 700; color: #e6e8ec; }
-.wdg-tpl-n { font-size: 10px; color: #7e8590; }
+.wdg-tpl-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: 700; color: var(--text, #e8eaed); }
+.wdg-tpl-n { font-size: 10.5px; color: var(--text3, #888d96); }
 
 /* Modèles prêts */
 .wdg-mgr-row--preset { background: #0e0e11; }
@@ -11604,7 +11604,7 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-dispo-card:hover { border-color: rgba(227,178,58,.55); transform: translateY(-1px); }
 .wdg-dispo-card .wdg-thumb { width: 100%; grid-auto-rows: 7px; }
 .wdg-thumb--free { display: flex; align-items: center; justify-content: center; color: #5b5d66; font-size: 17px; min-height: 30px; width: 100%; }
-.wdg-dispo-name { font-size: 10.5px; color: #c8cbd2; text-align: center; }
+.wdg-dispo-name { font-size: 11px; color: var(--text2, #b4b8bf); text-align: center; }
 .wdg-dispo-hint { margin-top: 12px; font-size: 10.5px; color: #7e8590; line-height: 1.5; }
 /* Rangées GROUPÉES par nombre de panneaux (chiffre à gauche, façon « Select Layout ») */
 .wdg-dispo-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
@@ -11615,7 +11615,7 @@ body.wdg-mode #topbar-nav { display: none; }
 /* Modèles prêts : cartes ALIGNÉES (vignette à hauteur FIXE, dessin ancré en haut → noms au même niveau)
    + liste LISIBLE des widgets contenus (2 lignes max) */
 .wdg-tpl-card .wdg-thumb { height: 76px; align-content: start; }
-.wdg-tpl-list { font-size: 9.5px; color: #7e8590; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wdg-tpl-list { font-size: 10.5px; color: var(--text2, #b4b8bf); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ── Widget « Panneau à onglets » : barre d'onglets grammaire NAV du desk, dans une carte ── */
 .wdgt-host { display: flex; flex-direction: column; height: 100%; min-height: 0; }
@@ -11669,7 +11669,7 @@ body.wdg-mode #topbar-nav { display: none; }
 }
 .wdg-lib-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .wdg-lib-chips .wdg-chip { padding: 4px 11px; font-size: 10.5px; }
-.wdg-lib-cnt { font-size: 10px; color: #5b5d66; margin-left: 5px; font-weight: 400; }
+.wdg-lib-cnt { font-size: 10px; color: var(--text3, #888d96); margin-left: 5px; font-weight: 400; }
 @media (max-width: 640px) {
   .wdg-lib-tools { flex-direction: column; align-items: stretch; gap: 8px; }
   .wdg-lib-tools .wdg-density { align-self: flex-start; }
@@ -11681,8 +11681,8 @@ body.wdg-mode #topbar-nav { display: none; }
   margin-top: 22px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #7e8590; font-weight: 700;
 }
 .wdg-blank-tpls {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 148px)); gap: 10px;
-  justify-content: center; margin-top: 10px; width: min(680px, 92%);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 210px)); gap: 12px;
+  justify-content: center; margin-top: 10px; width: min(920px, 94%);
 }
 
 /* ── ASTUCE GESTES (1re visite, fermable — persistée par compte) ── */
