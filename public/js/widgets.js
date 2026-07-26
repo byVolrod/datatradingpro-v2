@@ -38,6 +38,7 @@
   var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
   var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
   var GRID_COLS = 12, ROW_PX = 26;        // vraie grille : 12 colonnes fluides + unité de ligne 26px (snap)
+  var _BIAS_SINKS = [];                   // widgets Radar de Biais montés → repeints par le push serveur (DTPWidgets.onBias)
   var _fullscreenIdx = null;              // widget en plein écran (null = aucun)
   var _mountToken = 0;                    // jeton anti-course : seul le rAF du DERNIER renderGrid monte
   function _clamp(v, a, b) { v = v | 0; return v < a ? a : (v > b ? b : v); }
@@ -263,12 +264,19 @@
       // la même donnée (/api/smart-bias : currencies + macroTable) → tableau Radar de Biais RIGOUREUSEMENT identique
       // (mêmes colonnes Devise/Politique monétaire/Inflation/Croissance/Emploi/Driver/Biais, mêmes tags sémantiques).
       // Plus AUCUNE version simplifiée maison (règle établie). Aucun état partagé, aucun root amCharts → cleanup null.
+      // TEMPS RÉEL (demande user 26/07) : le widget suit la même matrice que l'onglet BIAIS — il consomme le
+      // push serveur `smartbias_update` (via DTPWidgets.onBias, app.js) et garde un filet de 60 s. Il ne re-rend
+      // que si la donnée a VRAIMENT changé (dataAt) : pas de clignotement, pas de scroll perdu.
       mount: function (host) {
         host.innerHTML = '<div class="wdg-load">Chargement du biais…</div>';
-        fetch('/api/smart-bias').then(function (r) { return r.json(); }).then(function (d) {
+        var lastAt = 0;
+        function paint(d) {
           if (!host.isConnected) return;
           var cur = d && d.currencies;
           if (!cur || !cur.length || typeof _sbRenderMacroTable !== 'function') return fallback(host, 'Biais indisponible.');
+          var at = Number(d.dataAt || d.generatedAt || 0);
+          if (at && at === lastAt && host.querySelector('.macro-wrap')) return;   // rien de neuf → on ne touche à rien
+          lastAt = at;
           // Source de vérité serveur (macroTable) ; repli dérivé des piliers si cache ancien — EXACTEMENT comme le desk.
           var macro = (d.macroTable && Object.keys(d.macroTable).length) ? d.macroTable
                     : (typeof _sbMacroFromRows === 'function' ? _sbMacroFromRows(d) : {});
@@ -281,8 +289,16 @@
             var row = e.target.closest('.mt-row'); if (!row) return;
             _wdgBiasDetail(row.getAttribute('data-cur'), d);
           });
-        }).catch(function () { fallback(host, 'Biais indisponible.'); });
-        return null;
+        }
+        function reload() {
+          if (!host.isConnected) return;
+          fetch('/api/smart-bias').then(function (r) { return r.json(); }).then(paint)
+            .catch(function () { if (!host.querySelector('.macro-wrap')) fallback(host, 'Biais indisponible.'); });
+        }
+        reload();
+        var iv = setInterval(reload, 60000);
+        _BIAS_SINKS.push(paint);                                   // push serveur → repeint sans attendre le filet
+        return function () { clearInterval(iv); var i = _BIAS_SINKS.indexOf(paint); if (i >= 0) _BIAS_SINKS.splice(i, 1); };
       },
     },
     {
@@ -1962,6 +1978,13 @@
     },
 
     reset: function () { _delConfirm = null; STATE.cfg = defaultCfg(); save(); renderBar(); renderManager(); renderGrid(); },
+
+    // TEMPS RÉEL du Radar de Biais : appelé par le handler WebSocket du desk (app.js) à chaque
+    // `smartbias_update`. Repeint les widgets « Radar de Biais » montés, sans requête réseau.
+    onBias: function (bias) {
+      if (!bias || !bias.currencies || !_BIAS_SINKS.length) return;
+      _BIAS_SINKS.slice().forEach(function (fn) { try { fn(bias); } catch (e) {} });
+    },
   };
   window.DTPWidgets = API;
 

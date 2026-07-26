@@ -3015,6 +3015,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   color: var(--text4);
   letter-spacing: 0.04em;
 }
+/* Pastille « Direct » du Radar de Biais (matrice poussée en temps réel par le serveur). Même grammaire
+   que le fil d'actualité : point vert FIXE (pas de pulse, charte) + libellé discret. Le flash n'apparaît
+   qu'à l'instant d'une mise à jour reçue. */
+.bias-live { display: inline-flex; align-items: center; gap: 5px; color: var(--text3); }
+.bias-live .live-dot { flex: 0 0 auto; }
+.bias-live--flash { animation: biasLiveFlash 1.1s var(--ease, ease-out) 1; }
+@keyframes biasLiveFlash {
+  0%   { color: #e3b23a; text-shadow: 0 0 6px rgba(227, 178, 58, .45); }
+  100% { color: var(--text3); text-shadow: none; }
+}
 /* ── Micro-mention « contexte, pas signaux » (philosophie la référence) : discrète, pied de panneau ── */
 .ctx-note { flex: 0 0 auto; padding: 5px 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text4); letter-spacing: 0.02em; }
 .ctx-note--ins { border-top: none; padding: 4px 2px 0; font-size: 9px; }

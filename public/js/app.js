@@ -791,11 +791,25 @@ function handleMessage(msg) {
       _renderArlibSoon();
     }
   } else if (msg.type === 'smartbias_update' || msg.type === 'bias_update') {
-    // Nouvelle matrice Radar de Biais générée → on met à jour l'onglet Bias
-    if (msg.type === 'smartbias_update' && msg.bias) {
-      _biasData = null; _biasView = null; _biasViewTs = null;   // force le re-fetch avec l'historique (versioning)
+    // TEMPS RÉEL du Radar de Biais : le serveur POUSSE la matrice à jour (couche live 3 min, 0 IA).
+    // On consomme le payload DIRECTEMENT (zéro aller-retour) ; on ne re-fetch que s'il est absent.
+    if (msg.type === 'smartbias_update') {
       const biasPanel = document.getElementById('view-bias');
-      if (biasPanel && !biasPanel.classList.contains('hidden')) loadBiasView();
+      const visible = biasPanel && !biasPanel.classList.contains('hidden');
+      if (msg.bias && msg.bias.currencies) {
+        // Si l'utilisateur consulte une SEMAINE PASSÉE, on met à jour la donnée courante en silence
+        // sans lui reprendre sa vue d'archive.
+        const archive = !!(_biasData && _biasViewTs && Number(_biasData.generatedAt) !== Number(_biasViewTs));
+        _biasData = msg.bias;
+        if (!archive) {
+          _biasView = msg.bias; _biasViewTs = msg.bias.generatedAt || 0;
+          if (visible) { renderBiasView(msg.bias); _biasPulse(); }
+        }
+      } else {
+        _biasData = null; _biasView = null; _biasViewTs = null;
+        if (visible) loadBiasView(true);
+      }
+      try { if (window.DTPWidgets && DTPWidgets.onBias) DTPWidgets.onBias(msg.bias || null); } catch (e) {}
     }
   }
 }
@@ -3884,21 +3898,48 @@ function _biasSkeleton() {
            '<div class="sbm-grid-wrap"><table class="sbm-grid"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
          '</div>';
 }
-function loadBiasView() {
+// force=true : ignore le cache mémoire et va rechercher la matrice (rafraîchissement TEMPS RÉEL — filet
+// de sécurité si le WebSocket est coupé ; en marche normale c'est le push `smartbias_update` qui met à jour).
+function loadBiasView(force) {
   const host = document.getElementById('bias-content');
   if (!host) return;
-  if (_biasData) { renderBiasView(_biasView || _biasData); return; }
-  host.innerHTML = _biasSkeleton();
+  if (_biasData && !force) { renderBiasView(_biasView || _biasData); return; }
+  if (!_biasData) host.innerHTML = _biasSkeleton();   // rafraîchissement silencieux : pas de squelette qui clignote
   // Fetch RÉSILIENT (anticipation) : tolère un hoquet serveur (502/HTML pendant un redéploiement) → réessaie
   // ~80 s au lieu de rester bloqué sur « indisponible ». Jamais d'« Unexpected token '<' ».
   (window._dtpJSON ? window._dtpJSON('/api/smart-bias') : fetch('/api/smart-bias').then(r => r.json()))
-    .then(d => { if (!d || !d.currencies) throw new Error('no data'); _biasRetry = 0; _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; renderBiasView(d); })
+    .then(d => {
+      if (!d || !d.currencies) throw new Error('no data');
+      _biasRetry = 0;
+      // Rafraîchissement silencieux : si RIEN n'a changé côté données, on ne re-rend pas (évite de casser
+      // une sélection/un scroll en cours toutes les 60 s).
+      const same = _biasData && Number(_biasData.dataAt || 0) === Number(d.dataAt || 0) && Number(_biasData.generatedAt || 0) === Number(d.generatedAt || 0);
+      const archive = !!(_biasData && _biasViewTs && Number(_biasData.generatedAt) !== Number(_biasViewTs));
+      _biasData = d;
+      if (archive) return;                                  // l'utilisateur regarde une semaine passée → on n'y touche pas
+      _biasView = d; _biasViewTs = d.generatedAt || 0;
+      if (!same || !document.querySelector('#sbm-matrix-zone')) { renderBiasView(d); if (same === false) _biasPulse(); }
+    })
     .catch(() => {
       if (_biasRetry++ < 20) { host.innerHTML = _biasSkeleton(); setTimeout(loadBiasView, 4000); }
       else host.innerHTML = '<div class="bias-loading">Radar de Biais momentanément indisponible : réessaie dans un instant.</div>';
     });
 }
 window.loadBiasView = loadBiasView;
+// Petit flash de la pastille « Direct » quand une mise à jour vient d'arriver → le trader VOIT que ça bouge.
+function _biasPulse() {
+  const el = document.querySelector('#bias-update-badge .bias-live');
+  if (!el) return;
+  el.classList.remove('bias-live--flash');
+  void el.offsetWidth;                      // relance l'animation même si elle vient de tourner
+  el.classList.add('bias-live--flash');
+}
+// FILET si le WebSocket est coupé (proxy, veille, réseau) : tant que l'onglet BIAIS est visible, on
+// revalide la matrice toutes les 60 s. Aucun coût serveur (la route ne fait que lire un cache mémoire).
+setInterval(function () {
+  const p = document.getElementById('view-bias');
+  if (p && !p.classList.contains('hidden')) loadBiasView(true);
+}, 60000);
 
 // ═══════════════════ SEMAINE À VENIR : aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
 let _waData = null, _waChartRoot = null, _waPollTimer = null, _waPollCount = 0;
@@ -4420,8 +4461,17 @@ function renderBiasView(d) {
   if (!host) return;
   const cur  = (d && d.currencies) || [];
   const rows = (d && d.rows) || [];
+  // Indicateur DIRECT (demande user 26/07 « l'onglet biais doit se mettre à jour en temps réel ») : pastille
+  // verte fixe + heure du dernier rafraîchissement des DONNÉES (`dataAt`, pas `generatedAt` qui reste l'ancre
+  // hebdo du narratif). L'ancien badge « MAJ <date> » reste supprimé — ce n'est pas le même objet.
   const badge = document.getElementById('bias-update-badge');
-  if (badge) badge.textContent = '';   // badge « MAJ <date> » retiré (demande utilisateur)
+  if (badge) {
+    const at = d && (d.dataAt || d.generatedAt);
+    const hh = at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+    const archive = !!(_biasData && _biasViewTs && Number(_biasData.generatedAt) !== Number(_biasViewTs));
+    badge.innerHTML = archive ? ''     // consultation d'une semaine passée : pas de « direct »
+      : '<span class="bias-live"><span class="live-dot live-dot--small"></span>Direct' + (hh ? ' · ' + hh : '') + '</span>';
+  }
 
   if (!cur.length || !rows.length) {
     host.innerHTML = '<div class="bias-loading">La matrice Radar de Biais sera générée dimanche (force : /api/smart-bias?force=1).</div>';

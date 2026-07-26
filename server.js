@@ -10546,6 +10546,98 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   return _smartBias;
 }
 
+// ═══ TEMPS RÉEL DU RADAR DE BIAIS (demande user 26/07 « l'onglet biais doit se mettre à jour en temps réel ») ═══
+// `generateSmartBias` est LOURD (TE + 6 mois de calendrier + COT + myfxbook + pétrole) et coûte 1 appel IA
+// INCONDITIONNEL → impossible à cadencer serré. On sépare donc une COUCHE RAPIDE 100 % DÉTERMINISTE (0 token,
+// 0 scraping : elle ne fait que RELIRE des caches déjà entretenus — calendrier TV 4 min, force des devises
+// 60 s/2 min, régime de risque 3 min, FedWatch) et recalculer l'arithmétique des piliers.
+//   Recalculé   : Fundamental (×3), Trend (×1), pilier Monétaire re-groundé sur la stance FRAÎCHE (×1.5),
+//                 Technical + Sentiment (hors matrice), conclusion, macroTable/détail.
+//   Repris tel quel du snapshot : Bank Overview, bankStances, narratif hebdo et son tag `narrativeBias`
+//                 (→ si une conclusion bascule, l'écart `narrativeBias ≠ conclusion` fait régénérer CE
+//                 paragraphe par le cycle IA existant : la cohérence texte/tag se répare toute seule).
+// Diffusion : uniquement si quelque chose a VRAIMENT changé (diff), via le `smartbias_update` déjà en place.
+let _sbLiveBusy = false, _sbLivePersistAt = 0;
+function _sbLiveFingerprint(b) {
+  try {
+    return JSON.stringify([
+      b.conclusion,
+      (b.rows || []).map(r => [r.key, r.values]),
+      Object.keys(b.macroTable || {}).sort().map(c => {
+        const m = b.macroTable[c] || {};
+        return [c, (m.monetary || {}).dir, (m.inflation || {}).dir, (m.growth || {}).dir, (m.jobs || {}).dir, m.bias];
+      }),
+    ]);
+  } catch { return ''; }
+}
+async function _sbRecomputeLive() {
+  if (_sbLiveBusy) return null;
+  if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) return null;   // pas de socle → c'est le cycle lourd qui doit passer
+  _sbLiveBusy = true;
+  try {
+    const before = _sbLiveFingerprint(_smartBias);
+    const prevRow = k => (_smartBias.rows.find(r => r.key === k) || {}).values || {};
+    // Le pilier FONDAMENTAL est le seul coûteux (TradingEconomics + 6 mois de calendrier TradingView, caches
+    // 8 h / 4 min) → on ne le recalcule QUE si une publication à impact est réellement tombée depuis le dernier
+    // refresh. C'est exactement l'événement qui doit faire bouger le biais ; le reste du temps on le reprend.
+    const _fundRow = _smartBias.rows.find(r => r.key === 'fundamental') || {};
+    const _newPrint = _sbHasNewActualSince(_smartBias.dataAt || _smartBias.generatedAt || 0);
+    const fundamentalRes = _newPrint
+      ? await _sbFundamentalRows()
+      : { parent: _fundRow.values || {}, subs: _fundRow.subs || [] };
+    const fundamental    = fundamentalRes.parent;
+    const trend          = await _sbTrendRow();       // force des devises (cache 2 min)
+    const technical      = await _sbTechnicalRow();   // force 1 j (cache 60 s)
+    const sentiment      = _sbSentimentRow();         // régime de risque (cache 3 min)
+    const bankOverview = prevRow('bankOverview');               // IA/hebdo → repris tel quel
+    // Pilier monétaire : on repart du dernier ton connu et on ré-applique le GROUNDING sur la stance
+    // fraîche (_sbPolicyStance : FedWatch pour l'USD, biais maison sinon). L'opération est idempotente
+    // (re-grounder un résultat déjà groundé le laisse stable) → le pilier suit les anticipations en direct.
+    const monetary = Object.assign({}, prevRow('monetary'));
+    try {
+      const _SC = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2 };
+      const _LV = ['Very Bearish', 'Bearish', 'Neutral', 'Bullish', 'Very Bullish'];
+      for (const c of SB_CURRENCIES) {
+        const s = _sbPolicyStance(c).s;
+        const tone = _SC[monetary[c]] != null ? _SC[monetary[c]] : 0;
+        let net;
+        if (s > 0) net = tone >= 2 ? 2 : 1;
+        else if (s < 0) net = tone <= -2 ? -2 : -1;
+        else net = Math.max(-1, Math.min(1, tone));
+        monetary[c] = _LV[net + 2];
+      }
+    } catch {}
+    const conclusion = {};
+    SB_CURRENCIES.forEach(c => {
+      conclusion[c] = concludeBias([fundamental[c], bankOverview[c], monetary[c], trend[c]], [3, 1, 1.5, 1]);
+    });
+    const rows = [
+      { key: 'fundamental',  label: 'Fundamental Data', values: fundamental, subs: fundamentalRes.subs },
+      { key: 'bankOverview', label: 'Bank Overview',    values: bankOverview },
+      { key: 'monetary',     label: 'Monetary Policy',  values: monetary },
+      { key: 'trend',        label: 'Trend',            values: trend },
+    ];
+    const _oilDir = await _sbOilTrend();
+    let macroTable = _smartBias.macroTable || {};
+    try { macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion, _oilDir); } catch (e) { console.warn('[SmartBias live] macroTable', e.message); }
+    const next = Object.assign({}, _smartBias, { dataAt: Date.now(), rows, conclusion, technical, sentiment, macroTable });
+    const after = _sbLiveFingerprint(next);
+    _smartBias = next;
+    if (after === before) return null;                          // rien n'a bougé → ni écriture ni diffusion
+    // Persistance ESPACÉE (30 min) : inutile de réécrire un JSON de plusieurs ko à chaque tic ; le cycle
+    // lourd, lui, persiste toujours. En cas de redémarrage on repart au pire d'un socle vieux de 30 min.
+    if (Date.now() - _sbLivePersistAt > 30 * 60 * 1000) {
+      _sbLivePersistAt = Date.now();
+      try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
+      auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});
+    }
+    console.log('[SmartBias live] mise à jour — ' + SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' '));
+    try { broadcast({ type: 'smartbias_update', bias: _sbApplyOverrides(_sbFreshenMacroTable(_sbFillNarrative(_smartBias))) }); } catch {}
+    return _smartBias;
+  } catch (e) { console.warn('[SmartBias live]', e.message); return null; }
+  finally { _sbLiveBusy = false; }
+}
+
 // Narratif hebdo par devise : UN appel aiSmart('bias') PAR devise (prompt court → AUCUNE troncature
 // JSON ; un échec n'impacte qu'UNE devise, les autres restent IA). Passe par le quota standard, en
 // mode {scheduled} (cycle hebdo planifié — jamais à l'arrivée d'un utilisateur). Repli null si rien
@@ -11098,6 +11190,10 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
   // sans vrai narratif IA, et s'arrête dès que les 8 devises en ont un. Quota mini, jamais sur le chemin utilisateur.
   setTimeout(() => { _sbEnsureNarrative().catch(() => {}); }, 130 * 1000);
   setInterval(() => { _sbEnsureNarrative().catch(() => {}); }, 12 * 60 * 1000);
+  // TEMPS RÉEL (demande user 26/07) : couche rapide DÉTERMINISTE toutes les 3 min — 0 token, 0 scraping
+  // (relecture de caches déjà entretenus). Silencieuse si rien n'a changé (diff dans _sbRecomputeLive) et
+  // suspendue quand PERSONNE n'est connecté (_aiUsersIdle) → aucun travail inutile sur le VPS.
+  setInterval(() => { if (_aiUsersIdle()) return; _sbRecomputeLive().catch(() => {}); }, 3 * 60 * 1000);
 })();
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
