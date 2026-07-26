@@ -1125,6 +1125,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .ctrl-btn--help { font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-semibold); color: var(--text4); border: 1px solid var(--border2); border-radius: 50%; width: 18px; height: 18px; }
 
 /* Toolbar */
+/* Le point « flux en direct » a rejoint cette barre quand l'en-tête de titre du fil a été retiré
+   (26/07) : la barre est en gap:0, il lui faut donc ses propres marges pour ne pas coller au bord. */
+.panel-toolbar > .live-dot { flex: 0 0 auto; margin: 0 9px 0 12px; }
 .panel-toolbar {
   height: var(--toolbar-h);
   background: var(--bg2);
