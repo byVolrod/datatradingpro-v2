@@ -786,6 +786,7 @@ function _wdgClean(body) {
     // (même piège que gw/gh, cf. commentaire plus haut).
     gap: (b.gap === 'loose' ? 'loose' : 'tight'),                 // densité (défaut = COLLÉS, demande user 26/07)
     gapV: (b.gapV === 2 ? 2 : 0),                                 // version de la préférence densité (migration one-shot)
+    deskV: (Number.isInteger(b.deskV) && b.deskV > 0 && b.deskV < 100) ? b.deskV : 0,   // version de la COMPOSITION du layout par défaut : sans ce champ la migration se rejouerait à CHAQUE chargement et écraserait le desk en boucle
     tipSeen: (b.tipSeen === 1 || b.tipSeen === true) ? 1 : 0,     // astuce gestes (bord droit/coin/⠿) déjà fermée ?
   };
 }
