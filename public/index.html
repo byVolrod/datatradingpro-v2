@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260726bbg328" />
+  <link rel="stylesheet" href="/css/style.css?v=20260726bbg329" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -553,7 +553,8 @@
         <div class="panel-header-controls">
           <!-- UN SEUL point d'entrée (mieux que les 3 icônes PMT) : le panneau « Personnaliser » unifie
                Widgets + Layouts via ses onglets internes -->
-          <button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.openLib()" title="Personnaliser mon desk — widgets & layouts">
+          <!-- Ouvre sur › LAYOUTS (demande user : choisir son dashboard D'ABORD, les widgets ensuite) -->
+          <button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.openManager()" title="Personnaliser mon desk — layouts & widgets">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M17 13.5v7M13.5 17h7"/></svg>
             Personnaliser
           </button>
@@ -831,12 +832,12 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260725bbg320"></script>
+<script defer src="/js/app.js?v=20260726bbg329"></script>
 <script defer src="/js/charts.js?v=20260724bbg315"></script>
 <script defer src="/js/sessionmap.js?v=20260723bbg301"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260726bbg328"></script>
+<script defer src="/js/widgets.js?v=20260726bbg329"></script>
 <script defer src="/js/i18n-dicts.js?v=20260723bbg304"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
 
