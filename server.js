@@ -3358,10 +3358,12 @@ app.get('/api/weekly-reports', async (_req, res) => {
   // dès que la version IA française est publiée (l'anti-rétrogradation garantit qu'elle ne re-régresse pas).
   else {
     // Cibles de guérison : replis ANGLAIS (_ai:false) OU version PÉRIMÉE (v < FXR_VER — un bump de version
-    // régénère aussi les ~3 derniers jours : les améliorations de fond profitent à l'historique récent).
+    // régénère aussi l'historique récent : les améliorations de fond profitent aux jours passés).
+    // Fenêtre 7,5 j (demande user 26/07 « applique depuis les 7 derniers jours », règles mentor) — le rythme
+    // reste 1 jour / 15 min (quota) : l'historique se met à niveau en quelques heures.
     const _fxrPastFb = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr
       && (i._fxr._ai === false || (i._fxr.v || 0) < FXR_VER)
-      && i._fxr.day !== _fxrDay && (Date.now() - ((_parisDayRange(i._fxr.day) || [0])[0] || 0)) < 3.5 * 86400000);
+      && i._fxr.day !== _fxrDay && (Date.now() - ((_parisDayRange(i._fxr.day) || [0])[0] || 0)) < 7.5 * 86400000);
     if (_fxrPastFb && Date.now() - _fxrPastGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
       _fxrPastGenLock = Date.now();
       generating = true;
