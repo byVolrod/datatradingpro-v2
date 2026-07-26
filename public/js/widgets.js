@@ -148,18 +148,28 @@
      RÈGLE : un widget ne doit JAMAIS écrire un id DOM en dur — il peut vivre en 2 exemplaires. */
   var CATALOG = [
     {
-      id: 'force-devises', name: 'Force des Devises', cat: 'Devises', h: 300,
-      desc: 'Qui mène, qui décroche, sur la semaine.',
+      id: 'force-devises', name: 'Force des Devises', tag: 'FORCE', cat: 'Devises', h: 300,
+      desc: 'Qui mène, qui décroche — double panneau TD | TW comme le desk.',
+      // DOUBLE panneau comme l'onglet › FORCE du desk (gauche = TD intraday, droite = TW semaine ;
+      // demande user 26/07 « exactement comme le desk »). Hôte étroit (<520px) → un seul graphe (semaine).
       mount: function (host) {
-        var id = HOST_ID + '-fx-' + uid();
-        host.innerHTML = '<div id="' + id + '" style="width:100%;height:100%;"></div>';
         if (typeof buildIsolatedStrength !== 'function') { fallback(host, 'Force des Devises indisponible.'); return null; }
-        try { buildIsolatedStrength(id, null, 'week'); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
-        return function () { try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {} };
+        var dual = (host.clientWidth || 0) >= 520;
+        var idL = HOST_ID + '-fx-' + uid(), idR = HOST_ID + '-fx-' + uid();
+        if (!dual) {
+          host.innerHTML = '<div id="' + idL + '" style="width:100%;height:100%;"></div>';
+          try { buildIsolatedStrength(idL, null, 'week'); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
+          return function () { try { if (typeof disposeRoot === 'function') disposeRoot(idL); } catch (e) {} };
+        }
+        host.innerHTML = '<div class="wdg-fx-dual">'
+          + '<div class="wdg-fx-pane wdg-fx-pane--l"><span class="wdg-fx-cap">TD</span><div id="' + idL + '" class="wdg-fx-chart"></div></div>'
+          + '<div class="wdg-fx-pane"><span class="wdg-fx-cap">TW</span><div id="' + idR + '" class="wdg-fx-chart"></div></div></div>';
+        try { buildIsolatedStrength(idL, null, 'today'); buildIsolatedStrength(idR, null, 'week'); } catch (e) {}
+        return function () { try { if (typeof disposeRoot === 'function') { disposeRoot(idL); disposeRoot(idR); } } catch (e) {} };
       },
     },
     {
-      id: 'barometre', name: 'Baromètre des Devises', cat: 'Devises', h: 300,
+      id: 'barometre', name: 'Baromètre des Devises', tag: 'BAROMÈTRE', cat: 'Devises', h: 300,
       desc: 'La force des 8 majeures en égaliseur bidirectionnel (le vrai baromètre du desk).',
       // Réutilise buildMeterChart du desk (HTML pur, classes .meter-*). Son timer interne s'auto-termine
       // hors de l'onglet METER (garde #rtab-meter) → snapshot rafraîchi à chaque réouverture, zéro fuite.
@@ -313,7 +323,7 @@
       },
     },
     {
-      id: 'risque-jauge', name: 'Sentiment de Risque', cat: 'Risque', h: 300,
+      id: 'risque-jauge', name: 'Sentiment de Risque', tag: 'RISQUE', cat: 'Risque', h: 300,
       desc: "L'appétit / l'aversion du marché en direct (risk-on / risk-off).",
       // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de buildRiskGauge (charts.js) — mêmes classes
       // (.risk-ticker / .risk-gauge-stage / .risk-readout), même arc am5radar (dégradé 7 stops), même
@@ -400,7 +410,7 @@
       },
     },
     {
-      id: 'cot-inst', name: 'Positionnement COT', cat: 'Risque', h: 340,
+      id: 'cot-inst', name: 'Positionnement COT', tag: 'COT', cat: 'Risque', h: 340,
       desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
       // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
       // → mêmes cartes donut SVG .cot-cell, mêmes 5 catégories CFTC (barre .cot-type-bar reproduite, handlers
@@ -426,7 +436,7 @@
       },
     },
     {
-      id: 'dmx-retail', name: 'Aperçu DMX', cat: 'Risque', h: 340,
+      id: 'dmx-retail', name: 'Aperçu DMX', tag: 'DMX', cat: 'Risque', h: 340,
       desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
       // IDENTIQUE AU DESK (23/07) : réutilise buildDMXChart(force, {wrapId, period, sort}) de charts.js
       // → mêmes barres .dmx2-row, même en-tête (boutons TF 1D/4H/1H + tri) et même légende Long/Short.
@@ -463,7 +473,7 @@
       },
     },
     {
-      id: 'saison', name: 'Saisonnalité', cat: 'Macro', h: 300,
+      id: 'saison', name: 'Saisonnalité', tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
       desc: "La table de performance mensuelle par année (rendements × 5 ans).",
       // IDENTIQUE AU DESK (23/07) : même table heatmap .season-table (cellules rendues par le MÊME
       // _seasonCell global de charts.js — vert/rouge ∝ |valeur|, flèches, colonne Moy.), même badge
@@ -509,7 +519,7 @@
       },
     },
     {
-      id: 'sessions', name: 'Sessions de marché', cat: 'Macro', h: 340,
+      id: 'sessions', name: 'Sessions de marché', tag: 'MONDE', cat: 'Macro', h: 340,
       desc: 'La carte du monde des 4 grandes sessions FX, en direct.',
       // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de la VRAIE carte Leaflet de l'onglet MONDE
       // (sessionmap.js) — continents GeoJSON on-brand (geodata amCharts partagé), terminateur jour/nuit,
@@ -1056,10 +1066,12 @@
           catch (e) { fallback(body, 'Widget indisponible.'); }
         }
         function renderTabs() {
+          // Libellé = TAG court du desk quand il existe (› MONDE › RISQUE › FORCE…, demande user 26/07
+          // « exactement comme le desk ») ; le nom complet reste dans le title (infobulle).
           bar.innerHTML = tabs.map(function (id, i) {
             var w = byId(id);
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + '" data-i="' + i + '" title="' + esc(w.name) + '">'
-              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(w.name) + '</span>'
+              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(w.tag || w.name) + '</span>'
               + '<span class="wdgt-x" title="Retirer cet onglet" data-x="' + i + '">×</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
         }

@@ -4094,7 +4094,8 @@ function _waBuildChart(days) {
     try { root._logo && root._logo.dispose(); } catch {}
     const chart = root.container.children.push(am5xy.XYChart.new(root, {
       panX: false, panY: false, wheelX: 'none', wheelY: 'none',
-      paddingLeft: 4, paddingRight: 4, paddingTop: 4, paddingBottom: 0,
+      paddingLeft: 4, paddingRight: 4, paddingTop: 16, paddingBottom: 0,   // paddingTop : place pour les valeurs au-dessus des points
+      maskBullets: false,   // les VALEURS des points hauts débordent dans le paddingTop — sans ça amCharts les clippe (banc 26/07)
     }));
     const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
       categoryField: 'day', renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 16 }),
@@ -4102,25 +4103,66 @@ function _waBuildChart(days) {
     xAxis.get('renderer').grid.template.set('forceHidden', true);
     // Jours LISIBLES (demande user 26/07) : plus clairs, un cran plus grands, en gras léger
     xAxis.get('renderer').labels.template.setAll({ fill: am5.color(0xaab3bf), fontSize: 11, fontWeight: '600' });
+    // Jours en FRANÇAIS (LUN…VEN) — la donnée serveur arrive en anglais (Mon/Tue…). L'infobulle porte
+    // le détail RÉEL du jour (hiN/medN/ccys, serveur v18) ; absent sur un cache ancien → ligne vide tolérée.
+    const DOW_FR = { Mon: 'LUN', Tue: 'MAR', Wed: 'MER', Thu: 'JEU', Fri: 'VEN', Sat: 'SAM', Sun: 'DIM' };
+    const data = (days || []).map(d => {
+      const k = (d.dow || '').slice(0, 3);
+      const detail = (typeof d.hiN === 'number')
+        ? d.hiN + ' fort impact · ' + (d.medN || 0) + ' moyen' + ((d.ccys && d.ccys.length) ? ' · ' + d.ccys.slice(0, 4).join(' ') : '')
+        : '';
+      return { day: DOW_FR[k] || k, risk: typeof d.risk === 'number' ? d.risk : 50, detail };
+    });
+    const maxRisk = data.length ? Math.max.apply(null, data.map(x => x.risk)) : 0;
+    const minRisk = data.length ? Math.min.apply(null, data.map(x => x.risk)) : 0;
+    // Axe Y calé sur la PLAGE des données (pas 0-100) : sur une sparkline de ~84px, un axe fixe écrasait
+    // le relief (vérifié au banc). Marge HAUTE = 30 % de l'amplitude : la valeur du PIC doit tenir DANS
+    // le plot (au banc, avec une marge de 6, le « 95 » du pic sortait du cadre et disparaissait).
+    const _span = Math.max(1, maxRisk - minRisk);
     const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-      min: 0, max: 100, renderer: am5xy.AxisRendererY.new(root, {}),
+      min: Math.max(0, minRisk - _span * 0.14), max: maxRisk + _span * 0.30, strictMinMax: true,
+      renderer: am5xy.AxisRendererY.new(root, {}),
     }));
     yAxis.get('renderer').grid.template.set('forceHidden', true);
     yAxis.get('renderer').labels.template.set('forceHidden', true);
+    // La valeur écrite au-dessus d'un point HAUT sort du plot (mesuré au banc : le « 95 » du pic tombait
+    // à y=-8). `maskBullets:false` seul NE SUFFIT PAS — il faut aussi ouvrir le masque du plotContainer
+    // et du chart pour que l'étiquette s'affiche dans le paddingTop.
+    try { chart.plotContainer.set('maskContent', false); chart.set('maskContent', false); } catch (e) {}
     const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, {
-      xAxis, yAxis, valueYField: 'risk', categoryXField: 'day', stroke: am5.color(0xe28b41), fill: am5.color(0xe28b41),
+      xAxis, yAxis, valueYField: 'risk', categoryXField: 'day', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a),
+      tooltip: am5.Tooltip.new(root, { labelText: '{day} — indice {risk}/100\n{detail}' }),
     }));
+    try { series.get('tooltip').label.setAll({ fontSize: 11 }); } catch {}
     series.strokes.template.setAll({ strokeWidth: 2 });
     series.fills.template.setAll({
       visible: true,
       fillGradient: am5.LinearGradient.new(root, {
         rotation: 90,
-        stops: [{ color: am5.color(0xe28b41), opacity: 0.35 }, { color: am5.color(0x0c0c0e), opacity: 0 }],
+        stops: [{ color: am5.color(0xe3b23a), opacity: 0.32 }, { color: am5.color(0x0c0c0e), opacity: 0 }],
       }),
     });
-    // Jours en FRANÇAIS (LUN…VEN) — la donnée serveur arrive en anglais (Mon/Tue…)
-    const DOW_FR = { Mon: 'LUN', Tue: 'MAR', Wed: 'MER', Thu: 'JEU', Fri: 'VEN', Sat: 'SAM', Sun: 'DIM' };
-    const data = (days || []).map(d => { const k = (d.dow || '').slice(0, 3); return { day: DOW_FR[k] || k, risk: typeof d.risk === 'number' ? d.risk : 50 }; });
+    // Un POINT par jour (le pic de la semaine = plein + plus gros) + la VALEUR au-dessus (pic en or,
+    // les autres estompés) → la courbe « parle » d'elle-même, sans axe Y (look cockpit conservé).
+    series.bullets.push(function (r, s, di) {
+      const v = (di && di.dataContext) || {}; const peak = v.risk === maxRisk;
+      return am5.Bullet.new(r, { sprite: am5.Circle.new(r, {
+        radius: peak ? 4 : 2.5,
+        fill: am5.color(peak ? 0xe3b23a : 0x0c0c0e),
+        stroke: am5.color(0xe3b23a), strokeWidth: peak ? 2 : 1.5,
+      }) });
+    });
+    series.bullets.push(function (r, s, di) {
+      const v = (di && di.dataContext) || {}; const peak = v.risk === maxRisk;
+      return am5.Bullet.new(r, { sprite: am5.Label.new(r, {
+        text: String(v.risk == null ? '' : v.risk), centerX: am5.p50, centerY: am5.p100, dy: -6,
+        fontSize: 10, fontWeight: peak ? '700' : '600',
+        fill: am5.color(peak ? 0xe3b23a : 0xa7aeb9),
+      }) });
+    });
+    const cur = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none' }));
+    cur.lineY.set('visible', false);
+    cur.lineX.setAll({ stroke: am5.color(0xe3b23a), strokeOpacity: 0.18 });
     xAxis.data.setAll(data);
     series.data.setAll(data);
   } catch (e) { /* le graphique est un bonus → ne jamais casser la timeline */ }

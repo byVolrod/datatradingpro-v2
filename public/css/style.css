@@ -5599,7 +5599,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Frise gauche : design "frise" (grands cercles + ligne dégradée), défilement interne si la semaine dépasse l'écran */
 .wa3 > .wa-scroll { min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 12px 14px; }
 .wa3 .wa-chartbox { margin: 8px 0 12px; padding: 6px 9px 2px; }
-.wa3 .wa-chart { height: 44px; }
+.wa3 .wa-chart { height: 84px; }   /* 44px → 84px : place pour le relief + les valeurs au-dessus des points (profil de risque « parlant », 26/07) */
 .wa3 .wa-chart-label { margin-bottom: 1px; }
 .wa3 .wa-timeline { gap: 14px; }
 .wa3 .wa-card-desc { -webkit-line-clamp: 2; }
@@ -11655,6 +11655,13 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdgt-add:hover { color: #e3b23a; }
 .wdgt-body { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
 .wdgt-body > * { flex: 1 1 auto; min-height: 0; }
+
+/* ── Force des Devises : DOUBLE panneau TD | TW (miroir de l'onglet › FORCE du desk) ── */
+.wdg-fx-dual { display: grid; grid-template-columns: 1fr 1fr; height: 100%; min-height: 0; }
+.wdg-fx-pane { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.wdg-fx-pane--l { border-right: 1px solid var(--hud-line, #17171b); }
+.wdg-fx-cap { position: absolute; top: 4px; right: 8px; z-index: 2; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9.5px; font-weight: var(--fw-bold, 700); letter-spacing: .06em; color: #e3b23a; opacity: .85; pointer-events: none; }
+.wdg-fx-chart { flex: 1 1 auto; min-height: 0; width: 100%; }
 
 /* ── BIBLIOTHÈQUE : cartes avec APERÇU visuel (vignette à gauche, nom + description à droite) ── */
 .wdg-lib-card--prev { position: relative; align-items: center; gap: 10px; }
