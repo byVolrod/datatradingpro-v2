@@ -1032,6 +1032,54 @@
         return function () { try { if (typeof disposeRoot === 'function') disposeRoot(chartId); } catch (e) {} };
       },
     },
+    {
+      id: 'onglets', name: 'Panneau à onglets', cat: 'Outils', h: 360,
+      desc: 'Plusieurs widgets dans une seule carte, avec sa propre barre d\'onglets — comme la barre › MONDE › FORCE du desk.',
+      // CONTENEUR (demande user 26/07 « créer des onglets dans un layout ») : it.tabs = ids catalogue (persisté,
+      // whitelist serveur). Barre = grammaire nav du desk (chevron/capitales/soulignement or). « + » ouvre la
+      // bibliothèque en mode remplissage d'onglet (_pickTab) ; ✕ au survol retire l'onglet. Onglet actif volatil.
+      mount: function (host, it) {
+        it = it || {};
+        var tabs = (Array.isArray(it.tabs) ? it.tabs : []).filter(function (id) { return byId(id); });
+        var actIdx = Math.min((it._tabAct | 0), Math.max(0, tabs.length - 1));
+        var subClean = null;
+        var bar = document.createElement('div'); bar.className = 'wdgt-bar';
+        var body = document.createElement('div'); body.className = 'wdgt-body';
+        host.innerHTML = ''; host.classList.add('wdgt-host');
+        host.appendChild(bar); host.appendChild(body);
+        function mountSub() {
+          if (subClean) { try { subClean(); } catch (e) {} subClean = null; }
+          body.innerHTML = '';
+          var w = tabs[actIdx] && byId(tabs[actIdx]);
+          if (!w) { body.innerHTML = '<div class="wdg-empty">Ajoute un onglet avec le « + » ci-dessus.</div>'; return; }
+          try { var un = w.mount(body); if (typeof un === 'function') subClean = un; }
+          catch (e) { fallback(body, 'Widget indisponible.'); }
+        }
+        function renderTabs() {
+          bar.innerHTML = tabs.map(function (id, i) {
+            var w = byId(id);
+            return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + '" data-i="' + i + '" title="' + esc(w.name) + '">'
+              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(w.name) + '</span>'
+              + '<span class="wdgt-x" title="Retirer cet onglet" data-x="' + i + '">×</span></button>';
+          }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
+        }
+        bar.addEventListener('click', function (e) {
+          var x = e.target.closest('.wdgt-x');
+          if (x) {
+            tabs.splice(+x.getAttribute('data-x'), 1);
+            it.tabs = tabs.slice();
+            if (actIdx >= tabs.length) actIdx = Math.max(0, tabs.length - 1);
+            it._tabAct = actIdx; save(); renderTabs(); mountSub(); return;
+          }
+          if (e.target.closest('.wdgt-add')) { _pickTabFor(it); return; }
+          var t = e.target.closest('.wdgt-tab'); if (!t) return;
+          actIdx = +t.getAttribute('data-i'); it._tabAct = actIdx;
+          renderTabs(); mountSub();
+        });
+        renderTabs(); mountSub();
+        return function () { if (subClean) { try { subClean(); } catch (e) {} subClean = null; } };
+      },
+    },
   ];
 
   // Courbe de capital du widget Journal (miroir de _jrBuildEquityChart du desk) : aire dégradée OR, axes discrets,
@@ -1092,10 +1140,16 @@
   }
 
   /* ── PERSISTANCE PAR COMPTE ── */
-  // Plus AUCUN layout protégé (demande user 26/07 : « pouvoir supprimer la Vue générale pour partir de 0 ») —
-  // la seule garantie est « jamais 0 layout » : supprimer le dernier crée un desk VIDE (écran guidé).
+  // « Vue générale » = LE MODÈLE PAR DÉFAUT, NON SUPPRIMABLE (dernière consigne user 26/07 : « le modèle qu'on
+  // a ici c'est un par défaut non supprimable ») : toujours présent, cadenas au gestionnaire. Le « partir de 0 »
+  // passe par « + Créer un layout » → « Libre » (desk vide guidé).
+  var PROTECTED_ID = 'mon-desk';
   function ensureDefaultLayout(c) {
     if (!c || !Array.isArray(c.layouts)) return c;
+    if (!c.layouts.some(function (l) { return l && l.id === PROTECTED_ID; })) {
+      c.layouts.unshift(JSON.parse(JSON.stringify(defaultCfg().layouts[0])));
+      c.layouts[0].fav = false;                       // ne vole jamais l'étoile d'un template choisi par le user
+    }
     if (c.gap !== 'tight' && c.gap !== 'loose') c.gap = 'loose';   // migration : cfg antérieurs sans densité
     if (c.tipSeen !== 1) c.tipSeen = 0;                            // migration : astuce gestes
     return c;
@@ -1224,10 +1278,12 @@
         + '<div class="wdg-blank-sec">Modèles prêts</div>'
         + '<div class="wdg-blank-tpls">'
         +   PRESETS.map(function (p, i) {
-              return '<button class="wdg-tpl-card" onclick="DTPWidgets.applyPreset(' + i + ')" title="Composer ce desk ici">'
+              var names = p.items.map(function (it) { var w = byId(it.w); return w ? w.name : ''; }).filter(Boolean).join(' · ');
+              return '<button class="wdg-tpl-card" onclick="DTPWidgets.applyPreset(' + i + ')" title="' + esc(names) + '">'
                 + _thumb(p.items)
                 + '<span class="wdg-tpl-name">' + esc(p.name) + '</span>'
-                + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span></button>';
+                + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span>'
+                + '<span class="wdg-tpl-list">' + esc(names) + '</span></button>';
             }).join('')
         + '</div></div>';
       return;
@@ -1303,7 +1359,7 @@
       lay.items.forEach(function (it, idx) {
         var w = byId(it.w), body = document.getElementById(HOST_ID + '-b' + idx);
         if (!w || !body || body._wdgClean) return;            // _wdgClean : déjà monté par refresh() entre-temps
-        try { var un = w.mount(body); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } }
+        try { var un = w.mount(body, it); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } }   // it = config d'item (Panneau à onglets lit it.tabs)
         catch (e) { fallback(body, 'Widget indisponible.'); }
       });
     });
@@ -1370,24 +1426,30 @@
     var box = document.getElementById('wdg-mgr-list'); var c = STATE.cfg;
     if (!box || !c) return;
     if (_mgrMode === 'dispo') {
+      // Rangées GROUPÉES par nombre de panneaux, le chiffre à gauche (façon « Select Layout » d'un terminal pro).
+      var _dCard = function (d, i) {
+        return '<button class="wdg-dispo-card" onclick="DTPWidgets.createLayout(' + i + ')" title="' + esc(d.name) + '">'
+          + (d.items.length ? _thumb(d.items) : '<span class="wdg-thumb wdg-thumb--free">∞</span>')
+          + '<span class="wdg-dispo-name">' + esc(d.name) + '</span></button>';
+      };
       box.innerHTML = '<div class="wdg-dispo-head">'
         + '<button class="wdg-btn" onclick="DTPWidgets.backManager()">‹ Retour</button>'
         + '<span class="wdg-dispo-t">Choisis une disposition</span></div>'
-        + '<div class="wdg-dispo-grid">'
-        + DISPOS.map(function (d, i) {
-            return '<button class="wdg-dispo-card" onclick="DTPWidgets.createLayout(' + i + ')" title="' + esc(d.name) + '">'
-              + (d.items.length ? _thumb(d.items) : '<span class="wdg-thumb wdg-thumb--free">∞</span>')
-              + '<span class="wdg-dispo-name">' + esc(d.name) + '</span></button>';
+        + DISPO_ORDER.map(function (n) {
+            var cards = DISPOS.map(function (d, i) { return d.n === n ? _dCard(d, i) : ''; }).join('');
+            if (!cards) return '';
+            return '<div class="wdg-dispo-row"><span class="wdg-dispo-num">' + n + '</span><div class="wdg-dispo-cards">' + cards + '</div></div>';
           }).join('')
-        + '</div>'
         + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » — remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
       return;
     }
     box.innerHTML = c.layouts.map(function (l, li) {
       var active = l.id === c.active;
-      var del = (l.id === _delConfirm)
-        ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
-        : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
+      var del = (l.id === PROTECTED_ID)
+        ? '<span class="wdg-mgr-lock" title="Modèle par défaut — non supprimable">' + ICO.lock + '</span>'
+        : (l.id === _delConfirm)
+          ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
+          : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
       return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '" data-i="' + li + '">'
         + '<button class="wdg-mgr-grip" draggable="true" title="Glisser pour réordonner">⠿</button>'
         + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
@@ -1421,6 +1483,7 @@
     'fil-news': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 6h14M5 10.5h14M5 15h9"/><circle cx="18.5" cy="17.5" r="2" /></svg>',
     'calculatrice': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01"/></svg>',
     'journal-mini': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 12h5.5"/></svg>',
+    'onglets': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3.5" y="6.5" width="17" height="14" rx="2"/><path d="M3.5 11h17M8 6.5V4M13 6.5V4M18 6.5V4"/></svg>',
   };
   // APERÇUS visuels de widget (vignettes de la bibliothèque, façon terminal pro) — dessins DTP originaux,
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
@@ -1441,11 +1504,19 @@
     'fil-news': '<svg ' + _PV + '><rect x="8" y="8" width="76" height="5" rx="2" fill="#3a3d44"/><rect x="8" y="17" width="26" height="6" rx="3" fill="#2b2b31"/><rect x="38" y="17" width="20" height="6" rx="3" fill="#2b2b31"/><rect x="8" y="31" width="88" height="5" rx="2" fill="#3a3d44"/><rect x="8" y="40" width="22" height="6" rx="3" fill="#7f1d1d"/><rect x="34" y="40" width="24" height="6" rx="3" fill="#2b2b31"/><circle cx="106" cy="10" r="3" fill="#e3b23a"/></svg>',
     'calculatrice': '<svg ' + _PV + '><rect x="34" y="5" width="52" height="10" rx="2" fill="#0f0f12" stroke="#2b2b31"/><text x="80" y="13" text-anchor="end" font-family="monospace" font-size="7" fill="#e3b23a">0.42</text>' + (function () { var k = ''; for (var yy = 0; yy < 3; yy++) for (var xx = 0; xx < 4; xx++) k += '<rect x="' + (34 + xx * 14) + '" y="' + (19 + yy * 11) + '" width="10" height="8" rx="2" fill="' + (xx === 3 ? '#3d3320' : '#26262c') + '"/>'; return k; })() + '</svg>',
     'journal-mini': '<svg ' + _PV + '><g fill="#3a3d44"><rect x="8" y="8" width="42" height="5" rx="2"/><rect x="8" y="21" width="36" height="5" rx="2"/><rect x="8" y="34" width="46" height="5" rx="2"/><rect x="8" y="47" width="32" height="5" rx="2"/></g><g font-family="monospace" font-size="6"><rect x="86" y="6" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="12.5" text-anchor="middle" fill="#22c55e">+1.8R</text><rect x="86" y="19" width="26" height="8" rx="3" fill="#3a1416"/><text x="99" y="25.5" text-anchor="middle" fill="#ef4444">-1.0R</text><rect x="86" y="32" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="38.5" text-anchor="middle" fill="#22c55e">+2.4R</text><rect x="86" y="45" width="26" height="8" rx="3" fill="#14351f"/><text x="99" y="51.5" text-anchor="middle" fill="#22c55e">+0.6R</text></g></svg>',
+    'onglets': '<svg ' + _PV + '><rect x="6" y="6" width="108" height="12" rx="2" fill="#141416"/><g font-family="monospace" font-size="7"><text x="12" y="14.5" fill="#ffffff">› FORCE</text><text x="48" y="14.5" fill="#6b7280">› RISQUE</text><text x="86" y="14.5" fill="#6b7280">› COT</text></g><rect x="12" y="16" width="27" height="1.5" fill="#e3b23a"/><rect x="6" y="22" width="108" height="28" rx="2" fill="#101013"/><polyline fill="none" stroke="#e3b23a" stroke-width="1.3" points="12,44 28,38 44,42 60,30 76,36 92,26 108,30"/></svg>',
   };
   var _libQ = '';                            // filtre de recherche de la bibliothèque (volatil)
   var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analytics' · 'Fonctions' · '_tpl' = modèles)
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
+  var _pickTab = null;                       // index d'item « Panneau à onglets » en cours d'ajout d'onglet
   var _justAdded = null;                     // id du widget qu'on vient d'ajouter (flash « ✓ Ajouté » sur sa carte)
+  // « + » d'un Panneau à onglets → la bibliothèque choisit le SOUS-widget (ajouté comme onglet, pas comme carte).
+  function _pickTabFor(it) {
+    var l = activeLayout(); if (!l) return;
+    var idx = l.items.indexOf(it); if (idx < 0) return;
+    API.openLib(); _pickTab = idx;
+  }
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
     var lay = activeLayout(), used = {};
@@ -1459,6 +1530,7 @@
       'force-devises': 'Analytics', 'barometre': 'Analytics', 'risque-historique': 'Analytics', 'radar-biais': 'Analytics',
       'risque-jauge': 'Analytics', 'cot-inst': 'Analytics', 'dmx-retail': 'Analytics', 'saison': 'Analytics', 'sessions': 'Analytics',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
+      'horloge': 'Fonctions', 'onglets': 'Fonctions',
     };
     var FAMS = ['Analytics', 'Fonctions'];   // ordre d'affichage des 2 familles
     // GALERIE DE MODÈLES en TÊTE de la bibliothèque (demande user 23/07 : « on doit pouvoir choisir le template
@@ -1468,11 +1540,13 @@
     var pmatch = function (p) { return !q || p.name.toLowerCase().indexOf(q) !== -1; };
     var tplCards = PRESETS.map(function (p, i) {
       if (!pmatch(p)) return '';
+      var names = p.items.map(function (it) { var w = byId(it.w); return w ? w.name : ''; }).filter(Boolean).join(' · ');
       return '<button class="wdg-tpl-card" onclick="DTPWidgets.usePreset(' + i + ')"'
-        + (atMax ? ' disabled title="Plafond de layouts atteint"' : ' title="Créer un desk « ' + esc(p.name) + ' »"') + '>'
+        + (atMax ? ' disabled title="Plafond de layouts atteint"' : ' title="' + esc(names) + '"') + '>'
         + _thumb(p.items)
         + '<span class="wdg-tpl-name">' + esc(p.name) + '</span>'
-        + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span></button>';
+        + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span>'
+        + '<span class="wdg-tpl-list">' + esc(names) + '</span></button>';
     }).join('');
     var tplHtml = (PRESETS.some(pmatch) && (_libFam === '' || _libFam === '_tpl'))
       ? '<div class="wdg-lib-sec">Modèles prêts</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
@@ -1511,18 +1585,33 @@
     { name: 'Trading actif', items: [{ w: 'journal-mini', gw: 7, gh: 12 }, { w: 'calculatrice', gw: 5, gh: 12 }, { w: 'force-devises', gw: 12, gh: 10 }] },
   ];
   /* ── DISPOSITIONS (création guidée) : squelettes d'EMPLACEMENTS vides, façon « Select Layout » d'un terminal
-     pro. Chaque emplacement devient une carte « + Choisir un widget » (id spécial 'slot'). ── */
+     pro — GAMME COMPLÈTE groupée par nombre de panneaux (le chiffre à gauche de chaque rangée). Chaque
+     emplacement devient une carte « + Choisir un widget » (id spécial 'slot'). ── */
+  function _rep(n, gw, gh) { var a = []; for (var i = 0; i < n; i++) a.push({ gw: gw, gh: gh }); return a; }
+  var DISPO_ORDER = ['∞', 1, 2, 3, 4, 5, 6, 8, 9, 12];
   var DISPOS = [
-    { name: 'Libre',       items: [] },
-    { name: '1 panneau',   items: [{ gw: 12, gh: 14 }] },
-    { name: '2 colonnes',  items: [{ gw: 6, gh: 14 }, { gw: 6, gh: 14 }] },
-    { name: '2 lignes',    items: [{ gw: 12, gh: 9 }, { gw: 12, gh: 9 }] },
-    { name: '3 colonnes',  items: [{ gw: 4, gh: 14 }, { gw: 4, gh: 14 }, { gw: 4, gh: 14 }] },
-    { name: 'Principal + colonne', items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 7 }, { gw: 4, gh: 7 }] },
-    { name: '1 + 2',       items: [{ gw: 12, gh: 9 }, { gw: 6, gh: 9 }, { gw: 6, gh: 9 }] },
-    { name: '2 × 2',       items: [{ gw: 6, gh: 9 }, { gw: 6, gh: 9 }, { gw: 6, gh: 9 }, { gw: 6, gh: 9 }] },
-    { name: '1 + 3',       items: [{ gw: 12, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }] },
-    { name: '6 panneaux',  items: [{ gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }, { gw: 4, gh: 9 }] },
+    { n: '∞', name: 'Libre',                items: [] },
+    { n: 1,  name: '1 panneau',             items: [{ gw: 12, gh: 14 }] },
+    { n: 2,  name: '2 colonnes',            items: _rep(2, 6, 14) },
+    { n: 2,  name: '2 lignes',              items: _rep(2, 12, 9) },
+    { n: 2,  name: 'Principal + latéral',   items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 14 }] },
+    { n: 3,  name: '3 colonnes',            items: _rep(3, 4, 14) },
+    { n: 3,  name: 'Principal + colonne',   items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 7 }, { gw: 4, gh: 7 }] },
+    { n: 3,  name: 'Colonne + principal',   items: [{ gw: 4, gh: 7 }, { gw: 8, gh: 14 }, { gw: 4, gh: 7 }] },
+    { n: 3,  name: '1 + 2',                 items: [{ gw: 12, gh: 9 }].concat(_rep(2, 6, 9)) },
+    { n: 3,  name: '2 + 1',                 items: _rep(2, 6, 9).concat([{ gw: 12, gh: 9 }]) },
+    { n: 4,  name: '2 × 2',                 items: _rep(4, 6, 9) },
+    { n: 4,  name: '4 colonnes',            items: _rep(4, 3, 14) },
+    { n: 4,  name: '1 + 3',                 items: [{ gw: 12, gh: 9 }].concat(_rep(3, 4, 9)) },
+    { n: 4,  name: '3 + 1',                 items: _rep(3, 4, 9).concat([{ gw: 12, gh: 9 }]) },
+    { n: 4,  name: 'Principal + 3',         items: [{ gw: 8, gh: 21 }].concat(_rep(3, 4, 7)) },
+    { n: 5,  name: '1 + 4',                 items: [{ gw: 12, gh: 9 }].concat(_rep(4, 3, 9)) },
+    { n: 5,  name: '2 + 3',                 items: _rep(2, 6, 9).concat(_rep(3, 4, 9)) },
+    { n: 6,  name: '3 × 2',                 items: _rep(6, 4, 9) },
+    { n: 6,  name: '2 × 3',                 items: _rep(6, 6, 8) },
+    { n: 8,  name: '4 × 2',                 items: _rep(8, 3, 9) },
+    { n: 9,  name: '3 × 3',                 items: _rep(9, 4, 8) },
+    { n: 12, name: '4 × 3',                 items: _rep(12, 3, 8) },
   ];
   // Miniature d'un agencement : la grille 12 colonnes en réduction (aperçu visuel, gestionnaire + modèles).
   function _thumb(items) {
@@ -1589,13 +1678,23 @@
       // Exécute d'ABORD le cleanup de l'ancien montage (root amCharts / carte Leaflet / timers / listeners)
       // — sans ça, chaque « Actualiser » orphelinait l'instance précédente jusqu'au prochain renderGrid.
       if (body._wdgClean) { try { body._wdgClean(); } catch (e) {} STATE.mounted = STATE.mounted.filter(function (f) { return f !== body._wdgClean; }); body._wdgClean = null; }
-      body.innerHTML = ''; try { var un = w.mount(body); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } } catch (e) {}
+      body.innerHTML = ''; try { var un = w.mount(body, l.items[i]); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } } catch (e) {}
     },
     fullscreen: function (i) { _fullscreenIdx = (_fullscreenIdx === i ? null : i); renderGrid(); },
     toggleInfo: function (i) { _togglePop(i, 'i'); },
     toggleSettings: function (i) { _togglePop(i, 's'); },
     add: function (wid) {
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
+      if (_pickTab != null && l.items[_pickTab] && l.items[_pickTab].w === 'onglets') {
+        // Ajout d'un ONGLET dans un Panneau à onglets (jamais un panneau dans lui-même).
+        if (wid !== 'onglets') {
+          var pt = l.items[_pickTab];
+          pt.tabs = (pt.tabs || []).concat([wid]).slice(0, 8);
+          pt._tabAct = pt.tabs.length - 1;                    // le nouvel onglet devient l'actif
+          save(); API.closeLib(); renderGrid();
+        }
+        return;
+      }
       if (_pickIdx != null && l.items[_pickIdx] && l.items[_pickIdx].w === 'slot') {
         // Remplit l'EMPLACEMENT ciblé : le widget hérite de la géométrie du slot (celle de la disposition choisie).
         // Ici on FERME (retour au desk : on voit le widget prendre sa place, puis on clique l'emplacement suivant).
@@ -1626,12 +1725,12 @@
     pickFor: function (i) { API.openLib(); _pickIdx = i; },   // (après openLib, qui remet _pickIdx à null)
     openLib: function () {
       var d = document.getElementById('wdg-lib'); if (!d) return;
-      d.classList.add('open'); _libQ = ''; _pickIdx = null;
+      d.classList.add('open'); _libQ = ''; _pickIdx = null; _pickTab = null;
       var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
       _syncDensity();                                           // le réglage d'espacement vit ICI (barre épurée)
       API.filterFam('');                                        // repart sur « Tous » (chips + rendu)
     },
-    closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _pickIdx = null; },
+    closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _pickIdx = null; _pickTab = null; },
     filterLib: function (q) { _libQ = String(q || '').trim(); renderLib(); },
     filterFam: function (f) {                                   // puces de catégories (Tous · Analyse · Données · Modèles)
       _libFam = String(f || '');
@@ -1690,7 +1789,15 @@
     switchLayout: function (id) {
       var c = STATE.cfg; if (!c || !layoutById(id)) return;
       _delConfirm = null; c.active = id; save(); renderBar(); renderManager(); renderGrid();
-      API.closeManager();   // « Ouvrir » depuis le gestionnaire → on ATTERRIT sur le desk choisi (vide → écran guidé widgets)
+      // Parcours guidé (demande user) : layout choisi → s'il y a DE QUOI COMPOSER (vide ou emplacements),
+      // on ATTERRIT sur › Widgets ; s'il est déjà composé, on montre directement le desk choisi.
+      var mgrOpen = (function () { var d = document.getElementById('wdg-mgr'); return d && d.classList.contains('open'); })();
+      API.closeManager();
+      if (mgrOpen) {
+        var l = layoutById(id);
+        var composable = l && (!l.items.length || l.items.some(function (it) { return it && it.w === 'slot'; }));
+        if (composable && l.items.length) API.openLib();   // desk à emplacements → biblio prête à remplir (le desk VIDE a déjà son écran guidé)
+      }
     },
     // Création GUIDÉE : « + » ouvre le CHOIX DE DISPOSITION (mini-schémas) ; createLayout(i) crée le layout
     // avec les emplacements du squelette DISPOS[i] (ou vide pour « Libre »).
@@ -1745,12 +1852,13 @@
       l.fav = !was;
       save(); renderBar(); renderManager();
     },
-    askDelete: function (id) { _delConfirm = id; renderManager(); },   // 1er clic : confirmation inline (jamais de dialog natif)
+    askDelete: function (id) { if (id === PROTECTED_ID) return; _delConfirm = id; renderManager(); },   // 1er clic : confirmation inline (jamais pour le modèle par défaut)
     deleteLayout: function (id) {
       var c = STATE.cfg; if (!c) return;
       _delConfirm = null;
+      if (id === PROTECTED_ID) return;                                     // modèle par défaut = NON supprimable
       c.layouts = c.layouts.filter(function (l) { return l.id !== id; });
-      if (!c.layouts.length) {                                             // « partir de 0 » : plus aucun layout → desk VIDE guidé
+      if (!c.layouts.length) {                                             // filet (ne devrait pas arriver : le défaut reste)
         c.layouts.push({ id: 'lay-' + uid(), name: 'Mon desk', fav: false, items: [] });
       }
       if (c.active === id || !layoutById(c.active)) c.active = c.layouts[0].id;
@@ -1913,7 +2021,11 @@
     icon.addEventListener('click', function () {
       badge.style.display = 'none';                           // confort visuel : masqué pour cette session
       if (typeof activateView !== 'function') return;
-      activateView(document.body.classList.contains('wdg-mode') ? 'news' : 'widgets');
+      var entering = !document.body.classList.contains('wdg-mode');
+      activateView(entering ? 'widgets' : 'news');
+      // Demande user 26/07 : l'icône fait ARRIVER sur le CHOIX DU LAYOUT (panneau › Layouts) — on choisit
+      // son dashboard d'abord, les widgets ensuite.
+      if (entering) setTimeout(function () { try { API.openManager(); } catch (e) {} }, 80);
     });
     center.insertBefore(icon, journal);                                      // à GAUCHE de Journal / Calculatrice
     // PRÉCHARGE la config (léger) → hasDefault() connu sans ouvrir Mon Desk (sert au clic sur le LOGO).

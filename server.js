@@ -758,6 +758,12 @@ function _wdgClean(body) {
           if (isFinite(gw)) o.gw = Math.min(12, Math.max(1, gw));
           if (isFinite(gh)) o.gh = Math.min(60, Math.max(3, gh));
           if (it.locked) o.locked = true;
+          // Widget « Panneau à onglets » : sous-widgets (ids catalogue front), cap 8 — même piège que gw/gh :
+          // tout champ non repris ici serait détruit au save/reload.
+          if (Array.isArray(it.tabs)) {
+            const tabs = it.tabs.filter(t => typeof t === 'string' && _WDG_ID_RX.test(t)).slice(0, 8);
+            if (tabs.length) o.tabs = tabs;
+          }
           return o;
         });
       // Unicité de l'id : sans ça, deux layouts homonymes (ou un repli 'layout-2' entrant en collision

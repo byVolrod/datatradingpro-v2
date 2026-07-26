@@ -4100,7 +4100,8 @@ function _waBuildChart(days) {
       categoryField: 'day', renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 16 }),
     }));
     xAxis.get('renderer').grid.template.set('forceHidden', true);
-    xAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x8a8a90), fontSize: 10 });
+    // Jours LISIBLES (demande user 26/07) : plus clairs, un cran plus grands, en gras léger
+    xAxis.get('renderer').labels.template.setAll({ fill: am5.color(0xaab3bf), fontSize: 11, fontWeight: '600' });
     const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
       min: 0, max: 100, renderer: am5xy.AxisRendererY.new(root, {}),
     }));
@@ -4117,7 +4118,9 @@ function _waBuildChart(days) {
         stops: [{ color: am5.color(0xe28b41), opacity: 0.35 }, { color: am5.color(0x0c0c0e), opacity: 0 }],
       }),
     });
-    const data = (days || []).map(d => ({ day: (d.dow || '').slice(0, 3), risk: typeof d.risk === 'number' ? d.risk : 50 }));
+    // Jours en FRANÇAIS (LUN…VEN) — la donnée serveur arrive en anglais (Mon/Tue…)
+    const DOW_FR = { Mon: 'LUN', Tue: 'MAR', Wed: 'MER', Thu: 'JEU', Fri: 'VEN', Sat: 'SAM', Sun: 'DIM' };
+    const data = (days || []).map(d => { const k = (d.dow || '').slice(0, 3); return { day: DOW_FR[k] || k, risk: typeof d.risk === 'number' ? d.risk : 50 }; });
     xAxis.data.setAll(data);
     series.data.setAll(data);
   } catch (e) { /* le graphique est un bonus → ne jamais casser la timeline */ }
