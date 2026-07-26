@@ -11054,7 +11054,10 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 }
 /* Densité « Collés » (choix utilisateur, persisté) : widgets bord à bord — 1px de respiration, les bordures
    des cartes font la séparation. Le JS lit le gap RÉEL (getComputedStyle) → le snap du resize suit. */
-.wdg-grid.wdg-gap-tight { --wdg-gap: 1px; padding: 6px; }
+/* Padding 0 en mode « Collés » (demande user 26/07 « le bas de page doit être comme ceci » en montrant le
+   desk) : le desk classique colle ses panneaux aux bords de la fenêtre. Les 6px qui restaient créaient un
+   liseré de fond tout autour, visible surtout en bas. Les bordures des cartes suffisent à séparer. */
+.wdg-grid.wdg-gap-tight { --wdg-gap: 1px; padding: 0; }
 .wdg-card {
   grid-column: span min(var(--gw, 6), 12); grid-row: span var(--gh, 12);
   position: relative; min-width: 0; overflow: hidden;
