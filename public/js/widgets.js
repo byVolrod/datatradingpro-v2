@@ -1125,18 +1125,19 @@
   function defaultCfg() {
     return {
       active: 'mon-desk',
-      gap: 'loose',                                    // densité : 'loose' = espacés (défaut) / 'tight' = collés
+      gap: 'tight',                                    // densité : 'tight' = COLLÉS (défaut, demande user 26/07) / 'loose' = espacés
+      gapV: 2,                                         // version de la préférence densité (migration one-shot loose→tight)
       tipSeen: 0,                                      // astuce gestes (bord droit / coin / ⠿) pas encore fermée
       // Le nom du layout ne doit PAS reprendre celui du panneau : l'en-tête affichait
       // « Mon Desk · Mon Desk · BÊTA » (constaté au banc d'essai).
-      // DÉFAUT = MIROIR DU DESK CLASSIQUE (demande user 26/07, capture ACTUS) : fil d'actualité à gauche,
-      // horloge mondiale en haut à droite, DEUX Force des Devises côte à côte dessous (TD + TW au choix).
+      // DÉFAUT = LE DESK CLASSIQUE COMPLET (demande user 26/07 « il manque les onglets ») : fil d'actualité à
+      // gauche ; à droite l'horloge + le PANNEAU À ONGLETS reprenant les 7 onglets du desk
+      // (MONDE · RISQUE · FORCE · BAROMÈTRE · COT · DMX · SAISONNALITÉ).
       layouts: [{
         id: 'mon-desk', name: 'Vue générale', fav: true, items: [
           { w: 'fil-news', gw: 6, gh: 26 },
           { w: 'horloge', gw: 6, gh: 8 },
-          { w: 'force-devises', gw: 3, gh: 18 },
-          { w: 'force-devises', gw: 3, gh: 18 },
+          { w: 'onglets', gw: 6, gh: 18, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
         ],
       }],
     };
@@ -1153,7 +1154,10 @@
       c.layouts.unshift(JSON.parse(JSON.stringify(defaultCfg().layouts[0])));
       c.layouts[0].fav = false;                       // ne vole jamais l'étoile d'un template choisi par le user
     }
-    if (c.gap !== 'tight' && c.gap !== 'loose') c.gap = 'loose';   // migration : cfg antérieurs sans densité
+    if (c.gap !== 'tight' && c.gap !== 'loose') c.gap = 'tight';   // migration : cfg antérieurs sans densité → COLLÉS (défaut)
+    // ONE-SHOT (gapV 2) : le tout premier déploiement avait écrit 'loose' partout sans choix utilisateur →
+    // on bascule ces comptes sur le nouveau défaut 'tight' UNE fois ; ensuite le choix de l'utilisateur fait foi.
+    if (c.gapV !== 2) { if (c.gap === 'loose') c.gap = 'tight'; c.gapV = 2; }
     if (c.tipSeen !== 1) c.tipSeen = 0;                            // migration : astuce gestes
     c.layouts.forEach(function (l) { if (l) l.hidden = !!l.hidden; });          // migration : état masqué (fermé)
     if (c.layouts.length && c.layouts.every(function (l) { return l.hidden; })) c.layouts[0].hidden = false;   // jamais 0 onglet visible
@@ -1602,28 +1606,28 @@
   function _rep(n, gw, gh) { var a = []; for (var i = 0; i < n; i++) a.push({ gw: gw, gh: gh }); return a; }
   var DISPO_ORDER = ['∞', 1, 2, 3, 4, 5, 6, 8, 9, 12];
   var DISPOS = [
-    { n: '∞', name: 'Libre',                items: [] },
-    { n: 1,  name: '1 panneau',             items: [{ gw: 12, gh: 14 }] },
-    { n: 2,  name: '2 colonnes',            items: _rep(2, 6, 14) },
-    { n: 2,  name: '2 lignes',              items: _rep(2, 12, 9) },
-    { n: 2,  name: 'Principal + latéral',   items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 14 }] },
-    { n: 3,  name: '3 colonnes',            items: _rep(3, 4, 14) },
-    { n: 3,  name: 'Principal + colonne',   items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 7 }, { gw: 4, gh: 7 }] },
-    { n: 3,  name: 'Colonne + principal',   items: [{ gw: 4, gh: 7 }, { gw: 8, gh: 14 }, { gw: 4, gh: 7 }] },
-    { n: 3,  name: '1 + 2',                 items: [{ gw: 12, gh: 9 }].concat(_rep(2, 6, 9)) },
-    { n: 3,  name: '2 + 1',                 items: _rep(2, 6, 9).concat([{ gw: 12, gh: 9 }]) },
-    { n: 4,  name: '2 × 2',                 items: _rep(4, 6, 9) },
-    { n: 4,  name: '4 colonnes',            items: _rep(4, 3, 14) },
-    { n: 4,  name: '1 + 3',                 items: [{ gw: 12, gh: 9 }].concat(_rep(3, 4, 9)) },
-    { n: 4,  name: '3 + 1',                 items: _rep(3, 4, 9).concat([{ gw: 12, gh: 9 }]) },
-    { n: 4,  name: 'Principal + 3',         items: [{ gw: 8, gh: 21 }].concat(_rep(3, 4, 7)) },
-    { n: 5,  name: '1 + 4',                 items: [{ gw: 12, gh: 9 }].concat(_rep(4, 3, 9)) },
-    { n: 5,  name: '2 + 3',                 items: _rep(2, 6, 9).concat(_rep(3, 4, 9)) },
-    { n: 6,  name: '3 × 2',                 items: _rep(6, 4, 9) },
-    { n: 6,  name: '2 × 3',                 items: _rep(6, 6, 8) },
-    { n: 8,  name: '4 × 2',                 items: _rep(8, 3, 9) },
-    { n: 9,  name: '3 × 3',                 items: _rep(9, 4, 8) },
-    { n: 12, name: '4 × 3',                 items: _rep(12, 3, 8) },
+    { n: '∞', name: 'Libre',                rows: 0,  items: [] },
+    { n: 1,  name: '1 panneau',             rows: 14, items: [{ gw: 12, gh: 14 }] },
+    { n: 2,  name: '2 colonnes',            rows: 14, items: _rep(2, 6, 14) },
+    { n: 2,  name: '2 lignes',              rows: 18, items: _rep(2, 12, 9) },
+    { n: 2,  name: 'Principal + latéral',   rows: 14, items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 14 }] },
+    { n: 3,  name: '3 colonnes',            rows: 14, items: _rep(3, 4, 14) },
+    { n: 3,  name: 'Principal + colonne',   rows: 14, items: [{ gw: 8, gh: 14 }, { gw: 4, gh: 7 }, { gw: 4, gh: 7 }] },
+    { n: 3,  name: 'Colonne + principal',   rows: 14, items: [{ gw: 4, gh: 7 }, { gw: 8, gh: 14 }, { gw: 4, gh: 7 }] },
+    { n: 3,  name: '1 + 2',                 rows: 18, items: [{ gw: 12, gh: 9 }].concat(_rep(2, 6, 9)) },
+    { n: 3,  name: '2 + 1',                 rows: 18, items: _rep(2, 6, 9).concat([{ gw: 12, gh: 9 }]) },
+    { n: 4,  name: '2 × 2',                 rows: 18, items: _rep(4, 6, 9) },
+    { n: 4,  name: '4 colonnes',            rows: 14, items: _rep(4, 3, 14) },
+    { n: 4,  name: '1 + 3',                 rows: 18, items: [{ gw: 12, gh: 9 }].concat(_rep(3, 4, 9)) },
+    { n: 4,  name: '3 + 1',                 rows: 18, items: _rep(3, 4, 9).concat([{ gw: 12, gh: 9 }]) },
+    { n: 4,  name: 'Principal + 3',         rows: 21, items: [{ gw: 8, gh: 21 }].concat(_rep(3, 4, 7)) },
+    { n: 5,  name: '1 + 4',                 rows: 18, items: [{ gw: 12, gh: 9 }].concat(_rep(4, 3, 9)) },
+    { n: 5,  name: '2 + 3',                 rows: 18, items: _rep(2, 6, 9).concat(_rep(3, 4, 9)) },
+    { n: 6,  name: '3 × 2',                 rows: 18, items: _rep(6, 4, 9) },
+    { n: 6,  name: '2 × 3',                 rows: 24, items: _rep(6, 6, 8) },
+    { n: 8,  name: '4 × 2',                 rows: 18, items: _rep(8, 3, 9) },
+    { n: 9,  name: '3 × 3',                 rows: 24, items: _rep(9, 4, 8) },
+    { n: 12, name: '4 × 3',                 rows: 24, items: _rep(12, 3, 8) },
   ];
   // Miniature d'un agencement : la grille 12 colonnes en réduction (aperçu visuel, gestionnaire + modèles).
   function _thumb(items) {
@@ -1843,6 +1847,22 @@
       var slots = (dispo && dispo.items.length)
         ? dispo.items.map(function (s) { return { w: 'slot', gw: s.gw, gh: s.gh }; })
         : [];
+      // PLEINE PAGE (demande user 26/07 « ça doit prendre tout l'espace ») : les hauteurs de conception (rows)
+      // sont MISES À L'ÉCHELLE de la hauteur réelle de la grille → la disposition remplit le viewport, zéro
+      // vide en bas. On n'agrandit que (jamais de rétrécissement sous la conception sur petit écran).
+      if (slots.length && dispo.rows) {
+        try {
+          var host = document.getElementById(HOST_ID);
+          var cs = host ? getComputedStyle(host) : null;
+          var gapR = cs ? (parseFloat(cs.rowGap) || 10) : 10;
+          var padV = cs ? ((parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)) : 24;
+          var availRows = host && host.clientHeight ? Math.floor((host.clientHeight - padV + gapR) / (ROW_PX + gapR)) : 0;
+          if (availRows > dispo.rows) {
+            var k = availRows / dispo.rows;
+            slots.forEach(function (s) { s.gh = _clamp(Math.round(s.gh * k), 3, 60); });
+          }
+        } catch (e) {}
+      }
       if (_dispoTarget === 'current') {                 // remplir le desk VIDE actif (pas de nouveau layout)
         _dispoTarget = 'new';
         var l = activeLayout();

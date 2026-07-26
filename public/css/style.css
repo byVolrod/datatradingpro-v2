@@ -9776,12 +9776,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* 8 banques → rangées TOUJOURS pleines (demande user « les 4 alignés ») : uniquement 4 / 2 / 1 colonnes
    (3 ne divise jamais 8 → rangée orpheline). 4-up ≥1680px avec compaction lisible ; 2-up intermédiaire (cartes
    larges ≥560px) ; 1 colonne mobile. */
-.taux-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 10px; padding: 10px; overflow-y: auto; align-content: start; flex: 1 1 auto; min-height: 0; }
+/* Rangées ÉTIRÉES à la page (demande user « exploite toute la page, vide en bas ») : minmax(max-content,1fr)
+   → jamais moins que le contenu, et tout surplus de hauteur est partagé entre les rangées. La hauteur gagnée
+   est absorbée par le TABLEAU DES RÉUNIONS de chaque carte (flex-basis 168px + grow, cf. .rtc-tblwrap) :
+   grand écran = plus de dates de réunion visibles, zéro vide. */
+.taux-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(max-content, 1fr); gap: 10px; padding: 10px; overflow-y: auto; align-content: stretch; flex: 1 1 auto; min-height: 0; }
 @media (max-width: 1679px) { .taux-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 1149px) { .taux-grid { grid-template-columns: 1fr; } }
 /* Compaction 4-up (cartes ~400-470px) : tout reste lisible — libellés/valeurs/tableau resserrés d'un cran */
 @media (min-width: 1680px) {
-  .rtc-m { padding: 5px 7px 7px; min-height: 52px; }
+  .rtc-m { padding: 5px 7px 20px; min-height: 58px; }
   .rtc-k { font-size: 9.5px; }
   .rtc-v { font-size: 11px; }
   .rtc-tbl { font-size: 10.5px; }
@@ -9803,14 +9807,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Bandeau 5 métriques (clone pro) : chaque cellule bordée porte SA mini-courbe décorative
    calée bas-droite DERRIÈRE le texte (z-0), libellé pouvant passer sur 2 lignes. */
 .rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--bg2); flex: 0 0 auto; }
-.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 8px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 56px; justify-content: flex-start; }
+.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 22px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 64px; justify-content: flex-start; }   /* padding-bas = bande réservée à la sparkline (le texte ne passe plus dessus) */
 .rtc-m:last-child { border-right: 0; }
 .rtc-k { position: relative; z-index: 1; font-size: 10px; letter-spacing: .02em; color: #aab3bf; line-height: 1.25; }   /* libellés éclaircis + agrandis (lisibilité) */
 .rtc-v { position: relative; z-index: 1; font-size: var(--fs-title); font-weight: var(--fw-bold); color: var(--text); font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff3d00; } .rtc-v.n { color: var(--text2); } .rtc-v.w { color: var(--text); }
 .rtc-prob { color: var(--orange); }   /* Probability = or (clone pro text-primary) */
 /* La courbe COMBLE le bas de la cellule : étirée sur toute la largeur (preserveAspectRatio none), ~45% de hauteur */
-.rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 1px; width: auto; height: 45%; max-height: 24px; z-index: 0; opacity: .9; pointer-events: none; }
+.rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 3px; width: auto; height: 15px; max-height: 15px; z-index: 0; opacity: .8; pointer-events: none; }
 /* ── Scenario Distribution : OCCUPE l'espace libre entre métriques et tableau (plus de vide noir),
       contenu centré verticalement, barres épaisses rounded-sm, % à droite de la barre ── */
 .rtc-dist { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px 8px; flex: 0 0 auto; }   /* COLLÉE sous les métriques (l'ancien flex:1 + centré créait le grand vide) */
@@ -9825,7 +9829,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .rtc-axis span { font-size: 8px; color: var(--text3); font-family: var(--mono, ui-monospace, monospace); }
 /* ── Tableau des réunions : AGRANDI + zone SCROLLABLE (~3 lignes visibles, en-tête collant 2 lignes,
       colonnes date/jours bien séparées — clone pro) ── */
-.rtc-tblwrap { margin-top: 0; flex: 0 0 auto; min-height: 0; max-height: 168px; overflow-y: auto; border-top: 1px solid var(--border); }   /* ~5 réunions visibles, hauteur naturelle (plus d'étirement) */
+.rtc-tblwrap { margin-top: 0; flex: 1 1 168px; min-height: 0; overflow-y: auto; border-top: 1px solid var(--border); }   /* grandit avec la carte étirée → plus de réunions visibles, zéro vide */   /* ~5 réunions visibles, hauteur naturelle (plus d'étirement) */
 .rtc-tbl { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono, ui-monospace, monospace); }
 .rtc-tbl th { position: sticky; top: 0; z-index: 2; background: var(--head-bg); color: var(--text2); font-weight: var(--fw-semibold); text-align: center; padding: var(--sp-1) var(--sp-15); border-bottom: 1px solid var(--border); font-size: 10px; line-height: 1.2; }
 .rtc-tbl th:first-child { text-align: left; padding-left: 9px; }

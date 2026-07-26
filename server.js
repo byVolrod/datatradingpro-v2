@@ -784,7 +784,8 @@ function _wdgClean(body) {
     active: (typeof b.active === 'string' && seen.has(b.active)) ? b.active : (layouts[0] ? layouts[0].id : null),
     // Préférences GLOBALES. ⚠️ Tout champ absent de ce return est SILENCIEUSEMENT détruit au save/reload
     // (même piège que gw/gh, cf. commentaire plus haut).
-    gap: (b.gap === 'tight' ? 'tight' : 'loose'),                 // densité (widgets collés/espacés)
+    gap: (b.gap === 'loose' ? 'loose' : 'tight'),                 // densité (défaut = COLLÉS, demande user 26/07)
+    gapV: (b.gapV === 2 ? 2 : 0),                                 // version de la préférence densité (migration one-shot)
     tipSeen: (b.tipSeen === 1 || b.tipSeen === true) ? 1 : 0,     // astuce gestes (bord droit/coin/⠿) déjà fermée ?
   };
 }
@@ -4286,7 +4287,7 @@ function _aiMonthProjection() {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v10:';   // bump → régénère (v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
+const SW_SEG_VER  = 'v11:';   // bump → régénère (v11 : règle PMI corrigée — priorité Services UNIQUEMENT pour l'US/USD ; v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -6406,7 +6407,7 @@ app.post('/api/news-info', async (req, res) => {
   // Résumé Info en FRANÇAIS pour TOUTES les news (demande user 2026-07-01) — « important » ne pilote plus que le budget.
   const _imp = _isImportantNews(headline, category, '') || !!req.body.important;
   _expandNote(category);   // signal d'HABITUDE : l'utilisateur déplie cette catégorie → l'enrichissement de fond la priorisera
-  const cacheKey = (_CB_NEWS.has(category) ? 'frcb3:' : 'fr4:') + (id || headline.substring(0, 120));   // frcb3/fr4 = + règles de desk mentor (_MENTOR_RULES) ; bump = régénération. (frcb2/fr3 : puce « Pourquoi », 16/07)
+  const cacheKey = (_CB_NEWS.has(category) ? 'frcb4:' : 'fr5:') + (id || headline.substring(0, 120));   // frcb4/fr5 = règle PMI corrigée (Services prioritaires UNIQUEMENT pour l'US) ; frcb3/fr4 = + règles de desk mentor (_MENTOR_RULES) ; bump = régénération. (frcb2/fr3 : puce « Pourquoi », 16/07)
   // Retrait du LIBELLÉ « Pourquoi : » (demande user 21/07 : garder la raison, sans le terme) — appliqué au
   // SERVICE pour couvrir aussi les analyses déjà en cache durable (pas de régénération, 0 coût IA).
   const _stripPourquoiLbl = o => (o && Array.isArray(o.bullets))
@@ -7776,7 +7777,7 @@ const _RECAP_DRIVER_EXCLUDE_RX = /g[ée]opolit|[ée]nergie|positionn|\bflux\b/i;
 const _MENTOR_RULES = `RÈGLES D'ANALYSE DE DESK (applique-les quand le sujet s'y prête, sans les réciter) :
 - CPI / inflation : confronte le chiffre au consensus ET au pricing de taux du marché → signale tout MISPRICING (marché mal positionné avant/après la donnée) plutôt que de commenter le chiffre isolément.
 - « Monetary Policy Statement » et communiqués de banque centrale = un TEXTE, pas un chiffre : la substance (nuances hawkish/dovish, changements de formulation) se lit dans les DÉCLARATIONS et titres d'actualité liés fournis dans le contexte — appuie-toi dessus, jamais sur le seul intitulé de l'événement.
-- PMI : les PMI SERVICES (et Flash Services) priment sur les Manufacturing ; les PMI Manufacturing ne sont déterminants QUE pour les États-Unis (USD). Un FLASH PMI anticipe le PMI final → traite le Flash comme le signal principal et le final comme confirmation.
+- PMI : pour les ÉTATS-UNIS (USD), privilégie les PMI SERVICES (et Flash PMI Services) plutôt que les PMI Manufacturing / Flash Manufacturing — l'économie américaine est tirée par les services. Un FLASH PMI anticipe le PMI final → traite le Flash comme le signal principal et le final comme confirmation.
 - Emploi (Employment Change, NFP, taux d'emploi) : quand le contexte fourni le permet, qualifie la COMPOSITION des créations — emplois saisonniers/temporaires vs postes durables (CDI/temps plein) : une hausse tirée par le saisonnier vaut moins qu'une création durable.`;
 function _recapCcyPrompt(ccy, ccyCtx, gSummary, deskBias) {
   const name = _RECAP_CCY_NAME[ccy] || ccy;
@@ -8547,7 +8548,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 12;   // v12 : RÈGLES DE DESK mentor (_MENTOR_RULES, règle 5 du prompt) — mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable. bump = régen. v11 : « Données du jour » RATTACHÉE À CHAQUE SESSION (fxr.dataBySession, avec HEURE de sortie) → l'Analyse par session liste ses données + à quel moment (demande user 24/07). v10 : NOTE DE DESK ULTRA-CONDENSÉE façon prompt user (flèches d'impact →, fait chiffré → effet, chaque section raccourcie : synthèse 2-3 phrases, sessions 1-2 phrases, BC 1-2 phrases, headlines 1 phrase) — demande user 24/07 « uniquement l'essentiel, comme mon prompt ». v9 : « + court + simple + à l'essentiel » (demande user 22/07, cohérence avec la vision hebdo) — NOUVELLE section DÉTERMINISTE fxr.dataByCountry (« Données du jour » PAR PAYS façon référence : Allemagne : Inflation → PPI M/M -0.3 % (attendu -0.2 %, préc. 0.3 %) → surprise baissière ; groupée pays→famille, nationales zone euro via ctry, chiffres du calendrier = jamais l'IA) + prompt resserré (synthèse 3-4 phrases, 3 headlines max, sessions 2 phrases + 2 groupes max, econData IA RETIRÉE au profit du bloc déterministe). bump = régen. v8 : « À surveiller » porte aussi les VALEURS du calendrier (réel/high/prévision/low/précédent, demande user 17/07) — bump = régen. v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
+const FXR_VER = 13;   // v13 : règle PMI corrigée (priorité Services UNIQUEMENT pour l'US/USD). v12 : RÈGLES DE DESK mentor (_MENTOR_RULES, règle 5 du prompt) — mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable. bump = régen. v11 : « Données du jour » RATTACHÉE À CHAQUE SESSION (fxr.dataBySession, avec HEURE de sortie) → l'Analyse par session liste ses données + à quel moment (demande user 24/07). v10 : NOTE DE DESK ULTRA-CONDENSÉE façon prompt user (flèches d'impact →, fait chiffré → effet, chaque section raccourcie : synthèse 2-3 phrases, sessions 1-2 phrases, BC 1-2 phrases, headlines 1 phrase) — demande user 24/07 « uniquement l'essentiel, comme mon prompt ». v9 : « + court + simple + à l'essentiel » (demande user 22/07, cohérence avec la vision hebdo) — NOUVELLE section DÉTERMINISTE fxr.dataByCountry (« Données du jour » PAR PAYS façon référence : Allemagne : Inflation → PPI M/M -0.3 % (attendu -0.2 %, préc. 0.3 %) → surprise baissière ; groupée pays→famille, nationales zone euro via ctry, chiffres du calendrier = jamais l'IA) + prompt resserré (synthèse 3-4 phrases, 3 headlines max, sessions 2 phrases + 2 groupes max, econData IA RETIRÉE au profit du bloc déterministe). bump = régen. v8 : « À surveiller » porte aussi les VALEURS du calendrier (réel/high/prévision/low/précédent, demande user 17/07) — bump = régen. v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
 let _fxrGenLock = 0;
 let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
@@ -9185,7 +9186,7 @@ ${biasLine || '(n/d)'}`;
 // (rendue en primer structuré côté front via isPrimerItem, jamais re-résumée). Dédup par événement/jour
 // (l'historique persiste l'item → pas de doublon après redéploiement). Budget IA négligeable (FOMC ~8×/an,
 // NFP ~1×/mois). [[markdown-strip-rule]]
-const EVA_VER = 6;   // v6 = RÈGLES DE DESK mentor (_MENTOR_RULES : mispricing CPI vs pricing, MPS = texte→dépêches liées, PMI Services > Manufacturing sauf US + Flash = signal principal, emploi saisonnier vs durable) — le bump régénère les analyses DU JOUR (fenêtre 1h-14h, jamais les anciennes : leur contexte de dépêches a expiré) ; v5 = enrichissement CB (section « Interprétation de marché » : renforce/affaiblit le scénario + classes d'actifs ; ton hawkish/dovish + changement de formulation vs communiqué précédent) ; v4 = rigueur analyste (priced-in ≠ surprise) + retrait conclusion directionnelle
+const EVA_VER = 7;   // v7 = ARTICLES LIÉS (demande user 26/07 « related stories ») : le contexte ÉVÉNEMENT joint un EXTRAIT du corps de chaque dépêche liée (lignes « › ») — l'IA y RÉCUPÈRE les détails puis les raffine, équivalent du dossier Related Stories de FF (même source première que notre flux) ; + règle PMI corrigée (Services prioritaires UNIQUEMENT pour l'US). v6 = RÈGLES DE DESK mentor (_MENTOR_RULES : mispricing CPI vs pricing, MPS = texte→dépêches liées, PMI Services > Manufacturing + Flash = signal principal, emploi saisonnier vs durable) — le bump régénère les analyses DU JOUR (fenêtre 1h-14h, jamais les anciennes : leur contexte de dépêches a expiré) ; v5 = enrichissement CB (section « Interprétation de marché » : renforce/affaiblit le scénario + classes d'actifs ; ton hawkish/dovish + changement de formulation vs communiqué précédent) ; v4 = rigueur analyste (priced-in ≠ surprise) + retrait conclusion directionnelle
 const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l'item est persisté dans l'historique)
 let _evaBusy = false;
 // Dépêches de RÉACTION de prix à joindre (en plus des dépêches de l'événement) pour la section « RÉACTION DE MARCHÉ »
@@ -9252,8 +9253,16 @@ async function generateEventAnalysis(kind, ev, evKey, idPrefix) {
   // Dépêches sur la fenêtre [20 min avant → maintenant] : ÉVÉNEMENT (cfg.newsRe) + RÉACTION DE MARCHÉ (prix)
   const inWin = i => i && i.timestamp >= evTs - 20 * 60 * 1000 && i.timestamp <= now + 60000 && !i._briefing && !i._eventAnalysis && !i._marketWrap;
   const fmt = i => '- ' + String(i.headline || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  // Dépêches ÉVÉNEMENT enrichies d'un EXTRAIT du corps d'article (ligne « › ») : l'IA récupère les
+  // détails des articles liés (composition, votes, formulations) puis les raffine — équivalent du
+  // dossier « Related Stories » (dont la source première est le même flux que le nôtre).
+  const fmtFull = i => {
+    const h = String(i.headline || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    const d = String(i.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 320);
+    return '- ' + h + (d && d.slice(0, 60) !== h.slice(0, 60) ? `\n  › ${d}` : '');
+  };
   const evCtx  = allNews.filter(i => inWin(i) && cfg.newsRe.test((i.headline || '') + ' ' + (i.category || '')))
-    .sort((a, b) => a.timestamp - b.timestamp).map(fmt).filter(l => l.length > 8).slice(0, 60);
+    .sort((a, b) => a.timestamp - b.timestamp).map(fmtFull).filter(l => l.length > 8).slice(0, 60);
   const mktCtx = allNews.filter(i => inWin(i) && _EVA_MKT_RE.test(i.headline || '') && !cfg.newsRe.test(i.headline || ''))
     .sort((a, b) => a.timestamp - b.timestamp).map(fmt).filter(l => l.length > 8).slice(0, 25);
   // QUALITÉ > QUANTITÉ : pas assez de matière nouvelle → on s'abstient (pas de brève redondante).
@@ -9275,13 +9284,14 @@ Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
 🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) — VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
 ${_MENTOR_RULES}
+ARTICLES LIÉS : sous certains titres de dépêches, une ligne « › » donne un EXTRAIT du corps de l'article lié. EXPLOITE ces extraits comme un dossier d'articles liés à l'événement : va y RÉCUPÉRER les détails (composition d'un chiffre, votes, changements de formulation, nuances) puis RAFFINE-les dans ton analyse — ne recopie jamais un extrait brut.
 Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).${cfg.cb ? "\nBANQUE CENTRALE — précisions attendues : dans « Communiqué (forward guidance) », qualifie EXPLICITEMENT le ton (hawkish / dovish / neutre) et signale tout CHANGEMENT DE FORMULATION vs le communiqué précédent (même subtil, les marchés y sont très sensibles). Dans « Interprétation de marché », dis si l'intervention RENFORCE, AFFAIBLIT ou NE CHANGE PAS le scénario de politique monétaire, et quelles classes d'actifs ont réagi (devises, taux, actions, or) — UNIQUEMENT d'après les dépêches fournies, sans aucun chiffre inventé." : ""}
 
 === RÉSULTAT (calendrier) ===
 ${actualLine}
 ${pricing ? `\n=== ANTICIPATIONS DE TAUX (marché ${cfg.ccy}, via rateprobability) ===\n${pricing}\n` : ''}
 === DÉPÊCHES — ÉVÉNEMENT (${evCtx.length}) ===
-${evCtx.join('\n').slice(0, 6500)}
+${evCtx.join('\n').slice(0, 9500)}
 
 === DÉPÊCHES — RÉACTION DE MARCHÉ (${mktCtx.length}) ===
 ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
@@ -14764,7 +14774,28 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     });
     const _rotStepRow = steps.find(s => s.thisWeek) || null;
     const rotation = _rotStepRow ? { seqId: _rotStepRow.id, title: _rotStepRow.title, sentThisWeek: _rotStepRow.sentThisWeek, planned: _rotStepRow.planned } : null;
-    res.json({ ok: true, steps, nextId, rotation, active: _campActive, weekRange, testMode: !!_dripState.testMode,
+    // BANDEAU « DERNIER PARTI → PROCHAIN ENVOI » (demande user 26/07 : savoir DIRECTEMENT, dès qu'un mail
+    // est parti, lequel est le suivant). Dernier parti = dernier CONTENU de campagne (hors intro, qui part à
+    // l'inscription et brouillait la lecture). Prochain = nextId (_loopStepFor) — mais si le contenu du jour
+    // est DÉJÀ parti cette semaine, on avance au contenu de la rotation SUIVANTE (sinon le bandeau montrerait
+    // un mail déjà envoyé jusqu'à 19h le jour J) ; sa date est alors prise DANS la semaine suivante.
+    let lastSend = null;
+    for (const st of steps) { if (st.id === 'intro-v1' || !st.lastSentAt) continue; if (!lastSend || st.lastSentAt > lastSend.ts) lastSend = { id: st.id, title: st.title, ts: st.lastSentAt }; }
+    let nextSend = null;
+    try {
+      let effNextId = nextId, advanced = false;
+      const _nrow = steps.find(x => x.id === nextId);
+      if (_nrow && _nrow.doneWeek) { const ns = _WEEK_ROTATION[(_dripWeekNum() + 1) % _WEEK_ROTATION.length]; effNextId = ns ? (_DRIP2SEQ[ns.id] || null) : null; advanced = true; }
+      const nd = effNextId ? CAMPAIGN_SEQUENCE.find(x => x.id === effNextId) : null;
+      const wd = effNextId ? _SEQ2DAY[effNextId] : null;
+      if (nd && wd != null) {
+        // Date de la prochaine occurrence du jour — dans la SEMAINE SUIVANTE si on a avancé la rotation.
+        const _dateInNextWeekFor = w => { const pp = _parisParts(); const toMon = ((8 - pp.weekday) % 7) || 7; const off = toMon + ((w + 6) % 7); return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' }).format(new Date(Date.now() + off * 864e5)); };
+        const dStr = advanced ? _dateInNextWeekFor(wd) : _nextDateForWeekday(wd);
+        nextSend = { id: effNextId, title: nd.title, pillar: nd.pillar, when: _WD_FR[wd] + ' ' + dStr + ' · ' + (_SEQ2TIME[effNextId] || 'dès 8h') + ' (Paris)' };
+      }
+    } catch {}
+    res.json({ ok: true, steps, nextId, rotation, lastSend, nextSend, active: _campActive, weekRange, testMode: !!_dripState.testMode,
       progress: { doneSteps: steps.filter(s => s.doneWeek).length, totalSteps: steps.length, weekContentSent: rotation ? rotation.sentThisWeek > 0 : false } });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });

@@ -1897,6 +1897,15 @@
           ? '<div style="' + bStyle + 'background:rgba(227,178,58,.1);border:1px solid rgba(227,178,58,.35);color:#e3b23a;">🧪 Mode TEST actif — chaque e-mail part uniquement sur ta boîte, le bon jour. Aucun client touché.</div>'
           : '<div style="' + bStyle + 'background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:#00e676;">● Campagne active (envoi réel) — 1 e-mail par semaine (rotation) : le contenu de la semaine part à toute l\'audience, le bon jour. Ça repart automatiquement chaque semaine.</div>');
       const _fmtMonday = ts => { try { return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch { return ''; } };
+      // Bandeau « Dernier parti → Prochain envoi » : la réponse directe à « c'est lequel le prochain ? »
+      // dès qu'un mail est parti (demande user 26/07). Données serveur (lastSend/nextSend), rien de calculé ici.
+      let flightStrip = '';
+      if (d.nextSend) {
+        flightStrip = '<div style="display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;padding:10px 12px;border:1px solid rgba(227,178,58,.35);background:rgba(227,178,58,.06);border-radius:6px;margin:0 0 10px;">'
+          + '<span style="font-size:12.5px;color:#e3b23a;font-weight:700;">⏭ Prochain envoi : ' + d.nextSend.title + ' — ' + d.nextSend.when + '</span>'
+          + (d.lastSend ? '<span style="font-size:12px;color:#8b93a1;">✉️ Dernier parti : <strong style="color:#c9ced8;font-weight:600;">' + d.lastSend.title + '</strong> — ' + _campFmt(d.lastSend.ts) + '</span>' : '')
+          + '</div>';
+      }
       const rowsHtml = d.steps.map(function(s){
         const isIntro = s.id === 'intro-v1';
         // « Envoyé » = envoyé CETTE semaine (le compteur reparte chaque lundi) — sauf l'intro (one-time à l'inscription).
@@ -1925,7 +1934,7 @@
           + metrics + '</div>'
           + '<div class="camp-seq-status camp-seq-status--' + cls + '">' + status + '</div></div>';
       }).join('');
-      document.getElementById('camp-seq-list').innerHTML = stateBanner + rowsHtml;
+      document.getElementById('camp-seq-list').innerHTML = stateBanner + flightStrip + rowsHtml;
     } catch {}
   }
 
