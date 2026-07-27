@@ -345,6 +345,31 @@ async function sendTest(to) {
   return { ok: !!provider, provider: provider || null, lastError: _mailStats.lastError || null };
 }
 
+// ── ANCIENNETÉ de l'échéance → formulation adaptée ────────────────────────────
+// Les mails de cycle de vie partent normalement à J+0/J+2. Mais le RATTRAPAGE admin les envoie
+// à des comptes échus depuis des semaines : « votre essai vient de prendre fin » sonnerait alors
+// faux, voire négligent. On dérive le délai de `expiresAt` (aucun paramètre à passer : les envois
+// automatiques ET le rattrapage en profitent) et on formule en conséquence.
+function _delai(expiresAt) {
+  const t = expiresAt ? new Date(expiresAt).getTime() : NaN;
+  if (!Number.isFinite(t)) return { jours: 0, recent: true, quand: '', tardif: false };
+  const jours = Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  if (jours <= 2) return { jours, recent: true, quand: '', tardif: false };
+  let quand;
+  if (jours < 14) quand = `il y a ${jours} jours`;
+  else if (jours < 60) quand = `il y a ${Math.round(jours / 7)} semaines`;
+  else quand = `il y a ${Math.round(jours / 30)} mois`;
+  return { jours, recent: false, quand, tardif: jours >= 7 };
+}
+// Encart d'excuse — UNIQUEMENT sur les envois nettement en retard (≥ 7 j). Reconnaître le retard
+// vaut mieux que d'écrire un message au présent des semaines après les faits.
+function _noteRetard(d) {
+  if (!d.tardif) return '';
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f3c344;border-radius:10px;margin:18px 0;">
+      <tr><td style="padding:13px 16px;color:#9aa3b2;font-size:13px;line-height:1.6;">Ce message vous parvient avec du retard : votre accès s'est en réalité interrompu <strong style="color:#cbd5e1;">${d.quand}</strong> et nous aurions dû vous prévenir aussitôt. Toutes nos excuses.</td></tr>
+    </table>`;
+}
+
 // ── Gabarit HTML commun (dark, professionnel — DataTradingPro) ────────────────
 function _layout(title, bodyHtml) {
   return `<!DOCTYPE html>
@@ -463,10 +488,12 @@ async function sendRenewalFailed(d) { const m = buildRenewalFailed(d); return _s
 function buildExpired({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
+  const d = _delai(expiresAt);
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre abonnement a expiré</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Votre période d'abonnement à <strong style="color:#fff;">DataTradingPro</strong>${end ? ` est arrivée à échéance le <strong style="color:#fff;">${end}</strong>` : ' a expiré'}. Votre accès au terminal est désormais <strong style="color:#e25563;">suspendu</strong>.</p>
+    <p style="margin:0 0 14px;">Votre période d'abonnement à <strong style="color:#fff;">DataTradingPro</strong>${end ? ` est arrivée à échéance le <strong style="color:#fff;">${end}</strong>${d.recent ? '' : `, ${d.quand}`}` : ' a expiré'}. Votre accès au terminal est ${d.recent ? 'désormais' : 'depuis'} <strong style="color:#e25563;">suspendu</strong>.</p>
+    ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Pour reprendre le suivi des marchés en temps réel (news, calendrier économique, force des devises, analyses institutionnelles), renouvelez votre abonnement en un clic :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
@@ -582,10 +609,12 @@ async function sendPasswordReset(d) { const m = buildPasswordReset(d); return _s
 function buildTrialUpsell({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : null;
+  const d = _delai(expiresAt);
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre essai gratuit est terminé ⏳</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro vient de prendre fin${end ? ` (elle a expiré <strong style="color:#f3c344;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
+    <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro ${d.recent ? 'vient de prendre fin' : `a pris fin ${d.quand}`}${end ? ` (échéance du <strong style="color:#f3c344;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
+    ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">retrouver votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, passez dès maintenant à l'<strong style="color:#fff;">abonnement mensuel</strong>, sans engagement et résiliable à tout moment :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, sans délai</td></tr>
@@ -2072,7 +2101,7 @@ module.exports = {
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
   trackToken, trackOpenUrl, trackClickUrl,
   // build (rendu sans envoi) — pour la preview
-  buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
+  buildWelcome, buildRenewalFailed, buildExpired, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
