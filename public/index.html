@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260727bbg344" />
+  <link rel="stylesheet" href="/css/style.css?v=20260727bbg345" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -655,11 +655,12 @@
     <div class="right-content">
 
       <!-- WORLD : Session Map -->
-      <!-- Titres des panneaux de droite RETIRÉS : ils répétaient mot pour mot l'onglet actif de la barre
-           › MONDE › RISQUE › FORCE … (déjà souligné en or). On ne garde QUE ce qui informe : point de
-           direct, sessions actives, sélecteurs. Une barre qui ne portait que le titre est supprimée. -->
+      <!-- Titres des panneaux de droite RESTAURÉS (demande user 27/07 « gère pour ces widgets aussi ») dans
+           le style canonique (.chart-header-title = Inter Tight MAJUSCULES) → homogènes avec les vues du haut
+           ET avec les widgets de Mon Desk. On garde à côté ce qui informe (point live, état, sélecteurs). -->
       <div class="right-tab-panel active" id="rtab-world">
         <div class="chart-header">
+          <span class="chart-header-title">Carte des sessions</span>
           <span class="live-dot live-dot--small"></span>
           <span class="chart-header-sub" id="active-sessions-label"></span>
         </div>
@@ -668,7 +669,9 @@
 
       <!-- RISK : Sentiment Widget + History -->
       <div class="right-tab-panel" id="rtab-risk">
-        <!-- barre supprimée : elle ne contenait QUE le titre (doublon de l'onglet › RISQUE) -->
+        <div class="chart-header">
+          <span class="chart-header-title">Sentiment de risque</span>
+        </div>
         <div id="risk-widget" class="risk-widget-container"></div>
 
         <!-- Bande historique (barres quotidiennes risk-on/off) directement sous la jauge —
@@ -684,6 +687,7 @@
       <!-- METER : Sentiment Gauge -->
       <div class="right-tab-panel" id="rtab-meter">
         <div class="chart-header">
+          <span class="chart-header-title">Baromètre des Devises</span>
           <span class="live-dot live-dot--small"></span>
           <span class="live-label">Direct</span>
         </div>
@@ -692,8 +696,10 @@
 
       <!-- COT : Commitment of Traders -->
       <div class="right-tab-panel" id="rtab-cot">
-        <!-- barre supprimée : elle ne contenait que le titre (doublon de l'onglet › COT) ; les sélecteurs
-             de type de positionnement juste en dessous restent le vrai point d'entrée du panneau. -->
+        <div class="cot-header-bar">
+          <span class="cot-header-label">Positionnement COT</span>
+          <span style="flex:1"></span>
+        </div>
         <div class="cot-type-bar">
           <button class="cot-type-btn" data-cot-type="noncomm">Non-comm.</button>
           <button class="cot-type-btn" data-cot-type="dealer">Teneur</button>
@@ -708,6 +714,8 @@
       <!-- DMX : Community Outlook (Myfxbook) -->
       <div class="right-tab-panel" id="rtab-dmx">
         <div class="dmx-header-bar">
+          <span class="dmx-header-title">Aperçu DMX</span>
+          <span style="flex:1"></span>
           <div class="dmx-tf-group">
             <button class="dmx-tf-btn" data-tf="D1">1D</button>
             <button class="dmx-tf-btn" data-tf="H4">4H</button>
@@ -731,8 +739,7 @@
       <!-- SEASONALITY : table de performance mensuelle par année (façon pro) -->
       <div class="right-tab-panel" id="rtab-seasonality">
         <div class="dmx-header-bar">
-          <!-- titre retiré (doublon de l'onglet › SAISONNALITÉ) ; la PAIRE analysée reste, elle : c'est
-               une donnée, pas une étiquette. -->
+          <span class="dmx-header-title">Saisonnalité</span>
           <span class="season-pair-badge" id="season-pair-title">[EUR/USD]</span>
           <span style="flex:1"></span>
           <button class="season-cfg-btn" id="season-cfg-btn" onclick="_seasonOpenSettings()" data-tip="Paramètres" aria-label="Paramètres">
@@ -832,7 +839,7 @@
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script defer src="/js/app.js?v=20260726bbg336"></script>
-<script defer src="/js/charts.js?v=20260726bbg341"></script>
+<script defer src="/js/charts.js?v=20260727bbg345"></script>
 <script defer src="/js/sessionmap.js?v=20260727bbg343"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
