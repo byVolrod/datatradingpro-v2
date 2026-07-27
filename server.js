@@ -13660,6 +13660,46 @@ async function _checkExpiringSubscriptions() {
 // (fonction _checkExpiringSubscriptions conservée mais non planifiée)
 void _checkExpiringSubscriptions;
 
+// ═══ ACCÈS OFFERTS — JAMAIS de relance de paiement ═══════════════════════════
+// Un accès donné par l'admin (cadeau, geste commercial, partenaire, testeur) ne doit recevoir
+// AUCUN mail qui pousse à payer : ni « votre abonnement a expiré, renouvelez », ni « votre essai
+// est terminé, abonnez-vous ». Réclamer un paiement pour un accès offert est la pire erreur
+// possible côté client. Le compte reste normal pour tout le reste (login, transactionnel, support).
+// Source de vérité = KV Supabase `giftaccess`. Le seed en dur s'auto-répare même après perte
+// totale du KV, sur le modèle de _PERMANENT_UNSUB_SEED (auth.js).
+const _GIFT_SEED = ['nouchi.benaini@gmail.com', 'anismessaoud05@gmail.com'];
+const _giftSet = new Set(_GIFT_SEED);
+const _GIFT_KEY = 'giftaccess', _GIFT_TTL = 366 * 86400000;
+function _giftNorm(e) { return String(e || '').toLowerCase().trim(); }
+function _isGift(email) { return _giftSet.has(_giftNorm(email)); }
+async function _giftLoad() {
+  try {
+    const v = await auth.aiCacheGet(_GIFT_KEY, _GIFT_TTL);
+    if (Array.isArray(v)) v.forEach(e => { const n = _giftNorm(e); if (n) _giftSet.add(n); });
+  } catch (e) {}
+  // le seed reste toujours présent → on réécrit si le KV en manquait
+  try { await auth.aiCacheSet(_GIFT_KEY, [..._giftSet]); } catch (e) {}
+  console.log(`[Accès offert] ${_giftSet.size} compte(s) exemptés de relance de paiement`);
+}
+setTimeout(() => { _giftLoad().catch(() => {}); }, 25000);   // après amorçage Supabase
+app.get('/api/admin/gift-access', requireAdmin, async (req, res) => {
+  res.json({ ok: true, emails: [..._giftSet].sort(), seed: _GIFT_SEED });
+});
+app.post('/api/admin/gift-access', requireAdmin, async (req, res) => {
+  try {
+    const email = _giftNorm(req.body && req.body.email);
+    const action = String((req.body && req.body.action) || 'add');
+    if (!email || !/.+@.+\..+/.test(email)) return res.status(400).json({ ok: false, error: 'e-mail invalide' });
+    if (action === 'remove') {
+      if (_GIFT_SEED.includes(email)) return res.status(400).json({ ok: false, error: 'compte protégé par le code (seed) — à retirer dans server.js' });
+      _giftSet.delete(email);
+    } else _giftSet.add(email);
+    await auth.aiCacheSet(_GIFT_KEY, [..._giftSet]);
+    console.log(`[Accès offert] ${action === 'remove' ? 'retiré' : 'ajouté'} → ${email}`);
+    res.json({ ok: true, emails: [..._giftSet].sort() });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // ── FIN D'ESSAI GRATUIT (1 semaine) ──────────────────────────────────────────
 //    1 SEUL email, LE JOUR D'EXPIRATION de la période d'essai → invitation à
 //    passer à l'abonnement mensuel. JAMAIS répété : anti-doublon durable
@@ -13674,6 +13714,7 @@ async function _checkTrialUpsell() {
     const high  = now;             // … et pas dans le futur → "le jour de l'expiration"
     for (const u of users) {
       if (u.role !== 'client' || !u.active || !u.expires_at || !u.created_at) continue;
+      if (_isGift(u.email)) continue;                    // accès offert → on ne réclame jamais de paiement
       const exp = new Date(u.expires_at).getTime();
       const crt = new Date(u.created_at).getTime();
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
@@ -13720,6 +13761,7 @@ async function _checkExpiredSubscriptions() {
     const low = now - 2 * DAY;          // échéance passée depuis moins de 48 h…
     for (const u of users) {
       if (u.role !== 'client' || !u.email || !u.expires_at || !u.created_at) continue;
+      if (_isGift(u.email)) continue;          // accès offert → on ne réclame jamais de paiement
       const exp = new Date(u.expires_at).getTime();
       const crt = new Date(u.created_at).getTime();
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
@@ -16244,6 +16286,7 @@ async function _lifecycleCandidates(type) {
     // OPT-OUT ABSOLU : le rattrapage est un envoi EN LOT décidé par l'admin (pas le transactionnel
     // J+0) → il doit respecter la liste noire et les désinscrits, comme une campagne. Sans ce filtre,
     // un « revenez chez nous » partirait à quelqu'un qui a explicitement demandé à ne plus rien recevoir.
+    if (_isGift(u.email)) continue;            // accès offert → jamais de relance de paiement
     try { if (auth.isEmailBlacklisted && auth.isEmailBlacklisted(u.email)) continue; } catch (e) {}
     try { if (await auth.emailLogHas('unsub:' + String(u.email).toLowerCase().trim())) continue; } catch (e) {}
     let recu = false;
