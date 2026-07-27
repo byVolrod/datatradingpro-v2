@@ -1150,6 +1150,32 @@
     if (days <= 7) return 'soon';
     return 'active';
   }
+  // Badge de statut EFFECTIF — avant, la colonne affichait « Actif » (le flag technique u.active)
+  // à côté d'un abonnement « Expiré » : contradictoire à l'écran. On montre l'état réel du compte.
+  function statusBadge(u) {
+    const st = subState(u);
+    if (st === 'suspended') return '<span class="badge badge-suspended">Suspendu</span>';
+    if (st === 'expired')   return '<span class="badge badge-expired">Expiré</span>';
+    if (st === 'soon')      return '<span class="badge badge-soon">Expire bientôt</span>';
+    return '<span class="badge badge-active">Actif</span>';
+  }
+  // Dernière connexion en RELATIF (la date exacte reste au survol) : « il y a 3 j » se lit
+  // d'un coup d'œil, là où « 24/07/2026 23:51:51 » force à calculer de tête.
+  function relTime(ts) {
+    if (!ts) return 'jamais';
+    const ms = Date.now() - new Date(ts).getTime();
+    if (!Number.isFinite(ms) || ms < 0) return '—';
+    const mn = Math.floor(ms / 60000);
+    if (mn < 1)   return 'à l\'instant';
+    if (mn < 60)  return 'il y a ' + mn + ' min';
+    const h = Math.floor(mn / 60);
+    if (h < 24)   return 'il y a ' + h + ' h';
+    const j = Math.floor(h / 24);
+    if (j < 30)   return 'il y a ' + j + ' j';
+    const mo = Math.floor(j / 30);
+    if (mo < 12)  return 'il y a ' + mo + ' mois';
+    return 'il y a ' + Math.floor(mo / 12) + ' an' + (mo >= 24 ? 's' : '');
+  }
 
   const _ICON = {
     users:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -1262,9 +1288,9 @@
         <td class="email">${u.email}</td>
         <td><span class="badge badge-${u.role}">${u.role}</span></td>
         <td><span class="badge ${isTrialUser(u) ? 'badge-soon' : 'badge-client'}">${planLabel(u)}</span></td>
-        <td><span class="badge ${u.active ? 'badge-active' : 'badge-suspended'}">${u.active ? 'Actif' : 'Suspendu'}</span></td>
+        <td>${statusBadge(u)}</td>
         <td>${subInfo(u)}</td>
-        <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px">${u.last_login ? new Date(u.last_login).toLocaleString('fr-FR') : '—'}</td>
+        <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px" title="${u.last_login ? esc(new Date(u.last_login).toLocaleString('fr-FR')) : ''}">${relTime(u.last_login)}</td>
         <td class="actions">
           <button class="btn-sm" onclick="openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active})">Modifier</button>
           <button class="btn-sm" onclick="openPwd('${esc(String(u.id))}')">MDP</button>
