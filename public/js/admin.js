@@ -1429,14 +1429,12 @@
   const _CADS = { mensuel: 'Mensuel', annuel: 'Annuel', '7j': '7 jours', illimite: 'Illimité' };
   function cycleLabel(u) {
     if (u.role === 'admin' || u.role === 'support') return '∞';
-    if (u.plancad && _CADS[u.plancad]) return _CADS[u.plancad];   // override admin (KV plancads) → prime
+    if (u.plancad && _CADS[u.plancad]) return _CADS[u.plancad];   // réglage admin / synchro Whop → prime
     if (!u.expires_at) return 'Illimité';
-    if (!u.created_at) return '—';
-    const span = new Date(u.expires_at) - new Date(u.created_at);
-    if (!(span > 0)) return '—';                             // dates incohérentes (import) → on n'invente pas
-    if (span <= 8.5 * 86400000) return '7 jours';
+    const span = u.created_at ? new Date(u.expires_at) - new Date(u.created_at) : 0;
+    if (span > 0 && span <= 8.5 * 86400000) return '7 jours';
     if (span >= 300 * 86400000) return 'Annuel';
-    return 'Mensuel';
+    return 'Mensuel';                                        // défaut (dates incohérentes incluses) — corrigé au renouvellement Whop
   }
   // Couleurs voulues par le user : Amis = BLEU · Professionnel = VERT · Essai = OR DTP.
   function typeBadge(u) {

@@ -21,7 +21,9 @@
   --row-hover: #16171c;
   --head-bg: #101012;
   --panel-depth: 0 1px 2px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.018);
-  --text: #eceef2; --text2: #9a9aa4; --text3: #6f6f79; --text4: #444444;
+  /* LISIBILITÉ (retour user 27/07 « on a du mal à bien lire ») : gris ÉCLAIRCIS de 2 crans —
+     le texte secondaire était trop proche du fond. Garder ces valeurs ≥ celles du desk. */
+  --text: #eceef2; --text2: #b7b9c3; --text3: #8d8f9b; --text4: #555560;
   /* ── Or signature + états de marché (charte immuable) ── */
   --orange: #e3b23a; --orange-dim: #b8860b;
   --orange-bg: rgba(227, 178, 58, 0.12); --orange-glow: rgba(227, 178, 58, 0.25);
@@ -33,7 +35,7 @@
   --tight: "Inter Tight", var(--font-stack);
   --serif: "Fraunces", Georgia, serif;
   /* ── Échelle premium desk ── */
-  --fs-title: 11.5px; --fs-h2: 13px; --fs-body: 12px; --fs-label: 11px; --fs-value: 12px; --fs-meta: 10px; --fs-micro: 9px;
+  --fs-title: 12px; --fs-h2: 13.5px; --fs-body: 12.5px; --fs-label: 11.5px; --fs-value: 12.5px; --fs-meta: 10.5px; --fs-micro: 9.5px;   /* +0.5px partout (lisibilité) en gardant la densité HUD */
   --radius: 4px; --r-1: 4px; --r-2: 4px; --pill: 999px;
   --t-fast: .15s; --t-med: .22s; --t-slow: .30s;
   --ease: cubic-bezier(.4, 0, .2, 1); --ease-out: cubic-bezier(.2, .8, .2, 1);
@@ -253,7 +255,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   font-family: var(--tight); font-size: var(--fs-meta); font-weight: var(--fw-semibold);
   text-transform: uppercase; letter-spacing: .05em; color: var(--text3);
 }
-input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="search"], select, textarea {
+/* `input:not([type])` : un <input> SANS attribut type est du texte pour le navigateur mais échappe
+   à input[type="text"] → il restait BLANC (défaut navigateur). C'était le cas de tous les champs
+   « Ajouter des e-mails », « E-mail à blacklister », filtre du journal… */
+input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="search"], input[type="number"], select, textarea {
   background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-2);
   color: var(--text); padding: 6px 9px; font-family: var(--font-ui); font-size: var(--fs-body); width: 100%;
   transition: border-color var(--t-fast) var(--ease);
@@ -472,6 +477,13 @@ select { cursor: pointer; }
   .view-title { font-size: 15px; }
   .view-head { gap: var(--sp-1); }
   .add-form { grid-template-columns: 1fr; }
+  /* Champs + bouton accolé (Ajouter/Blacklister/Exempter…) : sur mobile le duo passe en colonne,
+     champ pleine largeur — fini le bouton coupé au bord droit. */
+  .camp-extra { flex-wrap: wrap; }
+  .camp-extra input, .camp-extra input:not([type]) { min-width: 100%; }
+  .camp-extra .btn { flex: 1; }
+  .toolbar input { min-width: 100%; }
+  .toolbar select { flex: 1; min-width: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════════════

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg359" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg360" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -286,8 +286,7 @@
             <div id="camp-master-body" class="camp-block"><div class="skel" style="height:64px"></div></div>
             <div class="camp-actions" id="camp-master-actions"></div>
             <span id="camp-master-msg" class="camp-msg" style="display:block;margin-top:6px"></span>
-            <p class="camp-note"><strong>Deux boutons.</strong> <strong>Tester sur ma boîte</strong> : la campagne tourne exactement comme en officiel (même calendrier, même rythme) mais chaque e-mail part uniquement sur ton adresse, le bon jour — pour vérifier ce que tu reçois avant de toucher un client. <strong>Lancer officiellement</strong> : envoi réel à toute l'audience. Calendrier : <strong>Dim</strong> Semaine à venir · <strong>Mar</strong> Comprendre · <strong>Mer</strong> Point marché · <strong>Jeu</strong> Mindset · <strong>Sam</strong> Récap (Lun &amp; Ven : rien). Anti-doublon, nouveaux inclus, désinscrits et blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents »). Le welcome transactionnel reste indépendant.</p>
-            <p class="camp-note">Aperçus et tests par template : <a href="#campaign/templates" onclick="campSub('templates');return false;">onglet Templates →</a><span id="camp-drip-msg" class="camp-msg" style="margin-left:8px"></span></p>
+            <p class="camp-note"><strong>Tester sur ma boîte</strong> : même campagne, uniquement vers ton adresse. <strong>Lancer officiellement</strong> : envoi réel. Dim Semaine à venir · Mar Comprendre · Mer Point marché · Jeu Mindset · Sam Récap. Désinscrits et blacklist toujours exclus.<span id="camp-drip-msg" class="camp-msg" style="margin-left:8px"></span></p>
           </div>
         </div>
         <div class="panel-card">
@@ -301,7 +300,7 @@
           <div class="panel-head"><h2>Fiabilité &amp; incidents</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-err-badge"></span></div>
           <div class="panel-body">
             <div id="camp-err-body"><div class="skel" style="height:44px"></div></div>
-            <p class="camp-note">Avant CHAQUE envoi, un <strong>pré-vol</strong> vérifie le fournisseur mail, l'audience, le rendu du template, les données du desk et le widget. Une anomalie critique = aucun envoi, campagne mise en pause, alerte e-mail admin + incident ci-dessus. Après correction, relancez depuis « La Campagne » (anti-doublon garanti, zéro renvoi).</p>
+            <p class="camp-note">Un pré-vol vérifie tout avant chaque envoi. Anomalie critique = campagne en pause + alerte, à relancer après correction (aucun renvoi possible).</p>
           </div>
         </div>
         <div class="panel-card">
@@ -400,7 +399,7 @@
               <button class="btn" onclick="giftAdd()">Exempter</button>
             </div>
             <div id="camp-gift-list" class="camp-bl-list"></div>
-            <p class="camp-note"><strong>Jamais de relance de paiement.</strong> Ces comptes ne reçoivent ni « votre abonnement a expiré, renouvelez », ni « votre essai est terminé, abonnez-vous » — ni en automatique, ni depuis l'écran de rattrapage. Tout le reste est normal : connexion, support, mot de passe, campagne. À utiliser pour un accès donné à la main (cadeau, geste commercial, partenaire, testeur).</p>
+            <p class="camp-note"><strong>Jamais de relance de paiement</strong> pour ces comptes (auto + rattrapage). Tout le reste est normal. Pour les accès donnés à la main (cadeau, partenaire, testeur).</p>
           </div>
         </div>
       </div>
@@ -579,15 +578,15 @@
       <small class="role-hint" id="edit-plan-hint" style="display:none"></small><!-- texte posé par planSync -->
     </div>
     <div class="form-field">
-      <label>Plan (cadence)</label>
+      <label>Plan</label>
       <select id="edit-plancad">
-        <option value="">Auto — dérivée des dates</option>
+        <option value="">Auto</option>
         <option value="mensuel">Mensuel</option>
         <option value="annuel">Annuel</option>
         <option value="7j">7 jours</option>
         <option value="illimite">Illimité</option>
       </select>
-      <small class="role-hint">La cadence affichée dans la colonne PLAN. « Auto » la déduit des dates du compte ; choisis une valeur quand les dates ne reflètent pas la réalité (ex. import).</small>
+      <small class="role-hint">Mis à jour automatiquement à chaque renouvellement Whop.</small>
     </div>
     <div class="form-field">
       <label>Statut</label>
@@ -647,6 +646,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260727bbg359"></script>
+<script src="/js/admin.js?v=20260727bbg360"></script>
 </body>
 </html>

@@ -983,12 +983,10 @@ function _cadOf(u) {
   if (!u || u.role !== 'client') return '';
   const o = _planCads[String(u.id)]; if (o) return o;
   if (!u.expires_at) return 'illimite';
-  if (!u.created_at) return '';
-  const span = new Date(u.expires_at) - new Date(u.created_at);
-  if (!(span > 0)) return '';                                   // dates incohérentes → on n'invente pas
-  if (span <= 8.5 * 86400000) return '7j';
+  const span = u.created_at ? new Date(u.expires_at) - new Date(u.created_at) : 0;
+  if (span > 0 && span <= 8.5 * 86400000) return '7j';
   if (span >= 300 * 86400000) return 'annuel';
-  return 'mensuel';
+  return 'mensuel';                                            // défaut (dates incohérentes incluses) — la synchro Whop corrige au renouvellement
 }
 
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
@@ -16542,15 +16540,28 @@ async function _lifecycleCandidates(type) {
 // Source = le journal anti-doublon durable (une clé par envoi, valeur = date) : c'est la VÉRITÉ,
 // écrite au moment exact où chaque mail part. On la traduit en lignes lisibles (type FR + destinataire,
 // les clés par id de compte sont résolues en e-mail). Lecture seule.
+// Chaque clé est traduite en NOM DE TEMPLATE (demande user : « je dois comprendre ce qui a été
+// envoyé par le nom du template »). Pour la séquence, le jour encodé dans la clé désigne le
+// contenu : drip:day:<sem>-<jour> avec Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché ·
+// Jeu=Mindset · Sam=Récap (mapping _DAY_STEP).
+const _DRIP_DAY_LBL = { 0: 'Semaine à venir', 2: 'Comprendre le marché', 3: 'Point marché', 4: 'Mindset', 6: 'Récap hebdo' };
 const _MAILLOG_TYPES = [
-  [/^drip:(day|loop):/, 'Campagne · séquence'], [/^campaign:intro/, 'Campagne · bienvenue'],
-  [/^campaign:weekly/, 'Campagne · digest hebdo'], [/^campaign:app-desktop/, 'Campagne · app desktop'],
-  [/^campaign:/, 'Campagne'], [/^welcome:/, 'Bienvenue (accès)'], [/^whop-welcome:/, 'Bienvenue (Whop)'],
+  [/^drip:intro:/, 'Bienvenue newsletter'], [/^drip:loop:/, 'Contenu de la semaine'],
+  [/^drip:day-test:/, 'Test admin'], [/^campaign:intro/, 'Bienvenue newsletter'],
+  [/^campaign:weekly/, 'Récap hebdo (digest)'], [/^campaign:app-desktop/, 'Annonce app desktop'],
+  [/^campaign:invitation/, 'Invitation'], [/^campaign:/, 'Campagne'],
+  [/^welcome:/, 'Bienvenue (accès)'], [/^whop-welcome:/, 'Bienvenue (accès)'],
   [/^welcomeok:/, 'Bienvenue confirmée'], [/^whop-renew:/, 'Renouvellement confirmé'],
   [/^trial-upsell:/, "Fin d'essai gratuit"], [/^expired7:/, 'Relance J+7'], [/^expired:/, 'Abonnement expiré'],
   [/^winback1m:/, 'Jalon 1 mois'], [/^winback3m:/, 'Jalon 3 mois'], [/^winback6m:/, 'Jalon 6 mois'],
   [/^winback12m:/, 'Jalon 1 an'], [/^reengage/, 'Réengagement'], [/^unsub:/, 'Désinscription'],
 ];
+function _mailLogType(key) {
+  const m = key.match(/^drip:day:[^:]*-(\d):/);
+  if (m) return _DRIP_DAY_LBL[+m[1]] || 'Contenu du jour';
+  for (const [rx, lbl] of _MAILLOG_TYPES) if (rx.test(key)) return lbl;
+  return 'Autre';
+}
 app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
   try {
     const all = auth.emailLogAll();
@@ -16559,8 +16570,7 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
     const q = String(req.query.q || '').toLowerCase().trim();
     const rows = [];
     for (const [key, at] of Object.entries(all)) {
-      let type = 'Autre';
-      for (const [rx, lbl] of _MAILLOG_TYPES) if (rx.test(key)) { type = lbl; break; }
+      const type = _mailLogType(key);
       // destinataire : soit l'e-mail est dans la clé, soit c'est un id de compte à résoudre
       const parts = key.split(':');
       let dest = parts.find(p => p.includes('@')) || '';
