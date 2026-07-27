@@ -152,6 +152,15 @@
       if (lab) {
         if (openNames.length) { lab.textContent = openNames.join(' · ') + (openNames.length > 1 ? ' ouvertes' : ' ouverte'); lab.style.color = '#00e676'; }
         else if (nextUp) { lab.textContent = 'Fermé · ' + nextUp.name + ' ouvre dans ' + frDur(nextUp.mins); lab.style.color = '#8a8f98'; }
+        // La pastille qui précède le texte suit l'état (demande user 26/07 « met le bouton en rouge quand
+        // c'est fermé ») : VERT marché ouvert / ROUGE marché fermé. Charte : #00e676 / #ff3d00.
+        var dot = lab.parentNode && lab.parentNode.querySelector('.live-dot');
+        if (dot) {
+          var on = openNames.length > 0;
+          dot.style.background = on ? '#00e676' : '#ff3d00';
+          dot.style.boxShadow = '0 0 6px ' + (on ? 'rgba(0,230,118,.5)' : 'rgba(255,61,0,.5)');
+          dot.title = on ? 'Séances ouvertes' : 'Toutes les séances sont fermées';
+        }
       }
     }
     refreshSessions(new Date());
