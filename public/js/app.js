@@ -3946,22 +3946,31 @@ let _waData = null, _waChartRoot = null, _waPollTimer = null, _waPollCount = 0;
 // Navigation par semaine (demande user 27/07, façon calendrier) : 0 = semaine à venir (courante),
 // négatif = N semaines en arrière (borné à -13 ≈ 3 mois, comme le calendrier). Verrou anti-course.
 let _waOffset = 0, _waNavBusy = false;
+// Met à jour la barre d'en-tête FIXE de la vue (titre + plage + état des flèches). Les écouteurs sont
+// posés UNE fois (dataset.wired) : la barre est statique dans index.html, elle n'est jamais re-rendue.
+function _waSyncHead(d) {
+  const t = document.getElementById('wa-view-title');
+  const lbl = document.getElementById('wa-week-lbl');
+  const pv = document.getElementById('wa-week-prev'), nx = document.getElementById('wa-week-next');
+  if (t) t.textContent = _waOffset < 0 ? 'Semaine écoulée' : 'Semaine à Venir';
+  if (lbl) lbl.textContent = (d && d.week) || '';
+  if (pv) { pv.disabled = _waNavBusy || _waOffset <= -13; if (!pv.dataset.wired) { pv.dataset.wired = '1'; pv.addEventListener('click', () => _waShiftWeek(-1)); } }
+  if (nx) { nx.disabled = _waNavBusy || _waOffset >= 0;  if (!nx.dataset.wired) { nx.dataset.wired = '1'; nx.addEventListener('click', () => _waShiftWeek(1)); } }
+}
 async function _waShiftWeek(delta) {
   const off = Math.max(-13, Math.min(0, _waOffset + delta));
   if (_waNavBusy || off === _waOffset) return;
   _waNavBusy = true;
   const prev = _waOffset; _waOffset = off;
-  document.querySelectorAll('#wa-week-prev,#wa-week-next').forEach(b => { b.disabled = true; });   // gèle pendant le fetch
+  _waSyncHead(_waData);                            // gèle les flèches pendant le fetch (_waNavBusy)
   try {
     const url = off < 0 ? ('/api/week-ahead?weekOffset=' + off) : '/api/week-ahead';
     const d = await (window._dtpJSON ? window._dtpJSON(url) : fetch(url).then(r => r.json()));
-    if (d && Array.isArray(d.days) && d.days.length) { _renderWeekAhead(d); }
-    else { _waOffset = prev; }                     // semaine sans événement / échec → on ne bascule pas
+    if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waNavBusy = false; _renderWeekAhead(d); return; }
+    _waOffset = prev;                              // semaine sans événement / échec → on ne bascule pas
   } catch { _waOffset = prev; }
   _waNavBusy = false;
-  // ré-affiche l'état des flèches si le rendu n'a pas eu lieu (retour à l'état précédent)
-  const p = document.getElementById('wa-week-prev'), n = document.getElementById('wa-week-next');
-  if (p) p.disabled = _waOffset <= -13; if (n) n.disabled = _waOffset >= 0;
+  _waSyncHead(_waData);                            // rétablit l'en-tête sur l'état réellement affiché
 }
 window._waShiftWeek = _waShiftWeek;
 async function loadWeekAheadView() {
@@ -4013,8 +4022,8 @@ function _waSkel() {
       + '<div class="wa-card-desc"><span class="dtp-skel wa-skel-line"></span><span class="dtp-skel wa-skel-line wa-skel-line--short"></span></div>'
       + '</div></div>';
   }
+  // (plus de .wa-head ici : le titre vit dans la barre d'en-tête FIXE de la vue, jamais re-rendue)
   return '<div class="wa-wrap wa-skel-wrap" aria-hidden="true">'
-    + '<div class="wa-head"><span class="dtp-skel wa-skel-head"></span></div>'
     + '<div class="wa-chartbox"><div class="wa-chart-label">PROFIL DE RISQUE HEBDO</div><div class="wa-chart wa-skel-chart"><span class="dtp-skel"></span></div></div>'
     + '<div class="wa-timeline">' + days + '</div>'
     + '</div>';
@@ -4051,25 +4060,13 @@ function _renderWeekAhead(d) {
       </div>
     </div>`;
   }).join('');
-  // Navigation par semaine (façon calendrier) : flèches ‹ › autour de la plage de dates. ‹ recule (jusqu'à
-  // -13 sem.), › avance vers le présent (désactivée à l'offset 0). Le titre passe à « Semaine écoulée » en archive.
-  const back = (_waOffset <= -13), fwd = (_waOffset >= 0);
-  const titleTxt = _waOffset < 0 ? 'Semaine écoulée' : 'Semaine à Venir';
+  // L'en-tête vit dans la BARRE STANDARD de la vue (index.html `.panel-header`) → titre aligné comme
+  // toutes les autres vues. Ici on ne fait que la mettre à jour (libellé, plage de dates, flèches).
+  _waSyncHead(d);
   host.innerHTML = `<div class="wa-wrap">
-    <div class="wa-head">
-      <span class="wa-title">${titleTxt}</span>
-      <span class="wa-weeknav">
-        <button class="cal-range-arrow" id="wa-week-prev" type="button" title="Semaine précédente" aria-label="Semaine précédente"${back ? ' disabled' : ''}>‹</button>
-        ${d.week ? `<span class="wa-week">${esc(d.week)}</span>` : ''}
-        <button class="cal-range-arrow" id="wa-week-next" type="button" title="Semaine suivante" aria-label="Semaine suivante"${fwd ? ' disabled' : ''}>›</button>
-      </span>
-    </div>
     <div class="wa-chartbox"><div class="wa-chart-label">PROFIL DE RISQUE HEBDO</div><div class="wa-chart" id="wa-risk-chart"></div></div>
     <div class="wa-timeline">${rows}</div>
   </div>`;
-  const _pv = document.getElementById('wa-week-prev'), _nx = document.getElementById('wa-week-next');
-  if (_pv) _pv.addEventListener('click', () => _waShiftWeek(-1));
-  if (_nx) _nx.addEventListener('click', () => _waShiftWeek(1));
   requestAnimationFrame(() => {
     host.querySelectorAll('.wa-card').forEach(c => {
       const body = c.querySelector('.wa-events') || c.querySelector('.wa-card-desc');
@@ -4496,17 +4493,11 @@ function renderBiasView(d) {
   if (!host) return;
   const cur  = (d && d.currencies) || [];
   const rows = (d && d.rows) || [];
-  // Indicateur DIRECT (demande user 26/07 « l'onglet biais doit se mettre à jour en temps réel ») : pastille
-  // verte fixe + heure du dernier rafraîchissement des DONNÉES (`dataAt`, pas `generatedAt` qui reste l'ancre
-  // hebdo du narratif). L'ancien badge « MAJ <date> » reste supprimé — ce n'est pas le même objet.
+  // Badge « ● Direct · HH:MM » RETIRÉ (demande user 27/07 « enlève le Direct avec le bouton ») : le TEMPS
+  // RÉEL, lui, reste actif (push WebSocket + filet 60 s) — seul l'indicateur visuel disparaît. On vide le
+  // conteneur pour purger un badge rendu par une version précédente.
   const badge = document.getElementById('bias-update-badge');
-  if (badge) {
-    const at = d && (d.dataAt || d.generatedAt);
-    const hh = at ? new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-    const archive = !!(_biasData && _biasViewTs && Number(_biasData.generatedAt) !== Number(_biasViewTs));
-    badge.innerHTML = archive ? ''     // consultation d'une semaine passée : pas de « direct »
-      : '<span class="bias-live"><span class="live-dot live-dot--small"></span>Direct' + (hh ? ' · ' + hh : '') + '</span>';
-  }
+  if (badge) badge.innerHTML = '';
 
   if (!cur.length || !rows.length) {
     host.innerHTML = '<div class="bias-loading">La matrice Radar de Biais sera générée dimanche (force : /api/smart-bias?force=1).</div>';
