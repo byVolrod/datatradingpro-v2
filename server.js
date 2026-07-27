@@ -977,6 +977,7 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
       if (u.role !== 'client') return { cycle: 'staff', mrr: 0 };
       const crt = u.created_at ? new Date(u.created_at).getTime() : 0;
       const exp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
+      if (_isFriend(u)) return { cycle: 'unlimited', mrr: 0 };         // type Amis → offert, 0 € quel que soit le cycle
       if (!exp) return { cycle: 'unlimited', mrr: 0 };                 // accès offert / illimité
       const span = crt ? exp - crt : 0;
       if (_isTrialAccount(u)) return { cycle: 'trial', mrr: 0 };       // essai → 0 € (jamais compté au MRR)
@@ -1192,13 +1193,20 @@ app.get('/api/admin/mail-test', requireSameOrigin, requireAdmin, async (req, res
 const TRIAL_PLAN = 'essai';
 function _isTrialAccount(u) {
   if (!u) return false;
-  if (String(u.plan || '').toLowerCase() === TRIAL_PLAN) return true;   // déclaré → autorité
+  const p = String(u.plan || '').toLowerCase();
+  if (p === TRIAL_PLAN) return true;                                    // déclaré → autorité
+  if (p === 'amis') return false;                                       // ami déclaré → jamais reclassé essai par les dates
   const exp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
   const crt = u.created_at ? new Date(u.created_at).getTime() : 0;
   if (!exp || !crt || !Number.isFinite(exp) || !Number.isFinite(crt)) return false;
   const span = exp - crt;
   return span > 0 && span <= 8.5 * 86400000;                            // repli historique
 }
+// TYPE « Amis » (sélecteur admin) = accès offert PORTÉ PAR LE COMPTE : même effet que la liste
+// « Accès offerts » (giftaccess, par e-mail) — jamais aucune relance de paiement. Les deux
+// mécanismes coexistent : le type suit le compte, la liste couvre les cas ponctuels sans toucher
+// au type. Toujours tester les deux (_isGift(email) || _isFriend(u)).
+function _isFriend(u) { return String((u && u.plan) || '').toLowerCase() === 'amis'; }
 
 // Calcule la date d'expiration à partir d'une durée choisie par l'admin
 function computeExpiry({ duration, expiresAt, startDate }) {
@@ -1683,7 +1691,7 @@ async function _whopGhostSweep() {
   for (const u of users) {
     if (u.role !== 'client' || !u.active || !u.email || !u.expires_at) continue;
     const em = String(u.email).toLowerCase().trim();
-    if (_isGift(em)) continue;                                   // accès offert → voulu, intouchable
+    if (_isGift(em) || _isFriend(u)) continue;                   // accès offert / type Amis → voulu, intouchable
     const exp = new Date(u.expires_at).getTime();
     if (!Number.isFinite(exp) || exp <= now) continue;           // déjà échu → circuit expiration normal
     const l = byEmail.get(em);
@@ -13797,7 +13805,7 @@ async function _checkTrialUpsell() {
     const high  = now;             // … et pas dans le futur → "le jour de l'expiration"
     for (const u of users) {
       if (u.role !== 'client' || !u.active || !u.expires_at || !u.created_at) continue;
-      if (_isGift(u.email)) continue;                    // accès offert → on ne réclame jamais de paiement
+      if (_isGift(u.email) || _isFriend(u)) continue;    // accès offert / type Amis → on ne réclame jamais de paiement
       const exp = new Date(u.expires_at).getTime();
       const crt = new Date(u.created_at).getTime();
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
@@ -13844,7 +13852,7 @@ async function _checkExpiredSubscriptions() {
     const low = now - 2 * DAY;          // échéance passée depuis moins de 48 h…
     for (const u of users) {
       if (u.role !== 'client' || !u.email || !u.expires_at || !u.created_at) continue;
-      if (_isGift(u.email)) continue;          // accès offert → on ne réclame jamais de paiement
+      if (_isGift(u.email) || _isFriend(u)) continue;   // accès offert / type Amis → on ne réclame jamais de paiement
       const exp = new Date(u.expires_at).getTime();
       const crt = new Date(u.created_at).getTime();
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
@@ -16369,7 +16377,7 @@ async function _lifecycleCandidates(type) {
     // OPT-OUT ABSOLU : le rattrapage est un envoi EN LOT décidé par l'admin (pas le transactionnel
     // J+0) → il doit respecter la liste noire et les désinscrits, comme une campagne. Sans ce filtre,
     // un « revenez chez nous » partirait à quelqu'un qui a explicitement demandé à ne plus rien recevoir.
-    if (_isGift(u.email)) continue;            // accès offert → jamais de relance de paiement
+    if (_isGift(u.email) || _isFriend(u)) continue;   // accès offert / type Amis → jamais de relance de paiement
     try { if (auth.isEmailBlacklisted && auth.isEmailBlacklisted(u.email)) continue; } catch (e) {}
     try { if (await auth.emailLogHas('unsub:' + String(u.email).toLowerCase().trim())) continue; } catch (e) {}
     let recu = false;
