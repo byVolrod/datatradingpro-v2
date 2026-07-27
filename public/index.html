@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260727bbg343" />
+  <link rel="stylesheet" href="/css/style.css?v=20260727bbg344" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -179,12 +179,18 @@
     <!-- VIEW: NEWS -->
     <div class="view-panel" id="view-news">
       <div class="panel panel-news">
-        <!-- TITRE RETIRÉ (demande user 26/07 « enlève le nom des widgets », option chirurgicale) : l'onglet
-             › ACTUS de la barre de navigation dit déjà où l'on est. La barre d'en-tête ne portait que ce
-             titre + le point de flux → supprimée ; le point (#live-dot, ciblé par son id dans le JS) est
-             conservé et remonté dans la barre d'outils juste en dessous. -->
+        <!-- TITRE RESTAURÉ (demande user 27/07 « remet également celui de actus » + homogénéité des titres) :
+             en-tête `.panel-title` = MÊME classe/style canonique que Biais/Taux/Banques → tous les titres de
+             vues sont désormais identiques (Inter Tight, MAJUSCULES). Le point de flux reprend sa place ici. -->
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <span class="panel-title">Fil d'actualité en direct</span>
+          </div>
+          <div class="panel-header-controls">
+            <span class="live-dot" id="live-dot" title="Flux en direct"></span>
+          </div>
+        </div>
         <div class="panel-toolbar">
-          <span class="live-dot" id="live-dot" title="Flux en direct"></span>
           <div class="toolbar-select" id="section-filter-btn" onclick="toggleSectionDropdown()">
             <span>Sections d'actualités</span><span class="select-arrow">▾</span>
           </div>
