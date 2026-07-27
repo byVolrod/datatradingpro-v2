@@ -154,7 +154,7 @@
     try { history.replaceState(null, '', '#campaign/' + name); } catch (e) {}   // deep-link sous-vue campagne
     // Aperçu PARESSEUX : l'iframe ne vit QUE dans l'onglet Templates (chaque rendu = reconstruction
     // serveur du mail + de ses widgets). Hors Templates → timer coupé, iframe jamais chargée d'office.
-    if (name === 'templates') { _campTplRender(); if (!window._cprevType) campPreview('intro'); else _cprevArm(); }
+    if (name === 'templates') { _campTplRender(); if (!window._cprevType) tplSelect('intro'); else { tplSelect(window._cprevType); } }
     else if (window._cprevTimer) { clearInterval(window._cprevTimer); window._cprevTimer = null; }
   }
   // ── Bibliothèque de templates (aperçu + test par template, TOUS les templates y compris one-shot) ──
@@ -176,22 +176,28 @@
     { prev:'renewal-failed', test:null, name:'Renouvellement échoué', when:'Auto · sur échec',     desc:'Envoyé quand un paiement échoue / le compte est suspendu.' },
     { prev:'welcome',        test:null, name:'Bienvenue (accès)',     when:'Auto · création',      desc:'Identifiants d\'accès envoyés à la création du compte.' },
   ];
+  // Liste maître (gauche) : un clic sélectionne le template → l'aperçu se charge à DROITE, les
+  // actions contextuelles (variantes / test / rattrapage) suivent dans la barre au-dessus du cadre.
   function _campTplRender(){
     const g = document.getElementById('camp-tpl-grid'); if (!g || g.dataset.done) return;
     g.dataset.done = '1';
     g.innerHTML = _CAMP_TPLS.map(function(t){
-      var acts = t.variants
-        ? ['<button class="camp-btn" onclick="campPreviewInvit(0)">👁 Pro</button>',
-           '<button class="camp-btn" onclick="campPreviewInvit(1)">👁 Conviviale</button>',
-           '<button class="camp-btn" onclick="campPreviewInvit(2)">👁 Perf.</button>']
-        : ['<button class="camp-btn" onclick="campPreview(\'' + t.prev + '\')">👁 Aperçu</button>'];
-      if (t.test) acts.push('<button class="camp-btn" onclick="campDripTest(\'' + t.test + '\')">🧪 Test</button>');
-      // Mails de cycle de vie : accès à la liste des comptes concernés QUI N'ONT PAS REÇU (rattrapage validé à la main)
-      if (t.lifecycle) acts.push('<button class="camp-btn" onclick="lifecycleOpen(\'' + t.lifecycle + '\')">Comptes sans ce mail</button>');
-      return '<div class="tpl-card" data-tpl="' + t.prev + '"><div class="tpl-name">' + t.name
-        + ' <span class="tpl-when' + (t.oneshot ? ' tpl-when--oneshot' : '') + '">' + t.when + '</span></div>'
-        + '<div class="tpl-desc">' + t.desc + '</div><div class="tpl-actions">' + acts.join('') + '</div></div>';
+      return '<button type="button" class="tpl-item" data-tpl="' + t.prev + '" onclick="tplSelect(\'' + t.prev + '\')">'
+        + '<span class="tpl-item-name">' + t.name + '</span>'
+        + '<span class="tpl-when' + (t.oneshot ? ' tpl-when--oneshot' : '') + '">' + t.when + '</span></button>';
     }).join('');
+  }
+  function tplSelect(prev){
+    var t = _CAMP_TPLS.find(function(x){ return x.prev === prev; }); if (!t) return;
+    var d = document.getElementById('cprev-desc'); if (d) d.textContent = t.desc || '';
+    var acts = [];
+    if (t.variants) acts = ['<button class="camp-btn" onclick="campPreviewInvit(0)">Pro</button>',
+                            '<button class="camp-btn" onclick="campPreviewInvit(1)">Conviviale</button>',
+                            '<button class="camp-btn" onclick="campPreviewInvit(2)">Perf.</button>'];
+    if (t.test) acts.push('<button class="camp-btn" onclick="campDripTest(\'' + t.test + '\')">🧪 Test sur ma boîte</button>');
+    if (t.lifecycle) acts.push('<button class="camp-btn" onclick="lifecycleOpen(\'' + t.lifecycle + '\')">Comptes sans ce mail</button>');
+    var a = document.getElementById('cprev-actions'); if (a) a.innerHTML = acts.join('');
+    if (t.variants) campPreviewInvit(0); else campPreview(t.prev);
   }
   // ══ RATTRAPAGE CYCLE DE VIE (demande user 27/07 « je valide l'envoi aux comptes qui n'ont pas reçu ») ══
   // Les mails de cycle de vie ne partent automatiquement que DANS leur fenêtre (48 h / 24 h) : les comptes
@@ -622,11 +628,11 @@
   }
   // Marque la carte active dans la bibliothèque + le titre de l'aperçu.
   function _cprevMark(){
-    var names = { intro:'Bienvenue', decryptage:'Comprendre le marché', pointmarche:'Point marché', weekly:'Récap hebdo', mindset:'Mindset', outlook:'Semaine à venir', invitation:'Invitation', 'app-desktop':'Annonce app desktop' };
+    var _tt = _CAMP_TPLS.find(function(x){ return x.prev === window._cprevType; });   // source unique : la liste (couvre AUSSI les cycle-de-vie)
     var t = document.getElementById('cprev-title');
-    if (t) t.textContent = '· ' + (names[window._cprevType] || window._cprevType || '')
+    if (t) t.textContent = '· ' + ((_tt && _tt.name) || window._cprevType || '')
       + (window._cprevVariant != null ? ' (' + (['pro', 'conviviale', 'performance'][window._cprevVariant] || window._cprevVariant) + ')' : '');
-    document.querySelectorAll('#camp-tpl-grid .tpl-card').forEach(function(c){ c.classList.toggle('active', c.dataset.tpl === window._cprevType); });
+    document.querySelectorAll('#camp-tpl-grid .tpl-item').forEach(function(c){ c.classList.toggle('active', c.dataset.tpl === window._cprevType); });
   }
   function campPreview(type){
     window._cprevType = type; window._cprevVariant = null;   // reset variante quand on change de template

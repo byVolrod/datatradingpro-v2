@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg357" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg358" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -313,26 +313,29 @@
         </div>
       </div>
 
-      <!-- TEMPLATES -->
+      <!-- TEMPLATES — maître/détail (demande user 27/07 : « le nom des templates à gauche, l'affichage
+           directement à droite, sans scroller ») : la LISTE sélectionne, l'APERÇU suit dans le même écran. -->
       <div class="camp-sub" data-sub="templates">
         <div class="panel-card">
-          <div class="panel-head"><h2>Bibliothèque de templates</h2><span class="ph-spacer"></span><span class="camp-msg" id="camp-tpl-msg"></span></div>
-          <div class="panel-body">
-            <div class="tpl-grid" id="camp-tpl-grid"></div>
-            <p class="camp-note"><strong>Aperçu</strong> : rendu réel dans le cadre ci-dessous (données live du desk, widgets inclus). <strong>Test</strong> : envoie CE template maintenant sur ta boîte admin — aucun client touché, stats séparées.</p>
-          </div>
-        </div>
-        <div class="panel-card">
-          <div class="panel-head"><h2>Aperçu <span id="cprev-title" style="color:var(--orange)"></span></h2>
+          <div class="panel-head"><h2>Templates <span id="cprev-title" style="color:var(--orange)"></span></h2>
             <span class="ph-spacer"></span>
+            <span class="camp-msg" id="camp-tpl-msg"></span>
             <button class="btn" onclick="window._cprevRetryCount=0;_cprevLoad()" title="Recharger l'aperçu avec les données live du desk">Actualiser</button>
             <label class="hint" style="margin-left:10px;display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cprev-member" onchange="_cprevLoad()" style="width:auto;accent-color:#e3b23a"> vue membre</label>
           </div>
-          <div class="panel-body">
-            <div class="prev-wrap">
-              <iframe id="cprev-frame" src="about:blank" title="Aperçu du mail" class="prev-frame"></iframe>
+          <div class="panel-body tpl-split">
+            <div class="tpl-list" id="camp-tpl-grid"></div>
+            <div class="tpl-view">
+              <div class="tpl-view-head">
+                <span class="tpl-view-desc" id="cprev-desc"></span>
+                <span class="ph-spacer"></span>
+                <div class="tpl-view-actions" id="cprev-actions"></div>
+              </div>
+              <div class="prev-wrap">
+                <iframe id="cprev-frame" src="about:blank" title="Aperçu du mail" class="prev-frame"></iframe>
+              </div>
+              <p class="camp-note"><span id="cprev-ts" style="color:var(--green);font-weight:600"></span></p>
             </div>
-            <p class="camp-note"><span id="cprev-ts" style="color:var(--green);font-weight:600"></span> Rendu réel du mail tel qu'il part, construit sur les données live du desk. Se recharge toutes les 45 s uniquement quand cet onglet est ouvert.</p>
           </div>
         </div>
       </div>
@@ -610,6 +613,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260727bbg357"></script>
+<script src="/js/admin.js?v=20260727bbg358"></script>
 </body>
 </html>
