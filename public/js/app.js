@@ -5364,7 +5364,8 @@ function _brTags(item) {
     [/\bgbp\b|sterling/i,                'GBP'],
     [/\bjpy\b|yen/i,                     'JPY'],
     [/china|pboc/i,                      'China'],
-    [/yield|treasury|bond/i,             'Bonds'],
+    // Tag « Bonds »/« Obligations » RETIRÉ (demande user 27/07 « il ne doit pas exister ») — cohérent avec
+    // le fil de news qui l'avait déjà retiré. On ne le génère plus nulle part.
     [/trade|tariff/i,                    'Trade'],
     [/iran|russia|ukraine|israel|hormuz|geopolit|conflict|war\b/i, 'Geopolitical'],
     [/middle east|gulf|saudi|uae|qatar|opec/i, 'Middle East'],
@@ -6523,7 +6524,7 @@ const _ARLIB_TAG_CHECKS = [
   [/gold|\bxau\b|silver|copper|metal/,             'Gold'],
   [/iran|russia|ukraine|israel|ceasefire|geopolit|war\b|missile|conflict/, 'Geopolitical'],
   [/nasdaq|s&p|equity|equities|stocks?\b|dow\b|dax|ftse/, 'Equities'],
-  [/yield|treasury|bond|bund|gilt|jgb/,            'Bonds'],
+  // Tag « Bonds »/« Obligations » RETIRÉ (demande user 27/07 « il ne doit pas exister »).
   [/dollar|dxy|\busd\b/,                           'USD'],
   [/euro|\beur\b/,                                 'EUR'],
   [/\bgbp\b|sterling|pound/,                       'GBP'],
@@ -6538,6 +6539,10 @@ const _ARLIB_TAG_CHECKS = [
 // (ex. « Geopolitics » + « Geopolitical » côte à côte) : on garde « Geopolitical ». Dédup insensible à la casse.
 function _canonTag(t) {
   t = String(t || '').trim();
+  // Tag « Bonds »/« Obligations » BANNI GLOBALEMENT (demande user 27/07 « il ne doit pas exister ») :
+  // point d'étranglement unique — même une catégorie « Bonds » fournie par une SOURCE (Recherche bancaire /
+  // Notes d'Analystes) est ici supprimée (return '' → _dedupeTags la saute).
+  if (/^(bonds?|obligations?)$/i.test(t)) return '';
   if (/^geopolitic/i.test(t)) return 'Geopolitical';
   return t;
 }
