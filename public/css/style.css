@@ -11510,13 +11510,22 @@ body.wdg-mode #topbar-nav { display: none; }
    la barre en flex-wrap pour qu'elle remplisse n'importe quelle largeur de carte (5 sur une ligne en large,
    repli 2-3/ligne en étroit) — cellules internes strictement identiques au desk. */
 .wdg-clockwrap { height: 100%; overflow-y: auto; min-height: 0; }
-.wdg-clocks-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: transparent; }
-.wdg-clocks-bar .clock-item {
-  flex: 1 1 150px; min-width: 138px;
-  border: 1px solid var(--border); border-radius: var(--radius, 6px); background: var(--bg1);
+/* IDENTIQUE AU DESK (demande user 26/07 « le widget doit remplir comme cette image ») : grille de colonnes
+   ÉGALES qui occupe TOUTE la largeur et TOUTE la hauteur de la carte, villes collées et séparées par un
+   simple filet vertical — plus de cartes détachées à coins arrondis avec des gouttières.
+   `auto-fit` conserve l'adaptation du widget : 5 colonnes quand la place le permet, moins si la carte est
+   étroite, mais TOUJOURS pleine largeur (les pistes vides sont supprimées, les items s'étirent). */
+.wdg-clocks-bar {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 0; padding: 0; background: var(--bg1); height: 100%; align-content: stretch;
 }
-.wdg-clocks-bar .clock-item:last-child { border-right: 1px solid var(--border); }
-.wdg-clocks-bar .clock-item--local { border: 1px solid var(--border2); }
+.wdg-clocks-bar .clock-item {
+  flex: none; min-width: 0; background: transparent;
+  border: 0; border-right: 1px solid var(--border); border-radius: 0;
+  justify-content: center;                 /* le contenu se centre quand la ligne s'étire en hauteur */
+}
+.wdg-clocks-bar .clock-item:last-child { border-right: 0; }
+.wdg-clocks-bar .clock-item--local { border: 0; border-right: 1px solid var(--border); }
 
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
 .wdg-layouts { display: flex; align-items: stretch; height: 100%; gap: 0; overflow-x: auto; max-width: 52vw; }
