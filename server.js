@@ -1286,9 +1286,18 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     const _newExp = fields.expiresAt || null;
     const _extended = !!req.body.duration && _newExp && new Date(_newExp).getTime() > Date.now();
     if (req.body.duration === 'expired') {
-      // Admin a marqué le compte EXPIRÉ → email « votre abonnement a expiré » (client uniquement)
+      // Admin a marqué le compte EXPIRÉ → email « votre abonnement a expiré » (client uniquement).
+      // ANTI-DOUBLON PARTAGÉ avec le contrôle automatique `_checkExpiredSubscriptions` (même clé
+      // email_log) : que le mail parte par cette action manuelle ou par la détection d'échéance,
+      // le client n'en reçoit qu'UN SEUL.
       auth.getUserById(id)
-        .then(u => { if (u?.email && u.role === 'client') mailer.sendExpired({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
+        .then(async u => {
+          if (!u?.email || u.role !== 'client') return;
+          const key = _expiredMailKey(u);
+          if (await auth.emailLogHas(key)) return;                     // déjà envoyé pour cette échéance
+          const ok = await mailer.sendExpired({ to: u.email, name: u.name, expiresAt: u.expires_at });
+          if (ok) await auth.emailLogAdd(key);
+        })
         .catch(() => {});
     } else if (activeReq === false) {
       // Suspendu → renouvellement échoué
@@ -13689,6 +13698,48 @@ async function _checkTrialUpsell() {
 (function scheduleTrialUpsell() {
   setTimeout(_checkTrialUpsell, 30000);                       // rattrapage au démarrage (redémarrages conteneur)
   setInterval(_checkTrialUpsell, 6 * 60 * 60 * 1000);        // puis re-vérifie toutes les 6 h (1 seul envoi via anti-doublon)
+})();
+
+// ── ABONNEMENT PAYANT EXPIRÉ : mail AUTOMATIQUE le jour où l'échéance passe ──────────────────
+//    (demande user 27/07 « il faut que ça se fasse automatiquement quand le compte bascule à expiré »)
+//    AVANT : `sendExpired` n'était déclenché QUE si l'admin cliquait « Marquer comme expiré » dans le
+//    panel → constaté en prod : 6 clients payants expirés depuis 13 à 25 jours n'avaient JAMAIS reçu de
+//    mail (0 clé `expired:` dans email_log). Le pendant essai (_checkTrialUpsell) existait déjà.
+//
+//    ⚠️ FENÊTRE 48 h VOLONTAIRE : on n'envoie QUE pour une échéance qui vient de passer. Sans cette borne,
+//    le premier passage réveillerait d'un coup tous les comptes expirés de longue date — un « votre
+//    abonnement a expiré » reçu 25 jours après coup est au mieux inutile, au pire une nuisance.
+//    Les essais (fenêtre d'accès ≤ 8 j) sont EXCLUS : ils ont déjà leur propre mail → jamais 2 messages.
+//    Anti-doublon durable partagé avec l'action manuelle de l'admin (même clé) → jamais de doublon.
+function _expiredMailKey(u) { return `expired:${u.id}:${u.expires_at}`; }
+async function _checkExpiredSubscriptions() {
+  try {
+    const users = await auth.getAllUsers();
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+    const low = now - 2 * DAY;          // échéance passée depuis moins de 48 h…
+    for (const u of users) {
+      if (u.role !== 'client' || !u.email || !u.expires_at || !u.created_at) continue;
+      const exp = new Date(u.expires_at).getTime();
+      const crt = new Date(u.created_at).getTime();
+      if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
+      if (exp - crt <= 8 * DAY) continue;      // ESSAI → couvert par _checkTrialUpsell
+      if (exp <= low || exp > now) continue;   // hors fenêtre (trop ancien, ou pas encore échu)
+      const key = _expiredMailKey(u);
+      if (await auth.emailLogHas(key)) continue;
+      const ok = await mailer.sendExpired({ to: u.email, name: u.name, expiresAt: u.expires_at });
+      if (ok) {
+        await auth.emailLogAdd(key);
+        console.log(`[Expired] Mail « abonnement expiré » envoyé → ${u.email} (échéance ${u.expires_at})`);
+      }
+    }
+  } catch (e) { console.error('[Expired]', e.message); }
+}
+// Même cadence que la fin d'essai : CHECK toutes les 6 h + rattrapage 45 s après démarrage. La fréquence
+// de vérification n'est PAS la fréquence d'envoi — l'anti-doublon garantit UN SEUL mail par échéance.
+(function scheduleExpiredCheck() {
+  setTimeout(_checkExpiredSubscriptions, 45000);
+  setInterval(_checkExpiredSubscriptions, 6 * 60 * 60 * 1000);
 })();
 
 // ── RÉENGAGEMENT : client inactif depuis ≥ 7 jours sur le terminal ───────────
