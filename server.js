@@ -10930,7 +10930,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v18-risk-rel';   // v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour. v17 : descriptions COMPLÈTES (trim à la dernière phrase, plus de coupe en plein mot) → force la régén
+const WA_VER = 'v19-titres-events';   // v19 : titres = NOMS CONCRETS des événements (« Fed : décision de taux · Duraux US ») + résumés 2-3 phrases (cap 620) — bump = régén boot (le _weekAhead persisté garde sinon l'ancien éditorial). v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
 let _weekAhead = null;
 try { _weekAhead = _noDashDeep(JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8'))); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = _noDashDeep(d); }).catch(() => {}); } catch {}
