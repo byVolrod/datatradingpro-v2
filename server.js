@@ -16241,6 +16241,11 @@ async function _lifecycleCandidates(type) {
     const estEssai = (exp - crt) <= 8 * DAY;
     if (type === 'expired' && estEssai) continue;                // l'essai a son propre mail
     if (type === 'trial-upsell' && !estEssai) continue;
+    // OPT-OUT ABSOLU : le rattrapage est un envoi EN LOT décidé par l'admin (pas le transactionnel
+    // J+0) → il doit respecter la liste noire et les désinscrits, comme une campagne. Sans ce filtre,
+    // un « revenez chez nous » partirait à quelqu'un qui a explicitement demandé à ne plus rien recevoir.
+    try { if (auth.isEmailBlacklisted && auth.isEmailBlacklisted(u.email)) continue; } catch (e) {}
+    try { if (await auth.emailLogHas('unsub:' + String(u.email).toLowerCase().trim())) continue; } catch (e) {}
     let recu = false;
     try { recu = await auth.emailLogHas(k.key(u)); } catch (e) {}
     out.push({
