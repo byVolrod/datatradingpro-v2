@@ -167,6 +167,14 @@
     { prev:'outlook',     test:'outlook',     name:'Semaine à venir',      when:'Dimanche',   desc:'L\'agenda éco trié par le desk pour la semaine qui s\'ouvre.' },
     { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) — aperçu par variante.', variants:true },
     { prev:'app-desktop', test:'app-desktop', name:'Annonce app desktop',  when:'One-shot',   oneshot:true, desc:'Annonce de l\'application Windows/macOS (campagne app-desktop-v1).' },
+    // ── CYCLE DE VIE (transactionnels : déclenchés par l'état du compte, pas par le calendrier).
+    //    Ajoutés le 27/07 pour pouvoir les RELIRE avant de valider un rattrapage. Pas de bouton « Test »
+    //    (ils s'envoient sur événement) — l'aperçu suffit à vérifier le rendu.
+    { prev:'trial-upsell',   test:null, name:'Fin d\'essai gratuit',  when:'Auto · fin d\'essai',  lifecycle:'trial-upsell', desc:'Part le jour où l\'essai expire. Rattrapage possible ci-dessous.' },
+    { prev:'expired',        test:null, name:'Abonnement expiré',     when:'Auto · à l\'échéance', lifecycle:'expired',      desc:'Part quand l\'abonnement payant arrive à échéance. Rattrapage possible ci-dessous.' },
+    { prev:'reengagement',   test:null, name:'Réengagement',          when:'Auto · inactif 7j',    desc:'Relance d\'un client inactif depuis ~7 jours.' },
+    { prev:'renewal-failed', test:null, name:'Renouvellement échoué', when:'Auto · sur échec',     desc:'Envoyé quand un paiement échoue / le compte est suspendu.' },
+    { prev:'welcome',        test:null, name:'Bienvenue (accès)',     when:'Auto · création',      desc:'Identifiants d\'accès envoyés à la création du compte.' },
   ];
   function _campTplRender(){
     const g = document.getElementById('camp-tpl-grid'); if (!g || g.dataset.done) return;
@@ -178,11 +186,92 @@
            '<button class="camp-btn" onclick="campPreviewInvit(2)">👁 Perf.</button>']
         : ['<button class="camp-btn" onclick="campPreview(\'' + t.prev + '\')">👁 Aperçu</button>'];
       if (t.test) acts.push('<button class="camp-btn" onclick="campDripTest(\'' + t.test + '\')">🧪 Test</button>');
+      // Mails de cycle de vie : accès à la liste des comptes concernés QUI N'ONT PAS REÇU (rattrapage validé à la main)
+      if (t.lifecycle) acts.push('<button class="camp-btn" onclick="lifecycleOpen(\'' + t.lifecycle + '\')">Comptes sans ce mail</button>');
       return '<div class="tpl-card" data-tpl="' + t.prev + '"><div class="tpl-name">' + t.name
         + ' <span class="tpl-when' + (t.oneshot ? ' tpl-when--oneshot' : '') + '">' + t.when + '</span></div>'
         + '<div class="tpl-desc">' + t.desc + '</div><div class="tpl-actions">' + acts.join('') + '</div></div>';
     }).join('');
   }
+  // ══ RATTRAPAGE CYCLE DE VIE (demande user 27/07 « je valide l'envoi aux comptes qui n'ont pas reçu ») ══
+  // Les mails de cycle de vie ne partent automatiquement que DANS leur fenêtre (48 h / 24 h) : les comptes
+  // sortis de cette fenêtre ne sont jamais relancés tout seuls. Cet écran les liste et laisse l'admin
+  // choisir, compte par compte. Rien n'est envoyé sans (1) une sélection explicite, (2) une confirmation.
+  let _lcType = null, _lcRows = [], _lcArmed = false, _lcTimer = null;
+  async function lifecycleOpen(type){
+    _lcType = type; _lcArmed = false; clearTimeout(_lcTimer);
+    const m = document.getElementById('lifecycle-modal');
+    const body = document.getElementById('lc-body');
+    if (!m || !body) return;
+    m.classList.add('open');
+    body.innerHTML = '<div class="skel" style="height:120px"></div>';
+    document.getElementById('lc-actions').innerHTML = '';
+    try {
+      const d = await fetch('/api/admin/lifecycle-pending?type=' + encodeURIComponent(type)).then(r => r.json());
+      if (!d.ok) throw new Error(d.error || 'erreur');
+      _lcRows = d.pending || [];
+      document.getElementById('lc-title').textContent = d.label + ' — comptes sans ce mail';
+      if (!_lcRows.length) {
+        body.innerHTML = '<div class="empty-state">Aucun compte en attente : tous ceux dont l\'échéance est passée ont déjà reçu ce mail (' + d.alreadySent + ' au total).</div>';
+        return;
+      }
+      body.innerHTML =
+        '<p class="hint" style="margin-bottom:10px">' + _lcRows.length + ' compte(s) dont l\'échéance est passée n\'ont jamais reçu ce mail'
+        + (d.alreadySent ? ' · ' + d.alreadySent + ' déjà servi(s)' : '')
+        + '. Coche ceux à relancer — un envoi par compte, jamais de doublon.</p>'
+        + '<div class="row-inline" style="margin-bottom:8px"><button class="btn" onclick="lifecycleAll(1)">Tout cocher</button>'
+        + '<button class="btn" onclick="lifecycleAll(0)">Tout décocher</button></div>'
+        + '<div class="table-wrap"><table class="users-table"><thead><tr><th style="width:34px"></th><th>E-mail</th><th>Échéance</th><th>Ancienneté</th><th>État</th></tr></thead><tbody>'
+        + _lcRows.map(function(u, i){
+            const vieux = u.joursDepuis > 30;
+            return '<tr><td><input type="checkbox" class="lc-ck" data-email="' + _escH(u.email) + '"'
+              + (vieux || u.donneeIncoherente ? '' : ' checked') + ' style="width:auto"></td>'
+              + '<td>' + _escH(u.email) + '</td>'
+              + '<td>' + (u.expiresAt ? String(u.expiresAt).slice(0, 10) : '—') + '</td>'
+              + '<td>' + u.joursDepuis + ' j</td>'
+              + '<td>' + (u.donneeIncoherente ? '<span class="badge badge-expired">date incohérente</span>'
+                        : vieux ? '<span class="badge badge-soon">ancien</span>'
+                        : '<span class="badge badge-active">récent</span>')
+              + (u.actif ? '' : ' <span class="badge badge-suspended">suspendu</span>') + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div>'
+        + '<p class="hint" style="margin-top:8px">Les comptes de plus de 30 jours et ceux aux dates incohérentes (import) sont <strong>décochés par défaut</strong> : un « votre abonnement a expiré » reçu longtemps après coup fait mauvais effet.</p>';
+      document.getElementById('lc-actions').innerHTML =
+        '<button class="btn" onclick="lifecycleClose()">Annuler</button>'
+        + '<button class="btn btn-primary" id="lc-send" onclick="lifecycleSend()">Envoyer aux comptes cochés</button>';
+    } catch (e) {
+      body.innerHTML = '<div class="empty-state">Erreur : ' + _escH(e.message) + '</div>';
+    }
+  }
+  function lifecycleAll(on){ document.querySelectorAll('.lc-ck').forEach(function(c){ c.checked = !!on; }); }
+  function lifecycleClose(){ const m = document.getElementById('lifecycle-modal'); if (m) m.classList.remove('open'); _lcArmed = false; clearTimeout(_lcTimer); }
+  async function lifecycleSend(){
+    const emails = Array.from(document.querySelectorAll('.lc-ck')).filter(c => c.checked).map(c => c.dataset.email);
+    const btn = document.getElementById('lc-send');
+    if (!emails.length) { btn.textContent = 'Aucun compte coché'; setTimeout(function(){ btn.textContent = 'Envoyer aux comptes cochés'; }, 1600); return; }
+    // Confirmation en 2 temps (même garde que le lancement de campagne) : envoi RÉEL à des clients.
+    if (!_lcArmed) {
+      _lcArmed = true;
+      btn.textContent = 'Confirmer l\'envoi à ' + emails.length + ' compte(s) ?';
+      btn.classList.add('camp-btn--armed');
+      clearTimeout(_lcTimer);
+      _lcTimer = setTimeout(function(){ _lcArmed = false; btn.textContent = 'Envoyer aux comptes cochés'; btn.classList.remove('camp-btn--armed'); }, 6000);
+      return;
+    }
+    _lcArmed = false; clearTimeout(_lcTimer);
+    btn.disabled = true; btn.textContent = 'Envoi…'; btn.classList.remove('camp-btn--armed');
+    try {
+      const d = await fetch('/api/admin/lifecycle-send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: _lcType, emails }),
+      }).then(r => r.json());
+      if (d.ok) {
+        campToast(d.envoyes + ' mail(s) envoyé(s)' + (d.echecs && d.echecs.length ? ' · ' + d.echecs.length + ' échec(s)' : ''), !!(d.echecs && d.echecs.length));
+        lifecycleClose();
+      } else { btn.disabled = false; btn.textContent = 'Échec : ' + (d.error || '?'); }
+    } catch (e) { btn.disabled = false; btn.textContent = 'Erreur réseau'; }
+  }
+
   function _lucide(n){
     const p = {
       'users':'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
