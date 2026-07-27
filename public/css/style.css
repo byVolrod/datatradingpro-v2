@@ -10425,7 +10425,7 @@ body.jrd-resizing #jr-detail { transition: none; }
 @media (prefers-reduced-motion: reduce){ .topbar-icon.tb-alert svg, .topbar-icon.tb-alert i, #notif-badge, #chat-badge { animation: none !important; } }
 
 /* Identite typo landing : titres Inter Tight */
-.panel-title,.chart-header-title,.np-title,.sqwk-title,.ai-head-title,.sym-ptitle,.arlib-list-title,.wa-title,.wa3-ptitle,.br-list-title,.sbs-risk-title,.wr-section-title,.ai-insights-title,.nav-item,.right-tab{font-family:var(--tight);}
+.panel-title,.chart-header-title,.np-title,.sqwk-title,.ai-head-title,.sym-ptitle,.arlib-list-title,.wa-title,.wa3-ptitle,.br-list-title,.cot-header-label,.dmx-header-title,.sbs-risk-title,.wr-section-title,.ai-insights-title,.nav-item,.right-tab{font-family:var(--tight);}
 
 /* Phase 4 polish subtil (additif facon landing) */
 .sym-panel,.sym-bz-col,.ai-insights-card,.ai-ins-pair{transition:border-color .18s ease;}

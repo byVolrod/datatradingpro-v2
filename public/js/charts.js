@@ -1037,11 +1037,13 @@ async function buildStrengthCharts() {
   _strengthTimers.forEach(t => clearInterval(t)); _strengthTimers = [];
   ['chart-strength-L', 'chart-strength-R'].forEach(id => { try { disposeRoot(id); } catch {} });
 
-  // Libellé « Force des Devises » RETIRÉ (demande user 26/07) : l'onglet › FORCE le dit déjà, et il était
-  // affiché DEUX fois (un par panneau TD/TW). La barre reste : elle porte les sélecteurs de période.
+  // Libellé « Force des Devises » RESTAURÉ (demande user 27/07 « gère pour ces widgets aussi ») dans le
+  // MÊME style canonique que tous les autres titres de vues (.strength-chart-label = Inter Tight MAJUSCULES) :
+  // remplit la barre (titre à gauche, sélecteurs de période à droite) au lieu de la laisser à moitié vide.
   const paneHtml = (side, defPeriod) => `
     <div class="strength-pane" data-side="${side}">
       <div class="strength-tf-bar">
+        <span class="strength-chart-label">Force des Devises</span>
         <span style="flex:1"></span>
         ${STF_ORDER.map(p =>
           `<button class="stf-btn stf-tf-btn${p === defPeriod ? ' stf-btn--active' : ''}" data-period="${p}">${STF_LABELS[p]}</button>`
