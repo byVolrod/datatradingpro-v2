@@ -2488,13 +2488,11 @@ document.addEventListener('DOMContentLoaded', () => {
       _tauxSig = sig;
       host.innerHTML = banks.map(_rtcCard).join('');
       if (window._dtpDataIn) window._dtpDataIn(host, 'taux');   // fondu d'arrivee (1re fois : skeleton -> cartes)
+      // Mention « ● Cotations à jour · HH:MM » RETIRÉE (demande user 27/07) — même esprit que le badge
+      // « Direct » du Radar de Biais : le rafraîchissement continu reste actif, seul l'indicateur disparaît.
+      // On vide le conteneur pour purger un libellé rendu par une version précédente.
       const upd = document.getElementById('taux-update');
-      if (upd) {   // fraîcheur RÉELLE (heure du dernier rafraîchissement des cotations) : SANS nommer la source (demande utilisateur)
-        const ts = d.rpAt || d.updatedAt || 0;
-        // Pastille « en direct » (pulse vert) → l'utilisateur voit que l'onglet se rafraîchit en continu, même
-        // quand l'heure des cotations ne bouge pas (les probas de taux ne changent que ~toutes les heures).
-        upd.innerHTML = ts ? ('<span class="live-dot live-dot--small" style="vertical-align:middle;margin-right:5px;"></span>Cotations à jour · ' + new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
-      }
+      if (upd) upd.innerHTML = '';
     } catch (e) {
       // Échec TRANSITOIRE (502 pendant un redéploiement…) : si pas encore de cartes → on GARDE le chargement
       // et on retente vite (jamais bloqué sur le spinner) ; sinon on garde l'affichage existant (zéro clignotement).
