@@ -624,8 +624,12 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .toast-wrap { position: fixed; right: var(--sp-4); bottom: var(--sp-4); z-index: 200; display: flex; flex-direction: column; gap: var(--sp-2); }
 
 /* ── États posés par le JS ── */
-.alert.show { display: block; }
-.modal-overlay.show { display: flex; }
+/* ══ CLASSES D'ÉTAT RÉELLEMENT POSÉES PAR admin.js (bug 27/07 : les boutons Modifier/MDP « ne faisaient
+   rien ») ══ La refonte avait supposé une convention `.show`, alors que le JS utilise `open` (modales) et
+   `visible` (alertes) — la modale recevait donc bien sa classe et ses valeurs, mais restait en display:none.
+   ⚠️ RÈGLE : ne jamais inventer la convention d'état, la RELEVER dans le JS (grep classList.add/toggle). */
+.alert.show, .alert.visible { display: block; }
+.modal-overlay.show, .modal-overlay.open { display: flex; }
 .visible { display: block; }
 
 /* ── Complément : classes relevées DANS LE DOM au banc (contrôle exhaustif 26/07) qui n'avaient
