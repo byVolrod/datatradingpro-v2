@@ -615,9 +615,9 @@ function _buildReengagement(name, days) {
         <div style="color:#f3c344;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
         <div style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:10px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</div>
         <div style="color:#e2e8f0;font-size:14px;line-height:1.9;">
-          → <strong style="color:#fff;">Recherche bancaire</strong> <span style="color:#94a3b8;">(Goldman Sachs, HSBC, ING, MUFG… les points clés dégagés par l'IA)</span><br>
-          → <strong style="color:#fff;">Calendrier économique</strong> <span style="color:#94a3b8;">(résultats live + détail de l'événement au clic)</span><br>
-          → <strong style="color:#fff;">Force des devises · COT · DMX</strong> <span style="color:#94a3b8;">(qui est fort, qui est faible, d'un coup d'œil)</span>
+          → <strong style="color:#fff;">Recherche bancaire</strong> <span style="color:#94a3b8;">(Goldman Sachs, HSBC, ING, MUFG…)</span><br>
+          → <strong style="color:#fff;">Calendrier économique</strong> <span style="color:#94a3b8;">(résultats live + détail au clic)</span><br>
+          → <strong style="color:#fff;">Force des devises · COT · DMX</strong> <span style="color:#94a3b8;">(qui mène, qui décroche)</span>
         </div>
         <div style="color:#8a9097;font-size:12.5px;font-style:italic;margin-top:12px;">Tu auras compris ce que t'apporte DataTradingPro en moins de temps qu'un café. ☕</div>
       </td></tr>
