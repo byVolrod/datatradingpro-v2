@@ -5687,9 +5687,27 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .wa3-panel .wa3-pbody { max-height: 65vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 }
 @media (max-width: 560px) {
-  .wa3 .wa-node { flex: 0 0 60px; width: 60px; height: 60px; }
-  .wa3 .wa-date { font-size: 18px; }
-  .wa3 .wa-timeline::before { left: 30px; }
+  /* ══ RESPONSIVE MOBILE « Semaine à venir » (demande user 27/07 « améliore le responsive mobile, les
+     flèches ne sont pas alignées, c'est pas clean ») ══
+     Mesuré à 375px AVANT : le titre de carte tombait à 75px de large sur 4 LIGNES, écrasé par le badge
+     d'impact (109px) posé À CÔTÉ de lui, pendant que le cercle du jour + son écart mangeaient 111px. */
+  .wa3 .wa-node { flex: 0 0 46px; width: 46px; height: 46px; border-width: 1px; }
+  .wa3 .wa-date { font-size: 15px; margin: 0; }
+  .wa3 .wa-dow, .wa3 .wa-month { font-size: 8px; letter-spacing: .04em; }
+  .wa3 .wa-timeline::before { left: 23px; }
+  .wa3 .wa-day { gap: 10px; margin-bottom: 12px; }
+  .wa3 > .wa-scroll { padding: 10px; }
+  .wa3 .wa-card { padding: 10px 11px; }
+  /* Le badge d'impact passe SOUS le titre → le titre récupère toute la largeur de la carte. */
+  .wa3 .wa-card-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .wa3 .wa-card-headl { width: 100%; }
+  .wa3 .wa-card-title { font-size: 12.5px; }
+  .wa3 .wa-impact { align-self: flex-start; }
+  /* Navigation de semaine : la flèche droite frôlait le bord → on rapproche le bloc et on compacte la
+     plage de dates (le libellé « 27-31 juillet » n'a pas besoin de 96px ici). */
+  .wa-weeknav { gap: 2px; }
+  .wa-weeknav .wa-week { min-width: 0; font-size: 11px; }
+  #view-weekahead .panel-header { padding-right: 6px; }
 }
 /* News (panneau droite haut) */
 .wan-day { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; font-weight: var(--fw-bold); letter-spacing: .06em; color: #6f6f78; padding: 8px 14px 4px; text-transform: uppercase; }

@@ -40,3 +40,4 @@ data/
 .env.render
 .claude/
 apercu-email-reengagement.html
+_tmpserve.js
