@@ -1649,7 +1649,78 @@ async function _whopReconcile() {
   }
   _whopReconLast = { ts: Date.now(), checked: members.length, fixed, created, error: null };
   console.log(`[Whop reconcile] ${members.length} membre(s) valide(s) · ${fixed} prolongé(s) · ${created} créé(s)`);
+  try { await _whopGhostSweep(); } catch (e) { console.error('[Whop fantôme]', e.message); }
   return { ok: true, checked: members.length, fixed, created };
+}
+
+// ═══ BALAYAGE « ACCÈS FANTÔMES » — l'angle mort INVERSE de la réconciliation ═════════════════════
+// _whopReconcile ne fait qu'ÉTENDRE (jamais raccourcir : on ne coupe pas un payeur sur un doute).
+// L'angle mort (cas Heiari, 27/07/2026) : au RENOUVELLEMENT, Whop ouvre la nouvelle période de
+// facturation AVANT d'encaisser → le webhook/reconcile de cet instant voit « valide » et prolonge le
+// desk. Si le prélèvement échoue ensuite (paiement resté « open », adhésion passée « canceled »),
+// aucun event de retour n'est garanti → le compte reste servi un mois SANS paiement.
+// On referme le trou par la PREUVE DE PAIEMENT : pour un compte dont TOUTES les adhésions Whop sont
+// mortes (valid=false), l'accès desk ne peut pas dépasser (dernier paiement ENCAISSÉ + durée de la
+// période + 5 j de grâce). S'il dépasse → échéance RAMENÉE à la fin de la dernière période payée,
+// session éjectée, et mail « abonnement expiré » par le circuit standard (même clé anti-doublon que
+// l'automatique et le rattrapage → jamais deux fois).
+// GARDE-FOUS (dans l'ordre) : jamais les accès offerts (_isGift) ; jamais les comptes SANS adhésion
+// Whop (créés à la main → l'admin est seul maître de leurs dates) ; si une adhésion est encore
+// vivante → churn normal, on ne touche pas ; si AUCUN paiement encaissé n'est trouvé → données
+// incomplètes, on SIGNALE sans agir ; jamais d'allongement par ce chemin.
+async function _whopGhostSweep() {
+  if (!whop.configured()) return;
+  const mems = await whop.listAllMemberships();
+  if (!mems.length) return;
+  const byEmail = new Map();
+  for (const m of mems) { const l = byEmail.get(m.email) || []; l.push(m); byEmail.set(m.email, l); }
+  const pays = await whop.listPayments();
+  const paidByMem = new Map();                                   // memId → dernier paiement ENCAISSÉ
+  for (const p of pays) if (p.status === 'paid' && p.ts > (paidByMem.get(p.membership) || 0)) paidByMem.set(p.membership, p.ts);
+  const users = await auth.getAllUsers();
+  const now = Date.now(), DAY = 86400000;
+  let ghosts = 0;
+  for (const u of users) {
+    if (u.role !== 'client' || !u.active || !u.email || !u.expires_at) continue;
+    const em = String(u.email).toLowerCase().trim();
+    if (_isGift(em)) continue;                                   // accès offert → voulu, intouchable
+    const exp = new Date(u.expires_at).getTime();
+    if (!Number.isFinite(exp) || exp <= now) continue;           // déjà échu → circuit expiration normal
+    const l = byEmail.get(em);
+    if (!l || !l.length) continue;                               // pas de Whop → compte manuel, hors champ
+    if (l.some(m => m.valid)) continue;                          // une adhésion vivante → rien à corriger
+    let lastPaid = 0, periodLen = 31 * DAY;
+    for (const m of l) {
+      const t = paidByMem.get(m.id) || 0;
+      if (t > lastPaid) {
+        lastPaid = t;
+        if (m.periodStart && m.periodEnd && m.periodEnd > m.periodStart) periodLen = m.periodEnd - m.periodStart;
+      }
+    }
+    if (!lastPaid) { console.warn(`[Whop fantôme] ${em} : adhésions mortes mais AUCUN paiement encaissé trouvé → non touché (à vérifier à la main)`); continue; }
+    const paidEnd = lastPaid + periodLen;                        // fin de la dernière période RÉELLEMENT payée
+    if (exp <= paidEnd + 5 * DAY) continue;                      // couvert par le payé (+5 j de grâce) → churn normal
+    const newExp = new Date(paidEnd).toISOString();
+    await auth.updateUser(u.id, { expiresAt: newExp });
+    _forceLogout.add(String(u.id));                              // éjecté du desk (~20 s) ; le login re-vérifie l'échéance
+    ghosts++;
+    console.log(`[Whop fantôme] ${em} : accès ${u.expires_at} NON couvert par un paiement (dernier encaissé ${new Date(lastPaid).toISOString()}) → ramené à ${newExp} + session éjectée`);
+    // Mail « abonnement expiré » : mêmes exclusions et même clé anti-doublon que partout ailleurs.
+    // ⚠️ La clé reprend l'échéance TELLE QUE STOCKÉE (relue) : Supabase renvoie « +00:00 » là où
+    // toISOString() donne « .000Z » — une clé au mauvais format serait invisible pour l'automatique
+    // et l'écran de rattrapage, qui recalculent depuis la base → risque de double envoi.
+    try {
+      if (auth.isEmailBlacklisted(em)) continue;
+      if (await auth.emailLogHas('unsub:' + em)) continue;
+      let stored = newExp;
+      try { const fu = await auth.getUserById(u.id); if (fu && fu.expires_at) stored = fu.expires_at; } catch (e) {}
+      const key = `expired:${u.id}:${stored}`;
+      if (await auth.emailLogHas(key)) continue;
+      const ok = await mailer.sendExpired({ to: u.email, name: u.name, expiresAt: stored });
+      if (ok) { await auth.emailLogAdd(key); console.log(`[Whop fantôme] mail « abonnement expiré » envoyé → ${em}`); }
+    } catch (e) { console.error('[Whop fantôme] mail', em, ':', e.message); }
+  }
+  if (ghosts) console.log(`[Whop fantôme] ${ghosts} accès non payé(s) corrigé(s)`);
 }
 // Planif : ~60 s après le boot (rattrape les events manqués pendant un downtime) puis toutes les 6 h.
 setTimeout(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] boot:', e.message)); }, 60 * 1000);
