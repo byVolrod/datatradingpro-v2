@@ -615,7 +615,7 @@ function _buildReengagement(name, days) {
         <div style="color:#f3c344;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
         <div style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:10px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</div>
         <div style="color:#e2e8f0;font-size:14px;line-height:1.9;">
-          → <strong style="color:#fff;">Live Squawk</strong> <span style="color:#94a3b8;">(les news qui bougent les marchés, en direct)</span><br>
+          → <strong style="color:#fff;">Recherche bancaire</strong> <span style="color:#94a3b8;">(Goldman Sachs, HSBC, ING, MUFG… les points clés dégagés par l'IA)</span><br>
           → <strong style="color:#fff;">Calendrier économique</strong> <span style="color:#94a3b8;">(résultats live + détail de l'événement au clic)</span><br>
           → <strong style="color:#fff;">Force des devises · COT · DMX</strong> <span style="color:#94a3b8;">(qui est fort, qui est faible, d'un coup d'œil)</span>
         </div>
@@ -636,7 +636,7 @@ function _buildReengagement(name, days) {
     <p style="margin:18px 0 10px;color:#94a3b8;font-size:13px;">Et tout le reste t'attend aussi&nbsp;:</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📊 <strong style="color:#fff;">FX List</strong> : vue d'ensemble Forex (force, biais, momentum 1M/3M/12M)</td></tr>
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🏛️ <strong style="color:#fff;">Rapports institutionnels</strong> : ING, MUFG, SEB, Scotiabank… avec AI Insights</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">⚡ <strong style="color:#fff;">Live Squawk</strong> : les news qui bougent les marchés, en direct</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📝 <strong style="color:#fff;">Session Recaps &amp; Weekly</strong> : le marché résumé, à ta place</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🌡️ <strong style="color:#fff;">Sentiment de risque</strong> live + sentiment retail contrarien</td></tr>
     </table>
