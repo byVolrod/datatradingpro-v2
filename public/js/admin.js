@@ -343,6 +343,7 @@
     loadCampErrors();
     loadCampStats();
     loadBlacklist();
+    loadGiftAccess();
     loadSequence();
     var _rp = document.getElementById('camp-recip-panel'); if (_rp && _rp.style.display !== 'none') renderRecipients();
   }
@@ -467,6 +468,49 @@
       loadBlacklist(); loadCampaign();
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
+  // ── Accès offerts : exemptés de TOUTE relance de paiement ──
+  // Les entrées du seed (code) ne sont pas retirables depuis l'interface : elles se remettraient
+  // toutes seules au prochain démarrage. On les affiche donc sans bouton, avec la mention.
+  async function loadGiftAccess(){
+    try {
+      const d = await fetch('/api/admin/gift-access').then(r => r.json());
+      const list = d.emails || [], seed = d.seed || [];
+      const cnt = document.getElementById('camp-gift-count');
+      if (cnt) cnt.textContent = list.length + ' exempté' + (list.length > 1 ? 's' : '');
+      const box = document.getElementById('camp-gift-list'); if (!box) return;
+      box.innerHTML = list.length
+        ? list.map(function(e){
+            return '<div class="camp-bl-row"><span class="camp-bl-em">' + e + '</span>' +
+              (seed.indexOf(e) >= 0
+                ? '<span class="camp-bl-x" style="opacity:.55;cursor:default">fixé dans le code</span>'
+                : '<button class="camp-bl-x" onclick="giftRemove(\'' + encodeURIComponent(e) + '\')">retirer</button>') +
+              '</div>';
+          }).join('')
+        : '<div class="empty-state">Aucun accès offert exempté.</div>';
+    } catch {}
+  }
+  async function giftAdd(){
+    const inp = document.getElementById('camp-gift-input'); const v = (inp.value || '').trim(); if (!v) return;
+    _campMsg('Exemption de ' + v + '…');
+    try {
+      const d = await fetch('/api/admin/gift-access', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: v, action: 'add' }) }).then(r => r.json());
+      _campMsg(d.ok ? ('✅ ' + v + ' ne recevra plus de relance de paiement') : ('❌ ' + (d.error || 'échec')));
+      if (d.ok) inp.value = '';
+      loadGiftAccess();
+    } catch { _campMsg('❌ Erreur réseau.'); }
+  }
+  async function giftRemove(encEmail){
+    const email = decodeURIComponent(encEmail);
+    _campMsg('Retrait de ' + email + '…');
+    try {
+      const d = await fetch('/api/admin/gift-access', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, action: 'remove' }) }).then(r => r.json());
+      _campMsg(d.ok ? ('✅ ' + email + ' reçoit à nouveau les relances') : ('❌ ' + (d.error || 'échec')));
+      loadGiftAccess();
+    } catch { _campMsg('❌ Erreur réseau.'); }
+  }
+
   // ── Liste des destinataires (les 163) ──
   function toggleRecipients(){
     const p = document.getElementById('camp-recip-panel'); const shown = p.style.display !== 'none';

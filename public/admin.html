@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg353" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg354" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -360,6 +360,17 @@
             <p class="camp-note">Bloqué partout (connexion, création, campagne) + session éjectée. « Retirer » réautorise.</p>
           </div>
         </div>
+        <div class="panel-card">
+          <div class="panel-head"><h2>Accès offerts</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-gift-count"></span></div>
+          <div class="panel-body">
+            <div class="camp-extra">
+              <input id="camp-gift-input" placeholder="E-mail d'un accès offert…" onkeydown="if(event.key==='Enter')giftAdd()"/>
+              <button class="btn" onclick="giftAdd()">Exempter</button>
+            </div>
+            <div id="camp-gift-list" class="camp-bl-list"></div>
+            <p class="camp-note"><strong>Jamais de relance de paiement.</strong> Ces comptes ne reçoivent ni « votre abonnement a expiré, renouvelez », ni « votre essai est terminé, abonnez-vous » — ni en automatique, ni depuis l'écran de rattrapage. Tout le reste est normal : connexion, support, mot de passe, campagne. À utiliser pour un accès donné à la main (cadeau, geste commercial, partenaire, testeur).</p>
+          </div>
+        </div>
       </div>
 
       <!-- STATISTIQUES -->
@@ -592,6 +603,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260727bbg353"></script>
+<script src="/js/admin.js?v=20260727bbg354"></script>
 </body>
 </html>
