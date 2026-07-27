@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260727bbg347" />
+  <link rel="stylesheet" href="/css/style.css?v=20260727bbg348" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -232,6 +232,20 @@
 
   <!-- ══ VIEW: SEMAINE À VENIR : aperçu hebdomadaire (timeline + risk amCharts) ══ -->
   <div class="view-panel hidden" id="view-weekahead">
+    <!-- Barre d'en-tête STANDARD (.panel-header) — demande user 27/07 « les noms au même emplacement » :
+         le titre vivait auparavant dans .wa-wrap (colonne centrée) donc à un x variable, jamais aligné sur
+         les autres vues. Il est désormais ici, comme partout ; le JS met à jour le libellé (« Semaine à
+         Venir » / « Semaine écoulée »), la plage de dates et l'état des flèches ‹ ›. -->
+    <div class="panel-header">
+      <div class="panel-header-left"><span class="panel-title" id="wa-view-title">Semaine à Venir</span></div>
+      <div class="panel-header-controls">
+        <span class="wa-weeknav">
+          <button class="cal-range-arrow" id="wa-week-prev" type="button" title="Semaine précédente" aria-label="Semaine précédente">‹</button>
+          <span class="wa-week" id="wa-week-lbl"></span>
+          <button class="cal-range-arrow" id="wa-week-next" type="button" title="Semaine suivante" aria-label="Semaine suivante" disabled>›</button>
+        </span>
+      </div>
+    </div>
     <div class="wa3" id="wa3">
       <div class="wa-scroll" id="wa-content">
         <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement du Semaine à Venir…</div></div>
@@ -838,7 +852,7 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260727bbg347"></script>
+<script defer src="/js/app.js?v=20260727bbg348"></script>
 <script defer src="/js/charts.js?v=20260727bbg345"></script>
 <script defer src="/js/sessionmap.js?v=20260727bbg343"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
