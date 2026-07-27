@@ -954,11 +954,31 @@ app.post('/api/journal/img', async (req, res) => {
 // mentent (import Whop aux échéances cassées) ou que l'admin connaît la vraie cadence (ex. Chris =
 // mensuel d'après son historique Whop), l'override PRIME. Une seule clé KV `plancads`
 // ({ userId → cadence }) → 1 lecture, pas 1 par compte.
-let _planCads = {};
+let _planCads = {}, _planCadsLoaded = false;
 const _CAD_VALS = ['mensuel', 'annuel', '7j', 'illimite'];
 const _CAD_LBL = { mensuel: 'Mensuel', annuel: 'Annuel', '7j': '7 jours', illimite: 'Illimité' };
-async function _planCadsLoad() { try { const v = await auth.aiCacheGet('plancads', 366 * 86400000); if (v && typeof v === 'object') _planCads = v; } catch (e) {} }
+async function _planCadsLoad() {
+  try { const v = await auth.aiCacheGet('plancads', 366 * 86400000); if (v && typeof v === 'object') _planCads = Object.assign({}, v, _planCads); } catch (e) {}
+  _planCadsLoaded = true;   // les écritures locales faites AVANT le chargement survivent (overlay ci-dessus)
+}
 setTimeout(() => { _planCadsLoad().catch(() => {}); }, 22000);
+// TOUTE écriture passe ici : garantit la map chargée d'abord (sinon une écriture précoce, webhook au
+// boot par ex., repartirait d'une map vide et RASERAIT les overrides existants au aiCacheSet).
+async function _planCadSet(id, cad) {
+  if (!_planCadsLoaded) await _planCadsLoad().catch(() => {});
+  const k = String(id);
+  if (cad && _CAD_VALS.includes(cad)) _planCads[k] = cad; else delete _planCads[k];
+  try { await auth.aiCacheSet('plancads', _planCads); } catch (e) {}
+}
+// Cadence RÉELLEMENT prise par le client, lue de sa période de facturation Whop (ms) — '' si illisible.
+function _cadFromPeriod(startMs, endMs) {
+  if (!startMs || !endMs || endMs <= startMs) return '';
+  const j = (endMs - startMs) / 86400000;
+  if (j >= 25 && j <= 35) return 'mensuel';
+  if (j >= 350 && j <= 380) return 'annuel';
+  if (j >= 5 && j <= 9) return '7j';
+  return '';
+}
 function _cadOf(u) {
   if (!u || u.role !== 'client') return '';
   const o = _planCads[String(u.id)]; if (o) return o;
@@ -1321,11 +1341,10 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     // Ne recalcule l'échéance que si l'admin a choisi une durée (sinon on garde l'actuelle)
     if (req.body.duration) fields.expiresAt = computeExpiry(req.body);
     // Cadence (PLAN) : override en KV, pas dans la table users. '' = revenir au dérivé des dates.
+    // NB : ce réglage manuel vaut JUSQU'AU prochain renouvellement Whop réel — la période de
+    // facturation effectivement payée reprend alors la main (cf. _whopRenewOrCreate).
     if ('plancad' in fields) {
-      const c = String(fields.plancad || '').toLowerCase();
-      if (c === '') delete _planCads[id];
-      else if (_CAD_VALS.includes(c)) _planCads[id] = c;
-      try { await auth.aiCacheSet('plancads', _planCads); } catch (e) {}
+      await _planCadSet(id, String(fields.plancad || '').toLowerCase());
       delete fields.plancad;
     }
     await auth.updateUser(id, fields);
@@ -1571,6 +1590,17 @@ async function _whopRenewOrCreate(mem) {
     if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
     const wasInactive = !existing.active;
     await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
+    // CADENCE = LA RÉALITÉ GAGNE TOUJOURS : ce que le client PREND (période de facturation Whop)
+    // écrase tout réglage manuel de l'admin. Admin avait mis « annuel » mais le client renouvelle en
+    // mensuel → la colonne PLAN passe Mensuel au renouvellement (et inversement). Corrige aussi les
+    // anciens mensuels dont la dérivée par dates (création→échéance) finissait par dire « Annuel ».
+    try {
+      const _cad = _cadFromPeriod(mem.periodStart, mem.periodEnd);
+      if (_cad && _planCads[String(existing.id)] !== _cad) {
+        await _planCadSet(existing.id, _cad);
+        console.log(`[Whop] cadence synchronisée → ${mem.email} : ${_cad} (période réelle)`);
+      }
+    } catch (e) {}
     // Parrainage : rejoue les jours OFFERTS cumulés du membre, sinon le renouvellement Whop les écraserait.
     try {
       const _bonus = Number(await auth.aiCacheGet('refbonus:' + existing.id, 8640000000000).catch(() => 0)) || 0;
