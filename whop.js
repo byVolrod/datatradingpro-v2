@@ -176,4 +176,51 @@ async function listAllMemberEmails() {
   return [...byEmail.values()].map(v => ({ email: v.email, name: v.name, statuses: [...v.statuses] }));
 }
 
-module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, configured: () => !!WHOP_API_KEY };
+// TOUS les memberships DTP, TOUS statuts (canceled/expired inclus) — sert au balayage « accès
+// fantômes » (_whopGhostSweep, server.js) : il faut voir les adhésions MORTES, ce que
+// listValidMemberships (filtre valid=true) ne remonte jamais.
+async function listAllMemberships() {
+  if (!WHOP_API_KEY) return [];
+  const out = []; let page = 1, totalPages = 1;
+  do {
+    let r; try { r = await fetch(`${BASE}/memberships?per=50&page=${page}&product_id=${DTP_PRODUCT}`, { headers: _auth() }); } catch { break; }
+    if (!r.ok) break;
+    const j = await r.json();
+    const data = Array.isArray(j) ? j : (j.data || []);
+    for (const m of data) {
+      if (m.product && m.product !== DTP_PRODUCT) continue;
+      const em = String(m.email || (m.user && m.user.email) || '').toLowerCase().trim();
+      if (!em) continue;
+      out.push({
+        id: m.id, email: em, valid: m.valid === true, status: m.status || '',
+        periodStart: m.renewal_period_start ? m.renewal_period_start * 1000 : null,
+        periodEnd: (m.renewal_period_end || m.expires_at) ? (m.renewal_period_end || m.expires_at) * 1000 : null,
+      });
+    }
+    const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
+  } while (page <= totalPages && page <= 20);
+  return out;
+}
+
+// Tous les PAIEMENTS de la société — rapprochés ensuite par ID de membership (les objets payment ne
+// portent pas l'e-mail de façon fiable). Seul le statut « paid » vaut PREUVE d'encaissement : un
+// paiement « open » est un prélèvement émis mais jamais soldé (cas des renouvellements échoués).
+async function listPayments() {
+  if (!WHOP_API_KEY) return [];
+  const out = []; let page = 1, totalPages = 1;
+  do {
+    let r; try { r = await fetch(`${BASE}/payments?per=50&page=${page}`, { headers: _auth() }); } catch { break; }
+    if (!r.ok) break;
+    const j = await r.json();
+    const data = Array.isArray(j) ? j : (j.data || []);
+    for (const p of data) {
+      const memId = p.membership || p.membership_id || null;
+      if (!memId) continue;
+      out.push({ membership: memId, status: String(p.status || ''), ts: p.created_at ? p.created_at * 1000 : 0 });
+    }
+    const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
+  } while (page <= totalPages && page <= 60);   // cap 60 pages (3000) — anti-RAM/temps
+  return out;
+}
+
+module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, configured: () => !!WHOP_API_KEY };
