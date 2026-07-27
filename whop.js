@@ -20,6 +20,9 @@ function _normalize(m) {
     email:     String(m.email).toLowerCase().trim(),
     valid:     m.valid === true || m.status === 'completed' || m.status === 'active',
     expiresAt: endTs ? new Date(endTs * 1000).toISOString() : null,
+    // Période de facturation RÉELLE (ms) → sert à déduire la cadence prise par le client (mensuel/annuel)
+    periodStart: m.renewal_period_start ? m.renewal_period_start * 1000 : null,
+    periodEnd:   m.renewal_period_end ? m.renewal_period_end * 1000 : null,
     plan:      m.plan || null,
     product:   m.product || null,
     status:    m.status || null,
