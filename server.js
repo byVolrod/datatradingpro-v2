@@ -16187,6 +16187,24 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
       m = mailer.buildCampaignInvitation({ name: s.name, email: s.email, campaign: 'invitation-preview', variant, isMember });
     } else if (type === 'app-desktop') {
       m = mailer.buildAnnouncementDesktop({ name: s.name, email: s.email, campaign: 'app-desktop-preview' });
+    // ── MAILS DE CYCLE DE VIE (demande user 27/07 : les avoir dans la bibliothèque du panel pour les
+    //    RELIRE avant de valider un rattrapage). Ils sont transactionnels (déclenchés par l'état du
+    //    compte), pas marketing — d'où leur absence initiale ici. Données d'exemple uniquement.
+    } else if (type === 'trial-upsell') {
+      m = mailer.buildTrialUpsell({ name: s.name, expiresAt: new Date(Date.now() - 86400000).toISOString() });
+      note = "Aperçu — envoyé automatiquement le jour où un essai gratuit expire.";
+    } else if (type === 'expired') {
+      m = mailer.buildExpired({ name: s.name, expiresAt: new Date(Date.now() - 86400000).toISOString() });
+      note = "Aperçu — envoyé automatiquement quand l'abonnement payant arrive à échéance.";
+    } else if (type === 'reengagement') {
+      m = mailer.buildReengagement({ name: s.name, days: 7 });
+      note = "Aperçu — relance d'un client inactif depuis ~7 jours.";
+    } else if (type === 'renewal-failed') {
+      m = mailer.buildRenewalFailed({ name: s.name });
+      note = 'Aperçu — envoyé quand un renouvellement échoue / compte suspendu.';
+    } else if (type === 'welcome') {
+      m = mailer.buildWelcome({ to: s.email, name: s.name, password: '••••••••', expiresAt: new Date(Date.now() + 30 * 86400000).toISOString() });
+      note = "Aperçu — envoyé à la création du compte (identifiants d'accès).";
     } else {
       m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
     }
@@ -16194,6 +16212,76 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     if (note) html = html.replace(/(<body[^>]*>)/i, '$1<div style="background:#e3b23a;color:#0d0e11;font:600 12px -apple-system,Segoe UI,sans-serif;padding:7px 14px;text-align:center;">' + note + '</div>');
     res.set('Content-Type', 'text/html; charset=utf-8').set('Cache-Control', 'no-store').send(html);
   } catch (e) { res.status(500).type('html').send('<div style="padding:40px;color:#ff6b57;background:#0d0e11;font-family:sans-serif;">Erreur aperçu : ' + String(e.message || e) + '</div>'); }
+});
+
+// ─── RATTRAPAGE « cycle de vie » (admin) ───────────────────────────────────────
+// Demande user 27/07 : « je valide l'envoi aux comptes qui n'ont pas reçu ». Les mails de cycle de vie
+// partent automatiquement DANS LEUR FENÊTRE (48 h pour l'expiration, 24 h pour la fin d'essai) — les
+// comptes sortis de cette fenêtre ne sont JAMAIS relancés tout seuls, par choix (anti-nuisance).
+// Cet écran les liste et laisse l'admin décider, à l'unité près.
+//   GET  ?type=expired|trial-upsell        → LISTE SEULEMENT (ne touche à rien)
+//   POST { type, emails: [...] }           → envoie UNIQUEMENT aux adresses cochées
+// Anti-doublon : même clé email_log que l'envoi automatique → un compte déjà servi n'apparaît pas et,
+// même forcé, ne recevra pas deux fois.
+const _LIFECYCLE_KINDS = {
+  'expired':      { label: 'Abonnement expiré',  build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpired(d),     key: (u) => `expired:${u.id}:${u.expires_at}` },
+  'trial-upsell': { label: "Fin d'essai gratuit", build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendTrialUpsell(d), key: (u) => `trial-upsell:${u.id}:${u.expires_at}` },
+};
+// Comptes CONCERNÉS par un type donné (échéance passée), avec l'info « a déjà reçu ou non ».
+async function _lifecycleCandidates(type) {
+  const k = _LIFECYCLE_KINDS[type]; if (!k) return [];
+  const users = await auth.getAllUsers();
+  const now = Date.now(), DAY = 86400000;
+  const out = [];
+  for (const u of users) {
+    if (u.role !== 'client' || !u.email || !u.expires_at || !u.created_at) continue;
+    const exp = new Date(u.expires_at).getTime(), crt = new Date(u.created_at).getTime();
+    if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
+    if (exp > now) continue;                                     // échéance pas encore passée
+    const estEssai = (exp - crt) <= 8 * DAY;
+    if (type === 'expired' && estEssai) continue;                // l'essai a son propre mail
+    if (type === 'trial-upsell' && !estEssai) continue;
+    let recu = false;
+    try { recu = await auth.emailLogHas(k.key(u)); } catch (e) {}
+    out.push({
+      id: u.id, email: u.email, name: u.name || '',
+      expiresAt: u.expires_at, joursDepuis: Math.floor((now - exp) / DAY),
+      actif: !!u.active, recu,
+      // dates d'import incohérentes (échéance ANTÉRIEURE à la création) → à traiter avec prudence
+      donneeIncoherente: exp < crt,
+    });
+  }
+  out.sort((a, b) => a.joursDepuis - b.joursDepuis);
+  return out;
+}
+app.get('/api/admin/lifecycle-pending', requireAdmin, async (req, res) => {
+  try {
+    const type = String(req.query.type || 'expired');
+    if (!_LIFECYCLE_KINDS[type]) return res.status(400).json({ ok: false, error: 'type inconnu' });
+    const all = await _lifecycleCandidates(type);
+    res.json({ ok: true, type, label: _LIFECYCLE_KINDS[type].label,
+      pending: all.filter(u => !u.recu), alreadySent: all.filter(u => u.recu).length });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+app.post('/api/admin/lifecycle-send', requireAdmin, async (req, res) => {   // (express.json est déjà global, cf. app.use ~l.340)
+  try {
+    const type = String((req.body && req.body.type) || '');
+    const k = _LIFECYCLE_KINDS[type];
+    if (!k) return res.status(400).json({ ok: false, error: 'type inconnu' });
+    const wanted = new Set((Array.isArray(req.body.emails) ? req.body.emails : []).map(e => String(e).toLowerCase().trim()));
+    if (!wanted.size) return res.status(400).json({ ok: false, error: 'aucun destinataire sélectionné' });
+    const cands = await _lifecycleCandidates(type);
+    const cible = cands.filter(u => !u.recu && wanted.has(String(u.email).toLowerCase()));
+    let sent = 0; const failed = [];
+    for (const u of cible) {
+      const key = k.key(u);
+      if (await auth.emailLogHas(key)) continue;                 // double garde (course/relance)
+      const ok = await k.send(k.build(u));
+      if (ok) { await auth.emailLogAdd(key); sent++; console.log(`[Rattrapage ${type}] envoyé → ${u.email} (échéance ${u.expiresAt}, +${u.joursDepuis}j)`); }
+      else failed.push(u.email);
+    }
+    res.json({ ok: true, type, demandes: wanted.size, envoyes: sent, echecs: failed });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
