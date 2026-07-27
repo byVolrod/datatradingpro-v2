@@ -6499,6 +6499,23 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   background: var(--head-bg);
   flex-shrink: 0;
 }
+
+/* ══ ALIGNEMENT AU PIXEL DES TITRES DES PANNEAUX DE DROITE (demande user 27/07 « fais pareil pour ces
+   widgets ») — même méthode que les vues du haut. NORME = `.chart-header` (28px, padding 0 10px, fond
+   --head-bg, filet bas). Mesuré avant : 5 hauteurs de barre (25/28/37/38/44px), x à 960 ET 962 (padding
+   12px de DMX/Saisonnalité), et FORCE sur un fond --bg2 au lieu de --head-bg.
+   `.stf-btn` faisait 28px = toute la hauteur de la barre → ramené à 24px (même gabarit que .season-cfg-btn). */
+.cot-header-bar, .dmx-header-bar, .strength-tf-bar {
+  height: 28px;
+  padding: 0 10px;
+  background: var(--head-bg);
+  border-bottom: 1px solid var(--border);
+}
+.strength-tf-bar .stf-btn { height: 24px; }
+/* Le <select> natif de tri DMX est masqué au profit du composant `.dtpsel` (30px de haut par défaut) :
+   dans une barre de 28px il débordait de 1px en haut/bas → on le compacte au même gabarit que les
+   autres contrôles de barre. (Le select natif garde son display:none, cf. .dtpsel-native.) */
+.dmx-header-bar .dtpsel-btn { padding-top: 3px; padding-bottom: 3px; font-size: 11px; }
 .dmx-header-title {
   font-size: 11px;
   font-weight: var(--fw-semibold);
