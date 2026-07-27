@@ -364,15 +364,17 @@ select { cursor: pointer; }
 .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--sp-2); }
 /* ── Templates en MAÎTRE/DÉTAIL : noms à gauche, aperçu à droite (fini le scroll haut/bas) ── */
 .tpl-split { display: flex; gap: var(--sp-3); align-items: stretch; }
-.tpl-list { flex: none; width: 218px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: 720px; }
-.tpl-item { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); text-align: left;
-  padding: 8px 10px; background: transparent; border: 1px solid transparent; border-left: 2px solid transparent;
-  border-radius: var(--r-2); color: var(--text2); font-size: var(--fs-body); cursor: pointer;
+.tpl-list { flex: none; width: 224px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: 720px; }
+/* LISIBILITÉ (retour user) : nom et moment d'envoi EMPILÉS — fini le libellé écrasé à droite
+   et les noms coupés sur deux lignes serrées. */
+.tpl-item { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left;
+  padding: 9px 12px; background: transparent; border: 1px solid transparent; border-left: 2px solid transparent;
+  border-radius: var(--r-2); color: var(--text2); cursor: pointer;
   transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
 .tpl-item:hover { background: rgba(255, 255, 255, .04); color: var(--text); }
 .tpl-item.active { background: rgba(227, 178, 58, .07); border-left-color: var(--orange); color: var(--text); }
-.tpl-item .tpl-when { margin-top: 0; text-align: right; white-space: nowrap; }
-.tpl-item-name { font-weight: var(--fw-semibold); }
+.tpl-item .tpl-when { margin-top: 0; white-space: nowrap; text-transform: uppercase; letter-spacing: .05em; font-size: 9.5px; opacity: .85; }
+.tpl-item-name { font-weight: var(--fw-semibold); font-size: var(--fs-body); line-height: 1.3; }
 .tpl-view { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .tpl-view-head { display: flex; align-items: center; gap: var(--sp-2); min-height: 26px; }
 .tpl-view-desc { font-size: var(--fs-meta); color: var(--text3); line-height: 1.5; }
@@ -511,8 +513,10 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .btn-ic:hover { border-color: rgba(227, 178, 58, .45); color: var(--orange); }
 .btn-ic--danger { color: var(--red); border-color: rgba(231, 76, 60, .3); }
 .btn-ic--danger:hover { border-color: var(--red); color: var(--red); background: rgba(231, 76, 60, .1); }
-/* Type « Amis » (accès offert) : violet — distinct du staff (bleu/ambre) et des états de marché */
-.badge-amis { background: rgba(167, 139, 250, .12); border-color: rgba(167, 139, 250, .32); color: #a78bfa; }
+/* Types de compte — palette fixée par le user : Amis = BLEU · Professionnel = VERT · Essai = OR DTP */
+.badge-amis  { background: rgba(52, 152, 219, .12); border-color: rgba(52, 152, 219, .35); color: var(--blue); }
+.badge-pro   { background: rgba(0, 230, 118, .09);  border-color: rgba(0, 230, 118, .3);   color: var(--green); }
+.badge-essai { background: rgba(227, 178, 58, .13); border-color: rgba(227, 178, 58, .45); color: var(--orange); }
 .del-confirm { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .del-confirm-txt { color: var(--red); font-size: var(--fs-meta); font-weight: var(--fw-semibold); }
 .clickable { cursor: pointer; }

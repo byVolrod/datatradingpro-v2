@@ -503,6 +503,95 @@ function buildExpired({ name, expiresAt }) {
 }
 async function sendExpired(d) { const m = buildExpired(d); return _send(d.to, m.subject, m.html); }
 
+// ── 2a-ter) RELANCE J+7 : une semaine après l'expiration, toujours pas renouvelé ──
+//    Second (et dernier) rappel automatique — au-delà, ce sont les mails JALONS (win-back) qui
+//    prennent le relais. Ton sobre : on montre ce qui a continué d'avancer, on ne supplie pas.
+function buildExpiredFollowup({ name, expiresAt }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher client');
+  const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Le terminal a continué sans vous cette semaine</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Votre abonnement a expiré il y a une semaine${end ? ` (le <strong style="color:#fff;">${end}</strong>)` : ''} et votre accès est toujours suspendu. Pendant ce temps, le desk a continué de tourner : news en temps réel, calendrier, biais hebdomadaires, recherche bancaire.</p>
+    <p style="margin:0 0 14px;">Si c'est un oubli, tout se réactive en un clic — votre compte, vos réglages et votre journal sont intacts :</p>
+    ${_button('Réactiver mon accès', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Si vous avez choisi d'arrêter, aucun souci — ce message est notre dernier rappel automatique. Une question ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;">${SUPPORT_EMAIL}</a>.</p>
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">À bientôt peut-être,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'DataTradingPro : votre accès est toujours suspendu', html: _layout('Toujours suspendu', body) };
+}
+async function sendExpiredFollowup(d) { const m = buildExpiredFollowup(d); return _send(d.to, m.subject, m.html); }
+
+// ── 2a-quater) MAILS JALONS (win-back) : 1 mois · 3 mois · 6 mois · 1 an après le départ ──
+//    « Ça fait X que vous nous avez quittés — voici ce que le terminal est devenu. »
+//    Un seul gabarit, copy et nouveautés ADAPTÉES au jalon (plus le départ est ancien, plus on
+//    raconte le chemin parcouru). Informatif, jamais insistant (règle DTP : cadence sobre).
+const _WINBACK = {
+  1:  { titre: 'Un mois déjà — le desk a continué d\'avancer',
+        intro: 'il y a un mois, votre accès à DataTradingPro s\'est arrêté. En un mois, le terminal a déjà bougé :',
+        nouveautes: ['📰 Le fil de news s\'est encore affiné (priorisation, décryptages IA)', '🏦 La recherche bancaire s\'est enrichie (Goldman Sachs, HSBC, ING, MUFG…)', '📅 La Semaine à Venir affiche désormais les événements concrets de chaque journée'] },
+  3:  { titre: 'Ça fait 3 mois que vous nous avez quittés',
+        intro: 'trois mois ont passé depuis la fin de votre accès, et le terminal d\'aujourd\'hui n\'est plus celui que vous avez connu :',
+        nouveautes: ['🧩 Mon Desk : composez votre propre écran en widgets (grille libre, layouts sauvegardés)', '🧭 Radar de Biais recalculé en continu sur les données publiées', '🏦 Recherche bancaire : ~20 institutions réunies, résumées par l\'IA', '💻 L\'application desktop Windows/macOS est sortie'] },
+  6:  { titre: '6 mois — le terminal n\'est plus le même',
+        intro: 'six mois que votre accès s\'est arrêté. Depuis, DataTradingPro a changé de dimension :',
+        nouveautes: ['🧩 Mon Desk personnalisable en widgets + application desktop', '🧭 Biais et force des devises en temps réel, ancrés sur les vraies publications', '🏦 Recherche institutionnelle complète avec analyses IA', '📮 Des synthèses quotidiennes et hebdomadaires rédigées par le desk'] },
+  12: { titre: 'Un an déjà — venez revoir ce que DataTradingPro est devenu',
+        intro: 'cela fait un an que nous ne vous avons pas vu. En un an, le terminal a été repensé de fond en comble :',
+        nouveautes: ['🖥️ Un desk complet : news temps réel, calendrier, biais, force des devises, COT, saisonnalité', '🧩 Mon Desk en widgets + application desktop native', '🏦 La recherche des grandes banques, résumée et exploitable en un clic', '🤖 Un copilote IA macro qui répond avec le contexte du moment'] },
+};
+function buildWinback({ name, months }) {
+  const m = _WINBACK[months] || _WINBACK[3];
+  const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
+  const feats = m.nouveautes.map(n => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;line-height:1.6;">${n}</td></tr>`).join('');
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">${m.titre}</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">${prenom}, ${m.intro}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
+    <p style="margin:0 0 14px;">Votre compte existe toujours — réglages et journal compris. Un clic et vous retrouvez tout :</p>
+    ${_button('Revenir sur le terminal', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Sans engagement, résiliable à tout moment. Et si vous préférez ne plus recevoir ces nouvelles, répondez simplement à ce mail.</p>
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">Au plaisir de vous revoir,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  const subj = { 1: 'Un mois sans vous — le desk a continué d\'avancer', 3: 'Ça fait 3 mois : voyez ce que DataTradingPro est devenu', 6: '6 mois après : le terminal n\'est plus le même', 12: 'Un an déjà — DataTradingPro a bien changé' };
+  return { subject: subj[months] || subj[3], html: _layout('Des nouvelles du desk', body) };
+}
+async function sendWinback(d) { const m = buildWinback(d); return _send(d.to, m.subject, m.html); }
+
+// ── 2a-quinquies) TÉMOIGNAGE (campagne, VALIDATION MANUELLE UNIQUEMENT — jamais d'envoi auto) ──
+//    Raconte JustOneTrader + le développement du terminal, appuyé par un VRAI avis Whop.
+//    `angle` (optionnel, IA) : 2-3 phrases adaptées AU commentaire pour que le récit colle à ce
+//    que le membre a réellement dit ; sinon repli neutre.
+function buildTemoignage({ name, review, angle } = {}) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
+  const r = review || {};
+  const stars = Math.max(1, Math.min(5, Number(r.stars) || 5));
+  const quote = _esc(String(r.description || '').trim()).replace(/\n+/g, '<br>');
+  const etoiles = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+  const lien = angle && String(angle).trim()
+    ? _esc(String(angle).trim())
+    : 'C\'est exactement pour ça que le terminal existe : réunir sur un seul écran ce qu\'un trader macro passait sa journée à chercher sur dix sources.';
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Ce qu'un membre retient de DataTradingPro</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Derrière DataTradingPro, il y a <strong style="color:#fff;">JustOneTrader</strong> : un trader qui construisait son propre outil de suivi macro, et qui a fini par en faire un terminal complet — news en temps réel, calendrier, biais des devises, recherche des grandes banques. Le desk évolue chaque semaine, guidé par ce que les membres en font vraiment.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f3c344;border-radius:10px;margin:18px 0;">
+      <tr><td style="padding:16px 18px;">
+        <div style="color:#f3c344;font-size:14px;letter-spacing:2px;margin-bottom:8px;">${etoiles}</div>
+        <div style="color:#e2e8f0;font-size:15px;line-height:1.65;font-style:italic;">« ${quote} »</div>
+        <div style="color:#8a9097;font-size:12.5px;margin-top:10px;">— membre DataTradingPro, avis vérifié Whop</div>
+      </td></tr>
+    </table>
+    <p style="margin:0 0 14px;">${lien}</p>
+    ${_button('Découvrir le terminal', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'Ce qu\'un membre retient de DataTradingPro', html: _layout('Témoignage', body) };
+}
+
 // ── « Mot de passe oublié » demandé par un compte SANS abonnement actif (suspendu/expiré) ─────
 //    SÉCURITÉ : on NE réinitialise PAS le mot de passe (réservé aux comptes actifs). On explique
 //    l'abonnement inactif + CTA de réactivation, façon pro. (Aucun mot de passe n'est régénéré.)
@@ -2103,6 +2192,7 @@ module.exports = {
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildExpired, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
+  buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc

@@ -505,7 +505,12 @@ app.get('/api/auth/me', async (req, res) => {
     }
     const expiresAt = fresh.expires_at || null;
     const isTrial = _isTrialAccount(fresh);
-    const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active, expiresAt, isTrial };
+    // Libellé du badge profil : « TYPE · CADENCE » (ex. « Professionnel · Mensuel ») — remplace le
+    // libellé codé en dur du desk. Type depuis le compte, cadence dérivée/override (_cadOf).
+    const _tl = fresh.role !== 'client' ? '' : (_isFriend(fresh) ? 'Amis' : (isTrial ? 'Essai gratuit' : 'Professionnel'));
+    const _cl = _CAD_LBL[_cadOf(fresh)] || '';
+    const planLabel = _tl ? (_cl && _tl !== 'Essai gratuit' ? _tl + ' · ' + _cl : _tl) : 'Professionnel';
+    const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active, expiresAt, isTrial, planLabel };
     req.session.user = user; // maintenir la session à jour
     res.json({ loggedIn: true, user });
   } catch {
@@ -944,8 +949,30 @@ app.post('/api/journal/img', async (req, res) => {
 });
 
 // ─── Admin routes (admin only) — tous async pour Supabase ────────────────────
+// ═══ PLAN (cadence) MODIFIABLE — override admin en KV, pas de nouvelle colonne DB ═══════════════
+// La cadence (mensuel/annuel/7 j/illimité) est normalement DÉRIVÉE des dates. Quand les dates
+// mentent (import Whop aux échéances cassées) ou que l'admin connaît la vraie cadence (ex. Chris =
+// mensuel d'après son historique Whop), l'override PRIME. Une seule clé KV `plancads`
+// ({ userId → cadence }) → 1 lecture, pas 1 par compte.
+let _planCads = {};
+const _CAD_VALS = ['mensuel', 'annuel', '7j', 'illimite'];
+const _CAD_LBL = { mensuel: 'Mensuel', annuel: 'Annuel', '7j': '7 jours', illimite: 'Illimité' };
+async function _planCadsLoad() { try { const v = await auth.aiCacheGet('plancads', 366 * 86400000); if (v && typeof v === 'object') _planCads = v; } catch (e) {} }
+setTimeout(() => { _planCadsLoad().catch(() => {}); }, 22000);
+function _cadOf(u) {
+  if (!u || u.role !== 'client') return '';
+  const o = _planCads[String(u.id)]; if (o) return o;
+  if (!u.expires_at) return 'illimite';
+  if (!u.created_at) return '';
+  const span = new Date(u.expires_at) - new Date(u.created_at);
+  if (!(span > 0)) return '';                                   // dates incohérentes → on n'invente pas
+  if (span <= 8.5 * 86400000) return '7j';
+  if (span >= 300 * 86400000) return 'annuel';
+  return 'mensuel';
+}
+
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
-  try { res.json(await auth.getAllUsers()); }
+  try { res.json((await auth.getAllUsers()).map(u => Object.assign({}, u, { plancad: _planCads[String(u.id)] || '' }))); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1293,6 +1320,14 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     const fields = { ...req.body };
     // Ne recalcule l'échéance que si l'admin a choisi une durée (sinon on garde l'actuelle)
     if (req.body.duration) fields.expiresAt = computeExpiry(req.body);
+    // Cadence (PLAN) : override en KV, pas dans la table users. '' = revenir au dérivé des dates.
+    if ('plancad' in fields) {
+      const c = String(fields.plancad || '').toLowerCase();
+      if (c === '') delete _planCads[id];
+      else if (_CAD_VALS.includes(c)) _planCads[id] = c;
+      try { await auth.aiCacheSet('plancads', _planCads); } catch (e) {}
+      delete fields.plancad;
+    }
     await auth.updateUser(id, fields);
     res.json({ ok: true });
 
@@ -13868,11 +13903,51 @@ async function _checkExpiredSubscriptions() {
     }
   } catch (e) { console.error('[Expired]', e.message); }
 }
+// ── SUITE DU CYCLE DE DÉPART (demande user 27/07) : J+7 puis JALONS 1 · 3 · 6 · 12 mois ─────────
+// « 7 j après, ceux qui n'ont pas repayé reçoivent un mail ; à 1 mois un mail "ça fait X que vous
+// nous avez quittés", puis 3/6 mois et 1 an. » Même mécanique éprouvée que l'expiration :
+// fenêtre COURTE après le jalon (jamais rétroactif sur le stock ancien), clé anti-doublon durable
+// par (user, échéance, jalon), exclusions identiques (essai, amis/offert, blacklist, désinscrit).
+// Un client qui REVIENT sort tout seul du parcours : sa nouvelle échéance est future.
+const _DEPART_STEPS = [
+  { jours: 7,   fen: 2, key: u => `expired7:${u.id}:${u.expires_at}`,      send: u => mailer.sendExpiredFollowup({ to: u.email, name: u.name, expiresAt: u.expires_at }), log: 'relance J+7' },
+  { jours: 30,  fen: 3, key: u => `winback1m:${u.id}:${u.expires_at}`,     send: u => mailer.sendWinback({ to: u.email, name: u.name, months: 1 }),  log: 'jalon 1 mois' },
+  { jours: 90,  fen: 3, key: u => `winback3m:${u.id}:${u.expires_at}`,     send: u => mailer.sendWinback({ to: u.email, name: u.name, months: 3 }),  log: 'jalon 3 mois' },
+  { jours: 180, fen: 3, key: u => `winback6m:${u.id}:${u.expires_at}`,     send: u => mailer.sendWinback({ to: u.email, name: u.name, months: 6 }),  log: 'jalon 6 mois' },
+  { jours: 365, fen: 3, key: u => `winback12m:${u.id}:${u.expires_at}`,    send: u => mailer.sendWinback({ to: u.email, name: u.name, months: 12 }), log: 'jalon 1 an' },
+];
+async function _checkDepartureJourney() {
+  try {
+    const users = await auth.getAllUsers();
+    const now = Date.now(), DAY = 86400000;
+    for (const u of users) {
+      if (u.role !== 'client' || !u.email || !u.expires_at || !u.created_at) continue;
+      if (_isGift(u.email) || _isFriend(u)) continue;            // offert / ami → jamais de relance de paiement
+      if (_isTrialAccount(u)) continue;                          // essai → parcours fin d'essai, pas celui-ci
+      const exp = new Date(u.expires_at).getTime();
+      if (!Number.isFinite(exp) || exp > now) continue;          // pas encore parti (ou revenu)
+      const em = String(u.email).toLowerCase().trim();
+      if (auth.isEmailBlacklisted(em)) continue;
+      if (await auth.emailLogHas('unsub:' + em)) continue;
+      for (const s of _DEPART_STEPS) {
+        const jalon = exp + s.jours * DAY;
+        if (now < jalon || now > jalon + s.fen * DAY) continue;  // hors fenêtre de CE jalon
+        const key = s.key(u);
+        if (await auth.emailLogHas(key)) continue;
+        const ok = await s.send(u);
+        if (ok) { await auth.emailLogAdd(key); console.log(`[Départ] ${s.log} envoyé → ${u.email} (parti le ${String(u.expires_at).slice(0, 10)})`); }
+      }
+    }
+  } catch (e) { console.error('[Départ]', e.message); }
+}
+
 // Même cadence que la fin d'essai : CHECK toutes les 6 h + rattrapage 45 s après démarrage. La fréquence
 // de vérification n'est PAS la fréquence d'envoi — l'anti-doublon garantit UN SEUL mail par échéance.
 (function scheduleExpiredCheck() {
   setTimeout(_checkExpiredSubscriptions, 45000);
   setInterval(_checkExpiredSubscriptions, 6 * 60 * 60 * 1000);
+  setTimeout(_checkDepartureJourney, 75000);
+  setInterval(_checkDepartureJourney, 6 * 60 * 60 * 1000);
 })();
 
 // ── RÉENGAGEMENT : client inactif depuis ≥ 7 jours sur le terminal ───────────
@@ -16338,6 +16413,38 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     } else if (type === 'welcome') {
       m = mailer.buildWelcome({ to: s.email, name: s.name, password: '••••••••', expiresAt: new Date(Date.now() + 30 * 86400000).toISOString() });
       note = "Aperçu — envoyé à la création du compte (identifiants d'accès).";
+    } else if (type === 'expired-7j') {
+      m = mailer.buildExpiredFollowup({ name: s.name, expiresAt: new Date(Date.now() - 7 * 86400000).toISOString() });
+      note = 'Aperçu — dernier rappel automatique, 7 jours après l\'expiration.';
+    } else if (type === 'winback') {
+      const mo = [1, 3, 6, 12].includes(parseInt(req.query.months, 10)) ? parseInt(req.query.months, 10) : 3;
+      m = mailer.buildWinback({ name: s.name, months: mo });
+      note = 'Aperçu — jalon ' + (mo === 12 ? '1 an' : mo + ' mois') + ' après le départ.';
+    } else if (type === 'temoignage') {
+      // TÉMOIGNAGE (validation manuelle UNIQUEMENT — aucun envoi automatique n'existe pour ce type).
+      // Avis réel Whop (le plus récent parmi les mieux notés, ou ?review=<id> pour en choisir un
+      // autre) + « angle » IA : 2-3 phrases qui répondent À CE commentaire précis, en cache par avis.
+      let reviews = [];
+      try { reviews = await whop.listReviews(); } catch (e) {}
+      const rid = String(req.query.review || '');
+      const review = (rid && reviews.find(r => r.id === rid)) || reviews[0] || null;
+      if (!review) {
+        m = { html: '<div style="padding:40px;color:#8b93a1;background:#0d0e11;font-family:sans-serif;text-align:center;">Aucun avis Whop exploitable pour l\'instant.</div>' };
+      } else {
+        let angle = '';
+        try {
+          const ck = 'temoignage:angle:' + review.id;
+          angle = await auth.aiCacheGet(ck, 30 * 86400000).catch(() => '') || '';
+          if (!angle) {
+            const p = `Voici un avis client réel sur DataTradingPro (terminal de données macro/forex) : « ${review.description.slice(0, 500)} » (${review.stars}/5).
+Écris EN FRANÇAIS 2 phrases (3 maximum) qui enchaînent naturellement APRÈS cette citation dans un e-mail : elles doivent rebondir sur ce que CE membre dit précisément (reprends son idée, pas ses mots), relier ça au travail de développement du terminal par JustOneTrader, et rester factuelles — aucun conseil d'investissement, pas de superlatif creux. Réponds avec les phrases seules, sans guillemets ni préambule.`;
+            angle = String(await aiSmart('campaign', p, 220, { important: true }) || '').trim();
+            if (angle && angle.length > 40) { try { await auth.aiCacheSet(ck, angle); } catch (e) {} }
+          }
+        } catch (e) {}
+        m = mailer.buildTemoignage({ name: s.name, review, angle });
+        note = 'Aperçu — avis ' + review.stars + '/5 (' + reviews.length + ' avis exploitables). AUCUN envoi automatique : ce template part uniquement si tu le décides.';
+      }
     } else {
       m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
     }
@@ -16356,11 +16463,19 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
 //   POST { type, emails: [...] }           → envoie UNIQUEMENT aux adresses cochées
 // Anti-doublon : même clé email_log que l'envoi automatique → un compte déjà servi n'apparaît pas et,
 // même forcé, ne recevra pas deux fois.
+// `essai` = à qui le mail s'adresse ; `minJours` = ancienneté MINIMALE du départ pour que le
+// jalon soit atteint (0 = dès l'échéance) — la fenêtre AUTOMATIQUE reste courte, ici on liste
+// tous ceux qui ont dépassé le jalon sans trace.
 const _LIFECYCLE_KINDS = {
-  'expired':      { label: 'Abonnement expiré',  build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpired(d),     key: (u) => `expired:${u.id}:${u.expires_at}` },
-  'trial-upsell': { label: "Fin d'essai gratuit", build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendTrialUpsell(d), key: (u) => `trial-upsell:${u.id}:${u.expires_at}` },
+  'expired':      { label: 'Abonnement expiré',   essai: false, minJours: 0,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpired(d),         key: (u) => `expired:${u.id}:${u.expires_at}` },
+  'trial-upsell': { label: "Fin d'essai gratuit", essai: true,  minJours: 0,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendTrialUpsell(d),     key: (u) => `trial-upsell:${u.id}:${u.expires_at}` },
+  'expired-7j':   { label: 'Relance J+7',         essai: false, minJours: 7,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpiredFollowup(d), key: (u) => `expired7:${u.id}:${u.expires_at}` },
+  'winback-1m':   { label: 'Jalon 1 mois',        essai: false, minJours: 30,  build: (u) => ({ to: u.email, name: u.name, months: 1 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback1m:${u.id}:${u.expires_at}` },
+  'winback-3m':   { label: 'Jalon 3 mois',        essai: false, minJours: 90,  build: (u) => ({ to: u.email, name: u.name, months: 3 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback3m:${u.id}:${u.expires_at}` },
+  'winback-6m':   { label: 'Jalon 6 mois',        essai: false, minJours: 180, build: (u) => ({ to: u.email, name: u.name, months: 6 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback6m:${u.id}:${u.expires_at}` },
+  'winback-12m':  { label: 'Jalon 1 an',          essai: false, minJours: 365, build: (u) => ({ to: u.email, name: u.name, months: 12 }), send: (d) => mailer.sendWinback(d), key: (u) => `winback12m:${u.id}:${u.expires_at}` },
 };
-// Comptes CONCERNÉS par un type donné (échéance passée), avec l'info « a déjà reçu ou non ».
+// Comptes CONCERNÉS par un type donné (jalon atteint), avec l'info « a déjà reçu ou non ».
 async function _lifecycleCandidates(type) {
   const k = _LIFECYCLE_KINDS[type]; if (!k) return [];
   const users = await auth.getAllUsers();
@@ -16371,9 +16486,9 @@ async function _lifecycleCandidates(type) {
     const exp = new Date(u.expires_at).getTime(), crt = new Date(u.created_at).getTime();
     if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
     if (exp > now) continue;                                     // échéance pas encore passée
+    if (Math.floor((now - exp) / DAY) < (k.minJours || 0)) continue;   // jalon pas encore atteint
     const estEssai = _isTrialAccount(u);
-    if (type === 'expired' && estEssai) continue;                // l'essai a son propre mail
-    if (type === 'trial-upsell' && !estEssai) continue;
+    if (k.essai !== estEssai) continue;                          // chaque mail a son public (essai vs payant)
     // OPT-OUT ABSOLU : le rattrapage est un envoi EN LOT décidé par l'admin (pas le transactionnel
     // J+0) → il doit respecter la liste noire et les désinscrits, comme une campagne. Sans ce filtre,
     // un « revenez chez nous » partirait à quelqu'un qui a explicitement demandé à ne plus rien recevoir.
@@ -16393,6 +16508,42 @@ async function _lifecycleCandidates(type) {
   out.sort((a, b) => a.joursDepuis - b.joursDepuis);
   return out;
 }
+// ─── JOURNAL DES ENVOIS (demande user 27/07 « je veux voir les logs quand les mails partent ») ───
+// Source = le journal anti-doublon durable (une clé par envoi, valeur = date) : c'est la VÉRITÉ,
+// écrite au moment exact où chaque mail part. On la traduit en lignes lisibles (type FR + destinataire,
+// les clés par id de compte sont résolues en e-mail). Lecture seule.
+const _MAILLOG_TYPES = [
+  [/^drip:(day|loop):/, 'Campagne · séquence'], [/^campaign:intro/, 'Campagne · bienvenue'],
+  [/^campaign:weekly/, 'Campagne · digest hebdo'], [/^campaign:app-desktop/, 'Campagne · app desktop'],
+  [/^campaign:/, 'Campagne'], [/^welcome:/, 'Bienvenue (accès)'], [/^whop-welcome:/, 'Bienvenue (Whop)'],
+  [/^welcomeok:/, 'Bienvenue confirmée'], [/^whop-renew:/, 'Renouvellement confirmé'],
+  [/^trial-upsell:/, "Fin d'essai gratuit"], [/^expired7:/, 'Relance J+7'], [/^expired:/, 'Abonnement expiré'],
+  [/^winback1m:/, 'Jalon 1 mois'], [/^winback3m:/, 'Jalon 3 mois'], [/^winback6m:/, 'Jalon 6 mois'],
+  [/^winback12m:/, 'Jalon 1 an'], [/^reengage/, 'Réengagement'], [/^unsub:/, 'Désinscription'],
+];
+app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
+  try {
+    const all = auth.emailLogAll();
+    const users = await auth.getAllUsers().catch(() => []);
+    const byId = new Map(users.map(u => [String(u.id), u.email]));
+    const q = String(req.query.q || '').toLowerCase().trim();
+    const rows = [];
+    for (const [key, at] of Object.entries(all)) {
+      let type = 'Autre';
+      for (const [rx, lbl] of _MAILLOG_TYPES) if (rx.test(key)) { type = lbl; break; }
+      // destinataire : soit l'e-mail est dans la clé, soit c'est un id de compte à résoudre
+      const parts = key.split(':');
+      let dest = parts.find(p => p.includes('@')) || '';
+      if (!dest) { for (const p of parts) if (byId.has(p)) { dest = byId.get(p) || ''; break; } }
+      const ts = Date.parse(at) || 0;
+      if (q && !(String(dest).toLowerCase().includes(q) || type.toLowerCase().includes(q))) continue;
+      rows.push({ ts, at, type, dest: dest || '(compte supprimé)', key });
+    }
+    rows.sort((a, b) => b.ts - a.ts);
+    res.json({ ok: true, total: rows.length, rows: rows.slice(0, 400) });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 app.get('/api/admin/lifecycle-pending', requireAdmin, async (req, res) => {
   try {
     const type = String(req.query.type || 'expired');
