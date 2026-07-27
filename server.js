@@ -10844,24 +10844,41 @@ function _waTrim(s, max) {
   const m = cut.match(/^[\s\S]*[.!?…»”"]/);
   return (m ? m[0] : cut).trim();
 }
-async function generateWeekAhead(force = false, genEditorial = false) {
+async function generateWeekAhead(force = false, genEditorial = false, opts = {}) {
+  // MODE ARCHIVE (demande user 27/07 « pouvoir voir les semaines passées, comme le calendrier ») : opts.monday
+  // = lundi d'une semaine ANTÉRIEURE → on reconstruit son agenda depuis l'HISTORIQUE du calendrier
+  // (_buildTVCalendarRange, la même source que les flèches ‹ › de l'onglet Calendrier). Lecture seule :
+  // on NE touche PAS au cache _weekAhead/fichier/KV/news, et on ne GÉNÈRE pas d'éditorial IA (cache seul).
+  const archive = !!(opts && opts.monday);
   const FRESH = 40 * 60 * 1000;   // contenu rafraîchi ~40 min → prévisions/actuals quasi temps réel (la semaine affichée reste la semaine en cours)
-  if (!force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < FRESH) return _weekAhead;
+  if (!archive && !force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < FRESH) return _weekAhead;
   const now = Date.now();
-  // « Semaine en cours » : fenêtre ancrée au LUNDI de la semaine (Lun→Dim). Le week-end → semaine à venir.
-  const _d = new Date(now), _dow = _d.getUTCDay();                 // 0=dim … 6=sam
-  const _toMon = (_dow === 0) ? 1 : (_dow === 6) ? 2 : (1 - _dow); // jours jusqu'au lundi cible
-  const monday = Date.UTC(_d.getUTCFullYear(), _d.getUTCMonth(), _d.getUTCDate() + _toMon, 0, 0, 0);
+  let monday;
+  if (archive) { monday = opts.monday; }
+  else {
+    // « Semaine en cours » : fenêtre ancrée au LUNDI de la semaine (Lun→Dim). Le week-end → semaine à venir.
+    const _d = new Date(now), _dow = _d.getUTCDay();                 // 0=dim … 6=sam
+    const _toMon = (_dow === 0) ? 1 : (_dow === 6) ? 2 : (1 - _dow); // jours jusqu'au lundi cible
+    monday = Date.UTC(_d.getUTCFullYear(), _d.getUTCMonth(), _d.getUTCDate() + _toMon, 0, 0, 0);
+  }
   const weekEnd = monday + 7 * 24 * 60 * 60 * 1000;
+  const _WA_EMPTY = { generatedAt: now, v: WA_VER, week: '', days: [], archive: true };   // réponse vide d'une semaine d'archive
   // Données calendrier FIABLES : MÊME source que l'onglet Calendar — TradingView (noms + prévisions + actuals natifs, temps réel). Repli ForexFactory si indispo.
   let cal = [];
-  try { cal = await _buildTVCalendar(); } catch {}
+  if (archive) {
+    // Historique : assez de mois en arrière pour couvrir le lundi cible (borné à 6, comme le calendrier).
+    const backDays = Math.max(0, Math.ceil((now - monday) / 86400000));
+    const backMonths = Math.min(6, Math.max(1, Math.ceil((backDays + 10) / 30)));
+    try { cal = await _buildTVCalendarRange(backMonths); } catch {}
+  } else {
+    try { cal = await _buildTVCalendar(); } catch {}
+  }
   if (!Array.isArray(cal) || !cal.length) cal = allCalendar || [];
   const up = cal.filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd && (e.impact === 'High' || e.impact === 'Medium'));
   const byDay = {};
   up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(e); });
   const keys = Object.keys(byDay).sort().slice(0, 7);
-  if (!keys.length) { console.warn('[WeekAhead] calendrier vide → on garde l\'existant'); return _weekAhead; }
+  if (!keys.length) { if (archive) return _WA_EMPTY; console.warn('[WeekAhead] calendrier vide → on garde l\'existant'); return _weekAhead; }
   // ── 100% DATA-DRIVEN (calendrier du terminal, AUCUN appel IA) → fiable + zéro consommation ──
   const _theme = t => { t = (t || '').toLowerCase();
     if (/\bcpi\b|inflation|hicp|\bppi\b|\bpce\b|price index/.test(t)) return 'Inflation';
@@ -10935,11 +10952,17 @@ async function generateWeekAhead(force = false, genEditorial = false) {
       hiN: hiEvs.length, medN: evs.length - hiEvs.length,   // compteurs RÉELS du jour (l'infobulle du profil de risque les affiche ; `events` est plafonné à 10 → ne pas compter dessus)
     };
   });
-  if (!days.length) return _weekAhead;
+  if (!days.length) return archive ? _WA_EMPTY : _weekAhead;
   const weekKey = keys[0];                       // lundi de la semaine = clé éditorial (1 génération IA / semaine, cachée)
-  try { await _waApplyEditorial(days, weekKey, genEditorial); } catch {}   // genEditorial=false → applique le cache (0 IA) ; true → génère (planifié)
   const first = new Date(keys[0] + 'T12:00:00Z'), last = new Date(keys[keys.length - 1] + 'T12:00:00Z');
   const week = `${first.getUTCDate()}-${last.getUTCDate()} ${last.toLocaleDateString('fr-FR', { month: 'long' })}`;
+  if (archive) {
+    // Semaine passée : on applique l'éditorial SEULEMENT s'il est déjà en cache (0 IA), sinon les
+    // descriptions déterministes FR suffisent. Aucune écriture de cache/news : vue lecture seule.
+    try { await _waApplyEditorial(days, weekKey, false); } catch {}
+    return { generatedAt: now, v: WA_VER, week, days, archive: true };
+  }
+  try { await _waApplyEditorial(days, weekKey, genEditorial); } catch {}   // genEditorial=false → applique le cache (0 IA) ; true → génère (planifié)
   _weekAhead = { generatedAt: Date.now(), v: WA_VER, week, days, editorialAI: days.filter(d => d.headline && d.summary).length };   // editorialAI = nb de jours rédigés par l'IA (diagnostic)
   try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
   auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
@@ -11088,6 +11111,17 @@ Réponds UNIQUEMENT en JSON compact : {"headline":"...","summary":"..."} — rie
 }
 let _waGenerating = false;
 app.get('/api/week-ahead', async (req, res) => {
+  // NAVIGATION SEMAINES PASSÉES (demande user 27/07, façon calendrier) : weekOffset NÉGATIF = N semaines en
+  // arrière (borné à -13 ≈ 3 mois, comme les flèches ‹ › du calendrier). 0/absent = semaine courante (inchangé).
+  const _off = parseInt(req.query.weekOffset, 10);
+  if (Number.isFinite(_off) && _off < 0) {
+    const _clamp = Math.max(-13, _off);
+    const _n = new Date(), _dw = _n.getUTCDay(), _tm = (_dw === 0) ? 1 : (_dw === 6) ? 2 : (1 - _dw);
+    const _curMon = Date.UTC(_n.getUTCFullYear(), _n.getUTCMonth(), _n.getUTCDate() + _tm, 0, 0, 0);   // même ancre que generateWeekAhead
+    const _target = _curMon + _clamp * 7 * 86400000;
+    try { const wa = await generateWeekAhead(false, false, { monday: _target }); return res.json(Object.assign({ weekOffset: _clamp }, wa)); }
+    catch (e) { return res.json({ week: '', days: [], archive: true, weekOffset: _clamp, error: e.message }); }
+  }
   if (req.query.force === '1' && req.session?.user?.role === 'admin') { try { await generateWeekAhead(true, true); } catch {} return res.json(_weekAhead || { week: '', days: [], generating: true }); }   // force=1 VRAIMENT réservé admin (la route est dans _PUBLIC_PATHS : sans ce contrôle, un anonyme déclenchait des générations IA)
   // NE BLOQUE JAMAIS : si pas encore généré, on lance la génération EN ARRIÈRE-PLAN et on répond tout de suite.
   const _waStale = !_weekAhead || _weekAhead.v !== WA_VER || (Date.now() - (_weekAhead.generatedAt || 0) > 40 * 60 * 1000);

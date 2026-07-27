@@ -3943,12 +3943,33 @@ setInterval(function () {
 
 // ═══════════════════ SEMAINE À VENIR : aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
 let _waData = null, _waChartRoot = null, _waPollTimer = null, _waPollCount = 0;
+// Navigation par semaine (demande user 27/07, façon calendrier) : 0 = semaine à venir (courante),
+// négatif = N semaines en arrière (borné à -13 ≈ 3 mois, comme le calendrier). Verrou anti-course.
+let _waOffset = 0, _waNavBusy = false;
+async function _waShiftWeek(delta) {
+  const off = Math.max(-13, Math.min(0, _waOffset + delta));
+  if (_waNavBusy || off === _waOffset) return;
+  _waNavBusy = true;
+  const prev = _waOffset; _waOffset = off;
+  document.querySelectorAll('#wa-week-prev,#wa-week-next').forEach(b => { b.disabled = true; });   // gèle pendant le fetch
+  try {
+    const url = off < 0 ? ('/api/week-ahead?weekOffset=' + off) : '/api/week-ahead';
+    const d = await (window._dtpJSON ? window._dtpJSON(url) : fetch(url).then(r => r.json()));
+    if (d && Array.isArray(d.days) && d.days.length) { _renderWeekAhead(d); }
+    else { _waOffset = prev; }                     // semaine sans événement / échec → on ne bascule pas
+  } catch { _waOffset = prev; }
+  _waNavBusy = false;
+  // ré-affiche l'état des flèches si le rendu n'a pas eu lieu (retour à l'état précédent)
+  const p = document.getElementById('wa-week-prev'), n = document.getElementById('wa-week-next');
+  if (p) p.disabled = _waOffset <= -13; if (n) n.disabled = _waOffset >= 0;
+}
+window._waShiftWeek = _waShiftWeek;
 async function loadWeekAheadView() {
   const host = document.getElementById('wa-content');
   if (!host) return;
   const isPoll = !!_waPollTimer;                 // continuation d'un poll ?
   if (_waPollTimer) { clearTimeout(_waPollTimer); _waPollTimer = null; }
-  if (!isPoll) { _waPollCount = 0; if (window._calResetToLive) _calResetToLive(); _waLoadPanels(true); }   // ouverture fraîche → le miroir calendrier repart en LIVE (jamais une vue historique) puis clone News + Calendar + auto-scroll
+  if (!isPoll) { _waPollCount = 0; _waOffset = 0; if (window._calResetToLive) _calResetToLive(); _waLoadPanels(true); }   // ouverture fraîche → semaine COURANTE (offset 0) + le miroir calendrier repart en LIVE (jamais une vue historique) puis clone News + Calendar + auto-scroll
   try {
     // Fetch RÉSILIENT (même pattern que le Radar de Biais) : _dtpJSON tolère un 502/HTML pendant un
     // redéploiement au lieu de jeter sur le JSON.parse — cause du « indisponible » figé sur l'app desktop.
@@ -4030,11 +4051,25 @@ function _renderWeekAhead(d) {
       </div>
     </div>`;
   }).join('');
+  // Navigation par semaine (façon calendrier) : flèches ‹ › autour de la plage de dates. ‹ recule (jusqu'à
+  // -13 sem.), › avance vers le présent (désactivée à l'offset 0). Le titre passe à « Semaine écoulée » en archive.
+  const back = (_waOffset <= -13), fwd = (_waOffset >= 0);
+  const titleTxt = _waOffset < 0 ? 'Semaine écoulée' : 'Semaine à Venir';
   host.innerHTML = `<div class="wa-wrap">
-    <div class="wa-head"><span class="wa-title">Semaine à Venir</span>${d.week ? `<span class="wa-week">${esc(d.week)}</span>` : ''}</div>
+    <div class="wa-head">
+      <span class="wa-title">${titleTxt}</span>
+      <span class="wa-weeknav">
+        <button class="cal-range-arrow" id="wa-week-prev" type="button" title="Semaine précédente" aria-label="Semaine précédente"${back ? ' disabled' : ''}>‹</button>
+        ${d.week ? `<span class="wa-week">${esc(d.week)}</span>` : ''}
+        <button class="cal-range-arrow" id="wa-week-next" type="button" title="Semaine suivante" aria-label="Semaine suivante"${fwd ? ' disabled' : ''}>›</button>
+      </span>
+    </div>
     <div class="wa-chartbox"><div class="wa-chart-label">PROFIL DE RISQUE HEBDO</div><div class="wa-chart" id="wa-risk-chart"></div></div>
     <div class="wa-timeline">${rows}</div>
   </div>`;
+  const _pv = document.getElementById('wa-week-prev'), _nx = document.getElementById('wa-week-next');
+  if (_pv) _pv.addEventListener('click', () => _waShiftWeek(-1));
+  if (_nx) _nx.addEventListener('click', () => _waShiftWeek(1));
   requestAnimationFrame(() => {
     host.querySelectorAll('.wa-card').forEach(c => {
       const body = c.querySelector('.wa-events') || c.querySelector('.wa-card-desc');
