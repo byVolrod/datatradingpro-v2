@@ -223,4 +223,28 @@ async function listPayments() {
   return out;
 }
 
-module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, configured: () => !!WHOP_API_KEY };
+// AVIS/TÉMOIGNAGES des membres (endpoint /v2/reviews VÉRIFIÉ en prod le 27/07 : 23 avis).
+// Sert le template « Témoignage » du panneau Campagne — on ne garde que les avis EXPLOITABLES :
+// produit DTP, texte non vide. Tri : meilleurs d'abord (étoiles puis récence).
+async function listReviews() {
+  if (!WHOP_API_KEY) return [];
+  const out = []; let page = 1, totalPages = 1;
+  do {
+    let r; try { r = await fetch(`${BASE}/reviews?per=50&page=${page}`, { headers: _auth() }); } catch { break; }
+    if (!r.ok) break;
+    const j = await r.json();
+    const data = Array.isArray(j) ? j : (j.data || []);
+    for (const v of data) {
+      if (v.product && v.product !== DTP_PRODUCT) continue;
+      const txt = String(v.description || '').trim();
+      if (!txt) continue;
+      out.push({ id: v.id, stars: Number(v.stars) || 0, title: v.title || '', description: txt,
+        createdAt: v.created_at ? v.created_at * 1000 : 0 });
+    }
+    const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
+  } while (page <= totalPages && page <= 10);
+  out.sort((a, b) => (b.stars - a.stars) || (b.createdAt - a.createdAt));
+  return out;
+}
+
+module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, configured: () => !!WHOP_API_KEY };

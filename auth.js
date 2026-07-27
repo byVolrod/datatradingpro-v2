@@ -1058,6 +1058,7 @@ module.exports = {
   weeklyReportList,
   emailLogHas,
   emailLogAdd,
+  emailLogAll,
   aiCacheGet,
   aiCacheSet,
   aiCacheDel,
@@ -1191,6 +1192,11 @@ async function emailLogAdd(key) {
     }
   } catch {}
 }
+
+// Journal COMPLET { clé → date d'envoi ISO } pour l'écran « Journal des envois » du panel admin.
+// Le fichier local est le backstop écrit à CHAQUE envoi (avant Supabase) → il est complet par
+// construction ; on retourne une COPIE (l'appelant ne doit pas pouvoir muter l'anti-doublon).
+function emailLogAll() { return Object.assign({}, _emailFile); }
 
 // ═══════════════════ OPT-OUT E-MAIL PERMANENTS (désinscrits durs) ═══════════════════
 // Désinscrits que l'on ne doit JAMAIS re-contacter (contrainte utilisateur absolue). Même

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg358" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg359" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -274,6 +274,7 @@
         <button class="camp-nav-btn active" data-sub="pilotage" onclick="campSub('pilotage')">Pilotage</button>
         <button class="camp-nav-btn" data-sub="templates" onclick="campSub('templates')">Templates</button>
         <button class="camp-nav-btn" data-sub="audience" onclick="campSub('audience')">Audience</button>
+        <button class="camp-nav-btn" data-sub="journal" onclick="campSub('journal')">Journal</button>
         <button class="camp-nav-btn" data-sub="stats" onclick="campSub('stats')">Statistiques</button>
       </div>
 
@@ -336,6 +337,28 @@
               </div>
               <p class="camp-note"><span id="cprev-ts" style="color:var(--green);font-weight:600"></span></p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOURNAL DES ENVOIS (demande user : « je veux voir les logs quand les mails partent ») -->
+      <div class="camp-sub" data-sub="journal">
+        <div class="panel-card">
+          <div class="panel-head"><h2>Journal des envois</h2><span class="ph-spacer"></span>
+            <span class="fin-sub" id="maillog-count"></span>
+            <button class="btn" onclick="loadMailLog()">Actualiser</button>
+          </div>
+          <div class="panel-body">
+            <div class="toolbar">
+              <input id="maillog-search" placeholder="Filtrer par e-mail ou type d'envoi…" oninput="clearTimeout(window._mlT);window._mlT=setTimeout(loadMailLog,300)" />
+            </div>
+            <div style="overflow-x:auto">
+              <table class="users-table">
+                <thead><tr><th>Date &amp; heure</th><th>Type d'envoi</th><th>Destinataire</th></tr></thead>
+                <tbody id="maillog-tbody"><tr><td colspan="3" class="empty-state">Chargement…</td></tr></tbody>
+              </table>
+            </div>
+            <p class="camp-note">Chaque ligne = un envoi réellement parti (journal anti-doublon durable, écrit à l'instant de l'envoi). Les 400 plus récents s'affichent ; le filtre cherche dans tout l'historique.</p>
           </div>
         </div>
       </div>
@@ -556,6 +579,17 @@
       <small class="role-hint" id="edit-plan-hint" style="display:none"></small><!-- texte posé par planSync -->
     </div>
     <div class="form-field">
+      <label>Plan (cadence)</label>
+      <select id="edit-plancad">
+        <option value="">Auto — dérivée des dates</option>
+        <option value="mensuel">Mensuel</option>
+        <option value="annuel">Annuel</option>
+        <option value="7j">7 jours</option>
+        <option value="illimite">Illimité</option>
+      </select>
+      <small class="role-hint">La cadence affichée dans la colonne PLAN. « Auto » la déduit des dates du compte ; choisis une valeur quand les dates ne reflètent pas la réalité (ex. import).</small>
+    </div>
+    <div class="form-field">
       <label>Statut</label>
       <select id="edit-active">
         <option value="1">Actif</option>
@@ -613,6 +647,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260727bbg358"></script>
+<script src="/js/admin.js?v=20260727bbg359"></script>
 </body>
 </html>

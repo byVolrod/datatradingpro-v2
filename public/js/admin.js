@@ -156,6 +156,7 @@
     // serveur du mail + de ses widgets). Hors Templates → timer coupé, iframe jamais chargée d'office.
     if (name === 'templates') { _campTplRender(); if (!window._cprevType) tplSelect('intro'); else { tplSelect(window._cprevType); } }
     else if (window._cprevTimer) { clearInterval(window._cprevTimer); window._cprevTimer = null; }
+    if (name === 'journal') loadMailLog();
   }
   // ── Bibliothèque de templates (aperçu + test par template, TOUS les templates y compris one-shot) ──
   const _CAMP_TPLS = [
@@ -170,8 +171,11 @@
     // ── CYCLE DE VIE (transactionnels : déclenchés par l'état du compte, pas par le calendrier).
     //    Ajoutés le 27/07 pour pouvoir les RELIRE avant de valider un rattrapage. Pas de bouton « Test »
     //    (ils s'envoient sur événement) — l'aperçu suffit à vérifier le rendu.
-    { prev:'trial-upsell',   test:null, name:'Fin d\'essai gratuit',  when:'Auto · fin d\'essai',  lifecycle:'trial-upsell', desc:'Part le jour où l\'essai expire. Rattrapage possible ci-dessous.' },
-    { prev:'expired',        test:null, name:'Abonnement expiré',     when:'Auto · à l\'échéance', lifecycle:'expired',      desc:'Part quand l\'abonnement payant arrive à échéance. Rattrapage possible ci-dessous.' },
+    { prev:'trial-upsell',   test:null, name:'Fin d\'essai gratuit',  when:'Auto · fin d\'essai',  lifecycle:'trial-upsell', desc:'Part le jour où l\'essai expire. Rattrapage possible via « Comptes sans ce mail ».' },
+    { prev:'expired',        test:null, name:'Abonnement expiré',     when:'Auto · à l\'échéance', lifecycle:'expired',      desc:'Part quand l\'abonnement payant arrive à échéance.' },
+    { prev:'expired-7j',     test:null, name:'Relance J+7',           when:'Auto · J+7',           lifecycle:'expired-7j',   desc:'Dernier rappel automatique, 7 jours après l\'expiration si toujours pas renouvelé.' },
+    { prev:'winback',        test:null, name:'Win-back (jalons)',     when:'Auto · 1/3/6/12 mois', winback:true,             desc:'« Ça fait X que vous nous avez quittés » — 4 jalons après le départ, copy adaptée à l\'ancienneté.' },
+    { prev:'temoignage',     test:null, name:'Témoignage membre',     when:'Manuel · validation',  desc:'Un avis Whop réel + l\'histoire de JustOneTrader et du terminal. Ne part JAMAIS seul : aperçu pour validation.' },
     { prev:'reengagement',   test:null, name:'Réengagement',          when:'Auto · inactif 7j',    desc:'Relance d\'un client inactif depuis ~7 jours.' },
     { prev:'renewal-failed', test:null, name:'Renouvellement échoué', when:'Auto · sur échec',     desc:'Envoyé quand un paiement échoue / le compte est suspendu.' },
     { prev:'welcome',        test:null, name:'Bienvenue (accès)',     when:'Auto · création',      desc:'Identifiants d\'accès envoyés à la création du compte.' },
@@ -194,10 +198,23 @@
     if (t.variants) acts = ['<button class="camp-btn" onclick="campPreviewInvit(0)">Pro</button>',
                             '<button class="camp-btn" onclick="campPreviewInvit(1)">Conviviale</button>',
                             '<button class="camp-btn" onclick="campPreviewInvit(2)">Perf.</button>'];
+    if (t.winback) acts = ['<button class="camp-btn" onclick="campPreviewWinback(1)">1 mois</button>',
+                           '<button class="camp-btn" onclick="campPreviewWinback(3)">3 mois</button>',
+                           '<button class="camp-btn" onclick="campPreviewWinback(6)">6 mois</button>',
+                           '<button class="camp-btn" onclick="campPreviewWinback(12)">1 an</button>',
+                           '<button class="camp-btn" onclick="lifecycleOpen(\'winback-\' + (window._cprevMonths || 3) + \'m\')">Comptes sans ce jalon</button>'];
     if (t.test) acts.push('<button class="camp-btn" onclick="campDripTest(\'' + t.test + '\')">🧪 Test sur ma boîte</button>');
     if (t.lifecycle) acts.push('<button class="camp-btn" onclick="lifecycleOpen(\'' + t.lifecycle + '\')">Comptes sans ce mail</button>');
     var a = document.getElementById('cprev-actions'); if (a) a.innerHTML = acts.join('');
-    if (t.variants) campPreviewInvit(0); else campPreview(t.prev);
+    if (t.variants) campPreviewInvit(0);
+    else if (t.winback) campPreviewWinback(3);
+    else campPreview(t.prev);
+  }
+  // Win-back : prévisualise un jalon précis (1/3/6/12 mois après le départ).
+  function campPreviewWinback(m){
+    window._cprevType = 'winback'; window._cprevVariant = null; window._cprevMonths = m;
+    window._cprevRetryCount = 0;
+    _cprevLoad(); _cprevMark(); _cprevArm();
   }
   // ══ RATTRAPAGE CYCLE DE VIE (demande user 27/07 « je valide l'envoi aux comptes qui n'ont pas reçu ») ══
   // Les mails de cycle de vie ne partent automatiquement que DANS leur fenêtre (48 h / 24 h) : les comptes
@@ -474,6 +491,28 @@
       loadBlacklist(); loadCampaign();
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
+  // ── Journal des envois : chaque mail réellement parti (source = anti-doublon durable) ──
+  async function loadMailLog(){
+    const tb = document.getElementById('maillog-tbody'); if (!tb) return;
+    const q = (document.getElementById('maillog-search') || {}).value || '';
+    try {
+      const d = await fetch('/api/admin/email-log' + (q ? '?q=' + encodeURIComponent(q) : '')).then(r => r.json());
+      const cnt = document.getElementById('maillog-count');
+      if (cnt) cnt.textContent = d.total + ' envoi' + (d.total > 1 ? 's' : '');
+      const rows = d.rows || [];
+      tb.innerHTML = rows.length ? rows.map(function(r){
+        const when = r.ts ? new Date(r.ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+        const cls = /Désinscription/.test(r.type) ? 'badge-expired'
+          : /Campagne/.test(r.type) ? 'badge-client'
+          : /Bienvenue|Renouvellement/.test(r.type) ? 'badge-pro'
+          : 'badge-essai';   // cycle de vie (essai, expiré, relances, jalons) → or
+        return '<tr><td style="font-family:var(--font-mono);font-size:11px;color:var(--text3);white-space:nowrap">' + when + '</td>'
+          + '<td><span class="badge ' + cls + '">' + r.type + '</span></td>'
+          + '<td class="email">' + r.dest + '</td></tr>';
+      }).join('') : '<tr><td colspan="3" class="empty-state">Aucun envoi ' + (q ? 'ne correspond au filtre.' : 'enregistré.') + '</td></tr>';
+    } catch { tb.innerHTML = '<tr><td colspan="3" class="empty-state">Erreur de chargement.</td></tr>'; }
+  }
+
   // ── Accès offerts : exemptés de TOUTE relance de paiement ──
   // Les entrées du seed (code) ne sont pas retirables depuis l'interface : elles se remettraient
   // toutes seules au prochain démarrage. On les affiche donc sans bouton, avec la mention.
@@ -615,7 +654,8 @@
       if (ts) ts.textContent = '● En direct · MAJ ' + new Date().toLocaleTimeString('fr-FR') + ' —';
     };
     var vv = (window._cprevVariant != null && window._cprevVariant !== '') ? ('&variant=' + window._cprevVariant) : '';   // Invitation : voir chaque variante
-    f.src = '/api/admin/campaign-preview?type=' + type + m + vv + '&_=' + Date.now();
+    var mo = (type === 'winback' && window._cprevMonths) ? ('&months=' + window._cprevMonths) : '';                       // Win-back : voir chaque jalon
+    f.src = '/api/admin/campaign-preview?type=' + type + m + vv + mo + '&_=' + Date.now();
   }
   // Recharge auto 45 s : UNIQUEMENT quand l'onglet Templates est ouvert ET la page visible
   // (chaque rendu d'aperçu reconstruit le mail + ses widgets côté serveur — on ne gaspille plus).
@@ -631,11 +671,12 @@
     var _tt = _CAMP_TPLS.find(function(x){ return x.prev === window._cprevType; });   // source unique : la liste (couvre AUSSI les cycle-de-vie)
     var t = document.getElementById('cprev-title');
     if (t) t.textContent = '· ' + ((_tt && _tt.name) || window._cprevType || '')
-      + (window._cprevVariant != null ? ' (' + (['pro', 'conviviale', 'performance'][window._cprevVariant] || window._cprevVariant) + ')' : '');
+      + (window._cprevVariant != null ? ' (' + (['pro', 'conviviale', 'performance'][window._cprevVariant] || window._cprevVariant) + ')' : '')
+      + (window._cprevType === 'winback' && window._cprevMonths ? ' (' + (window._cprevMonths === 12 ? '1 an' : window._cprevMonths + ' mois') + ')' : '');
     document.querySelectorAll('#camp-tpl-grid .tpl-item').forEach(function(c){ c.classList.toggle('active', c.dataset.tpl === window._cprevType); });
   }
   function campPreview(type){
-    window._cprevType = type; window._cprevVariant = null;   // reset variante quand on change de template
+    window._cprevType = type; window._cprevVariant = null; window._cprevMonths = null;   // reset variante/jalon quand on change de template
     window._cprevRetryCount = 0;
     _cprevLoad(); _cprevMark(); _cprevArm();
   }
@@ -1315,7 +1356,7 @@
         <td>${subInfo(u)}</td>
         <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px" title="${u.last_login ? esc(new Date(u.last_login).toLocaleString('fr-FR')) : ''}">${relTime(u.last_login)}</td>
         <td class="actions">
-          ${icBtn('edit', 'Modifier', `openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active})`)}
+          ${icBtn('edit', 'Modifier', `openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active},'${esc(u.plancad || '')}')`)}
           ${icBtn('pwd', 'Mot de passe', `openPwd('${esc(String(u.id))}')`)}
           ${u.role !== 'admin' ? icBtn(u.active ? 'pause' : 'play', u.active ? 'Suspendre' : 'Réactiver', `toggleSuspend('${esc(String(u.id))}',${u.active})`)
             + icBtn('kick', 'Déconnecter du desk', `forceDisconnect('${esc(String(u.id))}')`) : ''}
@@ -1385,8 +1426,10 @@
   }
   // ── Colonne PLAN = la CADENCE, dérivée des dates (aucune saisie) : 7 jours / Mensuel / Annuel /
   //    Illimité. Colonne TYPE = la NATURE déclarée : Professionnel / Amis / Essai (+ staff).
+  const _CADS = { mensuel: 'Mensuel', annuel: 'Annuel', '7j': '7 jours', illimite: 'Illimité' };
   function cycleLabel(u) {
     if (u.role === 'admin' || u.role === 'support') return '∞';
+    if (u.plancad && _CADS[u.plancad]) return _CADS[u.plancad];   // override admin (KV plancads) → prime
     if (!u.expires_at) return 'Illimité';
     if (!u.created_at) return '—';
     const span = new Date(u.expires_at) - new Date(u.created_at);
@@ -1395,12 +1438,13 @@
     if (span >= 300 * 86400000) return 'Annuel';
     return 'Mensuel';
   }
+  // Couleurs voulues par le user : Amis = BLEU · Professionnel = VERT · Essai = OR DTP.
   function typeBadge(u) {
     if (u.role === 'admin')   return '<span class="badge badge-admin">Admin</span>';
     if (u.role === 'support') return '<span class="badge badge-support">Support</span>';
     if (String(u.plan || '').toLowerCase() === 'amis') return '<span class="badge badge-amis">Amis</span>';
-    if (isTrialUser(u)) return '<span class="badge badge-soon">Essai</span>';
-    return '<span class="badge badge-client">Professionnel</span>';
+    if (isTrialUser(u)) return '<span class="badge badge-essai">Essai</span>';
+    return '<span class="badge badge-pro">Professionnel</span>';
   }
   // Note sous le sélecteur de type + réglages associés. « Essai » propose la durée 1 semaine
   // (création seulement — en édition la durée vaut « ne rien changer », la forcer raccourcirait
@@ -1538,10 +1582,11 @@
   }
 
   // ── Edit modal ──────────────────────────────────────────────────────────────
-  function openEdit(id, name, role, plan, active) {
+  function openEdit(id, name, role, plan, active, plancad) {
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-name').value = name;
     document.getElementById('edit-role').value = role;
+    const _pc = document.getElementById('edit-plancad'); if (_pc) _pc.value = plancad || '';
     // TYPE : les anciennes valeurs (mensuel/annuel/professionnel) se rangent toutes sous
     // « Professionnel » — la cadence est désormais DÉRIVÉE des dates, plus une valeur du sélecteur.
     const _tp = String(plan || '').toLowerCase();
@@ -1561,6 +1606,7 @@
       name:   document.getElementById('edit-name').value,
       role:   document.getElementById('edit-role').value,
       plan:   document.getElementById('edit-plan').value,
+      plancad: (document.getElementById('edit-plancad') || {}).value || '',
       active: +document.getElementById('edit-active').value };
     const dur = document.getElementById('edit-duration').value;
     if (dur) {                                  // l'admin a choisi de renouveler / changer l'échéance

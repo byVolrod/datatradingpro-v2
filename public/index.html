@@ -1244,7 +1244,7 @@
     // Badge plan dynamique (Professionnel si actif, Suspendu sinon)
     const hdrBadge = document.getElementById('pd-hdr-badge');
     if (hdrBadge) {
-      hdrBadge.textContent = d.user.active ? 'Professionnel · Mensuel' : 'Suspendu';
+      hdrBadge.textContent = d.user.active ? (d.user.planLabel || 'Professionnel') : 'Suspendu';   // « TYPE · CADENCE » réel du compte (fini le libellé codé en dur)
       hdrBadge.style.background = d.user.active
         ? 'rgba(227,178,58,0.08)' : 'rgba(231,76,60,0.10)';
       hdrBadge.style.color  = d.user.active ? '#e3b23a' : '#ef4444';
