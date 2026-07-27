@@ -168,10 +168,11 @@ function _buildRaw(to, subject, html, att) {
     `--${boundary}--`,
   ];
   let lines;
+  const _bccLine = (typeof _bccFor === 'function' && _bccFor(to)) ? [`Bcc: ${_bccFor(to)}`] : [];   // copie admin (Cci) aussi sur le canal API Gmail
   if (att && att.length) {
     const rel = 'rel_' + boundary;
     lines = [
-      `From: ${fromHeader}`, `To: ${to}`, `Reply-To: ${SUPPORT_EMAIL}`,
+      `From: ${fromHeader}`, `To: ${to}`, ..._bccLine, `Reply-To: ${SUPPORT_EMAIL}`,
       `Subject: ${subjEnc}`, 'MIME-Version: 1.0',
       `Content-Type: multipart/related; boundary="${rel}"`, '',
       `--${rel}`, `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
@@ -188,7 +189,7 @@ function _buildRaw(to, subject, html, att) {
     lines.push('', `--${rel}--`);
   } else {
     lines = [
-      `From: ${fromHeader}`, `To: ${to}`, `Reply-To: ${SUPPORT_EMAIL}`,
+      `From: ${fromHeader}`, `To: ${to}`, ..._bccLine, `Reply-To: ${SUPPORT_EMAIL}`,
       `Subject: ${subjEnc}`, 'MIME-Version: 1.0',
       `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
       ...alt,
@@ -223,7 +224,7 @@ async function _sendGmailApi(to, subject, html, att) {
 async function _sendGmail(to, subject, html, att) {
   const from = _parseFrom();
   const fromHeader = `${from.name || 'DataTradingPro'} <${GMAIL_USER}>`;   // expéditeur = compte authentifié (alignement garanti)
-  await _getGmailTransport().sendMail({ from: fromHeader, replyTo: SUPPORT_EMAIL, to, subject, html, text: _htmlToText(html), attachments: (att && att.length) ? att : undefined });
+  await _getGmailTransport().sendMail({ from: fromHeader, replyTo: SUPPORT_EMAIL, to, bcc: _bccFor(to), subject, html, text: _htmlToText(html), attachments: (att && att.length) ? att : undefined });
   console.log(`[Mailer] ✅ (Gmail) "${subject}" → ${to}`);
   return true;
 }
@@ -281,6 +282,13 @@ function _isDuplicate(to, subject) {
   return prev && (now - prev < 12000);
 }
 
+// ── COPIE ADMIN (demande user 27/07 : « je dois recevoir chaque envoi dans ma boîte ») ──────────
+// CHAQUE mail sortant part AUSSI en Cci vers la boîte admin — sauf si le destinataire EST l'admin
+// (sinon doublon). Le client ne voit rien (Cci). Jours de campagne = autant de copies que de
+// destinataires. Désactivable/modifiable via MAIL_ADMIN_COPY (adresse, ou « off »).
+const _ADMIN_COPY = (() => { const v = String(process.env.MAIL_ADMIN_COPY || 'volrod.dev@gmail.com').toLowerCase().trim(); return (v === 'off' || v === '0') ? '' : v; })();
+function _bccFor(to) { return (_ADMIN_COPY && String(to).toLowerCase().trim() !== _ADMIN_COPY) ? _ADMIN_COPY : undefined; }
+
 // ── Envoi bas niveau : valide, dé-doublonne, puis essaie les fournisseurs DANS L'ORDRE ──
 // Ordre = API Gmail (HTTPS, depuis le compte Google, aligné DMARC → boîte de réception) →
 //         Gmail SMTP (secours, même compte). 100% Google : Mailjet/Resend désactivés par défaut.
@@ -300,7 +308,7 @@ function _getOvhTransport() {
 async function _sendOvhSmtp(to, subject, html, att) {
   if (!process.env.OVH_SMTP_USER || !process.env.OVH_SMTP_PASS) return false;
   const from = process.env.EMAIL_FROM || process.env.OVH_SMTP_USER;   // ex. "DataTradingPro <contact@datatradingpro.com>"
-  await _getOvhTransport().sendMail({ from, replyTo: SUPPORT_EMAIL, to, subject, html, text: _htmlToText(html),   // texte+HTML (multipart) = meilleure délivrabilité
+  await _getOvhTransport().sendMail({ from, replyTo: SUPPORT_EMAIL, to, bcc: _bccFor(to), subject, html, text: _htmlToText(html),   // texte+HTML (multipart) = meilleure délivrabilité ; Cci = copie admin
     attachments: (att && att.length) ? att : undefined,   // images INLINE (cid:) — affichage garanti Outlook (pas de fetch distant)
     headers: { 'List-Unsubscribe': '<mailto:' + SUPPORT_EMAIL + '?subject=Unsubscribe>' } });   // mail-tester / bonnes pratiques
   return true;
