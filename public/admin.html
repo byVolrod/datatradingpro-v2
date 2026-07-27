@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg355" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg357" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -148,19 +148,21 @@
                 <option value="admin">Admin</option>
               </select>
             </div>
+            <!-- TYPE = la NATURE du compte (qui il est), pas la cadence. Le cycle (mensuel/annuel/7 j)
+                 se lit dans la Durée d'abonnement et s'affiche dérivé dans la colonne Plan de la table. -->
             <div class="form-field">
-              <label>Plan</label>
+              <label>Type</label>
               <select name="plan" id="add-plan" onchange="planSync('add')">
+                <option value="professionnel" selected>Professionnel</option>
+                <option value="amis">Amis (accès offert)</option>
                 <option value="essai">Essai gratuit (1 semaine)</option>
-                <option value="mensuel" selected>Mensuel</option>
-                <option value="annuel">Annuel</option>
-                <option value="professionnel">Professionnel</option>
               </select>
             </div>
             <!-- Notes explicatives HORS des colonnes : la grille est alignée par le BAS, une note
                  glissée dans une cellule la fait grandir et décale le champ par rapport à ses voisins. -->
             <small class="role-hint form-note" id="add-role-hint" style="display:none">Agent support : répond aux messages depuis son propre compte, sans accès à la gestion des utilisateurs.</small>
-            <small class="role-hint form-note" id="add-plan-hint" style="display:none">Compte d'essai : aucun revenu compté, et à l'échéance c'est le mail « fin d'essai » qui part — jamais la relance de renouvellement.</small>
+            <small class="role-hint form-note" id="add-plan-hint" style="display:none"></small><!-- texte posé par planSync selon le type -->
+
             <div class="form-field">
               <label>Date de début (ex. paiement Whop)</label>
               <input type="date" name="startDate" id="add-start-date" title="Laisse vide = aujourd'hui" />
@@ -213,8 +215,8 @@
                 <tr>
                   <th class="sortable" data-sort="name">Nom <span class="sort-arrow">▲</span></th>
                   <th class="sortable" data-sort="email">Email <span class="sort-arrow">▲</span></th>
-                  <th class="sortable" data-sort="role">Rôle <span class="sort-arrow">▲</span></th>
                   <th>Plan</th>
+                  <th class="sortable" data-sort="type">Type <span class="sort-arrow">▲</span></th>
                   <th class="sortable" data-sort="status">Statut <span class="sort-arrow">▲</span></th>
                   <th class="sortable" data-sort="expiry">Abonnement <span class="sort-arrow">▲</span></th>
                   <th class="sortable" data-sort="last">Dernière connexion <span class="sort-arrow">▲</span></th>
@@ -542,14 +544,13 @@
       </select>
     </div>
     <div class="form-field">
-      <label>Plan</label>
+      <label>Type</label>
       <select id="edit-plan" onchange="planSync('edit')">
+        <option value="professionnel" selected>Professionnel</option>
+        <option value="amis">Amis (accès offert)</option>
         <option value="essai">Essai gratuit (1 semaine)</option>
-        <option value="mensuel" selected>Mensuel</option>
-        <option value="annuel">Annuel</option>
-        <option value="professionnel">Professionnel</option>
       </select>
-      <small class="role-hint" id="edit-plan-hint" style="display:none">Compte d'essai : aucun revenu compté, et à l'échéance c'est le mail « fin d'essai » qui part — jamais la relance de renouvellement.</small>
+      <small class="role-hint" id="edit-plan-hint" style="display:none"></small><!-- texte posé par planSync -->
     </div>
     <div class="form-field">
       <label>Statut</label>
@@ -609,6 +610,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260727bbg356"></script>
+<script src="/js/admin.js?v=20260727bbg357"></script>
 </body>
 </html>

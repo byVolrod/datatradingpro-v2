@@ -487,6 +487,16 @@ select { cursor: pointer; }
 .users-table tbody td:last-child { white-space: nowrap; }
 td .actions { display: inline-flex; gap: var(--sp-1); flex-wrap: nowrap; }
 td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-meta); }
+/* Actions en ICÔNES : 5 boutons texte ≈ 450 px/ligne → 5 icônes ≈ 150 px. Libellé dans title/aria. */
+.btn-ic { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px;
+  padding: 0; background: transparent; border: 1px solid var(--border); border-radius: var(--r-2);
+  color: var(--text2); cursor: pointer; transition: border-color .12s, color .12s, background .12s; }
+.btn-ic svg { width: 13px; height: 13px; }
+.btn-ic:hover { border-color: rgba(227, 178, 58, .45); color: var(--orange); }
+.btn-ic--danger { color: var(--red); border-color: rgba(231, 76, 60, .3); }
+.btn-ic--danger:hover { border-color: var(--red); color: var(--red); background: rgba(231, 76, 60, .1); }
+/* Type « Amis » (accès offert) : violet — distinct du staff (bleu/ambre) et des états de marché */
+.badge-amis { background: rgba(167, 139, 250, .12); border-color: rgba(167, 139, 250, .32); color: #a78bfa; }
 .del-confirm { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .del-confirm-txt { color: var(--red); font-size: var(--fs-meta); font-weight: var(--fw-semibold); }
 .clickable { cursor: pointer; }

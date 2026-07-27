@@ -1230,7 +1230,12 @@
     switch (key) {
       case 'name':   return (u.name || u.email || '').toLowerCase();
       case 'email':  return (u.email || '').toLowerCase();
-      case 'role':   return ({ admin:0, support:1, client:2 })[u.role] ?? 3;
+      case 'type': {                                        // ordre : staff, puis Amis, Essai, Pro
+        if (u.role === 'admin') return 0;
+        if (u.role === 'support') return 1;
+        if (String(u.plan || '').toLowerCase() === 'amis') return 2;
+        return isTrialUser(u) ? 3 : 4;
+      }
       case 'status': return ({ suspended:0, expired:1, soon:2, active:3 })[subState(u)] ?? 4;
       case 'last':   return u.last_login ? new Date(u.last_login).getTime() : 0;
       case 'created': return u.created_at ? new Date(u.created_at).getTime() : 0;   // date d'inscription
@@ -1282,21 +1287,33 @@
     const start = (_page - 1) * per;
     const pageUsers = users.slice(start, start + per);
 
+    // Actions en ICÔNES (les 5 boutons texte faisaient ~450 px par ligne — retour user « trop large ») ;
+    // le libellé survit dans title + aria-label.
+    const IC = {
+      edit:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+      pwd:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+      pause:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
+      play:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+      kick:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+      del:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+    };
+    const icBtn = (icon, label, onclick, danger) =>
+      `<button class="btn-ic${danger ? ' btn-ic--danger' : ''}" title="${label}" aria-label="${label}" onclick="${onclick}">${IC[icon]}</button>`;
     tbody.innerHTML = pageUsers.map(u => `
       <tr data-id="${u.id}">
         <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${u.name || '—'}</span></div></td>
         <td class="email">${u.email}</td>
-        <td><span class="badge badge-${u.role}">${u.role}</span></td>
-        <td><span class="badge ${isTrialUser(u) ? 'badge-soon' : 'badge-client'}">${planLabel(u)}</span></td>
+        <td><span class="badge badge-client">${cycleLabel(u)}</span></td>
+        <td>${typeBadge(u)}</td>
         <td>${statusBadge(u)}</td>
         <td>${subInfo(u)}</td>
         <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px" title="${u.last_login ? esc(new Date(u.last_login).toLocaleString('fr-FR')) : ''}">${relTime(u.last_login)}</td>
         <td class="actions">
-          <button class="btn-sm" onclick="openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active})">Modifier</button>
-          <button class="btn-sm" onclick="openPwd('${esc(String(u.id))}')">MDP</button>
-          ${u.role !== 'admin' ? `<button class="btn-sm" onclick="toggleSuspend('${esc(String(u.id))}',${u.active})">${u.active ? 'Suspendre' : 'Réactiver'}</button>
-          <button class="btn-sm" onclick="forceDisconnect('${esc(String(u.id))}')">Déconnecter</button>` : ''}
-          <button class="btn-sm btn-danger" onclick="deleteUser('${esc(String(u.id))}')">Suppr.</button>
+          ${icBtn('edit', 'Modifier', `openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active})`)}
+          ${icBtn('pwd', 'Mot de passe', `openPwd('${esc(String(u.id))}')`)}
+          ${u.role !== 'admin' ? icBtn(u.active ? 'pause' : 'play', u.active ? 'Suspendre' : 'Réactiver', `toggleSuspend('${esc(String(u.id))}',${u.active})`)
+            + icBtn('kick', 'Déconnecter du desk', `forceDisconnect('${esc(String(u.id))}')`) : ''}
+          ${icBtn('del', 'Supprimer', `deleteUser('${esc(String(u.id))}')`, true)}
         </td>
       </tr>`).join('');
 
@@ -1349,33 +1366,54 @@
   }
 
   // Essai gratuit = durée d'abonnement (création → expiration) ≤ ~1 semaine
-  // Essai : le PLAN déclaré fait autorité ; la fenêtre d'accès ne sert que de repli pour les comptes
-  // créés avant l'existence du plan « essai ». Miroir exact de _isTrialAccount (server.js).
+  // Essai : le TYPE déclaré fait autorité ; la fenêtre d'accès ne sert que de repli pour les comptes
+  // créés avant l'existence du type « essai ». Miroir exact de _isTrialAccount (server.js).
   function isTrialUser(u) {
     if (u.role === 'admin' || u.role === 'support') return false;
-    if (String(u.plan || '').toLowerCase() === 'essai') return true;
+    const p = String(u.plan || '').toLowerCase();
+    if (p === 'essai') return true;
+    if (p === 'amis') return false;                          // ami déclaré → jamais reclassé essai par les dates
     if (!u.expires_at || !u.created_at) return false;
     const span = new Date(u.expires_at) - new Date(u.created_at);
     return span > 0 && span <= 8.5 * 86400000;
   }
-  // Libellé du plan affiché dans la table (l'essai prime, sinon le plan enregistré)
-  const _PLAN_LBL = { essai: 'Essai gratuit', mensuel: 'Mensuel', annuel: 'Annuel', professionnel: 'Professionnel' };
-  function planLabel(u) {
-    if (isTrialUser(u)) return 'Essai gratuit';
-    return _PLAN_LBL[String(u.plan || '').toLowerCase()] || 'Professionnel';
+  // ── Colonne PLAN = la CADENCE, dérivée des dates (aucune saisie) : 7 jours / Mensuel / Annuel /
+  //    Illimité. Colonne TYPE = la NATURE déclarée : Professionnel / Amis / Essai (+ staff).
+  function cycleLabel(u) {
+    if (u.role === 'admin' || u.role === 'support') return '∞';
+    if (!u.expires_at) return 'Illimité';
+    if (!u.created_at) return '—';
+    const span = new Date(u.expires_at) - new Date(u.created_at);
+    if (!(span > 0)) return '—';                             // dates incohérentes (import) → on n'invente pas
+    if (span <= 8.5 * 86400000) return '7 jours';
+    if (span >= 300 * 86400000) return 'Annuel';
+    return 'Mensuel';
   }
-  // Choisir « Essai gratuit » propose automatiquement la durée 1 semaine (sans l'imposer :
-  // l'admin peut rallonger un essai de faveur derrière).
+  function typeBadge(u) {
+    if (u.role === 'admin')   return '<span class="badge badge-admin">Admin</span>';
+    if (u.role === 'support') return '<span class="badge badge-support">Support</span>';
+    if (String(u.plan || '').toLowerCase() === 'amis') return '<span class="badge badge-amis">Amis</span>';
+    if (isTrialUser(u)) return '<span class="badge badge-soon">Essai</span>';
+    return '<span class="badge badge-client">Professionnel</span>';
+  }
+  // Note sous le sélecteur de type + réglages associés. « Essai » propose la durée 1 semaine
+  // (création seulement — en édition la durée vaut « ne rien changer », la forcer raccourcirait
+  // l'accès d'un compte existant sans que l'admin l'ait demandé).
+  const _TYPE_HINTS = {
+    essai: "Compte d'essai : aucun revenu compté, et à l'échéance c'est le mail « fin d'essai » qui part — jamais la relance de renouvellement.",
+    amis:  "Compte ami : accès offert — ne recevra JAMAIS de relance de paiement (ni renouvellement, ni fin d'essai). Tout le reste est normal.",
+  };
   function planSync(which) {
     const sel = document.getElementById(which + '-plan'); if (!sel) return;
-    const essai = sel.value === 'essai';
     const hint = document.getElementById(which + '-plan-hint');
-    if (hint) hint.style.display = essai ? 'block' : 'none';
-    // Uniquement à la CRÉATION : en édition, la durée vaut « ne rien changer » — la forcer
-    // raccourcirait l'accès d'un compte existant sans que l'admin l'ait demandé.
+    if (hint) {
+      const t = _TYPE_HINTS[sel.value] || '';
+      hint.textContent = t;
+      hint.style.display = t ? 'block' : 'none';
+    }
     if (which !== 'add') return;
     const dur = document.getElementById('add-duration');
-    if (essai && dur && dur.value !== '1week') { dur.value = '1week'; if (typeof toggleCustom === 'function') toggleCustom('add'); }
+    if (sel.value === 'essai' && dur && dur.value !== '1week') { dur.value = '1week'; if (typeof toggleCustom === 'function') toggleCustom('add'); }
   }
   // Affiche l'état de l'abonnement (illimité / actif jusqu'au… / expiré)
   function subInfo(u) {
@@ -1498,13 +1536,13 @@
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-name').value = name;
     document.getElementById('edit-role').value = role;
-    document.getElementById('edit-plan').value = plan;
+    // TYPE : les anciennes valeurs (mensuel/annuel/professionnel) se rangent toutes sous
+    // « Professionnel » — la cadence est désormais DÉRIVÉE des dates, plus une valeur du sélecteur.
+    const _tp = String(plan || '').toLowerCase();
+    document.getElementById('edit-plan').value = (_tp === 'essai' || _tp === 'amis') ? _tp : 'professionnel';
     document.getElementById('edit-active').value = active ? '1' : '0';   // statut actuel (Actif/Suspendu) pré-rempli
     toggleStaff('edit');   // masque les champs abonnement si support/admin
-    // Note d'explication du plan « essai » — SANS passer par planSync : à l'ouverture on ne doit
-    // surtout pas toucher à la durée (elle vaut « ne rien changer », l'écraser décalerait l'échéance).
-    const _ph = document.getElementById('edit-plan-hint');
-    if (_ph) _ph.style.display = String(plan || '').toLowerCase() === 'essai' ? 'block' : 'none';
+    planSync('edit');      // note du type (en édition planSync ne touche JAMAIS à la durée)
     document.getElementById('edit-duration').value = '';      // par défaut : on garde l'échéance
     document.getElementById('edit-custom-date').value = '';
     document.getElementById('edit-custom-wrap').style.display = 'none';
