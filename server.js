@@ -11166,7 +11166,7 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
   const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
   // 1) Charge l'éditorial déjà connu pour CETTE semaine (mémoire puis cache durable) et l'applique aussitôt.
   let cachedItems = (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items)) ? _waEditorial.items : null;
-  if (!cachedItems) { try { const c = await auth.aiCacheGet('weekahead:editorial8fr').catch(() => null); if (c && c.weekKey === weekKey && Array.isArray(c.items)) { _waEditorial = c; cachedItems = c.items; } } catch {} }
+  if (!cachedItems) { try { const c = await auth.aiCacheGet('weekahead:editorial9fr').catch(() => null); if (c && c.weekKey === weekKey && Array.isArray(c.items)) { _waEditorial = c; cachedItems = c.items; } } catch {} }
   if (cachedItems) apply(cachedItems);
   const _complete = cachedItems && cachedItems.length >= days.length && days.every((_, i) => cachedItems[i] && cachedItems[i].summary);
   if (_complete || !gen) return;   // déjà complet → fini ; sinon, hors génération planifiée → repli déterministe pour les jours manquants
@@ -11186,8 +11186,8 @@ ${evs || 'Aucune donnée majeure programmée — séance plus calme.'}
 Devises au centre de l'attention sur la semaine : ${focusWk || 'principales devises'}.
 
 Produis :
-(1) HEADLINE — un titre accrocheur façon dépêche, 6 à 12 mots, sans guillemets, sans point final.
-(2) SUMMARY — une note de desk DÉTAILLÉE et EXPLICITE de 4 à 6 phrases. OUVRE en cadrant le thème dominant du jour ; explique ensuite les publications CLÉS et les événements de banques centrales AVEC leurs enjeux et la direction/ampleur attendue le cas échéant ; détaille les implications CROSS-ASSET (FX, taux, actions, matières premières) et POURQUOI elles comptent ; conclus par ce que les investisseurs surveilleront de plus près pour la direction. Concret et analytique — JAMAIS une simple liste. Rédige entièrement avec tes propres mots ; ne recopie aucune source.
+(1) HEADLINE — le NOM CONCRET des événements du jour, pour comprendre d'un coup d'œil SANS lire la suite. Format : 1 à 3 événements séparés par « · », chacun = acteur/devise + événement (ex. « Fed : décision de taux et conférence de presse » ; « IPC zone euro · BoJ : décision de taux » ; « Politburo chinois · Ifo allemand »). Le PLUS important d'abord. INTERDIT : les formules génériques sans information (« sous surveillance », « en tête d'affiche », « au centre des marchés », « données économiques clés »…). Sans guillemets, sans point final.
+(2) SUMMARY — 2 à 3 phrases COURTES maximum : l'enjeu du jour, le chiffre/la décision attendue (prévision vs précédent si fournis), et ce qui ferait réagir les marchés. Dense et concret, zéro remplissage, ne répète pas la headline. Rédige avec tes propres mots ; ne recopie aucune source.
 
 Réponds UNIQUEMENT en JSON compact : {"headline":"...","summary":"..."} — rien d'autre.`;
     let txt = null;
@@ -11196,15 +11196,15 @@ Réponds UNIQUEMENT en JSON compact : {"headline":"...","summary":"..."} — rie
     let obj = null;
     try { const m = String(txt).match(/\{[\s\S]*\}/); if (m) obj = JSON.parse(m[0]); } catch {}
     if (obj && (obj.headline || obj.summary)) {
-      items.push({ headline: String(obj.headline || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: _waTrim(obj.summary, 1500) });
+      items.push({ headline: String(obj.headline || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: _waTrim(obj.summary, 620) });
     } else if (txt && String(txt).replace(/\s+/g, ' ').trim().length > 60) {
-      items.push({ headline: '', summary: _waTrim(String(txt).replace(/```[a-z]*|```/gi, ''), 1500) });
+      items.push({ headline: '', summary: _waTrim(String(txt).replace(/```[a-z]*|```/gi, ''), 620) });
     } else { items.push(null); }
   }
   if (items.some(it => it && (it.headline || it.summary))) {
     const merged = days.map((_, i) => items[i] || (cachedItems && cachedItems[i]) || null);
     _waEditorial = { weekKey, items: merged, at: Date.now() };
-    await auth.aiCacheSet('weekahead:editorial8fr', _waEditorial).catch(() => {});
+    await auth.aiCacheSet('weekahead:editorial9fr', _waEditorial).catch(() => {});
     apply(merged);
     console.log('[WeekAhead IA] éditorial jour-par-jour (' + merged.filter(it => it && it.summary).length + '/' + days.length + ' jours) → cache hebdo');
   }
