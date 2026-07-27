@@ -265,6 +265,11 @@ select { cursor: pointer; }
 .add-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--sp-3); align-items: end; }
 .add-form button[type="submit"] { height: 30px; }
 .role-hint { font-size: var(--fs-meta); color: var(--text3); line-height: 1.5; }
+/* Note d'explication SOUS la grille : sa propre ligne pleine largeur, donc elle n'altère jamais
+   l'alignement des champs (la grille est calée par le bas — cf. .add-form align-items:end).
+   `order` la renvoie APRÈS tous les champs : sans ça, une note pleine largeur s'intercale au
+   milieu de la grille et rejette les champs suivants sur une ligne de plus. */
+.add-form .form-note { grid-column: 1 / -1; order: 99; margin: -2px 0 0; }
 .toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
 .toolbar input { flex: 1; min-width: 200px; }
 .toolbar select { width: auto; min-width: 150px; }
