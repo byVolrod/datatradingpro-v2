@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg354" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg355" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -147,16 +147,20 @@
                 <option value="support">Support (équipe)</option>
                 <option value="admin">Admin</option>
               </select>
-              <small class="role-hint" id="add-role-hint" style="display:none">Agent support : répond aux messages depuis son propre compte, sans accès à la gestion des utilisateurs.</small>
             </div>
             <div class="form-field">
               <label>Plan</label>
-              <select name="plan" id="add-plan">
-                <option value="mensuel">Mensuel</option>
+              <select name="plan" id="add-plan" onchange="planSync('add')">
+                <option value="essai">Essai gratuit (1 semaine)</option>
+                <option value="mensuel" selected>Mensuel</option>
                 <option value="annuel">Annuel</option>
                 <option value="professionnel">Professionnel</option>
               </select>
             </div>
+            <!-- Notes explicatives HORS des colonnes : la grille est alignée par le BAS, une note
+                 glissée dans une cellule la fait grandir et décale le champ par rapport à ses voisins. -->
+            <small class="role-hint form-note" id="add-role-hint" style="display:none">Agent support : répond aux messages depuis son propre compte, sans accès à la gestion des utilisateurs.</small>
+            <small class="role-hint form-note" id="add-plan-hint" style="display:none">Compte d'essai : aucun revenu compté, et à l'échéance c'est le mail « fin d'essai » qui part — jamais la relance de renouvellement.</small>
             <div class="form-field">
               <label>Date de début (ex. paiement Whop)</label>
               <input type="date" name="startDate" id="add-start-date" title="Laisse vide = aujourd'hui" />
@@ -539,11 +543,13 @@
     </div>
     <div class="form-field">
       <label>Plan</label>
-      <select id="edit-plan">
-        <option value="mensuel">Mensuel</option>
+      <select id="edit-plan" onchange="planSync('edit')">
+        <option value="essai">Essai gratuit (1 semaine)</option>
+        <option value="mensuel" selected>Mensuel</option>
         <option value="annuel">Annuel</option>
         <option value="professionnel">Professionnel</option>
       </select>
+      <small class="role-hint" id="edit-plan-hint" style="display:none">Compte d'essai : aucun revenu compté, et à l'échéance c'est le mail « fin d'essai » qui part — jamais la relance de renouvellement.</small>
     </div>
     <div class="form-field">
       <label>Statut</label>
@@ -603,6 +609,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260727bbg354"></script>
+<script src="/js/admin.js?v=20260727bbg355"></script>
 </body>
 </html>

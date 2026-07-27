@@ -503,13 +503,8 @@ app.get('/api/auth/me', async (req, res) => {
         || (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.active === false) || _superseded) {
       req.session = null; return res.json({ loggedIn: false, reason: _superseded ? 'elsewhere' : undefined });
     }
-    // Essai gratuit : durée d'abonnement (création → expiration) ≤ ~1 semaine.
-    let isTrial = false;
     const expiresAt = fresh.expires_at || null;
-    if (expiresAt && fresh.created_at) {
-      const span = new Date(expiresAt).getTime() - new Date(fresh.created_at).getTime();
-      isTrial = span > 0 && span <= 8.5 * 24 * 60 * 60 * 1000;
-    }
+    const isTrial = _isTrialAccount(fresh);
     const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active, expiresAt, isTrial };
     req.session.user = user; // maintenir la session à jour
     res.json({ loggedIn: true, user });
@@ -984,7 +979,7 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
       const exp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
       if (!exp) return { cycle: 'unlimited', mrr: 0 };                 // accès offert / illimité
       const span = crt ? exp - crt : 0;
-      if (span > 0 && span <= 8.5 * DAY) return { cycle: 'trial', mrr: 0 };
+      if (_isTrialAccount(u)) return { cycle: 'trial', mrr: 0 };       // essai → 0 € (jamais compté au MRR)
       if (span >= 300 * DAY) return { cycle: 'annual', mrr: PRICE_ANNUAL / 12 };
       return { cycle: 'monthly', mrr: PRICE_MONTHLY };                 // mensuel (ou multi-mois ramené au mois)
     };
@@ -1187,6 +1182,23 @@ app.get('/api/admin/mail-test', requireSameOrigin, requireAdmin, async (req, res
   <p style="margin-top:22px"><a href="/api/admin/mail-test?to=${encodeURIComponent(to)}">↻ Renvoyer</a></p></div></body></html>`;
   res.set('Content-Type', 'text/html; charset=utf-8').send(html);
 });
+
+// ═══ ESSAI GRATUIT : le PLAN fait autorité, la durée n'est qu'un repli ═══════
+// Historiquement un essai n'était DEVINÉ que par la fenêtre d'accès (création → échéance ≤ ~1 sem.).
+// C'est fragile : un import aux dates cassées (fenêtre nulle ou négative) passait pour un essai et
+// recevait « votre essai est terminé, abonnez-vous » alors qu'il avait peut-être PAYÉ. Depuis le plan
+// « essai », l'admin le déclare explicitement à la création — plus aucune devinette pour ces comptes.
+// Le repli sur la fenêtre reste pour tous les comptes créés AVANT (ils n'ont pas le plan).
+const TRIAL_PLAN = 'essai';
+function _isTrialAccount(u) {
+  if (!u) return false;
+  if (String(u.plan || '').toLowerCase() === TRIAL_PLAN) return true;   // déclaré → autorité
+  const exp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
+  const crt = u.created_at ? new Date(u.created_at).getTime() : 0;
+  if (!exp || !crt || !Number.isFinite(exp) || !Number.isFinite(crt)) return false;
+  const span = exp - crt;
+  return span > 0 && span <= 8.5 * 86400000;                            // repli historique
+}
 
 // Calcule la date d'expiration à partir d'une durée choisie par l'admin
 function computeExpiry({ duration, expiresAt, startDate }) {
@@ -13718,8 +13730,8 @@ async function _checkTrialUpsell() {
       const exp = new Date(u.expires_at).getTime();
       const crt = new Date(u.created_at).getTime();
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
-      // Essai = fenêtre d'accès ≈ 1 semaine (≤ 8 j) → distingue des abonnements payants (≥ 1 mois)
-      if (exp - crt > 8 * DAY) continue;
+      // Essai = plan « essai » déclaré, sinon repli fenêtre d'accès ≈ 1 semaine (cf. _isTrialAccount)
+      if (!_isTrialAccount(u)) continue;
       // Fenêtre d'envoi : l'essai a expiré dans les dernières 24 h
       if (exp <= low || exp > high) continue;
       const key = `trial-upsell:${u.id}:${u.expires_at}`;
@@ -13765,7 +13777,7 @@ async function _checkExpiredSubscriptions() {
       const exp = new Date(u.expires_at).getTime();
       const crt = new Date(u.created_at).getTime();
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
-      if (exp - crt <= 8 * DAY) continue;      // ESSAI → couvert par _checkTrialUpsell
+      if (_isTrialAccount(u)) continue;        // ESSAI → couvert par _checkTrialUpsell
       if (exp <= low || exp > now) continue;   // hors fenêtre (trop ancien, ou pas encore échu)
       const key = _expiredMailKey(u);
       if (await auth.emailLogHas(key)) continue;
@@ -16280,7 +16292,7 @@ async function _lifecycleCandidates(type) {
     const exp = new Date(u.expires_at).getTime(), crt = new Date(u.created_at).getTime();
     if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
     if (exp > now) continue;                                     // échéance pas encore passée
-    const estEssai = (exp - crt) <= 8 * DAY;
+    const estEssai = _isTrialAccount(u);
     if (type === 'expired' && estEssai) continue;                // l'essai a son propre mail
     if (type === 'trial-upsell' && !estEssai) continue;
     // OPT-OUT ABSOLU : le rattrapage est un envoi EN LOT décidé par l'admin (pas le transactionnel

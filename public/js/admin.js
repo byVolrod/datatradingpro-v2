@@ -1261,7 +1261,7 @@
         <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${u.name || '—'}</span></div></td>
         <td class="email">${u.email}</td>
         <td><span class="badge badge-${u.role}">${u.role}</span></td>
-        <td><span class="badge ${isTrialUser(u) ? 'badge-soon' : 'badge-client'}">${isTrialUser(u) ? 'Essai gratuit' : 'Professionnel'}</span></td>
+        <td><span class="badge ${isTrialUser(u) ? 'badge-soon' : 'badge-client'}">${planLabel(u)}</span></td>
         <td><span class="badge ${u.active ? 'badge-active' : 'badge-suspended'}">${u.active ? 'Actif' : 'Suspendu'}</span></td>
         <td>${subInfo(u)}</td>
         <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px">${u.last_login ? new Date(u.last_login).toLocaleString('fr-FR') : '—'}</td>
@@ -1323,10 +1323,33 @@
   }
 
   // Essai gratuit = durée d'abonnement (création → expiration) ≤ ~1 semaine
+  // Essai : le PLAN déclaré fait autorité ; la fenêtre d'accès ne sert que de repli pour les comptes
+  // créés avant l'existence du plan « essai ». Miroir exact de _isTrialAccount (server.js).
   function isTrialUser(u) {
-    if (u.role === 'admin' || u.role === 'support' || !u.expires_at || !u.created_at) return false;
+    if (u.role === 'admin' || u.role === 'support') return false;
+    if (String(u.plan || '').toLowerCase() === 'essai') return true;
+    if (!u.expires_at || !u.created_at) return false;
     const span = new Date(u.expires_at) - new Date(u.created_at);
     return span > 0 && span <= 8.5 * 86400000;
+  }
+  // Libellé du plan affiché dans la table (l'essai prime, sinon le plan enregistré)
+  const _PLAN_LBL = { essai: 'Essai gratuit', mensuel: 'Mensuel', annuel: 'Annuel', professionnel: 'Professionnel' };
+  function planLabel(u) {
+    if (isTrialUser(u)) return 'Essai gratuit';
+    return _PLAN_LBL[String(u.plan || '').toLowerCase()] || 'Professionnel';
+  }
+  // Choisir « Essai gratuit » propose automatiquement la durée 1 semaine (sans l'imposer :
+  // l'admin peut rallonger un essai de faveur derrière).
+  function planSync(which) {
+    const sel = document.getElementById(which + '-plan'); if (!sel) return;
+    const essai = sel.value === 'essai';
+    const hint = document.getElementById(which + '-plan-hint');
+    if (hint) hint.style.display = essai ? 'block' : 'none';
+    // Uniquement à la CRÉATION : en édition, la durée vaut « ne rien changer » — la forcer
+    // raccourcirait l'accès d'un compte existant sans que l'admin l'ait demandé.
+    if (which !== 'add') return;
+    const dur = document.getElementById('add-duration');
+    if (essai && dur && dur.value !== '1week') { dur.value = '1week'; if (typeof toggleCustom === 'function') toggleCustom('add'); }
   }
   // Affiche l'état de l'abonnement (illimité / actif jusqu'au… / expiré)
   function subInfo(u) {
@@ -1361,6 +1384,9 @@
       const field = f ? f.closest('.form-field') : null;
       if (field) field.style.display = staff ? 'none' : '';
     });
+    // Repasser en « Client » ré-affichait TOUT le bloc, y compris la date d'expiration réservée à la
+    // durée « personnalisée » → on redonne la main à toggleCustom, seul juge de ce champ.
+    if (!staff) toggleCustom(which);
   }
 
   // ── Add user ────────────────────────────────────────────────────────────────
@@ -1449,6 +1475,10 @@
     document.getElementById('edit-plan').value = plan;
     document.getElementById('edit-active').value = active ? '1' : '0';   // statut actuel (Actif/Suspendu) pré-rempli
     toggleStaff('edit');   // masque les champs abonnement si support/admin
+    // Note d'explication du plan « essai » — SANS passer par planSync : à l'ouverture on ne doit
+    // surtout pas toucher à la durée (elle vaut « ne rien changer », l'écraser décalerait l'échéance).
+    const _ph = document.getElementById('edit-plan-hint');
+    if (_ph) _ph.style.display = String(plan || '').toLowerCase() === 'essai' ? 'block' : 'none';
     document.getElementById('edit-duration').value = '';      // par défaut : on garde l'échéance
     document.getElementById('edit-custom-date').value = '';
     document.getElementById('edit-custom-wrap').style.display = 'none';
