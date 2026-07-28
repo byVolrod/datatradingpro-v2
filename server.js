@@ -16230,7 +16230,10 @@ async function _invitationTick() {
 setInterval(_invitationTick, 20 * 60 * 1000);
 setTimeout(_invitationTick, 60 * 1000);
 // Admin : statut / activer / pause / test-to-self / envoi manuel immediat de la campagne Invitation.
-app.get('/api/admin/campaign-invitation', requireSameOrigin, requireAdmin, async (req, res) => {
+// Gate ALIGNÉ sur /api/admin/campaign-send : admin OU appel interne (localhost + jeton) — permet de
+// relancer/finaliser une campagne depuis la machine, par le VRAI chemin de code (mêmes garde-fous,
+// même anti-doublon) plutôt qu'en réimplémentant la boucle d'envoi ailleurs.
+app.get('/api/admin/campaign-invitation', requireSameOrigin, requireAdminOrInternal, async (req, res) => {
   const action = String(req.query.action || 'status');
   try {
     if (action === 'activate') { _invitSchedule.active = true; _invitSchedule.launchedAt = _invitSchedule.launchedAt || Date.now(); _saveInvitSchedule(); }
