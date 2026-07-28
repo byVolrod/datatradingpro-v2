@@ -1365,6 +1365,12 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
       auth.getUserById(id)
         .then(async u => {
           if (!u?.email || u.role !== 'client') return;
+          // (Audit 27/07) MÊMES exclusions que le chemin automatique : un accès offert / type Amis /
+          // un essai / un blacklisté ne doit pas recevoir la relance de paiement, même via l'action
+          // manuelle « Marquer comme expiré » (l'essai a son propre mail de fin d'essai).
+          if (_isGift(u.email) || _isFriend(u) || _isTrialAccount(u)) return;
+          if (auth.isEmailBlacklisted(u.email)) return;
+          if (await auth.emailLogHas('unsub:' + String(u.email).toLowerCase().trim())) return;
           const key = _expiredMailKey(u);
           if (await auth.emailLogHas(key)) return;                     // déjà envoyé pour cette échéance
           const ok = await mailer.sendExpired({ to: u.email, name: u.name, expiresAt: u.expires_at });
@@ -4759,7 +4765,7 @@ const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXE
 // ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
 // (Supabase). Renvoie le HTML des items (.nc-item). Repli (IA indispo) = titres bruts → la section ne
 // disparaît jamais s'il y a des news. ZÉRO invention (prompt + dépêches réelles du jour seulement).
-const NC_VER = 6;   // v6 : chaque côté de « → » SUBSTANTIEL — <fait> nomme le sujet + son chiffre (pas « 89,31$ » nu), <impact> = conséquence marché DIRECTIONNELLE sur un actif (pas un label « cours du pétrole »). v5 blindait la flèche mais le free-tier restait trop laconique. v5 : flèche « → » BLINDÉE (deux côtés obligatoires + garde-fou anti-pendouillant, cause de « c'est vide »). v4 : titre ≤12 mots + phrase ≤25 mots. v3 trop générique ; v2/v1 verbeux
+const NC_VER = 7;   // v7 : bloc « Ce qu'en disent les banques » (notes Institution triées par pertinence vs annonces à venir) ajouté sous les commentaires — bump = régén du jour. v6 : chaque côté de « → » SUBSTANTIEL — <fait> nomme le sujet + son chiffre (pas « 89,31$ » nu), <impact> = conséquence marché DIRECTIONNELLE sur un actif (pas un label « cours du pétrole »). v5 blindait la flèche mais le free-tier restait trop laconique. v5 : flèche « → » BLINDÉE (deux côtés obligatoires + garde-fou anti-pendouillant, cause de « c'est vide »). v4 : titre ≤12 mots + phrase ≤25 mots. v3 trop générique ; v2/v1 verbeux
 const _NC_RX = /\b(hormu?z|oil|crude|brent|wti|opep|opec|gold|s&p|nasdaq|dow|nikkei|stoxx|dax|\bcac\b|earnings?|micron|nvidia|fed|fomc|powell|ecb|bce|lagarde|boe|boj|snb|boc|rba|tariff|tarif|sanction|\bwar\b|guerre|missile|ceasefire|iran|israel|china|chine|russia|russie|treasur|yield|rendement|inflation|\bcpi\b|\bnfp\b|\bgdp\b|\bpib\b|recession|récession)\b/i;
 function _ncEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 async function _generateNotableComments(dayKey) {
@@ -4807,6 +4813,22 @@ ${ctx}`;
     }).join('');
   }
   if (!html) return uniq.slice(0, 5).map(n => '<div class="nc-item"><div class="nc-h">' + _ncEsc(_stripMd(n.headline || '').slice(0, 150)) + '</div></div>').join('');   // repli non caché
+  // ── « Ce qu'en disent les banques » (demande user 28/07) : quelques notes de l'onglet Institution,
+  // choisies pour leur PERTINENCE vis-à-vis des ANNONCES À VENIR (thèmes/devises du Week Ahead).
+  // Attribution seule (banque + titre + ancienneté) — cf. règle anti-plagiat. Jamais plus de 3.
+  try {
+    const notes = _bankNotes(10);
+    if (notes.length) {
+      // mots-clés des événements de la semaine (titres + banques centrales des jours à venir)
+      const kws = new Set(['fed', 'fomc', 'ecb', 'bce', 'boj', 'boe', 'boc', 'rba', 'rbnz', 'snb', 'cpi', 'inflation', 'gdp', 'pib', 'pmi', 'nfp', 'payroll', 'rate', 'taux']);
+      try { (( _weekAhead && _weekAhead.days) || []).forEach(d => (d.events || []).forEach(e => String(e.title || '').toLowerCase().split(/[^a-z]+/).forEach(w => { if (w.length >= 3) kws.add(w); }))); } catch {}
+      const score = t => { let s = 0; String(t).toLowerCase().split(/[^a-z]+/).forEach(w => { if (kws.has(w)) s++; }); return s; };
+      const top = notes.map(x => ({ ...x, s: score(x.title) })).sort((a, b) => b.s - a.s).slice(0, 3);
+      if (top.length) html += '<div class="nc-item nc-item--banks"><div class="nc-h">Ce qu\'en disent les banques</div><p>'
+        + top.map(x => '<strong>' + _ncEsc(x.institution) + '</strong> — ' + _ncEsc(x.title) + ' <span style="opacity:.6">(' + _ncEsc(x.ago) + ')</span>').join('<br>')
+        + '</p></div>';
+    }
+  } catch (e) {}
   auth.aiCacheSet('nc:' + NC_VER + ':' + dayKey, html).catch(() => {});
   return html;
 }
@@ -15676,6 +15698,18 @@ async function _deskContext() {
 // Anti-redondance Decryptage : historique durable des concepts couverts (KV campaign:decrypt-history).
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
 async function _decryptMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:decrypt-history', h.slice(-12)); } catch {} }
+// (Bug « 2× CPI », 28/07) L'historique ci-dessus n'était JAMAIS alimenté (aucun appel à
+// _decryptMarkCovered) → recentKeys toujours vide → même thème de marché = même 1er concept
+// ressorti chaque semaine. Correctif en 2 pièces :
+//  1. les clés récentes sont FIGÉES PAR JOUR (_decryptKeysOfDay) → tous les contacts d'un même
+//     envoi reçoivent le MÊME concept, même une fois le marquage posé en cours de lot ;
+//  2. le concept du jour est marqué couvert UNE fois (pas 1× par contact) après le 1er envoi réel.
+let _decryptDay = { day: '', keys: [] }, _decryptMarkedDay = '';
+async function _decryptKeysOfDay() {
+  const day = _pDayParis(Date.now());
+  if (_decryptDay.day !== day) _decryptDay = { day, keys: await _decryptRecentKeys(4) };
+  return _decryptDay.keys;
+}
 // Rotation anti-repetition de la track MINDSET (memes primitives que le decryptage).
 // FENÊTRE = (taille du pool − 1) : garantit qu'il reste TOUJOURS exactement 1 concept « frais » → le
 // sélecteur pickMindsetConcept le prend → rotation COMPLÈTE du catalogue avant tout répétition (demande user :
@@ -16159,7 +16193,22 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
   const rec = id => { if (!isTest) _recordSent(id, email); };   // en mode TEST : aucune stat officielle, aucune consommation de rotation
   try {
     if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { rec('intro-v1'); return true; } return false; }
-    if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { rec('decryptage'); return true; } return false; }
+    if (stepDef.tpl === 'decryptage') {
+      const recentKeys = await _decryptKeysOfDay();   // figées par jour → concept identique pour tout le lot
+      const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember });
+      if (rr) {
+        rec('decryptage');
+        if (!isTest) {
+          const _day = _pDayParis(Date.now());
+          if (_decryptMarkedDay !== _day) {           // marqué UNE fois par jour d'envoi
+            _decryptMarkedDay = _day;
+            try { const pk = mailer.pickDecryptConcept(context, recentKeys); await _decryptMarkCovered(pk && pk.concept && pk.concept.key); } catch (e) {}
+          }
+        }
+        return true;
+      }
+      return false;
+    }
     if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('point-marche'); return true; } return false; }
     if (stepDef.tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); if (rr) { rec('mindset'); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
     if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { rec('recap-hebdo'); return true; } return false; }
@@ -16405,7 +16454,7 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
       m = mailer.buildWeeklyDigest({ name: s.name, email: s.email, campaign: 'weekly-preview', weekly });
     } else if (type === 'decryptage') {
       const context = await _deskContext();
-      const recentKeys = await _decryptRecentKeys(4);
+      const recentKeys = await _decryptKeysOfDay();   // mêmes clés figées que l'envoi → l'aperçu montre EXACTEMENT le concept qui partira
       m = mailer.buildCampaignDecryptage({ name: s.name, email: s.email, campaign: 'decryptage-preview', context, recentKeys, isMember });
     } else if (type === 'pointmarche') {
       const context = await _deskContext();

@@ -108,7 +108,7 @@
           <div class="panel-body"><div class="am-chart" id="fin-chart-am"></div></div>
         </div>
         <div class="panel-card fin-panel">
-          <div class="panel-head"><h2>Intégration Whop</h2></div>
+          <div class="panel-head"><h2>Intégration Whop</h2><span class="ph-spacer"></span><span class="fin-sub" id="fin-asof"></span></div><!-- horodatage rempli par loadFinance (audit : id absent → info muette) -->
           <div class="panel-body" id="fin-whop"></div>
         </div>
       </div>
@@ -567,6 +567,7 @@
         <option value="support">Support (équipe)</option>
         <option value="admin">Admin</option>
       </select>
+      <small class="role-hint" id="edit-role-hint" style="display:none">Agent support : répond aux messages depuis son propre compte, sans gestion des utilisateurs.</small><!-- (audit : id référencé par toggleStaff mais absent) -->
     </div>
     <div class="form-field">
       <label>Type</label>
