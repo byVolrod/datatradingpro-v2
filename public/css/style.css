@@ -12100,3 +12100,31 @@ html[data-theme="light"] a { color: #b8860b; }
 /* Champ de renommage inline (double-clic sur un onglet) */
 .wdgt-edit { width: 92px; background: var(--bg); border: 1px solid rgba(227, 178, 58, .55); border-radius: 3px; color: var(--text); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; padding: 2px 5px; margin: 0 2px; text-transform: none; letter-spacing: normal; }
 .wdgt-edit:focus { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── Bloc fantôme « Ajouter un widget » : remplit le RESTE de la rangée après le dernier widget.
+   Discret (pointillés, texte éteint), doré au survol ; masqué en plein écran. ── */
+.wdg-ghost {
+  grid-column: auto / -1; grid-row: span 4; min-height: 72px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; border: 1px dashed rgba(255, 255, 255, 0.10); border-radius: var(--radius);
+  color: var(--text3); cursor: pointer; font-family: var(--tight, 'Inter Tight', sans-serif);
+  font-size: var(--fs-title, 11.5px); font-weight: var(--fw-semibold, 600); letter-spacing: .05em; text-transform: uppercase;
+  transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+}
+.wdg-ghost:hover { border-color: rgba(227, 178, 58, .45); color: var(--orange); background: rgba(227, 178, 58, .04); }
+.wdg-ghost-plus { font-size: 16px; font-weight: 700; line-height: 1; }
+.wdg-grid.wdg-fs-mode .wdg-ghost { display: none; }
+html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
+
+/* ── Bouton « Personnaliser » DISCRET (28/07) : pilule fine, or éteint, s'allume au survol ── */
+.wdg-btn-pers {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; background: transparent;
+  border: 1px solid rgba(227, 178, 58, 0.28); border-radius: var(--pill, 999px);
+  color: rgba(227, 178, 58, 0.75); cursor: pointer;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: var(--fw-semibold, 600);
+  letter-spacing: .05em; text-transform: uppercase;
+  transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
+}
+.wdg-btn-pers:hover { color: #e3b23a; border-color: rgba(227, 178, 58, 0.6); background: rgba(227, 178, 58, 0.07); }
+.wdg-btn-pers svg { opacity: .85; }

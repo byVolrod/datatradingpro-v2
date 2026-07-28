@@ -1426,7 +1426,12 @@
         + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
         + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
         + '<div class="wdg-resize-e" title="Glisser pour élargir"></div></section>';
-    }).join('');
+    }).join('')
+    // BLOC FANTÔME (demande user 28/07 « quand c'est vide, il faut le bloc widget à choisir ») :
+    // occupe le RESTE de la rangée (grid-column: auto/-1) après le dernier widget — retirer un
+    // widget fait donc apparaître l'emplacement à re-remplir, un clic ouvre la bibliothèque.
+    + '<button class="wdg-ghost" onclick="DTPWidgets.openLib()" title="Ajouter un widget ici">'
+    + '<span class="wdg-ghost-plus">+</span><span class="wdg-ghost-lbl">Ajouter un widget</span></button>';
     // Plein écran : la carte ciblée recouvre la zone de travail (overlay), la grille est figée derrière.
     if (_fullscreenIdx != null) {
       var fsCard = host.querySelector('.wdg-card[data-idx="' + _fullscreenIdx + '"]');
@@ -2153,9 +2158,8 @@
       if (typeof activateView !== 'function') return;
       var entering = !document.body.classList.contains('wdg-mode');
       activateView(entering ? 'widgets' : 'news');
-      // Demande user 26/07 : l'icône fait ARRIVER sur le CHOIX DU LAYOUT (panneau › Layouts) — on choisit
-      // son dashboard d'abord, les widgets ensuite.
-      if (entering) setTimeout(function () { try { API.openManager(); } catch (e) {} }, 80);
+      // (28/07, ANNULE la demande du 26/07) : l'icône ouvre le DESK directement, sans la fenêtre
+      // « Personnaliser » — elle ne s'ouvre plus que par le bouton dédié en haut à droite.
     });
     center.insertBefore(icon, journal);                                      // à GAUCHE de Journal / Calculatrice
     // PRÉCHARGE la config (léger) → hasDefault() connu sans ouvrir Mon Desk (sert au clic sur le LOGO).
