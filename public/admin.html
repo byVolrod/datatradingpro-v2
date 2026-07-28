@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260727bbg360" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260728bbg367" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -349,7 +349,8 @@
           </div>
           <div class="panel-body">
             <div class="toolbar">
-              <input id="maillog-search" placeholder="Filtrer par e-mail ou type d'envoi…" oninput="clearTimeout(window._mlT);window._mlT=setTimeout(loadMailLog,300)" />
+              <input id="maillog-search" placeholder="Filtrer par e-mail…" oninput="clearTimeout(window._mlT);window._mlT=setTimeout(loadMailLog,300)" />
+              <select id="maillog-type" onchange="loadMailLog()"><option value="">Tous les types</option></select>
             </div>
             <div style="overflow-x:auto">
               <table class="users-table">
@@ -647,6 +648,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260728bbg362"></script>
+<script src="/js/admin.js?v=20260728bbg367"></script>
 </body>
 </html>

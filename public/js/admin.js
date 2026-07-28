@@ -495,8 +495,18 @@
   async function loadMailLog(){
     const tb = document.getElementById('maillog-tbody'); if (!tb) return;
     const q = (document.getElementById('maillog-search') || {}).value || '';
+    const ft = (document.getElementById('maillog-type') || {}).value || '';
     try {
-      const d = await fetch('/api/admin/email-log' + (q ? '?q=' + encodeURIComponent(q) : '')).then(r => r.json());
+      const params = [];
+      if (q) params.push('q=' + encodeURIComponent(q));
+      if (ft) params.push('type=' + encodeURIComponent(ft));
+      const d = await fetch('/api/admin/email-log' + (params.length ? '?' + params.join('&') : '')).then(r => r.json());
+      // Menu des types : construit depuis les données réelles (une fois, puis on préserve la sélection)
+      const sel = document.getElementById('maillog-type');
+      if (sel && d.types && sel.options.length <= 1) {
+        d.types.forEach(function(t){ const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o); });
+        sel.value = ft;
+      }
       const cnt = document.getElementById('maillog-count');
       if (cnt) cnt.textContent = d.total + ' envoi' + (d.total > 1 ? 's' : '');
       const rows = d.rows || [];
@@ -750,6 +760,16 @@
           + (d.lastSend ? '<span style="font-size:12px;color:#8b93a1;">✉️ Dernier parti : <strong style="color:#c9ced8;font-weight:600;">' + d.lastSend.title + '</strong> — ' + _campFmt(d.lastSend.ts) + '</span>' : '')
           + '</div>';
       }
+      // ENCADRÉ « prochain à partir » (28/07) : le contenu de la semaine s'il n'est PAS encore parti,
+      // sinon la rotation la plus proche — l'encadré se réajuste tout seul après chaque envoi.
+      let _nextFrameId = null;
+      const _cur = d.steps.find(function(s){ return s.thisWeek && s.id !== 'intro-v1'; });
+      if (_cur && !_cur.doneWeek) _nextFrameId = _cur.id;
+      else {
+        let _best = null;
+        d.steps.forEach(function(s){ if (s.id !== 'intro-v1' && !s.thisWeek && s.nextRunMonday && (!_best || s.nextRunMonday < _best.nextRunMonday)) _best = s; });
+        if (_best) _nextFrameId = _best.id;
+      }
       const rowsHtml = d.steps.map(function(s){
         const isIntro = s.id === 'intro-v1';
         // « Envoyé » = envoyé CETTE semaine (le compteur reparte chaque lundi) — sauf l'intro (one-time à l'inscription).
@@ -771,7 +791,7 @@
         // Métriques = historique cumulé (dernier envoi + total + taux), pour le suivi de performance.
         const metrics = s.lastSentAt ? '<div class="camp-seq-metrics">Dernier envoi ' + _campFmt(s.lastSentAt) + ' · ' + s.sent + ' au total · ' + s.openRate + '% ouv. · ' + s.clickRate + '% clics</div>' : '';
         const dim = (!isIntro && !s.thisWeek) ? ' style="opacity:.62;"' : ((!d.active && !doneWeek) ? ' style="opacity:.55;"' : '');
-        return '<div class="camp-seq-row camp-seq-row--' + cls + ((s.thisWeek && d.active && !isIntro) ? ' camp-seq-row--next' : '') + '"' + dim + '><div class="camp-seq-wk">' + wk + '</div>'
+        return '<div class="camp-seq-row camp-seq-row--' + cls + ((s.id === _nextFrameId && d.active) ? ' camp-seq-row--next' : '') + '"' + dim + '><div class="camp-seq-wk">' + wk + '</div>'
           + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span>' + weekBadge + '</div>'
           + '<div class="camp-seq-desc">' + s.desc + '</div>'
           + timeLine

@@ -282,11 +282,10 @@ function _isDuplicate(to, subject) {
   return prev && (now - prev < 12000);
 }
 
-// ── COPIE ADMIN (demande user 27/07 : « je dois recevoir chaque envoi dans ma boîte ») ──────────
-// CHAQUE mail sortant part AUSSI en Cci vers la boîte admin — sauf si le destinataire EST l'admin
-// (sinon doublon). Le client ne voit rien (Cci). Jours de campagne = autant de copies que de
-// destinataires. Désactivable/modifiable via MAIL_ADMIN_COPY (adresse, ou « off »).
-const _ADMIN_COPY = (() => { const v = String(process.env.MAIL_ADMIN_COPY || 'volrod.dev@gmail.com').toLowerCase().trim(); return (v === 'off' || v === '0') ? '' : v; })();
+// ── COPIE ADMIN — DÉSACTIVÉE (28/07 : « juste le journal du panel admin, pas de copie mail »).
+// La traçabilité passe par Campagne > Journal (email_log). Réactivable ponctuellement en posant
+// MAIL_ADMIN_COPY=<adresse> dans l'env, sans toucher au code.
+const _ADMIN_COPY = (() => { const v = String(process.env.MAIL_ADMIN_COPY || '').toLowerCase().trim(); return (v === 'off' || v === '0') ? '' : v; })();
 function _bccFor(to) { return (_ADMIN_COPY && String(to).toLowerCase().trim() !== _ADMIN_COPY) ? _ADMIN_COPY : undefined; }
 
 // ── Envoi bas niveau : valide, dé-doublonne, puis essaie les fournisseurs DANS L'ORDRE ──
@@ -316,6 +315,10 @@ async function _sendOvhSmtp(to, subject, html, att) {
 
 async function _send(to, subject, html, attachments) {
   if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide — email ignoré:', to); return false; }
+  // (28/07, demande user) Le tiret cadratin « — » est BANNI des mails : normalisé en tiret simple
+  // au POINT DE SORTIE UNIQUE → couvre les gabarits statiques ET les contenus générés par l'IA.
+  subject = String(subject || '').replace(/\s*—\s*/g, ' - ');
+  html = String(html || '').replace(/\s*—\s*/g, ' - ').replace(/ -\s*([,;.!?])/g, '$1');
   if (_isDuplicate(to, subject)) { console.warn(`[Mailer] doublon ignoré (<12s) → ${to}: "${subject}"`); return false; }
   const chain = [];
   if (process.env.OVH_SMTP_USER && process.env.OVH_SMTP_PASS) chain.push(['OVH SMTP', _sendOvhSmtp]);  // ← PRINCIPAL : DEPUIS contact@datatradingpro.com (aligné SPF/DKIM domaine → inbox)
