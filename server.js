@@ -503,6 +503,13 @@ app.get('/api/auth/me', async (req, res) => {
         || (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.active === false) || _superseded) {
       req.session = null; return res.json({ loggedIn: false, reason: _superseded ? 'elsewhere' : undefined });
     }
+    // (Audit 28/07) Échéance dépassée AU-DELÀ de la grâce de 24 h (même règle que le login) → la
+    // session en cours est éjectée aussi. Avant : un compte marqué expiré gardait son desk ouvert
+    // tant que sa session vivait, seule la reconnexion était bloquée.
+    if (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.expires_at) {
+      const _expT = new Date(fresh.expires_at).getTime();
+      if (Number.isFinite(_expT) && _expT + 24 * 3600e3 < Date.now()) { req.session = null; return res.json({ loggedIn: false, reason: 'expired' }); }
+    }
     const expiresAt = fresh.expires_at || null;
     const isTrial = _isTrialAccount(fresh);
     // Libellé du badge profil : « TYPE · CADENCE » (ex. « Professionnel · Mensuel ») — remplace le
@@ -1024,10 +1031,13 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
       const exp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
       if (_isFriend(u)) return { cycle: 'unlimited', mrr: 0 };         // type Amis → offert, 0 € quel que soit le cycle
       if (!exp) return { cycle: 'unlimited', mrr: 0 };                 // accès offert / illimité
-      const span = crt ? exp - crt : 0;
       if (_isTrialAccount(u)) return { cycle: 'trial', mrr: 0 };       // essai → 0 € (jamais compté au MRR)
-      if (span >= 300 * DAY) return { cycle: 'annual', mrr: PRICE_ANNUAL / 12 };
-      return { cycle: 'monthly', mrr: PRICE_MONTHLY };                 // mensuel (ou multi-mois ramené au mois)
+      // (Audit 28/07) La CADENCE réelle (_cadOf : override admin / synchro Whop / dates) prime sur
+      // la fenêtre création→échéance — un mensuel fidèle ne bascule plus « annuel » au MRR après
+      // 10 mois de renouvellements cumulés.
+      const cad = _cadOf(u);
+      if (cad === 'annuel') return { cycle: 'annual', mrr: PRICE_ANNUAL / 12 };
+      return { cycle: 'monthly', mrr: PRICE_MONTHLY };                 // mensuel (défaut, multi-mois ramené au mois)
     };
 
     const dist = { monthly: 0, annual: 0, trial: 0, unlimited: 0 };
@@ -1236,6 +1246,12 @@ app.get('/api/admin/mail-test', requireSameOrigin, requireAdmin, async (req, res
 // « essai », l'admin le déclare explicitement à la création — plus aucune devinette pour ces comptes.
 // Le repli sur la fenêtre reste pour tous les comptes créés AVANT (ils n'ont pas le plan).
 const TRIAL_PLAN = 'essai';
+// DÉCISION (audit 28/07, assumée) : le type « professionnel » ne court-circuite PAS le repli par
+// dates, contrairement à « essai »/« amis ». Raison : TOUS les comptes d'avant le sélecteur portent
+// « professionnel » par défaut — l'honorer comme autorité reclasserait les VRAIS essais historiques
+// en payants (mauvais mail à l'échéance). Et aucune offre PAYANTE ≤ 8 jours n'existe au catalogue.
+// Si un jour une offre hebdo payante naît : donner l'autorité à « professionnel » ET migrer les
+// anciens essais vers le type « essai » d'abord.
 function _isTrialAccount(u) {
   if (!u) return false;
   const p = String(u.plan || '').toLowerCase();
@@ -1259,7 +1275,13 @@ function computeExpiry({ duration, expiresAt, startDate }) {
   // « Marquer comme expiré » : échéance ~36 h dans le passé → AU-DELÀ des 24 h de grâce (auth.js)
   // → l'accès est immédiatement bloqué à la connexion ET le badge admin passe « Expiré ».
   if (duration === 'expired')   return new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
-  if (duration === 'custom')    return expiresAt ? new Date(expiresAt).toISOString() : null;
+  // (Audit 28/07) « custom » avec champ date vide/illisible → ERREUR explicite. Avant : null
+  // silencieux = accès ILLIMITÉ accordé par accident.
+  if (duration === 'custom') {
+    const t = expiresAt ? new Date(expiresAt).getTime() : NaN;
+    if (!Number.isFinite(t)) throw new Error('Date personnalisée manquante ou invalide');
+    return new Date(t).toISOString();
+  }
   // Offres en SEMAINES (ex. essai gratuit) : "1week", "2week"…
   const wk = /^(\d+)\s*(?:week|weeks|sem|semaine|semaines)$/i.exec(duration);
   if (wk) {
@@ -1371,16 +1393,17 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
           if (_isGift(u.email) || _isFriend(u) || _isTrialAccount(u)) return;
           if (auth.isEmailBlacklisted(u.email)) return;
           if (await auth.emailLogHas('unsub:' + String(u.email).toLowerCase().trim())) return;
-          const key = _expiredMailKey(u);
-          if (await auth.emailLogHas(key)) return;                     // déjà envoyé pour cette échéance
+          if (await _expiredMailSeen(u)) return;   // (audit) teste les 2 graphies d'échéance
+          const key = _expiredMailKey(u);                     // déjà envoyé pour cette échéance
           const ok = await mailer.sendExpired({ to: u.email, name: u.name, expiresAt: u.expires_at });
           if (ok) await auth.emailLogAdd(key);
         })
         .catch(() => {});
-    } else if (activeReq === false) {
-      // Suspendu → renouvellement échoué
+    } else if (activeReq === false && before && before.active !== false) {
+      // Suspendu (TRANSITION actif→suspendu seulement — audit 28/07 : sans le test before.active,
+      // CHAQUE enregistrement d'une fiche déjà suspendue renvoyait « renouvellement échoué »).
       auth.getUserById(id)
-        .then(u => { if (u?.email && u.role === 'client') mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
+        .then(u => { if (u?.email && u.role === 'client' && !_isGift(u.email) && !_isFriend(u)) mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
         .catch(() => {});
     } else if (activeReq === true && before && !before.active) {
       // Réactivé (était SUSPENDU → actif) → email de réactivation
@@ -1593,6 +1616,7 @@ async function _whopRenewOrCreate(mem) {
   if (existing) {
     if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
     const wasInactive = !existing.active;
+    if (!mem.expiresAt) console.warn(`[Whop] adhésion SANS échéance → compte passé ILLIMITÉ (${mem.email}) — vérifier que c'est voulu (audit 28/07)`);
     await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
     // CADENCE = LA RÉALITÉ GAGNE TOUJOURS : ce que le client PREND (période de facturation Whop)
     // écrase tout réglage manuel de l'admin. Admin avait mis « annuel » mais le client renouvelle en
@@ -1659,7 +1683,13 @@ async function _whopSuspend(email) {
   const users = await auth.getAllUsers();
   const u = users.find(x => (x.email || '').toLowerCase() === email);
   if (u && u.role !== 'admin' && u.active) {
+    // (Audit 28/07) Un accès OFFERT (liste giftaccess ou type Amis) ne se suspend pas et ne reçoit
+    // JAMAIS « renouvellement échoué » sur un event Whop : son accès ne dépend pas d'un paiement.
+    if (_isGift(u.email) || _isFriend(u)) { console.log(`[Whop] event ignoré (accès offert/Amis) → ${email}`); return; }
     await auth.updateUser(u.id, { active: false });
+    // Anti-doublon croisé avec le circuit d'expiration : on journalise que CE client vient d'être
+    // averti (rfail:<id>:<échéance>) → _checkExpiredSubscriptions ne double pas dans la foulée.
+    try { await auth.emailLogAdd(`rfail:${u.id}:${u.expires_at || ''}`); } catch (e) {}
     mailer.sendRenewalFailed({ to: u.email, name: u.name }).catch(() => {});
     console.log(`[Whop] Suspendu: ${email}`);
   }
@@ -1690,6 +1720,14 @@ app.post('/api/whop/webhook', async (req, res) => {
     const banEvent = /refund|chargeback|terminat|ban|block|dispute|fraud/.test(action);
     if (mem.valid && !invalidEvent) await _whopRenewOrCreate(mem);
     else {
+      // (Audit 28/07 — CRITIQUES) Avant de suspendre/blacklister, on exige que l'API WHOP (source
+      // de vérité, pas le payload) confirme qu'il ne reste AUCUNE adhésion DTP valide pour cet
+      // e-mail. Ça neutralise (1) un webhook FORGÉ {action:'refund'} — l'adhésion réelle est
+      // toujours valide → ignoré ; (2) un event cancel sur une VIEILLE adhésion alors qu'une
+      // nouvelle est active (changement de plan) — le client valide n'est plus suspendu à tort.
+      let stillValid = false;
+      try { const v = await whop.getMembershipByEmail(mem.email); stillValid = !!(v && v.valid); } catch (e) {}
+      if (stillValid) { console.warn(`[Whop] event "${action}" reçu mais une adhésion VALIDE existe côté Whop → ignoré (forge ou vieille adhésion) : ${mem.email}`); return; }
       await _whopSuspend(mem.email);
       if (banEvent) { try { auth.blacklistEmail(mem.email); console.log('[Whop] AUTO-BLACKLIST (event "' + action + '") →', mem.email); } catch (e) { console.error('[Whop] blacklist auto:', e.message); } }
     }
@@ -1719,14 +1757,16 @@ async function _whopReconcile() {
     try {
       if (!u) { await _whopRenewOrCreate(mem); created++; }                                          // compte manquant (création ratée) → créé
       else if (u.role !== 'admin') {
+        // (Audit 28/07) ILLIMITÉ accordé par l'admin (expires_at null) = intouchable : avant,
+        // dtpExp=0 le faisait passer pour « en retard » et Whop lui REPOSAIT une échéance.
+        if (u.active && !u.expires_at) continue;
         const dtpExp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
         if (!u.active || dtpExp < whopExp - 60000) { await _whopRenewOrCreate(mem); fixed++; }        // en retard sur Whop → EXTEND/réactive (marge 1 min)
       }
     } catch (e) { console.error('[Whop reconcile]', mem.email, ':', e.message); }
   }
   _whopReconLast = { ts: Date.now(), checked: members.length, fixed, created, error: null };
-  console.log(`[Whop reconcile] ${members.length} membre(s) valide(s) · ${fixed} prolongé(s) · ${created} créé(s)`);
-  try { await _whopGhostSweep(); } catch (e) { console.error('[Whop fantôme]', e.message); }
+  if (fixed || created) console.log(`[Whop reconcile] ${members.length} membre(s) valide(s) · ${fixed} prolongé(s) · ${created} créé(s)`);
   return { ok: true, checked: members.length, fixed, created };
 }
 
@@ -1766,17 +1806,26 @@ async function _whopGhostSweep() {
     const l = byEmail.get(em);
     if (!l || !l.length) continue;                               // pas de Whop → compte manuel, hors champ
     if (l.some(m => m.valid)) continue;                          // une adhésion vivante → rien à corriger
-    let lastPaid = 0, periodLen = 31 * DAY;
+    let lastPaid = 0, periodLen = 0;
     for (const m of l) {
       const t = paidByMem.get(m.id) || 0;
       if (t > lastPaid) {
         lastPaid = t;
-        if (m.periodStart && m.periodEnd && m.periodEnd > m.periodStart) periodLen = m.periodEnd - m.periodStart;
+        periodLen = (m.periodStart && m.periodEnd && m.periodEnd > m.periodStart) ? (m.periodEnd - m.periodStart) : 0;
       }
     }
     if (!lastPaid) { console.warn(`[Whop fantôme] ${em} : adhésions mortes mais AUCUN paiement encaissé trouvé → non touché (à vérifier à la main)`); continue; }
-    const paidEnd = lastPaid + periodLen;                        // fin de la dernière période RÉELLEMENT payée
+    // (Audit 28/07) Période illisible → on déduit de la CADENCE connue du compte (un ANNUEL payé
+    // était ramené à 31 j par l'ancien défaut fixe) ; + les jours OFFERTS de parrainage s'ajoutent
+    // au payé (le sweep les confisquait).
+    if (!periodLen) periodLen = (_cadOf(u) === 'annuel' ? 365 : 31) * DAY;
+    let _bonus = 0; try { _bonus = Number(await auth.aiCacheGet('refbonus:' + u.id, 8640000000000).catch(() => 0)) || 0; } catch (e) {}
+    const paidEnd = lastPaid + periodLen + _bonus * DAY;         // fin payée + jours de parrainage offerts
     if (exp <= paidEnd + 5 * DAY) continue;                      // couvert par le payé (+5 j de grâce) → churn normal
+    // (Audit 28/07) COURSE webhook↔sweep : les instantanés Whop datent de plusieurs secondes
+    // (pagination) — on RELIT le compte à l'instant T ; si l'échéance a bougé (re-souscription
+    // pendant le balayage), on ne touche pas ce tour-ci.
+    try { const fu = await auth.getUserById(u.id); if (!fu || new Date(fu.expires_at).getTime() !== exp) { console.log(`[Whop fantôme] ${em} : échéance modifiée pendant le balayage → ignoré ce tour`); continue; } } catch (e) { continue; }
     const newExp = new Date(paidEnd).toISOString();
     await auth.updateUser(u.id, { expiresAt: newExp });
     _forceLogout.add(String(u.id));                              // éjecté du desk (~20 s) ; le login re-vérifie l'échéance
@@ -1799,9 +1848,14 @@ async function _whopGhostSweep() {
   }
   if (ghosts) console.log(`[Whop fantôme] ${ghosts} accès non payé(s) corrigé(s)`);
 }
-// Planif : ~60 s après le boot (rattrape les events manqués pendant un downtime) puis toutes les 6 h.
+// Planif (28/07, cas Heiari « il a payé mais le panel ne bouge pas ») : le webhook peut se perdre
+// (notamment pendant un rebuild du conteneur) → le reconcile devient le VRAI chemin de mise à jour.
+// Il est LÉGER (1-2 appels API) → toutes les 10 MIN : un paiement apparaît en ≤10 min même sans
+// webhook. Le balayage fantômes, LOURD (~10 appels paginés + paiements), reste boot + 6 h.
 setTimeout(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] boot:', e.message)); }, 60 * 1000);
-setInterval(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] cycle:', e.message)); }, 6 * 60 * 60 * 1000);
+setInterval(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] cycle:', e.message)); }, 10 * 60 * 1000);
+setTimeout(() => { _whopGhostSweep().catch(e => console.error('[Whop fantôme] boot:', e.message)); }, 2 * 60 * 1000);
+setInterval(() => { _whopGhostSweep().catch(e => console.error('[Whop fantôme] cycle:', e.message)); }, 6 * 60 * 60 * 1000);
 
 // ══ FILET PERMANENT « ZÉRO CLIENT SANS ACCÈS » ═══════════════════════════════════════════════════
 // Rattrape TOUT client à abonnement VALIDE qui n'a JAMAIS pu se connecter et n'a pas de bienvenue
@@ -1868,7 +1922,10 @@ app.get('/api/admin/whop-reconcile', requireSameOrigin, requireAdmin, async (_re
 // Mise à jour du profil (nom) par l'utilisateur — persiste en BDD + session
 app.put('/api/auth/me/profile', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
-  const name = (req.body?.name || '').trim();
+  // (Audit 28/07 — XSS stocké) Le nom est saisi par N'IMPORTE QUEL client et ré-affiché dans la
+  // session ADMIN : on retire balises/contrôles à la SOURCE (le front échappe aussi — défense en
+  // profondeur) et on borne la longueur.
+  const name = String(req.body?.name || '').replace(/[<>]/g, '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
   if (!name) return res.status(400).json({ error: 'Le nom ne peut pas être vide' });
   try {
     await auth.updateUser(req.session.userId, { name });   // → BDD (et donc panel admin)
@@ -13898,6 +13955,10 @@ async function _checkTrialUpsell() {
       if (!_isTrialAccount(u)) continue;
       // Fenêtre d'envoi : l'essai a expiré dans les dernières 24 h
       if (exp <= low || exp > high) continue;
+      // (Audit 28/07) blacklist / désinscrit exclus ici aussi (comme tous les autres chemins)
+      const _em2 = String(u.email).toLowerCase().trim();
+      if (auth.isEmailBlacklisted(_em2)) continue;
+      if (await auth.emailLogHas('unsub:' + _em2)) continue;
       const key = `trial-upsell:${u.id}:${u.expires_at}`;
       if (await auth.emailLogHas(key)) continue;            // déjà envoyé pour cet essai
       const ok = await mailer.sendTrialUpsell({ to: u.email, name: u.name, expiresAt: u.expires_at });
@@ -13929,6 +13990,19 @@ async function _checkTrialUpsell() {
 //    Les essais (fenêtre d'accès ≤ 8 j) sont EXCLUS : ils ont déjà leur propre mail → jamais 2 messages.
 //    Anti-doublon durable partagé avec l'action manuelle de l'admin (même clé) → jamais de doublon.
 function _expiredMailKey(u) { return `expired:${u.id}:${u.expires_at}`; }
+// (Audit 28/07) La MÊME échéance s'écrit « …+00:00 » via Supabase mais « ….000Z » via le miroir
+// local (updateUser → toISOString) : une clé posée sous un format était invisible sous l'autre →
+// risque de DOUBLE mail après bascule miroir. On teste donc les DEUX graphies (+ la brute).
+async function _expiredMailSeen(u) {
+  if (await auth.emailLogHas(_expiredMailKey(u))) return true;
+  try {
+    const t = new Date(u.expires_at);
+    for (const v of [t.toISOString(), t.toISOString().replace('.000Z', '+00:00')]) {
+      if (v !== u.expires_at && await auth.emailLogHas(`expired:${u.id}:${v}`)) return true;
+    }
+  } catch (e) {}
+  return false;
+}
 async function _checkExpiredSubscriptions() {
   try {
     const users = await auth.getAllUsers();
@@ -13943,8 +14017,14 @@ async function _checkExpiredSubscriptions() {
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
       if (_isTrialAccount(u)) continue;        // ESSAI → couvert par _checkTrialUpsell
       if (exp <= low || exp > now) continue;   // hors fenêtre (trop ancien, ou pas encore échu)
+      // (Audit 28/07) mêmes exclusions que partout : blacklist, désinscrit — et pas de doublon si le
+      // webhook vient d'envoyer « renouvellement échoué » pour la même échéance (clé rfail).
+      const _em = String(u.email).toLowerCase().trim();
+      if (auth.isEmailBlacklisted(_em)) continue;
+      if (await auth.emailLogHas('unsub:' + _em)) continue;
+      if (await auth.emailLogHas(`rfail:${u.id}:${u.expires_at}`)) continue;
+      if (await _expiredMailSeen(u)) continue;   // (audit) teste les 2 graphies d'échéance
       const key = _expiredMailKey(u);
-      if (await auth.emailLogHas(key)) continue;
       const ok = await mailer.sendExpired({ to: u.email, name: u.name, expiresAt: u.expires_at });
       if (ok) {
         await auth.emailLogAdd(key);
@@ -16544,13 +16624,13 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
 // jalon soit atteint (0 = dès l'échéance) — la fenêtre AUTOMATIQUE reste courte, ici on liste
 // tous ceux qui ont dépassé le jalon sans trace.
 const _LIFECYCLE_KINDS = {
-  'expired':      { label: 'Abonnement expiré',   essai: false, minJours: 0,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpired(d),         key: (u) => `expired:${u.id}:${u.expires_at}` },
-  'trial-upsell': { label: "Fin d'essai gratuit", essai: true,  minJours: 0,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendTrialUpsell(d),     key: (u) => `trial-upsell:${u.id}:${u.expires_at}` },
-  'expired-7j':   { label: 'Relance J+7',         essai: false, minJours: 7,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpiredFollowup(d), key: (u) => `expired7:${u.id}:${u.expires_at}` },
-  'winback-1m':   { label: 'Jalon 1 mois',        essai: false, minJours: 30,  build: (u) => ({ to: u.email, name: u.name, months: 1 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback1m:${u.id}:${u.expires_at}` },
-  'winback-3m':   { label: 'Jalon 3 mois',        essai: false, minJours: 90,  build: (u) => ({ to: u.email, name: u.name, months: 3 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback3m:${u.id}:${u.expires_at}` },
-  'winback-6m':   { label: 'Jalon 6 mois',        essai: false, minJours: 180, build: (u) => ({ to: u.email, name: u.name, months: 6 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback6m:${u.id}:${u.expires_at}` },
-  'winback-12m':  { label: 'Jalon 1 an',          essai: false, minJours: 365, build: (u) => ({ to: u.email, name: u.name, months: 12 }), send: (d) => mailer.sendWinback(d), key: (u) => `winback12m:${u.id}:${u.expires_at}` },
+  'expired':      { label: 'Abonnement expiré',   essai: false, minJours: 0,   maxJours: 7,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpired(d),         key: (u) => `expired:${u.id}:${u.expires_at}` },
+  'trial-upsell': { label: "Fin d'essai gratuit", essai: true,  minJours: 0,   maxJours: 45,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendTrialUpsell(d),     key: (u) => `trial-upsell:${u.id}:${u.expires_at}` },
+  'expired-7j':   { label: 'Relance J+7',         essai: false, minJours: 7,   maxJours: 30,   build: (u) => ({ to: u.email, name: u.name, expiresAt: u.expires_at }), send: (d) => mailer.sendExpiredFollowup(d), key: (u) => `expired7:${u.id}:${u.expires_at}` },
+  'winback-1m':   { label: 'Jalon 1 mois',        essai: false, minJours: 30,  maxJours: 90,  build: (u) => ({ to: u.email, name: u.name, months: 1 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback1m:${u.id}:${u.expires_at}` },
+  'winback-3m':   { label: 'Jalon 3 mois',        essai: false, minJours: 90,  maxJours: 180,  build: (u) => ({ to: u.email, name: u.name, months: 3 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback3m:${u.id}:${u.expires_at}` },
+  'winback-6m':   { label: 'Jalon 6 mois',        essai: false, minJours: 180, maxJours: 365, build: (u) => ({ to: u.email, name: u.name, months: 6 }),  send: (d) => mailer.sendWinback(d), key: (u) => `winback6m:${u.id}:${u.expires_at}` },
+  'winback-12m':  { label: 'Jalon 1 an',          essai: false, minJours: 365, maxJours: 730, build: (u) => ({ to: u.email, name: u.name, months: 12 }), send: (d) => mailer.sendWinback(d), key: (u) => `winback12m:${u.id}:${u.expires_at}` },
 };
 // Comptes CONCERNÉS par un type donné (jalon atteint), avec l'info « a déjà reçu ou non ».
 async function _lifecycleCandidates(type) {
@@ -16563,7 +16643,9 @@ async function _lifecycleCandidates(type) {
     const exp = new Date(u.expires_at).getTime(), crt = new Date(u.created_at).getTime();
     if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
     if (exp > now) continue;                                     // échéance pas encore passée
-    if (Math.floor((now - exp) / DAY) < (k.minJours || 0)) continue;   // jalon pas encore atteint
+    const _j = Math.floor((now - exp) / DAY);
+    if (_j < (k.minJours || 0)) continue;                        // jalon pas encore atteint
+    if (k.maxJours && _j > k.maxJours) continue;                 // jalon dépassé → c'est la liste SUIVANTE qui le couvre (audit : fini le même compte dans 4 listes)
     const estEssai = _isTrialAccount(u);
     if (k.essai !== estEssai) continue;                          // chaque mail a son public (essai vs payant)
     // OPT-OUT ABSOLU : le rattrapage est un envoi EN LOT décidé par l'admin (pas le transactionnel

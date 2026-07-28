@@ -1269,7 +1269,7 @@
     const initials = base.split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase() || '?';
     let h = 0; const key = (u.email || base); for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) >>> 0;
     const col = _AVA_COLORS[h % _AVA_COLORS.length];
-    return `<span class="u-avatar" style="background:${col}">${initials}</span>`;
+    return `<span class="u-avatar" style="background:${col}">${_escH(initials)}</span>`;   // initiales dérivées du nom libre → échappées aussi
   }
 
   // Tri : renvoie une clé comparable selon la colonne
@@ -1348,8 +1348,8 @@
       `<button class="btn-ic${danger ? ' btn-ic--danger' : ''}" title="${label}" aria-label="${label}" onclick="${onclick}">${IC[icon]}</button>`;
     tbody.innerHTML = pageUsers.map(u => `
       <tr data-id="${u.id}">
-        <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${u.name || '—'}</span></div></td>
-        <td class="email">${u.email}</td>
+        <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${_escH(u.name || '—')}</span></div></td><!-- (XSS) nom/e-mail TOUJOURS échappés : modifiables par le client via son profil -->
+        <td class="email">${_escH(u.email)}</td>
         <td><span class="badge badge-client">${cycleLabel(u)}</span></td>
         <td>${typeBadge(u)}</td>
         <td>${statusBadge(u)}</td>
@@ -1476,7 +1476,10 @@
     return `<span class="badge badge-active">Jusqu'au ${date}</span>`;
   }
 
-  function esc(s) { return (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+  // (Audit 28/07 — XSS) esc() sert aux ARGUMENTS des onclick (chaîne JS simple-quotée dans un
+  // attribut double-quoté) : il faut neutraliser le backslash D'ABORD, puis ' " < > & — l'ancienne
+  // version laissait passer < > & \ (injection + boutons morts sur un nom finissant par \).
+  function esc(s) { return (s||'').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&(?!(quot|lt|gt|amp);)/g, '&amp;'); }
 
   // Affiche/masque le champ date personnalisée (formulaire add ou edit)
   function toggleCustom(which) {
