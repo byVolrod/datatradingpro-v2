@@ -1936,6 +1936,21 @@
     host.querySelectorAll('.wdg-pop').forEach(function (p) { p.hidden = true; });   // un seul ouvert à la fois
     if (target) target.hidden = !willOpen;
   }
+  function _closePops() {
+    var host = document.getElementById(HOST_ID); if (!host) return;
+    host.querySelectorAll('.wdg-pop').forEach(function (p) { p.hidden = true; });
+  }
+  // FERMETURE NATURELLE des panneaux (info / réglages) : clic ailleurs ou Échap. Sans ça il fallait
+  // recliquer l'engrenage — le panneau restait ouvert par-dessus le desk en changeant de carte.
+  // Écouteurs posés UNE SEULE FOIS sur le document (renderGrid recrée le HTML des cartes à chaque
+  // rendu : les attacher aux cartes les empilerait à chaque save).
+  (function () {
+    document.addEventListener('mousedown', function (e) {
+      if (e.target.closest && (e.target.closest('.wdg-pop') || e.target.closest('.wdg-ico'))) return;  // dans le panneau, ou sur le bouton qui l'ouvre
+      _closePops();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') _closePops(); });
+  })();
 
   /* ── ACTIONS (exposées : les onclick du HTML généré les appellent) ── */
   var API = {

@@ -6869,6 +6869,17 @@ function aiInsToggle(btn, hostId) {
 
 // ═══════════ WEEKLY MARKET RECAP : rendu riche (copie DataTradingPro) ═══════════
 function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// DONNÉES PUBLIÉES — le repère utile au trader est la DEVISE, pas le pays : « USD », pas « États-Unis »
+// (demande user 29/07). Exception zone euro : plusieurs pays partagent l'EUR, donc on garde le pays en
+// second (« EUR · Allemagne ») — sinon on perdrait l'information de QUI a publié le chiffre.
+// Repli sur le pays si la devise est inconnue (anciens rapports sans champ ccy).
+function _ccyWho(ccy, pays){
+  ccy = String(ccy == null ? '' : ccy).trim().toUpperCase();
+  pays = String(pays == null ? '' : pays).trim();
+  if (!ccy) return pays;
+  if (ccy === 'EUR' && pays && !/^zone\s*euro$/i.test(pays)) return 'EUR · ' + pays;
+  return ccy;
+}
 // **gras** → <strong> (jamais d'astérisques brutes), PUIS on retire tout astérisque résiduel
 // (marqueur non apparié d'un ancien rapport en cache) → plus aucun ** ne peut apparaître.
 function _wrInline(t){
@@ -7120,7 +7131,7 @@ function _renderWeeklyRecap(item) {
       _keyEvents.slice(0, 9).forEach(({ e, day }) => {
         body += `<div class="gew-key">`
           + `<div class="gew-key-h"><span class="gew-key-day">${_wrEsc(_gewDayFr(day))}</span><span class="gew-imp gew-imp--high">FORT</span></div>`
-          + `<div class="gew-key-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</div>`
+          + `<div class="gew-key-ttl">${_ccyWho(e.ccy, e.country) ? `<b>${_wrEsc(_ccyWho(e.ccy, e.country))}</b> ` : ''}${_wrEsc(e.title)}</div>`
           + ((e.actual || e.forecast || e.previous) ? `<div class="gew-key-nums">${e.actual ? `Réel <b>${_wrEsc(e.actual)}</b>` : ''}${(e.actual && (e.forecast || e.previous)) ? ' · ' : ''}${e.forecast ? `Consensus <b>${_wrEsc(e.forecast)}</b>` : ''}${(e.forecast && e.previous) ? ' · ' : ''}${e.previous ? `Précédent <b>${_wrEsc(e.previous)}</b>` : ''}</div>` : '')
           + (e.comment ? `<div class="gew-key-cmt">${_wrEsc(e.comment)}</div>` : '')
           + `</div>`;
@@ -7162,7 +7173,7 @@ function _renderWeeklyRecap(item) {
           const _actCls = (typeof deviationClass === 'function') ? deviationClass(e.actual, e.forecast) : '';   // surprise : vert si > consensus, rouge si <
           body += `<div class="gew-ev gew-ev--${_impCls(e.impact)}"><div class="gew-ev-top">`
             + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
-            + `<span class="gew-ev-ttl">${_gewFlag(e.country, e.ccy)}${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</span>`
+            + `<span class="gew-ev-ttl">${_gewFlag(e.country, e.ccy)}${_ccyWho(e.ccy, e.country) ? `<b>${_wrEsc(_ccyWho(e.ccy, e.country))}</b> ` : ''}${_wrEsc(e.title)}</span>`
             + (e.impact ? `<span class="gew-imp gew-imp--${_impCls(e.impact)}">${_wrEsc(_impLbl(e.impact))}</span>` : '')
             + `</div>`;
           if (e.actual || e.forecast || e.previous) {
@@ -7470,7 +7481,8 @@ function _renderFXDailyRecap(item) {
   if (_dbc.length) {
     body += _sec('Données du jour') + '<div class="fxdr-grid">';
     _dbc.forEach(g => {
-      body += `<div class="fxdr-card fxdr-dbc"><div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(g.country)}</span>${g.ccy ? `<span class="fxdr-ccy">${_wrEsc(g.ccy)}</span>` : ''}</div>`;
+      // En-tête = DEVISE (le pastillage ccy à droite devenait redondant → retiré)
+      body += `<div class="fxdr-card fxdr-dbc"><div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(_ccyWho(g.ccy, g.country))}</span></div>`;
       (g.families || []).forEach(f => {
         if (!f || !(f.items || []).length) return;
         body += `<div class="fxdr-grp-title">${_wrEsc(f.name || '')}</div>`;
@@ -7505,7 +7517,8 @@ function _renderFXDailyRecap(item) {
         const _atr = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
         _sd.forEach(d => {
           const nums = [`<b>${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
-          const who = d.country ? `${_wrEsc(d.country)} · ` : '';
+          const _w = _ccyWho(d.ccy, d.country);
+          const who = _w ? `${_wrEsc(_w)} · ` : '';
           const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact">→ ${_wrEsc(d.lean)}</span>` : ''}`;
           // Cliquable → déroulé « Décryptage » (même système que le calendrier, via _fxrToggleData → _calValueBlockHtml)
           body += `<div class="fxdr-data" role="button" tabindex="0" onclick="_fxrToggleData(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleData(this);}" data-title="${_atr(d.label)}" data-ccy="${_atr(d.ccy)}" data-actual="${_atr(d.actual)}" data-forecast="${_atr(d.forecast)}" data-previous="${_atr(d.previous)}" data-ts="${d.ts || 0}"><div class="fxdr-data-row"><span class="fxdr-data-txt">${txt}</span><span class="fxdr-data-chev">›</span></div><div class="fxdr-data-detail" hidden></div></div>`;
