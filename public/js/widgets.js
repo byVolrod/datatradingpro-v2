@@ -37,6 +37,8 @@
   var HOST_ID = 'wdg-grid';
   var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
   var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
+  var _IMAX = 24;                         // = _WDG_MAX_ITEMS côté serveur : au-delà, le serveur TRONQUE
+                                          // en silence → on refuse l'ajout ici plutôt que de perdre le widget au rechargement.
   var GRID_COLS = 12, ROW_PX = 26;        // vraie grille : 12 colonnes fluides + unité de ligne 26px (snap)
   var _BIAS_SINKS = [];                   // widgets Radar de Biais montés → repeints par le push serveur (DTPWidgets.onBias)
   var _fullscreenIdx = null;              // widget en plein écran (null = aucun)
@@ -99,6 +101,7 @@
       return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + esc(o.lbl) + '</span>' + ctl + '</div>';
     }).join('');
   }
+  var _resetArm = null;              // remise à zéro : 1er clic arme, 2e clic exécute (retombe seul)
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
   // info = « i » cerclé ; réglages = curseurs d'ajustement.
@@ -573,6 +576,7 @@
             host.querySelectorAll('.cot-type-btn').forEach(function (b) { b.classList.remove('cot-type-btn--active'); });
             btn.classList.add('cot-type-btn--active');
             try { buildCOTChart(gid, btn.dataset.cotType); } catch (e) {}
+            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'cat', btn.dataset.cotType);   // le widget devient sa propre source de réglage
           });
         });
         return null;
@@ -617,10 +621,14 @@
             host.querySelectorAll('.dmx-tf-btn').forEach(function (b) { b.classList.remove('dmx-tf-btn--active'); });
             btn.classList.add('dmx-tf-btn--active');
             refresh(true);
+            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'tf', btn.dataset.tf);
           });
         });
         var sel = host.querySelector('.dmx-sort-select');
-        if (sel) sel.addEventListener('change', function () { refresh(false); });
+        if (sel) sel.addEventListener('change', function () {
+          refresh(false);
+          var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'tri', sel.value);
+        });
         var iv = setInterval(function () { if (!host.isConnected) { clearInterval(iv); return; } refresh(false); }, 60000);
         return function () { clearInterval(iv); };
       },
@@ -1402,17 +1410,44 @@
   function load() {
     return fetch('/api/widgets').then(function (r) { return r.json(); }).then(function (j) {
       STATE.cfg = ensureDefaultLayout((j && j.cfg && j.cfg.layouts && j.cfg.layouts.length) ? j.cfg : defaultCfg());
+      STATE.loaded = true;                 // la config VIENT du serveur (même vide : un compte neuf n'a rien) → écriture autorisée
       if (STATE.cfg.__migrated) { delete STATE.cfg.__migrated; save(); }   // fige la migration (voir ensureDefaultLayout)
-    }).catch(function () { STATE.cfg = defaultCfg(); });
+    }).catch(function () {
+      // ÉCHEC DE LECTURE (500/502/coupure) : on affiche un desk de secours, mais on N'ÉCRIT PLUS.
+      // Sans ce verrou, la première interaction sauvegardait ce défaut PAR-DESSUS les vrais layouts
+      // du compte : l'utilisateur perdait tout son travail à cause d'un simple hoquet réseau.
+      STATE.cfg = defaultCfg();
+      STATE.loaded = false;
+      _readOnlyWarn();
+    });
+  }
+  var _roShown = false;
+  function _readOnlyWarn() {
+    if (_roShown) return; _roShown = true;
+    var b = document.createElement('div');
+    b.className = 'wdg-undo wdg-undo--warn';
+    b.innerHTML = '<span>Desk non chargé — modifications non enregistrées. Recharge la page.</span>'
+      + '<button class="wdg-undo-b" onclick="location.reload()">Recharger</button>';
+    document.body.appendChild(b);
   }
   function save() {                        // débouncé ; le serveur re-sanitise de toute façon
+    if (!STATE.loaded) return _readOnlyWarn();     // config de secours : l'écrire écraserait les vrais layouts
     clearTimeout(STATE.saveT);
-    STATE.saveT = setTimeout(function () {
-      fetch('/api/widgets', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(STATE.cfg),
-      }).catch(function () {});
-    }, 700);
+    STATE.saveT = setTimeout(_flush, 700);
   }
+  // Écriture réelle. Extraite du débounce pour pouvoir la FORCER au départ de la page : sans ça, une
+  // modification suivie d'un Ctrl+F5 dans la seconde était perdue (le minuteur de 700 ms mourait avec la page).
+  function _flush() {
+    if (!STATE.loaded || !STATE.cfg) return;
+    clearTimeout(STATE.saveT); STATE.saveT = null;
+    fetch('/api/widgets', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(STATE.cfg), keepalive: true,
+    }).catch(function () {});
+  }
+  // pagehide couvre la fermeture d'onglet et la navigation ; visibilitychange couvre le passage en arrière-plan
+  // (seul événement fiable sur iOS). keepalive laisse la requête partir même si la page disparaît.
+  window.addEventListener('pagehide', function () { if (STATE.saveT) _flush(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && STATE.saveT) _flush(); });
   function activeLayout() {
     var c = STATE.cfg; if (!c) return null;
     for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === c.active) return c.layouts[i];
@@ -1776,7 +1811,7 @@
     'onglets': '<svg ' + _PV + '><rect x="6" y="6" width="108" height="12" rx="2" fill="#141416"/><g font-family="monospace" font-size="7"><text x="12" y="14.5" fill="#ffffff">› FORCE</text><text x="48" y="14.5" fill="#6b7280">› RISQUE</text><text x="86" y="14.5" fill="#6b7280">› COT</text></g><rect x="12" y="16" width="27" height="1.5" fill="#e3b23a"/><rect x="6" y="22" width="108" height="28" rx="2" fill="#101013"/><polyline fill="none" stroke="#e3b23a" stroke-width="1.3" points="12,44 28,38 44,42 60,30 76,36 92,26 108,30"/></svg>',
   };
   var _libQ = '';                            // filtre de recherche de la bibliothèque (volatil)
-  var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analytics' · 'Fonctions' · '_tpl' = modèles)
+  var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analyse de marché' · 'Fonctions' · '_tpl' = modèles)
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
   var _pickTab = null;                       // index d'item « Panneau à onglets » en cours d'ajout d'onglet
   var _justAdded = null;                     // id du widget qu'on vient d'ajouter (flash « ✓ Ajouté » sur sa carte)
@@ -1796,12 +1831,12 @@
     // « Fonctions » = panneaux de données/outils qu'on consulte ; « Analytics » = panneaux d'analyse de marché.
     // Identité 100% DTP, aucune reprise visuelle PMT). FAM_OF mappe chaque widget à sa famille.
     var FAM_OF = {
-      'force-devises': 'Analytics', 'barometre': 'Analytics', 'risque-historique': 'Analytics', 'radar-biais': 'Analytics',
-      'risque-jauge': 'Analytics', 'cot-inst': 'Analytics', 'dmx-retail': 'Analytics', 'saison': 'Analytics', 'sessions': 'Analytics',
+      'force-devises': 'Analyse de marché', 'barometre': 'Analyse de marché', 'risque-historique': 'Analyse de marché', 'radar-biais': 'Analyse de marché',
+      'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
       'horloge': 'Fonctions', 'onglets': 'Fonctions',
     };
-    var FAMS = ['Analytics', 'Fonctions'];   // ordre d'affichage des 2 familles
+    var FAMS = ['Analyse de marché', 'Fonctions'];   // ordre d'affichage des 2 familles
     // GALERIE DE MODÈLES en TÊTE de la bibliothèque (demande user 23/07 : « on doit pouvoir choisir le template
     // en cliquant sur l'icône bibliothèque ») : chaque modèle = VIGNETTE d'agencement + NOM CENTRÉ DESSOUS —
     // jamais de nom à droite. Un clic crée un nouveau desk pré-composé (usePreset).
@@ -2003,6 +2038,18 @@
       if (!Object.keys(it.cfg).length) delete it.cfg;
       _reopen = i; save(); renderGrid();
     },
+    // Variante SILENCIEUSE : enregistre la valeur SANS re-rendre. Pour les contrôles internes d'un widget
+    // (barre de catégories COT, boutons d'unité DMX…) qui ont déjà mis leur propre affichage à jour :
+    // sans ça, le choix fait DANS le widget était perdu au premier re-rendu et contredisait la pastille
+    // du panneau de réglages. Le réglage devient la source unique, quel que soit l'endroit où on le change.
+    setOptQuiet: function (i, k, v) {
+      var l = activeLayout(); if (!l || l.items[i] == null) return;
+      var it = l.items[i], w = byId(it.w), d = optDef(w, k); if (!d) return;
+      if (!it.cfg) it.cfg = {};
+      if (v === d.def) delete it.cfg[k]; else it.cfg[k] = v;
+      if (!Object.keys(it.cfg).length) delete it.cfg;
+      save();
+    },
     bumpOpt: function (i, k, d) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i], w = byId(it.w), def = optDef(w, k); if (!def) return;
@@ -2018,6 +2065,7 @@
     },
     duplicate: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
+      if (l.items.length >= _IMAX) return _undoOffer('Ce desk est plein (' + _IMAX + ' widgets).');
       var copy = JSON.parse(JSON.stringify(l.items[i])); copy.locked = false;
       l.items.splice(i + 1, 0, copy); save(); renderGrid();
     },
@@ -2059,6 +2107,7 @@
       }
       // AJOUT MULTIPLE (parcours guidé) : la bibliothèque RESTE OUVERTE → on compose plusieurs widgets d'affilée.
       // Le compteur « N× » de la carte se met à jour ; le desk se re-rend derrière le voile. Fermer = croix/voile.
+      if (l.items.length >= _IMAX) { _undoOffer('Ce desk est plein (' + _IMAX + ' widgets). Crée un autre desk pour continuer.'); return; }
       l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) });
       save(); renderGrid();
       // FEEDBACK : le nouveau widget flashe + on scrolle jusqu'à lui (visible derrière le voile de la modale).
@@ -2078,6 +2127,7 @@
     },
     pickFor: function (i) { API.openLib(); _pickIdx = i; },   // (après openLib, qui remet _pickIdx à null)
     openLib: function () {
+      _closePops();                                   // un panneau de carte ne doit pas flotter au-dessus de la modale
       var d = document.getElementById('wdg-lib'); if (!d) return;
       d.classList.add('open'); _libQ = ''; _pickIdx = null; _pickTab = null;
       var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
@@ -2126,7 +2176,30 @@
           lays.forEach(function (l) {
             if (!l || !Array.isArray(l.items) || c.layouts.length >= _LMAX) return;
             var items = l.items.filter(function (it) { return it && (it.w === 'slot' || byId(it.w)); }).map(function (it) {
-              return _normItem({ w: it.w, gw: it.gw, gh: it.gh, h: it.h, col: it.col, locked: !!it.locked });
+              // MÊME PIÈGE QUE LE SANITIZER SERVEUR : tout champ non recopié ici est perdu à l'import.
+              // Il manquait tabs / tabLabels / cfg → réimporter son propre export rendait les panneaux
+              // à onglets vides et remettait tous les réglages par défaut.
+              var o = _normItem({ w: it.w, gw: it.gw, gh: it.gh, h: it.h, col: it.col, locked: !!it.locked });
+              if (Array.isArray(it.tabs)) {
+                var tabs = it.tabs.filter(function (t) { return typeof t === 'string' && byId(t); }).slice(0, 8);
+                if (tabs.length) {
+                  o.tabs = tabs;
+                  if (Array.isArray(it.tabLabels)) {
+                    var tl = it.tabLabels.slice(0, tabs.length).map(function (s) { return typeof s === 'string' ? s.replace(/[<>]/g, '').trim().slice(0, 18) : ''; });
+                    if (tl.some(Boolean)) o.tabLabels = tl;
+                  }
+                }
+              }
+              if (it.cfg && typeof it.cfg === 'object' && !Array.isArray(it.cfg)) {
+                var cfg = {}, w0 = byId(it.w);
+                Object.keys(it.cfg).slice(0, 12).forEach(function (k) {
+                  if (!/^[a-z0-9_]{1,24}$/.test(k) || !optDef(w0, k)) return;   // clé inconnue du contrat → ignorée
+                  var v = it.cfg[k];
+                  if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') cfg[k] = v;
+                });
+                if (Object.keys(cfg).length) o.cfg = cfg;
+              }
+              return o;
             });
             c.layouts.push({ id: 'lay-' + uid(), name: String(l.name || '').replace(/[<>"']/g, '').trim().slice(0, 40) || 'Importé', fav: false, items: items });
             added++;
@@ -2250,6 +2323,7 @@
       save(); renderBar(); renderManager(); renderGrid();
     },
     openManager: function () {
+      _closePops();
       var d = document.getElementById('wdg-mgr'); if (!d) return;
       _wireMgr();                                                  // réordonner par ⠿ (câblé une fois)
       _delConfirm = null; d.classList.add('open'); renderManager();
@@ -2287,7 +2361,28 @@
       c.tipSeen = 1; save(); renderGrid();
     },
 
-    reset: function () { _delConfirm = null; STATE.cfg = defaultCfg(); save(); renderBar(); renderManager(); renderGrid(); },
+    // REMISE À ZÉRO — confirmation inline en DEUX temps (charte : pas de dialog natif). Supprimer UN
+    // layout demandait déjà confirmation ; ce bouton, voisin d'« Exporter » et « Importer » et de même
+    // style, détruisait TOUT au premier clic. Le libellé annonce ce qui sera perdu, et l'armement
+    // retombe seul au bout de 6 s pour ne pas laisser un bouton piégé.
+    reset: function () {
+      var btn = document.querySelector('button[onclick*="DTPWidgets.reset()"]');
+      var raz = function () {
+        if (btn) { btn.textContent = 'Réinitialiser tout'; btn.classList.remove('wdg-btn--danger'); }
+        _resetArm = null;
+      };
+      if (!_resetArm) {
+        var n = (STATE.cfg && STATE.cfg.layouts || []).length;
+        if (btn) {
+          btn.textContent = 'Confirmer ? ' + n + ' desk' + (n > 1 ? 's' : '') + ' perdu' + (n > 1 ? 's' : '');
+          btn.classList.add('wdg-btn--danger');
+        }
+        _resetArm = setTimeout(raz, 6000);
+        return;
+      }
+      clearTimeout(_resetArm); raz();
+      _delConfirm = null; STATE.cfg = defaultCfg(); save(); renderBar(); renderManager(); renderGrid();
+    },
 
     // TEMPS RÉEL du Radar de Biais : appelé par le handler WebSocket du desk (app.js) à chaque
     // `smartbias_update`. Repeint les widgets « Radar de Biais » montés, sans requête réseau.

@@ -11566,7 +11566,7 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-jrd-donut { position: relative; width: 118px; height: 118px; border-radius: 50%; flex: 0 0 auto; }
 .wdg-jrd-donut::after { content: ''; position: absolute; inset: 26px; border-radius: 50%; background: var(--bg); }
 .wdg-jrd-hole { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1; }
-.wdg-jrd-hole b { font-size: 20px; font-weight: 800; color: #fff; line-height: 1; }
+.wdg-jrd-hole b { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1; }
 .wdg-jrd-hole em { font-style: normal; font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--w-t10); }
 .wdg-jrd-legend { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--w-t2); }
 .wdg-jrd-legend span { display: inline-flex; align-items: center; gap: 6px; } .wdg-jrd-legend i { width: 9px; height: 9px; border-radius: 2px; } .wdg-jrd-legend b { color: #fff; margin-left: 2px; }
@@ -11703,7 +11703,7 @@ body.wdg-mode #topbar-nav { display: none; }
 }
 .wdg-lay:hover { color: var(--text, var(--w-t1)); background: rgba(255,255,255,0.035); }
 /* Onglet ACTIF = grammaire EXACTE de .nav-item--active : texte blanc gras, aucun fond, soulignement or ::after animé */
-.wdg-lay.on { color: #fff; font-weight: var(--fw-bold); background: transparent; }
+.wdg-lay.on { color: var(--text); font-weight: var(--fw-bold); background: transparent; }
 .wdg-lay.on::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
   background: var(--orange, #e3b23a); border-radius: 2px 2px 0 0;
@@ -11857,7 +11857,7 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 .wdgt-tab { position: relative; display: inline-flex; align-items: center; gap: 4px; padding: 0 11px; background: none; border: none; cursor: pointer; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; font-weight: var(--fw-semibold, 600); letter-spacing: .05em; text-transform: uppercase; color: var(--text3, var(--w-t13)); white-space: nowrap; transition: color .14s; }
 .wdgt-chv { opacity: .8; }
 .wdgt-tab:hover { color: var(--w-t1); }
-.wdgt-tab.on { color: #fff; font-weight: var(--fw-bold, 700); box-shadow: inset 0 -2px 0 var(--orange); }
+.wdgt-tab.on { color: var(--text); font-weight: var(--fw-bold, 700); box-shadow: inset 0 -2px 0 var(--orange); }
 .wdgt-x { display: none; margin-left: 2px; color: var(--w-t14); font-size: 11px; line-height: 1; }
 .wdgt-tab:hover .wdgt-x { display: inline; }
 .wdgt-x:hover { color: #ef4444; }
@@ -11898,7 +11898,7 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   transition: color .15s;
 }
 .wdg-ptab:hover { color: var(--w-t1); }
-.wdg-ptab.on { color: #fff; font-weight: var(--fw-bold, 700); }
+.wdg-ptab.on { color: var(--text); font-weight: var(--fw-bold, 700); }
 .wdg-ptab.on::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px; background: var(--orange); }
 @media (max-width: 560px) { .wdg-ptab { padding: 0 8px; font-size: 10px; } .wdg-lib-title { display: none; } }
 
@@ -12359,5 +12359,15 @@ html[data-theme="light"] .wdg-skel-l { background: linear-gradient(90deg, rgba(0
   letter-spacing: .06em; text-transform: uppercase;
 }
 .wdg-undo-b:hover { text-decoration: underline; }
+/* Variante ALERTE : le desk n'a pas pu être chargé, donc rien n'est enregistré. Rouge, persistant
+   (pas de disparition automatique) — c'est un avertissement de perte de données, pas une info. */
+.wdg-undo--warn { border-color: rgba(255, 61, 0, .5); }
+.wdg-undo--warn span { font-size: var(--fs-body); color: var(--text); }
+.wdg-undo--warn .wdg-undo-b { color: #ff3d00; }
 @keyframes wdgUndoIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (max-width: 560px) { .wdg-undo { left: 12px; right: 12px; transform: none; justify-content: space-between; } @keyframes wdgUndoIn { from { opacity: 0; } to { opacity: 1; } } }
+
+/* Bouton ARMÉ (2e clic = destruction) : rouge d'alerte, même grammaire que la confirmation de
+   suppression d'un layout. Sert à « Réinitialiser tout » du gestionnaire. */
+.wdg-btn--danger { color: #fff !important; background: #ff3d00 !important; border-color: #ff3d00 !important; }
+.wdg-btn--danger:hover { background: #e63500 !important; }
