@@ -1292,6 +1292,32 @@ const DECRYPT_CONCEPTS = [
     "Ceux qui durent ne cherchent pas à avoir raison à chaque coup : ils dimensionnent leurs positions pour survivre à une série de pertes. Le risque par position, pas la prévision, décide de qui reste en jeu.",
     "Un repère simple : savoir AVANT d'entrer où l'on a tort et combien on perd si c'est le cas. Le reste n'est que discipline.",
   ] },
+  // ── Ajouts 28/07 (veille éditoriale : thèmes éducation macro non couverts — texte 100 % DTP) ──
+  { key: 'divergence-bc', theme: 'rates', eyebrow: 'POLITIQUE MONÉTAIRE', title: 'Deux banques centrales, une paire : le vrai moteur des devises', paras: [
+    "Une paire de devises met toujours DEUX économies face à face. Ce qui la fait tendre dans une direction sur des semaines, ce n'est pas une news isolée : c'est l'écart entre les trajectoires de leurs banques centrales.",
+    "Quand l'une monte ses taux pendant que l'autre les baisse, l'argent migre vers le rendement le plus élevé. Cette divergence de politique crée les tendances les plus longues et les plus lisibles du marché des changes.",
+    "La règle de lecture : comparez toujours les DEUX côtés de la paire. Une devise « faible » face à une banque centrale ferme peut être « forte » face à une banque qui capitule — c'est l'écart qui compte, pas l'absolu.",
+  ] },
+  { key: 'courbe-taux', theme: 'rates', eyebrow: 'TAUX', title: 'La courbe des taux : le thermomètre que le marché lit en premier', paras: [
+    "La courbe des taux compare ce que rapporte un emprunt d'État à 2 ans et à 10 ans. Normalement, prêter plus longtemps rapporte plus : la courbe monte.",
+    "Quand le court terme rapporte PLUS que le long terme, la courbe s'inverse : le marché dit qu'il s'attend à des baisses de taux — donc à un ralentissement, voire une récession. Historiquement, ce signal a précédé la plupart des récessions américaines.",
+    "La règle de lecture : une courbe qui se re-pentifie après inversion accompagne souvent le début du cycle de baisses ; le dollar et les actions n'y réagissent pas de la même façon selon que la re-pentification vient du court (baisses imminentes) ou du long (croissance qui revient).",
+  ] },
+  { key: 'intervention-japon', theme: 'risk', eyebrow: 'CHANGES', title: 'Intervention de change : quand un État défend sa monnaie', paras: [
+    "Quand une devise chute trop vite, le ministère des Finances peut ordonner d'en acheter massivement pour casser le mouvement. Le Japon est le cas d'école : ses interventions sur le yen font bouger USD/JPY de plusieurs figures en minutes.",
+    "Une intervention ne se décrète jamais à l'avance — mais elle se devine : avertissements verbaux répétés (« nous surveillons avec la plus grande attention »), niveaux psychologiques, volatilité désordonnée. Le marché appelle ça l'escalade verbale.",
+    "La règle de lecture : l'intervention gagne une bataille, rarement la guerre — si l'écart de taux qui affaiblissait la devise persiste, le mouvement de fond finit souvent par reprendre. Elle définit surtout un niveau que l'État ne veut pas voir franchi trop vite.",
+  ] },
+  { key: 'or-taux-reels', theme: 'inflation', eyebrow: 'MÉTAUX', title: "Pourquoi l'or vit au rythme des taux réels", paras: [
+    "L'or ne verse ni intérêt ni dividende. Le détenir « coûte » donc ce que rapporterait un placement sûr à la place : le taux d'intérêt RÉEL, c'est-à-dire le taux après inflation.",
+    "Quand les taux réels montent, garder de l'or devient plus coûteux et il baisse souvent ; quand ils chutent — inflation qui dépasse les taux, ou banque centrale qui baisse —, l'or redevient attractif et monte.",
+    "La règle de lecture : suivez le rendement américain à 10 ans moins l'inflation anticipée. Un dollar faible amplifie la hausse de l'or ; un dollar fort la freine — les deux forces se lisent ensemble.",
+  ] },
+  { key: 'petrole-devises', theme: 'growth', eyebrow: 'MATIÈRES PREMIÈRES', title: 'Pétrole et devises : qui gagne, qui perd quand le baril bouge', paras: [
+    "Certains pays VENDENT du pétrole (Canada, Norvège), d'autres l'ACHÈTENT massivement (Japon, zone euro). Quand le baril monte, les premiers encaissent plus de revenus — leur devise en profite ; les seconds paient une facture énergétique plus lourde — leur devise en souffre.",
+    "C'est pourquoi le dollar canadien suit souvent le WTI, et pourquoi un choc pétrolier pèse structurellement sur le yen et l'euro. La corrélation n'est pas mécanique au jour le jour, mais elle structure les tendances.",
+    "La règle de lecture : sur un mouvement du pétrole, demandez-vous QUI exporte et QUI importe — et rappelez-vous qu'un baril durablement plus cher nourrit aussi l'inflation, donc les anticipations de taux.",
+  ] },
   { key: 'risk-on-off', theme: 'risk', eyebrow: 'SENTIMENT', title: 'Risk-on / risk-off : la boussole du marché', paras: [
     "En risk-on, les investisseurs cherchent le rendement : les actions et les devises pro-cycliques (dollar australien, néo-zélandais, canadien) montent, les valeurs refuges reculent.",
     "En risk-off, ils cherchent la sécurité : dollar américain, yen, franc suisse et or se renforcent, les actions souffrent.",
@@ -1627,6 +1653,40 @@ const MINDSET_CONCEPTS = [
     "- Le stop n'est pas un aveu d'erreur : c'est le prix connu d'un pari assumé.",
     "Trader sereinement, c'est accepter de ne pas savoir, tout en sachant quoi faire dans chaque cas. ✨",
   ], closing: "Ton dernier trade, l'as-tu vécu comme un pari mesuré, ou comme une certitude trahie ?" },
+  // ── Ajouts 28/07 (veille éditoriale : angles psychologie non couverts — texte 100 % DTP) ──
+  { key: 'surtrading-ennui', subject: "🪑 L'ennui est plus cher que la peur", paras: [
+    "On parle beaucoup de la peur en trading. Beaucoup moins de son cousin discret, qui coûte souvent plus cher : l'ennui. 🪑",
+    "Une séance calme s'installe, rien ne se passe… et l'envie monte de FABRIQUER un trade. Pas parce que le marché offre quelque chose — parce que toi, tu veux qu'il se passe quelque chose.",
+    "**Le marché ne paie pas la présence, il paie la sélection.** Un jour sans configuration est un jour réussi si tu n'as rien forcé.",
+    "Les traders qui durent ont tous appris la même chose : savoir NE PAS trader est une compétence à part entière. 🧘",
+    "- L'ennui déguise le sur-trading en « travail ».",
+    "- Un trade né de l'ennui n'a ni plan ni conviction : il n'a qu'une impulsion.",
+    "- **Si tu ne peux pas dire ce qui t'a fait entrer, c'est l'ennui qui a cliqué.**",
+    "- Fermer l'écran une heure coûte zéro. Un trade fabriqué, rarement.",
+    "Une journée à zéro trade n'est pas une journée perdue. C'est une journée où ta discipline a gagné. ✅",
+  ], closing: "Ton dernier trade sans conviction : le marché te l'avait-il proposé, ou l'as-tu inventé pour tuer le temps ?" },
+  { key: 'euphorie-apres-gain', subject: "🎢 Ton pire trade arrive après ton meilleur", paras: [
+    "Le moment le plus dangereux de ta semaine n'est pas après une perte. C'est juste après un GROS gain. 🎢",
+    "L'euphorie s'installe et chuchote toujours la même chose : « tu as compris le marché ». Alors la taille grossit, les critères se relâchent, et le trade suivant part avec deux fois la conviction… et moitié moins d'analyse.",
+    "**Le marché n'a pas changé parce que tu as gagné.** Ta lecture d'hier n'était pas meilleure — elle a simplement été payée cette fois-ci.",
+    "Les statistiques des journaux de trading racontent presque toujours la même histoire : les pires drawdowns suivent les meilleures séries. 📉",
+    "- Après un gros gain, la taille devrait rester IDENTIQUE — c'est le test de discipline le plus dur.",
+    "- L'euphorie se repère à un signe : l'envie d'y retourner tout de suite.",
+    "- **Une série de gains valide ta méthode, pas ton intuition du moment.**",
+    "- Le meilleur moment pour relire ses règles, c'est quand on croit ne plus en avoir besoin.",
+    "Encaisser un gain avec le même calme qu'une perte : c'est là que se voit la maturité. 🧊",
+  ], closing: "Après ton dernier gros gain, ta taille de position est-elle restée la même — honnêtement ?" },
+  { key: 'rituel-cloture', subject: "🌙 Ta journée se gagne à sa clôture", paras: [
+    "Tout le monde parle de la préparation du matin. Presque personne du moment qui compte autant : la CLÔTURE de ta journée. 🌙",
+    "Fermer l'écran sans regarder ce qui s'est passé, c'est laisser la journée s'évaporer — les bonnes décisions comme les mauvaises. Et une leçon non capturée est une leçon à repayer.",
+    "**Dix minutes suffisent** : qu'est-ce que j'avais prévu ? Qu'ai-je réellement fait ? Où l'écart s'est-il créé ?",
+    "Ce n'est pas de la paperasse. C'est le seul moment où tu te vois trader de l'extérieur. 🔍",
+    "- Une journée non relue se répète — surtout ses erreurs.",
+    "- L'écart entre le plan et l'exécution EST la matière à travailler, pas le P&L.",
+    "- **Clôturer sa journée, c'est aussi la quitter** : le marché n'a pas à te suivre au dîner.",
+    "- Trois lignes honnêtes battent trois pages écrites pour se rassurer.",
+    "Le trader qui progresse n'est pas celui qui trade le plus. C'est celui qui se relit le plus honnêtement. 📓",
+  ], closing: "Ce soir, sauras-tu dire en une phrase ce que ta journée de marché t'a appris ?" },
 ];
 // Rend les paragraphes : les lignes « - … » consecutives deviennent une liste a puces or ; le reste = paragraphes.
 // Rendu des paragraphes Mindset. MARQUEURS (posés par le rédacteur/l'IA selon le FORMAT de la semaine —
