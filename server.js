@@ -4843,7 +4843,7 @@ const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXE
 // ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
 // (Supabase). Renvoie le HTML des items (.nc-item). Repli (IA indispo) = titres bruts → la section ne
 // disparaît jamais s'il y a des news. ZÉRO invention (prompt + dépêches réelles du jour seulement).
-const NC_VER = 7;   // v7 : bloc « Ce qu'en disent les banques » (notes Institution triées par pertinence vs annonces à venir) ajouté sous les commentaires — bump = régén du jour. v6 : chaque côté de « → » SUBSTANTIEL — <fait> nomme le sujet + son chiffre (pas « 89,31$ » nu), <impact> = conséquence marché DIRECTIONNELLE sur un actif (pas un label « cours du pétrole »). v5 blindait la flèche mais le free-tier restait trop laconique. v5 : flèche « → » BLINDÉE (deux côtés obligatoires + garde-fou anti-pendouillant, cause de « c'est vide »). v4 : titre ≤12 mots + phrase ≤25 mots. v3 trop générique ; v2/v1 verbeux
+const NC_VER = 8;   // v8 : anti-phrase-coupée — mots orphelins avant « → » retirés (« …de deux ans à → » du 28/07) + coupe au DERNIER MOT ENTIER avec … (fini le slice dur 230 en plein chiffre). v7 : bloc banques. v6 : chaque côté de « → » SUBSTANTIEL — <fait> nomme le sujet + son chiffre (pas « 89,31$ » nu), <impact> = conséquence marché DIRECTIONNELLE sur un actif (pas un label « cours du pétrole »). v5 blindait la flèche mais le free-tier restait trop laconique. v5 : flèche « → » BLINDÉE (deux côtés obligatoires + garde-fou anti-pendouillant, cause de « c'est vide »). v4 : titre ≤12 mots + phrase ≤25 mots. v3 trop générique ; v2/v1 verbeux
 const _NC_RX = /\b(hormu?z|oil|crude|brent|wti|opep|opec|gold|s&p|nasdaq|dow|nikkei|stoxx|dax|\bcac\b|earnings?|micron|nvidia|fed|fomc|powell|ecb|bce|lagarde|boe|boj|snb|boc|rba|tariff|tarif|sanction|\bwar\b|guerre|missile|ceasefire|iran|israel|china|chine|russia|russie|treasur|yield|rendement|inflation|\bcpi\b|\bnfp\b|\bgdp\b|\bpib\b|recession|récession)\b/i;
 function _ncEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 async function _generateNotableComments(dayKey) {
@@ -4886,7 +4886,12 @@ ${ctx}`;
       // GARDE-FOU « c'est vide » : si le modèle termine par une flèche sans impact derrière, on la retire
       // (jamais de « → » pendouillant à l'écran). Une flèche AVEC impact des deux côtés est conservée telle quelle.
       point = point.replace(/\s*[→➔➜⟶]+[\s.…·:;,\-]*$/u, '').trim();
-      const p = point ? '<p>' + _ncEsc(point.slice(0, 230)) + '</p>' : '';
+      // (28/07) ANTI-PHRASE-COUPÉE : (a) un mot-outil orphelin juste avant la flèche (« …de deux ans à → »)
+      // est retiré — le modèle a oublié le chiffre, mieux vaut une phrase propre qu'un « à » pendu ;
+      // (b) la coupe de longueur tombe sur le DERNIER MOT ENTIER + « … », jamais en plein chiffre.
+      point = point.replace(/\s+(?:à|a|de|d'|du|des|en|au|aux|vers|contre|sur|pour|le|la|les|un|une)\s*(→)/giu, ' $1');
+      if (point.length > 230) { const cut = point.slice(0, 230); point = cut.slice(0, Math.max(cut.lastIndexOf(' '), 180)).trim() + '…'; }
+      const p = point ? '<p>' + _ncEsc(point) + '</p>' : '';
       return '<div class="nc-item"><div class="nc-h">' + h + '</div>' + p + '</div>';
     }).join('');
   }
@@ -11912,7 +11917,7 @@ ACTUALITES NORD-AMERICAINES
 DONNEES NORD-AMERICAINES
 
 Chaque ligne de contenu commence par « - ». Format par rubrique :
-- SYNTHESE : 5 à 7 puces de SYNTHÈSE donnant la vue d'ensemble du jour — principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières, PUIS 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux — jamais inventée), et une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre — juste les puces.
+- SYNTHESE : 6 à 8 puces de SYNTHÈSE donnant la vue d'ensemble du jour, dans CET ordre — (1) principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières ; (2) SI le flux contient de la géopolitique, une puce GÉOPOLITIQUE dédiée (le fait dominant du jour : conflit, sanctions, détroit, négociations…) et son effet marché documenté (pétrole, valeurs refuges…) — ne l'omets JAMAIS quand la rubrique GEOPOLITIQUE ci-dessous a du contenu ; (3) 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux — jamais inventée) ; (4) une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre — juste les puces.
 - ANNONCES ECONOMIQUES : LA rubrique détaillée des publications du jour — une puce PAR publication du bloc RÉSULTATS PUBLIÉS (TOUTES les High d'abord, puis les Medium marquantes). Chaque puce : « Pays/Devise Indicateur : réel X vs attendu Y (préc. Z) », PUIS 1 à 2 phrases qui EXPLIQUENT L'IMPACT : (a) la lecture macro (surprise haussière/baissière, accélération ou ralentissement, ce que ça implique pour la banque centrale concernée : pression hawkish/dovish, statu quo conforté) et (b) la réaction de marché SI elle est documentée dans le flux ou les niveaux (« → le dollar s'est renforcé, les rendements 2 ans ont grimpé »). Si aucune réaction n'est documentée, donne UNIQUEMENT la lecture macro au conditionnel (« devrait conforter la patience de la Fed ») sans inventer de mouvement. C'est la rubrique la plus pédagogique du rapport : chiffre exact + pourquoi ça compte.
 - ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 5 lignes ANALYTIQUES (phrases complètes, profondeur d'une note de desk). Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
 - DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent — chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
@@ -16171,7 +16176,11 @@ function _parisMonthDay(d) {
   const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value;
   return { monthKey: p.year + '-' + p.month, day: parseInt(p.day, 10), hour: parseInt(p.hour, 10) % 24 };
 }
-let _invitSchedule = { active: false, day: 1, hour: 10, lastSentMonth: null, launchedAt: null };   // 1er du mois, 10h — OFF par defaut
+// (28/07, mandat user « programmer 1×/mois, carte blanche sur le moment ») : ACTIVE par défaut,
+// créneau = 1er DIMANCHE du mois à 17 h Paris — fin de week-end, boîte calme, moment « je prépare
+// ma semaine » : le meilleur contexte pour une invitation. Un état sauvegardé (pause volontaire)
+// PRIME toujours sur ce défaut.
+let _invitSchedule = { active: true, day: 1, hour: 17, lastSentMonth: null, launchedAt: null };
 (async () => { try { const s = await auth.aiCacheGet('campaign:invitation-sched', 366 * 864e5); if (s && typeof s === 'object') _invitSchedule = Object.assign(_invitSchedule, s); } catch {} })();
 function _saveInvitSchedule() { auth.aiCacheSet('campaign:invitation-sched', _invitSchedule).catch(() => {}); }
 let _invitRunning = false;
@@ -16720,9 +16729,13 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
     const users = await auth.getAllUsers().catch(() => []);
     const byId = new Map(users.map(u => [String(u.id), u.email]));
     const q = String(req.query.q || '').toLowerCase().trim();
+    const ft = String(req.query.type || '').trim();              // filtre TYPE exact (menu du panel)
+    const typesVus = new Set();
     const rows = [];
     for (const [key, at] of Object.entries(all)) {
       const type = _mailLogType(key);
+      typesVus.add(type);
+      if (ft && type !== ft) continue;
       // destinataire : soit l'e-mail est dans la clé, soit c'est un id de compte à résoudre
       const parts = key.split(':');
       let dest = parts.find(p => p.includes('@')) || '';
@@ -16732,7 +16745,7 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
       rows.push({ ts, at, type, dest: dest || '(compte supprimé)', key });
     }
     rows.sort((a, b) => b.ts - a.ts);
-    res.json({ ok: true, total: rows.length, rows: rows.slice(0, 400) });
+    res.json({ ok: true, total: rows.length, rows: rows.slice(0, 400), types: [...typesVus].sort() });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 

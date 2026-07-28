@@ -12104,7 +12104,7 @@ html[data-theme="light"] a { color: #b8860b; }
 /* ── Bloc fantôme « Ajouter un widget » : remplit le RESTE de la rangée après le dernier widget.
    Discret (pointillés, texte éteint), doré au survol ; masqué en plein écran. ── */
 .wdg-ghost {
-  grid-column: auto / -1; grid-row: span 4; min-height: 72px;
+  min-height: 72px;   /* placement (span colonnes/lignes) calculé par renderGrid — comble le trou réel */
   display: flex; align-items: center; justify-content: center; gap: 8px;
   background: transparent; border: 1px dashed rgba(255, 255, 255, 0.10); border-radius: var(--radius);
   color: var(--text3); cursor: pointer; font-family: var(--tight, 'Inter Tight', sans-serif);
@@ -12186,3 +12186,6 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
 .home-ev-t { font-size: var(--fs-body); color: var(--text2); line-height: 1.4; }
 .home-ev-empty { font-size: var(--fs-body); color: var(--text3); }
 @media (max-width: 860px) { .home-cols { flex-direction: column; } .home-col--side { flex: 1 1 auto; width: 100%; } .home-title { font-size: 24px; } }
+
+/* Fantôme sur petits écrans : les colonnes passent à 8/4/1 → pleine largeur, bandeau modeste */
+@media (max-width: 1280px) { .wdg-ghost { grid-column: 1 / -1 !important; grid-row: span 5 !important; } }

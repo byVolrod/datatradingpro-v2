@@ -3435,12 +3435,12 @@ async function _calValueBlockHtml(ev) {
     const speaker = spk ? spk[1] : '';
     // SOURCE PRIMAIRE = serveur (14 j d'historique, cf. /api/cb-quotes) : extraits du discours du speaker,
     // sinon des propos récents de la banque. REPLI instantané = fil en mémoire (au cas où le serveur cale).
-    let quotes = [], quotesLbl = 'Extrait du discours';
+    let quotes = [], quotesLbl = 'Propos récents (datés)';
     try {
       const srv = await _calCbQuotesGet(ev.currency, speaker);
       if (srv && srv.quotes && srv.quotes.length) {
         quotes = srv.quotes.map(q => ({ h: q.h, ts: q.ts || 0 }));
-        if (spk && !srv.speaker) quotesLbl = 'Extrait du discours · ' + cb.bank;   // repli banque (speaker sans propos propres)
+        if (spk && !srv.speaker) quotesLbl = 'Propos récents · ' + cb.bank;   // repli banque (speaker sans propos propres)
       }
     } catch {}
     if (!quotes.length) {   // repli fil en mémoire (client court)
@@ -3449,7 +3449,7 @@ async function _calValueBlockHtml(ev) {
       const cutoff = Date.now() - 30 * 86400e3;
       const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline)).map(i => ({ h: i.headline, ts: i.timestamp || 0 }));   // « Fed's Logan: … » = propos rapporté
       quotes = pool.filter(i => nameRx.test(i.h));
-      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.h)); quotesLbl = 'Extrait du discours · ' + cb.bank; }
+      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.h)); quotesLbl = 'Propos récents · ' + cb.bank; }
     }
     // Découpe (attribution + déclaration VO) + classe chaque propos ; PRIORITÉ à ceux qui portent un SIGNAL
     // (hawkish/dovish/hold) — ce sont eux qui aident à interpréter la prochaine réunion — puis les plus récents.
@@ -3457,7 +3457,7 @@ async function _calValueBlockHtml(ev) {
     quotes.sort((a, b) => (b.t ? 1 : 0) - (a.t ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
     quotes = quotes.slice(0, 3);
     const tone = _calToneOf(quotes.map(q => q.statement || q.h));
-    if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton du discours</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
+    if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent · avant réunion</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
     if (quotes.length) {
       const qhtml = quotes.map(q => {
         const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
@@ -3466,7 +3466,7 @@ async function _calValueBlockHtml(ev) {
       }).join('');
       rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${qhtml}</span></div>`);
     } else {
-      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Extrait du discours</span><span class="cal-kb-val cal-kb-muted">Aucune intervention récente à citer (période de réserve avant réunion possible) — voir la lecture ci-dessous.</span></div>`);
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Propos récents</span><span class="cal-kb-val cal-kb-muted">Aucune intervention récente à citer (période de réserve avant réunion possible) — voir la lecture ci-dessous.</span></div>`);
     }
     const rates = await _calRatesGet();
     const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);

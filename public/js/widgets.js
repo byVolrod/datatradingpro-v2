@@ -1427,11 +1427,21 @@
         + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
         + '<div class="wdg-resize-e" title="Glisser pour élargir"></div></section>';
     }).join('')
-    // BLOC FANTÔME (demande user 28/07 « quand c'est vide, il faut le bloc widget à choisir ») :
-    // occupe le RESTE de la rangée (grid-column: auto/-1) après le dernier widget — retirer un
-    // widget fait donc apparaître l'emplacement à re-remplir, un clic ouvre la bibliothèque.
-    + '<button class="wdg-ghost" onclick="DTPWidgets.openLib()" title="Ajouter un widget ici">'
-    + '<span class="wdg-ghost-plus">+</span><span class="wdg-ghost-lbl">Ajouter un widget</span></button>';
+    // BLOC FANTÔME INTELLIGENT (28/07) : il COMBLE EXACTEMENT le trou de la disposition — largeur
+    // restante de la dernière rangée × hauteur de cette rangée (simulation du placement 12 col).
+    // Rangée complète → bandeau discret pleine largeur. Contenu centré. Clic → bibliothèque.
+    + (function () {
+        var c = 0, rowH = 0;
+        lay.items.forEach(function (it) {
+          var gw = Math.min(12, Math.max(1, (it.gw | 0) || 6)), gh = Math.max(3, (it.gh | 0) || 12);
+          if (c + gw > 12) { c = 0; rowH = 0; }
+          c += gw; if (gh > rowH) rowH = gh;
+        });
+        var gR = c > 0 && c < 12 ? (12 - c) : 12;                  // trou réel, sinon pleine largeur
+        var gH = c > 0 && c < 12 ? (rowH || 12) : 6;               // même hauteur que la rangée, sinon bandeau
+        return '<button class="wdg-ghost" style="grid-column: span ' + gR + '; grid-row: span ' + gH + ';" onclick="DTPWidgets.openLib()" title="Ajouter un widget ici">'
+          + '<span class="wdg-ghost-plus">+</span><span class="wdg-ghost-lbl">Ajouter un widget</span></button>';
+      })();
     // Plein écran : la carte ciblée recouvre la zone de travail (overlay), la grille est figée derrière.
     if (_fullscreenIdx != null) {
       var fsCard = host.querySelector('.wdg-card[data-idx="' + _fullscreenIdx + '"]');

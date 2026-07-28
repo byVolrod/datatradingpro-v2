@@ -353,7 +353,10 @@ select { cursor: pointer; }
 
 .camp-seq-list { display: flex; flex-direction: column; gap: var(--sp-15); }
 .camp-seq-row { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
-.camp-seq-row--next { border-color: rgba(227, 178, 58, .4); background: rgba(227, 178, 58, .05); }
+/* PROCHAIN ENVOI (demande user 28/07 : « un encadré qui se réajuste vers celui qui partira ») :
+   cadre or net + liseré gauche épais — l'encadré suit tout seul, la classe est posée par le serveur
+   sur le contenu de la semaine en cours non encore parti. */
+.camp-seq-row--next { border: 1px solid rgba(227, 178, 58, .55); border-left: 3px solid var(--orange); background: rgba(227, 178, 58, .07); box-shadow: 0 0 0 1px rgba(227, 178, 58, .12); opacity: 1 !important; }   /* prime sur l'estompage des lignes « en rotation » */
 .camp-seq-row--done { opacity: .78; }
 .camp-seq-wk { flex: 0 0 26px; font-family: var(--tight); font-size: var(--fs-meta); font-weight: var(--fw-bold); color: var(--text4); padding-top: 2px; }
 .camp-seq-main { flex: 1; min-width: 0; }
