@@ -1591,6 +1591,20 @@ app.post('/api/admin/welcome-chat-backfill', requireAdmin, async (_req, res) => 
   try { res.json(await _welcomeChatBackfill('manuel')); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Thème du desk (Sombre/Clair/Système) — persisté PAR COMPTE, patron sym-recent ───────────────
+app.get('/api/theme', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  try { const v = await auth.aiCacheGet('thememode:' + req.session.userId, 366 * 86400000); res.json({ mode: ['dark', 'light', 'system'].includes(v) ? v : 'dark' }); }
+  catch { res.json({ mode: 'dark' }); }
+});
+app.post('/api/theme', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const mode = String((req.body && req.body.mode) || '');
+  if (!['dark', 'light', 'system'].includes(mode)) return res.status(400).json({ error: 'mode invalide' });
+  try { await auth.aiCacheSet('thememode:' + req.session.userId, mode); res.json({ ok: true, mode }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── User self-service password change ────────────────────────────────────────
 app.put('/api/auth/me/password', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
