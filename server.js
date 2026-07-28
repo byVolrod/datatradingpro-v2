@@ -16458,7 +16458,12 @@ async function _dripTick() {
       // 2) CALENDRIER DU JOUR — le contenu du jour (dayStep) part à TOUT LE MONDE, 1x par jour ouvré et par semaine ISO.
       if (st.wkKey !== isoWeek) { st.wkKey = isoWeek; st.gotDays = []; }   // nouveau lundi → on repart à zéro pour la semaine
       if (!Array.isArray(st.gotDays)) st.gotDays = [];
-      if (st.gotDays.includes(wd)) continue;                       // déjà reçu le contenu de CE jour cette semaine
+      // VERROU « 1 SEUL MAIL PAR SEMAINE ISO » (28/07) : on teste que le contact n'a reçu AUCUN
+      // contenu cette semaine, pas seulement « pas celui de CE jour ». Sans ça, changer la rotation
+      // en cours de semaine (5 → 7 contenus) envoyait un 2e mail aux mêmes contacts : « Comprendre »
+      // parti mardi PUIS « Témoignage » le jeudi. La promesse d'1 mail/semaine est désormais tenue
+      // par construction, quelle que soit l'évolution du calendrier.
+      if (st.gotDays.length) continue;
       const dm = 'drip:day:' + isoWeek + '-' + wd + ':' + email;
       try { if (await auth.emailLogHas(dm)) { if (!st.gotDays.includes(wd)) st.gotDays.push(wd); _saveDrip(); continue; } } catch {}
       // Espacement : jamais 2 mails le MÊME JOUR calendaire (Paris) à un contact + mini 6h anti-double dans un tick.
