@@ -12189,3 +12189,50 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
 
 /* Fantôme sur petits écrans : les colonnes passent à 8/4/1 → pleine largeur, bandeau modeste */
 @media (max-width: 1280px) { .wdg-ghost { grid-column: 1 / -1 !important; grid-row: span 5 !important; } }
+
+/* ═══ ÉTATS UNIFORMES DES WIDGETS (28/07) : chargement · vide · erreur ══════════════════════════
+   Une seule grammaire pour tout le catalogue : icône discrète, message court, action facultative.
+   L'erreur porte un « Réessayer » qui relance le widget concerné. */
+.wdg-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px;
+  height: 100%; min-height: 80px; padding: 16px 14px; text-align: center; color: var(--text3);
+}
+.wdg-state svg { opacity: .5; flex: 0 0 auto; }
+.wdg-state-t { font-size: var(--fs-body); line-height: 1.5; max-width: 34ch; }
+.wdg-state--err { color: var(--text2); }
+.wdg-state--err svg { color: var(--red); opacity: .8; }
+.wdg-state-btn {
+  padding: 4px 12px; background: transparent; border: 1px solid var(--hud-line, var(--border));
+  border-radius: var(--pill, 999px); color: var(--text2); cursor: pointer;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase;
+  transition: color .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease);
+}
+.wdg-state-btn:hover { color: var(--orange); border-color: rgba(227, 178, 58, .45); background: rgba(227, 178, 58, .06); }
+/* Squelette de chargement : barres pulsées — le widget « respire » au lieu d'afficher un texte figé */
+.wdg-skel { display: flex; flex-direction: column; gap: 9px; padding: 14px 12px; }
+.wdg-skel-l {
+  height: 9px; border-radius: 3px;
+  background: linear-gradient(90deg, rgba(255,255,255,.045) 25%, rgba(255,255,255,.085) 50%, rgba(255,255,255,.045) 75%);
+  background-size: 220% 100%; animation: wdgSkel 1.25s var(--ease, ease) infinite;
+}
+@keyframes wdgSkel { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+html[data-theme="light"] .wdg-skel-l { background: linear-gradient(90deg, rgba(0,0,0,.045) 25%, rgba(0,0,0,.085) 50%, rgba(0,0,0,.045) 75%); background-size: 220% 100%; }
+@media (prefers-reduced-motion: reduce) { .wdg-skel-l { animation: none; } }
+
+/* Bandeau « Annuler » après un retrait de widget (7 s, volatil) */
+.wdg-undo {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 90;
+  display: flex; align-items: center; gap: 14px; padding: 9px 14px;
+  background: var(--bg2); border: 1px solid rgba(227, 178, 58, .38); border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .45); animation: wdgUndoIn .18s var(--ease-out, ease) both;
+}
+.wdg-undo-t { font-size: var(--fs-body); color: var(--text); }
+.wdg-undo-b {
+  background: transparent; border: 0; padding: 0; cursor: pointer; color: var(--orange);
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.wdg-undo-b:hover { text-decoration: underline; }
+@keyframes wdgUndoIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 560px) { .wdg-undo { left: 12px; right: 12px; transform: none; justify-content: space-between; } @keyframes wdgUndoIn { from { opacity: 0; } to { opacity: 1; } } }

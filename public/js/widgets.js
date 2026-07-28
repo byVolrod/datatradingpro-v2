@@ -70,7 +70,52 @@
   // (value="…", title="…") → sans ça, un nom de layout importé piégé (`" onfocus=…`) s'exécuterait (revue 23/07).
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
-  function fallback(host, msg) { if (host) host.innerHTML = '<div class="wdg-empty">' + esc(msg) + '</div>'; }
+  // ── ÉTATS UNIFORMES DES WIDGETS (28/07) : chargement · vide · erreur ────────────────────────────
+  // Une seule grammaire pour les ~30 points de repli du catalogue : icône discrète, message court,
+  // et pour l'ERREUR un bouton « Réessayer » qui relance CE widget (l'index se lit sur l'id du
+  // conteneur « <host>-b<idx> » → aucun appel à modifier dans les widgets existants).
+  var _ICO_ERR = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>';
+  var _ICO_EMPTY = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8.5 4.5v15"/></svg>';
+  function _hostIdx(host) { var m = String((host && host.id) || '').match(/-b(\d+)$/); return m ? +m[1] : null; }
+  // Bandeau « Annuler » (7 s) — volatil par design : aucune persistance, il disparaît au reload.
+  var _undoT = null;
+  function _undoOffer(msg, undoFn) {
+    var old = document.getElementById('wdg-undo'); if (old) old.remove();
+    clearTimeout(_undoT);
+    var el = document.createElement('div');
+    el.id = 'wdg-undo'; el.className = 'wdg-undo';
+    el.innerHTML = '<span class="wdg-undo-t">' + esc(msg) + '</span><button class="wdg-undo-b">Annuler</button>';
+    el.querySelector('.wdg-undo-b').addEventListener('click', function () {
+      clearTimeout(_undoT); el.remove();
+      try { undoFn(); } catch (e) {}
+    });
+    document.body.appendChild(el);
+    _undoT = setTimeout(function () { if (el.parentNode) el.remove(); }, 7000);
+  }
+  function fallback(host, msg) {
+    if (!host) return;
+    var i = _hostIdx(host);
+    host.innerHTML = '<div class="wdg-state wdg-state--err">' + _ICO_ERR
+      + '<div class="wdg-state-t">' + esc(msg) + '</div>'
+      + (i != null ? '<button class="wdg-state-btn" onclick="DTPWidgets.refresh(' + i + ')">Réessayer</button>' : '')
+      + '</div>';
+  }
+  // ÉTAT VIDE : pas une erreur — une action à proposer (le « + » de la bibliothèque, un onglet à créer…).
+  function emptyState(host, msg, btnLabel, btnCall) {
+    if (!host) return;
+    host.innerHTML = '<div class="wdg-state">' + _ICO_EMPTY
+      + '<div class="wdg-state-t">' + esc(msg) + '</div>'
+      + (btnLabel ? '<button class="wdg-state-btn" onclick="' + btnCall + '">' + esc(btnLabel) + '</button>' : '')
+      + '</div>';
+  }
+  // CHARGEMENT : squelette pulsé (barres) — remplace le texte « Chargement… », qui donnait une
+  // impression de page figée. On calibre le nombre de barres sur la hauteur disponible.
+  function skel(host, lines) {
+    if (!host) return;
+    var n = lines || Math.max(3, Math.min(8, Math.round((host.clientHeight || 160) / 34)));
+    var b = ''; for (var i = 0; i < n; i++) b += '<span class="wdg-skel-l" style="width:' + (62 + ((i * 37) % 34)) + '%"></span>';
+    host.innerHTML = '<div class="wdg-skel" aria-busy="true">' + b + '</div>';
+  }
 
   /* ── COLONNES DU JOURNAL = MIROIR EXACT DU DESK (24/07, demande user « toutes tes colonnes perso »).
      Réplique fidèle de _jrColsFromStore/_jrCell/_jrChip d'app.js (closure inaccessible) → le widget rend
@@ -206,7 +251,7 @@
       // appelle SES helpers globaux (calFormatTime, CAL_FLAG, calImpDots, calActualCell). Le widget
       // hérite ainsi du style exact du desk. Lecture seule (le déroulé inline reste dans l'onglet dédié).
       mount: function (host) {
-        host.innerHTML = '<div class="wdg-cal-wrap custom-scrollbar"><div class="wdg-load">Chargement…</div></div>';
+        host.innerHTML = '<div class="wdg-cal-wrap custom-scrollbar"><div class="wdg-skel"><span class="wdg-skel-l" style="width:78%"></span><span class="wdg-skel-l" style="width:64%"></span><span class="wdg-skel-l" style="width:82%"></span><span class="wdg-skel-l" style="width:58%"></span></div></div>';
         fetch('/api/calendar-events').then(function (r) { return r.json(); }).then(function (j) {
           if (!host.isConnected) return;
           var now = Date.now();
@@ -268,7 +313,7 @@
       // push serveur `smartbias_update` (via DTPWidgets.onBias, app.js) et garde un filet de 60 s. Il ne re-rend
       // que si la donnée a VRAIMENT changé (dataAt) : pas de clignotement, pas de scroll perdu.
       mount: function (host) {
-        host.innerHTML = '<div class="wdg-load">Chargement du biais…</div>';
+        skel(host);
         var lastAt = 0;
         function paint(d) {
           if (!host.isConnected) return;
@@ -307,7 +352,7 @@
       // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
       // (Maintien/Hausse/Baisse) de la prochaine réunion + probabilité + date. HTML pur, cleanup null.
       mount: function (host) {
-        host.innerHTML = '<div class="wdg-load">Chargement des taux…</div>';
+        skel(host);
         var MV = { Hike: { c: 'up', t: 'Hausse' }, Cut: { c: 'down', t: 'Baisse' }, Hold: { c: 'flat', t: 'Maintien' } };
         var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
         var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -501,7 +546,7 @@
         host.innerHTML = '<div class="wdg-seawrap">'
           + '<div class="dmx-header-bar"><span class="season-pair-badge wdg-sea-badge">[EUR/USD]</span><span style="flex:1"></span>'
           + '<select class="dmx-sort-select wdg-sea-sel">' + pairs.sort(function (a, b) { return fmt(a).localeCompare(fmt(b), 'fr', { numeric: true, sensitivity: 'base' }); }).map(function (p) { return '<option value="' + esc(p) + '">' + esc(fmt(p)) + '</option>'; }).join('') + '</select></div>'
-          + '<div class="season-table-wrap custom-scrollbar wdg-sea-tbl"><div class="wdg-load">Chargement…</div></div>';
+          + '<div class="season-table-wrap custom-scrollbar wdg-sea-tbl"><div class="wdg-skel"><span class="wdg-skel-l" style="width:72%"></span><span class="wdg-skel-l" style="width:88%"></span><span class="wdg-skel-l" style="width:60%"></span></div></div>';
         var sel = host.querySelector('.wdg-sea-sel'), badge = host.querySelector('.wdg-sea-badge'), tblWrap = host.querySelector('.wdg-sea-tbl');
         var cur = null;
         function load(p) {
@@ -1053,7 +1098,7 @@
             });
           }
         }
-        function reload() { host.innerHTML = '<div class="wdg-load">Chargement…</div>'; fetch('/api/journal').then(function (r) { return r.json(); }).then(build).catch(function () { fallback(host, 'Journal indisponible.'); }); }
+        function reload() { skel(host); fetch('/api/journal').then(function (r) { return r.json(); }).then(build).catch(function () { fallback(host, 'Journal indisponible.'); }); }
         reload();
         return function () { try { if (typeof disposeRoot === 'function') disposeRoot(chartId); } catch (e) {} };
       },
@@ -1754,7 +1799,19 @@
     },
     close: function () { document.body.classList.remove('wdg-mode'); unmountAll(); },   // restaure la nav + libère roots/timers
     exit: function () { if (typeof activateView === 'function') activateView('news'); }, // « ‹ Retour au desk » (la nav est masquée en mode Mon Desk)
-    remove: function (i) { var l = activeLayout(); if (!l) return; l.items.splice(i, 1); save(); renderGrid(); },
+    // RETRAIT ANNULABLE (28/07) : on garde l'item ET sa position, et on propose « Annuler » 7 s.
+    // Un retrait accidentel ne coûte plus la reconstruction manuelle du widget (taille, onglets,
+    // réglages compris — c'est l'objet complet qui revient à sa place).
+    remove: function (i) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var snap = JSON.parse(JSON.stringify(l.items[i]));
+      l.items.splice(i, 1); save(); renderGrid();
+      _undoOffer(byId(snap.w) ? (byId(snap.w).name + ' retiré') : 'Widget retiré', function () {
+        var cur = activeLayout(); if (!cur) return;
+        cur.items.splice(Math.min(i, cur.items.length), 0, snap);   // remis À SA PLACE
+        save(); renderGrid();
+      });
+    },
     move: function (i, d) {
       var l = activeLayout(); if (!l) return;
       var j = i + d; if (j < 0 || j >= l.items.length) return;
