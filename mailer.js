@@ -1076,9 +1076,13 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const unsub = unsubUrl(email || '');
   // AVANT-GOUT du rapport Recap Hebdo (demande user : plus de cartes de paires) : les POINTS CLES de la semaine,
   // tires des insights REELS du rapport -> puces or, memes donnees que l'onglet Analystes.
-  const keyPts = insights.slice(lead === insights[0] ? 1 : 0, (lead === insights[0] ? 1 : 0) + 4);
+  // REFONTE 28/07 (« simple, épuré, lisible, pro ») : UNE seule grammaire de section (filet or +
+  // label capitales) remplace les 7 phrases d'intro grises qui se ressemblaient toutes. Moins de
+  // blocs, moins de lignes par bloc, un rythme de lecture constant.
+  const _sec = t => `<p style="margin:26px 0 10px;padding-left:9px;border-left:2px solid #f3c344;color:#f3c344;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;">${t}</p>`;
+  const keyPts = insights.slice(lead === insights[0] ? 1 : 0, (lead === insights[0] ? 1 : 0) + 3);
   const insightsHtml = keyPts.length
-    ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${keyPts.map(p => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;line-height:1.6;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 230)}</td></tr>`).join('')}</table>`
     : '';
   // Ton des banques centrales des 3 DEVISES VEDETTES (demande user) : 1 ligne = une phrase du président qui
   // montre le ton (hawkish/dovish). On ne montre QUE ces 3 banques (pas les 8), sans décision/guidance/prochaine réunion.
@@ -1086,13 +1090,12 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _curSrc = (w.currencies && typeof w.currencies === 'object') ? w.currencies : {};
   const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => _curSrc[c] && _curSrc[c].analysis && String(_curSrc[c].analysis).trim().length > 30).slice(0, 3);
   const _cbTone = _curPick.map(code => cbList.find(c => c.code === code)).filter(Boolean).slice(0, 3);
-  const cbToneHtml = _cbTone.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Le ton des banques centrales des devises de la semaine&nbsp;:</p>
-    <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;background:#0d0e11;">
+  const cbToneHtml = _cbTone.length ? `<div style="border:1px solid #232429;border-radius:6px;overflow:hidden;background:#0d0e11;">
     ${_cbTone.map((c, i) => {
       const bias = _md(c.bias5 || c.stance || 'Neutre');
-      // INTERVENANT PAR INTERVENANT (v39, façon note institutionnelle) : jusqu'à 2 propos attribués par banque
-      // (« Powell, 12 juil. : “…” ») au lieu d'un seul — le lecteur voit QUI a dit QUOI cette semaine.
-      const qs = (c.quotes || []).filter(q => q && q.quote).slice(0, 2);
+      // UN seul propos attribué par banque (v40) : deux citations par banque × 3 banques noyaient
+      // la section. Le lecteur retient QUI a parlé et sur quel ton — c'est l'essentiel.
+      const qs = (c.quotes || []).filter(q => q && q.quote).slice(0, 1);
       const lines = qs.length
         ? qs.map(q => {
             const _attr = [q.speaker, q.date].filter(Boolean).map(s => _esc(_md(String(s)))).join(', ');
@@ -1123,17 +1126,18 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
         ${printLine}${pricingLine}
       </td></tr>`;
     }).join('');
-    curHtml = `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">${_curPick.length === 1 ? 'Une devise de la semaine, lue' : _curPick.length + ' devises de la semaine, lues'} par le desk, sans entrer dans le détail&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${rows}</table>`;
+    curHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
   }
   // EXTRACTIONS DE DONNÉES du rapport (demande user « légèrement + complet, valeur ajoutée ») — v19.
   // (L'ancienne table « rendez-vous à venir » était du code mort : jamais injectée, elle doublait le mail
   // « Semaine à venir » du dimanche. Remplacée par deux extractions RÉTROSPECTIVES, fidèles au Récap.)
   // #1 — LE FAIT MARQUANT : le 1er thème macro RÉEL du rapport (ordre canonique du desk) + ses 2 premières puces.
+  // Le FAIT MARQUANT rejoint « L'essentiel » (v40) : c'était un 3e bloc de texte qui doublait les
+  // points clés. Une seule ligne titrée, intégrée au haut du mail.
   const _mac = (Array.isArray(w.macro) ? w.macro : []).find(s => s && s.heading && Array.isArray(s.bullets) && s.bullets.length);
-  const macroFactHtml = _mac ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Le fait marquant de la semaine&nbsp;:</p>
-    <div style="border:1px solid #232429;border-left:3px solid #f3c344;border-radius:6px;background:#0d0e11;padding:10px 12px;margin:0 0 6px;">
-      <div style="color:#f3c344;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">${_esc(_md(_mac.heading))}</div>
-      ${_mac.bullets.slice(0, 2).map(b => `<div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:5px;">${_esc(_cutTxt(_md(b), 230))}</div>`).join('')}
+  const macroFactHtml = _mac ? `<div style="border-left:2px solid #232429;padding:2px 0 2px 11px;margin:12px 0 0;">
+      <div style="color:#8b93a1;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${_esc(_md(_mac.heading))}</div>
+      <div style="color:#cbd5e1;font-size:13px;line-height:1.6;margin-top:4px;">${_esc(_cutTxt(_md(_mac.bullets[0]), 230))}</div>
     </div>` : '';
   // #2 — LES CHIFFRES QUI ONT MARQUÉ LA SEMAINE : résultats RÉELS publiés (calendrier passé du rapport),
   // majeurs d'abord. RÉEL coloré selon la POLARITÉ intelligente (miroir de _calMailActual/deviationClass du
@@ -1179,9 +1183,9 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     .map((r, i) => ({ r, i, rk: _mailKeyRank(r.e.title) }))
     .sort((a, b) => (b.rk - a.rk) || (_headline(a.r.e.title) - _headline(b.r.e.title)) || (a.i - b.i))   // importance, puis titre phare, puis chrono
     .filter(x => { const k = String(x.r.e.ccy || '') + '|' + _fam(x.r.e.title); if (_famSeen.has(k)) return false; _famSeen.add(k); return true; })   // 1 ligne / famille / devise
-    .slice(0, 8)
+    .slice(0, 5)   // v40 : 5 lignes suffisent (8 = mur de chiffres) — déjà triées par importance
     .map(x => x.r);
-  const pastTableHtml = _pastRows.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Les chiffres qui ont marqué la semaine (réel vs attendu)&nbsp;:</p>
+  const pastTableHtml = _pastRows.length ? `
     <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">
     <tr style="background:#101012;">${_wdTh('d')}${_wdTh('c')}${_wdTh('e')}${_wdTh('a')}${_wdTh('r')}</tr>
     ${_pastRows.map(({ e, day }) => `<tr>
@@ -1192,19 +1196,23 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;">${_esc(e.forecast || '·')}</td>
     </tr>`).join('')}
     </table></div>` : '';
+  // PARCOURS DE LECTURE (v40) : 4 sections titrées, toujours dans le même ordre — l'essentiel, les
+  // chiffres, les devises, les banques centrales. Chacune n'apparaît que si elle a de la matière.
   const body = `
-    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 16px;">Voici un <strong style="color:#f3c344;">avant-goût du Récap Hebdo</strong> du desk : la rétrospective de la semaine, en clair.</p>
-    ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 520)}</p>` : ''}
+    <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 4px;color:#9aa3b2;font-size:13px;">La semaine de marché, relue par le desk.</p>
+    ${_sec("L'essentiel")}
+    ${lead ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#e6e6ea;">${_esc(lead).slice(0, 460)}</p>` : ''}
     ${insightsHtml}
     ${macroFactHtml}
-    ${pastTableHtml}
-    ${curHtml}
-    ${_widgetImg('strength', 'La force des devises')}
-    ${cbToneHtml}
-    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par banque, guidance et propos, analyse par devise, calendrier complet de la semaine) vous attend sur le <strong style="color:#fff;">Desk</strong>&nbsp;:</p>
-    ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
-    <p style="margin:0 0 4px;">Bonne semaine,</p>
+    ${pastTableHtml ? _sec('Les chiffres de la semaine') + pastTableHtml : ''}
+    ${curHtml ? _sec('Les devises') + curHtml : ''}
+    ${cbToneHtml ? _sec('Les banques centrales') + cbToneHtml : ''}
+    ${_sec('La force des devises')}
+    ${_widgetImg('strength', '')}
+    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Le rapport complet vous attend sur le desk&nbsp;: analyse par banque, par devise, et le calendrier détaillé.</p>
+    ${_campaignBtn('Ouvrir le Récap Hebdo', trackClickUrl(campaign, email, LANDING_URL))}
+    <p style="margin:18px 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
