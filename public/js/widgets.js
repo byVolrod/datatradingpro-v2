@@ -1067,6 +1067,7 @@
       mount: function (host, it) {
         it = it || {};
         var tabs = (Array.isArray(it.tabs) ? it.tabs : []).filter(function (id) { return byId(id); });
+        var labels = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];   // libellés personnalisés (double-clic → renommage), alignés sur tabs
         var actIdx = Math.min((it._tabAct | 0), Math.max(0, tabs.length - 1));
         var subClean = null;
         var bar = document.createElement('div'); bar.className = 'wdgt-bar';
@@ -1086,16 +1087,18 @@
           // « exactement comme le desk ») ; le nom complet reste dans le title (infobulle).
           bar.innerHTML = tabs.map(function (id, i) {
             var w = byId(id);
-            return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + '" data-i="' + i + '" title="' + esc(w.name) + '">'
-              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(w.tag || w.name) + '</span>'
+            return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + '" data-i="' + i + '" title="' + esc(w.name) + ' — double-clic pour renommer">'
+              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(labels[i] || w.tag || w.name) + '</span>'
               + '<span class="wdgt-x" title="Retirer cet onglet" data-x="' + i + '">×</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
         }
         bar.addEventListener('click', function (e) {
+          if (e.target.closest('.wdgt-edit')) return;   // clic dans le champ de renommage → ne pas changer d'onglet
           var x = e.target.closest('.wdgt-x');
           if (x) {
             tabs.splice(+x.getAttribute('data-x'), 1);
-            it.tabs = tabs.slice();
+            labels.splice(+x.getAttribute('data-x'), 1);
+            it.tabs = tabs.slice(); it.tabLabels = labels.slice();
             if (actIdx >= tabs.length) actIdx = Math.max(0, tabs.length - 1);
             it._tabAct = actIdx; save(); renderTabs(); mountSub(); return;
           }
@@ -1103,6 +1106,29 @@
           var t = e.target.closest('.wdgt-tab'); if (!t) return;
           actIdx = +t.getAttribute('data-i'); it._tabAct = actIdx;
           renderTabs(); mountSub();
+        });
+        // RENOMMAGE au double-clic (demande user 28/07) : le libellé devient un champ inline —
+        // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
+        bar.addEventListener('dblclick', function (e) {
+          var t = e.target.closest('.wdgt-tab'); if (!t || e.target.closest('.wdgt-x')) return;
+          var i = +t.getAttribute('data-i');
+          var w0 = byId(tabs[i]); if (!w0) return;
+          var nm = t.querySelector('.wdgt-nm'); if (!nm) return;
+          var inp = document.createElement('input');
+          inp.className = 'wdgt-edit'; inp.maxLength = 18; inp.value = labels[i] || w0.tag || w0.name;
+          nm.replaceWith(inp); inp.focus(); inp.select();
+          var done = false;
+          function commit(ok) {
+            if (done) return; done = true;
+            if (ok) {
+              var v = inp.value.trim().slice(0, 18);
+              if (v && v !== (w0.tag || w0.name)) labels[i] = v; else labels[i] = '';
+              it.tabLabels = labels.slice(); save();
+            }
+            renderTabs();
+          }
+          inp.addEventListener('keydown', function (ev) { ev.stopPropagation(); if (ev.key === 'Enter') commit(true); else if (ev.key === 'Escape') commit(false); });
+          inp.addEventListener('blur', function () { commit(true); });
         });
         renderTabs(); mountSub();
         return function () { if (subClean) { try { subClean(); } catch (e) {} subClean = null; } };
@@ -1380,7 +1406,7 @@
       };
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
-      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + '" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
+      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
         + '<header class="wdg-head">'
         +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'

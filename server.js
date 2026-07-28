@@ -771,6 +771,13 @@ function _wdgClean(body) {
             const tabs = it.tabs.filter(t => typeof t === 'string' && _WDG_ID_RX.test(t)).slice(0, 8);
             if (tabs.length) o.tabs = tabs;
           }
+          // Libellés d'onglets PERSONNALISÉS (double-clic → renommage, 28/07) — alignés sur tabs,
+          // 18 chars max, balises retirées. Même piège que gw/gh : non repris ici = détruit au save.
+          if (o.tabs && Array.isArray(it.tabLabels)) {
+            const tl = it.tabLabels.slice(0, o.tabs.length)
+              .map(s => (typeof s === 'string' ? s.replace(/[<>]/g, '').trim().slice(0, 18) : ''));
+            if (tl.some(Boolean)) o.tabLabels = tl;
+          }
           return o;
         });
       // Unicité de l'id : sans ça, deux layouts homonymes (ou un repli 'layout-2' entrant en collision
