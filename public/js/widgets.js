@@ -51,6 +51,54 @@
     it.gw = _clamp(it.gw, 1, GRID_COLS); it.gh = _clamp(it.gh, 3, 60);
     return it;
   }
+  /* ══ RÉGLAGES PAR WIDGET — CONTRAT DÉCLARATIF ══════════════════════════════════════════════
+     Une entrée du catalogue déclare ses réglages : opts: [{ k, lbl, type, def, choix, min, max }]
+       · type 'choix'   → choix: [[valeur, libellé], …]   (pastilles cliquables)
+       · type 'bascule' → oui/non
+       · type 'nombre'  → incrémenteur borné min..max
+     Le panneau de réglages est GÉNÉRÉ à partir de ça : aucune interface à écrire widget par widget,
+     et la persistance suit toute seule (le serveur ne valide QUE la forme de `it.cfg`, cf. _wdgClean).
+
+     RÈGLE : dans son mount(), un widget lit sa valeur par opt(it, w, 'clé') — JAMAIS it.cfg en direct.
+     Raison : le panneau à onglets monte ses sous-widgets par w.mount(body), donc SANS item ; opt()
+     renvoie alors le défaut au lieu de planter. (Conséquence assumée : un widget placé dans un onglet
+     utilise ses valeurs par défaut — les réglages vivent sur la carte, pas sur l'onglet.) */
+  function optDef(w, k) {
+    var l = (w && w.opts) || [];
+    for (var i = 0; i < l.length; i++) if (l[i].k === k) return l[i];
+    return null;
+  }
+  function opt(it, w, k) {
+    var d = optDef(w, k); if (!d) return undefined;
+    var v = it && it.cfg ? it.cfg[k] : undefined;
+    if (v === undefined || v === null) return d.def;
+    if (d.type === 'bascule') return !!v;
+    if (d.type === 'nombre') { v = parseInt(v, 10); return isFinite(v) ? _clamp(v, d.min, d.max) : d.def; }
+    // 'choix' : une valeur devenue invalide (option retirée du catalogue) retombe sur le défaut
+    for (var i = 0; i < d.choix.length; i++) if (d.choix[i][0] === v) return v;
+    return d.def;
+  }
+  // Panneau de réglages généré depuis le contrat. Vide si le widget ne déclare rien.
+  function _optsHtml(idx, w, it) {
+    var l = (w && w.opts) || []; if (!l.length) return '';
+    return '<div class="wdg-set-sep"></div>' + l.map(function (o) {
+      var cur = opt(it, w, o.k), ctl;
+      if (o.type === 'bascule') {
+        ctl = '<button class="wdg-set-sw' + (cur ? ' on' : '') + '" role="switch" aria-checked="' + (!!cur) + '"'
+          + ' onclick="DTPWidgets.setOpt(' + idx + ',\'' + o.k + '\',' + (!cur) + ')"><i></i></button>';
+      } else if (o.type === 'nombre') {
+        ctl = '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.bumpOpt(' + idx + ',\'' + o.k + '\',-1)" aria-label="moins">−</button>'
+          + '<span class="wdg-step-val">' + esc(String(cur)) + '</span>'
+          + '<button class="wdg-step" onclick="DTPWidgets.bumpOpt(' + idx + ',\'' + o.k + '\',1)" aria-label="plus">+</button></span>';
+      } else {
+        ctl = '<span class="wdg-set-chips">' + o.choix.map(function (c) {
+          return '<button class="wdg-set-chip' + (c[0] === cur ? ' on' : '') + '"'
+            + ' onclick="DTPWidgets.setOpt(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\')">' + esc(c[1]) + '</button>';
+        }).join('') + '</span>';
+      }
+      return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + esc(o.lbl) + '</span>' + ctl + '</div>';
+    }).join('');
+  }
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
   // info = « i » cerclé ; réglages = curseurs d'ajustement.
@@ -198,19 +246,31 @@
       desc: 'Qui mène, qui décroche — double panneau TD | TW comme le desk.',
       // DOUBLE panneau comme l'onglet › FORCE du desk (gauche = TD intraday, droite = TW semaine ;
       // demande user 26/07 « exactement comme le desk »). Hôte étroit (<520px) → un seul graphe (semaine).
-      mount: function (host) {
+      // « Devise » exploite le 2e paramètre de buildIsolatedStrength(id, focusCurrency, periode), déjà
+      // supporté par le desk (une devise à 100 %, les 7 autres estompées) mais jamais utilisé ici.
+      opts: [
+        { k: 'periodes', lbl: 'Périodes', type: 'choix', def: 'auto',
+          choix: [['auto', 'Auto'], ['both', 'Jour + sem.'], ['today', 'Jour'], ['week', 'Semaine']] },
+        { k: 'focus', lbl: 'Devise', type: 'choix', def: '',
+          choix: [['', 'Toutes'], ['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'], ['CHF', 'CHF'], ['CAD', 'CAD'], ['AUD', 'AUD'], ['NZD', 'NZD']] },
+      ],
+      mount: function (host, it) {
+        var W = this;
         if (typeof buildIsolatedStrength !== 'function') { fallback(host, 'Force des Devises indisponible.'); return null; }
-        var dual = (host.clientWidth || 0) >= 520;
+        var per = opt(it, W, 'periodes'), foc = opt(it, W, 'focus') || null;
+        // 'auto' = comportement d'origine : double panneau si la carte est assez large, sinon la semaine seule.
+        var dual = per === 'both' || (per === 'auto' && (host.clientWidth || 0) >= 520);
         var idL = HOST_ID + '-fx-' + uid(), idR = HOST_ID + '-fx-' + uid();
         if (!dual) {
+          var solo = (per === 'today') ? 'today' : 'week';
           host.innerHTML = '<div id="' + idL + '" style="width:100%;height:100%;"></div>';
-          try { buildIsolatedStrength(idL, null, 'week'); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
+          try { buildIsolatedStrength(idL, foc, solo); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
           return function () { try { if (typeof disposeRoot === 'function') disposeRoot(idL); } catch (e) {} };
         }
         host.innerHTML = '<div class="wdg-fx-dual">'
           + '<div class="wdg-fx-pane wdg-fx-pane--l"><span class="wdg-fx-cap">TD</span><div id="' + idL + '" class="wdg-fx-chart"></div></div>'
           + '<div class="wdg-fx-pane"><span class="wdg-fx-cap">TW</span><div id="' + idR + '" class="wdg-fx-chart"></div></div></div>';
-        try { buildIsolatedStrength(idL, null, 'today'); buildIsolatedStrength(idR, null, 'week'); } catch (e) {}
+        try { buildIsolatedStrength(idL, foc, 'today'); buildIsolatedStrength(idR, foc, 'week'); } catch (e) {}
         return function () { try { if (typeof disposeRoot === 'function') { disposeRoot(idL); disposeRoot(idR); } } catch (e) {} };
       },
     },
@@ -231,12 +291,16 @@
     //  contiennent encore sont ignorées proprement par renderGrid : byId() → null → carte sautée.)
     {
       id: 'risque-historique', name: 'Historique du Sentiment', cat: 'Risque', h: 260,
-      desc: "L'appétit pour le risque des 60 derniers jours.",
-      mount: function (host) {
+      desc: "L'appétit pour le risque des dernières semaines.",
+      // Le serveur accepte déjà 7 à 366 jours (/api/risk-history) : la fenêtre était figée à 60 côté widget.
+      opts: [{ k: 'jours', lbl: 'Fenêtre', type: 'choix', def: '60',
+        choix: [['30', '30 j'], ['60', '60 j'], ['90', '90 j'], ['180', '6 mois'], ['365', '1 an']] }],
+      mount: function (host, it) {
+        var W = this;
         var id = HOST_ID + '-rh-' + uid();
         host.innerHTML = '<div id="' + id + '" style="width:100%;height:100%;"></div>';
         if (typeof buildRiskHistoryChart !== 'function') { fallback(host, 'Historique indisponible.'); return null; }
-        fetch('/api/risk-history?days=60').then(function (r) { return r.json(); }).then(function (d) {
+        fetch('/api/risk-history?days=' + encodeURIComponent(opt(it, W, 'jours'))).then(function (r) { return r.json(); }).then(function (d) {
           if (!document.getElementById(id)) return;                        // widget retiré pendant le fetch
           try { buildRiskHistoryChart(id, d); } catch (e) { fallback(host, 'Historique indisponible.'); }
         }).catch(function () { fallback(host, 'Historique indisponible.'); });
@@ -250,15 +314,29 @@
       // — mêmes classes `cal-table`/`cth-*`, séparateurs de jour, 10 colonnes, états de ligne — et on
       // appelle SES helpers globaux (calFormatTime, CAL_FLAG, calImpDots, calActualCell). Le widget
       // hérite ainsi du style exact du desk. Lecture seule (le déroulé inline reste dans l'onglet dédié).
-      mount: function (host) {
+      opts: [
+        { k: 'impact', lbl: 'Impact', type: 'choix', def: 'all',
+          choix: [['all', 'Tous'], ['med', 'Moyen +'], ['high', 'Fort']] },
+        { k: 'lignes', lbl: 'Lignes', type: 'nombre', def: 40, min: 5, max: 80, pas: 5 },
+        { k: 'passe', lbl: 'Passé', type: 'choix', def: '2',
+          choix: [['0', 'Aucun'], ['2', '2 h'], ['6', '6 h'], ['12', '12 h'], ['24', '24 h']] },
+      ],
+      mount: function (host, it) {
+        var W = this;
         host.innerHTML = '<div class="wdg-cal-wrap custom-scrollbar"><div class="wdg-skel"><span class="wdg-skel-l" style="width:78%"></span><span class="wdg-skel-l" style="width:64%"></span><span class="wdg-skel-l" style="width:82%"></span><span class="wdg-skel-l" style="width:58%"></span></div></div>';
         fetch('/api/calendar-events').then(function (r) { return r.json(); }).then(function (j) {
           if (!host.isConnected) return;
           var now = Date.now();
+          var minImp = opt(it, W, 'impact'), gardePasse = parseInt(opt(it, W, 'passe'), 10) || 0;
+          var impOk = function (e) {
+            if (minImp === 'all') return true;
+            var i = String(e.impact || '').toLowerCase();
+            return minImp === 'high' ? i === 'high' : (i === 'high' || i === 'medium');
+          };
           var evs = ((j && j.items) || [])
-            .filter(function (e) { return e && (e.timestamp || 0) > now - 2 * 3600e3; })
+            .filter(function (e) { return e && (e.timestamp || 0) > now - gardePasse * 3600e3 && impOk(e); })
             .sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); })
-            .slice(0, 40);
+            .slice(0, opt(it, W, 'lignes'));
           if (!evs.length) return fallback(host, 'Aucun événement à venir.');
           var nextIdx = evs.findIndex(function (e) { return (e.timestamp || 0) >= now; });
           var fmtTime = (typeof calFormatTime === 'function') ? calFormatTime : function () { return ''; };
@@ -476,16 +554,20 @@
       // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
       // → mêmes cartes donut SVG .cot-cell, mêmes 5 catégories CFTC (barre .cot-type-bar reproduite, handlers
       // SCOPÉS au widget — ceux du desk sont scopés #rtab-cot). Zéro root amCharts → cleanup null.
-      mount: function (host) {
+      opts: [{ k: 'cat', lbl: 'Catégorie', type: 'choix', def: 'lev_money',
+        choix: [['noncomm', 'Non-comm.'], ['dealer', 'Teneur'], ['asset_mgr', 'Gérant'], ['lev_money', 'Levier'], ['other_rept', 'Autre']] }],
+      mount: function (host, it) {
+        var W = this;
         if (typeof buildCOTChart !== 'function') { fallback(host, 'COT indisponible.'); return null; }
+        var cat0 = opt(it, W, 'cat');
         var gid = HOST_ID + '-cotg-' + uid();
         var TYPES = [['noncomm', 'Non-comm.'], ['dealer', 'Teneur'], ['asset_mgr', 'Gérant'], ['lev_money', 'Effet de levier'], ['other_rept', 'Autre']];
         host.innerHTML = '<div class="wdg-cotwrap">'
           + '<div class="cot-type-bar">' + TYPES.map(function (t) {
-              return '<button class="cot-type-btn' + (t[0] === 'lev_money' ? ' cot-type-btn--active' : '') + '" data-cot-type="' + t[0] + '">' + t[1] + '</button>';
+              return '<button class="cot-type-btn' + (t[0] === cat0 ? ' cot-type-btn--active' : '') + '" data-cot-type="' + t[0] + '">' + t[1] + '</button>';
             }).join('') + '</div>'
           + '<div id="' + gid + '" class="cot-grid custom-scrollbar"></div></div>';
-        try { buildCOTChart(gid, 'lev_money'); } catch (e) { fallback(host, 'COT indisponible.'); return null; }
+        try { buildCOTChart(gid, cat0); } catch (e) { fallback(host, 'COT indisponible.'); return null; }
         host.querySelectorAll('.cot-type-btn').forEach(function (btn) {
           btn.addEventListener('click', function () {
             host.querySelectorAll('.cot-type-btn').forEach(function (b) { b.classList.remove('cot-type-btn--active'); });
@@ -502,21 +584,31 @@
       // IDENTIQUE AU DESK (23/07) : réutilise buildDMXChart(force, {wrapId, period, sort}) de charts.js
       // → mêmes barres .dmx2-row, même en-tête (boutons TF 1D/4H/1H + tri) et même légende Long/Short.
       // Le widget gère SON intervalle 60 s (le _dmxTimer du desk reste gaté sur #rtab-dmx) → cleanup.
-      mount: function (host) {
+      opts: [
+        { k: 'tf', lbl: 'Unité', type: 'choix', def: 'H1', choix: [['D1', '1D'], ['H4', '4H'], ['H1', '1H']] },
+        { k: 'tri', lbl: 'Tri', type: 'choix', def: 'az', choix: [['az', 'A-Z'], ['long', 'Long ↓'], ['short', 'Short ↓']] },
+      ],
+      mount: function (host, it) {
+        var W = this;
         if (typeof buildDMXChart !== 'function') { fallback(host, 'DMX indisponible.'); return null; }
+        var tf0 = opt(it, W, 'tf'), tri0 = opt(it, W, 'tri');
         var wid = HOST_ID + '-dmxw-' + uid();
         host.innerHTML = '<div class="wdg-dmxwrap">'
           + '<div class="dmx-header-bar">'
-          + '<div class="dmx-tf-group"><button class="dmx-tf-btn" data-tf="D1">1D</button><button class="dmx-tf-btn" data-tf="H4">4H</button><button class="dmx-tf-btn dmx-tf-btn--active" data-tf="H1">1H</button></div>'
+          + '<div class="dmx-tf-group">' + [['D1', '1D'], ['H4', '4H'], ['H1', '1H']].map(function (t) {
+              return '<button class="dmx-tf-btn' + (t[0] === tf0 ? ' dmx-tf-btn--active' : '') + '" data-tf="' + t[0] + '">' + t[1] + '</button>';
+            }).join('') + '</div>'
           + '<span style="flex:1"></span>'
-          + '<select class="dmx-sort-select"><option value="az">Paire (A-Z)</option><option value="long">Long ↓</option><option value="short">Short ↓</option></select>'
+          + '<select class="dmx-sort-select">' + [['az', 'Paire (A-Z)'], ['long', 'Long ↓'], ['short', 'Short ↓']].map(function (o) {
+              return '<option value="' + o[0] + '"' + (o[0] === tri0 ? ' selected' : '') + '>' + o[1] + '</option>';
+            }).join('') + '</select>'
           + '</div>'
           + '<div class="dmx-legend-bar"><span class="dmx-legend-dot dmx-legend-long-dot"></span><span class="dmx-legend-text">Long</span><span class="dmx-legend-dot dmx-legend-short-dot"></span><span class="dmx-legend-text">Short</span></div>'
           + '<div id="' + wid + '" class="dmx-table-wrap custom-scrollbar"></div></div>';
         function optsNow() {
           var tf = host.querySelector('.dmx-tf-btn--active');
           var sel = host.querySelector('.dmx-sort-select');
-          return { wrapId: wid, period: tf ? tf.dataset.tf : 'H1', sort: sel ? sel.value : 'az' };
+          return { wrapId: wid, period: tf ? tf.dataset.tf : tf0, sort: sel ? sel.value : tri0 };
         }
         function refresh(force) { try { buildDMXChart(!!force, optsNow()); } catch (e) {} }
         refresh(false);
@@ -539,7 +631,13 @@
       // IDENTIQUE AU DESK (23/07) : même table heatmap .season-table (cellules rendues par le MÊME
       // _seasonCell global de charts.js — vert/rouge ∝ |valeur|, flèches, colonne Moy.), même badge
       // [PAIRE] ; paire du COMPTE (/api/season-pair, GET au montage + POST au changement, comme le desk).
-      mount: function (host) {
+      // « Paire » ÉPINGLE la carte. Défaut 'Compte' = comportement d'origine (la paire suit le compte et
+      // la changer ici l'écrit pour tout le monde). Épinglée, la carte devient AUTONOME : changer sa paire
+      // n'écrit plus côté compte — sans quoi deux cartes Saisonnalité côte à côte s'écrasent l'une l'autre.
+      opts: [{ k: 'paire', lbl: 'Paire', type: 'choix', def: '',
+        choix: [['', 'Compte'], ['EURUSD', 'EUR/USD'], ['GBPUSD', 'GBP/USD'], ['USDJPY', 'USD/JPY'], ['AUDUSD', 'AUD/USD'], ['USDCAD', 'USD/CAD'], ['USDCHF', 'USD/CHF'], ['NZDUSD', 'NZD/USD'], ['EURJPY', 'EUR/JPY'], ['GBPJPY', 'GBP/JPY']] }],
+      mount: function (host, it) {
+        var W = this, pin = opt(it, W, 'paire');
         if (typeof _seasonCell !== 'function') { fallback(host, 'Saisonnalité indisponible.'); return null; }
         var fmt = (typeof _seasonFmtPair === 'function') ? _seasonFmtPair : function (c) { return c; };
         var pairs = (typeof _SEASON_PAIRS !== 'undefined') ? _SEASON_PAIRS.slice() : ['EURUSD'];
@@ -568,11 +666,17 @@
             tblWrap.innerHTML = '<table class="season-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
           }).catch(function () { if (host.isConnected && p === cur) fallback(tblWrap, 'Saisonnalité indisponible.'); });
         }
-        fetch('/api/season-pair').then(function (r) { return r.json(); }).then(function (d) {
+        if (pin) load(pin);
+        else fetch('/api/season-pair').then(function (r) { return r.json(); }).then(function (d) {
           load((d && d.pair) ? d.pair : 'EURUSD');
         }).catch(function () { load('EURUSD'); });
         if (sel) sel.addEventListener('change', function () {
           var p = sel.value;
+          if (pin) {                                    // carte épinglée : le choix reste DANS la carte
+            var i = _hostIdx(host);
+            if (i != null) return API.setOpt(i, 'paire', p);
+            return load(p);
+          }
           try { fetch('/api/season-pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pair: p }) }); } catch (e) {}
           load(p);
         });
@@ -586,7 +690,9 @@
       // (sessionmap.js) — continents GeoJSON on-brand (geodata amCharts partagé), terminateur jour/nuit,
       // badges villes .lf-city (classes globales → rendu identique), halos de session, résumé d'en-tête.
       // Instance Leaflet DÉDIÉE (window._dtpLfMap reste au desk) + timers locaux → cleanup complet.
-      mount: function (host) {
+      opts: [{ k: 'nuit', lbl: 'Ombre nuit', type: 'bascule', def: true }],
+      mount: function (host, it) {
+        var W = this;
         if (typeof L === 'undefined') { fallback(host, 'Carte indisponible.'); return null; }
         host.innerHTML = '<div class="wdg-mapwrap"><div class="chart-header-sub wdg-map-sub"></div><div class="wdg-lfmap"></div></div>';
         var el = host.querySelector('.wdg-lfmap'), sub = host.querySelector('.wdg-map-sub');
@@ -640,7 +746,7 @@
         } catch (e) {}
         if (!hasVector) { try { L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19 }).addTo(map); } catch (e) {} }
         var nightIv = null;
-        if (typeof L.terminator === 'function') {
+        if (typeof L.terminator === 'function' && opt(it, W, 'nuit')) {
           try {
             var term = L.terminator({ fillColor: '#070b14', fillOpacity: 0.5, color: '#070b14', weight: 0, interactive: false, className: 'lf-terminator' });
             term.addTo(map);
@@ -728,12 +834,14 @@
     {
       id: 'fil-news', name: "Fil d'actualité", cat: 'News', h: 320,
       desc: 'Les dernières news du desk, en direct.',
-      mount: function (host) {
+      opts: [{ k: 'nb', lbl: 'Actus', type: 'nombre', def: 15, min: 5, max: 40, pas: 5 }],
+      mount: function (host, it) {
+        var W = this;                       // l'entrée du catalogue (mount est appelé en w.mount(...))
         var sig = '';
         var render = function () {
           if (!host.isConnected) return;
           var items = (typeof window.getNewsMaster === 'function') ? (window.getNewsMaster() || []) : [];
-          var rows = items.slice(0, 15);
+          var rows = items.slice(0, opt(it, W, 'nb'));
           if (!rows.length) { fallback(host, 'Fil en cours de chargement…'); return; }
           var s = rows.map(function (i) { return i.id; }).join('|');
           if (s === sig) return;                                            // rien de neuf → pas de re-render
@@ -762,15 +870,23 @@
     {
       id: 'calculatrice', name: 'Calculatrice de position', cat: 'Outils', h: 280,
       desc: 'Taille de lot depuis capital, risque % et stop (pips).',
-      // AUTONOME (aucune dépendance au desk) et VOLATILE (charte DTP : pas de localStorage) — calcul instantané.
-      mount: function (host) {
+      // AUTONOME (aucune dépendance au desk). Le CALCUL reste volatil (charte DTP : pas de localStorage) ;
+      // seules les valeurs de DÉPART sont des réglages de carte — le compte d'un trader ne change pas tous les jours.
+      opts: [
+        { k: 'capital', lbl: 'Capital', type: 'nombre', def: 10000, min: 1000, max: 99000, pas: 1000 },
+        { k: 'risque', lbl: 'Risque %', type: 'nombre', def: 1, min: 1, max: 10, pas: 1 },
+        { k: 'pip', lbl: 'Valeur pip', type: 'nombre', def: 10, min: 1, max: 100, pas: 1 },
+      ],
+      mount: function (host, it) {
+        var W = this;
         var f = function (lbl, val, suf) {
           return '<label class="wdg-calc-row"><span class="wdg-calc-lbl">' + lbl + '</span>'
             + '<span class="wdg-calc-in"><input type="number" inputmode="decimal" value="' + val + '" step="any" min="0">'
             + (suf ? '<em>' + suf + '</em>' : '') + '</span></label>';
         };
         host.innerHTML = '<div class="wdg-calc">'
-          + f('Capital', 10000, '$') + f('Risque', 1, '%') + f('Stop-loss', 20, 'pips') + f('Valeur du pip (1 lot)', 10, '$')
+          + f('Capital', opt(it, W, 'capital'), '$') + f('Risque', opt(it, W, 'risque'), '%')
+          + f('Stop-loss', 20, 'pips') + f('Valeur du pip (1 lot)', opt(it, W, 'pip'), '$')
           + '<div class="wdg-calc-out"><div class="wdg-calc-o"><span>Risque</span><b class="wdg-calc-risk">—</b></div>'
           + '<div class="wdg-calc-o wdg-calc-o--main"><span>Taille de position</span><b class="wdg-calc-lots">—</b></div></div>'
           + '<div class="wdg-calc-note">Position = (capital × risque %) ÷ (stop × valeur du pip).</div>'
@@ -1467,6 +1583,7 @@
         + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'
         +   '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
         +   step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
+        +   _optsHtml(idx, w, it)
         + '</div>'
         + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
         + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
@@ -1857,6 +1974,24 @@
       var j = i + d; if (j < 0 || j >= l.items.length) return;
       var t = l.items[i]; l.items[i] = l.items[j]; l.items[j] = t;
       _reopen = j; save(); renderGrid();                 // garde les réglages ouverts sur le widget déplacé
+    },
+    // RÉGLAGES DÉCLARATIFS — écrit la valeur puis re-rend (le widget se re-monte et lit sa nouvelle
+    // valeur par opt()). _reopen garde le panneau de réglages ouvert : on enchaîne plusieurs réglages
+    // sans avoir à le rouvrir à chaque clic.
+    setOpt: function (i, k, v) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i], w = byId(it.w), d = optDef(w, k); if (!d) return;
+      if (!it.cfg) it.cfg = {};
+      if (d.type === 'nombre') v = _clamp(parseInt(v, 10) || d.def, d.min, d.max);
+      if (v === d.def) delete it.cfg[k];              // valeur par défaut → on ne stocke rien (config minimale)
+      else it.cfg[k] = v;
+      if (!Object.keys(it.cfg).length) delete it.cfg;
+      _reopen = i; save(); renderGrid();
+    },
+    bumpOpt: function (i, k, d) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i], w = byId(it.w), def = optDef(w, k); if (!def) return;
+      API.setOpt(i, k, _clamp((parseInt(opt(it, w, k), 10) || def.def) + d * (def.pas || 1), def.min, def.max));
     },
     setGw: function (i, d) {
       var l = activeLayout(); if (!l || !l.items[i]) return; _normItem(l.items[i]);
