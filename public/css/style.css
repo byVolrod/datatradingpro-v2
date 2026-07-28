@@ -11387,8 +11387,8 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-blank { grid-column: 1 / -1; min-height: 58vh; }
 
 /* ── Ligne « Sauvegarde auto du … + Restaurer » (gestionnaire Mes layouts) ── */
-.wdg-mgr-bak { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 2px; padding: 8px 10px; background: #101014; border: 1px solid var(--hud-line, var(--border)); border-radius: 5px; }
-.wdg-mgr-bak-lbl { font-size: 11.5px; color: #b6bdc9; }
+.wdg-mgr-bak { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 2px; padding: 8px 10px; background: var(--head-bg); border: 1px solid var(--hud-line, var(--border)); border-radius: 5px; }
+.wdg-mgr-bak-lbl { font-size: 11.5px; color: var(--text2, #b6bdc9); }
 
 /* ── Widget Calculatrice de position (autonome, volatile) ── */
 .wdg-calc { display: flex; flex-direction: column; gap: 6px; padding: 11px 13px; height: 100%; overflow-y: auto; }
@@ -11662,8 +11662,27 @@ body.wdg-mode #topbar-nav { display: none; }
 
 /* Miniature d'agencement (gestionnaire + modèles prêts) : la grille 12 colonnes en réduction */
 .wdg-thumb { flex: 0 0 auto; display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: 4px; gap: 1.5px; width: 52px; padding: 3px; background: var(--bg); border: 1px solid #1a1b20; border-radius: 3px; }
-.wdg-thumb i { display: block; background: rgba(227,178,58,.38); border-radius: 1px; min-height: 4px; }
-.wdg-mgr-row.on .wdg-thumb i { background: rgba(227,178,58,.6); }
+/* Bloc = un widget. Teinte portée par --tc (famille du widget, posée en inline par _thumb) : la vignette
+   se lit d'un coup d'œil (or = devises, bleu = macro, rouge = risque, violet = news, vert = outils). */
+.wdg-thumb i {
+  display: block; border-radius: 1px; min-height: 4px; overflow: hidden;
+  background: color-mix(in srgb, var(--tc, #e3b23a) 26%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc, #e3b23a) 34%, transparent);
+}
+.wdg-mgr-row.on .wdg-thumb i { background: color-mix(in srgb, var(--tc, #e3b23a) 42%, transparent); }
+
+/* Vignette LISIBLE (gestionnaire, modèles, accueil) : plus grande + micro-libellé du widget dans le bloc. */
+.wdg-thumb--lbl { width: 88px; grid-auto-rows: 6px; gap: 2px; padding: 4px; }
+.wdg-thumb--lbl i { display: flex; align-items: center; justify-content: center; }
+.wdg-thumb--lbl b {
+  font-family: var(--mono, ui-monospace, monospace); font-weight: 600; font-size: 5.5px; line-height: 1;
+  letter-spacing: .04em; color: color-mix(in srgb, var(--tc, #e3b23a) 86%, #fff);
+  max-width: 100%; overflow: hidden; text-overflow: clip; white-space: nowrap; padding: 0 1px;
+}
+.wdg-mgr-row .wdg-thumb--lbl { flex: 0 0 auto; }
+.wdg-tpl-card .wdg-thumb--lbl, .wdg-dispo-card .wdg-thumb--lbl { width: 100%; }
+/* Thème clair : mêmes teintes, fond de vignette clair (les blocs restent contrastés). */
+html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc, #b8860b) 92%, #000); }
 
 /* Galerie de MODÈLES dans la bibliothèque : vignette EN HAUT + nom CENTRÉ dessous (jamais à droite, demande user) */
 .wdg-tpl-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 4px; }
@@ -12164,6 +12183,15 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
 }
 .home-card:hover { border-color: rgba(227, 178, 58, .45); transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0, 0, 0, .35); }
 .home-card-fav { position: absolute; top: 10px; right: 12px; color: var(--orange); font-size: 12px; }
+/* Vignette du desk en tête de carte : on reconnaît sa disposition avant même de lire le nom.
+   BOÎTE À HAUTEUR FIXE — les layouts n'ont pas tous le même nombre de lignes ; sans ça les titres
+   des cartes se décalent les uns par rapport aux autres. La vignette est centrée dans la boîte. */
+.home-card-thumb {
+  display: flex; align-items: center; align-self: stretch;
+  width: 100%; max-width: 138px; height: 62px; margin-bottom: 6px; overflow: hidden;
+}
+.home-card-thumb .wdg-thumb { width: 100%; grid-auto-rows: 6px; }
+.home-card:hover .wdg-thumb { border-color: rgba(227, 178, 58, .34); }
 .home-card-name { font-family: var(--tight); font-size: 13px; font-weight: 700; letter-spacing: .01em; }
 .home-card-meta { font-size: var(--fs-meta); color: var(--text3); }
 .home-card-go { margin-top: auto; font-family: var(--tight); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--orange-dim); transition: color .15s; }
