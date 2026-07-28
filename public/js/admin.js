@@ -1649,11 +1649,17 @@
     const id  = document.getElementById('pwd-id').value;
     const pwd = document.getElementById('pwd-new').value;
     if (!pwd || pwd.length < 6) { showToast('Min. 6 caractères', 'err'); return; }
-    await fetch(`/api/admin/users/${id}/password`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pwd }) });
-    closePwdModal();
-    showToast("✓ Mot de passe mis à jour : email envoyé (l'utilisateur doit vérifier ses indésirables/spams)");
+    // (Audit 27/07) La réponse était IGNORÉE : « ✓ mis à jour » s'affichait même sur un 500 —
+    // et une erreur réseau laissait la modale figée sans message. On vérifie comme saveEdit.
+    try {
+      const r = await fetch(`/api/admin/users/${id}/password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwd }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.error) { showToast('Échec : ' + (d.error || 'erreur serveur (' + r.status + ')'), 'err'); return; }
+      closePwdModal();
+      showToast("✓ Mot de passe mis à jour : email envoyé (l'utilisateur doit vérifier ses indésirables/spams)");
+    } catch { showToast('Erreur réseau : réessayez', 'err'); }
   }
 
   // ── Logout ──────────────────────────────────────────────────────────────────

@@ -227,7 +227,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   border-radius: var(--r-2); color: var(--text2); cursor: pointer; font-size: var(--fs-label);
 }
 .pagination button:hover { color: var(--text); border-color: rgba(227, 178, 58, .35); }
-.pagination button.on { background: var(--orange-bg); border-color: rgba(227, 178, 58, .4); color: var(--orange); font-weight: var(--fw-bold); }
+.pagination button.on, .pagination button.active { background: var(--orange-bg); border-color: rgba(227, 178, 58, .4); color: var(--orange); font-weight: var(--fw-bold); }
 .pagination .pg-info { color: var(--text3); font-size: var(--fs-label); margin-right: auto; }
 
 /* ═══ 6. PASTILLES D'ÉTAT — .tag du desk (fond alpha + bordure, jamais de plein criard) ══════════ */
@@ -296,7 +296,7 @@ select { cursor: pointer; }
 }
 .stat-card { cursor: pointer; }
 .fin-kpi:hover, .aim-kpi:hover, .kpi-card:hover, .stat-card:hover { border-color: rgba(227, 178, 58, .3); }
-.stat-card--active { border-color: rgba(227, 178, 58, .5); background: var(--orange-bg); }
+.stat-card--active, .stat-card.active { border-color: rgba(227, 178, 58, .5); background: var(--orange-bg); }
 .fin-kpi-label, .aim-kpi-label, .kpi-label, .stat-label {
   display: block; font-family: var(--tight); font-size: var(--fs-micro); font-weight: var(--fw-semibold);
   text-transform: uppercase; letter-spacing: .07em; color: var(--text3); margin-bottom: 3px;
@@ -402,7 +402,7 @@ select { cursor: pointer; }
   animation: admToastIn var(--t-med) var(--ease-out);
 }
 .camp-toast--ok, .toast--ok { border-left-color: var(--green); }
-.camp-toast--err, .toast--err { border-left-color: var(--red); }
+.camp-toast--err, .toast--err, .toast.err { border-left-color: var(--red); }
 @keyframes admToastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* ═══ 11. IA MONITOR ════════════════════════════════════════════════════════════════════════════ */
@@ -415,7 +415,7 @@ select { cursor: pointer; }
 .aim-legend, .aim-cat-legend { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-left: auto; font-size: var(--fs-meta); color: var(--text3); }
 .aim-legend i, .aim-cat-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 4px; }
 .aim-track { height: 5px; border-radius: var(--pill); background: var(--bg4); overflow: hidden; margin-top: var(--sp-1); }
-.aim-track > span { display: block; height: 100%; background: var(--orange); border-radius: var(--pill); }
+.aim-track > i, .aim-track > span { display: block; height: 100%; background: var(--orange); border-radius: var(--pill); }
 .aim-j-wrap { max-height: 320px; overflow-y: auto; }
 .aim-j-row { display: flex; gap: var(--sp-2); padding: 5px var(--sp-2); border-bottom: var(--row-sep); font-size: var(--fs-label); }
 .aim-j-row:hover { background: var(--row-hover); }
@@ -643,8 +643,8 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
   background: rgba(255, 255, 255, .05); border: 1px solid var(--border); color: var(--text2);
 }
 .aim-pill--low,  .aim-pill--ok   { background: rgba(0, 230, 118, .1); border-color: rgba(0, 230, 118, .3); color: var(--green); }
-.aim-pill--med,  .aim-pill--warn { background: var(--orange-bg); border-color: rgba(227, 178, 58, .3); color: var(--orange); }
-.aim-pill--high, .aim-pill--crit { background: rgba(231, 76, 60, .1); border-color: rgba(231, 76, 60, .32); color: var(--red); }
+.aim-pill--med,  .aim-pill--warn, .aim-pill--medium { background: var(--orange-bg); border-color: rgba(227, 178, 58, .3); color: var(--orange); }
+.aim-pill--high, .aim-pill--crit, .aim-pill--exhausted { background: rgba(231, 76, 60, .1); border-color: rgba(231, 76, 60, .32); color: var(--red); }
 .aim-kpi-l { display: block; font-family: var(--tight); font-size: var(--fs-micro); font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: .07em; color: var(--text3); }
 .aim-kpi-v { display: block; font-size: 17px; font-weight: var(--fw-bold); color: var(--text); line-height: 1.2; margin-top: 2px; }
 .aim-kpi-s { display: block; font-size: var(--fs-meta); color: var(--text3); margin-top: 2px; }

@@ -7370,6 +7370,11 @@ function _renderWeeklyRecap(item) {
 // ═══════════ FX DAILY RECAP : rendu riche (structure la référence exacte) ═══════════
 // Executive Summary → Top Headlines → Regional Analysis (cartes pays + sous-sections) → Central Bank
 // Focus → Key Economic Data (table rowspan) → Analyst Comments → Corporate News → Looking Ahead (table).
+// Chaque « → » des Commentaires marquants passe À LA LIGNE (demande user 28/07). Appliqué au RENDU
+// (fxdr + session wraps) pour couvrir aussi le HTML déjà en cache serveur ; les flèches ne vivent
+// que dans le texte des items, jamais dans les balises.
+function _ncArrowBreaks(html) { return String(html || '').replace(/\s+(→|➔|➜)\s+/g, '<br>$1 '); }
+
 function _renderFXDailyRecap(item) {
   const w = item._fxr || {};
   const titleEl    = document.getElementById('arlib-rnav-title');
@@ -7555,7 +7560,7 @@ function _renderFXDailyRecap(item) {
   }
 
   // ── Commentaires marquants (notable comments) : tout en bas du rapport ──
-  if (w.notableCommentsHtml) body += _sec('Commentaires marquants') + `<div class="fxdr-notable">${w.notableCommentsHtml}</div>`;
+  if (w.notableCommentsHtml) body += _sec('Commentaires marquants') + `<div class="fxdr-notable">${_ncArrowBreaks(w.notableCommentsHtml)}</div>`;
 
   content.innerHTML = `<div class="fxdr">${insightsHtml}<div class="fxdr-body">${body}</div></div>`;
   content.scrollTop = 0;
@@ -7908,7 +7913,7 @@ function renderArlibReader(item) {
           try {   // section « Commentaires marquants » du jour (notable comments), tout en bas du session wrap
             const _ncDay = new Date(item.timestamp).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
             fetch('/api/notable-comments?day=' + _ncDay).then(r => r.json()).then(nc => {
-              if (nc && nc.html && content && content.isConnected) content.innerHTML += `<div class="arlib-notable"><div class="arlib-notable-h">Commentaires marquants</div><div class="fxdr-notable">${nc.html}</div></div>`;
+              if (nc && nc.html && content && content.isConnected) content.innerHTML += `<div class="arlib-notable"><div class="arlib-notable-h">Commentaires marquants</div><div class="fxdr-notable">${_ncArrowBreaks(nc.html)}</div></div>`;
             }).catch(() => {});
           } catch {}
         } else {
