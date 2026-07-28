@@ -3474,7 +3474,14 @@ async function _calValueBlockHtml(ev) {
       if (bank.rate != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(bank.rate))} %</span></div>`);
       if (bank.next) {
         const sc = bank.scenario || {};
-        const probs = [sc.hold != null ? `maintien ${Math.round(sc.hold)} %` : '', sc.cut != null ? `baisse ${Math.round(sc.cut)} %` : '', sc.hike != null ? `hausse ${Math.round(sc.hike)} %` : ''].filter(Boolean).join(' · ');
+        // (28/07, « est-ce fiable ? ») HONNÊTETÉ DE LA SOURCE : source='market' = pricing RÉEL,
+        // 'maison' = notre estimation (source live indisponible). On ne présente plus une
+        // estimation comme un prix de marché, et on masque les branches à 0 % (un « baisse 0 % »
+        // calculé laissait croire à une certitude de marché).
+        const _live = bank.source === 'market';
+        const _pv = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
+        const probs = [_pv(sc.hold) ? `maintien ${_pv(sc.hold)} %` : '', _pv(sc.cut) ? `baisse ${_pv(sc.cut)} %` : '', _pv(sc.hike) ? `hausse ${_pv(sc.hike)} %` : ''].filter(Boolean).join(' · ')
+          + (Boolean(_pv(sc.hold) || _pv(sc.cut) || _pv(sc.hike)) ? (_live ? ' · pricing de marché' : ' · estimation DTP (pricing indisponible)') : '');
         rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${probs ? `<div class="cal-kb-sub">${probs}</div>` : ''}</span></div>`);
       }
     }
