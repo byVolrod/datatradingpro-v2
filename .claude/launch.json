@@ -4,21 +4,35 @@
     {
       "name": "datatradingpro",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server.js"],
+      "runtimeArgs": [
+        "server.js"
+      ],
       "port": 3000,
       "autoPort": true
     },
     {
       "name": "mailpreview",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["preview-server.js"],
+      "runtimeArgs": [
+        "preview-server.js"
+      ],
       "port": 5099
     },
     {
       "name": "landing",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/landing-preview.js"],
+      "runtimeArgs": [
+        "scripts/landing-preview.js"
+      ],
       "port": 4178
+    },
+    {
+      "name": "thumbbench",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/muham/AppData/Local/Temp/claude/C--Users-muham-Documents-WEB-datatradingpro-v2-main/f7c2af81-8df1-4684-b45b-aff9ad6fba5f/scratchpad/thumbserve.js"
+      ],
+      "port": 4186
     }
   ]
 }

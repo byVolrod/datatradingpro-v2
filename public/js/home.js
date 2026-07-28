@@ -33,8 +33,13 @@
     var lays = (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).slice(0, 8);
     var cards = lays.map(function (l) {
       var n = (l.items || []).length;
+      // Vignette RÉELLE du desk (même moteur que le gestionnaire) : on reconnaît son layout à sa forme
+      // et aux couleurs de familles, sans avoir à lire le nom.
+      var mini = '';
+      try { mini = (window.DTPWidgets && DTPWidgets.thumb) ? DTPWidgets.thumb(l.items, { labels: true }) : ''; } catch (e) {}
       return '<button class="home-card" onclick="DTPHome.openDesk(\'' + esc(l.id) + '\')">'
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
+        + (mini ? '<span class="home-card-thumb">' + mini + '</span>' : '')
         + '<span class="home-card-name">' + esc(l.name || 'Desk') + '</span>'
         + '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'
         + '<span class="home-card-go">Ouvrir →</span></button>';

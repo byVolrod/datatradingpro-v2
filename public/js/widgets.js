@@ -1415,7 +1415,7 @@
         +   PRESETS.map(function (p, i) {
               var names = p.items.map(function (it) { var w = byId(it.w); return w ? w.name : ''; }).filter(Boolean).join(' · ');
               return '<button class="wdg-tpl-card" onclick="DTPWidgets.applyPreset(' + i + ')" title="' + esc(names) + '">'
-                + _thumb(p.items)
+                + _thumb(p.items, { labels: true })
                 + '<span class="wdg-tpl-name">' + esc(p.name) + '</span>'
                 + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span>'
                 + '<span class="wdg-tpl-list">' + esc(names) + '</span></button>';
@@ -1599,7 +1599,7 @@
       return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '" data-i="' + li + '">'
         + '<button class="wdg-mgr-grip" draggable="true" title="Glisser pour réordonner">⠿</button>'
         + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
-        + _thumb(l.items)
+        + _thumb(l.items, { labels: true })
         + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
         +   ' onchange="DTPWidgets.renameLayout(\'' + l.id + '\', this.value)">'
         + (l.hidden ? '<span class="wdg-mgr-closed">Fermé</span>' : '')
@@ -1695,7 +1695,7 @@
       var names = p.items.map(function (it) { var w = byId(it.w); return w ? w.name : ''; }).filter(Boolean).join(' · ');
       return '<button class="wdg-tpl-card" onclick="DTPWidgets.usePreset(' + i + ')"'
         + (atMax ? ' disabled title="Plafond de layouts atteint"' : ' title="' + esc(names) + '"') + '>'
-        + _thumb(p.items)
+        + _thumb(p.items, { labels: true })
         + '<span class="wdg-tpl-name">' + esc(p.name) + '</span>'
         + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span>'
         + '<span class="wdg-tpl-list">' + esc(names) + '</span></button>';
@@ -1766,12 +1766,49 @@
     { n: 12, name: '4 × 3',                 rows: 24, items: _rep(12, 3, 8) },
   ];
   // Miniature d'un agencement : la grille 12 colonnes en réduction (aperçu visuel, gestionnaire + modèles).
-  function _thumb(items) {
-    var blocks = (items || []).slice(0, 10).map(function (it) {
+  // MINIATURE D'UN LAYOUT — dérivée des VRAIS items (pas une capture d'écran) : même moteur de flux que la
+  // grille 12 colonnes, chaque bloc teinté par la FAMILLE du widget + micro-libellé quand la place le permet.
+  // Choix assumé face au screenshot serveur : instantané, hors-ligne, et JAMAIS périmé (la vignette ne peut
+  // pas mentir sur le contenu du desk puisqu'elle est recalculée depuis lui).
+  var _CAT_COL = {
+    'Devises': '#e3b23a', 'Macro': '#4a9eda', 'Risque': '#e0574a',
+    'News': '#8b7ad8', 'Outils': '#3fae86', 'Autre': '#7e8590',
+  };
+  // Abréviations ÉCRITES (jamais une troncature au milieu d'un mot : « BAROMÈ » ne veut rien dire).
+  var _ABBR = {
+    'force-devises': 'FORCE', 'barometre': 'BARO', 'risque-historique': 'HISTO',
+    'calendrier-jour': 'AGENDA', 'radar-biais': 'BIAIS', 'taux-cb': 'TAUX',
+    'risque-jauge': 'RISQUE', 'cot-inst': 'COT', 'dmx-retail': 'DMX',
+    'saison': 'SAISON', 'sessions': 'MONDE', 'horloge': 'HEURE',
+    'calculatrice': 'CALC', 'journal-mini': 'JOURNAL', 'onglets': 'ONGLETS',
+    'fil-news': 'ACTUS',
+  };
+  function _thumbLbl(def, it) {
+    // Repli pour un widget ajouté plus tard sans entrée dans _ABBR : le PREMIER MOT de son nom —
+    // un mot entier, jamais un morceau de mot.
+    var full = _ABBR[it && it.w] || (def && def.tag)
+      || (def ? String(def.name).replace(/[^A-Za-zÀ-ÿ ]/g, ' ').trim().split(/\s+/)[0].toUpperCase() : '');
+    if (!full) return '';
+    // La vignette fait ~6.5 px par colonne pour ~3.3 px par caractère → ≈ 2 caractères par colonne.
+    var place = Math.floor((it.gw || 0) * 2);
+    if (full.length <= place) return full;
+    var court = full.slice(0, 3);                 // repli : code court, lisible tel quel (FOR, BAR, AGE…)
+    return court.length <= place ? court : '';    // sinon rien — un libellé illisible vaut moins que la couleur seule
+  }
+  function _thumb(items, opts) {
+    opts = opts || {};
+    var blocks = (items || []).slice(0, 12).map(function (it) {
       it = _normItem(JSON.parse(JSON.stringify(it)));
-      return '<i style="grid-column:span ' + it.gw + ';grid-row:span ' + Math.max(1, Math.min(4, Math.round(it.gh / 5))) + '"></i>';
+      var def = byId(it.w);
+      var col = _CAT_COL[(def && def.cat) || 'Autre'] || _CAT_COL['Autre'];
+      var rows = Math.max(1, Math.min(6, Math.round(it.gh / 4)));
+      var lbl = opts.labels && it.gw >= 3 ? _thumbLbl(def, it) : '';
+      return '<i style="grid-column:span ' + it.gw + ';grid-row:span ' + rows
+        + ';--tc:' + col + '"' + (def ? ' title="' + esc(def.name) + '"' : '') + '>'
+        + (lbl ? '<b>' + esc(lbl) + '</b>' : '') + '</i>';
     }).join('');
-    return '<span class="wdg-thumb" aria-hidden="true">' + blocks + '</span>';
+    return '<span class="wdg-thumb' + (opts.labels ? ' wdg-thumb--lbl' : '') + '"'
+      + (opts.labels ? '' : ' aria-hidden="true"') + '>' + blocks + '</span>';
   }
 
   // Bascule un panneau overlay (info 'i' / réglages 's') d'une carte ; ferme tous les autres.
@@ -1785,6 +1822,9 @@
 
   /* ── ACTIONS (exposées : les onclick du HTML généré les appellent) ── */
   var API = {
+    // Miniature d'un layout — exposée pour que l'ACCUEIL (home.js) rende la même vignette que le
+    // gestionnaire : un seul moteur, donc zéro divergence visuelle entre les deux écrans.
+    thumb: function (items, opts) { try { return _thumb(items, opts); } catch (e) { return ''; } },
     open: function () {                                   // appelé par activateView('widgets')
       document.body.classList.add('wdg-mode');            // masque la nav principale (Mon Desk = espace autonome)
       // TEMPLATE PAR DÉFAUT (demande user 23/07) : à l'ARRIVÉE sur Mon Desk (icône/logo, chargement), on ouvre
