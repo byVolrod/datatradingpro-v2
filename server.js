@@ -778,6 +778,22 @@ function _wdgClean(body) {
               .map(s => (typeof s === 'string' ? s.replace(/[<>]/g, '').trim().slice(0, 18) : ''));
             if (tl.some(Boolean)) o.tabLabels = tl;
           }
+          // RÉGLAGES PAR WIDGET (contrat déclaratif du front, 28/07) — tout tient dans UN seul champ `cfg`.
+          // C'est délibéré : le serveur n'a pas à connaître le catalogue front, donc AJOUTER UN RÉGLAGE
+          // NE DEMANDE PLUS DE TOUCHER À CE SANITIZER (le piège « champ non repris ici = détruit au save »
+          // ne peut plus se reproduire pour les réglages). On valide la FORME, pas le sens :
+          // clés courtes [a-z0-9_], valeurs scalaires bornées, 12 clés max par widget.
+          if (it.cfg && typeof it.cfg === 'object' && !Array.isArray(it.cfg)) {
+            const cfg = {};
+            for (const k of Object.keys(it.cfg).slice(0, 12)) {
+              if (!/^[a-z0-9_]{1,24}$/.test(k)) continue;
+              const v = it.cfg[k];
+              if (typeof v === 'boolean') cfg[k] = v;
+              else if (typeof v === 'number' && isFinite(v)) cfg[k] = Math.max(-99999, Math.min(99999, Math.round(v)));
+              else if (typeof v === 'string') cfg[k] = v.replace(/[<>]/g, '').slice(0, 32);
+            }
+            if (Object.keys(cfg).length) o.cfg = cfg;
+          }
           return o;
         });
       // Unicité de l'id : sans ça, deux layouts homonymes (ou un repli 'layout-2' entrant en collision
