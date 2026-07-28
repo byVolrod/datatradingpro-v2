@@ -602,6 +602,7 @@ function buildTemoignage({ name, review, angle } = {}) {
     <p style="margin:0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Ce qu\'un membre retient de DataTradingPro', html: _layout('Témoignage', body) };
 }
+async function sendTemoignage(d) { d = d || {}; const m = buildTemoignage(d); if (!m) return false; return _send(d.to, m.subject, m.html); }
 
 // ── « Mot de passe oublié » demandé par un compte SANS abonnement actif (suspendu/expiré) ─────
 //    SÉCURITÉ : on NE réinitialise PAS le mot de passe (réservé aux comptes actifs). On explique
@@ -2271,7 +2272,7 @@ module.exports = {
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildExpired, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
-  buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage,
+  buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc

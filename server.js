@@ -16214,7 +16214,11 @@ async function _runInvitationCampaign(monthKey) {
 }
 async function _invitationTick() {
   try {
+    // (28/07) L'invitation fait désormais partie de la ROTATION HEBDO (semaine 7) — ce planificateur
+    // mensuel séparé est NEUTRALISÉ pour ne pas doubler l'envoi. La route admin ?action=send reste
+    // disponible pour un envoi manuel ponctuel.
     if (!_invitSchedule.active) return;
+    if (_WEEK_ROTATION.some(s => s && s.tpl === 'invitation')) return;
     const md = _parisMonthDay();
     // FENÊTRE COURTE (correctif 28/07) : le jour cible + 2 jours de rattrapage — PAS « tout le mois
     // à partir du jour cible ». Sans cette borne, activer la campagne le 20 à 18 h déclenchait un
@@ -16255,27 +16259,37 @@ app.get('/api/admin/campaign-invitation', requireSameOrigin, requireAdminOrInter
 //  transactionnel (sendWelcome). Anti-doublon durable : email_log drip:intro:<email> +
 //  drip:day:<isoWeek>-<weekday>:<email> (UN contenu par jour et par semaine). Skip unsub/blacklist.
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
+// ROTATION 7 SEMAINES (validée par le user le 28/07) : chaque contenu porte SON jour (wd) et SON
+// heure. Deux contenus peuvent partager un jour (Mindset jeu. 8h / Témoignage jeu. 18h ; Semaine à
+// venir dim. 10h / Invitation dim. 17h) puisqu'UN SEUL contenu part par semaine ISO — c'est la
+// rotation qui tranche, plus une table weekday→contenu (qui ne pouvait en porter qu'un par jour).
 const DRIP_INTRO   = { id: 'intro',        label: 'Bienvenue (one-time)', tpl: 'intro' };
-const DRIP_POINT   = { id: 'point-marche', label: 'Point marché',          tpl: 'pointmarche' };
-const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 'decryptage' };
-const DRIP_MINDSET = { id: 'mindset',      label: 'Mindset',               tpl: 'mindset' };
-const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl: 'recap' };
-const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook' };
-// weekday (Intl Europe/Paris : Dim=0 … Sam=6) → contenu du jour. Lun=1 … Ven=5 ; week-end = rien.
-const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 6: DRIP_RECAP };   // weekday→contenu : Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap. Lun & Ven = rien. _WD_FR déjà défini plus haut
+const DRIP_POINT   = { id: 'point-marche', label: 'Point marché',          tpl: 'pointmarche', wd: 3, hour: 19 };
+const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 'decryptage',  wd: 2, hour: 8 };
+const DRIP_MINDSET = { id: 'mindset',      label: 'Mindset',               tpl: 'mindset',     wd: 4, hour: 8 };
+const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl: 'recap',       wd: 6, hour: 10 };
+const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook',     wd: 0, hour: 10 };
+const DRIP_TEMOIGN = { id: 'temoignage',   label: 'Témoignage membre',     tpl: 'temoignage',  wd: 4, hour: 18 };
+const DRIP_INVIT   = { id: 'invitation',   label: 'Invitation',            tpl: 'invitation',  wd: 0, hour: 17 };
+// Conservé pour l'affichage admin (une entrée par jour « historique ») — la logique d'envoi n'en dépend plus.
+const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 6: DRIP_RECAP };
 // Heure d'envoi par contenu (Paris) : Récap & Semaine à venir à 10h ; Comprendre & Mindset dès 8h ; Point marché
 // FENÊTRE 19h→22h (attend le FX Daily Recap de 19h, base du mail — demande user). Max par défaut = 19h.
-const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 19, mindset: 8, recap: 10 };
-const _STEP_MAXHOUR = { pointmarche: 22 };
+const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 19, mindset: 8, recap: 10, temoignage: 18, invitation: 17 };
+const _STEP_MAXHOUR = { pointmarche: 22, temoignage: 21, invitation: 20 };
 function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
 // ROTATION HEBDO (demande user « on bascule à 1 mail par semaine… 1 mail DIFFÉRENT par semaine ») : UN SEUL contenu
 // par semaine ISO, en rotation → chaque type revient toutes les 5 semaines, sur son jour naturel (via _DAY_STEP).
 // Ordre : Semaine à venir → Comprendre → Point marché → Mindset → Récap. Objectif : ÷5 la fréquence (anti-désabo)
 // tout en gardant la variété du contenu.
-const _WEEK_ROTATION = [DRIP_OUTLOOK, DRIP_DECRYPT, DRIP_POINT, DRIP_MINDSET, DRIP_RECAP];
+const _WEEK_ROTATION = [DRIP_OUTLOOK, DRIP_DECRYPT, DRIP_POINT, DRIP_TEMOIGN, DRIP_MINDSET, DRIP_RECAP, DRIP_INVIT];
 const _rotStepForWeek = () => _WEEK_ROTATION[_dripWeekNum() % _WEEK_ROTATION.length];
-// Jour naturel (weekday) d'un contenu, depuis _DAY_STEP.
-function _stepWd(step) { for (const k of Object.keys(_DAY_STEP)) if (step && _DAY_STEP[k] && _DAY_STEP[k].id === step.id) return +k; return 0; }
+// Jour naturel (weekday) d'un contenu : porté par le contenu lui-même (repli _DAY_STEP pour l'ancien format).
+function _stepWd(step) {
+  if (step && Number.isInteger(step.wd)) return step.wd;
+  for (const k of Object.keys(_DAY_STEP)) if (step && _DAY_STEP[k] && _DAY_STEP[k].id === step.id) return +k;
+  return 0;
+}
 // Contenu du PROCHAIN envoi (affichage admin) : celui de cette semaine si son jour n'est pas passé, sinon celui de
 // la semaine prochaine.
 function _loopStepFor() {
@@ -16304,6 +16318,27 @@ async function _dripSeed(email) {
   return { introduced, loopWeek: null, lastAt: 0, enrolledAt: Date.now() };
 }
 function _dripNormalize(st) { if (st && st.introduced === undefined) return { introduced: (st.step || 0) >= 1, loopWeek: st.recurWeek || null, lastAt: st.lastAt || 0, enrolledAt: st.enrolledAt || Date.now() }; return st; }
+// Charge l'avis Whop du TÉMOIGNAGE + son angle IA (mêmes règles que l'aperçu admin) : meilleur avis
+// récent exploitable, angle mis en cache 30 j par avis → un seul appel IA pour toute la campagne.
+async function _temoignagePayload() {
+  try {
+    const reviews = await whop.listReviews();
+    const review = (reviews || [])[0];
+    if (!review) return null;
+    let angle = '';
+    const ck = 'temoignage:angle:' + review.id;
+    try { angle = (await auth.aiCacheGet(ck, 30 * 86400000)) || ''; } catch (e) {}
+    if (!angle) {
+      try {
+        const p = `Voici un avis client réel sur DataTradingPro (terminal de données macro/forex) : « ${String(review.description).slice(0, 500)} » (${review.stars}/5).
+Écris EN FRANÇAIS 2 phrases (3 maximum) qui enchaînent naturellement APRÈS cette citation dans un e-mail : elles doivent rebondir sur ce que CE membre dit précisément (reprends son idée, pas ses mots), relier ça au travail de développement du terminal par JustOneTrader, et rester factuelles — aucun conseil d'investissement, pas de superlatif creux. Réponds avec les phrases seules, sans guillemets ni préambule.`;
+        angle = String(await aiSmart('campaign', p, 220, { important: true }) || '').trim();
+        if (angle && angle.length > 40) { try { await auth.aiCacheSet(ck, angle); } catch (e) {} }
+      } catch (e) { angle = ''; }                          // IA indisponible → repli neutre du gabarit
+    }
+    return { review, angle };
+  } catch (e) { return null; }
+}
 // Envoi d'un contenu (data-driven, adapte membre/non-membre). Renvoie true si parti.
 async function _dripSend(stepDef, r, context, tag, isTest) {
   const email = r.email, isMember = r.segment === 'active';
@@ -16331,6 +16366,23 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
     if (stepDef.tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); if (rr) { rec('mindset'); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
     if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { rec('recap-hebdo'); return true; } return false; }
     if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('outlook-hebdo'); return true; } return false; }
+    // TÉMOIGNAGE (28/07) : preuve sociale — avis Whop RÉEL + angle IA propre à cet avis (cache 30 j).
+    // Adressé aux NON-ABONNÉS : dire à un membre ce qu'un membre pense du produit n'a pas de sens.
+    if (stepDef.tpl === 'temoignage') {
+      if (isMember) return true;                          // membre : rien à envoyer, mais la semaine est « faite » pour lui
+      const t = await _temoignagePayload();
+      if (!t) return false;                               // aucun avis exploitable → on repassera au prochain tick
+      const p = await mailer.sendTemoignage({ to: email, name: r.name || '', review: t.review, angle: t.angle });
+      if (p) { rec('temoignage'); return true; }
+      return false;
+    }
+    // INVITATION (28/07) : entre dans la rotation (fini le calendrier mensuel séparé). Non-abonnés only.
+    if (stepDef.tpl === 'invitation') {
+      if (isMember) return true;
+      const p = await mailer.sendCampaignInvitation({ to: email, name: r.name || '', campaign, isMember: false });
+      if (p) { rec('invitation'); return true; }
+      return false;
+    }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
   return false;
 }
@@ -16343,11 +16395,11 @@ async function _dripTick() {
   try {
     const pp = _parisParts();
     const isoWeek = pp.isoWeek, wd = pp.weekday;
-    const dayStep = _DAY_STEP[wd];                       // contenu DU JOUR (Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap)
-    if (!dayStep) return;                                // Lundi & Vendredi = pas d'envoi
-    // ROTATION HEBDO — 1 SEUL mail/semaine (demande user) : seul le contenu dont c'est le TOUR cette semaine ISO
-    // passe ; les autres jours sont ignorés. → 1 mail/semaine/contact, contenu différent chaque semaine.
-    if (dayStep.id !== _rotStepForWeek().id) return;
+    // ROTATION 7 SEMAINES — 1 SEUL mail/semaine. On part du contenu DE LA SEMAINE (rotation) et on
+    // vérifie que c'est SON jour : deux contenus peuvent partager un weekday (jeu. 8h/18h,
+    // dim. 10h/17h) sans se marcher dessus, puisqu'ils ne tombent jamais la même semaine ISO.
+    const dayStep = _rotStepForWeek();
+    if (!dayStep || wd !== _stepWd(dayStep)) return;      // pas le jour du contenu de la semaine
     if (pp.hour < (_STEP_MINHOUR[dayStep.tpl] || 8) || pp.hour >= (_STEP_MAXHOUR[dayStep.tpl] || 19)) return;   // fenêtre du jour : heure mini/maxi selon le contenu (Récap/Semaine à venir 10h, Point marché 19h→22h, sinon 8h→19h)
     // ── FRAÎCHEUR / GATES par contenu (s'applique à TEST comme OFFICIEL) ──
     if (dayStep.tpl === 'pointmarche') {
@@ -16434,7 +16486,7 @@ app.get('/api/admin/campaign-drip', requireSameOrigin, requireAdmin, async (req,
   let total = 0, introduced = 0, gotToday = 0;
   for (const email of Object.keys(contacts)) { total++; const st = _dripNormalize(contacts[email]); if (st.introduced) introduced++; if (st.wkKey === pp.isoWeek && Array.isArray(st.gotDays) && st.gotDays.includes(pp.weekday)) gotToday++; }
   let todayLabel = '—'; try { const ctx = await _deskContext(); todayLabel = _loopStepFor().label + (ctx.themeLabel ? ' (' + ctx.themeLabel + ')' : ''); } catch {}
-  const steps = [0, 2, 3, 4, 6].map(d => { const s = _DAY_STEP[d]; const cid = s.tpl === 'recap' ? 'recap-hebdo' : (s.id === 'outlook' ? 'outlook-hebdo' : s.id); const stt = _campaignStats[cid]; return { id: s.id, label: s.label, day: _WD_FR[d], sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
+  const steps = _WEEK_ROTATION.map(s => { const cid = s.tpl === 'recap' ? 'recap-hebdo' : (s.id === 'outlook' ? 'outlook-hebdo' : s.id); const stt = _campaignStats[cid]; return { id: s.id, label: s.label, day: _WD_FR[_stepWd(s)], sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
@@ -16490,7 +16542,7 @@ app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
   res.json({ ok: true, active, testMode, testEmail: _CAMP_TEST_TO, mode: active ? (testMode ? 'test' : 'official') : 'paused',
     nextTemplate, nextWhen, engine: 'sequence',
     running: !!_dripRunning, contactsTracked: audienceCount, pausedReason: pr,
-    sequence: [0, 2, 3, 4, 6].map(d => _DAY_STEP[d].label) });
+    sequence: _WEEK_ROTATION.map(s => s.label) });
 });
 
 // Historique des erreurs/incidents campagne (admin) : ring durable KV campaign:errors.
