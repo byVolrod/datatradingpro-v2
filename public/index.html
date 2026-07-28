@@ -11,6 +11,9 @@
   <!-- PWA : icône d'app installée (DT or) + couleur de thème : Chrome resynchronise l'icône depuis le manifest -->
   <link rel="manifest" href="/manifest.json?v=dtp11" />
   <meta name="theme-color" content="#0c0c0e" />
+  <!-- THÈME (Sombre/Clair/Système) : appliqué AVANT le premier rendu depuis le cache local (anti-flash) ;
+       la source de vérité par compte (KV thememode:<userId>) est relue au login par app.js. -->
+  <script>(function(){try{var m=localStorage.getItem('dtp_theme')||'dark';var t=m==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):m;document.documentElement.dataset.theme=t;document.documentElement.dataset.thememode=m;}catch(e){document.documentElement.dataset.theme='dark';}})();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://cdn.amcharts.com" crossorigin />
@@ -22,7 +25,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260727bbg352" />
+  <link rel="stylesheet" href="/css/style.css?v=20260728bbg363" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -852,7 +855,7 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260728bbg362"></script>
+<script defer src="/js/app.js?v=20260728bbg363"></script>
 <script defer src="/js/charts.js?v=20260727bbg350"></script>
 <script defer src="/js/sessionmap.js?v=20260727bbg343"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
@@ -901,6 +904,14 @@
               <button class="pd-avatar-btn pd-avatar-btn-del" onclick="pdAvatarDelete()">Supprimer l'Avatar</button>
             </div>
             <input type="file" id="pd-avatar-file" accept="image/*" style="display:none" onchange="pdAvatarFileChange(event)" />
+          </div>
+
+          <!-- APPARENCE : Sombre / Clair (bêta) / Système — persistée PAR COMPTE (KV thememode:) + cache local -->
+          <label class="pd-label">Apparence</label>
+          <div class="pd-theme-seg" id="pd-theme-seg">
+            <button type="button" data-mode="dark" onclick="dtpSetTheme('dark')">Sombre</button>
+            <button type="button" data-mode="light" onclick="dtpSetTheme('light')">Clair <small>bêta</small></button>
+            <button type="button" data-mode="system" onclick="dtpSetTheme('system')">Système</button>
           </div>
 
           <label class="pd-label">Nom d'affichage</label>

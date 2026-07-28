@@ -7370,6 +7370,37 @@ function _renderWeeklyRecap(item) {
 // ═══════════ FX DAILY RECAP : rendu riche (structure la référence exacte) ═══════════
 // Executive Summary → Top Headlines → Regional Analysis (cartes pays + sous-sections) → Central Bank
 // Focus → Key Economic Data (table rowspan) → Analyst Comments → Corporate News → Looking Ahead (table).
+// ═══ THÈME DU DESK : Sombre / Clair (bêta) / Système ═════════════════════════════════════════════
+// data-theme (résolu) + data-thememode (choix) sur <html>. Source de vérité PAR COMPTE = KV
+// thememode:<userId> (suit la reconnexion, comme sym-recent) ; localStorage = cache anti-flash
+// appliqué par le script inline du <head> avant le premier rendu. « Système » suit l'OS en direct.
+function _dtpThemeResolve(mode) { return mode === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : (mode === 'light' ? 'light' : 'dark'); }
+function _dtpThemeApply(mode) {
+  document.documentElement.dataset.thememode = mode;
+  document.documentElement.dataset.theme = _dtpThemeResolve(mode);
+  try { localStorage.setItem('dtp_theme', mode); } catch (e) {}
+  const seg = document.getElementById('pd-theme-seg');
+  if (seg) seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+}
+function dtpSetTheme(mode) {
+  if (!['dark', 'light', 'system'].includes(mode)) mode = 'dark';
+  _dtpThemeApply(mode);
+  fetch('/api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) }).catch(() => {});
+}
+try {
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if (document.documentElement.dataset.thememode === 'system') _dtpThemeApply('system');
+  });
+} catch (e) {}
+// Au chargement : relit le choix du COMPTE (prime sur le cache local — suit l'utilisateur d'un appareil à l'autre)
+setTimeout(() => {
+  fetch('/api/theme').then(r => r.json()).then(d => {
+    const m = d && d.mode;
+    if (['dark', 'light', 'system'].includes(m) && m !== document.documentElement.dataset.thememode) _dtpThemeApply(m);
+    else _dtpThemeApply(document.documentElement.dataset.thememode || 'dark');   // synchronise juste l'état visuel du sélecteur
+  }).catch(() => { _dtpThemeApply(document.documentElement.dataset.thememode || 'dark'); });
+}, 800);
+
 // Chaque « → » des Commentaires marquants passe À LA LIGNE (demande user 28/07). Appliqué au RENDU
 // (fxdr + session wraps) pour couvrir aussi le HTML déjà en cache serveur ; les flèches ne vivent
 // que dans le texte des items, jamais dans les balises.
