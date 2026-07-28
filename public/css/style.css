@@ -12087,3 +12087,16 @@ html[data-theme="light"] a { color: #b8860b; }
 .pd-theme-seg button small { font-size: var(--fs-micro); color: var(--orange); margin-left: 3px; }
 .pd-theme-seg button:hover { border-color: rgba(227, 178, 58, 0.4); color: var(--text); }
 .pd-theme-seg button.on { border-color: rgba(227, 178, 58, 0.6); background: var(--orange-bg); color: var(--text); font-weight: 600; }
+
+/* ── Panneau à onglets SANS rangée de titre (demande user 28/07) : la barre d'onglets EST l'en-tête.
+   Le bandeau standard (poignée + actions) se superpose à la barre : poignée à gauche, actions à
+   droite au survol de la carte — une ligne de gagnée pour le contenu. ── */
+.wdg-card--tabs > .wdg-head { position: absolute; top: 0; left: 0; right: 0; z-index: 6; min-height: 30px; background: transparent; border-bottom: 0; padding: 0 4px; pointer-events: none; }
+.wdg-card--tabs > .wdg-head .wdg-title { display: none; }
+.wdg-card--tabs > .wdg-head .wdg-grip, .wdg-card--tabs > .wdg-head .wdg-actions { pointer-events: auto; }
+.wdg-card--tabs > .wdg-head .wdg-actions { background: var(--head-bg); border-radius: 3px; padding: 0 2px; opacity: 0; transition: opacity .14s var(--ease); }
+.wdg-card--tabs:hover > .wdg-head .wdg-actions, .wdg-card--tabs > .wdg-head .wdg-actions:focus-within { opacity: 1; }
+.wdg-card--tabs .wdgt-bar { padding-left: 26px; }
+/* Champ de renommage inline (double-clic sur un onglet) */
+.wdgt-edit { width: 92px; background: var(--bg); border: 1px solid rgba(227, 178, 58, .55); border-radius: 3px; color: var(--text); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; padding: 2px 5px; margin: 0 2px; text-transform: none; letter-spacing: normal; }
+.wdgt-edit:focus { outline: none; box-shadow: var(--focus-ring); }
