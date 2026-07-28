@@ -41,17 +41,25 @@ async function getMembership(id) {
   } catch { return null; }
 }
 
-// Cherche le membership VALIDE le plus récent pour un email donné
+// Cherche le membership VALIDE le plus récent pour un email donné.
+// (Audit 28/07) PAGINÉ : la version 1-page (50) ratait tout abonné au-delà — or cette fonction
+// sert désormais aussi de GARDE avant suspension (webhook) : un raté = suspension à tort.
 async function getMembershipByEmail(email) {
   if (!WHOP_API_KEY || !email) return null;
+  const target = String(email).toLowerCase().trim();
+  let page = 1, totalPages = 1;
   try {
-    const r = await fetch(`${BASE}/memberships?valid=true&per=50&product_id=${DTP_PRODUCT}`, { headers: _auth() });
-    if (!r.ok) return null;
-    const j = await r.json();
-    const target = String(email).toLowerCase().trim();
-    const match = (j.data || []).find(m =>
-      String(m.email || '').toLowerCase().trim() === target && m.product === DTP_PRODUCT);
-    return match ? _normalize(match) : null;
+    do {
+      const r = await fetch(`${BASE}/memberships?valid=true&per=50&page=${page}&product_id=${DTP_PRODUCT}`, { headers: _auth() });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const match = (Array.isArray(j) ? j : (j.data || [])).find(m =>
+        String(m.email || '').toLowerCase().trim() === target && m.product === DTP_PRODUCT);
+      if (match) return _normalize(match);
+      const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
+    } while (page <= totalPages && page <= 20);
+  if (totalPages > 20) console.warn('[Whop] pagination TRONQUÉE (cap 20 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
+    return null;
   } catch { return null; }
 }
 
@@ -73,6 +81,7 @@ async function getAffiliateInfo(email) {
       totalPages = (pg && (pg.total_page || pg.total_pages)) || 1;
       page++;
     } while (page <= totalPages && page <= 6);
+  if (totalPages > 6) console.warn('[Whop] pagination TRONQUÉE (cap 6 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
     if (!m) return null;
     const pageUrl = m.affiliate_page_url ? String(m.affiliate_page_url) : null;
     let username = (m.username && String(m.username)) ||
@@ -119,6 +128,7 @@ async function getStats(priceMonthly) {
       totalPages = (pg && (pg.total_page || pg.total_pages)) || 1;
       page++;
     } while (page <= totalPages && page <= 6);   // cap 6 pages (300) — anti-RAM/temps
+  if (totalPages > 6) console.warn('[Whop] pagination TRONQUÉE (cap 6 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
     const data = { active, mrr: +mrr.toFixed(2) };
     _statsCache = { ts: Date.now(), data };
     return data;
@@ -142,6 +152,7 @@ async function listValidMemberships() {
     }
     const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
   } while (page <= totalPages && page <= 10);   // cap 10 pages (500) — anti-RAM/temps
+  if (totalPages > 10) console.warn('[Whop] pagination TRONQUÉE (cap 10 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
   return out;
 }
 
@@ -170,6 +181,7 @@ async function _pageEmailsInto(byEmail, subpath) {
     }
     const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
   } while (page <= totalPages && page <= 20);   // cap 20 pages (1000) — anti-RAM/temps
+  if (totalPages > 20) console.warn('[Whop] pagination TRONQUÉE (cap 20 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
 }
 async function listAllMemberEmails() {
   if (!WHOP_API_KEY) return [];
@@ -202,6 +214,7 @@ async function listAllMemberships() {
     }
     const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
   } while (page <= totalPages && page <= 20);
+  if (totalPages > 20) console.warn('[Whop] pagination TRONQUÉE (cap 20 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
   return out;
 }
 
@@ -223,6 +236,7 @@ async function listPayments() {
     }
     const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
   } while (page <= totalPages && page <= 60);   // cap 60 pages (3000) — anti-RAM/temps
+  if (totalPages > 60) console.warn('[Whop] pagination TRONQUÉE (cap 60 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
   return out;
 }
 
@@ -246,6 +260,7 @@ async function listReviews() {
     }
     const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
   } while (page <= totalPages && page <= 10);
+  if (totalPages > 10) console.warn('[Whop] pagination TRONQUÉE (cap 10 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
   out.sort((a, b) => (b.stars - a.stars) || (b.createdAt - a.createdAt));
   return out;
 }
