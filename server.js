@@ -16176,11 +16176,12 @@ function _parisMonthDay(d) {
   const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value;
   return { monthKey: p.year + '-' + p.month, day: parseInt(p.day, 10), hour: parseInt(p.hour, 10) % 24 };
 }
-// (28/07, mandat user « programmer 1×/mois, carte blanche sur le moment ») : ACTIVE par défaut,
-// créneau = 1er DIMANCHE du mois à 17 h Paris — fin de week-end, boîte calme, moment « je prépare
-// ma semaine » : le meilleur contexte pour une invitation. Un état sauvegardé (pause volontaire)
-// PRIME toujours sur ce défaut.
-let _invitSchedule = { active: true, day: 1, hour: 17, lastSentMonth: null, launchedAt: null };
+// ⚠️ INCIDENT 28/07 — NE JAMAIS REMETTRE `active: true` PAR DÉFAUT.
+// Passer ce défaut à true a déclenché un ENVOI DE MASSE IMMÉDIAT au redémarrage (25 invitations
+// parties sans autorisation) : la condition du tick est `day >= 1 && hour >= 17`, donc VRAIE à
+// tout instant après 17 h, n'importe quel jour du mois. Un envoi de masse ne s'active QUE par un
+// clic explicite de l'admin. Le créneau retenu (1er du mois, 17 h Paris) reste le bon moment.
+let _invitSchedule = { active: false, day: 1, hour: 17, lastSentMonth: null, launchedAt: null };
 (async () => { try { const s = await auth.aiCacheGet('campaign:invitation-sched', 366 * 864e5); if (s && typeof s === 'object') _invitSchedule = Object.assign(_invitSchedule, s); } catch {} })();
 function _saveInvitSchedule() { auth.aiCacheSet('campaign:invitation-sched', _invitSchedule).catch(() => {}); }
 let _invitRunning = false;
@@ -16215,7 +16216,11 @@ async function _invitationTick() {
   try {
     if (!_invitSchedule.active) return;
     const md = _parisMonthDay();
-    if (md.day >= _invitSchedule.day && md.hour >= _invitSchedule.hour && _invitSchedule.lastSentMonth !== md.monthKey) {
+    // FENÊTRE COURTE (correctif 28/07) : le jour cible + 2 jours de rattrapage — PAS « tout le mois
+    // à partir du jour cible ». Sans cette borne, activer la campagne le 20 à 18 h déclenchait un
+    // envoi de masse instantané au lieu d'attendre le mois suivant.
+    const _inWindow = md.day >= _invitSchedule.day && md.day <= _invitSchedule.day + 2;
+    if (_inWindow && md.hour >= _invitSchedule.hour && _invitSchedule.lastSentMonth !== md.monthKey) {
       _invitSchedule.lastSentMonth = md.monthKey; _saveInvitSchedule();   // marque AVANT le run (anti double-tick)
       console.log('[Scheduler] campagne invitation declenchee — mois', md.monthKey);
       await _runInvitationCampaign(md.monthKey);
