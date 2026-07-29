@@ -11213,13 +11213,6 @@ html[data-theme="light"] {
   text-transform: uppercase; letter-spacing: var(--ls-caps, .08em); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }   /* en-tête façon panneaux du desk (Inter Tight capitales) — plus de serif dans le module widgets (cohérence police desk) */
 .wdg-actions { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
-/* Groupe SECONDAIRE : réservé mais effacé au repos, révélé au survol de la carte. On anime
-   l'opacité (pas la largeur) pour que le trio permanent ne se décale JAMAIS — un bandeau dont les
-   icônes bougent au survol est le contraire d'un outil de travail. */
-.wdg-actions-more { display: flex; align-items: center; gap: 1px; opacity: 0; transition: opacity .13s var(--ease, ease); }
-.wdg-card:hover .wdg-actions-more,
-.wdg-card:focus-within .wdg-actions-more { opacity: 1; }
-@media (hover: none) { .wdg-actions-more { opacity: 1; } }   /* tactile : pas de survol → toujours visibles */
 .wdg-ico {
   width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
   background: transparent; border: 0; border-radius: 3px; cursor: pointer;
@@ -12492,3 +12485,19 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    contenu : « Personnaliser » ne pouvait donc pas s'étirer sur la hauteur du bandeau, et sa zone
    cliquable restait deux fois plus courte que celle d'un onglet. On étire le conteneur DANS la vue
    Mon Desk uniquement — ailleurs, .panel-header-controls porte des contrôles qui doivent rester centrés. */
+
+/* ACTIONS DESCENDUES DU BANDEAU (29/07) — le bandeau portait SEPT icônes ; il n'en garde que trois
+   (régler · remplacer · fermer). Les quatre autres vivent ici, dans le panneau de réglages, en
+   boutons LIBELLÉS : on ne s'en sert pas tous les jours, une icône seule aurait juste déplacé le
+   problème de lisibilité. Grille de 2 pour rester compact. */
+.wdg-set-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 2px; }
+.wdg-set-act {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; font-weight: var(--fw-semibold, 600);
+  color: var(--text2); background: var(--bg2); border: 1px solid var(--hud-line, var(--border));
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.wdg-set-act:hover { color: var(--text); border-color: rgba(227, 178, 58, .5); background: rgba(227, 178, 58, .07); }
+.wdg-set-act.on { color: var(--orange); border-color: rgba(227, 178, 58, .55); }
+.wdg-set-act svg { flex: 0 0 auto; opacity: .85; }
