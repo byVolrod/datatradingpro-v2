@@ -108,6 +108,8 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --st-neg:      #ff3b3b;   /* inférieur / défavorable — rouge écarlate     */
   --st-flat:     #e8eaed;   /* égal / neutre — blanc                        */
   /* ─ Ligne de flux ultra-fine (border-collapse HUD ≈ neutral-900/60) ─── */
+  --sb-thumb:       #2c2d34;   /* barre de défilement — visible sans capter le regard */
+  --sb-thumb-hover: #3d3e47;
   --hud-line:    rgba(255,255,255,0.055);   /* ligne de grille data (claire & faible opacité, façon Bloomberg/DTP) */
   --grid-line-v: rgba(255,255,255,0.035);   /* séparateurs VERTICAUX (encore + discrets) */
   --panel-depth: 0 1px 2px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.018);  /* profondeur très légère (interne + externe) */
@@ -175,17 +177,21 @@ html, body {
 }
 
 /* ═══════════════ SCROLLBAR ═══════════════ */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+/* Une SEULE barre de défilement pour tout le produit, déclarée dans les deux syntaxes :
+   le STANDARD (scrollbar-width/color) que rendent les navigateurs récents, et le webkit pour les
+   moteurs plus anciens. Poser l'une sans l'autre suffit à faire ignorer la seconde — c'est ce qui
+   donnait une barre système claire dans certains menus. */
+* { scrollbar-width: thin; scrollbar-color: var(--sb-thumb) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border3); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text4); }
+::-webkit-scrollbar-thumb { background: var(--sb-thumb); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* Lecteurs de rapport (Institution + Analyst) : scroller un peu plus large → plus facile à saisir
    pour défiler de haut en bas (le reste du terminal garde la barre fine de 4px). */
-#br-rcontent, #arlib-rcontent { scrollbar-width: thin; scrollbar-color: var(--border3) transparent; }
-#br-rcontent::-webkit-scrollbar, #arlib-rcontent::-webkit-scrollbar { width: 11px; height: 11px; }
-#br-rcontent::-webkit-scrollbar-thumb, #arlib-rcontent::-webkit-scrollbar-thumb { background: var(--border3); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
-#br-rcontent::-webkit-scrollbar-thumb:hover, #arlib-rcontent::-webkit-scrollbar-thumb:hover { background: var(--text4); background-clip: padding-box; }
+/* #br-rcontent, #arlib-rcontent : barre globale (ils fixaient leur propre couleur). */
+/* Lecteurs de rapports : barre globale (ils étaient en 11 px). */
 
 /* ═══════════════ TOP BAR ═══════════════ */
 .topbar {
@@ -549,6 +555,7 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
 /* Barre de sous-onglets paire RETIRÉE (demande utilisateur) : la vue paire = uniquement les 4 panneaux Overview, à égalité 50/50. */
 .sym-subtabs { display: none; }
 .sym-subtabs::-webkit-scrollbar { height: 0; }
+.sym-subtabs { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
 .sym-bar-pair { font-family: var(--font-mono, monospace); font-weight: var(--fw-bold); font-size: 12px; color: #e3b23a; margin-right: 13px; white-space: nowrap; flex: 0 0 auto; }
 .sym-subtab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text2); font-family: var(--font-mono, monospace); font-size: 11px; font-weight: var(--fw-semibold); letter-spacing: .02em; padding: 0 11px; height: 36px; cursor: pointer; white-space: nowrap; flex: 0 0 auto; }
 .sym-subtab:hover { color: #cfcfd4; }
@@ -677,6 +684,7 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
   scrollbar-width: none;                            /* masque la barre de défilement (Firefox) */
 }
 .tabs-bar::-webkit-scrollbar { display: none; }    /* masque la barre de défilement (Chrome/Safari) */
+.tabs-bar { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
 
 /* Tabs */
 .tabs {
@@ -1257,8 +1265,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   overscroll-behavior: contain;   /* le scroll du dropdown ne fait pas défiler la page derrière (mobile) */
   scrollbar-width: thin;          /* barre de défilement visible → on voit qu'il reste des cases dessous */
 }
-.dropdown-grid::-webkit-scrollbar { width: 8px; }
-.dropdown-grid::-webkit-scrollbar-thumb { background: var(--border3); border-radius: 4px; }
+/* .dropdown-grid : plus de règle propre — la barre globale s'applique. C'est ici que le défaut
+   était visible : `scrollbar-width: thin` seul faisait ignorer le style webkit de cet élément. */
 
 .dropdown-item {
   display: flex;
@@ -3287,10 +3295,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-row--overall { margin: 14px 12px 6px; padding: 9px 11px; background: rgba(227,178,58,.10) !important; border: 1px solid rgba(227,178,58,.30) !important; border-left: 3px solid var(--orange) !important; border-radius: 3px; transition: background var(--t-fast) ease, border-color var(--t-fast) ease; }   /* « Overall » : MEME effet que la conclusion du radar (accent OR a gauche) ; !important bat la cascade de .sbs-row */
 .sbs-row--overall:hover { background: rgba(227,178,58,.18) !important; border-color: rgba(227,178,58,.55) !important; border-left-color: var(--orange) !important; }   /* hover OR (demande) — ligne de conclusion mise en avant */
 .sbs-row--overall .sbs-row-lbl { color: #fff; font-weight: var(--fw-semibold); }
-.sbs-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 8px 12px; scrollbar-width: thin; scrollbar-color: #404040 transparent; }
-.sbs-right::-webkit-scrollbar { width: 7px; }
-.sbs-right::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
-.sbs-right::-webkit-scrollbar-track { background: transparent; }
+.sbs-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 8px 12px; }   /* barre : globale (elle etait en #404040) */
+/* .sbs-right : barre globale (elle était en 7 px et #404040, hors norme). */
 /* Splitter vertical = même style que le resizer News (.layout-resizer) : 1px neutre, orange au survol/drag */
 .sbs-split { flex: 0 0 1px; width: 1px; background: var(--border); cursor: col-resize; position: relative; }
 .sbs-split::after { content: ''; position: absolute; top: 0; bottom: 0; left: -6px; right: -6px; cursor: col-resize; }   /* zone grabbable */
@@ -4445,10 +4451,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .br-filter { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 5px 26px 5px 10px; font-size: 11px; color: var(--text2); font-family: var(--font-ui); outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; white-space: nowrap; }
 
 .br-cards { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0; }   /* tableau institutionnel pleine largeur */
-.br-cards::-webkit-scrollbar { width: 10px; }
-.br-cards::-webkit-scrollbar-track { background: transparent; }
-.br-cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; border: 3px solid var(--bg); }
-.br-cards::-webkit-scrollbar-thumb:hover { background: #30303a; }
+/* .br-cards : barre globale (elle était en 10 px avec un liseré opaque). */
 .br-footer { padding: 6px 20px; font-size: 11px; color: var(--text3); border-top: 1px solid var(--border2); flex-shrink: 0; }
 .br-empty { padding: 40px 20px; text-align: center; color: var(--text3); font-size: 12px; line-height: 1.8; }
 
@@ -4513,6 +4516,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .br-rtags-bar { display: flex; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }   /* scroll possible mais SANS barre native (bande grise) */
 .br-rtags-bar::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.br-rtags-bar { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
 .br-rtags-scroll { display: flex; gap: 6px; flex-wrap: nowrap; }
 .br-rtag { display: inline-block; padding: 3px 9px; border-radius: 3px; font-size: 11px; background: var(--bg4); border: 1px solid var(--border2); color: var(--text3); white-space: nowrap; }
 
@@ -4527,8 +4531,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .br-pdf-frame { flex: 1 1 auto; width: 100%; min-height: 70vh; border: 0; background: var(--bg); display: block; }
 /* Rendu PDF.js (canvas) — mobile : fiable la ou l'iframe PDF ne s'affiche pas inline (iOS/WebKit).
    Fond DTP SOMBRE (fini la bande grise façon viewer PDF) + jamais de scrollbar horizontale. */
-.br-pdf-canvaswrap { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; background: var(--bg); padding: 8px 0; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--border3) transparent; }
-.br-pdf-canvaswrap::-webkit-scrollbar { width: 11px; height: 11px; }   /* scrollbar CUSTOM du desk (le canvas remplace l'iframe → plus de barre native) */
+.br-pdf-canvaswrap { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; background: var(--bg); padding: 8px 0; -webkit-overflow-scrolling: touch; }   /* barre : globale */
+/* .br-pdf-canvaswrap : barre globale. */
 .br-pdf-canvaswrap::-webkit-scrollbar-button, #br-rcontent::-webkit-scrollbar-button { display: none; width: 0; height: 0; }   /* pas de flèches natives (bande grise Windows) */
 .br-pdf-canvaswrap::-webkit-scrollbar-track { background: transparent; }
 .br-pdf-canvaswrap::-webkit-scrollbar-thumb { background: var(--border3); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
@@ -5115,6 +5119,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   padding: 0 4px;
 }
 .arlib-rtags-scroll::-webkit-scrollbar { display: none; }
+.arlib-rtags-scroll { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
 .arlib-rtag {
   font-size: 11px;
   font-weight: var(--fw-medium);
@@ -5503,6 +5508,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   scrollbar-width: none;            /* Firefox : barre masquée */
 }
 .ai-insights-cards::-webkit-scrollbar { display: none; }   /* Chrome/Safari : barre masquée */
+.ai-insights-cards { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
 /* Variante FIXE : grille statique, les cartes ne défilent plus / ne bougent plus */
 .ai-insights-cards--fixed {
   display: grid;
@@ -8723,6 +8729,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   scrollbar-width: none;
 }
 .np-tabs-scroll::-webkit-scrollbar { display: none; }
+.np-tabs-scroll { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
 .np-tab {
   background: none;
   border: none;
@@ -8764,7 +8771,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #222 transparent;
+  /* barre : globale (elle etait en #222) */
 }
 .np-list::-webkit-scrollbar { width: 4px; }
 .np-list::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
@@ -9551,7 +9558,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 #chat-search-input:focus { border-color:rgba(227,178,58,.5); }
 #chat-search-input::placeholder { color:#5b6471; }
 
-.chat-list { flex:1; overflow-y:auto; overflow-x:hidden; overflow-anchor:none; padding:14px 14px 8px; display:flex; flex-direction:column; gap:10px; scrollbar-width:thin; scrollbar-color:#2a2f3a transparent; }   /* overflow-anchor:none → le navigateur ne restaure pas tout seul la position (on la gère explicitement : entrée=haut, refresh=gardée) */
+.chat-list { flex:1; overflow-y:auto; overflow-x:hidden; overflow-anchor:none; padding:14px 14px 8px; display:flex; flex-direction:column; gap:10px; }   /* barre : globale (elle etait en #2a2f3a) */   /* overflow-anchor:none → le navigateur ne restaure pas tout seul la position (on la gère explicitement : entrée=haut, refresh=gardée) */
 .chat-list::-webkit-scrollbar { width:7px; height:7px; }
 .chat-list::-webkit-scrollbar-track { background:transparent; }
 .chat-list::-webkit-scrollbar-thumb { background:#2a2f3a; border-radius:4px; border:2px solid transparent; background-clip:content-box; }
@@ -9706,7 +9713,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .fxl-table-scroll { flex: 1 1 auto; min-width: 0; overflow: auto; position: relative; }
 /* Scrollbars fines & minimalistes (gauche/droite + haut/bas) */
-.fxl-table-scroll { scrollbar-width: thin; scrollbar-color: #2c2c33 transparent; }
+/* .fxl-table-scroll : barre globale (elle etait en #2c2c33). */
 .fxl-table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .fxl-table-scroll::-webkit-scrollbar-track { background: transparent; }
 .fxl-table-scroll::-webkit-scrollbar-thumb { background: #2c2c33; border-radius: 4px; border: 2px solid transparent; background-clip: content-box; }
@@ -11689,6 +11696,7 @@ body.wdg-mode #topbar-nav { display: none; }
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
 .wdg-layouts { display: flex; align-items: stretch; height: 100%; gap: 0; overflow-x: auto; max-width: 52vw; }
 .wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
+.wdg-layouts { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
 /* Onglets de templates = IDENTIQUES à la nav du desk (.nav-item) : plat, capitales, chevron ›, pleine hauteur,
    soulignement or ANIMÉ ::after quand actif (même mécanisme + même animation navUnderlineIn que .nav-item--active). */
 /* Les onglets de Mon Desk SONT des .nav-item (voir renderBar) : police, taille, graisse,
@@ -12168,6 +12176,8 @@ html[data-theme="light"] {
   --text2:       #474a54;
   --text3:       #6d707b;
   --text4:       #9a9ca6;
+  --sb-thumb:       #cdcdc5;   /* barre de defilement sur papier clair */
+  --sb-thumb-hover: #b4b4ab;
   --hud-line:      rgba(0, 0, 0, 0.09);
   --grid-line-v:   rgba(0, 0, 0, 0.055);
   --row-sep:       1px solid rgba(0, 0, 0, 0.05);
@@ -12177,7 +12187,7 @@ html[data-theme="light"] {
 }
 html[data-theme="light"] body { background: var(--bg); color: var(--text); }
 /* Scrollbars claires */
-html[data-theme="light"] * { scrollbar-color: #c3c3bc transparent; }
+html[data-theme="light"] * { scrollbar-color: var(--sb-thumb) transparent; }   /* meme token que le sombre */
 html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c3c3bc; background-clip: content-box; }
 html[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a9a9a1; background-clip: content-box; }
 /* Textes « blanc dur » les plus fréquents du chrome (titres, valeurs) → encre */
