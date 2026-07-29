@@ -3329,29 +3329,29 @@ function _calMeetReading(tone, sc) {
   if (!opts.length) return '';
   opts.sort((a, b) => b[2] - a[2]);
   const dom = opts[0];
-  const domTxt = `<strong>${dom[1]} (${Math.round(dom[2])} %)</strong>`;
-  if (!tone) {
-    return `Le marché price ${domTxt} pour cette réunion. À écouter dans ce discours : un ton ferme sur l'inflation (hawkish) renforcerait le scénario de hausse et repousserait la baisse ; un ton prudent sur l'économie (dovish) ferait l'inverse.`;
-  }
+  // DEUX LIGNES COURTES au lieu d'un paragraphe : le pricing du marché, puis la lecture du ton.
+  // Le libellé « Lecture pour la réunion » porte déjà le contexte — inutile de le réécrire dans
+  // la valeur (« pour cette réunion », « à écouter dans ce discours »… tout cela était redondant).
+  const ligne1 = `<span class="cal-kb-line">Marché : <strong>${dom[1]} ${Math.round(dom[2])} %</strong></span>`;
   const M = {
     hawk: {
-      hike: "Le ton récent (hawkish) va DANS LE SENS du marché : le scénario de hausse se renforce si ce discours confirme.",
-      hold: "Le ton récent (hawkish) suggère une banque pas pressée d'assouplir : maintien en tête, mais une hausse se rapprocherait si ce discours confirme la fermeté.",
-      cut:  "Le ton récent (hawkish) TEMPÈRE le scénario de baisse du marché : un discours ferme pourrait la repousser.",
+      hike: 'Ton récent ferme — dans le sens du marché.',
+      hold: 'Ton récent ferme — maintien probable, hausse pas exclue.',
+      cut:  'Ton récent ferme — tempère la baisse attendue.',
     },
     dove: {
-      cut:  "Le ton récent (dovish) va DANS LE SENS du marché : le scénario de baisse se renforce si ce discours confirme.",
-      hold: "Le ton récent (dovish) ouvre la porte à un assouplissement : maintien en tête, mais une baisse se rapprocherait si ce discours confirme la prudence.",
-      hike: "Le ton récent (dovish) CONTREDIT le scénario de hausse du marché : un discours prudent ferait reculer cette probabilité.",
+      cut:  'Ton récent prudent — dans le sens du marché.',
+      hold: 'Ton récent prudent — maintien probable, baisse qui se rapproche.',
+      hike: 'Ton récent prudent — contredit la hausse attendue.',
     },
     hold: {
-      hike: "Ton récent neutre/attentiste alors que le marché penche vers la hausse : ce discours peut confirmer ou tempérer.",
-      hold: "Ton récent neutre/attentiste, en ligne avec le maintien pricé par le marché.",
-      cut:  "Ton récent neutre/attentiste alors que le marché penche vers la baisse : ce discours peut confirmer ou tempérer.",
+      hike: 'Ton récent neutre — ce discours peut confirmer ou tempérer.',
+      hold: 'Ton récent neutre — en ligne avec le maintien.',
+      cut:  'Ton récent neutre — ce discours peut confirmer ou tempérer.',
     },
   };
-  const read = (M[tone.key] || {})[dom[0]] || '';
-  return `Le marché price ${domTxt}. ${read}`;
+  const read = tone ? ((M[tone.key] || {})[dom[0]] || '') : 'Aucun propos récent — le ton du discours fera la différence.';
+  return ligne1 + (read ? `<span class="cal-kb-line cal-kb-sub">${read}</span>` : '');
 }
 // Extraits de discours BC (23/07) : le SERVEUR balaie 14 j d'historique news (le client n'en garde
 // qu'~1-2 j en mémoire → souvent aucun propos, cas « Fed Jefferson Speech » sans ton). Cache client
@@ -3698,15 +3698,23 @@ async function _calAppendHistory(bodyEl, ev) {
     if (rows.length < 2 || !bodyEl.isConnected) return;
     const nums = rows.map(r => _calNum(r.actual)).filter(v => v != null);
     if (nums.length < 2) return;
-    const min = Math.min.apply(null, nums), max = Math.max.apply(null, nums), span = (max - min) || 1;
+    const min = Math.min.apply(null, nums), max = Math.max.apply(null, nums), ecart = max - min;
+    // ÉCHELLE. L'ancienne version mettait le minimum à 10 % de hauteur : sur une série PLATE
+    // (taux inchangé depuis 6 mois) toutes les valeurs SONT le minimum → cinq moignons de 4 px,
+    // illisibles. « Inchangé » est pourtant une information forte : on la rend par un plateau
+    // franc à mi-hauteur. Quand la série bouge, un socle sous le minimum garde la plus petite
+    // barre lisible tout en laissant voir l'écart entre publications.
+    const socle = ecart ? min - ecart * 0.28 : 0;
+    const haut = v => v == null ? 8 : (ecart ? Math.round(40 + ((v - socle) / (max - socle)) * 60) : 58);
+    const plateau = !ecart && rows.length >= 3;
     const inv = /unemployment|jobless|claims/i.test(ev.title || '');
-    const cols = rows.map(r => {
+    const cols = rows.map((r, i) => {
       const d = r.ts ? new Date(r.ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
       const a = _calNum(r.actual), f = _calNum(r.forecast);
       let cls = '';
       if (a != null && f != null && a !== f) cls = ((a > f) === !inv) ? 'g' : 'r';
-      const hpct = a != null ? Math.max(10, Math.round(((a - min) / span) * 100)) : 10;
-      return `<div class="cal-hist-col" title="${_calEsc(r.actual)}${r.forecast ? ' (prév. ' + _calEsc(r.forecast) + ')' : ''} — ${_calEsc(d)}">
+      const hpct = haut(a);
+      return `<div class="cal-hist-col${i === rows.length - 1 ? ' last' : ''}" title="${_calEsc(r.actual)}${r.forecast ? ' (prév. ' + _calEsc(r.forecast) + ')' : ''} — ${_calEsc(d)}">
         <div class="cal-hist-barwrap"><div class="cal-hist-bar ${cls}" style="height:${hpct}%"></div></div>
         <div class="cal-hist-val ${cls}">${_calEsc(r.actual)}</div>
         <div class="cal-hist-prev">${r.forecast ? 'prév. ' + _calEsc(r.forecast) : '&nbsp;'}</div>
@@ -3714,7 +3722,7 @@ async function _calAppendHistory(bodyEl, ev) {
     }).join('');
     const box = document.createElement('div');
     box.className = 'cal-kb cal-hist';
-    box.innerHTML = `<div class="cal-detail-section">Historique des publications <span class="cal-hist-sub">ancien → récent · ~6 mois</span></div><div class="cal-hist-row custom-scrollbar">${cols}</div>`;
+    box.innerHTML = `<div class="cal-detail-section">Historique des publications <span class="cal-hist-sub">ancien → récent${plateau ? ' · inchangé sur les ' + rows.length + ' dernières publications' : ' · ~6 mois'}</span></div><div class="cal-hist-row custom-scrollbar">${cols}</div>`;
     bodyEl.appendChild(box);
   } catch {}
 }
