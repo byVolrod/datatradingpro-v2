@@ -3311,47 +3311,63 @@ const _CAL_MON_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 
 function _calShortDateFr(ts) { try { const d = new Date(ts); return d.getDate() + ' ' + _CAL_MON_FR[d.getMonth()]; } catch (e) { return ''; } }
 // « La banque surveille » (23/07) : le MANDAT de chaque banque — ce qui la fait monter ou baisser ses
 // taux. C'est la grille de lecture d'un discours : l'intervenant est toujours jugé sur ces axes-là.
+// CAUSE → CONSÉQUENCE, une par ligne, flèches alignées en colonne (grille .cal-flux). Un trader
+// balaie la colonne de gauche (la condition) et lit la conséquence en face, sans relire la phrase.
+function _calFlux(paires) {
+  if (!paires || !paires.length) return '';
+  return '<span class="cal-flux">' + paires.map(p =>
+    `<span class="cal-flux-a">${p[0]}</span><span class="cal-flux-x">→</span><span class="cal-flux-b">${p[1]}</span>`
+  ).join('') + '</span>';
+}
+// Ce que surveille chaque banque : le MANDAT en une ligne, puis ses règles de décision en couples.
+// Les couples ne font que dérouler ce que la phrase disait déjà — rien n'a été ajouté.
 const _CAL_CB_WATCH = {
-  USD: "L'inflation (PCE, cible 2 %) et le plein emploi — le double mandat. Inflation tenace → taux élevés plus longtemps ; inflation qui recolle à 2 % et emploi qui se tasse → arguments pour baisser.",
-  EUR: "L'inflation de la zone euro (cible 2 %), les salaires et la croissance. Inflation sous contrôle → porte ouverte aux baisses ; salaires/services tenaces → statu quo.",
-  GBP: "L'inflation (cible 2 %), les salaires et les prix des services — les points durs du Royaume-Uni. Tant qu'ils restent élevés, la BoE freine les baisses.",
-  JPY: "Une inflation DURABLE portée par les salaires (négociations de printemps) et le yen — la condition pour continuer à remonter les taux.",
-  CHF: "L'inflation (fourchette 0-2 %) et la force du franc (la BNS peut intervenir sur le change).",
-  CAD: "L'inflation sous-jacente (médiane/tronquée), l'emploi et l'immobilier (ménages très endettés → chaque hausse pèse vite).",
-  AUD: "L'inflation trimestrielle (cible 2-3 %), l'emploi et la consommation des ménages.",
-  NZD: "L'inflation (cible 1-3 %) et l'emploi — mandat double, politique souvent tranchée.",
+  USD: { quoi: "L'inflation (PCE, cible 2 %) et le plein emploi — le double mandat.", flux: [
+    ['Inflation tenace', 'taux élevés plus longtemps'],
+    ['Inflation qui recolle à 2 % et emploi qui se tasse', 'arguments pour baisser'],
+  ] },
+  EUR: { quoi: "L'inflation de la zone euro (cible 2 %), les salaires et la croissance.", flux: [
+    ['Inflation sous contrôle', 'porte ouverte aux baisses'],
+    ['Salaires et services tenaces', 'statu quo'],
+  ] },
+  GBP: { quoi: "L'inflation (cible 2 %), les salaires et les prix des services — les points durs du Royaume-Uni.", flux: [
+    ['Salaires et services encore élevés', 'la BoE freine les baisses'],
+  ] },
+  JPY: { quoi: "Une inflation DURABLE portée par les salaires (négociations de printemps) et le yen.", flux: [
+    ['Salaires qui montent durablement', 'la condition pour continuer à remonter les taux'],
+  ] },
+  CHF: { quoi: "L'inflation (fourchette 0-2 %) et la force du franc.", flux: [
+    ['Franc trop fort', 'la BNS peut intervenir sur le change'],
+  ] },
+  CAD: { quoi: "L'inflation sous-jacente (médiane/tronquée), l'emploi et l'immobilier.", flux: [
+    ['Ménages très endettés', 'chaque hausse de taux pèse vite'],
+  ] },
+  AUD: { quoi: "L'inflation trimestrielle (cible 2-3 %), l'emploi et la consommation des ménages.", flux: [] },
+  NZD: { quoi: "L'inflation (cible 1-3 %) et l'emploi — mandat double, politique souvent tranchée.", flux: [] },
 };
 // « Lecture pour la réunion » (23/07) : croise le TON du discours et le SCÉNARIO pricé par le marché
 // (probabilités /api/rates) → phrase déterministe : hausse/baisse/maintien attendu + ce que ce ton
 // confirme ou tempère. Sans ton (aucun propos récent) → mode « à écouter » (grille d'interprétation).
-function _calMeetReading(tone, sc) {
-  const opts = [['hike', 'hausse', sc.hike], ['hold', 'maintien', sc.hold], ['cut', 'baisse', sc.cut]].filter(o => o[2] != null);
-  if (!opts.length) return '';
-  opts.sort((a, b) => b[2] - a[2]);
-  const dom = opts[0];
-  // DEUX LIGNES COURTES au lieu d'un paragraphe : le pricing du marché, puis la lecture du ton.
-  // Le libellé « Lecture pour la réunion » porte déjà le contexte — inutile de le réécrire dans
-  // la valeur (« pour cette réunion », « à écouter dans ce discours »… tout cela était redondant).
-  const ligne1 = `<span class="cal-kb-line">Marché : <strong>${dom[1]} ${Math.round(dom[2])} %</strong></span>`;
+// Ce que le ton récent implique pour la réunion à venir. Le BADGE affiché à côté porte déjà le ton
+// (NEUTRE / HAWKISH / DOVISH) : la phrase ne le répète pas, elle dit seulement ce qu'il change.
+// Le pricing n'est rappelé ici que si aucune autre ligne de la fiche ne l'affiche (opts.pricingAilleurs).
+function _calMeetReading(tone, sc, opts) {
+  const o = opts || {};
+  const list = [['hike', 'hausse', sc.hike], ['hold', 'maintien', sc.hold], ['cut', 'baisse', sc.cut]].filter(x => x[2] != null);
+  list.sort((a, b) => b[2] - a[2]);
+  const dom = list[0];
+  if (!dom && !tone) return '';
   const M = {
-    hawk: {
-      hike: 'Ton récent ferme — dans le sens du marché.',
-      hold: 'Ton récent ferme — maintien probable, hausse pas exclue.',
-      cut:  'Ton récent ferme — tempère la baisse attendue.',
-    },
-    dove: {
-      cut:  'Ton récent prudent — dans le sens du marché.',
-      hold: 'Ton récent prudent — maintien probable, baisse qui se rapproche.',
-      hike: 'Ton récent prudent — contredit la hausse attendue.',
-    },
-    hold: {
-      hike: 'Ton récent neutre — ce discours peut confirmer ou tempérer.',
-      hold: 'Ton récent neutre — en ligne avec le maintien.',
-      cut:  'Ton récent neutre — ce discours peut confirmer ou tempérer.',
-    },
+    hawk: { hike: 'dans le sens de la hausse attendue', hold: 'maintien probable, hausse pas exclue', cut: 'tempère la baisse attendue' },
+    dove: { cut: 'dans le sens de la baisse attendue', hold: 'maintien probable, baisse qui se rapproche', hike: 'contredit la hausse attendue' },
+    hold: { hike: 'peut confirmer ou tempérer la hausse attendue', hold: 'en ligne avec le maintien attendu', cut: 'peut confirmer ou tempérer la baisse attendue' },
   };
-  const read = tone ? ((M[tone.key] || {})[dom[0]] || '') : 'Aucun propos récent — le ton du discours fera la différence.';
-  return ligne1 + (read ? `<span class="cal-kb-line cal-kb-sub">${read}</span>` : '');
+  let txt;
+  if (!tone) txt = 'aucun propos récent — le ton du discours fera la différence';
+  else if (!dom) txt = tone.sens;
+  else txt = (M[tone.key] || {})[dom[0]] || tone.sens;
+  if (dom && !o.pricingAilleurs) txt += ` — marché : <strong>${dom[1]} ${Math.round(dom[2])} %</strong>`;
+  return txt;
 }
 // Extraits de discours BC (23/07) : le SERVEUR balaie 14 j d'historique news (le client n'en garde
 // qu'~1-2 j en mémoire → souvent aucun propos, cas « Fed Jefferson Speech » sans ton). Cache client
@@ -3414,34 +3430,35 @@ function _calNum(s) { const m = String(s == null ? '' : s).replace(/,/g, '.').ma
 // actions). Déterministe (kb.cat + kb.hiUp) → instantané, ancré sur le vrai chiffre, jamais inventé.
 function _calConclusion(kb, a, f, ev) {
   const A = _calEsc(ev.actual), F = _calEsc(ev.forecast);
-  // Cas 1 — RÉSULTAT PUBLIÉ : verdict SIMPLE + conséquence en langage clair (demande user : « qu'on
-  // comprenne plus simplement »). On évite le jargon (assouplissement, biais restrictif, rendements) au
-  // profit de « positif/négatif pour la devise / les obligations / les actions ».
+  // Cas 1 — RÉSULTAT PUBLIÉ : le verdict sur sa ligne, puis « ce que ça implique → pour quels
+  // actifs » en couple aligné. Même contenu qu'avant (aucun jargon réintroduit), mais on ne lit
+  // plus une phrase de trois lignes pour trouver la conséquence.
   if (a != null && f != null) {
-    if (a === f) return `<strong>Chiffre conforme aux attentes</strong> (${F}). Rien ne change vraiment pour les taux → réaction en général <strong>faible</strong>.`;
+    if (a === f) return `<span class="cal-kb-line"><strong>Chiffre conforme aux attentes</strong> (${F})</span>`
+      + _calFlux([['Rien ne change vraiment pour les taux', 'réaction en général <strong>faible</strong>']]);
     const strong = (a > f) === !!kb.hiUp;   // « fort » pour la devise (tient compte de hiUp : chômage & inscriptions inversés)
     const M = {
       Inflation: {
-        s: ['Inflation plus forte que prévu', "La banque centrale est plutôt poussée à garder des taux élevés. → <strong>positif pour la devise</strong>, <strong>négatif pour les obligations</strong> (et souvent pour les actions)."],
-        w: ['Inflation plus faible que prévu', "La banque centrale a moins de raisons de monter les taux. → <strong>négatif pour la devise</strong>, <strong>positif pour les obligations et les actions</strong>."],
+        s: ['Inflation plus forte que prévu', 'La banque centrale est plutôt poussée à garder des taux élevés', '<strong>positif pour la devise</strong>, <strong>négatif pour les obligations</strong> (et souvent pour les actions)'],
+        w: ['Inflation plus faible que prévu', 'La banque centrale a moins de raisons de monter les taux', '<strong>négatif pour la devise</strong>, <strong>positif pour les obligations et les actions</strong>'],
       },
       Emploi: {
-        s: ['Emploi plus solide que prévu', "La banque centrale peut garder des taux élevés plus longtemps. → <strong>positif pour la devise</strong> ; les actions peuvent souffrir si les baisses de taux s'éloignent."],
-        w: ['Emploi plus faible que prévu', "Cela pousse plutôt la banque centrale vers des baisses de taux. → <strong>négatif pour la devise</strong>, <strong>positif pour les actions</strong>."],
+        s: ['Emploi plus solide que prévu', 'La banque centrale peut garder des taux élevés plus longtemps', '<strong>positif pour la devise</strong> ; les actions peuvent souffrir si les baisses s\'éloignent'],
+        w: ['Emploi plus faible que prévu', 'Cela pousse plutôt la banque centrale vers des baisses de taux', '<strong>négatif pour la devise</strong>, <strong>positif pour les actions</strong>'],
       },
       Croissance: {
-        s: ['Croissance plus forte que prévu', "Signe d'une économie solide. → <strong>positif pour la devise et les actions</strong>."],
-        w: ['Croissance plus faible que prévu', "Signe d'un ralentissement. → <strong>négatif pour la devise et les actions</strong>, <strong>positif pour les obligations</strong>."],
+        s: ['Croissance plus forte que prévu', "Signe d'une économie solide", '<strong>positif pour la devise et les actions</strong>'],
+        w: ['Croissance plus faible que prévu', "Signe d'un ralentissement", '<strong>négatif pour la devise et les actions</strong>, <strong>positif pour les obligations</strong>'],
       },
     };
     const m = (M[kb.cat] || M.Croissance)[strong ? 's' : 'w'];
-    return `<strong>${m[0]}</strong> (${A} contre ${F} attendu). ${m[1]}`;
+    return `<span class="cal-kb-line"><strong>${m[0]}</strong> (${A} contre ${F} attendu)</span>` + _calFlux([[m[1], m[2]]]);
   }
-  // Cas 2 — À VENIR (pas encore de résultat) : ce qu'il faut regarder, en clair.
+  // Cas 2 — À VENIR : les deux scénarios face à face, au lieu de « ; en dessous, l'inverse ».
   if (f != null) {
-    return kb.hiUp
-      ? `Chiffre à venir. Un résultat <strong>au-dessus de ${F}</strong> serait plutôt <strong>bon pour la devise</strong> ; en dessous, l'inverse.`
-      : `Chiffre à venir. Un résultat <strong>en dessous de ${F}</strong> serait plutôt <strong>bon pour la devise</strong> ; au-dessus, l'inverse.`;
+    return `<span class="cal-kb-line">Chiffre à venir — les deux scénarios :</span>` + _calFlux(kb.hiUp
+      ? [[`Au-dessus de ${F}`, 'plutôt <strong>bon pour la devise</strong>'], [`En dessous de ${F}`, 'plutôt <strong>négatif</strong>']]
+      : [[`En dessous de ${F}`, 'plutôt <strong>bon pour la devise</strong>'], [`Au-dessus de ${F}`, 'plutôt <strong>négatif</strong>']]);
   }
   return '';
 }
@@ -3461,12 +3478,12 @@ async function _calValueBlockHtml(ev) {
     const speaker = spk ? spk[1] : '';
     // SOURCE PRIMAIRE = serveur (14 j d'historique, cf. /api/cb-quotes) : extraits du discours du speaker,
     // sinon des propos récents de la banque. REPLI instantané = fil en mémoire (au cas où le serveur cale).
-    let quotes = [], quotesLbl = 'Propos récents (datés)';
+    let quotes = [], quotesLbl = 'Propos récents';
     try {
       const srv = await _calCbQuotesGet(ev.currency, speaker);
       if (srv && srv.quotes && srv.quotes.length) {
         quotes = srv.quotes.map(q => ({ h: q.h, ts: q.ts || 0 }));
-        if (spk && !srv.speaker) quotesLbl = 'Propos récents · ' + cb.bank;   // repli banque (speaker sans propos propres)
+        if (spk && !srv.speaker) quotesLbl = 'Propos de la banque';   // repli banque (speaker sans propos propres)
       }
     } catch {}
     if (!quotes.length) {   // repli fil en mémoire (client court)
@@ -3475,7 +3492,7 @@ async function _calValueBlockHtml(ev) {
       const cutoff = Date.now() - 30 * 86400e3;
       const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline)).map(i => ({ h: i.headline, ts: i.timestamp || 0 }));   // « Fed's Logan: … » = propos rapporté
       quotes = pool.filter(i => nameRx.test(i.h));
-      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.h)); quotesLbl = 'Propos récents · ' + cb.bank; }
+      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.h)); quotesLbl = 'Propos de la banque'; }
     }
     // Découpe (attribution + déclaration VO) + classe chaque propos ; PRIORITÉ à ceux qui portent un SIGNAL
     // (hawkish/dovish/hold) — ce sont eux qui aident à interpréter la prochaine réunion — puis les plus récents.
@@ -3496,10 +3513,33 @@ async function _calValueBlockHtml(ev) {
     // Le ton « avant » situe le contexte, le ton « après » dit ce que la banque a réellement
     // communiqué. Les deux sont utiles APRÈS la réunion — c est la comparaison qui informe.
     const _ligneTon = (lbl, t) => `<div class="cal-kb-row"><span class="cal-kb-lbl">${lbl}</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${t.color};border-color:${t.color}44;">${t.label}</span> ${t.sens}</span></div>`;
-    if (_tonAvant) rows.push(_ligneTon('Ton · avant réunion', _tonAvant));
-    if (_tonApres) rows.push(_ligneTon('Ton · après réunion', _tonApres));
-    // Aucun horodatage exploitable pour partager → on garde le ton global, sans promettre un avant/après.
-    if (!_tonAvant && !_tonApres && tone) rows.push(_ligneTon('Ton récent', tone));
+    // Le pricing est nécessaire à la ligne « Lecture » : on le récupère AVANT de composer les
+    // lignes (appel en cache, donc instantané) au lieu de le chercher au milieu du bloc.
+    const rates = await _calRatesGet();
+    const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);
+    const _sc = (bank && bank.scenario) || {};
+    // Une fois la décision publiée, « prochaine réunion » pointerait encore CELLE QUI VIENT
+    // d'avoir lieu (« dans 0 j ») avec son pricing d'avant-réunion : deux informations fausses.
+    const _aVenir = !!(bank && bank.next) && (!_res || (bank.nextDays != null && bank.nextDays > 0));
+    // HONNÊTETÉ DE LA SOURCE : source=market = pricing RÉEL, sinon estimation maison. Les branches
+    // à 0 % sont masquées (un « baisse 0 % » calculé laissait croire à une certitude de marché).
+    const _pv = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
+    const _parts = [_pv(_sc.hold) ? `maintien ${_pv(_sc.hold)} %` : '', _pv(_sc.cut) ? `baisse ${_pv(_sc.cut)} %` : '', _pv(_sc.hike) ? `hausse ${_pv(_sc.hike)} %` : ''].filter(Boolean);
+    const _probs = _parts.length ? _parts.join(' · ') + (bank && bank.source === 'market' ? ' · pricing de marché' : ' · estimation DTP (pricing indisponible)') : '';
+
+    // AVANT la réunion : le ton et sa portée disent la même chose → UNE ligne. Le badge porte le
+    // ton, la phrase ce qu'il implique, et le pricing n'est rappelé que s'il n'apparaît nulle part
+    // ailleurs. APRÈS la réunion, on repasse aux deux lignes ton avant / ton après : c'est leur
+    // COMPARAISON qui informe, et la lecture prospective n'a plus d'objet.
+    const reading = _res ? '' : _calMeetReading(tone, _sc, { pricingAilleurs: !!(_aVenir && _probs) });
+    if (reading) {
+      const _bd = tone ? `<span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ` : '';
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">${_bd}${reading}</span></div>`);
+    } else {
+      if (_tonAvant) rows.push(_ligneTon('Ton · avant réunion', _tonAvant));
+      if (_tonApres) rows.push(_ligneTon('Ton · après réunion', _tonApres));
+      if (!_tonAvant && !_tonApres && tone) rows.push(_ligneTon('Ton récent', tone));
+    }
     if (quotes.length) {
       const qhtml = quotes.map(q => {
         const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
@@ -3508,42 +3548,20 @@ async function _calValueBlockHtml(ev) {
       }).join('');
       rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${qhtml}</span></div>`);
     } else {
-      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Propos récents</span><span class="cal-kb-val cal-kb-muted">Aucune intervention récente à citer (période de réserve avant réunion possible) — voir la lecture ci-dessous.</span></div>`);
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Propos récents</span><span class="cal-kb-val cal-kb-muted">Aucune intervention récente à citer (période de réserve avant réunion possible) — voir la lecture ci-dessus.</span></div>`);
     }
-    const rates = await _calRatesGet();
-    const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);
     if (bank) {
-      // Apres une decision publiee, le taux de reference est CELUI QUI VIENT D ETRE DECIDE : la
-      // source de pricing peut etre en retard de quelques heures, et afficher 3,63 % sous
-      // « maintenu a 3,75 % » donnait deux chiffres contradictoires dans le meme bloc.
+      // Après une décision publiée, le taux de référence est CELUI QUI VIENT D'ÊTRE DÉCIDÉ : la
+      // source de pricing peut avoir quelques heures de retard, et afficher 3,63 % sous
+      // « maintenu à 3,75 % » donnait deux chiffres contradictoires dans le même bloc.
       const _tauxRef = (_res && _res.taux != null) ? _res.taux : bank.rate;
       if (_tauxRef != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(_tauxRef).replace('.', ','))} %</span></div>`);
-      if (bank.next) {
-        const sc = bank.scenario || {};
-        // (28/07, « est-ce fiable ? ») HONNÊTETÉ DE LA SOURCE : source='market' = pricing RÉEL,
-        // 'maison' = notre estimation (source live indisponible). On ne présente plus une
-        // estimation comme un prix de marché, et on masque les branches à 0 % (un « baisse 0 % »
-        // calculé laissait croire à une certitude de marché).
-        const _live = bank.source === 'market';
-        const _pv = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
-        const probs = [_pv(sc.hold) ? `maintien ${_pv(sc.hold)} %` : '', _pv(sc.cut) ? `baisse ${_pv(sc.cut)} %` : '', _pv(sc.hike) ? `hausse ${_pv(sc.hike)} %` : ''].filter(Boolean).join(' · ')
-          + (Boolean(_pv(sc.hold) || _pv(sc.cut) || _pv(sc.hike)) ? (_live ? ' · pricing de marché' : ' · estimation DTP (pricing indisponible)') : '');
-        // Une fois la decision publiee, la « prochaine reunion » pointe encore CELLE QUI VIENT
-        // d avoir lieu (« dans 0 j ») et affiche son pricing d AVANT-reunion — deux informations
-        // devenues fausses. On ne montre la ligne que si la reunion est reellement A VENIR.
-        const _aVenir = !_res || (bank.nextDays != null && bank.nextDays > 0);
-        if (_aVenir) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${probs ? `<div class="cal-kb-sub">${probs}</div>` : ''}</span></div>`);
-      }
+      if (_aVenir) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${_probs ? `<div class="cal-kb-sub">${_probs}</div>` : ''}</span></div>`);
     }
-    // « La banque surveille » (23/07, demande user) : ce qui la fait monter ou baisser les taux —
-    // la grille de lecture du discours (un intervenant est TOUJOURS jugé sur ces axes-là).
-    if (_CAL_CB_WATCH[ev.currency] && !_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">La banque surveille</span><span class="cal-kb-val">${_CAL_CB_WATCH[ev.currency]}</span></div>`);
-    // « Lecture pour la réunion » (23/07) : croise le TON récent et le SCÉNARIO pricé par le marché
-    // → hausse/baisse/maintien attendu, et ce que CE discours peut confirmer ou tempérer. Toujours
-    // présent dès qu'il y a des probabilités (même sans propos récents → mode « à écouter »).
-    // « Lecture pour la réunion » = ce qu il FAUDRA écouter. Après publication elle induirait en erreur.
-    const reading = _res ? '' : _calMeetReading(tone, (bank && bank.scenario) || {});
-    if (reading) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture pour la réunion</span><span class="cal-kb-val">${reading}</span></div>`);
+    // « La banque surveille » : ce qui la fait monter ou baisser les taux — la grille de lecture
+    // du discours (un intervenant est TOUJOURS jugé sur ces axes-là).
+    const _watch = _CAL_CB_WATCH[ev.currency];
+    if (_watch && !_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">La banque surveille</span><span class="cal-kb-val"><span class="cal-kb-line">${_watch.quoi}</span>${_calFlux(_watch.flux)}</span></div>`);
     if (!rows.length) return '';
     return `<div class="cal-kb"><div class="cal-detail-section">Banque centrale · ${_calEsc(cb.bank)}</div>${rows.join('')}</div>`;
   }
