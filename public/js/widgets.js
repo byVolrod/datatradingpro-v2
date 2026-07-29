@@ -90,9 +90,20 @@
         + '<span class="wdg-step-val">' + cur + '</span>'
         + '<button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',1)" aria-label="plus">+</button></span></div>';
     };
+    var verrou = !!it.locked;
+    // Actions descendues du bandeau (demande user : « trop de boutons »). Libellées, car on ne s'en
+    // sert pas tous les jours — une icône seule aurait juste déplacé le problème de lisibilité.
+    var actions = '<div class="wdg-set-sep"></div><div class="wdg-set-acts">'
+      + '<button class="wdg-set-act" onclick="DTPWidgets.refresh(' + idx + ')">' + ICO.refresh + ' Actualiser</button>'
+      + '<button class="wdg-set-act" onclick="DTPWidgets.duplicate(' + idx + ')">' + ICO.dup + ' Dupliquer</button>'
+      + '<button class="wdg-set-act" onclick="DTPWidgets.fullscreen(' + idx + ')">' + ICO.expand + ' Plein écran</button>'
+      + '<button class="wdg-set-act' + (verrou ? ' on' : '') + '" onclick="DTPWidgets.toggleLock(' + idx + ')">'
+      +   (verrou ? ICO.lock : ICO.unlock) + (verrou ? ' Déverrouiller' : ' Verrouiller') + '</button>'
+      + '</div>';
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
-      + _optsHtml(idx, w, it);
+      + _optsHtml(idx, w, it)
+      + actions;
   }
   // Rafraîchit le panneau d'une carte SANS toucher au reste (garde son état ouvert/fermé).
   function _syncPanel(i) {
@@ -1628,12 +1639,6 @@
         +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
         +   '<span class="wdg-actions">'
-        +     '<span class="wdg-actions-more">'                       /* secondaires : au survol de la carte */
-        +       '<button class="wdg-ico" title="Actualiser" onclick="DTPWidgets.refresh(' + idx + ')">' + ICO.refresh + '</button>'
-        +       '<button class="wdg-ico" title="Dupliquer" onclick="DTPWidgets.duplicate(' + idx + ')">' + ICO.dup + '</button>'
-        +       '<button class="wdg-ico" title="Plein écran" onclick="DTPWidgets.fullscreen(' + idx + ')">' + ICO.expand + '</button>'
-        +       '<button class="wdg-ico' + (locked ? ' on' : '') + '" title="' + (locked ? 'Déverrouiller' : 'Verrouiller') + '" onclick="DTPWidgets.toggleLock(' + idx + ')">' + (locked ? ICO.lock : ICO.unlock) + '</button>'
-        +     '</span>'
         +     '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
         +     '<button class="wdg-ico" title="Remplacer par un autre widget" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
         +     '<button class="wdg-ico wdg-ico--x" title="Retirer" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
