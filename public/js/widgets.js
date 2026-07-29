@@ -1683,7 +1683,8 @@
     if (!el) return;
     if (!c || !c.layouts.length) { el.innerHTML = ''; return; }
     var tabs = c.layouts.filter(function (l) { return !l.hidden; }).map(function (l) {   // les layouts MASQUÉS (fermés) n'ont pas d'onglet
-      return '<button class="wdg-lay' + (l.id === c.active ? ' on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
+      // classes de la NAV DU DESK : l'apparence vient d'elle, pas d'une copie de ses valeurs
+      return '<button class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         + '<span class="wdg-lay-chv">›</span>'                                    // chevron › = grammaire nav ACTUS
         + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
@@ -1691,7 +1692,7 @@
     }).join('');
     el.innerHTML = tabs
       + (c.layouts.length < _LMAX
-          ? '<button class="wdg-lay wdg-lay-add" title="Créer un layout" onclick="DTPWidgets.newLayout()">+</button>'
+          ? '<button class="nav-item wdg-lay wdg-lay-add" title="Créer un layout" onclick="DTPWidgets.newLayout()">+</button>'
           : '');
   }
   // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
