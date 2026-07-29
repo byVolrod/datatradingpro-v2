@@ -81,6 +81,25 @@
     return d.def;
   }
   // Panneau de réglages généré depuis le contrat. Vide si le widget ne déclare rien.
+  // Contenu du panneau de réglages d'une carte (titre, description, taille, réglages déclarés).
+  // Extrait pour pouvoir le RE-RENDRE seul après un changement, sans reconstruire la grille.
+  function _setPanelHtml(idx, w, it) {
+    var step = function (lbl, cur, act) {
+      return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + lbl + '</span>'
+        + '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',-1)" aria-label="moins">−</button>'
+        + '<span class="wdg-step-val">' + cur + '</span>'
+        + '<button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',1)" aria-label="plus">+</button></span></div>';
+    };
+    return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
+      + step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
+      + _optsHtml(idx, w, it);
+  }
+  // Rafraîchit le panneau d'une carte SANS toucher au reste (garde son état ouvert/fermé).
+  function _syncPanel(i) {
+    var l = activeLayout(); if (!l || !l.items[i]) return;
+    var pop = document.getElementById(HOST_ID + '-s' + i), w = byId(l.items[i].w);
+    if (pop && w) pop.innerHTML = _setPanelHtml(i, w, l.items[i]);
+  }
   function _optsHtml(idx, w, it) {
     var l = (w && w.opts) || []; if (!l.length) return '';
     return '<div class="wdg-set-sep"></div>' + l.map(function (o) {
@@ -1616,9 +1635,7 @@
         +   '</span>'
         + '</header>'
         + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'
-        +   '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
-        +   step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
-        +   _optsHtml(idx, w, it)
+        +   _setPanelHtml(idx, w, it)
         + '</div>'
         + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
         + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
@@ -1627,18 +1644,7 @@
     // BLOC FANTÔME INTELLIGENT (28/07) : il COMBLE EXACTEMENT le trou de la disposition — largeur
     // restante de la dernière rangée × hauteur de cette rangée (simulation du placement 12 col).
     // Rangée complète → bandeau discret pleine largeur. Contenu centré. Clic → bibliothèque.
-    + (function () {
-        var c = 0, rowH = 0;
-        lay.items.forEach(function (it) {
-          var gw = Math.min(12, Math.max(1, (it.gw | 0) || 6)), gh = Math.max(3, (it.gh | 0) || 12);
-          if (c + gw > 12) { c = 0; rowH = 0; }
-          c += gw; if (gh > rowH) rowH = gh;
-        });
-        var gR = c > 0 && c < 12 ? (12 - c) : 12;                  // trou réel, sinon pleine largeur
-        var gH = c > 0 && c < 12 ? (rowH || 12) : 6;               // même hauteur que la rangée, sinon bandeau
-        return '<button class="wdg-ghost" style="grid-column: span ' + gR + '; grid-row: span ' + gH + ';" onclick="DTPWidgets.openLib()" title="Ajouter un widget ici">'
-          + '<span class="wdg-ghost-plus">+</span><span class="wdg-ghost-lbl">Ajouter un widget</span></button>';
-      })();
+    + _ghostHtml(lay);
     // Plein écran : la carte ciblée recouvre la zone de travail (overlay), la grille est figée derrière.
     if (_fullscreenIdx != null) {
       var fsCard = host.querySelector('.wdg-card[data-idx="' + _fullscreenIdx + '"]');
@@ -1947,6 +1953,47 @@
     var court = full.slice(0, 3);                 // repli : code court, lisible tel quel (FOR, BAR, AGE…)
     return court.length <= place ? court : '';    // sinon rien — un libellé illisible vaut moins que la couleur seule
   }
+  // Bloc fantôme : comble EXACTEMENT le trou de la dernière rangée (simulation du placement 12 colonnes).
+  function _ghostHtml(lay) {
+    var c = 0, rowH = 0;
+    (lay && lay.items || []).forEach(function (it) {
+      var gw = Math.min(12, Math.max(1, (it.gw | 0) || 6)), gh = Math.max(3, (it.gh | 0) || 12);
+      if (c + gw > 12) { c = 0; rowH = 0; }
+      c += gw; if (gh > rowH) rowH = gh;
+    });
+    var gR = c > 0 && c < 12 ? (12 - c) : 12;                  // trou réel, sinon pleine largeur
+    var gH = c > 0 && c < 12 ? (rowH || 12) : 6;               // même hauteur que la rangée, sinon bandeau
+    return '<button class="wdg-ghost" style="grid-column: span ' + gR + '; grid-row: span ' + gH + ';" onclick="DTPWidgets.openLib()" title="Ajouter un widget ici">'
+      + '<span class="wdg-ghost-plus">+</span><span class="wdg-ghost-lbl">Ajouter un widget</span></button>';
+  }
+  // REDIMENSIONNEMENT CIBLÉ : on écrit la variable CSS de LA carte — la grille reflue toute seule.
+  // Avant, chaque clic sur ± reconstruisait le desk entier : tous les graphes étaient démontés puis
+  // remontés (coûteux, et visible en scintillement) et la grille remontait en haut de page.
+  function _resizeItem(i, champ, delta, min, max) {
+    var l = activeLayout(); if (!l || !l.items[i]) return;
+    var it = _normItem(l.items[i]);
+    var v = _clamp(it[champ] + delta, min, max);
+    if (v === it[champ]) return;                                     // déjà à la borne : rien à faire
+    it[champ] = v;
+    var host = document.getElementById(HOST_ID);
+    var card = host && host.querySelector('.wdg-card[data-idx="' + i + '"]');
+    if (!card) { _reopen = i; save(); renderGrid(); return; }         // carte absente (cas limite) → repli sûr
+    card.style.setProperty('--' + champ, v);
+    _syncPanel(i);                                                   // les valeurs affichées suivent
+    _syncGhost();                                                    // le trou de la dernière rangée a changé
+    // Les graphes doivent se remesurer : amCharts a son propre capteur, mais Leaflet (carte des
+    // sessions) ne réagit qu'à un resize de fenêtre. On le provoque à la frame suivante, une fois
+    // la nouvelle géométrie appliquée.
+    requestAnimationFrame(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} });
+    save();
+  }
+  // Remplace le fantôme en place après un redimensionnement (le trou a changé de forme).
+  function _syncGhost() {
+    var host = document.getElementById(HOST_ID); if (!host) return;
+    var old = host.querySelector('.wdg-ghost'); if (!old) return;
+    var tmp = document.createElement('div'); tmp.innerHTML = _ghostHtml(activeLayout());
+    if (tmp.firstChild) old.replaceWith(tmp.firstChild);
+  }
   function _thumb(items, opts) {
     opts = opts || {};
     var blocks = (items || []).slice(0, 12).map(function (it) {
@@ -2036,7 +2083,10 @@
       if (v === d.def) delete it.cfg[k];              // valeur par défaut → on ne stocke rien (config minimale)
       else it.cfg[k] = v;
       if (!Object.keys(it.cfg).length) delete it.cfg;
-      _reopen = i; save(); renderGrid();
+      // RENDU CIBLÉ : seul le widget réglé se re-monte, et seul son panneau se re-rend. Avant, un clic
+      // sur une pastille reconstruisait tout le desk — les autres graphes scintillaient pour rien et
+      // la grille remontait en haut de page.
+      save(); _syncPanel(i); API.refresh(i);
     },
     // Variante SILENCIEUSE : enregistre la valeur SANS re-rendre. Pour les contrôles internes d'un widget
     // (barre de catégories COT, boutons d'unité DMX…) qui ont déjà mis leur propre affichage à jour :
@@ -2055,14 +2105,10 @@
       var it = l.items[i], w = byId(it.w), def = optDef(w, k); if (!def) return;
       API.setOpt(i, k, _clamp((parseInt(opt(it, w, k), 10) || def.def) + d * (def.pas || 1), def.min, def.max));
     },
-    setGw: function (i, d) {
-      var l = activeLayout(); if (!l || !l.items[i]) return; _normItem(l.items[i]);
-      l.items[i].gw = _clamp(l.items[i].gw + d, 1, GRID_COLS); _reopen = i; save(); renderGrid();
-    },
-    setGh: function (i, d) {
-      var l = activeLayout(); if (!l || !l.items[i]) return; _normItem(l.items[i]);
-      l.items[i].gh = _clamp(l.items[i].gh + d * 2, 3, 60); _reopen = i; save(); renderGrid();
-    },
+    // La grille CSS reflue toute seule quand --gw/--gh changent : inutile de reconstruire le desk.
+    // Avant, chaque clic sur ± démontait/remontait TOUS les graphes et renvoyait la grille en haut de page.
+    setGw: function (i, d) { _resizeItem(i, 'gw', d, 1, GRID_COLS); },
+    setGh: function (i, d) { _resizeItem(i, 'gh', d * 2, 3, 60); },
     duplicate: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       if (l.items.length >= _IMAX) return _undoOffer('Ce desk est plein (' + _IMAX + ' widgets).');
