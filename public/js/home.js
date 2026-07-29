@@ -154,16 +154,29 @@
     // quatre cadres vides. (2) Le conteneur doit être MIS EN PAGE : amCharts et Leaflet mesurent 0×0
     // dans un cadre pas encore posé et rendraient une carte blanche — d'où les deux frames d'attente.
     var _monte = false;
+    // MONTAGE ÉTALÉ. Ces quatre panneaux sont lourds (carte Leaflet, graphes amCharts, table du
+    // calendrier) : les monter dans la MÊME tâche, par-dessus le démarrage du desk, sature le fil
+    // principal — et un fil bloqué fige tout, y compris le voile d'initialisation. Un widget toutes
+    // les 120 ms rend la main entre chaque : le navigateur peut peindre et répondre.
     function monterTout() {
       if (_monte) return; _monte = true;
-      PANNEAUX.forEach(function (p) {
-        var host = document.getElementById('home-w-' + p.id); if (!host) return;
-        try { var un = DTPWidgets.mountInto(p.id, host, p.cfg); if (un) _menage.push(un); } catch (e) {}
+      PANNEAUX.forEach(function (p, i) {
+        var t = setTimeout(function () {
+          var host = document.getElementById('home-w-' + p.id); if (!host) return;
+          try { var un = DTPWidgets.mountInto(p.id, host, p.cfg); if (un) _menage.push(un); } catch (e) {}
+        }, i * 120);
+        _menage.push(function () { clearTimeout(t); });   // fermeture avant la fin : rien ne se monte après
       });
     }
     (function attendre(essais) {
       if (!window.DTPWidgets || !DTPWidgets.mountInto) {
         if (essais > 60) return;                                  // ~6 s : le module ne viendra plus
+        return setTimeout(function () { attendre(essais + 1); }, 100);
+      }
+      // On ne monte RIEN tant que le voile d'initialisation est là. Le desk doit d'abord finir de
+      // démarrer et de peindre : lui superposer quatre widgets lourds prolongeait le voile, et un
+      // fil principal saturé fige jusqu'à l'animation du spinner (c'est ce qu'on voyait).
+      if (document.getElementById('boot-loader') && essais < 100) {
         return setTimeout(function () { attendre(essais + 1); }, 100);
       }
       // On PRÉFÈRE deux frames (le cadre est alors mis en page, amCharts et Leaflet se mesurent
