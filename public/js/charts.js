@@ -3390,20 +3390,23 @@ function _calDecisionOutcome(ev) {
   const fr = x => String(x).replace('.', ',');   // interface francaise : virgule decimale
   const a = _calNum(ev && ev.actual); if (a == null) return null;
   const p = _calNum(ev && ev.previous), f = _calNum(ev && ev.forecast);
-  let sens = 'Décision publiée', couleur = '#9aa0aa';
+  // On NOMME l action de la banque (demande user) : maintien / hausse / baisse, avec le verbe en
+  // premier. « La Fed MAINTIENT ses taux » se lit plus vite qu un constat impersonnel.
+  const banque = (ev && ev.__bank) || 'La banque centrale';
+  let geste = 'Décision publiée', sens = geste, couleur = '#9aa0aa', taux = a;
   if (p != null) {
     const d = Math.round((a - p) * 100) / 100;
-    if (d === 0) { sens = 'Taux maintenu à ' + fr(a) + ' %'; couleur = '#9aa0aa'; }
-    else if (d > 0) { sens = 'Taux relevé à ' + fr(a) + ' % (+' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
-    else { sens = 'Taux abaissé à ' + fr(a) + ' % (' + fr(d) + ' pt)'; couleur = '#00e676'; }
-  } else sens = 'Taux à ' + fr(a) + ' %';
+    if (d === 0)      { geste = 'MAINTIENT'; sens = banque + ' MAINTIENT ses taux à ' + fr(a) + ' %'; couleur = '#9aa0aa'; }
+    else if (d > 0)   { geste = 'RELÈVE';    sens = banque + ' RELÈVE ses taux à ' + fr(a) + ' % (+' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
+    else              { geste = 'ABAISSE';   sens = banque + ' ABAISSE ses taux à ' + fr(a) + ' % (' + fr(d) + ' pt)'; couleur = '#00e676'; }
+  } else sens = banque + ' — taux à ' + fr(a) + ' %';
   let attente = '';
   if (f != null) {
     if (a === f) attente = 'conforme aux attentes';
     else if (a > f) attente = 'au-dessus des attentes (' + fr(f) + ' % prévu) — surprise restrictive';
     else attente = 'en dessous des attentes (' + fr(f) + ' % prévu) — surprise accommodante';
   }
-  return { sens, attente, couleur };
+  return { sens, attente, couleur, geste, taux };
 }
 function _calNum(s) { const m = String(s == null ? '' : s).replace(/,/g, '.').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; }
 // « CONCLUSION » (demande user) : PAS la réaction théorique générique, mais l'INTERPRÉTATION du résultat
@@ -3487,7 +3490,7 @@ async function _calValueBlockHtml(ev) {
     quotes = quotes.slice(0, 3);
     const tone = _calToneOf(quotes.map(q => q.statement || q.h));
     // RESULTAT EN PREMIER des qu il est publie : c est la seule chose qu on vient chercher ici.
-    const _res = _calDecisionOutcome(ev);
+    const _res = _calDecisionOutcome(Object.assign({ __bank: cb.bank }, ev));   // cb.bank = « Fed (FOMC) », « BCE »…
     if (_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Résultat</span><span class="cal-kb-val"><b style="color:${_res.couleur};">${_calEsc(_res.sens)}</b>${_res.attente ? ` <span class="cal-kb-sub">${_calEsc(_res.attente)}</span>` : ''}</span></div>`);
     // Le ton « avant réunion » n a plus d objet une fois la decision connue.
     // Le ton « avant » situe le contexte, le ton « après » dit ce que la banque a réellement
@@ -3510,7 +3513,11 @@ async function _calValueBlockHtml(ev) {
     const rates = await _calRatesGet();
     const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);
     if (bank) {
-      if (bank.rate != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(bank.rate))} %</span></div>`);
+      // Apres une decision publiee, le taux de reference est CELUI QUI VIENT D ETRE DECIDE : la
+      // source de pricing peut etre en retard de quelques heures, et afficher 3,63 % sous
+      // « maintenu a 3,75 % » donnait deux chiffres contradictoires dans le meme bloc.
+      const _tauxRef = (_res && _res.taux != null) ? _res.taux : bank.rate;
+      if (_tauxRef != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(_tauxRef).replace('.', ','))} %</span></div>`);
       if (bank.next) {
         const sc = bank.scenario || {};
         // (28/07, « est-ce fiable ? ») HONNÊTETÉ DE LA SOURCE : source='market' = pricing RÉEL,
@@ -3521,7 +3528,11 @@ async function _calValueBlockHtml(ev) {
         const _pv = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
         const probs = [_pv(sc.hold) ? `maintien ${_pv(sc.hold)} %` : '', _pv(sc.cut) ? `baisse ${_pv(sc.cut)} %` : '', _pv(sc.hike) ? `hausse ${_pv(sc.hike)} %` : ''].filter(Boolean).join(' · ')
           + (Boolean(_pv(sc.hold) || _pv(sc.cut) || _pv(sc.hike)) ? (_live ? ' · pricing de marché' : ' · estimation DTP (pricing indisponible)') : '');
-        rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${probs ? `<div class="cal-kb-sub">${probs}</div>` : ''}</span></div>`);
+        // Une fois la decision publiee, la « prochaine reunion » pointe encore CELLE QUI VIENT
+        // d avoir lieu (« dans 0 j ») et affiche son pricing d AVANT-reunion — deux informations
+        // devenues fausses. On ne montre la ligne que si la reunion est reellement A VENIR.
+        const _aVenir = !_res || (bank.nextDays != null && bank.nextDays > 0);
+        if (_aVenir) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${probs ? `<div class="cal-kb-sub">${probs}</div>` : ''}</span></div>`);
       }
     }
     // « La banque surveille » (23/07, demande user) : ce qui la fait monter ou baisser les taux —
