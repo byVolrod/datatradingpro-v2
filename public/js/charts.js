@@ -1042,8 +1042,8 @@ async function buildStrengthCharts() {
   // remplit la barre (titre à gauche, sélecteurs de période à droite) au lieu de la laisser à moitié vide.
   const paneHtml = (side, defPeriod) => `
     <div class="strength-pane" data-side="${side}">
-      <div class="strength-tf-bar">
-        <span class="strength-chart-label">Force des Devises</span>
+      <div class="strength-tf-bar chart-header">
+        <span class="strength-chart-label chart-header-title">Force des Devises</span>
         <span style="flex:1"></span>
         ${STF_ORDER.map(p =>
           `<button class="stf-btn stf-tf-btn${p === defPeriod ? ' stf-btn--active' : ''}" data-period="${p}">${STF_LABELS[p]}</button>`
