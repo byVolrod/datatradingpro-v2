@@ -10675,7 +10675,11 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 .nav-item, .right-tab, .stf-btn, .cot-type-btn, .dmx-tf-btn, .sym-subtab { text-transform: uppercase; letter-spacing: .06em; }
 .stf-btn, .cot-type-btn, .dmx-tf-btn { position: relative; background: transparent !important; border: 0 !important; border-radius: 0 !important; color: var(--text3) !important; font-weight: var(--fw-semibold) !important; }
 .stf-btn:not(.stf-btn--active):hover, .cot-type-btn:not(.cot-type-btn--active):hover, .dmx-tf-btn:not(.dmx-tf-btn--active):hover { color: var(--text2) !important; background: rgba(255,255,255,.045) !important; }
-.right-tab--active, .stf-btn--active, .cot-type-btn--active, .dmx-tf-btn--active, .nav-item--active:not(.nav-item--symbol), .nav-item.active:not(.nav-item--symbol), .sym-subtab--active { color: #fff !important; font-weight: var(--fw-bold) !important; background: transparent !important; }
+.right-tab--active, .stf-btn--active, .cot-type-btn--active, .dmx-tf-btn--active, .nav-item--active:not(.nav-item--symbol), .nav-item.active:not(.nav-item--symbol), .sym-subtab--active, .wdg-lay.on { color: var(--tab-on, #fff) !important; font-weight: var(--fw-bold) !important; background: transparent !important; }
+/* --tab-on : le blanc pur des onglets actifs est illisible sur fond clair. Un seul token, donc les
+   DEUX barres (desk et Mon Desk) et tous les onglets du produit basculent ensemble. */
+:root { --tab-on: #fff; }
+html[data-theme="light"] { --tab-on: #17181d; }
 .stf-btn--active::after, .cot-type-btn--active::after, .dmx-tf-btn--active::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--orange); border-radius: 2px 2px 0 0; }
 
 /* EXTENSION — memes regles pour TOUS les autres onglets/sous-onglets/periodes du desk (Institutions,
@@ -11388,11 +11392,8 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
 .wdg-density .wdg-dens-b.wdg-btn--on { color: var(--bg); background: var(--orange); font-weight: 700; }
 .wdg-density .wdg-dens-b.wdg-btn--on:hover { background: #eec253; color: var(--bg); }
 @media (max-width: 560px) { .wdg-density .wdg-dens-b { padding: 0 7px; font-size: 10px; } }
-.wdg-lay {
-  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11.5px; font-weight: 600;
-  color: var(--w-t7); background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer;
-  transition: color .14s, background .14s, border-color .14s;
-}
+/* (Ancien style de pilule des onglets de layout retiré : la barre suit désormais la grammaire
+   EXACTE de la nav du desk — voir .wdg-lay plus bas. Il était intégralement écrasé.) */
 /* Renommage inline d'un onglet (double-clic) */
 .wdg-lay-edit {
   width: 118px; padding: 1px 4px; font: inherit; font-size: 11.5px; color: var(--w-t1);
@@ -11701,9 +11702,10 @@ body.wdg-mode #topbar-nav { display: none; }
   background: transparent; border: none; border-radius: 0; white-space: nowrap;
   transition: color .15s, background .15s;
 }
-.wdg-lay:hover { color: var(--text, var(--w-t1)); background: rgba(255,255,255,0.035); }
+.wdg-lay:hover { color: var(--text); background: rgba(255,255,255,0.035); }   /* identique à .nav-item:hover */
 /* Onglet ACTIF = grammaire EXACTE de .nav-item--active : texte blanc gras, aucun fond, soulignement or ::after animé */
-.wdg-lay.on { color: var(--text); font-weight: var(--fw-bold); background: transparent; }
+/* .wdg-lay.on : couleur et graisse viennent de la règle PARTAGÉE des onglets actifs (voir --tab-on).
+   Ici on ne garde que ce qui lui est propre : le soulignement or animé, identique à la nav. */
 .wdg-lay.on::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
   background: var(--orange, #e3b23a); border-radius: 2px 2px 0 0;
@@ -12188,7 +12190,10 @@ html[data-theme="light"] * { scrollbar-color: #c3c3bc transparent; }
 html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c3c3bc; background-clip: content-box; }
 html[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a9a9a1; background-clip: content-box; }
 /* Textes « blanc dur » les plus fréquents du chrome (titres, valeurs) → encre */
-html[data-theme="light"] .panel-title, html[data-theme="light"] .nav-item, html[data-theme="light"] .logo-text { color: var(--text); }
+/* .wdg-lay rattaché ici : la barre d'onglets de Mon Desk doit suivre la nav du desk dans les DEUX
+   thèmes. En la listant dans la même règle plutôt qu'en recopiant sa valeur, les deux barres ne
+   peuvent plus diverger si cette règle évolue. */
+html[data-theme="light"] .panel-title, html[data-theme="light"] .nav-item, html[data-theme="light"] .logo-text, html[data-theme="light"] .wdg-lay { color: var(--text); }
 /* L'or vif #e3b23a manque de contraste sur fond clair pour du TEXTE fin → on garde l'or SOMBRE
    de la charte (#b8860b) pour les textes or, l'or vif reste pour les fonds/accents. */
 html[data-theme="light"] a { color: #b8860b; }
