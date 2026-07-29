@@ -12249,16 +12249,18 @@ html[data-theme="light"] a { color: #b8860b; }
 html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
 
 /* ── Bouton « Personnaliser » DISCRET (28/07) : pilule fine, or éteint, s'allume au survol ── */
+/* « Personnaliser » : c'était une PASTILLE dorée cerclée — le seul élément qui trahissait
+   immédiatement que la barre de Mon Desk n'est pas la nav du desk. On lui donne la grammaire d'un
+   onglet de nav (même police, taille, graisse, interlettrage, casse, marges, hauteur pleine, aucun
+   fond ni bordure), l'or n'apparaissant qu'au SURVOL. La barre se lit alors comme « › ACTUS … ». */
 .wdg-btn-pers {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; background: transparent;
-  border: 1px solid rgba(227, 178, 58, 0.28); border-radius: var(--pill, 999px);
-  color: rgba(227, 178, 58, 0.75); cursor: pointer;
-  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: var(--fw-semibold, 600);
-  letter-spacing: .05em; text-transform: uppercase;
-  transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
+  display: inline-flex; align-items: center; gap: 5px; align-self: stretch;
+  padding: 0 14px; background: transparent; border: 0; border-radius: 0; cursor: pointer;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: var(--fw-semibold, 600);
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text3);   /* = .nav-item */
+  transition: color .15s var(--ease), background .15s var(--ease);
 }
-.wdg-btn-pers:hover { color: var(--orange); border-color: rgba(227, 178, 58, 0.6); background: rgba(227, 178, 58, 0.07); }
+.wdg-btn-pers:hover { color: var(--orange); background: rgba(255, 255, 255, 0.035); }
 .wdg-btn-pers svg { opacity: .85; }
 
 /* ═══ ESPACE D'ACCUEIL (« workstation ») — v1 admin, identité DTP ═══════════════════════════════ */
@@ -12495,3 +12497,8 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 #view-widgets > .panel > .panel-header { height: var(--navbar-h); min-height: var(--navbar-h); padding-left: 0; }
 #view-widgets > .panel > .panel-header .panel-header-left { height: 100%; }
 #wdg-layouts { align-items: center; height: 100%; }
+/* Le conteneur de droite (.panel-header-controls) est centré verticalement et se dimensionne sur son
+   contenu : « Personnaliser » ne pouvait donc pas s'étirer sur la hauteur du bandeau, et sa zone
+   cliquable restait deux fois plus courte que celle d'un onglet. On étire le conteneur DANS la vue
+   Mon Desk uniquement — ailleurs, .panel-header-controls porte des contrôles qui doivent rester centrés. */
+#view-widgets > .panel > .panel-header > .panel-header-controls { align-self: stretch; align-items: stretch; }
