@@ -12449,3 +12449,37 @@ html[data-theme="light"] .home-ev-h { color: #7a5c07; }
    de la charte ; seuls les CHIFFRES sont assombris, dans la même famille de teinte. */
 html[data-theme="light"] .home-fx.is-up   .home-fx-v { color: #05713b; }
 html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
+
+/* ══ ESPACE DE TRAVAIL — GRILLE DE VRAIS WIDGETS ═════════════════════════════════════════════════
+   Les panneaux ne sont pas des maquettes : ce sont les widgets du desk montés ici. Le cadre reste
+   donc DISCRET (filet fin, en-tête d'une ligne) pour que la donnée porte l'écran, pas l'habillage. */
+.home-grid {
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; margin-top: 22px; align-items: start;
+}
+.home-zone { grid-column: span 4; min-width: 0; display: flex; flex-direction: column; }
+.home-zone--desks { grid-column: span 7; }
+.home-zone--wide  { grid-column: span 5; }
+.home-sec--w { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.home-zone-go {
+  font-family: var(--tight); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text3); background: transparent; border: 0; padding: 0; cursor: pointer; transition: color .12s;
+}
+.home-zone-go:hover { color: var(--orange); }
+/* Cadre du widget : hauteur FIXE — sans elle, amCharts et Leaflet mesurent 0 et rendent vide. */
+.home-zone-body {
+  height: 260px; overflow: hidden; position: relative;
+  background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+}
+.home-zone--wide .home-zone-body { height: 300px; }
+.home-zone-body > * { height: 100%; }
+
+/* Sous 1200 px on passe à deux zones par rangée, sous 860 px à une seule : un widget écrasé sur
+   3 colonnes ne montre plus rien d'exploitable. */
+@media (max-width: 1200px) {
+  .home-zone, .home-zone--desks, .home-zone--wide { grid-column: span 6; }
+}
+@media (max-width: 860px) {
+  .home-grid { grid-template-columns: 1fr; }
+  .home-zone, .home-zone--desks, .home-zone--wide { grid-column: 1 / -1; }
+  .home-zone-body, .home-zone--wide .home-zone-body { height: 240px; }
+}

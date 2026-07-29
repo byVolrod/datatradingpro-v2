@@ -20,8 +20,12 @@
     try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()); } catch (e) { return ''; }
   }
 
+  // Fonctions de nettoyage des widgets montés ici (minuteurs, roots amCharts, carte Leaflet).
+  // Sans elles, fermer l'accueil laisserait tourner des widgets invisibles pour toute la session.
+  var _menage = [];
   function close() {
     try { sessionStorage.setItem(FLAG, '1'); } catch (e) {}
+    _menage.splice(0).forEach(function (f) { try { f(); } catch (e) {} });
     var el = document.getElementById('dtp-home'); if (el) el.remove();
   }
   // Ouvre un desk précis depuis une carte (Mon Desk + layout choisi), ou une vue du desk classique.
@@ -86,48 +90,26 @@
     }).join('');
   }
 
-  /* ── À SUIVRE AUJOURD'HUI : publications à FORT impact restant à venir, heure de Paris.
-     On ne montre QUE le fort impact : un accueil qui liste 40 lignes ne sert personne. */
-  function eventsHtml(items) {
-    var now = Date.now();
-    var finJour = (function () {
-      var p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-      p.setHours(23, 59, 59, 999);
-      return now + (p - new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })));
-    })();
-    var evs = (items || []).filter(function (e) {
-      return e && String(e.impact || '').toLowerCase() === 'high' && (e.timestamp || 0) > now && (e.timestamp || 0) <= finJour;
-    }).sort(function (a, b) { return a.timestamp - b.timestamp; }).slice(0, 5);
-    if (!evs.length) return '<div class="home-empty">Plus de publication à fort impact aujourd\'hui.</div>';
-    return evs.map(function (e) {
-      var t = '';
-      try { t = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(e.timestamp)); } catch (x) {}
-      return '<div class="home-ev"><span class="home-ev-h">' + esc(t) + '</span>'
-        + '<span class="home-ev-ccy">' + esc(e.currency || '') + '</span>'
-        + '<span class="home-ev-t">' + esc(e.title || '') + '</span></div>';
-    }).join('');
-  }
-
-  /* ── HIÉRARCHIE DES DEVISES : qui mène, qui décroche sur la séance. Trois en tête, trois en queue —
-     l'information utile au réveil, pas les huit lignes du widget complet. */
-  function forceHtml(d) {
-    if (!d || !d.currencies || !d.series) return '<div class="home-empty">Force des devises indisponible.</div>';
-    var vals = d.currencies.map(function (c) {
-      var pts = (d.series[c] || []).filter(function (p) { return p && p.v != null; });
-      return { c: c, v: pts.length ? pts[pts.length - 1].v : null };
-    }).filter(function (x) { return x.v != null; }).sort(function (a, b) { return b.v - a.v; });
-    if (vals.length < 4) return '<div class="home-empty">Force des devises indisponible.</div>';
-    var max = Math.max.apply(null, vals.map(function (x) { return Math.abs(x.v); })) || 1;
-    var ligne = function (x) {
-      var pct = Math.round(Math.abs(x.v) / max * 100);
-      return '<div class="home-fx' + (x.v >= 0 ? ' is-up' : ' is-down') + '">'
-        + '<span class="home-fx-c">' + esc(x.c) + '</span>'
-        + '<span class="home-fx-bar"><i style="width:' + pct + '%"></i></span>'
-        + '<span class="home-fx-v">' + (x.v >= 0 ? '+' : '') + x.v.toFixed(2) + '</span></div>';
-    };
-    return vals.slice(0, 3).map(ligne).join('')
-      + '<div class="home-fx-sep"></div>'
-      + vals.slice(-3).map(ligne).join('');
+  /* ── PANNEAUX = LES VRAIS WIDGETS DU DESK ─────────────────────────────────────────────────────
+     Montés par DTPWidgets.mountInto : même code, mêmes données, mêmes états de chargement et
+     d'erreur que sur le desk. Aucune ré-implémentation à maintenir en parallèle — c'est ce qui
+     évite qu'un écran d'accueil finisse par dire autre chose que le desk.
+     `cfg` = réglages du contrat déclaratif, choisis pour un écran de PRISE DE POSTE : on veut
+     l'essentiel en un coup d'œil, pas l'exhaustivité (le desk est là pour ça). */
+  var PANNEAUX = [
+    { id: 'calendrier-jour', titre: 'À suivre aujourd\'hui', vue: 'calendar', large: true,
+      cfg: { impact: 'high', lignes: 10, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
+    { id: 'force-devises', titre: 'Force des devises', vue: 'fxlist', cfg: { periodes: 'today' } },
+    { id: 'radar-biais', titre: 'Radar de biais', vue: 'bias' },
+    { id: 'sessions', titre: 'Carte des sessions', vue: null },
+  ];
+  function panneau(p) {
+    return '<section class="home-zone home-zone--w' + (p.large ? ' home-zone--wide' : '') + '">'
+      + '<div class="home-sec home-sec--w">' + esc(p.titre)
+      + (p.vue ? '<button class="home-zone-go" onclick="DTPHome.openView(\'' + p.vue + '\')">Ouvrir ›</button>' : '')
+      + '</div>'
+      + '<div class="home-zone-body" id="home-w-' + p.id + '"></div>'
+      + '</section>';
   }
 
   function build(user, cfg) {
@@ -143,22 +125,17 @@
       +     '<div class="home-sub">' + esc(dateFr()) + ' — ton desk est prêt.</div>'
       +   '</div>'
       +   '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
-      +   '<div class="home-cols">'
-      +     '<div class="home-col">'
+      +   '<div class="home-grid">'
+      +     '<section class="home-zone home-zone--desks">'
       +       '<div class="home-sec">Mes desks</div>'
       +       '<div class="home-cards">' + layoutCards(cfg) + '</div>'
-      +       '<div class="home-sec">Accès rapide</div>'
-      +       '<div class="home-chips">' + VUES.map(function (v) {
-                return '<button class="home-chip" onclick="DTPHome.openView(\'' + v[0] + '\')">› ' + esc(v[1]) + '</button>';
-              }).join('') + '</div>'
-      +     '</div>'
-      +     '<div class="home-col home-col--side">'
-      +       '<div class="home-sec">À suivre aujourd\'hui</div>'
-      +       '<div class="home-box" id="home-ev"><div class="home-empty">Lecture du calendrier…</div></div>'
-      +       '<div class="home-sec">Hiérarchie des devises</div>'
-      +       '<div class="home-box" id="home-fx"><div class="home-empty">Lecture de la force des devises…</div></div>'
-      +     '</div>'
+      +     '</section>'
+      +     PANNEAUX.map(panneau).join('')
       +   '</div>'
+      +   '<div class="home-sec">Accès rapide</div>'
+      +   '<div class="home-chips">' + VUES.map(function (v) {
+            return '<button class="home-chip" onclick="DTPHome.openView(\'' + v[0] + '\')">› ' + esc(v[1]) + '</button>';
+          }).join('') + '</div>'
       + '</div>';
     document.body.appendChild(el);
 
@@ -168,15 +145,34 @@
       if (!st) { clearInterval(iv); return; }
       st.innerHTML = sessionsHtml();
     }, 30000);
+    _menage.push(function () { clearInterval(iv); });
 
-    // Chaque bloc se remplit indépendamment : un endpoint muet n'empêche pas les autres de servir.
-    var poser = function (id, html) { var h = document.getElementById(id); if (h) h.innerHTML = html; };
-    fetch('/api/calendar-events').then(function (r) { return r.json(); })
-      .then(function (j) { poser('home-ev', eventsHtml(j && j.items)); })
-      .catch(function () { poser('home-ev', '<div class="home-empty">Calendrier indisponible.</div>'); });
-    fetch('/api/currency-strength?period=today').then(function (r) { return r.json(); })
-      .then(function (j) { poser('home-fx', forceHtml(j)); })
-      .catch(function () { poser('home-fx', '<div class="home-empty">Force des devises indisponible.</div>'); });
+    // MONTAGE DES VRAIS WIDGETS.
+    // Deux conditions, apprises à la mesure : (1) DTPWidgets doit exister — widgets.js est un script
+    // DIFFÉRÉ, il peut s'exécuter APRÈS cet écran (construit dès la réponse de deux fetch souvent en
+    // cache) ; une simple garde `window.DTPWidgets && …` sautait alors le montage EN SILENCE, d'où
+    // quatre cadres vides. (2) Le conteneur doit être MIS EN PAGE : amCharts et Leaflet mesurent 0×0
+    // dans un cadre pas encore posé et rendraient une carte blanche — d'où les deux frames d'attente.
+    var _monte = false;
+    function monterTout() {
+      if (_monte) return; _monte = true;
+      PANNEAUX.forEach(function (p) {
+        var host = document.getElementById('home-w-' + p.id); if (!host) return;
+        try { var un = DTPWidgets.mountInto(p.id, host, p.cfg); if (un) _menage.push(un); } catch (e) {}
+      });
+    }
+    (function attendre(essais) {
+      if (!window.DTPWidgets || !DTPWidgets.mountInto) {
+        if (essais > 60) return;                                  // ~6 s : le module ne viendra plus
+        return setTimeout(function () { attendre(essais + 1); }, 100);
+      }
+      // On PRÉFÈRE deux frames (le cadre est alors mis en page, amCharts et Leaflet se mesurent
+      // correctement), mais on ne s'y FIE PAS : requestAnimationFrame ne se déclenche JAMAIS dans un
+      // onglet en arrière-plan. Sans ce repli, ouvrir le desk dans un onglet non actif laissait les
+      // quatre panneaux vides jusqu'à ce qu'on y revienne — défaut trouvé à la mesure, pas supposé.
+      requestAnimationFrame(function () { requestAnimationFrame(monterTout); });
+      setTimeout(monterTout, 300);
+    })(0);
   }
 
   window.DTPHome = { close: close, openDesk: openDesk, openView: openView, createDesk: createDesk };

@@ -2045,6 +2045,23 @@
     // Miniature d'un layout — exposée pour que l'ACCUEIL (home.js) rende la même vignette que le
     // gestionnaire : un seul moteur, donc zéro divergence visuelle entre les deux écrans.
     thumb: function (items, opts) { try { return _thumb(items, opts); } catch (e) { return ''; } },
+    // Liste des widgets montables (id + nom + famille) — pour qu'un autre écran propose un choix
+    // sans dupliquer le catalogue.
+    catalogue: function () { return CATALOG.map(function (w) { return { id: w.id, nom: w.name, tag: w.tag || '', cat: w.cat }; }); },
+    // MONTER UN VRAI WIDGET DU DESK dans n'importe quel conteneur (l'espace d'accueil s'en sert).
+    // C'est EXACTEMENT le widget du desk — même code, mêmes données, mêmes états de chargement et
+    // d'erreur : aucune ré-implémentation à maintenir en parallèle. Renvoie la fonction de nettoyage
+    // (timers, roots amCharts, carte Leaflet) — l'appelant DOIT l'exécuter en fermant son écran,
+    // sinon les minuteurs du widget survivent à la page qui l'affichait.
+    mountInto: function (id, host, cfg) {
+      var w = byId(id); if (!w || !host) return null;
+      var it = { w: id, gw: 12, gh: 12 };
+      if (cfg && typeof cfg === 'object') it.cfg = cfg;      // réglages du contrat déclaratif
+      try {
+        var un = w.mount(host, it);
+        return typeof un === 'function' ? un : null;
+      } catch (e) { try { fallback(host, w.name + ' indisponible.'); } catch (_) {} return null; }
+    },
     open: function () {                                   // appelé par activateView('widgets')
       document.body.classList.add('wdg-mode');            // masque la nav principale (Mon Desk = espace autonome)
       // TEMPLATE PAR DÉFAUT (demande user 23/07) : à l'ARRIVÉE sur Mon Desk (icône/logo, chargement), on ouvre
