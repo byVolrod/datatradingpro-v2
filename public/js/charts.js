@@ -3363,7 +3363,12 @@ function _calMeetReading(tone, sc, opts) {
     hold: { hike: 'peut confirmer ou tempérer la hausse attendue', hold: 'en ligne avec le maintien attendu', cut: 'peut confirmer ou tempérer la baisse attendue' },
   };
   let txt;
-  if (!tone) txt = 'aucun propos récent — le ton du discours fera la différence';
+  if (!tone) txt = o.aDesPropos
+    // Des propos EXISTENT et sont listés juste en dessous : dire « aucun propos récent » serait
+    // faux. Ce qui manque, c'est un signal de taux dans ces propos — nuance qui change tout pour
+    // le lecteur (« la banque n'a rien dit » vs « elle a parlé d'autre chose »).
+    ? 'propos récents sans signal de politique monétaire — c\'est ce discours qui donnera le ton'
+    : 'aucun propos récent — le ton du discours fera la différence';
   else if (!dom) txt = tone.sens;
   else txt = (M[tone.key] || {})[dom[0]] || tone.sens;
   if (dom && !o.pricingAilleurs) txt += ` — marché : <strong>${dom[1]} ${Math.round(dom[2])} %</strong>`;
@@ -3402,6 +3407,20 @@ function _calFmtDateFr(iso) {
 //   · sens vs précédent  → maintenu / relevé / abaissé (avec l'écart en points de %)
 //   · écart vs prévision → conforme / au-dessus / en dessous des attentes
 // Renvoie null tant que le chiffre réel n'est pas publié : avant, il n'y a rien à annoncer.
+// Un événement de banque centrale peut ne porter AUCUN chiffre (conférence de presse, discours)
+// alors que la DÉCISION du même jour, elle, est publiée : ce sont deux lignes distinctes du
+// calendrier. Sans ce rattachement, la fiche d'une conférence de presse tenue juste après le FOMC
+// ignorait la décision et continuait d'afficher le pricing d'AVANT-réunion (« maintien 49 % ·
+// hausse 51 % ») pour une réunion déjà tenue, plus un « Taux actuel » tiré du pricing.
+// On cherche donc, le même jour et sur la même devise, l'événement de décision qui porte un chiffre.
+const _CAL_DEC_RX = /rate\s+(?:decision|statement|announcement)|(?:interest|cash|bank|overnight|official|policy|deposit|refi(?:nancing)?)\s+rate|\bocr\b/i;
+function _calDecisionDuJour(ev) {
+  if (!Array.isArray(_calEvents) || !ev || !ev.timestamp) return null;
+  const jour = t => { const d = new Date(t); return d.getUTCFullYear() + '-' + d.getUTCMonth() + '-' + d.getUTCDate(); };
+  const j = jour(ev.timestamp);
+  return _calEvents.find(e => e && e.currency === ev.currency && e.timestamp && jour(e.timestamp) === j
+    && e !== ev && _CAL_DEC_RX.test(e.title || '') && _calNum(e.actual) != null) || null;
+}
 function _calDecisionOutcome(ev) {
   const fr = x => String(x).replace('.', ',');   // interface francaise : virgule decimale
   const a = _calNum(ev && ev.actual); if (a == null) return null;
@@ -3507,8 +3526,13 @@ async function _calValueBlockHtml(ev) {
     quotes = quotes.slice(0, 3);
     const tone = _calToneOf(quotes.map(q => q.statement || q.h));
     // RESULTAT EN PREMIER des qu il est publie : c est la seule chose qu on vient chercher ici.
-    const _res = _calDecisionOutcome(Object.assign({ __bank: cb.bank }, ev));   // cb.bank = « Fed (FOMC) », « BCE »…
-    if (_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Résultat</span><span class="cal-kb-val"><b style="color:${_res.couleur};">${_calEsc(_res.sens)}</b>${_res.attente ? ` <span class="cal-kb-sub">${_calEsc(_res.attente)}</span>` : ''}</span></div>`);
+    let _res = _calDecisionOutcome(Object.assign({ __bank: cb.bank }, ev));   // cb.bank = « Fed (FOMC) », « BCE »…
+    // Pas de chiffre sur CET événement (conférence de presse, discours) ? La décision du jour, elle,
+    // est peut-être tombée : on la rattache. La fiche passe alors en mode APRÈS-décision — résultat
+    // annoncé, pricing d'avant-réunion masqué, taux de référence = celui qui vient d'être fixé.
+    const _decJour = _res ? null : _calDecisionDuJour(ev);
+    if (_decJour) _res = _calDecisionOutcome(Object.assign({ __bank: cb.bank }, _decJour));
+    if (_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_decJour ? 'Décision du jour' : 'Résultat'}</span><span class="cal-kb-val"><b style="color:${_res.couleur};">${_calEsc(_res.sens)}</b>${_res.attente ? ` <span class="cal-kb-sub">${_calEsc(_res.attente)}</span>` : ''}</span></div>`);
     // Le ton « avant réunion » n a plus d objet une fois la decision connue.
     // Le ton « avant » situe le contexte, le ton « après » dit ce que la banque a réellement
     // communiqué. Les deux sont utiles APRÈS la réunion — c est la comparaison qui informe.
@@ -3531,7 +3555,7 @@ async function _calValueBlockHtml(ev) {
     // ton, la phrase ce qu'il implique, et le pricing n'est rappelé que s'il n'apparaît nulle part
     // ailleurs. APRÈS la réunion, on repasse aux deux lignes ton avant / ton après : c'est leur
     // COMPARAISON qui informe, et la lecture prospective n'a plus d'objet.
-    const reading = _res ? '' : _calMeetReading(tone, _sc, { pricingAilleurs: !!(_aVenir && _probs) });
+    const reading = _res ? '' : _calMeetReading(tone, _sc, { pricingAilleurs: !!(_aVenir && _probs), aDesPropos: quotes.length > 0 });
     if (reading) {
       const _bd = tone ? `<span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ` : '';
       rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">${_bd}${reading}</span></div>`);
@@ -3556,7 +3580,7 @@ async function _calValueBlockHtml(ev) {
       // « maintenu à 3,75 % » donnait deux chiffres contradictoires dans le même bloc.
       const _tauxRef = (_res && _res.taux != null) ? _res.taux : bank.rate;
       if (_tauxRef != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(_tauxRef).replace('.', ','))} %</span></div>`);
-      if (_aVenir) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${_probs ? `<div class="cal-kb-sub">${_probs}</div>` : ''}</span></div>`);
+      if (_aVenir) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? (bank.nextDays === 0 ? ' (aujourd\'hui)' : ` (dans ${bank.nextDays} j)`) : ''}${_probs ? `<div class="cal-kb-sub">${_probs}</div>` : ''}</span></div>`);
     }
     // « La banque surveille » : ce qui la fait monter ou baisser les taux — la grille de lecture
     // du discours (un intervenant est TOUJOURS jugé sur ces axes-là).
