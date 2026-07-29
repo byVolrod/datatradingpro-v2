@@ -519,10 +519,13 @@ app.get('/api/auth/me', async (req, res) => {
     const planLabel = _tl ? (_cl && _tl !== 'Essai gratuit' ? _tl + ' · ' + _cl : _tl) : 'Professionnel';
     const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active, expiresAt, isTrial, planLabel };
     req.session.user = user; // maintenir la session à jour
-    res.json({ loggedIn: true, user });
+    // loginAt = ancre ABSOLUE du login (déjà posée pour le couperet 24 h). Exposée au front pour
+    // qu'il distingue « nouvelle connexion » de « rechargement de page » — sessionStorage ne sait
+    // pas faire la différence. C'est un horodatage, pas un secret.
+    res.json({ loggedIn: true, user, loginAt: req.session.loginAt || 0 });
   } catch {
     // Fallback si DB inaccessible : utiliser la session
-    res.json({ loggedIn: true, user: req.session.user });
+    res.json({ loggedIn: true, user: req.session.user, loginAt: req.session.loginAt || 0 });
   }
 });
 

@@ -9,7 +9,8 @@
 (function () {
   'use strict';
   var GATE_EMAIL = 'volrod.dev@gmail.com';           // v1 : admin uniquement — élargir ici le jour venu
-  var FLAG = 'dtp_home_seen';
+  var FLAG = 'dtp_home_seen';                       // suffixé par l'ancre de connexion (cf. plus bas)
+  var _flagCle = FLAG;                              // clé effective, connue une fois l'auth lue
 
   function esc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); }
   function salut() {
@@ -24,7 +25,7 @@
   // Sans elles, fermer l'accueil laisserait tourner des widgets invisibles pour toute la session.
   var _menage = [];
   function close() {
-    try { sessionStorage.setItem(FLAG, '1'); } catch (e) {}
+    try { sessionStorage.setItem(_flagCle, '1'); } catch (e) {}
     _menage.splice(0).forEach(function (f) { try { f(); } catch (e) {} });
     var el = document.getElementById('dtp-home'); if (el) el.remove();
   }
@@ -190,10 +191,22 @@
 
   window.DTPHome = { close: close, openDesk: openDesk, openView: openView, createDesk: createDesk };
 
-  // Démarrage : gate compte + 1×/session. On attend l'auth (même endpoint que le reste du desk).
-  try { if (sessionStorage.getItem(FLAG)) return; } catch (e) {}
+  // Démarrage : à CHAQUE CONNEXION (et non une fois par session de navigateur — dans un onglet
+  // laissé ouvert, sessionStorage survit à une déconnexion/reconnexion, et l'accueil ne revenait
+  // jamais). La clé du marqueur porte l'ancre de connexion renvoyée par /api/auth/me : nouvelle
+  // connexion → nouvelle clé → l'accueil s'affiche. Rechargement de page → même clé → « Accéder au
+  // desk » reste respecté.
   fetch('/api/auth/me').then(function (r) { return r.json(); }).then(function (d) {
     if (!d || !d.loggedIn || !d.user) return;
+    _flagCle = FLAG + ':' + (d.loginAt || 0);
+    try { if (sessionStorage.getItem(_flagCle)) return; } catch (e) {}
+    // Ménage : on ne garde que le marqueur de la connexion courante (sinon la liste enfle).
+    try {
+      for (var i = sessionStorage.length - 1; i >= 0; i--) {
+        var k = sessionStorage.key(i);
+        if (k && k.indexOf(FLAG) === 0 && k !== _flagCle) sessionStorage.removeItem(k);
+      }
+    } catch (e) {}
     if (String(d.user.email || '').toLowerCase() !== GATE_EMAIL) return;   // v1 : admin seulement
     fetch('/api/widgets').then(function (r) { return r.json(); }).then(function (j) {
       build(d.user, (j && j.cfg) || { layouts: [] });
