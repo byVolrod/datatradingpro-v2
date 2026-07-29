@@ -6625,8 +6625,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .season-table-wrap { flex: 1; overflow: auto; display: flex; }
 
 /* ── Bouton engrenage Seasonality + tooltip « Settings » ── */
-.season-cfg-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: 8px; padding: 0; background: none; border: 1px solid transparent; border-radius: 4px; color: #8a8a90; cursor: pointer; transition: .12s; }
-.season-cfg-btn:hover { color: #e3b23a; background: rgba(227,178,58,.1); border-color: rgba(227,178,58,.35); }
+/* Ce bouton est un .wdg-ico (celui des cartes de Mon Desk) : taille, couleur, absence de cadre et
+   survol dore viennent de la. Il etait en 24x24 avec une bordure qui s allumait — une boite pleine
+   au milieu d un panneau, la ou tout le reste est plat. On ne garde ici que le positionnement,
+   necessaire a son infobulle. */
+.season-cfg-btn { position: relative; margin-left: 8px; }
 .season-cfg-btn[data-tip]::after { content: attr(data-tip); position: absolute; top: calc(100% + 7px); right: 0; white-space: nowrap; background: #1b1b1f; color: var(--text); border: 1px solid #2a2a31; border-radius: 4px; padding: 4px 9px; font-size: 11px; font-weight: var(--fw-medium); box-shadow: 0 6px 18px rgba(0,0,0,.5); opacity: 0; transform: translateY(-3px); pointer-events: none; transition: opacity .12s, transform .12s; z-index: 6000; }
 .season-cfg-btn[data-tip]:hover::after { opacity: 1; transform: translateY(0); }
 
