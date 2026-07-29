@@ -1076,9 +1076,23 @@
     const asof = document.getElementById('fin-asof');
     if (asof) asof.textContent = (d.source === 'whop' ? 'chiffres Whop · ' : '') + 'au ' + new Date(d.generatedAt).toLocaleString('fr-FR');
 
-    const kpis = [
-      { l: 'MRR · revenu mensuel', v: eur(k.mrr), sub: `ARPU ${eur(k.arpu)} / abonné`, accent: true },
-      { l: 'ARR · annualisé',      v: eur(k.arr), sub: `${k.activeSubs} abonné(s) actif(s)` },
+    // ARGENT RÉEL (paiements Whop soldés, net de remboursements) quand il est disponible ;
+    // sinon on retombe sur l'estimation, en le DISANT plutôt qu'en laissant croire à du réel.
+    const r = d.revenu || null;
+    const eur2 = n2 => cur + (Math.round((n2 || 0) * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const varHtml = v => v == null ? '' : `<span class="${v >= 0 ? 'fin-up' : 'fin-down'}">${sign(v)}% vs 30j -1</span>`;
+
+    const kpis = r ? [
+      { l: 'Encaissé · ce mois',  v: eur2(r.ceMois), sub: `mois dernier ${eur2(r.moisDernier)}`, accent: true },
+      { l: 'Encaissé · total',    v: eur2(r.total),  sub: `${r.nb} paiement(s) · panier ${eur2(r.panier)}` },
+      { l: 'Abonnés actifs',      v: k.activeSubs, sub: `${k.trials} essai(s) en cours` },
+      { l: 'Clients',             v: k.clients, sub: `${k.newThisMonth} nouveau(x) ce mois` },
+      { l: 'Encaissé · 30 jours', v: eur2(r.j30), sub: varHtml(r.j30Var) || `30j -1 : ${eur2(r.j30Prec)}` },
+      { l: 'Churn (30j)',         v: k.churnRate + '%', sub: `${k.churned30} expiré(s)` },
+      { l: 'Revenu à risque',     v: eur(k.atRiskMrr), sub: `${k.expiringSoon} expire(nt) ≤ 7j · estimation` },
+    ] : [
+      { l: 'MRR · estimé', v: eur(k.mrr), sub: `ARPU ${eur(k.arpu)} / abonné · Whop injoignable`, accent: true },
+      { l: 'ARR · estimé', v: eur(k.arr), sub: `${k.activeSubs} abonné(s) actif(s)` },
       { l: 'Abonnés actifs',       v: k.activeSubs, sub: `${k.trials} essai(s) en cours` },
       { l: 'Clients',              v: k.clients, sub: `${k.newThisMonth} nouveau(x) ce mois` },
       { l: 'Ajout net (30j)',      v: sign(k.netAdds), sub: `<span class="${k.growthPct >= 0 ? 'fin-up' : 'fin-down'}">${sign(k.growthPct)}% vs mois -1</span>` },
@@ -1088,9 +1102,16 @@
     document.getElementById('fin-kpis').innerHTML = kpis.map(c =>
       `<div class="fin-kpi${c.accent ? ' fin-kpi--accent' : ''}"><div class="fin-kpi-label">${c.l}</div><div class="fin-kpi-val">${c.v}</div><div class="fin-kpi-sub">${c.sub || ''}</div></div>`).join('');
 
-    // Revenu net mensuel : courbe (orange)
+    // Revenu mensuel : l'ENCAISSÉ RÉEL quand Whop répond (série 12 mois construite depuis les
+    // paiements soldés), sinon l'estimation. Le titre du panneau le précise.
     const rev = d.revenueByMonth || {};
-    _amArea('fin-rev-am', Object.keys(rev).map(m => ({ cat: m.slice(2), val: rev[m] })), 0xe3b23a, cur);
+    const serieReelle = r && Array.isArray(r.serie) && r.serie.length;
+    _amArea('fin-rev-am',
+      serieReelle ? r.serie.map(m => ({ cat: m.mois.slice(2), val: m.total }))
+                  : Object.keys(rev).map(m => ({ cat: m.slice(2), val: rev[m] })),
+      0xe3b23a, cur);
+    const titreRev = document.getElementById('fin-rev-title');
+    if (titreRev) titreRev.textContent = serieReelle ? 'Encaissé mensuel · 12 mois' : 'Revenu estimé · 12 mois';
     // Inscriptions 12 mois : courbe (bleu)
     const sm = d.signupsByMonth || {};
     _amArea('fin-chart-am', Object.keys(sm).map(m => ({ cat: m.slice(2), val: sm[m] })), 0x60a5fa, '');
