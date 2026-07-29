@@ -12494,11 +12494,17 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    base ni le soulignement or ne tombaient au même endroit que « › ACTUS ».
    On reprend donc la hauteur au TOKEN de la navbar plutôt qu'une valeur recopiée : si la nav change
    de gabarit, Mon Desk suit. Le retrait de droite est conservé (bouton Personnaliser). */
-#view-widgets > .panel > .panel-header { height: var(--navbar-h); min-height: var(--navbar-h); padding-left: 0; }
-#view-widgets > .panel > .panel-header .panel-header-left { height: 100%; }
-#wdg-layouts { align-items: center; height: 100%; }
+/* La barre de Mon Desk EST une .navbar (voir index.html) : hauteur, fond, bordure et alignement
+   viennent de la nav du desk. On ne déclare ici que la répartition gauche/droite et l'étirement
+   vertical des deux zones, pour que les onglets et « Personnaliser » occupent toute la hauteur. */
+.wdg-bar { justify-content: space-between; padding-right: 10px; }
+.wdg-bar > .panel-header-left, .wdg-bar > .panel-header-controls { align-self: stretch; align-items: stretch; }
+/* min-width:0 comme la nav : sur un écran étroit, beaucoup de layouts doivent RÉTRACTER la zone
+   d'onglets, pas repousser « Personnaliser » hors du bandeau. */
+.wdg-bar > .panel-header-left { min-width: 0; overflow: hidden; }
+.wdg-bar > .panel-header-controls { flex: 0 0 auto; }
+#wdg-layouts { display: flex; align-items: stretch; }
 /* Le conteneur de droite (.panel-header-controls) est centré verticalement et se dimensionne sur son
    contenu : « Personnaliser » ne pouvait donc pas s'étirer sur la hauteur du bandeau, et sa zone
    cliquable restait deux fois plus courte que celle d'un onglet. On étire le conteneur DANS la vue
    Mon Desk uniquement — ailleurs, .panel-header-controls porte des contrôles qui doivent rester centrés. */
-#view-widgets > .panel > .panel-header > .panel-header-controls { align-self: stretch; align-items: stretch; }
