@@ -2298,8 +2298,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* Right panel tabs — même design que la navbar */
 .right-panel-tabs {
-  height: 30px;
-  background: var(--head-bg);      /* meme fond que la nav principale (var(--head-bg)) -> barres d'onglets coherentes */
+  height: var(--navbar-h);         /* MEME hauteur que la nav du desk : elle etait a 30 px, soit 2 px de plus
+                                      que toutes les autres barres — assez pour la faire paraitre differente
+                                      alors que son fond, lui, etait deja identique. */
+  background: var(--head-bg);      /* meme fond que la nav principale -> barres d'onglets coherentes */
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: stretch;
