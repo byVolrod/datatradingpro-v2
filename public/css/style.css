@@ -7128,6 +7128,26 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Une idée par ligne dans la colonne de droite : le pricing, puis la lecture du ton. */
 .cal-kb-line { display: block; }
 .cal-kb-line + .cal-kb-line { margin-top: 3px; }
+/* CAUSE → CONSÉQUENCE : une par ligne, flèches alignées en colonne. La condition se balaie
+   verticalement, la conséquence se lit en face — on ne relit pas une phrase pour la retrouver. */
+.cal-flux { display: grid; grid-template-columns: minmax(0, max-content) auto minmax(0, 1fr); column-gap: 9px; row-gap: 5px; margin-top: 6px; align-items: baseline; }
+.cal-flux-a { color: var(--text2, #b7bac2); }
+.cal-flux-x { color: var(--orange); font-weight: 700; }
+.cal-flux-b { color: var(--text); }
+/* Écran étroit : la grille à 3 colonnes écraserait les deux textes. On empile, et la conséquence
+   se repère à son filet or plutôt qu'à une flèche. */
+@media (max-width: 900px) {
+  .cal-flux { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .cal-flux-x { display: none; }
+  .cal-flux-a { margin-top: 4px; }
+  .cal-flux-b { padding-left: 9px; border-left: 2px solid var(--orange); margin: 2px 0 4px; }
+}
+/* Téléphone : la colonne de libellés fige 148 px, soit la moitié de l'écran — le texte se lisait
+   en colonnes de trois mots. Le libellé passe AU-DESSUS de sa valeur, qui récupère toute la largeur. */
+@media (max-width: 640px) {
+  .cal-kb-row { flex-direction: column; gap: 2px; }
+  .cal-kb-lbl { flex: none; padding-top: 0; }
+}
 /* Extrait du discours : 1 propos par ligne = tag signal (hawkish/dovish/neutre) + citation VO + attribution/date */
 .cal-kb-qline { margin: 5px 0; line-height: 1.5; }
 .cal-kb-qtone { display: inline-block; font-size: 9px; font-weight: 700; border: 1px solid; border-radius: 3px; padding: 0 4px; margin-right: 6px; letter-spacing: .03em; text-transform: uppercase; vertical-align: middle; }
@@ -12163,6 +12183,32 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   /* [LOW] CALCULATRICE — bouton « Copier » (22px) sous la cible tactile → aligné sur la hauteur de contrôle desk. */
   .calc-copy { height: 30px; padding: 0 12px; }
 }
+
+
+/* ── FICHE ÉVÉNEMENT en thème clair ──────────────────────────────────────────────────────────
+   Les couleurs de texte de la fiche (valeurs, citations, libellés) sont écrites en dur en blanc
+   cassé : lisibles sur le fond sombre, quasi invisibles sur le papier clair. On les re-mappe ici
+   sur les tokens, qui ont une valeur par thème. Rien n'est touché côté sombre. */
+html[data-theme="light"] .cal-detail-title,
+html[data-theme="light"] .cal-specs-table td,
+html[data-theme="light"] .cal-hist-table td,
+html[data-theme="light"] .cal-kb-val { color: var(--text); }
+html[data-theme="light"] .cal-detail-sub,
+html[data-theme="light"] .cal-spec-lbl,
+html[data-theme="light"] .cal-hist-table th,
+html[data-theme="light"] .cal-detail-empty,
+html[data-theme="light"] .cal-kb-lbl,
+html[data-theme="light"] .cal-kb-quote,
+html[data-theme="light"] .cal-kb-sub,
+html[data-theme="light"] .cal-kb-muted,
+html[data-theme="light"] .cal-hist-sub { color: var(--text2); }
+html[data-theme="light"] .cal-kb-qwho { color: var(--text2); }
+/* L'or vif de marque tombe a 1,7:1 sur fond clair : on bascule sur l'or assombri du theme. */
+html[data-theme="light"] .cal-detail-section,
+html[data-theme="light"] .cal-kb-cat,
+html[data-theme="light"] .cal-key-chip { color: var(--orange); }
+html[data-theme="light"] .cal-kb-quote::before,
+html[data-theme="light"] .cal-kb-quote::after { color: var(--text3); }
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════════════
    THÈME CLAIR (bêta) — activé par html[data-theme="light"] (sélecteur Apparence du profil).
