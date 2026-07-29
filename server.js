@@ -4500,8 +4500,21 @@ async function aiSmart(category, prompt, maxTokens, opts = {}) {
       throw e;
     }
   }
+  // ── HORS BUDGET GEMINI : les AUTRES gratuits restent disponibles ──────────────────────────────
+  // L'enveloppe qui vient de refuser pace le quota gratuit de GEMINI. Elle ne dit RIEN de GitHub
+  // Models, OpenRouter ou Cohere, qui ont chacun leur propre quota. Or le code sautait directement
+  // à Claude : quand Claude n'a plus de crédit, tout échouait alors que trois fournisseurs gratuits
+  // étaient à 100/100 et n'avaient reçu AUCUN appel de la journée (constaté en production).
+  // On tente donc la cascade SANS Gemini avant toute dépense — et avant d'abandonner.
+  try {
+    const out = await ai.generateText(prompt, maxTokens, { noGemini: true, noClaude: !claudeOverBudget });
+    return out;   // pas de aiNote() : ce chemin ne consomme PAS l'enveloppe Gemini
+  } catch (e) {
+    // Si la cascade a déjà traversé Claude, inutile d'y repasser juste après.
+    if (e && e.claudeTried) throw e;
+  }
   if (claudeOverBudget && ai.claudeUsable && ai.claudeUsable()) { const out = await ai.generateTextClaudeOnly(prompt, maxTokens); _aiNoteClaude(category); return out; }
-  throw new Error('AI indisponible (budget Gemini épuisé' + (opts.priority === 'user' ? ', aucune clé Claude utilisable' : ' — fond : pas de bascule crédits payants') + ')');
+  throw new Error("AI indisponible — budget Gemini épuisé ET aucun autre fournisseur (GitHub/OpenRouter/Cohere" + (opts.priority === "user" ? "/Claude" : "") + ") n'a répondu");
 }
 
 // ── COALESCING des générations à la demande ──────────────────────────────────

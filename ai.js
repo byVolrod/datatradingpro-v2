@@ -820,7 +820,10 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
   // Pour CHAQUE modèle, on essaie TOUTES les clés (rotation round-robin). Tâches COURTES
   // (≤ LITE_MAXTOK tokens demandés) → cascade -lite d'abord (quota RPD ~4× supérieur) ;
   // tâches longues → cascade qualité (flash d'abord). Quotas cumulés, bascule auto sur 429.
-  if (GEMINI_KEYS.length) {
+  // noGemini : l'enveloppe de budget qui pace le quota gratuit GEMINI est epuisee, mais les AUTRES
+  // fournisseurs gratuits (GitHub Models, OpenRouter, Cohere) ont leur propre quota, intact. On saute
+  // donc Gemini et on continue la cascade — au lieu d'abandonner toute la chaine gratuite.
+  if (GEMINI_KEYS.length && !opts.noGemini) {
     let lastErr;
     const n = GEMINI_KEYS.length;
     _geminiCursor = (_geminiCursor + 1) % n;
@@ -881,7 +884,8 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
     catch (e) { e.claudeTried = true; throw e; }   // l'appelant (aiSmart) sait : pas de 2e passe Claude
   }
 
-  throw new Error(opts.noClaude ? 'IA indisponible (Groq/Gemini/GitHub épuisés, Claude désactivé pour ce flux de fond)' : 'Aucune ressource IA configurée (GROQ / GEMINI / GITHUB_TOKEN / ANTHROPIC)');
+  const _tentes = ['Groq', opts.noGemini ? null : 'Gemini', 'GitHub', 'OpenRouter', 'Cohere', opts.noClaude ? null : 'xAI', opts.noClaude ? null : 'Claude'].filter(Boolean).join('/');
+  throw new Error('IA indisponible — ' + _tentes + ' tentes sans succes' + (opts.noGemini ? ' (Gemini hors budget, saute)' : '') + (opts.noClaude ? ' (payant desactive pour ce flux)' : ''));
 }
 
 // Génère via Claude UNIQUEMENT (ignore Gemini). Utile quand le budget Gemini soft
