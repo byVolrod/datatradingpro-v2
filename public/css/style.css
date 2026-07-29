@@ -12388,3 +12388,64 @@ html[data-theme="light"] .wdg-skel-l { background: linear-gradient(90deg, rgba(0
    suppression d'un layout. Sert à « Réinitialiser tout » du gestionnaire. */
 .wdg-btn--danger { color: #fff !important; background: #ff3d00 !important; border-color: #ff3d00 !important; }
 .wdg-btn--danger:hover { background: #e63500 !important; }
+
+/* ══ ESPACE DE TRAVAIL — état de séance, agenda, hiérarchie des devises ═══════════════════════════
+   Identité DTP : rail or des titres, fond de panneau, filets fins, mono pour les chiffres.
+   Le parti pris : de la DONNÉE, pas de la décoration — ce qu'on veut savoir avant d'ouvrir le desk. */
+.home-strip {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px;
+  padding: 10px 12px; background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+}
+.home-sess { display: flex; align-items: center; gap: 7px; flex: 1 1 150px; min-width: 0; padding: 4px 2px; }
+.home-sess-dot { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: var(--text4); }
+.home-sess.is-open .home-sess-dot { background: #00e676; box-shadow: 0 0 0 3px rgba(0, 230, 118, .16); }
+.home-sess-n {
+  font-family: var(--tight); font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text3); white-space: nowrap;
+}
+.home-sess.is-open .home-sess-n { color: var(--text); }
+.home-sess-t { font-size: 10.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-sess.is-open .home-sess-t { color: var(--text3); }
+
+.home-box { background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius); padding: 4px 0; overflow: hidden; }
+.home-empty { padding: 14px 12px; font-size: 11.5px; color: var(--text4); text-align: center; }
+
+/* Agenda : l'heure en mono pour que la colonne s'aligne, la devise en pastille, le titre tronqué. */
+.home-ev { display: flex; align-items: baseline; gap: 9px; padding: 7px 12px; border-bottom: 1px solid var(--hud-line, var(--border)); }
+.home-ev:last-child { border-bottom: 0; }
+.home-ev-h { flex: 0 0 auto; font-family: var(--mono, ui-monospace, monospace); font-size: 11px; color: var(--orange); font-variant-numeric: tabular-nums; }
+.home-ev-ccy {
+  flex: 0 0 auto; font-family: var(--mono, ui-monospace, monospace); font-size: 9.5px; font-weight: 700; letter-spacing: .05em;
+  color: var(--text2); background: var(--bg5); border-radius: 3px; padding: 1px 5px;
+}
+.home-ev-t { flex: 1 1 auto; min-width: 0; font-size: 11.5px; color: var(--text2); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Hiérarchie des devises : barre proportionnelle à la plus forte, vert en tête / rouge en queue. */
+.home-fx { display: flex; align-items: center; gap: 9px; padding: 6px 12px; }
+.home-fx-c { flex: 0 0 34px; font-family: var(--mono, ui-monospace, monospace); font-size: 11px; font-weight: 700; color: var(--text); }
+.home-fx-bar { flex: 1 1 auto; height: 4px; background: var(--bg5); border-radius: 2px; overflow: hidden; }
+.home-fx-bar i { display: block; height: 100%; border-radius: 2px; }
+.home-fx.is-up   .home-fx-bar i { background: #00e676; }
+.home-fx.is-down .home-fx-bar i { background: #ff3d00; }
+.home-fx-v { flex: 0 0 auto; font-family: var(--mono, ui-monospace, monospace); font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text3); }
+.home-fx.is-up   .home-fx-v { color: #00e676; }
+.home-fx.is-down .home-fx-v { color: #ff3d00; }
+.home-fx-sep { height: 1px; margin: 5px 12px; background: var(--hud-line, var(--border)); }
+
+/* Sur écran étroit la colonne latérale passe SOUS le contenu principal (jamais de colonne écrasée),
+   et l'état de séance se met sur deux rangées plutôt que de tronquer ses libellés. */
+@media (max-width: 900px) {
+  .home-cols { flex-direction: column; gap: 4px; }
+  .home-col--side { flex: 1 1 auto; width: 100%; }
+  .home-sess { flex: 1 1 45%; }
+}
+/* L'or de marque en TEXTE sur papier clair ne tient que ~3:1 à 11 px — insuffisant pour une heure
+   qu'on lit en diagonale. On l'assombrit UNIQUEMENT en thème clair : la couleur reste dans la
+   famille de la charte, la lisibilité passe au-dessus du seuil. */
+html[data-theme="light"] .home-ev-h { color: #7a5c07; }
+/* Le vert et le rouge de la charte sont faits pour SIGNALER (fonds, barres, badges) — en TEXTE sur
+   papier clair ils tombent à 1,7:1 et 3,5:1, illisibles. Les BARRES gardent donc les valeurs exactes
+   de la charte ; seuls les CHIFFRES sont assombris, dans la même famille de teinte. */
+html[data-theme="light"] .home-fx.is-up   .home-fx-v { color: #05713b; }
+html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
