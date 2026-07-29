@@ -3382,6 +3382,29 @@ function _calFmtDateFr(iso) {
   try { return new Date(iso + 'T00:00:00Z').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }); } catch { return iso; }
 }
 // Valeur numérique d'une cellule calendrier (« 0.2% », « 45B », « -1.5 »)
+// RÉSULTAT d'une décision de taux : ce qui est SORTI, en une phrase.
+//   · sens vs précédent  → maintenu / relevé / abaissé (avec l'écart en points de %)
+//   · écart vs prévision → conforme / au-dessus / en dessous des attentes
+// Renvoie null tant que le chiffre réel n'est pas publié : avant, il n'y a rien à annoncer.
+function _calDecisionOutcome(ev) {
+  const fr = x => String(x).replace('.', ',');   // interface francaise : virgule decimale
+  const a = _calNum(ev && ev.actual); if (a == null) return null;
+  const p = _calNum(ev && ev.previous), f = _calNum(ev && ev.forecast);
+  let sens = 'Décision publiée', couleur = '#9aa0aa';
+  if (p != null) {
+    const d = Math.round((a - p) * 100) / 100;
+    if (d === 0) { sens = 'Taux maintenu à ' + fr(a) + ' %'; couleur = '#9aa0aa'; }
+    else if (d > 0) { sens = 'Taux relevé à ' + fr(a) + ' % (+' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
+    else { sens = 'Taux abaissé à ' + fr(a) + ' % (' + fr(d) + ' pt)'; couleur = '#00e676'; }
+  } else sens = 'Taux à ' + fr(a) + ' %';
+  let attente = '';
+  if (f != null) {
+    if (a === f) attente = 'conforme aux attentes';
+    else if (a > f) attente = 'au-dessus des attentes (' + fr(f) + ' % prévu) — surprise restrictive';
+    else attente = 'en dessous des attentes (' + fr(f) + ' % prévu) — surprise accommodante';
+  }
+  return { sens, attente, couleur };
+}
 function _calNum(s) { const m = String(s == null ? '' : s).replace(/,/g, '.').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; }
 // « CONCLUSION » (demande user) : PAS la réaction théorique générique, mais l'INTERPRÉTATION du résultat
 // publié — écart réel vs consensus + implications concrètes (politique monétaire, devise, obligations,
@@ -3457,7 +3480,11 @@ async function _calValueBlockHtml(ev) {
     quotes.sort((a, b) => (b.t ? 1 : 0) - (a.t ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
     quotes = quotes.slice(0, 3);
     const tone = _calToneOf(quotes.map(q => q.statement || q.h));
-    if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent · avant réunion</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
+    // RESULTAT EN PREMIER des qu il est publie : c est la seule chose qu on vient chercher ici.
+    const _res = _calDecisionOutcome(ev);
+    if (_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Résultat</span><span class="cal-kb-val"><b style="color:${_res.couleur};">${_calEsc(_res.sens)}</b>${_res.attente ? ` <span class="cal-kb-sub">${_calEsc(_res.attente)}</span>` : ''}</span></div>`);
+    // Le ton « avant réunion » n a plus d objet une fois la decision connue.
+    if (tone && !_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent · avant réunion</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
     if (quotes.length) {
       const qhtml = quotes.map(q => {
         const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
@@ -3487,11 +3514,12 @@ async function _calValueBlockHtml(ev) {
     }
     // « La banque surveille » (23/07, demande user) : ce qui la fait monter ou baisser les taux —
     // la grille de lecture du discours (un intervenant est TOUJOURS jugé sur ces axes-là).
-    if (_CAL_CB_WATCH[ev.currency]) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">La banque surveille</span><span class="cal-kb-val">${_CAL_CB_WATCH[ev.currency]}</span></div>`);
+    if (_CAL_CB_WATCH[ev.currency] && !_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">La banque surveille</span><span class="cal-kb-val">${_CAL_CB_WATCH[ev.currency]}</span></div>`);
     // « Lecture pour la réunion » (23/07) : croise le TON récent et le SCÉNARIO pricé par le marché
     // → hausse/baisse/maintien attendu, et ce que CE discours peut confirmer ou tempérer. Toujours
     // présent dès qu'il y a des probabilités (même sans propos récents → mode « à écouter »).
-    const reading = _calMeetReading(tone, (bank && bank.scenario) || {});
+    // « Lecture pour la réunion » = ce qu il FAUDRA écouter. Après publication elle induirait en erreur.
+    const reading = _res ? '' : _calMeetReading(tone, (bank && bank.scenario) || {});
     if (reading) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture pour la réunion</span><span class="cal-kb-val">${reading}</span></div>`);
     if (!rows.length) return '';
     return `<div class="cal-kb"><div class="cal-detail-section">Banque centrale · ${_calEsc(cb.bank)}</div>${rows.join('')}</div>`;
