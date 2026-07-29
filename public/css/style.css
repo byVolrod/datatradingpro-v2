@@ -2091,7 +2091,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   align-items: center;
   justify-content: center;
   transition: opacity .45s ease;
+
 }
+
 #boot-loader .dtp-loader {              /* juste le spinner + libellé, centré par le parent flex */
   width: auto; height: auto; min-height: 0; flex: 0 0 auto; padding: 0; gap: 16px;
 }
@@ -12483,3 +12485,5 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
   .home-zone, .home-zone--desks, .home-zone--wide { grid-column: 1 / -1; }
   .home-zone-body, .home-zone--wide .home-zone-body { height: 240px; }
 }
+
+
