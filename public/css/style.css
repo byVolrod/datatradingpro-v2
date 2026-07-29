@@ -4433,8 +4433,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Barre d'en-tête ALIGNÉE sur la norme `.panel-header` (demande user 27/07 « les noms au même emplacement
    pour tous ») : hauteur 32px, fond --head-bg, padding 0 10px → le titre démarre au MÊME x que partout
    ailleurs (avant : padding 14px 20px → titre décalé de 10px vers la droite et barre de 42px). */
-.br-list-hdr { display: flex; align-items: center; height: 32px; padding: 0 10px; background: var(--head-bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.br-list-title { font-family: var(--font-mono); font-size: 12px; font-weight: var(--fw-bold); color: #e9eaed; letter-spacing: 0.04em; }
+.br-list-hdr { display: flex; align-items: center; flex-shrink: 0; }   /* apparence : .chart-header */
+/* .br-list-title est un .chart-header-title (il était en 12px/700/0,04em, hors norme). */
 
 .br-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; align-items: center; }   /* wrap : en colonne 50% (laptops), les 3 selects passent sous la recherche au lieu de l'écraser */
 .br-search-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 5px 10px; min-width: 0; }
@@ -4586,19 +4586,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 32px;
-  padding: 0 10px;
-  background: var(--head-bg);
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.arlib-list-title {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: var(--fw-bold);
-  color: #e9eaed;
-  letter-spacing: 0.04em;
-}
+/* .arlib-list-title est un .chart-header-title : toute sa typographie vient de la. Cette regle
+   redeclarait police, taille, graisse, couleur et interlettrage — c est exactement ce qui faisait
+   deriver ce bandeau des autres. */
 
 /* Toolbar */
 .arlib-toolbar {
@@ -6276,11 +6268,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
   overflow: hidden;
 }
-.strength-tf-bar {
-  display: flex; align-items: center; gap: 4px; flex-shrink: 0;   /* DTP gap-1 */
-  padding: 5px 10px 4px; border-bottom: none;
-  background: var(--bg2);
-}
+/* Bandeau du panneau Force des Devises : hauteur, fond, filet et marges viennent de .chart-header
+   (le bandeau de la Carte des sessions, posé sur l element). Il n avait aucun filet bas et un fond
+   different des autres panneaux — c est ce qui le faisait sortir du lot. */
+.strength-tf-bar { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .stf-btn {
   height: 28px; padding: 0 8px; font-size: 11px; font-weight: var(--fw-medium); letter-spacing: 0;
   font-family: var(--font-ui); background: none;
@@ -6292,11 +6283,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .stf-btn--active {   /* or DTP : fond + texte + bordure or (charte) */
   background: var(--orange-bg); border-color: rgba(227,178,58,0.30); color: var(--orange);
 }
-.strength-chart-label {
-  font-size: var(--fs-title); font-weight: var(--fw-semibold); color: var(--text);
-  font-family: var(--tight); letter-spacing: 0.08em; text-transform: uppercase;   /* meme design/taille/police/majuscule que "Baromètre des Devises" (demande) */
-  margin-right: 4px; white-space: nowrap;
-}
+/* .strength-chart-label est un .chart-header-title : sa typographie vient de la. */
+.strength-chart-label { margin-right: 4px; white-space: nowrap; }
 .strength-updated-inner {
   font-size: 9px; color: var(--text4); font-family: var(--font-mono);
 }
@@ -6870,14 +6858,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 
 /* Row 1: Title + icons */
+/* Hauteur, fond, filet et marges viennent de .chart-header (posée sur l'élément) : la seule chose
+   propre à ce bandeau est de répartir titre et flèches de navigation aux deux bouts. */
 .cal-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 32px;                 /* = .panel-header (barre d'en-tete homogene partout) */
-  padding: 0 10px;
-  background: var(--head-bg);
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 .cal-title-block { flex: 1; }
@@ -9701,13 +9687,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .fxl-wrap { display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; width: 100%; min-width: 0; background: var(--bg1); position: relative; border-radius: 0; box-shadow: var(--panel-depth); }
 /* Loader centré dans la zone VISIBLE (overlay, pas dans la table large 1240px) */
 .fxl-loader { position: absolute; inset: var(--toolbar-h) 0 0 0; display: flex; align-items: center; justify-content: center; background: var(--bg1); z-index: 5; }
-.fxl-toolbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 10px; height: 32px;              /* aligné sur la norme .panel-header (titre au même x/hauteur) */
-  background: var(--head-bg);
-  border-bottom: 1px solid var(--border); flex: 0 0 auto;
-}
-.fxl-title { font-family: var(--tight); font-size: var(--fs-title); font-weight: var(--fw-semibold); color: var(--text); letter-spacing: 0.08em; text-transform: uppercase; }   /* meme design que le titre calendrier (pas de trait orange) */
+/* Apparence héritée de .chart-header ; ici on ne garde que la répartition et le non-rétrécissement. */
+.fxl-toolbar { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
+/* .fxl-title est un .chart-header-title : sa typographie vient de là. */
 .fxl-title-sep, .fxl-title-tag { color: var(--orange); font-weight: var(--fw-bold); }   /* séparateur | et [Forex] en or vif */
 .fxl-toolbar-right { display: flex; align-items: center; gap: 10px; }
 .fxl-updated { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
