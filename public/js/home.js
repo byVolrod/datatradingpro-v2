@@ -54,16 +54,80 @@
     ['analystes', 'Analystes'], ['bias', 'Biais'], ['weekahead', 'Semaine à venir'], ['taux', 'Taux'], ['banques', 'Banques'],
   ];
 
-  function agendaHtml(days) {
-    try {
-      var todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
-      var d = (days || []).find(function (x) { return x && String(x.iso || x.date || '').slice(0, 10) === todayKey; }) || (days || [])[0];
-      if (!d) return '';
-      var evs = (d.events || []).slice(0, 6).map(function (e) {
-        return '<div class="home-ev"><span class="home-ev-ccy">' + esc(e.ccy || '') + '</span><span class="home-ev-t">' + esc(e.title || '') + '</span></div>';
-      }).join('');
-      return '<div class="home-agenda-h">' + esc(d.headline || 'Au programme aujourd\'hui') + '</div>' + (evs || '<div class="home-ev-empty">Séance calme au calendrier.</div>');
-    } catch (e) { return ''; }
+  /* ── ÉTAT DE SÉANCE ────────────────────────────────────────────────────────────────────────────
+     MÊME table et MÊME règle que la carte des sessions du desk (app.js, renderSessionMap) : heures
+     LOCALES de chaque place, week-end fermé. Dupliquer la règle ferait dire deux choses différentes
+     au même produit — si elle bouge là-bas, elle doit bouger ici. */
+  var SESSIONS = [
+    { n: 'Sydney', o: 9, c: 17, tz: 'Australia/Sydney' },
+    { n: 'Tokyo', o: 9, c: 15, tz: 'Asia/Tokyo' },
+    { n: 'Londres', o: 8, c: 17, tz: 'Europe/London' },
+    { n: 'New York', o: 9, c: 17, tz: 'America/New_York' },
+  ];
+  function _localHeure(tz) {
+    var d = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+    return { h: d.getHours() + d.getMinutes() / 60, jour: d.getDay() };
+  }
+  function _duree(h) {                                  // heures décimales → « 3 h 20 » / « 45 min »
+    var m = Math.max(0, Math.round(h * 60));
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
+  }
+  function sessionsHtml() {
+    return SESSIONS.map(function (s) {
+      var l = _localHeure(s.tz);
+      var weekend = l.jour === 0 || l.jour === 6;
+      var ouverte = !weekend && l.h >= s.o && l.h < s.c;
+      var reste = ouverte ? _duree(s.c - l.h) : (weekend ? null : _duree((l.h < s.o ? s.o - l.h : 24 - l.h + s.o)));
+      return '<div class="home-sess' + (ouverte ? ' is-open' : '') + '">'
+        + '<span class="home-sess-dot"></span>'
+        + '<span class="home-sess-n">' + s.n + '</span>'
+        + '<span class="home-sess-t">' + (weekend ? 'week-end' : ouverte ? 'ferme dans ' + reste : 'ouvre dans ' + reste) + '</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  /* ── À SUIVRE AUJOURD'HUI : publications à FORT impact restant à venir, heure de Paris.
+     On ne montre QUE le fort impact : un accueil qui liste 40 lignes ne sert personne. */
+  function eventsHtml(items) {
+    var now = Date.now();
+    var finJour = (function () {
+      var p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+      p.setHours(23, 59, 59, 999);
+      return now + (p - new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })));
+    })();
+    var evs = (items || []).filter(function (e) {
+      return e && String(e.impact || '').toLowerCase() === 'high' && (e.timestamp || 0) > now && (e.timestamp || 0) <= finJour;
+    }).sort(function (a, b) { return a.timestamp - b.timestamp; }).slice(0, 5);
+    if (!evs.length) return '<div class="home-empty">Plus de publication à fort impact aujourd\'hui.</div>';
+    return evs.map(function (e) {
+      var t = '';
+      try { t = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).format(new Date(e.timestamp)); } catch (x) {}
+      return '<div class="home-ev"><span class="home-ev-h">' + esc(t) + '</span>'
+        + '<span class="home-ev-ccy">' + esc(e.currency || '') + '</span>'
+        + '<span class="home-ev-t">' + esc(e.title || '') + '</span></div>';
+    }).join('');
+  }
+
+  /* ── HIÉRARCHIE DES DEVISES : qui mène, qui décroche sur la séance. Trois en tête, trois en queue —
+     l'information utile au réveil, pas les huit lignes du widget complet. */
+  function forceHtml(d) {
+    if (!d || !d.currencies || !d.series) return '<div class="home-empty">Force des devises indisponible.</div>';
+    var vals = d.currencies.map(function (c) {
+      var pts = (d.series[c] || []).filter(function (p) { return p && p.v != null; });
+      return { c: c, v: pts.length ? pts[pts.length - 1].v : null };
+    }).filter(function (x) { return x.v != null; }).sort(function (a, b) { return b.v - a.v; });
+    if (vals.length < 4) return '<div class="home-empty">Force des devises indisponible.</div>';
+    var max = Math.max.apply(null, vals.map(function (x) { return Math.abs(x.v); })) || 1;
+    var ligne = function (x) {
+      var pct = Math.round(Math.abs(x.v) / max * 100);
+      return '<div class="home-fx' + (x.v >= 0 ? ' is-up' : ' is-down') + '">'
+        + '<span class="home-fx-c">' + esc(x.c) + '</span>'
+        + '<span class="home-fx-bar"><i style="width:' + pct + '%"></i></span>'
+        + '<span class="home-fx-v">' + (x.v >= 0 ? '+' : '') + x.v.toFixed(2) + '</span></div>';
+    };
+    return vals.slice(0, 3).map(ligne).join('')
+      + '<div class="home-fx-sep"></div>'
+      + vals.slice(-3).map(ligne).join('');
   }
 
   function build(user, cfg) {
@@ -78,6 +142,7 @@
       +     '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
       +     '<div class="home-sub">' + esc(dateFr()) + ' — ton desk est prêt.</div>'
       +   '</div>'
+      +   '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
       +   '<div class="home-cols">'
       +     '<div class="home-col">'
       +       '<div class="home-sec">Mes desks</div>'
@@ -88,18 +153,30 @@
               }).join('') + '</div>'
       +     '</div>'
       +     '<div class="home-col home-col--side">'
-      +       '<div class="home-sec">Aujourd\'hui</div>'
-      +       '<div class="home-agenda" id="home-agenda"><div class="home-ev-empty">Chargement de l\'agenda…</div></div>'
+      +       '<div class="home-sec">À suivre aujourd\'hui</div>'
+      +       '<div class="home-box" id="home-ev"><div class="home-empty">Lecture du calendrier…</div></div>'
+      +       '<div class="home-sec">Hiérarchie des devises</div>'
+      +       '<div class="home-box" id="home-fx"><div class="home-empty">Lecture de la force des devises…</div></div>'
       +     '</div>'
       +   '</div>'
       + '</div>';
     document.body.appendChild(el);
-    // Agenda du jour (Semaine à Venir) — best-effort, la carte se masque si rien.
-    fetch('/api/week-ahead').then(function (r) { return r.json(); }).then(function (j) {
-      var host = document.getElementById('home-agenda'); if (!host) return;
-      var html = agendaHtml(j && j.days);
-      if (html) host.innerHTML = html; else host.parentElement.style.display = 'none';
-    }).catch(function () { var h = document.getElementById('home-agenda'); if (h) h.parentElement.style.display = 'none'; });
+
+    // Les sessions avancent : on les rafraîchit tant que l'écran est là (le minuteur meurt avec lui).
+    var iv = setInterval(function () {
+      var st = document.getElementById('home-strip');
+      if (!st) { clearInterval(iv); return; }
+      st.innerHTML = sessionsHtml();
+    }, 30000);
+
+    // Chaque bloc se remplit indépendamment : un endpoint muet n'empêche pas les autres de servir.
+    var poser = function (id, html) { var h = document.getElementById(id); if (h) h.innerHTML = html; };
+    fetch('/api/calendar-events').then(function (r) { return r.json(); })
+      .then(function (j) { poser('home-ev', eventsHtml(j && j.items)); })
+      .catch(function () { poser('home-ev', '<div class="home-empty">Calendrier indisponible.</div>'); });
+    fetch('/api/currency-strength?period=today').then(function (r) { return r.json(); })
+      .then(function (j) { poser('home-fx', forceHtml(j)); })
+      .catch(function () { poser('home-fx', '<div class="home-empty">Force des devises indisponible.</div>'); });
   }
 
   window.DTPHome = { close: close, openDesk: openDesk, openView: openView, createDesk: createDesk };
