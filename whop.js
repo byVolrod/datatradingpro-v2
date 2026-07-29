@@ -232,7 +232,21 @@ async function listPayments() {
     for (const p of data) {
       const memId = p.membership || p.membership_id || null;
       if (!memId) continue;
-      out.push({ membership: memId, status: String(p.status || ''), ts: p.created_at ? p.created_at * 1000 : 0 });
+      // MONTANTS conservés (ils étaient jetés — d'où un tableau de bord qui ne pouvait qu'ESTIMER le
+      // revenu depuis une grille de prix au lieu de lire l'argent réellement encaissé).
+      // `final_amount` = ce qui a été débité ; `refunded_amount` s'en retranche pour obtenir le NET.
+      // `paid_at` fait foi sur la date d'encaissement — `created_at` n'est que l'émission.
+      out.push({
+        membership: memId,
+        status: String(p.status || ''),
+        ts: p.created_at ? p.created_at * 1000 : 0,
+        paidAt: p.paid_at ? p.paid_at * 1000 : (p.created_at ? p.created_at * 1000 : 0),
+        montant: Number(p.final_amount != null ? p.final_amount : (p.total != null ? p.total : p.subtotal)) || 0,
+        rembourse: Number(p.refunded_amount) || 0,
+        devise: String(p.currency || '').toLowerCase(),
+        plan: p.plan || null,
+        user: p.user || null,
+      });
     }
     const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
   } while (page <= totalPages && page <= 60);   // cap 60 pages (3000) — anti-RAM/temps
@@ -265,4 +279,72 @@ async function listReviews() {
   return out;
 }
 
-module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, configured: () => !!WHOP_API_KEY };
+// ─── REVENU RÉELLEMENT ENCAISSÉ ────────────────────────────────────────────────────────────────
+// Le tableau de bord admin ESTIMAIT le revenu depuis une grille de prix et la durée d'accès de
+// chaque compte. On lit désormais l'argent réel, chez Whop.
+//   · seuls les paiements « paid » comptent — un « open » est un prélèvement émis, jamais soldé
+//     (c'est le cas des renouvellements échoués : compté, il gonflerait le chiffre d'affaires) ;
+//   · NET = final_amount − refunded_amount (un remboursement n'est pas un revenu) ;
+//   · la date qui fait foi est paid_at (encaissement), pas created_at (émission).
+// Résultat mis en cache 10 min : la pagination coûte quelques appels, et ces chiffres n'ont pas
+// besoin d'être à la seconde.
+let _revCache = { at: 0, data: null };
+async function revenueStats(opts) {
+  const force = !!(opts && opts.force);
+  if (!force && _revCache.data && Date.now() - _revCache.at < 10 * 60 * 1000) return _revCache.data;
+  if (!WHOP_API_KEY) return null;
+
+  const pays = await listPayments();
+  const payes = pays.filter(p => p.status === 'paid' && p.paidAt > 0);
+  const net = p => Math.max(0, (p.montant || 0) - (p.rembourse || 0));
+
+  const now = Date.now(), J = 86400000;
+  const cle = ts => { const d = new Date(ts); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+  const moisCourant = cle(now);
+  const moisPrec = cle(new Date(new Date().setUTCMonth(new Date().getUTCMonth() - 1)));
+
+  // Série 12 mois (du plus ancien au plus récent), pour le graphe
+  const serie = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(); d.setUTCMonth(d.getUTCMonth() - i); d.setUTCDate(1);
+    serie.push({ mois: cle(d.getTime()), total: 0, nb: 0 });
+  }
+  const idx = Object.fromEntries(serie.map((m, i) => [m.mois, i]));
+
+  let total = 0, nb = 0, rembourse = 0, ceMois = 0, moisDernier = 0, j30 = 0, j30Prec = 0;
+  const devises = new Set();
+  for (const p of payes) {
+    const v = net(p);
+    total += v; nb++; rembourse += (p.rembourse || 0);
+    if (p.devise) devises.add(p.devise);
+    const k = cle(p.paidAt);
+    if (k === moisCourant) ceMois += v;
+    if (k === moisPrec) moisDernier += v;
+    const age = now - p.paidAt;
+    if (age <= 30 * J) j30 += v;
+    else if (age <= 60 * J) j30Prec += v;
+    if (idx[k] != null) { serie[idx[k]].total += v; serie[idx[k]].nb++; }
+  }
+
+  const arrondi = x => Math.round(x * 100) / 100;
+  const data = {
+    total: arrondi(total),                     // encaissé depuis le début (net de remboursements)
+    nb,                                        // nombre de paiements soldés
+    panier: nb ? arrondi(total / nb) : 0,      // panier moyen réel
+    rembourse: arrondi(rembourse),
+    ceMois: arrondi(ceMois),
+    moisDernier: arrondi(moisDernier),
+    j30: arrondi(j30),
+    j30Prec: arrondi(j30Prec),
+    // Variation 30 j vs les 30 j précédents — null si aucune base de comparaison (sinon on
+    // afficherait « +∞ % » au premier mois, ce qui ne veut rien dire.)
+    j30Var: j30Prec > 0 ? Math.round(((j30 - j30Prec) / j30Prec) * 1000) / 10 : null,
+    serie,
+    devise: devises.size === 1 ? [...devises][0] : (devises.size ? 'mixte' : 'eur'),
+    at: Date.now(),
+  };
+  _revCache = { at: Date.now(), data };
+  return data;
+}
+
+module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, revenueStats, configured: () => !!WHOP_API_KEY };

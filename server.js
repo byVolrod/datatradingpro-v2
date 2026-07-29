@@ -1042,6 +1042,8 @@ const PRICE_ANNUAL  = parseFloat(process.env.PRICE_ANNUAL)  || 239.99;
 app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
   try {
     const users = await auth.getAllUsers();
+    let _revenuWhop = null;
+    try { _revenuWhop = await whop.revenueStats(); } catch (e) { console.warn('[Finance] revenu Whop indisponible :', e.message); }
     const now = Date.now(), DAY = 86400000;
     const monthKey = ts => { const d = new Date(ts); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
     const curMonth = monthKey(now);
@@ -1140,6 +1142,10 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
       signupsByMonth,
       revenueByMonth,
       whop: { configured: (() => { try { return whop.configured(); } catch { return false; } })(), renewUrl: process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/', webhookSecret: !!process.env.WHOP_WEBHOOK_SECRET },
+      // REVENU RÉELLEMENT ENCAISSÉ (Whop). Les champs ci-dessus restent des ESTIMATIONS calculées
+      // depuis la table users et une grille de prix ; celui-ci, non : c'est l'argent reçu.
+      // null si Whop n'est pas joignable → le client garde alors l'estimation, en le disant.
+      revenu: _revenuWhop,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
