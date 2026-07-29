@@ -11210,19 +11210,31 @@ html[data-theme="light"] {
 .wdg-grid.wdg-fs-mode { overflow: hidden; }
 .wdg-grid.wdg-fs-mode .wdg-card:not(.wdg-fs) { visibility: hidden; }
 .wdg-card.wdg-fs { position: absolute; inset: 0; z-index: 40; border-radius: var(--radius); box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+/* BANDEAU ÉPURÉ (29/07) — il pesait autant que la donnée : 7 contrôles permanents sur 34 px de haut.
+   Resserré à 26 px, et seules TROIS actions restent visibles en permanence (réglages · remplacer ·
+   fermer). Les quatre secondaires n'apparaissent qu'au survol de la carte : la grille respire,
+   la puissance reste à un geste. */
 .wdg-head {
-  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 7px 10px; background: var(--head-bg); border-bottom: 1px solid var(--hud-line, var(--border));
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 3px 6px 3px 8px; min-height: 26px;
+  background: var(--head-bg); border-bottom: 1px solid var(--hud-line, var(--border));
 }
 .wdg-title {
   font-family: var(--tight, 'Inter Tight', sans-serif); font-size: var(--fs-title, 11.5px); font-weight: 700; color: var(--text, var(--w-t1));
   text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }   /* en-tête façon panneaux du desk (Inter Tight capitales) — plus de serif dans le module widgets (cohérence police desk) */
-.wdg-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.wdg-actions { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+/* Groupe SECONDAIRE : réservé mais effacé au repos, révélé au survol de la carte. On anime
+   l'opacité (pas la largeur) pour que le trio permanent ne se décale JAMAIS — un bandeau dont les
+   icônes bougent au survol est le contraire d'un outil de travail. */
+.wdg-actions-more { display: flex; align-items: center; gap: 1px; opacity: 0; transition: opacity .13s var(--ease, ease); }
+.wdg-card:hover .wdg-actions-more,
+.wdg-card:focus-within .wdg-actions-more { opacity: 1; }
+@media (hover: none) { .wdg-actions-more { opacity: 1; } }   /* tactile : pas de survol → toujours visibles */
 .wdg-ico {
-  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
   background: transparent; border: 0; border-radius: 3px; cursor: pointer;
-  color: var(--w-t13); font-size: 12px; line-height: 1; transition: color .12s, background .12s;
+  color: var(--w-t13); font-size: 11px; line-height: 1; transition: color .12s, background .12s;
 }
 .wdg-ico:hover { color: var(--orange); background: rgba(227,178,58,.1); }
 .wdg-ico--x { font-size: 15px; }
