@@ -3477,6 +3477,12 @@ async function _calValueBlockHtml(ev) {
     // Découpe (attribution + déclaration VO) + classe chaque propos ; PRIORITÉ à ceux qui portent un SIGNAL
     // (hawkish/dovish/hold) — ce sont eux qui aident à interpréter la prochaine réunion — puis les plus récents.
     quotes = quotes.map(q => { const p = _calQuoteParts(q.h); return { h: q.h, ts: q.ts, who: p.who, statement: p.statement, t: _calToneOf([p.statement]) }; });
+    // TON AVANT / APRÈS RÉUNION (demande user) : on partage les propos autour de l heure de
+    // l evenement. Le calcul se fait sur la liste COMPLETE — le tronquer a 3 citations d abord
+    // biaiserait le partage (les 3 retenues peuvent toutes etre du meme cote).
+    const _evTs = ev.timestamp || 0;
+    const _tonAvant = _evTs ? _calToneOf(quotes.filter(q => (q.ts || 0) <  _evTs).map(q => q.statement || q.h)) : null;
+    const _tonApres = _evTs ? _calToneOf(quotes.filter(q => (q.ts || 0) >= _evTs).map(q => q.statement || q.h)) : null;
     quotes.sort((a, b) => (b.t ? 1 : 0) - (a.t ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
     quotes = quotes.slice(0, 3);
     const tone = _calToneOf(quotes.map(q => q.statement || q.h));
@@ -3484,7 +3490,13 @@ async function _calValueBlockHtml(ev) {
     const _res = _calDecisionOutcome(ev);
     if (_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Résultat</span><span class="cal-kb-val"><b style="color:${_res.couleur};">${_calEsc(_res.sens)}</b>${_res.attente ? ` <span class="cal-kb-sub">${_calEsc(_res.attente)}</span>` : ''}</span></div>`);
     // Le ton « avant réunion » n a plus d objet une fois la decision connue.
-    if (tone && !_res) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent · avant réunion</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
+    // Le ton « avant » situe le contexte, le ton « après » dit ce que la banque a réellement
+    // communiqué. Les deux sont utiles APRÈS la réunion — c est la comparaison qui informe.
+    const _ligneTon = (lbl, t) => `<div class="cal-kb-row"><span class="cal-kb-lbl">${lbl}</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${t.color};border-color:${t.color}44;">${t.label}</span> ${t.sens}</span></div>`;
+    if (_tonAvant) rows.push(_ligneTon('Ton · avant réunion', _tonAvant));
+    if (_tonApres) rows.push(_ligneTon('Ton · après réunion', _tonApres));
+    // Aucun horodatage exploitable pour partager → on garde le ton global, sans promettre un avant/après.
+    if (!_tonAvant && !_tonApres && tone) rows.push(_ligneTon('Ton récent', tone));
     if (quotes.length) {
       const qhtml = quotes.map(q => {
         const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
