@@ -304,9 +304,13 @@ async function revenueStats(opts) {
   const moisPrec = cle(new Date(new Date().setUTCMonth(new Date().getUTCMonth() - 1)));
 
   // Série 12 mois (du plus ancien au plus récent), pour le graphe
+  // ⚠️ Le jour est ramené au 1er AVANT de retrancher les mois. En partant du 29, « −5 mois » vise le
+  // 29 février : date inexistante hors bissextile, que JS fait déborder sur le 1er mars — la série
+  // affichait alors mars DEUX FOIS et perdait février.
   const serie = [];
+  const base = new Date(); base.setUTCDate(1); base.setUTCHours(12, 0, 0, 0);
   for (let i = 11; i >= 0; i--) {
-    const d = new Date(); d.setUTCMonth(d.getUTCMonth() - i); d.setUTCDate(1);
+    const d = new Date(base.getTime()); d.setUTCMonth(base.getUTCMonth() - i);
     serie.push({ mois: cle(d.getTime()), total: 0, nb: 0 });
   }
   const idx = Object.fromEntries(serie.map((m, i) => [m.mois, i]));
@@ -327,6 +331,7 @@ async function revenueStats(opts) {
   }
 
   const arrondi = x => Math.round(x * 100) / 100;
+  serie.forEach(m => { m.total = arrondi(m.total); });   // sinon 99.90999999999998 s affiche tel quel
   const data = {
     total: arrondi(total),                     // encaissé depuis le début (net de remboursements)
     nb,                                        // nombre de paiements soldés
