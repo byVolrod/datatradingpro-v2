@@ -9096,10 +9096,16 @@ function _chatRenderInbox(resetScroll){
   // TRI : les VRAIES conversations d'abord, la plus RÉCEMMENT active en tête (fini « la dernière
   // discussion ne remonte pas quand je reviens dans l'inbox »). Puis les autres users : en ligne, puis A→Z.
   const _tms = v => { const t = v ? new Date(v).getTime() : 0; return isNaN(t) ? 0 : t; };
+  // TRI (demande user) : les CONNECTES EN PREMIER — ce sont eux qu on peut aider tout de suite —
+  // puis, dans chaque groupe, du plus RECENT au plus ancien. La presence prime donc sur l existence
+  // d une conversation : un client en ligne sans historique doit se voir avant un echange d il y a
+  // trois semaines. A egalite de presence, les conversations passent devant (elles ont une date),
+  // et les contacts sans historique se rangent A→Z faute de date pour les departager.
   entries.sort((a, b) => {
-    if (a.hasThread !== b.hasThread) return a.hasThread ? -1 : 1;
-    if (a.hasThread) return _tms(b.lastAt) - _tms(a.lastAt);
-    return ((b.online ? 1 : 0) - (a.online ? 1 : 0)) || String(a.name || '').localeCompare(String(b.name || ''));
+    if (!!a.online !== !!b.online) return a.online ? -1 : 1;          // 1) en ligne d abord
+    if (a.hasThread !== b.hasThread) return a.hasThread ? -1 : 1;     // 2) puis ceux qui ont un echange
+    if (a.hasThread) return _tms(b.lastAt) - _tms(a.lastAt);          // 3) du plus recent au plus ancien
+    return String(a.name || '').localeCompare(String(b.name || ''));  // 4) sans date → alphabetique
   });
   const q = _chatInboxQuery;
   const filtered = q ? entries.filter(e => (e.name + ' ' + e.email).toLowerCase().includes(q)) : entries;
