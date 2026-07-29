@@ -11708,24 +11708,18 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
 /* Onglets de templates = IDENTIQUES à la nav du desk (.nav-item) : plat, capitales, chevron ›, pleine hauteur,
    soulignement or ANIMÉ ::after quand actif (même mécanisme + même animation navUnderlineIn que .nav-item--active). */
-.wdg-lay {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; max-width: 190px; height: 100%;
-  padding: 0 14px; cursor: pointer; font-family: var(--tight); font-size: 11px; font-weight: var(--fw-semibold, 600);
-  letter-spacing: .06em; text-transform: uppercase; color: var(--text3, var(--w-t13));
-  background: transparent; border: none; border-radius: 0; white-space: nowrap;
-  transition: color .15s, background .15s;
-}
-.wdg-lay:hover { color: var(--text); background: rgba(255,255,255,0.035); }   /* identique à .nav-item:hover */
-/* Onglet ACTIF = grammaire EXACTE de .nav-item--active : texte blanc gras, aucun fond, soulignement or ::after animé */
-/* .wdg-lay.on : couleur et graisse viennent de la règle PARTAGÉE des onglets actifs (voir --tab-on).
-   Ici on ne garde que ce qui lui est propre : le soulignement or animé, identique à la nav. */
-.wdg-lay.on::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
-  background: var(--orange, #e3b23a); border-radius: 2px 2px 0 0;
-  transform-origin: center; animation: navUnderlineIn var(--t-med) var(--ease-out) both;
-}
-.wdg-lay-chv { color: var(--text3, var(--w-t13)); font-weight: 400; margin-right: 1px; }   /* chevron › comme la nav */
+/* Les onglets de Mon Desk SONT des .nav-item (voir renderBar) : police, taille, graisse,
+   interlettrage, casse, marges, couleurs, survol et soulignement actif viennent tous de la nav du
+   desk. On ne déclare ici QUE les deux ajouts propres à Mon Desk : l'espacement du chevron et de
+   l'étoile, et la largeur maximale d'un nom (les layouts sont renommables, donc de longueur libre). */
+/* background/appearance : les onglets de Mon Desk sont des <button>, la nav du desk non —
+   sans ça le fond gris par défaut du navigateur apparaît au repos. Ce n'est pas une recopie de
+   valeur de la nav, c'est la neutralisation d'un style d'agent utilisateur. */
+.wdg-lay { gap: 5px; max-width: 190px; border: none; background: transparent; -webkit-appearance: none; appearance: none; }
+/* Soulignement or de l'onglet actif : fourni par .nav-item--active::after (règle du desk).
+   Le doublon qui vivait ici empilait DEUX traits — le soulignement paraissait plus épais que sur
+   « › ACTUS ». Ne pas le réintroduire. */
+.wdg-lay-chv { color: inherit; font-weight: 400; margin-right: 1px; }   /* › : même couleur que le libellé, comme la nav */
 .wdg-lay.on .wdg-lay-chv { color: inherit; }                    /* › blanc quand actif (comme « › ACTUS »), pas d'or */
 .wdg-lay-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wdg-lay-star { color: var(--orange); font-size: 10px; line-height: 1; }
