@@ -27,6 +27,41 @@
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
   <link rel="stylesheet" href="/css/style.css?v=20260729bbg375" />
 
+  <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
+       Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
+       ligne ~55 : si le document n'arrive PAS jusqu'au bout (connexion qui lâche en cours de
+       transfert, proxy qui coupe, onglet mis en veille pendant le chargement), le filet n'est jamais
+       parsé et le spinner tourne indéfiniment — c'est le « chargement figé » signalé.
+       Ici il ne dépend plus de rien de ce qui suit : dès que le <head> est reçu, les deux minuteurs
+       existent. On expose aussi la fonction pour que la fin de body la réutilise (source unique). ══ -->
+  <script>
+    (function () {
+      function el() { return document.getElementById('boot-loader'); }
+      window.__dtpHideBoot = function () {
+        var b = el(); if (!b || b.classList.contains('is-hidden')) return;
+        b.classList.add('is-hidden');
+        setTimeout(function () { if (b && b.parentNode) b.parentNode.removeChild(b); }, 550);
+      };
+      setTimeout(window.__dtpHideBoot, 9000);                    // ne jamais rester bloqué
+      // Au-delà, si le voile est TOUJOURS là, c'est que même le retrait n'a pas pu s'exécuter :
+      // on arrête de faire tourner un spinner dans le vide et on propose une action.
+      setTimeout(function () {
+        var b = el(); if (!b || b.classList.contains('is-hidden')) return;
+        var sp = b.querySelector('.dtp-loader__spin'); if (sp) sp.style.display = 'none';
+        var lb = b.querySelector('.dtp-loader__label');
+        if (lb) {
+          lb.textContent = 'Chargement interrompu.';
+          var a = document.createElement('button');
+          a.textContent = 'Recharger';
+          a.setAttribute('style', 'margin-top:12px;padding:7px 16px;font:inherit;font-size:12px;font-weight:700;'
+            + 'letter-spacing:.04em;color:#0c0c0e;background:#e3b23a;border:0;border-radius:5px;cursor:pointer;');
+          a.onclick = function () { location.reload(); };
+          lb.parentNode.appendChild(a);
+        }
+      }, 15000);
+    })();
+  </script>
+
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script defer src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -1874,15 +1909,15 @@
 <!-- Masquage du splash d'initialisation : à la fin du chargement (+ court délai), AVEC filet de sécurité anti-blocage -->
 <script>
   (function () {
-    function hideBoot() {
+    // Chemin NORMAL : on masque à la fin du chargement. Le filet de sécurité, lui, vit dans le <head>
+    // (il doit survivre à un document tronqué) — on réutilise SA fonction pour n'avoir qu'un seul
+    // comportement de retrait.
+    var hideBoot = window.__dtpHideBoot || function () {
       var b = document.getElementById('boot-loader');
-      if (!b || b.classList.contains('is-hidden')) return;
-      b.classList.add('is-hidden');
-      setTimeout(function () { if (b && b.parentNode) b.parentNode.removeChild(b); }, 550);
-    }
+      if (b && b.parentNode) b.parentNode.removeChild(b);
+    };
     if (document.readyState === 'complete') setTimeout(hideBoot, 450);
     else window.addEventListener('load', function () { setTimeout(hideBoot, 450); });
-    setTimeout(hideBoot, 9000);   // ne JAMAIS rester bloqué (filet de sécurité)
   })();
 </script>
 </body>
