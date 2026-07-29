@@ -94,7 +94,12 @@ async function _dtpTranslateQuotes(container, sel) {
   if (!lis.length) return;
   const applyCache = () => lis.forEach(li => { const t = li.textContent.trim(); if (_trClient.has(t)) li.textContent = _trClient.get(t); });
   applyCache();
-  const pending = [...new Set(lis.map(li => li.textContent.trim()).filter(t => t.length >= 2 && !_trClient.has(t)))];
+  // On n'envoie à la traduction QUE ce qui ressemble à de l'ANGLAIS. Détecter le français
+  // (accents, mots-outils) laissait passer des titres sans accent comme « Croissance et inflation ».
+  // Chercher les mots-outils ANGLAIS est bien plus sûr : ils n'existent pas en français, et une
+  // ligne purement chiffrée (« EUR/USD 1.0588 +0.33% ») n'en contient aucun — donc on n'y touche pas.
+  const _estEn = t => /\b(the|and|of|in|to|with|for|from|have|has|had|is|are|was|were|will|would|that|this|their|its|on|at|by|as|been|says?|said)\b/i.test(t);
+  const pending = [...new Set(lis.map(li => li.textContent.trim()).filter(t => t.length >= 2 && !_trClient.has(t) && _estEn(t)))];
   if (!pending.length) return;
   try {
     const r = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: pending }) });
@@ -2657,7 +2662,7 @@ function buildNewsItem(item) {
               const arr = Array.isArray(val) ? val : (val ? [String(val)] : []);
               if (!arr.length) return;
               const el = document.getElementById(`rx-explain-${item.id}`);
-              if (el && activeTab === 'reaction') el.innerHTML = _renderInfoBullets(arr);
+              if (el && activeTab === 'reaction') { el.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(el); }
             };
             if (_reactCache.has(item.id)) {
               _applyExplain(_reactCache.get(item.id));
@@ -2711,6 +2716,7 @@ function buildNewsItem(item) {
     if (tab === 'analysis') {
       // Analyse PRÉ-CALCULÉE côté serveur, attachée à la news → affichage instantané, aucun fetch.
       expandEl.innerHTML = _renderInfoBullets(item.analyse || []);
+      _dtpTranslateQuotes(expandEl);   // puces en langue source → FR (la traduction ne partait jamais ici)
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.add('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
@@ -2760,7 +2766,12 @@ function buildNewsItem(item) {
     // Contenu SOURCE anglais qui échappe aux résumés IA (citations speaker, propos agrégés, puces de la
     // description scrapée des news standard) → traduction FR en place (instantané en source puis remplacé).
     // Les contenus DÉJÀ produits en FR (rapports DTP, market wrap, analyses d'événement) ne repassent pas par l'IA.
-    if (!isPrimer && !item._marketWrap && !item._eventAnalysis && !item._dtpd && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
+    // La garde d'origine sautait la traduction pour _eventAnalysis / _marketWrap / primer, au motif
+    // qu'ils seraient DÉJÀ en français. C'est faux quand leurs puces reprennent la dépêche source :
+    // les minutes de la Fed s'affichaient intégralement en anglais. On ne garde que _dtpd (nos propres
+    // rapports, rédigés FR de bout en bout) ; pour tout le reste, le détecteur de français ci-dessus
+    // fait le tri ligne par ligne — donc aucun surcoût sur un contenu déjà traduit.
+    if (!item._dtpd && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
     if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
     if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
 
@@ -2782,7 +2793,7 @@ function buildNewsItem(item) {
     if (_improvable) {
       if (_infoCache.has(item.id)) {
         const b = _infoCache.get(item.id);
-        if (b && b.length) { expandEl.innerHTML = _renderInfoBullets(b); _ecoFill(expandEl); }   // innerHTML remplacé → on re-pose le Décryptage
+        if (b && b.length) { expandEl.innerHTML = _renderInfoBullets(b); _dtpTranslateQuotes(expandEl); _ecoFill(expandEl); }   // innerHTML remplacé → on re-pose le Décryptage
       } else {
         // La dépêche brute (langue source) est affichée immédiatement (infoBody) ; on la remplace par le
         // résumé FR dès qu'il arrive (le serveur répond désormais en FRANÇAIS pour toutes les news).
@@ -2797,6 +2808,7 @@ function buildNewsItem(item) {
             if (b.length) _infoCache.set(item.id, b);   // on ne mémorise QUE le succès : un échec (IA en panne) réessaie à la prochaine ouverture au lieu de figer l'anglais pour la session
             if (b.length && activeTab === 'info' && expandEl.classList.contains('visible')) {
               expandEl.innerHTML = _renderInfoBullets(b);
+              _dtpTranslateQuotes(expandEl);   // puces en langue source → FR
               _ecoFill(expandEl);   // le résumé IA écrase innerHTML → on re-pose le Décryptage sous les puces
             }
           })
