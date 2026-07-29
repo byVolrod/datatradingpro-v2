@@ -10854,6 +10854,16 @@ function _sbLiveFingerprint(b) {
         const m = b.macroTable[c] || {};
         return [c, (m.monetary || {}).dir, (m.inflation || {}).dir, (m.growth || {}).dir, (m.jobs || {}).dir, m.bias];
       }),
+      // Le DÉTAIL fait partie de ce qui doit être persisté et diffusé : quand une publication tombe
+      // (IPC, PIB, emploi…), les DIRECTIONS ne bougent pas forcément — mais le panneau clic-devise, lui,
+      // doit afficher le nouveau chiffre. Sans cette ligne, l'empreinte restait identique et la mise à
+      // jour n'était ni écrite sur disque ni poussée aux pages ouvertes.
+      Object.keys(b.macroTable || {}).sort().map(c => {
+        const d = (b.macroTable[c] || {}).detail || {};
+        const ts = o => (o && o.ts) || 0;
+        const i = d.inflation || {}, g = d.growth || {}, e = d.employment || {};
+        return [c, ts(i.cpi), ts(i.ppi), ts(i.wages), ts(g.gdp), ts(g.pmi), ts(g.retail), ts(e.unemployment), ts(e.payrolls)];
+      }),
     ]);
   } catch { return ''; }
 }
