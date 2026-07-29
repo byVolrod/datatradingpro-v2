@@ -121,6 +121,7 @@
     }).join('');
   }
   var _resetArm = null;              // remise à zéro : 1er clic arme, 2e clic exécute (retombe seul)
+  var _swapBack = null;                      // dernier remplacement, pour l'annulation
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
   // info = « i » cerclé ; réglages = curseurs d'ajustement.
@@ -129,6 +130,7 @@
     gear: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.3" fill="#0d0e11"/><circle cx="15" cy="16" r="2.3" fill="#0d0e11"/></svg>',
     grip: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.5 3"/><path d="M20 5v5h-5"/></svg>',
+    swap: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
     dup: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 5.5H6.5a2 2 0 0 0-2 2v9" stroke-linecap="round"/></svg>',
     expand: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 15v5h-5M15 4h5v5M9 20H4v-5"/></svg>',
     lock: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
@@ -1626,11 +1628,14 @@
         +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
         +   '<span class="wdg-actions">'
-        +     '<button class="wdg-ico" title="Actualiser" onclick="DTPWidgets.refresh(' + idx + ')">' + ICO.refresh + '</button>'
+        +     '<span class="wdg-actions-more">'                       /* secondaires : au survol de la carte */
+        +       '<button class="wdg-ico" title="Actualiser" onclick="DTPWidgets.refresh(' + idx + ')">' + ICO.refresh + '</button>'
+        +       '<button class="wdg-ico" title="Dupliquer" onclick="DTPWidgets.duplicate(' + idx + ')">' + ICO.dup + '</button>'
+        +       '<button class="wdg-ico" title="Plein écran" onclick="DTPWidgets.fullscreen(' + idx + ')">' + ICO.expand + '</button>'
+        +       '<button class="wdg-ico' + (locked ? ' on' : '') + '" title="' + (locked ? 'Déverrouiller' : 'Verrouiller') + '" onclick="DTPWidgets.toggleLock(' + idx + ')">' + (locked ? ICO.lock : ICO.unlock) + '</button>'
+        +     '</span>'
         +     '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
-        +     '<button class="wdg-ico" title="Dupliquer" onclick="DTPWidgets.duplicate(' + idx + ')">' + ICO.dup + '</button>'
-        +     '<button class="wdg-ico" title="Plein écran" onclick="DTPWidgets.fullscreen(' + idx + ')">' + ICO.expand + '</button>'
-        +     '<button class="wdg-ico' + (locked ? ' on' : '') + '" title="' + (locked ? 'Déverrouiller' : 'Verrouiller') + '" onclick="DTPWidgets.toggleLock(' + idx + ')">' + (locked ? ICO.lock : ICO.unlock) + '</button>'
+        +     '<button class="wdg-ico" title="Remplacer par un autre widget" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
         +     '<button class="wdg-ico wdg-ico--x" title="Retirer" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
         + '</header>'
@@ -1820,6 +1825,7 @@
   var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analyse de marché' · 'Fonctions' · '_tpl' = modèles)
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
   var _pickTab = null;                       // index d'item « Panneau à onglets » en cours d'ajout d'onglet
+  var _pickSwap = null;                      // index de la carte à REMPLACER (la bibliothèque sert alors de sélecteur)
   var _justAdded = null;                     // id du widget qu'on vient d'ajouter (flash « ✓ Ajouté » sur sa carte)
   // « + » d'un Panneau à onglets → la bibliothèque choisit le SOUS-widget (ajouté comme onglet, pas comme carte).
   function _pickTabFor(it) {
@@ -2129,10 +2135,31 @@
       body.innerHTML = ''; try { var un = w.mount(body, l.items[i]); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } } catch (e) {}
     },
     fullscreen: function (i) { _fullscreenIdx = (_fullscreenIdx === i ? null : i); renderGrid(); },
+    // REMPLACER : la carte garde sa PLACE et sa TAILLE, seul son contenu change. Les réglages et les
+    // onglets de l'ancien widget sont abandonnés — ils appartiennent à un autre contrat.
+    replaceStart: function (i) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      if (l.items[i].locked) return _undoOffer('Carte verrouillée : déverrouille-la pour la remplacer.');
+      _closePops(); _pickIdx = null; _pickTab = null; _pickSwap = i;
+      API.openLib();
+    },
     toggleInfo: function (i) { _togglePop(i, 'i'); },
     toggleSettings: function (i) { _togglePop(i, 's'); },
     add: function (wid) {
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
+      if (_pickSwap != null && l.items[_pickSwap]) {
+        var old = l.items[_pickSwap], ancien = byId(old.w);
+        if (wid !== old.w) {
+          l.items[_pickSwap] = { w: wid, gw: old.gw, gh: old.gh };     // place et taille conservées
+          save(); renderGrid();
+          _undoOffer((ancien ? ancien.name : 'Widget') + ' remplacé par ' + w.name, function () {
+            var cur = activeLayout(); if (cur && cur.items[_swapBack.i]) { cur.items[_swapBack.i] = _swapBack.it; save(); renderGrid(); }
+          });
+          _swapBack = { i: _pickSwap, it: old };
+        }
+        _pickSwap = null; API.closeLib();
+        return;
+      }
       if (_pickTab != null && l.items[_pickTab] && l.items[_pickTab].w === 'onglets') {
         // Ajout d'un ONGLET dans un Panneau à onglets (jamais un panneau dans lui-même).
         if (wid !== 'onglets') {
@@ -2180,7 +2207,8 @@
       _syncDensity();                                           // le réglage d'espacement vit ICI (barre épurée)
       API.filterFam('');                                        // repart sur « Tous » (chips + rendu)
     },
-    closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _pickIdx = null; _pickTab = null; },
+    closeLib: function () {
+      _pickSwap = null; var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _pickIdx = null; _pickTab = null; },
     filterLib: function (q) { _libQ = String(q || '').trim(); renderLib(); },
     filterFam: function (f) {                                   // puces de catégories (Tous · Analyse · Données · Modèles)
       _libFam = String(f || '');
