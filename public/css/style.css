@@ -7125,6 +7125,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-kb-quote::before { content: '« '; color: #6f6f79; }
 .cal-kb-quote::after  { content: ' »'; color: #6f6f79; }   /* guillemets hors texte → la traduction FR en place ne les mange pas */
 .cal-kb-sub { color: #8a9097; font-size: 11px; margin-top: 2px; }
+/* Une idée par ligne dans la colonne de droite : le pricing, puis la lecture du ton. */
+.cal-kb-line { display: block; }
+.cal-kb-line + .cal-kb-line { margin-top: 3px; }
 /* Extrait du discours : 1 propos par ligne = tag signal (hawkish/dovish/neutre) + citation VO + attribution/date */
 .cal-kb-qline { margin: 5px 0; line-height: 1.5; }
 .cal-kb-qtone { display: inline-block; font-size: 9px; font-weight: 700; border: 1px solid; border-radius: 3px; padding: 0 4px; margin-right: 6px; letter-spacing: .03em; text-transform: uppercase; vertical-align: middle; }
@@ -7135,17 +7138,27 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* Fiche événement — « Historique des publications » : mini-barres réel vs prévu (~6 mois), ancien → récent */
 .cal-hist-sub { font-weight: 400; text-transform: none; letter-spacing: 0; color: #8b93a1; font-size: 10px; }
-.cal-hist-row { display: flex; align-items: flex-end; gap: 10px; padding: 6px 2px 2px; overflow-x: auto; }
-.cal-hist-col { flex: 0 0 auto; min-width: 52px; text-align: center; }
-.cal-hist-barwrap { height: 46px; display: flex; align-items: flex-end; justify-content: center; }
-.cal-hist-bar { width: 16px; border-radius: 2px 2px 0 0; background: #6b7280; min-height: 3px; }
-.cal-hist-bar.g { background: rgba(0,230,118,.75); }
-.cal-hist-bar.r { background: rgba(255,61,0,.72); }
-.cal-hist-val { margin-top: 4px; font-size: 11px; font-weight: 700; color: #e6e8ec; font-variant-numeric: tabular-nums; }
+/* Les colonnes se PARTAGENT la largeur (flex: 1) au lieu de se tasser à gauche : le bloc occupe
+   enfin toute la fiche. min-width garde une colonne lisible quand l'historique est long — au-delà,
+   le défilement horizontal reprend la main. */
+.cal-hist-row { display: flex; align-items: flex-end; gap: 0; padding: 14px 4px 4px; overflow-x: auto; }
+.cal-hist-col { flex: 1 1 0; min-width: 60px; text-align: center; padding: 0 0 5px; border-radius: 5px; transition: background .12s ease; }
+.cal-hist-col:hover { background: rgba(255,255,255,.03); }
+.cal-hist-barwrap { position: relative; height: 96px; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--border2); }
+/* Trame éteinte derrière chaque barre (charte DTP) : la colonne existe visuellement même quand
+   la valeur est basse — on ne lit jamais un « vide ». */
+.cal-hist-barwrap::before { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 62%; max-width: 32px; height: 100%; background: var(--hud-line); opacity: .5; border-radius: 3px 3px 0 0; }
+.cal-hist-bar { position: relative; width: 62%; max-width: 32px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #9aa2b0, #565b66); min-height: 5px; box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
+.cal-hist-bar.g { background: linear-gradient(180deg, #00e676, #049e57); box-shadow: inset 0 1px 0 rgba(255,255,255,.28); }
+.cal-hist-bar.r { background: linear-gradient(180deg, #ff3d00, #b52c00); box-shadow: inset 0 1px 0 rgba(255,255,255,.28); }
+/* Dernière publication = la plus récente : liseré or + date en or, elle se repère d'un coup d'œil. */
+.cal-hist-col.last .cal-hist-bar { box-shadow: 0 0 0 1px rgba(227,178,58,.5); }
+.cal-hist-col.last .cal-hist-date { color: var(--orange); font-weight: 700; }
+.cal-hist-val { margin-top: 7px; font-size: 12.5px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 .cal-hist-val.g { color: #2ae389; }
 .cal-hist-val.r { color: #ff7259; }
-.cal-hist-prev { font-size: 9.5px; color: #8b93a1; }
-.cal-hist-date { font-size: 9.5px; color: #7e8590; margin-top: 1px; }
+.cal-hist-prev { font-size: 10.5px; color: var(--text3); margin-top: 1px; }
+.cal-hist-date { font-size: 10px; color: var(--text3); margin-top: 3px; letter-spacing: .02em; }
 
 /* ── Déroulé INLINE d'un événement (accordéon sous la ligne — remplace la modale) ── */
 .cal-detail-row > td { padding: 0; background: var(--bg); border-bottom: 1px solid #1d1d22; }

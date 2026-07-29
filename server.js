@@ -6828,6 +6828,14 @@ Observed moves: ${String(moves).slice(0, 300)}`, _rcb ? 300 : 220, { important: 
 const TRANSLATE_CACHE_FILE = path.join(_CACHE_DIR, 'cache_translate.json');
 const _trCache = _loadJsonMap(TRANSLATE_CACHE_FILE);
 const _trKey = t => 'tr:' + String(t).slice(0, 200);
+// Enveloppe de sortie d'un lot de traduction. L'ancienne formule plafonnait à 1200 tokens : un lot
+// de propos longs dépassait ce budget, la réponse se coupait en route, et les dernières lignes
+// revenaient sans marqueur — donc en anglais. On compte ~2,6 caractères par token, +45 % pour le
+// français (plus verbeux que l'anglais), + les marqueurs [[n]].
+function _trBudget(lignes) {
+  const car = lignes.join(' ').length;
+  return Math.max(300, Math.min(4000, Math.round((car / 2.6) * 1.45) + 60 * lignes.length + 120));
+}
 app.post('/api/translate', async (req, res) => {
   const texts = Array.isArray(req.body && req.body.texts)
     ? req.body.texts.map(t => String(t || '').replace(/\s+/g, ' ').trim()).filter(t => t.length >= 2).slice(0, 16)
@@ -6850,10 +6858,29 @@ RULES:
 - If a line is ALREADY in French, return it unchanged (with its marker).
 - Reply ONLY with the [[n]] lines translated — no preamble, no extra text.
 
-${numbered}`, Math.min(1200, 120 + toTr.join(' ').length), { important: true, priority: 'user', claudeOverBudget: false });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
+${numbered}`, _trBudget(toTr), { important: true, priority: 'user', claudeOverBudget: false });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
       const map = {};
       String(txt || '').split('\n').forEach(l => { const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (m) { const n = parseInt(m[1], 10) - 1; if (n >= 0 && n < toTr.length) map[n] = m[2].trim(); } });
-      return toTr.map((orig, i) => map[i] || null);   // marqueur manquant → null (l'appelant renverra la source SANS la cacher)
+      const passe1 = toTr.map((orig, i) => map[i] || null);
+      // RELANCE CIBLÉE. Un modèle rate parfois une ligne isolée (marqueur oublié, ligne recopiée
+      // telle quelle) : elle ressortait en anglais AU MILIEU du français, ce qui se voit
+      // immédiatement. On rejoue UNIQUEMENT les lignes ratées, une seule fois, et seulement si
+      // l'échec est partiel — un échec total est une panne de cascade, pas un raté de rédaction,
+      // et relancer ne ferait que gaspiller le budget.
+      const rates = passe1.map((v, i) => (v == null || v === toTr[i] ? i : -1)).filter(i => i >= 0);
+      if (rates.length && rates.length <= 6 && rates.length < toTr.length) {
+        try {
+          const t2 = await aiSmart('news', `Translate each numbered line into natural, professional FRENCH. Keep the [[n]] marker EXACTLY, one line per marker, same order. Preserve tickers, numbers and institution names. Reply ONLY with the [[n]] lines.
+
+${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.map(i => toTr[i])), { important: true, priority: 'user', claudeOverBudget: false });
+          String(t2 || '').split('\n').forEach(l => {
+            const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (!m) return;
+            const k = parseInt(m[1], 10) - 1, cible = rates[k];
+            if (cible != null && m[2].trim() && m[2].trim() !== toTr[cible]) passe1[cible] = m[2].trim();
+          });
+        } catch {}
+      }
+      return passe1;
     });
     // ANTI-POISON : ne JAMAIS cacher la source anglaise comme « traduction ». Un raté du modèle
     // (marqueur manquant / ligne renvoyée telle quelle) répondait l'original ET le figeait dans le

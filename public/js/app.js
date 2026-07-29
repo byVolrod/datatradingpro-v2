@@ -98,15 +98,58 @@ async function _dtpTranslateQuotes(container, sel) {
   // (accents, mots-outils) laissait passer des titres sans accent comme « Croissance et inflation ».
   // Chercher les mots-outils ANGLAIS est bien plus sûr : ils n'existent pas en français, et une
   // ligne purement chiffrée (« EUR/USD 1.0588 +0.33% ») n'en contient aucun — donc on n'y touche pas.
-  const _estEn = t => /\b(the|and|of|in|to|with|for|from|have|has|had|is|are|was|were|will|would|that|this|their|its|on|at|by|as|been|says?|said)\b/i.test(t);
-  const pending = [...new Set(lis.map(li => li.textContent.trim()).filter(t => t.length >= 2 && !_trClient.has(t) && _estEn(t)))];
+  // ── QUOI TRADUIRE ? Règle à trois étages, PENCHÉE VERS L'ENVOI.
+  //   1. mot-outil ANGLAIS           → on traduit (cas franc)
+  //   2. accent / mot-outil FRANÇAIS → on laisse (cas franc)
+  //   3. ni l'un ni l'autre          → on traduit si c'est de la prose (≥ 4 mots dont 2 longs)
+  // L'étage 3 existe parce que « Considered recent economic shocks. » ne contient AUCUN mot-outil :
+  // l'ancienne règle ne l'envoyait pas et la laissait en anglais au milieu du français. Le penchant
+  // vers l'envoi est délibéré : un faux positif coûte un aller-retour (le modèle renvoie une ligne
+  // déjà française telle quelle), un faux négatif se VOIT. Une cotation (« EUR/USD 1.0588 +0.33% »)
+  // n'atteint pas 4 mots → jamais envoyée.
+  // ── QUOI ENVOYER À LA TRADUCTION ? On COMPTE les marqueurs de chaque langue, celle qui domine
+  // l'emporte, et en cas d'égalité (y compris 0-0) on tranche sur la forme : de la prose part,
+  // une cotation reste. L'étage « égalité » est indispensable — « Considered recent economic
+  // shocks. » ne contient AUCUN mot-outil, l'ancienne règle ne l'envoyait donc jamais et la
+  // laissait en anglais au milieu du français.
+  // Le penchant est vers l'ENVOI : un faux positif coûte un aller-retour (le modèle a pour
+  // consigne de renvoyer une ligne déjà française telle quelle), un faux négatif se VOIT.
+  // ATTENTION `\b` : en JavaScript il se base sur l'ASCII, donc une lettre accentuée fait frontière
+  // de mot — /\bon\b/ matchait le « on » de « façon » et classait la phrase anglaise. D'où les
+  // frontières explicites ci-dessous.
+  const _motsDe = t => (t.match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’-]*/g) || []);
+  const _rxEn = new RegExp('(^|[^' + "A-Za-zÀ-ÿ'’" + '])(' + "the|and|of|in|to|with|for|from|have|has|had|is|are|was|were|will|would|that|this|their|its|on|at|by|as|been|says|said|we|they|but|not|about|over|after|before|than|can|could|should|may|might|does|did|there|what|which|who|when|while|into|our|your|his|her|also|only|very|much|many|some|such|other" + ')(?![' + "A-Za-zÀ-ÿ'’" + '])', 'gi');
+  const _rxFr = new RegExp('(^|[^' + "A-Za-zÀ-ÿ'’" + '])(' + "le|la|les|des|du|une|un|et|ou|est|sont|aux|dans|pour|avec|sans|selon|après|avant|cette|ces|nous|vous|leur|leurs|pas|qui|que|dont|son|sa|ses|plus|moins|entre|chez|vers|depuis|encore|déjà|toujours|jamais|au|sur|ont|été" + ')(?![' + "A-Za-zÀ-ÿ'’" + '])', 'gi');
+  const _aTraduire = t => {
+    const m = _motsDe(t);
+    if (m.length < 2) return false;                                   // sigle, chiffre isolé
+    const nEn = (t.match(_rxEn) || []).length;
+    const nFr = (t.match(_rxFr) || []).length + (/[àâçéèêëîïôùûüœ]/i.test(t) ? 2 : 0);
+    if (nEn !== nFr) return nEn > nFr;
+    return m.length >= 4 && m.filter(w => w.length >= 4).length >= 2;  // égalité → la prose part
+  };
+  const pending = [...new Set(lis.map(li => li.textContent.trim()).filter(t => t.length >= 2 && !_trClient.has(t) && _aTraduire(t)))];
   if (!pending.length) return;
-  try {
-    const r = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: pending }) });
-    const d = await r.json();
-    (d.translations || []).forEach((fr, i) => { if (fr && pending[i] && fr !== pending[i]) _trClient.set(pending[i], fr); });   // identité = repli serveur (échec) → ne pas figer l'anglais pour la session, on retentera
-    applyCache();
-  } catch {}
+  // ENVOI PAR LOTS. Le serveur ne traduit que 16 textes par requête (garde-fou budget IA) et
+  // IGNORE le reste sans rien signaler : une fiche de 30 propos ressortait donc à moitié en
+  // anglais — moitié FR, moitié EN, sans la moindre erreur visible. On découpe ici, et on
+  // repeint après CHAQUE lot → la traduction arrive au fil de l'eau au lieu d'un bloc final.
+  // 3 lots en vol au plus : les fournisseurs gratuits de la cascade IA n'aiment pas les rafales.
+  const LOT = 12, lots = [];
+  for (let i = 0; i < pending.length && lots.length < 12; i += LOT) lots.push(pending.slice(i, i + LOT));
+  let curseur = 0;
+  const travailleur = async () => {
+    while (curseur < lots.length) {
+      const lot = lots[curseur++];
+      try {
+        const r = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: lot }) });
+        const d = await r.json();
+        (d.translations || []).forEach((fr, i) => { if (fr && lot[i] && fr !== lot[i]) _trClient.set(lot[i], fr); });   // identité = repli serveur (échec) → ne pas figer l'anglais pour la session, on retentera
+        applyCache();
+      } catch {}
+    }
+  };
+  await Promise.all([travailleur(), travailleur(), travailleur()]);
 }
 window._dtpTranslateQuotes = _dtpTranslateQuotes;
 
