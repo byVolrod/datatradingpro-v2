@@ -10406,7 +10406,9 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir) {
     // CROISSANCE (demande user) = PIB confirmé (×1) + Ventes au détail (×0.6, avancé : anticipent le PIB, croissance
     // conso) + PMI/ISM (×0.6, avancé) + Confiance conso (×0.4, avancé). EMPLOI = chômage inversé (×1) + NFP/ADP/
     // création d'emplois (×0.6) + inscriptions au chômage inversées (×0.4) + JOLTS/postes vacants (×0.3).
-    const _cal = fundamentalRes.cal;
+    // Filet : quel que soit l'appelant, le détail par devise doit avoir un calendrier. Sans ce repli,
+    // un appelant qui oublie `cal` vide silencieusement TOUT le panneau détail des 8 devises.
+    const _cal = (fundamentalRes.cal && fundamentalRes.cal.length) ? fundamentalRes.cal : _sbCalForDetail();
     const gS = _sbBlend([
       [_sbHistTrend(_cal, c, /\bGDP\b|gross domestic|economic growth|\bPIB\b/i), 1.0],
       [_sbHistTrend(_cal, c, /retail sales|retail trade|ventes au d[ée]tail/i), 0.6],
@@ -10869,7 +10871,8 @@ async function _sbRecomputeLive() {
     const _newPrint = _sbHasNewActualSince(_smartBias.dataAt || _smartBias.generatedAt || 0);
     const fundamentalRes = _newPrint
       ? await _sbFundamentalRows()
-      : { parent: _fundRow.values || {}, subs: _fundRow.subs || [] };
+      // `cal` DOIT être fourni même quand on reprend le pilier tel quel : le détail par devise en dérive.
+      : { parent: _fundRow.values || {}, subs: _fundRow.subs || [], cal: _sbCalForDetail() };
     const fundamental    = fundamentalRes.parent;
     const trend          = await _sbTrendRow();       // force des devises (cache 2 min)
     const technical      = await _sbTechnicalRow();   // force 1 j (cache 60 s)
@@ -10980,6 +10983,19 @@ function _sbBiasStale() {
 // FRAÎCHEUR QUOTIDIENNE (demande user « l'onglet biais doit se mettre à jour chaque jour après qu'une news qui
 // définit le biais sort ») : une publication High/Medium (devise du bias) avec ACTUAL, sortie APRÈS le dernier
 // refresh des données (`dataAt`) ? Source = _tvCalCache (21 j passés, actuals natifs — même cache que le boot).
+// CALENDRIER POUR LE DÉTAIL D'UNE DEVISE (dernières publications réelles du panneau clic-devise).
+// Le cycle LÉGER (_sbRecomputeLive) ne recalcule le pilier fondamental que si une publication est
+// tombée ; le reste du temps il reconstruisait `fundamentalRes` SANS `cal` → _sbLatestRelease() ne
+// trouvait plus rien et TOUT le détail (IPC, PPI, salaires, PIB, PMI, emploi…) tombait à « — » pour
+// les 8 devises. Ici on rend le calendrier toujours disponible : cache TradingView (même source que
+// le cycle lourd, rafraîchi en continu) fusionné avec l'historique persisté, sinon calendrier du desk.
+function _sbCalForDetail() {
+  try {
+    const tv = (_tvCalCache && _tvCalCache.items) || [];
+    const base = tv.length ? tv : (allCalendar || []);
+    try { return _calHistMerge(base); } catch { return base; }
+  } catch { return allCalendar || []; }
+}
 function _sbHasNewActualSince(ts) {
   if (!ts) return false;
   const now = Date.now();
