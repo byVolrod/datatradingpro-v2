@@ -9926,13 +9926,13 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
     // RÉCAP SÉANCE ASIE — 09h30 Paris : Tokyo a fermé (08h), Sydney aussi (07h), et il arrive avant
     // l'ouverture de Londres. Comme les deux autres récaps de séance : jamais publié avant l'heure.
-    { fn: (w) => generateAsiaRecap(false, 0, w),      h: 9,  m: 30, name: 'Asia Session Recap', afterHour: true },
-    { fn: (w) => generateLondonRecap(false, 0, w),    h: 17, m: 30, name: 'London Recap', afterHour: true },
+    { fn: (w) => generateAsiaRecap(false, 0, w),      h: 9,  m: 30, winH: 8,  winM: 0,  name: 'Asia Session Recap', afterHour: true },   // publie a 9h30, fenetre close a 8h00 (cloture Tokyo)
+    { fn: (w) => generateLondonRecap(false, 0, w),    h: 17, m: 30, winH: 17, winM: 30, name: 'London Recap', afterHour: true },
     // RÉCAP SÉANCE NEW YORK — 22h15 Paris, juste après la clôture cash US (22h00) et avant la mise
     // à jour complète du Récap FX (22h30). La fonction existait, son déclencheur manuel aussi, et
     // toute la chaîne d'affichage — il ne manquait que cette ligne : elle n'était donc JAMAIS
     // appelée automatiquement (ni créneau, ni rattrapage, qui parcourt cette même table).
-    { fn: (w) => generateUSRecap(false, 0, w),        h: 22, m: 15, name: 'US Session Recap', afterHour: true },
+    { fn: (w) => generateUSRecap(false, 0, w),        h: 22, m: 15, winH: 22, winM: 0,  name: 'US Session Recap', afterHour: true },   // publie a 22h15, fenetre close a 22h00 (cloture cash US)
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
     { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h00)' },              // sort à 19h SUR LE DESK (après les récaps de séance Asie/Londres ; base du mail Point marché) — demande user 15/07
@@ -9973,12 +9973,17 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     return target.getTime() - paris.getTime();
   }
 
-  for (const { fn, h, m, name } of daily) {
+  for (const { fn, h, m, winH, winM, name, afterHour } of daily) {
     const delay = msToNextParis(h, m);
     console.log(`[DTP] ${name} scheduled in ${Math.round(delay / 60000)} min`);
+    // MÊME ancrage de fenêtre que le rattrapage : un rapport doit avoir le même contenu qu'il
+    // sorte à son créneau ou qu'il soit rejoué plus tard. `winH/winM` = fin de SÉANCE quand elle
+    // diffère de l'heure de publication (Asie : publiée 9h30, séance close à 8h00 — sans quoi la
+    // fenêtre ramasse les données européennes du matin, vu en production : « Spain 3.5% »).
+    const _anc = () => (afterHour ? _parisSlotTs(winH != null ? winH : h, winM != null ? winM : m) : 0);
     setTimeout(function run() {
-      fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message));
-      setInterval(() => fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message)), 24 * 60 * 60 * 1000);
+      fn(_anc()).catch(e => console.error(`[DTP] ${name} failed:`, e.message));
+      setInterval(() => fn(_anc()).catch(e => console.error(`[DTP] ${name} failed:`, e.message)), 24 * 60 * 60 * 1000);
     }, delay);
   }
   for (const { fn, h, m, name } of weekly) {
@@ -10002,14 +10007,14 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     // fenêtre vide. Les autres rapports gardent le comportement d'avant.
     const _pNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
     const _minsNow = _pNow.getHours() * 60 + _pNow.getMinutes();
-    daily.forEach(({ fn, name, h, m, afterHour }) => {
+    daily.forEach(({ fn, name, h, m, winH, winM, afterHour }) => {
       if (afterHour && _minsNow < h * 60 + m) {
         console.log(`[DTP] rattrapage ${name} : créneau ${h}h${String(m).padStart(2, '0')} pas encore passé → on attend.`);
         return;
       }
       // On passe l'heure du CRÉNEAU comme fin de fenêtre : le rattrapage produit alors exactement
       // ce qu'aurait produit le créneau, même lancé des heures plus tard.
-      const _slot = afterHour ? _parisSlotTs(h, m) : 0;
+      const _slot = afterHour ? _parisSlotTs(winH != null ? winH : h, winM != null ? winM : m) : 0;
       fn(_slot).catch(e => console.error(`[DTP] startup ${name} failed:`, e.message));
     });
 
