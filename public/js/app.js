@@ -3437,31 +3437,39 @@ function _renderRiskPopup(data) {
   // En-tête type "Sentiment de marché : AVERSION AU RISQUE" : libellé TRADUIT (la carte LABEL_FR
   // existait mais n'était pas branchée : l'en-tête affichait le label serveur anglais brut).
   const frLbl = LABEL_FR[data.label] || data.label;
-  if (lbl) { lbl.textContent = `Sentiment de marché : ${frLbl}`; lbl.className = 'rp-label ' + cls; }
+  // Le préfixe « Sentiment de marché : » poussait le titre sur deux lignes pour ne rien apprendre :
+  // on est dans le popup du sentiment de marché, le contexte est donné.
+  if (lbl) { lbl.textContent = frLbl; lbl.className = 'rp-label ' + cls; }
   if (ti) ti.textContent = `Sentiment de marché : ${frLbl}`;
   // Dropdown épuré : pas de jauge ni de bande dans ce popup (la jauge vit dans l'onglet RISK)
   const gw = el('rp-gauge-wrap'); if (gw) gw.style.display = 'none';
   const band = el('rp-band'); if (band) band.style.display = 'none';
   // Description longue (anglais) selon le niveau de risque : exactement comme l'image
+  // Une clause par ligne, pas une phrase à rallonge. L'accroche a disparu : elle redisait le titre
+  // (« FORTE AVERSION AU RISQUE » puis « Aversion au risque marquée. »). Le fond est inchangé.
   const POPUP_DESC2 = {
-    'STRONG RISK-ON':  { lead: 'Fort appétit pour le risque.', detail: 'Capitaux vers les actions et les actifs à fort bêta ; refuges largement vendus.', trade: 'Vent porteur pour AUD/NZD et les indices ; prudence sur JPY, CHF et l’or.' },
-    'RISK-ON':         { lead: 'L’appétit pour le risque domine.', detail: 'Actions et cycliques recherchés, le positionnement défensif se dénoue.', trade: 'Biais favorable aux paires risquées et aux indices.' },
-    'WEAK RISK-ON':    { lead: 'Léger penchant pour le risque.', detail: 'Ton constructif mais conviction limitée, positionnement prudent.', trade: 'Biais haussier modéré : réduire la taille des positions.' },
-    'NEUTRAL':         { lead: 'Marché sans direction claire.', detail: 'Signaux mitigés sur l’ensemble des classes d’actifs, aucun biais dominant.', trade: 'Privilégier les ranges et la patience : attendre un catalyseur.' },
-    'WEAK RISK-OFF':   { lead: 'La prudence s’installe.', detail: 'Refuges discrètement soutenus, volatilité en hausse.', trade: 'Alléger le risque ; surveiller le JPY et l’or.' },
-    'RISK-OFF':        { lead: 'Recherche de sécurité.', detail: 'Positionnement défensif net ; préservation du capital prioritaire.', trade: 'Favorable JPY, CHF, or et obligations ; éviter les actifs risqués.' },
-    'STRONG RISK-OFF': { lead: 'Aversion au risque marquée.', detail: 'Fuite vers les refuges (obligations, or, JPY, CHF), volatilité qui s’envole.', trade: 'Fortement favorable aux refuges ; couper ou couvrir le risque.' },
+    'STRONG RISK-ON':  { detail: 'Actions et actifs à fort bêta recherchés, refuges vendus.', trade: 'Porteur pour AUD/NZD et les indices ; prudence sur JPY, CHF, or.' },
+    'RISK-ON':         { detail: 'Actions et cycliques recherchés, défensives délaissées.', trade: 'Favorable aux paires risquées et aux indices.' },
+    'WEAK RISK-ON':    { detail: 'Ton constructif, conviction limitée.', trade: 'Biais haussier modéré, tailles réduites.' },
+    'NEUTRAL':         { detail: 'Signaux mitigés, aucun biais dominant.', trade: 'Ranges et patience : attendre un catalyseur.' },
+    'WEAK RISK-OFF':   { detail: 'Refuges discrètement soutenus, volatilité en hausse.', trade: 'Alléger le risque ; surveiller le JPY et l\u2019or.' },
+    'RISK-OFF':        { detail: 'Positionnement défensif net, capital protégé en priorité.', trade: 'Favorable au JPY, au CHF, à l\u2019or et aux obligations.' },
+    'STRONG RISK-OFF': { detail: 'Fuite vers les refuges, volatilité qui s\u2019envole.', trade: 'Couper ou couvrir le risque.' },
   };
   const de = el('rp-desc');
   if (de) {
     de.style.display = '';
     const d2 = POPUP_DESC2[data.label];
     if (d2) {
-      de.innerHTML = '<div class="rp-d-lead">' + d2.lead + '</div>'
+      de.innerHTML = '<div class="rp-d-row"><span class="rp-d-k">Lecture</span><span class="rp-d-v">' + d2.detail + '</span></div>'
         + '<div class="rp-d-row"><span class="rp-d-k">Lecture</span><span class="rp-d-v">' + d2.detail + '</span></div>'
         + '<div class="rp-d-row"><span class="rp-d-k">Pour trader</span><span class="rp-d-v">' + d2.trade + '</span></div>';
     } else { de.textContent = data.description || ''; }
   }
+  // Les parenthèses explicatives (« VIX (Volatilité) », « Nasdaq (Tech/Risk) » — à moitié en
+  // anglais) n'apprennent rien à qui lit un tableau de sentiment de marché, et faisaient tenir
+  // chaque ligne sur deux. On ne garde que le nom de l'actif.
+  const _rpNomActif = s => String(s || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
   const as = el('rp-assets');
   if (as) {
     as.innerHTML = (data.assets || []).map(a => {
@@ -3469,7 +3477,7 @@ function _renderRiskPopup(data) {
       const col = a.chg >= 0 ? 'var(--green)' : 'var(--red)';
       return `<div class="rp-asset-row">
         <span class="rp-asset-arrow" style="color:${col}">${ico}</span>
-        <span class="rp-asset-name">${a.label}</span>
+        <span class="rp-asset-name">${_rpNomActif(a.label)}</span>
         <span class="rp-asset-chg ${a.chg>=0?'pos':'neg'}">${a.chg>=0?'+':''}${a.chg.toFixed(2)}%</span>
       </div>`;
     }).join('');
@@ -3477,7 +3485,9 @@ function _renderRiskPopup(data) {
   const up = el('rp-updated');
   if (up && data.updatedAt) {
     const d = new Date(data.updatedAt);
-    const _t = `Mis à jour : ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+    // « Mis à jour : 30/07/2026 00:06 » sur une ligne entière pour une info de second plan :
+    // le jour et l'heure suffisent, l'année se devine.
+    const _t = `Mis à jour ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(' ', ' · ')}`;
     if (up.textContent && up.textContent !== _t && window._dtpFlash) window._dtpFlash(up);   // flash discret : horodatage rafraîchi pendant que le popup est ouvert
     up.textContent = _t;
   }
