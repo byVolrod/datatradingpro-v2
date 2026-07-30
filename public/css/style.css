@@ -6060,7 +6060,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   top: calc(var(--topbar-h) + 4px);
   left: 50%;
   transform: translateX(-50%);
-  width: 430px;
+  width: 340px;
   max-width: calc(100vw - 16px);
   max-height: calc(100vh - 80px);
   overflow-y: auto;
@@ -6075,7 +6075,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid #1a1a1a;
   background: var(--bg);
 }
@@ -6152,16 +6152,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .rp-gauge-wrap--neutral::after  { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--neutral),transparent); }
 
 .rp-desc {
-  font-size: 13px; color: #9aa3b2; line-height: 1.55; margin: 14px 0 6px;
+  font-size: 12px; color: #9aa3b2; line-height: 1.45; margin: 8px 0 4px;
 }
 .rp-divider {
-  height: 1px; background: #2a2a2a; margin: 8px 0;
+  height: 1px; background: #2a2a2a; margin: 6px 0;
 }
 .rp-section-label {
-  font-family: var(--font-mono); font-size: 9px; color: #8a93a0;
-  letter-spacing: 0.12em; margin-bottom: 8px; text-transform: uppercase;
+  font-family: var(--font-mono); font-size: 8.5px; color: #8a93a0;
+  letter-spacing: 0.1em; margin-bottom: 6px; text-transform: uppercase;
 }
-.rp-assets { display: flex; flex-direction: column; gap: 5px; }
+.rp-assets { display: flex; flex-direction: column; gap: 3px; }
 .rp-asset-row {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--font-mono); font-size: 11.5px;
@@ -6171,7 +6171,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .rp-asset-chg   { font-weight: var(--fw-bold); font-size: var(--fs-title); }
 .rp-asset-chg.pos { color: #34d399; }
 .rp-asset-chg.neg { color: #f87171; }
-.rp-updated { font-size: 10px; color: #6b7280; font-family: var(--font-mono); margin-top: 6px; }
+.rp-updated { font-size: 9.5px; color: #6b7280; font-family: var(--font-mono); margin-top: 4px; }
 
 /* Sentiment colors per label */
 .risk-popup-header.risk-on    { border-left: 3px solid #22c55e; }
@@ -10643,9 +10643,9 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 
 /* === Popup sentiment : description structuree (verdict + lecture + pour trader) === */
 .rp-d-lead{font-size:13px;font-weight:var(--fw-bold);color:#e9eaed;margin:0 0 10px;line-height:1.35;}
-.rp-d-row{display:flex;gap:10px;align-items:baseline;margin:0 0 7px;}
-.rp-d-k{flex:0 0 66px;font-size:9px;font-weight:var(--fw-bold);letter-spacing:.07em;text-transform:uppercase;color:#e3b23a;}
-.rp-d-v{flex:1;font-size:12px;color:#aeb4bd;line-height:1.5;}
+.rp-d-row{display:flex;gap:9px;align-items:baseline;margin:0 0 5px;}
+.rp-d-k{flex:0 0 68px;font-size:8.5px;font-weight:var(--fw-bold);letter-spacing:.07em;text-transform:uppercase;color:#e3b23a;}
+.rp-d-v{flex:1;font-size:11.5px;color:#aeb4bd;line-height:1.45;}
 
 /* === Carte sessions : leger effet 3D (inclinaison perspective) === */
 #am5-map{overflow:hidden;}   /* carte à PLAT : le transform 3D (perspective/rotateX) créait un artefact (trait noir) sur le rendu SVG Leaflet */
@@ -12321,7 +12321,9 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
     var(--bg);
   overflow-y: auto; animation: dtpViewIn var(--t-med, .22s) var(--ease-out, ease) both;
 }
-.home-inner { max-width: 1180px; margin: 0 auto; padding: 34px 28px 60px; position: relative; }
+/* Le bas était à 60 px : sur un écran de 900 px, c'est un sixième du dépassement mesuré pour du
+   vide. 22 px suffisent à ne pas coller la dernière rangée au bord. */
+.home-inner { max-width: 1180px; margin: 0 auto; padding: 22px 28px 22px; position: relative; }
 .home-skip {
   position: absolute; top: 26px; right: 28px; padding: 5px 12px;
   background: transparent; border: 1px solid var(--hud-line, var(--border)); border-radius: var(--pill, 999px);
@@ -12338,7 +12340,8 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
 .home-col--side { flex: 0 0 320px; }
 .home-sec { font-family: var(--tight); font-size: var(--fs-title); font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text2); margin: 22px 0 10px; padding-left: 9px; border-left: 2px solid var(--orange); }
 .home-sec:first-child { margin-top: 0; }
-.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px;
+  height: var(--home-h); overflow-y: auto; align-content: start; }
 .home-card {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
   padding: 14px 14px 12px; min-height: 92px; background: var(--bg2); border: 1px solid var(--hud-line, var(--border));
@@ -12504,7 +12507,7 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    Les panneaux ne sont pas des maquettes : ce sont les widgets du desk montés ici. Le cadre reste
    donc DISCRET (filet fin, en-tête d'une ligne) pour que la donnée porte l'écran, pas l'habillage. */
 .home-grid {
-  display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; margin-top: 22px; align-items: start;
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; margin-top: 14px; align-items: start;
 }
 .home-zone { grid-column: span 4; min-width: 0; display: flex; flex-direction: column; }
 .home-zone--desks { grid-column: span 7; }
@@ -12515,23 +12518,45 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
   color: var(--text3); background: transparent; border: 0; padding: 0; cursor: pointer; transition: color .12s;
 }
 .home-zone-go:hover { color: var(--orange); }
-/* Cadre du widget : hauteur FIXE — sans elle, amCharts et Leaflet mesurent 0 et rendent vide. */
+/* Cadre du widget : hauteur EXPLICITE obligatoire — sans elle, amCharts et Leaflet mesurent 0 et
+   rendent vide. Mais elle ne doit plus être FIGÉE : à 260/300 px, le contenu dépassait de 121 px
+   sur un écran de 900 px (mesuré) et de plus de 250 px sur un portable 1366 × 768.
+   On la déduit donc de la place réelle : (écran − topbar − le reste) ÷ nombre de rangées.
+   · 354 px = tout ce qui n'est pas un widget (titre, sessions, en-têtes, accès rapide, marges,
+     gouttières) — chiffre MESURÉ, pas estimé.
+   · le clamp protège les deux extrêmes : jamais sous 158 px (un graphique n'y dirait plus rien),
+     jamais au-delà de 300 px (au-delà, on gaspille l'écran sans rien montrer de plus). */
+.home-grid { --home-h: clamp(158px, calc((100vh - var(--topbar-h, 54px) - 354px) / 2), 300px); }
+@supports (height: 100dvh) {
+  /* dvh suit les barres d'adresse mobiles qui se replient — vh, lui, garde la hauteur initiale. */
+  .home-grid { --home-h: clamp(158px, calc((100dvh - var(--topbar-h, 54px) - 354px) / 2), 300px); }
+}
 .home-zone-body {
-  height: 260px; overflow: hidden; position: relative;
+  height: var(--home-h); overflow: hidden; position: relative;
   background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
 }
-.home-zone--wide .home-zone-body { height: 300px; }
+.home-zone--wide .home-zone-body { height: var(--home-h); }
 .home-zone-body > * { height: 100%; }
 
 /* Sous 1200 px on passe à deux zones par rangée, sous 860 px à une seule : un widget écrasé sur
-   3 colonnes ne montre plus rien d'exploitable. */
+   3 colonnes ne montre plus rien d'exploitable.
+   Le DIVISEUR de --home-h suit ce découpage — deux zones par rangée font TROIS rangées (desks +
+   large, puis deux, puis une), pas deux. Sans cet ajustement la formule ferait déborder ce palier
+   au lieu de le faire tenir. */
 @media (max-width: 1200px) {
-  .home-zone, .home-zone--desks, .home-zone--wide { grid-column: span 6; }
+  /* Deux zones par rangée mettait les trois petits widgets sur DEUX rangées (2 + 1) : trois rangées
+     au total, soit 271 px de débordement mesurés en 1024 × 768. On garde donc les trois petits
+     COTE À COTE — à 1024 px ils font encore ~314 px de large, largement lisibles — et seules les
+     deux grandes zones passent à la moitié. Deux rangées, ça tient. */
+  .home-zone { grid-column: span 4; }
+  .home-zone--desks, .home-zone--wide { grid-column: span 6; }
 }
+/* Une seule colonne : quatre widgets ne tiennent PAS dans un écran de téléphone, et les y forcer
+   les réduirait à des timbres-poste illisibles. On assume le défilement — l'exigence est que rien
+   ne soit ROGNÉ, pas que tout tienne dans un écran de 6 pouces. */
 @media (max-width: 860px) {
-  .home-grid { grid-template-columns: 1fr; }
+  .home-grid { grid-template-columns: 1fr; --home-h: 240px; }
   .home-zone, .home-zone--desks, .home-zone--wide { grid-column: 1 / -1; }
-  .home-zone-body, .home-zone--wide .home-zone-body { height: 240px; }
 }
 
 
