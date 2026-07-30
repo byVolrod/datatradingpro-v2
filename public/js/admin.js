@@ -178,6 +178,7 @@
     { prev:'temoignage',     test:null, name:'Témoignage membre',     when:'Manuel · validation',  desc:'Un avis Whop réel + l\'histoire de JustOneTrader et du terminal. Ne part JAMAIS seul : aperçu pour validation.' },
     { prev:'reengagement',   test:null, name:'Réengagement',          when:'Auto · inactif 7j',    desc:'Relance d\'un client inactif depuis ~7 jours.' },
     { prev:'renewal-failed', test:null, name:'Renouvellement échoué', when:'Auto · sur échec',     desc:'Envoyé quand un paiement échoue / le compte est suspendu.' },
+    { prev:"auto-renew-off", test:null, name:"Renouvellement auto coupé", when:"Auto · à la coupure", desc:"Part quand un client désactive la reconduction côté Whop. L'accès reste actif jusqu'à l'échéance — le mail informe, une seule fois par échéance." },
     { prev:'welcome',        test:null, name:'Bienvenue (accès)',     when:'Auto · création',      desc:'Identifiants d\'accès envoyés à la création du compte.' },
   ];
   // Liste maître (gauche) : un clic sélectionne le template → l'aperçu se charge à DROITE, les
