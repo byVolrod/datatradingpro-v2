@@ -54,10 +54,9 @@
       + '<span class="home-card-meta">disposition, modèle ou widgets un à un</span></button>';
   }
 
-  var VUES = [
-    ['news', 'Actus'], ['calendar', 'Calendrier'], ['fxlist', 'Liste FX'], ['institution', 'Institutions'],
-    ['analystes', 'Analystes'], ['bias', 'Biais'], ['weekahead', 'Semaine à venir'], ['taux', 'Taux'], ['banques', 'Banques'],
-  ];
+  // (La table VUES a été retirée avec « Accès rapide » : la nav du desk est à un clic, et deux de
+  //  ses identifiants étaient morts — le desk attend « analyst » et « bank », pas « analystes »
+  //  et « banques ».)
 
   /* ── ÉTAT DE SÉANCE ────────────────────────────────────────────────────────────────────────────
      MÊME table et MÊME règle que la carte des sessions du desk (app.js, renderSessionMap) : heures
@@ -98,15 +97,22 @@
      `cfg` = réglages du contrat déclaratif, choisis pour un écran de PRISE DE POSTE : on veut
      l'essentiel en un coup d'œil, pas l'exhaustivité (le desk est là pour ça). */
   var PANNEAUX = [
-    { id: 'calendrier-jour', titre: 'À suivre aujourd\'hui', vue: 'calendar', large: true,
-      cfg: { impact: 'high', lignes: 10, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
-    { id: 'force-devises', titre: 'Force des devises', vue: 'fxlist', cfg: { periodes: 'today' } },
-    { id: 'radar-biais', titre: 'Radar de biais', vue: 'bias' },
-    { id: 'sessions', titre: 'Carte des sessions', vue: null },
+    { id: 'calendrier-jour', titre: 'À suivre aujourd\'hui', vue: 'calendar', col: 5,
+      cfg: { impact: 'high', lignes: 12, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
+    // Le fil remplace la carte des sessions : le bandeau du haut dit déjà l'état des places, et
+    // c'est l'actualité qu'on ouvre en premier en prenant son poste.
+    { id: 'fil-news', titre: 'Flash marché', vue: 'news', col: 4, cfg: { nb: 14 } },
+    // La PÉRIODE est affichée : un graphe de force ne veut rien dire sans sa fenêtre de temps.
+    // TD = la séance en cours, vocabulaire du desk (STF_LABELS) et non un mot propre à l'accueil.
+    { id: 'force-devises', titre: 'Force des devises', tf: 'TD', vue: 'fxlist', col: 5, cfg: { periodes: 'today' } },
+    // 7 colonnes : c'est un tableau à 7 piliers ; en dessous il se tronque (la colonne CROISSANCE
+    // disparaissait dans l'ancienne mise en page bridée à 1180 px).
+    { id: 'radar-biais', titre: 'Radar de biais', vue: 'bias', col: 7 },
   ];
   function panneau(p) {
-    return '<section class="home-zone home-zone--w' + (p.large ? ' home-zone--wide' : '') + '">'
-      + '<div class="home-sec home-sec--w">' + esc(p.titre)
+    return '<section class="home-zone home-zone--w" style="--c:' + (p.col || 4) + '">'
+      + '<div class="home-sec home-sec--w"><span class="home-sec-t">' + esc(p.titre)
+      + (p.tf ? '<span class="home-tf" title="Période affichée">' + esc(p.tf) + '</span>' : '') + '</span>'
       + (p.vue ? '<button class="home-zone-go" onclick="DTPHome.openView(\'' + p.vue + '\')">Ouvrir ›</button>' : '')
       + '</div>'
       + '<div class="home-zone-body" id="home-w-' + p.id + '"></div>'
@@ -120,24 +126,22 @@
     el.innerHTML = ''
       + '<div class="home-inner">'
       +   '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk ✕</button>'
-      +   '<div class="home-hero">'
-      +     '<div class="home-eyebrow">Espace de travail</div>'
-      +     '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
-      +     '<div class="home-sub">' + esc(dateFr()) + ' — ton desk est prêt.</div>'
-      +   '</div>'
-      +   '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
-      +   '<div class="home-grid">'
-      +     '<section class="home-zone home-zone--desks">'
-      +       '<div class="home-sec">Mes desks</div>'
-      +       '<div class="home-cards">' + layoutCards(cfg) + '</div>'
-      +     '</section>'
-      +     PANNEAUX.map(panneau).join('')
-      +   '</div>'
-      +   '<div class="home-sec">Accès rapide</div>'
-      +   '<div class="home-chips">' + VUES.map(function (v) {
-            return '<button class="home-chip" onclick="DTPHome.openView(\'' + v[0] + '\')">› ' + esc(v[1]) + '</button>';
-          }).join('') + '</div>'
-      + '</div>';
+  +   '<div class="home-top">'
+  +     '<div class="home-hero">'
+  +       '<div class="home-eyebrow">Espace de travail</div>'
+  +       '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
+  +       '<div class="home-sub">' + esc(dateFr()) + ' — ton desk est prêt.</div>'
+  +     '</div>'
+  +     '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
+  +   '</div>'
+  +   '<div class="home-grid">'
+  +     '<section class="home-zone home-zone--desks" style="--c:3">'
+  +       '<div class="home-sec home-sec--w"><span class="home-sec-t">Mes desks</span></div>'
+  +       '<div class="home-cards">' + layoutCards(cfg) + '</div>'
+  +     '</section>'
+  +     PANNEAUX.map(panneau).join('')
+  +   '</div>'
+  + '</div>';
     document.body.appendChild(el);
 
     // Les sessions avancent : on les rafraîchit tant que l'écran est là (le minuteur meurt avec lui).
