@@ -111,6 +111,7 @@ let _mosaicImages     = [];
 let _mosaicRefreshedAt = 0;
 let _swCache      = [];
 let _swFetchedAt  = 0;
+let _swSilenceAlerte = 0;   // dernière alerte « source muette » (max 1/jour)
 let _brCache     = [];
 let _brFetchedAt = 0;
 
@@ -3252,9 +3253,12 @@ async function _fetchSessionWraps(full = false) {
   const UA       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 
   // Try category feed first (only wraps), fall back to main feed (filter by title)
+  // ORDRE INVERSÉ (30/07) : le flux catégorie /SessionWraps/feed/ répond 404 — vérifié en direct
+  // depuis le conteneur. On tapait dessus en premier toutes les 20 min, le repli masquait la panne.
+  // Il reste en second au cas où il reviendrait ; son échec est désormais tracé (une fois par jour).
   const FEEDS = [
-    { base: 'https://investinglive.com/SessionWraps/feed/', filter: false },
     { base: 'https://investinglive.com/feed/',               filter: true  },
+    { base: 'https://investinglive.com/SessionWraps/feed/', filter: false, mort: true },
   ];
 
   const merged = new Map(_swCache.map(i => [i.id, i]));
@@ -3405,6 +3409,21 @@ async function _fetchSessionWraps(full = false) {
   _persistHistory('session_wraps', _swCache);   // persistance durable (Supabase, rétention 1 mois)
   try { broadcast({ type: 'sw_update', items: _swCache }); } catch {}   // publication (titres déjà en place)
   console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+  // VEILLE DE SILENCE. La source publie normalement trois wraps par jour (Asie ~04-06h UTC, Europe
+  // ~10-12h, Amériques ~18-22h). Au-delà de 14 h sans le moindre nouveau wrap, ce n'est plus un
+  // creux d'horaire : soit ils ont sauté une publication, soit leur page a changé et on ne lit plus
+  // rien. Dans les deux cas il faut le SAVOIR — le 30/07, l'absence du wrap Asie n'a été découverte
+  // que parce qu'un client l'a remarquée. Une alerte par jour au maximum.
+  try {
+    const _dernier = _swCache.reduce((mx, i) => Math.max(mx, i.timestamp || 0), 0);
+    const _silence = _dernier ? Math.round((Date.now() - _dernier) / 3600000) : 999;
+    if (_silence >= 14 && Date.now() - _swSilenceAlerte > 20 * 3600 * 1000) {
+      _swSilenceAlerte = Date.now();
+      const msg = `Aucun nouveau session wrap InvestingLive depuis ${_silence} h (ils en publient 3/jour). Source muette ou page changée.`;
+      console.warn('[SessionWraps] ' + msg);
+      try { _aiAlertNote('warn', 'session-wraps', msg); } catch {}
+    }
+  } catch {}
   _swEnsureAiTitles().catch(() => {});           // backfill du reste (au-delà des 12 s), en arrière-plan
 }
 
