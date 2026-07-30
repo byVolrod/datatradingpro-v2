@@ -1725,6 +1725,33 @@ async function _whopRenewOrCreate(mem) {
     } catch (e) { console.error('[Referral] attribution Whop:', e.message); }
   }
 }
+// « Renouvellement automatique désactivé » : le client a coupé la reconduction, son accès court
+// jusqu'à l'échéance. On l'informe UNE fois, factuellement (ce qui s'arrête, à quelle date, et que
+// ne rien faire est un choix valable). Garde-fous identiques au circuit d'expiration.
+async function _whopAutoRenewOff(email, mem) {
+  try {
+    const em = String(email || '').toLowerCase().trim();
+    if (!em) return;
+    // L'échéance doit être DANS LE FUTUR : le mail annonce « arrive à échéance dans X jours ».
+    const fin = mem && mem.periodEnd ? Number(mem.periodEnd) : 0;
+    if (!Number.isFinite(fin) || fin <= Date.now()) { console.log('[Whop] renouvellement coupé mais échéance passée/inconnue → pas de mail :', em); return; }
+    const users = await auth.getAllUsers();
+    const u = users.find(x => (x.email || '').toLowerCase() === em);
+    if (!u || u.role !== 'client') return;
+    if (auth.isEmailBlacklisted(em)) return;
+    if (await auth.emailLogHas('unsub:' + em)) return;
+    // Accès offert / Amis : leur accès ne dépend pas d'un paiement, on ne leur réclame rien.
+    if (_isGift(u.email) || _isFriend(u)) { console.log('[Whop] renouvellement coupé, accès offert/Amis → pas de mail :', em); return; }
+    if (_isTrialAccount(u)) return;   // l'essai a son propre mail (sendTrialUpsell)
+    const cle = `arnoff:${u.id}:${fin}`;   // une seule fois par échéance (Whop rejoue ses webhooks)
+    if (await auth.emailLogHas(cle)) return;
+    const ok = await mailer.sendAutoRenewOff({ to: u.email, name: u.name, expiresAt: fin });
+    if (ok) {
+      await auth.emailLogAdd(cle);
+      console.log(`[Whop] Mail « renouvellement auto désactivé » envoyé → ${em} (échéance ${new Date(fin).toISOString().slice(0, 10)})`);
+    }
+  } catch (e) { console.error('[Whop] autoRenewOff:', e.message); }
+}
 async function _whopSuspend(email) {
   const users = await auth.getAllUsers();
   const u = users.find(x => (x.email || '').toLowerCase() === email);
@@ -1771,9 +1798,9 @@ app.post('/api/whop/webhook', async (req, res) => {
       // e-mail. Ça neutralise (1) un webhook FORGÉ {action:'refund'} — l'adhésion réelle est
       // toujours valide → ignoré ; (2) un event cancel sur une VIEILLE adhésion alors qu'une
       // nouvelle est active (changement de plan) — le client valide n'est plus suspendu à tort.
-      let stillValid = false;
-      try { const v = await whop.getMembershipByEmail(mem.email); stillValid = !!(v && v.valid); } catch (e) {}
-      if (stillValid) { console.warn(`[Whop] event "${action}" reçu mais une adhésion VALIDE existe côté Whop → ignoré (forge ou vieille adhésion) : ${mem.email}`); return; }
+      let stillValid = false, v = null;
+      try { v = await whop.getMembershipByEmail(mem.email); stillValid = !!(v && v.valid); } catch (e) {}
+      if (stillValid) { console.warn(`[Whop] event "${action}" reçu mais une adhésion VALIDE existe côté Whop → ignoré (forge ou vieille adhésion) : ${mem.email}`); if (/cancel/.test(action) && !banEvent) await _whopAutoRenewOff(mem.email, v); return; }
       await _whopSuspend(mem.email);
       if (banEvent) { try { auth.blacklistEmail(mem.email); console.log('[Whop] AUTO-BLACKLIST (event "' + action + '") →', mem.email); } catch (e) { console.error('[Whop] blacklist auto:', e.message); } }
     }
