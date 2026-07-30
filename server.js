@@ -9926,7 +9926,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
     // RÉCAP SÉANCE ASIE — 09h30 Paris : Tokyo a fermé (08h), Sydney aussi (07h), et il arrive avant
     // l'ouverture de Londres. Comme les deux autres récaps de séance : jamais publié avant l'heure.
-    { fn: (w) => generateAsiaRecap(false, 0, w),      h: 9,  m: 30, winH: 8,  winM: 0,  name: 'Asia Session Recap', afterHour: true },   // publie a 9h30, fenetre close a 8h00 (cloture Tokyo)
+    { fn: (w) => generateAsiaRecap(false, 0, w),      h: 9,  m: 30, winH: 7,  winM: 15, name: 'Asia Session Recap', afterHour: true },   // publie a 9h30, fenetre close a 7h15 — avant la vague de donnees europeennes de 7h30
     { fn: (w) => generateLondonRecap(false, 0, w),    h: 17, m: 30, winH: 17, winM: 30, name: 'London Recap', afterHour: true },
     // RÉCAP SÉANCE NEW YORK — 22h15 Paris, juste après la clôture cash US (22h00) et avant la mise
     // à jour complète du Récap FX (22h30). La fonction existait, son déclencheur manuel aussi, et
