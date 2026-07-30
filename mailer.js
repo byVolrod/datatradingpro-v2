@@ -442,11 +442,10 @@ function _spamNote() {
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
     style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.35);border-radius:10px;margin:20px 0;">
     <tr><td style="padding:14px 16px;color:#f3d9b0;font-size:13px;line-height:1.6;">
-      <strong style="color:#f3c344;">📌 Note importante : pour ne plus rater nos emails</strong><br>
-      Pour éviter que nos messages (accès, alertes, renouvellement) ne tombent dans vos <strong>spams</strong> :
-      <ul style="margin:8px 0 0;padding-left:18px;color:#e2cba0;">
+      <strong style="color:#f3c344;">📌 Pour ne plus rater nos emails</strong>
+      <ul style="margin:7px 0 0;padding-left:18px;color:#e2cba0;">
         <li>Ajoutez <strong style="color:#fff;">${sender}</strong> à vos <strong>contacts</strong>.</li>
-        <li>Si cet email est dans les spams/indésirables, ouvrez-le et cliquez sur <strong>« Non spam »</strong> (ou déplacez-le vers la boîte de réception).</li>
+        <li>S'il arrive dans vos spams, cliquez sur <strong>« Non spam »</strong>.</li>
       </ul>
     </td></tr></table>`;
 }
