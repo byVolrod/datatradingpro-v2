@@ -7612,6 +7612,21 @@ function buildAsiaOpening({ dateStr, s, reportType }) {
   return { subtitle, bullets, tags: _briefingTags(s, ['Asia Opening', 'JPY', 'AUD']) };
 }
 
+// Récap de la séance Asie-Pacifique. Même moule que Londres et New York — seuls changent les
+// accents : banques centrales de la zone (BoJ, RBA, RBNZ, PBoC), données régionales, devises JPY/
+// AUD/NZD/CNH. Assemblage par règles, aucun appel IA : il sort même quand le quota est épuisé.
+function buildAsiaRecap({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`Asia Session Recap — ${s.all.length} items tracked · ${dateStr}`);
+  _pushBullets(bullets, 'BoJ / RBA / RBNZ / PBoC', s.cb, 3);
+  _pushBullets(bullets, 'Asia-Pacific Data', s.hdata.length ? s.hdata : s.data, 3);
+  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
+  _pushBullets(bullets, 'JPY / AUD / NZD / CNH', s.fx, 2);
+  _pushBullets(bullets, 'Commodities', s.nrg, 2);
+  _pushBullets(bullets, 'Trade', s.trade, 1);
+  return { subtitle: _briefingSubtitle(reportType, s, ['BoJ', 'RBA', 'RBNZ', 'PBoC']), bullets, tags: _briefingTags(s, ['Asia Recap', 'JPY', 'AUD']) };
+}
+
 function buildLondonRecap({ dateStr, s, reportType }) {
   const bullets = [];
   bullets.push(`London Session Recap — ${s.all.length} items tracked · ${dateStr}`);
@@ -7714,6 +7729,10 @@ function buildWeeklyMarketRecap({ dateStr, s, reportType }) {
 // ─── Wrappers (async for schedule .catch() compatibility) ────────────────────
 async function generateAsiaOpeningBriefing(force = false, dateOffset = 0) {
   return generateDailyBriefing({ idPrefix: 'dtp-asia-briefing-', reportType: 'Asia Opening Preparation', cutoffHours: 12, force, buildFn: buildAsiaOpening, dateOffset });
+}
+async function generateAsiaRecap(force = false, dateOffset = 0) {
+  // cutoffHours 10 : couvre l'ouverture de Sydney (23h Paris la veille) jusqu'à la clôture de Tokyo.
+  return generateDailyBriefing({ idPrefix: 'dtp-asia-recap-', reportType: 'Asia Session Recap', cutoffHours: 10, force, buildFn: buildAsiaRecap, dateOffset });
 }
 async function generateLondonRecap(force = false, dateOffset = 0) {
   return generateDailyBriefing({ idPrefix: 'dtp-london-recap-', reportType: 'London Session Recap', cutoffHours: 9, force, buildFn: buildLondonRecap, dateOffset });
@@ -9891,6 +9910,9 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateAsiaOpeningBriefing(false),   h: 1,  m: 30, name: 'Asia Opening'         },
     { fn: () => generateLondonOpeningBriefing(false), h: 7,  m: 45, name: 'London Opening'        },
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
+    // RÉCAP SÉANCE ASIE — 09h30 Paris : Tokyo a fermé (08h), Sydney aussi (07h), et il arrive avant
+    // l'ouverture de Londres. Comme les deux autres récaps de séance : jamais publié avant l'heure.
+    { fn: () => generateAsiaRecap(false),             h: 9,  m: 30, name: 'Asia Session Recap', afterHour: true },
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap', afterHour: true },
     // RÉCAP SÉANCE NEW YORK — 22h15 Paris, juste après la clôture cash US (22h00) et avant la mise
     // à jour complète du Récap FX (22h30). La fonction existait, son déclencheur manuel aussi, et
@@ -12942,6 +12964,7 @@ app.get('/api/briefing/:type/generate', async (req, res) => {
     'us-opening':        () => _generateUSOpeningNew(force),
     'asia-opening':      () => generateAsiaOpeningBriefing(force),
     'london-opening':    () => generateLondonOpeningBriefing(force),
+    'asia-recap':        () => generateAsiaRecap(force),
     'london-recap':      () => generateLondonRecap(force),
     'us-recap':          () => generateUSRecap(force),
     'daily-recap':       () => generateDailyMarketRecap(force),
@@ -12951,7 +12974,7 @@ app.get('/api/briefing/:type/generate', async (req, res) => {
     'fx-recap':          () => generateFXDailyRecap(force),   // FX Daily Recap (manquait : seule voie = planif 19h/22h30 ; utile pour régénérer après un bump FXR_VER)
   };
   const fn = map[req.params.type];
-  if (!fn) return res.status(404).json({ error: 'Valid types: us-opening, asia-opening, london-opening, london-recap, us-recap, daily-recap, daily-review, weekly-economic, weekly-recap, fx-recap' });
+  if (!fn) return res.status(404).json({ error: 'Valid types: us-opening, asia-opening, london-opening, asia-recap, london-recap, us-recap, daily-recap, daily-review, weekly-economic, weekly-recap, fx-recap' });
   try {
     await fn();
     res.json({ ok: true, type: req.params.type });
@@ -12976,6 +12999,7 @@ app.get('/api/briefings/generate-all', async (req, res) => {
   const yesterdayFns = yesterday ? [
     { name: 'US Opening (yest)',    fn: () => _generateUSOpeningNew(force, 1)        },
     { name: 'Asia Opening (yest)',  fn: () => generateAsiaOpeningBriefing(force, 1)  },
+    { name: 'Asia Recap (yest)',    fn: () => generateAsiaRecap(force, 1)            },
     { name: 'London Recap (yest)',  fn: () => generateLondonRecap(force, 1)          },
     { name: 'US Recap (yest)',      fn: () => generateUSRecap(force, 1)              },
     { name: 'Daily Review (yest)',  fn: () => generateDailyEventReview(force, 1)     },
