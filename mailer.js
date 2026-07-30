@@ -488,7 +488,6 @@ function buildRenewalFailed({ name }) {
     <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro. Par conséquent, votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
     <p style="margin:0 0 14px;">Pour réactiver votre accès et reprendre le suivi des marchés en temps réel, il vous suffit de renouveler votre abonnement en un clic ci-dessous :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Nous restons à votre disposition,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : échec du renouvellement de votre abonnement', html: _layout('Renouvellement', body) };
@@ -507,7 +506,6 @@ function buildExpired({ name, expiresAt }) {
     ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Pour reprendre le suivi des marchés en temps réel (news, calendrier économique, force des devises, analyses institutionnelles), renouvelez votre abonnement en un clic :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre abonnement a expiré', html: _layout('Abonnement expiré', body) };
@@ -526,7 +524,7 @@ function buildExpiredFollowup({ name, expiresAt }) {
     <p style="margin:0 0 14px;">Votre abonnement a expiré il y a une semaine${end ? ` (le <strong style="color:#fff;">${end}</strong>)` : ''} et votre accès est toujours suspendu. Pendant ce temps, le desk a continué de tourner : news en temps réel, calendrier, biais hebdomadaires, recherche bancaire.</p>
     <p style="margin:0 0 14px;">Si c'est un oubli, tout se réactive en un clic — votre compte, vos réglages et votre journal sont intacts :</p>
     ${_button('Réactiver mon accès', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Si vous avez choisi d'arrêter, aucun souci — ce message est notre dernier rappel automatique. Une question ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;">${SUPPORT_EMAIL}</a>.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Si vous avez choisi d'arrêter, aucun souci — ce message est notre dernier rappel automatique.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À bientôt peut-être,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre accès est toujours suspendu', html: _layout('Toujours suspendu', body) };
@@ -615,7 +613,6 @@ function buildForgotNoSub({ name }) {
     <p style="margin:0 0 14px;">Vous venez de demander la réinitialisation de votre mot de passe DataTradingPro. Or votre <strong style="color:#fff;">abonnement n'est pas actif</strong> : votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
     <p style="margin:0 0 14px;">Pour des raisons de sécurité, nous ne réinitialisons le mot de passe que pour les comptes disposant d'un <strong style="color:#fff;">abonnement actif</strong>. Dès que le vôtre sera réactivé, vous pourrez de nouveau vous connecter (et réinitialiser votre mot de passe si besoin).</p>
     ${_button('Réactiver mon abonnement', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : réinitialisation impossible : abonnement inactif', html: _layout('Abonnement inactif', body) };
