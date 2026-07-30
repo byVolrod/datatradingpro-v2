@@ -1544,6 +1544,15 @@ app.get('/api/admin/broadcast-v2', requireSameOrigin, requireAdmin, async (req, 
   if (req.query.status === '1') return res.json(_broadcastV2);
   const send = req.query.send === '1';
   const force = req.query.force === '1';
+  // ?slot=1 : ancre la fenêtre sur le CRÉNEAU du rapport plutôt que sur l'heure d'appel. Sans lui,
+  // une régénération manuelle d'un récap de séance en soirée analyserait l'après-midi.
+  const _slotH = { 'asia-recap': [9, 30], 'london-recap': [17, 30], 'us-recap': [22, 15] };
+  const _wSlot = (req.query.slot === '1' && _slotH[req.params.type]) ? (() => {
+    const [h, m] = _slotH[req.params.type]; const now = new Date();
+    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const dec = paris.getTime() - now.getTime(); const c = new Date(paris); c.setHours(h, m, 0, 0);
+    return c.getTime() - dec;
+  })() : 0;
   const audience = String(req.query.audience || 'all').toLowerCase();
   if (send && _broadcastV2.running) return res.status(409).json({ error: 'Un envoi est déjà en cours.', state: _broadcastV2 });
   let users = []; try { users = await auth.getAllUsers(); } catch { return res.status(500).json({ error: 'users indisponibles' }); }
@@ -7305,7 +7314,7 @@ app.get('/api/us-briefing/generate', async (req, res) => {
 
 // ─── Generic DTP daily briefing generator ────────────────────────────────────
 
-function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = false, buildFn, dateOffset = 0 }) {
+function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = false, buildFn, dateOffset = 0, windowEnd = 0 }) {
   // dateOffset=0 → today, dateOffset=1 → yesterday
   const targetTs  = Date.now() - dateOffset * 24 * 60 * 60 * 1000;
   const targetDate = new Date(targetTs);
@@ -7322,9 +7331,14 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
 
   const now     = Date.now();
   // Shift the window back by dateOffset days for past reports
-  const windowEnd   = now - dateOffset * 24 * 60 * 60 * 1000;
-  const cutoff      = windowEnd - cutoffHours * 60 * 60 * 1000;
-  const recent      = allNews.filter(i => i.timestamp > cutoff && i.timestamp <= windowEnd && !i._briefing);
+  // windowEnd : fin de la fenêtre d'analyse. Par défaut « maintenant » — correct quand le rapport
+  // tourne à son créneau. Un RATTRAPAGE, lui, doit passer l'heure du CRÉNEAU : sans ça, un récap de
+  // séance rattrapé en soirée analyse l'après-midi au lieu de sa propre séance (vécu le 30/07 : du
+  // PIB américain dans un « Asia Session Recap »).
+  const _wEnd       = windowEnd && windowEnd > 0 ? windowEnd : now;
+  const windowEnd_  = _wEnd - dateOffset * 24 * 60 * 60 * 1000;
+  const cutoff      = windowEnd_ - cutoffHours * 60 * 60 * 1000;
+  const recent      = allNews.filter(i => i.timestamp > cutoff && i.timestamp <= windowEnd_ && !i._briefing);
   const timeStr     = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const dateStr     = targetDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
 
@@ -7730,15 +7744,15 @@ function buildWeeklyMarketRecap({ dateStr, s, reportType }) {
 async function generateAsiaOpeningBriefing(force = false, dateOffset = 0) {
   return generateDailyBriefing({ idPrefix: 'dtp-asia-briefing-', reportType: 'Asia Opening Preparation', cutoffHours: 12, force, buildFn: buildAsiaOpening, dateOffset });
 }
-async function generateAsiaRecap(force = false, dateOffset = 0) {
+async function generateAsiaRecap(force = false, dateOffset = 0, windowEnd = 0) {
   // cutoffHours 10 : couvre l'ouverture de Sydney (23h Paris la veille) jusqu'à la clôture de Tokyo.
-  return generateDailyBriefing({ idPrefix: 'dtp-asia-recap-', reportType: 'Asia Session Recap', cutoffHours: 10, force, buildFn: buildAsiaRecap, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-asia-recap-', reportType: 'Asia Session Recap', cutoffHours: 10, force, buildFn: buildAsiaRecap, dateOffset, windowEnd });
 }
-async function generateLondonRecap(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'dtp-london-recap-', reportType: 'London Session Recap', cutoffHours: 9, force, buildFn: buildLondonRecap, dateOffset });
+async function generateLondonRecap(force = false, dateOffset = 0, windowEnd = 0) {
+  return generateDailyBriefing({ idPrefix: 'dtp-london-recap-', reportType: 'London Session Recap', cutoffHours: 9, force, buildFn: buildLondonRecap, dateOffset, windowEnd });
 }
-async function generateUSRecap(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'dtp-us-recap-', reportType: 'US Session Recap', cutoffHours: 10, force, buildFn: buildUSRecap, dateOffset });
+async function generateUSRecap(force = false, dateOffset = 0, windowEnd = 0) {
+  return generateDailyBriefing({ idPrefix: 'dtp-us-recap-', reportType: 'US Session Recap', cutoffHours: 10, force, buildFn: buildUSRecap, dateOffset, windowEnd });
 }
 async function generateDailyEventReview(force = false, dateOffset = 0) {
   return generateDailyBriefing({ idPrefix: 'dtp-daily-review-', reportType: 'Daily Event Review', cutoffHours: 24, force, buildFn: buildDailyReview, dateOffset });
@@ -9912,13 +9926,13 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
     // RÉCAP SÉANCE ASIE — 09h30 Paris : Tokyo a fermé (08h), Sydney aussi (07h), et il arrive avant
     // l'ouverture de Londres. Comme les deux autres récaps de séance : jamais publié avant l'heure.
-    { fn: () => generateAsiaRecap(false),             h: 9,  m: 30, name: 'Asia Session Recap', afterHour: true },
-    { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap', afterHour: true },
+    { fn: (w) => generateAsiaRecap(false, 0, w),      h: 9,  m: 30, name: 'Asia Session Recap', afterHour: true },
+    { fn: (w) => generateLondonRecap(false, 0, w),    h: 17, m: 30, name: 'London Recap', afterHour: true },
     // RÉCAP SÉANCE NEW YORK — 22h15 Paris, juste après la clôture cash US (22h00) et avant la mise
     // à jour complète du Récap FX (22h30). La fonction existait, son déclencheur manuel aussi, et
     // toute la chaîne d'affichage — il ne manquait que cette ligne : elle n'était donc JAMAIS
     // appelée automatiquement (ni créneau, ni rattrapage, qui parcourt cette même table).
-    { fn: () => generateUSRecap(false),               h: 22, m: 15, name: 'US Session Recap', afterHour: true },
+    { fn: (w) => generateUSRecap(false, 0, w),        h: 22, m: 15, name: 'US Session Recap', afterHour: true },
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
     { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h00)' },              // sort à 19h SUR LE DESK (après les récaps de séance Asie/Londres ; base du mail Point marché) — demande user 15/07
@@ -9931,6 +9945,15 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateWeeklyMarketRecap(false),     h: 2, m: 5,  name: 'Weekly Market Recap'    },
   ];
 
+  // Horodatage (epoch ms) du créneau h:m AUJOURD'HUI en heure de Paris — sert d'ancre de fenêtre
+  // au rattrapage. On passe par le décalage Paris/UTC du moment, pour rester juste été comme hiver.
+  function _parisSlotTs(h, m) {
+    const now = new Date();
+    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const decalage = paris.getTime() - now.getTime();          // Paris − local
+    const cible = new Date(paris); cible.setHours(h, m, 0, 0);
+    return cible.getTime() - decalage;
+  }
   function msToNextParis(h, m) {
     const now    = new Date();
     const paris  = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
@@ -9984,7 +10007,10 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
         console.log(`[DTP] rattrapage ${name} : créneau ${h}h${String(m).padStart(2, '0')} pas encore passé → on attend.`);
         return;
       }
-      fn().catch(e => console.error(`[DTP] startup ${name} failed:`, e.message));
+      // On passe l'heure du CRÉNEAU comme fin de fenêtre : le rattrapage produit alors exactement
+      // ce qu'aurait produit le créneau, même lancé des heures plus tard.
+      const _slot = afterHour ? _parisSlotTs(h, m) : 0;
+      fn(_slot).catch(e => console.error(`[DTP] startup ${name} failed:`, e.message));
     });
 
     // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le week-end, les rapports hebdo
@@ -12964,9 +12990,9 @@ app.get('/api/briefing/:type/generate', async (req, res) => {
     'us-opening':        () => _generateUSOpeningNew(force),
     'asia-opening':      () => generateAsiaOpeningBriefing(force),
     'london-opening':    () => generateLondonOpeningBriefing(force),
-    'asia-recap':        () => generateAsiaRecap(force),
-    'london-recap':      () => generateLondonRecap(force),
-    'us-recap':          () => generateUSRecap(force),
+    'asia-recap':        () => generateAsiaRecap(force, 0, _wSlot),
+    'london-recap':      () => generateLondonRecap(force, 0, _wSlot),
+    'us-recap':          () => generateUSRecap(force, 0, _wSlot),
     'daily-recap':       () => generateDailyMarketRecap(force),
     'daily-review':      () => generateDailyEventReview(force),
     'weekly-economic':   () => generateGlobalEconomicWeekly(force),
