@@ -866,7 +866,7 @@ function _campaignLayout(title, bodyHtml, unsub) {
         </td></tr>
         <tr><td style="padding:18px 34px;border-top:1px solid #232429;color:#6f6f79;font-size:12px;line-height:1.6;">
           DataTradingPro &middot; terminal de news &amp; d'analyse de march&eacute;. Contenu informatif&nbsp;: n'ex&eacute;cute aucun ordre, ne donne aucun conseil personnalis&eacute;.<br>
-          Une question&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;text-decoration:none;">${SUPPORT_EMAIL}</a>
+          Besoin d'aide&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
       <div style="color:#565660;font-size:11px;margin-top:14px;line-height:1.7;max-width:600px;">
