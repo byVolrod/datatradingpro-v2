@@ -16009,7 +16009,10 @@ const _MINDSET_STYLE = `STYLE (mécaniques d'une newsletter qui accroche, à t'a
 - Nomme les choses concrètement (un moment, un geste, une heure, un chiffre du quotidien) plutôt qu'en abstrait.
 - GRAS OBLIGATOIRE : encadre de **doubles astérisques** la formulation la PLUS forte de chaque paragraphe (une seule par paragraphe, 3 à 5 en tout). Règle de vérification : si le lecteur ne lit QUE les passages en gras, il doit comprendre l'essentiel du mail. Ne mets JAMAIS en gras une phrase entière, seulement le fragment qui frappe.
 - Termine par une question ouverte qui reformule tout le mail en une phrase, sans donner la réponse.
-- Jamais de leçon de morale, jamais de promesse de gain, jamais de culpabilisation.`;
+- Jamais de leçon de morale, jamais de promesse de gain, jamais de culpabilisation.
+- Termine par une ligne « CTA: » : le libellé d'un bouton, à la PREMIÈRE PERSONNE, qui prolonge le
+  sujet du mail (« Je prépare ma séance », « J'attends la prochaine »). 34 caractères maximum, sans
+  point final. Jamais « En savoir plus », jamais « Cliquez ici », jamais une promesse de résultat.`;
 
 // ── UNICITÉ STRICTE DES SUJETS (demande user 17/07 « met jamais le même sujet ») ─────────────────
 // La consigne « thèmes à éviter » dans le prompt est MOLLE : l'IA re-sort régulièrement une variante
@@ -16041,16 +16044,19 @@ function _mindsetSubjTooClose(subject, existingSubjects) {
 }
 // Parse la sortie balisée → { subject, paras, closing } avec les marqueurs de rendu attendus par mailer.
 function _mindsetParseLines(text) {
-  const out = { subject: '', paras: [], closing: '' };
+  const out = { subject: '', paras: [], closing: '', cta: '' };
   for (const raw of String(text || '').split('\n')) {
     const line = raw.trim();
     if (!line) continue;
-    const m = line.match(/^(SUJET|ENCART|PARA|PUCE|PENSEE|BRANCHE|QUESTION)\s*:\s*(.+)$/i);
+    const m = line.match(/^(SUJET|ENCART|PARA|PUCE|PENSEE|BRANCHE|QUESTION|CTA)\s*:\s*(.+)$/i);
     if (!m) continue;
     const tag = m[1].toUpperCase(), val = m[2].trim();
     if (!val || /^</.test(val)) continue;                       // gabarit non rempli (« <texte> ») → ignoré
     if (tag === 'SUJET') { if (!out.subject) out.subject = val; continue; }
     if (tag === 'QUESTION') { out.closing = val; continue; }
+    // Libellé du bouton intermédiaire, à la 1re personne. Borné : au-delà de ~34 caractères il
+    // passe à la ligne dans le bouton sur mobile, ce qui casse le rendu.
+    if (tag === 'CTA') { if (!out.cta && val.length <= 34) out.cta = val.replace(/[.…]+$/, ''); continue; }
     if (tag === 'ENCART') out.paras.push('# ' + val);
     else if (tag === 'PENSEE') out.paras.push('> ' + val);
     else if (tag === 'BRANCHE') out.paras.push('→ ' + val);
@@ -16081,6 +16087,9 @@ function _mindsetMacroCtx() {
 }
 function _mindsetAiSane(c) {
   if (!c || typeof c.subject !== 'string' || !Array.isArray(c.paras) || typeof c.closing !== 'string') return false;
+  // Le CTA est FACULTATIF : s'il manque ou dépasse, le mail retombe sur le libellé produit — on ne
+  // jette pas un concept valable pour un libellé de bouton.
+  if (c.cta != null && (typeof c.cta !== 'string' || c.cta.length > 34)) c.cta = '';
   const subject = c.subject.trim(), closing = c.closing.trim();
   const paras = c.paras.map(p => String(p == null ? '' : p).trim()).filter(Boolean);
   // paras >= 3 (et non 5) : le format « très court » n'a que 4 paragraphes — la borne à 5 le rejetait.

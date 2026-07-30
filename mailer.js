@@ -1346,10 +1346,13 @@ function pickDecryptConcept(context, recentKeys) {
 // CTA adapte MEMBRE / NON-MEMBRE (validation user : tout le monde recoit, contenu adapte).
 // Le bloc PS a ete RETIRE des templates (demande user) ; la mention informative vit desormais,
 // discrete, dans le footer du layout (_campaignLayout).
-function _campaignCta(isMember, campaign, email) {
+function _campaignCta(isMember, campaign, email, libelle) {
   const url = trackClickUrl(campaign, email, LANDING_URL);
-  if (isMember) return { btn: _campaignBtn('Ouvrir mon Desk', url) };
-  return { btn: _campaignBtn('Découvrir le Desk en direct', url) };
+  // libelle : permet un bouton INTERMÉDIAIRE propre au sujet du mail (cf. mindset). Sans lui, on
+  // garde le libellé produit habituel.
+  if (libelle) return { btn: _campaignBtn(libelle, url), url };
+  if (isMember) return { btn: _campaignBtn('Ouvrir mon Desk', url), url };
+  return { btn: _campaignBtn('Découvrir le Desk en direct', url), url };
 }
 // Petite liste "temps forts a surveiller" (donnees calendrier REELLES). ev = { dayLabel, time, ccy, title, forecast, previous, indicator }.
 function _watchRows(events) {
@@ -1529,6 +1532,109 @@ async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignD
 // recadrage (puces) -> question reflexive. Rotation anti-repetition par recentKeys (marques cote serveur, KV
 // campaign:mindset-history). Aucun widget -> envoi texte simple (_send).
 const MINDSET_CONCEPTS = [
+  // ── Thèmes ajoutés le 30/07, écrits au rythme resserré (paragraphes courts, ouverture sur la
+  //    pensée du lecteur, bouton intermédiaire propre au sujet via `cta`). Psychologie et
+  //    discipline uniquement : aucun actif, aucune direction, aucune promesse de gain.
+  { key: 'decider-avant-ouverture', subject: "🧭 Décider pendant, c'est déjà trop tard", cta: 'Je prépare ma séance', paras: [
+    "Tu ouvres l'écran, le marché bouge, et tu décides dans la seconde.",
+    "C'est le moment où le raisonnement est le plus faible : le prix parle plus fort que le plan.",
+    "**Une décision prise pendant la séance est une décision prise sous influence.**",
+    "Celle qui tient, tu l'as prise avant, au calme, quand rien ne bougeait encore.",
+    "- Ce qui doit se passer pour que tu interviennes.",
+    "- Ce qui invaliderait ta lecture.",
+    "- Ce que tu fais si rien de tout ça n'arrive.",
+    "Trois réponses écrites avant l'ouverture valent mieux que trente minutes d'hésitation devant l'écran.",
+  ], closing: "Ta dernière décision, tu l'as prise avant l'ouverture ou en regardant le prix bouger ?" },
+
+  { key: 'revenge-trade', subject: "🔁 Reprendre tout de suite après une perte", cta: "J'attends la prochaine séance", paras: [
+    "La perte vient de tomber. Et la première envie, c'est de la reprendre immédiatement.",
+    "Pas d'analyser. **De réparer.**",
+    "C'est là que la taille grossit, que le plan s'assouplit, que le stop devient négociable.",
+    "Le marché, lui, ne sait pas que tu viens de perdre. Il ne te doit rien.",
+    "La position suivante n'a aucune raison d'être meilleure parce que la précédente était mauvaise.",
+    "**Le temps entre deux trades fait partie du métier.** Ce n'est pas du temps perdu.",
+  ], closing: "Ta dernière position, tu l'as prise pour une raison — ou pour effacer la précédente ?" },
+
+  { key: 'ne-pas-trader', subject: "⏸️ Ne rien faire est une décision", cta: 'Je veux voir avant de décider', paras: [
+    "Une journée sans position ressemble à une journée perdue.",
+    "Pourtant, rester à l'écart quand rien ne correspond à ta lecture, c'est appliquer ton plan.",
+    "**S'abstenir n'est pas de la passivité.** C'est un choix, avec une raison derrière.",
+    "Ce qui coûte cher, ce n'est pas la séance vide.",
+    "C'est la position prise parce que la séance était vide.",
+    "Un carnet où figure « aucune opportunité aujourd'hui » vaut mieux qu'un trade sans justification.",
+  ], closing: "Aujourd'hui, tu es entré parce que le contexte le disait — ou parce que tu étais devant l'écran ?" },
+
+  { key: 'stop-qui-recule', subject: "📏 Le stop qu'on déplace un peu", cta: 'Je fixe mes niveaux avant', paras: [
+    "Le prix approche du stop. Et une petite voix dit : laisse-lui un peu d'air.",
+    "Le déplacement paraît minime. Une fois.",
+    "**Mais un stop qu'on déplace n'est plus un stop.** C'est un souhait.",
+    "Le niveau que tu avais choisi disait quelque chose : à partir d'ici, ma lecture est fausse.",
+    "En le reculant, tu ne protèges pas la position. Tu retardes le moment de l'admettre.",
+    "La perte que tu refuses de prendre à 1 % se prend rarement à 1 % plus tard.",
+  ], closing: "Ton dernier stop, tu l'as respecté — ou tu lui as laissé « un peu d'air » ?" },
+
+  { key: 'objectif-chiffre', subject: "🎯 L'objectif mensuel qui fait forcer", cta: 'Je juge mon process, pas mon mois', paras: [
+    "Se fixer un objectif chiffré au mois paraît sérieux. Professionnel, même.",
+    "Sauf que le marché ne connaît pas ton calendrier.",
+    "**Un objectif de gain te met en dette envers toi-même.** Et une dette, ça se rattrape.",
+    "Le 25 du mois, si le compteur est en retard, la taille monte et les critères descendent.",
+    "Les objectifs qui tiennent portent sur ce que tu contrôles :",
+    "- Respecter ton risque sur chaque position.",
+    "- Ne prendre que ce qui correspond à ta lecture.",
+    "- Tenir ton journal jusqu'au bout du mois.",
+    "Le résultat, lui, n'est pas une variable de ta volonté.",
+  ], closing: "Ton objectif du mois porte sur ce que tu contrôles, ou sur ce que le marché décide ?" },
+
+  { key: 'gagnants-a-relire', subject: "🔍 Relire ses trades gagnants", cta: 'Je relis mes trades', paras: [
+    "On relit ses pertes. Rarement ses gains.",
+    "Pourtant un trade gagnant peut avoir été mal pris.",
+    "**Un bon résultat ne prouve pas une bonne décision.** Il peut juste prouver de la chance.",
+    "Et une décision hasardeuse récompensée une fois se répète — jusqu'à la fois où elle ne l'est plus.",
+    "La vraie question sur un gain n'est pas « combien ».",
+    "C'est : est-ce que je referais exactement la même chose, en sachant seulement ce que je savais alors ?",
+  ], closing: "Ton dernier gain venait de ta lecture, ou du fait que le marché a été clément ?" },
+
+  { key: 'fatigue-ecran', subject: "😴 L'état dans lequel tu arrives", cta: 'Je prépare mes conditions', paras: [
+    "On parle beaucoup de méthode. Presque jamais de l'état dans lequel on s'assoit devant l'écran.",
+    "Une nuit courte ne change pas ton analyse. Elle change ta patience.",
+    "**Fatigué, tu ne prends pas de mauvaises décisions : tu en prends plus vite.**",
+    "Le seuil d'hésitation baisse, l'attente devient insupportable, le doute se règle par un clic.",
+    "Ce n'est pas un problème de discipline. C'est un problème de ressource.",
+    "Une séance manquée coûte moins qu'une séance menée à moitié présent.",
+  ], closing: "Ta dernière séance difficile, était-ce le marché — ou l'état dans lequel tu l'as abordée ?" },
+
+  { key: 'changer-de-methode', subject: "🪃 Changer de méthode après trois pertes", cta: 'Je garde ma méthode', paras: [
+    "Trois pertes de suite, et l'approche entière devient suspecte.",
+    "On cherche autre chose. Un réglage, un indicateur, une autre lecture.",
+    "**Trois trades ne disent rien d'une méthode.** Ils ne disent rien du tout.",
+    "Toute approche a des séries perdantes — c'est une propriété, pas un défaut.",
+    "Ce qui se juge sur trois trades, en revanche, c'est l'exécution :",
+    "- As-tu respecté ta taille ?",
+    "- As-tu attendu tes conditions ?",
+    "- As-tu tenu ton niveau d'invalidation ?",
+    "Changer de méthode après une série, c'est recommencer à zéro juste avant d'avoir des données.",
+  ], closing: "Ta dernière remise en question portait sur ta méthode, ou sur la façon dont tu l'as appliquée ?" },
+
+  { key: 'alerte-permanente', subject: "🔔 Être alerté de tout, tout le temps", cta: 'Je filtre mes alertes', paras: [
+    "Chaque alerte promet de ne rien rater.",
+    "Mises bout à bout, elles garantissent surtout de ne jamais réfléchir plus de deux minutes d'affilée.",
+    "**Une notification n'attend pas que tu sois prêt.** Elle interrompt.",
+    "Et une décision prise dans une interruption n'est pas une décision : c'est une réaction.",
+    "Le tri se fait en amont, pas dans l'instant :",
+    "- Quelles publications peuvent réellement changer ta lecture ?",
+    "- Lesquelles ne changeront rien, quoi qu'il arrive ?",
+    "Le reste peut attendre la fin de ta séance.",
+  ], closing: "Ta dernière alerte t'a fait décider — ou seulement réagir ?" },
+
+  { key: 'avis-des-autres', subject: "🗣️ Chercher un avis avant d'entrer", cta: 'Je construis ma lecture', paras: [
+    "Avant d'entrer, on va souvent vérifier ce que pensent les autres.",
+    "Rarement pour apprendre. Le plus souvent pour être rassuré.",
+    "**Un avis extérieur ne remplace pas une lecture.** Il la remplit d'emprunts.",
+    "Et quand la position tourne mal, tu ne sais plus quoi corriger : ce n'était pas ton raisonnement.",
+    "Une lecture t'appartient quand tu peux dire ce qui la rendrait fausse.",
+    "Sans ce point, ce n'est pas une analyse — c'est une opinion que tu as adoptée.",
+  ], closing: "Ta dernière entrée reposait sur ta lecture, ou sur celle de quelqu'un d'autre ?" },
+
   { key: 'bruit-news', subject: "🔕 Tout suivre, ce n'est pas s'informer", paras: [
     "Beaucoup de traders confondent une chose : être présent partout et être réellement informé. On croit qu'un bon trader suit tout, lit tout, réagit à tout. 📰",
     "Pourtant, **un titre qui claque n'est pas une information neuve**. Le plus souvent, c'est une réaction déjà absorbée par le marché, déjà inscrite dans les prix.",
@@ -1712,7 +1818,30 @@ function _mindsetRich(s) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#f3c344;font-weight:700;">$1</strong>')
     .replace(/\*+/g, '');   // astérisques ORPHELINES (gras mal fermé par l'IA) → jamais visibles chez le lecteur
 }
+// RYTHME. Un paragraphe de plus de ~140 caractères se lit comme un bloc ; coupé à la phrase, il se
+// balaie. On ne réécrit rien — on coupe à la frontière de phrase existante, et seulement s'il reste
+// deux morceaux consistants. Les puces et les citations ne sont jamais touchées.
+function _mindsetRythme(paras) {
+  const out = [];
+  for (const p of (paras || [])) {
+    const t = String(p == null ? '' : p).trim();
+    if (!t || t.slice(0, 2) === '- ' || t.slice(0, 2) === '> ' || t.length <= 140) { out.push(t); continue; }
+    const bouts = t.split(/(?<=[.!?])\s+/).filter(Boolean);
+    if (bouts.length < 2) { out.push(t); continue; }
+    // On regroupe pour éviter les fragments orphelins (< 40 car.).
+    const groupes = []; let cur = '';
+    for (const b of bouts) {
+      if (!cur) { cur = b; continue; }
+      if (cur.length < 40) { cur += ' ' + b; continue; }
+      groupes.push(cur); cur = b;
+    }
+    if (cur) { if (cur.length < 40 && groupes.length) groupes[groupes.length - 1] += ' ' + cur; else groupes.push(cur); }
+    groupes.forEach(g => out.push(g));
+  }
+  return out;
+}
 function _mindsetParas(paras) {
+  paras = _mindsetRythme(paras);
   let html = '', bullets = [];
   const flush = () => { if (bullets.length) { html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 16px;">${bullets.map(b => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_mindsetRich(b)}</td></tr>`).join('')}</table>`; bullets = []; } };
   let first = true;
@@ -1767,9 +1896,21 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
   const cta = _campaignCta(isMember, campaign, email);
   // Question de clôture : ENCADRÉE (liseré or + fond) au lieu d'un italique noyé dans le texte —
   // c'est le point d'arrêt du mail, celui que le lecteur doit emporter (demande user 17/07).
+  // BOUTON INTERMÉDIAIRE. Un seul bouton, tout en bas, n'est lu que par ceux qui sont allés au
+  // bout ; réparti, il attrape aussi le lecteur qui décroche à mi-parcours. Libellé à la PREMIÈRE
+  // PERSONNE et propre au sujet (`cta` du concept) : « Je veux… » se clique mieux qu'« En savoir
+  // plus », parce qu'il prolonge la phrase que le lecteur vient de lire.
+  const _pars = Array.isArray(pick.paras) ? pick.paras : [];
+  const _coupe = _pars.length >= 6 ? Math.ceil(_pars.length * 0.55) : _pars.length;
+  const _midLbl = pick.cta || (isMember ? 'Ouvrir mon desk' : 'Voir le desk en direct');
+  const _mid = _coupe < _pars.length
+    ? `<div style="margin:18px 0 20px;">${_campaignCta(isMember, campaign, email, _midLbl).btn}</div>`
+    : '';
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#9aa3b2;">${hello}</p>
-    ${_mindsetParas(pick.paras)}
+    ${_mindsetParas(_pars.slice(0, _coupe))}
+    ${_mid}
+    ${_mindsetParas(_pars.slice(_coupe))}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 6px;"><tr>
       <td style="padding:15px 18px;background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.3);border-radius:8px;">
         <div style="color:#f3c344;font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;">La question à te poser</div>
