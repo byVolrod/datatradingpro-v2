@@ -9891,7 +9891,12 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateAsiaOpeningBriefing(false),   h: 1,  m: 30, name: 'Asia Opening'         },
     { fn: () => generateLondonOpeningBriefing(false), h: 7,  m: 45, name: 'London Opening'        },
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
-    { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
+    { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap', afterHour: true },
+    // RÉCAP SÉANCE NEW YORK — 22h15 Paris, juste après la clôture cash US (22h00) et avant la mise
+    // à jour complète du Récap FX (22h30). La fonction existait, son déclencheur manuel aussi, et
+    // toute la chaîne d'affichage — il ne manquait que cette ligne : elle n'était donc JAMAIS
+    // appelée automatiquement (ni créneau, ni rattrapage, qui parcourt cette même table).
+    { fn: () => generateUSRecap(false),               h: 22, m: 15, name: 'US Session Recap', afterHour: true },
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
     { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h00)' },              // sort à 19h SUR LE DESK (après les récaps de séance Asie/Londres ; base du mail Point marché) — demande user 15/07
@@ -9946,7 +9951,19 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     // 1) On RECHARGE d'abord les rapports hebdo persistés (Supabase) → pas de régénération Gemini inutile
     await _loadPersistedWeekly();
 
-    daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[DTP] startup ${name} failed:`, e.message)));
+    // Un récap de SÉANCE ne veut rien dire avant la fin de sa séance : au démarrage, les entrées
+    // marquées `afterHour` ne sont rejouées que si leur créneau est déjà passé (heure de Paris).
+    // Sans ce filtre, un redéploiement du matin publierait un « Récap Séance New York » sur une
+    // fenêtre vide. Les autres rapports gardent le comportement d'avant.
+    const _pNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const _minsNow = _pNow.getHours() * 60 + _pNow.getMinutes();
+    daily.forEach(({ fn, name, h, m, afterHour }) => {
+      if (afterHour && _minsNow < h * 60 + m) {
+        console.log(`[DTP] rattrapage ${name} : créneau ${h}h${String(m).padStart(2, '0')} pas encore passé → on attend.`);
+        return;
+      }
+      fn().catch(e => console.error(`[DTP] startup ${name} failed:`, e.message));
+    });
 
     // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le week-end, les rapports hebdo
     // (samedi 02h Paris) n'ont pas été générés. La dédup par semaine ISO + le rechargement
