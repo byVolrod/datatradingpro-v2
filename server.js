@@ -16744,6 +16744,15 @@ setTimeout(() => { _reconcileSent(['intro-v1']).catch(() => {}); }, 60000);   //
 // Donnees d'EXEMPLE pour l'apercu quand le desk n'a pas (encore) la vraie donnee -> l'admin voit TOUJOURS la mise en page.
 const _SAMPLE_WEEKLY = { summary: "Semaine dominée par les banques centrales : le dollar reste ferme avant les décisions de taux, l'or consolide.", insights: ['Le marché révise ses attentes de baisses de taux.', 'Les devises refuges gardent la main.'], pairs: [{ pair: 'EUR/USD', bias: 'SELL', text: 'Sous pression tant que la Fed reste ferme.' }, { pair: 'USD/JPY', bias: 'BUY', text: "Soutenu par l'écart de taux." }, { pair: 'XAU/USD', bias: 'NEUTRAL', text: 'Range avant les décisions.' }], centralBanks: [{ bank: 'Fed', stance: 'hawkish' }, { bank: 'BCE', stance: 'prudente' }] };
 const _SAMPLE_CTX = { upcoming: [], majors: [], theme: 'rates', themeLabel: 'Banques centrales', bias: [{ ccy: 'USD', label: 'Haussier', signal: 'BUY' }, { ccy: 'JPY', label: 'Baissier', signal: 'SELL' }], cs: { ranked: ['USD', 'CHF', 'GBP', 'EUR', 'CAD', 'AUD', 'NZD', 'JPY'], strong: [{ ccy: 'USD' }, { ccy: 'CHF' }], weak: [{ ccy: 'JPY' }, { ccy: 'NZD' }] }, risk: { pct: -15, label: 'Risk-off (aversion au risque)' }, daily: { summary: 'Le dollar domine avant les décisions de taux ; les indices consolident.' }, weekly: null };
+// Liste des thèmes Mindset (catalogue écrit + concepts générés par l'IA) — sert le sélecteur du
+// panel admin. Lecture seule, aucun envoi.
+app.get('/api/admin/mindset-concepts', requireAdmin, async (_req, res) => {
+  try {
+    const pool = await _mindsetAiPool().catch(() => []);
+    const items = mailer.listMindsetConcepts(pool);
+    res.json({ items, total: items.length });
+  } catch (e) { res.json({ items: [], total: 0, error: e.message }); }
+});
 app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) => {   // admin OU localhost+jeton interne : permet de VÉRIFIER le rendu réel d'un template depuis la machine (aucune donnée exposée : même gate que campaign-send)
   try {
     const type = String(req.query.type || 'intro');
@@ -16764,7 +16773,12 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
       if (!m) { m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
     } else if (type === 'mindset') {
       const recentKeys = await _mindsetRecentKeys();
-      m = mailer.buildCampaignMindset({ name: s.name, email: s.email, campaign: 'mindset-preview', recentKeys, isMember });
+      // ?concept=<clé> : relire N'IMPORTE LEQUEL des thèmes, pas seulement celui épinglé du jour.
+      // Sans ce paramètre on garde le comportement d'avant (le concept qui partirait maintenant).
+      const _ck = String(req.query.concept || '').trim() || undefined;
+      const _pool = await _mindsetAiPool().catch(() => []);
+      m = mailer.buildCampaignMindset({ name: s.name, email: s.email, campaign: 'mindset-preview', recentKeys, isMember, conceptKey: _ck, extraConcepts: _pool });
+      if (_ck) note = 'Aperçu du thème « ' + (m && m.conceptTitle ? m.conceptTitle : _ck) + ' » — un thème par semaine, en rotation.';
     } else if (type === 'outlook') {
       const context = await _deskContext();
       m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context, isMember });
