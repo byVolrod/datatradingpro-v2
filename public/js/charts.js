@@ -3203,22 +3203,25 @@ function renderCalTable() {
 // ─── Panneau détail d'un événement calendrier (Specs + History) ───────────────
 const _calDetailCache = {};   // url → { specs, history } (cache navigateur : pas de re-fetch)
 function _calEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function _calColorCell(actual, forecast) {
+function _calColorCell(actual, forecast, title) {
   if (!actual) return '<span class="cv-empty">—</span>';
-  // Même Deviation Signaling unifié que la table (comparaison au FORECAST seul).
-  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${_calEsc(actual)}</span>`;
+  // Même Deviation Signaling unifié que la table — TITRE COMPRIS. Sans lui, l'inversion des
+  // indicateurs où « plus haut » est MAUVAIS (chômage, inscriptions) ne s'appliquait pas : la
+  // fiche affichait en VERT ce que la ligne du calendrier affichait en ROUGE, pour la même donnée.
+  return `<span class="cv-actual ${deviationClass(actual, forecast, title)}">${_calEsc(actual)}</span>`;
 }
 // En-tête de valeurs (Actual / Forecast / Previous) d'un événement
 function _calDetailHeadVals(ev) {
   return `
     <div class="cal-detail-vals">
-      <div class="cdv"><span class="cdv-lbl">Réel</span>${_calColorCell(ev.actual, ev.forecast, ev.previous)}</div>
+      <div class="cdv"><span class="cdv-lbl">Réel</span>${_calColorCell(ev.actual, ev.forecast, ev.title)}</div>
       <div class="cdv"><span class="cdv-lbl">Prévision</span><span class="cv-forecast">${ev.forecast ? _calEsc(ev.forecast) : '—'}</span></div>
       <div class="cdv"><span class="cdv-lbl">Précédent</span><span class="cv-prev">${ev.previous ? _calEsc(ev.previous) : '—'}</span></div>
     </div>`;
 }
 // HTML Specs + History à partir des données détail (réutilisé par le déroulé inline)
-function _calDetailBodyHtml(d) {
+// `titre` sert à colorer la colonne Réel : sans lui, un historique de chômage ressortait en vert.
+function _calDetailBodyHtml(d, titre) {
   const specsHtml = (d && d.specs && d.specs.length)
     ? `<div class="cal-detail-section">Détails</div>
        <table class="cal-specs-table">${d.specs.map(s => `<tr><td class="cal-spec-lbl">${_calEsc(s.label)}</td><td class="cal-spec-val">${_calEsc(s.value)}</td></tr>`).join('')}</table>`
@@ -3229,7 +3232,7 @@ function _calDetailBodyHtml(d) {
          <thead><tr><th>Date</th><th>Réel</th><th>Prévision</th><th>Précédent</th></tr></thead>
          <tbody>${d.history.map(h => `<tr>
            <td>${_calEsc(h.date || '')}</td>
-           <td>${_calColorCell(h.actual, h.forecast, h.previous)}</td>
+           <td>${_calColorCell(h.actual, h.forecast, titre)}</td>
            <td><span class="cv-forecast">${h.forecast ? _calEsc(h.forecast) : '—'}</span></td>
            <td><span class="cv-prev">${h.previous ? _calEsc(h.previous) : '—'}</span></td>
          </tr>`).join('')}</tbody>
@@ -3721,7 +3724,7 @@ async function toggleCalDetailRow(tr, ev) {
     } catch { d = null; }
   }
   if (!bodyEl || !bodyEl.isConnected) return;   // déroulé fermé entre-temps
-  const detHtml = _calDetailBodyHtml(d);
+  const detHtml = _calDetailBodyHtml(d, ev.title);
   bodyEl.innerHTML = (kbHtml + detHtml) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
   if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(bodyEl, '.cal-kb-quote');   // propos BC → FR en place
   _calAppendHistory(bodyEl, ev);   // fiche événement : historique des publications (~6 mois), async

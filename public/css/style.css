@@ -12321,9 +12321,21 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
     var(--bg);
   overflow-y: auto; animation: dtpViewIn var(--t-med, .22s) var(--ease-out, ease) both;
 }
-/* Le bas était à 60 px : sur un écran de 900 px, c'est un sixième du dépassement mesuré pour du
-   vide. 22 px suffisent à ne pas coller la dernière rangée au bord. */
-.home-inner { max-width: 1180px; margin: 0 auto; padding: 22px 28px 22px; position: relative; }
+/* PLEINE LARGEUR. Le bridage à 1180 px laissait deux bandes noires sur un écran large et rognait
+   les deux TABLEAUX de l'accueil : le calendrier perdait 191 px (mesuré) et le Radar de Biais sa
+   colonne CROISSANCE. Sans bride, chacun reçoit la place dont il a besoin.
+   Le bas était à 60 px : sur un écran de 900 px, c'est un sixième du dépassement mesuré, pour du
+   vide. 20 px suffisent à ne pas coller la dernière rangée au bord. */
+.home-inner {
+  max-width: none; margin: 0; padding: 20px 30px; position: relative;
+  /* Colonne haute d'un écran : la grille (flex:1) absorbe la place restante et ses rangées la
+     partagent. Plus aucune constante de « hors-widgets » à re-mesurer quand l'en-tête change. */
+  height: calc(100vh - var(--topbar-h, 54px));
+  display: flex; flex-direction: column;
+}
+@supports (height: 100dvh) {
+  .home-inner { height: calc(100dvh - var(--topbar-h, 54px)); }
+}
 .home-skip {
   position: absolute; top: 26px; right: 28px; padding: 5px 12px;
   background: transparent; border: 1px solid var(--hud-line, var(--border)); border-radius: var(--pill, 999px);
@@ -12331,20 +12343,37 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
   transition: color .15s var(--ease), border-color .15s var(--ease);
 }
 .home-skip:hover { color: var(--orange); border-color: rgba(227, 178, 58, .45); }
-.home-eyebrow { font-family: var(--tight); font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
-.home-title { font-family: var(--serif, Georgia, serif); font-size: 30px; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
+/* Identité à gauche, état des places à droite : une seule rangée d'en-tête. Sur écran étroit le
+   bandeau repasse dessous plutôt que de se comprimer (flex-wrap + base de 420 px). */
+.home-top { display: flex; align-items: flex-end; gap: 22px; flex-wrap: wrap; }
+.home-top .home-hero { flex: 0 1 auto; min-width: 0; }
+.home-top .home-strip { flex: 1 1 420px; margin-top: 0; }
+.home-eyebrow { font-family: var(--tight); font-size: 9.5px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+.home-title { font-family: var(--serif, Georgia, serif); font-size: 27px; font-weight: 600; letter-spacing: -.01em; color: var(--text); line-height: 1.15; }
 .home-name { background: linear-gradient(100deg, #f0d27a, #cfa233 55%, #b8860b); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.home-sub { margin-top: 6px; font-size: var(--fs-body); color: var(--text3); }
+.home-sub { margin-top: 4px; font-size: var(--fs-body); color: var(--text3); }
 .home-cols { display: flex; gap: 26px; margin-top: 30px; align-items: flex-start; }
 .home-col { flex: 1 1 auto; min-width: 0; }
 .home-col--side { flex: 0 0 320px; }
-.home-sec { font-family: var(--tight); font-size: var(--fs-title); font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text2); margin: 22px 0 10px; padding-left: 9px; border-left: 2px solid var(--orange); }
+.home-sec { font-family: var(--tight); font-size: var(--fs-title); font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text2); margin: 0 0 7px; padding-left: 8px; border-left: 2px solid var(--orange); }
+.home-sec-t { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+/* Période du graphe, dans le vocabulaire du desk (TD = séance en cours, TW = semaine) : un graphe
+   de force ne veut rien dire sans sa fenêtre de temps. */
+.home-tf {
+  font-family: var(--font-mono); font-size: 8.5px; font-weight: 700; letter-spacing: .08em;
+  color: var(--orange); background: var(--orange-bg); border: 1px solid rgba(227, 178, 58, .30);
+  border-radius: 3px; padding: 1px 5px; line-height: 1.5;
+}
 .home-sec:first-child { margin-top: 0; }
-.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px;
-  height: var(--home-h); overflow-y: auto; align-content: start; }
+/* CONTOUR DE LA PREMIÈRE CARTE. Avec `height` + `overflow-y:auto`, la grille devient un conteneur
+   de défilement dont l'arête haute RASE la bordure de la première carte dès qu'il défile d'un pixel
+   — c'est le « contour qui disparaît en haut, il passe sous le panneau ». `max-height` ne clippe que
+   s'il y a réellement trop de cartes, et 1 px de marge intérieure éloigne la bordure de l'arête. */
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); gap: 9px;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; align-content: start; padding: 1px; }
 .home-card {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
-  padding: 14px 14px 12px; min-height: 92px; background: var(--bg2); border: 1px solid var(--hud-line, var(--border));
+  padding: 12px 12px 10px; min-height: 86px; background: var(--bg2); border: 1px solid var(--hud-line, var(--border));
   border-radius: var(--radius); cursor: pointer; color: var(--text);
   transition: border-color .15s var(--ease), transform .15s var(--ease), box-shadow .15s var(--ease);
 }
@@ -12366,6 +12395,8 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
 .home-card--new { border-style: dashed; background: transparent; align-items: center; justify-content: center; text-align: center; color: var(--text3); }
 .home-card--new:hover { color: var(--orange); }
 .home-card-plus { font-size: 20px; font-weight: 700; line-height: 1; }
+/* (.home-chips / .home-chip : « Accès rapide » retiré de l'accueil — la nav du desk est à un clic.
+   Les règles restent inoffensives, aucun élément ne les porte plus.) */
 .home-chips { display: flex; flex-wrap: wrap; gap: 7px; }
 .home-chip {
   padding: 6px 12px; background: transparent; border: 1px solid var(--hud-line, var(--border)); border-radius: var(--r-2);
@@ -12446,8 +12477,9 @@ html[data-theme="light"] .wdg-skel-l { background: linear-gradient(90deg, rgba(0
    Identité DTP : rail or des titres, fond de panneau, filets fins, mono pour les chiffres.
    Le parti pris : de la DONNÉE, pas de la décoration — ce qu'on veut savoir avant d'ouvrir le desk. */
 .home-strip {
-  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px;
-  padding: 10px 12px; background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;
+  padding: 7px 12px; background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .022);
 }
 .home-sess { display: flex; align-items: center; gap: 7px; flex: 1 1 150px; min-width: 0; padding: 4px 2px; }
 .home-sess-dot { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: var(--text4); }
@@ -12507,11 +12539,14 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    Les panneaux ne sont pas des maquettes : ce sont les widgets du desk montés ici. Le cadre reste
    donc DISCRET (filet fin, en-tête d'une ligne) pour que la donnée porte l'écran, pas l'habillage. */
 .home-grid {
-  display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; margin-top: 14px; align-items: start;
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; margin-top: 12px;
+  /* Les rangées se partagent la hauteur restante ; 180 px est le plancher en dessous duquel un
+     graphique ne montre plus rien (et ce qui s'applique en une seule colonne, sur téléphone). */
+  flex: 1 1 auto; align-items: stretch; grid-auto-rows: minmax(0, 1fr); min-height: 0;
 }
-.home-zone { grid-column: span 4; min-width: 0; display: flex; flex-direction: column; }
-.home-zone--desks { grid-column: span 7; }
-.home-zone--wide  { grid-column: span 5; }
+/* Chaque zone porte son nombre de colonnes (--c) : la répartition suit ce que le widget doit
+   MONTRER (un tableau à 7 piliers ne tient pas sur 4 colonnes) au lieu de classes figées. */
+.home-zone { grid-column: span var(--c, 4); min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .home-sec--w { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .home-zone-go {
   font-family: var(--tight); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -12522,41 +12557,38 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    rendent vide. Mais elle ne doit plus être FIGÉE : à 260/300 px, le contenu dépassait de 121 px
    sur un écran de 900 px (mesuré) et de plus de 250 px sur un portable 1366 × 768.
    On la déduit donc de la place réelle : (écran − topbar − le reste) ÷ nombre de rangées.
-   · 354 px = tout ce qui n'est pas un widget (titre, sessions, en-têtes, accès rapide, marges,
+   · 240 px = tout ce qui n'est pas un widget (titre, sessions, en-têtes, accès rapide, marges,
      gouttières) — chiffre MESURÉ, pas estimé.
    · le clamp protège les deux extrêmes : jamais sous 158 px (un graphique n'y dirait plus rien),
      jamais au-delà de 300 px (au-delà, on gaspille l'écran sans rien montrer de plus). */
-.home-grid { --home-h: clamp(158px, calc((100vh - var(--topbar-h, 54px) - 354px) / 2), 300px); }
-@supports (height: 100dvh) {
-  /* dvh suit les barres d'adresse mobiles qui se replient — vh, lui, garde la hauteur initiale. */
-  .home-grid { --home-h: clamp(158px, calc((100dvh - var(--topbar-h, 54px) - 354px) / 2), 300px); }
-}
 .home-zone-body {
-  height: var(--home-h); overflow: hidden; position: relative;
+  flex: 1 1 auto; min-height: 180px; overflow: hidden; position: relative;
   background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  /* Filet lumineux d'un pixel en haut : donne de l'assise au panneau sans ajouter de trait visible.
+     Au survol, le liseré or de la charte — même langage que les cartes du desk. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .028);
+  transition: border-color .16s var(--ease, ease);
 }
-.home-zone--wide .home-zone-body { height: var(--home-h); }
+.home-zone-body:hover { border-color: rgba(227, 178, 58, .26); }
 .home-zone-body > * { height: 100%; }
 
-/* Sous 1200 px on passe à deux zones par rangée, sous 860 px à une seule : un widget écrasé sur
-   3 colonnes ne montre plus rien d'exploitable.
-   Le DIVISEUR de --home-h suit ce découpage — deux zones par rangée font TROIS rangées (desks +
-   large, puis deux, puis une), pas deux. Sans cet ajustement la formule ferait déborder ce palier
-   au lieu de le faire tenir. */
-@media (max-width: 1200px) {
-  /* Deux zones par rangée mettait les trois petits widgets sur DEUX rangées (2 + 1) : trois rangées
-     au total, soit 271 px de débordement mesurés en 1024 × 768. On garde donc les trois petits
-     COTE À COTE — à 1024 px ils font encore ~314 px de large, largement lisibles — et seules les
-     deux grandes zones passent à la moitié. Deux rangées, ça tient. */
-  .home-zone { grid-column: span 4; }
-  .home-zone--desks, .home-zone--wide { grid-column: span 6; }
+/* Sous 1280 px, la rangée 1 à trois zones devient trop serrée : on la coupe en deux (desks + agenda
+   large / news pleine largeur), ce qui fait TROIS rangées — la hauteur des cadres suit. */
+/* Sous 1280 px, une rangée à trois zones devient trop serrée : deux par rangée. Les rangées
+   continuent de se partager la hauteur restante — rien à recalculer. */
+@media (max-width: 1280px) {
+  .home-zone { grid-column: span 6; }
 }
 /* Une seule colonne : quatre widgets ne tiennent PAS dans un écran de téléphone, et les y forcer
    les réduirait à des timbres-poste illisibles. On assume le défilement — l'exigence est que rien
    ne soit ROGNÉ, pas que tout tienne dans un écran de 6 pouces. */
+/* Une seule colonne : cinq zones ne tiennent PAS dans un écran de téléphone. Le plancher de 220 px
+   prime, le défilement est assumé — l'exigence est que rien ne soit ROGNÉ. */
 @media (max-width: 860px) {
-  .home-grid { grid-template-columns: 1fr; --home-h: 240px; }
-  .home-zone, .home-zone--desks, .home-zone--wide { grid-column: 1 / -1; }
+  /* Hauteur figée + cinq zones = widgets écrasés. On rend la main au flux : la page défile. */
+  .home-inner { height: auto; min-height: calc(100vh - var(--topbar-h, 54px)); }
+  .home-grid { grid-template-columns: 1fr; grid-auto-rows: minmax(220px, auto); }
+  .home-zone { grid-column: 1 / -1; }
 }
 
 
