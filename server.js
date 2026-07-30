@@ -16777,6 +16777,9 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     } else if (type === 'reengagement') {
       m = mailer.buildReengagement({ name: s.name, days: 7 });
       note = "Aperçu — relance d'un client inactif depuis ~7 jours.";
+    } else if (type === 'auto-renew-off') {
+      m = mailer.buildAutoRenewOff({ name: s.name, expiresAt: new Date(Date.now() + 7 * 86400000).toISOString() });
+      note = "Aperçu — envoyé quand un client coupe le renouvellement automatique (son accès reste actif jusqu'à l'échéance).";
     } else if (type === 'renewal-failed') {
       m = mailer.buildRenewalFailed({ name: s.name });
       note = 'Aperçu — envoyé quand un renouvellement échoue / compte suspendu.';
