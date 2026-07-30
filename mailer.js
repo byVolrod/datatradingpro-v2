@@ -2106,6 +2106,45 @@ function getProviderStatus() {
 }
 
 // Liste de TOUS les emails avec un rendu d'exemple (données factices). Sert au preview + à la doc.
+
+// ── RENOUVELLEMENT AUTOMATIQUE DÉSACTIVÉ (30/07) ────────────────────────────────────────────────
+//    Déclencheur PRÉVU : un client coupe le renouvellement automatique côté Whop, alors que son
+//    abonnement court encore. AUCUN ENVOI N'EST BRANCHÉ à ce jour — le template existe, il est
+//    visible dans le panel admin, et il attend validation avant d'être relié au webhook.
+//    Ton : informatif. On énonce la date d'échéance, ce qui s'arrête précisément, et on rappelle
+//    que ne rien faire est un choix valable. Pas de compte à rebours anxiogène.
+function buildAutoRenewOff({ name, expiresAt }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
+  const fin = expiresAt
+    ? new Date(expiresAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+  // Jours RESTANTS (et non écoulés : _delai compte le retard d'une échéance passée).
+  const restants = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)) : null;
+  const quand = restants == null ? 'à la fin de la période en cours'
+    : restants === 0 ? "aujourd'hui"
+    : restants === 1 ? 'demain'
+    : `dans ${restants} jours`;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre renouvellement automatique est désactivé</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Votre abonnement DataTradingPro arrive à échéance <strong style="color:#fff;">${quand}</strong>${fin ? ` (le ${fin})` : ''}. Le renouvellement automatique étant désactivé, il <strong style="color:#fff;">prendra fin à cette date</strong> et ne sera pas reconduit.</p>
+    <p style="margin:0 0 10px;">Concrètement, voici ce qui s'arrête à l'échéance :</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:6px 0 18px;">
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ Le desk en temps réel : news, squawk, calendrier économique et résultats live</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ <strong style="color:#fff;">Mon Desk</strong> et vos dispositions de widgets enregistrées</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ Votre <strong style="color:#fff;">Journal de trading</strong>, ses statistiques et sa courbe d'équité</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ L'onglet Biais, la Recherche bancaire et les récaps hebdomadaires</td></tr>
+    </table>
+    <p style="margin:0 0 14px;">Vos données ne sont pas supprimées à l'échéance : elles vous attendent si vous revenez. Mais l'accès au terminal, lui, se ferme.</p>
+    ${_button('Réactiver le renouvellement automatique', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Sans engagement : le renouvellement se coupe à nouveau quand vous le souhaitez, depuis votre espace Whop.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;"><strong style="color:#cbd5e1;">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> — votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.</p>
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">À bientôt sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'Votre abonnement DataTradingPro ne sera pas renouvelé', html: _layout('Renouvellement automatique désactivé', body) };
+}
+async function sendAutoRenewOff(d) { const m = buildAutoRenewOff(d); return _send(d.to, m.subject, m.html); }
+
 function getEmailCatalog() {
   const now = Date.now();
   const s = { to: 'paul.client@example.com', name: 'Paul Martin', password: 'Xy7k-92Qm-Rs', expiresAt: now + 30 * 86400000 };
@@ -2122,6 +2161,8 @@ function getEmailCatalog() {
     { key: 'reactivated',   audience: 'Client', label: 'Compte réactivé',                  trigger: 'Compte remis en actif (paiement ou admin)',   ...buildReactivated(s) },
     { key: 'renewed',       audience: 'Client', label: 'Abonnement renouvelé',             trigger: 'Paiement Whop renouvelé',                     ...buildRenewed(s) },
     { key: 'reengagement',  audience: 'Client', label: 'Réengagement (inactif ~7j)',       trigger: 'Utilisateur inactif depuis ~7 jours',         ..._buildReengagement(s.name, 7) },
+    // AUCUN ENVOI BRANCHÉ : visible ici pour relecture/validation avant d'être relié au webhook Whop.
+    { key: 'autoRenewOff', audience: 'Client', label: 'Renouvellement auto désactivé',  trigger: 'Client coupe le renouvellement auto — AUCUN ENVOI AUTOMATIQUE (à valider)', ...buildAutoRenewOff({ name: s.name, expiresAt: now + 7 * 86400000 }) },
     { key: 'announcementV2', audience: 'Client', label: 'Annonce — v2 finalisée',           trigger: 'Broadcast manuel (admin) → tous les clients',  ...buildAnnouncementV2({ name: s.name }) },
     { key: 'campaignIntro', audience: 'Client + Whop', label: 'Campagne — intro hebdo',       trigger: 'Broadcast campagne (admin) → clients DTP + Whop', ...buildCampaignIntro({ name: s.name, email: s.to }) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
@@ -2262,7 +2303,7 @@ async function sendAdminAlert({ subject, html, to } = {}) {
 module.exports = {
   // envoi (API publique inchangée)
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
-  sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
+  sendTrialUpsell, sendAutoRenewOff, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
   sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset, sendCampaignOutlook, sendCampaignInvitation,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
@@ -2271,7 +2312,7 @@ module.exports = {
   trackToken, trackOpenUrl, trackClickUrl,
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildExpired, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
-  buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
+  buildTrialUpsell, buildAutoRenewOff, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
