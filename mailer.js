@@ -1818,14 +1818,14 @@ function _mindsetRich(s) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#f3c344;font-weight:700;">$1</strong>')
     .replace(/\*+/g, '');   // astérisques ORPHELINES (gras mal fermé par l'IA) → jamais visibles chez le lecteur
 }
-// RYTHME. Un paragraphe de plus de ~140 caractères se lit comme un bloc ; coupé à la phrase, il se
+// RYTHME. Un paragraphe de plus de ~170 caractères se lit comme un bloc ; coupé à la phrase, il se
 // balaie. On ne réécrit rien — on coupe à la frontière de phrase existante, et seulement s'il reste
 // deux morceaux consistants. Les puces et les citations ne sont jamais touchées.
 function _mindsetRythme(paras) {
   const out = [];
   for (const p of (paras || [])) {
     const t = String(p == null ? '' : p).trim();
-    if (!t || t.slice(0, 2) === '- ' || t.slice(0, 2) === '> ' || t.length <= 140) { out.push(t); continue; }
+    if (!t || t.slice(0, 2) === '- ' || t.slice(0, 2) === '> ' || t.length <= 170) { out.push(t); continue; }
     const bouts = t.split(/(?<=[.!?])\s+/).filter(Boolean);
     if (bouts.length < 2) { out.push(t); continue; }
     // On regroupe pour éviter les fragments orphelins (< 40 car.).
@@ -1839,6 +1839,20 @@ function _mindsetRythme(paras) {
     groupes.forEach(g => out.push(g));
   }
   return out;
+}
+// Bloc « EN PRATIQUE » : trois gestes numérotés, applicables dès la séance suivante. Encadré SOBRE
+// (pas d'or : l'or est réservé à la question de clôture, qui reste le point d'arrêt du mail).
+function _mindsetPratique(etapes) {
+  if (!Array.isArray(etapes) || !etapes.length) return '';
+  const li = etapes.slice(0, 4).map((e, i) => `<tr>
+      <td width="26" valign="top" style="padding:4px 0;color:#f3c344;font-weight:700;font-size:13px;line-height:1.5;">${i + 1}.</td>
+      <td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">${_mindsetRich(String(e || ''))}</td>
+    </tr>`).join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 4px;"><tr>
+    <td style="padding:14px 16px;background:#101216;border:1px solid #262a31;border-left:3px solid #f3c344;border-radius:8px;">
+      <div style="color:#9aa3b2;font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px;">En pratique, dès ta prochaine séance</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${li}</table>
+    </td></tr></table>`;
 }
 function _mindsetParas(paras) {
   paras = _mindsetRythme(paras);
@@ -1878,6 +1892,177 @@ function _mindsetParas(paras) {
 // Choisit un concept en evitant les recentKeys (rotation). Repli : tout le catalogue.
 // extraConcepts (Mindset hybride IA, 15/07) : concepts GÉNÉRÉS PAR IA (KV campaign:mindset-ai côté server)
 // fusionnés au catalogue statique — même forme { key, subject, paras, closing }.
+
+// ── « EN PRATIQUE » : ce qui transforme la lecture en geste ──────────────────────────────────────
+// Trois actions faisables dès la séance suivante, et quand c'est utile l'endroit du desk qui sert à
+// les tenir. C'est l'écart avec une newsletter de motivation : on ne dit pas seulement quoi penser,
+// on montre où le faire. Discipline et méthode uniquement — aucun actif, aucune direction de marché.
+const MINDSET_PRATIQUE = {
+  'bruit-news': ['Avant l\'ouverture, note les 2 seules publications qui pourraient changer ta lecture du jour.',
+    'Coupe les alertes de tout le reste jusqu\'à la clôture de ta séance.',
+    'Le soir, compte combien de titres lus ont réellement modifié une décision. En général : zéro ou un.'],
+  'process-vs-prediction': ['Avant d\'entrer, écris la phrase « je me trompe si… » et son niveau.',
+    'Note ta décision AVANT le résultat, pas après.',
+    'En fin de semaine, sépare tes trades en deux piles : bien exécutés, mal exécutés. Ignore les gains.'],
+  'serie-de-pertes': ['Fixe à l\'avance le nombre de pertes consécutives après lequel tu fermes la journée.',
+    'À ce seuil, arrête — sans négocier avec toi-même.',
+    'Reprends le lendemain à taille réduite jusqu\'à deux exécutions propres d\'affilée.'],
+  'patience-vs-agitation': ['Définis tes créneaux de séance, et ferme l\'écran en dehors.',
+    'Hors créneau, autorise-toi la lecture, pas l\'exécution.',
+    'Compte tes trades de la semaine : au-delà de ton rythme habituel, cherche ce qui t\'a poussé.'],
+  'ego-avoir-tort': ['Écris ton invalidation avant l\'entrée, pas pendant.',
+    'Quand elle est touchée, sors — la relecture vient après, pas au moment du choix.',
+    'Relis une fois par mois les trades où tu as eu raison trop tard.'],
+  'regularite': ['Choisis un indicateur de régularité que tu contrôles : risque respecté, journal tenu.',
+    'Suis-le en série sur 20 séances, pas au jour le jour.',
+    'Une séance ratée ne casse rien ; deux d\'affilée méritent une explication écrite.'],
+  'preparation-contexte': ['Avant l\'ouverture : quel est le contexte, qu\'attend le marché, qu\'est-ce qui le surprendrait ?',
+    'Écris ces trois réponses en trois lignes. Pas plus.',
+    'Le soir, vérifie laquelle des trois était fausse : c\'est là que se trouve ta marge de progrès.'],
+  'journal-erreurs': ['Note pour chaque trade la RAISON d\'entrée, en une phrase, avant l\'exécution.',
+    'Ajoute une seule étiquette : conforme au plan, ou non.',
+    'Au bout de 30 trades, compte le ratio. C\'est ton vrai tableau de bord.'],
+  'risque-taille': ['Fixe ton risque par position en pourcentage, et calcule la taille à partir de là.',
+    'Si le calcul te gêne, c\'est que la position est trop grosse — pas que le calcul est mauvais.',
+    'Vérifie une fois par semaine que ton risque réel correspond à celui que tu avais décidé.'],
+  'fomo-train': ['Quand tu vois un mouvement déjà parti, note l\'heure et ne fais rien pendant 10 minutes.',
+    'Écris ce que tu aurais dû voir AVANT pour être positionné.',
+    'Ce sont ces conditions-là qu\'il faut préparer, pas le mouvement d\'après.'],
+  'comparaison': ['Coupe une semaine les comptes qui ne montrent que des gains.',
+    'Compare-toi à TON mois précédent, sur le respect de ton plan.',
+    'Un résultat sans le risque pris à côté ne veut rien dire — le tien non plus.'],
+  'probabilites': ['Raisonne par séries de 20 trades, jamais sur le dernier.',
+    'Note ton espérance sur la série, pas ton solde du jour.',
+    'Un trade perdant conforme au plan est une bonne décision. Écris-le, pour t\'en souvenir.'],
+  'surtrading-ennui': ['Fixe un nombre maximum de positions par séance, avant de commencer.',
+    'Atteint ce nombre, ferme — même si « ça a l\'air bien ».',
+    'Note ce que tu ressentais juste avant les trades hors plan : l\'ennui revient souvent.'],
+  'euphorie-apres-gain': ['Après un gain inhabituel, garde la même taille sur les trois trades suivants.',
+    'Écris pourquoi ce gain est arrivé : lecture juste, ou marché généreux ?',
+    'La séance qui suit un bon jour mérite plus de vigilance, pas moins.'],
+  'rituel-cloture': ['Termine chaque séance par trois lignes : ce que j\'ai fait, pourquoi, ce que je referais.',
+    'Ferme les écrans après, pas avant.',
+    'Relis ces lignes le lundi suivant, avant d\'ouvrir quoi que ce soit.'],
+  'decider-avant-ouverture': ['Écris tes trois réponses avant l\'ouverture : ce qui te fait intervenir, ce qui t\'invalide, ce que tu fais si rien n\'arrive.',
+    'Garde-les visibles pendant la séance.',
+    'Le soir, vérifie si tu as suivi ce papier — ou improvisé.'],
+  'revenge-trade': ['Après une perte, impose-toi un délai fixe avant toute nouvelle position.',
+    'Pendant ce délai, écris ce qui s\'est passé, sans chercher de coupable.',
+    'Reprends à la taille prévue, jamais au-dessus.'],
+  'ne-pas-trader': ['Autorise-toi explicitement la mention « aucune opportunité » dans ton journal.',
+    'Compte ces journées : elles font partie du métier, pas du temps perdu.',
+    'Compare la performance de tes journées calmes et de tes journées chargées.'],
+  'stop-qui-recule': ['Place ton stop au niveau qui invalide ta lecture, pas à celui qui te fait mal.',
+    'Une fois posé, il ne bouge que dans le sens du gain.',
+    'Note chaque stop déplacé : le compte parle de lui-même au bout d\'un mois.'],
+  'objectif-chiffre': ['Remplace ton objectif de gain par un objectif de process, mesurable chaque jour.',
+    'Vérifie-le en fin de semaine, jamais en fin de mois seulement.',
+    'Si tu es en retard sur un objectif chiffré, c\'est le moment de réduire, pas d\'augmenter.'],
+  'gagnants-a-relire': ['Relis un trade gagnant par semaine comme si tu l\'avais perdu.',
+    'Demande-toi : le referais-je avec les informations que j\'avais alors ?',
+    'Marque ceux qui étaient chanceux. Ce sont eux qui coûteront cher un jour.'],
+  'fatigue-ecran': ['Note ton état en une ligne avant d\'ouvrir : reposé, moyen, fatigué.',
+    'En état « fatigué », lecture seulement — aucune exécution.',
+    'Au bout d\'un mois, croise cette colonne avec tes trades hors plan.'],
+  'changer-de-methode': ['Avant de changer quoi que ce soit, exige 30 trades appliqués à la lettre.',
+    'Sépare le problème : est-ce la méthode, ou son exécution ?',
+    'Ne change qu\'UNE variable à la fois, sinon tu ne sauras jamais ce qui a agi.'],
+  'alerte-permanente': ['Liste les publications qui peuvent réellement changer ta lecture. Elles sont peu nombreuses.',
+    'Désactive les alertes de tout le reste jusqu\'à la fin de ta séance.',
+    'Regarde le calendrier une fois le matin, plutôt que le fil vingt fois par jour.'],
+  'avis-des-autres': ['Écris ta lecture AVANT d\'aller voir celle des autres.',
+    'Note ce qui la rendrait fausse : sans ce point, ce n\'est pas une analyse.',
+    'Si un avis extérieur te fait changer d\'avis, écris pourquoi. Souvent, il n\'y a pas de raison.'],
+};
+// Fusion : chaque concept récupère son bloc. Un concept sans entrée reste valable — le bloc est
+// simplement omis au rendu (c'est le cas des concepts écrits par l'IA qui n'en fournissent pas).
+MINDSET_CONCEPTS.forEach(c => { const p = MINDSET_PRATIQUE[c.key]; if (p && p.length) c.pratique = p; });
+
+
+// ── ÉTOFFEMENT DES THÈMES DU 30/07 ───────────────────────────────────────────────────────────────
+// Mécanisme + nuance + repère concret, insérés avant la chute. Voir le commentaire de MINDSET_PLUS
+// pour le raisonnement : un mail de méthode sans son exception se lit comme un slogan.
+const MINDSET_PLUS = {
+  'decider-avant-ouverture': [
+    "Ce n'est pas un manque de rigueur. C'est la façon dont l'attention fonctionne : devant un prix qui bouge, le cerveau traite l'urgence avant la pertinence.",
+    "Écrire avant, c'est simplement décider dans des conditions où tu raisonnes encore.",
+    "La nuance : préparer ne veut pas dire tout prévoir. Un plan qui anticipe dix scénarios n'est plus un plan, c'est une liste d'excuses.",
+    "Trois lignes suffisent. Si tu ne peux pas les écrire, c'est que la lecture n'est pas encore claire — et c'est déjà une information.",
+  ],
+  'revenge-trade': [
+    "Le mécanisme est connu : après une perte, la tolérance au risque augmente au lieu de diminuer. On accepte pour se refaire ce qu'on aurait refusé une heure plus tôt.",
+    "C'est pour ça que les pires séances commencent rarement par un mauvais trade. Elles commencent par un mauvais DEUXIÈME trade.",
+    "La nuance : reprendre vite n'est pas toujours une erreur. Si le contexte correspond vraiment à ton plan, la perte précédente n'a rien à voir.",
+    "Le test est simple : aurais-tu pris cette position si la précédente avait été gagnante ?",
+  ],
+  'ne-pas-trader': [
+    "Le biais est structurel : on mesure son travail à l'activité, parce que l'activité se voit. Une décision de ne pas intervenir ne laisse aucune trace.",
+    "D'où l'impression d'avoir « perdu sa journée » alors qu'on a appliqué son plan à la lettre.",
+    "La nuance : l'abstention n'est pas une stratégie. Rester à l'écart des semaines entières, ce n'est plus de la sélectivité, c'est de l'évitement.",
+    "La différence tient à une chose : peux-tu nommer la condition qui manquait ? Si oui, c'est un choix. Sinon, c'est de la peur.",
+  ],
+  'stop-qui-recule': [
+    "Le mécanisme est bien décrit : on accepte plus de risque pour éviter une perte certaine que pour sécuriser un gain équivalent.",
+    "Déplacer un stop, ce n'est donc pas un accident de discipline. C'est une réaction prévisible, et c'est justement pour ça qu'elle se prépare à l'avance.",
+    "La nuance : un stop peut légitimement bouger — dans le sens du gain, ou si ta lecture change pour une raison EXTÉRIEURE au prix.",
+    "Ce qui ne se justifie jamais, c'est de l'élargir parce qu'il est sur le point d'être touché.",
+  ],
+  'objectif-chiffre': [
+    "Un objectif de résultat crée une échéance là où le marché n'en a pas. Et une échéance, ça pousse à forcer quand le temps manque.",
+    "C'est pour ça que les dernières séances du mois ressemblent rarement aux premières : même méthode, mais plus la même pression.",
+    "La nuance : se fixer un cap n'est pas absurde. Ce qui l'est, c'est de le fixer sur la seule variable que tu ne contrôles pas.",
+    "Un objectif de process se vérifie chaque jour, sans attendre la fin du mois pour savoir si c'est raté.",
+  ],
+  'gagnants-a-relire': [
+    "Le résultat contamine le jugement : un trade qui finit bien paraît rétrospectivement mieux pensé qu'il ne l'était.",
+    "En ne relisant que les pertes, tu ne corriges qu'une moitié de tes décisions — et tu renforces l'autre sans le savoir.",
+    "La nuance : un gain bien exécuté n'a pas besoin d'être disséqué. L'idée n'est pas de douter de tout.",
+    "Un tri sur trente trades suffit à voir la tendance : combien de gains venaient de ta lecture, combien du hasard ?",
+  ],
+  'fatigue-ecran': [
+    "La fatigue ne dégrade pas l'analyse en premier. Elle dégrade l'inhibition — cette capacité à ne PAS agir.",
+    "C'est pour ça qu'on se sent lucide tout en enchaînant des décisions qu'on n'aurait pas prises reposé.",
+    "La nuance : il ne s'agit pas d'attendre des conditions parfaites. Personne n'arrive frais tous les jours.",
+    "Il s'agit d'adapter ce que tu t'autorises à ton état — lire quand tu es moyen, exécuter quand tu es net.",
+  ],
+  'changer-de-methode': [
+    "Trois trades, c'est un échantillon trop petit pour distinguer une méthode défaillante d'une série normale. Statistiquement, il ne dit rien.",
+    "Le problème n'est pas de changer. C'est de changer AVANT d'avoir de quoi juger — et de recommencer ce cycle indéfiniment.",
+    "La nuance : certaines méthodes doivent être abandonnées. Si le risque n'est pas maîtrisable, ou si elle ne correspond ni à ton temps ni à ton tempérament, insister ne sert à rien.",
+    "Mais cette décision-là se prend au calme, sur des dizaines de trades — jamais le soir d'une troisième perte.",
+  ],
+  'alerte-permanente': [
+    "Chaque interruption a un coût qu'on ne voit pas : il faut plusieurs minutes pour retrouver le fil d'un raisonnement coupé.",
+    "Vingt alertes dans une séance, ce n'est donc pas vingt informations. C'est une séance sans raisonnement continu.",
+    "La nuance : certaines publications méritent vraiment une alerte. Une décision de banque centrale ne se découvre pas le lendemain.",
+    "Elles se comptent sur les doigts d'une main par semaine. Tout le reste peut attendre la fin de ta séance.",
+  ],
+  'avis-des-autres': [
+    "Chercher un avis avant d'entrer sert rarement à s'informer. Ça sert à partager la responsabilité de la décision.",
+    "Et une décision dont tu ne portes pas entièrement la raison est une décision que tu ne peux pas corriger.",
+    "La nuance : lire les autres est utile — après avoir formé ta propre lecture. Le désaccord devient alors une information, pas une pression.",
+    "L'ordre compte plus que le contenu : ta lecture d'abord, celle des autres ensuite.",
+  ],
+};
+// Fusion : les paragraphes s'insèrent AVANT le dernier (la chute reste la chute). Les puces restent
+// groupées là où elles sont — on insère après le dernier bloc de puces s'il termine le concept.
+MINDSET_CONCEPTS.forEach(c => {
+  const plus = MINDSET_PLUS[c.key];
+  if (!plus || !Array.isArray(c.paras) || !c.paras.length) return;
+  let i = c.paras.length - 1;
+  while (i > 0 && String(c.paras[i]).slice(0, 2) === '- ') i--;   // ne pas casser une liste de puces
+  c.paras = c.paras.slice(0, i).concat(plus, c.paras.slice(i));
+});
+
+// Liste { key, subject, ia } de tous les thèmes disponibles — catalogue écrit + concepts générés.
+// Sert l'aperçu du panel admin : on doit pouvoir RELIRE chaque thème avant qu'il ne parte.
+function listMindsetConcepts(extraConcepts) {
+  const ecrits = MINDSET_CONCEPTS.map(c => ({ key: c.key, subject: c.subject, ia: false }));
+  const ia = (Array.isArray(extraConcepts) ? extraConcepts : [])
+    .filter(c => c && c.key && !ecrits.some(e => e.key === c.key))
+    .map(c => ({ key: c.key, subject: c.subject || c.key, ia: true }));
+  return ecrits.concat(ia);
+}
 function pickMindsetConcept(recentKeys, extraConcepts) {
   recentKeys = Array.isArray(recentKeys) ? recentKeys : [];
   const all = [...MINDSET_CONCEPTS, ...(Array.isArray(extraConcepts) ? extraConcepts : [])];
@@ -1911,6 +2096,7 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
     ${_mindsetParas(_pars.slice(0, _coupe))}
     ${_mid}
     ${_mindsetParas(_pars.slice(_coupe))}
+    ${_mindsetPratique(pick.pratique)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 6px;"><tr>
       <td style="padding:15px 18px;background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.3);border-radius:8px;">
         <div style="color:#f3c344;font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;">La question à te poser</div>
@@ -2452,6 +2638,7 @@ module.exports = {
   buildTrialUpsell, buildAutoRenewOff, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
+  listMindsetConcepts,
   buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,

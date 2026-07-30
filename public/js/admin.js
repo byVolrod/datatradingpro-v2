@@ -163,7 +163,7 @@
     { prev:'intro',       test:'intro',       name:'Bienvenue',            when:'Intro',      desc:'Présentation du desk + la semaine type (1er mail de la séquence).' },
     { prev:'decryptage',  test:'decryptage',  name:'Comprendre le marché', when:'Mardi',      desc:'Un concept macro choisi selon l\'actualité, décodé simplement.' },
     { prev:'pointmarche', test:'pointmarche', name:'Point marché',         when:'Mercredi',   desc:'Le brief du desk : séance, chiffres éco, force des devises.' },
-    { prev:'mindset',     test:'mindset',     name:'Mindset',              when:'Jeudi',      desc:'Psychologie et discipline de trading.' },
+    { prev:'mindset',     test:'mindset',     name:'Mindset',              when:'Jeudi',      mindset:true, desc:'Psychologie et discipline de trading — 25 thèmes en rotation, un par semaine. Le sélecteur permet de tous les relire.' },
     { prev:'weekly',      test:null,          name:'Récap hebdo',          when:'Samedi',     desc:'Rétrospective de la semaine, devise par devise (rendu dispo après génération du récap).' },
     { prev:'outlook',     test:'outlook',     name:'Semaine à venir',      when:'Dimanche',   desc:'L\'agenda éco trié par le desk pour la semaine qui s\'ouvre.' },
     { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) — aperçu par variante.', variants:true },
@@ -204,12 +204,34 @@
                            '<button class="camp-btn" onclick="campPreviewWinback(6)">6 mois</button>',
                            '<button class="camp-btn" onclick="campPreviewWinback(12)">1 an</button>',
                            '<button class="camp-btn" onclick="lifecycleOpen(\'winback-\' + (window._cprevMonths || 3) + \'m\')">Comptes sans ce jalon</button>'];
+    // Mindset : un menu déroulant des 25 thèmes — chacun doit pouvoir être relu avant de partir.
+    if (t.mindset) acts.push('<select class="camp-btn" id="cprev-mindset" onchange="campPreviewMindset(this.value)" style="max-width:280px;"><option value="">Thème de la semaine</option></select>');
     if (t.test) acts.push('<button class="camp-btn" onclick="campDripTest(\'' + t.test + '\')">🧪 Test sur ma boîte</button>');
     if (t.lifecycle) acts.push('<button class="camp-btn" onclick="lifecycleOpen(\'' + t.lifecycle + '\')">Comptes sans ce mail</button>');
     var a = document.getElementById('cprev-actions'); if (a) a.innerHTML = acts.join('');
+    if (t.mindset) _msFill();
     if (t.variants) campPreviewInvit(0);
     else if (t.winback) campPreviewWinback(3);
-    else campPreview(t.prev);
+    else { window._cprevConcept = null; campPreview(t.prev); }
+  }
+  // Mindset : prévisualise un thème précis. La liste est chargée une fois puis gardée.
+  var _msList = null;
+  function campPreviewMindset(k){
+    window._cprevType = 'mindset'; window._cprevVariant = null; window._cprevMonths = null;
+    window._cprevConcept = k || null; window._cprevRetryCount = 0;
+    _cprevLoad(); _cprevMark(); _cprevArm();
+  }
+  function _msFill(){
+    var sel = document.getElementById('cprev-mindset'); if (!sel) return;
+    var pose = function(items){
+      sel.innerHTML = '<option value="">Thème de la semaine</option>'
+        + items.map(function(i){ return '<option value="' + i.key + '">' + (i.ia ? '✦ ' : '') + (i.subject || i.key).replace(/</g,'&lt;') + '</option>'; }).join('');
+      if (window._cprevConcept) sel.value = window._cprevConcept;
+    };
+    if (_msList) { pose(_msList); return; }
+    fetch('/api/admin/mindset-concepts').then(function(r){ return r.json(); }).then(function(j){
+      _msList = (j && j.items) || []; pose(_msList);
+    }).catch(function(){});
   }
   // Win-back : prévisualise un jalon précis (1/3/6/12 mois après le départ).
   function campPreviewWinback(m){
@@ -666,7 +688,8 @@
     };
     var vv = (window._cprevVariant != null && window._cprevVariant !== '') ? ('&variant=' + window._cprevVariant) : '';   // Invitation : voir chaque variante
     var mo = (type === 'winback' && window._cprevMonths) ? ('&months=' + window._cprevMonths) : '';                       // Win-back : voir chaque jalon
-    f.src = '/api/admin/campaign-preview?type=' + type + m + vv + mo + '&_=' + Date.now();
+    var ck = (type === 'mindset' && window._cprevConcept) ? ('&concept=' + encodeURIComponent(window._cprevConcept)) : ''; // Mindset : voir chaque thème
+    f.src = '/api/admin/campaign-preview?type=' + type + m + vv + mo + ck + '&_=' + Date.now();
   }
   // Recharge auto 45 s : UNIQUEMENT quand l'onglet Templates est ouvert ET la page visible
   // (chaque rendu d'aperçu reconstruit le mail + ses widgets côté serveur — on ne gaspille plus).
