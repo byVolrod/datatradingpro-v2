@@ -3246,6 +3246,22 @@ function _swParseRssItem($, el, filterByTitle) {
   };
 }
 
+// Une seule entrée par (séance, jour UTC) — la plus récente. Voir l'appel dans _fetchSessionWraps
+// pour le pourquoi : la source publie deux URL pour un même wrap.
+function _swDedupJour(items) {
+  const parCle = new Map();
+  for (const it of (items || [])) {
+    if (!it || !it.timestamp) continue;
+    const jour = new Date(it.timestamp).toISOString().slice(0, 10);
+    const cle = String(it.session || '?').toLowerCase() + '|' + jour;
+    const prec = parCle.get(cle);
+    if (!prec || (it.timestamp || 0) > (prec.timestamp || 0)) parCle.set(cle, it);
+  }
+  const out = [...parCle.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const retires = (items || []).length - out.length;
+  if (retires > 0) console.log('[SessionWraps] ' + retires + ' doublon(s) séance/jour retiré(s) (même wrap republié sous une autre URL)');
+  return out;
+}
 async function _fetchSessionWraps(full = false) {
   _swFetchedAt = Date.now();
   const cutoff   = Date.now() - SW_MAX_AGE;
@@ -3408,6 +3424,11 @@ async function _fetchSessionWraps(full = false) {
   try { fs.writeFileSync(SW_CACHE_FILE, JSON.stringify(_swCache)); } catch {}
   _persistHistory('session_wraps', _swCache);   // persistance durable (Supabase, rétention 1 mois)
   try { broadcast({ type: 'sw_update', items: _swCache }); } catch {}   // publication (titres déjà en place)
+  // DÉDUPLICATION PAR SÉANCE ET PAR JOUR. InvestingLive republie le même wrap sous une seconde URL
+  // (slug court puis slug enrichi) : deux liens distincts, un seul wrap. Une déduplication par lien
+  // ne peut rien voir — d'où deux « Récap Séance New York » identiques le même jour dans l'onglet
+  // Analystes. On garde la version la plus RÉCENTE, c'est la version enrichie.
+  _swCache = _swDedupJour(_swCache);
   console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
   // VEILLE DE SILENCE. La source publie normalement trois wraps par jour (Asie ~04-06h UTC, Europe
   // ~10-12h, Amériques ~18-22h). Au-delà de 14 h sans le moindre nouveau wrap, ce n'est plus un
