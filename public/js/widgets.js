@@ -2018,7 +2018,10 @@
       c += gw; if (gh > rowH) rowH = gh;
     });
     var gR = c > 0 && c < 12 ? (12 - c) : 12;                  // trou réel, sinon pleine largeur
-    var gH = c > 0 && c < 12 ? (rowH || 12) : 6;               // même hauteur que la rangée, sinon bandeau
+    // 6 rangees ici donnaient une BANDE NOIRE en bas de disposition : les rangees sont en 1fr, six
+    // d'entre elles avalent une grosse part de la hauteur, et le fantome est transparent (pointille
+    // seul) — donc invisible autrement que comme un vide. 2 rangees = le bandeau discret annonce.
+    var gH = c > 0 && c < 12 ? (rowH || 12) : 2;               // même hauteur que la rangée, sinon bandeau discret
     return '<button class="wdg-ghost" style="grid-column: span ' + gR + '; grid-row: span ' + gH + ';" onclick="DTPWidgets.openLib()" title="Ajouter un widget ici">'
       + '<span class="wdg-ghost-plus">+</span><span class="wdg-ghost-lbl">Ajouter un widget</span></button>';
   }
