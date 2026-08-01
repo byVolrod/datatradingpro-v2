@@ -282,35 +282,45 @@
   var CATALOG = [
     {
       id: 'force-devises', name: 'Force des Devises', tag: 'FORCE', cat: 'Devises', h: 300,
-      desc: 'Qui mène, qui décroche — double panneau TD | TW comme le desk.',
-      // DOUBLE panneau comme l'onglet › FORCE du desk (gauche = TD intraday, droite = TW semaine ;
-      // demande user 26/07 « exactement comme le desk »). Hôte étroit (<520px) → un seul graphe (semaine).
-      // « Devise » exploite le 2e paramètre de buildIsolatedStrength(id, focusCurrency, periode), déjà
-      // supporté par le desk (une devise à 100 %, les 7 autres estompées) mais jamais utilisé ici.
+      desc: 'Qui mène, qui décroche — un panneau, la période de ton choix.',
+      // UN SEUL panneau (demande user 01/08). Le double TD | TW venait de l'onglet › FORCE du desk,
+      // qui a la largeur pour ça ; dans une carte de tableau de bord il donnait deux demi-graphes
+      // illisibles. La barre de périodes reprend celle du desk (mêmes libellés, mêmes classes
+      // `.stf-btn`) et le choix est PERSISTÉ : le widget est sa propre source de réglage.
       opts: [
-        { k: 'periodes', lbl: 'Périodes', type: 'choix', def: 'auto',
-          choix: [['auto', 'Auto'], ['both', 'Jour + sem.'], ['today', 'Jour'], ['week', 'Semaine']] },
+        { k: 'periodes', lbl: 'Période', type: 'choix', def: 'today',
+          choix: [['today', 'TD · séance'], ['week', 'TW · semaine'], ['8h', '8 heures'], ['1d', '1 jour'], ['7d', '7 jours'], ['1m', '1 mois']] },
         { k: 'focus', lbl: 'Devise', type: 'choix', def: '',
           choix: [['', 'Toutes'], ['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'], ['CHF', 'CHF'], ['CAD', 'CAD'], ['AUD', 'AUD'], ['NZD', 'NZD']] },
       ],
       mount: function (host, it) {
         var W = this;
         if (typeof buildIsolatedStrength !== 'function') { fallback(host, 'Force des Devises indisponible.'); return null; }
-        var per = opt(it, W, 'periodes'), foc = opt(it, W, 'focus') || null;
-        // 'auto' = comportement d'origine : double panneau si la carte est assez large, sinon la semaine seule.
-        var dual = per === 'both' || (per === 'auto' && (host.clientWidth || 0) >= 520);
-        var idL = HOST_ID + '-fx-' + uid(), idR = HOST_ID + '-fx-' + uid();
-        if (!dual) {
-          var solo = (per === 'today') ? 'today' : 'week';
-          host.innerHTML = '<div id="' + idL + '" style="width:100%;height:100%;"></div>';
-          try { buildIsolatedStrength(idL, foc, solo); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
-          return function () { try { if (typeof disposeRoot === 'function') disposeRoot(idL); } catch (e) {} };
+        var TF = [['today', 'TD'], ['week', 'TW'], ['8h', '8H'], ['1d', '1D'], ['7d', '7D'], ['1m', '1M']];
+        // Anciennes valeurs ('auto'/'both') : elles désignaient le double panneau, qui n'existe plus.
+        // On retombe sur la séance — le réglage enregistré ne casse pas le widget.
+        var per = opt(it, W, 'periodes'); if (!TF.some(function (t) { return t[0] === per; })) per = 'today';
+        var foc = opt(it, W, 'focus') || null;
+        var id = HOST_ID + '-fx-' + uid();
+        host.innerHTML = '<div class="wdg-fx-solo">'
+          + '<div class="wdg-fx-tfbar">' + TF.map(function (t) {
+              return '<button class="stf-btn wdg-fx-tf' + (t[0] === per ? ' stf-btn--active' : '') + '" data-per="' + t[0] + '">' + t[1] + '</button>';
+            }).join('') + '</div>'
+          + '<div id="' + id + '" class="wdg-fx-chart"></div></div>';
+        function dessine(p) {
+          try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
+          try { buildIsolatedStrength(id, foc, p); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
         }
-        host.innerHTML = '<div class="wdg-fx-dual">'
-          + '<div class="wdg-fx-pane wdg-fx-pane--l"><span class="wdg-fx-cap">TD</span><div id="' + idL + '" class="wdg-fx-chart"></div></div>'
-          + '<div class="wdg-fx-pane"><span class="wdg-fx-cap">TW</span><div id="' + idR + '" class="wdg-fx-chart"></div></div></div>';
-        try { buildIsolatedStrength(idL, foc, 'today'); buildIsolatedStrength(idR, foc, 'week'); } catch (e) {}
-        return function () { try { if (typeof disposeRoot === 'function') { disposeRoot(idL); disposeRoot(idR); } } catch (e) {} };
+        dessine(per);
+        host.querySelectorAll('.wdg-fx-tf').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            host.querySelectorAll('.wdg-fx-tf').forEach(function (b) { b.classList.remove('stf-btn--active'); });
+            btn.classList.add('stf-btn--active');
+            dessine(btn.dataset.per);
+            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'periodes', btn.dataset.per);
+          });
+        });
+        return function () { try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {} };
       },
     },
     {
