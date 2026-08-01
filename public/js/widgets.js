@@ -2157,10 +2157,19 @@ function _spansAffiches(lay) {
     remove: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var snap = JSON.parse(JSON.stringify(l.items[i]));
-      l.items.splice(i, 1); save(); renderGrid();
-      _undoOffer(byId(snap.w) ? (byId(snap.w).name + ' retiré') : 'Widget retiré', function () {
+      // DEUX NIVEAUX. Retirer un WIDGET rend son EMPLACEMENT à la disposition (même géométrie) :
+      // sur une disposition choisie, le bloc doit rester et proposer « + Choisir un widget », pas
+      // laisser un vide noir. Retirer un EMPLACEMENT le supprime vraiment — c'est le seul moyen de
+      // réduire une disposition, et c'est ce qu'annonce son bouton « Retirer l'emplacement ».
+      var etaitSlot = (snap.w === 'slot');
+      if (etaitSlot) l.items.splice(i, 1);
+      else l.items[i] = { w: 'slot', gw: snap.gw, gh: snap.gh, cfg: {} };
+      save(); renderGrid();
+      var nom = etaitSlot ? 'Emplacement retiré' : (byId(snap.w) ? (byId(snap.w).name + ' retiré') : 'Widget retiré');
+      _undoOffer(nom, function () {
         var cur = activeLayout(); if (!cur) return;
-        cur.items.splice(Math.min(i, cur.items.length), 0, snap);   // remis À SA PLACE
+        if (etaitSlot) cur.items.splice(Math.min(i, cur.items.length), 0, snap);   // remis À SA PLACE
+        else cur.items[i] = snap;                                                  // le widget revient dans son bloc
         save(); renderGrid();
       });
     },
