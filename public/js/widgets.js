@@ -1577,22 +1577,41 @@
       // ferait grandir le widget beaucoup trop vite. Repli sur ROW_PX si la mesure est aberrante.
       var rowUnit = (card.offsetHeight + gapR) / Math.max(1, it.gh);
       if (!isFinite(rowUnit) || rowUnit < 4) rowUnit = ROW_PX + gapR;
+      // VOISINE DE DROITE : le bord droit est un SÉPARATEUR — ce que cette carte perd, la suivante
+      // le gagne. Sans ça, rétrécir laissait un trou (les colonnes libérées n'allaient à personne).
+      // On l'ignore si elle est verrouillée : lui prendre des colonnes contredirait son verrou.
+      var vIt = (h.classList.contains('wdg-resize-e') && l) ? l.items[idx + 1] : null;
+      if (vIt && vIt.locked) vIt = null;
+      if (vIt) _normItem(vIt);
+      var vCard = vIt ? host.querySelector('.wdg-card[data-idx="' + (idx + 1) + '"]') : null;
       rz = { it: it, card: card, x0: e.clientX, y0: e.clientY, gw0: it.gw, gh0: it.gh, gw: it.gw, gh: it.gh,
              mode: (h.classList.contains('wdg-resize-e') ? 'e' : 'se'),          // 'e' = bord droit → LARGEUR seule
+             vIt: vIt, vCard: vCard, vGw0: vIt ? vIt.gw : 0, vGw: vIt ? vIt.gw : 0,
              gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, it.gw) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
     });
     host.addEventListener('pointermove', function (e) {
       if (!rz) return;
-      rz.gw = _clamp(rz.gw0 + Math.round((e.clientX - rz.x0) / rz.colUnit), 1, GRID_COLS);
+      // Avec une voisine, la course est bornée par ce qu'elle peut CÉDER (elle garde 1 colonne au
+      // minimum) — pas par la grille entière : sinon on pourrait la réduire à zéro.
+      var maxGw = rz.vIt ? (rz.gw0 + rz.vGw0 - 1) : GRID_COLS;
+      rz.gw = _clamp(rz.gw0 + Math.round((e.clientX - rz.x0) / rz.colUnit), 1, maxGw);
       if (rz.mode !== 'e') rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / rz.rowUnit), 3, 60);
       rz.card.style.setProperty('--gw', rz.gw); rz.card.style.setProperty('--gh', rz.gh);   // aperçu live (snap)
+      if (rz.vIt) {
+        rz.vGw = _clamp(rz.vGw0 - (rz.gw - rz.gw0), 1, GRID_COLS);                          // somme conservée
+        if (rz.vCard) rz.vCard.style.setProperty('--gw', rz.vGw);
+      }
     });
     var endResize = function (e) {
       if (!rz) return;
       var changed = (rz.gw !== rz.gw0 || rz.gh !== rz.gh0);
-      if (changed) { rz.it.gw = rz.gw; rz.it.gh = rz.gh; save(); }
+      if (changed) {
+        rz.it.gw = rz.gw; rz.it.gh = rz.gh;
+        if (rz.vIt && rz.vGw !== rz.vGw0) rz.vIt.gw = rz.vGw;   // la voisine reçoit ce que celle-ci a cédé
+        save();
+      }
       rz.card.classList.remove('wdg-resizing');
       try { host.releasePointerCapture(e.pointerId); } catch (_) {}
       rz = null;
