@@ -1655,12 +1655,13 @@
     // (bord droit, coin, ⠿) et par leurs infobulles. On nettoie un bandeau resté en place d'un rendu passé.
     var tipHost = document.getElementById('wdg-tipbar');
     if (tipHost) tipHost.remove();
+    var _spans = _spansAffiches(lay);
     host.innerHTML = lay.items.map(function (it, idx) {
       // EMPLACEMENT VIDE (création guidée par disposition) : carte pointillée « + Choisir un widget ».
       // Le choix dans la bibliothèque REMPLACE l'emplacement en gardant sa géométrie (gw/gh de la disposition).
       if (it.w === 'slot') {
         _normItem(it);
-        return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
+        return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + (_spans[idx] || it.gw) + ';--gh:' + it.gh + ';">'
           + '<button class="wdg-slot-x" title="Retirer l\'emplacement" onclick="DTPWidgets.remove(' + idx + ')">×</button>'
           + '<button class="wdg-slot-add" onclick="DTPWidgets.pickFor(' + idx + ')">+<span>Choisir un widget</span></button>'
           + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
@@ -1678,7 +1679,7 @@
       };
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
-      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
+      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + (_spans[idx] || it.gw) + ';--gh:' + it.gh + ';">'
         + '<header class="wdg-head">'
         +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
@@ -1698,7 +1699,9 @@
     // BLOC FANTÔME INTELLIGENT (28/07) : il COMBLE EXACTEMENT le trou de la disposition — largeur
     // restante de la dernière rangée × hauteur de cette rangée (simulation du placement 12 col).
     // Rangée complète → bandeau discret pleine largeur. Contenu centré. Clic → bibliothèque.
-    + _ghostHtml(lay);
+    // Plus de bloc fantôme : les rangées sont pleines par construction (cf. _spansAffiches), il n'y
+    // a donc plus de trou à décorer. L'ajout d'un widget reste accessible par la bibliothèque.
+    ;
     // Plein écran : la carte ciblée recouvre la zone de travail (overlay), la grille est figée derrière.
     if (_fullscreenIdx != null) {
       var fsCard = host.querySelector('.wdg-card[data-idx="' + _fullscreenIdx + '"]');
@@ -2010,6 +2013,25 @@
     return court.length <= place ? court : '';    // sinon rien — un libellé illisible vaut moins que la couleur seule
   }
   // Bloc fantôme : comble EXACTEMENT le trou de la dernière rangée (simulation du placement 12 colonnes).
+// Largeurs d'AFFICHAGE : on simule le placement en 12 colonnes et, pour chaque rangée incomplète,
+// on donne les colonnes restantes à sa DERNIÈRE carte. Résultat : aucune rangée à trou, donc plus
+// aucun espace vide à combler. Renvoie un tableau indexé comme lay.items.
+// La largeur ENREGISTRÉE n'est jamais modifiée — sinon l'étirement se cumulerait à chaque rendu et
+// la largeur choisie par l'utilisateur serait perdue.
+function _spansAffiches(lay) {
+  var items = (lay && lay.items) || [];
+  var out = items.map(function (it) { return Math.min(12, Math.max(1, (it.gw | 0) || 6)); });
+  var debut = 0, c = 0;
+  for (var i = 0; i < out.length; i++) {
+    if (c + out[i] > 12) {                       // la carte passe à la rangée suivante
+      if (c < 12 && i > debut) out[i - 1] += (12 - c);   // la dernière de la rangée close s'étire
+      debut = i; c = 0;
+    }
+    c += out[i];
+  }
+  if (c < 12 && out.length) out[out.length - 1] += (12 - c);   // dernière rangée
+  return out;
+}
   function _ghostHtml(lay) {
     var c = 0, rowH = 0;
     (lay && lay.items || []).forEach(function (it) {
