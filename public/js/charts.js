@@ -1802,7 +1802,10 @@ function buildDMXChart(forceRefresh = false, opts) {
       // des deux pourcentages. « src » = la liste telle que la source la renvoie — c'est le défaut,
       // et il exige de NE PAS trier : l'ancien code retombait sur A-Z pour toute valeur inconnue,
       // ce qui rendait l'ordre source inatteignable.
-      const sortVal = opts ? (opts.sort || 'src') : (document.getElementById('dmx-sort-select')?.value || 'src');
+      // 'src' (ordre source) a ete retire du menu : une valeur enregistree avant ce retrait retombe
+      // sur le tri par paire au lieu de laisser la liste non triee sans que rien ne l'indique.
+      var sortVal = opts ? (opts.sort || 'az') : (document.getElementById('dmx-sort-select')?.value || 'az');
+      if (sortVal === 'src') sortVal = 'az';
       const _num = v => { const x = parseFloat(v); return Number.isFinite(x) ? x : 0; };
       if (sortVal === 'long')           symbols.sort((a, b) => _num(b.longPct)  - _num(a.longPct));
       else if (sortVal === 'long_asc')  symbols.sort((a, b) => _num(a.longPct)  - _num(b.longPct));
@@ -1810,7 +1813,7 @@ function buildDMXChart(forceRefresh = false, opts) {
       else if (sortVal === 'short_asc') symbols.sort((a, b) => _num(a.shortPct) - _num(b.shortPct));
       else if (sortVal === 'az')        symbols.sort((a, b) => String(a.symbol).localeCompare(String(b.symbol)));
       else if (sortVal === 'za')        symbols.sort((a, b) => String(b.symbol).localeCompare(String(a.symbol)));
-      // 'src' : aucun tri — on garde l'ordre de la source.
+
 
       const rows = symbols.map(row => {
         const lf  = +row.longPct;
