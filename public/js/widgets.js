@@ -1655,13 +1655,12 @@
     // (bord droit, coin, ⠿) et par leurs infobulles. On nettoie un bandeau resté en place d'un rendu passé.
     var tipHost = document.getElementById('wdg-tipbar');
     if (tipHost) tipHost.remove();
-    var _spans = _spansAffiches(lay);
     host.innerHTML = lay.items.map(function (it, idx) {
       // EMPLACEMENT VIDE (création guidée par disposition) : carte pointillée « + Choisir un widget ».
       // Le choix dans la bibliothèque REMPLACE l'emplacement en gardant sa géométrie (gw/gh de la disposition).
       if (it.w === 'slot') {
         _normItem(it);
-        return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + (_spans[idx] || it.gw) + ';--gh:' + it.gh + ';">'
+        return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
           + '<button class="wdg-slot-x" title="Retirer l\'emplacement" onclick="DTPWidgets.remove(' + idx + ')">×</button>'
           + '<button class="wdg-slot-add" onclick="DTPWidgets.pickFor(' + idx + ')">+<span>Choisir un widget</span></button>'
           + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
@@ -1679,7 +1678,7 @@
       };
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
-      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + (_spans[idx] || it.gw) + ';--gh:' + it.gh + ';">'
+      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
         + '<header class="wdg-head">'
         +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
