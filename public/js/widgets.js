@@ -1978,9 +1978,16 @@
     { n: 5,  name: '2 + 3',                 rows: 18, items: _rep(2, 6, 9).concat(_rep(3, 4, 9)) },
     { n: 6,  name: '3 × 2',                 rows: 18, items: _rep(6, 4, 9) },
     { n: 6,  name: '2 × 3',                 rows: 24, items: _rep(6, 6, 8) },
+    { n: 7,  name: '1 + 6',                 rows: 18, items: [{ gw: 12, gh: 6 }].concat(_rep(6, 4, 6)) },
+    { n: 7,  name: '3 + 4',                 rows: 18, items: _rep(3, 4, 9).concat(_rep(4, 3, 9)) },
     { n: 8,  name: '4 × 2',                 rows: 18, items: _rep(8, 3, 9) },
     { n: 9,  name: '3 × 3',                 rows: 24, items: _rep(9, 4, 8) },
     { n: 12, name: '4 × 3',                 rows: 24, items: _rep(12, 3, 8) },
+    { n: 12, name: '6 × 2',                 rows: 24, items: _rep(12, 2, 12) },
+    { n: 16, name: '4 × 4',                 rows: 24, items: _rep(16, 3, 6) },
+    { n: 24, name: '6 × 4',                 rows: 24, items: _rep(24, 2, 6) },
+    { n: 28, name: '4 × 7',                 rows: 21, items: _rep(28, 3, 3) },
+    { n: 32, name: '4 × 8',                 rows: 24, items: _rep(32, 3, 3) },
   ];
   // Miniature d'un agencement : la grille 12 colonnes en réduction (aperçu visuel, gestionnaire + modèles).
   // MINIATURE D'UN LAYOUT — dérivée des VRAIS items (pas une capture d'écran) : même moteur de flux que la
