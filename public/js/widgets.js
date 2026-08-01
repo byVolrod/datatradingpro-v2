@@ -660,7 +660,7 @@
               return '<button class="dmx-tf-btn' + (t[0] === tf0 ? ' dmx-tf-btn--active' : '') + '" data-tf="' + t[0] + '">' + t[1] + '</button>';
             }).join('') + '</div>'
           + '<span style="flex:1"></span>'
-          + '<select class="dmx-sort-select">' + [['src', 'Ordre d\'origine'], ['az', 'Paire (A-Z)'], ['za', 'Paire (Z-A)'], ['long_asc', 'Long % (croissant)'], ['long', 'Long % (décroissant)'], ['short_asc', 'Short % (croissant)'], ['short', 'Short % (décroissant)']].map(function (o) {
+          + '<select class="dmx-sort-select" title="Ordre de tri">' + [['src', 'Ordre source'], ['az', 'Paire A→Z'], ['za', 'Paire Z→A'], ['long_asc', 'Long % ↑'], ['long', 'Long % ↓'], ['short_asc', 'Short % ↑'], ['short', 'Short % ↓']].map(function (o) {
               return '<option value="' + o[0] + '"' + (o[0] === tri0 ? ' selected' : '') + '>' + o[1] + '</option>';
             }).join('') + '</select>'
           + '</div>'
