@@ -2084,11 +2084,21 @@ function _spansAffiches(lay) {
   }
   function _thumb(items, opts) {
     opts = opts || {};
+    // UNITE COMMUNE. Avant, chaque bloc arrondissait sa hauteur SEPAREMENT (gh/4) : sur
+    // « Principal + 3 », le principal (21) donnait 5 rangees et les trois blocs de droite (7 chacun)
+    // en donnaient 6 au total. La vignette montrait donc une colonne gauche PLUS COURTE que la
+    // droite, alors que la disposition reelle est parfaitement equilibree.
+    // Le PGCD des hauteurs donne la plus petite unite qui les divise TOUTES exactement : les
+    // proportions sont alors justes par construction, sans aucun arrondi. Repli sur /4 si le PGCD
+    // menerait a une vignette trop haute (hauteurs premieres entre elles).
+    var _hs = (items || []).map(function (x) { return Math.max(1, (x && x.gh | 0) || 12); });
+    var _pgcd = _hs.reduce(function (a, b) { while (b) { var t = b; b = a % b; a = t; } return a; }, 0) || 4;
+    var _unite = (Math.max.apply(null, _hs) / _pgcd) <= 8 ? _pgcd : 4;
     var blocks = (items || []).slice(0, 12).map(function (it) {
       it = _normItem(JSON.parse(JSON.stringify(it)));
       var def = byId(it.w);
       var col = _CAT_COL[(def && def.cat) || 'Autre'] || _CAT_COL['Autre'];
-      var rows = Math.max(1, Math.min(6, Math.round(it.gh / 4)));
+      var rows = Math.max(1, Math.round(it.gh / _unite));
       var lbl = opts.labels && it.gw >= 3 ? _thumbLbl(def, it) : '';
       return '<i style="grid-column:span ' + it.gw + ';grid-row:span ' + rows
         + ';--tc:' + col + '"' + (def ? ' title="' + esc(def.name) + '"' : '') + '>'
