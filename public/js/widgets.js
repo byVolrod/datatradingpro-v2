@@ -2092,7 +2092,14 @@ function _spansAffiches(lay) {
     // menerait a une vignette trop haute (hauteurs premieres entre elles).
     var _hs = (items || []).map(function (x) { return Math.max(1, (x && x.gh | 0) || 12); });
     var _pgcd = _hs.reduce(function (a, b) { while (b) { var t = b; b = a % b; a = t; } return a; }, 0) || 4;
-    var _unite = (Math.max.apply(null, _hs) / _pgcd) <= 8 ? _pgcd : 4;
+    // Le PGCD seul donne les bons RAPPORTS mais une echelle trop petite : « 1 panneau » tombait a
+    // UNE rangee, d ou des blocs plats comme des barres. On remonte l echelle par un facteur ENTIER,
+    // ce qui preserve exactement les rapports, en visant ~5 rangees de haut pour la vignette.
+    // La hauteur totale se deduit des aires : pour un pavage sans trou, somme(gw x gh) = 12 x H.
+    var _aire = (items || []).reduce(function (a2, x) { return a2 + (Math.max(1, (x && x.gw | 0) || 6) * Math.max(1, (x && x.gh | 0) || 12)); }, 0);
+    var _H = Math.max(1, Math.round(_aire / 12));
+    var _mult = Math.max(1, Math.round(5 / Math.max(1, _H / _pgcd)));
+    var _unite = (Math.max.apply(null, _hs) / _pgcd) <= 8 ? (_pgcd / _mult) : 4;
     var blocks = (items || []).slice(0, 12).map(function (it) {
       it = _normItem(JSON.parse(JSON.stringify(it)));
       var def = byId(it.w);
