@@ -2460,8 +2460,16 @@ function _spansAffiches(lay) {
           var padV = cs ? ((parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)) : 24;
           var availRows = host && host.clientHeight ? Math.floor((host.clientHeight - padV + gapR) / (ROW_PX + gapR)) : 0;
           if (availRows > dispo.rows) {
+            // Arrondir CHAQUE hauteur separement casse les proportions : sur « Principal + colonne »
+            // (14 · 7 · 7) avec 21 rangees disponibles, le principal donnait round(14 x 1,5) = 21 et
+            // les deux blocs de droite round(7 x 1,5) = 11 chacun, soit 22. Une rangee d ecart, et la
+            // colonne de gauche s arretait avant la droite.
+            // On met a l echelle l UNITE (PGCD des hauteurs) une seule fois : chaque hauteur etant un
+            // multiple entier de cette unite, les rapports sont conserves exactement.
+            var _pg = slots.reduce(function (a2, s) { var x = a2, y = s.gh; while (y) { var t = y; y = x % y; x = t; } return x; }, 0) || 1;
             var k = availRows / dispo.rows;
-            slots.forEach(function (s) { s.gh = _clamp(Math.round(s.gh * k), 3, 60); });
+            var _u = Math.max(1, Math.round(_pg * k));
+            slots.forEach(function (s) { s.gh = _clamp((s.gh / _pg) * _u, 3, 60); });
           }
         } catch (e) {}
       }
