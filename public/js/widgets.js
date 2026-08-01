@@ -311,6 +311,17 @@
           try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
           try { buildIsolatedStrength(id, foc, p); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
         }
+        // La barre rejoint l'EN-TÊTE du widget (titre à gauche, périodes à droite) comme sur le desk.
+        // Hors du système de widgets — espace de travail via mountInto — il n'y a pas d'en-tête :
+        // dans ce cas la barre reste dans le corps, sinon elle disparaîtrait de l'accueil.
+        var _carte = host.closest ? host.closest('.wdg-card') : null;
+        var _tete = _carte ? _carte.querySelector('.wdg-head') : null;
+        var _barre = host.querySelector('.wdg-fx-tfbar');
+        if (_tete && _barre) {
+          _barre.classList.add('wdg-fx-tfbar--head');
+          var _act = _tete.querySelector('.wdg-actions');
+          if (_act) _tete.insertBefore(_barre, _act); else _tete.appendChild(_barre);
+        }
         dessine(per);
         host.querySelectorAll('.wdg-fx-tf').forEach(function (btn) {
           btn.addEventListener('click', function () {
