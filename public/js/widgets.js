@@ -647,7 +647,7 @@
       // Le widget gère SON intervalle 60 s (le _dmxTimer du desk reste gaté sur #rtab-dmx) → cleanup.
       opts: [
         { k: 'tf', lbl: 'Unité', type: 'choix', def: 'H1', choix: [['D1', '1D'], ['H4', '4H'], ['H1', '1H']] },
-        { k: 'tri', lbl: 'Tri', type: 'choix', def: 'az', choix: [['az', 'A-Z'], ['long', 'Long ↓'], ['short', 'Short ↓']] },
+        { k: 'tri', lbl: 'Tri', type: 'choix', def: 'src', choix: [['src', 'Ordre d\'origine'], ['az', 'Paire (A-Z)'], ['za', 'Paire (Z-A)'], ['long_asc', 'Long % (croissant)'], ['long', 'Long % (décroissant)'], ['short_asc', 'Short % (croissant)'], ['short', 'Short % (décroissant)']] },
       ],
       mount: function (host, it) {
         var W = this;
@@ -660,7 +660,7 @@
               return '<button class="dmx-tf-btn' + (t[0] === tf0 ? ' dmx-tf-btn--active' : '') + '" data-tf="' + t[0] + '">' + t[1] + '</button>';
             }).join('') + '</div>'
           + '<span style="flex:1"></span>'
-          + '<select class="dmx-sort-select">' + [['az', 'Paire (A-Z)'], ['long', 'Long ↓'], ['short', 'Short ↓']].map(function (o) {
+          + '<select class="dmx-sort-select">' + [['src', 'Ordre d\'origine'], ['az', 'Paire (A-Z)'], ['za', 'Paire (Z-A)'], ['long_asc', 'Long % (croissant)'], ['long', 'Long % (décroissant)'], ['short_asc', 'Short % (croissant)'], ['short', 'Short % (décroissant)']].map(function (o) {
               return '<option value="' + o[0] + '"' + (o[0] === tri0 ? ' selected' : '') + '>' + o[1] + '</option>';
             }).join('') + '</select>'
           + '</div>'
