@@ -8916,8 +8916,19 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
   try {
     const _chiffres = _recapChiffresSemaine(weekly.calendar);
     if (_chiffres && _chiffres.bullets.length) {
-      weekly.macro = [_chiffres, ...(weekly.macro || []).filter(m => m && m.heading !== _chiffres.heading)];
-      console.log('[Weekly Recap] chiffres de la semaine : ' + _chiffres.bullets.length + ' ligne(s) déterministe(s)');
+      // FUSION : le narratif raconte, la liste garantit la couverture. Un chiffre déjà raconté est
+      // retiré (sinon le lecteur lit deux fois la décision Fed) ; un chiffre oublié par l'IA est
+      // ajouté comme ligne factuelle au bloc macro. Un seul bloc, sans redite ni omission.
+      const _oublies = _chiffres.bullets.filter(l => !_recapDejaRaconte(l, weekly.macro));
+      const _couverts = _chiffres.bullets.length - _oublies.length;
+      if (_oublies.length) {
+        // On les rattache à la section macro la plus proche du sujet ; à défaut, une section dédiée
+        // en fin de bloc — jamais en tête, le récit passe avant la liste.
+        const _cible = (weekly.macro || []).find(m => m && /inflation|croissance|emploi|donn[ée]es|macro/i.test(String(m.heading || '')));
+        if (_cible) _cible.bullets = [...(_cible.bullets || []), ..._oublies];
+        else weekly.macro = [...(weekly.macro || []), { heading: 'Autres chiffres de la semaine', bullets: _oublies }];
+      }
+      console.log('[Weekly Recap] chiffres de la semaine : ' + _couverts + ' déjà raconté(s) par le narratif, ' + _oublies.length + ' ajouté(s)');
     }
   } catch (e) { console.warn('[Weekly Recap] chiffres de la semaine échec:', e.message); }
 
@@ -15858,6 +15869,38 @@ const _TIER1_CAL_RX = /\bfomc\b|federal funds|interest rate decision|rate decisi
 // Voir le commentaire d'appel : la règle est qu'une annonce de la fiche présente au calendrier ne
 // peut pas être omise du récap. Zéro IA : construit depuis le calendrier, il sort toujours.
 const _RECAP_RANG = { 'Politique monetaire': 0, 'Politique monétaire': 0, 'Inflation': 1, 'Emploi': 2, 'Croissance': 2 };
+// Un chiffre est-il DÉJÀ raconté par le narratif ? On exige DEUX signaux concordants : l'acteur
+// (code devise, nom de banque OU pays) ET la valeur publiée. La devise seule ferait disparaître à tort un
+// chiffre à peine mentionné ; la valeur seule confondrait deux taux identiques.
+const _RECAP_ACTEUR = {
+  USD: /fed|r[ée]serve f[ée]d[ée]rale|fomc|US|am[ée]ricaine?s?|[ée]tats.unis/i,
+  EUR: /bce|ecb|zone euro|europ[ée]enne?s?/i,
+  GBP: /boe|banque d.angleterre|royaume.uni|britannique|MPC/i,
+  JPY: /boj|banque du japon|japonaise?s?|japon/i,
+  CHF: /bns|snb|suisse/i,
+  CAD: /boc|banque du canada|canadienne?s?|canada/i,
+  AUD: /rba|australienne?s?|australie/i,
+  NZD: /rbnz|n[ée]o.z[ée]landaise?s?|nouvelle.z[ée]lande/i,
+};
+function _recapNombres(t) {
+  return (String(t || '').match(/-?\d+(?:[.,]\d+)?/g) || []).map(x => x.replace(',', '.'));
+}
+function _recapDejaRaconte(ligne, sections) {
+  const ccy = (String(ligne || '').match(/·\s*([A-Z]{3})\s*[—,]/) || [])[1] || '';
+  const vals = _recapNombres(String(ligne).split(':').slice(1).join(':')).slice(0, 1);   // la VALEUR publiée
+  if (!ccy || !vals.length) return false;
+  const rxBanque = _RECAP_ACTEUR[ccy];
+  for (const sec of (sections || [])) {
+    for (const b of (sec.bullets || [])) {
+      const txt = String(b || '');
+      const acteur = txt.includes(ccy) || (rxBanque && rxBanque.test(txt));
+      if (!acteur) continue;
+      const nb = _recapNombres(txt);
+      if (vals.some(v => nb.includes(v))) return true;
+    }
+  }
+  return false;
+}
 function _recapChiffresSemaine(cal) {
   const jours = (cal && Array.isArray(cal.past)) ? cal.past : [];
   const plats = [];
