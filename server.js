@@ -8909,6 +8909,18 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
   try { weekly.calendar = await _buildRecapCalendar(weekStart, weekEnd); }
   catch (e) { weekly.calendar = null; console.warn('[Weekly Recap] calendrier échec:', e.message); }
 
+  // ANTI-OMISSION (règle user 01/08) : une annonce de la fiche pédagogique présente au calendrier
+  // économique DOIT figurer au récap. Jusqu'ici le calendrier n'était qu'un CONTEXTE donné à l'IA,
+  // qui pouvait l'ignorer — le CPI australien en a fait les frais. Cette section est construite
+  // depuis les données, sans IA, et placée EN TÊTE des blocs macro.
+  try {
+    const _chiffres = _recapChiffresSemaine(weekly.calendar);
+    if (_chiffres && _chiffres.bullets.length) {
+      weekly.macro = [_chiffres, ...(weekly.macro || []).filter(m => m && m.heading !== _chiffres.heading)];
+      console.log('[Weekly Recap] chiffres de la semaine : ' + _chiffres.bullets.length + ' ligne(s) déterministe(s)');
+    }
+  } catch (e) { console.warn('[Weekly Recap] chiffres de la semaine échec:', e.message); }
+
   try {
     const _cs = (_currentMondayUtc() === weekStart)
       ? await computeCurrencyStrength('week')
@@ -15842,6 +15854,43 @@ function _calClassify(title) { const t = String(title || ''); for (const m of _C
 // Couvre : impact High, familles pédagogiques (_calClassify), + décisions de taux de TOUTE banque centrale
 // (pas seulement la Fed) et PMI génériques (S&P Global/Markit) que _CAL_FAMILY ne classe pas.
 const _TIER1_CAL_RX = /\bfomc\b|federal funds|interest rate decision|rate decision|monetary policy|\bcpi\b|core cpi|\bpce\b|\bppi\b|non.?farm|nonfarm|\bnfp\b|payrolls?|unemployment rate|average hourly earnings|\bgdp\b|\bpib\b|\bism\b|\bpmi\b|retail sales/i;
+// « Les chiffres qui ont marqué la semaine » — section DÉTERMINISTE du récap hebdo.
+// Voir le commentaire d'appel : la règle est qu'une annonce de la fiche présente au calendrier ne
+// peut pas être omise du récap. Zéro IA : construit depuis le calendrier, il sort toujours.
+const _RECAP_RANG = { 'Politique monetaire': 0, 'Politique monétaire': 0, 'Inflation': 1, 'Emploi': 2, 'Croissance': 2 };
+function _recapChiffresSemaine(cal) {
+  const jours = (cal && Array.isArray(cal.past)) ? cal.past : [];
+  const plats = [];
+  let _rang = 0;
+  jours.forEach(j => (j.events || []).forEach(e => plats.push(Object.assign({ _jour: j.dayLabel || '', _ordre: _rang++ }, e))));
+  // Publiés uniquement, et dans le périmètre « annonce importante » du desk.
+  const retenus = plats.filter(e => {
+    if (!e || !e.actual || String(e.actual).trim() === '') return false;
+    return !!_calClassify(e.title) || /high/i.test(e.impact || '');
+  });
+  if (!retenus.length) return null;
+  // Dédup famille + devise : une ligne « inflation AUD », pas six variantes du même print.
+  const vus = new Map();
+  for (const e of retenus) {
+    const c = _calClassify(e.title);
+    const fam = (c && c.family) || 'Autre';
+    const cle = String(e.ccy || e.currency || '') + '|' + fam;
+    const prec = vus.get(cle);
+    // À famille égale, on garde l'intitulé le plus court : « CPI » plutôt que « CPI YoY Flash Prel ».
+    if (!prec || String(e.title || '').length < String(prec.title || '').length) vus.set(cle, Object.assign({ _fam: fam }, e));
+  }
+  const liste = [...vus.values()].sort((a, b) => {
+    const ra = _RECAP_RANG[a._fam] != null ? _RECAP_RANG[a._fam] : 3;
+    const rb = _RECAP_RANG[b._fam] != null ? _RECAP_RANG[b._fam] : 3;
+    return ra - rb || (a._ordre || 0) - (b._ordre || 0);   // a importance egale : ordre CHRONOLOGIQUE du calendrier
+  }).slice(0, 10);
+  const bullets = liste.map(e => {
+    const ccy = String(e.ccy || e.currency || '').toUpperCase();
+    const att = e.forecast ? ` (attendu ${String(e.forecast)}` + (e.previous ? `, préc. ${String(e.previous)})` : ')') : (e.previous ? ` (préc. ${String(e.previous)})` : '');
+    return `**${e._jour || ''}** · ${ccy} — ${String(e.title || '').slice(0, 70)} : **${String(e.actual)}**${att}`;
+  });
+  return { heading: 'Les chiffres qui ont marqué la semaine', bullets };
+}
 function _isMajorCal(e) { if (!e) return false; if (/high/i.test(e.impact || '')) return true; if (_calClassify(e.title)) return true; return _TIER1_CAL_RX.test(String(e.title || '')); }
 // Construit la section « DONNÉES ÉCONOMIQUES » depuis le VRAI calendrier (devise + impact inclus) : les
 // événements MAJEURS (FOMC, CPI, NFP, PIB, PMI, décisions de taux) passent EN TÊTE → jamais coupés par le
