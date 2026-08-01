@@ -1798,10 +1798,19 @@ function buildDMXChart(forceRefresh = false, opts) {
       _dmxLastUpdate = Date.now();
       if (periodLbl) periodLbl.textContent = _dmxAgo(data.updatedTs);
 
-      const sortVal = opts ? (opts.sort || 'az') : (document.getElementById('dmx-sort-select')?.value || 'az');
-      if (sortVal === 'long')       symbols.sort((a, b) => b.longPct  - a.longPct);
-      else if (sortVal === 'short') symbols.sort((a, b) => b.shortPct - a.shortPct);
-      else                          symbols.sort((a, b) => a.symbol.localeCompare(b.symbol));
+      // SEPT ordres (demande user) : l'ordre d'origine + les deux sens sur la paire et sur chacun
+      // des deux pourcentages. « src » = la liste telle que la source la renvoie — c'est le défaut,
+      // et il exige de NE PAS trier : l'ancien code retombait sur A-Z pour toute valeur inconnue,
+      // ce qui rendait l'ordre source inatteignable.
+      const sortVal = opts ? (opts.sort || 'src') : (document.getElementById('dmx-sort-select')?.value || 'src');
+      const _num = v => { const x = parseFloat(v); return Number.isFinite(x) ? x : 0; };
+      if (sortVal === 'long')           symbols.sort((a, b) => _num(b.longPct)  - _num(a.longPct));
+      else if (sortVal === 'long_asc')  symbols.sort((a, b) => _num(a.longPct)  - _num(b.longPct));
+      else if (sortVal === 'short')     symbols.sort((a, b) => _num(b.shortPct) - _num(a.shortPct));
+      else if (sortVal === 'short_asc') symbols.sort((a, b) => _num(a.shortPct) - _num(b.shortPct));
+      else if (sortVal === 'az')        symbols.sort((a, b) => String(a.symbol).localeCompare(String(b.symbol)));
+      else if (sortVal === 'za')        symbols.sort((a, b) => String(b.symbol).localeCompare(String(a.symbol)));
+      // 'src' : aucun tri — on garde l'ordre de la source.
 
       const rows = symbols.map(row => {
         const lf  = +row.longPct;
