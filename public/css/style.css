@@ -6586,6 +6586,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 
 .dmx-sort-select {
+  /* Le menu natif s'ouvre à la largeur de l'élément : sans borne, une carte étroite coupait les
+     libellés. Bornes + libellés courts = toujours lisible, quelle que soit la taille du widget. */
+  max-width: 100%;   /* jamais plus large que sa carte */
+  min-width: 0;
+  text-overflow: ellipsis;
   background: var(--bg3);
   border: 1px solid var(--border2);
   color: var(--text3);
