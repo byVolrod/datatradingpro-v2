@@ -11906,6 +11906,8 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
    troisieme style de boutons dans le produit. */
 .wdg-fx-solo { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .wdg-fx-tfbar { display: flex; align-items: center; justify-content: flex-end; gap: 3px; flex: 0 0 auto; height: 24px; padding: 0 2px 4px; }
+.wdg-fx-tfbar--head { height: auto; padding: 0; margin-left: auto; margin-right: 6px; }
+.wdg-fx-tfbar--head .stf-btn { height: 18px; padding: 0 6px; font-size: 9.5px; }
 .wdg-fx-tfbar .stf-btn { height: 20px; padding: 0 7px; font-size: 10px; }
 /* (.wdg-fx-dual / .wdg-fx-pane / .wdg-fx-cap : double panneau retire, regles conservees sans effet.) */
 .wdg-fx-dual { display: grid; grid-template-columns: 1fr 1fr; height: 100%; min-height: 0; }
