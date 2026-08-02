@@ -1810,9 +1810,12 @@
              baseGh: l.items.map(function (x) { return Math.max(1, (x.gh | 0) || 12); }),
              mode: (estCoin ? 'se' : 'e'),                                 // 'e' = bord droit → LARGEUR seule
              band: band, moins: d0 - 1, plus: band.length ? cede : Math.max(0, GRID_COLS - (p0 ? p0.c + d0 : d0)),
-             // Sans voisine dessous, la hauteur est FIGEE : la carte du bas va jusqu'au bord du desk,
-             // la faire varier changerait le total de rangees et re-echelonnerait tout l'ecran.
-             bandeBas: bandeBas, moinsBas: it.gh - 3, plusBas: bandeBas.length ? Math.max(0, cedeBas) : 0,
+             // Sans voisine dessous, la hauteur est FIGEE DANS LES DEUX SENS : la carte du bas va
+             // jusqu'au bord du desk. La retrecir creusait un trou en bas de sa colonne — le total de
+             // rangees changeait et le flux dense REPACKAIT le desk (constate user : remonter le bloc
+             // du bas de la colonne gauche deplacait le 3e bloc de droite). Cette frontiere-la se
+             // regle depuis la carte du DESSUS, qui a bien une voisine a qui ceder.
+             bandeBas: bandeBas, moinsBas: bandeBas.length ? (it.gh - 3) : 0, plusBas: bandeBas.length ? Math.max(0, cedeBas) : 0,
              d0: d0, noeuds: noeuds, gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, d0) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
