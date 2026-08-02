@@ -4109,10 +4109,15 @@ window._retryCalendar = function() {
   function positionDd() {
     const box = input.closest('.topbar-symbol-search') || input;
     const r = box.getBoundingClientRect();
+    // ZOOM D'AFFICHAGE (réglage Apparence) : getBoundingClientRect() rend des coordonnées VISUELLES —
+    // déjà multipliées par le zoom CSS de <html> — alors qu'un left/top en position:fixed est
+    // RE-multiplié par ce zoom au rendu. Sans la division, à 80 % le menu atterrissait ~20 % trop à
+    // gauche et un peu trop haut (constaté user : « il y a un décalage là »).
+    const z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom')) || 1;
     dd.style.position = 'fixed';
-    dd.style.left = Math.round(r.left) + 'px';
-    dd.style.top = Math.round(r.bottom + 6) + 'px';
-    dd.style.width = Math.round(r.width) + 'px';
+    dd.style.left = Math.round(r.left / z) + 'px';
+    dd.style.top = Math.round((r.bottom + 6) / z) + 'px';
+    dd.style.width = Math.round(r.width / z) + 'px';
     dd.style.minWidth = '0';
     dd.style.maxWidth = 'none';
     dd.style.boxSizing = 'border-box';
