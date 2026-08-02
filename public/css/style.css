@@ -12032,6 +12032,19 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 .wdg-dispo-card:hover { border-color: rgba(227,178,58,.55); transform: translateY(-1px); }
 .wdg-dispo-card .wdg-thumb { width: 100%; grid-auto-rows: 7px; }
 .wdg-thumb--free { display: flex; align-items: center; justify-content: center; color: var(--w-t14); font-size: 17px; min-height: 30px; width: 100%; }
+/* ── VIGNETTE « PLAN » (02/08) : blocs en POSITIONS EXACTES (pourcentages du placement 2D réel),
+   plus de rangées arrondies — c'est ce qui désalignait les colonnes (« le bloc de gauche doit aller
+   tout en bas »). Ratio figé ~2,15:1 : sur le desk, les rangées s'étirent pour remplir l'écran, donc
+   TOUTES les dispositions ont le même cadre — la vignette aussi. L'enveloppe interne est nécessaire :
+   un enfant absolu se place par rapport à la boîte de padding, le padding du cadre serait ignoré. */
+.wdg-thumb--plan { display: block; position: relative; aspect-ratio: 2.15 / 1; padding: 0; }
+.wdg-tpl-card .wdg-thumb--plan { height: 76px; aspect-ratio: auto; }   /* la carte modèle fige déjà sa hauteur */
+.wdg-plan-in { position: absolute; inset: 3px; display: block; }
+.wdg-thumb--lbl .wdg-plan-in { inset: 4px; }
+.wdg-thumb--plan i {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  box-sizing: border-box; border: 1px solid var(--bg); min-height: 0;
+}
 .wdg-dispo-name { font-size: 11px; color: var(--text2, var(--w-t6)); text-align: center; }
 .wdg-dispo-hint { margin-top: 12px; font-size: 10.5px; color: var(--w-t11); line-height: 1.5; }
 /* Rangées GROUPÉES par nombre de panneaux (chiffre à gauche, façon « Select Layout ») */
