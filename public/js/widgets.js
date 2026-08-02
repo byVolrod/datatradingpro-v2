@@ -384,20 +384,40 @@
       mount: function (host, it) {
         var W = this;
         host.innerHTML = '<div class="wdg-cal-wrap custom-scrollbar"><div class="wdg-skel"><span class="wdg-skel-l" style="width:78%"></span><span class="wdg-skel-l" style="width:64%"></span><span class="wdg-skel-l" style="width:82%"></span><span class="wdg-skel-l" style="width:58%"></span></div></div>';
-        fetch('/api/calendar-events').then(function (r) { return r.json(); }).then(function (j) {
+        // BARRE D'OUTILS DU DESK (demande user 02/08 « le widget calendrier doit ressembler à ça ») :
+        // filtres d'impact + recherche d'événements + pastille DIRECT, avec les classes EXACTES de
+        // l'onglet Calendrier (.cal-filter-row/.cal-imp-btn/.cal-search-wrap/.cal-live-badge) — le
+        // widget devient un vrai panneau du desk et non une table nue. Les deux commandes filtrent en
+        // direct, sans re-télécharger : le calendrier complet reste en mémoire.
+        var _tous = [], _imp = ({ all: 'ALL', med: 'Medium', high: 'High' })[opt(it, W, 'impact')] || 'ALL', _q = '';
+        var _BTNS = [['ALL', 'Tous', ''], ['High', 'Élevé', ' cal-imp-btn--high'], ['Medium', 'Moyen', ' cal-imp-btn--med'], ['Low', 'Faible', ' cal-imp-btn--low']];
+        var barre = function () {
+          return '<div class="cal-filter-row wdg-cal-bar">'
+            + '<div class="cal-impact-filter">'
+            +   _BTNS.map(function (b) {
+                  return '<button type="button" class="cal-imp-btn' + b[2] + (_imp === b[0] ? ' cal-imp-btn--active' : '') + '" data-imp="' + b[0] + '">' + b[1] + '</button>';
+                }).join('')
+            + '</div>'
+            + '<div class="cal-search-wrap"><span class="cal-search-icon">⌕</span>'
+            +   '<input type="text" class="cal-search-input wdg-cal-q" placeholder="Rechercher des événements…" value="' + esc(_q) + '"></div>'
+            + '<span class="cal-live-badge"><span class="cal-live-dot"></span>DIRECT</span>'
+            + '</div>';
+        };
+        var dessine = function () {
           if (!host.isConnected) return;
           var now = Date.now();
-          var minImp = opt(it, W, 'impact'), gardePasse = parseInt(opt(it, W, 'passe'), 10) || 0;
+          var q = _q.trim().toLowerCase();
           var impOk = function (e) {
-            if (minImp === 'all') return true;
-            var i = String(e.impact || '').toLowerCase();
-            return minImp === 'high' ? i === 'high' : (i === 'high' || i === 'medium');
+            if (_imp === 'ALL') return true;
+            return String(e.impact || '').toLowerCase() === _imp.toLowerCase();
           };
-          var evs = ((j && j.items) || [])
-            .filter(function (e) { return e && (e.timestamp || 0) > now - gardePasse * 3600e3 && impOk(e); })
-            .sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); })
+          var evs = _tous
+            .filter(function (e) { return impOk(e) && (!q || String(e.title || '').toLowerCase().indexOf(q) !== -1 || String(e.currency || '').toLowerCase().indexOf(q) !== -1); })
             .slice(0, opt(it, W, 'lignes'));
-          if (!evs.length) return fallback(host, 'Aucun événement à venir.');
+          if (!evs.length) {
+            host.innerHTML = '<div class="wdg-cal-panel">' + barre() + '<div class="wdg-cal-wrap"><div class="wdg-empty">Aucun événement ne correspond.</div></div></div>';
+            return cabler();
+          }
           var nextIdx = evs.findIndex(function (e) { return (e.timestamp || 0) >= now; });
           var fmtTime = (typeof calFormatTime === 'function') ? calFormatTime : function () { return ''; };
           var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
@@ -438,11 +458,12 @@
               + '<td class="cth-val">' + vspan(ev.low, 'cv-prev') + '</td>'
               + '<td class="cth-val">' + vspan(ev.previous, 'cv-prev') + '</td></tr>';
           });
-          host.innerHTML = '<div class="wdg-cal-wrap custom-scrollbar"><table class="cal-table">'
+          host.innerHTML = '<div class="wdg-cal-panel">' + barre()
+            + '<div class="wdg-cal-wrap custom-scrollbar"><table class="cal-table">'
             + '<thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th>'
             + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th>'
             + '<th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th>'
-            + '<th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tbody + '</tbody></table></div>';
+            + '<th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tbody + '</tbody></table></div></div>';
           // DÉROULÉ INLINE : on réutilise CELUI DU DESK (toggleCalDetailRow, charts.js) — il ne dépend
           // que de la ligne et de l'événement, donc il fonctionne tel quel dans le widget. Un chevron
           // qui ne déroule rien serait un faux repère : la ligne s'ouvre ici comme dans l'onglet.
@@ -454,6 +475,34 @@
               });
             });
           }
+          cabler();
+        };
+        // Recâblé à chaque rendu : le HTML de la barre est réécrit avec la table (un seul innerHTML,
+        // donc un seul reflow). La saisie garde le focus et le curseur — sinon on ne pourrait pas
+        // taper deux lettres de suite dans la recherche.
+        var cabler = function () {
+          host.querySelectorAll('.wdg-cal-bar .cal-imp-btn').forEach(function (b) {
+            b.addEventListener('click', function () { _imp = b.getAttribute('data-imp'); dessine(); });
+          });
+          var q = host.querySelector('.wdg-cal-q');
+          if (q) {
+            q.addEventListener('input', function () {
+              var pos = q.selectionStart;
+              _q = q.value;
+              dessine();
+              var q2 = host.querySelector('.wdg-cal-q');
+              if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} }
+            });
+          }
+        };
+        fetch('/api/calendar-events').then(function (r) { return r.json(); }).then(function (j) {
+          if (!host.isConnected) return;
+          var now = Date.now(), gardePasse = parseInt(opt(it, W, 'passe'), 10) || 0;
+          _tous = ((j && j.items) || [])
+            .filter(function (e) { return e && (e.timestamp || 0) > now - gardePasse * 3600e3; })
+            .sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+          if (!_tous.length) return fallback(host, 'Aucun événement à venir.');
+          dessine();
         }).catch(function () { fallback(host, 'Calendrier indisponible.'); });
         return null;
       },

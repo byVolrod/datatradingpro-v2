@@ -11553,9 +11553,66 @@ body.wdg-mode #topbar-nav { display: none; }
 
 /* Widget calendrier : conteneur scrollable ; la TABLE réutilise les classes du desk (.cal-table /
    .cth-*) pour un rendu IDENTIQUE. On ne redéfinit donc AUCUN style de calendrier ici. */
+/* Le widget Calendrier est un PANNEAU, pas une table nue : barre d'outils fixe en haut (filtres
+   d'impact + recherche + pastille DIRECT, classes du desk) et table qui défile en dessous. */
+.wdg-cal-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-cal-bar { flex: 0 0 auto; padding: 6px 10px 7px; border-bottom: 1px solid var(--border); background: var(--head-bg); }
+.wdg-cal-bar .cal-imp-btn { padding: 4px 10px; }
+.wdg-cal-bar .cal-search-wrap { flex: 1 1 auto; min-width: 0; }
 /* Même fond que le conteneur du calendrier du desk (.cal-table-wrap, #090909) : sans lui la table
    se détachait du reste sur le fond de carte, et le widget « ne ressemblait pas » à l'onglet. */
-.wdg-cal-wrap { height: 100%; overflow: auto; background: #090909; }
+.wdg-cal-wrap { flex: 1 1 auto; height: 100%; min-height: 0; overflow: auto; background: #090909; }
+
+/* AJUSTEMENT À LA CARTE, SANS SEUIL D'ÉCRAN. Le fit-to-width du calendrier était enfermé dans
+   @media (max-width: 560px) : il ne s'appliquait donc JAMAIS à une carte étroite sur grand écran.
+   Or les largeurs déclarées des colonnes totalisent 502px (HIGH et LOW masquées) à 626px (toutes
+   visibles), pour une carte demi-largeur de 369px sur tablette — 133 à 257px hors champ, et la
+   colonne ÉVÉNEMENT, seule à identifier la ligne, partait la première. La carte est étroite quelle
+   que soit la taille de l'écran : la règle ne doit donc dépendre que d'elle. */
+/* Le mode « ajusté » (table-layout fixed) n'est actif QUE sur carte étroite — voir la requête de
+   conteneur plus bas. Sur carte large, la table garde le layout AUTO du desk : mesuré, imposer fixed
+   partout tronquait la colonne HEURE (« 03:… ») et les en-têtes (« HEU… ») même à 943 px, car les
+   largeurs déclarées (50 px…) deviennent des plafonds au lieu de minima. */
+
+/* …mais le fit seul ne suffit pas : à largeur fixe, les colonnes déclarées (50+34+36+56+5×62 = 486px)
+   mangent tout et ÉVÉNEMENT — la seule à identifier la ligne — tombe à 0 px sur une carte de 371px
+   (mesuré). Il faut donc RETIRER des colonnes quand la carte est étroite, et la carte peut l'être sur
+   n'importe quelle taille d'écran : un seuil de viewport ne peut pas répondre à ça. On interroge donc
+   le CONTENEUR. Portée volontairement limitée au panneau du calendrier : `container-type` ajoute du
+   confinement de mise en page, on ne l'impose pas à toutes les cartes.
+   Ordre de sacrifice : HIGH et LOW d'abord (la source ne les fournit pas, elles affichent « — »),
+   puis le drapeau (le code devise porte déjà l'information).
+   ÉVÉNEMENT reçoit une largeur EXPLICITE (le solde) : mesuré, une colonne laissée en `auto` dans une
+   table `table-layout: fixed` ne récupère pas l'espace restant — 119 px sur 493 restaient inutilisés
+   et la colonne tombait à 60 px. On calcule donc le solde à la main, colonnes masquées déduites. */
+.wdg-cal-panel { container-type: inline-size; container-name: dtpcal; }
+@container dtpcal (max-width: 640px) {
+  .wdg-cal-wrap { overflow-x: hidden; }
+  .wdg-cal-wrap .cal-table { table-layout: fixed; width: 100%; }
+  .wdg-cal-wrap .cth-event { min-width: 0; }
+  .wdg-cal-wrap .cal-table thead th { overflow: hidden; text-overflow: ellipsis; }
+  .cal-table th:nth-child(7), .cal-table td:nth-child(7),
+  .cal-table th:nth-child(9), .cal-table td:nth-child(9) { display: none; }
+  .cal-chv { display: none; }   /* ses ~12 px tronquaient l'heure (« 03:… ») dans la colonne serrée */
+  /* Toutes les colonnes en POURCENTAGE, somme = 100. Ni les largeurs en pixels ni un calc() du solde
+     ne fonctionnent ici : mesuré, la colonne restée en `auto` ne récupère pas l'espace libre (119 px
+     inutilisés sur 493) et ÉVÉNEMENT retombait à 60 px. En pourcentages, la répartition est exacte. */
+  .cth-time  { width: 11%; padding-left: 6px !important; }
+  .cth-flag  { width: 7%; }
+  .cth-curr  { width: 8.5%; }   /* 7,5 % tronquait « CNY » en « C… » sur une carte de 495 px (mesuré) */
+  .cth-imp   { width: 9%; }
+  .cth-event { width: 33%; }
+  .cth-val   { width: 10.5%; }
+}
+@container dtpcal (max-width: 470px) {
+  .cal-table th:nth-child(2), .cal-table td:nth-child(2) { display: none; }   /* drapeau : le code devise suffit */
+  .cth-time  { width: 13%; }
+  .cth-curr  { width: 10%; }
+  .cth-imp   { width: 11%; }
+  .cth-event { width: 33%; }
+  .cth-val   { width: 11%; font-size: 10px; }
+  .cal-table thead th, .cal-row td { padding-left: 5px !important; padding-right: 5px !important; }
+}
 body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même bascule claire que .cal-table-wrap */
 
 /* Widgets réutilisant des rendus du desk : on les fait remplir le corps du widget (règles additives,
