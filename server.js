@@ -772,7 +772,9 @@ function _wdgClean(body) {
           // Widget « Panneau à onglets » : sous-widgets (ids catalogue front), cap 8 — même piège que gw/gh :
           // tout champ non repris ici serait détruit au save/reload.
           if (Array.isArray(it.tabs)) {
-            const tabs = it.tabs.filter(t => typeof t === 'string' && _WDG_ID_RX.test(t)).slice(0, 8);
+            // Cap 12 (était 8) : la Vue générale v5 porte les 9 onglets de la nav du desk — au cap 8,
+            // TAUX et BANQUES auraient été JETÉS EN SILENCE au premier save.
+            const tabs = it.tabs.filter(t => typeof t === 'string' && _WDG_ID_RX.test(t)).slice(0, 12);
             if (tabs.length) o.tabs = tabs;
           }
           // Libellés d'onglets PERSONNALISÉS (double-clic → renommage, 28/07) — alignés sur tabs,

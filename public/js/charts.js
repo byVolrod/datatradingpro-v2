@@ -2663,6 +2663,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Exposé globalement au cas où d'autres modules veulent changer de vue
   window.activateView = activateView;
+  // VUES ADOPTABLES par Mon Desk (widgets « vue du desk », demande user 03/08 : les onglets de la nav
+  // dans la Vue générale). Les chargeurs sont LOCAUX à cette IIFE : sans cet export, widgets.js ne
+  // peut pas les appeler. Chaque entrée reproduit EXACTEMENT ce que fait activateView pour sa vue
+  // (init one-shot + chargement) ; 'taux' rend une fonction d'arrêt (son poll 30 s meurt avec la carte).
+  window._dtpVueLoaders = {
+    fxlist: function () {
+      if (typeof loadFxListView !== 'function') return;
+      if (!window._fxlistTabInited && typeof initFxListTab === 'function') { window._fxlistTabInited = true; initFxListTab(); }
+      loadFxListView();
+    },
+    institution: function () {
+      if (typeof loadInstitutionView !== 'function') return;
+      if (!window._institutionTabInited) { window._institutionTabInited = true; loadInstitutionView(); }
+      else if (typeof renderBrList === 'function') renderBrList();
+    },
+    analyst: function () {
+      if (typeof loadAnalystView !== 'function') return;
+      if (!window._analystTabInited && typeof initAnalystTab === 'function') { window._analystTabInited = true; initAnalystTab(); }
+      loadAnalystView();
+    },
+    weekahead: function () { if (typeof loadWeekAheadView === 'function') loadWeekAheadView(); },
+    taux: function () {
+      loadTauxView();
+      var iv = setInterval(function () { try { loadTauxView(); } catch (e) {} }, 30000);
+      return function () { clearInterval(iv); };
+    },
+    bias: function () { if (typeof loadBiasView === 'function') loadBiasView(); },
+    bank: function () { if (typeof loadBankView === 'function') loadBankView(); },
+  };
 
   document.getElementById('topbar-nav')?.addEventListener('click', e => {
     const a = e.target.closest('[data-view]');

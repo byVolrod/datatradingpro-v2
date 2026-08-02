@@ -1479,6 +1479,49 @@
         return function () { try { if (typeof disposeRoot === 'function') disposeRoot(chartId); } catch (e) {} };
       },
     },
+  ].concat((function () {
+    /* ── WIDGETS « VUE DU DESK » (demande user 03/08 « ajoute ces widgets de ces onglets ») ──────────
+       Ces vues sont des SINGLETONS (DOM à ids fixes, état de module) : les recopier divergerait vite.
+       Le widget ADOPTE donc le VRAI panneau du desk — il le déplace dans sa carte (fidélité 100 % par
+       construction : c'est littéralement la même vue) et le REND À SA PLACE au démontage, marquée par
+       un commentaire. Une seule carte à la fois par vue — la deuxième affiche un message clair.
+       Le chargement passe par window._dtpVueLoaders (charts.js) : les chargeurs sont locaux à son IIFE. */
+    function _vueDesk(id, nom, tag, cat, viewId, cle, desc) {
+      return {
+        id: id, name: nom, tag: tag, cat: cat, h: 340, desc: desc,
+        mount: function (host) {
+          var panel = document.getElementById(viewId);
+          if (!panel) { fallback(host, 'Vue indisponible.'); return null; }
+          if (panel.closest('.wdg-card, .wdgt-host, .wdg-vuehost')) { fallback(host, 'Cette vue est déjà affichée dans une autre carte.'); return null; }
+          var marque = document.createComment('vue-' + id);
+          panel.parentNode.insertBefore(marque, panel);
+          var etaitCache = panel.classList.contains('hidden');
+          panel.classList.remove('hidden');
+          host.classList.add('wdg-vuehost');
+          host.appendChild(panel);
+          var stop = null;
+          try { var l = window._dtpVueLoaders && window._dtpVueLoaders[cle]; if (l) stop = l(); } catch (e) {}
+          return function () {
+            try { if (typeof stop === 'function') stop(); } catch (e) {}
+            host.classList.remove('wdg-vuehost');
+            try {
+              if (etaitCache) panel.classList.add('hidden');
+              marque.parentNode.insertBefore(panel, marque); marque.remove();
+            } catch (e) {}
+          };
+        },
+      };
+    }
+    return [
+      _vueDesk('vue-fxlist', 'Liste FX', 'LISTE FX', 'Devises', 'view-fxlist', 'fxlist', "L'onglet LISTE FX du desk, à l'identique (signaux, prix, MAJ live)."),
+      _vueDesk('vue-institution', 'Institutions', 'INSTITUTIONS', 'News', 'view-institution', 'institution', "L'onglet INSTITUTIONS du desk : la recherche des grandes banques."),
+      _vueDesk('vue-analyst', 'Analystes', 'ANALYSTES', 'News', 'view-analyst', 'analyst', "L'onglet ANALYSTES du desk : rapports, récaps de séance, Éclairages IA."),
+      _vueDesk('vue-bias', 'Biais (vue desk)', 'BIAIS', 'Macro', 'view-bias', 'bias', "L'onglet BIAIS complet du desk : matrice Smart Bias + synthèse."),
+      _vueDesk('vue-weekahead', 'Semaine à Venir', 'SEMAINE', 'Macro', 'view-weekahead', 'weekahead', "L'onglet SEMAINE À VENIR du desk : profil de risque + agenda éditorialisé."),
+      _vueDesk('vue-taux', 'Taux (vue desk)', 'TAUX', 'Macro', 'view-taux', 'taux', "L'onglet TAUX du desk : cartes par banque, pricing des décisions, temps réel."),
+      _vueDesk('vue-bank', 'Banques', 'BANQUES', 'Risque', 'view-bank', 'bank', "L'onglet BANQUES du desk : positions des grandes banques + graphique."),
+    ];
+  })()).concat([
     {
       id: 'onglets', name: 'Panneau à onglets', cat: 'Outils', h: 360,
       desc: 'Plusieurs widgets dans une seule carte, avec sa propre barre d\'onglets — comme la barre › MONDE › FORCE du desk.',
@@ -1551,7 +1594,7 @@
         return function () { if (subClean) { try { subClean(); } catch (e) {} subClean = null; } };
       },
     },
-  ];
+  ]);
 
   // Courbe de capital du widget Journal (miroir de _jrBuildEquityChart du desk) : aire dégradée OR, axes discrets,
   // tooltip riche FR (date · valeur · variation). amCharts globaux ; root disposé par le cleanup du widget.
@@ -1597,7 +1640,7 @@
      « Vue générale » : sans ça, les comptes qui ont déjà un cfg enregistré gardent l'ANCIENNE composition
      pour toujours (ensureDefaultLayout ne recomposait pas un layout existant) — c'est ce qui a privé le
      desk de sa barre d'onglets après l'ajout du widget « Panneau à onglets » (constaté user 26/07). */
-  var DESK_V = 4;   // v4 (03/08) : gauche = panneau à onglets nav (ACTUS·CALENDRIER·BIAIS·TAUX). v3 : horloge 4 rangées (~16 %), onglets 22
+  var DESK_V = 5;   // v5 (03/08) : nav COMPLÈTE à gauche (9 onglets, vues du desk adoptées). v3 : horloge 4 rangées (~16 %), onglets 22
   // COMPOSITION DU DESK, ÉCRITE UNE SEULE FOIS. Le layout par défaut « Vue générale » ET le modèle prêt
   // de la bibliothèque la lisent tous les deux ici : c'est ce qui garantit que le modèle est une
   // reproduction IDENTIQUE du desk de base (demande user), et non une copie qui divergerait au premier
@@ -1607,12 +1650,14 @@
     // PROPORTIONS DU DESK RÉEL, mesurées sur capture (demande user 02/08 « les mêmes dimensions que la
     // base, tout à l'identique ») : gauche pleine hauteur (50 %), à droite l'horloge occupe ~16 %
     // de la hauteur (143 px sur 895) et le panneau à onglets tout le reste. Sur 26 rangées : 4 et 22.
-    // v4 (03/08, demande user « il manque ces onglets ») : la GAUCHE devient un PANNEAU À ONGLETS qui
-    // reprend la barre de navigation du desk (› ACTUS › CALENDRIER › BIAIS › TAUX) avec les widgets
-    // équivalents. LISTE FX / INSTITUTIONS / ANALYSTES / SEMAINE À VENIR / BANQUES suivront quand
-    // leurs widgets existeront (chantier ouvert) — un onglet sans widget serait un bouton mort.
+    // v5 (03/08, demande user « ajoute ces widgets de ces onglets et met à jour le template comme
+    // l'original ») : la GAUCHE reprend LA BARRE DE NAVIGATION COMPLÈTE du desk — les 9 onglets, dans
+    // l'ordre. ACTUS et CALENDRIER = leurs widgets-panneaux (déjà identiques au desk) ; les 7 autres =
+    // widgets « vue du desk » (adoption du vrai panneau, fidélité 100 % par construction).
     return [
-      { w: 'onglets', gw: 6, gh: 26, tabs: ['fil-news', 'calendrier-jour', 'radar-biais', 'taux-cb'], tabLabels: ['ACTUS', 'CALENDRIER', 'BIAIS', 'TAUX'] },
+      { w: 'onglets', gw: 6, gh: 26,
+        tabs: ['fil-news', 'calendrier-jour', 'vue-fxlist', 'vue-institution', 'vue-analyst', 'vue-bias', 'vue-weekahead', 'vue-taux', 'vue-bank'],
+        tabLabels: ['ACTUS', 'CALENDRIER', 'LISTE FX', 'INSTITUTIONS', 'ANALYSTES', 'BIAIS', 'SEMAINE À VENIR', 'TAUX', 'BANQUES'] },
       { w: 'horloge', gw: 6, gh: 4 },
       { w: 'onglets', gw: 6, gh: 22, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
     ];
@@ -2176,8 +2221,11 @@
       'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
       'horloge': 'Fonctions', 'onglets': 'Fonctions',
+      // Vues du desk (adoption) : troisième famille dédiée — ce sont les onglets de la nav, pas des outils.
+      'vue-fxlist': 'Vues du desk', 'vue-institution': 'Vues du desk', 'vue-analyst': 'Vues du desk',
+      'vue-bias': 'Vues du desk', 'vue-weekahead': 'Vues du desk', 'vue-taux': 'Vues du desk', 'vue-bank': 'Vues du desk',
     };
-    var FAMS = ['Analyse de marché', 'Fonctions'];   // ordre d'affichage des 2 familles
+    var FAMS = ['Analyse de marché', 'Fonctions', 'Vues du desk'];   // ordre d'affichage des familles
     // GALERIE DE MODÈLES en TÊTE de la bibliothèque (demande user 23/07 : « on doit pouvoir choisir le template
     // en cliquant sur l'icône bibliothèque ») : chaque modèle = VIGNETTE d'agencement + NOM CENTRÉ DESSOUS —
     // jamais de nom à droite. Un clic crée un nouveau desk pré-composé (usePreset).
@@ -2196,7 +2244,7 @@
     var tplHtml = (PRESETS.some(pmatch) && (_libFam === '' || _libFam === '_tpl'))
       ? '<div class="wdg-lib-sec">' + (PRESETS.length > 1 ? 'Modèles prêts' : 'Modèle prêt') + '</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
 
-    var FAM_SUB = { Analytics: 'Analyse de marché', Fonctions: 'Données & outils' };
+    var FAM_SUB = { Analytics: 'Analyse de marché', Fonctions: 'Données & outils', 'Vues du desk': 'Les onglets de la nav, en carte' };
     var html = (_libFam === '_tpl' ? [] : FAMS).map(function (fam) {
       if (_libFam && _libFam !== fam) return '';                              // puce de catégorie active → une seule famille
       var list = CATALOG.filter(function (w) { return (FAM_OF[w.id] || 'Fonctions') === fam && match(w); });
@@ -2276,6 +2324,8 @@
     'saison': 'SAISON', 'sessions': 'MONDE', 'horloge': 'HEURE',
     'calculatrice': 'CALC', 'journal-mini': 'JOURNAL', 'onglets': 'ONGLETS',
     'fil-news': 'ACTUS',
+    'vue-fxlist': 'FX', 'vue-institution': 'INST', 'vue-analyst': 'ANALYSTES',
+    'vue-bias': 'BIAIS', 'vue-weekahead': 'SEMAINE', 'vue-taux': 'TAUX', 'vue-bank': 'BANQUES',
   };
   function _thumbLbl(def, it) {
     // Repli pour un widget ajouté plus tard sans entrée dans _ABBR : le PREMIER MOT de son nom —
