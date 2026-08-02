@@ -113,6 +113,7 @@
             var w2 = byId(id2); if (!w2) return '';
             return '<div class="wdg-set-row wdg-set-tabrow">'
               + '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || w2.tag || w2.name) + '"'
+              + ' autocomplete="off" name="dtp-nom-onglet" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true" data-form-type="other"'
               + ' placeholder="' + esc(w2.tag || w2.name) + '" title="' + esc(w2.name) + '"'
               + ' onchange="DTPWidgets.renameTab(' + idx + ',' + j + ', this.value)"'
               // Échap = ANNULER (miroir de l'éditeur inline .wdgt-edit) : valeur d'origine restaurée
@@ -632,8 +633,19 @@
       // dtp-risk (source unique app.js) → toujours la même valeur que la jauge de l'onglet RISQUE.
       mount: function (host) {
         if (!(window.am5 && window.am5radar) || typeof _riskArcColor !== 'function' || typeof _riskBandInner !== 'function' || typeof GAUGE_LABEL_FR === 'undefined') { fallback(host, 'Jauge indisponible.'); return null; }
-        host.innerHTML = '<div class="risk-widget-container wdg-riskwrap"></div>';
-        var wrap = host.firstChild;
+        // COMME L'ONGLET RISQUE DU DESK (demande user 03/08 « il manque l'historique en bas ») :
+        // la jauge PLUS la bande d'historique quotidien (#risk-history-chart, classes .rsh-chart du
+        // desk, builder buildRiskHistoryChart) — la jauge seule laissait un vide sous l'arc.
+        var hid = HOST_ID + '-rj-h-' + uid();
+        host.innerHTML = '<div class="wdg-riskpanel"><div class="risk-widget-container wdg-riskwrap"></div>'
+          + '<div class="amchart-container rsh-chart wdg-riskhist"><div id="' + hid + '" style="width:100%;height:100%"></div></div></div>';
+        var wrap = host.querySelector('.wdg-riskwrap');
+        if (typeof buildRiskHistoryChart === 'function') {
+          fetch('/api/risk-history?days=60').then(function (r) { return r.json(); }).then(function (d) {
+            if (!document.getElementById(hid)) return;                       // widget retiré pendant le fetch
+            try { buildRiskHistoryChart(hid, d); } catch (e) {}
+          }).catch(function () {});
+        } else { var hh = host.querySelector('.wdg-riskhist'); if (hh) hh.remove(); }
         var root = null, handDI = null, hand = null, built = false;
         function render(data) {
           if (!host.isConnected || !data || data.error) return;
@@ -706,7 +718,11 @@
         window.addEventListener('dtp-risk', onRisk);
         if (window._dtpRisk) render(window._dtpRisk);
         else fetch('/api/risk-sentiment').then(function (r) { return r.json(); }).then(function (d) { if (!d || d.error) return fallback(host, 'Sentiment indisponible.'); window._dtpRisk = window._dtpRisk || d; render(window._dtpRisk); }).catch(function () { fallback(host, 'Sentiment indisponible.'); });
-        return function () { window.removeEventListener('dtp-risk', onRisk); try { if (root) root.dispose(); } catch (e) {} };
+        return function () {
+          window.removeEventListener('dtp-risk', onRisk);
+          try { if (root) root.dispose(); } catch (e) {}
+          try { if (typeof disposeRoot === 'function') disposeRoot(hid); } catch (e) {}   // la bande d'historique a son propre root
+        };
       },
     },
     {
@@ -1581,7 +1597,7 @@
      « Vue générale » : sans ça, les comptes qui ont déjà un cfg enregistré gardent l'ANCIENNE composition
      pour toujours (ensureDefaultLayout ne recomposait pas un layout existant) — c'est ce qui a privé le
      desk de sa barre d'onglets après l'ajout du widget « Panneau à onglets » (constaté user 26/07). */
-  var DESK_V = 3;   // v3 (02/08) : proportions calées sur le desk réel — horloge 4 rangées (~16 %), onglets 22
+  var DESK_V = 4;   // v4 (03/08) : gauche = panneau à onglets nav (ACTUS·CALENDRIER·BIAIS·TAUX). v3 : horloge 4 rangées (~16 %), onglets 22
   // COMPOSITION DU DESK, ÉCRITE UNE SEULE FOIS. Le layout par défaut « Vue générale » ET le modèle prêt
   // de la bibliothèque la lisent tous les deux ici : c'est ce qui garantit que le modèle est une
   // reproduction IDENTIQUE du desk de base (demande user), et non une copie qui divergerait au premier
@@ -1589,11 +1605,14 @@
   // redimensionner l'un modifierait l'autre.
   function _itemsDeskDefaut() {
     // PROPORTIONS DU DESK RÉEL, mesurées sur capture (demande user 02/08 « les mêmes dimensions que la
-    // base, tout à l'identique ») : fil pleine hauteur à gauche (50 %), à droite l'horloge occupe ~16 %
+    // base, tout à l'identique ») : gauche pleine hauteur (50 %), à droite l'horloge occupe ~16 %
     // de la hauteur (143 px sur 895) et le panneau à onglets tout le reste. Sur 26 rangées : 4 et 22.
-    // L'ancienne répartition 8/18 donnait une horloge deux fois trop haute par rapport au desk.
+    // v4 (03/08, demande user « il manque ces onglets ») : la GAUCHE devient un PANNEAU À ONGLETS qui
+    // reprend la barre de navigation du desk (› ACTUS › CALENDRIER › BIAIS › TAUX) avec les widgets
+    // équivalents. LISTE FX / INSTITUTIONS / ANALYSTES / SEMAINE À VENIR / BANQUES suivront quand
+    // leurs widgets existeront (chantier ouvert) — un onglet sans widget serait un bouton mort.
     return [
-      { w: 'fil-news', gw: 6, gh: 26 },
+      { w: 'onglets', gw: 6, gh: 26, tabs: ['fil-news', 'calendrier-jour', 'radar-biais', 'taux-cb'], tabLabels: ['ACTUS', 'CALENDRIER', 'BIAIS', 'TAUX'] },
       { w: 'horloge', gw: 6, gh: 4 },
       { w: 'onglets', gw: 6, gh: 22, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
     ];
@@ -1643,6 +1662,14 @@
       c.deskV = DESK_V;
       c.__migrated = 1;      // → load() SAUVEGARDE : sans ça deskV ne serait jamais persisté et la
                              //   recomposition se rejouerait à CHAQUE ouverture, écrasant les réglages.
+    }
+    // ONE-SHOT (demande user 03/08 « met vue d'ensemble par défaut ») : la Vue générale devient
+    // l'onglet ACTIF, une seule fois — ensuite le choix de l'utilisateur fait foi. Le marqueur actV
+    // est repris par le sanitizer serveur (sinon il serait détruit au save et la migration
+    // écraserait le desk actif à chaque chargement).
+    if (c.actV !== 2) {
+      if (c.layouts.some(function (l) { return l && l.id === PROTECTED_ID; })) c.active = PROTECTED_ID;
+      c.actV = 2; c.__migrated = 1;
     }
     if (c.tipSeen !== 1) c.tipSeen = 0;                            // migration : astuce gestes
     c.layouts.forEach(function (l) { if (l) l.hidden = !!l.hidden; });          // migration : état masqué (fermé)
@@ -2061,7 +2088,11 @@
         + '<button class="wdg-mgr-grip" draggable="true" title="Glisser pour réordonner">⠿</button>'
         + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
         + _thumb(l.items, { labels: true })
+        // Suppresseurs de GESTIONNAIRES DE MOTS DE PASSE (demande user 03/08 « enlève ceci » : une clé
+        // violette s'incrustait dans le champ) : ces extensions décorent tout input texte qui leur
+        // semble un identifiant — les attributs data-* les en dissuadent, chacun le sien.
         + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
+        +   ' autocomplete="off" name="dtp-nom-desk" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true" data-form-type="other"'
         +   ' onchange="DTPWidgets.renameLayout(\'' + l.id + '\', this.value)">'
         + (l.hidden ? '<span class="wdg-mgr-closed">Fermé</span>' : '')
         + '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'

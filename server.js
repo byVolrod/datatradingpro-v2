@@ -821,6 +821,7 @@ function _wdgClean(body) {
     gap: (b.gap === 'loose' ? 'loose' : 'tight'),                 // densité (défaut = COLLÉS, demande user 26/07)
     gapV: (b.gapV === 2 ? 2 : 0),                                 // version de la préférence densité (migration one-shot)
     deskV: (Number.isInteger(b.deskV) && b.deskV > 0 && b.deskV < 100) ? b.deskV : 0,   // version de la COMPOSITION du layout par défaut : sans ce champ la migration se rejouerait à CHAQUE chargement et écraserait le desk en boucle
+    actV: (b.actV === 2 ? 2 : 0),                                 // one-shot « Vue générale active par défaut » (03/08) — même piège : non repris ici, la migration écraserait le choix de l'utilisateur à chaque chargement
     tipSeen: (b.tipSeen === 1 || b.tipSeen === true) ? 1 : 0,     // astuce gestes (bord droit/coin/⠿) déjà fermée ?
   };
 }
@@ -14614,6 +14615,11 @@ async function _computeStrengthFresh(period, weekOfMs = null) {
     // "today" = ouverture (00:00 UTC) du dernier jour de séance — le « jour FX » professionnel.
     const d = new Date(); d.setUTCDate(d.getUTCDate() - _wkBack); d.setUTCHours(0, 0, 0, 0);
     cutoffSec = Math.floor(d.getTime() / 1000);
+    // WEEK-END : borner la fenêtre à LA séance de vendredi (24 h). Sans borne de fin, les ticks de
+    // RÉOUVERTURE du dimanche soir (~21:00 UTC) passaient le filtre `t >= cutoff` et s'ajoutaient tout
+    // à droite de l'axe : un trou de ~30 h puis un micro-segment — le graphe semblait s'arrêter à 84 %
+    // du cadre (constaté user 03/08 « ça ne s'étend pas jusqu'à la droite »).
+    if (_wkBack) endSec = cutoffSec + 86400;
   } else if (cutoffWeek) {
     // Lundi 00:00 UTC de la semaine en cours (vraie "this week")
     const monday = new Date();

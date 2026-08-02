@@ -12945,3 +12945,8 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 .wdg-news-panel .section-dropdown { top: var(--toolbar-h, 40px); }
 /* Carte étroite : la recherche cède au lieu de pousser le compteur hors champ. */
 .wdg-news-panel .toolbar-search { flex: 1 1 60px; min-width: 0; }
+
+/* ── SENTIMENT DE RISQUE (widget) : jauge + bande d'historique, comme l'onglet RISQUE du desk. ── */
+.wdg-riskpanel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-riskpanel .wdg-riskwrap { flex: 1 1 auto; }
+.wdg-riskpanel .rsh-chart { flex: 0 0 170px; min-height: 150px; }
