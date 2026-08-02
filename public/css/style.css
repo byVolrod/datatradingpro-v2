@@ -11473,7 +11473,10 @@ body.wdg-mode #topbar-nav { display: none; }
 
 /* Widget calendrier : conteneur scrollable ; la TABLE réutilise les classes du desk (.cal-table /
    .cth-*) pour un rendu IDENTIQUE. On ne redéfinit donc AUCUN style de calendrier ici. */
-.wdg-cal-wrap { height: 100%; overflow: auto; }
+/* Même fond que le conteneur du calendrier du desk (.cal-table-wrap, #090909) : sans lui la table
+   se détachait du reste sur le fond de carte, et le widget « ne ressemblait pas » à l'onglet. */
+.wdg-cal-wrap { height: 100%; overflow: auto; background: #090909; }
+body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même bascule claire que .cal-table-wrap */
 
 /* Widgets réutilisant des rendus du desk : on les fait remplir le corps du widget (règles additives,
    scoping .wdg-body → aucun effet sur les onglets du desk). */

@@ -419,12 +419,19 @@
             if (i === nextIdx) cls += ' cal-row--next';
             if ((ev.timestamp || 0) < now) cls += ' cal-row--past';
             if (imp === 'high') cls += ' cal-row--high'; else if (imp === 'medium') cls += ' cal-row--med';
-            tbody += '<tr class="' + cls + '">'
-              + '<td class="cth-time">' + (esc(fmtTime(ev.timestamp)) || esc(ev.time) || '—') + '</td>'
+            // CHEVRON + CHIP « CLÉ » + LIGNE CLIQUABLE : c'est ce qui manquait pour que la table soit
+            // celle du desk. Sans le chevron la colonne HEURE ne commence pas au même endroit, sans la
+            // classe cliquable la ligne ne réagit pas au survol, et le repère « Clé » (discours de tête
+            // de banque centrale) disparaissait — trois écarts visibles, mesurés au banc de rendu.
+            var keyChip = (typeof _CAL_CB_RX !== 'undefined' && typeof _CAL_CB_KEY_RX !== 'undefined'
+              && _CAL_CB_RX.test(ev.title || '') && _CAL_CB_KEY_RX.test(ev.title || ''))
+              ? ' <span class="cal-key-chip">Clé</span>' : '';
+            tbody += '<tr class="' + cls + ' cal-row--click" data-idx="' + i + '">'
+              + '<td class="cth-time"><span class="cal-chv">›</span> ' + (esc(fmtTime(ev.timestamp)) || esc(ev.time) || '—') + '</td>'
               + '<td class="cth-flag">' + flag(ev.currency) + '</td>'
               + '<td class="cth-curr">' + esc(ev.currency || '') + '</td>'
               + '<td class="cth-imp">' + dots(ev.impact) + '</td>'
-              + '<td class="cth-event">' + esc(ev.title || '') + '</td>'
+              + '<td class="cth-event">' + esc(ev.title || '') + keyChip + '</td>'
               + '<td class="cth-val">' + actCell(ev.actual, ev.forecast, ev.low, ev.title) + '</td>'
               + '<td class="cth-val">' + vspan(ev.high, 'cv-forecast') + '</td>'
               + '<td class="cth-val">' + vspan(ev.forecast, 'cv-forecast') + '</td>'
@@ -436,6 +443,17 @@
             + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th>'
             + '<th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th>'
             + '<th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tbody + '</tbody></table></div>';
+          // DÉROULÉ INLINE : on réutilise CELUI DU DESK (toggleCalDetailRow, charts.js) — il ne dépend
+          // que de la ligne et de l'événement, donc il fonctionne tel quel dans le widget. Un chevron
+          // qui ne déroule rien serait un faux repère : la ligne s'ouvre ici comme dans l'onglet.
+          if (typeof toggleCalDetailRow === 'function') {
+            host.querySelectorAll('tr.cal-row--click').forEach(function (tr) {
+              tr.addEventListener('click', function () {
+                var e2 = evs[parseInt(tr.getAttribute('data-idx'), 10)];
+                if (e2) toggleCalDetailRow(tr, e2);
+              });
+            });
+          }
         }).catch(function () { fallback(host, 'Calendrier indisponible.'); });
         return null;
       },
