@@ -12047,9 +12047,23 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 .wdgt-chv { opacity: .8; }
 .wdgt-tab:hover { color: var(--w-t1); }
 .wdgt-tab.on { color: var(--text); font-weight: var(--fw-bold, 700); box-shadow: inset 0 -2px 0 var(--orange); }
-.wdgt-x { display: none; margin-left: 2px; color: var(--w-t14); font-size: 11px; line-height: 1; }
-.wdgt-tab:hover .wdgt-x { display: inline; }
-.wdgt-x:hover { color: #ef4444; }
+/* (.wdgt-x supprimé 02/08 : la croix au survol détruisait un onglet par accident — le retrait et le
+   renommage vivent dans les Réglages de la carte : .wdg-set-tabrow ci-dessous.) */
+.wdg-set-tabs-t { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--text3, #8a8f98); font-weight: 700; margin: 2px 0 4px; }
+.wdg-set-tabrow { gap: 8px; }
+.wdg-set-tabin {
+  flex: 1 1 auto; min-width: 0;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-size: 11px; font-family: inherit; padding: 5px 8px;
+}
+.wdg-set-tabin:focus { border-color: rgba(227, 178, 58, .5); outline: none; }
+.wdg-set-tabdel {
+  flex: 0 0 auto; width: 24px; height: 24px;
+  background: transparent; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text3, #8a8f98); cursor: pointer; font-size: 13px; line-height: 1;
+  transition: color .12s, border-color .12s;
+}
+.wdg-set-tabdel:hover { color: #ef4444; border-color: rgba(239, 68, 68, .5); }
 .wdgt-add { flex: 0 0 auto; background: none; border: none; color: #8a7440; cursor: pointer; font-size: 14px; padding: 0 10px; }
 .wdgt-add:hover { color: var(--orange); }
 .wdgt-body { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
@@ -12888,12 +12902,11 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 /* ── PANNEAU À ONGLETS, TACTILE : les 3 boutons d'en-tête restaient à opacité 0 (le révélateur est
    :hover, jamais déclenché au doigt) MAIS cliquables — un piège invisible de 92 px au-dessus de la
    barre d'onglets : un tap visant un onglet retirait le widget. Visibles sur tactile, et la barre
-   d'onglets réserve leur place pour ne plus défiler dessous. Même règle pour la croix de fermeture
-   d'onglet, qui n'existait qu'au survol souris : impossible de retirer un onglet au doigt. */
+   d'onglets réserve leur place pour ne plus défiler dessous. (La croix de fermeture d'onglet a été
+   supprimée partout depuis — le retrait passe par les Réglages de la carte, souris comme tactile.) */
 @media (hover: none) {
   .wdg-card--tabs > .wdg-head .wdg-actions { opacity: .75; }
   .wdg-card--tabs .wdgt-bar { padding-right: 96px; }
-  .wdgt-x { display: inline; margin-left: 4px; }
 }
 
 /* ── FIL D'ACTUALITÉ (widget) : panneau du desk à l'identique — assemblage local uniquement, tout le
