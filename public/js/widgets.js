@@ -2332,35 +2332,30 @@ function _spansAffiches(lay) {
   }
   function _thumb(items, opts) {
     opts = opts || {};
-    // UNITE COMMUNE. Avant, chaque bloc arrondissait sa hauteur SEPAREMENT (gh/4) : sur
-    // « Principal + 3 », le principal (21) donnait 5 rangees et les trois blocs de droite (7 chacun)
-    // en donnaient 6 au total. La vignette montrait donc une colonne gauche PLUS COURTE que la
-    // droite, alors que la disposition reelle est parfaitement equilibree.
-    // Le PGCD des hauteurs donne la plus petite unite qui les divise TOUTES exactement : les
-    // proportions sont alors justes par construction, sans aucun arrondi. Repli sur /4 si le PGCD
-    // menerait a une vignette trop haute (hauteurs premieres entre elles).
-    var _hs = (items || []).map(function (x) { return Math.max(1, (x && x.gh | 0) || 12); });
-    var _pgcd = _hs.reduce(function (a, b) { while (b) { var t = b; b = a % b; a = t; } return a; }, 0) || 4;
-    // Le PGCD seul donne les bons RAPPORTS mais une echelle trop petite : « 1 panneau » tombait a
-    // UNE rangee, d ou des blocs plats comme des barres. On remonte l echelle par un facteur ENTIER,
-    // ce qui preserve exactement les rapports, en visant ~5 rangees de haut pour la vignette.
-    // La hauteur totale se deduit des aires : pour un pavage sans trou, somme(gw x gh) = 12 x H.
-    var _aire = (items || []).reduce(function (a2, x) { return a2 + (Math.max(1, (x && x.gw | 0) || 6) * Math.max(1, (x && x.gh | 0) || 12)); }, 0);
-    var _H = Math.max(1, Math.round(_aire / 12));
-    var _mult = Math.max(1, Math.round(5 / Math.max(1, _H / _pgcd)));
-    var _unite = (Math.max.apply(null, _hs) / _pgcd) <= 8 ? (_pgcd / _mult) : 4;
-    var blocks = (items || []).slice(0, 12).map(function (it) {
-      it = _normItem(JSON.parse(JSON.stringify(it)));
+    // POSITIONS EXACTES, ZÉRO ARRONDI (demande user 02/08 « ça doit être aligné à chaque fois ») :
+    // toutes les tentatives à base de rangées entières (arrondi par bloc, puis unité PGCD) finissaient
+    // par désaligner une colonne dès que les hauteurs ne tombaient pas juste — le PGCD lui-même
+    // retombait sur l'arrondi par bloc quand les hauteurs étaient premières entre elles. On rejoue
+    // donc le PLACEMENT 2D RÉEL (_geomGrille — le même moteur que la grille et le redimensionnement)
+    // et chaque bloc est dessiné en POURCENTAGES de la boîte : la vignette est un plan fidèle du
+    // desk, aligné par construction, largeurs étirées comprises.
+    var its = (items || []).slice(0, 12).map(function (x) { return _normItem(JSON.parse(JSON.stringify(x))); });
+    var g = _geomGrille(its);
+    var H = g.pos.reduce(function (a, p) { return Math.max(a, p.r + p.h); }, 1);
+    var blocks = its.map(function (it, i) {
+      var p = g.pos[i]; if (!p) return '';
       var def = byId(it.w);
       var col = _CAT_COL[(def && def.cat) || 'Autre'] || _CAT_COL['Autre'];
-      var rows = Math.max(1, Math.round(it.gh / _unite));
-      var lbl = opts.labels && it.gw >= 3 ? _thumbLbl(def, it) : '';
-      return '<i style="grid-column:span ' + it.gw + ';grid-row:span ' + rows
-        + ';--tc:' + col + '"' + (def ? ' title="' + esc(def.name) + '"' : '') + '>'
+      var lbl = opts.labels && p.w >= 3 ? _thumbLbl(def, it) : '';
+      return '<i style="left:' + (p.c / 12 * 100).toFixed(3) + '%;top:' + (p.r / H * 100).toFixed(3)
+        + '%;width:' + (p.w / 12 * 100).toFixed(3) + '%;height:' + (p.h / H * 100).toFixed(3)
+        + '%;--tc:' + col + '"' + (def ? ' title="' + esc(def.name) + '"' : '') + '>'
         + (lbl ? '<b>' + esc(lbl) + '</b>' : '') + '</i>';
     }).join('');
-    return '<span class="wdg-thumb' + (opts.labels ? ' wdg-thumb--lbl' : '') + '"'
-      + (opts.labels ? '' : ' aria-hidden="true"') + '>' + blocks + '</span>';
+    // L'enveloppe interne (.wdg-plan-in) porte les blocs : un enfant en position absolue se place par
+    // rapport à la BOÎTE DE PADDING du parent — le padding du cadre serait ignoré sans elle.
+    return '<span class="wdg-thumb wdg-thumb--plan' + (opts.labels ? ' wdg-thumb--lbl' : '') + '"'
+      + (opts.labels ? '' : ' aria-hidden="true"') + '><span class="wdg-plan-in">' + blocks + '</span></span>';
   }
 
   // Bascule un panneau overlay (info 'i' / réglages 's') d'une carte ; ferme tous les autres.
