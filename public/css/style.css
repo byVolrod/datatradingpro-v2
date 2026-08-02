@@ -12950,3 +12950,8 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 .wdg-riskpanel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .wdg-riskpanel .wdg-riskwrap { flex: 1 1 auto; }
 .wdg-riskpanel .rsh-chart { flex: 0 0 170px; min-height: 150px; }
+
+/* ── WIDGETS « VUE DU DESK » (adoption du vrai panneau) : l'hôte donne au panneau la place entière
+   de la carte ; les panneaux (.view-panel) portent déjà flex:1 + leurs propres scrolls internes. */
+.wdg-vuehost { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.wdg-vuehost > .view-panel { flex: 1 1 auto; min-width: 0; min-height: 0; width: 100%; }
