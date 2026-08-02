@@ -315,6 +315,12 @@
         // Hors du système de widgets — espace de travail via mountInto — il n'y a pas d'en-tête :
         // dans ce cas la barre reste dans le corps, sinon elle disparaîtrait de l'accueil.
         var _carte = host.closest ? host.closest('.wdg-card') : null;
+        // PANNEAU À ONGLETS : son en-tête est un CALQUE flottant (position absolute, pointer-events
+        // none) posé PAR-DESSUS la barre d'onglets. Y déplacer la barre de périodes l'imprimait sans
+        // fond sur les libellés MONDE/RISQUE/FORCE… et ses boutons étaient morts (le pointer-events
+        // n'est rétabli que sur grip et actions). Mesuré par l'audit : à 375px la barre recouvrait
+        // 4 onglets. Dans ce cas, la barre reste dans le corps du widget.
+        if (_carte && _carte.classList.contains('wdg-card--tabs')) _carte = null;
         var _tete = _carte ? _carte.querySelector('.wdg-head') : null;
         var _barre = host.querySelector('.wdg-fx-tfbar');
         if (_tete && _barre) {
@@ -574,7 +580,9 @@
             var base = cands[0] ? cands[0][0] : (b.move || 'Hold');
             var prob = cands[0] ? Math.round(cands[0][1]) : null;
             var mv = MV[base] || MV.Hold;
-            var when = b.next ? fmtD(b.next) + (b.nextDays != null ? ' · ' + (b.nextDays <= 0 ? "aujourd'hui" : b.nextDays + ' j') : '') : '';
+            // « auj. » et non « aujourd'hui » : sur téléphone la piste Réunion fait ~69px, le mot
+            // entier (~104px) débordait de sa colonne et se superposait au badge de scénario.
+            var when = b.next ? fmtD(b.next) + (b.nextDays != null ? ' · ' + (b.nextDays <= 0 ? 'auj.' : b.nextDays + ' j') : '') : '';
             return '<div class="wdg-taux-row">'
               + '<span class="wdg-taux-bank">' + flag(b.code) + '<b>' + esc(b.bank || b.code) + '</b></span>'
               + '<span class="wdg-taux-rate">' + (b.rate != null ? esc(String(b.rate).replace('.', ',')) + ' %' : '—') + '</span>'
@@ -845,6 +853,10 @@
         function cityHtml(c, now, st) {
           var t = now.toLocaleTimeString('fr-FR', { timeZone: c.tz, hour: '2-digit', minute: '2-digit' });
           var cls = st.open ? 'lf-open' : (st.soon ? 'lf-closed lf-soon' : 'lf-closed');
+          // Villes de l'EST (Tokyo, Sydney) : le badge ~140px est centré sur son point ; près du bord
+          // droit, sa moitié droite était rognée par l'overflow de la carte (34px pour Sydney à 493px
+          // de large, mesuré par l'audit). Classe dédiée → ancrage à droite dans le CSS du widget.
+          if (c.lon > 100) cls += ' lf-city--w';
           return '<div class="lf-city ' + cls + '"><div class="lf-row"><span class="lf-dot"></span><b>' + t + '</b><span class="lf-name">' + c.name + '</span></div><div class="lf-sub">' + (st.open ? 'ferme dans ' + frDur(st.mins) : 'ouvre dans ' + frDur(st.mins)) + '</div></div>';
         }
         function mkIcon(c, now, st) { return L.divIcon({ className: 'lf-city-wrap', html: cityHtml(c, now, st), iconSize: [0, 0], iconAnchor: [0, 0] }); }
@@ -863,8 +875,13 @@
           return { type: geo.type || 'FeatureCollection', features: feats };
         }
         el.style.background = 'radial-gradient(125% 105% at 55% 32%, #16181f 0%, #0b0c10 52%, #07080a 100%)';
+        // minZoom 0, PAS 1 : le fitBounds monde demande ~498px de carte pour atteindre le zoom 1.
+        // En dessous (carte demi-largeur de tablette : 365px, téléphone : 349px), Leaflet clampait à 1
+        // et ne montrait plus que ±123° de longitude — Tokyo (139,65 E) et Sydney (151,2 E) sortaient
+        // du cadre, définitivement puisque dragging est coupé. zoomSnap 0 rend le zoom fractionnaire
+        // (~0,48) atteignable et les 4 sessions restent visibles à toutes les largeurs.
         var map = L.map(el, {
-          center: [18, 6], zoom: 1.4, minZoom: 1, maxZoom: 7, zoomSnap: 0,
+          center: [18, 6], zoom: 1.4, minZoom: 0, maxZoom: 7, zoomSnap: 0,
           zoomControl: false, attributionControl: false,
           worldCopyJump: false, maxBounds: [[-74, -180], [84, 180]], maxBoundsViscosity: 1.0,
           dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false,
@@ -1473,17 +1490,21 @@
      « Vue générale » : sans ça, les comptes qui ont déjà un cfg enregistré gardent l'ANCIENNE composition
      pour toujours (ensureDefaultLayout ne recomposait pas un layout existant) — c'est ce qui a privé le
      desk de sa barre d'onglets après l'ajout du widget « Panneau à onglets » (constaté user 26/07). */
-  var DESK_V = 2;
+  var DESK_V = 3;   // v3 (02/08) : proportions calées sur le desk réel — horloge 4 rangées (~16 %), onglets 22
   // COMPOSITION DU DESK, ÉCRITE UNE SEULE FOIS. Le layout par défaut « Vue générale » ET le modèle prêt
   // de la bibliothèque la lisent tous les deux ici : c'est ce qui garantit que le modèle est une
   // reproduction IDENTIQUE du desk de base (demande user), et non une copie qui divergerait au premier
   // changement. Copie fraîche à chaque appel — sinon les deux partageraient les mêmes objets et
   // redimensionner l'un modifierait l'autre.
   function _itemsDeskDefaut() {
+    // PROPORTIONS DU DESK RÉEL, mesurées sur capture (demande user 02/08 « les mêmes dimensions que la
+    // base, tout à l'identique ») : fil pleine hauteur à gauche (50 %), à droite l'horloge occupe ~16 %
+    // de la hauteur (143 px sur 895) et le panneau à onglets tout le reste. Sur 26 rangées : 4 et 22.
+    // L'ancienne répartition 8/18 donnait une horloge deux fois trop haute par rapport au desk.
     return [
       { w: 'fil-news', gw: 6, gh: 26 },
-      { w: 'horloge', gw: 6, gh: 8 },
-      { w: 'onglets', gw: 6, gh: 18, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
+      { w: 'horloge', gw: 6, gh: 4 },
+      { w: 'onglets', gw: 6, gh: 22, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
     ];
   }
   function defaultCfg() {

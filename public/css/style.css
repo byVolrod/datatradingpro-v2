@@ -11839,7 +11839,12 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 
 /* ── Widgets « identiques au desk » (23/07) : fines surcouches de LAYOUT uniquement — le RENDU vient
    des classes desk réelles (.risk-*, .cot-*, .dmx-*, .season-*, .lf-*) réutilisées par les widgets ── */
-.wdg-riskwrap { height: 100%; }
+/* Plancher hérité du desk (#rtab-risk #risk-widget : min-height 280px) : sans lui, sur une carte
+   courte, le badge de lecture (APPÉTIT / FORTE AVERSION…) se posait SUR l'arc de la jauge et le
+   débordait des deux côtés — mesuré : 15,7 px de l'arc passaient derrière le badge, et le badge était
+   41 % plus large que la jauge entière. Le corps de carte défile (overflow auto) au lieu d'écraser. */
+.wdg-riskwrap { height: 100%; min-height: 280px; }
+.wdg-riskwrap .risk-gauge-stage { min-height: 190px; }
 .wdg-riskgauge { position: absolute; inset: 0; }   /* même rôle que #risk-gauge-div (jauge du desk) */
 
 /* ── Widgets COT / DMX / Saisonnalité : conteneurs (le rendu = classes desk .cot-* / .dmx-* / .season-*) ── */
@@ -12789,3 +12794,104 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 .wdg-set-act:hover { color: var(--text); border-color: rgba(227, 178, 58, .5); background: rgba(227, 178, 58, .07); }
 .wdg-set-act.on { color: var(--orange); border-color: rgba(227, 178, 58, .55); }
 .wdg-set-act svg { flex: 0 0 auto; opacity: .85; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE DES WIDGETS — salve issue de l'audit multi-agents du 02/08
+   (18 défauts confirmés après réfutation adversariale ; chaque règle cite sa
+   mesure). Bloc en FIN de feuille : à spécificité égale, l'ordre source fait
+   gagner ces correctifs sur les règles historiques qu'ils amendent.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── FORCE DES DEVISES : la barre de périodes ne peut pas rétrécir (flex 0 0 auto) et, dans l'en-tête,
+   elle écrasait le titre à 9 px sur téléphone et 0 px sur carte demi-largeur (mesuré). Sous 900px elle
+   passe sur sa PROPRE ligne, pleine largeur — le titre respire, l'en-tête grandit de 13 px. */
+@media (max-width: 900px) {
+  .wdg-head:has(.wdg-fx-tfbar--head) { flex-wrap: wrap; padding-bottom: 5px; }
+  .wdg-head .wdg-fx-tfbar--head { order: 3; flex: 1 1 100%; margin: 0; justify-content: flex-start; overflow-x: auto; }
+}
+
+/* ── BAROMÈTRE : l'en-tête de colonne (drapeau 14px + code) est en nowrap et dépassait sa colonne de
+   3 à 8 px sur carte demi-largeur (colonnes de 27-38 px) → drapeaux et codes se télescopaient. Le code
+   devise porte l'information : sous 900px, dans les widgets, le drapeau cède. */
+@media (max-width: 900px) {
+  #view-widgets .meter-col-head .meter-flag-img { display: none; }
+  #view-widgets .meter-ticker { font-size: 9.5px; letter-spacing: .03em; }
+}
+
+/* ── RADAR DE BIAIS : deux règles du desk s'imposaient au widget — min-width 540px (≤980px de viewport)
+   dans une carte de 369 px = 171 px hors champ garantis, et au-dessus de 980px la colonne Driver + le
+   chevron + les paddings larges portaient le minimum réel à ~647 px pour 493 disponibles. La carte peut
+   être étroite sur N'IMPORTE QUEL écran : on interroge donc le CONTENEUR, pas le viewport. */
+#view-widgets .wdg-biaswrap { container-type: inline-size; container-name: dtpbias; }
+#view-widgets .wdg-biaswrap .macro-table { min-width: 0; }
+@container dtpbias (max-width: 700px) {
+  /* Driver et chevron cèdent (le détail au clic les montre) ; en-têtes autorisés à passer sur 2 lignes. */
+  .macro-table th:nth-child(6), .macro-table td:nth-child(6),
+  .macro-table th.mt-x-h, .macro-table td.mt-x { display: none; }
+  .macro-table th, .macro-table td { padding: 7px 6px; }
+  .macro-table th { font-size: 9.5px; letter-spacing: .02em; white-space: normal; line-height: 1.25; }
+  .macro-table th.mt-cur-h { width: 64px; }
+  .mt-cur { font-size: 12px; gap: 5px; }
+  .mt-tag { font-size: 10px; padding: 2px 6px; }
+  /* Les tags étant incompressibles (nowrap), le contenu minimal reste ~500 px : sous ce seuil la table
+     DÉFILE, mais la devise reste FIGÉE — on sait toujours quelle ligne on lit (parti du desk sur
+     téléphone). Sans débordement, le sticky est inerte : on l'active donc dès le mode compact.
+     Coin en-tête : sticky top (règle de base) ET left. */
+  .macro-table td:first-child { position: sticky; left: 0; z-index: 2; background: var(--bg); }
+  .macro-table th:first-child { position: sticky; left: 0; z-index: 3; }
+}
+
+/* ── TAUX DIRECTEURS : les minima de la grille (84+62+96+78 + gaps + padding = 368 px incompressibles)
+   débordaient d'une carte de 357 px sur iPad mini (11 à 47 px selon l'écran). Bande tablette dédiée —
+   bornée à 561px pour laisser la règle téléphone existante (≤560) faire foi en dessous. */
+@media (min-width: 561px) and (max-width: 900px) {
+  .wdg-taux-head, .wdg-taux-row { grid-template-columns: minmax(0, 1.2fr) 56px minmax(0, 1.1fr) minmax(0, .9fr); gap: 6px; padding: 6px 10px; }
+}
+
+/* ── SENTIMENT DE RISQUE : badge compact sur petit écran — à 13 px + interlettrage 2 px il était plus
+   large que le diamètre entier de la jauge (175 px vs 124). Le plancher de la jauge est posé sur
+   .wdg-riskwrap (voir plus haut) ; ici on ne réduit que le badge. */
+@media (max-width: 900px) {
+  #view-widgets .risk-readout-badge { font-size: 11px; letter-spacing: 1px; padding: 5px 12px; }
+}
+
+/* ── FIL D'ACTUALITÉ : entre 769 et 900px la carte est demi-largeur mais gardait le budget de colonnes
+   DESKTOP (266 px figés : padding 36 + icône 32 + heure 58 + catégorie 112 + flèche 28) → 99 px pour le
+   titre, 7 lignes, 202 px de haut pour UNE news (mesuré). Budget compact : 261 px de titre. Même parti
+   que le desk à ≤480px, qui masque déjà la catégorie. */
+@media (max-width: 900px) {
+  .wdg-news .news-item { --c-pad: 10px; --c-icon: 22px; --c-time: 44px; --c-cat: 0px; --c-arrow: 18px; padding: 8px 10px; }
+  .wdg-news .news-category-text { display: none; }
+}
+
+/* ── SESSIONS DE MARCHÉ : badges des villes de l'Est ancrés à droite (classe posée par cityHtml quand
+   lon > 100°). Centré sur son point, le badge de Sydney sortait de 34 px du cadre à 493 px de large. */
+.wdg-lfmap .lf-city--w { transform: translate(-92%, -50%); }
+
+/* ── HORLOGE MONDIALE : en mode compact l'heure repassait à 21 px (règle tardive du desk) dans des
+   colonnes de 132 px → 3 à 8 px coupés sur le code ville et l'icône jour/nuit (mesuré à 430, 600 et
+   768 px). 15 px : plus aucun débordement sur toutes les largeurs testées. */
+@media (max-width: 900px) {
+  .wdg-clocks-bar .clock-time { font-size: 15px; }
+}
+
+/* ── JOURNAL : la barre d'outils (4 boutons nowrap + badge = 588 px incompressibles) débordait de
+   246 px d'une carte de 342 px et était CLIPPÉE — « Exporter (CSV) » inatteignable. Le repli existait
+   mais enfermé dans @media 560 : une carte peut être étroite sur tout écran → scopé au desk de
+   widgets, sans seuil. Idem pour le tableau de bord : la colonne donut figée à 224 px écrasait la
+   courbe de capital à 34 px de large — auto-fit retombe seul à 1 colonne sous ~460 px de conteneur. */
+#view-widgets .jr-toolbar { flex-wrap: wrap; }
+#view-widgets .jr-tb-spacer { display: none; }
+#view-widgets .jrd-row { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+#view-widgets .jrd-row--charts { grid-template-columns: repeat(auto-fit, minmax(224px, 1fr)); }
+
+/* ── PANNEAU À ONGLETS, TACTILE : les 3 boutons d'en-tête restaient à opacité 0 (le révélateur est
+   :hover, jamais déclenché au doigt) MAIS cliquables — un piège invisible de 92 px au-dessus de la
+   barre d'onglets : un tap visant un onglet retirait le widget. Visibles sur tactile, et la barre
+   d'onglets réserve leur place pour ne plus défiler dessous. Même règle pour la croix de fermeture
+   d'onglet, qui n'existait qu'au survol souris : impossible de retirer un onglet au doigt. */
+@media (hover: none) {
+  .wdg-card--tabs > .wdg-head .wdg-actions { opacity: .75; }
+  .wdg-card--tabs .wdgt-bar { padding-right: 96px; }
+  .wdgt-x { display: inline; margin-left: 4px; }
+}
