@@ -984,33 +984,102 @@
       id: 'fil-news', name: "Fil d'actualité", cat: 'News', h: 320,
       desc: 'Les dernières news du desk, en direct.',
       opts: [{ k: 'nb', lbl: 'Actus', type: 'nombre', def: 15, min: 5, max: 40, pas: 5 }],
+      // LE PANNEAU DU DESK À L'IDENTIQUE (demande user 02/08, capture à l'appui) : barre d'outils
+      // « Sections d'actualités » + recherche + compteur (classes exactes .panel-toolbar/.toolbar-select/
+      // .toolbar-search/.item-count), menu de sections en cases à cocher (.section-dropdown), pastille
+      // verte « en direct » déplacée dans l'en-tête de la carte, séparateurs de jour (.date-header via
+      // formatDate du desk) et lignes buildNewsItem — plus une simple liste nue.
       mount: function (host, it) {
-        var W = this;                       // l'entrée du catalogue (mount est appelé en w.mount(...))
-        var sig = '';
-        var render = function () {
+        var W = this;
+        var sig = '', q = '', off = {};                     // off = sections décochées (tout coché par défaut)
+        host.innerHTML = '<div class="wdg-news-panel">'
+          + '<div class="panel-toolbar">'
+          +   '<div class="toolbar-select wdg-nw-secbtn"><span>Sections d\'actualités</span><span class="select-arrow">▾</span></div>'
+          +   '<div class="toolbar-search"><span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20.5 20.5 16.5 16.5"/></svg></span>'
+          +     '<input type="text" class="wdg-nw-q" placeholder="Rechercher des événements..."></div>'
+          +   '<div class="toolbar-right"><span class="item-count wdg-nw-count">— items</span></div>'
+          + '</div>'
+          + '<div class="section-dropdown hidden wdg-nw-drop"><div class="dropdown-header">Filtrer les sections</div><div class="dropdown-grid wdg-nw-grid"></div></div>'
+          + '<div class="news-list wdg-news custom-scrollbar"><div class="wdg-skel"><span class="wdg-skel-l" style="width:78%"></span><span class="wdg-skel-l" style="width:64%"></span><span class="wdg-skel-l" style="width:82%"></span></div></div>'
+          + '</div>';
+        var liste = host.querySelector('.news-list'), grid = host.querySelector('.wdg-nw-grid');
+        var drop = host.querySelector('.wdg-nw-drop'), count = host.querySelector('.wdg-nw-count');
+        // Pastille verte « Flux en direct » dans l'en-tête de la carte — comme le desk la porte dans son
+        // panel-header. Pas dans le panneau à onglets : son en-tête est un calque pointer-events:none.
+        var carte = host.closest ? host.closest('.wdg-card') : null;
+        if (carte && !carte.classList.contains('wdg-card--tabs')) {
+          var tete = carte.querySelector('.wdg-head');
+          if (tete && !tete.querySelector('.live-dot')) {
+            var dot = document.createElement('span');
+            dot.className = 'live-dot'; dot.title = 'Flux en direct';
+            var act = tete.querySelector('.wdg-actions');
+            if (act) tete.insertBefore(dot, act); else tete.appendChild(dot);
+          }
+        }
+        // Sections = les CATÉGORIES INTERNES du desk (INTERNAL_CATS + libellés catFr), pas une liste
+        // maison : le menu du widget est ainsi mot pour mot celui de l'onglet ACTUS. Repli sur les
+        // catégories observées dans le flux si les globales manquent.
+        var sections = function (items) {
+          if (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS)) return INTERNAL_CATS.slice();
+          var vu = {}; items.forEach(function (i) { if (i && i.category) vu[i.category] = 1; });
+          return Object.keys(vu).sort();
+        };
+        var libSec = function (c) { return (typeof catFr === 'function') ? catFr(c) : c; };
+        var render = function (force) {
           if (!host.isConnected) return;
           var items = (typeof window.getNewsMaster === 'function') ? (window.getNewsMaster() || []) : [];
-          var rows = items.slice(0, opt(it, W, 'nb'));
-          if (!rows.length) { fallback(host, 'Fil en cours de chargement…'); return; }
-          var s = rows.map(function (i) { return i.id; }).join('|');
-          if (s === sig) return;                                            // rien de neuf → pas de re-render
+          var ql = q.trim().toLowerCase();
+          var rows = items.filter(function (i) {
+            if (!i) return false;
+            if (i.category && off[i.category]) return false;
+            return !ql || String(i.headline || '').toLowerCase().indexOf(ql) !== -1;
+          }).slice(0, opt(it, W, 'nb'));
+          count.textContent = rows.length + ' items';
+          if (!rows.length) {
+            liste.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">' + (ql || Object.keys(off).length ? 'Aucun élément ne correspond.' : 'Fil en cours de chargement…') + '</div>';
+            sig = ''; return;
+          }
+          var s = rows.map(function (i) { return i.id; }).join('|') + '§' + ql + '§' + Object.keys(off).join(',');
+          if (!force && s === sig) return;                                  // rien de neuf → pas de re-render
           sig = s;
-          host.innerHTML = '';
-          var box = document.createElement('div');
-          box.className = 'wdg-news';
+          // Séparateurs de JOUR, comme renderNews : groupes par date (formatDate du desk, heure de Paris).
+          var fmtJour = (typeof formatDate === 'function') ? formatDate : function (ts) { return new Date(ts).toLocaleDateString('fr-FR'); };
+          liste.innerHTML = '';
+          var dernier = '';
           rows.forEach(function (i) {
             try {
-              if (typeof window.buildNewsItem === 'function') box.appendChild(window.buildNewsItem(i));
-              else {
-                var d = document.createElement('div');
-                d.className = 'wdg-news-row';
-                d.textContent = i.headline || '';
-                box.appendChild(d);
+              var j = i.timestamp ? fmtJour(i.timestamp) : '';
+              if (j && j !== dernier) {
+                var h = document.createElement('div');
+                h.className = 'date-header'; h.textContent = j;
+                liste.appendChild(h); dernier = j;
               }
+              if (typeof window.buildNewsItem === 'function') liste.appendChild(window.buildNewsItem(i));
+              else { var d2 = document.createElement('div'); d2.className = 'wdg-news-row'; d2.textContent = i.headline || ''; liste.appendChild(d2); }
             } catch (e) {}
           });
-          host.appendChild(box);
         };
+        // Menu de sections : le MARKUP EXACT du desk (.dropdown-item.active + .dropdown-check ✓,
+        // bascule au clic), tout coché par défaut — le comportement de l'onglet ACTUS.
+        var renderGridSec = function () {
+          var items = (typeof window.getNewsMaster === 'function') ? (window.getNewsMaster() || []) : [];
+          grid.innerHTML = sections(items).map(function (c) {
+            return '<div class="dropdown-item' + (off[c] ? '' : ' active') + '" data-sec="' + esc(c) + '">'
+              + '<span class="dropdown-item-label">' + esc(libSec(c)) + '</span><span class="dropdown-check">✓</span></div>';
+          }).join('') || '<div class="dropdown-item" style="opacity:.6">Aucune section</div>';
+        };
+        host.querySelector('.wdg-nw-secbtn').addEventListener('click', function () {
+          if (drop.classList.contains('hidden')) renderGridSec();
+          drop.classList.toggle('hidden');
+        });
+        grid.addEventListener('click', function (e) {
+          var el = e.target.closest('.dropdown-item[data-sec]'); if (!el) return;
+          var c = el.getAttribute('data-sec');
+          if (off[c]) delete off[c]; else off[c] = 1;
+          el.classList.toggle('active', !off[c]);
+          render(true);
+        });
+        host.querySelector('.wdg-nw-q').addEventListener('input', function (e) { q = e.target.value; render(true); });
         render();
         var t = setInterval(render, 20000);                                 // le WS réassigne allItems → on resuit
         return function () { clearInterval(t); };

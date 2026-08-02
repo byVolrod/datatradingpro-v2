@@ -12895,3 +12895,13 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
   .wdg-card--tabs .wdgt-bar { padding-right: 96px; }
   .wdgt-x { display: inline; margin-left: 4px; }
 }
+
+/* ── FIL D'ACTUALITÉ (widget) : panneau du desk à l'identique — assemblage local uniquement, tout le
+   reste (toolbar, dropdown, date-header, news-item) vient des classes globales du desk. */
+.wdg-news-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; position: relative; }
+.wdg-news-panel .news-list { flex: 1 1 auto; min-height: 0; }
+/* Le menu de sections du desk se cale sous SA toolbar via un décalage qui inclut le header du panneau
+   (+32px) ; dans la carte il n'y a pas ce header → on le recale sous la toolbar réelle du widget. */
+.wdg-news-panel .section-dropdown { top: var(--toolbar-h, 40px); }
+/* Carte étroite : la recherche cède au lieu de pousser le compteur hors champ. */
+.wdg-news-panel .toolbar-search { flex: 1 1 60px; min-width: 0; }
