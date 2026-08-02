@@ -11617,7 +11617,13 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 
 /* Widgets réutilisant des rendus du desk : on les fait remplir le corps du widget (règles additives,
    scoping .wdg-body → aucun effet sur les onglets du desk). */
-.wdg-body .meter-grid { height: 100%; }
+/* PLANCHER du Baromètre (02/08, capture user « c'est trop petit ») : chaque moitié de l'égaliseur
+   exige 10 briques × (5 px + 1 px de bordure) = 60 px ; sur une carte basse, la pile n'avait que
+   ~60 px pour LES DEUX moitiés → overflow:hidden tranchait la moitié basse (il n'en restait que les
+   briques allumées) et les valeurs chiffrées disparaissaient. Le desk garantit cette hauteur par la
+   taille de son panneau ; dans la carte, c'est le plancher qui la garantit — le corps (.wdg-body,
+   overflow:auto) défile si la carte est plus basse, au lieu d'écraser l'égaliseur. */
+.wdg-body .meter-grid { height: 100%; min-height: 240px; }
 .wdg-body .wdg-cs-wrap { height: 100%; overflow: auto; }
 .wdg-body .cs-rank-list { padding: 8px 12px; }
 
@@ -12824,12 +12830,20 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
   .wdg-head .wdg-fx-tfbar--head { order: 3; flex: 1 1 100%; margin: 0; justify-content: flex-start; overflow-x: auto; }
 }
 
-/* ── BAROMÈTRE : l'en-tête de colonne (drapeau 14px + code) est en nowrap et dépassait sa colonne de
-   3 à 8 px sur carte demi-largeur (colonnes de 27-38 px) → drapeaux et codes se télescopaient. Le code
-   devise porte l'information : sous 900px, dans les widgets, le drapeau cède. */
-@media (max-width: 900px) {
-  #view-widgets .meter-col-head .meter-flag-img { display: none; }
-  #view-widgets .meter-ticker { font-size: 9.5px; letter-spacing: .03em; }
+/* ── BAROMÈTRE : compactions pilotées par la LARGEUR DE LA CARTE (conteneur .wdg-metre posé par le
+   mount), plus par un seuil d'écran — mesuré au banc, les têtes se télescopaient et les badges se
+   tronquaient aussi sur une carte étroite posée sur un GRAND écran. Sous ~430 px de carte, les
+   colonnes font ≤ 42 px : le drapeau (14 px) et le plancher 42 px du badge ne tiennent plus — le code
+   devise et le chiffre portent l'information, ils cèdent. */
+/* width:100% OBLIGATOIRE : container-type:inline-size rend la largeur indépendante du contenu, et
+   dans un parent flex l'enveloppe s'effondrait (colonnes mesurées à 15,7 px au banc). */
+.wdg-metre { container-type: inline-size; container-name: dtpmetre; width: 100%; height: 100%; min-height: 0; }
+.wdg-metre .meter-grid { height: 100%; min-height: 240px; }
+@container dtpmetre (max-width: 430px) {
+  .meter-col-head .meter-flag-img { display: none; }
+  .meter-ticker { font-size: 9px; letter-spacing: .02em; }
+  .meter-grid { gap: 4px; padding: 8px 8px 12px; }
+  .meter-col-val .v { min-width: 0; padding: 2px 4px; font-size: 9px; }
 }
 
 /* ── RADAR DE BIAIS : deux règles du desk s'imposaient au widget — min-width 540px (≤980px de viewport)

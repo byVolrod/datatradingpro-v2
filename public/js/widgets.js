@@ -371,7 +371,9 @@
       // hors de l'onglet METER (garde #rtab-meter) → snapshot rafraîchi à chaque réouverture, zéro fuite.
       mount: function (host) {
         var id = HOST_ID + '-mt-' + uid();
-        host.innerHTML = '<div id="' + id + '" style="height:100%;"></div>';
+        // Enveloppe .wdg-metre = CONTENEUR de requête : les compactions (drapeaux, badges) suivent la
+        // largeur RÉELLE de la carte, pas celle de l'écran — une carte étroite existe sur tout écran.
+        host.innerHTML = '<div class="wdg-metre"><div id="' + id + '" style="height:100%;"></div></div>';
         if (typeof buildMeterChart !== 'function') { fallback(host, 'Baromètre indisponible.'); return null; }
         try { buildMeterChart(id); } catch (e) { fallback(host, 'Baromètre indisponible.'); }
         return null;
