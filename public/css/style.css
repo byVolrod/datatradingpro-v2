@@ -68,6 +68,22 @@ body.theme-light .calc-field input, body.theme-light .calc-field select,
 body.theme-light .chat-input, body.theme-light .ai-input,
 body.theme-light .arlib-search input, body.theme-light .fxl-search input { background: var(--bg1) !important; color: var(--text) !important; }
 
+/* ═══ ZOOM D'AFFICHAGE (Apparence) ══════════════════════════════════════════════════════════════
+   Le desk tient dans l'écran et ne défile jamais : ses racines sont hautes de var(--vph). Or la propriété
+   CSS `zoom` NE corrige PAS les unités de viewport — mesuré dans Chrome : à 120 % un bloc de var(--vph)
+   occupe 960 px sur un écran de 800, et à 80 % il laisse 160 px de vide en bas. On divise donc la
+   hauteur de viewport par le zoom : le résultat retombe exactement sur l'écran à tous les niveaux.
+   TOUTE nouvelle hauteur plein écran doit utiliser var(--vph) — jamais var(--vph) en dur.
+   Le zoom s'applique sur <html> : il vaut donc aussi pour l'app desktop (coquille Electron qui charge
+   le site) et pour le mobile, sans code spécifique. */
+:root {
+  --dtp-zoom: 1;
+  --vph: calc(100vh / var(--dtp-zoom));
+  --vpw: calc(100vw / var(--dtp-zoom));
+}
+@supports (height: 100dvh) { :root { --vph: calc(100dvh / var(--dtp-zoom)); } }
+html { zoom: var(--dtp-zoom, 1); }
+
 :root {
   --bg:          #0d0e11;
   --bg1:         #0d0e11;
@@ -929,7 +945,7 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
 /* ═══════════════ MAIN LAYOUT ═══════════════ */
 .main-layout {
   display: flex;
-  height: calc(100dvh - var(--header-h));
+  height: calc(var(--vph) - var(--header-h));
   overflow: hidden;
 }
 
@@ -2446,7 +2462,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .settings-panel {
   width: 440px;
-  max-height: calc(100dvh - var(--header-h));
+  max-height: calc(var(--vph) - var(--header-h));
   background: var(--bg2);
   border: 1px solid var(--border2);
   border-top: none;
@@ -3678,7 +3694,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   /* Layout vertical sur mobile */
   .main-layout {
     height: auto;
-    min-height: calc(100dvh - var(--header-h));
+    min-height: calc(var(--vph) - var(--header-h));
     flex-direction: column;
     overflow: visible;
   }
@@ -3688,7 +3704,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
     flex: 1;
     width: 100%;
     min-width: unset;
-    height: calc(100dvh - var(--header-h));
+    height: calc(var(--vph) - var(--header-h));
     min-height: 0;
   }
 
@@ -3711,7 +3727,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
     display: flex !important;
     width: 100%;
     min-width: 0;
-    height: calc(100dvh - var(--header-h));
+    height: calc(var(--vph) - var(--header-h));
   }
 
   /* Topbar — icônes ESPACÉES et propres : plus aucun chevauchement AI / RISK ON / onde.
@@ -3816,7 +3832,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* ── Mobile large (≤480px) ── */
 @media (max-width: 480px) {
-  .views-col  { height: calc(100dvh - var(--header-h)); min-height: 0; }
+  .views-col  { height: calc(var(--vph) - var(--header-h)); min-height: 0; }
   .panel-news  { height: 100%; }
   .news-expand-tabs { flex-wrap: wrap; }
 
@@ -3843,7 +3859,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .clock-time  { font-size: 14px; }
   .clock-tz, .clock-city { font-size: 9px; }
 
-  /* Drawers (100% et non 100vw : évite le débordement dû à la scrollbar) */
+  /* Drawers (100% et non var(--vpw) : évite le débordement dû à la scrollbar) */
   .pd-drawer  { width: 100%; }
   .np-panel   { width: 100%; }
 
@@ -3852,7 +3868,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .br-doc-title { font-size: 18px; }
 
   /* Risk popup */
-  .risk-popup { width: calc(100vw - 20px); min-width: unset; }
+  .risk-popup { width: calc(var(--vpw) - 20px); min-width: unset; }
 }
 
 /* ── Mobile compact (≤390px) ── */
@@ -6061,8 +6077,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   left: 50%;
   transform: translateX(-50%);
   width: 340px;
-  max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 80px);
+  max-width: calc(var(--vpw) - 16px);
+  max-height: calc(var(--vph) - 80px);
   overflow-y: auto;
   background: var(--bg);
   border: 1px solid #232326;
@@ -7793,7 +7809,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   top: var(--topbar-h);
   right: 0;
   width: 480px;
-  height: calc(100dvh - var(--topbar-h));
+  height: calc(var(--vph) - var(--topbar-h));
   background: var(--bg2);
   border-left: 1px solid #252525;
   z-index: 9001;
@@ -8345,6 +8361,28 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   justify-content: center;
   gap: 5px;
 }
+/* ── Zoom d'affichage : pas-à-pas compact, même grammaire visuelle que les boutons de thème ── */
+.pd-zoom-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.pd-zoom-btn {
+  width: 34px; height: 32px; flex: none;
+  background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+  color: #ccc; font-size: 16px; line-height: 1; cursor: pointer;
+  transition: border-color .14s, color .14s, background .14s;
+}
+.pd-zoom-btn:hover { border-color: rgba(227,178,58,.45); color: #e3b23a; background: #222; }
+.pd-zoom-btn:disabled { opacity: .35; cursor: not-allowed; }
+.pd-zoom-val {
+  min-width: 64px; text-align: center;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: #e3b23a;
+}
+.pd-zoom-reset {
+  margin-left: auto; padding: 7px 10px;
+  background: transparent; border: 1px solid #252525; border-radius: 4px;
+  color: #888; font-size: 10px; font-family: 'Inter', sans-serif; cursor: pointer;
+  transition: border-color .14s, color .14s;
+}
+.pd-zoom-reset:hover { border-color: rgba(227,178,58,.45); color: #e3b23a; }
+.pd-zoom-hint { font-size: 10px; color: #666; margin-bottom: 14px; line-height: 1.4; }
 .pd-theme-btn:hover { color: #ccc; background: #222; }
 .pd-theme-btn.pd-active { border-color: #e3b23a; color: #e3b23a; background: rgba(227,178,58,0.07); }
 
@@ -8599,8 +8637,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   top: var(--topbar-h);
   right: 0;
   width: 420px;
-  max-width: 100vw;
-  height: calc(100dvh - var(--topbar-h));
+  max-width: var(--vpw);
+  height: calc(var(--vph) - var(--topbar-h));
   background: #0f0f0f;
   border-left: 1px solid #1e1e1e;
   display: flex;
@@ -9001,7 +9039,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   }
 
   /* Layout : pleine hauteur — aligné sur le bloc mobile ≤768px (ligne ~3345). NE PAS remettre 65vh : ça créait une zone morte sous le flux + double scroll. */
-  .views-col       { height: calc(100dvh - var(--header-h)); min-height: 0; }
+  .views-col       { height: calc(var(--vph) - var(--header-h)); min-height: 0; }
   .panel-news      { height: 100%; min-height: 0; }
 
   /* Topbar: minimal */
@@ -9017,12 +9055,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .clock-wx-row, .clock-wind-row { display: none; } /* hide weather on very small screens */
 
   /* Profile drawer: full screen */
-  .pd-drawer       { top: var(--topbar-h); height: calc(100dvh - var(--topbar-h)); }   /* règle projet : volet SOUS la topbar, jamais top:0 */
+  .pd-drawer       { top: var(--topbar-h); height: calc(var(--vph) - var(--topbar-h)); }   /* règle projet : volet SOUS la topbar, jamais top:0 */
   .pd-header       { padding: 14px 14px; }
   .pd-section-trigger { height: 46px; }
 
   /* Notification panel: sous la topbar */
-  .np-panel        { top: var(--topbar-h); height: calc(100dvh - var(--topbar-h)); }
+  .np-panel        { top: var(--topbar-h); height: calc(var(--vph) - var(--topbar-h)); }
   .np-title        { font-size: 13px; }
 
   /* News: simplify */
@@ -9408,7 +9446,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .sqwk-overlay.open { opacity: 1; pointer-events: auto; }
 .sqwk-panel {
-  position: fixed; top: var(--topbar-h); right: 0; height: calc(100dvh - var(--topbar-h));
+  position: fixed; top: var(--topbar-h); right: 0; height: calc(var(--vph) - var(--topbar-h));
   width: 360px; max-width: 92vw;
   background: var(--bg); border-left: 1px solid var(--border);
   display: flex; flex-direction: column; z-index: 1401;
@@ -9526,7 +9564,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .chat-overlay { position: fixed; top: var(--topbar-h); left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity:0; pointer-events:none; transition: opacity .22s; z-index: 1400; }   /* rideau flouté comme le volet IA → le dashboard ne transparaît plus net derrière */
 .chat-overlay.open { opacity:1; pointer-events:auto; }
 .chat-panel {
-  position: fixed; top: var(--topbar-h); right: 0; height: calc(100dvh - var(--topbar-h));
+  position: fixed; top: var(--topbar-h); right: 0; height: calc(var(--vph) - var(--topbar-h));
   width: 420px; max-width: 94vw; background: var(--head-bg); border-left: 1px solid var(--border);
   display: flex; flex-direction: column; z-index: 1401;
   transform: translateX(100%); transition: transform .26s ease; box-shadow: -10px 0 40px rgba(0,0,0,0.5);
@@ -9836,7 +9874,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .ai-backdrop { position: fixed; inset: var(--topbar-h) 0 0 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 1399; opacity: 0; pointer-events: none; transition: opacity .22s; }
 .ai-backdrop.open { opacity: 1; pointer-events: auto; }
 .ai-panel {
-  position: fixed; top: var(--topbar-h); right: 0; height: calc(100dvh - var(--topbar-h)); width: 430px; max-width: 100vw;
+  position: fixed; top: var(--topbar-h); right: 0; height: calc(var(--vph) - var(--topbar-h)); width: 430px; max-width: var(--vpw);
   background: var(--bg); z-index: 1401; display: flex; flex-direction: column;   /* sous la navbar → icônes d'onglets toujours cliquables */
   transform: translateX(100%); transition: transform .24s cubic-bezier(.2,.8,.2,1);
   border-left: 1px solid var(--border); border-radius: 0;
@@ -10070,7 +10108,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
      → la zone de saisie remonte JUSTE au-dessus du clavier et la CONVERSATION reste visible au-dessus (demande user).
      Sans ça, l'input passait sous le clavier et iOS faisait défiler toute la page (en-tête + fil masqués). */
   .chat-panel, .ai-panel, .np-panel, .settings-panel, .sqwk-panel {
-    height: calc(100dvh - var(--topbar-h) - var(--kb, 0px)) !important;
+    height: calc(var(--vph) - var(--topbar-h) - var(--kb, 0px)) !important;
     transition: transform .24s ease, height .18s ease;
   }
   .fxl-table { min-width: 760px; font-size: 10px; }
@@ -10954,7 +10992,7 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
      qui forcaient .br-document plus large que l'ecran → centre = coupe GAUCHE ET DROITE. Correctif : on
      aligne a gauche (plus de margin:auto) + on RESET tout le contenu (min-width:0 + width:auto + float:none
      + position:static + marges 0 + tables en blocs) → flux 1 colonne qui tient dans l'ecran. */
-  #br-rcontent, #arlib-rcontent, #br-reader-view{ max-width: 100vw !important; overflow-x: hidden !important; }
+  #br-rcontent, #arlib-rcontent, #br-reader-view{ max-width: var(--vpw) !important; overflow-x: hidden !important; }
   #br-rcontent .br-document{ max-width: 100% !important; width: auto !important; min-width: 0 !important; margin: 0 !important; box-sizing: border-box; }
   #br-rcontent .br-document > *, #br-rcontent .br-doc-body, #br-rcontent .br-doc-body *, #br-rcontent .br-ing-lead, #br-rcontent .br-ing-lead * {
     max-width: 100% !important; min-width: 0 !important; width: auto !important;
@@ -10966,8 +11004,8 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
   #br-rcontent .br-doc-body img{ height: auto !important; }
   #br-rcontent .br-doc-body table, #br-rcontent .br-doc-body thead, #br-rcontent .br-doc-body tbody, #br-rcontent .br-doc-body tr, #br-rcontent .br-doc-body td, #br-rcontent .br-doc-body th{ display: block !important; }
   .br-rcontent--pdf{ width: 100%; }
-  .br-pdf-frame{ width: 100% !important; max-width: 100vw; }
-  .br-pdf-canvaswrap{ width: 100%; max-width: 100vw; }
+  .br-pdf-frame{ width: 100% !important; max-width: var(--vpw); }
+  .br-pdf-canvaswrap{ width: 100%; max-width: var(--vpw); }
   .br-pdf-canvas{ width: 100% !important; height: auto !important; }
 }
 
@@ -11248,6 +11286,37 @@ html[data-theme="light"] {
 @media (max-width: 1280px) { .wdg-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
 @media (max-width: 900px)  { .wdg-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 560px)  { .wdg-grid { grid-template-columns: minmax(0, 1fr); } .wdg-card { grid-column: 1 / -1; } }
+
+/* ── SPANS AU PRORATA DU NOMBRE DE COLONNES (tablette / petit portable) ────────────────────────
+   La grille passe à 8 puis 4 colonnes, mais les cartes gardaient leur span calculé sur 12. Un widget
+   demi-largeur (gw 6) réclamait alors 6 colonnes sur 4 : il prenait TOUTE la ligne, et la disposition
+   s'empilait en une seule colonne dès 900px — précisément ce que le système de design refuse
+   (« ça casse le côté professionnel »). On convertit le span au prorata : 6/12 reste une demi-largeur
+   quel que soit le nombre de colonnes. En dessous de 560px la carte reste pleine largeur : un panneau
+   d'application à ~170px de large ne serait plus lisible, la largeur prime là sur le nombre de colonnes.
+   Protégé par @supports : round() est récent, les navigateurs qui ne l'ont pas gardent l'ancien calcul. */
+@supports (width: round(1px, 1px)) {
+  @media (max-width: 1280px) and (min-width: 901px) {
+    .wdg-card { grid-column: span clamp(1, round(var(--gw, 6) * 8 / 12, 1), 8); }
+  }
+  @media (max-width: 900px) and (min-width: 561px) {
+    .wdg-card { grid-column: span clamp(1, round(var(--gw, 6) * 4 / 12, 1), 4); }
+  }
+}
+
+/* ── TÉLÉPHONE / TABLETTE : hauteur utile plutôt que vue d'ensemble ────────────────────────────
+   Sur grand écran la disposition tient dans la page et ne défile jamais. Sur un téléphone, faire tenir
+   trois panneaux dans 700px donne des tranches de 100px où aucun graphique n'est lisible. On garde donc
+   les proportions choisies par l'utilisateur (les spans de lignes), mais avec un plancher par ligne et
+   un plancher par carte ; la grille défile si la somme dépasse l'écran. */
+@media (max-width: 900px) {
+  .wdg-grid { overflow-y: auto; align-content: start; grid-auto-rows: minmax(14px, auto); }
+  .wdg-card { min-height: 200px; }
+}
+@media (max-width: 560px) {
+  .wdg-grid { grid-auto-rows: minmax(12px, auto); }
+  .wdg-card { min-height: 220px; }
+}
 /* Plein écran : la carte recouvre toute la zone de travail (overlay), les autres sont figées derrière. */
 .wdg-grid.wdg-fs-mode { overflow: hidden; }
 .wdg-grid.wdg-fs-mode .wdg-card:not(.wdg-fs) { visibility: hidden; }
@@ -12133,7 +12202,7 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   .bank-table td.bank-chart-cell { display: none; }
   /* Ligne détail dépliée (thèse) : épinglée à gauche + bornée à l'écran → le texte revient à la ligne
      dans la zone visible au lieu de s'étaler sur la largeur intrinsèque (~750px) de la table. */
-  .bank-detail { position: sticky; left: 0; width: calc(100vw - 24px); max-width: calc(100vw - 24px); box-sizing: border-box; }
+  .bank-detail { position: sticky; left: 0; width: calc(var(--vpw) - 24px); max-width: calc(var(--vpw) - 24px); box-sizing: border-box; }
 
   /* ── INSTITUTIONS — lecteur : bandeau nav. Le titre du rapport (seul identifiant) était rogné à néant
         et « ‹ Retour à la liste » se cassait sur 2-3 lignes. On fait retomber le titre sur sa propre
@@ -12352,11 +12421,11 @@ html[data-theme="light"] .wdg-ghost { border-color: rgba(0, 0, 0, 0.14); }
   max-width: none; margin: 0; padding: 20px 30px; position: relative;
   /* Colonne haute d'un écran : la grille (flex:1) absorbe la place restante et ses rangées la
      partagent. Plus aucune constante de « hors-widgets » à re-mesurer quand l'en-tête change. */
-  height: calc(100vh - var(--topbar-h, 54px));
+  height: calc(var(--vph) - var(--topbar-h, 54px));
   display: flex; flex-direction: column;
 }
 @supports (height: 100dvh) {
-  .home-inner { height: calc(100dvh - var(--topbar-h, 54px)); }
+  .home-inner { height: calc(var(--vph) - var(--topbar-h, 54px)); }
 }
 .home-skip {
   position: absolute; top: 26px; right: 28px; padding: 5px 12px;
@@ -12608,7 +12677,7 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    prime, le défilement est assumé — l'exigence est que rien ne soit ROGNÉ. */
 @media (max-width: 860px) {
   /* Hauteur figée + cinq zones = widgets écrasés. On rend la main au flux : la page défile. */
-  .home-inner { height: auto; min-height: calc(100vh - var(--topbar-h, 54px)); }
+  .home-inner { height: auto; min-height: calc(var(--vph) - var(--topbar-h, 54px)); }
   .home-grid { grid-template-columns: 1fr; grid-auto-rows: minmax(220px, auto); }
   .home-zone { grid-column: 1 / -1; }
 }

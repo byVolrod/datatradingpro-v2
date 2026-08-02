@@ -7457,6 +7457,47 @@ function _dtpThemeApply(mode) {
   try { localStorage.setItem('dtp_theme', mode); } catch (e) {}
   const seg = document.getElementById('pd-theme-seg');
   if (seg) seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  // Le panneau Apparence a ses propres boutons (Mode Clair / Mode Sombre / Système) : ils doivent
+  // refléter le MÊME état, sinon deux endroits affichent deux thèmes différents.
+  ['light', 'dark', 'system'].forEach(t => {
+    const b = document.getElementById('pd-theme-' + t);
+    if (b) b.classList.toggle('pd-active', t === mode);
+  });
+}
+
+// ═══ ZOOM D'AFFICHAGE (Apparence) ════════════════════════════════════════════════════════════════
+// Propriété CSS `zoom` sur <html>, pilotée par --dtp-zoom. Elle s'applique donc AUSSI à l'app desktop
+// (coquille Electron qui charge le site) et au mobile, sans code spécifique à chaque plateforme.
+// PIÈGE MESURÉ : `zoom` ne corrige pas les unités de viewport — c'est pour ça que toutes les hauteurs
+// plein écran passent par var(--vph) = 100dvh / zoom (cf. style.css). Sans ça, le desk déborderait de
+// l'écran à 120 % et laisserait une bande vide à 80 %.
+// Source de vérité PAR COMPTE = KV zoom:<userId> ; localStorage = cache anti-scintillement relu par le
+// script du <head> avant le premier rendu.
+const DTP_ZOOMS = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.5];
+function _dtpZoomNorm(z) {
+  const v = parseFloat(z);
+  if (!isFinite(v)) return 1;
+  return DTP_ZOOMS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a, 1);
+}
+function _dtpZoomApply(z) {
+  const v = _dtpZoomNorm(z);
+  document.documentElement.style.setProperty('--dtp-zoom', v);
+  try { localStorage.setItem('dtp_zoom', String(v)); } catch (e) {}
+  const val = document.getElementById('pd-zoom-val');
+  if (val) val.textContent = Math.round(v * 100) + ' %';
+  const i = DTP_ZOOMS.indexOf(v), btns = document.querySelectorAll('.pd-zoom-btn');
+  if (btns[0]) btns[0].disabled = i <= 0;
+  if (btns[1]) btns[1].disabled = i >= DTP_ZOOMS.length - 1;
+  return v;
+}
+function dtpSetZoom(z) {
+  const v = _dtpZoomApply(z);
+  fetch('/api/zoom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zoom: v }) }).catch(() => {});
+}
+function dtpZoomStep(d) {
+  const cur = _dtpZoomNorm(getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom'));
+  const i = DTP_ZOOMS.indexOf(cur);
+  dtpSetZoom(DTP_ZOOMS[Math.max(0, Math.min(DTP_ZOOMS.length - 1, i + d))]);
 }
 function dtpSetTheme(mode) {
   if (!['dark', 'light', 'system'].includes(mode)) mode = 'dark';
@@ -7475,6 +7516,10 @@ setTimeout(() => {
     if (['dark', 'light', 'system'].includes(m) && m !== document.documentElement.dataset.thememode) _dtpThemeApply(m);
     else _dtpThemeApply(document.documentElement.dataset.thememode || 'dark');   // synchronise juste l'état visuel du sélecteur
   }).catch(() => { _dtpThemeApply(document.documentElement.dataset.thememode || 'dark'); });
+  // Zoom : même patron — le choix du COMPTE prime sur le cache local, donc il suit l'utilisateur d'un
+  // appareil à l'autre (desk, app desktop, mobile).
+  fetch('/api/zoom').then(r => r.json()).then(d => _dtpZoomApply(d && d.zoom))
+    .catch(() => { try { _dtpZoomApply(localStorage.getItem('dtp_zoom')); } catch (e) { _dtpZoomApply(1); } });
 }, 800);
 
 // Chaque « → » des Commentaires marquants passe À LA LIGNE (demande user 28/07). Appliqué au RENDU

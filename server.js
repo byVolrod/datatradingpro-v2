@@ -1647,6 +1647,25 @@ app.post('/api/theme', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Zoom d'affichage (Apparence) — persisté PAR COMPTE, même patron que le thème ────────────────
+// Le zoom vit sur <html> côté client : il vaut donc aussi pour l'app desktop et le mobile. On borne
+// aux paliers du sélecteur pour qu'aucune valeur exotique ne puisse rendre le desk inutilisable.
+const _ZOOM_PALIERS = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.5];
+app.get('/api/zoom', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  try {
+    const v = parseFloat(await auth.aiCacheGet('zoom:' + req.session.userId, 366 * 86400000));
+    res.json({ zoom: _ZOOM_PALIERS.includes(v) ? v : 1 });
+  } catch { res.json({ zoom: 1 }); }
+});
+app.post('/api/zoom', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const zoom = parseFloat(req.body && req.body.zoom);
+  if (!_ZOOM_PALIERS.includes(zoom)) return res.status(400).json({ error: 'zoom invalide' });
+  try { await auth.aiCacheSet('zoom:' + req.session.userId, String(zoom)); res.json({ ok: true, zoom }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── User self-service password change ────────────────────────────────────────
 app.put('/api/auth/me/password', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });

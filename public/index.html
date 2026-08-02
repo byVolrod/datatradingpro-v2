@@ -13,7 +13,9 @@
   <meta name="theme-color" content="#0c0c0e" />
   <!-- THÈME (Sombre/Clair/Système) : appliqué AVANT le premier rendu depuis le cache local (anti-flash) ;
        la source de vérité par compte (KV thememode:<userId>) est relue au login par app.js. -->
-  <script>(function(){try{var m=localStorage.getItem('dtp_theme')||'dark';var t=m==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):m;document.documentElement.dataset.theme=t;document.documentElement.dataset.thememode=m;}catch(e){document.documentElement.dataset.theme='dark';}})();</script>
+  <script>(function(){try{var m=localStorage.getItem('dtp_theme')||'dark';var t=m==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):m;document.documentElement.dataset.theme=t;document.documentElement.dataset.thememode=m;
+  /* Zoom AVANT le premier rendu, sinon la page s'affiche à 100 % puis saute à la taille choisie. */
+  var z=parseFloat(localStorage.getItem('dtp_zoom'));if([0.7,0.8,0.9,1,1.1,1.25,1.4,1.5].indexOf(z)>=0)document.documentElement.style.setProperty('--dtp-zoom',z);}catch(e){document.documentElement.dataset.theme='dark';}})();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://cdn.amcharts.com" crossorigin />
@@ -25,7 +27,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260802bbg421" />
+  <link rel="stylesheet" href="/css/style.css?v=20260802bbg422" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -891,13 +893,13 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260802bbg421"></script>
-<script defer src="/js/charts.js?v=20260802bbg421"></script>
+<script defer src="/js/app.js?v=20260802bbg422"></script>
+<script defer src="/js/charts.js?v=20260802bbg422"></script>
 <script defer src="/js/sessionmap.js?v=20260727bbg343"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260802bbg421"></script>
-<script defer src="/js/home.js?v=20260802bbg421"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/widgets.js?v=20260802bbg422"></script>
+<script defer src="/js/home.js?v=20260802bbg422"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
 <script defer src="/js/i18n-dicts.js?v=20260723bbg304"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
 
@@ -1070,12 +1072,28 @@
       <div class="pd-section-content">
         <div class="pd-section-inner">
 
+          <!-- THÈME : le MÊME système que la section Profil (dtpSetTheme → data-theme sur <html> +
+               KV par compte). Ces boutons appelaient pdSetTheme(), un doublon « visuel seulement » qui
+               posait body.theme-light SANS data-theme : le desk se retrouvait à moitié clair, et
+               « Mode Moyen » ne correspondait à aucun thème existant. -->
           <label class="pd-label">Thème</label>
           <div class="pd-theme-btns" style="margin-bottom:14px">
-            <button class="pd-theme-btn" id="pd-theme-light" onclick="pdSetTheme('light')">☀ Mode Clair</button>
-            <button class="pd-theme-btn pd-active" id="pd-theme-dark" onclick="pdSetTheme('dark')">🔥 Mode Sombre</button>
-            <button class="pd-theme-btn" id="pd-theme-medium" onclick="pdSetTheme('medium')">◑ Mode Moyen</button>
+            <button class="pd-theme-btn" id="pd-theme-light" onclick="dtpSetTheme('light')">☀ Mode Clair</button>
+            <button class="pd-theme-btn pd-active" id="pd-theme-dark" onclick="dtpSetTheme('dark')">🔥 Mode Sombre</button>
+            <button class="pd-theme-btn" id="pd-theme-system" onclick="dtpSetTheme('system')">◑ Système</button>
           </div>
+
+          <!-- ZOOM D'AFFICHAGE : certains veulent plus dense, d'autres plus lisible. Appliqué sur <html>
+               (propriété CSS `zoom`) → vaut aussi pour l'app desktop, qui charge le même site, et pour
+               le mobile. Persisté PAR COMPTE (KV zoom:) + cache local anti-scintillement. -->
+          <label class="pd-label">Zoom de l'affichage</label>
+          <div class="pd-zoom-row">
+            <button class="pd-zoom-btn" type="button" onclick="dtpZoomStep(-1)" aria-label="Réduire l'affichage">−</button>
+            <span class="pd-zoom-val" id="pd-zoom-val">100 %</span>
+            <button class="pd-zoom-btn" type="button" onclick="dtpZoomStep(1)" aria-label="Agrandir l'affichage">+</button>
+            <button class="pd-zoom-reset" type="button" onclick="dtpSetZoom(1)">Réinitialiser</button>
+          </div>
+          <div class="pd-zoom-hint">De 70 % à 150 %. S'applique au desk, à l'application desktop et au mobile.</div>
 
           <label class="pd-label">Couleur des bougies</label>
           <select class="pd-select" id="pd-candle-color">
