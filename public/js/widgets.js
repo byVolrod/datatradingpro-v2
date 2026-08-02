@@ -1407,6 +1407,18 @@
      pour toujours (ensureDefaultLayout ne recomposait pas un layout existant) — c'est ce qui a privé le
      desk de sa barre d'onglets après l'ajout du widget « Panneau à onglets » (constaté user 26/07). */
   var DESK_V = 2;
+  // COMPOSITION DU DESK, ÉCRITE UNE SEULE FOIS. Le layout par défaut « Vue générale » ET le modèle prêt
+  // de la bibliothèque la lisent tous les deux ici : c'est ce qui garantit que le modèle est une
+  // reproduction IDENTIQUE du desk de base (demande user), et non une copie qui divergerait au premier
+  // changement. Copie fraîche à chaque appel — sinon les deux partageraient les mêmes objets et
+  // redimensionner l'un modifierait l'autre.
+  function _itemsDeskDefaut() {
+    return [
+      { w: 'fil-news', gw: 6, gh: 26 },
+      { w: 'horloge', gw: 6, gh: 8 },
+      { w: 'onglets', gw: 6, gh: 18, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
+    ];
+  }
   function defaultCfg() {
     return {
       active: 'mon-desk',
@@ -1419,13 +1431,7 @@
       // DÉFAUT = LE DESK CLASSIQUE COMPLET (demande user 26/07 « il manque les onglets ») : fil d'actualité à
       // gauche ; à droite l'horloge + le PANNEAU À ONGLETS reprenant les 7 onglets du desk
       // (MONDE · RISQUE · FORCE · BAROMÈTRE · COT · DMX · SAISONNALITÉ).
-      layouts: [{
-        id: 'mon-desk', name: 'Vue générale', fav: true, items: [
-          { w: 'fil-news', gw: 6, gh: 26 },
-          { w: 'horloge', gw: 6, gh: 8 },
-          { w: 'onglets', gw: 6, gh: 18, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
-        ],
-      }],
+      layouts: [{ id: 'mon-desk', name: 'Vue générale', fav: true, items: _itemsDeskDefaut() }],
     };
   }
 
@@ -1572,50 +1578,78 @@
       var cs = getComputedStyle(host);
       var gapC = parseFloat(cs.columnGap), gapR = parseFloat(cs.rowGap);
       if (!isFinite(gapC)) gapC = 10; if (!isFinite(gapR)) gapR = 10;
-      // Hauteur de ligne MESURÉE sur la carte elle-même : depuis que les lignes s'étirent pour remplir
-      // l'écran (grid-auto-rows: minmax(26px,1fr)), elle n'est plus égale à ROW_PX — un pas figé à 26px
+      // Hauteur de ligne MESUREE sur la carte elle-meme : depuis que les lignes s'etirent pour remplir
+      // l'ecran (grid-auto-rows: minmax(0,1fr)), elle n'est plus egale a ROW_PX — un pas fige a 26px
       // ferait grandir le widget beaucoup trop vite. Repli sur ROW_PX si la mesure est aberrante.
       var rowUnit = (card.offsetHeight + gapR) / Math.max(1, it.gh);
       if (!isFinite(rowUnit) || rowUnit < 4) rowUnit = ROW_PX + gapR;
-      // VOISINE DE DROITE : le bord droit est un SÉPARATEUR — ce que cette carte perd, la suivante
-      // le gagne. Sans ça, rétrécir laissait un trou (les colonnes libérées n'allaient à personne).
-      // On l'ignore si elle est verrouillée : lui prendre des colonnes contredirait son verrou.
-      var vIt = (h.classList.contains('wdg-resize-e') && l) ? l.items[idx + 1] : null;
-      if (vIt && vIt.locked) vIt = null;
-      if (vIt) _normItem(vIt);
-      var vCard = vIt ? host.querySelector('.wdg-card[data-idx="' + (idx + 1) + '"]') : null;
-      rz = { it: it, card: card, x0: e.clientX, y0: e.clientY, gw0: it.gw, gh0: it.gh, gw: it.gw, gh: it.gh,
-             mode: (h.classList.contains('wdg-resize-e') ? 'e' : 'se'),          // 'e' = bord droit → LARGEUR seule
-             vIt: vIt, vCard: vCard, vGw0: vIt ? vIt.gw : 0, vGw: vIt ? vIt.gw : 0,
-             gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, it.gw) };
+      // ON PART DE CE QUI EST AFFICHE, pas de ce qui est enregistre. Une carte etiree par le moteur
+      // d'extension n'a pas la meme largeur a l'ecran que dans la disposition : repartir de la valeur
+      // enregistree la faisait sauter des le premier pixel, et divisait la largeur reelle par le
+      // mauvais nombre de colonnes — le curseur et le bord de la carte n'avancaient plus ensemble.
+      var geo = _geomGrille(l.items), disp = geo.gw, pos = geo.pos;
+      var d0 = disp[idx] || it.gw, p0 = pos[idx];
+      // VOISINES DE DROITE, choisies GEOMETRIQUEMENT : celles qui commencent la ou cette carte finit
+      // ET qui partagent ses rangees. Le bord droit est un separateur — ce que la carte prend, elles
+      // le cedent, et inversement, donc la rangee reste pleine pendant tout le glissement. L'ancienne
+      // version prenait « la suivante dans la liste » : des que des blocs sont empiles a droite, ce
+      // rang designe une carte qui n'est pas la, et c'est elle qui se contractait.
+      var band = [];
+      if (h.classList.contains('wdg-resize-e') && p0) {
+        for (var b = 0; b < l.items.length; b++) {
+          var pb = pos[b]; if (b === idx || !pb) continue;
+          if (pb.c !== p0.c + d0) continue;
+          if (pb.r >= p0.r + p0.h || pb.r + pb.h <= p0.r) continue;      // rangees disjointes
+          if (l.items[b].locked) { band = []; break; }                   // une voisine verrouillee fige le bord
+          band.push(b);
+        }
+      }
+      var cede = GRID_COLS;
+      band.forEach(function (b) { cede = Math.min(cede, disp[b] - 1); });   // chaque voisine garde 1 colonne
+      var noeuds = [];
+      for (var n = 0; n < l.items.length; n++) noeuds[n] = host.querySelector('.wdg-card[data-idx="' + n + '"]');
+      rz = { it: it, idx: idx, card: card, x0: e.clientX, y0: e.clientY,
+             gh0: it.gh, gh: it.gh, d0: d0, delta: 0, base: disp.slice(), lgs: disp.slice(),
+             mode: (h.classList.contains('wdg-resize-e') ? 'e' : 'se'),    // 'e' = bord droit → LARGEUR seule
+             band: band, moins: d0 - 1, plus: band.length ? cede : Math.max(0, GRID_COLS - (p0 ? p0.c + d0 : d0)),
+             noeuds: noeuds, gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, d0) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
     });
     host.addEventListener('pointermove', function (e) {
       if (!rz) return;
-      // Avec une voisine, la course est bornée par ce qu'elle peut CÉDER (elle garde 1 colonne au
-      // minimum) — pas par la grille entière : sinon on pourrait la réduire à zéro.
-      var maxGw = rz.vIt ? (rz.gw0 + rz.vGw0 - 1) : GRID_COLS;
-      rz.gw = _clamp(rz.gw0 + Math.round((e.clientX - rz.x0) / rz.colUnit), 1, maxGw);
+      var l = activeLayout(); if (!l) return;
+      rz.delta = _clamp(Math.round((e.clientX - rz.x0) / rz.colUnit), -rz.moins, rz.plus);
       if (rz.mode !== 'e') rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / rz.rowUnit), 3, 60);
-      rz.card.style.setProperty('--gw', rz.gw); rz.card.style.setProperty('--gh', rz.gh);   // aperçu live (snap)
-      if (rz.vIt) {
-        rz.vGw = _clamp(rz.vGw0 - (rz.gw - rz.gw0), 1, GRID_COLS);                          // somme conservée
-        if (rz.vCard) rz.vCard.style.setProperty('--gw', rz.vGw);
+      // On rejoue LE MOTEUR sur la geometrie visee, puis on applique le resultat a TOUTES les cartes.
+      // L'apercu est alors exactement ce que le rendu produira au relachement — aucun saut, ni au
+      // depart ni a l'arrivee — et plus aucune carte ne reste avec une largeur calculee pour l'ancienne
+      // geometrie (c'est ce qui rouvrait un trou noir a droite pendant le glissement).
+      var prov = l.items.map(function (x, i) { return { gw: rz.base[i], gh: (i === rz.idx ? rz.gh : x.gh) }; });
+      prov[rz.idx].gw = rz.d0 + rz.delta;
+      rz.band.forEach(function (b) { prov[b].gw = Math.max(1, rz.base[b] - rz.delta); });
+      rz.lgs = _largeursAffichees({ items: prov });
+      for (var i = 0; i < prov.length; i++) {
+        var c = rz.noeuds[i]; if (!c) continue;
+        c.style.setProperty('--gw', rz.lgs[i]); c.style.setProperty('--gh', prov[i].gh);
       }
     });
     var endResize = function (e) {
       if (!rz) return;
-      var changed = (rz.gw !== rz.gw0 || rz.gh !== rz.gh0);
-      if (changed) {
-        rz.it.gw = rz.gw; rz.it.gh = rz.gh;
-        if (rz.vIt && rz.vGw !== rz.vGw0) rz.vIt.gw = rz.vGw;   // la voisine reçoit ce que celle-ci a cédé
+      var l = activeLayout();
+      var changed = (rz.delta !== 0 || rz.gh !== rz.gh0);
+      if (changed && l) {
+        // On enregistre les largeurs AFFICHEES : elles pavent deja la grille, donc les relire ne les
+        // etire pas davantage (le moteur n'etend que vers des cellules LIBRES), et la disposition
+        // enregistree devient exactement ce que l'ecran montre — plus d'ecart entre les deux.
+        for (var i = 0; i < l.items.length; i++) if (rz.lgs[i]) l.items[i].gw = rz.lgs[i];
+        rz.it.gh = rz.gh;
         save();
       }
       rz.card.classList.remove('wdg-resizing');
       try { host.releasePointerCapture(e.pointerId); } catch (_) {}
       rz = null;
-      if (changed) renderGrid();                                                    // remonte les charts à la bonne taille
+      if (changed) renderGrid();                                                    // remonte les charts a la bonne taille
     };
     host.addEventListener('pointerup', endResize);
     host.addEventListener('pointercancel', endResize);
@@ -1637,7 +1671,7 @@
         +   '<button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.pickDispo()">Choisir une disposition</button>'
         +   '<button class="wdg-btn" onclick="DTPWidgets.openLib()">Parcourir la bibliothèque</button>'
         + '</div>'
-        + '<div class="wdg-blank-sec">Modèles prêts</div>'
+        + '<div class="wdg-blank-sec">' + (PRESETS.length > 1 ? 'Modèles prêts' : 'Modèle prêt') + '</div>'
         + '<div class="wdg-blank-tpls">'
         +   PRESETS.map(function (p, i) {
               var names = p.items.map(function (it) { var w = byId(it.w); return w ? w.name : ''; }).filter(Boolean).join(' · ');
@@ -1918,7 +1952,7 @@
         + '<span class="wdg-tpl-list">' + esc(names) + '</span></button>';
     }).join('');
     var tplHtml = (PRESETS.some(pmatch) && (_libFam === '' || _libFam === '_tpl'))
-      ? '<div class="wdg-lib-sec">Modèles prêts</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
+      ? '<div class="wdg-lib-sec">' + (PRESETS.length > 1 ? 'Modèles prêts' : 'Modèle prêt') + '</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
 
     var FAM_SUB = { Analytics: 'Analyse de marché', Fonctions: 'Données & outils' };
     var html = (_libFam === '_tpl' ? [] : FAMS).map(function (fam) {
@@ -1940,18 +1974,12 @@
     box.innerHTML = (tplHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
   }
 
-  /* ── MODÈLES PRÊTS (presets) : un clic → un nouveau layout pré-composé (modifiable ensuite). ── */
+  /* ── MODÈLE PRÊT : UN SEUL, et c'est le DESK DE BASE À L'IDENTIQUE (demande user 02/08). Il lit la même
+     composition que le layout par défaut (_itemsDeskDefaut) — fil d'actualité à gauche, horloge mondiale
+     puis panneau à onglets à droite : le modèle ne peut donc pas s'écarter du desk. Un clic → un nouveau
+     layout pré-composé, modifiable ensuite. ── */
   var PRESETS = [
-    // « Terminal » = cockpit multi-zones façon terminal pro (organisation PMT : gros panneau central + colonnes
-    //  d'analytics et de fonctions autour), rendu en identité 100% DTP. Le modèle phare de Mon Desk.
-    { name: 'Terminal', items: [
-      { w: 'force-devises', gw: 8, gh: 12 }, { w: 'radar-biais', gw: 4, gh: 12 },
-      { w: 'calendrier-jour', gw: 4, gh: 11 }, { w: 'fil-news', gw: 4, gh: 11 }, { w: 'taux-cb', gw: 4, gh: 11 },
-      { w: 'barometre', gw: 6, gh: 8 }, { w: 'journal-mini', gw: 6, gh: 8 },
-    ] },
-    { name: 'Desk complet', items: [{ w: 'force-devises', gw: 8, gh: 12 }, { w: 'calendrier-jour', gw: 4, gh: 12 }, { w: 'fil-news', gw: 7, gh: 11 }, { w: 'barometre', gw: 5, gh: 11 }] },
-    { name: 'Focus macro', items: [{ w: 'calendrier-jour', gw: 7, gh: 15 }, { w: 'radar-biais', gw: 5, gh: 8 }, { w: 'taux-cb', gw: 5, gh: 7 }] },
-    { name: 'Trading actif', items: [{ w: 'journal-mini', gw: 7, gh: 12 }, { w: 'calculatrice', gw: 5, gh: 12 }, { w: 'force-devises', gw: 12, gh: 10 }] },
+    { name: 'Vue générale', items: _itemsDeskDefaut() },
   ];
   /* ── DISPOSITIONS (création guidée) : squelettes d'EMPLACEMENTS vides, façon « Select Layout » d'un terminal
      pro — GAMME COMPLÈTE groupée par nombre de panneaux (le chiffre à gauche de chaque rangée). Chaque
@@ -2024,8 +2052,12 @@
 // puis chacune s etend vers la droite tant que les cellules a sa droite, sur ses propres rangees,
 // sont libres. Une carte qui a un voisin ne bouge pas ; une carte qui a du vide le comble.
 // La valeur ENREGISTREE n est jamais modifiee — l etirement se cumulerait a chaque rendu.
-function _largeursAffichees(lay) {
-  var items = (lay && lay.items) || [];
+// PLACEMENT 2D PARTAGE. Le rendu et le redimensionnement doivent voir la MEME grille — sinon la
+// carte qu on tire saute a une largeur que personne n affiche. On place les cartes comme le fait la
+// grille (premier emplacement libre), puis chacune s etend vers la droite tant que les cellules a sa
+// droite, sur SES PROPRES rangees, sont libres. Renvoie les largeurs d affichage ET les positions.
+function _geomGrille(items) {
+  items = items || [];
   var W = 12, G = [], pos = [];
   var gws = items.map(function (it) { return Math.min(W, Math.max(1, (it.gw | 0) || 6)); });
   var ghs = items.map(function (it) { return Math.max(1, (it.gh | 0) || 12); });
@@ -2041,18 +2073,22 @@ function _largeursAffichees(lay) {
     var mis = false;
     for (var r = 0; !mis && r < 400; r++) {
       for (var c = 0; c + gws[i] <= W; c++) {
-        if (libre(r, c, ghs[i], gws[i])) { poser(r, c, ghs[i], gws[i]); pos[i] = { r: r, c: c }; mis = true; break; }
+        if (libre(r, c, ghs[i], gws[i])) { poser(r, c, ghs[i], gws[i]); pos[i] = { r: r, c: c, h: ghs[i], w: gws[i] }; mis = true; break; }
       }
     }
-    if (!mis) pos[i] = { r: 0, c: 0 };
+    if (!mis) pos[i] = { r: 0, c: 0, h: ghs[i], w: gws[i] };
   }
   for (var j = 0; j < items.length; j++) {
     var p = pos[j]; if (!p) continue;
     var droite = p.c + gws[j];
     while (droite < W && libre(p.r, droite, ghs[j], 1)) { poser(p.r, droite, ghs[j], 1); gws[j]++; droite++; }
+    p.w = gws[j];
   }
-  return gws;
+  return { gw: gws, pos: pos };
 }
+// Largeurs d AFFICHAGE. La valeur ENREGISTREE n est jamais modifiee au rendu — l etirement se
+// cumulerait a chaque passage et la largeur choisie serait perdue.
+function _largeursAffichees(lay) { return _geomGrille((lay && lay.items) || []).gw; }
 // Largeurs d'AFFICHAGE : on simule le placement en 12 colonnes et, pour chaque rangée incomplète,
 // on donne les colonnes restantes à sa DERNIÈRE carte. Résultat : aucune rangée à trou, donc plus
 // aucun espace vide à combler. Renvoie un tableau indexé comme lay.items.
