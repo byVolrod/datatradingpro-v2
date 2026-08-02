@@ -100,9 +100,33 @@
       + '<button class="wdg-set-act' + (verrou ? ' on' : '') + '" onclick="DTPWidgets.toggleLock(' + idx + ')">'
       +   (verrou ? ICO.lock : ICO.unlock) + (verrou ? ' Déverrouiller' : ' Verrouiller') + '</button>'
       + '</div>';
+    // PANNEAU À ONGLETS : la gestion des onglets vit ICI, dans les Réglages (demande user 02/08
+    // « ça doit se supprimer directement depuis le bouton paramètre ») — renommer chaque onglet
+    // (champ inline, Entrée/blur valide, vide = nom d'origine) et le retirer (×). La croix au survol
+    // de l'onglet lui-même a été SUPPRIMÉE : un clic de trop détruisait un onglet par accident.
+    var onglets = '';
+    if (w.id === 'onglets') {
+      var tl = Array.isArray(it.tabs) ? it.tabs : [];
+      var lb = Array.isArray(it.tabLabels) ? it.tabLabels : [];
+      onglets = '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Onglets · renommer ou retirer</div>'
+        + tl.map(function (id2, j) {
+            var w2 = byId(id2); if (!w2) return '';
+            return '<div class="wdg-set-row wdg-set-tabrow">'
+              + '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || w2.tag || w2.name) + '"'
+              + ' placeholder="' + esc(w2.tag || w2.name) + '" title="' + esc(w2.name) + '"'
+              + ' onchange="DTPWidgets.renameTab(' + idx + ',' + j + ', this.value)"'
+              // Échap = ANNULER (miroir de l'éditeur inline .wdgt-edit) : valeur d'origine restaurée
+              // AVANT le blur → aucun change n'est émis ; stopPropagation → le listener document
+              // (Échap ferme les volets) ne claque pas le panneau au nez de l'utilisateur.
+              + ' onkeydown="if(event.key===\'Enter\')this.blur();else if(event.key===\'Escape\'){event.stopPropagation();this.value=this.defaultValue;this.blur();}">'
+              + '<button class="wdg-set-tabdel" title="Retirer cet onglet" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button></div>';
+          }).join('')
+        + '<button class="wdg-set-act" onclick="DTPWidgets.addTab(' + idx + ')">+ Ajouter un onglet</button>';
+    }
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
       + _optsHtml(idx, w, it)
+      + onglets
       + actions;
   }
   // Rafraîchit le panneau d'une carte SANS toucher au reste (garde son état ouvert/fermé).
@@ -1442,7 +1466,9 @@
       desc: 'Plusieurs widgets dans une seule carte, avec sa propre barre d\'onglets — comme la barre › MONDE › FORCE du desk.',
       // CONTENEUR (demande user 26/07 « créer des onglets dans un layout ») : it.tabs = ids catalogue (persisté,
       // whitelist serveur). Barre = grammaire nav du desk (chevron/capitales/soulignement or). « + » ouvre la
-      // bibliothèque en mode remplissage d'onglet (_pickTab) ; ✕ au survol retire l'onglet. Onglet actif volatil.
+      // bibliothèque en mode remplissage d'onglet (_pickTab). Onglet actif volatil.
+      // PLUS DE ✕ AU SURVOL (demande user 02/08) : un clic de trop détruisait un onglet par accident —
+      // le retrait et le renommage vivent dans les RÉGLAGES de la carte (_setPanelHtml, renameTab/removeTab).
       mount: function (host, it) {
         it = it || {};
         var tabs = (Array.isArray(it.tabs) ? it.tabs : []).filter(function (id) { return byId(id); });
@@ -1467,20 +1493,11 @@
           bar.innerHTML = tabs.map(function (id, i) {
             var w = byId(id);
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + '" data-i="' + i + '" title="' + esc(w.name) + ' — double-clic pour renommer">'
-              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(labels[i] || w.tag || w.name) + '</span>'
-              + '<span class="wdgt-x" title="Retirer cet onglet" data-x="' + i + '">×</span></button>';
+              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(labels[i] || w.tag || w.name) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
         }
         bar.addEventListener('click', function (e) {
           if (e.target.closest('.wdgt-edit')) return;   // clic dans le champ de renommage → ne pas changer d'onglet
-          var x = e.target.closest('.wdgt-x');
-          if (x) {
-            tabs.splice(+x.getAttribute('data-x'), 1);
-            labels.splice(+x.getAttribute('data-x'), 1);
-            it.tabs = tabs.slice(); it.tabLabels = labels.slice();
-            if (actIdx >= tabs.length) actIdx = Math.max(0, tabs.length - 1);
-            it._tabAct = actIdx; save(); renderTabs(); mountSub(); return;
-          }
           if (e.target.closest('.wdgt-add')) { _pickTabFor(it); return; }
           var t = e.target.closest('.wdgt-tab'); if (!t) return;
           actIdx = +t.getAttribute('data-i'); it._tabAct = actIdx;
@@ -1489,7 +1506,7 @@
         // RENOMMAGE au double-clic (demande user 28/07) : le libellé devient un champ inline —
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
         bar.addEventListener('dblclick', function (e) {
-          var t = e.target.closest('.wdgt-tab'); if (!t || e.target.closest('.wdgt-x')) return;
+          var t = e.target.closest('.wdgt-tab'); if (!t) return;
           var i = +t.getAttribute('data-i');
           var w0 = byId(tabs[i]); if (!w0) return;
           var nm = t.querySelector('.wdgt-nm'); if (!nm) return;
@@ -1503,6 +1520,9 @@
               var v = inp.value.trim().slice(0, 18);
               if (v && v !== (w0.tag || w0.name)) labels[i] = v; else labels[i] = '';
               it.tabLabels = labels.slice(); save();
+              // Le volet Réglages liste aussi les onglets : s'il est ouvert, il garderait l'ancien
+              // nom jusqu'au prochain rendu — on le resynchronise avec le renommage inline.
+              var _pi = _hostIdx(host); if (_pi != null) _syncPanel(_pi);
             }
             renderTabs();
           }
@@ -2475,6 +2495,62 @@ function _spansAffiches(lay) {
     toggleLock: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       l.items[i].locked = !l.items[i].locked; save(); renderGrid();
+    },
+    // ── GESTION DES ONGLETS depuis les Réglages de la carte (demande user 02/08 : plus de croix au
+    //    survol — renommage et retrait vivent dans le panneau paramètres). Patron setOpt : muter
+    //    l'item → save → _syncPanel (le volet reste ouvert, sa liste se met à jour) → refresh (le
+    //    corps remonte avec la nouvelle barre d'onglets).
+    renameTab: function (i, j, v) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (!Array.isArray(it.tabs) || !it.tabs[j]) return;
+      var w2 = byId(it.tabs[j]);
+      var lb = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];
+      var v2 = String(v || '').trim().slice(0, 18);
+      var suiv = (v2 && w2 && v2 !== (w2.tag || w2.name)) ? v2 : '';   // vide ou nom d'origine → pas de libellé perso
+      // SANS CHANGEMENT → ON NE RE-REND RIEN. Cliquer le × d'une ligne dont le champ a le focus
+      // déclenche blur → change → re-rendu du volet : le bouton visé serait remplacé sous la souris
+      // et le clic avalé — il faudrait cliquer deux fois. Le no-op laisse le DOM en place.
+      if (suiv === (lb[j] || '')) return;
+      lb[j] = suiv;
+      it.tabLabels = lb;
+      save(); API.refresh(i);
+      // Volet re-rendu APRÈS le cycle de clic en cours (revue adversariale) : cliquer × pendant que le
+      // champ a le focus déclenche blur → change → ce code ; remplacer innerHTML immédiatement
+      // détacherait le bouton visé avant le mouseup et le clic ne partirait jamais — l'onglet serait
+      // renommé mais PAS retiré. Le timer 0 laisse le click se dispatcher d'abord ; un renommage ne
+      // décale aucun index, les onclick bakés restent donc valides pendant ce battement.
+      setTimeout(function () { _syncPanel(i); }, 0);
+    },
+    removeTab: function (i, j) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (!Array.isArray(it.tabs) || j >= it.tabs.length) return;
+      var w2 = byId(it.tabs[j]);
+      var snapTabs = it.tabs.slice(), snapLb = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];
+      it.tabs.splice(j, 1);
+      if (Array.isArray(it.tabLabels)) it.tabLabels.splice(j, 1);
+      if ((it._tabAct | 0) >= it.tabs.length) it._tabAct = Math.max(0, it.tabs.length - 1);
+      save(); _syncPanel(i); API.refresh(i);
+      // Filet : le retrait est réversible. ANNULATION PAR RÉFÉRENCE, pas par index (revue
+      // adversariale) : pendant les 7 s du bandeau, la carte peut être déplacée (les index glissent)
+      // ou le desk changé — écrire à items[i] grefferait le snapshot sur la carte qui occupe
+      // DÉSORMAIS cet index, voire sur un autre desk. L'objet, lui, est muté en place : il survit aux
+      // déplacements. Disparu (carte retirée → convertie en slot, autre objet) → on abandonne.
+      var itRef = it;
+      _undoOffer((w2 ? w2.name : 'Onglet') + ' retiré du panneau', function () {
+        if (!itRef || itRef.w !== 'onglets') return;
+        var present = ((STATE.cfg && STATE.cfg.layouts) || []).some(function (ly) {
+          return ly && ly.items && ly.items.indexOf(itRef) >= 0;
+        });
+        if (!present) return;
+        itRef.tabs = snapTabs.slice(); itRef.tabLabels = snapLb.slice();
+        save();
+        var cur = activeLayout(); var idx = cur && cur.items ? cur.items.indexOf(itRef) : -1;
+        if (idx >= 0) { _syncPanel(idx); API.refresh(idx); }   // visible seulement si la carte est sur le desk actif
+      });
+    },
+    addTab: function (i) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      _pickTabFor(l.items[i]);
     },
     refresh: function (i) {                                  // re-monte CE widget seul (rafraîchit sa donnée)
       var l = activeLayout(); if (!l || !l.items[i]) return;
