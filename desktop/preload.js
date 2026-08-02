@@ -17,9 +17,14 @@ const PLATFORM_CLASS = process.platform === 'darwin' ? 'dtp-mac'
 // pointerdown → notre déplacement MANUEL (pointer capture + main.js) ne démarre jamais. Le déplacement est
 // donc géré à 100 % côté JS (voir plus bas). Ici on ne garde QUE le décalage réservé aux boutons système
 // (droite sous Windows, feux macOS à gauche) et un curseur adapté sur la zone de saisie du header.
+// La réserve est divisée par le ZOOM D'AFFICHAGE du desk (--dtp-zoom) : les boutons système sont
+// dessinés par l'OS, la propriété CSS `zoom` ne les redimensionne pas. Sans cette division, dézoomer
+// rétrécissait la réserve (146 → 102 px à 70 %) pendant que les boutons gardaient leur taille, et
+// l'avatar passait dessous. style.css porte la même règle en !important pour les installations déjà
+// déployées, qui tournent encore avec l'ancien preload.
 const DRAG_CSS = `
-  html.dtp-win .topbar { padding-right: 146px; }
-  html.dtp-mac .logo { padding-left: 74px; }
+  html.dtp-win .topbar { padding-right: calc(146px / var(--dtp-zoom, 1)); }
+  html.dtp-mac .logo { padding-left: calc(74px / var(--dtp-zoom, 1)); }
   html.dtp-desktop .topbar { cursor: default; }
 `;
 

@@ -234,7 +234,18 @@ html, body {
      · macOS   → feux tricolores à GAUCHE (trafficLightPosition)
    La hauteur de la topbar est réduite (50px) via le token --topbar-h → cascade partout.
    ═══════════════════════════════════════════════════════════════════════════════════ */
-html.dtp-desktop { --topbar-h: 50px; }
+/* ⚠️ LES BOUTONS SYSTÈME NE SUIVENT PAS LE ZOOM. Sur l'app desktop, min/max/close sont dessinés par
+   l'OS (titleBarOverlay, hauteur 50 fixée dans desktop/main.js) et la place qui leur est réservée est
+   figée par le preload (padding-right: 146px). Ces deux valeurs vivent HORS de la page : la propriété
+   CSS `zoom` ne les déplace pas d'un pixel. Sans compensation, à 70 % la topbar DTP ne mesure plus que
+   35 px de haut alors que la bande système en occupe toujours 50 → elle mord sur la barre d'onglets,
+   et l'espace réservé tombe à 102 px pour des boutons qui en prennent 146 → l'avatar passe dessous.
+   On divise donc par le zoom : la topbar et la réserve gardent une taille À L'ÉCRAN constante, quel
+   que soit le réglage. Le !important est nécessaire — le preload injecte sa règle après cette feuille,
+   à spécificité égale, et les installations déjà déployées gardent leur ancien preload. */
+html.dtp-desktop { --topbar-h: calc(50px / var(--dtp-zoom, 1)); }
+html.dtp-win .topbar { padding-right: calc(146px / var(--dtp-zoom, 1)) !important; }
+html.dtp-mac .logo   { padding-left:  calc(74px / var(--dtp-zoom, 1)) !important; }
 
 /* ⚠️ PLUS AUCUN -webkit-app-region:drag ICI (retiré 16/07) : une zone app-region:drag est gérée par
    l'OS et N'ÉMET PLUS d'événements souris vers la page → elle avalait le pointerdown dont le
