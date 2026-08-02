@@ -1768,13 +1768,15 @@
       // mauvais nombre de colonnes — le curseur et le bord de la carte n'avancaient plus ensemble.
       var geo = _geomGrille(l.items), disp = geo.gw, pos = geo.pos;
       var d0 = disp[idx] || it.gw, p0 = pos[idx];
-      // VOISINES DE DROITE, choisies GEOMETRIQUEMENT : celles qui commencent la ou cette carte finit
-      // ET qui partagent ses rangees. Le bord droit est un separateur — ce que la carte prend, elles
-      // le cedent, et inversement, donc la rangee reste pleine pendant tout le glissement. L'ancienne
-      // version prenait « la suivante dans la liste » : des que des blocs sont empiles a droite, ce
-      // rang designe une carte qui n'est pas la, et c'est elle qui se contractait.
+      // LA DISPOSITION EST FIXE (demande user 02/08 « la disposition des blocs doit être fixe ») :
+      // redimensionner = DEPLACER UNE FRONTIERE entre voisins, jamais repousser le reste du desk.
+      // Sans compensation, la grille en flux dense REPACKE tout : agrandir le barometre reduisait le
+      // fil d'actualite et envoyait le panneau MONDE sous le fil. Ce que la carte prend, ses voisins
+      // GEOMETRIQUES le cedent — a droite pour la largeur, EN DESSOUS pour la hauteur — donc la somme
+      // par rangee/colonne ne change pas et aucune autre carte ne bouge.
+      // VOISINES DE DROITE : commencent la ou cette carte finit ET partagent ses rangees.
       var band = [];
-      if (h.classList.contains('wdg-resize-e') && p0) {
+      if (p0) {
         for (var b = 0; b < l.items.length; b++) {
           var pb = pos[b]; if (b === idx || !pb) continue;
           if (pb.c !== p0.c + d0) continue;
@@ -1785,13 +1787,33 @@
       }
       var cede = GRID_COLS;
       band.forEach(function (b) { cede = Math.min(cede, disp[b] - 1); });   // chaque voisine garde 1 colonne
+      // VOISINES DU DESSOUS (coin seulement) : commencent PILE sous cette carte ET partagent ses
+      // colonnes (largeurs AFFICHEES — ce que l'ecran montre). Leur haut descend, leur bas ne bouge
+      // pas : les cartes encore en dessous restent parfaitement en place.
+      var bandeBas = [];
+      var estCoin = !h.classList.contains('wdg-resize-e');
+      if (estCoin && p0) {
+        for (var b2 = 0; b2 < l.items.length; b2++) {
+          var pb2 = pos[b2]; if (b2 === idx || !pb2) continue;
+          if (pb2.r !== p0.r + p0.h) continue;
+          if (pb2.c >= p0.c + p0.w || pb2.c + pb2.w <= p0.c) continue;   // colonnes disjointes
+          if (l.items[b2].locked) { bandeBas = []; break; }
+          bandeBas.push(b2);
+        }
+      }
+      var cedeBas = 999;
+      bandeBas.forEach(function (b) { cedeBas = Math.min(cedeBas, l.items[b].gh - 3); });   // chaque voisine du bas garde 3 rangees
       var noeuds = [];
       for (var n = 0; n < l.items.length; n++) noeuds[n] = host.querySelector('.wdg-card[data-idx="' + n + '"]');
       rz = { it: it, idx: idx, card: card, x0: e.clientX, y0: e.clientY,
-             gh0: it.gh, gh: it.gh, d0: d0, delta: 0, base: disp.slice(), lgs: disp.slice(),
-             mode: (h.classList.contains('wdg-resize-e') ? 'e' : 'se'),    // 'e' = bord droit → LARGEUR seule
+             gh0: it.gh, delta: 0, deltaR: 0, base: disp.slice(), lgs: disp.slice(),
+             baseGh: l.items.map(function (x) { return Math.max(1, (x.gh | 0) || 12); }),
+             mode: (estCoin ? 'se' : 'e'),                                 // 'e' = bord droit → LARGEUR seule
              band: band, moins: d0 - 1, plus: band.length ? cede : Math.max(0, GRID_COLS - (p0 ? p0.c + d0 : d0)),
-             noeuds: noeuds, gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, d0) };
+             // Sans voisine dessous, la hauteur est FIGEE : la carte du bas va jusqu'au bord du desk,
+             // la faire varier changerait le total de rangees et re-echelonnerait tout l'ecran.
+             bandeBas: bandeBas, moinsBas: it.gh - 3, plusBas: bandeBas.length ? Math.max(0, cedeBas) : 0,
+             d0: d0, noeuds: noeuds, gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, d0) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
     });
@@ -1799,14 +1821,19 @@
       if (!rz) return;
       var l = activeLayout(); if (!l) return;
       rz.delta = _clamp(Math.round((e.clientX - rz.x0) / rz.colUnit), -rz.moins, rz.plus);
-      if (rz.mode !== 'e') rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / rz.rowUnit), 3, 60);
+      // HAUTEUR = FRONTIERE avec la bande du dessous : ce que la carte prend, elles le cedent — leur
+      // bas ne bouge pas, et le total de rangees non plus, donc RIEN d'autre ne bouge a l'ecran.
+      if (rz.mode !== 'e') rz.deltaR = _clamp(Math.round((e.clientY - rz.y0) / rz.rowUnit), -rz.moinsBas, rz.plusBas);
       // On rejoue LE MOTEUR sur la geometrie visee, puis on applique le resultat a TOUTES les cartes.
       // L'apercu est alors exactement ce que le rendu produira au relachement — aucun saut, ni au
       // depart ni a l'arrivee — et plus aucune carte ne reste avec une largeur calculee pour l'ancienne
       // geometrie (c'est ce qui rouvrait un trou noir a droite pendant le glissement).
-      var prov = l.items.map(function (x, i) { return { gw: rz.base[i], gh: (i === rz.idx ? rz.gh : x.gh) }; });
+      var prov = l.items.map(function (x, i) { return { gw: rz.base[i], gh: rz.baseGh[i] }; });
       prov[rz.idx].gw = rz.d0 + rz.delta;
       rz.band.forEach(function (b) { prov[b].gw = Math.max(1, rz.base[b] - rz.delta); });
+      prov[rz.idx].gh = rz.baseGh[rz.idx] + rz.deltaR;
+      rz.bandeBas.forEach(function (b) { prov[b].gh = Math.max(3, rz.baseGh[b] - rz.deltaR); });
+      rz.ghs = prov.map(function (p) { return p.gh; });
       rz.lgs = _largeursAffichees({ items: prov });
       for (var i = 0; i < prov.length; i++) {
         var c = rz.noeuds[i]; if (!c) continue;
@@ -1816,13 +1843,15 @@
     var endResize = function (e) {
       if (!rz) return;
       var l = activeLayout();
-      var changed = (rz.delta !== 0 || rz.gh !== rz.gh0);
+      var changed = (rz.delta !== 0 || rz.deltaR !== 0);
       if (changed && l) {
         // On enregistre les largeurs AFFICHEES : elles pavent deja la grille, donc les relire ne les
         // etire pas davantage (le moteur n'etend que vers des cellules LIBRES), et la disposition
         // enregistree devient exactement ce que l'ecran montre — plus d'ecart entre les deux.
-        for (var i = 0; i < l.items.length; i++) if (rz.lgs[i]) l.items[i].gw = rz.lgs[i];
-        rz.it.gh = rz.gh;
+        for (var i = 0; i < l.items.length; i++) {
+          if (rz.lgs[i]) l.items[i].gw = rz.lgs[i];
+          if (rz.ghs && rz.ghs[i]) l.items[i].gh = rz.ghs[i];
+        }
         save();
       }
       rz.card.classList.remove('wdg-resizing');
