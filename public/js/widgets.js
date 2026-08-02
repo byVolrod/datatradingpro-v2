@@ -1655,12 +1655,13 @@
     // (bord droit, coin, ⠿) et par leurs infobulles. On nettoie un bandeau resté en place d'un rendu passé.
     var tipHost = document.getElementById('wdg-tipbar');
     if (tipHost) tipHost.remove();
+    var _lgs = _largeursAffichees(lay);
     host.innerHTML = lay.items.map(function (it, idx) {
       // EMPLACEMENT VIDE (création guidée par disposition) : carte pointillée « + Choisir un widget ».
       // Le choix dans la bibliothèque REMPLACE l'emplacement en gardant sa géométrie (gw/gh de la disposition).
       if (it.w === 'slot') {
         _normItem(it);
-        return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
+        return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + (_lgs[idx] || it.gw) + ';--gh:' + it.gh + ';">'
           + '<button class="wdg-slot-x" title="Retirer l\'emplacement" onclick="DTPWidgets.remove(' + idx + ')">×</button>'
           + '<button class="wdg-slot-add" onclick="DTPWidgets.pickFor(' + idx + ')">+<span>Choisir un widget</span></button>'
           + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
@@ -1678,7 +1679,7 @@
       };
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
-      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
+      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + (_lgs[idx] || it.gw) + ';--gh:' + it.gh + ';">'
         + '<header class="wdg-head">'
         +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
@@ -2019,6 +2020,39 @@
     return court.length <= place ? court : '';    // sinon rien — un libellé illisible vaut moins que la couleur seule
   }
   // Bloc fantôme : comble EXACTEMENT le trou de la dernière rangée (simulation du placement 12 colonnes).
+// Largeurs d AFFICHAGE, calculees en DEUX DIMENSIONS. On place les cartes comme le fait la grille,
+// puis chacune s etend vers la droite tant que les cellules a sa droite, sur ses propres rangees,
+// sont libres. Une carte qui a un voisin ne bouge pas ; une carte qui a du vide le comble.
+// La valeur ENREGISTREE n est jamais modifiee — l etirement se cumulerait a chaque rendu.
+function _largeursAffichees(lay) {
+  var items = (lay && lay.items) || [];
+  var W = 12, G = [], pos = [];
+  var gws = items.map(function (it) { return Math.min(W, Math.max(1, (it.gw | 0) || 6)); });
+  var ghs = items.map(function (it) { return Math.max(1, (it.gh | 0) || 12); });
+  function libre(r, c, h, w) {
+    if (c + w > W) return false;
+    for (var y = r; y < r + h; y++) { var L = G[y]; if (!L) continue; for (var x = c; x < c + w; x++) if (L[x]) return false; }
+    return true;
+  }
+  function poser(r, c, h, w) {
+    for (var y = r; y < r + h; y++) { if (!G[y]) { G[y] = []; for (var k = 0; k < W; k++) G[y][k] = 0; } for (var x = c; x < c + w; x++) G[y][x] = 1; }
+  }
+  for (var i = 0; i < items.length; i++) {
+    var mis = false;
+    for (var r = 0; !mis && r < 400; r++) {
+      for (var c = 0; c + gws[i] <= W; c++) {
+        if (libre(r, c, ghs[i], gws[i])) { poser(r, c, ghs[i], gws[i]); pos[i] = { r: r, c: c }; mis = true; break; }
+      }
+    }
+    if (!mis) pos[i] = { r: 0, c: 0 };
+  }
+  for (var j = 0; j < items.length; j++) {
+    var p = pos[j]; if (!p) continue;
+    var droite = p.c + gws[j];
+    while (droite < W && libre(p.r, droite, ghs[j], 1)) { poser(p.r, droite, ghs[j], 1); gws[j]++; droite++; }
+  }
+  return gws;
+}
 // Largeurs d'AFFICHAGE : on simule le placement en 12 colonnes et, pour chaque rangée incomplète,
 // on donne les colonnes restantes à sa DERNIÈRE carte. Résultat : aucune rangée à trou, donc plus
 // aucun espace vide à combler. Renvoie un tableau indexé comme lay.items.
