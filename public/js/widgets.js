@@ -2085,7 +2085,13 @@
         +   '<span class="wdg-actions">'
         +     '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
         +     '<button class="wdg-ico" title="Remplacer par un autre widget" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
-        +     '<button class="wdg-ico wdg-ico--x" title="Retirer" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
+        // PANNEAU À ONGLETS (demande user 03/08 « il manque une petite croix à côté des réglages ») :
+        // « − » retire l'ONGLET AFFICHÉ seulement (lu au clic — l'actif change sans re-rendu) ; le ✕
+        // global, lui, emporte tout le panneau → son intitulé le dit désormais clairement.
+        +     (w.id === 'onglets'
+                ? '<button class="wdg-ico wdg-ico--tabx" title="Retirer l\'onglet affiché (le panneau reste)" onclick="DTPWidgets.removeActiveTab(' + idx + ')">−</button>'
+                : '')
+        +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
         + '</header>'
         + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'
@@ -2762,6 +2768,13 @@ function _spansAffiches(lay) {
     addTab: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       _pickTabFor(l.items[i]);
+    },
+    // « − » de l'en-tête du panneau à onglets : retire l'ONGLET AFFICHÉ (l'index actif est lu au
+    // moment du clic — il vit en volatile dans it._tabAct). Plancher 1 onglet garanti par removeTab.
+    removeActiveTab: function (i) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
+      API.removeTab(i, Math.min(it._tabAct | 0, it.tabs.length - 1));
     },
     refresh: function (i) {                                  // re-monte CE widget seul (rafraîchit sa donnée)
       var l = activeLayout(); if (!l || !l.items[i]) return;
