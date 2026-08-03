@@ -13438,3 +13438,43 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
 @media (prefers-reduced-motion: reduce) {
   .home-card--visu:hover .home-card-face .wdg-thumb { transform: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOBILE (03/08, captures user) : accueil sans débordement horizontal + desk.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── ACCUEIL : CAUSE RACINE du « tout est rogné à gauche » — repeat(12, 1fr) = minmax(auto,1fr),
+   la largeur MINIMALE d'un widget (table du calendrier…) élargissait donc TOUTES les colonnes
+   au-delà de l'écran ; et l'overflow-y:auto de .home-inner rend l'axe X défilable par défaut →
+   la page glissait horizontalement. minmax(0,1fr) interdit l'élargissement ; l'axe X est coupé. ── */
+.home-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.home-overlay > .home-inner { overflow-x: hidden; }
+@media (max-width: 860px) {
+  .home-grid { grid-template-columns: minmax(0, 1fr); }
+  .home-overlay > .home-inner { padding: 10px 12px 16px; }
+  .home-ticker.is-on { height: 34px; }
+  .home-ticker-in { height: 34px; }
+  .home-tk { padding: 0 12px; gap: 6px; }
+  .home-zone--hero .home-hero-body { padding: 18px 16px; }
+  .home-zone--hero .home-title { font-size: 24px; }
+  .home-zone--hero .home-skip { width: 100%; align-self: stretch; text-align: center; }
+  .home-zone-body--cards { padding: 10px; }
+  .home-zone-body--cards .home-cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── DESK, panneau à onglets : sur téléphone les onglets DÉFILENT SOUS les icônes d'action
+   semi-transparentes (collision constatée sur capture). Les actions deviennent un îlot opaque
+   avec un fondu sur leur gauche — les onglets s'éteignent proprement dessous. ── */
+@media (max-width: 860px) {
+  .wdg-card--tabs > .wdg-head .wdg-actions {
+    opacity: 1; background: var(--head-bg);
+    box-shadow: -16px 0 12px -4px var(--head-bg);
+  }
+}
+
+/* ── DESK, horloge mondiale : plancher de hauteur sur téléphone — un conteneur trop bas
+   (container-type: size) pouvait laisser un corps quasi vide ; on garantit 3 rangées lisibles,
+   le corps du widget défile si la carte est plus basse. ── */
+@media (max-width: 560px) {
+  .wdg-clockwrap { min-height: 132px; }
+}
