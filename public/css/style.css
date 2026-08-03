@@ -13692,3 +13692,108 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
     transparent 0 9%, rgba(227, 178, 58, .035) 13%, transparent 18%,
     transparent 54%, rgba(227, 178, 58, .022) 60%, transparent 67%);
 }
+
+/* ── ANIMATION PARTOUT (03/08 « l'animation doit aller un peu partout, même en bas, un truc
+   propre léger subtil ») : le 4e coin s'anime aussi (nappe basse-gauche dérivante) et un FILÉ
+   DE LUMIÈRE — fin trait or à halo doux — traverse le bas de l'écran toutes les ~26 s, le
+   geste premium discret d'un poste moderne. Toujours transform/opacity GPU uniquement. ── */
+.home-decor i:nth-child(5) {
+  bottom: -200px; left: -6%; width: 900px; height: 480px;
+  background: radial-gradient(closest-side, rgba(184, 134, 11, .10), rgba(184, 134, 11, .035) 48%, transparent 74%);
+  animation: homeDeriveE 42s ease-in-out -22s infinite alternate;
+}
+@keyframes homeDeriveE { to { transform: translate3d(88px, -26px, 0) scale(1.06); } }
+.home-decor i:nth-child(6) {
+  left: 0; bottom: 12px; width: 34vw; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(227, 178, 58, .15) 30%, rgba(227, 178, 58, .26) 50%, rgba(227, 178, 58, .15) 70%, transparent);
+  box-shadow: 0 0 18px 3px rgba(227, 178, 58, .09);
+  opacity: 0; will-change: transform, opacity;
+  animation: homeFile 26s linear -8s infinite;
+}
+@keyframes homeFile {
+  0%   { transform: translate3d(-36vw, 0, 0); opacity: 0; }
+  12%  { opacity: .75; }
+  88%  { opacity: .75; }
+  100% { transform: translate3d(104vw, 0, 0); opacity: 0; }
+}
+/* Second filé, plus haut et plus discret, en sens inverse — la profondeur sans la symétrie. */
+.home-decor i:nth-child(7) {
+  left: 0; top: 46%; width: 26vw; height: 1px; border-radius: 1px;
+  background: linear-gradient(90deg, transparent, rgba(227, 178, 58, .10) 40%, rgba(227, 178, 58, .16) 50%, rgba(227, 178, 58, .10) 60%, transparent);
+  opacity: 0; will-change: transform, opacity;
+  animation: homeFileR 34s linear -19s infinite;
+}
+@keyframes homeFileR {
+  0%   { transform: translate3d(104vw, 0, 0); opacity: 0; }
+  14%  { opacity: .5; }
+  86%  { opacity: .5; }
+  100% { transform: translate3d(-28vw, 0, 0); opacity: 0; }
+}
+@media (max-width: 860px) { .home-decor i:nth-child(5), .home-decor i:nth-child(7) { display: none; } }
+
+/* ── BLOC BONJOUR = SIGNATURE DU LOGIN/LANDING (03/08 « applique cette animation sur le bloc
+   Bonjour ») : mur d'or en briques (joints SVG inline, rangées décalées comme les tuiles du
+   login), voile duotone or + vignette, et le MÊME balayage de lumière dorée (105°, blend
+   screen, 10 s) que .im-sheen. Appliqué au SEUL héros — derrière les panneaux de données, le
+   mur écraserait la lecture ; le premium vient du contraste éditorial/データ. ── */
+.home-zone--hero {
+  background:
+    linear-gradient(90deg, rgba(10, 8, 4, .52), transparent 62%),
+    radial-gradient(ellipse at 62% 28%, rgba(230, 189, 77, .12), transparent 60%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='224'><g stroke='rgba(230,189,77,0.075)' stroke-width='1.5' fill='none'><path d='M0 0.75H400M0 112H400M0 223.25H400'/><path d='M200 0V112M0 112V224M400 112V224'/></g></svg>") repeat left top / 400px 224px,
+    linear-gradient(135deg, #1a1408, #2c200c 55%, #151009);
+  box-shadow: inset 0 0 120px 26px rgba(8, 7, 5, .5);
+}
+/* Le balayage : réactive le ::after du panneau (éteint globalement) en faisceau plein cadre. */
+.home-zone--hero::after {
+  content: ''; display: block; position: absolute;
+  top: -20%; bottom: -20%; left: -65%; right: auto; width: 55%; height: auto;
+  background: linear-gradient(105deg, transparent 34%, rgba(230, 189, 77, .16) 48%, rgba(255, 243, 212, .12) 52%, transparent 66%);
+  mix-blend-mode: screen; pointer-events: none; z-index: 2; opacity: 1;
+  animation: homeHeroSheen 10s ease-in-out infinite; will-change: transform;
+}
+@keyframes homeHeroSheen { to { transform: translateX(360%); } }
+@media (prefers-reduced-motion: reduce) { .home-zone--hero::after { animation: none; } }
+/* Lisibilité sur le mur : sous-titre et date éclaircis. */
+.home-zone--hero .home-sub { color: rgba(255, 255, 255, .74); }
+.home-zone--hero .home-sub-date { color: rgba(255, 255, 255, .6); }
+
+/* ── COURBE VIVANTE (retour user « enlève ceci… sinon anime-le ») : l'ancienne courbe de fond
+   statique disparaît ; à la place, une ligne de cours qui SE DESSINE de gauche à droite (boucle
+   12 s), pointe portée par un point or lumineux, puis fondu et redémarrage — « le marché
+   s'écrit ». SVG DOM (dash-draw CSS + animateMotion), statique complète en reduced-motion. ── */
+.home-zone--hero .home-zone-body::after { display: none; }
+.home-hero-spark {
+  position: absolute; left: -8px; bottom: 0; width: calc(100% + 16px); height: 150px;
+  pointer-events: none; z-index: 1;
+}
+.home-hero-spark .sp-line {
+  fill: none; stroke: rgba(227, 178, 58, .38); stroke-width: 1.6;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: heroSparkDraw 12s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+.home-hero-spark .sp-dot {
+  fill: #e3b23a; opacity: 0;
+  filter: drop-shadow(0 0 4px rgba(227, 178, 58, .85));
+  animation: heroSparkDot 12s linear infinite;
+}
+@keyframes heroSparkDraw {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  6% { opacity: 1; }
+  55% { stroke-dashoffset: 0; opacity: 1; }
+  84% { stroke-dashoffset: 0; opacity: 1; }
+  94% { stroke-dashoffset: 0; opacity: 0; }
+  100% { stroke-dashoffset: 1; opacity: 0; }
+}
+@keyframes heroSparkDot {
+  0% { opacity: 0; }
+  5% { opacity: 1; }
+  55% { opacity: 1; }
+  80% { opacity: 1; }
+  90% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-spark .sp-line { animation: none; stroke-dashoffset: 0; }
+  .home-hero-spark .sp-dot { animation: none; opacity: 0; }
+}
