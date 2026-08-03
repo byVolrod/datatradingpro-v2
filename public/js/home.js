@@ -34,26 +34,24 @@
   function openView(v) { close(); try { if (typeof activateView === 'function') activateView(v); } catch (e) {} }
   function createDesk() { close(); try { DTPWidgets.open(); setTimeout(function () { DTPWidgets.openManager(); }, 120); } catch (e) {} }
 
+  // CARTES VISUELLES (03/08 « met comme ceci ») : le PLAN du desk (moteur 2D des vignettes) devient
+  // le VISAGE de la carte, le nom en Fraunces par-dessus, méta discrète en bas — on reconnaît son
+  // desk à sa forme, comme la référence. « + Nouveau desk » remonte dans l'en-tête du bloc.
   function layoutCards(cfg) {
     var lays = (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).slice(0, 8);
-    var cards = lays.map(function (l, i) {
+    return lays.map(function (l, i) {
       var n = (l.items || []).length;
-      // Vignette RÉELLE du desk (même moteur que le gestionnaire) : on reconnaît son layout à sa forme
-      // et aux couleurs de familles, sans avoir à lire le nom.
       var mini = '';
       try { mini = (window.DTPWidgets && DTPWidgets.thumb) ? DTPWidgets.thumb(l.items, { labels: true }) : ''; } catch (e) {}
-      // --i = rang de cascade : les cartes s'allument l'une après l'autre (60 ms d'écart, CSS).
-      return '<button class="home-card" style="--i:' + i + '" onclick="DTPHome.openDesk(\'' + esc(l.id) + '\')">'
+      return '<button class="home-card home-card--visu" style="--i:' + i + '" onclick="DTPHome.openDesk(\'' + esc(l.id) + '\')">'
+        + (mini ? '<span class="home-card-face">' + mini + '</span>' : '')
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
-        + (mini ? '<span class="home-card-thumb">' + mini + '</span>' : '')
-        + '<span class="home-card-name">' + esc(l.name || 'Desk') + '</span>'
+        + '<span class="home-card-nom">' + esc(l.name || 'Desk') + '</span>'
         + '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'
-        + '<span class="home-card-go">Ouvrir →</span></button>';
+        + '</button>';
     }).join('');
-    return cards + '<button class="home-card home-card--new" style="--i:' + lays.length + '" onclick="DTPHome.createDesk()">'
-      + '<span class="home-card-plus">+</span><span class="home-card-name">Nouveau desk</span>'
-      + '<span class="home-card-meta">disposition, modèle ou widgets un à un</span></button>';
   }
+  function nbDesks(cfg) { return (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).length; }
 
   // (La table VUES a été retirée avec « Accès rapide » : la nav du desk est à un clic, et deux de
   //  ses identifiants étaient morts — le desk attend « analyst » et « bank », pas « analystes »
@@ -132,14 +130,25 @@
      rafraîchis au même rythme que le tick du desk (150 s). Contenu doublé pour une boucle sans
      couture ; pause au survol. ── */
   function _tkFmt(px) { return px == null ? '—' : Number(px).toFixed(px >= 40 ? 2 : 4); }
+  // Micro-drapeaux RONDS de la paire (base sur quote, chevauchés) — mêmes visuels que le desk
+  // (flagcdn + la table _CURR_ISO du calendrier). Sans iso connue : pas d'image, jamais de casse.
+  function _tkFlags(b, q) {
+    var iso = (typeof _CURR_ISO !== 'undefined') ? _CURR_ISO : {};
+    var ib = iso[b], iq = iso[q];
+    if (!ib || !iq) return '';
+    return '<span class="home-tk-fl"><img src="https://flagcdn.com/w40/' + ib + '.png" alt="" loading="lazy">'
+      + '<img src="https://flagcdn.com/w40/' + iq + '.png" alt="" loading="lazy"></span>';
+  }
   function tickerItems(pairs) {
     return (pairs || []).filter(function (p) { return p && p.base && p.quote && p.last != null; }).map(function (p) {
       var chg = (typeof p.changePct === 'number') ? p.changePct : null;
-      var cls = chg == null ? '' : (chg >= 0 ? ' up' : ' down');
+      var dir = chg == null ? '' : (chg >= 0 ? ' up' : ' down');
       var chgTxt = chg == null ? '' : ((chg >= 0 ? '+' : '') + chg.toFixed(2) + '%');
-      return '<span class="home-tk"><b>' + esc(p.base + '/' + p.quote) + '</b>'
+      // Le SEGMENT ENTIER porte la teinte directionnelle (voile vert/rouge) — lecture immédiate.
+      return '<span class="home-tk' + dir + '">' + _tkFlags(p.base, p.quote)
+        + '<b>' + esc(p.base + '/' + p.quote) + '</b>'
         + '<span class="home-tk-px">' + _tkFmt(p.last) + '</span>'
-        + (chgTxt ? '<span class="home-tk-chg' + cls + '">' + chgTxt + '</span>' : '') + '</span>';
+        + (chgTxt ? '<span class="home-tk-chg' + dir + '">' + chgTxt + '</span>' : '') + '</span>';
     }).join('');
   }
   function chargerTicker() {
@@ -186,7 +195,10 @@
   +       '</div>'
   +     '</section>'
   +     '<section class="home-zone home-zone--desks" style="--c:5">'
-  +       '<div class="home-panel-head"><span class="home-panel-t">Mes desks</span><span class="home-panel-fill"></span></div>'
+  +       '<div class="home-panel-head"><span class="home-panel-t">Mes desks</span>'
+  +         '<button class="home-desks-new" onclick="DTPHome.createDesk()">+ Nouveau desk</button>'
+  +         '<span class="home-panel-fill"></span>'
+  +         '<span class="home-desks-count">' + nbDesks(cfg) + ' au total</span></div>'
   +       '<div class="home-zone-body home-zone-body--cards"><div class="home-cards">' + layoutCards(cfg) + '</div></div>'
   +     '</section>'
   +     PANNEAUX.map(panneau).join('')
