@@ -964,6 +964,15 @@ async function buildIsolatedStrength(containerId, focusCurrency, period = 'week'
   try {
     const data = await fetch(`/api/currency-strength?period=${period}`).then(r => r.json());
     if (!data || !data.currencies) { el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
+    // GARDE 0×0 (03/08, « force des devises il bug ») : même course que la carte des sessions et le
+    // baromètre — amCharts mesure un cadre PAS ENCORE POSÉ (accueil monté en différé, onglet caché,
+    // rangée de grille qui se stabilise) → graphe BLANC définitif. On attend une vraie taille
+    // (jusqu'à ~8 s) avant de construire ; cadre disparu entre-temps → abandon propre.
+    for (let i = 0; i < 12 && (el.offsetWidth < 80 || el.offsetHeight < 60); i++) {
+      await new Promise(r => setTimeout(r, 650));
+      if (!document.getElementById(containerId)) return;
+    }
+    if (!document.getElementById(containerId)) return;
     el.innerHTML = '';
     return buildStrengthChart(containerId, data, { focusCurrency, isolated: true });
   } catch {
