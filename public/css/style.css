@@ -13625,3 +13625,70 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
 @keyframes homePhare { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .home-decor::after { animation: none; } }
 @media (max-width: 860px) { .home-decor::after { display: none; } }
+
+/* ── HÉROS v2 (03/08 « améliore ce bloc encore + ») : présence et finition — titre plus grand,
+   kicker étiré, CTA or habité (fond feutré, lueur au survol), coin orné signature, et une
+   COURBE DE MARCHÉ LOCALE en pied de bloc (ligne or + aire dégradée, dérive très lente) qui
+   habite l'espace sous le bouton au lieu de le laisser mort. ── */
+.home-zone--hero .home-hero-body { gap: 10px; padding: 26px 30px; }
+.home-zone--hero .home-eyebrow { letter-spacing: .26em; }
+.home-zone--hero .home-eyebrow::before { width: 26px; }
+.home-zone--hero .home-title { font-size: clamp(28px, 2.7vw, 40px); }
+.home-zone--hero .home-sub { margin-top: 2px; }
+.home-zone--hero .home-skip {
+  margin-top: 26px; padding: 11px 30px; border-radius: 6px;
+  border-color: rgba(227, 178, 58, .5); background: rgba(227, 178, 58, .05);
+  color: var(--orange, #e3b23a); font-weight: 700; letter-spacing: .08em;
+  transition: background .16s, border-color .16s, box-shadow .16s, transform .16s;
+}
+.home-zone--hero .home-skip:hover {
+  background: rgba(227, 178, 58, .13); border-color: rgba(227, 178, 58, .7);
+  box-shadow: 0 6px 24px -8px rgba(227, 178, 58, .35); transform: translateY(-1px);
+}
+/* Coin orné signature : double filet or en haut-gauche du panneau, discret, façon carte de note. */
+.home-zone--hero::before {
+  content: ''; position: absolute; top: 9px; left: 9px; width: 26px; height: 26px;
+  border-top: 1px solid rgba(227, 178, 58, .55); border-left: 1px solid rgba(227, 178, 58, .55);
+  pointer-events: none; z-index: 1;
+}
+/* Courbe locale : ligne de cours or ascendante + aire dégradée, fondue sur les bords, dérive 60 s. */
+.home-zone--hero .home-zone-body { position: relative; }
+.home-zone--hero .home-zone-body::after {
+  content: ''; position: absolute; left: -40px; right: -40px; bottom: -4px; height: 150px;
+  pointer-events: none; opacity: .9; will-change: transform;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='150' viewBox='0 0 900 150'><path d='M0 118 L48 106 L96 113 L144 92 L192 101 L240 80 L288 90 L336 68 L384 79 L432 58 L480 70 L528 48 L576 60 L624 40 L672 52 L720 32 L768 44 L816 24 L864 34 L900 22 L900 150 L0 150 Z' fill='rgba(227,178,58,0.05)'/><path d='M0 118 L48 106 L96 113 L144 92 L192 101 L240 80 L288 90 L336 68 L384 79 L432 58 L480 70 L528 48 L576 60 L624 40 L672 52 L720 32 L768 44 L816 24 L864 34 L900 22' fill='none' stroke='rgba(227,178,58,0.20)' stroke-width='1.6'/></svg>") repeat-x left bottom / 900px 150px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+  animation: homeHeroLine 60s ease-in-out infinite alternate;
+}
+@keyframes homeHeroLine { to { transform: translate3d(-90px, 0, 0); } }
+@media (prefers-reduced-motion: reduce) { .home-zone--hero .home-zone-body::after { animation: none; } }
+
+/* ── CALAGE D'INTENSITÉ (03/08, retour user « moins, légèrement ») : ~20 % de moins sur toute la
+   scène — mêmes positions, même équilibre quatre-coins, mêmes rythmes ; seuls les alphas baissent. ── */
+.home-overlay {
+  background:
+    radial-gradient(58% 110px at 50% 0%, rgba(227, 178, 58, .07), transparent),
+    radial-gradient(1150px 500px at 8% -8%, rgba(227, 178, 58, .11), transparent 62%),
+    radial-gradient(1000px 460px at 94% -6%, rgba(227, 178, 58, .08), transparent 60%),
+    radial-gradient(1000px 500px at 96% 112%, rgba(184, 134, 11, .09), transparent 64%),
+    radial-gradient(900px 440px at 4% 110%, rgba(184, 134, 11, .065), transparent 62%),
+    linear-gradient(180deg, #0c0c0f, #09090b 56%, #0b0a0c);
+}
+.home-decor i:nth-child(1) {
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .12), rgba(227, 178, 58, .04) 46%, transparent 74%);
+}
+.home-decor i:nth-child(2) {
+  background: radial-gradient(closest-side, rgba(184, 134, 11, .12), rgba(184, 134, 11, .04) 48%, transparent 74%);
+}
+.home-decor i:nth-child(3) {
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .085), transparent 72%);
+}
+.home-decor i:nth-child(4) {
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='300' viewBox='0 0 1400 300'><path d='M0 224 L58 208 L116 218 L174 184 L232 198 L290 162 L348 176 L406 142 L464 158 L522 126 L580 146 L638 108 L696 128 L754 98 L812 118 L870 84 L928 102 L986 72 L1044 92 L1102 62 L1160 78 L1218 50 L1276 66 L1340 42 L1400 52' fill='none' stroke='rgba(227,178,58,0.13)' stroke-width='2'/><path d='M0 224 L58 208 L116 218 L174 184 L232 198 L290 162 L348 176 L406 142 L464 158 L522 126 L580 146 L638 108 L696 128 L754 98 L812 118 L870 84 L928 102 L986 72 L1044 92 L1102 62 L1160 78 L1218 50 L1276 66 L1340 42 L1400 52' fill='none' stroke='rgba(227,178,58,0.04)' stroke-width='7'/></svg>") repeat-x left bottom / 1400px 300px;
+}
+.home-decor::after {
+  background: conic-gradient(from 0deg,
+    transparent 0 9%, rgba(227, 178, 58, .035) 13%, transparent 18%,
+    transparent 54%, rgba(227, 178, 58, .022) 60%, transparent 67%);
+}
