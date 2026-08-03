@@ -150,10 +150,11 @@
     var el = document.createElement('div');
     el.id = 'dtp-home'; el.className = 'home-overlay';
     el.innerHTML = ''
-        // FOND DYNAMIQUE IDENTITAIRE (03/08 « un fond qui bouge légèrement, qui reflète l'identité
-        // de DTP ») : trois nappes aux deux ors signature + une COURBE DE MARCHÉ fantôme qui dérive
-        // — transform GPU uniquement, voir .home-decor dans style.css.
-      + '<div class="home-decor" aria-hidden="true"><i></i><i></i><i></i><i></i></div>'
+        // FOND DYNAMIQUE IDENTITAIRE (03/08 « un fond qui bouge légèrement… l'animation doit aller
+        // un peu partout, même en bas ») : nappes aux deux ors signature sur les QUATRE coins,
+        // courbe de marché fantôme, et FILÉ DE LUMIÈRE qui traverse le bas — transform GPU
+        // uniquement, voir .home-decor dans style.css.
+      + '<div class="home-decor" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>'
         // TICKER EN BANDEAU DE TERMINAL, HORS du conteneur défilant (03/08 « on ne voit toujours
         // pas le ticker ») : dans .home-inner, il DÉFILAIT avec la page et passait sous la topbar
         // dès le premier pixel de scroll — c'est le rognage constaté deux fois. Enfant direct de
@@ -173,6 +174,12 @@
         // (bandeau de sessions retiré du héros : la CARTE DES SESSIONS en haut à droite porte
         //  désormais l'état des places, comme la référence — pas deux fois la même information)
   +         '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk →</button>'
+        // COURBE VIVANTE (03/08) : la ligne de cours SE DESSINE en boucle (dash-draw CSS), la
+        // pointe portée par un point or (animateMotion, mêmes 12 s → synchro par période).
+  +         '<svg class="home-hero-spark" viewBox="0 0 900 150" preserveAspectRatio="none" aria-hidden="true">'
+  +           '<path class="sp-line" pathLength="1" d="M0 118 L48 106 L96 113 L144 92 L192 101 L240 80 L288 90 L336 68 L384 79 L432 58 L480 70 L528 48 L576 60 L624 40 L672 52 L720 32 L768 44 L816 24 L864 34 L900 22"/>'
+  +           '<circle class="sp-dot" r="2.6"><animateMotion dur="12s" repeatCount="indefinite" calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.55;1" path="M0 118 L48 106 L96 113 L144 92 L192 101 L240 80 L288 90 L336 68 L384 79 L432 58 L480 70 L528 48 L576 60 L624 40 L672 52 L720 32 L768 44 L816 24 L864 34 L900 22"/></circle>'
+  +         '</svg>'
   +       '</div>'
   +     '</section>'
   +     '<section class="home-zone home-zone--desks" style="--c:5">'
