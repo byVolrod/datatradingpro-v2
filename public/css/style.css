@@ -13478,3 +13478,29 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
 @media (max-width: 560px) {
   .wdg-clockwrap { min-height: 132px; }
 }
+
+/* ── FOND DE L'ACCUEIL TRAVAILLÉ (03/08) : scène de terminal en 4 couches — (1) socle charbon en
+   léger dégradé vertical, (2) deux ambiances OR (aube haut-gauche + braise basse-droite, signature
+   DTP), (3) trame « papier millimétré » de salle de marché (cellules 44px, quasi subliminale),
+   (4) vignette périphérique qui recentre l'œil sur les panneaux. L'aura animée existante (::after)
+   continue de respirer par-dessus. ── */
+.home-overlay {
+  background:
+    radial-gradient(1250px 520px at 10% -8%, rgba(227, 178, 58, .13), transparent 60%),
+    radial-gradient(950px 460px at 97% 110%, rgba(184, 134, 11, .085), transparent 62%),
+    radial-gradient(700px 300px at 58% -4%, rgba(227, 178, 58, .05), transparent 55%),
+    linear-gradient(180deg, #0b0b0d, #09090b 58%, #0a0a0c);
+}
+.home-overlay::before {
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, .42), transparent 24%),
+    radial-gradient(130% 95% at 50% 38%, transparent 55%, rgba(0, 0, 0, .42)),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .016) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .016) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .008) 0 1px, transparent 1px 3px);
+}
+/* Halo d'assise sous le bandeau ticker : la première ligne de l'écran porte une ombre or douce. */
+.home-ticker.is-on { box-shadow: 0 14px 34px -20px rgba(227, 178, 58, .3), 0 6px 18px -10px rgba(0, 0, 0, .6); }
+/* Les panneaux se détachent du fond : ombre portée courte + assise, sans changer leur cadre. */
+.home-zone { box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .75); }
+.home-zone:hover { box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .8), 0 4px 18px rgba(0, 0, 0, .35); }
