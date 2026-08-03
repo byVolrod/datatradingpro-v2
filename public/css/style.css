@@ -11869,7 +11869,28 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 /* Widget Horloge mondiale : réutilise les .clock-item du desk (rendus par le VRAI renderClocks) ; on passe
    la barre en flex-wrap pour qu'elle remplisse n'importe quelle largeur de carte (5 sur une ligne en large,
    repli 2-3/ligne en étroit) — cellules internes strictement identiques au desk. */
-.wdg-clockwrap { height: 100%; overflow-y: auto; min-height: 0; }
+/* CONTENEUR DE REQUÊTE EN HAUTEUR (03/08, capture user « l'heure est trop sur le texte ») : la cellule
+   d'horloge du desk mesure ~120 px de contenu naturel ; dans une carte plus basse (Vue générale :
+   bande de 4 rangées), le centrage + overflow:hidden ÉCRASAIENT les lignes — l'heure venait mordre
+   sur « GMT ». La typo se resserre par PALIERS selon la hauteur RÉELLE du widget, et rien ne se
+   chevauche plus à aucune hauteur (banc). container-type:size est sûr ici : height:100% est définie. */
+.wdg-clockwrap { height: 100%; overflow-y: auto; min-height: 0; container-type: size; container-name: dtphorloge; }
+.wdg-clocks-bar .clock-time { margin: 2px 0 3px; }              /* respiration de base heure ↔ GMT */
+@container dtphorloge (max-height: 132px) {
+  .clock-item { padding: 4px 11px; }
+  .clock-top-row { margin-bottom: 1px; }
+  .clock-wday, .clock-date { font-size: 10px; }
+  .clock-time { font-size: 16px; margin: 1px 0 2px; }
+  .clock-gmt { font-size: 9px; }
+  .clock-city-label { font-size: 11px; }
+  .clock-mid-row { margin-bottom: 2px; gap: 0; }
+  .clock-country-row, .clock-sub-row { font-size: 9px; }
+}
+@container dtphorloge (max-height: 96px) {
+  /* Très bas : la météo cède — l'heure, le fuseau et la ville priment. */
+  .clock-sub-row { display: none; }
+  .clock-time { font-size: 15px; }
+}
 /* IDENTIQUE AU DESK (demande user 26/07 « le widget doit remplir comme cette image ») : grille de colonnes
    ÉGALES qui occupe TOUTE la largeur et TOUTE la hauteur de la carte, villes collées et séparées par un
    simple filet vertical — plus de cartes détachées à coins arrondis avec des gouttières.
@@ -12955,3 +12976,13 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    de la carte ; les panneaux (.view-panel) portent déjà flex:1 + leurs propres scrolls internes. */
 .wdg-vuehost { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
 .wdg-vuehost > .view-panel { flex: 1 1 auto; min-width: 0; min-height: 0; width: 100%; }
+
+/* ── VUES ADOPTÉES : lecture PLEINE LARGEUR dans la carte (03/08, capture user « trop d'écart sur les
+   côtés »). La colonne de lecture des lecteurs Analystes/Institutions (~1040 px centrés) est pensée
+   pour l'onglet plein écran ; dans une carte, ce centrage laissait deux gouttières noires. Dans une
+   vue adoptée, le contenu prend l'espace de tous les côtés — padding fixe raisonnable, plus de calc
+   centré. */
+.wdg-vuehost .arlib-rcontent, .wdg-vuehost #br-rcontent { padding: 20px 26px 36px; }
+
+/* Onglet Taux (vue adoptée) : mode « une seule banque » → la carte restante prend toute la largeur. */
+.wdg-vuehost #taux-grid.rtc-solo { grid-template-columns: minmax(0, 1fr); }
