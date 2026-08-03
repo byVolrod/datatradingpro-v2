@@ -13884,3 +13884,50 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
 }
 /* Le halo or sous le ticker s'éteint (fond desk = sobriété), l'ombre d'assise douce reste. */
 .home-ticker.is-on { box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .6); }
+
+/* ── SPLASH D'INITIALISATION PREMIUM (03/08 « améliore ce loader rend le premium ») — SCOPÉ
+   #boot-loader (les .dtp-loader internes des widgets ne changent pas) : la marque (logo topbar
+   + wordmark or à reflet), le rond anonyme devient une BARRE de progression indéterminée or
+   (même élément .dtp-loader__spin → le filet de secours 9 s continue de le masquer), ambiance
+   or discrète derrière. ── */
+#boot-loader {
+  background:
+    radial-gradient(640px 300px at 50% 30%, rgba(227, 178, 58, .07), transparent 62%),
+    var(--bg, #0c0c0e);
+}
+#boot-loader .dtp-loader { gap: 18px; animation: bootIn .5s var(--ease-out, ease) both; }
+@keyframes bootIn { from { opacity: 0; transform: translateY(8px); } }
+#boot-loader .boot-brand { display: flex; align-items: center; gap: 12px; }
+#boot-loader .boot-mk { width: 34px; height: 34px; display: block; }
+#boot-loader .boot-mk svg { width: 100%; height: 100%; display: block; border-radius: 9px; box-shadow: 0 6px 22px -6px rgba(184, 134, 11, .45); }
+#boot-loader .boot-name {
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 800; font-size: 21px; letter-spacing: -.02em;
+  background: linear-gradient(100deg, #f0d27a, #e3b23a 45%, #b8860b 62%, #f0d27a 85%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  animation: bootSheen 2.6s ease-in-out infinite;
+}
+@keyframes bootSheen { 0% { background-position: 120% 0; } 100% { background-position: -60% 0; } }
+/* Le rond devient une barre fine : piste sombre + segment or qui voyage (indéterminé). */
+#boot-loader .dtp-loader__spin {
+  width: 224px; height: 3px; border: 0; border-radius: 3px;
+  background: rgba(255, 255, 255, .07); overflow: hidden; position: relative;
+  animation: none;
+}
+#boot-loader .dtp-loader__spin::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 34%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(227, 178, 58, .25), #e3b23a 55%, rgba(227, 178, 58, .25));
+  animation: bootBar 1.5s cubic-bezier(.45, 0, .4, 1) infinite;
+}
+@keyframes bootBar {
+  0% { transform: translateX(-110%); }
+  55% { transform: translateX(160%); }
+  100% { transform: translateX(310%); }
+}
+#boot-loader .dtp-loader__label { font-size: 12.5px; color: #8f96a1; letter-spacing: .04em; animation: bootLbl 2.2s ease-in-out infinite; }
+@keyframes bootLbl { 0%, 100% { opacity: .68; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  #boot-loader .dtp-loader, #boot-loader .boot-name, #boot-loader .dtp-loader__label { animation: none; }
+  #boot-loader .dtp-loader__spin::before { animation: none; width: 100%; opacity: .5; }
+}
