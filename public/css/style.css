@@ -13284,6 +13284,10 @@ html[data-theme="light"] .wdg-settings .wdg-set-chip.on { color: var(--orange-di
 .home-zone--hero .home-sess { flex: 1 1 46%; }
 /* Le bouton s'ancre en BAS du bloc (margin-top auto) — rayon contenu, jamais la pilule qui s'arque. */
 .home-zone--hero .home-skip { margin: auto 0 0; width: 100%; text-align: center; padding: 10px 12px; border-radius: 8px; }
+/* ⚠️ La règle historique `.home-zone-body > * { height:100% }` (pensée pour « un corps = UN widget »)
+   s'appliquait à CHAQUE enfant du héros : les textes se comprimaient à leur minimum et le bouton
+   absorbait le reste — mesuré 234 px de haut (la « boîte or vide » constatée). Neutralisée ici. */
+.home-zone--hero .home-hero-body > * { height: auto; }
 /* (l'ancienne rangée .home-top n'existe plus — le héros vit dans la grille) */
 .home-top { display: none; }
 
