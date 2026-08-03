@@ -36,20 +36,21 @@
 
   function layoutCards(cfg) {
     var lays = (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).slice(0, 8);
-    var cards = lays.map(function (l) {
+    var cards = lays.map(function (l, i) {
       var n = (l.items || []).length;
       // Vignette RÉELLE du desk (même moteur que le gestionnaire) : on reconnaît son layout à sa forme
       // et aux couleurs de familles, sans avoir à lire le nom.
       var mini = '';
       try { mini = (window.DTPWidgets && DTPWidgets.thumb) ? DTPWidgets.thumb(l.items, { labels: true }) : ''; } catch (e) {}
-      return '<button class="home-card" onclick="DTPHome.openDesk(\'' + esc(l.id) + '\')">'
+      // --i = rang de cascade : les cartes s'allument l'une après l'autre (60 ms d'écart, CSS).
+      return '<button class="home-card" style="--i:' + i + '" onclick="DTPHome.openDesk(\'' + esc(l.id) + '\')">'
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
         + (mini ? '<span class="home-card-thumb">' + mini + '</span>' : '')
         + '<span class="home-card-name">' + esc(l.name || 'Desk') + '</span>'
         + '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'
         + '<span class="home-card-go">Ouvrir →</span></button>';
     }).join('');
-    return cards + '<button class="home-card home-card--new" onclick="DTPHome.createDesk()">'
+    return cards + '<button class="home-card home-card--new" style="--i:' + lays.length + '" onclick="DTPHome.createDesk()">'
       + '<span class="home-card-plus">+</span><span class="home-card-name">Nouveau desk</span>'
       + '<span class="home-card-meta">disposition, modèle ou widgets un à un</span></button>';
   }
@@ -82,11 +83,16 @@
       var weekend = l.jour === 0 || l.jour === 6;
       var ouverte = !weekend && l.h >= s.o && l.h < s.c;
       var reste = ouverte ? _duree(s.c - l.h) : (weekend ? null : _duree((l.h < s.o ? s.o - l.h : 24 - l.h + s.o)));
+      // JAUGE DE SÉANCE (place ouverte) : part de séance déjà écoulée — un filet de 2 px sous la
+      // place, alimenté par le même rafraîchissement 30 s. L'état devient une donnée, pas une légende.
+      var pct = ouverte ? Math.max(2, Math.min(100, Math.round(((l.h - s.o) / (s.c - s.o)) * 100))) : 0;
       return '<div class="home-sess' + (ouverte ? ' is-open' : '') + '">'
         + '<span class="home-sess-dot"></span>'
-        + '<span class="home-sess-n">' + s.n + '</span>'
-        + '<span class="home-sess-t">' + (weekend ? 'week-end' : ouverte ? 'ferme dans ' + reste : 'ouvre dans ' + reste) + '</span>'
-        + '</div>';
+        + '<span class="home-sess-main">'
+        +   '<span class="home-sess-lig"><span class="home-sess-n">' + s.n + '</span>'
+        +   '<span class="home-sess-t">' + (weekend ? 'week-end' : (ouverte ? 'ferme dans ' : 'ouvre dans ') + '<b class="home-sess-cd">' + reste + '</b>') + '</span></span>'
+        +   (ouverte ? '<span class="home-sess-j"><i style="width:' + pct + '%"></i></span>' : '')
+        + '</span></div>';
     }).join('');
   }
 
@@ -100,19 +106,20 @@
     { id: 'calendrier-jour', titre: 'À suivre aujourd\'hui', vue: 'calendar', col: 5,
       cfg: { impact: 'high', lignes: 12, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
     // Le fil remplace la carte des sessions : le bandeau du haut dit déjà l'état des places, et
-    // c'est l'actualité qu'on ouvre en premier en prenant son poste.
-    { id: 'fil-news', titre: 'Flash marché', vue: 'news', col: 4, cfg: { nb: 14 } },
+    // c'est l'actualité qu'on ouvre en premier en prenant son poste. live = pastille « En direct ».
+    { id: 'fil-news', titre: 'Flash marché', vue: 'news', col: 4, cfg: { nb: 14 }, live: true },
     // La PÉRIODE est affichée : un graphe de force ne veut rien dire sans sa fenêtre de temps.
     // TD = la séance en cours, vocabulaire du desk (STF_LABELS) et non un mot propre à l'accueil.
-    { id: 'force-devises', titre: 'Force des devises', tf: 'TD', vue: 'fxlist', col: 5, cfg: { periodes: 'today' } },
+    { id: 'force-devises', titre: 'Force des devises', tf: 'TD', vue: 'fxlist', col: 5, cfg: { periodes: 'today' }, live: true },
     // 7 colonnes : c'est un tableau à 7 piliers ; en dessous il se tronque (la colonne CROISSANCE
     // disparaissait dans l'ancienne mise en page bridée à 1180 px).
-    { id: 'radar-biais', titre: 'Radar de biais', vue: 'bias', col: 7 },
+    { id: 'radar-biais', titre: 'Radar de biais', vue: 'bias', col: 7, live: true },
   ];
   function panneau(p) {
     return '<section class="home-zone home-zone--w" style="--c:' + (p.col || 4) + '">'
       + '<div class="home-sec home-sec--w"><span class="home-sec-t">' + esc(p.titre)
-      + (p.tf ? '<span class="home-tf" title="Période affichée">' + esc(p.tf) + '</span>' : '') + '</span>'
+      + (p.tf ? '<span class="home-tf" title="Période affichée">' + esc(p.tf) + '</span>' : '')
+      + (p.live ? '<span class="home-live"><i></i>En direct</span>' : '') + '</span>'
       + (p.vue ? '<button class="home-zone-go" onclick="DTPHome.openView(\'' + p.vue + '\')">Ouvrir ›</button>' : '')
       + '</div>'
       + '<div class="home-zone-body" id="home-w-' + p.id + '"></div>'
@@ -130,7 +137,7 @@
   +     '<div class="home-hero">'
   +       '<div class="home-eyebrow">Espace de travail</div>'
   +       '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
-  +       '<div class="home-sub">' + esc(dateFr()) + ' — ton desk est prêt.</div>'
+  +       '<div class="home-sub"><span class="home-sub-date">' + esc(dateFr()) + '</span><span class="home-sub-dot">·</span>ton desk est prêt.</div>'
   +     '</div>'
   +     '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
   +   '</div>'
