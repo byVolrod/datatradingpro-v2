@@ -108,8 +108,8 @@
     { id: 'calendrier-jour', titre: 'Calendrier économique', vue: 'calendar', col: 4,
       cfg: { impact: 'high', lignes: 12, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
     { id: 'fil-news', titre: "Fil d'actualité", vue: 'news', col: 5, cfg: { nb: 14 } },
-    { id: 'radar-biais', titre: 'Radar de Biais', vue: 'bias', col: 7 },
-    { id: 'force-devises', titre: 'Force des Devises', vue: 'fxlist', col: 12, cfg: { periodes: 'today' } },
+    // Radar de Biais RETIRÉ (demande user 03/08) → la Force des Devises prend sa place en rangée 2.
+    { id: 'force-devises', titre: 'Force des Devises', vue: 'fxlist', col: 7, cfg: { periodes: 'today' } },
   ];
   // PANNEAU FAÇON DESK : le titre vit DANS le bloc — la barre d'en-tête des panneaux du desk,
   // filet or fuyant, « Ouvrir › » à droite. Rien d'autre : épuré, cohérent.
