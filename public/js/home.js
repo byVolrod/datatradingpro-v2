@@ -142,23 +142,21 @@
         + (chgTxt ? '<span class="home-tk-chg' + cls + '">' + chgTxt + '</span>' : '') + '</span>';
     }).join('');
   }
-  var _tkEssais = 0;
   function chargerTicker() {
     var host = document.getElementById('home-ticker-in'); if (!host) return;
-    // RÉESSAI RAPIDE au démarrage (constaté user : « il manque la barre ticker ») : le premier appel
-    // peut tomber sur un cache FX List froid (calcul lourd côté serveur) → sans nouvelle tentative
-    // avant 150 s, la bande restait invisible toute la prise de poste.
+    // RÉESSAI TANT QUE LA BANDE N'EST PAS AFFICHÉE (constaté user, deux fois) : premier appel sur
+    // cache froid, 503 transitoire, redéploiement… — on retente toutes les 12 s jusqu'à l'affichage,
+    // le minuteur meurt avec l'écran. Une fois la bande en place, seul le tick 150 s la rafraîchit.
     var replanifie = function () {
-      if (_tkEssais >= 8) return;
-      _tkEssais++;
+      if (!document.getElementById('home-ticker-in')) return;
+      if (host.parentNode.classList.contains('is-on')) return;
       var t = setTimeout(chargerTicker, 12000);
       _menage.push(function () { clearTimeout(t); });
     };
-    fetch('/api/fxlist').then(function (r) { return r.json(); }).then(function (d) {
+    fetch('/api/fxlist').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
       if (!document.getElementById('home-ticker-in')) return;
       var items = tickerItems(d && d.pairs);
       if (!items) return replanifie();
-      _tkEssais = 0;
       host.innerHTML = items + items;                    // doublé → la boucle repart sans couture à -50 %
       host.parentNode.classList.add('is-on');
     }).catch(replanifie);
