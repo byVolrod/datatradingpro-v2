@@ -13576,3 +13576,52 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
 @keyframes homeDeriveD { to { transform: translate3d(-160px, -8px, 0); } }
 @media (prefers-reduced-motion: reduce) { .home-decor i { animation: none; } }
 @media (max-width: 860px) { .home-decor i:nth-child(3), .home-decor i:nth-child(4) { display: none; } }
+
+/* ── FOND v4 (03/08 « améliore l'effet » + « pas concentré d'un seul côté, ça casse l'autre
+   côté ») : effet PERCEPTIBLE et ÉQUILIBRÉ — la lumière vit aux QUATRE coins (aube gauche
+   adoucie, réponse or en haut-droite, braise basse-droite, lueur basse-gauche), dérives plus
+   amples, courbe de marché affirmée, et BALAYAGE LUMINEUX : un voile conique or qui tourne en
+   120 s (rotation composite GPU) et distribue le mouvement sur TOUT l'écran, façon phare de
+   salle des marchés — le fond vit partout, sans jamais gêner la lecture. ── */
+.home-overlay {
+  background:
+    radial-gradient(58% 110px at 50% 0%, rgba(227, 178, 58, .09), transparent),
+    radial-gradient(1150px 500px at 8% -8%, rgba(227, 178, 58, .13), transparent 62%),
+    radial-gradient(1000px 460px at 94% -6%, rgba(227, 178, 58, .10), transparent 60%),
+    radial-gradient(1000px 500px at 96% 112%, rgba(184, 134, 11, .11), transparent 64%),
+    radial-gradient(900px 440px at 4% 110%, rgba(184, 134, 11, .08), transparent 62%),
+    linear-gradient(180deg, #0c0c0f, #09090b 56%, #0b0a0c);
+}
+.home-decor i:nth-child(1) {
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .15), rgba(227, 178, 58, .05) 46%, transparent 74%);
+}
+.home-decor i:nth-child(2) {
+  background: radial-gradient(closest-side, rgba(184, 134, 11, .15), rgba(184, 134, 11, .05) 48%, transparent 74%);
+}
+/* La 3e nappe quitte le centre pour le HAUT-DROITE : l'autre côté vit aussi. */
+.home-decor i:nth-child(3) {
+  top: -140px; left: auto; right: 4%; width: 820px; height: 420px;
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .11), transparent 72%);
+}
+.home-decor i:nth-child(4) {
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='300' viewBox='0 0 1400 300'><path d='M0 224 L58 208 L116 218 L174 184 L232 198 L290 162 L348 176 L406 142 L464 158 L522 126 L580 146 L638 108 L696 128 L754 98 L812 118 L870 84 L928 102 L986 72 L1044 92 L1102 62 L1160 78 L1218 50 L1276 66 L1340 42 L1400 52' fill='none' stroke='rgba(227,178,58,0.17)' stroke-width='2'/><path d='M0 224 L58 208 L116 218 L174 184 L232 198 L290 162 L348 176 L406 142 L464 158 L522 126 L580 146 L638 108 L696 128 L754 98 L812 118 L870 84 L928 102 L986 72 L1044 92 L1102 62 L1160 78 L1218 50 L1276 66 L1340 42 L1400 52' fill='none' stroke='rgba(227,178,58,0.055)' stroke-width='7'/></svg>") repeat-x left bottom / 1400px 300px;
+}
+@keyframes homeDeriveA { to { transform: translate3d(112px, 40px, 0) scale(1.09); } }
+@keyframes homeDeriveB { to { transform: translate3d(-96px, -34px, 0) scale(1.07); } }
+@keyframes homeDeriveC { to { transform: translate3d(-64px, 22px, 0) scale(1.06); } }   /* vers l'intérieur (la nappe vit désormais en haut-droite) */
+@keyframes homeDeriveD { to { transform: translate3d(-220px, -12px, 0); } }
+/* Balayage : deux faisceaux opposés très doux sur un disque géant centré — seule la rotation
+   est animée (transform), la géométrie déborde l'écran pour ne jamais montrer son bord. */
+.home-decor::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 190vmax; height: 190vmax; margin: -95vmax 0 0 -95vmax;
+  border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg,
+    transparent 0 9%, rgba(227, 178, 58, .045) 13%, transparent 18%,
+    transparent 54%, rgba(227, 178, 58, .03) 60%, transparent 67%);
+  animation: homePhare 120s linear infinite;
+  will-change: transform;
+}
+@keyframes homePhare { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .home-decor::after { animation: none; } }
+@media (max-width: 860px) { .home-decor::after { display: none; } }
