@@ -8558,9 +8558,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   padding: 4px 0 8px;
 }
 
-/* ── Footer (logout) ── */
+/* ── Footer (logout) : bande rouge PLEINE LARGEUR (demande user 03/08 « le rouge doit s'étendre sur
+   tout le panneau ») — le padding du footer laissait une gouttière sombre autour de la rangée. ── */
 .pd-footer {
-  padding: 10px 16px 12px;
+  padding: 0;
   border-top: 1px solid #1e1e1e;
   flex-shrink: 0;
   background: var(--bg);
@@ -8570,20 +8571,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   align-items: center;
   justify-content: flex-start;       /* aligné à gauche (comme l'image) */
   gap: 11px;
-  background: transparent;
+  background: rgba(231, 76, 60, 0.08);
   border: none;
-  border-radius: 4px;
+  border-radius: 0;
   color: #e74c3c;
   font-size: 13px;
   font-weight: var(--fw-semibold);
   font-family: 'Inter', sans-serif;
-  padding: 11px 12px;
+  padding: 13px 16px;
   cursor: pointer;
   width: 100%;
   transition: background 0.15s;
 }
 .pd-logout-btn:hover {
-  background: rgba(231,76,60,0.10);
+  background: rgba(231, 76, 60, 0.16);
 }
 
 /* ── Topbar avatar trigger button ── */
@@ -11359,11 +11360,12 @@ html[data-theme="light"] {
 /* Panneaux overlay info / réglages (dropdown depuis l'en-tête, façon desk pro — organisation DTP) */
 .wdg-pop {
   /* z-index 1200 : au-dessus des couches Leaflet de la carte des sessions (panes 400-700) et des
-     tuiles amCharts — sinon les badges de ville se dessinent PAR-DESSUS le panneau de réglages. */
+     tuiles amCharts — sinon les badges de ville se dessinent PAR-DESSUS le panneau de réglages.
+     288px (était 268) : les jeux de puces longs (Tri du DMX) respirent au lieu de s'empiler serrés. */
   position: absolute; top: 33px; right: 8px; z-index: 1200;
-  width: min(268px, calc(100% - 16px));
+  width: min(288px, calc(100% - 16px));
   background: var(--pop-bg, var(--w-s3)); border: 1px solid rgba(227,178,58,.32); border-radius: var(--radius);
-  box-shadow: 0 12px 34px rgba(0,0,0,.55); padding: 10px 12px;
+  box-shadow: 0 12px 34px rgba(0,0,0,.55); padding: 12px 14px;
 }
 html[data-theme="light"] .wdg-pop { --pop-bg: #fbfbf7; }
 .wdg-pop-d { color: var(--text2, var(--w-t3)); }
@@ -11371,20 +11373,25 @@ html[data-theme="light"] .wdg-pop { --pop-bg: #fbfbf7; }
 .wdg-pop-t { font-family: 'Fraunces', Georgia, serif; font-size: 12px; color: var(--orange); margin-bottom: 4px; }
 .wdg-pop-d { font-size: 11px; color: var(--w-t3); line-height: 1.5; }
 .wdg-pop-m { font-size: 9px; color: var(--w-t13); margin-top: 7px; text-transform: uppercase; letter-spacing: .6px; }
-.wdg-set-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
-/* 60px : la colonne de libellés doit tenir le plus long des réglages déclarés (« Ombre nuit »,
-   « Valeur pip ») sur UNE ligne — à 52px ils se coupaient en deux. */
-.wdg-set-lbl { flex: 0 0 auto; width: 60px; font-size: 10px; line-height: 1.25; color: var(--text3, var(--w-t9)); }
+.wdg-set-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+/* LISIBILITÉ (demande user 03/08, capture du panneau DMX) : libellés en CAPITALES DISCRÈTES façon
+   en-têtes de sections du desk — la colonne grise 10px se confondait avec les puces. */
+.wdg-set-lbl {
+  flex: 0 0 auto; width: 62px; font-size: 9px; line-height: 1.3;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text3, var(--w-t9));
+}
 
 /* RÉGLAGES DÉCLARATIFS (générés depuis le contrat du catalogue) — même grammaire que les
    incrémenteurs taille/hauteur juste au-dessus, séparés par un filet. */
-.wdg-set-sep { height: 1px; margin: 9px 0 7px; background: var(--hud-line, var(--border)); }
-.wdg-set-row:has(.wdg-set-chips) .wdg-set-lbl { align-self: flex-start; padding-top: 4px; }
-.wdg-set-chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.wdg-set-sep { height: 1px; margin: 10px 0 8px; background: var(--hud-line, var(--border)); }
+.wdg-set-row:has(.wdg-set-chips) .wdg-set-lbl { align-self: flex-start; padding-top: 5px; }
+.wdg-set-chips { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+/* Puces : un cran plus grandes et plus contrastées — 9,5px mono gris sur gris se lisait mal. */
 .wdg-set-chip {
-  padding: 3px 7px; font-family: var(--mono, ui-monospace, monospace); font-size: 9.5px; letter-spacing: .03em;
-  color: var(--text2, var(--w-t6)); background: var(--bg2); border: 1px solid var(--hud-line, var(--border));
-  border-radius: 4px; cursor: pointer; white-space: nowrap; transition: border-color .12s, color .12s, background .12s;
+  padding: 4px 10px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+  color: var(--text2, #c9cdd4); background: var(--bg2); border: 1px solid var(--hud-line, var(--border));
+  border-radius: var(--pill, 999px); cursor: pointer; white-space: nowrap; transition: border-color .12s, color .12s, background .12s;
 }
 .wdg-set-chip:hover { border-color: rgba(227, 178, 58, .5); color: var(--text); }
 .wdg-set-chip.on { color: #0c0c0e; background: var(--orange, #e3b23a); border-color: var(--orange, #e3b23a); font-weight: 600; }
