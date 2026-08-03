@@ -1645,18 +1645,10 @@
               + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(labels[i] || w.tag || w.name) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
         }
-        bar.addEventListener('click', function (e) {
-          if (e.target.closest('.wdgt-edit')) return;   // clic dans le champ de renommage → ne pas changer d'onglet
-          if (e.target.closest('.wdgt-add')) { _pickTabFor(it); return; }
-          var t = e.target.closest('.wdgt-tab'); if (!t) return;
-          actIdx = +t.getAttribute('data-i'); it._tabAct = actIdx;
-          renderTabs(); mountSub();
-        });
-        // RENOMMAGE au double-clic (demande user 28/07) : le libellé devient un champ inline —
+        // RENOMMAGE INLINE (demande user 28/07, réparé 03/08) : le libellé devient un champ —
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
-        bar.addEventListener('dblclick', function (e) {
-          var t = e.target.closest('.wdgt-tab'); if (!t) return;
-          var i = +t.getAttribute('data-i');
+        function ouvreRenommage(i) {
+          var t = bar.querySelector('.wdgt-tab[data-i="' + i + '"]'); if (!t) return;
           var w0 = byId(tabs[i]); if (!w0) return;
           var nm = t.querySelector('.wdgt-nm'); if (!nm) return;
           var inp = document.createElement('input');
@@ -1677,6 +1669,23 @@
           }
           inp.addEventListener('keydown', function (ev) { ev.stopPropagation(); if (ev.key === 'Enter') commit(true); else if (ev.key === 'Escape') commit(false); });
           inp.addEventListener('blur', function () { commit(true); });
+        }
+        // DOUBLE-CLIC DÉTECTÉ À LA MAIN (03/08, « quand on double-clique sur le nom on doit pouvoir
+        // renommer ») : le dblclick NATIF ne se formait jamais — le premier clic re-rendait la barre
+        // (renderTabs) et détachait le nœud avant le second clic. On mesure donc nous-mêmes : deux
+        // clics < 400 ms sur le MÊME onglet = renommage, quel que soit le re-rendu entre les deux.
+        var _tapI = -1, _tapT = 0;
+        bar.addEventListener('click', function (e) {
+          if (e.target.closest('.wdgt-edit')) return;   // clic dans le champ de renommage → ne pas changer d'onglet
+          if (e.target.closest('.wdgt-add')) { _pickTabFor(it); return; }
+          var t = e.target.closest('.wdgt-tab'); if (!t) return;
+          var ni = +t.getAttribute('data-i');
+          var now = Date.now();
+          if (ni === _tapI && now - _tapT < 400) { _tapT = 0; ouvreRenommage(ni); return; }
+          _tapI = ni; _tapT = now;
+          if (ni === actIdx) return;                     // déjà actif → no-op (rien à re-rendre)
+          actIdx = ni; it._tabAct = actIdx;
+          renderTabs(); mountSub();
         });
         renderTabs(); mountSub();
         return function () { if (subClean) { try { subClean(); } catch (e) {} subClean = null; } };
