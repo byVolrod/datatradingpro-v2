@@ -13948,3 +13948,7 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
   font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9px; font-weight: 700;
   letter-spacing: .05em; text-transform: uppercase; cursor: default;
 }
+
+/* ── « − » de l'en-tête du panneau à onglets (03/08) : retire l'onglet AFFICHÉ seulement. */
+.wdg-ico--tabx { font-size: 14px; font-weight: 700; line-height: 1; }
+.wdg-ico--tabx:hover { color: #ff5233; background: rgba(255, 61, 0, .08); }
