@@ -13,9 +13,11 @@
   var _flagCle = FLAG;                              // clé effective, connue une fois l'auth lue
 
   function esc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); }
+  // Salutation BINAIRE dynamique (demande user 03/08) : « Bonjour » en journée (5h-18h, Paris),
+  // « Bonsoir » en soirée/nuit — plus de « Bon après-midi »/« Bonne nuit ».
   function salut() {
     var h = 0; try { h = parseInt(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(new Date()), 10) || 0; } catch (e) {}
-    return h < 6 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+    return h >= 5 && h < 18 ? 'Bonjour' : 'Bonsoir';
   }
   function dateFr() {
     try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()); } catch (e) { return ''; }
@@ -161,7 +163,8 @@
   +     '<section class="home-zone home-zone--hero" style="--c:3">'
   +       '<div class="home-zone-body home-hero-body">'
   +         '<div class="home-eyebrow">Espace de travail</div>'
-  +         '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
+        // Virgule APRÈS le nom (demande user 03/08) : « Bonjour JustOneTrader, » — façon lettre.
+  +         '<div class="home-title">' + salut() + ' <span class="home-name">' + prenom + '</span>,</div>'
   +         '<div class="home-sub"><span class="home-sub-date">' + esc(dateFr()) + '</span><span class="home-sub-dot">·</span>ton desk est prêt.</div>'
         // (bandeau de sessions retiré du héros : la CARTE DES SESSIONS en haut à droite porte
         //  désormais l'état des places, comme la référence — pas deux fois la même information)

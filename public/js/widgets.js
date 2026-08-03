@@ -370,8 +370,6 @@
           try { buildIsolatedStrength(id, foc, p); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
         }
         // La barre rejoint l'EN-TÊTE du widget (titre à gauche, périodes à droite) comme sur le desk.
-        // Hors du système de widgets — espace de travail via mountInto — il n'y a pas d'en-tête :
-        // dans ce cas la barre reste dans le corps, sinon elle disparaîtrait de l'accueil.
         var _carte = host.closest ? host.closest('.wdg-card') : null;
         // PANNEAU À ONGLETS : son en-tête est un CALQUE flottant (position absolute, pointer-events
         // none) posé PAR-DESSUS la barre d'onglets. Y déplacer la barre de périodes l'imprimait sans
@@ -380,6 +378,13 @@
         // 4 onglets. Dans ce cas, la barre reste dans le corps du widget.
         if (_carte && _carte.classList.contains('wdg-card--tabs')) _carte = null;
         var _tete = _carte ? _carte.querySelector('.wdg-head') : null;
+        // ACCUEIL (03/08, demande user « même panneau que le desk officiel ») : les panneaux de
+        // l'accueil portent désormais un en-tête façon desk (.home-panel-head) → la barre de
+        // périodes y monte aussi, au lieu de rester sur sa propre rangée dans le corps.
+        if (!_tete && host.closest) {
+          var _zone = host.closest('.home-zone');
+          _tete = _zone ? _zone.querySelector('.home-panel-head') : null;
+        }
         var _barre = host.querySelector('.wdg-fx-tfbar');
         if (_tete && _barre) {
           _barre.classList.add('wdg-fx-tfbar--head');
