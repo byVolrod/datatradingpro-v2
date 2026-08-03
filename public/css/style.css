@@ -13532,3 +13532,47 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
   width: 1040px; height: 540px;
   background: radial-gradient(closest-side, rgba(227, 178, 58, .10), transparent 70%);
 }
+
+/* ── FOND DYNAMIQUE IDENTITAIRE (03/08 « un fond qui bouge légèrement… qui reflète l'identité de
+   DTP ») : sous les panneaux, trois NAPPES aux deux ors signature (#e3b23a vif / #b8860b sombre)
+   dérivent en périodes longues désynchronisées (38/46/30 s), et une COURBE DE MARCHÉ FANTÔME —
+   ligne de cours or ascendante dessinée maison (SVG inline, self-contained) — glisse très
+   lentement dans le tiers bas. Tout est animé UNIQUEMENT en transform (couches composites GPU :
+   zéro repaint) ; une respiration organique, jamais un manège. L'ancienne aura ::after est
+   remplacée. ── */
+.home-overlay::after { display: none; }
+.home-decor { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.home-decor i {
+  position: absolute; display: block; border-radius: 50%;
+  will-change: transform; transform: translate3d(0, 0, 0);
+}
+.home-decor i:nth-child(1) {
+  top: -220px; left: -6%; width: 1150px; height: 560px;
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .10), rgba(227, 178, 58, .035) 46%, transparent 72%);
+  animation: homeDeriveA 38s ease-in-out infinite alternate;
+}
+.home-decor i:nth-child(2) {
+  bottom: -240px; right: -8%; width: 980px; height: 520px;
+  background: radial-gradient(closest-side, rgba(184, 134, 11, .09), rgba(184, 134, 11, .03) 48%, transparent 72%);
+  animation: homeDeriveB 46s ease-in-out -14s infinite alternate;
+}
+.home-decor i:nth-child(3) {
+  top: 16%; left: 40%; width: 660px; height: 330px;
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .05), transparent 70%);
+  animation: homeDeriveC 30s ease-in-out -9s infinite alternate;
+}
+/* Courbe de cours fantôme : polyline or ascendante (l'identité du métier), répétée en x,
+   fondue verticalement par masque — présence subliminale, jamais une déco qui crie. */
+.home-decor i:nth-child(4) {
+  left: -10%; right: -10%; bottom: 6%; height: 300px; border-radius: 0;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='300' viewBox='0 0 1400 300'><path d='M0 224 L58 208 L116 218 L174 184 L232 198 L290 162 L348 176 L406 142 L464 158 L522 126 L580 146 L638 108 L696 128 L754 98 L812 118 L870 84 L928 102 L986 72 L1044 92 L1102 62 L1160 78 L1218 50 L1276 66 L1340 42 L1400 52' fill='none' stroke='rgba(227,178,58,0.09)' stroke-width='2'/><path d='M0 224 L58 208 L116 218 L174 184 L232 198 L290 162 L348 176 L406 142 L464 158 L522 126 L580 146 L638 108 L696 128 L754 98 L812 118 L870 84 L928 102 L986 72 L1044 92 L1102 62 L1160 78 L1218 50 L1276 66 L1340 42 L1400 52' fill='none' stroke='rgba(227,178,58,0.03)' stroke-width='6'/></svg>") repeat-x left bottom / 1400px 300px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 34%, #000 78%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 34%, #000 78%, transparent);
+  animation: homeDeriveD 70s ease-in-out -20s infinite alternate;
+}
+@keyframes homeDeriveA { to { transform: translate3d(74px, 26px, 0) scale(1.06); } }
+@keyframes homeDeriveB { to { transform: translate3d(-64px, -22px, 0) scale(1.05); } }
+@keyframes homeDeriveC { to { transform: translate3d(42px, 16px, 0) scale(1.04); } }
+@keyframes homeDeriveD { to { transform: translate3d(-160px, -8px, 0); } }
+@media (prefers-reduced-motion: reduce) { .home-decor i { animation: none; } }
+@media (max-width: 860px) { .home-decor i:nth-child(3), .home-decor i:nth-child(4) { display: none; } }
