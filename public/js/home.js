@@ -103,27 +103,20 @@
      `cfg` = réglages du contrat déclaratif, choisis pour un écran de PRISE DE POSTE : on veut
      l'essentiel en un coup d'œil, pas l'exhaustivité (le desk est là pour ça). */
   var PANNEAUX = [
-    { id: 'calendrier-jour', titre: 'À suivre aujourd\'hui', vue: 'calendar', col: 5,
+    // TITRES = LES NOMS EXACTS DES WIDGETS DU DESK (demande user 03/08 « n'invente pas des titres —
+    // ça casse la cohérence ») : mêmes libellés que le catalogue, rien d'inventé, pas de pastille.
+    { id: 'calendrier-jour', titre: 'Calendrier économique', vue: 'calendar', col: 4,
       cfg: { impact: 'high', lignes: 12, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
-    // Le fil remplace la carte des sessions : le bandeau du haut dit déjà l'état des places, et
-    // c'est l'actualité qu'on ouvre en premier en prenant son poste. live = pastille « En direct ».
-    { id: 'fil-news', titre: 'Flash marché', vue: 'news', col: 4, cfg: { nb: 14 }, live: true },
-    // La PÉRIODE est affichée : un graphe de force ne veut rien dire sans sa fenêtre de temps.
-    // TD = la séance en cours, vocabulaire du desk (STF_LABELS) et non un mot propre à l'accueil.
-    { id: 'force-devises', titre: 'Force des devises', tf: 'TD', vue: 'fxlist', col: 5, cfg: { periodes: 'today' }, live: true },
-    // 7 colonnes : c'est un tableau à 7 piliers ; en dessous il se tronque (la colonne CROISSANCE
-    // disparaissait dans l'ancienne mise en page bridée à 1180 px).
-    { id: 'radar-biais', titre: 'Radar de biais', vue: 'bias', col: 7, live: true },
+    { id: 'fil-news', titre: "Fil d'actualité", vue: 'news', col: 5, cfg: { nb: 14 } },
+    { id: 'radar-biais', titre: 'Radar de Biais', vue: 'bias', col: 7 },
+    { id: 'force-devises', titre: 'Force des Devises', vue: 'fxlist', col: 12, cfg: { periodes: 'today' } },
   ];
-  // PANNEAU FAÇON DESK (demande user 03/08) : le titre vit DANS le bloc — barre d'en-tête aux
-  // capitales du desk, filet or fuyant, pastille « En direct », « Ouvrir › » à droite. Plus aucun
-  // texte au-dessus des blocs, et le corps colle aux bords : épuré, institutionnel.
+  // PANNEAU FAÇON DESK : le titre vit DANS le bloc — la barre d'en-tête des panneaux du desk,
+  // filet or fuyant, « Ouvrir › » à droite. Rien d'autre : épuré, cohérent.
   function panneau(p) {
     return '<section class="home-zone" style="--c:' + (p.col || 4) + '">'
       + '<div class="home-panel-head">'
       +   '<span class="home-panel-t">' + esc(p.titre) + '</span>'
-      +   (p.tf ? '<span class="home-tf" title="Période affichée">' + esc(p.tf) + '</span>' : '')
-      +   (p.live ? '<span class="home-live"><i></i>En direct</span>' : '')
       +   '<span class="home-panel-fill"></span>'
       +   (p.vue ? '<button class="home-zone-go" onclick="DTPHome.openView(\'' + p.vue + '\')">Ouvrir ›</button>' : '')
       + '</div>'
@@ -163,20 +156,23 @@
     el.id = 'dtp-home'; el.className = 'home-overlay';
     el.innerHTML = ''
       + '<div class="home-inner">'
-  +   '<div class="home-top">'
-  +     '<div class="home-hero">'
-  +       '<div class="home-eyebrow">Espace de travail</div>'
-  +       '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
-  +       '<div class="home-sub"><span class="home-sub-date">' + esc(dateFr()) + '</span><span class="home-sub-dot">·</span>ton desk est prêt.</div>'
-  +     '</div>'
-  +     '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
-        // « Accéder au desk » rangé DANS la rangée d'en-tête (demande user : « place-le bien ») — la
-        // seule action pleine de l'écran, alignée sur le bandeau, plus de bouton flottant.
-  +     '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk →</button>'
-  +   '</div>'
+        // TICKER EN BANDEAU DE TERMINAL (03/08 « améliore cette partie ») : pleine largeur, collé sous
+        // la topbar, AVANT la rangée héros — c'est la première ligne de l'écran, comme sur un poste.
   +   '<div class="home-ticker" id="home-ticker"><div class="home-ticker-in" id="home-ticker-in"></div></div>'
+        // TOUT EN BLOCS (demande user « organise pareil sous forme de bloc ») : le héros lui-même est
+        // un bloc de la grille — accueil + sessions + « Accéder au desk » — à côté de « Mes desks »
+        // et du Calendrier économique. Rangée 2 : Fil + Radar. Rangée 3 : Force pleine largeur.
   +   '<div class="home-grid">'
-  +     '<section class="home-zone home-zone--desks" style="--c:3">'
+  +     '<section class="home-zone home-zone--hero" style="--c:3">'
+  +       '<div class="home-zone-body home-hero-body">'
+  +         '<div class="home-eyebrow">Espace de travail</div>'
+  +         '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
+  +         '<div class="home-sub"><span class="home-sub-date">' + esc(dateFr()) + '</span><span class="home-sub-dot">·</span>ton desk est prêt.</div>'
+  +         '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
+  +         '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk →</button>'
+  +       '</div>'
+  +     '</section>'
+  +     '<section class="home-zone home-zone--desks" style="--c:5">'
   +       '<div class="home-panel-head"><span class="home-panel-t">Mes desks</span><span class="home-panel-fill"></span></div>'
   +       '<div class="home-zone-body home-zone-body--cards"><div class="home-cards">' + layoutCards(cfg) + '</div></div>'
   +     '</section>'

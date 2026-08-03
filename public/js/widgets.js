@@ -152,6 +152,43 @@
       return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + esc(o.lbl) + '</span>' + ctl + '</div>';
     }).join('');
   }
+  /* ── MENU MAISON des <select> de widgets (.dmx-sort-select — tri DMX, paire Saisonnalité) : le
+     popup NATIF se place mal sous le zoom d'affichage (coordonnées non compensées par Chromium) et
+     la charte DTP proscrit les composants natifs. On intercepte l'ouverture et on affiche une liste
+     ancrée DANS LA CARTE — même espace de coordonnées que le contrôle, donc zoom-sûr par
+     construction. La sélection ré-émet un vrai `change` : les écouteurs existants ne bougent pas. */
+  document.addEventListener('mousedown', function (e) {
+    var dejaOuvert = document.querySelector('.wdg-ddm');
+    var sel = e.target.closest && e.target.closest('select.dmx-sort-select');
+    if (!sel) { if (dejaOuvert && !(e.target.closest && e.target.closest('.wdg-ddm'))) dejaOuvert.remove(); return; }
+    e.preventDefault();
+    if (dejaOuvert) { dejaOuvert.remove(); return; }
+    var carte = sel.closest('.wdg-card') || sel.closest('.home-zone') || sel.parentNode;
+    if (!carte) return;
+    var menu = document.createElement('div');
+    menu.className = 'wdg-ddm';
+    menu.innerHTML = Array.prototype.map.call(sel.options, function (o) {
+      return '<button type="button" class="wdg-ddm-it' + (o.selected ? ' on' : '') + '" data-v="' + esc(o.value) + '">'
+        + '<span>' + esc(o.textContent) + '</span>' + (o.selected ? '<span class="wdg-ddm-ck">✓</span>' : '') + '</button>';
+    }).join('');
+    if (getComputedStyle(carte).position === 'static') carte.style.position = 'relative';
+    // Coordonnées locales : différence de rects VISUELS ÷ zoom (les offsets absolus sont re-multipliés
+    // par le zoom au rendu — même piège que le menu des recherches récentes).
+    var z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom')) || 1;
+    var rs = sel.getBoundingClientRect(), rc = carte.getBoundingClientRect();
+    menu.style.top = Math.round((rs.bottom - rc.top) / z + 4) + 'px';
+    menu.style.right = Math.round(Math.max(4, (rc.right - rs.right) / z)) + 'px';
+    carte.appendChild(menu);
+    menu.addEventListener('mousedown', function (ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      var it = ev.target.closest('.wdg-ddm-it'); if (!it) return;
+      sel.value = it.getAttribute('data-v');
+      try { sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e2) {}
+      menu.remove();
+    });
+  }, true);
+  window.addEventListener('scroll', function () { var m = document.querySelector('.wdg-ddm'); if (m) m.remove(); }, true);
+
   var _resetArm = null;              // remise à zéro : 1er clic arme, 2e clic exécute (retombe seul)
   var _swapBack = null;                      // dernier remplacement, pour l'annulation
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
@@ -1058,9 +1095,11 @@
         // maison : le menu du widget est ainsi mot pour mot celui de l'onglet ACTUS. Repli sur les
         // catégories observées dans le flux si les globales manquent.
         var sections = function (items) {
-          if (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS)) return INTERNAL_CATS.slice();
-          var vu = {}; items.forEach(function (i) { if (i && i.category) vu[i.category] = 1; });
-          return Object.keys(vu).sort();
+          var l = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS)) ? INTERNAL_CATS.slice()
+            : (function () { var vu = {}; items.forEach(function (i) { if (i && i.category) vu[i.category] = 1; }); return Object.keys(vu).sort(); })();
+          // « Bonds/Obligations » est BANNI du produit (demande user 27/07, réaffirmée 03/08) — la
+          // liste des sections ne doit pas le réintroduire.
+          return l.filter(function (c) { return c !== 'Bonds'; });
         };
         var libSec = function (c) { return (typeof catFr === 'function') ? catFr(c) : c; };
         var render = function (force) {
