@@ -13261,7 +13261,14 @@ html[data-theme="light"] .wdg-settings .wdg-set-chip.on { color: var(--orange-di
 /* ── ESPACE DE TRAVAIL v3 (03/08) : TOUT EN BLOCS — le héros est un bloc de la grille (accueil +
    sessions + bouton), le ticker est un BANDEAU pleine largeur collé sous la topbar. Titres = les
    noms exacts des widgets du desk, plus aucune pastille inventée. ── */
-.home-ticker { margin: -20px -30px 16px; border-left: 0; border-right: 0; border-top: 0; border-radius: 0; }
+/* Bandeau au VRAI sommet : la marge négative verticale tirait la bande au-dessus du bord du
+   conteneur défilant, qui la ROGNAIT de moitié (constaté user « on voit pas bien le ticker »).
+   On supprime le padding haut du conteneur à la place — zéro traction, zéro rognage. */
+.home-overlay > .home-inner { padding-top: 0; }
+.home-ticker { margin: 0 -30px 14px; border-left: 0; border-right: 0; border-top: 0; border-radius: 0; }
+.home-ticker.is-on { height: 34px; }
+.home-ticker-in { height: 34px; }
+.home-tk { font-size: 11px; }
 .home-zone--hero .home-zone-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
 .home-zone--hero {
   background:
