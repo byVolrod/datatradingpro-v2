@@ -62,7 +62,10 @@
     .lp-brand {
       display: inline-flex; align-items: center; gap: 10px;
       font-family: var(--tight); font-weight: 800; font-size: 18px;
-      letter-spacing: -0.02em; color: var(--text); text-decoration: none; margin-bottom: 36px;
+      letter-spacing: -0.02em; text-decoration: none; margin-bottom: 36px;
+      /* Logo DTP en OR signature (demande user 03/08) — dégradé or vif → or sombre, comme la landing. */
+      background: linear-gradient(100deg, #f0d27a, #e3b23a 55%, #b8860b);
+      -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
     }
     .lp-mk {
       width: 28px; height: 28px; border-radius: 8px; background: var(--grad-mk);
@@ -328,18 +331,7 @@
         </a>
       </div>
       <div class="lp-dl-intel" data-i18n-html="dlIntel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a></div>
-      <!-- Note « premier lancement macOS » : carte structurée à étapes (remplace le paragraphe brut) -->
-      <div class="lp-machint">
-        <div class="lp-machint-head">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-          <span data-i18n="dlMacTitle">Premier lancement sur macOS</span>
-        </div>
-        <ol class="lp-machint-steps">
-          <li data-i18n-html="dlMac1">Si «&nbsp;Apple n'a pas pu confirmer…&nbsp;» s'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).</li>
-          <li data-i18n-html="dlMac2">Ouvrez <b>Réglages Système → Confidentialité et sécurité</b>.</li>
-          <li data-i18n-html="dlMac3">Cliquez <b>«&nbsp;Ouvrir quand même&nbsp;»</b> — nécessaire une seule fois (app distribuée hors App Store).</li>
-        </ol>
-      </div>
+      <!-- (Note « premier lancement macOS » retirée — demande user 03/08.) -->
 
     </div><!-- /.lp-card -->
   </div><!-- /.lp-right -->
