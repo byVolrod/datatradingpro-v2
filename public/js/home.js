@@ -105,11 +105,14 @@
   var PANNEAUX = [
     // TITRES = LES NOMS EXACTS DES WIDGETS DU DESK (demande user 03/08 « n'invente pas des titres —
     // ça casse la cohérence ») : mêmes libellés que le catalogue, rien d'inventé, pas de pastille.
+    // STRUCTURE calquée sur la référence du user (03/08 « reproduit la même chose, en mieux, identité
+    // DTP ») : rangée 1 → héros · Mes desks · CARTE DES SESSIONS (haut droite) ; rangée 2 → Fil ·
+    // Force · CALENDRIER (bas droite, sous la carte — la colonne de droite = monde puis agenda).
+    { id: 'sessions', titre: 'Sessions de marché', col: 4 },
+    { id: 'fil-news', titre: "Fil d'actualité", vue: 'news', col: 4, cfg: { nb: 14 } },
+    { id: 'force-devises', titre: 'Force des Devises', vue: 'fxlist', col: 4, cfg: { periodes: 'today' } },
     { id: 'calendrier-jour', titre: 'Calendrier économique', vue: 'calendar', col: 4,
       cfg: { impact: 'high', lignes: 12, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
-    { id: 'fil-news', titre: "Fil d'actualité", vue: 'news', col: 5, cfg: { nb: 14 } },
-    // Radar de Biais RETIRÉ (demande user 03/08) → la Force des Devises prend sa place en rangée 2.
-    { id: 'force-devises', titre: 'Force des Devises', vue: 'fxlist', col: 7, cfg: { periodes: 'today' } },
   ];
   // PANNEAU FAÇON DESK : le titre vit DANS le bloc — la barre d'en-tête des panneaux du desk,
   // filet or fuyant, « Ouvrir › » à droite. Rien d'autre : épuré, cohérent.
@@ -139,15 +142,26 @@
         + (chgTxt ? '<span class="home-tk-chg' + cls + '">' + chgTxt + '</span>' : '') + '</span>';
     }).join('');
   }
+  var _tkEssais = 0;
   function chargerTicker() {
     var host = document.getElementById('home-ticker-in'); if (!host) return;
+    // RÉESSAI RAPIDE au démarrage (constaté user : « il manque la barre ticker ») : le premier appel
+    // peut tomber sur un cache FX List froid (calcul lourd côté serveur) → sans nouvelle tentative
+    // avant 150 s, la bande restait invisible toute la prise de poste.
+    var replanifie = function () {
+      if (_tkEssais >= 8) return;
+      _tkEssais++;
+      var t = setTimeout(chargerTicker, 12000);
+      _menage.push(function () { clearTimeout(t); });
+    };
     fetch('/api/fxlist').then(function (r) { return r.json(); }).then(function (d) {
       if (!document.getElementById('home-ticker-in')) return;
       var items = tickerItems(d && d.pairs);
-      if (!items) return;
+      if (!items) return replanifie();
+      _tkEssais = 0;
       host.innerHTML = items + items;                    // doublé → la boucle repart sans couture à -50 %
       host.parentNode.classList.add('is-on');
-    }).catch(function () {});
+    }).catch(replanifie);
   }
 
   function build(user, cfg) {
@@ -168,7 +182,8 @@
   +         '<div class="home-eyebrow">Espace de travail</div>'
   +         '<div class="home-title">' + salut() + ', <span class="home-name">' + prenom + '</span></div>'
   +         '<div class="home-sub"><span class="home-sub-date">' + esc(dateFr()) + '</span><span class="home-sub-dot">·</span>ton desk est prêt.</div>'
-  +         '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
+        // (bandeau de sessions retiré du héros : la CARTE DES SESSIONS en haut à droite porte
+        //  désormais l'état des places, comme la référence — pas deux fois la même information)
   +         '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk →</button>'
   +       '</div>'
   +     '</section>'

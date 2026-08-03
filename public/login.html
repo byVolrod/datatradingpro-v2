@@ -243,14 +243,18 @@
     .lp-tagline-2 { font-size: 15.5px; color: rgba(255,255,255,0.86); line-height: 1.45; }
 
     /* ── Barre applicative (app desktop seulement — html.dtp-desktop est posé par le preload) ── */
-    /* Bande de PRISE invisible (03/08 « corrige ce design, enlève le texte ») : elle ne sert qu'à
-       déplacer la fenêtre — transparente, sans texte ni bordure, elle se fond dans la page. */
+    /* Bande de PRISE (app desktop) : SANS texte, mais ALIGNÉE sur la zone des boutons système —
+       50 px (TOPBAR_H de main.js) et le MÊME fond #16171b (TITLEBAR_BG) : les boutons natifs se
+       fondent dedans au lieu de flotter en boîte sombre sur la page. Un rail transparent laissait
+       une bande blanche (le fond de la page) au-dessus du contenu — constaté user 03/08. */
     .lp-appbar { display: none; }
     html.dtp-desktop .lp-appbar {
-      display: block; position: fixed; top: 0; left: 0; right: 0; height: 36px; z-index: 60;
-      background: transparent; cursor: default; user-select: none; -webkit-user-select: none;
+      display: block; position: fixed; top: 0; left: 0; right: 0; height: 50px; z-index: 60;
+      background: #16171b; border-bottom: 1px solid rgba(255, 255, 255, .06);
+      cursor: default; user-select: none; -webkit-user-select: none;
     }
-    html.dtp-desktop .lp-layout { padding-top: 36px; box-sizing: border-box; }
+    html.dtp-desktop body { background: #16171b; }
+    html.dtp-desktop .lp-layout { padding-top: 50px; box-sizing: border-box; }
 
     /* ── Responsive ── */
     @media (max-width: 900px) {
