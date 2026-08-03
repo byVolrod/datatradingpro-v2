@@ -10606,9 +10606,13 @@ function _sbGroundMonetary(toneMap) {
     const _rp = _buildRatesPayload();
     const _bk = ((_rp && _rp.banks) || []).filter(b => b && SB_CURRENCIES.includes(b.code) && b.rate != null && isFinite(+b.rate));
     if (_bk.length >= 6) {
-      const mean = _bk.reduce((s, b) => s + (+b.rate), 0) / _bk.length;
-      _bk.forEach(b => { diffs[b.code] = +((+b.rate) - mean).toFixed(2); });
-      line = 'Différentiel de taux directeurs (vs moyenne G8 ' + mean.toFixed(2) + ' %) : '
+      // Écart vs la moyenne DES AUTRES (exclusion de soi) : la moyenne globale est tirée vers le bas
+      // par les taux plancher eux-mêmes — mesuré au premier run v41, le JPY (~1 %) ressortait à
+      // −1,43 pt de la moyenne G8 (sous le seuil) alors qu'il est à ~−1,6 pt des 7 AUTRES banques.
+      // C'est bien face aux autres devises que le portage se joue.
+      const tot = _bk.reduce((s, b) => s + (+b.rate), 0);
+      _bk.forEach(b => { diffs[b.code] = +((+b.rate) - (tot - (+b.rate)) / (_bk.length - 1)).toFixed(2); });
+      line = 'Différentiel de taux directeurs (chaque devise vs la moyenne des autres banques du G8) : '
         + _bk.map(b => `${b.code} ${(+b.rate).toFixed(2)} % (${diffs[b.code] > 0 ? '+' : ''}${diffs[b.code]} pt)`).join(' · ')
         + ' — un écart nettement NÉGATIF (typiquement CHF/JPY) = portage structurellement défavorable qui pèse sur la devise ; un écart nettement positif = portage favorable.';
     }
@@ -10684,9 +10688,10 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir) {
   try {
     const _bkAll = ((rates && rates.banks) || []).filter(b => b && SB_CURRENCIES.includes(b.code) && b.rate != null && isFinite(+b.rate));
     if (_bkAll.length >= 6) {
-      const _mean = _bkAll.reduce((s, b) => s + (+b.rate), 0) / _bkAll.length;
+      // Même mesure que _sbGroundMonetary : écart vs la moyenne DES AUTRES (exclusion de soi).
+      const _tot = _bkAll.reduce((s, b) => s + (+b.rate), 0);
       for (const b of _bkAll) {
-        if (Math.abs((+b.rate) - _mean) < 1.5) continue;
+        if (Math.abs((+b.rate) - (_tot - (+b.rate)) / (_bkAll.length - 1)) < 1.5) continue;
         const list = recapDrivers[b.code] || (recapDrivers[b.code] = []);
         if (!list.some(n => /diff[ée]rentiel/i.test(String(n)))) list.unshift('Différentiel de taux');
         recapDrivers[b.code] = list.slice(0, 3);
