@@ -12986,3 +12986,9 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 
 /* Onglet Taux (vue adoptée) : mode « une seule banque » → la carte restante prend toute la largeur. */
 .wdg-vuehost #taux-grid.rtc-solo { grid-template-columns: minmax(0, 1fr); }
+
+/* ── VUES ADOPTÉES : contenu COLLÉ AUX BORDS de la carte (03/08, capture user « il faut qu'il prenne
+   tout l'espace ») — les gouttières venaient du padding de page des vues, pensé pour l'onglet plein
+   écran. Dans une carte, c'est la carte qui fait le cadre. ── */
+.wdg-vuehost .taux-grid { padding: 0; gap: 8px; }
+.wdg-vuehost .taux-grid .rtc { border-left: 0; border-right: 0; border-radius: 0; }   /* la carte du widget fait déjà le cadre latéral */
