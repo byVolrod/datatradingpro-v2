@@ -13797,3 +13797,90 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
   .home-hero-spark .sp-line { animation: none; stroke-dashoffset: 0; }
   .home-hero-spark .sp-dot { animation: none; opacity: 0; }
 }
+
+/* ── VUE FINALE (03/08 « enlève la petite courbe et améliore toute la vue entièrement ») :
+   la courbe du héros disparaît (le mur + le faisceau portent seuls le bloc) et la vue gagne
+   sa CHORÉGRAPHIE — le ticker glisse depuis la topbar, les six panneaux montent en cascade,
+   les cartes de desk reçoivent le balayage or au survol, le clavier a ses anneaux de focus,
+   la barre de défilement s'affine. ── */
+.home-hero-spark { display: none; }
+
+/* Entrée orchestrée : ticker d'abord, puis les zones en escalier gauche→droite, haut→bas. */
+.home-ticker.is-on { animation: homeTickIn .5s var(--ease-out, ease) both; }
+@keyframes homeTickIn { from { transform: translateY(-100%); } }
+.home-grid > .home-zone { animation: homeIn .55s var(--ease-out, ease) both; }
+.home-grid > .home-zone:nth-child(1) { animation-delay: .10s; }
+.home-grid > .home-zone:nth-child(2) { animation-delay: .18s; }
+.home-grid > .home-zone:nth-child(3) { animation-delay: .26s; }
+.home-grid > .home-zone:nth-child(4) { animation-delay: .34s; }
+.home-grid > .home-zone:nth-child(5) { animation-delay: .42s; }
+.home-grid > .home-zone:nth-child(6) { animation-delay: .50s; }
+
+/* Cartes de desk : balayage or au survol (la lumière passe sur le plan, geste signature). */
+.home-card--visu { isolation: isolate; }
+.home-card--visu .home-card-face::after {
+  content: ''; position: absolute; top: -30%; bottom: -30%; left: -70%; width: 55%;
+  background: linear-gradient(105deg, transparent 34%, rgba(230, 189, 77, .09) 48%, rgba(255, 243, 212, .06) 52%, transparent 66%);
+  mix-blend-mode: screen; pointer-events: none;
+  transition: transform .7s var(--ease-out, ease);
+}
+.home-card--visu .home-card-face { position: relative; }
+.home-card--visu:hover .home-card-face::after { transform: translateX(330%); }
+
+/* Focus clavier : anneau or sur tout l'interactif de la vue. */
+.home-skip:focus-visible, .home-desks-new:focus-visible, .home-card:focus-visible {
+  outline: 2px solid rgba(227, 178, 58, .65); outline-offset: 2px;
+}
+
+/* Barre de défilement de la vue : fine, sombre, pouce or au survol. */
+.home-inner::-webkit-scrollbar { width: 9px; }
+.home-inner::-webkit-scrollbar-track { background: transparent; }
+.home-inner::-webkit-scrollbar-thumb { background: #1d1d22; border-radius: 5px; border: 2px solid #0b0b0d; }
+.home-inner::-webkit-scrollbar-thumb:hover { background: rgba(227, 178, 58, .45); }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-ticker.is-on, .home-grid > .home-zone { animation: none; }
+  .home-card--visu .home-card-face::after { display: none; }
+}
+
+/* ── FOND = CELUI DU DESK (03/08, demandes user « met le même fond que celui du desk pour la
+   background de cette vue » + « légèrement, pas trop fort ») : la scène élaborée (dégradés,
+   trame, grain, vignette) disparaît — le fond redevient le var(--bg) UNI du terminal, même
+   matière que derrière les onglets du desk. Par-dessus, un SOUFFLE d'animation seulement :
+   nappes réduites de moitié, balayage à peine perceptible, filés discrets. Le mur d'or du
+   héros, lui, reste (c'est le bloc signature, pas le fond). ── */
+.home-overlay { background: var(--bg); }
+.home-overlay::before { background: none; }
+.home-decor i:nth-child(1) {
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .065), rgba(227, 178, 58, .022) 46%, transparent 74%);
+}
+.home-decor i:nth-child(2) {
+  background: radial-gradient(closest-side, rgba(184, 134, 11, .065), rgba(184, 134, 11, .022) 48%, transparent 74%);
+}
+.home-decor i:nth-child(3) {
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .05), transparent 72%);
+}
+.home-decor i:nth-child(4) { opacity: .55; }
+.home-decor i:nth-child(5) {
+  background: radial-gradient(closest-side, rgba(184, 134, 11, .055), rgba(184, 134, 11, .02) 48%, transparent 74%);
+}
+.home-decor::after {
+  background: conic-gradient(from 0deg,
+    transparent 0 9%, rgba(227, 178, 58, .02) 13%, transparent 18%,
+    transparent 54%, rgba(227, 178, 58, .013) 60%, transparent 67%);
+}
+/* Filés : mêmes trajets, présence réduite. */
+@keyframes homeFile {
+  0%   { transform: translate3d(-36vw, 0, 0); opacity: 0; }
+  12%  { opacity: .45; }
+  88%  { opacity: .45; }
+  100% { transform: translate3d(104vw, 0, 0); opacity: 0; }
+}
+@keyframes homeFileR {
+  0%   { transform: translate3d(104vw, 0, 0); opacity: 0; }
+  14%  { opacity: .3; }
+  86%  { opacity: .3; }
+  100% { transform: translate3d(-28vw, 0, 0); opacity: 0; }
+}
+/* Le halo or sous le ticker s'éteint (fond desk = sobriété), l'ombre d'assise douce reste. */
+.home-ticker.is-on { box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .6); }

@@ -174,12 +174,8 @@
         // (bandeau de sessions retiré du héros : la CARTE DES SESSIONS en haut à droite porte
         //  désormais l'état des places, comme la référence — pas deux fois la même information)
   +         '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk →</button>'
-        // COURBE VIVANTE (03/08) : la ligne de cours SE DESSINE en boucle (dash-draw CSS), la
-        // pointe portée par un point or (animateMotion, mêmes 12 s → synchro par période).
-  +         '<svg class="home-hero-spark" viewBox="0 0 900 150" preserveAspectRatio="none" aria-hidden="true">'
-  +           '<path class="sp-line" pathLength="1" d="M0 118 L48 106 L96 113 L144 92 L192 101 L240 80 L288 90 L336 68 L384 79 L432 58 L480 70 L528 48 L576 60 L624 40 L672 52 L720 32 L768 44 L816 24 L864 34 L900 22"/>'
-  +           '<circle class="sp-dot" r="2.6"><animateMotion dur="12s" repeatCount="indefinite" calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.55;1" path="M0 118 L48 106 L96 113 L144 92 L192 101 L240 80 L288 90 L336 68 L384 79 L432 58 L480 70 L528 48 L576 60 L624 40 L672 52 L720 32 L768 44 L816 24 L864 34 L900 22"/></circle>'
-  +         '</svg>'
+        // (courbe vivante RETIRÉE — demande user 03/08 « enlève la petite courbe » : le mur d'or
+        //  + le faisceau portent seuls le bloc)
   +       '</div>'
   +     '</section>'
   +     '<section class="home-zone home-zone--desks" style="--c:5">'
