@@ -13504,3 +13504,31 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
 /* Les panneaux se détachent du fond : ombre portée courte + assise, sans changer leur cadre. */
 .home-zone { box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .75); }
 .home-zone:hover { box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .8), 0 4px 18px rgba(0, 0, 0, .35); }
+
+/* ── FOND v2 (03/08 « continue et améliore le fond ») : la scène prend de la matière —
+   ambiances or plus affirmées, halo d'horizon sous le ticker, trame millimétrée à DOUBLE
+   maille (fine 44px + majeure 220px, façon papier de salle de marché), et GRAIN photographique
+   (turbulence SVG inline, self-contained) qui donne le velours et supprime le banding. ── */
+.home-overlay {
+  background:
+    radial-gradient(58% 110px at 50% 0%, rgba(227, 178, 58, .10), transparent),
+    radial-gradient(1250px 540px at 10% -8%, rgba(227, 178, 58, .17), transparent 62%),
+    radial-gradient(1000px 500px at 97% 112%, rgba(184, 134, 11, .12), transparent 64%),
+    radial-gradient(760px 320px at 58% -4%, rgba(227, 178, 58, .06), transparent 55%),
+    linear-gradient(180deg, #0c0c0f, #09090b 56%, #0b0a0c);
+}
+.home-overlay::before {
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='0.055'/></feComponentTransfer></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"),
+    linear-gradient(0deg, rgba(0, 0, 0, .44), transparent 26%),
+    radial-gradient(130% 95% at 50% 38%, transparent 54%, rgba(0, 0, 0, .44)),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .028) 0 1px, transparent 1px 220px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .028) 0 1px, transparent 1px 220px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .017) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .017) 0 1px, transparent 1px 44px);
+}
+/* L'aura respirante gagne légèrement en présence (mêmes 22 s, reduced-motion déjà respecté). */
+.home-overlay::after {
+  width: 1040px; height: 540px;
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .10), transparent 70%);
+}
