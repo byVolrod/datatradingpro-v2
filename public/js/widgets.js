@@ -1486,10 +1486,11 @@
        construction : c'est littéralement la même vue) et le REND À SA PLACE au démontage, marquée par
        un commentaire. Une seule carte à la fois par vue — la deuxième affiche un message clair.
        Le chargement passe par window._dtpVueLoaders (charts.js) : les chargeurs sont locaux à son IIFE. */
-    function _vueDesk(id, nom, tag, cat, viewId, cle, desc) {
-      return {
+    function _vueDesk(id, nom, tag, cat, viewId, cle, desc, extra) {
+      var W = {
         id: id, name: nom, tag: tag, cat: cat, h: 340, desc: desc,
-        mount: function (host) {
+        opts: (extra && extra.opts) || undefined,
+        mount: function (host, it) {
           var panel = document.getElementById(viewId);
           if (!panel) { fallback(host, 'Vue indisponible.'); return null; }
           if (panel.closest('.wdg-card, .wdgt-host, .wdg-vuehost')) { fallback(host, 'Cette vue est déjà affichée dans une autre carte.'); return null; }
@@ -1499,9 +1500,13 @@
           panel.classList.remove('hidden');
           host.classList.add('wdg-vuehost');
           host.appendChild(panel);
-          var stop = null;
+          var stop = null, stopFiltre = null;
           try { var l = window._dtpVueLoaders && window._dtpVueLoaders[cle]; if (l) stop = l(); } catch (e) {}
+          // L'adoption est EXCLUSIVE (une carte à la fois) : un filtre d'affichage posé ici et retiré
+          // au démontage ne peut pas fuir vers l'onglet du desk.
+          try { if (extra && extra.filtre) stopFiltre = extra.filtre(host, it, W); } catch (e) {}
           return function () {
+            try { if (typeof stopFiltre === 'function') stopFiltre(); } catch (e) {}
             try { if (typeof stop === 'function') stop(); } catch (e) {}
             host.classList.remove('wdg-vuehost');
             try {
@@ -1511,14 +1516,44 @@
           };
         },
       };
+      return W;
     }
+    // ── ONGLET TAUX : réglage « Banque » (demande user 03/08) — une seule banque en pleine carte, ou
+    //    toutes. Le filtre agit sur data-bank (posé par _rtcCard) et se RÉAPPLIQUE à chaque re-rendu du
+    //    desk (loadTauxView réécrit la grille ~30 s) via un MutationObserver ; tout est retiré au
+    //    démontage, la vue rentre au desk intacte.
+    var _tauxExtra = {
+      opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'all',
+        choix: [['all', 'Toutes'], ['FED', 'Fed'], ['ECB', 'BCE'], ['BOE', 'BoE'], ['BOJ', 'BoJ'], ['SNB', 'SNB'], ['BOC', 'BoC'], ['RBA', 'RBA'], ['RBNZ', 'RBNZ']] }],
+      filtre: function (host, it, W) {
+        var grille = host.querySelector('#taux-grid');
+        if (!grille) return null;
+        var applique = function () {
+          var veut = opt(it, W, 'banque') || 'all';
+          grille.classList.toggle('rtc-solo', veut !== 'all');
+          for (var i = 0; i < grille.children.length; i++) {
+            var c = grille.children[i];
+            if (!c.classList || !c.classList.contains('rtc')) continue;
+            c.style.display = (veut === 'all' || c.getAttribute('data-bank') === veut) ? '' : 'none';
+          }
+        };
+        applique();
+        var mo = new MutationObserver(applique);
+        mo.observe(grille, { childList: true });
+        return function () {
+          mo.disconnect();
+          grille.classList.remove('rtc-solo');
+          for (var i = 0; i < grille.children.length; i++) if (grille.children[i].style) grille.children[i].style.display = '';
+        };
+      },
+    };
     return [
       _vueDesk('vue-fxlist', 'Liste FX', 'LISTE FX', 'Devises', 'view-fxlist', 'fxlist', "L'onglet LISTE FX du desk, à l'identique (signaux, prix, MAJ live)."),
       _vueDesk('vue-institution', 'Institutions', 'INSTITUTIONS', 'News', 'view-institution', 'institution', "L'onglet INSTITUTIONS du desk : la recherche des grandes banques."),
       _vueDesk('vue-analyst', 'Analystes', 'ANALYSTES', 'News', 'view-analyst', 'analyst', "L'onglet ANALYSTES du desk : rapports, récaps de séance, Éclairages IA."),
       _vueDesk('vue-bias', 'Onglet Biais', 'BIAIS', 'Macro', 'view-bias', 'bias', "L'onglet BIAIS complet du desk : matrice Smart Bias + synthèse."),
       _vueDesk('vue-weekahead', 'Semaine à Venir', 'SEMAINE', 'Macro', 'view-weekahead', 'weekahead', "L'onglet SEMAINE À VENIR du desk : profil de risque + agenda éditorialisé."),
-      _vueDesk('vue-taux', 'Onglet Taux', 'TAUX', 'Macro', 'view-taux', 'taux', "L'onglet TAUX du desk : cartes par banque, pricing des décisions, temps réel."),
+      _vueDesk('vue-taux', 'Onglet Taux', 'TAUX', 'Macro', 'view-taux', 'taux', "L'onglet TAUX du desk : cartes par banque, pricing des décisions, temps réel.", _tauxExtra),
       _vueDesk('vue-bank', 'Banques', 'BANQUES', 'Risque', 'view-bank', 'bank', "L'onglet BANQUES du desk : positions des grandes banques + graphique."),
     ];
   })()).concat([

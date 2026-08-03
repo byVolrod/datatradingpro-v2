@@ -2563,7 +2563,9 @@ document.addEventListener('DOMContentLoaded', () => {
         + '<td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td>'
         + '<td><span class="rtc-base ' + bc + '">' + m.baseCase + '</span></td></tr>';
     }).join('');
-    return '<div class="rtc">'
+    // data-bank : identifiant stable de la carte (FED/ECB/…) — le widget « Onglet Taux » filtre dessus
+    // (réglage « Banque » : une seule banque ou toutes). Sans effet sur l'onglet du desk.
+    return '<div class="rtc" data-bank="' + (b.code || '') + '">'
       + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
       + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span></div>'
       + '<div class="rtc-metrics">'
