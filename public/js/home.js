@@ -115,15 +115,46 @@
     // disparaissait dans l'ancienne mise en page bridée à 1180 px).
     { id: 'radar-biais', titre: 'Radar de biais', vue: 'bias', col: 7, live: true },
   ];
+  // PANNEAU FAÇON DESK (demande user 03/08) : le titre vit DANS le bloc — barre d'en-tête aux
+  // capitales du desk, filet or fuyant, pastille « En direct », « Ouvrir › » à droite. Plus aucun
+  // texte au-dessus des blocs, et le corps colle aux bords : épuré, institutionnel.
   function panneau(p) {
-    return '<section class="home-zone home-zone--w" style="--c:' + (p.col || 4) + '">'
-      + '<div class="home-sec home-sec--w"><span class="home-sec-t">' + esc(p.titre)
-      + (p.tf ? '<span class="home-tf" title="Période affichée">' + esc(p.tf) + '</span>' : '')
-      + (p.live ? '<span class="home-live"><i></i>En direct</span>' : '') + '</span>'
-      + (p.vue ? '<button class="home-zone-go" onclick="DTPHome.openView(\'' + p.vue + '\')">Ouvrir ›</button>' : '')
+    return '<section class="home-zone" style="--c:' + (p.col || 4) + '">'
+      + '<div class="home-panel-head">'
+      +   '<span class="home-panel-t">' + esc(p.titre) + '</span>'
+      +   (p.tf ? '<span class="home-tf" title="Période affichée">' + esc(p.tf) + '</span>' : '')
+      +   (p.live ? '<span class="home-live"><i></i>En direct</span>' : '')
+      +   '<span class="home-panel-fill"></span>'
+      +   (p.vue ? '<button class="home-zone-go" onclick="DTPHome.openView(\'' + p.vue + '\')">Ouvrir ›</button>' : '')
       + '</div>'
       + '<div class="home-zone-body" id="home-w-' + p.id + '"></div>'
       + '</section>';
+  }
+
+  /* ── TICKER DES DEVISES (nouveauté premium, discret) : les paires de la FX List avec prix et
+     variation, en bande fine défilante — mêmes données que l'onglet LISTE FX (/api/fxlist), prix
+     rafraîchis au même rythme que le tick du desk (150 s). Contenu doublé pour une boucle sans
+     couture ; pause au survol. ── */
+  function _tkFmt(px) { return px == null ? '—' : Number(px).toFixed(px >= 40 ? 2 : 4); }
+  function tickerItems(pairs) {
+    return (pairs || []).filter(function (p) { return p && p.base && p.quote && p.last != null; }).map(function (p) {
+      var chg = (typeof p.changePct === 'number') ? p.changePct : null;
+      var cls = chg == null ? '' : (chg >= 0 ? ' up' : ' down');
+      var chgTxt = chg == null ? '' : ((chg >= 0 ? '+' : '') + chg.toFixed(2) + '%');
+      return '<span class="home-tk"><b>' + esc(p.base + '/' + p.quote) + '</b>'
+        + '<span class="home-tk-px">' + _tkFmt(p.last) + '</span>'
+        + (chgTxt ? '<span class="home-tk-chg' + cls + '">' + chgTxt + '</span>' : '') + '</span>';
+    }).join('');
+  }
+  function chargerTicker() {
+    var host = document.getElementById('home-ticker-in'); if (!host) return;
+    fetch('/api/fxlist').then(function (r) { return r.json(); }).then(function (d) {
+      if (!document.getElementById('home-ticker-in')) return;
+      var items = tickerItems(d && d.pairs);
+      if (!items) return;
+      host.innerHTML = items + items;                    // doublé → la boucle repart sans couture à -50 %
+      host.parentNode.classList.add('is-on');
+    }).catch(function () {});
   }
 
   function build(user, cfg) {
@@ -132,7 +163,6 @@
     el.id = 'dtp-home'; el.className = 'home-overlay';
     el.innerHTML = ''
       + '<div class="home-inner">'
-      +   '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk ✕</button>'
   +   '<div class="home-top">'
   +     '<div class="home-hero">'
   +       '<div class="home-eyebrow">Espace de travail</div>'
@@ -140,16 +170,25 @@
   +       '<div class="home-sub"><span class="home-sub-date">' + esc(dateFr()) + '</span><span class="home-sub-dot">·</span>ton desk est prêt.</div>'
   +     '</div>'
   +     '<div class="home-strip" id="home-strip">' + sessionsHtml() + '</div>'
+        // « Accéder au desk » rangé DANS la rangée d'en-tête (demande user : « place-le bien ») — la
+        // seule action pleine de l'écran, alignée sur le bandeau, plus de bouton flottant.
+  +     '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk →</button>'
   +   '</div>'
+  +   '<div class="home-ticker" id="home-ticker"><div class="home-ticker-in" id="home-ticker-in"></div></div>'
   +   '<div class="home-grid">'
   +     '<section class="home-zone home-zone--desks" style="--c:3">'
-  +       '<div class="home-sec home-sec--w"><span class="home-sec-t">Mes desks</span></div>'
-  +       '<div class="home-cards">' + layoutCards(cfg) + '</div>'
+  +       '<div class="home-panel-head"><span class="home-panel-t">Mes desks</span><span class="home-panel-fill"></span></div>'
+  +       '<div class="home-zone-body home-zone-body--cards"><div class="home-cards">' + layoutCards(cfg) + '</div></div>'
   +     '</section>'
   +     PANNEAUX.map(panneau).join('')
   +   '</div>'
   + '</div>';
     document.body.appendChild(el);
+
+    // Ticker : premier chargement + prix au rythme du tick desk (150 s), minuteur tué avec l'écran.
+    chargerTicker();
+    var tkIv = setInterval(chargerTicker, 150000);
+    _menage.push(function () { clearInterval(tkIv); });
 
     // Les sessions avancent : on les rafraîchit tant que l'écran est là (le minuteur meurt avec lui).
     var iv = setInterval(function () {
