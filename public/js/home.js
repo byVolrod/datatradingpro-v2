@@ -150,6 +150,10 @@
     var el = document.createElement('div');
     el.id = 'dtp-home'; el.className = 'home-overlay';
     el.innerHTML = ''
+        // FOND DYNAMIQUE IDENTITAIRE (03/08 « un fond qui bouge légèrement, qui reflète l'identité
+        // de DTP ») : trois nappes aux deux ors signature + une COURBE DE MARCHÉ fantôme qui dérive
+        // — transform GPU uniquement, voir .home-decor dans style.css.
+      + '<div class="home-decor" aria-hidden="true"><i></i><i></i><i></i><i></i></div>'
         // TICKER EN BANDEAU DE TERMINAL, HORS du conteneur défilant (03/08 « on ne voit toujours
         // pas le ticker ») : dans .home-inner, il DÉFILAIT avec la page et passait sous la topbar
         // dès le premier pixel de scroll — c'est le rognage constaté deux fois. Enfant direct de
