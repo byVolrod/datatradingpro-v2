@@ -242,6 +242,22 @@
     .lp-tagline-1 strong { color: var(--gold-bright); font-weight: 600; font-style: italic; }
     .lp-tagline-2 { font-size: 15.5px; color: rgba(255,255,255,0.86); line-height: 1.45; }
 
+    /* ── Barre applicative (app desktop seulement — html.dtp-desktop est posé par le preload) ── */
+    .lp-appbar { display: none; }
+    html.dtp-desktop .lp-appbar {
+      display: flex; align-items: center; position: fixed; top: 0; left: 0; right: 0; height: 40px; z-index: 60;
+      padding: 0 16px; padding-right: 150px;               /* réserve des boutons système Windows */
+      background: rgba(12, 12, 14, .88); border-bottom: 1px solid rgba(227, 178, 58, .22);
+      cursor: default; user-select: none; -webkit-user-select: none;
+    }
+    html.dtp-mac .lp-appbar { padding-left: 78px; }        /* feux macOS à gauche */
+    .lp-appbar-brand {
+      font-family: var(--tight); font-weight: 800; font-size: 13px; letter-spacing: -0.01em;
+      background: linear-gradient(100deg, #f0d27a, #e3b23a 55%, #b8860b);
+      -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+    }
+    html.dtp-desktop .lp-layout { padding-top: 40px; box-sizing: border-box; }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       html, body { overflow: auto; }
@@ -263,6 +279,14 @@
   <script src="/js/noinspect.js?v=20260621"></script>
 </head>
 <body>
+
+<!-- BARRE APPLICATIVE (app desktop uniquement, 03/08 « je n'arrive pas à déplacer la fenêtre ») :
+     le déplacement manuel du preload écoute les pointerdown sur `.topbar` — cette page n'en avait
+     pas, la fenêtre était donc indéplaçable depuis le login. La barre porte la classe `topbar`
+     (aucun style du desk ne s'applique ici : la page est autonome) → le drag ET le double-clic
+     agrandir fonctionnent avec le preload DÉJÀ INSTALLÉ, sans réinstallation. Elle cale aussi le
+     contenu sous la zone des boutons système, qui recouvrait « Bon retour. ». -->
+<div class="lp-appbar topbar" aria-hidden="true"><span class="lp-appbar-brand">DataTradingPro</span></div>
 
 <div class="lp-layout">
 
