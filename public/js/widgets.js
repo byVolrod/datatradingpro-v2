@@ -84,12 +84,6 @@
   // Contenu du panneau de réglages d'une carte (titre, description, taille, réglages déclarés).
   // Extrait pour pouvoir le RE-RENDRE seul après un changement, sans reconstruire la grille.
   function _setPanelHtml(idx, w, it) {
-    var step = function (lbl, cur, act) {
-      return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + lbl + '</span>'
-        + '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',-1)" aria-label="moins">−</button>'
-        + '<span class="wdg-step-val">' + cur + '</span>'
-        + '<button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',1)" aria-label="plus">+</button></span></div>';
-    };
     var verrou = !!it.locked;
     // Actions descendues du bandeau (demande user : « trop de boutons »). Libellées, car on ne s'en
     // sert pas tous les jours — une icône seule aurait juste déplacé le problème de lisibilité.
@@ -124,8 +118,10 @@
           }).join('')
         + '<button class="wdg-set-act" onclick="DTPWidgets.addTab(' + idx + ')">+ Ajouter un onglet</button>';
     }
+    // Pas-à-pas Largeur/Hauteur RETIRÉS (demande user 03/08 « enlève ceci de tous les widgets ») :
+    // depuis le modèle « déplacer une frontière », la taille se règle au bord droit et au coin —
+    // deux chiffres dans un panneau faisaient doublon et invitaient à casser le pavage.
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
-      + step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
       + _optsHtml(idx, w, it)
       + onglets
       + actions;
@@ -1523,8 +1519,11 @@
     //    desk (loadTauxView réécrit la grille ~30 s) via un MutationObserver ; tout est retiré au
     //    démontage, la vue rentre au desk intacte.
     var _tauxExtra = {
+      // ⚠️ Les valeurs sont les DEVISES : data-bank porte b.code, qui est la devise de la banque
+      // (USD/EUR/…) — avec des codes FED/ECB, aucune carte ne matchait et la carte restait vide
+      // (constaté user à la première utilisation).
       opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'all',
-        choix: [['all', 'Toutes'], ['FED', 'Fed'], ['ECB', 'BCE'], ['BOE', 'BoE'], ['BOJ', 'BoJ'], ['SNB', 'SNB'], ['BOC', 'BoC'], ['RBA', 'RBA'], ['RBNZ', 'RBNZ']] }],
+        choix: [['all', 'Toutes'], ['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'SNB'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ']] }],
       filtre: function (host, it, W) {
         var grille = host.querySelector('#taux-grid');
         if (!grille) return null;
@@ -2023,12 +2022,6 @@
       if (!w) return '';                                                     // widget retiré du catalogue → ignoré
       _normItem(it);
       var locked = !!it.locked;
-      var step = function (lbl, cur, act) {
-        return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + lbl + '</span>'
-          + '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',-1)" aria-label="moins">−</button>'
-          + '<span class="wdg-step-val">' + cur + '</span>'
-          + '<button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',1)" aria-label="plus">+</button></span></div>';
-      };
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
       return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + (_lgs[idx] || it.gw) + ';--gh:' + it.gh + ';">'
