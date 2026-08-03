@@ -13222,8 +13222,7 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 .home-tk-chg.up { color: #22c55e; }
 .home-tk-chg.down { color: #ff5233; }
 
-/* La grille respire sous le ticker. */
-.home-ticker.is-on + .home-grid { margin-top: 14px; }
+/* (v5 : le ticker n'est plus frère de .home-grid — l'espacement vit dans le padding de .home-inner) */
 
 @media (prefers-reduced-motion: reduce) { .home-ticker-in { animation: none; } }
 
@@ -13357,3 +13356,85 @@ html[data-theme="light"] .wdg-settings .wdg-set-chip.on { color: var(--orange-di
 }
 .home-desks-new:hover { color: var(--orange); border-color: rgba(227, 178, 58, .7); background: rgba(227, 178, 58, .07); }
 .home-desks-count { flex: 0 0 auto; font-size: 10px; color: var(--text3); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ACCUEIL v5 (03/08) : COHÉRENCE DESK TOTALE (« les mêmes panneaux que sur le
+   desk ») — les blocs reprennent la grammaire EXACTE des cartes de widgets
+   (.wdg-card / .wdg-head) ; ticker en bandeau STRUCTUREL hors défilement ;
+   héros centré ; Mes desks en grandes cartes centrées ; Force bord à bord.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── TICKER STRUCTUREL : l'overlay devient une colonne (bandeau + contenu défilant). Dans
+   .home-inner, le ticker DÉFILAIT sous la topbar (le rognage constaté) ; ici il ne peut plus. ── */
+.home-overlay { display: flex; flex-direction: column; overflow: hidden; }
+.home-overlay > .home-inner {
+  flex: 1 1 auto; min-height: 0; height: auto;
+  overflow-y: auto; padding: 14px 30px 20px;
+}
+.home-inner > .home-grid { margin-top: 0; }
+.home-ticker {
+  flex: 0 0 auto; margin: 0; border: 0; border-radius: 0;
+  border-bottom: 1px solid var(--hud-line, var(--border));
+  background: var(--bg2);
+}
+.home-ticker.is-on { height: 38px; }
+.home-ticker-in { height: 38px; }
+.home-tk { font-size: 11.5px; padding: 0 18px; height: 100%; }
+.home-tk.up { background: rgba(34, 197, 94, .10); }
+.home-tk.down { background: rgba(255, 61, 0, .10); }
+.home-tk-px { color: var(--text); }
+
+/* ── PANNEAU = CARTE DE WIDGET DU DESK, à l'identique : mêmes fond, cadre, ombre au survol ;
+   en-tête = .wdg-head (hauteur --navbar-h, fond --head-bg, titre .wdg-title). Le filet or
+   décoratif et le dégradé disparaissent — le desk n'en a pas. ── */
+.home-zone {
+  background: var(--bg); box-shadow: none;
+  transition: border-color .16s, box-shadow .16s;
+}
+.home-zone::after { display: none; }
+.home-zone:hover { border-color: rgba(227, 178, 58, .38); box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
+.home-panel-head {
+  height: auto; min-height: var(--navbar-h, 28px); padding: 3px 8px; gap: 6px;
+  background: var(--head-bg); border-bottom: 1px solid var(--hud-line, var(--border));
+}
+.home-panel-t {
+  font-size: var(--fs-title, 11.5px); font-weight: var(--fw-semibold, 600);
+  letter-spacing: var(--ls-caps, .08em); color: var(--text);
+}
+.home-panel-fill { background: none; height: auto; }
+
+/* ── FORCE DES DEVISES BORD À BORD : le corps du panneau prend le MÊME anthracite que le fond
+   des graphes du desk (#0d0e11) — marges d'axes et de badges se fondent, le graphe semble
+   occuper tout le bloc, jusqu'aux rebords. ── */
+#home-w-force-devises { background: #0d0e11; }
+html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
+#home-w-force-devises .wdg-fx-tfbar { height: auto; padding: 5px 8px 3px; }
+
+/* ── HÉROS CENTRÉ : le texte au centre vertical du bloc, le bouton dans son sillage — plus de
+   colonne de vide entre le sous-titre et un bouton ancré tout en bas. ── */
+.home-zone--hero .home-hero-body { justify-content: center; gap: 8px; padding: 22px 28px; }
+.home-zone--hero .home-title { font-size: clamp(26px, 2.4vw, 34px); }
+.home-zone--hero .home-skip {
+  margin: 22px 0 0; width: auto; align-self: flex-start;
+  padding: 10px 26px; border-radius: 6px;
+  border-color: rgba(227, 178, 58, .4); color: var(--orange-dim, #b8860b);
+}
+.home-zone--hero .home-skip:hover { color: var(--orange); background: rgba(227, 178, 58, .1); }
+
+/* ── MES DESKS : les cartes visuelles se CENTRENT dans le bloc (peu de desks = grandes cartes
+   posées au centre, pas un timbre dans un coin) et grandissent au survol. ── */
+.home-zone-body--cards { display: flex; padding: 14px; }
+.home-zone-body--cards .home-cards {
+  flex: 1 1 auto; height: auto;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 300px));
+  justify-content: center; align-content: center; gap: 14px;
+}
+.home-card--visu { min-height: 144px; }
+.home-card--visu .home-card-nom { font-size: 16px; }
+.home-card--visu .home-card-face { overflow: hidden; }
+.home-card--visu .home-card-face .wdg-thumb { transition: transform .25s var(--ease, ease); }
+.home-card--visu:hover .home-card-face .wdg-thumb { transform: scale(1.03); }
+.home-card--visu:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 0, 0, .45); }
+@media (prefers-reduced-motion: reduce) {
+  .home-card--visu:hover .home-card-face .wdg-thumb { transform: none; }
+}

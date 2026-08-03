@@ -31,7 +31,7 @@
   }
   // Ouvre un desk précis depuis une carte (Mon Desk + layout choisi), ou une vue du desk classique.
   function openDesk(id) { close(); try { window.DTPWidgets && DTPWidgets.open(); if (id) setTimeout(function () { DTPWidgets.switchLayout(id); }, 60); } catch (e) {} }
-  function openView(v) { close(); try { if (typeof activateView === 'function') activateView(v); } catch (e) {} }
+  // (openView retiré avec les boutons « Ouvrir › » — plus aucun appelant, revue 03/08)
   function createDesk() { close(); try { DTPWidgets.open(); setTimeout(function () { DTPWidgets.openManager(); }, 120); } catch (e) {} }
 
   // CARTES VISUELLES (03/08 « met comme ceci ») : le PLAN du desk (moteur 2D des vignettes) devient
@@ -57,42 +57,9 @@
   //  ses identifiants étaient morts — le desk attend « analyst » et « bank », pas « analystes »
   //  et « banques ».)
 
-  /* ── ÉTAT DE SÉANCE ────────────────────────────────────────────────────────────────────────────
-     MÊME table et MÊME règle que la carte des sessions du desk (app.js, renderSessionMap) : heures
-     LOCALES de chaque place, week-end fermé. Dupliquer la règle ferait dire deux choses différentes
-     au même produit — si elle bouge là-bas, elle doit bouger ici. */
-  var SESSIONS = [
-    { n: 'Sydney', o: 9, c: 17, tz: 'Australia/Sydney' },
-    { n: 'Tokyo', o: 9, c: 15, tz: 'Asia/Tokyo' },
-    { n: 'Londres', o: 8, c: 17, tz: 'Europe/London' },
-    { n: 'New York', o: 9, c: 17, tz: 'America/New_York' },
-  ];
-  function _localHeure(tz) {
-    var d = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
-    return { h: d.getHours() + d.getMinutes() / 60, jour: d.getDay() };
-  }
-  function _duree(h) {                                  // heures décimales → « 3 h 20 » / « 45 min »
-    var m = Math.max(0, Math.round(h * 60));
-    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
-  }
-  function sessionsHtml() {
-    return SESSIONS.map(function (s) {
-      var l = _localHeure(s.tz);
-      var weekend = l.jour === 0 || l.jour === 6;
-      var ouverte = !weekend && l.h >= s.o && l.h < s.c;
-      var reste = ouverte ? _duree(s.c - l.h) : (weekend ? null : _duree((l.h < s.o ? s.o - l.h : 24 - l.h + s.o)));
-      // JAUGE DE SÉANCE (place ouverte) : part de séance déjà écoulée — un filet de 2 px sous la
-      // place, alimenté par le même rafraîchissement 30 s. L'état devient une donnée, pas une légende.
-      var pct = ouverte ? Math.max(2, Math.min(100, Math.round(((l.h - s.o) / (s.c - s.o)) * 100))) : 0;
-      return '<div class="home-sess' + (ouverte ? ' is-open' : '') + '">'
-        + '<span class="home-sess-dot"></span>'
-        + '<span class="home-sess-main">'
-        +   '<span class="home-sess-lig"><span class="home-sess-n">' + s.n + '</span>'
-        +   '<span class="home-sess-t">' + (weekend ? 'week-end' : (ouverte ? 'ferme dans ' : 'ouvre dans ') + '<b class="home-sess-cd">' + reste + '</b>') + '</span></span>'
-        +   (ouverte ? '<span class="home-sess-j"><i style="width:' + pct + '%"></i></span>' : '')
-        + '</span></div>';
-    }).join('');
-  }
+  // (Le bandeau de sessions du héros — SESSIONS/sessionsHtml + son rafraîchissement 30 s — a été
+  //  retiré : l'état des places vit dans le widget desk « Sessions de marché » monté via mountInto,
+  //  une seule source de vérité. La table dupliquée n'a plus lieu d'être.)
 
   /* ── PANNEAUX = LES VRAIS WIDGETS DU DESK ─────────────────────────────────────────────────────
      Montés par DTPWidgets.mountInto : même code, mêmes données, mêmes états de chargement et
@@ -107,19 +74,19 @@
     // DTP ») : rangée 1 → héros · Mes desks · CARTE DES SESSIONS (haut droite) ; rangée 2 → Fil ·
     // Force · CALENDRIER (bas droite, sous la carte — la colonne de droite = monde puis agenda).
     { id: 'sessions', titre: 'Sessions de marché', col: 4 },
-    { id: 'fil-news', titre: "Fil d'actualité", vue: 'news', col: 4, cfg: { nb: 14 } },
-    { id: 'force-devises', titre: 'Force des Devises', vue: 'fxlist', col: 4, cfg: { periodes: 'today' } },
-    { id: 'calendrier-jour', titre: 'Calendrier économique', vue: 'calendar', col: 4,
+    { id: 'fil-news', titre: "Fil d'actualité", col: 4, cfg: { nb: 14 } },
+    { id: 'force-devises', titre: 'Force des Devises', col: 4, cfg: { periodes: 'today' } },
+    { id: 'calendrier-jour', titre: 'Calendrier économique', col: 4,
       cfg: { impact: 'high', lignes: 12, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
   ];
-  // PANNEAU FAÇON DESK : le titre vit DANS le bloc — la barre d'en-tête des panneaux du desk,
-  // filet or fuyant, « Ouvrir › » à droite. Rien d'autre : épuré, cohérent.
+  // PANNEAU = LA GRAMMAIRE DES CARTES DU DESK (demande user 03/08 « les mêmes panneaux que sur le
+  // desk ») : en-tête .wdg-head (titre seul, capitales Inter Tight), corps flush. Plus de bouton
+  // « Ouvrir › » — le widget et son nom, rien d'autre.
   function panneau(p) {
     return '<section class="home-zone" style="--c:' + (p.col || 4) + '">'
       + '<div class="home-panel-head">'
       +   '<span class="home-panel-t">' + esc(p.titre) + '</span>'
       +   '<span class="home-panel-fill"></span>'
-      +   (p.vue ? '<button class="home-zone-go" onclick="DTPHome.openView(\'' + p.vue + '\')">Ouvrir ›</button>' : '')
       + '</div>'
       + '<div class="home-zone-body" id="home-w-' + p.id + '"></div>'
       + '</section>';
@@ -151,6 +118,11 @@
         + (chgTxt ? '<span class="home-tk-chg' + dir + '">' + chgTxt + '</span>' : '') + '</span>';
     }).join('');
   }
+  // UN SEUL réessai en vol (revue 03/08) : sans ce verrou, chaque tick de 150 s démarrait une
+  // chaîne de réessai 12 s SUPPLÉMENTAIRE quand l'API échouait durablement — accumulation de
+  // requêtes vers un endpoint déjà en échec (et de closures dans _menage). Le handle unique
+  // remplace toute chaîne précédente ; son nettoyage est enregistré une fois, dans build().
+  var _tkRetry = null;
   function chargerTicker() {
     var host = document.getElementById('home-ticker-in'); if (!host) return;
     // RÉESSAI TANT QUE LA BANDE N'EST PAS AFFICHÉE (constaté user, deux fois) : premier appel sur
@@ -159,8 +131,8 @@
     var replanifie = function () {
       if (!document.getElementById('home-ticker-in')) return;
       if (host.parentNode.classList.contains('is-on')) return;
-      var t = setTimeout(chargerTicker, 12000);
-      _menage.push(function () { clearTimeout(t); });
+      if (_tkRetry) clearTimeout(_tkRetry);
+      _tkRetry = setTimeout(chargerTicker, 12000);
     };
     fetch('/api/fxlist').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
       if (!document.getElementById('home-ticker-in')) return;
@@ -176,10 +148,12 @@
     var el = document.createElement('div');
     el.id = 'dtp-home'; el.className = 'home-overlay';
     el.innerHTML = ''
+        // TICKER EN BANDEAU DE TERMINAL, HORS du conteneur défilant (03/08 « on ne voit toujours
+        // pas le ticker ») : dans .home-inner, il DÉFILAIT avec la page et passait sous la topbar
+        // dès le premier pixel de scroll — c'est le rognage constaté deux fois. Enfant direct de
+        // l'overlay (flex column), il est structurellement toujours visible, comme la référence.
+      + '<div class="home-ticker" id="home-ticker"><div class="home-ticker-in" id="home-ticker-in"></div></div>'
       + '<div class="home-inner">'
-        // TICKER EN BANDEAU DE TERMINAL (03/08 « améliore cette partie ») : pleine largeur, collé sous
-        // la topbar, AVANT la rangée héros — c'est la première ligne de l'écran, comme sur un poste.
-  +   '<div class="home-ticker" id="home-ticker"><div class="home-ticker-in" id="home-ticker-in"></div></div>'
         // TOUT EN BLOCS (demande user « organise pareil sous forme de bloc ») : le héros lui-même est
         // un bloc de la grille — accueil + sessions + « Accéder au desk » — à côté de « Mes desks »
         // et du Calendrier économique. Rangée 2 : Fil + Radar. Rangée 3 : Force pleine largeur.
@@ -206,18 +180,10 @@
   + '</div>';
     document.body.appendChild(el);
 
-    // Ticker : premier chargement + prix au rythme du tick desk (150 s), minuteur tué avec l'écran.
+    // Ticker : premier chargement + prix au rythme du tick desk (150 s), minuteurs tués avec l'écran.
     chargerTicker();
     var tkIv = setInterval(chargerTicker, 150000);
-    _menage.push(function () { clearInterval(tkIv); });
-
-    // Les sessions avancent : on les rafraîchit tant que l'écran est là (le minuteur meurt avec lui).
-    var iv = setInterval(function () {
-      var st = document.getElementById('home-strip');
-      if (!st) { clearInterval(iv); return; }
-      st.innerHTML = sessionsHtml();
-    }, 30000);
-    _menage.push(function () { clearInterval(iv); });
+    _menage.push(function () { clearInterval(tkIv); if (_tkRetry) { clearTimeout(_tkRetry); _tkRetry = null; } });
 
     // MONTAGE DES VRAIS WIDGETS.
     // Deux conditions, apprises à la mesure : (1) DTPWidgets doit exister — widgets.js est un script
@@ -260,7 +226,7 @@
     })(0);
   }
 
-  window.DTPHome = { close: close, openDesk: openDesk, openView: openView, createDesk: createDesk };
+  window.DTPHome = { close: close, openDesk: openDesk, createDesk: createDesk };
 
   // Démarrage : à CHAQUE CONNEXION (et non une fois par session de navigateur — dans un onglet
   // laissé ouvert, sessionStorage survit à une déconnexion/reconnexion, et l'accueil ne revenait
