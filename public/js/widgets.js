@@ -106,15 +106,25 @@
         + tl.map(function (id2, j) {
             var w2 = byId(id2); if (!w2) return '';
             return '<div class="wdg-set-row wdg-set-tabrow">'
-              + '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || w2.tag || w2.name) + '"'
-              + ' autocomplete="off" name="dtp-nom-onglet" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true" data-form-type="other"'
-              + ' placeholder="' + esc(w2.tag || w2.name) + '" title="' + esc(w2.name) + '"'
-              + ' onchange="DTPWidgets.renameTab(' + idx + ',' + j + ', this.value)"'
+              + '<div class="wdg-set-tabcol">'
+              +   '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || w2.tag || w2.name) + '"'
+              +   ' autocomplete="off" name="dtp-nom-onglet" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true" data-form-type="other"'
+              +   ' placeholder="' + esc(w2.tag || w2.name) + '" title="' + esc(w2.name) + '"'
+              +   ' onchange="DTPWidgets.renameTab(' + idx + ',' + j + ', this.value)"'
               // Échap = ANNULER (miroir de l'éditeur inline .wdgt-edit) : valeur d'origine restaurée
               // AVANT le blur → aucun change n'est émis ; stopPropagation → le listener document
               // (Échap ferme les volets) ne claque pas le panneau au nez de l'utilisateur.
-              + ' onkeydown="if(event.key===\'Enter\')this.blur();else if(event.key===\'Escape\'){event.stopPropagation();this.value=this.defaultValue;this.blur();}">'
-              + '<button class="wdg-set-tabdel" title="Retirer cet onglet" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button></div>';
+              +   ' onkeydown="if(event.key===\'Enter\')this.blur();else if(event.key===\'Escape\'){event.stopPropagation();this.value=this.defaultValue;this.blur();}">'
+              // Le NOM DU WIDGET sous le libellé (demande user 03/08) : on voit CE QUE le × emporte.
+              +   '<span class="wdg-set-tabnom">' + esc(w2.name) + '</span>'
+              + '</div>'
+              // PLANCHER 1 ONGLET (demande user 03/08 « on ne doit pas pouvoir supprimer tous les
+              // onglets ») : sur la dernière ligne restante, pas de × — un panneau à onglets vide
+              // n'a aucun sens (et retirer le WIDGET entier se fait depuis l'en-tête de la carte).
+              + (tl.length > 1
+                  ? '<button class="wdg-set-tabdel" title="Retirer l\'onglet et son widget « ' + esc(w2.name) + ' »" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button>'
+                  : '<span class="wdg-set-tabone" title="Un panneau garde au moins un onglet">min. 1</span>')
+              + '</div>';
           }).join('')
         + '<button class="wdg-set-act" onclick="DTPWidgets.addTab(' + idx + ')">+ Ajouter un onglet</button>';
     }
@@ -2722,6 +2732,9 @@ function _spansAffiches(lay) {
     removeTab: function (i, j) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (!Array.isArray(it.tabs) || j >= it.tabs.length) return;
+      // PLANCHER 1 ONGLET (demande user 03/08) : garde serveur du geste — même si un vieux volet
+      // affiche encore un ×, le dernier onglet d'un panneau ne part jamais.
+      if (it.tabs.length <= 1) { _syncPanel(i); return; }
       var w2 = byId(it.tabs[j]);
       var snapTabs = it.tabs.slice(), snapLb = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];
       it.tabs.splice(j, 1);
