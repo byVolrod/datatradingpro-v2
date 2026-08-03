@@ -104,25 +104,29 @@
       var lb = Array.isArray(it.tabLabels) ? it.tabLabels : [];
       onglets = '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Onglets · renommer ou retirer</div>'
         + tl.map(function (id2, j) {
-            var w2 = byId(id2); if (!w2) return '';
+            // Onglet VIDE (sentinel 'vide') : il apparaît AUSSI ici — renommable, retirable.
+            var estVide = (id2 === 'vide');
+            var w2 = byId(id2); if (!w2 && !estVide) return '';
+            var nomW = estVide ? 'Onglet vide — aucun widget' : w2.name;
+            var defLbl = estVide ? 'Vide' : (w2.tag || w2.name);
             return '<div class="wdg-set-row wdg-set-tabrow">'
               + '<div class="wdg-set-tabcol">'
-              +   '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || w2.tag || w2.name) + '"'
+              +   '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || defLbl) + '"'
               +   ' autocomplete="off" name="dtp-nom-onglet" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true" data-form-type="other"'
-              +   ' placeholder="' + esc(w2.tag || w2.name) + '" title="' + esc(w2.name) + '"'
+              +   ' placeholder="' + esc(defLbl) + '" title="' + esc(nomW) + '"'
               +   ' onchange="DTPWidgets.renameTab(' + idx + ',' + j + ', this.value)"'
               // Échap = ANNULER (miroir de l'éditeur inline .wdgt-edit) : valeur d'origine restaurée
               // AVANT le blur → aucun change n'est émis ; stopPropagation → le listener document
               // (Échap ferme les volets) ne claque pas le panneau au nez de l'utilisateur.
               +   ' onkeydown="if(event.key===\'Enter\')this.blur();else if(event.key===\'Escape\'){event.stopPropagation();this.value=this.defaultValue;this.blur();}">'
               // Le NOM DU WIDGET sous le libellé (demande user 03/08) : on voit CE QUE le × emporte.
-              +   '<span class="wdg-set-tabnom">' + esc(w2.name) + '</span>'
+              +   '<span class="wdg-set-tabnom">' + esc(nomW) + '</span>'
               + '</div>'
               // PLANCHER 1 ONGLET (demande user 03/08 « on ne doit pas pouvoir supprimer tous les
               // onglets ») : sur la dernière ligne restante, pas de × — un panneau à onglets vide
               // n'a aucun sens (et retirer le WIDGET entier se fait depuis l'en-tête de la carte).
               + (tl.length > 1
-                  ? '<button class="wdg-set-tabdel" title="Retirer l\'onglet et son widget « ' + esc(w2.name) + ' »" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button>'
+                  ? '<button class="wdg-set-tabdel" title="' + (estVide ? 'Retirer cet onglet vide' : 'Retirer l\'onglet et son widget « ' + esc(w2.name) + ' »') + '" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button>'
                   : '<span class="wdg-set-tabone" title="Un panneau garde au moins un onglet">min. 1</span>')
               + '</div>';
           }).join('')
@@ -1620,7 +1624,10 @@
       // le retrait et le renommage vivent dans les RÉGLAGES de la carte (_setPanelHtml, renameTab/removeTab).
       mount: function (host, it) {
         it = it || {};
-        var tabs = (Array.isArray(it.tabs) ? it.tabs : []).filter(function (id) { return byId(id); });
+        // 'vide' = ONGLET SANS WIDGET (03/08, demande user « juste le widget, pas l'onglet ») :
+        // l'onglet garde son nom et propose « + Choisir un widget » dans son corps. Le sentinel
+        // passe la whitelist serveur (_WDG_ID_RX = format kebab-case, pas d'appartenance catalogue).
+        var tabs = (Array.isArray(it.tabs) ? it.tabs : []).filter(function (id) { return id === 'vide' || byId(id); });
         var labels = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];   // libellés personnalisés (double-clic → renommage), alignés sur tabs
         var actIdx = Math.min((it._tabAct | 0), Math.max(0, tabs.length - 1));
         var subClean = null;
@@ -1631,8 +1638,15 @@
         function mountSub() {
           if (subClean) { try { subClean(); } catch (e) {} subClean = null; }
           body.innerHTML = '';
-          var w = tabs[actIdx] && byId(tabs[actIdx]);
-          if (!w) { body.innerHTML = '<div class="wdg-empty">Ajoute un onglet avec le « + » ci-dessus.</div>'; return; }
+          if (!tabs.length) { body.innerHTML = '<div class="wdg-empty">Ajoute un onglet avec le « + » ci-dessus.</div>'; return; }
+          var w = tabs[actIdx] !== 'vide' && tabs[actIdx] && byId(tabs[actIdx]);
+          if (!w) {
+            // ONGLET VIDE : même invitation que les emplacements de la grille — un geste, un sens.
+            body.innerHTML = '<div class="wdgt-vide"><button class="wdgt-fill">+<span>Choisir un widget</span></button></div>';
+            var b0 = body.querySelector('.wdgt-fill');
+            if (b0) b0.addEventListener('click', function () { _pickTabFor(it, actIdx); });
+            return;
+          }
           try { var un = w.mount(body); if (typeof un === 'function') subClean = un; }
           catch (e) { fallback(body, 'Widget indisponible.'); }
         }
@@ -1640,26 +1654,30 @@
           // Libellé = TAG court du desk quand il existe (› MONDE › RISQUE › FORCE…, demande user 26/07
           // « exactement comme le desk ») ; le nom complet reste dans le title (infobulle).
           bar.innerHTML = tabs.map(function (id, i) {
-            var w = byId(id);
-            return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + '" data-i="' + i + '" title="' + esc(w.name) + ' — double-clic pour renommer">'
-              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(labels[i] || w.tag || w.name) + '</span></button>';
+            var w = id !== 'vide' && byId(id);
+            var lbl = labels[i] || (w ? (w.tag || w.name) : 'Vide');
+            var ttl = w ? (w.name + ' — double-clic pour renommer') : 'Onglet vide — choisis un widget dans le corps';
+            return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
+              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(lbl) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
         }
         // RENOMMAGE INLINE (demande user 28/07, réparé 03/08) : le libellé devient un champ —
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
         function ouvreRenommage(i) {
           var t = bar.querySelector('.wdgt-tab[data-i="' + i + '"]'); if (!t) return;
-          var w0 = byId(tabs[i]); if (!w0) return;
+          var w0 = tabs[i] !== 'vide' && byId(tabs[i]);
+          if (!w0 && tabs[i] !== 'vide') return;
+          var def0 = w0 ? (w0.tag || w0.name) : 'Vide';       // un onglet vide se renomme aussi
           var nm = t.querySelector('.wdgt-nm'); if (!nm) return;
           var inp = document.createElement('input');
-          inp.className = 'wdgt-edit'; inp.maxLength = 18; inp.value = labels[i] || w0.tag || w0.name;
+          inp.className = 'wdgt-edit'; inp.maxLength = 18; inp.value = labels[i] || def0;
           nm.replaceWith(inp); inp.focus(); inp.select();
           var done = false;
           function commit(ok) {
             if (done) return; done = true;
             if (ok) {
               var v = inp.value.trim().slice(0, 18);
-              if (v && v !== (w0.tag || w0.name)) labels[i] = v; else labels[i] = '';
+              if (v && v !== def0) labels[i] = v; else labels[i] = '';
               it.tabLabels = labels.slice(); save();
               // Le volet Réglages liste aussi les onglets : s'il est ouvert, il garderait l'ancien
               // nom jusqu'au prochain rendu — on le resynchronise avec le renommage inline.
@@ -2098,7 +2116,7 @@
         // « − » retire l'ONGLET AFFICHÉ seulement (lu au clic — l'actif change sans re-rendu) ; le ✕
         // global, lui, emporte tout le panneau → son intitulé le dit désormais clairement.
         +     (w.id === 'onglets'
-                ? '<button class="wdg-ico wdg-ico--tabx" title="Retirer l\'onglet affiché (le panneau reste)" onclick="DTPWidgets.removeActiveTab(' + idx + ')">−</button>'
+                ? '<button class="wdg-ico wdg-ico--tabx" title="Retirer le widget de l\'onglet affiché (l\'onglet reste)" onclick="DTPWidgets.removeActiveTab(' + idx + ')">−</button>'
                 : '')
         +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
@@ -2312,13 +2330,15 @@
   var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analyse de marché' · 'Fonctions' · '_tpl' = modèles)
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
   var _pickTab = null;                       // index d'item « Panneau à onglets » en cours d'ajout d'onglet
+  var _pickTabAt = null;                     // position d'un ONGLET VIDE à remplir (sinon null = ajout en fin)
   var _pickSwap = null;                      // index de la carte à REMPLACER (la bibliothèque sert alors de sélecteur)
   var _justAdded = null;                     // id du widget qu'on vient d'ajouter (flash « ✓ Ajouté » sur sa carte)
-  // « + » d'un Panneau à onglets → la bibliothèque choisit le SOUS-widget (ajouté comme onglet, pas comme carte).
-  function _pickTabFor(it) {
+  // « + » d'un Panneau à onglets → la bibliothèque choisit le SOUS-widget (ajouté comme onglet, pas
+  // comme carte). `at` (03/08) : position d'un onglet VIDE → le choix REMPLIT cet onglet-là.
+  function _pickTabFor(it, at) {
     var l = activeLayout(); if (!l) return;
     var idx = l.items.indexOf(it); if (idx < 0) return;
-    API.openLib(); _pickTab = idx;
+    API.openLib(); _pickTab = idx; _pickTabAt = (at == null ? null : at);
   }
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
@@ -2729,7 +2749,9 @@ function _spansAffiches(lay) {
       var w2 = byId(it.tabs[j]);
       var lb = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];
       var v2 = String(v || '').trim().slice(0, 18);
-      var suiv = (v2 && w2 && v2 !== (w2.tag || w2.name)) ? v2 : '';   // vide ou nom d'origine → pas de libellé perso
+      // Nom par défaut : tag du widget — ou « Vide » pour un onglet sans widget (renommable aussi).
+      var def = w2 ? (w2.tag || w2.name) : 'Vide';
+      var suiv = (v2 && v2 !== def) ? v2 : '';   // vide ou nom d'origine → pas de libellé perso
       // SANS CHANGEMENT → ON NE RE-REND RIEN. Cliquer le × d'une ligne dont le champ a le focus
       // déclenche blur → change → re-rendu du volet : le bouton visé serait remplacé sous la souris
       // et le clic avalé — il faudrait cliquer deux fois. Le no-op laisse le DOM en place.
@@ -2778,12 +2800,28 @@ function _spansAffiches(lay) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       _pickTabFor(l.items[i]);
     },
-    // « − » de l'en-tête du panneau à onglets : retire l'ONGLET AFFICHÉ (l'index actif est lu au
-    // moment du clic — il vit en volatile dans it._tabAct). Plancher 1 onglet garanti par removeTab.
+    // « − » de l'en-tête du panneau à onglets (03/08, précision user « juste le widget, pas
+    // l'onglet ») : VIDE l'onglet affiché — le widget s'en va, l'onglet reste (nom conservé) et
+    // son corps propose « + Choisir un widget ». L'onglet entier, lui, se retire depuis les
+    // Réglages (×). Index actif lu au clic (volatile it._tabAct) ; annulable 7 s.
     removeActiveTab: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
-      API.removeTab(i, Math.min(it._tabAct | 0, it.tabs.length - 1));
+      var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
+      var prev = it.tabs[j];
+      if (prev === 'vide') return;                           // déjà vide → rien à retirer
+      var w2 = byId(prev);
+      it.tabs[j] = 'vide';
+      save(); _syncPanel(i); API.refresh(i);
+      // Annulation PAR RÉFÉRENCE (même règle que removeTab) : l'objet survit aux déplacements.
+      var itRef = it;
+      _undoOffer((w2 ? w2.name : 'Widget') + ' retiré — l\'onglet reste', function () {
+        if (!itRef || itRef.w !== 'onglets' || !Array.isArray(itRef.tabs)) return;
+        if (itRef.tabs[j] === 'vide') itRef.tabs[j] = prev;
+        save();
+        var cur = activeLayout(); var idx = cur && cur.items ? cur.items.indexOf(itRef) : -1;
+        if (idx >= 0) { _syncPanel(idx); API.refresh(idx); }
+      });
     },
     refresh: function (i) {                                  // re-monte CE widget seul (rafraîchit sa donnée)
       var l = activeLayout(); if (!l || !l.items[i]) return;
@@ -2800,7 +2838,7 @@ function _spansAffiches(lay) {
     replaceStart: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       if (l.items[i].locked) return _undoOffer('Carte verrouillée : déverrouille-la pour la remplacer.');
-      _closePops(); _pickIdx = null; _pickTab = null; _pickSwap = i;
+      _closePops(); _pickIdx = null; _pickTab = null; _pickTabAt = null; _pickSwap = i;
       API.openLib();
     },
     toggleInfo: function (i) { _togglePop(i, 'i'); },
@@ -2824,8 +2862,18 @@ function _spansAffiches(lay) {
         // Ajout d'un ONGLET dans un Panneau à onglets (jamais un panneau dans lui-même).
         if (wid !== 'onglets') {
           var pt = l.items[_pickTab];
-          pt.tabs = (pt.tabs || []).concat([wid]).slice(0, 8);
-          pt._tabAct = pt.tabs.length - 1;                    // le nouvel onglet devient l'actif
+          if (_pickTabAt != null && Array.isArray(pt.tabs) && pt.tabs[_pickTabAt] === 'vide') {
+            // REMPLISSAGE d'un onglet vide (03/08) : le widget prend SA place, nom conservé.
+            pt.tabs[_pickTabAt] = wid;
+            pt._tabAct = _pickTabAt;
+          } else {
+            // Cap 12 = celui du serveur (_wdgClean) — l'ancien 8 JETAIT EN SILENCE le nouvel onglet
+            // dès que le panneau en avait 8 (la Vue générale en a 9 : « + » semblait mort).
+            if ((pt.tabs || []).length >= 12) { _undoOffer('Ce panneau est plein (12 onglets).'); _pickTabAt = null; return; }
+            pt.tabs = (pt.tabs || []).concat([wid]);
+            pt._tabAct = pt.tabs.length - 1;                  // le nouvel onglet devient l'actif
+          }
+          _pickTabAt = null;
           save(); API.closeLib(); renderGrid();
         }
         return;
