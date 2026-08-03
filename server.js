@@ -8168,12 +8168,12 @@ const _RECAP_CCY_KW = {
 // semaine infirme le cadre, l'IA ajuste la conclusion. Actualisable à mesure que le régime macro évolue.
 const _RECAP_CCY_FRAME = {
   USD: "Politique : restrictive à long terme, mais le pricing court terme s'est assoupli après un IPC plus faible. Inflation : élevée mais en baisse tendancielle. Moteurs dominants : pricing de la Fed (inflation) et risque géopolitique (US-Iran). Biais de référence : neutre à court terme, haussier à long terme.",
-  EUR: "Politique : restrictive à long terme (hausse tarifée pour sept./déc.), pricing court terme plus accommodant. Inflation : élevée mais en baisse tendancielle. Moteurs dominants : politique de la BCE (inflation) et prix du pétrole. Biais de référence : neutre.",
+  EUR: "Politique : BCE restrictive, hausse encore possible (inflation core collante, croissance résiliente). HIÉRARCHIE des données zone euro : l'ALLEMAGNE d'abord (l'Ifo est l'indicateur AVANCÉ de la croissance de la zone), la FRANCE ensuite, puis le reste de la zone — pondère ta lecture en conséquence. Moteurs dominants : politique de la BCE (inflation), données allemandes, flux dollar, pétrole. Biais de référence : haussier modéré.",
   GBP: "Politique : restrictive (taux ~3,75 %) mais communication prospective plus accommodante. Inflation : élevée et persistante. Moteurs dominants : différentiels de taux et actualité politique britannique. Biais de référence : haussier mais vulnérable à une correction.",
-  JPY: "Politique : restrictive dans le discours mais toujours très accommodante en niveau (taux ~0,5 %). Moteurs dominants : différentiels de taux et risque d'intervention des autorités japonaises. Biais de référence : baissier.",
-  CHF: "Politique : accommodante avec risque déflationniste. Moteurs dominants : sentiment Risk-On / Risk-Off (valeur refuge). Biais de référence : neutre.",
+  JPY: "Politique : BoJ très en retard de cycle (taux ~1,00 %) → DIFFÉRENTIEL DE TAUX nettement défavorable face au reste du G10 : le portage joue CONTRE le yen, d'où sa sous-performance STRUCTURELLE. Moteurs dominants : différentiel de taux, risque/épisodes d'intervention des autorités japonaises (corrections brutales de l'USD/JPY), pricing de la Fed. Biais de référence : baissier structurel, corrigé ponctuellement par les interventions.",
+  CHF: "Politique : SNB au plancher (taux ~0 %, aucune hausse attendue avant fin 2027) → le DIFFÉRENTIEL DE TAUX le plus défavorable du G10 : le portage joue contre le franc, qui sous-performe structurellement. Moteurs dominants : différentiel de taux, sentiment Risk-On / Risk-Off (valeur refuge en période de stress). Biais de référence : baissier tant que la perspective de taux zéro prolongé tient ; demande refuge en risk-off.",
   CAD: "Politique : restrictive (BoC prudente mais ferme). Moteurs dominants : prix du pétrole et perspectives économiques canadiennes. Biais de référence : haussier tant que le pétrole reste soutenu.",
-  AUD: "Politique : restrictive, mais le marché anticipe un statu quo. Moteurs dominants : sentiment Risk-On / Risk-Off et conjoncture chinoise. Biais de référence : neutre.",
+  AUD: "Politique : RBA en pause prolongée depuis la détente de l'inflation (le marché a repoussé toute hausse). Moteurs dominants : inflation domestique, conjoncture chinoise, sentiment Risk-On / Risk-Off. Biais de référence : baissier à neutre.",
   NZD: "Politique : très restrictive, RBNZ toujours ferme. Moteurs dominants : politique de la RBNZ et sentiment Risk-On / Risk-Off. Biais de référence : haussier.",
 };
 // Normalise le biais renvoyé par l'IA vers l'enum FR EXACT (5 niveaux) ; tolérant aux variantes FR/EN.
@@ -8264,6 +8264,8 @@ Return ONLY valid JSON (no preamble, no markdown fences) :
 }
 Règles :
 - "drivers" : 2 à 5 moteurs VRAIMENT dominants cette semaine (les plus importants d'abord). Chaque "why" explique le MÉCANISME (pourquoi ça pousse la devise), pas juste le fait.
+- DIFFÉRENTIEL DE TAUX : quand le taux directeur de cette banque est très inférieur à la moyenne du G10 (typiquement CHF et JPY), la sous-performance de la devise vient d'abord du PORTAGE (les flux vendent la devise à taux bas pour acheter celles à taux hauts). Si ce mécanisme a pesé cette semaine, il DOIT figurer dans "drivers" (name « Différentiel de taux ») avec le mécanisme dans le "why", et l'analyse doit le nommer explicitement — ne l'attribue pas à un vague « sentiment ».
+- ZONE EURO (si ${ccy} = EUR) : hiérarchise les données — ALLEMAGNE d'abord (l'Ifo est l'indicateur AVANCÉ de la croissance de la zone), FRANCE ensuite, reste de la zone après. Une donnée allemande prime sur une donnée française contradictoire de même famille.
 - "catalysts" : UNIQUEMENT des données ÉCONOMIQUES publiées (CPI/inflation, PIB/croissance, emploi/chômage, PMI, ventes au détail, salaires, décisions ou anticipations de taux, discours de banque centrale…) qui ont RÉELLEMENT influencé la devise, avec leurs VRAIS chiffres (publié vs attendu). N'INCLUS JAMAIS de données de POSITIONNEMENT (COT / CFTC, « net positions », « NC net », non-commercial, hedge funds, positionnement des particuliers, open interest) : elles vivent dans l'onglet BIAIS (piliers Hedge Fund / Retail), PAS dans les catalyseurs. Si aucun catalyseur chiffré n'est présent dans les données, renvoie []. N'invente jamais de chiffres ni de consensus. N'ÉMETS JAMAIS une ligne contenant « Non disponible », « N/A » ou un champ vide : si tu n'as pas le vrai chiffre, OMETS entièrement la ligne (mieux vaut 1 catalyseur solide que 3 dont 2 vides).
 - COHÉRENCE des catalyseurs : l'interprétation doit être LOGIQUE avec les chiffres. Si publié > attendu, ce n'est PAS « plus faible que prévu » (et inversement). Pour l'inflation/l'emploi : publié > attendu → « plus élevé/chaud que prévu » ; publié < attendu → « plus faible/mou que prévu ». Vérifie le SENS avant d'écrire l'impact sur la devise.
 - "bias" : DÉCOULE de la confrontation cadre de référence ↔ données réelles ; si la semaine infirme le cadre, ajuste (le biais doit refléter la semaine, pas le cadre figé).
@@ -9334,6 +9336,8 @@ Règles :
 - "econData" : utilise UNIQUEMENT les chiffres publiés fournis dans le bloc DONNÉES ÉCONOMIQUES (avec leurs actual / expected / previous). Garde les noms de publications/indicateurs tels quels (ne traduis pas les intitulés officiels). Ne fabrique aucune publication.
 - "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais — l'affichage est traduit).
 - "corporate" et "comments" : n'inclus que des éléments qui apparaissent réellement dans les titres.
+- DIFFÉRENTIEL DE TAUX : la faiblesse persistante des devises à taux directeur très bas face au reste du G10 (typiquement CHF ~0 % et JPY ~1 %) s'explique d'abord par le PORTAGE (différentiel de taux) — quand tu commentes leur sous-performance sans catalyseur du jour, nomme CE mécanisme, pas un vague « sentiment ».
+- ZONE EURO : hiérarchise les données — Allemagne d'abord (l'Ifo = indicateur AVANCÉ de la croissance de la zone), France ensuite, reste de la zone après.
 
 === TITRES & FLUX DU JOUR (${newsLines.length}) ===
 ${newsLines.join('\n').slice(0, 9000) || '(flux limité capturé)'}
@@ -10176,7 +10180,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v40-histdate';   // v40 : chaque valeur de l'historique detail.*.hist porte sa DATE ({v,t} au lieu d'une string) → le panneau affiche « 25 avr. 4.4% → … » (explicite pour un novice, demande user 23/07). bump = régén au boot. v39 : le DÉTAIL macro porte l'HISTORIQUE des dernières publications (detail.*.hist = jusqu'à 4 valeurs même libellé, ancien→récent) → la TENDANCE est visible avec les précédents dans le panneau (demande user). v38 : ZEW/IFO/Sentix RETIRÉS de Confiance/Sentiment (VETO user 21/07 « non n'ajoute pas ça » — seul l'élargissement Salaires « Average Earnings » UK est conservé). bump = régén sans les valeurs ZEW. v37 : COUVERTURE calendrier élargie (diagnostic user « tu prendras en compte quels news ? ») — SALAIRES captent « Average Earnings » (UK, ex. GBP « Average Earnings incl. Bonus ») en plus de « Average Hourly Earnings » (US). Corrige 2 trous où des sorties importantes n'entraient pas dans le biais/detail. NB : Balance commerciale + stocks pétrole API restent HORS modèle (le pilier = inflation/croissance/emploi/monétaire ; le signal pétrole vient du PRIX WTI, pas des stocks). bump = régén au boot. v36 : chaque devise porte un DÉTAIL macro (macroTable[c].detail) = vraies dernières publications par indicateur (IPC/PCE/PPI/salaires, PIB/PMI/ventes/confiance, chômage/NFP/inscriptions : actual+forecast+previous+surprise via _sbLatestRelease) + pricing marché (_sbPricingLine : FedWatch USD sinon scénario maison) → alimente le PANNEAU DE DÉTAIL au clic sur une devise dans le Radar de Biais (vue façon grille macro). bump = régén au boot. v35 : pilier « Politique monétaire » ANCRÉ SUR LA STANCE RÉELLE de la banque (diagnostic user « pourquoi on a pas pareil que ma grille ? »). CAUSE RACINE trouvée : (1) le pilier basé sur le seul TON des discours sortait « Very Bullish » partout ; (2) la trajectoire cumulée 6,5 mois de rateprobability (_rpDirMove) transformait une dérive de quelques bps en « HIKE » pour USD/GBP/CAD alors qu'ils sont en pause ; (3) EUR & AUD avaient un biais config 'hike' PÉRIMÉ (ère de hausse 2022-23). Corrigés → EUR/AUD='hold' (AUD lean cut). Désormais _sbPolicyStance donne le SIGNE : USD via CME FedWatch (prochain FOMC), sinon biais MAISON curé (CB[] + clamp taux terminal via _effBias, SANS surcouche IA rp/aibias) ; le ton n'intensifie que dans le MÊME sens (jamais flip) ; un MAINTIEN plafonne à ±Bullish (jamais « Very »). DIRECTION macroTable = _sbPolicyStance(c).dir (idem). → fin des biais systématiquement haussiers, alignés sur le régime de pause. bump = régén au boot. v33 : NIVEAU d'inflation ancré sur la CIBLE 2 % (insight user « au-dessus de 2 % = High ») — IPC annuel du calendrier > 2 % → Élevée, < 1,5 % → Basse, sinon Modérée (à la cible). Avant : seuil High à 2,5 % (2,3 % ressortait « Modérée » à tort). bump = régén. v32 : colonnes ENRICHIES de tous les sous-indicateurs clés (grille méthodo user) via _sbBlend — Inflation = IPC×1 + PCE×0.7 + PPI×0.6 + salaires×0.4 + pétrole×0.4 ; Croissance = PIB×1 + Retail×0.6 + PMI/ISM×0.6 + confiance×0.4 ; Emploi = chômage(inv)×1 + NFP/ADP×0.6 + claims(inv)×0.4 + JOLTS×0.3. bump = régén. v31 : CROISSANCE = signal AVANCÉ Ventes au détail (insight user « les Retail Sales anticipent le PIB et SONT la croissance conso ») — tendance Croissance = PIB confirmé (×1) + Ventes au détail (×0.6, avancé). Miroir de l'inflation (pétrole/PPI). bump = régén. v30 : le calendrier des tendances passe RÉELLEMENT à 6 mois (le clamp `Math.min(3,…)` de _buildTVCalendarRange + _RANGE_DAYS plafonnaient à 3 → corrigés à 6) + historique stocké _calHist étendu 60 j → ~6 mois (demande user). bump = régén au boot avec les 6 mois. v29 : conclusion = 4 PILIERS seulement (demande user : Hedge Fund/COT, Retail/particuliers et Saisonnalité RETIRÉS) → Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1. + Inflation enrichie du signal AVANCÉ pétrole + PPI (leading indicators de l'IPC). bump = régén au boot. v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v41-taux-diff';   // v41 (03/08, règles user) : (1) pilier « Politique monétaire » intègre le DIFFÉRENTIEL DE TAUX — taux directeur à ≥1,5 pt SOUS la moyenne G8 (SNB ~0 %, BoJ ~1 %) = un cran baissier (portage structurel contre la devise), ≥1,5 pt AU-DESSUS = un cran haussier ; ligne `ratesLine` ajoutée aux ctxLines + narratifs. (2) « Différentiel de taux » GARANTI dans les Drivers macroTable des devises à portage extrême, même si le Récap Hebdo l'omet. (3) EUR : hiérarchie zone euro dans le pilier fondamental (Allemagne/zone plein poids, France 0.7, autres 0.45 — « l'Allemagne = 1er pays qui influence l'EUR, ensuite la France ») + Ifo Business Climate capté comme indicateur AVANCÉ de CROISSANCE (pas en Confiance : veto 21/07 maintenu pour ZEW/Sentix). bump = régén au boot. v40 : chaque valeur de l'historique detail.*.hist porte sa DATE ({v,t} au lieu d'une string) → le panneau affiche « 25 avr. 4.4% → … » (explicite pour un novice, demande user 23/07). bump = régén au boot. v39 : le DÉTAIL macro porte l'HISTORIQUE des dernières publications (detail.*.hist = jusqu'à 4 valeurs même libellé, ancien→récent) → la TENDANCE est visible avec les précédents dans le panneau (demande user). v38 : ZEW/IFO/Sentix RETIRÉS de Confiance/Sentiment (VETO user 21/07 « non n'ajoute pas ça » — seul l'élargissement Salaires « Average Earnings » UK est conservé). bump = régén sans les valeurs ZEW. v37 : COUVERTURE calendrier élargie (diagnostic user « tu prendras en compte quels news ? ») — SALAIRES captent « Average Earnings » (UK, ex. GBP « Average Earnings incl. Bonus ») en plus de « Average Hourly Earnings » (US). Corrige 2 trous où des sorties importantes n'entraient pas dans le biais/detail. NB : Balance commerciale + stocks pétrole API restent HORS modèle (le pilier = inflation/croissance/emploi/monétaire ; le signal pétrole vient du PRIX WTI, pas des stocks). bump = régén au boot. v36 : chaque devise porte un DÉTAIL macro (macroTable[c].detail) = vraies dernières publications par indicateur (IPC/PCE/PPI/salaires, PIB/PMI/ventes/confiance, chômage/NFP/inscriptions : actual+forecast+previous+surprise via _sbLatestRelease) + pricing marché (_sbPricingLine : FedWatch USD sinon scénario maison) → alimente le PANNEAU DE DÉTAIL au clic sur une devise dans le Radar de Biais (vue façon grille macro). bump = régén au boot. v35 : pilier « Politique monétaire » ANCRÉ SUR LA STANCE RÉELLE de la banque (diagnostic user « pourquoi on a pas pareil que ma grille ? »). CAUSE RACINE trouvée : (1) le pilier basé sur le seul TON des discours sortait « Very Bullish » partout ; (2) la trajectoire cumulée 6,5 mois de rateprobability (_rpDirMove) transformait une dérive de quelques bps en « HIKE » pour USD/GBP/CAD alors qu'ils sont en pause ; (3) EUR & AUD avaient un biais config 'hike' PÉRIMÉ (ère de hausse 2022-23). Corrigés → EUR/AUD='hold' (AUD lean cut). Désormais _sbPolicyStance donne le SIGNE : USD via CME FedWatch (prochain FOMC), sinon biais MAISON curé (CB[] + clamp taux terminal via _effBias, SANS surcouche IA rp/aibias) ; le ton n'intensifie que dans le MÊME sens (jamais flip) ; un MAINTIEN plafonne à ±Bullish (jamais « Very »). DIRECTION macroTable = _sbPolicyStance(c).dir (idem). → fin des biais systématiquement haussiers, alignés sur le régime de pause. bump = régén au boot. v33 : NIVEAU d'inflation ancré sur la CIBLE 2 % (insight user « au-dessus de 2 % = High ») — IPC annuel du calendrier > 2 % → Élevée, < 1,5 % → Basse, sinon Modérée (à la cible). Avant : seuil High à 2,5 % (2,3 % ressortait « Modérée » à tort). bump = régén. v32 : colonnes ENRICHIES de tous les sous-indicateurs clés (grille méthodo user) via _sbBlend — Inflation = IPC×1 + PCE×0.7 + PPI×0.6 + salaires×0.4 + pétrole×0.4 ; Croissance = PIB×1 + Retail×0.6 + PMI/ISM×0.6 + confiance×0.4 ; Emploi = chômage(inv)×1 + NFP/ADP×0.6 + claims(inv)×0.4 + JOLTS×0.3. bump = régén. v31 : CROISSANCE = signal AVANCÉ Ventes au détail (insight user « les Retail Sales anticipent le PIB et SONT la croissance conso ») — tendance Croissance = PIB confirmé (×1) + Ventes au détail (×0.6, avancé). Miroir de l'inflation (pétrole/PPI). bump = régén. v30 : le calendrier des tendances passe RÉELLEMENT à 6 mois (le clamp `Math.min(3,…)` de _buildTVCalendarRange + _RANGE_DAYS plafonnaient à 3 → corrigés à 6) + historique stocké _calHist étendu 60 j → ~6 mois (demande user). bump = régén au boot avec les 6 mois. v29 : conclusion = 4 PILIERS seulement (demande user : Hedge Fund/COT, Retail/particuliers et Saisonnalité RETIRÉS) → Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1. + Inflation enrichie du signal AVANCÉ pétrole + PPI (leading indicators de l'IPC). bump = régén au boot. v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -10411,7 +10415,10 @@ const _SB_FUND_SUBS = [
   { label: 'Inflation (CPI)',    re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price|pce price|core pce/i },
   { label: 'Emploi (chômage)',   re: /unemployment rate|jobless/i, inv: true },
   { label: 'Salaires',           re: /average (hourly |weekly )?earnings|wage growth|\bwages\b/i },   // « average earnings » (UK, ex. « Average Earnings incl. Bonus ») en plus de « average hourly earnings » (US)
-  { label: 'Croissance (PIB)',   re: /\bGDP\b|gross domestic|economic growth/i },
+  // Ifo = indicateur AVANCÉ de la croissance de la zone euro (règle user 03/08 : « ifo = indicateur pour
+  // déterminer la croissance de l'euro ») → capté en CROISSANCE, pas en Confiance (le veto user 21/07
+  // « n'ajoute pas ça » portait sur Confiance/Sentiment — ZEW/Sentix y restent exclus).
+  { label: 'Croissance (PIB)',   re: /\bGDP\b|gross domestic|economic growth|ifo business climate/i },
   { label: 'Ventes au détail',   re: /retail sales|retail trade/i },
   { label: 'PMI Manufacturier',  re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur|tankan|ivey|manufacturing production/i },
   { label: 'PMI Services',       re: /services? pmi|ism (services|non-manufactur)|tertiary industry/i },
@@ -10422,6 +10429,13 @@ function _sbFundStanceServer(actual, forecast) {
   if (a == null || f == null) return null;
   const thr = Math.abs(f) * 0.001 + 0.0001;
   return a > f + thr ? 'Bullish' : a < f - thr ? 'Bearish' : 'Neutral';   // beat = surprise haussière de donnée
+}
+// HIÉRARCHIE ZONE EURO (règle user 03/08 : « l'Allemagne = 1er pays qui influence l'EUR, ensuite la
+// France ») : sous EUR, une sortie ALLEMANDE (ou agrégée zone euro) pèse plein poids, une FRANÇAISE 0.7,
+// les autres pays 0.45. Pays inconnu/vide → plein poids (ne jamais punir une donnée non étiquetée).
+function _sbEurCtryW(ct) {
+  const k = String(ct || '').toUpperCase();
+  return (!k || k === 'DE' || k === 'EU' || k === 'EZ' || k === 'EMU') ? 1 : k === 'FR' ? 0.7 : 0.45;
 }
 async function _sbFundamentalRows() {
   // SOURCE FIABLE : TradingEconomics (valeur réelle ACTUELLE + précédente de chaque indicateur → tendance,
@@ -10450,7 +10464,8 @@ async function _sbFundamentalRows() {
       evs.forEach((ev, i) => {
         const s0 = _sbFundStanceServer(ev.actual, ev.forecast);
         if (!s0) return;                                       // actual/forecast illisible → ne dilue pas
-        const w = 1 / (i + 1);
+        // Récence (1, 1/2, 1/3…) × hiérarchie zone euro (DE/zone plein poids, FR 0.7, autres 0.45).
+        const w = (1 / (i + 1)) * (c === 'EUR' ? _sbEurCtryW(ev.ctry) : 1);
         score += (s0 === 'Bullish' ? 1 : s0 === 'Bearish' ? -1 : 0) * w;
         wsum  += w;
       });
@@ -10574,6 +10589,44 @@ function _sbPolicyStance(code) {
 // Même stance, mais dans le vocabulaire HIKE/CUT/HOLD de l'onglet TAUX (pour que le header « Prochain mouvement »
 // des cartes TAUX soit IDENTIQUE au « Prochain mouvement » du Radar de Biais — demande user « aligner TAUX sur la stance »).
 function _sbStanceMove(code) { const d = _sbPolicyStance(code).dir; return d === 'Up' ? 'HIKE' : d === 'Down' ? 'CUT' : 'HOLD'; }
+// GROUNDING du pilier « Politique monétaire » — UNE SEULE implémentation pour le cycle hebdo ET le
+// cycle live (sinon ils divergent, vécu). Fonction PURE du ton BRUT (jamais d'une valeur déjà
+// groundée — le ton brut est persisté dans _smartBias.monTone, sans quoi ré-appliquer le
+// différentiel ferait dériver d'un cran par tic) :
+//   stance (hausse/baisse/maintien) donne le SIGNE ; le ton n'intensifie que dans le même sens ;
+//   un maintien plafonne à ±Bullish ; puis DIFFÉRENTIEL DE TAUX (v41, règle user « le CHF et le JPY
+//   sous-performent à cause du différentiel des taux ») : taux directeur à ≥1,5 pt SOUS la moyenne
+//   G8 (SNB ~0 %, BoJ ~1 %) = un cran baissier (le portage finance les carry trades CONTRE la
+//   devise), ≥1,5 pt au-dessus = un cran haussier. Déterministe — taux réels de l'onglet TAUX.
+function _sbGroundMonetary(toneMap) {
+  const _SC = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2 };
+  const _LV = ['Very Bearish', 'Bearish', 'Neutral', 'Bullish', 'Very Bullish'];
+  let diffs = {}, line = '';
+  try {
+    const _rp = _buildRatesPayload();
+    const _bk = ((_rp && _rp.banks) || []).filter(b => b && SB_CURRENCIES.includes(b.code) && b.rate != null && isFinite(+b.rate));
+    if (_bk.length >= 6) {
+      const mean = _bk.reduce((s, b) => s + (+b.rate), 0) / _bk.length;
+      _bk.forEach(b => { diffs[b.code] = +((+b.rate) - mean).toFixed(2); });
+      line = 'Différentiel de taux directeurs (vs moyenne G8 ' + mean.toFixed(2) + ' %) : '
+        + _bk.map(b => `${b.code} ${(+b.rate).toFixed(2)} % (${diffs[b.code] > 0 ? '+' : ''}${diffs[b.code]} pt)`).join(' · ')
+        + ' — un écart nettement NÉGATIF (typiquement CHF/JPY) = portage structurellement défavorable qui pèse sur la devise ; un écart nettement positif = portage favorable.';
+    }
+  } catch (e) { console.warn('[SmartBias] rate diff', e.message); }
+  const values = {};
+  for (const c of SB_CURRENCIES) {
+    const s = _sbPolicyStance(c).s;                       // +1 hausse / -1 baisse / 0 maintien
+    const tone = _SC[toneMap[c]] != null ? _SC[toneMap[c]] : 0;
+    let net;
+    if (s > 0) net = tone >= 2 ? 2 : 1;                   // hausse → Bullish (Very si le ton confirme fortement)
+    else if (s < 0) net = tone <= -2 ? -2 : -1;           // baisse → Bearish (Very si le ton confirme fortement)
+    else net = Math.max(-1, Math.min(1, tone));           // maintien → au plus ±Bullish selon le ton, jamais « Very »
+    const rd = diffs[c];                                  // portage structurel (niveau des taux, pas la direction)
+    if (rd != null) { if (rd <= -1.5) net = Math.max(-2, net - 1); else if (rd >= 1.5) net = Math.min(2, net + 1); }
+    values[c] = _LV[net + 2];
+  }
+  return { values, diffs, line };
+}
 // Tendance du PÉTROLE (WTI) — signal AVANCÉ d'inflation (demande user : « ce qui impacte l'inflation c'est
 // l'énergie/le pétrole ; pétrole en baisse → inflation en baisse → Fed dovish »). Closes hebdo ~6 mois. Global
 // (l'énergie touche l'inflation de toutes les devises). Caché 6 h ; repli 'flat' si Yahoo indispo.
@@ -10625,6 +10678,21 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir) {
     const wi = (allNews || []).find(i => i && i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.currencies);
     if (wi) for (const c of SB_CURRENCIES) { const d = wi._weekly.currencies[c]; if (d && Array.isArray(d.drivers)) recapDrivers[c] = d.drivers.map(x => x && x.name).filter(Boolean).slice(0, 3); }
   } catch {}
+  // GARANTIE DÉTERMINISTE (règle user 03/08, répétée ×4) : quand le taux directeur est à ≥ 1,5 pt de
+  // la moyenne G8 (portage extrême — typiquement CHF/JPY côté négatif), « Différentiel de taux »
+  // figure TOUJOURS dans les Drivers de la devise, même si le Récap Hebdo ne l'a pas nommé.
+  try {
+    const _bkAll = ((rates && rates.banks) || []).filter(b => b && SB_CURRENCIES.includes(b.code) && b.rate != null && isFinite(+b.rate));
+    if (_bkAll.length >= 6) {
+      const _mean = _bkAll.reduce((s, b) => s + (+b.rate), 0) / _bkAll.length;
+      for (const b of _bkAll) {
+        if (Math.abs((+b.rate) - _mean) < 1.5) continue;
+        const list = recapDrivers[b.code] || (recapDrivers[b.code] = []);
+        if (!list.some(n => /diff[ée]rentiel/i.test(String(n)))) list.unshift('Différentiel de taux');
+        recapDrivers[b.code] = list.slice(0, 3);
+      }
+    }
+  } catch {}
   const out = {};
   SB_CURRENCIES.forEach(c => {
     const mSense = _sbSense(monetary[c]);
@@ -10643,7 +10711,7 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir) {
     const gS = _sbBlend([
       [_sbHistTrend(_cal, c, /\bGDP\b|gross domestic|economic growth|\bPIB\b/i), 1.0],
       [_sbHistTrend(_cal, c, /retail sales|retail trade|ventes au d[ée]tail/i), 0.6],
-      [_sbHistTrend(_cal, c, /\bpmi\b|\bism\b|manufacturing pmi|services? pmi|composite pmi|\bfactory\b|industrial production/i), 0.6],
+      [_sbHistTrend(_cal, c, /\bpmi\b|\bism\b|manufacturing pmi|services? pmi|composite pmi|\bfactory\b|industrial production|ifo business climate/i), 0.6],   // + Ifo (indicateur avancé croissance EUR, règle user 03/08)
       [_sbHistTrend(_cal, c, /consumer confidence|consumer sentiment|business confidence/i), 0.4],
     ], subVal(c, 'Croissance (PIB)'), 0.35);
     const eS = _sbBlend([
@@ -10961,19 +11029,16 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   // _sbPolicyStance : FedWatch pour l'USD, biais maison curé sinon) donne le SIGNE ; le ton ne fait qu'intensifier
   // dans le MÊME sens. Un MAINTIEN plafonne à Bullish/Bearish (jamais « Very »). → fin des biais systématiquement
   // haussiers ; une banque en pause = au plus légèrement haussière/baissière selon son ton.
+  // Grounding partagé hebdo/live (_sbGroundMonetary) : stance + ton + DIFFÉRENTIEL DE TAUX (v41).
+  // Le ton BRUT (avant grounding) est conservé dans `monTone` — c'est LUI que le cycle live re-fonde
+  // (jamais la valeur groundée, sinon le différentiel se ré-appliquerait en cascade à chaque tic).
+  const monTone = Object.assign({}, monetary);
+  let ratesLine = '';
   try {
-    const _SC = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2 };
-    const _LV = ['Very Bearish', 'Bearish', 'Neutral', 'Bullish', 'Very Bullish'];
-    for (const c of SB_CURRENCIES) {
-      const s = _sbPolicyStance(c).s;                       // +1 hausse / -1 baisse / 0 maintien
-      const tone = _SC[monetary[c]] != null ? _SC[monetary[c]] : 0;
-      let net;
-      if (s > 0) net = tone >= 2 ? 2 : 1;                   // hausse → Bullish (Very si le ton confirme fortement)
-      else if (s < 0) net = tone <= -2 ? -2 : -1;           // baisse → Bearish (Very si le ton confirme fortement)
-      else net = Math.max(-1, Math.min(1, tone));           // maintien → au plus ±Bullish selon le ton, jamais « Very »
-      monetary[c] = _LV[net + 2];
-    }
-    console.log('[SmartBias] pilier monétaire = stance résolue + ton : ' + SB_CURRENCIES.map(c => c + '=' + monetary[c]).join(' '));
+    const _mg = _sbGroundMonetary(monTone);
+    ratesLine = _mg.line;
+    for (const c of SB_CURRENCIES) monetary[c] = _mg.values[c];
+    console.log('[SmartBias] pilier monétaire = stance résolue + ton + différentiel : ' + SB_CURRENCIES.map(c => c + '=' + monetary[c] + (_mg.diffs[c] != null && Math.abs(_mg.diffs[c]) >= 1.5 ? '(' + (_mg.diffs[c] > 0 ? '+' : '') + _mg.diffs[c] + 'pt)' : '')).join(' '));
   } catch (e) { console.warn('[SmartBias] mon-stance', e.message); }
 
   // ── CONCLUSION = CONFLUENCE pondérée des lignes AFFICHÉES (façon pro) → elle DÉCOULE TOUJOURS de la
@@ -11024,7 +11089,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
         !_sbIsRealNarrative((narrative || {})[c])
         || (_prevBias[c] != null && _prevBias[c] !== conclusion[c]));
       if (weekly || (_todo && _todo.length)) {
-        const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine, recapLine], _todo);
+        const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine, recapLine, ratesLine], _todo);
         if (n) { narrative = Object.assign({}, narrative || {}, n); for (const _c of Object.keys(n)) narrativeBias[_c] = conclusion[_c]; }
       }
     } catch {}
@@ -11050,7 +11115,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   //   (mis à jour à CHAQUE run) → sert à cadencer le rafraîchissement quotidien du biais (demande user).
   const _prevGenAt = (_smartBias && _smartBias.generatedAt) || 0;
   const _genAt = (weekly || !_prevGenAt) ? Date.now() : _prevGenAt;
-  _smartBias = { generatedAt: _genAt, dataAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, macroTable, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
+  _smartBias = { generatedAt: _genAt, dataAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, macroTable, monTone, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine, ratesLine].filter(Boolean) };
   // Régénération complète → les overrides admin (correctifs ponctuels d'aberrations IA) expirent :
   // la nouvelle matrice repart sur les données fraîches, l'admin ne corrige que si besoin à nouveau.
   try { if (Object.keys(_sbOverrides || {}).length) { _sbOverrides = {}; auth.aiCacheSet('sb:overrides', {}).catch(() => {}); } } catch {}
@@ -11119,22 +11184,15 @@ async function _sbRecomputeLive() {
     const technical      = await _sbTechnicalRow();   // force 1 j (cache 60 s)
     const sentiment      = _sbSentimentRow();         // régime de risque (cache 3 min)
     const bankOverview = prevRow('bankOverview');               // IA/hebdo → repris tel quel
-    // Pilier monétaire : on repart du dernier ton connu et on ré-applique le GROUNDING sur la stance
-    // fraîche (_sbPolicyStance : FedWatch pour l'USD, biais maison sinon). L'opération est idempotente
-    // (re-grounder un résultat déjà groundé le laisse stable) → le pilier suit les anticipations en direct.
+    // Pilier monétaire : re-grounding sur la stance FRAÎCHE via le MÊME helper que le cycle hebdo
+    // (_sbGroundMonetary : stance + ton + différentiel de taux). Le ton d'entrée = le ton BRUT
+    // persisté (monTone) — jamais la valeur déjà groundée, sinon le différentiel se ré-appliquerait
+    // en cascade à chaque tic (dérive d'un cran, vue en revue). Repli : valeur stockée (ancien snapshot
+    // sans monTone) — le clamp du maintien borne alors la dérive à un unique cran, une seule fois.
     const monetary = Object.assign({}, prevRow('monetary'));
     try {
-      const _SC = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2 };
-      const _LV = ['Very Bearish', 'Bearish', 'Neutral', 'Bullish', 'Very Bullish'];
-      for (const c of SB_CURRENCIES) {
-        const s = _sbPolicyStance(c).s;
-        const tone = _SC[monetary[c]] != null ? _SC[monetary[c]] : 0;
-        let net;
-        if (s > 0) net = tone >= 2 ? 2 : 1;
-        else if (s < 0) net = tone <= -2 ? -2 : -1;
-        else net = Math.max(-1, Math.min(1, tone));
-        monetary[c] = _LV[net + 2];
-      }
+      const _mg = _sbGroundMonetary(Object.assign({}, prevRow('monetary'), _smartBias.monTone || {}));
+      for (const c of SB_CURRENCIES) monetary[c] = _mg.values[c];
     } catch {}
     const conclusion = {};
     SB_CURRENCIES.forEach(c => {
