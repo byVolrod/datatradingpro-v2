@@ -14586,3 +14586,22 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdg-dmxwrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .wdg-dmxwrap .dmx-legend-bar { flex: 0 0 auto; }
 .wdg-dmxwrap .dmx-table-wrap { flex: 1 1 auto; min-height: 0; }
+
+/* ── COMMANDES DU WIDGET DANS UN ONGLET (04/08) : l'engrenage n'était plus seul — la CROIX de
+   retrait le rejoint, et elle apparaît MÊME quand le widget n'a aucun réglage (constat user :
+   « il manque la croix pour enlever le widget force des devises »). Le groupe porte encore
+   .wdg-subgear pour rester la cible du balayage anti-empilement, d'où l'annulation du gabarit
+   22×22 hérité du bouton unique. */
+.wdgt-subacts { width: auto !important; height: auto !important; display: flex; align-items: center; gap: 1px; opacity: 1 !important; background: none !important; }
+.wdgt-subacts > .wdg-ico { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 3px; }
+.wdgt-subacts > .wdg-ico:hover { color: var(--orange, #e3b23a); background: rgba(227, 178, 58, .14); }
+.wdgt-hasgear > .wdgt-subacts { margin-left: auto; flex: 0 0 auto; }
+.wdg-fx-tfbar.wdgt-hasgear > .wdgt-subacts { margin-left: 6px; }
+
+/* ── EN-TÊTE D'UNE VUE ADOPTÉE : il n'héritait que du fond et du filet, jamais du RETRAIT
+   horizontal — d'où « RADAR DE BIAIS » collé au rebord alors que le bandeau de nom des autres
+   widgets (.wdgt-subname) est à 10 px. Même gabarit pour tout le monde. */
+#view-widgets .wdg-vuehost .panel-header {
+  height: var(--navbar-h); padding: 0 10px; display: flex; align-items: center; gap: 6px;
+}
+#view-widgets .wdg-vuehost .panel-header .panel-title { padding-left: 0; margin-left: 0; }

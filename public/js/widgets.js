@@ -304,6 +304,18 @@
   // Échappe AUSSI les guillemets : le module injecte des valeurs dans des attributs double-quotés
   // (value="…", title="…") → sans ça, un nom de layout importé piégé (`" onfocus=…`) s'exécuterait (revue 23/07).
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  // Choix de paires du widget Saisonnalité, dérivés de la SOURCE (_SEASON_PAIRS, charts.js — chargé
+  // avant nous) et classés par ordre alphabétique du libellé affiché (AUD/CAD, AUD/CHF, …).
+  // Le repli en dur ne sert que si charts.js n'a pas pu s'exécuter.
+  function _seasonChoix() {
+    var f = (typeof _seasonFmtPair === 'function') ? _seasonFmtPair
+      : function (c) { return (c && c.length === 6) ? c.slice(0, 3) + '/' + c.slice(3) : c; };
+    var L = (typeof _SEASON_PAIRS !== 'undefined' && Array.isArray(_SEASON_PAIRS) && _SEASON_PAIRS.length)
+      ? _SEASON_PAIRS.slice()
+      : ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'EURJPY', 'GBPJPY'];
+    L.sort(function (a, b) { return f(a).localeCompare(f(b), 'fr', { numeric: true, sensitivity: 'base' }); });
+    return [['', 'Compte']].concat(L.map(function (p) { return [p, f(p)]; }));
+  }
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
   // ── ÉTATS UNIFORMES DES WIDGETS (28/07) : chargement · vide · erreur ────────────────────────────
   // Une seule grammaire pour les ~30 points de repli du catalogue : icône discrète, message court,
@@ -993,16 +1005,19 @@
       // « Paire » ÉPINGLE la carte. Défaut 'Compte' = comportement d'origine (la paire suit le compte et
       // la changer ici l'écrit pour tout le monde). Épinglée, la carte devient AUTONOME : changer sa paire
       // n'écrit plus côté compte — sans quoi deux cartes Saisonnalité côte à côte s'écrasent l'une l'autre.
-      opts: [{ k: 'paire', lbl: 'Paire', type: 'choix', def: '',
-        choix: [['', 'Compte'], ['EURUSD', 'EUR/USD'], ['GBPUSD', 'GBP/USD'], ['USDJPY', 'USD/JPY'], ['AUDUSD', 'AUD/USD'], ['USDCAD', 'USD/CAD'], ['USDCHF', 'USD/CHF'], ['NZDUSD', 'NZD/USD'], ['EURJPY', 'EUR/JPY'], ['GBPJPY', 'GBP/JPY']] }],
+      // 04/08 : la liste ne contenait que 9 paires écrites en dur alors que la source (_SEASON_PAIRS,
+      // charts.js) en sert 28 — et elle n'était pas triée. On la dérive de la source, classée A→Z.
+      opts: [{ k: 'paire', lbl: 'Paire', type: 'choix', def: '', choix: _seasonChoix() }],
       mount: function (host, it) {
         var W = this, pin = opt(it, W, 'paire');
         if (typeof _seasonCell !== 'function') { fallback(host, 'Saisonnalité indisponible.'); return null; }
         var fmt = (typeof _seasonFmtPair === 'function') ? _seasonFmtPair : function (c) { return c; };
-        var pairs = (typeof _SEASON_PAIRS !== 'undefined') ? _SEASON_PAIRS.slice() : ['EURUSD'];
+        // 04/08 : le sélecteur de paire inline est RETIRÉ (doublon du réglage « Paire » — même cas que
+        // COT et DMX) ; il désynchronisait en plus le badge (badge [NZD/USD] vs liste AUD\CAD, capture
+        // user), le <select> n'étant pas recalé sur la paire du compte au montage. Le badge suffit à
+        // dire quelle paire est affichée ; le choix vit dans l'engrenage.
         host.innerHTML = '<div class="wdg-seawrap">'
-          + '<div class="dmx-header-bar"><span class="season-pair-badge wdg-sea-badge">[EUR/USD]</span><span style="flex:1"></span>'
-          + '<select class="dmx-sort-select wdg-sea-sel">' + pairs.sort(function (a, b) { return fmt(a).localeCompare(fmt(b), 'fr', { numeric: true, sensitivity: 'base' }); }).map(function (p) { return '<option value="' + esc(p) + '">' + esc(fmt(p)) + '</option>'; }).join('') + '</select></div>'
+          + '<div class="dmx-header-bar"><span class="season-pair-badge wdg-sea-badge">[EUR/USD]</span><span style="flex:1"></span></div>'
           + '<div class="season-table-wrap custom-scrollbar wdg-sea-tbl"><div class="wdg-skel"><span class="wdg-skel-l" style="width:72%"></span><span class="wdg-skel-l" style="width:88%"></span><span class="wdg-skel-l" style="width:60%"></span></div></div>';
         var sel = host.querySelector('.wdg-sea-sel'), badge = host.querySelector('.wdg-sea-badge'), tblWrap = host.querySelector('.wdg-sea-tbl');
         var cur = null;
@@ -1877,20 +1892,36 @@
           // SES réglages (gestion des onglets) ; le widget de l'onglet a LES SIENS, posés à droite
           // de SA barre de titre. On cherche la barre dans l'ordre : bandeau de nom → en-tête de
           // vue adoptée → barre de périodes ; sinon on flotte au coin haut-droit du contenu.
+          // ⚠️ BALAYAGE APRÈS MONTAGE, pas seulement avant (cause mesurée des 3 engrenages empilés) :
+          // une VUE ADOPTÉE n'entre dans la carte que pendant w.mount() ci-dessus, donc elle arrive
+          // APRÈS le purge d'entrée, en RAPPORTANT l'engrenage de son passage précédent. On rebalaie
+          // ici, une fois tout le monde en place, juste avant de reposer des commandes neuves.
+          _purgeSousGear();
           try {
             var _pi2 = _hostIdx(host);
-            if (_pi2 != null && w.opts && w.opts.length) {
-              var g = document.createElement('button');
-              g.className = 'wdg-ico wdg-subgear';
-              g.title = 'Réglages · ' + w.name;
-              g.innerHTML = ICO.gear;
-              g.addEventListener('click', function (ev) { ev.stopPropagation(); API.toggleSubSettings(_pi2); });
+            if (_pi2 != null) {
+              // Groupe de commandes du SOUS-WIDGET : réglages (seulement s'il en a) + RETRAIT (toujours).
+              // La croix manquait sur les widgets sans réglages — Force des Devises notamment (constat
+              // user) — alors que « chaque widget doit avoir le bouton croix pour retirer ».
+              var acts = document.createElement('span');
+              acts.className = 'wdg-subgear wdgt-subacts';           // .wdg-subgear = cible du balayage
+              if (w.opts && w.opts.length) {
+                var g = document.createElement('button');
+                g.className = 'wdg-ico'; g.title = 'Réglages · ' + w.name; g.innerHTML = ICO.gear;
+                g.addEventListener('click', function (ev) { ev.stopPropagation(); API.toggleSubSettings(_pi2); });
+                acts.appendChild(g);
+              }
+              var x = document.createElement('button');
+              x.className = 'wdg-ico'; x.title = 'Retirer ' + w.name + ' — l\'onglet reste';
+              x.innerHTML = ICO.close;
+              x.addEventListener('click', function (ev) { ev.stopPropagation(); API.removeActiveTab(_pi2); });
+              acts.appendChild(x);
               var cible = body.querySelector('.wdgt-subname')
                 || hote.querySelector('.panel-header .panel-header-controls')
                 || hote.querySelector('.wdg-fx-tfbar')
                 || hote.querySelector('.panel-toolbar');
-              if (cible) { cible.classList.add('wdgt-hasgear'); cible.appendChild(g); }
-              else { g.classList.add('wdg-subgear--flot'); hote.appendChild(g); }
+              if (cible) { cible.classList.add('wdgt-hasgear'); cible.appendChild(acts); }
+              else { acts.classList.add('wdg-subgear--flot'); hote.appendChild(acts); }
             }
           } catch (e) {}
         }
