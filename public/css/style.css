@@ -14629,3 +14629,15 @@ body.home-mode .view-panel { visibility: hidden; }
 .season-td { color: #f2f4f8; }
 .season-arrow { opacity: .55; }
 .season-td--na { background: transparent !important; }
+
+/* ── LISIBILITÉ DES COMMANDES DE CARTE (04/08) : mesurées à 0,62 d'opacité effective au repos —
+   assez pour être « présentes », trop peu pour être VUES sur fond #0c0c0e avec un trait de 1,5
+   (d'où les constats répétés « je ne vois pas les boutons croix et réglages »). Elles ne sont plus
+   que deux par carte : elles peuvent donc rester franches au repos et n'ont plus besoin de se
+   cacher pour alléger. Le survol garde l'accent or. */
+#view-widgets .wdg-ico,
+#view-widgets .wdgt-subacts > .wdg-ico { opacity: .82; }
+#view-widgets .wdg-card:hover .wdg-ico,
+#view-widgets .wdg-card:focus-within .wdg-ico,
+#view-widgets .wdg-ico:hover { opacity: 1; }
+#view-widgets .wdg-ico--x:hover { color: #ff3d00; background: rgba(255, 61, 0, .13); }
