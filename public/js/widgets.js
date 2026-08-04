@@ -126,8 +126,8 @@
               // AVANT le blur → aucun change n'est émis ; stopPropagation → le listener document
               // (Échap ferme les volets) ne claque pas le panneau au nez de l'utilisateur.
               +   ' onkeydown="if(event.key===\'Enter\')this.blur();else if(event.key===\'Escape\'){event.stopPropagation();this.value=this.defaultValue;this.blur();}">'
-              // Le NOM DU WIDGET sous le libellé (demande user 03/08) : on voit CE QUE le × emporte.
-              +   '<span class="wdg-set-tabnom">' + esc(nomW) + '</span>'
+              // (Nom du widget sous le champ RETIRÉ 04/08 : le bandeau de titre dans le widget et
+              //  l'infobulle du × le donnent déjà — la liste respire.)
               + '</div>'
               // PLANCHER 1 ONGLET (demande user 03/08 « on ne doit pas pouvoir supprimer tous les
               // onglets ») : sur la dernière ligne restante, pas de × — un panneau à onglets vide
