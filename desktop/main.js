@@ -255,7 +255,14 @@ function createWindow() {
   // Exposé pour que `did-fail-load` puisse révéler la fenêtre après son repli hors-ligne.
   win._dtpAfficher = _afficher;
 
-  win.loadURL(DESK_URL);
+  // ⚠️ REVALIDATION DU DOCUMENT D'ENTRÉE (04/08, constat user : « sur l'app desktop le fil d'actu
+  // n'est pas le bon » alors que le desk web était à jour). Le cache-busting du site repose sur
+  // « style.css?v=… » écrit DANS index.html : si l'app garde index.html en cache, elle continue de
+  // demander l'ANCIENNE feuille — laquelle est servie avec max-age=30 jours, donc jamais rafraîchie.
+  // L'app pouvait ainsi rester des semaines sur une version périmée sans que rien ne l'indique.
+  // On ne force le no-cache QUE sur le document : les assets, eux, sont versionnés et gardent leur
+  // cache long (aucun surcoût réseau au démarrage).
+  win.loadURL(DESK_URL, { extraHeaders: 'Cache-Control: no-cache\n' });
 
   // Liens hors-domaine → navigateur système ; le desk (et la landing) restent dans l'app
   const isInternal = url => ALLOWED.some(a => url === a || url.startsWith(a + '/'));
