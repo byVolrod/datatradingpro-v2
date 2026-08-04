@@ -362,8 +362,19 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 }
 
+// ══ RELANCE = SORTIE DE SECOURS (04/08) ═══════════════════════════════════════════════════════
+// C'EST LA CAUSE PRINCIPALE du « l'app est lancée mais elle ne s'ouvre pas ». Quand l'utilisateur
+// reclique sur l'icône, la 2e instance rend la main au verrou et se termine — correct — puis la
+// PREMIÈRE reçoit cet événement. Or l'ancien code se contentait de `focus()` sur une fenêtre
+// existante : si `win` est null (jamais créée, ou détruite) ou simplement CACHÉE — l'état
+// précis dans lequel un chargement distant qui stagne laisse l'app — il ne se passait
+// RIEN. Aucune fenêtre, aucun message, et relancer ne pouvait jamais rattraper la situation.
+// Désormais la relance recrée la fenêtre si besoin, et la RÉVÈLE si elle était cachée.
 app.on('second-instance', () => {
-  if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+  if (!win || win.isDestroyed()) { createWindow(); return; }
+  if (win.isMinimized()) win.restore();
+  if (!win.isVisible()) win.show();
+  win.focus();
 });
 
 // ══ ICÔNE DE LA ZONE DE NOTIFICATION (04/08, demande user : « quand on lance l'app desktop
