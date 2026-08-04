@@ -14605,3 +14605,27 @@ body.home-mode .view-panel { visibility: hidden; }
   height: var(--navbar-h); padding: 0 10px; display: flex; align-items: center; gap: 6px;
 }
 #view-widgets .wdg-vuehost .panel-header .panel-title { padding-left: 0; margin-left: 0; }
+
+/* ── EN-TÊTE D'UNE VUE ADOPTÉE : ALIGNEMENT À GAUCHE (04/08, constat user sur « Semaine à venir » :
+   « le titre collé au rebord et la date trop à droite, elle doit être à côté du titre »).
+   .panel-header du desk est en space-between : avec trois enfants (titre · navigation de semaine ·
+   commandes), l'espace libre se répartit ENTRE eux et les écarte aux extrémités. Ici on aligne à
+   gauche — le titre et sa date se suivent — et SEULES les commandes sont repoussées au bout. */
+#view-widgets .wdg-vuehost .panel-header { justify-content: flex-start; gap: 10px; }
+#view-widgets .wdg-vuehost .panel-header > .panel-header-controls,
+#view-widgets .wdg-vuehost .panel-header > .wdgt-subacts { margin-left: auto; }
+
+/* ── TABLE DE SAISONNALITÉ (04/08, « améliore le design ») : la trame de séparation était noire
+   (rgba(0,0,0,.35)) — sur des aplats colorés elle découpait la table en patchwork de tuiles. Un
+   filet clair très discret rend la grille au lieu de la fragmenter. La colonne Moy. devient une
+   vraie synthèse : filet or à gauche, chiffre plus lourd. */
+.season-td { border-bottom: 1px solid rgba(255, 255, 255, .045); border-right: 1px solid rgba(255, 255, 255, .035); }
+.season-th { letter-spacing: .06em; color: var(--text3, #8a8a90); font-weight: var(--fw-semibold); }
+.season-th--avg, .season-td--avg { border-left: 1px solid rgba(227, 178, 58, .34); }
+.season-th--avg { color: var(--orange, #e3b23a); }
+.season-td--avg { font-weight: var(--fw-bold); }
+.season-month { color: var(--text2, #c9cdd4); letter-spacing: .04em; background: transparent; border-right: 1px solid rgba(255, 255, 255, .06); }
+/* Le chiffre porte l'information : il reste net quelle que soit l'intensité du fond. */
+.season-td { color: #f2f4f8; }
+.season-arrow { opacity: .55; }
+.season-td--na { background: transparent !important; }
