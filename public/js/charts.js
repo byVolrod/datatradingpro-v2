@@ -1721,64 +1721,64 @@ function buildCOTChart(gridId, typeArg) {
       };
       const typeLabel = TYPE_LABELS[cotType] || 'COT';
       const COT_ISO = { USD:'us', EUR:'eu', JPY:'jp', GBP:'gb', AUD:'au', CHF:'ch', CAD:'ca', NZD:'nz' };
-      const cx = 40, cy = 40, r = 28;
-      const C  = 2 * Math.PI * r;
-      const fmtK = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)}K` : String(Math.round(v));
+      // Format FR : le desk affichait « 157.9K » avec un point décimal anglo-saxon.
+      const fmtK = v => Math.abs(v) >= 1000
+        ? `${(v / 1000).toFixed(1).replace('.', ',')}K`
+        : String(Math.round(v));
 
       for (const cur of data.currencies) {
-        const sArc = (cur.shortPct / 100 * C).toFixed(2);
-        const sGap = (C - cur.shortPct / 100 * C).toFixed(2);
-        const lArc = (cur.longPct  / 100 * C).toFixed(2);
-        const lGap = (C - cur.longPct  / 100 * C).toFixed(2);
+        // ÉTAT À 4 VALEURS, pas 2. Le binaire `longPos >= shortPos` affichait « acheteur » à une
+        // devise parfaitement à l'équilibre, et « NaNK » à une devise sans rapport COT publié.
+        // « Manquant » n'est pas « neutre » — doctrine .fxl-badge--na du desk.
+        const ok    = Number.isFinite(cur.shortPos) && Number.isFinite(cur.longPos)
+                      && (cur.shortPos + cur.longPos) > 0;
+        const ecart = ok ? Math.abs((cur.shortPct || 0) - (cur.longPct || 0)) : 0;
+        const mod   = !ok ? 'na' : ecart < 4 ? 'flat' : (cur.longPos > cur.shortPos ? 'bull' : 'bear');
+        const VERDICT = { bull: 'Acheteur', bear: 'Vendeur', flat: 'Neutre', na: 'N.D.' };
+        const TIRET = '—';
+        const net   = ok ? fmtK(Math.abs(cur.longPos - cur.shortPos)) : TIRET;
+        const sPct  = ok ? (cur.shortPct || 0) : 50;
+        const lPct  = ok ? (cur.longPct  || 0) : 50;
+        const flag  = _flagImg(COT_ISO[cur.key] || 'us', 14);
 
-        const bull   = cur.longPos >= cur.shortPos;
-        const biasFr = bull ? 'Haussier' : 'Baissier';
-        const biasCl = bull ? 'cot-green' : 'cot-red';
-        const net    = Math.abs(cur.longPos - cur.shortPos);
-        const flag   = _flagImg(COT_ISO[cur.key] || 'us', 14);
-
-        const cell = document.createElement('div');
-        cell.className = 'cot-cell';
+        const cell = document.createElement('article');
+        cell.className = 'cot-cell cot-cell--' + mod;
         cell.innerHTML = `
-          <div class="cot-card-head">
-            <span class="cot-head-left">${flag}<span class="cot-head-ccy">${cur.key}${cur.derived ? '*' : ''}</span></span>
-            <span class="cot-head-type">${typeLabel}</span>
+          <header class="cot-head">
+            ${flag}<span class="cot-ccy">${cur.key}${cur.derived ? '<i class="cot-drv" title="Série dérivée">*</i>' : ''}</span>
+            <span class="cot-badge">${VERDICT[mod]}</span>
+          </header>
+          <div class="cot-net">
+            <span class="cot-k cot-k--net">Position nette</span>
+            <span class="cot-net-v">${net}${ok ? '<i class="cot-unit">contrats</i>' : ''}</span>
           </div>
-          <div class="cot-legend">
-            <span class="cot-leg"><i class="cot-dot cot-dot--s"></i>Court</span>
-            <span class="cot-leg"><i class="cot-dot cot-dot--l"></i>Long</span>
+          <div class="cot-split">
+            <div class="cot-pcts">
+              <span class="cot-pct cot-pct--s">${ok ? sPct + '%' : TIRET}</span>
+              <span class="cot-pct cot-pct--l">${ok ? lPct + '%' : TIRET}</span>
+            </div>
+            <div class="cot-bar" role="img" aria-label="Répartition : ${sPct} % de positions courtes, ${lPct} % de positions longues">
+              <i class="cot-bar-s" style="width:${sPct}%"></i><i class="cot-bar-l" style="width:${lPct}%"></i>
+            </div>
           </div>
-          <div class="cot-gauge-wrap">
-            <svg class="cot-donut" width="96" height="96" viewBox="0 0 80 80">
-              <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
-              <g transform="rotate(-90 ${cx} ${cy})">
-                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#ff3d00" stroke-width="8"
-                  stroke-dasharray="${sArc} ${sGap}" stroke-linecap="round"/>
-                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#00e676" stroke-width="8"
-                  stroke-dasharray="${lArc} ${lGap}" stroke-dashoffset="${lArc}" stroke-linecap="round"/>
-              </g>
-              <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="13" font-weight="700"
-                fill="#e2e8f0" font-family="-apple-system,'Inter','Segoe UI',sans-serif">${cur.key}</text>
-            </svg>
-          </div>
-          <div class="cot-stats">
-            <div class="cot-stat">
-              <div class="cot-stat-lbl">Courtes</div>
-              <div class="cot-stat-val cot-red">${fmtK(cur.shortPos)}</div>
-              <div class="cot-stat-pct">${cur.shortPct}%</div>
-            </div>
-            <div class="cot-stat">
-              <div class="cot-stat-lbl">Longues</div>
-              <div class="cot-stat-val cot-green">${fmtK(cur.longPos)}</div>
-              <div class="cot-stat-pct">${cur.longPct}%</div>
-            </div>
-            <div class="cot-stat">
-              <div class="cot-stat-lbl">Nette</div>
-              <div class="cot-stat-val ${biasCl}">${biasFr}</div>
-              <div class="cot-stat-pct">${fmtK(net)}</div>
-            </div>
+          <div class="cot-book">
+            <div class="cot-row cot-row--s"><span class="cot-k">Courts</span><span class="cot-v">${ok ? fmtK(cur.shortPos) : TIRET}</span></div>
+            <div class="cot-row cot-row--l"><span class="cot-k">Longs</span><span class="cot-v">${ok ? fmtK(cur.longPos) : TIRET}</span></div>
+            <div class="cot-row cot-row--t" title="Somme des positions courtes et longues de la catégorie affichée (ce n'est pas l'open interest du contrat)"><span class="cot-k">Total</span><span class="cot-v">${ok ? fmtK(cur.shortPos + cur.longPos) : TIRET}</span></div>
           </div>`;
         grid.appendChild(cell);
+      }
+      // La catégorie CFTC sort des cartes (elle s'y répétait 8 fois en se tronquant) mais ne doit
+      // pas disparaître : en mode widget « Mon Desk » la barre .cot-type-bar n'existe pas. On
+      // l'écrit UNE fois, À CÔTÉ de la grille.
+      // ⚠️ SURTOUT PAS dans la grille : _cotFit compte grid.children pour choisir le pavage, un
+      // 9e enfant ferait croire à 9 cartes (et 9 est divisible par 3 → disposition fausse).
+      if (grid.parentNode) {
+        grid.parentNode.querySelectorAll(':scope > .cot-foot').forEach(el => el.remove());
+        const pied = document.createElement('div');
+        pied.className = 'cot-foot';
+        pied.textContent = typeLabel;
+        grid.parentNode.insertBefore(pied, grid.nextSibling);
       }
       try { _cotFit(grid); } catch (e) {}
     })
