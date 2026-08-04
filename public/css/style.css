@@ -14213,3 +14213,47 @@ body.home-mode .view-panel { visibility: hidden; }
   opacity: .55; transition: opacity .14s, color .14s, background .14s;
 }
 .wdg-lay-x:hover { opacity: 1; color: #ff5233; background: rgba(255, 61, 0, .1); }
+
+/* ════ LISIBILITÉ DU SYSTÈME DE WIDGETS (04/08, demande user « légèrement ») ════
+   Passe TYPOGRAPHIQUE seule : aucune géométrie ne bouge (mêmes hauteurs, mêmes gouttières,
+   mêmes colonnes) — on corrige les trois vraies gênes mesurées dans la feuille :
+   des tailles sous 10 px sur du texte à LIRE, des gris trop éteints sur des libellés utiles,
+   et des interlignes serrés sur les descriptions. Chaque valeur monte d'un cran, pas plus. ── */
+
+/* Titres de cartes : l'interlettrage de .08em à 11,5px hachait les mots en capitales. */
+.wdg-title { font-size: 12px; letter-spacing: .055em; }
+
+/* Onglets d'un panneau : l'inactif était au gris le plus faible (text3) — il devient lisible
+   sans voler la vedette à l'actif (qui reste blanc + soulignement or). */
+.wdgt-tab { font-size: 11px; letter-spacing: .045em; color: var(--text2, #c9cdd4); }
+.wdgt-tab:not(.on) { opacity: .82; }
+.wdgt-tab:hover { opacity: 1; }
+
+/* Panneau de réglages : libellé de colonne (9 px = le plus petit texte du système), titre de
+   section, puces et nom de widget sous l'onglet. */
+.wdg-set-lbl { font-size: 9.8px; letter-spacing: .07em; color: var(--text2, #c9cdd4); }
+.wdg-set-tabs-t { font-size: 10.5px; letter-spacing: .06em; }
+.wdg-set-chip { font-size: 11px; }
+.wdg-set-tabnom { font-size: 10px; }
+.wdg-set-tabin { font-size: 11.5px; }
+
+/* Descriptions (réglages + bibliothèque) : c'est de la PROSE — elle gagne son interligne. */
+.wdg-pop-d { font-size: 11.5px; line-height: 1.55; color: var(--text2, #c9cdd4); }
+.wdg-pop-t { font-size: 12.5px; }
+.wdg-lib-desc { font-size: 11.5px; line-height: 1.55; }
+.wdg-lib-name { font-size: 13px; }
+
+/* États vides / chargement : ce sont des messages à lire, pas de la décoration. */
+.wdg-empty, .wdg-load { font-size: 12.5px; color: var(--text2, #c9cdd4); line-height: 1.5; }
+
+/* Gestionnaire de layouts : compteur et badges d'un cran plus nets. */
+.wdg-mgr-foot .wdg-mgr-count { font-size: 10.5px; }
+.wdg-mgr-badge { font-size: 9.5px; }
+.wdg-mgr-card--new { font-size: 11px; }
+
+/* Rendu des glyphes : le texte dense en capitales gagne à être adouci (macOS/iOS surtout). */
+#view-widgets, .wdg-pop, .wdg-lib-box, .wdg-mgr-box { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* Compensation : le gain de taille des onglets est rendu par un retrait un peu plus serré —
+   la barre (défilante par construction) ne demande pas plus de place qu'avant. */
+.wdgt-tab { padding: 0 9.5px; }
