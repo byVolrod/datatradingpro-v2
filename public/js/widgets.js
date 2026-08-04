@@ -2166,23 +2166,25 @@
     for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === id) return c.layouts[i];
     return null;
   }
-  // BARRE SANS LISTE DE LAYOUTS (demande user 04/08 « on ne doit pas voir le nom des layouts,
-  // on entre direct dans le layout ») : le CHOIX du layout vit dans Personnaliser › Layouts
-  // (le gestionnaire) — la barre n'affiche que le layout ACTIF, comme simple repère (non cliquable ;
-  // double-clic = renommer, seul geste conservé). Le « + » de création vit aussi dans le gestionnaire.
+  // BARRE DES LAYOUTS = SEULEMENT quand PLUSIEURS sont affichés (logique user 04/08) :
+  //  · UN SEUL layout affiché (l'œil 📂/👁 du gestionnaire pose `hidden` sur les autres) → AUCUN
+  //    nom dans la barre — on est DANS le layout, la barre ne garde que « Personnaliser ».
+  //  · PLUSIEURS layouts affichés → la barre d'onglets apparaît avec leurs noms pour basculer
+  //    (clic = ouvrir, double-clic = renommer). Le choix/création vit dans Personnaliser › Layouts.
   function renderBar() {
     var el = document.getElementById('wdg-layouts'); var c = STATE.cfg;
     if (!el) return;
     if (!c || !c.layouts.length) { el.innerHTML = ''; return; }
-    var act = null;
-    for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === c.active) { act = c.layouts[i]; break; }
-    if (!act) act = c.layouts[0];
-    el.innerHTML = '<span class="nav-item nav-item--active on wdg-lay wdg-lay--cur" data-lay="' + act.id + '"'
-      + ' title="' + esc(act.name) + ' — double-clic pour renommer · changer de layout via Personnaliser › Layouts"'
-      + ' ondblclick="DTPWidgets.editTab(\'' + act.id + '\')">'
-      + '<span class="wdg-lay-chv">›</span>'
-      + (act.fav ? '<span class="wdg-lay-star">★</span>' : '')
-      + '<span class="wdg-lay-name">' + esc(act.name) + '</span></span>';
+    var vis = c.layouts.filter(function (l) { return !l.hidden; });
+    if (vis.length <= 1) { el.innerHTML = ''; return; }
+    el.innerHTML = vis.map(function (l) {
+      // classes de la NAV DU DESK : l'apparence vient d'elle, pas d'une copie de ses valeurs
+      return '<button class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
+        + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
+        + '<span class="wdg-lay-chv">›</span>'
+        + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
+        + '<span class="wdg-lay-name">' + esc(l.name) + '</span></button>';
+    }).join('');
   }
   // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
   function _syncDensity() {
