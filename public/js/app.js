@@ -3060,7 +3060,9 @@ function startClocks() {
   });
 }
 
-function renderClocks(barEl) {
+// `liste` (04/08) : sélection propre à l'appelant — le widget Horloge de Mon Desk passe les villes
+// choisies dans ses réglages ; le desk appelle sans argument et garde ses 5 places par défaut.
+function renderClocks(barEl, liste) {
   const bar = barEl || document.getElementById('clocks-bar');   // barEl optionnel → widget Horloge (Mon Desk) rend dans sa propre barre
   if (!bar) return;
   const now = new Date();
@@ -3068,7 +3070,10 @@ function renderClocks(barEl) {
   // Build "My Timezone" entry using the browser's local timezone
   const myTz   = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const myCity = myTz.split('/').pop().replace('_', ' ');
-  const allClocks = CLOCKS;
+  const allClocks = (Array.isArray(liste) && liste.length) ? liste : CLOCKS;
+  // Une ville affichée pour la première fois n'a pas encore sa météo : on l'inscrit au registre et
+  // on déclenche un rafraîchissement, sinon elle resterait à « -- » jusqu'au cycle des 10 minutes.
+  if (_clockWant(allClocks) && typeof refreshWeather === 'function') { try { refreshWeather(); } catch {} }
 
   const html = allClocks.map(c => {
     const timeStr  = now.toLocaleTimeString('en-GB', {

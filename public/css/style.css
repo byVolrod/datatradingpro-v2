@@ -14155,11 +14155,16 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdg-mgr-eye, .wdg-mgr-open { min-height: 28px; }
 .wdg-mgr-closed { font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); border: 1px dashed rgba(255,255,255,.16); border-radius: 3px; padding: 2px 6px; }
 
-/* ── FIL D'ACTUALITÉ — même mise en page « carte » quand le CADRE est étroit (04/08) :
-   la refonte mobile (≤640px viewport) s'applique aussi à un widget étroit sur desktop via la
-   largeur RÉELLE du panneau — plus jamais de colonnes qui se marchent dessus. */
+/* ── FIL D'ACTUALITÉ — mise en page « carte » réservée aux cadres VRAIMENT étroits (04/08).
+   Le seuil était à 560px : trop haut de plus de 100px, si bien qu'un widget parfaitement large
+   basculait en mode carte et ne ressemblait plus au fil du desk (constat user).
+   MESURÉ, écran large, en faisant varier la seule largeur du panneau — colonnes fixes du desk
+   (padding 36 + icône 32 + heure 58 + catégorie 112 + flèche 28 = 266px) :
+     700px → titre 434px (2 lignes)   ·   500px → titre 234px (3 lignes)   ·   460px → 194px, tient
+     420px → titre 154px (4 lignes)   ·   380px → 114px (5 lignes)   ·   300px → 34px (20 lignes)
+   La bascule doit donc se faire vers 440px, pas 560. */
 .wdg-news-panel { container-type: inline-size; container-name: dtpnews; }
-@container dtpnews (max-width: 560px) {
+@container dtpnews (max-width: 440px) {
   .wdg-news .news-item { flex-wrap: wrap; row-gap: 3px; --news-desc-bleed: var(--c-pad); }
   .wdg-news .news-time { width: auto; margin-right: 10px; line-height: 1.4; }
   .wdg-news .news-arrow-col { margin-left: auto; min-height: 16px; }
