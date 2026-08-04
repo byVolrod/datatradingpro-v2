@@ -70,7 +70,10 @@ if (fs.existsSync(RCEDIT) && fs.existsSync(ICO)) {
   execFileSync(RCEDIT, [EXE,
     '--set-icon', ICO,
     '--set-version-string', 'ProductName', PKG.productName,
-    '--set-version-string', 'FileDescription', PKG.description,
+    // FileDescription = ce que Windows affiche dans la barre des tâches et la liste de raccourcis.
+    // La description longue du package.json s'y tronquait en « DataTradingPro — terminal de tradi… ».
+    // C'est aussi ce que met la chaîne electron-builder officielle : le nom du produit, rien d'autre.
+    '--set-version-string', 'FileDescription', PKG.productName,
     '--set-version-string', 'CompanyName', PKG.author,
     '--set-file-version', PKG.version,
     '--set-product-version', PKG.version,
