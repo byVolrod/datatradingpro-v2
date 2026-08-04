@@ -2202,7 +2202,12 @@
         + '<button class="wdg-lay-x" title="Fermer cet onglet (le layout reste dans Personnaliser)"'
         +   ' onclick="event.stopPropagation();DTPWidgets.toggleHide(\'' + l.id + '\')">×</button>'
         + '</span>';
-    }).join('');
+    }).join('')
+      // « + » = NOUVEL ONGLET (demande user 04/08) : ouvre la fenêtre des LAYOUTS sur le choix de
+      // disposition (newLayout → _mgrMode='dispo'), comme le « + » d'un panneau à onglets.
+      + (c.layouts.length < _LMAX
+          ? '<button class="nav-item wdg-lay wdg-lay-add" title="Nouvel onglet — choisir une disposition" onclick="DTPWidgets.newLayout()">+</button>'
+          : '');
   }
   // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
   function _syncDensity() {
