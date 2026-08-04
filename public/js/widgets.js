@@ -89,10 +89,17 @@
     // sert pas tous les jours — une icône seule aurait juste déplacé le problème de lisibilité.
     var actions = '<div class="wdg-set-sep"></div><div class="wdg-set-acts">'
       + '<button class="wdg-set-act" onclick="DTPWidgets.refresh(' + idx + ')">' + ICO.refresh + ' Actualiser</button>'
+      // « Remplacer » DESCEND ici (04/08, demande user « le moins de boutons possible dans le
+      // bandeau — 2 en moyenne ») : le bandeau ne garde que Réglages + Fermer.
+      + '<button class="wdg-set-act" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + ' Remplacer</button>'
       + '<button class="wdg-set-act" onclick="DTPWidgets.duplicate(' + idx + ')">' + ICO.dup + ' Dupliquer</button>'
       + '<button class="wdg-set-act" onclick="DTPWidgets.fullscreen(' + idx + ')">' + ICO.expand + ' Plein écran</button>'
       + '<button class="wdg-set-act' + (verrou ? ' on' : '') + '" onclick="DTPWidgets.toggleLock(' + idx + ')">'
       +   (verrou ? ICO.lock : ICO.unlock) + (verrou ? ' Déverrouiller' : ' Verrouiller') + '</button>'
+      // Panneau à onglets : vider l'onglet affiché vit ici aussi (le « − » quitte le bandeau).
+      + (w.id === 'onglets'
+          ? '<button class="wdg-set-act" onclick="DTPWidgets.removeActiveTab(' + idx + ')">− Retirer le widget de l\'onglet affiché</button>'
+          : '')
       + '</div>';
     // PANNEAU À ONGLETS : la gestion des onglets vit ICI, dans les Réglages (demande user 02/08
     // « ça doit se supprimer directement depuis le bouton paramètre ») — renommer chaque onglet
@@ -374,8 +381,13 @@
         var per = opt(it, W, 'periodes'); if (!TF.some(function (t) { return t[0] === per; })) per = 'today';
         var foc = opt(it, W, 'focus') || null;
         var id = HOST_ID + '-fx-' + uid();
+        // NOM DU WIDGET dans la barre de périodes (04/08 : « il manque le nom du widget ») — comme
+        // l'onglet › FORCE du desk qui porte « Force des Devises » à gauche de ses périodes. Il ne
+        // s'affiche que si la barre RESTE dans le corps (panneau à onglets) : quand elle monte dans
+        // l'en-tête de la carte, le titre y est déjà — le doublon serait laid (cf. CSS --head).
         host.innerHTML = '<div class="wdg-fx-solo">'
-          + '<div class="wdg-fx-tfbar">' + TF.map(function (t) {
+          + '<div class="wdg-fx-tfbar"><span class="wdg-fx-lbl">' + esc(W.name) + '</span>'
+          + TF.map(function (t) {
               return '<button class="stf-btn wdg-fx-tf' + (t[0] === per ? ' stf-btn--active' : '') + '" data-per="' + t[0] + '">' + t[1] + '</button>';
             }).join('') + '</div>'
           + '<div id="' + id + '" class="wdg-fx-chart"></div></div>';
@@ -1585,8 +1597,10 @@
       // ⚠️ Les valeurs sont les DEVISES : data-bank porte b.code, qui est la devise de la banque
       // (USD/EUR/…) — avec des codes FED/ECB, aucune carte ne matchait et la carte restait vide
       // (constaté user à la première utilisation).
-      opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'all',
-        choix: [['all', 'Toutes'], ['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'SNB'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ']] }],
+      // DÉFAUT = UNE SEULE BANQUE, la Fed (04/08, capture user : les 8 banques dans une carte
+      // donnaient des colonnes de 60 px, illisibles). « Toutes » reste disponible dans les Réglages.
+      opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'USD',
+        choix: [['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'SNB'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ'], ['all', 'Toutes']] }],
       filtre: function (host, it, W) {
         var grille = host.querySelector('#taux-grid');
         if (!grille) return null;
@@ -1659,6 +1673,18 @@
           }
           try { var un = w.mount(body); if (typeof un === 'function') subClean = un; }
           catch (e) { fallback(body, 'Widget indisponible.'); }
+          // NOM DU WIDGET SÉLECTIONNÉ (demande user 04/08 « on ne voit pas le nom ») : dans une
+          // carte à onglets, l'en-tête est un calque et son titre est masqué — le widget n'était
+          // donc nommé nulle part (l'onglet ne porte que son TAG court : FORCE, MONDE…).
+          // Le widget qui a DÉJÀ sa propre barre y pose son nom lui-même (cf. .wdg-fx-lbl) ; pour
+          // les autres, on ajoute un bandeau fin. Détection au DOM → aucun doublon possible.
+          try {
+            if (!body.querySelector('.wdg-fx-lbl, .panel-toolbar, .chart-header, .strength-tf-bar, .wdgt-subname')) {
+              var sn = document.createElement('div');
+              sn.className = 'wdgt-subname'; sn.textContent = w.name;
+              body.insertBefore(sn, body.firstChild);
+            }
+          } catch (e) {}
         }
         function renderTabs() {
           // Libellé = TAG court du desk quand il existe (› MONDE › RISQUE › FORCE…, demande user 26/07
@@ -1669,7 +1695,7 @@
             var ttl = w ? (w.name + ' — double-clic pour renommer') : 'Onglet vide — choisis un widget dans le corps';
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
               + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(lbl) + '</span></button>';
-          }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
+          }).join('') + '<button class="wdgt-add" title="Ajouter un onglet — il s\'ouvre vide, tu choisis son widget ensuite">+</button>';
         }
         // RENOMMAGE INLINE (demande user 28/07, réparé 03/08) : le libellé devient un champ —
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
@@ -1705,7 +1731,22 @@
         var _tapI = -1, _tapT = 0;
         bar.addEventListener('click', function (e) {
           if (e.target.closest('.wdgt-edit')) return;   // clic dans le champ de renommage → ne pas changer d'onglet
-          if (e.target.closest('.wdgt-add')) { _pickTabFor(it); return; }
+          // « + » : l'ONGLET D'ABORD, le widget ENSUITE (04/08, demande user) — on crée un onglet
+          // VIDE et on l'active ; son corps porte l'invitation « + Choisir un widget » (même
+          // grammaire que les emplacements de la grille). Plus de bibliothèque en plein écran
+          // avant même de voir l'onglet.
+          if (e.target.closest('.wdgt-add')) {
+            var tt = Array.isArray(it.tabs) ? it.tabs : (it.tabs = []);
+            if (tt.length >= 12) { _undoOffer('Ce panneau est plein (12 onglets).'); return; }
+            tt.push('vide'); it._tabAct = tt.length - 1;
+            save();
+            // `tabs` est une COPIE filtrée : on la tient à jour pour pouvoir re-rendre en local
+            // quand la carte n'est pas dans la grille (montage via mountInto → pas d'index).
+            tabs.push('vide'); actIdx = tabs.length - 1;
+            var _pi = _hostIdx(host);
+            if (_pi != null) API.refresh(_pi); else { renderTabs(); mountSub(); }
+            return;
+          }
           var t = e.target.closest('.wdgt-tab'); if (!t) return;
           var ni = +t.getAttribute('data-i');
           var now = Date.now();
@@ -2119,16 +2160,12 @@
         + '<header class="wdg-head">'
         +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
+        // BANDEAU À DEUX BOUTONS (04/08, demande user « le moins possible — 2 en moyenne ») :
+        // Réglages + Fermer. Remplacer, Dupliquer, Plein écran, Verrouiller et « vider l'onglet »
+        // vivent tous dans le panneau Réglages, où ils sont LIBELLÉS (donc plus clairs qu'une icône).
         +   '<span class="wdg-actions">'
-        +     '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
-        +     '<button class="wdg-ico" title="Remplacer par un autre widget" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
-        // PANNEAU À ONGLETS (demande user 03/08 « il manque une petite croix à côté des réglages ») :
-        // « − » retire l'ONGLET AFFICHÉ seulement (lu au clic — l'actif change sans re-rendu) ; le ✕
-        // global, lui, emporte tout le panneau → son intitulé le dit désormais clairement.
-        +     (w.id === 'onglets'
-                ? '<button class="wdg-ico wdg-ico--tabx" title="Retirer le widget de l\'onglet affiché (l\'onglet reste)" onclick="DTPWidgets.removeActiveTab(' + idx + ')">−</button>'
-                : '')
-        +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
+        +     '<button class="wdg-ico" title="Réglages du widget" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
+        +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer ce widget') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
         + '</header>'
         + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'

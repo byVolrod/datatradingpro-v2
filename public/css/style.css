@@ -14257,3 +14257,36 @@ body.home-mode .view-panel { visibility: hidden; }
 /* Compensation : le gain de taille des onglets est rendu par un retrait un peu plus serré —
    la barre (défilante par construction) ne demande pas plus de place qu'avant. */
 .wdgt-tab { padding: 0 9.5px; }
+
+/* ══ NOM DU WIDGET SÉLECTIONNÉ + BANDEAU À 2 BOUTONS (04/08) ══ */
+/* Force des Devises : son nom occupe le vide à gauche des périodes (comme l'onglet › FORCE du
+   desk) ; masqué quand la barre monte dans l'en-tête, où le titre est déjà là. */
+.wdg-fx-tfbar { justify-content: flex-start; gap: 3px; }
+.wdg-fx-lbl {
+  margin-right: auto; padding-left: 2px; white-space: nowrap;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 600;
+  letter-spacing: .055em; text-transform: uppercase; color: var(--text2, #c9cdd4);
+}
+.wdg-fx-tfbar--head .wdg-fx-lbl { display: none; }
+/* Bandeau fin pour les widgets d'onglet qui n'ont pas de barre à eux. */
+.wdgt-subname {
+  flex: 0 0 auto; padding: 5px 10px 4px;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 600;
+  letter-spacing: .055em; text-transform: uppercase; color: var(--text2, #c9cdd4);
+  border-bottom: 1px solid var(--hud-line, var(--border));
+}
+/* Les 2 boutons restants gagnent en présence (cible tactile + contraste). */
+.wdg-ico { width: 22px; height: 22px; color: var(--text2, #c9cdd4); }
+.wdg-ico:hover { color: var(--orange, #e3b23a); background: rgba(227,178,58,.14); }
+.wdg-ico--x { font-size: 16px; }
+.wdg-actions { gap: 3px; }
+
+/* ── WIDGET TAUX « une seule banque » (04/08, capture user : 8 banques dans une carte =
+   colonnes de 60px illisibles) : la carte unique OCCUPE le widget et respire — métriques sur
+   toute la largeur, table des réunions étirée, plus de colonne écrasée. */
+.wdg-vuehost #taux-grid.rtc-solo { grid-template-columns: minmax(0, 1fr); height: 100%; }
+.wdg-vuehost #taux-grid.rtc-solo .rtc { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.wdg-vuehost #taux-grid.rtc-solo .rtc-tblwrap { flex: 1 1 auto; min-height: 0; }
+@container (max-width: 520px) {
+  .wdg-vuehost #taux-grid.rtc-solo .rtc-metrics { flex-wrap: wrap; }
+}
