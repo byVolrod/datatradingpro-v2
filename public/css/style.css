@@ -14525,3 +14525,15 @@ body.home-mode .view-panel { visibility: hidden; }
 #view-widgets .wdg-card.wdg-card--slot:hover { border-color: rgba(227, 178, 58, .7); }
 /* La carte en cours de déplacement garde aussi son repère. */
 #view-widgets .wdg-card.wdg-dragging { border-color: rgba(227, 178, 58, .6); }
+
+/* ── TITRE DU TIROIR DE RÉGLAGES — GRAMMAIRE DTP (04/08, « met celui du dtp ») : il restait
+   en serif Fraunces alors que TOUT le système est passé aux capitales Inter Tight du desk
+   (mêmes tokens que .panel-title). La description passe en gris de lecture. */
+.wdg-pop-t {
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: var(--fs-title, 11.5px);
+  font-weight: var(--fw-semibold, 600); letter-spacing: var(--ls-caps, .085em);
+  text-transform: uppercase; color: var(--orange, #e3b23a); font-style: normal;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wdg-pop-d { color: var(--text2, #c9cdd4); }
+.wdg-pop-head { background: var(--pop-bg, #16171b); }

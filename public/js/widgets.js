@@ -1229,9 +1229,10 @@
       id: 'fil-news', name: "Fil d'actualité", cat: 'News', h: 320,
       desc: 'Les dernières news du desk, en direct.',
       // `off` = sections DÉCOCHÉES, jointes par « | » (réglage caché du panneau : il est rendu par
-      // une liste dédiée dans _setPanelHtml, pas par une pastille de choix).
+      // une liste dédiée, pas par une pastille de choix).
+      // Le pas-à-pas « Actus » a été RETIRÉ (04/08, « ça sert à rien ») : depuis le bouton
+      // « Charger plus », la profondeur du fil se règle au geste, pas dans un panneau.
       opts: [
-        { k: 'nb', lbl: 'Actus', type: 'nombre', def: 15, min: 5, max: 40, pas: 5 },
         { k: 'off', lbl: 'Sections', type: 'texte', def: '', cache: true },
       ],
       // LE PANNEAU DU DESK À L'IDENTIQUE (demande user 02/08, capture à l'appui) : barre d'outils
@@ -1292,7 +1293,7 @@
             if (i.category && off[i.category]) return false;
             return !ql || String(i.headline || '').toLowerCase().indexOf(ql) !== -1;
           });
-          var cap = (opt(it, W, 'nb') | 0) + plus;
+          var cap = 25 + plus;                               // fenêtre de départ ; « Charger plus » l'étend
           var rows = tout.slice(0, cap);
           count.textContent = rows.length + ' items';
           if (!rows.length) {

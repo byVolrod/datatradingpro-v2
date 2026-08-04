@@ -77,7 +77,7 @@
     // DTP ») : rangée 1 → héros · Mes desks · CARTE DES SESSIONS (haut droite) ; rangée 2 → Fil ·
     // Force · CALENDRIER (bas droite, sous la carte — la colonne de droite = monde puis agenda).
     { id: 'sessions', titre: 'Sessions de marché', col: 4 },
-    { id: 'fil-news', titre: "Fil d'actualité", col: 4, cfg: { nb: 14 } },
+    { id: 'fil-news', titre: "Fil d'actualité", col: 4 },   // (le réglage `nb` n'existe plus : fenêtre de départ + « Charger plus »)
     { id: 'force-devises', titre: 'Force des Devises', col: 4, cfg: { periodes: 'today' } },
     { id: 'calendrier-jour', titre: 'Calendrier économique', col: 4,
       cfg: { impact: 'high', lignes: 12, passe: '2' } },        // fort impact seulement, un peu de passé pour le contexte
