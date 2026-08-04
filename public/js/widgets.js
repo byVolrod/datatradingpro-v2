@@ -3090,7 +3090,10 @@ function _spansAffiches(lay) {
       else { _applyDefault(); renderBar(); renderGrid(); }
     },
     close: function () { document.body.classList.remove('wdg-mode'); unmountAll(); },   // restaure la nav + libère roots/timers
-    exit: function () { if (typeof activateView === 'function') activateView('news'); }, // « ‹ Retour au desk » (la nav est masquée en mode Mon Desk)
+    // (05/08) Mon Desk est l ecran d arrivee et le desk classique est masque : plus AUCUNE
+    // sortie ne doit exister. Conserve en no-op : un appelant oublie ne doit pas planter,
+    // mais il ne doit pas non plus ejecter l utilisateur hors de son desk.
+    exit: function () {},
     // RETRAIT ANNULABLE (28/07) : on garde l'item ET sa position, et on propose « Annuler » 7 s.
     // Un retrait accidentel ne coûte plus la reconstruction manuelle du widget (taille, onglets,
     // réglages compris — c'est l'objet complet qui revient à sa place).
@@ -3836,9 +3839,11 @@ function _spansAffiches(lay) {
       var dansDesk = document.body.classList.contains('wdg-mode');
       var mgr = document.getElementById('wdg-mgr');
       var panneauOuvert = mgr && mgr.classList.contains('open');
+      // 05/08 : le clic ne FAIT PLUS SORTIR de Mon Desk — il en est l'écran d'arrivée et le desk
+      // classique est masqué. L'icône devient un simple aller-retour vers le panneau Personnaliser.
       if (!dansDesk) { activateView('widgets'); API.openManager(); return; }
       if (!panneauOuvert) { API.openManager(); return; }
-      API.closeManager(); activateView('news');
+      API.closeManager();
     });
     center.insertBefore(icon, journal);                                      // à GAUCHE de Journal / Calculatrice
     // PRÉCHARGE la config (léger) → hasDefault() connu sans ouvrir Mon Desk (sert au clic sur le LOGO).
@@ -3858,8 +3863,17 @@ function _spansAffiches(lay) {
     // (dtp_active_view='widgets' → 'news', car _pdIsAdmin n'y était pas encore résolu). ICI, boot() ne
     // tourne QUE pour un admin (poll _pdIsAdmin) → on peut rouvrir. La garde d'activateView
     // (view==='widgets' && !_pdIsAdmin) laisse passer puisque _pdIsAdmin est désormais vrai.
+    // ── MON DESK = ÉCRAN D'ARRIVÉE (05/08, décision user) ────────────────────────────────────────
+    // Le desk classique n'est plus la vue de départ : on entre DIRECTEMENT dans le layout par
+    // défaut. Portée volontairement limitée à l'ADMIN — boot() ne tourne que pour lui (poll
+    // _pdIsAdmin), donc la garde anti-exposition posée dans charts.js reste entière pour les
+    // clients, qui gardent le desk classique inchangé.
+    // ⚠️ ISSUE DE SECOURS : `?desk=classique` dans l'URL saute l'ouverture. Sans bouton ni mention
+    // dans l'interface — donc conforme au « masqué complètement » demandé — mais indispensable :
+    // sans elle, un widget qui planterait au montage enfermerait l'admin hors de son propre desk.
     try {
-      if (localStorage.getItem('dtp_active_view') === 'widgets' && typeof activateView === 'function') activateView('widgets');
+      var secours = /(?:\?|&)desk=classique(?:&|$)/.test(location.search);
+      if (!secours && typeof activateView === 'function') activateView('widgets');
     } catch (e) {}
   }
   // Le flag arrive dans le .then() de /api/auth/me → on sonde jusqu'à ~10 s, puis on renonce (aucun onglet).
