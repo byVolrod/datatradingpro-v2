@@ -3112,6 +3112,28 @@ function _spansAffiches(lay) {
     // (barre de catégories COT, boutons d'unité DMX…) qui ont déjà mis leur propre affichage à jour :
     // sans ça, le choix fait DANS le widget était perdu au premier re-rendu et contredisait la pastille
     // du panneau de réglages. Le réglage devient la source unique, quel que soit l'endroit où on le change.
+    // Coche/décoche une valeur d'un réglage 'multi'. La liste est stockée en chaîne « a|b|c » : le
+    // serveur ne valide que la FORME de it.cfg et n'accepte pas de tableau (cf. _wdgClean).
+    // `setter` permet de viser la carte ('setOpt') ou l'onglet affiché ('setTabOpt') — c'est le
+    // panneau de réglages qui le transmet, comme pour les sections du fil.
+    toggleMulti: function (i, k, val, setter) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i];
+      var vise = (setter === 'setTabOpt');
+      var w = vise ? byId((it.tabs || [])[Math.min(it._tabAct | 0, (it.tabs || []).length - 1)]) : byId(it.w);
+      var d = optDef(w, k); if (!d || d.type !== 'multi') return;
+      var item = vise ? _tabItem(it, Math.min(it._tabAct | 0, (it.tabs || []).length - 1)) : it;
+      var cur = opt(item, w, k) || [];
+      var apres = cur.indexOf(val) >= 0 ? cur.filter(function (x) { return x !== val; }) : cur.concat([val]);
+      // On refuse de tout décocher : une carte vide n'apprend rien et l'utilisateur se retrouverait
+      // sans moyen évident de revenir en arrière. Le dernier élément coché reste.
+      if (!apres.length) return;
+      // On garde l'ordre du CATALOGUE, pas l'ordre des clics : les horloges doivent rester
+      // rangées d'ouest en est quoi qu'il arrive.
+      var rang = {}; d.choix.forEach(function (c, n) { rang[c[0]] = n; });
+      apres.sort(function (a, b) { return rang[a] - rang[b]; });
+      API[setter === 'setTabOpt' ? 'setTabOpt' : 'setOpt'](i, k, apres.join('|'));
+    },
     setOptQuiet: function (i, k, v) {
       var l = activeLayout(); if (!l || l.items[i] == null) return;
       var it = l.items[i], w = byId(it.w), d = optDef(w, k); if (!d) return;
