@@ -15024,3 +15024,16 @@ body.theme-light .cot-cell--na .cot-badge { background: var(--bg3); color: var(-
 /* Carte courte (plusieurs banques côte à côte sur le desk) : la courbe s'efface plutôt que d'écraser
    le tableau des réunions, qui reste l'information principale. */
 @media (max-height: 620px) { .rtc-path { min-height: 84px; } }
+
+/* ── ACCUEIL OUVERT = AUCUNE VUE DU DESK N'EST « COURANTE » (04/08, constat user : l'icône Mon Desk
+   s'allumait alors qu'il était sur l'accueil). L'état actif des trois icônes est posé par
+   activateView (charts.js) ; or l'accueil est un CALQUE : il ne change pas de vue et laisse donc
+   allumée l'icône de la vue précédente. Le défaut touchait aussi Journal et Calculatrice.
+   Neutralisé en CSS plutôt qu'en JS : rien à resynchroniser à la fermeture, l'état réel du desk
+   est simplement masqué tant que l'accueil le recouvre. */
+body.home-mode #widgets-btn.topbar-icon--active,
+body.home-mode #journal-btn.topbar-icon--active,
+body.home-mode #calc-btn.topbar-icon--active {
+  color: var(--text2, #c9cdd4) !important;
+  background: none !important;
+}
