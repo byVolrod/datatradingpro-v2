@@ -14290,3 +14290,12 @@ body.home-mode .view-panel { visibility: hidden; }
 @container (max-width: 520px) {
   .wdg-vuehost #taux-grid.rtc-solo .rtc-metrics { flex-wrap: wrap; }
 }
+
+/* ── BANQUES : graphique EN DESSOUS (réglage du widget, défaut) — côte à côte, le graphe
+   à 360px minimum écrasait la table des transactions dans une carte (capture user). */
+.bank-layout--stack { flex-direction: column; }
+.bank-layout--stack .bank-table-wrap { flex: 1 1 auto; min-height: 110px; }
+.bank-layout--stack .bank-chart-col {
+  width: 100%; min-width: 0; flex: 0 0 46%; min-height: 170px;
+  border-left: 0; border-top: 1px solid var(--border);
+}

@@ -1593,6 +1593,24 @@
     //    toutes. Le filtre agit sur data-bank (posé par _rtcCard) et se RÉAPPLIQUE à chaque re-rendu du
     //    desk (loadTauxView réécrit la grille ~30 s) via un MutationObserver ; tout est retiré au
     //    démontage, la vue rentre au desk intacte.
+    // BANQUES : position du graphique (04/08, demande user « on doit pouvoir dans réglage mettre le
+    // graphique en bas ou à côté ») — côté à côté sur une carte large, EMPILÉ dès qu'elle est
+    // étroite (le graphe à 360 px minimum écrasait alors la table des transactions).
+    var _bankExtra = {
+      opts: [{ k: 'graphe', lbl: 'Graphique', type: 'choix', def: 'bas',
+        choix: [['bas', 'En dessous'], ['cote', 'À côté']] }],
+      filtre: function (host, it, W) {
+        var lay = host.querySelector('.bank-layout');
+        if (!lay) return null;
+        var applique = function () {
+          lay.classList.toggle('bank-layout--stack', (opt(it, W, 'graphe') || 'bas') === 'bas');
+        };
+        applique();
+        var mo = new MutationObserver(applique);
+        mo.observe(host, { childList: true, subtree: true });
+        return function () { mo.disconnect(); lay.classList.remove('bank-layout--stack'); };
+      },
+    };
     var _tauxExtra = {
       // ⚠️ Les valeurs sont les DEVISES : data-bank porte b.code, qui est la devise de la banque
       // (USD/EUR/…) — avec des codes FED/ECB, aucune carte ne matchait et la carte restait vide
@@ -1630,7 +1648,7 @@
       _vueDesk('vue-bias', 'Onglet Biais', 'BIAIS', 'Macro', 'view-bias', 'bias', "L'onglet BIAIS complet du desk : matrice Smart Bias + synthèse."),
       _vueDesk('vue-weekahead', 'Semaine à Venir', 'SEMAINE', 'Macro', 'view-weekahead', 'weekahead', "L'onglet SEMAINE À VENIR du desk : profil de risque + agenda éditorialisé."),
       _vueDesk('vue-taux', 'Onglet Taux', 'TAUX', 'Macro', 'view-taux', 'taux', "L'onglet TAUX du desk : cartes par banque, pricing des décisions, temps réel.", _tauxExtra),
-      _vueDesk('vue-bank', 'Banques', 'BANQUES', 'Risque', 'view-bank', 'bank', "L'onglet BANQUES du desk : positions des grandes banques + graphique."),
+      _vueDesk('vue-bank', 'Banques', 'BANQUES', 'Risque', 'view-bank', 'bank', "L'onglet BANQUES du desk : positions des grandes banques + graphique.", _bankExtra),
     ];
   })()).concat([
     {
