@@ -15037,3 +15037,27 @@ body.home-mode #calc-btn.topbar-icon--active {
   color: var(--text2, #c9cdd4) !important;
   background: none !important;
 }
+
+/* ══ TAUX — LISIBILITÉ (04/08, demande user) ═══════════════════════════════════════════════════
+   (1) LIBELLÉ TRONQUÉ : .rtc-bl faisait 32px alors que « Maintien » en mesure ~50 — il s'affichait
+   « Maintie ». Les largeurs du libellé et du pourcentage deviennent des VARIABLES, et les marges de
+   l'axe s'en déduisent : elles étaient écrites en dur (39px / 59px) et auraient dérivé à la
+   première retouche, désalignant silencieusement l'échelle sous les barres. */
+.rtc-dist { --rtc-lbl: 58px; --rtc-pct: 52px; --rtc-gap: 7px; }
+.rtc-bl { width: var(--rtc-lbl); }
+.rtc-bp { width: var(--rtc-pct); }
+.rtc-axis {
+  padding-left: calc(var(--rtc-lbl) + var(--rtc-gap));
+  padding-right: calc(var(--rtc-pct) + var(--rtc-gap));
+}
+/* (2) AXE : mesuré à 8px et 3,88:1 de contraste — sous le seuil de lecture, et sous le plancher
+   typographique de 9px du desk. Il porte l'échelle : illisible, il ne sert à rien. */
+.rtc-axis span { font-size: 9px; color: var(--text2, #c9cdd4); }
+/* (3) GRADUATIONS sur la piste : sans repère, l'axe flottait sous des barres qu'il ne découpait
+   pas. Un filet tous les 25 %, sous le remplissage. */
+.rtc-track {
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, .10) 1px, transparent 1px);
+  background-size: 25% 100%;
+}
+/* (4) « Maintien » était en #abb4c3, un gris-lavande hors charte. Le neutre DTP est l'ambre. */
+.rtc-track i.n { background: rgba(255, 179, 0, .80); }
