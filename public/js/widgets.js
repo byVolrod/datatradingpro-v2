@@ -1697,10 +1697,12 @@
           // Le widget qui a DÉJÀ sa propre barre y pose son nom lui-même (cf. .wdg-fx-lbl) ; pour
           // les autres, on ajoute un bandeau fin. Détection au DOM → aucun doublon possible.
           try {
-            // ⚠️ Les VUES ADOPTÉES du desk (Banques, Taux, Analystes…) portent DÉJÀ leur en-tête
-            // de panneau (.panel-header > .panel-title, ex. « TRANSACTIONS BANCAIRES ») → sans
-            // cette détection, on empilait deux titres (doublon constaté user 04/08).
-            if (!body.querySelector('.wdg-fx-lbl, .panel-header, .panel-title, .panel-toolbar, .chart-header, .strength-tf-bar, .cot-header-label, .dmx-header-title, .wdgt-subname')) {
+            // ⚠️ On n'exclut QUE la présence d'un vrai TITRE, jamais d'une simple barre d'outils :
+            //  · les VUES ADOPTÉES (Banques, Taux…) ont leur .panel-title (« TRANSACTIONS
+            //    BANCAIRES ») → pas de bandeau, sinon doublon (constaté user 04/08) ;
+            //  · Actus et Calendrier n'ont qu'une TOOLBAR (sections, recherche, filtres) — aucun
+            //    nom dedans → exclure .panel-toolbar les privait de titre (constaté user 04/08).
+            if (!body.querySelector('.wdg-fx-lbl, .panel-title, .chart-header-title, .cot-header-label, .dmx-header-title, .cal-title, .fxl-title, .inst-title, .sbm-title, .wa-title, .br-list-title, .arlib-list-title, .wdgt-subname')) {
               var sn = document.createElement('div');
               sn.className = 'wdgt-subname'; sn.textContent = w.name;
               body.insertBefore(sn, body.firstChild);
