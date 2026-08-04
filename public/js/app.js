@@ -8311,39 +8311,41 @@ let   _npAudioCtx = null;
 // du panneau Filtre ET les onglets — mêmes clés, mêmes mots partout. (Avant : 3 logiques divergentes
 // → l'utilisateur ne pouvait pas prédire où atterrissait une news ; + 3 catégories mortes retirées.)
 // Ordre de test : rapports d'abord, puis CONTENU (risque / données éco), puis temps réel, puis reste.
+// 04/08 — taxonomie FIXÉE PAR L'UTILISATEUR : Tout · News · Calendrier · Analystes · Institutions ·
+// DTP. « Risque » et « Flash Marché » n'y figurent plus : ils rejoignent News, dont ils étaient des
+// nuances de contenu et non des origines. L'ordre ci-dessous EST l'ordre des onglets.
 const NP_KINDS = [
-  { key: 'flash',       label: 'Flash Marché', cls: 'squawk'  },   // news temps réel (FinancialJuice)
-  { key: 'risk',        label: 'Risque',       cls: 'risk'    },   // géopolitique / risque / énergie / sanctions
-  { key: 'eco',         label: 'Données éco',  cls: 'cal'     },   // statistiques & calendrier économique
-  { key: 'analyst',     label: 'Analystes',    cls: 'analyst' },   // rapports & notes d'analystes (desk)
-  { key: 'institution', label: 'Institution',  cls: 'analyst' },   // recherche institutionnelle (banques)
-  { key: 'news',        label: 'News',         cls: 'news'    },   // tout le reste
+  { key: 'news',        label: 'News',          cls: 'news'    },   // actualité de marché (défaut)
+  { key: 'eco',         label: 'Calendrier',    cls: 'cal'     },   // statistiques & calendrier économique
+  { key: 'analyst',     label: 'Analystes',     cls: 'analyst' },   // notes & rapports d'analystes
+  { key: 'institution', label: 'Institutions',  cls: 'inst'    },   // recherche institutionnelle (banques)
+  { key: 'dtp',         label: 'DTP',           cls: 'dtp'     },   // publications du desk : récaps, wraps, briefings
 ];
 const _NP_KIND_BY_KEY = Object.fromEntries(NP_KINDS.map(k => [k.key, k]));
 // Fenêtre de fraîcheur d'une ALERTE. Au-delà, ce n'est plus une alerte mais de l'archive : elle a
 // sa place dans le fil d'actualité, pas dans un panneau censé signaler ce qui vient d'arriver.
 const NP_FRAICHEUR_MS = 7 * 864e5;
 
-// Repérage par le TITRE quand la catégorie du flux est absente ou générique — c'était le cas de la
-// quasi-totalité des items (constat user : « Geopolitical Chaos… » et « …central banks hold rates »
-// atterrissaient tous les deux en « News »). Motifs volontairement ÉTROITS et ancrés sur des bornes
-// de mot : un classement faux est pire qu'un classement générique.
-const _NP_RX_RISK = /\b(g[ée]opolit\w*|geopolit\w*|sanctions?|embargo|tariffs?|guerre|war|conflits?|conflicts?|militaire|missile|frappes?)\b/i;
+// Repérage du CALENDRIER par le TITRE quand la catégorie du flux est absente ou générique — c'était
+// le cas de la quasi-totalité des items (constat user : « …central banks hold rates » atterrissait
+// en « News »). Motif volontairement ÉTROIT et ancré sur des bornes de mot : un classement faux est
+// pire qu'un classement générique.
 const _NP_RX_ECO  = /\b(CPI|PPI|NFP|PMI|GDP|PIB|IPC|ISM|Ifo|ZEW|inflation|unemployment|ch[ôo]mage|payrolls?|jobless|retail sales|ventes au d[ée]tail|taux directeurs?|rate (?:decision|cut|hike)s?|hold rates|FOMC|BCE|ECB|BoE|BoJ|SNB|RBA|BoC|banques? centrales?|central banks?)\b/i;
 
 function _npKind(item) {
+  // DTP EN PREMIER : tout ce que le desk publie lui-même (récaps, market wraps, briefings, primers)
+  // a désormais son onglet — « dans DTP, toutes les modifications ». Avant, ces items étaient soit
+  // rejetés à l'entrée, soit rangés en « Analystes », ce qui les mélangeait aux notes externes.
+  if (item.source === 'DTP' || item._briefing || item._marketWrap
+    || (typeof isPrimerItem === 'function' && isPrimerItem(item))) return _NP_KIND_BY_KEY.dtp;
   if (item._reportNotif === 'institution' || item._source === 'ing-think') return _NP_KIND_BY_KEY.institution;
-  if (item._reportNotif === 'analyst' || item._source === 'investinglive'
-    || item._briefing || item.source === 'DTP') return _NP_KIND_BY_KEY.analyst;
+  if (item._reportNotif === 'analyst' || item._source === 'investinglive') return _NP_KIND_BY_KEY.analyst;
   const c = (item.category || '').toLowerCase();
   if (/research|institution/.test(c)) return _NP_KIND_BY_KEY.institution;
-  if (/geopolit|risk|energy|sanction|war/.test(c)) return _NP_KIND_BY_KEY.risk;
   if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return _NP_KIND_BY_KEY.eco;
-  // Repli sur le titre — même ORDRE que ci-dessus (risque avant éco) pour rester prévisible.
-  const t = String(item.headline || '');
-  if (_NP_RX_RISK.test(t)) return _NP_KIND_BY_KEY.risk;
-  if (_NP_RX_ECO.test(t))  return _NP_KIND_BY_KEY.eco;
-  if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return _NP_KIND_BY_KEY.flash;
+  if (_NP_RX_ECO.test(String(item.headline || ''))) return _NP_KIND_BY_KEY.eco;
+  // Tout le reste est de la News — y compris la géopolitique et le temps réel FinancialJuice, qui
+  // étaient des types à part et n'en sont plus (taxonomie fixée par l'utilisateur le 04/08).
   return _NP_KIND_BY_KEY.news;
 }
 // Filtres par catégorie (panneau « Filtre ») : mêmes clés que les badges — couper « Flash Marché »
@@ -8416,7 +8418,14 @@ function _npEl(id) { return document.getElementById(id); }
 document.addEventListener('DOMContentLoaded', () => {
   _npSyncUI();
   _npCfgLoad();   // config par compte (serveur) → écrase le cache localStorage puis re-synchronise l'UI
-  // Tabs
+  // ONGLETS DÉRIVÉS DE LA TAXONOMIE : un onglet par type, dans l'ordre de NP_KINDS, à la suite de
+  // « Tout » posé dans le HTML. Ainsi un type ajouté ou renommé se propage seul aux trois endroits
+  // (onglet, badge, panneau Filtre) — c'est la raison d'être de la taxonomie unique.
+  const _tabsHost = _npEl('np-tabs-scroll');
+  if (_tabsHost) {
+    _tabsHost.insertAdjacentHTML('beforeend', NP_KINDS.map(k =>
+      `<button class="np-tab" data-nf="${k.key}">${k.label}</button>`).join(''));
+  }
   document.querySelectorAll('.np-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.np-tab').forEach(b => b.classList.remove('np-tab--active'));
@@ -8462,9 +8471,11 @@ function npOpen() {
     const LIMITE = Date.now() - NP_FRAICHEUR_MS;   // même fenêtre que npPush : une seule règle
     const parDateDesc = (a, b) => (b.timestamp || 0) - (a.timestamp || 0);
     const frais = allItems.filter(i => (i.timestamp || 0) >= LIMITE);
+    // Les publications DTP entrent AUSSI (onglet DTP), quelle que soit leur priorité : ce sont
+    // justement les « modifications » que l'utilisateur veut retrouver là.
     const recent = frais
-      .filter(i => !(i._briefing || i.source === 'DTP' || isPrimerItem(i)))   // pas de primers/rapports
-      .filter(i => i.priority === 'high' || i.urgent || i.category === 'Geopolitical')
+      .filter(i => i.priority === 'high' || i.urgent || i.category === 'Geopolitical'
+        || i.source === 'DTP' || i._briefing || i._marketWrap)
       .sort(parDateDesc)
       .slice(0, 40);
     recent.forEach(i => { if (!_npReadIds.has(i.id)) _npItems.push(i); });
@@ -8578,7 +8589,8 @@ function npPush(items) {
   let newOnes = 0;
   const limite = Date.now() - NP_FRAICHEUR_MS;
   items.forEach(item => {
-    if (item._briefing || item.source === 'DTP' || isPrimerItem(item)) return;   // pas de primers en notif
+    // (Les publications DTP — briefings, primers, market wraps — ne sont PLUS rejetées ici : elles
+    //  alimentent l'onglet DTP. Elles restent masquées du FIL, ce qui est une décision distincte.)
     // ⚠️ GARDE DE FRAÎCHEUR — la vraie cause des « il y a 521j » : ce chemin-ci n'en avait AUCUNE.
     // Le correctif posé le 04/08 ne couvrait que le pré-remplissage, or ce dernier est sauté dès que
     // npPush a rempli la liste — donc il ne servait à rien. Toute reprise d'historique du fil
@@ -8655,9 +8667,10 @@ function _npRenderList() {
   const filtered = _npItems.filter(item => {
     const kind = _npKind(item);
     if (!_npCatOn(kind.key)) return false;           // filtre par type (panneau Filtre)
-    if (_npFilter === 'analyst')  return kind.key === 'analyst' || kind.key === 'institution';
-    if (_npFilter === 'risk')     return kind.key === 'risk';
-    if (_npFilter === 'breaking') return item.priority === 'high' || item.urgent;   // urgence = facette transverse
+    // Un onglet = UN type de la taxonomie, exactement le badge affiché sur la ligne. Plus de
+    // correspondance approximative (l'ancien onglet « Analystes » ramassait aussi les institutions,
+    // et « Urgent » était une facette transverse qui n'existait dans aucun badge).
+    if (_npFilter !== 'all') return kind.key === _npFilter;
     return true; // 'all'
   });
 
