@@ -14443,3 +14443,20 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdg-set-sec.on { color: var(--orange, #e3b23a); border-color: rgba(227,178,58,.5); background: rgba(227,178,58,.07); }
 .wdg-set-sec.on i { opacity: 1; }
 .wdg-set-sec:hover { color: var(--text); border-color: rgba(227,178,58,.4); }
+
+/* ── BARRE DE RECHERCHE DU FIL (widget) — LISIBILITÉ (04/08) : c'était une bande sombre
+   sans contour, avec un texte d'invite au gris le plus faible (--text4). Elle devient un VRAI
+   champ : cadre fin, fond légèrement creusé, invite et loupe lisibles, halo or au focus. */
+.wdg-news-panel .wdg-nw-tb { padding: 7px 8px; }
+.wdg-news-panel .wdg-nw-search {
+  height: 30px; padding: 0 10px; gap: 8px;
+  background: var(--bg); border: 1px solid var(--hud-line, var(--border)); border-radius: 5px;
+}
+.wdg-news-panel .wdg-nw-search:hover { border-color: rgba(227, 178, 58, .32); }
+.wdg-news-panel .wdg-nw-search:focus-within {
+  border-color: rgba(227, 178, 58, .6); box-shadow: 0 0 0 2px rgba(227, 178, 58, .10);
+}
+.wdg-news-panel .wdg-nw-search .search-icon { color: var(--text3); }
+.wdg-news-panel .wdg-nw-search:focus-within .search-icon { color: var(--orange, #e3b23a); }
+.wdg-news-panel .wdg-nw-q { font-size: 12px; letter-spacing: .01em; }
+.wdg-news-panel .wdg-nw-q::placeholder { color: var(--text3); opacity: 1; }
