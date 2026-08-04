@@ -13965,3 +13965,63 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
 .wdgt-fill span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .wdgt-fill:hover { color: var(--orange, #e3b23a); border-color: rgba(227, 178, 58, .65); background: rgba(227, 178, 58, .05); }
 .wdgt-tab--vide .wdgt-nm { font-style: italic; color: var(--text3); }
+
+/* ════ LOT 04/08 : onglet vide façon emplacement · calculatrice · safe-area iOS · accueil
+   au-dessus des barres · fil d'actualité mobile ════ */
+
+/* ── ONGLET VIDE = la grammaire EXACTE des emplacements de la grille (demande user, image de
+   référence) : cadre pointillé or sur toute la zone, + fin et libellé discret, tout est cliquable. ── */
+.wdgt-vide {
+  height: calc(100% - 16px); margin: 8px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: 1px dashed rgba(227, 178, 58, .42); border-radius: 4px;
+  background: rgba(227, 178, 58, .03); transition: border-color .14s;
+}
+.wdgt-vide:hover, .wdgt-vide:focus-visible { border-color: rgba(227, 178, 58, .7); outline: none; }
+.wdgt-fill {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: #b8935a; font-size: 24px; font-weight: 300; line-height: 1; transition: color .14s;
+}
+.wdgt-fill span { font-size: 11.5px; font-weight: 500; letter-spacing: .02em; text-transform: none; }
+.wdgt-vide:hover .wdgt-fill { color: var(--orange, #e3b23a); }
+
+/* ── CALCULATRICE DE POSITION : les flèches natives des <input type=number> chevauchaient la
+   valeur (capture user) — masquées ; champs mono alignés à droite, suffixe ($ · % · pips) calé. ── */
+.wdg-calc { display: flex; flex-direction: column; gap: 9px; padding: 12px 14px; }
+.wdg-calc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wdg-calc-lbl { font-size: 11.5px; color: var(--text2); }
+.wdg-calc-in { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+.wdg-calc-in input[type=number]::-webkit-outer-spin-button,
+.wdg-calc-in input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.wdg-calc-in input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.wdg-calc-in input {
+  width: 92px; text-align: right; font-family: var(--font-mono); font-size: 12px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--hud-line, var(--border)); border-radius: 4px; padding: 6px 9px;
+  transition: border-color .14s;
+}
+.wdg-calc-in input:focus { outline: none; border-color: rgba(227, 178, 58, .55); }
+.wdg-calc-in em { font-style: normal; font-size: 10.5px; color: var(--text3); min-width: 28px; }
+
+/* ── SAFE-AREA iOS (capture user : l'horloge du téléphone chevauchait la topbar) : la topbar
+   descend sous l'encoche et TOUT ce qui se cale sur var(--topbar-h) (accueil, volets, overlays)
+   suit automatiquement. env() vaut 0 hors iOS → aucun effet ailleurs. ── */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .topbar { padding-top: env(safe-area-inset-top); }
+  :root { --topbar-h: calc(54px + env(safe-area-inset-top, 0px)); }
+  html.dtp-desktop { --topbar-h: calc(50px / var(--dtp-zoom, 1)); }   /* app desktop : pas d'encoche */
+  @media (max-width: 768px) { :root { --topbar-h: calc(44px + env(safe-area-inset-top, 0px)); } }
+  @media (max-width: 480px) { :root { --topbar-h: calc(42px + env(safe-area-inset-top, 0px)); } }
+}
+
+/* ── ACCUEIL AU-DESSUS DES BARRES (capture user : la barre Mon Desk et l'en-tête d'un panneau
+   transparaissaient au-dessus du ticker) : l'accueil couvre tout SAUF la topbar (z 100 → on passe
+   au-dessus en gardant l'écart sous les volets 1399+ et le chat 1400). ── */
+.home-overlay { z-index: 99; }
+
+/* ── FIL D'ACTUALITÉ sur téléphone : colonnes resserrées (l'heure et la catégorie mangeaient la
+   place du titre — capture user), le titre respire. ── */
+@media (max-width: 640px) {
+  .news-item { --c-pad: 10px; --c-icon: 20px; --c-time: 42px; --c-cat: 74px; --c-arrow: 20px; }
+  .news-category-text { font-size: 10px; }
+}
