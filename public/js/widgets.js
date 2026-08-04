@@ -147,22 +147,12 @@
     // propres réglages ») : dans un panneau à onglets, l'en-tête appartient au PANNEAU — les
     // options du widget de l'onglet n'étaient joignables nulle part. Elles s'ouvrent ici, en tête
     // du panneau, clairement rattachées à l'onglet courant.
-    var sousReglages = '';
-    if (w.id === 'onglets') {
-      var _tj = Math.min(it._tabAct | 0, Math.max(0, (it.tabs || []).length - 1));
-      var _tw = byId((it.tabs || [])[_tj]);
-      if (_tw && _tw.opts && _tw.opts.length) {
-        var _ti = _tabItem(it, _tj);
-        sousReglages = '<div class="wdg-set-sep"></div>'
-          + '<div class="wdg-set-tabs-t">Onglet affiché · ' + esc(_tw.name) + '</div>'
-          + _optsHtml(idx, _tw, _ti, 'setTabOpt')
-          // Le fil en onglet a AUSSI ses sections (elles manquaient : le bloc n'était rendu que
-          // pour une carte fil-news autonome — constaté user 04/08).
-          + _blocSections(_ti, _tw, true);
-      }
-    }
-    // SECTIONS DU FIL (04/08) : liste de rubriques en cases à cocher persistées. Rendue pour la
-    // CARTE fil-news ET pour un fil-news affiché EN ONGLET (le setter change de cible).
+    // ⚠️ DÉFINI AVANT TOUT USAGE : c'est une EXPRESSION de fonction (var), donc `undefined` tant
+    // que la ligne n'est pas exécutée. Placée après le bloc « onglet affiché » qui l'appelle, elle
+    // levait « _blocSections is not a function » → _setPanelHtml plantait → renderGrid entier
+    // échouait → ÉCRAN NOIR (constaté en production le 04/08). Ne jamais la redescendre.
+    // SECTIONS DU FIL : liste de rubriques en cases à cocher persistées. Rendue pour la CARTE
+    // fil-news ET pour un fil-news affiché EN ONGLET (le setter change de cible).
     var _blocSections = function (item, w2, tab) {
       if (!w2 || w2.id !== 'fil-news') return '';
       var cats = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS))
@@ -180,6 +170,21 @@
           }).join('') + '</div>';
     };
     var sectionsBloc = _blocSections(it, w, false);
+    // RÉGLAGES DU SOUS-WIDGET AFFICHÉ : dans un panneau à onglets, l'en-tête appartient au PANNEAU
+    // — les options du widget de l'onglet n'étaient joignables nulle part. Elles s'ouvrent ici,
+    // clairement rattachées à l'onglet courant (et suivent le changement d'onglet, cf. _syncPanel).
+    var sousReglages = '';
+    if (w.id === 'onglets') {
+      var _tj = Math.min(it._tabAct | 0, Math.max(0, (it.tabs || []).length - 1));
+      var _tw = byId((it.tabs || [])[_tj]);
+      if (_tw && _tw.opts && _tw.opts.length) {
+        var _ti = _tabItem(it, _tj);
+        sousReglages = '<div class="wdg-set-sep"></div>'
+          + '<div class="wdg-set-tabs-t">Onglet affiché · ' + esc(_tw.name) + '</div>'
+          + _optsHtml(idx, _tw, _ti, 'setTabOpt')
+          + _blocSections(_ti, _tw, true);      // le fil en onglet a AUSSI ses sections
+      }
+    }
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + _optsHtml(idx, w, it)
       + sectionsBloc
