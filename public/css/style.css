@@ -14687,3 +14687,13 @@ body.home-mode .view-panel { visibility: hidden; }
 .np-origin { border: 0; background: none; padding: 0; letter-spacing: .07em; font-size: 9.5px; }
 .np-item-meta { gap: 7px; }
 .np-item-meta:has(.np-origin) .np-item-time::before { content: '· '; opacity: .5; }
+
+/* ── CARTE COT : RIEN NE SE FAIT ROGNER (04/08, capture user « Baissier » coupé en deux).
+   L'en-tête et le bloc de chiffres sont incompressibles ; seule la jauge cède quand la carte est
+   courte. Sans ces `flex: 0 0 auto`, le navigateur rabotait les trois blocs à parts égales et la
+   grille, en overflow:hidden, tranchait la valeur au milieu des lettres. */
+.cot-grid--fit .cot-card-head, .cot-grid--fit .cot-stats { flex: 0 0 auto; }
+.cot-grid--fit .cot-gauge-wrap { flex: 1 1 auto; min-height: 0; }
+/* Libellés désormais sur UNE ligne (« Courtes » au lieu de « Positions courtes ») : ils peuvent
+   grandir et respirer au lieu de se casser en deux à 8 px. */
+.cot-grid--fit .cot-stat-lbl { font-size: 9.5px; white-space: nowrap; letter-spacing: .05em; text-transform: uppercase; }
