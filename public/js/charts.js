@@ -1669,6 +1669,34 @@ function buildMeterChart(containerId) {   // containerId optionnel (widget « Mo
 
 // RÉTROCOMPATIBLE (widgets Mon Desk 23/07) : gridId/typeArg optionnels — le desk appelle sans argument
 // (grille #cot-grid + bouton actif de SON onglet #rtab-cot) ; un widget passe SA grille + SON type.
+// Pave les N cartes en RECTANGLE PLEIN (jamais d'orpheline seule sur la derniere rangee) dont les
+// cellules approchent le ratio cible : le bloc widget est rempli, sans zone morte a droite.
+// 8 devises => colonnes possibles 1 / 2 / 4 / 8. Si aucune combinaison ne tient a taille lisible,
+// on repasse en mode defilement (rangees a hauteur plancher).
+// Planchers de CELLULE. La hauteur (210) n'est pas décorative : en dessous, l'en-tête + la légende +
+// les 3 stats mangent tout et le donut tombe à ~36 px (mesuré) — illisible. Sous ce seuil on préfère
+// défiler avec des cartes lisibles plutôt que pavér le bloc avec des donuts minuscules.
+const _COT_FIT_W = 132, _COT_FIT_H = 210;
+function _cotFit(grid) {
+  if (!grid || !grid.classList.contains('cot-grid--fit')) return;
+  const n = grid.children.length;
+  const W = grid.clientWidth, H = grid.clientHeight;
+  if (!n || !W || !H) return;
+  let best = null, large = 1;
+  for (let c = 1; c <= n; c++) {
+    if (n % c) continue;                                  // rangees TOUTES pleines
+    const cw = W / c, ch = H / (n / c);
+    if (cw >= _COT_FIT_W) large = c;                      // repli defilement : le + de colonnes lisibles
+    if (cw < _COT_FIT_W || ch < _COT_FIT_H) continue;
+    const score = Math.abs(Math.log((cw / ch) / 1.05));   // cellule presque carree = donut bien proportionne
+    if (!best || score < best.score) best = { c, r: n / c, score };
+  }
+  grid.style.gridTemplateColumns = 'repeat(' + (best ? best.c : large) + ', minmax(0, 1fr))';
+  grid.style.gridTemplateRows = best ? 'repeat(' + best.r + ', minmax(0, 1fr))' : '';
+  grid.style.gridAutoRows = best ? '' : 'minmax(' + _COT_FIT_H + 'px, 1fr)';
+  grid.classList.toggle('cot-grid--scroll', !best);
+}
+
 function buildCOTChart(gridId, typeArg) {
   const grid = document.getElementById(gridId || 'cot-grid');
   if (!grid) return;
@@ -1752,6 +1780,7 @@ function buildCOTChart(gridId, typeArg) {
           </div>`;
         grid.appendChild(cell);
       }
+      try { _cotFit(grid); } catch (e) {}
     })
     .catch(() => {
       grid.innerHTML = '<div style="padding:20px;color:#666;font-size:11px;">Échec du chargement des données COT</div>';

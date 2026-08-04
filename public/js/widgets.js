@@ -932,8 +932,11 @@
       id: 'cot-inst', name: 'Positionnement COT', tag: 'COT', cat: 'Risque', h: 340,
       desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
       // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
-      // → mêmes cartes donut SVG .cot-cell, mêmes 5 catégories CFTC (barre .cot-type-bar reproduite, handlers
-      // SCOPÉS au widget — ceux du desk sont scopés #rtab-cot). Zéro root amCharts → cleanup null.
+      // → mêmes cartes donut SVG .cot-cell, mêmes 5 catégories CFTC. Zéro root amCharts.
+      // 04/08 : la barre de catégories inline est RETIRÉE (doublon du réglage « Catégorie » ci-dessous,
+      // comme pour DMX) → toute la hauteur va aux cartes. La grille porte .cot-grid--fit : _cotFit()
+      // la pave en rectangle plein (plus d'orpheline seule ni de zone morte à droite) et se recalcule
+      // au redimensionnement du bloc.
       opts: [{ k: 'cat', lbl: 'Catégorie', type: 'choix', def: 'lev_money',
         choix: [['noncomm', 'Non-comm.'], ['dealer', 'Teneur'], ['asset_mgr', 'Gérant'], ['lev_money', 'Levier'], ['other_rept', 'Autre']] }],
       mount: function (host, it) {
@@ -941,22 +944,15 @@
         if (typeof buildCOTChart !== 'function') { fallback(host, 'COT indisponible.'); return null; }
         var cat0 = opt(it, W, 'cat');
         var gid = HOST_ID + '-cotg-' + uid();
-        var TYPES = [['noncomm', 'Non-comm.'], ['dealer', 'Teneur'], ['asset_mgr', 'Gérant'], ['lev_money', 'Effet de levier'], ['other_rept', 'Autre']];
         host.innerHTML = '<div class="wdg-cotwrap">'
-          + '<div class="cot-type-bar">' + TYPES.map(function (t) {
-              return '<button class="cot-type-btn' + (t[0] === cat0 ? ' cot-type-btn--active' : '') + '" data-cot-type="' + t[0] + '">' + t[1] + '</button>';
-            }).join('') + '</div>'
-          + '<div id="' + gid + '" class="cot-grid custom-scrollbar"></div></div>';
+          + '<div id="' + gid + '" class="cot-grid cot-grid--fit custom-scrollbar"></div></div>';
         try { buildCOTChart(gid, cat0); } catch (e) { fallback(host, 'COT indisponible.'); return null; }
-        host.querySelectorAll('.cot-type-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            host.querySelectorAll('.cot-type-btn').forEach(function (b) { b.classList.remove('cot-type-btn--active'); });
-            btn.classList.add('cot-type-btn--active');
-            try { buildCOTChart(gid, btn.dataset.cotType); } catch (e) {}
-            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'cat', btn.dataset.cotType);   // le widget devient sa propre source de réglage
-          });
-        });
-        return null;
+        var g = host.querySelector('.cot-grid'), ro = null;   // (byId() ici = lookup CATALOGUE, pas le DOM)
+        if (window.ResizeObserver && g && typeof _cotFit === 'function') {
+          ro = new ResizeObserver(function () { try { _cotFit(g); } catch (e) {} });
+          ro.observe(g);
+        }
+        return function () { try { if (ro) ro.disconnect(); } catch (e) {} };
       },
     },
     {
