@@ -11862,8 +11862,21 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 
 /* ── Widgets COT / DMX / Saisonnalité : conteneurs (le rendu = classes desk .cot-* / .dmx-* / .season-*) ── */
 .wdg-cotwrap, .wdg-dmxwrap, .wdg-seawrap { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.wdg-cotwrap .cot-type-bar { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; }   /* carte étroite : la barre de catégories défile au lieu de se tronquer */
-.wdg-cotwrap .cot-grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }   /* s'adapte à la largeur du widget (le desk garde ses 4 colonnes) */
+.wdg-cotwrap .cot-grid { flex: 1 1 auto; min-height: 0; }
+/* Grille PAVANTE (04/08) : _cotFit() pose colonnes ET rangées en 1fr → les 8 cartes remplissent
+   exactement le bloc. Plus d'orpheline seule en bas ni de zone morte à droite (l'ancien
+   repeat(auto-fit, minmax(150px,1fr)) tombait sur 7 colonnes + 1). Le défilement ne revient que
+   si le bloc est trop petit pour un rectangle lisible (classe --scroll posée par _cotFit). */
+.cot-grid--fit { overflow: hidden; grid-auto-rows: auto; }
+.cot-grid--fit.cot-grid--scroll { overflow-y: auto; }
+/* Le badge de catégorie répétait la même valeur sur les 8 cartes en se tronquant
+   (« Fonds à effet… ») : la catégorie vit dans les réglages, la carte n'a plus à la porter. */
+.cot-grid--fit .cot-head-type { display: none; }
+.cot-grid--fit .cot-cell { padding: 12px 10px; gap: 6px; }
+/* Le donut restait figé à 96 px quelle que soit la carte (width/height auto + max-* qui ne font que
+   rétrécir) → gros vides au-dessus et en dessous. Il occupe maintenant sa case, ratio préservé. */
+.cot-grid--fit .cot-donut { width: 100%; height: 100%; max-width: 88%; max-height: 100%; }
+.cot-grid--fit .cot-gauge-wrap { padding: 2px 0; }
 .wdg-dmxwrap .dmx-table-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .wdg-seawrap .season-table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
 
