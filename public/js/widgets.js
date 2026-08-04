@@ -679,7 +679,12 @@
       desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
       // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
       // (Maintien/Hausse/Baisse) de la prochaine réunion + probabilité + date. HTML pur, cleanup null.
-      mount: function (host) {
+      // Réglage UTILE (04/08) : filtrer sur UNE banque — le trader suit souvent une seule courbe
+      // de politique monétaire, et la carte devient lisible même étroite.
+      opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'all',
+        choix: [['all', 'Toutes'], ['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'SNB'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ']] }],
+      mount: function (host, it) {
+        var W = this;
         skel(host);
         var MV = { Hike: { c: 'up', t: 'Hausse' }, Cut: { c: 'down', t: 'Baisse' }, Hold: { c: 'flat', t: 'Maintien' } };
         var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
@@ -688,6 +693,8 @@
         fetch('/api/rates').then(function (r) { return r.json(); }).then(function (d) {
           if (!host.isConnected) return;
           var banks = (d && d.banks) || [];
+          var _veut = opt(it, W, 'banque') || 'all';
+          if (_veut !== 'all') banks = banks.filter(function (b) { return b && b.code === _veut; });
           if (!banks.length) return fallback(host, 'Taux indisponibles.');
           var rows = banks.map(function (b) {
             var sc = b.scenario || {};
@@ -721,14 +728,20 @@
       // triangle ClockHand teinté _riskArcColor, mêmes helpers globaux (_riskBandInner, GAUGE_LABEL_FR).
       // Root amCharts PAR INSTANCE (le singleton _riskGaugeRoot reste au desk) + suit le snapshot partagé
       // dtp-risk (source unique app.js) → toujours la même valeur que la jauge de l'onglet RISQUE.
-      mount: function (host) {
+      // Réglage UTILE (04/08) : dans une carte basse, la bande d'historique écrase l'arc — on peut
+      // ne garder que la jauge.
+      opts: [{ k: 'histo', lbl: 'Historique', type: 'bascule', def: true }],
+      mount: function (host, it) {
+        var W = this;
         if (!(window.am5 && window.am5radar) || typeof _riskArcColor !== 'function' || typeof _riskBandInner !== 'function' || typeof GAUGE_LABEL_FR === 'undefined') { fallback(host, 'Jauge indisponible.'); return null; }
         // COMME L'ONGLET RISQUE DU DESK (demande user 03/08 « il manque l'historique en bas ») :
         // la jauge PLUS la bande d'historique quotidien (#risk-history-chart, classes .rsh-chart du
         // desk, builder buildRiskHistoryChart) — la jauge seule laissait un vide sous l'arc.
+        var avecHist = opt(it, W, 'histo') !== false;
         var hid = HOST_ID + '-rj-h-' + uid();
         host.innerHTML = '<div class="wdg-riskpanel"><div class="risk-widget-container wdg-riskwrap"></div>'
-          + '<div class="amchart-container rsh-chart wdg-riskhist"><div id="' + hid + '" style="width:100%;height:100%"></div></div></div>';
+          + (avecHist ? '<div class="amchart-container rsh-chart wdg-riskhist"><div id="' + hid + '" style="width:100%;height:100%"></div></div>' : '')
+          + '</div>';
         var wrap = host.querySelector('.wdg-riskwrap');
         if (typeof buildRiskHistoryChart === 'function') {
           fetch('/api/risk-history?days=60').then(function (r) { return r.json(); }).then(function (d) {
@@ -2274,7 +2287,12 @@
         // Réglages + Fermer. Remplacer, Dupliquer, Plein écran, Verrouiller et « vider l'onglet »
         // vivent tous dans le panneau Réglages, où ils sont LIBELLÉS (donc plus clairs qu'une icône).
         +   '<span class="wdg-actions">'
-        +     '<button class="wdg-ico" title="Réglages du widget" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
+        // ENGRENAGE SEULEMENT S'IL SERT (04/08, demande user + exemples à l'appui) : un widget sans
+        // réglage déclaré n'affiche pas de bouton qui ouvrirait un panneau vide (rapports
+        // Institutions/Analystes, Baromètre…). Le ✕ de retrait, lui, est TOUJOURS là.
+        +     (((w.opts && w.opts.length) || w.id === 'onglets')
+                ? '<button class="wdg-ico" title="Réglages du widget" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
+                : '')
         +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer ce widget') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
         + '</header>'
