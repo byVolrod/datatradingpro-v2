@@ -14030,3 +14030,12 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
    › ACTUS restait visible et manipulable au-dessus du ticker) — même patron que Mon Desk
    (body.wdg-mode) : déterministe, zéro pari d'empilement. Restaurée à la fermeture. */
 body.home-mode #topbar-nav, body.home-mode .wdg-bar { display: none; }
+
+/* ── ACCUEIL EN BÉTON (04/08, 3e capture user : l'en-tête du panneau ACTUS transparaissait
+   encore et le ticker se décalait sur iPhone) : (1) l'overlay couvre TOUT l'écran (top:0) — la
+   topbar (z-100, opaque) reste peinte ET cliquable AU-DESSUS du z-99, l'esprit de la règle
+   « jamais top:0 » (topbar toujours accessible) est préservé ; son contenu démarre sous elle
+   via padding-top. (2) TOUT le contenu du desk passe en visibility:hidden tant que l'accueil est
+   ouvert — quoi que fasse l'empilement iOS, rien ne peut transparaître. Restauré à close(). */
+.home-overlay { top: 0; padding-top: var(--topbar-h); }
+body.home-mode .view-panel { visibility: hidden; }
