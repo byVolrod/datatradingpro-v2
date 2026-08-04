@@ -14479,3 +14479,13 @@ body.home-mode .view-panel { visibility: hidden; }
 /* Étiquette de semaine du calendrier (widget) : dorée sur la semaine courante, neutre sinon. */
 .wdg-cal-per { min-width: 92px; text-align: center; color: var(--text2); background: transparent; border-color: transparent; }
 .wdg-cal-per.is-now { color: var(--orange, #e3b23a); background: rgba(227,178,58,.10); border-color: rgba(227,178,58,.35); }
+
+/* ── ENGRENAGE DU WIDGET DANS UN ONGLET (04/08) : à DROITE de SA barre de titre, distinct
+   de celui du panneau à onglets. Le conteneur d'accueil pousse le bouton au bout. */
+.wdgt-hasgear { display: flex; align-items: center; }
+.wdgt-subname.wdgt-hasgear { justify-content: space-between; }
+.wdgt-hasgear > .wdg-subgear { margin-left: auto; flex: 0 0 auto; }
+.wdg-subgear { width: 22px; height: 22px; opacity: .62; }
+.wdg-subgear:hover { opacity: 1; color: var(--orange, #e3b23a); background: rgba(227,178,58,.14); }
+.wdg-subgear--flot { position: absolute; top: 6px; right: 8px; z-index: 6; background: var(--bg); border-radius: 4px; }
+.wdgt-mount { position: relative; }

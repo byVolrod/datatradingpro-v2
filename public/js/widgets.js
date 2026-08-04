@@ -81,6 +81,26 @@
     for (var i = 0; i < d.choix.length; i++) if (d.choix[i][0] === v) return v;
     return d.def;
   }
+  // SECTIONS DU FIL : rubriques en cases à cocher persistées. Rendue pour la CARTE fil-news ET
+  // pour un fil-news affiché EN ONGLET (le setter change de cible). ⚠️ AU NIVEAU MODULE (et non
+  // dans _setPanelHtml) : une expression de fonction locale appelée avant sa ligne d'affectation
+  // avait provoqué un ÉCRAN NOIR le 04/08 — ici, une DÉCLARATION hissée, utilisable partout.
+  function _blocSectionsFor(item, w2, tab, idx) {
+    if (!w2 || w2.id !== 'fil-news') return '';
+    var cats = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS))
+      ? INTERNAL_CATS.filter(function (c) { return c !== 'Bonds'; }) : [];
+    if (!cats.length) return '';
+    var offSet = {};
+    String(opt(item, w2, 'off') || '').split('|').forEach(function (c) { if (c) offSet[c] = 1; });
+    var fn = tab ? 'toggleNewsSectionTab' : 'toggleNewsSection';
+    return '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Sections affichées</div>'
+      + '<div class="wdg-set-secs">' + cats.map(function (c) {
+          var lib = (typeof catFr === 'function') ? catFr(c) : c;
+          return '<button class="wdg-set-sec' + (offSet[c] ? '' : ' on') + '"'
+            + ' onclick="DTPWidgets.' + fn + '(' + idx + ',\'' + esc(c).replace(/'/g, '&#39;') + '\')">'
+            + '<span>' + esc(lib) + '</span><i>✓</i></button>';
+        }).join('') + '</div>';
+  }
   // Panneau de réglages généré depuis le contrat. Vide si le widget ne déclare rien.
   // Contenu du panneau de réglages d'une carte (titre, description, taille, réglages déclarés).
   // Extrait pour pouvoir le RE-RENDRE seul après un changement, sans reconstruire la grille.
@@ -147,50 +167,29 @@
     // propres réglages ») : dans un panneau à onglets, l'en-tête appartient au PANNEAU — les
     // options du widget de l'onglet n'étaient joignables nulle part. Elles s'ouvrent ici, en tête
     // du panneau, clairement rattachées à l'onglet courant.
-    // ⚠️ DÉFINI AVANT TOUT USAGE : c'est une EXPRESSION de fonction (var), donc `undefined` tant
-    // que la ligne n'est pas exécutée. Placée après le bloc « onglet affiché » qui l'appelle, elle
-    // levait « _blocSections is not a function » → _setPanelHtml plantait → renderGrid entier
-    // échouait → ÉCRAN NOIR (constaté en production le 04/08). Ne jamais la redescendre.
-    // SECTIONS DU FIL : liste de rubriques en cases à cocher persistées. Rendue pour la CARTE
-    // fil-news ET pour un fil-news affiché EN ONGLET (le setter change de cible).
-    var _blocSections = function (item, w2, tab) {
-      if (!w2 || w2.id !== 'fil-news') return '';
-      var cats = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS))
-        ? INTERNAL_CATS.filter(function (c) { return c !== 'Bonds'; }) : [];
-      if (!cats.length) return '';
-      var offSet = {};
-      String(opt(item, w2, 'off') || '').split('|').forEach(function (c) { if (c) offSet[c] = 1; });
-      var fn = tab ? 'toggleNewsSectionTab' : 'toggleNewsSection';
-      return '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Sections affichées</div>'
-        + '<div class="wdg-set-secs">' + cats.map(function (c) {
-            var lib = (typeof catFr === 'function') ? catFr(c) : c;
-            return '<button class="wdg-set-sec' + (offSet[c] ? '' : ' on') + '"'
-              + ' onclick="DTPWidgets.' + fn + '(' + idx + ',\'' + esc(c).replace(/'/g, '&#39;') + '\')">'
-              + '<span>' + esc(lib) + '</span><i>✓</i></button>';
-          }).join('') + '</div>';
-    };
-    var sectionsBloc = _blocSections(it, w, false);
-    // RÉGLAGES DU SOUS-WIDGET AFFICHÉ : dans un panneau à onglets, l'en-tête appartient au PANNEAU
-    // — les options du widget de l'onglet n'étaient joignables nulle part. Elles s'ouvrent ici,
-    // clairement rattachées à l'onglet courant (et suivent le changement d'onglet, cf. _syncPanel).
-    var sousReglages = '';
-    if (w.id === 'onglets') {
-      var _tj = Math.min(it._tabAct | 0, Math.max(0, (it.tabs || []).length - 1));
-      var _tw = byId((it.tabs || [])[_tj]);
-      if (_tw && _tw.opts && _tw.opts.length) {
-        var _ti = _tabItem(it, _tj);
-        sousReglages = '<div class="wdg-set-sep"></div>'
-          + '<div class="wdg-set-tabs-t">Onglet affiché · ' + esc(_tw.name) + '</div>'
-          + _optsHtml(idx, _tw, _ti, 'setTabOpt')
-          + _blocSections(_ti, _tw, true);      // le fil en onglet a AUSSI ses sections
-      }
-    }
+    var sectionsBloc = _blocSectionsFor(it, w, false, idx);
+    // (Les réglages du widget DANS un onglet ne sont plus ici : le panneau à onglets a SES
+    //  réglages — gestion des onglets — et le sous-widget a LES SIENS, ouverts par son propre
+    //  engrenage posé à droite de sa barre de titre. Demande user 04/08.)
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + _optsHtml(idx, w, it)
       + sectionsBloc
-      + sousReglages
       + onglets
       + actions;
+  }
+  // Panneau de réglages du SOUS-WIDGET affiché dans un panneau à onglets : ses options + ses
+  // sections (fil), écrites dans it.tabCfg[index] — indépendant des réglages du panneau.
+  function _subPanelHtml(idx) {
+    var l = activeLayout(); if (!l || !l.items[idx]) return '';
+    var it = l.items[idx];
+    if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return '';
+    var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
+    var tw = byId(it.tabs[j]); if (!tw) return '';
+    var ti = _tabItem(it, j);
+    return '<div class="wdg-pop-t">' + esc(tw.name) + '</div>'
+      + '<div class="wdg-pop-d">' + esc(tw.desc || '') + '</div>'
+      + _optsHtml(idx, tw, ti, 'setTabOpt')
+      + _blocSectionsFor(ti, tw, true, idx);
   }
   // Rafraîchit le panneau d'une carte SANS toucher au reste (garde son état ouvert/fermé).
   function _syncPanel(i) {
@@ -1876,6 +1875,27 @@
           // exactement comme une carte, sans savoir qu'il vit dans un onglet.
           try { var un = w.mount(hote, _tabItem(it, actIdx)); if (typeof un === 'function') subClean = un; }
           catch (e) { fallback(hote, 'Widget indisponible.'); }
+          // ENGRENAGE PROPRE AU SOUS-WIDGET (04/08, demande user : « le réglage du widget doit être
+          // À DROITE et non dans le widget qui contient les onglets ») : le panneau à onglets garde
+          // SES réglages (gestion des onglets) ; le widget de l'onglet a LES SIENS, posés à droite
+          // de SA barre de titre. On cherche la barre dans l'ordre : bandeau de nom → en-tête de
+          // vue adoptée → barre de périodes ; sinon on flotte au coin haut-droit du contenu.
+          try {
+            var _pi2 = _hostIdx(host);
+            if (_pi2 != null && w.opts && w.opts.length) {
+              var g = document.createElement('button');
+              g.className = 'wdg-ico wdg-subgear';
+              g.title = 'Réglages · ' + w.name;
+              g.innerHTML = ICO.gear;
+              g.addEventListener('click', function (ev) { ev.stopPropagation(); API.toggleSubSettings(_pi2); });
+              var cible = body.querySelector('.wdgt-subname')
+                || hote.querySelector('.panel-header .panel-header-controls')
+                || hote.querySelector('.wdg-fx-tfbar')
+                || hote.querySelector('.panel-toolbar');
+              if (cible) { cible.classList.add('wdgt-hasgear'); cible.appendChild(g); }
+              else { g.classList.add('wdg-subgear--flot'); hote.appendChild(g); }
+            }
+          } catch (e) {}
         }
         function renderTabs() {
           // Libellé = TAG court du desk quand il existe (› MONDE › RISQUE › FORCE…, demande user 26/07
@@ -2378,6 +2398,8 @@
         + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'
         +   _setPanelHtml(idx, w, it)
         + '</div>'
+        // Panneau DISTINCT pour le widget affiché dans un onglet (son engrenage vit dans SA barre).
+        + (w.id === 'onglets' ? '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-ss' + idx + '" hidden></div>' : '')
         + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
         + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
         + '<div class="wdg-resize-e" title="Glisser pour élargir"></div></section>';
@@ -3117,6 +3139,10 @@ function _spansAffiches(lay) {
       if (!Object.keys(cfg).length) delete it.tabCfg[j];
       if (it.tabCfg && !Object.keys(it.tabCfg).length) delete it.tabCfg;
       save(); _syncPanel(i); API.refresh(i);
+      // Le panneau du sous-widget reste OUVERT et se met à jour (on enchaîne plusieurs réglages
+      // sans le rouvrir) — API.refresh ne touche que le corps de la carte, pas les panneaux.
+      var sp = document.getElementById(HOST_ID + '-ss' + i);
+      if (sp && !sp.hidden) sp.innerHTML = _subPanelHtml(i);
     },
     bumpTabOpt: function (i, k, d) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
@@ -3169,6 +3195,16 @@ function _spansAffiches(lay) {
     },
     toggleInfo: function (i) { _togglePop(i, 'i'); },
     toggleSettings: function (i) { _togglePop(i, 's'); },
+    // Réglages du widget DANS l'onglet : panneau propre, rempli à l'ouverture (l'onglet actif peut
+    // avoir changé depuis le dernier rendu de la carte).
+    toggleSubSettings: function (i) {
+      var pop = document.getElementById(HOST_ID + '-ss' + i); if (!pop) return;
+      var ouvert = !pop.hidden;
+      _closePops();
+      if (ouvert) return;                                   // re-clic = fermeture
+      pop.innerHTML = _subPanelHtml(i);
+      pop.hidden = false;
+    },
     add: function (wid) {
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
       if (_pickSwap != null && l.items[_pickSwap]) {
