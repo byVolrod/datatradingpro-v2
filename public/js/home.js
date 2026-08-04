@@ -29,6 +29,7 @@
   function close() {
     try { sessionStorage.setItem(_flagCle, '1'); } catch (e) {}
     _menage.splice(0).forEach(function (f) { try { f(); } catch (e) {} });
+    document.body.classList.remove('home-mode');   // la nav du desk revient (cf. build)
     var el = document.getElementById('dtp-home'); if (el) el.remove();
   }
   // Ouvre un desk précis depuis une carte (Mon Desk + layout choisi), ou une vue du desk classique.
@@ -147,6 +148,10 @@
 
   function build(user, cfg) {
     var prenom = esc((user.name || '').split(' ')[0] || 'trader');
+    // NAV DU DESK MASQUÉE tant que l'accueil est ouvert (constat user mobile 04/08 : la barre
+    // › ACTUS › CALENDRIER restait visible ET manipulable au-dessus du ticker). Même patron que
+    // Mon Desk (body.wdg-mode) : déterministe, aucun pari sur l'empilement iOS. Restaurée à close().
+    document.body.classList.add('home-mode');
     var el = document.createElement('div');
     el.id = 'dtp-home'; el.className = 'home-overlay';
     el.innerHTML = ''
