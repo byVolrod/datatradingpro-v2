@@ -14992,3 +14992,30 @@ body.theme-light .cot-cell--na .cot-badge { background: var(--bg3); color: var(-
    seul type produit par le desk lui-même, il mérite la couleur maison. */
 .np-origin--inst { color: #38bdf8; }
 .np-origin--dtp  { color: var(--orange, #e3b23a); }
+
+/* ══ TAUX — TRAJECTOIRE IMPLICITE (04/08) : occupe le bas de la carte, vide sur une banque seule.
+   Elle PARTAGE la place avec le tableau (tous deux en flex-grow) au lieu de la lui prendre : la
+   règle « la carte étirée montre plus de réunions » est conservée, le reste devient la courbe. */
+.rtc-path { flex: 1 1 140px; min-height: 104px; display: flex; flex-direction: column; padding: 7px 10px 6px; border-top: 1px solid var(--border); min-width: 0; }
+.rtc-path-h {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 0 0 auto;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9.5px; font-weight: var(--fw-semibold);
+  letter-spacing: .07em; text-transform: uppercase; color: var(--text3, #8a8a90); margin-bottom: 5px;
+}
+.rtc-path-box { position: relative; flex: 1 1 auto; min-height: 0; }
+.rtc-path-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* Le taux ACTUEL en repère : sans lui, la courbe monte « quelque part » sans dire par rapport à quoi. */
+.rtc-path-base { stroke: rgba(255, 255, 255, .16); stroke-width: 1; stroke-dasharray: 3 3; }
+.rtc-path-line { stroke: var(--orange, #e3b23a); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.rtc-path-hi, .rtc-path-lo, .rtc-path-now {
+  position: absolute; right: 0; font-family: var(--mono, ui-monospace, monospace);
+  font-size: 9px; color: var(--text3, #8a8a90); background: var(--bg); padding: 0 3px; pointer-events: none;
+}
+.rtc-path-hi { top: -1px; } .rtc-path-lo { bottom: -1px; }
+/* Pas de `top` ici : il est posé en ligne par _rtcPath pour que l'étiquette suive EXACTEMENT la
+   ligne du taux actuel. À mi-hauteur fixe, elle désignait un repère qui n'était pas là. */
+.rtc-path-now { left: 0; right: auto; transform: translateY(-50%); font-size: 8.5px; opacity: .8; }
+.rtc-path-x { display: flex; justify-content: space-between; flex: 0 0 auto; margin-top: 3px; font-family: var(--mono, ui-monospace, monospace); font-size: 9px; color: var(--text3, #8a8a90); }
+/* Carte courte (plusieurs banques côte à côte sur le desk) : la courbe s'efface plutôt que d'écraser
+   le tableau des réunions, qui reste l'information principale. */
+@media (max-height: 620px) { .rtc-path { min-height: 84px; } }

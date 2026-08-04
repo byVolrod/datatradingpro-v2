@@ -2633,6 +2633,51 @@ document.addEventListener('DOMContentLoaded', () => {
       + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>'
       // Tableau dans une zone SCROLLABLE (~3 lignes visibles, en-tête collant) → lisible ET complet
       + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Date de réunion</th><th>Jour</th><th>Baisse (%)</th><th>Maintien (%)</th><th>Hausse (%)</th><th>Δ implicite (BPS)</th><th>Scénario central</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      + _rtcPath(b, fr, num)
+      + '</div>';
+  }
+
+  // TRAJECTOIRE IMPLICITE DES TAUX (04/08) — occupe le bas de la carte, qui restait vide sur une
+  // banque seule. Ce n'est pas du remplissage : le tableau donne dix nombres, la courbe donne leur
+  // FORME (jusqu'où le marché voit le taux monter, quand il plafonne, quand il redescend).
+  // `impliedBps` est l'écart PAR RÉUNION (serveur : impl - prev), donc la trajectoire est le cumul
+  // depuis le taux actuel. Quand le serveur fournit `impliedRate` (chemin live), on le prend tel quel
+  // plutôt que de le reconstituer. SVG inline : aucune librairie, aucun root à nettoyer.
+  function _rtcPath(b, fr, num) {
+    var ms = (b.meetings || []).filter(function (m) { return m && m.date; });
+    if (ms.length < 2 || !isFinite(b.rate)) return '';
+    var cum = 0;
+    var pts = ms.map(function (m) {
+      cum += (+m.impliedBps || 0) / 100;
+      return isFinite(m.impliedRate) && m.impliedRate != null ? +m.impliedRate : (b.rate + cum);
+    });
+    var vals = [b.rate].concat(pts);
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var span = (hi - lo) || 0.1;
+    lo -= span * 0.18; hi += span * 0.18; span = hi - lo;
+    var X = function (i) { return (i / (pts.length - 1)) * 100; };
+    var Y = function (v) { return 100 - ((v - lo) / span) * 100; };
+    var d = pts.map(function (v, i) { return (i ? 'L' : 'M') + X(i).toFixed(2) + ',' + Y(v).toFixed(2); }).join(' ');
+    var y0 = Y(b.rate).toFixed(2);
+    var dernier = pts[pts.length - 1];
+    var ecart = (dernier - b.rate) * 100;
+    var cls = ecart > 1 ? 'g' : (ecart < -1 ? 'r' : 'n');
+    return '<div class="rtc-path">'
+      + '<div class="rtc-path-h">Trajectoire implicite'
+      +   '<span class="rtc-pill ' + cls + '">' + (ecart >= 0 ? '+' : '') + ecart.toFixed(1).replace('.', ',') + ' bps sur ' + ms.length + ' réunions</span></div>'
+      + '<div class="rtc-path-box">'
+      // preserveAspectRatio="none" étire le tracé à la boîte ; vector-effect garde un trait constant.
+      +   '<svg class="rtc-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'
+      +     '<line class="rtc-path-base" x1="0" y1="' + y0 + '" x2="100" y2="' + y0 + '" vector-effect="non-scaling-stroke"/>'
+      +     '<path class="rtc-path-line" d="' + d + '" fill="none" vector-effect="non-scaling-stroke"/>'
+      +   '</svg>'
+      +   '<span class="rtc-path-hi">' + num(hi, 2) + '%</span>'
+      // Étiquette POSÉE SUR la ligne pointillée (même y0) : à mi-hauteur fixe, elle désignait un
+      // repère qui n'était pas là et devenait un contresens.
+      +   '<span class="rtc-path-now" style="top:' + y0 + '%">actuel ' + num(b.rate, 2) + '%</span>'
+      +   '<span class="rtc-path-lo">' + num(lo, 2) + '%</span>'
+      + '</div>'
+      + '<div class="rtc-path-x"><span>' + fr(ms[0].date) + '</span><span>' + fr(ms[ms.length - 1].date) + '</span></div>'
       + '</div>';
   }
 
