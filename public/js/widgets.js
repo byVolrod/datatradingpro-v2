@@ -171,11 +171,22 @@
     // (Les réglages du widget DANS un onglet ne sont plus ici : le panneau à onglets a SES
     //  réglages — gestion des onglets — et le sous-widget a LES SIENS, ouverts par son propre
     //  engrenage posé à droite de sa barre de titre. Demande user 04/08.)
-    return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
+    // EN-TÊTE FIXE + CROIX (04/08, « je ne peux pas fermer ») : avec une longue liste de sections,
+    // le tiroir remplit l'écran et il n'y avait plus de « à côté » où cliquer. La croix reste
+    // visible en haut pendant le défilement ; rien à « enregistrer » (chaque clic est persisté),
+    // ce que le pied de panneau dit explicitement.
+    return _popHead(esc(w.name))
+      + '<div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + _optsHtml(idx, w, it)
       + sectionsBloc
       + onglets
-      + actions;
+      + actions
+      + '<div class="wdg-pop-foot">Modifications enregistrées automatiquement</div>';
+  }
+  // En-tête commun des panneaux de réglages : titre + croix de fermeture, collé en haut au scroll.
+  function _popHead(titre) {
+    return '<div class="wdg-pop-head"><span class="wdg-pop-t">' + titre + '</span>'
+      + '<button class="wdg-pop-x" title="Fermer les réglages" onclick="DTPWidgets.closePops()">×</button></div>';
   }
   // Panneau de réglages du SOUS-WIDGET affiché dans un panneau à onglets : ses options + ses
   // sections (fil), écrites dans it.tabCfg[index] — indépendant des réglages du panneau.
@@ -186,10 +197,11 @@
     var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
     var tw = byId(it.tabs[j]); if (!tw) return '';
     var ti = _tabItem(it, j);
-    return '<div class="wdg-pop-t">' + esc(tw.name) + '</div>'
+    return _popHead(esc(tw.name))
       + '<div class="wdg-pop-d">' + esc(tw.desc || '') + '</div>'
       + _optsHtml(idx, tw, ti, 'setTabOpt')
-      + _blocSectionsFor(ti, tw, true, idx);
+      + _blocSectionsFor(ti, tw, true, idx)
+      + '<div class="wdg-pop-foot">Modifications enregistrées automatiquement</div>';
   }
   // Rafraîchit le panneau d'une carte SANS toucher au reste (garde son état ouvert/fermé).
   function _syncPanel(i) {
@@ -3195,6 +3207,7 @@ function _spansAffiches(lay) {
     },
     toggleInfo: function (i) { _togglePop(i, 'i'); },
     toggleSettings: function (i) { _togglePop(i, 's'); },
+    closePops: function () { _closePops(); },              // croix des panneaux de réglages
     // Réglages du widget DANS l'onglet : panneau propre, rempli à l'ouverture (l'onglet actif peut
     // avoir changé depuis le dernier rendu de la carte).
     toggleSubSettings: function (i) {

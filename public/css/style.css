@@ -14489,3 +14489,25 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdg-subgear:hover { opacity: 1; color: var(--orange, #e3b23a); background: rgba(227,178,58,.14); }
 .wdg-subgear--flot { position: absolute; top: 6px; right: 8px; z-index: 6; background: var(--bg); border-radius: 4px; }
 .wdgt-mount { position: relative; }
+
+/* ── TIROIR DE RÉGLAGES : en-tête COLLÉ avec croix (04/08 « je ne peux pas fermer » — une
+   longue liste de sections remplissait l'écran, il n'y avait plus de « à côté » où cliquer).
+   Rien à enregistrer : chaque clic est persisté, le pied du panneau le dit. */
+.wdg-pop-head {
+  position: sticky; top: -12px; z-index: 3; margin: -12px -14px 6px; padding: 10px 14px 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--pop-bg, #16171b); border-bottom: 1px solid var(--hud-line, var(--border));
+}
+.wdg-pop-head .wdg-pop-t { margin: 0; }
+.wdg-pop-x {
+  flex: 0 0 auto; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: 4px; cursor: pointer;
+  color: var(--text3); font-size: 17px; line-height: 1; transition: color .12s, background .12s;
+}
+.wdg-pop-x:hover { color: #ff5233; background: rgba(255,61,0,.1); }
+.wdg-pop-foot {
+  margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--hud-line, var(--border));
+  font-size: 9.5px; letter-spacing: .04em; color: var(--text3); text-align: center;
+}
+/* La liste des sections ne doit pas pousser la croix hors de vue : le tiroir defile, l'en-tete reste. */
+.wdg-settings { padding-top: 12px; }
