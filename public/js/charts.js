@@ -1917,16 +1917,23 @@ function buildDMXChart(forceRefresh = false, opts) {
 const _SEASON_PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','NZDUSD','USDCAD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPCAD','GBPNZD','AUDJPY','NZDJPY','CADJPY','CHFJPY','AUDNZD','AUDCAD','AUDCHF','NZDCAD','NZDCHF','CADCHF'];
 let _seasonPair = null;   // paire courante (chargée 1×/session depuis le compte)
 function _seasonFmtPair(c){ return (c && c.length === 6) ? c.slice(0,3) + '/' + c.slice(3) : c; }
-// Heatmap : vert (positif) / rouge (négatif), intensité ∝ |valeur| (plafonnée ~4 %) : façon pro.
+// Heatmap, intensité ∝ |valeur| (plafonnée ~4 %).
+// 04/08 — deux corrections de charte :
+//  (1) les teintes étaient rgba(0,200,120) et rgba(255,60,70), soit un vert et un rouge génériques.
+//      La charte DTP impose vert #00e676 (0,230,118) et rouge #ff3d00 (255,61,0).
+//  (2) le plafond d'opacité à 0,92 produisait des aplats saturés façon tableur : les cellules
+//      hurlaient et les CHIFFRES — la vraie information — passaient au second plan. Plafond à 0,58 :
+//      la teinte situe, le nombre informe.
 function _seasonCellBg(v){
   if (v == null) return 'transparent';
-  const a = Math.max(0.12, Math.min(0.92, Math.abs(v) / 4));
-  return v >= 0 ? `rgba(0,200,120,${a.toFixed(3)})` : `rgba(255,60,70,${a.toFixed(3)})`;
+  const a = Math.max(0.09, Math.min(0.58, Math.abs(v) / 4 * 0.58));
+  return v >= 0 ? `rgba(0,230,118,${a.toFixed(3)})` : `rgba(255,61,0,${a.toFixed(3)})`;
 }
 function _seasonCell(v, isAvg){
   const ac = isAvg ? ' season-td--avg' : '';
   if (v == null) return `<td class="season-td${ac} season-td--na"></td>`;
-  return `<td class="season-td${ac}" style="background:${_seasonCellBg(v)}"><span class="season-arrow">${v >= 0 ? '↗' : '↘'}</span>${v >= 0 ? '+' : ''}${v.toFixed(2)}%</td>`;
+  const sens = v >= 0 ? ' season-td--up' : ' season-td--dn';
+  return `<td class="season-td${ac}${sens}" style="background:${_seasonCellBg(v)}"><span class="season-arrow">${v >= 0 ? '↗' : '↘'}</span>${v >= 0 ? '+' : ''}${v.toFixed(2)}%</td>`;
 }
 function _seasonPick(code){
   if (!code || code === _seasonPair) return;
