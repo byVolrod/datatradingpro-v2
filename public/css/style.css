@@ -14360,3 +14360,9 @@ body.home-mode .view-panel { visibility: hidden; }
 @media (hover: none) {
   #view-widgets .wdg-ico, #view-widgets .wdg-grip { opacity: .85; }
 }
+
+/* HÔTE DÉDIÉ du widget d'onglet : il peut réécrire son innerHTML sans emporter le bandeau
+   de titre, qui vit désormais À CÔTÉ (cause du « titre du calendrier qui disparaît »). */
+.wdgt-mount { flex: 1 1 auto; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.wdgt-mount > * { flex: 1 1 auto; min-height: 0; }
+.wdgt-body > .wdgt-subname { flex: 0 0 auto; }

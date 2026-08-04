@@ -1718,25 +1718,28 @@
             }
             return;
           }
-          try { var un = w.mount(body); if (typeof un === 'function') subClean = un; }
-          catch (e) { fallback(body, 'Widget indisponible.'); }
-          // NOM DU WIDGET SÉLECTIONNÉ (demande user 04/08 « on ne voit pas le nom ») : dans une
-          // carte à onglets, l'en-tête est un calque et son titre est masqué — le widget n'était
-          // donc nommé nulle part (l'onglet ne porte que son TAG court : FORCE, MONDE…).
-          // Le widget qui a DÉJÀ sa propre barre y pose son nom lui-même (cf. .wdg-fx-lbl) ; pour
-          // les autres, on ajoute un bandeau fin. Détection au DOM → aucun doublon possible.
-          try {
-            // ⚠️ On n'exclut QUE la présence d'un vrai TITRE, jamais d'une simple barre d'outils :
-            //  · les VUES ADOPTÉES (Banques, Taux…) ont leur .panel-title (« TRANSACTIONS
-            //    BANCAIRES ») → pas de bandeau, sinon doublon (constaté user 04/08) ;
-            //  · Actus et Calendrier n'ont qu'une TOOLBAR (sections, recherche, filtres) — aucun
-            //    nom dedans → exclure .panel-toolbar les privait de titre (constaté user 04/08).
-            if (!body.querySelector('.wdg-fx-lbl, .panel-title, .chart-header-title, .cot-header-label, .dmx-header-title, .cal-title, .fxl-title, .inst-title, .sbm-title, .wa-title, .br-list-title, .arlib-list-title, .wdgt-subname')) {
-              var sn = document.createElement('div');
-              sn.className = 'wdgt-subname'; sn.textContent = w.name;
-              body.insertBefore(sn, body.firstChild);
-            }
-          } catch (e) {}
+          // NOM DU WIDGET SÉLECTIONNÉ (demande user 04/08) : dans une carte à onglets, l'en-tête
+          // est un calque et son titre est masqué — le widget n'était nommé nulle part (l'onglet ne
+          // porte que son TAG court : FORCE, MONDE…).
+          // ⚠️ DEUX PIÈGES, corrigés ici :
+          //  (1) DÉCISION PAR IDENTITÉ, pas par état du DOM : sonder le DOM juste après mount()
+          //      rate les widgets qui peuplent leur corps en ASYNCHRONE. Les vues ADOPTÉES (vue-*)
+          //      portent déjà leur en-tête de panneau, et Force pose son nom dans sa barre — eux
+          //      seuls se passent du bandeau ; tous les autres l'ont, toujours.
+          //  (2) BANDEAU HORS DU CONTENEUR DU WIDGET : plusieurs widgets réécrivent `innerHTML`
+          //      après chargement (constaté user : le titre du CALENDRIER disparaissait au clic
+          //      sur son onglet). Le widget reçoit donc un hôte DÉDIÉ, le bandeau vit à côté.
+          var aSonTitre = (String(w.id).indexOf('vue-') === 0) || w.id === 'force-devises';
+          if (!aSonTitre) {
+            var sn = document.createElement('div');
+            sn.className = 'wdgt-subname'; sn.textContent = w.name;
+            body.appendChild(sn);
+          }
+          var hote = document.createElement('div');
+          hote.className = 'wdgt-mount';
+          body.appendChild(hote);
+          try { var un = w.mount(hote); if (typeof un === 'function') subClean = un; }
+          catch (e) { fallback(hote, 'Widget indisponible.'); }
         }
         function renderTabs() {
           // Libellé = TAG court du desk quand il existe (› MONDE › RISQUE › FORCE…, demande user 26/07
