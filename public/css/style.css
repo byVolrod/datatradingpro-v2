@@ -14299,3 +14299,16 @@ body.home-mode .view-panel { visibility: hidden; }
   width: 100%; min-width: 0; flex: 0 0 46%; min-height: 170px;
   border-left: 0; border-top: 1px solid var(--border);
 }
+
+/* ── TITRES DE WIDGET : TOUS alignés sur la RÉFÉRENCE du desk (04/08, demande user « il faut
+   que tous se ressemblent comme celui de base ») — mêmes tokens que .panel-header / .panel-title :
+   hauteur --navbar-h, fond --head-bg, filet bas, Inter Tight capitales --fs-title / --ls-caps. */
+.wdgt-subname {
+  display: flex; align-items: center; height: var(--navbar-h); padding: 0 10px;
+  background: var(--head-bg); border-bottom: 1px solid var(--border);
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: var(--fs-title, 11.5px);
+  font-weight: var(--fw-semibold, 600); letter-spacing: var(--ls-caps, .085em);
+  text-transform: uppercase; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Le nom porté par la barre de périodes (Force des Devises) suit la MÊME grammaire. */
+.wdg-fx-lbl { font-size: var(--fs-title, 11.5px); font-weight: var(--fw-semibold, 600); letter-spacing: var(--ls-caps, .085em); color: var(--text); }
