@@ -14401,3 +14401,15 @@ body.home-mode .view-panel { visibility: hidden; }
    la colonne Semaine occupe toute la carte. Réactivables au réglage « Panneaux ». */
 .wa3--solo { grid-template-columns: minmax(0, 1fr) !important; }   /* ⚠️ .wa3 est une GRILLE 3 colonnes : masquer les enfants ne suffit pas, la piste resterait réservée */
 .wa3--solo > .wa3-right, .wa3--solo > .wa3-vsplit { display: none !important; }
+
+/* ── LES DEUX COMMANDES DOIVENT SE VOIR (04/08, capture user : « il faut le bouton croix et
+   réglages ») — deux règles les cachaient : les cartes À ONGLETS mettaient .wdg-actions à
+   opacité 0 jusqu'au survol, et la passe épurée descendait les icônes à .34. On garde l'esprit
+   (discrètes au repos, franches au survol) MAIS lisibles dès le premier coup d'œil. */
+#view-widgets .wdg-card--tabs > .wdg-head .wdg-actions { opacity: 1; }
+#view-widgets .wdg-ico, #view-widgets .wdg-grip { opacity: .62; }
+#view-widgets .wdg-card:hover .wdg-ico, #view-widgets .wdg-card:focus-within .wdg-ico { opacity: 1; }
+@media (hover: none) { #view-widgets .wdg-ico { opacity: .9; } }
+/* Fond léger sous les icônes d'une carte à onglets : elles se posent sur la barre d'onglets,
+   sans ça le contraste dépend de l'onglet qui passe dessous. */
+#view-widgets .wdg-card--tabs > .wdg-head .wdg-actions { background: var(--bg); border-radius: 4px; padding: 0 2px; }
