@@ -796,7 +796,10 @@ function _wdgClean(body) {
               const v = it.cfg[k];
               if (typeof v === 'boolean') cfg[k] = v;
               else if (typeof v === 'number' && isFinite(v)) cfg[k] = Math.max(-99999, Math.min(99999, Math.round(v)));
-              else if (typeof v === 'string') cfg[k] = v.replace(/[<>]/g, '').slice(0, 32);
+              // 32 caractères suffisent à un choix (« today », « high »…) — SAUF aux réglages qui
+              // portent une LISTE (ex. `off` = sections décochées du fil, jointes par « | ») :
+              // tronquer à 32 en aurait silencieusement perdu la moitié. 240 pour ceux-là.
+              else if (typeof v === 'string') cfg[k] = v.replace(/[<>]/g, '').slice(0, (k === 'off' ? 240 : 32));
             }
             if (Object.keys(cfg).length) o.cfg = cfg;
           }

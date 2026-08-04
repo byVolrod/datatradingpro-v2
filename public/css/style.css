@@ -14413,3 +14413,33 @@ body.home-mode .view-panel { visibility: hidden; }
 /* Fond léger sous les icônes d'une carte à onglets : elles se posent sur la barre d'onglets,
    sans ça le contraste dépend de l'onglet qui passe dessous. */
 #view-widgets .wdg-card--tabs > .wdg-head .wdg-actions { background: var(--bg); border-radius: 4px; padding: 0 2px; }
+
+/* ══ FIL D'ACTUALITÉ (widget) : recherche seule en haut, LÉGENDE + compteur en bas,
+   sections dans les RÉGLAGES (04/08, référence user). ══ */
+.wdg-news-panel .wdg-nw-tb { padding: 6px 8px; }
+.wdg-news-panel .wdg-nw-search { flex: 1 1 auto; min-width: 0; }
+.wdg-nw-legend {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
+  padding: 6px 10px; border-top: 1px solid var(--hud-line, var(--border));
+  font-size: 10px; color: var(--text3);
+}
+.wdg-nw-lg { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.wdg-lg { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.wdg-lg--brk { background: #ff3d00; }
+.wdg-lg--ana { background: #4a9eda; }
+.wdg-lg--hi { background: var(--orange, #e3b23a); }
+.wdg-nw-legend .wdg-nw-count { margin-left: auto; font-family: var(--font-mono); color: var(--text3); }
+/* Sections dans le panneau de réglages : rangées pleine largeur avec coche or (même grammaire
+   que les autres choix du tiroir). */
+.wdg-set-secs { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.wdg-set-sec {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 7px 10px; border-radius: 5px; cursor: pointer; text-align: left;
+  background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); color: var(--text3);
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 600;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.wdg-set-sec i { font-style: normal; opacity: 0; font-size: 11px; }
+.wdg-set-sec.on { color: var(--orange, #e3b23a); border-color: rgba(227,178,58,.5); background: rgba(227,178,58,.07); }
+.wdg-set-sec.on i { opacity: 1; }
+.wdg-set-sec:hover { color: var(--text); border-color: rgba(227,178,58,.4); }
