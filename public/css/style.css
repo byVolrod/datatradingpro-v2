@@ -14366,3 +14366,26 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdgt-mount { flex: 1 1 auto; min-height: 0; position: relative; display: flex; flex-direction: column; }
 .wdgt-mount > * { flex: 1 1 auto; min-height: 0; }
 .wdgt-body > .wdgt-subname { flex: 0 0 auto; }
+
+/* ── DÉPLACEMENT SANS POIGNÉE (04/08) : l'EN-TÊTE se saisit directement (curseur grab) ;
+   la barre d'onglets colle au bord, le retrait de 26px qui réservait la place de la poignée
+   n'a plus lieu d'être (« met le + actus vers le bord »). */
+#view-widgets .wdg-head { cursor: grab; }
+#view-widgets .wdg-head:active { cursor: grabbing; }
+#view-widgets .wdg-head .wdg-ico { cursor: pointer; }
+#view-widgets .wdg-card--locked .wdg-head { cursor: default; }
+/* Panneau à onglets : son en-tête est un CALQUE non cliquable posé sur la barre d'onglets — on ne
+   peut donc pas y saisir la carte. C'est la BARRE elle-même qui devient la zone de saisie (dans son
+   espace vide, à droite des onglets) ; les onglets et le « + » gardent leurs gestes. */
+.wdg-card--tabs .wdgt-bar { padding-left: 4px; cursor: grab; }
+.wdg-card--tabs .wdgt-bar:active { cursor: grabbing; }
+.wdg-card--tabs .wdgt-tab, .wdg-card--tabs .wdgt-add { cursor: pointer; }
+
+/* ── BANQUES dans un widget : la table TIENT dans la largeur (04/08 « enlève le scroll
+   horizontal, on doit tout voir ») — colonnes proportionnelles, plus de débordement latéral. */
+.wdg-vuehost .bank-table-wrap { overflow-x: hidden; }
+.wdg-vuehost .bank-table { table-layout: fixed; width: 100%; }
+.wdg-vuehost .bank-table th, .wdg-vuehost .bank-table td {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding-left: 6px !important; padding-right: 6px !important;
+}

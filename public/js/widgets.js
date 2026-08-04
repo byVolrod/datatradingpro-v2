@@ -142,8 +142,23 @@
     // Pas-à-pas Largeur/Hauteur RETIRÉS (demande user 03/08 « enlève ceci de tous les widgets ») :
     // depuis le modèle « déplacer une frontière », la taille se règle au bord droit et au coin —
     // deux chiffres dans un panneau faisaient doublon et invitaient à casser le pavage.
+    // RÉGLAGES DU SOUS-WIDGET AFFICHÉ (04/08, demande user « chaque widget doit pouvoir avoir ses
+    // propres réglages ») : dans un panneau à onglets, l'en-tête appartient au PANNEAU — les
+    // options du widget de l'onglet n'étaient joignables nulle part. Elles s'ouvrent ici, en tête
+    // du panneau, clairement rattachées à l'onglet courant.
+    var sousReglages = '';
+    if (w.id === 'onglets') {
+      var _tj = Math.min(it._tabAct | 0, Math.max(0, (it.tabs || []).length - 1));
+      var _tw = byId((it.tabs || [])[_tj]);
+      if (_tw && _tw.opts && _tw.opts.length) {
+        sousReglages = '<div class="wdg-set-sep"></div>'
+          + '<div class="wdg-set-tabs-t">Onglet affiché · ' + esc(_tw.name) + '</div>'
+          + _optsHtml(idx, _tw, _tabItem(it, _tj), 'setTabOpt');
+      }
+    }
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + _optsHtml(idx, w, it)
+      + sousReglages
       + onglets
       + actions;
   }
@@ -153,25 +168,36 @@
     var pop = document.getElementById(HOST_ID + '-s' + i), w = byId(l.items[i].w);
     if (pop && w) pop.innerHTML = _setPanelHtml(i, w, l.items[i]);
   }
-  function _optsHtml(idx, w, it) {
+  // `setter` (04/08) : « setOpt » par défaut (réglages de la CARTE) — « setTabOpt » pour les
+  // réglages du SOUS-WIDGET affiché dans un panneau à onglets, qui a désormais les siens.
+  function _optsHtml(idx, w, it, setter) {
     var l = (w && w.opts) || []; if (!l.length) return '';
+    var S = setter || 'setOpt', B = (S === 'setTabOpt') ? 'bumpTabOpt' : 'bumpOpt';
     return '<div class="wdg-set-sep"></div>' + l.map(function (o) {
       var cur = opt(it, w, o.k), ctl;
       if (o.type === 'bascule') {
         ctl = '<button class="wdg-set-sw' + (cur ? ' on' : '') + '" role="switch" aria-checked="' + (!!cur) + '"'
-          + ' onclick="DTPWidgets.setOpt(' + idx + ',\'' + o.k + '\',' + (!cur) + ')"><i></i></button>';
+          + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',' + (!cur) + ')"><i></i></button>';
       } else if (o.type === 'nombre') {
-        ctl = '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.bumpOpt(' + idx + ',\'' + o.k + '\',-1)" aria-label="moins">−</button>'
+        ctl = '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',-1)" aria-label="moins">−</button>'
           + '<span class="wdg-step-val">' + esc(String(cur)) + '</span>'
-          + '<button class="wdg-step" onclick="DTPWidgets.bumpOpt(' + idx + ',\'' + o.k + '\',1)" aria-label="plus">+</button></span>';
+          + '<button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',1)" aria-label="plus">+</button></span>';
       } else {
         ctl = '<span class="wdg-set-chips">' + o.choix.map(function (c) {
           return '<button class="wdg-set-chip' + (c[0] === cur ? ' on' : '') + '"'
-            + ' onclick="DTPWidgets.setOpt(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\')">' + esc(c[1]) + '</button>';
+            + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\')">' + esc(c[1]) + '</button>';
         }).join('') + '</span>';
       }
       return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + esc(o.lbl) + '</span>' + ctl + '</div>';
     }).join('');
+  }
+  // Config PROPRE à un onglet (index) d'un panneau à onglets — stockée dans it.tabCfg (whitelistée
+  // serveur). Renvoie un pseudo-item {w, cfg} : le sous-widget lit ses réglages par opt() comme
+  // n'importe quelle carte, sans savoir qu'il vit dans un onglet.
+  function _tabItem(it, j) {
+    var id = (Array.isArray(it.tabs) ? it.tabs[j] : null) || '';
+    var cfg = (it.tabCfg && it.tabCfg[j]) || undefined;
+    return { w: id, cfg: cfg };
   }
   /* ── MENU MAISON des <select> de widgets (.dmx-sort-select — tri DMX, paire Saisonnalité) : le
      popup NATIF se place mal sous le zoom d'affichage (coordonnées non compensées par Chromium) et
@@ -1698,6 +1724,7 @@
         var actIdx = Math.min((it._tabAct | 0), Math.max(0, tabs.length - 1));
         var subClean = null;
         var bar = document.createElement('div'); bar.className = 'wdgt-bar';
+        bar.setAttribute('draggable', 'true');   // saisie de la carte depuis l'espace vide de la barre (cf. _wireGrid)
         var body = document.createElement('div'); body.className = 'wdgt-body';
         host.innerHTML = ''; host.classList.add('wdgt-host');
         host.appendChild(bar); host.appendChild(body);
@@ -1738,7 +1765,9 @@
           var hote = document.createElement('div');
           hote.className = 'wdgt-mount';
           body.appendChild(hote);
-          try { var un = w.mount(hote); if (typeof un === 'function') subClean = un; }
+          // Le sous-widget reçoit SA config (it.tabCfg[index]) : il lit ses réglages par opt()
+          // exactement comme une carte, sans savoir qu'il vit dans un onglet.
+          try { var un = w.mount(hote, _tabItem(it, actIdx)); if (typeof un === 'function') subClean = un; }
           catch (e) { fallback(hote, 'Widget indisponible.'); }
         }
         function renderTabs() {
@@ -2015,9 +2044,17 @@
     var clearHints = function () { host.querySelectorAll('.wdg-drop-before,.wdg-drop-after').forEach(function (c) { c.classList.remove('wdg-drop-before', 'wdg-drop-after'); }); };
     // — Glisser-déposer (réordonner) —
     host.addEventListener('dragstart', function (e) {
-      var grip = e.target.closest && e.target.closest('.wdg-grip');
-      var card = grip && grip.closest('.wdg-card');
-      if (!card) { if (e.preventDefault) e.preventDefault(); return; }             // drag AUTORISÉ seulement depuis la poignée
+      // DÉPLACEMENT SANS POIGNÉE (04/08, demande user « ça doit se faire sans avoir besoin de
+      // l'icône ») : on saisit l'EN-TÊTE de la carte (sa zone neutre — pas les boutons, pas les
+      // onglets, qui gardent leurs propres gestes). La poignée ⠿ est supprimée : un pointeur
+      // « grab » sur l'en-tête suffit à l'annoncer.
+      // Zones de saisie : l'en-tête de la carte OU, pour un panneau à onglets (dont l'en-tête est
+      // un calque non cliquable), l'espace vide de sa barre d'onglets.
+      var tete = e.target.closest && e.target.closest('.wdg-head, .wdgt-bar');
+      var card = tete && !e.target.closest('.wdg-ico, .wdgt-tab, .wdgt-add, button, input')
+        ? tete.closest('.wdg-card') : null;
+      if (card && card.classList.contains('wdg-card--locked')) card = null;        // carte verrouillée → pas de déplacement
+      if (!card) { if (e.preventDefault) e.preventDefault(); return; }
       dragIdx = +card.getAttribute('data-idx');
       card.classList.add('wdg-dragging');
       try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(dragIdx)); e.dataTransfer.setDragImage(card, 24, 18); } catch (_) {}
@@ -2212,8 +2249,8 @@
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
       return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + (_lgs[idx] || it.gw) + ';--gh:' + it.gh + ';">'
-        + '<header class="wdg-head">'
-        +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
+        + '<header class="wdg-head" draggable="' + (locked ? 'false' : 'true') + '" title="Glisser pour déplacer ce widget">'
+        // (poignée ⠿ RETIRÉE 04/08 : l'en-tête entier est la zone de saisie — cf. _wireGrid)
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
         // BANDEAU À DEUX BOUTONS (04/08, demande user « le moins possible — 2 en moyenne ») :
         // Réglages + Fermer. Remplacer, Dupliquer, Plein écran, Verrouiller et « vider l'onglet »
@@ -2930,6 +2967,29 @@ function _spansAffiches(lay) {
     addTab: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       _pickTabFor(l.items[i]);
+    },
+    // RÉGLAGES PROPRES À L'ONGLET AFFICHÉ (04/08) — miroir de setOpt/bumpOpt, mais la valeur est
+    // écrite dans it.tabCfg[index] (whitelisté serveur) au lieu du cfg de la carte.
+    setTabOpt: function (i, k, v) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
+      var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
+      var w = byId(it.tabs[j]), d = optDef(w, k); if (!d) return;
+      if (!it.tabCfg) it.tabCfg = {};
+      var cfg = it.tabCfg[j] || (it.tabCfg[j] = {});
+      if (d.type === 'nombre') v = _clamp(parseInt(v, 10) || d.def, d.min, d.max);
+      if (v === d.def) delete cfg[k]; else cfg[k] = v;
+      if (!Object.keys(cfg).length) delete it.tabCfg[j];
+      if (it.tabCfg && !Object.keys(it.tabCfg).length) delete it.tabCfg;
+      save(); _syncPanel(i); API.refresh(i);
+    },
+    bumpTabOpt: function (i, k, d) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
+      var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
+      var w = byId(it.tabs[j]), def = optDef(w, k); if (!def || def.type !== 'nombre') return;
+      var cur = opt(_tabItem(it, j), w, k);
+      API.setTabOpt(i, k, _clamp((cur | 0) + (d | 0) * (def.pas || 1), def.min, def.max));
     },
     // « − » de l'en-tête du panneau à onglets (03/08, précision user « juste le widget, pas
     // l'onglet ») : VIDE l'onglet affiché — le widget s'en va, l'onglet reste (nom conservé) et
