@@ -8377,12 +8377,21 @@ function _npCfgSave() {
   }, 800);
 }
 // Retire toute attribution de source résiduelle de la description
-function _npStripSrc(s) {
-  return String(s || '')
+function _npStripSrc(s, src) {
+  let t = String(s || '')
     .replace(/<[^>]+>/g, ' ')                                  // tags HTML éventuels
     .replace(/\b(?:written|reported|posted)\s+by\s+[^.]*?(?:at\s+[\w.]+)?\.?/gi, '')
     .replace(/\s*(?:source|via)\s*:\s*[^|.\n]+/gi, '')
     .replace(/\s{2,}/g, ' ').trim();
+  // Nom du média COLLÉ EN FIN d'aperçu (capture user : « …taux de la Fed et de la BCE Bitcoin World »,
+  // « …le devant de la scène FOREX.com »). Le flux ne le sépare par rien, donc les règles ci-dessus ne
+  // pouvaient pas l'attraper : on retire l'occurrence finale du nom de source quand on le connaît.
+  if (src) {
+    const n = String(src).trim();
+    if (n && t.toLowerCase().endsWith(n.toLowerCase())) t = t.slice(0, -n.length).trim();
+    t = t.replace(/[\s—–\-|·,]+$/, '').trim();
+  }
+  return t;
 }
 
 // ── DOM refs (deferred : DOM might not be ready yet) ──────────
@@ -8430,13 +8439,22 @@ function npOpen() {
   const _l = _npEl('np-list'); if (_l) _l.style.display = '';
   // Pre-fill from allItems if panel is empty
   if (_npItems.length === 0 && allItems.length > 0) {
-    const recent = allItems
+    // ⚠️ allItems N'EST PAS trié : l'historique occupe la tête de liste et les items frais sont
+    // ajoutés à la FIN. Prendre les 40 PREMIERS renvoyait donc les PLUS VIEUX — d'où des « alertes »
+    // affichées « il y a 3763j » (capture user : des articles de 2016). Même cause que le gel du
+    // widget Fil d'actualité. On trie par horodatage décroissant, et on écarte ce qui dépasse
+    // 7 jours : une alerte périmée n'est pas une alerte, c'est de l'archive.
+    const LIMITE = Date.now() - 7 * 864e5;
+    const parDateDesc = (a, b) => (b.timestamp || 0) - (a.timestamp || 0);
+    const frais = allItems.filter(i => (i.timestamp || 0) >= LIMITE);
+    const recent = frais
       .filter(i => !(i._briefing || i.source === 'DTP' || isPrimerItem(i)))   // pas de primers/rapports
       .filter(i => i.priority === 'high' || i.urgent || i.category === 'Geopolitical')
+      .sort(parDateDesc)
       .slice(0, 40);
     recent.forEach(i => { if (!_npReadIds.has(i.id)) _npItems.push(i); });
-    // If still empty, just take last 20
-    if (_npItems.length === 0) allItems.slice(0, 20).forEach(i => _npItems.push(i));
+    // Repli : les 20 plus RÉCENTS (et non les 20 premiers du tableau, qui sont les plus anciens).
+    if (_npItems.length === 0) frais.slice().sort(parDateDesc).slice(0, 20).forEach(i => _npItems.push(i));
   }
   _npRenderList();
   _npEl('np-panel')?.classList.add('open');
@@ -8643,19 +8661,24 @@ function _npRenderList() {
     el.className = 'np-item' + (item._new ? ' np-item--unread' : '');
     if (_npFresh.includes(item.id)) el.classList.add('dtp-fade-in');   // nouvel item depuis le dernier rendu → fondu discret
 
+    // PASTILLE DE GRAVITÉ à la place du gros rond « i » : le cercle de 22 px portait la même lettre
+    // sur toutes les lignes — 32 px de largeur pris à la lecture pour zéro information. Un point
+    // coloré dit la seule chose utile (urgent / important / courant) et rend la place au texte.
     const iconClass = item.urgent ? 'np-icon--breaking' : item.priority === 'high' ? 'np-icon--high' : '';
-    const iconSymbol = item.urgent ? '!' : 'i';
     const ago = _npTimeAgo(item.timestamp);
-    const desc = _npStripSrc(item.description).slice(0, 140);
+    const desc = _npStripSrc(item.description, item.source).slice(0, 140);
     const org = _npKind(item);   // badge = même taxonomie que Filtre et onglets
+    // Le badge ne s'affiche QUE s'il apprend quelque chose : « NEWS » se répétait sur chaque ligne
+    // (capture user) alors que c'est le cas par défaut. CALENDRIER, ANALYSTE, RISQUE… restent.
+    const badge = org.cls === 'news' ? '' : `<span class="np-origin np-origin--${org.cls}">${org.label}</span>`;
 
     el.innerHTML = `
-      <div class="np-icon ${iconClass}">${iconSymbol}</div>
+      <div class="np-icon ${iconClass}"></div>
       <div class="np-item-body">
         <div class="np-item-headline">${item.headline || ''}</div>
         ${desc ? `<div class="np-item-desc">${desc}</div>` : ''}
         <div class="np-item-meta">
-          <span class="np-origin np-origin--${org.cls}">${org.label}</span>
+          ${badge}
           <span class="np-item-time">${ago}</span>
         </div>
       </div>`;
