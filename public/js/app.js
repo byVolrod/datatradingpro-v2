@@ -390,13 +390,42 @@ window.pdLangToggle = pdLangToggle; window.pdLangPick = pdLangPick;
 document.addEventListener('click', e => { const dd = document.getElementById('pd-lang-dd'); if (dd && !dd.contains(e.target)) document.getElementById('pd-lang-menu')?.classList.remove('open'); });
 
 // ═══ World clocks ══════════════════════════
-const CLOCKS = [
-  { city: 'London',   code: 'LON', country: 'UK',  tz: 'Europe/London',    lat: 51.5074, lon: -0.1278  },
-  { city: 'New York', code: 'NY',  country: 'US',  tz: 'America/New_York', lat: 40.7128, lon: -74.0060 },
-  { city: 'Tokyo',    code: 'TKY', country: 'JP',  tz: 'Asia/Tokyo',       lat: 35.6762, lon: 139.6503 },
-  { city: 'Dubai',    code: 'DXB', country: 'UAE', tz: 'Asia/Dubai',       lat: 25.2048, lon: 55.2708  },
-  { city: 'Paris',    code: 'PAR', country: 'FR',  tz: 'Europe/Paris',     lat: 48.8566, lon: 2.3522   },
+// CATALOGUE des places (04/08, demande user « ajoute plein d'autres pays ») : 26 centres financiers,
+// classés d'ouest en est. Le desk garde ses 5 par défaut (CLOCKS ci-dessous) ; le widget Horloge
+// laisse choisir librement dans ce catalogue. Chaque entrée porte son fuseau IANA et ses coordonnées
+// (la météo vient d'open-meteo, qui n'a besoin que de lat/lon).
+const CLOCK_CATALOG = [
+  { city: 'Los Angeles', code: 'LAX', country: 'US', tz: 'America/Los_Angeles', lat: 34.0522,  lon: -118.2437 },
+  { city: 'Mexico',      code: 'MEX', country: 'MX', tz: 'America/Mexico_City',  lat: 19.4326,  lon: -99.1332  },
+  { city: 'Chicago',     code: 'CHI', country: 'US', tz: 'America/Chicago',      lat: 41.8781,  lon: -87.6298  },
+  { city: 'Toronto',     code: 'TOR', country: 'CA', tz: 'America/Toronto',      lat: 43.6532,  lon: -79.3832  },
+  { city: 'New York',    code: 'NY',  country: 'US', tz: 'America/New_York',     lat: 40.7128,  lon: -74.0060  },
+  { city: 'São Paulo',   code: 'SAO', country: 'BR', tz: 'America/Sao_Paulo',    lat: -23.5505, lon: -46.6333  },
+  { city: 'Londres',     code: 'LON', country: 'UK', tz: 'Europe/London',        lat: 51.5074,  lon: -0.1278   },
+  { city: 'Lisbonne',    code: 'LIS', country: 'PT', tz: 'Europe/Lisbon',        lat: 38.7223,  lon: -9.1393   },
+  { city: 'Paris',       code: 'PAR', country: 'FR', tz: 'Europe/Paris',         lat: 48.8566,  lon: 2.3522    },
+  { city: 'Francfort',   code: 'FRA', country: 'DE', tz: 'Europe/Berlin',        lat: 50.1109,  lon: 8.6821    },
+  { city: 'Zurich',      code: 'ZRH', country: 'CH', tz: 'Europe/Zurich',        lat: 47.3769,  lon: 8.5417    },
+  { city: 'Milan',       code: 'MIL', country: 'IT', tz: 'Europe/Rome',          lat: 45.4642,  lon: 9.1900    },
+  { city: 'Amsterdam',   code: 'AMS', country: 'NL', tz: 'Europe/Amsterdam',     lat: 52.3676,  lon: 4.9041    },
+  { city: 'Stockholm',   code: 'STO', country: 'SE', tz: 'Europe/Stockholm',     lat: 59.3293,  lon: 18.0686   },
+  { city: 'Varsovie',    code: 'WAW', country: 'PL', tz: 'Europe/Warsaw',        lat: 52.2297,  lon: 21.0122   },
+  { city: 'Johannesbourg', code: 'JNB', country: 'ZA', tz: 'Africa/Johannesburg', lat: -26.2041, lon: 28.0473  },
+  { city: 'Istanbul',    code: 'IST', country: 'TR', tz: 'Europe/Istanbul',      lat: 41.0082,  lon: 28.9784   },
+  { city: 'Moscou',      code: 'MOW', country: 'RU', tz: 'Europe/Moscow',        lat: 55.7558,  lon: 37.6173   },
+  { city: 'Dubaï',       code: 'DXB', country: 'UAE', tz: 'Asia/Dubai',           lat: 25.2048,  lon: 55.2708   },
+  { city: 'Bombay',      code: 'BOM', country: 'IN', tz: 'Asia/Kolkata',         lat: 19.0760,  lon: 72.8777   },
+  { city: 'Singapour',   code: 'SIN', country: 'SG', tz: 'Asia/Singapore',       lat: 1.3521,   lon: 103.8198  },
+  { city: 'Hong Kong',   code: 'HKG', country: 'HK', tz: 'Asia/Hong_Kong',       lat: 22.3193,  lon: 114.1694  },
+  { city: 'Shanghai',    code: 'SHA', country: 'CN', tz: 'Asia/Shanghai',        lat: 31.2304,  lon: 121.4737  },
+  { city: 'Séoul',       code: 'SEL', country: 'KR', tz: 'Asia/Seoul',           lat: 37.5665,  lon: 126.9780  },
+  { city: 'Tokyo',       code: 'TKY', country: 'JP', tz: 'Asia/Tokyo',           lat: 35.6762,  lon: 139.6503  },
+  { city: 'Sydney',      code: 'SYD', country: 'AU', tz: 'Australia/Sydney',     lat: -33.8688, lon: 151.2093  },
+  { city: 'Auckland',    code: 'AKL', country: 'NZ', tz: 'Pacific/Auckland',     lat: -36.8485, lon: 174.7633  },
 ];
+const _CLOCK_BY_CODE = Object.fromEntries(CLOCK_CATALOG.map(c => [c.code, c]));
+// Sélection PAR DÉFAUT du desk — inchangée (Londres · New York · Tokyo · Dubaï · Paris).
+const CLOCKS = ['LON', 'NY', 'TKY', 'DXB', 'PAR'].map(k => _CLOCK_BY_CODE[k]);
 
 // WMO weather code → emoji icon
 const WMO_ICON = {
@@ -415,8 +444,18 @@ const windArrow = deg => ['↑','↗','→','↘','↓','↙','←','↖'][Math.
 
 let _weatherCache = {}; // city → { temp, wind, windDir, icon }
 
+// Villes dont la météo est réellement demandée = celles AFFICHÉES quelque part (desk + widgets).
+// Sans ce registre, ouvrir le catalogue à 27 places aurait multiplié par cinq les appels à
+// open-meteo toutes les 10 minutes, pour des villes que personne ne regarde.
+const _clockWanted = new Map(CLOCKS.map(c => [c.city, c]));
+function _clockWant(liste) {
+  let neuf = false;
+  (liste || []).forEach(c => { if (c && c.city && !_clockWanted.has(c.city)) { _clockWanted.set(c.city, c); neuf = true; } });
+  return neuf;
+}
+
 async function fetchAllWeather() {
-  await Promise.all(CLOCKS.map(async c => {
+  await Promise.all([..._clockWanted.values()].map(async c => {
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}`
         + `&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m&timezone=auto&forecast_days=1`;
