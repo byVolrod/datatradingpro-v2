@@ -818,7 +818,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const max = yAxis.getPrivate('max') != null ? yAxis.getPrivate('max') : yAxis.get('max');
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
-      const GAP = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
+      const GAP_BASE = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas.
       // Masquage = UNIQUEMENT _hiddenCcy (devises explicitement masquées via la légende, maintenu par les
       // événements hidden/shown/visible de la série). On N'utilise PLUS s.isHidden()/get('visible') ici : ces
@@ -831,16 +831,25 @@ function buildStrengthChart(containerId, data, opts = {}) {
         return !hid;
       }).map(([ccy, o]) => {
         const v = o.value != null ? o.value : 0;
-        const px = (max - v) / (max - min) * h;
-        return { ccy, o, basePx: px, px };
+        // Bornage AVANT espacement (04/08, mobile) : une valeur pile au bord donnait un centre de
+        // badge à 0 ou h → moitié coupée. On garde chaque point d'ancrage dans le cadre.
+        const px = Math.max(8, Math.min(h - 8, (max - v) / (max - min) * h));
+        return { ccy, o, basePx: (max - v) / (max - min) * h, px };
       }).filter(x => isFinite(x.basePx)).sort((a, b) => a.px - b.px);
+      // ÉCART COMPRESSÉ À LA HAUTEUR RÉELLE (04/08, constat user mobile : pastilles coupées en
+      // haut) : sur un petit graphe, 8 badges × 20 px dépassent le tracé — la remontée en bloc
+      // poussait alors la pile HORS CADRE par le haut. L'écart s'adapte : jamais plus de 20 px,
+      // jamais moins de 12 px (léger recouvrement contrôlé plutôt qu'une pastille invisible).
+      const GAP = arr.length > 1 ? Math.min(GAP_BASE, Math.max(12, (h - 16) / (arr.length - 1))) : GAP_BASE;
       // Passe descendante : tout badge à moins de GAP du précédent est poussé vers le bas
       for (let i = 1; i < arr.length; i++) {
         if (arr[i].px - arr[i - 1].px < GAP) arr[i].px = arr[i - 1].px + GAP;
       }
       // Si la pile déborde en bas du cadre, on la remonte EN BLOC → aucun badge coupé / hors-grille
-      const over = arr.length ? Math.max(0, arr[arr.length - 1].px - (h - 2)) : 0;
+      const over = arr.length ? Math.max(0, arr[arr.length - 1].px - (h - 8)) : 0;
       if (over > 0) arr.forEach(x => { x.px -= over; });
+      // Et si malgré tout le premier repasse au-dessus du cadre (cas limite), on replaque au bord.
+      if (arr.length && arr[0].px < 8) { const d = 8 - arr[0].px; arr.forEach(x => { x.px += d; }); }
       arr.forEach(x => {
         const lbl = x.o.range?.get('label');
         if (lbl) try { lbl.set('dy', Math.round(x.px - x.basePx)); } catch {}
