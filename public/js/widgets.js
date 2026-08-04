@@ -1098,6 +1098,7 @@
       mount: function (host, it) {
         var W = this;
         var sig = '', q = '', off = {};                     // off = sections décochées (tout coché par défaut)
+        var plus = 0, chargeEnCours = false;                // items révélés en plus du réglage (bouton « Charger plus »)
         host.innerHTML = '<div class="wdg-news-panel">'
           + '<div class="panel-toolbar">'
           +   '<div class="toolbar-select wdg-nw-secbtn"><span>Sections d\'actualités</span><span class="select-arrow">▾</span></div>'
@@ -1142,19 +1143,22 @@
           // les fraîches (position ~2000) n'entraient jamais dans la fenêtre. Copie triée récent→ancien.
           items = items.slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
           var ql = q.trim().toLowerCase();
-          var rows = items.filter(function (i) {
+          var tout = items.filter(function (i) {
             if (!i) return false;
             if (i.category && off[i.category]) return false;
             return !ql || String(i.headline || '').toLowerCase().indexOf(ql) !== -1;
-          }).slice(0, opt(it, W, 'nb'));
+          });
+          var cap = (opt(it, W, 'nb') | 0) + plus;
+          var rows = tout.slice(0, cap);
           count.textContent = rows.length + ' items';
           if (!rows.length) {
             liste.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">' + (ql || Object.keys(off).length ? 'Aucun élément ne correspond.' : 'Fil en cours de chargement…') + '</div>';
             sig = ''; return;
           }
-          var s = rows.map(function (i) { return i.id; }).join('|') + '§' + ql + '§' + Object.keys(off).join(',');
+          var s = rows.map(function (i) { return i.id; }).join('|') + '§' + ql + '§' + Object.keys(off).join(',') + '§' + chargeEnCours;
           if (!force && s === sig) return;                                  // rien de neuf → pas de re-render
           sig = s;
+          var _scroll = liste.scrollTop;                                    // « Charger plus » : on ne remonte pas l'utilisateur en haut
           // Séparateurs de JOUR, comme renderNews : groupes par date (formatDate du desk, heure de Paris).
           var fmtJour = (typeof formatDate === 'function') ? formatDate : function (ts) { return new Date(ts).toLocaleDateString('fr-FR'); };
           liste.innerHTML = '';
@@ -1171,6 +1175,31 @@
               else { var d2 = document.createElement('div'); d2.className = 'wdg-news-row'; d2.textContent = i.headline || ''; liste.appendChild(d2); }
             } catch (e) {}
           });
+          // HISTORIQUE (04/08 : « je ne peux pas remonter l'historique comme le desk ») : même
+          // mécanisme que l'onglet ACTUS — on RÉVÈLE d'abord ce qui est déjà en mémoire, puis on
+          // demande les plus anciens au serveur via le loadMore() du desk (il alimente allItems,
+          // que ce widget relit). Le bouton disparaît quand il n'y a plus rien à remonter.
+          var reste = tout.length > rows.length;
+          var srv = (typeof serverTotal === 'number' && typeof allItems !== 'undefined')
+            ? (allItems.length < serverTotal) : true;
+          if (reste || srv) {
+            var b = document.createElement('button');
+            b.className = 'load-more-btn';
+            b.textContent = chargeEnCours ? 'Chargement…' : 'Charger plus';
+            b.disabled = chargeEnCours;
+            b.onclick = function (ev) {
+              ev.stopPropagation();
+              if (chargeEnCours) return;
+              if (tout.length > rows.length) { plus += 25; render(true); return; }   // déjà en mémoire
+              if (typeof loadMore !== 'function') return;
+              chargeEnCours = true; render(true);
+              Promise.resolve(loadMore()).catch(function () {}).then(function () {
+                chargeEnCours = false; plus += 25; render(true);
+              });
+            };
+            liste.appendChild(b);
+          }
+          liste.scrollTop = _scroll;
         };
         // Menu de sections : le MARKUP EXACT du desk (.dropdown-item.active + .dropdown-check ✓,
         // bascule au clic), tout coché par défaut — le comportement de l'onglet ACTUS.
