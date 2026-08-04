@@ -11889,7 +11889,19 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 .cot-grid--fit .cot-cell { padding: 12px 10px; gap: 6px; }
 /* Le donut restait figé à 96 px quelle que soit la carte (width/height auto + max-* qui ne font que
    rétrécir) → gros vides au-dessus et en dessous. Il occupe maintenant sa case, ratio préservé. */
-.cot-grid--fit .cot-donut { width: 100%; height: 100%; max-width: 88%; max-height: 100%; }
+/* 04/08 — « c'est trop gros ». Laisser le donut prendre 88 % de la carte remplissait le bloc mais
+   donnait une infographie grand public, pas un terminal. La règle : la carte se remplit par
+   l'INFORMATION (chiffres lisibles), pas en gonflant le cercle. Donut ramené à ~52 % / 132 px max,
+   le reste de la hauteur va aux chiffres, qui grandissent. */
+.cot-grid--fit .cot-donut { width: 100%; height: 100%; max-width: 52%; max-height: 132px; }
+.cot-grid--fit .cot-stats { padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .06); gap: 6px; }
+.cot-grid--fit .cot-stat-lbl { font-size: 9px; color: var(--text3, #8a8a90); letter-spacing: .03em; line-height: 1.25; }
+.cot-grid--fit .cot-stat-val { font-size: 15px; letter-spacing: -.01em; }
+.cot-grid--fit .cot-stat-pct { font-size: 10px; }
+.cot-grid--fit .cot-head-ccy { font-size: 13px; letter-spacing: .04em; }
+/* La légende Court/Long redit ce que les colonnes « Positions courtes / longues » disent déjà,
+   en couleur : une ligne de gagnée pour les chiffres. */
+.cot-grid--fit .cot-legend { display: none; }
 .cot-grid--fit .cot-gauge-wrap { padding: 2px 0; }
 .wdg-dmxwrap .dmx-table-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .wdg-seawrap .season-table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
@@ -14641,3 +14653,12 @@ body.home-mode .view-panel { visibility: hidden; }
 #view-widgets .wdg-card:focus-within .wdg-ico,
 #view-widgets .wdg-ico:hover { opacity: 1; }
 #view-widgets .wdg-ico--x:hover { color: #ff3d00; background: rgba(255, 61, 0, .13); }
+
+/* ── COT AUX COULEURS DE CHARTE (04/08) : .cot-red / .cot-green portaient #f43f5e (rose) et
+   #10b981 (émeraude), deux teintes génériques — alors que les arcs du donut, eux, étaient déjà
+   en #ff3d00 / #00e676. Les chiffres et le cercle disaient donc la même chose dans deux rouges
+   et deux verts différents. Une seule paire, celle de la charte DTP. */
+.cot-red   { color: #ff3d00; }
+.cot-green { color: #00e676; }
+.cot-dot--s { background: #ff3d00; }
+.cot-dot--l { background: #00e676; }
