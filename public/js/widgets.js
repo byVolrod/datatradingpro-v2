@@ -1641,10 +1641,15 @@
           if (!tabs.length) { body.innerHTML = '<div class="wdg-empty">Ajoute un onglet avec le « + » ci-dessus.</div>'; return; }
           var w = tabs[actIdx] !== 'vide' && tabs[actIdx] && byId(tabs[actIdx]);
           if (!w) {
-            // ONGLET VIDE : même invitation que les emplacements de la grille — un geste, un sens.
-            body.innerHTML = '<div class="wdgt-vide"><button class="wdgt-fill">+<span>Choisir un widget</span></button></div>';
-            var b0 = body.querySelector('.wdgt-fill');
-            if (b0) b0.addEventListener('click', function () { _pickTabFor(it, actIdx); });
+            // ONGLET VIDE : MÊME grammaire que les emplacements de la grille (cadre pointillé or,
+            // + fin, libellé discret) et TOUTE la zone est cliquable — un geste, un sens.
+            body.innerHTML = '<div class="wdgt-vide" role="button" tabindex="0" title="Choisir un widget pour cet onglet">'
+              + '<span class="wdgt-fill">+<span>Choisir un widget</span></span></div>';
+            var b0 = body.querySelector('.wdgt-vide');
+            if (b0) {
+              b0.addEventListener('click', function () { _pickTabFor(it, actIdx); });
+              b0.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); _pickTabFor(it, actIdx); } });
+            }
             return;
           }
           try { var un = w.mount(body); if (typeof un === 'function') subClean = un; }
