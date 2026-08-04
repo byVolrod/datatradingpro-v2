@@ -1648,6 +1648,24 @@
     //    toutes. Le filtre agit sur data-bank (posé par _rtcCard) et se RÉAPPLIQUE à chaque re-rendu du
     //    desk (loadTauxView réécrit la grille ~30 s) via un MutationObserver ; tout est retiré au
     //    démontage, la vue rentre au desk intacte.
+    // SEMAINE À VENIR : la vue du desk embarque DEUX panneaux compagnons à droite (fil d'actualité
+    // en direct + calendrier). Dans un widget on veut « juste le widget Semaine à Venir » (demande
+    // user 04/08) → colonne de droite et son splitter masqués par défaut, ré-activables au réglage.
+    var _waExtra = {
+      opts: [{ k: 'compagnons', lbl: 'Panneaux', type: 'choix', def: 'non',
+        choix: [['non', 'Semaine seule'], ['oui', 'Avec fil + calendrier']] }],
+      filtre: function (host, it, W) {
+        var wa3 = host.querySelector('#wa3');
+        if (!wa3) return null;
+        var applique = function () {
+          wa3.classList.toggle('wa3--solo', (opt(it, W, 'compagnons') || 'non') === 'non');
+        };
+        applique();
+        var mo = new MutationObserver(applique);
+        mo.observe(host, { childList: true, subtree: true });
+        return function () { mo.disconnect(); wa3.classList.remove('wa3--solo'); };
+      },
+    };
     // BANQUES : position du graphique (04/08, demande user « on doit pouvoir dans réglage mettre le
     // graphique en bas ou à côté ») — côté à côté sur une carte large, EMPILÉ dès qu'elle est
     // étroite (le graphe à 360 px minimum écrasait alors la table des transactions).
@@ -1701,7 +1719,7 @@
       _vueDesk('vue-institution', 'Institutions', 'INSTITUTIONS', 'News', 'view-institution', 'institution', "L'onglet INSTITUTIONS du desk : la recherche des grandes banques."),
       _vueDesk('vue-analyst', 'Analystes', 'ANALYSTES', 'News', 'view-analyst', 'analyst', "L'onglet ANALYSTES du desk : rapports, récaps de séance, Éclairages IA."),
       _vueDesk('vue-bias', 'Onglet Biais', 'BIAIS', 'Macro', 'view-bias', 'bias', "L'onglet BIAIS complet du desk : matrice Smart Bias + synthèse."),
-      _vueDesk('vue-weekahead', 'Semaine à Venir', 'SEMAINE', 'Macro', 'view-weekahead', 'weekahead', "L'onglet SEMAINE À VENIR du desk : profil de risque + agenda éditorialisé."),
+      _vueDesk('vue-weekahead', 'Semaine à Venir', 'SEMAINE', 'Macro', 'view-weekahead', 'weekahead', "L'onglet SEMAINE À VENIR du desk : profil de risque + agenda éditorialisé.", _waExtra),
       _vueDesk('vue-taux', 'Onglet Taux', 'TAUX', 'Macro', 'view-taux', 'taux', "L'onglet TAUX du desk : cartes par banque, pricing des décisions, temps réel.", _tauxExtra),
       _vueDesk('vue-bank', 'Banques', 'BANQUES', 'Risque', 'view-bank', 'bank', "L'onglet BANQUES du desk : positions des grandes banques + graphique.", _bankExtra),
     ];

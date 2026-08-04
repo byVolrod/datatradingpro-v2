@@ -14395,3 +14395,9 @@ body.home-mode .view-panel { visibility: hidden; }
    (« je ne vois pas le nom ACTUS »). On les ancre à droite quoi qu'il arrive. */
 .wdg-head .wdg-actions { margin-left: auto; }
 .wdg-card--tabs > .wdg-head { justify-content: flex-end; }
+
+/* ── SEMAINE À VENIR en widget : « juste le widget Semaine à Venir » (04/08) — les deux
+   panneaux compagnons de la vue (fil en direct + calendrier) et leur splitter sortent ;
+   la colonne Semaine occupe toute la carte. Réactivables au réglage « Panneaux ». */
+.wa3--solo { grid-template-columns: minmax(0, 1fr) !important; }   /* ⚠️ .wa3 est une GRILLE 3 colonnes : masquer les enfants ne suffit pas, la piste resterait réservée */
+.wa3--solo > .wa3-right, .wa3--solo > .wa3-vsplit { display: none !important; }
