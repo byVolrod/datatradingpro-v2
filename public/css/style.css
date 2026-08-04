@@ -14662,3 +14662,28 @@ body.home-mode .view-panel { visibility: hidden; }
 .cot-green { color: #00e676; }
 .cot-dot--s { background: #ff3d00; }
 .cot-dot--l { background: #00e676; }
+
+/* ══ ALERTES — LISIBILITÉ ET SIMPLIFICATION (04/08, « améliore le design, simplifie, lisibilité ») ══
+   (1) PASTILLE au lieu du gros rond « i ». Le cercle de 22 px portait la MÊME lettre sur toutes les
+   lignes : 32 px de largeur pris à la lecture pour zéro information. Un point coloré dit la seule
+   chose utile — urgent, important, courant — et rend la place au texte. */
+.np-icon {
+  width: 6px; height: 6px; min-width: 6px; border: 0; border-radius: 50%;
+  background: #3d3d45; margin-top: 6px; font-size: 0;
+}
+.np-icon--high     { background: var(--orange, #e3b23a); border: 0; }
+.np-icon--breaking { background: #ff3d00; border: 0; box-shadow: 0 0 0 3px rgba(255, 61, 0, .13); }
+.np-item.np-item--unread .np-icon { background: var(--orange, #e3b23a); }
+.np-item { gap: 9px; padding: 11px 16px; }
+
+/* (2) CONTRASTES. L'aperçu était en #666 et l'heure en #444 sur fond sombre : mesurés à 3,2:1 et
+   1,9:1, c'est-à-dire sous le seuil de lecture confortable. Le texte est là pour être lu. */
+.np-item-headline { font-size: 12px; line-height: 1.42; color: #edeef1; }
+.np-item-desc     { font-size: 11px; color: #9aa1ac; line-height: 1.45; margin-bottom: 5px; }
+.np-item-time     { font-size: 10px; color: #7d838d; }
+
+/* (3) Le badge d'origine ne s'affiche plus que s'il apprend quelque chose (NEWS retiré côté JS) :
+   allégé en pastille sans cadre, il ponctue au lieu d'encombrer. */
+.np-origin { border: 0; background: none; padding: 0; letter-spacing: .07em; font-size: 9.5px; }
+.np-item-meta { gap: 7px; }
+.np-item-meta:has(.np-origin) .np-item-time::before { content: '· '; opacity: .5; }

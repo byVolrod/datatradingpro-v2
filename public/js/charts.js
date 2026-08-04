@@ -2674,10 +2674,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const _ml = document.getElementById('main-layout');
     _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol' || view === 'journal' || view === 'calculator' || view === 'widgets');   // pleine largeur
     document.getElementById('journal-btn')?.classList.toggle('topbar-icon--active', view === 'journal');   // état actif du bouton topbar Journal
-    // ICÔNE MON DESK SANS ÉTAT COLORÉ (demande user 04/08 : « elle doit rester comme les 2 autres,
-    // Calculatrice et Journal ») — celles-là ne s'allument pas non plus quand leur vue est ouverte.
-    // On RETIRE la classe si un ancien rendu l'avait posée.
-    document.getElementById('widgets-btn')?.classList.remove('topbar-icon--active');
+    // ICÔNE MON DESK : état actif RÉTABLI (demande user 04/08). La consigne précédente — « qu'elle
+    // reste comme les 2 autres » — partait d'une prémisse fausse : Journal et Calculatrice
+    // s'allument bel et bien (lignes voisines). Les trois se comportent donc pareil.
+    document.getElementById('widgets-btn')?.classList.toggle('topbar-icon--active', view === 'widgets');
     document.getElementById('calc-btn')?.classList.toggle('topbar-icon--active', view === 'calculator');   // état actif du bouton topbar Calculatrice
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {
