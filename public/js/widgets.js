@@ -1144,7 +1144,13 @@
       mount: function (host, it) {
         var W = this;
         if (typeof L === 'undefined') { fallback(host, 'Carte indisponible.'); return null; }
-        host.innerHTML = '<div class="wdg-mapwrap"><div class="chart-header-sub wdg-map-sub"></div><div class="wdg-lfmap"></div></div>';
+        // PASTILLE D'ÉTAT, comme sur le desk (04/08, demande user « met comme celui d'origine ») :
+        // l'en-tête de la carte des sessions du desk fait précéder ce texte d'une .live-dot qui vire
+        // au ROUGE marché fermé et au VERT marché ouvert. Le widget n'avait que le texte gris, qui
+        // ne dit pas l'état — d'où la différence perçue.
+        host.innerHTML = '<div class="wdg-mapwrap"><div class="wdg-map-head">'
+          + '<span class="live-dot live-dot--small wdg-map-dot"></span>'
+          + '<span class="chart-header-sub wdg-map-sub"></span></div><div class="wdg-lfmap"></div></div>';
         var el = host.querySelector('.wdg-lfmap'), sub = host.querySelector('.wdg-map-sub');
         var CITIES = [
           { name: 'Sydney', tz: 'Australia/Sydney', lon: 151.2, lat: -33.9, open: 9, close: 17 },
@@ -1229,6 +1235,10 @@
             if (openNames.length) { sub.textContent = openNames.join(' · ') + (openNames.length > 1 ? ' ouvertes' : ' ouverte'); sub.style.color = '#00e676'; }
             else if (nextUp) { sub.textContent = 'Fermé · ' + nextUp.name + ' ouvre dans ' + frDur(nextUp.mins); sub.style.color = '#8a8f98'; }
           }
+          // Pastille d'état, EXACTEMENT comme l'en-tête du desk : vert marché ouvert, rouge fermé
+          // (charte #00e676 / #ff3d00). Le texte seul, en gris, ne disait pas l'état.
+          var pastille = host.querySelector('.wdg-map-dot');
+          if (pastille) pastille.style.background = openNames.length ? '#00e676' : '#ff3d00';
         }
         refreshSessions(new Date());
         var clockIv = setInterval(function () { refreshSessions(new Date()); }, 30000);
