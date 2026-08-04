@@ -8320,6 +8320,17 @@ const NP_KINDS = [
   { key: 'news',        label: 'News',         cls: 'news'    },   // tout le reste
 ];
 const _NP_KIND_BY_KEY = Object.fromEntries(NP_KINDS.map(k => [k.key, k]));
+// Fenêtre de fraîcheur d'une ALERTE. Au-delà, ce n'est plus une alerte mais de l'archive : elle a
+// sa place dans le fil d'actualité, pas dans un panneau censé signaler ce qui vient d'arriver.
+const NP_FRAICHEUR_MS = 7 * 864e5;
+
+// Repérage par le TITRE quand la catégorie du flux est absente ou générique — c'était le cas de la
+// quasi-totalité des items (constat user : « Geopolitical Chaos… » et « …central banks hold rates »
+// atterrissaient tous les deux en « News »). Motifs volontairement ÉTROITS et ancrés sur des bornes
+// de mot : un classement faux est pire qu'un classement générique.
+const _NP_RX_RISK = /\b(g[ée]opolit\w*|geopolit\w*|sanctions?|embargo|tariffs?|guerre|war|conflits?|conflicts?|militaire|missile|frappes?)\b/i;
+const _NP_RX_ECO  = /\b(CPI|PPI|NFP|PMI|GDP|PIB|IPC|ISM|Ifo|ZEW|inflation|unemployment|ch[ôo]mage|payrolls?|jobless|retail sales|ventes au d[ée]tail|taux directeurs?|rate (?:decision|cut|hike)s?|hold rates|FOMC|BCE|ECB|BoE|BoJ|SNB|RBA|BoC|banques? centrales?|central banks?)\b/i;
+
 function _npKind(item) {
   if (item._reportNotif === 'institution' || item._source === 'ing-think') return _NP_KIND_BY_KEY.institution;
   if (item._reportNotif === 'analyst' || item._source === 'investinglive'
@@ -8328,6 +8339,10 @@ function _npKind(item) {
   if (/research|institution/.test(c)) return _NP_KIND_BY_KEY.institution;
   if (/geopolit|risk|energy|sanction|war/.test(c)) return _NP_KIND_BY_KEY.risk;
   if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return _NP_KIND_BY_KEY.eco;
+  // Repli sur le titre — même ORDRE que ci-dessus (risque avant éco) pour rester prévisible.
+  const t = String(item.headline || '');
+  if (_NP_RX_RISK.test(t)) return _NP_KIND_BY_KEY.risk;
+  if (_NP_RX_ECO.test(t))  return _NP_KIND_BY_KEY.eco;
   if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return _NP_KIND_BY_KEY.flash;
   return _NP_KIND_BY_KEY.news;
 }
@@ -8444,7 +8459,7 @@ function npOpen() {
     // affichées « il y a 3763j » (capture user : des articles de 2016). Même cause que le gel du
     // widget Fil d'actualité. On trie par horodatage décroissant, et on écarte ce qui dépasse
     // 7 jours : une alerte périmée n'est pas une alerte, c'est de l'archive.
-    const LIMITE = Date.now() - 7 * 864e5;
+    const LIMITE = Date.now() - NP_FRAICHEUR_MS;   // même fenêtre que npPush : une seule règle
     const parDateDesc = (a, b) => (b.timestamp || 0) - (a.timestamp || 0);
     const frais = allItems.filter(i => (i.timestamp || 0) >= LIMITE);
     const recent = frais
@@ -8561,8 +8576,14 @@ function _npRenderFilters() {
 function npPush(items) {
   if (!items?.length) return 0;
   let newOnes = 0;
+  const limite = Date.now() - NP_FRAICHEUR_MS;
   items.forEach(item => {
     if (item._briefing || item.source === 'DTP' || isPrimerItem(item)) return;   // pas de primers en notif
+    // ⚠️ GARDE DE FRAÎCHEUR — la vraie cause des « il y a 521j » : ce chemin-ci n'en avait AUCUNE.
+    // Le correctif posé le 04/08 ne couvrait que le pré-remplissage, or ce dernier est sauté dès que
+    // npPush a rempli la liste — donc il ne servait à rien. Toute reprise d'historique du fil
+    // (chargement initial, « Charger plus ») déversait ses archives dans les alertes.
+    if ((item.timestamp || 0) < limite) return;
     if (_npReadIds.has(item.id)) return;
     _npReadIds.add(item.id);
     _npItems.unshift(item);
@@ -8668,9 +8689,11 @@ function _npRenderList() {
     const ago = _npTimeAgo(item.timestamp);
     const desc = _npStripSrc(item.description, item.source).slice(0, 140);
     const org = _npKind(item);   // badge = même taxonomie que Filtre et onglets
-    // Le badge ne s'affiche QUE s'il apprend quelque chose : « NEWS » se répétait sur chaque ligne
-    // (capture user) alors que c'est le cas par défaut. CALENDRIER, ANALYSTE, RISQUE… restent.
-    const badge = org.cls === 'news' ? '' : `<span class="np-origin np-origin--${org.cls}">${org.label}</span>`;
+    // Badge sur CHAQUE ligne (demande user : « il faut qu'on ait l'info si c'est une news, un
+    // rapport analyste ou institution »). Je l'avais masqué pour le type « News » en le jugeant
+    // redondant — à tort : il ne l'était que parce que TOUT tombait en « News » faute de
+    // classement. Le classement corrigé, le badge redevient une information.
+    const badge = `<span class="np-origin np-origin--${org.cls}">${org.label}</span>`;
 
     el.innerHTML = `
       <div class="np-icon ${iconClass}"></div>
