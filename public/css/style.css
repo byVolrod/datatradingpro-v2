@@ -14511,3 +14511,17 @@ body.home-mode .view-panel { visibility: hidden; }
 }
 /* La liste des sections ne doit pas pousser la croix hors de vue : le tiroir defile, l'en-tete reste. */
 .wdg-settings { padding-top: 12px; }
+
+/* ⚠️ RÉGRESSION DE SPÉCIFICITÉ (04/08, constat user « plus d'effet contour doré ») : la règle
+   « #view-widgets .wdg-card { border-color } » de la passe épurée porte un IDENTIFIANT, donc elle
+   battait .wdg-card:hover (classe), .wdg-card--locked et .wdg-card--slot — le lisere or au survol,
+   le cadre doré des cartes verrouillées et les pointillés or des emplacements vides avaient
+   disparu. On rétablit chacun à la MÊME spécificité. */
+#view-widgets .wdg-card:hover, #view-widgets .wdg-card:focus-within {
+  border-color: rgba(227, 178, 58, .45); box-shadow: 0 4px 18px rgba(0, 0, 0, .35);
+}
+#view-widgets .wdg-card.wdg-card--locked { border-color: rgba(227, 178, 58, .28); }
+#view-widgets .wdg-card.wdg-card--slot { border-color: rgba(227, 178, 58, .42); }
+#view-widgets .wdg-card.wdg-card--slot:hover { border-color: rgba(227, 178, 58, .7); }
+/* La carte en cours de déplacement garde aussi son repère. */
+#view-widgets .wdg-card.wdg-dragging { border-color: rgba(227, 178, 58, .6); }
