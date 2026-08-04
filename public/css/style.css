@@ -15061,3 +15061,26 @@ body.home-mode #calc-btn.topbar-icon--active {
 }
 /* (4) « Maintien » était en #abb4c3, un gris-lavande hors charte. Le neutre DTP est l'ambre. */
 .rtc-track i.n { background: rgba(255, 179, 0, .80); }
+
+/* ── COT : DONUT RÉTABLI (04/08, « remets les donuts c'était bien »). Il PREND LA PLACE de la barre
+   empilée au lieu de s'y ajouter — les deux disaient la même chose. Taille modérée et bornée : la
+   version qui remplissait la carte avait été rejetée à juste titre. */
+.cot-ring { display: block; width: 100%; height: 100%; max-width: 96px; max-height: 96px; margin: 0 auto; }
+.cot-ring-bg { stroke: rgba(255, 255, 255, .07); stroke-width: 9; }
+.cot-ring-s  { stroke: var(--cot-down, #ff3d00); stroke-width: 9; }
+.cot-ring-l  { stroke: var(--cot-up, #00e676); stroke-width: 9; }
+/* Le camp minoritaire s'éteint : « qui domine » se lit sans comparer deux arcs. */
+.cot-cell--bear .cot-ring-l, .cot-cell--bull .cot-ring-s { opacity: .42; }
+.cot-cell--na .cot-ring-s, .cot-cell--na .cot-ring-l { opacity: .18; }
+.cot-ring-v {
+  font-family: var(--mono, ui-monospace, monospace); font-size: 16px; font-weight: 700;
+  fill: var(--text, #e9eaed);
+}
+.cot-cell--bear .cot-ring-v { fill: var(--cot-down-fg, #ff3d00); }
+.cot-cell--bull .cot-ring-v { fill: var(--cot-up-fg, #00e676); }
+.cot-cell--flat .cot-ring-v { fill: var(--cot-flat-fg, #ffb300); }
+/* La zone du donut respire un peu plus que la barre qu'elle remplace. */
+.cot-split { padding-bottom: 10px; }
+.cot-pcts { margin-bottom: 6px; }
+/* Pied de catégorie retiré côté JS : on neutralise la règle au cas où un rendu l'aurait laissé. */
+.cot-foot { display: none; }
