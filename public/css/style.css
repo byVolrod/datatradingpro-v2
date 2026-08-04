@@ -14067,3 +14067,36 @@ body.home-mode .view-panel { visibility: hidden; }
      fantôme superposé (constat des 3 captures). Sur mobile, seul le halo or reste. */
   .news-item--new { animation: flash-new 1.5s ease-out; }
 }
+
+/* ═══ MOBILE-FIRST 2 (04/08, audit user) : sessions compactes · calendrier très étroit ·
+   ticker en fondu pur · inertie de scroll contenue ═══ */
+/* Ticker : entrée en FONDU PUR — le translateY(-100%) pouvait se figer sur iOS (bande grise vide
+   constatée) ; l'opacité seule ne peut jamais cacher le contenu définitivement. */
+@keyframes homeTickIn { from { opacity: 0; } }
+.home-ticker:not(.is-on) { border-bottom: 0; }
+/* SESSIONS DE MARCHÉ : encarts de villes COMPACTS quand le cadre est étroit — l'heure, la ville
+   et la pastille d'état restent, le « ouvre dans X h » cède (il vit dans l'infobulle du desk).
+   Container query (largeur RÉELLE du cadre) + repli viewport pour la carte du desk. */
+.wdg-lfmap { container-type: inline-size; container-name: dtplfmap; }
+@container dtplfmap (max-width: 560px) {
+  .lf-city { font-size: 9.5px; padding: 3px 7px; border-radius: 5px; gap: 0; }
+  .lf-city .lf-sub { display: none; }
+  .lf-city .lf-row { gap: 5px; }
+  .lf-city .lf-dot { width: 5px; height: 5px; }
+}
+@media (max-width: 640px) {
+  .lf-city { font-size: 9.5px; padding: 3px 7px; border-radius: 5px; }
+  .lf-city .lf-sub { display: none; }
+  .lf-city .lf-row { gap: 5px; }
+  .lf-city .lf-dot { width: 5px; height: 5px; }
+}
+/* CALENDRIER, carte très étroite (≤380px de cadre) : PRÉCÉDENT cède aussi — RÉEL et
+   PRÉVISION restent lisibles EN ENTIER (7.594M ne se tronque plus). */
+@container dtpcal (max-width: 380px) {
+  .cal-table th:nth-child(10), .cal-table td:nth-child(10) { display: none; }
+  .cth-event { width: 40%; }
+  .cth-val { width: 13.5%; font-size: 10px; }
+}
+/* DÉFILEMENT NATUREL : chaque liste interne contient son inertie — fini le scroll qui
+   « saute » au parent en fin de course (conflits de conteneurs). */
+.home-inner, .news-list, .wdg-body, .wdg-cal-wrap, .wdgt-body { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
