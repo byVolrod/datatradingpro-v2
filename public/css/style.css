@@ -14537,3 +14537,21 @@ body.home-mode .view-panel { visibility: hidden; }
 }
 .wdg-pop-d { color: var(--text2, #c9cdd4); }
 .wdg-pop-head { background: var(--pop-bg, #16171b); }
+
+/* ── PÉRIODES DE FORCE À DROITE (04/08) : le libellé a margin-right:auto ET l'engrenage
+   margin-left:auto — DEUX marges automatiques se PARTAGENT l'espace libre, ce qui centrait le
+   groupe TD/TW/8H… On retire celle de l'engrenage dans cette barre : une seule marge auto,
+   donc tout le bloc est poussé à droite. */
+.wdg-fx-tfbar.wdgt-hasgear > .wdg-subgear { margin-left: 6px; }
+.wdg-fx-tfbar { justify-content: flex-start; }
+/* ── BORD DROIT DES CARTES : en mode « collés » la grille a padding 0 ET overflow:hidden — le
+   lisere de la derniere colonne tombe pile sur la limite de clipping et disparait des que
+   l'arrondi sous-pixel des 12 colonnes joue. 1px de marge interieure : invisible a l'oeil,
+   mais le contour est toujours peint. */
+.wdg-grid.wdg-gap-tight { padding: 1px; }
+
+/* DMX : la barre de contrôles interne a été retirée (réglages) — la légende passe en haut
+   et le graphe prend toute la hauteur restante. */
+.wdg-dmxwrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-dmxwrap .dmx-legend-bar { flex: 0 0 auto; }
+.wdg-dmxwrap .dmx-table-wrap { flex: 1 1 auto; min-height: 0; }

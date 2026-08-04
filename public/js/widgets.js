@@ -974,38 +974,16 @@
         if (typeof buildDMXChart !== 'function') { fallback(host, 'DMX indisponible.'); return null; }
         var tf0 = opt(it, W, 'tf'), tri0 = opt(it, W, 'tri');
         var wid = HOST_ID + '-dmxw-' + uid();
+        // BARRE INTERNE RETIRÉE (04/08, « enlève ceci vu qu'ils y sont dans les réglages ») : les
+        // boutons d'unité (1D/4H/1H) et le tri doublonnaient les réglages du widget. Ne reste que
+        // la légende Long/Short — une information, pas une commande — et le graphe gagne la place.
         host.innerHTML = '<div class="wdg-dmxwrap">'
-          + '<div class="dmx-header-bar">'
-          + '<div class="dmx-tf-group">' + [['D1', '1D'], ['H4', '4H'], ['H1', '1H']].map(function (t) {
-              return '<button class="dmx-tf-btn' + (t[0] === tf0 ? ' dmx-tf-btn--active' : '') + '" data-tf="' + t[0] + '">' + t[1] + '</button>';
-            }).join('') + '</div>'
-          + '<span style="flex:1"></span>'
-          + '<select class="dmx-sort-select" title="Ordre de tri">' + [['az', 'Paire A→Z'], ['za', 'Paire Z→A'], ['long_asc', 'Long % ↑'], ['long', 'Long % ↓'], ['short_asc', 'Short % ↑'], ['short', 'Short % ↓']].map(function (o) {
-              return '<option value="' + o[0] + '"' + (o[0] === tri0 ? ' selected' : '') + '>' + o[1] + '</option>';
-            }).join('') + '</select>'
-          + '</div>'
           + '<div class="dmx-legend-bar"><span class="dmx-legend-dot dmx-legend-long-dot"></span><span class="dmx-legend-text">Long</span><span class="dmx-legend-dot dmx-legend-short-dot"></span><span class="dmx-legend-text">Short</span></div>'
           + '<div id="' + wid + '" class="dmx-table-wrap custom-scrollbar"></div></div>';
-        function optsNow() {
-          var tf = host.querySelector('.dmx-tf-btn--active');
-          var sel = host.querySelector('.dmx-sort-select');
-          return { wrapId: wid, period: tf ? tf.dataset.tf : tf0, sort: sel ? sel.value : tri0 };
+        function refresh(force) {
+          try { buildDMXChart(!!force, { wrapId: wid, period: opt(it, W, 'tf'), sort: opt(it, W, 'tri') }); } catch (e) {}
         }
-        function refresh(force) { try { buildDMXChart(!!force, optsNow()); } catch (e) {} }
         refresh(false);
-        host.querySelectorAll('.dmx-tf-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            host.querySelectorAll('.dmx-tf-btn').forEach(function (b) { b.classList.remove('dmx-tf-btn--active'); });
-            btn.classList.add('dmx-tf-btn--active');
-            refresh(true);
-            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'tf', btn.dataset.tf);
-          });
-        });
-        var sel = host.querySelector('.dmx-sort-select');
-        if (sel) sel.addEventListener('change', function () {
-          refresh(false);
-          var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'tri', sel.value);
-        });
         var iv = setInterval(function () { if (!host.isConnected) { clearInterval(iv); return; } refresh(false); }, 60000);
         return function () { clearInterval(iv); };
       },
@@ -1844,11 +1822,25 @@
         var subClean = null;
         var bar = document.createElement('div'); bar.className = 'wdgt-bar';
         bar.setAttribute('draggable', 'true');   // saisie de la carte depuis l'espace vide de la barre (cf. _wireGrid)
+        // Retire TOUT engrenage de sous-widget encore présent (dans la carte ou dans une vue
+        // adoptée qui vit temporairement ici) — évite l'empilement ET évite qu'un engrenage
+        // reparte avec la vue quand elle regagne le desk.
+        var _purgeSousGear = function () {
+          try {
+            var portee = host.closest ? (host.closest('.wdg-card') || host) : host;
+            portee.querySelectorAll('.wdg-subgear').forEach(function (el) { el.remove(); });
+          } catch (e) {}
+        };
         var body = document.createElement('div'); body.className = 'wdgt-body';
         host.innerHTML = ''; host.classList.add('wdgt-host');
         host.appendChild(bar); host.appendChild(body);
         function mountSub() {
           if (subClean) { try { subClean(); } catch (e) {} subClean = null; }
+          // ⚠️ L'engrenage du sous-widget peut avoir été posé dans un conteneur qui SURVIT au
+          // remontage (l'en-tête d'une vue adoptée, la barre d'un widget qui ne se reconstruit
+          // pas) → sans ce balayage il s'empilait à chaque remontage (2, 3 engrenages, constaté
+          // user). On nettoie AVANT de reconstruire, y compris hors de `body` (vue adoptée).
+          _purgeSousGear();
           body.innerHTML = '';
           if (!tabs.length) { body.innerHTML = '<div class="wdg-empty">Ajoute un onglet avec le « + » ci-dessus.</div>'; return; }
           var w = tabs[actIdx] !== 'vide' && tabs[actIdx] && byId(tabs[actIdx]);
@@ -1984,7 +1976,10 @@
           var _pi = _hostIdx(host); if (_pi != null) _syncPanel(_pi);
         });
         renderTabs(); mountSub();
-        return function () { if (subClean) { try { subClean(); } catch (e) {} subClean = null; } };
+        return function () {
+          _purgeSousGear();                     // l'engrenage ne repart pas avec une vue adoptée
+          if (subClean) { try { subClean(); } catch (e) {} subClean = null; }
+        };
       },
     },
   ]);
