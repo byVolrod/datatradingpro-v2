@@ -1697,7 +1697,10 @@
           // Le widget qui a DÉJÀ sa propre barre y pose son nom lui-même (cf. .wdg-fx-lbl) ; pour
           // les autres, on ajoute un bandeau fin. Détection au DOM → aucun doublon possible.
           try {
-            if (!body.querySelector('.wdg-fx-lbl, .panel-toolbar, .chart-header, .strength-tf-bar, .wdgt-subname')) {
+            // ⚠️ Les VUES ADOPTÉES du desk (Banques, Taux, Analystes…) portent DÉJÀ leur en-tête
+            // de panneau (.panel-header > .panel-title, ex. « TRANSACTIONS BANCAIRES ») → sans
+            // cette détection, on empilait deux titres (doublon constaté user 04/08).
+            if (!body.querySelector('.wdg-fx-lbl, .panel-header, .panel-title, .panel-toolbar, .chart-header, .strength-tf-bar, .cot-header-label, .dmx-header-title, .wdgt-subname')) {
               var sn = document.createElement('div');
               sn.className = 'wdgt-subname'; sn.textContent = w.name;
               body.insertBefore(sn, body.firstChild);
