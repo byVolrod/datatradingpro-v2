@@ -141,6 +141,10 @@ html { zoom: var(--dtp-zoom, 1); }
   --font-stack:    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   --font-ui:     var(--font-stack);
   --font-mono:   var(--font-stack);
+  /* Vraie chasse fixe (04/08) : --font-mono ci-dessus pointe sur la pile SANS-SERIF — les
+     colonnes de chiffres ne s alignaient donc jamais. --mono est le token honnete, adopte par
+     la carte COT ; JetBrains Mono est deja chargee par index.html et quasi inutilisee. */
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --serif:       "Fraunces", Georgia, serif;
   --tight:       "Inter Tight", var(--font-stack);
   --radius:      4px;   /* coins quasi carrés -> aspect terminal institutionnel ; aligne sur la majorite des cartes desk (4px) */
@@ -6474,16 +6478,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   padding: 0;
 }
 
-.cot-cell {
-  background: var(--bg2);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;  /* titre / donut / stats répartis */
-  padding: 16px 8px;
-  gap: 8px;
-  min-height: 0;
-}
+/* (ancienne .cot-cell — donut centre, align-items:center, space-between — SUPPRIMEE 04/08 :
+   ses align-items et justify-content survivaient a la nouvelle regle, qui ne les redeclare pas,
+   et rabougrissaient la barre de repartition a la largeur de son contenu.) */
 
 /* ── En-tête de carte (drapeau + ccy | type) ── */
 .cot-card-head {
@@ -11885,24 +11882,14 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 .cot-grid--fit.cot-grid--scroll { overflow-y: auto; }
 /* Le badge de catégorie répétait la même valeur sur les 8 cartes en se tronquant
    (« Fonds à effet… ») : la catégorie vit dans les réglages, la carte n'a plus à la porter. */
-.cot-grid--fit .cot-head-type { display: none; }
-.cot-grid--fit .cot-cell { padding: 12px 10px; gap: 6px; }
 /* Le donut restait figé à 96 px quelle que soit la carte (width/height auto + max-* qui ne font que
    rétrécir) → gros vides au-dessus et en dessous. Il occupe maintenant sa case, ratio préservé. */
 /* 04/08 — « c'est trop gros ». Laisser le donut prendre 88 % de la carte remplissait le bloc mais
    donnait une infographie grand public, pas un terminal. La règle : la carte se remplit par
    l'INFORMATION (chiffres lisibles), pas en gonflant le cercle. Donut ramené à ~52 % / 132 px max,
    le reste de la hauteur va aux chiffres, qui grandissent. */
-.cot-grid--fit .cot-donut { width: 100%; height: 100%; max-width: 52%; max-height: 132px; }
-.cot-grid--fit .cot-stats { padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .06); gap: 6px; }
-.cot-grid--fit .cot-stat-lbl { font-size: 9px; color: var(--text3, #8a8a90); letter-spacing: .03em; line-height: 1.25; }
-.cot-grid--fit .cot-stat-val { font-size: 15px; letter-spacing: -.01em; }
-.cot-grid--fit .cot-stat-pct { font-size: 10px; }
-.cot-grid--fit .cot-head-ccy { font-size: 13px; letter-spacing: .04em; }
 /* La légende Court/Long redit ce que les colonnes « Positions courtes / longues » disent déjà,
    en couleur : une ligne de gagnée pour les chiffres. */
-.cot-grid--fit .cot-legend { display: none; }
-.cot-grid--fit .cot-gauge-wrap { padding: 2px 0; }
 .wdg-dmxwrap .dmx-table-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .wdg-seawrap .season-table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
 
@@ -14692,8 +14679,296 @@ body.home-mode .view-panel { visibility: hidden; }
    L'en-tête et le bloc de chiffres sont incompressibles ; seule la jauge cède quand la carte est
    courte. Sans ces `flex: 0 0 auto`, le navigateur rabotait les trois blocs à parts égales et la
    grille, en overflow:hidden, tranchait la valeur au milieu des lettres. */
-.cot-grid--fit .cot-card-head, .cot-grid--fit .cot-stats { flex: 0 0 auto; }
-.cot-grid--fit .cot-gauge-wrap { flex: 1 1 auto; min-height: 0; }
 /* Libellés désormais sur UNE ligne (« Courtes » au lieu de « Positions courtes ») : ils peuvent
    grandir et respirer au lieu de se casser en deux à 8 px. */
-.cot-grid--fit .cot-stat-lbl { font-size: 9.5px; white-space: nowrap; letter-spacing: .05em; text-transform: uppercase; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   POSITIONNEMENT COT — carte « Registre de Positionnement »
+   Remplace INTEGRALEMENT l'ancien rendu (donut 96px + legende Court/Long + 3 stats 8px).
+   Aucun visuel central : l'unique element graphique est une barre de 12px (~3 % de la
+   hauteur a 372). La carte se remplit par l'INFORMATION, conformement a la regle deja
+   inscrite dans le fichier le 04/08 (l.11892-11895).
+   Grammaires reprises AU TOKEN : bandeau .rtc-head/.panel-header · piste .rtc-track ·
+   aplats purs .meter-brick · badge .rtc-pill (15 % / 50 % / 100 %) · etat manquant
+   .fxl-badge--na · registre .rtc-k / .rtc-v · gouttiere semantique .rtc-m ·
+   or de conclusion .sbm-overall .sbm-ind · cellules COLLEES .sbm-cell.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Plancher de rangee RE-DERIVE : il n'y a plus de donut a loger, le minimum reel de la
+   carte est ~205px (bandeau 29 + net 55 + barre 46 + registre 75). */
+.cot-grid { grid-auto-rows: minmax(204px, 1fr); }
+
+/* ── LA CARTE ──────────────────────────────────────────────────────────────── */
+.cot-cell {
+  /* Etats de marche. APLATS et FILETS = couleurs de charte IMMUABLES.
+     Variantes -fg = les memes teintes portees par du TEXTE, assombries en theme clair
+     (un #00e676 en texte sur creme tombe a ~1,9:1). */
+  --cot-up:      var(--green);            /* #00e676 — token existant */
+  --cot-down:    #ff3d00;                 /* charte : AUCUN token (--red = #e74c3c, generique) */
+  --cot-flat:    var(--neutral);          /* #ffb300 — token existant */
+  --cot-up-fg:   var(--green);
+  --cot-down-fg: #ff3d00;
+  --cot-flat-fg: var(--neutral);
+  --cot-rail:    rgba(255,255,255,.03);   /* piste eteinte — recette .rtc-track */
+  --cot-ring:    var(--orange-glow);      /* hover dore de la charte — token existant */
+  --cot-row-max: 72px;                    /* plafond de ligne (gabarit .rtc-m = 64px) */
+
+  /* LARGEUR SEULE : jamais container-type:size — la cellule doit garder sa hauteur de
+     contenu tant que _cotFit n'a pas pose les rangees (.cot-grid--fit a grid-auto-rows auto).
+     Les @container ci-dessous ne ciblent QUE des descendants : une carte ne peut pas
+     s'interroger elle-meme. */
+  container-type: inline-size;
+  container-name: cotcard;
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  background: var(--bg2);
+  border-radius: 0;                       /* cartes COLLEES : le rayon vit sur le PANNEAU */
+  overflow: hidden;                       /* garde-fou : rien ne deborde sur la voisine */
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+/* Hover dore — anneau INTERNE : zero decalage sur une grille a gouttiere 1px.
+   Le FOND n'est pas touche : --row-hover (#16171c) et --bg2 (#16171b) sont
+   indistinguables en sombre, une declaration de fond serait un no-op deguise. */
+.cot-cell:hover { box-shadow: inset 0 0 0 1px var(--cot-ring); }
+
+/* ── 1 · BANDEAU : identite + verdict (grammaire canonique du desk) ─────────── */
+.cot-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--navbar-h);
+  padding: 0 8px;
+  background: var(--head-bg);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.03), transparent 72%);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+/* Micro-drapeau ROND canonique restaure (l'ancienne regle l'aplatissait en 10x14).
+   Specificite 0,2,0 : gagne aussi contre .meter-flag-img{height:8px;width:12px} (l.9107). */
+.cot-head .meter-flag-img { width: 14px; height: 14px; flex: 0 0 auto; }
+
+.cot-ccy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--tight);
+  font-size: var(--fs-value);             /* 12px — gabarit .rtc-bank */
+  font-weight: var(--fw-bold);
+  letter-spacing: .04em;
+  line-height: 1;
+  color: var(--text);
+}
+.cot-drv {                                 /* serie derivee : honnetete de la donnee */
+  font-style: normal;
+  font-size: var(--fs-micro);
+  line-height: 0;
+  vertical-align: super;
+  margin-left: 1px;
+  color: var(--orange);
+}
+
+/* Badge d'etat — formule stricte .rtc-pill : fond 15 % / bordure 50 % / texte 100 % */
+.cot-badge {
+  margin-left: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: var(--r-2);
+  font-family: var(--tight);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-bold);
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-caps);
+}
+.cot-cell--bull .cot-badge { color: var(--cot-up-fg);   background: rgba(0,230,118,.15); border-color: rgba(0,230,118,.50); }
+.cot-cell--bear .cot-badge { color: var(--cot-down-fg); background: rgba(255,61,0,.15);  border-color: rgba(255,61,0,.50); }
+.cot-cell--flat .cot-badge { color: var(--cot-flat-fg); background: rgba(255,179,0,.15); border-color: rgba(255,179,0,.50); }
+.cot-cell--na   .cot-badge { color: #5c5c66; background: #131316; border-color: var(--border); }   /* valeurs exactes .fxl-badge--na */
+
+/* ── 2 · CONCLUSION : la position nette ────────────────────────────────────── */
+.cot-net {
+  --cot-fs-hero: 24px;
+  flex: 1 1 auto;
+  min-height: 46px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 10px;
+}
+/* LE seul filet or de la carte. Doctrine .sbm-overall .sbm-ind : l'or ne marque QUE la
+   ligne de conclusion. Pose sur le LIBELLE (line-height 12px) : il fait 12px de haut a
+   239x372 comme a 132x210 — il ne peut JAMAIS devenir une hampe. */
+.cot-k--net {
+  padding-left: 7px;
+  border-left: 2px solid var(--orange);
+}
+.cot-net-v {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+  font-family: var(--mono, ui-monospace, monospace);   /* meme appel que .rtc-v */
+  font-variant-numeric: tabular-nums;
+  font-size: var(--cot-fs-hero);
+  font-weight: var(--fw-semibold);
+  line-height: 1.08;
+  letter-spacing: -.01em;
+  color: var(--text);                     /* BLANC : la couleur d'etat vit dans le badge,
+                                             la barre et les liseres — pas dans le chiffre */
+}
+.cot-unit {
+  font-style: normal;
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-medium);
+  color: var(--text3);
+}
+
+/* ── 3 · DESEQUILIBRE : UNE barre empilee de 12px ──────────────────────────── */
+.cot-split {
+  flex: 0 0 auto;
+  padding: 9px 10px;
+  border-top: 1px solid var(--hud-line);
+}
+.cot-pcts {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.cot-pct {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+}
+.cot-pct--s { color: var(--cot-down-fg); }
+.cot-pct--l { color: var(--cot-up-fg); }
+
+.cot-bar {                                 /* piste ETEINTE toujours visible : la carte
+                                              n'est jamais vide (doctrine .meter-brick) */
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--cot-rail);
+}
+.cot-bar i {
+  display: block;
+  height: 100%;
+  min-width: 2px;                          /* un 1 % reste visible (recette .rtc-track i) */
+  transition: width .4s var(--ease);
+}
+.cot-bar-s { background: var(--cot-down); }
+.cot-bar-l { background: var(--cot-up); }
+/* Cote dominant en aplat PLEIN, cote minoritaire eteint : « qui domine » se lit sans legende */
+.cot-cell--bear .cot-bar-l { opacity: .42; }
+.cot-cell--bull .cot-bar-s { opacity: .42; }
+.cot-cell--flat .cot-bar-s,
+.cot-cell--flat .cot-bar-l { opacity: .70; }
+.cot-cell--na .cot-bar-s,
+.cot-cell--na .cot-bar-l   { background: var(--bg5); opacity: 1; }
+
+/* ── 4 · REGISTRE : volumes bruts, colonne mono calee a droite (.rtc-k / .rtc-v) ── */
+.cot-book {
+  flex: 4 1 auto;                          /* absorbe l'essentiel du mou : a 372 les lignes
+                                              montent a ~68px = le gabarit .rtc-m (64px) */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--hud-line);
+}
+.cot-row {
+  flex: 1 1 auto;
+  min-height: 24px;
+  max-height: var(--cot-row-max);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 0 8px;
+  border-left: 2px solid transparent;      /* gouttiere semantique — grammaire .rtc-m */
+}
+.cot-row + .cot-row { border-top: var(--row-sep); }
+.cot-row--s { border-left-color: var(--cot-down); }
+.cot-row--l { border-left-color: var(--cot-up); }
+.cot-row--t { border-left-color: var(--border); }
+.cot-row--t .cot-k,
+.cot-row--t .cot-v { color: var(--text2); }   /* contexte d'echelle, jamais une position */
+
+.cot-k {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);              /* 9px = plancher OFFICIEL (l'ancien etait a 8px) */
+  font-weight: var(--fw-medium);
+  line-height: 12px;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-caps);
+  color: var(--text2);
+}
+.cot-v {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-title);              /* 11,5px — gabarit .rtc-v */
+  font-weight: var(--fw-bold);
+  color: var(--text);
+}
+
+/* Etats de chargement / erreur injectes par buildCOTChart (aujourd'hui en style inline) */
+.cot-msg {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: var(--text3);
+  font-size: var(--fs-label);
+}
+
+/* ── PALIERS DE LARGEUR pilotes par la CARTE (desk ET widget, plancher 132px) ──
+   Un seul jeu de valeurs, aucune double declaration : les container queries sont deja
+   la convention du depot (7 conteneurs existants). */
+@container cotcard (max-width: 200px) {
+  .cot-net { --cot-fs-hero: 20px; }
+}
+@container cotcard (max-width: 168px) {
+  .cot-unit { display: none; }
+  .cot-badge { padding: 2px 5px; letter-spacing: .02em; }
+  .cot-ccy { letter-spacing: .02em; }
+  .cot-net, .cot-split { padding-left: 8px; padding-right: 8px; }
+  .cot-row { padding-left: 6px; padding-right: 8px; }
+}
+
+/* ── Mode widget « Mon Desk » : la carte gere seule ses marges ─────────────── */
+.cot-grid--fit .cot-cell { padding: 0; gap: 0; }
+
+/* ── THEME CLAIR : seules les teintes portees par du TEXTE sont assombries.
+      Les aplats (barre) et les liseres 2px gardent la charte immuable. ─────── */
+body.theme-light .cot-cell {
+  --cot-up-fg:   var(--st-vbull);          /* #0b7a40 — meme famille, ~5,4:1 sur creme */
+  --cot-down-fg: #b3260a;
+  --cot-flat-fg: #8a5a00;
+  --cot-rail:    rgba(0,0,0,.06);          /* la piste eteinte doit RESTER visible */
+  --cot-ring:    rgba(184,134,11,.45);     /* or clair (--orange = #b8860b en clair) */
+}
+body.theme-light .cot-cell--na .cot-badge { background: var(--bg3); color: var(--text3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cot-bar i { transition: none; }
+}
