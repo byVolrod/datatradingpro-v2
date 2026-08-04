@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, shell, dialog, nativeTheme, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, shell, dialog, nativeTheme, ipcMain, screen } = require('electron');
 const path = require('path');
 const https = require('https');
 
@@ -332,7 +332,59 @@ app.on('second-instance', () => {
   if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
 });
 
-app.whenReady().then(() => { buildMenu(); createWindow(); setupAutoUpdate(); });
+// ══ ICÔNE DE LA ZONE DE NOTIFICATION (04/08, demande user : « quand on lance l'app desktop
+//    l'icône doit apparaître aussi ») ═══════════════════════════════════════════════════════════
+// ⚠️ `tray` DOIT rester une variable de MODULE : déclarée dans la fonction, elle serait ramassée
+// par le GC et l'icône disparaîtrait de la barre au bout de quelques secondes — le piège classique
+// d'Electron, silencieux et difficile à relier à sa cause.
+let tray = null;
+
+function _trayImage() {
+  // Windows attend une .ico (elle embarque déjà les tailles 16/24/32 et reste nette en 150 % de
+  // mise à l'échelle). Ailleurs, le PNG ramené à 16 px, marqué « template » sur macOS pour que le
+  // système le recolore selon le thème clair/sombre de la barre de menus.
+  const ico = path.join(__dirname, 'build', 'icon.ico');
+  const png = path.join(__dirname, 'build', 'icon.png');
+  if (process.platform === 'win32') {
+    const img = nativeImage.createFromPath(ico);
+    if (!img.isEmpty()) return img;
+  }
+  const img = nativeImage.createFromPath(png).resize({ width: 16, height: 16 });
+  if (process.platform === 'darwin') img.setTemplateImage(true);
+  return img;
+}
+
+function montrerFenetre() {
+  if (!win || win.isDestroyed()) { createWindow(); return; }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+function createTray() {
+  if (tray) return;
+  let img;
+  try { img = _trayImage(); } catch { return; }        // icône illisible → on se passe du tray
+  if (!img || img.isEmpty()) return;
+  try { tray = new Tray(img); } catch { return; }      // certains environnements Linux n'ont pas de zone de notification
+  tray.setToolTip('DataTradingPro');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Ouvrir DataTradingPro', click: montrerFenetre },
+    { label: 'Actualiser', click: () => { if (win && !win.isDestroyed()) win.webContents.reload(); } },
+    { type: 'separator' },
+    { label: 'Quitter', click: () => { app.quit(); } },
+  ]));
+  // Clic gauche : sous Windows il n'ouvre PAS le menu contextuel (réservé au clic droit), donc on
+  // lui donne le geste attendu — ramener la fenêtre au premier plan.
+  tray.on('click', montrerFenetre);
+  tray.on('double-click', montrerFenetre);
+}
+
+app.whenReady().then(() => { buildMenu(); createWindow(); createTray(); setupAutoUpdate(); });
+
+// L'icône doit disparaître avec l'app : sans ça, Windows laisse une icône fantôme jusqu'à ce que
+// l'utilisateur survole la zone de notification.
+app.on('before-quit', () => { try { if (tray) { tray.destroy(); tray = null; } } catch {} });
 
 // macOS : l'app reste dans le Dock fenêtre fermée ; clic Dock → rouvre
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
