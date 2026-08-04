@@ -1673,10 +1673,10 @@ function buildMeterChart(containerId) {   // containerId optionnel (widget « Mo
 // cellules approchent le ratio cible : le bloc widget est rempli, sans zone morte a droite.
 // 8 devises => colonnes possibles 1 / 2 / 4 / 8. Si aucune combinaison ne tient a taille lisible,
 // on repasse en mode defilement (rangees a hauteur plancher).
-// Planchers de CELLULE. La hauteur (210) n'est pas décorative : en dessous, l'en-tête + la légende +
+// Planchers de CELLULE. La hauteur (236) n'est pas décorative : en dessous, l'en-tête + la légende +
 // les 3 stats mangent tout et le donut tombe à ~36 px (mesuré) — illisible. Sous ce seuil on préfère
 // défiler avec des cartes lisibles plutôt que pavér le bloc avec des donuts minuscules.
-const _COT_FIT_W = 132, _COT_FIT_H = 210;
+const _COT_FIT_W = 132, _COT_FIT_H = 236;
 function _cotFit(grid) {
   if (!grid || !grid.classList.contains('cot-grid--fit')) return;
   const n = grid.children.length;
@@ -1763,17 +1763,17 @@ function buildCOTChart(gridId, typeArg) {
           </div>
           <div class="cot-stats">
             <div class="cot-stat">
-              <div class="cot-stat-lbl">Positions courtes</div>
+              <div class="cot-stat-lbl">Courtes</div>
               <div class="cot-stat-val cot-red">${fmtK(cur.shortPos)}</div>
               <div class="cot-stat-pct">${cur.shortPct}%</div>
             </div>
             <div class="cot-stat">
-              <div class="cot-stat-lbl">Positions longues</div>
+              <div class="cot-stat-lbl">Longues</div>
               <div class="cot-stat-val cot-green">${fmtK(cur.longPos)}</div>
               <div class="cot-stat-pct">${cur.longPct}%</div>
             </div>
             <div class="cot-stat">
-              <div class="cot-stat-lbl">Position nette</div>
+              <div class="cot-stat-lbl">Nette</div>
               <div class="cot-stat-val ${biasCl}">${biasFr}</div>
               <div class="cot-stat-pct">${fmtK(net)}</div>
             </div>
