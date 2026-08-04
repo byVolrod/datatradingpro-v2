@@ -14972,3 +14972,17 @@ body.theme-light .cot-cell--na .cot-badge { background: var(--bg3); color: var(-
 @media (prefers-reduced-motion: reduce) {
   .cot-bar i { transition: none; }
 }
+
+/* ── CALENDRIER : SÉLECTEUR DE FENÊTRE Jour · Semaine · Mois (04/08, demande user).
+   Placé à côté des flèches ‹ › parce que c'est de la NAVIGATION, pas un réglage : le choix se
+   fait en lisant, pas en configurant. Il réutilise la grammaire des filtres d'impact
+   (.cal-imp-btn) pour que la barre reste d'un seul tenant. L'unité est mémorisée par carte. */
+.wdg-cal-unites { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; margin-left: auto; }
+.wdg-cal-unites .wdg-cal-u { padding: 2px 8px; white-space: nowrap; }
+.wdg-cal-bar .wdg-cal-nav { margin-left: 6px; }
+/* Barre étroite : les unités passent à la ligne AVANT les flèches plutôt que de tout comprimer. */
+@container dtpcal (max-width: 560px) {
+  .wdg-cal-bar { flex-wrap: wrap; row-gap: 5px; }
+  .wdg-cal-unites { margin-left: 0; }
+  .wdg-cal-unites .wdg-cal-u { padding: 2px 6px; font-size: 9.5px; }
+}

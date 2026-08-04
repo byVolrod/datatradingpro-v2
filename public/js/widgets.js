@@ -559,6 +559,12 @@
       opts: [
         { k: 'impact', lbl: 'Impact', type: 'choix', def: 'all',
           choix: [['all', 'Tous'], ['med', 'Moyen +'], ['high', 'Fort']] },
+        // Unité de fenêtre, MÉMORISÉE par carte mais absente du panneau de réglages (`cache: true`,
+        // même mécanique que la clé `off` du fil d'actualité) : le choix vit sur les boutons
+        // Jour / Semaine / Mois de la barre, à côté des flèches — c'est de la navigation, pas un
+        // réglage. L'afficher aussi dans les réglages ferait le doublon déjà refusé ailleurs.
+        { k: 'periode', type: 'choix', def: 'semaine', cache: true,
+          choix: [['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']] },
       ],
       mount: function (host, it) {
         var W = this;
@@ -571,28 +577,45 @@
         var _tous = [], _imp = ({ all: 'ALL', med: 'Medium', high: 'High' })[opt(it, W, 'impact')] || 'ALL', _q = '';
         // SEMAINE AFFICHÉE : 0 = semaine courante, -1 = précédente… `_back` = profondeur de données
         // déjà téléchargée (0 = live ≈ 3 semaines de passé ; 1-3 = mois d'archive via ?back=N).
-        var _sem = 0, _back = 0, _busy = false;
+        // FENÊTRE À TROIS UNITÉS (04/08, demande user) : Jour · Semaine · Mois. `_dec` est le décalage
+        // EN UNITÉS (0 = période courante, -1 = précédente…). L'unité est mémorisée par carte via
+        // l'option cachée `periode` : elle survit au remontage sans encombrer le panneau de réglages.
+        var _unite = opt(it, W, 'periode') || 'semaine';
+        var _dec = 0, _back = 0, _busy = false;
+        // Recul maximal par unité — l'API d'archive plafonne à 3 mois, on ne propose pas au-delà.
+        var _LIM = { jour: -90, semaine: -12, mois: -3 };
+        var _UNITES = [['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']];
         var _MOISFR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-        var _lundi = function (dec) {                        // lundi 00:00 de la semaine décalée de `dec`
+        var _MOISLG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+        var _JOURSFR = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+        var _debut = function (dec) {                        // 00:00 du début de la période décalée
           var d = new Date(); d.setHours(0, 0, 0, 0);
-          d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + dec * 7);
+          if (_unite === 'jour') { d.setDate(d.getDate() + dec); return d; }
+          // ⚠️ setDate(1) AVANT setMonth : sans ça, un 31 mars + 1 mois donne le 1er mai (débordement).
+          if (_unite === 'mois') { d.setDate(1); d.setMonth(d.getMonth() + dec); return d; }
+          d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + dec * 7);   // lundi de la semaine visée
           return d;
         };
-        var _bornes = function () {                          // [lundi 00:00 , vendredi 23:59:59]
-          var a = _lundi(_sem), b = new Date(a);
-          b.setDate(a.getDate() + 4); b.setHours(23, 59, 59, 999);
+        var _bornes = function () {
+          var a = _debut(_dec), b = new Date(a);
+          if (_unite === 'mois') { b.setMonth(a.getMonth() + 1); b.setDate(0); }   // dernier jour du mois
+          else if (_unite === 'semaine') b.setDate(a.getDate() + 4);               // vendredi (pas de week-end)
+          b.setHours(23, 59, 59, 999);
           return [a.getTime(), b.getTime()];
         };
-        var _libSem = function () {                          // « 3 – 7 août » · « 28 juil. – 1 août »
-          var a = _lundi(_sem), b = new Date(a); b.setDate(a.getDate() + 4);
+        var _lib = function () {
+          var a = _debut(_dec);
+          if (_unite === 'jour') return _JOURSFR[a.getDay()] + ' ' + a.getDate() + ' ' + _MOISFR[a.getMonth()];
+          if (_unite === 'mois') return _MOISLG[a.getMonth()] + ' ' + a.getFullYear();
+          var b = new Date(a); b.setDate(a.getDate() + 4);   // « 3 – 7 août » · « 28 juil. – 1 août »
           return a.getMonth() === b.getMonth()
             ? a.getDate() + ' – ' + b.getDate() + ' ' + _MOISFR[b.getMonth()]
             : a.getDate() + ' ' + _MOISFR[a.getMonth()] + ' – ' + b.getDate() + ' ' + _MOISFR[b.getMonth()];
         };
-        // Profondeur d'archive nécessaire pour couvrir la semaine visée (l'API plafonne à 3 mois).
+        // Profondeur d'archive nécessaire pour couvrir la période visée (l'API plafonne à 3 mois).
         var _besoin = function (dec) {
-          var j = Math.ceil((Date.now() - _lundi(dec).getTime()) / 86400000);
-          return j <= 18 ? 0 : Math.min(3, Math.ceil((j - 18) / 30) + 0 || 1);
+          var j = Math.ceil((Date.now() - _debut(dec).getTime()) / 86400000);
+          return j <= 18 ? 0 : Math.min(3, Math.ceil((j - 18) / 30) || 1);
         };
         var _BTNS = [['ALL', 'Tous', ''], ['High', 'Élevé', ' cal-imp-btn--high'], ['Medium', 'Moyen', ' cal-imp-btn--med'], ['Low', 'Faible', ' cal-imp-btn--low']];
         var barre = function () {
@@ -607,10 +630,16 @@
             // NAVIGATION PAR SEMAINE (04/08, demande user) : la fenêtre est la semaine lundi→vendredi
             // et sa DATE est affichée ; ‹ recule d'une semaine (jusqu'à ~3 mois, limite de l'API),
             // › avance (la semaine prochaine est déjà couverte par le flux live).
+            + '<span class="wdg-cal-unites">'
+            +   _UNITES.map(function (u) {
+                  return '<button type="button" class="cal-imp-btn wdg-cal-u' + (_unite === u[0] ? ' cal-imp-btn--active' : '')
+                    + '" data-unite="' + u[0] + '">' + u[1] + '</button>';
+                }).join('')
+            + '</span>'
             + '<span class="wdg-cal-nav">'
-            +   '<button type="button" class="cal-range-arrow wdg-cal-prev" title="Semaine précédente"' + (_sem <= -12 || _busy ? ' disabled' : '') + '>‹</button>'
-            +   '<span class="wdg-cal-per' + (_sem === 0 ? ' is-now' : '') + '">' + _libSem() + '</span>'
-            +   '<button type="button" class="cal-range-arrow wdg-cal-next" title="Semaine suivante"' + (_sem >= 1 || _busy ? ' disabled' : '') + '>›</button>'
+            +   '<button type="button" class="cal-range-arrow wdg-cal-prev" title="Période précédente"' + (_dec <= _LIM[_unite] || _busy ? ' disabled' : '') + '>‹</button>'
+            +   '<span class="wdg-cal-per' + (_dec === 0 ? ' is-now' : '') + '">' + _lib() + '</span>'
+            +   '<button type="button" class="cal-range-arrow wdg-cal-next" title="Période suivante"' + (_dec >= 1 || _busy ? ' disabled' : '') + '>›</button>'
             + '</span>'
             + '</div>';
         };
@@ -712,17 +741,30 @@
             });
           }
           var pv = host.querySelector('.wdg-cal-prev'), nx = host.querySelector('.wdg-cal-next');
-          if (pv) pv.addEventListener('click', function () { versSemaine(_sem - 1); });
-          if (nx) nx.addEventListener('click', function () { versSemaine(_sem + 1); });
+          if (pv) pv.addEventListener('click', function () { versPeriode(_dec - 1); });
+          if (nx) nx.addEventListener('click', function () { versPeriode(_dec + 1); });
+          host.querySelectorAll('.wdg-cal-u').forEach(function (b) {
+            b.addEventListener('click', function () {
+              var u = b.getAttribute('data-unite');
+              if (_busy || u === _unite) return;
+              _unite = u; _dec = 0;                            // on repart TOUJOURS sur la période courante
+              var i = _hostIdx(host);
+              if (i != null) API.setOptQuiet(i, 'periode', u);  // mémorisé sans reconstruire la carte
+              // Le mois demande plus d'archive que la semaine : on télécharge si besoin.
+              var besoin = _besoin(0);
+              if (besoin > _back) { _busy = true; dessine(); charge(besoin); return; }
+              dessine();
+            });
+          });
         };
         // CHANGEMENT DE SEMAINE : si la semaine visée sort de ce qui est déjà téléchargé, on va
         // chercher la profondeur d'archive nécessaire (?back=N mois, API de l'onglet Calendrier) ;
         // sinon on se contente de re-filtrer en mémoire — instantané.
-        var versSemaine = function (n) {
+        var versPeriode = function (n) {
           if (_busy) return;
-          n = Math.max(-12, Math.min(1, n | 0));
-          if (n === _sem) return;
-          _sem = n;
+          n = Math.max(_LIM[_unite], Math.min(1, n | 0));
+          if (n === _dec) return;
+          _dec = n;
           var besoin = _besoin(n);
           if (besoin <= _back) { dessine(); return; }        // déjà couvert par les données en main
           _busy = true; dessine();
