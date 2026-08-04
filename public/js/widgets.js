@@ -535,6 +535,7 @@
         // widget devient un vrai panneau du desk et non une table nue. Les deux commandes filtrent en
         // direct, sans re-télécharger : le calendrier complet reste en mémoire.
         var _tous = [], _imp = ({ all: 'ALL', med: 'Medium', high: 'High' })[opt(it, W, 'impact')] || 'ALL', _q = '';
+        var _back = 0, _busy = false;                       // mois d'historique remontés (0 = live), verrou anti-course
         var _BTNS = [['ALL', 'Tous', ''], ['High', 'Élevé', ' cal-imp-btn--high'], ['Medium', 'Moyen', ' cal-imp-btn--med'], ['Low', 'Faible', ' cal-imp-btn--low']];
         var barre = function () {
           return '<div class="cal-filter-row wdg-cal-bar">'
@@ -545,7 +546,17 @@
             + '</div>'
             + '<div class="cal-search-wrap"><span class="cal-search-icon">⌕</span>'
             +   '<input type="text" class="cal-search-input wdg-cal-q" placeholder="Rechercher des événements…" value="' + esc(_q) + '"></div>'
-            + '<span class="cal-live-badge"><span class="cal-live-dot"></span>DIRECT</span>'
+            // HISTORIQUE (04/08, demande user « je ne peux pas remonter dans le passé, je veux tout
+            // comme le vrai du desk ») : mêmes flèches ‹ › que l'onglet Calendrier, même API
+            // (?back=1..3 mois), mêmes bornes. Le badge DIRECT devient l'étiquette de la période
+            // remontée — on sait toujours ce qu'on regarde.
+            + '<span class="wdg-cal-nav">'
+            +   '<button type="button" class="cal-range-arrow wdg-cal-prev" title="Mois précédent"' + (_back >= 3 || _busy ? ' disabled' : '') + '>‹</button>'
+            +   (_back > 0
+                  ? '<span class="wdg-cal-per">−' + _back + ' mois</span>'
+                  : '<span class="cal-live-badge"><span class="cal-live-dot"></span>DIRECT</span>')
+            +   '<button type="button" class="cal-range-arrow wdg-cal-next" title="Revenir vers le présent"' + (_back <= 0 || _busy ? ' disabled' : '') + '>›</button>'
+            + '</span>'
             + '</div>';
         };
         var dessine = function () {
@@ -639,6 +650,31 @@
               if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} }
             });
           }
+          var pv = host.querySelector('.wdg-cal-prev'), nx = host.querySelector('.wdg-cal-next');
+          if (pv) pv.addEventListener('click', function () { charge(_back + 1); });
+          if (nx) nx.addEventListener('click', function () { charge(_back - 1); });
+        };
+        // CHARGEMENT (live ou historique) : ?back=N mois, exactement l'API de l'onglet Calendrier.
+        // En remontant, on garde TOUT le passé de la fenêtre (le filtre « Passé » ne s'applique qu'au
+        // direct) — sinon remonter d'un mois n'aurait rien montré.
+        var charge = function (n) {
+          if (_busy) return;
+          n = Math.max(0, Math.min(3, n | 0));
+          if (n === _back && _tous.length) return;
+          _busy = true; _back = n; dessine();
+          fetch(n > 0 ? ('/api/calendar-events?back=' + n) : '/api/calendar-events')
+            .then(function (r) { return r.json(); }).then(function (j) {
+              if (!host.isConnected) return;
+              var now = Date.now(), gardePasse = parseInt(opt(it, W, 'passe'), 10) || 0;
+              _tous = ((j && j.items) || [])
+                .filter(function (e) { return e && (n > 0 || (e.timestamp || 0) > now - gardePasse * 3600e3); })
+                .sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+              _busy = false;
+              if (!_tous.length) { host.innerHTML = '<div class="wdg-cal-panel">' + barre() + '<div class="wdg-cal-wrap"><div class="wdg-empty">Aucun événement sur cette période.</div></div></div>'; return cabler(); }
+              dessine();
+              // Historique : on se pose sur la FIN de la période (le plus récent), comme le desk.
+              if (n > 0) { var w2 = host.querySelector('.wdg-cal-wrap'); if (w2) w2.scrollTop = w2.scrollHeight; }
+            }).catch(function () { _busy = false; dessine(); });
         };
         fetch('/api/calendar-events').then(function (r) { return r.json(); }).then(function (j) {
           if (!host.isConnected) return;

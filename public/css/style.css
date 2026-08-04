@@ -14467,3 +14467,11 @@ body.home-mode .view-panel { visibility: hidden; }
    Dans Mon Desk, le groupe reste VISIBLE ; la discrétion se joue au niveau des icônes (.62). */
 #view-widgets .wdg-actions { opacity: 1; }
 #view-widgets .wdg-card:hover .wdg-actions, #view-widgets .wdg-card:focus-within .wdg-actions { opacity: 1; }
+
+/* Navigation d'historique du calendrier en widget : flèches ‹ › + étiquette de période. */
+.wdg-cal-nav { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.wdg-cal-per {
+  font-family: var(--font-mono); font-size: 10px; color: var(--orange, #e3b23a);
+  background: rgba(227,178,58,.10); border: 1px solid rgba(227,178,58,.35);
+  border-radius: 3px; padding: 2px 7px; white-space: nowrap;
+}
