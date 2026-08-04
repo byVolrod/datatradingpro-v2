@@ -14105,3 +14105,10 @@ body.home-mode .view-panel { visibility: hidden; }
    repère (le choix vit dans Personnaliser › Layouts — double-clic = renommer). */
 .wdg-lay--cur { cursor: default; }
 .wdg-lay--cur .wdg-lay-name { cursor: text; }
+
+/* ── FORCE DES DEVISES mobile (04/08) : pastilles de droite COMPACTES ≤640px — huit
+   étiquettes tiennent dans un petit tracé sans se couper ni sortir du cadre (complète la
+   compression d'écart du declutter, charts.js). */
+@media (max-width: 640px) {
+  .cs-badge-ccy { font-size: 9px; padding: 1px 5px; }
+}
