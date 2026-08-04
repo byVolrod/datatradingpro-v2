@@ -14322,3 +14322,41 @@ body.home-mode .view-panel { visibility: hidden; }
 }
 /* Repli pour les moteurs sans :has() — la barre en en-tête (--head) garde son habillage nu. */
 .wdg-fx-tfbar--head { height: auto !important; padding: 0 !important; background: none !important; border-bottom: 0 !important; }
+
+/* ════ MON DESK — CHROME ÉPURÉ (04/08) ════════════════════════════════════════════════════════
+   PRINCIPES d'ergonomie seulement (aucun visuel ni nom repris d'un terminal tiers — règle IP) :
+   (1) un en-tête ne doit pas être une BANDE GRISE : même fond que la carte + un simple filet →
+       la donnée porte l'écran, le chrome disparaît ; (2) les commandes ne s'affichent pas en
+       permanence : posées à voix basse au repos, elles reviennent au survol de LEUR carte.
+   Scopé à #view-widgets : le desk classique garde ses en-têtes pleins. ─────────────────────── */
+
+/* (1) EN-TÊTES À PLAT — carte, bandeau de nom, barre Force et vues adoptées : même traitement,
+   pour que tout se ressemble (exigence user) tout en s'allégeant. */
+#view-widgets .wdg-head,
+#view-widgets .wdgt-subname,
+#view-widgets .wdgt-bar,
+#view-widgets .wdg-fx-tfbar:has(.wdg-fx-lbl),
+#view-widgets .wdg-vuehost .panel-header {
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+}
+/* Le contour de la carte s'apaise d'un cran ; le survol garde son liseré or. */
+#view-widgets .wdg-card { border-color: rgba(255, 255, 255, .07); }
+
+/* (2) COMMANDES DISCRÈTES : au repos elles s'effacent, au survol de la carte elles reviennent.
+   Trait plus fin (1.5) → dessin plus léger, même géométrie. */
+#view-widgets .wdg-ico,
+#view-widgets .wdg-grip {
+  opacity: .34;
+  transition: opacity .16s var(--ease, ease), color .14s, background .14s;
+}
+#view-widgets .wdg-card:hover .wdg-ico,
+#view-widgets .wdg-card:hover .wdg-grip,
+#view-widgets .wdg-card:focus-within .wdg-ico,
+#view-widgets .wdg-card:focus-within .wdg-grip { opacity: 1; }
+#view-widgets .wdg-ico:hover, #view-widgets .wdg-grip:hover { opacity: 1; }
+#view-widgets .wdg-ico svg { stroke-width: 1.5; }
+/* Écran tactile : pas de survol possible → les commandes restent lisibles en permanence. */
+@media (hover: none) {
+  #view-widgets .wdg-ico, #view-widgets .wdg-grip { opacity: .85; }
+}
