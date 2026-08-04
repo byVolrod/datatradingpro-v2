@@ -2179,16 +2179,29 @@
   function renderBar() {
     var el = document.getElementById('wdg-layouts'); var c = STATE.cfg;
     if (!el) return;
-    if (!c || !c.layouts.length) { el.innerHTML = ''; return; }
+    // BANDE MASQUÉE QUAND ELLE EST VIDE (demande user 04/08 « masque cette bande noire pour gagner
+    // de l'espace ») : depuis le retrait du bouton Personnaliser, la barre ne porte plus rien tant
+    // qu'un seul layout est affiché → on la retire du flux, le desk gagne sa hauteur.
+    var bar = el.closest ? el.closest('.wdg-bar') : null;
+    var vide = function (v) { if (bar) bar.classList.toggle('wdg-bar--vide', !!v); };
+    if (!c || !c.layouts.length) { el.innerHTML = ''; vide(true); return; }
     var vis = c.layouts.filter(function (l) { return !l.hidden; });
-    if (vis.length <= 1) { el.innerHTML = ''; return; }
+    if (vis.length <= 1) { el.innerHTML = ''; vide(true); return; }
+    vide(false);
     el.innerHTML = vis.map(function (l) {
       // classes de la NAV DU DESK : l'apparence vient d'elle, pas d'une copie de ses valeurs
-      return '<button class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
+      return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
+        + ' role="button" tabindex="0"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         + '<span class="wdg-lay-chv">›</span>'
         + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
-        + '<span class="wdg-lay-name">' + esc(l.name) + '</span></button>';
+        + '<span class="wdg-lay-name">' + esc(l.name) + '</span>'
+        // ✕ = FERMER l'onglet, PAS supprimer le layout (demande user 04/08) : il retourne dans
+        // Personnaliser › Layouts, prêt à être rouvert. Quand il n'en reste qu'UN, la barre entière
+        // se masque (cf. plus haut) → l'espace est rendu au desk.
+        + '<button class="wdg-lay-x" title="Fermer cet onglet (le layout reste dans Personnaliser)"'
+        +   ' onclick="event.stopPropagation();DTPWidgets.toggleHide(\'' + l.id + '\')">×</button>'
+        + '</span>';
     }).join('');
   }
   // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
@@ -2249,36 +2262,45 @@
         + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » — remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
       return;
     }
-    box.innerHTML = c.layouts.map(function (l, li) {
+    // SÉLECTION EN GRILLE DE CARTES (refonte 04/08, demande user « il faut que ce soit intuitif
+    // pour sélectionner le layout ») : la VIGNETTE devient le sujet (on reconnaît son desk à sa
+    // forme), un CLIC N'IMPORTE OÙ sur la carte l'ouvre. Les actions secondaires (défaut ★,
+    // afficher dans la barre, supprimer) sont des pastilles en coin, elles n'avalent pas le clic
+    // (stopPropagation). Le nom se renomme au DOUBLE-CLIC, comme les onglets.
+    box.innerHTML = '<div class="wdg-mgr-grid">' + c.layouts.map(function (l, li) {
       var active = l.id === c.active;
+      var stop = 'event.stopPropagation();';
       var del = (l.id === PROTECTED_ID)
         ? '<span class="wdg-mgr-lock" title="Modèle par défaut — non supprimable">' + ICO.lock + '</span>'
         : (l.id === _delConfirm)
-          ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
-          : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
-      return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '" data-i="' + li + '">'
-        + '<button class="wdg-mgr-grip" draggable="true" title="Glisser pour réordonner">⠿</button>'
-        + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
-        + _thumb(l.items, { labels: true })
-        // Suppresseurs de GESTIONNAIRES DE MOTS DE PASSE (demande user 03/08 « enlève ceci » : une clé
-        // violette s'incrustait dans le champ) : ces extensions décorent tout input texte qui leur
-        // semble un identifiant — les attributs data-* les en dissuadent, chacun le sien.
-        + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
-        +   ' autocomplete="off" name="dtp-nom-desk" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true" data-form-type="other"'
-        +   ' onchange="DTPWidgets.renameLayout(\'' + l.id + '\', this.value)">'
-        + (l.hidden ? '<span class="wdg-mgr-closed">Fermé</span>' : '')
-        + '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
-        + '<button class="wdg-mgr-eye' + (l.hidden ? '' : ' on') + '" title="' + (l.hidden ? 'Ré-ouvrir — l\'onglet réapparaît dans la barre' : 'Masquer — l\'onglet disparaît de la barre') + '" onclick="DTPWidgets.toggleHide(\'' + l.id + '\')">'
-        +   (l.hidden
-              ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/></svg>'
-              : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h6.5A1.5 1.5 0 0 1 19 9v1.5"/><path d="M4.8 10.5h15.4l-2 7a1.5 1.5 0 0 1-1.4 1H6.1a1.5 1.5 0 0 1-1.4-1.1z"/></svg>')
-        + '</button>'
-        + '<button class="wdg-mgr-open" onclick="DTPWidgets.switchLayout(\'' + l.id + '\')">' + (active ? 'Actif' : 'Ouvrir') + '</button>'
-        + del + '</div>';
+          ? '<button class="wdg-mgr-del confirm" onclick="' + stop + 'DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
+          : '<button class="wdg-mgr-del" title="Supprimer ce layout" onclick="' + stop + 'DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
+      return '<div class="wdg-mgr-card' + (active ? ' on' : '') + (l.hidden ? ' is-hidden' : '') + '" data-i="' + li + '"'
+        + ' role="button" tabindex="0" title="' + esc(l.name) + ' — cliquer pour ouvrir · double-clic sur le nom pour renommer"'
+        + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')"'
+        + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();DTPWidgets.switchLayout(\'' + l.id + '\');}">'
+        + '<span class="wdg-mgr-face">' + _thumb(l.items, { labels: true }) + '</span>'
+        + (active ? '<span class="wdg-mgr-badge">Actif</span>' : '')
+        + '<span class="wdg-mgr-acts">'
+        +   '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Layout par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="' + stop + 'DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
+        +   '<button class="wdg-mgr-eye' + (l.hidden ? '' : ' on') + '" title="' + (l.hidden ? 'Afficher aussi dans la barre (plusieurs layouts côte à côte)' : 'Ne plus afficher dans la barre') + '" onclick="' + stop + 'DTPWidgets.toggleHide(\'' + l.id + '\')">'
+        +     (l.hidden
+                ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/></svg>'
+                : '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h6.5A1.5 1.5 0 0 1 19 9v1.5"/><path d="M4.8 10.5h15.4l-2 7a1.5 1.5 0 0 1-1.4 1H6.1a1.5 1.5 0 0 1-1.4-1.1z"/></svg>')
+        +   '</button>'
+        +   del
+        + '</span>'
+        // Renommage au DOUBLE-CLIC (le simple clic ouvre le layout) — champ masqué jusque-là.
+        + '<span class="wdg-mgr-foot">'
+        +   '<span class="wdg-mgr-nom" ondblclick="' + stop + 'DTPWidgets.editCardName(\'' + l.id + '\', this)">' + esc(l.name) + '</span>'
+        +   '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
+        + '</span></div>';
     }).join('')
       + (c.layouts.length < _LMAX
-          ? '<button class="wdg-mgr-new" onclick="DTPWidgets.newLayout()">+ Créer un layout</button>'
-          : '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>')
+          ? '<button class="wdg-mgr-card wdg-mgr-card--new" onclick="DTPWidgets.newLayout()"><span class="wdg-mgr-plus">+</span><span>Créer un layout</span></button>'
+          : '')
+      + '</div>'
+      + (c.layouts.length >= _LMAX ? '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>' : '')
       // Les MODÈLES PRÊTS ne vivent plus ici (ils brouillaient la création) : ils restent dans la bibliothèque.
       + '<div class="wdg-mgr-tplhint">Envie d\'un desk pré-composé ? Les modèles prêts sont dans la <button class="wdg-mgr-tpllink" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">bibliothèque de widgets</button>.</div>';
   }
@@ -3045,6 +3067,30 @@ function _spansAffiches(lay) {
       API.openManager();
     },
     backManager: function () { _mgrMode = null; renderManager(); },
+    // Renommage INLINE d'une carte de layout (double-clic sur son nom) : le libellé devient un
+    // champ, Entrée/blur valide, Échap annule — même grammaire que les onglets.
+    editCardName: function (id, span) {
+      var l = layoutById(id); if (!l || !span || span._edit) return;
+      span._edit = 1;
+      var inp = document.createElement('input');
+      inp.className = 'wdg-mgr-nomedit'; inp.maxLength = 40; inp.value = l.name;
+      inp.setAttribute('spellcheck', 'false'); inp.setAttribute('autocomplete', 'off');
+      inp.setAttribute('data-lpignore', 'true'); inp.setAttribute('data-1p-ignore', '');
+      inp.setAttribute('data-bwignore', ''); inp.setAttribute('data-protonpass-ignore', 'true');
+      span.replaceWith(inp); inp.focus(); inp.select();
+      var fait = false;
+      var fin = function (ok) {
+        if (fait) return; fait = true;
+        if (ok) { API.renameLayout(id, inp.value); renderBar(); }
+        renderManager();
+      };
+      inp.addEventListener('click', function (e) { e.stopPropagation(); });
+      inp.addEventListener('keydown', function (e) {
+        e.stopPropagation();
+        if (e.key === 'Enter') fin(true); else if (e.key === 'Escape') fin(false);
+      });
+      inp.addEventListener('blur', function () { fin(true); });
+    },
     createLayout: function (di) {
       var c = STATE.cfg; if (!c) return;
       _delConfirm = null; _mgrMode = null;
