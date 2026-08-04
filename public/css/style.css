@@ -14986,3 +14986,9 @@ body.theme-light .cot-cell--na .cot-badge { background: var(--bg3); color: var(-
   .wdg-cal-unites { margin-left: 0; }
   .wdg-cal-unites .wdg-cal-u { padding: 2px 6px; font-size: 9.5px; }
 }
+
+/* ── ALERTES : deux types ajoutés à la taxonomie (04/08). « Institutions » quitte la teinte des
+   Analystes pour ne plus se confondre avec elle, et « DTP » prend l'or de la marque — c'est le
+   seul type produit par le desk lui-même, il mérite la couleur maison. */
+.np-origin--inst { color: #38bdf8; }
+.np-origin--dtp  { color: var(--orange, #e3b23a); }
