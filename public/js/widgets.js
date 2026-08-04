@@ -77,6 +77,16 @@
     if (d.type === 'texte') return String(v);            // valeur libre (ex. sections décochées)
     if (d.type === 'bascule') return !!v;
     if (d.type === 'nombre') { v = parseInt(v, 10); return isFinite(v) ? _clamp(v, d.min, d.max) : d.def; }
+    // 'multi' : sélection multiple, stockée en chaîne « a|b|c » (le serveur ne valide QUE la forme
+    // de it.cfg — il n'accepte pas de tableau). On rend un TABLEAU, filtré des codes qui ne sont
+    // plus au catalogue, et on retombe sur le défaut si tout a été décoché (une carte vide ne rend
+    // service à personne : mieux vaut la sélection d'origine).
+    if (d.type === 'multi') {
+      var gardes = String(v).split('|').filter(function (x) {
+        return x && d.choix.some(function (c) { return c[0] === x; });
+      });
+      return gardes.length ? gardes : d.def;
+    }
     // 'choix' : une valeur devenue invalide (option retirée du catalogue) retombe sur le défaut
     for (var i = 0; i < d.choix.length; i++) if (d.choix[i][0] === v) return v;
     return d.def;
@@ -225,6 +235,18 @@
         ctl = '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',-1)" aria-label="moins">−</button>'
           + '<span class="wdg-step-val">' + esc(String(cur)) + '</span>'
           + '<button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',1)" aria-label="plus">+</button></span>';
+      } else if (o.type === 'multi') {
+        // Liste à cocher — même grammaire que les sections du fil (.wdg-set-sec). Elle occupe sa
+        // PROPRE ligne, pleine largeur : 27 villes en pastilles à droite d'un libellé seraient
+        // illisibles. On affiche aussi le compte, sinon on ne sait pas ce qu'on a coché plus bas.
+        var sel = {}; (cur || []).forEach(function (x) { sel[x] = 1; });
+        return '<div class="wdg-set-sep"></div>'
+          + '<div class="wdg-set-tabs-t">' + esc(o.lbl) + ' <b>' + (cur || []).length + '/' + o.choix.length + '</b></div>'
+          + '<div class="wdg-set-secs">' + o.choix.map(function (c) {
+              return '<button class="wdg-set-sec' + (sel[c[0]] ? ' on' : '') + '"'
+                + ' onclick="DTPWidgets.toggleMulti(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\',\'' + S + '\')">'
+                + '<span>' + esc(c[1]) + '</span><i>✓</i></button>';
+            }).join('') + '</div>';
       } else {
         ctl = '<span class="wdg-set-chips">' + o.choix.map(function (c) {
           return '<button class="wdg-set-chip' + (c[0] === cur ? ' on' : '') + '"'
