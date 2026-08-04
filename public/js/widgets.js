@@ -74,6 +74,7 @@
     var d = optDef(w, k); if (!d) return undefined;
     var v = it && it.cfg ? it.cfg[k] : undefined;
     if (v === undefined || v === null) return d.def;
+    if (d.type === 'texte') return String(v);            // valeur libre (ex. sections décochées)
     if (d.type === 'bascule') return !!v;
     if (d.type === 'nombre') { v = parseInt(v, 10); return isFinite(v) ? _clamp(v, d.min, d.max) : d.def; }
     // 'choix' : une valeur devenue invalide (option retirée du catalogue) retombe sur le défaut
@@ -156,8 +157,27 @@
           + _optsHtml(idx, _tw, _tabItem(it, _tj), 'setTabOpt');
       }
     }
+    // SECTIONS DU FIL (04/08, demande user) : la liste des rubriques vit ici, en cases à cocher
+    // persistées — le menu volant de la barre a disparu. Libellés FR du desk (catFr).
+    var sectionsBloc = '';
+    if (w.id === 'fil-news') {
+      var _cats = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS))
+        ? INTERNAL_CATS.filter(function (c) { return c !== 'Bonds'; }) : [];
+      if (_cats.length) {
+        var _offSet = {};
+        String(opt(it, w, 'off') || '').split('|').forEach(function (c) { if (c) _offSet[c] = 1; });
+        sectionsBloc = '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Sections affichées</div>'
+          + '<div class="wdg-set-secs">' + _cats.map(function (c) {
+              var lib = (typeof catFr === 'function') ? catFr(c) : c;
+              return '<button class="wdg-set-sec' + (_offSet[c] ? '' : ' on') + '"'
+                + ' onclick="DTPWidgets.toggleNewsSection(' + idx + ',\'' + esc(c).replace(/'/g, '&#39;') + '\')">'
+                + '<span>' + esc(lib) + '</span><i>✓</i></button>';
+            }).join('') + '</div>';
+      }
+    }
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + _optsHtml(idx, w, it)
+      + sectionsBloc
       + sousReglages
       + onglets
       + actions;
@@ -173,6 +193,8 @@
   function _optsHtml(idx, w, it, setter) {
     var l = (w && w.opts) || []; if (!l.length) return '';
     var S = setter || 'setOpt', B = (S === 'setTabOpt') ? 'bumpTabOpt' : 'bumpOpt';
+    l = l.filter(function (o) { return !o.cache; });      // réglages rendus par un bloc dédié (ex. sections du fil)
+    if (!l.length) return '';
     return '<div class="wdg-set-sep"></div>' + l.map(function (o) {
       var cur = opt(it, w, o.k), ctl;
       if (o.type === 'bascule') {
@@ -1128,7 +1150,12 @@
     {
       id: 'fil-news', name: "Fil d'actualité", cat: 'News', h: 320,
       desc: 'Les dernières news du desk, en direct.',
-      opts: [{ k: 'nb', lbl: 'Actus', type: 'nombre', def: 15, min: 5, max: 40, pas: 5 }],
+      // `off` = sections DÉCOCHÉES, jointes par « | » (réglage caché du panneau : il est rendu par
+      // une liste dédiée dans _setPanelHtml, pas par une pastille de choix).
+      opts: [
+        { k: 'nb', lbl: 'Actus', type: 'nombre', def: 15, min: 5, max: 40, pas: 5 },
+        { k: 'off', lbl: 'Sections', type: 'texte', def: '', cache: true },
+      ],
       // LE PANNEAU DU DESK À L'IDENTIQUE (demande user 02/08, capture à l'appui) : barre d'outils
       // « Sections d'actualités » + recherche + compteur (classes exactes .panel-toolbar/.toolbar-select/
       // .toolbar-search/.item-count), menu de sections en cases à cocher (.section-dropdown), pastille
@@ -1136,20 +1163,29 @@
       // formatDate du desk) et lignes buildNewsItem — plus une simple liste nue.
       mount: function (host, it) {
         var W = this;
-        var sig = '', q = '', off = {};                     // off = sections décochées (tout coché par défaut)
+        var sig = '', q = '';
         var plus = 0, chargeEnCours = false;                // items révélés en plus du réglage (bouton « Charger plus »)
+        // SECTIONS DÉCOCHÉES = un RÉGLAGE persisté (04/08, demande user : « enlève le bouton
+        // sections, mets réglages pour choisir les sections ») — plus de menu volant dans la barre.
+        var off = {};
+        String(opt(it, W, 'off') || '').split('|').forEach(function (c) { if (c) off[c] = 1; });
+        // BARRE ÉPURÉE : la RECHERCHE occupe toute la largeur ; le compteur et la légende des
+        // marqueurs descendent EN BAS (référence user), là où on les lit sans gêner la lecture.
         host.innerHTML = '<div class="wdg-news-panel">'
-          + '<div class="panel-toolbar">'
-          +   '<div class="toolbar-select wdg-nw-secbtn"><span>Sections d\'actualités</span><span class="select-arrow">▾</span></div>'
-          +   '<div class="toolbar-search"><span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20.5 20.5 16.5 16.5"/></svg></span>'
-          +     '<input type="text" class="wdg-nw-q" placeholder="Rechercher des événements..."></div>'
-          +   '<div class="toolbar-right"><span class="item-count wdg-nw-count">— items</span></div>'
+          + '<div class="panel-toolbar wdg-nw-tb">'
+          +   '<div class="toolbar-search wdg-nw-search"><span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20.5 20.5 16.5 16.5"/></svg></span>'
+          +     '<input type="text" class="wdg-nw-q" placeholder="Rechercher une actualité…"></div>'
           + '</div>'
-          + '<div class="section-dropdown hidden wdg-nw-drop"><div class="dropdown-header">Filtrer les sections</div><div class="dropdown-grid wdg-nw-grid"></div></div>'
           + '<div class="news-list wdg-news custom-scrollbar"><div class="wdg-skel"><span class="wdg-skel-l" style="width:78%"></span><span class="wdg-skel-l" style="width:64%"></span><span class="wdg-skel-l" style="width:82%"></span></div></div>'
+          + '<div class="wdg-nw-legend">'
+          +   '<span class="wdg-nw-lg"><i class="wdg-lg wdg-lg--brk"></i>Breaking</span>'
+          +   '<span class="wdg-nw-lg"><i class="wdg-lg wdg-lg--ana"></i>Analyse</span>'
+          +   '<span class="wdg-nw-lg"><i class="wdg-lg wdg-lg--hi"></i>Priorité haute</span>'
+          +   '<span class="wdg-nw-count">— items</span>'
+          + '</div>'
           + '</div>';
-        var liste = host.querySelector('.news-list'), grid = host.querySelector('.wdg-nw-grid');
-        var drop = host.querySelector('.wdg-nw-drop'), count = host.querySelector('.wdg-nw-count');
+        var liste = host.querySelector('.news-list');
+        var count = host.querySelector('.wdg-nw-count');
         // Pastille verte « Flux en direct » dans l'en-tête de la carte — comme le desk la porte dans son
         // panel-header. Pas dans le panneau à onglets : son en-tête est un calque pointer-events:none.
         var carte = host.closest ? host.closest('.wdg-card') : null;
@@ -1162,17 +1198,8 @@
             if (act) tete.insertBefore(dot, act); else tete.appendChild(dot);
           }
         }
-        // Sections = les CATÉGORIES INTERNES du desk (INTERNAL_CATS + libellés catFr), pas une liste
-        // maison : le menu du widget est ainsi mot pour mot celui de l'onglet ACTUS. Repli sur les
-        // catégories observées dans le flux si les globales manquent.
-        var sections = function (items) {
-          var l = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS)) ? INTERNAL_CATS.slice()
-            : (function () { var vu = {}; items.forEach(function (i) { if (i && i.category) vu[i.category] = 1; }); return Object.keys(vu).sort(); })();
-          // « Bonds/Obligations » est BANNI du produit (demande user 27/07, réaffirmée 03/08) — la
-          // liste des sections ne doit pas le réintroduire.
-          return l.filter(function (c) { return c !== 'Bonds'; });
-        };
-        var libSec = function (c) { return (typeof catFr === 'function') ? catFr(c) : c; };
+        // (La liste des sections est construite dans le panneau de RÉGLAGES — mêmes catégories
+        //  internes du desk (INTERNAL_CATS/catFr), « Bonds » toujours banni du produit.)
         var render = function (force) {
           if (!host.isConnected) return;
           var items = (typeof window.getNewsMaster === 'function') ? (window.getNewsMaster() || []) : [];
@@ -1240,26 +1267,8 @@
           }
           liste.scrollTop = _scroll;
         };
-        // Menu de sections : le MARKUP EXACT du desk (.dropdown-item.active + .dropdown-check ✓,
-        // bascule au clic), tout coché par défaut — le comportement de l'onglet ACTUS.
-        var renderGridSec = function () {
-          var items = (typeof window.getNewsMaster === 'function') ? (window.getNewsMaster() || []) : [];
-          grid.innerHTML = sections(items).map(function (c) {
-            return '<div class="dropdown-item' + (off[c] ? '' : ' active') + '" data-sec="' + esc(c) + '">'
-              + '<span class="dropdown-item-label">' + esc(libSec(c)) + '</span><span class="dropdown-check">✓</span></div>';
-          }).join('') || '<div class="dropdown-item" style="opacity:.6">Aucune section</div>';
-        };
-        host.querySelector('.wdg-nw-secbtn').addEventListener('click', function () {
-          if (drop.classList.contains('hidden')) renderGridSec();
-          drop.classList.toggle('hidden');
-        });
-        grid.addEventListener('click', function (e) {
-          var el = e.target.closest('.dropdown-item[data-sec]'); if (!el) return;
-          var c = el.getAttribute('data-sec');
-          if (off[c]) delete off[c]; else off[c] = 1;
-          el.classList.toggle('active', !off[c]);
-          render(true);
-        });
+        // (le menu volant « Sections d'actualités » a été RETIRÉ 04/08 : le choix vit dans les
+        //  Réglages du widget, persisté — cf. _setPanelHtml + API.toggleNewsSection.)
         host.querySelector('.wdg-nw-q').addEventListener('input', function (e) { q = e.target.value; render(true); });
         render();
         var t = setInterval(render, 20000);                                 // le WS réassigne allItems → on resuit
@@ -3003,6 +3012,15 @@ function _spansAffiches(lay) {
     addTab: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       _pickTabFor(l.items[i]);
+    },
+    // Bascule d'une SECTION du fil d'actualité (réglage persisté `off` = rubriques décochées).
+    toggleNewsSection: function (i, cat) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i], w = byId(it.w); if (!w || w.id !== 'fil-news') return;
+      var cur = String(opt(it, w, 'off') || '').split('|').filter(Boolean);
+      var k = cur.indexOf(cat);
+      if (k >= 0) cur.splice(k, 1); else cur.push(cat);
+      API.setOpt(i, 'off', cur.join('|'));
     },
     // RÉGLAGES PROPRES À L'ONGLET AFFICHÉ (04/08) — miroir de setOpt/bumpOpt, mais la valeur est
     // écrite dans it.tabCfg[index] (whitelisté serveur) au lieu du cfg de la carte.
