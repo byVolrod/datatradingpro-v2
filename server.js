@@ -819,7 +819,9 @@ function _wdgClean(body) {
                 const v = src[k2];
                 if (typeof v === 'boolean') one[k2] = v;
                 else if (typeof v === 'number' && isFinite(v)) one[k2] = Math.max(-99999, Math.min(99999, Math.round(v)));
-                else if (typeof v === 'string') one[k2] = v.replace(/[<>]/g, '').slice(0, 32);
+                // Même exception que pour `cfg` : `off` porte une LISTE (sections décochées du fil
+                // en onglet) — 32 caractères l'auraient tronquée en silence.
+                else if (typeof v === 'string') one[k2] = v.replace(/[<>]/g, '').slice(0, (k2 === 'off' ? 240 : 32));
               }
               if (Object.keys(one).length) tc[k] = one;
             }
