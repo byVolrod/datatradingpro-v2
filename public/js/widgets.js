@@ -1124,6 +1124,11 @@
         var render = function (force) {
           if (!host.isConnected) return;
           var items = (typeof window.getNewsMaster === 'function') ? (window.getNewsMaster() || []) : [];
+          // TRI DESC OBLIGATOIRE (bug user 04/08 : « le fil affiche le 22/07 et ne bouge pas ») :
+          // allItems du desk = historique EN TÊTE + nouveautés AJOUTÉES EN QUEUE (le desk trie au
+          // rendu, pas au stockage) → slice(0,nb) sur le brut donnait les 14 plus VIEUX items, et
+          // les fraîches (position ~2000) n'entraient jamais dans la fenêtre. Copie triée récent→ancien.
+          items = items.slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
           var ql = q.trim().toLowerCase();
           var rows = items.filter(function (i) {
             if (!i) return false;
@@ -3300,15 +3305,21 @@ function _spansAffiches(lay) {
     fetch('/api/widgets-new-seen').then(function (r) { return r.json(); }).then(function (d) {
       if (d && d.seen === false) { badge.style.display = ''; badge.classList.add('pulse'); }
     }).catch(function () {});
-    // TOGGLE (23/07) : la nav principale est MASQUÉE en mode Mon Desk (dashboard autonome, demande user)
-    // → l'icône fait entrer ET sortir (re-clic = retour au fil d'actus).
+    // CYCLE (04/08, ANNULE le 28/07 — dernière consigne user : « ceci [Personnaliser] doit
+    // s'afficher quand on clique sur l'icône widget, le bouton Personnaliser tu peux l'enlever ») :
+    //  · hors Mon Desk → entrer ET ouvrir le panneau Personnaliser (choix du layout d'abord) ;
+    //  · dans Mon Desk, panneau fermé → ouvrir le panneau ;
+    //  · dans Mon Desk, panneau ouvert → le fermer et SORTIR (retour au fil — l'icône reste le
+    //    seul aller-retour puisque la nav principale est masquée en mode Mon Desk).
     icon.addEventListener('click', function () {
       badge.style.display = 'none';                           // confort visuel : masqué pour cette session
       if (typeof activateView !== 'function') return;
-      var entering = !document.body.classList.contains('wdg-mode');
-      activateView(entering ? 'widgets' : 'news');
-      // (28/07, ANNULE la demande du 26/07) : l'icône ouvre le DESK directement, sans la fenêtre
-      // « Personnaliser » — elle ne s'ouvre plus que par le bouton dédié en haut à droite.
+      var dansDesk = document.body.classList.contains('wdg-mode');
+      var mgr = document.getElementById('wdg-mgr');
+      var panneauOuvert = mgr && mgr.classList.contains('open');
+      if (!dansDesk) { activateView('widgets'); API.openManager(); return; }
+      if (!panneauOuvert) { API.openManager(); return; }
+      API.closeManager(); activateView('news');
     });
     center.insertBefore(icon, journal);                                      // à GAUCHE de Journal / Calculatrice
     // PRÉCHARGE la config (léger) → hasDefault() connu sans ouvrir Mon Desk (sert au clic sur le LOGO).
