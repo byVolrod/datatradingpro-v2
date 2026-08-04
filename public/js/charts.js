@@ -1697,6 +1697,28 @@ function _cotFit(grid) {
   grid.classList.toggle('cot-grid--scroll', !best);
 }
 
+// DONUT DE RÉPARTITION (rétabli 04/08, demande user « remets les donuts c'était bien »). Il reprend
+// la place de la barre empilée — pas en plus d'elle : les deux disaient exactement la même chose.
+// Taille MODÉRÉE et pilotée par le CSS : la version qui remplissait la carte avait été rejetée.
+// Le centre porte le pourcentage DOMINANT, dans la couleur du camp qui domine — on lit le rapport
+// de force sans avoir à comparer deux arcs.
+function _cotRing(ok, sPct, lPct, mod) {
+  const r = 28, C = 2 * Math.PI * r;
+  const arc = p => ((p / 100) * C).toFixed(2) + ' ' + (C - (p / 100) * C).toFixed(2);
+  const dom = sPct >= lPct ? sPct : lPct;
+  const cls = !ok ? 'na' : (sPct === lPct ? 'flat' : (sPct > lPct ? 'bear' : 'bull'));
+  return '<svg class="cot-ring cot-ring--' + cls + '" viewBox="0 0 80 80" role="img"'
+    + ' aria-label="Répartition : ' + sPct + ' % de positions courtes, ' + lPct + ' % de positions longues">'
+    + '<circle class="cot-ring-bg" cx="40" cy="40" r="' + r + '" fill="none"/>'
+    + '<g transform="rotate(-90 40 40)">'
+    +   '<circle class="cot-ring-s" cx="40" cy="40" r="' + r + '" fill="none" stroke-dasharray="' + arc(sPct) + '"/>'
+    +   '<circle class="cot-ring-l" cx="40" cy="40" r="' + r + '" fill="none" stroke-dasharray="' + arc(lPct) + '"'
+    +     ' stroke-dashoffset="' + (-(sPct / 100) * C).toFixed(2) + '"/>'
+    + '</g>'
+    + '<text class="cot-ring-v" x="40" y="44" text-anchor="middle">' + (ok ? dom + '%' : '—') + '</text>'
+    + '</svg>';
+}
+
 function buildCOTChart(gridId, typeArg) {
   const grid = document.getElementById(gridId || 'cot-grid');
   if (!grid) return;
@@ -1757,9 +1779,7 @@ function buildCOTChart(gridId, typeArg) {
               <span class="cot-pct cot-pct--s">${ok ? sPct + '%' : TIRET}</span>
               <span class="cot-pct cot-pct--l">${ok ? lPct + '%' : TIRET}</span>
             </div>
-            <div class="cot-bar" role="img" aria-label="Répartition : ${sPct} % de positions courtes, ${lPct} % de positions longues">
-              <i class="cot-bar-s" style="width:${sPct}%"></i><i class="cot-bar-l" style="width:${lPct}%"></i>
-            </div>
+            ${_cotRing(ok, sPct, lPct, mod)}
           </div>
           <div class="cot-book">
             <div class="cot-row cot-row--s"><span class="cot-k">Courts</span><span class="cot-v">${ok ? fmtK(cur.shortPos) : TIRET}</span></div>
@@ -1768,18 +1788,9 @@ function buildCOTChart(gridId, typeArg) {
           </div>`;
         grid.appendChild(cell);
       }
-      // La catégorie CFTC sort des cartes (elle s'y répétait 8 fois en se tronquant) mais ne doit
-      // pas disparaître : en mode widget « Mon Desk » la barre .cot-type-bar n'existe pas. On
-      // l'écrit UNE fois, À CÔTÉ de la grille.
-      // ⚠️ SURTOUT PAS dans la grille : _cotFit compte grid.children pour choisir le pavage, un
-      // 9e enfant ferait croire à 9 cartes (et 9 est divisible par 3 → disposition fausse).
-      if (grid.parentNode) {
-        grid.parentNode.querySelectorAll(':scope > .cot-foot').forEach(el => el.remove());
-        const pied = document.createElement('div');
-        pied.className = 'cot-foot';
-        pied.textContent = typeLabel;
-        grid.parentNode.insertBefore(pied, grid.nextSibling);
-      }
+      // (Pied de catégorie RETIRÉ 04/08, demande user : il occupait une ligne pour une information
+      //  que la barre d'onglets porte déjà. On nettoie aussi ceux qu'un rendu précédent a laissés.)
+      if (grid.parentNode) grid.parentNode.querySelectorAll(':scope > .cot-foot').forEach(el => el.remove());
       try { _cotFit(grid); } catch (e) {}
     })
     .catch(() => {

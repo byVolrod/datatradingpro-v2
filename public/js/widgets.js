@@ -329,6 +329,14 @@
   // Choix de paires du widget Saisonnalité, dérivés de la SOURCE (_SEASON_PAIRS, charts.js — chargé
   // avant nous) et classés par ordre alphabétique du libellé affiché (AUD/CAD, AUD/CHF, …).
   // Le repli en dur ne sert que si charts.js n'a pas pu s'exécuter.
+  // Places du widget Horloge, dérivées du CATALOGUE de app.js (chargé avant nous). Le repli en dur
+  // ne sert que si charts/app n'a pas pu s'exécuter — il garde les 5 places d'origine du desk.
+  function _villesChoix() {
+    if (typeof CLOCK_CATALOG !== 'undefined' && Array.isArray(CLOCK_CATALOG) && CLOCK_CATALOG.length) {
+      return CLOCK_CATALOG.map(function (c) { return [c.code, c.city]; });
+    }
+    return [['LON', 'Londres'], ['NY', 'New York'], ['TKY', 'Tokyo'], ['DXB', 'Dubaï'], ['PAR', 'Paris']];
+  }
   function _seasonChoix() {
     var f = (typeof _seasonFmtPair === 'function') ? _seasonFmtPair
       : function (c) { return (c && c.length === 6) ? c.slice(0, 3) + '/' + c.slice(3) : c; };
@@ -749,7 +757,11 @@
         // donc un seul reflow). La saisie garde le focus et le curseur — sinon on ne pourrait pas
         // taper deux lettres de suite dans la recherche.
         var cabler = function () {
-          host.querySelectorAll('.wdg-cal-bar .cal-imp-btn').forEach(function (b) {
+          // ⚠️ SÉLECTEUR RESTREINT AU CONTENEUR D'IMPACT. Les boutons Jour/Semaine/Mois réutilisent
+          // la classe .cal-imp-btn pour l'apparence : avec l'ancien sélecteur, ils recevaient AUSSI
+          // ce gestionnaire, qui leur lisait un data-imp inexistant. `_imp` passait à null, puis
+          // impOk() appelait _imp.toLowerCase() → exception, et plus aucun bouton ne répondait.
+          host.querySelectorAll('.cal-impact-filter .cal-imp-btn').forEach(function (b) {
             b.addEventListener('click', function () { _imp = b.getAttribute('data-imp'); dessine(); });
           });
           var q = host.querySelector('.wdg-cal-q');
@@ -1258,7 +1270,12 @@
     },
     {
       id: 'horloge', name: 'Horloge mondiale', cat: 'Macro', h: 210,
-      desc: 'Les 5 grandes places (Londres, New York, Tokyo, Dubaï, Paris) à l’heure, statut d’ouverture + météo.',
+      desc: 'Les grandes places à l’heure, statut d’ouverture + météo — choisis les tiennes.',
+      // PLACES CHOISIES PAR CARTE (04/08, demande user « on doit pouvoir modifier les horloges et
+      // ajouter plein d'autres pays ») : 27 centres financiers au catalogue, classés d'ouest en est.
+      // Le desk garde ses 5 places par défaut ; seule la carte de Mon Desk est configurable.
+      opts: [{ k: 'villes', lbl: 'Places affichées', type: 'multi',
+        def: ['LON', 'NY', 'TKY', 'DXB', 'PAR'], choix: _villesChoix() }],
       // IDENTIQUE AU DESK : réutilise le VRAI renderClocks() (app.js) — mêmes .clock-item (heure live, GMT,
       // ouvert/fermé, icône jour/nuit, météo temps réel du _weatherCache alimenté par le loop global
       // startClocks()). renderClocks(barEl) accepte désormais une cible optionnelle → on lui passe la barre
