@@ -14475,3 +14475,7 @@ body.home-mode .view-panel { visibility: hidden; }
   background: rgba(227,178,58,.10); border: 1px solid rgba(227,178,58,.35);
   border-radius: 3px; padding: 2px 7px; white-space: nowrap;
 }
+
+/* Étiquette de semaine du calendrier (widget) : dorée sur la semaine courante, neutre sinon. */
+.wdg-cal-per { min-width: 92px; text-align: center; color: var(--text2); background: transparent; border-color: transparent; }
+.wdg-cal-per.is-now { color: var(--orange, #e3b23a); background: rgba(227,178,58,.10); border-color: rgba(227,178,58,.35); }

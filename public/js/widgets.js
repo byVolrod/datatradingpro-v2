@@ -152,29 +152,34 @@
       var _tj = Math.min(it._tabAct | 0, Math.max(0, (it.tabs || []).length - 1));
       var _tw = byId((it.tabs || [])[_tj]);
       if (_tw && _tw.opts && _tw.opts.length) {
+        var _ti = _tabItem(it, _tj);
         sousReglages = '<div class="wdg-set-sep"></div>'
           + '<div class="wdg-set-tabs-t">Onglet affiché · ' + esc(_tw.name) + '</div>'
-          + _optsHtml(idx, _tw, _tabItem(it, _tj), 'setTabOpt');
+          + _optsHtml(idx, _tw, _ti, 'setTabOpt')
+          // Le fil en onglet a AUSSI ses sections (elles manquaient : le bloc n'était rendu que
+          // pour une carte fil-news autonome — constaté user 04/08).
+          + _blocSections(_ti, _tw, true);
       }
     }
-    // SECTIONS DU FIL (04/08, demande user) : la liste des rubriques vit ici, en cases à cocher
-    // persistées — le menu volant de la barre a disparu. Libellés FR du desk (catFr).
-    var sectionsBloc = '';
-    if (w.id === 'fil-news') {
-      var _cats = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS))
+    // SECTIONS DU FIL (04/08) : liste de rubriques en cases à cocher persistées. Rendue pour la
+    // CARTE fil-news ET pour un fil-news affiché EN ONGLET (le setter change de cible).
+    var _blocSections = function (item, w2, tab) {
+      if (!w2 || w2.id !== 'fil-news') return '';
+      var cats = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS))
         ? INTERNAL_CATS.filter(function (c) { return c !== 'Bonds'; }) : [];
-      if (_cats.length) {
-        var _offSet = {};
-        String(opt(it, w, 'off') || '').split('|').forEach(function (c) { if (c) _offSet[c] = 1; });
-        sectionsBloc = '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Sections affichées</div>'
-          + '<div class="wdg-set-secs">' + _cats.map(function (c) {
-              var lib = (typeof catFr === 'function') ? catFr(c) : c;
-              return '<button class="wdg-set-sec' + (_offSet[c] ? '' : ' on') + '"'
-                + ' onclick="DTPWidgets.toggleNewsSection(' + idx + ',\'' + esc(c).replace(/'/g, '&#39;') + '\')">'
-                + '<span>' + esc(lib) + '</span><i>✓</i></button>';
-            }).join('') + '</div>';
-      }
-    }
+      if (!cats.length) return '';
+      var offSet = {};
+      String(opt(item, w2, 'off') || '').split('|').forEach(function (c) { if (c) offSet[c] = 1; });
+      var fn = tab ? 'toggleNewsSectionTab' : 'toggleNewsSection';
+      return '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Sections affichées</div>'
+        + '<div class="wdg-set-secs">' + cats.map(function (c) {
+            var lib = (typeof catFr === 'function') ? catFr(c) : c;
+            return '<button class="wdg-set-sec' + (offSet[c] ? '' : ' on') + '"'
+              + ' onclick="DTPWidgets.' + fn + '(' + idx + ',\'' + esc(c).replace(/'/g, '&#39;') + '\')">'
+              + '<span>' + esc(lib) + '</span><i>✓</i></button>';
+          }).join('') + '</div>';
+    };
+    var sectionsBloc = _blocSections(it, w, false);
     return '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
       + _optsHtml(idx, w, it)
       + sectionsBloc
@@ -519,12 +524,13 @@
       // — mêmes classes `cal-table`/`cth-*`, séparateurs de jour, 10 colonnes, états de ligne — et on
       // appelle SES helpers globaux (calFormatTime, CAL_FLAG, calImpDots, calActualCell). Le widget
       // hérite ainsi du style exact du desk. Lecture seule (le déroulé inline reste dans l'onglet dédié).
+      // FENÊTRE = LA SEMAINE (04/08, demande user) : lundi → vendredi, la date de la semaine en
+      // étiquette, navigation d'une semaine à l'autre. Les anciens réglages « Lignes » (cap qui
+      // aurait tronqué une semaine chargée en silence) et « Passé » (la semaine définit désormais
+      // la fenêtre) n'ont plus d'objet : ils sont retirés, leurs valeurs stockées deviennent inertes.
       opts: [
         { k: 'impact', lbl: 'Impact', type: 'choix', def: 'all',
           choix: [['all', 'Tous'], ['med', 'Moyen +'], ['high', 'Fort']] },
-        { k: 'lignes', lbl: 'Lignes', type: 'nombre', def: 40, min: 5, max: 80, pas: 5 },
-        { k: 'passe', lbl: 'Passé', type: 'choix', def: '2',
-          choix: [['0', 'Aucun'], ['2', '2 h'], ['6', '6 h'], ['12', '12 h'], ['24', '24 h']] },
       ],
       mount: function (host, it) {
         var W = this;
@@ -535,7 +541,31 @@
         // widget devient un vrai panneau du desk et non une table nue. Les deux commandes filtrent en
         // direct, sans re-télécharger : le calendrier complet reste en mémoire.
         var _tous = [], _imp = ({ all: 'ALL', med: 'Medium', high: 'High' })[opt(it, W, 'impact')] || 'ALL', _q = '';
-        var _back = 0, _busy = false;                       // mois d'historique remontés (0 = live), verrou anti-course
+        // SEMAINE AFFICHÉE : 0 = semaine courante, -1 = précédente… `_back` = profondeur de données
+        // déjà téléchargée (0 = live ≈ 3 semaines de passé ; 1-3 = mois d'archive via ?back=N).
+        var _sem = 0, _back = 0, _busy = false;
+        var _MOISFR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+        var _lundi = function (dec) {                        // lundi 00:00 de la semaine décalée de `dec`
+          var d = new Date(); d.setHours(0, 0, 0, 0);
+          d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + dec * 7);
+          return d;
+        };
+        var _bornes = function () {                          // [lundi 00:00 , vendredi 23:59:59]
+          var a = _lundi(_sem), b = new Date(a);
+          b.setDate(a.getDate() + 4); b.setHours(23, 59, 59, 999);
+          return [a.getTime(), b.getTime()];
+        };
+        var _libSem = function () {                          // « 3 – 7 août » · « 28 juil. – 1 août »
+          var a = _lundi(_sem), b = new Date(a); b.setDate(a.getDate() + 4);
+          return a.getMonth() === b.getMonth()
+            ? a.getDate() + ' – ' + b.getDate() + ' ' + _MOISFR[b.getMonth()]
+            : a.getDate() + ' ' + _MOISFR[a.getMonth()] + ' – ' + b.getDate() + ' ' + _MOISFR[b.getMonth()];
+        };
+        // Profondeur d'archive nécessaire pour couvrir la semaine visée (l'API plafonne à 3 mois).
+        var _besoin = function (dec) {
+          var j = Math.ceil((Date.now() - _lundi(dec).getTime()) / 86400000);
+          return j <= 18 ? 0 : Math.min(3, Math.ceil((j - 18) / 30) + 0 || 1);
+        };
         var _BTNS = [['ALL', 'Tous', ''], ['High', 'Élevé', ' cal-imp-btn--high'], ['Medium', 'Moyen', ' cal-imp-btn--med'], ['Low', 'Faible', ' cal-imp-btn--low']];
         var barre = function () {
           return '<div class="cal-filter-row wdg-cal-bar">'
@@ -546,16 +576,13 @@
             + '</div>'
             + '<div class="cal-search-wrap"><span class="cal-search-icon">⌕</span>'
             +   '<input type="text" class="cal-search-input wdg-cal-q" placeholder="Rechercher des événements…" value="' + esc(_q) + '"></div>'
-            // HISTORIQUE (04/08, demande user « je ne peux pas remonter dans le passé, je veux tout
-            // comme le vrai du desk ») : mêmes flèches ‹ › que l'onglet Calendrier, même API
-            // (?back=1..3 mois), mêmes bornes. Le badge DIRECT devient l'étiquette de la période
-            // remontée — on sait toujours ce qu'on regarde.
+            // NAVIGATION PAR SEMAINE (04/08, demande user) : la fenêtre est la semaine lundi→vendredi
+            // et sa DATE est affichée ; ‹ recule d'une semaine (jusqu'à ~3 mois, limite de l'API),
+            // › avance (la semaine prochaine est déjà couverte par le flux live).
             + '<span class="wdg-cal-nav">'
-            +   '<button type="button" class="cal-range-arrow wdg-cal-prev" title="Mois précédent"' + (_back >= 3 || _busy ? ' disabled' : '') + '>‹</button>'
-            +   (_back > 0
-                  ? '<span class="wdg-cal-per">−' + _back + ' mois</span>'
-                  : '<span class="cal-live-badge"><span class="cal-live-dot"></span>DIRECT</span>')
-            +   '<button type="button" class="cal-range-arrow wdg-cal-next" title="Revenir vers le présent"' + (_back <= 0 || _busy ? ' disabled' : '') + '>›</button>'
+            +   '<button type="button" class="cal-range-arrow wdg-cal-prev" title="Semaine précédente"' + (_sem <= -12 || _busy ? ' disabled' : '') + '>‹</button>'
+            +   '<span class="wdg-cal-per' + (_sem === 0 ? ' is-now' : '') + '">' + _libSem() + '</span>'
+            +   '<button type="button" class="cal-range-arrow wdg-cal-next" title="Semaine suivante"' + (_sem >= 1 || _busy ? ' disabled' : '') + '>›</button>'
             + '</span>'
             + '</div>';
         };
@@ -567,11 +594,17 @@
             if (_imp === 'ALL') return true;
             return String(e.impact || '').toLowerCase() === _imp.toLowerCase();
           };
-          var evs = _tous
-            .filter(function (e) { return impOk(e) && (!q || String(e.title || '').toLowerCase().indexOf(q) !== -1 || String(e.currency || '').toLowerCase().indexOf(q) !== -1); })
-            .slice(0, opt(it, W, 'lignes'));
+          // FENÊTRE = LA SEMAINE affichée (lundi → vendredi). Plus de cap de lignes : tronquer une
+          // semaine chargée sans le dire serait pire que de faire défiler.
+          var bo = _bornes();
+          var evs = _tous.filter(function (e) {
+            var t = e && e.timestamp || 0;
+            return t >= bo[0] && t <= bo[1] && impOk(e)
+              && (!q || String(e.title || '').toLowerCase().indexOf(q) !== -1 || String(e.currency || '').toLowerCase().indexOf(q) !== -1);
+          });
           if (!evs.length) {
-            host.innerHTML = '<div class="wdg-cal-panel">' + barre() + '<div class="wdg-cal-wrap"><div class="wdg-empty">Aucun événement ne correspond.</div></div></div>';
+            host.innerHTML = '<div class="wdg-cal-panel">' + barre() + '<div class="wdg-cal-wrap"><div class="wdg-empty">'
+              + (_busy ? 'Chargement…' : 'Aucun événement sur cette semaine.') + '</div></div></div>';
             return cabler();
           }
           var nextIdx = evs.findIndex(function (e) { return (e.timestamp || 0) >= now; });
@@ -651,40 +684,33 @@
             });
           }
           var pv = host.querySelector('.wdg-cal-prev'), nx = host.querySelector('.wdg-cal-next');
-          if (pv) pv.addEventListener('click', function () { charge(_back + 1); });
-          if (nx) nx.addEventListener('click', function () { charge(_back - 1); });
+          if (pv) pv.addEventListener('click', function () { versSemaine(_sem - 1); });
+          if (nx) nx.addEventListener('click', function () { versSemaine(_sem + 1); });
         };
-        // CHARGEMENT (live ou historique) : ?back=N mois, exactement l'API de l'onglet Calendrier.
-        // En remontant, on garde TOUT le passé de la fenêtre (le filtre « Passé » ne s'applique qu'au
-        // direct) — sinon remonter d'un mois n'aurait rien montré.
-        var charge = function (n) {
+        // CHANGEMENT DE SEMAINE : si la semaine visée sort de ce qui est déjà téléchargé, on va
+        // chercher la profondeur d'archive nécessaire (?back=N mois, API de l'onglet Calendrier) ;
+        // sinon on se contente de re-filtrer en mémoire — instantané.
+        var versSemaine = function (n) {
           if (_busy) return;
-          n = Math.max(0, Math.min(3, n | 0));
-          if (n === _back && _tous.length) return;
-          _busy = true; _back = n; dessine();
+          n = Math.max(-12, Math.min(1, n | 0));
+          if (n === _sem) return;
+          _sem = n;
+          var besoin = _besoin(n);
+          if (besoin <= _back) { dessine(); return; }        // déjà couvert par les données en main
+          _busy = true; dessine();
+          charge(besoin);
+        };
+        var charge = function (n) {
           fetch(n > 0 ? ('/api/calendar-events?back=' + n) : '/api/calendar-events')
             .then(function (r) { return r.json(); }).then(function (j) {
               if (!host.isConnected) return;
-              var now = Date.now(), gardePasse = parseInt(opt(it, W, 'passe'), 10) || 0;
-              _tous = ((j && j.items) || [])
-                .filter(function (e) { return e && (n > 0 || (e.timestamp || 0) > now - gardePasse * 3600e3); })
+              _back = n; _busy = false;
+              _tous = ((j && j.items) || []).filter(Boolean)
                 .sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
-              _busy = false;
-              if (!_tous.length) { host.innerHTML = '<div class="wdg-cal-panel">' + barre() + '<div class="wdg-cal-wrap"><div class="wdg-empty">Aucun événement sur cette période.</div></div></div>'; return cabler(); }
               dessine();
-              // Historique : on se pose sur la FIN de la période (le plus récent), comme le desk.
-              if (n > 0) { var w2 = host.querySelector('.wdg-cal-wrap'); if (w2) w2.scrollTop = w2.scrollHeight; }
             }).catch(function () { _busy = false; dessine(); });
         };
-        fetch('/api/calendar-events').then(function (r) { return r.json(); }).then(function (j) {
-          if (!host.isConnected) return;
-          var now = Date.now(), gardePasse = parseInt(opt(it, W, 'passe'), 10) || 0;
-          _tous = ((j && j.items) || [])
-            .filter(function (e) { return e && (e.timestamp || 0) > now - gardePasse * 3600e3; })
-            .sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
-          if (!_tous.length) return fallback(host, 'Aucun événement à venir.');
-          dessine();
-        }).catch(function () { fallback(host, 'Calendrier indisponible.'); });
+        charge(0);                                           // semaine courante (le flux live la couvre)
         return null;
       },
     },
@@ -1915,6 +1941,9 @@
           if (ni === actIdx) return;                     // déjà actif → no-op (rien à re-rendre)
           actIdx = ni; it._tabAct = actIdx;
           renderTabs(); mountSub();
+          // Le panneau de réglages montre « Onglet affiché · <nom> » : s'il est ouvert, il doit
+          // suivre le changement d'onglet, sinon on croit que le widget n'a pas de réglages.
+          var _pi = _hostIdx(host); if (_pi != null) _syncPanel(_pi);
         });
         renderTabs(); mountSub();
         return function () { if (subClean) { try { subClean(); } catch (e) {} subClean = null; } };
@@ -3057,6 +3086,17 @@ function _spansAffiches(lay) {
       var k = cur.indexOf(cat);
       if (k >= 0) cur.splice(k, 1); else cur.push(cat);
       API.setOpt(i, 'off', cur.join('|'));
+    },
+    // Même bascule, mais pour un fil-news affiché DANS UN ONGLET (écrit dans it.tabCfg[index]).
+    toggleNewsSectionTab: function (i, cat) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
+      var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
+      var w = byId(it.tabs[j]); if (!w || w.id !== 'fil-news') return;
+      var cur = String(opt(_tabItem(it, j), w, 'off') || '').split('|').filter(Boolean);
+      var k = cur.indexOf(cat);
+      if (k >= 0) cur.splice(k, 1); else cur.push(cat);
+      API.setTabOpt(i, 'off', cur.join('|'));
     },
     // RÉGLAGES PROPRES À L'ONGLET AFFICHÉ (04/08) — miroir de setOpt/bumpOpt, mais la valeur est
     // écrite dans it.tabCfg[index] (whitelisté serveur) au lieu du cfg de la carte.
