@@ -14025,3 +14025,8 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
   .news-item { --c-pad: 10px; --c-icon: 20px; --c-time: 42px; --c-cat: 74px; --c-arrow: 20px; }
   .news-category-text { font-size: 10px; }
 }
+
+/* ── ACCUEIL OUVERT = NAV DU DESK MASQUÉE (04/08, constat user mobile : la barre
+   › ACTUS restait visible et manipulable au-dessus du ticker) — même patron que Mon Desk
+   (body.wdg-mode) : déterministe, zéro pari d'empilement. Restaurée à la fermeture. */
+body.home-mode #topbar-nav, body.home-mode .wdg-bar { display: none; }
