@@ -225,7 +225,36 @@ function createWindow() {
     },
   });
 
-  win.once('ready-to-show', () => { if (win && !win.isDestroyed()) win.show(); });
+  // ══ FILET DE SÉCURITÉ D'AFFICHAGE (04/08 — constat user : processus vivant à 87 Mo dans le
+  //    gestionnaire des tâches, AUCUNE fenêtre à l'écran) ═══════════════════════════════════════
+  // `show:false` + affichage au seul `ready-to-show` est un PARI SUR LE RÉSEAU : cet événement ne
+  // survient que si la page DISTANTE finit par peindre. Deux trous :
+  //   1. un chargement qui STAGNE (portail captif, DNS sans réponse, serveur qui accepte la
+  //      connexion sans répondre) ne déclenche NI `ready-to-show` NI `did-fail-load` ;
+  //   2. après un `did-fail-load` suivi du repli offline.html, `ready-to-show` a déjà été consommé
+  //      (il ne se produit qu'une fois par WebContents) — la fenêtre restait donc cachée aussi.
+  // Dans les deux cas, l'app tournait dans le vide sans rien afficher, et sans rien signaler.
+  let _affichee = false;
+  const _afficher = () => {
+    if (_affichee || !win || win.isDestroyed()) return;
+    _affichee = true;
+    win.show();
+    win.focus();
+  };
+  win.once('ready-to-show', _afficher);
+  // Au-delà de ce délai on montre la fenêtre QUOI QU'IL ARRIVE, avec la page hors-ligne qui propose
+  // de réessayer : une fenêtre honnête vaut mieux qu'aucune fenêtre.
+  const _veille = setTimeout(() => {
+    if (_affichee || !win || win.isDestroyed()) return;
+    try { win.loadFile(path.join(__dirname, 'offline.html')); } catch {}
+    _afficher();
+  }, 9000);
+  const _annulerVeille = () => clearTimeout(_veille);
+  win.webContents.on('did-finish-load', _annulerVeille);
+  win.on('closed', _annulerVeille);
+  // Exposé pour que `did-fail-load` puisse révéler la fenêtre après son repli hors-ligne.
+  win._dtpAfficher = _afficher;
+
   win.loadURL(DESK_URL);
 
   // Liens hors-domaine → navigateur système ; le desk (et la landing) restent dans l'app
@@ -241,7 +270,12 @@ function createWindow() {
 
   // Hors-ligne / serveur injoignable → page de secours locale avec bouton « Réessayer »
   win.webContents.on('did-fail-load', (_e, _code, _desc, _validatedURL, isMainFrame) => {
-    if (isMainFrame && win && !win.isDestroyed()) win.loadFile(path.join(__dirname, 'offline.html'));
+    if (!isMainFrame || !win || win.isDestroyed()) return;
+    win.loadFile(path.join(__dirname, 'offline.html'));
+    // …ET on révèle la fenêtre : `ready-to-show` a déjà été consommé par la tentative distante,
+    // il ne se reproduira pas pour la page de repli. Sans cette ligne, l'échec réseau laissait
+    // l'app tourner sans fenêtre.
+    try { win._dtpAfficher(); } catch {}
   });
 
   // Menu CLIC-DROIT (contextuel) : Couper / Copier / Coller / Tout sélectionner. Electron n'en fournit AUCUN
