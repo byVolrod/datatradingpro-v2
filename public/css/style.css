@@ -14039,3 +14039,31 @@ body.home-mode #topbar-nav, body.home-mode .wdg-bar { display: none; }
    ouvert — quoi que fasse l'empilement iOS, rien ne peut transparaître. Restauré à close(). */
 .home-overlay { top: 0; padding-top: var(--topbar-h); }
 body.home-mode .view-panel { visibility: hidden; }
+
+/* ═══ MOBILE PRO (04/08, spec user) : topbar FIXE au scroll + fil d'actualité en vraie carte ═══ */
+@media (max-width: 768px) {
+  /* 1+3. EN-TÊTE ÉPINGLÉE : le scroll n'emmène plus jamais topbar/nav. Compensation de flux
+     EXACTE (padding-top = les hauteurs réelles qu'elles occupaient) → zéro saut de layout.
+     Aucun parent à transform : elles vivent à la racine du body (le zoom CSS n'affecte pas fixed). */
+  .topbar { position: fixed; top: 0; left: 0; right: 0; }
+  #topbar-nav, .navbar.wdg-bar { position: fixed; top: var(--topbar-h); left: 0; right: 0; z-index: 98; }
+  body { padding-top: calc(var(--topbar-h) + var(--navbar-h, 40px)); }
+  body.home-mode { padding-top: var(--topbar-h); }
+}
+@media (max-width: 640px) {
+  /* 2. CARTE D'ACTUALITÉ 100 % responsive : ligne méta (pastille · heure · catégorie · chevron),
+     puis TITRE pleine largeur qui passe à la ligne, puis badges sur UNE ligne (défilable au doigt,
+     jamais de retour à la ligne) — hauteur auto, plus AUCUNE superposition possible. */
+  .news-item { flex-wrap: wrap; row-gap: 3px; --news-desc-bleed: var(--c-pad); }
+  .news-icon-col { width: 18px; min-height: 16px; }
+  .news-time { width: auto; margin-right: 10px; line-height: 1.4; }
+  .news-category-text { width: auto; flex: 0 1 auto; padding-right: 8px; line-height: 1.4; }
+  .news-arrow-col { margin-left: auto; min-height: 16px; }
+  .news-content { flex: 1 1 100%; min-width: 100%; order: 10; padding-left: 2px; }
+  .news-headline { margin-bottom: 3px; }
+  .news-tags { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; padding-bottom: 2px; }
+  .news-tags::-webkit-scrollbar { display: none; }
+  /* L'entrée glissée (translateY) des items frais se capturait en rafale sur mobile → texte
+     fantôme superposé (constat des 3 captures). Sur mobile, seul le halo or reste. */
+  .news-item--new { animation: flash-new 1.5s ease-out; }
+}
