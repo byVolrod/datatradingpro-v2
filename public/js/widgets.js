@@ -2166,23 +2166,23 @@
     for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === id) return c.layouts[i];
     return null;
   }
-  // Onglets de layouts (templates) dans l'en-tête : clic = bascule, DOUBLE-CLIC = renommer (inline), ＋ = créer.
+  // BARRE SANS LISTE DE LAYOUTS (demande user 04/08 « on ne doit pas voir le nom des layouts,
+  // on entre direct dans le layout ») : le CHOIX du layout vit dans Personnaliser › Layouts
+  // (le gestionnaire) — la barre n'affiche que le layout ACTIF, comme simple repère (non cliquable ;
+  // double-clic = renommer, seul geste conservé). Le « + » de création vit aussi dans le gestionnaire.
   function renderBar() {
     var el = document.getElementById('wdg-layouts'); var c = STATE.cfg;
     if (!el) return;
     if (!c || !c.layouts.length) { el.innerHTML = ''; return; }
-    var tabs = c.layouts.filter(function (l) { return !l.hidden; }).map(function (l) {   // les layouts MASQUÉS (fermés) n'ont pas d'onglet
-      // classes de la NAV DU DESK : l'apparence vient d'elle, pas d'une copie de ses valeurs
-      return '<button class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
-        + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
-        + '<span class="wdg-lay-chv">›</span>'                                    // chevron › = grammaire nav ACTUS
-        + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
-        + '<span class="wdg-lay-name">' + esc(l.name) + '</span></button>';
-    }).join('');
-    el.innerHTML = tabs
-      + (c.layouts.length < _LMAX
-          ? '<button class="nav-item wdg-lay wdg-lay-add" title="Créer un layout" onclick="DTPWidgets.newLayout()">+</button>'
-          : '');
+    var act = null;
+    for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === c.active) { act = c.layouts[i]; break; }
+    if (!act) act = c.layouts[0];
+    el.innerHTML = '<span class="nav-item nav-item--active on wdg-lay wdg-lay--cur" data-lay="' + act.id + '"'
+      + ' title="' + esc(act.name) + ' — double-clic pour renommer · changer de layout via Personnaliser › Layouts"'
+      + ' ondblclick="DTPWidgets.editTab(\'' + act.id + '\')">'
+      + '<span class="wdg-lay-chv">›</span>'
+      + (act.fav ? '<span class="wdg-lay-star">★</span>' : '')
+      + '<span class="wdg-lay-name">' + esc(act.name) + '</span></span>';
   }
   // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
   function _syncDensity() {

@@ -14100,3 +14100,8 @@ body.home-mode .view-panel { visibility: hidden; }
 /* DÉFILEMENT NATUREL : chaque liste interne contient son inertie — fini le scroll qui
    « saute » au parent en fin de course (conflits de conteneurs). */
 .home-inner, .news-list, .wdg-body, .wdg-cal-wrap, .wdgt-body { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+/* ── BARRE MON DESK SANS LISTE DE LAYOUTS (04/08) : seul le layout ACTIF s'affiche, en
+   repère (le choix vit dans Personnaliser › Layouts — double-clic = renommer). */
+.wdg-lay--cur { cursor: default; }
+.wdg-lay--cur .wdg-lay-name { cursor: text; }
