@@ -800,6 +800,28 @@ function _wdgClean(body) {
             }
             if (Object.keys(cfg).length) o.cfg = cfg;
           }
+          // RÉGLAGES PROPRES À CHAQUE ONGLET (04/08, « chaque widget doit pouvoir avoir ses propres
+          // réglages ») : it.tabCfg = { "<index d'onglet>": {cfg} }. Même validation de FORME que
+          // `cfg` (le serveur ignore le catalogue front) ; sans cette reprise, le champ serait
+          // détruit au save — le piège documenté juste au-dessus.
+          if (o.tabs && it.tabCfg && typeof it.tabCfg === 'object' && !Array.isArray(it.tabCfg)) {
+            const tc = {};
+            for (const k of Object.keys(it.tabCfg).slice(0, 12)) {
+              if (!/^\d{1,2}$/.test(k) || +k >= o.tabs.length) continue;      // clé = index d'onglet existant
+              const src = it.tabCfg[k];
+              if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
+              const one = {};
+              for (const k2 of Object.keys(src).slice(0, 12)) {
+                if (!/^[a-z0-9_]{1,24}$/.test(k2)) continue;
+                const v = src[k2];
+                if (typeof v === 'boolean') one[k2] = v;
+                else if (typeof v === 'number' && isFinite(v)) one[k2] = Math.max(-99999, Math.min(99999, Math.round(v)));
+                else if (typeof v === 'string') one[k2] = v.replace(/[<>]/g, '').slice(0, 32);
+              }
+              if (Object.keys(one).length) tc[k] = one;
+            }
+            if (Object.keys(tc).length) o.tabCfg = tc;
+          }
           return o;
         });
       // Unicité de l'id : sans ça, deux layouts homonymes (ou un repli 'layout-2' entrant en collision
