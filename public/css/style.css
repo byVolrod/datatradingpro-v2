@@ -14460,3 +14460,10 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdg-news-panel .wdg-nw-search:focus-within .search-icon { color: var(--orange, #e3b23a); }
 .wdg-news-panel .wdg-nw-q { font-size: 12px; letter-spacing: .01em; }
 .wdg-news-panel .wdg-nw-q::placeholder { color: var(--text3); opacity: 1; }
+
+/* ⚠️ CAUSE RÉELLE de « je ne vois pas les boutons » (mesurée au banc : opacité EFFECTIVE 0
+   sur une carte normale) : la règle de juillet « .wdg-actions { opacity: 0 } » masque TOUT le
+   groupe jusqu'au survol de la carte. Mon correctif précédent ne visait que les cartes à onglets.
+   Dans Mon Desk, le groupe reste VISIBLE ; la discrétion se joue au niveau des icônes (.62). */
+#view-widgets .wdg-actions { opacity: 1; }
+#view-widgets .wdg-card:hover .wdg-actions, #view-widgets .wdg-card:focus-within .wdg-actions { opacity: 1; }
