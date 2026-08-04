@@ -14389,3 +14389,9 @@ body.home-mode .view-panel { visibility: hidden; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   padding-left: 6px !important; padding-right: 6px !important;
 }
+
+/* ── CORRECTIF (04/08) : sans la poignée ††, l'en-tête n'a plus qu'UN enfant — avec
+   justify-content:space-between les actions basculaient À GAUCHE et recouvraient les onglets
+   (« je ne vois pas le nom ACTUS »). On les ancre à droite quoi qu'il arrive. */
+.wdg-head .wdg-actions { margin-left: auto; }
+.wdg-card--tabs > .wdg-head { justify-content: flex-end; }
