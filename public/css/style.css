@@ -14124,3 +14124,18 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdg-mgr-star:hover { opacity: 1; }
 .wdg-mgr-eye, .wdg-mgr-open { min-height: 28px; }
 .wdg-mgr-closed { font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); border: 1px dashed rgba(255,255,255,.16); border-radius: 3px; padding: 2px 6px; }
+
+/* ── FIL D'ACTUALITÉ — même mise en page « carte » quand le CADRE est étroit (04/08) :
+   la refonte mobile (≤640px viewport) s'applique aussi à un widget étroit sur desktop via la
+   largeur RÉELLE du panneau — plus jamais de colonnes qui se marchent dessus. */
+.wdg-news-panel { container-type: inline-size; container-name: dtpnews; }
+@container dtpnews (max-width: 560px) {
+  .wdg-news .news-item { flex-wrap: wrap; row-gap: 3px; --news-desc-bleed: var(--c-pad); }
+  .wdg-news .news-time { width: auto; margin-right: 10px; line-height: 1.4; }
+  .wdg-news .news-arrow-col { margin-left: auto; min-height: 16px; }
+  .wdg-news .news-content { flex: 1 1 100%; min-width: 100%; order: 10; padding-left: 2px; }
+  .wdg-news .news-headline { margin-bottom: 3px; }
+  .wdg-news .news-tags { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; padding-bottom: 2px; }
+  .wdg-news .news-tags::-webkit-scrollbar { display: none; }
+  .wdg-news .news-item--new { animation: flash-new 1.5s ease-out; }
+}
