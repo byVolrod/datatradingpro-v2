@@ -11610,6 +11610,20 @@ body.wdg-mode #topbar-nav { display: none; }
   .cth-imp   { width: 9%; }
   .cth-event { width: 33%; }
   .cth-val   { width: 10.5%; }
+  /* INTITULÉS ABRÉGÉS. Mesuré au banc : « Devise », « Prévision » et « Précédent » se coupent
+     encore à 560 px de cadre (« PRÉ… ») — aucune taille de police ne les y fait tenir. On abrège
+     franchement plutôt que de laisser l'ellipse manger le mot. Le `!important` est OBLIGATOIRE :
+     .cth-time et .cth-val portent déjà font-size:10px !important plus haut dans la feuille. */
+  .wdg-cal-wrap .cal-table thead .cth-curr,
+  .wdg-cal-wrap .cal-table thead .cth-val { font-size: 0 !important; letter-spacing: 0; }
+  .wdg-cal-wrap .cal-table thead .cth-curr::after,
+  .wdg-cal-wrap .cal-table thead .cth-val::after { font-size: 9px; letter-spacing: .04em; }
+  .wdg-cal-wrap .cal-table thead .cth-curr::after { content: 'DEV'; }
+  .wdg-cal-wrap .cal-table thead .cth-val:nth-child(6)::after  { content: 'RÉEL'; }
+  .wdg-cal-wrap .cal-table thead .cth-val:nth-child(7)::after  { content: 'HAUT'; }
+  .wdg-cal-wrap .cal-table thead .cth-val:nth-child(8)::after  { content: 'PRÉV'; }
+  .wdg-cal-wrap .cal-table thead .cth-val:nth-child(9)::after  { content: 'BAS'; }
+  .wdg-cal-wrap .cal-table thead .cth-val:nth-child(10)::after { content: 'PRÉC'; }
 }
 @container dtpcal (max-width: 470px) {
   .cal-table th:nth-child(2), .cal-table td:nth-child(2) { display: none; }   /* drapeau : le code devise suffit */
@@ -14109,6 +14123,10 @@ body.home-mode .view-panel { visibility: hidden; }
   .cal-table th:nth-child(10), .cal-table td:nth-child(10) { display: none; }
   .cth-event { width: 40%; }
   .cth-val { width: 13.5%; font-size: 10px; }
+  /* Cadre minuscule : « Heure » se coupe à son tour (mesuré 44 px). Les autres intitulés sont
+     déjà abrégés par le palier 640. */
+  .wdg-cal-wrap .cal-table thead .cth-time { font-size: 0 !important; letter-spacing: 0; }
+  .wdg-cal-wrap .cal-table thead .cth-time::after { content: 'H'; font-size: 9px; letter-spacing: .04em; }
 }
 /* DÉFILEMENT NATUREL : chaque liste interne contient son inertie — fini le scroll qui
    « saute » au parent en fin de course (conflits de conteneurs). */
