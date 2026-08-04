@@ -1233,16 +1233,12 @@
           +   '<div class="toolbar-search wdg-nw-search"><span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20.5 20.5 16.5 16.5"/></svg></span>'
           +     '<input type="text" class="wdg-nw-q" placeholder="Rechercher une actualité…"></div>'
           + '</div>'
+          // (Légende Breaking/Analyse/Priorité + compteur RETIRÉS 04/08 : les couleurs des lignes
+          //  parlent d'elles-mêmes, la bande mangeait de la hauteur pour rien.)
           + '<div class="news-list wdg-news custom-scrollbar"><div class="wdg-skel"><span class="wdg-skel-l" style="width:78%"></span><span class="wdg-skel-l" style="width:64%"></span><span class="wdg-skel-l" style="width:82%"></span></div></div>'
-          + '<div class="wdg-nw-legend">'
-          +   '<span class="wdg-nw-lg"><i class="wdg-lg wdg-lg--brk"></i>Breaking</span>'
-          +   '<span class="wdg-nw-lg"><i class="wdg-lg wdg-lg--ana"></i>Analyse</span>'
-          +   '<span class="wdg-nw-lg"><i class="wdg-lg wdg-lg--hi"></i>Priorité haute</span>'
-          +   '<span class="wdg-nw-count">— items</span>'
-          + '</div>'
           + '</div>';
         var liste = host.querySelector('.news-list');
-        var count = host.querySelector('.wdg-nw-count');
+        var count = null;
         // Pastille verte « Flux en direct » dans l'en-tête de la carte — comme le desk la porte dans son
         // panel-header. Pas dans le panneau à onglets : son en-tête est un calque pointer-events:none.
         var carte = host.closest ? host.closest('.wdg-card') : null;
@@ -1273,7 +1269,7 @@
           });
           var cap = 25 + plus;                               // fenêtre de départ ; « Charger plus » l'étend
           var rows = tout.slice(0, cap);
-          count.textContent = rows.length + ' items';
+          if (count) count.textContent = rows.length + ' items';   // (compteur retiré — garde inoffensive)
           if (!rows.length) {
             liste.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">' + (ql || Object.keys(off).length ? 'Aucun élément ne correspond.' : 'Fil en cours de chargement…') + '</div>';
             sig = ''; return;
