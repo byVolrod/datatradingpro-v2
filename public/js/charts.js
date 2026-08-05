@@ -841,15 +841,33 @@ function buildStrengthChart(containerId, data, opts = {}) {
       // poussait alors la pile HORS CADRE par le haut. L'écart s'adapte : jamais plus de 20 px,
       // jamais moins de 12 px (léger recouvrement contrôlé plutôt qu'une pastille invisible).
       const GAP = arr.length > 1 ? Math.min(GAP_BASE, Math.max(12, (h - 16) / (arr.length - 1))) : GAP_BASE;
-      // Passe descendante : tout badge à moins de GAP du précédent est poussé vers le bas
-      for (let i = 1; i < arr.length; i++) {
-        if (arr[i].px - arr[i - 1].px < GAP) arr[i].px = arr[i - 1].px + GAP;
+      // ── PLACEMENT PAR PAQUETS CENTRÉS (05/08, demande user : « les étiquettes doivent être bien
+      //    alignées avec les courbes ») ────────────────────────────────────────────────────────
+      // L'ancienne méthode poussait TOUJOURS vers le bas depuis la première étiquette, puis
+      // remontait la pile entière si elle débordait. Conséquence : deux devises serrées au milieu
+      // du tracé décalaient toute la suite, et la remontée en bloc déplaçait même celles qui
+      // avaient toute la place — elles se retrouvaient loin de leur courbe.
+      // Ici on regroupe les étiquettes qui DOIVENT être écartées, et on centre CHAQUE paquet sur la
+      // moyenne de leurs positions naturelles. Une étiquette isolée ne bouge plus du tout ; celles
+      // d'un paquet s'écartent autour de leur centre de gravité, donc au plus près de leur courbe.
+      const paquets = arr.map(x => ({ n: 1, somme: x.px }));
+      const centre = g => g.somme / g.n;
+      const haut   = g => centre(g) - (g.n - 1) * GAP / 2;
+      const bas    = g => centre(g) + (g.n - 1) * GAP / 2;
+      for (let k = 0; k < paquets.length - 1;) {
+        if (bas(paquets[k]) + GAP > haut(paquets[k + 1]) + 0.01) {
+          paquets[k].n += paquets[k + 1].n;
+          paquets[k].somme += paquets[k + 1].somme;
+          paquets.splice(k + 1, 1);
+          if (k > 0) k--;                     // la fusion peut heurter le paquet précédent
+        } else k++;
       }
-      // Si la pile déborde en bas du cadre, on la remonte EN BLOC → aucun badge coupé / hors-grille
-      const over = arr.length ? Math.max(0, arr[arr.length - 1].px - (h - 8)) : 0;
-      if (over > 0) arr.forEach(x => { x.px -= over; });
-      // Et si malgré tout le premier repasse au-dessus du cadre (cas limite), on replaque au bord.
-      if (arr.length && arr[0].px < 8) { const d = 8 - arr[0].px; arr.forEach(x => { x.px += d; }); }
+      let idx = 0;
+      paquets.forEach(g => {
+        // Bornage du PAQUET dans le cadre : aucune étiquette coupée en haut ni en bas.
+        const d = Math.max(8, Math.min(h - 8 - (g.n - 1) * GAP, haut(g)));
+        for (let j = 0; j < g.n; j++) arr[idx++].px = d + j * GAP;
+      });
       arr.forEach(x => {
         const lbl = x.o.range?.get('label');
         if (lbl) try { lbl.set('dy', Math.round(x.px - x.basePx)); } catch {}
