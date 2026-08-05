@@ -8,7 +8,11 @@
    ═══════════════════════════════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
-  var GATE_EMAIL = 'volrod.dev@gmail.com';           // v1 : admin uniquement — élargir ici le jour venu
+  // OUVERTURE PILOTEE PAR LE DRAPEAU (06/08). L adresse en dur reste le filet de l admin : elle lui
+  // garantit l acces meme drapeau baisse, donc meme apres une fermeture d urgence. Pour tous les
+  // autres, c est `window._pdAccueil` qui decide (server.js, KV feat:v1), et il se change sans
+  // redeploiement.
+  var GATE_EMAIL = 'volrod.dev@gmail.com';
   var FLAG = 'dtp_home_seen';                       // suffixé par l'ancre de connexion (cf. plus bas)
   var _flagCle = FLAG;                              // clé effective, connue une fois l'auth lue
 
@@ -292,7 +296,11 @@
         if (k && k.indexOf(FLAG) === 0 && k !== _flagCle) sessionStorage.removeItem(k);
       }
     } catch (e) {}
-    if (String(d.user.email || '').toLowerCase() !== GATE_EMAIL) return;   // v1 : admin seulement
+    // Deux portes, et c'est voulu : le drapeau serveur pour tout le monde, l'adresse en dur comme
+    // filet de l'admin. Si le drapeau doit être baissé en urgence, celui qui diagnostique garde
+    // l'accès à l'écran qu'il doit regarder.
+    var _ouvert = !!(d.feat && d.feat.accueil) || String(d.user.email || '').toLowerCase() === GATE_EMAIL;
+    if (!_ouvert) return;
     fetch('/api/widgets').then(function (r) { return r.json(); }).then(function (j) {
       build(d.user, (j && j.cfg) || { layouts: [] });
     }).catch(function () { build(d.user, { layouts: [] }); });

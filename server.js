@@ -554,10 +554,10 @@ app.get('/api/auth/me', async (req, res) => {
     // loginAt = ancre ABSOLUE du login (déjà posée pour le couperet 24 h). Exposée au front pour
     // qu'il distingue « nouvelle connexion » de « rechargement de page » — sessionStorage ne sait
     // pas faire la différence. C'est un horodatage, pas un secret.
-    res.json({ loggedIn: true, user, loginAt: req.session.loginAt || 0 });
+    res.json({ loggedIn: true, user, loginAt: req.session.loginAt || 0, feat: _newFeat });
   } catch {
     // Fallback si DB inaccessible : utiliser la session
-    res.json({ loggedIn: true, user: req.session.user, loginAt: req.session.loginAt || 0 });
+    res.json({ loggedIn: true, user: req.session.user, loginAt: req.session.loginAt || 0, feat: _newFeat });
   }
 });
 
@@ -14347,6 +14347,38 @@ void _checkExpiringSubscriptions;
 // est terminé, abonnez-vous ». Réclamer un paiement pour un accès offert est la pire erreur
 // possible côté client. Le compte reste normal pour tout le reste (login, transactionnel, support).
 // Source de vérité = KV Supabase `giftaccess`. Le seed en dur s'auto-répare même après perte
+/* ══ DRAPEAU DES NOUVEAUTÉS — OUVERTURE SANS REDÉPLOIEMENT ═════════════════════════════════════
+   L'accueil « Vue d'ensemble » et Mon Desk étaient réservés à l'admin par une condition ÉCRITE DANS
+   LE JS LIVRÉ : les ouvrir demandait un déploiement, et les refermer aussi. Or on ouvre ici une
+   fonctionnalité à TOUTE la base d'un coup. S'il fallait un rebuild pour faire marche arrière, on
+   n'aurait aucun moyen de réagir vite le jour où un widget casse l'affichage chez un client.
+   Le drapeau vit donc en base (KV, même patron que l'accès offert) et voyage dans la réponse de
+   /api/auth/me : le refermer prend une seconde et ne demande aucune livraison.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+let _newFeat = { accueil: false, mondesk: false };
+const _FEAT_KEY = 'feat:v1', _FEAT_TTL = 366 * 86400000;
+async function _featLoad() {
+  try {
+    const v = await auth.aiCacheGet(_FEAT_KEY, _FEAT_TTL);
+    if (v && typeof v === 'object') _newFeat = { accueil: !!v.accueil, mondesk: !!v.mondesk };
+  } catch (e) {}
+  console.log('[Nouveautés] accueil=' + _newFeat.accueil + ' · mondesk=' + _newFeat.mondesk);
+}
+setTimeout(() => { _featLoad().catch(() => {}); }, 24000);   // après amorçage Supabase, comme l'accès offert
+async function _featSet(patch) {
+  _newFeat = Object.assign({}, _newFeat, patch || {});
+  try { await auth.aiCacheSet(_FEAT_KEY, _newFeat); } catch (e) {}
+  console.log('[Nouveautés] état → accueil=' + _newFeat.accueil + ' · mondesk=' + _newFeat.mondesk);
+  return _newFeat;
+}
+app.get('/api/admin/nouveautes', requireAdmin, (_req, res) => res.json({ ok: true, feat: _newFeat }));
+app.post('/api/admin/nouveautes', requireAdmin, async (req, res) => {
+  const p = {}, b = req.body || {};
+  if (typeof b.accueil === 'boolean') p.accueil = b.accueil;
+  if (typeof b.mondesk === 'boolean') p.mondesk = b.mondesk;
+  res.json({ ok: true, feat: await _featSet(p) });
+});
+
 // totale du KV, sur le modèle de _PERMANENT_UNSUB_SEED (auth.js).
 const _GIFT_SEED = ['nouchi.benaini@gmail.com', 'anismessaoud05@gmail.com'];
 const _giftSet = new Set(_GIFT_SEED);

@@ -2776,7 +2776,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // activation pour un non-admin — restauration d'un dtp_active_view='widgets' laissé par une
     // session admin sur le même navigateur, OU appel programmatique. Sinon le client verrait le
     // panneau bêta + perdrait sa colonne droite (revue adversariale, défaut majeur confirmé).
-    if (view === 'widgets' && !window._pdIsAdmin) view = 'news';
+    if (view === 'widgets' && !window._pdMonDesk) view = 'news';   // _pdMonDesk = admin OU drapeau leve
     // SEMAINE À VENIR : désormais PUBLIC (plus de redirection des clients vers 'news').
     _setDocTitle(view);
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
