@@ -1055,6 +1055,7 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
   const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
   const imgAcc = LANDING_URL + '/assets/images/annonce-accueil.jpg';
   const imgDsk = LANDING_URL + '/assets/images/annonce-mondesk.jpg';
+  const imgDis = LANDING_URL + '/assets/images/annonce-dispositions.jpg';
   const _img = (src, alt) => `<img src="${src}" width="532" alt="${alt}" style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #232429;border-radius:6px;margin:4px 0 20px;">`;
   const body = `
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Deux nouveaut&eacute;s en ligne&nbsp;: l'accueil Vue d'ensemble, et un desk que vous montez vous-m&ecirc;me.</div>
@@ -1076,16 +1077,19 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
 
     <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Mon Desk</p>
     <p style="margin:0 0 12px;">Le desk n'est plus une disposition impos&eacute;e. C'est une grille que <strong style="color:#fff;">vous composez vous-m&ecirc;me</strong>, bloc par bloc.</p>
-    <p style="margin:0 0 12px;">La biblioth&egrave;que reprend les modules du terminal&nbsp;: force des devises, calendrier &eacute;conomique, fil d'actualit&eacute;, sessions de march&eacute;, radar de biais, positionnement des institutionnels (COT), sentiment de risque, aper&ccedil;u DMX du positionnement des particuliers, saisonnalit&eacute;, taux directeurs, horloge mondiale, barom&egrave;tre.</p>
-    <p style="margin:0 0 12px;">Chaque bloc se d&eacute;place, se redimensionne et se r&egrave;gle&nbsp;: p&eacute;riode d'un graphique, devises affich&eacute;es, places retenues sur l'horloge. Vous gardez ce que vous consultez, vous &eacute;cartez le reste.</p>
-    <p style="margin:0 0 12px;">Vous enregistrez <strong style="color:#fff;">plusieurs dispositions</strong> et vous basculez de l'une &agrave; l'autre&nbsp;: une pour le forex, une pour la crypto, une pour les indices. Ou simplement une pour l'analyse technique, une pour la fondamentale.</p>
+    <p style="margin:0 0 14px;">La biblioth&egrave;que reprend les modules du terminal&nbsp;: force des devises, calendrier &eacute;conomique, fil d'actualit&eacute;, sessions de march&eacute;, radar de biais, positionnement des institutionnels (COT), sentiment de risque, aper&ccedil;u DMX du positionnement des particuliers, saisonnalit&eacute;, taux directeurs, horloge mondiale, barom&egrave;tre.</p>
+    ${_img(imgDsk, 'La bibliotheque de modules du terminal DataTradingPro')}
+    <p style="margin:0 0 14px;">Chaque bloc se d&eacute;place, se redimensionne et se r&egrave;gle&nbsp;: p&eacute;riode d'un graphique, devises affich&eacute;es, places retenues sur l'horloge. Vous gardez ce que vous consultez, vous &eacute;cartez le reste.</p>
+
+    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Une disposition par usage</p>
+    <p style="margin:0 0 14px;">Vous enregistrez <strong style="color:#fff;">plusieurs dispositions</strong> et vous basculez de l'une &agrave; l'autre&nbsp;: une pour le forex, une pour la crypto, une pour les indices. Ou simplement une pour l'analyse technique, une pour la fondamentale.</p>
+    ${_img(imgDis, 'Le choix d une disposition dans Mon Desk')}
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
       <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
         Rien n'est stock&eacute; dans le navigateur&nbsp;: tout tient <strong style="color:#fff;">sur votre compte</strong>. Votre desk vous suit d'un ordinateur &agrave; l'autre, sur l'application de bureau comme sur t&eacute;l&eacute;phone.
       </td></tr>
     </table>
     <p style="margin:0 0 14px;">La disposition de d&eacute;part reprend l'ensemble de vos onglets habituels. Rien &agrave; reconstruire&nbsp;: vous ajustez quand vous le souhaitez, &agrave; votre rythme.</p>
-    ${_img(imgDsk, 'Mon Desk : une grille de blocs composee par le membre')}
 
     <p style="margin:0 0 16px;">Les deux nouveaut&eacute;s sont actives sur votre compte. Une connexion suffit.</p>
     ${_campaignBtn('Ouvrir le desk', ouvrir)}
@@ -1100,6 +1104,7 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
 const _ANNONCE_DESK_IMGS = [
   { fichier: 'annonce-accueil.jpg', cid: 'annonce-accueil@datatradingpro', motif: /https?:\/\/[^"]*annonce-accueil\.jpg/g },
   { fichier: 'annonce-mondesk.jpg', cid: 'annonce-mondesk@datatradingpro', motif: /https?:\/\/[^"]*annonce-mondesk\.jpg/g },
+  { fichier: 'annonce-dispositions.jpg', cid: 'annonce-dispositions@datatradingpro', motif: /https?:\/\/[^"]*annonce-dispositions\.jpg/g },
 ];
 async function sendAnnonceDesk(d) {
   d = d || {};
