@@ -207,7 +207,11 @@
   +         '<div class="home-sub"><span class="home-sub-date">' + esc(dateFr()) + '</span><span class="home-sub-dot">·</span>ton desk est prêt.</div>'
         // (bandeau de sessions retiré du héros : la CARTE DES SESSIONS en haut à droite porte
         //  désormais l'état des places, comme la référence — pas deux fois la même information)
-  +         '<button class="home-skip" onclick="DTPHome.close()" title="Passer">Accéder au desk →</button>'
+        // ⚠️ `openDesk()` et NON `close()` (05/08). `close()` se contente de retirer le calque : on
+        // atterrissait donc sur la vue ACTIVE, qui pouvait encore être l'ancien desk tant que le
+        // démarrage de Mon Desk n'avait pas fini de résoudre le flag admin (sondage jusqu'à ~10 s).
+        // Le bouton ouvre désormais Mon Desk explicitement — l'arrivée ne dépend plus d'une course.
+  +         '<button class="home-skip" onclick="DTPHome.openDesk()" title="Passer">Accéder au desk →</button>'
         // (courbe vivante RETIRÉE — demande user 03/08 « enlève la petite courbe » : le mur d'or
         //  + le faisceau portent seuls le bloc)
   +       '</div>'
