@@ -1055,7 +1055,7 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
   const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
   // Les illustrations vivent dans le depot du DESK (public/assets/images). La landing sert ses
   // PROPRES fichiers : `annonce-app-desktop.jpg` y avait ete copiee a la main, ce qui donnait
-  // l illusion d un alias commun — verifie, les trois nouvelles y repondent 404. On pointe donc le
+  // l illusion d un alias commun : verifie, les trois nouvelles y repondent 404. On pointe donc le
   // desk, ou elles sont reellement, et `/assets/images/` y est desormais public (server.js).
   const imgAcc = APP_URL + '/assets/images/annonce-accueil.jpg';
   const imgDsk = APP_URL + '/assets/images/annonce-mondesk.jpg';
@@ -1080,7 +1080,7 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
     ${_img(imgAcc, "L'accueil Vue d'ensemble du terminal DataTradingPro")}
 
     <!-- ORDRE (demande user 06/08) : « Une disposition par usage » passe AVANT « Mon Desk ». On
-         annonce donc le bénéfice — plusieurs écrans selon ce qu'on suit — puis le moyen, la grille
+         annonce donc le bénéfice : plusieurs écrans selon ce qu'on suit : puis le moyen, la grille
          qu'on compose. Entrée par l'usage plutôt que par l'outil. -->
     <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Une disposition par usage</p>
     <p style="margin:0 0 14px;">Vous enregistrez <strong style="color:#fff;">plusieurs dispositions</strong> et vous basculez de l'une &agrave; l'autre&nbsp;: une pour le forex, une pour la crypto, une pour les indices. Ou simplement une pour l'analyse technique, une pour la fondamentale.</p>
@@ -1092,7 +1092,7 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
          curiosite »). L enumeration des douze widgets epuisait le sujet des le mail ; une quinzaine
          annoncee donne l ordre de grandeur et laisse la decouverte au produit. Le chiffre est exact :
          9 modules d analyse de marche + 7 outils au catalogue. -->
-    <p style="margin:0 0 14px;">Une <strong style="color:#fff;">quinzaine de modules</strong> &agrave; assembler. Vous y retrouverez ceux que vous ouvrez tous les jours&nbsp;&mdash; et sans doute quelques-uns que vous n'aviez jamais eu l'occasion de regarder.</p>
+    <p style="margin:0 0 14px;">Une <strong style="color:#fff;">quinzaine de modules</strong> &agrave; assembler. Vous y retrouverez ceux que vous ouvrez tous les jours, et sans doute quelques-uns que vous n'aviez jamais eu l'occasion de regarder.</p>
     ${_img(imgDsk, 'Les modules disponibles dans Mon Desk')}
     <p style="margin:0 0 14px;">Chaque bloc se d&eacute;place, se redimensionne et se r&egrave;gle&nbsp;: p&eacute;riode d'un graphique, devises affich&eacute;es, places retenues sur l'horloge. Vous gardez ce que vous consultez, vous &eacute;cartez le reste.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
@@ -1106,7 +1106,7 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
     ${_campaignBtn('Ouvrir le desk', ouvrir)}
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  // OBJET (06/08, « plus percutant ») : un verbe d action en tete, et le vocabulaire du corps —
+  // OBJET (06/08, « plus percutant ») : un verbe d action en tete, et le vocabulaire du corps -
   // « bloc par bloc » dit la nouveaute en trois mots. 33 caracteres : rien n est tronque, ni dans
   // une boite de reception ni sur telephone. On enonce ce qui devient possible, sans superlatif,
   // sans urgence inventee, sans point d exclamation.
@@ -1114,7 +1114,7 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
 }
 /* Les DEUX illustrations de l'annonce, embarquées en pièces inline (cid:) comme pour l'annonce app
    desktop. Raison : Gmail et Outlook bloquent souvent les images distantes ; en cid: l'affichage est
-   garanti. Repli : si un fichier manque, son URL landing reste dans le HTML — le mail part quand
+   garanti. Repli : si un fichier manque, son URL landing reste dans le HTML : le mail part quand
    même, avec au pire une image non chargée plutôt qu'un envoi bloqué. */
 const _ANNONCE_DESK_IMGS = [
   { fichier: 'annonce-accueil.jpg', cid: 'annonce-accueil@datatradingpro', motif: /https?:\/\/[^"]*annonce-accueil\.jpg/g },

@@ -3105,7 +3105,7 @@ function _spansAffiches(lay) {
        desk classique, inchangé. Le jour où Mon Desk s'ouvre à tous, c'est cette seule condition
        qui change. */
     logoAccueil: function () {
-      var monDesk = !!window._pdIsAdmin;   // ← la seule condition à faire évoluer le jour de l'ouverture
+      var monDesk = !!window._pdMonDesk;   // admin OU drapeau « mondesk » leve (server.js, KV feat:v1)
       if (monDesk && typeof activateView === 'function') { activateView('widgets'); return; }
       if (typeof activateView === 'function') activateView('news');
     },
@@ -3932,7 +3932,7 @@ function _spansAffiches(lay) {
   // Le flag arrive dans le .then() de /api/auth/me → on sonde jusqu'à ~10 s, puis on renonce (aucun onglet).
   var tries = 0;
   var iv = setInterval(function () {
-    if (window._pdIsAdmin) { clearInterval(iv); boot(); }
+    if (window._pdMonDesk) { clearInterval(iv); boot(); }
     else if (++tries > 20) clearInterval(iv);
   }, 500);
 })();
