@@ -11328,10 +11328,15 @@ html[data-theme="light"] {
      220px laissaient ~150px de liste une fois l en-tete et la barre d outils deduits : trois
      lignes de news a peine, et un defilement qui bute aussitot. En colonne unique sur mobile,
      une carte plus haute ne coute rien a la mise en page — on defile de toute facon la page. */
-  .wdg-card { min-height: 360px; }
-  /* Les widgets naturellement courts (horloge, jauge) gardent leur gabarit : les grandir les
-     aurait juste remplis de vide. */
-  .wdg-card:has(.wdg-clockwrap), .wdg-card:has(.risk-gauge-stage) { min-height: 240px; }
+  /* 05/08 — relevé à 420px (« agrandis les blocs pour empêcher les problèmes qu'on rencontre »).
+     En colonne unique sur mobile, une carte haute ne coûte rien : on fait défiler la page de toute
+     façon. C'est le MANQUE de hauteur qui produisait listes illisibles, graphiques écrasés et
+     widgets réduits à une bande. */
+  .wdg-card { min-height: 420px; }
+  /* L'EXCEPTION pour les widgets dits « courts » est retirée : c'est précisément elle qui laissait
+     l'Horloge mondiale en mince bande vide (capture user). Plancher plus bas qu'ailleurs, mais
+     utilisable. */
+  .wdg-card:has(.wdg-clockwrap), .wdg-card:has(.risk-gauge-stage) { min-height: 320px; }
 }
 /* Plein écran : la carte recouvre toute la zone de travail (overlay), les autres sont figées derrière. */
 .wdg-grid.wdg-fs-mode { overflow: hidden; }
