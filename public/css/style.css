@@ -15624,3 +15624,14 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   .wdg-fx-chart { min-height: 380px; }
   .wdg-lfmap    { min-height: 260px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   CARTE LEAFLET · MÊME ANCRAGE ÉCRAN QUE LES GRAPHIQUES amCHARTS
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Leaflet souffre exactement du même défaut sous `zoom` : il dimensionne son conteneur et convertit
+   la position du doigt avec des repères qui ne coïncident plus. On annule donc le zoom sur le
+   conteneur de la carte, comme le fait `_dtpAncreGraphe` côté amCharts (charts.js).
+   `.leaflet-container` est posée par Leaflet sur l'élément hôte : la règle atteint donc toutes les
+   cartes, celle des sessions comme les suivantes. À 100 % elle vaut `zoom: 1` et ne fait rien.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+.leaflet-container { zoom: calc(1 / var(--dtp-zoom, 1)); }

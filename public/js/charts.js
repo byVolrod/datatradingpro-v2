@@ -217,7 +217,7 @@ function buildStockChart(symbol) {
   const s = priceState[symbol];
   const ohlcData = generateOHLC(s.price, periods, tfH, p.vol);
 
-  const root = am5.Root.new('chart-stock');
+  const root = _dtpAncreGraphe(am5.Root.new('chart-stock'));
   stockRoot = root;
   root._logo?.set('forceHidden', true);
 
@@ -574,6 +574,23 @@ function _smoothCS(pts) {
   });
 }
 
+/* ═══ ANCRAGE ÉCRAN DES GRAPHIQUES ═══════════════════════════════════════════════════════════════
+   Le desk s'affiche via la propriété CSS `zoom` sur <html> (réglage Apparence › Zoom, 90 % par
+   défaut). amCharts, lui, mesure son conteneur avec des coordonnées ÉCRAN mais dessine dans des
+   coordonnées LOCALES. Sous zoom, les deux repères ne coïncident plus et TOUT est faussé du même
+   facteur — mesuré au banc à 90 % : le canvas ne couvre que 0,9 × 0,9 du cadre (d'où la bande vide
+   à droite et en bas) et le croisillon dérive jusqu'à 46 px du pointeur, l'écart grandissant avec
+   la distance au bord.
+   On annule donc le zoom sur le SEUL conteneur du graphique. Son repère local redevient celui de
+   l'écran, et les deux défauts disparaissent ensemble (mesuré : remplissage 1 × 1, écart 0 px).
+   Sa taille RENDUE ne bouge pas : une largeur en % se résout dans le repère local, que le zoom
+   remultiplie ensuite — le graphique occupe exactement la place qu'on lui donne.
+   À 100 % la règle vaut `zoom: 1`, donc elle ne fait rien. ═══════════════════════════════════ */
+function _dtpAncreGraphe(root) {
+  try { if (root && root.dom) root.dom.style.zoom = 'calc(1 / var(--dtp-zoom, 1))'; } catch (e) {}
+  return root;
+}
+
 // Teinte CLAIRE d'une couleur (blend vers le blanc) → rectangle de droite du badge (valeur).
 function _lighten(hexInt, amt) {
   const r = (hexInt >> 16) & 255, g = (hexInt >> 8) & 255, b = hexInt & 255;
@@ -609,7 +626,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   disposeRoot(containerId);
   const container = document.getElementById(containerId);
   if (container) container.innerHTML = '';
-  const root = am5.Root.new(containerId);
+  const root = _dtpAncreGraphe(am5.Root.new(containerId));
   root.setThemes([applyTerminalTheme(root)]);
   root._logo?.set('forceHidden', true);
   if (!_iso) _strengthRoot = root;   // l'onglet STRENGTH garde sa réf. ; le graphique du rapport est autonome
@@ -1354,7 +1371,7 @@ function buildRiskGauge() {
             </div>
           </div>`;
 
-        const root = am5.Root.new('risk-gauge-div');
+        const root = _dtpAncreGraphe(am5.Root.new('risk-gauge-div'));
         root.setThemes([am5themes_Animated.new(root), applyTerminalTheme(root)]);   /* thème terminal (était am5themes_Dark générique) */
         root._logo?.set('forceHidden', true);
         _riskGaugeRoot = root;
@@ -1512,7 +1529,7 @@ function buildRiskHistoryChart(containerId, data) {
   const el = document.getElementById(containerId);
   if (!el) return null;
   try { disposeRoot(containerId); } catch {}
-  const root = am5.Root.new(containerId);
+  const root = _dtpAncreGraphe(am5.Root.new(containerId));
   root._logo?.set('forceHidden', true);
   root.setThemes([am5themes_Animated.new(root), applyTerminalTheme(root)]);
   { try { window._dtpChartPremium && window._dtpChartPremium(el, 620); } catch (e) {} }   // chargement premium : overlay shimmer pendant appear(500) -> reveal fondu (build-once ; update()=data.setAll)
@@ -2242,7 +2259,7 @@ function buildSessionMap() {
   if (mapNightRO)       { try { mapNightRO.disconnect(); } catch (e) {} mapNightRO = null; }
   document.getElementById('map-night-canvas')?.remove();
 
-  const root = am5.Root.new('am5-map');
+  const root = _dtpAncreGraphe(am5.Root.new('am5-map'));
   mapRoot = root;
   root.setThemes([applyTerminalTheme(root)]);
   root._logo?.set('forceHidden', true);
