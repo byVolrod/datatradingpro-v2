@@ -4293,7 +4293,7 @@ function _waBuildChart(days) {
   if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
   try {
     if (_waChartRoot) { try { _waChartRoot.dispose(); } catch {} _waChartRoot = null; }
-    const root = am5.Root.new('wa-risk-chart');
+    const root = _dtpAncreGraphe(am5.Root.new('wa-risk-chart'));
     _waChartRoot = root;
     _dtpChartPremium(el, 300);   // chargement premium : overlay shimmer -> reveal en fondu (build-only ; sparkline sans .appear -> reveal court)
     try { root._logo && root._logo.dispose(); } catch {}
@@ -5342,7 +5342,7 @@ function buildBankChart(p) {
       const dec  = p.pair.includes('JPY') ? 2 : (candles[0].Close < 10 ? 4 : 2);
       const fmt  = '#,###.' + '0'.repeat(dec);
       const mono = "'SF Mono', ui-monospace, Menlo, Consolas, monospace";
-      const root = am5.Root.new('bank-chart');
+      const root = _dtpAncreGraphe(am5.Root.new('bank-chart'));
       _bankChartRoot = root;
       _dtpChartPremium(el, 640);   // chargement premium : overlay shimmer pendant appear(500,60) -> reveal en fondu (re-build a chaque clic de ligne)
       // Suppression robuste du logo amCharts (le petit rond bleu) : forceHidden ne suffit pas
@@ -11119,7 +11119,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrBuildEquityChart(L) {
     const id = 'jr-eq-chart', el = document.getElementById(id); if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
     _jrDisposeRoot(id);
-    const root = am5.Root.new(id); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const root = _dtpAncreGraphe(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
     _dtpChartPremium(el, 790);   // chargement premium : overlay shimmer pendant appear(650,60) -> reveal en fondu (re-build au rendu dashboard)
     const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 10, paddingBottom: 2 }));
     const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 66 });
@@ -11158,7 +11158,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrBuildResultDonut(resMap) {
     const id = 'jr-result-donut', el = document.getElementById(id); if (!el || typeof am5percent === 'undefined') return;
     _jrDisposeRoot(id);
-    const root = am5.Root.new(id); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const root = _dtpAncreGraphe(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
     _dtpChartPremium(el, 680);   // chargement premium : overlay shimmer pendant appear(600) -> reveal en fondu (re-build au rendu dashboard)
     const chart = root.container.children.push(am5percent.PieChart.new(root, { innerRadius: am5.percent(64), paddingTop: 2, paddingBottom: 2 }));
     const series = chart.series.push(am5percent.PieSeries.new(root, { valueField: 'v', categoryField: 'k', alignLabels: false }));

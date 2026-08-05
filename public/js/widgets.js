@@ -974,7 +974,7 @@
                 + '<div class="risk-gauge-stage"><div class="wdg-riskgauge"></div>'
                 + '<div class="risk-readout"><div class="risk-readout-badge ' + cls + '"></div></div></div>';
               wrap.querySelector('.risk-readout-badge').textContent = frLabel;
-              root = am5.Root.new(wrap.querySelector('.wdg-riskgauge'));
+              root = _dtpAncreGraphe(am5.Root.new(wrap.querySelector('.wdg-riskgauge')));
               root.setThemes(typeof applyTerminalTheme === 'function' ? [am5themes_Animated.new(root), applyTerminalTheme(root)] : [am5themes_Animated.new(root)]);
               if (root._logo) root._logo.set('forceHidden', true);
               var chart = root.container.children.push(am5radar.RadarChart.new(root, {
@@ -2135,7 +2135,7 @@
     var el = document.getElementById(id);
     if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
     try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
-    var root = am5.Root.new(id);
+    var root = _dtpAncreGraphe(am5.Root.new(id));
     try { root.setThemes([typeof am5themes_Animated !== 'undefined' ? am5themes_Animated.new(root) : null].filter(Boolean)); } catch (e) {}
     if (root._logo) root._logo.set('forceHidden', true);
     var chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 6, paddingBottom: 2 }));
