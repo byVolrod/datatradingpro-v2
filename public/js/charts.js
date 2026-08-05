@@ -582,8 +582,17 @@ function _lighten(hexInt, amt) {
 }
 // Badge du bout de courbe : UNIQUEMENT le code devise sur sa couleur pleine (texte noir).
 // (La valeur chiffrée a été retirée à la demande : le badge ne porte plus que le code de la devise.)
-function _csBadgeHtml(ccy, fullHex, lightHex, valStr) {
-  return `<div class="cs-badge"><span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span></div>`;
+// TRAIT DE RAPPEL (05/08, « relie la courbe au label ») : l'anti-collision ÉCARTE verticalement la
+// pastille de son point d'ancrage — sans lien visuel on ne sait plus quelle pastille appartient à
+// quelle courbe. On trace un filet de la couleur de la devise, de la pastille jusqu'à la hauteur
+// réelle du bout de courbe. `dy` est le décalage appliqué : positif = pastille poussée vers le BAS,
+// donc la courbe est au-dessus et le filet remonte.
+function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy) {
+  const d = Math.round(dy || 0);
+  const filet = d
+    ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"></i>`
+    : '';
+  return `<div class="cs-badge">${filet}<span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span></div>`;
 }
 function buildStrengthChart(containerId, data, opts = {}) {
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
@@ -753,7 +762,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
 
     seriesArr.push(series);
     seriesMap[ccy] = series;
-    labelMap[ccy]  = { range, value: lastV, hexStr, hexColor };
+    labelMap[ccy]  = { range, value: lastV, hexStr, hexColor, dy: 0 };   // dy = decalage impose par l anti-collision, longueur du filet de rappel
     // (mail) valeur TD figee du jour A DROITE de la devise, directement dans le LABEL de legende (le nom) :
     // fiable sans curseur (contrairement a legendValueText). Le tooltip/badge continuent d'utiliser `ccy`.
     if (_legendVal) series.set('name', ccy + '   ' + lastV.toFixed(1).replace('.', ','));
@@ -883,7 +892,18 @@ function buildStrengthChart(containerId, data, opts = {}) {
       });
       arr.forEach(x => {
         const lbl = x.o.range?.get('label');
-        if (lbl) try { lbl.set('dy', Math.round(x.px - x.basePx)); } catch {}
+        const d = Math.round(x.px - x.basePx);
+        if (!lbl) return;
+        try {
+          lbl.set('dy', d);
+          // Le filet de rappel est dessiné DANS le badge : il faut donc reconstruire son HTML quand
+          // le décalage change. On ne le fait que dans ce cas — declutter est rappelé à chaque
+          // redimensionnement, et reconstruire huit étiquettes à chaque fois ferait clignoter.
+          if (x.o.dy !== d) {
+            x.o.dy = d;
+            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), '', d));
+          }
+        } catch {}
       });
     } catch {}
   }
@@ -931,7 +951,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
       if (lbl && lbl.range) {
         lbl.value = lv;
         try { lbl.range.set('value', lv); } catch {}
-        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','))); } catch {}
+        // On repasse le dy courant : sans lui la mise a jour effacerait le filet de rappel jusqu au prochain declutter.
+        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','), lbl.dy)); } catch {}
         // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
         // d'après _hiddenCcy UNIQUEMENT (source de vérité des devises masquées via la légende). On n'utilise plus
         // s.isHidden()/get('visible') : transitoires (animation/course de layout) → ils force-cachaient à tort.
