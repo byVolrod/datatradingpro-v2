@@ -15304,3 +15304,39 @@ body.home-mode #calc-btn.topbar-icon--active {
   /* Carte des sessions : sous 300px les badges de villes se superposent. */
   .home-zone-body:has(.wdg-lfmap) { min-height: 320px; }
 }
+
+/* ══ PLANCHER TYPOGRAPHIQUE SUR TÉLÉPHONE (05/08) ═══════════════════════════════════════════════
+   « Je n'arrive pas à lire les widgets. » La mesure a tranché : sur un écran de 390px, 15 éléments
+   de texte sur 30 tombaient SOUS 11px — jusqu'à 8px pour le fuseau horaire de l'Horloge, 9px pour
+   les tags, les badges COT et les libellés. Le problème n'était donc PAS la hauteur des blocs, que
+   j'ai relevée pendant plusieurs déploiements sans que rien ne s'améliore pour vous.
+   Ces tailles conviennent à un écran de bureau regardé à 60cm ; sur un téléphone tenu à 30cm avec
+   une densité double, elles deviennent illisibles. On pose un plancher à 11px — la densité reste
+   celle du cockpit, mais tout devient lisible sans zoomer. */
+@media (max-width: 560px) {
+  /* Horloge : l'écart de fuseau était le plus petit texte de tout le desk. */
+  .clock-gmt { font-size: 11px; }
+  .clock-city, .clock-meta { font-size: 11.5px; }
+  .clock-time { font-size: 17px; }
+  /* Étiquettes, badges et libellés : 9px partout. */
+  .tag, .news-tags .tag { font-size: 11px; padding: 2px 7px; }
+  .cot-badge, .cot-k, .cot-unit { font-size: 11px; }
+  .cot-net-v { font-size: 22px; }
+  .cot-v { font-size: 13px; }
+  /* Fil : heure et catégorie remontent avec le titre déjà passé à 12px. */
+  .news-time, .news-category-text { font-size: 11.5px; }
+  /* Calendrier : les cellules portent la donnée, elles doivent être lues en premier. */
+  .cal-row td, .cal-table td { font-size: 12px; }
+  .cal-imp-btn { font-size: 11px; }
+  /* Taux et saisonnalité : mêmes seuils. */
+  .rtc-k, .rtc-bl, .season-th, .season-month { font-size: 11px; }
+  .rtc-v, .season-td { font-size: 12px; }
+}
+/* Les intitulés abrégés du calendrier (H · DEV · IMP · RÉEL · PRÉV) sont rendus par un
+   pseudo-élément à 9px : même plancher qu'ailleurs sur téléphone. */
+@media (max-width: 560px) {
+  .wdg-cal-wrap .cal-table thead .cth-time::after,
+  .wdg-cal-wrap .cal-table thead .cth-curr::after,
+  .wdg-cal-wrap .cal-table thead .cth-imp::after,
+  .wdg-cal-wrap .cal-table thead .cth-val::after { font-size: 11px; }
+}
