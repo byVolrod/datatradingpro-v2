@@ -647,11 +647,20 @@ function buildStrengthChart(containerId, data, opts = {}) {
     { timeUnit: 'hour', count: 6 }, { timeUnit: 'day', count: 1 }, { timeUnit: 'week', count: 1 }, { timeUnit: 'month', count: 1 },
   ]);
 
-  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: 66 });
+  // GOUTTIÈRE DROITE : elle héberge DEUX choses, les chiffres de l'axe Y et les badges de devises.
+  // Les deux étaient ancrés sur l'axe (badge : centerX 0%) → superposés. Invisible sur grand écran
+  // tant qu'aucun badge ne tombait sur une graduation, illisible sur téléphone où huit badges se
+  // serrent et recouvrent presque toutes les valeurs (capture user 05/08).
+  // On les met CÔTE À CÔTE : chiffres contre l'axe, badge décalé par le padding gauche de
+  // `.cs-badge` (CSS), et la gouttière est élargie de la somme des deux.
+  const _csEtroit = (typeof window !== 'undefined' && window.matchMedia)
+    ? window.matchMedia('(max-width: 560px)').matches : false;
+  // Gouttière dimensionnée pour le pire libellé possible (« -100,00 », 7 caractères) + la pastille.
+  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _csEtroit ? 96 : 80 });
   // Chiffres de l'axe Y dans la gouttière (hors zone de tracé → pas de chevauchement)
   yAxisRenderer.labels.template.setAll({
     visible: true,
-    fill: am5.color(0x94a3b8), fontSize: 9,
+    fill: am5.color(0x94a3b8), fontSize: _csEtroit ? 11 : 9,   // plancher de 11 px sur téléphone
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
     minPosition: 0.02, maxPosition: 0.98,
     paddingLeft: 4,
@@ -818,7 +827,9 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const max = yAxis.getPrivate('max') != null ? yAxis.getPrivate('max') : yAxis.get('max');
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
-      const GAP_BASE = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
+      // Hauteur badge + marge : empilement strict, aucun chevauchement. La pastille mesure 15 px sur
+      // téléphone (texte porté à 11 px pour être lisible) contre 11 px sur bureau → l'écart suit.
+      const GAP_BASE = _csEtroit ? 24 : 20;
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas.
       // Masquage = UNIQUEMENT _hiddenCcy (devises explicitement masquées via la légende, maintenu par les
       // événements hidden/shown/visible de la série). On N'utilise PLUS s.isHidden()/get('visible') ici : ces
@@ -840,7 +851,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       // haut) : sur un petit graphe, 8 badges × 20 px dépassent le tracé — la remontée en bloc
       // poussait alors la pile HORS CADRE par le haut. L'écart s'adapte : jamais plus de 20 px,
       // jamais moins de 12 px (léger recouvrement contrôlé plutôt qu'une pastille invisible).
-      const GAP = arr.length > 1 ? Math.min(GAP_BASE, Math.max(12, (h - 16) / (arr.length - 1))) : GAP_BASE;
+      const GAP = arr.length > 1 ? Math.min(GAP_BASE, Math.max(_csEtroit ? 16 : 12, (h - 16) / (arr.length - 1))) : GAP_BASE;
       // ── PLACEMENT PAR PAQUETS CENTRÉS (05/08, demande user : « les étiquettes doivent être bien
       //    alignées avec les courbes ») ────────────────────────────────────────────────────────
       // L'ancienne méthode poussait TOUJOURS vers le bas depuis la première étiquette, puis
@@ -3275,11 +3286,11 @@ function renderCalTable() {
       <td class="cth-curr">${ev.currency || ''}</td>
       <td class="cth-imp">${calImpDots(ev.impact)}</td>
       <td class="cth-event">${ev.title || ''}${_keyChip}</td>
-      <td class="cth-val">${calActualCell(ev.actual, ev.forecast, ev.low, ev.title)}</td>
-      <td class="cth-val">${hi}</td>
-      <td class="cth-val">${fcast}</td>
-      <td class="cth-val">${lo}</td>
-      <td class="cth-val">${prev}</td>
+      <td class="cth-val" data-lbl="Réel">${calActualCell(ev.actual, ev.forecast, ev.low, ev.title)}</td>
+      <td class="cth-val" data-lbl="Haut">${hi}</td>
+      <td class="cth-val" data-lbl="Prév.">${fcast}</td>
+      <td class="cth-val" data-lbl="Bas">${lo}</td>
+      <td class="cth-val" data-lbl="Préc.">${prev}</td>
     </tr>`;
   });
 
@@ -4412,9 +4423,9 @@ window._retryCalendar = function() {
           + '<td class="cth-curr">' + (ev.currency || '') + '</td>'
           + '<td class="cth-imp">' + calImpDots(ev.impact) + '</td>'
           + '<td class="cth-event">' + _esc(ev.title || '') + '</td>'
-          + '<td class="cth-val">' + calActualCell(ev.actual, ev.forecast, null, ev.title) + '</td>'
-          + '<td class="cth-val">' + fc + '</td>'
-          + '<td class="cth-val">' + pv + '</td></tr>';
+          + '<td class="cth-val" data-lbl="Réel">' + calActualCell(ev.actual, ev.forecast, null, ev.title) + '</td>'
+          + '<td class="cth-val" data-lbl="Prév.">' + fc + '</td>'
+          + '<td class="cth-val" data-lbl="Préc.">' + pv + '</td></tr>';
       });
       cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">PRÉVISION</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tb + '</tbody></table>';
     }).catch(() => {});
