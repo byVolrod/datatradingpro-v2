@@ -580,8 +580,11 @@ function _lighten(hexInt, amt) {
   const lr = Math.round(r + (255 - r) * amt), lg = Math.round(g + (255 - g) * amt), lb = Math.round(b + (255 - b) * amt);
   return '#' + ((lr << 16) | (lg << 8) | lb).toString(16).padStart(6, '0');
 }
-// Badge du bout de courbe : UNIQUEMENT le code devise sur sa couleur pleine (texte noir).
-// (La valeur chiffrée a été retirée à la demande : le badge ne porte plus que le code de la devise.)
+// Badge du bout de courbe : CODE DEVISE sur la couleur pleine + VALEUR sur la même teinte éclaircie
+// (05/08, demande user : « le code devise, la valeur actuelle, la couleur associée à la courbe »).
+// La valeur avait été retirée à une demande précédente ; elle est ici réintroduite explicitement.
+// Deux pavés accolés plutôt qu'une pastille unie : c'est la lecture DTP, et le chiffre se détache du
+// code sans avoir besoin d'un séparateur.
 // TRAIT DE RAPPEL (05/08, « relie la courbe au label ») : l'anti-collision ÉCARTE verticalement la
 // pastille de son point d'ancrage — sans lien visuel on ne sait plus quelle pastille appartient à
 // quelle courbe. On trace un filet de la couleur de la devise, de la pastille jusqu'à la hauteur
@@ -592,7 +595,9 @@ function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy) {
   const filet = d
     ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"></i>`
     : '';
-  return `<div class="cs-badge">${filet}<span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span></div>`;
+  const val = (valStr == null || valStr === '') ? '' :
+    `<span class="cs-badge-val" style="background:${lightHex}">${valStr}</span>`;
+  return `<div class="cs-badge">${filet}<span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span>${val}</div>`;
 }
 function buildStrengthChart(containerId, data, opts = {}) {
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
@@ -660,21 +665,23 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // Les deux étaient ancrés sur l'axe (badge : centerX 0%) → superposés. Invisible sur grand écran
   // tant qu'aucun badge ne tombait sur une graduation, illisible sur téléphone où huit badges se
   // serrent et recouvrent presque toutes les valeurs (capture user 05/08).
-  // On les met CÔTE À CÔTE. ORDRE (demande user 05/08, « colle les étiquettes au bout de la courbe ») :
-  // la PASTILLE d'abord, collée à l'axe — donc au bout exact de sa courbe, ce qui est tout l'intérêt
-  // d'une étiquette de fin de série — puis les chiffres de l'axe repoussés à l'extérieur par leur
-  // propre `paddingLeft`. La gouttière vaut la somme des deux.
+  // UNE SEULE COLONNE (demande user 05/08 : « il doit être sur la colonne verticale des chiffres »).
+  // Chiffres de l'axe et étiquettes de devises partagent la gouttière et démarrent tous deux à
+  // l'axe, c'est-à-dire au bout des courbes. L'étiquette étant opaque, elle masque simplement la
+  // graduation qui se trouve à sa hauteur — c'est voulu : à cet endroit précis, la valeur de la
+  // devise est l'information utile, pas la graduation.
+  // La gouttière est donc dimensionnée sur l'étiquette, plus large que les chiffres :
+  // « NZD  -25,00 » ≈ 74 px à 11 px, ≈ 62 px à 9 px.
   const _csEtroit = (typeof window !== 'undefined' && window.matchMedia)
     ? window.matchMedia('(max-width: 560px)').matches : false;
-  // Gouttière dimensionnée pour le pire libellé possible (« -100,00 », 7 caractères) + la pastille.
-  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _csEtroit ? 96 : 80 });
+  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _csEtroit ? 88 : 74 });
   // Chiffres de l'axe Y dans la gouttière (hors zone de tracé → pas de chevauchement)
   yAxisRenderer.labels.template.setAll({
     visible: true,
     fill: am5.color(0x94a3b8), fontSize: _csEtroit ? 11 : 9,   // plancher de 11 px sur téléphone
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
     minPosition: 0.02, maxPosition: 0.98,
-    paddingLeft: _csEtroit ? 44 : 36,   // laisse passer la pastille, qui reste collée au bout de la courbe
+    paddingLeft: 4,   // même colonne que les étiquettes de devises, toutes deux ancrées à l'axe
   });
   // Échelle DTP : 2 décimales fixes + décimale FRANÇAISE (virgule) → "4,00 / 0,00 / -16,00".
   yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
@@ -910,7 +917,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
           // redimensionnement, et reconstruire huit étiquettes à chaque fois ferait clignoter.
           if (x.o.dy !== d) {
             x.o.dy = d;
-            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), '', d));
+            // ⚠️ La valeur DOIT être repassée : reconstruire le badge sans elle l'effacerait jusqu'à
+            // la prochaine mise à jour des données, soit jusqu'à 20 s d'étiquettes muettes.
+            const v = (x.o.value != null ? x.o.value : 0).toFixed(2).replace('.', ',');
+            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), v, d));
           }
         } catch {}
       });
@@ -974,6 +984,28 @@ function buildStrengthChart(containerId, data, opts = {}) {
 
   // Étirement vertical de l'axe Y au glisser (façon TradingView/la référence) sur la gouttière droite
   _attachYAxisDragZoom(container, yAxis, 70);
+
+  // ── LE TRACÉ SUIT SON CADRE ──────────────────────────────────────────────────────────────────
+  // amCharts recalcule sa taille sur un changement de FENÊTRE, pas sur un changement de son
+  // CONTENEUR. Or le cadre bouge sans que la fenêtre bouge : dézoom de la page, ouverture d'un
+  // volet latéral, glisser du splitter, passage d'un widget en plein écran, révélation d'un onglet.
+  // Le tracé restait alors à son ancienne largeur et laissait une bande vide à droite (capture user
+  // 05/08). On observe donc la boîte elle-même. Débounce en requestAnimationFrame : l'observateur
+  // se déclenche en rafale pendant un glisser.
+  if (container && window.ResizeObserver) {
+    let _roRaf = 0;
+    const ro = new ResizeObserver(() => {
+      // Auto-nettoyage : le graphique peut être détruit alors que l'observateur vit encore.
+      try { if (root.isDisposed && root.isDisposed()) { ro.disconnect(); return; } } catch (e) { ro.disconnect(); return; }
+      if (_roRaf) return;
+      _roRaf = requestAnimationFrame(() => {
+        _roRaf = 0;
+        try { root.resize(); } catch (e) {}
+        declutter();   // la hauteur du tracé a changé → l'anti-collision doit se recalibrer
+      });
+    });
+    try { ro.observe(container); } catch (e) {}
+  }
 
   return { root, seriesMap, update };
 }

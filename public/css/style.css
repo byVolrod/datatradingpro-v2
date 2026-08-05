@@ -7706,14 +7706,18 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* `.cs-badge` n'est plus qu'un CALE : son padding gauche pousse la pastille au-delà des chiffres de
    l'axe Y, qui occupent la même gouttière (l'ancrage commun les faisait se recouvrir). Le visuel
    — fond, coins, ombre — vit donc sur `.cs-badge-ccy`, sinon l'ombre encadrerait le vide du calage. */
-.cs-badge { position: relative; display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; pointer-events: none; padding-left: var(--cs-badge-x, 2px); }
+.cs-badge { filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); position: relative; display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; pointer-events: none; padding-left: var(--cs-badge-x, 2px); }
 /* FILET DE RAPPEL : relie la pastille au bout réel de sa courbe quand l'anti-collision l'a écartée
    verticalement. Tracé à `left: 0`, c'est-à-dire pile sur l'axe — là où la courbe se termine. Sa
    hauteur est posée en ligne par `_csBadgeHtml` (= |dy|), sa couleur est celle de la devise. */
 .cs-link { position: absolute; left: 0; width: 2px; bottom: 50%; opacity: .9; pointer-events: none; border-radius: 1px; }
 .cs-link--bas { bottom: auto; top: 50%; }   /* pastille remontée : la courbe est en dessous */
-.cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.55); }
+/* Deux pavés ACCOLÉS : code sur la couleur pleine, valeur sur la même teinte éclaircie. L'ombre est
+   portée par `.cs-badge` en `drop-shadow` — elle épouse alors les pixels visibles et ignore le calage
+   transparent, là où un `box-shadow` sur chaque pavé aurait dessiné une couture au milieu. */
+.cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px 0 0 3px; }
 .cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; }
+.cs-badge-ccy:last-child { border-radius: 3px; }   /* pas de valeur (mode isolé) → pastille seule */
 
 /* ═══════════════ METER — jauges à briques (égaliseur) ═══════════════ */
 .meter-grid {
@@ -14195,7 +14199,7 @@ body.home-mode .view-panel { visibility: hidden; }
    gouttière est élargie en conséquence côté amCharts (`_csEtroit`, charts.js). */
 @media (max-width: 560px) {
   .cs-badge { --cs-badge-x: 2px; }
-  .cs-badge-ccy { font-size: 11px; padding: 2px 6px; }
+  .cs-badge-ccy, .cs-badge-val { font-size: 11px; padding: 2px 6px; }
 }
 
 /* ── GESTIONNAIRE DE LAYOUTS — LISIBILITÉ (04/08) : rangées plus aérées et hiérarchie
@@ -15467,24 +15471,24 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
     padding: 0 !important; text-align: left !important; white-space: normal !important;
     overflow: visible !important; border: 0 !important;
   }
-  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-time  { grid-column: 1 / 4;  font-size: 13px !important;
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-time  { grid-column: 1 / 4;  font-size: 14px !important;
                                       font-weight: var(--fw-bold, 700); }
-  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag  { grid-column: 4 / 5;  font-size: 12px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag  { grid-column: 4 / 5;  font-size: 13px !important; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag img { width: 15px; height: 15px; }
-  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-curr  { grid-column: 5 / 9;  font-size: 12px !important; padding-left: 6px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-curr  { grid-column: 5 / 9;  font-size: 13px !important; padding-left: 6px !important; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp   { grid-column: 9 / 13; justify-self: end; }
   /* Les pastilles d'impact sont le repère de tri visuel de la carte : à 10 px elles se confondaient. */
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp,
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp > span,
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp .ci-dot-off {
-    font-size: 12px !important; letter-spacing: .5px;
+    font-size: 13px !important; letter-spacing: .5px;
   }
-  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-event { grid-column: 1 / -1; font-size: 13px !important;
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-event { grid-column: 1 / -1; font-size: 14.5px !important;
                                       line-height: 1.35; margin: 4px 0 5px; }
   /* Les valeurs deviennent des paires « libellé valeur », donc lisibles sans en-tête de colonne. */
-  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val { font-size: 12px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val { font-size: 13px !important; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val::before {
-    content: attr(data-lbl) ' '; color: var(--text3, #8a8a90); font-size: 10.5px;
+    content: attr(data-lbl) ' '; color: #9aa2ad; font-size: 12.5px;
   }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Réel"]  { grid-column: 1 / 5; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Prév."] { grid-column: 5 / 9; }
@@ -15507,7 +15511,7 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
     display: block !important; width: 100% !important; max-width: none !important;
     white-space: normal !important; overflow: visible !important;
   }
-  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep > td { font-size: 12px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep > td { font-size: 13px !important; }
   /* Séparateur EN FLUX sur téléphone, plus collant. Il collait à `top: 28px` pour se ranger sous
      l'en-tête de colonnes — en-tête qui n'existe plus en mode carte. Et un `sticky` dont les ancêtres
      table/tbody/tr sont passés en `display: block` ne se comporte plus comme on le croit : il
@@ -15520,7 +15524,7 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   /* Le chevron « › » de la colonne heure ne sert plus à rien quand la ligne est déjà une carte. */
   #cal-table-wrap .cal-row .cal-chv, #wa-cal-body .cal-row .cal-chv { display: none; }
   /* La puce « Clé » signale les prises de parole qui bougent le marché : à 9 px elle ne se lisait pas. */
-  .cal-key-chip { font-size: 11px; padding: 0 6px; }
+  .cal-key-chip { font-size: 12.5px; padding: 1px 7px; }
 
   /* ── 4 · GESTE VERTICAL — RÈGLE RETIRÉE, ELLE NE FAISAIT PAS CE QUE SON COMMENTAIRE ANNONÇAIT ──
      J'avais posé `touch-action: pan-y` sur ces conteneurs en croyant « rendre le geste vertical à la
