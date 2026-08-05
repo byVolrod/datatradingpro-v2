@@ -607,16 +607,24 @@ function _lighten(hexInt, amt) {
 // quelle courbe. On trace un filet de la couleur de la devise, de la pastille jusqu'à la hauteur
 // réelle du bout de courbe. `dy` est le décalage appliqué : positif = pastille poussée vers le BAS,
 // donc la courbe est au-dessus et le filet remonte.
-function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy) {
+function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy, sansCode) {
   const d = Math.round(dy || 0);
   const filet = d
     ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"></i>`
     : '';
+  // SANS LE CODE (réglage « Code de la devise ») : la valeur reprend la couleur PLEINE de la courbe.
+  // Privée du code, l'étiquette n'aurait plus que sa couleur pour désigner sa devise — la lui laisser
+  // en teinte éclaircie l'aurait rendue indéchiffrable. Repli sur le code si la valeur manque.
+  if (sansCode) {
+    const seul = (valStr == null || valStr === '') ? ccy : valStr;
+    return `<div class="cs-badge">${filet}<span class="cs-badge-val cs-badge-val--seul" style="background:${fullHex}">${seul}</span></div>`;
+  }
   const val = (valStr == null || valStr === '') ? '' :
     `<span class="cs-badge-val" style="background:${lightHex}">${valStr}</span>`;
   return `<div class="cs-badge">${filet}<span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span>${val}</div>`;
 }
 function buildStrengthChart(containerId, data, opts = {}) {
+  const _sansCode = !!opts.sansCode;   // reglage « Code de la devise » : etiquette reduite a sa valeur
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
   const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
   // (optionnel) n'afficher QUE ces devises (ex. les 2 de la paire EURAUD → EUR+AUD) : les autres
@@ -691,7 +699,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // « NZD  -25,00 » ≈ 74 px à 11 px, ≈ 62 px à 9 px.
   const _csEtroit = (typeof window !== 'undefined' && window.matchMedia)
     ? window.matchMedia('(max-width: 560px)').matches : false;
-  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _csEtroit ? 88 : 74 });
+  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _sansCode ? (_csEtroit ? 62 : 54) : (_csEtroit ? 88 : 74) });
   // Chiffres de l'axe Y dans la gouttière (hors zone de tracé → pas de chevauchement)
   yAxisRenderer.labels.template.setAll({
     visible: true,
@@ -773,7 +781,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     const range     = yAxis.createAxisRange(rangeItem);
     const valStr    = lastV.toFixed(2).replace('.', ',');   // valeur SANS "+", décimale FR (façon DTP)
     range.get('label').setAll({
-      html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), valStr),
+      html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), valStr, 0, _sansCode),
       centerY: am5.percent(50),
       centerX: am5.percent(0),   // ancré à l'axe → colonne droite parfaitement alignée (aucun décalage horizontal)
       // ⚠️ PIÈGE MESURÉ : une étiquette de PLAGE est créée à partir du gabarit `renderer.labels.template`,
@@ -937,7 +945,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
             // ⚠️ La valeur DOIT être repassée : reconstruire le badge sans elle l'effacerait jusqu'à
             // la prochaine mise à jour des données, soit jusqu'à 20 s d'étiquettes muettes.
             const v = (x.o.value != null ? x.o.value : 0).toFixed(2).replace('.', ',');
-            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), v, d));
+            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), v, d, _sansCode));
           }
         } catch {}
       });
@@ -988,7 +996,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         lbl.value = lv;
         try { lbl.range.set('value', lv); } catch {}
         // On repasse le dy courant : sans lui la mise a jour effacerait le filet de rappel jusqu au prochain declutter.
-        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','), lbl.dy)); } catch {}
+        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','), lbl.dy, _sansCode)); } catch {}
         // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
         // d'après _hiddenCcy UNIQUEMENT (source de vérité des devises masquées via la légende). On n'utilise plus
         // s.isHidden()/get('visible') : transitoires (animation/course de layout) → ils force-cachaient à tort.
@@ -1076,7 +1084,7 @@ function _attachYAxisDragZoom(container, yAxis, gutterW) {
 
 // Graphique de force ISOLÉ (réutilisé par le Weekly Recap) :
 // la devise `focusCurrency` garde sa couleur à 100 %, les 7 autres passent en gris à 10 %.
-async function buildIsolatedStrength(containerId, focusCurrency, period = 'week') {
+async function buildIsolatedStrength(containerId, focusCurrency, period = 'week', reglages) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la force des devises…') : 'Chargement…');
@@ -1093,7 +1101,7 @@ async function buildIsolatedStrength(containerId, focusCurrency, period = 'week'
     }
     if (!document.getElementById(containerId)) return;
     el.innerHTML = '';
-    return buildStrengthChart(containerId, data, { focusCurrency, isolated: true });
+    return buildStrengthChart(containerId, data, Object.assign({ focusCurrency, isolated: true }, reglages || {}));
   } catch {
     el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>';
   }
