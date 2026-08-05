@@ -17166,6 +17166,8 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
       m = mailer.buildCampaignInvitation({ name: s.name, email: s.email, campaign: 'invitation-preview', variant, isMember });
     } else if (type === 'app-desktop') {
       m = mailer.buildAnnouncementDesktop({ name: s.name, email: s.email, campaign: 'app-desktop-preview' });
+    } else if (type === 'desk-widgets') {
+      m = mailer.buildAnnonceDesk({ name: s.name, email: s.email, campaign: 'desk-widgets-preview' });
     // ── MAILS DE CYCLE DE VIE (demande user 27/07 : les avoir dans la bibliothèque du panel pour les
     //    RELIRE avant de valider un rattrapage). Ils sont transactionnels (déclenchés par l'état du
     //    compte), pas marketing — d'où leur absence initiale ici. Données d'exemple uniquement.
@@ -17296,7 +17298,7 @@ const _DRIP_DAY_LBL = { 0: 'Semaine à venir', 2: 'Comprendre le marché', 3: 'P
 const _MAILLOG_TYPES = [
   [/^drip:intro:/, 'Bienvenue newsletter'], [/^drip:loop:/, 'Contenu de la semaine'],
   [/^drip:day-test:/, 'Test admin'], [/^campaign:intro/, 'Bienvenue newsletter'],
-  [/^campaign:weekly/, 'Récap hebdo (digest)'], [/^campaign:app-desktop/, 'Annonce app desktop'],
+  [/^campaign:weekly/, 'Récap hebdo (digest)'], [/^campaign:app-desktop/, 'Annonce app desktop'], [/^campaign:desk-widgets/, 'Annonce accueil & Mon Desk'],
   [/^campaign:invitation/, 'Invitation'], [/^campaign:/, 'Campagne'],
   [/^welcome:/, 'Bienvenue (accès)'], [/^whop-welcome:/, 'Bienvenue (accès)'],
   [/^welcomeok:/, 'Bienvenue confirmée'], [/^whop-renew:/, 'Renouvellement confirmé'],
@@ -17405,9 +17407,10 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
       else if (tpl === 'invitation') { const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined; const r = await mailer.sendCampaignInvitation({ to, name: '', campaign: 'invitation-test', variant }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'app-desktop') { const r = await mailer.sendAnnouncementDesktop({ to, name: '', campaign: 'app-desktop-test' }); provider = r ? (r.provider || r) : null; }
+      else if (tpl === 'desk-widgets') { const r = await mailer.sendAnnonceDesk({ to, name: '', campaign: 'desk-widgets-test' }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }
-    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : tpl === 'app-desktop' ? ' (Annonce app desktop, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
+    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : tpl === 'app-desktop' ? ' (Annonce app desktop, stats separees)' : tpl === 'desk-widgets' ? ' (Annonce accueil et Mon Desk, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
     return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
       note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' — AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }
@@ -17415,12 +17418,16 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
   // ── Gabarit du broadcast : intro (defaut) OU annonce one-shot app desktop (?tpl=app-desktop).
   //    Chaque gabarit a SON id de campagne → marqueurs anti-doublon et stats separes.
   const bTpl = String(req.query.tpl || 'intro');
-  const bId  = bTpl === 'app-desktop' ? 'app-desktop-v1' : CAMPAIGN_ID;
+  const bId  = bTpl === 'app-desktop' ? 'app-desktop-v1' : bTpl === 'desk-widgets' ? 'desk-widgets-v1' : CAMPAIGN_ID;
   const bBuild = () => bTpl === 'app-desktop'
     ? mailer.buildAnnouncementDesktop({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
+    : bTpl === 'desk-widgets'
+    ? mailer.buildAnnonceDesk({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
     : mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: bId });
   const bSend = (email, nm) => bTpl === 'app-desktop'
     ? mailer.sendAnnouncementDesktop({ to: email, name: nm, campaign: bId })
+    : bTpl === 'desk-widgets'
+    ? mailer.sendAnnonceDesk({ to: email, name: nm, campaign: bId })
     : mailer.sendCampaignIntro({ to: email, name: nm, campaign: bId });
 
   let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }

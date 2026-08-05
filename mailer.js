@@ -1038,6 +1038,55 @@ function buildAnnouncementDesktop({ name, email, campaign } = {}) {
   `;
   return { subject: '🖥️ Votre application DataTradingPro est prête', html: _campaignLayout('Application desktop', body, unsub) };
 }
+/* ── ANNONCE ONE-SHOT : l'accueil « Vue d'ensemble » + Mon Desk (widgets) ──────────────────────────
+   Même moule que l'annonce app desktop : gabarit CAMPAGNE (pied légal + désinscription), or #f3c344
+   (celui des mails ; le desk garde #e3b23a), pixel d'ouverture en dernière ligne, liens suivis.
+   TON : informatif. On décrit ce qui change et ce que le membre peut en faire — aucune incitation à
+   prendre position, aucune promesse de résultat. Pas d'illustration : aucune capture n'est encore
+   déposée dans public/assets/images ; une image cassée coûterait plus que son absence. */
+function buildAnnonceDesk({ name, email, campaign } = {}) {
+  campaign = campaign || 'desk-widgets-v1';
+  const prenom = _esc((name || '').split(' ')[0] || '');
+  const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+  const unsub  = unsubUrl(email || '');
+  const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">Votre desk devient <span style="color:#f3c344;">le v&ocirc;tre</span>.</p>
+    <p style="margin:0 0 18px;">Deux nouveaut&eacute;s arrivent sur le terminal. Elles ne changent rien &agrave; vos donn&eacute;es&nbsp;: elles changent la fa&ccedil;on dont vous y acc&eacute;dez.</p>
+
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">1. L'accueil &laquo;&nbsp;Vue d'ensemble&nbsp;&raquo;</p>
+    <p style="margin:0 0 14px;">En vous connectant, vous arrivez sur un &eacute;cran de <strong style="color:#fff;">prise de poste</strong> plut&ocirc;t que sur une page dense. D'un coup d'&oelig;il&nbsp;: les places ouvertes et celles qui vont l'&ecirc;tre, les derni&egrave;res actualit&eacute;s, la force des devises du jour, les publications &eacute;conomiques &agrave; venir. De quoi savoir o&ugrave; en est le march&eacute; avant m&ecirc;me d'ouvrir quoi que ce soit. Un bouton, et vous &ecirc;tes sur votre desk.</p>
+
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">2. Mon Desk&nbsp;: vous composez votre tableau de bord</p>
+    <p style="margin:0 0 12px;">C'est le changement de fond. Le desk n'est plus une disposition unique impos&eacute;e &agrave; tout le monde&nbsp;: c'est une grille que <strong style="color:#fff;">vous montez vous-m&ecirc;me</strong>.</p>
+    <ul style="margin:0 0 16px;padding-left:20px;color:#cbd5e1;">
+      <li style="margin:6px 0;"><strong style="color:#fff;">Une biblioth&egrave;que de widgets</strong>&nbsp;: force des devises, calendrier &eacute;conomique, fil d'actualit&eacute;, sessions de march&eacute;, radar de biais, positionnement COT, saisonnalit&eacute;, taux directeurs, horloge mondiale&hellip;</li>
+      <li style="margin:6px 0;"><strong style="color:#fff;">Chaque bloc se d&eacute;place, se redimensionne, se r&egrave;gle</strong>&nbsp;: la p&eacute;riode d'un graphique, les devises affich&eacute;es, les places de l'horloge. Chaque widget a ses propres r&eacute;glages.</li>
+      <li style="margin:6px 0;"><strong style="color:#fff;">Plusieurs dispositions enregistr&eacute;es</strong>, et vous passez de l'une &agrave; l'autre&nbsp;: une pour la s&eacute;ance de Londres, une pour les jours de FOMC, une pour l'analyse du week-end.</li>
+    </ul>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 18px;">
+      <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
+        <span style="color:#f3c344;font-weight:700;letter-spacing:.05em;font-size:11px;text-transform:uppercase;">Votre desk vous suit</span><br>
+        Tout est enregistr&eacute; <strong style="color:#fff;">sur votre compte</strong>, pas sur votre navigateur. Vous retrouvez votre desk &agrave; l'identique depuis un autre ordinateur, depuis l'application de bureau ou depuis votre t&eacute;l&eacute;phone.
+      </td></tr>
+    </table>
+
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Pour commencer</p>
+    <p style="margin:0 0 16px;">Rien &agrave; installer, rien &agrave; configurer&nbsp;: votre desk est d&eacute;j&agrave; en place avec une disposition de d&eacute;part, et <strong style="color:#fff;">vos onglets habituels y sont tous</strong>. Ouvrez &laquo;&nbsp;Personnaliser&nbsp;&raquo; quand vous voudrez ajouter un widget, en d&eacute;placer un, ou repartir d'un mod&egrave;le.</p>
+    ${_campaignBtn('Ouvrir mon desk', ouvrir)}
+    <p style="margin:0 0 4px;">Bonne s&eacute;ance,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  return { subject: 'Votre desk devient le vôtre', html: _campaignLayout('Accueil & Mon Desk', body, unsub) };
+}
+async function sendAnnonceDesk(d) {
+  d = d || {};
+  const m = buildAnnonceDesk({ name: d.name, email: d.email || d.to, campaign: d.campaign });
+  return _send(d.to, m.subject, m.html);
+}
+
 async function sendAnnouncementDesktop(d) {
   d = d || {};
   const m = buildAnnouncementDesktop({ name: d.name, email: d.email || d.to, campaign: d.campaign });
@@ -2639,7 +2688,7 @@ module.exports = {
   buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   listMindsetConcepts,
-  buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
+  buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildAnnonceDesk, sendAnnonceDesk, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
