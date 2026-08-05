@@ -14,7 +14,10 @@
   <!-- THÈME (Sombre/Clair/Système) : appliqué AVANT le premier rendu depuis le cache local (anti-flash) ;
        la source de vérité par compte (KV thememode:<userId>) est relue au login par app.js. -->
   <script>(function(){try{var m=localStorage.getItem('dtp_theme')||'dark';var t=m==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):m;document.documentElement.dataset.theme=t;document.documentElement.dataset.thememode=m;
-  /* Zoom AVANT le premier rendu, sinon la page s'affiche à 100 % puis saute à la taille choisie. */
+  /* Zoom AVANT le premier rendu, sinon la page s'affiche à 100 % puis saute à la taille choisie.
+     REMISE À 90 % POUR TOUS (05/08) : le cache local d'un appareil survivrait à la purge côté
+     serveur et repeindrait à l'ancien zoom. Le marqueur `dtp_zoom_r` le vide UNE fois par appareil. */
+  try{if(localStorage.getItem('dtp_zoom_r')!=='90'){localStorage.removeItem('dtp_zoom');localStorage.setItem('dtp_zoom_r','90');}}catch(e){}
   var z=parseFloat(localStorage.getItem('dtp_zoom'));if([0.7,0.8,0.9,1,1.1,1.25,1.4,1.5].indexOf(z)>=0)document.documentElement.style.setProperty('--dtp-zoom',z);}catch(e){document.documentElement.dataset.theme='dark';}})();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -27,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260805bbg545" />
+  <link rel="stylesheet" href="/css/style.css?v=20260805bbg546" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -903,13 +906,13 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260805bbg545"></script>
-<script defer src="/js/charts.js?v=20260805bbg545"></script>
+<script defer src="/js/app.js?v=20260805bbg546"></script>
+<script defer src="/js/charts.js?v=20260805bbg546"></script>
 <script defer src="/js/sessionmap.js?v=20260727bbg343"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260805bbg545"></script>
-<script defer src="/js/home.js?v=20260805bbg545"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/widgets.js?v=20260805bbg546"></script>
+<script defer src="/js/home.js?v=20260805bbg546"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
 <script defer src="/js/i18n-dicts.js?v=20260723bbg304"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
 

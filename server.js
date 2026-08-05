@@ -1688,9 +1688,21 @@ app.post('/api/theme', async (req, res) => {
 // Le zoom vit sur <html> côté client : il vaut donc aussi pour l'app desktop et le mobile. On borne
 // aux paliers du sélecteur pour qu'aucune valeur exotique ne puisse rendre le desk inutilisable.
 const _ZOOM_PALIERS = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.5];
-// Palier de DÉPART (demande user 05/08). Servi aux comptes sans choix enregistré ; un compte qui a
-// déjà réglé son zoom garde le sien. Doit rester aligné avec DTP_ZOOM_DEFAUT (app.js) et --dtp-zoom.
+// Palier de DÉPART (demande user 05/08). Servi aux comptes sans choix enregistré.
+// Doit rester aligné avec DTP_ZOOM_DEFAUT (app.js) et --dtp-zoom (style.css).
 const _ZOOM_DEFAUT = 0.9;
+// REMISE À 90 % POUR TOUS LES COMPTES (demande user 05/08). On efface les choix enregistrés : chaque
+// compte repart du palier par défaut, et reste libre de le rechanger — son nouveau choix sera de
+// nouveau enregistré et respecté. Le marqueur garantit que la purge ne s'exécute qu'UNE fois, même
+// après un redéploiement : sans lui, chaque redémarrage écraserait les réglages refaits depuis.
+(async () => {
+  try {
+    if (await auth.aiCacheGet('zoomreset:90', 366 * 86400000)) return;
+    await auth.aiCacheDelPrefix('zoom:');
+    await auth.aiCacheSet('zoomreset:90', Date.now());
+    console.log('[zoom] tous les comptes ramenés au palier par défaut (90 %)');
+  } catch (e) { console.warn('[zoom] remise à 90 % impossible :', e && e.message); }
+})();
 app.get('/api/zoom', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
   try {
