@@ -1688,12 +1688,15 @@ app.post('/api/theme', async (req, res) => {
 // Le zoom vit sur <html> côté client : il vaut donc aussi pour l'app desktop et le mobile. On borne
 // aux paliers du sélecteur pour qu'aucune valeur exotique ne puisse rendre le desk inutilisable.
 const _ZOOM_PALIERS = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.5];
+// Palier de DÉPART (demande user 05/08). Servi aux comptes sans choix enregistré ; un compte qui a
+// déjà réglé son zoom garde le sien. Doit rester aligné avec DTP_ZOOM_DEFAUT (app.js) et --dtp-zoom.
+const _ZOOM_DEFAUT = 0.9;
 app.get('/api/zoom', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
   try {
     const v = parseFloat(await auth.aiCacheGet('zoom:' + req.session.userId, 366 * 86400000));
-    res.json({ zoom: _ZOOM_PALIERS.includes(v) ? v : 1 });
-  } catch { res.json({ zoom: 1 }); }
+    res.json({ zoom: _ZOOM_PALIERS.includes(v) ? v : _ZOOM_DEFAUT });
+  } catch { res.json({ zoom: _ZOOM_DEFAUT }); }
 });
 app.post('/api/zoom', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
