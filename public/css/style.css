@@ -15206,3 +15206,36 @@ body.home-mode #calc-btn.topbar-icon--active {
   .news-time, .news-category-text { font-size: 10.5px; }
   .news-item { padding-top: 10px; padding-bottom: 10px; }
 }
+
+/* ══ MOBILE : DÉFILEMENT ET RESPIRATION (05/08, points 3 et 4 du cahier des charges) ═════════════
+
+   4 · LE GESTE VERTICAL APPARTIENT À LA PAGE.
+   Les graphiques amCharts et la carte Leaflet installent leurs propres gestionnaires tactiles et
+   captaient le glissement : posé le doigt sur un graphique, la page ne défilait plus. `pan-y` rend
+   au navigateur le déplacement VERTICAL — donc le défilement — et laisse à l'élément l'horizontal
+   et le pincement, qui sont ses gestes utiles (zoom temporel, déplacement de carte).
+   Réservé au tactile : sur pointeur fin, la molette et le glisser gardent leur comportement. */
+@media (pointer: coarse) {
+  .wdg-fx-chart, .wdg-metre, .wdg-riskgauge, .wdg-jr-chart, .wdg-lfmap,
+  .wdg-lfmap .leaflet-container, .chart-container, .strength-chart-wrap {
+    touch-action: pan-y;
+  }
+  /* Le canevas d'amCharts est un ENFANT du conteneur et réinstalle ses écouteurs : sans cette
+     ligne il continuait d'avaler le geste malgré la règle du parent. */
+  .wdg-fx-chart canvas, .wdg-metre canvas, .wdg-riskgauge canvas, .wdg-jr-chart canvas {
+    touch-action: pan-y;
+  }
+}
+
+/* 3 · RESPIRATION. Les cartes étaient compactes au point qu'il fallait zoomer : on aère l'intérieur
+   et l'écart entre elles, sans toucher aux tailles de police (déjà relevées) ni au nombre de
+   colonnes — la densité d'information reste la même, c'est le blanc autour qui augmente. */
+@media (max-width: 560px) {
+  /* Mesure : la grille etait deja a 10px de gouttiere et 12px de marge sur ordinateur —
+     reprendre ces valeurs sur mobile n aurait RIEN aere. On monte franchement. */
+  .wdg-grid { --wdg-gap: 14px; padding: 14px 12px; }
+  .wdg-body { padding: 4px; }
+  /* Les graphiques profitent en premier de la hauteur gagnée : ce sont eux qu'on lisait le moins. */
+  .wdg-fx-chart, .wdg-metre, .wdg-jr-chart { min-height: 200px; }
+  .wdg-lfmap { min-height: 240px; }
+}
