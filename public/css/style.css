@@ -15640,3 +15640,73 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
    porte la couleur pleine de la courbe et redevient une pastille entière — c'est elle seule qui
    désigne la devise, la légende du haut servant de table de correspondance. */
 .cs-badge-val--seul { border-radius: 3px; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   WIDGET HORLOGE MONDIALE SUR TÉLÉPHONE : LA CARTE COMPLÈTE, PAS LA PASTILLE
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Sous 768 px, le desk réduit chaque ville à une PUCE — code + heure + icône jour/nuit — et masque
+   date, GMT, ville, pays, météo et vent (bloc « Horloges COMPACTES sur mobile »). C'est le bon
+   arbitrage pour le BANDEAU du desk, une bande fine qui mangeait la moitié de l'écran.
+   Mais le WIDGET, lui, a sa propre carte de ~290 px de haut. La règle héritée y vidait les cellules :
+   mesuré, onze lignes de texte sur douze avaient une boîte de hauteur nulle — d'où un widget qui
+   n'affichait que des séparateurs verticaux (capture user 05/08).
+   On rend donc au widget la cellule complète du bureau. Portée strictement limitée à
+   `.wdg-clocks-bar` : le bandeau du desk garde sa pastille.
+   Les tailles sont relevées pour rester au-dessus de 11 px À L'ÉCRAN une fois le zoom de 90 %
+   appliqué (déclaré × 0,9 = perçu).
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .wdg-clocks-bar .clock-item,
+  .wdg-clocks-bar .clock-item--local {
+    flex-direction: column; align-items: stretch; justify-content: center;
+    gap: 0; padding: 9px 11px;
+  }
+  .wdg-clocks-bar .clock-top-row { display: flex; align-items: center; justify-content: space-between; }
+  .wdg-clocks-bar .clock-mid-row { display: flex; flex-direction: column; align-items: flex-start; }
+  .wdg-clocks-bar .clock-sub-row { display: flex; align-items: center; justify-content: space-between; }
+  /* Le code et l'icône inline n'appartiennent qu'au mode pastille : la ville a sa ligne dédiée. */
+  .wdg-clocks-bar .clock-code, .wdg-clocks-bar .clock-dn-mini { display: none; }
+
+  .wdg-clocks-bar .clock-time      { font-size: 19px; margin: 1px 0 2px; }
+  .wdg-clocks-bar .clock-wday,
+  .wdg-clocks-bar .clock-date      { font-size: 12.5px; }
+  .wdg-clocks-bar .clock-gmt       { font-size: 12.5px; }
+  .wdg-clocks-bar .clock-city-label { font-size: 13px; }
+  .wdg-clocks-bar .clock-country-row,
+  .wdg-clocks-bar .clock-wx-row,
+  .wdg-clocks-bar .clock-daynight-lbl,
+  .wdg-clocks-bar .clock-wind-row  { font-size: 12.5px; }
+  /* Meteo et vent : masques ailleurs pour les petits ecrans (« hide weather on very small screens »).
+     Le widget les REMET — sa carte a la place, et « toutes les informations » etait la demande. */
+  .wdg-clocks-bar .clock-wx-row,
+  .wdg-clocks-bar .clock-wind-row { display: inline; }
+
+  /* LA RANGEE SUIT LE CONTENU, ELLE NE SE PARTAGE PLUS LA HAUTEUR. `align-content: stretch` avec
+     `height: 100%` repartissait la place disponible entre les rangees : a trois rangees dans un
+     conteneur de 270 px, chaque cellule tombait a 90 px pour un contenu qui en demande 135 — et
+     `.clock-item { overflow: hidden }` coupait tout le bas (GMT, ville, pays, meteo, vent).
+     Une hauteur minimale par rangee garantit la cellule entiere ; le conteneur defile si besoin. */
+  .wdg-clockwrap .wdg-clocks-bar {
+    height: auto; min-height: 100%; align-content: start;
+    grid-auto-rows: minmax(136px, auto);
+  }
+  /* Cellules separees aussi horizontalement des qu il y a plusieurs rangees. */
+  .wdg-clockwrap .wdg-clocks-bar .clock-item { border-bottom: 1px solid var(--border); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   CONTOUR DORÉ DES CARTES : VISIBLE AU REPOS SUR ÉCRAN TACTILE
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Le liseré or des cartes de Mon Desk n'existe qu'au SURVOL — un geste qui n'existe pas sur
+   téléphone. Au repos, `#view-widgets .wdg-card` reste à 7 % de blanc : autant dire invisible. Les
+   cartes se touchent alors sans limite lisible, et le bas d'une carte se confond avec le haut de la
+   suivante (constat user : « on ne voit pas le contour doré de l'horloge, ni le bas du fil »).
+   `hover: none` cible exactement les appareils qui ne peuvent pas survoler : le bureau garde son
+   contour discret qui s'allume au passage, le tactile reçoit d'emblée le liseré.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (hover: none) {
+  #view-widgets .wdg-card { border-color: rgba(227, 178, 58, .30); }
+  /* Le contour ne suffit pas si deux cartes se collent : un écart franc les sépare vraiment. */
+  #view-widgets .wdg-grid { --wdg-gap: 12px; }
+  .home-zone { border-color: rgba(227, 178, 58, .22); }
+}
