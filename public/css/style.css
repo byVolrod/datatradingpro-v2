@@ -15710,3 +15710,71 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   #view-widgets .wdg-grid { --wdg-gap: 12px; }
   .home-zone { border-color: rgba(227, 178, 58, .22); }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   HABILLAGE PREMIUM DU DESK — RÉSERVÉ AU COMPTE ADMIN
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Demande user 05/08 : « ajoute cet effet premium partout, uniquement pour mon compte admin, comme
+   on a fait pour l'accueil ». On porte donc la SIGNATURE de l'accueil sur l'espace de travail :
+   une scène (vignette + trame terminal + aura dorée qui respire lentement) et des cartes qui
+   prennent la lumière par le haut.
+
+   PORTÉE : tout est sous `body.dtp-admin`, classe posée par index.html à la résolution du rôle.
+   Un client ne peut donc pas en hériter par accident — sans la classe, pas une seule de ces règles
+   ne s'applique, et son desk reste identique au pixel près.
+
+   MESURE : la scène est un pseudo-élément en `z-index: -1` derrière un `isolation: isolate`, comme
+   sur l'accueil. Aucun coût de mise en page (pas dans le flux), `pointer-events: none` (aucun geste
+   intercepté), et l'aura est la SEULE animation — 22 s, désactivée si l'appareil demande la sobriété.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── LA SCÈNE ─────────────────────────────────────────────────────────────────────────────────
+   Elle se pose derrière la zone de travail. Les cartes étant opaques, la trame ne se lit que dans
+   les gouttières et les marges — c'est ce qui donne la profondeur sans brouiller la lecture. */
+body.dtp-admin #view-widgets,
+body.dtp-admin .views-col { position: relative; isolation: isolate; }
+body.dtp-admin #view-widgets::before,
+body.dtp-admin .views-col::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, .30), transparent 22%),
+    radial-gradient(120% 90% at 50% 40%, transparent 58%, rgba(0, 0, 0, .28)),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .012) 0 1px, transparent 1px 3px);
+}
+/* Aura d'or : large, très diluée, en mouvement lent — on ne la remarque pas, on la ressent. */
+body.dtp-admin #view-widgets::after,
+body.dtp-admin .views-col::after {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  top: -180px; left: 4%; width: 900px; height: 480px;
+  background: radial-gradient(closest-side, rgba(227, 178, 58, .075), transparent 70%);
+  animation: homeAura 22s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dtp-admin #view-widgets::after,
+  body.dtp-admin .views-col::after { animation: none; }
+}
+
+/* ── LES CARTES PRENNENT LA LUMIÈRE ───────────────────────────────────────────────────────────
+   Même dégradé d'en-tête que `.home-zone` : un voile blanc de 2 % sur le premier tiers. Le fond
+   reste celui du desk — on ajoute de la lumière, on ne change pas la couleur. */
+body.dtp-admin #view-widgets .wdg-card,
+body.dtp-admin .view-panel > .panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent 36%), var(--bg);
+  box-shadow: 0 14px 34px -22px rgba(0, 0, 0, .6);
+}
+/* Filet d'or en haut de carte, comme `.home-zone::after` : présent au repos, plus net au survol. */
+body.dtp-admin #view-widgets .wdg-card::after {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  pointer-events: none; opacity: .4; transition: opacity .2s ease;
+  background: linear-gradient(90deg, transparent, rgba(227, 178, 58, .34), transparent);
+}
+body.dtp-admin #view-widgets .wdg-card:hover::after { opacity: 1; }
+body.dtp-admin #view-widgets .wdg-card:hover {
+  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .8), 0 4px 18px rgba(0, 0, 0, .35);
+}
+
+/* ── EN-TÊTES : la même respiration que les panneaux de l'accueil ───────────────────────────── */
+body.dtp-admin #view-widgets .wdg-head,
+body.dtp-admin .view-panel > .panel > .panel-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .022), transparent);
+}
