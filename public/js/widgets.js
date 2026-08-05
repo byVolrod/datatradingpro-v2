@@ -611,7 +611,9 @@
         // EN UNITÉS (0 = période courante, -1 = précédente…). L'unité est mémorisée par carte via
         // l'option cachée `periode` : elle survit au remontage sans encombrer le panneau de réglages.
         var _unite = opt(it, W, 'periode') || 'semaine';
-        var _dec = 0, _back = 0, _busy = false;
+        // `_ancre` : la vue s'est-elle déjà positionnée sur l'événement en cours pour la période
+        // affichée ? Relâché à chaque changement de période, jamais pendant une recherche.
+        var _dec = 0, _back = 0, _busy = false, _ancre = false;
         // Recul maximal par unité — l'API d'archive plafonne à 3 mois, on ne propose pas au-delà.
         var _LIM = { jour: -90, semaine: -12, mois: -3 };
         var _UNITES = [['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']];
@@ -749,6 +751,25 @@
               });
             });
           }
+          // ── ARRIVÉE SUR L'ÉVÉNEMENT EN COURS (05/08, demande user : « comme dans l'ancien
+          //    calendrier ») ────────────────────────────────────────────────────────────────────
+          // La ligne du prochain événement était déjà repérée (.cal-row--next) mais rien ne
+          // l'amenait à l'écran : sur une semaine chargée, on ouvrait le widget en haut de lundi.
+          // ⚠️ UNE SEULE FOIS PAR PÉRIODE : `dessine()` est rappelé à chaque frappe dans la
+          // recherche et à chaque changement de filtre — repositionner à chaque rendu arracherait
+          // le défilement sous le doigt de l'utilisateur.
+          // ⚠️ On règle scrollTop du CONTENEUR au lieu d'appeler scrollIntoView : ce dernier fait
+          // aussi défiler la PAGE, donc le desk entier bougerait autour du widget.
+          if (!_ancre) {
+            var _wrap = host.querySelector('.wdg-cal-wrap');
+            var _ligne = _wrap && _wrap.querySelector('tr.cal-row--next');
+            if (_wrap && _ligne) {
+              _ancre = true;
+              // Un tiers de hauteur au-dessus : l'événement en cours est visible AVEC son contexte
+              // (ce qui vient de tomber juste avant), au lieu d'être collé en haut du cadre.
+              _wrap.scrollTop = Math.max(0, _ligne.offsetTop - Math.round(_wrap.clientHeight / 3));
+            }
+          }
           cabler();
         };
         // Recâblé à chaque rendu : le HTML de la barre est réécrit avec la table (un seul innerHTML,
@@ -797,6 +818,7 @@
           n = Math.max(_LIM[_unite], Math.min(1, n | 0));
           if (n === _dec) return;
           _dec = n;
+          _ancre = false;        // nouvelle période → on se repositionne sur son événement courant
           var besoin = _besoin(n);
           if (besoin <= _back) { dessine(); return; }        // déjà couvert par les données en main
           _busy = true; dessine();
