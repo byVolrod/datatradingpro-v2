@@ -15184,3 +15184,14 @@ body.home-mode #calc-btn.topbar-icon--active {
 @media (max-width: 768px) {
   body.wdg-mode:has(.wdg-bar--vide) { padding-top: var(--topbar-h); }
 }
+
+/* ── TICKER : ÉTATS DE CHARGEMENT ET D'ERREUR (05/08) — la bande ne peut plus être vide.
+   Le squelette ne DÉFILE pas : une animation de translation sur un contenu factice donne
+   l'illusion d'une donnée qui vit. Il pulse sur place, ce qui se lit comme « en attente ». */
+.home-ticker--skel .home-ticker-in { animation: none !important; transform: none !important; }
+.home-tk--skel { display: inline-flex; align-items: center; width: 132px; padding: 0 14px; }
+.home-tk--skel .dtp-skel { width: 100%; height: 9px; border-radius: 3px; }
+.home-tk--msg {
+  display: inline-flex; align-items: center; padding: 0 16px;
+  font-size: 11px; color: var(--text3, #8a8a90); letter-spacing: .02em; white-space: nowrap;
+}
