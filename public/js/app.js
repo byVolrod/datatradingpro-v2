@@ -6600,10 +6600,14 @@ function getArlibItems() {
   const gewCand = (_weeklyReports || []).filter(i => i && i._reportType === 'Global Economic Weekly' && i.timestamp > wkCutoff);
   const gews = _bestPerWeek(gewCand);
   const best = recaps[0], bestGew = gews[0];   // (rétro-compat : _wkAnchorTs / autres usages du « meilleur » courant)
-  // …+ UN SEUL FX Daily Recap (le plus récent) : rapport analyste QUOTIDIEN façon pro, servi par /api/weekly-reports.
-  const bestFxr = (_weeklyReports || [])
-    .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff)
-    .sort((a, b) => b.timestamp - a.timestamp)[0];
+  // FX Daily Recap : LE MEILLEUR DE CHAQUE JOUR, tous les jours conservés.
+  // ⚠️ Le code gardait `[0]` — un seul rapport, le plus récent — alors que le serveur en publie un
+  // PAR JOUR OUVRÉ. Lundi et mardi existaient donc côté serveur mais disparaissaient de la liste dès
+  // que celui de mercredi était publié (signalement d'un membre le 05/08 : « pourquoi il n'y a plus
+  // les récaps fx quotidiens pour le lundi et le mardi »). C'est exactement le défaut déjà corrigé
+  // sur les rapports HEBDO par `_bestPerWeek` — le quotidien était resté sur l'ancien schéma.
+  const fxrs = _bestPerDay((_weeklyReports || [])
+    .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff));
   // « DTP Daily US Opening News » : volontairement ABSENT de l'onglet Analyst (demande utilisateur) →
   // il vit UNIQUEMENT dans le flux News (Realtime Headline Ticker), déroulé en rapport complet au clic.
   // FX Daily (ING THINK) RETIRÉ de l'onglet Analyst (demande utilisateur) → on n'inclut plus _fxDaily.
@@ -6612,8 +6616,28 @@ function getArlibItems() {
   _wkAnchorTs = Math.max((best && best.timestamp) || 0, (bestGew && bestGew.timestamp) || 0);
   // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
   // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
-  return _dedupeReports([...recaps, ...gews, ...(bestFxr ? [bestFxr] : []), ...wraps])
+  return _dedupeReports([...recaps, ...gews, ...fxrs, ...wraps])
     .sort(_arlibReportSort);
+}
+// Meilleure version PAR JOUR d'une liste de FX Daily Recap. Même principe que `_bestPerWeek`, mais la
+// clé est le JOUR COUVERT (`_fxr.day`, posé par le serveur) et non le timestamp de publication — un
+// rapport régénéré le lendemain matin couvre toujours la veille et ne doit pas créer un doublon.
+// Départage : version la plus RÉCENTE (`_fxr.v`) d'abord — un bump régénère l'historique —, puis la
+// version IA française (`_ai`) devant un repli anglais, puis la plus récemment publiée.
+function _bestPerDay(items) {
+  const parJour = new Map();
+  (items || []).forEach(i => {
+    if (!i) return;
+    const j = (i._fxr && i._fxr.day) || new Date(i.timestamp || 0).toISOString().slice(0, 10);
+    const p = parJour.get(j);
+    if (!p) { parJour.set(j, i); return; }
+    const vi = (i._fxr && i._fxr.v) || 0, vp = (p._fxr && p._fxr.v) || 0;
+    if (vi !== vp) { if (vi > vp) parJour.set(j, i); return; }
+    const ai = (i._fxr && i._fxr._ai !== false) ? 1 : 0, ap = (p._fxr && p._fxr._ai !== false) ? 1 : 0;
+    if (ai !== ap) { if (ai > ap) parJour.set(j, i); return; }
+    if ((i.timestamp || 0) > (p.timestamp || 0)) parJour.set(j, i);
+  });
+  return [...parJour.values()];
 }
 // Meilleure version PAR SEMAINE d'une liste de rapports hebdo (Weekly Recap OU GEW) : dédup par weekEnding
 // (sinon jour du timestamp), format riche v2 prioritaire puis le plus récent. Renvoie 1 rapport / semaine,
