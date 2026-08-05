@@ -454,7 +454,10 @@ function _clockWant(liste) {
   return neuf;
 }
 
+// Renvoie un BILAN { ok, ko } : refreshWeather en a besoin pour savoir s'il peut poser son marqueur
+// de fraîcheur. Sans ce retour, un échec total était indiscernable d'un succès.
 async function fetchAllWeather() {
+  let ok = 0, ko = 0;
   await Promise.all([..._clockWanted.values()].map(async c => {
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}`
@@ -468,11 +471,15 @@ async function fetchAllWeather() {
         windDir: cur.winddirection_10m ?? 0,
         icon:    WMO_ICON[cur.weathercode] ?? '🌡',
       };
+      ok++;
     } catch {
-      if (!_weatherCache[c.city])
-        _weatherCache[c.city] = { temp: '--', wind: '--', windDir: 0, icon: '☁' };
+      ko++;
+      // On n'écrit PAS de « -- » dans le cache : une entrée factice rendait un échec passager
+      // indiscernable d'une donnée réelle, et la ville n'était plus jamais rafraîchie. Sans entrée,
+      // renderClocks affiche son propre repli et la prochaine tentative peut encore réussir.
     }
   }));
+  return { ok, ko };
 }
 
 // ═══ Filter : only real category names from the server ════════════════════════
@@ -3042,9 +3049,25 @@ function formatDate(ts) {
 // Petite icône "vent" monochrome (placée devant la vitesse du vent)
 const CLOCK_WIND_ICON = '<svg class="clock-wind-ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h13a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 16h7"/></svg>';
 let _weatherLastFetch = 0;
+// ⚠️ MARQUEUR APRÈS L'ACTION, JAMAIS AVANT (05/08 — météo bloquée sur « -- »).
+// L'ancienne version inscrivait « dernière récupération = maintenant » AVANT de lancer les requêtes.
+// Si elles échouaient — cas banal au réveil du réseau sur mobile — le cache gardait ses « -- » mais
+// le marqueur prétendait que tout était frais : plus AUCUNE nouvelle tentative pendant 5 minutes,
+// et l'affichage restait bloqué sans que rien ne le signale. Le marqueur n'est désormais posé que
+// si au moins une ville a répondu ; sinon on retente au tick suivant, avec un palier de 20 s pour
+// ne pas marteler l'API quand elle est réellement indisponible.
+let _weatherFetching = false;
 function refreshWeather() {
-  _weatherLastFetch = Date.now();
-  return fetchAllWeather().then(() => renderClocks());
+  if (_weatherFetching) return Promise.resolve();          // un seul vol à la fois
+  _weatherFetching = true;
+  return fetchAllWeather()
+    .then((bilan) => {
+      const ok = bilan && bilan.ok > 0;
+      // Échec total → on recule le marqueur juste ce qu'il faut pour réessayer dans 20 s.
+      _weatherLastFetch = ok ? Date.now() : (Date.now() - 5 * 60 * 1000 + 20 * 1000);
+    })
+    .catch(() => { _weatherLastFetch = Date.now() - 5 * 60 * 1000 + 20 * 1000; })
+    .finally(() => { _weatherFetching = false; renderClocks(); });
 }
 function startClocks() {
   renderClocks();            // affichage immédiat (météo à '--' tant que non chargée)
