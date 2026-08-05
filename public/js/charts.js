@@ -843,9 +843,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const max = yAxis.getPrivate('max') != null ? yAxis.getPrivate('max') : yAxis.get('max');
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
-      // Hauteur badge + marge : empilement strict, aucun chevauchement. La pastille mesure 15 px sur
-      // téléphone (texte porté à 11 px pour être lisible) contre 11 px sur bureau → l'écart suit.
-      const GAP_BASE = _csEtroit ? 24 : 20;
+      // ÉCART MINIMAL, PAS CONFORTABLE (demande user 05/08 « aligne comme ceci ») : une étiquette
+      // n'a de sens qu'au bout de sa courbe, donc on ne l'en écarte QUE de ce qu'il faut pour ne pas
+      // recouvrir sa voisine. La pastille mesure 15 px de haut sur les deux tailles (11 px de texte
+      // + 4 px de marge sur téléphone, 9 px + 6 px sur bureau) → 17 px laissent 2 px de garde.
+      // Mesuré sur une séance serrée : l'écart maximal tombe de 29 px à 18 px, sans un seul
+      // chevauchement. À 24 px, les huit pastilles finissaient en colonne loin de leurs courbes.
+      const GAP_BASE = 17;
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas.
       // Masquage = UNIQUEMENT _hiddenCcy (devises explicitement masquées via la légende, maintenu par les
       // événements hidden/shown/visible de la série). On N'utilise PLUS s.isHidden()/get('visible') ici : ces
@@ -867,7 +871,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       // haut) : sur un petit graphe, 8 badges × 20 px dépassent le tracé — la remontée en bloc
       // poussait alors la pile HORS CADRE par le haut. L'écart s'adapte : jamais plus de 20 px,
       // jamais moins de 12 px (léger recouvrement contrôlé plutôt qu'une pastille invisible).
-      const GAP = arr.length > 1 ? Math.min(GAP_BASE, Math.max(_csEtroit ? 16 : 12, (h - 16) / (arr.length - 1))) : GAP_BASE;
+      const GAP = arr.length > 1 ? Math.min(GAP_BASE, Math.max(16, (h - 16) / (arr.length - 1))) : GAP_BASE;
       // ── PLACEMENT PAR PAQUETS CENTRÉS (05/08, demande user : « les étiquettes doivent être bien
       //    alignées avec les courbes ») ────────────────────────────────────────────────────────
       // L'ancienne méthode poussait TOUJOURS vers le bas depuis la première étiquette, puis
