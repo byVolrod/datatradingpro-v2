@@ -593,7 +593,7 @@
         // même mécanique que la clé `off` du fil d'actualité) : le choix vit sur les boutons
         // Jour / Semaine / Mois de la barre, à côté des flèches — c'est de la navigation, pas un
         // réglage. L'afficher aussi dans les réglages ferait le doublon déjà refusé ailleurs.
-        { k: 'periode', type: 'choix', def: 'semaine', cache: true,
+        { k: 'periode', lbl: 'Fenêtre', type: 'choix', def: 'semaine',
           choix: [['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']] },
       ],
       mount: function (host, it) {
@@ -660,12 +660,10 @@
             // NAVIGATION PAR SEMAINE (04/08, demande user) : la fenêtre est la semaine lundi→vendredi
             // et sa DATE est affichée ; ‹ recule d'une semaine (jusqu'à ~3 mois, limite de l'API),
             // › avance (la semaine prochaine est déjà couverte par le flux live).
-            + '<span class="wdg-cal-unites">'
-            +   _UNITES.map(function (u) {
-                  return '<button type="button" class="cal-imp-btn wdg-cal-u' + (_unite === u[0] ? ' cal-imp-btn--active' : '')
-                    + '" data-unite="' + u[0] + '">' + u[1] + '</button>';
-                }).join('')
-            + '</span>'
+            // (05/08, demande user « mets ceci dans le bouton réglages pour gagner de la place ») :
+            // les boutons Jour / Semaine / Mois quittent la barre — la fenêtre se choisit dans
+            // l'engrenage, comme la catégorie COT, l'unité DMX et la paire Saisonnalité. Seules les
+            // flèches et l'étiquette de période restent, car elles servent à chaque consultation.
             + '<span class="wdg-cal-nav">'
             +   '<button type="button" class="cal-range-arrow wdg-cal-prev" title="Période précédente"' + (_dec <= _LIM[_unite] || _busy ? ' disabled' : '') + '>‹</button>'
             +   '<span class="wdg-cal-per' + (_dec === 0 ? ' is-now' : '') + '">' + _lib() + '</span>'
