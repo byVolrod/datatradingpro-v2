@@ -1053,9 +1053,13 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
   const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
   const unsub  = unsubUrl(email || '');
   const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
-  const imgAcc = LANDING_URL + '/assets/images/annonce-accueil.jpg';
-  const imgDsk = LANDING_URL + '/assets/images/annonce-mondesk.jpg';
-  const imgDis = LANDING_URL + '/assets/images/annonce-dispositions.jpg';
+  // Les illustrations vivent dans le depot du DESK (public/assets/images). La landing sert ses
+  // PROPRES fichiers : `annonce-app-desktop.jpg` y avait ete copiee a la main, ce qui donnait
+  // l illusion d un alias commun — verifie, les trois nouvelles y repondent 404. On pointe donc le
+  // desk, ou elles sont reellement, et `/assets/images/` y est desormais public (server.js).
+  const imgAcc = APP_URL + '/assets/images/annonce-accueil.jpg';
+  const imgDsk = APP_URL + '/assets/images/annonce-mondesk.jpg';
+  const imgDis = APP_URL + '/assets/images/annonce-dispositions.jpg';
   const _img = (src, alt) => `<img src="${src}" width="532" alt="${alt}" style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #232429;border-radius:6px;margin:4px 0 20px;">`;
   const body = `
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Deux nouveaut&eacute;s en ligne&nbsp;: l'accueil Vue d'ensemble, et un desk que vous montez vous-m&ecirc;me.</div>
