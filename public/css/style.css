@@ -11324,7 +11324,14 @@ html[data-theme="light"] {
 }
 @media (max-width: 560px) {
   .wdg-grid { grid-auto-rows: minmax(12px, auto); }
-  .wdg-card { min-height: 220px; }
+  /* 05/08 (constat user : « on ne peut pas bien scroller, les widgets sont trop courts »).
+     220px laissaient ~150px de liste une fois l en-tete et la barre d outils deduits : trois
+     lignes de news a peine, et un defilement qui bute aussitot. En colonne unique sur mobile,
+     une carte plus haute ne coute rien a la mise en page — on defile de toute facon la page. */
+  .wdg-card { min-height: 360px; }
+  /* Les widgets naturellement courts (horloge, jauge) gardent leur gabarit : les grandir les
+     aurait juste remplis de vide. */
+  .wdg-card:has(.wdg-clockwrap), .wdg-card:has(.risk-gauge-stage) { min-height: 240px; }
 }
 /* Plein écran : la carte recouvre toute la zone de travail (overlay), les autres sont figées derrière. */
 .wdg-grid.wdg-fs-mode { overflow: hidden; }
@@ -14129,7 +14136,14 @@ body.home-mode .view-panel { visibility: hidden; }
 }
 /* DÉFILEMENT NATUREL : chaque liste interne contient son inertie — fini le scroll qui
    « saute » au parent en fin de course (conflits de conteneurs). */
-.home-inner, .news-list, .wdg-body, .wdg-cal-wrap, .wdgt-body { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+/* ⚠️ `-webkit-overflow-scrolling: touch` RETIRÉ d'ici (05/08, capture user : texte superposé dans le
+   fil, badges détachés de leur ligne, chevron flottant — des PIXELS RÉMANENTS, pas un mauvais calcul
+   de positions ; le banc n'a d'ailleurs trouvé ni compression ni chevauchement de boîtes).
+   Cette propriété force un calque de composition séparé sur iOS et laisse des restes d'affichage
+   quand le contenu du conteneur change SOUS le calque — exactement le cas du fil, qui se rafraîchit
+   en continu. Elle est de surcroît OBSOLÈTE : iOS gère l'inertie nativement depuis la version 13,
+   elle n'apportait donc plus rien. On garde `overscroll-behavior`, qui est la partie utile. */
+.home-inner, .news-list, .wdg-body, .wdg-cal-wrap, .wdgt-body { overscroll-behavior: contain; }
 
 /* ── BARRE MON DESK SANS LISTE DE LAYOUTS (04/08) : seul le layout ACTIF s'affiche, en
    repère (le choix vit dans Personnaliser › Layouts — double-clic = renommer). */
