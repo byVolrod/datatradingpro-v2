@@ -15154,3 +15154,20 @@ body.home-mode #calc-btn.topbar-icon--active {
   .main-layout { animation: none; }
   .news-item, .cal-row, .bank-row, .fxl-row, .arl-row, button { transition: none; }
 }
+
+/* ── COT SIMPLIFIÉ (05/08, « c'est trop répétitif ») ─────────────────────────────────────────────
+   Chaque fait n'est plus dit qu'UNE fois. Étaient supprimés :
+   · la ligne « 63 % / 37 % » — le donut porte déjà le pourcentage dominant EN SON CENTRE, et
+     l'écart exact se lit sur les volumes juste dessous ;
+   · la ligne TOTAL — simple somme des deux lignes au-dessus, donc rien à apprendre.
+   Il reste : la devise et son verdict, la position nette, le donut, les deux volumes bruts.
+   Le donut récupère la hauteur libérée (96 → 108 px) sans jamais dominer la carte. */
+.cot-split { padding-top: 4px; }
+/* 96px et non 108 : a 108 le banc mesurait un ROGNAGE des que la cellule tombait a 236px — le
+   donut ne se reduisait pas assez pour laisser passer le registre. Valeur mesuree saine. */
+.cot-ring { max-width: 96px; max-height: 96px; }
+.cot-pcts { display: none; }   /* filet : plus émis par le JS, neutralisé si un rendu l'a laissé */
+/* Le donut est le SEUL élément qui cède quand la carte est courte : sa zone devient élastique.
+   En `flex: 0 0 auto` elle refusait de se réduire et poussait le registre hors du cadre — le banc
+   a mesuré un rognage dès 236 px de cellule après l'agrandissement à 108 px. */
+.cot-split { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }

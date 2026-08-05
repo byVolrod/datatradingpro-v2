@@ -1673,10 +1673,10 @@ function buildMeterChart(containerId) {   // containerId optionnel (widget « Mo
 // cellules approchent le ratio cible : le bloc widget est rempli, sans zone morte a droite.
 // 8 devises => colonnes possibles 1 / 2 / 4 / 8. Si aucune combinaison ne tient a taille lisible,
 // on repasse en mode defilement (rangees a hauteur plancher).
-// Planchers de CELLULE. La hauteur (236) n'est pas décorative : en dessous, l'en-tête + la légende +
+// Planchers de CELLULE. La hauteur (252) n'est pas décorative : en dessous, l'en-tête + la légende +
 // les 3 stats mangent tout et le donut tombe à ~36 px (mesuré) — illisible. Sous ce seuil on préfère
 // défiler avec des cartes lisibles plutôt que pavér le bloc avec des donuts minuscules.
-const _COT_FIT_W = 132, _COT_FIT_H = 236;
+const _COT_FIT_W = 132, _COT_FIT_H = 252;
 function _cotFit(grid) {
   if (!grid || !grid.classList.contains('cot-grid--fit')) return;
   const n = grid.children.length;
@@ -1774,17 +1774,10 @@ function buildCOTChart(gridId, typeArg) {
             <span class="cot-k cot-k--net">Position nette</span>
             <span class="cot-net-v">${net}${ok ? '<i class="cot-unit">contrats</i>' : ''}</span>
           </div>
-          <div class="cot-split">
-            <div class="cot-pcts">
-              <span class="cot-pct cot-pct--s">${ok ? sPct + '%' : TIRET}</span>
-              <span class="cot-pct cot-pct--l">${ok ? lPct + '%' : TIRET}</span>
-            </div>
-            ${_cotRing(ok, sPct, lPct, mod)}
-          </div>
+          <div class="cot-split">${_cotRing(ok, sPct, lPct, mod)}</div>
           <div class="cot-book">
             <div class="cot-row cot-row--s"><span class="cot-k">Courts</span><span class="cot-v">${ok ? fmtK(cur.shortPos) : TIRET}</span></div>
             <div class="cot-row cot-row--l"><span class="cot-k">Longs</span><span class="cot-v">${ok ? fmtK(cur.longPos) : TIRET}</span></div>
-            <div class="cot-row cot-row--t" title="Somme des positions courtes et longues de la catégorie affichée (ce n'est pas l'open interest du contrat)"><span class="cot-k">Total</span><span class="cot-v">${ok ? fmtK(cur.shortPos + cur.longPos) : TIRET}</span></div>
           </div>`;
         grid.appendChild(cell);
       }
