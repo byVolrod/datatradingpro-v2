@@ -3908,6 +3908,14 @@ function _spansAffiches(lay) {
     // ⚠️ ISSUE DE SECOURS : `?desk=classique` dans l'URL saute l'ouverture. Sans bouton ni mention
     // dans l'interface — donc conforme au « masqué complètement » demandé — mais indispensable :
     // sans elle, un widget qui planterait au montage enfermerait l'admin hors de son propre desk.
+    // ── DESK CLASSIQUE = ARCHIVÉ (05/08, décision user « archive-le ») ───────────────────────────
+    // Il n'est plus une vue du produit côté ADMIN : aucun bouton, aucun menu, aucun chemin
+    // d'arrivée n'y mène. Il n'est pas supprimé pour autant — `?desk=classique` reste le seul
+    // moyen d'y entrer, et c'est délibéré : un widget qui planterait au montage enfermerait sinon
+    // l'admin hors de son propre desk, sans autre issue qu'un déploiement.
+    // À retenir pour la suite : ce code est CONSERVÉ, pas MAINTENU. Il sert encore aux clients
+    // (portée limitée à l'admin, cf. la garde de charts.js) — c'est ce qui le garde vivant, pas
+    // l'usage admin. Le jour où les clients basculeront aussi, il pourra vraiment partir.
     try {
       var secours = /(?:\?|&)desk=classique(?:&|$)/.test(location.search);
       if (!secours && typeof activateView === 'function') activateView('widgets');
