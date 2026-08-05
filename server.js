@@ -14355,7 +14355,11 @@ void _checkExpiringSubscriptions;
    Le drapeau vit donc en base (KV, même patron que l'accès offert) et voyage dans la réponse de
    /api/auth/me : le refermer prend une seconde et ne demande aucune livraison.
    ═══════════════════════════════════════════════════════════════════════════════════════════════ */
-let _newFeat = { accueil: false, mondesk: false };
+// OUVERT À TOUS (décision user 06/08). Le défaut vaut pour tout compte tant que le KV ne dit rien :
+// la fonctionnalité est donc active dès le déploiement, effective à la prochaine connexion de chacun.
+// Un POST /api/admin/nouveautes écrit dans le KV et PRIME sur ce défaut : c'est le geste de fermeture
+// d'urgence, immédiat et sans livraison.
+let _newFeat = { accueil: true, mondesk: true };
 const _FEAT_KEY = 'feat:v1', _FEAT_TTL = 366 * 86400000;
 async function _featLoad() {
   try {
@@ -14371,6 +14375,52 @@ async function _featSet(patch) {
   console.log('[Nouveautés] état → accueil=' + _newFeat.accueil + ' · mondesk=' + _newFeat.mondesk);
   return _newFeat;
 }
+/* ══ ENVOI PLANIFIÉ, UNE SEULE FOIS : l'annonce « Accueil & Mon Desk » ═════════════════════════
+   Demande user 06/08 : « planifie l'envoi une seule fois à 14h demain ». Départ le 07/08/2026 à
+   14h00 de Paris. Passée cette heure, le premier battement qui la constate déclenche l'envoi.
+
+   TROIS VERROUS, et l'ordre dans lequel ils sont posés compte :
+   1. `_annBusy` (mémoire) : deux battements ne peuvent pas se chevaucher dans le même processus.
+   2. Les marqueurs PAR DESTINATAIRE du moteur de campagnes (id `desk-widgets-v1`) : c'est LE filet
+      contre les doublons. Un redémarrage en plein envoi reprend là où il en était, sans réexpédier
+      à qui a déjà reçu.
+   3. Le marqueur KV, écrit APRÈS un lancement réussi seulement.
+   ⚠️ L'ordre du point 3 est délibéré. Écrire le marqueur AVANT l'envoi est le schéma qui a déjà
+   coûté cher ici : si l'appel échoue, le marqueur bloque toute reprise et PERSONNE ne reçoit rien,
+   sans que rien ne le signale. On écrit donc après, et c'est le point 2 qui protège des doublons.
+
+   On passe par la route existante plutôt que de recopier sa logique : même audience, mêmes
+   exclusions (désabonnés, liste noire), mêmes statistiques, même journal. Une seconde
+   implémentation de l'envoi de masse serait une seconde occasion de se tromper. ═══════════════ */
+const _ANN_KEY = 'annonce:deskwidgets:v1';
+const _ANN_TS  = Date.parse('2026-08-06T14:00:00+02:00');   // jeudi 6 aout, 14h00 heure de Paris (confirme par l utilisateur)
+let _annFait = undefined, _annBusy = false;
+async function _annTick() {
+  if (_annBusy || Date.now() < _ANN_TS) return;
+  if (_annFait === undefined) {
+    try { _annFait = await auth.aiCacheGet(_ANN_KEY, 366 * 86400000) || null; }
+    catch (e) { return; }   // base injoignable : on ne lance RIEN à l'aveugle, on retentera
+  }
+  if (_annFait) return;
+  _annBusy = true;
+  try {
+    const r = await axios.get(`http://127.0.0.1:${PORT}/api/admin/campaign-send?tpl=desk-widgets&send=1`,
+      { timeout: 600000, headers: { 'X-DTP-Internal': _INTERNAL_TOKEN } });
+    _annFait = { lance: Date.now(), reponse: (r && r.data) || null };
+    await auth.aiCacheSet(_ANN_KEY, _annFait);
+    console.log('[Annonce] envoi planifié effectué :', JSON.stringify(r && r.data).slice(0, 300));
+  } catch (e) {
+    console.error('[Annonce] échec du lancement, nouvelle tentative au prochain battement :', e.message);
+  } finally { _annBusy = false; }
+}
+setInterval(() => { _annTick().catch(() => {}); }, 60000);
+// État de l'envoi planifié, pour le panneau admin (aucun déclenchement ici, lecture seule).
+app.get('/api/admin/annonce-planifiee', requireAdmin, async (_req, res) => {
+  let fait = _annFait;
+  if (fait === undefined) { try { fait = await auth.aiCacheGet(_ANN_KEY, 366 * 86400000) || null; } catch (e) { fait = null; } }
+  res.json({ ok: true, quand: _ANN_TS, quandFr: new Date(_ANN_TS).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }), fait: fait || null });
+});
+
 app.get('/api/admin/nouveautes', requireAdmin, (_req, res) => res.json({ ok: true, feat: _newFeat }));
 app.post('/api/admin/nouveautes', requireAdmin, async (req, res) => {
   const p = {}, b = req.body || {};
