@@ -15171,3 +15171,16 @@ body.home-mode #calc-btn.topbar-icon--active {
    En `flex: 0 0 auto` elle refusait de se réduire et poussait le registre hors du cadre — le banc
    a mesuré un rognage dès 236 px de cellule après l'agrandissement à 108 px. */
 .cot-split { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+
+/* ── BANDE VIDE SOUS LA TOPBAR EN MON DESK (05/08, constat user mobile) ──────────────────────────
+   Trois règles se combinaient pour la produire :
+     · body.wdg-mode masque #topbar-nav (l.11552) ;
+     · .wdg-bar--vide masque la barre Mon Desk quand elle n'a qu'un layout (l.14255, demande user
+       « masque cette bande noire pour gagner de l'espace ») ;
+     · le mode mobile RÉSERVE pourtant leur hauteur : body { padding-top: topbar + navbar } (l.14082),
+       parce que ces barres sont en position fixe.
+   Plus rien n'occupait donc les 40 px réservés. Le défaut n'était visible que depuis que Mon Desk
+   est l'écran d'arrivée. Quand la barre est masquée, on ne compense plus que la topbar. */
+@media (max-width: 768px) {
+  body.wdg-mode:has(.wdg-bar--vide) { padding-top: var(--topbar-h); }
+}
