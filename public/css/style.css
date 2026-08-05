@@ -15406,7 +15406,6 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
     gap: 4px 8px;
     padding: 12px 14px !important;
     height: auto !important;
-    min-height: 0 !important;
   }
   .news-icon-col      { grid-area: puce;   width: 22px; min-height: 0; margin: 0; }
   /* L'heure REDEVIENT visible : l'ancienne stratégie mobile la masquait pour gagner de la place
@@ -15528,3 +15527,23 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
    disparaît ici, ce qui rend au tableau la hauteur qu'elle occupait.
    ══════════════════════════════════════════════════════════════════════════════════════════════ */
 .home-zone-body .wdg-cal-bar { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   MOTEUR DE LAYOUT · RÈGLE 1 — UN ÉLÉMENT DE LISTE NE SE LAISSE JAMAIS COMPRIMER
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   `.wdg-news` (et plusieurs corps de widgets) sont des conteneurs FLEX EN COLONNE qui défilent.
+   Dans un tel conteneur, tout enfant vaut `flex-shrink: 1` par défaut : dès que le contenu dépasse,
+   le navigateur ÉCRASE les enfants au lieu de laisser le parent défiler. Le seul garde-fou est
+   `min-height: auto` (plancher au contenu minimal) — un `min-height: 0` le supprime et les cartes
+   tombent à la hauteur d'une ligne, le titre disparaissant sous le bord.
+   Mesuré : 30 actualités dans une liste de 460 px → 30 cartes écrasées à 25 px et 29 chevauchements.
+   La règle est générale : dans une liste défilante, la hauteur suit le CONTENU et c'est le PARENT
+   qui défile. Jamais l'inverse.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+.news-list > *,
+.wdg-news > *,
+.wdg-cal-wrap > *,
+.rtc-tblwrap > *,
+.season-table-wrap > *,
+.fxl-table-scroll > *,
+.bank-table-wrap > * { flex-shrink: 0; }
