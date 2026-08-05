@@ -549,7 +549,11 @@
         }),
       });
       const data = await r.json();
-      if (data.ok) { window.location.href = '/'; }
+      // `replace` et NON `href` : `href` AJOUTERAIT une entrée d'historique, laissant la page de
+      // connexion coincée juste derrière le desk — un simple Retour y ramenait l'utilisateur pourtant
+      // authentifié. Les déconnexions subies (401, session reprise ailleurs) utilisaient déjà
+      // `replace` : seule la connexion RÉUSSIE faisait exception.
+      if (data.ok) { window.location.replace('/'); }
       else {
         errEl.classList.remove('lp-msg-success');
         const _msg = (data.error || t('errCreds')).replace(/</g, '&lt;');
@@ -627,6 +631,34 @@
     renderBtn(); return dd;
   }
   document.getElementById('lp-lang').value = LANG; enhanceSelect(document.getElementById('lp-lang'), _FLAGS); document.getElementById('lp-lang').addEventListener('change', function(e){ applyLang(e.target.value); }); applyLang(LANG);
+
+  /* ── GARDE « DÉJÀ CONNECTÉ » — CÔTÉ PAGE, ET C'EST INDISPENSABLE ────────────────────────────────
+     Le serveur ne peut PAS s'en charger, pour deux raisons cumulées :
+     1. `express.static({ extensions: ['html'] })` sert login.html AVANT que la route
+        `app.get('/login')` du serveur ne soit atteinte — cette garde-là n'est jamais exécutée ;
+     2. surtout, un retour arrière restaure la page depuis le cache avant/arrière du navigateur SANS
+        aucune requête réseau. Sur iOS, même un `Cache-Control: no-store` ne l'en empêche pas. Aucun
+        en-tête HTTP ne peut donc rattraper le cas — seul l'événement `pageshow` se déclenche.
+     ÉCHAPPATOIRE VOLONTAIRE : `/login?force=1` saute la garde. Sans elle, un utilisateur connecté ne
+     pourrait plus JAMAIS atteindre ce formulaire : poste partagé, changement de compte, admin qui
+     veut ouvrir une session client. On répare une navigation, on n'enferme personne.
+     INVARIANT LIÉ : la déconnexion doit ATTENDRE la réponse de /api/auth/logout avant de naviguer
+     ici (index.html, admin.js). Sans cet await, la session serait encore vivante à l'arrivée et
+     cette garde renverrait au desk quelqu'un qui veut justement en sortir. ─────────────────────── */
+  (function () {
+    var _forcer = false;
+    try { _forcer = new URLSearchParams(location.search).get('force') === '1'; } catch (e) {}
+    function _siDejaConnecte() {
+      if (_forcer) return;
+      fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d && d.loggedIn) location.replace('/'); })
+        .catch(function () {});   // hors ligne : on laisse le formulaire, il n'y a rien de mieux à faire
+    }
+    _siDejaConnecte();
+    // `persisted` = page ressortie du cache avant/arrière : aucun script ne s'est ré-exécuté.
+    window.addEventListener('pageshow', function (e) { if (e && e.persisted) _siDejaConnecte(); });
+  })();
 
   document.getElementById('lp-email').focus();
 
