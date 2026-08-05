@@ -7704,7 +7704,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* `.cs-badge` n'est plus qu'un CALE : son padding gauche pousse la pastille au-delà des chiffres de
    l'axe Y, qui occupent la même gouttière (l'ancrage commun les faisait se recouvrir). Le visuel
    — fond, coins, ombre — vit donc sur `.cs-badge-ccy`, sinon l'ombre encadrerait le vide du calage. */
-.cs-badge { display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; pointer-events: none; padding-left: var(--cs-badge-x, 2px); }
+.cs-badge { position: relative; display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; pointer-events: none; padding-left: var(--cs-badge-x, 2px); }
+/* FILET DE RAPPEL : relie la pastille au bout réel de sa courbe quand l'anti-collision l'a écartée
+   verticalement. Tracé à `left: 0`, c'est-à-dire pile sur l'axe — là où la courbe se termine. Sa
+   hauteur est posée en ligne par `_csBadgeHtml` (= |dy|), sa couleur est celle de la devise. */
+.cs-link { position: absolute; left: 0; width: 1px; bottom: 50%; opacity: .8; pointer-events: none; border-radius: 1px; }
+.cs-link--bas { bottom: auto; top: 50%; }   /* pastille remontée : la courbe est en dessous */
 .cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.55); }
 .cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; }
 
@@ -15487,21 +15492,26 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Haut"],
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Bas"] { display: none !important; }
 
-  /* Le calendrier PLEIN ÉCRAN a trois structures que le widget n'a pas, et qui ne sont pas des
-     cartes : le séparateur de jour, le détail déplié au tap, et le squelette de chargement.
-     Chacune reste une bande pleine largeur — la grille à 12 colonnes ne s'y applique pas. */
-  #cal-table-wrap .cal-day-sep, #wa-cal-body .cal-day-sep,
-  #cal-table-wrap .cal-detail-row, #wa-cal-body .cal-detail-row { display: block; width: 100%; }
-  #cal-table-wrap .cal-day-sep > td, #wa-cal-body .cal-day-sep > td,
-  #cal-table-wrap .cal-detail-row > td, #wa-cal-body .cal-detail-row > td {
+  /* Le séparateur de jour, le détail déplié au tap et le squelette de chargement ne sont PAS des
+     cartes : chacun reste une bande pleine largeur, la grille à 12 colonnes ne s'y applique pas.
+     ⚠️ LES TROIS ENVELOPPES, PAS DEUX. Le calendrier vit dans `.wdg-cal-wrap` (Mon Desk ET accueil),
+     `#cal-table-wrap` (onglet) et `#wa-cal-body` (Semaine à Venir). N'en nommer que deux laissait le
+     widget avec un `td` resté `table-cell` : la bande se dimensionnait à son texte et deux jours
+     s'affichaient CÔTE À CÔTE au lieu de se succéder (capture user 05/08). */
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep,
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-detail-row { display: block; width: 100%; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep > td,
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-detail-row > td {
     display: block !important; width: 100% !important; max-width: none !important;
     white-space: normal !important; overflow: visible !important;
   }
-  #cal-table-wrap .cal-day-sep > td, #wa-cal-body .cal-day-sep > td { font-size: 12px !important; }
-  /* Le séparateur colle à `top: 28px` pour se placer SOUS l'en-tête de colonnes. Cet en-tête n'existe
-     plus en mode carte : les 28 px devenaient une bande vide en haut, et la bande collante recouvrait
-     la première ligne de la première carte (heure + devise invisibles). */
-  #cal-table-wrap .cal-day-sep, #wa-cal-body .cal-day-sep { top: 0; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep > td { font-size: 12px !important; }
+  /* Séparateur EN FLUX sur téléphone, plus collant. Il collait à `top: 28px` pour se ranger sous
+     l'en-tête de colonnes — en-tête qui n'existe plus en mode carte. Et un `sticky` dont les ancêtres
+     table/tbody/tr sont passés en `display: block` ne se comporte plus comme on le croit : il
+     recouvrait la première ligne de la carte suivante. Dans une liste de cartes, la date se lit très
+     bien en flux ; le gain d'un en-tête collant ne vaut pas le recouvrement. */
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep { position: static; top: auto; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row.cal-skel-row {
     grid-template-columns: 1fr; row-gap: 5px;
   }
@@ -15521,11 +15531,10 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      du composant sans rien lui coûter, amCharts et Leaflet gérant leur zoom en JS.) */
 
   /* ── 5 · DES BLOCS PLUS GRANDS, ASSUMÉS ──────────────────────────────────────────────────────
-     « Je préfère des widgets plus grands, quitte à défiler davantage. » */
+     « Je préfère des widgets plus grands, quitte à défiler davantage. »
+     (Les planchers de l'ACCUEIL ont quitté ce bloc : ils étaient posés sur `.home-zone-body`, qui
+     n'est pas propriétaire de sa hauteur. Voir le bloc « ACCUEIL · LA RANGÉE SUIT SON CONTENU ».) */
   .wdg-card { min-height: 460px; }
-  .home-zone-body { min-height: 400px; }
-  .home-zone-body:has(.wdg-news-panel) { min-height: 520px; }
-  .home-zone-body:has(.wdg-cal-panel) { min-height: 560px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -15556,3 +15565,56 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
 .season-table-wrap > *,
 .fxl-table-scroll > *,
 .bank-table-wrap > * { flex-shrink: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   ACCUEIL · LA RANGÉE SUIT SON CONTENU (lot C du moteur de layout mobile)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   CE QUI SE PASSAIT, mécaniquement. `.home-inner` est le conteneur défilant de l'accueil et il a
+   une hauteur DÉFINIE (élément flex de `.home-overlay`, lui-même en position fixe). `.home-grid`
+   y était posée en `flex: 1 1 auto; min-height: 0` : elle recevait donc, elle aussi, une hauteur
+   définie — celle de l'espace restant, ~730 px. Or ses six rangées `minmax(220px, auto)` réclament
+   bien davantage. L'espace libre étant NÉGATIF, l'étape « maximize tracks » de l'algorithme de
+   grille ne peut jamais honorer le `auto` : chaque rangée reste bloquée à son minimum, 220 px.
+   Et comme `.home-zone` porte `overflow: hidden`, tout ce qui dépasse est COUPÉ — sans le moindre
+   défilement pour aller le chercher. D'où le graphique tronqué en bas et le calendrier rogné des
+   deux côtés.
+
+   POURQUOI MES PLANCHERS SUCCESSIFS N'ONT RIEN CHANGÉ — et c'est le vrai enseignement :
+   1. ils étaient posés sur `.home-zone-body`, alors que `.home-zone .home-zone-body { min-height: 0 }`
+      (spécificité 0,2,0) les annulait purement et simplement ;
+   2. et quand ils passaient, ils faisaient grossir le CORPS à l'intérieur d'un CADRE qui, lui, ne
+      grossissait pas — donc ils rognaient davantage. 340 → 400 → 460 → 520 → 560 : cinq fois pire.
+
+   LA RÈGLE : sur téléphone, la grille prend la hauteur de son CONTENU et c'est `.home-inner` qui
+   défile. Le plancher se pose sur `.home-zone` — l'élément de grille, seul propriétaire de sa
+   hauteur — jamais sur son corps.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 860px) {
+  /* `flex: 0 0 auto` : la grille ne se partage plus une hauteur restante, elle prend la sienne.
+     `grid-auto-rows: auto` : plus aucun plafond de rangée — une carte haute fait une rangée haute. */
+  .home-inner > .home-grid { flex: 0 0 auto; grid-auto-rows: auto; align-items: stretch; }
+
+  /* Planchers PAR TYPE DE CONTENU, sur la zone. Un graphique doit recevoir une hauteur imposée,
+     sinon il s'effondre à zéro ; une liste ou un tableau peut se contenter d'un minimum de confort
+     et défiler à l'intérieur. Les valeurs suivent la demande : « je préfère des widgets plus
+     grands, quitte à défiler davantage ». */
+  /* PLAFOND, pour que la hauteur reste DÉFINIE. Sans lui, une zone à hauteur de contenu rend
+     `.home-zone-body` indéfini : le `height: 100%` du widget se résout alors en `auto`, sa liste
+     interne cesse de défiler et s'étire — mesuré, le fil montait à 2367 px et il fallait le
+     traverser en entier pour atteindre le calendrier. Avec un plafond, la liste redéfile à
+     l'intérieur, et comme `overscroll-behavior: contain` a été retiré (lot A), arrivé en bout de
+     course le geste passe à la page : on ne se retrouve jamais bloqué dans un widget. */
+  .home-grid > .home-zone { min-height: 340px; max-height: calc(var(--vph, 100vh) * .82); }
+  .home-grid > .home-zone:has(.wdg-news-panel) { min-height: 520px; }
+  .home-grid > .home-zone:has(.wdg-cal-panel)  { min-height: 560px; }
+  .home-grid > .home-zone:has(.wdg-fx-chart)   { min-height: 540px; }
+  .home-grid > .home-zone:has(.wdg-lfmap)      { min-height: 380px; }
+  .home-grid > .home-zone:has(.wdg-clockwrap)  { min-height: 300px; }
+  .home-grid > .home-zone--hero                { min-height: 0; }
+
+  /* Les hôtes de graphiques gardent leur propre plancher : c'est le seul filet qui les empêche de
+     s'effondrer si la zone venait à perdre sa hauteur. Il existait sous 560 px seulement, laissant
+     561-860 px sans protection — un téléphone en paysage, une petite tablette. */
+  .wdg-fx-chart { min-height: 380px; }
+  .wdg-lfmap    { min-height: 260px; }
+}
