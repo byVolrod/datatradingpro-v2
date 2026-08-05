@@ -168,6 +168,7 @@
     { prev:'outlook',     test:'outlook',     name:'Semaine à venir',      when:'Dimanche',   desc:'L\'agenda éco trié par le desk pour la semaine qui s\'ouvre.' },
     { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) — aperçu par variante.', variants:true },
     { prev:'app-desktop', test:'app-desktop', name:'Annonce app desktop',  when:'One-shot',   oneshot:true, desc:'Annonce de l\'application Windows/macOS (campagne app-desktop-v1).' },
+    { prev:'desk-widgets', test:'desk-widgets', name:'Annonce accueil & Mon Desk', when:'One-shot', oneshot:true, desc:'Les deux nouveautés : l\'écran d\'accueil « Vue d\'ensemble », et Mon Desk — widgets composables, plusieurs dispositions, enregistrées par compte (campagne desk-widgets-v1).' },
     // ── CYCLE DE VIE (transactionnels : déclenchés par l'état du compte, pas par le calendrier).
     //    Ajoutés le 27/07 pour pouvoir les RELIRE avant de valider un rattrapage. Pas de bouton « Test »
     //    (ils s'envoient sur événement) — l'aperçu suffit à vérifier le rendu.
@@ -425,7 +426,7 @@
   // « Total » = vue consolidée de TOUTES les campagnes, et c'est le DÉFAUT (demande user 26/07) : on veut
   // d'abord voir la performance globale, puis creuser par contenu.
   let _campStatsId = 'all';
-  const _CAMP_STAT_IDS = [ ['all', 'Total'], ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['app-desktop-v1', 'Annonce app desktop'] ];
+  const _CAMP_STAT_IDS = [ ['all', 'Total'], ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['app-desktop-v1', 'Annonce app desktop'], ['desk-widgets-v1', 'Annonce accueil & Mon Desk'] ];
   // Export CSV du tableau AFFICHÉ (respecte le filtre actif) — réutilise les lignes déjà chargées, zéro fetch.
   function campStatsExport(){
     var rows = _campStatRows;
