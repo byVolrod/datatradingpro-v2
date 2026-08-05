@@ -651,8 +651,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // Les deux étaient ancrés sur l'axe (badge : centerX 0%) → superposés. Invisible sur grand écran
   // tant qu'aucun badge ne tombait sur une graduation, illisible sur téléphone où huit badges se
   // serrent et recouvrent presque toutes les valeurs (capture user 05/08).
-  // On les met CÔTE À CÔTE : chiffres contre l'axe, badge décalé par le padding gauche de
-  // `.cs-badge` (CSS), et la gouttière est élargie de la somme des deux.
+  // On les met CÔTE À CÔTE. ORDRE (demande user 05/08, « colle les étiquettes au bout de la courbe ») :
+  // la PASTILLE d'abord, collée à l'axe — donc au bout exact de sa courbe, ce qui est tout l'intérêt
+  // d'une étiquette de fin de série — puis les chiffres de l'axe repoussés à l'extérieur par leur
+  // propre `paddingLeft`. La gouttière vaut la somme des deux.
   const _csEtroit = (typeof window !== 'undefined' && window.matchMedia)
     ? window.matchMedia('(max-width: 560px)').matches : false;
   // Gouttière dimensionnée pour le pire libellé possible (« -100,00 », 7 caractères) + la pastille.
@@ -663,7 +665,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     fill: am5.color(0x94a3b8), fontSize: _csEtroit ? 11 : 9,   // plancher de 11 px sur téléphone
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
     minPosition: 0.02, maxPosition: 0.98,
-    paddingLeft: 4,
+    paddingLeft: _csEtroit ? 44 : 36,   // laisse passer la pastille, qui reste collée au bout de la courbe
   });
   // Échelle DTP : 2 décimales fixes + décimale FRANÇAISE (virgule) → "4,00 / 0,00 / -16,00".
   yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
