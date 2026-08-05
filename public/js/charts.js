@@ -752,6 +752,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
       html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), valStr),
       centerY: am5.percent(50),
       centerX: am5.percent(0),   // ancré à l'axe → colonne droite parfaitement alignée (aucun décalage horizontal)
+      // ⚠️ PIÈGE MESURÉ : une étiquette de PLAGE est créée à partir du gabarit `renderer.labels.template`,
+      // celui des chiffres de l'axe. Le `paddingLeft` qui repousse les chiffres vers l'extérieur
+      // s'appliquait donc AUSSI aux pastilles, qui restaient à 44 px de leur courbe. On le remet à
+      // zéro ici : la pastille touche l'axe, c'est-à-dire le bout exact de sa courbe.
+      paddingLeft: 0,
     });
     range.get('tick').set('visible', false);
     range.get('grid').setAll({ stroke: color, strokeOpacity: 0.20, strokeDasharray: [3, 3] });
