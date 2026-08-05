@@ -597,34 +597,28 @@ function _lighten(hexInt, amt) {
   const lr = Math.round(r + (255 - r) * amt), lg = Math.round(g + (255 - g) * amt), lb = Math.round(b + (255 - b) * amt);
   return '#' + ((lr << 16) | (lg << 8) | lb).toString(16).padStart(6, '0');
 }
-// Badge du bout de courbe : CODE DEVISE sur la couleur pleine + VALEUR sur la même teinte éclaircie
-// (05/08, demande user : « le code devise, la valeur actuelle, la couleur associée à la courbe »).
-// La valeur avait été retirée à une demande précédente ; elle est ici réintroduite explicitement.
-// Deux pavés accolés plutôt qu'une pastille unie : c'est la lecture DTP, et le chiffre se détache du
-// code sans avoir besoin d'un séparateur.
+// Badge du bout de courbe : CODE DEVISE sur la couleur pleine de la courbe.
+// La VALEUR chiffrée n'y figure PAS par défaut (05/08 : « enlève les chiffres à côté du nom de la
+// devise dans le label »). Elle reste disponible en option — réglage « Valeur sur les étiquettes » —
+// et s'affiche alors dans un second pavé, sur la même teinte éclaircie. Deux pavés accolés plutôt
+// qu'une pastille unie : c'est la lecture DTP, et le chiffre se détache du code sans séparateur.
 // TRAIT DE RAPPEL (05/08, « relie la courbe au label ») : l'anti-collision ÉCARTE verticalement la
 // pastille de son point d'ancrage — sans lien visuel on ne sait plus quelle pastille appartient à
 // quelle courbe. On trace un filet de la couleur de la devise, de la pastille jusqu'à la hauteur
 // réelle du bout de courbe. `dy` est le décalage appliqué : positif = pastille poussée vers le BAS,
 // donc la courbe est au-dessus et le filet remonte.
-function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy, sansCode) {
+function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy) {
   const d = Math.round(dy || 0);
   const filet = d
     ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"></i>`
     : '';
-  // SANS LE CODE (réglage « Code de la devise ») : la valeur reprend la couleur PLEINE de la courbe.
-  // Privée du code, l'étiquette n'aurait plus que sa couleur pour désigner sa devise — la lui laisser
-  // en teinte éclaircie l'aurait rendue indéchiffrable. Repli sur le code si la valeur manque.
-  if (sansCode) {
-    const seul = (valStr == null || valStr === '') ? ccy : valStr;
-    return `<div class="cs-badge">${filet}<span class="cs-badge-val cs-badge-val--seul" style="background:${fullHex}">${seul}</span></div>`;
-  }
   const val = (valStr == null || valStr === '') ? '' :
     `<span class="cs-badge-val" style="background:${lightHex}">${valStr}</span>`;
   return `<div class="cs-badge">${filet}<span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span>${val}</div>`;
 }
 function buildStrengthChart(containerId, data, opts = {}) {
-  const _sansCode = !!opts.sansCode;   // reglage « Code de la devise » : etiquette reduite a sa valeur
+  // Reglage « Valeur sur les etiquettes » : le badge porte TOUJOURS le code ; la valeur est en option.
+  const _avecValeur = !!opts.avecValeur;
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
   const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
   // (optionnel) n'afficher QUE ces devises (ex. les 2 de la paire EURAUD → EUR+AUD) : les autres
@@ -686,18 +680,25 @@ function buildStrengthChart(containerId, data, opts = {}) {
     { timeUnit: 'hour', count: 6 }, { timeUnit: 'day', count: 1 }, { timeUnit: 'week', count: 1 }, { timeUnit: 'month', count: 1 },
   ]);
 
-  // GOUTTIÈRE DROITE : elle n'héberge PLUS QUE les étiquettes de devises.
-  // Les graduations chiffrées de l'axe Y sont retirées (demande user 05/08 « enlève les chiffres sur
-  // le côté »). Elles partageaient la colonne avec les étiquettes, toutes deux ancrées à l'axe : une
-  // étiquette étant opaque, elle recouvrait la graduation tombant à sa hauteur, et la colonne finissait
-  // en damier de chiffres à moitié cachés. Rien d'informatif ne se perd : chaque étiquette porte
-  // désormais sa propre valeur, la ligne blanche du zéro donne l'origine et la grille en pointillés
-  // garde les paliers. La gouttière est donc dimensionnée sur la seule étiquette :
-  // « NZD  -25,00 » ≈ 74 px à 11 px, ≈ 62 px à 9 px ; réduite d'autant quand le code est masqué.
+  // GOUTTIÈRE DROITE : graduations de l'axe Y ET étiquettes de devises, dans la MÊME colonne, toutes
+  // deux ancrées à l'axe — c'est-à-dire au bout des courbes. L'étiquette étant opaque, elle masque la
+  // graduation qui tombe à sa hauteur : à cet endroit précis, la devise est l'information utile.
+  // (05/08 : j'avais d'abord retiré les graduations en lisant « enlève les chiffres » de travers —
+  // c'était la VALEUR dans l'étiquette qui était visée. Les graduations sont rétablies.)
+  // Largeur : l'étiquette réduite au code (« NZD ») tient dans ~46 px, la graduation la plus longue
+  // (« -100,00 ») dans ~44 px ; avec la valeur affichée en option, il faut ~74 px.
   const _csEtroit = (typeof window !== 'undefined' && window.matchMedia)
     ? window.matchMedia('(max-width: 560px)').matches : false;
-  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _sansCode ? (_csEtroit ? 58 : 50) : (_csEtroit ? 84 : 70) });
-  yAxisRenderer.labels.template.set('forceHidden', true);
+  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _avecValeur ? (_csEtroit ? 84 : 70) : (_csEtroit ? 56 : 50) });
+  yAxisRenderer.labels.template.setAll({
+    visible: true,
+    fill: am5.color(0x94a3b8), fontSize: _csEtroit ? 11 : 9,   // plancher de 11 px sur téléphone
+    fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
+    minPosition: 0.02, maxPosition: 0.98,
+    paddingLeft: 4,
+  });
+  // Échelle DTP : 2 décimales fixes + décimale FRANÇAISE (virgule) → « 4,00 / 0,00 / -16,00 ».
+  yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
   // Grille horizontale discrète : pointillés gris foncé
   yAxisRenderer.grid.template.setAll({
     stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeWidth: 1, strokeDasharray: [2, 4],   // grille TRÈS discrète GRIS (jamais "trait noir")
@@ -769,7 +770,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     const range     = yAxis.createAxisRange(rangeItem);
     const valStr    = lastV.toFixed(2).replace('.', ',');   // valeur SANS "+", décimale FR (façon DTP)
     range.get('label').setAll({
-      html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), valStr, 0, _sansCode),
+      html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), _avecValeur ? valStr : '', 0),
       centerY: am5.percent(50),
       centerX: am5.percent(0),   // ancré à l'axe → colonne droite parfaitement alignée (aucun décalage horizontal)
       // ⚠️ PIÈGE MESURÉ : une étiquette de PLAGE est créée à partir du gabarit `renderer.labels.template`,
@@ -933,7 +934,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
             // ⚠️ La valeur DOIT être repassée : reconstruire le badge sans elle l'effacerait jusqu'à
             // la prochaine mise à jour des données, soit jusqu'à 20 s d'étiquettes muettes.
             const v = (x.o.value != null ? x.o.value : 0).toFixed(2).replace('.', ',');
-            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), v, d, _sansCode));
+            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), _avecValeur ? v : '', d));
           }
         } catch {}
       });
@@ -984,7 +985,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         lbl.value = lv;
         try { lbl.range.set('value', lv); } catch {}
         // On repasse le dy courant : sans lui la mise a jour effacerait le filet de rappel jusqu au prochain declutter.
-        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','), lbl.dy, _sansCode)); } catch {}
+        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), _avecValeur ? lv.toFixed(2).replace('.', ',') : '', lbl.dy)); } catch {}
         // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
         // d'après _hiddenCcy UNIQUEMENT (source de vérité des devises masquées via la légende). On n'utilise plus
         // s.isHidden()/get('visible') : transitoires (animation/course de layout) → ils force-cachaient à tort.

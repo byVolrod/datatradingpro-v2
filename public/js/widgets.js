@@ -486,7 +486,7 @@
         // reprend la couleur PLEINE de la courbe — c'est alors elle seule qui désigne la devise, la
         // légende du haut restant la table de correspondance. La gouttière se resserre d'autant,
         // ce qui rend de la largeur au tracé.
-        { k: 'codes', lbl: 'Code devise sur les étiquettes', type: 'bascule', def: true },
+        { k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: false },
       ],
       mount: function (host, it) {
         var W = this;
@@ -509,7 +509,7 @@
           + '<div id="' + id + '" class="wdg-fx-chart"></div></div>';
         function dessine(p) {
           try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
-          try { buildIsolatedStrength(id, foc, p, { sansCode: !opt(it, W, 'codes') }); }
+          try { buildIsolatedStrength(id, foc, p, { avecValeur: !!opt(it, W, 'valeurs') }); }
           catch (e) { fallback(host, 'Force des Devises indisponible.'); }
         }
         // La barre rejoint l'EN-TÊTE du widget (titre à gauche, périodes à droite) comme sur le desk.
