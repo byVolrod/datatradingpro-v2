@@ -546,6 +546,9 @@
         body: JSON.stringify({
           email: document.getElementById('lp-email').value,
           password: document.getElementById('lp-password').value,
+          // La case existait depuis toujours dans le formulaire mais n'était JAMAIS envoyée : elle
+          // promettait une session longue que rien n'implémentait (retour membre 05/08).
+          remember: !!document.getElementById('lp-remember').checked,
         }),
       });
       const data = await r.json();
@@ -658,6 +661,18 @@
     _siDejaConnecte();
     // `persisted` = page ressortie du cache avant/arrière : aucun script ne s'est ré-exécuté.
     window.addEventListener('pageshow', function (e) { if (e && e.persisted) _siDejaConnecte(); });
+  })();
+
+  /* La case elle-même se souvient d'avoir été cochée : le membre qui la coche « à chaque fois » ne
+     devrait avoir à le faire qu'une seule. Simple confort d'appareil (localStorage) — la session
+     longue, elle, est décidée par le serveur à la connexion. */
+  (function () {
+    var c = document.getElementById('lp-remember');
+    if (!c) return;
+    try { c.checked = localStorage.getItem('dtp_remember') === '1'; } catch (e) {}
+    c.addEventListener('change', function () {
+      try { localStorage.setItem('dtp_remember', c.checked ? '1' : '0'); } catch (e) {}
+    });
   })();
 
   document.getElementById('lp-email').focus();
