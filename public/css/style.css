@@ -15282,3 +15282,25 @@ body.home-mode #calc-btn.topbar-icon--active {
 @media (prefers-reduced-motion: reduce) {
   .topbar-icon.tb-alert::before { animation: none; opacity: 0; }
 }
+
+/* ══ ACCUEIL SUR MOBILE : DES PANNEAUX CONSULTABLES (05/08, capture user) ════════════════════════
+   ⚠️ Ce sont les panneaux de l'ACCUEIL (.home-zone), PAS les cartes de Mon Desk (.wdg-card) : les
+   relèvements précédents ne les touchaient donc pas, d'où l'impression que rien n'avait bougé.
+   `.home-zone-body` plafonnait à 180px de haut. Sur un téléphone cela donne, selon le contenu :
+   trois lignes de fil qui se marchent dessus, un calendrier inconsultable, et un graphique de Force
+   si écrasé que les étiquettes de devises se tassent au lieu de suivre leur courbe.
+   On dimensionne PAR TYPE DE CONTENU — une liste, un tableau et un graphique n'ont pas les mêmes
+   besoins — plutôt que d'appliquer une hauteur unique qui laisserait du vide ailleurs. */
+@media (max-width: 560px) {
+  .home-zone-body { min-height: 340px; }
+  /* Fil : une dizaine d'actualités lisibles d'un coup, au lieu de trois qui se chevauchent. */
+  .home-zone-body:has(.wdg-news-panel) { min-height: 460px; }
+  /* Calendrier : barre de filtres + navigation + en-tête consomment ~150px AVANT la première
+     ligne. Sous 500px il ne restait pas de quoi lire une journée. */
+  .home-zone-body:has(.wdg-cal-panel) { min-height: 520px; }
+  /* Force des devises : c'est la HAUTEUR qui aligne les étiquettes sur leur courbe. Écrasées, elles
+     se tassent en pile parce que l'algorithme d'anti-chevauchement doit les écarter de force. */
+  .home-zone-body:has(.wdg-fx-chart) { min-height: 400px; }
+  /* Carte des sessions : sous 300px les badges de villes se superposent. */
+  .home-zone-body:has(.wdg-lfmap) { min-height: 320px; }
+}
