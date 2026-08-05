@@ -1079,15 +1079,22 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
     <p style="margin:0 0 14px;">Le temps de situer la s&eacute;ance, puis un bouton pour entrer dans le desk.</p>
     ${_img(imgAcc, "L'accueil Vue d'ensemble du terminal DataTradingPro")}
 
-    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Mon Desk</p>
-    <p style="margin:0 0 12px;">Le desk n'est plus une disposition impos&eacute;e. C'est une grille que <strong style="color:#fff;">vous composez vous-m&ecirc;me</strong>, bloc par bloc.</p>
-    <p style="margin:0 0 14px;">La biblioth&egrave;que reprend les modules du terminal&nbsp;: force des devises, calendrier &eacute;conomique, fil d'actualit&eacute;, sessions de march&eacute;, radar de biais, positionnement des institutionnels (COT), sentiment de risque, aper&ccedil;u DMX du positionnement des particuliers, saisonnalit&eacute;, taux directeurs, horloge mondiale, barom&egrave;tre.</p>
-    ${_img(imgDsk, 'La bibliotheque de modules du terminal DataTradingPro')}
-    <p style="margin:0 0 14px;">Chaque bloc se d&eacute;place, se redimensionne et se r&egrave;gle&nbsp;: p&eacute;riode d'un graphique, devises affich&eacute;es, places retenues sur l'horloge. Vous gardez ce que vous consultez, vous &eacute;cartez le reste.</p>
-
+    <!-- ORDRE (demande user 06/08) : « Une disposition par usage » passe AVANT « Mon Desk ». On
+         annonce donc le bénéfice — plusieurs écrans selon ce qu'on suit — puis le moyen, la grille
+         qu'on compose. Entrée par l'usage plutôt que par l'outil. -->
     <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Une disposition par usage</p>
     <p style="margin:0 0 14px;">Vous enregistrez <strong style="color:#fff;">plusieurs dispositions</strong> et vous basculez de l'une &agrave; l'autre&nbsp;: une pour le forex, une pour la crypto, une pour les indices. Ou simplement une pour l'analyse technique, une pour la fondamentale.</p>
     ${_img(imgDis, 'Le choix d une disposition dans Mon Desk')}
+
+    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Mon Desk</p>
+    <p style="margin:0 0 12px;">Chacune de ces dispositions, c'est vous qui la montez. Le desk n'est plus une grille impos&eacute;e&nbsp;: <strong style="color:#fff;">vous la composez bloc par bloc</strong>.</p>
+    <!-- On NE LISTE PAS les modules (demande user 06/08 : « ne devoile pas tout, tisse la
+         curiosite »). L enumeration des douze widgets epuisait le sujet des le mail ; une quinzaine
+         annoncee donne l ordre de grandeur et laisse la decouverte au produit. Le chiffre est exact :
+         9 modules d analyse de marche + 7 outils au catalogue. -->
+    <p style="margin:0 0 14px;">Une <strong style="color:#fff;">quinzaine de modules</strong> &agrave; assembler. Vous y retrouverez ceux que vous ouvrez tous les jours&nbsp;&mdash; et sans doute quelques-uns que vous n'aviez jamais eu l'occasion de regarder.</p>
+    ${_img(imgDsk, 'Les modules disponibles dans Mon Desk')}
+    <p style="margin:0 0 14px;">Chaque bloc se d&eacute;place, se redimensionne et se r&egrave;gle&nbsp;: p&eacute;riode d'un graphique, devises affich&eacute;es, places retenues sur l'horloge. Vous gardez ce que vous consultez, vous &eacute;cartez le reste.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
       <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
         Rien n'est stock&eacute; dans le navigateur&nbsp;: tout tient <strong style="color:#fff;">sur votre compte</strong>. Votre desk vous suit d'un ordinateur &agrave; l'autre, sur l'application de bureau comme sur t&eacute;l&eacute;phone.
@@ -1099,7 +1106,11 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
     ${_campaignBtn('Ouvrir le desk', ouvrir)}
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: 'Votre terminal, réglé sur votre méthode', html: _campaignLayout('Accueil & Mon Desk', body, unsub) };
+  // OBJET (06/08, « plus percutant ») : un verbe d action en tete, et le vocabulaire du corps —
+  // « bloc par bloc » dit la nouveaute en trois mots. 33 caracteres : rien n est tronque, ni dans
+  // une boite de reception ni sur telephone. On enonce ce qui devient possible, sans superlatif,
+  // sans urgence inventee, sans point d exclamation.
+  return { subject: 'Montez votre desk, bloc par bloc', html: _campaignLayout('Accueil & Mon Desk', body, unsub) };
 }
 /* Les DEUX illustrations de l'annonce, embarquées en pièces inline (cid:) comme pour l'annonce app
    desktop. Raison : Gmail et Outlook bloquent souvent les images distantes ; en cid: l'affichage est
