@@ -7704,7 +7704,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* `.cs-badge` n'est plus qu'un CALE : son padding gauche pousse la pastille au-delà des chiffres de
    l'axe Y, qui occupent la même gouttière (l'ancrage commun les faisait se recouvrir). Le visuel
    — fond, coins, ombre — vit donc sur `.cs-badge-ccy`, sinon l'ombre encadrerait le vide du calage. */
-.cs-badge { display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; pointer-events: none; padding-left: var(--cs-badge-x, 44px); }
+.cs-badge { display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; pointer-events: none; padding-left: var(--cs-badge-x, 2px); }
 .cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.55); }
 .cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; }
 
@@ -14165,7 +14165,12 @@ body.home-mode .view-panel { visibility: hidden; }
    quand le contenu du conteneur change SOUS le calque — exactement le cas du fil, qui se rafraîchit
    en continu. Elle est de surcroît OBSOLÈTE : iOS gère l'inertie nativement depuis la version 13,
    elle n'apportait donc plus rien. On garde `overscroll-behavior`, qui est la partie utile. */
-.home-inner, .news-list, .wdg-body, .wdg-cal-wrap, .wdgt-body { overscroll-behavior: contain; }
+/* ⚠️ CORPS DE WIDGETS RETIRÉS de cette liste (05/08). `contain` empêche la « propagation » : arrivé en
+   bout de course d'une liste interne, le geste s'arrête AU LIEU de passer à la page. C'est exactement
+   la plainte « le défilement devient difficile » — on ne peut plus faire défiler la page en posant le
+   doigt sur un widget, il faut viser une marge. `contain` reste utile là où le conteneur EST le
+   défilement principal de sa surface (.home-inner) ou un menu superposé, pas sur un corps de widget. */
+.home-inner { overscroll-behavior: contain; }
 
 /* ── BARRE MON DESK SANS LISTE DE LAYOUTS (04/08) : seul le layout ACTIF s'affiche, en
    repère (le choix vit dans Personnaliser › Layouts — double-clic = renommer). */
@@ -14182,7 +14187,7 @@ body.home-mode .view-panel { visibility: hidden; }
    valeurs de l'axe. On repasse au plancher de 11 px et on décale davantage la pastille — la
    gouttière est élargie en conséquence côté amCharts (`_csEtroit`, charts.js). */
 @media (max-width: 560px) {
-  .cs-badge { --cs-badge-x: 54px; }
+  .cs-badge { --cs-badge-x: 2px; }
   .cs-badge-ccy { font-size: 11px; padding: 2px 6px; }
 }
 
@@ -15505,11 +15510,15 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   /* La puce « Clé » signale les prises de parole qui bougent le marché : à 9 px elle ne se lisait pas. */
   .cal-key-chip { font-size: 11px; padding: 0 6px; }
 
-  /* ── 4 · GESTE VERTICAL PRIORITAIRE, partout ─────────────────────────────────────────────────
-     Les listes et tableaux défilables captaient aussi le glissement. `pan-y` rend le déplacement
-     vertical au navigateur : la page défile toujours, l'horizontal reste au composant. */
-  .news-list, :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body), .season-table-wrap, .rtc-tblwrap, .wdg-clockwrap,
-  .fxl-table-scroll, .bank-table-wrap { touch-action: pan-y; }
+  /* ── 4 · GESTE VERTICAL — RÈGLE RETIRÉE, ELLE NE FAISAIT PAS CE QUE SON COMMENTAIRE ANNONÇAIT ──
+     J'avais posé `touch-action: pan-y` sur ces conteneurs en croyant « rendre le geste vertical à la
+     page ». C'est faux : `touch-action` ne DÉSIGNE PAS la cible du défilement, il n'autorise ou
+     n'interdit que des directions. Sur un conteneur qui défile déjà verticalement, `pan-y` est un
+     no-op strict (la valeur calculée valait déjà `auto`, qui inclut pan-y) — et il SUPPRIME le
+     déplacement horizontal : la Liste FX et le tableau Banques y perdaient leurs colonnes hors champ.
+     Le vrai verrou du geste était `overscroll-behavior: contain`, traité plus haut.
+     (`pan-y` reste posé, à raison, sur les hôtes de graphiques NON défilants : il y écarte le geste
+     du composant sans rien lui coûter, amCharts et Leaflet gérant leur zoom en JS.) */
 
   /* ── 5 · DES BLOCS PLUS GRANDS, ASSUMÉS ──────────────────────────────────────────────────────
      « Je préfère des widgets plus grands, quitte à défiler davantage. » */
