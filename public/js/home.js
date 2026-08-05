@@ -125,24 +125,53 @@
   // chaîne de réessai 12 s SUPPLÉMENTAIRE quand l'API échouait durablement — accumulation de
   // requêtes vers un endpoint déjà en échec (et de closures dans _menage). Le handle unique
   // remplace toute chaîne précédente ; son nettoyage est enregistré une fois, dans build().
-  var _tkRetry = null;
+  var _tkRetry = null, _tkEchecs = 0;
+  // ÉTATS EXPLICITES (05/08, demande user « prévoir un état de chargement, un état d'erreur, ne
+  // jamais afficher une bande vide »). Avant : la bande n'apparaissait qu'au succès et retentait en
+  // silence toutes les 12 s — un échec durable était indiscernable d'un chargement lent.
+  function _tkSquelette() {
+    var un = '<span class="home-tk home-tk--skel"><i class="dtp-skel"></i></span>';
+    return un.repeat(10);
+  }
+  function _tkMessage(txt) {
+    return '<span class="home-tk home-tk--msg">' + esc(txt) + '</span>';
+  }
   function chargerTicker() {
     var host = document.getElementById('home-ticker-in'); if (!host) return;
+    // La bande prend sa hauteur DÈS le premier appel : on montre un squelette plutôt que du vide.
+    if (!host.parentNode.classList.contains('is-on')) {
+      host.innerHTML = _tkSquelette();
+      host.parentNode.classList.add('is-on', 'home-ticker--skel');
+    }
     // RÉESSAI TANT QUE LA BANDE N'EST PAS AFFICHÉE (constaté user, deux fois) : premier appel sur
     // cache froid, 503 transitoire, redéploiement… — on retente toutes les 12 s jusqu'à l'affichage,
     // le minuteur meurt avec l'écran. Une fois la bande en place, seul le tick 150 s la rafraîchit.
+    // ⚠️ La condition d'arrêt ne peut PLUS être « la bande est affichée » : elle l'est désormais dès
+    // le squelette. On se base sur la présence de vraies cotations (.home-tk-px), sinon le réessai
+    // se serait arrêté au premier squelette et la bande serait restée grise indéfiniment.
     var replanifie = function () {
       if (!document.getElementById('home-ticker-in')) return;
-      if (host.parentNode.classList.contains('is-on')) return;
+      if (host.querySelector('.home-tk-px')) return;          // cotations en place → rien à retenter
+      _tkEchecs++;
+      // Au-delà de 3 tentatives (~36 s), on le DIT au lieu de laisser un squelette qui tourne dans
+      // le vide : l'utilisateur doit pouvoir distinguer « ça charge » de « ça ne marche pas ».
+      if (_tkEchecs >= 3) {
+        host.innerHTML = _tkMessage('Cours indisponibles — nouvelle tentative…');
+        host.parentNode.classList.remove('home-ticker--skel');
+      }
       if (_tkRetry) clearTimeout(_tkRetry);
-      _tkRetry = setTimeout(chargerTicker, 12000);
+      // Palier progressif : 12 s, puis 24, 48… plafonné à 2 min. Marteler un endpoint déjà en échec
+      // ne le répare pas et vide la batterie sur mobile.
+      _tkRetry = setTimeout(chargerTicker, Math.min(12000 * Math.pow(2, _tkEchecs - 1), 120000));
     };
     fetch('/api/fxlist').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
       if (!document.getElementById('home-ticker-in')) return;
       var items = tickerItems(d && d.pairs);
       if (!items) return replanifie();
+      _tkEchecs = 0;
       host.innerHTML = items + items;                    // doublé → la boucle repart sans couture à -50 %
       host.parentNode.classList.add('is-on');
+      host.parentNode.classList.remove('home-ticker--skel');
     }).catch(replanifie);
   }
 
