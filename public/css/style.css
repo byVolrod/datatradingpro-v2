@@ -15071,3 +15071,72 @@ body.home-mode #calc-btn.topbar-icon--active {
    un vide en bas — même parti que .season-table, qui remplit son panneau ainsi. */
 .rtc-tblwrap { flex: 1 1 auto; }
 .rtc-tblwrap > .rtc-tbl { height: 100%; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   PASSE PREMIUM (05/08) — « un cran au-dessus, LÉGÈREMENT »
+
+   Issue d'un audit du fichier, pas d'un goût : le desk paraissait plat pour des raisons MESURABLES.
+   Cette passe ne DÉCORE rien. Elle rend opérant ce que le système déclarait déjà et qui ne
+   fonctionnait pas. Aucun padding, aucune taille de police, aucune hauteur de ligne n'est touchée :
+   la densité du cockpit est intacte, à l'unité près.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · LA HIÉRARCHIE DE BORDURE EXISTAIT SUR LE PAPIER SEULEMENT ───────────────────────────────
+   --border, --border2 et --border3 valaient TOUS #232429 (l.94-96). Les 58 règles qui utilisent
+   --border2 pour « un contour un peu plus marqué » ne produisaient donc rigoureusement rien : une
+   carte, un panneau et une ligne de tableau avaient exactement le même trait. Trois crans réels,
+   espacés de ~7 unités par canal — assez pour que l'œil hiérarchise, trop peu pour se voir. */
+:root {
+  --border2: #2a2b31;   /* contour de CARTE : se détache du séparateur interne */
+  --border3: #32333a;   /* élément saillant / focus : se détache de la carte */
+}
+
+/* ── 2 · TROIS PLANS AU LIEU D'UN ────────────────────────────────────────────────────────────────
+   --bg et --bg1 valaient tous deux #0d0e11 : le fond de page et le corps d'un panneau étaient le
+   MÊME noir, et seule la bordure disait où commençait le panneau. On écarte le panneau de 3 unités
+   de luminosité — il « pose » sur le fond au lieu d'y être découpé. Ciblé sur .panel et .wdg-card
+   plutôt que sur le token, pour ne pas déplacer les dizaines d'autres usages de --bg1. */
+#view-widgets .wdg-card, .panel { background-color: #101116; }
+/* Le survol d'une ligne s'écarte du fond de panneau du même pas : le repère suit la même règle. */
+.news-item:hover, .cal-row:hover, .bank-row:hover, .fxl-row:hover { background-color: #1a1b21; }
+
+/* ── 3 · LE GESTE : UNE SEULE COURBE, DES PROPRIÉTÉS NOMMÉES ─────────────────────────────────────
+   Le fichier portait 12 `transition: all` et quatre déclarations concurrentes sur .news-item seule.
+   `all` anime AUSSI width, height, padding et margin : toute modification de gabarit devient une
+   animation coûteuse et involontaire. On nomme les propriétés — uniquement celles que le
+   compositeur sait animer sans recalcul de mise en page. */
+.ctrl-btn, .nav-item, .right-tab, .topbar-icon, .cot-type-btn, .dmx-tf-btn,
+.cal-imp-btn, .wdg-ico, .wdg-set-chip, .stf-btn, button {
+  transition: color var(--t-fast) var(--ease),
+              background-color var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease),
+              opacity var(--t-fast) var(--ease);
+}
+/* Les LISTES LONGUES ne transitent que leur fond : ni ombre ni transform, qui repeignent des
+   milliers de nœuds au défilement. */
+.news-item, .cal-row, .bank-row, .fxl-row, .arl-row {
+  transition: background-color var(--t-fast) var(--ease);
+}
+/* Un titre qui grossit de 2 % au survol DANS UN TABLEAU décale ses voisins et force un recalcul
+   à chaque ligne survolée. La couleur suffit à dire « survolé ». */
+.arl-row:hover .arl-ttl { transform: none; }
+
+/* ── 4 · L'ENTRÉE NE FAIT PLUS BOUGER TOUT LE DESK ───────────────────────────────────────────────
+   `.main-layout { animation: dtpEnter .5s }` animait opacité ET translation sur l'intégralité du
+   desk — des dizaines de milliers de nœuds, tableaux et graphiques compris. On garde le fondu, qui
+   est gratuit (le compositeur le gère seul), et on retire le déplacement, qui ne l'est pas. */
+@keyframes dtpEnterSoft { from { opacity: 0; } }
+.main-layout { animation: dtpEnterSoft .28s var(--ease-out) both; }
+
+/* ── 5 · L'OR DIT « ACTIF », PAS « LA SOURIS EST PASSÉE » ────────────────────────────────────────
+   L'or de marque apparaît 576 fois en littéral dans le fichier et s'allume au moindre survol : il
+   ne signifie plus rien. On lui rend son rôle — l'ÉTAT ACTIF est franc, le survol reste sobre. */
+.nav-item.active, .right-tab--active, .topbar-icon--active { color: var(--orange, #e3b23a); }
+.nav-item:hover:not(.active), .right-tab:hover:not(.right-tab--active) { color: var(--text); }
+
+/* ── 6 · RESPECT DU RÉGLAGE SYSTÈME ──────────────────────────────────────────────────────────────
+   Mouvement réduit demandé par l'utilisateur : plus aucune animation d'entrée ni transition. */
+@media (prefers-reduced-motion: reduce) {
+  .main-layout { animation: none; }
+  .news-item, .cal-row, .bank-row, .fxl-row, .arl-row, button { transition: none; }
+}
