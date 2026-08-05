@@ -183,6 +183,14 @@ const _sessionMw = session({
   maxAge:   24 * 60 * 60 * 1000,   // 24 h (demande user : session-timeout desk à 24 h → reconnexion quotidienne)
 });
 app.use(_sessionMw);
+// « Rester connecté » : la durée longue doit être ré-imposée à CHAQUE requête, pas seulement à la
+// connexion. cookie-session relit `req.sessionOptions` chaque fois qu'il ré-écrit le cookie ; sans
+// cette ligne, la première écriture suivante le ramènerait à 24 h et la case serait de nouveau sans
+// effet au bout d'une journée — exactement le symptôme qu'on corrige.
+app.use((req, _res, next) => {
+  if (req.session && req.session.remember) { try { req.sessionOptions.maxAge = _SESSION_MAX_LONG_MS; } catch (e) {} }
+  next();
+});
 
 // ─── Présence "en ligne" (suivi des connexions WebSocket par utilisateur) ─────
 const _onlineUsers = new Map();   // userId → nombre d'onglets/WS ouverts
@@ -250,10 +258,18 @@ const _sessionEpoch = new Map();
 //    déconnecté. Ancre = session.loginAt (posée au login). Session d'AVANT ce déploiement (sans loginAt) :
 //    on l'ancre à la première requête → elle expire 24 h plus tard (pas de déconnexion de masse au deploy). ──
 const _SESSION_MAX_MS = 24 * 60 * 60 * 1000;
+// « RESTER CONNECTÉ » (05/08, retour d'un membre : « il le coche à chaque fois, ça ne marche pas »).
+// La case existait dans le formulaire mais n'était JAMAIS lue : ni envoyée par login.html, ni reçue
+// par le serveur. Elle promettait donc quelque chose que rien n'implémentait.
+// Le couperet de 24 h reste la règle PAR DÉFAUT — c'était une demande explicite (« reconnexion
+// quotidienne »). La case le repousse à 30 jours pour CETTE session-là seulement : c'est un choix
+// du membre, pas un relâchement général. Décocher, ou se reconnecter sans cocher, ramène à 24 h.
+const _SESSION_MAX_LONG_MS = 30 * 24 * 60 * 60 * 1000;
+function _sessionMaxMs(req) { return req.session?.remember ? _SESSION_MAX_LONG_MS : _SESSION_MAX_MS; }
 function _sessionExpired(req) {
   if (!req.session?.userId) return false;
   if (!req.session.loginAt) { req.session.loginAt = Date.now(); return false; }   // legacy → ancrée maintenant
-  return Date.now() - req.session.loginAt > _SESSION_MAX_MS;
+  return Date.now() - req.session.loginAt > _sessionMaxMs(req);
 }
 
 function requireAuth(req, res, next) {
@@ -410,7 +426,7 @@ app.post('/api/auth/login', async (req, res) => {
   if (_fails.length >= 20) {
     return res.status(429).json({ error: 'Trop de tentatives de connexion. Réessayez dans quelques minutes.' });
   }
-  const { email, password } = req.body || {};
+  const { email, password, remember } = req.body || {};
   if (!email || !password) return res.json({ error: 'Email et mot de passe requis' });
   try {
     const user = await auth.verifyLogin(email, password);
@@ -429,6 +445,11 @@ app.post('/api/auth/login', async (req, res) => {
     req.session.userId = user.id;
     req.session.user   = user;
     req.session.loginAt = Date.now();   // COUPERET 24 h : ancre ABSOLUE du login (le cookie-session est glissant → sans ancre, un utilisateur actif ne serait JAMAIS déconnecté)
+    // « Rester connecté » : repousse le couperet a 30 jours pour cette session. Il faut AUSSI etendre
+    // la duree du COOKIE — sinon le navigateur le jetterait au bout de 24 h et le couperet allonge ne
+    // servirait a rien. cookie-session lit `req.sessionOptions` a l ecriture de la reponse.
+    req.session.remember = !!remember;
+    if (remember) { try { req.sessionOptions.maxAge = _SESSION_MAX_LONG_MS; } catch (e) {} }
     _forceLogout.delete(String(user.id));   // un login légitime lève un éventuel ordre de déconnexion (kick ponctuel)
     // Session UNIQUE par compte (clients) : jeton neuf → invalide les sessions précédentes (anti-partage d'identifiants).
     if (user.role !== 'admin' && user.role !== 'support') {
