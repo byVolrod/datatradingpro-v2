@@ -3094,6 +3094,21 @@ function _spansAffiches(lay) {
 
   /* ── ACTIONS (exposées : les onclick du HTML généré les appellent) ── */
   var API = {
+    /* CLIC SUR LE LOGO — POINT DE DÉCISION UNIQUE (06/08, constat user : « quand je clique sur le
+       logo ça m'emmène sur le classique »).
+       Il y avait DEUX gestionnaires concurrents : un écouteur posé ici sur `.logo-text`, qui
+       n'agissait que si un layout ★ existait, et surtout l'`onclick` en dur de index.html, qui
+       appelait `activateView('news')` — donc l'ancien desk. Le second gagnait dans tous les cas :
+       posé sur le PARENT, il s'exécutait après le premier par propagation.
+       Désormais la décision vit ICI, à un seul endroit : le logo ramène à l'écran d'accueil du
+       compte. Pour qui dispose de Mon Desk, c'est sa disposition par défaut ; pour les autres, le
+       desk classique, inchangé. Le jour où Mon Desk s'ouvre à tous, c'est cette seule condition
+       qui change. */
+    logoAccueil: function () {
+      var monDesk = !!window._pdIsAdmin;   // ← la seule condition à faire évoluer le jour de l'ouverture
+      if (monDesk && typeof activateView === 'function') { activateView('widgets'); return; }
+      if (typeof activateView === 'function') activateView('news');
+    },
     // Miniature d'un layout — exposée pour que l'ACCUEIL (home.js) rende la même vignette que le
     // gestionnaire : un seul moteur, donc zéro divergence visuelle entre les deux écrans.
     thumb: function (items, opts) { try { return _thumb(items, opts); } catch (e) { return ''; } },
@@ -3885,17 +3900,10 @@ function _spansAffiches(lay) {
     center.insertBefore(icon, journal);                                      // à GAUCHE de Journal / Calculatrice
     // PRÉCHARGE la config (léger) → hasDefault() connu sans ouvrir Mon Desk (sert au clic sur le LOGO).
     if (!STATE.cfg) load().catch(function () {});
-    // LOGO → TEMPLATE PAR DÉFAUT (demande user 23/07) : si un layout ★ existe, cliquer le logo
-    // DataTradingPro atterrit sur Mon Desk (open() y applique le ★). Sans ★ : le logo reste inerte.
-    var logo = document.querySelector('.logo-text');
-    if (logo && !logo._wdgWired) {
-      logo._wdgWired = true;
-      logo.style.cursor = 'pointer';
-      logo.addEventListener('click', function () {
-        var hasFav = !!(STATE.cfg && (STATE.cfg.layouts || []).some(function (l) { return l && l.fav; }));
-        if (hasFav && typeof activateView === 'function') activateView('widgets');
-      });
-    }
+    // (L'écouteur posé ici sur `.logo-text` a été RETIRÉ le 06/08. Il n'agissait que si un layout ★
+    //  existait, et l'`onclick` du parent — qui renvoyait au desk classique — s'exécutait de toute
+    //  façon après lui par propagation : le logo ramenait donc toujours sur l'ancien desk. La
+    //  décision vit désormais dans `API.logoAccueil`, appelée par l'`onclick` de index.html.)
     // Rechargement ADMIN sur Mon Desk : le boot restore de charts.js l'a neutralisé par sécurité
     // (dtp_active_view='widgets' → 'news', car _pdIsAdmin n'y était pas encore résolu). ICI, boot() ne
     // tourne QUE pour un admin (poll _pdIsAdmin) → on peut rouvrir. La garde d'activateView

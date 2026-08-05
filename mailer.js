@@ -1081,10 +1081,28 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
   `;
   return { subject: 'Votre desk devient le vôtre', html: _campaignLayout('Accueil & Mon Desk', body, unsub) };
 }
+/* Les DEUX illustrations de l'annonce, embarquées en pièces inline (cid:) comme pour l'annonce app
+   desktop. Raison : Gmail et Outlook bloquent souvent les images distantes ; en cid: l'affichage est
+   garanti. Repli : si un fichier manque, son URL landing reste dans le HTML — le mail part quand
+   même, avec au pire une image non chargée plutôt qu'un envoi bloqué. */
+const _ANNONCE_DESK_IMGS = [
+  { fichier: 'annonce-accueil.jpg', cid: 'annonce-accueil@datatradingpro', motif: /https?:\/\/[^"]*annonce-accueil\.jpg/g },
+  { fichier: 'annonce-mondesk.jpg', cid: 'annonce-mondesk@datatradingpro', motif: /https?:\/\/[^"]*annonce-mondesk\.jpg/g },
+];
 async function sendAnnonceDesk(d) {
   d = d || {};
   const m = buildAnnonceDesk({ name: d.name, email: d.email || d.to, campaign: d.campaign });
-  return _send(d.to, m.subject, m.html);
+  let html = m.html; const att = [];
+  for (const img of _ANNONCE_DESK_IMGS) {
+    try {
+      const buf = require('fs').readFileSync(require('path').join(__dirname, 'public', 'assets', 'images', img.fichier));
+      if (buf && buf.length > 5000) {
+        html = html.replace(img.motif, 'cid:' + img.cid);
+        att.push({ filename: img.fichier, content: buf, cid: img.cid, contentType: 'image/jpeg' });
+      }
+    } catch (_) {}
+  }
+  return _send(d.to, m.subject, html, att.length ? att : null);
 }
 
 async function sendAnnouncementDesktop(d) {
