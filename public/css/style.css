@@ -15195,3 +15195,14 @@ body.home-mode #calc-btn.topbar-icon--active {
   display: inline-flex; align-items: center; padding: 0 16px;
   font-size: 11px; color: var(--text3, #8a8a90); letter-spacing: .02em; white-space: nowrap;
 }
+
+/* ── FIL SUR PETIT ÉCRAN : LISIBILITÉ (05/08, « conserver une bonne visibilité sans devoir zoomer »).
+   La mesure a montré que la STRUCTURE est saine — zéro chevauchement, heures alignées, aucune
+   troncature de 320 à 430 px. Le seul reproche mesurable était la taille : le titre tombait à 11 px
+   contre 12 sur le desk, et la catégorie à 10. On remonte le titre et on aère l'interligne, sans
+   toucher aux colonnes (donc sans risque de rouvrir un chevauchement). */
+@media (max-width: 640px) {
+  .news-headline { font-size: 12px; line-height: 1.45; }
+  .news-time, .news-category-text { font-size: 10.5px; }
+  .news-item { padding-top: 10px; padding-bottom: 10px; }
+}
