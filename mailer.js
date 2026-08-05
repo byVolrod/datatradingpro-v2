@@ -1041,45 +1041,57 @@ function buildAnnouncementDesktop({ name, email, campaign } = {}) {
 /* ── ANNONCE ONE-SHOT : l'accueil « Vue d'ensemble » + Mon Desk (widgets) ──────────────────────────
    Même moule que l'annonce app desktop : gabarit CAMPAGNE (pied légal + désinscription), or #f3c344
    (celui des mails ; le desk garde #e3b23a), pixel d'ouverture en dernière ligne, liens suivis.
-   TON : informatif. On décrit ce qui change et ce que le membre peut en faire — aucune incitation à
-   prendre position, aucune promesse de résultat. Pas d'illustration : aucune capture n'est encore
-   déposée dans public/assets/images ; une image cassée coûterait plus que son absence. */
+   TON marketeur / pro / institutionnel (demande user 06/08) : assuré et précis, vocabulaire de
+   salle de marché, bénéfice avant fonctionnalité. SOBRE : ni superlatif creux, ni urgence inventée,
+   ni promesse de performance, ni incitation à se positionner. On vend un outil de travail.
+   Les deux nouveautés sont EN LIGNE : tout est au présent.
+   ⚠️ Deux illustrations attendues dans public/assets/images/ : `annonce-accueil.jpg` et
+   `annonce-mondesk.jpg`. Absentes, le mail part quand même (cf. sendAnnonceDesk). */
 function buildAnnonceDesk({ name, email, campaign } = {}) {
   campaign = campaign || 'desk-widgets-v1';
   const prenom = _esc((name || '').split(' ')[0] || '');
   const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
   const unsub  = unsubUrl(email || '');
   const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
+  const imgAcc = LANDING_URL + '/assets/images/annonce-accueil.jpg';
+  const imgDsk = LANDING_URL + '/assets/images/annonce-mondesk.jpg';
+  const _img = (src, alt) => `<img src="${src}" width="532" alt="${alt}" style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #232429;border-radius:6px;margin:4px 0 20px;">`;
   const body = `
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Deux nouveaut&eacute;s en ligne&nbsp;: l'accueil Vue d'ensemble, et un desk que vous montez vous-m&ecirc;me.</div>
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">Votre desk devient <span style="color:#f3c344;">le v&ocirc;tre</span>.</p>
-    <p style="margin:0 0 18px;">Deux nouveaut&eacute;s arrivent sur le terminal. Elles ne changent rien &agrave; vos donn&eacute;es&nbsp;: elles changent la fa&ccedil;on dont vous y acc&eacute;dez.</p>
+    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">Vous montez d&eacute;sormais <span style="color:#f3c344;">votre propre &eacute;cran de travail</span>.</p>
+    <p style="margin:0 0 20px;">Deux nouveaut&eacute;s viennent d'&ecirc;tre mises en ligne&nbsp;: l'accueil <strong style="color:#fff;">Vue d'ensemble</strong>, qui vous situe d&egrave;s la connexion, et <strong style="color:#fff;">Mon Desk</strong>, qui vous laisse composer votre grille.</p>
 
-    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">1. L'accueil &laquo;&nbsp;Vue d'ensemble&nbsp;&raquo;</p>
-    <p style="margin:0 0 14px;">En vous connectant, vous arrivez sur un &eacute;cran de <strong style="color:#fff;">prise de poste</strong> plut&ocirc;t que sur une page dense. D'un coup d'&oelig;il&nbsp;: les places ouvertes et celles qui vont l'&ecirc;tre, les derni&egrave;res actualit&eacute;s, la force des devises du jour, les publications &eacute;conomiques &agrave; venir. De quoi savoir o&ugrave; en est le march&eacute; avant m&ecirc;me d'ouvrir quoi que ce soit. Un bouton, et vous &ecirc;tes sur votre desk.</p>
-
-    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">2. Mon Desk&nbsp;: vous composez votre tableau de bord</p>
-    <p style="margin:0 0 12px;">C'est le changement de fond. Le desk n'est plus une disposition unique impos&eacute;e &agrave; tout le monde&nbsp;: c'est une grille que <strong style="color:#fff;">vous montez vous-m&ecirc;me</strong>.</p>
-    <ul style="margin:0 0 16px;padding-left:20px;color:#cbd5e1;">
-      <li style="margin:6px 0;"><strong style="color:#fff;">Une biblioth&egrave;que de widgets</strong>&nbsp;: force des devises, calendrier &eacute;conomique, fil d'actualit&eacute;, sessions de march&eacute;, radar de biais, positionnement COT, saisonnalit&eacute;, taux directeurs, horloge mondiale&hellip;</li>
-      <li style="margin:6px 0;"><strong style="color:#fff;">Chaque bloc se d&eacute;place, se redimensionne, se r&egrave;gle</strong>&nbsp;: la p&eacute;riode d'un graphique, les devises affich&eacute;es, les places de l'horloge. Chaque widget a ses propres r&eacute;glages.</li>
-      <li style="margin:6px 0;"><strong style="color:#fff;">Plusieurs dispositions enregistr&eacute;es</strong>, et vous passez de l'une &agrave; l'autre&nbsp;: une pour la s&eacute;ance de Londres, une pour les jours de FOMC, une pour l'analyse du week-end.</li>
+    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">L'accueil&nbsp;: vue d'ensemble</p>
+    <p style="margin:0 0 10px;">&Agrave; la connexion, un &eacute;cran de prise de poste remplace la page dense. En un coup d'&oelig;il&nbsp;:</p>
+    <ul style="margin:0 0 14px;padding-left:20px;color:#cbd5e1;">
+      <li style="margin:5px 0;">les places de march&eacute; ouvertes et celles qui vont l'&ecirc;tre, sur une carte du monde anim&eacute;e&nbsp;;</li>
+      <li style="margin:5px 0;">les derni&egrave;res actualit&eacute;s du fil&nbsp;;</li>
+      <li style="margin:5px 0;">la force des devises du jour&nbsp;;</li>
+      <li style="margin:5px 0;">les publications &eacute;conomiques &agrave; venir&nbsp;;</li>
+      <li style="margin:5px 0;">vos dispositions enregistr&eacute;es.</li>
     </ul>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 18px;">
+    <p style="margin:0 0 14px;">Le temps de situer la s&eacute;ance, puis un bouton pour entrer dans le desk.</p>
+    ${_img(imgAcc, "L'accueil Vue d'ensemble du terminal DataTradingPro")}
+
+    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Mon Desk</p>
+    <p style="margin:0 0 12px;">Le desk n'est plus une disposition impos&eacute;e. C'est une grille que <strong style="color:#fff;">vous composez vous-m&ecirc;me</strong>, bloc par bloc.</p>
+    <p style="margin:0 0 12px;">La biblioth&egrave;que reprend les modules du terminal&nbsp;: force des devises, calendrier &eacute;conomique, fil d'actualit&eacute;, sessions de march&eacute;, radar de biais, positionnement des institutionnels (COT), sentiment de risque, aper&ccedil;u DMX du positionnement des particuliers, saisonnalit&eacute;, taux directeurs, horloge mondiale, barom&egrave;tre.</p>
+    <p style="margin:0 0 12px;">Chaque bloc se d&eacute;place, se redimensionne et se r&egrave;gle&nbsp;: p&eacute;riode d'un graphique, devises affich&eacute;es, places retenues sur l'horloge. Vous gardez ce que vous consultez, vous &eacute;cartez le reste.</p>
+    <p style="margin:0 0 12px;">Vous enregistrez <strong style="color:#fff;">plusieurs dispositions</strong> et vous basculez de l'une &agrave; l'autre&nbsp;: une pour le forex, une pour la crypto, une pour les indices. Ou simplement une pour l'analyse technique, une pour la fondamentale.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
       <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
-        <span style="color:#f3c344;font-weight:700;letter-spacing:.05em;font-size:11px;text-transform:uppercase;">Votre desk vous suit</span><br>
-        Tout est enregistr&eacute; <strong style="color:#fff;">sur votre compte</strong>, pas sur votre navigateur. Vous retrouvez votre desk &agrave; l'identique depuis un autre ordinateur, depuis l'application de bureau ou depuis votre t&eacute;l&eacute;phone.
+        Rien n'est stock&eacute; dans le navigateur&nbsp;: tout tient <strong style="color:#fff;">sur votre compte</strong>. Votre desk vous suit d'un ordinateur &agrave; l'autre, sur l'application de bureau comme sur t&eacute;l&eacute;phone.
       </td></tr>
     </table>
+    <p style="margin:0 0 14px;">La disposition de d&eacute;part reprend l'ensemble de vos onglets habituels. Rien &agrave; reconstruire&nbsp;: vous ajustez quand vous le souhaitez, &agrave; votre rythme.</p>
+    ${_img(imgDsk, 'Mon Desk : une grille de blocs composee par le membre')}
 
-    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Pour commencer</p>
-    <p style="margin:0 0 16px;">Rien &agrave; installer, rien &agrave; configurer&nbsp;: votre desk est d&eacute;j&agrave; en place avec une disposition de d&eacute;part, et <strong style="color:#fff;">vos onglets habituels y sont tous</strong>. Ouvrez &laquo;&nbsp;Personnaliser&nbsp;&raquo; quand vous voudrez ajouter un widget, en d&eacute;placer un, ou repartir d'un mod&egrave;le.</p>
-    ${_campaignBtn('Ouvrir mon desk', ouvrir)}
-    <p style="margin:0 0 4px;">Bonne s&eacute;ance,</p>
-    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
+    <p style="margin:0 0 16px;">Les deux nouveaut&eacute;s sont actives sur votre compte. Une connexion suffit.</p>
+    ${_campaignBtn('Ouvrir le desk', ouvrir)}
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: 'Votre desk devient le vôtre', html: _campaignLayout('Accueil & Mon Desk', body, unsub) };
+  return { subject: 'Votre terminal, réglé sur votre méthode', html: _campaignLayout('Accueil & Mon Desk', body, unsub) };
 }
 /* Les DEUX illustrations de l'annonce, embarquées en pièces inline (cid:) comme pour l'annonce app
    desktop. Raison : Gmail et Outlook bloquent souvent les images distantes ; en cid: l'affichage est
