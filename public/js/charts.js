@@ -686,30 +686,18 @@ function buildStrengthChart(containerId, data, opts = {}) {
     { timeUnit: 'hour', count: 6 }, { timeUnit: 'day', count: 1 }, { timeUnit: 'week', count: 1 }, { timeUnit: 'month', count: 1 },
   ]);
 
-  // GOUTTIÈRE DROITE : elle héberge DEUX choses, les chiffres de l'axe Y et les badges de devises.
-  // Les deux étaient ancrés sur l'axe (badge : centerX 0%) → superposés. Invisible sur grand écran
-  // tant qu'aucun badge ne tombait sur une graduation, illisible sur téléphone où huit badges se
-  // serrent et recouvrent presque toutes les valeurs (capture user 05/08).
-  // UNE SEULE COLONNE (demande user 05/08 : « il doit être sur la colonne verticale des chiffres »).
-  // Chiffres de l'axe et étiquettes de devises partagent la gouttière et démarrent tous deux à
-  // l'axe, c'est-à-dire au bout des courbes. L'étiquette étant opaque, elle masque simplement la
-  // graduation qui se trouve à sa hauteur — c'est voulu : à cet endroit précis, la valeur de la
-  // devise est l'information utile, pas la graduation.
-  // La gouttière est donc dimensionnée sur l'étiquette, plus large que les chiffres :
-  // « NZD  -25,00 » ≈ 74 px à 11 px, ≈ 62 px à 9 px.
+  // GOUTTIÈRE DROITE : elle n'héberge PLUS QUE les étiquettes de devises.
+  // Les graduations chiffrées de l'axe Y sont retirées (demande user 05/08 « enlève les chiffres sur
+  // le côté »). Elles partageaient la colonne avec les étiquettes, toutes deux ancrées à l'axe : une
+  // étiquette étant opaque, elle recouvrait la graduation tombant à sa hauteur, et la colonne finissait
+  // en damier de chiffres à moitié cachés. Rien d'informatif ne se perd : chaque étiquette porte
+  // désormais sa propre valeur, la ligne blanche du zéro donne l'origine et la grille en pointillés
+  // garde les paliers. La gouttière est donc dimensionnée sur la seule étiquette :
+  // « NZD  -25,00 » ≈ 74 px à 11 px, ≈ 62 px à 9 px ; réduite d'autant quand le code est masqué.
   const _csEtroit = (typeof window !== 'undefined' && window.matchMedia)
     ? window.matchMedia('(max-width: 560px)').matches : false;
-  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _sansCode ? (_csEtroit ? 62 : 54) : (_csEtroit ? 88 : 74) });
-  // Chiffres de l'axe Y dans la gouttière (hors zone de tracé → pas de chevauchement)
-  yAxisRenderer.labels.template.setAll({
-    visible: true,
-    fill: am5.color(0x94a3b8), fontSize: _csEtroit ? 11 : 9,   // plancher de 11 px sur téléphone
-    fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
-    minPosition: 0.02, maxPosition: 0.98,
-    paddingLeft: 4,   // même colonne que les étiquettes de devises, toutes deux ancrées à l'axe
-  });
-  // Échelle DTP : 2 décimales fixes + décimale FRANÇAISE (virgule) → "4,00 / 0,00 / -16,00".
-  yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
+  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _sansCode ? (_csEtroit ? 58 : 50) : (_csEtroit ? 84 : 70) });
+  yAxisRenderer.labels.template.set('forceHidden', true);
   // Grille horizontale discrète : pointillés gris foncé
   yAxisRenderer.grid.template.setAll({
     stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeWidth: 1, strokeDasharray: [2, 4],   // grille TRÈS discrète GRIS (jamais "trait noir")
