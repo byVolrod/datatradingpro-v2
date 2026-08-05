@@ -15,7 +15,8 @@
 ## Workflow (chaque changement)
 - **Commit + push à chaque fois** (Render redéploie depuis `main`). Messages FR, finir par `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 - **BACKUP OBLIGATOIRE** : après CHAQUE `git push origin main`, faire AUSSI `git push backup main` (remote `backup` = `https://github.com/byVolrod/datatradingpro-v2-backup.git`, repo privé miroir). Le backup doit toujours rester à jour avec origin. (Si le remote `backup` manque sur une nouvelle machine : `git remote add backup https://github.com/byVolrod/datatradingpro-v2-backup.git`.)
-- **Cache-busting** : bumper `?v=YYYYMMDDx` sur app.js/charts.js/style.css dans `public/index.html`. Rappeler **Ctrl+F5**.
+- **Cache-busting** : `node scripts/bump-cache.js` — et **plus** un bump manuel de `public/index.html`. Le script aligne TOUTES les pages (`index`, `admin`, `login`, `week-ahead`) sur un jeton unique. Rappeler **Ctrl+F5**.
+  ⚠️ Ne bumper que `index.html` a laissé le **panneau admin 8 jours en retard** (06/08) : `express.static` sert les JS/CSS en `maxAge: 30d`, donc tant que l'URL ne change pas le navigateur ne redemande rien. Le serveur livrait le fichier neuf, l'admin voyait l'ancien — et on cherchait le bug dans le code livré.
 - Toujours `node -c` les fichiers JS + vérifier l'équilibre des accolades CSS avant commit.
 
 ## Design : High-Density Fintech HUD
