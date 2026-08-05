@@ -15778,3 +15778,36 @@ body.dtp-admin #view-widgets .wdg-head,
 body.dtp-admin .view-panel > .panel > .panel-header {
   background: linear-gradient(180deg, rgba(255, 255, 255, .022), transparent);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   CALENDRIER DES WIDGETS : IL TIENT DANS SA CARTE, À TOUTE LARGEUR — PLUS DE BARRE HORIZONTALE
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Demande user 05/08 : « enlève le scroller et redimensionne bien les infos du calendrier de
+   l'accueil ». Le mécanisme d'ajustement existait déjà, mais enfermé dans
+   `@container dtpcal (max-width: 640px)` : au-delà, `table-layout` repassait en `auto` et
+   `overflow-x` restait `auto`. Mesuré : à 700 px de panneau la pose redevient `auto`, et il suffit
+   d'un intitulé d'événement un peu long pour que la table dépasse et sorte une barre horizontale —
+   la colonne ÉVÉNEMENT s'étirant, les valeurs partaient hors champ (capture user).
+
+   Un tableau de widget ne doit JAMAIS défiler horizontalement : la carte est le cadre, le contenu
+   s'y ajuste. Ces trois règles ne sont donc plus conditionnées à une largeur.
+   Les seuils `@container` gardent leur rôle : masquer Haut/Bas sous 640 px, le drapeau sous 470 px,
+   abréger les intitulés. Ils enlèvent des colonnes — ils ne décident plus si la table tient.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+.wdg-cal-wrap { overflow-x: hidden; }
+.wdg-cal-wrap .cal-table { table-layout: fixed; width: 100%; }
+.wdg-cal-wrap .cth-event { min-width: 0; }
+/* Répartition des colonnes AU-DESSUS de 640 px, dans SA PROPRE bande de largeur.
+   ⚠️ Premier essai posé sans condition : mes pourcentages (spécificité `.wdg-cal-wrap .cth-*`)
+   écrasaient alors ceux des seuils étroits, réglés pour une table amputée de Haut et Bas — mesuré,
+   dix cellules tronquées à 420 et 520 px. Une bande `min-width` supprime le problème à la racine :
+   chaque largeur a exactement UN jeu de règles, il n'y a plus de cascade à arbitrer.
+   Somme = 100, les dix colonnes visibles, ÉVÉNEMENT prend la part du lion. */
+@container dtpcal (min-width: 640.01px) {
+  .wdg-cal-wrap .cth-time  { width: 9%; padding-left: 6px; }
+  .wdg-cal-wrap .cth-flag  { width: 5%; }
+  .wdg-cal-wrap .cth-curr  { width: 7%; }
+  .wdg-cal-wrap .cth-imp   { width: 7%; }
+  .wdg-cal-wrap .cth-event { width: 32%; }
+  .wdg-cal-wrap .cth-val   { width: 8%; }
+}
