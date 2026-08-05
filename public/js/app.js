@@ -7541,10 +7541,14 @@ function _dtpThemeApply(mode) {
 // Source de vérité PAR COMPTE = KV zoom:<userId> ; localStorage = cache anti-scintillement relu par le
 // script du <head> avant le premier rendu.
 const DTP_ZOOMS = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.5];
+// Palier de DÉPART (demande user 05/08 « met le zoom par défaut à 90 % »). Il ne s'applique qu'aux
+// comptes sans choix enregistré : `zoom:<userId>` prime dès qu'il existe. Même valeur côté serveur
+// (server.js, _ZOOM_DEFAUT) et côté feuille de style (--dtp-zoom) — les trois doivent rester alignées.
+const DTP_ZOOM_DEFAUT = 0.9;
 function _dtpZoomNorm(z) {
   const v = parseFloat(z);
-  if (!isFinite(v)) return 1;
-  return DTP_ZOOMS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a, 1);
+  if (!isFinite(v)) return DTP_ZOOM_DEFAUT;
+  return DTP_ZOOMS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a, DTP_ZOOM_DEFAUT);
 }
 function _dtpZoomApply(z) {
   const v = _dtpZoomNorm(z);
@@ -7586,7 +7590,7 @@ setTimeout(() => {
   // Zoom : même patron — le choix du COMPTE prime sur le cache local, donc il suit l'utilisateur d'un
   // appareil à l'autre (desk, app desktop, mobile).
   fetch('/api/zoom').then(r => r.json()).then(d => _dtpZoomApply(d && d.zoom))
-    .catch(() => { try { _dtpZoomApply(localStorage.getItem('dtp_zoom')); } catch (e) { _dtpZoomApply(1); } });
+    .catch(() => { try { _dtpZoomApply(localStorage.getItem('dtp_zoom')); } catch (e) { _dtpZoomApply(DTP_ZOOM_DEFAUT); } });
 }, 800);
 
 // Chaque « → » des Commentaires marquants passe À LA LIGNE (demande user 28/07). Appliqué au RENDU

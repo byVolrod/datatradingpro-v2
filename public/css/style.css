@@ -77,7 +77,9 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
    Le zoom s'applique sur <html> : il vaut donc aussi pour l'app desktop (coquille Electron qui charge
    le site) et pour le mobile, sans code spécifique. */
 :root {
-  --dtp-zoom: 1;
+  /* DÉFAUT À 90 % (demande user 05/08). C'est la valeur de départ : un compte qui a déjà choisi son
+     zoom garde le sien (KV `zoom:<userId>`, relu au chargement), et le réglage reste dans Apparence. */
+  --dtp-zoom: .9;
   --vph: calc(100vh / var(--dtp-zoom));
   --vpw: calc(100vw / var(--dtp-zoom));
 }
