@@ -1113,7 +1113,14 @@ async function weeklyReportSave(weekKey, report) {
   _weeklySaveFile();
 }
 
-async function weeklyReportList() {
+// `complet` : chargement INTÉGRAL des 3 mois d'historique (demande user 05/08 « on doit conserver
+// 3 mois de rapports »). Réservé au BOOT. Les rechargements périodiques gardent la petite fenêtre :
+// une fois le serveur démarré, l'historique est déjà en mémoire et il n'y a que les rapports NOUVEAUX
+// à récupérer — relire 170 lignes toutes les 30 s coûterait de l'egress pour rien, et l'egress est
+// précisément ce qui a déjà mis ce projet à terre une fois.
+async function weeklyReportList(complet = false) {
+  const NB_HEBDO = complet ? 30 : 20;    // 13 semaines x 2 types (Weekly Recap + GEW), marge comprise
+  const NB_QUOTI = complet ? 140 : 14;   // ~65 jours ouvres x 2 types (FX Daily + DTP Daily)
   await _weeklyEnsureDb();
   if (_weeklyDb) {
     // Les rapports HEBDO (Weekly Recap + GEW, clés "YYYY-Www" / "gew-...") étaient ÉVINCÉS de la fenêtre de reload
@@ -1121,14 +1128,14 @@ async function weeklyReportList() {
     // On les récupère SÉPARÉMENT : ~10 semaines d'hebdo + ~2 semaines de quotidiens récents. ANTI-EGRESS : uniquement
     // la colonne `report` (jamais select('*')). ~34 lignes max, seulement au boot + reload throttlé 30 s.
     const [wk, dy] = await Promise.all([
-      supabase.from(WEEKLY_TABLE).select('report').order('created_at', { ascending: false }).not('week_key', 'ilike', 'fxr-%').not('week_key', 'ilike', 'dtpd-%').limit(20),
-      supabase.from(WEEKLY_TABLE).select('report').order('created_at', { ascending: false }).or('week_key.ilike.fxr-%,week_key.ilike.dtpd-%').limit(14),
+      supabase.from(WEEKLY_TABLE).select('report').order('created_at', { ascending: false }).not('week_key', 'ilike', 'fxr-%').not('week_key', 'ilike', 'dtpd-%').limit(NB_HEBDO),
+      supabase.from(WEEKLY_TABLE).select('report').order('created_at', { ascending: false }).or('week_key.ilike.fxr-%,week_key.ilike.dtpd-%').limit(NB_QUOTI),
     ]);
     const err = wk.error || dy.error;
     if (!err) return [...(wk.data || []), ...(dy.data || [])].map(r => r.report).filter(Boolean);
     if (_weeklyTableMissing(err)) _weeklyDb = false; else throw new Error(err.message);
   }
-  return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 40).map(r => r.report).filter(Boolean);
+  return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, NB_HEBDO + NB_QUOTI).map(r => r.report).filter(Boolean);
 }
 
 // ═══════════════════ JOURNAL D'EMAILS (anti-doublon durable) ═══════════════════

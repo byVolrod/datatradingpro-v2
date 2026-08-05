@@ -6581,8 +6581,12 @@ function _stdReportTitleRaw(item) {
 const ARLIB_ALLOWED_TYPES = new Set(Object.keys(ARLIB_TYPE_ORDER));
 
 function getArlibItems() {
-  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const wkCutoff = Date.now() - 80 * 24 * 60 * 60 * 1000;   // rapports HEBDO (Recap + GEW) gardés ~11 semaines → « le mois dernier » visible (demande user)
+  // 3 MOIS POUR TOUT (demande user 05/08 « on doit conserver 3 mois de rapports »). Les recaps de
+  // séance étaient déjà conservés 90 jours par le serveur : c'est cette fenêtre-ci, à 30 jours, qui
+  // les jetait. Une seule valeur désormais — deux fenêtres différentes pour la même liste, c'était
+  // déjà ce qui produisait le « pourquoi les anciens rapports ont disparu ».
+  const cutoff = Date.now() - 92 * 24 * 60 * 60 * 1000;
+  const wkCutoff = cutoff;
   // Session wraps InvestingLive…
   const wraps = (_sessionWraps || []).filter(i => i.timestamp > cutoff);
   // …+ UN SEUL Weekly Market Recap (le meilleur) : anti-doublon.

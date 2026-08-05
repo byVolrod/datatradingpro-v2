@@ -3761,7 +3761,9 @@ app.get('/api/weekly-reports', async (_req, res) => {
   await _loadPersistedWeekly();
   _gewRedateCurrent();   // GEW daté au week-end de publication (corrige l'existant sans le régénérer)
 
-  const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
+  // 3 MOIS d historique (demande user 05/08). Le plafond de 40 jours ecretait les rapports que le
+  // stockage conservait pourtant : la limite etait ici, pas dans la generation.
+  const cutoff = Date.now() - 95 * 24 * 60 * 60 * 1000;
   const items = allNews.filter(i =>
     (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly' || i._reportType === 'FX Daily Recap' || i._reportType === 'DTP Daily') &&
     i.timestamp > cutoff
@@ -9078,7 +9080,7 @@ async function _loadPersistedWeekly(force = false) {
   if (!force && Date.now() - _weeklyLoadTs < 30000) return;
   _weeklyLoadTs = Date.now();
   try {
-    const reports = await auth.weeklyReportList();
+    const reports = await auth.weeklyReportList(force);   // boot = 3 mois complets ; rechargements = fenetre courte
     let added = 0;
     for (const r of reports) {
       if (!r || !r.id) continue;
