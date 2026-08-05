@@ -15340,3 +15340,21 @@ body.home-mode #calc-btn.topbar-icon--active {
   .wdg-cal-wrap .cal-table thead .cth-imp::after,
   .wdg-cal-wrap .cal-table thead .cth-val::after { font-size: 11px; }
 }
+
+/* ══ FIL : LIGNES URGENTES EN FOND OPAQUE (05/08) ═══════════════════════════════════════════════
+   INDICE DÉCISIF de la capture : le texte fantôme n'apparaît QUE sur les lignes rouges. Or elles
+   sont les seules à porter un fond SEMI-TRANSPARENT — rgba(255,61,0,.085). Une ligne opaque
+   recouvre ce qui traîne derrière elle ; une ligne translucide le laisse voir.
+
+   J'ai écarté par la mesure toutes les causes de mise en page : compression flex (testée jusqu'à
+   30 actualités, zéro item comprimé), positionnement absolu, en-tête collant, animation d'entrée
+   (déjà désactivée sur mobile). Il reste un défaut de REPEINTURE côté iOS, que je ne peux pas
+   reproduire ici — et le seul endroit où il devient visible, c'est sous ces fonds translucides.
+
+   On passe donc à l'équivalent OPAQUE, calculé pour être identique à l'œil : #261715 au repos,
+   #311814 au survol. Aucun changement visuel, mais plus rien ne peut transparaître.
+   Correctif DÉFENSIF, assumé comme tel : il supprime la condition qui rend l'artefact visible,
+   pas l'artefact lui-même. */
+.news-item--urgent, .news-item--breaking { background: #261715 !important; }
+.news-item--urgent:hover, .news-item--breaking:hover { background: #311814 !important; }
+body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { background: #fdeeea !important; }
