@@ -728,11 +728,14 @@
               + '<td class="cth-curr">' + esc(ev.currency || '') + '</td>'
               + '<td class="cth-imp">' + dots(ev.impact) + '</td>'
               + '<td class="cth-event">' + esc(ev.title || '') + keyChip + '</td>'
-              + '<td class="cth-val">' + actCell(ev.actual, ev.forecast, ev.low, ev.title) + '</td>'
-              + '<td class="cth-val">' + vspan(ev.high, 'cv-forecast') + '</td>'
-              + '<td class="cth-val">' + vspan(ev.forecast, 'cv-forecast') + '</td>'
-              + '<td class="cth-val">' + vspan(ev.low, 'cv-prev') + '</td>'
-              + '<td class="cth-val">' + vspan(ev.previous, 'cv-prev') + '</td></tr>';
+              // `data-lbl` : en mise en page MOBILE la ligne devient une CARTE et l'en-tête de
+              // colonne disparaît — chaque valeur porte donc son propre libellé, affiché par CSS.
+              // Sur écran large l'attribut est inerte (aucune règle ne le lit).
+              + '<td class="cth-val" data-lbl="Réel">' + actCell(ev.actual, ev.forecast, ev.low, ev.title) + '</td>'
+              + '<td class="cth-val" data-lbl="Haut">' + vspan(ev.high, 'cv-forecast') + '</td>'
+              + '<td class="cth-val" data-lbl="Prév.">' + vspan(ev.forecast, 'cv-forecast') + '</td>'
+              + '<td class="cth-val" data-lbl="Bas">' + vspan(ev.low, 'cv-prev') + '</td>'
+              + '<td class="cth-val" data-lbl="Préc.">' + vspan(ev.previous, 'cv-prev') + '</td></tr>';
           });
           host.innerHTML = '<div class="wdg-cal-panel">' + barre()
             + '<div class="wdg-cal-wrap custom-scrollbar"><table class="cal-table">'
