@@ -13388,14 +13388,25 @@ html[data-theme="light"] .wdg-settings .wdg-set-chip.on { color: var(--orange-di
 .home-card--visu:hover { border-color: rgba(227, 178, 58, .55); }
 
 /* « + Nouveau desk » et compteur dans l'en-tête du bloc, comme la référence. */
+/* Le trait TIRETÉ signalait un emplacement à remplir, pas une action : le bouton avait l'air
+   inachevé. Il devient une pastille pleine, bord fin et fond doré très dilué — la grammaire des
+   cartes du desk — avec un relief au survol et un léger enfoncement au clic. */
 .home-desks-new {
-  flex: 0 0 auto; padding: 3px 10px; background: transparent; cursor: pointer;
-  border: 1px dashed rgba(227, 178, 58, .4); border-radius: 4px;
-  color: var(--orange-dim, #b8860b); font-family: var(--tight, 'Inter Tight', sans-serif);
-  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-  transition: color .14s, border-color .14s, background .14s;
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; cursor: pointer;
+  border: 1px solid rgba(227, 178, 58, .34); border-radius: var(--radius, 6px);
+  background: linear-gradient(180deg, rgba(227, 178, 58, .10), rgba(227, 178, 58, .04));
+  color: var(--orange, #e3b23a); font-family: var(--tight, 'Inter Tight', sans-serif);
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  transition: color .16s, border-color .16s, background .16s, box-shadow .16s, transform .1s;
 }
-.home-desks-new:hover { color: var(--orange); border-color: rgba(227, 178, 58, .7); background: rgba(227, 178, 58, .07); }
+.home-desks-new:hover {
+  color: #f0c95c; border-color: rgba(227, 178, 58, .66);
+  background: linear-gradient(180deg, rgba(227, 178, 58, .19), rgba(227, 178, 58, .08));
+  box-shadow: 0 3px 14px -6px rgba(227, 178, 58, .55), inset 0 1px 0 rgba(255, 255, 255, .09);
+}
+.home-desks-new:active { transform: translateY(1px); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .35); }
 .home-desks-count { flex: 0 0 auto; font-size: 10px; color: var(--text3); }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -15358,3 +15369,123 @@ body.home-mode #calc-btn.topbar-icon--active {
 .news-item--urgent, .news-item--breaking { background: #261715 !important; }
 .news-item--urgent:hover, .news-item--breaking:hover { background: #311814 !important; }
 body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { background: #fdeeea !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   MISE EN PAGE MOBILE PROPRE (05/08) — pas une réduction du bureau
+
+   Constat de l'utilisateur, et il est juste : jusqu'ici on RÉTRÉCISSAIT des composants conçus pour
+   un écran large. D'où trop d'information dans trop peu de place, des chevauchements, des courbes
+   illisibles. Ce bloc REPENSE la disposition des trois composants concernés. Il assume de faire
+   défiler davantage : la lisibilité passe avant la quantité visible.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 560px) {
+
+  /* ── 1 · FIL D'ACTUALITÉ : une vraie CARTE, en grille explicite ────────────────────────────────
+     La disposition en colonnes flex laissait le titre partager sa ligne avec l'heure, la catégorie
+     et la flèche — d'où le chevauchement dès qu'il passait sur plusieurs lignes. On passe à une
+     GRILLE à zones nommées : chaque élément a son emplacement réservé, la hauteur suit le contenu,
+     et un chevauchement devient structurellement impossible. */
+  .news-item {
+    display: grid !important;
+    grid-template-columns: 22px auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "puce  heure  cat    action"
+      "puce  titre  titre  titre"
+      "puce  tags   tags   tags";
+    align-items: start;
+    gap: 4px 8px;
+    padding: 12px 14px !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  .news-icon-col      { grid-area: puce;   width: 22px; min-height: 0; margin: 0; }
+  /* L'heure REDEVIENT visible : l'ancienne stratégie mobile la masquait pour gagner de la place
+     (« .news-time { display:none } », bloc étroit plus haut). Avec une colonne dédiée elle ne coûte
+     plus rien à personne, et une actualité sans horodatage n'a aucune valeur sur un fil de marché. */
+  .news-time          { grid-area: heure;  display: block !important; width: auto; min-width: 0;
+                        margin: 0; align-self: center; white-space: nowrap; }
+  .news-category-text { grid-area: cat;    display: block !important; width: auto; margin: 0;
+                        align-self: center;
+                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .news-arrow-col     { grid-area: action; margin: 0; align-self: center; min-height: 0;
+                        font-size: 14px; }
+  .news-content       { grid-area: titre;  min-width: 0; padding: 0; }
+  .news-headline      { white-space: normal; overflow: visible; display: block;
+                        -webkit-line-clamp: unset; -webkit-box-orient: unset; }
+  .news-tags          { grid-area: tags; margin-top: 6px; flex-wrap: wrap; overflow: visible; }
+  .news-item .news-description { grid-area: tags; }
+
+  /* ── 2 · FORCE DES DEVISES : de la hauteur, et de l'air à droite ──────────────────────────────
+     Une courbe compressée verticalement écrase ses variations : sur téléphone un graphique a
+     besoin de PLUS de hauteur que sur bureau, pas moins. Et les étiquettes collées au bord
+     devenaient illisibles. */
+  .home-zone-body:has(.wdg-fx-chart) { min-height: 520px; }
+  .wdg-card:has(.wdg-fx-chart) { min-height: 520px; }
+  .wdg-fx-chart { min-height: 380px; padding-right: 6px; }
+
+  /* ── 3 · CALENDRIER : des CARTES, plus un tableau ─────────────────────────────────────────────
+     Dix colonnes ne rentrent pas dans 390px — les y forcer donnait des intitulés tronqués et du
+     texte minuscule. Chaque événement devient une carte : heure et devise en tête, intitulé sur
+     toute la largeur, puis les chiffres en paires libellées. Rien n'est tronqué, rien n'est réduit. */
+  .wdg-cal-wrap .cal-table, .wdg-cal-wrap tbody, .wdg-cal-wrap tr { display: block; width: 100%; }
+  .wdg-cal-wrap .cal-table { table-layout: auto !important; min-width: 0 !important; }
+  .wdg-cal-wrap thead { display: none; }
+  /* GRILLE 12 COLONNES, placements TOUS explicites. Le calage automatique était piégeux : une
+     colonne dimensionnée par son contenu (le drapeau) tombait à 0 px et avalait la valeur qui
+     atterrissait dedans. Douze fractions égales ne peuvent pas s'effondrer. */
+  .wdg-cal-wrap .cal-row {
+    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+    row-gap: 2px; column-gap: 0;
+    padding: 11px 12px; border-bottom: 1px solid var(--hud-line, var(--border));
+  }
+  /* L'ancienne stratégie mobile (bloc ≤480px, plus haut) écrase ces cellules en colonnes de 44/46 px
+     et en police 10 px, le tout en !important — incompatible avec des cartes. On la neutralise ICI
+     pour le seul calendrier des widgets ; le tableau plein écran garde son propre comportement. */
+  .wdg-cal-wrap .cal-table .cal-row > td {
+    display: block !important; width: auto !important; max-width: none !important;
+    padding: 0 !important; text-align: left !important; white-space: normal !important;
+    overflow: visible !important; border: 0 !important;
+  }
+  .wdg-cal-wrap .cal-row .cth-time  { grid-column: 1 / 4;  font-size: 13px !important;
+                                      font-weight: var(--fw-bold, 700); }
+  .wdg-cal-wrap .cal-row .cth-flag  { grid-column: 4 / 5;  font-size: 12px !important; }
+  .wdg-cal-wrap .cal-row .cth-flag img { width: 15px; height: 15px; }
+  .wdg-cal-wrap .cal-row .cth-curr  { grid-column: 5 / 9;  font-size: 12px !important; padding-left: 6px !important; }
+  .wdg-cal-wrap .cal-row .cth-imp   { grid-column: 9 / 13; justify-self: end; }
+  .wdg-cal-wrap .cal-row .cth-event { grid-column: 1 / -1; font-size: 13px !important;
+                                      line-height: 1.35; margin: 4px 0 5px; }
+  /* Les valeurs deviennent des paires « libellé valeur », donc lisibles sans en-tête de colonne. */
+  .wdg-cal-wrap .cal-row .cth-val { font-size: 12px !important; }
+  .wdg-cal-wrap .cal-row .cth-val::before {
+    content: attr(data-lbl) ' '; color: var(--text3, #8a8a90); font-size: 10.5px;
+  }
+  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Réel"]  { grid-column: 1 / 5; }
+  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Prév."] { grid-column: 5 / 9; }
+  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Préc."] { grid-column: 9 / 13; }
+  /* Haut et Bas ne sont presque jamais renseignés par la source : les afficher remplirait la carte
+     de tirets. Réel, Prévision et Précédent suffisent à lire une publication. */
+  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Haut"],
+  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Bas"] { display: none !important; }
+
+  /* ── 4 · GESTE VERTICAL PRIORITAIRE, partout ─────────────────────────────────────────────────
+     Les listes et tableaux défilables captaient aussi le glissement. `pan-y` rend le déplacement
+     vertical au navigateur : la page défile toujours, l'horizontal reste au composant. */
+  .news-list, .wdg-cal-wrap, .season-table-wrap, .rtc-tblwrap, .wdg-clockwrap,
+  .fxl-table-scroll, .bank-table-wrap { touch-action: pan-y; }
+
+  /* ── 5 · DES BLOCS PLUS GRANDS, ASSUMÉS ──────────────────────────────────────────────────────
+     « Je préfère des widgets plus grands, quitte à défiler davantage. » */
+  .wdg-card { min-height: 460px; }
+  .home-zone-body { min-height: 400px; }
+  .home-zone-body:has(.wdg-news-panel) { min-height: 520px; }
+  .home-zone-body:has(.wdg-cal-panel) { min-height: 560px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   ACCUEIL · CALENDRIER SANS BARRE D'OUTILS (demande user 05/08 « enlève ceci dans l'accueil »)
+   L'accueil est un écran de PRISE DE POSTE : on y lit l'agenda du jour, on ne le fouille pas.
+   Filtres d'impact, recherche et navigation de période restent dans Mon Desk et dans l'onglet
+   Calendrier, où l'on vient justement pour explorer. Le widget est le même — seule la barre
+   disparaît ici, ce qui rend au tableau la hauteur qu'elle occupait.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+.home-zone-body .wdg-cal-bar { display: none; }
