@@ -7701,9 +7701,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    Aucun fond/dégradé : seul le curseur ↕ (ns-resize, inline) signale la zone — pas d'effet orange. */
 .cs-yzoom-grip { background: none; }
 /* Badges bi-couleur de fin de courbe (Currency Strength, façon DTP) : [devise = couleur pleine][valeur = teinte claire], texte noir, collés */
-.cs-badge { display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; border-radius: 3px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.55); pointer-events: none; }
-.cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; }
-.cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; }
+/* `.cs-badge` n'est plus qu'un CALE : son padding gauche pousse la pastille au-delà des chiffres de
+   l'axe Y, qui occupent la même gouttière (l'ancrage commun les faisait se recouvrir). Le visuel
+   — fond, coins, ombre — vit donc sur `.cs-badge-ccy`, sinon l'ombre encadrerait le vide du calage. */
+.cs-badge { display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap; pointer-events: none; padding-left: var(--cs-badge-x, 44px); }
+.cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.55); }
+.cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; }
 
 /* ═══════════════ METER — jauges à briques (égaliseur) ═══════════════ */
 .meter-grid {
@@ -14175,6 +14178,13 @@ body.home-mode .view-panel { visibility: hidden; }
 @media (max-width: 640px) {
   .cs-badge-ccy { font-size: 9px; padding: 1px 5px; }
 }
+/* Sur téléphone la compacité se retournait contre elle-même : 9 px illisible ET recouvrant les
+   valeurs de l'axe. On repasse au plancher de 11 px et on décale davantage la pastille — la
+   gouttière est élargie en conséquence côté amCharts (`_csEtroit`, charts.js). */
+@media (max-width: 560px) {
+  .cs-badge { --cs-badge-x: 54px; }
+  .cs-badge-ccy { font-size: 11px; padding: 2px 6px; }
+}
 
 /* ── GESTIONNAIRE DE LAYOUTS — LISIBILITÉ (04/08) : rangées plus aérées et hiérarchie
    claire (nom en avant, étoile explicite, actions au doigt). */
@@ -15427,13 +15437,13 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      Dix colonnes ne rentrent pas dans 390px — les y forcer donnait des intitulés tronqués et du
      texte minuscule. Chaque événement devient une carte : heure et devise en tête, intitulé sur
      toute la largeur, puis les chiffres en paires libellées. Rien n'est tronqué, rien n'est réduit. */
-  .wdg-cal-wrap .cal-table, .wdg-cal-wrap tbody, .wdg-cal-wrap tr { display: block; width: 100%; }
-  .wdg-cal-wrap .cal-table { table-layout: auto !important; min-width: 0 !important; }
-  .wdg-cal-wrap thead { display: none; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-table, :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) tbody, :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) tr { display: block; width: 100%; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-table { table-layout: auto !important; min-width: 0 !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) thead { display: none; }
   /* GRILLE 12 COLONNES, placements TOUS explicites. Le calage automatique était piégeux : une
      colonne dimensionnée par son contenu (le drapeau) tombait à 0 px et avalait la valeur qui
      atterrissait dedans. Douze fractions égales ne peuvent pas s'effondrer. */
-  .wdg-cal-wrap .cal-row {
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row {
     display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
     row-gap: 2px; column-gap: 0;
     padding: 11px 12px; border-bottom: 1px solid var(--hud-line, var(--border));
@@ -15441,36 +15451,65 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   /* L'ancienne stratégie mobile (bloc ≤480px, plus haut) écrase ces cellules en colonnes de 44/46 px
      et en police 10 px, le tout en !important — incompatible avec des cartes. On la neutralise ICI
      pour le seul calendrier des widgets ; le tableau plein écran garde son propre comportement. */
-  .wdg-cal-wrap .cal-table .cal-row > td {
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-table .cal-row > td {
     display: block !important; width: auto !important; max-width: none !important;
     padding: 0 !important; text-align: left !important; white-space: normal !important;
     overflow: visible !important; border: 0 !important;
   }
-  .wdg-cal-wrap .cal-row .cth-time  { grid-column: 1 / 4;  font-size: 13px !important;
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-time  { grid-column: 1 / 4;  font-size: 13px !important;
                                       font-weight: var(--fw-bold, 700); }
-  .wdg-cal-wrap .cal-row .cth-flag  { grid-column: 4 / 5;  font-size: 12px !important; }
-  .wdg-cal-wrap .cal-row .cth-flag img { width: 15px; height: 15px; }
-  .wdg-cal-wrap .cal-row .cth-curr  { grid-column: 5 / 9;  font-size: 12px !important; padding-left: 6px !important; }
-  .wdg-cal-wrap .cal-row .cth-imp   { grid-column: 9 / 13; justify-self: end; }
-  .wdg-cal-wrap .cal-row .cth-event { grid-column: 1 / -1; font-size: 13px !important;
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag  { grid-column: 4 / 5;  font-size: 12px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag img { width: 15px; height: 15px; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-curr  { grid-column: 5 / 9;  font-size: 12px !important; padding-left: 6px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp   { grid-column: 9 / 13; justify-self: end; }
+  /* Les pastilles d'impact sont le repère de tri visuel de la carte : à 10 px elles se confondaient. */
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp,
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp > span,
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp .ci-dot-off {
+    font-size: 12px !important; letter-spacing: .5px;
+  }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-event { grid-column: 1 / -1; font-size: 13px !important;
                                       line-height: 1.35; margin: 4px 0 5px; }
   /* Les valeurs deviennent des paires « libellé valeur », donc lisibles sans en-tête de colonne. */
-  .wdg-cal-wrap .cal-row .cth-val { font-size: 12px !important; }
-  .wdg-cal-wrap .cal-row .cth-val::before {
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val { font-size: 12px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val::before {
     content: attr(data-lbl) ' '; color: var(--text3, #8a8a90); font-size: 10.5px;
   }
-  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Réel"]  { grid-column: 1 / 5; }
-  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Prév."] { grid-column: 5 / 9; }
-  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Préc."] { grid-column: 9 / 13; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Réel"]  { grid-column: 1 / 5; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Prév."] { grid-column: 5 / 9; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Préc."] { grid-column: 9 / 13; }
   /* Haut et Bas ne sont presque jamais renseignés par la source : les afficher remplirait la carte
      de tirets. Réel, Prévision et Précédent suffisent à lire une publication. */
-  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Haut"],
-  .wdg-cal-wrap .cal-row .cth-val[data-lbl="Bas"] { display: none !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Haut"],
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val[data-lbl="Bas"] { display: none !important; }
+
+  /* Le calendrier PLEIN ÉCRAN a trois structures que le widget n'a pas, et qui ne sont pas des
+     cartes : le séparateur de jour, le détail déplié au tap, et le squelette de chargement.
+     Chacune reste une bande pleine largeur — la grille à 12 colonnes ne s'y applique pas. */
+  #cal-table-wrap .cal-day-sep, #wa-cal-body .cal-day-sep,
+  #cal-table-wrap .cal-detail-row, #wa-cal-body .cal-detail-row { display: block; width: 100%; }
+  #cal-table-wrap .cal-day-sep > td, #wa-cal-body .cal-day-sep > td,
+  #cal-table-wrap .cal-detail-row > td, #wa-cal-body .cal-detail-row > td {
+    display: block !important; width: 100% !important; max-width: none !important;
+    white-space: normal !important; overflow: visible !important;
+  }
+  #cal-table-wrap .cal-day-sep > td, #wa-cal-body .cal-day-sep > td { font-size: 12px !important; }
+  /* Le séparateur colle à `top: 28px` pour se placer SOUS l'en-tête de colonnes. Cet en-tête n'existe
+     plus en mode carte : les 28 px devenaient une bande vide en haut, et la bande collante recouvrait
+     la première ligne de la première carte (heure + devise invisibles). */
+  #cal-table-wrap .cal-day-sep, #wa-cal-body .cal-day-sep { top: 0; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row.cal-skel-row {
+    grid-template-columns: 1fr; row-gap: 5px;
+  }
+  /* Le chevron « › » de la colonne heure ne sert plus à rien quand la ligne est déjà une carte. */
+  #cal-table-wrap .cal-row .cal-chv, #wa-cal-body .cal-row .cal-chv { display: none; }
+  /* La puce « Clé » signale les prises de parole qui bougent le marché : à 9 px elle ne se lisait pas. */
+  .cal-key-chip { font-size: 11px; padding: 0 6px; }
 
   /* ── 4 · GESTE VERTICAL PRIORITAIRE, partout ─────────────────────────────────────────────────
      Les listes et tableaux défilables captaient aussi le glissement. `pan-y` rend le déplacement
      vertical au navigateur : la page défile toujours, l'horizontal reste au composant. */
-  .news-list, .wdg-cal-wrap, .season-table-wrap, .rtc-tblwrap, .wdg-clockwrap,
+  .news-list, :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body), .season-table-wrap, .rtc-tblwrap, .wdg-clockwrap,
   .fxl-table-scroll, .bank-table-wrap { touch-action: pan-y; }
 
   /* ── 5 · DES BLOCS PLUS GRANDS, ASSUMÉS ──────────────────────────────────────────────────────
