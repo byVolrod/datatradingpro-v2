@@ -482,6 +482,11 @@
           choix: [['today', 'TD · séance'], ['week', 'TW · semaine'], ['8h', '8 heures'], ['1d', '1 jour'], ['7d', '7 jours'], ['1m', '1 mois']] },
         { k: 'focus', lbl: 'Devise', type: 'choix', def: '',
           choix: [['', 'Toutes'], ['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'], ['CHF', 'CHF'], ['CAD', 'CAD'], ['AUD', 'AUD'], ['NZD', 'NZD']] },
+        // Étiquettes de bout de courbe : avec ou sans le code de la devise. Sans lui, la valeur
+        // reprend la couleur PLEINE de la courbe — c'est alors elle seule qui désigne la devise, la
+        // légende du haut restant la table de correspondance. La gouttière se resserre d'autant,
+        // ce qui rend de la largeur au tracé.
+        { k: 'codes', lbl: 'Code devise sur les étiquettes', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
         var W = this;
@@ -504,7 +509,8 @@
           + '<div id="' + id + '" class="wdg-fx-chart"></div></div>';
         function dessine(p) {
           try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
-          try { buildIsolatedStrength(id, foc, p); } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
+          try { buildIsolatedStrength(id, foc, p, { sansCode: !opt(it, W, 'codes') }); }
+          catch (e) { fallback(host, 'Force des Devises indisponible.'); }
         }
         // La barre rejoint l'EN-TÊTE du widget (titre à gauche, périodes à droite) comme sur le desk.
         var _carte = host.closest ? host.closest('.wdg-card') : null;

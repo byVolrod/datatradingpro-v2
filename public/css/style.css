@@ -15635,3 +15635,8 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
    cartes, celle des sessions comme les suivantes. À 100 % elle vaut `zoom: 1` et ne fait rien.
    ══════════════════════════════════════════════════════════════════════════════════════════════ */
 .leaflet-container { zoom: calc(1 / var(--dtp-zoom, 1)); }
+
+/* Étiquette RÉDUITE À SA VALEUR (réglage « Code devise sur les étiquettes », décoché) : la valeur
+   porte la couleur pleine de la courbe et redevient une pastille entière — c'est elle seule qui
+   désigne la devise, la légende du haut servant de table de correspondance. */
+.cs-badge-val--seul { border-radius: 3px; }
