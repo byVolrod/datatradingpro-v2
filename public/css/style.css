@@ -15244,3 +15244,13 @@ body.home-mode #calc-btn.topbar-icon--active {
   .wdg-fx-chart, .wdg-metre, .wdg-jr-chart { min-height: 200px; }
   .wdg-lfmap { min-height: 240px; }
 }
+
+/* ── CALENDRIER TRÈS ÉTROIT (≤380px de cadre) : le nom de l'événement PASSE À LA LIGNE au lieu
+   d'être tronqué. Mesuré à 320px : « Indice des prix à la consommation sous-jacent » se coupait à
+   l'ellipse, ce qui ne laisse pas de quoi identifier la publication. Une ligne de plus coûte moins
+   qu'un nom illisible — et la hauteur de ligne est libre, le tableau n'a pas de gabarit fixe. */
+@container dtpcal (max-width: 380px) {
+  .wdg-cal-wrap .cal-row .cth-event {
+    white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.3;
+  }
+}
