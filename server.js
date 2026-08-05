@@ -747,6 +747,13 @@ const _WDG_MAX_LAYOUTS = 12;            // cap anti-abus / anti-OOM
 const _WDG_MAX_ITEMS = 24;              // widgets par layout
 const _WDG_ID_RX = /^[a-z0-9-]{2,40}$/; // ids de widgets = catalogue front (kebab-case)
 // Sanitisation SERVEUR : on reconstruit l'objet champ par champ (jamais de confiance au client).
+// Cles de reglage qui portent une LISTE jointe par « | » : elles depassent la limite de 32
+// caracteres imposee aux valeurs simples. Tronquer y perdrait la moitie du choix EN SILENCE —
+// le reglage semblerait accepte puis reviendrait ampute au rechargement.
+//   off    = sections decochees du fil d actualite
+//   villes = places affichees par l horloge mondiale (27 au catalogue ~= 110 caracteres)
+const _WDG_LISTES = new Set(['off', 'villes']);
+
 function _wdgClean(body) {
   const b = (body && typeof body === 'object') ? body : {};                  // null/undefined/scalaire → objet vide
   const inLayouts = Array.isArray(b.layouts) ? b.layouts : [];
@@ -799,7 +806,7 @@ function _wdgClean(body) {
               // 32 caractères suffisent à un choix (« today », « high »…) — SAUF aux réglages qui
               // portent une LISTE (ex. `off` = sections décochées du fil, jointes par « | ») :
               // tronquer à 32 en aurait silencieusement perdu la moitié. 240 pour ceux-là.
-              else if (typeof v === 'string') cfg[k] = v.replace(/[<>]/g, '').slice(0, (k === 'off' ? 240 : 32));
+              else if (typeof v === 'string') cfg[k] = v.replace(/[<>]/g, '').slice(0, (_WDG_LISTES.has(k) ? 240 : 32));
             }
             if (Object.keys(cfg).length) o.cfg = cfg;
           }
@@ -821,7 +828,7 @@ function _wdgClean(body) {
                 else if (typeof v === 'number' && isFinite(v)) one[k2] = Math.max(-99999, Math.min(99999, Math.round(v)));
                 // Même exception que pour `cfg` : `off` porte une LISTE (sections décochées du fil
                 // en onglet) — 32 caractères l'auraient tronquée en silence.
-                else if (typeof v === 'string') one[k2] = v.replace(/[<>]/g, '').slice(0, (k2 === 'off' ? 240 : 32));
+                else if (typeof v === 'string') one[k2] = v.replace(/[<>]/g, '').slice(0, (_WDG_LISTES.has(k2) ? 240 : 32));
               }
               if (Object.keys(one).length) tc[k] = one;
             }

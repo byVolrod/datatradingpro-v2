@@ -1291,11 +1291,19 @@
       // startClocks()). renderClocks(barEl) accepte désormais une cible optionnelle → on lui passe la barre
       // du widget + un tick 1 s local ; le desk garde son propre #clocks-bar intact. Layout flex-wrap
       // (.wdg-clocks-bar) → remplit n'importe quelle largeur de carte, cellules identiques. Cleanup = clear tick.
-      mount: function (host) {
+      mount: function (host, it) {
+        var W = this;
         if (typeof renderClocks !== 'function') { fallback(host, 'Horloge indisponible.'); return null; }
         host.innerHTML = '<div class="wdg-clockwrap custom-scrollbar"><div class="clocks-bar wdg-clocks-bar"></div></div>';
         var bar = host.querySelector('.wdg-clocks-bar');
-        function tick() { if (!host.isConnected) return; try { renderClocks(bar); } catch (e) {} }
+        // Places choisies dans les réglages → objets du catalogue. On filtre les codes inconnus
+        // (une ville retirée du catalogue ne doit pas produire un trou) ; liste vide → renderClocks
+        // retombe de lui-même sur les 5 places du desk.
+        var codes = opt(it, W, 'villes') || [];
+        var liste = codes
+          .map(function (k) { return (typeof _CLOCK_BY_CODE !== 'undefined') ? _CLOCK_BY_CODE[k] : null; })
+          .filter(Boolean);
+        function tick() { if (!host.isConnected) return; try { renderClocks(bar, liste); } catch (e) {} }
         tick();
         // Météo : le loop global (startClocks) alimente _weatherCache en continu ; on la (re)demande si vide/périmée.
         try {
