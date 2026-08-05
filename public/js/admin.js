@@ -1732,8 +1732,11 @@
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   async function logout() {
+    // `await` : la garde « déjà connecté » de login.html interroge /api/auth/me à l'arrivée ; naviguer
+    // avant que la session soit tuée renverrait au panneau quelqu'un qui veut en sortir.
     await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.href = '/login';
+    // `replace` : sinon le panneau admin reste dans l'historique derrière la page de connexion.
+    window.location.replace('/login');
   }
 
   // Close modals on overlay click

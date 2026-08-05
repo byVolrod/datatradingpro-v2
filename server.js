@@ -325,7 +325,24 @@ function requireSupport(req, res, next) {
 }
 
 app.use(requireAuth);
-// extensions: ['html'] → /login sert login.html, /admin sert admin.html automatiquement
+
+/* PAGE DE CONNEXION : DÉJÀ CONNECTÉ → ON RENVOIE AU DESK.
+   ⚠️ CETTE ROUTE DOIT RESTER AVANT `express.static`. Elle vivait plus bas dans le fichier, donc
+   APRÈS le middleware statique qui sert `public/login.html` via `extensions: ['html']` — elle
+   n'était jamais atteinte, sur AUCUN des deux chemins. C'était du code mort qui avait l'apparence
+   d'une garde ; déplacer cette route sous le statique la re-tuerait silencieusement.
+   Les deux chemins sont nommés : `/login` (celui vers lequel le serveur redirige) et `/login.html`
+   (accessible directement, déclaré public). Ils étaient troués à l'identique.
+   Elle ne remplace pas la garde de login.html : un retour arrière restaure la page depuis le cache
+   du navigateur SANS requête réseau — aucune route serveur ne peut l'intercepter. Les deux sont
+   nécessaires, celle-ci évite seulement au formulaire d'apparaître une fraction de seconde. */
+app.get(['/login', '/login.html'], (req, res) => {
+  if (req.session?.userId) return res.redirect('/');
+  res.set('Cache-Control', 'no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// extensions: ['html'] → /admin sert admin.html automatiquement (/login est traité juste au-dessus)
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html'],
   // CSS/JS/images : cache navigateur 30 j (gros gain de perf — plus de re-téléchargement de chaque
@@ -344,13 +361,6 @@ app.use(express.json({ limit: '2mb' }));   // 2 Mo : autorise les pièces jointe
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
 // Version du build courant → le client détecte un nouveau déploiement et propose un rechargement.
 app.get('/api/version', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json({ v: BUILD_VERSION }); });
-
-// Redirection /login → déjà connecté va au dashboard
-app.get('/login', (req, res) => {
-  if (req.session?.userId) return res.redirect('/');
-  res.set('Cache-Control', 'no-cache, must-revalidate');
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
 
 // robots.txt du DESK (Bing WMT 16/07 « meta robots à revoir ») : la page de CONNEXION est indexable
 // (requêtes navigationnelles « datatradingpro connexion ») ; tout le reste de l'app reste fermé aux
