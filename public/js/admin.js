@@ -58,6 +58,11 @@
       vu: function(){ return _liveTab('campaign') && _liveSub('journal'); } },
     { k: 'apercu',   per: 45000, zone: '#tab-campaign', go: function(){ _cprevLoad(); },
       vu: function(){ return _liveTab('campaign') && _liveSub('templates'); } },
+    // Les campagnes ne bougent qu'à l'envoi : 90 s suffisent, et seulement quand la LISTE est à
+    // l'écran — le détail d'une campagne ne doit pas se re-rendre sous les doigts pendant qu'on le lit.
+    { k: 'camps',    per: 90000, zone: '#tab-campaign', go: function(){ csLoad(); },
+      vu: function(){ var e = document.getElementById('cs-ecran-liste');
+                      return _liveTab('campaign') && _liveSub('stats') && !!e && !e.hidden; } },
   ];
   function _liveTab(n){ var t = document.getElementById('tab-' + n); return !!(t && t.classList.contains('tab-panel--active')); }
   function _liveSub(n){ return !!document.querySelector('#tab-campaign .camp-sub[data-sub="' + n + '"].active'); }
@@ -445,94 +450,291 @@
     loadDashboard();
     loadMaster();
     loadCampErrors();
-    loadCampStats();
+    csLoad();
     loadBlacklist();
     loadGiftAccess();
     loadSequence();
     var _rp = document.getElementById('camp-recip-panel'); if (_rp && _rp.style.display !== 'none') renderRecipients();
   }
-  let _campStatRows = [], _campStatFilter = 'all';
-  function campStatFilter(f){ _campStatFilter = f; renderCampStatRows(); }
-  function renderCampStatRows(){
-    var rows = _campStatRows;
-    if (_campStatFilter === 'opened')    rows = rows.filter(function(r){ return (r.opens||0) > 0; });
-    if (_campStatFilter === 'notopened') rows = rows.filter(function(r){ return !(r.opens||0); });
-    if (_campStatFilter === 'clicked')   rows = rows.filter(function(r){ return (r.clicks||0) > 0; });
-    if (_campStatFilter === 'unsub')     rows = rows.filter(function(r){ return !!r.unsubAt; });
-    // chips de filtre avec compteurs (l'actif est dore)
-    var all = _campStatRows, nOpen = all.filter(function(r){ return (r.opens||0)>0; }).length;
-    var nClick = all.filter(function(r){ return (r.clicks||0)>0; }).length;
-    var nUnsub = all.filter(function(r){ return !!r.unsubAt; }).length;
-    var chips = [ ['all','Tous',all.length], ['opened','✓ Ont ouvert',nOpen], ['notopened','✗ N’ont pas ouvert',all.length-nOpen], ['clicked','↗ Ont cliqué',nClick], ['unsub','⊘ Désabonnés',nUnsub] ];
-    document.getElementById('camp-stat-filters').innerHTML = chips.map(function(c){
-      var on = _campStatFilter === c[0];
-      return '<button class="camp-chip" onclick="campStatFilter(\'' + c[0] + '\')" style="cursor:pointer;background:' + (on ? 'rgba(227,178,58,.14)' : 'rgba(255,255,255,.03)') + ';color:' + (on ? '#e3b23a' : '#8b93a1') + ';border-color:' + (on ? 'rgba(227,178,58,.5)' : '#33333a') + ';">' + c[1] + ' (' + c[2] + ')</button>';
-    }).join('');
-    // Colonne DEDIEE « Désabonné » : badge rouge + date de desinscription, ou : s'il est toujours abonne.
-    // (Les clics restent lisibles dans la colonne « Clics » + le filtre « Ont cliqué ».)
-    var _desabo = function(r){
-      if (!r.unsubAt) return '<span style="color:#565660;">—</span>';
-      return '<span style="display:inline-block;color:#ff6b57;border:1px solid rgba(255,61,0,.4);border-radius:4px;font-size:11px;font-weight:700;padding:1px 7px;">⊘ Désabonné</span> <span style="color:#8b93a1;font-size:11px;">' + _campFmt(r.unsubAt) + '</span>';
-    };
-    var tb = document.querySelector('#camp-recipients tbody');
-    tb.innerHTML = rows.length ? rows.map(function(r){ return '<tr' + (r.unsubAt ? ' style="opacity:.6;"' : '') + '><td>' + r.email + '</td><td>' + (r.sentAt ? _campFmt(r.sentAt) : '—') + '</td><td>' + (r.opens||0) + '</td><td>' + (r.clicks||0) + '</td><td>' + (r.lastOpen ? _campFmt(r.lastOpen) : '—') + '</td><td>' + _desabo(r) + '</td></tr>'; }).join('')
-      : '<tr><td colspan="6" class="empty-state">' + (_campStatRows.length ? 'Aucun destinataire dans ce filtre.' : 'Aucun envoi pour l’instant.') + '</td></tr>';
-  }
-  // Sélecteur de campagne pour les statistiques (l'ancien code figeait intro-v1 : le drip hebdo,
-  // le digest et les nouveaux templates étaient invisibles dans la vue Statistiques).
-  // « Total » = vue consolidée de TOUTES les campagnes, et c'est le DÉFAUT (demande user 26/07) : on veut
-  // d'abord voir la performance globale, puis creuser par contenu.
-  let _campStatsId = 'all';
-  const _CAMP_STAT_IDS = [ ['all', 'Total'], ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['app-desktop-v1', 'Annonce app desktop'], ['desk-widgets-v1', 'Annonce accueil & Mon Desk'] ];
-  // Export CSV du tableau AFFICHÉ (respecte le filtre actif) — réutilise les lignes déjà chargées, zéro fetch.
-  function campStatsExport(){
-    var rows = _campStatRows;
-    if (_campStatFilter === 'opened')    rows = rows.filter(function(r){ return (r.opens||0) > 0; });
-    if (_campStatFilter === 'notopened') rows = rows.filter(function(r){ return !(r.opens||0); });
-    if (_campStatFilter === 'clicked')   rows = rows.filter(function(r){ return (r.clicks||0) > 0; });
-    if (_campStatFilter === 'unsub')     rows = rows.filter(function(r){ return !!r.unsubAt; });
-    if (!rows.length) { _campMsg('❌ Rien à exporter dans ce filtre.'); return; }
-    var esc = function(v){ v = String(v == null ? '' : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-    var csv = 'email;envoye;ouvertures;clics;derniere_ouverture;desabonne\n' + rows.map(function(r){
-      return [r.email, r.sentAt ? new Date(r.sentAt).toISOString() : '', r.opens||0, r.clicks||0, r.lastOpen ? new Date(r.lastOpen).toISOString() : '', r.unsubAt ? new Date(r.unsubAt).toISOString() : ''].map(esc).join(';');
-    }).join('\n');
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));   // BOM → accents OK dans Excel
-    a.download = 'stats-' + _campStatsId + '-' + new Date().toISOString().slice(0, 10) + '.csv';
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
-    _campMsg('✅ CSV exporté (' + rows.length + ' lignes).');
-  }
-  function _campStatsPick(id){ _campStatsId = id; loadCampStats(); }
-  function _renderCampSel(){
-    const host = document.getElementById('camp-campsel'); if (!host) return;
-    // « Total » est mis en avant (classe --total : séparateur + libellé or) : c'est une vue d'une autre
-    // nature que les campagnes individuelles qui suivent.
-    host.innerHTML = _CAMP_STAT_IDS.map(function(c){
-      const on = c[0] === _campStatsId;
-      return '<button class="camp-btn camp-selbtn' + (c[0] === 'all' ? ' camp-selbtn--total' : '') + (on ? ' camp-selbtn--on' : '')
-        + '" onclick="_campStatsPick(\'' + c[0] + '\')">' + c[1] + '</button>';
-    }).join('');
-  }
-  async function loadCampStats(){
+  /* ══ CENTRE D'ANALYSE DES CAMPAGNES (06/08) ═══════════════════════════════════════════════════
+     Remplace la vue « Ouvertures & clics », qui agrégeait tout par TEMPLATE : le Mindset du 6 août
+     et celui du 13 y étaient un seul chiffre, impossible de savoir lequel avait marché. Chaque ENVOI
+     est désormais une campagne à part, avec sa liste, son détail et ses courbes.
+
+     RÈGLE TENUE PARTOUT ICI : ce qui n'est pas mesuré s'affiche « non mesuré », jamais 0 ni « 0 % ».
+     Délivrés, rebonds et plaintes ne sont pas observables sur un envoi SMTP direct — un tableau de
+     bord qui affiche un zéro à leur place est pire que pas de tableau de bord. */
+  let _csLignes = [], _csTri = { k: 'debut', desc: true }, _csNote = '';
+  let _csDetail = null, _csFiltre = 'all', _csPage = 0;
+  const _CS_PAGE = 60;
+
+  const _csNum = function (v) { return v == null ? '<span class="cs-nm" title="Non mesuré sur un envoi SMTP direct">non mesuré</span>' : v; };
+  const _csPct = function (v) { return v == null ? '<span class="cs-nm">—</span>' : (String(v).replace('.', ',') + ' %'); };
+  const _csDate = function (ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
+  const _csHeure = function (ts) { return ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; };
+  const _csEsc = function (v) { return String(v == null ? '' : v).replace(/[<>&]/g, function (c) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]; }); };
+  const _csDuree = function (ms) {
+    if (ms == null) return '—';
+    const m = Math.round(ms / 60000);
+    if (m < 60) return m + ' min';
+    const h = Math.floor(m / 60);
+    return h < 48 ? (h + ' h ' + (m % 60) + ' min') : (Math.round(h / 24) + ' j');
+  };
+
+  async function csLoad() {
     try {
-      _renderCampSel();
-      const d = await fetch('/api/admin/campaign-stats?campaign=' + encodeURIComponent(_campStatsId)).then(r => r.json());
-      if (!d || !d.summary) return;
-      const s = d.summary;
-      const kpis = [ ['Envoyés', s.sent], ['Ouvertures uniques', s.uniqueOpens + ' (' + s.openRate + '%)'],
-        ['Ouvertures totales', s.totalOpens], ['Clics uniques', s.uniqueClicks + ' (' + s.clickRate + '%)'],
-        ['Clics totaux', s.totalClicks], ['Désabonnés', s.unsub] ];
-      document.getElementById('camp-kpis').innerHTML = kpis.map(function(kv){ return '<div class="camp-kpi"><div class="camp-kpi-v">' + kv[1] + '</div><div class="camp-kpi-k">' + kv[0] + '</div></div>'; }).join('');
-      _campStatRows = (d.recipients || []);
-      renderCampStatRows();
-      // En vue Total, « envoyés » = personnes TOUCHÉES au moins une fois (fusion par destinataire) : on le
-      // dit explicitement, sinon le chiffre paraît incohérent avec la somme des campagnes.
-      const sub = document.getElementById('camp-stats-sub');
-      if (sub) sub.textContent = (_campStatsId === 'all')
-        ? s.sent + ' destinataire' + (s.sent > 1 ? 's' : '') + ' touché' + (s.sent > 1 ? 's' : '') + ' (toutes campagnes) · ' + s.uniqueOpens + ' ayant ouvert'
-        : s.sent + ' envoyé' + (s.sent > 1 ? 's' : '') + ' · ' + s.uniqueOpens + ' ouvert' + (s.uniqueOpens > 1 ? 's' : '');
-    } catch {}
+      const d = await fetch('/api/admin/campaigns').then(function (r) { return r.json(); });
+      if (!d || !d.ok) throw new Error((d && d.error) || 'réponse invalide');
+      _csLignes = d.lignes || []; _csNote = d.note || '';
+      csRender();
+    } catch (e) {
+      // ERREUR VISIBLE : l'ancienne version avalait tout dans un try/catch muet et laissait le
+      // contenu périmé à l'écran — on croyait lire des chiffres à jour.
+      const tb = document.querySelector('#cs-liste tbody');
+      if (tb) tb.innerHTML = '<tr><td colspan="11" class="empty-state">Statistiques indisponibles : ' + _csEsc(e.message) + '</td></tr>';
+    }
   }
+
+  function csTri(k) {
+    if (_csTri.k === k) _csTri.desc = !_csTri.desc; else { _csTri.k = k; _csTri.desc = true; }
+    csRender();
+  }
+
+  function csRender() {
+    const tb = document.querySelector('#cs-liste tbody'); if (!tb) return;
+    const q = ((document.getElementById('cs-q') || {}).value || '').toLowerCase().trim();
+    const jours = parseInt((document.getElementById('cs-periode') || {}).value, 10) || 0;
+    const depuis = jours ? Date.now() - jours * 86400000 : 0;
+    let l = _csLignes.slice();
+    if (q) l = l.filter(function (x) { return ((x.titre || '') + ' ' + (x.tpl || '') + ' ' + (x.objet || '')).toLowerCase().indexOf(q) !== -1; });
+    if (depuis) l = l.filter(function (x) { return x.consolide || (x.debut || 0) >= depuis; });
+    // L'entrée consolidée reste TOUJOURS en bas : ce n'est pas une campagne, c'est un fourre-tout
+    // historique. La trier avec les autres laisserait croire à un envoi daté.
+    const cons = l.filter(function (x) { return x.consolide; });
+    l = l.filter(function (x) { return !x.consolide; });
+    const k = _csTri.k, sens = _csTri.desc ? -1 : 1;
+    l.sort(function (a, b) {
+      const va = a[k] == null ? -1 : a[k], vb = b[k] == null ? -1 : b[k];
+      return va === vb ? 0 : (va < vb ? -1 : 1) * sens;
+    });
+    document.querySelectorAll('#cs-liste th.sortable').forEach(function (th) {
+      th.classList.toggle('sorted', th.dataset.k === k);
+      th.setAttribute('data-sens', th.dataset.k === k ? (_csTri.desc ? '▾' : '▴') : '');
+      // Câblé UNE fois : csRender re-passe ici à chaque rendu, sans le drapeau on empilerait un
+      // écouteur par rendu et un clic finirait par déclencher dix tris.
+      if (!th._cs) { th._cs = 1; th.addEventListener('click', function () { csTri(th.dataset.k); }); }
+    });
+
+    const lignes = l.concat(cons);
+    tb.innerHTML = lignes.length ? lignes.map(function (x) {
+      const statut = x.consolide ? '<span class="cs-badge cs-badge--hist">Historique</span>'
+        : '<span class="cs-badge cs-badge--ok">Envoi terminé</span>';
+      const quand = x.consolide ? '<span class="cs-sub">avant le 13/07/2026</span>'
+        : ('<b>' + _csDate(x.debut) + '</b>' + (x.fin && x.fin - x.debut > 3600000 ? '<span class="cs-sub">étalé sur ' + _csDuree(x.fin - x.debut) + '</span>' : ''));
+      const nom = '<b>' + _csEsc(x.titre || x.tpl) + '</b>'
+        + (x.objet ? '<span class="cs-sub" title="' + _csEsc(x.objet) + '">' + _csEsc(x.objet) + '</span>'
+                   : (x.consolide ? '' : '<span class="cs-sub cs-nm">objet non conservé</span>'));
+      return '<tr' + (x.consolide ? ' class="cs-tr--hist"' : '') + '>'
+        + '<td>' + quand + '</td>'
+        + '<td class="cs-td-nom">' + nom + '</td>'
+        + '<td>' + (x.envoyes || 0) + '</td>'
+        + '<td>' + statut + '</td>'
+        + '<td class="cs-td-fort">' + _csPct(x.tauxOuv) + '</td>'
+        + '<td>' + (x.ouvTot || 0) + '</td>'
+        + '<td>' + _csPct(x.tauxCli) + '</td>'
+        + '<td>' + (x.cliTot || 0) + '</td>'
+        + '<td title="Clics rapportés aux ouvertures — l’indicateur le moins sensible au gonflage du pixel">' + _csPct(x.ctor) + '</td>'
+        + '<td>' + _csNum(x.rebonds) + '</td>'
+        + '<td><button class="btn btn-sm" onclick="csOuvrir(\'' + x.id + '\')">Voir les statistiques</button></td>'
+        + '</tr>';
+    }).join('') : '<tr><td colspan="11" class="empty-state">Aucune campagne sur cette période.</td></tr>';
+
+    const note = document.getElementById('cs-note');
+    if (note) note.textContent = _csNote + ' Le pixel d’ouverture est gonflé par les proxys d’images (Gmail, Apple Mail) : la réactivité (clics/ouvertures) est l’indicateur le plus fiable.';
+    csInsights(l);
+  }
+
+  // INSIGHTS — uniquement ce qui se déduit des données affichées. Aucune corrélation inventée :
+  // avec ~52 envois par an, tirer « les objets avec un chiffre performent mieux » serait du bruit
+  // présenté comme un enseignement.
+  function csInsights(l) {
+    const host = document.getElementById('cs-insights'); if (!host) return;
+    const util = l.filter(function (x) { return x.tauxOuv != null && (x.envoyes || 0) >= 10; });
+    if (util.length < 2) { host.innerHTML = ''; return; }
+    const parc = function (k, sens) {
+      return util.slice().sort(function (a, b) { return sens * ((b[k] || 0) - (a[k] || 0)); })[0];
+    };
+    const best = parc('tauxOuv', 1), pire = parc('tauxOuv', -1), bctr = parc('tauxCli', 1);
+    const moy = Math.round(util.reduce(function (a, x) { return a + x.tauxOuv; }, 0) / util.length * 10) / 10;
+    // Meilleure heure : sur la MÉDIANE des heures de début d'envoi des campagnes les mieux ouvertes.
+    const cartes = [
+      { l: 'Meilleure ouverture', v: _csPct(best.tauxOuv), s: best.titre || best.tpl, c: '#00e676' },
+      { l: 'Meilleur taux de clic', v: _csPct(bctr.tauxCli), s: bctr.titre || bctr.tpl, c: '#e3b23a' },
+      { l: 'Ouverture moyenne', v: _csPct(moy), s: util.length + ' campagnes comparées', c: '#9aa3b2' },
+      { l: 'À revoir', v: _csPct(pire.tauxOuv), s: pire.titre || pire.tpl, c: '#ff3d00' },
+    ];
+    host.innerHTML = cartes.map(function (c) {
+      return '<div class="cs-ins" style="--kc:' + c.c + '"><div class="cs-ins-v">' + c.v + '</div>'
+        + '<div class="cs-ins-l">' + c.l + '</div><div class="cs-ins-s">' + _csEsc(c.s) + '</div></div>';
+    }).join('');
+  }
+
+  // ── DÉTAIL D'UN ENVOI ──
+  async function csOuvrir(id) {
+    document.getElementById('cs-ecran-liste').hidden = true;
+    document.getElementById('cs-ecran-detail').hidden = false;
+    document.getElementById('cs-d-titre').textContent = 'Chargement…';
+    _csFiltre = 'all'; _csPage = 0;
+    try { history.replaceState(null, '', '#campaign/stats'); } catch (e) {}
+    try {
+      const d = await fetch('/api/admin/campaigns/' + encodeURIComponent(id)).then(function (r) { return r.json(); });
+      if (!d || !d.ok) throw new Error((d && d.error) || 'réponse invalide');
+      _csDetail = d;
+      csRenderDetail();
+    } catch (e) {
+      document.getElementById('cs-d-titre').textContent = 'Campagne indisponible';
+      document.getElementById('cs-d-entete').innerHTML = '<div class="empty-state">' + _csEsc(e.message) + '</div>';
+    }
+  }
+  function csFermer() {
+    document.getElementById('cs-ecran-detail').hidden = true;
+    document.getElementById('cs-ecran-liste').hidden = false;
+    _csDetail = null;
+    try { if (_csRoot) { _csRoot.dispose(); _csRoot = null; } } catch (e) {}
+  }
+
+  let _csRoot = null;
+  function csRenderDetail() {
+    const d = _csDetail, c = d.campagne;
+    document.getElementById('cs-d-titre').textContent = c.titre || c.tpl;
+    document.getElementById('cs-d-entete').innerHTML =
+      '<div class="cs-ent-l"><span class="cs-ent-k">Objet</span><span class="cs-ent-v">'
+        + (c.objet ? _csEsc(c.objet) : '<span class="cs-nm">non conservé pour cet envoi</span>') + '</span></div>'
+      + '<div class="cs-ent-l"><span class="cs-ent-k">Envoyé le</span><span class="cs-ent-v">' + _csDate(c.debut)
+        + (c.fin && c.fin - c.debut > 3600000 ? ' → ' + _csHeure(c.fin) + ' (étalé sur ' + _csDuree(c.fin - c.debut) + ')' : '') + '</span></div>'
+      + '<div class="cs-ent-l"><span class="cs-ent-k">Audience</span><span class="cs-ent-v">' + (c.audience != null ? c.audience + ' contacts ciblés' : '<span class="cs-nm">non conservée</span>') + '</span></div>'
+      + '<div class="cs-ent-l"><span class="cs-ent-k">Délai médian d’ouverture</span><span class="cs-ent-v">' + _csDuree(d.delaiMedian) + '</span></div>';
+
+    const k = [
+      ['Envoyés', c.envoyes], ['Délivrés', null], ['Taux de délivrabilité', null],
+      ['Ouvertures uniques', c.ouvUniq], ['Ouvertures totales', c.ouvTot], ['Taux d’ouverture', _csPct(c.tauxOuv)],
+      ['Clics uniques', c.cliUniq], ['Clics totaux', c.cliTot], ['Taux de clic', _csPct(c.tauxCli)],
+      ['Réactivité (CTOR)', _csPct(c.ctor)], ['Rebonds', null], ['Plaintes spam', null],
+    ];
+    document.getElementById('cs-d-kpis').innerHTML = k.map(function (x) {
+      return '<div class="camp-kpi' + (x[1] == null ? ' camp-kpi--nm' : '') + '"><div class="camp-kpi-v">' + _csNum(x[1]) + '</div><div class="camp-kpi-k">' + x[0] + '</div></div>';
+    }).join('');
+
+    csCourbe(d.ouverturesParHeure || {});
+
+    const liens = d.liens && Object.keys(d.liens).length ? d.liens : null;
+    const tot = liens ? Object.keys(liens).reduce(function (a, x) { return a + liens[x]; }, 0) : 0;
+    document.getElementById('cs-d-liens').innerHTML = liens
+      ? Object.keys(liens).sort(function (a, b) { return liens[b] - liens[a]; }).map(function (u, i) {
+          const p = Math.round((liens[u] / tot) * 1000) / 10;
+          return '<div class="cs-lien"><span class="cs-lien-r">' + (i + 1) + '</span>'
+            + '<span class="cs-lien-u" title="' + _csEsc(u) + '">' + _csEsc(u) + '</span>'
+            + '<span class="cs-lien-n">' + liens[u] + '</span>'
+            + '<span class="cs-lien-b"><i style="width:' + p + '%"></i></span>'
+            + '<span class="cs-lien-p">' + String(p).replace('.', ',') + ' %</span></div>';
+        }).join('')
+      : '<div class="cs-vide">Le détail par lien est enregistré depuis le 6 août 2026. Il apparaîtra dès les prochains clics.</div>';
+
+    document.getElementById('cs-d-apercu').innerHTML = d.html
+      ? '<div class="cs-bloc-t">Le mail réellement envoyé</div><iframe class="cs-frame" sandbox="" srcdoc="' + _csEsc(d.html).replace(/"/g, '&quot;') + '"></iframe>'
+      : '<div class="cs-vide">Le contenu envoyé n’a pas été archivé pour cette campagne. Ré-afficher l’aperçu du gabarit montrerait le contenu d’aujourd’hui, pas celui qui est parti — on préfère ne rien montrer.</div>';
+
+    csDest();
+  }
+
+  function csCourbe(parHeure) {
+    const host = document.getElementById('cs-d-courbe'); if (!host) return;
+    try { if (_csRoot) { _csRoot.dispose(); _csRoot = null; } } catch (e) {}
+    const cles = Object.keys(parHeure).sort();
+    if (!cles.length || typeof am5 === 'undefined') {
+      host.innerHTML = '<div class="cs-vide">Aucune ouverture horodatée pour cette campagne.</div>';
+      return;
+    }
+    host.innerHTML = '';
+    const root = am5.Root.new(host); _csRoot = root;
+    root.setThemes([am5themes_Animated.new(root)]);
+    root._logo && root._logo.dispose();
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, layout: root.verticalLayout }));
+    const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, { baseInterval: { timeUnit: 'hour', count: 1 }, renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 55 }) }));
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { min: 0, renderer: am5xy.AxisRendererY.new(root, {}) }));
+    xAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x8b93a1), fontSize: 10 });
+    yAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x8b93a1), fontSize: 10 });
+    const s = chart.series.push(am5xy.ColumnSeries.new(root, {
+      xAxis: xAxis, yAxis: yAxis, valueXField: 't', valueYField: 'v',
+      tooltip: am5.Tooltip.new(root, { labelText: '{valueY} première(s) ouverture(s)' }),
+    }));
+    s.columns.template.setAll({ fill: am5.color(0xe3b23a), stroke: am5.color(0xe3b23a), width: am5.percent(70), cornerRadiusTL: 2, cornerRadiusTR: 2 });
+    s.data.setAll(cles.map(function (h) { return { t: Date.parse(h + ':00:00Z'), v: parHeure[h] }; }));
+  }
+
+  function csFiltre(f) { _csFiltre = f; _csPage = 0; csDest(); }
+  function _csDestFiltrees() {
+    let r = (_csDetail && _csDetail.destinataires) || [];
+    if (_csFiltre === 'ouverts') r = r.filter(function (x) { return x.ouvert; });
+    if (_csFiltre === 'non') r = r.filter(function (x) { return !x.ouvert; });
+    if (_csFiltre === 'cliques') r = r.filter(function (x) { return x.clique; });
+    if (_csFiltre === 'desabo') r = r.filter(function (x) { return !!x.desabo; });
+    return r;
+  }
+  function csDest() {
+    const all = (_csDetail && _csDetail.destinataires) || [];
+    const f = [
+      ['all', 'Tous', all.length],
+      ['ouverts', 'Ont ouvert', all.filter(function (x) { return x.ouvert; }).length],
+      ['non', 'N’ont pas ouvert', all.filter(function (x) { return !x.ouvert; }).length],
+      ['cliques', 'Ont cliqué', all.filter(function (x) { return x.clique; }).length],
+      ['desabo', 'Désabonnés', all.filter(function (x) { return !!x.desabo; }).length],
+    ];
+    document.getElementById('cs-d-filtres').innerHTML = f.map(function (x) {
+      return '<button class="camp-btn camp-selbtn' + (_csFiltre === x[0] ? ' camp-selbtn--on' : '')
+        + '" onclick="csFiltre(\'' + x[0] + '\')">' + x[1] + ' (' + x[2] + ')</button>';
+    }).join('');
+    const r = _csDestFiltrees();
+    const page = r.slice(_csPage * _CS_PAGE, (_csPage + 1) * _CS_PAGE);
+    const tb = document.querySelector('#cs-d-dest tbody');
+    tb.innerHTML = page.length ? page.map(function (x) {
+      return '<tr><td>' + _csEsc(x.email) + '</td><td>' + _csDate(x.recu) + '</td>'
+        + '<td>' + (x.ouvert ? '<span class="cs-oui">oui</span>' : '<span class="cs-non">non</span>') + '</td>'
+        + '<td>' + x.nOuv + '</td><td>' + _csDate(x.ouvPremiere) + '</td><td>' + _csDate(x.ouvDerniere) + '</td>'
+        + '<td>' + (x.clique ? '<span class="cs-oui">oui</span>' : '<span class="cs-non">non</span>') + '</td>'
+        + '<td>' + x.nCli + '</td>'
+        + '<td>' + (x.desabo ? '<span class="tag tag--red">' + _csDate(x.desabo) + '</span>' : '—') + '</td>'
+        + '<td>' + _csNum(x.rebond) + '</td></tr>';
+    }).join('') : '<tr><td colspan="10" class="empty-state">Aucun destinataire dans ce filtre.</td></tr>';
+    const pages = Math.ceil(r.length / _CS_PAGE);
+    document.getElementById('cs-d-pager').innerHTML = pages > 1
+      ? '<button class="btn btn-sm" ' + (_csPage ? '' : 'disabled') + ' onclick="csPage(-1)">‹</button>'
+        + '<span class="cs-pg">' + (_csPage + 1) + ' / ' + pages + ' · ' + r.length + ' destinataires</span>'
+        + '<button class="btn btn-sm" ' + (_csPage >= pages - 1 ? 'disabled' : '') + ' onclick="csPage(1)">›</button>'
+      : '';
+  }
+  function csPage(d) { _csPage = Math.max(0, _csPage + d); csDest(); }
+
+  // Export du tableau AFFICHÉ (filtre compris). Point-virgule + BOM : Excel FR ouvre sans réglage.
+  function csExport() {
+    const r = _csDestFiltrees();
+    if (!r.length) { _campMsg('❌ Rien à exporter dans ce filtre.'); return; }
+    const e = function (v) { v = String(v == null ? '' : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const iso = function (t) { return t ? new Date(t).toISOString() : ''; };
+    const csv = 'email;recu;a_ouvert;ouvertures;premiere_ouverture;derniere_ouverture;a_clique;clics;desabonne\n'
+      + r.map(function (x) {
+          return [x.email, iso(x.recu), x.ouvert ? 'oui' : 'non', x.nOuv, iso(x.ouvPremiere), iso(x.ouvDerniere), x.clique ? 'oui' : 'non', x.nCli, iso(x.desabo)].map(e).join(';');
+        }).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'campagne-' + ((_csDetail && _csDetail.campagne && _csDetail.campagne.id) || 'export') + '.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    _campMsg('✅ CSV exporté (' + r.length + ' lignes).');
+  }
+
   async function campExtraAdd(){
     const inp = document.getElementById('camp-extra-input'); const v = (inp.value || '').trim(); if (!v) return;
     _campMsg('Ajout…');

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260806bbg572" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260806bbg573" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -406,23 +406,83 @@
       </div>
 
       <!-- STATISTIQUES -->
+      <!-- ═══ CENTRE D'ANALYSE DES CAMPAGNES (06/08) ═══
+           DEUX écrans, jamais les deux à la fois : la LISTE des envois (une ligne = une campagne),
+           puis le DÉTAIL d'un envoi. Le détail vit dans le même panneau et remplace la liste — pas
+           de volet superposé : on veut de la place pour un tableau de destinataires. -->
       <div class="camp-sub" data-sub="stats">
-        <div class="panel-card">
-          <div class="panel-head"><h2>Ouvertures &amp; clics</h2><span class="ph-spacer"></span>
-            <button class="btn" onclick="campStatsExport()" title="Exporter le tableau filtré en CSV">Export CSV</button>
-            <span class="fin-sub" id="camp-stats-sub"></span>
+
+        <!-- ── ÉCRAN 1 : liste des envois ── -->
+        <div class="panel-card" id="cs-ecran-liste">
+          <div class="panel-head"><h2>Campagnes envoyées</h2><span class="ph-spacer"></span>
+            <input id="cs-q" class="cs-search" placeholder="Rechercher un template ou un objet…" autocomplete="off"
+                   oninput="clearTimeout(window._csT);window._csT=setTimeout(csRender,250)" />
+            <select id="cs-periode" class="cs-select" onchange="csRender()" title="Filtrer par période">
+              <option value="0">Toute la période</option>
+              <option value="30">30 derniers jours</option>
+              <option value="90">90 derniers jours</option>
+              <option value="365">12 derniers mois</option>
+            </select>
+            <span class="live-pill" data-live="camps" title="Cette vue se met à jour toute seule"><i></i>En direct</span>
           </div>
           <div class="panel-body">
-            <div id="camp-campsel" class="camp-aud-seg" style="margin:0 0 10px"></div>
-            <div class="camp-kpis" id="camp-kpis"></div>
-            <div class="camp-aud-seg" id="camp-stat-filters" style="margin:0 0 10px"></div>
+            <div class="cs-insights" id="cs-insights"></div>
             <div class="camp-table-wrap">
-              <table class="camp-table" id="camp-recipients">
-                <thead><tr><th>E-mail</th><th>Envoyé</th><th>Ouvertures</th><th>Clics</th><th>Dernière ouverture</th><th>Désabonné</th></tr></thead>
-                <tbody><tr><td colspan="6" class="empty-state">Aucun envoi pour l'instant.</td></tr></tbody>
+              <table class="camp-table cs-table" id="cs-liste">
+                <thead><tr>
+                  <th class="sortable" data-k="debut">Envoi</th>
+                  <th>Campagne</th>
+                  <th class="sortable" data-k="envoyes">Destinataires</th>
+                  <th>Statut</th>
+                  <th class="sortable" data-k="tauxOuv">Taux d'ouverture</th>
+                  <th class="sortable" data-k="ouvTot">Ouvertures</th>
+                  <th class="sortable" data-k="tauxCli">Taux de clic</th>
+                  <th class="sortable" data-k="cliTot">Clics</th>
+                  <th class="sortable" data-k="ctor">Réactivité</th>
+                  <th>Rebonds</th>
+                  <th></th>
+                </tr></thead>
+                <tbody><tr><td colspan="11" class="empty-state">Chargement…</td></tr></tbody>
               </table>
             </div>
-            <p class="camp-note">Pixel d'ouverture (Apple Mail / proxy Gmail peuvent gonfler légèrement). Les clics sont fiables.</p>
+            <p class="camp-note" id="cs-note"></p>
+          </div>
+        </div>
+
+        <!-- ── ÉCRAN 2 : détail d'un envoi ── -->
+        <div class="panel-card" id="cs-ecran-detail" hidden>
+          <div class="panel-head">
+            <button class="btn btn-ghost" onclick="csFermer()">‹ Toutes les campagnes</button>
+            <h2 id="cs-d-titre">Campagne</h2><span class="ph-spacer"></span>
+            <button class="btn" onclick="csExport()" title="Exporter les destinataires filtrés">Export CSV</button>
+          </div>
+          <div class="panel-body">
+            <div class="cs-entete" id="cs-d-entete"></div>
+            <div class="camp-kpis cs-kpis" id="cs-d-kpis"></div>
+            <div class="cs-cols">
+              <div class="cs-col">
+                <div class="cs-bloc-t">Montée des ouvertures</div>
+                <div class="am-chart cs-chart" id="cs-d-courbe"></div>
+              </div>
+              <div class="cs-col cs-col--etroite">
+                <div class="cs-bloc-t">Liens les plus cliqués</div>
+                <div id="cs-d-liens"></div>
+              </div>
+            </div>
+            <div class="cs-bloc-t">Destinataires</div>
+            <div class="camp-aud-seg" id="cs-d-filtres"></div>
+            <div class="camp-table-wrap">
+              <table class="camp-table cs-table" id="cs-d-dest">
+                <thead><tr>
+                  <th>E-mail</th><th>Reçu</th><th>A ouvert</th><th>Ouvertures</th>
+                  <th>1re ouverture</th><th>Dernière</th><th>A cliqué</th><th>Clics</th>
+                  <th>Désabonné</th><th>Rebond</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="cs-pager" id="cs-d-pager"></div>
+            <div class="cs-apercu" id="cs-d-apercu"></div>
           </div>
         </div>
       </div>
@@ -648,6 +708,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260806bbg572"></script>
+<script src="/js/admin.js?v=20260806bbg573"></script>
 </body>
 </html>
