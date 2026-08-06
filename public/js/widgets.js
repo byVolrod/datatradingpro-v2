@@ -95,7 +95,7 @@
   // pour un fil-news affiché EN ONGLET (le setter change de cible). ⚠️ AU NIVEAU MODULE (et non
   // dans _setPanelHtml) : une expression de fonction locale appelée avant sa ligne d'affectation
   // avait provoqué un ÉCRAN NOIR le 04/08 — ici, une DÉCLARATION hissée, utilisable partout.
-  function _blocSectionsFor(item, w2, tab, idx) {
+  function _blocSectionsFor(item, w2, tab, idx, cell) {
     if (!w2 || w2.id !== 'fil-news') return '';
     var cats = (typeof INTERNAL_CATS !== 'undefined' && Array.isArray(INTERNAL_CATS))
       ? INTERNAL_CATS.filter(function (c) { return c !== 'Bonds'; }) : [];
@@ -107,7 +107,7 @@
       + '<div class="wdg-set-secs">' + cats.map(function (c) {
           var lib = (typeof catFr === 'function') ? catFr(c) : c;
           return '<button class="wdg-set-sec' + (offSet[c] ? '' : ' on') + '"'
-            + ' onclick="DTPWidgets.' + fn + '(' + idx + ',\'' + esc(c).replace(/'/g, '&#39;') + '\')">'
+            + ' onclick="DTPWidgets.' + fn + '(' + idx + ',\'' + esc(c).replace(/'/g, '&#39;') + '\'' + _argC(cell) + ')">'
             + '<span>' + esc(lib) + '</span><i>✓</i></button>';
         }).join('') + '</div>';
   }
@@ -144,9 +144,14 @@
         + tl.map(function (id2, j) {
             // Onglet VIDE (sentinel 'vide') : il apparaît AUSSI ici — renommable, retirable.
             var estVide = (id2 === 'vide');
-            var w2 = byId(id2); if (!w2 && !estVide) return '';
-            var nomW = estVide ? 'Onglet vide — aucun widget' : w2.name;
-            var defLbl = estVide ? 'Vide' : (w2.tag || w2.name);
+            // Onglet COMPOSITE (sentinel 'grille') : il apparaît ici comme les autres. Sans ce test
+            // il aurait DISPARU du volet — donc plus moyen de le renommer ni de le retirer.
+            var estGrille = _estGrille(it, j);
+            var w2 = byId(id2); if (!w2 && !estVide && !estGrille) return '';
+            var nCell = estGrille ? _tabCells(it, j).filter(function (x) { return x !== 'vide'; }).length : 0;
+            var nomW = estGrille ? ('Onglet composite · ' + nCell + ' widget' + (nCell > 1 ? 's' : ''))
+              : (estVide ? 'Onglet vide — aucun widget' : w2.name);
+            var defLbl = estGrille ? 'GRILLE' : (estVide ? 'Vide' : (w2.tag || w2.name));
             return '<div class="wdg-set-row wdg-set-tabrow">'
               + '<div class="wdg-set-tabcol">'
               +   '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || defLbl) + '"'
@@ -164,7 +169,7 @@
               // onglets ») : sur la dernière ligne restante, pas de × — un panneau à onglets vide
               // n'a aucun sens (et retirer le WIDGET entier se fait depuis l'en-tête de la carte).
               + (tl.length > 1
-                  ? '<button class="wdg-set-tabdel" title="' + (estVide ? 'Retirer cet onglet vide' : 'Retirer l\'onglet et son widget « ' + esc(w2.name) + ' »') + '" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button>'
+                  ? '<button class="wdg-set-tabdel" title="' + (estGrille ? 'Retirer cet onglet et sa disposition' : (estVide ? 'Retirer cet onglet vide' : 'Retirer l\'onglet et son widget « ' + esc(w2.name) + ' »')) + '" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button>'
                   : '<span class="wdg-set-tabone" title="Un panneau garde au moins un onglet">min. 1</span>')
               + '</div>';
           }).join('')
@@ -200,17 +205,20 @@
   }
   // Panneau de réglages du SOUS-WIDGET affiché dans un panneau à onglets : ses options + ses
   // sections (fil), écrites dans it.tabCfg[index] — indépendant des réglages du panneau.
-  function _subPanelHtml(idx) {
+  function _subPanelHtml(idx, c) {
     var l = activeLayout(); if (!l || !l.items[idx]) return '';
     var it = l.items[idx];
     if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return '';
     var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
-    var tw = byId(it.tabs[j]); if (!tw) return '';
-    var ti = _tabItem(it, j);
-    return _popHead(esc(tw.name))
+    var tw = byId(_tabWid(it, j, c)); if (!tw) return '';
+    var ti = _tabItem(it, j, c);
+    // Dans un onglet composite, le titre dit DE QUELLE CASE on règle les options : quatre panneaux
+    // identiques intitulés « Fil d'actualité » seraient indistinguables.
+    var titre = esc(tw.name) + (c == null ? '' : ' · case ' + (c + 1));
+    return _popHead(titre)
       + '<div class="wdg-pop-d">' + esc(tw.desc || '') + '</div>'
-      + _optsHtml(idx, tw, ti, 'setTabOpt')
-      + _blocSectionsFor(ti, tw, true, idx)
+      + _optsHtml(idx, tw, ti, 'setTabOpt', c)
+      + _blocSectionsFor(ti, tw, true, idx, c)
       + '<div class="wdg-pop-foot">Modifications enregistrées automatiquement</div>';
   }
   // Rafraîchit le panneau d'une carte SANS toucher au reste (garde son état ouvert/fermé).
@@ -221,20 +229,21 @@
   }
   // `setter` (04/08) : « setOpt » par défaut (réglages de la CARTE) — « setTabOpt » pour les
   // réglages du SOUS-WIDGET affiché dans un panneau à onglets, qui a désormais les siens.
-  function _optsHtml(idx, w, it, setter) {
+  function _optsHtml(idx, w, it, setter, cell) {
     var l = (w && w.opts) || []; if (!l.length) return '';
     var S = setter || 'setOpt', B = (S === 'setTabOpt') ? 'bumpTabOpt' : 'bumpOpt';
+    var AC = _argC(cell);   // « ,2 » quand on règle une CASE d'onglet composite, '' sinon
     l = l.filter(function (o) { return !o.cache; });      // réglages rendus par un bloc dédié (ex. sections du fil)
     if (!l.length) return '';
     return '<div class="wdg-set-sep"></div>' + l.map(function (o) {
       var cur = opt(it, w, o.k), ctl;
       if (o.type === 'bascule') {
         ctl = '<button class="wdg-set-sw' + (cur ? ' on' : '') + '" role="switch" aria-checked="' + (!!cur) + '"'
-          + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',' + (!cur) + ')"><i></i></button>';
+          + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',' + (!cur) + AC + ')"><i></i></button>';
       } else if (o.type === 'nombre') {
-        ctl = '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',-1)" aria-label="moins">−</button>'
+        ctl = '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',-1' + AC + ')" aria-label="moins">−</button>'
           + '<span class="wdg-step-val">' + esc(String(cur)) + '</span>'
-          + '<button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',1)" aria-label="plus">+</button></span>';
+          + '<button class="wdg-step" onclick="DTPWidgets.' + B + '(' + idx + ',\'' + o.k + '\',1' + AC + ')" aria-label="plus">+</button></span>';
       } else if (o.type === 'multi') {
         // Liste à cocher — même grammaire que les sections du fil (.wdg-set-sec). Elle occupe sa
         // PROPRE ligne, pleine largeur : 27 villes en pastilles à droite d'un libellé seraient
@@ -244,13 +253,13 @@
           + '<div class="wdg-set-tabs-t">' + esc(o.lbl) + ' <b>' + (cur || []).length + '/' + o.choix.length + '</b></div>'
           + '<div class="wdg-set-secs">' + o.choix.map(function (c) {
               return '<button class="wdg-set-sec' + (sel[c[0]] ? ' on' : '') + '"'
-                + ' onclick="DTPWidgets.toggleMulti(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\',\'' + S + '\')">'
+                + ' onclick="DTPWidgets.toggleMulti(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\',\'' + S + '\'' + AC + ')">'
                 + '<span>' + esc(c[1]) + '</span><i>✓</i></button>';
             }).join('') + '</div>';
       } else {
         ctl = '<span class="wdg-set-chips">' + o.choix.map(function (c) {
           return '<button class="wdg-set-chip' + (c[0] === cur ? ' on' : '') + '"'
-            + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\')">' + esc(c[1]) + '</button>';
+            + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\'' + AC + ')">' + esc(c[1]) + '</button>';
         }).join('') + '</span>';
       }
       return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + esc(o.lbl) + '</span>' + ctl + '</div>';
@@ -259,10 +268,67 @@
   // Config PROPRE à un onglet (index) d'un panneau à onglets — stockée dans it.tabCfg (whitelistée
   // serveur). Renvoie un pseudo-item {w, cfg} : le sous-widget lit ses réglages par opt() comme
   // n'importe quelle carte, sans savoir qu'il vit dans un onglet.
-  function _tabItem(it, j) {
-    var id = (Array.isArray(it.tabs) ? it.tabs[j] : null) || '';
-    var cfg = (it.tabCfg && it.tabCfg[j]) || undefined;
+  // `c` (06/08) = index de CELLULE quand l'onglet est COMPOSITE (plusieurs widgets côte à côte).
+  // Omis → comportement d'origine, strictement inchangé : l'onglet porte un seul widget et sa config
+  // vit sous la clé numérique. Fourni → l'id vient de la disposition et la config sous « j-c ».
+  function _tabItem(it, j, c) {
+    var id = (c == null ? ((Array.isArray(it.tabs) ? it.tabs[j] : null) || '') : (_tabCells(it, j)[c] || ''));
+    var cfg = (it.tabCfg && it.tabCfg[c == null ? j : (j + '-' + c)]) || undefined;
     return { w: id, cfg: cfg };
+  }
+
+  /* ── ONGLETS COMPOSITES (06/08, demande user « quand j'ajoute un nouvel onglet je dois pouvoir
+     choisir la disposition ») ────────────────────────────────────────────────────────────────────
+     Un onglet peut porter 2 à 4 widgets au lieu d'un seul. Le modèle NE change pas de forme :
+     `it.tabs` reste un tableau de CHAÎNES, l'onglet composite y est le sentinel 'grille' (frère de
+     'vide'), et la disposition vit dans `it.tabGrid`, tableau parallèle aligné positionnellement —
+     même contrat que `it.tabLabels`, donc même whitelist serveur, sans toucher au filtre existant.
+       "2c:calendrier-jour|vue-taux"  →  2 colonnes, 2 widgets
+       ''  ou absent                  →  onglet simple, exactement comme avant.
+     Mettre des OBJETS dans `tabs` aurait été bien plus risqué : le sanitizer les jette, et comme
+     tabLabels ET tabCfg y sont conditionnés, un panneau aurait perdu onglets + noms + réglages. */
+  var SUBDISPOS = [
+    { code: '1',  name: '1 widget plein', n: 1, cells: [{ gw: 12, gh: 14 }] },
+    { code: '2c', name: '2 colonnes',     n: 2, cells: _rep(2, 6, 14) },
+    { code: '2l', name: '2 lignes',       n: 2, cells: _rep(2, 12, 7) },
+    { code: '3c', name: '3 colonnes',     n: 3, cells: _rep(3, 4, 14) },
+    { code: '4',  name: '4 cases',        n: 4, cells: _rep(4, 6, 7) },
+  ];
+  function _dispoByCode(code) { for (var i = 0; i < SUBDISPOS.length; i++) if (SUBDISPOS[i].code === code) return SUBDISPOS[i]; return null; }
+  // Codec, dans les deux sens. Le charset est le MÊME que celui du serveur ([a-z0-9|:-]) : ce qu'on
+  // écrit ici revient tel quel du KV, sans surprise silencieuse.
+  function _gridStr(code, ids) { return String(code) + ':' + (ids || []).map(function (x) { return String(x || 'vide'); }).join('|'); }
+  function _gridParse(s) {
+    var m = /^([a-z0-9]{1,3}):(.*)$/.exec(String(s || ''));
+    if (!m) return null;
+    var d = _dispoByCode(m[1]); if (!d) return null;
+    var ids = m[2].split('|').slice(0, d.n);
+    while (ids.length < d.n) ids.push('vide');            // disposition tronquée en KV → cellules vides, jamais de trou
+    return { code: d.code, dispo: d, ids: ids };
+  }
+  // Id du widget visé : celui de l'onglet (c omis) ou celui d'une cellule. Point de résolution UNIQUE
+  // — toutes les API passent par là plutôt que de relire it.tabs[j] à la main.
+  function _tabWid(it, j, c) { return (c == null ? ((Array.isArray(it.tabs) ? it.tabs[j] : '') || '') : (_tabCells(it, j)[c] || '')); }
+  // Cellule dont le panneau de réglages du sous-widget est ouvert, par index de carte. Volatile :
+  // c'est un état d'écran, il n'a rien à faire dans le layout persisté.
+  var _ssCell = {};
+  // Argument de cellule pour les onclick GÉNÉRÉS. Rend '' pour un onglet simple : les appels
+  // existants gardent EXACTEMENT leur signature d'avant, aucune régression possible sur ce chemin.
+  function _argC(c) { return (c == null ? '' : ',' + (c | 0)); }
+  function _gridOf(it, j) { return (Array.isArray(it.tabGrid) && it.tabGrid[j]) || ''; }
+  function _estGrille(it, j) { return (Array.isArray(it.tabs) && it.tabs[j] === 'grille') && !!_gridParse(_gridOf(it, j)); }
+  function _tabCells(it, j) { var g = _gridParse(_gridOf(it, j)); return g ? g.ids : []; }
+  // Écrit disposition ET sentinel DANS LE MÊME save : jamais l'un sans l'autre, sinon un onglet
+  // 'grille' sans disposition s'afficherait vide chez le prochain client à le lire.
+  function _setGrid(it, j, code, ids) {
+    if (!Array.isArray(it.tabGrid)) it.tabGrid = [];
+    while (it.tabGrid.length < it.tabs.length) it.tabGrid.push('');
+    it.tabGrid[j] = _gridStr(code, ids);
+    it.tabs[j] = 'grille';
+  }
+  function _clearGrid(it, j) {
+    it.tabs[j] = 'vide';
+    if (Array.isArray(it.tabGrid)) it.tabGrid[j] = '';
   }
   /* ── MENU MAISON des <select> de widgets (.dmx-sort-select — tri DMX, paire Saisonnalité) : le
      popup NATIF se place mal sous le zoom d'affichage (coordonnées non compensées par Chromium) et
@@ -1951,10 +2017,21 @@
         // 'vide' = ONGLET SANS WIDGET (03/08, demande user « juste le widget, pas l'onglet ») :
         // l'onglet garde son nom et propose « + Choisir un widget » dans son corps. Le sentinel
         // passe la whitelist serveur (_WDG_ID_RX = format kebab-case, pas d'appartenance catalogue).
-        var tabs = (Array.isArray(it.tabs) ? it.tabs : []).filter(function (id) { return id === 'vide' || byId(id); });
+        // ⚠️ PROJECTION QUI PRÉSERVE LES INDEX (06/08). C'était un `.filter()` : toute entrée
+        // inconnue disparaissait de cette copie, alors que `it._tabAct` et TOUTES les API
+        // (setTabOpt, removeActiveTab, _subPanelHtml, toggleMulti…) indexent le tableau PERSISTÉ.
+        // Dès qu'une entrée était filtrée les deux numérotations divergeaient et on réglait ou on
+        // vidait UN AUTRE ONGLET que celui affiché. Le bug existait déjà (widget retiré du
+        // catalogue) ; avec le sentinel 'grille' il serait devenu systématique. On ne retire plus
+        // rien : une entrée inconnue reste EN PLACE et se signale dans son corps.
+        var tabs = (Array.isArray(it.tabs) ? it.tabs : []).map(String);
         var labels = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];   // libellés personnalisés (double-clic → renommage), alignés sur tabs
         var actIdx = Math.min((it._tabAct | 0), Math.max(0, tabs.length - 1));
-        var subClean = null;
+        // TABLEAU, pas scalaire : un onglet composite monte plusieurs widgets, et un seul cleanup
+        // mémorisé laisserait N-1 roots amCharts, cartes Leaflet et timers orphelins à CHAQUE
+        // changement d'onglet — la fuite décrite en tête de ce fichier.
+        var subCleans = [];
+        function _libereSous() { subCleans.splice(0).forEach(function (f) { try { f(); } catch (e) {} }); }
         var bar = document.createElement('div'); bar.className = 'wdgt-bar';
         bar.setAttribute('draggable', 'true');   // saisie de la carte depuis l'espace vide de la barre (cf. _wireGrid)
         // Retire TOUT engrenage de sous-widget encore présent (dans la carte ou dans une vue
@@ -1970,7 +2047,7 @@
         host.innerHTML = ''; host.classList.add('wdgt-host');
         host.appendChild(bar); host.appendChild(body);
         function mountSub() {
-          if (subClean) { try { subClean(); } catch (e) {} subClean = null; }
+          _libereSous();
           // ⚠️ L'engrenage du sous-widget peut avoir été posé dans un conteneur qui SURVIT au
           // remontage (l'en-tête d'une vue adoptée, la barre d'un widget qui ne se reconstruit
           // pas) → sans ce balayage il s'empilait à chaque remontage (2, 3 engrenages, constaté
@@ -1978,17 +2055,63 @@
           _purgeSousGear();
           body.innerHTML = '';
           if (!tabs.length) { body.innerHTML = '<div class="wdg-empty">Ajoute un onglet avec le « + » ci-dessus.</div>'; return; }
-          var w = tabs[actIdx] !== 'vide' && tabs[actIdx] && byId(tabs[actIdx]);
+          // ONGLET COMPOSITE : le corps porte une petite grille, chaque cellule se monte comme un
+          // onglet simple. On purge les engrenages UNE fois avant la boucle et UNE fois après —
+          // jamais dedans : _purgeSousGear balaie la CARTE ENTIÈRE et effacerait les commandes des
+          // cellules déjà montées.
+          if (_estGrille(it, actIdx)) {
+            var g = _gridParse(_gridOf(it, actIdx));
+            var gr = document.createElement('div');
+            gr.className = 'wdgt-grid'; gr.setAttribute('data-d', g.code);
+            body.appendChild(gr);
+            g.ids.forEach(function (cid, c) {
+              var cell = document.createElement('div');
+              cell.className = 'wdgt-cell';
+              gr.appendChild(cell);
+              var wc = cid !== 'vide' && byId(cid);
+              if (!wc) {
+                // Cellule vide : MÊME grammaire que l'onglet vide et que les emplacements de la
+                // grille du desk — cadre pointillé or, toute la zone cliquable.
+                cell.innerHTML = '<div class="wdgt-vide" role="button" tabindex="0" title="Choisir un widget pour cette case">'
+                  + '<span class="wdgt-fill">+<span>Choisir un widget</span></span></div>';
+                var bv = cell.querySelector('.wdgt-vide');
+                if (bv) {
+                  bv.addEventListener('click', function () { _pickCellFor(it, actIdx, c); });
+                  bv.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); _pickCellFor(it, actIdx, c); } });
+                }
+                return;
+              }
+              _monteCellule(cell, wc, actIdx, c);
+            });
+            _purgeSousGear();
+            g.ids.forEach(function (cid, c) {
+              var wc = cid !== 'vide' && byId(cid);
+              if (wc) _poseCommandes(gr.children[c], wc, c);
+            });
+            return;
+          }
+          var w = tabs[actIdx] !== 'vide' && tabs[actIdx] !== 'grille' && tabs[actIdx] && byId(tabs[actIdx]);
           if (!w) {
-            // ONGLET VIDE : MÊME grammaire que les emplacements de la grille (cadre pointillé or,
-            // + fin, libellé discret) et TOUTE la zone est cliquable — un geste, un sens.
-            body.innerHTML = '<div class="wdgt-vide" role="button" tabindex="0" title="Choisir un widget pour cet onglet">'
-              + '<span class="wdgt-fill">+<span>Choisir un widget</span></span></div>';
-            var b0 = body.querySelector('.wdgt-vide');
-            if (b0) {
-              b0.addEventListener('click', function () { _pickTabFor(it, actIdx); });
-              b0.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); _pickTabFor(it, actIdx); } });
-            }
+            // ONGLET VIDE → SÉLECTEUR DE DISPOSITION (06/08). Avant, on partait directement choisir
+            // UN widget ; désormais on choisit d'abord la forme de l'onglet. « 1 widget plein »
+            // reprend exactement le parcours d'avant, donc rien n'est perdu pour qui va au plus court.
+            // Un onglet 'grille' dont la disposition a disparu retombe ici : il se re-choisit, il ne
+            // se perd pas.
+            body.innerHTML = '<div class="wdgt-dispo">'
+              + '<div class="wdgt-dispo-t">Disposition de cet onglet</div>'
+              + '<div class="wdg-dispo-row">'
+              + SUBDISPOS.map(function (d) {
+                  return '<button class="wdg-dispo-card" data-code="' + d.code + '" title="' + esc(d.name) + '">'
+                    + _thumb(d.cells) + '<span class="wdg-dispo-name">' + esc(d.name) + '</span></button>';
+                }).join('')
+              + '</div></div>';
+            body.querySelectorAll('.wdg-dispo-card').forEach(function (b) {
+              b.addEventListener('click', function () {
+                var code = b.getAttribute('data-code');
+                if (code === '1') { _pickTabFor(it, actIdx); return; }     // parcours historique, inchangé
+                API.setTabDispo(_hostIdx(host), actIdx, code);
+              });
+            });
             return;
           }
           // NOM DU WIDGET SÉLECTIONNÉ (demande user 04/08) : dans une carte à onglets, l'en-tête
@@ -2002,65 +2125,89 @@
           //  (2) BANDEAU HORS DU CONTENEUR DU WIDGET : plusieurs widgets réécrivent `innerHTML`
           //      après chargement (constaté user : le titre du CALENDRIER disparaissait au clic
           //      sur son onglet). Le widget reçoit donc un hôte DÉDIÉ, le bandeau vit à côté.
+          _monteCellule(body, w, actIdx, null);
+          // ⚠️ BALAYAGE APRÈS MONTAGE, pas seulement avant (cause mesurée des 3 engrenages empilés) :
+          // une VUE ADOPTÉE n'entre dans la carte que pendant w.mount(), donc elle arrive APRÈS le
+          // purge d'entrée, en RAPPORTANT l'engrenage de son passage précédent. On rebalaie ici,
+          // une fois tout le monde en place, juste avant de reposer des commandes neuves.
+          _purgeSousGear();
+          _poseCommandes(body, w, null);
+        }
+        // Monte UN widget dans un conteneur — le corps de l'onglet, ou une cellule quand l'onglet est
+        // composite. `c` = index de cellule (null pour un onglet simple) : il route la config et,
+        // plus loin, les commandes.
+        function _monteCellule(hote0, w, j, c) {
+          // NOM DU WIDGET (demande user 04/08) : dans une carte à onglets, l'en-tête est un calque et
+          // son titre est masqué — le widget n'était nommé nulle part (l'onglet ne porte que son TAG
+          // court : FORCE, MONDE…).
+          // ⚠️ DEUX PIÈGES, conservés tels quels :
+          //  (1) DÉCISION PAR IDENTITÉ, pas par état du DOM : sonder le DOM juste après mount() rate
+          //      les widgets qui peuplent leur corps en ASYNCHRONE. Les vues ADOPTÉES (vue-*) portent
+          //      déjà leur en-tête, et Force pose son nom dans sa barre — eux seuls se passent du
+          //      bandeau ; tous les autres l'ont, toujours.
+          //  (2) BANDEAU HORS DU CONTENEUR DU WIDGET : plusieurs widgets réécrivent `innerHTML` après
+          //      chargement (constaté user : le titre du CALENDRIER disparaissait au clic sur son
+          //      onglet). Le widget reçoit donc un hôte DÉDIÉ, le bandeau vit à côté.
           var aSonTitre = (String(w.id).indexOf('vue-') === 0) || w.id === 'force-devises';
           if (!aSonTitre) {
             var sn = document.createElement('div');
             sn.className = 'wdgt-subname'; sn.textContent = w.name;
-            body.appendChild(sn);
+            hote0.appendChild(sn);
           }
           var hote = document.createElement('div');
           hote.className = 'wdgt-mount';
-          body.appendChild(hote);
-          // Le sous-widget reçoit SA config (it.tabCfg[index]) : il lit ses réglages par opt()
-          // exactement comme une carte, sans savoir qu'il vit dans un onglet.
-          try { var un = w.mount(hote, _tabItem(it, actIdx)); if (typeof un === 'function') subClean = un; }
+          hote0.appendChild(hote);
+          // Le sous-widget reçoit SA config (it.tabCfg[j] ou [j-c]) : il lit ses réglages par opt()
+          // exactement comme une carte, sans savoir qu'il vit dans un onglet ni dans une cellule.
+          try { var un = w.mount(hote, _tabItem(it, j, c)); if (typeof un === 'function') subCleans.push(un); }
           catch (e) { fallback(hote, 'Widget indisponible.'); }
-          // ENGRENAGE PROPRE AU SOUS-WIDGET (04/08, demande user : « le réglage du widget doit être
-          // À DROITE et non dans le widget qui contient les onglets ») : le panneau à onglets garde
-          // SES réglages (gestion des onglets) ; le widget de l'onglet a LES SIENS, posés à droite
-          // de SA barre de titre. On cherche la barre dans l'ordre : bandeau de nom → en-tête de
-          // vue adoptée → barre de périodes ; sinon on flotte au coin haut-droit du contenu.
-          // ⚠️ BALAYAGE APRÈS MONTAGE, pas seulement avant (cause mesurée des 3 engrenages empilés) :
-          // une VUE ADOPTÉE n'entre dans la carte que pendant w.mount() ci-dessus, donc elle arrive
-          // APRÈS le purge d'entrée, en RAPPORTANT l'engrenage de son passage précédent. On rebalaie
-          // ici, une fois tout le monde en place, juste avant de reposer des commandes neuves.
-          _purgeSousGear();
+        }
+        // ENGRENAGE ET CROIX PROPRES AU SOUS-WIDGET (04/08, demande user : « le réglage du widget doit
+        // être À DROITE et non dans le widget qui contient les onglets ») : le panneau garde SES
+        // réglages (gestion des onglets) ; le widget a LES SIENS, à droite de SA barre de titre.
+        // La recherche de barre est confinée à `hote0` : sans ça, la première barre de la carte
+        // servirait de cible pour TOUTES les cellules et les commandes s'empileraient sur la première.
+        function _poseCommandes(hote0, w, c) {
           try {
             var _pi2 = _hostIdx(host);
-            if (_pi2 != null) {
-              // Groupe de commandes du SOUS-WIDGET : réglages (seulement s'il en a) + RETRAIT (toujours).
-              // La croix manquait sur les widgets sans réglages — Force des Devises notamment (constat
-              // user) — alors que « chaque widget doit avoir le bouton croix pour retirer ».
-              var acts = document.createElement('span');
-              acts.className = 'wdg-subgear wdgt-subacts';           // .wdg-subgear = cible du balayage
-              if (w.opts && w.opts.length) {
-                var g = document.createElement('button');
-                g.className = 'wdg-ico'; g.title = 'Réglages · ' + w.name; g.innerHTML = ICO.gear;
-                g.addEventListener('click', function (ev) { ev.stopPropagation(); API.toggleSubSettings(_pi2); });
-                acts.appendChild(g);
-              }
-              var x = document.createElement('button');
-              x.className = 'wdg-ico'; x.title = 'Retirer ' + w.name + ' — l\'onglet reste';
-              x.innerHTML = ICO.close;
-              x.addEventListener('click', function (ev) { ev.stopPropagation(); API.removeActiveTab(_pi2); });
-              acts.appendChild(x);
-              var cible = body.querySelector('.wdgt-subname')
-                || hote.querySelector('.panel-header .panel-header-controls')
-                || hote.querySelector('.wdg-fx-tfbar')
-                || hote.querySelector('.panel-toolbar');
-              if (cible) { cible.classList.add('wdgt-hasgear'); cible.appendChild(acts); }
-              else { acts.classList.add('wdg-subgear--flot'); hote.appendChild(acts); }
+            if (_pi2 == null || !hote0) return;
+            var mnt = hote0.querySelector('.wdgt-mount') || hote0;
+            // Groupe de commandes : réglages (seulement s'il en a) + RETRAIT (toujours). La croix
+            // manquait sur les widgets sans réglages — Force des Devises notamment (constat user).
+            var acts = document.createElement('span');
+            acts.className = 'wdg-subgear wdgt-subacts';           // .wdg-subgear = cible du balayage
+            if (w.opts && w.opts.length) {
+              var g = document.createElement('button');
+              g.className = 'wdg-ico'; g.title = 'Réglages · ' + w.name; g.innerHTML = ICO.gear;
+              g.addEventListener('click', function (ev) { ev.stopPropagation(); API.toggleSubSettings(_pi2, c); });
+              acts.appendChild(g);
             }
+            var x = document.createElement('button');
+            x.className = 'wdg-ico';
+            x.title = 'Retirer ' + w.name + (c == null ? ' — l\'onglet reste' : ' — la case reste');
+            x.innerHTML = ICO.close;
+            x.addEventListener('click', function (ev) { ev.stopPropagation(); API.removeActiveTab(_pi2, c); });
+            acts.appendChild(x);
+            var cible = hote0.querySelector('.wdgt-subname')
+              || mnt.querySelector('.panel-header .panel-header-controls')
+              || mnt.querySelector('.wdg-fx-tfbar')
+              || mnt.querySelector('.panel-toolbar');
+            if (cible) { cible.classList.add('wdgt-hasgear'); cible.appendChild(acts); }
+            else { acts.classList.add('wdg-subgear--flot'); mnt.appendChild(acts); }
           } catch (e) {}
         }
         function renderTabs() {
           // Libellé = TAG court du desk quand il existe (› MONDE › RISQUE › FORCE…, demande user 26/07
           // « exactement comme le desk ») ; le nom complet reste dans le title (infobulle).
           bar.innerHTML = tabs.map(function (id, i) {
-            var w = id !== 'vide' && byId(id);
-            var lbl = labels[i] || (w ? (w.tag || w.name) : 'Vide');
-            var ttl = w ? (w.name + ' — double-clic pour renommer') : 'Onglet vide — choisis un widget dans le corps';
-            return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
+            var estG = _estGrille(it, i);
+            var w = !estG && id !== 'vide' && id !== 'grille' && byId(id);
+            // Un onglet composite n'a pas UN widget : son libellé par défaut dit ce qu'il est.
+            var lbl = labels[i] || (w ? (w.tag || w.name) : (estG ? 'GRILLE' : 'Vide'));
+            var ttl = w ? (w.name + ' — double-clic pour renommer')
+              : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) — double-clic pour renommer')
+                      : 'Onglet vide — choisis sa disposition dans le corps');
+            return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w || estG ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
               + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(lbl) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet — il s\'ouvre vide, tu choisis son widget ensuite">+</button>';
         }
@@ -2068,9 +2215,12 @@
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
         function ouvreRenommage(i) {
           var t = bar.querySelector('.wdgt-tab[data-i="' + i + '"]'); if (!t) return;
-          var w0 = tabs[i] !== 'vide' && byId(tabs[i]);
-          if (!w0 && tabs[i] !== 'vide') return;
-          var def0 = w0 ? (w0.tag || w0.name) : 'Vide';       // un onglet vide se renomme aussi
+          var estG0 = _estGrille(it, i);
+          var w0 = !estG0 && tabs[i] !== 'vide' && tabs[i] !== 'grille' && byId(tabs[i]);
+          if (!w0 && tabs[i] !== 'vide' && !estG0) return;
+          // Un onglet vide se renomme aussi, et un onglet composite encore plus : c'est le seul moyen
+          // de nommer un regroupement (« Macro », « Séance US »…).
+          var def0 = w0 ? (w0.tag || w0.name) : (estG0 ? 'GRILLE' : 'Vide');
           var nm = t.querySelector('.wdgt-nm'); if (!nm) return;
           var inp = document.createElement('input');
           inp.className = 'wdgt-edit'; inp.maxLength = 18; inp.value = labels[i] || def0;
@@ -2129,7 +2279,7 @@
         renderTabs(); mountSub();
         return function () {
           _purgeSousGear();                     // l'engrenage ne repart pas avec une vue adoptée
-          if (subClean) { try { subClean(); } catch (e) {} subClean = null; }
+          _libereSous();                        // TOUS les sous-widgets, pas seulement le dernier monté
         };
       },
     },
@@ -2795,7 +2945,13 @@
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
   var _pickTab = null;                       // index d'item « Panneau à onglets » en cours d'ajout d'onglet
   var _pickTabAt = null;                     // position d'un ONGLET VIDE à remplir (sinon null = ajout en fin)
+  var _pickCell = null;                      // { j, c } : CELLULE d'un onglet composite à remplir (06/08)
   var _pickSwap = null;                      // index de la carte à REMPLACER (la bibliothèque sert alors de sélecteur)
+  // Les cinq cibles sont EXCLUSIVES : une seule vaut à la fois. Elles étaient remises à zéro de façon
+  // incohérente (openLib 2 sur 4, closeLib 3 sur 4, replaceStart 4 sur 4) → une cible fantôme pouvait
+  // survivre d'une ouverture de bibliothèque à l'autre et le clic suivant tombait au mauvais endroit.
+  // Un seul point d'oubli, appelé partout.
+  function _oublieCibles() { _pickIdx = null; _pickTab = null; _pickTabAt = null; _pickCell = null; _pickSwap = null; }
   var _justAdded = null;                     // id du widget qu'on vient d'ajouter (flash « ✓ Ajouté » sur sa carte)
   // « + » d'un Panneau à onglets → la bibliothèque choisit le SOUS-widget (ajouté comme onglet, pas
   // comme carte). `at` (03/08) : position d'un onglet VIDE → le choix REMPLIT cet onglet-là.
@@ -2803,6 +2959,13 @@
     var l = activeLayout(); if (!l) return;
     var idx = l.items.indexOf(it); if (idx < 0) return;
     API.openLib(); _pickTab = idx; _pickTabAt = (at == null ? null : at);
+  }
+  // Idem pour une CELLULE d'onglet composite (06/08). ⚠️ openLib() D'ABORD, cibles ENSUITE :
+  // openLib remet toutes les cibles à null, l'ordre inverse effacerait celle qu'on vient de poser.
+  function _pickCellFor(it, j, c) {
+    var l = activeLayout(); if (!l) return;
+    var idx = l.items.indexOf(it); if (idx < 0) return;      // par RÉFÉRENCE : la carte a pu être déplacée
+    API.openLib(); _pickTab = idx; _pickCell = { j: j, c: c };
   }
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
@@ -3198,13 +3361,14 @@ function _spansAffiches(lay) {
     // serveur ne valide que la FORME de it.cfg et n'accepte pas de tableau (cf. _wdgClean).
     // `setter` permet de viser la carte ('setOpt') ou l'onglet affiché ('setTabOpt') — c'est le
     // panneau de réglages qui le transmet, comme pour les sections du fil.
-    toggleMulti: function (i, k, val, setter) {
+    toggleMulti: function (i, k, val, setter, c) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i];
       var vise = (setter === 'setTabOpt');
-      var w = vise ? byId((it.tabs || [])[Math.min(it._tabAct | 0, (it.tabs || []).length - 1)]) : byId(it.w);
+      var jm = Math.min(it._tabAct | 0, Math.max(0, ((it.tabs || []).length - 1)));
+      var w = vise ? byId(_tabWid(it, jm, c)) : byId(it.w);
       var d = optDef(w, k); if (!d || d.type !== 'multi') return;
-      var item = vise ? _tabItem(it, Math.min(it._tabAct | 0, (it.tabs || []).length - 1)) : it;
+      var item = vise ? _tabItem(it, jm, c) : it;
       var cur = opt(item, w, k) || [];
       var apres = cur.indexOf(val) >= 0 ? cur.filter(function (x) { return x !== val; }) : cur.concat([val]);
       // On refuse de tout décocher : une carte vide n'apprend rien et l'utilisateur se retrouverait
@@ -3214,7 +3378,7 @@ function _spansAffiches(lay) {
       // rangées d'ouest en est quoi qu'il arrive.
       var rang = {}; d.choix.forEach(function (c, n) { rang[c[0]] = n; });
       apres.sort(function (a, b) { return rang[a] - rang[b]; });
-      API[setter === 'setTabOpt' ? 'setTabOpt' : 'setOpt'](i, k, apres.join('|'));
+      API[setter === 'setTabOpt' ? 'setTabOpt' : 'setOpt'](i, k, apres.join('|'), c);
     },
     setOptQuiet: function (i, k, v) {
       var l = activeLayout(); if (!l || l.items[i] == null) return;
@@ -3253,8 +3417,9 @@ function _spansAffiches(lay) {
       var w2 = byId(it.tabs[j]);
       var lb = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];
       var v2 = String(v || '').trim().slice(0, 18);
-      // Nom par défaut : tag du widget — ou « Vide » pour un onglet sans widget (renommable aussi).
-      var def = w2 ? (w2.tag || w2.name) : 'Vide';
+      // Nom par défaut : tag du widget — « Vide » pour un onglet sans widget, « GRILLE » pour un
+      // onglet composite. Sans ce dernier cas, saisir « GRILLE » serait pris pour un nom personnalisé.
+      var def = w2 ? (w2.tag || w2.name) : (_estGrille(it, j) ? 'GRILLE' : 'Vide');
       var suiv = (v2 && v2 !== def) ? v2 : '';   // vide ou nom d'origine → pas de libellé perso
       // SANS CHANGEMENT → ON NE RE-REND RIEN. Cliquer le × d'une ligne dont le champ a le focus
       // déclenche blur → change → re-rendu du volet : le bouton visé serait remplacé sous la souris
@@ -3277,9 +3442,27 @@ function _spansAffiches(lay) {
       // affiche encore un ×, le dernier onglet d'un panneau ne part jamais.
       if (it.tabs.length <= 1) { _syncPanel(i); return; }
       var w2 = byId(it.tabs[j]);
-      var snapTabs = it.tabs.slice(), snapLb = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];
+      // SNAPSHOT PROFOND DES QUATRE CHAMPS. `it.tabs.slice()` seul ne suffisait plus : l'annulation
+      // rendait l'onglet mais pas sa disposition ni ses réglages.
+      var snap = JSON.parse(JSON.stringify({
+        tabs: it.tabs, tabLabels: it.tabLabels || null, tabGrid: it.tabGrid || null, tabCfg: it.tabCfg || null,
+      }));
       it.tabs.splice(j, 1);
       if (Array.isArray(it.tabLabels)) it.tabLabels.splice(j, 1);
+      // ⚠️ tabGrid ET tabCfg sont indexés POSITIONNELLEMENT, sans clé stable : un splice non
+      // synchronisé fait glisser la disposition et les réglages sur l'onglet VOISIN. Le décalage de
+      // tabCfg existait déjà avant les onglets composites — il est corrigé ici, une fois.
+      if (Array.isArray(it.tabGrid)) it.tabGrid.splice(j, 1);
+      if (it.tabCfg) {
+        var tc2 = {};
+        Object.keys(it.tabCfg).forEach(function (k) {
+          var m = /^(\d{1,2})(-\d{1,2})?$/.exec(k); if (!m) return;
+          var n = parseInt(m[1], 10);
+          if (n === j) return;                                   // les réglages de l'onglet retiré partent avec lui
+          tc2[(n > j ? n - 1 : n) + (m[2] || '')] = it.tabCfg[k];
+        });
+        if (Object.keys(tc2).length) it.tabCfg = tc2; else delete it.tabCfg;
+      }
       if ((it._tabAct | 0) >= it.tabs.length) it._tabAct = Math.max(0, it.tabs.length - 1);
       save(); _syncPanel(i); API.refresh(i);
       // Filet : le retrait est réversible. ANNULATION PAR RÉFÉRENCE, pas par index (revue
@@ -3294,7 +3477,10 @@ function _spansAffiches(lay) {
           return ly && ly.items && ly.items.indexOf(itRef) >= 0;
         });
         if (!present) return;
-        itRef.tabs = snapTabs.slice(); itRef.tabLabels = snapLb.slice();
+        itRef.tabs = snap.tabs.slice();
+        if (snap.tabLabels) itRef.tabLabels = snap.tabLabels.slice(); else delete itRef.tabLabels;
+        if (snap.tabGrid) itRef.tabGrid = snap.tabGrid.slice(); else delete itRef.tabGrid;
+        if (snap.tabCfg) itRef.tabCfg = JSON.parse(JSON.stringify(snap.tabCfg)); else delete itRef.tabCfg;
         save();
         var cur = activeLayout(); var idx = cur && cur.items ? cur.items.indexOf(itRef) : -1;
         if (idx >= 0) { _syncPanel(idx); API.refresh(idx); }   // visible seulement si la carte est sur le desk actif
@@ -3314,65 +3500,108 @@ function _spansAffiches(lay) {
       API.setOpt(i, 'off', cur.join('|'));
     },
     // Même bascule, mais pour un fil-news affiché DANS UN ONGLET (écrit dans it.tabCfg[index]).
-    toggleNewsSectionTab: function (i, cat) {
+    toggleNewsSectionTab: function (i, cat, c) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
       var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
-      var w = byId(it.tabs[j]); if (!w || w.id !== 'fil-news') return;
-      var cur = String(opt(_tabItem(it, j), w, 'off') || '').split('|').filter(Boolean);
+      var w = byId(_tabWid(it, j, c)); if (!w || w.id !== 'fil-news') return;
+      var cur = String(opt(_tabItem(it, j, c), w, 'off') || '').split('|').filter(Boolean);
       var k = cur.indexOf(cat);
       if (k >= 0) cur.splice(k, 1); else cur.push(cat);
-      API.setTabOpt(i, 'off', cur.join('|'));
+      API.setTabOpt(i, 'off', cur.join('|'), c);
     },
     // RÉGLAGES PROPRES À L'ONGLET AFFICHÉ (04/08) — miroir de setOpt/bumpOpt, mais la valeur est
     // écrite dans it.tabCfg[index] (whitelisté serveur) au lieu du cfg de la carte.
-    setTabOpt: function (i, k, v) {
+    // `c` (06/08) = index de CELLULE quand l'onglet est composite. La config va alors sous la clé
+    // « <onglet>-<cellule> » (acceptée par le sanitizer depuis la même livraison) au lieu de « <onglet> ».
+    setTabOpt: function (i, k, v, c) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
       var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
-      var w = byId(it.tabs[j]), d = optDef(w, k); if (!d) return;
+      var w = byId(_tabWid(it, j, c)), d = optDef(w, k); if (!d) return;
+      var kc = (c == null ? String(j) : (j + '-' + c));
       if (!it.tabCfg) it.tabCfg = {};
-      var cfg = it.tabCfg[j] || (it.tabCfg[j] = {});
+      var cfg = it.tabCfg[kc] || (it.tabCfg[kc] = {});
       if (d.type === 'nombre') v = _clamp(parseInt(v, 10) || d.def, d.min, d.max);
       if (v === d.def) delete cfg[k]; else cfg[k] = v;
-      if (!Object.keys(cfg).length) delete it.tabCfg[j];
+      if (!Object.keys(cfg).length) delete it.tabCfg[kc];
       if (it.tabCfg && !Object.keys(it.tabCfg).length) delete it.tabCfg;
       save(); _syncPanel(i); API.refresh(i);
       // Le panneau du sous-widget reste OUVERT et se met à jour (on enchaîne plusieurs réglages
       // sans le rouvrir) — API.refresh ne touche que le corps de la carte, pas les panneaux.
       var sp = document.getElementById(HOST_ID + '-ss' + i);
-      if (sp && !sp.hidden) sp.innerHTML = _subPanelHtml(i);
+      if (sp && !sp.hidden) sp.innerHTML = _subPanelHtml(i, _ssCell[i]);
     },
-    bumpTabOpt: function (i, k, d) {
+    bumpTabOpt: function (i, k, d, c) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
       var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
-      var w = byId(it.tabs[j]), def = optDef(w, k); if (!def || def.type !== 'nombre') return;
-      var cur = opt(_tabItem(it, j), w, k);
-      API.setTabOpt(i, k, _clamp((cur | 0) + (d | 0) * (def.pas || 1), def.min, def.max));
+      var w = byId(_tabWid(it, j, c)), def = optDef(w, k); if (!def || def.type !== 'nombre') return;
+      var cur = opt(_tabItem(it, j, c), w, k);
+      API.setTabOpt(i, k, _clamp((cur | 0) + (d | 0) * (def.pas || 1), def.min, def.max), c);
     },
     // « − » de l'en-tête du panneau à onglets (03/08, précision user « juste le widget, pas
     // l'onglet ») : VIDE l'onglet affiché — le widget s'en va, l'onglet reste (nom conservé) et
     // son corps propose « + Choisir un widget ». L'onglet entier, lui, se retire depuis les
     // Réglages (×). Index actif lu au clic (volatile it._tabAct) ; annulable 7 s.
-    removeActiveTab: function (i) {
+    removeActiveTab: function (i, c) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs) || !it.tabs.length) return;
       var j = Math.min(it._tabAct | 0, it.tabs.length - 1);
+      var itRef = it;                                        // annulation PAR RÉFÉRENCE : l'objet survit aux déplacements
+      // CAS COMPOSITE : la croix d'une case vide LA CASE, pas l'onglet entier. L'onglet ne
+      // redevient « vide » (et ne perd sa disposition) que lorsqu'il ne reste plus rien dedans —
+      // sinon un clic sur la dernière croix effacerait un agencement de 4 widgets d'un coup.
+      if (c != null && _estGrille(it, j)) {
+        var g = _gridParse(_gridOf(it, j)); if (!g) return;
+        var prevC = g.ids[c];
+        if (!prevC || prevC === 'vide') return;
+        var wc = byId(prevC);
+        var avant = _gridOf(it, j), avantVide = false;
+        g.ids[c] = 'vide';
+        if (g.ids.every(function (x) { return x === 'vide'; })) { _clearGrid(it, j); avantVide = true; }
+        else it.tabGrid[j] = _gridStr(g.code, g.ids);
+        save(); _syncPanel(i); API.refresh(i);
+        _undoOffer((wc ? wc.name : 'Widget') + ' retiré — la case reste', function () {
+          if (!itRef || itRef.w !== 'onglets' || !Array.isArray(itRef.tabs)) return;
+          if (!Array.isArray(itRef.tabGrid)) itRef.tabGrid = [];
+          itRef.tabGrid[j] = avant; if (avantVide) itRef.tabs[j] = 'grille';
+          save();
+          var cur0 = activeLayout(); var i0 = cur0 && cur0.items ? cur0.items.indexOf(itRef) : -1;
+          if (i0 >= 0) { _syncPanel(i0); API.refresh(i0); }
+        });
+        return;
+      }
       var prev = it.tabs[j];
       if (prev === 'vide') return;                           // déjà vide → rien à retirer
-      var w2 = byId(prev);
-      it.tabs[j] = 'vide';
+      // Un onglet composite entier : on mémorise AUSSI sa disposition, sinon l'annulation
+      // rendrait l'onglet mais pas son agencement.
+      var prevG = _gridOf(it, j);
+      var w2 = (prev === 'grille') ? null : byId(prev);
+      _clearGrid(it, j);
       save(); _syncPanel(i); API.refresh(i);
-      // Annulation PAR RÉFÉRENCE (même règle que removeTab) : l'objet survit aux déplacements.
-      var itRef = it;
-      _undoOffer((w2 ? w2.name : 'Widget') + ' retiré — l\'onglet reste', function () {
+      _undoOffer((w2 ? w2.name : (prev === 'grille' ? 'Disposition' : 'Widget')) + ' retiré — l\'onglet reste', function () {
         if (!itRef || itRef.w !== 'onglets' || !Array.isArray(itRef.tabs)) return;
-        if (itRef.tabs[j] === 'vide') itRef.tabs[j] = prev;
+        if (itRef.tabs[j] === 'vide') {
+          itRef.tabs[j] = prev;
+          if (prevG) { if (!Array.isArray(itRef.tabGrid)) itRef.tabGrid = []; itRef.tabGrid[j] = prevG; }
+        }
         save();
         var cur = activeLayout(); var idx = cur && cur.items ? cur.items.indexOf(itRef) : -1;
         if (idx >= 0) { _syncPanel(idx); API.refresh(idx); }
       });
+    },
+    // Applique une DISPOSITION à l'onglet affiché (06/08). Sentinel et disposition écrits dans le
+    // MÊME save : jamais l'un sans l'autre, sinon un onglet 'grille' sans disposition s'afficherait
+    // vide chez le prochain client à le lire.
+    setTabDispo: function (i, j, code) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (it.w !== 'onglets' || !Array.isArray(it.tabs)) return;
+      var d = _dispoByCode(code); if (!d || j == null || j < 0 || j >= it.tabs.length) return;
+      var ids = []; for (var k = 0; k < d.n; k++) ids.push('vide');
+      _setGrid(it, j, d.code, ids);
+      it._tabAct = j;
+      save(); _syncPanel(i); API.refresh(i);
     },
     refresh: function (i) {                                  // re-monte CE widget seul (rafraîchit sa donnée)
       var l = activeLayout(); if (!l || !l.items[i]) return;
@@ -3389,20 +3618,22 @@ function _spansAffiches(lay) {
     replaceStart: function (i) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       if (l.items[i].locked) return _undoOffer('Carte verrouillée : déverrouille-la pour la remplacer.');
-      _closePops(); _pickIdx = null; _pickTab = null; _pickTabAt = null; _pickSwap = i;
-      API.openLib();
+      _closePops(); API.openLib(); _pickSwap = i;   // openLib oublie TOUTES les cibles → on pose la nôtre après
     },
     toggleInfo: function (i) { _togglePop(i, 'i'); },
     toggleSettings: function (i) { _togglePop(i, 's'); },
     closePops: function () { _closePops(); },              // croix des panneaux de réglages
     // Réglages du widget DANS l'onglet : panneau propre, rempli à l'ouverture (l'onglet actif peut
     // avoir changé depuis le dernier rendu de la carte).
-    toggleSubSettings: function (i) {
+    toggleSubSettings: function (i, c) {
       var pop = document.getElementById(HOST_ID + '-ss' + i); if (!pop) return;
-      var ouvert = !pop.hidden;
+      // Onglet composite : re-cliquer sur l'engrenage d'une AUTRE case ne doit pas fermer le
+      // panneau, mais basculer dessus — sinon il faudrait deux clics pour passer d'une case à l'autre.
+      var ouvert = !pop.hidden && _ssCell[i] === (c == null ? null : c);
       _closePops();
-      if (ouvert) return;                                   // re-clic = fermeture
-      pop.innerHTML = _subPanelHtml(i);
+      if (ouvert) { _ssCell[i] = undefined; return; }        // re-clic sur la MÊME case = fermeture
+      _ssCell[i] = (c == null ? null : c);
+      pop.innerHTML = _subPanelHtml(i, _ssCell[i]);
       pop.hidden = false;
     },
     add: function (wid) {
@@ -3418,6 +3649,21 @@ function _spansAffiches(lay) {
           _swapBack = { i: _pickSwap, it: old };
         }
         _pickSwap = null; API.closeLib();
+        return;
+      }
+      // CELLULE d'un onglet composite — testée AVANT les branches d'onglet : sans ça, le clic
+      // retomberait sur « ajouter un onglet en fin » (la comparaison `tabs[at] === 'vide'` est fausse
+      // pour un onglet 'grille') et créerait un onglet parasite au lieu de remplir la case visée.
+      if (_pickCell && _pickTab != null && l.items[_pickTab] && l.items[_pickTab].w === 'onglets' && wid !== 'onglets') {
+        var pc = l.items[_pickTab], jc = _pickCell.j, cc = _pickCell.c;
+        var gc = _gridParse(_gridOf(pc, jc));
+        if (gc && cc >= 0 && cc < gc.ids.length) {
+          gc.ids[cc] = wid;
+          pc.tabGrid[jc] = _gridStr(gc.code, gc.ids);
+          pc._tabAct = jc;
+          save(); API.closeLib(); renderGrid();
+        }
+        _pickCell = null;
         return;
       }
       if (_pickTab != null && l.items[_pickTab] && l.items[_pickTab].w === 'onglets') {
@@ -3472,13 +3718,13 @@ function _spansAffiches(lay) {
     openLib: function () {
       _closePops();                                   // un panneau de carte ne doit pas flotter au-dessus de la modale
       var d = document.getElementById('wdg-lib'); if (!d) return;
-      d.classList.add('open'); _libQ = ''; _pickIdx = null; _pickTab = null;
+      d.classList.add('open'); _libQ = ''; _oublieCibles();
       var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
       _syncDensity();                                           // le réglage d'espacement vit ICI (barre épurée)
       API.filterFam('');                                        // repart sur « Tous » (chips + rendu)
     },
     closeLib: function () {
-      _pickSwap = null; var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _pickIdx = null; _pickTab = null; },
+      var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _oublieCibles(); },
     filterLib: function (q) { _libQ = String(q || '').trim(); renderLib(); },
     filterFam: function (f) {                                   // puces de catégories (Tous · Analyse · Données · Modèles)
       _libFam = String(f || '');
@@ -3525,12 +3771,33 @@ function _spansAffiches(lay) {
               // à onglets vides et remettait tous les réglages par défaut.
               var o = _normItem({ w: it.w, gw: it.gw, gh: it.gh, h: it.h, col: it.col, locked: !!it.locked });
               if (Array.isArray(it.tabs)) {
-                var tabs = it.tabs.filter(function (t) { return typeof t === 'string' && byId(t); }).slice(0, 8);
+                // BUG CORRIGÉ 06/08 : ce chemin était resté au CAP 8 alors que le serveur et les deux
+                // chemins d'ajout sont à 12 — réimporter son propre export de « Vue générale »
+                // (9 onglets) perdait TAUX et BANQUES. Et le filtre `byId(t)` jetait les SENTINELS :
+                // les onglets vides disparaissaient, les composites aussi.
+                var tabs = it.tabs.filter(function (t) {
+                  return typeof t === 'string' && (t === 'vide' || t === 'grille' || byId(t));
+                }).slice(0, 12);
                 if (tabs.length) {
                   o.tabs = tabs;
                   if (Array.isArray(it.tabLabels)) {
                     var tl = it.tabLabels.slice(0, tabs.length).map(function (s) { return typeof s === 'string' ? s.replace(/[<>]/g, '').trim().slice(0, 18) : ''; });
                     if (tl.some(Boolean)) o.tabLabels = tl;
+                  }
+                  // Dispositions et réglages par onglet/case : sans cette reprise, un export/import
+                  // raserait tout l'agencement interne des panneaux.
+                  if (Array.isArray(it.tabGrid)) {
+                    var tg = it.tabGrid.slice(0, tabs.length).map(function (s) { return typeof s === 'string' ? s.replace(/[^a-z0-9|:-]/g, '').slice(0, 240) : ''; });
+                    if (tg.some(Boolean)) o.tabGrid = tg;
+                  }
+                  if (it.tabCfg && typeof it.tabCfg === 'object' && !Array.isArray(it.tabCfg)) {
+                    var tc = {};
+                    Object.keys(it.tabCfg).forEach(function (k) {
+                      if (!/^\d{1,2}(-\d{1,2})?$/.test(k) || parseInt(k, 10) >= tabs.length) return;
+                      var s2 = it.tabCfg[k];
+                      if (s2 && typeof s2 === 'object' && !Array.isArray(s2)) tc[k] = s2;
+                    });
+                    if (Object.keys(tc).length) o.tabCfg = tc;
                   }
                 }
               }
@@ -3768,6 +4035,12 @@ function _spansAffiches(lay) {
     },
   };
   window.DTPWidgets = API;
+  // Crochets de BANC (non documentés, sans effet en production) : ils donnent accès à l'état et au
+  // rendu pour pouvoir vérifier au navigateur, sur le vrai desk, ce qu'un test unitaire ne prouve
+  // pas — que la grille d'un onglet composite tient réellement dans sa carte.
+  API._banc = function () { return STATE; };
+  API._render = function () { renderGrid(); };
+  API._save = function () { save(); };
 
   // ── DÉTAIL MACRO d'une devise (widget Radar de Biais) : le VRAI panneau du desk (_sbOpenDetail mode widget),
   //    rendu dans un overlay Mon Desk (mêmes classes .wdg-lib → backdrop flouté + boîte, identité desk). ──
