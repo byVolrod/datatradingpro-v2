@@ -239,6 +239,7 @@ const _INTERNAL_TOKEN = process.env.DTP_INTERNAL_TOKEN || require('crypto').rand
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
 // 1 clic (fini le « pas à jour » quand la session reste ouverte après un déploiement).
+const _BOOT_TS = Date.now();   // demarrage du process — sert a prouver qu un deploiement SERVEUR est bien en ligne
 let BUILD_VERSION = '';
 try { BUILD_VERSION = (fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').match(/app\.js\?v=([0-9A-Za-z]+)/) || [])[1] || ''; } catch {}
 
@@ -376,7 +377,11 @@ app.use(express.json({ limit: '2mb' }));   // 2 Mo : autorise les pièces jointe
 // Health check (public) — pour le monitoring / keep-alive (Render, UptimeRobot…)
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
 // Version du build courant → le client détecte un nouveau déploiement et propose un rechargement.
-app.get('/api/version', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json({ v: BUILD_VERSION }); });
+// `boot` = heure de demarrage du process. ANGLE MORT COMBLE (06/08) : `v` est le jeton de cache lu dans
+// index.html, donc un changement PUREMENT SERVEUR (ex. decaler un envoi planifie) laisse `v` identique —
+// impossible de prouver que le conteneur tourne bien sur le nouveau code sans bumper un asset pour rien.
+// Avec `boot`, une date de demarrage posterieure au push suffit a le prouver.
+app.get('/api/version', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json({ v: BUILD_VERSION, boot: _BOOT_TS }); });
 
 // robots.txt du DESK (Bing WMT 16/07 « meta robots à revoir ») : la page de CONNEXION est indexable
 // (requêtes navigationnelles « datatradingpro connexion ») ; tout le reste de l'app reste fermé aux
@@ -822,6 +827,20 @@ function _wdgClean(body) {
               .map(s => (typeof s === 'string' ? s.replace(/[<>]/g, '').trim().slice(0, 18) : ''));
             if (tl.some(Boolean)) o.tabLabels = tl;
           }
+          // DISPOSITION D'UN ONGLET (06/08) : un onglet peut contenir NON PAS un widget mais une petite
+          // grille de 2 à 4 widgets. Le modèle garde `tabs` en CHAÎNES — l'onglet composite y est le
+          // sentinel « grille » (qui passe déjà _WDG_ID_RX, comme « vide ») — et la disposition vit dans
+          // ce tableau PARALLÈLE, aligné positionnellement, exactement comme tabLabels.
+          //   forme d'une entrée : "<code>:<id>|<id>…"   ex. "2c:calendrier-jour|vue-taux"
+          //   entrée vide ('') = onglet simple, le comportement d'avant.
+          // Passer par des objets dans `tabs` aurait été bien pire : le filtre l.820 les jetterait, et
+          // comme tabLabels ET tabCfg sont conditionnés à `o.tabs`, un panneau aurait perdu d'un coup
+          // ses onglets, ses noms ET ses réglages. On valide la FORME, pas le sens.
+          if (o.tabs && Array.isArray(it.tabGrid)) {
+            const tg = it.tabGrid.slice(0, o.tabs.length)
+              .map(s => (typeof s === 'string' ? s.replace(/[^a-z0-9|:-]/g, '').slice(0, 240) : ''));
+            if (tg.some(Boolean)) o.tabGrid = tg;
+          }
           // RÉGLAGES PAR WIDGET (contrat déclaratif du front, 28/07) — tout tient dans UN seul champ `cfg`.
           // C'est délibéré : le serveur n'a pas à connaître le catalogue front, donc AJOUTER UN RÉGLAGE
           // NE DEMANDE PLUS DE TOUCHER À CE SANITIZER (le piège « champ non repris ici = détruit au save »
@@ -847,8 +866,11 @@ function _wdgClean(body) {
           // détruit au save — le piège documenté juste au-dessus.
           if (o.tabs && it.tabCfg && typeof it.tabCfg === 'object' && !Array.isArray(it.tabCfg)) {
             const tc = {};
-            for (const k of Object.keys(it.tabCfg).slice(0, 12)) {
-              if (!/^\d{1,2}$/.test(k) || +k >= o.tabs.length) continue;      // clé = index d'onglet existant
+            // Clé = index d'onglet (« 3 »), OU index d'onglet + index de CELLULE pour un onglet composite
+            // (« 3-1 » = 2e cellule du 4e onglet). Sans le second membre, un réglage de cellule serait
+            // rejeté ici EN SILENCE : pris à l'écran, revenu au défaut au rechargement.
+            for (const k of Object.keys(it.tabCfg).slice(0, 48)) {
+              if (!/^\d{1,2}(-\d{1,2})?$/.test(k) || parseInt(k, 10) >= o.tabs.length) continue;
               const src = it.tabCfg[k];
               if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
               const one = {};
