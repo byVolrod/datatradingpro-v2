@@ -707,7 +707,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   const yAxis = chart.yAxes.push(
     // extraMin/Max = marge HAUT/BAS (~7%) → la devise la plus forte/faible (ex. USD au sommet) et son
     // étiquette ne sont JAMAIS coupées au bord du graphique. maxDeviation 0 = zoom Y rigide (drag net).
-    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0.04, extraMax: 0.04 })
+    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0.07, extraMax: 0.07 })
   );
 
   // Zero reference line : gris clair UNI (distincte de la grille pointillée)
