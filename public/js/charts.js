@@ -3962,12 +3962,20 @@ async function _calValueBlockHtml(ev) {
     const speaker = spk ? spk[1] : '';
     // SOURCE PRIMAIRE = serveur (14 j d'historique, cf. /api/cb-quotes) : extraits du discours du speaker,
     // sinon des propos récents de la banque. REPLI instantané = fil en mémoire (au cas où le serveur cale).
-    let quotes = [], quotesLbl = 'Propos récents';
+    // ⚠️ DIRE LE TEMPS QU IL EST (06/08, question user : « comment on peut prevoir les discours ? »).
+    // On ne prevoit RIEN. Quand l evenement est A VENIR, les propos affiches sont ceux d AVANT — ceux
+    // d un autre intervenant, plus tot dans la journee ou la semaine. Le libelle « Propos de la banque »
+    // ne le disait pas, et on pouvait lire le ton comme celui du discours qui n a pas encore eu lieu.
+    // Le titre du bloc porte desormais la difference : « DERNIERS propos avant ce discours » si
+    // l evenement est futur, « Propos recents » s il a deja eu lieu.
+    const _quandEv = (ev && (ev.ts || ev.timestamp || (ev.date ? Date.parse(ev.date) : 0))) || 0;
+    const _discoursAVenir = _quandEv > Date.now() + 60000;
+    let quotes = [], quotesLbl = _discoursAVenir ? 'Derniers propos avant ce discours' : 'Propos récents';
     try {
       const srv = await _calCbQuotesGet(ev.currency, speaker);
       if (srv && srv.quotes && srv.quotes.length) {
         quotes = srv.quotes.map(q => ({ h: q.h, ts: q.ts || 0 }));
-        if (spk && !srv.speaker) quotesLbl = 'Propos de la banque';   // repli banque (speaker sans propos propres)
+        if (spk && !srv.speaker) quotesLbl = _discoursAVenir ? 'Derniers propos de la banque' : 'Propos de la banque';   // repli banque (speaker sans propos propres)
       }
     } catch {}
     if (!quotes.length) {   // repli fil en mémoire (client court)
@@ -3976,7 +3984,7 @@ async function _calValueBlockHtml(ev) {
       const cutoff = Date.now() - 30 * 86400e3;
       const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline)).map(i => ({ h: i.headline, ts: i.timestamp || 0 }));   // « Fed's Logan: … » = propos rapporté
       quotes = pool.filter(i => nameRx.test(i.h));
-      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.h)); quotesLbl = 'Propos de la banque'; }
+      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.h)); quotesLbl = _discoursAVenir ? 'Derniers propos de la banque' : 'Propos de la banque'; }
     }
     // Découpe (attribution + déclaration VO) + classe chaque propos ; PRIORITÉ à ceux qui portent un SIGNAL
     // (hawkish/dovish/hold) — ce sont eux qui aident à interpréter la prochaine réunion — puis les plus récents.
