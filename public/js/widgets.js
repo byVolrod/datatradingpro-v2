@@ -2862,7 +2862,18 @@
         + '<span class="wdg-mgr-face">' + _thumb(l.items, { labels: true }) + '</span>'
         + (active ? '<span class="wdg-mgr-badge">Actif</span>' : '')
         + '<span class="wdg-mgr-acts">'
-        +   '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Layout par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="' + stop + 'DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
+        // ÉTOILE MUETTE → PASTILLE LISIBLE (06/08). Un ★ seul dans une rangée de trois icônes
+        // n'apprend rien : il fallait survoler pour découvrir ce qu'il faisait. La pastille est à la
+        // fois l'INDICATEUR (on voit d'un coup d'œil quel layout s'ouvrira) et la COMMANDE.
+        +   '<button class="wdg-mgr-def' + (l.fav ? ' on' : '') + '"'
+        +     ' title="' + (l.fav
+                  ? 'C\'est le layout qui s\'ouvre à l\'arrivée sur Mon Desk. Cliquer pour ne plus l\'imposer (retour au dernier utilisé).'
+                  : 'Faire de « ' + esc(l.name) + ' » le layout qui s\'ouvre à l\'arrivée sur Mon Desk.') + '"'
+        +     ' onclick="' + stop + 'DTPWidgets.toggleFav(\'' + l.id + '\')">'
+        // Même libellé dans les deux états, à dessein : c'est l'étoile pleine et le fond doré qui
+        // disent « c'est celui-là », pas un changement de mot. Le sens du clic est dans l'infobulle.
+        +     '<i>' + (l.fav ? '★' : '☆') + '</i><span>Par défaut</span>'
+        +   '</button>'
         +   '<button class="wdg-mgr-eye' + (l.hidden ? '' : ' on') + '" title="' + (l.hidden ? 'Afficher aussi dans la barre (plusieurs layouts côte à côte)' : 'Ne plus afficher dans la barre') + '" onclick="' + stop + 'DTPWidgets.toggleHide(\'' + l.id + '\')">'
         +     (l.hidden
                 ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/></svg>'
@@ -2882,6 +2893,8 @@
       + '</div>'
       + (c.layouts.length >= _LMAX ? '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>' : '')
       // Les MODÈLES PRÊTS ne vivent plus ici (ils brouillaient la création) : ils restent dans la bibliothèque.
+      // Une phrase, une fois : le sens de « Par défaut » ne doit pas dépendre d'un survol.
+      + '<div class="wdg-mgr-tplhint"><b class="wdg-mgr-hint-k"><i>★</i> Par défaut</b> = le layout qui s\'ouvre à votre arrivée sur Mon Desk. Sans étoile, c\'est le dernier utilisé qui revient.</div>'
       + '<div class="wdg-mgr-tplhint">Envie d\'un desk pré-composé ? Les modèles prêts sont dans la <button class="wdg-mgr-tpllink" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">bibliothèque de widgets</button>.</div>';
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
