@@ -16034,3 +16034,73 @@ body.dtp-admin .view-panel > .panel > .panel-header {
 @media (max-width: 560px){
   .home-card--visu .home-card-face .wdg-thumb--lbl b{ font-size: 7.5px; }
 }
+
+/* ══ COMMANDES POSÉES SUR L'APERÇU : lisibles sur n'importe quel fond (06/08) ═════════════════════
+   Tant que la miniature était noire, un simple flou suffisait. Maintenant qu'elle porte des blocs
+   colorés, l'étoile et les icônes se perdaient dedans — surtout sur un bloc clair. On leur donne
+   leur PROPRE fond opaque, dans les tons de la maison : plaque sombre, hairline dorée discrète.
+   C'est la même solution que la barre d'actions d'une carte du desk, posée sur un graphe. */
+.wdg-mgr-acts > button,
+.wdg-mgr-acts > .wdg-mgr-lock,
+.wdg-mgr-def{
+  background: rgba(10, 10, 12, .86) !important;
+  border: 1px solid rgba(255, 255, 255, .10);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+  color: var(--w-t2, #c8ccd4);
+}
+.wdg-mgr-acts > button:hover,
+.wdg-mgr-def:hover{
+  background: rgba(16, 16, 19, .95) !important;
+  border-color: rgba(227, 178, 58, .55);
+  color: var(--orange, #e3b23a);
+}
+/* Posée, la pastille reste dorée — mais sur plaque sombre, donc lisible même sur un bloc clair. */
+.wdg-mgr-def.on{
+  background: rgba(10, 10, 12, .90) !important;
+  border-color: rgba(227, 178, 58, .70);
+  color: var(--orange, #e3b23a);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(227, 178, 58, .16);
+}
+/* Le badge « Actif » suit la même règle : il est posé sur l'aperçu lui aussi. */
+.wdg-mgr-badge{
+  background: rgba(10, 10, 12, .88);
+  border-color: rgba(227, 178, 58, .60);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+}
+/* L'étoile de la carte d'accueil, elle, est posée directement sur la miniature. */
+.home-card--visu .home-card-fav{
+  width: 20px; height: 20px; border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(10, 10, 12, .86);
+  border: 1px solid rgba(227, 178, 58, .55);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+  font-size: 11px; line-height: 1;
+}
+.home-card--visu .home-card-fav:empty{ display: none; }   /* pas de plaque vide sur les desks non favoris */
+
+/* ══ TAGS DU FIL D'ACTUALITÉ : un cran plus lisibles, pas plus bruyants (06/08) ═══════════════════
+   Mesuré avant de toucher : les tags COLORÉS (Breaking…) étaient déjà bons — ils portent un fond.
+   Les tags NEUTRES, eux, n'en avaient aucun : texte nu sur la carte, ils se fondaient dedans et ne
+   se lisaient pas comme des étiquettes. On leur donne la même grammaire de puce que le reste du
+   desk — plaque discrète, filet fin — et un demi-point de graisse. Volontairement léger : ces tags
+   accompagnent le titre, ils ne doivent pas lui disputer l'attention. */
+.news-tags .tag{
+  font-size: 11.5px;
+  font-weight: var(--fw-semibold, 600);
+  padding: 2px 9px;
+}
+/* Uniquement les NEUTRES : ceux qui ont déjà une couleur gardent la leur. */
+.news-tags .tag:not([class*="tag--"]){
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid rgba(255, 255, 255, .07);
+  color: var(--w-t2, #c8ccd4);
+}
+.news-item:hover .news-tags .tag:not([class*="tag--"]){
+  border-color: rgba(227, 178, 58, .26);
+  color: var(--text1, #ecedf2);
+}
+/* Thème clair : la plaque doit assombrir, pas éclaircir. */
+html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
+  background: rgba(0, 0, 0, .045);
+  border-color: rgba(0, 0, 0, .09);
+}

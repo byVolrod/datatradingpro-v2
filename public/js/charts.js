@@ -564,6 +564,21 @@ const STF_ORDER  = ['today', 'week', '8h', '1d', '7d', '1m'];   // 5D retiré
    Même architecture que l'historique de recherche de symboles, validée par l'utilisateur. */
 const STF_DEF = { L: 'today', R: 'week' };
 let _stfPref = null;
+let _stfSale = false;                     // vrai tant que le compte n a pas confirme l enregistrement
+// FILET DE DEPART DE PAGE : si l ecriture n a pas abouti au moment ou l onglet se ferme ou navigue,
+// on la rejoue en keepalive. C est le meme filet que _flush() pour les layouts, et il couvre le cas
+// exact decrit par l utilisateur : changer de periode puis se deconnecter dans la foulee.
+(function () {
+  var renvoi = function () {
+    if (!_stfSale || !_stfPref) return;
+    try {
+      fetch('/api/strength-tf', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_stfPref), keepalive: true }).catch(function () {});
+    } catch (e) {}
+  };
+  window.addEventListener('pagehide', renvoi);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) renvoi(); });
+})();
 function _stfLocal() {
   try { const j = JSON.parse(localStorage.getItem('dtp_stf_tf') || 'null');
         if (j && STF_ORDER.includes(j.L) && STF_ORDER.includes(j.R)) return j; } catch (e) {}
@@ -573,11 +588,22 @@ function _stfSet(side, per) {
   if (!STF_ORDER.includes(per)) return;
   _stfPref = Object.assign({}, _stfPref || _stfLocal() || STF_DEF);
   _stfPref[side] = per;
+  _stfSale = true;                        // en attente de confirmation du compte
   try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
   // Écriture serveur au fil de l'eau : un clic = un enregistrement, pas de bouton à penser.
   try {
-    fetch('/api/strength-tf', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(_stfPref) }).catch(function () {});
+    // ⚠️ keepalive : SANS lui, la requête est ANNULÉE si la page part avant qu'elle n'aboutisse —
+    // et c'est exactement le geste de l'utilisateur qui la déclenche : il change de période puis
+    // quitte ou se déconnecte. Le choix semblait pris (l'affichage suivait, via le cache local) mais
+    // n'atteignait jamais le compte. Le dépôt utilise déjà ce garde-fou pour l'écriture des layouts.
+    // On note aussi l'échec : un refus silencieux est ce qui a rendu ce bug invisible.
+    fetch('/api/strength-tf', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_stfPref), keepalive: true,
+    }).then(function (r) {
+      if (!r.ok) console.warn('[Force] période non enregistrée sur le compte — HTTP', r.status);
+      else _stfSale = false;
+    }).catch(function (e) { console.warn('[Force] période non enregistrée :', e && e.message); });
   } catch (e) {}
 }
 async function _stfCharger() {
