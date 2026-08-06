@@ -707,7 +707,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   const yAxis = chart.yAxes.push(
     // extraMin/Max = marge HAUT/BAS (~7%) → la devise la plus forte/faible (ex. USD au sommet) et son
     // étiquette ne sont JAMAIS coupées au bord du graphique. maxDeviation 0 = zoom Y rigide (drag net).
-    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0.07, extraMax: 0.07 })
+    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0.04, extraMax: 0.04 })
   );
 
   // Zero reference line : gris clair UNI (distincte de la grille pointillée)
@@ -733,6 +733,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
   }
   let scaleFactor = computeScale(data);
 
+  // ÉPAISSEUR SELON LA DENSITÉ MESURÉE, jamais selon la période. 1,8 px pour un pas de 3 px (TD) est
+  // juste ; le MÊME 1,8 px pour un pas de 0,65 px (TW) donne un trait trois fois plus large que le
+  // pas — les segments se recouvrent et les huit courbes s'empâtent en une seule masse. On mesure le
+  // rapport points/pixel sur la largeur RÉELLE du conteneur, on ne déduit rien de l'onglet choisi.
+  const _gouttiere = _avecValeur ? (_csEtroit ? 84 : 70) : (_csEtroit ? 56 : 50);
+  const _plotW = Math.max(200, ((container && container.clientWidth) || 900) - _gouttiere);
+  const _nPts = Math.max.apply(null, (data.currencies || []).map(function (c) { return (data.series[c] || []).length; }).concat([0]));
+  const _ptPx = _nPts / _plotW;
+  const _sw = _ptPx > 0.9 ? 1.3 : _ptPx > 0.5 ? 1.5 : 1.8;
+
   for (const ccy of data.currencies) {
     const dim      = _focus && ccy !== _focus;            // courbe à estomper (devise non sélectionnée)
     const hexColor = dim ? 0x5b6471 : (CS_COLORS[ccy] || 0x888888);
@@ -747,6 +757,14 @@ function buildStrengthChart(containerId, data, opts = {}) {
         name: ccy, xAxis, yAxis,
         valueXField: 't', valueYField: 'v',
         stroke: color, connect: true,
+        // DECIMATION AU TRACE (06/08) — PAS dans la donnee. amCharts ignore les points distants de
+        // moins de 2 px au zoom courant. Mesure : TW = bins de 5 min sur jusqu a 118 h, soit 1416
+        // points pour ~848 px de trace = 1,5 point PAR PIXEL — chaque colonne de pixels en recevait
+        // une et demie, ce qui ne dessine plus une courbe mais du moire. C est la cause du « c est
+        // hache », pas la qualite de la donnee. Le defaut amCharts (0,5 px) etait inoperant a 0,65 px
+        // d espacement. La donnee reste ENTIERE : zoomer ou faire un panoramique la restitue toute.
+        // TD (0,2 a 0,35 pt/px) n est pas concerne : rien n y est saute.
+        minDistance: 2,
         tooltip: am5.Tooltip.new(root, {
           labelText: `[bold ${hexStr}]${ccy}[/]: {valueY.formatNumber("+#.##;-#.##;0.00")}`,
           getFillFromSprite: false,
@@ -756,7 +774,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: 1.8, strokeOpacity: dim ? 0 : 1 });   // 1.8 px : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur : corrigé.)
+    series.strokes.template.setAll({ strokeWidth: _sw, strokeOpacity: dim ? 0 : 1 });   // 1.8 px : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur : corrigé.)
     // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) + LineSeries amCharts = segments
     // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles. La densité
     // vient des bougies fines côté serveur (today=1 m, week=15 m, 1d=5 m dans CS_PERIOD_CFG / _computeStrengthFresh).

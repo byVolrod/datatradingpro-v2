@@ -15959,3 +15959,28 @@ body.dtp-admin .view-panel > .panel > .panel-header {
 /* 5. La bibliothèque suit la même règle : nom du widget et sa description. */
 .wdg-lib-card .wdg-lib-nom, .wdg-lib-nom{ font-size: 12.5px; }
 .wdg-lib-card .wdg-lib-desc, .wdg-lib-desc{ font-size: 11.5px; line-height: 1.5; color: var(--text2, #9aa3b2); }
+
+/* ══ APERÇU DU DESK sur les cartes « Mes desks » (06/08) ══════════════════════════════════════════
+   La miniature était bien générée — le HTML est identique à celui du gestionnaire — mais invisible :
+   les blocs sont remplis à 26 % de leur couleur (juste ce qu'il faut sur une vignette de 88 px posée
+   sur un fond neutre), et la carte d'accueil ajoute PAR-DESSUS un voile sombre qui monte jusqu'à 55 %
+   de sa hauteur pour porter le nom. Résultat : 26 % sous un voile, donc rien. La carte paraissait vide
+   alors qu'elle affichait bien l'agencement.
+   Ici la miniature occupe toute la carte : elle peut assumer sa couleur. */
+.home-card--visu .home-card-face .wdg-thumb i{
+  background: color-mix(in srgb, var(--tc, #e3b23a) 50%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc, #e3b23a) 70%, transparent);
+}
+/* Le nom du widget devient lisible : 5,5 px valait pour la vignette-pastille, pas pour une carte. */
+.home-card--visu .home-card-face .wdg-thumb--lbl b{
+  font-size: 9px; letter-spacing: .02em;
+  color: color-mix(in srgb, var(--tc, #e3b23a) 30%, #fff);
+}
+/* Le voile ne remonte plus que sur le tiers bas — assez pour détacher le nom, plus assez pour
+   effacer l'aperçu. C'était lui le « vide ». */
+.home-card--visu::after{
+  background: linear-gradient(0deg, rgba(5, 5, 6, .90) 0%, rgba(5, 5, 6, .55) 22%, rgba(5, 5, 6, .06) 46%, transparent 62%);
+}
+@media (max-width: 560px){
+  .home-card--visu .home-card-face .wdg-thumb--lbl b{ font-size: 8px; }
+}
