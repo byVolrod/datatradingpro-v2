@@ -757,6 +757,44 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // On mesure donc l'amplitude de CHAQUE devise, on prend la médiane de ces amplitudes, et on cadre
   // sur celles qui restent dans une fourchette raisonnable autour d'elle. Les fuyardes sortent du
   // cadre — sans qu'aucune de leurs valeurs ne soit touchée.
+  /* ══ QUEUE GELÉE : couper ce qui n'est pas de la donnée (06/08) ══════════════════════════════════
+     Symptôme : les courbes filent en LIGNE DROITE jusqu'au bord droit, sur TOUTES les périodes.
+     Ce n'est pas un défaut de rendu — les HUIT devises deviennent plates AU MÊME INSTANT, ce qu'aucune
+     épaisseur ni décimation ne peut produire. C'est la source qui reporte sa dernière valeur sur les
+     bins suivants quand elle n'a plus rien de neuf (hors séance, flux interrompu). Le graphe dessinait
+     donc fidèlement une série qui ne bouge plus.
+     RÈGLE, volontairement stricte : on ne retire un point de FIN que si TOUTES les devises visibles y
+     valent EXACTEMENT leur valeur précédente. Un marché où les huit devises sont rigoureusement
+     inchangées pendant des heures n'existe pas ; en revanche une seule qui ne bouge pas, ça arrive, et
+     on n'y touche pas. On s'arrête au premier instant où quelque chose a bougé — jamais plus loin.
+     On ne coupe QUE la queue : rien au milieu de la série, aucune valeur modifiée, et la garde à 60 %
+     empêche de raboter une série entière si la source se figeait longtemps. */
+  function _couperQueueGelee(d) {
+    try {
+      var ccys = (d.currencies || []).filter(function (c) { return (d.series[c] || []).length > 5; });
+      if (ccys.length < 3) return d;
+      var nMin = Math.min.apply(null, ccys.map(function (c) { return d.series[c].length; }));
+      if (nMin < 30) return d;
+      var k = nMin - 1;
+      while (k > 0) {
+        var gele = true;
+        for (var i = 0; i < ccys.length; i++) {
+          var se = d.series[ccys[i]];
+          if (se[k].v !== se[k - 1].v) { gele = false; break; }
+        }
+        if (!gele) break;
+        k--;
+      }
+      var coupes = nMin - 1 - k;
+      if (coupes < 3) return d;                                   // rien de significatif : on ne touche à rien
+      if (k < nMin * 0.4) return d;                               // garde-fou : on ne rabote jamais l'essentiel
+      var out = { currencies: d.currencies, series: {} };
+      Object.keys(d.series).forEach(function (c) { out.series[c] = (d.series[c] || []).slice(0, k + 1); });
+      for (var p in d) if (!(p in out)) out[p] = d[p];
+      return out;
+    } catch (e) { return d; }
+  }
+
   function bornesPaquet(d, facteur) {
     var vis = (d.currencies || []).filter(function (c) { return !_hiddenCcy.has(c) && (!_only || _only.has(c)); });
     // ⚠️ _hiddenCcy est TRANSITOIREMENT rempli pendant l'animation d'apparition d'amCharts — le
@@ -810,6 +848,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
     } catch (e) {}
   }
 
+  // La coupe s'applique à TOUTES les périodes — elle ne regarde pas l'onglet, elle regarde la donnée.
+  data = _couperQueueGelee(data);
   let scaleFactor = computeScale(data);
 
   // ÉPAISSEUR SELON LA DENSITÉ MESURÉE, jamais selon la période. 1,8 px pour un pas de 3 px (TD) est
@@ -1092,6 +1132,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // ── Mise à jour EN PLACE (pas de reconstruction → aucun clignotement) ────────
   function update(newData) {
     if (!newData || !newData.currencies) return;
+    newData = _couperQueueGelee(newData);
     scaleFactor = computeScale(newData);
     _dernieresDonnees = newData;
     // ⚠️ Avec min/max + strictMinMax, l axe ne se recale PLUS tout seul : sans ce rappel a chaque
