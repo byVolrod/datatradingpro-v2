@@ -15908,6 +15908,21 @@ function _runFlush() {
 }
 function _runTouche(id) { const r = _runGet(id); r.maj = Date.now(); _runsSales.add(id); _runFlush(); return r; }
 function _runSent(c, email) { if (!_runEstReel(c)) return; const r = _runTouche(c); r.sent++; if (!r.debut) r.debut = Date.now(); r.fin = Date.now(); }
+// Métadonnées de l'envoi (objet, audience, jour) + archivage du contenu réellement parti.
+// Idempotent : un envoi est étalé sur plusieurs ticks de 30 min à cause du cap anti-rafale, la
+// fonction est donc appelée plusieurs fois pour le même envoi et ne doit écrire qu'une fois.
+async function _runMeta(id, meta, html) {
+  if (!_runEstReel(id)) return;
+  const r = _runGet(id);
+  if (r.objet != null && r.objet !== '') return;                  // déjà posé par un tick précédent
+  Object.assign(r, meta);
+  _runsSales.add(id); _runFlush();
+  // Le HTML vit dans sa PROPRE clé : ~50-80 Ko, il n'a rien à faire dans l'agrégat qu'on relit à
+  // chaque affichage de la liste. Chargé uniquement quand on ouvre la campagne.
+  if (html && html.length > 200) {
+    try { await auth.aiCacheSet('campaign:html:' + id, { html: String(html).slice(0, 400000), le: Date.now() }); r.archive = true; } catch (e) {}
+  }
+}
 function _runOpen(c) {
   if (!_runEstReel(c)) return;
   const r = _runTouche(c); r.opens++;
@@ -15959,6 +15974,173 @@ app.get('/api/track/click', (req, res) => {
   try { const u = new URL(String(req.query.u || '')); if ((u.protocol === 'https:' || u.protocol === 'http:') && _CLICK_ALLOW.test(u.hostname)) target = u.href; } catch {}
   try { if (c && e && t && t === mailer.trackToken(c, e)) _recordClick(c, e, target); } catch {}
   res.redirect(302, target);
+});
+
+/* ══ CENTRE D'ANALYSE DES CAMPAGNES (06/08) ══════════════════════════════════════════════════════
+   Chaque ENVOI est une campagne, pas chaque template. L'historique se reconstitue par une jointure :
+     · QUI a reçu quoi et quand  ← journal des envois, clé « drip:day:<semaine>-<jour>:<email> »
+     · QUI a ouvert / cliqué     ← campaign:stats, clé « <semaine>-<jour>-<template> »
+   Ces deux moitiés existaient depuis le 13/07 sans jamais être rapprochées : les ouvertures par
+   envoi étaient là, mais sans la liste des destinataires du même envoi, aucun taux n'était calculable.
+
+   ⚠️ L'historique par envoi commence au 13/07/2026. Avant, les ouvertures étaient enregistrées sous
+   un id de TEMPLATE : le récap du 5 août et celui du 12 sont indiscernables. On expose donc une
+   entrée « Historique consolidé » clairement étiquetée, jamais des campagnes reconstituées à vue de nez. */
+const _RUN_RX = /^(\d{4}-W\d{2}-\d)-([a-z0-9-]+)$/;                 // « 2026-W32-4-mindset »
+const _RUN_DEPUIS = Date.parse('2026-07-13T00:00:00+02:00');        // 1re campagne réellement identifiée
+let _campListCache = null, _campListAt = 0;
+
+// Regroupe le journal des envois par jour d'envoi : { « 2026-W32-4 » : { email: ts } }
+function _envoisParJour() {
+  const out = Object.create(null);
+  let log = {};
+  try { log = auth.emailLogAll() || {}; } catch (e) { return out; }
+  for (const k of Object.keys(log)) {
+    // « drip:day:2026-W32-4:jean@x.fr » — le mode test (« drip:day-test: ») est volontairement exclu.
+    if (k.indexOf('drip:day:') !== 0) continue;
+    const reste = k.slice(9);
+    const sep = reste.indexOf(':'); if (sep < 0) continue;
+    const jour = reste.slice(0, sep), email = reste.slice(sep + 1);
+    if (!jour || !email) continue;
+    (out[jour] || (out[jour] = Object.create(null)))[email] = Date.parse(log[k]) || 0;
+  }
+  return out;
+}
+
+function _tauxPct(n, d) { return d > 0 ? Math.round((n / d) * 1000) / 10 : null; }
+
+// Construit la liste des campagnes. Mise en cache 60 s : la jointure balaie tout le journal.
+// Recharge l'agrégat d'un envoi depuis le KV s'il n'est pas en mémoire. Indispensable : `_runs` est
+// un cache de process, or le conteneur redémarre à chaque déploiement — sans ça, l'objet du mail et
+// l'archive disparaîtraient de la liste au premier redéploiement suivant l'envoi.
+async function _runHydrate(id) {
+  if (_runs[id] && _runs[id].maj) return _runs[id];
+  try {
+    const kv = await auth.aiCacheGet('campaign:run:' + id, _RUN_TTL);
+    if (kv && typeof kv === 'object') _runs[id] = Object.assign(_runGet(id), kv);
+  } catch (e) {}
+  return _runs[id] || null;
+}
+
+async function _campagnes() {
+  if (_campListCache && (Date.now() - _campListAt) < 60000) return _campListCache;
+  const jours = _envoisParJour();
+  for (const cid of Object.keys(_campaignStats)) { if (_RUN_RX.test(cid)) await _runHydrate(cid); }
+  const lignes = [];
+  let consolide = null;
+
+  for (const cid of Object.keys(_campaignStats)) {
+    if (cid.charAt(0) === '_' || cid.indexOf('test-') === 0) continue;      // méta et envois de test
+    const s = _campaignStats[cid] || {};
+    const m = _RUN_RX.exec(cid);
+    const opens = Object.keys(s.opens || {}), clicks = Object.keys(s.clicks || {});
+    if (!m) {
+      // Clé d'avant le 13/07 (id de template nu) : on la verse dans l'entrée consolidée, sans
+      // prétendre en faire une campagne datée.
+      if (!consolide) consolide = { id: '_consolide', tpl: 'historique', titre: 'Historique consolidé (avant le 13/07/2026)', consolide: true, envoyes: 0, ouvUniq: 0, ouvTot: 0, cliUniq: 0, cliTot: 0, debut: 0, fin: 0 };
+      consolide.envoyes += Object.keys(s.sent || {}).length;
+      consolide.ouvUniq += opens.length;
+      consolide.ouvTot += opens.reduce((a, e) => a + ((s.opens[e] || {}).n || 0), 0);
+      consolide.cliUniq += clicks.length;
+      consolide.cliTot += clicks.reduce((a, e) => a + ((s.clicks[e] || {}).n || 0), 0);
+      continue;
+    }
+    const jour = m[1], tpl = m[2];
+    const servis = jours[jour] || {};
+    // « Envoyés » = les destinataires RÉELLEMENT servis, lus dans le journal. Le `sent` du blob
+    // était écrit sous l'id de template, il ne dit rien de CET envoi (c'est le bug corrigé ce jour) ;
+    // les envois postérieurs au correctif l'alimenteront aussi, on prend donc le maximum des deux.
+    const envoyes = Math.max(Object.keys(servis).length, Object.keys(s.sent || {}).length);
+    const ts = Object.values(servis).filter(Boolean);
+    const meta = _runs[cid] || null;
+    lignes.push({
+      id: cid, jourCle: jour, tpl: tpl,
+      titre: (meta && meta.titre) || tpl,
+      objet: (meta && meta.objet) || null,               // null = jamais capturé (envoi antérieur au registre)
+      archive: !!(meta && meta.archive),
+      debut: ts.length ? Math.min.apply(null, ts) : ((meta && meta.debut) || 0),
+      fin: ts.length ? Math.max.apply(null, ts) : ((meta && meta.fin) || 0),
+      audience: (meta && meta.audience) || null,
+      envoyes: envoyes,
+      ouvUniq: opens.length, ouvTot: opens.reduce((a, e) => a + ((s.opens[e] || {}).n || 0), 0),
+      cliUniq: clicks.length, cliTot: clicks.reduce((a, e) => a + ((s.clicks[e] || {}).n || 0), 0),
+      liens: (meta && meta.liens) || null,
+      // NON MESURÉS, et on le dit — jamais un zéro qui passerait pour une mesure.
+      delivres: null, rebonds: null, plaintes: null,
+    });
+  }
+
+  lignes.forEach(l => {
+    l.tauxOuv = _tauxPct(l.ouvUniq, l.envoyes);
+    l.tauxCli = _tauxPct(l.cliUniq, l.envoyes);
+    l.ctor = _tauxPct(l.cliUniq, l.ouvUniq);            // le seul indicateur robuste face au gonflage du pixel
+  });
+  lignes.sort((a, b) => (b.debut || 0) - (a.debut || 0));
+  if (consolide) {
+    consolide.tauxOuv = _tauxPct(consolide.ouvUniq, consolide.envoyes);
+    consolide.tauxCli = _tauxPct(consolide.cliUniq, consolide.envoyes);
+    consolide.ctor = _tauxPct(consolide.cliUniq, consolide.ouvUniq);
+    lignes.push(consolide);
+  }
+  _campListCache = lignes; _campListAt = Date.now();
+  return lignes;
+}
+
+// LISTE des campagnes — une ligne par ENVOI.
+app.get('/api/admin/campaigns', requireAdmin, async (req, res) => {
+  try {
+    let l = await _campagnes();
+    const q = String(req.query.q || '').toLowerCase().trim();
+    if (q) l = l.filter(x => (x.titre + ' ' + x.tpl + ' ' + (x.objet || '')).toLowerCase().indexOf(q) !== -1);
+    const depuis = parseInt(req.query.depuis, 10);
+    if (isFinite(depuis) && depuis > 0) l = l.filter(x => x.consolide || (x.debut || 0) >= depuis);
+    res.json({
+      ok: true, total: l.length, lignes: l,
+      depuis: _RUN_DEPUIS,
+      nonMesure: ['delivres', 'rebonds', 'plaintes'],
+      note: "Les envois sont identifiés individuellement depuis le 13/07/2026. Délivrés, rebonds et plaintes ne sont pas mesurables sur un envoi SMTP direct : ils s'affichent « non mesuré », jamais zéro.",
+    });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// DÉTAIL d'un envoi : KPI, courbe horaire, liens, destinataires.
+app.get('/api/admin/campaigns/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    const l = (await _campagnes()).find(x => x.id === id);
+    if (!l) return res.status(404).json({ ok: false, error: 'Campagne inconnue' });
+    const s = _campaignStats[id] || { sent: {}, opens: {}, clicks: {} };
+    const servis = l.jourCle ? (_envoisParJour()[l.jourCle] || {}) : (s.sent || {});
+    const unsub = _campaignStats._unsub || {};
+    const dest = Object.keys(servis).map(e => {
+      const o = (s.opens || {})[e] || null, c = (s.clicks || {})[e] || null;
+      return {
+        email: e, recu: servis[e] || null,
+        ouvert: !!o, nOuv: o ? o.n : 0, ouvPremiere: o ? o.first : null, ouvDerniere: o ? o.last : null,
+        clique: !!c, nCli: c ? c.n : 0, cliPremier: c ? c.first : null, cliDernier: c ? c.last : null,
+        desabo: unsub[e] || null,
+        rebond: null,                                    // non mesuré, cf. note
+      };
+    }).sort((a, b) => (b.nOuv - a.nOuv) || String(a.email).localeCompare(String(b.email)));
+    // COURBE DE MONTÉE, reconstruite depuis l'horodatage de PREMIÈRE ouverture : disponible
+    // rétroactivement, sans avoir eu besoin de journaliser le moindre événement.
+    const parHeure = Object.create(null);
+    dest.forEach(d => { if (d.ouvPremiere) { const h = new Date(d.ouvPremiere).toISOString().slice(0, 13); parHeure[h] = (parHeure[h] || 0) + 1; } });
+    const delais = dest.filter(d => d.ouvPremiere && d.recu).map(d => d.ouvPremiere - d.recu).sort((a, b) => a - b);
+    const meta = _runs[id] || null;
+    let html = null;
+    if (meta && meta.archive) { try { const a = await auth.aiCacheGet('campaign:html:' + id, _RUN_TTL); html = (a && a.html) || null; } catch (e) {} }
+    res.json({
+      ok: true, campagne: l, destinataires: dest,
+      ouverturesParHeure: parHeure,
+      ouverturesTotalesParHeure: (meta && meta.ouvH) || null,     // null = envoi antérieur au captage horaire
+      clicsParHeure: (meta && meta.cliH) || null,
+      liens: (meta && meta.liens) || null,
+      delaiMedian: delais.length ? delais[Math.floor(delais.length / 2)] : null,
+      html: html,                                                 // le mail RÉELLEMENT parti, ou null
+      apercuFidele: !!html,
+    });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 // Stats de campagne (admin) : envoyes / ouvertures uniques + taux / clics + taux / desabos + detail destinataire.
@@ -17123,6 +17305,21 @@ async function _dripTick() {
       return;   // AUCUN envoi tant que ce n'est pas resolu
     }
     if (pf.warnings.length) { try { _aiAlertNote('warn', 'campagne', '[drip] reserves : ' + pf.warnings.join(' ; ')); } catch {} }
+    // IDENTITÉ DE L'ENVOI, posée UNE fois. Le pré-flight vient de rendre le mail pour le valider :
+    // son objet est là, sous la main, et c'est le SEUL moment où on l'a. Sans cette capture, l'objet
+    // d'une campagne passée serait irrécupérable (il est recalculé à chaque rendu, jamais stocké) —
+    // et ré-afficher un aperçu plus tard montrerait le contenu D'AUJOURD'HUI, pas celui qui est parti.
+    // Le contenu envoyé est archivé dans sa propre clé, chargée seulement quand on ouvre la campagne.
+    try {
+      const _ech = pf.sample || (typeof _dripBuildSample === 'function' ? await _dripBuildSample(stepWeek, context) : null);
+      await _runMeta(isoWeek + '-' + wd + '-' + stepWeek.id, {
+        tpl: stepWeek.id, titre: stepWeek.title || stepWeek.id,
+        objet: (_ech && _ech.subject) || '',
+        jour: _WD_FR[wd] || ('j' + wd), semaine: isoWeek,
+        audience: (audience.recipients || []).length,
+        segments: (audience.report && audience.report.segments) || null,
+      }, (_ech && _ech.html) || '');
+    } catch (e) {}
     const CAP = Math.max(1, parseInt(process.env.DRIP_TICK_CAP || '40', 10));   // anti-rafale (Render/OOM)
     const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
     for (const r of audience.recipients) {
