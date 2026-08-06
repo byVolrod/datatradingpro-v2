@@ -755,3 +755,125 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
   padding:10px 12px; border-radius:8px;
   border:1px solid var(--hud-line,#1c1c20); background:rgba(255,255,255,.02);
 }
+
+/* ══ CENTRE D'ANALYSE DES CAMPAGNES (06/08) ═══════════════════════════════════════════════════════
+   Deux écrans dans le même panneau : liste des envois, puis détail. Pas de volet superposé — un
+   tableau de destinataires a besoin de toute la largeur. */
+.cs-search{
+  width:230px; max-width:38vw; height:28px; padding:0 10px; border-radius:6px;
+  border:1px solid var(--hud-line,#1c1c20); background:var(--s1,#141418); color:var(--text1);
+  font-size:var(--fs-label); font-family:inherit;
+}
+.cs-search:focus{ outline:none; border-color:rgba(227,178,58,.5); }
+.cs-select{
+  height:28px; padding:0 8px; border-radius:6px; margin-left:8px;
+  border:1px solid var(--hud-line,#1c1c20); background:var(--s1,#141418); color:var(--text2);
+  font-size:var(--fs-label); font-family:inherit; cursor:pointer;
+}
+
+/* Bandeau d'enseignements — uniquement ce qui se déduit des chiffres affichés. */
+.cs-insights{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:14px; }
+.cs-insights:empty{ display:none; }
+.cs-ins{
+  padding:11px 13px; border-radius:8px; border:1px solid var(--hud-line,#1c1c20);
+  background:linear-gradient(180deg,rgba(255,255,255,.028),transparent);
+  border-left:2px solid var(--kc,#e3b23a);
+}
+.cs-ins-v{ font-size:20px; font-weight:700; color:var(--kc,#e3b23a); line-height:1.1; font-family:var(--tight,inherit); }
+.cs-ins-l{ font-size:var(--fs-label); color:var(--text2); margin-top:3px; font-weight:600; }
+.cs-ins-s{ font-size:11px; color:var(--text3); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Liste : deux lignes par cellule de nom (titre + objet), tri au clic sur l'en-tête. */
+.cs-table th.sortable{ cursor:pointer; user-select:none; white-space:nowrap; }
+.cs-table th.sortable:hover{ color:var(--text1); }
+.cs-table th.sortable.sorted{ color:var(--orange,#e3b23a); }
+.cs-table th.sortable::after{ content:attr(data-sens); margin-left:4px; font-size:9px; opacity:.85; }
+.cs-table td{ vertical-align:middle; }
+.cs-td-nom{ max-width:280px; }
+.cs-td-fort{ font-weight:700; color:var(--text1); }
+.cs-sub{ display:block; font-size:11px; color:var(--text3); font-weight:400; margin-top:2px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px; }
+.cs-tr--hist td{ opacity:.72; }
+.cs-badge{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; letter-spacing:.03em; white-space:nowrap; }
+.cs-badge--ok{ color:#00e676; background:rgba(0,230,118,.10); border:1px solid rgba(0,230,118,.24); }
+.cs-badge--hist{ color:var(--text3); background:rgba(255,255,255,.03); border:1px solid var(--hud-line,#1c1c20); }
+/* « non mesuré » : volontairement discret et en italique — c'est une absence, pas une valeur. */
+.cs-nm{ color:#6f6f79; font-style:italic; font-size:11px; }
+.cs-oui{ color:#00e676; font-weight:600; }
+.cs-non{ color:#6f6f79; }
+
+/* Détail */
+.cs-entete{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px 18px; margin-bottom:14px;
+  padding:12px 14px; border-radius:8px; border:1px solid var(--hud-line,#1c1c20); background:rgba(255,255,255,.02); }
+.cs-ent-l{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.cs-ent-k{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text3); }
+.cs-ent-v{ font-size:13px; color:var(--text1); overflow:hidden; text-overflow:ellipsis; }
+.cs-kpis{ margin-bottom:16px; }
+.camp-kpi--nm .camp-kpi-v{ font-size:12px; }
+.cs-bloc-t{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--text3); margin:16px 0 8px; }
+.cs-cols{ display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+.cs-col{ flex:1 1 340px; min-width:0; }
+.cs-col--etroite{ flex:1 1 260px; }
+.cs-chart{ height:220px; }
+.cs-vide{ font-size:12px; color:var(--text3); line-height:1.6; padding:12px 14px; border-radius:8px;
+  border:1px dashed var(--hud-line,#1c1c20); }
+
+/* Classement des liens : rang, cible, barre proportionnelle. */
+.cs-lien{ display:grid; grid-template-columns:18px 1fr auto 70px 46px; align-items:center; gap:8px;
+  padding:6px 0; border-bottom:1px solid var(--hud-line,#1c1c20); font-size:12px; }
+.cs-lien:last-child{ border-bottom:0; }
+.cs-lien-r{ color:var(--text3); font-size:10px; font-weight:700; }
+.cs-lien-u{ color:var(--text1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cs-lien-n{ color:var(--text2); font-variant-numeric:tabular-nums; }
+.cs-lien-b{ display:block; height:5px; border-radius:3px; background:rgba(255,255,255,.05); overflow:hidden; }
+.cs-lien-b > i{ display:block; height:100%; background:var(--orange,#e3b23a); }
+.cs-lien-p{ color:var(--text3); text-align:right; font-variant-numeric:tabular-nums; }
+
+.cs-pager{ display:flex; align-items:center; gap:10px; justify-content:center; margin-top:10px; }
+.cs-pager:empty{ display:none; }
+.cs-pg{ font-size:11px; color:var(--text3); }
+.cs-apercu{ margin-top:6px; }
+.cs-frame{ width:100%; max-width:640px; height:520px; border:1px solid var(--hud-line,#1c1c20);
+  border-radius:8px; background:#fff; }
+
+/* Mobile : ces vues n'avaient AUCUNE règle — le tableau ne survivait que par le scroll du conteneur. */
+@media (max-width: 760px){
+  .cs-search{ width:100%; max-width:none; margin-top:6px; }
+  .cs-select{ margin-left:0; margin-top:6px; }
+  .cs-insights{ grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); }
+  .cs-entete{ grid-template-columns:1fr; }
+  .cs-cols{ flex-direction:column; }
+  .cs-chart{ height:180px; }
+  .cs-frame{ height:380px; }
+  .cs-lien{ grid-template-columns:16px 1fr auto 44px; }
+  .cs-lien-b{ display:none; }
+  .camp-kpis.cs-kpis{ grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); }
+}
+
+/* Le tableau des campagnes fait ~1000 px : il DOIT défiler dans son cadre, jamais pousser la page.
+   Il poussait quand même, car un conteneur intermédiaire n'avait pas de plancher de largeur — un
+   enfant de flex/grid prend par défaut la largeur de son contenu, `overflow-x` sur le cadre n'y peut
+   rien tant que la chaîne au-dessus n'est pas contrainte. On la contraint, de la sous-vue au cadre. */
+#tab-campaign .camp-sub,
+#tab-campaign .panel-card,
+#tab-campaign .panel-body{ min-width:0; max-width:100%; }
+#tab-campaign .camp-table-wrap{ min-width:0; max-width:100%; overflow-x:auto; }
+/* La barre de titre passe à la ligne au lieu d'étirer le panneau (recherche + filtre + témoin). */
+@media (max-width: 760px){
+  #tab-campaign .panel-head{ flex-wrap:wrap; row-gap:6px; }
+  #tab-campaign .panel-head > h2{ flex:1 1 100%; }
+}
+
+/* Barre de sous-navigation Campagne : 5 onglets ≈ 540 px de large. Elle poussait la PAGE entière sur
+   mobile — bug préexistant, visible sur toutes les sous-vues (constaté en mesurant, 06/08). Elle
+   défile désormais sur elle-même, comme les autres rangées d'onglets du produit. */
+@media (max-width: 760px){
+  #camp-nav{
+    display:flex; flex-wrap:nowrap; max-width:100%;
+    overflow-x:auto; overflow-y:hidden;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  #camp-nav::-webkit-scrollbar{ display:none; }
+  #camp-nav .camp-nav-btn{ flex:0 0 auto; }
+}
