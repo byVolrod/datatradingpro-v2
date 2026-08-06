@@ -1771,6 +1771,30 @@ app.post('/api/zoom', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Périodes choisies sur « Force des Devises » — MÉMORISÉES PAR COMPTE ──────────────────────────
+// Demande user 06/08 : le choix de période doit survivre au changement d'onglet ET à la déconnexion.
+// Même patron que le zoom : KV par compte, donc il suit aussi le changement d'appareil. Deux
+// panneaux côte à côte, chacun le sien — la valeur persistée est « <gauche>|<droite> ».
+const _STF_PERIODES = ['today', 'week', '8h', '1d', '7d', '1m'];
+const _STF_DEFAUT = { L: 'today', R: 'week' };
+app.get('/api/strength-tf', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  try {
+    const v = String(await auth.aiCacheGet('stftf:' + req.session.userId, 366 * 86400000) || '').split('|');
+    res.json({
+      L: _STF_PERIODES.includes(v[0]) ? v[0] : _STF_DEFAUT.L,
+      R: _STF_PERIODES.includes(v[1]) ? v[1] : _STF_DEFAUT.R,
+    });
+  } catch { res.json(_STF_DEFAUT); }
+});
+app.post('/api/strength-tf', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const L = String((req.body && req.body.L) || ''), R = String((req.body && req.body.R) || '');
+  if (!_STF_PERIODES.includes(L) || !_STF_PERIODES.includes(R)) return res.status(400).json({ error: 'période invalide' });
+  try { await auth.aiCacheSet('stftf:' + req.session.userId, L + '|' + R); res.json({ ok: true, L, R }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── User self-service password change ────────────────────────────────────────
 app.put('/api/auth/me/password', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
