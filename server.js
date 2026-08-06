@@ -14393,7 +14393,11 @@ async function _featSet(patch) {
    exclusions (désabonnés, liste noire), mêmes statistiques, même journal. Une seconde
    implémentation de l'envoi de masse serait une seconde occasion de se tromper. ═══════════════ */
 const _ANN_KEY = 'annonce:deskwidgets:v1';
-const _ANN_TS  = Date.parse('2026-08-06T14:00:00+02:00');   // jeudi 6 aout, 14h00 heure de Paris (confirme par l utilisateur)
+// VENDREDI 7 AOUT, 14h00 heure de Paris. Decale du jeudi 6 a la demande de l utilisateur : le mail
+// « Mindset » du jeudi 8h etait deja parti le matin meme, deux envois le meme jour auraient use
+// l audience pour rien (regle maison : cadence divisee par deux, un seul contenu par jour).
+// Le vendredi est le bon creneau : _SEQ2DAY ne place AUCUN envoi automatique ce jour-la (dim/mar/mer/jeu/sam).
+const _ANN_TS  = Date.parse('2026-08-07T14:00:00+02:00');
 let _annFait = undefined, _annBusy = false;
 async function _annTick() {
   if (_annBusy || Date.now() < _ANN_TS) return;
