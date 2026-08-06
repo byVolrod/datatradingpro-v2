@@ -1815,7 +1815,7 @@ function _cotRing(ok, sPct, lPct, mod) {
   const dom = sPct >= lPct ? sPct : lPct;
   const cls = !ok ? 'na' : (sPct === lPct ? 'flat' : (sPct > lPct ? 'bear' : 'bull'));
   return '<svg class="cot-ring cot-ring--' + cls + '" viewBox="0 0 80 80" role="img"'
-    + ' aria-label="Répartition : ' + sPct + ' % de positions courtes, ' + lPct + ' % de positions longues">'
+    + ' aria-label="Répartition : ' + sPct + '% de positions courtes, ' + lPct + '% de positions longues">'
     + '<circle class="cot-ring-bg" cx="40" cy="40" r="' + r + '" fill="none"/>'
     + '<g transform="rotate(-90 40 40)">'
     +   '<circle class="cot-ring-s" cx="40" cy="40" r="' + r + '" fill="none" stroke-dasharray="' + arc(sPct) + '"/>'
@@ -3590,7 +3590,7 @@ function _calMeetReading(tone, sc, opts) {
     : 'aucun propos récent — le ton du discours fera la différence';
   else if (!dom) txt = tone.sens;
   else txt = (M[tone.key] || {})[dom[0]] || tone.sens;
-  if (dom && !o.pricingAilleurs) txt += ` — marché : <strong>${dom[1]} ${Math.round(dom[2])} %</strong>`;
+  if (dom && !o.pricingAilleurs) txt += ` — marché : <strong>${dom[1]} ${Math.round(dom[2])}%</strong>`;
   return txt;
 }
 // Extraits de discours BC (23/07) : le SERVEUR balaie 14 j d'historique news (le client n'en garde
@@ -3650,15 +3650,15 @@ function _calDecisionOutcome(ev) {
   let geste = 'Décision publiée', sens = geste, couleur = '#9aa0aa', taux = a;
   if (p != null) {
     const d = Math.round((a - p) * 100) / 100;
-    if (d === 0)      { geste = 'MAINTIENT'; sens = banque + ' MAINTIENT ses taux à ' + fr(a) + ' %'; couleur = '#9aa0aa'; }
-    else if (d > 0)   { geste = 'RELÈVE';    sens = banque + ' RELÈVE ses taux à ' + fr(a) + ' % (+' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
-    else              { geste = 'ABAISSE';   sens = banque + ' ABAISSE ses taux à ' + fr(a) + ' % (' + fr(d) + ' pt)'; couleur = '#00e676'; }
-  } else sens = banque + ' — taux à ' + fr(a) + ' %';
+    if (d === 0)      { geste = 'MAINTIENT'; sens = banque + ' MAINTIENT ses taux à ' + fr(a) + '%'; couleur = '#9aa0aa'; }
+    else if (d > 0)   { geste = 'RELÈVE';    sens = banque + ' RELÈVE ses taux à ' + fr(a) + '% (+' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
+    else              { geste = 'ABAISSE';   sens = banque + ' ABAISSE ses taux à ' + fr(a) + '% (' + fr(d) + ' pt)'; couleur = '#00e676'; }
+  } else sens = banque + ' — taux à ' + fr(a) + '%';
   let attente = '';
   if (f != null) {
     if (a === f) attente = 'conforme aux attentes';
-    else if (a > f) attente = 'au-dessus des attentes (' + fr(f) + ' % prévu) — surprise restrictive';
-    else attente = 'en dessous des attentes (' + fr(f) + ' % prévu) — surprise accommodante';
+    else if (a > f) attente = 'au-dessus des attentes (' + fr(f) + '% prévu) — surprise restrictive';
+    else attente = 'en dessous des attentes (' + fr(f) + '% prévu) — surprise accommodante';
   }
   return { sens, attente, couleur, geste, taux };
 }
@@ -3767,7 +3767,7 @@ async function _calValueBlockHtml(ev) {
     // HONNÊTETÉ DE LA SOURCE : source=market = pricing RÉEL, sinon estimation maison. Les branches
     // à 0 % sont masquées (un « baisse 0 % » calculé laissait croire à une certitude de marché).
     const _pv = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
-    const _parts = [_pv(_sc.hold) ? `maintien ${_pv(_sc.hold)} %` : '', _pv(_sc.cut) ? `baisse ${_pv(_sc.cut)} %` : '', _pv(_sc.hike) ? `hausse ${_pv(_sc.hike)} %` : ''].filter(Boolean);
+    const _parts = [_pv(_sc.hold) ? `maintien ${_pv(_sc.hold)}%` : '', _pv(_sc.cut) ? `baisse ${_pv(_sc.cut)}%` : '', _pv(_sc.hike) ? `hausse ${_pv(_sc.hike)}%` : ''].filter(Boolean);
     const _probs = _parts.length ? _parts.join(' · ') + (bank && bank.source === 'market' ? ' · pricing de marché' : ' · estimation DTP (pricing indisponible)') : '';
 
     // AVANT la réunion : le ton et sa portée disent la même chose → UNE ligne. Le badge porte le
@@ -3798,7 +3798,7 @@ async function _calValueBlockHtml(ev) {
       // source de pricing peut avoir quelques heures de retard, et afficher 3,63 % sous
       // « maintenu à 3,75 % » donnait deux chiffres contradictoires dans le même bloc.
       const _tauxRef = (_res && _res.taux != null) ? _res.taux : bank.rate;
-      if (_tauxRef != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(_tauxRef).replace('.', ','))} %</span></div>`);
+      if (_tauxRef != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(_tauxRef).replace('.', ','))}%</span></div>`);
       if (_aVenir) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? (bank.nextDays === 0 ? ' (aujourd\'hui)' : ` (dans ${bank.nextDays} j)`) : ''}${_probs ? `<div class="cal-kb-sub">${_probs}</div>` : ''}</span></div>`);
     }
     // « La banque surveille » : ce qui la fait monter ou baisser les taux — la grille de lecture

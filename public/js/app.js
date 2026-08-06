@@ -10134,9 +10134,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     { k: 'sl',      label: 'SL',             type: 'multi',    w: 124 },
     { k: 'grade',   label: 'Note',           type: 'ring',     w: 74, max: 5 },
     { k: 'rr',      label: 'Objectif RR',    type: 'num',      w: 88 },
-    { k: 'risk',    label: 'Risque %',       type: 'num',      w: 80, suffix: ' %' },
+    { k: 'risk',    label: 'Risque %',       type: 'num',      w: 80, suffix: '%' },
     { k: 'r',       label: 'R PNL',          type: 'num',      w: 80, signed: true },
-    { k: 'pnlPct',  label: '% PNL',          type: 'num',      w: 82, suffix: ' %', signed: true },
+    { k: 'pnlPct',  label: '% PNL',          type: 'num',      w: 82, suffix: '%', signed: true },
     { k: 'pl',      label: '$PNL',           type: 'money',    w: 106, signed: true },
     { k: 'equity',  label: '$ Capital',      type: 'money',    w: 124 },
     { k: 'err',     label: 'ERREUR',         type: 'multi',    w: 132 },
@@ -10231,7 +10231,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">—</i>'; }
       case 'num': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
       case 'money': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + (col.signed && n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
-      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + ' %</span></div>'; }
+      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + '%</span></div>'; }
       case 'ring': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : _jrRingHtml(Number(v), col.max || 5);
     }
     return '';
@@ -11131,7 +11131,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     const ok = e => mode === 'equity' ? _jrN(e.equity) != null : mode === 'pl' ? _jrN(e.pl) != null : _jrN(e.pnlPct) != null;
     const arr = L.filter(ok).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-    const unit = mode === 'pct' ? ' %' : ' $';
+    const unit = mode === 'pct' ? '%' : ' $';
     // Libellés PRÉ-FORMATÉS (français) injectés dans chaque point → le tooltip les affiche tels quels.
     // (On NE passe PLUS par les formats amCharts "+#;-#" qui rendaient un texte cassé du type "+4,92;-4,92".)
     const fmt = n => (n > 0 ? '+' : '') + (Math.round(n * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + unit;
@@ -11243,7 +11243,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#e3b23a')
-        + _jrRing((wrD == null ? '—' : wrD + ' %'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '')
+        + _jrRing((wrD == null ? '—' : wrD + '%'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '')
       + '</div><div class="jrd-row jrd-row--charts">'
         + '<div class="jrd-card jrd-card--donut"><div class="jrd-card-h">Répartition des résultats</div><div id="jr-result-donut" class="jr-chart-am jr-chart-am--donut"></div>' + _jrResultLegend(resMap) + '</div>'
         + '<div class="jrd-card jrd-card--eq"><div class="jrd-card-h">Courbe de performance<span class="jrd-eqtoggle">'
@@ -11425,7 +11425,7 @@ window._dtpJournalBadgeInit = function () {
       + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités</span>'
       + '<button type="button" class="calc-copy" data-copy="' + lots.toFixed(2) + '" title="Copier la taille en lots">Copier</button></div>'
       + '<div class="calc-grid">'
-      + '<div class="calc-card"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? String(risk).replace('.', ',') + ' % du solde' : 'montant fixe') + '</span></div>'
+      + '<div class="calc-card"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? String(risk).replace('.', ',') + '% du solde' : 'montant fixe') + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Valeur du pip</span><span class="calc-v">' + cur + fmt(pipValAcct * lots, 2) + '</span><span class="calc-sub">' + cur + fmt(pipValAcct, 2) + ' / lot</span></div>'
       + '<div class="calc-card"><span class="calc-k">Stop-loss</span><span class="calc-v">' + fmt(sl, 0) + ' <em>pips</em></span><span class="calc-sub">perte max ≈ ' + cur + fmt(sl * pipValAcct * lots, 2) + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Notionnel</span><span class="calc-v">' + fmt(notionalBase, 0) + ' ' + base + '</span><span class="calc-sub">cours ' + sym + ' : ' + fmt(price, quote === 'JPY' ? 3 : 5) + '</span></div>'
