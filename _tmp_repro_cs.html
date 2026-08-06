@@ -1,0 +1,94 @@
+<!doctype html>
+<html data-theme="dark">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body { margin:0; }
+  #bar { position:fixed; z-index:999; top:0; left:0; right:0; padding:3px; font:11px monospace; background:#000; color:#ddd; }
+  #stage { padding-top:24px; height: var(--vph); display:flex; flex-direction:row; }
+  #left { flex:1 1 auto; min-width:0; background:#08080a; }
+  .panel-right { flex:0 0 var(--sidebar-w, 700px); display:flex; flex-direction:column; min-width:0; border-left:1px solid #1c1c20; }
+  .right-content { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .right-tab-panel { display:none; flex:1; min-height:0; flex-direction:column; }
+  .right-tab-panel.active { display:flex; }
+  #out { position:fixed; bottom:0; left:0; right:0; background:#000d; color:#0f0; font:10px monospace; padding:3px; white-space:pre; z-index:999; }
+</style>
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+</head>
+<body>
+<div id="bar">
+  <button onclick="zoomStep(-1)">zoom-</button><span id="zv">.9</span><button onclick="zoomStep(1)">zoom+</button>
+  panneau: <button onclick="setW(400)">400</button><button onclick="setW(700)">700</button><button onclick="setW(1000)">1000</button><button onclick="setW(1400)">1400</button>
+  <button onclick="go()">rebuild</button>
+  <button onclick="measure()">mesurer</button>
+</div>
+<div id="stage">
+  <div id="left"></div>
+  <div class="panel-right" id="pr">
+    <div class="right-content">
+      <div class="right-tab-panel active" id="rtab-strength">
+        <div id="strength-charts-row" class="strength-charts-row"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="out"></div>
+<script src="/js/charts.js"></script>
+<script>
+window._dtpChartPremium = function(){ return function(){}; };
+const ZOOMS=[0.7,0.8,0.9,1,1.1,1.25,1.4,1.5];
+function zoomStep(d){
+  const cur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom'))||1;
+  let i=ZOOMS.indexOf(cur); if(i<0)i=2;
+  const v=ZOOMS[Math.max(0,Math.min(ZOOMS.length-1,i+d))];
+  document.documentElement.style.setProperty('--dtp-zoom',v);
+  document.getElementById('zv').textContent=v;
+}
+function setW(w){ document.documentElement.style.setProperty('--sidebar-w', w+'px'); setTimeout(measure,900); }
+function fakeData(period){
+  const CCY=['USD','EUR','GBP','JPY','CHF','CAD','AUD','NZD'];
+  const n = period==='week' ? 1416 : 480;
+  const step = period==='week' ? 5*60e3 : 60e3;
+  const t0=Date.now()-n*step;
+  const series={};
+  CCY.forEach((c,i)=>{ let v=0; const a=[];
+    for(let k=0;k<n;k++){ v+=(Math.random()-0.5)*0.0006; a.push({t:t0+k*step,v:v}); }
+    series[c]=a; });
+  return { currencies:CCY, series };
+}
+const MY_ORDER=['today','week','8h','1d','7d','1m'], MY_LABELS={today:'TD',week:'TW','8h':'8H','1d':'1D','7d':'7D','1m':'1M'};
+function paneHtml(side,def){ return '<div class="strength-pane" data-side="'+side+'">'
+  +'<div class="strength-tf-bar chart-header"><span class="strength-chart-label chart-header-title">Force des Devises</span><span style="flex:1"></span>'
+  + MY_ORDER.map(p=>'<button class="stf-btn stf-tf-btn'+(p===def?' stf-btn--active':'')+'" data-period="'+p+'">'+MY_LABELS[p]+'</button>').join('')
+  +'</div><div class="strength-main-chart" id="chart-strength-'+side+'"></div></div>'; }
+function go(){
+  const wrap=document.getElementById('strength-charts-row');
+  wrap.innerHTML=paneHtml('L','today')+paneHtml('R','week');
+  try{ buildStrengthChart('chart-strength-L', fakeData('today')); buildStrengthChart('chart-strength-R', fakeData('week')); }
+  catch(e){ document.getElementById('out').textContent='ERR '+e.message; }
+}
+function rep(id){
+  const c=document.getElementById(id); if(!c) return id+': absent';
+  const cv=c.querySelector('canvas'); const cr=c.getBoundingClientRect();
+  const vr=cv?cv.getBoundingClientRect():null;
+  const grip=c.querySelector('.cs-yzoom-grip'); const gr=grip?grip.getBoundingClientRect():null;
+  const b=[...c.querySelectorAll('.cs-badge')].map(x=>{const r=x.getBoundingClientRect();return x.textContent+'@'+Math.round(r.left-cr.left);}).join(' ');
+  return id+' contnr W='+cr.width.toFixed(1)+' clientW='+c.clientWidth
+    +(vr?(' | canvas W='+vr.width.toFixed(1)+' ecart g='+(vr.left-cr.left).toFixed(1)+' d='+(cr.right-vr.right).toFixed(1)):' | canvas none')
+    +(gr?(' | grip x='+(gr.left-cr.left).toFixed(1)+' w='+gr.width.toFixed(1)):'')
+    +'\n   badges '+b;
+}
+function measure(){
+  const row=document.getElementById('strength-charts-row').getBoundingClientRect();
+  const l=['zoom='+getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom')+' rowW='+row.width.toFixed(1)
+    +' dir='+getComputedStyle(document.getElementById('strength-charts-row')).flexDirection,
+    rep('chart-strength-L'), rep('chart-strength-R')];
+  document.getElementById('out').textContent=l.join('\n'); return l.join('\n');
+}
+window.addEventListener('load',()=>{ setTimeout(go,300); setTimeout(measure,2400); });
+</script>
+</body>
+</html>
