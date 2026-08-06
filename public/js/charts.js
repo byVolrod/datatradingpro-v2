@@ -556,6 +556,44 @@ const CS_COLORS = {
 };
 
 const STF_ORDER  = ['today', 'week', '8h', '1d', '7d', '1m'];   // 5D retiré
+/* ══ PÉRIODE MÉMORISÉE PAR COMPTE (06/08) ═══════════════════════════════════════════════════════════
+   Demande user : le choix de période doit survivre au changement d'onglet ET à la déconnexion.
+   Source de vérité = le COMPTE (KV serveur, /api/strength-tf) → il suit aussi le changement
+   d'appareil. localStorage n'est qu'un cache instantané, pour que la barre s'affiche déjà au bon
+   endroit avant la réponse du serveur : sans lui, on verrait TD une fraction de seconde puis un saut.
+   Même architecture que l'historique de recherche de symboles, validée par l'utilisateur. */
+const STF_DEF = { L: 'today', R: 'week' };
+let _stfPref = null;
+function _stfLocal() {
+  try { const j = JSON.parse(localStorage.getItem('dtp_stf_tf') || 'null');
+        if (j && STF_ORDER.includes(j.L) && STF_ORDER.includes(j.R)) return j; } catch (e) {}
+  return null;
+}
+function _stfSet(side, per) {
+  if (!STF_ORDER.includes(per)) return;
+  _stfPref = Object.assign({}, _stfPref || _stfLocal() || STF_DEF);
+  _stfPref[side] = per;
+  try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
+  // Écriture serveur au fil de l'eau : un clic = un enregistrement, pas de bouton à penser.
+  try {
+    fetch('/api/strength-tf', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_stfPref) }).catch(function () {});
+  } catch (e) {}
+}
+async function _stfCharger() {
+  if (_stfPref) return _stfPref;
+  const local = _stfLocal();
+  try {
+    const r = await fetch('/api/strength-tf').then(function (x) { return x.json(); });
+    if (r && STF_ORDER.includes(r.L) && STF_ORDER.includes(r.R)) {
+      _stfPref = { L: r.L, R: r.R };
+      try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
+      return _stfPref;
+    }
+  } catch (e) {}
+  _stfPref = local || STF_DEF;                                     // hors ligne : le cache local fait foi
+  return _stfPref;
+}
 const STF_LABELS = { today: 'TD', week: 'TW', '8h': '8H', '1d': '1D', '7d': '7D', '1m': '1M' };
 
 let _strengthRoot  = null;
@@ -1368,7 +1406,9 @@ async function buildStrengthCharts() {
       <div class="strength-main-chart" id="chart-strength-${side}"></div>
     </div>`;
 
-  wrap.innerHTML = paneHtml('L', 'today') + paneHtml('R', 'week');
+  // Rendu immédiat avec ce qu'on sait déjà (cache local), puis correction si le compte dit autre chose.
+  const _pref0 = _stfLocal() || STF_DEF;
+  wrap.innerHTML = paneHtml('L', _pref0.L) + paneHtml('R', _pref0.R);
 
   // Contrôleur d'un panneau (chargement + rendu + auto-refresh indépendants)
   function makePane(side, initialPeriod) {
@@ -1413,11 +1453,23 @@ async function buildStrengthCharts() {
         pane.querySelectorAll('.stf-tf-btn').forEach(b => b.classList.remove('stf-btn--active'));
         btn.classList.add('stf-btn--active');
         chartCtl = null;                    // changement de période → reconstruction
+        _stfSet(side, btn.dataset.period);  // mémorisé pour ce compte, dès le clic
         load(btn.dataset.period, { force: false });
       });
     });
 
     load(initialPeriod, { force: true });
+    // La valeur du COMPTE a le dernier mot : si l'utilisateur a changé de période sur un autre
+    // appareil (ou vidé son cache local), on s'aligne dès que le serveur a répondu.
+    _stfCharger().then(function (pref) {
+      const voulu = pref && pref[side];
+      if (!voulu || voulu === activePeriod) return;
+      pane.querySelectorAll('.stf-tf-btn').forEach(function (b) {
+        b.classList.toggle('stf-btn--active', b.dataset.period === voulu);
+      });
+      chartCtl = null;
+      load(voulu, { force: false });
+    }).catch(function () {});
     // AUTO-RÉTABLISSEMENT (« Force des Devises ne s'affiche pas ») : si le conteneur était à 0 hauteur au montage
     // (course de layout / restauration de l'onglet à l'ouverture de la vue Analyste), amCharts sort en 0×0 et
     // reste BLANC même une fois la place disponible → on détecte (conteneur dimensionné mais sans canvas rendu)
@@ -1441,8 +1493,11 @@ async function buildStrengthCharts() {
     }, 20_000));
   }
 
-  makePane('L', 'today');  // gauche → TD (intraday)
-  makePane('R', 'week');   // droite → TW (hebdomadaire)
+  // Défauts d'origine (gauche = TD intraday, droite = TW hebdomadaire) UNIQUEMENT si le compte n'a
+  // rien mémorisé : dès qu'un choix a été fait, c'est lui qui s'applique — au retour sur l'onglet,
+  // après reconnexion, et depuis un autre appareil.
+  makePane('L', _pref0.L);
+  makePane('R', _pref0.R);
 }
 
 // ═══════════════════════════════════════════════
