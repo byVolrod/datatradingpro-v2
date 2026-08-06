@@ -15901,3 +15901,18 @@ body.dtp-admin .view-panel > .panel > .panel-header {
   .wdg-mgr-def > span{ display:none; }
   .wdg-mgr-def{ padding:0 6px; }
 }
+
+/* ══ « Par défaut » — état POSÉ compact (06/08, 2e passe) ═════════════════════════════════════════
+   Posée, la pastille redevient une icône carrée : le choix est fait, l'étoile dorée le dit, la carte
+   respire. Libre, elle garde le mot — c'est là qu'on a besoin de savoir ce que le bouton ferait. */
+.wdg-mgr-def.on{
+  width:22px !important; padding:0; justify-content:center;
+  border-radius:4px;                      /* même silhouette que les icônes voisines */
+}
+.wdg-mgr-def.on > i{ font-size:13px; }
+/* La rangée d'actions ne doit JAMAIS sortir de la carte : avec le mot, elle dépassait le bord droit
+   et l'étoile passait sous la bordure (constaté user). On la borne, et le mot cède en premier. */
+.wdg-mgr-acts{ max-width:calc(100% - 12px); overflow:hidden; }
+.wdg-mgr-def > span{ overflow:hidden; text-overflow:ellipsis; min-width:0; }
+/* Fond opaque sous la rangée : posée sur la miniature, elle restait illisible sur les zones claires. */
+.wdg-mgr-acts > button, .wdg-mgr-acts > .wdg-mgr-lock{ backdrop-filter:blur(2px); }
