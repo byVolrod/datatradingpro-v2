@@ -37,7 +37,56 @@
       if (_aimNextAt && Date.now() >= _aimNextAt && !_aimBusy) { loadAIMon(); return; }
       if (nx && _aimNextAt) { const s = Math.max(0, Math.ceil((_aimNextAt - Date.now()) / 1000)); nx.textContent = '· prochaine MAJ dans ' + s + ' s'; }
     }, 1000);
+    _liveArm();
   });
+
+  // ── Actualisation dynamique : plus AUCUN bouton « Actualiser » ───────────────
+  //    Un panneau d'exploitation ne doit jamais laisser se demander si ce qu'on lit est frais.
+  //    UNE seule horloge pilote toutes les sources restantes. Chaque source déclare :
+  //      per : sa période — une campagne en cours d'envoi bouge plus vite qu'un journal d'archives ;
+  //      vu  : est-elle RÉELLEMENT à l'écran ? (onglet du rail ET sous-vue campagne) — rien ne tourne
+  //            dans le vide, et l'aperçu e-mail surtout : chaque rendu reconstruit le mail et ses
+  //            widgets côté serveur, c'est la requête la plus chère du panel ;
+  //      occ : l'admin est-il en train d'agir dessus ? Un re-render arracherait le champ sous les
+  //            doigts — c'est exactement le bug vécu sur la confirmation « Supprimer ? » qui
+  //            disparaissait au tick. Un tick occupé n'est pas perdu : il est simplement reporté.
+  //    Onglet navigateur en arrière-plan → tout gelé, et on rattrape d'un coup au retour.
+  var _LIVE_SRC = [
+    { k: 'campaign', per: 30000, zone: '#tab-campaign', go: function(){ loadCampaign(true); },
+      vu: function(){ return _liveTab('campaign'); } },
+    { k: 'maillog',  per: 20000, zone: '#tab-campaign', go: function(){ loadMailLog(); },
+      vu: function(){ return _liveTab('campaign') && _liveSub('journal'); } },
+    { k: 'apercu',   per: 45000, zone: '#tab-campaign', go: function(){ _cprevLoad(); },
+      vu: function(){ return _liveTab('campaign') && _liveSub('templates'); } },
+  ];
+  function _liveTab(n){ var t = document.getElementById('tab-' + n); return !!(t && t.classList.contains('tab-panel--active')); }
+  function _liveSub(n){ return !!document.querySelector('#tab-campaign .camp-sub[data-sub="' + n + '"].active'); }
+  // Occupé = saisie en cours, confirmation inline armée, ou fenêtre modale ouverte, dans CE panneau.
+  function _liveOccupe(sel){
+    var a = document.activeElement;
+    if (a && a.closest && a.closest(sel + ' input, ' + sel + ' select, ' + sel + ' textarea')) return true;
+    if (document.querySelector(sel + ' [data-confirming]')) return true;
+    if (document.querySelector('.modal.open')) return true;
+    return false;
+  }
+  function _liveArm(){
+    _LIVE_SRC.forEach(function(s){ s.next = Date.now() + s.per; });
+    setInterval(function(){
+      var cache = document.visibilityState === 'hidden';
+      var now = Date.now();
+      _LIVE_SRC.forEach(function(s){
+        var vu = !cache && s.vu();
+        var pill = document.querySelector('.live-pill[data-live="' + s.k + '"]');
+        if (pill) pill.classList.toggle('live-pill--off', !vu);
+        if (!vu) { s.next = now + s.per; return; }            // masqué : on repart d'une période pleine au retour
+        if (now < s.next) return;
+        if (_liveOccupe(s.zone)) { s.next = now + 4000; return; }   // reporté, pas perdu
+        s.next = now + s.per;
+        try { s.go(); } catch (e) {}
+        if (pill) { pill.classList.remove('live-pill--tick'); void pill.offsetWidth; pill.classList.add('live-pill--tick'); }
+      });
+    }, 1000);
+  }
 
   // ── Navigation (rail latéral groupé par domaine — refonte 26/07) ────────────
   //    Chargement PARESSEUX conservé : une vue ne va chercher ses données qu'à son ouverture.
@@ -371,8 +420,11 @@
         '</div><div class="deliv-ring" style="--p:' + dv.score + '"><div class="deliv-ring-in"><div class="deliv-ring-v">' + dv.score + '</div><div class="deliv-ring-l">Score</div></div></div></div>';
     } catch {}
   }
-  async function loadCampaign(){
-    const ael = document.getElementById('camp-audience'); if (ael) ael.textContent = 'Chargement de l’audience…';
+  // `silencieux` : appel du rafraîchissement automatique. On ne remplace PAS l'audience déjà affichée
+  // par « Chargement… » — l'admin verrait le chiffre clignoter toutes les 30 s sans rien y gagner.
+  async function loadCampaign(silencieux){
+    const ael = document.getElementById('camp-audience');
+    if (ael && !(silencieux && ael.querySelector('.camp-aud-total'))) ael.textContent = 'Chargement de l’audience…';
     try {
       const d = await fetch('/api/admin/campaign-audience').then(r => r.json());
       _campAud = d;
@@ -681,7 +733,7 @@
         window._cprevRetryCount = (window._cprevRetryCount || 0) + 1;
         if (ts) ts.textContent = '⟳ Déploiement en cours — nouvel essai (' + window._cprevRetryCount + '/5)…';
         if (window._cprevRetryCount <= 5) window._cprevRetryT = setTimeout(_cprevLoad, 6000);
-        else if (ts) ts.textContent = '⚠ Aperçu indisponible — cliquez « ↻ Actualiser » pour réessayer.';
+        else if (ts) ts.textContent = '⚠ Aperçu indisponible — nouvel essai automatique dans moins d’une minute.';
         return;
       }
       window._cprevRetryCount = 0;
@@ -692,14 +744,14 @@
     var ck = (type === 'mindset' && window._cprevConcept) ? ('&concept=' + encodeURIComponent(window._cprevConcept)) : ''; // Mindset : voir chaque thème
     f.src = '/api/admin/campaign-preview?type=' + type + m + vv + mo + ck + '&_=' + Date.now();
   }
-  // Recharge auto 45 s : UNIQUEMENT quand l'onglet Templates est ouvert ET la page visible
-  // (chaque rendu d'aperçu reconstruit le mail + ses widgets côté serveur — on ne gaspille plus).
+  // La recharge auto de l'aperçu est passée dans l'horloge unique (_LIVE_SRC, source « apercu ») :
+  // même règle qu'avant — Templates ouvert ET page visible — mais une seule horloge pour tout le panel.
+  // On garde la fonction : elle est appelée à chaque changement de template et sert désormais à
+  // REPARTIR d'une période pleine, pour qu'un rechargement ne tombe pas juste après une sélection.
   function _cprevArm(){
-    if (window._cprevTimer) clearInterval(window._cprevTimer);
-    window._cprevTimer = setInterval(function(){
-      var open = document.querySelector('#tab-campaign .camp-sub[data-sub="templates"].active');
-      if (open && document.visibilityState !== 'hidden') _cprevLoad();
-    }, 45000);
+    if (window._cprevTimer) { clearInterval(window._cprevTimer); window._cprevTimer = null; }   // purge de l'ancien timer
+    var s = _LIVE_SRC && _LIVE_SRC.find(function(x){ return x.k === 'apercu'; });
+    if (s) s.next = Date.now() + s.per;
   }
   // Marque la carte active dans la bibliothèque + le titre de l'aperçu.
   function _cprevMark(){
