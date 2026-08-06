@@ -759,7 +759,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // cadre — sans qu'aucune de leurs valeurs ne soit touchée.
   function bornesPaquet(d, facteur) {
     var vis = (d.currencies || []).filter(function (c) { return !_hiddenCcy.has(c) && (!_only || _only.has(c)); });
-    if (vis.length < 4) return null;                                  // trop peu de courbes : rien à arbitrer
+    // ⚠️ _hiddenCcy est TRANSITOIREMENT rempli pendant l'animation d'apparition d'amCharts — le
+    // fichier le documente déjà plus haut (bug « on ne voit que USD »). S'y fier au premier rendu
+    // faisait tomber sous le seuil de quatre courbes et renoncer au cadrage, silencieusement : tout
+    // le calcul était juste, il n'était simplement jamais atteint.
+    if (vis.length < 4) vis = (d.currencies || []).filter(function (c) { return !_only || _only.has(c); });
+    if (vis.length < 4) return null;                                  // vraiment trop peu : rien à arbitrer
     var infos = [];
     vis.forEach(function (c) {
       var serie = (d.series[c] || []).filter(function (x) { return x.v != null; });
@@ -1125,7 +1130,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
   });
   // ICI, et pas plus haut : l'attachement ci-dessus réinitialise l'axe. Le cadrage doit avoir le
   // dernier mot, sinon il est calculé pour rien.
+  // REPOSÉ après stabilisation : au premier rendu, amCharts anime l'apparition des séries et remet
+  // l'axe à zéro en cours de route. Même cause et même remède que la 2e passe de declutter à 300 ms.
   cadrerSurLePaquet(data);
+  setTimeout(function () { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 700);
+  setTimeout(function () { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 1900);
   scheduleDeclutter(0);
 
   // ── LE TRACÉ SUIT SON CADRE ──────────────────────────────────────────────────────────────────
