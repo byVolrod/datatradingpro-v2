@@ -287,7 +287,13 @@
   .mini-cs i{flex:1;border-radius:2px 2px 0 0}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 9px;margin:3px 4px 0 0;font-family:var(--mono);transition:border-color var(--t-fast),background var(--t-fast)}
   /* === Modules : maquettes de preview (gauche Recherche/PDF MUFG, droite 2x2) === */
-  .mods2{display:grid;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:18px;margin-top:54px;align-items:stretch}
+  /* align-items:start, et non stretch : la colonne de droite est passee de 2 a 3 rangees quand on y a
+     ajoute Mon Desk et Vue d ensemble, et la carte de gauche s etirait pour s aligner — 477 px de vide
+     sous son contenu (mesure). Elle garde desormais sa hauteur naturelle et devient SOLIDAIRE DU
+     DEFILEMENT : la note de recherche reste lisible pendant qu on parcourt les modules a droite,
+     l espace n est plus perdu, il travaille. */
+  .mods2{display:grid;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:18px;margin-top:54px;align-items:start}
+  .ri-card{position:sticky;top:92px}
   .mods2-r{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;gap:18px}
   .lead{display:flex;align-items:center;gap:11px}
   .lead .bic{margin-bottom:0;flex:0 0 auto;width:38px;height:38px;font-size:15px}
@@ -354,7 +360,9 @@
   .anl-sec{font-family:var(--tight);font-weight:800;font-size:8.5px;letter-spacing:.07em;color:var(--orange2);margin:9px 0 5px}
   .anl-l{height:5px;border-radius:3px;background:var(--line2);margin:4px 0}
   .anl-l.w1{width:100%}.anl-l.w2{width:86%}.anl-l.w3{width:68%}
-  @media (max-width:900px){ .mods2{grid-template-columns:1fr} .mods2-r{grid-template-columns:1fr} }
+  /* En UNE colonne, le collant n'a plus de sens : la carte se figerait pendant que les modules
+     suivants défilent derrière elle. On le neutralise sous le point de bascule. */
+  @media (max-width:900px){ .mods2{grid-template-columns:1fr} .mods2-r{grid-template-columns:1fr} .ri-card{position:static} }
 
   /* process */
   .proc{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:54px;position:relative}
