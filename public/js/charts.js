@@ -731,6 +731,51 @@ function buildStrengthChart(containerId, data, opts = {}) {
     const CAP    = 70;   // GBP atteint ~±48 → cap large : compression SEULEMENT sur extrêmes rares, amplitude réelle préservée (l'axe Y auto-scale + extraMin/Max 0.07 absorbent)
     return refMax > CAP ? (BASE * CAP / refMax) : BASE;
   }
+  /* ══ CADRAGE VERTICAL SUR LE PAQUET (06/08) ══════════════════════════════════════════════════════
+     L axe Y etait en auto-echelle PURE — seul graphe du fichier sans borne. La devise la plus extreme
+     fixait donc l echelle des huit. Mesure sur les vraies donnees d une semaine : 47 % de la hauteur
+     ne contenait QU UN SEUL trait, et les sept autres se partageaient 13 %. Le « vide » que voyait
+     l utilisateur n etait pas vide : c etait une courbe solitaire.
+     C est en partie STRUCTUREL — l indicateur est a somme quasi nulle, donc si une devise s echappe
+     de +1,3 %, les sept autres se repartissent mecaniquement -1,3 % et se resserrent.
+
+     CE QU ON FAIT, ET CE QU ON NE FAIT PAS. On borne le CADRE sur le 2e/98e centile de l ensemble des
+     points. AUCUNE valeur n est modifiee ni ecretee : la courbe hors-cadre continue d etre tracee et
+     SORT du cadre, exactement comme sur un graphe de prix zoome. L axe reste lineaire et gradue en
+     vraies unites, l infobulle donne la valeur reelle, et le double-clic sur la gouttiere droite rend
+     le cadrage plein.
+     TROIS GARDE-FOUS : on n active QUE si l extreme depasse 1,8x l amplitude du paquet ; zero reste
+     toujours dans le cadre ; et les DERNIERES valeurs — celles que l utilisateur lit — sont TOUJOURS
+     visibles, quoi qu il arrive.
+     Ce qui a ete ecarte : ecreter la valeur (mensonge sur l amplitude) et l echelle non lineaire (sur
+     un graphe de marche, les distances verticales ne voudraient plus rien dire). */
+  function bornesPaquet(d, facteur) {
+    var vis = (d.currencies || []).filter(function (c) { return !_hiddenCcy.has(c) && (!_only || _only.has(c)); });
+    var vals = [], fins = [];
+    vis.forEach(function (c) {
+      var serie = (d.series[c] || []).filter(function (x) { return x.v != null; });
+      serie.forEach(function (x) { vals.push(x.v * facteur); });
+      if (serie.length) fins.push(serie[serie.length - 1].v * facteur);
+    });
+    if (vals.length < 50) return null;
+    vals.sort(function (a, b) { return a - b; });
+    var q = function (p) { return vals[Math.max(0, Math.min(vals.length - 1, Math.round(p * (vals.length - 1))))]; };
+    var lo = Math.min(0, q(0.02)), hi = Math.max(0, q(0.98));
+    var eLo = Math.min(0, vals[0]), eHi = Math.max(0, vals[vals.length - 1]);
+    if (!(hi - lo > 0)) return null;
+    if ((eHi - eLo) < (hi - lo) * 1.8) return null;                  // pas de fuite marquee -> on ne touche a rien
+    return { min: Math.min.apply(null, [lo].concat(fins)), max: Math.max.apply(null, [hi].concat(fins)) };
+  }
+  var _dernieresDonnees = data;                                     // pour recadrer sans attendre le prochain rafraichissement
+  var _cadreLibre = false;                                            // double-clic : retour au cadrage plein
+  function cadrerSurLePaquet(d) {
+    try {
+      var b = _cadreLibre ? null : bornesPaquet(d, scaleFactor);
+      if (b) yAxis.setAll({ min: b.min, max: b.max, strictMinMax: true });
+      else   yAxis.setAll({ min: null, max: null, strictMinMax: false });
+    } catch (e) {}
+  }
+
   let scaleFactor = computeScale(data);
 
   // ÉPAISSEUR SELON LA DENSITÉ MESURÉE, jamais selon la période. 1,8 px pour un pas de 3 px (TD) est
@@ -815,8 +860,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
     // DOUBLE écoute (événements + propriété `visible`) : si un événement rate (update pendant
     // l'animation de masquage), l'état est de toute façon ré-imposé par declutter()/update()
     // qui lisent la visibilité RÉELLE de la série (cf. plus bas).
-    series.events.on('hidden', () => { _hiddenCcy.add(ccy); try { range.get('label')?.setAll({ forceHidden: true, visible: false });  range.get('grid')?.set('forceHidden', true);  } catch {} });
-    series.events.on('shown',  () => { _hiddenCcy.delete(ccy); try { range.get('label')?.setAll({ forceHidden: false, visible: true }); range.get('grid')?.set('forceHidden', false); } catch {} });
+    series.events.on('hidden', () => { _hiddenCcy.add(ccy); setTimeout(() => { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 0); try { range.get('label')?.setAll({ forceHidden: true, visible: false });  range.get('grid')?.set('forceHidden', true);  } catch {} });
+    series.events.on('shown',  () => { _hiddenCcy.delete(ccy); setTimeout(() => { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 0); try { range.get('label')?.setAll({ forceHidden: false, visible: true }); range.get('grid')?.set('forceHidden', false); } catch {} });
     series.on('visible', (vis) => {
       if (vis) _hiddenCcy.delete(ccy); else _hiddenCcy.add(ccy);
       try { range.get('label')?.set('forceHidden', !vis); range.get('grid')?.set('forceHidden', !vis); } catch {}
@@ -904,13 +949,27 @@ function buildStrengthChart(containerId, data, opts = {}) {
         // Bornage AVANT espacement (04/08, mobile) : une valeur pile au bord donnait un centre de
         // badge à 0 ou h → moitié coupée. On garde chaque point d'ancrage dans le cadre.
         const px = Math.max(8, Math.min(h - 8, (max - v) / (max - min) * h));
-        return { ccy, o, basePx: (max - v) / (max - min) * h, px };
+        // basePx BORNÉ lui aussi : avec un axe cadré (cf. cadrerSurLePaquet), une courbe qui sort du
+        // cadre donnait un point d'ancrage à plusieurs centaines de pixels, donc un filet de rappel
+        // traversant la légende. Les étiquettes ne sont pas clippées, il faut le faire ici.
+        const brut = (max - v) / (max - min) * h;
+        return { ccy, o, basePx: Math.max(-6, Math.min(h + 6, brut)), brut, px };
       }).filter(x => isFinite(x.basePx)).sort((a, b) => a.px - b.px);
       // ÉCART COMPRESSÉ À LA HAUTEUR RÉELLE (04/08, constat user mobile : pastilles coupées en
       // haut) : sur un petit graphe, 8 badges × 20 px dépassent le tracé — la remontée en bloc
       // poussait alors la pile HORS CADRE par le haut. L'écart s'adapte : jamais plus de 20 px,
       // jamais moins de 12 px (léger recouvrement contrôlé plutôt qu'une pastille invisible).
-      const GAP = arr.length > 1 ? Math.min(GAP_BASE, Math.max(16, (h - 16) / (arr.length - 1))) : GAP_BASE;
+      // ⚠️ L'ancienne ligne était MORTE : Math.min(17, Math.max(16, …)) ne pouvait renvoyer que 16
+      // ou 17, quelle que soit la hauteur — le commentaire ci-dessus décrivait une plage 20/12 px
+      // qui n'existait plus. Le plancher est rétabli à 12 px : sous 128 px de tracé (petit widget
+      // Mon Desk, mobile en paysage), huit pastilles de 15 px ne tiennent PAS, et mieux vaut un
+      // léger recouvrement qu'une colonne qui sort du cadre.
+      const GMAX = arr.length > 1 ? Math.max(12, (h - 16) / (arr.length - 1)) : GAP_BASE;
+      // ÉCART SELON LA TAILLE DU PAQUET (06/08) : deux étiquettes voisines restent COLLÉES à leurs
+      // courbes (17 px = 2 px de garde, l'intention d'origine) ; un paquet de huit — le cas TW, où
+      // toutes les courbes finissent au même niveau — passe à 23 px, sinon huit blocs colorés
+      // séparés de 2 px se lisent comme un seul pavé. On n'écarte QUE là où c'est illisible.
+      const gapFor = k => Math.min(GMAX, k <= 2 ? GAP_BASE : GAP_BASE + Math.min(6, k - 2));
       // ── PLACEMENT PAR PAQUETS CENTRÉS (05/08, demande user : « les étiquettes doivent être bien
       //    alignées avec les courbes ») ────────────────────────────────────────────────────────
       // L'ancienne méthode poussait TOUJOURS vers le bas depuis la première étiquette, puis
@@ -922,9 +981,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
       // d'un paquet s'écartent autour de leur centre de gravité, donc au plus près de leur courbe.
       const paquets = arr.map(x => ({ n: 1, somme: x.px }));
       const centre = g => g.somme / g.n;
-      const haut   = g => centre(g) - (g.n - 1) * GAP / 2;
-      const bas    = g => centre(g) + (g.n - 1) * GAP / 2;
+      const haut   = g => centre(g) - (g.n - 1) * gapFor(g.n) / 2;
+      const bas    = g => centre(g) + (g.n - 1) * gapFor(g.n) / 2;
       for (let k = 0; k < paquets.length - 1;) {
+        // On teste avec l'écart qu'aurait le paquet APRÈS fusion : sinon un paquet de huit se
+        // formerait avec l'écart d'un paquet de deux et se retrouverait trop serré une fois constitué.
+        const GAP = gapFor(paquets[k].n + paquets[k + 1].n);
         if (bas(paquets[k]) + GAP > haut(paquets[k + 1]) + 0.01) {
           paquets[k].n += paquets[k + 1].n;
           paquets[k].somme += paquets[k + 1].somme;
@@ -935,6 +997,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       let idx = 0;
       paquets.forEach(g => {
         // Bornage du PAQUET dans le cadre : aucune étiquette coupée en haut ni en bas.
+        const GAP = gapFor(g.n);
         const d = Math.max(8, Math.min(h - 8 - (g.n - 1) * GAP, haut(g)));
         for (let j = 0; j < g.n; j++) arr[idx++].px = d + j * GAP;
       });
@@ -970,6 +1033,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     declutter();
     setTimeout(declutter, 300);   // 2e passe une fois le layout stabilisé
   }
+  cadrerSurLePaquet(data);
   scheduleDeclutter(0);
   // Ré-espacement à CHAQUE recalcul des bornes du plot (révélation d'onglet, resize, drag du splitter, zoom Y) :
   // on écoute l'événement NATIF amCharts 'boundschanged', émis APRÈS que la mise en page est recalculée → declutter
@@ -987,6 +1051,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
   function update(newData) {
     if (!newData || !newData.currencies) return;
     scaleFactor = computeScale(newData);
+    _dernieresDonnees = newData;
+    // ⚠️ Avec min/max + strictMinMax, l axe ne se recale PLUS tout seul : sans ce rappel a chaque
+    // rafraichissement, le cadre serait fige sur des donnees perimees et pourrait masquer plus qu au
+    // premier rendu.
+    cadrerSurLePaquet(newData);
     for (const ccy of newData.currencies) {
       const s = seriesMap[ccy];
       if (!s) continue;
@@ -1015,7 +1084,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
   }
 
   // Étirement vertical de l'axe Y au glisser (façon TradingView/la référence) sur la gouttière droite
-  _attachYAxisDragZoom(container, yAxis, 70);
+  // 4e argument : la bascule de cadrage. Le double-clic sur la gouttière alterne « serré sur le
+  // paquet » et « cadre plein » — la devise partie loin redevient visible en un geste.
+  _attachYAxisDragZoom(container, yAxis, 70, function () {
+    _cadreLibre = !_cadreLibre;
+    cadrerSurLePaquet(_dernieresDonnees);
+    scheduleDeclutter(0);
+  });
 
   // ── LE TRACÉ SUIT SON CADRE ──────────────────────────────────────────────────────────────────
   // amCharts recalcule sa taille sur un changement de FENÊTRE, pas sur un changement de son
@@ -1049,7 +1124,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
 //   BAS   → on revient vers l'ajustement auto,  DOUBLE-CLIC → réinitialise.
 // Capture de pointeur → aucun listener résiduel (le grip meurt avec le conteneur au rebuild).
 // État volatil : remis à plat à chaque reconstruction (innerHTML vidé) : conforme DTP.
-function _attachYAxisDragZoom(container, yAxis, gutterW) {
+function _attachYAxisDragZoom(container, yAxis, gutterW, onFitToggle) {
   if (!container || !yAxis || typeof window.PointerEvent === 'undefined') return;
   if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
   const grip = document.createElement('div');
@@ -1086,7 +1161,14 @@ function _attachYAxisDragZoom(container, yAxis, gutterW) {
   grip.addEventListener('pointerup', end);
   grip.addEventListener('pointercancel', end);
   grip.addEventListener('lostpointercapture', () => { dragging = false; grip.classList.remove('is-grabbing'); });
-  grip.addEventListener('dblclick', (e) => { scale = 1; apply(); e.preventDefault(); e.stopPropagation(); });   // double-clic → fit auto
+  // Double-clic sur la gouttière = BASCULE du cadrage (06/08) : on alterne entre le cadre serré sur
+  // le paquet et le cadre PLEIN, qui remontre la devise partie loin. C'est la porte de sortie du
+  // cadrage automatique : rien n'est caché définitivement, tout est à un geste.
+  grip.addEventListener('dblclick', (e) => {
+    scale = 1; apply();
+    try { if (typeof onFitToggle === 'function') onFitToggle(); } catch (err) {}
+    e.preventDefault(); e.stopPropagation();
+  });
 }
 
 // Graphique de force ISOLÉ (réutilisé par le Weekly Recap) :
