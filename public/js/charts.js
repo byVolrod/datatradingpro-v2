@@ -749,22 +749,51 @@ function buildStrengthChart(containerId, data, opts = {}) {
      visibles, quoi qu il arrive.
      Ce qui a ete ecarte : ecreter la valeur (mensonge sur l amplitude) et l echelle non lineaire (sur
      un graphe de marche, les distances verticales ne voudraient plus rien dire). */
+  // ⚠️ RAISONNER PAR DEVISE, PAS PAR POINT. Un premier essai bornait sur le 2e/98e centile de TOUS les
+  // points confondus : sans effet ici, et pour une raison instructive — la devise qui s'échappe TIENT
+  // son niveau pendant un tiers de la semaine. Ses valeurs ne sont donc pas des points « extrêmes »
+  // au sens statistique : le 98e centile les contient déjà. Ce n'est pas un pic qu'il faut sortir du
+  // cadre, c'est une COURBE ENTIÈRE qui vit ailleurs que les autres.
+  // On mesure donc l'amplitude de CHAQUE devise, on prend la médiane de ces amplitudes, et on cadre
+  // sur celles qui restent dans une fourchette raisonnable autour d'elle. Les fuyardes sortent du
+  // cadre — sans qu'aucune de leurs valeurs ne soit touchée.
   function bornesPaquet(d, facteur) {
     var vis = (d.currencies || []).filter(function (c) { return !_hiddenCcy.has(c) && (!_only || _only.has(c)); });
-    var vals = [], fins = [];
+    if (vis.length < 4) return null;                                  // trop peu de courbes : rien à arbitrer
+    var infos = [];
     vis.forEach(function (c) {
       var serie = (d.series[c] || []).filter(function (x) { return x.v != null; });
-      serie.forEach(function (x) { vals.push(x.v * facteur); });
-      if (serie.length) fins.push(serie[serie.length - 1].v * facteur);
+      if (serie.length < 20) return;
+      var lo = Infinity, hi = -Infinity;
+      serie.forEach(function (x) { var v = x.v * facteur; if (v < lo) lo = v; if (v > hi) hi = v; });
+      infos.push({ c: c, lo: lo, hi: hi, ext: Math.max(Math.abs(lo), Math.abs(hi)), fin: serie[serie.length - 1].v * facteur });
     });
-    if (vals.length < 50) return null;
-    vals.sort(function (a, b) { return a - b; });
-    var q = function (p) { return vals[Math.max(0, Math.min(vals.length - 1, Math.round(p * (vals.length - 1))))]; };
-    var lo = Math.min(0, q(0.02)), hi = Math.max(0, q(0.98));
-    var eLo = Math.min(0, vals[0]), eHi = Math.max(0, vals[vals.length - 1]);
+    if (infos.length < 4) return null;
+    var exts = infos.map(function (i) { return i.ext; }).sort(function (a, b) { return a - b; });
+    var med = exts[Math.floor(exts.length / 2)];
+    if (!(med > 0)) return null;
+    // Seuil à 2,2× la médiane : une devise deux fois plus mobile que la normale reste dans le cadre
+    // (c'est un marché, pas une anomalie) ; au-delà, elle écrase tout le monde et on la laisse sortir.
+    var SEUIL = med * 2.2;
+    var dedans = infos.filter(function (i) { return i.ext <= SEUIL; });
+    if (dedans.length === infos.length) return null;                  // personne ne s'échappe → on ne touche à rien
+    if (dedans.length < Math.ceil(infos.length * 0.6)) return null;    // trop de fuyardes → l'idée ne tient plus
+    var lo = 0, hi = 0;
+    dedans.forEach(function (i) { if (i.lo < lo) lo = i.lo; if (i.hi > hi) hi = i.hi; });
     if (!(hi - lo > 0)) return null;
-    if ((eHi - eLo) < (hi - lo) * 1.8) return null;                  // pas de fuite marquee -> on ne touche a rien
-    return { min: Math.min.apply(null, [lo].concat(fins)), max: Math.max.apply(null, [hi].concat(fins)) };
+    // Le gain doit valoir le dérangement : si le cadre ne se resserre pas d'au moins 35 %, on laisse
+    // l'axe tranquille plutôt que de faire sortir une courbe pour rien.
+    var loT = 0, hiT = 0;
+    infos.forEach(function (i) { if (i.lo < loT) loT = i.lo; if (i.hi > hiT) hiT = i.hi; });
+    if ((hi - lo) > (hiT - loT) * 0.65) return null;
+    // ⚠️ Les dernières valeurs gardées dans le cadre sont celles du PAQUET SEULEMENT. Inclure aussi
+    // celle de la fuyarde annulait tout le cadrage — et silencieusement : sa valeur finale est
+    // précisément sur son plateau, donc le maximum redevenait celui d'avant et le graphe ne bougeait
+    // pas d'un pixel. Son étiquette, elle, reste visible : declutter borne toute pastille dans le
+    // cadre, elle se pose donc au bord, du côté où sa courbe est partie.
+    var fins = dedans.map(function (i) { return i.fin; });
+    var marge = (hi - lo) * 0.06;
+    return { min: Math.min.apply(null, [lo - marge].concat(fins)), max: Math.max.apply(null, [hi + marge].concat(fins)) };
   }
   var _dernieresDonnees = data;                                     // pour recadrer sans attendre le prochain rafraichissement
   var _cadreLibre = false;                                            // double-clic : retour au cadrage plein
@@ -1033,7 +1062,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
     declutter();
     setTimeout(declutter, 300);   // 2e passe une fois le layout stabilisé
   }
-  cadrerSurLePaquet(data);
+  // ⚠️ Le cadrage est posé PLUS BAS, APRÈS le branchement du zoom au glisser — celui-ci réinitialise
+  // l'axe au moment où il s'attache. Posé ici, il était calculé correctement puis EFFACÉ dans la
+  // foulée : l'axe repassait en min/max null et le graphe ne bougeait pas d'un pixel alors que tout
+  // le calcul était juste. Symptôme trompeur s'il en est.
   scheduleDeclutter(0);
   // Ré-espacement à CHAQUE recalcul des bornes du plot (révélation d'onglet, resize, drag du splitter, zoom Y) :
   // on écoute l'événement NATIF amCharts 'boundschanged', émis APRÈS que la mise en page est recalculée → declutter
@@ -1091,6 +1123,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
     cadrerSurLePaquet(_dernieresDonnees);
     scheduleDeclutter(0);
   });
+  // ICI, et pas plus haut : l'attachement ci-dessus réinitialise l'axe. Le cadrage doit avoir le
+  // dernier mot, sinon il est calculé pour rien.
+  cadrerSurLePaquet(data);
+  scheduleDeclutter(0);
 
   // ── LE TRACÉ SUIT SON CADRE ──────────────────────────────────────────────────────────────────
   // amCharts recalcule sa taille sur un changement de FENÊTRE, pas sur un changement de son
