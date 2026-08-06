@@ -712,3 +712,37 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .danger  { color: var(--red); }
 .info    { color: var(--blue); }
 .accent  { color: var(--orange); }
+
+/* ── Témoin « En direct » (remplace les boutons Actualiser) ────────────────────
+   Un bouton Actualiser pose toujours la même question : « ce que je lis, c'est frais ? ».
+   Le témoin y répond en permanence — pastille verte qui respire quand la vue est à l'écran
+   et se met à jour, grise quand la source est en pause (onglet masqué ou vue fermée).
+   Discret par construction : c'est un état, pas une action — donc aucun affordance de clic. */
+.live-pill{
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:var(--fs-label); font-weight:600; letter-spacing:.02em;
+  color:var(--green); padding:3px 9px; border-radius:999px;
+  border:1px solid rgba(0,230,118,.22); background:rgba(0,230,118,.07);
+  user-select:none; white-space:nowrap;
+  transition:color .25s, border-color .25s, background .25s;
+}
+.live-pill > i{
+  width:6px; height:6px; border-radius:50%; background:currentColor; flex:0 0 auto;
+  box-shadow:0 0 0 0 currentColor; animation:livePulse 2.4s ease-out infinite;
+}
+.live-pill--off{ color:var(--text3); border-color:var(--hud-line,#1c1c20); background:transparent; }
+.live-pill--off > i{ animation:none; box-shadow:none; opacity:.55; }
+/* Éclat bref au moment EXACT du rafraîchissement : l'admin voit que ça vient de bouger. */
+.live-pill--tick{ animation:liveTick .7s ease-out; }
+@keyframes livePulse{
+  0%   { box-shadow:0 0 0 0 rgba(0,230,118,.45); }
+  70%  { box-shadow:0 0 0 6px rgba(0,230,118,0); }
+  100% { box-shadow:0 0 0 0 rgba(0,230,118,0); }
+}
+@keyframes liveTick{
+  0%   { background:rgba(0,230,118,.30); border-color:rgba(0,230,118,.60); }
+  100% { background:rgba(0,230,118,.07); border-color:rgba(0,230,118,.22); }
+}
+@media (prefers-reduced-motion: reduce){
+  .live-pill > i, .live-pill--tick{ animation:none; }
+}
