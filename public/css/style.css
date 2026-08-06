@@ -15819,9 +15819,20 @@ body.dtp-admin .view-panel > .panel > .panel-header {
    redistribue lui-même en grille. */
 .wdgt-grid {
   flex: 1 1 auto; min-height: 0;
-  display: grid; gap: 1px;
-  background: var(--hud-line, #1c1c20);     /* le fond fait les filets de séparation, à 1px */
+  display: grid;
+  /* La densité suit le réglage « Espacés / Collés » de la barre Mon Desk (demande user 06/08).
+     ⚠️ On ne peut PAS se contenter d'hériter --wdg-gap : la grille du desk l'utilise avec une valeur
+     de repli — `gap: var(--wdg-gap, 10px)` — donc en mode espacé la variable n'est jamais DÉFINIE et
+     il n'y a rien à hériter. On pose donc le repli ici aussi, et le mode Collés impose sa valeur
+     par une règle explicite plus bas. Borné à 10px : au-delà, la gouttière mangerait la carte. */
+  gap: min(var(--wdg-gap, 10px), 10px);
+  background: var(--hud-line, #1c1c20);     /* le fond se voit dans l'interstice = le filet */
 }
+/* Collés : les blocs se touchent vraiment — un filet de 1px, rien de plus. La marge du bloc vide
+   disparaît aussi, sinon un liseré de 8px subsisterait autour de chaque case et le mode « Collés »
+   n'aurait aucun effet visible là où on l'attend justement le plus. */
+.wdg-gap-tight .wdgt-grid { gap: 1px; }
+.wdg-gap-tight .wdgt-cell > .wdgt-vide { margin: 0; height: 100%; border-radius: 0; }
 .wdgt-grid[data-d="2c"] { grid-template-columns: 1fr 1fr; }
 .wdgt-grid[data-d="2l"] { grid-template-rows: 1fr 1fr; }
 .wdgt-grid[data-d="3c"] { grid-template-columns: 1fr 1fr 1fr; }
