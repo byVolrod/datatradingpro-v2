@@ -16104,3 +16104,27 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   background: rgba(0, 0, 0, .045);
   border-color: rgba(0, 0, 0, .09);
 }
+
+/* ══ APERÇUS : un soupçon de contenu dans le corps (06/08) ════════════════════════════════════════
+   Dernier cran de réalisme demandé. On n'ajoute AUCUN élément : le corps du bloc reçoit une trame de
+   lignes en dégradé répété, qui évoque du contenu — lignes de fil, rangées de tableau — sans jamais
+   prétendre montrer la vraie donnée. C'est la limite qu'on se fixe : une miniature suggère une
+   structure, elle ne simule pas un écran. Le jour où elle simulerait, elle mentirait.
+   Coût de rendu nul (un dégradé CSS), aucun markup, aucune donnée lue. */
+.wdg-thumb--plan i::after{
+  content: ''; position: absolute; left: 8%; right: 8%; top: 34%; bottom: 12%;
+  border-radius: 1px; pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    color-mix(in srgb, #fff 20%, transparent) 0, color-mix(in srgb, #fff 20%, transparent) 1px,
+    transparent 1px, transparent 5px);
+  opacity: .5;
+}
+/* ⚠️ Une exclusion par sélecteur d'attribut était tentante mais FAUSSE : « height:1 » attrape
+   aussi bien 14 % que 100 %, et « height:2 » n'importe quel 2x %. Elle privait de trame les GRANDS
+   blocs, exactement l'inverse du but (constaté au rendu). La trame est donc posée partout : ses
+   bornes sont en POURCENTAGE de la hauteur du bloc, elle se serre donc d'elle-même sur les petits. */
+/* Sur la vignette-pastille de 88 px, jamais de trame : illisible à cette échelle. */
+.wdg-thumb--lbl:not(.wdg-thumb--plan) i::after{ display: none; }
+/* Cartes d'accueil : la trame peut être un peu plus présente, la miniature est grande. */
+.home-card--visu .home-card-face .wdg-thumb--plan i::after{ opacity: .62; top: 30%; }
