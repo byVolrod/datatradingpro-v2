@@ -843,7 +843,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
         // hache », pas la qualite de la donnee. Le defaut amCharts (0,5 px) etait inoperant a 0,65 px
         // d espacement. La donnee reste ENTIERE : zoomer ou faire un panoramique la restitue toute.
         // TD (0,2 a 0,35 pt/px) n est pas concerne : rien n y est saute.
-        minDistance: 2,
+        // ⚠️ CONDITIONNELLE, et c est essentiel. En TD la densite est deja bonne (0,2 a 0,35 pt/px) :
+        // la decimation n y apportait rien et y creait un ARTEFACT — sur une fin de serie sans
+        // nouveaux points, sauter les intermediaires donne un long segment droit qui file jusqu au
+        // bord du graphe (constat user). On ne l applique donc QUE la ou le probleme existe : au-dela
+        // de 0,9 point par pixel, c est-a-dire le TW et lui seul aujourd hui.
+        minDistance: _ptPx > 0.9 ? 2 : 0.5,
         tooltip: am5.Tooltip.new(root, {
           labelText: `[bold ${hexStr}]${ccy}[/]: {valueY.formatNumber("+#.##;-#.##;0.00")}`,
           getFillFromSprite: false,
