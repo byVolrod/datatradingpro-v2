@@ -2870,9 +2870,10 @@
                   ? 'C\'est le layout qui s\'ouvre à l\'arrivée sur Mon Desk. Cliquer pour ne plus l\'imposer (retour au dernier utilisé).'
                   : 'Faire de « ' + esc(l.name) + ' » le layout qui s\'ouvre à l\'arrivée sur Mon Desk.') + '"'
         +     ' onclick="' + stop + 'DTPWidgets.toggleFav(\'' + l.id + '\')">'
-        // Même libellé dans les deux états, à dessein : c'est l'étoile pleine et le fond doré qui
-        // disent « c'est celui-là », pas un changement de mot. Le sens du clic est dans l'infobulle.
-        +     '<i>' + (l.fav ? '★' : '☆') + '</i><span>Par défaut</span>'
+        // POSÉE = ÉTOILE SEULE, LIBRE = ÉTOILE + MOT (demande user 06/08). Une fois le choix fait,
+        // l'étoile dorée suffit à le dire et la carte respire ; sur les autres, le mot est ce qui
+        // invite à agir — c'est là qu'on a besoin de savoir ce que le bouton ferait.
+        +     '<i>' + (l.fav ? '★' : '☆') + '</i>' + (l.fav ? '' : '<span>Par défaut</span>')
         +   '</button>'
         +   '<button class="wdg-mgr-eye' + (l.hidden ? '' : ' on') + '" title="' + (l.hidden ? 'Afficher aussi dans la barre (plusieurs layouts côte à côte)' : 'Ne plus afficher dans la barre') + '" onclick="' + stop + 'DTPWidgets.toggleHide(\'' + l.id + '\')">'
         +     (l.hidden
