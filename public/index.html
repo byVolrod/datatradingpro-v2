@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260806bbg577" />
+  <link rel="stylesheet" href="/css/style.css?v=20260806bbg578" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260806bbg577"></script>
+  <script defer src="/js/noinspect.js?v=20260806bbg578"></script>
 </head>
 <body>
 
@@ -686,7 +686,10 @@
           <button class="wdg-lib-x" onclick="DTPWidgets.closeManager()" title="Fermer">×</button>
         </div>
         <div class="wdg-mgr-list" id="wdg-mgr-list"></div>
-        <div class="wdg-mgr-foot">
+        <!-- id explicite : la classe .wdg-mgr-foot sert AUSSI au pied de chaque carte de layout, et un
+             querySelector par classe attrapait le pied de la PREMIÈRE CARTE — la barre de sauvegarde
+             s'injectait donc dans la carte au lieu du pied du gestionnaire (constaté user 06/08). -->
+        <div class="wdg-mgr-foot" id="wdg-mgr-footbar">
           <button class="wdg-btn" onclick="DTPWidgets.exportCfg()" title="Télécharger tous tes layouts en JSON (sauvegarde personnelle)">↓ Exporter</button>
           <button class="wdg-btn" onclick="document.getElementById('wdg-import-file').click()" title="Ajouter les layouts d'un fichier exporté (rien n'est écrasé)">↑ Importer</button>
           <input type="file" id="wdg-import-file" accept=".json,application/json" style="display:none" onchange="DTPWidgets.importCfg(this)">
@@ -905,16 +908,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260806bbg577"></script>
-<script defer src="/js/app.js?v=20260806bbg577"></script>
-<script defer src="/js/charts.js?v=20260806bbg577"></script>
-<script defer src="/js/sessionmap.js?v=20260806bbg577"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260806bbg578"></script>
+<script defer src="/js/app.js?v=20260806bbg578"></script>
+<script defer src="/js/charts.js?v=20260806bbg578"></script>
+<script defer src="/js/sessionmap.js?v=20260806bbg578"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260806bbg577"></script>
-<script defer src="/js/home.js?v=20260806bbg577"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260806bbg577"></script>
-<script defer src="/js/i18n.js?v=20260806bbg577"></script>
+<script defer src="/js/widgets.js?v=20260806bbg578"></script>
+<script defer src="/js/home.js?v=20260806bbg578"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260806bbg578"></script>
+<script defer src="/js/i18n.js?v=20260806bbg578"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
