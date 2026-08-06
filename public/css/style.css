@@ -15916,3 +15916,46 @@ body.dtp-admin .view-panel > .panel > .panel-header {
 .wdg-mgr-def > span{ overflow:hidden; text-overflow:ellipsis; min-width:0; }
 /* Fond opaque sous la rangée : posée sur la miniature, elle restait illisible sur les zones claires. */
 .wdg-mgr-acts > button, .wdg-mgr-acts > .wdg-mgr-lock{ backdrop-filter:blur(2px); }
+
+/* ══ LISIBILITÉ DU SYSTÈME DE WIDGETS (06/08) ════════════════════════════════════════════════════
+   Passe faite sur MESURE, pas au jugé. Relevé avant correction, dans le gestionnaire :
+     · étiquette de miniature ....... 5,5 px   ← illisible, c'est le « ONGLETS » de la capture user
+     · compte de widgets ............ 10,5 px, contraste 3,4  ← sous le seuil de 4,5
+     · phrase d'aide / sauvegarde ... 10,5 px, contraste 4,6  ← tout juste
+     · badge « Actif » .............. 9,5 px
+     · nom du layout ................ 12,5 px
+   Ce panneau n'est pas une grille de marché : on y prend des décisions, pas on y lit des cours. La
+   densité extrême n'y a aucun intérêt, la lisibilité si. */
+
+/* 1. ÉTIQUETTES DE MINIATURE. Le 5,5 px vient de la vignette-pastille de 88 px de large. Dans une
+      carte du gestionnaire la miniature occupe TOUTE la largeur : elle peut porter un vrai texte. */
+.wdg-mgr-face .wdg-thumb--lbl{ grid-auto-rows: 9px; gap: 2.5px; padding: 5px; }
+.wdg-mgr-face .wdg-thumb--lbl b{
+  font-size: 8.5px; letter-spacing: .02em;
+  color: color-mix(in srgb, var(--tc, #e3b23a) 62%, #fff);   /* plus clair = plus lisible sur le bloc */
+}
+@media (max-width: 560px){ .wdg-mgr-face .wdg-thumb--lbl b{ font-size: 7.5px; } }
+
+/* 2. NOM ET COMPTE. Le compte passait à 3,4 de contraste : c'est l'information qui dit combien de
+      widgets porte le layout, elle ne peut pas être plus pâle que le fond. */
+.wdg-mgr-nom{ font-size: 13.5px; }
+/* ⚠️ `.wdg-mgr-foot .wdg-mgr-count` existe plus haut : le compte vit DANS le pied de carte, donc la
+   règle à un seul sélecteur perdait et le contraste restait à 3,4 (mesuré deux fois, avant/après).
+   On reprend le même chemin pour gagner proprement, sans !important. */
+.wdg-mgr-count,
+.wdg-mgr-foot .wdg-mgr-count{ font-size: 11.5px; color: var(--text2, #9aa3b2); }
+
+/* 3. BADGES ET AIDE. */
+.wdg-mgr-badge{ font-size: 10px; padding: 3px 9px; }
+.wdg-mgr-tplhint{ font-size: 11.5px; line-height: 1.6; color: var(--text2, #9aa3b2); }
+.wdg-mgr-bak-lbl{ font-size: 11.5px; color: var(--text2, #9aa3b2); }
+
+/* 4. EN-TÊTE DU PANNEAU : c'est le titre de l'écran, il ne doit pas être plus petit qu'une étiquette. */
+.wdg-lib-title{ font-size: 13.5px; }
+.wdg-ptab{ font-size: 12px; }
+.wdg-mgr-foot .wdg-btn{ font-size: 11.5px; }
+.wdg-mgr-card--new{ font-size: 12px; }
+
+/* 5. La bibliothèque suit la même règle : nom du widget et sa description. */
+.wdg-lib-card .wdg-lib-nom, .wdg-lib-nom{ font-size: 12.5px; }
+.wdg-lib-card .wdg-lib-desc, .wdg-lib-desc{ font-size: 11.5px; line-height: 1.5; color: var(--text2, #9aa3b2); }

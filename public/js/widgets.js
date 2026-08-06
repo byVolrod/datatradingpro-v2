@@ -3987,7 +3987,11 @@ function _spansAffiches(lay) {
       // SAUVEGARDE PAR COMPTE (demande user « récupérable si un souci s'impose ») : affiche la date du
       // snapshot serveur + bouton Restaurer (réversible : la config courante devient la sauvegarde).
       var slot = document.getElementById('wdg-mgr-bak');
-      if (!slot) { slot = document.createElement('div'); slot.id = 'wdg-mgr-bak'; slot.className = 'wdg-mgr-bak'; var foot = d.querySelector('.wdg-mgr-foot'); if (foot) foot.insertBefore(slot, foot.firstChild); }
+      // ⚠️ CIBLAGE PAR ID, pas par classe : `.wdg-mgr-foot` sert AUSSI au pied de chaque carte de
+      // layout, et les cartes viennent AVANT le pied du gestionnaire dans le document — le
+      // querySelector attrapait donc le pied de la PREMIÈRE CARTE et la barre « Sauvegarde auto /
+      // Restaurer » s'affichait par-dessus la miniature du premier layout (constaté user 06/08).
+      if (!slot) { slot = document.createElement('div'); slot.id = 'wdg-mgr-bak'; slot.className = 'wdg-mgr-bak'; var foot = document.getElementById('wdg-mgr-footbar'); if (foot) foot.insertBefore(slot, foot.firstChild); }
       slot.innerHTML = '';
       fetch('/api/widgets/backup').then(function (r) { return r.json(); }).then(function (j) {
         if (!j || !j.at || !slot.isConnected) return;
