@@ -7583,7 +7583,9 @@ function _dtpZoomApply(z) {
   document.documentElement.style.setProperty('--dtp-zoom', v);
   try { localStorage.setItem('dtp_zoom', String(v)); } catch (e) {}
   const val = document.getElementById('pd-zoom-val');
-  if (val) val.textContent = Math.round(v * 100) + ' %';
+  // « 100% » collé, pas « 100 % » : l'espace typographique française est correcte en texte courant,
+  // mais dans une commande étroite entre deux boutons elle casse la lecture du chiffre (demande user).
+  if (val) val.textContent = Math.round(v * 100) + '%';
   const i = DTP_ZOOMS.indexOf(v), btns = document.querySelectorAll('.pd-zoom-btn');
   if (btns[0]) btns[0].disabled = i <= 0;
   if (btns[1]) btns[1].disabled = i >= DTP_ZOOMS.length - 1;
