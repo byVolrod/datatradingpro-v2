@@ -469,7 +469,7 @@
   const _CS_PAGE = 60;
 
   const _csNum = function (v) { return v == null ? '<span class="cs-nm" title="Non mesuré sur un envoi SMTP direct">non mesuré</span>' : v; };
-  const _csPct = function (v) { return v == null ? '<span class="cs-nm">—</span>' : (String(v).replace('.', ',') + ' %'); };
+  const _csPct = function (v) { return v == null ? '<span class="cs-nm">—</span>' : (String(v).replace('.', ',') + '%'); };
   const _csDate = function (ts) {
     if (!ts) return '—';
     return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -639,7 +639,7 @@
             + '<span class="cs-lien-u" title="' + _csEsc(u) + '">' + _csEsc(u) + '</span>'
             + '<span class="cs-lien-n">' + liens[u] + '</span>'
             + '<span class="cs-lien-b"><i style="width:' + p + '%"></i></span>'
-            + '<span class="cs-lien-p">' + String(p).replace('.', ',') + ' %</span></div>';
+            + '<span class="cs-lien-p">' + String(p).replace('.', ',') + '%</span></div>';
         }).join('')
       : '<div class="cs-vide">Le détail par lien est enregistré depuis le 6 août 2026. Il apparaîtra dès les prochains clics.</div>';
 

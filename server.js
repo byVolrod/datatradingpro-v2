@@ -10717,7 +10717,7 @@ function _sbGroundMonetary(toneMap) {
       const tot = _bk.reduce((s, b) => s + (+b.rate), 0);
       _bk.forEach(b => { diffs[b.code] = +((+b.rate) - (tot - (+b.rate)) / (_bk.length - 1)).toFixed(2); });
       line = 'Différentiel de taux directeurs (chaque devise vs la moyenne des autres banques du G8) : '
-        + _bk.map(b => `${b.code} ${(+b.rate).toFixed(2)} % (${diffs[b.code] > 0 ? '+' : ''}${diffs[b.code]} pt)`).join(' · ')
+        + _bk.map(b => `${b.code} ${(+b.rate).toFixed(2)}% (${diffs[b.code] > 0 ? '+' : ''}${diffs[b.code]} pt)`).join(' · ')
         + ' — un écart nettement NÉGATIF (typiquement CHF/JPY) = portage structurellement défavorable qui pèse sur la devise ; un écart nettement positif = portage favorable.';
     }
   } catch (e) { console.warn('[SmartBias] rate diff', e.message); }
