@@ -44,12 +44,37 @@
   // CARTES VISUELLES (03/08 « met comme ceci ») : le PLAN du desk (moteur 2D des vignettes) devient
   // le VISAGE de la carte, le nom en Fraunces par-dessus, méta discrète en bas — on reconnaît son
   // desk à sa forme, comme la référence. « + Nouveau desk » remonte dans l'en-tête du bloc.
+  // Vraie si au moins une miniature n a pas pu etre construite (widgets.js pas encore charge).
+  var _miniManquante = false, _miniRetry = null, _miniEssais = 0;
+  // RATTRAPAGE : des que DTPWidgets.thumb existe, on reconstruit UNIQUEMENT la rangee de cartes.
+  // On ne re-rend pas tout l accueil : ce serait remonter le scroll et re-monter les widgets pour rien.
+  function _rattraperMinis(cfg) {
+    if (!_miniManquante) return;
+    if (_miniRetry) clearTimeout(_miniRetry);
+    _miniRetry = setTimeout(function () {
+      if (!(window.DTPWidgets && DTPWidgets.thumb)) {
+        if (++_miniEssais < 20) _rattraperMinis(cfg);         // ~10 s au total, puis on abandonne
+        return;
+      }
+      var host = document.querySelector('.home-cards');
+      if (!host) return;
+      _miniManquante = false;
+      host.innerHTML = layoutCards(cfg);
+    }, 500);
+  }
+
   function layoutCards(cfg) {
     var lays = (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).slice(0, 8);
     return lays.map(function (l, i) {
       var n = (l.items || []).length;
+      // ⚠️ COURSE DE CHARGEMENT (constatée sur mobile 06/08) : l'accueil se rend AVANT que widgets.js
+      // ne soit prêt. `DTPWidgets.thumb` n'existe alors pas encore, la miniature revient vide, et la
+      // carte reste un rectangle noir — définitivement, car plus rien ne la re-rend. Sur un poste de
+      // bureau le script arrivait à temps, d'où un défaut qui ne se voyait QUE sur mobile.
+      // On note l'échec ; un rattrapage plus bas reconstruit les cartes dès que l'outil est là.
       var mini = '';
       try { mini = (window.DTPWidgets && DTPWidgets.thumb) ? DTPWidgets.thumb(l.items, { labels: true }) : ''; } catch (e) {}
+      if (!mini) _miniManquante = true;
       return '<button class="home-card home-card--visu" style="--i:' + i + '" onclick="DTPHome.openDesk(\'' + esc(l.id) + '\')">'
         + (mini ? '<span class="home-card-face">' + mini + '</span>' : '')
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
@@ -231,6 +256,8 @@
   +   '</div>'
   + '</div>';
     document.body.appendChild(el);
+    _rattraperMinis(cfg);            // aperçus des desks : rattrapés dès que widgets.js répond
+    _menage.push(function () { if (_miniRetry) { clearTimeout(_miniRetry); _miniRetry = null; } });
 
     // Ticker : premier chargement + prix au rythme du tick desk (150 s), minuteurs tués avec l'écran.
     chargerTicker();
