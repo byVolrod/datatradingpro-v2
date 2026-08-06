@@ -411,13 +411,18 @@
         return '<div class="kpi-card" style="--kc:' + c.c + '" title="' + String(c.t).replace(/"/g,'') + '"><div class="kpi-top"><div class="kpi-ic">' + _lucide(c.ic) + '</div></div><div class="kpi-val">' + c.v + '</div><div class="kpi-lbl">' + c.l + '</div></div>';
       }).join('');
       const dv = d.deliverability, ch = dv.checks;
-      const dlab = function(s){ return s === 'pass' ? 'Validé' : (s === 'info' ? 'À surveiller' : 'Échec'); };
-      const dcls = function(s){ return s === 'pass' ? 'pass' : (s === 'info' ? 'info' : 'fail'); };
+      // « Score 100 » était une CONSTANTE côté serveur : rien n'était mesuré. On ne remplace pas un
+      // faux chiffre par un autre — l'anneau disparaît et la section dit ce qu'elle est vraiment.
+      const dlab = function(s){ return s === 'pass' ? 'Validé' : (s === 'info' ? 'À surveiller' : (s === 'declare' ? 'Déclaré' : 'Échec')); };
+      const dcls = function(s){ return s === 'pass' ? 'pass' : (s === 'info' ? 'info' : (s === 'declare' ? 'info' : 'fail')); };
       const rows = [['SPF',ch.spf],['DKIM',ch.dkim],['DMARC',ch.dmarc],['SMTP',ch.smtp],['Blacklist',ch.blacklist]];
       document.getElementById('camp-deliv').innerHTML =
         '<div class="deliv-wrap"><div class="deliv-rows">' +
         rows.map(function(x){ return '<div class="deliv-row"><span class="deliv-dot deliv-dot--' + dcls(x[1]) + '"></span><span class="deliv-k">' + x[0] + '</span><span class="deliv-v">' + dlab(x[1]) + '</span></div>'; }).join('') +
-        '</div><div class="deliv-ring" style="--p:' + dv.score + '"><div class="deliv-ring-in"><div class="deliv-ring-v">' + dv.score + '</div><div class="deliv-ring-l">Score</div></div></div></div>';
+        '</div>' + (dv.score == null
+          ? '<div class="deliv-note">' + (dv.note || 'Configuration déclarée, non vérifiée.') + '</div>'
+          : '<div class="deliv-ring" style="--p:' + dv.score + '"><div class="deliv-ring-in"><div class="deliv-ring-v">' + dv.score + '</div><div class="deliv-ring-l">Score</div></div></div>')
+        + '</div>';
     } catch {}
   }
   // `silencieux` : appel du rafraîchissement automatique. On ne remplace PAS l'audience déjà affichée

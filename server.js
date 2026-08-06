@@ -15868,10 +15868,66 @@ function _statsFlush() {
   if (_statsTimer.unref) _statsTimer.unref();
 }
 function _statCampaign(c) { const id = String(c || 'intro-v1'); if (!_campaignStats[id]) _campaignStats[id] = { sent: {}, opens: {}, clicks: {} }; return _campaignStats[id]; }
-function _recordSent(c, email)  { const s = _statCampaign(c); if (!s.sent[email]) s.sent[email] = Date.now(); _statsFlush(); }
-function _recordOpen(c, email)  { const s = _statCampaign(c); const o = s.opens[email] || { n: 0, first: Date.now() }; o.n++; o.last = Date.now(); s.opens[email] = o; _statsFlush(); }
-function _recordClick(c, email) { const s = _statCampaign(c); const k = s.clicks[email] || { n: 0, first: Date.now() }; k.n++; k.last = Date.now(); s.clicks[email] = k; _statsFlush(); }
+function _recordSent(c, email)  { const s = _statCampaign(c); if (!s.sent[email]) s.sent[email] = Date.now(); _statsFlush(); _runSent(c, email); }
+function _recordOpen(c, email)  { const s = _statCampaign(c); const o = s.opens[email] || { n: 0, first: Date.now() }; o.n++; o.last = Date.now(); s.opens[email] = o; _statsFlush(); _runOpen(c); }
+function _recordClick(c, email, url) { const s = _statCampaign(c); const k = s.clicks[email] || { n: 0, first: Date.now() }; k.n++; k.last = Date.now(); s.clicks[email] = k; _statsFlush(); _runClick(c, url); }
 function _recordUnsub(email)    { if (!_campaignStats._unsub) _campaignStats._unsub = {}; if (!_campaignStats._unsub[email]) _campaignStats._unsub[email] = Date.now(); _statsFlush(); }
+
+/* ══ REGISTRE PAR ENVOI (06/08) ═══════════════════════════════════════════════════════════════════
+   `campaign:stats` est un blob JSON monolithique RÉÉCRIT EN ENTIER toutes les 4 s à chaque pixel.
+   Y verser en plus des histogrammes horaires et des compteurs par lien, c'était renvoyer plusieurs
+   mégaoctets à Supabase à chaque ouverture — le motif exact du blackout d'egress de 18 To déjà vécu.
+   Les données NOUVELLES vivent donc dans une clé PAR ENVOI, `campaign:run:<runId>`, écrite seule et
+   seulement quand cet envoi bouge. Le monolithe n'est pas touché : aucune régression sur l'existant.
+
+   Le runId n'est PAS inventé : c'est la chaîne `<semaine ISO>-<jour>-<template>` que le jeton du
+   pixel signe déjà (mailer.trackToken) et que tous les mails déjà en boîte portent. En fabriquer un
+   nouveau (uuid, horodatage…) ferait rejeter silencieusement toutes leurs ouvertures futures. */
+const _RUN_TTL = 400 * 86400000;
+const _RUN_MAXH = 336;                                        // 14 jours de seaux horaires, puis on cesse d'empiler
+const _runs = Object.create(null);                            // runId → agrégat, en mémoire
+const _runsSales = new Set();                                 // envois modifiés depuis le dernier flush
+let _runsTimer = null;
+// Un envoi de TEST ne doit jamais polluer les agrégats : le mode test admin préfixe son tag par
+// « test- ». On les ignore ici plutôt qu'à l'affichage, sinon ils gonflent le KV pour rien.
+function _runEstReel(id) { return !!id && id.indexOf('test-') !== 0 && id.charAt(0) !== '_'; }
+function _runSeau(ts) { const d = new Date(ts); return d.toISOString().slice(0, 13); }   // « 2026-08-06T14 »
+function _runGet(id) {
+  if (!_runs[id]) _runs[id] = { id: id, sent: 0, opens: 0, clicks: 0, liens: {}, ouvH: {}, cliH: {}, maj: 0 };
+  return _runs[id];
+}
+function _runFlush() {
+  clearTimeout(_runsTimer);
+  _runsTimer = setTimeout(async () => {
+    const lot = Array.from(_runsSales); _runsSales.clear();
+    for (const id of lot) {
+      try { await auth.aiCacheSet('campaign:run:' + id, _runs[id]); } catch (e) { _runsSales.add(id); }
+    }
+  }, 5000);
+  if (_runsTimer.unref) _runsTimer.unref();
+}
+function _runTouche(id) { const r = _runGet(id); r.maj = Date.now(); _runsSales.add(id); _runFlush(); return r; }
+function _runSent(c, email) { if (!_runEstReel(c)) return; const r = _runTouche(c); r.sent++; if (!r.debut) r.debut = Date.now(); r.fin = Date.now(); }
+function _runOpen(c) {
+  if (!_runEstReel(c)) return;
+  const r = _runTouche(c); r.opens++;
+  const h = _runSeau(Date.now());
+  if (r.ouvH[h] || Object.keys(r.ouvH).length < _RUN_MAXH) r.ouvH[h] = (r.ouvH[h] || 0) + 1;
+}
+function _runClick(c, url) {
+  if (!_runEstReel(c)) return;
+  const r = _runTouche(c); r.clicks++;
+  const h = _runSeau(Date.now());
+  if (r.cliH[h] || Object.keys(r.cliH).length < _RUN_MAXH) r.cliH[h] = (r.cliH[h] || 0) + 1;
+  // CLIC PAR LIEN, et il est RÉTROACTIF : la cible voyage déjà dans `u=` des mails partis, il
+  // suffisait de la transmettre au compteur. On normalise à hôte + chemin — les paramètres de
+  // suivi feraient exploser le nombre de clés distinctes pour un même bouton.
+  try {
+    const u = new URL(String(url || ''));
+    const cle = (u.hostname + u.pathname).replace(/\/+$/, '').slice(0, 120);
+    if (cle && (r.liens[cle] || Object.keys(r.liens).length < 40)) r.liens[cle] = (r.liens[cle] || 0) + 1;
+  } catch (e) {}
+}
 
 const _PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');   // GIF 1x1 transparent
 const _CLICK_ALLOW = /(^|\.)(datatradingpro\.com|whop\.com|instagram\.com)$/i;                               // anti open-redirect (instagram = CTA campagne Invitation)
@@ -15901,7 +15957,7 @@ app.get('/api/track/click', (req, res) => {
   const c = String(req.query.c || ''), e = String(req.query.e || '').toLowerCase().trim(), t = String(req.query.t || '');
   let target = 'https://datatradingpro.com';
   try { const u = new URL(String(req.query.u || '')); if ((u.protocol === 'https:' || u.protocol === 'http:') && _CLICK_ALLOW.test(u.hostname)) target = u.href; } catch {}
-  try { if (c && e && t && t === mailer.trackToken(c, e)) _recordClick(c, e); } catch {}
+  try { if (c && e && t && t === mailer.trackToken(c, e)) _recordClick(c, e, target); } catch {}
   res.redirect(302, target);
 });
 
@@ -16093,8 +16149,14 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
     for (const rc of aud.recipients) { if (rc.segment === 'active') premium++; else if (rc.segment === 'churned') expired++; }
     const nextStep = CAMPAIGN_SEQUENCE.find(st => { const stt = _campaignStats[st.id]; return !(stt && Object.keys(stt.sent || {}).length); });
     // Score delivrabilite : SPF+DKIM+DMARC verifies PASS en prod (voir memoire). SMTP OVH operationnel.
-    const checks = { spf: 'pass', dkim: 'pass', dmarc: 'pass', smtp: 'pass', blacklist: bl ? 'info' : 'pass' };
-    const score = 60 + (checks.spf === 'pass' ? 12 : 0) + (checks.dkim === 'pass' ? 16 : 0) + (checks.dmarc === 'pass' ? 12 : 0);
+    // ⚠️ CORRIGÉ 06/08 — CE « SCORE » ÉTAIT UNE CONSTANTE. Les quatre contrôles étaient écrits en dur
+    // à « pass » et le score valait donc invariablement 100, quoi qu'il arrive au domaine. Un panneau
+    // qui affiche 100 sans jamais rien mesurer ne rassure pas : il empêche de voir un vrai problème.
+    // On dit maintenant ce que c'est — une CONFIGURATION DÉCLARÉE, non vérifiée — et plus un score.
+    // La vraie mesure (résolution DNS des enregistrements SPF/DKIM/DMARC + contrôle des listes noires)
+    // reste à faire ; tant qu'elle n'existe pas, on n'invente pas de chiffre.
+    const checks = { spf: 'declare', dkim: 'declare', dmarc: 'declare', smtp: 'declare', blacklist: bl ? 'info' : 'declare' };
+    const score = null;
     res.json({ ok: true,
       kpis: {
         total: r.total, active: r.segments.active, lead: r.segments.lead, churn: r.segments.churned,
@@ -16104,7 +16166,8 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
         lastCampaign: sentN ? { title: 'Bienvenue : introduction', sentAt: lastSentAt, sent: sentN } : null,
         nextCampaign: nextStep ? { title: nextStep.title, week: nextStep.week } : null,
       },
-      deliverability: { checks, score, reputation: 'bonne' },
+      deliverability: { checks, score, reputation: null, nonMesure: true,
+        note: 'Configuration déclarée, non vérifiée — aucune mesure de délivrabilité réelle n\'est disponible sur un envoi SMTP direct.' },
     });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -16956,14 +17019,22 @@ async function _temoignagePayload() {
 async function _dripSend(stepDef, r, context, tag, isTest) {
   const email = r.email, isMember = r.segment === 'active';
   const campaign = (tag ? tag + '-' : '') + stepDef.id;
-  const rec = id => { if (!isTest) _recordSent(id, email); };   // en mode TEST : aucune stat officielle, aucune consommation de rotation
+  // ⚠️ CORRIGÉ 06/08 — LA DÉCONNEXION QUI RENDAIT LES STATISTIQUES PAR ENVOI INEXPLOITABLES.
+  // Le mail part avec `campaign` = « <semaine ISO>-<jour>-<template> » : c'est CETTE chaîne que le
+  // pixel et le lien de suivi signent, donc les ouvertures et les clics s'enregistraient bien par
+  // ENVOI. Mais l'envoyé, lui, était enregistré sous un id de TEMPLATE constant (« decryptage »).
+  // Résultat : les ouvertures par envoi existaient en base depuis le 13/07 dans des clés dont
+  // personne ne connaissait les destinataires — impossible de calculer le moindre taux. Les deux
+  // écritures utilisent désormais la même identité.
+  // `id` reste accepté pour les gabarits dont la campagne est constante (intro-v1).
+  const rec = id => { if (!isTest) _recordSent(id || campaign, email); };   // en mode TEST : aucune stat officielle, aucune consommation de rotation
   try {
     if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { rec('intro-v1'); return true; } return false; }
     if (stepDef.tpl === 'decryptage') {
       const recentKeys = await _decryptKeysOfDay();   // figées par jour → concept identique pour tout le lot
       const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember });
       if (rr) {
-        rec('decryptage');
+        rec();
         if (!isTest) {
           const _day = _pDayParis(Date.now());
           if (_decryptMarkedDay !== _day) {           // marqué UNE fois par jour d'envoi
@@ -16975,10 +17046,10 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
       }
       return false;
     }
-    if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('point-marche'); return true; } return false; }
-    if (stepDef.tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); if (rr) { rec('mindset'); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
-    if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { rec('recap-hebdo'); return true; } return false; }
-    if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('outlook-hebdo'); return true; } return false; }
+    if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec(); return true; } return false; }
+    if (stepDef.tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); if (rr) { rec(); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
+    if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { rec(); return true; } return false; }
+    if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec(); return true; } return false; }
     // TÉMOIGNAGE (28/07) : preuve sociale — avis Whop RÉEL + angle IA propre à cet avis (cache 30 j).
     // Adressé aux NON-ABONNÉS : dire à un membre ce qu'un membre pense du produit n'a pas de sens.
     if (stepDef.tpl === 'temoignage') {
@@ -16986,14 +17057,14 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
       const t = await _temoignagePayload();
       if (!t) return false;                               // aucun avis exploitable → on repassera au prochain tick
       const p = await mailer.sendTemoignage({ to: email, name: r.name || '', review: t.review, angle: t.angle });
-      if (p) { rec('temoignage'); return true; }
+      if (p) { rec(); return true; }
       return false;
     }
     // INVITATION (28/07) : entre dans la rotation (fini le calendrier mensuel séparé). Non-abonnés only.
     if (stepDef.tpl === 'invitation') {
       if (isMember) return true;
       const p = await mailer.sendCampaignInvitation({ to: email, name: r.name || '', campaign, isMember: false });
-      if (p) { rec('invitation'); return true; }
+      if (p) { rec(); return true; }
       return false;
     }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
