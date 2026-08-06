@@ -15868,3 +15868,36 @@ body.dtp-admin .view-panel > .panel > .panel-header {
   .wdgt-dispo .wdg-dispo-card { width: 74px; }
   .wdgt-dispo { padding: 10px; }
 }
+
+/* ══ « Par défaut » : une pastille lisible à la place de l'étoile muette (06/08) ═══════════════════
+   L'ancien contrôle était un ★ seul dans une rangée de trois icônes de 22 px : rien ne disait ce
+   qu'il faisait, il fallait survoler pour le découvrir. La pastille porte son nom, et elle est à la
+   fois l'INDICATEUR — on voit d'un coup d'œil quel layout s'ouvrira — et la COMMANDE. */
+.wdg-mgr-def{
+  display:inline-flex; align-items:center; gap:5px;
+  height:22px; width:auto !important; padding:0 8px 0 6px;
+  border-radius:999px; cursor:pointer;
+  border:1px solid var(--hud-line,#1c1c20); background:rgba(255,255,255,.04);
+  color:var(--w-t17,#8d8f9b);
+  font-family:var(--tight,'Inter Tight',sans-serif); font-size:10px; font-weight:700;
+  letter-spacing:.03em; white-space:nowrap;
+  transition:color .14s, border-color .14s, background .14s;
+}
+.wdg-mgr-def > i{ font-style:normal; font-size:12px; line-height:1; }
+.wdg-mgr-def:hover{ color:var(--orange,#e3b23a); border-color:rgba(227,178,58,.45); background:rgba(227,178,58,.08); }
+/* Posé : or plein, il se lit avant tout le reste de la carte. */
+.wdg-mgr-def.on{
+  color:var(--orange,#e3b23a);
+  border-color:rgba(227,178,58,.55); background:rgba(227,178,58,.16);
+  box-shadow:0 0 0 1px rgba(227,178,58,.10);
+}
+/* La rangée d'actions doit laisser respirer la pastille : la largeur fixe de 22px ne vaut que pour
+   les icônes carrées qui l'entourent. */
+.wdg-mgr-acts > .wdg-mgr-def{ flex:0 0 auto; }
+.wdg-mgr-hint-k{ color:var(--orange,#e3b23a); font-weight:700; white-space:nowrap; }
+.wdg-mgr-hint-k > i{ font-style:normal; }
+/* Carte étroite : le mot disparaît, l'étoile reste — jamais de pastille tronquée. */
+@media (max-width: 560px){
+  .wdg-mgr-def > span{ display:none; }
+  .wdg-mgr-def{ padding:0 6px; }
+}
