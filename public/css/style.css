@@ -15811,3 +15811,49 @@ body.dtp-admin .view-panel > .panel > .panel-header {
   .wdg-cal-wrap .cth-event { width: 32%; }
   .wdg-cal-wrap .cth-val   { width: 8%; }
 }
+
+/* ══ ONGLET COMPOSITE : plusieurs widgets dans un seul onglet (06/08) ═══════════════════════════
+   PIÈGE STRUCTUREL : `.wdgt-body > * { flex: 1 1 auto }` étire CHAQUE enfant direct — deux enfants
+   se partageraient la hauteur en deux bandes, quatre en quatre bandes, quelle que soit la
+   disposition demandée. On n'insère donc QU'UN seul enfant, ce conteneur, qui absorbe ce flex et
+   redistribue lui-même en grille. */
+.wdgt-grid {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; gap: 1px;
+  background: var(--hud-line, #1c1c20);     /* le fond fait les filets de séparation, à 1px */
+}
+.wdgt-grid[data-d="2c"] { grid-template-columns: 1fr 1fr; }
+.wdgt-grid[data-d="2l"] { grid-template-rows: 1fr 1fr; }
+.wdgt-grid[data-d="3c"] { grid-template-columns: 1fr 1fr 1fr; }
+.wdgt-grid[data-d="4"]  { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+/* `.wdgt-body` est en overflow:hidden : ce qui déborde est CLIPPÉ, jamais scrollable. Chaque cellule
+   doit donc refaire son propre plancher, sinon les hauteurs minimales en dur de certains widgets
+   (grille de jauges, colonne de graphe banques) crèvent la carte au lieu de s'y adapter. */
+.wdgt-cell {
+  min-width: 0; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--card-bg, #0c0c0e);
+}
+.wdgt-cell > * { flex: 1 1 auto; min-height: 0; }
+.wdgt-cell > .wdgt-subname { flex: 0 0 auto; }          /* le bandeau de nom garde sa hauteur propre */
+.wdgt-cell .wdgt-vide { height: 100%; }
+/* Dans une case, tout est plus petit : on réduit d'un cran plutôt que de laisser tronquer. */
+.wdgt-cell .wdgt-subname { font-size: 10.5px; padding: 4px 7px; }
+.wdgt-grid[data-d="4"] .wdgt-cell .wdgt-subname,
+.wdgt-grid[data-d="3c"] .wdgt-cell .wdgt-subname { font-size: 10px; padding: 3px 6px; }
+
+/* Sélecteur de disposition, dans le corps d'un onglet vide. Même grammaire que le sélecteur du
+   desk (mêmes vignettes .wdg-dispo-card) : un seul langage visuel pour un seul geste. */
+.wdgt-dispo { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  justify-content: center; gap: 10px; padding: 14px 16px; }
+.wdgt-dispo-t { font-size: var(--fs-label, 11px); font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text3, #8d8f9b); text-align: center; }
+.wdgt-dispo .wdg-dispo-row { flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0; }
+.wdgt-dispo .wdg-dispo-card { width: 88px; padding: 8px 6px; gap: 5px; }
+.wdgt-dispo .wdg-dispo-card .wdg-thumb { grid-auto-rows: 6px; }
+/* Panneau étroit (carte de 3-4 colonnes) : les vignettes passent en deux rangées plutôt que de
+   déborder — la carte ne doit jamais avoir de scroll horizontal. */
+@container dtpwdg (max-width: 340px) {
+  .wdgt-dispo .wdg-dispo-card { width: 74px; }
+  .wdgt-dispo { padding: 10px; }
+}
