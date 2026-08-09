@@ -16128,3 +16128,19 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wdg-thumb--lbl:not(.wdg-thumb--plan) i::after{ display: none; }
 /* Cartes d'accueil : la trame peut être un peu plus présente, la miniature est grande. */
 .home-card--visu .home-card-face .wdg-thumb--plan i::after{ opacity: .62; top: 30%; }
+
+/* ══ DÉCRYPTAGE : le couple « cause → conséquence » bascule selon le PANNEAU, pas l'écran (07/08) ══
+   Constat user (vue Analystes, panneau ~460 px sur GRAND écran) : la colonne conséquence réduite à
+   UN MOT PAR LIGNE, débordant du cadre. Cause : la grille .cal-flux donne à la cause sa largeur
+   maximale (max-content) — voulu pour aligner les flèches en colonne — et dans un panneau étroit
+   elle affame la conséquence. Le garde-fou existant (@media 900 px) écoute le VIEWPORT : il ne se
+   déclenche jamais quand c'est le panneau qui est étroit sur un écran large. On interroge donc la
+   largeur RÉELLE de la cellule de valeur, et on reprend exactement l'habillage empilé du mode
+   étroit : conséquence au filet or, flèche retirée. */
+.cal-kb-val { container-type: inline-size; }
+@container (max-width: 430px) {
+  .cal-flux { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .cal-flux-x { display: none; }
+  .cal-flux-a { margin-top: 4px; }
+  .cal-flux-b { padding-left: 9px; border-left: 2px solid var(--orange); margin: 2px 0 4px; }
+}
