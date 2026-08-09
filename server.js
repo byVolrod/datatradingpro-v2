@@ -11562,7 +11562,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v20-deterministe';   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
+const WA_VER = 'v21-nfp';   // v21 (06/08, demande user) : le NFP (« Non Farm Payrolls », 1er vendredi du mois) remonte en TÊTE du jour — reconnaissance déterministe `_waMajor` en 2e critère de tri + poids « point d'orgue » (+4) dans le profil de risque. Il était évincé du titre par le `slice(0, 3)` sur un calendrier trié PAR HEURE (14h30 Paris = trop tard). bump = régén au boot.   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
 let _weekAhead = null;
 try { _weekAhead = _noDashDeep(JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8'))); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = _noDashDeep(d); }).catch(() => {}); } catch {}
@@ -11576,6 +11576,24 @@ function _waTrim(s, max) {
   const m = cut.match(/^[\s\S]*[.!?…»”"]/);
   return (m ? m[0] : cut).trim();
 }
+// ── RENDEZ-VOUS MAJEURS (Week Ahead) : certains chiffres sont L'ÉVÉNEMENT du mois et doivent remonter
+// en TÊTE du titre même quand ils tombent tard dans la séance. Le NFP (1er vendredi, 14h30 Paris) était
+// évincé : le titre prend `base.slice(0, 3)` et le calendrier arrive TRIÉ PAR HEURE (scrapers/tvcalendar.js
+// l. 95 `.sort((a,b) => a.ts - b.ts)`), donc 3 publications européennes du matin suffisaient à le faire
+// disparaître du titre ET de la description.
+// Même esprit que `_gewKeyRank` (public/js/app.js, Temps forts du récap hebdo) : rang par FAMILLE,
+// déterministe, ZÉRO IA — mais rang DÉDIÉ, car dans `_gewKeyRank` l'emploi est rang 3 (sous inflation et
+// croissance) : un vendredi NFP + GDP UK, le GDP passerait devant. Ici le NFP prime.
+// Libellés couverts (les DEUX sources réelles du desk) : TradingView « Non Farm Payrolls » (vérifié dans
+// news_history.json), ForexFactory « Non-Farm Employment Change » (repli allCalendar), « Nonfarm Payrolls »,
+// « NFP ». Vérifié : aucun faux positif sur « ADP Employment Change », « Unemployment Rate »,
+// « Employment Change », « Average Hourly Earnings ».
+// Tout le reste = rang 0 → le tri reste STABLE → l'ordre chronologique existant est INTÉGRALEMENT
+// conservé (aucun autre événement ne bouge). Pour promouvoir un autre rendez-vous : une ligne de plus.
+const _WA_MAJOR = [
+  [/\bnon[-\s]?farm\s+payrolls?\b|\bnonfarm\s+payrolls?\b|\bnon[-\s]?farm\s+employment\s+change\b|\bnfp\b/i, 5],   // NFP — LE rendez-vous mensuel du dollar (1er vendredi)
+];
+const _waMajor = e => { const t = String((e && e.title) || ''); for (const [rx, r] of _WA_MAJOR) if (rx.test(t)) return r; return 0; };
 async function generateWeekAhead(force = false, genEditorial = false, opts = {}) {
   // MODE ARCHIVE (demande user 27/07 « pouvoir voir les semaines passées, comme le calendrier ») : opts.monday
   // = lundi d'une semaine ANTÉRIEURE → on reconstruit son agenda depuis l'HISTORIQUE du calendrier
@@ -11639,12 +11657,16 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
   keys.forEach(k => {
     const evs = byDay[k];
     const cb = evs.some(e => /rate decision|interest rate decision|monetary policy|rate statement|deposit facility|refinancing/i.test(e.title || ''));
-    _rawRisk[k] = evs.reduce((s, e) => s + (e.impact === 'High' ? 3 : 1), 0) + (cb ? 4 : 0);
+    const nfp = evs.some(e => _waMajor(e) >= 5);   // NFP : même poids de « point d'orgue » qu'une décision de taux — sinon un mercredi chargé de Medium affiche un risque SUPÉRIEUR au 1er vendredi du mois
+    _rawRisk[k] = evs.reduce((s, e) => s + (e.impact === 'High' ? 3 : 1), 0) + (cb ? 4 : 0) + (nfp ? 4 : 0);
   });
   const _rMin = Math.min(...keys.map(k => _rawRisk[k])), _rMax = Math.max(...keys.map(k => _rawRisk[k]));
   const _riskOf = k => _rMax === _rMin ? 55 : Math.round(20 + 75 * (_rawRisk[k] - _rMin) / (_rMax - _rMin));
   const days = keys.map(k => {
-    const evs = byDay[k].slice().sort((a, b) => (b.impact === 'High' ? 1 : 0) - (a.impact === 'High' ? 1 : 0));
+    // Tri : l'impact d'abord (INCHANGÉ, aucun Medium ne double un High), PUIS les rendez-vous majeurs
+    // (NFP). À rang égal Array#sort est STABLE → l'ordre chronologique du calendrier est conservé tel
+    // quel pour TOUS les autres événements (`_waMajor` y renvoie 0, le comparateur retourne 0).
+    const evs = byDay[k].slice().sort((a, b) => ((b.impact === 'High' ? 1 : 0) - (a.impact === 'High' ? 1 : 0)) || (_waMajor(b) - _waMajor(a)));
     const d = new Date(k + 'T12:00:00Z');
     const hiEvs = evs.filter(e => e.impact === 'High');
     const risk = _riskOf(k);

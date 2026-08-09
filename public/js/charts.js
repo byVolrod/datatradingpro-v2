@@ -700,7 +700,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
 
   const chart = root.container.children.push(
     am5xy.XYChart.new(root, {
-      paddingLeft: 0, paddingRight: 2, paddingTop: 4, paddingBottom: 3,
+      paddingLeft: 0, paddingRight: 0, paddingTop: 4, paddingBottom: 3,   // marges horizontales SYMÉTRIQUES : le graphe était posé 2 px plus à droite qu'à gauche (décalage constant, invisible en petit, cumulé aux 26 px de la gouttière une fois agrandi). `paddingLeft: 0` conservé — tracé au ras du bord gauche, intention d'origine.
       layout: root.verticalLayout,
       // Façon la référence : on GLISSE le graphe (drag) pour remonter l'historique. wheelY 'none' →
       // la molette continue de scroller la page ; pinch zoom au doigt sur mobile.
@@ -1233,7 +1233,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // Étirement vertical de l'axe Y au glisser (façon TradingView/la référence) sur la gouttière droite
   // 4e argument : la bascule de cadrage. Le double-clic sur la gouttière alterne « serré sur le
   // paquet » et « cadre plein » — la devise partie loin redevient visible en un geste.
-  _attachYAxisDragZoom(container, yAxis, 70, function () {
+  // La bande de préhension épouse la gouttière RÉELLE (`_gouttiere`, calculé l. 923 dans cette même
+  // fonction selon le réglage « valeur sur les étiquettes » et la largeur d'écran) au lieu d'un 70 px
+  // codé en dur. Mesuré sur le code réel : yAxis.width() = 43,7 px, plotContainer.width() = 493,3 px,
+  // grip.offsetWidth = 70 px → 26 px du TRACÉ étaient recouverts par une zone `ns-resize` qui mangeait
+  // le survol, le croisillon et le pan, et faisait paraître le graphe décalé une fois agrandi (le bord
+  // gauche colle au cadre, le droit non).
+  _attachYAxisDragZoom(container, yAxis, _gouttiere, function () {
     _cadreLibre = !_cadreLibre;
     cadrerSurLePaquet(_dernieresDonnees);
     scheduleDeclutter(0);
