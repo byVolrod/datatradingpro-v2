@@ -173,6 +173,11 @@ allNews = loadHistory().filter(item => item && !/^\s*\[?\s*primer\b/i.test(item.
 });
 
 // ─── Session ──────────────────────────────────────────────────────────────────
+// ⚠️ Si SESSION_SECRET n'est pas posé, les cookies de session sont signés avec un littéral du code —
+// FORGEABLES par quiconque a vu le dépôt, y compris une session admin. On ne remplace PAS le repli en
+// aveugle (un secret aléatoire par boot déconnecterait tous les membres à chaque déploiement si l'env
+// manquait) : on hurle dans les logs pour que l'absence se voie au premier docker logs. (07/08)
+if (!process.env.SESSION_SECRET) console.error('[Sécurité] SESSION_SECRET ABSENT → cookies signés avec le littéral du code, sessions forgeables. Posez SESSION_SECRET dans l\'environnement immédiatement.');
 const _sessionMw = session({
   name:     'dtp_session',
   secret:   process.env.SESSION_SECRET || 'dtp-secret-key-change-me',
@@ -15870,16 +15875,46 @@ function _unsubPage(title, msg, ok) {
       <a href="https://datatradingpro.com" style="display:inline-block;margin-top:24px;color:#e3b23a;text-decoration:none;font-size:13px;">Retour sur datatradingpro.com</a>
     </div></body></html>`;
 }
+// L'adresse est-elle un contact CONNU de DTP ? (07/08, demande user : la désinscription ne doit
+// valoir que pour les comptes e-mail des utilisateurs du DTP.) Deux sources, toutes deux bon marché :
+// les comptes desk (getAllUsers, cache 60 s) et les adresses RÉELLEMENT servies par une campagne
+// (_campaignStats en mémoire — les contacts Whop et manuels y figurent dès leur premier envoi, et un
+// lien de désinscription légitime n'existe QUE dans un mail qu'on a envoyé).
+async function _emailConnuDTP(email) {
+  try {
+    const users = await auth.getAllUsers();
+    if ((users || []).some(u => String(u.email || '').toLowerCase().trim() === email)) return true;
+  } catch (e) {}
+  try {
+    for (const cid of Object.keys(_campaignStats)) {
+      if (cid === '_unsub') continue;
+      const s = _campaignStats[cid];
+      if (s && s.sent && s.sent[email]) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 app.get('/api/unsubscribe', async (req, res) => {
   const email = String(req.query.e || '').toLowerCase().trim();
   const token = String(req.query.t || '');
-  if (!email || !token || token !== mailer.unsubToken(email)) {
+  // Forme d'adresse STRICTE avant toute écriture : sans elle, une chaîne arbitraire (balises,
+  // séparateurs) finissait en clé KV « unsub:<n'importe quoi> » dès lors que le jeton collait.
+  const _emailValide = /^[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,255}\.[a-z]{2,24}$/.test(email);
+  if (!email || !_emailValide || !token || token !== mailer.unsubToken(email)) {
     return res.status(400).type('html').send(_unsubPage('Lien invalide',
       'Ce lien de d&eacute;sinscription est invalide ou incomplet. &Eacute;crivez-nous &agrave; ' + (process.env.SUPPORT_EMAIL || 'contact@datatradingpro.com') + ' pour &ecirc;tre retir&eacute; de la liste.', false));
   }
-  try { await auth.emailLogAdd('unsub:' + email); } catch (e) { console.error('[Unsub]', e.message); }
-  _recordUnsub(email);
-  console.log('[Unsub] desinscription →', email);
+  // Adresse inconnue de DTP (jeton pourtant valide — cas d'un secret compromis ou d'une adresse
+  // sortie de la base) : on n'ÉCRIT RIEN. La page de confirmation reste la même : « ne recevra plus
+  // nos emails » est vrai dans les deux cas, et une page différente révélerait qui est client.
+  if (!(await _emailConnuDTP(email))) {
+    console.warn('[Unsub] adresse inconnue de DTP, aucune écriture →', email);
+  } else {
+    try { await auth.emailLogAdd('unsub:' + email); } catch (e) { console.error('[Unsub]', e.message); }
+    _recordUnsub(email);
+    console.log('[Unsub] desinscription →', email);
+  }
   res.type('html').send(_unsubPage('Vous &ecirc;tes d&eacute;sabonn&eacute;',
     'L\'adresse <strong style="color:#fff;">' + email.replace(/[<>&"']/g, '') + '</strong> ne recevra plus nos emails de campagne. Vos emails de compte (acc&egrave;s, s&eacute;curit&eacute;) restent actifs. Un doute&nbsp;? &Eacute;crivez &agrave; ' + (process.env.SUPPORT_EMAIL || 'contact@datatradingpro.com') + '.', true));
 });

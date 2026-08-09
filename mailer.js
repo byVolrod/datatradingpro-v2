@@ -813,7 +813,15 @@ async function sendAnnouncementV2(d) { const m = buildAnnouncementV2(d || {}); r
 //  CAMPAGNE HEBDO — mail d'introduction (1er de la sequence) + desinscription reelle
 // ══════════════════════════════════════════════════════════════════════════════
 const LANDING_URL   = process.env.LANDING_URL || 'https://datatradingpro.com';
-const _UNSUB_SECRET = process.env.UNSUB_SECRET || process.env.SESSION_SECRET || 'dtp-unsub-v1';
+// ⚠️ SÉCURITÉ (07/08, demande user) : le repli était le LITTÉRAL 'dtp-unsub-v1' — écrit dans le code,
+// donc quiconque a vu le dépôt pouvait FORGER des liens de désinscription (et des jetons de tracking,
+// même secret) pour n'importe quelle adresse, et désabonner toute l'audience en une boucle. Si aucune
+// des deux variables d'environnement n'est posée, on tire désormais un secret ALÉATOIRE au démarrage :
+// la forge devient impossible. Coût assumé dans ce cas — et seulement dans ce cas — les liens des
+// mails déjà envoyés meurent au redémarrage suivant ; c'est le prix d'un secret qui n'existe plus en
+// clair nulle part. En production SESSION_SECRET est posé : rien ne change, les anciens liens vivent.
+const _UNSUB_SECRET = process.env.UNSUB_SECRET || process.env.SESSION_SECRET
+  || (() => { console.error('[Sécurité] UNSUB_SECRET/SESSION_SECRET absents → secret de désinscription ALÉATOIRE (les liens ne survivront pas au redémarrage). Posez UNSUB_SECRET dans l\'environnement.'); return crypto.randomBytes(32).toString('hex'); })();
 // Jeton HMAC lie a l'email : empeche qu'un tiers desabonne quelqu'un d'autre en devinant l'URL.
 // server.js verifie le meme jeton (mailer.unsubToken) avant de supprimer.
 function unsubToken(email) {
