@@ -595,7 +595,6 @@ function buildTemoignage({ name, review, angle } = {}) {
     <p style="margin:0 0 14px;">${lien}</p>
     ${_button('Découvrir le terminal', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Ce qu\'un membre retient de DataTradingPro', html: _layout('Témoignage', body) };
 }

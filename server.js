@@ -16493,7 +16493,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     let _rotationSeqId = null, nextId = null, _curWeekIdx = 0;
     try { const _rs = _rotStepForWeek(); _rotationSeqId = _rs ? _DRIP2SEQ[_rs.id] : null; } catch {}
     try { const _ls = _loopStepFor(); nextId = _ls ? _DRIP2SEQ[_ls.id] : null; } catch {}   // prochain contenu à partir (cette semaine si son jour n'est pas passé, sinon la semaine prochaine)
-    try { _curWeekIdx = _dripWeekNum() % _WEEK_ROTATION.length; } catch {}
+    try { _curWeekIdx = _rotIdxForWeek(0); } catch {}
     // Lundi ~00:00 (Paris) de la semaine ISO courante → filtre « envoyé CETTE semaine » (compteur remis à zéro le lundi).
     let _mondayTs = Date.now() - 7 * 864e5;
     try {
@@ -16563,7 +16563,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     try {
       let effNextId = nextId, advanced = false;
       const _nrow = steps.find(x => x.id === nextId);
-      if (_nrow && _nrow.doneWeek) { const ns = _WEEK_ROTATION[(_dripWeekNum() + 1) % _WEEK_ROTATION.length]; effNextId = ns ? (_DRIP2SEQ[ns.id] || null) : null; advanced = true; }
+      if (_nrow && _nrow.doneWeek) { const ns = _WEEK_ROTATION[_rotIdxForWeek(1)]; effNextId = ns ? (_DRIP2SEQ[ns.id] || null) : null; advanced = true; }
       const nd = effNextId ? CAMPAIGN_SEQUENCE.find(x => x.id === effNextId) : null;
       const wd = effNextId ? _SEQ2DAY[effNextId] : null;
       if (nd && wd != null) {
@@ -17493,7 +17493,32 @@ const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MIN
 // FENÊTRE 19h→22h (attend le FX Daily Recap de 19h, base du mail — demande user). Max par défaut = 19h.
 const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 19, mindset: 8, recap: 10, temoignage: 18, invitation: 17 };
 const _STEP_MAXHOUR = { pointmarche: 22, temoignage: 21, invitation: 20 };
-function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
+// ── INDEX DE ROTATION ANCRÉ (correctif 10/08/2026) ───────────────────────────────────────────────
+// La rotation dérivait de la semaine ISO « absolue » (isoWeek % longueur). Deux défauts prouvés :
+//   1. changer la LONGUEUR du tableau re-mélange tout le mapping : le passage 7→6 contenus du 10/08
+//      (retrait du Témoignage) refaisait tomber Mindset le jeudi 13/08 alors qu'il venait de partir
+//      le jeudi 06/08 (journal d'envois : 2026-W32-4, 158 contacts) — deux Mindset d'affilée, et
+//      Point marché sauté au passage 5→7 pour la même raison ;
+//   2. au passage d'année (2026 compte 53 semaines ISO), W53 % 6 = 5 puis W1 % 6 = 1 : l'index 0
+//      (Semaine à venir) serait silencieusement sauté.
+// On compte désormais les semaines écoulées depuis un LUNDI DE RÉFÉRENCE fixe (calendrier Paris) et
+// on cale explicitement le contenu de la semaine de référence. ⚠️ Si _WEEK_ROTATION change encore :
+// garder la continuité en recalant _ROT_ANCHOR (lundi de la semaine en cours, midi UTC) et
+// _ROT_ANCHOR_IDX (l'index, dans le NOUVEAU tableau, du contenu qui doit suivre le dernier parti).
+const _ROT_ANCHOR = Date.UTC(2026, 7, 10, 12);   // lundi 10/08/2026 midi UTC (midi = insensible aux bords de fuseau)
+const _ROT_ANCHOR_IDX = 4;                        // semaine du 10/08 = Récap Hebdo (suite du Mindset parti le 06/08)
+function _rotWeeksSinceAnchor() {
+  try {
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());   // AAAA-MM-JJ (Paris)
+    const d = new Date(p + 'T12:00:00Z');
+    const monday = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7), 12);
+    return Math.round((monday - _ROT_ANCHOR) / (7 * 864e5));
+  } catch { return 0; }
+}
+function _rotIdxForWeek(ahead) {
+  const n = _WEEK_ROTATION.length;
+  return (((_rotWeeksSinceAnchor() + (ahead || 0) + _ROT_ANCHOR_IDX) % n) + n) % n;
+}
 // ROTATION HEBDO (demande user « on bascule à 1 mail par semaine… 1 mail DIFFÉRENT par semaine ») : UN SEUL contenu
 // par semaine ISO, en rotation → chaque type revient toutes les 5 semaines, sur son jour naturel (via _DAY_STEP).
 // Ordre : Semaine à venir → Comprendre → Point marché → Mindset → Récap. Objectif : ÷5 la fréquence (anti-désabo)
@@ -17502,7 +17527,7 @@ function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).sp
 // overlay dans _dripTick — demande user « 1x par mois, début de mois, en + ») ; le laisser ici aurait
 // donné des mois à DEUX témoignages.
 const _WEEK_ROTATION = [DRIP_OUTLOOK, DRIP_DECRYPT, DRIP_POINT, DRIP_MINDSET, DRIP_RECAP, DRIP_INVIT];
-const _rotStepForWeek = () => _WEEK_ROTATION[_dripWeekNum() % _WEEK_ROTATION.length];
+const _rotStepForWeek = () => _WEEK_ROTATION[_rotIdxForWeek(0)];
 // Jour naturel (weekday) d'un contenu : porté par le contenu lui-même (repli _DAY_STEP pour l'ancien format).
 function _stepWd(step) {
   if (step && Number.isInteger(step.wd)) return step.wd;
@@ -17514,7 +17539,7 @@ function _stepWd(step) {
 function _loopStepFor() {
   const pp = _parisParts(), thisStep = _rotStepForWeek(), thisWd = _stepWd(thisStep);
   if (pp.weekday < thisWd || (pp.weekday === thisWd && pp.hour < 19)) return thisStep;
-  return _WEEK_ROTATION[(_dripWeekNum() + 1) % _WEEK_ROTATION.length];
+  return _WEEK_ROTATION[_rotIdxForWeek(1)];
 }
 // Jour (weekday) du prochain envoi = jour naturel du contenu du prochain envoi.
 function _nextSendWeekday() { return _stepWd(_loopStepFor()); }
