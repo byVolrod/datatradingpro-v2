@@ -16360,6 +16360,49 @@ app.get('/api/admin/campaigns/:id', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// COMPARAISON CÔTE À CÔTE PAR TEMPLATE (10/08, demande user) : chaque template = une colonne de KPI
+// agrégés sur TOUS ses envois identifiés (post-13/07). Fusion PAR DESTINATAIRE et PAR TEMPLATE :
+// « touchés » = personnes distinctes servies par CE template ; « ouvreurs » = personnes distinctes ayant
+// ouvert AU MOINS un de ses envois → les taux se comparent honnêtement d'un template à l'autre (une
+// personne servie 4 fois compte 1). Délivrés/rebonds/plaintes : non mesurés (SMTP direct), jamais 0.
+app.get('/api/admin/campaign-compare', requireAdmin, async (_req, res) => {
+  try {
+    const lignes = (await _campagnes()).filter(x => !x.consolide);
+    const jours = _envoisParJour();
+    const par = {};
+    for (const l of lignes) {
+      const s = _campaignStats[l.id] || {};
+      const p = par[l.tpl] || (par[l.tpl] = { touches: new Set(), ouvreurs: new Set(), cliqueurs: new Set(), ouvTot: 0, cliTot: 0, envois: 0, dernier: 0, dernierObjet: null, dernierObjetTs: 0 });
+      p.envois++;
+      const ts = l.fin || l.debut || 0;
+      if (ts > p.dernier) p.dernier = ts;
+      if (l.objet && (l.debut || 0) >= p.dernierObjetTs) { p.dernierObjet = l.objet; p.dernierObjetTs = l.debut || 0; }
+      const servis = l.jourCle ? (jours[l.jourCle] || {}) : (s.sent || {});
+      for (const e of Object.keys(servis)) p.touches.add(e);
+      for (const e of Object.keys(s.sent || {})) p.touches.add(e);
+      for (const e of Object.keys(s.opens || {})) { p.ouvreurs.add(e); p.ouvTot += ((s.opens[e] || {}).n || 0); }
+      for (const e of Object.keys(s.clicks || {})) { p.cliqueurs.add(e); p.cliTot += ((s.clicks[e] || {}).n || 0); }
+    }
+    const unsub = _campaignStats._unsub || {};
+    const colonnes = Object.keys(par).map(tpl => {
+      const p = par[tpl];
+      const touches = p.touches.size;
+      let desabos = 0; for (const e of Object.keys(unsub)) if (p.touches.has(e)) desabos++;
+      return {
+        tpl, envois: p.envois, touches,
+        ouvUniq: p.ouvreurs.size, ouvTot: p.ouvTot,
+        tauxOuv: touches ? Math.round(1000 * p.ouvreurs.size / touches) / 10 : null,
+        cliUniq: p.cliqueurs.size, cliTot: p.cliTot,
+        tauxCli: touches ? Math.round(1000 * p.cliqueurs.size / touches) / 10 : null,
+        ctor: p.ouvreurs.size ? Math.round(1000 * p.cliqueurs.size / p.ouvreurs.size) / 10 : null,   // réactivité : le moins sensible au gonflage du pixel
+        desabos, dernier: p.dernier || null, dernierObjet: p.dernierObjet,
+      };
+    }).sort((a, b) => b.touches - a.touches);
+    res.json({ ok: true, colonnes, nonMesure: ['delivres', 'rebonds', 'plaintes'],
+      note: 'Agrégat par template sur les envois identifiés (depuis le 13/07/2026), fusionné par destinataire : un taux se lit « % des personnes touchées par ce template ». La réactivité (clics/ouvertures) reste l\'indicateur le plus fiable.' });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // Stats de campagne (admin) : envoyes / ouvertures uniques + taux / clics + taux / desabos + detail destinataire.
 app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
   try {

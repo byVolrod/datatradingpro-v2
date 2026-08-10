@@ -877,3 +877,14 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
   #camp-nav::-webkit-scrollbar{ display:none; }
   #camp-nav .camp-nav-btn{ flex:0 0 auto; }
 }
+
+/* ══ Comparaison côte à côte par template (10/08) ══ */
+.cs-compare{ margin-bottom:16px; }
+.cs-compare[hidden]{ display:none; }
+.cs-comp-table th, .cs-comp-table td{ text-align:center; }
+.cs-comp-table td.cs-comp-lbl{ text-align:left; color:var(--text2,#9aa3b2); font-size:12px; white-space:nowrap; }
+.cs-comp-th b{ display:block; color:#fff; }
+.cs-comp-th .cs-sub{ display:block; font-weight:400; }
+.cs-comp-best{ color:#e3b23a; font-weight:700; background:rgba(227,178,58,.07); }
+.cs-comp-obj{ font-size:11.5px; color:var(--text2,#9aa3b2); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.btn--actif{ border-color:rgba(227,178,58,.55); color:#e3b23a; }

@@ -503,6 +503,73 @@
     csRender();
   }
 
+  // ── COMPARAISON CÔTE À CÔTE PAR TEMPLATE (10/08, demande user) ─────────────────────────────────
+  // Une COLONNE par template, une LIGNE par KPI, meilleure valeur de chaque ligne suréclairée (or).
+  // Chargée au 1er clic seulement (l'agrégat parcourt tout le store côté serveur).
+  const _CS_TPL_FR = { 'outlook-hebdo': 'Semaine à venir', 'outlook': 'Semaine à venir', 'decryptage': 'Comprendre le marché', 'pointmarche': 'Point marché', 'point-hebdo': 'Point marché', 'mindset': 'Mindset', 'recap-hebdo': 'Récap hebdo', 'recap': 'Récap hebdo', 'temoignage': 'Témoignage', 'invitation': 'Invitation', 'intro-v1': 'Bienvenue', 'intro': 'Bienvenue', 'digest': 'Digest hebdo' };
+  let _csCompCache = null;
+  window.csCompareToggle = async function () {
+    const box = document.getElementById('cs-compare'), btn = document.getElementById('cs-compare-btn');
+    if (!box) return;
+    if (!box.hidden) { box.hidden = true; if (btn) btn.classList.remove('btn--actif'); return; }
+    box.hidden = false; if (btn) btn.classList.add('btn--actif');
+    if (!_csCompCache) {
+      box.innerHTML = '<div class="empty-state">Agrégation par template…</div>';
+      try {
+        const d = await fetch('/api/admin/campaign-compare').then(function (r) { return r.json(); });
+        if (!d || !d.ok) throw new Error((d && d.error) || 'réponse invalide');
+        _csCompCache = d;
+      } catch (e) { box.innerHTML = '<div class="empty-state">Comparaison indisponible : ' + _csEsc(e.message) + '</div>'; _csCompCache = null; return; }
+    }
+    csCompareRender(box, _csCompCache);
+  };
+  function csCompareRender(box, d) {
+    const cols = (d.colonnes || []).slice(0, 8);
+    if (!cols.length) { box.innerHTML = '<div class="empty-state">Aucun envoi identifié à comparer pour l\'instant.</div>'; return; }
+    // Lignes de KPI : [label, clé, format, sens (1 = plus haut est mieux, -1 = plus bas est mieux, 0 = neutre)]
+    const F_INT = function (v) { return v == null ? '—' : String(v); };
+    const F_PCT = function (v) { return v == null ? '—' : (String(v).replace('.', ',') + ' %'); };
+    const F_DATE = function (v) { return v ? _csDate(v) : '—'; };
+    const ROWS = [
+      ['Envois', 'envois', F_INT, 0],
+      ['Personnes touchées', 'touches', F_INT, 0],
+      ['Ouvreurs uniques', 'ouvUniq', F_INT, 0],
+      ["Taux d'ouverture", 'tauxOuv', F_PCT, 1],
+      ['Ouvertures totales', 'ouvTot', F_INT, 0],
+      ['Cliqueurs uniques', 'cliUniq', F_INT, 0],
+      ['Taux de clic', 'tauxCli', F_PCT, 1],
+      ['Réactivité (clics/ouv.)', 'ctor', F_PCT, 1],
+      ['Désabonnés', 'desabos', F_INT, -1],
+      ['Dernier envoi', 'dernier', F_DATE, 0],
+    ];
+    let h = '<div class="camp-table-wrap"><table class="camp-table cs-table cs-comp-table"><thead><tr><th></th>'
+      + cols.map(function (c) { return '<th class="cs-comp-th"><b>' + _csEsc(_CS_TPL_FR[c.tpl] || c.tpl) + '</b><span class="cs-sub">' + _csEsc(c.tpl) + '</span></th>'; }).join('')
+      + '</tr></thead><tbody>';
+    ROWS.forEach(function (row) {
+      const label = row[0], k = row[1], fmt = row[2], sens = row[3];
+      // Meilleure valeur de la ligne (uniquement si le KPI a un « mieux » et ≥ 2 valeurs mesurées).
+      let best = null;
+      if (sens !== 0) {
+        const vals = cols.map(function (c) { return c[k]; }).filter(function (v) { return v != null; });
+        if (vals.length > 1) best = sens > 0 ? Math.max.apply(null, vals) : Math.min.apply(null, vals);
+      }
+      h += '<tr><td class="cs-comp-lbl">' + label + '</td>'
+        + cols.map(function (c) {
+          const v = c[k];
+          const top = best != null && v != null && v === best;
+          return '<td class="' + (top ? 'cs-comp-best' : '') + '">' + fmt(v) + '</td>';
+        }).join('') + '</tr>';
+    });
+    // Dernier objet parti : en pied, tronqué (contexte qualitatif, pas un KPI).
+    h += '<tr><td class="cs-comp-lbl">Dernier objet</td>' + cols.map(function (c) {
+      const o = c.dernierObjet || '';
+      return '<td class="cs-comp-obj"' + (o ? ' title="' + _csEsc(o) + '"' : '') + '>' + (o ? _csEsc(o.length > 46 ? o.slice(0, 45) + '…' : o) : '<span class="cs-nm">non conservé</span>') + '</td>';
+    }).join('') + '</tr>';
+    h += '</tbody></table></div>'
+      + '<p class="camp-note">' + _csEsc(d.note || '') + ' Délivrés, rebonds et plaintes : non mesurés (SMTP direct), jamais zéro.</p>';
+    box.innerHTML = h;
+  }
+
   function csRender() {
     const tb = document.querySelector('#cs-liste tbody'); if (!tb) return;
     const q = ((document.getElementById('cs-q') || {}).value || '').toLowerCase().trim();
