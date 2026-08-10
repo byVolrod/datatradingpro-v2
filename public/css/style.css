@@ -16249,3 +16249,24 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    typo compressée au lieu du défilement (capture user 10/08 : DTP caché derrière ›).
    Les flèches ‹ › restent le filet de sécurité des très petits écrans. */
 .np-tab { font-size: 10px; padding: 0 8px; letter-spacing: .2px; }
+
+/* ═══ ALERTES — correctifs revue 10/08 ═══ */
+/* La règle « non-lu = or » (3 classes) écrasait la pastille BREAKING (1 classe) : une alerte urgente
+   non lue s'affichait OR avec halo ROUGE. Les niveaux sémantiques gardent leur couleur, lu ou non. */
+.np-item.np-item--unread .np-icon--breaking { background: #ff3d00; }
+.np-item.np-item--unread .np-icon--high { background: var(--orange, #e3b23a); }
+/* Panneau Filtre : valeurs SOMBRES en dur — le volet ALERTES reste sombre en v1 du thème clair,
+   les tokens (--bg2/--border/--text) y produisaient des rangées blanches sur panneau noir. */
+.np-filter-title { color: #e8e8e8; }
+.np-filter-row { background: #141418; border-color: #26262b; }
+.np-filter-row:hover { border-color: #3a3a42; }
+.np-filter-toggle.off { background: #26262b; }
+/* Contrastes restants sous le seuil (état vide, flèches d'onglets, bouton Filtre). */
+.np-empty { color: #7d838d; }
+.np-arrow-btn { color: #5c6470; }
+.np-filter-btn { color: #8a93a0; }
+/* Très petits écrans : la rangée réglages (son + volume + notifs navigateur) passe à la ligne au
+   lieu de rogner le toggle à droite (panneau en overflow hidden). */
+@media (max-width: 480px) {
+  .np-settings-row { flex-wrap: wrap; row-gap: 6px; }
+}

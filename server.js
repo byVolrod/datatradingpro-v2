@@ -659,7 +659,7 @@ function _npCleanCfg(b) {
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
   { id: 'dtpu-20260810-recap-actes',   ts: Date.UTC(2026, 7, 10, 13, 0), title: 'Récap Hebdo : lecture en 3 actes', desc: 'Le Récap Hebdo des Marchés est désormais balisé en trois actes numérotés — Géopolitique, Macro & Banques Centrales, Biais par devise — pour suivre le fil de la semaine d\'un coup d\'œil.' },
-  { id: 'dtpu-20260810-gew-essentiel', ts: Date.UTC(2026, 7, 10, 12, 30), title: 'Rapport Éco des Marchés : « L\'essentiel » en 3 points', desc: 'Le rapport s\'ouvre sur la semaine résumée en 3 phrases simples. Chaque puce indique sa conséquence marché (→) et le calendrier replie les publications secondaires : l\'important reste visible.' },
+  { id: 'dtpu-20260810-gew-essentiel', ts: Date.UTC(2026, 7, 10, 12, 30), title: 'Récap Éco des Marchés : « L\'essentiel » en 3 points', desc: 'Le rapport s\'ouvre sur la semaine résumée en 3 phrases simples. Chaque puce indique sa conséquence marché (→) et le calendrier replie les publications secondaires : l\'important reste visible.' },
   { id: 'dtpu-20260810-inst-rapides',  ts: Date.UTC(2026, 7, 10, 12, 0), title: 'Institutions : ouverture des rapports accélérée', desc: 'Les PDF récents sont préparés en avance côté serveur : l\'ouverture d\'un rapport de banque est quasi instantanée, même la première fois.' },
   { id: 'dtpu-20260810-institutions',  ts: Date.UTC(2026, 7, 10, 11, 0), title: 'Institutions : couverture des banques élargie', desc: 'Natixis, Goldman Sachs, Société Générale, UniCredit et Nordea alimentent à nouveau l\'onglet, et CIBC rejoint le catalogue avec ses rapports PDF (dont le flash NFP).' },
   { id: 'dtpu-20260809-nfp-tete',      ts: Date.UTC(2026, 7, 9, 12, 0), title: 'Semaine à Venir : le NFP remonte en tête', desc: 'Les publications majeures (NFP, décisions de taux) sont désormais classées en tête de la Semaine à Venir et de son alerte news.' },
@@ -8242,7 +8242,7 @@ ${recentCtx.join('\n')}`;
         // « Hebdo Économique Mondial: Semaine Économique Globale : … » (constaté user). L'affichage a
         // sa purge (_arlTitleFR / _reportTitleToFR) ; celle-ci couvre les surfaces qui n'y passent
         // pas (mails, landing) et les titres à venir.
-        title = title.replace(/^\s*(?:Semaine [ÉE]conomique (?:Globale|Mondiale)|Hebdo [ÉE]conomique Mondial|Rapport [ÉE]co des March[ée]s)\s*[:—–-]\s*/i, '');
+        title = title.replace(/^\s*(?:Semaine [ÉE]conomique (?:Globale|Mondiale)|Hebdo [ÉE]conomique Mondial|(?:Rapport|R[ée]cap) [ÉE]co des March[ée]s)\s*[:—–-]\s*/i, '');
         if (!/global economic weekly/i.test(title)) title = 'Global Economic Weekly: ' + title.replace(/^global economic weekly:?\s*/i, '');
         highlights = _stripMd(String(parsed.highlights || ''));
         // SYNTHÈSE en puces thématiques (style Points Macro Clés — demande user) : { heading, bullets[] }, on GARDE
@@ -11662,7 +11662,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v21-nfp';   // v21 (06/08, demande user) : le NFP (« Non Farm Payrolls », 1er vendredi du mois) remonte en TÊTE du jour — reconnaissance déterministe `_waMajor` en 2e critère de tri + poids « point d'orgue » (+4) dans le profil de risque. Il était évincé du titre par le `slice(0, 3)` sur un calendrier trié PAR HEURE (14h30 Paris = trop tard). bump = régén au boot.   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
+const WA_VER = 'v22-titres-fr';   // v22 (10/08, demande user) : titres de JOUR en français thématique accordé (« Décision de la RBA », « CPI américain », « PIB britannique + PPI américain », « Ventes au détail américaines ») — 2 thèmes max joints par « + », repli ancien format si aucun thème reconnu. bump = régén boot.   // v21 (06/08, demande user) : le NFP (« Non Farm Payrolls », 1er vendredi du mois) remonte en TÊTE du jour — reconnaissance déterministe `_waMajor` en 2e critère de tri + poids « point d'orgue » (+4) dans le profil de risque. Il était évincé du titre par le `slice(0, 3)` sur un calendrier trié PAR HEURE (14h30 Paris = trop tard). bump = régén au boot.   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
 let _weekAhead = null;
 try { _weekAhead = _noDashDeep(JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8'))); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = _noDashDeep(d); }).catch(() => {}); } catch {}
@@ -11783,7 +11783,35 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
     //    habillait ces cartes inventait des événements (« Fed : décision de taux » sans FOMC).
     const base = (hiEvs.length ? hiEvs : evs).slice(0, 10);
     const _evNom = e => (((e.currency ? e.currency + ' ' : '') + String(e.title || '').replace(/\s*\([^)]*\)\s*/g, ' ')).replace(/\s+/g, ' ').trim());
-    const title = base.slice(0, 3).map(_evNom).filter(Boolean).join(' · ') || `Séance calme ${dowFr}`;
+    // v22 — TITRES DE JOUR EN FRANÇAIS THÉMATIQUE (demande user 10/08 : « Décision de la RBA »,
+    // « CPI américain », « PIB britannique + PPI américain », « Ventes au détail américaines ») :
+    // le thème + l'adjectif de pays ACCORDÉ, 2 thèmes max joints par « + ». Ce sont des titres de
+    // THÈME maison (pas des intitulés d'événements, qui eux restent en VO dans la liste détaillée).
+    // Repli : l'ancien titre « CCY + intitulé » si aucun thème reconnu.
+    const _WA_BANQUE = { USD: 'Fed', EUR: 'BCE', GBP: 'BoE', JPY: 'BoJ', AUD: 'RBA', NZD: 'RBNZ', CAD: 'BoC', CHF: 'BNS', CNY: 'PBoC', CNH: 'PBoC' };
+    // [masculin sing., féminin sing., féminin plur.] — EUR = suffixe « zone euro » invariable.
+    const _WA_ADJ2 = { USD: ['américain', 'américaine', 'américaines'], GBP: ['britannique', 'britannique', 'britanniques'], JPY: ['japonais', 'japonaise', 'japonaises'], AUD: ['australien', 'australienne', 'australiennes'], NZD: ['néo-zélandais', 'néo-zélandaise', 'néo-zélandaises'], CAD: ['canadien', 'canadienne', 'canadiennes'], CHF: ['suisse', 'suisse', 'suisses'], CNY: ['chinois', 'chinoise', 'chinoises'], CNH: ['chinois', 'chinoise', 'chinoises'], EUR: ['zone euro', 'zone euro', 'zone euro'] };
+    const _waThemeJour = e => {
+      const t = ' ' + String(e.title || '').toLowerCase() + ' ', c = String(e.currency || '').toUpperCase(), a = _WA_ADJ2[c];
+      const adj = (g) => a ? ' ' + a[g] : '';
+      if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing|deposit facility/.test(t)) { const b = _WA_BANQUE[c]; return b ? { lbl: 'Décision de la ' + b, rang: 9 } : null; }
+      if (/payroll|nonfarm|\bnfp\b/.test(t)) return { lbl: 'NFP américain', rang: 8 };
+      if (/inflation|\bcpi\b|\bhicp\b|consumer price/.test(t)) return { lbl: 'CPI' + adj(0), rang: 7 };
+      if (/\bgdp\b|gross domestic/.test(t)) return { lbl: 'PIB' + adj(0), rang: 6 };
+      if (/\bppi\b|producer price/.test(t)) return { lbl: 'PPI' + adj(0), rang: 5 };
+      if (/retail sales/.test(t)) return { lbl: 'Ventes au détail' + adj(2), rang: 4 };
+      if (/unemployment|jobless|employment change|labou?r market|\bjobs\b|hourly earnings/.test(t)) return { lbl: 'Emploi' + adj(0), rang: 3 };
+      if (/trade balance|balance of trade/.test(t)) return { lbl: 'Balance commerciale' + adj(1), rang: 2 };
+      if (/\bpmi\b|purchasing managers|\bism\b/.test(t)) return { lbl: 'PMI' + adj(0), rang: 2 };
+      return null;
+    };
+    const _thJour = [];
+    base.forEach(e => { const th = _waThemeJour(e); if (th && !_thJour.some(x => x.lbl === th.lbl)) _thJour.push(th); });
+    _thJour.sort((x, y) => y.rang - x.rang);
+    // Le jour du NFP, « Emploi américain » est redondant (le NFP EST l'emploi US) → on l'absorbe.
+    if (_thJour.some(x => x.lbl === 'NFP américain')) { const i = _thJour.findIndex(x => x.lbl === 'Emploi américain'); if (i >= 0) _thJour.splice(i, 1); }
+    const title = _thJour.length ? _thJour.slice(0, 2).map(x => x.lbl).join(' + ')
+      : (base.slice(0, 3).map(_evNom).filter(Boolean).join(' · ') || `Séance calme ${dowFr}`);
     const _cb = base.find(e => /rate decision|interest rate decision|monetary policy|rate statement|deposit facility|refinancing/i.test(e.title || ''));
     const _ccysFr = [...new Set(base.map(e => e.currency).filter(Boolean))].slice(0, 5);
     const _dTop = base.slice(0, 3).map(e => _evNom(e)
@@ -15691,13 +15719,13 @@ app.get('/internal/email-widget/calendar', async (req, res) => {
 // d'Analystes » sont IDENTIQUES au desk (prefixe de seance sur les wraps, traduction FR, sous-titre des hebdo).
 // Demande user (« pas les bonnes titres, doit ressembler au desk »).
 const _ARL_PREFIX = { 'Global Economic Weekly': 'Global Economic Weekly', 'Weekly Market Recap': 'Weekly Market Recap', 'FX Daily Recap': 'FX Daily Recap', 'FX Daily': 'FX Daily', 'Asia Opening Preparation': 'Daily Asia-Pac Opening News', 'London Opening Preparation': 'London Opening Preparation', 'US Opening Preparation': 'New York Opening Preparation', 'Asia Session Recap': 'Asia-Pac Session Recap', 'London Session Recap': 'London Session Recap', 'US Session Recap': 'New York Session Recap', 'Daily Event Review': 'Daily Event Review', 'Daily Market Recap': 'Daily Market Recap' };
-const _ARL_PREFIX_FR = { 'Global Economic Weekly': 'Rapport Éco des Marchés', 'Weekly Market Recap': 'Récap Hebdo des Marchés', 'FX Daily Recap': 'Récap FX Quotidien', 'FX Daily': 'FX Quotidien', 'Daily Asia-Pac Opening News': 'Ouverture Asie-Pacifique', 'London Opening Preparation': 'Préparation Ouverture Londres', 'New York Opening Preparation': 'Préparation Ouverture New York', 'Asia-Pac Session Recap': 'Récap Séance Asie-Pacifique', 'Asia-Pacific Session Recap': 'Récap Séance Asie-Pacifique', 'Asia Session Recap': 'Récap Séance Asie', 'London Session Recap': 'Récap Séance Londres', 'New York Session Recap': 'Récap Séance New York', 'US Session Recap': 'Récap Séance US', 'Americas Session Recap': 'Récap Séance Amériques', 'Daily Event Review': 'Revue Quotidienne des Événements', 'Daily Market Recap': 'Récap Quotidien des Marchés' };
+const _ARL_PREFIX_FR = { 'Global Economic Weekly': 'Récap Éco des Marchés', 'Weekly Market Recap': 'Récap Hebdo des Marchés', 'FX Daily Recap': 'Récap FX Quotidien', 'FX Daily': 'FX Quotidien', 'Daily Asia-Pac Opening News': 'Ouverture Asie-Pacifique', 'London Opening Preparation': 'Préparation Ouverture Londres', 'New York Opening Preparation': 'Préparation Ouverture New York', 'Asia-Pac Session Recap': 'Récap Séance Asie-Pacifique', 'Asia-Pacific Session Recap': 'Récap Séance Asie-Pacifique', 'Asia Session Recap': 'Récap Séance Asie', 'London Session Recap': 'Récap Séance Londres', 'New York Session Recap': 'Récap Séance New York', 'US Session Recap': 'Récap Séance US', 'Americas Session Recap': 'Récap Séance Amériques', 'Daily Event Review': 'Revue Quotidienne des Événements', 'Daily Market Recap': 'Récap Quotidien des Marchés' };
 const _ARL_ALL_PREFIXES = [...new Set([...Object.values(_ARL_PREFIX), 'Asia-Pac Session Recap', 'Asia Session Recap', 'Asia-Pacific Session Recap', 'New York Session Recap', 'US Session Recap', 'Americas Session Recap', 'Daily Asia-Pac Opening News', 'Asia Opening Preparation', 'US Opening Preparation'])].sort((a, b) => b.length - a.length);
 const _ARL_PREFIX_FR_KEYS = Object.keys(_ARL_PREFIX_FR).sort((a, b) => b.length - a.length);
 // Le sujet qui suit le préfixe est purgé d'une éventuelle REFORMULATION du nom du rapport (l'IA
 // ouvrait parfois par « Semaine Économique Globale : … » alors que le préfixe le dit déjà — doublon
 // constaté par l'utilisateur sur le fil). Déterministe, à l'affichage : couvre l'historique.
-const _ARL_DOUBLON_RX = /^\s*(?:Semaine [ÉE]conomique (?:Globale|Mondiale)|Hebdo [ÉE]conomique Mondial|Global Economic Weekly|Rapport [ÉE]co des March[ée]s)\s*[:\u2014\u2013-]\s*/i;
+const _ARL_DOUBLON_RX = /^\s*(?:Semaine [ÉE]conomique (?:Globale|Mondiale)|Hebdo [ÉE]conomique Mondial|Global Economic Weekly|(?:Rapport|R[ée]cap) [ÉE]co des March[ée]s)\s*[:\u2014\u2013-]\s*/i;
 function _arlTitleFR(title) { if (!title) return title; for (const en of _ARL_PREFIX_FR_KEYS) { if (title === en) return _ARL_PREFIX_FR[en]; if (title.startsWith(en + ':') || title.startsWith(en + ' ')) { const reste = title.slice(en.length).replace(/^\s*:?\s*/, '').replace(_ARL_DOUBLON_RX, ''); return reste ? _ARL_PREFIX_FR[en] + ': ' + reste : _ARL_PREFIX_FR[en]; } } return title; }
 function _arlWrapSessionPrefix(item) { const s = `${item.session || ''} ${item.headline || item.title || ''}`; if (/asia|pacific|asie/i.test(s)) return 'Asia-Pac Session Recap'; if (/europe|london|londres/i.test(s)) return 'London Session Recap'; if (/americ|new york|north america|\bus\b|wall/i.test(s)) return 'New York Session Recap'; return 'Session Recap'; }
 function _arlPrefixFor(item) { if (item._reportType && _ARL_PREFIX[item._reportType]) return _ARL_PREFIX[item._reportType]; if (item._source === 'ing-think' && /^\s*FX Daily\b/i.test(item.title || item.headline || '')) return 'FX Daily'; if (item._source === 'investinglive') return _arlWrapSessionPrefix(item); return null; }
@@ -18439,7 +18467,7 @@ let _heroRecapCache = null, _heroRecapTs = 0;
 const _HERO_RECAP_TTL = 10 * 60 * 1000;
 const _HR_TYPE_FR = {
   'Weekly Market Recap':    'Récap Hebdo des Marchés',
-  'Global Economic Weekly': 'Rapport Éco des Marchés',
+  'Global Economic Weekly': 'Récap Éco des Marchés',
   'FX Daily Recap':         'Récap FX Quotidien',
   'DTP Daily':              'Point Marché',
 };

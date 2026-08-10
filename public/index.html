@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260810bbg603" />
+  <link rel="stylesheet" href="/css/style.css?v=20260810bbg604" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260810bbg603"></script>
+  <script defer src="/js/noinspect.js?v=20260810bbg604"></script>
 </head>
 <body>
 
@@ -908,16 +908,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260810bbg603"></script>
-<script defer src="/js/app.js?v=20260810bbg603"></script>
-<script defer src="/js/charts.js?v=20260810bbg603"></script>
-<script defer src="/js/sessionmap.js?v=20260810bbg603"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260810bbg604"></script>
+<script defer src="/js/app.js?v=20260810bbg604"></script>
+<script defer src="/js/charts.js?v=20260810bbg604"></script>
+<script defer src="/js/sessionmap.js?v=20260810bbg604"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260810bbg603"></script>
-<script defer src="/js/home.js?v=20260810bbg603"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260810bbg603"></script>
-<script defer src="/js/i18n.js?v=20260810bbg603"></script>
+<script defer src="/js/widgets.js?v=20260810bbg604"></script>
+<script defer src="/js/home.js?v=20260810bbg604"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260810bbg604"></script>
+<script defer src="/js/i18n.js?v=20260810bbg604"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1765,23 +1765,26 @@
     <div class="np-main-toggle" id="np-main-toggle" onclick="npToggleEnabled()">
       <span class="np-main-toggle-lbl" id="np-main-lbl">ON</span>
     </div>
-    <button class="np-close-btn" onclick="npClose()">×</button>
+    <button class="np-close-btn" onclick="npClose()" aria-label="Fermer les alertes" title="Fermer">×</button>
   </div>
 
   <!-- Sound / Push settings -->
   <div class="np-settings-row">
-    <select class="np-select" id="np-chime-select">
-      <option value="chime">Chime</option>
-      <option value="ding">Ding</option>
+    <!-- Libellés FR, values internes inchangées (config serveur/localStorage les stocke telles quelles). -->
+    <select class="np-select" id="np-chime-select" aria-label="Son des alertes">
+      <option value="chime">Carillon</option>
+      <option value="ding">Clochette</option>
       <option value="alert">Alerte</option>
-      <option value="none">Silencieux</option>
+      <option value="none">Aucun son</option>
     </select>
     <button class="np-vol-btn" id="np-vol-btn" onclick="npCycleVolume()">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 4h2l3-3v10L3 8H1V4z" stroke="currentColor" stroke-width="1.1"/><path d="M8 3.5c1 .8 1.5 1.7 1.5 2.5S9 8.2 8 9" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
       <span id="np-vol-lbl">Fort</span>
     </button>
     <div class="np-push-group">
-      <span class="np-push-label">Push mobile</span>
+      <!-- « Notifs navigateur » : le toggle pilote l'API Notifications du navigateur (bannières
+           système), pas un vrai push mobile — le libellé dit ce qu'il fait. -->
+      <span class="np-push-label">Notifs navigateur</span>
       <div class="np-push-toggle" id="np-push-toggle" onclick="npTogglePush()">
         <div class="np-push-thumb"></div>
         <span class="np-push-state" id="np-push-state">ON</span>
@@ -1791,14 +1794,14 @@
 
   <!-- Filter tabs -->
   <div class="np-tabs-bar">
-    <button class="np-arrow-btn" id="np-tab-prev">‹</button>
+    <button class="np-arrow-btn" id="np-tab-prev" aria-label="Onglets précédents">‹</button>
     <div class="np-tabs-scroll" id="np-tabs-scroll">
       <!-- 04/08 : les onglets sont GÉNÉRÉS depuis NP_KINDS (app.js, _npRenderTabs) pour qu'ils ne
            puissent plus diverger des badges ni du panneau Filtre — c'est tout l'intérêt d'avoir une
            taxonomie unique. Seul « Tout » est écrit ici, comme ancre de départ. -->
       <button class="np-tab np-tab--active" data-nf="all">Tout</button>
     </div>
-    <button class="np-arrow-btn" id="np-tab-next">›</button>
+    <button class="np-arrow-btn" id="np-tab-next" aria-label="Onglets suivants">›</button>
     <button class="np-filter-btn" onclick="npToggleFilter()">
       <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 2h9M3 5.5h5M5 9h1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
       Filtre
@@ -1807,7 +1810,7 @@
 
   <!-- Items -->
   <div class="np-list" id="np-list">
-    <div class="np-empty" id="np-empty">Aucune notification pour l'instant</div>
+    <div class="np-empty" id="np-empty">Aucune alerte pour l'instant.</div>
   </div>
 
   <!-- Filter panel (toggles de catégories) -->

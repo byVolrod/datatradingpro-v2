@@ -6547,7 +6547,7 @@ function _reportPrefixFor(item) {
 // (y compris le raccourci `aiTitle` des wraps InvestingLive qui contournait arlibCleanTitle).
 // Traduction FR : appliquée UNIQUEMENT à l'affichage final du titre (les clés/détection restent EN).
 const REPORT_PREFIX_FR = {
-  'Global Economic Weekly': 'Rapport Éco des Marchés',
+  'Global Economic Weekly': 'Récap Éco des Marchés',
   'Weekly Market Recap': 'Récap Hebdo des Marchés',
   'FX Daily Recap': 'Récap FX Quotidien',
   'FX Daily': 'FX Quotidien',
@@ -6568,7 +6568,7 @@ const _REPORT_PREFIX_FR_KEYS = Object.keys(REPORT_PREFIX_FR).sort((a, b) => b.le
 // Même purge que le serveur (_arlTitleFR) : le sujet ne doit pas rouvrir par le nom du rapport,
 // le préfixe le dit déjà (doublon constaté user : « Hebdo Économique Mondial: Semaine Économique
 // Globale : … »). Déterministe, à l'affichage seulement — les clés de détection restent EN.
-const _REPORT_DOUBLON_RX = /^\s*(?:Semaine [ÉE]conomique (?:Globale|Mondiale)|Hebdo [ÉE]conomique Mondial|Global Economic Weekly|Rapport [ÉE]co des March[ée]s)\s*[:—–-]\s*/i;
+const _REPORT_DOUBLON_RX = /^\s*(?:Semaine [ÉE]conomique (?:Globale|Mondiale)|Hebdo [ÉE]conomique Mondial|Global Economic Weekly|(?:Rapport|R[ée]cap) [ÉE]co des March[ée]s)\s*[:—–-]\s*/i;
 function _reportTitleToFR(title) {
   if (!title) return title;
   for (const en of _REPORT_PREFIX_FR_KEYS) {
@@ -8519,7 +8519,12 @@ function _npKind(item) {
   const c = (item.category || '').toLowerCase();
   if (/research|institution/.test(c)) return _NP_KIND_BY_KEY.institution;
   if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return _NP_KIND_BY_KEY.eco;
-  if (_NP_RX_ECO.test(String(item.headline || ''))) return _NP_KIND_BY_KEY.eco;
+  // Garde ACTIF : « Gold gains as… jobs data ease inflation fears » n'est pas du calendrier — c'est
+  // un mouvement de MARCHÉ qui cite un indicateur. Si le titre PORTE sur un actif (il commence par
+  // lui), on ne teste pas le motif éco (constat revue 10/08, capture user : or badgé CALENDRIER).
+  const _h = String(item.headline || '');
+  if (!/^\s*(?:gold|silver|oil|brent|wti|crude|bitcoin|btc|ethereum|dow|nasdaq|s&p|dax|cac|nikkei|euro ?stoxx|l['’]or|le p[ée]trole)\b/i.test(_h)
+    && _NP_RX_ECO.test(_h)) return _NP_KIND_BY_KEY.eco;
   // Tout le reste est de la News — y compris la géopolitique et le temps réel FinancialJuice, qui
   // étaient des types à part et n'en sont plus (taxonomie fixée par l'utilisateur le 04/08).
   return _NP_KIND_BY_KEY.news;
@@ -8649,8 +8654,11 @@ function npOpen() {
   // Repartir sur la liste (pas le panneau de filtres)
   _npEl('np-filter-panel')?.classList.add('hidden');
   const _l = _npEl('np-list'); if (_l) _l.style.display = '';
-  // Pre-fill from allItems if panel is empty
-  if (_npItems.length === 0 && allItems.length > 0) {
+  // Pré-remplissage depuis le fil — UNE FOIS par session (drapeau), même si le panneau contient déjà
+  // le seed « Nouveautés DTP » : conditionné à « panneau vide », 6 nouveautés récentes suffisaient à
+  // le désamorcer → premier open sans AUCUNE news/calendrier/rapport (constat revue 10/08).
+  if (!npOpen._prefilled && allItems.length > 0) {
+    npOpen._prefilled = true;
     // ⚠️ allItems N'EST PAS trié : l'historique occupe la tête de liste et les items frais sont
     // ajoutés à la FIN. Prendre les 40 PREMIERS renvoyait donc les PLUS VIEUX — d'où des « alertes »
     // affichées « il y a 3763j » (capture user : des articles de 2016). Même cause que le gel du
@@ -8666,10 +8674,14 @@ function npOpen() {
         || i.source === 'DTP' || i._briefing || i._marketWrap)
       .sort(parDateDesc)
       .slice(0, 40);
-    recent.forEach(i => { if (!_npReadIds.has(i.id)) _npItems.push(i); });
+    // _npReadIds nourri AUSSI au pré-remplissage : sinon npPush pouvait re-livrer le même item (doublon).
+    let _ajoutes = 0;
+    recent.forEach(i => { if (!_npReadIds.has(i.id)) { _npReadIds.add(i.id); _npItems.push(i); _ajoutes++; } });
     // Repli : les 20 plus RÉCENTS (et non les 20 premiers du tableau, qui sont les plus anciens).
-    if (_npItems.length === 0) frais.slice().sort(parDateDesc).slice(0, 20).forEach(i => _npItems.push(i));
+    if (!_ajoutes) frais.slice().sort(parDateDesc).slice(0, 20).forEach(i => { if (!_npReadIds.has(i.id)) { _npReadIds.add(i.id); _npItems.push(i); } });
   }
+  // Ouvrir = prendre connaissance : l'état « non lu » des items du panneau s'efface (le badge aussi, plus bas).
+  _npItems.forEach(i => { if (i._new) delete i._new; });
   _npRenderList();
   _npEl('np-panel')?.classList.add('open');
   _npEl('np-overlay')?.classList.add('open');
@@ -8776,7 +8788,10 @@ function npPush(items, opts) {
   if (!items?.length) return 0;
   let newOnes = 0;
   const limite = Date.now() - NP_FRAICHEUR_MS;
-  items.forEach(item => {
+  // Itération INVERSE : forEach + unshift retournait chaque lot (le serveur livre du plus récent au
+  // plus ancien → la plus VIEILLE entrée finissait en tête du panneau, constaté sur les Nouveautés
+  // DTP). En remontant le lot à l'envers, unshift reconstitue l'ordre chronologique décroissant.
+  Array.from(items).reverse().forEach(item => {
     // (Les publications DTP — briefings, primers, market wraps — ne sont PLUS rejetées ici : elles
     //  alimentent l'onglet DTP. Elles restent masquées du FIL, ce qui est une décision distincte.)
     // ⚠️ GARDE DE FRAÎCHEUR — la vraie cause des « il y a 521j » : ce chemin-ci n'en avait AUCUNE.
@@ -8787,9 +8802,14 @@ function npPush(items, opts) {
     if (_npReadIds.has(item.id)) return;
     _npReadIds.add(item.id);
     _npItems.unshift(item);
-    newOnes++;
+    // Le badge ne compte QUE ce que l'utilisateur verra : un type coupé dans le panneau Filtre est
+    // stocké (il réapparaît si le filtre est réactivé) mais n'allume pas la cloche.
+    if (_npCatOn(_npKind(item).key)) newOnes++;
   });
   if (_npItems.length > 200) _npItems.length = 200;
+  // Élagage anti-croissance-infinie (desk ouvert des jours) : le Set conserve l'ordre d'insertion →
+  // on retire les plus anciens au-delà de 4000 (les items correspondants sont sortis du panneau depuis longtemps).
+  if (_npReadIds.size > 4000) { for (const id of _npReadIds) { _npReadIds.delete(id); if (_npReadIds.size <= 3000) break; } }
   if (!newOnes) return 0;
 
   if (_npOpen) _npRenderList();
@@ -8854,7 +8874,9 @@ function _npRenderList() {
 
   // Onglets et Filtre dérivent de la MÊME taxonomie (_npKind) que le badge de l'item : ce que
   // l'utilisateur lit sur l'item = ce qu'il coupe dans le Filtre = ce que trie l'onglet.
-  const filtered = _npItems.filter(item => {
+  // Tri par horodatage décroissant AU RENDU : le panneau mélange plusieurs sources (WS, seed
+  // Nouveautés, pré-remplissage) — seule cette passe garantit « le plus récent en haut » partout.
+  const filtered = _npItems.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).filter(item => {
     const kind = _npKind(item);
     if (!_npCatOn(kind.key)) return false;           // filtre par type (panneau Filtre)
     // Un onglet = UN type de la taxonomie, exactement le badge affiché sur la ligne. Plus de
@@ -8868,7 +8890,13 @@ function _npRenderList() {
   list.querySelectorAll('.np-item').forEach(el => el.remove());
 
   if (filtered.length === 0) {
-    if (empty) empty.style.display = '';
+    if (empty) {
+      empty.style.display = '';
+      // Message CONTEXTUEL : des alertes existent mais l'onglet/le Filtre les masque → le dire,
+      // sinon l'utilisateur croit n'avoir rien reçu (constat revue 10/08).
+      const txt = empty.querySelector('.np-empty-txt') || empty;
+      txt.textContent = _npItems.length ? 'Aucune alerte dans cette catégorie.' : 'Aucune alerte pour l\'instant.';
+    }
     return;
   }
   if (empty) empty.style.display = 'none';
@@ -8890,7 +8918,10 @@ function _npRenderList() {
     // coloré dit la seule chose utile (urgent / important / courant) et rend la place au texte.
     const iconClass = item.urgent ? 'np-icon--breaking' : item.priority === 'high' ? 'np-icon--high' : '';
     const ago = _npTimeAgo(item.timestamp);
-    const desc = _npStripSrc(item.description, item.source).slice(0, 140);
+    // Échappement HTML : le titre venait du flux externe et partait BRUT dans innerHTML (XSS possible,
+    // constat revue 10/08). L'aperçu passait déjà par _npStripSrc (tags retirés) — on borde les deux.
+    const _npEsc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const desc = _npEsc(_npStripSrc(item.description, item.source).slice(0, 140));
     const org = _npKind(item);   // badge = même taxonomie que Filtre et onglets
     // Badge sur CHAQUE ligne (demande user : « il faut qu'on ait l'info si c'est une news, un
     // rapport analyste ou institution »). Je l'avais masqué pour le type « News » en le jugeant
@@ -8901,7 +8932,7 @@ function _npRenderList() {
     el.innerHTML = `
       <div class="np-icon ${iconClass}"></div>
       <div class="np-item-body">
-        <div class="np-item-headline">${item.headline || ''}</div>
+        <div class="np-item-headline">${_npEsc(item.headline)}</div>
         ${desc ? `<div class="np-item-desc">${desc}</div>` : ''}
         <div class="np-item-meta">
           ${badge}
@@ -8910,10 +8941,16 @@ function _npRenderList() {
       </div>`;
 
     el.onclick = () => {
-      npClose();
-      // Scroll to item in main list if possible
+      // On ne FERME que si le clic mène quelque part : fermer sur un item absent du fil (Nouveauté
+      // DTP, notif de rapport) faisait perdre la seule vue où il existe (constat revue 10/08).
       const mainEl = document.querySelector(`[data-id="${item.id}"]`);
-      if (mainEl) mainEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (mainEl) { npClose(); mainEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      // Notif de rapport → on OUVRE l'onglet correspondant (Analystes / Institutions).
+      if (item._reportNotif && typeof window.activateView === 'function') {
+        npClose();
+        try { window.activateView(item._reportNotif === 'institution' ? 'institution' : 'analyst'); } catch {}
+      }
+      // Nouveauté DTP / autre item hors fil : le panneau reste ouvert, l'item EST l'information.
     };
     frag.appendChild(el);
   });
