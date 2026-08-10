@@ -11788,7 +11788,12 @@ function _waPublishNews(weekKey) {
     const k = label.toLowerCase(); if (seen.has(k)) continue; seen.add(k);
     (isBank ? banks : data).push(label);
   }
-  let top = banks.concat(data).slice(0, 10);
+  // Le NFP passe DEVANT tout, banques centrales comprises (10/08) : c'est LE rendez-vous mensuel du
+  // dollar, et il finissait noyé dans `data` derrière chaque banque de la semaine. ⚠️ Ici on trie des
+  // LIBELLÉS DE THÈME (« US Payrolls »), pas des titres bruts — `_waMajor` ne s'applique donc pas :
+  // le thème NFP se reconnaît à son nom, posé par `_waTheme` (['Payrolls', false]).
+  const _nfpLbl = data.filter(x => /\bpayrolls\b/i.test(x));
+  let top = _nfpLbl.concat(banks).concat(data.filter(x => !/\bpayrolls\b/i.test(x))).slice(0, 10);
   if (!top.length) top = hiAny.slice(0, 8);                                    // aucun thème détecté → titres HIGH bruts nettoyés
   const highlights = top.length > 1 ? top.slice(0, -1).join(', ') + ' and ' + top[top.length - 1]
     : (top[0] || "the week's key macro events");
