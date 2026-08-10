@@ -5432,6 +5432,43 @@ function _cleanSebText(heading, text) {
   h = _stripSource(h);                                   // retire disclaimers / mentions résiduelles
   return ((heading ? `<h3>${heading}</h3>` : '') + h).replace(/\s{3,}/g, '\n').trim();
 }
+// ── CIBC Economics — PAR L'API, plus de navigateur (10/08) ──────────────────────────────────────
+// L'audit de couverture a montré CIBC à ZÉRO rapport en 90 j : la page d'accueil est devenue un
+// portail sans tuiles (le scraping DOM ne trouvait plus rien), mais la capture réseau a révélé
+// l'endpoint que la SPA appelle elle-même — POST /api/search → JSON de ~200 publications
+// (PublicationId, PublishedDate, Title, ReportType). Rejoué sans navigateur : 200 OK. Un appel
+// direct est plus robuste que n'importe quel DOM : tant que leur propre site consomme cet endpoint,
+// il vit. L'URL de rapport reste le format « cds?id=<uuid>&flag=E » des anciennes graines (PDF).
+async function _fetchCibcInto(merged, cutoff, UA) {
+  try {
+    const r = await axios.post('https://economics.cibccm.com/api/search',
+      { Title: null, ReportGroup: null, FromDate: null, ToDate: null },
+      { timeout: 15000, validateStatus: s => s < 500,
+        headers: { 'Content-Type': 'application/json', 'User-Agent': UA, 'Accept': 'application/json',
+                   'Origin': 'https://economics.cibccm.com', 'Referer': 'https://economics.cibccm.com/' } });
+    if (r.status !== 200 || !Array.isArray(r.data)) return;
+    let ajoutes = 0;
+    for (const pub of r.data.slice(0, 60)) {
+      const uuid = String(pub.PublicationId || '').trim();
+      const title = String(pub.Title || '').trim();
+      if (!/^[0-9a-f-]{30,}$/i.test(uuid) || title.length < 8) continue;
+      const ts = Date.parse(String(pub.PublishedDate || '') + 'Z') || Date.parse(pub.PublishedDate) || 0;
+      if (!ts || ts < cutoff) continue;
+      const url = `https://economics.cibccm.com/cds?id=${uuid}&flag=E`;
+      const id = 'br-' + Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+      if (merged.has(id)) continue;
+      merged.set(id, {
+        id, title, url, timestamp: ts,
+        categories: [String(pub.ReportType || 'Macro').slice(0, 40)],
+        description: String(pub.TeaserText || '').slice(0, 300),
+        institution: 'CIBC', _source: 'cibc', _pdf: true,
+      });
+      ajoutes++;
+    }
+    if (ajoutes) console.log(`[BankResearch] CIBC : ${ajoutes} rapport(s) via l'API`);
+  } catch (e) { console.warn('[BankResearch] CIBC API :', e && e.message); }
+}
+
 async function _fetchSebInto(merged, cutoff, UA) {
   // UNE requête SANS filtre assetclass → couvre TOUTES les classes (FX, Macro, Central Banks, Fixed Income,
   // Commodities…) ET les rapports SANS classe (DGB auctions, alertes Iran) que la boucle 3-classes ratait
@@ -5594,16 +5631,8 @@ const RESEARCH_SPA_SITES = [
       { title: 'Weekly Update — In 2026, governments will shape interest rates', url: 'https://www.privatebanking.societegenerale.com/en/insights/weekly-update-2026-will-the-governments-that-will-shape-the-interest-rates/', date: '2025-12-05', pdf: true },
       { title: 'The ECB can cut its rates further (SG Cross Asset Research)', url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/the-ecb-can-cut-its-rates-further/', date: '2025-05-06' },
     ] },
-  { name: 'CIBC', institution: 'CIBC', source: 'cibc', host: 'cibccm.com', jina: true, proxy: true,
-    url: 'https://economics.cibccm.com/',
-    hrefRe: /cibccm\.com\/cds\?(?:[^"'\s]*&)?(?:flag=E&)?id=[0-9a-f-]{8,}/i,
-    seed: [
-      { title: 'Economics — The Week Ahead (Mar 30 – Apr 3, 2026)', url: 'https://economics.cibccm.com/cds?id=d3922370-e2fa-4a54-9738-caadcdef12be&flag=E', date: '2026-03-27', pdf: true },
-      { title: 'Economics — In Focus (March 2, 2026)', url: 'https://economics.cibccm.com/cds?id=e07b6277-f16e-4c01-889b-97a0c37210b0&flag=E', date: '2026-03-02', pdf: true },
-      { title: 'Economics — Economic Flash! (February 27, 2026)', url: 'https://economics.cibccm.com/cds?id=73b0487c-2691-47dc-a05d-b540ddd20d76&flag=E', date: '2026-02-27', pdf: true },
-      { title: 'Economics & FICC Strategy — Forecast Update Table (February 11, 2026)', url: 'https://economics.cibccm.com/cds?id=397aa355-2b74-4665-abb8-f63b2d4be59e&flag=E', date: '2026-02-11', pdf: true },
-      { title: 'Economics — The Week Ahead (Feb 2 – 6, 2026)', url: 'https://economics.cibccm.com/cds?id=8b680879-2c84-4142-ac28-449cd08cbc9b&flag=E', date: '2026-02-02', pdf: true },
-    ] },
+  // (CIBC RETIRÉE d'ici le 10/08 : la page est devenue un portail sans tuiles — zéro lien
+  //  découvrable au DOM. Remplacée par l'appel API direct _fetchCibcInto, sans navigateur.)
   { name: 'Nordea', institution: 'Nordea', source: 'nordea', host: 'nordea.com',
     url: 'https://corporate.nordea.com/research/series/181/macro-markets-strategy',
     hrefRe: /nordea\.com\/article\/\d+\/.+/i,
@@ -5981,6 +6010,8 @@ async function _fetchBankResearch(full = false) {
   await _fetchSebInto(merged, cutoff, UA);
   // Scotiabank Economics (HTML statique) — fusionné dans le même cache
   await _fetchScotiaInto(merged, cutoff, UA);
+  // CIBC Economics — API JSON directe (plus de navigateur : cf. _fetchCibcInto)
+  await _fetchCibcInto(merged, cutoff, UA);
   // BlackRock Investment Institute (PDF hebdo) — seed 2026 garanti + découverte Puppeteer best-effort
   await _fetchBlackRockInto(merged);
   // Natixis (Morning Line) + UniCredit… — recherche sur sites SPA, Puppeteer best-effort (échec silencieux)
@@ -6001,6 +6032,11 @@ async function _fetchBankResearch(full = false) {
   const _nowTs = Date.now();
   const _all  = [...merged.values()]
     .filter(i => i && !_brIsNoise(i.title))   // filtre de pertinence (vision macro/FX du terminal)
+    // ⚠️ _brAllowed AUSSI à l'assemblage (10/08) : il n'était appliqué qu'au chargement du fichier.
+    // Les banques RETIRÉES (Lloyds…) gardent leurs GRAINES dans RESEARCH_SPA_SITES : chaque refresh
+    // les ré-injectait dans le cache, qui était ensuite SERVI et PERSISTÉ tel quel — mesuré en prod,
+    // 10 items Lloyds dont un « frais » du jour, des mois après le retrait.
+    .filter(_brAllowed)
     .map(i => (i.timestamp > _nowTs) ? { ...i, timestamp: _nowTs } : i);   // jamais de rapport « daté dans le futur » (mauvais parsing d'URL)
   const _keepAll = i => ['blackrock', 'stanchart', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'kbc', 'westpac', 'qcam', 'goldman', 'danske'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge (Danske = PDF natifs interceptés ; Amundi/Lloyds retirés ; Standard Chartered conservé)
   const _bron = _all.filter(_keepAll);

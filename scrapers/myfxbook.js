@@ -183,7 +183,9 @@ async function getBrowser() {
         '--no-first-run',
         '--no-default-browser-check',
         // Économie mémoire (hébergement 512 Mo)
-        '--single-process', '--no-zygote', '--disable-gpu', '--disable-extensions',
+        /* --single-process/--no-zygote RETIRÉS (10/08) : cassés par les Chrome récents — « Attempted to use
+       detached Frame » sur CHAQUE page, prouvé au banc (avec = échec, sans = 20 liens sur la même cible).
+       Hérités de l'ère Render 512 Mo ; le VPS fait déjà tourner emailWidget en multi-process sans souci. */ '--disable-gpu', '--disable-extensions',
       ],
     });
     _browser.on('disconnected', () => { _browser = null; });
