@@ -19,6 +19,7 @@
   ⚠️ Ne bumper que `index.html` a laissé le **panneau admin 8 jours en retard** (06/08) : `express.static` sert les JS/CSS en `maxAge: 30d`, donc tant que l'URL ne change pas le navigateur ne redemande rien. Le serveur livrait le fichier neuf, l'admin voyait l'ancien — et on cherchait le bug dans le code livré.
 - Toujours `node -c` les fichiers JS + vérifier l'équilibre des accolades CSS avant commit.
 - **Nouveautés DTP (obligatoire)** : à CHAQUE développement visible par les clients, ajouter une entrée `DTP_UPDATES` (server.js, id `dtpu-AAAAMMJJ-slug`, ton annonce produit sans jargon) **dans le même commit** → elle s'affiche dans l'onglet DTP du panneau ALERTES (fenêtre 7 j, seed silencieux).
+- **i18n (après tout renommage de wording FR)** : `node scripts/i18n-verif.js` — le dict EN (i18n-dicts.js) est clé par CHAÎNE FR EXACTE : un wording changé = traduction morte EN SILENCE. L'outil liste les clés orphelines ; re-keyer celles des renommages + ajouter les entrées des nouveaux textes statiques dans le même commit.
 
 ## Design : High-Density Fintech HUD
 - Fond sombre **`#0c0c0e`** / `#0a0a0c`, dense (cockpit / salle de marché), mais **habillage landing** : **accents or**, titres **Fraunces** (serif) / **Inter Tight**, cartes à **coins doux** (`--radius` = `6px`) + bordures fines + **hover doré** sur les cartes. Garder la **densité HUD** dans l'habillage or propre à DTP.
