@@ -7130,6 +7130,13 @@ const _GEW_DOW_FR = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thu
 const _GEW_MON_FR = { January:'janvier', February:'février', March:'mars', April:'avril', May:'mai', June:'juin', July:'juillet', August:'août', September:'septembre', October:'octobre', November:'novembre', December:'décembre' };
 function _gewDayFr(s){ return String(s||'').replace(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/g, m=>_GEW_DOW_FR[m]||m).replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/g, m=>_GEW_MON_FR[m]||m); }
 function _gewWeekFr(s){ return _gewDayFr(String(s||'')).replace(/^\s*Week of\b/i, 'Semaine du').replace(/^\s*Week ahead\b/i, 'Semaine à venir'); }
+// v15 — replie/déplie les publications secondaires d'un jour du calendrier GEW (« + N autres publications »).
+window._gewToggleFold = function (btn) {
+  const x = document.getElementById(btn && btn.dataset ? btn.dataset.for : ''); if (!x) return;
+  const open = x.style.display !== 'none';
+  x.style.display = open ? 'none' : '';
+  btn.textContent = open ? btn.dataset.lbl : 'Réduire';
+};
 let _wrStrengthData = null;     // données de force (TW) chargées 1 seule fois pour tout le rapport
 let _wrChartObserver = null;
 
@@ -7313,6 +7320,13 @@ function _renderWeeklyRecap(item) {
       if (/retail sales|\bpmi\b|\bism\b|industrial production|trade balance|balance of trade|durable goods|imports|exports/.test(s)) return 2;                            // activité/commerce
       return 1;                                                                                                                                                          // confiance/sentiment/secondaire
     };
+    // v15 — « L'ESSENTIEL » : la semaine en 3 phrases max, EN TÊTE (la 1re chose lue). Numéros or,
+    // français simple — quelqu'un qui ne lit que ça a compris la semaine. Absent (anciens rapports) → rien.
+    if (Array.isArray(w.essentiel) && w.essentiel.length) {
+      body += `<div class="gew-ess"><div class="gew-ess-h">L'essentiel</div>`;
+      w.essentiel.forEach((p, i) => { body += `<div class="gew-ess-pt"><span class="gew-ess-n">${i + 1}</span><span class="gew-ess-txt">${_wrInline(p)}</span></div>`; });
+      body += `</div>`;
+    }
     const _keyEvents = [];
     (w.days || []).forEach((d, di) => (d.events || []).forEach(e => { if (String(e.impact || '').toUpperCase() === 'HIGH') _keyEvents.push({ e, day: d.day, di }); }));
     _keyEvents.sort((a, b) => (_gewKeyRank(b.e.title) - _gewKeyRank(a.e.title)) || (a.di - b.di));   // importance décroissante, puis chronologique
@@ -7357,28 +7371,41 @@ function _renderWeeklyRecap(item) {
       .filter(x => x.evs.length);
     if (_gewHiDays.length) {
       body += `<div class="wr-section-title">Calendrier économique <span style="color:#6b7280;font-size:11px;font-weight:400;letter-spacing:0;">· heure de Paris · importants, discours & indicateurs clés</span></div>`;
-      _gewHiDays.forEach(({ d, evs }) => {
+      const _gewEvHtml = e => {
+        const _actCls = (typeof deviationClass === 'function') ? deviationClass(e.actual, e.forecast) : '';   // surprise : vert si > consensus, rouge si <
+        let h = `<div class="gew-ev gew-ev--${_impCls(e.impact)}"><div class="gew-ev-top">`
+          + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
+          + `<span class="gew-ev-ttl">${_gewFlag(e.country, e.ccy)}${_ccyWho(e.ccy, e.country) ? `<b>${_wrEsc(_ccyWho(e.ccy, e.country))}</b> ` : ''}${_wrEsc(e.title)}</span>`
+          + (e.impact ? `<span class="gew-imp gew-imp--${_impCls(e.impact)}">${_wrEsc(_impLbl(e.impact))}</span>` : '')
+          + `</div>`;
+        if (e.actual || e.forecast || e.previous) {
+          h += `<div class="gew-ev-cons">`
+            + (e.actual ? `<span class="gew-cons gew-cons--actual"><i>Réel</i><b class="${_actCls}">${_wrEsc(e.actual)}</b></span>` : '')
+            + (e.forecast ? `<span class="gew-cons"><i>Consensus</i><b>${_wrEsc(e.forecast)}</b></span>` : '')
+            + (e.previous ? `<span class="gew-cons"><i>Précédent</i><b>${_wrEsc(e.previous)}</b></span>` : '')
+            + `</div>`;
+        }
+        if (e.comment) h += `<div class="gew-ev-cmt">${_wrEsc(e.comment)}</div>`;   // analyse Econoday-style
+        // PROPOS RÉELS du discours (minés dans le flux news du même jour, serveur) — traduits FR à l'affichage.
+        (e.quotes || []).forEach(q => { h += `<div class="gew-ev-quote">« <span class="gew-ev-quote-txt">${_wrEsc(q)}</span> »</div>`; });
+        return h + `</div>`;
+      };
+      _gewHiDays.forEach(({ d, evs }, dayIdx) => {
         // Structure deux-colonnes façon chronologie : jour (rail or, gauche) · événements (droite).
         body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(_gewDayFr(d.day))}${d.date ? `<span class="gew-day-date">${_wrEsc(_gewDayFr(d.date))}</span>` : ''}</div><div class="gew-day-evs">`;
-        evs.forEach(e => {
-          const _actCls = (typeof deviationClass === 'function') ? deviationClass(e.actual, e.forecast) : '';   // surprise : vert si > consensus, rouge si <
-          body += `<div class="gew-ev gew-ev--${_impCls(e.impact)}"><div class="gew-ev-top">`
-            + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
-            + `<span class="gew-ev-ttl">${_gewFlag(e.country, e.ccy)}${_ccyWho(e.ccy, e.country) ? `<b>${_wrEsc(_ccyWho(e.ccy, e.country))}</b> ` : ''}${_wrEsc(e.title)}</span>`
-            + (e.impact ? `<span class="gew-imp gew-imp--${_impCls(e.impact)}">${_wrEsc(_impLbl(e.impact))}</span>` : '')
-            + `</div>`;
-          if (e.actual || e.forecast || e.previous) {
-            body += `<div class="gew-ev-cons">`
-              + (e.actual ? `<span class="gew-cons gew-cons--actual"><i>Réel</i><b class="${_actCls}">${_wrEsc(e.actual)}</b></span>` : '')
-              + (e.forecast ? `<span class="gew-cons"><i>Consensus</i><b>${_wrEsc(e.forecast)}</b></span>` : '')
-              + (e.previous ? `<span class="gew-cons"><i>Précédent</i><b>${_wrEsc(e.previous)}</b></span>` : '')
-              + `</div>`;
-          }
-          if (e.comment) body += `<div class="gew-ev-cmt">${_wrEsc(e.comment)}</div>`;   // analyse Econoday-style
-          // PROPOS RÉELS du discours (minés dans le flux news du même jour, serveur) — traduits FR à l'affichage.
-          (e.quotes || []).forEach(q => { body += `<div class="gew-ev-quote">« <span class="gew-ev-quote-txt">${_wrEsc(q)}</span> »</div>`; });
-          body += `</div>`;
-        });
+        // v15 LISIBILITÉ : par jour, seuls les événements FORT restent visibles ; les secondaires (MOYEN,
+        // discours…) se replient sous « + N autres publications » → le mur de ~40 lignes devient scannable.
+        // Jour SANS aucun FORT → tout reste visible (jamais un jour vide qui ne montre qu'un bouton).
+        const _hiEvs = evs.filter(e => String(e.impact || '').toUpperCase() === 'HIGH');
+        const _loEvs = evs.filter(e => String(e.impact || '').toUpperCase() !== 'HIGH');
+        if (_hiEvs.length && _loEvs.length) {
+          _hiEvs.forEach(e => { body += _gewEvHtml(e); });
+          const fid = 'gew-fold-' + dayIdx;
+          body += `<div class="gew-day-more" id="${fid}" style="display:none">${_loEvs.map(_gewEvHtml).join('')}</div>`
+            + `<button type="button" class="gew-more-btn" data-for="${fid}" data-lbl="+ ${_loEvs.length} autres publications" onclick="_gewToggleFold(this)">+ ${_loEvs.length} autres publications</button>`;
+        } else {
+          evs.forEach(e => { body += _gewEvHtml(e); });
+        }
         body += `</div></div>`;   // /gew-day-evs + /gew-day
       });
     }
