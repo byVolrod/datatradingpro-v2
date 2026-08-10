@@ -652,6 +652,24 @@ function _npCleanCfg(b) {
     catsOff: Array.isArray(b.catsOff) ? [...new Set(b.catsOff.filter(x => typeof x === 'string' && x && x.length <= 40))].slice(0, 30) : [],
   };
 }
+// ── NOUVEAUTÉS DTP (changelog produit → panneau ALERTES, onglet DTP) ────────────────────────────
+// RÈGLE DE TRAVAIL (demande user 10/08 « à chaque développement on doit mettre dans le système de
+// notifs ») : à CHAQUE évolution VISIBLE PAR LES CLIENTS, ajouter une entrée ici DANS LE MÊME COMMIT
+// (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
+// Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
+const DTP_UPDATES = [
+  { id: 'dtpu-20260810-recap-actes',   ts: Date.UTC(2026, 7, 10, 13, 0), title: 'Récap Hebdo : lecture en 3 actes', desc: 'Le Récap Hebdo des Marchés est désormais balisé en trois actes numérotés — Géopolitique, Macro & Banques Centrales, Biais par devise — pour suivre le fil de la semaine d\'un coup d\'œil.' },
+  { id: 'dtpu-20260810-gew-essentiel', ts: Date.UTC(2026, 7, 10, 12, 30), title: 'Rapport Éco des Marchés : « L\'essentiel » en 3 points', desc: 'Le rapport s\'ouvre sur la semaine résumée en 3 phrases simples. Chaque puce indique sa conséquence marché (→) et le calendrier replie les publications secondaires : l\'important reste visible.' },
+  { id: 'dtpu-20260810-inst-rapides',  ts: Date.UTC(2026, 7, 10, 12, 0), title: 'Institutions : ouverture des rapports accélérée', desc: 'Les PDF récents sont préparés en avance côté serveur : l\'ouverture d\'un rapport de banque est quasi instantanée, même la première fois.' },
+  { id: 'dtpu-20260810-institutions',  ts: Date.UTC(2026, 7, 10, 11, 0), title: 'Institutions : couverture des banques élargie', desc: 'Natixis, Goldman Sachs, Société Générale, UniCredit et Nordea alimentent à nouveau l\'onglet, et CIBC rejoint le catalogue avec ses rapports PDF (dont le flash NFP).' },
+  { id: 'dtpu-20260809-nfp-tete',      ts: Date.UTC(2026, 7, 9, 12, 0), title: 'Semaine à Venir : le NFP remonte en tête', desc: 'Les publications majeures (NFP, décisions de taux) sont désormais classées en tête de la Semaine à Venir et de son alerte news.' },
+  { id: 'dtpu-20260808-decryptage',    ts: Date.UTC(2026, 7, 8, 12, 0), title: 'Décryptage : lisibilité améliorée sur mobile', desc: 'Le bloc cause → conséquence du Décryptage s\'adapte maintenant aux panneaux étroits : plus de texte tronqué sur téléphone.' },
+];
+app.get('/api/dtp-updates', (req, res) => {
+  if (!req.session?.userId) return res.json({ items: [] });
+  res.json({ items: DTP_UPDATES });
+});
+
 app.get('/api/notif-config', async (req, res) => {
   if (!req.session?.userId) return res.json({ cfg: null });
   try {

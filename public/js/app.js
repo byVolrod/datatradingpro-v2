@@ -8594,6 +8594,16 @@ function _npEl(id) { return document.getElementById(id); }
 document.addEventListener('DOMContentLoaded', () => {
   _npSyncUI();
   _npCfgLoad();   // config par compte (serveur) → écrase le cache localStorage puis re-synchronise l'UI
+  // NOUVEAUTÉS DTP (changelog produit, serveur DTP_UPDATES) : le desk annonce ses propres évolutions
+  // dans l'onglet DTP du panneau. Seed SILENCIEUX (aucun carillon au chargement) ; npPush garde sa
+  // fenêtre de fraîcheur 7 j et sa dédup — les entrées anciennes ou déjà vues ne reviennent pas.
+  fetch('/api/dtp-updates').then(r => r.json()).then(j => {
+    const ups = ((j && j.items) || []).map(u => ({
+      id: u.id, headline: u.title, description: u.desc || '', timestamp: u.ts || Date.now(),
+      source: 'DTP', category: 'DTP', _dtpUpdate: true,
+    }));
+    if (ups.length) npPush(ups, { silent: true });
+  }).catch(() => {});
   // ONGLETS DÉRIVÉS DE LA TAXONOMIE : un onglet par type, dans l'ordre de NP_KINDS, à la suite de
   // « Tout » posé dans le HTML. Ainsi un type ajouté ou renommé se propage seul aux trois endroits
   // (onglet, badge, panneau Filtre) — c'est la raison d'être de la taxonomie unique.
@@ -8760,7 +8770,7 @@ function _npRenderFilters() {
 }
 
 // ── Push new items ────────────────────────────────────────────
-function npPush(items) {
+function npPush(items, opts) {
   if (!items?.length) return 0;
   let newOnes = 0;
   const limite = Date.now() - NP_FRAICHEUR_MS;
@@ -8782,7 +8792,9 @@ function npPush(items) {
 
   if (_npOpen) _npRenderList();
 
-  if (!_npEnabled) return newOnes;
+  // silent : alimentation de fond (ex. Nouveautés DTP au chargement) → panneau rempli, AUCUN
+  // carillon ni notification système. Réservé aux seeds, jamais aux vraies alertes temps réel.
+  if (!_npEnabled || (opts && opts.silent)) return newOnes;
 
   // Sound
   if (_npVolume !== 'mute' && _npChime !== 'none') {
