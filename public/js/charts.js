@@ -606,19 +606,45 @@ function _stfSet(side, per) {
     }).catch(function (e) { console.warn('[Force] période non enregistrée :', e && e.message); });
   } catch (e) {}
 }
+// ⚠️ REFONTE 10/08, après le test en échec de l'utilisateur. Le défaut structurel : le serveur
+// renvoyait ses DÉFAUTS sous la même forme qu'un choix stocké, et ce code, croyant lire le compte,
+// ÉCRASAIT le cache local correct puis re-basculait les panneaux. Tout échec de POST — quelle qu'en
+// soit la cause — devenait une perte définitive ET la destruction de la preuve locale.
+// Règles désormais :  src 'kv'    → le compte fait foi, on s'aligne et on met le cache à jour ;
+//                     src 'defaut'→ le compte ne SAIT rien : on ne touche à rien, et si le cache
+//                                   local porte un choix, on le POUSSE au serveur (auto-réparation —
+//                                   même si tous les POST passés ont échoué, le prochain chargement
+//                                   soigne le compte).
+// L'échec réseau n'est plus mémorisé : le prochain appel retentera, au lieu de figer les défauts.
+let _stfEnVol = null;                     // une seule requête pour les deux panneaux
 async function _stfCharger() {
   if (_stfPref) return _stfPref;
+  if (_stfEnVol) return _stfEnVol;
   const local = _stfLocal();
-  try {
-    const r = await fetch('/api/strength-tf').then(function (x) { return x.json(); });
-    if (r && STF_ORDER.includes(r.L) && STF_ORDER.includes(r.R)) {
-      _stfPref = { L: r.L, R: r.R };
-      try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
-      return _stfPref;
-    }
-  } catch (e) {}
-  _stfPref = local || STF_DEF;                                     // hors ligne : le cache local fait foi
-  return _stfPref;
+  _stfEnVol = (async function () {
+    try {
+      const r = await fetch('/api/strength-tf').then(function (x) { return x.json(); });
+      if (r && r.src === 'kv' && STF_ORDER.includes(r.L) && STF_ORDER.includes(r.R)) {
+        _stfPref = { L: r.L, R: r.R };
+        try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
+        return _stfPref;
+      }
+      if (r && r.src === 'defaut' && local) {
+        // Le compte est vide mais le navigateur se souvient : on répare le compte avec le local.
+        _stfPref = local; _stfSale = true;
+        try {
+          fetch('/api/strength-tf', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(local), keepalive: true })
+            .then(function (x) { if (x.ok) _stfSale = false; }).catch(function () {});
+        } catch (e) {}
+        return _stfPref;
+      }
+      if (r && r.src === 'defaut') { _stfPref = STF_DEF; return _stfPref; }
+    } catch (e) {}
+    _stfEnVol = null;                     // échec réseau : PAS de mémorisation, on retentera
+    return local || STF_DEF;
+  })();
+  return _stfEnVol;
 }
 const STF_LABELS = { today: 'TD', week: 'TW', '8h': '8H', '1d': '1D', '7d': '7D', '1m': '1M' };
 

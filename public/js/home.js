@@ -53,14 +53,14 @@
     if (_miniRetry) clearTimeout(_miniRetry);
     _miniRetry = setTimeout(function () {
       if (!(window.DTPWidgets && DTPWidgets.thumb)) {
-        if (++_miniEssais < 20) _rattraperMinis(cfg);         // ~10 s au total, puis on abandonne
+        if (++_miniEssais < 40) _rattraperMinis(cfg);         // ~28 s au total (700 ms) : une connexion mobile lente depassait les 10 s
         return;
       }
       var host = document.querySelector('.home-cards');
       if (!host) return;
       _miniManquante = false;
       host.innerHTML = layoutCards(cfg);
-    }, 500);
+    }, 700);
   }
 
   function layoutCards(cfg) {
@@ -81,7 +81,16 @@
         + '<span class="home-card-nom">' + esc(l.name || 'Desk') + '</span>'
         + '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'
         + '</button>';
-    }).join('');
+    }).join('')
+      // TUILE FANTÔME « + Nouveau desk » (10/08, « je trouve pas très beau ») : une carte seule
+      // flottait au centre d'une zone vide. La tuile meuble l'espace EN SERVANT — même grammaire que
+      // « Créer un layout » du gestionnaire (cadre pointillé or). Et quand AUCUN desk n'est encore
+      // chargé (téléphone : « une case vide »), elle devient l'état vide lui-même : la zone n'est
+      // plus jamais un rectangle noir muet.
+      + '<button class="home-card home-card--ghost" onclick="DTPHome.createDesk()">'
+      +   '<span class="home-ghost-plus">+</span>'
+      +   '<span class="home-ghost-lbl">' + (lays.length ? 'Nouveau desk' : 'Créer votre premier desk') + '</span>'
+      + '</button>';
   }
   function nbDesks(cfg) { return (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).length; }
 

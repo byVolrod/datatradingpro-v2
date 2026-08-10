@@ -1784,13 +1784,17 @@ const _STF_PERIODES = ['today', 'week', '8h', '1d', '7d', '1m'];
 const _STF_DEFAUT = { L: 'today', R: 'week' };
 app.get('/api/strength-tf', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  // `src` (10/08) : la reponse DIT si elle vient d un choix STOCKE ('kv') ou des DEFAUTS ('defaut').
+  // Sans cette distinction, un compte jamais enregistre renvoyait les defauts sous la MEME forme
+  // qu un choix — et le client, croyant lire le compte, ECRASAIT son cache local correct et
+  // re-basculait les panneaux. Tout echec de POST devenait ainsi une perte definitive ET la
+  // destruction de la preuve. Desormais le client ne s aligne que sur du 'kv'.
   try {
     const v = String(await auth.aiCacheGet('stftf:' + req.session.userId, 366 * 86400000) || '').split('|');
-    res.json({
-      L: _STF_PERIODES.includes(v[0]) ? v[0] : _STF_DEFAUT.L,
-      R: _STF_PERIODES.includes(v[1]) ? v[1] : _STF_DEFAUT.R,
-    });
-  } catch { res.json(_STF_DEFAUT); }
+    const stocke = _STF_PERIODES.includes(v[0]) && _STF_PERIODES.includes(v[1]);
+    if (stocke) return res.json({ L: v[0], R: v[1], src: 'kv' });
+    res.json({ L: _STF_DEFAUT.L, R: _STF_DEFAUT.R, src: 'defaut' });
+  } catch { res.json({ L: _STF_DEFAUT.L, R: _STF_DEFAUT.R, src: 'defaut' }); }
 });
 app.post('/api/strength-tf', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
