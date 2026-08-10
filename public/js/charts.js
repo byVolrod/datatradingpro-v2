@@ -1288,6 +1288,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // se déclenche en rafale pendant un glisser.
   if (container && window.ResizeObserver) {
     let _roRaf = 0;
+    let _lastCalW = _plotW;   // largeur de tracé à la dernière calibration densité/épaisseur
     const ro = new ResizeObserver(() => {
       // Auto-nettoyage : le graphique peut être détruit alors que l'observateur vit encore.
       try { if (root.isDisposed && root.isDisposed()) { ro.disconnect(); return; } } catch (e) { ro.disconnect(); return; }
@@ -1296,6 +1297,26 @@ function buildStrengthChart(containerId, data, opts = {}) {
         _roRaf = 0;
         try { root.resize(); } catch (e) {}
         declutter();   // la hauteur du tracé a changé → l'anti-collision doit se recalibrer
+        // Recalibrage densité/épaisseur (10/08) : _sw et minDistance sont calculés à la CONSTRUCTION
+        // pour la largeur d'alors. Un vrai changement de cadre (splitter, plein écran d'un widget,
+        // volet latéral) change le rapport points/pixel → un TW passé en plein écran gardait sa
+        // décimation 2 px devenue inutile, un graphe rétréci s'empâtait sans elle. On recalcule les
+        // DEUX leviers sur la largeur réelle, SANS reconstruire (la donnée n'est jamais retouchée).
+        // Seuil 15 % : les micro-variations de layout ne déclenchent rien.
+        try {
+          const wNow = Math.max(200, ((container && container.clientWidth) || 0) - _gouttiere);
+          if (wNow > 200 - 1 && _lastCalW > 0 && Math.abs(wNow - _lastCalW) / _lastCalW > 0.15) {
+            _lastCalW = wNow;
+            const dd = _dernieresDonnees || {};
+            const nPts = Math.max.apply(null, ((dd.currencies) || []).map(function (c) { return ((dd.series || {})[c] || []).length; }).concat([0]));
+            const ptPx = nPts / wNow;
+            const sw = ptPx > 0.9 ? 1.3 : ptPx > 0.5 ? 1.5 : 1.8;
+            const md = ptPx > 0.9 ? 2 : 0.5;
+            chart.series.each(function (s) {
+              try { s.set('minDistance', md); s.strokes.template.set('strokeWidth', sw); } catch (e) {}
+            });
+          }
+        } catch (e) {}
       });
     });
     try { ro.observe(container); } catch (e) {}
