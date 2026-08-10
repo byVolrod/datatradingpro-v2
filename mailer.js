@@ -1439,14 +1439,18 @@ const DECRYPT_CONCEPTS = [
   ] },
 ];
 // Selection PURE : choisit le concept selon le theme du contexte, en sautant les cles couvertes recemment.
-function pickDecryptConcept(context, recentKeys) {
+function pickDecryptConcept(context, recentKeys, extraConcepts) {
   recentKeys = Array.isArray(recentKeys) ? recentKeys : [];
+  // AUTONOMIE (10/08, même politique que le Mindset) : le pool = catalogue statique + concepts GÉNÉRÉS
+  // PAR IA (KV campaign:decrypt-ai, côté server). Les concepts IA portent leur propre thème et
+  // rejoignent la rotation définitivement.
+  const ALL = [...DECRYPT_CONCEPTS, ...(Array.isArray(extraConcepts) ? extraConcepts : [])];
   const theme = (context && context.theme) || 'calm';
-  const byTheme = {}; for (const c of DECRYPT_CONCEPTS) (byTheme[c.theme] = byTheme[c.theme] || []).push(c);
+  const byTheme = {}; for (const c of ALL) (byTheme[c.theme] = byTheme[c.theme] || []).push(c);
   const order = { rates: ['rates', 'inflation', 'jobs'], inflation: ['inflation', 'jobs', 'growth'], jobs: ['jobs', 'inflation', 'growth'], growth: ['growth', 'jobs', 'risk'], risk: ['risk', 'growth', 'inflation'], calm: ['inflation', 'growth', 'jobs', 'risk', 'rates'] }[theme] || ['inflation', 'growth'];
   for (const th of order) { const cands = byTheme[th] || []; const fresh = cands.find(c => !recentKeys.includes(c.key)); if (fresh) return { concept: fresh, theme }; }
   // tout couvert recemment -> reprend le 1er du theme (mieux vaut un rappel pertinent qu'un hors-sujet)
-  const cands = byTheme[theme] || byTheme.inflation || DECRYPT_CONCEPTS; return { concept: cands[0], theme };
+  const cands = byTheme[theme] || byTheme.inflation || ALL; return { concept: cands[0], theme };
 }
 
 // CTA adapte MEMBRE / NON-MEMBRE (validation user : tout le monde recoit, contenu adapte).
@@ -1542,7 +1546,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
 // via recentKeys. Repli evergreen (decodeur 4 familles) si aucune donnee. Renvoie aussi conceptKey (marquage).
-function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, isMember } = {}) {
+function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, isMember, conceptKey, extraConcepts } = {}) {
   campaign = campaign || 'decryptage';
   const prenomRaw = (name || '').split(' ')[0] || '';
   const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
@@ -1550,7 +1554,10 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   const cta = _campaignCta(isMember, campaign, email);
   const upcoming = (context && Array.isArray(context.upcoming)) ? context.upcoming : [];
   const majors = upcoming.filter(e => e.impact === 'High');
-  const pick = pickDecryptConcept(context, recentKeys);
+  // conceptKey = concept DU JOUR épinglé côté server (tous les destinataires du mardi reçoivent le MÊME).
+  const _all = [...DECRYPT_CONCEPTS, ...(Array.isArray(extraConcepts) ? extraConcepts : [])];
+  const _forced = conceptKey ? _all.find(x => x && x.key === conceptKey) : null;
+  const pick = _forced ? { concept: _forced, theme: _forced.theme || ((context && context.theme) || 'calm') } : pickDecryptConcept(context, recentKeys, extraConcepts);
   const c = pick.concept;
 
   // Accroche ancree sur l'evenement VEDETTE du calendrier (context.featured = ce que le widget affiche en tete)
@@ -1631,7 +1638,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   `;
   return { subject: '🎓 ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
-async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey, extraConcepts: d.extraConcepts }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
 // ── MINDSET (track psychologie/discipline) — bibliotheque de mails ORIGINAUX DTP (voix or, informatif, ZERO
 // promesse de gains, aucun texte repris d'une newsletter existante). Structure : accroche -> croyance -> faille ->
@@ -2768,7 +2775,7 @@ module.exports = {
   buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   listMindsetConcepts,
-  buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildAnnonceDesk, sendAnnonceDesk, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
+  buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildAnnonceDesk, sendAnnonceDesk, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, DECRYPT_CONCEPTS, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification

@@ -16928,6 +16928,101 @@ async function _decryptKeysOfDay() {
   if (_decryptDay.day !== day) _decryptDay = { day, keys: await _decryptRecentKeys(4) };
   return _decryptDay.keys;
 }
+
+// ══ AUTONOMIE « COMPRENDRE LE MARCHÉ » (10/08, tâche #15 — même politique que le Mindset du 17/07) ══
+// Un concept de PÉDAGOGIE ÉCO NEUF par semaine, choisi d'après l'ACTUALITÉ RÉELLE (thème dominant +
+// rendez-vous majeurs du desk), généré sans intervention. Le catalogue statique devient le FILET :
+// IA indisponible ou proposition rejetée → rotation classique, un mail part TOUJOURS.
+async function _decryptAiPool() { try { const a = await auth.aiCacheGet('campaign:decrypt-ai', 3650 * 864e5); return Array.isArray(a) ? a : []; } catch { return []; } }
+// Lignes balisées → aucun échappement JSON à gérer (même choix que _mindsetParseLines, fini les JSON cassés).
+function _decryptParseLines(text) {
+  const out = { eyebrow: '', title: '', paras: [] };
+  String(text || '').split(/\r?\n/).forEach(l => {
+    const m = l.match(/^\s*(EYEBROW|TITRE|PARA[123])\s*:\s*(.+)$/i);
+    if (!m) return;
+    const k = m[1].toUpperCase(), v = m[2].trim();
+    if (k === 'EYEBROW') out.eyebrow = v;
+    else if (k === 'TITRE') out.title = v;
+    else out.paras.push(v);
+  });
+  return out;
+}
+// VETO INFORMATIF (règle produit, jamais enfreinte) : la pédagogie explique le MÉCANISME, elle ne
+// pousse JAMAIS à une position. Tout texte incitatif est rejeté, quel que soit le reste.
+const _DECRYPT_VETO_RX = /(prene[zs]|prend[sre]*|ouvre[zr]?)\s+(une\s+)?position|achete[zr]\b|vende[zr]\b|il faut (acheter|vendre)|signal (d'achat|de vente)|(conseille|recommande)\s+(d'acheter|de vendre)/i;
+function _decryptAiSane(c) {
+  if (!c || !c.title || c.title.length < 10 || c.title.length > 95) return false;
+  if (!c.eyebrow || c.eyebrow.length < 3 || c.eyebrow.length > 34) return false;
+  if (!Array.isArray(c.paras) || c.paras.length !== 3) return false;
+  if (c.paras.some(p => !p || p.length < 80 || p.length > 700)) return false;
+  if (_DECRYPT_VETO_RX.test(c.title + ' ' + c.paras.join(' '))) return false;
+  return true;
+}
+async function _decryptEnsureFresh(context, recentKeys) {
+  const out = { extras: await _decryptAiPool(), forceKey: null };
+  try {
+    const aiPool = out.extras;
+    // VERROU par semaine ISO (KV durable) : une seule génération par semaine, même après un
+    // redémarrage → tous les destinataires du mardi reçoivent le MÊME concept.
+    const wk = String(_parisParts().isoWeek);
+    const GEN = 'campaign:decrypt-gen-week';
+    let last = null; try { last = await auth.aiCacheGet(GEN, 90 * 864e5); } catch {}
+    if (last && last.week === wk && last.key && aiPool.some(c => c.key === last.key)) { console.log('[Campagne] Comprendre : concept de la semaine ' + wk + ' déjà généré → réutilisé pour tous'); return { extras: aiPool, forceKey: last.key }; }
+    if (ai.backoffActive && ai.backoffActive()) { console.warn('[Campagne] Comprendre : IA en backoff → pas de génération, rotation du catalogue (l\'envoi part quand même)'); return out; }
+    const allConcepts = [...(mailer.DECRYPT_CONCEPTS || []), ...aiPool];
+    const usedTitles = allConcepts.map(c => String(c.title || '')).filter(Boolean);
+    const theme = (context && context.theme) || 'calm';
+    const themeLbl = (context && context.themeLabel) || '';
+    const majors = ((context && context.upcoming) || []).filter(e => e && e.impact === 'High').slice(0, 5)
+      .map(e => ((e.dayLabel ? e.dayLabel + ' : ' : '') + (e.title || '')).trim()).filter(Boolean);
+    const mkPrompt = (retry) => `Tu écris le prochain e-mail « Comprendre le marché » de la newsletter DataTradingPro (pédagogie macro, traders francophones débutants-intermédiaires). Réponds UNIQUEMENT avec ces lignes, une par ligne, étiquettes EXACTES en tête de ligne, sans préambule ni JSON :
+EYEBROW: <catégorie en MAJUSCULES, 1 à 3 mots, ex. POLITIQUE MONÉTAIRE, INFLATION, EMPLOI>
+TITRE: <titre pédagogique accrocheur, une promesse de compréhension, 90 caractères max, pas d'emoji>
+PARA1: <le MÉCANISME expliqué simplement (qu'est-ce que c'est, comment ça marche), 2-3 phrases>
+PARA2: <POURQUOI le marché y réagit (le lien avec les taux, les devises, les anticipations), 2-3 phrases>
+PARA3: <la RÈGLE DE LECTURE concrète (comment interpréter un chiffre au-dessus/en-dessous des attentes), 2-3 phrases>
+Règles ABSOLUES : pédagogie du MÉCANISME uniquement — AUCUNE incitation à acheter/vendre ou à prendre position, AUCUN pronostic, AUCUN chiffre précis de marché (ni niveau, ni cours, ni valeur d'indicateur) ; vocabulaire simple, jargon traduit à sa première occurrence ; français impeccable ; JAMAIS de tiret cadratin.
+CHOISIS le sujet d'après l'ACTUALITÉ RÉELLE de la semaine (ci-dessous) : le concept doit aider à COMPRENDRE ce qui va se jouer — sans le prédire.
+${themeLbl ? 'THÈME DOMINANT de la semaine : ' + themeLbl + '.' : ''}
+${majors.length ? 'RENDEZ-VOUS MAJEURS de la semaine : ' + majors.join(' ; ') + '.' : ''}
+SUJETS DÉJÀ ÉCRITS (INTERDITS, ainsi que toute reformulation proche) : ${usedTitles.join(' · ')}.
+${retry ? 'ATTENTION : ta proposition précédente reprenait un sujet déjà écrit. Change COMPLÈTEMENT d\'angle et de vocabulaire.' : ''}`;
+    let c = null, tooClose = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const text = await ai.generateText(mkPrompt(attempt > 0), 2200);
+      const parsed = _decryptParseLines(text);
+      if (!_decryptAiSane(parsed)) { c = parsed; tooClose = false; continue; }
+      if (_mindsetSubjTooClose(parsed.title, usedTitles)) { tooClose = true; c = parsed; console.warn('[Campagne] Comprendre : sujet trop proche d\'un existant → rejeté (tentative ' + (attempt + 1) + '/2) : ' + parsed.title); continue; }
+      const clean = s => String(s).replace(/—/g, ':').trim();
+      const item = { key: 'ai-' + Date.now(), theme: ['rates', 'inflation', 'jobs', 'growth', 'risk'].includes(theme) ? theme : 'inflation', eyebrow: clean(parsed.eyebrow).toUpperCase(), title: clean(parsed.title), paras: parsed.paras.map(clean).filter(Boolean), _ai: true, createdAt: Date.now() };
+      const next = [...aiPool, item].slice(-40);
+      await auth.aiCacheSet('campaign:decrypt-ai', next);
+      try { await auth.aiCacheSet(GEN, { week: wk, key: item.key, at: Date.now() }); } catch {}
+      console.log('[Campagne] Comprendre IA : nouveau concept généré et adopté (envoi AUTO) : ' + item.title);
+      return { extras: next, forceKey: item.key };
+    }
+    console.warn('[Campagne] Comprendre IA : concept rejeté (' + (tooClose ? 'sujet déjà traité après 2 tentatives' : 'forme ou veto informatif') + ') → rotation du catalogue | titre=' + JSON.stringify((c && c.title) || '').slice(0, 60));
+  } catch (e) { console.warn('[Campagne] Comprendre IA échec : ' + e.message + ' → rotation du catalogue'); }
+  return out;
+}
+// Concept DU JOUR épinglé (KV) : choisi UNE fois le mardi, partagé par TOUS les destinataires — même
+// filet anti « catalogue brûlé en un jour » que le Mindset.
+let _decryptDayPin = { day: null, key: null, extras: null };
+async function _decryptConceptOfDay(context) {
+  const pp = _parisParts();
+  const day = pp.isoWeek + '-' + pp.weekday;
+  if (_decryptDayPin.day === day && _decryptDayPin.key) return _decryptDayPin;
+  try {
+    const saved = await auth.aiCacheGet('campaign:decrypt-day', 3 * 86400000);
+    if (saved && saved.day === day && saved.key) { _decryptDayPin = { day, key: saved.key, extras: await _decryptAiPool() }; return _decryptDayPin; }
+  } catch {}
+  const recentKeys = await _decryptKeysOfDay();
+  const gen = await _decryptEnsureFresh(context, recentKeys);
+  const pick = gen.forceKey || (((mailer.pickDecryptConcept(context, recentKeys, gen.extras) || {}).concept || {}).key || null);
+  _decryptDayPin = { day, key: pick, extras: gen.extras };
+  try { await auth.aiCacheSet('campaign:decrypt-day', { day, key: pick }); } catch {}
+  return _decryptDayPin;
+}
 // Rotation anti-repetition de la track MINDSET (memes primitives que le decryptage).
 // FENÊTRE = (taille du pool − 1) : garantit qu'il reste TOUJOURS exactement 1 concept « frais » → le
 // sélecteur pickMindsetConcept le prend → rotation COMPLÈTE du catalogue avant tout répétition (demande user :
@@ -17479,15 +17574,18 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
   try {
     if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { rec('intro-v1'); return true; } return false; }
     if (stepDef.tpl === 'decryptage') {
-      const recentKeys = await _decryptKeysOfDay();   // figées par jour → concept identique pour tout le lot
-      const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember });
+      // AUTONOMIE (10/08) : concept DU JOUR épinglé (génération hebdo IA + repli catalogue) — tous les
+      // destinataires du mardi reçoivent le MÊME concept, et on marque le concept RÉELLEMENT envoyé.
+      const dayC = await _decryptConceptOfDay(context);
+      const recentKeys = await _decryptKeysOfDay();   // figées par jour → repli de pick identique pour tout le lot
+      const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember, conceptKey: dayC.key || undefined, extraConcepts: dayC.extras });
       if (rr) {
         rec();
         if (!isTest) {
           const _day = _pDayParis(Date.now());
           if (_decryptMarkedDay !== _day) {           // marqué UNE fois par jour d'envoi
             _decryptMarkedDay = _day;
-            try { const pk = mailer.pickDecryptConcept(context, recentKeys); await _decryptMarkCovered(pk && pk.concept && pk.concept.key); } catch (e) {}
+            try { await _decryptMarkCovered(rr.conceptKey || dayC.key); } catch (e) {}
           }
         }
         return true;
@@ -17697,7 +17795,7 @@ async function _sendAllCampaignTests(to) {
   const out = [];
   const step = async (label, fn) => { try { const r = await fn(); out.push({ label, ok: !!r }); } catch (e) { out.push({ label, ok: false, err: e.message }); } await new Promise(x => setTimeout(x, 900)); };
   await step('Semaine à venir', () => mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context: ctx, isMember: false }));
-  await step('Comprendre le marché', async () => { const rk = await _decryptRecentKeys(4); return mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context: ctx, recentKeys: rk, isMember: false }); });
+  await step('Comprendre le marché', async () => { const rk = await _decryptRecentKeys(4); return mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context: ctx, recentKeys: rk, extraConcepts: await _decryptAiPool(), isMember: false }); });   // test : rotation simple (pool IA inclus), AUCUNE génération ni épinglage du jour
   await step('Point marché', () => mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context: ctx, isMember: false }));
   await step('Mindset', async () => { const rk = await _mindsetRecentKeys(); return mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys: rk, extraConcepts: await _mindsetAiPool(), isMember: false }); });   // test : rotation simple (pool IA inclus), AUCUNE génération ni épinglage du jour
   await step('Récap Hebdo', () => { const wk = _freshWeekly(); return wk ? mailer.sendWeeklyDigest({ to, name: '', email: to, campaign: 'recap-test', weekly: wk }) : false; });
@@ -17827,7 +17925,11 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     } else if (type === 'decryptage') {
       const context = await _deskContext();
       const recentKeys = await _decryptKeysOfDay();   // mêmes clés figées que l'envoi → l'aperçu montre EXACTEMENT le concept qui partira
-      m = mailer.buildCampaignDecryptage({ name: s.name, email: s.email, campaign: 'decryptage-preview', context, recentKeys, isMember });
+      // Pool IA inclus + concept épinglé du jour s'il existe (sinon l'aperçu montrerait l'ancien
+      // catalogue, jamais le concept généré — même piège que le Mindset, corrigé le 17/07).
+      const _dPin = await auth.aiCacheGet('campaign:decrypt-day', 3 * 86400000).catch(() => null);
+      const _dCk = String(req.query.concept || '').trim() || (_dPin && _dPin.key) || undefined;
+      m = mailer.buildCampaignDecryptage({ name: s.name, email: s.email, campaign: 'decryptage-preview', context, recentKeys, isMember, conceptKey: _dCk, extraConcepts: await _decryptAiPool().catch(() => []) });
     } else if (type === 'pointmarche') {
       const context = await _deskContext();
       m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context, isMember });
@@ -18081,7 +18183,7 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
     const isMember = req.query.member === '1';   // teste la variante membre (CTA/PS adaptes)
     let provider = null, err = null;
     try {
-      if (tpl === 'decryptage') { const context = await _deskContext(); const recentKeys = await _decryptRecentKeys(4); const r = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context, recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
+      if (tpl === 'decryptage') { const context = await _deskContext(); const dayC = await _decryptConceptOfDay(context); const recentKeys = await _decryptRecentKeys(4); const r = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context, recentKeys, isMember, conceptKey: dayC.key || undefined, extraConcepts: dayC.extras }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'pointmarche') { const context = await _deskContext(); provider = await mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context, isMember }); }
       // Mindset : le test doit montrer EXACTEMENT ce qui partira aux clients → même chemin que l'envoi réel
       // (_mindsetConceptOfDay : concept du jour + pool IA + format de la semaine). L'ancien test n'utilisait
