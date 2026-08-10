@@ -5981,6 +5981,29 @@ async function _fetchDanskeInto(merged, cutoff) {
   } catch (e) { console.warn('[Danske] fetch échec:', e.message); }
 }
 
+// Préchauffage DISQUE des PDF natifs RÉCENTS (≤72 h, max 12) après chaque refresh : le 1er clic d'un
+// client ne paie plus le téléchargement source (MUFG /media 20-55 s, gros PDF CIBC/SEB…) — le proxy
+// sert directement le fichier déjà stocké. Séquentiel + 2 s d'écart → zéro rafale (anti-OOM 512 Mo).
+// _pdfWarmDisk est idempotent (déjà en cache = retour immédiat, verrou in-flight, whitelist d'hôtes).
+let _brPdfWarmBusy = false;
+async function _brWarmFreshPdfs() {
+  if (_brPdfWarmBusy) return;
+  _brPdfWarmBusy = true;
+  try {
+    const cut = Date.now() - 72 * 3600 * 1000;
+    const pdfs = [];
+    for (const it of (_brCache || [])) {
+      if (!it || (it.timestamp || 0) <= cut) continue;
+      let u = '';
+      if (it._pdfUrl) u = it._pdfUrl;
+      else if (it._pdf || /\.pdf(?:[?#]|$)/i.test(it.url || '')) u = it.url;
+      if (u && !pdfs.includes(u)) pdfs.push(u);
+      if (pdfs.length >= 12) break;
+    }
+    for (const u of pdfs) { await _pdfWarmDisk(u); await new Promise(r => setTimeout(r, 2000)); }
+  } catch {} finally { _brPdfWarmBusy = false; }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -6049,6 +6072,7 @@ async function _fetchBankResearch(full = false) {
   try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
   _persistHistory('bank_research', _brCache);   // persistance durable (Supabase, rétention 1 mois)
   console.log(`[BankResearch] ${_brCache.length} articles (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+  setTimeout(() => { _brWarmFreshPdfs().catch(() => {}); }, 4000);   // PDF récents → disque, en fond (1er clic instantané)
 }
 
 // ═══ Convera "Daily Market Updates" → injectés dans le FEED NEWS en [MARKET UPDATE] ═══

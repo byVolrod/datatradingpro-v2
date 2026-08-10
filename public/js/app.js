@@ -5823,6 +5823,19 @@ function _brWarmTopPdfs(items) {
     ((u, k, id) => setTimeout(() => { try { const ep = _brPdfProxy(u); fetch(ep).then(r => r.ok ? r.arrayBuffer() : null).then(ab => ab && _brBlobStore(id, ep, ab)).catch(() => {}); } catch (e) {} }, k * 350))(pdf, n, it.id);
     n++;
   }
+  // + CONTENU des premiers rapports SANS PDF natif (Natixis, Goldman, Nordea…) : l'extraction serveur
+  // (fetch page + résolution PDF/print + cache) se fait EN AVANCE, étalée → 1er clic sans temps mort,
+  // même sur mobile où le préchauffage au survol n'existe pas. Borné (4) + Set anti-doublon.
+  let m = 0;
+  for (const it of items) {
+    if (m >= 4) break;
+    if (!it || !it.url || _brPrefetched.has(it.id)) continue;
+    if (it._pdfUrl || it._pdf || /\.pdf(?:[?#]|$)/i.test(it.url || '') || it._source === 'ing-think') continue;
+    if (it.fullContent) continue;   // contenu déjà en main (SEB, Danske…) → rien à préchauffer
+    _brPrefetched.add(it.id);
+    ((u, k) => setTimeout(() => { try { fetch('/api/bank-research-content?url=' + encodeURIComponent(u)).catch(() => {}); } catch (e) {} }, 900 + k * 1200))(it.url, m);
+    m++;
+  }
 }
 
 // Badge institution = la VRAIE banque du rapport. ING→"ING", MUFG→"MUFG", autres banques
@@ -6033,13 +6046,24 @@ function _brShowExternalCard(item) {
         <a class="br-ext-card-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir le rapport original ↗</a>
       </div></div>`;
 }
+// Loader à ÉTAPES pour le reader Institution : si l'attente s'étire (téléchargement source lent type
+// MUFG 20-55 s, 1er rendu d'un gros rapport), le libellé évolue au lieu de laisser un spinner muet —
+// l'utilisateur sait que ça travaille. S'auto-coupe dès que le loader quitte le DOM (contenu affiché).
+function _brStagedLoader(content, first) {
+  content.innerHTML = dtpLoader(first);
+  const lbl = content.querySelector('.dtp-loader__label');
+  [[6000, 'Téléchargement depuis la banque…'],
+   [18000, 'La source répond lentement — encore quelques instants…'],
+   [40000, 'Toujours en cours (gros rapport, première ouverture)…']]
+    .forEach(([t, txt]) => setTimeout(() => { if (lbl && lbl.isConnected) lbl.textContent = txt; }, t));
+}
 // VRAI PDF de la banque, BRUT plein cadre. Chaîne ROBUSTE (anticipe toute source qui casse) : (1) PDF natif
 // proxifié → (2) repli rendu serveur de la page d'origine (Puppeteer) → (3) carte « ouvrir l'original ».
 async function _brShowNativePdf(item, pdfUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return;
   content.classList.remove('br-rcontent--pdf');
-  content.innerHTML = dtpLoader('Chargement du PDF…');
+  _brStagedLoader(content, 'Chargement du PDF…');
   const raw = pdfUrl || item.url || '';
   if (raw && await _brEmbedPdf(item, _brPdfProxy(raw))) return;                                       // 1) PDF natif
   const orig = item.url || '';
@@ -6053,7 +6077,7 @@ async function _brShowRenderedPdf(item, renderUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return;
   content.classList.remove('br-rcontent--pdf');
-  content.innerHTML = dtpLoader('Préparation du PDF…');
+  _brStagedLoader(content, 'Préparation du PDF…');
   if (renderUrl && await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(renderUrl))) return;
   _brShowExternalCard(item);
 }
@@ -6124,7 +6148,7 @@ function renderBrReader(item) {
     return;
   }
 
-  if (content) content.innerHTML = dtpLoader('Chargement de l’article…');
+  if (content) _brStagedLoader(content, 'Chargement de l’article…');
   // On NE pré-charge PAS les insights depuis item (description souvent vide → cacherait un résultat
   // pauvre sous ck=item.id et bloquerait la version riche). _brEnsureInsights (plus bas, sur le contenu
   // récupéré) ou _brFinalizeReader s'en chargent → insights TOUJOURS basés sur le vrai contenu.
@@ -6164,12 +6188,12 @@ function renderBrReader(item) {
       // rendu HTML de l'article ci-dessous (ex. Nordea : render Puppeteer KO mais le TEXTE est dispo →
       // on affiche l'article au lieu d'une carte vide). Carte externe = dernier recours seulement.
       if (data.pdfUrl) {
-        content.innerHTML = dtpLoader('Chargement du PDF…');
+        _brStagedLoader(content, 'Chargement du PDF…');
         if (await _brEmbedPdf(item, _brPdfProxy(data.pdfUrl))) return;
         if (item.url && await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(item.url))) return;
       }
       if (data.renderUrl) {
-        content.innerHTML = dtpLoader('Préparation du PDF…');
+        _brStagedLoader(content, 'Préparation du PDF…');
         if (await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(data.renderUrl))) return;
         // render serveur KO → bascule sur le rendu HTML de l'article (ne pas court-circuiter vers la carte)
       }
