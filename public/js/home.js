@@ -255,8 +255,9 @@
   +       '</div>'
   +     '</section>'
   +     '<section class="home-zone home-zone--desks" style="--c:5">'
+  // (Bouton « + Nouveau desk » de l'en-tête RETIRÉ 10/08 : doublon avec la tuile fantôme de la
+  //  grille, qui est le meilleur des deux — elle montre OÙ le desk apparaîtra et vit avec les cartes.)
   +       '<div class="home-panel-head"><span class="home-panel-t">Mes desks</span>'
-  +         '<button class="home-desks-new" onclick="DTPHome.createDesk()">+ Nouveau desk</button>'
   +         '<span class="home-panel-fill"></span>'
   +         '<span class="home-desks-count">' + nbDesks(cfg) + ' au total</span></div>'
   +       '<div class="home-zone-body home-zone-body--cards"><div class="home-cards">' + layoutCards(cfg) + '</div></div>'

@@ -16171,3 +16171,50 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   .home-zone-body--cards .home-cards { grid-template-columns: minmax(0, 1fr); }
   .home-card--ghost { min-height: 96px; }
 }
+
+/* ══ « MES DESKS » v3 (10/08) : tuile aux dimensions des cartes, aperçu robuste et poli ═══════════
+   Trois retours user : la tuile fantôme n'a pas la même taille que les cartes ; l'aperçu du template
+   est invisible sur SON téléphone alors que tous mes bancs Chrome passent ; et l'aperçu est jugé
+   peu élégant. */
+
+/* 1. MÊMES DIMENSIONS. Toutes les cellules de la grille partagent la hauteur de la plus haute,
+      et la tuile remplit sa cellule — largeur ET hauteur identiques aux cartes par construction. */
+.home-zone-body--cards .home-cards { grid-auto-rows: 1fr; }
+.home-card--ghost { min-height: 0; height: 100%; }
+
+/* 2. REPLI SANS color-mix(). Piste sérieuse pour le téléphone : TOUTES les couleurs de l'aperçu
+      passent par color-mix(), que les WebKit mobiles un peu datés ignorent — chaque déclaration
+      invalide tombe, il ne reste RIEN : blocs transparents, carte « vide ». Un banc Chrome récent ne
+      peut pas le voir. Règle d'or CSS : d'abord le repli simple, PUIS la version moderne — le
+      navigateur qui la comprend l'applique, l'autre garde le repli. */
+.wdg-thumb--plan i {
+  background: var(--tc, #e3b23a);                                     /* repli : couleur pleine */
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--tc, #e3b23a) 62%, transparent) 0,
+      color-mix(in srgb, var(--tc, #e3b23a) 62%, transparent) 26%,
+      color-mix(in srgb, var(--tc, #e3b23a) 22%, transparent) 26%,
+      color-mix(in srgb, var(--tc, #e3b23a) 14%, transparent) 100%);
+  border: 1px solid rgba(0, 0, 0, .38);                               /* repli */
+  border: 1px solid color-mix(in srgb, var(--tc, #e3b23a) 34%, transparent);
+}
+.wdg-thumb--lbl b { color: #fff; }                                     /* repli, la version color-mix reprend ensuite */
+.home-card--visu .home-card-face .wdg-thumb--plan i {
+  background: var(--tc, #e3b23a);                                     /* repli */
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--tc, #e3b23a) 78%, transparent) 0,
+      color-mix(in srgb, var(--tc, #e3b23a) 78%, transparent) 22%,
+      color-mix(in srgb, var(--tc, #e3b23a) 30%, transparent) 22%,
+      color-mix(in srgb, var(--tc, #e3b23a) 18%, transparent) 100%);
+  border-color: rgba(0, 0, 0, .38);                                   /* repli */
+  border-color: color-mix(in srgb, var(--tc, #e3b23a) 52%, transparent);
+}
+
+/* 3. POLI. Coins doux sur les blocs, filet lumineux en crête (relief discret), respiration autour. */
+.home-card--visu .home-card-face .wdg-thumb--plan { padding: 7px; }
+.home-card--visu .home-card-face .wdg-thumb--plan i {
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 1px 2px rgba(0, 0, 0, .35);
+}
+.home-card--visu .home-card-face .wdg-thumb--plan i::after { opacity: .5; }
