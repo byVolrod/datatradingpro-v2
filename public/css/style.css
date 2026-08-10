@@ -16231,11 +16231,15 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .gew-more-btn { display: block; background: transparent; border: 1px dashed #2a2a30; border-radius: 4px; color: #8a93a0; font-size: 11.5px; font-family: inherit; padding: 5px 12px; margin: 6px 0 2px; cursor: pointer; transition: color .15s, border-color .15s; }
 .gew-more-btn:hover { color: #e3b23a; border-color: rgba(227, 178, 58, .45); }
 
-/* ═══ Récap Hebdo — balisage en trois actes (Géopolitique / Macro / Biais) ═══ */
+/* ═══ Récap Hebdo — balisage en trois actes (Géopolitique / Macro / Biais) ═══
+   Typo ALIGNÉE sur la grammaire des rapports (Inter Tight, MAJUSCULES — comme .wr-macro-heading) :
+   le serif est BANNI des vues du desk depuis le 27/07 (override Fraunces des Notes d'Analystes
+   supprimé, « seule vue en serif → cassait la cohérence »). Hiérarchie tenue par la taille + la
+   pastille or, pas par un changement de police. */
 .wr-act { display: flex; align-items: center; gap: 12px; margin: 26px 0 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(227, 178, 58, .28); }
 .wr-act:first-child { margin-top: 8px; }
-.wr-act-n { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: rgba(227, 178, 58, .14); border: 1px solid rgba(227, 178, 58, .5); color: #e3b23a; font-size: 13px; font-weight: var(--fw-bold); display: flex; align-items: center; justify-content: center; font-family: var(--font-serif, 'Fraunces', serif); }
-.wr-act-lbl { color: #fff; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: .02em; font-family: var(--font-serif, 'Fraunces', serif); }
+.wr-act-n { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: rgba(227, 178, 58, .14); border: 1px solid rgba(227, 178, 58, .5); color: #e3b23a; font-size: 13px; font-weight: var(--fw-bold); display: flex; align-items: center; justify-content: center; font-family: var(--tight); }
+.wr-act-lbl { color: #fff; font-size: 13px; font-weight: var(--fw-semibold); letter-spacing: .08em; text-transform: uppercase; font-family: var(--tight); }
 .wr-act-sub { color: #8a93a0; font-size: 11.5px; margin-top: 1px; }
 
 /* ═══ Panneau ALERTES — lisibilité (10/08) : corps plus grands, contrastes relevés, respiration ═══ */
