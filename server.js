@@ -17357,7 +17357,10 @@ function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).sp
 // par semaine ISO, en rotation → chaque type revient toutes les 5 semaines, sur son jour naturel (via _DAY_STEP).
 // Ordre : Semaine à venir → Comprendre → Point marché → Mindset → Récap. Objectif : ÷5 la fréquence (anti-désabo)
 // tout en gardant la variété du contenu.
-const _WEEK_ROTATION = [DRIP_OUTLOOK, DRIP_DECRYPT, DRIP_POINT, DRIP_TEMOIGN, DRIP_MINDSET, DRIP_RECAP, DRIP_INVIT];
+// (10/08) Témoignage RETIRÉ de la rotation : il a désormais son canal MENSUEL dédié (1er lundi du mois,
+// overlay dans _dripTick — demande user « 1x par mois, début de mois, en + ») ; le laisser ici aurait
+// donné des mois à DEUX témoignages.
+const _WEEK_ROTATION = [DRIP_OUTLOOK, DRIP_DECRYPT, DRIP_POINT, DRIP_MINDSET, DRIP_RECAP, DRIP_INVIT];
 const _rotStepForWeek = () => _WEEK_ROTATION[_dripWeekNum() % _WEEK_ROTATION.length];
 // Jour naturel (weekday) d'un contenu : porté par le contenu lui-même (repli _DAY_STEP pour l'ancien format).
 function _stepWd(step) {
@@ -17478,7 +17481,48 @@ async function _dripTick() {
   try {
     const pp = _parisParts();
     const isoWeek = pp.isoWeek, wd = pp.weekday;
-    // ROTATION 7 SEMAINES — 1 SEUL mail/semaine. On part du contenu DE LA SEMAINE (rotation) et on
+    // ── TÉMOIGNAGE MENSUEL (10/08, demande user « ajoute bien 1x par mois un témoignage qui s'envoie
+    //    début de mois en + ») : le 1er LUNDI du mois (toujours dans les 7 premiers jours ; le lundi
+    //    n'a aucun contenu naturel), fenêtre 18h→21h. Exception ASSUMÉE au verrou « 1 mail/semaine »
+    //    (c'est le « en + » demandé) — on GARDE : jamais 2 mails le même jour calendaire à un contact,
+    //    dédup 1×/mois par contact, intro d'abord, mode TEST respecté. Retiré de la rotation hebdo.
+    if (wd === 1 && pp.hour >= (_STEP_MINHOUR.temoignage || 18) && pp.hour < (_STEP_MAXHOUR.temoignage || 21)) {
+      try {
+        const _pDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        if (parseInt(_pDate.slice(8, 10), 10) <= 7) {
+          const mKey = _pDate.slice(0, 7);   // 'AAAA-MM'
+          if (_dripState.testMode) {
+            const _tk = 'drip:mtem-test:' + mKey + ':' + _CAMP_TEST_TO;
+            if (!(await auth.emailLogHas(_tk).catch(() => false))) {
+              const _ctxT = await _deskContext();
+              if (await _dripSend(DRIP_TEMOIGN, { email: _CAMP_TEST_TO, name: '', segment: 'active' }, _ctxT, 'mtem-test-' + mKey, true)) { try { await auth.emailLogAdd(_tk); } catch {} console.log('[Drip TEST] témoignage mensuel → ' + _CAMP_TEST_TO); }
+            }
+          } else {
+            let audM = null; try { audM = await _campaignAudience({ checkUnsub: false }); } catch {}
+            if (audM) {
+              const CAPm = Math.max(1, parseInt(process.env.DRIP_TICK_CAP || '40', 10));
+              const thrM = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
+              let ctxM = null, sentM = 0;
+              for (const r of audM.recipients) {
+                if (sentM >= CAPm) break;
+                const email = r.email;
+                try { if (await auth.emailLogHas('unsub:' + email)) continue; } catch {}
+                const mk = 'drip:mtem:' + mKey + ':' + email;
+                try { if (await auth.emailLogHas(mk)) continue; } catch {}
+                let stM = _dripNormalize(_dripState.contacts[email]); if (!stM) stM = await _dripSeed(email);
+                _dripState.contacts[email] = stM;
+                if (!stM.introduced) continue;   // l'intro d'abord — le témoignage attendra le mois prochain
+                if (stM.lastAt && ((Date.now() - stM.lastAt) < 6 * 3600e3 || _pDayParis(stM.lastAt) === _pDayParis(Date.now()))) continue;
+                if (!ctxM) ctxM = await _deskContext();
+                if (await _dripSend(DRIP_TEMOIGN, r, ctxM, 'mtem-' + mKey)) { try { await auth.emailLogAdd(mk); } catch {} stM.lastAt = Date.now(); sentM++; if (thrM) await new Promise(x => setTimeout(x, thrM)); }
+              }
+              if (sentM) { _saveDrip(); console.log('[Drip] témoignage mensuel (' + mKey + ') : ' + sentM + ' mail(s)'); }
+            }
+          }
+        }
+      } catch (e) { console.warn('[Drip] témoignage mensuel :', e.message); }
+    }
+    // ROTATION 6 CONTENUS — 1 SEUL mail/semaine. On part du contenu DE LA SEMAINE (rotation) et on
     // vérifie que c'est SON jour : deux contenus peuvent partager un weekday (jeu. 8h/18h,
     // dim. 10h/17h) sans se marcher dessus, puisqu'ils ne tombent jamais la même semaine ISO.
     const dayStep = _rotStepForWeek();
@@ -17593,7 +17637,7 @@ app.get('/api/admin/campaign-drip', requireSameOrigin, requireAdmin, async (req,
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
-    model: 'ROTATION hebdo : 1 SEUL mail par semaine, contenu DIFFERENT chaque semaine (rotation sur 5 : Semaine a venir -> Comprendre -> Point marche -> Mindset -> Recap), chacun sur son jour naturel (Dim/Mar/Mer/Jeu/Sam) ; anti-desabonnement. Un nouvel inscrit recoit une intro puis rejoint la rotation.',
+    model: 'ROTATION hebdo : 1 SEUL mail par semaine, contenu DIFFERENT chaque semaine (rotation sur 6 : Semaine a venir -> Comprendre -> Point marche -> Mindset -> Recap -> Invitation), chacun sur son jour naturel ; anti-desabonnement. + TEMOIGNAGE MENSUEL le 1er lundi du mois (18h-21h, canal dedie, dedup 1x/mois par contact). Un nouvel inscrit recoit une intro puis rejoint la rotation.',
     today: { isoWeek: pp.isoWeek, weekday: pp.weekday, content: todayLabel },
     contactsTracked: total, introduced, gotToday, steps,
     pausedReason: (!_dripState.active && pr) ? pr : null,

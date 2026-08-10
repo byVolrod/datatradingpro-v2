@@ -2416,17 +2416,40 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
   const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
-  const when = featured ? `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim() : '';
-  // On cadre sur les JOURS a fort impact du Week Ahead (evite le « 68 temps forts » peu parlant du calendrier brut).
+  // STRUCTURE NEWSLETTER PRO (10/08 — inspiration STRUCTURE de la veille concurrente, jamais de copie) :
+  // accroche d'UNE ligne → sommaire annoncé (les rendez-vous en gras, une phrase) → une mini-section
+  // PAR JOUR FORT (titre thématique FR du desk + les 2 phrases factuelles du jour) → widget → leçon de
+  // clôture en 2 lignes. Paragraphes COURTS (une idée par phrase), gras sur les termes clés.
+  // INFORMATIF UNIQUEMENT (veto user) : on dit où regarder, jamais quoi trader.
+  const _DOW_FR = { Monday: 'Lundi', Tuesday: 'Mardi', Wednesday: 'Mercredi', Thursday: 'Jeudi', Friday: 'Vendredi', Saturday: 'Samedi', Sunday: 'Dimanche' };
+  const _hiDaysList = waDays.filter(d => d && String(d.impact || '').toUpperCase() === 'HIGH').slice(0, 5);
+  // Sommaire : les TITRES THÉMATIQUES du desk (« Décision de la Fed », « CPI américain »…), en gras or.
+  const _sumTitles = _hiDaysList.map(d => (d.title || '').split(' · ')[0]).filter(Boolean).slice(0, 5);
+  const _sommaire = _sumTitles.length > 1
+    ? _sumTitles.slice(0, -1).map(t => `<strong style="color:#f3c344;">${_esc(t)}</strong>`).join(', ') + ' et ' + `<strong style="color:#f3c344;">${_esc(_sumTitles[_sumTitles.length - 1])}</strong>`
+    : (_sumTitles[0] ? `<strong style="color:#f3c344;">${_esc(_sumTitles[0])}</strong>` : '');
   const count = hiDays || majors.length;
-  const lead = `Voici la semaine qui s'ouvre sur les marchés${weekLabel ? ` (<strong style="color:#f3c344;">${_esc(weekLabel)}</strong>)` : ''}, <strong style="color:#fff;">jour par jour</strong>.${count ? ` ${count} séance${count > 1 ? 's' : ''} à fort impact se profile${count > 1 ? 'nt' : ''}` : ' Plusieurs temps forts se profilent'}${themeLabel ? `, sur fond d'<strong style="color:#f3c344;">${_esc(themeLabel)}</strong>` : ''}${featured && featured.title ? `. Le rendez-vous à ne pas manquer&nbsp;: <strong style="color:#f3c344;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}` : ''}.`;
+  // Mini-sections par jour : titre du jour (thème FR) + description factuelle (2 phrases, déjà rédigées par le desk).
+  const _daySections = _hiDaysList.map(d => {
+    const jour = _DOW_FR[d.dow] || d.dow || '';
+    // Split robuste (même règle que le Point marché) : coupe après .!? SEULEMENT devant une majuscule —
+    // « prév. 3,60% » et les décimales ne cassent pas la phrase.
+    const desc = String(d.description || '').split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).slice(0, 2).join(' ');
+    return `<p style="margin:18px 0 6px;"><strong style="color:#f3c344;">${_esc(jour)} — ${_esc(d.title || '')}</strong></p>`
+      + (desc ? `<p style="margin:0 0 4px;">${_esc(desc)}</p>` : '');
+  }).join('');
   const body = `
-    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 10px;">${lead}</p>
-    <p style="margin:0 0 4px;">Pour chaque séance, le desk a isolé l'événement qui compte, expliqué son enjeu et évalué son impact attendu. <strong style="color:#fff;">L'idée&nbsp;: savoir à l'avance où regarder</strong>, pas quoi trader.</p>
+    <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 14px;">Une nouvelle semaine s'ouvre sur les marchés${weekLabel ? ` (<strong style="color:#fff;">${_esc(weekLabel)}</strong>)` : ''}. 📅</p>
+    ${_sommaire
+      ? `<p style="margin:0 0 14px;">${count ? `<strong style="color:#fff;">${count} rendez-vous</strong> retiendront` : 'Plusieurs rendez-vous retiendront'} particulièrement l'attention du desk&nbsp;: ${_sommaire}.</p>`
+      : `<p style="margin:0 0 14px;">${themeLabel ? `Sur fond d'<strong style="color:#f3c344;">${_esc(themeLabel)}</strong>, plusieurs` : 'Plusieurs'} temps forts se profilent cette semaine.</p>`}
+    ${_daySections}
     ${_widgetImg('week-ahead', 'La semaine à venir')}
-    <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le détail complet de chaque journée (chiffres attendus, contexte et lecture) se retrouve en direct sur le Desk.</p>
-    <div style="margin:22px 0 6px;">${cta.btn}</div>
+    <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le détail de chaque journée (chiffres attendus, contexte, lecture du desk) est en direct sur le Desk.</p>
+    <div style="margin:22px 0 18px;">${cta.btn}</div>
+    <p style="margin:0 0 4px;">Ces publications donneront le ton de la semaine.</p>
+    <p style="margin:0 0 14px;">L'essentiel n'est pas d'être devant l'écran à chaque chiffre — c'est de savoir <strong style="color:#fff;">à l'avance lesquels peuvent changer la lecture du marché</strong>. 👀</p>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
