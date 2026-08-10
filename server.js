@@ -667,7 +667,9 @@ const DTP_UPDATES = [
 ];
 app.get('/api/dtp-updates', (req, res) => {
   if (!req.session?.userId) return res.json({ items: [] });
-  res.json({ items: DTP_UPDATES });
+  // ts borné au présent : une entrée datée de la journée (midi UTC) lue le matin partait dans le
+  // futur → « il y a -3640s » dans le panneau (capture user 10/08). Le client a la même ceinture.
+  res.json({ items: DTP_UPDATES.map(u => ({ ...u, ts: Math.min(u.ts, Date.now()) })) });
 });
 
 app.get('/api/notif-config', async (req, res) => {
@@ -11827,7 +11829,7 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
 //    + calendrier par jour + éditorial. Clé par semaine → jamais de doublon (les MAJ 40 min n'en créent pas).
 let _waNewsKey = null, _waNewsEdAI = -1;
 const _WA_ABBR = { Monday: 'MON', Tuesday: 'TUE', Wednesday: 'WED', Thursday: 'THU', Friday: 'FRI', Saturday: 'SAT', Sunday: 'SUN' };
-const _WA_CCY_ADJ = { USD: 'US', EUR: 'EZ', GBP: 'UK', JPY: 'Japan', AUD: 'Australia', NZD: 'NZ', CAD: 'Canada', CHF: 'Swiss', CNY: 'China', CNH: 'China' };
+const _WA_CCY_ADJ = { USD: 'US', EUR: 'zone euro', GBP: 'UK', JPY: 'Japon', AUD: 'Australie', NZD: 'NZ', CAD: 'Canada', CHF: 'Suisse', CNY: 'Chine', CNH: 'Chine' };
 // Réduit un titre d'événement à un THÈME court (façon pro) → [libellé, estBanqueCentrale]. null = pas un thème clé.
 function _waTheme(title) {
   const t = ' ' + String(title || '').toLowerCase() + ' ';
@@ -11840,14 +11842,14 @@ function _waTheme(title) {
   if (/\becb\b|european central bank/.test(t)) return ['ECB', true];
   if (/\bboc\b|bank of canada/.test(t)) return ['BoC', true];
   if (/\bpboc\b|people'?s bank of china/.test(t)) return ['PBoC', true];
-  if (/inflation|\bcpi\b|\bhicp\b/.test(t)) return ['Inflation', false];
+  if (/inflation|\bcpi\b|\bhicp\b/.test(t)) return ['inflation', false];
   if (/\bppi\b|producer price/.test(t)) return ['PPI', false];
-  if (/payroll|nonfarm|\bnfp\b/.test(t)) return ['Payrolls', false];
-  if (/unemployment|jobless|\bjobs\b|employment change|labou?r market/.test(t)) return ['Jobs', false];
-  if (/retail sales/.test(t)) return ['Retail Sales', false];
-  if (/\bgdp\b|gross domestic/.test(t)) return ['GDP', false];
+  if (/payroll|nonfarm|\bnfp\b/.test(t)) return ['NFP', false];
+  if (/unemployment|jobless|\bjobs\b|employment change|labou?r market/.test(t)) return ['emploi', false];
+  if (/retail sales/.test(t)) return ['ventes au détail', false];
+  if (/\bgdp\b|gross domestic/.test(t)) return ['PIB', false];
   if (/\bpmi\b|purchasing managers/.test(t)) return ['PMI', false];
-  if (/interest rate decision|rate decision|monetary policy|policy announcement/.test(t)) return ['Rate Decision', false];
+  if (/interest rate decision|rate decision|monetary policy|policy announcement/.test(t)) return ['décision de taux', false];
   return null;
 }
 function _waPublishNews(weekKey) {
@@ -11867,21 +11869,25 @@ function _waPublishNews(weekKey) {
     const th = _waTheme(e.title); if (!th) continue;
     const [name, isBank] = th;
     const adj = _WA_CCY_ADJ[String(e.ccy || '').toUpperCase()];
-    const label = isBank ? name : ((adj ? adj + ' ' : '') + name);
+    // Ordre FRANÇAIS : le qualificatif APRÈS le thème (« inflation US », « PIB UK ») ; le NFP se
+    // suffit (toujours US) — pas de « NFP US » redondant.
+    const label = isBank ? name : (name === 'NFP' ? name : (name + (adj ? ' ' + adj : '')));
     const k = label.toLowerCase(); if (seen.has(k)) continue; seen.add(k);
     (isBank ? banks : data).push(label);
   }
   // Le NFP passe DEVANT tout, banques centrales comprises (10/08) : c'est LE rendez-vous mensuel du
   // dollar, et il finissait noyé dans `data` derrière chaque banque de la semaine. ⚠️ Ici on trie des
-  // LIBELLÉS DE THÈME (« US Payrolls »), pas des titres bruts — `_waMajor` ne s'applique donc pas :
-  // le thème NFP se reconnaît à son nom, posé par `_waTheme` (['Payrolls', false]).
-  const _nfpLbl = data.filter(x => /\bpayrolls\b/i.test(x));
-  let top = _nfpLbl.concat(banks).concat(data.filter(x => !/\bpayrolls\b/i.test(x))).slice(0, 10);
+  // LIBELLÉS DE THÈME (« NFP »), pas des titres bruts — `_waMajor` ne s'applique donc pas :
+  // le thème NFP se reconnaît à son nom, posé par `_waTheme` (['NFP', false]).
+  const _nfpLbl = data.filter(x => /\bNFP\b/i.test(x));
+  let top = _nfpLbl.concat(banks).concat(data.filter(x => !/\bNFP\b/i.test(x))).slice(0, 10);
   if (!top.length) top = hiAny.slice(0, 8);                                    // aucun thème détecté → titres HIGH bruts nettoyés
-  const highlights = top.length > 1 ? top.slice(0, -1).join(', ') + ' and ' + top[top.length - 1]
-    : (top[0] || "the week's key macro events");
+  const highlights = top.length > 1 ? top.slice(0, -1).join(', ') + ' et ' + top[top.length - 1]
+    : (top[0] || 'les grands rendez-vous macro de la semaine');
   const year = weekKey.slice(0, 4);
-  const headline = `DTP Week Ahead — Week in Focus ${_weekAhead.week || ''} ${year}: Highlights include ${highlights}`.replace(/\s+/g, ' ').slice(0, 230);
+  // Titre 100 % FRANÇAIS (capture user 10/08 : « DTP Week Ahead — Week in Focus… » dans les alertes) :
+  // c'est une publication MAISON, pas un titre de news externe (seuls ces derniers restent en VO).
+  const headline = `Semaine à Venir — ${_weekAhead.week || ''} ${year} : au programme ${highlights}`.replace(/\s+/g, ' ').slice(0, 230);
   // Description = calendrier par jour + section WEEK AHEAD (éditorial par jour).
   // Format « JOUR: contenu » → le client style l'étiquette du jour (puce « section ») façon pro.
   const cal = days.map(d => {
@@ -11894,10 +11900,10 @@ function _waPublishNews(weekKey) {
     const head = d.headline ? d.headline.replace(/\s*[.:;]\s*$/, '') + '. ' : '';
     return ab + ': ' + head + (d.summary || '');
   });
-  const description = (cal.join('\n') + (ed.length ? '\n\nWEEK AHEAD\n' + ed.join('\n\n') : '')).slice(0, 9000);
-  // Tags : Week Ahead + régions/thèmes détectés.
+  const description = (cal.join('\n') + (ed.length ? '\n\nSEMAINE À VENIR\n' + ed.join('\n\n') : '')).slice(0, 9000);
+  // Tags : Semaine à venir + régions/thèmes détectés.
   const ccy = new Set(); days.forEach(d => (d.ccys || []).forEach(c => ccy.add(c)));
-  const tags = ['Week Ahead'];
+  const tags = ['Semaine à venir'];
   if (ccy.has('USD')) tags.push('US');
   if (['JPY', 'AUD', 'NZD', 'CNY'].some(c => ccy.has(c))) tags.push('Asia');
   if (['EUR', 'GBP', 'CHF'].some(c => ccy.has(c))) tags.push('Europe');

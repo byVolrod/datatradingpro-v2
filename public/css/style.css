@@ -16237,3 +16237,15 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wr-act-n { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: rgba(227, 178, 58, .14); border: 1px solid rgba(227, 178, 58, .5); color: #e3b23a; font-size: 13px; font-weight: var(--fw-bold); display: flex; align-items: center; justify-content: center; font-family: var(--font-serif, 'Fraunces', serif); }
 .wr-act-lbl { color: #fff; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: .02em; font-family: var(--font-serif, 'Fraunces', serif); }
 .wr-act-sub { color: #8a93a0; font-size: 11.5px; margin-top: 1px; }
+
+/* ═══ Panneau ALERTES — lisibilité (10/08) : corps plus grands, contrastes relevés, respiration ═══ */
+.np-item { padding: 13px 16px; gap: 11px; }
+.np-item-headline { font-size: 12.5px; line-height: 1.45; color: #f2f4f7; margin-bottom: 4px; }
+.np-item-desc { font-size: 11px; color: #8a93a0; line-height: 1.5; margin-bottom: 6px; }
+.np-item-time { font-size: 10.5px; color: #5c6470; }
+.np-origin { font-size: 9.5px; }
+
+/* Barre d'onglets ALERTES : les SIX onglets (DTP compris) visibles d'un coup à l'ouverture —
+   typo compressée au lieu du défilement (capture user 10/08 : DTP caché derrière ›).
+   Les flèches ‹ › restent le filet de sécurité des très petits écrans. */
+.np-tab { font-size: 10px; padding: 0 8px; letter-spacing: .2px; }

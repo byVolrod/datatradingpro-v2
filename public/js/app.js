@@ -8599,7 +8599,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // fenêtre de fraîcheur 7 j et sa dédup — les entrées anciennes ou déjà vues ne reviennent pas.
   fetch('/api/dtp-updates').then(r => r.json()).then(j => {
     const ups = ((j && j.items) || []).map(u => ({
-      id: u.id, headline: u.title, description: u.desc || '', timestamp: u.ts || Date.now(),
+      // Math.min : jamais un horodatage dans le futur (une entrée datée « aujourd'hui midi » lue le
+      // matin donnait un « il y a » négatif) — même ceinture que côté serveur.
+      id: u.id, headline: u.title, description: u.desc || '', timestamp: Math.min(u.ts || Date.now(), Date.now()),
       source: 'DTP', category: 'DTP', _dtpUpdate: true,
     }));
     if (ups.length) npPush(ups, { silent: true });
@@ -8923,11 +8925,15 @@ function _npRenderList() {
 
 function _npTimeAgo(ts) {
   if (!ts) return '';
-  const diff = Math.floor((Date.now() - ts) / 1000);
-  if (diff < 60)  return 'il y a ' + diff + 's';
-  if (diff < 3600) return 'il y a ' + Math.floor(diff / 60) + 'min';
-  if (diff < 86400) return 'il y a ' + Math.floor(diff / 3600) + 'h';
-  return 'il y a ' + Math.floor(diff / 86400) + 'j';
+  // Borné ≥ 0 : un horodatage légèrement dans le futur (entrée datée de la journée, horloges
+  // décalées) affichait « il y a -3640s » (capture user 10/08). Jamais de négatif, jamais de
+  // secondes : en dessous d'une minute c'est « à l'instant », puis min / h / jours EN TOUTES LETTRES.
+  const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (diff < 60)    return 'à l\'instant';
+  if (diff < 3600)  return 'il y a ' + Math.floor(diff / 60) + ' min';
+  if (diff < 86400) { const h = Math.floor(diff / 3600); return 'il y a ' + h + ' heure' + (h > 1 ? 's' : ''); }
+  const j = Math.floor(diff / 86400);
+  return 'il y a ' + j + ' jour' + (j > 1 ? 's' : '');
 }
 
 // ── Sync UI state ─────────────────────────────────────────────
