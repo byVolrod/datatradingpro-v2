@@ -7471,7 +7471,15 @@ function _renderWeeklyRecap(item) {
       if (_geoIdx < 0) _emitCb();   // aucun thème Géopolitique → Banques Centrales en tête du bloc
       _macro.forEach((s, i) => {
         body += _partSep() + `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
-        (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+        // ÉPURE (10/08) : un thème déversait jusqu'à 15 puces (« Inflation & Croissance » constaté en
+        // prod) → 6 visibles, le reste replié « + N autres points » (même mécanique que le calendrier GEW).
+        const _bl = s.bullets || [];
+        _bl.slice(0, 6).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+        if (_bl.length > 6) {
+          const fid = 'wr-fold-' + i;
+          body += `<div id="${fid}" style="display:none">${_bl.slice(6).map(b => `<div class="wr-bullet">${_wrInline(b)}</div>`).join('')}</div>`
+            + `<button type="button" class="gew-more-btn" data-for="${fid}" data-lbl="+ ${_bl.length - 6} autres points" onclick="_gewToggleFold(this)">+ ${_bl.length - 6} autres points</button>`;
+        }
         if (i === _geoIdx) _emitCb();   // ── Banques Centrales & Politique Monétaire = section dédiée, en #2 (juste après Géopolitique) ──
       });
       _emitCb();   // filet de sécurité (n'émet jamais deux fois : _cbDone)
@@ -7502,8 +7510,10 @@ function _renderWeeklyRecap(item) {
         body += `</div>`;
         // ── CORPS REPLIABLE (les 7 sections) ──
         body += `<div class="wr-ccy-body">`;
-        // 1) Résumé exécutif
-        if (exec) body += `<div class="wr-text">${_wrParas(exec)}</div>`;
+        // 1) Résumé exécutif — SKIP s'il répète le résumé global du rapport (constat prod 10/08 :
+        // USD.execSummary reprenait w.summary quasi mot pour mot) : l'accroche + les sections suffisent.
+        const _wrNorm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 140);
+        if (exec && _wrNorm(exec) !== _wrNorm(w.summary)) body += `<div class="wr-text">${_wrParas(exec)}</div>`;
         // Mini-courbe de force de la devise (figée sur la semaine du rapport ; rendue paresseusement à l'ouverture).
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
         // Rendu d'un PRINT déterministe {label,date,actual,forecast,previous,lean,ctry} (RECAP_VER 39, façon
