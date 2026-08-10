@@ -6523,7 +6523,7 @@ function _reportPrefixFor(item) {
 // (y compris le raccourci `aiTitle` des wraps InvestingLive qui contournait arlibCleanTitle).
 // Traduction FR : appliquée UNIQUEMENT à l'affichage final du titre (les clés/détection restent EN).
 const REPORT_PREFIX_FR = {
-  'Global Economic Weekly': 'Hebdo Économique Mondial',
+  'Global Economic Weekly': 'Rapport Éco des Marchés',
   'Weekly Market Recap': 'Récap Hebdo des Marchés',
   'FX Daily Recap': 'Récap FX Quotidien',
   'FX Daily': 'FX Quotidien',
@@ -6541,11 +6541,18 @@ const REPORT_PREFIX_FR = {
   'Daily Market Recap': 'Récap Quotidien des Marchés',
 };
 const _REPORT_PREFIX_FR_KEYS = Object.keys(REPORT_PREFIX_FR).sort((a, b) => b.length - a.length);
+// Même purge que le serveur (_arlTitleFR) : le sujet ne doit pas rouvrir par le nom du rapport,
+// le préfixe le dit déjà (doublon constaté user : « Hebdo Économique Mondial: Semaine Économique
+// Globale : … »). Déterministe, à l'affichage seulement — les clés de détection restent EN.
+const _REPORT_DOUBLON_RX = /^\s*(?:Semaine [ÉE]conomique (?:Globale|Mondiale)|Hebdo [ÉE]conomique Mondial|Global Economic Weekly|Rapport [ÉE]co des March[ée]s)\s*[:—–-]\s*/i;
 function _reportTitleToFR(title) {
   if (!title) return title;
   for (const en of _REPORT_PREFIX_FR_KEYS) {
     if (title === en) return REPORT_PREFIX_FR[en];
-    if (title.startsWith(en + ':') || title.startsWith(en + ' ')) return REPORT_PREFIX_FR[en] + title.slice(en.length);
+    if (title.startsWith(en + ':') || title.startsWith(en + ' ')) {
+      const reste = title.slice(en.length).replace(/^\s*:?\s*/, '').replace(_REPORT_DOUBLON_RX, '');
+      return reste ? REPORT_PREFIX_FR[en] + ': ' + reste : REPORT_PREFIX_FR[en];
+    }
   }
   return title;
 }
