@@ -14657,7 +14657,7 @@ async function _giftLoad() {
   console.log(`[Accès offert] ${_giftSet.size} compte(s) exemptés de relance de paiement`);
 }
 setTimeout(() => { _giftLoad().catch(() => {}); }, 25000);   // après amorçage Supabase
-app.get('/api/admin/gift-access', requireAdmin, async (req, res) => {
+app.get('/api/admin/gift-access', requireSameOrigin, requireAdmin, async (req, res) => {
   res.json({ ok: true, emails: [..._giftSet].sort(), seed: _GIFT_SEED });
 });
 app.post('/api/admin/gift-access', requireAdmin, async (req, res) => {
@@ -15940,7 +15940,7 @@ async function _campaignAudience(opts = {}) {
 }
 
 // Aperçu de l'audience (admin) : vérifier qu'il n'y a AUCUN doublon avant d'envoyer. N'envoie RIEN.
-app.get('/api/admin/campaign-audience', requireAdmin, async (_req, res) => {
+app.get('/api/admin/campaign-audience', requireSameOrigin, requireAdmin, async (_req, res) => {
   try {
     const a = await _campaignAudience();
     res.json({ ok: true, report: a.report, recipients: a.recipients.map(r => ({ email: r.email, name: r.name, src: r.sources.join('+'), seg: r.segment })) });
@@ -15950,7 +15950,7 @@ app.get('/api/admin/campaign-audience', requireAdmin, async (_req, res) => {
 // E-mails ajoutés À LA MAIN à l'audience (contacts hors API Whop : export « Contacts », leads, ajouts admin).
 // Stockés durablement (KV ai_cache `campaign:extra-emails`). ?action=add&emails=a@x.com,b@y.com (séparateurs
 // espace/virgule/point-virgule/retour ligne) · ?action=remove&email=a@x.com · sans action → liste. N'envoie RIEN.
-app.get('/api/admin/campaign-extra', requireAdmin, async (req, res) => {
+app.get('/api/admin/campaign-extra', requireSameOrigin, requireAdmin, async (req, res) => {
   const _norm = e => String(e || '').toLowerCase().trim();
   const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   try {
@@ -15979,7 +15979,7 @@ app.get('/api/admin/campaign-extra', requireAdmin, async (req, res) => {
 // Liste noire (e-mails BLOQUES : login + creation de compte + reconciliation Whop + campagne). Fichier durable
 // (volume /app/data). Ajouter = bloque immediatement (la session active est ejectee au prochain /api/auth/me,
 // requireAuth verifie la blacklist). Retirer = reautorise. ?action=add&emails=... | ?action=remove&email=... | (liste).
-app.get('/api/admin/blacklist', requireAdmin, (req, res) => {
+app.get('/api/admin/blacklist', requireSameOrigin, requireAdmin, (req, res) => {
   const _norm = e => String(e || '').toLowerCase().trim();
   const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   try {
@@ -17716,7 +17716,7 @@ app.get('/api/internal/campaign-test-all', async (req, res) => {
 //   activate-test     => la campagne tourne mais tout part UNIQUEMENT sur la boîte admin (test) + envoi immédiat des 5.
 //   activate/official => envoi RÉEL à toute l'audience.   pause => arrêt total.   send-tests => renvoyer les 5 tests.
 // Un seul moteur (le calendrier hebdo) ; le blast hebdo reste retiré. Renvoie le mode courant + le prochain e-mail.
-app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
+app.get('/api/admin/campaign-master', requireSameOrigin, requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
   if (a === 'activate' || a === 'activate-official') { _dripState.active = true; _dripState.testMode = false; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
   else if (a === 'activate-test') { _dripState.active = true; _dripState.testMode = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // test = EXACTEMENT comme officiel (même calendrier, même rythme) mais tout part sur la boîte admin — PAS de rafale
@@ -17739,12 +17739,12 @@ app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
 });
 
 // Historique des erreurs/incidents campagne (admin) : ring durable KV campaign:errors.
-app.get('/api/admin/campaign-errors', requireAdmin, (req, res) => {
+app.get('/api/admin/campaign-errors', requireSameOrigin, requireAdmin, (req, res) => {
   res.json({ ok: true, errors: (_campaignErrors || []).slice(0, 40), dripPaused: !_dripState.active && !!_dripState.pausedReason, pausedReason: _dripState.pausedReason || null });
 });
 
 // Etat + pilotage de la planification (admin). ?action=activate|pause|reset|config(&weekday=0-6&hour=0-23)
-app.get('/api/admin/campaign-schedule', requireAdmin, async (req, res) => {
+app.get('/api/admin/campaign-schedule', requireSameOrigin, requireAdmin, async (req, res) => {
   const a = String(req.query.action || '');
   if (a === 'test') {   // envoie le digest hebdo (donnees live) a l'admin pour previsualiser le contenu
     const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
