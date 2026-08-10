@@ -937,6 +937,9 @@ function _wdgClean(body) {
     deskV: (Number.isInteger(b.deskV) && b.deskV > 0 && b.deskV < 100) ? b.deskV : 0,   // version de la COMPOSITION du layout par défaut : sans ce champ la migration se rejouerait à CHAQUE chargement et écraserait le desk en boucle
     actV: (b.actV === 2 ? 2 : 0),                                 // one-shot « Vue générale active par défaut » (03/08) — même piège : non repris ici, la migration écraserait le choix de l'utilisateur à chaque chargement
     tipSeen: (b.tipSeen === 1 || b.tipSeen === true) ? 1 : 0,     // astuce gestes (bord droit/coin/⠿) déjà fermée ?
+    // FAVORIS de la bibliothèque (10/08, phase 2) : ids de widgets épinglés, section « Favoris » en tête.
+    // Forme seule (le serveur ignore le catalogue front), cap 30 — même piège : non repris ici = détruit au save.
+    wfavs: Array.isArray(b.wfavs) ? b.wfavs.filter(x => typeof x === 'string' && _WDG_ID_RX.test(x)).slice(0, 30) : [],
   };
 }
 app.get('/api/widgets', async (req, res) => {

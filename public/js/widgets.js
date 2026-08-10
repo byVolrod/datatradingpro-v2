@@ -2896,7 +2896,22 @@
       // Les MODÈLES PRÊTS ne vivent plus ici (ils brouillaient la création) : ils restent dans la bibliothèque.
       // Une phrase, une fois : le sens de « Par défaut » ne doit pas dépendre d'un survol.
       + '<div class="wdg-mgr-tplhint"><b class="wdg-mgr-hint-k"><i>★</i> Par défaut</b> = le layout qui s\'ouvre à votre arrivée sur Mon Desk. Sans étoile, c\'est le dernier utilisé qui revient.</div>'
-      + '<div class="wdg-mgr-tplhint">Envie d\'un desk pré-composé ? Les modèles prêts sont dans la <button class="wdg-mgr-tpllink" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">bibliothèque de widgets</button>.</div>';
+      + '<div class="wdg-mgr-tplhint">Envie d\'un desk pré-composé ? Les modèles prêts sont dans la <button class="wdg-mgr-tpllink" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">bibliothèque de widgets</button>.</div>'
+      // EXPORT / IMPORT (10/08, phase 2) : partager ou sauvegarder un agencement en fichier .json.
+      + '<div class="wdg-mgr-io">'
+      +   '<button class="wdg-btn" onclick="DTPWidgets.exportLayout()">Exporter le layout actif</button>'
+      +   '<button class="wdg-btn" onclick="DTPWidgets.importLayout()">Importer un layout…</button>'
+      +   '<span class="wdg-mgr-io-hint">Fichier .json — pour partager un agencement ou le garder de côté.</span>'
+      + '</div>';
+  }
+  // Petit mot de statut (export/import…) — même bandeau que « Annuler », SANS bouton : volatil, 5 s.
+  function _wdgNote(msg) {
+    var old = document.querySelector('.wdg-undo'); if (old) old.remove();
+    var el = document.createElement('div');
+    el.className = 'wdg-undo';
+    el.innerHTML = '<span class="wdg-undo-t">' + esc(msg) + '</span>';
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.remove(); }, 5000);
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
@@ -3019,23 +3034,39 @@
       ? '<div class="wdg-lib-sec">' + (PRESETS.length > 1 ? 'Modèles prêts' : 'Modèle prêt') + '</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
 
     var FAM_SUB = { Analytics: 'Analyse de marché', Fonctions: 'Données & outils', 'Vues du desk': 'Les onglets de la nav, en carte' };
+    // FAVORIS (10/08, phase 2) : étoile en coin de carte → épingle le widget ; section « Favoris »
+    // TOUJOURS en tête (accès en un geste aux widgets qu'on ajoute souvent). Persistés par compte
+    // (cfg.wfavs, mêmes save/KV que le reste). L'étoile est un <span role=button> : un <button> dans
+    // le <button> carte serait du HTML invalide.
+    var favIds = (STATE.cfg && Array.isArray(STATE.cfg.wfavs)) ? STATE.cfg.wfavs : [];
+    var favSet = {}; favIds.forEach(function (x) { favSet[x] = 1; });
+    var _card = function (w) {
+      // Carte façon terminal pro : APERÇU visuel du widget (vignette dessinée) au-dessus, nom + description dessous.
+      return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
+        + '<span class="wdg-lib-fav' + (favSet[w.id] ? ' on' : '') + '" role="button" tabindex="0"'
+        +   ' title="' + (favSet[w.id] ? 'Retirer des favoris' : 'Épingler en favori (section Favoris en tête)') + '"'
+        +   ' onclick="event.stopPropagation();DTPWidgets.toggleWfav(\'' + w.id + '\')"'
+        +   ' onkeydown="if(event.key===\'Enter\'){event.stopPropagation();DTPWidgets.toggleWfav(\'' + w.id + '\');}">' + (favSet[w.id] ? '★' : '☆') + '</span>'
+        + '<span class="wdg-lib-prev">' + (WPREV[w.id] || WICO[w.id] || '') + '</span>'
+        + '<span class="wdg-lib-main"><span class="wdg-lib-name">' + esc(w.name) + '</span>'
+        + '<span class="wdg-lib-desc">' + esc(w.desc) + '</span></span>'
+        + (used[w.id] ? '<span class="wdg-lib-used">' + used[w.id] + '×</span>' : '<span class="wdg-lib-plus">+</span>')
+        + '</button>';
+    };
+    var favList = favIds.map(byId).filter(function (w) { return w && match(w); });
+    var favHtml = (favList.length && _libFam !== '_tpl')
+      ? '<div class="wdg-lib-sec">Favoris <i class="wdg-lib-star">★</i><span class="wdg-lib-cnt">(' + favList.length + ')</span>'
+        + '<span class="wdg-lib-sub">Vos widgets épinglés</span></div><div class="wdg-lib-row">' + favList.map(_card).join('') + '</div>'
+      : '';
     var html = (_libFam === '_tpl' ? [] : FAMS).map(function (fam) {
       if (_libFam && _libFam !== fam) return '';                              // puce de catégorie active → une seule famille
       var list = CATALOG.filter(function (w) { return (FAM_OF[w.id] || 'Fonctions') === fam && match(w); });
       if (!list.length) return '';
-      var cards = list.map(function (w) {
-        // Carte façon terminal pro : APERÇU visuel du widget (vignette dessinée) au-dessus, nom + description dessous.
-        return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
-          + '<span class="wdg-lib-prev">' + (WPREV[w.id] || WICO[w.id] || '') + '</span>'
-          + '<span class="wdg-lib-main"><span class="wdg-lib-name">' + esc(w.name) + '</span>'
-          + '<span class="wdg-lib-desc">' + esc(w.desc) + '</span></span>'
-          + (used[w.id] ? '<span class="wdg-lib-used">' + used[w.id] + '×</span>' : '<span class="wdg-lib-plus">+</span>')
-          + '</button>';
-      }).join('');
+      var cards = list.map(_card).join('');
       return '<div class="wdg-lib-sec">' + esc(fam) + '<span class="wdg-lib-cnt">(' + list.length + ')</span>'
         + '<span class="wdg-lib-sub">' + esc(FAM_SUB[fam] || '') + '</span></div><div class="wdg-lib-row">' + cards + '</div>';
     }).join('');
-    box.innerHTML = (tplHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
+    box.innerHTML = (tplHtml + favHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
   }
 
   /* ── MODÈLE PRÊT : UN SEUL, et c'est le DESK DE BASE À L'IDENTIQUE (demande user 02/08). Il lit la même
@@ -3956,6 +3987,60 @@ function _spansAffiches(lay) {
       var l = layoutById(id); if (!l) return;
       l.name = String(name || '').replace(/[<>]/g, '').trim().slice(0, 40) || 'Sans nom';   // même règle que le serveur
       save(); renderBar(); renderManager();
+    },
+    // FAVORIS de la BIBLIOTHÈQUE (10/08, phase 2) — à ne pas confondre avec toggleFav (layout par défaut).
+    toggleWfav: function (wid) {
+      if (!STATE.cfg) return;
+      var f = Array.isArray(STATE.cfg.wfavs) ? STATE.cfg.wfavs : (STATE.cfg.wfavs = []);
+      var i = f.indexOf(wid);
+      if (i >= 0) f.splice(i, 1); else { if (f.length >= 30) f.pop(); f.unshift(wid); }
+      save(); renderLib();
+    },
+    // EXPORT du layout ACTIF en .json (10/08, phase 2) : {v, name, items} — items déjà au modèle
+    // persisté (le sanitizer serveur revalidera tout à l'import chez le destinataire).
+    exportLayout: function () {
+      var l = activeLayout(); if (!l) { _wdgNote('Aucun layout actif à exporter.'); return; }
+      var data = { v: 1, app: 'datatradingpro', name: l.name, items: l.items };
+      var slug = String(l.name || 'layout').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'layout';
+      var url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      var a = document.createElement('a');
+      a.href = url; a.download = 'dtp-layout-' + slug + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      _wdgNote('Layout « ' + l.name + ' » exporté (.json).');
+    },
+    // IMPORT d'un .json exporté ci-dessus : nouveau layout (jamais d'écrasement), widgets inconnus
+    // écartés, géométrie normalisée par _normItem, re-sanitisé serveur au save. Plafond respecté.
+    importLayout: function () {
+      var c = STATE.cfg; if (!c) return;
+      if (c.layouts.length >= _LMAX) { _wdgNote('Plafond de ' + _LMAX + ' layouts atteint — supprime un layout avant d\'importer.'); return; }
+      var inp = document.getElementById('wdg-import-file');
+      if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = '.json,application/json'; inp.id = 'wdg-import-file';
+        inp.style.display = 'none';
+        document.body.appendChild(inp);
+        inp.addEventListener('change', function () {
+          var f = inp.files && inp.files[0]; inp.value = '';
+          if (!f) return;
+          var rd = new FileReader();
+          rd.onload = function () {
+            var d = null;
+            try { d = JSON.parse(String(rd.result || '')); } catch (e) {}
+            if (!d || !Array.isArray(d.items)) { _wdgNote('Fichier illisible : ce n\'est pas un export de layout DTP.'); return; }
+            var items = d.items.filter(function (it) { return it && typeof it.w === 'string' && byId(it.w); }).slice(0, 40).map(_normItem);
+            if (!items.length) { _wdgNote('Aucun widget reconnu dans ce fichier (catalogue différent ?).'); return; }
+            var ecartes = d.items.length - items.length;
+            var nom = (String(d.name || 'Importé').replace(/[<>]/g, '').trim().slice(0, 34) || 'Importé');
+            var l = { id: uid(), name: nom, items: items };
+            c.layouts.push(l); c.active = l.id;
+            save(); renderBar(); renderManager(); renderGrid();
+            _wdgNote('Layout « ' + nom + ' » importé (' + items.length + ' widget' + (items.length > 1 ? 's' : '') + (ecartes > 0 ? ', ' + ecartes + ' inconnu' + (ecartes > 1 ? 's' : '') + ' écarté' + (ecartes > 1 ? 's' : '') : '') + ').');
+          };
+          rd.readAsText(f);
+        });
+      }
+      inp.click();
     },
     toggleFav: function (id) {
       // ★ = TEMPLATE PAR DÉFAUT (exclusif, demande user 23/07) : une seule étoile — la poser sur un layout la

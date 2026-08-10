@@ -16270,3 +16270,11 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 @media (max-width: 480px) {
   .np-settings-row { flex-wrap: wrap; row-gap: 6px; }
 }
+
+/* ═══ Mon Desk phase 2 (10/08) — favoris de bibliothèque + export/import de layouts ═══ */
+.wdg-lib-fav { position: absolute; top: 5px; left: 7px; z-index: 2; font-size: 13px; line-height: 1; color: #4a515c; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: color .15s, transform .15s; }
+.wdg-lib-fav:hover { color: #e3b23a; transform: scale(1.18); }
+.wdg-lib-fav.on { color: #e3b23a; }
+.wdg-lib-star { color: #e3b23a; font-style: normal; font-size: 11px; margin-left: 2px; }
+.wdg-mgr-io { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hud-line, #1c1c20); flex-wrap: wrap; }
+.wdg-mgr-io-hint { font-size: 11.5px; color: #7b828f; }
