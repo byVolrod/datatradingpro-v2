@@ -7412,9 +7412,22 @@ function _renderWeeklyRecap(item) {
   } else {
     // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Points Macro Clés + analyse par devise (rétrospectif) ──
     if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+    // TROIS ACTES (demande user « une logique Géopolitique / Macro / Biais ») : le rapport est balisé en
+    // actes numérotés — 1·Géopolitique (chronologie ou thème géo), 2·Macro & Banques Centrales (Force +
+    // Points Macro Clés + BC), 3·Biais par devise (analyse). Numérotation DYNAMIQUE : un acte sans
+    // contenu est sauté (jamais de « 2 » sans « 1 »). Pur rendu → tous les rapports archivés en profitent.
+    let _actN = 0;
+    const _actBanner = (lbl, sub) => { _actN++; return `<div class="wr-act"><span class="wr-act-n">${_actN}</span><div class="wr-act-t"><div class="wr-act-lbl">${lbl}</div>${sub ? `<div class="wr-act-sub">${sub}</div>` : ''}</div></div>`; };
     // v27 — CHRONOLOGIE GÉOPOLITIQUE (façon référence Eliott) : jour par jour + « État en fin de semaine ».
     // Quand présente, elle REMPLACE le thème macro « Géopolitique » (dédup plus bas).
     const _gt = (w.geoTimeline && Array.isArray(w.geoTimeline.jours) && w.geoTimeline.jours.length) ? w.geoTimeline : null;
+    // Pas de chronologie → le thème macro « Géopolitique » monte en Acte 1 (extrait des Points Macro).
+    const _geoTheme = !_gt ? (((w.macro || []).find(s => /g[ée]opolit/i.test((s && s.heading) || ''))) || null) : null;
+    if (_gt || _geoTheme) body += _actBanner('Géopolitique', 'ce qui a marqué la semaine');
+    if (_geoTheme) {
+      body += `<div class="wr-macro-heading">${_wrEsc(_geoTheme.heading)}</div>`;
+      (_geoTheme.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+    }
     if (_gt) {
       body += `<div class="wr-section-title">Chronologie de la semaine${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
       body += `<div class="wr-gt">`;
@@ -7432,6 +7445,8 @@ function _renderWeeklyRecap(item) {
       }
       body += `</div>`;
     }
+    // ── ACTE 2 · MACRO & BANQUES CENTRALES ──
+    body += _actBanner('Macro &amp; Banques Centrales', 'force des devises, données clés, politique monétaire');
     // Vue d'ensemble de la force des devises (les 8) : AVANT les Points Macro Clés (demandé).
     // FIGÉE sur la semaine du rapport (badge à droite) : un recap récapitule UNE semaine, donc le chart
     // ne dérive jamais (snapshot serveur). Rouvert plus tard → toujours les données de CETTE semaine-là.
@@ -7443,7 +7458,7 @@ function _renderWeeklyRecap(item) {
     // & Tarifs, Technologie & Innovation. La section CB (riche, par banque) est INJECTÉE juste après le thème
     // Géopolitique (ou en tête si aucun thème Géo), jamais dupliquée (elle n'est pas un thème macro).
     let _macro = (w.macro && w.macro.length) ? w.macro : [];
-    if (_gt) _macro = _macro.filter(s => !/g[ée]opolit/i.test((s && s.heading) || ''));   // v27 : la chronologie remplace le thème « Géopolitique » (pas de doublon)
+    if (_gt || _geoTheme) _macro = _macro.filter(s => !/g[ée]opolit/i.test((s && s.heading) || ''));   // le thème « Géopolitique » vit en Acte 1 (chronologie ou thème extrait) — pas de doublon ici
     const _hasCb = !!(w.centralBanks && w.centralBanks.length);
     if (_macro.length || _hasCb) {
       body += `<div class="wr-section-title">Points Macro Clés</div>`;
@@ -7467,6 +7482,8 @@ function _renderWeeklyRecap(item) {
       // CARTES DÉPLIABLES (demande user « + simple, moins long, lisible à vue d'œil ») : chaque devise = un en-tête
       // scannable TOUJOURS visible (code + badge biais coloré + accroche) → on lit le board FX d'un coup d'œil ;
       // clic → déplie les 7 sections. Profondeur conservée, mais courte par défaut. État volatil (reset au reload).
+      // ── ACTE 3 · BIAIS PAR DEVISE ──
+      body += _actBanner('Biais par devise', 'notre lecture fondamentale, devise par devise');
       body += `<div class="wr-section-title wr-ccy-sectitle">Analyse par devise`
             + `<button type="button" class="wr-ccy-expandall" onclick="_wrToggleAllCcy(this)">Tout déplier</button></div>`;
       ccys.forEach(c => {
