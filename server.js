@@ -9020,6 +9020,10 @@ async function generateWeeklyRecapAI(force = false) {
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
     .map(i => `${_DOWFR[new Date(i.timestamp).getUTCDay()]} : ${i.headline}`);
   const geoCtx = [..._geoWraps, ..._geoNews].slice(0, 80).join('\n');
+  // Diagnostic : sans lignes DATÉES, ni l'IA ni le filet ne peuvent construire la chronologie — et la
+  // rubrique disparaît sans qu'on sache si c'est le code ou la matière qui manque (vécu le 11/08 sur une
+  // semaine dont le corpus news avait expiré). On trace donc la matière disponible à chaque génération.
+  console.log(`[Weekly Recap] contexte géopolitique daté : ${_geoWraps.length} ligne(s) de récaps de séance + ${_geoNews.length} titre(s) news`);
 
   if (!wraps.length && !cal.length && !news.length) {
     console.warn('[Weekly Recap] aucune donnée de la semaine → pas de génération'); return null;
