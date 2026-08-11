@@ -7511,21 +7511,17 @@ function _renderWeeklyRecap(item) {
       (_geoTheme.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
     }
     if (_gt) {
+      /* « Chronologie rapide » = TROIS LIGNES, pas un tableau (refonte 11/08). La référence écrit
+         « Lundi-Mardi : pause des frappes, optimisme sur un accord rapide, effondrement du pétrole » —
+         une puce par temps fort de la semaine. Nous rendions une GRILLE jour/points fléchés, plus un
+         bloc « État en fin de semaine » qui n'existe pas chez elle et redisait le dernier paragraphe
+         du récit juste au-dessus. Les points d'un même jour sont recollés en une ligne dense. */
       body += `<div class="wr-section-title">Chronologie rapide${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
-      body += `<div class="wr-gt">`;
       _gt.jours.forEach(j => {
-        body += `<div class="wr-gt-day"><div class="wr-gt-dayname">${_wrEsc(j.jour)}</div><div class="wr-gt-points">`;
-        (j.points || []).forEach(p => { body += `<div class="wr-gt-pt">${_wrInline(p)}</div>`; });
-        body += `</div></div>`;
+        const pts = (j.points || []).map(p => _wrInline(String(p).replace(/\s*[;.]\s*$/, ''))).filter(Boolean).join(' ; ');
+        if (!pts) return;
+        body += `<div class="wr-bullet"><strong>${_wrEsc(j.jour)} :</strong> ${pts}</div>`;
       });
-      if (Array.isArray(_gt.etatFin) && _gt.etatFin.length) {
-        // « État en fin de semaine » : PLUS de rectangle encadré (demande user « ça casse ») → sous-section
-        // homogène = filet fin en tête + label façon jour + points fléchés, comme le reste de la chronologie.
-        body += `<div class="wr-gt-end"><div class="wr-gt-end-h">État en fin de semaine</div>`;
-        _gt.etatFin.forEach(p => { body += `<div class="wr-gt-pt">${_wrInline(p)}</div>`; });
-        body += `</div>`;
-      }
-      body += `</div>`;
     }
     // (« Points Macro Clés », section « Banques Centrales » autonome et vue d'ensemble « Force des
     //  Devises » RETIRÉES du rendu — voir la note de refonte en tête de ce bloc.)

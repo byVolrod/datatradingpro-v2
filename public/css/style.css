@@ -16321,45 +16321,62 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    Elle tient désormais en trois temps — l'EN-TÊTE (qui domine), le DONUT (de combien), le PIED
    (les volumes et le net) — sans aucun filet interne. Ces règles arrivent après celles d'origine :
    elles gagnent à spécificité égale, sans qu'on ait à toucher au bloc historique. */
+/* ⚠️ ÉCRIT EN TOKENS, PAS EN PIXELS (reprise 11/08 : « pas aligné avec le DTP »). Le premier jet posait
+   des valeurs à la main — 7,5px de légende, letter-spacing .05em, paddings 7/9/10px — qui ne tombaient
+   ni sur l'échelle typographique du desk ni sur sa grille d'espacement de 4px. Tout passe par les
+   variables : --tight pour les libellés, --mono + tabular-nums pour les chiffres, --ls-caps pour
+   l'unique letter-spacing des capitales, --sp-* pour les espacements, --fs-* pour les tailles. */
 .cot-cell > .cot-net { display: none; }                    /* le net descend au pied, sans encadré */
-.cot-split { border-top: 0; padding: 4px 10px 8px; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; }
-.cot-ring { max-width: 112px; max-height: 112px; }
+.cot-split {
+  border-top: 0; padding: var(--sp-1) var(--sp-2) var(--sp-2);
+  flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+}
+.cot-ring { max-width: 108px; max-height: 108px; }
 /* Anneau plus fin : deux arcs épais se disputaient l'œil, la lecture passait par la couleur seule. */
-.cot-ring-bg { stroke: rgba(255,255,255,.055); stroke-width: 6.5; }
+.cot-ring-bg { stroke: var(--hud-line); stroke-width: 6.5; }
 .cot-ring-s, .cot-ring-l { stroke-width: 6.5; stroke-linecap: butt; }
 .cot-cell--bear .cot-ring-l, .cot-cell--bull .cot-ring-s { opacity: .3; }
-.cot-ring-v { font-size: 17px; letter-spacing: -.02em; }
-.cot-ring-cap {
-  font-family: var(--font-ui); font-size: 7.5px; font-weight: 600;
-  letter-spacing: .06em; text-transform: uppercase; fill: var(--text3, #7a7a83);
+.cot-ring-v { font-family: var(--mono); font-size: 18px; font-weight: var(--fw-bold); letter-spacing: -.02em; }
+.cot-ring-cap {                                            /* 9px = --fs-micro : la légende du desk */
+  font-family: var(--tight); font-size: var(--fs-micro); font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-caps); text-transform: uppercase; fill: var(--text3);
 }
-/* Pied : deux camps sur une ligne, le net en dessous. Aucune bordure, la couleur suffit. */
-.cot-foot2 { flex: 0 0 auto; padding: 0 10px 9px; }
-.cot-sides { display: flex; justify-content: space-between; gap: 8px; }
+/* Pied : les deux camps sur une ligne, la conclusion en dessous. Aucune boîte, la couleur suffit. */
+.cot-foot2 { flex: 0 0 auto; padding: 0 var(--sp-2) var(--sp-2); }
+.cot-sides { display: flex; justify-content: space-between; gap: var(--sp-2); }
 .cot-side {
-  display: flex; flex-direction: column; gap: 1px; min-width: 0;
-  font-family: var(--font-ui); font-size: var(--fs-micro, 9px); font-weight: 600;
-  letter-spacing: .05em; text-transform: uppercase; color: var(--text3, #7a7a83);
+  display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0;
+  font-family: var(--tight); font-size: var(--fs-micro); font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text3);
 }
 .cot-side b {
-  font-family: var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
-  font-size: 13px; font-weight: var(--fw-semibold); letter-spacing: -.01em; text-transform: none;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-h2); font-weight: var(--fw-semibold); letter-spacing: -.01em; text-transform: none;
 }
-.cot-side--l b { color: var(--cot-up-fg, #00e676); }
-.cot-side--s b { color: var(--cot-down-fg, #ff3d00); }
+.cot-side--l b { color: var(--cot-up-fg); }
+.cot-side--s b { color: var(--cot-down-fg); }
 .cot-side--s { text-align: right; align-items: flex-end; }
+/* LE seul accent or de la carte, sur la LIGNE DE CONCLUSION — doctrine .sbm-overall du desk : l'or ne
+   marque jamais une donnée brute, seulement le verdict. (Le filet or vivait avant sur « Position
+   nette » encadrée ; l'encadré part, l'accent reste, au bon endroit.) */
 .cot-netline {
-  margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--hud-line, rgba(255,255,255,.05));
-  font-family: var(--font-ui); font-size: var(--fs-micro, 9px); font-weight: 600;
-  letter-spacing: .05em; text-transform: uppercase; color: var(--text3, #7a7a83); text-align: center;
+  margin-top: var(--sp-15); padding-top: var(--sp-15);
+  border-top: 1px solid var(--hud-line);
+  display: flex; align-items: baseline; justify-content: center; gap: var(--sp-1);
+  font-family: var(--tight); font-size: var(--fs-micro); font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text3);
+}
+.cot-netline::before {
+  content: ''; width: 2px; align-self: stretch; margin-right: var(--sp-05);
+  background: var(--orange); border-radius: 1px;
 }
 .cot-netline b {
-  font-family: var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
-  font-size: 12.5px; font-weight: var(--fw-semibold); color: var(--text, #e9eaed);
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-value); font-weight: var(--fw-semibold); color: var(--text);
   text-transform: none; letter-spacing: -.01em;
 }
 /* Cartes très étroites (widget « Mon Desk ») : le donut cède la place, jamais les chiffres. */
 @container (max-width: 150px) {
-  .cot-ring { max-width: 84px; max-height: 84px; }
-  .cot-side b { font-size: 12px; }
+  .cot-ring { max-width: 82px; max-height: 82px; }
+  .cot-side b { font-size: var(--fs-value); }
 }
