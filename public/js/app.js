@@ -7575,35 +7575,39 @@ function _renderWeeklyRecap(item) {
         if (cd.monetaryPolicy || cbBullets.length || cd.pricing) {
           body += `<div class="wr-macro-heading">Politique monétaire${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
           if (cd.monetaryPolicy) body += `<div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
+          // UN INTERVENANT = UNE PUCE (correctif 11/08) : le même officiel revenait deux fois de suite
+          // (« Musalem … / Musalem … » constaté en prod), ce qu'aucune note de desk ne ferait.
+          const _vus = new Set();
           cbBullets.forEach(q => {
             if (!q || !q.text) return;
+            const k = String(q.speaker || '').toLowerCase().trim();
+            if (k && _vus.has(k)) return;
+            if (k) _vus.add(k);
             body += `<div class="wr-bullet"><strong>${_wrEsc(q.speaker || '')}</strong>${q.date ? ` <span class="wr-print-date">(${_wrEsc(q.date)})</span>` : ''} → ${_wrInline(q.text)}</div>`;
           });
           if (cd.pricing) body += `<div class="wr-bullet wr-cat"><strong>Pricing :</strong> ${_wrEsc(cd.pricing)}</div>`;
         }
-        // 4) Principaux moteurs — nouveau format {name, why} ; rétro-compat ancien {heading, bullets/detail}.
-        if (drivers.length) {
-          body += `<div class="wr-macro-heading">Principaux moteurs</div>`;
-          drivers.forEach(d => {
-            if (d && d.name) body += `<div class="wr-bullet"><strong>${_wrEsc(d.name)} :</strong> ${_wrInline(d.why || '')}</div>`;
-            else if (d && d.heading) {   // ancien format
-              body += `<div class="wr-bullet"><strong>${_wrEsc(d.heading)}</strong></div>`;
-              if (Array.isArray(d.bullets)) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(b))}</div>`; });
-              else if (d.detail) body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(d.detail))}</div>`;
-            }
-          });
-        }
+        // 4) THÈMES DE LA SEMAINE — rendus comme dans la référence : des lignes intitulées
+        //    (« Banque centrale : … », « Commerce : … », « Fiscal : … »), SANS titre de rubrique
+        //    au-dessus. « Principaux moteurs » était un intitulé de plus pour trois lignes.
+        drivers.forEach(d => {
+          if (d && d.name) body += `<div class="wr-text wr-drv"><strong>${_wrEsc(d.name)} :</strong> ${_wrInline(d.why || '')}</div>`;
+          else if (d && d.heading) {   // ancien format
+            const _det = Array.isArray(d.bullets) ? d.bullets.join(' ') : (d.detail || '');
+            body += `<div class="wr-text wr-drv"><strong>${_wrEsc(d.heading)} :</strong> ${_wrTagColorize(_wrInline(_det))}</div>`;
+          }
+        });
         // « Catalyseurs de la semaine » RETIRÉ (refonte 11/08) : chaque catalyseur figurait DÉJÀ, avec
         // son chiffre réel et sa lecture, dans les puces Croissance / Emploi / Inflation ci-dessus.
         // 5) Semaine à venir : rendez-vous majeurs DATÉS (déterministe) + conclusion prospective.
+        // 5) et 6) « Semaine à venir » et « Biais / Scénario » : deux LIGNES INTITULÉES, pas deux
+        //    rubriques à titre — c'est ainsi qu'elles closent chaque devise dans la référence.
         const wkAhead = Array.isArray(cd.weekAhead) ? cd.weekAhead : [];
         if (wkAhead.length || cd.conclusion) {
-          body += `<div class="wr-macro-heading">Semaine à venir</div>`;
-          if (wkAhead.length) body += `<div class="wr-bullet wr-cat"><strong>Au programme :</strong> ${wkAhead.map(_wrEsc).join(' · ')}</div>`;
-          if (cd.conclusion) body += `<div class="wr-text">${_wrParas(cd.conclusion)}</div>`;
+          const _prog = wkAhead.length ? `<span class="wr-drv-prog">${wkAhead.map(_wrEsc).join(' · ')}</span>` : '';
+          body += `<div class="wr-text wr-drv"><strong>Semaine à venir :</strong> ${cd.conclusion ? _wrInline(cd.conclusion) : ''}${_prog ? (cd.conclusion ? '<br>' : '') + _prog : ''}</div>`;
         }
-        // 6) Biais / Scénario — DERNIER, comme dans la référence : la lecture vient après les faits.
-        if (cd.biasRationale) body += `<div class="wr-macro-heading">Biais / Scénario</div><div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
+        if (cd.biasRationale) body += `<div class="wr-text wr-drv"><strong>Biais / Scénario :</strong> ${_wrInline(cd.biasRationale)}</div>`;
         body += `</div>`;   // fin .wr-ccy-body
         body += `</div>`;   // fin .wr-ccy-block
       });

@@ -5250,6 +5250,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cs-week { font-family:var(--font-mono); font-size:11px; color:#9aa0aa; letter-spacing:.02em; white-space:nowrap; flex-shrink:0; }
 /* Texte courant aéré */
 .wr-text .wr-p, .wr-summary .wr-p { color:#c9d1d9; font-size:13px; font-weight:400; line-height:1.7; margin:0 0 14px; }
+/* Lignes INTITULÉES d'une devise (« Commerce : … », « Semaine à venir : … », « Biais / Scénario : … ») :
+   la référence les écrit en ligne, sans titre de rubrique au-dessus — le libellé gras porte la structure. */
+.wr-drv { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0 0 10px; }
+.wr-drv strong { color:#fff; font-weight:var(--fw-semibold); }
+.wr-drv-prog { color:#9aa3b2; font-size:12.5px; }
 .wr-summary .wr-p { color:#d6dde6; }
 /* Analyse par devise = CARTES DÉPLIABLES (v37, demande user « + simple, moins long, lisible à vue d'œil ») :
    en-tête scannable toujours visible (code + badge biais + accroche), corps repliable avec les 7 sections. */
