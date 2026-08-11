@@ -10778,6 +10778,45 @@ function _sbEurCtryW(ct) {
   const k = String(ct || '').toUpperCase();
   return (!k || k === 'DE' || k === 'EU' || k === 'EZ' || k === 'EMU') ? 1 : k === 'FR' ? 0.7 : 0.45;
 }
+// CALENDRIER PROFOND PARTAGÉ (11/08) : le cycle lourd télécharge 6 mois de publications ; on en garde une
+// copie ALLÉGÉE (8 devises, publications chiffrées, champs utiles) pour que la couche live — qui ne voit
+// que 21 jours — puisse mesurer les MÊMES niveaux. Sans ça, un indicateur mensuel n'a jamais assez de
+// points hors du cycle lourd, et les colonnes Emploi/Niveau retombent à vide entre deux régénérations.
+let _sbLongCal = { at: 0, items: [] }, _sbLongCalTry = 0;
+// AMORÇAGE APRÈS REDÉMARRAGE : `_sbLongCal` naît vide (il est rempli par le cycle lourd, qui peut ne pas
+// repasser avant ~20 h). Sans amorçage, chaque redéploiement priverait de nouveau la couche live de son
+// historique — donc des NIVEAUX — pendant toute cette fenêtre. On le remplit une seule fois (throttle 1 h,
+// jamais sur le chemin d'un utilisateur : appelé depuis le tic de fond).
+async function _sbEnsureLongCal() {
+  if (_sbLongCal.items.length && Date.now() - _sbLongCal.at < 26 * 3600000) return;
+  if (Date.now() - _sbLongCalTry < 3600000) return;
+  _sbLongCalTry = Date.now();
+  try {
+    const c6 = await _buildTVCalendarRange(6);
+    if (c6 && c6.length) { _sbSetLongCal(_calHistMerge(c6)); console.log(`[SmartBias] calendrier profond amorcé : ${_sbLongCal.items.length} publications (6 mois)`); }
+  } catch (e) { console.warn('[SmartBias] amorçage calendrier profond :', e.message); }
+}
+function _sbSetLongCal(cal) {
+  try {
+    const items = (cal || [])
+      .filter(e => e && e.currency && SB_CURRENCIES.includes(e.currency) && e.title && e.actual != null && e.actual !== '')
+      .map(e => ({ currency: e.currency, ctry: e.ctry || '', title: e.title, impact: e.impact, timestamp: e.timestamp || 0, actual: e.actual, forecast: e.forecast || '', previous: e.previous || '' }));
+    if (items.length > 200) _sbLongCal = { at: Date.now(), items };   // garde-fou : un calendrier tronqué ne remplace pas un bon
+  } catch {}
+}
+// Calendrier le PLUS PROFOND disponible : fenêtre courante (fraîche) + copie 6 mois (historique), dédupliquée
+// à la minute pour ne jamais compter deux fois la même publication dans une série de tendance.
+function _sbCalDeep() {
+  const recent = _sbCalForDetail();
+  if (!_sbLongCal.items.length || Date.now() - _sbLongCal.at > 26 * 3600000) return recent;
+  const vus = new Set(recent.map(e => (e && e.currency) ? (e.currency + '|' + (e.ctry || '') + '|' + String(e.title).toLowerCase().trim() + '@' + Math.round((e.timestamp || 0) / 60000)) : ''));
+  const out = recent.slice();
+  for (const e of _sbLongCal.items) {
+    const k = e.currency + '|' + (e.ctry || '') + '|' + String(e.title).toLowerCase().trim() + '@' + Math.round((e.timestamp || 0) / 60000);
+    if (!vus.has(k)) out.push(e);
+  }
+  return out;
+}
 async function _sbFundamentalRows() {
   // SOURCE FIABLE : TradingEconomics (valeur réelle ACTUELLE + précédente de chaque indicateur → tendance,
   // toutes catégories renseignées). Bien plus robuste que le calendrier épars. REPLI : surprise du CALENDRIER
@@ -10830,7 +10869,8 @@ async function _sbFundamentalRows() {
   const parent = {};
   SB_CURRENCIES.forEach(c => { parent[c] = _sbAvgToBias(subs.map(s => s.values[c])); });   // parent = agrégat des 8 enfants affichés
   const teOk = Object.keys(te).length;
-  console.log(`[SmartBias] Fundamental = mélange DESK 3 mois (${usedCal} cellules) + TE (${teOk}/8 devises) — NZD parent=${parent.NZD}`);
+  _sbSetLongCal(cal);   // ← partage les 6 mois avec la couche live (sinon elle mesure sur 21 j et perd les niveaux)
+  console.log(`[SmartBias] Fundamental = mélange DESK 3 mois (${usedCal} cellules) + TE (${teOk}/8 devises) — NZD parent=${parent.NZD} | calendrier profond partagé : ${_sbLongCal.items.length} publications`);
   return { parent, subs, cal };   // cal exposé → le MACRO TABLE en dérive niveau/tendance d'inflation sans re-fetch
 }
 
@@ -11198,7 +11238,7 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir, monTon
     // création d'emplois (×0.6) + inscriptions au chômage inversées (×0.4) + JOLTS/postes vacants (×0.3).
     // Filet : quel que soit l'appelant, le détail par devise doit avoir un calendrier. Sans ce repli,
     // un appelant qui oublie `cal` vide silencieusement TOUT le panneau détail des 8 devises.
-    const _cal = (fundamentalRes.cal && fundamentalRes.cal.length) ? fundamentalRes.cal : _sbCalForDetail();
+    const _cal = (fundamentalRes.cal && fundamentalRes.cal.length) ? fundamentalRes.cal : _sbCalDeep();
     const gS = _sbBlend([
       [_sbHistTrend(_cal, c, /\bGDP\b|gross domestic|economic growth|\bPIB\b/i), 1.0],
       [_sbHistTrend(_cal, c, /retail sales|retail trade|ventes au d[ée]tail/i), 0.6],
@@ -11686,10 +11726,14 @@ async function _sbRecomputeLive() {
     // refresh. C'est exactement l'événement qui doit faire bouger le biais ; le reste du temps on le reprend.
     const _fundRow = _smartBias.rows.find(r => r.key === 'fundamental') || {};
     const _newPrint = _sbHasNewActualSince(_smartBias.dataAt || _smartBias.generatedAt || 0);
+    if (!_newPrint) await _sbEnsureLongCal();   // profondeur d'historique disponible dès le 1er tic après un redémarrage
     const fundamentalRes = _newPrint
       ? await _sbFundamentalRows()
       // `cal` DOIT être fourni même quand on reprend le pilier tel quel : le détail par devise en dérive.
-      : { parent: _fundRow.values || {}, subs: _fundRow.subs || [], cal: _sbCalForDetail() };
+      // `_sbCalDeep()` (fenêtre courante + copie 6 mois du cycle lourd) et non `_sbCalForDetail()` : sur
+      // 21 jours, un indicateur mensuel n'a jamais 3 points → tous les NIVEAUX retombaient à vide au
+      // premier tic live, deux minutes après une régénération pourtant complète.
+      : { parent: _fundRow.values || {}, subs: _fundRow.subs || [], cal: _sbCalDeep() };
     const fundamental    = fundamentalRes.parent;
     const trend          = await _sbTrendRow();       // force des devises (cache 2 min)
     const technical      = await _sbTechnicalRow();   // force 1 j (cache 60 s)
