@@ -8683,6 +8683,18 @@ function _recapDeTag(b) {
    des récaps de séance et du fil news) — même matière, mais un chemin qui ne peut pas échouer.
    Jours REGROUPÉS comme dans la référence : deux jours voisins fusionnent quand chacun n'a qu'un fait. */
 const _GEO_DOWS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+/* Le filet lit des points de récaps de séance — et ceux-ci MÉLANGENT les langues : certains sont
+   rédigés en français par le desk, d'autres reprennent un titre de fil, qui est en anglais et ne se
+   traduit jamais (veto user). Restreindre la SOURCE ne suffisait donc pas : la chronologie sortait
+   « Mardi : Al Arabiya expects an announcement… » à côté de « Jeudi : Le pétrole WTI gagne 0,8 %… ».
+   On teste donc la LANGUE de chaque ligne : un mot outil français ou une lettre accentuée suffit à
+   reconnaître une phrase française ; à défaut, la ligne est écartée. Mieux vaut une chronologie plus
+   courte qu'un rapport bilingue. */
+const _FR_MOTS_RX = /\b(le|la|les|des|du|de|un|une|et|ou|sur|pour|dans|avec|selon|apr[eè]s|entre|au|aux|ce|cette|ses|son|sa|leur|plus|contre|vers|sans|est|ont|a\s+[éa])\b/i;
+function _estEnFrancais(s) {
+  const t = String(s || '');
+  return /[éèêëàâçôöûùîï]/.test(t) || _FR_MOTS_RX.test(t);
+}
 function _geoTimelineFromCtx(geoCtx) {
   try {
     const parJour = new Map();
@@ -8692,6 +8704,7 @@ function _geoTimelineFromCtx(geoCtx) {
       const jour = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
       const fait = _stripMd(m[2]).replace(/\s+/g, ' ').trim();
       if (fait.length < 25) continue;                          // titre trop court = pas un fait
+      if (!_estEnFrancais(fait)) continue;                     // ⚠️ voir _estEnFrancais : le rapport est 100 % FR
       if (!parJour.has(jour)) parJour.set(jour, []);
       const l = parJour.get(jour);
       if (l.length < 2 && !l.some(x => x.slice(0, 40) === fait.slice(0, 40))) l.push(fait.slice(0, 200));
