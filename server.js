@@ -9164,7 +9164,12 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
       macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).map(s => ({ heading: _stripMd(String(s.heading)), bullets: Array.isArray(s.bullets) ? s.bullets.map(b => _recapDeTag(String(b == null ? '' : b).replace(/\s+/g, ' ').trim())).filter(Boolean) : [], detail: s.detail != null ? _stripMd(String(s.detail)) : undefined })).slice(0, 8) : [],
       // Chronologie : l'IA d'abord, le filet déterministe si elle renonce (elle a renvoyé null le 11/08
       // alors que le fil existait) → la rubrique ne peut plus disparaître quand la matière est là.
-      geoTimeline: _sanitizeGeoTimeline(parsed.geoTimeline) || _geoTimelineFromCtx(geoCtx),
+      // ⚠️ Le filet ne pioche QUE dans `_geoWraps` — les points des récaps de séance, rédigés en
+      // FRANÇAIS par le desk. `_geoNews` porte les titres du fil, qui sont en anglais et ne se
+      // traduisent jamais (veto user) : les laisser entrer produisait une chronologie mi-française
+      // mi-anglaise (« Gold eases as markets weigh Middle East uncertainty »), constaté le 11/08.
+      // Sans matière française suffisante, pas de chronologie — plutôt rien qu'un mélange de langues.
+      geoTimeline: _sanitizeGeoTimeline(parsed.geoTimeline) || _geoTimelineFromCtx(_geoWraps.join('\n')),
       currencies: {},
     };
     for (const c of CCY) {
