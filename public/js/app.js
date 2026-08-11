@@ -7129,6 +7129,27 @@ function _wrInline(t){
 // _calValueBlockHtml(ev) de charts.js (base pédagogique CAL_KB : ce que ça mesure / lecture réel vs prévision /
 // conclusion / prochaine échéance ; un titre de décision de taux bascule sur le bloc BANQUE CENTRALE complet).
 // Construit une fois au 1er clic (lazy), puis repli/déplie. Le bloc rendu est stylé par les .cal-kb existants.
+// Même Décryptage, mais depuis une LIGNE DU TABLEAU « À surveiller » (demande user 11/08 : « quand on
+// clique sur une news de À surveiller on a le DTP Décryptage, comme dans le vrai calendrier »). Le détail
+// s'ouvre dans une ligne sœur qui occupe toute la largeur, construite au premier clic puis repliable.
+window._fxrToggleCalRow = function (tr) {
+  try {
+    var det = tr && tr.nextElementSibling;
+    if (!det || !det.classList || !det.classList.contains('fxdr-cal-detail')) return;
+    if (!det.hasAttribute('hidden')) { det.setAttribute('hidden', ''); tr.classList.remove('open'); return; }
+    tr.classList.add('open');
+    var cell = det.firstElementChild;
+    if (cell && !det.dataset.built) {
+      det.dataset.built = '1';
+      cell.innerHTML = '<div class="fxdr-data-loading">Décryptage…</div>';
+      var ev = { title: tr.dataset.title || '', currency: tr.dataset.ccy || '', actual: tr.dataset.actual || '', forecast: tr.dataset.forecast || '', previous: tr.dataset.previous || '', timestamp: +tr.dataset.ts || 0 };
+      Promise.resolve(typeof _calValueBlockHtml === 'function' ? _calValueBlockHtml(ev) : '')
+        .then(function (html) { cell.innerHTML = html || '<div class="cal-kb"><div class="cal-kb-row"><span class="cal-kb-val">Décryptage indisponible pour cet indicateur.</span></div></div>'; })
+        .catch(function () { cell.innerHTML = '<div class="cal-kb"><div class="cal-kb-row"><span class="cal-kb-val">Décryptage indisponible.</span></div></div>'; });
+    }
+    det.removeAttribute('hidden');
+  } catch (e) {}
+};
 window._fxrToggleData = function (el) {
   try {
     var det = el && el.querySelector('.fxdr-data-detail'); if (!det) return;
@@ -7908,8 +7929,13 @@ function _renderFXDailyRecap(item) {
       }
       const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—';
       const catBc = /banque centrale/i.test(e.category || '') ? ' <span class="fxdr-cal-cat">· Banque centrale</span>' : '';
-      rows += `<tr class="cal-row"><td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '—')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}</td>`
-        + `<td class="cth-val">${_va(e)}</td><td class="cth-val">${_vf(e.high)}</td><td class="cth-val">${_vf(e.forecast)}</td><td class="cth-val">${_vp(e.low)}</td><td class="cth-val">${_vp(e.previous)}</td></tr>`;
+      // Ligne CLIQUABLE → Décryptage DTP (même base pédagogique que l'onglet Calendrier), déplié juste en dessous.
+      const _a = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
+      rows += `<tr class="cal-row fxdr-cal-clic" role="button" tabindex="0" onclick="_fxrToggleCalRow(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleCalRow(this);}" title="Voir le décryptage"`
+        + ` data-title="${_a(e.event)}" data-ccy="${_a(e.ccy)}" data-actual="${_a(e.actual)}" data-forecast="${_a(e.forecast)}" data-previous="${_a(e.previous)}" data-ts="${e.ts || 0}">`
+        + `<td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '—')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}<span class="fxdr-cal-chev">›</span></td>`
+        + `<td class="cth-val">${_va(e)}</td><td class="cth-val">${_vf(e.high)}</td><td class="cth-val">${_vf(e.forecast)}</td><td class="cth-val">${_vp(e.low)}</td><td class="cth-val">${_vp(e.previous)}</td></tr>`
+        + `<tr class="fxdr-cal-detail" hidden><td colspan="10"></td></tr>`;
     });
     // v14b : les puces NARRATIVES d'abord (le POURQUOI de chaque catalyseur, façon note de desk), le
     // tableau calendrier ensuite (les dates et les chiffres). L'un explique, l'autre chiffre.

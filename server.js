@@ -9548,11 +9548,12 @@ function _fxrLookFromRows(rows) {
      du calendrier juste en dessous — le lecteur ne pouvait pas le retrouver.
      RÈGLE : les événements à FORT impact de toute la fenêtre passent TOUS (ce sont eux que le texte
      commente), les MOYENS complètent jusqu'au plafond. Puis on retrie chronologiquement pour l'affichage. */
-  const _all = rows || [];
-  const _hi  = _all.filter(e => /high/i.test(e.impact || ''));
-  const _med = _all.filter(e => !/high/i.test(e.impact || ''));
-  const CAP  = 40;
-  return [..._hi, ..._med.slice(0, Math.max(0, CAP - _hi.length))]
+  // AFFINÉ 11/08 (demande user « mets uniquement les annonces à surveiller ») : le tableau ne liste plus
+  // que les publications à FORT impact. Les stocks pétroliers hebdomadaires ou les demandes de prêts
+  // immobiliers encombraient la table sans qu'aucun trader ne les « surveille » — et elles écrasaient au
+  // passage les vraies échéances. Le calendrier complet reste à un clic, dans l'onglet Calendrier.
+  return (rows || [])
+    .filter(e => /high/i.test(e.impact || ''))
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
     .map(e => {
     const cb = /\brate\b|decision|fomc|ecb|boe|boj|rba|snb|riksbank|central bank|monetary policy/i.test(e.title || '');
@@ -9716,9 +9717,9 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
     const laRows = (calItems || []).filter(e => e && (e.timestamp || 0) > now && (e.timestamp || 0) < now + 4 * 86400000
       && /high|medium/i.test(e.impact || '') && !/speaks|speech|holiday|member|birthday/i.test(e.title || ''))
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    // 40 (et non 28) : l'IA doit voir EXACTEMENT le même horizon que le tableau affiché sous ses puces,
-    // sinon elle commente un événement que le lecteur ne retrouve pas juste en dessous.
-    const laLines = laRows.slice(0, 40).map(e => {
+    // L'IA voit EXACTEMENT ce que le tableau affichera sous ses puces (les FORTS impacts), sinon elle
+    // commente un événement que le lecteur ne retrouve pas juste en dessous.
+    const laLines = laRows.filter(e => /high/i.test(e.impact || '')).slice(0, 40).map(e => {
       const dl = new Date(e.timestamp).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'Europe/Paris' });
       return `- ${dl} [${e.currency || ''}] ${String(e.title || '').slice(0, 90)} (${e.impact})`;
     });
