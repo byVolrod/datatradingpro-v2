@@ -1115,7 +1115,9 @@ function _syncNewsModeBtn() {
 }
 window._toggleNewsMode = function () {
   newsEssentialMode = !newsEssentialMode;
-  try { localStorage.setItem('dtp_news_essential', newsEssentialMode ? '1' : '0'); } catch {}
+  try { localStorage.setItem('dtp_news_essential', newsEssentialMode ? '1' : '0'); } catch {}   // cache instantané
+  // + mémorisé sur le COMPTE (12/08) : le choix « Essentiel / Tout » suit l'utilisateur d'un appareil à l'autre.
+  try { if (window.DTPPref) DTPPref.set('newsmode', newsEssentialMode ? '1' : '0'); } catch (e) {}
   _syncNewsModeBtn();
   renderNews();
 };
@@ -3889,7 +3891,18 @@ function initAnalystTab() {
   const catEl  = document.getElementById('arlib-cat');
   if (search) search.addEventListener('input',  e => { _arlibSearch = e.target.value.toLowerCase(); renderArlibList(); });
   if (typeEl) typeEl.addEventListener('change', e => { _arlibType   = e.target.value; renderArlibList(); });
-  if (catEl)  catEl.addEventListener('change',  e => { _arlibCat    = e.target.value; renderArlibList(); });
+  // Catégorie MÉMORISÉE PAR COMPTE (12/08) : c'est un réglage d'affichage durable, contrairement à
+  // la recherche texte au-dessus, qu'on laisse volontairement volatile (un filtre texte restauré en
+  // silence donnerait une bibliothèque « vide » sans que l'utilisateur comprenne pourquoi).
+  if (catEl) {
+    const _c = (function () { try { return window.DTPPref ? DTPPref.get('arlibcat', '') : ''; } catch (e) { return ''; } })();
+    if (_c && [...catEl.options].some(o => o.value === _c)) { catEl.value = _c; _arlibCat = _c; }
+    catEl.addEventListener('change', e => {
+      _arlibCat = e.target.value;
+      try { if (window.DTPPref) DTPPref.set('arlibcat', _arlibCat); } catch (e2) {}
+      renderArlibList();
+    });
+  }
 
   const backBtn = document.getElementById('arlib-back-btn');
   if (backBtn) backBtn.addEventListener('click', arlibShowList);
@@ -8713,18 +8726,23 @@ document.addEventListener('DOMContentLoaded', () => {
     _tabsHost.insertAdjacentHTML('beforeend', NP_KINDS.map(k =>
       `<button class="np-tab" data-nf="${k.key}">${k.label}</button>`).join(''));
   }
+  // Onglet actif MÉMORISÉ PAR COMPTE (12/08) : celui qui ne suit que « DTP » ou « Calendrier » ne
+  // repart plus sur « Tout » à chaque ouverture du volet.
+  const _npVoulu = (function () { try { return window.DTPPref ? DTPPref.get('nptab', '') : ''; } catch (e) { return ''; } })();
+  if (_npVoulu && document.querySelector('.np-tab[data-nf="' + _npVoulu + '"]')) {
+    _npFilter = _npVoulu;
+    document.querySelectorAll('.np-tab').forEach(b => b.classList.toggle('np-tab--active', b.dataset.nf === _npVoulu));
+  }
   document.querySelectorAll('.np-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.np-tab').forEach(b => b.classList.remove('np-tab--active'));
       btn.classList.add('np-tab--active');
       _npFilter = btn.dataset.nf;
+      try { if (window.DTPPref) DTPPref.set('nptab', _npFilter); } catch (e) {}
       _npRenderList();
     });
   });
-  // Tab arrows
-  const scroll = _npEl('np-tabs-scroll');
-  _npEl('np-tab-prev')?.addEventListener('click', () => { if(scroll) scroll.scrollLeft -= 120; });
-  _npEl('np-tab-next')?.addEventListener('click', () => { if(scroll) scroll.scrollLeft += 120; });
+  // (Flèches d'onglets retirées le 12/08 : la barre revient à la ligne, tout est visible d'emblée.)
   // Chime select
   _npEl('np-chime-select')?.addEventListener('change', e => {
     _npChime = e.target.value;
@@ -10257,10 +10275,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrNum(v) { return v == null ? '—' : String(v).replace('.', ','); }
 
   // ── FILTRES / RECHERCHE / TRI de la grille Trades (24/07, demande user) ────────────────────────────
-  // État volatil (reset au reload — charte). La vue filtrée+triée alimente la grille ET les stats
-  // (« stats sur le sous-ensemble filtré » : ex. taux de réussite sur les seuls trades London/Profit).
+  // La vue filtrée+triée alimente la grille ET les stats (« stats sur le sous-ensemble filtré » :
+  // ex. taux de réussite sur les seuls trades London/Profit).
+  // FILTRES = volontairement VOLATILES : un filtre restauré en silence donnerait un journal
+  // « presque vide » au chargement sans que l'utilisateur voie pourquoi. Le TRI, lui, est une
+  // préférence d'affichage durable → mémorisé par compte (12/08).
   let _jrFilter = { q: '', result: '', dir: '', session: '' };
-  let _jrSort = 'ts:desc';
+  let _jrSort = (function () { try { return window.DTPPref ? DTPPref.get('jrsort', 'ts:desc') : 'ts:desc'; } catch (e) { return 'ts:desc'; } })();
   function _jrRowText(e) {   // texte cherchable d'une ligne = ses cellules visibles
     return _jrColsVisible().map(c => { const v = _jrGet(e, c); return Array.isArray(v) ? v.join(' ') : (v == null ? '' : v); }).join(' ').toLowerCase();
   }
@@ -10310,7 +10331,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const q = document.getElementById('jr-flt-q');
     if (q) q.oninput = () => { _jrFilter.q = q.value; const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); };
     host.querySelectorAll('.jr-flt-sel[data-f]').forEach(s => s.onchange = () => { _jrFilter[s.dataset.f] = s.value; const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); });
-    const so = host.querySelector('.jr-flt-sort'); if (so) so.onchange = () => { _jrSort = so.value; const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); };
+    const so = host.querySelector('.jr-flt-sort'); if (so) so.onchange = () => { _jrSort = so.value; try { if (window.DTPPref) DTPPref.set('jrsort', _jrSort); } catch (e) {} const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); };
     const cl = document.getElementById('jr-flt-clear'); if (cl) cl.onclick = () => { _jrFilter = { q: '', result: '', dir: '', session: '' }; _jrSort = 'ts:desc'; _jrRenderFilters(); _jrApplyFilter(); };
     _jrUpdateFilterCount();
   }
@@ -11299,9 +11320,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   // ═══ DASHBOARD DE STATS (Performance Dashboard 3.0, identité HUD) : CSS/SVG, 0 dépendance ═══
-  let _jrTab = 'log';
+  // Onglet Log / Tableau de bord : mémorisé par compte (12/08) — celui qui vit dans les stats ne
+  // repasse plus par le journal brut à chaque ouverture.
+  let _jrTab = (function () { try { return window.DTPPref ? DTPPref.get('jrtab', 'log') : 'log'; } catch (e) { return 'log'; } })();
   function _jrSetTab(t) {
     _jrTab = (t === 'dash') ? 'dash' : 'log';
+    try { if (window.DTPPref) DTPPref.set('jrtab', _jrTab); } catch (e) {}
     const log = document.getElementById('jr-log-view'), dash = document.getElementById('jr-dashboard');
     if (log) log.classList.toggle('hidden', _jrTab === 'dash');
     if (dash) dash.classList.toggle('hidden', _jrTab !== 'dash');

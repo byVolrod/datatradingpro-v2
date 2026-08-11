@@ -537,6 +537,72 @@
      RÈGLE : un widget ne doit JAMAIS écrire un id DOM en dur — il peut vivre en 2 exemplaires. */
   var CATALOG = [
     {
+      id: 'graphique', name: 'Graphique', tag: 'CHART', cat: 'Marchés', h: 340,
+      desc: 'Les bougies de la paire de ton choix, dans ta grille.',
+      // Le desk avait ses bougies dans l'onglet MARCHÉS uniquement : impossible de garder un graphique
+      // sous les yeux à côté du fil ou du calendrier. Ce widget réutilise le VRAI constructeur du desk
+      // (buildStockChart) — mêmes bougies, même thème, même EMA — avec deux réglages qui lui sont
+      // PROPRES : sa paire et son unité de temps. Deux exemplaires peuvent coexister sur des paires
+      // différentes (le constructeur a été paramétré par conteneur pour ça).
+      // `cache: true` sur les deux réglages : ils sont rendus par la barre du widget (sélecteur +
+      // boutons d'unité de temps), pas par le panneau de réglages — 40 paires en pastilles y seraient
+      // illisibles. Ils restent déclarés ici pour que opt()/la persistance KV fonctionnent.
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true,
+          choix: (function () {
+            try {
+              return [].concat(
+                (typeof FX_PAIRS !== 'undefined' ? FX_PAIRS : []),
+                (typeof INDICES !== 'undefined' ? INDICES : []),
+                (typeof COMMODITIES !== 'undefined' ? COMMODITIES : [])
+              ).map(function (p) { return [p.name, p.name]; });
+            } catch (e) { return [['EUR/USD', 'EUR/USD']]; }
+          })() },
+        { k: 'ut', lbl: 'Unité de temps', type: 'choix', def: 'H4', cache: true,
+          choix: [['M15', '15 minutes'], ['H1', '1 heure'], ['H4', '4 heures'], ['D1', '1 jour'], ['W1', '1 semaine']] },
+      ],
+      mount: function (host, it) {
+        var W = this;
+        if (typeof buildStockChart !== 'function') { fallback(host, 'Graphique indisponible.'); return null; }
+        var TF = [['M15', 'M15'], ['H1', 'H1'], ['H4', 'H4'], ['D1', 'D1'], ['W1', 'W1']];
+        var paires = (W.opts[0].choix || []).map(function (c) { return c[0]; });
+        var sym = opt(it, W, 'paire'); if (paires.indexOf(sym) < 0) sym = paires[0] || 'EUR/USD';
+        var ut  = opt(it, W, 'ut');    if (!TF.some(function (t) { return t[0] === ut; })) ut = 'H4';
+        var id = HOST_ID + '-cdl-' + uid();
+        host.innerHTML = '<div class="wdg-cdl">'
+          + '<div class="wdg-cdl-bar">'
+          +   '<select class="wdg-cdl-sym" aria-label="Choisir la paire">'
+          +     paires.map(function (p) { return '<option value="' + esc(p) + '"' + (p === sym ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('')
+          +   '</select>'
+          +   '<span class="wdg-cdl-tf">'
+          +     TF.map(function (t) { return '<button class="stf-btn wdg-cdl-b' + (t[0] === ut ? ' stf-btn--active' : '') + '" data-ut="' + t[0] + '">' + t[1] + '</button>'; }).join('')
+          +   '</span>'
+          + '</div>'
+          + '<div id="' + id + '" class="wdg-cdl-chart"></div></div>';
+        function dessine() {
+          try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
+          try { buildStockChart(sym, id, ut); } catch (e) { fallback(host, 'Graphique indisponible.'); }
+        }
+        var sel = host.querySelector('.wdg-cdl-sym');
+        if (sel) sel.addEventListener('change', function () {
+          sym = sel.value;
+          var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'paire', sym);   // mémorisé sans reconstruire la carte
+          dessine();
+        });
+        host.querySelectorAll('.wdg-cdl-b').forEach(function (b) {
+          b.addEventListener('click', function () {
+            ut = b.dataset.ut;
+            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'ut', ut);
+            host.querySelectorAll('.wdg-cdl-b').forEach(function (x) { x.classList.toggle('stf-btn--active', x === b); });
+            dessine();
+          });
+        });
+        // Le conteneur doit avoir une taille avant qu'amCharts ne mesure : on dessine à la frame suivante.
+        requestAnimationFrame(dessine);
+        return function () { try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {} };
+      },
+    },
+    {
       id: 'force-devises', name: 'Force des Devises', tag: 'FORCE', cat: 'Devises', h: 300,
       desc: 'Qui mène, qui décroche — un panneau, la période de ton choix.',
       // UN SEUL panneau (demande user 01/08). Le double TD | TW venait de l'onglet › FORCE du desk,
@@ -2915,6 +2981,7 @@
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
+    'graphique': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 4v3M8 17v3M16 4v3M16 17v3"/><rect x="6" y="7" width="4" height="10" rx="1"/><rect x="14" y="7" width="4" height="10" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
     'force-devises': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 6-8"/><path d="M18 6h3v3"/></svg>',
     'barometre': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12v-5M9 12v-8M13 12v-3M17 12v-7M5 12v4M9 12v2M13 12v6M17 12v3"/><path d="M3 12h18" opacity=".45"/></svg>',
     'classement-devises': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h10M4 12h14M4 18h7"/><circle cx="20" cy="6" r="1.4" fill="currentColor" stroke="none"/></svg>',
@@ -3006,6 +3073,7 @@
     // « Fonctions » = panneaux de données/outils qu'on consulte ; « Analytics » = panneaux d'analyse de marché.
     // Identité 100% DTP, aucune reprise visuelle PMT). FAM_OF mappe chaque widget à sa famille.
     var FAM_OF = {
+      'graphique': 'Analyse de marché',
       'force-devises': 'Analyse de marché', 'barometre': 'Analyse de marché', 'risque-historique': 'Analyse de marché', 'radar-biais': 'Analyse de marché',
       'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
@@ -4079,14 +4147,26 @@ function _spansAffiches(lay) {
       if (!slot) { slot = document.createElement('div'); slot.id = 'wdg-mgr-bak'; slot.className = 'wdg-mgr-bak'; var foot = document.getElementById('wdg-mgr-footbar'); if (foot) foot.insertBefore(slot, foot.firstChild); }
       slot.innerHTML = '';
       fetch('/api/widgets/backup').then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.at || !slot.isConnected) return;
-        var dt = new Date(j.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-        slot.innerHTML = '<span class="wdg-mgr-bak-lbl">Sauvegarde auto du ' + esc(dt) + '</span>'
-          + '<button class="wdg-btn" onclick="DTPWidgets.restoreBackup()" title="Revenir à cette sauvegarde (réversible : l\'état actuel devient la sauvegarde)">Restaurer</button>';
+        if (!j || !slot.isConnected) return;
+        // TROIS VERSIONS (12/08) : une par jour, la plus récente en tête. Un seul bouton ne suffisait
+        // pas — après un bug passé inaperçu quelques heures, l'unique sauvegarde portait déjà l'état
+        // cassé. Chaque jalon a son bouton daté, et « Restaurer » reste réversible.
+        var vs = (j.versions && j.versions.length) ? j.versions : (j.at ? [{ i: 0, at: j.at }] : []);
+        if (!vs.length) return;
+        var fmt = function (t) { return new Date(t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+        slot.innerHTML = '<span class="wdg-mgr-bak-lbl">Sauvegardes auto</span>'
+          + vs.map(function (v) {
+              return '<button class="wdg-btn" onclick="DTPWidgets.restoreBackup(' + v.i + ')"'
+                + ' title="Revenir à cette sauvegarde (réversible : l\'état actuel reprend la tête de l\'historique)">'
+                + esc(fmt(v.at)) + (v.panneaux ? ' · ' + v.panneaux + ' dispo.' : '') + '</button>';
+            }).join('');
       }).catch(function () {});
     },
-    restoreBackup: function () {
-      fetch('/api/widgets/restore', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (j) {
+    restoreBackup: function (i) {
+      fetch('/api/widgets/restore', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ i: (typeof i === 'number' ? i : 0) }),
+      }).then(function (r) { return r.json(); }).then(function (j) {
         if (!j || !j.ok || !j.cfg) return;
         STATE.cfg = j.cfg;
         renderBar(); renderManager(); renderGrid();

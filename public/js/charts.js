@@ -206,19 +206,28 @@ function selectPair(name) {
 //  STOCK CHART (BIAS view)
 // ═══════════════════════════════════════════════
 
-function buildStockChart(symbol) {
-  disposeRoot('chart-stock');
+// `containerId` optionnel (widget « Mon Desk » — même patron que buildMeterChart) ; défaut = le
+// graphique de l'onglet MARCHÉS. Sans ce paramètre, deux graphiques bougies ne pouvaient pas coexister :
+// le second détruisait la racine amCharts du premier.
+function buildStockChart(symbol, containerId, tfKey) {
+  const _cid = containerId || 'chart-stock';
+  disposeRoot(_cid);
   const all = [...FX_PAIRS, ...INDICES, ...COMMODITIES];
   const p = all.find(x => x.name === symbol) || FX_PAIRS[0];
   const tfMap = { M1: [1/60, 100], M5: [5/60, 100], M15: [0.25, 100], H1: [1, 150], H4: [4, 200], D1: [24, 365], W1: [168, 104] };
-  const [tfH, periods] = tfMap[activeTimeframe] || [4, 200];
+  // `tfKey` : unité de temps PROPRE à l'appelant (widget « Mon Desk »). Sans lui, on suit celle de
+  // l'onglet MARCHÉS — un widget qui la lirait globalement changerait de période quand l'utilisateur
+  // touche l'onglet, et inversement.
+  const [tfH, periods] = tfMap[tfKey || activeTimeframe] || [4, 200];
 
   // Regenerate data for the selected pair + timeframe
-  const s = priceState[symbol];
+  // On lit priceState par p.name (et non par `symbol`) : un widget dont la paire sauvegardée aurait
+  // disparu du catalogue retombe sur EUR/USD au lieu de planter sur un état inexistant.
+  const s = priceState[p.name];
   const ohlcData = generateOHLC(s.price, periods, tfH, p.vol);
 
-  const root = _dtpAncreGraphe(am5.Root.new('chart-stock'));
-  stockRoot = root;
+  const root = _dtpAncreGraphe(am5.Root.new(_cid));
+  if (!containerId) stockRoot = root;      // seul l'onglet MARCHÉS pilote la racine globale
   root._logo?.set('forceHidden', true);
 
   root.setThemes([
@@ -289,20 +298,29 @@ function buildStockChart(symbol) {
     })
   );
 
+  /* BOUGIES FAÇON TERMINAL DE RÉFÉRENCE (11/08, demande user) — deux défauts corrigés :
+     · `strokeOpacity: 0` éteignait le TRAIT de la bougie. Or dans amCharts, c'est ce trait qui dessine
+       la MÈCHE (haut/bas) : elles ressortaient filiformes et grisâtres au lieu de porter la couleur du
+       corps. Trait rétabli, épaisseur 1, et MÊME couleur que le corps via le même adaptateur ;
+     · les teintes étaient les couleurs génériques d'un thème plat (#2ecc71 / #e74c3c). On passe au
+       couple canonique des terminaux — vert-sarcelle #26a69a, rouge corail #ef5350 — qui tient sur fond
+       sombre sans vibrer, contrairement à un vert pur.
+     Corps à 72 % du pas (au lieu de 80) : les bougies respirent, on distingue chaque séance. */
+  const _CDL_UP = am5.color(0x26a69a), _CDL_DOWN = am5.color(0xef5350);
+  const _cdlCol = target => {
+    const di = target.dataItem;
+    if (!di) return am5.color(0xe3b23a);
+    return di.get('valueY') >= di.get('openValueY') ? _CDL_UP : _CDL_DOWN;
+  };
   candleSeries.columns.template.setAll({
-    strokeOpacity: 0,
+    strokeOpacity: 1,
+    strokeWidth: 1,
     cornerRadiusBR: 0,
     cornerRadiusTR: 0,
-    width: am5.percent(80),
+    width: am5.percent(72),
   });
-
-  candleSeries.columns.template.adapters.add('fill', (_fill, target) => {
-    const dataItem = target.dataItem;
-    if (!dataItem) return am5.color(0xe3b23a);
-    return dataItem.get('valueY') >= dataItem.get('openValueY')
-      ? am5.color(0x2ecc71)
-      : am5.color(0xe74c3c);
-  });
+  candleSeries.columns.template.adapters.add('fill', (_f, t) => _cdlCol(t));
+  candleSeries.columns.template.adapters.add('stroke', (_s, t) => _cdlCol(t));
 
   // ── EMA 20 ───────────────────────────────────
   const ema20 = mainPanel.series.push(
@@ -555,6 +573,95 @@ const CS_COLORS = {
   NZD: 0xff5cae,  // rose magenta vif
 };
 
+/* ══ RÉGLAGES D'AFFICHAGE MÉMORISÉS PAR COMPTE — MAGASIN GÉNÉRIQUE (12/08) ══════════════════════════
+   Demande user : « chaque config ou affichage d'un widget que je configure doit être mémorisé pour
+   chaque compte ». Le desk avait des réglages persistants (période Force, thème, zoom, saisonnalité)
+   mais une quinzaine d'autres étaient PUREMENT VOLATILES : période Force en vue symbole, type COT,
+   unité de temps et tri du DMX, filtre d'impact du calendrier, sous-onglet symbole, filtres du
+   Journal, onglet des alertes… Chacun oubliait le choix au moindre rechargement.
+   Ce module leur donne à TOUS la même mécanique que la période Force, dont l'architecture a été
+   validée à l'usage — et ses trois garde-fous, chèrement acquis :
+     · `keepalive` sur l'écriture (sinon la requête meurt quand on se déconnecte dans la foulée) ;
+     · un drapeau « en attente » rejoué au départ de page ;
+     · l'horodatage du dernier clic, pour qu'une réponse serveur partie AVANT un clic ne vienne
+       jamais l'écraser (c'est exactement ce qui faisait « oublier » la période Force).
+   localStorage n'est qu'un cache d'affichage instantané ; la SOURCE DE VÉRITÉ est le compte, donc le
+   réglage suit l'utilisateur d'un appareil à l'autre. */
+const DTPPref = (function () {
+  var LS = 'dtp_uiprefs';
+  var cache = null;          // valeurs connues (compte ou cache local)
+  var sale = {};             // clés écrites mais pas encore confirmées par le compte
+  var clicAt = 0;            // dernier choix HUMAIN — arbitre la course avec la réponse serveur
+  var enVol = null, chargeA = 0, pret = false;
+  function local() {
+    try { var j = JSON.parse(localStorage.getItem(LS) || 'null'); return (j && typeof j === 'object') ? j : {}; }
+    catch (e) { return {}; }
+  }
+  function ecrisLocal() { try { localStorage.setItem(LS, JSON.stringify(cache)); } catch (e) {} }
+  function pousse(obj) {
+    try {
+      fetch('/api/ui-prefs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(obj), keepalive: true })
+        .then(function (r) { if (r.ok) Object.keys(obj).forEach(function (k) { delete sale[k]; }); })
+        .catch(function () {});
+    } catch (e) {}
+  }
+  (function () {
+    var renvoi = function () {
+      var k = Object.keys(sale); if (!k.length || !cache) return;
+      var o = {}; k.forEach(function (x) { o[x] = cache[x]; });
+      pousse(o);
+    };
+    window.addEventListener('pagehide', renvoi);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) renvoi(); });
+  })();
+  return {
+    // Valeur connue TOUT DE SUITE (cache local), sans attendre le compte : les vues se dessinent
+    // au bon réglage dès la première frame, comme le fait déjà la barre de périodes Force.
+    get: function (k, def) {
+      if (!cache) cache = local();
+      var v = cache[k];
+      return (v === undefined || v === null || v === '') ? def : v;
+    },
+    set: function (k, v) {
+      if (!cache) cache = local();
+      if (cache[k] === v) return;
+      cache[k] = String(v == null ? '' : v);
+      clicAt = Date.now();
+      sale[k] = 1;
+      ecrisLocal();
+      var o = {}; o[k] = cache[k];
+      pousse(o);
+    },
+    // Charge les réglages du COMPTE. `onPret` reçoit l'objet complet une fois aligné — les vues déjà
+    // dessinées peuvent s'y recaler. Un seul appel réseau, quel que soit le nombre d'appelants.
+    charger: function (onPret) {
+      if (pret) { if (onPret) onPret(cache || {}); return Promise.resolve(cache || {}); }
+      if (!enVol) {
+        chargeA = Date.now();
+        enVol = fetch('/api/ui-prefs').then(function (r) { return r.json(); }).then(function (r) {
+          if (!cache) cache = local();
+          if (r && r.src === 'kv' && r.prefs) {
+            // Le compte fait foi — SAUF pour les clés que l'utilisateur vient de changer pendant le
+            // vol de la requête : son geste est plus récent que la réponse, il gagne.
+            var frais = clicAt > chargeA;
+            Object.keys(r.prefs).forEach(function (k) { if (!(frais && sale[k])) cache[k] = r.prefs[k]; });
+            ecrisLocal();
+          } else if (r && r.src === 'defaut') {
+            // Le compte ne sait rien mais le navigateur se souvient : on répare le compte.
+            var loc = local();
+            if (Object.keys(loc).length) { Object.keys(loc).forEach(function (k) { sale[k] = 1; }); pousse(loc); }
+          }
+          pret = true;
+          return cache || {};
+        }).catch(function () { enVol = null; return cache || local(); });   // échec réseau : on retentera
+      }
+      return enVol.then(function (c) { if (onPret) onPret(c); return c; });
+    },
+  };
+})();
+if (typeof window !== 'undefined') window.DTPPref = DTPPref;   // app.js consomme le même magasin
+
 const STF_ORDER  = ['today', 'week', '8h', '1d', '7d', '1m'];   // 5D retiré
 /* ══ PÉRIODE MÉMORISÉE PAR COMPTE (06/08) ═══════════════════════════════════════════════════════════
    Demande user : le choix de période doit survivre au changement d'onglet ET à la déconnexion.
@@ -584,10 +691,14 @@ function _stfLocal() {
         if (j && STF_ORDER.includes(j.L) && STF_ORDER.includes(j.R)) return j; } catch (e) {}
   return null;
 }
+// Horodatage du DERNIER choix humain. Il arbitre la course décrite dans _stfCharger : une réponse
+// serveur partie AVANT un clic ne doit jamais écraser ce clic.
+let _stfClicAt = 0;
 function _stfSet(side, per) {
   if (!STF_ORDER.includes(per)) return;
   _stfPref = Object.assign({}, _stfPref || _stfLocal() || STF_DEF);
   _stfPref[side] = per;
+  _stfClicAt = Date.now();
   _stfSale = true;                        // en attente de confirmation du compte
   try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
   // Écriture serveur au fil de l'eau : un clic = un enregistrement, pas de bouton à penser.
@@ -616,14 +727,32 @@ function _stfSet(side, per) {
 //                                   même si tous les POST passés ont échoué, le prochain chargement
 //                                   soigne le compte).
 // L'échec réseau n'est plus mémorisé : le prochain appel retentera, au lieu de figer les défauts.
+// ⚠️ CORRECTIF 12/08 (bug user : « j'ai mis TW, je me déconnecte/reconnecte, ça ne mémorise pas »).
+// COURSE : la vue dessine ses panneaux tout de suite, puis interroge le compte. Tant que cette
+// réponse est en vol, l'utilisateur PEUT déjà cliquer — c'est même le cas courant, l'onglet FORCE
+// s'ouvre sur un graphe prêt. La réponse arrivait ensuite et, partie AVANT le clic, elle portait
+// l'ancienne valeur : elle écrasait `_stfPref`, réécrivait le cache local par-dessus le choix frais,
+// et rebasculait le panneau. Le clic semblait « ne pas tenir ». On horodate donc le dernier clic et
+// on IGNORE toute réponse plus vieille que lui — c'est le choix humain qui gagne, et on le pousse
+// au compte au lieu de le perdre.
 let _stfEnVol = null;                     // une seule requête pour les deux panneaux
 async function _stfCharger() {
   if (_stfPref) return _stfPref;
   if (_stfEnVol) return _stfEnVol;
   const local = _stfLocal();
+  const _partiA = Date.now();
   _stfEnVol = (async function () {
     try {
       const r = await fetch('/api/strength-tf').then(function (x) { return x.json(); });
+      if (_stfClicAt > _partiA && _stfPref) {
+        // L'utilisateur a tranché pendant le vol : sa valeur fait foi, on (re)pousse au compte.
+        try {
+          fetch('/api/strength-tf', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(_stfPref), keepalive: true })
+            .then(function (x) { if (x.ok) _stfSale = false; }).catch(function () {});
+        } catch (e) {}
+        return _stfPref;
+      }
       if (r && r.src === 'kv' && STF_ORDER.includes(r.L) && STF_ORDER.includes(r.R)) {
         _stfPref = { L: r.L, R: r.R };
         try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
@@ -1543,7 +1672,11 @@ async function buildStrengthCharts() {
     load(initialPeriod, { force: true });
     // La valeur du COMPTE a le dernier mot : si l'utilisateur a changé de période sur un autre
     // appareil (ou vidé son cache local), on s'aligne dès que le serveur a répondu.
+    const _monteA = Date.now();
     _stfCharger().then(function (pref) {
+      // Même arbitrage qu'au-dessus, côté panneau : si l'utilisateur a cliqué depuis le montage,
+      // on ne rebascule PAS son graphe sous ses yeux.
+      if (_stfClicAt > _monteA) return;
       const voulu = pref && pref[side];
       if (!voulu || voulu === activePeriod) return;
       pane.querySelectorAll('.stf-tf-btn').forEach(function (b) {
@@ -2490,10 +2623,20 @@ function _seasonRenderCfg(ov){
 function initCOTTabs() {
   // Scopé à l'onglet desk #rtab-cot : les boutons COT d'un widget Mon Desk (mêmes classes) ont leurs
   // propres handlers — sans ce scope, un clic desk éteignait le bouton actif du widget (et vice-versa).
-  document.querySelectorAll('#rtab-cot .cot-type-btn').forEach(btn => {
+  // Type de positionnement : MÉMORISÉ PAR COMPTE (12/08). On restaure d'abord le choix connu, puis on
+  // câble les clics — l'état de ce contrôle vit dans le DOM (classe --active), il n'y a pas de
+  // variable à réhydrater : c'est donc le bouton lui-même qu'on réactive.
+  const _cotVoulu = (function () { try { return DTPPref.get('cottype', ''); } catch (e) { return ''; } })();
+  const _cotBtns = document.querySelectorAll('#rtab-cot .cot-type-btn');
+  if (_cotVoulu) {
+    const cible = [..._cotBtns].find(b => b.dataset.cotType === _cotVoulu);
+    if (cible) { _cotBtns.forEach(b => b.classList.remove('cot-type-btn--active')); cible.classList.add('cot-type-btn--active'); }
+  }
+  _cotBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#rtab-cot .cot-type-btn').forEach(b => b.classList.remove('cot-type-btn--active'));
+      _cotBtns.forEach(b => b.classList.remove('cot-type-btn--active'));
       btn.classList.add('cot-type-btn--active');
+      try { DTPPref.set('cottype', btn.dataset.cotType || ''); } catch (e) {}
       buildCOTChart();
     });
   });
@@ -2503,16 +2646,33 @@ const _DMX_TF_LABELS = { H1: 'Chaque heure', H4: 'Toutes les 4 heures', D1: 'Cha
 
 function initDMXTabs() {
   // Scopé à l'onglet desk #rtab-dmx (mêmes classes réutilisées par les widgets Mon Desk — cf. initCOTTabs).
-  document.querySelectorAll('#rtab-dmx .dmx-tf-btn').forEach(btn => {
+  const _btns = document.querySelectorAll('#rtab-dmx .dmx-tf-btn');
+  const _majLbl = tf => { const lbl = document.getElementById('dmx-period-label'); if (lbl) lbl.textContent = _DMX_TF_LABELS[tf] || tf; };
+  // Unité de temps MÉMORISÉE PAR COMPTE (12/08) : elle repartait sur le défaut du HTML à chaque
+  // rechargement. Comme pour le COT, l'état vit dans le DOM → on réactive le bon bouton.
+  const _voulu = (function () { try { return DTPPref.get('dmxtf', ''); } catch (e) { return ''; } })();
+  if (_voulu) {
+    const cible = [..._btns].find(b => b.dataset.tf === _voulu);
+    if (cible) { _btns.forEach(b => b.classList.remove('dmx-tf-btn--active')); cible.classList.add('dmx-tf-btn--active'); _majLbl(_voulu); }
+  }
+  _btns.forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#rtab-dmx .dmx-tf-btn').forEach(b => b.classList.remove('dmx-tf-btn--active'));
+      _btns.forEach(b => b.classList.remove('dmx-tf-btn--active'));
       btn.classList.add('dmx-tf-btn--active');
-      // Update period label in header
-      const lbl = document.getElementById('dmx-period-label');
-      if (lbl) lbl.textContent = _DMX_TF_LABELS[btn.dataset.tf] || btn.dataset.tf;
+      _majLbl(btn.dataset.tf);
+      try { DTPPref.set('dmxtf', btn.dataset.tf); } catch (e) {}
       buildDMXChart(true);
     });
   });
+  // Tri du tableau (select) : même traitement — il est câblé en `onchange` inline dans index.html,
+  // on complète ici sans y toucher.
+  const _sel = document.getElementById('dmx-sort-select');
+  if (_sel && !_sel.dataset.prefWired) {
+    _sel.dataset.prefWired = '1';
+    const _tri = (function () { try { return DTPPref.get('dmxsort', ''); } catch (e) { return ''; } })();
+    if (_tri && [..._sel.options].some(o => o.value === _tri)) _sel.value = _tri;
+    _sel.addEventListener('change', () => { try { DTPPref.set('dmxsort', _sel.value); } catch (e) {} });
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -2954,6 +3114,10 @@ function initRightTab(tab) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Réglages du COMPTE : on les demande dès le départ. Les vues se dessinent d'abord avec le cache
+  // local (aucune attente perceptible), puis se recalent si le compte dit autre chose.
+  try { DTPPref.charger(); } catch (e) {}
+
   // Tab switching
   document.getElementById('right-panel-tabs')?.addEventListener('click', e => {
     const tab = e.target.closest('[data-rtab]')?.dataset?.rtab;
@@ -2961,7 +3125,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-rtab]').forEach(t => t.classList.toggle('right-tab--active', t.dataset.rtab === tab));
     document.querySelectorAll('.right-tab-panel').forEach(p => p.classList.toggle('active', p.id === `rtab-${tab}`));
     initRightTab(tab);
-    try { localStorage.setItem('dtp_active_rtab', tab); } catch {}   // mémorise le sous-onglet
+    try { localStorage.setItem('dtp_active_rtab', tab); } catch {}   // cache instantané
+    try { DTPPref.set('rtab', tab); } catch (e) {}                   // + mémorisé sur le COMPTE (suit l'appareil)
   });
 
   // ── View switching (main nav) ──────────────────────────────────────────────
@@ -3177,7 +3342,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour.
     // 'symbol' = vue paire TRANSITOIRE (la paire est volatile) → jamais persistée, sinon au reload on
     // restaure une vue symbole sans paire = 4 panneaux vides. On garde donc la dernière vraie vue.
-    if (persist && view !== 'symbol') { try { localStorage.setItem('dtp_active_view', view); } catch {} }
+    if (persist && view !== 'symbol') {
+      try { localStorage.setItem('dtp_active_view', view); } catch {}
+      // + sur le COMPTE : la vue de travail suit l'utilisateur d'un appareil à l'autre. 'widgets'
+      // est EXCLU — Mon Desk ne doit jamais se rouvrir tout seul (cf. verrou de restauration).
+      try { if (view !== 'widgets') DTPPref.set('view', view); } catch (e) {}
+    }
   }
   // Exposé globalement au cas où d'autres modules veulent changer de vue
   window.activateView = activateView;
@@ -3226,13 +3396,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabsArr = () => [...nav.querySelectorAll('.nav-item[data-view]')].filter(t => !t.classList.contains('nav-item--mobile-only'));
     const mobileTab = () => nav.querySelector('.nav-item--mobile-only');
     try {
-      const saved = JSON.parse(localStorage.getItem(LS) || 'null');
+      // Ordre des onglets : cache local d'abord (instantané), COMPTE en relais quand le navigateur
+      // ne sait rien — la barre réordonnée suit l'utilisateur d'un appareil à l'autre (12/08).
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
+      if (!Array.isArray(saved) || !saved.length) {
+        const brut = DTPPref.get('navorder', '');
+        if (brut) saved = String(brut).split(',').filter(Boolean);
+      }
       if (Array.isArray(saved) && saved.length) {
         const mob = mobileTab();
         saved.forEach(v => { const el = nav.querySelector('.nav-item[data-view="' + v + '"]'); if (el) { mob ? nav.insertBefore(el, mob) : nav.appendChild(el); } });
       }
     } catch {}
-    const saveOrder = () => { try { localStorage.setItem(LS, JSON.stringify(tabsArr().map(t => t.dataset.view))); } catch {} };
+    const saveOrder = () => {
+      const ordre = tabsArr().map(t => t.dataset.view);
+      try { localStorage.setItem(LS, JSON.stringify(ordre)); } catch (e) {}
+      // Stocké en liste séparée par des virgules : le magasin de préférences ne prend que des
+      // chaînes courtes, et cette forme reste lisible côté serveur.
+      try { DTPPref.set('navorder', ordre.join(',')); } catch (e) {}
+    };
     let timer = null, dragging = null, active = false, sx = 0, sy = 0;
     const cancelArm = () => { if (timer) { clearTimeout(timer); timer = null; } };
     const afterEl = x => {
@@ -3277,8 +3460,11 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   // ── Restaurer le dernier onglet visité (vue + sous-onglet du panneau droit) ──
+  // Le cache local sert de source immédiate ; le COMPTE prend le relais quand le navigateur ne sait
+  // rien (nouvel appareil, cache vidé). Toutes les sécurités ci-dessous s'appliquent aux DEUX
+  // sources — en particulier le verrou 'widgets', qui ne doit jamais s'ouvrir tout seul.
   let _savedView = 'news';
-  try { _savedView = localStorage.getItem('dtp_active_view') || 'news'; } catch {}
+  try { _savedView = localStorage.getItem('dtp_active_view') || DTPPref.get('view', '') || 'news'; } catch {}
   // 'markets' n'a de sens que sur mobile (sinon retour au flux)
   if (_savedView === 'markets' && window.innerWidth > 768) _savedView = 'news';
   if (_savedView === 'symbol') _savedView = 'news';   // sécurité : ancienne valeur 'symbol' en cache → pas de paire au reload
@@ -3292,7 +3478,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Restaurer le sous-onglet du panneau droit (WORLD/RISK/STRENGTH/METER/COT/DMX)
   try {
-    const _rtab = localStorage.getItem('dtp_active_rtab');
+    const _rtab = localStorage.getItem('dtp_active_rtab') || DTPPref.get('rtab', '');
     if (_rtab && _rtab !== 'world' && _savedView !== 'bias') {
       document.querySelector(`.right-tab[data-rtab="${_rtab}"]`)?.click();
     }
@@ -4484,10 +4670,18 @@ async function buildCalendar() {
   const impBar = document.getElementById('cal-impact-filter');
   if (impBar && !impBar.dataset.wired) {
     impBar.dataset.wired = '1';
+    // Filtre d'impact MÉMORISÉ PAR COMPTE (12/08) : un trader qui ne suit que les annonces à fort
+    // impact devait le re-sélectionner à chaque ouverture. On restaure avant le premier rendu.
+    const _voulu = (function () { try { return DTPPref.get('calimp', ''); } catch (e) { return ''; } })();
+    if (_voulu && impBar.querySelector('[data-imp="' + _voulu + '"]')) {
+      _calImpFilter = _voulu;
+      impBar.querySelectorAll('[data-imp]').forEach(b => b.classList.toggle('cal-imp-btn--active', b.dataset.imp === _voulu));
+    }
     impBar.addEventListener('click', e => {
       const btn = e.target.closest('[data-imp]');
       if (!btn) return;
       _calImpFilter = btn.dataset.imp;
+      try { DTPPref.set('calimp', _calImpFilter); } catch (e2) {}
       impBar.querySelectorAll('[data-imp]').forEach(b =>
         b.classList.toggle('cal-imp-btn--active', b.dataset.imp === _calImpFilter));
       renderCalTable();
@@ -4586,7 +4780,10 @@ window._retryCalendar = function() {
     NZD: 'kiwi|rbnz\\b|reserve bank of new zealand',
   };
   const _RECENT_KEY = 'dtp_sym_recent';   // historique PERSISTANT (léger : ~6 codes de paire) : exception localStorage validée par l'utilisateur
-  let _recent = [], _active = null, _tvPending = false, _subtab = 'overview';
+  // `_subtab` : sous-onglet de la vue symbole, mémorisé par compte (12/08) — l'utilisateur qui vit
+  // dans l'onglet BIAIS d'une paire ne repart plus sur « Aperçu » à chaque ouverture.
+  let _recent = [], _active = null, _tvPending = false;
+  let _subtab = (function () { try { return DTPPref.get('symsub', 'overview'); } catch (e) { return 'overview'; } })();
   try { const _r = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]'); if (Array.isArray(_r)) _recent = _r.filter(p => PAIRS.includes(p)).slice(0, 8); } catch {}
   const _saveRecent = () => {
     try { localStorage.setItem(_RECENT_KEY, JSON.stringify(_recent.slice(0, 8))); } catch {}                       // cache local instantané
@@ -4603,7 +4800,10 @@ window._retryCalendar = function() {
   }).catch(() => {});
   // Caches volatils (réinitialisés au reload) → évitent de refetch à chaque changement de sous-onglet.
   let _cBias = null, _cCot = null, _cRates = null, _cFx = null, _cRetail = null;
-  let _symStrPeriod = 'today';   // période active du Force des Devises de la vue symbole (TD par défaut, comme l'accueil)
+  // Période du Force des Devises de la vue symbole : MÉMORISÉE PAR COMPTE (12/08). Elle repartait à
+  // TD à chaque rechargement, alors que celle de l'onglet FORCE, elle, se souvenait — deux barres
+  // identiques à l'écran, deux comportements. Défaut TD, comme l'accueil.
+  let _symStrPeriod = (function () { try { return DTPPref.get('symstf', 'today'); } catch (e) { return 'today'; } })();
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);
   const tvSymbol = p => p === 'XAUUSD' ? 'OANDA:XAUUSD' : p === 'XAGUSD' ? 'OANDA:XAGUSD' : 'FX:' + p;
   const _esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -4697,6 +4897,7 @@ window._retryCalendar = function() {
 
   function setSubtab(name) {
     _subtab = name;
+    try { DTPPref.set('symsub', name); } catch (e) {}   // sous-onglet mémorisé par compte (12/08)
     document.querySelectorAll('#sym-subtabs .sym-subtab').forEach(b => b.classList.toggle('sym-subtab--active', b.dataset.sub === name));
     document.querySelectorAll('#sym-content .sym-subview').forEach(v => v.classList.toggle('hidden', v.id !== 'sym-sub-' + name));
     loadSymbolView();
@@ -4780,6 +4981,7 @@ window._retryCalendar = function() {
       bar.querySelectorAll('.sym-stf-btn').forEach(x => x.classList.remove('stf-btn--active'));
       b.classList.add('stf-btn--active');
       _symStrPeriod = b.dataset.period;
+      try { DTPPref.set('symstf', _symStrPeriod); } catch (e) {}
       loadSymStrength();
     });
   }

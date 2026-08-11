@@ -658,6 +658,11 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260812-widget-graphique', ts: Date.UTC(2026, 7, 12, 9, 0), title: 'Mon Desk : un widget graphique, et des bougies plus lisibles', desc: 'Nouveau widget « Graphique » : choisissez votre paire et votre unité de temps, et gardez le chandelier sous les yeux à côté du fil ou du calendrier. Vous pouvez en poser plusieurs, chacun sur sa paire. Les bougies elles-mêmes ont été reprises — vert et rouge francs, mèches enfin visibles, corps mieux espacés : on lit le rapport de force d\'un coup d\'œil.' },
+  { id: 'dtpu-20260812-reglages-memorises', ts: Date.UTC(2026, 7, 12, 9, 30), title: 'Vos réglages vous suivent, d\'un appareil à l\'autre', desc: 'La période du Force des Devises, le type de positionnement COT, l\'unité de temps et le tri du DMX, le filtre d\'impact du calendrier, l\'onglet des alertes, le tri du Journal, l\'ordre de vos onglets : tout cela est désormais mémorisé sur votre compte. Vous vous reconnectez, même depuis un autre ordinateur, et le desk est exactement comme vous l\'aviez laissé.' },
+  { id: 'dtpu-20260812-sauvegardes-3', ts: Date.UTC(2026, 7, 12, 10, 0), title: 'Mon Desk : trois sauvegardes de vos dispositions', desc: 'Vos dispositions sont sauvegardées automatiquement une fois par jour, et les trois dernières versions sont conservées. Si quelque chose se passe mal, le gestionnaire vous propose désormais chaque sauvegarde avec sa date : un clic pour revenir en arrière, et l\'opération reste réversible.' },
+  { id: 'dtpu-20260812-calendrier-doublons', ts: Date.UTC(2026, 7, 12, 8, 30), title: 'Calendrier : plus de lignes en double', desc: 'Certaines publications apparaissaient deux fois à la même heure — le CPI américain affichait notamment deux lignes identiques. Le calendrier n\'affiche plus que les taux publiés (CPI m/m, CPI y/y, Core CPI…), comme la référence du marché, et une même annonce ne peut plus se dédoubler.' },
+  { id: 'dtpu-20260812-alertes-onglets', ts: Date.UTC(2026, 7, 12, 8, 0), title: 'Alertes : tous les onglets visibles d\'emblée', desc: 'La barre d\'onglets du volet Alertes défilait horizontalement : l\'onglet DTP, celui des nouveautés du desk, restait hors champ. Elle tient maintenant entièrement à l\'écran dès l\'ouverture.' },
   { id: 'dtpu-20260811-cot-epure',     ts: Date.UTC(2026, 7, 11, 21, 30), title: 'Positionnement COT : cartes épurées', desc: 'Chaque devise tient maintenant en deux temps : le donut dit qui domine et de combien — anneau affiné, camp minoritaire en retrait, et le pourcentage central précise enfin s\'il s\'agit des acheteurs ou des vendeurs — puis une seule ligne donne les positions longues, la position nette et les positions courtes. Les encadrés et liserés qui répétaient la même information ont disparu.' },
   { id: 'dtpu-20260811-biais-categories', ts: Date.UTC(2026, 7, 11, 23, 0), title: 'Radar de Biais : le verdict découle des colonnes', desc: 'Le biais de chaque devise se calcule désormais à partir des catégories que vous lisez — politique monétaire en tête, puis emploi, croissance et inflation, avec le ton réel des banques centrales et le différentiel de taux. Il est aussi replacé face aux sept autres devises : sur le marché des changes tout est relatif, et huit devises ne peuvent pas monter ensemble. Résultat : une lecture qui correspond enfin à ce que montrent les colonnes.' },
   { id: 'dtpu-20260811-geo-fusion',    ts: Date.UTC(2026, 7, 11, 22, 0),  title: 'Récap Hebdo : le fil géopolitique d\'un seul tenant', desc: 'Le récit de la semaine et sa chronologie ne sont plus deux sections qui se suivent en racontant la même chose : le récit explique les enjeux et les blocages, la chronologie enchaîne les faits datés, le tout sous une seule rubrique Géopolitique.' },
@@ -953,6 +958,38 @@ function _wdgClean(body) {
     wfavs: Array.isArray(b.wfavs) ? b.wfavs.filter(x => typeof x === 'string' && _WDG_ID_RX.test(x)).slice(0, 30) : [],
   };
 }
+/* ── HISTORIQUE DES DISPOSITIONS : 3 versions par compte, une par jour ────────────────────────────
+   Stocké dans wdg:<uid>:hist = { v: [{ at, cfg }, …] }, du PLUS RÉCENT au plus ancien.
+   Règle d'admission : on ne pousse un nouveau jalon que si le dernier a plus de ~24 h. Sans ce
+   verrou, une session de mise en page normale (une dizaine d'enregistrements) chasserait les trois
+   versions en quelques minutes et le filet ne couvrirait plus que l'heure écoulée.
+   L'ancien slot unique wdg:<uid>:bak est LU en amorce (comptes déjà sauvegardés) et continue d'être
+   écrit, pour qu'un retour en arrière du code ne perde rien. */
+const _WDG_HIST_MAX = 3;
+const _WDG_HIST_MS  = 24 * 3600e3;
+async function _wdgHistLire(uid) {
+  let h = null;
+  try { h = await auth.aiCacheGet('wdg:' + uid + ':hist', _WDG_KV_TTL); } catch {}
+  let v = (h && Array.isArray(h.v)) ? h.v : [];
+  v = v.filter(x => x && x.at && x.cfg && Array.isArray(x.cfg.layouts));
+  if (!v.length) {
+    // Amorce depuis l'ancienne sauvegarde à slot unique.
+    try {
+      const bak = await auth.aiCacheGet('wdg:' + uid + ':bak', _WDG_KV_TTL);
+      if (bak && bak.at && bak.cfg && Array.isArray(bak.cfg.layouts)) v = [{ at: bak.at, cfg: bak.cfg }];
+    } catch {}
+  }
+  return v.sort((a, b) => b.at - a.at).slice(0, _WDG_HIST_MAX);
+}
+async function _wdgHistPush(uid) {
+  const cur = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL);
+  if (!cur || !Array.isArray(cur.layouts) || !cur.layouts.length) return;   // rien à sauvegarder
+  const v = await _wdgHistLire(uid);
+  if (v.length && Date.now() - v[0].at < _WDG_HIST_MS) return;              // jalon du jour déjà pris
+  const neuf = [{ at: Date.now(), cfg: cur }, ...v].slice(0, _WDG_HIST_MAX);
+  await auth.aiCacheSet('wdg:' + uid + ':hist', { v: neuf });
+  await auth.aiCacheSet('wdg:' + uid + ':bak', { at: neuf[0].at, cfg: neuf[0].cfg });   // compat descendante
+}
 app.get('/api/widgets', async (req, res) => {
   if (!req.session?.userId) return res.json({ cfg: null });
   try {
@@ -965,42 +1002,48 @@ app.post('/api/widgets', async (req, res) => {
   try {
     const uid = req.session.userId;
     const cfg = _wdgClean(req.body || {});
-    // SAUVEGARDE PAR COMPTE (demande user 23/07 « récupérable si un souci s'impose ») : avant d'écraser,
-    // on snapshot la config COURANTE dans wdg:<uid>:bak — au plus 1 fois toutes les ~6 h (sinon le backup
-    // ne serait que « l'état d'il y a 700 ms », inutile pour récupérer d'une fausse manip en série).
-    try {
-      const cur = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL);
-      if (cur && Array.isArray(cur.layouts) && cur.layouts.length) {
-        const bak = await auth.aiCacheGet('wdg:' + uid + ':bak', _WDG_KV_TTL);
-        if (!bak || !bak.at || Date.now() - bak.at > 6 * 3600e3) {
-          await auth.aiCacheSet('wdg:' + uid + ':bak', { at: Date.now(), cfg: cur });
-        }
-      }
-    } catch {}
+    // SAUVEGARDE PAR COMPTE — 3 VERSIONS, UNE PAR JOUR (demande user 12/08 : « un backup 24 h avant
+    // pour chaque user, on garde les 3 dernières versions »). L'ancien filet n'avait QU'UN slot,
+    // rafraîchi toutes les 6 h : après un bug resté quelques heures invisible, la seule sauvegarde
+    // disponible portait déjà l'état cassé. Trois jalons espacés d'au moins 24 h donnent une vraie
+    // fenêtre de récupération — jusqu'à trois jours en arrière.
+    try { await _wdgHistPush(uid); } catch {}
     await auth.aiCacheSet('wdg:' + uid, cfg);
     res.json({ ok: true, cfg });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
-// État de la sauvegarde (date) — pour afficher « Restaurer la sauvegarde du … » dans le gestionnaire.
+// État des sauvegardes — `at` = la plus récente (compat avec l'affichage « Restaurer la sauvegarde
+// du … »), `versions` = les 3 jalons disponibles, du plus récent au plus ancien.
 app.get('/api/widgets/backup', async (req, res) => {
-  if (!req.session?.userId) return res.json({ at: null });
+  if (!req.session?.userId) return res.json({ at: null, versions: [] });
   try {
-    const bak = await auth.aiCacheGet('wdg:' + req.session.userId + ':bak', _WDG_KV_TTL);
-    res.json({ at: (bak && bak.at) || null });
-  } catch { res.json({ at: null }); }
+    const v = await _wdgHistLire(req.session.userId);
+    res.json({
+      at: v.length ? v[0].at : null,
+      versions: v.map((x, i) => ({ i, at: x.at, panneaux: (x.cfg.layouts || []).length })),
+    });
+  } catch { res.json({ at: null, versions: [] }); }
 });
-// RESTAURATION (réversible) : la sauvegarde devient la config courante, et la config courante devient la
-// sauvegarde → un « Restaurer » malencontreux se re-restaure d'un clic.
+// RESTAURATION (réversible) : la version choisie devient la config courante, et la config courante
+// prend la tête de l'historique → un « Restaurer » malencontreux se re-restaure d'un clic.
+// `i` (0 = la plus récente) choisit le jalon ; absent → la plus récente, comportement d'origine.
 app.post('/api/widgets/restore', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
   try {
     const uid = req.session.userId;
-    const bak = await auth.aiCacheGet('wdg:' + uid + ':bak', _WDG_KV_TTL);
-    if (!bak || !bak.cfg || !Array.isArray(bak.cfg.layouts)) return res.json({ ok: false, error: 'aucune sauvegarde' });
+    const v = await _wdgHistLire(uid);
+    const i = Math.max(0, Math.min(v.length - 1, parseInt((req.body && req.body.i), 10) || 0));
+    if (!v.length) return res.json({ ok: false, error: 'aucune sauvegarde' });
+    const restored = _wdgClean(v[i].cfg);
     const cur = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL);
-    const restored = _wdgClean(bak.cfg);
     await auth.aiCacheSet('wdg:' + uid, restored);
-    if (cur && Array.isArray(cur.layouts)) await auth.aiCacheSet('wdg:' + uid + ':bak', { at: Date.now(), cfg: cur });   // échange → réversible
+    if (cur && Array.isArray(cur.layouts) && cur.layouts.length) {
+      // La config d'avant la restauration devient le jalon le plus récent : le retour arrière est
+      // toujours à un clic, et les deux autres versions restent disponibles.
+      const neuf = [{ at: Date.now(), cfg: cur }, ...v.filter((_, k) => k !== i)].slice(0, _WDG_HIST_MAX);
+      await auth.aiCacheSet('wdg:' + uid + ':hist', { v: neuf });
+      await auth.aiCacheSet('wdg:' + uid + ':bak', { at: neuf[0].at, cfg: neuf[0].cfg });
+    }
     res.json({ ok: true, cfg: restored });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -1836,6 +1879,69 @@ app.post('/api/strength-tf', async (req, res) => {
   if (!_STF_PERIODES.includes(L) || !_STF_PERIODES.includes(R)) return res.status(400).json({ error: 'période invalide' });
   try { await auth.aiCacheSet('stftf:' + req.session.userId, L + '|' + R); res.json({ ok: true, L, R }); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* ─── RÉGLAGES D'AFFICHAGE — MÉMORISÉS PAR COMPTE (magasin générique) ─────────────────────────────
+   Demande user 12/08 : « chaque config ou affichage d'un widget que je configure doit être mémorisé
+   pour chaque compte ». Jusqu'ici chaque réglage persistant avait son endpoint dédié (thememode:,
+   zoom:, stftf:, seasonpair:…) — ce qui a laissé une quinzaine de contrôles PUREMENT VOLATILES,
+   perdus à chaque rechargement (période Force en vue symbole, type de positionnement COT, unité de
+   temps DMX et son tri, filtre d'impact du calendrier, sous-onglet de la vue symbole, filtres du
+   Journal…). Plutôt qu'un endpoint de plus par bouton, un SEUL magasin clé→valeur par compte.
+   Garde-fous : liste blanche de clés (une clé inconnue est refusée, pas stockée en silence), valeurs
+   courtes, et le discriminant `src` — leçon du bug du 10/08 : sans lui, le client prend les défauts
+   du serveur pour un choix stocké et écrase son propre cache local. */
+const _UIPREF_KEYS = new Set([
+  'symstf',       // vue symbole : période du graphe Force des Devises
+  'cottype',      // desk COT : type de positionnement affiché
+  'dmxtf',        // desk DMX : unité de temps
+  'dmxsort',      // desk DMX : tri du tableau
+  'calimp',       // calendrier : filtre d'impact
+  'symsub',       // vue symbole : sous-onglet actif
+  'jrsort',       // Journal : tri (les FILTRES restent volatils à dessein — cf. commentaire côté client)
+  'jrtab',        // Journal : onglet Log / Tableau de bord
+  'arlibcat',     // bibliothèque de rapports : catégorie
+  'nptab',        // volet ALERTES : onglet de filtre
+  'rtab',         // panneau droit : sous-onglet actif (MONDE/RISQUE/FORCE…)
+  'view',         // desk : vue principale active
+  'navorder',     // barre de navigation : ordre des onglets
+  'newsmode',     // fil news : « Essentiel » ou « Tout »
+]);
+const _UIPREF_MAX = 120;                  // longueur max d'une valeur (navorder est la plus longue)
+app.get('/api/ui-prefs', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  try {
+    const raw = await auth.aiCacheGet('uipref:' + req.session.userId, 366 * 86400000);
+    const o = (raw && typeof raw === 'object') ? raw : (raw ? JSON.parse(String(raw)) : null);
+    if (o && typeof o === 'object' && Object.keys(o).length) {
+      const net = {};
+      for (const [k, v] of Object.entries(o)) if (_UIPREF_KEYS.has(k) && typeof v === 'string') net[k] = v.slice(0, _UIPREF_MAX);
+      if (Object.keys(net).length) return res.json({ src: 'kv', prefs: net });
+    }
+    res.json({ src: 'defaut', prefs: {} });
+  } catch { res.json({ src: 'defaut', prefs: {} }); }
+});
+app.post('/api/ui-prefs', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const body = (req.body && typeof req.body === 'object') ? req.body : {};
+  const maj = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (!_UIPREF_KEYS.has(k)) continue;                     // clé hors liste blanche : ignorée
+    if (v === null || v === '') { maj[k] = ''; continue; }  // '' = réglage remis au défaut
+    if (typeof v !== 'string') continue;
+    maj[k] = v.slice(0, _UIPREF_MAX);
+  }
+  if (!Object.keys(maj).length) return res.status(400).json({ error: 'aucun réglage reconnu' });
+  try {
+    // FUSION, jamais remplacement : le client n'envoie que le réglage qu'il vient de changer, et deux
+    // onglets ouverts ne doivent pas s'effacer mutuellement leurs autres préférences.
+    const raw = await auth.aiCacheGet('uipref:' + req.session.userId, 366 * 86400000);
+    const cur = (raw && typeof raw === 'object') ? raw : (raw ? (() => { try { return JSON.parse(String(raw)); } catch { return {}; } })() : {});
+    const net = {};
+    for (const [k, v] of Object.entries(Object.assign({}, cur, maj))) if (_UIPREF_KEYS.has(k) && typeof v === 'string' && v) net[k] = v;
+    await auth.aiCacheSet('uipref:' + req.session.userId, net);
+    res.json({ ok: true, prefs: net });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── User self-service password change ────────────────────────────────────────
@@ -2964,7 +3070,9 @@ const _FF_TITLE_RULES = [
   [/^inflation\s+rate\s+yoy/i,                   'CPI y/y'],
   [/^inflation\s+rate\s+mom/i,                   'CPI m/m'],
   [/^inflation\s+rate\s+qoq/i,                   'CPI q/q'],
-  [/^cpi\s*s\.?a\.?$/i,                          'CPI'],
+  // (« CPI s.a » → « CPI » RETIRÉ le 12/08 : ForexFactory ne publie AUCUNE ligne « CPI » nue — que les
+  //  taux. Cette règle rebaptisait le NIVEAU désaisonnalisé de l'indice en « CPI », homonyme exact du
+  //  niveau brut que TradingView publie à la même seconde → deux lignes « CPI » à 14h30. Voir _calDropLevels.)
   [/^core\s+pce\s+price\s+index\s+yoy/i,         'Core PCE Price Index y/y'],
   [/^core\s+pce\s+price\s+index\s+mom/i,         'Core PCE Price Index m/m'],
   [/^ppi\s+yoy/i,                                'PPI y/y'],
@@ -3032,10 +3140,64 @@ function _ffDisplayTitle(ev) {
   } catch {}
   return _ffTitleStatic(ev.title) || ev.title;
 }
+/* ── NIVEAUX D'INDICE : à retirer quand le TAUX correspondant sort en même temps ──────────────────
+   Constaté le 12/08 sur le CPI américain (deux lignes « CPI » à 14h30, capture user) : TradingView
+   publie, EN PLUS des taux, le NIVEAU de l'indice — « CPI » = 333,95 (brut) et « CPI s.a » = 332,568
+   (désaisonnalisé). ForexFactory ne liste que les taux (Core CPI m/m, Core CPI y/y, CPI m/m, CPI y/y),
+   et un niveau d'indice ne dit rien à un trader posé à côté de son taux.
+   On les écarte AU MOMENT DE SERVIR — jamais à la source : l'archive `_calHist` et les tendances du
+   Radar de Biais sont indexées par titre, filtrer en amont couperait leurs séries.
+   PRUDENCE : on ne retire un niveau QUE si un taux de la MÊME famille, MÊME devise, MÊME horodatage
+   est présent. Un pays qui ne publierait que le niveau garde sa ligne — mieux vaut une ligne
+   inhabituelle qu'un trou dans le calendrier. */
+const _CAL_RATE_RX = /\b(m\/m|y\/y|q\/q|mom|yoy|qoq)\b/i;
+function _calIdxFam(t) {
+  const s = String(t || '').trim().toLowerCase();
+  if (/^(core\s+)?cpi\b|^consumer price index|^harmonised? index of consumer prices|^hicp\b/.test(s)) return 'cpi';
+  if (/^(core\s+)?ppi\b|^producer price/.test(s)) return 'ppi';
+  if (/^(core\s+)?pce\b|^personal consumption expenditure/.test(s)) return 'pce';
+  return '';
+}
+function _calDropLevels(items) {
+  const rates = new Set();
+  for (const e of items) {
+    const f = e && _calIdxFam(e.title);
+    if (f && _CAL_RATE_RX.test(e.title)) rates.add(e.currency + '|' + e.timestamp + '|' + f);
+  }
+  return items.filter(e => {
+    const f = e && _calIdxFam(e.title);
+    if (!f || _CAL_RATE_RX.test(e.title)) return true;                       // pas un niveau → on garde
+    return !rates.has(e.currency + '|' + e.timestamp + '|' + f);             // niveau + son taux → on retire
+  });
+}
+/* GARDE-FOU GÉNÉRAL : deux lignes STRICTEMENT homonymes à la même seconde pour la même devise ne
+   peuvent pas coexister — quelle qu'en soit la cause (règle de renommage trop large, appariement FF
+   qui converge, archive et live qui se recouvrent). Mesuré sur le calendrier servi le 12/08 : 35
+   groupes de lignes en double, dont des paires PARFAITEMENT identiques (JPY Trade Balance, GBP CPI
+   y/y…). Le CPI américain n'était donc que la partie visible — c'est le même défaut partout.
+   On garde la ligne la mieux renseignée : impact, puis prévision, puis résultat.
+   EXCEPTION — les PRISES DE PAROLE : plusieurs officiels parlent réellement à la même heure sous un
+   libellé générique (« FOMC Member Speaks »). Ce sont de vrais événements distincts, on n'y touche pas. */
+const _CAL_SPEECH_RX = /speaks|speech|testimony|testifies|press conf|discours|audition/i;
+function _calDropHomonyms(items) {
+  const best = new Map();
+  const score = e => (/high/i.test(e.impact || '') ? 8 : /medium/i.test(e.impact || '') ? 4 : 0)
+    + (e.forecast ? 2 : 0) + (e.actual ? 1 : 0);
+  items.forEach((e, i) => {
+    if (!e || !e.title || _CAL_SPEECH_RX.test(e.title)) return;
+    const k = e.currency + '|' + e.timestamp + '|' + String(e.title).trim().toLowerCase();
+    const p = best.get(k);
+    if (p === undefined || score(e) > score(items[p])) best.set(k, i);
+  });
+  const keep = new Set(best.values());
+  return items.filter((e, i) => !e || !e.title || _CAL_SPEECH_RX.test(e.title) || keep.has(i));
+}
 // Applique le renommage à une liste servie au client (copie superficielle : la donnée stockée est intacte).
 function _calFfNames(items) {
-  try { return (items || []).map(e => { const t = _ffDisplayTitle(e); return (t && t !== e.title) ? Object.assign({}, e, { title: t, _tvTitle: e.title }) : e; }); }
-  catch { return items || []; }
+  try {
+    const named = (items || []).map(e => { const t = _ffDisplayTitle(e); return (t && t !== e.title) ? Object.assign({}, e, { title: t, _tvTitle: e.title }) : e; });
+    return _calDropHomonyms(_calDropLevels(named));   // l'ordre compte : on filtre sur les titres AFFICHÉS
+  } catch { return items || []; }
 }
 let _tvActualsBusy = false;
 async function _refreshTVActuals() {

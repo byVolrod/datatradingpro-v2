@@ -8832,31 +8832,27 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .np-push-toggle.off .np-push-state { color: #666; }
 
 /* Filter tabs bar */
+/* Barre d'onglets des ALERTES — TOUS LES ONGLETS VISIBLES À L'OUVERTURE (demande user 12/08).
+   Elle défilait horizontalement entre deux flèches ‹ ›, et les 6 onglets (Tout · News · Calendrier ·
+   Analystes · Institutions · DTP) font ~440 px alors que le volet en fait 380-420 : « DTP » — donc les
+   nouveautés du desk — restait hors champ, invisible tant qu'on ne devinait pas qu'il fallait faire
+   défiler. On passe au RETOUR À LA LIGNE : la barre grandit d'une ligne au besoin, rien n'est caché,
+   et les flèches disparaissent (elles n'ont plus rien à faire défiler). */
 .np-tabs-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   border-bottom: 1px solid #1a1a1a;
   flex-shrink: 0;
-  height: 36px;
+  min-height: 36px;
   padding: 0 4px;
 }
-.np-arrow-btn {
-  background: none;
-  border: none;
-  color: #444;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 0 4px;
-  flex-shrink: 0;
-  line-height: 1;
-  transition: color 0.12s;
-}
-.np-arrow-btn:hover { color: #888; }
 .np-tabs-scroll {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
-  overflow-x: auto;
+  overflow: visible;
   scrollbar-width: none;
 }
 .np-tabs-scroll::-webkit-scrollbar { display: none; }
@@ -8869,8 +8865,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   font-size: 11px;
   font-family: 'Inter', sans-serif;
   font-weight: var(--fw-medium);
-  padding: 0 12px;
-  height: 36px;
+  padding: 0 9px;      /* resserré : 6 onglets tiennent en 2 lignes courtes, souvent en 1 sur large écran */
+  height: 34px;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
@@ -11706,6 +11702,35 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 .wdg-body .wdg-cs-wrap { height: 100%; overflow: auto; }
 .wdg-body .cs-rank-list { padding: 8px 12px; }
 
+/* Widget « Graphique » : bougies du desk dans une carte. La barre (paire + unité de temps) est
+   STRUCTURELLE — elle ne défile pas — et le graphe prend tout le reste : amCharts mesure son
+   conteneur, donc il lui faut une hauteur réelle (min-height) et pas seulement flex:1, sinon une
+   carte basse le réduit à 0 px et la toile reste blanche. */
+.wdg-cdl { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-cdl-bar {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 5px 8px; border-bottom: 1px solid var(--hud-line, var(--border));
+}
+.wdg-cdl-sym {
+  height: 24px; padding: 0 22px 0 8px; cursor: pointer;
+  background: var(--bg1) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23e3b23a' stroke-width='1.6'><path d='M2.5 4.5L6 8l3.5-3.5'/></svg>") no-repeat right 6px center;
+  -webkit-appearance: none; appearance: none;
+  border: 1px solid var(--border); border-radius: var(--r-1, 4px);
+  font-family: var(--mono, ui-monospace, monospace); font-size: var(--fs-2, 11px); font-weight: 600;
+  color: var(--w-t1); letter-spacing: .02em;
+}
+.wdg-cdl-sym:hover, .wdg-cdl-sym:focus { border-color: var(--orange); color: var(--orange); outline: none; }
+.wdg-cdl-tf { display: flex; gap: 3px; }
+.wdg-cdl-tf .stf-btn { height: 22px; padding: 0 7px; font-size: 10px; }
+.wdg-cdl-chart { flex: 1 1 auto; min-height: 180px; }
+/* Sous ~360 px de large, la barre passe sur deux lignes plutôt que d'écraser le sélecteur. */
+@media (max-width: 560px) {
+  .wdg-cdl-bar { flex-wrap: wrap; row-gap: 5px; }
+  .wdg-cdl-sym { flex: 1 1 100%; }
+  .wdg-cdl-tf { width: 100%; justify-content: space-between; }
+  .wdg-cdl-tf .stf-btn { flex: 1 1 0; padding: 0 4px; }
+}
+
 /* Widget fil de news : réutilise le rendu .news-item officiel du desk */
 .wdg-news { display: flex; flex-direction: column; }
 .wdg-news-row { padding: 5px 8px; font-size: 11px; color: var(--w-t3); border-bottom: var(--row-sep, 1px solid rgba(255,255,255,.028)); }
@@ -11757,7 +11782,10 @@ body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même
 .wdg-blank { grid-column: 1 / -1; min-height: 58vh; }
 
 /* ── Ligne « Sauvegarde auto du … + Restaurer » (gestionnaire Mes layouts) ── */
-.wdg-mgr-bak { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 2px; padding: 8px 10px; background: var(--head-bg); border: 1px solid var(--hud-line, var(--border)); border-radius: 5px; }
+/* Trois jalons de sauvegarde au lieu d'un : la barre passe en `flex-start` + retour à la ligne, sinon
+   `space-between` étalerait les boutons datés aux deux bouts de la largeur. */
+.wdg-mgr-bak { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; margin: 0 0 2px; padding: 8px 10px; background: var(--head-bg); border: 1px solid var(--hud-line, var(--border)); border-radius: 5px; }
+.wdg-mgr-bak .wdg-btn { font-variant-numeric: tabular-nums; }
 .wdg-mgr-bak-lbl { font-size: 11.5px; color: var(--text2, var(--w-t5)); }
 
 /* ── Widget Calculatrice de position (autonome, volatile) ── */
@@ -16297,9 +16325,8 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .np-filter-row { background: #141418; border-color: #26262b; }
 .np-filter-row:hover { border-color: #3a3a42; }
 .np-filter-toggle.off { background: #26262b; }
-/* Contrastes restants sous le seuil (état vide, flèches d'onglets, bouton Filtre). */
+/* Contrastes restants sous le seuil (état vide, bouton Filtre). */
 .np-empty { color: #7d838d; }
-.np-arrow-btn { color: #5c6470; }
 .np-filter-btn { color: #8a93a0; }
 /* Très petits écrans : la rangée réglages (son + volume + notifs navigateur) passe à la ligne au
    lieu de rogner le toggle à droite (panneau en overflow hidden). */

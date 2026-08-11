@@ -1170,7 +1170,10 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _md = s => String(s == null ? '' : s).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
   const insights = (Array.isArray(w.insights) ? w.insights : []).map(t => _md(typeof t === 'string' ? t : (t && t.text))).filter(Boolean);
   const cbList = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && c.bank);
-  const lead = _md(w.summary) || insights[0] || '';
+  // OUVERTURE — v43 : le rapport n'ouvre plus sur `summary` mais sur `intro`, le lead bâti à partir des
+  // récaps quotidiens de la semaine. Le mail lisait encore `summary` : il ouvrait donc sur un autre texte
+  // que le desk, sur la même semaine. `summary` reste le repli (éditions antérieures à la v42).
+  const lead = _md(w.intro) || _md(w.summary) || insights[0] || '';
   if (!lead && !insights.length) return null;
   const prenomRaw = (name || '').split(' ')[0] || '';
   const prenom = _esc(prenomRaw);
@@ -1190,7 +1193,10 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // montre le ton (hawkish/dovish). On ne montre QUE ces 3 banques (pas les 8), sans décision/guidance/prochaine réunion.
   const _cbBiasCol = b => /hawk/i.test(b) ? '#22c55e' : /dov/i.test(b) ? '#ef4444' : '#9aa3b2';   // SÉMANTIQUE : hawkish=haussier→vert · dovish=baissier→rouge · neutre=gris
   const _curSrc = (w.currencies && typeof w.currencies === 'object') ? w.currencies : {};
-  const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => _curSrc[c] && _curSrc[c].analysis && String(_curSrc[c].analysis).trim().length > 30).slice(0, 3);
+  const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => {
+    const t = _curSrc[c] && (_curSrc[c].execSummary || _curSrc[c].analysis);   // v43 : execSummary est le champ de tête
+    return t && String(t).trim().length > 30;
+  }).slice(0, 3);
   const _cbTone = _curPick.map(code => cbList.find(c => c.code === code)).filter(Boolean).slice(0, 3);
   const cbToneHtml = _cbTone.length ? `<div style="border:1px solid #232429;border-radius:6px;overflow:hidden;background:#0d0e11;">
     ${_cbTone.map((c, i) => {
@@ -1211,8 +1217,29 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       </div>`;
     }).join('')}
     </div>` : '';
+  // LE FIL GÉOPOLITIQUE (v43, miroir du rapport) : le RÉCIT d'abord (geoNarrative), la « Chronologie
+  // rapide » ensuite, une ligne par temps fort. C'est l'ordre exact du desk — le mail s'arrête à
+  // 2 paragraphes et 3 temps forts : au-delà on recopierait le rapport au lieu d'y renvoyer.
+  const _geoN = (Array.isArray(w.geoNarrative) ? w.geoNarrative : []).map(_md).filter(Boolean).slice(0, 2);
+  const _gtJours = (w.geoTimeline && Array.isArray(w.geoTimeline.jours))
+    ? w.geoTimeline.jours.filter(j => j && j.jour && Array.isArray(j.points) && j.points.length).slice(0, 3) : [];
+  const geoHtml = (_geoN.length || _gtJours.length)
+    ? _geoN.map(p => `<p style="margin:0 0 10px;font-size:13.5px;line-height:1.65;color:#cbd5e1;">${_esc(_cutTxt(p, 320))}</p>`).join('')
+      + (_gtJours.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${_gtJours.map(j => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">${_esc(_md(j.jour))}</span>&nbsp;&mdash; ${_esc(_cutTxt(_md(j.points.join(' ')), 190))}</td></tr>`).join('')}</table>` : '')
+    : '';
+  const geoTitle = (w.geoTimeline && w.geoTimeline.titre) ? `Le fil géopolitique · ${_md(w.geoTimeline.titre)}` : 'Le fil géopolitique';
   // EXTRAIT du rapport, PAR DEVISE (demande user, remplace la phrase force-des-devises) : 1-2 phrases de
   // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
+  // COULEUR DU BIAIS — l'échelle du desk a exactement 5 niveaux (demande user 11/08). On teste « légèrement »
+  // EN PREMIER : « légèrement haussier » contient « haussier », l'ordre inverse le peindrait en vert franc.
+  const _biasCol = b => {
+    const s = String(b || '').toLowerCase();
+    if (/^l[ée]g\S*\s+haussier/.test(s)) return '#7bc99a';
+    if (/^l[ée]g\S*\s+baissier/.test(s)) return '#e08d86';
+    if (/haussier/.test(s)) return '#22c55e';
+    if (/baissier/.test(s)) return '#ef4444';
+    return '#9aa3b2';
+  };
   let curHtml = '';
   if (_curPick.length) {
     const rows = _curPick.map(c => {
@@ -1222,10 +1249,21 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       const _p = (Array.isArray(cd.inflationPrints) && cd.inflationPrints[0]) || (Array.isArray(cd.growthPrints) && cd.growthPrints[0]) || null;
       const printLine = _p && _p.actual ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#cbd5e1;font-weight:600;">${_esc(_md(_p.label))}</span>&nbsp;: ${_esc(_p.actual)}${_p.forecast ? ' (attendu ' + _esc(_p.forecast) + ')' : ''}${_p.lean ? ' → ' + _esc(_p.lean) : ''}${_p.date ? ' <span style="color:#7b828f;">(' + _esc(_p.date) + ')</span>' : ''}</div>` : '';
       const pricingLine = cd.pricing ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#f3c344;font-weight:600;">Pricing&nbsp;:</span> ${_esc(_cutTxt(_md(cd.pricing), 150))}</div>` : '';
+      // v43 : le texte de tête d'une devise est `execSummary` (le CHEMIN de la semaine : verdict puis
+      // trajectoire). `analysis` en repli pour les rapports d'avant la refonte.
+      const _txt = _md(cd.execSummary || cd.analysis);
+      // Le BIAIS est la conclusion du bloc devise sur le desk — il manquait au mail, qui donnait donc
+      // le récit sans le verdict. Même source (Smart Bias), même échelle à 5 niveaux.
+      const _b = _md(cd.bias);
+      const biasBadge = _b ? ` <span style="color:${_biasCol(_b)};font-weight:700;font-size:11.5px;">${_esc(_b)}</span>` : '';
+      // Moteurs v43 = thèmes factuels rendus en LIGNES INTITULÉES (« Commerce : … ») — un seul ici,
+      // le rapport porte les autres.
+      const _d0 = (Array.isArray(cd.drivers) ? cd.drivers : []).filter(d => d && d.name && d.why)[0];
+      const drvLine = _d0 ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#cbd5e1;font-weight:600;">${_esc(_md(_d0.name))}&nbsp;:</span> ${_esc(_cutTxt(_md(_d0.why), 150))}</div>` : '';
       return `<tr><td style="padding:8px 0;border-top:1px solid #1f1f24;">
-        <span style="color:#f3c344;font-weight:800;font-size:12.5px;">${c}</span>
-        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_md(cd.analysis), 230))}</div>
-        ${printLine}${pricingLine}
+        <span style="color:#f3c344;font-weight:800;font-size:12.5px;">${c}</span>${biasBadge}
+        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_txt, 230))}</div>
+        ${drvLine}${printLine}${pricingLine}
       </td></tr>`;
     }).join('');
     curHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
@@ -1298,8 +1336,11 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;">${_esc(e.forecast || '·')}</td>
     </tr>`).join('')}
     </table></div>` : '';
-  // PARCOURS DE LECTURE (v40) : 4 sections titrées, toujours dans le même ordre — l'essentiel, les
-  // chiffres, les devises, les banques centrales. Chacune n'apparaît que si elle a de la matière.
+  // PARCOURS DE LECTURE (v43) : le mail suit désormais LES ACTES DU RAPPORT, dans le même ordre —
+  // l'essentiel, le fil géopolitique, les chiffres, les banques centrales, les devises. (Avant, les
+  // devises passaient avant les banques : le lecteur voyait le verdict par devise avant d'avoir lu ce
+  // qui l'explique, et l'ordre du mail ne ressemblait plus à celui du rapport qu'il allait ouvrir.)
+  // Chaque section n'apparaît que si elle a de la matière.
   const body = `
     <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 4px;color:#9aa3b2;font-size:13px;">La semaine de marché, relue par le desk.</p>
@@ -1307,9 +1348,10 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${lead ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#e6e6ea;">${_esc(lead).slice(0, 460)}</p>` : ''}
     ${insightsHtml}
     ${macroFactHtml}
+    ${geoHtml ? _sec(geoTitle) + geoHtml : ''}
     ${pastTableHtml ? _sec('Les chiffres de la semaine') + pastTableHtml : ''}
-    ${curHtml ? _sec('Les devises') + curHtml : ''}
     ${cbToneHtml ? _sec('Les banques centrales') + cbToneHtml : ''}
+    ${curHtml ? _sec('Les devises') + curHtml : ''}
     ${_sec('La force des devises')}
     ${_widgetImg('strength', '')}
     <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Le rapport complet vous attend sur le desk&nbsp;: analyse par banque, par devise, et le calendrier détaillé.</p>
