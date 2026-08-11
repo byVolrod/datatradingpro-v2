@@ -4419,9 +4419,12 @@ const MT_LBL = {
   level:    { High: 'Élevée', Low: 'Basse', 'Modéré': 'Modérée' },
   inftrend: { Up: 'Hausse', Down: 'Baisse', Sticky: 'Stable' },   // raccourcis (demande user « plus court et parlant ») : En hausse→Hausse · En baisse→Baisse · Persistante→Stable
   ge:       { Strong: 'Solide', Neutral: 'Neutre', Weak: 'Faible' },
+  // v42 : la DYNAMIQUE de Croissance/Emploi, distincte de leur NIVEAU (« Solide · Se dégrade »).
+  gedyn:    { Up: 'S\'améliore', Down: 'Se dégrade', Flat: 'Stable' },
 };
-// Colonne Biais = Haussier / Neutre / Baissier (le niveau « faible/fort » est porté par la couleur du tag).
-const MT_BIAS_LBL = { 'Very Bullish': 'Haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Haussier', 'Neutral': 'Neutre', 'Weak Bearish': 'Baissier', 'Bearish': 'Baissier', 'Very Bearish': 'Baissier', 'Uptrend': 'Haussier', 'Downtrend': 'Baissier' };
+// Colonne Biais — v42 : le palier « Weak » n'est plus gommé. « Weak Bullish » s'affichait « Haussier »
+// AVEC la même couleur qu'un Bullish plein : un penchant marginal était indistinguable d'une conviction.
+const MT_BIAS_LBL = { 'Very Bullish': 'Haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement haussier', 'Neutral': 'Neutre', 'Weak Bearish': 'Légèrement baissier', 'Bearish': 'Baissier', 'Very Bearish': 'Baissier', 'Uptrend': 'Haussier', 'Downtrend': 'Baissier' };
 function _mtCls(kind, v) {
   v = String(v || '');
   if (kind === 'bias')     return _sbColorCls(v);
@@ -4433,6 +4436,7 @@ function _mtCls(kind, v) {
   // « Restrictive » vert et « Hausse » des taux vert), Baisse = ROUGE, Stable = gris. (Avant : doré/bleu isolés.)
   if (kind === 'inftrend') return /up/i.test(v) ? 'mt-pos' : /down/i.test(v) ? 'mt-neg' : 'mt-neu';
   if (kind === 'ge')       return /strong/i.test(v) ? 'mt-pos' : /weak/i.test(v) ? 'mt-neg' : 'mt-neu';
+  if (kind === 'gedyn')    return /up/i.test(v) ? 'mt-pos' : /down/i.test(v) ? 'mt-neg' : 'mt-neu';
   return 'mt-neu';
 }
 // Repli client : si le serveur n'a pas encore macroTable (cache < v26), on le dérive des rows (piliers) + conclusion.
@@ -4470,9 +4474,25 @@ function _sbRenderMacroTable(cur, macro) {
     const mp = m.monetary || {}, inf = m.inflation || {};
     const monCell = (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : '');
     const infCell = (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : '');
-    const gr = m.growth ? tag(_mtCls('ge', m.growth), MT_LBL.ge[m.growth] || m.growth) : '';
-    const em = m.employment ? tag(_mtCls('ge', m.employment), MT_LBL.ge[m.employment] || m.employment) : '';
-    const drv = (m.drivers || []).slice(0, 3).map(x => tag('mt-drv', x)).join('');
+    // v42 : NIVEAU + DYNAMIQUE, comme l'inflation (avant : un seul tag qui disait « Solide » pour
+    // signifier « en amélioration » — d'où « Solide » sur presque toutes les devises).
+    const geCell = (cell4, lvlKey) => {
+      const o = m[cell4];
+      if (o && typeof o === 'object') {
+        const lv = o.level ? tag(_mtCls('ge', o.level), MT_LBL.ge[o.level] || o.level) : '';
+        const dy = o.trend ? tag(_mtCls('gedyn', o.trend), MT_LBL.gedyn[o.trend] || o.trend) : '';
+        return lv + dy;
+      }
+      const s = m[lvlKey];                                  // anciens snapshots : chaîne seule
+      return s ? tag(_mtCls('ge', s), MT_LBL.ge[s] || s) : '';
+    };
+    const gr = geCell('growthCell', 'growth');
+    const em = geCell('employmentCell', 'employment');
+    // Le MÉCANISME du driver (why, issu du Récap Hebdo) est porté en infobulle : un mot-clé nu passait
+    // pour générique alors que la donnée explicative existait déjà côté serveur.
+    const _why = {}; (m.driversWhy || []).forEach(x => { if (x && x.name) _why[x.name] = x.why || ''; });
+    const drvTag = x => `<span class="mt-tag mt-drv"${_why[x] ? ` title="${esc(_why[x])}"` : ''}>${esc(x)}</span>`;
+    const drv = (m.drivers || []).slice(0, 3).map(drvTag).join('');
     const bi = m.bias ? tag(_mtCls('bias', m.bias), MT_BIAS_LBL[m.bias] || m.bias) : '';
     const active = (c === _sbActiveCur) ? ' mt-row--active' : '';
     // Ligne CLIQUABLE → ouvre le panneau de détail macro (demande user « j'veux un ouvrir comme ceci puis les infos s'affichent »).
@@ -4570,15 +4590,20 @@ function _sbOpenDetail(curr, opts) {
       + fieldRel('PPI', inf.ppi)
       + fieldRel('Salaires', inf.wages)
       + `</section>`;
+    // v42 : NIVEAU (mesuré : PMI vs 50, chômage vs sa moyenne) puis DYNAMIQUE — deux lignes distinctes,
+    // comme l'inflation. `dyn` absent = ancien snapshot → seule la ligne Tendance s'affiche.
+    const dynTag = v => v ? `<span class="mt-tag ${_mtCls('gedyn', v)}">${esc(MT_LBL.gedyn[v] || v)}</span>` : na;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>`
-      + field('Tendance', trendTag(gr.trend))
+      + (gr.level ? field('Niveau', trendTag(gr.level)) : '')
+      + field(gr.dyn ? 'Dynamique' : 'Tendance', gr.dyn ? dynTag(gr.dyn) : trendTag(gr.trend))
       + fieldRel('PIB', gr.gdp)
       + fieldRel('PMI / ISM', gr.pmi)
       + fieldRel('Ventes au détail', gr.retail)
       + fieldRel('Confiance conso.', gr.confidence)
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>`
-      + field('Tendance', trendTag(em.trend))
+      + (em.level ? field('Niveau', trendTag(em.level)) : '')
+      + field(em.dyn ? 'Dynamique' : 'Tendance', em.dyn ? dynTag(em.dyn) : trendTag(em.trend))
       + fieldRel('Taux de chômage', em.unemployment)
       + fieldRel("Créations d'emplois", em.payrolls)
       + fieldRel('Inscriptions chômage', em.claims)
@@ -4593,7 +4618,8 @@ function _sbOpenDetail(curr, opts) {
   }
 
   const biasTag = macro.bias ? tag(_mtCls('bias', macro.bias), MT_BIAS_LBL[macro.bias] || macro.bias) : '';
-  const drivers = (macro.drivers || []).slice(0, 4).map(x => tag('mt-drv', x)).join('');
+  const _dw = {}; (macro.driversWhy || []).forEach(x => { if (x && x.name) _dw[x.name] = x.why || ''; });
+  const drivers = (macro.drivers || []).slice(0, 4).map(x => `<span class="mt-tag mt-drv"${_dw[x] ? ` title="${esc(_dw[x])}"` : ''}>${esc(x)}</span>`).join('');
   wrap.innerHTML = `<div class="mdet-panel">
       <div class="mdet-head">
         <span class="mdet-cur">${_sbFlag(curr)}<span>${esc(curr)}</span></span>
@@ -4783,9 +4809,16 @@ function _sbMacroSummaryRows(curr, esc) {
   let out = `<div class="sbs-left-sub">Vue macro</div>`;
   out += row('Politique monétaire', (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : ''));
   out += row('Inflation', (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : ''));
-  out += row('Croissance', macro.growth ? tag(_mtCls('ge', macro.growth), MT_LBL.ge[macro.growth] || macro.growth) : '');
-  out += row('Emploi', macro.employment ? tag(_mtCls('ge', macro.employment), MT_LBL.ge[macro.employment] || macro.employment) : '');
-  if ((macro.drivers || []).length) out += row('Driver', macro.drivers.slice(0, 3).map(x => tag('mt-drv', x)).join(''));
+  // v42 : niveau + dynamique (repli chaîne seule pour les snapshots antérieurs).
+  const geTags = (o, s) => (o && typeof o === 'object')
+    ? (o.level ? tag(_mtCls('ge', o.level), MT_LBL.ge[o.level] || o.level) : '') + (o.trend ? tag(_mtCls('gedyn', o.trend), MT_LBL.gedyn[o.trend] || o.trend) : '')
+    : (s ? tag(_mtCls('ge', s), MT_LBL.ge[s] || s) : '');
+  out += row('Croissance', geTags(macro.growthCell, macro.growth));
+  out += row('Emploi', geTags(macro.employmentCell, macro.employment));
+  if ((macro.drivers || []).length) {
+    const _w = {}; (macro.driversWhy || []).forEach(x => { if (x && x.name) _w[x.name] = x.why || ''; });
+    out += row('Driver', macro.drivers.slice(0, 3).map(x => `<span class="mt-tag mt-drv"${_w[x] ? ` title="${esc(_w[x])}"` : ''}>${esc(x)}</span>`).join(''));
+  }
   return out;
 }
 function _sbOpenSummary(curr) {
