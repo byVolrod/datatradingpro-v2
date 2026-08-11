@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260812-biais-temps-reel', ts: Date.UTC(2026, 7, 12, 12, 0), title: 'Radar de Biais : réaction immédiate aux chiffres, et un contrôle qui corrige', desc: 'Quand une publication à fort impact tombe — CPI, emploi, décision de taux — le Radar est prévenu directement par le calendrier et recalcule dans la foulée, au lieu d\'attendre de la découvrir plus tard. Un chiffre publié en retard n\'est plus manqué. Et un second contrôle passe désormais derrière chaque biais avant affichage : si le verdict contredit les colonnes que vous lisez, il est recalculé sur ces colonnes plutôt que publié tel quel.' },
   { id: 'dtpu-20260812-widget-graphique', ts: Date.UTC(2026, 7, 12, 9, 0), title: 'Mon Desk : un widget graphique, et des bougies plus lisibles', desc: 'Nouveau widget « Graphique » : choisissez votre paire et votre unité de temps, et gardez le chandelier sous les yeux à côté du fil ou du calendrier. Vous pouvez en poser plusieurs, chacun sur sa paire. Les bougies elles-mêmes ont été reprises — vert et rouge francs, mèches enfin visibles, corps mieux espacés : on lit le rapport de force d\'un coup d\'œil.' },
   { id: 'dtpu-20260812-reglages-memorises', ts: Date.UTC(2026, 7, 12, 9, 30), title: 'Vos réglages vous suivent, d\'un appareil à l\'autre', desc: 'La période du Force des Devises, le type de positionnement COT, l\'unité de temps et le tri du DMX, le filtre d\'impact du calendrier, l\'onglet des alertes, le tri du Journal, l\'ordre de vos onglets : tout cela est désormais mémorisé sur votre compte. Vous vous reconnectez, même depuis un autre ordinateur, et le desk est exactement comme vous l\'aviez laissé.' },
   { id: 'dtpu-20260812-sauvegardes-3', ts: Date.UTC(2026, 7, 12, 10, 0), title: 'Mon Desk : trois sauvegardes de vos dispositions', desc: 'Vos dispositions sont sauvegardées automatiquement une fois par jour, et les trois dernières versions sont conservées. Si quelque chose se passe mal, le gestionnaire vous propose désormais chaque sauvegarde avec sa date : un clic pour revenir en arrière, et l\'opération reste réversible.' },
@@ -10905,7 +10906,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v43-biais-categories';   // v43 (11/08, demande user « il faut qu'on ait les bons biais EN FONCTION DES CATÉGORIES ») : LE VERDICT DÉCOULE DÉSORMAIS DES COLONNES AFFICHÉES. Avant, le lecteur voyait quatre catégories (politique monétaire, inflation, croissance, emploi) et un biais à droite qui venait d'AILLEURS — une confluence de quatre PILIERS qui ne sont pas ces colonnes ; le contrôle de cohérence le disait en clair (« USD : politique Restrictive, inflation Élevée, emploi Solide → cellules haussières, verdict Neutre »). Le score se calcule maintenant SUR LES CELLULES, dans l'ordre d'un desk FX : politique monétaire ×1,5 (le premier moteur d'une devise, son SENS donné par la stance et son INTENSITÉ par le ton réel des banquiers, sur 5 niveaux au lieu de 3), emploi ×1, croissance ×1, inflation ×1 (niveau 60 % / tendance 40 % : une inflation élevée qui reflue soutient moins), plus le portage (±0,15). Les piliers restent à 1/3 en confirmation — ils portent les surprises macro sur 6 mois et la lecture des banques, invisibles dans les colonnes. Et le score est RECENTRÉ sur la moyenne des huit : un biais FX est RELATIF, les huit devises ne peuvent pas monter ensemble contre rien — sans ce recentrage une bonne semaine mondiale rendait 5 devises sur 8 « haussières ». Vérifié sur les cellules réelles de prod : 4 légèrement haussiers, 2 neutres, 1 légèrement baissier, 1 baissier (CHF, accommodante + portage −2,78 pt). bump = régén au boot. v42 (11/08, AUDIT COMPLET demandé par l'user — « vérifie toute la chaîne, remonte à la source, pas de hardcode ») : SIX causes racines corrigées. (1) ÉCLIPSE DE DONNÉES : _calHistMerge laissait un événement À VENIR (sans `actual`) masquer la dernière publication réelle du même indicateur → l'IPC US/CAD disparaissait du modèle la semaine précédant chaque publication ; seules les publications RÉELLES éclipsent désormais l'archive. (2) NIVEAU D'INFLATION INVENTÉ : sans IPC en fenêtre, le niveau retombait sur la STANCE (agrégat de SURPRISES publié-vs-consensus) → « USD : inflation Basse » pendant que la Fed price une hausse. Repli supprimé (null assumé) ; le niveau n'accepte QUE de l'IPC ANNUEL (les m/m et q/q sont exclus — NZD lisait un trimestriel 1,5 % comme un niveau annuel) et se compare à la CIBLE DE SA banque centrale (_SB_CPI_TARGET : AUD 2,5 %, CHF 1 %…), headline prioritaire sur core. (3) SÉRIES INCOMPARABLES : _sbHistTrend moyennait toute une famille (ISM 54 + production 0,2 % + Ifo 87 ; chômages DE/ES/EU confondus) → « Croissance : Solide » sur 7 devises sur 8. Direction calculée PAR SÉRIE HOMOGÈNE (titre exact + pays), seuil RELATIF à l'échelle de la série, agrégation pondérée + hiérarchie zone euro (DE > FR). L'archive _calHist stocke maintenant une VRAIE série par titre (`_h`, 8 valeurs) et sa clé inclut le PAYS. (4) NIVEAU vs TENDANCE : Croissance et Emploi n'exposaient que la tendance sous un vocabulaire de niveau → ajout d'un NIVEAU mesuré (PMI vs 50 ; chômage vs sa propre moyenne) à côté de la tendance, comme l'inflation. (5) STANCE TRAVESTIE PAR LE PORTAGE : le libellé « Politique monétaire » dérivait de la valeur groundée (qui inclut le cran ±1 du différentiel de taux) → la BoJ pricée à 59 % de hausse s'affichait « Neutre » à côté de « Prochain mouvement : Hausse ». La stance affichée vient de la posture (stance + ton) ; le portage reste dans le score du pilier et dans son driver. (6) BANK OVERVIEW DÉSYNCHRONISÉ : la couche live reprenait la ligne telle quelle alors que les stances sous-jacentes avaient changé (7 haussières − 1 baissière sur 20 = Neutral servi « Bullish ») — ce seul écart basculait le biais final USD. Ré-agrégée à chaque tic. + drivers : récap source TRIÉ (le plus récent, plus jamais une semaine vieille de 3 mois), garantie « Différentiel de taux » appliquée AVANT écrêtage, et le MÉCANISME (`why`) transporté jusqu'au Radar. bump = régén au boot. v41 (03/08, règles user) : (1) pilier « Politique monétaire » intègre le DIFFÉRENTIEL DE TAUX — taux directeur à ≥1,5 pt SOUS la moyenne G8 (SNB ~0 %, BoJ ~1 %) = un cran baissier (portage structurel contre la devise), ≥1,5 pt AU-DESSUS = un cran haussier ; ligne `ratesLine` ajoutée aux ctxLines + narratifs. (2) « Différentiel de taux » GARANTI dans les Drivers macroTable des devises à portage extrême, même si le Récap Hebdo l'omet. (3) EUR : hiérarchie zone euro dans le pilier fondamental (Allemagne/zone plein poids, France 0.7, autres 0.45 — « l'Allemagne = 1er pays qui influence l'EUR, ensuite la France ») + Ifo Business Climate capté comme indicateur AVANCÉ de CROISSANCE (pas en Confiance : veto 21/07 maintenu pour ZEW/Sentix). bump = régén au boot. v40 : chaque valeur de l'historique detail.*.hist porte sa DATE ({v,t} au lieu d'une string) → le panneau affiche « 25 avr. 4.4% → … » (explicite pour un novice, demande user 23/07). bump = régén au boot. v39 : le DÉTAIL macro porte l'HISTORIQUE des dernières publications (detail.*.hist = jusqu'à 4 valeurs même libellé, ancien→récent) → la TENDANCE est visible avec les précédents dans le panneau (demande user). v38 : ZEW/IFO/Sentix RETIRÉS de Confiance/Sentiment (VETO user 21/07 « non n'ajoute pas ça » — seul l'élargissement Salaires « Average Earnings » UK est conservé). bump = régén sans les valeurs ZEW. v37 : COUVERTURE calendrier élargie (diagnostic user « tu prendras en compte quels news ? ») — SALAIRES captent « Average Earnings » (UK, ex. GBP « Average Earnings incl. Bonus ») en plus de « Average Hourly Earnings » (US). Corrige 2 trous où des sorties importantes n'entraient pas dans le biais/detail. NB : Balance commerciale + stocks pétrole API restent HORS modèle (le pilier = inflation/croissance/emploi/monétaire ; le signal pétrole vient du PRIX WTI, pas des stocks). bump = régén au boot. v36 : chaque devise porte un DÉTAIL macro (macroTable[c].detail) = vraies dernières publications par indicateur (IPC/PCE/PPI/salaires, PIB/PMI/ventes/confiance, chômage/NFP/inscriptions : actual+forecast+previous+surprise via _sbLatestRelease) + pricing marché (_sbPricingLine : FedWatch USD sinon scénario maison) → alimente le PANNEAU DE DÉTAIL au clic sur une devise dans le Radar de Biais (vue façon grille macro). bump = régén au boot. v35 : pilier « Politique monétaire » ANCRÉ SUR LA STANCE RÉELLE de la banque (diagnostic user « pourquoi on a pas pareil que ma grille ? »). CAUSE RACINE trouvée : (1) le pilier basé sur le seul TON des discours sortait « Very Bullish » partout ; (2) la trajectoire cumulée 6,5 mois de rateprobability (_rpDirMove) transformait une dérive de quelques bps en « HIKE » pour USD/GBP/CAD alors qu'ils sont en pause ; (3) EUR & AUD avaient un biais config 'hike' PÉRIMÉ (ère de hausse 2022-23). Corrigés → EUR/AUD='hold' (AUD lean cut). Désormais _sbPolicyStance donne le SIGNE : USD via CME FedWatch (prochain FOMC), sinon biais MAISON curé (CB[] + clamp taux terminal via _effBias, SANS surcouche IA rp/aibias) ; le ton n'intensifie que dans le MÊME sens (jamais flip) ; un MAINTIEN plafonne à ±Bullish (jamais « Very »). DIRECTION macroTable = _sbPolicyStance(c).dir (idem). → fin des biais systématiquement haussiers, alignés sur le régime de pause. bump = régén au boot. v33 : NIVEAU d'inflation ancré sur la CIBLE 2 % (insight user « au-dessus de 2 % = High ») — IPC annuel du calendrier > 2 % → Élevée, < 1,5 % → Basse, sinon Modérée (à la cible). Avant : seuil High à 2,5 % (2,3 % ressortait « Modérée » à tort). bump = régén. v32 : colonnes ENRICHIES de tous les sous-indicateurs clés (grille méthodo user) via _sbBlend — Inflation = IPC×1 + PCE×0.7 + PPI×0.6 + salaires×0.4 + pétrole×0.4 ; Croissance = PIB×1 + Retail×0.6 + PMI/ISM×0.6 + confiance×0.4 ; Emploi = chômage(inv)×1 + NFP/ADP×0.6 + claims(inv)×0.4 + JOLTS×0.3. bump = régén. v31 : CROISSANCE = signal AVANCÉ Ventes au détail (insight user « les Retail Sales anticipent le PIB et SONT la croissance conso ») — tendance Croissance = PIB confirmé (×1) + Ventes au détail (×0.6, avancé). Miroir de l'inflation (pétrole/PPI). bump = régén. v30 : le calendrier des tendances passe RÉELLEMENT à 6 mois (le clamp `Math.min(3,…)` de _buildTVCalendarRange + _RANGE_DAYS plafonnaient à 3 → corrigés à 6) + historique stocké _calHist étendu 60 j → ~6 mois (demande user). bump = régén au boot avec les 6 mois. v29 : conclusion = 4 PILIERS seulement (demande user : Hedge Fund/COT, Retail/particuliers et Saisonnalité RETIRÉS) → Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1. + Inflation enrichie du signal AVANCÉ pétrole + PPI (leading indicators de l'IPC). bump = régén au boot. v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v44-garde-fou-temps-reel';   // v44 (12/08) — DEUX MANQUES COMBLÉS. (1) TEMPS RÉEL : il n'existait AUCUN lien entre le calendrier et le Radar. Le biais ne découvrait un chiffre qu'en le SONDANT, au tic de 3 min (et seulement si quelqu'un était connecté), sinon au tic horaire : un CPI de 14h30 pouvait rester invisible près d'une heure. Le rafraîchissement du calendrier POUSSE désormais l'information (_sbPokeCalendrier), et la détection ne se fie plus à l'heure prévue de l'événement mais à une EMPREINTE des résultats déjà vus (_sbNouvellePublication) — un chiffre publié en retard portait son horodatage d'origine et n'était jamais compté comme neuf. Le tic live tourne aussi quand personne n'est connecté SI une publication vient de tomber, pour que le premier visiteur après un NFP ne lise pas un biais d'avant le chiffre. (2) DOUBLE VÉRIFICATION : _sbCoherence détectait mais ne faisait que journaliser — le biais fautif s'affichait quand même et le champ exposé par l'API n'était lu nulle part. _sbGardeBiais le fait AGIR : un désaccord table/conclusion réaligne la table (source de vérité unique) ; une contradiction cellules/verdict recalcule le biais sur les CELLULES SEULES (une alerte 'sens' signifie que le tiers 'piliers' a fait basculer le verdict contre les colonnes affichées), à défaut conserve le biais précédent. Chaque correction est journalisée et conservée dans coherence.corrige : rien n'est réparé en silence. _sbVerifyBias (audit IA) reste volontairement non branchée. bump = régén au boot.   // v43 (11/08, demande user « il faut qu'on ait les bons biais EN FONCTION DES CATÉGORIES ») : LE VERDICT DÉCOULE DÉSORMAIS DES COLONNES AFFICHÉES. Avant, le lecteur voyait quatre catégories (politique monétaire, inflation, croissance, emploi) et un biais à droite qui venait d'AILLEURS — une confluence de quatre PILIERS qui ne sont pas ces colonnes ; le contrôle de cohérence le disait en clair (« USD : politique Restrictive, inflation Élevée, emploi Solide → cellules haussières, verdict Neutre »). Le score se calcule maintenant SUR LES CELLULES, dans l'ordre d'un desk FX : politique monétaire ×1,5 (le premier moteur d'une devise, son SENS donné par la stance et son INTENSITÉ par le ton réel des banquiers, sur 5 niveaux au lieu de 3), emploi ×1, croissance ×1, inflation ×1 (niveau 60 % / tendance 40 % : une inflation élevée qui reflue soutient moins), plus le portage (±0,15). Les piliers restent à 1/3 en confirmation — ils portent les surprises macro sur 6 mois et la lecture des banques, invisibles dans les colonnes. Et le score est RECENTRÉ sur la moyenne des huit : un biais FX est RELATIF, les huit devises ne peuvent pas monter ensemble contre rien — sans ce recentrage une bonne semaine mondiale rendait 5 devises sur 8 « haussières ». Vérifié sur les cellules réelles de prod : 4 légèrement haussiers, 2 neutres, 1 légèrement baissier, 1 baissier (CHF, accommodante + portage −2,78 pt). bump = régén au boot. v42 (11/08, AUDIT COMPLET demandé par l'user — « vérifie toute la chaîne, remonte à la source, pas de hardcode ») : SIX causes racines corrigées. (1) ÉCLIPSE DE DONNÉES : _calHistMerge laissait un événement À VENIR (sans `actual`) masquer la dernière publication réelle du même indicateur → l'IPC US/CAD disparaissait du modèle la semaine précédant chaque publication ; seules les publications RÉELLES éclipsent désormais l'archive. (2) NIVEAU D'INFLATION INVENTÉ : sans IPC en fenêtre, le niveau retombait sur la STANCE (agrégat de SURPRISES publié-vs-consensus) → « USD : inflation Basse » pendant que la Fed price une hausse. Repli supprimé (null assumé) ; le niveau n'accepte QUE de l'IPC ANNUEL (les m/m et q/q sont exclus — NZD lisait un trimestriel 1,5 % comme un niveau annuel) et se compare à la CIBLE DE SA banque centrale (_SB_CPI_TARGET : AUD 2,5 %, CHF 1 %…), headline prioritaire sur core. (3) SÉRIES INCOMPARABLES : _sbHistTrend moyennait toute une famille (ISM 54 + production 0,2 % + Ifo 87 ; chômages DE/ES/EU confondus) → « Croissance : Solide » sur 7 devises sur 8. Direction calculée PAR SÉRIE HOMOGÈNE (titre exact + pays), seuil RELATIF à l'échelle de la série, agrégation pondérée + hiérarchie zone euro (DE > FR). L'archive _calHist stocke maintenant une VRAIE série par titre (`_h`, 8 valeurs) et sa clé inclut le PAYS. (4) NIVEAU vs TENDANCE : Croissance et Emploi n'exposaient que la tendance sous un vocabulaire de niveau → ajout d'un NIVEAU mesuré (PMI vs 50 ; chômage vs sa propre moyenne) à côté de la tendance, comme l'inflation. (5) STANCE TRAVESTIE PAR LE PORTAGE : le libellé « Politique monétaire » dérivait de la valeur groundée (qui inclut le cran ±1 du différentiel de taux) → la BoJ pricée à 59 % de hausse s'affichait « Neutre » à côté de « Prochain mouvement : Hausse ». La stance affichée vient de la posture (stance + ton) ; le portage reste dans le score du pilier et dans son driver. (6) BANK OVERVIEW DÉSYNCHRONISÉ : la couche live reprenait la ligne telle quelle alors que les stances sous-jacentes avaient changé (7 haussières − 1 baissière sur 20 = Neutral servi « Bullish ») — ce seul écart basculait le biais final USD. Ré-agrégée à chaque tic. + drivers : récap source TRIÉ (le plus récent, plus jamais une semaine vieille de 3 mois), garantie « Différentiel de taux » appliquée AVANT écrêtage, et le MÉCANISME (`why`) transporté jusqu'au Radar. bump = régén au boot. v41 (03/08, règles user) : (1) pilier « Politique monétaire » intègre le DIFFÉRENTIEL DE TAUX — taux directeur à ≥1,5 pt SOUS la moyenne G8 (SNB ~0 %, BoJ ~1 %) = un cran baissier (portage structurel contre la devise), ≥1,5 pt AU-DESSUS = un cran haussier ; ligne `ratesLine` ajoutée aux ctxLines + narratifs. (2) « Différentiel de taux » GARANTI dans les Drivers macroTable des devises à portage extrême, même si le Récap Hebdo l'omet. (3) EUR : hiérarchie zone euro dans le pilier fondamental (Allemagne/zone plein poids, France 0.7, autres 0.45 — « l'Allemagne = 1er pays qui influence l'EUR, ensuite la France ») + Ifo Business Climate capté comme indicateur AVANCÉ de CROISSANCE (pas en Confiance : veto 21/07 maintenu pour ZEW/Sentix). bump = régén au boot. v40 : chaque valeur de l'historique detail.*.hist porte sa DATE ({v,t} au lieu d'une string) → le panneau affiche « 25 avr. 4.4% → … » (explicite pour un novice, demande user 23/07). bump = régén au boot. v39 : le DÉTAIL macro porte l'HISTORIQUE des dernières publications (detail.*.hist = jusqu'à 4 valeurs même libellé, ancien→récent) → la TENDANCE est visible avec les précédents dans le panneau (demande user). v38 : ZEW/IFO/Sentix RETIRÉS de Confiance/Sentiment (VETO user 21/07 « non n'ajoute pas ça » — seul l'élargissement Salaires « Average Earnings » UK est conservé). bump = régén sans les valeurs ZEW. v37 : COUVERTURE calendrier élargie (diagnostic user « tu prendras en compte quels news ? ») — SALAIRES captent « Average Earnings » (UK, ex. GBP « Average Earnings incl. Bonus ») en plus de « Average Hourly Earnings » (US). Corrige 2 trous où des sorties importantes n'entraient pas dans le biais/detail. NB : Balance commerciale + stocks pétrole API restent HORS modèle (le pilier = inflation/croissance/emploi/monétaire ; le signal pétrole vient du PRIX WTI, pas des stocks). bump = régén au boot. v36 : chaque devise porte un DÉTAIL macro (macroTable[c].detail) = vraies dernières publications par indicateur (IPC/PCE/PPI/salaires, PIB/PMI/ventes/confiance, chômage/NFP/inscriptions : actual+forecast+previous+surprise via _sbLatestRelease) + pricing marché (_sbPricingLine : FedWatch USD sinon scénario maison) → alimente le PANNEAU DE DÉTAIL au clic sur une devise dans le Radar de Biais (vue façon grille macro). bump = régén au boot. v35 : pilier « Politique monétaire » ANCRÉ SUR LA STANCE RÉELLE de la banque (diagnostic user « pourquoi on a pas pareil que ma grille ? »). CAUSE RACINE trouvée : (1) le pilier basé sur le seul TON des discours sortait « Very Bullish » partout ; (2) la trajectoire cumulée 6,5 mois de rateprobability (_rpDirMove) transformait une dérive de quelques bps en « HIKE » pour USD/GBP/CAD alors qu'ils sont en pause ; (3) EUR & AUD avaient un biais config 'hike' PÉRIMÉ (ère de hausse 2022-23). Corrigés → EUR/AUD='hold' (AUD lean cut). Désormais _sbPolicyStance donne le SIGNE : USD via CME FedWatch (prochain FOMC), sinon biais MAISON curé (CB[] + clamp taux terminal via _effBias, SANS surcouche IA rp/aibias) ; le ton n'intensifie que dans le MÊME sens (jamais flip) ; un MAINTIEN plafonne à ±Bullish (jamais « Very »). DIRECTION macroTable = _sbPolicyStance(c).dir (idem). → fin des biais systématiquement haussiers, alignés sur le régime de pause. bump = régén au boot. v33 : NIVEAU d'inflation ancré sur la CIBLE 2 % (insight user « au-dessus de 2 % = High ») — IPC annuel du calendrier > 2 % → Élevée, < 1,5 % → Basse, sinon Modérée (à la cible). Avant : seuil High à 2,5 % (2,3 % ressortait « Modérée » à tort). bump = régén. v32 : colonnes ENRICHIES de tous les sous-indicateurs clés (grille méthodo user) via _sbBlend — Inflation = IPC×1 + PCE×0.7 + PPI×0.6 + salaires×0.4 + pétrole×0.4 ; Croissance = PIB×1 + Retail×0.6 + PMI/ISM×0.6 + confiance×0.4 ; Emploi = chômage(inv)×1 + NFP/ADP×0.6 + claims(inv)×0.4 + JOLTS×0.3. bump = régén. v31 : CROISSANCE = signal AVANCÉ Ventes au détail (insight user « les Retail Sales anticipent le PIB et SONT la croissance conso ») — tendance Croissance = PIB confirmé (×1) + Ventes au détail (×0.6, avancé). Miroir de l'inflation (pétrole/PPI). bump = régén. v30 : le calendrier des tendances passe RÉELLEMENT à 6 mois (le clamp `Math.min(3,…)` de _buildTVCalendarRange + _RANGE_DAYS plafonnaient à 3 → corrigés à 6) + historique stocké _calHist étendu 60 j → ~6 mois (demande user). bump = régén au boot avec les 6 mois. v29 : conclusion = 4 PILIERS seulement (demande user : Hedge Fund/COT, Retail/particuliers et Saisonnalité RETIRÉS) → Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1. + Inflation enrichie du signal AVANCÉ pétrole + PPI (leading indicators de l'IPC). bump = régén au boot. v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -11717,6 +11718,70 @@ function _sbCoherence(macroTable, conclusion, diffs, monTone) {
   } catch {}
   return out;
 }
+/* ── DOUBLE VÉRIFICATION AVANT PUBLICATION (demande user 12/08) ────────────────────────────────────
+   `_sbCoherence` savait DÉTECTER une incohérence mais ne faisait rien d'autre que journaliser : le
+   biais fautif partait quand même à l'écran, et le champ `coherence` exposé par l'API n'était affiché
+   nulle part — l'alerte n'existait donc que dans les logs du serveur. (Le seul mécanisme correctif
+   écrit, `_sbVerifyBias`, n'a jamais eu le moindre appelant : du code mort.)
+   Ce garde-fou fait AGIR le contrôle, avec deux traitements de nature différente :
+
+   · `desync` — la colonne « Biais » de la table ne dit pas la même chose que la conclusion servie.
+     Ce n'est jamais légitime : les deux sortent du même calcul. On RÉALIGNE la table sur la
+     conclusion (source de vérité unique) — réparation déterministe, aucun arbitrage.
+
+   · `sens` — les cellules affichées penchent nettement d'un côté et le verdict dit l'inverse. Là on
+     ne devine pas : on retombe sur le verdict DÉRIVÉ DES CELLULES, qui est par construction cohérent
+     avec ce que l'utilisateur a sous les yeux. Sans lui, on garde le biais PRÉCÉDEMMENT publié
+     plutôt que d'en afficher un que les colonnes contredisent.
+
+   Chaque correction est journalisée ET conservée dans `coherence` (champ `corrige`) : rien n'est
+   réparé en silence. Une lecture des logs doit toujours pouvoir expliquer un biais affiché. */
+// Écart relatif (cellules seules, recentré sur les huit) → libellé de biais. MÊMES paliers que
+// _sbConcludeFromCells : deux façons de nommer le même écart donneraient deux biais différents.
+function _sbBiaisPurCellules(rel) {
+  if (rel == null || !isFinite(rel)) return null;
+  return rel >= 0.42 ? 'Bullish' : rel >= 0.15 ? 'Weak Bullish'
+       : rel <= -0.42 ? 'Bearish' : rel <= -0.15 ? 'Weak Bearish' : 'Neutral';
+}
+function _sbGardeBiais(macroTable, conclusion, diffs, monTone, prevConclusion, cellsVerdict, tag) {
+  const etiq = tag || 'SmartBias';
+  let alertes = [];
+  try {
+    alertes = _sbCoherence(macroTable, conclusion, diffs, monTone);
+    for (const a of alertes) {
+      if (a.type === 'desync') {
+        // La conclusion fait foi : on remet la colonne de la table dessus.
+        if (macroTable[a.ccy]) macroTable[a.ccy].bias = conclusion[a.ccy];
+        a.corrige = 'table realignee sur la conclusion';
+        console.warn(`[${etiq}] ⚠ COHÉRENCE ${a.ccy} : la table affichait « ${a.biais} » et la conclusion « ${a.attendu} » → table réalignée`);
+        continue;
+      }
+      // type 'sens' : les cellules penchent nettement d'un côté, le verdict dit l'inverse.
+      // ⚠️ Ce n'est PAS `cellsVerdict` qu'il faut reprendre : depuis la v43 la conclusion EST déjà
+      // ce verdict, et il mélange 2/3 de cellules avec 1/3 de piliers. Une alerte « sens » signifie
+      // précisément que le tiers « piliers » a fait basculer le verdict CONTRE les colonnes
+      // affichées. La seule correction défendable est donc le verdict des cellules SEULES — celles
+      // que l'utilisateur a sous les yeux — avec les paliers de _sbConcludeFromCells, pour que les
+      // deux chemins parlent la même langue.
+      const parCellules = _sbBiaisPurCellules(a.score);
+      const precedent = (prevConclusion || {})[a.ccy];
+      if (parCellules && parCellules !== conclusion[a.ccy]) {
+        conclusion[a.ccy] = parCellules;
+        if (macroTable[a.ccy]) macroTable[a.ccy].bias = parCellules;
+        a.corrige = 'verdict recalculé sur les seules cellules : ' + parCellules;
+      } else if (precedent && precedent !== conclusion[a.ccy]) {
+        conclusion[a.ccy] = precedent;
+        if (macroTable[a.ccy]) macroTable[a.ccy].bias = precedent;
+        a.corrige = 'biais précédent conservé : ' + precedent;
+      } else {
+        a.corrige = '';   // rien de plus sûr à proposer : on publie, mais l'alerte reste visible
+      }
+      console.warn(`[${etiq}] ⚠ COHÉRENCE ${a.ccy} : cellules ${a.attendu} (score ${a.score}) vs verdict « ${a.biais} » — ${a.cellules}`
+        + (a.corrige ? ` → ${a.corrige}` : ' → AUCUNE correction sûre, biais publié tel quel'));
+    }
+  } catch (e) { console.warn(`[${etiq}] garde-fou cohérence :`, e.message); }
+  return alertes;
+}
 function _sbCarryLevels(prev, next) {
   if (!prev || !next) return next;
   for (const c of Object.keys(next)) {
@@ -11960,6 +12025,10 @@ function _sbFillNarrative(bias) {
 //    re-juge au lieu d'auditer → on n'applique RIEN (biais pondérés conservés) et ses avis = ADVISORY.
 const _SB_VALID_BIAS = ['Very Bullish', 'Bullish', 'Weak Bullish', 'Neutral', 'Weak Bearish', 'Bearish', 'Very Bearish'];
 const _SB_AUDIT_MAX_CORR = 2;
+// ⚠️ NON BRANCHÉE — aucun appelant, et c'est délibéré depuis le 12/08 : la double vérification du
+// biais est désormais DÉTERMINISTE (`_sbGardeBiais`, qui confronte le verdict aux cellules affichées
+// et corrige). Un audit IA supplémentaire consommerait un appel par cycle sur un quota déjà tendu,
+// pour un contrôle moins ancré que celui des colonnes que l'utilisateur a sous les yeux.
 async function _sbVerifyBias(conclusion, ctxLines) {
   const dataBlock = (ctxLines || []).filter(Boolean).join('\n').slice(0, 3500);
   if (!dataBlock) return null;
@@ -12217,16 +12286,17 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   // v43 : LE BIAIS DÉCOULE DES CELLULES AFFICHÉES (+ piliers en confirmation, + recentrage relatif).
   // On recalcule APRÈS la table — c'est elle qui porte les catégories que lit le trader — puis on
   // réinjecte le verdict dans la table pour que colonne « Biais » et conclusion ne puissent pas diverger.
+  let _cellsVerdict = null;
   try {
-    const _cells = _sbConcludeFromCells(macroTable, conclusion, _mgDiffs, monTone);
-    if (_cells) {
-      for (const c of SB_CURRENCIES) if (_cells[c]) { conclusion[c] = _cells[c]; if (macroTable[c]) macroTable[c].bias = _cells[c]; }
+    _cellsVerdict = _sbConcludeFromCells(macroTable, conclusion, _mgDiffs, monTone);
+    if (_cellsVerdict) {
+      for (const c of SB_CURRENCIES) if (_cellsVerdict[c]) { conclusion[c] = _cellsVerdict[c]; if (macroTable[c]) macroTable[c].bias = _cellsVerdict[c]; }
       console.log('[SmartBias] biais dérivé des catégories affichées (cellules 2/3 + piliers 1/3, recentré) : ' + SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' '));
     }
   } catch (e) { console.warn('[SmartBias] conclusion cellules :', e.message); }
-  // Contrôle de cohérence données → interprétation → biais (demande user) : alerte, ne réécrit jamais.
-  const coherence = _sbCoherence(macroTable, conclusion, _mgDiffs, monTone);
-  if (coherence.length) for (const a of coherence) console.warn(`[SmartBias] ⚠ COHÉRENCE ${a.ccy} : les cellules affichées suggèrent un biais ${a.attendu} (score ${a.score}) mais le modèle conclut « ${a.biais} » — ${a.cellules}`);
+  // DOUBLE VÉRIFICATION avant publication : le contrôle CORRIGE désormais au lieu de seulement alerter.
+  const coherence = _sbGardeBiais(macroTable, conclusion, _mgDiffs, monTone,
+    (_smartBias && _smartBias.conclusion) || null, _cellsVerdict, 'SmartBias');
   console.log('[SmartBias] pétrole (WTI) tendance = ' + _oilDir + ' → signal avancé d\'inflation');
   // `generatedAt` = ANCRE HEBDO (semaine du bias) : bumpé UNIQUEMENT au run du samedi / changement de version /
   //   1re génération ; un simple refresh de DONNÉES en semaine (weekly=false) le CONSERVE — sinon _biasMissedWeekly
@@ -12350,11 +12420,15 @@ async function _sbRecomputeLive() {
     } catch (e) { console.warn('[SmartBias live] macroTable', e.message); }
     // v43 : MÊME dérivation qu'au cycle lourd — sinon le biais changerait de définition entre deux tics
     // (le piège classique de ce fichier : deux chemins qui calculent la même chose différemment).
+    let _cellsLive = null;
     try {
-      const _cells = _sbConcludeFromCells(macroTable, conclusion, _mgLive, _smartBias.monTone || {});
-      if (_cells) for (const c of SB_CURRENCIES) if (_cells[c]) { conclusion[c] = _cells[c]; if (macroTable[c]) macroTable[c].bias = _cells[c]; }
+      _cellsLive = _sbConcludeFromCells(macroTable, conclusion, _mgLive, _smartBias.monTone || {});
+      if (_cellsLive) for (const c of SB_CURRENCIES) if (_cellsLive[c]) { conclusion[c] = _cellsLive[c]; if (macroTable[c]) macroTable[c].bias = _cellsLive[c]; }
     } catch (e) { console.warn('[SmartBias live] conclusion cellules :', e.message); }
-    const coherence = _sbCoherence(macroTable, conclusion, _mgLive, _smartBias.monTone || {});
+    // Même double vérification qu'au cycle lourd — le tic live publie sur le desk exactement comme
+    // lui, il ne peut pas avoir des garanties plus faibles. (Avant, il ne journalisait même pas.)
+    const coherence = _sbGardeBiais(macroTable, conclusion, _mgLive, _smartBias.monTone || {},
+      _smartBias.conclusion || null, _cellsLive, 'SmartBias live');
     const next = Object.assign({}, _smartBias, { dataAt: Date.now(), rows, conclusion, technical, sentiment, macroTable, coherence });
     const after = _sbLiveFingerprint(next);
     _smartBias = next;
@@ -12442,6 +12516,33 @@ function _sbCalForDetail() {
     const base = tv.length ? tv : (allCalendar || []);
     try { return _calHistMerge(base); } catch { return base; }
   } catch { return allCalendar || []; }
+}
+/* DÉTECTION D'UNE PUBLICATION NEUVE — PAR EMPREINTE, pas par horaire (correctif 12/08).
+   `_sbHasNewActualSince` compare l'heure PRÉVUE de l'événement à la date du dernier recalcul. Ça
+   marche quand le chiffre arrive à l'heure, mais ça a un trou : un résultat publié en retard (le
+   fournisseur remplit `actual` cinq ou dix minutes après l'heure annoncée) porte toujours son
+   horodatage d'origine. Si un tic a eu lieu entre-temps, `timestamp > dataAt` est faux et la donnée
+   n'est JAMAIS vue comme neuve — elle n'entre dans le Radar qu'au recalcul complet suivant.
+   On mémorise donc l'ensemble des résultats déjà pris en compte : est neuf ce qu'on n'a jamais vu,
+   quelle que soit l'heure. Le premier appel AMORCE la mémoire sans rien déclencher (au démarrage,
+   tout le calendrier serait « neuf »). */
+const _sbActualsVus = new Set();
+let _sbActualsAmorce = false;
+function _sbNouvellePublication() {
+  try {
+    const neufs = [];
+    for (const e of (_tvCalCache.items || [])) {
+      if (!e || !(e.impact === 'High' || e.impact === 'Medium')) continue;
+      if (e.actual == null || e.actual === '' || !SB_CURRENCIES.includes(e.currency)) continue;
+      const cle = e.currency + '|' + (e.timestamp || 0) + '|' + String(e.title || '') + '|' + String(e.actual);
+      if (!_sbActualsVus.has(cle)) neufs.push(cle);
+    }
+    for (const k of neufs) _sbActualsVus.add(k);
+    // Garde-fou mémoire : le calendrier glisse, l'ensemble ne doit pas croître indéfiniment.
+    if (_sbActualsVus.size > 4000) { _sbActualsVus.clear(); _sbActualsAmorce = false; return false; }
+    if (!_sbActualsAmorce) { _sbActualsAmorce = true; return false; }   // amorçage : on note, on ne déclenche pas
+    return neufs.length > 0;
+  } catch { return false; }
 }
 function _sbHasNewActualSince(ts) {
   if (!ts) return false;
@@ -13045,8 +13146,41 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
   // TEMPS RÉEL (demande user 26/07) : couche rapide DÉTERMINISTE toutes les 3 min — 0 token, 0 scraping
   // (relecture de caches déjà entretenus). Silencieuse si rien n'a changé (diff dans _sbRecomputeLive) et
   // suspendue quand PERSONNE n'est connecté (_aiUsersIdle) → aucun travail inutile sur le VPS.
-  setInterval(() => { if (_aiUsersIdle()) return; _sbRecomputeLive().catch(() => {}); }, 3 * 60 * 1000);
+  // ⚠️ EXCEPTION à la mise en veille : une PUBLICATION à fort impact vient de tomber. Le tic ne coûte
+  // rien (aucun appel externe) et, sans cette exception, le premier utilisateur qui se connecte après
+  // un NFP lirait un biais calculé AVANT le chiffre — jusqu'au tic horaire du cycle lourd.
+  setInterval(() => {
+    if (_aiUsersIdle() && !_sbHasNewActualSince((_smartBias && _smartBias.dataAt) || 0)) return;
+    _sbRecomputeLive().catch(() => {});
+  }, 3 * 60 * 1000);
 })();
+
+/* ── LIEN DIRECT CALENDRIER → BIAIS (demande user 12/08 : « ça doit se mettre à jour en temps réel
+   avec les datas du calendrier qui sortent ») ────────────────────────────────────────────────────
+   Il n'existait AUCUN lien : ni `_buildTVCalendar`, ni `_refreshTVActuals`, ni `_calHistAbsorb` ne
+   prévenaient le Radar. Le biais ne découvrait un chiffre qu'en le SONDANT — au tic live de 3 min
+   (et seulement si quelqu'un était connecté), sinon au tic horaire. Un CPI publié à 14h30 pouvait
+   donc rester invisible dans le Radar pendant près d'une heure.
+   Ici, dès que le rafraîchissement du calendrier ramène un `actual` NOUVEAU sur un événement
+   High/Medium d'une des 8 devises, on relance immédiatement la couche déterministe (0 token,
+   0 scraping : elle ne fait que relire des caches déjà entretenus).
+   Verrou de 60 s : le calendrier se rafraîchit par salves (plusieurs chiffres tombent à la même
+   minute) et il est inutile de recalculer huit fois de suite pour la même salve. */
+let _sbPokeAt = 0, _sbPokeDu = false;
+function _sbPokeCalendrier(origine) {
+  try {
+    // ⚠️ `_sbNouvellePublication()` CONSOMME son état : elle mémorise ce qu'elle vient de voir, donc
+    // elle ne redira pas « neuf » au prochain passage. Si le verrou de 60 s nous arrête ici, le
+    // signal serait donc PERDU — on le met de côté (`_sbPokeDu`) pour le rejouer au tour suivant.
+    if (_sbNouvellePublication()) _sbPokeDu = true;
+    if (!_sbPokeDu || !_smartBias) return;
+    if (Date.now() - _sbPokeAt < 60 * 1000) return;   // salve de chiffres : un seul recalcul suffit
+    _sbPokeAt = Date.now();
+    _sbPokeDu = false;
+    console.log(`[SmartBias] nouvelle publication détectée (${origine}) → recalcul immédiat du Radar`);
+    _sbRecomputeLive().catch(() => {});
+  } catch {}
+}
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
 // Seed (issu des captures DTP) + éditions admin + extraction Gemini des flux recherche.
@@ -20440,7 +20574,12 @@ server.listen(PORT, async () => {
   setInterval(() => auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {}), 24 * 60 * 60 * 1000);
   // PRÉ-CHARGE les actuals (TradingView) → la colonne Actual est remplie dès la 1re ouverture du calendrier.
   setTimeout(async () => { try { await _calActualsLoad(); await _buildTVCalendar(); await _ensureCalendar(); await _refreshTVActuals(); } catch {} }, 9000);
-  setInterval(() => { _buildTVCalendar().catch(() => {}); _refreshTVActuals().catch(() => {}); }, 5 * 60 * 1000);   // calendrier + actuals rafraîchis toutes les 5 min (temps réel)
+  // Calendrier + actuals rafraîchis toutes les 5 min, et le Radar de Biais est PRÉVENU dès qu'un
+  // chiffre neuf arrive (au lieu d'attendre son propre tic pour le découvrir en sondant).
+  setInterval(() => {
+    Promise.allSettled([_buildTVCalendar(), _refreshTVActuals()])
+      .then(() => { try { _sbPokeCalendrier('rafraîchissement calendrier'); } catch {} });
+  }, 5 * 60 * 1000);
   // FX LIST : restaure le dernier snapshot persistant (affiché instantanément au boot, même si Yahoo throttle)
   // puis recalcule en arrière-plan ; refresh régulier ensuite → la table n'est JAMAIS vide.
   setTimeout(async () => { try { await _fxlLoadPersisted(); await computeFxList(); } catch {} }, 12000);
