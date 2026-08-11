@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260811-force-7d', ts: Date.UTC(2026, 7, 11, 14, 0), title: 'Force des Devises : courbes 7D/1M haute densité', desc: 'Les vues 7 jours et 1 mois passent en données horaires réelles (~120 et ~500 points au lieu de 5-7) : accélérations, ralentissements et retournements deviennent visibles. Et plus aucune courbe ne disparaît sous le bord du graphique — les valeurs finales de toutes les devises restent lisibles.' },
   { id: 'dtpu-20260811-weekly-structure', ts: Date.UTC(2026, 7, 11, 13, 0), title: 'Récap Hebdo : lecture par devise enrichie', desc: 'Dès la prochaine édition : une introduction qui reprend le fil des récaps quotidiens, un récit géopolitique suivi d\'une chronologie rapide, et pour chaque devise des rubriques Croissance économique et Emploi séparées, une ligne « Semaine à venir » avec les rendez-vous datés, et un bloc Biais / Scénario.' },
   { id: 'dtpu-20260811-fxdaily-structure', ts: Date.UTC(2026, 7, 11, 12, 0), title: 'FX Daily Recap : nouvelle lecture du jour', desc: 'Le récap quotidien s\'ouvre désormais sur le fil de la journée (résumé des séances Asie, Europe et US), suivi de deux blocs à puces — Géopolitique et Macro — qui vont droit aux faits qui ont compté, avant le détail par session. Même structure chaque jour, seules les données changent.' },
   { id: 'dtpu-20260810-recap-actes',   ts: Date.UTC(2026, 7, 10, 13, 0), title: 'Récap Hebdo : lecture en 3 actes', desc: 'Le Récap Hebdo des Marchés est désormais balisé en trois actes numérotés — Géopolitique, Macro & Banques Centrales, Biais par devise — pour suivre le fil de la semaine d\'un coup d\'œil.' },
@@ -15079,8 +15080,11 @@ const CS_PERIOD_CFG = {
   '8h':  { interval: '1m',  range: '5d',  cutoffMs:  8 * 3600000,                    clip:  5  },   // clip 5 % (était 3 % = le + agressif, écrêtait des swings intraday légitimes 4-5 %) → amplitude réelle ; 1 m (~480 pts sur 8 h, repli gradué 1m→5m→30m)
   '1d':  { interval: '1m',  range: '5d',  cutoffMs: 24 * 3600000,                    clip:  8  },   // clip 8 % (aligné sur today) : laisse passer les vrais swings sur 24 h → amplitude réelle ; 1 m (~1440 pts/jour, repli gradué 1m→5m→30m)
   '5d':  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
-  '7d':  { interval: '1d',  range: '1mo', cutoffMs:  7 * 86400000,                   clip: 15  },
-  '1m':  { interval: '1d',  range: '1mo', cutoffMs: null,                             clip: 20  },
+  // 7D/1M en HORAIRE (demande user 11/08 « en 7D la courbe ressemble à des traits ») : le 1d ne donnait
+  // que 5-7 points par paire → segments droits. Le 1h (fiable chez Yahoo jusqu'à ~2 ans de range) donne
+  // ~120 points réels sur 7 j et ~500 sur 1 mois — les vraies variations intraday, aucun point inventé.
+  '7d':  { interval: '1h',  range: '1mo', cutoffMs:  7 * 86400000,                   clip: 15  },
+  '1m':  { interval: '1h',  range: '1mo', cutoffMs: null,                             clip: 20  },
 };
 
 // Retry-enabled Yahoo Finance fetcher — retries once (800 ms delay) before giving up

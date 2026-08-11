@@ -919,14 +919,17 @@ function buildStrengthChart(containerId, data, opts = {}) {
     var loT = 0, hiT = 0;
     infos.forEach(function (i) { if (i.lo < loT) loT = i.lo; if (i.hi > hiT) hiT = i.hi; });
     if ((hi - lo) > (hiT - loT) * 0.65) return null;
-    // ⚠️ Les dernières valeurs gardées dans le cadre sont celles du PAQUET SEULEMENT. Inclure aussi
-    // celle de la fuyarde annulait tout le cadrage — et silencieusement : sa valeur finale est
-    // précisément sur son plateau, donc le maximum redevenait celui d'avant et le graphe ne bougeait
-    // pas d'un pixel. Son étiquette, elle, reste visible : declutter borne toute pastille dans le
-    // cadre, elle se pose donc au bord, du côté où sa courbe est partie.
-    var fins = dedans.map(function (i) { return i.fin; });
+    // Les dernières valeurs de TOUTES les devises visibles restent dans le cadre — fuyardes comprises
+    // (correctif 11/08, constat user : AUD/CHF/JPY coupées en bas du cadre, illisibles). La garantie
+    // documentée plus haut (« les DERNIÈRES valeurs sont TOUJOURS visibles, quoi qu'il arrive ») ne
+    // s'appliquait en réalité qu'au paquet. Conséquence assumée : quand une fuyarde TERMINE sur son
+    // plateau extrême, le cadre s'étend jusqu'à elle et la compression disparaît — c'est précisément
+    // le cas où l'utilisateur veut la LIRE. Quand elle est revenue vers le paquet en fin de période,
+    // le cadrage compresse comme avant et seule son excursion médiane sort du cadre.
+    var fins = infos.map(function (i) { return i.fin; });
     var marge = (hi - lo) * 0.06;
-    return { min: Math.min.apply(null, [lo - marge].concat(fins)), max: Math.max.apply(null, [hi + marge].concat(fins)) };
+    var finLo = Math.min.apply(null, fins), finHi = Math.max.apply(null, fins);
+    return { min: Math.min(lo - marge, finLo - marge * 0.5), max: Math.max(hi + marge, finHi + marge * 0.5) };
   }
   var _dernieresDonnees = data;                                     // pour recadrer sans attendre le prochain rafraichissement
   var _cadreLibre = false;                                            // double-clic : retour au cadrage plein
