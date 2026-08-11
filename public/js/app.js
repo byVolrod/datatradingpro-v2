@@ -2910,6 +2910,17 @@ function buildNewsItem(item) {
   const tagsEl = document.createElement('div');
   tagsEl.className = 'news-tags';
 
+  // TAG DE PAIRE (11/08, demande user) : sur une analyse d'événement, la paire la PLUS EXPOSÉE s'affiche
+  // en tête des tags (« AUD/USD ») → le lecteur sait immédiatement quel marché regarder. Déterministe
+  // côté serveur (_pair, dérivé de la devise de l'événement), jamais deviné à l'affichage.
+  if (item._pair) {
+    const tp = document.createElement('span');
+    tp.className = 'tag tag--pair';
+    tp.dataset.cat = 'pair';
+    tp.textContent = item._pair;
+    tp.title = 'Marché le plus exposé à cet événement';
+    tagsEl.appendChild(tp);
+  }
   const smartTags = getSmartTags(item);
   const _hl = (item.headline || '').toLowerCase();
   const _ratesGuard = /\b(rate decision|rate hike|rate cut|interest rate|policy rate|overnight rate|benchmark rate|basis point|bps|inflation rate|cpi|pce|ppi|hicp)\b/i;

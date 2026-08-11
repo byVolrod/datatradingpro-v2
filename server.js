@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260811-impact-marche', ts: Date.UTC(2026, 7, 11, 17, 30), title: 'Analyses d\'événement : « Impact marché » et marché exposé', desc: 'Chaque analyse d\'un événement majeur (décision de taux, CPI, emploi…) se termine désormais par un bloc « Impact marché » : ce que le résultat implique pour la suite — ton restrictif ou accommodant, plutôt maintien ou mouvement à la prochaine réunion, et le point précis à surveiller ensuite. La news porte aussi le marché le plus exposé (ex. AUD/USD) pour savoir immédiatement où regarder.' },
   { id: 'dtpu-20260811-biais-v42', ts: Date.UTC(2026, 7, 11, 16, 0), title: 'Radar de Biais : niveaux mesurés et données restaurées', desc: 'Croissance et Emploi affichent désormais un NIVEAU (PMI face au seuil d\'expansion, chômage face à sa propre moyenne) ET sa dynamique, comme l\'inflation. Le niveau d\'inflation se compare à la cible de CHAQUE banque centrale et n\'est plus jamais déduit d\'une surprise. La posture affichée d\'une banque centrale ne se confond plus avec l\'effet du différentiel de taux, et les moteurs de la semaine expliquent leur mécanisme au survol.' },
   { id: 'dtpu-20260811-force-7d', ts: Date.UTC(2026, 7, 11, 14, 0), title: 'Force des Devises : courbes 7D/1M haute densité', desc: 'Les vues 7 jours et 1 mois passent en données horaires réelles (~120 et ~500 points au lieu de 5-7) : accélérations, ralentissements et retournements deviennent visibles. Et plus aucune courbe ne disparaît sous le bord du graphique — les valeurs finales de toutes les devises restent lisibles.' },
   { id: 'dtpu-20260811-weekly-structure', ts: Date.UTC(2026, 7, 11, 13, 0), title: 'Récap Hebdo : lecture par devise enrichie', desc: 'Dès la prochaine édition : une introduction qui reprend le fil des récaps quotidiens, un récit géopolitique suivi d\'une chronologie rapide, et pour chaque devise des rubriques Croissance économique et Emploi séparées, une ligne « Semaine à venir » avec les rendez-vous datés, et un bloc Biais / Scénario.' },
@@ -9997,7 +9998,7 @@ ${biasLine || '(n/d)'}`;
 // (rendue en primer structuré côté front via isPrimerItem, jamais re-résumée). Dédup par événement/jour
 // (l'historique persiste l'item → pas de doublon après redéploiement). Budget IA négligeable (FOMC ~8×/an,
 // NFP ~1×/mois). [[markdown-strip-rule]]
-const EVA_VER = 8;   // v8 = RELATED STORIES EXTERNES (demande user 26/07 « scrape ForexFactory, + de fiabilité ») : dossier de presse de l'événement injecté au prompt via _relatedStoriesFor (FF direct → FF puppeteer → repli Google News RSS ; l'IP du VPS étant fichée Cloudflare, en prod c'est le repli qui sert tant que FF bloque). v7 = ARTICLES LIÉS (demande user 26/07 « related stories ») : le contexte ÉVÉNEMENT joint un EXTRAIT du corps de chaque dépêche liée (lignes « › ») — l'IA y RÉCUPÈRE les détails puis les raffine, équivalent du dossier Related Stories de FF (même source première que notre flux) ; + règle PMI corrigée (Services prioritaires UNIQUEMENT pour l'US). v6 = RÈGLES DE DESK mentor (_MENTOR_RULES : mispricing CPI vs pricing, MPS = texte→dépêches liées, PMI Services > Manufacturing + Flash = signal principal, emploi saisonnier vs durable) — le bump régénère les analyses DU JOUR (fenêtre 1h-14h, jamais les anciennes : leur contexte de dépêches a expiré) ; v5 = enrichissement CB (section « Interprétation de marché » : renforce/affaiblit le scénario + classes d'actifs ; ton hawkish/dovish + changement de formulation vs communiqué précédent) ; v4 = rigueur analyste (priced-in ≠ surprise) + retrait conclusion directionnelle
+const EVA_VER = 9;   // v9 (11/08, demande user) : chaque analyse d'événement se termine par « Impact marché » — la lecture PROSPECTIVE du desk (ton hawkish/dovish, maintien ou mouvement à la prochaine réunion, ce que ça change au pricing déjà en place, LE point précis à surveiller ensuite), sans conseil de position ni cible de prix ; + TAG DE PAIRE déterministe (`_pair`, dérivé de la devise de l'événement : le marché le plus exposé, affiché en tête des tags de la news). bump = les analyses du jour se régénèrent avec la section. v8 = RELATED STORIES EXTERNES (demande user 26/07 « scrape ForexFactory, + de fiabilité ») : dossier de presse de l'événement injecté au prompt via _relatedStoriesFor (FF direct → FF puppeteer → repli Google News RSS ; l'IP du VPS étant fichée Cloudflare, en prod c'est le repli qui sert tant que FF bloque). v7 = ARTICLES LIÉS (demande user 26/07 « related stories ») : le contexte ÉVÉNEMENT joint un EXTRAIT du corps de chaque dépêche liée (lignes « › ») — l'IA y RÉCUPÈRE les détails puis les raffine, équivalent du dossier Related Stories de FF (même source première que notre flux) ; + règle PMI corrigée (Services prioritaires UNIQUEMENT pour l'US). v6 = RÈGLES DE DESK mentor (_MENTOR_RULES : mispricing CPI vs pricing, MPS = texte→dépêches liées, PMI Services > Manufacturing + Flash = signal principal, emploi saisonnier vs durable) — le bump régénère les analyses DU JOUR (fenêtre 1h-14h, jamais les anciennes : leur contexte de dépêches a expiré) ; v5 = enrichissement CB (section « Interprétation de marché » : renforce/affaiblit le scénario + classes d'actifs ; ton hawkish/dovish + changement de formulation vs communiqué précédent) ; v4 = rigueur analyste (priced-in ≠ surprise) + retrait conclusion directionnelle
 const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l'item est persisté dans l'historique)
 let _evaBusy = false;
 // Dépêches de RÉACTION de prix à joindre (en plus des dépêches de l'événement) pour la section « RÉACTION DE MARCHÉ »
@@ -10039,6 +10040,10 @@ const EVA_CFG = {
     newsRe: /\b(\bism\b|\bpmi\b|manufacturing|services|new orders|prices paid|employment index)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "L'activité américaine (ISM — PMI manufacturier / services)" },
 };
+// PAIRE LA PLUS EXPOSÉE à l'événement (11/08, demande user) — déterministe, jamais devinée par l'IA :
+// la devise de l'événement face à sa contrepartie la plus liquide. Sert de tag sur la news ET d'ancre
+// pour la lecture « Impact marché » (le lecteur sait TOUT DE SUITE quel marché regarder).
+const _EVA_PAIR = { USD: 'EUR/USD', EUR: 'EUR/USD', GBP: 'GBP/USD', JPY: 'USD/JPY', CHF: 'USD/CHF', CAD: 'USD/CAD', AUD: 'AUD/USD', NZD: 'NZD/USD' };
 // Titre de section → MAJUSCULES SANS ACCENT (le rendu « titre orange » n'accepte que l'ASCII majuscule).
 function _evaHead(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -10247,7 +10252,8 @@ Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 {
   "headline": "<titre court et précis, ex. « Taux maintenus, dot plot plus hawkish » ou « CPI au-dessus du consensus, cœur tenace »>",
   "lead": "<2 à 4 phrases de synthèse : le résultat, la SURPRISE éventuelle (RÉELLE, vs consensus/pricing), le ton, la réaction principale>",
-  "sections": [ { "title": "<libellé COURT de section (≤ 40 caractères), en français, casse normale>", "points": ["<une phrase factuelle concrète>", "..."] } ]
+  "sections": [ { "title": "<libellé COURT de section (≤ 40 caractères), en français, casse normale>", "points": ["<une phrase factuelle concrète>", "..."] } ],
+  "marketImpact": "<IMPACT MARCHÉ — 2 à 3 phrases TOURNÉES VERS LA SUITE, la lecture qu'en fait un desk : ce que ce résultat SIGNIFIE pour la trajectoire (ton hawkish / dovish / neutre, plutôt maintien ou mouvement à la prochaine réunion), ce qu'il change au pricing DÉJÀ en place, et LE point précis à surveiller ensuite (donnée ou réunion nommée). Concret et nuancé : si le signal est ambigu, dis-le et explique pourquoi. AUCUN conseil de position, aucune cible de prix, aucun chiffre inventé.>"
 }
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
 🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) — VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
@@ -10282,6 +10288,11 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
     lines.push(title);
     pts.forEach(p => lines.push('- ' + p));
   }
+  // IMPACT MARCHÉ (11/08) : dernière section du rapport — la lecture prospective du desk. Rendue par la
+  // même grammaire de puces que le reste (sous-titre gras + puce), et conservée en champ structuré
+  // (`_impact`) pour les usages futurs. Absente si l'IA ne l'a pas renseignée : on ne meuble pas.
+  const impact = _stripMd(String(parsed.marketImpact || '')).replace(/\s+/g, ' ').trim().slice(0, 700);
+  if (impact.length > 40) { lines.push('Impact marché :'); lines.push('- ' + impact); }
   const description = lines.join('\n');
   if (description.replace(/\n/g, ' ').trim().length < 80) return null;   // trop maigre → on s'abstient
 
@@ -10294,6 +10305,8 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
     category: cfg.category, source: 'DTP Markets', time: timeStr, timestamp: now,
     priority: 'high', tags: cfg.tags.slice(),
     _eventAnalysis: true, _reportType: cfg.report, _evaVer: EVA_VER,
+    _pair: _EVA_PAIR[cfg.ccy] || null,          // paire la plus exposée (tag sur la news)
+    _impact: impact || null,                    // lecture prospective du desk
   };
   allNews = [item, ...allNews.filter(i => !(i.id || '').startsWith(idPrefix))].slice(0, 2000);   // remplace toute version antérieure du même événement
   _evaState[evKey] = true;

@@ -1844,6 +1844,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag--orange    { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag--blue      { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag--default:hover, .tag--neutral:hover, .tag--orange:hover, .tag--blue:hover { background: var(--border); }
+/* Tag PAIRE (analyse d'événement) : le marché le plus exposé, en OR signature — c'est le seul tag qui
+   désigne un instrument, il doit se distinguer des tags de thème sans crier plus fort qu'un badge d'état. */
+.tag--pair { background: rgba(227,178,58,0.13); border: 1px solid rgba(227,178,58,0.42); color: #f3c344; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.tag--pair:hover { background: rgba(227,178,58,0.2); }
 .tag--green     { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.4); color: #ffffff; }
 .tag--red                    { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff; }
 .tag[data-cat="Sanctions"]   { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff !important; }
