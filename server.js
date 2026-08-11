@@ -2580,7 +2580,7 @@ function _aiChatPrompt(q, newsCtx) {
   try {
     if (_smartBias && Array.isArray(_smartBias.rows) && _smartBias.rows.length) {
       const _SB_ROW_FR = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
-      const _SB_VAL_FR = { 'Very Bullish': 'Très haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement haussier', 'Uptrend': 'Haussier', 'Neutral': 'Neutre', 'Range': 'Neutre', 'N/A': 'Neutre', 'Weak Bearish': 'Légèrement baissier', 'Bearish': 'Baissier', 'Downtrend': 'Baissier', 'Very Bearish': 'Très baissier' };
+      const _SB_VAL_FR = { 'Very Bullish': 'Haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement haussier', 'Uptrend': 'Haussier', 'Neutral': 'Neutre', 'Range': 'Neutre', 'N/A': 'Neutre', 'Weak Bearish': 'Légèrement baissier', 'Bearish': 'Baissier', 'Downtrend': 'Baissier', 'Very Bearish': 'Baissier' };
       const _vfr = v => _SB_VAL_FR[v] || 'Neutre';
       const conc = _smartBias.conclusion || {};
       const ccys = (Array.isArray(_smartBias.currencies) && _smartBias.currencies.length) ? _smartBias.currencies : Object.keys(conc);
@@ -8541,27 +8541,28 @@ const _RECAP_CCY_FRAME = {
   NZD: "Politique : très restrictive, RBNZ toujours ferme. Moteurs dominants : politique de la RBNZ et sentiment Risk-On / Risk-Off. Biais de référence : haussier.",
 };
 // Normalise le biais renvoyé par l'IA vers l'enum FR EXACT (5 niveaux) ; tolérant aux variantes FR/EN.
-const _RECAP_BIAS_ENUM = ['Très haussier', 'Haussier', 'Neutre', 'Baissier', 'Très baissier'];
+const _RECAP_BIAS_ENUM = ['Haussier', 'Légèrement haussier', 'Neutre', 'Légèrement baissier', 'Baissier'];
 function _recapBiasNorm(b) {
   const s = _stripMd(String(b || '')).trim();
   const hit = _RECAP_BIAS_ENUM.find(x => x.toLowerCase() === s.toLowerCase());
   if (hit) return hit;
   const l = s.toLowerCase();
-  if (/tr[eè]s\s+hauss|very\s+bull|strong\s+bull/.test(l)) return 'Très haussier';
-  if (/tr[eè]s\s+baiss|very\s+bear|strong\s+bear/.test(l)) return 'Très baissier';
+  if (/tr[eè]s\s+hauss|very\s+bull|strong\s+bull/.test(l)) return 'Haussier';   // échelle à 5 crans : plus de « Très »
+  if (/tr[eè]s\s+baiss|very\s+bear|strong\s+bear/.test(l)) return 'Baissier';
   if (/hauss|bull/.test(l)) return 'Haussier';
   if (/baiss|bear/.test(l)) return 'Baissier';
   return 'Neutre';
 }
-// COHÉRENCE Radar ↔ Récap : mappe la conclusion Smart Bias (EN, source de vérité déterministe) vers le biais FR
-// du recap (Très haussier … Très baissier). « Weak Bullish/Bearish » → Haussier/Baissier (le recap n'a pas de
-// palier « faible »). Source de vérité UNIQUE : le biais du recap DÉCOULE de cette conclusion (demande user).
+// COHÉRENCE Radar ↔ Récap : mappe la conclusion Smart Bias (EN, source de vérité déterministe) vers le
+// biais FR du recap. ÉCHELLE UNIQUE À CINQ CRANS (demande user 11/08) — Haussier · Légèrement haussier ·
+// Neutre · Légèrement baissier · Baissier. Le palier « faible » existe DÉSORMAIS aussi dans le recap :
+// l'aplatir en « Haussier » faisait dire au rapport plus que ce que le Radar mesurait.
 function _sbConcToRecapFr(en) {
   const s = String(en || '').toLowerCase();
-  if (/very\s*bull/.test(s)) return 'Très haussier';
-  if (/very\s*bear/.test(s)) return 'Très baissier';
-  if (/bull/.test(s)) return 'Haussier';
-  if (/bear/.test(s)) return 'Baissier';
+  if (/weak\s*bull/.test(s)) return 'Légèrement haussier';
+  if (/weak\s*bear/.test(s)) return 'Légèrement baissier';
+  if (/bull|uptrend/.test(s)) return 'Haussier';
+  if (/bear|downtrend/.test(s)) return 'Baissier';
   return 'Neutre';
 }
 // « Valeur absente » : détecte les remplissages fantômes que l'IA glisse parfois dans un catalyseur (« Non
@@ -8622,7 +8623,7 @@ Return ONLY valid JSON (no preamble, no markdown fences) :
   "monetaryPolicy": "<UNE phrase MAXIMUM, et SEULEMENT si elle apporte quelque chose que les puces d'intervenants ne disent pas (ex. « narratif de statu quo prolongé de la BoE, renforcé par la communication antérieure de Bailey »). Sinon chaîne VIDE. ⚠️ Ce champ ne doit PAS redevenir un paragraphe : les propos et le pricing s'affichent en puces juste en dessous.>",
   "inflation": "<UNE phrase MAXIMUM sur l'inflation de ${ccy} / ${name}, uniquement si les chiffres publiés ne parlent pas d'eux-mêmes. Sinon chaîne VIDE — les prints s'affichent en puces sous cette rubrique. JAMAIS le chiffre d'un autre pays.>",
   "drivers": [ { "name": "<THÈME de la semaine pour cette devise, façon note de desk : Banque centrale | Fiscal | Commerce | Intervention / FX | Chine | Pétrole | Géopolitique | Risk-On/Off | Différentiel de taux | Flux obligataires>", "why": "<le fait CONCRET de la semaine sur ce thème, en 1 phrase dense — pas une généralité. Ex. « discussions Canada-US sur un arrangement intérimaire avant l'échéance tarifaire du 19 août : concessions évoquées sur les quotas laitiers en échange d'une baisse des tarifs acier/aluminium ». 1 à 3 thèmes MAX, uniquement ceux qui ont vraiment compté ; [] si les données ne portent que sur la macro déjà listée>" } ],
-  "bias": "<EXACTEMENT l'un de : Très haussier | Haussier | Neutre | Baissier | Très baissier>",
+  "bias": "<EXACTEMENT l'un de : Haussier | Légèrement haussier | Neutre | Légèrement baissier | Baissier>",
   "biasRationale": "<UNE phrase, façon « Bias / Scénario » : ce qui pilotera la devise et ce qui l'invaliderait. Ex. « CHF sans dynamique domestique forte, sa performance restera dictée par les différentiels de taux US et le sentiment de risque global. » JAMAIS un rappel de ce qui précède.>",
   "catalysts": [],
   "conclusion": "<UNE phrase, façon « Semaine à venir » de la référence : les catalyseurs qui décideront de la semaine suivante. Ex. « CPI, PPI puis PCE deviennent les catalyseurs déterminants pour la réunion de septembre, désormais jugée à pile ou face après le NFP. » Jamais deux phrases, jamais de rappel du passé.>"
@@ -17552,7 +17553,7 @@ function _deskTheme(upcoming, riskData) {
 function _deskBias() {
   try {
     const conc = _smartBias && _smartBias.conclusion; if (!conc) return [];
-    const M = { 'Very Bullish': ['Très haussier', 'BUY', 2], 'Bullish': ['Haussier', 'BUY', 1], 'Weak Bullish': ['Légèrement haussier', 'BUY', 1], 'Uptrend': ['Haussier', 'BUY', 1], 'Very Bearish': ['Très baissier', 'SELL', 2], 'Bearish': ['Baissier', 'SELL', 1], 'Weak Bearish': ['Légèrement baissier', 'SELL', 1], 'Downtrend': ['Baissier', 'SELL', 1] };
+    const M = { 'Very Bullish': ['Haussier', 'BUY', 2], 'Bullish': ['Haussier', 'BUY', 1], 'Weak Bullish': ['Légèrement haussier', 'BUY', 1], 'Uptrend': ['Haussier', 'BUY', 1], 'Very Bearish': ['Baissier', 'SELL', 2], 'Bearish': ['Baissier', 'SELL', 1], 'Weak Bearish': ['Légèrement baissier', 'SELL', 1], 'Downtrend': ['Baissier', 'SELL', 1] };
     return Object.entries(conc).map(([ccy, v]) => { const m = M[v]; return m ? { ccy, label: m[0], signal: m[1], conv: m[2] } : { ccy, label: 'Neutre', signal: 'NEUTRAL', conv: 0 }; })
       .filter(x => x.conv > 0).sort((a, b) => b.conv - a.conv).slice(0, 4);
   } catch { return []; }

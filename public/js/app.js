@@ -4394,9 +4394,12 @@ function _sbFlag(c) {
 // de Biais & Bias Summary). La valeur d'origine (v) reste la clé logique : classe (_sbColorCls),
 // score, comparaisons. → on n'enveloppe QUE le texte final affiché avec `BIAS_FR[v] || v`.
 const BIAS_FR = {
-  'Very Bullish': 'Très Haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement Haussier',
-  'Neutral': 'Neutre', 'Weak Bearish': 'Légèrement Baissier', 'Bearish': 'Baissier',
-  'Very Bearish': 'Très Baissier', 'Uptrend': 'Haussier', 'Downtrend': 'Baissier',
+  // ÉCHELLE UNIQUE À CINQ CRANS (demande user 11/08) : Haussier · Légèrement haussier · Neutre ·
+  // Légèrement baissier · Baissier. Plus de « Très », et une casse cohérente (« Légèrement haussier »
+  // et non « Légèrement Haussier ») : on lisait trois conventions différentes selon l'écran.
+  'Very Bullish': 'Haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement haussier',
+  'Neutral': 'Neutre', 'Weak Bearish': 'Légèrement baissier', 'Bearish': 'Baissier',
+  'Very Bearish': 'Baissier', 'Uptrend': 'Haussier', 'Downtrend': 'Baissier',
   'Range': 'Range', 'N/A': 'N/D',
 };
 // Libellés FR des badges d'impact (calendrier / Key Risk Events) : affichage UNIQUEMENT.
@@ -7189,7 +7192,20 @@ function _wrTagColorize(html){
 const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 const _WR_COLOR = { USD:'#e3b23a', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
 // Biais fondamental FR (5 niveaux) → classe sémantique DTP (vert→rouge) pour le badge par devise (v34).
-function _wrBiasCls(b){ b = String(b||'').toLowerCase(); if (/tr[eè]s\s+hauss/.test(b)) return 'vbull'; if (/hauss/.test(b)) return 'bull'; if (/tr[eè]s\s+baiss/.test(b)) return 'vbear'; if (/baiss/.test(b)) return 'bear'; return 'neu'; }
+// Couleur du badge de biais, sur l'échelle à CINQ crans (11/08) : le palier « légèrement » prend une
+// teinte atténuée au lieu de partager celle du palier plein — sinon un penchant marginal s'affichait
+// exactement comme une conviction. (« Très haussier/baissier » n'existe plus, mais on garde sa
+// reconnaissance pour les rapports archivés.)
+function _wrBiasCls(b){
+  b = String(b||'').toLowerCase();
+  if (/l[ée]g[èe]rement\s+hauss/.test(b)) return 'wbull';
+  if (/l[ée]g[èe]rement\s+baiss/.test(b)) return 'wbear';
+  if (/tr[eè]s\s+hauss/.test(b)) return 'bull';
+  if (/tr[eè]s\s+baiss/.test(b)) return 'bear';
+  if (/hauss/.test(b)) return 'bull';
+  if (/baiss/.test(b)) return 'bear';
+  return 'neu';
+}
 // GEW : noms de jour/mois EN→FR (le serveur date en anglais « Monday 22 June ») → plus clair pour le public FR.
 const _GEW_DOW_FR = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
 const _GEW_MON_FR = { January:'janvier', February:'février', March:'mars', April:'avril', May:'mai', June:'juin', July:'juillet', August:'août', September:'septembre', October:'octobre', November:'novembre', December:'décembre' };
