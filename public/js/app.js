@@ -7411,7 +7411,10 @@ function _renderWeeklyRecap(item) {
     }
   } else {
     // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Points Macro Clés + analyse par devise (rétrospectif) ──
-    if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+    // v42 : l'INTRO (bâtie sur les récaps quotidiens de la semaine) REMPLACE le summary en tête — jamais
+    // deux leads qui se répètent. Anciens rapports sans intro → summary comme avant (rétro-compat).
+    if (w.intro) body += `<div class="wr-text wr-summary">${_wrParas(w.intro)}</div>`;
+    else if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
     // TROIS ACTES (demande user « une logique Géopolitique / Macro / Biais ») : le rapport est balisé en
     // actes numérotés — 1·Géopolitique (chronologie ou thème géo), 2·Macro & Banques Centrales (Force +
     // Points Macro Clés + BC), 3·Biais par devise (analyse). Numérotation DYNAMIQUE : un acte sans
@@ -7423,13 +7426,16 @@ function _renderWeeklyRecap(item) {
     const _gt = (w.geoTimeline && Array.isArray(w.geoTimeline.jours) && w.geoTimeline.jours.length) ? w.geoTimeline : null;
     // Pas de chronologie → le thème macro « Géopolitique » monte en Acte 1 (extrait des Points Macro).
     const _geoTheme = !_gt ? (((w.macro || []).find(s => /g[ée]opolit/i.test((s && s.heading) || ''))) || null) : null;
-    if (_gt || _geoTheme) body += _actBanner('Géopolitique', 'ce qui a marqué la semaine');
+    const _geoNarr = Array.isArray(w.geoNarrative) ? w.geoNarrative.filter(Boolean) : [];   // v42 : récit géopolitique
+    if (_gt || _geoTheme || _geoNarr.length) body += _actBanner('Géopolitique', 'ce qui a marqué la semaine');
+    // v42 : le RÉCIT d'abord (courts paragraphes qui racontent le fil), la chronologie factuelle ensuite.
+    _geoNarr.forEach(p => { body += `<div class="wr-text wr-geo-p">${_wrParas(p)}</div>`; });
     if (_geoTheme) {
       body += `<div class="wr-macro-heading">${_wrEsc(_geoTheme.heading)}</div>`;
       (_geoTheme.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
     }
     if (_gt) {
-      body += `<div class="wr-section-title">Chronologie de la semaine${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
+      body += `<div class="wr-section-title">Chronologie rapide${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
       body += `<div class="wr-gt">`;
       _gt.jours.forEach(j => {
         body += `<div class="wr-gt-day"><div class="wr-gt-dayname">${_wrEsc(j.jour)}</div><div class="wr-gt-points">`;
@@ -7547,11 +7553,17 @@ function _renderWeeklyRecap(item) {
           if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
           infPrints.forEach(p => { body += printRow(p); });
         }
-        // 3bis) Croissance & Emploi — prints de la semaine (PIB, ventes, PMI, emploi…), déterministe.
+        // 3bis) Croissance économique / Emploi — prints de la semaine, déterministe. v42 : « Emploi » a sa
+        // propre rubrique (employmentPrints) ; anciens rapports sans ce champ → libellé groupé (rétro-compat).
         const groPrints = Array.isArray(cd.growthPrints) ? cd.growthPrints : [];
+        const empPrints = Array.isArray(cd.employmentPrints) ? cd.employmentPrints : [];
         if (groPrints.length) {
-          body += `<div class="wr-macro-heading">Croissance &amp; Emploi</div>`;
+          body += `<div class="wr-macro-heading">${empPrints.length ? 'Croissance économique' : 'Croissance &amp; Emploi'}</div>`;
           groPrints.forEach(p => { body += printRow(p); });
+        }
+        if (empPrints.length) {
+          body += `<div class="wr-macro-heading">Emploi</div>`;
+          empPrints.forEach(p => { body += printRow(p); });
         }
         // 4) Principaux moteurs — nouveau format {name, why} ; rétro-compat ancien {heading, bullets/detail}.
         if (drivers.length) {
@@ -7565,8 +7577,8 @@ function _renderWeeklyRecap(item) {
             }
           });
         }
-        // 5) Justification du biais (le BADGE est déjà dans l'en-tête → ici juste le pourquoi + risques)
-        if (cd.biasRationale) body += `<div class="wr-macro-heading">Justification du biais</div><div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
+        // 5) Biais / Scénario (le BADGE est déjà dans l'en-tête → ici juste le pourquoi + risques). v42 : rebaptisé façon référence.
+        if (cd.biasRationale) body += `<div class="wr-macro-heading">Biais / Scénario</div><div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
         // 6) Catalyseurs de la semaine (donnée · publié vs attendu → interprétation → impact)
         if (cats.length) {
           body += `<div class="wr-macro-heading">Catalyseurs de la semaine</div>`;
@@ -7579,8 +7591,14 @@ function _renderWeeklyRecap(item) {
             body += `<div class="wr-bullet wr-cat">${line}</div>`;
           });
         }
-        // 7) À surveiller (conclusion tournée vers l'avenir)
-        if (cd.conclusion) body += `<div class="wr-macro-heading">À surveiller</div><div class="wr-text">${_wrParas(cd.conclusion)}</div>`;
+        // 7) Semaine à venir (v42, façon référence) : les rendez-vous majeurs DATÉS de la devise (déterministe)
+        //    + la conclusion IA tournée vers l'avenir. Anciens rapports : conclusion seule sous le même libellé.
+        const wkAhead = Array.isArray(cd.weekAhead) ? cd.weekAhead : [];
+        if (wkAhead.length || cd.conclusion) {
+          body += `<div class="wr-macro-heading">Semaine à venir</div>`;
+          if (wkAhead.length) body += `<div class="wr-bullet wr-cat"><strong>Au programme :</strong> ${wkAhead.map(_wrEsc).join(' · ')}</div>`;
+          if (cd.conclusion) body += `<div class="wr-text">${_wrParas(cd.conclusion)}</div>`;
+        }
         body += `</div>`;   // fin .wr-ccy-body
         body += `</div>`;   // fin .wr-ccy-block
       });
