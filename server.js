@@ -10986,17 +10986,54 @@ function _sbBlend(specs, stanceFallback, thr) {
 //  • USD → CME FedWatch prioritaire (probas marché du prochain FOMC ; source demandée par l'user).
 //  • Sinon → biais MAISON curé (CB[] + clamp au taux terminal via _effBias) = ancre déterministe et stable,
 //    re-vérifiée en continu par _aiVerifyRates. Renvoie { dir:'Up'|'Down'|'Hold', s:+1|-1|0 }.
+// Mémo des probabilités de taux (60 s) : _sbPolicyStance est appelée en boucle sur 8 devises, plusieurs
+// fois par tic — inutile de reconstruire le payload TAUX à chaque appel.
+let _sbRatesMemo = { at: 0, banks: [] };
+function _sbRatesBanks() {
+  if (_sbRatesMemo.banks.length && Date.now() - _sbRatesMemo.at < 60000) return _sbRatesMemo.banks;
+  try { const p = _buildRatesPayload(); _sbRatesMemo = { at: Date.now(), banks: (p && p.banks) || [] }; } catch { _sbRatesMemo = { at: Date.now(), banks: [] }; }
+  return _sbRatesMemo.banks;
+}
+// HYSTÉRÉSIS (11/08) : un seuil sec faisait osciller la stance sur un point de probabilité. Mesuré sur
+// l'USD : CME donnait 56 % de hausse et rateprobability 52 % — les deux sources ENCADRAIENT le seuil 55,
+// et l'affichage sautait de « Accommodante · Maintien » à « Restrictive · Hausse » (deux crans) au gré du
+// rafraîchissement. On ENTRE dans une direction à 60 %, on n'en SORT qu'en dessous de 45 %.
+const _SB_HYST_IN = 60, _SB_HYST_OUT = 45;
+const _sbStanceLast = {};   // code → 'Up' | 'Down' | 'Hold' (dernière direction retenue)
+function _sbHystDir(code, hike, cut) {
+  const prev = _sbStanceLast[code] || 'Hold';
+  const h = +hike || 0, c = +cut || 0;
+  let dir = 'Hold';
+  if (prev === 'Up')        dir = h >= _SB_HYST_OUT ? 'Up'   : (c >= _SB_HYST_IN ? 'Down' : 'Hold');
+  else if (prev === 'Down') dir = c >= _SB_HYST_OUT ? 'Down' : (h >= _SB_HYST_IN ? 'Up'   : 'Hold');
+  else                      dir = h >= _SB_HYST_IN ? 'Up'    : (c >= _SB_HYST_IN ? 'Down' : 'Hold');
+  _sbStanceLast[code] = dir;
+  return dir;
+}
 function _sbPolicyStance(code) {
+  const _out = d => ({ dir: d, s: d === 'Up' ? 1 : d === 'Down' ? -1 : 0 });
+  // 1) USD : probabilités CME FedWatch du prochain FOMC (source demandée par l'user), avec hystérésis.
   if (code === 'USD' && _fedWatch && (_fedWatch.cut != null || _fedWatch.hike != null)) {
-    if ((_fedWatch.cut || 0) >= 55) return { dir: 'Down', s: -1 };
-    if ((_fedWatch.hike || 0) >= 55) return { dir: 'Up', s: 1 };
-    return { dir: 'Hold', s: 0 };
+    return _out(_sbHystDir(code, _fedWatch.hike, _fedWatch.cut));
+  }
+  // 2) AUTRES DEVISES : le PRICING DE MARCHÉ de la prochaine réunion prime sur la configuration maison
+  //    (correctif 11/08 — l'user a explicitement demandé « aucune donnée hardcodée devenue obsolète »).
+  //    Le biais `CB[].bias` est une constante curée à la main : elle se périme silencieusement à chaque
+  //    changement de cycle d'une banque centrale. Cas mesurés le 11/08 : la RBNZ avait relevé son taux le
+  //    08/07 avec une guidance de nouvelles hausses, et la BCE affichait ~70 % de hausse pricée au 10/09 —
+  //    le Radar montrait « Maintien » pour les deux, en contradiction avec la ligne de pricing du MÊME
+  //    panneau. La config reste le REPLI quand le marché n'a pas de conviction nette.
+  const rb = _sbRatesBanks().find(b => b && b.code === code);
+  const sc = (rb && rb.scenario) || null;
+  if (sc && (sc.hike != null || sc.cut != null)) {
+    const d = _sbHystDir(code, sc.hike, sc.cut);
+    if (d !== 'Hold') return _out(d);
   }
   const cb = (typeof CB !== 'undefined') ? CB.find(x => x.code === code) : null;
-  if (!cb) return { dir: 'Hold', s: 0 };
+  if (!cb) return _out('Hold');
   const st = (_ratesState && _ratesState.banks && _ratesState.banks[code]) || { rate: cb.rate };
-  const eff = _effBias(cb, st.rate);   // biais config curé + arrêt au taux terminal (déterministe, sans surcouche IA)
-  return eff === 'hike' ? { dir: 'Up', s: 1 } : eff === 'cut' ? { dir: 'Down', s: -1 } : { dir: 'Hold', s: 0 };
+  const eff = _effBias(cb, st.rate);   // biais config curé + arrêt au taux terminal (repli déterministe)
+  return _out(eff === 'hike' ? 'Up' : eff === 'cut' ? 'Down' : 'Hold');
 }
 // Même stance, mais dans le vocabulaire HIKE/CUT/HOLD de l'onglet TAUX (pour que le header « Prochain mouvement »
 // des cartes TAUX soit IDENTIQUE au « Prochain mouvement » du Radar de Biais — demande user « aligner TAUX sur la stance »).
@@ -11141,10 +11178,17 @@ function _sbSerieTitre(cal, ccy, rx) {
 // que lit tout desk) ; à défaut, PIB annuel. Aucun repli sur une stance de surprise (ce serait un niveau inventé).
 function _sbGrowthLevel(cal, c) {
   const pmi = _sbSerieTitre(cal, c, /manufacturing pmi|services? pmi|composite pmi|\bism\b|\bpmi\b/i);
-  if (pmi.length) return pmi[0] > 51.5 ? 'Strong' : pmi[0] < 48.5 ? 'Weak' : 'Neutral';
-  const gdpYoY = _sbSerieTitre(cal, c, /\bgdp\b|gross domestic/i);
-  if (gdpYoY.length) return gdpYoY[0] > 2 ? 'Strong' : gdpYoY[0] < 0.5 ? 'Weak' : 'Neutral';
-  return null;
+  const gdp = _sbSerieTitre(cal, c, /\bgdp\b|gross domestic/i);
+  const nPmi = pmi.length ? (pmi[0] > 51.5 ? 1 : pmi[0] < 48.5 ? -1 : 0) : null;   // 50 = frontière expansion/contraction
+  const nGdp = gdp.length ? (gdp[0] > 2 ? 1 : gdp[0] < 0.5 ? -1 : 0) : null;
+  if (nPmi == null && nGdp == null) return null;
+  // ⚠️ Les deux mesures peuvent se contredire — et c'est une information, pas un bug : une enquête
+  // (PMI) en expansion avec un PIB atone (cas suisse mesuré le 11/08 : PMI 53,2 mais PIB +0,3 % a/a)
+  // décrit une croissance MODÉRÉE, pas une croissance solide. Désaccord → « Neutral », jamais l'un des
+  // deux arbitrairement.
+  if (nPmi != null && nGdp != null && nPmi !== nGdp) return 'Neutral';
+  const n = nPmi != null ? nPmi : nGdp;
+  return n > 0 ? 'Strong' : n < 0 ? 'Weak' : 'Neutral';
 }
 // NIVEAU de l'emploi : taux de chômage comparé à SA PROPRE moyenne récente (un chômage à 2,5 % au Japon et
 // à 8,3 % en zone euro ne se jugent pas au même seuil absolu). Sous sa moyenne = marché tendu (Solide).
@@ -11163,6 +11207,42 @@ function _sbJobsLevel(cal, c) {
 // tombées à vide 5 minutes après une régénération pourtant correcte.
 // RÈGLE : un tic live peut RAFRAÎCHIR un niveau, jamais le SUPPRIMER. On reporte la dernière valeur
 // mesurée ; la prochaine publication (ou le cycle lourd) la remplace par une valeur fraîche.
+/* ══ CONTRÔLE DE COHÉRENCE « DONNÉES → INTERPRÉTATION → BIAIS » (11/08, demande explicite de l'user) ══
+   Le biais final est une confluence pondérée de QUATRE piliers (fondamental, banques, monétaire, force) ;
+   les CELLULES affichées (stance, inflation, croissance, emploi) en sont une lecture différente. Rien
+   n'empêchait donc structurellement d'afficher « Restrictive + croissance forte + emploi solide » à côté
+   d'un biais « Neutre » — exactement l'incohérence que l'user veut interdire.
+   CE QUE FAIT CE CONTRÔLE, ET CE QU'IL NE FAIT PAS. Il calcule le sens que les cellules AFFICHÉES
+   suggèrent et le compare au biais servi. En cas de contradiction FRANCHE il ALERTE (log + champ
+   `coherence` exposé dans l'API, visible côté admin) — il ne RÉÉCRIT PAS le biais. Écraser une confluence
+   pondérée par une heuristique de quatre cellules remplacerait un modèle mesurable par un raccourci :
+   l'anomalie doit être vue et corrigée à la source, pas maquillée à l'affichage. */
+const _SB_BIAS_SC = { 'Very Bullish': 2, 'Bullish': 1, 'Weak Bullish': 1, 'Neutral': 0, 'Range': 0, 'Weak Bearish': -1, 'Bearish': -1, 'Very Bearish': -2 };
+function _sbCoherence(macroTable, conclusion) {
+  const out = [];
+  try {
+    for (const c of Object.keys(macroTable || {})) {
+      const m = macroTable[c] || {};
+      const st = (m.monetary || {}).stance, inf = m.inflation || {};
+      const g = (m.growthCell || {}).level, e = (m.employmentCell || {}).level;
+      let score = 0, vus = 0;
+      if (st) { score += /hawk/i.test(st) ? 1 : /dov/i.test(st) ? -1 : 0; vus++; }
+      if (inf.level) { score += inf.level === 'High' ? 0.5 : inf.level === 'Low' ? -0.5 : 0; vus++; }
+      if (inf.trend) { score += inf.trend === 'Up' ? 0.5 : inf.trend === 'Down' ? -0.5 : 0; vus++; }
+      if (g) { score += g === 'Strong' ? 1 : g === 'Weak' ? -1 : 0; vus++; }
+      if (e) { score += e === 'Strong' ? 1 : e === 'Weak' ? -1 : 0; vus++; }
+      if (vus < 4) continue;                                   // trop peu de cellules renseignées → on ne juge pas
+      const attendu = score >= 2 ? 1 : score <= -2 ? -1 : 0;    // ne se prononce que sur un faisceau FRANC
+      if (!attendu) continue;
+      const reel = _SB_BIAS_SC[(conclusion || {})[c]] != null ? Math.sign(_SB_BIAS_SC[conclusion[c]]) : 0;
+      if (reel === attendu) continue;
+      out.push({ ccy: c, attendu: attendu > 0 ? 'haussier' : 'baissier', biais: conclusion[c] || 'Neutral',
+        score: +score.toFixed(1),
+        cellules: `politique ${st || '—'} · inflation ${inf.level || '—'}/${inf.trend || '—'} · croissance ${g || '—'} · emploi ${e || '—'}` });
+    }
+  } catch {}
+  return out;
+}
 function _sbCarryLevels(prev, next) {
   if (!prev || !next) return next;
   for (const c of Object.keys(next)) {
@@ -11659,6 +11739,9 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   // MACRO TABLE (vue « MACRO DATA » du Radar de Biais) : dérivé des piliers + taux + drivers du Récap Hebdo.
   const _oilDir = await _sbOilTrend();   // signal AVANCÉ pétrole → inflation (demande user)
   let macroTable = {}; try { macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion, _oilDir, monTone); } catch (e) { console.warn('[SmartBias] macroTable', e.message); }
+  // Contrôle de cohérence données → interprétation → biais (demande user) : alerte, ne réécrit jamais.
+  const coherence = _sbCoherence(macroTable, conclusion);
+  if (coherence.length) for (const a of coherence) console.warn(`[SmartBias] ⚠ COHÉRENCE ${a.ccy} : les cellules affichées suggèrent un biais ${a.attendu} (score ${a.score}) mais le modèle conclut « ${a.biais} » — ${a.cellules}`);
   console.log('[SmartBias] pétrole (WTI) tendance = ' + _oilDir + ' → signal avancé d\'inflation');
   // `generatedAt` = ANCRE HEBDO (semaine du bias) : bumpé UNIQUEMENT au run du samedi / changement de version /
   //   1re génération ; un simple refresh de DONNÉES en semaine (weekly=false) le CONSERVE — sinon _biasMissedWeekly
@@ -11666,7 +11749,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   //   (mis à jour à CHAQUE run) → sert à cadencer le rafraîchissement quotidien du biais (demande user).
   const _prevGenAt = (_smartBias && _smartBias.generatedAt) || 0;
   const _genAt = (weekly || !_prevGenAt) ? Date.now() : _prevGenAt;
-  _smartBias = { generatedAt: _genAt, dataAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, macroTable, monTone, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine, ratesLine].filter(Boolean) };
+  _smartBias = { generatedAt: _genAt, dataAt: Date.now(), heavyAt: Date.now(), coherence, v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, macroTable, monTone, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine, ratesLine].filter(Boolean) };
   // Régénération complète → les overrides admin (correctifs ponctuels d'aberrations IA) expirent :
   // la nouvelle matrice repart sur les données fraîches, l'admin ne corrige que si besoin à nouveau.
   try { if (Object.keys(_sbOverrides || {}).length) { _sbOverrides = {}; auth.aiCacheSet('sb:overrides', {}).catch(() => {}); } } catch {}
@@ -11778,7 +11861,8 @@ async function _sbRecomputeLive() {
       macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion, _oilDir, _smartBias.monTone || {});
       macroTable = _sbCarryLevels(_smartBias.macroTable, macroTable);   // un tic live ne SUPPRIME jamais un niveau mesuré
     } catch (e) { console.warn('[SmartBias live] macroTable', e.message); }
-    const next = Object.assign({}, _smartBias, { dataAt: Date.now(), rows, conclusion, technical, sentiment, macroTable });
+    const coherence = _sbCoherence(macroTable, conclusion);
+    const next = Object.assign({}, _smartBias, { dataAt: Date.now(), rows, conclusion, technical, sentiment, macroTable, coherence });
     const after = _sbLiveFingerprint(next);
     _smartBias = next;
     // Trace UNIQUE au premier recalcul de la vie du process : confirme que la couche est bien armée.
@@ -12444,8 +12528,14 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
       // FRAÎCHEUR QUOTIDIENNE des DONNÉES (demande user) : une publication qui définit le biais est sortie depuis le
       // dernier refresh → on RÉ-AGRÈGE les données (fundamental / macroTable+detail / conclusion) SANS toucher au
       // narratif hebdo du samedi (weekly=false). Filet anti-late-actual : refresh au moins 1×/~20 h de toute façon.
+      // ⚠️ CORRECTIF 11/08 — LA FAMINE DU CYCLE LOURD. La condition se mesurait sur `dataAt`, que la couche
+      // live re-bumpe TOUTES LES 3 MINUTES : « données vieilles de 20 h » n'était donc jamais vrai tant
+      // qu'un visiteur était connecté, et un print n'était vu que s'il tombait dans les 3 dernières
+      // minutes. Le cycle lourd (COT, contexte, drivers re-résolus, calendrier 6 mois) ne tournait plus
+      // qu'au run du samedi. On mesure désormais sur `heavyAt`, écrit par le seul cycle lourd.
       const _dAt = (_smartBias && (_smartBias.dataAt || _smartBias.generatedAt)) || 0;
-      const _dayStale = _dAt && (Date.now() - _dAt > 20 * 3600e3);
+      const _hAt = (_smartBias && (_smartBias.heavyAt || _smartBias.generatedAt)) || 0;
+      const _dayStale = _hAt && (Date.now() - _hAt > 20 * 3600e3);
       if (_sbHasNewActualSince(_dAt) || _dayStale) generateSmartBias(true, false).catch(() => {});   // biais à jour après chaque news importante
       else _sbEnsureNarrative().catch(() => {});                   // matrice fraîche mais narratif IA manquant/repli → retry ciblé (USD & co)
     }
