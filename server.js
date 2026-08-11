@@ -11015,13 +11015,22 @@ function _sbBlend(specs, stanceFallback, thr) {
 //  • USD → CME FedWatch prioritaire (probas marché du prochain FOMC ; source demandée par l'user).
 //  • Sinon → biais MAISON curé (CB[] + clamp au taux terminal via _effBias) = ancre déterministe et stable,
 //    re-vérifiée en continu par _aiVerifyRates. Renvoie { dir:'Up'|'Down'|'Hold', s:+1|-1|0 }.
-// Mémo des probabilités de taux (60 s) : _sbPolicyStance est appelée en boucle sur 8 devises, plusieurs
-// fois par tic — inutile de reconstruire le payload TAUX à chaque appel.
-let _sbRatesMemo = { at: 0, banks: [] };
-function _sbRatesBanks() {
-  if (_sbRatesMemo.banks.length && Date.now() - _sbRatesMemo.at < 60000) return _sbRatesMemo.banks;
-  try { const p = _buildRatesPayload(); _sbRatesMemo = { at: Date.now(), banks: (p && p.banks) || [] }; } catch { _sbRatesMemo = { at: Date.now(), banks: [] }; }
-  return _sbRatesMemo.banks;
+/* ⚠️ NE JAMAIS APPELER `_buildRatesPayload()` D'ICI — RÉCURSION INFINIE (incident du 11/08/2026).
+   Première version de ce correctif : `_sbPolicyStance` lisait le pricing via `_buildRatesPayload()`.
+   Or CE payload appelle `_sbStanceMove(code)` pour CHACUNE des 8 banques, qui appelle `_sbPolicyStance`,
+   qui rappelait `_buildRatesPayload()`… Le mémo ne cassait pas le cycle : il n'est écrit qu'APRÈS le
+   retour de la fonction, qui ne revenait jamais. Résultat en production : débordement de pile à chaque
+   lecture, `/api/smart-bias` ET `/api/rates` bloqués — l'onglet BIAIS restait sur son squelette de
+   chargement. On lit donc le cache rateprobability BRUT (`_rpCache`), exactement la même source que
+   la branche « marché » du payload, mais sans repasser par lui. */
+function _sbScenarioFor(code) {
+  try {
+    const rp = (_rpCache && _rpCache.banks) ? _rpCache.banks[code] : null;
+    if (!rp || !rp.scenario) return null;
+    // Même règle de fraîcheur que _buildRatesPayload : la valeur marché vaut 12 h (résilience si l'API tombe).
+    const age = Date.now() - (((_rpCache.bankAt || {})[code]) || _rpCache.at || 0);
+    return age < 12 * 3600 * 1000 ? rp.scenario : null;
+  } catch { return null; }
 }
 // HYSTÉRÉSIS (11/08) : un seuil sec faisait osciller la stance sur un point de probabilité. Mesuré sur
 // l'USD : CME donnait 56 % de hausse et rateprobability 52 % — les deux sources ENCADRAIENT le seuil 55,
@@ -11052,8 +11061,7 @@ function _sbPolicyStance(code) {
   //    08/07 avec une guidance de nouvelles hausses, et la BCE affichait ~70 % de hausse pricée au 10/09 —
   //    le Radar montrait « Maintien » pour les deux, en contradiction avec la ligne de pricing du MÊME
   //    panneau. La config reste le REPLI quand le marché n'a pas de conviction nette.
-  const rb = _sbRatesBanks().find(b => b && b.code === code);
-  const sc = (rb && rb.scenario) || null;
+  const sc = _sbScenarioFor(code);
   if (sc && (sc.hike != null || sc.cut != null)) {
     const d = _sbHystDir(code, sc.hike, sc.cut);
     if (d !== 'Hold') return _out(d);
