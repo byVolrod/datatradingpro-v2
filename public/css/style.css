@@ -5278,6 +5278,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Corps repliable. */
 .wr-ccy-body { display:none; padding:6px 14px 14px; }
 .wr-ccy-block.wr-ccy-open .wr-ccy-body { display:block; }
+/* ── LECTURE D'UN TRAIT (refonte 11/08) : le Récap Hebdo enchaîne les devises comme un document,
+   plus comme huit cartes fermées. Pas de cadre, pas de fond, pas de curseur « cliquable » : le code
+   de la devise fait titre, le contenu suit, la devise suivante est séparée par un filet fin. ── */
+.wr-ccy-block--flow { border:0; border-radius:0; background:transparent; margin:0; padding:22px 0 4px; border-top:1px solid var(--hud-line,var(--border)); }
+.wr-ccy-block--flow:first-of-type { border-top:0; padding-top:8px; }
+.wr-ccy-head--flow { padding:0 0 8px; cursor:default; background:transparent !important; align-items:baseline; }
+.wr-ccy-head--flow .wr-ccy-code { font-size:19px; font-weight:var(--fw-bold); letter-spacing:.5px; }
+.wr-ccy-head--flow .wr-ccy-thesis { white-space:normal; overflow:visible; text-overflow:clip; }
+.wr-ccy-body--flow { display:block !important; padding:0; }
 .wr-ccy-body .wr-macro-heading:first-child { margin-top:6px; }
 /* (Ancien titre plein, conservé pour rétro-compat de rendus non repliables.) */
 .wr-ccy-title { font-size:22px; font-weight:var(--fw-bold); letter-spacing:.5px; margin:0 0 12px; }

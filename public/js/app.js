@@ -7532,27 +7532,28 @@ function _renderWeeklyRecap(item) {
     // Calendrier économique RETIRÉ du Weekly Market Recap (demande user) : il vit dans le Global Economic Weekly.
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
-      // CARTES DÉPLIABLES (demande user « + simple, moins long, lisible à vue d'œil ») : chaque devise = un en-tête
-      // scannable TOUJOURS visible (code + badge biais coloré + accroche) → on lit le board FX d'un coup d'œil ;
-      // clic → déplie les 7 sections. Profondeur conservée, mais courte par défaut. État volatil (reset au reload).
-      body += `<div class="wr-section-title wr-ccy-sectitle">La semaine devise par devise`
-            + `<button type="button" class="wr-ccy-expandall" onclick="_wrToggleAllCcy(this)">Tout déplier</button></div>`;
+      /* ══ DOCUMENT QUI SE LIT D'UN TRAIT (refonte 11/08) ═══════════════════════════════════════════
+         L'accordéon était l'écart le plus visible avec la note de référence : elle enchaîne « USD »,
+         son paragraphe, ses rubriques, puis « EUR »… d'une traite, quand nous affichions huit cartes
+         fermées qu'il fallait cliquer une par une. Les blocs sont désormais OUVERTS et se suivent ;
+         le code de la devise est un simple titre, avec son badge de biais à côté. Plus de chevron,
+         plus de bouton « Tout déplier ». (_wrToggleCcy/_wrToggleAllCcy restent définis pour les
+         rapports archivés qui pourraient encore porter l'ancien balisage.) */
+      body += `<div class="wr-section-title wr-ccy-sectitle">La semaine devise par devise</div>`;
       ccys.forEach(c => {
         const cd = (w.currencies[c] && typeof w.currencies[c] === 'object') ? w.currencies[c] : { analysis: w.currencies[c] || '' };
         const thesis  = cd.thesis || '';
         const exec    = cd.execSummary || cd.analysis || '';                       // 1) Résumé exécutif (rétro-compat: analysis)
         const drivers = Array.isArray(cd.drivers) ? cd.drivers : [];              // 4) Principaux moteurs {name,why} | ancien {heading,bullets}
         const cats    = Array.isArray(cd.catalysts) ? cd.catalysts : [];          // 6) Catalyseurs
-        body += `<div class="wr-ccy-block">`;
-        // ── EN-TÊTE SCANNABLE (toujours visible, cliquable) : chevron + code + badge biais + accroche ──
-        body += `<div class="wr-ccy-head" role="button" tabindex="0" aria-expanded="false" onclick="_wrToggleCcy(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_wrToggleCcy(this);}">`;
-        body += `<span class="wr-ccy-chev" aria-hidden="true">▸</span>`;
+        body += `<div class="wr-ccy-block wr-ccy-block--flow">`;
+        // ── TITRE DE LA DEVISE : le code, son biais, et l'accroche de la semaine. Aucun repli. ──
+        body += `<div class="wr-ccy-head wr-ccy-head--flow">`;
         body += `<span class="wr-ccy-code" style="color:${_WR_COLOR[c]||'#fff'}">${c}</span>`;
         if (cd.bias) body += `<span class="wr-bias-badge wr-bias--${_wrBiasCls(cd.bias)}">${_wrEsc(cd.bias)}</span>`;
         if (thesis) body += `<span class="wr-ccy-thesis">${_wrEsc(thesis)}</span>`;
         body += `</div>`;
-        // ── CORPS REPLIABLE (les 7 sections) ──
-        body += `<div class="wr-ccy-body">`;
+        body += `<div class="wr-ccy-body wr-ccy-body--flow">`;
         // 1) Résumé exécutif — SKIP s'il répète le résumé global du rapport (constat prod 10/08 :
         // USD.execSummary reprenait w.summary quasi mot pour mot) : l'accroche + les sections suffisent.
         const _wrNorm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 140);
@@ -7597,7 +7598,10 @@ function _renderWeeklyRecap(item) {
         //    + la ligne de pricing marché.
         const cbBullets = Array.isArray(cd.cbBullets) ? cd.cbBullets : [];
         if (cd.monetaryPolicy || cbBullets.length || cd.pricing) {
-          body += `<div class="wr-macro-heading">Politique monétaire${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
+          // Rubrique nommée d'après LA banque de la devise (« Fed / Pricing », « BoE / Pricing »…),
+          // comme dans la référence — « Politique monétaire » était le même intitulé pour les huit.
+          const _BK = { USD: 'Fed', EUR: 'BCE', GBP: 'BoE', JPY: 'BoJ', CHF: 'BNS', CAD: 'BoC', AUD: 'RBA', NZD: 'RBNZ' };
+          body += `<div class="wr-macro-heading">${_wrEsc((_BK[c] || 'Banque centrale') + ' / Pricing')}${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
           if (cd.monetaryPolicy) body += `<div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
           // UN INTERVENANT = UNE PUCE (correctif 11/08) : le même officiel revenait deux fois de suite
           // (« Musalem … / Musalem … » constaté en prod), ce qu'aucune note de desk ne ferait.
@@ -7775,11 +7779,15 @@ function _renderFXDailyRecap(item) {
   if (!content) return;
   document.getElementById('arlib-ai-insights')?.remove();
 
-  if (titleEl) titleEl.textContent = _stripTitleDateLead(_mdStrip(w.title || 'FX Daily Recap'));
+  // Ligne de période retirée de TOUS les rapports (demande user 11/08). Pour le quotidien, la journée
+  // couverte serait alors perdue — le titre n'en porte pas — donc elle rejoint le TITRE, en suffixe :
+  // l'en-tête reste sur une seule ligne et l'information reste là.
+  const _fxrDate = String(w.dateLabel || '').trim();
+  if (titleEl) titleEl.textContent = _stripTitleDateLead(_mdStrip(w.title || 'FX Daily Recap')) + (_fxrDate ? ' — ' + _fxrDate : '');
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
-  if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
+  if (_rdateEl) _rdateEl.textContent = '';
 
   // Éclairages IA (réutilise le composant Institution) : cartes thématiques + paires avec badge de biais.
   const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20">`;
@@ -7931,7 +7939,11 @@ function _renderFXDailyRecap(item) {
         rows += `<tr class="cal-day-sep"><td colspan="10">${_wrEsc(dayLbl.charAt(0).toUpperCase() + dayLbl.slice(1))}</td></tr>`;
       }
       const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—';
-      const catBc = /banque centrale/i.test(e.category || '') ? ' <span class="fxdr-cal-cat">· Banque centrale</span>' : '';
+      // Mention « · Banque centrale » RETIRÉE (demande user 11/08 : « comme le vrai calendrier ») — et
+      // elle était FAUSSE : la catégorie est déduite du titre TradingView d'origine, où « Inflation
+      // RATE YoY » déclenchait le mot-clé « rate ». Un CPI s'affichait donc en événement de banque
+      // centrale. Le calendrier, lui, n'annote rien : le nom de l'indicateur se suffit.
+      const catBc = '';
       // Ligne CLIQUABLE → Décryptage DTP (même base pédagogique que l'onglet Calendrier), déplié juste en dessous.
       const _a = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
       rows += `<tr class="cal-row fxdr-cal-clic" role="button" tabindex="0" onclick="_fxrToggleCalRow(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleCalRow(this);}" title="Voir le décryptage"`
@@ -8023,11 +8035,13 @@ function _renderDTPDaily(item) {
   const navRight   = document.querySelector('#arlib-reader-view .arlib-rnav-right');
   if (!content) return;
   document.getElementById('arlib-ai-insights')?.remove();
-  if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'DTP Daily US Opening News');
+  // Idem : plus de ligne de période, la date rejoint le titre (une seule ligne d'en-tête, rien de perdu).
+  const _dtpdDate = String(w.dateLabel || '').trim();
+  if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'DTP Daily US Opening News') + (_dtpdDate ? ' — ' + _dtpdDate : '');
   if (navRight) navRight.innerHTML = `<span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
-  if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
+  if (_rdateEl) _rdateEl.textContent = '';
 
   const _sec = t => `<div class="fxdr-section">${_wrEsc(t)}</div>`;
   let body = '';
