@@ -2224,9 +2224,9 @@ function buildCOTChart(gridId, typeArg) {
           <div class="cot-foot2">
             <div class="cot-sides">
               <span class="cot-side cot-side--l">Longs<b>${ok ? fmtK(cur.longPos) : TIRET}</b></span>
+              <span class="cot-side cot-side--n">Net<b>${net}</b></span>
               <span class="cot-side cot-side--s">Courts<b>${ok ? fmtK(cur.shortPos) : TIRET}</b></span>
             </div>
-            <div class="cot-netline">Net <b>${net}</b>${ok ? ' contrats' : ''}</div>
           </div>`;
         grid.appendChild(cell);
       }

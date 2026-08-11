@@ -7516,7 +7516,10 @@ function _renderWeeklyRecap(item) {
          une puce par temps fort de la semaine. Nous rendions une GRILLE jour/points fléchés, plus un
          bloc « État en fin de semaine » qui n'existe pas chez elle et redisait le dernier paragraphe
          du récit juste au-dessus. Les points d'un même jour sont recollés en une ligne dense. */
-      body += `<div class="wr-section-title">Chronologie rapide${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
+      // FUSION 11/08 (demande user) : « Chronologie rapide » n'est plus une SECTION à part — le récit
+      // et la chronologie racontaient la même semaine sous deux titres, l'un après l'autre. Un simple
+      // libellé en ligne suffit à marquer le changement de registre (du récit à la séquence datée).
+      body += `<div class="wr-macro-heading">Chronologie rapide${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
       _gt.jours.forEach(j => {
         const pts = (j.points || []).map(p => _wrInline(String(p).replace(/\s*[;.]\s*$/, ''))).filter(Boolean).join(' ; ');
         if (!pts) return;
