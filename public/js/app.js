@@ -7904,31 +7904,12 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
-  // ── Central Bank Focus ──
-  if ((w.centralBanks || []).length) {
-    body += _sec('Focus banques centrales') + '<div class="fxdr-grid">';
-    w.centralBanks.forEach(c => {
-      body += `<div class="fxdr-card fxdr-cb"><div class="fxdr-card-title">${_wrEsc(c.name || '')}</div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
-    });
-    body += '</div>';
-  }
-
-  // ── Key Economic Data (table IA, rétro-compat anciens rapports) — MASQUÉE quand « Données du jour »
-  //    déterministe (v9) est présente : mêmes chiffres, source plus fiable, pas de doublon. ──
-  if (!_dbc.length && (w.econData || []).length) {
-    body += _sec('Données économiques clés') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
-      + '<th>Publication</th><th>Période</th><th>Indicateur</th><th class="num">Réel</th><th class="num">Attendu</th><th class="num">Précédent</th>'
-      + '</tr></thead><tbody>';
-    w.econData.forEach(r => {
-      const ms = (r.metrics && r.metrics.length) ? r.metrics : [{ metric: '', actual: '', expected: '', previous: '' }];
-      ms.forEach((m, idx) => {
-        body += '<tr>';
-        if (idx === 0) body += `<td rowspan="${ms.length}" class="fxdr-rel">${_wrEsc(r.release || '')}</td><td rowspan="${ms.length}" class="fxdr-per">${_wrEsc(r.period || '')}</td>`;
-        body += `<td>${_wrEsc(m.metric || '')}</td><td class="num">${_wrEsc(m.actual || '')}</td><td class="num dim">${_wrEsc(m.expected || '')}</td><td class="num dim">${_wrEsc(m.previous || '')}</td></tr>`;
-      });
-    });
-    body += '</tbody></table></div>';
-  }
+  // ── « Focus banques centrales » et « Données économiques clés » RETIRÉS (demande user 11/08 :
+  //    « elle sert à rien »). Les deux faisaient doublon : la posture des banques est déjà racontée
+  //    dans Macro (avec son effet devise) et les chiffres publiés sont déjà dans « Données publiées »
+  //    de chaque session, avec leur HEURE de sortie et une source déterministe. Le serveur ne les
+  //    demande d'ailleurs plus à l'IA ; ces blocs subsistaient pour les anciens rapports — on ne les
+  //    rend plus du tout, y compris sur l'historique, pour que la lecture soit la même chaque jour.
 
   // ── Analyst Comments ──
   if ((w.comments || []).length) {
@@ -7952,7 +7933,7 @@ function _renderFXDailyRecap(item) {
   //    économique ») : séparateurs de jours, heure, drapeau rond + devise, points d'impact ●●●.
   //    Réutilise les briques RÉELLES du calendrier (CAL_FLAG / calImpDots / cal-day-sep, charts.js).
   //    Anciens rapports (sans ts/ccy) : ligne sans heure/drapeau, rien ne casse.
-  if ((w.lookahead || []).length) {
+  if ((w.lookahead || []).length || (w.watch || []).length) {
     const _flag = c => (typeof CAL_FLAG === 'function' && c) ? CAL_FLAG(c) : '';
     const _dots = i => (typeof calImpDots === 'function') ? calImpDots(i) : _wrEsc(i || '');
     // Cellules de VALEURS identiques au calendrier (réel coloré vs prévision via calActualCell ;
@@ -7961,7 +7942,7 @@ function _renderFXDailyRecap(item) {
     const _vp = v => v ? `<span class="cv-prev">${_wrEsc(v)}</span>` : '<span class="cv-empty">—</span>';
     const _va = e => (typeof calActualCell === 'function') ? calActualCell(e.actual || '', e.forecast || '', e.low || '', e.event || '') : _vf(e.actual);
     let rows = '', lastDay = null;
-    w.lookahead.forEach(e => {
+    (w.lookahead || []).forEach(e => {
       const d = e.ts ? new Date(e.ts) : null;
       const dayLbl = d ? d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
       if (dayLbl && dayLbl !== lastDay) {
@@ -7973,7 +7954,12 @@ function _renderFXDailyRecap(item) {
       rows += `<tr class="cal-row"><td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '—')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}</td>`
         + `<td class="cth-val">${_va(e)}</td><td class="cth-val">${_vf(e.high)}</td><td class="cth-val">${_vf(e.forecast)}</td><td class="cth-val">${_vp(e.low)}</td><td class="cth-val">${_vp(e.previous)}</td></tr>`;
     });
-    body += _sec('À surveiller') + `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
+    // v14b : les puces NARRATIVES d'abord (le POURQUOI de chaque catalyseur, façon note de desk), le
+    // tableau calendrier ensuite (les dates et les chiffres). L'un explique, l'autre chiffre.
+    const _watch = (w.watch || []).filter(Boolean);
+    body += _sec('À surveiller');
+    if (_watch.length) { body += '<div class="fxdr-bullets">'; _watch.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; }
+    if (rows) body += `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
       + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
       + '<th class="cth-val">Réel</th><th class="cth-val">High</th><th class="cth-val">Prévision</th><th class="cth-val">Low</th><th class="cth-val">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   }
