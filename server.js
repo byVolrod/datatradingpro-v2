@@ -658,7 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
-  { id: 'dtpu-20260811-impact-marche', ts: Date.UTC(2026, 7, 11, 17, 30), title: 'Analyses d\'événement : « Impact marché » et marché exposé', desc: 'Chaque analyse d\'un événement majeur (décision de taux, CPI, emploi…) se termine désormais par un bloc « Impact marché » : ce que le résultat implique pour la suite — ton restrictif ou accommodant, plutôt maintien ou mouvement à la prochaine réunion, et le point précis à surveiller ensuite. La news porte aussi le marché le plus exposé (ex. AUD/USD) pour savoir immédiatement où regarder.' },
+  { id: 'dtpu-20260811-impact-marche', ts: Date.UTC(2026, 7, 11, 17, 30), title: 'Analyses d\'événement : « Impact marché », marché exposé et 5 banques de plus', desc: 'Chaque analyse d\'un événement majeur se termine désormais par un bloc « Impact marché » : ce que le résultat implique pour la suite — ton restrictif ou accommodant, plutôt maintien ou mouvement à la prochaine réunion, et le point précis à surveiller ensuite. La news porte aussi le marché le plus exposé (ex. AUD/USD). Et la couverture s\'élargit : les décisions de la RBA, de la BoJ, de la Banque du Canada, de la RBNZ et de la BNS sont désormais analysées comme celles de la Fed, de la BCE et de la BoE.' },
   { id: 'dtpu-20260811-biais-v42', ts: Date.UTC(2026, 7, 11, 16, 0), title: 'Radar de Biais : niveaux mesurés et données restaurées', desc: 'Croissance et Emploi affichent désormais un NIVEAU (PMI face au seuil d\'expansion, chômage face à sa propre moyenne) ET sa dynamique, comme l\'inflation. Le niveau d\'inflation se compare à la cible de CHAQUE banque centrale et n\'est plus jamais déduit d\'une surprise. La posture affichée d\'une banque centrale ne se confond plus avec l\'effet du différentiel de taux, et les moteurs de la semaine expliquent leur mécanisme au survol.' },
   { id: 'dtpu-20260811-force-7d', ts: Date.UTC(2026, 7, 11, 14, 0), title: 'Force des Devises : courbes 7D/1M haute densité', desc: 'Les vues 7 jours et 1 mois passent en données horaires réelles (~120 et ~500 points au lieu de 5-7) : accélérations, ralentissements et retournements deviennent visibles. Et plus aucune courbe ne disparaît sous le bord du graphique — les valeurs finales de toutes les devises restent lisibles.' },
   { id: 'dtpu-20260811-weekly-structure', ts: Date.UTC(2026, 7, 11, 13, 0), title: 'Récap Hebdo : lecture par devise enrichie', desc: 'Dès la prochaine édition : une introduction qui reprend le fil des récaps quotidiens, un récit géopolitique suivi d\'une chronologie rapide, et pour chaque devise des rubriques Croissance économique et Emploi séparées, une ligne « Semaine à venir » avec les rendez-vous datés, et un bloc Biais / Scénario.' },
@@ -9637,7 +9637,7 @@ Rédige une NOTE DE DESK ULTRA-CONDENSÉE de la journée — droit à l'essentie
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, aucun caractère **). Garde les CLÉS en anglais et rédige toutes les VALEURS en français. Forme EXACTE attendue :
 {
   "title": "<titre d'une ligne percutant résumant la journée, ex. 'Le dollar recule, le pétrole chute sur l'optimisme d'un accord US-Iran'>",
-  "intro": "<INTRO D'OUVERTURE : 1 à 2 phrases qui résument le FIL ROUGE de la journée en s'appuyant D'ABORD sur les RÉCAPS DE SÉANCE fournis (Asie → Europe → US) : ce que la journée a raconté, session après session. Ton naturel de stratège, pas une liste>",
+  "intro": "<INTRO D'OUVERTURE : 2 phrases MAXIMUM (jamais 3) qui résument le FIL ROUGE de la journée en s'appuyant D'ABORD sur les RÉCAPS DE SÉANCE fournis (Asie → Europe → US) : ce que la journée a raconté, session après session. Ton naturel de stratège, pas une liste>",
   "geopolitics": ["<puce géopolitique FACTUELLE du jour : le fait → son implication marché si elle est visible. UNIQUEMENT ce qui figure dans les données fournies ; tableau VIDE [] si rien de géopolitique aujourd'hui>"],
   "macro": ["<puce macro : banque centrale / donnée / politique éco — format 'fait + chiffre → effet'. Les 3 à 6 développements macro qui ont VRAIMENT compté aujourd'hui, une phrase par puce>"],
   "summary": "<SYNTHÈSE ULTRA-DENSE : 2 à 3 phrases MAX, chacune reliée par la flèche → : le fait dominant du jour, le dollar US et son driver, la publication CLÉ avec son chiffre (réel vs attendu) et son effet. Zéro remplissage>",
@@ -10039,6 +10039,35 @@ const EVA_CFG = {
     calRe:  /\bism\b/i,
     newsRe: /\b(\bism\b|\bpmi\b|manufacturing|services|new orders|prices paid|employment index)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "L'activité américaine (ISM — PMI manufacturier / services)" },
+  // ── BANQUES CENTRALES DU RESTE DU G8 (11/08/2026) ────────────────────────────────────────────────
+  // Trou de couverture constaté : une décision RBA, BoJ, BoC, RBNZ ou BNS ne déclenchait AUCUNE analyse
+  // d'événement — alors que ce sont exactement les rendez-vous qui font bouger AUD, JPY, CAD, NZD et CHF
+  // (la décision RBA du 11/08 est passée sans analyse). Même gabarit que la Fed/BCE/BoE : sections
+  // banque centrale + « Impact marché » + tag de la paire la plus exposée.
+  // ⚠️ `category` DOIT appartenir à INTERNAL_CATS (app.js) — c'est la liste des filtres du fil. Un premier
+  // jet utilisait « Central Banks », absent de cette liste : les analyses auraient été SILENCIEUSEMENT
+  // masquées du fil (catégorie non cochée par défaut). On réutilise donc les catégories par banque, déjà
+  // prévues et déjà filtrables : RBA · BoJ · BoC · RBNZ · SNB.
+  rba:  { label: 'RBA',    report: 'RBA Analysis',  category: 'RBA',  tags: ['RBA', 'Rates', 'AUD'], ccy: 'AUD', cb: true, gnq: 'RBA cash rate decision Bullock',
+    calRe:  /\b(rba (?:interest )?rate|cash rate|reserve bank of australia)\b/i,
+    newsRe: /\b(rba|reserve bank of australia|bullock|cash rate|rate decision|statement on monetary policy)\b/i,
+    sections: _EVA_CB_SECTIONS, intro: "La décision de politique monétaire de la RBA (Banque de réserve d'Australie)" },
+  boj:  { label: 'BOJ',    report: 'BoJ Analysis',  category: 'BoJ',  tags: ['BoJ', 'Rates', 'JPY'], ccy: 'JPY', cb: true, gnq: 'Bank of Japan rate decision Ueda',
+    calRe:  /\b(boj (?:interest )?rate|bank of japan|policy rate|policy balance rate)\b/i,
+    newsRe: /\b(boj|bank of japan|ueda|policy rate|rate decision|yield curve|\bytc\b|summary of opinions|intervention)\b/i,
+    sections: _EVA_CB_SECTIONS, intro: 'La décision de politique monétaire de la BoJ (Banque du Japon)' },
+  boc:  { label: 'BOC',    report: 'BoC Analysis',  category: 'BoC',  tags: ['BoC', 'Rates', 'CAD'], ccy: 'CAD', cb: true, gnq: 'Bank of Canada rate decision Macklem',
+    calRe:  /\b(boc (?:interest )?rate|bank of canada|overnight rate)\b/i,
+    newsRe: /\b(boc|bank of canada|macklem|overnight rate|rate decision|monetary policy report)\b/i,
+    sections: _EVA_CB_SECTIONS, intro: 'La décision de politique monétaire de la Banque du Canada (BoC)' },
+  rbnz: { label: 'RBNZ',   report: 'RBNZ Analysis', category: 'RBNZ', tags: ['RBNZ', 'Rates', 'NZD'], ccy: 'NZD', cb: true, gnq: 'RBNZ official cash rate decision',
+    calRe:  /\b(rbnz (?:interest )?rate|official cash rate|\bocr\b|reserve bank of new zealand)\b/i,
+    newsRe: /\b(rbnz|reserve bank of new zealand|official cash rate|\bocr\b|rate decision|monetary policy statement)\b/i,
+    sections: _EVA_CB_SECTIONS, intro: "La décision de politique monétaire de la RBNZ (Banque de réserve de Nouvelle-Zélande)" },
+  snb:  { label: 'BNS',    report: 'SNB Analysis',  category: 'SNB',  tags: ['SNB', 'Rates', 'CHF'], ccy: 'CHF', cb: true, gnq: 'Swiss National Bank rate decision',
+    calRe:  /\b(snb (?:interest )?rate|swiss national bank|policy rate)\b/i,
+    newsRe: /\b(snb|swiss national bank|schlegel|policy rate|rate decision|franc intervention)\b/i,
+    sections: _EVA_CB_SECTIONS, intro: 'La décision de politique monétaire de la BNS (Banque nationale suisse)' },
 };
 // PAIRE LA PLUS EXPOSÉE à l'événement (11/08, demande user) — déterministe, jamais devinée par l'IA :
 // la devise de l'événement face à sa contrepartie la plus liquide. Sert de tag sur la news ET d'ancre
