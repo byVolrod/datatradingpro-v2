@@ -7463,15 +7463,23 @@ function _renderWeeklyRecap(item) {
     // actes numérotés — 1·Géopolitique (chronologie ou thème géo), 2·Macro & Banques Centrales (Force +
     // Points Macro Clés + BC), 3·Biais par devise (analyse). Numérotation DYNAMIQUE : un acte sans
     // contenu est sauté (jamais de « 2 » sans « 1 »). Pur rendu → tous les rapports archivés en profitent.
-    let _actN = 0;
-    const _actBanner = (lbl, sub) => { _actN++; return `<div class="wr-act"><span class="wr-act-n">${_actN}</span><div class="wr-act-t"><div class="wr-act-lbl">${lbl}</div>${sub ? `<div class="wr-act-sub">${sub}</div>` : ''}</div></div>`; };
+    /* ══ REFONTE 11/08 — L'HEBDO SE CALE SUR LA RÉFÉRENCE DU USER ══════════════════════════════════
+       Le rapport se lit en DEUX temps, comme la note de référence : le RÉCIT GÉOPOLITIQUE de la semaine
+       (paragraphes + chronologie rapide), puis LA SEMAINE DEVISE PAR DEVISE. Tout ce qui racontait la
+       même chose une deuxième fois disparaît du rendu (sections citées nommément par le user) :
+       « Points Macro Clés » (ses thèmes Cross-Asset / Commerce & Tarifs / Techno répétaient les blocs
+       devises), la section « Banques Centrales » autonome (sa matière vit dans la rubrique Politique
+       monétaire de CHAQUE devise, comme « Fed / Pricing » dans la référence), la vue d'ensemble Force
+       des Devises (chaque devise garde SA courbe, dans son bloc) et les Éclairages IA.
+       ⚠️ Rendu SEULEMENT : le serveur continue de produire ces champs, dont les e-mails ont besoin.
+       Les bandeaux d'actes numérotés disparaissent avec eux — deux sections n'ont pas besoin d'actes. */
     // v27 — CHRONOLOGIE GÉOPOLITIQUE (façon référence Eliott) : jour par jour + « État en fin de semaine ».
     // Quand présente, elle REMPLACE le thème macro « Géopolitique » (dédup plus bas).
     const _gt = (w.geoTimeline && Array.isArray(w.geoTimeline.jours) && w.geoTimeline.jours.length) ? w.geoTimeline : null;
     // Pas de chronologie → le thème macro « Géopolitique » monte en Acte 1 (extrait des Points Macro).
     const _geoTheme = !_gt ? (((w.macro || []).find(s => /g[ée]opolit/i.test((s && s.heading) || ''))) || null) : null;
     const _geoNarr = Array.isArray(w.geoNarrative) ? w.geoNarrative.filter(Boolean) : [];   // v42 : récit géopolitique
-    if (_gt || _geoTheme || _geoNarr.length) body += _actBanner('Géopolitique', 'ce qui a marqué la semaine');
+    if (_gt || _geoTheme || _geoNarr.length) body += `<div class="wr-section-title">Géopolitique</div>`;
     // v42 : le RÉCIT d'abord (courts paragraphes qui racontent le fil), la chronologie factuelle ensuite.
     _geoNarr.forEach(p => { body += `<div class="wr-text wr-geo-p">${_wrParas(p)}</div>`; });
     if (_geoTheme) {
@@ -7495,54 +7503,15 @@ function _renderWeeklyRecap(item) {
       }
       body += `</div>`;
     }
-    // ── ACTE 2 · MACRO & BANQUES CENTRALES ──
-    body += _actBanner('Macro &amp; Banques Centrales', 'force des devises, données clés, politique monétaire');
-    // Vue d'ensemble de la force des devises (les 8) : AVANT les Points Macro Clés (demandé).
-    // FIGÉE sur la semaine du rapport (badge à droite) : un recap récapitule UNE semaine, donc le chart
-    // ne dérive jamais (snapshot serveur). Rouvert plus tard → toujours les données de CETTE semaine-là.
-    body += `<div class="wr-cs-head"><div class="wr-section-title">Force des Devises</div>`
-      + (w.weekRange ? `<span class="wr-cs-week">${_wrEsc(w.weekRange)}</span>` : '') + `</div>`;
-    body += `<div class="wr-chart wr-chart--all" id="wr-cs-all">${window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
-    // Points Macro Clés : ORDRE CANONIQUE (demande user) — Géopolitique, [Banques Centrales & Politique
-    // Monétaire = section dédiée #2], Inflation & Croissance, Performance Cross-Asset, Commerce International
-    // & Tarifs, Technologie & Innovation. La section CB (riche, par banque) est INJECTÉE juste après le thème
-    // Géopolitique (ou en tête si aucun thème Géo), jamais dupliquée (elle n'est pas un thème macro).
-    let _macro = (w.macro && w.macro.length) ? w.macro : [];
-    if (_gt || _geoTheme) _macro = _macro.filter(s => !/g[ée]opolit/i.test((s && s.heading) || ''));   // le thème « Géopolitique » vit en Acte 1 (chronologie ou thème extrait) — pas de doublon ici
-    const _hasCb = !!(w.centralBanks && w.centralBanks.length);
-    if (_macro.length || _hasCb) {
-      body += `<div class="wr-section-title">Points Macro Clés</div>`;
-      // Ligne séparatrice entre CHAQUE partie (Géopolitique, BC, Inflation & Croissance, Cross-Asset,
-      // Commerce & Tarifs, Techno…) → le bloc respire (demande user). Jamais avant la toute première.
-      let _cbDone = false, _firstPart = true;
-      const _partSep = () => { const s = _firstPart ? '' : '<div class="wr-sep"></div>'; _firstPart = false; return s; };
-      const _emitCb = () => { if (!_cbDone && _hasCb) { body += _partSep() + _wrCbSection(w.centralBanks); _cbDone = true; } };
-      const _geoIdx = _macro.findIndex(s => /g[ée]opolit/i.test((s && s.heading) || ''));
-      if (_geoIdx < 0) _emitCb();   // aucun thème Géopolitique → Banques Centrales en tête du bloc
-      _macro.forEach((s, i) => {
-        body += _partSep() + `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
-        // ÉPURE (10/08) : un thème déversait jusqu'à 15 puces (« Inflation & Croissance » constaté en
-        // prod) → 6 visibles, le reste replié « + N autres points » (même mécanique que le calendrier GEW).
-        const _bl = s.bullets || [];
-        _bl.slice(0, 6).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
-        if (_bl.length > 6) {
-          const fid = 'wr-fold-' + i;
-          body += `<div id="${fid}" style="display:none">${_bl.slice(6).map(b => `<div class="wr-bullet">${_wrInline(b)}</div>`).join('')}</div>`
-            + `<button type="button" class="gew-more-btn" data-for="${fid}" data-lbl="+ ${_bl.length - 6} autres points" onclick="_gewToggleFold(this)">+ ${_bl.length - 6} autres points</button>`;
-        }
-        if (i === _geoIdx) _emitCb();   // ── Banques Centrales & Politique Monétaire = section dédiée, en #2 (juste après Géopolitique) ──
-      });
-      _emitCb();   // filet de sécurité (n'émet jamais deux fois : _cbDone)
-    }
+    // (« Points Macro Clés », section « Banques Centrales » autonome et vue d'ensemble « Force des
+    //  Devises » RETIRÉES du rendu — voir la note de refonte en tête de ce bloc.)
     // Calendrier économique RETIRÉ du Weekly Market Recap (demande user) : il vit dans le Global Economic Weekly.
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
       // CARTES DÉPLIABLES (demande user « + simple, moins long, lisible à vue d'œil ») : chaque devise = un en-tête
       // scannable TOUJOURS visible (code + badge biais coloré + accroche) → on lit le board FX d'un coup d'œil ;
       // clic → déplie les 7 sections. Profondeur conservée, mais courte par défaut. État volatil (reset au reload).
-      // ── ACTE 3 · BIAIS PAR DEVISE ──
-      body += _actBanner('Biais par devise', 'notre lecture fondamentale, devise par devise');
-      body += `<div class="wr-section-title wr-ccy-sectitle">Analyse par devise`
+      body += `<div class="wr-section-title wr-ccy-sectitle">La semaine devise par devise`
             + `<button type="button" class="wr-ccy-expandall" onclick="_wrToggleAllCcy(this)">Tout déplier</button></div>`;
       ccys.forEach(c => {
         const cd = (w.currencies[c] && typeof w.currencies[c] === 'object') ? w.currencies[c] : { analysis: w.currencies[c] || '' };
@@ -7578,26 +7547,10 @@ function _renderWeeklyRecap(item) {
           if (p.date) line += ` <span class="wr-print-date">(${_wrEsc(p.date)})</span>`;
           return `<div class="wr-bullet wr-cat">${line}</div>`;
         };
-        // 2) Politique monétaire — prose IA + PUCES DÉTERMINISTES : 1 puce PAR INTERVENANT (façon référence
-        // « Waller → un core CPI chaud forcerait une hausse → hawk ») + ligne Pricing marché.
-        const cbBullets = Array.isArray(cd.cbBullets) ? cd.cbBullets : [];
-        if (cd.monetaryPolicy || cbBullets.length || cd.pricing) {
-          body += `<div class="wr-macro-heading">Politique monétaire${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
-          if (cd.monetaryPolicy) body += `<div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
-          cbBullets.forEach(q => {
-            if (!q || !q.text) return;
-            body += `<div class="wr-bullet"><strong>${_wrEsc(q.speaker || '')}</strong>${q.date ? ` <span class="wr-print-date">(${_wrEsc(q.date)})</span>` : ''} → ${_wrInline(q.text)}</div>`;
-          });
-          if (cd.pricing) body += `<div class="wr-bullet wr-cat"><strong>Pricing :</strong> ${_wrEsc(cd.pricing)}</div>`;
-        }
-        // 3) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
-        const infPrints = Array.isArray(cd.inflationPrints) ? cd.inflationPrints : [];
-        if (cd.inflation || infPrints.length) {
-          body += `<div class="wr-macro-heading">Inflation</div>`;
-          if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
-          infPrints.forEach(p => { body += printRow(p); });
-        }
-        // 3bis) Croissance économique / Emploi — prints de la semaine, déterministe. v42 : « Emploi » a sa
+        // ORDRE DES RUBRIQUES = celui de la référence du user (refonte 11/08) : Croissance économique,
+        // Emploi, Inflation, puis Politique monétaire (« Fed / Pricing »), moteurs, Semaine à venir,
+        // Biais / Scénario. On part des DONNÉES, on finit par la lecture.
+        // 1) Croissance économique / Emploi — prints de la semaine, déterministe. v42 : « Emploi » a sa
         // propre rubrique (employmentPrints) ; anciens rapports sans ce champ → libellé groupé (rétro-compat).
         const groPrints = Array.isArray(cd.growthPrints) ? cd.growthPrints : [];
         const empPrints = Array.isArray(cd.employmentPrints) ? cd.employmentPrints : [];
@@ -7608,6 +7561,25 @@ function _renderWeeklyRecap(item) {
         if (empPrints.length) {
           body += `<div class="wr-macro-heading">Emploi</div>`;
           empPrints.forEach(p => { body += printRow(p); });
+        }
+        // 2) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
+        const infPrints = Array.isArray(cd.inflationPrints) ? cd.inflationPrints : [];
+        if (cd.inflation || infPrints.length) {
+          body += `<div class="wr-macro-heading">Inflation</div>`;
+          if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
+          infPrints.forEach(p => { body += printRow(p); });
+        }
+        // 3) Politique monétaire (« Fed / Pricing » de la référence) — prose IA + 1 puce PAR INTERVENANT
+        //    + la ligne de pricing marché.
+        const cbBullets = Array.isArray(cd.cbBullets) ? cd.cbBullets : [];
+        if (cd.monetaryPolicy || cbBullets.length || cd.pricing) {
+          body += `<div class="wr-macro-heading">Politique monétaire${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
+          if (cd.monetaryPolicy) body += `<div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
+          cbBullets.forEach(q => {
+            if (!q || !q.text) return;
+            body += `<div class="wr-bullet"><strong>${_wrEsc(q.speaker || '')}</strong>${q.date ? ` <span class="wr-print-date">(${_wrEsc(q.date)})</span>` : ''} → ${_wrInline(q.text)}</div>`;
+          });
+          if (cd.pricing) body += `<div class="wr-bullet wr-cat"><strong>Pricing :</strong> ${_wrEsc(cd.pricing)}</div>`;
         }
         // 4) Principaux moteurs — nouveau format {name, why} ; rétro-compat ancien {heading, bullets/detail}.
         if (drivers.length) {
@@ -7621,35 +7593,26 @@ function _renderWeeklyRecap(item) {
             }
           });
         }
-        // 5) Biais / Scénario (le BADGE est déjà dans l'en-tête → ici juste le pourquoi + risques). v42 : rebaptisé façon référence.
-        if (cd.biasRationale) body += `<div class="wr-macro-heading">Biais / Scénario</div><div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
-        // 6) Catalyseurs de la semaine (donnée · publié vs attendu → interprétation → impact)
-        if (cats.length) {
-          body += `<div class="wr-macro-heading">Catalyseurs de la semaine</div>`;
-          cats.forEach(x => {
-            const nums = [x.actual ? `publié <b>${_wrEsc(x.actual)}</b>` : '', x.consensus ? `attendu ${_wrEsc(x.consensus)}` : ''].filter(Boolean).join(' · ');
-            let line = `<strong>${_wrEsc(x.data)}</strong>`;
-            if (nums) line += ` : ${nums}`;
-            if (x.interpretation) line += ` → ${_wrInline(x.interpretation)}`;
-            if (x.impact) line += ` <span class="wr-cat-impact">→ ${_wrInline(x.impact)}</span>`;
-            body += `<div class="wr-bullet wr-cat">${line}</div>`;
-          });
-        }
-        // 7) Semaine à venir (v42, façon référence) : les rendez-vous majeurs DATÉS de la devise (déterministe)
-        //    + la conclusion IA tournée vers l'avenir. Anciens rapports : conclusion seule sous le même libellé.
+        // « Catalyseurs de la semaine » RETIRÉ (refonte 11/08) : chaque catalyseur figurait DÉJÀ, avec
+        // son chiffre réel et sa lecture, dans les puces Croissance / Emploi / Inflation ci-dessus.
+        // 5) Semaine à venir : rendez-vous majeurs DATÉS (déterministe) + conclusion prospective.
         const wkAhead = Array.isArray(cd.weekAhead) ? cd.weekAhead : [];
         if (wkAhead.length || cd.conclusion) {
           body += `<div class="wr-macro-heading">Semaine à venir</div>`;
           if (wkAhead.length) body += `<div class="wr-bullet wr-cat"><strong>Au programme :</strong> ${wkAhead.map(_wrEsc).join(' · ')}</div>`;
           if (cd.conclusion) body += `<div class="wr-text">${_wrParas(cd.conclusion)}</div>`;
         }
+        // 6) Biais / Scénario — DERNIER, comme dans la référence : la lecture vient après les faits.
+        if (cd.biasRationale) body += `<div class="wr-macro-heading">Biais / Scénario</div><div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
         body += `</div>`;   // fin .wr-ccy-body
         body += `</div>`;   // fin .wr-ccy-block
       });
     }
   }
 
-  content.innerHTML = `<div class="wr">${insightsHtml}<div class="wr-body">${body}</div></div>`;
+  // Éclairages IA : conservés sur le Rapport Éco (GEW), RETIRÉS du Récap Hebdo (refonte 11/08) — il va
+  // droit au récit géopolitique puis aux devises, sans carrousel d'ouverture.
+  content.innerHTML = `<div class="wr">${isGew ? insightsHtml : ''}<div class="wr-body">${body}</div></div>`;
   if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(content, '.gew-ev-quote-txt');   // propos de discours (souvent EN) → FR (cache serveur)
   content.scrollTop = 0;
   if (isGew) return;   // GEW : pas de courbes de force par devise
@@ -7954,19 +7917,9 @@ function _renderFXDailyRecap(item) {
       + '<th class="cth-val">Réel</th><th class="cth-val">High</th><th class="cth-val">Prévision</th><th class="cth-val">Low</th><th class="cth-val">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   }
 
-  // ── « Commentaires des banques » (ex-« Commentaires marquants ») : les propos marquants du jour ET
-  //    les avis de maisons de recherche, fusionnés en UNE section (demande user 11/08) — ces derniers
-  //    sans titre propre, en puces courtes, pour rester un complément et pas un chapitre.
-  const _cmts = (w.comments || []).filter(c => c && (c.author || c.text)).slice(0, 3);
-  if (w.notableCommentsHtml || _cmts.length) {
-    body += _sec('Commentaires des banques');
-    if (w.notableCommentsHtml) body += `<div class="fxdr-notable">${_ncArrowBreaks(w.notableCommentsHtml)}</div>`;
-    if (_cmts.length) {
-      body += '<div class="fxdr-bullets">';
-      _cmts.forEach(c => { body += `<div class="wr-bullet">${c.author ? `<strong>${_wrEsc(c.author)} :</strong> ` : ''}${_wrInline(c.text || '')}</div>`; });
-      body += '</div>';
-    }
-  }
+  // ── « Commentaires des banques » RETIRÉ (demande user 11/08, après l'avoir vu en vrai) : la liste de
+  //    titres de recherche (« Danske Bank, Sweden: Inflation forecast… ») et les avis de maisons ne
+  //    disaient rien d'actionnable. Le quotidien s'arrête donc sur « À surveiller ».
 
   content.innerHTML = `<div class="fxdr">${insightsHtml}<div class="fxdr-body">${body}</div></div>`;
   content.scrollTop = 0;
