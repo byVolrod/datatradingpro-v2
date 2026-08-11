@@ -2151,9 +2151,9 @@ function _cotRing(ok, sPct, lPct, mod) {
   const arc = p => Math.max(0, (p / 100) * C - GAP).toFixed(2) + ' ' + C.toFixed(2);
   const dom = sPct >= lPct ? sPct : lPct;
   const cls = !ok ? 'na' : (sPct === lPct ? 'flat' : (sPct > lPct ? 'bear' : 'bull'));
-  // Légende COURTE : « à l'équilibre » (13 signes) ne tient pas dans le disque intérieur, quelle que
-  // soit la taille de la carte — le texte SVG est dimensionné en unités du viewBox, pas en pixels.
-  const camp = !ok ? '' : (sPct === lPct ? 'équilibre' : (sPct > lPct ? 'vendeurs' : 'acheteurs'));
+  // Légende sous le % RETIRÉE (demande user 11/08) : le camp qui domine est déjà dit deux fois — par
+  // le badge de l'en-tête (ACHETEUR / VENDEUR) et par la couleur de l'arc dominant. Le centre du donut
+  // ne porte plus que le chiffre.
   return '<svg class="cot-ring cot-ring--' + cls + '" viewBox="0 0 80 80" role="img"'
     + ' aria-label="Répartition : ' + sPct + '% de positions courtes, ' + lPct + '% de positions longues">'
     + '<circle class="cot-ring-bg" cx="40" cy="40" r="' + r + '" fill="none"/>'
@@ -2162,11 +2162,7 @@ function _cotRing(ok, sPct, lPct, mod) {
     +   '<circle class="cot-ring-l" cx="40" cy="40" r="' + r + '" fill="none" stroke-dasharray="' + arc(lPct) + '"'
     +     ' stroke-dashoffset="' + (-(sPct / 100) * C).toFixed(2) + '"/>'
     + '</g>'
-    // Le disque intérieur mesure ~53 unités de large (r 30 − trait 6,5) : la légende est bornée à 40
-    // par `textLength`, donc le mot le plus long (« acheteurs ») ne touchera jamais l'anneau. Les deux
-    // lignes respirent (38 / 50) au lieu de se coller.
-    + '<text class="cot-ring-v" x="40" y="' + (camp ? 38 : 45) + '" text-anchor="middle">' + (ok ? dom + '%' : '—') + '</text>'
-    + (camp ? '<text class="cot-ring-cap" x="40" y="50" text-anchor="middle" textLength="' + Math.min(40, camp.length * 4.4).toFixed(1) + '" lengthAdjust="spacingAndGlyphs">' + camp + '</text>' : '')
+    + '<text class="cot-ring-v" x="40" y="45.5" text-anchor="middle">' + (ok ? dom + '%' : '—') + '</text>'
     + '</svg>';
 }
 

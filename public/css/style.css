@@ -16336,16 +16336,11 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .cot-ring-bg { stroke: var(--hud-line); stroke-width: 6.5; }
 .cot-ring-s, .cot-ring-l { stroke-width: 6.5; stroke-linecap: butt; }
 .cot-cell--bear .cot-ring-l, .cot-cell--bull .cot-ring-s { opacity: .3; }
-/* ⚠️ DANS UN SVG, `font-size` s'exprime en UNITÉS DU viewBox, pas en pixels d'écran. Poser --fs-micro
-   (9) dans un viewBox de 80 donnait une légende occupant 11 % de la hauteur et ~48 unités de large —
-   plus large que le disque intérieur (~53 moins les marges) : « ACHETEURS » mordait sur l'anneau, et à
-   toutes les tailles de carte puisque le SVG scale d'un bloc. Valeurs exprimées en unités, calibrées
-   sur le mot le plus long, et `textLength` en garde-fou côté JS. */
+/* Le centre du donut ne porte plus que le pourcentage (légende retirée le 11/08 : le camp dominant est
+   déjà dit par le badge de l'en-tête et par la couleur de l'arc). ⚠️ Rappel pour toute réintroduction :
+   dans un SVG, `font-size` s'exprime en UNITÉS DU viewBox (80 ici), pas en pixels d'écran — poser un
+   token en px y donne un texte démesuré, et le SVG scalant d'un bloc, agrandir la carte n'y change rien. */
 .cot-ring-v { font-family: var(--mono); font-size: 17px; font-weight: var(--fw-bold); letter-spacing: -.02em; }
-.cot-ring-cap {
-  font-family: var(--tight); font-size: 6.4px; font-weight: var(--fw-semibold);
-  letter-spacing: .05em; text-transform: uppercase; fill: var(--text3);
-}
 /* Pied : UNE seule ligne, trois colonnes — Longs · Net · Courts (simplification 11/08). Le net avait
    son propre étage, avec filet et accent or, pour un nombre qui est la SOUSTRACTION des deux valeurs
    affichées juste au-dessus : un bloc entier pour une arithmétique visible. Il rejoint la ligne, au
