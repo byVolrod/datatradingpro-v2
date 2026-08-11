@@ -7322,7 +7322,6 @@ function _renderWeeklyRecap(item) {
   if (!content) return;
   document.getElementById('arlib-ai-insights')?.remove();
 
-  const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   // strip markdown (**gras**, *, `, _) du titre → jamais d'astérisques brutes affichées
   const _wrTitle = _mdStrip(w.gew ? _reportTitleToFR(String(w.title || 'Global Economic Weekly')) : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title }));
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
@@ -7333,7 +7332,11 @@ function _renderWeeklyRecap(item) {
   // La période (semaine) va dans le créneau date en haut-droite, comme tous les autres rapports →
   // on peut retirer le gros bloc titre du corps sans perdre l'info de période.
   const _rdateEl = document.getElementById('arlib-rdate');
-  if (_rdateEl) _rdateEl.textContent = w.gew ? _gewWeekFr(w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range);
+  // LIGNE DE PÉRIODE RETIRÉE des deux rapports hebdomadaires (demande user 11/08) : « Week Ending:
+  // 07.08.2026 » sur le Récap Hebdo, « Semaine du 3–7 août 2026 » sur le Rapport Éco. Dans les deux cas
+  // la période est déjà portée par le rapport lui-même, et la ligne n'ajoutait qu'une barre de plus
+  // au-dessus du texte.
+  if (_rdateEl) _rdateEl.textContent = '';
 
   // Éclairages IA (composant Institution, alimenté par les insights Gemini du recap)
   const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20">`;
