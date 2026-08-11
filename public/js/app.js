@@ -7818,11 +7818,12 @@ function _renderFXDailyRecap(item) {
   const _sec = t => `<div class="fxdr-section">${_wrEsc(t)}</div>`;
   let body = '';
 
-  // ── Intro (v14) : le fil rouge de la journée, résumé des récaps de séance du jour ──
-  if (w.intro) body += `<div class="fxdr-exec fxdr-intro">${_wrParas(w.intro)}</div>`;
-
-  // ── Executive Summary ──
-  if (w.summary) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(w.summary)}</div>`;
+  // ── SYNTHÈSE = LE texte de tête, UNIQUE (fusion 11/08) : le rapport ouvrait sur deux blocs qui
+  //    racontaient la même journée (un lead nu, puis l'encadré « Synthèse »). Un seul désormais : il
+  //    porte le fil des séances ET le fait dominant chiffré. Anciens rapports (v14, avec `intro`
+  //    séparée) : les deux textes sont recollés en un seul bloc, jamais affichés l'un sous l'autre.
+  const _lead = [w.intro, w.summary].filter(Boolean).join('\n\n');
+  if (_lead) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(_lead)}</div>`;
 
   // ── Géopolitique (v14) : puces factuelles du jour ──
   if ((w.geopolitics || []).length) {
@@ -7838,14 +7839,9 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
-  // ── Top Headlines ──
-  if ((w.headlines || []).length) {
-    body += _sec('Titres principaux') + '<div class="fxdr-grid">';
-    w.headlines.forEach(h => {
-      body += `<div class="fxdr-card"><div class="fxdr-card-title">${_wrInline(h.title || '')}</div>${h.text ? `<div class="fxdr-card-text">${_wrInline(h.text)}</div>` : ''}</div>`;
-    });
-    body += '</div>';
-  }
+  // ── « Titres principaux » RETIRÉ (demande user 11/08) : les 3 événements qui ont compté sont déjà
+  //    racontés — avec leur mécanisme et leur effet devise — dans Géopolitique et Macro. La carte de
+  //    titre ne faisait que les répéter en plus court. Retiré du rendu ET du prompt (historique compris).
 
   // ── DONNÉES DU JOUR par pays (v9, déterministe — façon référence : « Allemagne : Inflation » → puces
   //    réel/attendu/précédent → lecture). MÊME grammaire de puces que le Récap Hebdo (cohérence structurelle). ──
@@ -7911,14 +7907,8 @@ function _renderFXDailyRecap(item) {
   //    demande d'ailleurs plus à l'IA ; ces blocs subsistaient pour les anciens rapports — on ne les
   //    rend plus du tout, y compris sur l'historique, pour que la lecture soit la même chaque jour.
 
-  // ── Analyst Comments ──
-  if ((w.comments || []).length) {
-    body += _sec("Commentaires d'analystes") + '<div class="fxdr-grid">';
-    w.comments.forEach(c => {
-      body += `<div class="fxdr-card fxdr-comment"><div class="fxdr-card-title">${_wrEsc(c.author || '')}</div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
-    });
-    body += '</div>';
-  }
+  // (Les avis de maisons de recherche n'ont plus de section à eux : ils sont fusionnés plus bas dans
+  //  « Commentaires des banques » — demande user 11/08.)
 
   // ── Corporate News (badge ticker) ──
   if ((w.corporate || []).length) {
@@ -7964,8 +7954,19 @@ function _renderFXDailyRecap(item) {
       + '<th class="cth-val">Réel</th><th class="cth-val">High</th><th class="cth-val">Prévision</th><th class="cth-val">Low</th><th class="cth-val">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   }
 
-  // ── Commentaires marquants (notable comments) : tout en bas du rapport ──
-  if (w.notableCommentsHtml) body += _sec('Commentaires marquants') + `<div class="fxdr-notable">${_ncArrowBreaks(w.notableCommentsHtml)}</div>`;
+  // ── « Commentaires des banques » (ex-« Commentaires marquants ») : les propos marquants du jour ET
+  //    les avis de maisons de recherche, fusionnés en UNE section (demande user 11/08) — ces derniers
+  //    sans titre propre, en puces courtes, pour rester un complément et pas un chapitre.
+  const _cmts = (w.comments || []).filter(c => c && (c.author || c.text)).slice(0, 3);
+  if (w.notableCommentsHtml || _cmts.length) {
+    body += _sec('Commentaires des banques');
+    if (w.notableCommentsHtml) body += `<div class="fxdr-notable">${_ncArrowBreaks(w.notableCommentsHtml)}</div>`;
+    if (_cmts.length) {
+      body += '<div class="fxdr-bullets">';
+      _cmts.forEach(c => { body += `<div class="wr-bullet">${c.author ? `<strong>${_wrEsc(c.author)} :</strong> ` : ''}${_wrInline(c.text || '')}</div>`; });
+      body += '</div>';
+    }
+  }
 
   content.innerHTML = `<div class="fxdr">${insightsHtml}<div class="fxdr-body">${body}</div></div>`;
   content.scrollTop = 0;
