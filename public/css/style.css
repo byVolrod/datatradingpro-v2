@@ -5982,6 +5982,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .fxdr-intro { border-left: 0; background: transparent; border-radius: 0; padding: 2px 0 0; margin: 0 0 6px; }
 .fxdr-intro .wr-p { font-size: 13.5px; color: #f0f0f2; }
 .fxdr-bullets { margin: 0 0 4px; }
+/* « À surveiller » : les puces expliquent, le tableau chiffre — un vrai blanc les sépare, sinon le
+   calendrier semble collé à la dernière puce et on ne sait plus où finit le texte (retour user 11/08). */
+.fxdr-bullets + .fxdr-callike { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--hud-line, #1a1a1e); }
 .fxdr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; }
 .fxdr-card {
   background: var(--bg2); border: 1px solid #1f1f24; border-left: 3px solid rgba(227,178,58,.6);
