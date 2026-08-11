@@ -7756,8 +7756,25 @@ function _renderFXDailyRecap(item) {
   const _sec = t => `<div class="fxdr-section">${_wrEsc(t)}</div>`;
   let body = '';
 
+  // ── Intro (v14) : le fil rouge de la journée, résumé des récaps de séance du jour ──
+  if (w.intro) body += `<div class="fxdr-exec fxdr-intro">${_wrParas(w.intro)}</div>`;
+
   // ── Executive Summary ──
   if (w.summary) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(w.summary)}</div>`;
+
+  // ── Géopolitique (v14) : puces factuelles du jour ──
+  if ((w.geopolitics || []).length) {
+    body += _sec('Géopolitique') + '<div class="fxdr-bullets">';
+    w.geopolitics.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+    body += '</div>';
+  }
+
+  // ── Macro (v14) : les développements macro qui ont compté, fait + chiffre → effet ──
+  if ((w.macro || []).length) {
+    body += _sec('Macro') + '<div class="fxdr-bullets">';
+    w.macro.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+    body += '</div>';
+  }
 
   // ── Top Headlines ──
   if ((w.headlines || []).length) {

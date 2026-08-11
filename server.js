@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260811-fxdaily-structure', ts: Date.UTC(2026, 7, 11, 12, 0), title: 'FX Daily Recap : nouvelle lecture du jour', desc: 'Le récap quotidien s\'ouvre désormais sur le fil de la journée (résumé des séances Asie, Europe et US), suivi de deux blocs à puces — Géopolitique et Macro — qui vont droit aux faits qui ont compté, avant le détail par session. Même structure chaque jour, seules les données changent.' },
   { id: 'dtpu-20260810-recap-actes',   ts: Date.UTC(2026, 7, 10, 13, 0), title: 'Récap Hebdo : lecture en 3 actes', desc: 'Le Récap Hebdo des Marchés est désormais balisé en trois actes numérotés — Géopolitique, Macro & Banques Centrales, Biais par devise — pour suivre le fil de la semaine d\'un coup d\'œil.' },
   { id: 'dtpu-20260810-gew-essentiel', ts: Date.UTC(2026, 7, 10, 12, 30), title: 'Récap Éco des Marchés : « L\'essentiel » en 3 points', desc: 'Le rapport s\'ouvre sur la semaine résumée en 3 phrases simples. Chaque puce indique sa conséquence marché (→) et le calendrier replie les publications secondaires : l\'important reste visible.' },
   { id: 'dtpu-20260810-inst-rapides',  ts: Date.UTC(2026, 7, 10, 12, 0), title: 'Institutions : ouverture des rapports accélérée', desc: 'Les PDF récents sont préparés en avance côté serveur : l\'ouverture d\'un rapport de banque est quasi instantanée, même la première fois.' },
@@ -9260,7 +9261,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 13;   // v13 : règle PMI corrigée (priorité Services UNIQUEMENT pour l'US/USD). v12 : RÈGLES DE DESK mentor (_MENTOR_RULES, règle 5 du prompt) — mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable. bump = régen. v11 : « Données du jour » RATTACHÉE À CHAQUE SESSION (fxr.dataBySession, avec HEURE de sortie) → l'Analyse par session liste ses données + à quel moment (demande user 24/07). v10 : NOTE DE DESK ULTRA-CONDENSÉE façon prompt user (flèches d'impact →, fait chiffré → effet, chaque section raccourcie : synthèse 2-3 phrases, sessions 1-2 phrases, BC 1-2 phrases, headlines 1 phrase) — demande user 24/07 « uniquement l'essentiel, comme mon prompt ». v9 : « + court + simple + à l'essentiel » (demande user 22/07, cohérence avec la vision hebdo) — NOUVELLE section DÉTERMINISTE fxr.dataByCountry (« Données du jour » PAR PAYS façon référence : Allemagne : Inflation → PPI M/M -0.3 % (attendu -0.2 %, préc. 0.3 %) → surprise baissière ; groupée pays→famille, nationales zone euro via ctry, chiffres du calendrier = jamais l'IA) + prompt resserré (synthèse 3-4 phrases, 3 headlines max, sessions 2 phrases + 2 groupes max, econData IA RETIRÉE au profit du bloc déterministe). bump = régen. v8 : « À surveiller » porte aussi les VALEURS du calendrier (réel/high/prévision/low/précédent, demande user 17/07) — bump = régen. v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
+const FXR_VER = 14;   // v14 (11/08, demande user, structure façon référence) : INTRO d'ouverture qui résume les RÉCAPS DE SÉANCE du jour (_marketWrap → prompt + repli déterministe) + sections « Géopolitique » et « Macro » en PUCES (fait + chiffre → effet) rendues en tête de rapport avant la synthèse ; « À surveiller » (lookahead déterministe) clôt le rapport comme la référence. Les prochains dailys gardent EXACTEMENT cette structure, seules les données changent. bump = régen. v13 : règle PMI corrigée (priorité Services UNIQUEMENT pour l'US/USD). v12 : RÈGLES DE DESK mentor (_MENTOR_RULES, règle 5 du prompt) — mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable. bump = régen. v11 : « Données du jour » RATTACHÉE À CHAQUE SESSION (fxr.dataBySession, avec HEURE de sortie) → l'Analyse par session liste ses données + à quel moment (demande user 24/07). v10 : NOTE DE DESK ULTRA-CONDENSÉE façon prompt user (flèches d'impact →, fait chiffré → effet, chaque section raccourcie : synthèse 2-3 phrases, sessions 1-2 phrases, BC 1-2 phrases, headlines 1 phrase) — demande user 24/07 « uniquement l'essentiel, comme mon prompt ». v9 : « + court + simple + à l'essentiel » (demande user 22/07, cohérence avec la vision hebdo) — NOUVELLE section DÉTERMINISTE fxr.dataByCountry (« Données du jour » PAR PAYS façon référence : Allemagne : Inflation → PPI M/M -0.3 % (attendu -0.2 %, préc. 0.3 %) → surprise baissière ; groupée pays→famille, nationales zone euro via ctry, chiffres du calendrier = jamais l'IA) + prompt resserré (synthèse 3-4 phrases, 3 headlines max, sessions 2 phrases + 2 groupes max, econData IA RETIRÉE au profit du bloc déterministe). bump = régen. v8 : « À surveiller » porte aussi les VALEURS du calendrier (réel/high/prévision/low/précédent, demande user 17/07) — bump = régen. v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
 let _fxrGenLock = 0;
 let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
@@ -9413,6 +9414,9 @@ function _fxrSanitize(p, dayKey, dateLabel) {
   const imp  = x => /high/i.test(x) ? 'High' : /med/i.test(x) ? 'Medium' : 'Low';
   return {
     v: FXR_VER, day: dayKey, _ai: true, title, dateLabel,
+    intro:       _fxrTxt(p.intro, 600),
+    geopolitics: _fxrA(p.geopolitics).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 320)).filter(Boolean).slice(0, 8),
+    macro:       _fxrA(p.macro).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 360)).filter(Boolean).slice(0, 10),
     summary:  _fxrTxt(p.summary, 1500),
     tags:     _fxrA(p.tags).map(t => _fxrTxt(t, 40)).filter(Boolean).slice(0, 10),
     insights: _fxrA(p.insights).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 400)).filter(Boolean).slice(0, 6),
@@ -9435,9 +9439,17 @@ function _fxrSanitize(p, dayKey, dateLabel) {
     lookahead: _fxrA(p.lookahead).filter(x => x && x.event).map(x => ({ category: _fxrTxt(x.category, 40), event: _fxrTxt(x.event, 170), importance: imp(x.importance) })).slice(0, 16),
   };
 }
-function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine }) {
+function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine, wrapItems }) {
   const top = (newsItems || []).slice(0, 6);
   const titleSub = top.length ? _fxrTxt(top[0].headline || top[0].title, 95) : 'Récap marché du jour';
+  // v14 : intro depuis les récaps de séance du jour (déterministe) + puces macro depuis les données publiées.
+  const intro = (wrapItems && wrapItems.length)
+    ? 'Fil de la journée, séance après séance : ' + wrapItems.slice(0, 3).map(i => _fxrTxt(i.headline || i.title, 110)).filter(Boolean).join(' · ') + '.'
+    : '';
+  const macroB = (dataRows || []).filter(e => e && e.forecast).slice(0, 6).map(e => {
+    const lean = _fxrLean(e);
+    return `${e.currency ? e.currency + ' ' : ''}${_fxrTxt(e.title, 80)} : ${_fxrTxt(e.actual, 24)} (attendu ${_fxrTxt(e.forecast, 24)})${lean ? ' → ' + lean : ''}`;
+  });
   const summary = [
     top.length ? 'Moteurs clés du jour : ' + top.slice(0, 3).map(i => _fxrTxt(i.headline || i.title, 120)).join(' ; ') + '.' : 'Séance relativement calme, peu de nouveaux catalyseurs sur le G10.',
     csLine ? `Force des devises (intraday) : ${csLine}.` : '',
@@ -9445,6 +9457,7 @@ function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine }
   ].filter(Boolean).join(' ');
   return {
     v: FXR_VER, day: dayKey, _ai: false, title: 'FX Daily Recap: ' + titleSub, dateLabel,
+    intro, geopolitics: [], macro: macroB,
     summary, tags: _fxrAutoTags(newsItems),
     insights: top.slice(0, 6).map(i => _fxrTxt(i.headline || i.title, 220)).filter(Boolean),
     pairs: [],
@@ -9488,6 +9501,16 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
       const tag = i.country || i.currency || i.category || '';
       const h = String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
       return h.length > 6 ? `- ${_impN(i) ? '[MAJEUR] ' : ''}${tag ? '[' + tag + '] ' : ''}${h.slice(0, 220)}` : '';
+    }).filter(Boolean);
+
+    // 1b) RÉCAPS DE SÉANCE du jour (European Market Wrap & co, _marketWrap) → nourrissent l'INTRO (v14,
+    //     demande user 11/08 : « une phrase d'introduction qui récupère/résume les session récap du jour »).
+    const wrapItems = allNews.filter(i => i && i.timestamp && inWin(i.timestamp) && i._marketWrap)
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const wrapLines = wrapItems.slice(0, 6).map(i => {
+      const h = String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
+      const d = String(i.description || '').replace(/\s+/g, ' ').trim();
+      return h ? `- ${h.slice(0, 140)}${d ? ' : ' + d.slice(0, 320) : ''}` : '';
     }).filter(Boolean);
 
     // 2) DONNÉES ÉCO publiées du jour — calendrier TradingView (actuals natifs) ; repli sur le dernier snapshot
@@ -9545,6 +9568,9 @@ Rédige une NOTE DE DESK ULTRA-CONDENSÉE de la journée — droit à l'essentie
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, aucun caractère **). Garde les CLÉS en anglais et rédige toutes les VALEURS en français. Forme EXACTE attendue :
 {
   "title": "<titre d'une ligne percutant résumant la journée, ex. 'Le dollar recule, le pétrole chute sur l'optimisme d'un accord US-Iran'>",
+  "intro": "<INTRO D'OUVERTURE : 1 à 2 phrases qui résument le FIL ROUGE de la journée en s'appuyant D'ABORD sur les RÉCAPS DE SÉANCE fournis (Asie → Europe → US) : ce que la journée a raconté, session après session. Ton naturel de stratège, pas une liste>",
+  "geopolitics": ["<puce géopolitique FACTUELLE du jour : le fait → son implication marché si elle est visible. UNIQUEMENT ce qui figure dans les données fournies ; tableau VIDE [] si rien de géopolitique aujourd'hui>"],
+  "macro": ["<puce macro : banque centrale / donnée / politique éco — format 'fait + chiffre → effet'. Les 3 à 6 développements macro qui ont VRAIMENT compté aujourd'hui, une phrase par puce>"],
   "summary": "<SYNTHÈSE ULTRA-DENSE : 2 à 3 phrases MAX, chacune reliée par la flèche → : le fait dominant du jour, le dollar US et son driver, la publication CLÉ avec son chiffre (réel vs attendu) et son effet. Zéro remplissage>",
   "tags": ["<5 à 8 puces de thèmes courtes, ex. 'Accord US-Iran','Prix du pétrole','Réserve fédérale'>"],
   "insights": ["<3 puces prospectives, UNE phrase courte chacune, autonomes>"],
@@ -9570,6 +9596,9 @@ Règles :
 - DIFFÉRENTIEL DE TAUX : la faiblesse persistante des devises à taux directeur très bas face au reste du G10 (typiquement CHF ~0 % et JPY ~1 %) s'explique d'abord par le PORTAGE (différentiel de taux) — quand tu commentes leur sous-performance sans catalyseur du jour, nomme CE mécanisme, pas un vague « sentiment ».
 - ZONE EURO : hiérarchise les données — Allemagne d'abord (l'Ifo = indicateur AVANCÉ de la croissance de la zone), France ensuite, reste de la zone après.
 
+=== RÉCAPS DE SÉANCE DU JOUR (résumés internes DTP, base de l'INTRO) ===
+${wrapLines.join('\n').slice(0, 2500) || '(aucun récap de séance capturé — construis l\'intro depuis les titres majeurs)'}
+
 === TITRES & FLUX DU JOUR (${newsLines.length}) ===
 ${newsLines.join('\n').slice(0, 9000) || '(flux limité capturé)'}
 
@@ -9592,7 +9621,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     }
 
     // ── Repli déterministe : TOUJOURS un rapport exploitable (sans Gemini) ──
-    if (!fxr) fxr = _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine });
+    if (!fxr) fxr = _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine, wrapItems });
 
     // ── « DONNÉES DU JOUR » PAR PAYS (v9, référence user : « Allemagne : Inflation → PPI M/M -0.3 %
     //    (attendu -0.2 %, précédent 0.3 %) → surprise baissière ») — 100 % DÉTERMINISTE depuis le calendrier
