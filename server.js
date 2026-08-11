@@ -8675,6 +8675,42 @@ function _recapDeTag(b) {
 }
 // Chronologie géopolitique (v27, façon référence) : jour par jour + état en fin de semaine. Null si pas
 // de vrai fil multi-jours (< 2 jours) → le rendu retombe alors sur le thème macro « Géopolitique ».
+/* FILET DÉTERMINISTE (11/08) — LA CHRONOLOGIE NE DOIT PLUS DISPARAÎTRE.
+   Constaté juste après avoir durci la consigne : l'IA a renvoyé `geoTimeline: null` et la rubrique
+   s'est vidée, alors que le fil géopolitique de la semaine était bien là (le récit en parlait). Une
+   section qui existe ou non selon l'humeur d'un modèle n'est pas une section. On la reconstruit donc
+   depuis le CONTEXTE DATÉ déjà collecté (`geoCtx` : une ligne « Mardi : fait » par événement, issue
+   des récaps de séance et du fil news) — même matière, mais un chemin qui ne peut pas échouer.
+   Jours REGROUPÉS comme dans la référence : deux jours voisins fusionnent quand chacun n'a qu'un fait. */
+const _GEO_DOWS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+function _geoTimelineFromCtx(geoCtx) {
+  try {
+    const parJour = new Map();
+    for (const ligne of String(geoCtx || '').split('\n')) {
+      const m = ligne.match(/^\s*(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche)\s*:\s*(.+)$/i);
+      if (!m) continue;
+      const jour = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+      const fait = _stripMd(m[2]).replace(/\s+/g, ' ').trim();
+      if (fait.length < 25) continue;                          // titre trop court = pas un fait
+      if (!parJour.has(jour)) parJour.set(jour, []);
+      const l = parJour.get(jour);
+      if (l.length < 2 && !l.some(x => x.slice(0, 40) === fait.slice(0, 40))) l.push(fait.slice(0, 200));
+    }
+    const jours = _GEO_DOWS.filter(j => parJour.has(j)).map(j => ({ jour: j, points: parJour.get(j) }));
+    if (jours.length < 2) return null;
+    // Regroupement : deux jours CONSÉCUTIFS à un seul fait chacun deviennent « Mercredi-Jeudi ».
+    const out = [];
+    for (let i = 0; i < jours.length; i++) {
+      const a = jours[i], b = jours[i + 1];
+      const voisins = b && (_GEO_DOWS.indexOf(b.jour) - _GEO_DOWS.indexOf(a.jour) === 1);
+      if (voisins && a.points.length === 1 && b.points.length === 1) {
+        out.push({ jour: a.jour + '-' + b.jour, points: [a.points[0], b.points[0]] });
+        i++;
+      } else out.push(a);
+    }
+    return { titre: '', jours: out.slice(0, 4), etatFin: [] };
+  } catch { return null; }
+}
 function _sanitizeGeoTimeline(gt) {
   if (typeof gt === 'string') { try { gt = JSON.parse(gt); } catch { return null; } }   // l'IA renvoie parfois l'objet en chaîne
   if (!gt || typeof gt !== 'object' || Array.isArray(gt)) return null;
@@ -9122,7 +9158,9 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
                     .map(p => ({ ...p, bias: ['BUY','SELL','NEUTRAL'].includes(p.bias) ? p.bias : 'NEUTRAL' }))
                     .slice(0, 8) : [],
       macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).map(s => ({ heading: _stripMd(String(s.heading)), bullets: Array.isArray(s.bullets) ? s.bullets.map(b => _recapDeTag(String(b == null ? '' : b).replace(/\s+/g, ' ').trim())).filter(Boolean) : [], detail: s.detail != null ? _stripMd(String(s.detail)) : undefined })).slice(0, 8) : [],
-      geoTimeline: _sanitizeGeoTimeline(parsed.geoTimeline),   // v27 : chronologie géopolitique (null si pas de fil multi-jours)
+      // Chronologie : l'IA d'abord, le filet déterministe si elle renonce (elle a renvoyé null le 11/08
+      // alors que le fil existait) → la rubrique ne peut plus disparaître quand la matière est là.
+      geoTimeline: _sanitizeGeoTimeline(parsed.geoTimeline) || _geoTimelineFromCtx(geoCtx),
       currencies: {},
     };
     for (const c of CCY) {
