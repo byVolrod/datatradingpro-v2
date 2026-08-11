@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260812-mails-rapports', ts: Date.UTC(2026, 7, 12, 14, 0), title: 'E-mails : le même sommaire que le rapport que vous ouvrez', desc: "Le point marché reprend désormais les rubriques du Récap Quotidien — Géopolitique, Macro, Analyse par session, À surveiller — et le porte sous son vrai nom. Le point de la semaine ouvre sur la même introduction que le rapport, ajoute le fil géopolitique et affiche le biais de chaque devise. Ce que vous lisez dans votre boîte ressemble enfin à ce que vous retrouvez sur le desk." },
   { id: 'dtpu-20260812-biais-temps-reel', ts: Date.UTC(2026, 7, 12, 12, 0), title: 'Radar de Biais : réaction immédiate aux chiffres, et un contrôle qui corrige', desc: 'Quand une publication à fort impact tombe — CPI, emploi, décision de taux — le Radar est prévenu directement par le calendrier et recalcule dans la foulée, au lieu d\'attendre de la découvrir plus tard. Un chiffre publié en retard n\'est plus manqué. Et un second contrôle passe désormais derrière chaque biais avant affichage : si le verdict contredit les colonnes que vous lisez, il est recalculé sur ces colonnes plutôt que publié tel quel.' },
   { id: 'dtpu-20260812-widget-graphique', ts: Date.UTC(2026, 7, 12, 9, 0), title: 'Mon Desk : un widget graphique, et des bougies plus lisibles', desc: 'Nouveau widget « Graphique » : choisissez votre paire et votre unité de temps, et gardez le chandelier sous les yeux à côté du fil ou du calendrier. Vous pouvez en poser plusieurs, chacun sur sa paire. Les bougies elles-mêmes ont été reprises — vert et rouge francs, mèches enfin visibles, corps mieux espacés : on lit le rapport de force d\'un coup d\'œil.' },
   { id: 'dtpu-20260812-reglages-memorises', ts: Date.UTC(2026, 7, 12, 9, 30), title: 'Vos réglages vous suivent, d\'un appareil à l\'autre', desc: 'La période du Force des Devises, le type de positionnement COT, l\'unité de temps et le tri du DMX, le filtre d\'impact du calendrier, l\'onglet des alertes, le tri du Journal, l\'ordre de vos onglets : tout cela est désormais mémorisé sur votre compte. Vous vous reconnectez, même depuis un autre ordinateur, et le desk est exactement comme vous l\'aviez laissé.' },
@@ -17890,37 +17891,42 @@ function _freshDaily() {
           const d = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
           return (d > max * 0.5) ? cut.slice(0, d + 1).trim() : cut.replace(/\s+\S*$/, '').trim() + '…';
         };
-        const heads = (Array.isArray(fx.headlines) ? fx.headlines : []).map(h => h && h.title).filter(Boolean).slice(0, 5);
-        if (heads.length) secs.push({ title: 'Les titres du jour', kind: 'bullets', items: heads });
-        // Analyse régionale (Asie / Londres / New York) : le récit COMPLET de la session (2-3 phrases
+        // ⚠️ CES SECTIONS SUIVENT LE RAPPORT (mise à jour 12/08). Le mail construisait encore le
+        // sommaire de l'ANCIEN Récap Quotidien : « Les titres du jour », « Focus banques centrales »,
+        // « Données économiques clés » — trois rubriques retirées du rapport en v15/v16 (doublons).
+        // Le lecteur recevait donc un aperçu qui ne ressemblait plus à ce qu'il allait ouvrir, et
+        // deux de ces sections n'étaient même plus produites par le serveur : elles arrivaient vides.
+        // Ordre repris du rapport : Géopolitique → Macro → Analyse par session → À surveiller.
+        const geo = (Array.isArray(fx.geopolitics) ? fx.geopolitics : []).filter(Boolean).slice(0, 3).map(t => _dense(t, 420));
+        if (geo.length) secs.push({ title: 'Géopolitique', kind: 'bullets', items: geo });
+        const mac = (Array.isArray(fx.macro) ? fx.macro : []).filter(Boolean).slice(0, 4).map(t => _dense(t, 420));
+        if (mac.length) secs.push({ title: 'Macro', kind: 'bullets', items: mac });
+        // Analyse par session (Asie / Londres / New York) : le récit COMPLET de la séance (2-3 phrases
         // denses avec le driver chiffré), pas seulement son accroche.
         const regs = (Array.isArray(fx.regions) ? fx.regions : []).filter(r => r && r.name && r.summary).slice(0, 4).map(r => r.name + ' : ' + _dense(r.summary, 460));
-        if (regs.length) secs.push({ title: 'Analyse régionale', kind: 'bullets', items: regs });
-        // Banques centrales : posture + pricing du marché + ce qu'il faut surveiller (le rapport en écrit
-        // 2-3 phrases ; la 1re seule donnait le creux « la Fed pourrait relever les taux… »).
-        const cbs = (Array.isArray(fx.centralBanks) ? fx.centralBanks : []).filter(c => c && c.name && c.text).slice(0, 3).map(c => c.name + ' : ' + _dense(c.text, 400));
-        if (cbs.length) secs.push({ title: 'Focus banques centrales', kind: 'bullets', items: cbs });
-        const dataRows = [];
-        for (const e of (Array.isArray(fx.econData) ? fx.econData : [])) {
-          if (!e || !e.release) continue;
-          for (const mtr of (Array.isArray(e.metrics) ? e.metrics : []).slice(0, 2)) {
-            dataRows.push({ release: e.release + (mtr.metric && mtr.metric !== e.release ? ' : ' + mtr.metric : ''), actual: mtr.actual || '', expected: mtr.expected || '', previous: mtr.previous || '' });
-            if (dataRows.length >= 6) break;
-          }
-          if (dataRows.length >= 6) break;
-        }
-        if (dataRows.length) secs.push({ title: 'Données économiques clés', kind: 'data', data: dataRows });
-        // « À suivre » : l'intitulé SEUL (« FDI (YTD) YoY ») ne dit rien à un lecteur de mail. On porte les
-        // champs déjà présents dans fx.lookahead (ts/ccy/importance/forecast/previous) → date FR (Paris),
-        // devise, et le consensus attendu : le lecteur sait QUAND, sur QUELLE devise et CE QUI est attendu.
+        if (regs.length) secs.push({ title: 'Analyse par session', kind: 'bullets', items: regs });
+        // « À surveiller » — MÊME NOM que dans le rapport (le mail disait « À suivre »). Deux
+        // matières, dans l'ordre du desk : d'abord la lecture NARRATIVE (`watch` : le catalyseur ET
+        // pourquoi il compte), puis les échéances datées du calendrier. L'intitulé SEUL (« FDI (YTD)
+        // YoY ») ne dit rien à un lecteur de mail : on porte la date FR (Paris), la devise et le
+        // consensus attendu, pour qu'il sache QUAND, sur QUELLE devise et CE QUI est attendu.
         const _laDay = ts => { try { return new Date(ts).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' }); } catch { return ''; } };
+        const watch = (Array.isArray(fx.watch) ? fx.watch : []).filter(Boolean).slice(0, 3).map(t => _dense(t, 380));
         const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).filter(x => x && x.event).slice(0, 5).map(x => {
           const when = x.ts ? _laDay(x.ts) : '';
           const vals = [x.forecast ? 'prév. ' + x.forecast : '', x.previous ? 'préc. ' + x.previous : ''].filter(Boolean).join(', ');
           return [when, x.ccy || '', x.event].filter(Boolean).join(' · ') + (vals ? ' — ' + vals : '') + (/high/i.test(x.importance || '') ? ' (impact élevé)' : '');
         });
-        if (la.length) secs.push({ title: 'À suivre', kind: 'bullets', items: la });
-        return _noDashDeep({ kind: 'fxr', title: fx.title || '', summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '', hasComments: !!(Array.isArray(fx.comments) && fx.comments.length) });
+        const surv = watch.concat(la).slice(0, 5);
+        if (surv.length) secs.push({ title: 'À surveiller', kind: 'bullets', items: surv });
+        // NOM DU RAPPORT EN FRANÇAIS (demande user 11/08 : « Daily Recap doit avoir le même nom,
+        // Récap Quotidien »). Le desk applique cette table de préfixes à l'affichage ; le mail
+        // envoyait encore le titre BRUT du serveur (« FX Daily Recap: … »). Le même rapport portait
+        // donc deux noms selon qu'on le lisait sur le desk ou dans sa boîte.
+        const _titreFR = String(fx.title || '').replace(/^FX Daily Recap\b/i, 'Récap Quotidien');
+        // `hasComments` pilote un pied de mail qui vante « Commentaires marquants » — section RETIRÉE
+        // du rapport le 11/08. On ne promet plus une rubrique qui n'existe plus.
+        return _noDashDeep({ kind: 'fxr', title: _titreFR, summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '', hasComments: false });
       }
     }
   } catch {}
