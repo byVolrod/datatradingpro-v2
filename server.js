@@ -13153,13 +13153,20 @@ const CB_MEETINGS = {
 // sont ensuite re-vérifiées en continu par _aiVerifyRates (calendrier réel + news) → fiabilité durable.
 const CB = [
   { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',           rate:3.75, bias:'hold', lean:'cut', conv:0.70, step:25, floor:2.50, ceil:4.75 },
-  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:2.00, bias:'hold',             conv:0.60, step:25, floor:1.50, ceil:3.25 },
+  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:2.25, bias:'hold',             conv:0.60, step:25, floor:1.50, ceil:3.25 },   // 2,25 % (dépôt) depuis la hausse du 11/06/2026 — amorce alignée sur le taux réel
   { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:3.75, bias:'hold', lean:'cut', conv:0.55, step:25, floor:2.50, ceil:4.75 },
-  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.75, bias:'hike',             conv:0.60, step:25, floor:0.10, ceil:1.75 },
+  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:1.00, bias:'hike',             conv:0.60, step:25, floor:0.10, ceil:1.75 },   // 1,00 % depuis la hausse du 16/06/2026
   { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:0.00, bias:'hold',             conv:0.65, step:25, floor:-0.25, ceil:1.50 },
   { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:2.25, bias:'hold', lean:'cut', conv:0.60, step:25, floor:1.50, ceil:3.50 },
   { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, bias:'hold', lean:'cut', conv:0.55, step:25, floor:3.35, ceil:4.85 },
-  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.25, bias:'hold', lean:'cut', conv:0.60, step:25, floor:1.75, ceil:3.50 },
+  // ⚠️ NZD CORRIGÉ le 11/08/2026 (audit du Radar de Biais) — la configuration disait « 2,25 %, pause,
+  // penchant BAISSE » alors que la RBNZ a RELEVÉ l'OCR à 2,50 % le 8 juillet 2026 en indiquant que
+  // « further OCR increases appear likely at upcoming meetings » (source : communiqué RBNZ « OCR
+  // increased to 2.50% to return inflation to 2% », vérifié sur rbnz.govt.nz). Le Radar affichait donc
+  // « Accommodante » pour la banque la plus restrictive du bloc. NZD et CHF n'ont AUCUN pricing de marché
+  // (source payante) : pour ces deux-là, cette ligne EST la source de vérité — elle doit être re-vérifiée
+  // à chaque changement de cycle, sans quoi elle se périme en silence.
+  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.50, bias:'hike',             conv:0.60, step:25, floor:1.75, ceil:3.50 },
 ];
 // Modèle maison : scénario d'une réunion (idx 0 = prochaine ; la conviction du biais croît avec l'horizon).
 function _rateScenario(b, idx) {
@@ -13185,7 +13192,7 @@ function _rateScenario(b, idx) {
 // État persistant : taux courant + dernière réunion traitée, par banque. Le taux ÉVOLUE
 // automatiquement à chaque réunion PASSÉE (selon le base case maison), borné par floor/ceil.
 const RATES_STATE_FILE = path.join(_CACHE_DIR, 'cache_rates_state.json');
-const RATES_VER = 'v2-2026-06-verified';   // bump → RÉ-ANCRE tous les taux sur la config vérifiée (efface toute dérive persistée Supabase/disque)
+const RATES_VER = 'v3-2026-08-verified';   // bump → RÉ-ANCRE tous les taux sur la config vérifiée (efface toute dérive persistée Supabase/disque). v3 (11/08/2026) : NZD 2,25 → 2,50 % (hausse RBNZ du 08/07, source rbnz.govt.nz) + amorces EUR 2,25 et JPY 1,00 alignées sur les taux réels. SANS ce bump, la config corrigée resterait lettre morte : l'état persisté n'est ré-ancré QUE sur changement de version.
 let _ratesState = null;
 function _initRatesState() {
   if (!_ratesState || !_ratesState.banks) _ratesState = { banks: {}, updatedAt: Date.now() };
