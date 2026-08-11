@@ -2137,11 +2137,21 @@ function _cotFit(grid) {
 // Taille MODÉRÉE et pilotée par le CSS : la version qui remplissait la carte avait été rejetée.
 // Le centre porte le pourcentage DOMINANT, dans la couleur du camp qui domine — on lit le rapport
 // de force sans avoir à comparer deux arcs.
+/* ÉPURE 11/08 (demande user « fais un truc + clean, toujours en donut ») — ce qui a changé et pourquoi :
+   · le % au centre ne disait pas de QUOI il était le pourcentage → il porte désormais son camp
+     dessous, en petit (« vendeurs » / « acheteurs ») : la carte se lit sans légende ;
+   · l'anneau était épais et les deux arcs également saturés, ce qui faisait deux blocs de couleur
+     qui se disputaient l'œil → anneau plus fin, le camp MINORITAIRE en retrait (il reste lisible,
+     il ne crie plus), le camp dominant seul en pleine couleur ;
+   · un mince espace sépare les deux arcs, comme sur les donuts de terminal — la frontière se voit
+     sans qu'on ait besoin d'un liseré. */
 function _cotRing(ok, sPct, lPct, mod) {
-  const r = 28, C = 2 * Math.PI * r;
-  const arc = p => ((p / 100) * C).toFixed(2) + ' ' + (C - (p / 100) * C).toFixed(2);
+  const r = 30, C = 2 * Math.PI * r;
+  const GAP = 1.6;                                        // respiration entre les deux arcs (en unités de tracé)
+  const arc = p => Math.max(0, (p / 100) * C - GAP).toFixed(2) + ' ' + C.toFixed(2);
   const dom = sPct >= lPct ? sPct : lPct;
   const cls = !ok ? 'na' : (sPct === lPct ? 'flat' : (sPct > lPct ? 'bear' : 'bull'));
+  const camp = !ok ? '' : (sPct === lPct ? 'à l\'équilibre' : (sPct > lPct ? 'vendeurs' : 'acheteurs'));
   return '<svg class="cot-ring cot-ring--' + cls + '" viewBox="0 0 80 80" role="img"'
     + ' aria-label="Répartition : ' + sPct + '% de positions courtes, ' + lPct + '% de positions longues">'
     + '<circle class="cot-ring-bg" cx="40" cy="40" r="' + r + '" fill="none"/>'
@@ -2150,7 +2160,8 @@ function _cotRing(ok, sPct, lPct, mod) {
     +   '<circle class="cot-ring-l" cx="40" cy="40" r="' + r + '" fill="none" stroke-dasharray="' + arc(lPct) + '"'
     +     ' stroke-dashoffset="' + (-(sPct / 100) * C).toFixed(2) + '"/>'
     + '</g>'
-    + '<text class="cot-ring-v" x="40" y="44" text-anchor="middle">' + (ok ? dom + '%' : '—') + '</text>'
+    + '<text class="cot-ring-v" x="40" y="' + (camp ? 39 : 45) + '" text-anchor="middle">' + (ok ? dom + '%' : '—') + '</text>'
+    + (camp ? '<text class="cot-ring-cap" x="40" y="51" text-anchor="middle">' + camp + '</text>' : '')
     + '</svg>';
 }
 
@@ -2200,19 +2211,22 @@ function buildCOTChart(gridId, typeArg) {
 
         const cell = document.createElement('article');
         cell.className = 'cot-cell cot-cell--' + mod;
+        // ÉPURE 11/08 : la carte disait quatre fois la même chose (badge, position nette encadrée,
+        // donut, puis deux lignes boîtées à liseré). Elle tient maintenant en trois temps —
+        // l'en-tête (qui domine), le donut (de combien), le pied (les volumes bruts + le net) —
+        // sans filet interne ni ligne encadrée.
         cell.innerHTML = `
           <header class="cot-head">
             ${flag}<span class="cot-ccy">${cur.key}${cur.derived ? '<i class="cot-drv" title="Série dérivée">*</i>' : ''}</span>
             <span class="cot-badge">${VERDICT[mod]}</span>
           </header>
-          <div class="cot-net">
-            <span class="cot-k cot-k--net">Position nette</span>
-            <span class="cot-net-v">${net}${ok ? '<i class="cot-unit">contrats</i>' : ''}</span>
-          </div>
           <div class="cot-split">${_cotRing(ok, sPct, lPct, mod)}</div>
-          <div class="cot-book">
-            <div class="cot-row cot-row--s"><span class="cot-k">Courts</span><span class="cot-v">${ok ? fmtK(cur.shortPos) : TIRET}</span></div>
-            <div class="cot-row cot-row--l"><span class="cot-k">Longs</span><span class="cot-v">${ok ? fmtK(cur.longPos) : TIRET}</span></div>
+          <div class="cot-foot2">
+            <div class="cot-sides">
+              <span class="cot-side cot-side--l">Longs<b>${ok ? fmtK(cur.longPos) : TIRET}</b></span>
+              <span class="cot-side cot-side--s">Courts<b>${ok ? fmtK(cur.shortPos) : TIRET}</b></span>
+            </div>
+            <div class="cot-netline">Net <b>${net}</b>${ok ? ' contrats' : ''}</div>
           </div>`;
         grid.appendChild(cell);
       }
