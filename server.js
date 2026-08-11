@@ -16487,7 +16487,7 @@ app.get('/internal/email-widget/calendar', async (req, res) => {
 // d'Analystes » sont IDENTIQUES au desk (prefixe de seance sur les wraps, traduction FR, sous-titre des hebdo).
 // Demande user (« pas les bonnes titres, doit ressembler au desk »).
 const _ARL_PREFIX = { 'Global Economic Weekly': 'Global Economic Weekly', 'Weekly Market Recap': 'Weekly Market Recap', 'FX Daily Recap': 'FX Daily Recap', 'FX Daily': 'FX Daily', 'Asia Opening Preparation': 'Daily Asia-Pac Opening News', 'London Opening Preparation': 'London Opening Preparation', 'US Opening Preparation': 'New York Opening Preparation', 'Asia Session Recap': 'Asia-Pac Session Recap', 'London Session Recap': 'London Session Recap', 'US Session Recap': 'New York Session Recap', 'Daily Event Review': 'Daily Event Review', 'Daily Market Recap': 'Daily Market Recap' };
-const _ARL_PREFIX_FR = { 'Global Economic Weekly': 'Récap Éco des Marchés', 'Weekly Market Recap': 'Récap Hebdo des Marchés', 'FX Daily Recap': 'Récap FX Quotidien', 'FX Daily': 'FX Quotidien', 'Daily Asia-Pac Opening News': 'Ouverture Asie-Pacifique', 'London Opening Preparation': 'Préparation Ouverture Londres', 'New York Opening Preparation': 'Préparation Ouverture New York', 'Asia-Pac Session Recap': 'Récap Séance Asie-Pacifique', 'Asia-Pacific Session Recap': 'Récap Séance Asie-Pacifique', 'Asia Session Recap': 'Récap Séance Asie', 'London Session Recap': 'Récap Séance Londres', 'New York Session Recap': 'Récap Séance New York', 'US Session Recap': 'Récap Séance US', 'Americas Session Recap': 'Récap Séance Amériques', 'Daily Event Review': 'Revue Quotidienne des Événements', 'Daily Market Recap': 'Récap Quotidien des Marchés' };
+const _ARL_PREFIX_FR = { 'Global Economic Weekly': 'Récap Éco des Marchés', 'Weekly Market Recap': 'Récap Hebdo des Marchés', 'FX Daily Recap': 'Récap Quotidien', 'FX Daily': 'FX Quotidien', 'Daily Asia-Pac Opening News': 'Ouverture Asie-Pacifique', 'London Opening Preparation': 'Préparation Ouverture Londres', 'New York Opening Preparation': 'Préparation Ouverture New York', 'Asia-Pac Session Recap': 'Récap Séance Asie-Pacifique', 'Asia-Pacific Session Recap': 'Récap Séance Asie-Pacifique', 'Asia Session Recap': 'Récap Séance Asie', 'London Session Recap': 'Récap Séance Londres', 'New York Session Recap': 'Récap Séance New York', 'US Session Recap': 'Récap Séance US', 'Americas Session Recap': 'Récap Séance Amériques', 'Daily Event Review': 'Revue Quotidienne des Événements', 'Daily Market Recap': 'Récap Quotidien des Marchés' };
 const _ARL_ALL_PREFIXES = [...new Set([...Object.values(_ARL_PREFIX), 'Asia-Pac Session Recap', 'Asia Session Recap', 'Asia-Pacific Session Recap', 'New York Session Recap', 'US Session Recap', 'Americas Session Recap', 'Daily Asia-Pac Opening News', 'Asia Opening Preparation', 'US Opening Preparation'])].sort((a, b) => b.length - a.length);
 const _ARL_PREFIX_FR_KEYS = Object.keys(_ARL_PREFIX_FR).sort((a, b) => b.length - a.length);
 // Le sujet qui suit le préfixe est purgé d'une éventuelle REFORMULATION du nom du rapport (l'IA
@@ -19450,7 +19450,7 @@ const _HERO_RECAP_TTL = 10 * 60 * 1000;
 const _HR_TYPE_FR = {
   'Weekly Market Recap':    'Récap Hebdo des Marchés',
   'Global Economic Weekly': 'Récap Éco des Marchés',
-  'FX Daily Recap':         'Récap FX Quotidien',
+  'FX Daily Recap':         'Récap Quotidien',
   'DTP Daily':              'Point Marché',
 };
 function _buildHeroRecaps() {

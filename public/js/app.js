@@ -6593,7 +6593,7 @@ function _reportPrefixFor(item) {
 const REPORT_PREFIX_FR = {
   'Global Economic Weekly': 'Récap Éco des Marchés',
   'Weekly Market Recap': 'Récap Hebdo des Marchés',
-  'FX Daily Recap': 'Récap FX Quotidien',
+  'FX Daily Recap': 'Récap Quotidien',   // un seul nom partout (demande user 11/08) — voir aussi le lecteur
   'FX Daily': 'FX Quotidien',
   'Daily Asia-Pac Opening News': 'Ouverture Asie-Pacifique',
   'London Opening Preparation': 'Préparation Ouverture Londres',
@@ -7782,7 +7782,10 @@ function _renderFXDailyRecap(item) {
   // couverte serait alors perdue — le titre n'en porte pas — donc elle rejoint le TITRE, en suffixe :
   // l'en-tête reste sur une seule ligne et l'information reste là.
   const _fxrDate = String(w.dateLabel || '').trim();
-  if (titleEl) titleEl.textContent = _stripTitleDateLead(_mdStrip(w.title || 'FX Daily Recap')) + (_fxrDate ? ' — ' + _fxrDate : '');
+  // ⚠️ Le lecteur affichait le titre BRUT du serveur (« FX Daily Recap: … ») alors que la liste, elle,
+  // passait par la traduction — le même rapport portait donc deux noms selon l'écran. On applique ici
+  // la MÊME table de préfixes FR (_reportTitleToFR) : un seul nom partout, « Récap Quotidien ».
+  if (titleEl) titleEl.textContent = _stripTitleDateLead(_reportTitleToFR(_mdStrip(w.title || 'FX Daily Recap'))) + (_fxrDate ? ' — ' + _fxrDate : '');
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
