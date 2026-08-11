@@ -16387,3 +16387,15 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   .cot-sides { grid-template-columns: 1fr 1fr; row-gap: var(--sp-15); }
   .cot-side--n { grid-column: 1 / -1; order: 2; }
 }
+
+/* ══ COT — LES CONTOURS RESSORTENT (11/08, demande user) ═════════════════════════════════════════
+   Les cartes sont volontairement COLLÉES, séparées par une gouttière de 1 px — mais cette gouttière
+   était peinte avec var(--bg), c'est-à-dire la couleur du fond : il n'y avait donc AUCUN trait entre
+   deux cartes, et la grille se lisait comme une seule surface où flottaient huit donuts. On repeint la
+   gouttière avec la ligne de grille du desk, et on ceinture l'ensemble : chaque carte se détache, sans
+   ajouter de bordure par cellule (qui aurait doublé l'épaisseur entre voisines). */
+.cot-grid { background: var(--border); border: 1px solid var(--border); border-radius: var(--r-1); }
+/* Le bandeau d'en-tête gagne le même trait : la ligne devise/verdict se sépare nettement du donut. */
+.cot-cell .cot-head { border-bottom-color: var(--border2); }
+/* Hover doré renforcé : l'anneau interne se voyait à peine sur un fond désormais cerné. */
+.cot-cell:hover { box-shadow: inset 0 0 0 1px var(--orange-glow, rgba(227,178,58,.55)); }
