@@ -2941,6 +2941,96 @@ function _calTitleTokens(title) {
   return out;
 }
 function _calOverlap(a, b) { let n = 0; for (const w of a) if (b.has(w)) n++; return n; }
+
+/* ══ LIBELLÉS FOREXFACTORY À L'AFFICHAGE (11/08, demande user) ═════════════════════════════════════
+   Le calendrier est servi par TradingView (actuals natifs, temps réel, historique) mais TV nomme ses
+   indicateurs autrement que ForexFactory — « Inflation Rate YoY » vs « CPI y/y », « API Crude Oil Stock
+   Change » vs « Crude Oil Inventories ». Le trader lit FF ; il doit retrouver LES MÊMES noms chez nous.
+   ON NE TOUCHE PAS AUX DONNÉES STOCKÉES : le renommage est appliqué au moment de SERVIR, jamais avant.
+   Raison — l'archive `_calHist` et les tendances du Radar de Biais sont indexées PAR TITRE : renommer à
+   la source couperait chaque série en deux (ancien nom / nouveau nom) et casserait les tendances.
+   Deux étages : (1) appariement RÉEL avec le flux FF (même devise, même heure ±90 min, titres qui se
+   recoupent) → le vrai libellé FF, y compris pour les indicateurs qu'on n'a pas listés ; (2) table de
+   correspondance pour tout ce que la fenêtre FF (semaine courante + suivante) ne couvre pas. */
+const _FF_TITLE_RULES = [
+  [/^core\s+inflation\s+rate\s+yoy/i,            'Core CPI y/y'],
+  [/^core\s+inflation\s+rate\s+mom/i,            'Core CPI m/m'],
+  [/^inflation\s+rate\s+yoy/i,                   'CPI y/y'],
+  [/^inflation\s+rate\s+mom/i,                   'CPI m/m'],
+  [/^inflation\s+rate\s+qoq/i,                   'CPI q/q'],
+  [/^cpi\s*s\.?a\.?$/i,                          'CPI'],
+  [/^core\s+pce\s+price\s+index\s+yoy/i,         'Core PCE Price Index y/y'],
+  [/^core\s+pce\s+price\s+index\s+mom/i,         'Core PCE Price Index m/m'],
+  [/^ppi\s+yoy/i,                                'PPI y/y'],
+  [/^ppi\s+mom/i,                                'PPI m/m'],
+  [/^core\s+ppi\s+mom/i,                         'Core PPI m/m'],
+  [/^gdp\s+growth\s+rate\s+qoq(\s+prel)?/i,      'Prelim GDP q/q'],
+  [/^gdp\s+growth\s+rate\s+yoy(\s+prel)?/i,      'Prelim GDP y/y'],
+  [/^gdp\s+mom/i,                                'GDP m/m'],
+  [/^non[- ]?farm\s+payrolls?/i,                 'Non-Farm Employment Change'],
+  [/^adp\s+employment\s+change/i,                'ADP Non-Farm Employment Change'],
+  [/^employment\s+change/i,                      'Employment Change'],
+  [/^unemployment\s+rate/i,                      'Unemployment Rate'],
+  [/^initial\s+jobless\s+claims/i,               'Unemployment Claims'],
+  [/^continuing\s+jobless\s+claims/i,            'Continuing Claims'],
+  [/^job\s+openings|^jolts/i,                    'JOLTS Job Openings'],
+  [/^average\s+hourly\s+earnings\s+mom/i,        'Average Hourly Earnings m/m'],
+  [/^retail\s+sales\s+mom/i,                     'Retail Sales m/m'],
+  [/^retail\s+sales\s+ex\s+autos\s+mom/i,        'Core Retail Sales m/m'],
+  [/^ism\s+manufacturing\s+pmi/i,                'ISM Manufacturing PMI'],
+  [/^ism\s+services\s+pmi/i,                     'ISM Services PMI'],
+  [/^michigan\s+consumer\s+sentiment/i,          'Prelim UoM Consumer Sentiment'],
+  [/^api\s+crude\s+oil\s+stock\s+change/i,       'API Weekly Statistical Bulletin'],
+  [/^eia\s+crude\s+oil\s+stocks?\s+change/i,     'Crude Oil Inventories'],
+  [/^mba\s+30[- ]year\s+mortgage\s+rate/i,       'MBA Mortgage Applications'],
+  [/^interest\s+rate\s+decision/i,               'Official Bank Rate'],
+  [/^industrial\s+production\s+mom/i,            'Industrial Production m/m'],
+  [/^balance\s+of\s+trade|^trade\s+balance/i,    'Trade Balance'],
+];
+function _ffTitleStatic(t) {
+  const s = String(t || '').trim();
+  for (const [re, ff] of _FF_TITLE_RULES) if (re.test(s)) return ff;
+  return null;
+}
+// Index du flux FF par devise, reconstruit au plus une fois par minute (le flux ne bouge pas plus vite).
+let _ffIdx = { at: 0, byCcy: new Map() };
+function _ffIndex() {
+  if (_ffIdx.byCcy.size && Date.now() - _ffIdx.at < 60000) return _ffIdx.byCcy;
+  const byCcy = new Map();
+  try {
+    for (const e of (getCalendarRaw() || [])) {
+      if (!e || !e.currency || !e.title || !e.timestamp) continue;
+      if (!byCcy.has(e.currency)) byCcy.set(e.currency, []);
+      byCcy.get(e.currency).push({ ts: e.timestamp, title: e.title, tok: _calTitleTokens(e.title) });
+    }
+  } catch {}
+  _ffIdx = { at: Date.now(), byCcy };
+  return byCcy;
+}
+// Libellé à AFFICHER pour un événement TradingView : le vrai nom FF si on l'apparie, sinon la table,
+// sinon le titre d'origine (on n'invente jamais un nom).
+function _ffDisplayTitle(ev) {
+  try {
+    if (!ev || !ev.title) return ev && ev.title;
+    const cands = _ffIndex().get(ev.currency) || [];
+    if (cands.length && ev.timestamp) {
+      const tok = _calTitleTokens(ev.title);
+      let best = null, bestOv = 0;
+      for (const c of cands) {
+        if (Math.abs(c.ts - ev.timestamp) > 90 * 60000) continue;   // même publication, tolérance de fuseau/arrondi
+        const ov = _calOverlap(tok, c.tok);
+        if (ov > bestOv) { bestOv = ov; best = c; }
+      }
+      if (best && bestOv >= 2) return best.title;                    // 2 mots-clés communs = même indicateur
+    }
+  } catch {}
+  return _ffTitleStatic(ev.title) || ev.title;
+}
+// Applique le renommage à une liste servie au client (copie superficielle : la donnée stockée est intacte).
+function _calFfNames(items) {
+  try { return (items || []).map(e => { const t = _ffDisplayTitle(e); return (t && t !== e.title) ? Object.assign({}, e, { title: t, _tvTitle: e.title }) : e; }); }
+  catch { return items || []; }
+}
 let _tvActualsBusy = false;
 async function _refreshTVActuals() {
   if (_tvActualsBusy) return 0;          // anti-empilement si un appel précédent traîne (réseau lent)
@@ -3291,13 +3381,13 @@ app.get('/api/calendar-events', async (req, res) => {
     let hitems = [];
     try { hitems = await _buildTVCalendarRange(back); } catch {}
     if (hitems && hitems.length) _calHistAbsorb(hitems);
-    return res.json({ items: hitems && hitems.length ? _calApplyRanges(hitems) : [], back });
+    return res.json({ items: hitems && hitems.length ? _calFfNames(_calApplyRanges(hitems)) : [], back });
   }
 
   // SOURCE PRINCIPALE : TradingView (actuals natifs, aucun matching) → exact + temps réel + anciennes données.
   let items = [];
   try { items = await _buildTVCalendar(); } catch {}
-  if (items && items.length) { _calHistAbsorb(items); return res.json({ items: _calApplyRanges(_calHistMerge(items)) }); }
+  if (items && items.length) { _calHistAbsorb(items); return res.json({ items: _calFfNames(_calApplyRanges(_calHistMerge(items))) }); }
 
   // REPLI (si TradingView est indisponible) : ancienne logique faireconomy + overlay des actuals.
   if (!getCalendarRaw().length) await _ensureCalendar();
@@ -3305,7 +3395,7 @@ app.get('/api/calendar-events', async (req, res) => {
   try { _backfillActualsFromNews(); } catch {}
   const its = _overlayActuals(getCalendarRaw());
   _calHistAbsorb(its);
-  res.json({ items: _calApplyRanges(_calHistMerge(its)) });
+  res.json({ items: _calFfNames(_calApplyRanges(_calHistMerge(its))) });
 });
 
 // Détail d'un événement (Specs + History) lu sur la page FF — SANS Related Stories.
@@ -9466,7 +9556,8 @@ function _fxrLookFromRows(rows) {
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
     .map(e => {
     const cb = /\brate\b|decision|fomc|ecb|boe|boj|rba|snb|riksbank|central bank|monetary policy/i.test(e.title || '');
-    return { category: cb ? 'Événement banque centrale' : 'Données économiques', event: _fxrTxt(e.title || '', 160),
+    // Libellé FOREXFACTORY à l'affichage (le trader lit FF, il doit retrouver les mêmes noms).
+    return { category: cb ? 'Événement banque centrale' : 'Données économiques', event: _fxrTxt(_ffDisplayTitle(e) || e.title || '', 160),
       ccy: String(e.currency || ''), ts: e.timestamp || null, importance: /high/i.test(e.impact) ? 'High' : 'Medium',
       // Valeurs du calendrier (demande user 17/07 « réel, high, prévision, low, précédent ») — souvent
       // vides pour un événement à venir, remplies quand le rapport est relu après la publication.
