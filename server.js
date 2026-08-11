@@ -11514,27 +11514,42 @@ function _sbConcludeFromCells(macroTable, pilierConclusion, diffs, monTone) {
   }
   return out;
 }
-function _sbCoherence(macroTable, conclusion) {
+/* ⚠️ RECALIBRÉ AVEC LA v43 : le contrôle comparait un score ABSOLU des cellules à un verdict devenu
+   RELATIF (recentré sur la moyenne des huit). Il criait donc en permanence sur la devise la plus forte
+   en absolu — vécu dès la mise en service : « USD → cellules haussières, verdict Neutre », alors que
+   l'USD était simplement dans la moyenne d'un groupe entièrement haussier. Comparer une note à une
+   place au classement n'a pas de sens. Le contrôle raisonne désormais LUI AUSSI en relatif, et il
+   vérifie en plus l'invariant qui compte vraiment : la colonne « Biais » de la table et la conclusion
+   servie ne peuvent pas diverger (elles sortent du même calcul depuis la v43 ; un écart = un bug). */
+function _sbCoherence(macroTable, conclusion, diffs, monTone) {
   const out = [];
   try {
-    for (const c of Object.keys(macroTable || {})) {
+    const CCYS = Object.keys(macroTable || {}).filter(c => macroTable[c]);
+    if (CCYS.length < 4) return out;
+    const sc = {};
+    for (const c of CCYS) sc[c] = _sbCellScore(macroTable[c], (diffs || {})[c], (monTone || {})[c]);
+    const dispo = CCYS.filter(c => sc[c] != null);
+    if (dispo.length < 4) return out;
+    const moy = dispo.reduce((a, c) => a + sc[c], 0) / dispo.length;
+    for (const c of dispo) {
       const m = macroTable[c] || {};
       const st = (m.monetary || {}).stance, inf = m.inflation || {};
       const g = (m.growthCell || {}).level, e = (m.employmentCell || {}).level;
-      let score = 0, vus = 0;
-      if (st) { score += /hawk/i.test(st) ? 1 : /dov/i.test(st) ? -1 : 0; vus++; }
-      if (inf.level) { score += inf.level === 'High' ? 0.5 : inf.level === 'Low' ? -0.5 : 0; vus++; }
-      if (inf.trend) { score += inf.trend === 'Up' ? 0.5 : inf.trend === 'Down' ? -0.5 : 0; vus++; }
-      if (g) { score += g === 'Strong' ? 1 : g === 'Weak' ? -1 : 0; vus++; }
-      if (e) { score += e === 'Strong' ? 1 : e === 'Weak' ? -1 : 0; vus++; }
-      if (vus < 4) continue;                                   // trop peu de cellules renseignées → on ne juge pas
-      const attendu = score >= 2 ? 1 : score <= -2 ? -1 : 0;    // ne se prononce que sur un faisceau FRANC
+      const cellules = `politique ${st || '—'} · inflation ${inf.level || '—'}/${inf.trend || '—'} · croissance ${g || '—'} · emploi ${e || '—'}`;
+      // 1) Invariant : la colonne Biais doit être EXACTEMENT la conclusion servie.
+      if (m.bias && (conclusion || {})[c] && m.bias !== conclusion[c]) {
+        out.push({ ccy: c, type: 'desync', attendu: conclusion[c], biais: m.bias, score: 0, cellules });
+        continue;
+      }
+      // 2) Contradiction de SENS, en relatif et avec une marge franche (0,30 = un cran net).
+      const rel = sc[c] - moy;
+      const attendu = rel >= 0.30 ? 1 : rel <= -0.30 ? -1 : 0;
       if (!attendu) continue;
       const reel = _SB_BIAS_SC[(conclusion || {})[c]] != null ? Math.sign(_SB_BIAS_SC[conclusion[c]]) : 0;
+      if (reel === attendu || reel === 0 && Math.abs(rel) < 0.45) continue;   // le palier neutre tolère la zone grise
       if (reel === attendu) continue;
-      out.push({ ccy: c, attendu: attendu > 0 ? 'haussier' : 'baissier', biais: conclusion[c] || 'Neutral',
-        score: +score.toFixed(1),
-        cellules: `politique ${st || '—'} · inflation ${inf.level || '—'}/${inf.trend || '—'} · croissance ${g || '—'} · emploi ${e || '—'}` });
+      out.push({ ccy: c, type: 'sens', attendu: attendu > 0 ? 'haussier' : 'baissier',
+        biais: conclusion[c] || 'Neutral', score: +rel.toFixed(2), cellules });
     }
   } catch {}
   return out;
@@ -12047,7 +12062,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
     }
   } catch (e) { console.warn('[SmartBias] conclusion cellules :', e.message); }
   // Contrôle de cohérence données → interprétation → biais (demande user) : alerte, ne réécrit jamais.
-  const coherence = _sbCoherence(macroTable, conclusion);
+  const coherence = _sbCoherence(macroTable, conclusion, _mgDiffs, monTone);
   if (coherence.length) for (const a of coherence) console.warn(`[SmartBias] ⚠ COHÉRENCE ${a.ccy} : les cellules affichées suggèrent un biais ${a.attendu} (score ${a.score}) mais le modèle conclut « ${a.biais} » — ${a.cellules}`);
   console.log('[SmartBias] pétrole (WTI) tendance = ' + _oilDir + ' → signal avancé d\'inflation');
   // `generatedAt` = ANCRE HEBDO (semaine du bias) : bumpé UNIQUEMENT au run du samedi / changement de version /
@@ -12176,7 +12191,7 @@ async function _sbRecomputeLive() {
       const _cells = _sbConcludeFromCells(macroTable, conclusion, _mgLive, _smartBias.monTone || {});
       if (_cells) for (const c of SB_CURRENCIES) if (_cells[c]) { conclusion[c] = _cells[c]; if (macroTable[c]) macroTable[c].bias = _cells[c]; }
     } catch (e) { console.warn('[SmartBias live] conclusion cellules :', e.message); }
-    const coherence = _sbCoherence(macroTable, conclusion);
+    const coherence = _sbCoherence(macroTable, conclusion, _mgLive, _smartBias.monTone || {});
     const next = Object.assign({}, _smartBias, { dataAt: Date.now(), rows, conclusion, technical, sentiment, macroTable, coherence });
     const after = _sbLiveFingerprint(next);
     _smartBias = next;
