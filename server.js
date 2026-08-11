@@ -11115,6 +11115,32 @@ function _sbJobsLevel(cal, c) {
   const ecart = u[0] - moy;
   return ecart < -0.1 ? 'Strong' : ecart > 0.1 ? 'Weak' : 'Neutral';
 }
+// ⚠️ ASYMÉTRIE DE PROFONDEUR (constatée en prod le 11/08, juste après la régén v42) — LE TIC LIVE
+// EFFAÇAIT LES NIVEAUX. Le cycle lourd travaille sur 6 MOIS de calendrier : il mesure un niveau d'emploi
+// (chômage vs sa propre moyenne) et un niveau d'inflation même pour les devises à publication trimestrielle.
+// La couche live (toutes les 3 min) ne dispose que de 21 jours : elle recalcule les mêmes cellules, ne
+// trouve pas assez d'historique, et écrasait le niveau mesuré par `null` — les 8 colonnes Emploi sont
+// tombées à vide 5 minutes après une régénération pourtant correcte.
+// RÈGLE : un tic live peut RAFRAÎCHIR un niveau, jamais le SUPPRIMER. On reporte la dernière valeur
+// mesurée ; la prochaine publication (ou le cycle lourd) la remplace par une valeur fraîche.
+function _sbCarryLevels(prev, next) {
+  if (!prev || !next) return next;
+  for (const c of Object.keys(next)) {
+    const p = prev[c], n = next[c];
+    if (!p || !n) continue;
+    if (n.inflation && p.inflation && n.inflation.level == null && p.inflation.level != null) n.inflation.level = p.inflation.level;
+    for (const k of ['growthCell', 'employmentCell']) {
+      if (n[k] && p[k] && n[k].level == null && p[k].level != null) n[k].level = p[k].level;
+    }
+    if (n.detail && p.detail) {
+      for (const k of ['growth', 'employment']) {
+        if (n.detail[k] && p.detail[k] && n.detail[k].level == null && p.detail[k].level != null) n.detail[k].level = p.detail[k].level;
+      }
+      if (n.detail.inflation && p.detail.inflation && n.detail.inflation.level == null && p.detail.inflation.level != null) n.detail.inflation.level = p.detail.inflation.level;
+    }
+  }
+  return next;
+}
 function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir, monTone) {
   const subVal = (c, label) => { const s = (fundamentalRes.subs || []).find(x => x.label === label); return s ? (s.values[c] || 'Neutral') : 'Neutral'; };
   let rates = null; try { rates = _buildRatesPayload(); } catch {}
@@ -11704,7 +11730,10 @@ async function _sbRecomputeLive() {
     ];
     const _oilDir = await _sbOilTrend();
     let macroTable = _smartBias.macroTable || {};
-    try { macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion, _oilDir, _smartBias.monTone || {}); } catch (e) { console.warn('[SmartBias live] macroTable', e.message); }
+    try {
+      macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion, _oilDir, _smartBias.monTone || {});
+      macroTable = _sbCarryLevels(_smartBias.macroTable, macroTable);   // un tic live ne SUPPRIME jamais un niveau mesuré
+    } catch (e) { console.warn('[SmartBias live] macroTable', e.message); }
     const next = Object.assign({}, _smartBias, { dataAt: Date.now(), rows, conclusion, technical, sentiment, macroTable });
     const after = _sbLiveFingerprint(next);
     _smartBias = next;
