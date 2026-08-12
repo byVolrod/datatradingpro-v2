@@ -13464,8 +13464,22 @@ html[data-theme="light"] .wdg-settings .wdg-set-chip.on { color: var(--orange-di
   position: relative; display: block; padding: 0; overflow: hidden; min-height: 128px;
   border: 1px solid var(--hud-line, var(--border));
 }
-.home-card--visu .home-card-face { display: block; }
+/* L'APERÇU REMPLIT LA CARTE (demande user 12/08 « il faut que ça remplisse le bloc »).
+   Il était posé dans le flux : sa hauteur venait d'une propriété de ratio, et sa largeur d'un
+   contexte de rétrécissement — dans le contenu anonyme d'un <button>, `aspect-ratio` + `min-height`
+   se combinaient pour déduire la LARGEUR de la HAUTEUR (74 × 2,15 ≈ 159 px) au lieu de l'inverse :
+   le plan tenait dans un coin d'une carte trois fois plus large. En le calant en absolu sur les
+   quatre côtés, sa boîte devient DÉFINIE : plus de ratio à honorer, plus de coin vide, et le défaut
+   d'`aspect-ratio` sur mobile disparaît de lui-même. Le nom, la méta et l'étoile sont déjà en
+   position absolue avec z-index 2 — ils restent au-dessus. */
+.home-card--visu .home-card-face { position: absolute; inset: 0; display: block; }
 .home-card--visu .home-card-face .wdg-thumb { width: 100%; border: 0; border-radius: 0; background: transparent; }
+.home-card--visu .home-card-face .wdg-thumb--plan {
+  width: 100%; height: 100%; min-height: 0; aspect-ratio: auto;
+}
+.home-card--visu .home-card-face .wdg-thumb--plan::before { display: none; }
+/* Les blocs respirent un peu plus quand ils occupent toute la carte. */
+.home-card--visu .home-card-face .wdg-plan-in { inset: 7px; }
 .home-card--visu::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(0deg, rgba(5, 5, 6, .78), rgba(5, 5, 6, .12) 55%, transparent);
@@ -16099,16 +16113,31 @@ body.dtp-admin .view-panel > .panel > .panel-header {
 .wdg-thumb--lbl:not(.wdg-thumb--plan) i{ background: color-mix(in srgb, var(--tc, #e3b23a) 26%, transparent); }
 
 /* Cartes « Mes desks » : la miniature est grande, elle assume le contraste et une vraie taille de texte. */
+/* LES VRAIES COULEURS DU DESK (demande user 12/08 « que les couleurs ressemblent aux vraies du
+   desk »). Les blocs étaient peints à la couleur de la CATÉGORIE du widget — vert, bleu, violet :
+   une palette qui n'existe nulle part dans le terminal. Un panneau du desk, c'est un corps sombre
+   (--bg2), une barre d'en-tête un cran plus foncée (--head-bg) et une bordure fine (--border).
+   On reprend exactement ces trois tokens : l'aperçu ressemble enfin au produit.
+   La couleur de catégorie ne disparaît pas pour autant — elle devient un LISERÉ SUPÉRIEUR discret,
+   assez pour distinguer deux widgets d'un coup d'œil sans repeindre le desk. */
 .home-card--visu .home-card-face .wdg-thumb--plan i{
-  border-color: rgba(255, 255, 255, .22);                                  /* repli */
-  border-color: color-mix(in srgb, var(--tc, #e3b23a) 52%, transparent);
-  background: var(--tc, #e3b23a);                                          /* repli : couleur pleine, jamais invisible */
+  border: 1px solid #232429;                                               /* repli */
+  border: 1px solid var(--border, #232429);
+  border-top: 2px solid var(--tc, #e3b23a);                                /* le seul rappel de catégorie */
+  background: #16171b;                                                     /* repli : corps de panneau */
   background:
     linear-gradient(180deg,
-      color-mix(in srgb, var(--tc, #e3b23a) 78%, transparent) 0,
-      color-mix(in srgb, var(--tc, #e3b23a) 78%, transparent) 22%,
-      color-mix(in srgb, var(--tc, #e3b23a) 30%, transparent) 22%,
-      color-mix(in srgb, var(--tc, #e3b23a) 18%, transparent) 100%);
+      var(--head-bg, #101012) 0,
+      var(--head-bg, #101012) 34%,
+      var(--bg2, #16171b) 34%,
+      var(--bg2, #16171b) 100%);
+  box-shadow: none;
+}
+/* Le libellé vit dans le bandeau d'en-tête, en gris clair — comme un titre de panneau du desk,
+   pas en blanc pur sur une pastille colorée. */
+.home-card--visu .home-card-face .wdg-thumb--plan i > b{
+  color: #c2c6cd;
+  text-shadow: none;
 }
 .home-card--visu .home-card-face .wdg-thumb--lbl b{ font-size: 8.5px; letter-spacing: .06em; }
 /* Gestionnaire de layouts : même grammaire, un cran plus sobre. */
@@ -16281,23 +16310,19 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   border: 1px solid color-mix(in srgb, var(--tc, #e3b23a) 34%, transparent);
 }
 .wdg-thumb--lbl b { color: #fff; }                                     /* repli, la version color-mix reprend ensuite */
-.home-card--visu .home-card-face .wdg-thumb--plan i {
-  background: var(--tc, #e3b23a);                                     /* repli */
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--tc, #e3b23a) 78%, transparent) 0,
-      color-mix(in srgb, var(--tc, #e3b23a) 78%, transparent) 22%,
-      color-mix(in srgb, var(--tc, #e3b23a) 30%, transparent) 22%,
-      color-mix(in srgb, var(--tc, #e3b23a) 18%, transparent) 100%);
-  border-color: rgba(0, 0, 0, .38);                                   /* repli */
-  border-color: color-mix(in srgb, var(--tc, #e3b23a) 52%, transparent);
-}
+/* (Le repeint à la couleur de catégorie qui vivait ici est RETIRÉ le 12/08 : il écrasait, plus bas
+   dans le fichier, la palette desk posée plus haut — l'aperçu restait vert/bleu/violet alors que le
+   terminal est gris ardoise. La palette fait désormais foi, cf. « LES VRAIES COULEURS DU DESK ».) */
 
 /* 3. POLI. Coins doux sur les blocs, filet lumineux en crête (relief discret), respiration autour. */
 .home-card--visu .home-card-face .wdg-thumb--plan { padding: 7px; }
 .home-card--visu .home-card-face .wdg-thumb--plan i {
   border-radius: 4px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 1px 2px rgba(0, 0, 0, .35);
+  /* Le liseré de catégorie est posé ICI, en ombre intérieure, et non en `border-top` : cette règle
+     est la DERNIÈRE du fichier à toucher ces blocs, et une déclaration `border` plus haut ramenait
+     le liseré à 1 px. En ombre, il ne dépend plus du raccourci `border`. */
+  box-shadow: inset 0 2px 0 var(--tc, #e3b23a), 0 1px 2px rgba(0, 0, 0, .35);
+  border-top-color: var(--border, #232429);
 }
 .home-card--visu .home-card-face .wdg-thumb--plan i::after { opacity: .5; }
 
