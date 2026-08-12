@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260812-plus-de-reglages-memo', ts: Date.UTC(2026, 7, 12, 19, 0), title: 'Encore quatre réglages qui vous suivent désormais', desc: 'Le type de rapport dans la bibliothèque Analystes, les filtres banque et type de l onglet Institutions, et la colonne de tri de la Liste FX sont maintenant enregistrés sur votre compte. Vous les retrouvez à la reconnexion, y compris depuis un autre appareil. Les champs de recherche, eux, restent volontairement vierges à chaque ouverture : un filtre texte restauré en silence donnerait une liste presque vide sans qu on comprenne pourquoi.' },
   { id: 'dtpu-20260812-apercu-silhouettes', ts: Date.UTC(2026, 7, 12, 18, 30), title: 'Mes desks : on reconnaît son desk d un coup d oeil', desc: 'Dans l aperçu de vos dispositions, chaque widget dessine désormais sa propre silhouette : une courbe pour la force des devises, des chandeliers pour le graphique, un anneau pour le positionnement COT, une grille pour le calendrier, des lignes pour le fil d actualité, un arc pour la jauge de risque. Tous les panneaux se ressemblaient auparavant ; vos desks se distinguent maintenant sans avoir à les ouvrir.' },
   { id: 'dtpu-20260812-widgets-onglets-memo', ts: Date.UTC(2026, 7, 12, 17, 0), title: 'Mon Desk : les réglages des widgets placés dans un panneau à onglets sont enfin retenus', desc: 'Un widget posé dans un panneau à onglets — deux Force des Devises côte à côte, par exemple — oubliait son unité de temps au rechargement. Il lisait bien sa configuration mais ne parvenait jamais à l enregistrer. Vos choix sont désormais sauvegardés sur votre compte et restaurés à la reconnexion, y compris depuis un autre appareil.' },
   { id: 'dtpu-20260812-reglages-etanches', ts: Date.UTC(2026, 7, 12, 15, 30), title: 'Vos réglages restent les vôtres, même sur un ordinateur partagé', desc: 'Sur un poste utilisé par plusieurs personnes, les réglages laissés par la session précédente pouvaient être repris par le compte suivant. Chaque jeu de réglages porte désormais la marque de son propriétaire : il est écarté dès qu un autre compte se connecte, et la déconnexion nettoie ce qui reste. Vos préférences continuent bien sûr de vous suivre d un appareil à l autre.' },
@@ -1911,6 +1912,13 @@ const _UIPREF_KEYS = new Set([
   // par ici — mesuré sur les comptes réels le 12/08 : `uipref` s'écrivait correctement alors que
   // `stftf` restait figé sur les défauts. Un seul magasin qui marche vaut mieux que deux dont un rate.
   'stfl', 'stfr',
+  // Ajouts du 12/08 — dernière passe de l'inventaire : ce qui restait volatil et que l'utilisateur
+  // s'attend légitimement à retrouver. (Les champs de RECHERCHE TEXTE restent volontairement hors
+  // liste : un filtre texte restauré en silence donne une vue « presque vide » sans explication.)
+  'arlibtype',    // bibliothèque de rapports : type
+  'brinst',       // onglet Institutions : filtre banque
+  'brtype',       // onglet Institutions : filtre type de note
+  'fxlsort',      // Liste FX : colonne de tri + sens, sérialisés « clé:sens »
   'symstf',       // vue symbole : période du graphe Force des Devises
   'cottype',      // desk COT : type de positionnement affiché
   'dmxtf',        // desk DMX : unité de temps

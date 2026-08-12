@@ -3820,12 +3820,24 @@ async function loadFxListView(force = false, silent = false) {
 
 let _fxlAutoTimer = null;
 function initFxListTab() {
+  // TRI MÉMORISÉ PAR COMPTE (12/08). ⚠️ On valide contre FXL_COLS, PAS contre les [data-sort] du
+  // DOM : #fxl-head est encore VIDE à cet instant (c'est renderFxList qui le remplit, plus tard), et
+  // le verrou d'initialisation interdit un second essai — valider sur le DOM rejetterait la clé à
+  // tous les coups, en silence.
+  try {
+    const _fs = window.DTPPref ? DTPPref.get('fxlsort', '') : '';
+    if (_fs) {
+      const [k, d] = String(_fs).split(':');
+      if (FXL_COLS.some(c => c.key === k)) _fxlSort = { key: k, dir: d === '-1' ? -1 : 1 };
+    }
+  } catch (e) {}
   document.getElementById('fxl-head')?.addEventListener('click', e => {
     const th = e.target.closest('[data-sort]');
     if (!th) return;
     const key = th.dataset.sort;
     if (_fxlSort.key === key) _fxlSort.dir *= -1;
     else _fxlSort = { key, dir: key === 'symbol' ? 1 : -1 };
+    try { if (window.DTPPref) DTPPref.set('fxlsort', _fxlSort.key + ':' + _fxlSort.dir); } catch (e2) {}
     renderFxList();
   });
   // Auto-actualisation 90 s (le serveur rafraîchit les PRIX toutes les 150 s via son tick léger) :

@@ -3890,7 +3890,18 @@ function initAnalystTab() {
   const typeEl = document.getElementById('arlib-type');
   const catEl  = document.getElementById('arlib-cat');
   if (search) search.addEventListener('input',  e => { _arlibSearch = e.target.value.toLowerCase(); renderArlibList(); });
-  if (typeEl) typeEl.addEventListener('change', e => { _arlibType   = e.target.value; renderArlibList(); });
+  // Type MÉMORISÉ PAR COMPTE (12/08) : #arlib-type est 100 % statique, sa valeur est donc toujours
+  // valide au retour — contrairement aux filtres de l'onglet Institutions, dont les options sont
+  // reconstruites depuis les données live (voir _brRestoreFiltres).
+  if (typeEl) {
+    const _t = (function () { try { return window.DTPPref ? DTPPref.get('arlibtype', '') : ''; } catch (e) { return ''; } })();
+    if (_t && [...typeEl.options].some(o => o.value === _t)) { typeEl.value = _t; _arlibType = _t; }
+    typeEl.addEventListener('change', e => {
+      _arlibType = e.target.value;
+      try { if (window.DTPPref) DTPPref.set('arlibtype', _arlibType); } catch (e2) {}
+      renderArlibList();
+    });
+  }
   // Catégorie MÉMORISÉE PAR COMPTE (12/08) : c'est un réglage d'affichage durable, contrairement à
   // la recherche texte au-dessus, qu'on laisse volontairement volatile (un filtre texte restauré en
   // silence donnerait une bibliothèque « vide » sans que l'utilisateur comprenne pourquoi).
@@ -5523,8 +5534,8 @@ function loadInstitutionView() {
   const instEl = document.getElementById('br-inst');
   const typeEl = document.getElementById('br-type');
   if (search) search.addEventListener('input',  e => { _brSearch = e.target.value.toLowerCase(); renderBrList(); });
-  if (instEl) instEl.addEventListener('change', e => { _brInst   = e.target.value; renderBrList(); });
-  if (typeEl) typeEl.addEventListener('change', e => { _brType   = e.target.value; renderBrList(); });
+  if (instEl) instEl.addEventListener('change', e => { _brInst = e.target.value; try { if (window.DTPPref) DTPPref.set('brinst', _brInst); } catch (e2) {} renderBrList(); });
+  if (typeEl) typeEl.addEventListener('change', e => { _brType = e.target.value; try { if (window.DTPPref) DTPPref.set('brtype', _brType); } catch (e2) {} renderBrList(); });
   document.getElementById('br-back-btn')?.addEventListener('click', () => {
     document.getElementById('br-list-view')?.classList.remove('hidden');
     document.getElementById('br-reader-view')?.classList.add('hidden');
@@ -5754,6 +5765,21 @@ function renderBrList() {
   const footer = document.getElementById('br-footer');
   if (!list) return;
   _populateBrInstFilter();
+  // RESTAURATION APRÈS RECONSTRUCTION DES OPTIONS (12/08). La liste des banques est bâtie depuis les
+  // données LIVE : restaurer plus tôt rejetterait toute banque absente du HTML statique, et
+  // _populateBrInstFilter remet la valeur du select sans toucher aux variables. On rétablit donc
+  // ici le choix du compte, une seule fois, puis on laisse le DOM et la variable synchronisés.
+  if (!window._brFiltresRestaures) {
+    window._brFiltresRestaures = true;
+    try {
+      if (window.DTPPref) {
+        const _i = DTPPref.get('brinst', ''), _t2 = DTPPref.get('brtype', '');
+        const eI = document.getElementById('br-inst'), eT = document.getElementById('br-type');
+        if (eI && _i && [...eI.options].some(o => o.value === _i)) { eI.value = _i; _brInst = _i; }
+        if (eT && _t2 && [...eT.options].some(o => o.value === _t2)) { eT.value = _t2; _brType = _t2; }
+      }
+    } catch (e) {}
+  }
 
   // Anti-doublon : aucun rapport ne doit apparaître deux fois (seeds qui se recoupent, re-scrape,
   // même URL servie par deux passages). Dédup AVANT filtres/dosage → le total « of N » est honnête.
