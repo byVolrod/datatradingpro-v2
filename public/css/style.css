@@ -7450,9 +7450,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cv-forecast { color: #e8e8ea; }
 .cv-prev     { color: #e8e8ea; }
 .cv-empty    { color: #6b7280; }
-.cv-actual   { font-weight: var(--fw-bold); color: var(--st-flat); }   /* égal, ou pas de forecast → blanc */
+.cv-actual   { font-weight: var(--fw-bold); color: var(--st-flat); }   /* pas de prévision → blanc, on ne juge pas */
 .cv-pos      { color: var(--st-pos) !important; }            /* Deviation > forecast : vert fluo */
 .cv-neg      { color: var(--st-neg) !important; }            /* Deviation < forecast : rouge écarlate */
+/* CONFORME AU CONSENSUS (12/08) : le chiffre est tombé PILE sur la prévision. C'est un résultat à
+   part entière — le marché n'a pas été surpris — et il ne doit plus se confondre avec un chiffre
+   qu'on ne peut pas juger faute de prévision (celui-là reste blanc). Jaune-orangé NEUTRE de la
+   charte, le même que les badges NEUTRE du desk. */
+.cv-neu      { color: #ffb300 !important; }
 /* Éclair « sous l'estimation basse (LOW) » : à GAUCHE du réel, hérite de la COULEUR DU RÉSULTAT
    (vert/rouge/blanc du span parent via currentColor) + halo assorti très léger (demande user) */
 .cv-bolt     { display: inline-block; margin-right: 4px; vertical-align: -2px; filter: drop-shadow(0 0 2px currentColor); }

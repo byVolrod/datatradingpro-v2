@@ -3835,7 +3835,13 @@ function deviationClass(actual, ref, title) {
   if (actual == null || actual === '' || ref == null || ref === '') return '';
   const a = parseFloat(String(actual).replace(',', '.'));
   const r = parseFloat(String(ref).replace(',', '.'));
-  if (isNaN(a) || isNaN(r) || a === r) return '';
+  if (isNaN(a) || isNaN(r)) return '';
+  // TROIS ÉTATS, PAS DEUX (12/08, demande user « mets une couleur si c'est positif, négatif ou
+  // neutre »). Un chiffre SORTI PILE AU CONSENSUS est une information — le marché n'a pas été
+  // surpris — et il s'affichait exactement comme un chiffre qu'on ne PEUT PAS juger faute de
+  // prévision. Deux situations très différentes rendues à l'identique. Le cas « conforme » prend
+  // donc le jaune-orangé NEUTRE de la charte ; l'absence de référence reste sans couleur.
+  if (a === r) return 'cv-neu';
   const good = CAL_INVERTED_RX.test(String(title || '')) ? a < r : a > r;
   return good ? 'cv-pos' : 'cv-neg';
 }
