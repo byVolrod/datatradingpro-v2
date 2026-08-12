@@ -16604,3 +16604,50 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 @media (prefers-reduced-motion: reduce) {
   .home-card--visu:not(:first-child), .home-card--visu:not(:first-child):hover { transform: none; opacity: 1; }
 }
+
+/* ══ « MON DESK » — REPRODUCTION FIDÈLE DE LA RÉFÉRENCE (12/08, 3e passe, « exactement pareil ») ══
+   La référence : cartes compactes (~240×180) qui se CHEVAUCHENT légèrement, la carte de face par-
+   dessus sa voisine inclinée ; nom en SANS-SERIF au centre ; aperçu nettement assombri ; chip
+   « Récents ▾ » et bouton « + Nouveau desk » en pointillés NEUTRES dans l'en-tête. On passe la
+   grille en flex pour permettre le chevauchement — la grille CSS ne sait pas superposer. */
+.home-zone--desks .home-zone-body--cards .home-cards {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 0; perspective: 1100px; padding: 6px 0;
+}
+.home-zone--desks .home-card--visu {
+  flex: 0 0 242px; width: 242px; min-height: 178px; max-width: 92vw;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 4px;
+}
+/* Chevauchement : chaque carte au-delà de la première glisse SOUS sa voisine de gauche. La carte
+   survolée remonte au premier plan. */
+.home-zone--desks .home-card--visu + .home-card--visu { margin-left: -16px; }
+.home-zone--desks .home-card--visu:first-child { z-index: 2; }
+.home-zone--desks .home-card--visu:hover { z-index: 4; }
+/* Nom : sans-serif, comme la référence — le serif Fraunces reste aux titres de pages. */
+.home-zone--desks .home-card--visu .home-card-nom {
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 14.5px; font-weight: 700;
+  letter-spacing: 0;
+}
+/* Aperçu nettement assombri, façon référence (le plan reste devinable, pas lisible). */
+.home-zone--desks .home-card--visu::after {
+  background: linear-gradient(0deg, rgba(5,5,6,.9) 0%, rgba(5,5,6,.62) 40%, rgba(5,5,6,.55) 100%);
+}
+/* Chip « Récents ▾ » + « + Nouveau desk » : pointillés neutres, comme la référence. */
+.home-desks-tri, .home-zone--desks .home-panel-head .home-desks-new {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+  margin-left: 10px; background: transparent; cursor: pointer;
+  border: 1px dashed rgba(255, 255, 255, .22); border-radius: 5px;
+  color: var(--text2); font-family: var(--tight, 'Inter Tight', sans-serif);
+  font-size: 11px; font-weight: 600; letter-spacing: .02em;
+}
+.home-desks-tri i { font-style: normal; font-size: 8px; color: var(--text4); }
+.home-desks-tri:hover, .home-zone--desks .home-panel-head .home-desks-new:hover {
+  color: var(--text); border-color: rgba(227, 178, 58, .55);
+}
+/* Responsive : sous 640 px, ni inclinaison ni chevauchement — cartes pleine largeur, lisibles,
+   jamais coupées ; les proportions de l'aperçu suivent la carte (il la remplit en absolu). */
+@media (max-width: 640px) {
+  .home-zone--desks .home-card--visu { flex: 1 1 100%; width: auto; }
+  .home-zone--desks .home-card--visu + .home-card--visu { margin-left: 0; margin-top: 10px; }
+  .home-card--visu:not(:first-child), .home-card--visu:not(:first-child):hover { transform: none; opacity: 1; }
+}

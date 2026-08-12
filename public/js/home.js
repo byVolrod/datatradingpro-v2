@@ -39,6 +39,13 @@
   // Ouvre un desk précis depuis une carte (Mon Desk + layout choisi), ou une vue du desk classique.
   function openDesk(id) { close(); try { window.DTPWidgets && DTPWidgets.open(); if (id) setTimeout(function () { DTPWidgets.switchLayout(id); }, 60); } catch (e) {} }
   // (openView retiré avec les boutons « Ouvrir › » — plus aucun appelant, revue 03/08)
+  function triDesks() {
+    _triRecents = !_triRecents;
+    var host = document.querySelector('.home-cards');
+    if (host && _cfgCourante) host.innerHTML = layoutCards(_cfgCourante);
+    var lbl = document.getElementById('home-tri-lbl');
+    if (lbl) lbl.textContent = _triRecents ? 'Récents' : 'Ordre du desk';
+  }
   function createDesk() { close(); try { DTPWidgets.open(); setTimeout(function () { DTPWidgets.openManager(); }, 120); } catch (e) {} }
 
   // CARTES VISUELLES (03/08 « met comme ceci ») : le PLAN du desk (moteur 2D des vignettes) devient
@@ -46,6 +53,10 @@
   // desk à sa forme, comme la référence. « + Nouveau desk » remonte dans l'en-tête du bloc.
   // Vraie si au moins une miniature n a pas pu etre construite (widgets.js pas encore charge).
   var _miniManquante = false, _miniRetry = null, _miniEssais = 0;
+  // Tri des cartes (référence « Recent ▾ ») : « Récents » = date de modification décroissante ;
+  // « Ordre du desk » = l'ordre des onglets, celui d'origine. Volatil : simple confort d'accueil.
+  var _triRecents = true;
+  var _cfgCourante = null;   // retenue pour re-rendre les cartes au changement de tri
   // RATTRAPAGE : des que DTPWidgets.thumb existe, on reconstruit UNIQUEMENT la rangee de cartes.
   // On ne re-rend pas tout l accueil : ce serait remonter le scroll et re-monter les widgets pour rien.
   function _rattraperMinis(cfg) {
@@ -80,7 +91,9 @@
   var _icoHorloge = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 
   function layoutCards(cfg) {
+    _cfgCourante = cfg;
     var lays = (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).slice(0, 8);
+    if (_triRecents) lays = lays.slice().sort(function (a, b) { return (b.maj || 0) - (a.maj || 0); });
     return lays.map(function (l, i) {
       var n = (l.items || []).length;
       // ⚠️ COURSE DE CHARGEMENT (constatée sur mobile 06/08) : l'accueil se rend AVANT que widgets.js
@@ -285,7 +298,8 @@
   +     '<section class="home-zone home-zone--desks" style="--c:5">'
   // EN-TÊTE FAÇON BIBLIOTHÈQUE (12/08, référence user) : icône pile + « Mon Desk » + bouton
   // « + Nouveau desk » réintégré dans l'en-tête — la tuile fantôme ne sert plus que d'état vide.
-  +       '<div class="home-panel-head"><span class="home-desks-ico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5z"/><path d="M2 13l10 5 10-5" opacity=".55"/></svg></span><span class="home-panel-t">Mon Desk</span>'
+  +       '<div class="home-panel-head"><span class="home-desks-ico"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" fill="currentColor" opacity=".2"/><rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="currentColor" opacity=".2"/><rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><span class="home-panel-t">Mon Desk</span>'
+  +         '<button class="home-desks-tri" onclick="DTPHome.triDesks()"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="home-tri-lbl">' + (_triRecents ? 'Récents' : 'Ordre du desk') + '</span><i>▾</i></button>'
   +         '<button class="home-desks-new" onclick="DTPHome.createDesk()">+ Nouveau desk</button>'
   +         '<span class="home-panel-fill"></span>'
   +         '<span class="home-desks-count">' + nbDesks(cfg) + ' au total</span></div>'
@@ -344,7 +358,7 @@
     })(0);
   }
 
-  window.DTPHome = { close: close, openDesk: openDesk, createDesk: createDesk };
+  window.DTPHome = { close: close, openDesk: openDesk, createDesk: createDesk, triDesks: triDesks };
 
   // Démarrage : à CHAQUE CONNEXION (et non une fois par session de navigateur — dans un onglet
   // laissé ouvert, sessionStorage survit à une déconnexion/reconnexion, et l'accueil ne revenait
