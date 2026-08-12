@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Bias : Biais Hebdomadaire des Devises | DataTradingPro</title>
-<meta name="description" content="Lisez le biais de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et positions des banques.">
+<title>Smart Bias Tracker : utiliser la matrice de biais | DataTradingPro</title>
+<meta name="description" content="Mode d'emploi du module Smart Bias Tracker : lire la matrice, ouvrir le panneau de synthèse, décomposer les indicateurs et comparer l'historique sur 5 semaines.">
 <link rel="canonical" href="https://datatradingpro.com/documentation/smart-bias.html">
 <link rel="alternate" hreflang="fr" href="https://datatradingpro.com/documentation/smart-bias.html">
 <link rel="alternate" hreflang="fr-FR" href="https://datatradingpro.com/documentation/smart-bias.html">
@@ -13,22 +13,26 @@
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
 <meta name="theme-color" content="#08080a">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Smart Bias : Biais Hebdomadaire des Devises | DataTradingPro">
-<meta property="og:description" content="Lisez le biais de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et positions des banques.">
+<meta property="og:title" content="Smart Bias Tracker : utiliser la matrice de biais | DataTradingPro">
+<meta property="og:description" content="Mode d'emploi du module Smart Bias Tracker : lire la matrice, ouvrir le panneau de synthèse, décomposer les indicateurs et comparer l'historique sur 5 semaines.">
 <meta property="og:url" content="https://datatradingpro.com/documentation/smart-bias.html">
-<meta property="og:image" content="https://datatradingpro.com/assets/og-cover.png">
+<meta property="og:image" content="https://datatradingpro.com/og-cover-v2.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:site_name" content="DataTradingPro">
 <meta property="og:locale" content="fr_FR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Smart Bias : Biais Hebdomadaire des Devises | DataTradingPro">
-<meta name="twitter:description" content="Lisez le biais de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et positions des banques.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E">
+<meta name="twitter:title" content="Smart Bias Tracker : utiliser la matrice de biais | DataTradingPro">
+<meta name="twitter:description" content="Mode d'emploi du module Smart Bias Tracker : lire la matrice, ouvrir le panneau de synthèse, décomposer les indicateurs et comparer l'historique sur 5 semaines.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=dtp12">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=dtp12">
+<link rel="apple-touch-icon" href="/favicon.png?v=dtp12">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"></noscript>
 <link rel="stylesheet" href="/documentation/doc.css?v=20260624c">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Smart Bias Tracker","description":"Lisez le biais hebdomadaire de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et banques.","inLanguage":"fr-FR","author":{"@type":"Organization","name":"DataTradingPro"},"publisher":{"@type":"Organization","name":"DataTradingPro","logo":{"@type":"ImageObject","url":"https://datatradingpro.com/assets/logo.png"}},"mainEntityOfPage":"https://datatradingpro.com/documentation/smart-bias.html"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Utiliser le Smart Bias Tracker dans le terminal","description":"Lisez le biais hebdomadaire de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et banques.","inLanguage":"fr-FR","author":{"@type":"Organization","name":"DataTradingPro"},"publisher":{"@type":"Organization","name":"DataTradingPro","logo":{"@type":"ImageObject","url":"https://datatradingpro.com/img/logo.png"}},"mainEntityOfPage":"https://datatradingpro.com/documentation/smart-bias.html"}</script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"BreadcrumbList","@id":"https://datatradingpro.com/documentation/smart-bias.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Accueil","item":"https://datatradingpro.com/"},{"@type":"ListItem","position":2,"name":"Documentation","item":"https://datatradingpro.com/documentation/"},{"@type":"ListItem","position":3,"name":"Smart Bias Tracker","item":"https://datatradingpro.com/documentation/smart-bias.html"}]}
 </script>
@@ -42,7 +46,7 @@
 <main class="doc-main" id="doc-main">
   <nav class="doc-bc"><a href="/">Accueil</a> <span>/</span> <a href="/documentation/">Documentation</a> <span>/</span> <em>Smart Bias Tracker</em></nav>
   <div class="doc-cat">Modules</div>
-  <h1>Smart Bias : le biais hebdomadaire de chaque devise</h1>
+  <h1>Utiliser le Smart Bias Tracker dans le terminal</h1>
   <div class="doc-meta">5 min de lecture</div>
   <div class="doc-mock" role="img" aria-label="Aperçu du module dans le terminal"><div class="dm"><div class="dm-bar"><span class="dm-d"></span><span class="dm-d"></span><span class="dm-d"></span><span class="dm-ttl">Smart Bias · Hebdo</span><span class="dm-live"><i></i>LIVE</span></div><div class="dm-body dm-bmx"><div class="dm-bmr dm-bmh"><span>Ind.</span><span>USD</span><span>EUR</span><span>GBP</span><span>JPY</span><span>AUD</span></div><div class="dm-bmr"><span class="dm-bml">Inflation</span><i class="vb">++</i><i class="b">+</i><i class="n">•</i><i class="be">–</i><i class="b">+</i></div><div class="dm-bmr"><span class="dm-bml">Emploi</span><i class="b">+</i><i class="n">•</i><i class="vb">++</i><i class="be">–</i><i class="vbe">––</i></div><div class="dm-bmr"><span class="dm-bml">Taux</span><i class="vb">++</i><i class="be">–</i><i class="b">+</i><i class="vbe">––</i><i class="n">•</i></div></div></div></div>
   <article class="doc-body">
@@ -79,6 +83,7 @@
 <li>Comparez avec l'historique 5 semaines pour distinguer un biais durable d'un signal ponctuel.</li>
 </ul>
 <p><strong>Rappel :</strong> DataTradingPro est un terminal de données et de news. Le Smart Bias Tracker agrège et contextualise l'information ; il ne passe aucun ordre et ne constitue pas un conseil en investissement personnalisé. L'analyse finale, la décision et l'exécution restent chez vous, sur votre courtier.</p>
+  <p>Pour le concept lui-même — ce que mesure un biais fondamental et comment il se construit — voir <a href="/documentation/smart-bias-forex.html">qu'est-ce que le Smart Bias en forex</a>.</p>
   </article>
   <div class="doc-nav"><a class="doc-prevnext prev" href="/documentation/calendrier.html">&lsaquo; Calendrier économique</a><a class="doc-prevnext next" href="/documentation/force-des-devises.html">Force des devises &rsaquo;</a></div>
   <div class="doc-cta-card">

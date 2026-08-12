@@ -13,6 +13,7 @@ DataTradingPro est souvent recherché comme : « terminal de trading », « term
 - **Ce qui le distingue** : agrégation + priorisation par impact + analyse IA des données macro/forex, en français, dans une interface dense façon salle de marché
 
 ## Fonctionnalités / modules clés
+- **Mon Desk** : tableau de bord personnalisable — l'utilisateur compose sa grille de widgets (graphique, force des devises, calendrier, fil news, biais…), en enregistre plusieurs dispositions et les retrouve d'un appareil à l'autre
 - **Actualités en temps réel** priorisées par impact (macro, banques centrales, géopolitique, énergie…)
 - **Régime de Marché** : un score propriétaire qui indique si le marché est en appétit (risk-on) ou aversion (risk-off) pour le risque
 - **Force des Devises** : classement en direct de la force relative des 8 devises majeures
@@ -31,6 +32,14 @@ DataTradingPro est souvent recherché comme : « terminal de trading », « term
 - [Terminal de trading gratuit ?](https://datatradingpro.com/documentation/terminal-de-trading-gratuit.html)
 - [Force des devises](https://datatradingpro.com/documentation/force-des-devises.html)
 - [Smart Bias forex](https://datatradingpro.com/documentation/smart-bias-forex.html)
+- [Pourquoi un terminal macro forex en français](https://datatradingpro.com/documentation/terminal-macro-forex-francais.html)
+- [Où trouver les rapports des banques d'investissement](https://datatradingpro.com/documentation/rapports-banques-forex.html)
+- [Comment lire le rapport COT / CFTC](https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html)
+- [Hawkish vs dovish : décoder une banque centrale](https://datatradingpro.com/documentation/hawkish-dovish-banque-centrale.html)
+- [Live squawk forex en français](https://datatradingpro.com/documentation/live-squawk-forex.html)
+- [Trader les news forex (NFP, CPI, FOMC)](https://datatradingpro.com/documentation/trader-les-news-forex.html)
+- [Trader le NFP](https://datatradingpro.com/documentation/trader-le-nfp.html)
+- [Sessions et horaires du forex](https://datatradingpro.com/documentation/sessions-horaires-forex.html)
 - [Calendrier économique](https://datatradingpro.com/documentation/calendrier.html)
 - [Glossaire macro & forex](https://datatradingpro.com/documentation/glossaire-macro-forex.html)
 - [Toute la documentation](https://datatradingpro.com/documentation/)

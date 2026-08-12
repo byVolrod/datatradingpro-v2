@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- INDEX de sitemaps : pages statiques (landing + documentation) + pages Actualités dynamiques
-     (générées par le serveur avec lastmod du jour → signal de fraîcheur permanent pour Google). -->
+<!-- INDEX de sitemaps : pages statiques (landing + documentation) + pages Actualités.
+     · sitemap-pages.xml = statique. Ses <lastmod> viennent de la DATE RÉELLE du dernier commit de
+       chaque fichier (scripts/landing-sitemap-dates.js) — à relancer après une passe de rédaction,
+       sinon les dates annoncées repartent en arrière par rapport au contenu réellement servi.
+     · sitemap-actualites.xml = généré par le serveur, avec un lastmod calé sur l'horodatage de la
+       news la plus récente. Il n'a donc VOLONTAIREMENT pas de <lastmod> ici : le figer annoncerait
+       « rien de neuf » sur la ressource la plus fraîche du site, et le champ est optionnel dans un
+       index de sitemaps. -->
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap><loc>https://datatradingpro.com/sitemap-pages.xml</loc><lastmod>2026-07-03</lastmod></sitemap>
-  <sitemap><loc>https://datatradingpro.com/sitemap-actualites.xml</loc><lastmod>2026-07-03</lastmod></sitemap>
+  <sitemap><loc>https://datatradingpro.com/sitemap-pages.xml</loc><lastmod>2026-08-12</lastmod></sitemap>
+  <sitemap><loc>https://datatradingpro.com/sitemap-actualites.xml</loc></sitemap>
 </sitemapindex>
