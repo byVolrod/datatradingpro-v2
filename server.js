@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260812-data-instantanee', ts: Date.UTC(2026, 7, 12, 13, 30), title: 'Calendrier : les chiffres apparaissent dès leur publication', desc: 'Quand une annonce importante tombait, son résultat pouvait mettre plusieurs minutes à s afficher — au point de voir une ligne du CPI renseignée pendant que les trois autres de la même minute étaient encore vides. Le terminal sait désormais qu un chiffre est attendu et interroge la source toutes les 20 secondes jusqu à ce qu il arrive, puis reprend son rythme normal.' },
   { id: 'dtpu-20260812-apercu-repare', ts: Date.UTC(2026, 7, 12, 23, 30), title: 'Mes desks : l aperçu de vos dispositions s affiche enfin', desc: 'La carte de chaque desk restait vide sur certains écrans. La miniature était bien calculée et présente, mais une règle de style écrite plus loin dans la feuille annulait sa hauteur : les blocs existaient, écrasés à zéro pixel. C est corrigé — l aperçu occupe la carte entière et montre la vraie disposition de vos widgets.' },
   { id: 'dtpu-20260812-mails-lisibles', ts: Date.UTC(2026, 7, 12, 22, 0), title: 'E-mails : des textes plus courts et une ponctuation plus nette', desc: 'Le mot d introduction qui suit l avis d un membre était devenu un paragraphe convenu sur le travail de l équipe ; il tient maintenant en une phrase, qui rebondit sur ce que ce membre a réellement dit. Et le tiret long, banni de nos e-mails, ressortait encore quand il était écrit sous sa forme technique : il est désormais filtré sous toutes ses formes.' },
   { id: 'dtpu-20260812-jpy-cadre', ts: Date.UTC(2026, 7, 12, 21, 0), title: 'Force des Devises : plus aucune courbe coupée en bas du cadre', desc: 'Le graphique laissait volontairement sortir du cadre une devise nettement plus mobile que les autres, pour ne pas écraser les six restantes. Le seuil était trop bas : le yen le franchissait lors d une semaine ordinaire et devenait illisible, pour un gain de lisibilité minime. Les huit devises tiennent désormais dans le cadre sur toutes les périodes.' },
@@ -3214,16 +3215,16 @@ function _calFfNames(items) {
   } catch { return items || []; }
 }
 let _tvActualsBusy = false;
-async function _refreshTVActuals() {
+async function _refreshTVActuals(force) {
   if (_tvActualsBusy) return 0;          // anti-empilement si un appel précédent traîne (réseau lent)
   _tvActualsBusy = true;
   try {
-    return await _refreshTVActualsInner();
+    return await _refreshTVActualsInner(force);
   } finally { _tvActualsBusy = false; }
 }
-async function _refreshTVActualsInner() {
+async function _refreshTVActualsInner(force) {
   let tv;
-  try { tv = await fetchTVCalendar(); } catch { return 0; }
+  try { tv = await fetchTVCalendar(force); } catch { return 0; }
   if (!Array.isArray(tv) || !tv.length) return 0;
   const ours = getCalendarRaw();
   const tvTok = tv.map(t => ({ t, tok: _calTitleTokens(t.title) }));
@@ -3328,10 +3329,10 @@ function _overlayActuals(events) {
 // ── Calendrier construit DIRECTEMENT depuis TradingView (events + actual/forecast/previous +
 // importance natifs → aucun matching, colonne ACTUAL exacte en temps réel + anciennes données). ──
 let _tvCalCache = { ts: 0, items: [] };
-async function _buildTVCalendar() {
-  if (Date.now() - _tvCalCache.ts < 4 * 60 * 1000 && _tvCalCache.items.length) return _tvCalCache.items;
+async function _buildTVCalendar(force) {
+  if (!force && Date.now() - _tvCalCache.ts < 4 * 60 * 1000 && _tvCalCache.items.length) return _tvCalCache.items;
   let evs = null;
-  try { evs = await fetchTVCalendarFull(); } catch {}
+  try { evs = await fetchTVCalendarFull(force); } catch {}
   if (!Array.isArray(evs) || !evs.length) return _tvCalCache.items;   // échec → on garde le dernier bon snapshot
   const items = evs.filter(e => e.impact === 'High' || e.impact === 'Medium').map(e => ({   // focus événements tradables
     id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),
@@ -20716,6 +20717,36 @@ server.listen(PORT, async () => {
     Promise.allSettled([_buildTVCalendar(), _refreshTVActuals()])
       .then(() => { try { _sbPokeCalendrier('rafraîchissement calendrier'); } catch {} });
   }, 5 * 60 * 1000);
+
+  /* ── CADENCE ACCÉLÉRÉE AUTOUR DES PUBLICATIONS (12/08, demande user « la data doit être mise à
+     jour instantanément à sa sortie ») ────────────────────────────────────────────────────────
+     Le rythme de croisière empilait trois attentes : cache du scraper (5 min), cache du calendrier
+     (4 min) et tic serveur (5 min). Un CPI publié à 14h30 pouvait donc n'apparaître qu'une dizaine
+     de minutes plus tard — constaté en direct : « CPI y/y » affichait son chiffre pendant que les
+     trois autres lignes de la même minute étaient encore vides.
+     On ne peut pas sonder en continu (quota et politesse envers la source). Mais on SAIT quand un
+     chiffre est attendu : c'est écrit dans le calendrier. Dès qu'une publication à fort impact a
+     dépassé son heure sans résultat, on passe à 20 s et on FORCE le contournement des deux caches,
+     jusqu'à ce que le chiffre tombe. En dehors de ces fenêtres — la quasi-totalité de la journée —
+     rien ne change. */
+  const _CAL_FENETRE_MS = 12 * 60 * 1000;   // une publication reste « attendue » 12 min après son heure
+  function _calPublicationEnAttente() {
+    try {
+      const now = Date.now();
+      return (_tvCalCache.items || []).some(e => e
+        && (e.impact === 'High' || e.impact === 'Medium')
+        && (!e.actual || e.actual === '')
+        && (e.timestamp || 0) <= now && (now - (e.timestamp || 0)) < _CAL_FENETRE_MS);
+    } catch { return false; }
+  }
+  let _calRapideAt = 0;
+  setInterval(() => {
+    if (!_calPublicationEnAttente()) return;
+    if (Date.now() - _calRapideAt < 18000) return;         // garde-fou : jamais plus d'un appel / 18 s
+    _calRapideAt = Date.now();
+    Promise.allSettled([_buildTVCalendar(true), _refreshTVActuals(true)])
+      .then(() => { try { _sbPokeCalendrier('publication en direct'); } catch {} });
+  }, 20 * 1000);
   // FX LIST : restaure le dernier snapshot persistant (affiché instantanément au boot, même si Yahoo throttle)
   // puis recalcule en arrière-plan ; refresh régulier ensuite → la table n'est JAMAIS vide.
   setTimeout(async () => { try { await _fxlLoadPersisted(); await computeFxList(); } catch {} }, 12000);

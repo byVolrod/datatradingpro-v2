@@ -25,8 +25,8 @@ function _fmt(val, unit, scale) {
   return s;
 }
 
-async function fetchTVCalendar() {
-  if (Date.now() - _cache.ts < TTL && _cache.events.length) return _cache.events;
+async function fetchTVCalendar(force) {
+  if (!force && Date.now() - _cache.ts < TTL && _cache.events.length) return _cache.events;
   const now = Date.now();
   const from = new Date(now - 5 * 86400000).toISOString();
   const to   = new Date(now + 2 * 86400000).toISOString();
@@ -99,8 +99,11 @@ function _mapFull(items) {
 // + importance, sur une fenêtre LARGE (35 j passé → 14 j futur). Source DIRECTE des actuals →
 // aucun matching, donc la colonne ACTUAL est exacte et couvre aussi les anciennes données.
 let _fullCache = { ts: 0, events: [] };
-async function fetchTVCalendarFull() {
-  if (Date.now() - _fullCache.ts < TTL && _fullCache.events.length) return _fullCache.events;
+// `force` (12/08) : ignore le cache de 5 min. Utilisé UNIQUEMENT dans la fenêtre qui suit une
+// publication à fort impact — quand le chiffre vient de tomber, attendre l'expiration du cache
+// ajoute jusqu'à 5 minutes de retard sur la donnée la plus regardée de la journée.
+async function fetchTVCalendarFull(force) {
+  if (!force && Date.now() - _fullCache.ts < TTL && _fullCache.events.length) return _fullCache.events;
   const now = Date.now();
   const from = new Date(now - 21 * 86400000).toISOString();   // 3 semaines passées (anciennes données)
   const to   = new Date(now + 10 * 86400000).toISOString();   // 10 jours à venir

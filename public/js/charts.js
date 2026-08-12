@@ -4750,10 +4750,29 @@ async function buildCalendar() {
   renderCalTable();
 
   // Auto-refresh calendrier toutes les 5 min (les actuals apparaissent vite après chaque sortie)
+  /* CADENCE ADAPTATIVE (12/08, demande user « la data doit être mise à jour instantanément à sa
+     sortie »). Le serveur accélère déjà autour des publications ; si le client, lui, ne redemande
+     que toutes les 5 minutes, le gain est perdu à la dernière étape. Même règle des deux côtés :
+     dès qu'une publication à fort impact a dépassé son heure sans résultat affiché, on redemande
+     toutes les 20 s jusqu'à ce que le chiffre tombe. Le reste de la journée, on reste à 5 min. */
   if (!window._calAutoRefreshInterval) {
+    const EN_ATTENTE = () => {
+      try {
+        const now = Date.now();
+        return (_calEvents || []).some(e => e
+          && /high|medium/i.test(e.impact || '')
+          && !(e.actual && String(e.actual).trim())
+          && (e.timestamp || 0) <= now && (now - (e.timestamp || 0)) < 12 * 60 * 1000);
+      } catch (e) { return false; }
+    };
+    let _dernier = 0;
     window._calAutoRefreshInterval = setInterval(() => {
+      const rapide = EN_ATTENTE();
+      const ecart = rapide ? 20 * 1000 : 5 * 60 * 1000;
+      if (Date.now() - _dernier < ecart) return;
+      _dernier = Date.now();
       _refreshCalendarData(false);
-    }, 5 * 60 * 1000);
+    }, 20 * 1000);
   }
 }
 
