@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260812bbg640" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260812bbg641" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -289,10 +289,7 @@
             <p class="camp-note"><strong>Tester sur ma boîte</strong> : même campagne, uniquement vers ton adresse. <strong>Lancer officiellement</strong> : envoi réel. Dim Semaine à venir · Mar Comprendre · Mer Point marché · Jeu Mindset · Sam Récap. Désinscrits et blacklist toujours exclus.<span id="camp-drip-msg" class="camp-msg" style="margin-left:8px"></span></p>
           </div>
         </div>
-        <!-- PROGRAMME DE PILOTAGE (12/08) : voir les 8 prochaines semaines, forcer le contenu de
-             l'une d'elles, et programmer un témoignage à une date choisie. Réglages seulement :
-             rien ne part d'ici. -->
-        <div class="panel-card">
+                <div class="panel-card">
           <div class="panel-head"><h2>Programme des envois</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-plan-sub"></span></div>
           <div class="panel-body">
             <div id="camp-plan-body"><div class="skel" style="height:120px"></div></div>
@@ -303,12 +300,8 @@
               <button class="btn btn-ghost" onclick="campPlanTemoignage(true)">Annuler</button>
               <span id="camp-plan-msg" class="camp-msg"></span>
             </div>
-            <p class="camp-note">Chaque semaine suit la rotation automatique. En forcer une remplace son contenu <strong>pour cette semaine seulement</strong> ; « Auto » la rend à la rotation. Le témoignage part le 1<sup>er</sup> lundi du mois ; une date programmée l'envoie ce jour-là en plus, sans jamais dépasser un témoignage par mois et par contact.</p>
-          </div>
-        </div>
-        <div class="panel-card">
-          <div class="panel-head"><h2>Séquence hebdomadaire</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-seq-sub"></span></div>
-          <div class="panel-body">
+            <p class="camp-note">Forcer une semaine remplace son contenu <strong>pour cette semaine seulement</strong> ; « Auto » la rend à la rotation. Le témoignage part le 1<sup>er</sup> lundi du mois&nbsp;; une date programmée l'envoie ce jour-là en plus, sans jamais dépasser un témoignage par mois et par contact.</p>
+            <div class="camp-plan-sep"><span>Détail de la séquence</span></div>
             <div id="camp-seq-list" class="camp-seq-list"><div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div></div>
             <p class="camp-note"><span class="camp-badge camp-badge--sent">Envoyé</span> date + volume + stats · <span class="camp-badge camp-badge--ready">Prêt</span> codé, envoyable · <span class="camp-badge camp-badge--planned">À venir</span> à construire.</p>
           </div>
@@ -728,6 +721,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260812bbg640"></script>
+<script src="/js/admin.js?v=20260812bbg641"></script>
 </body>
 </html>

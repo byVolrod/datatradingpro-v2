@@ -58,8 +58,17 @@
       }
       var host = document.querySelector('.home-cards');
       if (!host) return;
+      // ⚠️ COUP UNIQUE CORRIGÉ (12/08) : on désarmait le rattrapage dès que `DTPWidgets.thumb`
+      // EXISTAIT, sans regarder ce qu'il rendait. Si la vignette revenait vide — outil présent mais
+      // en échec — la carte restait un rectangle noir pour toujours, et plus rien ne réessayait.
+      // On ne désarme donc que si une miniature a RÉELLEMENT été produite ; sinon on continue
+      // jusqu'au plafond d'essais, puis on le DIT au lieu d'abandonner en silence.
       _miniManquante = false;
       host.innerHTML = layoutCards(cfg);
+      if (_miniManquante) {
+        if (++_miniEssais < 40) { _rattraperMinis(cfg); return; }
+        try { console.warn('[Accueil] aperçu des desks indisponible après ' + _miniEssais + ' essais — les cartes restent sans miniature.'); } catch (e) {}
+      }
     }, 700);
   }
 

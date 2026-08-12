@@ -13989,7 +13989,15 @@ html[data-theme="light"] #home-w-force-devises { background: #ffffff; }
   mix-blend-mode: screen; pointer-events: none;
   transition: transform .7s var(--ease-out, ease);
 }
-.home-card--visu .home-card-face { position: relative; }
+/* ⚠️ NE PAS REDÉCLARER `position` ICI (correctif 12/08). Cette ligne portait `position: relative`,
+   posée pour que le balayage `::after` ci-dessus s'ancre sur le visage. Or le visage est déjà
+   `position: absolute; inset: 0` (l.13481) : `absolute` établit lui aussi un bloc conteneur, donc
+   `relative` n'apportait rien — mais comme le sélecteur est IDENTIQUE et la règle 500 lignes plus
+   bas, elle écrasait silencieusement le calage en absolu. Le visage repassait dans le flux avec une
+   hauteur `auto`, et comme ses trois filets de hauteur sont désactivés dans ce contexte (l.13483-86)
+   alors que tout son contenu est en position absolue, `height: 100%` se résolvait à ZÉRO : les blocs
+   étaient bien dans le DOM, écrasés à zéro pixel. C'est ce qui rendait la carte vide, et ce qui a
+   annulé sans bruit le correctif « remplir la carte ». Le balayage fonctionne à l'identique. */
 .home-card--visu:hover .home-card-face::after { transform: translateX(330%); }
 
 /* Focus clavier : anneau or sur tout l'interactif de la vue. */
@@ -16321,7 +16329,9 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    terminal est gris ardoise. La palette fait désormais foi, cf. « LES VRAIES COULEURS DU DESK ».) */
 
 /* 3. POLI. Coins doux sur les blocs, filet lumineux en crête (relief discret), respiration autour. */
-.home-card--visu .home-card-face .wdg-thumb--plan { padding: 7px; }
+/* Espacement porté par l'enveloppe .wdg-plan-in (inset: 7px, l.13488) — le padding du plan
+   s'y AJOUTAIT : 14 px de marge sur une vignette de 130 px de haut. Une seule couche suffit. */
+.home-card--visu .home-card-face .wdg-thumb--plan { padding: 0; }
 .home-card--visu .home-card-face .wdg-thumb--plan i {
   border-radius: 4px;
   /* Le liseré de catégorie est posé ICI, en ombre intérieure, et non en `border-top` : cette règle
