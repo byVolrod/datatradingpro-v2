@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260812-mails-lisibles', ts: Date.UTC(2026, 7, 12, 22, 0), title: 'E-mails : des textes plus courts et une ponctuation plus nette', desc: 'Le mot d introduction qui suit l avis d un membre était devenu un paragraphe convenu sur le travail de l équipe ; il tient maintenant en une phrase, qui rebondit sur ce que ce membre a réellement dit. Et le tiret long, banni de nos e-mails, ressortait encore quand il était écrit sous sa forme technique : il est désormais filtré sous toutes ses formes.' },
   { id: 'dtpu-20260812-jpy-cadre', ts: Date.UTC(2026, 7, 12, 21, 0), title: 'Force des Devises : plus aucune courbe coupée en bas du cadre', desc: 'Le graphique laissait volontairement sortir du cadre une devise nettement plus mobile que les autres, pour ne pas écraser les six restantes. Le seuil était trop bas : le yen le franchissait lors d une semaine ordinaire et devenait illisible, pour un gain de lisibilité minime. Les huit devises tiennent désormais dans le cadre sur toutes les périodes.' },
   { id: 'dtpu-20260812-tf-force-memo', ts: Date.UTC(2026, 7, 12, 20, 0), title: 'Force des Devises : votre unité de temps reste celle que vous avez choisie', desc: 'Les périodes des deux panneaux Force des Devises repassaient sur les valeurs par défaut après une déconnexion. Elles sont désormais enregistrées par le même mécanisme que vos autres réglages, celui qui suit déjà votre compte d un appareil à l autre. Vous choisissez TD en haut et TW en bas, vous revenez : c est encore là.' },
   { id: 'dtpu-20260812-apercu-desk-look', ts: Date.UTC(2026, 7, 12, 18, 0), title: 'Mes desks : l aperçu occupe toute la carte, aux couleurs du terminal', desc: 'La vignette qui montre la forme de votre desk remplit désormais la carte entière au lieu de tenir dans un coin, et elle a pris les vraies couleurs du terminal : panneaux gris ardoise, barre de titre plus foncée, bordure fine — au lieu des blocs verts et bleus qui n existent nulle part dans le desk. Un fin liseré rappelle la famille de chaque widget.' },
@@ -17027,6 +17028,64 @@ app.get('/api/admin/campaign-audience', requireSameOrigin, requireAdmin, async (
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+/* ── PROGRAMME DE PILOTAGE (12/08, demande user) : lire et modifier le planning depuis le panel ──
+   GET  → les 8 prochaines semaines avec le contenu prévu, en distinguant ce qui vient de la rotation
+          automatique et ce qui a été FORCÉ à la main, + la date de témoignage programmée.
+   POST → { semaine: 'AAAA-Www', contenu: '<id>'|'' }  force (ou libère) une semaine
+        · { temoignage: 'AAAA-MM-JJ'|'' }              programme (ou annule) un témoignage
+   N'ENVOIE RIEN : ce sont des réglages. L'envoi reste soumis à toutes les gardes existantes
+   (audience, désinscrits, blacklist, verrou « 1 mail/semaine », dédup, mode test). */
+app.get('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (_req, res) => {
+  try {
+    const plan = await _campPlanGet();
+    const semaines = [];
+    for (let a = 0; a < 8; a++) {
+      const cle = _campWeekKey(a);
+      const forceId = plan.forces ? plan.forces[cle] : null;
+      const step = _rotStepForWeekAhead(a);
+      // Lundi de la semaine, pour un libellé lisible côté panel.
+      const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+      const d = new Date(p + 'T12:00:00Z');
+      const lundi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + a * 7, 12));
+      semaines.push({
+        cle, debut: lundi.toISOString().slice(0, 10),
+        contenuId: step ? step.id : '', contenu: step ? step.label : '',
+        jour: step ? _stepWd(step) : 0, heure: step ? (step.hour || 0) : 0,
+        force: !!forceId, auto: (_WEEK_ROTATION[_rotIdxForWeek(a)] || {}).label || '',
+      });
+    }
+    res.json({
+      ok: true, semaines, temoignage: plan.temoignage || '',
+      contenus: _WEEK_ROTATION.concat([DRIP_TEMOIGN]).map(s => ({ id: s.id, label: s.label })),
+      testMode: !!_dripState.testMode,
+    });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+app.post('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const plan = await _campPlanGet();
+    const forces = Object.assign({}, plan.forces || {});
+    let temoignage = plan.temoignage || '';
+    if (typeof b.semaine === 'string' && /^\d{4}-W\d{2}$/.test(b.semaine)) {
+      const id = String(b.contenu || '');
+      if (!id) delete forces[b.semaine];                                  // '' = on rend la semaine à la rotation
+      else if (_CAMP_BY_ID()[id]) forces[b.semaine] = id;
+      else return res.status(400).json({ ok: false, error: 'contenu inconnu' });
+    }
+    if (typeof b.temoignage === 'string') {
+      const t = b.temoignage.trim();
+      if (!t) temoignage = '';
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(t)) temoignage = t;
+      else return res.status(400).json({ ok: false, error: 'date attendue au format AAAA-MM-JJ' });
+    }
+    _campPlan = { forces, temoignage }; _campPlanAt = Date.now();
+    await auth.aiCacheSet('camp:plan', _campPlan);
+    console.log('[Drip] programme mis à jour :', JSON.stringify(_campPlan));
+    res.json({ ok: true, plan: _campPlan });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // E-mails ajoutés À LA MAIN à l'audience (contacts hors API Whop : export « Contacts », leads, ajouts admin).
 // Stockés durablement (KV ai_cache `campaign:extra-emails`). ?action=add&emails=a@x.com,b@y.com (séparateurs
 // espace/virgule/point-virgule/retour ligne) · ?action=remove&email=a@x.com · sans action → liste. N'envoie RIEN.
@@ -18612,7 +18671,53 @@ function _rotIdxForWeek(ahead) {
 // overlay dans _dripTick — demande user « 1x par mois, début de mois, en + ») ; le laisser ici aurait
 // donné des mois à DEUX témoignages.
 const _WEEK_ROTATION = [DRIP_OUTLOOK, DRIP_DECRYPT, DRIP_POINT, DRIP_MINDSET, DRIP_RECAP, DRIP_INVIT];
-const _rotStepForWeek = () => _WEEK_ROTATION[_rotIdxForWeek(0)];
+
+/* ── PILOTAGE DU PROGRAMME DEPUIS LE PANEL ADMIN (12/08, demande user) ────────────────────────────
+   Jusqu'ici la rotation était entièrement déduite du calendrier : le contenu d'une semaine tombait
+   de `_rotIdxForWeek`, sans aucun moyen de dire « la semaine prochaine, envoie plutôt ceci ». Et le
+   témoignage n'existait qu'au 1er lundi du mois — impossible d'en programmer un pour la semaine qui
+   vient sans attendre le mois suivant.
+   Ce plan, stocké par KV et modifiable depuis le panel, se superpose au calcul automatique :
+     · `forces` : { '<AAAA-Www>': '<id de contenu>' } — une semaine ISO forcée sur un contenu précis.
+       Toute semaine absente garde la rotation normale : le plan est une EXCEPTION, pas un remplacement.
+     · `temoignage` : 'AAAA-MM-JJ' — une date explicite pour le témoignage, en plus (ou à la place)
+       du 1er lundi automatique. La dédup mensuelle par contact reste en vigueur : programmer une
+       date n'autorise jamais deux témoignages au même contact dans le mois.
+   Le plan est LU à chaque tic (cache 60 s) : une modification depuis le panel s'applique sans
+   redémarrage. */
+let _campPlan = { forces: {}, temoignage: '' }, _campPlanAt = 0;
+async function _campPlanGet() {
+  if (Date.now() - _campPlanAt < 60000) return _campPlan;
+  try {
+    const v = await auth.aiCacheGet('camp:plan', 400 * 86400000);
+    const o = (v && typeof v === 'object') ? v : (v ? JSON.parse(String(v)) : null);
+    if (o) _campPlan = { forces: (o.forces && typeof o.forces === 'object') ? o.forces : {}, temoignage: String(o.temoignage || '') };
+  } catch {}
+  _campPlanAt = Date.now();
+  return _campPlan;
+}
+// Clé de semaine ISO « AAAA-Www » pour un décalage en semaines (0 = cette semaine), heure de Paris.
+function _campWeekKey(ahead) {
+  try {
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+    const d = new Date(p + 'T12:00:00Z');
+    const lundi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + (ahead || 0) * 7, 12));
+    // Norme ISO 8601 : la semaine 1 est celle qui contient le 1er jeudi de l'année.
+    const jeudi = new Date(Date.UTC(lundi.getUTCFullYear(), lundi.getUTCMonth(), lundi.getUTCDate() + 3, 12));
+    const jan1 = new Date(Date.UTC(jeudi.getUTCFullYear(), 0, 1, 12));
+    const sem = Math.ceil(((jeudi - jan1) / 864e5 + 1) / 7);
+    return jeudi.getUTCFullYear() + '-W' + String(sem).padStart(2, '0');
+  } catch { return ''; }
+}
+const _CAMP_BY_ID = () => { const m = {}; for (const s of _WEEK_ROTATION) m[s.id] = s; m[DRIP_TEMOIGN.id] = DRIP_TEMOIGN; return m; };
+// Contenu réellement prévu pour une semaine : le forçage du panel s'il existe, sinon la rotation.
+function _rotStepForWeekAhead(ahead) {
+  const cle = _campWeekKey(ahead || 0);
+  const forceId = cle && _campPlan.forces ? _campPlan.forces[cle] : null;
+  if (forceId) { const s = _CAMP_BY_ID()[forceId]; if (s) return s; }
+  return _WEEK_ROTATION[_rotIdxForWeek(ahead || 0)];
+}
+const _rotStepForWeek = () => _rotStepForWeekAhead(0);
 // Jour naturel (weekday) d'un contenu : porté par le contenu lui-même (repli _DAY_STEP pour l'ancien format).
 function _stepWd(step) {
   if (step && Number.isInteger(step.wd)) return step.wd;
@@ -18655,13 +18760,13 @@ async function _temoignagePayload() {
     const review = (reviews || [])[0];
     if (!review) return null;
     let angle = '';
-    const ck = 'temoignage:angle:' + review.id;
+    const ck = 'temoignage:angle:v2:' + review.id;
     try { angle = (await auth.aiCacheGet(ck, 30 * 86400000)) || ''; } catch (e) {}
     if (!angle) {
       try {
         const p = `Voici un avis client réel sur DataTradingPro (terminal de données macro/forex) : « ${String(review.description).slice(0, 500)} » (${review.stars}/5).
-Écris EN FRANÇAIS 2 phrases (3 maximum) qui enchaînent naturellement APRÈS cette citation dans un e-mail : elles doivent rebondir sur ce que CE membre dit précisément (reprends son idée, pas ses mots), relier ça au travail de développement du terminal par JustOneTrader, et rester factuelles — aucun conseil d'investissement, pas de superlatif creux. Réponds avec les phrases seules, sans guillemets ni préambule.`;
-        angle = String(await aiSmart('campaign', p, 220, { important: true }) || '').trim();
+Écris EN FRANÇAIS UNE SEULE phrase (deux au maximum, courtes) qui enchaîne après cette citation dans un e-mail. Elle doit rebondir sur ce que CE membre dit précisément, en reprenant son IDÉE et pas ses mots. INTERDIT : parler de « notre équipe de développement », de « mise à jour régulière de nos outils », de « commentaires positifs qui aident à affiner nos priorités » — ce genre de phrase creuse d'entreprise ne dit rien et alourdit le mail. Reste concret et factuel, aucun conseil d'investissement, aucun superlatif. N'utilise JAMAIS le tiret cadratin. Réponds avec la phrase seule, sans guillemets ni préambule.`;
+        angle = String(await aiSmart('campaign', p, 120, { important: true }) || '').trim();
         if (angle && angle.length > 40) { try { await auth.aiCacheSet(ck, angle); } catch (e) {} }
       } catch (e) { angle = ''; }                          // IA indisponible → repli neutre du gabarit
     }
@@ -18740,10 +18845,17 @@ async function _dripTick() {
     //    n'a aucun contenu naturel), fenêtre 18h→21h. Exception ASSUMÉE au verrou « 1 mail/semaine »
     //    (c'est le « en + » demandé) — on GARDE : jamais 2 mails le même jour calendaire à un contact,
     //    dédup 1×/mois par contact, intro d'abord, mode TEST respecté. Retiré de la rotation hebdo.
-    if (wd === 1 && pp.hour >= (_STEP_MINHOUR.temoignage || 18) && pp.hour < (_STEP_MAXHOUR.temoignage || 21)) {
+    // Le 1er lundi reste le rythme automatique ; une DATE PROGRAMMÉE depuis le panel ouvre la fenêtre
+    // ce jour-là quel que soit le jour de la semaine (demande user : « programme un témoignage la
+    // semaine prochaine »). La dédup mensuelle par contact reste en vigueur dans les deux cas : une
+    // date programmée n'a jamais pu envoyer deux témoignages au même contact dans le mois.
+    const _plan = await _campPlanGet().catch(() => ({ temoignage: '' }));
+    const _pDateNow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const _temProg = !!(_plan && _plan.temoignage && _plan.temoignage === _pDateNow);
+    if ((wd === 1 || _temProg) && pp.hour >= (_STEP_MINHOUR.temoignage || 18) && pp.hour < (_STEP_MAXHOUR.temoignage || 21)) {
       try {
-        const _pDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-        if (parseInt(_pDate.slice(8, 10), 10) <= 7) {
+        const _pDate = _pDateNow;
+        if (_temProg || parseInt(_pDate.slice(8, 10), 10) <= 7) {
           const mKey = _pDate.slice(0, 7);   // 'AAAA-MM'
           if (_dripState.testMode) {
             const _tk = 'drip:mtem-test:' + mKey + ':' + _CAMP_TEST_TO;
@@ -19104,7 +19216,7 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
       } else {
         let angle = '';
         try {
-          const ck = 'temoignage:angle:' + review.id;
+          const ck = 'temoignage:angle:v2:' + review.id;
           angle = await auth.aiCacheGet(ck, 30 * 86400000).catch(() => '') || '';
           if (!angle) {
             const p = `Voici un avis client réel sur DataTradingPro (terminal de données macro/forex) : « ${review.description.slice(0, 500)} » (${review.stars}/5).

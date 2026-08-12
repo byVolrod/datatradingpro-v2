@@ -454,6 +454,7 @@
     loadBlacklist();
     loadGiftAccess();
     loadSequence();
+    loadPlan();
     var _rp = document.getElementById('camp-recip-panel'); if (_rp && _rp.style.display !== 'none') renderRecipients();
   }
   /* ══ CENTRE D'ANALYSE DES CAMPAGNES (06/08) ═══════════════════════════════════════════════════
@@ -1086,6 +1087,70 @@
       body.innerHTML = pausedBanner + '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>';
     } catch { body.textContent = 'Erreur de chargement.'; }
   }
+  /* ── PROGRAMME DES ENVOIS (12/08, demande user « donne-moi la possibilité de choisir le prochain
+     envoi et d'organiser le programme de pilotage depuis le panel ») ────────────────────────────
+     Les 8 prochaines semaines, chacune avec le contenu prévu et un sélecteur pour la forcer.
+     « Auto » rend la semaine à la rotation. Aucun envoi ne part d'ici : ce sont des réglages. */
+  function _planMsg(t, ko) {
+    const el = document.getElementById('camp-plan-msg'); if (!el) return;
+    el.textContent = t || ''; el.style.color = ko ? '#ff5233' : '#00e676';
+    if (t) setTimeout(function () { if (el.textContent === t) el.textContent = ''; }, 4000);
+  }
+  async function loadPlan() {
+    const body = document.getElementById('camp-plan-body'); if (!body) return;
+    try {
+      const d = await fetch('/api/admin/campaign-plan').then(r => r.json());
+      if (!d || !d.ok) { body.innerHTML = '<div class="camp-note">Programme indisponible.</div>'; return; }
+      const sub = document.getElementById('camp-plan-sub');
+      if (sub) sub.textContent = (d.temoignage ? 'Témoignage programmé le ' + d.temoignage : 'Aucun témoignage programmé')
+        + (d.testMode ? ' · mode TEST' : '');
+      const tem = document.getElementById('camp-plan-tem-date');
+      if (tem && d.temoignage) tem.value = d.temoignage;
+      const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+      body.innerHTML = '<div class="camp-plan-list">' + (d.semaines || []).map(function (w, i) {
+        const quand = JOURS[w.jour] ? (JOURS[w.jour] + (w.heure ? ' ' + w.heure + 'h' : '')) : '';
+        const opts = (d.contenus || []).map(function (c) {
+          return '<option value="' + c.id + '"' + (w.force && c.id === w.contenuId ? ' selected' : '') + '>' + c.label + '</option>';
+        }).join('');
+        return '<div class="camp-plan-row' + (i === 0 ? ' camp-plan-row--now' : '') + '">'
+          + '<div class="camp-plan-wk">' + (i === 0 ? 'Cette semaine' : (i === 1 ? 'Semaine prochaine' : 'dans ' + i + ' sem.'))
+          + '<span>' + w.debut + '</span></div>'
+          + '<div class="camp-plan-main"><strong>' + w.contenu + '</strong>'
+          + (quand ? '<span class="camp-plan-when">' + quand + '</span>' : '')
+          + (w.force ? '<span class="camp-plan-badge">forcé</span><span class="camp-plan-auto">rotation : ' + w.auto + '</span>' : '')
+          + '</div>'
+          + '<select class="camp-plan-input" data-wk="' + w.cle + '" onchange="campPlanForcer(this.value, this.dataset.wk)">'
+          + '<option value="">Auto (rotation)</option>' + opts + '</select>'
+          + '</div>';
+      }).join('') + '</div>';
+    } catch (e) { body.innerHTML = '<div class="camp-note">Programme indisponible.</div>'; }
+  }
+  window.campPlanForcer = async function (contenu, semaine) {
+    try {
+      const r = await fetch('/api/admin/campaign-plan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ semaine: semaine, contenu: contenu || '' }),
+      }).then(function (x) { return x.json(); });
+      if (!r || !r.ok) { _planMsg((r && r.error) || 'échec', true); return; }
+      _planMsg(contenu ? 'Semaine forcée.' : 'Semaine rendue à la rotation.');
+      loadPlan(); if (typeof loadSequence === 'function') loadSequence();
+    } catch (e) { _planMsg('échec réseau', true); }
+  };
+  window.campPlanTemoignage = async function (annuler) {
+    const el = document.getElementById('camp-plan-tem-date');
+    const date = annuler ? '' : ((el && el.value) || '');
+    if (!annuler && !date) { _planMsg('choisis une date', true); return; }
+    try {
+      const r = await fetch('/api/admin/campaign-plan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ temoignage: date }),
+      }).then(function (x) { return x.json(); });
+      if (!r || !r.ok) { _planMsg((r && r.error) || 'échec', true); return; }
+      if (annuler && el) el.value = '';
+      _planMsg(annuler ? 'Témoignage déprogrammé.' : 'Témoignage programmé le ' + date + ' (18h-21h).');
+      loadPlan();
+    } catch (e) { _planMsg('échec réseau', true); }
+  };
   // ── Sequence / supervision hebdo ──
   async function loadSequence(){
     try {

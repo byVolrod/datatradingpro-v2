@@ -317,8 +317,16 @@ async function _send(to, subject, html, attachments) {
   if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide — email ignoré:', to); return false; }
   // (28/07, demande user) Le tiret cadratin « — » est BANNI des mails : normalisé en tiret simple
   // au POINT DE SORTIE UNIQUE → couvre les gabarits statiques ET les contenus générés par l'IA.
-  subject = String(subject || '').replace(/\s*—\s*/g, ' - ');
-  html = String(html || '').replace(/\s*—\s*/g, ' - ').replace(/ -\s*([,;.!?])/g, '$1');
+  // ⚠️ ÉLARGI le 12/08 : le filtre ne voyait que le caractère LITTÉRAL. Un gabarit qui écrit
+  // `&mdash;` — la forme la plus naturelle en HTML — passait au travers et le tiret ressortait dans
+  // la boîte de réception. On normalise donc AUSSI les formes entité (nommée et numérique), et le
+  // demi-cadratin « – », qui produit exactement le même effet visuel. Une seule expression, au même
+  // endroit : aucun gabarit futur ne peut rouvrir la brèche.
+  const _tirets = s => String(s || '')
+    .replace(/&(?:mdash|ndash);|&#(?:8212|8211|151|150);/gi, '—')   // entités → caractère, pour un seul traitement ensuite
+    .replace(/\s*[—–]\s*/g, ' - ');
+  subject = _tirets(subject);
+  html = _tirets(html).replace(/ -\s*([,;.!?])/g, '$1');
   if (_isDuplicate(to, subject)) { console.warn(`[Mailer] doublon ignoré (<12s) → ${to}: "${subject}"`); return false; }
   const chain = [];
   if (process.env.OVH_SMTP_USER && process.env.OVH_SMTP_PASS) chain.push(['OVH SMTP', _sendOvhSmtp]);  // ← PRINCIPAL : DEPUIS contact@datatradingpro.com (aligné SPF/DKIM domaine → inbox)

@@ -3387,7 +3387,17 @@ function _spansAffiches(lay) {
     },
     // Miniature d'un layout — exposée pour que l'ACCUEIL (home.js) rende la même vignette que le
     // gestionnaire : un seul moteur, donc zéro divergence visuelle entre les deux écrans.
-    thumb: function (items, opts) { try { return _thumb(items, opts); } catch (e) { return ''; } },
+    // ⚠️ L'ÉCHEC NE DOIT PLUS ÊTRE MUET (12/08). Ce `catch` renvoyait '' sans un mot : quand la
+    // vignette ne se construisait pas, l'accueil affichait une carte vide et RIEN nulle part ne
+    // disait pourquoi. Le défaut est resté invisible plusieurs jours, et a coûté deux corrections à
+    // l'aveugle. On renvoie toujours '' — l'appelant a son propre repli — mais on le DIT.
+    thumb: function (items, opts) {
+      try { return _thumb(items, opts); }
+      catch (e) {
+        try { console.error('[Widgets] miniature non construite :', e && e.message, '| items :', JSON.stringify(items || []).slice(0, 300)); } catch (e2) {}
+        return '';
+      }
+    },
     // Liste des widgets montables (id + nom + famille) — pour qu'un autre écran propose un choix
     // sans dupliquer le catalogue.
     catalogue: function () { return CATALOG.map(function (w) { return { id: w.id, nom: w.name, tag: w.tag || '', cat: w.cat }; }); },

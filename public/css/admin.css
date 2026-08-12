@@ -351,6 +351,34 @@ select { cursor: pointer; }
 .camp-bl-x:hover { color: var(--red); }
 .camp-aud-seg { display: flex; flex-wrap: wrap; gap: var(--sp-15); }
 
+/* ══ PROGRAMME DES ENVOIS (12/08) — les 8 prochaines semaines, forçables une à une. Même grammaire
+   que la séquence hebdo juste en dessous : une ligne = une semaine, cadre or sur la semaine en cours. */
+.camp-plan-list { display: flex; flex-direction: column; gap: var(--sp-15); }
+.camp-plan-row {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3); background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.camp-plan-row--now { border: 1px solid rgba(227, 178, 58, .55); border-left: 3px solid var(--orange); background: rgba(227, 178, 58, .07); }
+.camp-plan-wk { flex: 0 0 128px; display: flex; flex-direction: column; font-family: var(--tight); font-size: var(--fs-meta); font-weight: var(--fw-bold); color: var(--text2); }
+.camp-plan-wk span { font-weight: var(--fw-medium); color: var(--text4); font-variant-numeric: tabular-nums; }
+.camp-plan-main { flex: 1 1 180px; min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; color: var(--text); }
+.camp-plan-when { font-size: var(--fs-meta); color: var(--text4); }
+.camp-plan-badge { font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--orange); border: 1px solid rgba(227, 178, 58, .5); border-radius: 3px; padding: 1px 6px; }
+.camp-plan-auto { font-size: var(--fs-meta); color: var(--text4); }
+.camp-plan-input {
+  flex: 0 0 auto; height: 28px; padding: 0 8px; background: var(--bg2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius); font-size: var(--fs-meta);
+}
+.camp-plan-input:hover, .camp-plan-input:focus { border-color: var(--orange); outline: none; }
+.camp-plan-tem { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px solid var(--border); }
+.camp-plan-tem label { font-size: var(--fs-meta); color: var(--text2); }
+/* Sur écran étroit, la ligne se déplie au lieu de comprimer le sélecteur. */
+@media (max-width: 720px) {
+  .camp-plan-wk { flex: 1 1 100%; flex-direction: row; gap: 8px; align-items: baseline; }
+  .camp-plan-input { flex: 1 1 100%; }
+}
+
 .camp-seq-list { display: flex; flex-direction: column; gap: var(--sp-15); }
 .camp-seq-row { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
 /* PROCHAIN ENVOI (demande user 28/07 : « un encadré qui se réajuste vers celui qui partira ») :
