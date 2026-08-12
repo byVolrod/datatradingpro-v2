@@ -3349,6 +3349,22 @@ function _spansAffiches(lay) {
     var tmp = document.createElement('div'); tmp.innerHTML = _ghostHtml(activeLayout());
     if (tmp.firstChild) old.replaceWith(tmp.firstChild);
   }
+  /* SILHOUETTE PAR FAMILLE DE WIDGET (12/08, demande user « un aperçu stylé et propre qui ressort
+     bien avec le design DTP »). Tous les blocs portaient la MÊME trame de lignes : à l'échelle de la
+     carte, un fil de news, un graphe et un tableau se ressemblaient trait pour trait. On associe donc
+     à chaque widget une SILHOUETTE — une courbe, des barres, des lignes de texte, une grille, un arc —
+     dessinée en CSS pur dans le corps du bloc : aucune donnée chargée, aucune requête, mais on
+     reconnaît son desk du premier coup d'œil. Un widget inconnu (ajouté plus tard) n'a pas de
+     silhouette et garde le corps nu : jamais d'erreur, jamais de dessin trompeur. */
+  var _SILHOUETTE = {
+    'force-devises': 'courbe', 'risque-historique': 'courbe', 'graphique': 'chandelier',
+    'saison': 'barres', 'barometre': 'barres', 'dmx-retail': 'barres', 'cot-inst': 'anneau',
+    'risque-jauge': 'jauge', 'sessions': 'carte', 'horloge': 'horloge',
+    'fil-news': 'lignes', 'journal-mini': 'lignes', 'radar-biais': 'grille',
+    'calendrier-jour': 'grille', 'taux-cb': 'grille', 'calculatrice': 'champs',
+    'onglets': 'onglets', 'mon-desk': 'grille',
+  };
+  function _thumbSilhouette(id) { return _SILHOUETTE[id] || ''; }
   function _thumb(items, opts) {
     opts = opts || {};
     // POSITIONS EXACTES, ZÉRO ARRONDI (demande user 02/08 « ça doit être aligné à chaque fois ») :
@@ -3366,9 +3382,10 @@ function _spansAffiches(lay) {
       var def = byId(it.w);
       var col = _CAT_COL[(def && def.cat) || 'Autre'] || _CAT_COL['Autre'];
       var lbl = opts.labels && p.w >= 3 ? _thumbLbl(def, it) : '';
+      var sil = _thumbSilhouette(it.w);
       return '<i style="left:' + (p.c / 12 * 100).toFixed(3) + '%;top:' + (p.r / H * 100).toFixed(3)
         + '%;width:' + (p.w / 12 * 100).toFixed(3) + '%;height:' + (p.h / H * 100).toFixed(3)
-        + '%;--tc:' + col + '"' + (def ? ' title="' + esc(def.name) + '"' : '') + '>'
+        + '%;--tc:' + col + '"' + (sil ? ' data-sil="' + sil + '"' : '') + (def ? ' title="' + esc(def.name) + '"' : '') + '>'
         + (lbl ? '<b>' + esc(lbl) + '</b>' : '') + '</i>';
     }).join('');
     // L'enveloppe interne (.wdg-plan-in) porte les blocs : un enfant en position absolue se place par

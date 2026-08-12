@@ -16099,10 +16099,19 @@ body.dtp-admin .view-panel > .panel > .panel-header {
   font-size: 9px; letter-spacing: .02em;
   color: color-mix(in srgb, var(--tc, #e3b23a) 30%, #fff);
 }
-/* Le voile ne remonte plus que sur le tiers bas — assez pour détacher le nom, plus assez pour
-   effacer l'aperçu. C'était lui le « vide ». */
+/* Le voile ne remonte que sur le tiers bas — assez pour détacher le nom, plus assez pour effacer
+   l'aperçu (c'était lui, autrefois, le « vide »).
+   RENFORCÉ le 12/08, après avoir vu les silhouettes en place : le nom du desk se posait désormais
+   sur des panneaux TEXTURÉS (courbes, barres, grilles) et non plus sur un aplat sombre. Il fallait
+   plus d'opacité EXACTEMENT dans la bande du nom — palier ajouté à 34 % — sans pour autant monter
+   plus haut : au-delà, on remettrait un voile sur le plan qu'on vient de rendre lisible. */
 .home-card--visu::after{
-  background: linear-gradient(0deg, rgba(5, 5, 6, .90) 0%, rgba(5, 5, 6, .55) 22%, rgba(5, 5, 6, .06) 46%, transparent 62%);
+  background: linear-gradient(0deg,
+    rgba(5, 5, 6, .96) 0%,
+    rgba(5, 5, 6, .88) 18%,
+    rgba(5, 5, 6, .58) 34%,
+    rgba(5, 5, 6, .10) 52%,
+    transparent 66%);
 }
 @media (max-width: 560px){
   .home-card--visu .home-card-face .wdg-thumb--lbl b{ font-size: 8px; }
@@ -16513,3 +16522,81 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    restent définies pour les rapports archivés qui portent encore « Très haussier/baissier ». */
 .wr-bias--wbull { color:#6ee7b7; background:rgba(0,204,153,.07); border:1px solid rgba(0,204,153,.22); }
 .wr-bias--wbear { color:#fca5a5; background:rgba(255,61,0,.07);  border:1px solid rgba(255,61,0,.22); }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════════
+   SILHOUETTES DE L'APERÇU « MES DESKS » (12/08) — un desk se reconnaît d'un coup d'œil
+   ══════════════════════════════════════════════════════════════════════════════════════════════════
+   Tous les blocs portaient la même trame de lignes horizontales : à l'échelle de la carte, un fil de
+   news, un graphe et un tableau étaient indiscernables. Chaque widget porte maintenant `data-sil`
+   (widgets.js `_SILHOUETTE`) et son corps dessine une forme reconnaissable — courbe, chandelier,
+   barres, lignes, grille, anneau, jauge, carte, horloge, onglets.
+   Tout est en CSS PUR sur le `::after` DÉJÀ existant : aucune donnée chargée, aucune requête, aucun
+   élément DOM en plus. La forme reste dans le corps du panneau (sous le bandeau de titre), en blanc
+   très translucide — c'est une silhouette, pas un graphique : elle doit tenir dans 80×40 px sans
+   jamais prétendre montrer une valeur réelle. */
+.wdg-thumb--plan i[data-sil]::after { opacity: .55; }
+
+/* Courbe — force des devises, historique de risque. Deux traits qui montent en diagonale. */
+.wdg-thumb--plan i[data-sil="courbe"]::after {
+  background:
+    linear-gradient(72deg, transparent calc(50% - .6px), rgba(255,255,255,.34) 50%, transparent calc(50% + .6px)),
+    linear-gradient(84deg, transparent calc(50% - .6px), rgba(255,255,255,.16) 50%, transparent calc(50% + .6px));
+}
+/* Chandelier — le widget Graphique. Colonnes courtes, hauteurs alternées. */
+.wdg-thumb--plan i[data-sil="chandelier"]::after {
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.30) 0 2px, transparent 2px 7px);
+  top: 44%; bottom: 20%;
+}
+/* Barres — baromètre, saisonnalité, positionnement particuliers. Histogramme dense, ancré en bas. */
+.wdg-thumb--plan i[data-sil="barres"]::after {
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.26) 0 3px, transparent 3px 6px);
+  top: 46%; bottom: 14%;
+}
+/* Lignes — fil de news, journal. La trame d'origine, resserrée : c'est du texte. */
+.wdg-thumb--plan i[data-sil="lignes"]::after {
+  background: repeating-linear-gradient(180deg, rgba(255,255,255,.22) 0 1px, transparent 1px 4px);
+}
+/* Grille — calendrier, radar de biais, taux. Un tableau : lignes ET colonnes. */
+.wdg-thumb--plan i[data-sil="grille"]::after {
+  background:
+    repeating-linear-gradient(180deg, rgba(255,255,255,.20) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.12) 0 1px, transparent 1px 14px);
+}
+/* Anneau — COT. Un cercle évidé, centré. */
+.wdg-thumb--plan i[data-sil="anneau"]::after {
+  left: 50%; right: auto; top: 50%; bottom: auto;
+  width: 42%; aspect-ratio: 1; transform: translate(-50%, -42%);
+  border: 2px solid rgba(255,255,255,.30); border-radius: 50%; background: none;
+}
+/* Jauge — régime de risque. Un demi-arc. */
+.wdg-thumb--plan i[data-sil="jauge"]::after {
+  left: 50%; right: auto; top: 58%; bottom: auto;
+  width: 52%; aspect-ratio: 2 / 1; transform: translate(-50%, -50%);
+  border: 2px solid rgba(255,255,255,.30); border-bottom: 0;
+  border-radius: 999px 999px 0 0; background: none;
+}
+/* Carte — sessions de marché. Des masses irrégulières, comme des continents. */
+.wdg-thumb--plan i[data-sil="carte"]::after {
+  background:
+    radial-gradient(ellipse 22% 30% at 26% 46%, rgba(255,255,255,.26) 0 60%, transparent 62%),
+    radial-gradient(ellipse 16% 24% at 54% 62%, rgba(255,255,255,.20) 0 60%, transparent 62%),
+    radial-gradient(ellipse 20% 26% at 78% 42%, rgba(255,255,255,.24) 0 60%, transparent 62%);
+}
+/* Horloge — un cadran simple. */
+.wdg-thumb--plan i[data-sil="horloge"]::after {
+  left: 50%; right: auto; top: 52%; bottom: auto;
+  width: 34%; aspect-ratio: 1; transform: translate(-50%, -42%);
+  border: 1.5px solid rgba(255,255,255,.32); border-radius: 50%; background: none;
+}
+/* Champs — calculatrice. Deux rangées de saisie. */
+.wdg-thumb--plan i[data-sil="champs"]::after {
+  background: repeating-linear-gradient(180deg, rgba(255,255,255,.20) 0 3px, transparent 3px 9px);
+  left: 16%; right: 16%;
+}
+/* Onglets — le panneau à onglets. Une barre pleine en tête, le corps en dessous. */
+.wdg-thumb--plan i[data-sil="onglets"]::after {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.30) 0 26%, rgba(255,255,255,.10) 26% 52%, transparent 52%) top / 100% 3px no-repeat,
+    repeating-linear-gradient(180deg, rgba(255,255,255,.14) 0 1px, transparent 1px 6px);
+}
