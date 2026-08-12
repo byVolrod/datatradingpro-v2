@@ -660,7 +660,7 @@ function _npCleanCfg(b) {
 const DTP_UPDATES = [
   { id: 'dtpu-20260812-biais-calendrier-seul', ts: Date.UTC(2026, 7, 12, 20, 30), title: 'Radar de Biais : le verdict ne dépend plus que des chiffres publiés', desc: 'Le biais de chaque devise se calculait pour deux tiers sur les colonnes que vous lisez — politique monétaire, inflation, croissance, emploi — et pour un tiers sur des éléments qui ne sont pas des publications économiques : la tendance des prix et le positionnement des maisons de recherche. Un biais pouvait donc bouger sans qu aucun chiffre ne soit sorti. Désormais seules les données du calendrier économique le font évoluer.' },
   { id: 'dtpu-20260812-plus-de-reglages-memo', ts: Date.UTC(2026, 7, 12, 19, 0), title: 'Encore quatre réglages qui vous suivent désormais', desc: 'Le type de rapport dans la bibliothèque Analystes, les filtres banque et type de l onglet Institutions, et la colonne de tri de la Liste FX sont maintenant enregistrés sur votre compte. Vous les retrouvez à la reconnexion, y compris depuis un autre appareil. Les champs de recherche, eux, restent volontairement vierges à chaque ouverture : un filtre texte restauré en silence donnerait une liste presque vide sans qu on comprenne pourquoi.' },
-  { id: 'dtpu-20260812-apercu-silhouettes', ts: Date.UTC(2026, 7, 12, 18, 30), title: 'Mes desks : un aperçu épuré, chaque widget signé de son icône', desc: 'L aperçu de vos dispositions a été repensé : des panneaux sobres comme le vrai desk — bandeau de titre net, liseré de famille — et l icône officielle de chaque widget, celle de la bibliothèque, centrée et discrète. On reconnaît son desk d un coup d oeil, sans surcharge.' },
+  { id: 'dtpu-20260812-apercu-silhouettes', ts: Date.UTC(2026, 7, 12, 18, 30), title: 'Mes desks : une vraie bibliothèque de vos espaces de travail', desc: 'Vos dispositions s affichent comme une bibliothèque : l aperçu du desk remplit la carte en arrière-plan, légèrement adouci, avec le nom au centre, la date de dernière modification en bas à gauche et le nombre de widgets à droite. Chaque widget y est signé de son icône. Au survol, la carte se redresse et l aperçu se précise.' },
   { id: 'dtpu-20260812-widgets-onglets-memo', ts: Date.UTC(2026, 7, 12, 17, 0), title: 'Mon Desk : les réglages des widgets placés dans un panneau à onglets sont enfin retenus', desc: 'Un widget posé dans un panneau à onglets — deux Force des Devises côte à côte, par exemple — oubliait son unité de temps au rechargement. Il lisait bien sa configuration mais ne parvenait jamais à l enregistrer. Vos choix sont désormais sauvegardés sur votre compte et restaurés à la reconnexion, y compris depuis un autre appareil.' },
   { id: 'dtpu-20260812-reglages-etanches', ts: Date.UTC(2026, 7, 12, 15, 30), title: 'Vos réglages restent les vôtres, même sur un ordinateur partagé', desc: 'Sur un poste utilisé par plusieurs personnes, les réglages laissés par la session précédente pouvaient être repris par le compte suivant. Chaque jeu de réglages porte désormais la marque de son propriétaire : il est écarté dès qu un autre compte se connecte, et la déconnexion nettoie ce qui reste. Vos préférences continuent bien sûr de vous suivre d un appareil à l autre.' },
   { id: 'dtpu-20260812-conforme-consensus', ts: Date.UTC(2026, 7, 12, 14, 30), title: 'Calendrier : un chiffre conforme aux attentes se voit enfin', desc: 'Un résultat sorti exactement sur la prévision s affichait en blanc, comme un chiffre qu on ne peut pas juger faute de consensus. Deux situations pourtant très différentes. Le résultat conforme prend désormais la couleur neutre du terminal : vous distinguez d un coup d œil une publication sans surprise d une publication non comparable.' },
@@ -956,6 +956,10 @@ function _wdgClean(body) {
         name: String(l.name || 'Sans nom').replace(/[<>]/g, '').trim().slice(0, 40) || 'Sans nom',
         fav: !!l.fav,
         hidden: !!l.hidden,   // layout MASQUÉ (fermé) : absent de la barre d'onglets, ré-ouvrable au gestionnaire
+        // Date de dernière modification (12/08) : affichée sur la carte d'accueil, comme une
+        // bibliothèque d'espaces de travail. Bornée pour qu'un client ne puisse pas écrire de date
+        // fantaisiste ; absente = carte sans date, jamais d'erreur.
+        maj: (Number.isFinite(+l.maj) && +l.maj > 16e11 && +l.maj < Date.now() + 864e5) ? Math.round(+l.maj) : undefined,
         items,
       };
     });
@@ -12334,7 +12338,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
     _cellsVerdict = _sbConcludeFromCells(macroTable, conclusion, _mgDiffs, monTone);
     if (_cellsVerdict) {
       for (const c of SB_CURRENCIES) if (_cellsVerdict[c]) { conclusion[c] = _cellsVerdict[c]; if (macroTable[c]) macroTable[c].bias = _cellsVerdict[c]; }
-      console.log('[SmartBias] biais dérivé des catégories affichées (cellules 2/3 + piliers 1/3, recentré) : ' + SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' '));
+      console.log('[SmartBias] biais dérivé des SEULES catégories affichées (calendrier économique, recentré sur les 8) : ' + SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' '));
     }
   } catch (e) { console.warn('[SmartBias] conclusion cellules :', e.message); }
   // DOUBLE VÉRIFICATION avant publication : le contrôle CORRIGE désormais au lieu de seulement alerter.

@@ -2534,6 +2534,9 @@
   }
   function save() {                        // débouncé ; le serveur re-sanitise de toute façon
     if (!STATE.loaded) return _readOnlyWarn();     // config de secours : l'écrire écraserait les vrais layouts
+    // Horodatage de la disposition MODIFIÉE — affiché sur sa carte d'accueil. On ne tamponne que
+    // l'active : toucher un widget ne doit pas rajeunir les autres desks.
+    try { var _la = activeLayout(); if (_la) _la.maj = Date.now(); } catch (e) {}
     clearTimeout(STATE.saveT);
     STATE.saveT = setTimeout(_flush, 700);
   }

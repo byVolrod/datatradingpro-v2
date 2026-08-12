@@ -72,6 +72,13 @@
     }, 700);
   }
 
+  // Date courte de dernière modification, façon bibliothèque d'espaces de travail : « 12/08/2026 ».
+  function _dateCourte(ts) {
+    try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(ts)); }
+    catch (e) { return ''; }
+  }
+  var _icoHorloge = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+
   function layoutCards(cfg) {
     var lays = (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).slice(0, 8);
     return lays.map(function (l, i) {
@@ -94,7 +101,10 @@
                 : (mini ? '<span class="home-card-face">' + mini + '</span>' : ''))
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
         + '<span class="home-card-nom">' + esc(l.name || 'Desk') + '</span>'
-        + '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'
+        + '<span class="home-card-pied">'
+        +   (l.maj ? '<span class="home-card-date">' + _icoHorloge + _dateCourte(l.maj) + '</span>' : '')
+        +   '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'
+        + '</span>'
         + '</button>';
     }).join('')
       // TUILE FANTÔME « + Nouveau desk » (10/08, « je trouve pas très beau ») : une carte seule

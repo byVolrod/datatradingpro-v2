@@ -16546,3 +16546,40 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   background: linear-gradient(180deg, var(--head-bg, #101012) 0 18px, var(--bg2, #16171b) 18px 100%);
 }
 .home-card--visu .home-card-face .wdg-thumb--plan i::after { display: none; }
+
+/* ══ CARTES « MES DESKS » — BIBLIOTHÈQUE D'ESPACES DE TRAVAIL (12/08, « met comme ceci ») ═════════
+   L'aperçu remplit la carte et passe DERRIÈRE un léger flou : le plan reste reconnaissable, mais il
+   devient une TEXTURE sur laquelle le nom se pose franchement — c'est ce qui donne le côté premium
+   de la référence, et c'est aussi ce qui pardonne les imperfections d'une miniature à 300 px.
+   Le nom passe au CENTRE, la date de dernière modification en pied à gauche avec une horloge, le
+   nombre de widgets à droite. */
+.home-card--visu .home-card-face .wdg-thumb--plan { filter: blur(1.4px) saturate(1.06); transform: scale(1.04); }
+.home-card--visu:hover .home-card-face .wdg-thumb--plan { filter: blur(.6px) saturate(1.12); }
+/* Voile PLEIN et non plus dégradé du bas : le nom est au centre, il lui faut un fond partout. */
+.home-card--visu::after {
+  background: linear-gradient(0deg, rgba(5,5,6,.86) 0%, rgba(5,5,6,.52) 42%, rgba(5,5,6,.44) 100%);
+}
+.home-card--visu .home-card-nom {
+  position: absolute; left: 12px; right: 12px; top: 50%; bottom: auto;
+  transform: translateY(-50%); text-align: center;
+  font-size: 17px; font-weight: 700; letter-spacing: -.01em;
+  text-shadow: 0 2px 14px rgba(0,0,0,.9);
+}
+.home-card--visu .home-card-pied {
+  position: absolute; left: 11px; right: 11px; bottom: 9px; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.home-card--visu .home-card-date {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums;
+}
+.home-card--visu .home-card-date svg { opacity: .8; }
+.home-card--visu .home-card-meta { position: static; font-size: 11px; color: var(--text4); }
+/* Perspective : les cartes NON survolées s'inclinent très légèrement, celle qu'on vise se redresse
+   et passe au premier plan. Le geste de la référence, en beaucoup plus sobre. */
+.home-zone-body--cards .home-cards { perspective: 1200px; }
+.home-card--visu { transition: transform .28s var(--ease, ease), border-color .15s, box-shadow .28s; }
+.home-card--visu:hover { transform: perspective(1200px) translateY(-3px) scale(1.015); z-index: 3; box-shadow: 0 18px 44px -18px rgba(0,0,0,.9); }
+@media (prefers-reduced-motion: reduce) {
+  .home-card--visu, .home-card--visu:hover { transform: none; transition: none; }
+}
