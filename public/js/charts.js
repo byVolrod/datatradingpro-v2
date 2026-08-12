@@ -1061,20 +1061,28 @@ function buildStrengthChart(containerId, data, opts = {}) {
     var exts = infos.map(function (i) { return i.ext; }).sort(function (a, b) { return a - b; });
     var med = exts[Math.floor(exts.length / 2)];
     if (!(med > 0)) return null;
-    // Seuil à 2,2× la médiane : une devise deux fois plus mobile que la normale reste dans le cadre
-    // (c'est un marché, pas une anomalie) ; au-delà, elle écrase tout le monde et on la laisse sortir.
-    var SEUIL = med * 2.2;
+    /* SEUIL RELEVÉ À 3× (12/08, 2e signalement user « je ne vois pas bien la courbe JPY »).
+       Mesuré sur la semaine réelle en production : médiane des amplitudes 0,4 ; le JPY à 0,9
+       franchissait le seuil de 2,2× (= 0,88) **de deux centièmes**. Une devise 2,2 fois plus mobile
+       que la médiane n'est pas une anomalie sur le change — c'est une semaine de yen ordinaire. On
+       la faisait sortir du cadre, donc illisible, pour un resserrement de 36 % : l'échange n'en vaut
+       pas la peine. À 3×, plus personne ne s'échappe sur cette semaine, et la compression reste
+       disponible pour le cas qu'elle vise vraiment — une devise qui décroche franchement. */
+    var SEUIL = med * 3;
     var dedans = infos.filter(function (i) { return i.ext <= SEUIL; });
     if (dedans.length === infos.length) return null;                  // personne ne s'échappe → on ne touche à rien
     if (dedans.length < Math.ceil(infos.length * 0.6)) return null;    // trop de fuyardes → l'idée ne tient plus
     var lo = 0, hi = 0;
     dedans.forEach(function (i) { if (i.lo < lo) lo = i.lo; if (i.hi > hi) hi = i.hi; });
     if (!(hi - lo > 0)) return null;
-    // Le gain doit valoir le dérangement : si le cadre ne se resserre pas d'au moins 35 %, on laisse
-    // l'axe tranquille plutôt que de faire sortir une courbe pour rien.
+    // Le gain doit valoir le dérangement. Seuil porté de 35 % à 45 % de resserrement exigé (12/08) :
+    // la semaine du signalement, le cadre se resserrait de 36 % — juste assez pour déclencher, pas
+    // assez pour justifier qu'une devise devienne illisible. Rendre une courbe inutilisable est un
+    // coût CERTAIN ; gagner un tiers de hauteur d'axe est un confort. On ne paie plus ce prix-là
+    // pour si peu.
     var loT = 0, hiT = 0;
     infos.forEach(function (i) { if (i.lo < loT) loT = i.lo; if (i.hi > hiT) hiT = i.hi; });
-    if ((hi - lo) > (hiT - loT) * 0.65) return null;
+    if ((hi - lo) > (hiT - loT) * 0.55) return null;
     // Les dernières valeurs de TOUTES les devises visibles restent dans le cadre — fuyardes comprises
     // (correctif 11/08, constat user : AUD/CHF/JPY coupées en bas du cadre, illisibles). La garantie
     // documentée plus haut (« les DERNIÈRES valeurs sont TOUJOURS visibles, quoi qu'il arrive ») ne
