@@ -16651,3 +16651,48 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   .home-zone--desks .home-card--visu + .home-card--visu { margin-left: 0; margin-top: 10px; }
   .home-card--visu:not(:first-child), .home-card--visu:not(:first-child):hover { transform: none; opacity: 1; }
 }
+
+/* ══ « MON DESK » — 4e PASSE DE FIDÉLITÉ (12/08, « le résultat n'est pas suffisamment fidèle ») ═══
+   Trois écarts mesurés contre la référence, trois corrections :
+   1. CENTRAGE — la zone était une COLONNE de la grille d'accueil (--c:5) : les cartes se centraient
+      dans une demi-page et paraissaient « décalées à gauche ». La bibliothèque devient une BANDE
+      PLEINE LARGEUR, comme la référence, et le groupe de cartes se centre dans la page entière.
+   2. FLOU — 1,4 px était timide. La référence floute FORT (~5 px) des captures colorées. Nos plans
+      étant schématiques, les panneaux reprennent une teinte de leur famille : sous un vrai flou et
+      un voile sombre, ils se lisent comme la capture floutée d'un desk vivant. Les libellés et
+      icônes, illisibles sous 5 px de flou et absents de la référence, sont retirés de CE contexte.
+   3. RESPONSIVE à trois paliers : ≥900 chevauchement+inclinaison · 641-899 deux cartes côte à côte
+      sans chevauchement · ≤640 une carte par ligne, en-tête sur deux rangées. */
+.home-zone--desks { grid-column: 1 / -1; }
+.home-zone--desks .home-zone-body--cards { min-height: 252px; align-items: center; }
+.home-zone--desks .home-zone-body--cards .home-cards { width: 100%; justify-content: center; align-items: center; }
+/* Le vrai traitement de la référence : FLOU FORT + voile sombre, l'aperçu reste devinable. */
+.home-card--visu .home-card-face .wdg-thumb--plan { filter: blur(5px) saturate(1.25); transform: scale(1.08); }
+.home-card--visu:hover .home-card-face .wdg-thumb--plan { filter: blur(3px) saturate(1.3); }
+.home-zone--desks .home-card--visu::after {
+  background: linear-gradient(0deg, rgba(5,5,6,.94) 0%, rgba(5,5,6,.62) 32%, rgba(5,5,6,.52) 100%);
+}
+/* Panneaux teintés de leur famille — la matière colorée que le flou transforme en aperçu vivant. */
+.home-card--visu .home-card-face .wdg-thumb--plan i {
+  background: var(--tc, #e3b23a);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--tc, #e3b23a) 62%, #101012) 0 18px,
+    color-mix(in srgb, var(--tc, #e3b23a) 30%, #131417) 18px 100%);
+}
+.home-card--visu .home-card-face .wdg-thumb--plan i > b,
+.home-card--visu .home-card-face .wdg-thumb--plan .wdg-plan-ico { display: none; }
+/* Palier tablette : deux cartes côte à côte, sans chevauchement ni inclinaison. */
+@media (max-width: 899px) {
+  .home-zone--desks .home-card--visu + .home-card--visu { margin-left: 12px; }
+  .home-card--visu:not(:first-child), .home-card--visu:not(:first-child):hover { transform: none; opacity: 1; }
+}
+/* Palier mobile : une carte par ligne (jamais des cartes réduites à l'illisible), en-tête qui
+   passe à la ligne — chips sur la 2e rangée, compteur à droite de la 1re. */
+@media (max-width: 640px) {
+  .home-zone--desks .home-card--visu + .home-card--visu { margin-left: 0; margin-top: 12px; }
+  .home-zone--desks .home-panel-head { flex-wrap: wrap; row-gap: 6px; }
+  .home-zone--desks .home-panel-head .home-panel-fill { display: none; }
+  .home-zone--desks .home-desks-count { margin-left: auto; }
+  .home-desks-tri { order: 5; margin-left: 0; }
+  .home-zone--desks .home-panel-head .home-desks-new { order: 6; }
+}
