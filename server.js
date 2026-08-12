@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260812-tf-force-memo', ts: Date.UTC(2026, 7, 12, 20, 0), title: 'Force des Devises : votre unité de temps reste celle que vous avez choisie', desc: 'Les périodes des deux panneaux Force des Devises repassaient sur les valeurs par défaut après une déconnexion. Elles sont désormais enregistrées par le même mécanisme que vos autres réglages, celui qui suit déjà votre compte d un appareil à l autre. Vous choisissez TD en haut et TW en bas, vous revenez : c est encore là.' },
   { id: 'dtpu-20260812-apercu-desk-look', ts: Date.UTC(2026, 7, 12, 18, 0), title: 'Mes desks : l aperçu occupe toute la carte, aux couleurs du terminal', desc: 'La vignette qui montre la forme de votre desk remplit désormais la carte entière au lieu de tenir dans un coin, et elle a pris les vraies couleurs du terminal : panneaux gris ardoise, barre de titre plus foncée, bordure fine — au lieu des blocs verts et bleus qui n existent nulle part dans le desk. Un fin liseré rappelle la famille de chaque widget.' },
   { id: 'dtpu-20260812-nzd-inflation', ts: Date.UTC(2026, 7, 12, 16, 0), title: 'Radar de Biais : le niveau d inflation du dollar néo-zélandais enfin affiché', desc: 'La colonne Inflation du NZD restait vide, faute de recevoir la seule publication comparable à la cible de sa banque centrale — la Nouvelle-Zélande ne publie son indice des prix qu une fois par trimestre. C est corrigé : le NZD affiche désormais son niveau comme les sept autres devises.' },
   { id: 'dtpu-20260812-apercu-desks', ts: Date.UTC(2026, 7, 12, 16, 30), title: 'Mes desks : l aperçu des dispositions fiabilisé sur mobile', desc: 'Sur certains téléphones, la vignette qui montre la forme de votre desk pouvait ne pas s afficher et laisser une carte vide. Sa hauteur et ses couleurs ne dépendent plus de fonctions CSS récentes que les navigateurs mobiles anciens ignorent.' },
@@ -1897,6 +1898,11 @@ app.post('/api/strength-tf', async (req, res) => {
    courtes, et le discriminant `src` — leçon du bug du 10/08 : sans lui, le client prend les défauts
    du serveur pour un choix stocké et écrase son propre cache local. */
 const _UIPREF_KEYS = new Set([
+  // Périodes des DEUX panneaux Force des Devises de l'onglet FORCE. Elles avaient leur propre
+  // endpoint (/api/strength-tf) ; il reste écrit pour compatibilité, mais la LECTURE passe désormais
+  // par ici — mesuré sur les comptes réels le 12/08 : `uipref` s'écrivait correctement alors que
+  // `stftf` restait figé sur les défauts. Un seul magasin qui marche vaut mieux que deux dont un rate.
+  'stfl', 'stfr',
   'symstf',       // vue symbole : période du graphe Force des Devises
   'cottype',      // desk COT : type de positionnement affiché
   'dmxtf',        // desk DMX : unité de temps

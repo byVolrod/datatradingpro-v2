@@ -686,7 +686,19 @@ let _stfSale = false;                     // vrai tant que le compte n a pas con
   window.addEventListener('pagehide', renvoi);
   document.addEventListener('visibilitychange', function () { if (document.hidden) renvoi(); });
 })();
+/* SOURCE DE VÉRITÉ = LE MAGASIN GÉNÉRIQUE (bascule 12/08, après mesure sur les comptes réels).
+   Constat en production : `uipref:<user>` contenait bien les réglages écrits par DTPPref, pendant que
+   `stftf:<user>` restait figé sur les défauts — sur le MÊME compte, au même moment. Le mécanisme
+   dédié à la période Force n'écrivait donc pas, là où le magasin générique écrivait. Plutôt que de
+   continuer à chercher pourquoi une deuxième plomberie fuit, on lit la période dans celle qui tient.
+   L'ancien endpoint reste écrit (compatibilité, et rien à perdre) mais il n'a plus le dernier mot. */
 function _stfLocal() {
+  try {
+    if (window.DTPPref) {
+      const L = DTPPref.get('stfl', ''), R = DTPPref.get('stfr', '');
+      if (STF_ORDER.includes(L) && STF_ORDER.includes(R)) return { L, R };
+    }
+  } catch (e) {}
   try { const j = JSON.parse(localStorage.getItem('dtp_stf_tf') || 'null');
         if (j && STF_ORDER.includes(j.L) && STF_ORDER.includes(j.R)) return j; } catch (e) {}
   return null;
@@ -701,6 +713,10 @@ function _stfSet(side, per) {
   _stfClicAt = Date.now();
   _stfSale = true;                        // en attente de confirmation du compte
   try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
+  // ÉCRITURE PRINCIPALE : le magasin générique, celui qui écrit réellement sur les comptes (vérifié
+  // en production). Il porte ses propres garde-fous — keepalive, rejeu au départ de page, arbitrage
+  // du dernier clic — et c'est lui que _stfLocal() relit en priorité.
+  try { if (window.DTPPref) { DTPPref.set('stfl', _stfPref.L); DTPPref.set('stfr', _stfPref.R); } } catch (e) {}
   // Écriture serveur au fil de l'eau : un clic = un enregistrement, pas de bouton à penser.
   try {
     // ⚠️ keepalive : SANS lui, la requête est ANNULÉE si la page part avant qu'elle n'aboutisse —
@@ -753,6 +769,17 @@ async function _stfCharger() {
         } catch (e) {}
         return _stfPref;
       }
+      // ⚠️ Le magasin générique PRIME sur l'ancien endpoint. Sans ce garde, la réponse de
+      // /api/strength-tf — restée bloquée sur les défauts pour les comptes où son écriture ratait —
+      // viendrait écraser le choix que DTPPref a, lui, correctement enregistré.
+      const _dp = (function () {
+        try {
+          if (!window.DTPPref) return null;
+          const L = DTPPref.get('stfl', ''), R = DTPPref.get('stfr', '');
+          return (STF_ORDER.includes(L) && STF_ORDER.includes(R)) ? { L, R } : null;
+        } catch (e) { return null; }
+      })();
+      if (_dp) { _stfPref = _dp; return _stfPref; }
       if (r && r.src === 'kv' && STF_ORDER.includes(r.L) && STF_ORDER.includes(r.R)) {
         _stfPref = { L: r.L, R: r.R };
         try { localStorage.setItem('dtp_stf_tf', JSON.stringify(_stfPref)); } catch (e) {}
