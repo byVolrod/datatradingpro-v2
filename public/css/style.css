@@ -16663,8 +16663,12 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
       icônes, illisibles sous 5 px de flou et absents de la référence, sont retirés de CE contexte.
    3. RESPONSIVE à trois paliers : ≥900 chevauchement+inclinaison · 641-899 deux cartes côte à côte
       sans chevauchement · ≤640 une carte par ligne, en-tête sur deux rangées. */
-.home-zone--desks { grid-column: 1 / -1; }
-.home-zone--desks .home-zone-body--cards { min-height: 252px; align-items: center; }
+/* (Pleine largeur RETIRÉE le 12/08 soir — malentendu : la demande de centrage portait sur les
+   cartes À L'INTÉRIEUR du bloc, pas sur le bloc lui-même. Il reprend sa colonne de grille.) */
+/* Centrage DANS le bloc : le corps est un flex dont .home-cards héritait d'une largeur au
+   contenu (flex-basis auto) et se calait à GAUCHE — c'était ça, le « décalé ». Le corps centre
+   désormais, et .home-cards garde width:100% + justify-content:center pour ses cartes. */
+.home-zone--desks .home-zone-body--cards { min-height: 232px; align-items: center; justify-content: center; }
 .home-zone--desks .home-zone-body--cards .home-cards { width: 100%; justify-content: center; align-items: center; }
 /* Le vrai traitement de la référence : FLOU FORT + voile sombre, l'aperçu reste devinable. */
 .home-card--visu .home-card-face .wdg-thumb--plan { filter: blur(5px) saturate(1.25); transform: scale(1.08); }
@@ -16676,8 +16680,8 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .home-card--visu .home-card-face .wdg-thumb--plan i {
   background: var(--tc, #e3b23a);
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--tc, #e3b23a) 62%, #101012) 0 18px,
-    color-mix(in srgb, var(--tc, #e3b23a) 30%, #131417) 18px 100%);
+    color-mix(in srgb, var(--tc, #e3b23a) 34%, #101012) 0 18px,
+    color-mix(in srgb, var(--tc, #e3b23a) 12%, #121317) 18px 100%);
 }
 .home-card--visu .home-card-face .wdg-thumb--plan i > b,
 .home-card--visu .home-card-face .wdg-thumb--plan .wdg-plan-ico { display: none; }
@@ -16695,4 +16699,22 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   .home-zone--desks .home-desks-count { margin-left: auto; }
   .home-desks-tri { order: 5; margin-left: 0; }
   .home-zone--desks .home-panel-head .home-desks-new { order: 6; }
+}
+
+/* ══ MATIÈRE « CAPTURE DE DESK » (12/08 soir, « pour que ça ressemble au Default et workspace ») ══
+   La référence montre des captures de desks VIVANTS : fond sombre traversé de courbes de graphes
+   multicolores. Nos plans étant schématiques, chaque panneau reçoit — sous le flou de 5 px — des
+   TRAITS DE COURBES fins aux couleurs de graphes du desk (vert/rouge/bleu/or) et une trame de
+   lignes de données. Flouté, l'ensemble se lit exactement comme les vignettes de la référence.
+   Ce dessin n'existe QUE dans les cartes de l'accueil ; le gestionnaire garde ses plans nets. */
+.home-card--visu .home-card-face .wdg-thumb--plan i::after {
+  content: ''; display: block; position: absolute; left: 3%; right: 3%; top: 22px; bottom: 6%;
+  border-radius: 0; opacity: 1; pointer-events: none;
+  background:
+    linear-gradient(96deg, transparent 29%, rgba(34, 197, 94, .5) 30%, transparent 31.2%),
+    linear-gradient(84deg, transparent 41%, rgba(255, 61, 0, .42) 42%, transparent 43.2%),
+    linear-gradient(92deg, transparent 54%, rgba(74, 158, 218, .5) 55%, transparent 56.2%),
+    linear-gradient(99deg, transparent 67%, rgba(227, 178, 58, .45) 68%, transparent 69.2%),
+    linear-gradient(88deg, transparent 78%, rgba(139, 122, 216, .38) 79%, transparent 80.2%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 6px);
 }
