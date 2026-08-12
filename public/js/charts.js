@@ -593,11 +593,37 @@ const DTPPref = (function () {
   var sale = {};             // clés écrites mais pas encore confirmées par le compte
   var clicAt = 0;            // dernier choix HUMAIN — arbitre la course avec la réponse serveur
   var enVol = null, chargeA = 0, pret = false;
+  /* ── TAMPON DE PROPRIÉTAIRE (12/08) : LES RÉGLAGES D'UN COMPTE NE DOIVENT JAMAIS ATTEINDRE UN AUTRE.
+     Défaut trouvé par l'audit et vérifié dans le code : la clé `dtp_uiprefs` est GLOBALE au
+     navigateur, et la branche de réparation de `charger()` pousse le cache local vers le compte
+     quand celui-ci ne connaît encore aucun réglage. Sur un poste partagé — démo, formation,
+     ordinateur familial — le compte A configurait son desk, B se connectait, et les réglages de A
+     étaient ÉCRITS sur le compte de B. Pas un artefact d'affichage : une écriture serveur, qui
+     suivait ensuite B sur son propre téléphone.
+     ⚠️ On n'indexe PAS la clé par identifiant : `get()` est appelé de façon SYNCHRONE au premier
+     rendu, alors que /api/auth/me est encore en vol — la clé serait coupée en deux et on perdrait la
+     peinture instantanée, seule raison d'être de ce cache. On estampille donc le CONTENU, et
+     `owner()` tranche dès que l'identité est connue. */
+  var _uid = '';
   function local() {
-    try { var j = JSON.parse(localStorage.getItem(LS) || 'null'); return (j && typeof j === 'object') ? j : {}; }
-    catch (e) { return {}; }
+    try {
+      var j = JSON.parse(localStorage.getItem(LS) || 'null');
+      if (!j || typeof j !== 'object') return {};
+      var o = {}; for (var k in j) if (k !== '_u') o[k] = j[k];
+      return o;
+    } catch (e) { return {}; }
   }
-  function ecrisLocal() { try { localStorage.setItem(LS, JSON.stringify(cache)); } catch (e) {} }
+  function tamponLocal() {                       // propriétaire inscrit dans le cache, '' si inconnu
+    try { var j = JSON.parse(localStorage.getItem(LS) || 'null'); return (j && typeof j === 'object' && j._u) ? String(j._u) : ''; }
+    catch (e) { return ''; }
+  }
+  function ecrisLocal() {
+    try {
+      var o = {}; for (var k in cache) o[k] = cache[k];
+      if (_uid) o._u = _uid;                     // on n'estampille que si l'identité est connue
+      localStorage.setItem(LS, JSON.stringify(o));
+    } catch (e) {}
+  }
   function pousse(obj) {
     try {
       fetch('/api/ui-prefs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -616,6 +642,23 @@ const DTPPref = (function () {
     document.addEventListener('visibilitychange', function () { if (document.hidden) renvoi(); });
   })();
   return {
+    /* Déclare le compte connecté, dès que /api/auth/me a répondu. Si le cache local porte le tampon
+       d'un AUTRE compte, il est jeté sur-le-champ — c'est ce qui referme la fuite, y compris quand
+       l'utilisateur précédent n'a jamais cliqué sur « Déconnexion » (session expirée, onglet fermé).
+       Un cache SANS tampon est de provenance inconnue : on le garde pour l'affichage mais on ne le
+       poussera jamais vers un compte (cf. `charger`). */
+    owner: function (id) {
+      var v = String(id || ''); if (!v) return;
+      var t = tamponLocal();
+      if (t && t !== v) {
+        try { localStorage.removeItem(LS); } catch (e) {}
+        // Le cache des périodes Force n'est pas estampillé : il suivrait sinon le compte précédent.
+        try { localStorage.removeItem('dtp_stf_tf'); } catch (e) {}
+        cache = {}; sale = {}; pret = false; enVol = null;
+      }
+      _uid = v;
+      if (cache) ecrisLocal();                   // (re)pose le tampon sur le cache conservé
+    },
     // Valeur connue TOUT DE SUITE (cache local), sans attendre le compte : les vues se dessinent
     // au bon réglage dès la première frame, comme le fait déjà la barre de périodes Force.
     get: function (k, def) {
@@ -648,9 +691,16 @@ const DTPPref = (function () {
             Object.keys(r.prefs).forEach(function (k) { if (!(frais && sale[k])) cache[k] = r.prefs[k]; });
             ecrisLocal();
           } else if (r && r.src === 'defaut') {
-            // Le compte ne sait rien mais le navigateur se souvient : on répare le compte.
+            // Le compte ne sait rien mais le navigateur se souvient : on répare le compte — MAIS
+            // SEULEMENT si le cache local porte le tampon de CE compte. Sans cette garde, c'était le
+            // chemin exact de la fuite : le compte neuf de B héritait, par écriture serveur, des
+            // réglages laissés par A sur le même navigateur. Un cache sans tampon (antérieur au
+            // correctif, ou d'origine inconnue) ne remonte JAMAIS : un compte neuf part sur ses
+            // défauts, ce qui est le comportement correct — et il se re-remplira au premier clic.
             var loc = local();
-            if (Object.keys(loc).length) { Object.keys(loc).forEach(function (k) { sale[k] = 1; }); pousse(loc); }
+            if (_uid && tamponLocal() === _uid && Object.keys(loc).length) {
+              Object.keys(loc).forEach(function (k) { sale[k] = 1; }); pousse(loc);
+            }
           }
           pret = true;
           return cache || {};

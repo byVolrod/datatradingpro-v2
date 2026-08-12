@@ -83,9 +83,15 @@
       // On note l'échec ; un rattrapage plus bas reconstruit les cartes dès que l'outil est là.
       var mini = '';
       try { mini = (window.DTPWidgets && DTPWidgets.thumb) ? DTPWidgets.thumb(l.items, { labels: true }) : ''; } catch (e) {}
+      // TROIS ÉTATS, PAS DEUX (12/08) : une disposition SANS widget rend une enveloppe NON VIDE mais
+      // sans un seul bloc. `if (!mini)` la prenait donc pour une réussite : le rattrapage n'était
+      // jamais armé et la carte restait un rectangle noir, définitivement. Or ce n'est pas un échec —
+      // réessayer n'y changerait rien : c'est un desk vide, et il faut le DIRE.
+      var vide = !!mini && mini.indexOf('<i ') === -1;
       if (!mini) _miniManquante = true;
       return '<button class="home-card home-card--visu" style="--i:' + i + '" onclick="DTPHome.openDesk(\'' + esc(l.id) + '\')">'
-        + (mini ? '<span class="home-card-face">' + mini + '</span>' : '')
+        + (vide ? '<span class="home-card-face"><span class="home-card-vide">Desk vide</span></span>'
+                : (mini ? '<span class="home-card-face">' + mini + '</span>' : ''))
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
         + '<span class="home-card-nom">' + esc(l.name || 'Desk') + '</span>'
         + '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'

@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260812bbg643" />
+  <link rel="stylesheet" href="/css/style.css?v=20260812bbg644" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260812bbg643"></script>
+  <script defer src="/js/noinspect.js?v=20260812bbg644"></script>
 </head>
 <body>
 
@@ -908,16 +908,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260812bbg643"></script>
-<script defer src="/js/app.js?v=20260812bbg643"></script>
-<script defer src="/js/charts.js?v=20260812bbg643"></script>
-<script defer src="/js/sessionmap.js?v=20260812bbg643"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260812bbg644"></script>
+<script defer src="/js/app.js?v=20260812bbg644"></script>
+<script defer src="/js/charts.js?v=20260812bbg644"></script>
+<script defer src="/js/sessionmap.js?v=20260812bbg644"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260812bbg643"></script>
-<script defer src="/js/home.js?v=20260812bbg643"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260812bbg643"></script>
-<script defer src="/js/i18n.js?v=20260812bbg643"></script>
+<script defer src="/js/widgets.js?v=20260812bbg644"></script>
+<script defer src="/js/home.js?v=20260812bbg644"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260812bbg644"></script>
+<script defer src="/js/i18n.js?v=20260812bbg644"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1274,6 +1274,10 @@
     if (!d.loggedIn) { window.location.href = '/login'; return; }
     _pdUser = d.user;
     window._pdUser = d.user;   // exposé globalement pour app.js (badge chat support, etc.)
+    // ÉTANCHÉITÉ DES RÉGLAGES (12/08) : on déclare le compte au magasin de préférences dès que son
+    // identité est connue. S'il trouve dans le navigateur le cache d'un AUTRE compte, il le jette
+    // ici — avant que quoi que ce soit ne soit lu ou repoussé vers le serveur.
+    try { if (window.DTPPref && d.user && d.user.id) DTPPref.owner(String(d.user.id)); } catch (e) {}
     // Onglets SEMAINE À VENIR & TAUX : PUBLICS → visibles par tous les utilisateurs connectés.
     // (Plus aucun gating staff ; seul _pdIsAdmin sert encore, pour Journal/Calculatrice.)
     try {
@@ -1543,6 +1547,13 @@
     // login.html interroge /api/auth/me à l'arrivée. Naviguer avant que la session soit tuée
     // renverrait au desk quelqu'un qui veut justement en sortir.
     await fetch('/api/auth/logout', { method: 'POST' });
+    // Purge CIBLÉE des caches à portée de compte (liste explicite, jamais une expression : une
+    // regex large emporterait dtp_remember, dtp_lang, dtp_theme et dtp_zoom, qui sont des réglages
+    // d'APPAREIL et non de compte). Ceinture seulement : la vraie garde est le tampon de
+    // propriétaire, car cette fonction ne s'exécute pas si la session expire ou si l'onglet est
+    // simplement fermé.
+    ['dtp_uiprefs','dtp_stf_tf','dtp_active_view','dtp_active_rtab','dtp_nav_order','dtp_sym_recent','dtp_read_ids','br_read','pt_enabled','dtp_news_essential']
+      .forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
     // `replace` et non `href` : sinon le desk reste dans l'historique DERRIÈRE la page de connexion,
     // et un retour arrière ré-affiche un desk authentifié périmé jusqu'à ce que le battement le
     // rattrape. C'est le défaut miroir de celui corrigé à la connexion.

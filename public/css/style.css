@@ -7453,11 +7453,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cv-actual   { font-weight: var(--fw-bold); color: var(--st-flat); }   /* pas de prévision → blanc, on ne juge pas */
 .cv-pos      { color: var(--st-pos) !important; }            /* Deviation > forecast : vert fluo */
 .cv-neg      { color: var(--st-neg) !important; }            /* Deviation < forecast : rouge écarlate */
-/* CONFORME AU CONSENSUS (12/08) : le chiffre est tombé PILE sur la prévision. C'est un résultat à
-   part entière — le marché n'a pas été surpris — et il ne doit plus se confondre avec un chiffre
-   qu'on ne peut pas juger faute de prévision (celui-là reste blanc). Jaune-orangé NEUTRE de la
-   charte, le même que les badges NEUTRE du desk. */
-.cv-neu      { color: #ffb300 !important; }
+/* CONFORME AU CONSENSUS : le chiffre est tombé PILE sur la prévision. TROIS COULEURS ET PAS UNE DE
+   PLUS (arbitrage user 12/08 : « blanc = neutre, vert positif, rouge négatif, juste ces 3 ») —
+   l'ambre essayé un moment ajoutait un quatrième signal à lire dans une colonne qui doit se
+   parcourir d'un coup d'œil. Le neutre reste donc blanc, comme l'absence de référence.
+   La classe est conservée : elle distingue les deux cas dans le DOM (« sorti au consensus » vs
+   « pas de prévision »), ce qui reste utile aux composants qui voudraient les traiter à part. */
+.cv-neu      { color: var(--st-flat) !important; }
 /* Éclair « sous l'estimation basse (LOW) » : à GAUCHE du réel, hérite de la COULEUR DU RÉSULTAT
    (vert/rouge/blanc du span parent via currentColor) + halo assorti très léger (demande user) */
 .cv-bolt     { display: inline-block; margin-right: 4px; vertical-align: -2px; filter: drop-shadow(0 0 2px currentColor); }
@@ -13484,6 +13486,14 @@ html[data-theme="light"] .wdg-settings .wdg-set-chip.on { color: var(--orange-di
    On rejoue cette hiérarchie — le fond de l'aperçu prend le rôle de la PAGE, les blocs celui des
    PANNEAUX. C'est ce contraste-là qui fait lire un plan de desk plutôt qu'un aplat. */
 .home-card--visu .home-card-face { position: absolute; inset: 0; display: block; background: #0a0a0c; }
+/* Disposition SANS widget : on le dit, au lieu de laisser un rectangle noir qu'on prend pour un
+   bug. Même grammaire que la tuile « + Nouveau desk » — cadre pointillé or, texte discret. */
+.home-card--visu .home-card-vide {
+  position: absolute; inset: 10px; display: flex; align-items: center; justify-content: center;
+  border: 1px dashed rgba(227, 178, 58, .35); border-radius: 5px;
+  color: var(--text4); font-family: var(--tight, "Inter Tight", sans-serif);
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+}
 .home-card--visu .home-card-face .wdg-thumb { width: 100%; border: 0; border-radius: 0; background: transparent; }
 .home-card--visu .home-card-face .wdg-thumb--plan {
   width: 100%; height: 100%; min-height: 0; aspect-ratio: auto;
