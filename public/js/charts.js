@@ -1617,8 +1617,18 @@ async function buildStrengthCharts() {
       <div class="strength-main-chart" id="chart-strength-${side}"></div>
     </div>`;
 
-  // Rendu immédiat avec ce qu'on sait déjà (cache local), puis correction si le compte dit autre chose.
-  const _pref0 = _stfLocal() || STF_DEF;
+  /* ⚠️ ORDRE D'INITIALISATION — LE COMPTE D'ABORD (correctif 12/08, bug user « je mets TD en haut et
+     TW en bas, je me déconnecte/reconnecte, tout revient à TD »).
+     Vérifié de bout en bout en production : après déco/reco, /api/strength-tf renvoie bien le choix
+     stocké. Le serveur est donc hors de cause — c'est l'amorçage client qui perdait la valeur.
+     Le défaut : on peignait les panneaux depuis le CACHE LOCAL, puis on « corrigeait » après coup si
+     le compte disait autre chose. Ça fait dépendre l'affichage d'un cache par navigateur, avec une
+     correction qui ne s'applique QUE si elle diffère de la période déjà chargée — assez de conditions
+     pour qu'une seule d'entre elles rate et fige les deux panneaux sur le défaut.
+     Désormais : si le compte a déjà répondu une fois dans la vie de la page (`_stfPref`), c'est LUI
+     qui peint, immédiatement et sans correction ultérieure. Sinon on peint depuis le cache local (pas
+     d'attente perceptible) et la réponse du compte recale les panneaux — chemin inchangé. */
+  const _pref0 = _stfPref || _stfLocal() || STF_DEF;
   wrap.innerHTML = paneHtml('L', _pref0.L) + paneHtml('R', _pref0.R);
 
   // Contrôleur d'un panneau (chargement + rendu + auto-refresh indépendants)
@@ -3117,6 +3127,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Réglages du COMPTE : on les demande dès le départ. Les vues se dessinent d'abord avec le cache
   // local (aucune attente perceptible), puis se recalent si le compte dit autre chose.
   try { DTPPref.charger(); } catch (e) {}
+  // Idem pour les périodes du Force des Devises, et pour la MÊME raison : en la demandant au
+  // chargement de la page — et non à l'ouverture de l'onglet FORCE —, `_stfPref` est déjà renseignée
+  // quand l'onglet s'ouvre. Les panneaux naissent alors DIRECTEMENT sur le choix du compte, au lieu
+  // de naître sur le cache du navigateur puis d'être corrigés. C'est ce décalage qui faisait
+  // « oublier » TD/TW à la reconnexion, en particulier sur un appareil au cache vide.
+  try { _stfCharger(); } catch (e) {}
 
   // Tab switching
   document.getElementById('right-panel-tabs')?.addEventListener('click', e => {

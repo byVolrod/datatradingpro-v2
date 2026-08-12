@@ -12180,8 +12180,22 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
    tout en bas »). Ratio figé ~2,15:1 : sur le desk, les rangées s'étirent pour remplir l'écran, donc
    TOUTES les dispositions ont le même cadre — la vignette aussi. L'enveloppe interne est nécessaire :
    un enfant absolu se place par rapport à la boîte de padding, le padding du cadre serait ignoré. */
-.wdg-thumb--plan { display: block; position: relative; aspect-ratio: 2.15 / 1; padding: 0; }
-.wdg-tpl-card .wdg-thumb--plan { height: 76px; aspect-ratio: auto; }   /* la carte modèle fige déjà sa hauteur */
+/* HAUTEUR DE L'APERÇU — boîte de ratio, PAS `aspect-ratio` seul (correctif 12/08, bug user « on ne
+   voit pas bien l'aperçu, c'est sur mobile »). Le plan est un conteneur VIDE : tous ses blocs sont en
+   position absolue, donc sa hauteur ne vient QUE de la propriété de ratio. Si `aspect-ratio` n'est
+   pas honoré — vieux WebKit mobile, ou l'un des cas connus où il se résout à 0 dans le contenu
+   anonyme d'un <button> — la boîte tombe à 0 et la carte devient un rectangle noir, ce que montrait
+   la capture. Le `padding-top` en pourcentage, lui, marche partout depuis toujours et se calcule sur
+   la LARGEUR du parent : la hauteur est garantie même quand `aspect-ratio` est ignoré.
+   `min-height` en plus : dernier filet, l'aperçu ne peut jamais devenir invisible. */
+.wdg-thumb--plan { display: block; position: relative; padding: 0; min-height: 74px; }
+.wdg-thumb--plan::before { content: ''; display: block; padding-top: 46.5%; }   /* 1 / 2.15 */
+@supports (aspect-ratio: 1) {
+  .wdg-thumb--plan { aspect-ratio: 2.15 / 1; }
+  .wdg-thumb--plan::before { display: none; }
+}
+.wdg-tpl-card .wdg-thumb--plan { height: 76px; aspect-ratio: auto; min-height: 0; }   /* la carte modèle fige déjà sa hauteur */
+.wdg-tpl-card .wdg-thumb--plan::before { display: none; }
 .wdg-plan-in { position: absolute; inset: 3px; display: block; }
 .wdg-thumb--lbl .wdg-plan-in { inset: 4px; }
 .wdg-thumb--plan i {
@@ -12385,7 +12399,12 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   /* (3) gestionnaire de layouts : lignes + vignettes + modèles resserrés */
   .wdg-mgr-list { padding: 10px 11px; gap: 5px; }
   .wdg-mgr-row { padding: 5px 7px; gap: 6px; }
-  .wdg-thumb { width: 44px; }
+  /* ⚠️ CETTE RÈGLE DOIT RESTER SCOPÉE AUX LIGNES (correctif 12/08, bug user « on ne voit pas bien
+     l'aperçu, c'est sur mobile »). Écrite pour la PASTILLE d'une ligne de liste, elle ciblait
+     `.wdg-thumb` tout court : elle rabotait donc AUSSI le plan pleine largeur des cartes « Mes
+     desks ». Avec `aspect-ratio: 2.15/1`, 44 px de large = un aperçu de 44×20 px collé en haut à
+     gauche d'une carte de 324 px — le reste vide. C'est exactement ce que montrait la capture. */
+  .wdg-mgr-row .wdg-thumb { width: 44px; }
   .wdg-mgr-name, .wdg-mgr-pname { font-size: 11px; }
   .wdg-mgr-pname em { font-size: 9.5px; }
   .wdg-mgr-open { padding: 4px 8px; font-size: 10px; }
@@ -16028,6 +16047,7 @@ body.dtp-admin .view-panel > .panel > .panel-header {
    alors qu'elle affichait bien l'agencement.
    Ici la miniature occupe toute la carte : elle peut assumer sa couleur. */
 .home-card--visu .home-card-face .wdg-thumb i{
+  background: var(--tc, #e3b23a);                                          /* repli : couleur pleine */
   background: color-mix(in srgb, var(--tc, #e3b23a) 50%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc, #e3b23a) 70%, transparent);
 }
@@ -16080,7 +16100,9 @@ body.dtp-admin .view-panel > .panel > .panel-header {
 
 /* Cartes « Mes desks » : la miniature est grande, elle assume le contraste et une vraie taille de texte. */
 .home-card--visu .home-card-face .wdg-thumb--plan i{
+  border-color: rgba(255, 255, 255, .22);                                  /* repli */
   border-color: color-mix(in srgb, var(--tc, #e3b23a) 52%, transparent);
+  background: var(--tc, #e3b23a);                                          /* repli : couleur pleine, jamais invisible */
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--tc, #e3b23a) 78%, transparent) 0,
