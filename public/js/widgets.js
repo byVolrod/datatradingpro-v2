@@ -274,7 +274,28 @@
   function _tabItem(it, j, c) {
     var id = (c == null ? ((Array.isArray(it.tabs) ? it.tabs[j] : null) || '') : (_tabCells(it, j)[c] || ''));
     var cfg = (it.tabCfg && it.tabCfg[c == null ? j : (j + '-' + c)]) || undefined;
-    return { w: id, cfg: cfg };
+    /* ⚠️ `save` — LE CHAÎNON QUI MANQUAIT (12/08, bug user « la sauvegarde des paramètres des
+       widgets ne fonctionne toujours pas », vérifié sur son compte : `uipref` contenait bien
+       `rtab` mais JAMAIS `stfl`/`stfr`).
+       Un sous-widget d'onglet LISAIT correctement sa config (c'est tout l'objet de ce pseudo-item),
+       mais pour l'ÉCRIRE il appelait `API.setOptQuiet(_hostIdx(host), …)` — or `_hostIdx` lit un
+       index dans l'id de l'hôte, et l'hôte d'un onglet est un `<div class="wdgt-mount">` SANS id.
+       `_hostIdx` renvoyait donc `null` et l'écriture était purement et simplement sautée : le
+       réglage tenait le temps de la session et disparaissait au rechargement. Le fichier
+       documentait même la conséquence comme « assumée » (l.65) — elle ne l'est plus.
+       Le pseudo-item porte maintenant SON écrivain : le widget appelle `it.save(clé, valeur)` sans
+       savoir s'il vit dans une carte ou dans un onglet, et c'est ici qu'on sait où écrire. */
+    var idx = _itemIdx(it);
+    return {
+      w: id, cfg: cfg,
+      save: function (k, v) { try { if (idx != null) API.setTabOpt(idx, k, v, c); } catch (e) {} },
+    };
+  }
+  // Index d'une carte dans la disposition active — nécessaire pour écrire depuis un sous-widget,
+  // qui ne connaît que son objet et pas sa position.
+  function _itemIdx(it) {
+    try { var l = activeLayout(); if (!l || !Array.isArray(l.items)) return null;
+      var i = l.items.indexOf(it); return i >= 0 ? i : null; } catch (e) { return null; }
   }
 
   /* ── ONGLETS COMPOSITES (06/08, demande user « quand j'ajoute un nouvel onglet je dois pouvoir
@@ -420,6 +441,19 @@
   var _ICO_ERR = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>';
   var _ICO_EMPTY = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8.5 4.5v15"/></svg>';
   function _hostIdx(host) { var m = String((host && host.id) || '').match(/-b(\d+)$/); return m ? +m[1] : null; }
+  /* ÉCRITURE D'UN RÉGLAGE, D'OÙ QUE VIENNE LE WIDGET (12/08). Une carte porte son index dans l'id
+     de son hôte ; un sous-widget d'onglet, lui, est monté dans un <div class="wdgt-mount"> SANS id —
+     _hostIdx y renvoyait null et l'écriture était simplement SAUTÉE, en silence. Le réglage tenait
+     la session et disparaissait au rechargement : c'est la cause du « la sauvegarde ne fonctionne
+     pas » signalé sur Force des Devises, vérifiée sur le compte (uipref contenait rtab mais jamais
+     stfl/stfr). Le pseudo-item d'onglet porte maintenant son propre save (cf. _tabItem) : on
+     l'utilise en priorité, la carte garde son chemin d'origine. */
+  function _ecrisOpt(host, it, k, v) {
+    if (it && typeof it.save === 'function') { it.save(k, v); return true; }
+    var i = _hostIdx(host);
+    if (i != null) { API.setOptQuiet(i, k, v); return true; }
+    return false;
+  }
   // Bandeau « Annuler » (7 s) — volatil par design : aucune persistance, il disparaît au reload.
   var _undoT = null;
   function _undoOffer(msg, undoFn) {
@@ -586,13 +620,13 @@
         var sel = host.querySelector('.wdg-cdl-sym');
         if (sel) sel.addEventListener('change', function () {
           sym = sel.value;
-          var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'paire', sym);   // mémorisé sans reconstruire la carte
+          _ecrisOpt(host, it, 'paire', sym);   // mémorisé sans reconstruire la carte
           dessine();
         });
         host.querySelectorAll('.wdg-cdl-b').forEach(function (b) {
           b.addEventListener('click', function () {
             ut = b.dataset.ut;
-            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'ut', ut);
+            _ecrisOpt(host, it, 'ut', ut);
             host.querySelectorAll('.wdg-cdl-b').forEach(function (x) { x.classList.toggle('stf-btn--active', x === b); });
             dessine();
           });
@@ -672,7 +706,7 @@
             host.querySelectorAll('.wdg-fx-tf').forEach(function (b) { b.classList.remove('stf-btn--active'); });
             btn.classList.add('stf-btn--active');
             dessine(btn.dataset.per);
-            var _i = _hostIdx(host); if (_i != null) API.setOptQuiet(_i, 'periodes', btn.dataset.per);
+            _ecrisOpt(host, it, 'periodes', btn.dataset.per);
           });
         });
         return function () { try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {} };
@@ -942,8 +976,7 @@
               var u = b.getAttribute('data-unite');
               if (_busy || u === _unite) return;
               _unite = u; _dec = 0;                            // on repart TOUJOURS sur la période courante
-              var i = _hostIdx(host);
-              if (i != null) API.setOptQuiet(i, 'periode', u);  // mémorisé sans reconstruire la carte
+              _ecrisOpt(host, it, 'periode', u);   // mémorisé sans reconstruire la carte, carte OU onglet
               // Le mois demande plus d'archive que la semaine : on télécharge si besoin.
               var besoin = _besoin(0);
               if (besoin > _back) { _busy = true; dessine(); charge(besoin); return; }
