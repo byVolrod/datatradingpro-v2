@@ -16583,3 +16583,24 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 @media (prefers-reduced-motion: reduce) {
   .home-card--visu, .home-card--visu:hover { transform: none; transition: none; }
 }
+
+/* ══ « MON DESK » FAÇON WORKSPACE LIBRARY — 2e passe (12/08, « exactement pareil ») ═══════════════
+   L'en-tête gagne l'icône pile (or) et le bouton « + Nouveau desk » en pointillés ; la tuile
+   fantôme de la grille ne sert plus que d'état vide. Les cartes NON actives s'inclinent
+   légèrement en profondeur — la première (le desk le plus récent) reste de face, comme la
+   référence — et toute carte se redresse au survol. */
+.home-desks-ico { display: inline-flex; margin-right: 7px; color: var(--orange, #e3b23a); }
+.home-zone--desks .home-panel-head .home-desks-new { margin-left: 12px; }
+/* Inclinaison : uniquement au-delà de la première carte, et jamais en mouvement réduit. */
+.home-card--visu:not(:first-child) {
+  transform: perspective(1100px) rotateY(-9deg) scale(.975);
+  transform-origin: left center;
+  opacity: .88;
+}
+.home-card--visu:not(:first-child):hover {
+  transform: perspective(1100px) rotateY(0deg) translateY(-3px) scale(1.01);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-card--visu:not(:first-child), .home-card--visu:not(:first-child):hover { transform: none; opacity: 1; }
+}

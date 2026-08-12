@@ -480,9 +480,14 @@ function buildStockChart(symbol, containerId, tfKey) {
   );
   sbSeries.fills.template.setAll({ fillOpacity: 0.08, visible: true });
 
-  // ── Stock toolbar ─────────────────────────────
-  const toolbar = am5stock.StockToolbar.new(root, {
-    container: document.getElementById('chart-stock'),
+  /* ── Barre d'outils du graphe ────────────────────────────────────────────────────────────────
+     ⚠️ Le conteneur était CODÉ EN DUR sur #chart-stock, l'élément de l'onglet MARCHÉS. Monté depuis
+     le widget « Graphique » de Mon Desk, cet élément n'existe pas : StockToolbar recevait null et
+     JETAIT — d'où le repli « Graphique indisponible » sur un widget par ailleurs bien construit.
+     On prend le conteneur de CE graphe, et on n'ajoute la barre que s'il est présent. */
+  const _hoteBarre = document.getElementById(_cid);
+  const toolbar = _hoteBarre ? am5stock.StockToolbar.new(root, {
+    container: _hoteBarre,
     stockChart,
     controls: [
       am5stock.IndicatorControl.new(root, { stockChart, legend: mainPanel.children.push(am5.Legend.new(root, { centerX: am5.percent(100), x: am5.percent(100) })) }),
@@ -490,7 +495,7 @@ function buildStockChart(symbol, containerId, tfKey) {
       am5stock.ResetControl.new(root, { stockChart }),
       am5stock.SettingsControl.new(root, { stockChart }),
     ],
-  });
+  }) : null;
 
   // ── Compute EMA helper ────────────────────────
   function calcEMA(data, period) {

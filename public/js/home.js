@@ -102,20 +102,23 @@
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
         + '<span class="home-card-nom">' + esc(l.name || 'Desk') + '</span>'
         + '<span class="home-card-pied">'
-        +   (l.maj ? '<span class="home-card-date">' + _icoHorloge + _dateCourte(l.maj) + '</span>' : '')
-        +   '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>'
+        +   (l.maj ? '<span class="home-card-date">' + _icoHorloge + _dateCourte(l.maj) + '</span>'
+                   : '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>')
         + '</span>'
         + '</button>';
     }).join('')
+
       // TUILE FANTÔME « + Nouveau desk » (10/08, « je trouve pas très beau ») : une carte seule
       // flottait au centre d'une zone vide. La tuile meuble l'espace EN SERVANT — même grammaire que
       // « Créer un layout » du gestionnaire (cadre pointillé or). Et quand AUCUN desk n'est encore
       // chargé (téléphone : « une case vide »), elle devient l'état vide lui-même : la zone n'est
       // plus jamais un rectangle noir muet.
-      + '<button class="home-card home-card--ghost" onclick="DTPHome.createDesk()">'
+      // Tuile fantôme : UNIQUEMENT quand aucun desk n'existe (état vide). Sinon le bouton
+      // « + Nouveau desk » de l'en-tête suffit — référence Workspace Library du 12/08.
+      + (lays.length ? '' : '<button class="home-card home-card--ghost" onclick="DTPHome.createDesk()">'
       +   '<span class="home-ghost-plus">+</span>'
-      +   '<span class="home-ghost-lbl">' + (lays.length ? 'Nouveau desk' : 'Créer votre premier desk') + '</span>'
-      + '</button>';
+      +   '<span class="home-ghost-lbl">Créer votre premier desk</span>'
+      + '</button>');
   }
   function nbDesks(cfg) { return (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).length; }
 
@@ -280,9 +283,10 @@
   +       '</div>'
   +     '</section>'
   +     '<section class="home-zone home-zone--desks" style="--c:5">'
-  // (Bouton « + Nouveau desk » de l'en-tête RETIRÉ 10/08 : doublon avec la tuile fantôme de la
-  //  grille, qui est le meilleur des deux — elle montre OÙ le desk apparaîtra et vit avec les cartes.)
-  +       '<div class="home-panel-head"><span class="home-panel-t">Mes desks</span>'
+  // EN-TÊTE FAÇON BIBLIOTHÈQUE (12/08, référence user) : icône pile + « Mon Desk » + bouton
+  // « + Nouveau desk » réintégré dans l'en-tête — la tuile fantôme ne sert plus que d'état vide.
+  +       '<div class="home-panel-head"><span class="home-desks-ico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5z"/><path d="M2 13l10 5 10-5" opacity=".55"/></svg></span><span class="home-panel-t">Mon Desk</span>'
+  +         '<button class="home-desks-new" onclick="DTPHome.createDesk()">+ Nouveau desk</button>'
   +         '<span class="home-panel-fill"></span>'
   +         '<span class="home-desks-count">' + nbDesks(cfg) + ' au total</span></div>'
   +       '<div class="home-zone-body home-zone-body--cards"><div class="home-cards">' + layoutCards(cfg) + '</div></div>'
