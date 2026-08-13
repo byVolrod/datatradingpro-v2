@@ -947,3 +947,27 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .cs-comp-best{ color:#e3b23a; font-weight:700; background:rgba(227,178,58,.07); }
 .cs-comp-obj{ font-size:11.5px; color:var(--text2,#9aa3b2); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .btn--actif{ border-color:rgba(227,178,58,.55); color:#e3b23a; }
+
+/* Bouton de repli (« Détail par contenu ») : discret, il ne doit pas concurrencer les vrais boutons
+   d action de la carte — c est un révélateur, pas une commande. */
+.camp-fold {
+  display: inline-flex; align-items: center; gap: 7px; margin: var(--sp-3) 0 0;
+  padding: 5px 9px; background: transparent; border: 1px dashed rgba(255, 255, 255, .16);
+  border-radius: var(--radius); cursor: pointer; color: var(--text3);
+  font-family: var(--tight); font-size: var(--fs-meta); font-weight: var(--fw-bold);
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.camp-fold:hover { color: var(--text); border-color: rgba(227, 178, 58, .5); }
+.camp-fold-ch { font-size: 9px; color: var(--orange); }
+#camp-seq-wrap { margin-top: var(--sp-2); }
+
+/* Délivrabilité en LIGNE (13/08) : depuis le retrait de l anneau de score le 06/08 (c était une
+   constante, rien n était mesuré), ce bloc gardait une mise en page de tableau de bord pour cinq
+   états qui disent tous « Déclaré ». Il devient une bande de pastilles sous la santé des envois. */
+.deliv-wrap--compact { display: block; }
+/* flex-direction:row EXPLICITE : la règle de base pose column ; sans ça les 5 états restaient
+   empilés et le bloc gardait sa hauteur de tableau de bord (mesuré 148 px). */
+.deliv-wrap--compact .deliv-rows { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 18px; min-width: 0; }
+.deliv-wrap--compact .deliv-row { border-bottom: 0; padding: 2px 0; font-size: var(--fs-label); }
+.deliv-wrap--compact .deliv-row { flex: 0 0 auto; }
+.deliv-wrap--compact .deliv-note { margin-top: var(--sp-2); font-size: var(--fs-meta); color: var(--text3); }

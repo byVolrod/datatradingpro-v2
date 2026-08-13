@@ -19174,11 +19174,25 @@ app.get('/api/admin/campaign-master', requireSameOrigin, requireAdmin, async (re
     nextWhen = active ? ('le ' + (_WD_FR[_nwd] || '') + ' ' + _nextDateForWeekday(_nwd) + ' · ' + _hTxt + ' (Paris)')
                       : ('dès le lancement · ' + _hTxt + ' (Paris)');
   } catch {}
+  // DERNIER ENVOI (13/08) : la même donnée alimentait un bandeau séparé dans « Détail de la séquence »
+  // — donc l état et le prochain envoi s affichaient DEUX fois sur le même écran. On la sert ici pour
+  // que la carte « La Campagne » réponde seule, et le bandeau disparaît. Demande user du 26/07
+  // (« savoir lequel est parti en dernier ») préservée, juste déplacée au bon endroit.
+  let lastSent = null;
+  try {
+    for (const st of _WEEK_ROTATION) {
+      const cid = st.tpl === 'recap' ? 'recap-hebdo' : (st.id === 'outlook' ? 'outlook-hebdo' : st.id);
+      const s = _campaignStats[cid]; if (!s || !s.sent) continue;
+      const v = Object.values(s.sent); if (!v.length) continue;
+      const ts = Math.max.apply(null, v);
+      if (!lastSent || ts > lastSent.ts) lastSent = { title: st.label, ts: ts };
+    }
+  } catch {}
   const contacts = _dripState.contacts || {}; let audienceCount = 0;
   try { audienceCount = Object.keys(contacts).length; } catch {}
   const pr = (!active && _dripState.pausedReason) ? _dripState.pausedReason : null;
   res.json({ ok: true, active, testMode, testEmail: _CAMP_TEST_TO, mode: active ? (testMode ? 'test' : 'official') : 'paused',
-    nextTemplate, nextWhen, engine: 'sequence',
+    nextTemplate, nextWhen, lastSent, engine: 'sequence',
     running: !!_dripRunning, contactsTracked: audienceCount, pausedReason: pr,
     sequence: _WEEK_ROTATION.map(s => s.label) });
 });

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg665" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg666" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -301,24 +301,30 @@
               <span id="camp-plan-msg" class="camp-msg"></span>
             </div>
             <p class="camp-note">Forcer une semaine remplace son contenu <strong>pour cette semaine seulement</strong> ; « Auto » la rend à la rotation. Le témoignage part le 1<sup>er</sup> lundi du mois&nbsp;; une date programmée l'envoie ce jour-là en plus, sans jamais dépasser un témoignage par mois et par contact.</p>
-            <div class="camp-plan-sep"><span>Détail de la séquence</span></div>
-            <div id="camp-seq-list" class="camp-seq-list"><div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div></div>
-            <p class="camp-note"><span class="camp-badge camp-badge--sent">Envoyé</span> date + volume + stats · <span class="camp-badge camp-badge--ready">Prêt</span> codé, envoyable · <span class="camp-badge camp-badge--planned">À venir</span> à construire.</p>
+            <!-- DÉTAIL DE LA SÉQUENCE, REPLIÉ PAR DÉFAUT (13/08, « trop d informations ») : ces 7 lignes
+                 redisent, contenu par contenu, ce que le programme ci-dessus montre semaine par semaine.
+                 Utile quand on cherche l état d un contenu précis, encombrant le reste du temps. -->
+            <button class="camp-fold" id="camp-seq-fold" aria-expanded="false" onclick="campToggleSeq()">
+              <span class="camp-fold-ch">▸</span><span>Détail par contenu</span>
+            </button>
+            <div id="camp-seq-wrap" hidden>
+              <div id="camp-seq-list" class="camp-seq-list"><div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div></div>
+              <p class="camp-note"><span class="camp-badge camp-badge--sent">Envoyé</span> date + volume + stats · <span class="camp-badge camp-badge--ready">Prêt</span> codé, envoyable · <span class="camp-badge camp-badge--planned">À venir</span> à construire.</p>
+            </div>
           </div>
         </div>
+        <!-- SANTÉ DES ENVOIS : « Fiabilité & incidents » et « Délivrabilité » répondaient à la même
+             question dans deux cartes voisines. Fusionnées le 13/08 — la délivrabilité est une
+             configuration déclarée qui ne bouge jamais, elle n avait pas à occuper une carte entière
+             sur l écran de pilotage. -->
         <div class="panel-card">
-          <div class="panel-head"><h2>Fiabilité &amp; incidents</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-err-badge"></span></div>
+          <div class="panel-head"><h2>Santé des envois</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-err-badge"></span></div>
           <div class="panel-body">
             <div id="camp-err-body"><div class="skel" style="height:44px"></div></div>
             <p class="camp-note">Un pré-vol vérifie tout avant chaque envoi. Anomalie critique = campagne en pause + alerte, à relancer après correction (aucun renvoi possible).</p>
+            <div class="camp-plan-sep"><span>Configuration d'envoi</span></div>
+            <div id="camp-deliv"><div class="skel" style="height:64px"></div></div>
           </div>
-        </div>
-        <!-- « Vue d'ensemble » retirée le 13/08 : 12 cartes pour 6 nombres, dont 4 faux (voir le
-             commentaire de loadDashboard dans admin.js). Les chiffres d audience vivent dans
-             l onglet AUDIENCE, ceux par envoi dans STATISTIQUES. -->
-        <div class="panel-card">
-          <div class="panel-head"><h2>Délivrabilité</h2></div>
-          <div class="panel-body"><div id="camp-deliv"><div class="skel" style="height:106px"></div></div></div>
         </div>
       </div>
 
@@ -720,6 +726,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260813bbg665"></script>
+<script src="/js/admin.js?v=20260813bbg666"></script>
 </body>
 </html>

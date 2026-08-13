@@ -220,6 +220,17 @@
   // coin, donc capables de se superposer. Les styles des bulles étaient déjà mutualisés en CSS, ce qui
   // montrait que la duplication n était que structurelle. campToast devient un simple alias.
   function campToast(msg, isErr){ showToast(msg, isErr ? 'err' : ''); }   // showToast : déclaration hoistée
+  // Repli du « Détail par contenu » : volatil à dessein — c est un confort d écran, pas un réglage
+  // qui mérite d être mémorisé. Le détail se recharge tout seul quand il est ouvert.
+  function campToggleSeq(){
+    var w = document.getElementById('camp-seq-wrap'), b = document.getElementById('camp-seq-fold');
+    if (!w || !b) return;
+    var ouvert = w.hidden;
+    w.hidden = !ouvert;
+    b.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+    var ch = b.querySelector('.camp-fold-ch'); if (ch) ch.textContent = ouvert ? '▾' : '▸';
+    if (ouvert) loadSequence();
+  }
   function campSub(name){
     if (name === 'dashboard' || name === 'campagnes') name = 'pilotage';   // anciens onglets fusionnés dans « Pilotage »
     if (!document.querySelector('#tab-campaign .camp-sub[data-sub="' + name + '"]')) name = 'pilotage';   // deep-link inconnu → Pilotage
@@ -433,7 +444,7 @@
       const dcls = function(s){ return s === 'pass' ? 'pass' : (s === 'info' ? 'info' : (s === 'declare' ? 'info' : 'fail')); };
       const rows = [['SPF',ch.spf],['DKIM',ch.dkim],['DMARC',ch.dmarc],['SMTP',ch.smtp],['Blacklist',ch.blacklist]];
       document.getElementById('camp-deliv').innerHTML =
-        '<div class="deliv-wrap"><div class="deliv-rows">' +
+        '<div class="deliv-wrap deliv-wrap--compact"><div class="deliv-rows">' +
         rows.map(function(x){ return '<div class="deliv-row"><span class="deliv-dot deliv-dot--' + dcls(x[1]) + '"></span><span class="deliv-k">' + x[0] + '</span><span class="deliv-v">' + dlab(x[1]) + '</span></div>'; }).join('') +
         '</div>' + (dv.score == null
           ? '<div class="deliv-note">' + (dv.note || 'Configuration déclarée, non vérifiée.') + '</div>'
@@ -981,7 +992,7 @@
         ['Prochain e-mail', '<b style="color:#e3b23a;">' + (d.nextTemplate || '—') + '</b>'],
         ['Quand', d.active ? (d.nextWhen || '—') : 'en pause tant que non lancée'],
         ['Destinataire', mode === 'test' ? ('<span style="color:#e3b23a;">🧪 ' + _escH(d.testEmail || '') + ' (test)</span>') : mode === 'official' ? ('<b style="color:#fff;">' + (d.contactsTracked || 0) + '</b> contacts (réel)') : '—'],
-        ['Calendrier', '<span style="color:#8b93a1;">' + (d.sequence || []).join(' → ') + '</span>'],
+        ['Dernier envoi', d.lastSent ? ('<b style="color:#c9ced8;">' + _escH(d.lastSent.title) + '</b> <span style="color:#8b93a1;">— ' + _dt(d.lastSent.ts) + '</span>') : '<span style="color:#8b93a1;">aucun pour l instant</span>'],
         ['Envoi en cours', d.running ? '<span style="color:#e3b23a;">🔄 oui, en train d’envoyer…</span>' : 'non']
       ];
       let extra = '';
@@ -1201,24 +1212,11 @@
       //  composait, semaine en cours + contenu, est déjà lisible ligne par ligne dans « Programme
       //  des envois » juste au-dessus.)
       // Bandeau d'état — reflète le bouton « La Campagne » : à l'arrêt → tout est figé ; en marche → reprend au bon jour/heure.
-      const bStyle = 'display:block;padding:9px 12px;border-radius:6px;font-size:12.5px;font-weight:600;margin:0 0 10px;';
-      const stateBanner = !d.active
-        ? '<div style="' + bStyle + 'background:rgba(139,147,161,.12);border:1px solid #33333a;color:#c9ced8;">⏸ Campagne à l\'arrêt — aucun e-mail ne part. À la reprise, elle repart automatiquement au bon jour selon l\'heure (le prochain envoi est indiqué ci-dessous).</div>'
-        : (d.testMode
-          ? '<div style="' + bStyle + 'background:rgba(227,178,58,.1);border:1px solid rgba(227,178,58,.35);color:#e3b23a;">🧪 Mode TEST actif — chaque e-mail part uniquement sur ta boîte, le bon jour. Aucun client touché.</div>'
-          : '<div style="' + bStyle + 'background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:#00e676;">● Campagne active (envoi réel) — 1 e-mail par semaine (rotation) : le contenu de la semaine part à toute l\'audience, le bon jour. Ça repart automatiquement chaque semaine.</div>');
-      // (_fmtMonday supprimee : remplacee par _dj, defini en tete de fichier.)
-      // Bandeau « Dernier parti → Prochain envoi » : la réponse directe à « c'est lequel le prochain ? »
-      // dès qu'un mail est parti (demande user 26/07). Données serveur (lastSend/nextSend), rien de calculé ici.
-      let flightStrip = '';
-      if (d.nextSend) {
-        flightStrip = '<div style="display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;padding:10px 12px;border:1px solid rgba(227,178,58,.35);background:rgba(227,178,58,.06);border-radius:6px;margin:0 0 10px;">'
-          + '<span style="font-size:12.5px;color:#e3b23a;font-weight:700;">⏭ Prochain envoi : ' + d.nextSend.title + ' — ' + d.nextSend.when + '</span>'
-          + (d.lastSend ? '<span style="font-size:12px;color:#8b93a1;">✉️ Dernier parti : <strong style="color:#c9ced8;font-weight:600;">' + d.lastSend.title + '</strong> — ' + _dt(d.lastSend.ts) + '</span>' : '')
-          + '</div>';
-      }
-      // ENCADRÉ « prochain à partir » (28/07) : le contenu de la semaine s'il n'est PAS encore parti,
-      // sinon la rotation la plus proche — l'encadré se réajuste tout seul après chaque envoi.
+      // BANDEAU D ÉTAT et BANDEAU DE VOL SUPPRIMÉS (13/08, « trop d informations ») : le premier
+      // répétait le mode de la campagne, déjà écrit EN GROS dans la carte « La Campagne » et rappelé
+      // par le badge de son en-tête — trois fois le même état sur un écran. Le second répétait
+      // « prochain envoi » et « dernier parti » ; « dernier parti » (demande user du 26/07) n est pas
+      // perdu : il est remonté dans la carte principale, à côté du prochain, là où on le cherche.
       let _nextFrameId = null;
       const _cur = d.steps.find(function(s){ return s.thisWeek && s.id !== 'intro-v1'; });
       if (_cur && !_cur.doneWeek) _nextFrameId = _cur.id;
@@ -1255,7 +1253,7 @@
           + metrics + '</div>'
           + '<div class="camp-seq-status camp-seq-status--' + cls + '">' + status + '</div></div>';
       }).join('');
-      document.getElementById('camp-seq-list').innerHTML = stateBanner + flightStrip + rowsHtml;
+      document.getElementById('camp-seq-list').innerHTML = rowsHtml;
     } catch {}
   }
 
