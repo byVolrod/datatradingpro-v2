@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260814-graphique-banques', ts: Date.UTC(2026, 7, 14, 1, 0), title: 'Onglet Banques : un vrai graphique de trading', desc: 'Le graphique des positions de banques se manipule maintenant comme un terminal : cinq unités de temps (M15, H1, H4, D1, W1) sur de vraies bougies, bande de navigation pour se déplacer dans l historique, zoom à la molette, et les repères de prix et de date qui suivent le curseur sur les axes. Les niveaux d entrée, objectif et stop de chaque banque restent affichés.' },
   { id: 'dtpu-20260813-couleurs-ton-bc', ts: Date.UTC(2026, 7, 14, 0, 20), title: 'Ton des banques centrales : la couleur suit enfin le sens', desc: 'Un ton hawkish ou dovish s affichait en ambre et bleu à certains endroits, en vert et rouge à d autres — le même ton pouvait donc changer de couleur d une vue à l autre. Partout désormais : vert quand le ton soutient la devise, rouge quand il pèse sur elle, gris quand il est neutre.' },
   { id: 'dtpu-20260813-couleurs-donnees', ts: Date.UTC(2026, 7, 13, 23, 55), title: 'Données publiées : la couleur dit tout de suite si c est bon pour la devise', desc: 'Dans les récaps et la Semaine à Venir, chaque chiffre publié se colore selon ce qu il signifie POUR LA DEVISE : vert quand il la soutient, rouge quand il pèse sur elle, blanc quand il sort pile au consensus. Les indicateurs inversés sont traités correctement — un chômage plus élevé que prévu s affiche en rouge, pas en vert. Sans prévision à comparer, aucun jugement de couleur.' },
   { id: 'dtpu-20260813-campagne-coherence-2', ts: Date.UTC(2026, 7, 13, 23, 30), title: 'Campagne e-mail : dates et indicateur de fraîcheur unifiés', desc: 'Les dates s écrivent désormais pareil dans les cinq onglets — comparer un envoi entre le Journal et les Statistiques ne demande plus de conversion mentale. Et une seule pastille En direct, celle de l en-tête : on en voyait deux clignoter à des rythmes différents sur certaines vues.' },
@@ -13340,19 +13341,49 @@ app.get('/api/bank-positions', async (_req, res) => {
   res.json({ positions, updatedAt: Date.now() });
 });
 
-// Bougies réelles d'une paire (pour le graphique de droite)
+// Bougies RÉELLES d'une paire (graphique de droite de l'onglet Banques).
+// UNITÉS DE TEMPS (13/08, demande user « un vrai graphique type TradingView ») : jusqu'ici figé au
+// journalier sur 6 mois. Yahoo sert nativement 15m / 60m / 1d / 1wk, chacun avec une profondeur
+// maximale d'historique différente — au-delà, il renvoie vide. H4 n'existe PAS chez lui : on
+// l'agrège nous-mêmes à partir du 60m (4 bougies horaires → 1 bougie H4), en respectant la règle
+// OHLC : open de la première, close de la dernière, high/low sur l'ensemble.
+const _BANK_TF = {
+  M15: { iv: '15m', rg: '1mo',  grp: 0 },
+  H1:  { iv: '60m', rg: '3mo',  grp: 0 },
+  H4:  { iv: '60m', rg: '2y',   grp: 4 },   // agrégé depuis le 60m
+  D1:  { iv: '1d',  rg: '2y',   grp: 0 },
+  W1:  { iv: '1wk', rg: '10y',  grp: 0 },
+};
+function _bankGroupe(candles, n) {
+  if (!n || n < 2) return candles;
+  const out = [];
+  for (let i = 0; i < candles.length; i += n) {
+    const lot = candles.slice(i, i + n);
+    if (!lot.length) continue;
+    out.push({
+      t: lot[0].t,
+      o: lot[0].o,
+      h: Math.max.apply(null, lot.map(c => c.h)),
+      l: Math.min.apply(null, lot.map(c => c.l)),
+      c: lot[lot.length - 1].c,
+    });
+  }
+  return out;
+}
 app.get('/api/bank-ohlc', async (req, res) => {
   const pair = String(req.query.pair || '').toUpperCase();
   if (!/^[A-Z]{3}\/[A-Z]{3}$/.test(pair)) return res.json({ candles: [] });
+  const tf = _BANK_TF[String(req.query.tf || 'D1').toUpperCase()] || _BANK_TF.D1;
   try {
     await getYFSession();
-    const raw = await yfFetch(_bankSym(pair), '1d', '6mo');
+    const raw = await yfFetch(_bankSym(pair), tf.iv, tf.rg);
     const r   = raw?.chart?.result?.[0];
     const ts  = r?.timestamp || [];
     const q   = r?.indicators?.quote?.[0] || {};
-    const candles = ts.map((t, i) => ({
+    let candles = ts.map((t, i) => ({
       t: t * 1000, o: q.open?.[i], h: q.high?.[i], l: q.low?.[i], c: q.close?.[i],
-    })).filter(c => c.o != null && c.c != null);
+    })).filter(c => c.o != null && c.c != null && c.h != null && c.l != null);
+    candles = _bankGroupe(candles, tf.grp);
     res.json({ candles });
   } catch (e) { res.json({ candles: [] }); }
 });

@@ -16735,3 +16735,14 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9.5px; font-weight: 700;
   letter-spacing: .02em; vertical-align: middle; white-space: nowrap;
 }
+
+/* Sélecteur d unité de temps du graphique Banques (13/08) : même grammaire que les autres sélecteurs
+   du desk — discret au repos, or quand actif, jamais un gros bouton. */
+.bank-tf { display: inline-flex; gap: 2px; margin-left: auto; }
+.bank-tf-b {
+  padding: 3px 8px; background: transparent; border: 0; border-bottom: 2px solid transparent;
+  color: var(--text3); cursor: pointer; font-family: var(--tight, 'Inter Tight', sans-serif);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+}
+.bank-tf-b:hover { color: var(--text); }
+.bank-tf-b.is-on { color: var(--orange, #e3b23a); border-bottom-color: var(--orange, #e3b23a); }

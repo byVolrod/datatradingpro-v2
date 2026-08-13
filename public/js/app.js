@@ -5437,9 +5437,30 @@ function selectBankRow(id) {
   const fl = document.getElementById('bank-chart-flags'); if (fl) fl.innerHTML = _bankFlagsHtml(p.pair);
   document.getElementById('bank-chart-pair').textContent = p.pair;
   _updateBankChartPrice(p);
+  _bankTFInit(p);
   buildBankChart(p);
 }
 
+// UNITÉ DE TEMPS du graphique Banques (13/08). Volatile à dessein : c est un choix de lecture
+// pendant qu on regarde une position, pas un réglage à retenir d une session à l autre.
+let _bankTF = 'D1';
+let _bankTFCable = false;
+function _bankTFInit(p) {
+  const host = document.getElementById('bank-tf');
+  if (!host || _bankTFCable) return;
+  _bankTFCable = true;
+  host.addEventListener('click', function (e) {
+    const b = e.target.closest('.bank-tf-b'); if (!b) return;
+    const tf = b.dataset.tf; if (!tf || tf === _bankTF) return;
+    _bankTF = tf;
+    host.querySelectorAll('.bank-tf-b').forEach(function (x) { x.classList.toggle('is-on', x === b); });
+    // On redessine la position COURANTE : la paire ne change pas, seule sa granularité change.
+    // La position affichée se retrouve via _bankActiveId : pas de nouvelle variable d état à
+    // maintenir en parallèle, on relit la source de vérité déjà en place.
+    const p2 = (_bankPositions || []).find(function (x) { return x.id === _bankActiveId; });
+    if (p2) buildBankChart(p2);
+  });
+}
 function buildBankChart(p) {
   const el = document.getElementById('bank-chart');
   if (!el || typeof am5 === 'undefined') return;
@@ -5447,7 +5468,7 @@ function buildBankChart(p) {
   _bankLiveGuide = null;
   el.innerHTML = dtpLoader('Chargement du graphique…', { small: true });
 
-  fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair))
+  fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair) + '&tf=' + encodeURIComponent(_bankTF))
     .then(r => r.json())
     .then(d => {
       const candles = (d.candles || []).map(c => ({ Date: c.t, Open: c.o, High: c.h, Low: c.l, Close: c.c }));
@@ -5518,9 +5539,51 @@ function buildBankChart(p) {
       series.data.setAll(candles);
 
       // ── Crosshair façon TradingView ──
-      const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis, snapToSeries: [series], snapToSeriesBy: 'x' }));   // 'none' = crosshair seul ; le glisser fait un PAN (panX), plus de zoom de sélection
+      const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'zoomX', xAxis, yAxis, snapToSeries: [series], snapToSeriesBy: 'x' }));   // 'none' = crosshair seul ; le glisser fait un PAN (panX), plus de zoom de sélection
       cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
       cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
+      // ── NAVIGATEUR TEMPOREL + ZOOM (13/08, « un vrai graphique type TradingView ») ─────────────
+      // Ce qui manquait pour que le graphique se comporte comme un vrai : la bande de navigation en
+      // haut (aperçu de toute la série, poignées déplaçables), le zoom à la molette et les étiquettes
+      // de prix/date qui suivent le curseur sur les axes. Aucun indicateur ajouté — demande explicite
+      // du user : pas de moyennes mobiles, pas de RSI, pas de volume. Juste le prix, bien présenté.
+      chart.set('scrollbarX', am5xy.XYChartScrollbar.new(root, { orientation: 'horizontal', height: 42 }));
+      const _sb = chart.get('scrollbarX');
+      try {
+        _sb.get('background')?.setAll({ fill: am5.color(0x0e0e11), fillOpacity: 1 });
+        _sb.startGrip.get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
+        _sb.endGrip.get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
+        // Aperçu de la série entière DANS la bande : c'est ce qui donne le repère « où suis-je ».
+        const sbX = _sb.chart.xAxes.push(am5xy.DateAxis.new(root, {
+          groupData: true, groupIntervals: [{ timeUnit: 'day', count: 1 }],
+          baseInterval: { timeUnit: 'day', count: 1 },
+          renderer: am5xy.AxisRendererX.new(root, { opposite: false, strokeOpacity: 0 }),
+        }));
+        const sbY = _sb.chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) }));
+        const sbS = _sb.chart.series.push(am5xy.LineSeries.new(root, {
+          xAxis: sbX, yAxis: sbY, valueYField: 'Close', valueXField: 'Date',
+          stroke: am5.color(0xe3b23a),
+        }));
+        sbS.fills.template.setAll({ fillOpacity: 0.12, visible: true, fill: am5.color(0xe3b23a) });
+        sbS.data.setAll(candles);
+        sbX.get('renderer').labels.template.setAll({ fill: am5.color(0x55555f), fontSize: 9, fontFamily: mono });
+        sbX.get('renderer').grid.template.setAll({ strokeOpacity: 0 });
+        sbY.get('renderer').labels.template.setAll({ visible: false });
+        sbY.get('renderer').grid.template.setAll({ strokeOpacity: 0 });
+      } catch (e) {}
+      // Zoom molette + déplacement, sur l'axe du temps uniquement (le prix reste à l'échelle).
+      chart.set('wheelX', 'zoomX');
+      chart.set('wheelY', 'zoomX');
+      chart.set('panX', true);
+      // Étiquettes qui suivent le curseur SUR les axes — le repère qu'on cherche d'instinct.
+      xAxis.set('tooltip', am5.Tooltip.new(root, { themeTags: ['axis'] }));
+      yAxis.set('tooltip', am5.Tooltip.new(root, { themeTags: ['axis'] }));
+      try {
+        xAxis.get('tooltip').get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
+        yAxis.get('tooltip').get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
+        xAxis.get('tooltip').label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10, fontFamily: mono });
+        yAxis.get('tooltip').label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10, fontFamily: mono });
+      } catch (e) {}
 
       // ── Lignes Entry / Take Profit / Stop Loss + prix LIVE : clone pro : pilule de NOM collée au
       // bord droit DU GRAPHE + pilule de VALEUR sur l'axe de prix (façon TradingView). La ligne du
