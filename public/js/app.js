@@ -2947,6 +2947,16 @@ function buildNewsItem(item) {
     tp.title = 'Marché le plus exposé à cet événement';
     tagsEl.appendChild(tp);
   }
+  // TAG DE PAYS REDONDANT (13/08, demande user : « enlève le tag US, on sait déjà que c est US par le
+  // titre ») : sur une ANALYSE d événement, le titre porte DÉJÀ le pays — « ANALYSE PPI US : … » — et
+  // le tag ne fait que le répéter à côté du tag de paire. On ne le masque QUE si le titre le contient
+  // vraiment : une analyse « ANALYSE FED : … » garde son tag US, lui, puisque le titre ne le dit pas.
+  const _PAYS_TAGS = new Set(['US', 'EU', 'UK', 'JP', 'CH', 'CA', 'AU', 'NZ', 'CN']);
+  const _tagPaysRedondant = function (tag) {
+    if (!item._eventAnalysis || !_PAYS_TAGS.has(tag)) return false;
+    var _mots = String(item.headline || '').toUpperCase().split(/[^A-Z0-9]+/);
+    return _mots.indexOf(tag.toUpperCase()) !== -1;
+  };
   const smartTags = getSmartTags(item);
   const _hl = (item.headline || '').toLowerCase();
   const _ratesGuard = /\b(rate decision|rate hike|rate cut|interest rate|policy rate|overnight rate|benchmark rate|basis point|bps|inflation rate|cpi|pce|ppi|hicp)\b/i;
@@ -2961,6 +2971,7 @@ function buildNewsItem(item) {
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
+    if (_tagPaysRedondant(tag)) continue;
     if (_HIDDEN_TAGS.has(tag)) continue;
     if (tag === 'FX' && item.category === 'FX Flows') continue;   // redondant : la catégorie « Flux FX » est déjà affichée à gauche (demande user)
     if (tag === 'Rates' && !_ratesGuard.test(_hl)) continue;
@@ -2973,7 +2984,7 @@ function buildNewsItem(item) {
     tagsEl.appendChild(t);
   }
   for (const tag of (item._dtpd ? [] : smartTags)) {
-    if (_isCatDup(tag) || shownTags.has(tag)) continue;
+    if (_isCatDup(tag) || shownTags.has(tag) || _tagPaysRedondant(tag)) continue;
     shownTags.add(tag);
     const t = document.createElement('span');
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));

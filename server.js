@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260813-analyses-tag-pays', ts: Date.UTC(2026, 7, 13, 20, 0), title: 'Analyses de données : un tag en moins, une heure juste', desc: 'Sur les analyses d événement, le tag de pays disparaît quand le titre le dit déjà — ANALYSE PPI US n a pas besoin d une étiquette US à côté. Le tag de la paire la plus exposée, lui, reste en tête.' },
   { id: 'dtpu-20260813-couleurs-inflation', ts: Date.UTC(2026, 7, 13, 19, 0), title: 'Radar de Biais : les couleurs disent toutes la même chose', desc: 'Dans le tableau macro, le NIVEAU d inflation s affichait sur une échelle de température (doré quand élevé, bleu quand bas) pendant que tout le reste du tableau parlait en impact sur la devise. Une inflation Élevée sortait donc dorée juste à côté d une Hausse verte, alors que les deux disent la même chose. Désormais une seule lecture partout : vert = soutient la devise, rouge = pèse sur elle, gris = neutre.' },
   { id: 'dtpu-20260813-analyses-donnees-us', ts: Date.UTC(2026, 7, 13, 18, 0), title: 'Quatre nouvelles données américaines désormais analysées', desc: 'Les prix à la production (PPI), l emploi privé ADP, les postes à pourvoir (JOLTS) et les ventes au détail donnent maintenant lieu à une analyse complète environ une heure après leur publication, comme le CPI ou le PIB : le chiffre face aux attentes, ce qui a surpris, la réaction des marchés et ce que la Fed peut en tirer. Le rapport de midi s appelle désormais Point Marché · Ouverture US.' },
   { id: 'dtpu-20260813-grappes-propos', ts: Date.UTC(2026, 7, 13, 16, 0), title: 'Fil d actus : les propos d un même intervenant regroupés', desc: 'Quand un banquier central enchaîne les déclarations, le fil ne se remplit plus de dix lignes quasi identiques : ses propos sont réunis en une seule carte, qui indique combien elle en contient et les déroule au clic. Le regroupement suit désormais toute la durée d une audition, et s applique aussi au widget Actus et aux news attachées à une paire.' },
@@ -19103,9 +19104,25 @@ app.get('/api/admin/campaign-master', requireSameOrigin, requireAdmin, async (re
   const active = !!_dripState.active, testMode = !!_dripState.testMode;
   let nextTemplate = '—', nextWhen = '—';
   try {
-    const _nwd = _nextSendWeekday();
-    nextTemplate = (_DAY_STEP[_nwd] || _loopStepFor()).label;
-    nextWhen = active ? ('le ' + (_WD_FR[_nwd] || '') + ' ' + _nextDateForWeekday(_nwd) + ' · dès 8h (Paris)') : 'dès le lancement (prochain jour, dès 8h)';
+    // UNE SEULE SOURCE DE VÉRITÉ POUR « PROCHAIN E-MAIL » (13/08). Deux défauts vérifiés dans
+    // l'ancienne version :
+    //  1. le contenu était cherché par JOUR (_DAY_STEP[jour]) alors que deux contenus partagent le
+    //     même jour — Invitation et Semaine à venir le dimanche, Témoignage et Mindset le jeudi.
+    //     En semaine Invitation la carte annonçait donc « Semaine à venir », et un forçage de
+    //     semaine fait depuis le Programme n'apparaissait JAMAIS ici. _loopStepFor() respecte le plan.
+    //  2. l'heure était écrite EN DUR « dès 8h » alors que 4 contenus sur 6 partent à une autre
+    //     heure (10h, 17h, 18h, 19h) — le bloc « Détail de la séquence » juste dessous affichait la
+    //     bonne. On lit désormais _STEP_MINHOUR, la table qui pilote RÉELLEMENT l'envoi.
+    const _step = _loopStepFor();
+    const _nwd  = _stepWd(_step);
+    // PIÈGE : _STEP_MINHOUR est indexé par TPL, pas par ID — le Récap a id 'recap-hebdo' mais
+    // tpl 'recap'. Indexer par id l aurait fait retomber sur 8h, soit exactement le bug corrigé ici.
+    const _hMin = _STEP_MINHOUR[_step.tpl] != null ? _STEP_MINHOUR[_step.tpl] : (_step.hour || 8);
+    const _hMax = _STEP_MAXHOUR[_step.tpl];
+    const _hTxt = _hMax ? ('entre ' + _hMin + 'h et ' + _hMax + 'h') : ('dès ' + _hMin + 'h');
+    nextTemplate = _step.label;
+    nextWhen = active ? ('le ' + (_WD_FR[_nwd] || '') + ' ' + _nextDateForWeekday(_nwd) + ' · ' + _hTxt + ' (Paris)')
+                      : ('dès le lancement · ' + _hTxt + ' (Paris)');
   } catch {}
   const contacts = _dripState.contacts || {}; let audienceCount = 0;
   try { audienceCount = Object.keys(contacts).length; } catch {}

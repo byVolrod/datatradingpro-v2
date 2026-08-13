@@ -1097,6 +1097,19 @@
     if (t) setTimeout(function () { if (el.textContent === t) el.textContent = ''; }, 4000);
   }
   async function loadPlan() {
+    // « 2026-08-10 » était la SEULE date au format ISO du panneau, sur un écran qui doit être 100 %
+    // français. On affiche la semaine telle qu on la lit : « 10 au 16 août ».
+    const _semaineFr = function (iso) {
+      try {
+        const p = String(iso || '').split('-').map(Number);
+        if (p.length !== 3 || !p[0]) return iso || '';
+        const a = new Date(Date.UTC(p[0], p[1] - 1, p[2])), b = new Date(a.getTime() + 6 * 864e5);
+        const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+        const mA = MOIS[a.getUTCMonth()], mB = MOIS[b.getUTCMonth()];
+        return mA === mB ? (a.getUTCDate() + ' au ' + b.getUTCDate() + ' ' + mB)
+                         : (a.getUTCDate() + ' ' + mA + ' au ' + b.getUTCDate() + ' ' + mB);
+      } catch (e) { return iso || ''; }
+    };
     const body = document.getElementById('camp-plan-body'); if (!body) return;
     try {
       const d = await fetch('/api/admin/campaign-plan').then(r => r.json());
@@ -1114,7 +1127,7 @@
         }).join('');
         return '<div class="camp-plan-row' + (i === 0 ? ' camp-plan-row--now' : '') + '">'
           + '<div class="camp-plan-wk">' + (i === 0 ? 'Cette semaine' : (i === 1 ? 'Semaine prochaine' : 'dans ' + i + ' sem.'))
-          + '<span>' + w.debut + '</span></div>'
+          + '<span>' + _semaineFr(w.debut) + '</span></div>'
           + '<div class="camp-plan-main"><strong>' + w.contenu + '</strong>'
           + (quand ? '<span class="camp-plan-when">' + quand + '</span>' : '')
           + (w.force ? '<span class="camp-plan-badge">forcé</span><span class="camp-plan-auto">rotation : ' + w.auto + '</span>' : '')
@@ -1156,9 +1169,10 @@
     try {
       const d = await fetch('/api/admin/campaign-sequence').then(r => r.json());
       if (!d || !d.steps) return;
-      const sub = document.getElementById('camp-seq-sub');
-      if (sub) sub.textContent = (d.weekRange ? 'Semaine du ' + d.weekRange : '')
-        + (d.rotation ? ' · Cette semaine : ' + d.rotation.title + (d.rotation.sentThisWeek ? ' · envoyé ✓' : ' · à venir') : '');
+      // (Bloc « camp-seq-sub » retiré le 13/08 : il écrivait dans un élément qui n existe dans AUCUN
+      //  HTML — vestige d un en-tête supprimé lors de la fusion des sous-onglets. L information qu il
+      //  composait, semaine en cours + contenu, est déjà lisible ligne par ligne dans « Programme
+      //  des envois » juste au-dessus.)
       // Bandeau d'état — reflète le bouton « La Campagne » : à l'arrêt → tout est figé ; en marche → reprend au bon jour/heure.
       const bStyle = 'display:block;padding:9px 12px;border-radius:6px;font-size:12.5px;font-weight:600;margin:0 0 10px;';
       const stateBanner = !d.active
