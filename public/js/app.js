@@ -7194,6 +7194,17 @@ function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/<
 // (demande user 29/07). Exception zone euro : plusieurs pays partagent l'EUR, donc on garde le pays en
 // second (« EUR · Allemagne ») — sinon on perdrait l'information de QUI a publié le chiffre.
 // Repli sur le pays si la devise est inconnue (anciens rapports sans champ ccy).
+// COULEUR D'UNE DONNÉE PUBLIÉE (13/08, demande user « mets des couleurs sur les sorties de data si
+// c'est positif ou négatif ou neutre pour la devise »). On délègue à deviationClass, la fonction du
+// Calendrier : même échelle à trois états (vert soutient / rouge pèse / blanc neutre = sorti pile au
+// consensus) et surtout même table d'indicateurs INVERSÉS — un chômage PLUS HAUT que prévu est une
+// mauvaise nouvelle pour la devise, pas une bonne. Écrire une 2e logique ici, c'était garantir
+// qu'un jour les deux vues se contredisent sur le même chiffre.
+// Sans prévision, pas de couleur : on ne juge pas un chiffre qu'on ne peut comparer à rien.
+function _dataCls(actual, forecast, titre) {
+  try { return (typeof deviationClass === 'function') ? deviationClass(actual, forecast, titre) : ''; }
+  catch (e) { return ''; }
+}
 function _ccyWho(ccy, pays){
   ccy = String(ccy == null ? '' : ccy).trim().toUpperCase();
   pays = String(pays == null ? '' : pays).trim();
@@ -7663,10 +7674,10 @@ function _renderWeeklyRecap(item) {
         const _CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
         const printRow = p => {
           if (!p || !p.label || !p.actual) return '';
-          const nums = [`publié <b>${_wrEsc(p.actual)}</b>`, p.forecast ? `attendu ${_wrEsc(p.forecast)}` : '', p.previous ? `préc. ${_wrEsc(p.previous)}` : ''].filter(Boolean).join(' · ');
+          const nums = [`publié <b class="${_dataCls(p.actual, p.forecast, p.label || p.title || '')}">${_wrEsc(p.actual)}</b>`, p.forecast ? `attendu ${_wrEsc(p.forecast)}` : '', p.previous ? `préc. ${_wrEsc(p.previous)}` : ''].filter(Boolean).join(' · ');
           const ctry = (p.ctry && _CTRY_FR[p.ctry]) ? `<span class="wr-print-ctry">${_CTRY_FR[p.ctry]}</span> ` : '';
           let line = `${ctry}<strong>${_wrEsc(p.label)}</strong> : ${nums}`;
-          if (p.lean) line += ` <span class="wr-cat-impact">→ ${_wrEsc(p.lean)}</span>`;
+          if (p.lean) line += ` <span class="wr-cat-impact ${_dataCls(p.actual, p.forecast, p.label || p.title || '')}">→ ${_wrEsc(p.lean)}</span>`;
           if (p.date) line += ` <span class="wr-print-date">(${_wrEsc(p.date)})</span>`;
           return `<div class="wr-bullet wr-cat">${line}</div>`;
         };
@@ -7958,8 +7969,8 @@ function _renderFXDailyRecap(item) {
         if (!f || !(f.items || []).length) return;
         body += `<div class="fxdr-grp-title">${_wrEsc(f.name || '')}</div>`;
         f.items.forEach(p => {
-          const nums = [`<b>${_wrEsc(p.actual)}</b>`, p.forecast ? `attendu ${_wrEsc(p.forecast)}` : '', p.previous ? `préc. ${_wrEsc(p.previous)}` : ''].filter(Boolean).join(' · ');
-          body += `<div class="wr-bullet wr-cat"><strong>${_wrEsc(p.label)}</strong> : ${nums}${p.lean ? ` <span class="wr-cat-impact">→ ${_wrEsc(p.lean)}</span>` : ''}</div>`;
+          const nums = [`<b class="${_dataCls(p.actual, p.forecast, p.label || p.title || '')}">${_wrEsc(p.actual)}</b>`, p.forecast ? `attendu ${_wrEsc(p.forecast)}` : '', p.previous ? `préc. ${_wrEsc(p.previous)}` : ''].filter(Boolean).join(' · ');
+          body += `<div class="wr-bullet wr-cat"><strong>${_wrEsc(p.label)}</strong> : ${nums}${p.lean ? ` <span class="wr-cat-impact ${_dataCls(p.actual, p.forecast, p.label || p.title || '')}">→ ${_wrEsc(p.lean)}</span>` : ''}</div>`;
         });
       });
       body += `</div>`;
@@ -7987,10 +7998,10 @@ function _renderFXDailyRecap(item) {
         body += `<div class="fxdr-grp-title">Données publiées</div>`;
         const _atr = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
         _sd.forEach(d => {
-          const nums = [`<b>${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
+          const nums = [`<b class="${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
           const _w = _ccyWho(d.ccy, d.country);
           const who = _w ? `${_wrEsc(_w)} · ` : '';
-          const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact">→ ${_wrEsc(d.lean)}</span>` : ''}`;
+          const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact ${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">→ ${_wrEsc(d.lean)}</span>` : ''}`;
           // Cliquable → déroulé « Décryptage » (même système que le calendrier, via _fxrToggleData → _calValueBlockHtml)
           body += `<div class="fxdr-data" role="button" tabindex="0" onclick="_fxrToggleData(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleData(this);}" data-title="${_atr(d.label)}" data-ccy="${_atr(d.ccy)}" data-actual="${_atr(d.actual)}" data-forecast="${_atr(d.forecast)}" data-previous="${_atr(d.previous)}" data-ts="${d.ts || 0}"><div class="fxdr-data-row"><span class="fxdr-data-txt">${txt}</span><span class="fxdr-data-chev">›</span></div><div class="fxdr-data-detail" hidden></div></div>`;
         });
