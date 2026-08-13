@@ -4167,8 +4167,13 @@ const _CAL_HOLD_RX = /\bhold\b|pause|patient|data[\s-]dependent|wait[\s-]and[\s-
 function _calToneOf(texts) {
   let hawk = 0, dove = 0, hold = 0;
   texts.forEach(t => { if (_CAL_HAWK_RX.test(t)) hawk++; if (_CAL_DOVE_RX.test(t)) dove++; if (_CAL_HOLD_RX.test(t)) hold++; });
-  if (hawk > dove && hawk >= hold) return { key: 'hawk', label: 'Hawkish', sens: 'penche vers des taux plus hauts', color: '#e0863a' };
-  if (dove > hawk && dove >= hold) return { key: 'dove', label: 'Dovish', sens: 'penche vers des taux plus bas', color: '#3aa0e0' };
+  // COULEUR SÉMANTIQUE (13/08, demande user). L ambre et le BLEU venaient d une palette « ton de banque
+  // centrale » qui n existe nulle part ailleurs dans le desk : les badges .wr-cb-* et les mails disent
+  // déjà hawkish=vert / dovish=rouge. Un même ton sortait donc bleu ici et rouge deux vues plus loin.
+  // Lecture retenue, identique partout : hawkish = resserrement = SOUTIENT la devise -> vert ;
+  // dovish = assouplissement -> rouge ; neutre = gris. (Valeurs de la charte : #22c55e / #ef4444.)
+  if (hawk > dove && hawk >= hold) return { key: 'hawk', label: 'Hawkish', sens: 'penche vers des taux plus hauts', color: '#22c55e' };
+  if (dove > hawk && dove >= hold) return { key: 'dove', label: 'Dovish', sens: 'penche vers des taux plus bas', color: '#ef4444' };
   if (hawk || dove || hold) return { key: 'hold', label: 'Neutre', sens: 'maintien / attentisme', color: '#9a9aa4' };
   return null;
 }
