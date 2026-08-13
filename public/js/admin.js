@@ -211,6 +211,7 @@
     if (name === 'templates') { _campTplRender(); if (!window._cprevType) tplSelect('intro'); else { tplSelect(window._cprevType); } }
     else if (window._cprevTimer) { clearInterval(window._cprevTimer); window._cprevTimer = null; }
     if (name === 'journal') loadMailLog();
+    if (name === 'stats') csLoad();   // sinon on attendrait le tic de 90 s de la source « camps »
   }
   // ── Bibliothèque de templates (aperçu + test par template, TOUS les templates y compris one-shot) ──
   const _CAMP_TPLS = [
@@ -423,29 +424,46 @@
   // `silencieux` : appel du rafraîchissement automatique. On ne remplace PAS l'audience déjà affichée
   // par « Chargement… » — l'admin verrait le chiffre clignoter toutes les 30 s sans rien y gagner.
   async function loadCampaign(silencieux){
-    const ael = document.getElementById('camp-audience');
-    if (ael && !(silencieux && ael.querySelector('.camp-aud-total'))) ael.textContent = 'Chargement de l’audience…';
-    try {
-      const d = await fetch('/api/admin/campaign-audience').then(r => r.json());
-      _campAud = d;
-      if (d && d.report) {
-        const r = d.report, s = r.segments || {};
-        ael.innerHTML = '<div class="camp-aud-total">' + r.total + ' destinataires uniques <span class="camp-aud-sub">0 doublon</span></div>'
-          + '<div class="camp-aud-seg"><span class="camp-chip camp-chip--active">' + (s.active||0) + ' actifs</span>'
-          + '<span class="camp-chip camp-chip--churn">' + (s.churned||0) + ' churned</span>'
-          + '<span class="camp-chip camp-chip--lead">' + (s.lead||0) + ' leads</span></div>'
-          + '<div class="camp-aud-src">Sources : ' + r.dtpAccounts + ' comptes DTP · ' + r.whopContacts + ' Whop · ' + r.manualExtra + ' manuels · ' + r.inMultipleSources + ' en commun · exclus : ' + r.excludedBlacklist + ' blacklist, ' + r.excludedUnsub + ' désabonnés</div>';
-      } else ael.textContent = 'Audience indisponible.';
-    } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
-    loadDashboard();
-    loadMaster();
-    loadCampErrors();
-    csLoad();
-    loadBlacklist();
-    loadGiftAccess();
-    loadSequence();
-    loadPlan();
-    var _rp = document.getElementById('camp-recip-panel'); if (_rp && _rp.style.display !== 'none') renderRecipients();
+    // L'APPEL LE PLUS CHER du panneau : campaign-audience relit toute la base Whop + les comptes DTP,
+    // puis vérifie le désabonnement contact par contact. Le lancer toutes les 30 s pour remplir un bloc
+    // MASQUÉ était le gros du gaspillage — pour un chiffre qui ne bouge qu'une fois par semaine. On ne
+    // le fait donc plus au tic quand l'Audience n'est pas à l'écran. (Attention : la garde porte sur CE
+    // seul appel — un `return` ici couperait aussi les chargeurs de Pilotage plus bas.)
+    if (!silencieux || _liveSub('audience')) {
+      const ael = document.getElementById('camp-audience');
+      if (ael && !(silencieux && ael.querySelector('.camp-aud-total'))) ael.textContent = 'Chargement de l’audience…';
+      try {
+        const d = await fetch('/api/admin/campaign-audience').then(r => r.json());
+        _campAud = d;
+        if (d && d.report) {
+          const r = d.report, s = r.segments || {};
+          ael.innerHTML = '<div class="camp-aud-total">' + r.total + ' destinataires uniques <span class="camp-aud-sub">0 doublon</span></div>'
+            + '<div class="camp-aud-seg"><span class="camp-chip camp-chip--active">' + (s.active||0) + ' actifs</span>'
+            + '<span class="camp-chip camp-chip--churn">' + (s.churned||0) + ' churned</span>'
+            + '<span class="camp-chip camp-chip--lead">' + (s.lead||0) + ' leads</span></div>'
+            + '<div class="camp-aud-src">Sources : ' + r.dtpAccounts + ' comptes DTP · ' + r.whopContacts + ' Whop · ' + r.manualExtra + ' manuels · ' + r.inMultipleSources + ' en commun · exclus de l envoi : ' + r.excludedBlacklist + ' sur liste noire, ' + r.excludedUnsub + ' désabonnés</div>';
+        } else ael.textContent = 'Audience indisponible.';
+      } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
+    }
+    // ── RAFRAÎCHISSEMENT CIBLÉ (13/08) ────────────────────────────────────────────────────────
+    // Le tic de 30 s appelait CES NEUF chargeurs quelle que soit la sous-vue affichée. Deux effets :
+    //  · quatre d'entre eux remplissaient du DOM masqué — dont l'audience, qui relit toute la base
+    //    Whop + les comptes DTP puis interroge le journal désabonnement contact par contact ;
+    //  · csLoad() court-circuitait la garde écrite juste à côté pour la source « camps » (« le détail
+    //    d'une campagne ne doit pas se re-rendre sous les doigts pendant qu'on le lit ») — la source
+    //    respectait la règle, la cascade la violait toutes les 30 s.
+    // Au TIC (silencieux) on ne recharge donc que ce qui est à l'écran ; à l'OUVERTURE de l'onglet ou
+    // après une action (silencieux absent) on garde le chargement complet, qui n'arrive qu'une fois.
+    // Les Statistiques sortent de la cascade : leur propre source live (90 s) s'en charge, avec sa garde.
+    const _vue = function (n) { return !silencieux || _liveSub(n); };
+    if (_vue('pilotage')) { loadDashboard(); loadMaster(); loadCampErrors(); loadSequence(); loadPlan(); }
+    if (_vue('audience')) {
+      loadBlacklist();
+      loadGiftAccess();
+      var _rp = document.getElementById('camp-recip-panel');
+      if (_rp && _rp.style.display !== 'none') renderRecipients();
+    }
+    if (!silencieux) csLoad();
   }
   /* ══ CENTRE D'ANALYSE DES CAMPAGNES (06/08) ═══════════════════════════════════════════════════
      Remplace la vue « Ouvertures & clics », qui agrégeait tout par TEMPLATE : le Mindset du 6 août
@@ -820,7 +838,7 @@
     try {
       const d = await fetch('/api/admin/blacklist?action=add&emails=' + encodeURIComponent(v)).then(r => r.json());
       _campMsg(d.ok ? ('✅ ' + d.added + ' blacklisté(s) : ' + d.total + ' au total') : '❌ échec');
-      inp.value = ''; loadBlacklist(); loadCampaign();
+      inp.value = ''; loadCampaign();   // recharge déjà la liste noire
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
   async function blRemove(encEmail){
@@ -829,7 +847,7 @@
     try {
       const d = await fetch('/api/admin/blacklist?action=remove&email=' + encodeURIComponent(email)).then(r => r.json());
       _campMsg(d.ok ? ('✅ retiré : ' + d.total + ' restant(s)') : '❌ échec');
-      loadBlacklist(); loadCampaign();
+      loadCampaign();   // recharge déjà la liste noire
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
   // ── Journal des envois : chaque mail réellement parti (source = anti-doublon durable) ──

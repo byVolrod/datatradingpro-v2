@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260813-campagne-coherence', ts: Date.UTC(2026, 7, 13, 22, 0), title: 'Campagne e-mail : la semaine Invitation retrouve ses repères', desc: 'Une semaine sur six, celle du mail Invitation, le programme perdait son repère « cette semaine » et son bandeau de prochain envoi — précisément la semaine où ce mail part à toute la liste. C est réparé. Le nombre de contacts exclus d un envoi ne compte plus deux fois une même adresse, et le panneau ne recharge plus en continu des blocs que vous ne regardez pas.' },
   { id: 'dtpu-20260813-pilotage-allege', ts: Date.UTC(2026, 7, 13, 21, 0), title: 'Campagne e-mail : un écran de pilotage allégé', desc: 'La grille de douze indicateurs du Pilotage disparaît : elle répétait deux fois les mêmes nombres et quatre de ses cartes ne mesuraient que le mail de bienvenue tout en s affichant comme les chiffres de la campagne. Les données d audience restent dans l onglet Audience, les résultats par envoi dans Statistiques. Le prochain e-mail annonce maintenant le bon contenu et sa vraie heure de départ.' },
   { id: 'dtpu-20260813-analyses-tag-pays', ts: Date.UTC(2026, 7, 13, 20, 0), title: 'Analyses de données : un tag en moins, une heure juste', desc: 'Sur les analyses d événement, le tag de pays disparaît quand le titre le dit déjà — ANALYSE PPI US n a pas besoin d une étiquette US à côté. Le tag de la paire la plus exposée, lui, reste en tête.' },
   { id: 'dtpu-20260813-couleurs-inflation', ts: Date.UTC(2026, 7, 13, 19, 0), title: 'Radar de Biais : les couleurs disent toutes la même chose', desc: 'Dans le tableau macro, le NIVEAU d inflation s affichait sur une échelle de température (doré quand élevé, bleu quand bas) pendant que tout le reste du tableau parlait en impact sur la devise. Une inflation Élevée sortait donc dorée juste à côté d une Hausse verte, alors que les deux disent la même chose. Désormais une seule lecture partout : vert = soutient la devise, rouge = pèse sur elle, gris = neutre.' },
@@ -17019,11 +17020,15 @@ async function _campaignAudience(opts = {}) {
   const _norm = e => String(e || '').toLowerCase().trim();
   const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   const byEmail = new Map();
-  let dtpSeen = 0, whopSeen = 0, extraSeen = 0, blacklisted = 0, invalid = 0;
+  let dtpSeen = 0, whopSeen = 0, extraSeen = 0, invalid = 0;
+  // ADRESSES uniques, pas occurrences (13/08) : _add est appelé UNE FOIS PAR SOURCE, donc une adresse
+  // sur liste noire présente à la fois côté DTP et côté Whop était comptée DEUX FOIS — le nombre
+  // d exclus affiché dans l onglet Audience pouvait dépasser la taille réelle de la liste noire.
+  const blacklistedSet = new Set();
   const _add = (email, name, source) => {
     const em = _norm(email);
     if (!em || !_valid(em)) { invalid++; return null; }
-    if (auth.isEmailBlacklisted(em)) { blacklisted++; return null; }
+    if (auth.isEmailBlacklisted(em)) { blacklistedSet.add(em); return null; }
     let cur = byEmail.get(em);
     if (!cur) { cur = { email: em, name: '', sources: new Set(), whopStatuses: new Set(), dtpActive: false }; byEmail.set(em, cur); }
     cur.sources.add(source);
@@ -17075,7 +17080,7 @@ async function _campaignAudience(opts = {}) {
       dtpAccounts: dtpSeen, whopContacts: whopSeen, manualExtra: extraSeen,
       inMultipleSources: recipients.filter(r => r.sources.length > 1).length,
       segments,                                                       // active / churned / lead — TOUS gardés (win-back)
-      excludedBlacklist: blacklisted, excludedInvalid: invalid, excludedUnsub,
+      excludedBlacklist: blacklistedSet.size, excludedInvalid: invalid, excludedUnsub,
     },
   };
 }
@@ -17669,6 +17674,7 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
   { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
   { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
+  { id: 'invitation',    week: 7,    title: 'Invitation',                           pillar: 'Conversion',   status: 'ready',   stat: 'invitation',    when: 'Chaque dimanche · 17h (Paris)',                            desc: "Le mail de conversion de la rotation : il part une semaine sur six, le dimanche 17h. Ajouté ici le 13/08 — il tournait déjà dans _WEEK_ROTATION mais manquait à CETTE table, si bien que sa semaine n'avait ni repère « cette semaine » ni bandeau de prochain envoi." },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
@@ -17676,11 +17682,11 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
     // Étape PROCHAINE (celle qui partira au prochain tick) — cohérent avec /api/admin/campaign-master :
     // mode digest (blast) → Récap ; sinon la rotation de la séquence (Point→Comprendre→Mindset→Outlook).
-    const _TPL2SEQ = { pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', recap: 'recap-hebdo', outlook: 'outlook-hebdo' };
+    const _TPL2SEQ = { invitation: 'invitation', pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', recap: 'recap-hebdo', outlook: 'outlook-hebdo' };
     const _campActive = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré)
     // JOUR d'envoi de chaque contenu (Lun=Semaine à venir … Ven=Récap). L'intro n'est pas dans le calendrier (à l'inscription).
-    const _SEQ2DAY = { 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 6 };
-    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~19h)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
+    const _SEQ2DAY = { 'invitation': 0, 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 6 };
+    const _SEQ2TIME = { 'invitation': '17h', 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~19h)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
     // PROCHAIN envoi = prochain contenu À PARTIR — aujourd'hui SEULEMENT s'il reste de la fenêtre ET qu'il n'est
     // PAS déjà parti aujourd'hui ; sinon le jour ouvré suivant. Corrige le bug « Envoyé + PROCHAIN sur la même carte ».
     const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
@@ -17688,7 +17694,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _sentTodayFor = seqId => { const sd = CAMPAIGN_SEQUENCE.find(x => x.id === seqId); const st = sd && _campaignStats[sd.stat || sd.id]; if (!st || !st.sent) return false; return Object.values(st.sent).some(ts => _pDay(ts) === _todayKey); };
     // ROTATION HEBDO (1 e-mail/semaine, réglage user) : le contenu de CETTE semaine ISO + le prochain à partir.
     // Le tableau reflète la rotation (pas 6 contenus/semaine) et le compteur se remet à zéro chaque lundi.
-    const _DRIP2SEQ = { 'outlook': 'outlook-hebdo', 'decryptage': 'decryptage', 'point-marche': 'point-hebdo', 'mindset': 'mindset', 'recap-hebdo': 'recap-hebdo' };
+    const _DRIP2SEQ = { 'invitation': 'invitation', 'outlook': 'outlook-hebdo', 'decryptage': 'decryptage', 'point-marche': 'point-hebdo', 'mindset': 'mindset', 'recap-hebdo': 'recap-hebdo' };
     let _rotationSeqId = null, nextId = null, _curWeekIdx = 0;
     try { const _rs = _rotStepForWeek(); _rotationSeqId = _rs ? _DRIP2SEQ[_rs.id] : null; } catch {}
     try { const _ls = _loopStepFor(); nextId = _ls ? _DRIP2SEQ[_ls.id] : null; } catch {}   // prochain contenu à partir (cette semaine si son jour n'est pas passé, sinon la semaine prochaine)
