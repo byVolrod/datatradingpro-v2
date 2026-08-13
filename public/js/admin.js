@@ -484,7 +484,9 @@
     return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
   const _csHeure = function (ts) { return ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; };
-  const _csEsc = function (v) { return String(v == null ? '' : v).replace(/[<>&]/g, function (c) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]; }); };
+  // (_csEsc supprimée le 13/08 : c était le MÊME code que _escH, au caractère près, écrit deux fois
+  //  pour deux onglets qui ne se parlaient pas. Une seule règle d échappement dans tout le panneau —
+  //  et elle s applique désormais AUSSI aux listes qui affichent des adresses saisies à la main.)
   const _csDuree = function (ms) {
     if (ms == null) return '—';
     const m = Math.round(ms / 60000);
@@ -503,7 +505,7 @@
       // ERREUR VISIBLE : l'ancienne version avalait tout dans un try/catch muet et laissait le
       // contenu périmé à l'écran — on croyait lire des chiffres à jour.
       const tb = document.querySelector('#cs-liste tbody');
-      if (tb) tb.innerHTML = '<tr><td colspan="11" class="empty-state">Statistiques indisponibles : ' + _csEsc(e.message) + '</td></tr>';
+      if (tb) tb.innerHTML = '<tr><td colspan="11" class="empty-state">Statistiques indisponibles : ' + _escH(e.message) + '</td></tr>';
     }
   }
 
@@ -528,7 +530,7 @@
         const d = await fetch('/api/admin/campaign-compare').then(function (r) { return r.json(); });
         if (!d || !d.ok) throw new Error((d && d.error) || 'réponse invalide');
         _csCompCache = d;
-      } catch (e) { box.innerHTML = '<div class="empty-state">Comparaison indisponible : ' + _csEsc(e.message) + '</div>'; _csCompCache = null; return; }
+      } catch (e) { box.innerHTML = '<div class="empty-state">Comparaison indisponible : ' + _escH(e.message) + '</div>'; _csCompCache = null; return; }
     }
     csCompareRender(box, _csCompCache);
   };
@@ -552,7 +554,7 @@
       ['Dernier envoi', 'dernier', F_DATE, 0],
     ];
     let h = '<div class="camp-table-wrap"><table class="camp-table cs-table cs-comp-table"><thead><tr><th></th>'
-      + cols.map(function (c) { return '<th class="cs-comp-th"><b>' + _csEsc(_CS_TPL_FR[c.tpl] || c.tpl) + '</b><span class="cs-sub">' + _csEsc(c.tpl) + '</span></th>'; }).join('')
+      + cols.map(function (c) { return '<th class="cs-comp-th"><b>' + _escH(_CS_TPL_FR[c.tpl] || c.tpl) + '</b><span class="cs-sub">' + _escH(c.tpl) + '</span></th>'; }).join('')
       + '</tr></thead><tbody>';
     ROWS.forEach(function (row) {
       const label = row[0], k = row[1], fmt = row[2], sens = row[3];
@@ -572,10 +574,10 @@
     // Dernier objet parti : en pied, tronqué (contexte qualitatif, pas un KPI).
     h += '<tr><td class="cs-comp-lbl">Dernier objet</td>' + cols.map(function (c) {
       const o = c.dernierObjet || '';
-      return '<td class="cs-comp-obj"' + (o ? ' title="' + _csEsc(o) + '"' : '') + '>' + (o ? _csEsc(o.length > 46 ? o.slice(0, 45) + '…' : o) : '<span class="cs-nm">non conservé</span>') + '</td>';
+      return '<td class="cs-comp-obj"' + (o ? ' title="' + _escH(o) + '"' : '') + '>' + (o ? _escH(o.length > 46 ? o.slice(0, 45) + '…' : o) : '<span class="cs-nm">non conservé</span>') + '</td>';
     }).join('') + '</tr>';
     h += '</tbody></table></div>'
-      + '<p class="camp-note">' + _csEsc(d.note || '') + ' Délivrés, rebonds et plaintes : non mesurés (SMTP direct), jamais zéro.</p>';
+      + '<p class="camp-note">' + _escH(d.note || '') + ' Délivrés, rebonds et plaintes : non mesurés (SMTP direct), jamais zéro.</p>';
     box.innerHTML = h;
   }
 
@@ -610,8 +612,8 @@
         : '<span class="cs-badge cs-badge--ok">Envoi terminé</span>';
       const quand = x.consolide ? '<span class="cs-sub">avant le 13/07/2026</span>'
         : ('<b>' + _csDate(x.debut) + '</b>' + (x.fin && x.fin - x.debut > 3600000 ? '<span class="cs-sub">étalé sur ' + _csDuree(x.fin - x.debut) + '</span>' : ''));
-      const nom = '<b>' + _csEsc(x.titre || x.tpl) + '</b>'
-        + (x.objet ? '<span class="cs-sub" title="' + _csEsc(x.objet) + '">' + _csEsc(x.objet) + '</span>'
+      const nom = '<b>' + _escH(x.titre || x.tpl) + '</b>'
+        + (x.objet ? '<span class="cs-sub" title="' + _escH(x.objet) + '">' + _escH(x.objet) + '</span>'
                    : (x.consolide ? '' : '<span class="cs-sub cs-nm">objet non conservé</span>'));
       return '<tr' + (x.consolide ? ' class="cs-tr--hist"' : '') + '>'
         + '<td>' + quand + '</td>'
@@ -654,7 +656,7 @@
     ];
     host.innerHTML = cartes.map(function (c) {
       return '<div class="cs-ins" style="--kc:' + c.c + '"><div class="cs-ins-v">' + c.v + '</div>'
-        + '<div class="cs-ins-l">' + c.l + '</div><div class="cs-ins-s">' + _csEsc(c.s) + '</div></div>';
+        + '<div class="cs-ins-l">' + c.l + '</div><div class="cs-ins-s">' + _escH(c.s) + '</div></div>';
     }).join('');
   }
 
@@ -672,7 +674,7 @@
       csRenderDetail();
     } catch (e) {
       document.getElementById('cs-d-titre').textContent = 'Campagne indisponible';
-      document.getElementById('cs-d-entete').innerHTML = '<div class="empty-state">' + _csEsc(e.message) + '</div>';
+      document.getElementById('cs-d-entete').innerHTML = '<div class="empty-state">' + _escH(e.message) + '</div>';
     }
   }
   function csFermer() {
@@ -688,7 +690,7 @@
     document.getElementById('cs-d-titre').textContent = c.titre || c.tpl;
     document.getElementById('cs-d-entete').innerHTML =
       '<div class="cs-ent-l"><span class="cs-ent-k">Objet</span><span class="cs-ent-v">'
-        + (c.objet ? _csEsc(c.objet) : '<span class="cs-nm">non conservé pour cet envoi</span>') + '</span></div>'
+        + (c.objet ? _escH(c.objet) : '<span class="cs-nm">non conservé pour cet envoi</span>') + '</span></div>'
       + '<div class="cs-ent-l"><span class="cs-ent-k">Envoyé le</span><span class="cs-ent-v">' + _csDate(c.debut)
         + (c.fin && c.fin - c.debut > 3600000 ? ' → ' + _csHeure(c.fin) + ' (étalé sur ' + _csDuree(c.fin - c.debut) + ')' : '') + '</span></div>'
       + '<div class="cs-ent-l"><span class="cs-ent-k">Audience</span><span class="cs-ent-v">' + (c.audience != null ? c.audience + ' contacts ciblés' : '<span class="cs-nm">non conservée</span>') + '</span></div>'
@@ -712,7 +714,7 @@
       ? Object.keys(liens).sort(function (a, b) { return liens[b] - liens[a]; }).map(function (u, i) {
           const p = Math.round((liens[u] / tot) * 1000) / 10;
           return '<div class="cs-lien"><span class="cs-lien-r">' + (i + 1) + '</span>'
-            + '<span class="cs-lien-u" title="' + _csEsc(u) + '">' + _csEsc(u) + '</span>'
+            + '<span class="cs-lien-u" title="' + _escH(u) + '">' + _escH(u) + '</span>'
             + '<span class="cs-lien-n">' + liens[u] + '</span>'
             + '<span class="cs-lien-b"><i style="width:' + p + '%"></i></span>'
             + '<span class="cs-lien-p">' + String(p).replace('.', ',') + '%</span></div>';
@@ -720,7 +722,7 @@
       : '<div class="cs-vide">Le détail par lien est enregistré depuis le 6 août 2026. Il apparaîtra dès les prochains clics.</div>';
 
     document.getElementById('cs-d-apercu').innerHTML = d.html
-      ? '<div class="cs-bloc-t">Le mail réellement envoyé</div><iframe class="cs-frame" sandbox="" srcdoc="' + _csEsc(d.html).replace(/"/g, '&quot;') + '"></iframe>'
+      ? '<div class="cs-bloc-t">Le mail réellement envoyé</div><iframe class="cs-frame" sandbox="" srcdoc="' + _escH(d.html).replace(/"/g, '&quot;') + '"></iframe>'
       : '<div class="cs-vide">Le contenu envoyé n’a pas été archivé pour cette campagne. Ré-afficher l’aperçu du gabarit montrerait le contenu d’aujourd’hui, pas celui qui est parti — on préfère ne rien montrer.</div>';
 
     csDest();
@@ -777,7 +779,7 @@
     const page = r.slice(_csPage * _CS_PAGE, (_csPage + 1) * _CS_PAGE);
     const tb = document.querySelector('#cs-d-dest tbody');
     tb.innerHTML = page.length ? page.map(function (x) {
-      return '<tr><td>' + _csEsc(x.email) + '</td><td>' + _csDate(x.recu) + '</td>'
+      return '<tr><td>' + _escH(x.email) + '</td><td>' + _csDate(x.recu) + '</td>'
         + '<td>' + (x.ouvert ? '<span class="cs-oui">oui</span>' : '<span class="cs-non">non</span>') + '</td>'
         + '<td>' + x.nOuv + '</td><td>' + _csDate(x.ouvPremiere) + '</td><td>' + _csDate(x.ouvDerniere) + '</td>'
         + '<td>' + (x.clique ? '<span class="cs-oui">oui</span>' : '<span class="cs-non">non</span>') + '</td>'
@@ -828,7 +830,7 @@
       const cnt = document.getElementById('camp-bl-count'); if (cnt) cnt.textContent = list.length + ' bloqué' + (list.length > 1 ? 's' : '');
       const box = document.getElementById('camp-bl-list'); if (!box) return;
       box.innerHTML = list.length
-        ? list.map(function(e){ return '<div class="camp-bl-row"><span class="camp-bl-em">' + e + '</span><button class="camp-bl-x" onclick="blRemove(\'' + encodeURIComponent(e) + '\')">retirer</button></div>'; }).join('')
+        ? list.map(function(e){ return '<div class="camp-bl-row"><span class="camp-bl-em">' + _escH(e) + '</span><button class="camp-bl-x" onclick="blRemove(\'' + encodeURIComponent(e) + '\')">retirer</button></div>'; }).join('')
         : '<div class="empty-state">Aucun e-mail en liste noire.</div>';
     } catch {}
   }
@@ -876,8 +878,8 @@
           : /Bienvenue|Renouvellement/.test(r.type) ? 'badge-pro'
           : 'badge-essai';   // cycle de vie (essai, expiré, relances, jalons) → or
         return '<tr><td style="font-family:var(--font-mono);font-size:11px;color:var(--text3);white-space:nowrap">' + when + '</td>'
-          + '<td><span class="badge ' + cls + '">' + r.type + '</span></td>'
-          + '<td class="email">' + r.dest + '</td></tr>';
+          + '<td><span class="badge ' + cls + '">' + _escH(r.type) + '</span></td>'
+          + '<td class="email">' + _escH(r.dest) + '</td></tr>';
       }).join('') : '<tr><td colspan="3" class="empty-state">Aucun envoi ' + (q ? 'ne correspond au filtre.' : 'enregistré.') + '</td></tr>';
     } catch { tb.innerHTML = '<tr><td colspan="3" class="empty-state">Erreur de chargement.</td></tr>'; }
   }
@@ -894,7 +896,7 @@
       const box = document.getElementById('camp-gift-list'); if (!box) return;
       box.innerHTML = list.length
         ? list.map(function(e){
-            return '<div class="camp-bl-row"><span class="camp-bl-em">' + e + '</span>' +
+            return '<div class="camp-bl-row"><span class="camp-bl-em">' + _escH(e) + '</span>' +
               (seed.indexOf(e) >= 0
                 ? '<span class="camp-bl-x" style="opacity:.55;cursor:default">fixé dans le code</span>'
                 : '<button class="camp-bl-x" onclick="giftRemove(\'' + encodeURIComponent(e) + '\')">retirer</button>') +
@@ -940,9 +942,9 @@
     box.innerHTML = '<div class="camp-recip-head">' + filtered.length + ' e-mail(s)</div>' + filtered.map(function(r){
       const seg = r.seg || 'lead';
       const chip = seg === 'active' ? 'active' : (seg === 'churned' ? 'churn' : 'lead');
-      return '<div class="camp-recip-row"><span class="camp-recip-em">' + r.email + '</span>'
+      return '<div class="camp-recip-row"><span class="camp-recip-em">' + _escH(r.email) + '</span>'
         + '<span class="camp-chip camp-chip--' + chip + '">' + seg + '</span>'
-        + '<span class="camp-recip-src">' + (r.src || '') + '</span></div>';
+        + '<span class="camp-recip-src">' + _escH(r.src || '') + '</span></div>';
     }).join('');
   }
   // ── LA CAMPAGNE — interrupteur UNIQUE (état + prochain e-mail + 1 bouton) ──

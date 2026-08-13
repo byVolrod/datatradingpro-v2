@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260813-admin-echappement', ts: Date.UTC(2026, 7, 13, 23, 0), title: 'Panneau d administration : listes de contacts sécurisées', desc: 'Les listes qui affichent des adresses e-mail (liste noire, accès offerts, destinataires, journal des envois) échappent désormais leur contenu, et les adresses contenant des caractères de balisage sont refusées dès l inscription. Aucune action de votre part.' },
   { id: 'dtpu-20260813-campagne-coherence', ts: Date.UTC(2026, 7, 13, 22, 0), title: 'Campagne e-mail : la semaine Invitation retrouve ses repères', desc: 'Une semaine sur six, celle du mail Invitation, le programme perdait son repère « cette semaine » et son bandeau de prochain envoi — précisément la semaine où ce mail part à toute la liste. C est réparé. Le nombre de contacts exclus d un envoi ne compte plus deux fois une même adresse, et le panneau ne recharge plus en continu des blocs que vous ne regardez pas.' },
   { id: 'dtpu-20260813-pilotage-allege', ts: Date.UTC(2026, 7, 13, 21, 0), title: 'Campagne e-mail : un écran de pilotage allégé', desc: 'La grille de douze indicateurs du Pilotage disparaît : elle répétait deux fois les mêmes nombres et quatre de ses cartes ne mesuraient que le mail de bienvenue tout en s affichant comme les chiffres de la campagne. Les données d audience restent dans l onglet Audience, les résultats par envoi dans Statistiques. Le prochain e-mail annonce maintenant le bon contenu et sa vraie heure de départ.' },
   { id: 'dtpu-20260813-analyses-tag-pays', ts: Date.UTC(2026, 7, 13, 20, 0), title: 'Analyses de données : un tag en moins, une heure juste', desc: 'Sur les analyses d événement, le tag de pays disparaît quand le titre le dit déjà — ANALYSE PPI US n a pas besoin d une étiquette US à côté. Le tag de la paire la plus exposée, lui, reste en tête.' },
@@ -17018,7 +17019,22 @@ app.get('/internal/email-campaign', (_req, res) => {
 // les unsub à chaud, freshness) pour éviter un double balayage.
 async function _campaignAudience(opts = {}) {
   const _norm = e => String(e || '').toLowerCase().trim();
-  const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  // Défense en profondeur (13/08) : cette règle laissait passer < et > — une inscription avec une
+  // adresse du type a<svg/onload=…>@x.com était donc STOCKÉE, puis rendue telle quelle dans les
+  // listes du panneau admin (liste noire, accès offerts, destinataires, journal). Ces listes sont
+  // désormais échappées ; on refuse EN PLUS la donnée à l'entrée, pour ne pas dépendre du seul
+  // échappement d'affichage. Les caractères écartés (< > " ' &) n'ont aucun usage légitime dans une
+  // adresse e-mail réelle.
+  // Défense en profondeur (13/08) : cette règle laissait passer < et > — une inscription avec une
+  // adresse du type a<svg/onload=…>@x.com était donc STOCKÉE, puis rendue telle quelle dans les
+  // listes du panneau admin (liste noire, accès offerts, destinataires, journal). Ces listes sont
+  // désormais échappées ; on refuse EN PLUS la donnée à l'entrée, pour ne pas dépendre du seul
+  // échappement d'affichage.
+  // On n'écarte QUE < > et " : aucun usage réel dans une adresse, et le guillemet protège le seul
+  // endroit où une valeur atterrit dans un ATTRIBUT (data-email="…"). L'apostrophe et l'esperluette
+  // restent acceptées — elles sont légales et bien réelles (o'brien@…), les refuser bloquerait de
+  // vrais clients ; l'échappement d'affichage les traite déjà.
+  const _valid = e => /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(e);
   const byEmail = new Map();
   let dtpSeen = 0, whopSeen = 0, extraSeen = 0, invalid = 0;
   // ADRESSES uniques, pas occurrences (13/08) : _add est appelé UNE FOIS PAR SOURCE, donc une adresse
@@ -17156,7 +17172,22 @@ app.post('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (req
 // espace/virgule/point-virgule/retour ligne) · ?action=remove&email=a@x.com · sans action → liste. N'envoie RIEN.
 app.get('/api/admin/campaign-extra', requireSameOrigin, requireAdmin, async (req, res) => {
   const _norm = e => String(e || '').toLowerCase().trim();
-  const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  // Défense en profondeur (13/08) : cette règle laissait passer < et > — une inscription avec une
+  // adresse du type a<svg/onload=…>@x.com était donc STOCKÉE, puis rendue telle quelle dans les
+  // listes du panneau admin (liste noire, accès offerts, destinataires, journal). Ces listes sont
+  // désormais échappées ; on refuse EN PLUS la donnée à l'entrée, pour ne pas dépendre du seul
+  // échappement d'affichage. Les caractères écartés (< > " ' &) n'ont aucun usage légitime dans une
+  // adresse e-mail réelle.
+  // Défense en profondeur (13/08) : cette règle laissait passer < et > — une inscription avec une
+  // adresse du type a<svg/onload=…>@x.com était donc STOCKÉE, puis rendue telle quelle dans les
+  // listes du panneau admin (liste noire, accès offerts, destinataires, journal). Ces listes sont
+  // désormais échappées ; on refuse EN PLUS la donnée à l'entrée, pour ne pas dépendre du seul
+  // échappement d'affichage.
+  // On n'écarte QUE < > et " : aucun usage réel dans une adresse, et le guillemet protège le seul
+  // endroit où une valeur atterrit dans un ATTRIBUT (data-email="…"). L'apostrophe et l'esperluette
+  // restent acceptées — elles sont légales et bien réelles (o'brien@…), les refuser bloquerait de
+  // vrais clients ; l'échappement d'affichage les traite déjà.
+  const _valid = e => /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(e);
   try {
     let list = await auth.aiCacheGet('campaign:extra-emails', 366 * 86400000);
     if (!Array.isArray(list)) list = [];
@@ -17185,7 +17216,22 @@ app.get('/api/admin/campaign-extra', requireSameOrigin, requireAdmin, async (req
 // requireAuth verifie la blacklist). Retirer = reautorise. ?action=add&emails=... | ?action=remove&email=... | (liste).
 app.get('/api/admin/blacklist', requireSameOrigin, requireAdmin, (req, res) => {
   const _norm = e => String(e || '').toLowerCase().trim();
-  const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  // Défense en profondeur (13/08) : cette règle laissait passer < et > — une inscription avec une
+  // adresse du type a<svg/onload=…>@x.com était donc STOCKÉE, puis rendue telle quelle dans les
+  // listes du panneau admin (liste noire, accès offerts, destinataires, journal). Ces listes sont
+  // désormais échappées ; on refuse EN PLUS la donnée à l'entrée, pour ne pas dépendre du seul
+  // échappement d'affichage. Les caractères écartés (< > " ' &) n'ont aucun usage légitime dans une
+  // adresse e-mail réelle.
+  // Défense en profondeur (13/08) : cette règle laissait passer < et > — une inscription avec une
+  // adresse du type a<svg/onload=…>@x.com était donc STOCKÉE, puis rendue telle quelle dans les
+  // listes du panneau admin (liste noire, accès offerts, destinataires, journal). Ces listes sont
+  // désormais échappées ; on refuse EN PLUS la donnée à l'entrée, pour ne pas dépendre du seul
+  // échappement d'affichage.
+  // On n'écarte QUE < > et " : aucun usage réel dans une adresse, et le guillemet protège le seul
+  // endroit où une valeur atterrit dans un ATTRIBUT (data-email="…"). L'apostrophe et l'esperluette
+  // restent acceptées — elles sont légales et bien réelles (o'brien@…), les refuser bloquerait de
+  // vrais clients ; l'échappement d'affichage les traite déjà.
+  const _valid = e => /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(e);
   try {
     const action = String(req.query.action || '');
     if (action === 'add') {
