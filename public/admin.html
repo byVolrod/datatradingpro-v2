@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg659" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg660" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -313,10 +313,9 @@
             <p class="camp-note">Un pré-vol vérifie tout avant chaque envoi. Anomalie critique = campagne en pause + alerte, à relancer après correction (aucun renvoi possible).</p>
           </div>
         </div>
-        <div class="panel-card">
-          <div class="panel-head"><h2>Vue d'ensemble</h2></div>
-          <div class="panel-body"><div id="camp-dash-kpis" class="kpi-grid"></div></div>
-        </div>
+        <!-- « Vue d'ensemble » retirée le 13/08 : 12 cartes pour 6 nombres, dont 4 faux (voir le
+             commentaire de loadDashboard dans admin.js). Les chiffres d audience vivent dans
+             l onglet AUDIENCE, ceux par envoi dans STATISTIQUES. -->
         <div class="panel-card">
           <div class="panel-head"><h2>Délivrabilité</h2></div>
           <div class="panel-body"><div id="camp-deliv"><div class="skel" style="height:106px"></div></div></div>
@@ -721,6 +720,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260813bbg659"></script>
+<script src="/js/admin.js?v=20260813bbg660"></script>
 </body>
 </html>

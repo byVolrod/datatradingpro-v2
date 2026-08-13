@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260813-pilotage-allege', ts: Date.UTC(2026, 7, 13, 21, 0), title: 'Campagne e-mail : un écran de pilotage allégé', desc: 'La grille de douze indicateurs du Pilotage disparaît : elle répétait deux fois les mêmes nombres et quatre de ses cartes ne mesuraient que le mail de bienvenue tout en s affichant comme les chiffres de la campagne. Les données d audience restent dans l onglet Audience, les résultats par envoi dans Statistiques. Le prochain e-mail annonce maintenant le bon contenu et sa vraie heure de départ.' },
   { id: 'dtpu-20260813-analyses-tag-pays', ts: Date.UTC(2026, 7, 13, 20, 0), title: 'Analyses de données : un tag en moins, une heure juste', desc: 'Sur les analyses d événement, le tag de pays disparaît quand le titre le dit déjà — ANALYSE PPI US n a pas besoin d une étiquette US à côté. Le tag de la paire la plus exposée, lui, reste en tête.' },
   { id: 'dtpu-20260813-couleurs-inflation', ts: Date.UTC(2026, 7, 13, 19, 0), title: 'Radar de Biais : les couleurs disent toutes la même chose', desc: 'Dans le tableau macro, le NIVEAU d inflation s affichait sur une échelle de température (doré quand élevé, bleu quand bas) pendant que tout le reste du tableau parlait en impact sur la devise. Une inflation Élevée sortait donc dorée juste à côté d une Hausse verte, alors que les deux disent la même chose. Désormais une seule lecture partout : vert = soutient la devise, rouge = pèse sur elle, gris = neutre.' },
   { id: 'dtpu-20260813-analyses-donnees-us', ts: Date.UTC(2026, 7, 13, 18, 0), title: 'Quatre nouvelles données américaines désormais analysées', desc: 'Les prix à la production (PPI), l emploi privé ADP, les postes à pourvoir (JOLTS) et les ventes au détail donnent maintenant lieu à une analyse complète environ une heure après leur publication, comme le CPI ou le PIB : le chiffre face aux attentes, ce qui a surpris, la réaction des marchés et ce que la Fed peut en tirer. Le rapport de midi s appelle désormais Point Marché · Ouverture US.' },
@@ -17785,12 +17786,11 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
     const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
     const bl = auth.listBlacklist().length;
     const unsub = _campaignStats._unsub ? Object.keys(_campaignStats._unsub).length : 0;
-    const s = _campaignStats['intro-v1'] || { sent: {}, opens: {}, clicks: {} };
-    const sentN = Object.keys(s.sent).length, openN = Object.keys(s.opens).length, clickN = Object.keys(s.clicks).length;
-    const sends = Object.values(s.sent); const lastSentAt = sends.length ? Math.max.apply(null, sends) : null;
-    let premium = 0, expired = 0;
-    for (const rc of aud.recipients) { if (rc.segment === 'active') premium++; else if (rc.segment === 'churned') expired++; }
-    const nextStep = CAMPAIGN_SEQUENCE.find(st => { const stt = _campaignStats[st.id]; return !(stt && Object.keys(stt.sent || {}).length); });
+    // (Bloc « KPI campagne » retiré le 13/08 avec la grille « Vue d ensemble » du Pilotage : les
+    //  taux étaient calculés sur le SEUL mail Bienvenue (_campaignStats['intro-v1']) tout en étant
+    //  affichés comme les taux de la campagne, et nextStep cherchait une étape jamais envoyée — la
+    //  rotation étant infinie, il valait undefined en permanence. Les taux réels, par envoi, sont
+    //  servis par /api/admin/campaigns et affichés dans l onglet STATISTIQUES.)
     // Score delivrabilite : SPF+DKIM+DMARC verifies PASS en prod (voir memoire). SMTP OVH operationnel.
     // ⚠️ CORRIGÉ 06/08 — CE « SCORE » ÉTAIT UNE CONSTANTE. Les quatre contrôles étaient écrits en dur
     // à « pass » et le score valait donc invariablement 100, quoi qu'il arrive au domaine. Un panneau
@@ -17803,11 +17803,8 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
     res.json({ ok: true,
       kpis: {
         total: r.total, active: r.segments.active, lead: r.segments.lead, churn: r.segments.churned,
-        premium, expired, unsub, blacklist: bl,
+        unsub, blacklist: bl,
         dtp: r.dtpAccounts, whop: r.whopContacts, manual: r.manualExtra,
-        openRate: pct(openN, sentN), ctr: pct(clickN, sentN), sent: sentN,
-        lastCampaign: sentN ? { title: 'Bienvenue : introduction', sentAt: lastSentAt, sent: sentN } : null,
-        nextCampaign: nextStep ? { title: nextStep.title, week: nextStep.week } : null,
       },
       deliverability: { checks, score, reputation: null, nonMesure: true,
         note: 'Configuration déclarée, non vérifiée — aucune mesure de délivrabilité réelle n\'est disponible sur un envoi SMTP direct.' },

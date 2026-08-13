@@ -391,30 +391,20 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (p[n] || '') + '</svg>';
   }
   async function loadDashboard(){
-    const box = document.getElementById('camp-dash-kpis');
-    if (box && !box.children.length) box.innerHTML = new Array(12).fill('<div class="skel" style="height:96px"></div>').join('');
+    // ── GRILLE « VUE D ENSEMBLE » RETIRÉE (13/08, demande user « trop d information, simplifie ») ──
+    // Ses 12 cartes ne portaient que 6 nombres distincts, et 4 étaient faux :
+    //  · « Actifs » et « Clients Premium » affichaient LE MÊME nombre (segments.active recompté),
+    //    « Churn » et « Comptes expirés » aussi (segments.churned) — 4 cartes, 2 chiffres ;
+    //  · « Taux d ouverture », « CTR » et « Dernière campagne » ne mesuraient QUE le mail Bienvenue
+    //    (_campaignStats['intro-v1']) tout en s intitulant comme s ils couvraient la campagne ;
+    //  · « Prochaine campagne » cherchait une étape jamais envoyée : la rotation étant infinie et
+    //    toutes les étapes déjà parties, elle affichait « — / Séquence terminée » À VIE.
+    // Les 8 cartes restantes (total, actifs, leads, churn, désabonnés, blacklist, sources) sont déjà
+    // affichées par l onglet AUDIENCE, qui est leur place. Rien n est perdu, un écran est allégé.
+    // Les vrais chiffres par envoi vivent dans l onglet STATISTIQUES.
     try {
-      const d = await fetch('/api/admin/campaign-dashboard').then(function(r){ return r.json(); });
-      if (!d || !d.kpis) return;
-      const k = d.kpis;
-      const last = k.lastCampaign, next = k.nextCampaign;
-      const cards = [
-        { ic:'users', c:'#e3b23a', v:k.total, l:'Destinataires uniques', t:'Total dédupliqué : DTP + Whop + manuel' },
-        { ic:'user-check', c:'#00e676', v:k.active, l:'Actifs', t:'Abonnement en cours' },
-        { ic:'crown', c:'#e3b23a', v:k.premium, l:'Clients Premium', t:'Abonnés actifs (payants)' },
-        { ic:'user-plus', c:'#8b93a1', v:k.lead, l:'Leads', t:'Contacts sans abonnement' },
-        { ic:'user-minus', c:'#ffb300', v:k.churn, l:'Churn', t:'Résiliés / expirés : cibles win-back' },
-        { ic:'clock', c:'#ffb300', v:k.expired, l:'Comptes expirés', t:'Abonnement terminé' },
-        { ic:'bell-off', c:'#ff3d00', v:k.unsub, l:'Désabonnés', t:'Opt-out e-mail (exclus)' },
-        { ic:'ban', c:'#ff3d00', v:k.blacklist, l:'Blacklist', t:'E-mails bloqués partout' },
-        { ic:'mail-open', c:'#3aa0e0', v:k.openRate + '%', l:'Taux d’ouverture', t:'Ouvertures uniques / envoyés' },
-        { ic:'pointer', c:'#3aa0e0', v:k.ctr + '%', l:'CTR', t:'Clics uniques / envoyés' },
-        { ic:'send', c:'#9aa3b2', v:last ? _campFmt(last.sentAt) : '—', l:'Dernière campagne', t:last ? (last.title + ' · ' + last.sent + ' envoyés') : 'Aucune campagne envoyée' },
-        { ic:'calendar', c:'#9aa3b2', v:next ? ('S' + next.week) : '—', l:'Prochaine campagne', t:next ? (next.title + ' : non programmée') : 'Séquence terminée' }
-      ];
-      box.innerHTML = cards.map(function(c){
-        return '<div class="kpi-card" style="--kc:' + c.c + '" title="' + String(c.t).replace(/"/g,'') + '"><div class="kpi-top"><div class="kpi-ic">' + _lucide(c.ic) + '</div></div><div class="kpi-val">' + c.v + '</div><div class="kpi-lbl">' + c.l + '</div></div>';
-      }).join('');
+      const d = await fetch('/api/admin/campaign-dashboard').then(function (r) { return r.json(); });
+      if (!d || !d.deliverability) return;
       const dv = d.deliverability, ch = dv.checks;
       // « Score 100 » était une CONSTANTE côté serveur : rien n'était mesuré. On ne remplace pas un
       // faux chiffre par un autre — l'anneau disparaît et la section dit ce qu'elle est vraiment.
