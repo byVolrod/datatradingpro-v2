@@ -1573,6 +1573,11 @@
           });
           var cap = 25 + plus;                               // fenêtre de départ ; « Charger plus » l'étend
           var rows = tout.slice(0, cap);
+          // GRAPPES DE PROPOS (13/08, « ça spam trop ») : le desk replie les citations d une même
+          // personne en UNE carte (renderNews) ; ce widget rendait chaque propos en ligne pleine —
+          // une audition de la Fed noyait le widget sous 10 lignes quasi identiques. Même fonction
+          // que le desk, appliquée APRÈS la fenêtre et AVANT la signature de rendu.
+          if (typeof window.groupSpeakerQuotes === 'function') { try { rows = window.groupSpeakerQuotes(rows); } catch (e) {} }
           if (count) count.textContent = rows.length + ' items';   // (compteur retiré — garde inoffensive)
           if (!rows.length) {
             liste.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">' + (ql || Object.keys(off).length ? 'Aucun élément ne correspond.' : 'Fil en cours de chargement…') + '</div>';

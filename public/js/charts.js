@@ -5216,11 +5216,14 @@ window._retryCalendar = function() {
         && !/^\s*\[?\s*primer\b/i.test(n.headline || '')
         && ((re && re.test(n.headline || '')) || (Array.isArray(n.tags) && n.tags.some(t => ccys.includes((t || '').toUpperCase()))))
       ).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 40);
-      if (!items.length) { nl.innerHTML = '<div class="sym-empty">Pas de news récente pour ' + pretty(pair) + '.</div>'; return; }
+      // Grappes de propos repliées comme dans le fil du desk (13/08) : sans ça, une audition de
+      // banque centrale remplissait tout le volet de la paire avec 10 citations du même orateur.
+      const items2 = (typeof window.groupSpeakerQuotes === 'function') ? window.groupSpeakerQuotes(items) : items;
+      if (!items2.length) { nl.innerHTML = '<div class="sym-empty">Pas de news récente pour ' + pretty(pair) + '.</div>'; return; }
       nl.innerHTML = '';
       const frag = document.createDocumentFragment();
       let lastD = '';
-      items.forEach(n => {
+      items2.forEach(n => {
         const ts = n.timestamp || 0;
         if (ts) {
           const dk = new Date(ts).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });

@@ -16718,3 +16718,14 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
     linear-gradient(88deg, transparent 78%, rgba(139, 122, 216, .38) 79%, transparent 80.2%),
     repeating-linear-gradient(180deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 6px);
 }
+
+/* Compteur de grappe de propos (13/08) : une carte qui replie 6 déclarations doit le DIRE — sinon
+   elle se lit comme un propos isolé et l utilisateur ne déplie jamais. Discret, jamais clignotant
+   (règle desk : aucune animation sur les indicateurs du fil live). */
+.news-grp-cpt {
+  display: inline-flex; align-items: center; margin-left: 7px; padding: 1px 5px;
+  border: 1px solid rgba(227, 178, 58, .3); border-radius: 3px;
+  background: rgba(227, 178, 58, .09); color: var(--orange, #e3b23a);
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .02em; vertical-align: middle; white-space: nowrap;
+}

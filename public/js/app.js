@@ -1189,7 +1189,8 @@ function getFilteredItems() {
 // When 2+ items from the same speaker arrive within 30 min with no opener,
 // collapse them into a single card with all quotes inside the Info panel.
 function _groupSpeakerQuotes(items) {
-  const WINDOW   = 30 * 60 * 1000; // 30-minute window for grouping
+  const WINDOW   = 30 * 60 * 1000; // écart max entre deux citations d'une même grappe
+  const MAX_SPAN = 3 * 60 * 60 * 1000;   // durée max d'UNE intervention (au-delà : nouvelle carte)
   const skipIds  = new Set();
   const groupMap = new Map(); // primaryId → [secondary items]
 
@@ -1214,16 +1215,29 @@ function _groupSpeakerQuotes(items) {
     if (coveredByOpener && !isOpener) { skipIds.add(item.id); continue; }
     if (isOpener) continue; // let opener handle its own grouping
 
-    // Group consecutive quotes from same speaker
+    // Group consecutive quotes from same speaker.
+    // FENÊTRE GLISSANTE (13/08) : la fenêtre était FIXE autour de la 1re citation — une conférence
+    // de presse ou une audition qui débite des propos pendant 45 min se retrouvait coupée en
+    // plusieurs cartes, et le fil re-spammait. La grappe s ÉTEND désormais depuis la citation la
+    // plus récemment rattachée (on re-balaie tant qu elle grandit), bornée par MAX_SPAN pour ne
+    // jamais fusionner deux interventions distinctes de la même personne dans la journée.
     const grouped = [];
-    for (let j = i + 1; j < items.length; j++) {
-      const other = items[j];
-      if (skipIds.has(other.id)) continue;
-      if (Math.abs(other.timestamp - item.timestamp) > WINDOW) continue;
-      if (getSpeakerKey(other.headline) !== spKey) continue;
-      if (!isSpeakerQuote(other) && !isSpeakerOpener(other)) continue;
-      grouped.push(other);
-      skipIds.add(other.id);
+    let lo = item.timestamp, hi = item.timestamp, encore = true;
+    while (encore) {
+      encore = false;
+      for (let j = i + 1; j < items.length; j++) {
+        const other = items[j];
+        if (skipIds.has(other.id)) continue;
+        const ts = other.timestamp || 0;
+        if (ts < lo - WINDOW || ts > hi + WINDOW) continue;                       // hors de portée
+        if (Math.max(hi, ts) - Math.min(lo, ts) > MAX_SPAN) continue;             // trop long = autre intervention
+        if (getSpeakerKey(other.headline) !== spKey) continue;
+        if (!isSpeakerQuote(other) && !isSpeakerOpener(other)) continue;
+        grouped.push(other);
+        skipIds.add(other.id);
+        lo = Math.min(lo, ts); hi = Math.max(hi, ts);
+        encore = true;                                                            // la grappe a grandi
+      }
     }
 
     if (grouped.length > 0) groupMap.set(item.id, grouped);
@@ -1260,6 +1274,8 @@ function _alignLimitToDay(filtered, limit) {
   while (end < filtered.length && formatDate(filtered[end].timestamp) === lastDay) end++;
   return end;
 }
+try { window.groupSpeakerQuotes = _groupSpeakerQuotes; } catch {}   // partagé : widget Actus + news de paire
+
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
   _syncNewsModeBtn();
@@ -2488,6 +2504,14 @@ function buildNewsItem(item) {
     headline.appendChild(titleSpan);
   } else {
     headline.textContent = _newsDisplayTitle(item);   // reframe explicatif pour les news « propos » (_infoQuote), sinon titre normal
+  }
+  // Grappe de propos repliée : la ligne annonce ce qu elle contient, sinon elle donne l illusion
+  // d un propos isolé alors que 5 autres attendent au déplié.
+  if (hasGrouped) {
+    const cpt = document.createElement('span');
+    cpt.className = 'news-grp-cpt';
+    cpt.textContent = '+' + item._groupedQuotes.length + ' propos';
+    headline.appendChild(cpt);
   }
   content.appendChild(headline);
 
