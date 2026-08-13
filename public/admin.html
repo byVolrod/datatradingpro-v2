@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg663" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg664" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -361,7 +361,7 @@
               <input id="maillog-search" placeholder="Filtrer par e-mail…" oninput="clearTimeout(window._mlT);window._mlT=setTimeout(loadMailLog,300)" />
               <select id="maillog-type" onchange="loadMailLog()"><option value="">Tous les types</option></select>
             </div>
-            <div style="overflow-x:auto">
+            <div class="table-wrap">
               <table class="users-table">
                 <thead><tr><th>Date &amp; heure</th><th>Type d'envoi</th><th>Destinataire</th></tr></thead>
                 <tbody id="maillog-tbody"><tr><td colspan="3" class="empty-state">Chargement…</td></tr></tbody>
@@ -439,7 +439,7 @@
             <!-- ── Comparaison côte à côte PAR TEMPLATE (repliée par défaut, chargée au 1er clic) ── -->
             <div class="cs-compare" id="cs-compare" hidden></div>
             <div class="cs-insights" id="cs-insights"></div>
-            <div class="camp-table-wrap">
+            <div class="table-wrap">
               <table class="camp-table cs-table" id="cs-liste">
                 <thead><tr>
                   <th class="sortable" data-k="debut">Envoi</th>
@@ -483,7 +483,7 @@
             </div>
             <div class="cs-bloc-t">Destinataires</div>
             <div class="camp-aud-seg" id="cs-d-filtres"></div>
-            <div class="camp-table-wrap">
+            <div class="table-wrap">
               <table class="camp-table cs-table" id="cs-d-dest">
                 <thead><tr>
                   <th>E-mail</th><th>Reçu</th><th>A ouvert</th><th>Ouvertures</th>
@@ -499,7 +499,7 @@
         </div>
       </div>
 
-      <div class="camp-toasts" id="camp-toasts"></div>
+      <!-- #camp-toasts retire : showToast cree son propre conteneur (une seule pile de notifications) -->
     </section>
 
     <!-- ─────────── SYSTÈME · IA & quotas ─────────── -->
@@ -720,6 +720,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260813bbg663"></script>
+<script src="/js/admin.js?v=20260813bbg664"></script>
 </body>
 </html>

@@ -215,11 +215,11 @@
   function _dt(ts){ try { return ts ? new Date(ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'; } catch (e) { return '—'; } }
   function _dj(ts){ try { return ts ? new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : ''; } catch (e) { return ''; } }
   function _campMsg(t){ const e = document.getElementById('camp-msg'); if (e) e.textContent = t || ''; if (t && /[✅❌]/.test(t)) campToast(t, /❌/.test(t)); }
-  function campToast(msg, isErr){
-    const box = document.getElementById('camp-toasts'); if (!box) return;
-    const t = document.createElement('div'); t.className = 'camp-toast' + (isErr ? ' camp-toast--err' : ''); t.textContent = msg;
-    box.appendChild(t); setTimeout(function(){ t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 320); }, 3600);
-  }
+  // DEUX SYSTÈMES DE NOTIFICATION cohabitaient (13/08) : campToast, qui écrivait dans un conteneur
+  // statique #camp-toasts, et showToast, qui crée le sien à la volée — positionnés EXACTEMENT au même
+  // coin, donc capables de se superposer. Les styles des bulles étaient déjà mutualisés en CSS, ce qui
+  // montrait que la duplication n était que structurelle. campToast devient un simple alias.
+  function campToast(msg, isErr){ showToast(msg, isErr ? 'err' : ''); }   // showToast : déclaration hoistée
   function campSub(name){
     if (name === 'dashboard' || name === 'campagnes') name = 'pilotage';   // anciens onglets fusionnés dans « Pilotage »
     if (!document.querySelector('#tab-campaign .camp-sub[data-sub="' + name + '"]')) name = 'pilotage';   // deep-link inconnu → Pilotage
@@ -570,7 +570,7 @@
       ['Désabonnés', 'desabos', F_INT, -1],
       ['Dernier envoi', 'dernier', F_DATE, 0],
     ];
-    let h = '<div class="camp-table-wrap"><table class="camp-table cs-table cs-comp-table"><thead><tr><th></th>'
+    let h = '<div class="table-wrap"><table class="camp-table cs-table cs-comp-table"><thead><tr><th></th>'
       + cols.map(function (c) { return '<th class="cs-comp-th"><b>' + _escH(_CS_TPL_FR[c.tpl] || c.tpl) + '</b><span class="cs-sub">' + _escH(c.tpl) + '</span></th>'; }).join('')
       + '</tr></thead><tbody>';
     ROWS.forEach(function (row) {

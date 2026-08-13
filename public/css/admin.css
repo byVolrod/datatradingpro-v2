@@ -201,7 +201,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .camp-sub.active { display: block; animation: admFade var(--t-med) var(--ease-out); }
 
 /* ═══ 5. TABLEAUX DENSES — grammaire .cal-table du desk ═════════════════════════════════════════ */
-.table-wrap, .camp-table-wrap { overflow-x: auto; border-radius: var(--radius); }
+/* Une SEULE grammaire de conteneur de tableau (13/08) : le Journal enveloppait le sien dans un
+   style overflow-x en dur, les Statistiques utilisaient un 3e nom (.camp-table-wrap) alias de
+   celui-ci sur cette meme ligne. Tout rallie .table-wrap. */
+.table-wrap { overflow-x: auto; border-radius: var(--radius); }
 .users-table, .camp-table { width: 100%; border-collapse: collapse; font-size: var(--fs-value); }
 .users-table thead th, .camp-table thead th {
   position: sticky; top: 0; z-index: 2; text-align: left; white-space: nowrap;
@@ -432,14 +435,16 @@ select { cursor: pointer; }
 .deliv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--sp-2); }
 .deliv-item { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); }
 
-.camp-toasts, .toast-host { position: fixed; right: var(--sp-4); bottom: var(--sp-4); z-index: 200; display: flex; flex-direction: column; gap: var(--sp-2); }
-.camp-toast, .toast {
+/* .camp-toasts / .toast-host retirees le 13/08 : le 1er conteneur n existe plus (campToast est un
+   alias de showToast), le 2nd n etait ecrit NULLE PART dans le HTML ni le JS. .toast-wrap, cree a
+   la volee, est desormais le seul conteneur de notifications — plus deux piles au meme coin. */
+.toast {
   padding: 8px var(--sp-3); background: var(--bg2); border: 1px solid var(--border); border-left: 2px solid var(--orange);
   border-radius: var(--radius); box-shadow: 0 6px 22px rgba(0, 0, 0, .5); color: var(--text); font-size: var(--fs-body);
   animation: admToastIn var(--t-med) var(--ease-out);
 }
-.camp-toast--ok, .toast--ok { border-left-color: var(--green); }
-.camp-toast--err, .toast--err, .toast.err { border-left-color: var(--red); }
+.toast--ok { border-left-color: var(--green); }
+.toast--err, .toast.err { border-left-color: var(--red); }
 @keyframes admToastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* ═══ 11. IA MONITOR ════════════════════════════════════════════════════════════════════════════ */
@@ -892,7 +897,7 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 #tab-campaign .camp-sub,
 #tab-campaign .panel-card,
 #tab-campaign .panel-body{ min-width:0; max-width:100%; }
-#tab-campaign .camp-table-wrap{ min-width:0; max-width:100%; overflow-x:auto; }
+#tab-campaign .table-wrap{ min-width:0; max-width:100%; overflow-x:auto; }
 /* La barre de titre passe à la ligne au lieu d'étirer le panneau (recherche + filtre + témoin). */
 @media (max-width: 760px){
   #tab-campaign .panel-head{ flex-wrap:wrap; row-gap:6px; }
