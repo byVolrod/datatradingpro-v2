@@ -8118,7 +8118,7 @@ function _renderDTPDaily(item) {
   document.getElementById('arlib-ai-insights')?.remove();
   // Idem : plus de ligne de période, la date rejoint le titre (une seule ligne d'en-tête, rien de perdu).
   const _dtpdDate = String(w.dateLabel || '').trim();
-  if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'DTP Daily US Opening News') + (_dtpdDate ? ' — ' + _dtpdDate : '');
+  if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'Point Marché · Ouverture US') + (_dtpdDate ? ' — ' + _dtpdDate : '');
   if (navRight) navRight.innerHTML = `<span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');

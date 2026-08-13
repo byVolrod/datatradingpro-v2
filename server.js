@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260813-analyses-donnees-us', ts: Date.UTC(2026, 7, 13, 18, 0), title: 'Quatre nouvelles données américaines désormais analysées', desc: 'Les prix à la production (PPI), l emploi privé ADP, les postes à pourvoir (JOLTS) et les ventes au détail donnent maintenant lieu à une analyse complète environ une heure après leur publication, comme le CPI ou le PIB : le chiffre face aux attentes, ce qui a surpris, la réaction des marchés et ce que la Fed peut en tirer. Le rapport de midi s appelle désormais Point Marché · Ouverture US.' },
   { id: 'dtpu-20260813-grappes-propos', ts: Date.UTC(2026, 7, 13, 16, 0), title: 'Fil d actus : les propos d un même intervenant regroupés', desc: 'Quand un banquier central enchaîne les déclarations, le fil ne se remplit plus de dix lignes quasi identiques : ses propos sont réunis en une seule carte, qui indique combien elle en contient et les déroule au clic. Le regroupement suit désormais toute la durée d une audition, et s applique aussi au widget Actus et aux news attachées à une paire.' },
   { id: 'dtpu-20260812-graphique-repare', ts: Date.UTC(2026, 7, 12, 21, 30), title: 'Widget Graphique : il s affiche désormais dans Mon Desk', desc: 'Le widget Graphique lancé ce matin affichait « Graphique indisponible » : sa barre d outils cherchait un élément qui n existe que dans l onglet Marchés. Corrigé — choisissez votre paire et votre unité de temps, le chandelier s affiche dans votre grille.' },
   { id: 'dtpu-20260812-biais-calendrier-seul', ts: Date.UTC(2026, 7, 12, 20, 30), title: 'Radar de Biais : le verdict ne dépend plus que des chiffres publiés', desc: 'Le biais de chaque devise se calculait pour deux tiers sur les colonnes que vous lisez — politique monétaire, inflation, croissance, emploi — et pour un tiers sur des éléments qui ne sont pas des publications économiques : la tendance des prix et le positionnement des maisons de recherche. Un biais pouvait donc bouger sans qu aucun chiffre ne soit sorti. Désormais seules les données du calendrier économique le font évoluer.' },
@@ -7880,7 +7881,7 @@ Rules: start each bullet with a dash (-). Be specific (name pairs, levels, bps).
     const now  = Date.now();
     const item = {
       id:          todayPrefix + '-' + now,
-      headline:    `PRIMER - DTP Daily US Opening News : ${shortDate}`,
+      headline:    `PRIMER - Point Marché · Ouverture US : ${shortDate}`,
       description,
       category:    'Market Analysis',
       source:      'DTP',
@@ -10360,7 +10361,7 @@ ${biasLine || '(n/d)'}`;
 
     const _frMon = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     const _dp = dayKey.split('-').map(Number);
-    dtpd.reportName = 'DTP Daily US Opening News - ' + _dp[2] + ' ' + _frMon[_dp[1] - 1] + ' ' + _dp[0];   // titre DTP, format FR
+    dtpd.reportName = 'Point Marché · Ouverture US - ' + _dp[2] + ' ' + _frMon[_dp[1] - 1] + ' ' + _dp[0];   // titre DTP, format FR
     // HORODATAGE STABLE = jour couvert à 12:00 Paris (« Opening News » de midi), PAS l'instant de génération
     // (même principe que le FX Recap 19:00 : une régén tardive ne re-date plus le rapport dans l'historique).
     const _dtpdPubTs = _parisDayRange(dayKey)[0] + 12 * 3600e3;
@@ -10416,7 +10417,12 @@ const EVA_CFG = {
     newsRe: /\b(boe|bank of england|bailey|bank rate|\bmpc\b|rate decision)\b/i,
     sections: _EVA_CB_SECTIONS, intro: "La décision de politique monétaire de la Banque d'Angleterre (BoE)" },
   nfp:  { label: 'NFP',    report: 'NFP Analysis',  category: 'Economic Commentary', tags: ['Jobs', 'NFP', 'USD'],        ccy: 'USD', cb: false, gnq: 'nonfarm payrolls jobs report',
-    calRe:  /\b(non.?farm payrolls?|nonfarm payrolls?)\b/i,
+    // ATTENTION : le calendrier TradingView intitule le rapport « Non-Farm Employment Change » —
+    // PAS « Non-Farm Payrolls ». La règle exigeait « payrolls » et ne captait donc RIEN : l analyse
+    // NFP ne s est JAMAIS déclenchée (vérifié sur le calendrier de production : 0 correspondance).
+    // On accepte les deux formulations et on EXCLUT la ligne ADP, qui porte le même libellé et a
+    // désormais sa propre analyse.
+    calRe:  /^(?!.*\badp\b).*\bnon.?farm (?:payrolls?|employment change)\b/i,
     newsRe: /\b(payrolls?|non.?farm|nfp|unemployment|jobless|wages?|average hourly|participation|\bbls\b|jobs report|labou?r market)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "Le rapport sur l'emploi américain (Non-Farm Payrolls)" },
   cpi:  { label: 'CPI US', report: 'CPI Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'CPI', 'USD'],   ccy: 'USD', cb: false, gnq: 'CPI inflation report',
@@ -10435,6 +10441,27 @@ const EVA_CFG = {
     calRe:  /\bism\b/i,
     newsRe: /\b(\bism\b|\bpmi\b|manufacturing|services|new orders|prices paid|employment index)\b/i,
     sections: _EVA_DATA_SECTIONS, intro: "L'activité américaine (ISM — PMI manufacturier / services)" },
+  // ── DONNÉES US MANQUANTES (13/08/2026) : PPI, ADP, JOLTS et ventes au détail figurent dans la liste
+  //    de news du user (PDF « Learning Economics News ») mais n avaient AUCUNE règle — ces chiffres
+  //    tombaient sans jamais produire d analyse. Libellés calés sur le calendrier de PRODUCTION (relevés
+  //    en direct, pas devinés) et contrôlés par croisement : chaque règle capte exactement ses lignes,
+  //    zéro collision entre règles (un libellé capté deux fois publierait deux analyses du même chiffre).
+  ppi:  { label: 'PPI US', report: 'PPI Analysis', category: 'Economic Commentary', tags: ['Inflation', 'PPI', 'USD'], ccy: 'USD', cb: false, gnq: 'PPI producer price index report',
+    calRe:  /\b(producer price|\bppi\b)\b/i,
+    newsRe: /\b(\bppi\b|producer price|wholesale|input costs?|factory gate|pipeline|margins?|\bcore\b|goods|services)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: 'Les prix à la production américains (PPI — ce que les usines facturent, en amont du CPI)' },
+  adp:  { label: 'ADP US', report: 'ADP Analysis', category: 'Economic Commentary', tags: ['Jobs', 'ADP', 'USD'], ccy: 'USD', cb: false, gnq: 'ADP private payrolls employment report',
+    calRe:  /\badp\b/i,
+    newsRe: /\b(\badp\b|private (?:sector )?(?:payrolls?|employment|hiring)|employment change|hiring|labou?r market|jobs)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: "L emploi privé américain (enquête ADP — le test avant le rapport officiel NFP)" },
+  jolts: { label: 'JOLTS US', report: 'JOLTS Analysis', category: 'Economic Commentary', tags: ['Jobs', 'JOLTS', 'USD'], ccy: 'USD', cb: false, gnq: 'JOLTS job openings labor turnover',
+    calRe:  /\b(jolts|job openings)\b/i,
+    newsRe: /\b(jolts|job openings|quits|layoffs?|labou?r turnover|vacancies|hires|labou?r market)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: 'Les postes à pourvoir aux États-Unis (JOLTS — la tension du marché du travail)' },
+  retail: { label: 'VENTES US', report: 'Retail Sales Analysis', category: 'Economic Commentary', tags: ['Retail', 'Growth', 'USD'], ccy: 'USD', cb: false, gnq: 'US retail sales consumer spending report',
+    calRe:  /\bretail sales\b/i,
+    newsRe: /\b(retail sales|consumer spending|control group|\bcore\b|spending|consumption|households?|shoppers?)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: 'La consommation américaine (ventes au détail — le moteur de la croissance US)' },
   // ── BANQUES CENTRALES DU RESTE DU G8 (11/08/2026) ────────────────────────────────────────────────
   // Trou de couverture constaté : une décision RBA, BoJ, BoC, RBNZ ou BNS ne déclenchait AUCUNE analyse
   // d'événement — alors que ce sont exactement les rendez-vous qui font bouger AUD, JPY, CAD, NZD et CHF
