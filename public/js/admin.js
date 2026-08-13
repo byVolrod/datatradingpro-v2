@@ -54,7 +54,7 @@
   var _LIVE_SRC = [
     { k: 'campaign', per: 30000, zone: '#tab-campaign', go: function(){ loadCampaign(true); },
       vu: function(){ return _liveTab('campaign'); } },
-    { k: 'maillog',  per: 20000, zone: '#tab-campaign', go: function(){ loadMailLog(); },
+    { k: 'maillog',  per: 120000, zone: '#tab-campaign', go: function(){ loadMailLog(); },
       vu: function(){ return _liveTab('campaign') && _liveSub('journal'); } },
     { k: 'apercu',   per: 45000, zone: '#tab-campaign', go: function(){ _cprevLoad(); },
       vu: function(){ return _liveTab('campaign') && _liveSub('templates'); } },
@@ -81,8 +81,19 @@
       var now = Date.now();
       _LIVE_SRC.forEach(function(s){
         var vu = !cache && s.vu();
+        // PASTILLE MUTUALISÉE (13/08) : les sous-vues n'ont plus leur propre pastille « En direct ».
+        // Sur Templates, Journal et Statistiques on en voyait DEUX clignoter à des rythmes différents
+        // — celle de l'en-tête, visible sur les cinq vues, et celle de la vue — sans savoir laquelle
+        // décrivait ce qu'on regarde. Les sources de l'onglet Campagne partagent donc celle de
+        // l'en-tête. Seule la source de NIVEAU ONGLET ('campaign') pilote son état éteint : sinon une
+        // source MASQUÉE (le journal pendant qu'on est sur Templates) l'éteindrait à tort.
         var pill = document.querySelector('.live-pill[data-live="' + s.k + '"]');
-        if (pill) pill.classList.toggle('live-pill--off', !vu);
+        var partagee = false;
+        if (!pill && s.zone === '#tab-campaign') {
+          pill = document.querySelector('.live-pill[data-live="campaign"]');
+          partagee = true;
+        }
+        if (pill && !partagee) pill.classList.toggle('live-pill--off', !vu);
         if (!vu) { s.next = now + s.per; return; }            // masqué : on repart d'une période pleine au retour
         if (now < s.next) return;
         if (_liveOccupe(s.zone)) { s.next = now + 4000; return; }   // reporté, pas perdu
@@ -193,7 +204,16 @@
 
   // ── Campagne e-mail marketing ──────────────────────────────────────────────
   let _campAud = null, _campArmed = false, _campArmTimer = null, _campPoll = null;
-  function _campFmt(ts){ try { return new Date(ts).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return '—'; } }
+  // ── DATES DU PANNEAU : DEUX FORMATEURS, PAS CINQ (13/08) ────────────────────────────────────
+  // La même notion — « quand » — s écrivait de cinq façons selon l onglet : 13/08 14:32 (Pilotage),
+  // 13/08/2026 14:32 (Journal ET incidents, deux fois le même code), 13 août 26, 14:32
+  // (Statistiques), 13 août (séquence). Comparer « le mail est parti le 13/08 » entre le Journal et
+  // les Statistiques demandait une conversion mentale. Désormais :
+  //   _dt(ts) → 13/08/2026 14:32   (date + heure, partout)
+  //   _dj(ts) → 13 août            (jour seul, quand l heure n apporte rien)
+  // _csHeure (heure seule) reste : c est un autre besoin, pas une 3e écriture de la date.
+  function _dt(ts){ try { return ts ? new Date(ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'; } catch (e) { return '—'; } }
+  function _dj(ts){ try { return ts ? new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : ''; } catch (e) { return ''; } }
   function _campMsg(t){ const e = document.getElementById('camp-msg'); if (e) e.textContent = t || ''; if (t && /[✅❌]/.test(t)) campToast(t, /❌/.test(t)); }
   function campToast(msg, isErr){
     const box = document.getElementById('camp-toasts'); if (!box) return;
@@ -479,10 +499,7 @@
 
   const _csNum = function (v) { return v == null ? '<span class="cs-nm" title="Non mesuré sur un envoi SMTP direct">non mesuré</span>' : v; };
   const _csPct = function (v) { return v == null ? '<span class="cs-nm">—</span>' : (String(v).replace('.', ',') + '%'); };
-  const _csDate = function (ts) {
-    if (!ts) return '—';
-    return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-  };
+  // (_csDate supprimee : ses appels passent par _dt — un seul format de date dans le panneau.)
   const _csHeure = function (ts) { return ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; };
   // (_csEsc supprimée le 13/08 : c était le MÊME code que _escH, au caractère près, écrit deux fois
   //  pour deux onglets qui ne se parlaient pas. Une seule règle d échappement dans tout le panneau —
@@ -540,7 +557,7 @@
     // Lignes de KPI : [label, clé, format, sens (1 = plus haut est mieux, -1 = plus bas est mieux, 0 = neutre)]
     const F_INT = function (v) { return v == null ? '—' : String(v); };
     const F_PCT = function (v) { return v == null ? '—' : (String(v).replace('.', ',') + ' %'); };
-    const F_DATE = function (v) { return v ? _csDate(v) : '—'; };
+    const F_DATE = function (v) { return v ? _dt(v) : '—'; };
     const ROWS = [
       ['Envois', 'envois', F_INT, 0],
       ['Personnes touchées', 'touches', F_INT, 0],
@@ -611,7 +628,7 @@
       const statut = x.consolide ? '<span class="cs-badge cs-badge--hist">Historique</span>'
         : '<span class="cs-badge cs-badge--ok">Envoi terminé</span>';
       const quand = x.consolide ? '<span class="cs-sub">avant le 13/07/2026</span>'
-        : ('<b>' + _csDate(x.debut) + '</b>' + (x.fin && x.fin - x.debut > 3600000 ? '<span class="cs-sub">étalé sur ' + _csDuree(x.fin - x.debut) + '</span>' : ''));
+        : ('<b>' + _dt(x.debut) + '</b>' + (x.fin && x.fin - x.debut > 3600000 ? '<span class="cs-sub">étalé sur ' + _csDuree(x.fin - x.debut) + '</span>' : ''));
       const nom = '<b>' + _escH(x.titre || x.tpl) + '</b>'
         + (x.objet ? '<span class="cs-sub" title="' + _escH(x.objet) + '">' + _escH(x.objet) + '</span>'
                    : (x.consolide ? '' : '<span class="cs-sub cs-nm">objet non conservé</span>'));
@@ -691,7 +708,7 @@
     document.getElementById('cs-d-entete').innerHTML =
       '<div class="cs-ent-l"><span class="cs-ent-k">Objet</span><span class="cs-ent-v">'
         + (c.objet ? _escH(c.objet) : '<span class="cs-nm">non conservé pour cet envoi</span>') + '</span></div>'
-      + '<div class="cs-ent-l"><span class="cs-ent-k">Envoyé le</span><span class="cs-ent-v">' + _csDate(c.debut)
+      + '<div class="cs-ent-l"><span class="cs-ent-k">Envoyé le</span><span class="cs-ent-v">' + _dt(c.debut)
         + (c.fin && c.fin - c.debut > 3600000 ? ' → ' + _csHeure(c.fin) + ' (étalé sur ' + _csDuree(c.fin - c.debut) + ')' : '') + '</span></div>'
       + '<div class="cs-ent-l"><span class="cs-ent-k">Audience</span><span class="cs-ent-v">' + (c.audience != null ? c.audience + ' contacts ciblés' : '<span class="cs-nm">non conservée</span>') + '</span></div>'
       + '<div class="cs-ent-l"><span class="cs-ent-k">Délai médian d’ouverture</span><span class="cs-ent-v">' + _csDuree(d.delaiMedian) + '</span></div>';
@@ -779,12 +796,12 @@
     const page = r.slice(_csPage * _CS_PAGE, (_csPage + 1) * _CS_PAGE);
     const tb = document.querySelector('#cs-d-dest tbody');
     tb.innerHTML = page.length ? page.map(function (x) {
-      return '<tr><td>' + _escH(x.email) + '</td><td>' + _csDate(x.recu) + '</td>'
+      return '<tr><td>' + _escH(x.email) + '</td><td>' + _dt(x.recu) + '</td>'
         + '<td>' + (x.ouvert ? '<span class="cs-oui">oui</span>' : '<span class="cs-non">non</span>') + '</td>'
-        + '<td>' + x.nOuv + '</td><td>' + _csDate(x.ouvPremiere) + '</td><td>' + _csDate(x.ouvDerniere) + '</td>'
+        + '<td>' + x.nOuv + '</td><td>' + _dt(x.ouvPremiere) + '</td><td>' + _dt(x.ouvDerniere) + '</td>'
         + '<td>' + (x.clique ? '<span class="cs-oui">oui</span>' : '<span class="cs-non">non</span>') + '</td>'
         + '<td>' + x.nCli + '</td>'
-        + '<td>' + (x.desabo ? '<span class="tag tag--red">' + _csDate(x.desabo) + '</span>' : '—') + '</td>'
+        + '<td>' + (x.desabo ? '<span class="tag tag--red">' + _dt(x.desabo) + '</span>' : '—') + '</td>'
         + '<td>' + _csNum(x.rebond) + '</td></tr>';
     }).join('') : '<tr><td colspan="10" class="empty-state">Aucun destinataire dans ce filtre.</td></tr>';
     const pages = Math.ceil(r.length / _CS_PAGE);
@@ -872,7 +889,7 @@
       if (cnt) cnt.textContent = d.total + ' envoi' + (d.total > 1 ? 's' : '');
       const rows = d.rows || [];
       tb.innerHTML = rows.length ? rows.map(function(r){
-        const when = r.ts ? new Date(r.ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+        const when = _dt(r.ts);
         const cls = /Désinscription/.test(r.type) ? 'badge-expired'
           : /Campagne/.test(r.type) ? 'badge-client'
           : /Bienvenue|Renouvellement/.test(r.type) ? 'badge-pro'
@@ -1069,7 +1086,7 @@
     catch { say('❌ erreur réseau'); }
   }
   // ── Fiabilité & incidents (pre-flight / historique d'erreurs) ──
-  function _errWhen(ts){ try { return new Date(ts).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}); } catch { return ''; } }
+  function _dt(ts){ try { return new Date(ts).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}); } catch { return ''; } }
   function _escH(s){ return String(s==null?'':s).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); }
   async function loadCampErrors(){
     const badge = document.getElementById('camp-err-badge'), body = document.getElementById('camp-err-body');
@@ -1090,7 +1107,7 @@
       if (!errs.length) { body.innerHTML = pausedBanner + '<div style="display:flex;align-items:center;gap:10px;"><span style="width:11px;height:11px;border-radius:50%;background:#00e676;box-shadow:0 0 10px #00e676;"></span><span style="font-size:15px;font-weight:700;color:#00e676;">Aucun incident : tout fonctionne</span></div>'; return; }
       const rows = errs.slice(0, 12).map(function(e){
         var col = e.level === 'critical' ? '#ff6b57' : '#ffb300';
-        return '<tr><td style="padding:8px 10px 8px 0;border-top:1px solid #1f1f24;vertical-align:top;white-space:nowrap;color:#8b93a1;font-size:11.5px;">' + _errWhen(e.at) + '</td>'
+        return '<tr><td style="padding:8px 10px 8px 0;border-top:1px solid #1f1f24;vertical-align:top;white-space:nowrap;color:#8b93a1;font-size:11.5px;">' + _dt(e.at) + '</td>'
           + '<td style="padding:8px 10px 8px 0;border-top:1px solid #1f1f24;vertical-align:top;"><span style="color:' + col + ';font-weight:700;font-size:11px;">' + (e.level==='critical'?'CRITIQUE':'ALERTE') + '</span> <span style="color:#cbd5e1;font-size:11.5px;">' + _escH(e.campaign) + '</span></td>'
           + '<td style="padding:8px 0;border-top:1px solid #1f1f24;vertical-align:top;color:#cbd5e1;font-size:12.5px;">' + _escH(e.cause) + (e.actions?('<div style="color:#8b93a1;font-size:11.5px;margin-top:3px;">→ ' + _escH(e.actions) + '</div>'):'') + '</td></tr>';
       }).join('');
@@ -1190,14 +1207,14 @@
         : (d.testMode
           ? '<div style="' + bStyle + 'background:rgba(227,178,58,.1);border:1px solid rgba(227,178,58,.35);color:#e3b23a;">🧪 Mode TEST actif — chaque e-mail part uniquement sur ta boîte, le bon jour. Aucun client touché.</div>'
           : '<div style="' + bStyle + 'background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:#00e676;">● Campagne active (envoi réel) — 1 e-mail par semaine (rotation) : le contenu de la semaine part à toute l\'audience, le bon jour. Ça repart automatiquement chaque semaine.</div>');
-      const _fmtMonday = ts => { try { return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch { return ''; } };
+      // (_fmtMonday supprimee : remplacee par _dj, defini en tete de fichier.)
       // Bandeau « Dernier parti → Prochain envoi » : la réponse directe à « c'est lequel le prochain ? »
       // dès qu'un mail est parti (demande user 26/07). Données serveur (lastSend/nextSend), rien de calculé ici.
       let flightStrip = '';
       if (d.nextSend) {
         flightStrip = '<div style="display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;padding:10px 12px;border:1px solid rgba(227,178,58,.35);background:rgba(227,178,58,.06);border-radius:6px;margin:0 0 10px;">'
           + '<span style="font-size:12.5px;color:#e3b23a;font-weight:700;">⏭ Prochain envoi : ' + d.nextSend.title + ' — ' + d.nextSend.when + '</span>'
-          + (d.lastSend ? '<span style="font-size:12px;color:#8b93a1;">✉️ Dernier parti : <strong style="color:#c9ced8;font-weight:600;">' + d.lastSend.title + '</strong> — ' + _campFmt(d.lastSend.ts) + '</span>' : '')
+          + (d.lastSend ? '<span style="font-size:12px;color:#8b93a1;">✉️ Dernier parti : <strong style="color:#c9ced8;font-weight:600;">' + d.lastSend.title + '</strong> — ' + _dt(d.lastSend.ts) + '</span>' : '')
           + '</div>';
       }
       // ENCADRÉ « prochain à partir » (28/07) : le contenu de la semaine s'il n'est PAS encore parti,
@@ -1226,10 +1243,10 @@
         let timeLine = '';
         if (isIntro) timeLine = s.when ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>' : '';
         else if (s.thisWeek && !doneWeek && s.planned) timeLine = '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.95;margin-top:3px;font-weight:600;">📅 ' + s.planned.label + '</div>';
-        else if (!s.thisWeek && s.nextRunMonday) timeLine = '<div class="camp-seq-desc" style="color:#8b93a1;margin-top:3px;">🔁 Prochaine diffusion : semaine du ' + _fmtMonday(s.nextRunMonday) + '</div>';
+        else if (!s.thisWeek && s.nextRunMonday) timeLine = '<div class="camp-seq-desc" style="color:#8b93a1;margin-top:3px;">🔁 Prochaine diffusion : semaine du ' + _dj(s.nextRunMonday) + '</div>';
         else if (s.when) timeLine = '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>';
         // Métriques = historique cumulé (dernier envoi + total + taux), pour le suivi de performance.
-        const metrics = s.lastSentAt ? '<div class="camp-seq-metrics">Dernier envoi ' + _campFmt(s.lastSentAt) + ' · ' + s.sent + ' au total · ' + s.openRate + '% ouv. · ' + s.clickRate + '% clics</div>' : '';
+        const metrics = s.lastSentAt ? '<div class="camp-seq-metrics">Dernier envoi ' + _dt(s.lastSentAt) + ' · ' + s.sent + ' au total · ' + s.openRate + '% ouv. · ' + s.clickRate + '% clics</div>' : '';
         const dim = (!isIntro && !s.thisWeek) ? ' style="opacity:.62;"' : ((!d.active && !doneWeek) ? ' style="opacity:.55;"' : '');
         return '<div class="camp-seq-row camp-seq-row--' + cls + ((s.id === _nextFrameId && d.active) ? ' camp-seq-row--next' : '') + '"' + dim + '><div class="camp-seq-wk">' + wk + '</div>'
           + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span>' + weekBadge + '</div>'

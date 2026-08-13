@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) — cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg662" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260813bbg663" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -329,7 +329,7 @@
           <div class="panel-head"><h2>Templates <span id="cprev-title" style="color:var(--orange)"></span></h2>
             <span class="ph-spacer"></span>
             <span class="camp-msg" id="camp-tpl-msg"></span>
-            <span class="live-pill" data-live="apercu" title="L'aperçu se reconstruit tout seul avec les données live du desk"><i></i>En direct</span>
+            <!-- pastille « En direct » retiree : celle de l en-tete la remplace (voir admin.js) -->
             <label class="hint" style="margin-left:10px;display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cprev-member" onchange="_cprevLoad()" style="width:auto;accent-color:#e3b23a"> vue membre</label>
           </div>
           <div class="panel-body tpl-split">
@@ -354,7 +354,7 @@
         <div class="panel-card">
           <div class="panel-head"><h2>Journal des envois</h2><span class="ph-spacer"></span>
             <span class="fin-sub" id="maillog-count"></span>
-            <span class="live-pill" data-live="maillog" title="Le journal se met à jour tout seul"><i></i>En direct</span>
+            <!-- pastille « En direct » retiree : celle de l en-tete la remplace (voir admin.js) -->
           </div>
           <div class="panel-body">
             <div class="toolbar">
@@ -433,7 +433,7 @@
               <option value="365">12 derniers mois</option>
             </select>
             <button class="btn btn-sm" id="cs-compare-btn" onclick="csCompareToggle()" title="KPI agrégés par template, fusionnés par destinataire — pour voir d'un coup d'œil quel contenu performe">Comparer les templates</button>
-            <span class="live-pill" data-live="camps" title="Cette vue se met à jour toute seule"><i></i>En direct</span>
+            <!-- pastille « En direct » retiree : celle de l en-tete la remplace (voir admin.js) -->
           </div>
           <div class="panel-body">
             <!-- ── Comparaison côte à côte PAR TEMPLATE (repliée par défaut, chargée au 1er clic) ── -->
@@ -720,6 +720,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260813bbg662"></script>
+<script src="/js/admin.js?v=20260813bbg663"></script>
 </body>
 </html>
