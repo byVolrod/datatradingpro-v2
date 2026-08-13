@@ -4492,7 +4492,16 @@ function _mtCls(kind, v) {
   if (kind === 'bias')     return _sbColorCls(v);
   if (kind === 'stance')   return /hawk/i.test(v) ? 'mt-pos' : /dov/i.test(v) ? 'mt-neg' : 'mt-neu';
   if (kind === 'ratedir')  return /up/i.test(v) ? 'mt-pos' : /down/i.test(v) ? 'mt-neg' : 'mt-neu';
-  if (kind === 'level')    return /high/i.test(v) ? 'mt-hot' : /low/i.test(v) ? 'mt-cool' : 'mt-neu';
+  // NIVEAU d inflation — bascule 13/08 (demande user : « les couleurs par rapport à si c est positif pour
+  // la devise ou négatif »). Il restait sur une échelle de TEMPÉRATURE (chaud doré / froid bleu), seul
+  // rescapé de l alignement du 23/07 : dans la même cellule, « Élevée » sortait dorée à côté d une
+  // « Hausse » verte alors que les deux disent la MÊME chose — pression à la hausse sur les taux, donc
+  // soutien à la devise. Le bleu n appartenait en plus pas à la charte (vert/rouge/or).
+  // Lecture retenue, cohérente avec « Restrictive » vert et « Hausse » des taux verte :
+  //   Élevée → pression hawkish → SOUTIENT la devise → vert
+  //   Basse  → marge pour assouplir → PÈSE sur la devise → rouge
+  //   Modérée → neutre → gris
+  if (kind === 'level')    return /high/i.test(v) ? 'mt-pos' : /low/i.test(v) ? 'mt-neg' : 'mt-neu';
   // COHÉRENCE des couleurs (demande user 23/07 « plus parlant et cohérentes ») : la TENDANCE d'inflation devient
   // DIRECTIONNELLE comme le reste — Hausse = VERT (pression hawkish → soutient la devise, cohérent avec
   // « Restrictive » vert et « Hausse » des taux vert), Baisse = ROUGE, Stable = gris. (Avant : doré/bleu isolés.)

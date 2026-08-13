@@ -3215,8 +3215,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .mt-pos  { color: #2ae389; background: rgba(0,230,118,.10); }
 .mt-neg  { color: #ff7259; background: rgba(255,61,0,.10); }
 .mt-neu  { color: #aab3bf; background: rgba(154,164,178,.09); }
-.mt-hot  { color: #ffc44f; background: rgba(255,179,0,.10); }
-.mt-cool { color: #57b4ef; background: rgba(58,160,224,.10); }
+/* .mt-hot / .mt-cool (échelle de température dorée/bleue) RETIRÉES le 13/08 : le niveau d inflation,
+   dernier badge à les utiliser, parle maintenant la langue « impact devise » (vert/rouge/gris) comme
+   le reste du tableau. Ne pas les réintroduire : le bleu n appartient pas à la charte, et deux échelles
+   de couleur dans la même cellule rendaient la lecture contradictoire. */
 .mt-drv  { color: #e0b452; background: rgba(227,178,58,.085); font-weight: 500; }
 .mt-empty { color: #4a4a52; }
 /* Colonne Biais : couleurs sémantiques du radar (sbm-*), version épurée (fond léger, sans bordure). */
