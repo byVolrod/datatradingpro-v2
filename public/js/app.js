@@ -5542,35 +5542,10 @@ function buildBankChart(p) {
       const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'zoomX', xAxis, yAxis, snapToSeries: [series], snapToSeriesBy: 'x' }));   // 'none' = crosshair seul ; le glisser fait un PAN (panX), plus de zoom de sélection
       cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
       cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
-      // ── NAVIGATEUR TEMPOREL + ZOOM (13/08, « un vrai graphique type TradingView ») ─────────────
-      // Ce qui manquait pour que le graphique se comporte comme un vrai : la bande de navigation en
-      // haut (aperçu de toute la série, poignées déplaçables), le zoom à la molette et les étiquettes
-      // de prix/date qui suivent le curseur sur les axes. Aucun indicateur ajouté — demande explicite
-      // du user : pas de moyennes mobiles, pas de RSI, pas de volume. Juste le prix, bien présenté.
-      chart.set('scrollbarX', am5xy.XYChartScrollbar.new(root, { orientation: 'horizontal', height: 42 }));
-      const _sb = chart.get('scrollbarX');
-      try {
-        _sb.get('background')?.setAll({ fill: am5.color(0x0e0e11), fillOpacity: 1 });
-        _sb.startGrip.get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
-        _sb.endGrip.get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
-        // Aperçu de la série entière DANS la bande : c'est ce qui donne le repère « où suis-je ».
-        const sbX = _sb.chart.xAxes.push(am5xy.DateAxis.new(root, {
-          groupData: true, groupIntervals: [{ timeUnit: 'day', count: 1 }],
-          baseInterval: { timeUnit: 'day', count: 1 },
-          renderer: am5xy.AxisRendererX.new(root, { opposite: false, strokeOpacity: 0 }),
-        }));
-        const sbY = _sb.chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) }));
-        const sbS = _sb.chart.series.push(am5xy.LineSeries.new(root, {
-          xAxis: sbX, yAxis: sbY, valueYField: 'Close', valueXField: 'Date',
-          stroke: am5.color(0xe3b23a),
-        }));
-        sbS.fills.template.setAll({ fillOpacity: 0.12, visible: true, fill: am5.color(0xe3b23a) });
-        sbS.data.setAll(candles);
-        sbX.get('renderer').labels.template.setAll({ fill: am5.color(0x55555f), fontSize: 9, fontFamily: mono });
-        sbX.get('renderer').grid.template.setAll({ strokeOpacity: 0 });
-        sbY.get('renderer').labels.template.setAll({ visible: false });
-        sbY.get('renderer').grid.template.setAll({ strokeOpacity: 0 });
-      } catch (e) {}
+      // BANDE DE NAVIGATION RETIRÉE (13/08, demande user « enlève les indicateurs ») : ajoutée le
+      // matin même pour donner le repère « où suis-je dans l historique », elle occupait un tiers de
+      // la hauteur et se lisait comme un panneau d indicateur de plus. Le déplacement reste possible
+      // à la molette et au glisser — sans meuble à l écran.
       // Zoom molette + déplacement, sur l'axe du temps uniquement (le prix reste à l'échelle).
       chart.set('wheelX', 'zoomX');
       chart.set('wheelY', 'zoomX');
