@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260814-recaps-seance', ts: Date.UTC(2026, 7, 14, 15, 0), title: 'Récaps de séance : la même structure que le récap quotidien', desc: 'Asie, Londres et New York se lisent désormais avec les mêmes rubriques que le récap quotidien — Géopolitique, Macro, À surveiller — dans le même ordre. Dans l onglet Analystes, passer d un rapport à l autre ne demande plus de réapprendre où regarder. Le contenu reste propre à chaque séance.' },
   { id: 'dtpu-20260814-puces', ts: Date.UTC(2026, 7, 14, 14, 0), title: 'Analyses : listes allégées', desc: 'Les petits points des listes à puces disparaissent des analyses du fil : le texte reste aligné, la lecture est plus nette.' },
   { id: 'dtpu-20260814-portage-gradue', ts: Date.UTC(2026, 7, 14, 9, 0), title: 'Radar de Biais : l avantage de taux compte maintenant par paliers', desc: 'Le niveau du taux directeur d une devise, comparé aux sept autres grandes banques, ne comptait qu au-delà d un écart de 1,5 point et pas du tout en dessous : une livre à 1,45 point d avance ne recevait rien, une livre à 1,50 recevait tout. Cet apport progresse désormais avec l écart, ce qui colle à la réalité du portage et évite qu un biais bascule sur cinq centièmes de point. Les devises très au-dessus ou très en dessous de la moyenne (franc suisse, yen, dollar australien) conservent exactement la lecture qu elles avaient.' },
   { id: 'dtpu-20260814-fil-repare', ts: Date.UTC(2026, 7, 14, 13, 0), title: 'Fil d actualité : panne de la nuit réparée', desc: 'Le fil est resté muet entre jeudi soir et vendredi début d après-midi. La cause est identifiée et corrigée à la racine : chaque tentative de reconnexion laissait derrière elle un onglet de navigateur, jusqu à saturer le serveur et l empêcher de se reconnecter — plus la panne durait, plus elle se verrouillait. Les actualités de la période manquante sont récupérées automatiquement.' },
@@ -8261,40 +8262,43 @@ function buildAsiaOpening({ dateStr, s, reportType }) {
 // Récap de la séance Asie-Pacifique. Même moule que Londres et New York — seuls changent les
 // accents : banques centrales de la zone (BoJ, RBA, RBNZ, PBoC), données régionales, devises JPY/
 // AUD/NZD/CNH. Assemblage par règles, aucun appel IA : il sort même quand le quota est épuisé.
+// ── RÉCAPS DE SÉANCE : LA STRUCTURE DU RÉCAP QUOTIDIEN (14/08, demande user) ──────────────────
+// Les trois séances déclinaient chacune SES propres rubriques, en anglais et différentes entre
+// elles (« BoJ / RBA / RBNZ / PBoC », « European Data Outcomes », « Commodities », « Trade »…).
+// Dans l'onglet ANALYSTES ces rapports se lisent à la suite dans la même journée : le lecteur
+// passait donc du récap de séance au récap quotidien sans retrouver ses repères.
+// Les trois adoptent les catégories du quotidien — GÉOPOLITIQUE · MACRO · À SURVEILLER — dans le
+// même ordre et en français. Le CONTENU reste propre à chaque séance (la BoJ ne remonte pas dans
+// le récap de Londres) : c'est la GRAMMAIRE qui devient commune, pas les données.
+//   · « Macro » regroupe banques centrales ET données publiées — le quotidien les traite ensemble,
+//     les séparer ici recréerait l'écart qu'on vient de supprimer ;
+//   · « À surveiller » porte ce qui reste OUVERT à la clôture de la séance (flux devises, matières
+//     premières, commerce) : les fils qui se prolongent dans la séance suivante.
 function buildAsiaRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Asia Session Recap — ${s.all.length} items tracked · ${dateStr}`);
-  _pushBullets(bullets, 'BoJ / RBA / RBNZ / PBoC', s.cb, 3);
-  _pushBullets(bullets, 'Asia-Pacific Data', s.hdata.length ? s.hdata : s.data, 3);
-  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
-  _pushBullets(bullets, 'JPY / AUD / NZD / CNH', s.fx, 2);
-  _pushBullets(bullets, 'Commodities', s.nrg, 2);
-  _pushBullets(bullets, 'Trade', s.trade, 1);
+  bullets.push(`Récap séance Asie — ${s.all.length} éléments suivis · ${dateStr}`);
+  _pushBullets(bullets, 'Géopolitique', s.geo, 3);
+  _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data), ...s.asian], 4);
+  _pushBullets(bullets, 'À surveiller', [...s.fx, ...s.nrg, ...s.trade], 3);
   return { subtitle: _briefingSubtitle(reportType, s, ['BoJ', 'RBA', 'RBNZ', 'PBoC']), bullets, tags: _briefingTags(s, ['Asia Recap', 'JPY', 'AUD']) };
 }
 
 function buildLondonRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`London Session Recap — ${s.all.length} items tracked · ${dateStr}`);
-  _pushBullets(bullets, 'BoE / ECB Commentary', s.cb, 3);
-  _pushBullets(bullets, 'European Data Outcomes', s.hdata.length ? s.hdata : s.data, 3);
-  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
-  _pushBullets(bullets, 'EUR/GBP FX', s.fx, 2);
-  _pushBullets(bullets, 'Commodities', s.nrg, 2);
-  _pushBullets(bullets, 'Trade', s.trade, 1);
-  return { subtitle: _briefingSubtitle(reportType, s, ['BoE','ECB','SNB']), bullets, tags: _briefingTags(s, ['London Recap','EUR','GBP']) };
+  bullets.push(`Récap séance Londres — ${s.all.length} éléments suivis · ${dateStr}`);
+  _pushBullets(bullets, 'Géopolitique', s.geo, 3);
+  _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
+  _pushBullets(bullets, 'À surveiller', [...s.fx, ...s.nrg, ...s.trade], 3);
+  return { subtitle: _briefingSubtitle(reportType, s, ['BoE', 'ECB']), bullets, tags: _briefingTags(s, ['London Recap', 'EUR', 'GBP']) };
 }
 
 function buildUSRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`US Session Recap — ${s.all.length} items tracked · ${dateStr}`);
-  _pushBullets(bullets, 'Fed Speakers & Policy', s.cb, 3);
-  _pushBullets(bullets, 'Key US Data', s.hdata.length ? s.hdata : s.data, 3);
-  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
-  _pushBullets(bullets, 'Equities & Risk Tone', s.fx, 2);
-  _pushBullets(bullets, 'Energy & Metals', s.nrg, 2);
-  _pushBullets(bullets, 'Trade', s.trade, 1);
-  return { subtitle: _briefingSubtitle(reportType, s, ['Fed']), bullets, tags: _briefingTags(s, ['US Recap','S&P 500','USD']) };
+  bullets.push(`Récap séance New York — ${s.all.length} éléments suivis · ${dateStr}`);
+  _pushBullets(bullets, 'Géopolitique', s.geo, 3);
+  _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
+  _pushBullets(bullets, 'À surveiller', [...s.fx, ...s.nrg, ...s.trade], 3);
+  return { subtitle: _briefingSubtitle(reportType, s, ['Fed', 'FOMC']), bullets, tags: _briefingTags(s, ['US Recap', 'USD']) };
 }
 
 function buildDailyReview({ dateStr, s, reportType }) {
