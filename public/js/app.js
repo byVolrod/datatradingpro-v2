@@ -4554,7 +4554,16 @@ function _sbRenderMacroTable(cur, macro) {
   const body = cur.map(c => {
     const m = macro[c] || {};
     const mp = m.monetary || {}, inf = m.inflation || {};
-    const monCell = (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : '');
+    // DIVERGENCE LONG TERME / COURT TERME (14/08, principe du mentor) : quand l orientation
+    // STRUCTURELLE de la banque et ce que le MARCHÉ price pour la prochaine réunion s OPPOSENT,
+    // c est un signal en soi — ça annonce un possible retournement. Le badge ne change RIEN au biais
+    // calculé : il signale que la lecture est en tension, et l infobulle dit dans quel sens.
+    const _hz = mp.horizons || {};
+    const _sensFr = d => d === 'Up' ? 'un resserrement' : d === 'Down' ? 'un assouplissement' : 'un maintien';
+    const divTag = _hz.divergence
+      ? '<span class="mt-diverg" title="Structurellement ' + _sensFr(_hz.lt) + ', mais le marché price ' + _sensFr(_hz.ct) + ' pour la prochaine réunion — lecture en tension, surveiller le retournement.">⇄</span>'
+      : '';
+    const monCell = divTag + (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : '');
     const infCell = (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : '');
     // v42 : NIVEAU + DYNAMIQUE, comme l'inflation (avant : un seul tag qui disait « Solide » pour
     // signifier « en amélioration » — d'où « Solide » sur presque toutes les devises).

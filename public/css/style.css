@@ -16746,3 +16746,13 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 }
 .bank-tf-b:hover { color: var(--text); }
 .bank-tf-b.is-on { color: var(--orange, #e3b23a); border-bottom-color: var(--orange, #e3b23a); }
+
+/* Badge de DIVERGENCE long terme / court terme (14/08) : la banque est structurellement dans un sens,
+   le marché price l inverse pour la prochaine réunion. Discret — c est une mise en tension, pas une
+   alerte : il ne doit pas crier plus fort que le biais lui-même. Jamais d animation (règle du desk :
+   aucun clignotement sur un indicateur live). */
+.mt-diverg {
+  display: inline-block; margin-right: 5px; padding: 0 3px;
+  color: var(--orange, #e3b23a); font-size: 11px; font-weight: 700; cursor: help;
+  border: 1px solid rgba(227, 178, 58, .45); border-radius: 3px; line-height: 1.35;
+}
