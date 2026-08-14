@@ -21016,22 +21016,48 @@ server.requestTimeout   = 30 * 1000;   // 30 s max par requête
 server.headersTimeout   = 35 * 1000;
 server.keepAliveTimeout = 65 * 1000;   // > intervalle keep-alive (anti coupures prématurées)
 
-// 3) Watchdog MÉMOIRE : sur l'hébergement 512 Mo, plusieurs Chromium peuvent provoquer un OOM
-//    (→ Render tue le process = down). On surveille la RSS et on ferme les navigateurs non
-//    essentiels (Myfxbook + InvestingLive) quand on approche de la limite.
+// 3) Watchdog MÉMOIRE : plusieurs Chromium simultanés peuvent provoquer un OOM (process tué = down).
+//    On surveille la RSS et on ferme les navigateurs non essentiels (Myfxbook + InvestingLive +
+//    ForexFactory) quand on approche de la limite RÉELLE de l'hôte.
+//    ⚠️ SEUIL RECALIBRÉ (14/08) : il valait 400 Mo en dur, calibré pour l'ancien hébergement à 512 Mo.
+//    Le VPS actuel offre 3,8 Go — le garde se déclenchait donc dans le vide et a purgé les navigateurs
+//    9 fois en 24 h (mesuré), coupant des scrapers en plein travail pour rien. Chaque purge force un
+//    relancement, et un relancement est exactement le moment où une fuite d'onglet peut se produire :
+//    un garde mal calibré ne se contente pas d'être inutile, il fabrique du risque.
+//    Le seuil se DÉDUIT désormais de la mémoire réellement allouée (limite du conteneur si elle existe,
+//    sinon la RAM de la machine), pour rester juste si l'hébergement change encore.
+function _memLimiteMo() {
+  const os = require('os');
+  const fs = require('fs');
+  // Limite du CONTENEUR d'abord : os.totalmem() rend la RAM de l'HÔTE, pas celle allouée au conteneur.
+  for (const p of ['/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory/memory.limit_in_bytes']) {
+    try {
+      const v = parseInt(String(fs.readFileSync(p, 'utf8')).trim(), 10);
+      // « max » (cgroup v2) ou une valeur absurde (v1 sans limite) = pas de limite → on passe à la RAM hôte.
+      if (isFinite(v) && v > 0 && v < 1024 * 1024 * 1024 * 1024) return v / (1024 * 1024);
+    } catch (e) {}
+  }
+  try { return os.totalmem() / (1024 * 1024); } catch (e) { return 512; }
+}
+// 55 % de la mémoire disponible : assez tôt pour agir avant l'OOM, assez haut pour ne pas tirer à vide.
+// Plancher 400 Mo (comportement d'origine sur un petit hôte) ; plafond 1500 Mo — au-delà, une RSS qui
+// grimpe autant signale une vraie fuite, et purger les navigateurs reste la bonne réaction.
+const _MEM_SEUIL_MO = Math.min(1500, Math.max(400, Math.round(_memLimiteMo() * 0.55)));
+console.log(`[MEM] seuil de nettoyage : ${_MEM_SEUIL_MO} Mo (mémoire disponible ~${Math.round(_memLimiteMo())} Mo)`);
 setInterval(() => {
   try {
     const rssMo = process.memoryUsage().rss / (1024 * 1024);
-    // Seuil PRÉVENTIF à 400 Mo (avant l'OOM/502 de Render à 512) : on libère les navigateurs.
-    if (rssMo > 400) {
-      console.warn(`[MEM] RSS ${rssMo.toFixed(0)} Mo — nettoyage anti-OOM (fermeture navigateurs)`);
+    if (rssMo > _MEM_SEUIL_MO) {
+      console.warn(`[MEM] RSS ${rssMo.toFixed(0)} Mo > seuil ${_MEM_SEUIL_MO} Mo — nettoyage anti-OOM (fermeture navigateurs)`);
       try { clearOutlookCache(); } catch {}
       try { require('./scrapers/myfxbook').closeBrowser?.(); } catch {}
       try { require('./scrapers/forexfactory-news').closeBrowser?.(); } catch {}   // le + gros (Chromium FF)
       try { if (typeof _ilBrowser !== 'undefined' && _ilBrowser) { _ilBrowser.close().catch(() => {}); _ilBrowser = null; } } catch {}
+      // NB : le navigateur FinancialJuice n'est VOLONTAIREMENT pas fermé ici — c'est le relais du fil
+      // d'actualité en direct. Le couper déclencherait la reconnexion, donc un trou dans le fil.
       if (global.gc) { try { global.gc(); } catch {} }
     }
-  } catch {}
+  } catch (e) {}
 }, 30 * 1000);   // vérification 2× plus fréquente
 
 server.listen(PORT, async () => {
