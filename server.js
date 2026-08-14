@@ -12120,25 +12120,20 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir, monTon
     const rb = bankOf(c);
     // Direction = STANCE de la banque (baisse/maintien/hausse ; USD via CME FedWatch), biais maison curé,
     // au lieu de la tendance cumulée 6,5 mois de rateprobability (qui sortait « Up » partout).
-  // ── COHÉRENCE BIAIS ↔ TAUX (14/08, demande user, capture CME FedWatch à l'appui) ──────────────
-  // CONSTAT MESURÉ EN PROD : l'onglet TAUX affichait « prochain mouvement : HIKE » pour l'USD pendant
-  // que le Radar affichait « Maintien / Neutre » — deux onglets du MÊME desk, la MÊME question, deux
-  // réponses opposées. La cohérence existait (v27 : la direction du Radar venait de b.move), puis la
-  // v35 l'a rebranchée sur _sbPolicyStance, dont l'hystérésis exige 60 % pour se prononcer. Avec un
-  // FOMC pricé à 35 % de hausse, le Radar disait « Maintien » là où TAUX disait « HIKE ».
-  // La direction AFFICHÉE redevient donc celle de TAUX : c'est littéralement la même question posée au
-  // même marché, elle ne peut pas recevoir deux réponses. Le SCORE, lui, garde son hystérésis — un
-  // FOMC à 35 % ne doit pas faire basculer un biais — mais gagne la nuance ci-dessous.
-  const _moveTaux = (() => {
-    try {
-      const st = _ratesState && _ratesState.banks && _ratesState.banks[c];
-      const mv = st && st.move;
-      if (typeof mv !== 'string') return null;
-      const m = mv.toUpperCase();
-      return m.includes('HIKE') ? 'Up' : m.includes('CUT') ? 'Down' : 'Hold';
-    } catch (e) { return null; }
-  })();
-  const dir = _moveTaux || _sbPolicyStance(c).dir;
+  // ── COHÉRENCE BIAIS ↔ TAUX : DÉJÀ ACQUISE, NE PAS « RÉPARER » (note du 14/08) ─────────────────
+  // Une fausse alerte a coûté un aller-retour ici, elle est consignée pour qu'elle ne recommence pas.
+  // J'ai cru mesurer une contradiction (TAUX « HIKE » vs Radar « Maintien ») et j'ai rebranché la
+  // direction du Radar sur `move`. C'était FAUX DEUX FOIS :
+  //   1. mon script de contrôle lisait `move`, qui n'est PAS le prochain mouvement mais la TENDANCE
+  //      CUMULÉE ~6,5 mois de rateprobability (voir le commentaire du builder TAUX) ; l'écran, lui,
+  //      affiche `stance` ;
+  //   2. `stance` vaut `_sbStanceMove(code)` = `_sbPolicyStance(code).dir` — LA MÊME FONCTION que la
+  //      ligne ci-dessous. Les deux onglets répondaient donc déjà la même chose, par construction.
+  // Le correctif était en prime inopérant (il lisait `_ratesState.banks[c].move`, champ inexistant :
+  // `_ratesState` ne porte que l'ancre maison), ce qui l'a rendu invisible au lieu de nuisible.
+  // RÈGLE : la direction reste une SEULE fonction, appelée par les deux surfaces. Pour comparer TAUX
+  // et BIAIS, lire `stance` — jamais `move`.
+  const dir = _sbPolicyStance(c).dir;
     // Croissance & Emploi = TENDANCE sur l'HISTORIQUE des vraies publications (PIB ; chômage inversé) → hausse =
     // Solide, baisse = Faible, plat = Neutre. Repli sur la stance du sous-pilier (déjà agrégée 3 mois) si <2 publis.
     // CROISSANCE (demande user) = PIB confirmé (×1) + Ventes au détail (×0.6, avancé : anticipent le PIB, croissance
