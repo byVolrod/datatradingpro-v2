@@ -1284,18 +1284,15 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // points clés. Une seule ligne titrée, intégrée au haut du mail.
   const _macAll = (Array.isArray(w.macro) ? w.macro : []).filter(s => s && s.heading && Array.isArray(s.bullets) && s.bullets.length);
   const _mac = _macAll[0];
-  // SECTION MACRO (14/08, demande user : « le récap hebdo doit bien reprendre notre récap hebdo, avec
-  // les catégories macro, géo… »). Le mail affichait déjà Géopolitique, Chiffres, Banques centrales et
-  // Devises, mais les thèmes macro ne servaient qu'à extraire UNE phrase dans « L'essentiel » : la
-  // catégorie la plus structurante du récap n'avait pas de section à elle.
-  // On saute le thème DÉJÀ montré en tête (_mac) pour ne pas le lire deux fois à trois lignes d'écart,
-  // et on plafonne à 3 thèmes × 3 puces : un mail se parcourt, il ne se lit pas comme le desk.
-  const macroHtml = _macAll.slice(1, 4).map(t => `<div style="margin:0 0 14px;">`
-    + `<div style="color:#e8eaed;font-size:12.5px;font-weight:700;margin:0 0 5px;">${_esc(_md(t.heading))}</div>`
-    + t.bullets.slice(0, 3).map(x =>
-        `<div style="color:#cbd5e1;font-size:13px;line-height:1.6;margin:0 0 4px;padding-left:11px;border-left:2px solid #232429;">${_esc(_cutTxt(_md(x), 200))}</div>`
-      ).join('')
-    + `</div>`).join('');
+  // ⚠️ PAS DE SECTION « MACRO » DANS CE MAIL — et ce n est PAS un oubli (14/08).
+  // J en avais ajouté une le matin même : erreur. Sa source, `w.macro`, porte l ANCIENNE taxonomie
+  // (« Performance Cross-Asset », « Commerce International & Tarifs »…) que le récap du desk a
+  // justement RETIRÉE le 11/08 comme redondante. Le mail affichait donc des rubriques qui n existent
+  // plus dans le rapport qu il annonce — l inverse du but recherché. Le seul usage LÉGITIME de
+  // `w.macro` ici reste le FAIT MARQUANT repris dans « L essentiel » juste au-dessus.
+  // Le mail suit la structure RÉELLE du desk : essentiel · géopolitique · chiffres · banques
+  // centrales · devises · force des devises.
+
   const macroFactHtml = _mac ? `<div style="border-left:2px solid #232429;padding:2px 0 2px 11px;margin:12px 0 0;">
       <div style="color:#8b93a1;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${_esc(_md(_mac.heading))}</div>
       <div style="color:#cbd5e1;font-size:13px;line-height:1.6;margin-top:4px;">${_esc(_cutTxt(_md(_mac.bullets[0]), 230))}</div>
@@ -1370,13 +1367,12 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${insightsHtml}
     ${macroFactHtml}
     ${geoHtml ? _sec(geoTitle) + geoHtml : ''}
-    ${macroHtml ? _sec('Macro') + macroHtml : ''}
-      ${pastTableHtml ? _sec('Les chiffres de la semaine') + pastTableHtml : ''}
+    ${pastTableHtml ? _sec('Les chiffres de la semaine') + pastTableHtml : ''}
     ${cbToneHtml ? _sec('Les banques centrales') + cbToneHtml : ''}
     ${curHtml ? _sec('Les devises') + curHtml : ''}
     ${_sec('La force des devises')}
     ${_widgetImg('strength', '')}
-    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Le rapport complet vous attend sur le desk&nbsp;: analyse par banque, par devise, et le calendrier détaillé.</p>
+    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Vous venez de lire un extrait. Le rapport complet vous attend sur le desk&nbsp;: les huit devises analysées une à une — politique monétaire, inflation, croissance, emploi, biais et rendez-vous de la semaine — la lecture banque par banque et le calendrier détaillé.</p>
     ${_campaignBtn('Ouvrir le Récap Hebdo', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:18px 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
