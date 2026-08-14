@@ -1310,6 +1310,40 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // Classement par IMPORTANCE réelle (décision de taux > inflation > croissance/emploi > commerce/activité >
   // confiance) — miroir de _gewKeyRank du desk. SINON un mardi chargé (sondages de confiance, données Chine)
   // remplit les 7 lignes et évince la décision BoC + le CPI/PPI (demande user « il manque le CAD, le PPI, le CPI »).
+  // ── LA GRILLE DU DESK PASSE DEVANT (14/08, demande user) ──────────────────────────────────
+  // Le classement par grande famille (taux > inflation > croissance > emploi > activité) laissait
+  // remonter des lignes secondaires — un chômage suisse, un taux de chômage néo-zélandais — pendant
+  // que les indicateurs que l'utilisateur suit VRAIMENT avec son mentor (NFP, CPI, PPI, PCE, ventes
+  // au détail, ISM, JOLTS, ADP, PIB, décision FOMC) pouvaient ne pas tenir dans les 5 lignes.
+  // Ces quinze noms viennent de SA grille de travail : ce sont eux qu'il attend dans ce tableau.
+  // C'est une PRIORITÉ, pas un filtre : si la semaine n'en compte pas cinq, le classement par
+  // famille reprend la main pour compléter — un tableau vide n'aiderait personne.
+  // ── LA GRILLE DU DESK PASSE DEVANT (14/08, demande user) ──────────────────────────────────
+  // Le classement par grande famille laissait trois taux de chômage étrangers (CHF, NZD, EUR) manger
+  // la table pendant que le NFP, le CPI américain ou les ventes au détail n y tenaient pas. Or ce sont
+  // EUX que l utilisateur suit avec son mentor.
+  // Un simple drapeau « dans la grille » ne suffisait pas : presque tout y figure, donc il ne
+  // départageait rien (vérifié — le classement était identique avant/après). On GRADUE donc selon la
+  // hiérarchie de SA grille : la décision de taux d abord, puis le NFP, l inflation, la croissance,
+  // et enfin les indicateurs de second rang de chaque famille (chômage, salaires, JOLTS, ADP —
+  // « le test avant le vrai chiffre », dit son mentor de l ADP).
+  // PRIORITÉ, PAS FILTRE : hors grille = 0, et le classement par famille reprend la main pour
+  // compléter les 5 lignes si la semaine est pauvre. Un tableau vide n aiderait personne.
+  const _GRILLE = [
+    [/\bfomc\b|fed interest rate decision|rate decision|interest rate decision/i, 10],
+    [/non-?farm|payrolls|\bnfp\b/i,                                                9],
+    [/\bcpi\b|inflation rate|consumer price/i,                                     8],
+    [/\bpce\b/i,                                                                   7],
+    [/\bppi\b|producer price/i,                                                    6],
+    [/retail sales/i,                                                              6],
+    [/\bism\b/i,                                                                   5],
+    [/\bgdp\b|gross domestic/i,                                                    5],
+    [/unemployment rate/i,                                                         4],
+    [/average (hourly |weekly )?earnings|average earnings/i,                       4],
+    [/jolts|job openings/i,                                                        3],
+    [/\badp\b/i,                                                                   3],
+  ];
+  const _dansLaGrille = t => { const x = String(t || ''); for (const [re, r] of _GRILLE) if (re.test(x)) return r; return 0; };
   const _mailKeyRank = t => {
     const s = String(t || '').toLowerCase();
     if (/rate decision|interest rate|rate statement|monetary policy report|\bfomc\b|cash rate|\bocr\b|bank rate|official rate|refi|deposit rate/.test(s)) return 6;   // décisions de taux
@@ -1338,8 +1372,9 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _famSeen = new Set();
   const _pastRows = _pastFlat
     .filter(r => r.e && (r.e.major || /high/i.test(r.e.impact || '')))
-    .map((r, i) => ({ r, i, rk: _mailKeyRank(r.e.title) }))
-    .sort((a, b) => (b.rk - a.rk) || (_headline(a.r.e.title) - _headline(b.r.e.title)) || (a.i - b.i))   // importance, puis titre phare, puis chrono
+    .map((r, i) => ({ r, i, rk: _mailKeyRank(r.e.title), gr: _dansLaGrille(r.e.title) }))
+    // Grille du desk d'abord, puis importance de famille, puis titre phare, puis chronologie.
+    .sort((a, b) => (b.gr - a.gr) || (b.rk - a.rk) || (_headline(a.r.e.title) - _headline(b.r.e.title)) || (a.i - b.i))
     .filter(x => { const k = String(x.r.e.ccy || '') + '|' + _fam(x.r.e.title); if (_famSeen.has(k)) return false; _famSeen.add(k); return true; })   // 1 ligne / famille / devise
     .slice(0, 5)   // v40 : 5 lignes suffisent (8 = mur de chiffres) — déjà triées par importance
     .map(x => x.r);
