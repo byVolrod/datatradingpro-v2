@@ -5274,7 +5274,8 @@ async function _prewarmWrapSeg(item) {
   if (!aiAllowed('analyst', { priority: 'background' })) return false;                     // respecte l'enveloppe budget Gemini
   try {
     let points = null;
-    if (item.content && item.content.length > 100) points = _extractWrapPoints(_cleanWrapHtml(item.content));
+    const _srcItem = item._raw || item.content;   // l'article d'origine, jamais une sortie IA anterieure
+    if (_srcItem && _srcItem.length > 100) points = _extractWrapPoints(_cleanWrapHtml(_srcItem));
     if (!points || points.length < 3) { const data = await _fetchILContentHttp(url); if (data && data.points && data.points.length >= 3) points = data.points; }
     if (!points || points.length < 3) return false;
     const seg = await _segmentWrapAI(points, { noClaude: true });            // PRÉCHAUFFAGE de fond → JAMAIS de crédits Claude (fallback = on retentera)
@@ -5387,7 +5388,8 @@ async function _resegmentTodayWraps(force = false) {
     let seg = _swSegCache.get(SW_SEG_VER + w.url);
     if (force || _segState(seg) !== 'ok') {
       try {
-        let points = (w.content && w.content.length > 100) ? _extractWrapPoints(_cleanWrapHtml(w.content)) : null;
+        const _srcW = w._raw || w.content;        // idem : on re-segmente la SOURCE, pas le resultat precedent
+        let points = (_srcW && _srcW.length > 100) ? _extractWrapPoints(_cleanWrapHtml(_srcW)) : null;
         if (!points || points.length < 3) { const d = await _fetchILContentHttp(w.url); if (d && d.points) points = d.points; }
         if (points && points.length >= 3) {
           const s = await _segmentWrapAI(points);
@@ -5489,6 +5491,38 @@ function _catHeadline(t) {
   return 'HEADLINES';
 }
 const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXED INCOME', 'COMMODITIES', 'EQUITIES', 'CRYPTO', 'TRADE/TARIFFS', 'HEADLINES'];
+// ── LE REPLI 0 TOKEN PARLE LA MÊME LANGUE QUE LE RESTE (14/08) ────────────────────────────────
+// Les dix catégories ci-dessus restent des VALEURS LOGIQUES internes (règle du projet : on ne
+// traduit qu'à l'affichage). Mais ce repli sert dès que le quota IA est épuisé, et il rendait
+// alors le rapport avec l'ancienne taxonomie ANGLAISE : le lecteur retrouvait « COMMODITIES » et
+// « CENTRAL BANKS » un jour de panne, juste après avoir vu « Macro » la veille. On projette donc
+// sur les rubriques du récap quotidien.
+// « À surveiller » n'apparaît pas ici, volontairement : elle est PROSPECTIVE, et un classement par
+// mots-clés ne sait pas distinguer un fait survenu d'une échéance à venir. Mieux vaut trois
+// rubriques justes qu'une quatrième remplie au hasard.
+const _CAT_RUBRIQUE = {
+  'GEOPOLITICS': 'Géopolitique',
+  'CENTRAL BANKS': 'Macro', 'ECONOMIC DATA': 'Macro',
+  'FX': 'Analyse de séance', 'FIXED INCOME': 'Analyse de séance', 'COMMODITIES': 'Analyse de séance',
+  'EQUITIES': 'Analyse de séance', 'CRYPTO': 'Analyse de séance', 'TRADE/TARIFFS': 'Analyse de séance',
+  'HEADLINES': 'Analyse de séance',
+};
+const _RUBRIQUE_ORDRE = ['Géopolitique', 'Macro', 'Analyse de séance'];
+// Reconnaissance dédiée aux INTERTITRES de la source. `_catHeadline` est réglé pour des TITRES de
+// dépêche, où les mots arrivent au singulier ; ses motifs sont bornés par \b et échouent donc sur
+// les en-têtes au PLURIEL, qui sont la norme chez InvestingLive : « CENTRAL BANKS & DATA » et
+// « GEOPOLITICS » retombaient tous les deux en « Analyse de séance ». Mesuré, puis corrigé ici.
+// Volontairement réservé aux en-têtes (2e paramètre) : l'appliquer aussi aux puces déplacerait
+// des classements qui, eux, sont justes.
+const _RUBRIQUE_ENTETE = [
+  [/geopolit|middle east|\bwar\b|conflict|ukraine|russia|iran|israel/i, 'Géopolitique'],
+  [/central bank|monetary|economic data|\bdata\b|inflation|\bmacro\b|rate decision/i, 'Macro'],
+];
+const _rubriqueDe = (t, estEntete) => {
+  const s = String(t || '');
+  if (estEntete) { for (const [rx, r] of _RUBRIQUE_ENTETE) if (rx.test(s)) return r; }
+  return _CAT_RUBRIQUE[_catHeadline(s)] || 'Analyse de séance';
+};
 
 // ── Section « Commentaires marquants » (notable comments) — partagée FX Daily Recap + session wraps ───────
 // ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
@@ -5616,7 +5650,13 @@ app.get('/api/session-wrap-content', async (req, res) => {
     }
     if (seg && typeof seg === 'object') seg = null;   // marqueur d'échec → rendu brut pour cette requête
     if (seg) {
-      if (cached) cached.content = seg;
+      // ⚠️ ON PRÉSERVE LE BRUT (14/08). Cette ligne écrasait `content` par le HTML DÉJÀ SEGMENTÉ,
+      // et trois autres endroits (préchauffage, re-segmentation, récap quotidien) ré-extraient
+      // ensuite « les points » DEPUIS ce champ : à la génération suivante, le modèle recevait sa
+      // propre sortie en guise d'article source, en croyant y lire les intertitres d'origine. La
+      // source n'était plus récupérable nulle part et la dégradation s'accumulait à chaque tour.
+      // `_raw` n'est écrit qu'une fois : il garde l'article tel qu'il est arrivé.
+      if (cached) { if (!cached._raw) cached._raw = cached.content; cached.content = seg; }
       return res.json({ html: _stripSource(seg), source: 'ai' });
     }
   }
@@ -5638,13 +5678,18 @@ app.get('/api/session-wrap-content', async (req, res) => {
       const t = String(p).replace(/\s+/g, ' ').trim();
       if (!t || SKIP.test(t)) continue;
       if (isGeneric(t)) { curSec = null; continue; }                         // en-tête générique « HEADLINES » → on catégorise au lieu de tout empiler dessous
-      if (isHead(t)) { curSec = { section: t, items: [] }; secs.push(curSec); continue; }
+      // ⚠️ L'en-tête de la source n'est PLUS recopié tel quel. Il l'était, et c'est par là que
+      // « EQUITIES », « COMMODITIES » ou « CENTRAL BANKS & DATA » revenaient dans le rapport :
+      // InvestingLive écrit ses intertitres en majuscules, ils passaient donc directement à
+      // l'écran. On le NORMALISE vers la rubrique du desk, ce qui conserve le regroupement voulu
+      // par la source sans en importer le vocabulaire.
+      if (isHead(t)) { curSec = getAuto(_rubriqueDe(t, true)); continue; }
       const item = t.replace(/^headlines?\s*:\s*/i, '').trim();   // retire le boilerplate « Headlines: »
       if (!item) continue;
-      if (curSec) curSec.items.push(item);                                    // sous une VRAIE rubrique détectée à la source
-      else getAuto(_catHeadline(item)).items.push(item);                      // sinon → catégorisation 0-token par mot-clé
+      if (curSec) curSec.items.push(item);                                    // sous la rubrique héritée de l'en-tête source
+      else getAuto(_rubriqueDe(item)).items.push(item);                       // sinon → catégorisation 0-token par mot-clé
     }
-    _CAT_ORDER.forEach(c => { if (auto[c] && auto[c].items.length) secs.push(auto[c]); });   // rubriques auto dans un ordre logique
+    _RUBRIQUE_ORDRE.forEach(c => { if (auto[c] && auto[c].items.length) secs.push(auto[c]); });   // ordre du récap quotidien
     let autoHtml = '';
     for (const s2 of secs) { if (s2.items.length) autoHtml += `<strong>${esc(s2.section)}</strong><ul>${s2.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`; }
     if (autoHtml.length > 80) {
@@ -9212,7 +9257,8 @@ async function generateWeeklyRecapAI(force = false) {
   //    (pas que les titres), du lundi matin au vendredi soir.
   const wrapsRaw = (_swCache || []).filter(i => inWeek(i.timestamp)).sort((a, b) => b.timestamp - a.timestamp); // récent → ancien
   const _wrapDetails = await Promise.allSettled(wrapsRaw.slice(0, 10).map(async w => {
-    let pts = (w.content && w.content.length > 100) ? _extractWrapPoints(_cleanWrapHtml(w.content)) : null;
+    const _srcRecap = w._raw || w.content;        // idem
+    let pts = (_srcRecap && _srcRecap.length > 100) ? _extractWrapPoints(_cleanWrapHtml(_srcRecap)) : null;
     if ((!pts || pts.length < 3) && w.url) { try { const d = await _fetchILContentHttp(w.url); pts = d.points; } catch {} }
     return { w, pts: (pts || []).filter(p => !_RECAP_NOISE.test(p)).slice(0, 18) };
   }));
