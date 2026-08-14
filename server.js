@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260814-hebdo-durable', ts: Date.UTC(2026, 7, 14, 19, 0), title: 'Récap Hebdo : le mail retrouve tout son contenu', desc: 'Le mail hebdomadaire pouvait partir amputé — il ne gardait que l introduction et le graphique de force des devises, sans la géopolitique, la macro, les chiffres, les banques centrales ni les devises. Le rapport était stocké dans la file d actualité, qui tourne en quelques heures et finissait par l effacer. Il est désormais conservé à part, et le mail retrouve toutes ses sections.' },
   { id: 'dtpu-20260814-mail-hebdo-macro', ts: Date.UTC(2026, 7, 14, 18, 0), title: 'Récap Hebdo par e-mail : la section Macro rejoint le mail', desc: 'Le mail hebdomadaire suit désormais l ordre du rapport du desk : l essentiel, le fil géopolitique, la macro, les chiffres de la semaine, les banques centrales, les devises et la force des devises. Les thèmes macro avaient leur place dans le rapport mais pas dans le mail, où ils se réduisaient à une seule phrase.' },
   { id: 'dtpu-20260814-horizons-chf', ts: Date.UTC(2026, 7, 14, 16, 0), title: 'Radar de Biais : quand la banque et le marché ne disent pas la même chose', desc: 'Un nouveau repère apparaît sur la politique monétaire quand l orientation de fond d une banque centrale et ce que le marché anticipe pour sa prochaine réunion s opposent — une tension qui annonce souvent un retournement ; l infobulle précise le sens de chacun. Par ailleurs le franc suisse est désormais lu comme il doit l être : par l appétit pour le risque, sa vraie force motrice, et non par ses seules publications domestiques.' },
   { id: 'dtpu-20260814-recaps-seance', ts: Date.UTC(2026, 7, 14, 15, 0), title: 'Récaps de séance : la même structure que le récap quotidien', desc: 'Asie, Londres et New York se lisent désormais avec les mêmes rubriques que le récap quotidien — Géopolitique, Macro, À surveiller — dans le même ordre. Dans l onglet Analystes, passer d un rapport à l autre ne demande plus de réapprendre où regarder. Le contenu reste propre à chaque séance.' },
@@ -9670,6 +9671,9 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
   // de LA MÊME SEMAINE (startsWith weekPrefix), comme le GEW (ligne ~7417). AVANT, le filtre retirait TOUS les
   // Weekly Market Recap → l'historique des semaines passées était RASÉ à chaque génération (« je vois pas les
   // anciens rapports », demande user). _dedupRecaps garde ensuite une version par semaine. (Fix archives.)
+  // Copie durable POSÉE À LA GÉNÉRATION : ne pas attendre qu une relecture du tampon la sauve —
+  // entre deux lectures, le volume de news peut déjà avoir évincé le rapport.
+  try { _weeklyMemoriser(weekly); } catch (e) {}
   allNews = [item, ...allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && (i.id || '').startsWith(weekPrefix)))].slice(0, 2000);
   saveHistory();
   // Persistance DURABLE (Supabase) → après un redémarrage Render on RECHARGE au lieu de régénérer (économie Gemini)
@@ -18087,7 +18091,30 @@ const _WD_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', '
 function _isoWeekKey(y, m, d) { const dt = new Date(Date.UTC(y, m - 1, d)); const dow = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - dow + 3); const ft = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4)); const wk = 1 + Math.round(((dt - ft) / 864e5 - 3 + ((ft.getUTCDay() + 6) % 7)) / 7); return dt.getUTCFullYear() + '-W' + String(wk).padStart(2, '0'); }
 function _parisParts(d) { d = d || new Date(); const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', weekday: 'short', hour: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }); const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value; const wd = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday]; return { weekday: wd, hour: parseInt(p.hour, 10) % 24, isoWeek: _isoWeekKey(+p.year, +p.month, +p.day) }; }
 function _nextWeeklyLabel(weekday, hour) { for (let i = 0; i < 8; i++) { const cand = new Date(Date.now() + i * 864e5); const pp = _parisParts(cand); if (pp.weekday === weekday && (i > 0 || pp.hour < hour)) return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(cand) + ' à ' + String(hour).padStart(2, '0') + 'h00'; } return '—'; }
-function _freshWeekly() { try { const w = ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; return w ? _noDashDeep(w) : null; } catch { return null; } }
+// ── LE RÉCAP HEBDO NE DOIT PAS VIVRE DANS LE TAMPON DE NEWS (14/08) ──────────────────────────
+// CONSTAT EN PRODUCTION : `weekly` valait NULL, donc le mail Récap Hebdo ne rendait que ses deux
+// sections inconditionnelles (« L'essentiel » et « La force des devises ») — géopolitique, macro,
+// chiffres, banques centrales et devises sont TOUTES conditionnelles et tombaient en silence.
+// CAUSE : _freshWeekly cherche le rapport dans `allNews`, une liste PLAFONNÉE à 2000 items et
+// alimentée par un fil qui produit des milliers de titres par jour. Le rapport, généré le samedi
+// à 02h05, se fait donc ÉVINCER par le volume de news en moins d'une journée. Il n'était encore
+// là que le samedi matin, à quelques heures de sa génération — le reste de la semaine, l'aperçu
+// et tout envoi de rattrapage rendaient un mail amputé, sans que rien ne le signale.
+// Un rapport hebdomadaire ne peut pas être stocké dans une file qui tourne en quelques heures :
+// on en garde une COPIE DURABLE (KV), rafraîchie à chaque génération et relue au démarrage.
+let _weeklyDurable = null;
+(async () => { try { const v = await auth.aiCacheGet('weekly:dernier', 30 * 864e5); if (v && typeof v === 'object') _weeklyDurable = v; } catch (e) {} })();
+function _weeklyMemoriser(w) {
+  try {
+    if (!w || typeof w !== 'object') return;
+    _weeklyDurable = w;
+    auth.aiCacheSet('weekly:dernier', w).catch(() => {});
+  } catch (e) {}
+}
+function _freshWeekly() { try { const w = ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; if (w) { _weeklyMemoriser(w); return _noDashDeep(w); }
+  // Le tampon ne l a plus (évincé par le volume de news) → copie durable.
+  return _weeklyDurable ? _noDashDeep(_weeklyDurable) : null;
+} catch { return _weeklyDurable ? _noDashDeep(_weeklyDurable) : null; } }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 //  MOTEUR DE CONTEXTE NEWSLETTER — lit l'etat REEL du desk et le condense pour les mails intelligents.
