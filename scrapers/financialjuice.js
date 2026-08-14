@@ -739,12 +739,25 @@ function connectCentrifugo(token) {
 // This piggybacks on their existing session — zero extra connections.
 
 async function connectCentrifugoViaBrowser() {
+  // FUITE D ONGLETS (14/08) — CAUSE RACINE du trou de news du 13-14/08 (~18 h sans fil).
+  // Cette fonction ouvre un onglet puis enchaîne une dizaine d await (exposeFunction, cookies,
+  // goto…). Si L UN D EUX échoue, l onglet restait OUVERT : on sortait par l exception sans jamais
+  // le refermer. Or le watchdog rappelle cette fonction toutes les 2 min tant que le flux est mort
+  // → un onglet Chrome fuité toutes les 2 min, chacun étant un processus de rendu.
+  // Constaté en prod : au bout d une dizaine d heures le conteneur ne pouvait PLUS créer de
+  // processus (uv_thread_create en échec, contrôle de santé en échec 427 fois d affilée) — donc
+  // plus aucune reconnexion possible, ni par navigateur ni par le contrôle de santé. La panne
+  // s auto-entretenait : plus le fil restait mort, plus il devenait impossible de le relancer.
+  // On garde donc une référence locale et on referme l onglet sur TOUT échec.
+  let _pageLocale = null;
+  try {
   _wsUp = false;
 
   const browser = await getFJBrowser();
 
   if (_fjWsPage) { try { await _fjWsPage.close(); } catch {} _fjWsPage = null; }
-  _fjWsPage = await browser.newPage();
+  _pageLocale = await browser.newPage();
+  _fjWsPage = _pageLocale;
 
   // Expose relay callbacks to the page
   await _fjWsPage.exposeFunction('_fjRelay', (rawData, channel) => {
@@ -861,6 +874,14 @@ async function connectCentrifugoViaBrowser() {
   setTimeout(() => pollPageForNews(_activePage), 4_000);   // first poll shortly after load
   _pagePollingTimer = setInterval(() => pollPageForNews(_activePage), 60_000);
   _activePage.once('close', () => clearInterval(_pagePollingTimer));
+  } catch (e) {
+    // Échec en cours de route : on referme l onglet qu on vient d ouvrir, sinon il fuit à chaque
+    // tentative. On ne touche PAS au navigateur lui-même (il est mutualisé et se referme seul
+    // après inactivité) — seul l onglet est à nous.
+    if (_pageLocale) { try { await _pageLocale.close(); } catch (_) {} }
+    if (_fjWsPage === _pageLocale) _fjWsPage = null;
+    throw e;   // l appelant garde sa logique de repli/backoff inchangée
+  }
 }
 
 // ─── In-page news polling ──────────────────────────────────────────────────────
