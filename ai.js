@@ -775,24 +775,85 @@ async function _anthropicStream(prompt, maxTokens, onChunk) {
   throw lastErr || new Error('Claude stream: échec');
 }
 async function generateTextStream(prompt, maxTokens = 380, opts = {}, onChunk = () => {}) {
+  // Cadratin banni (voir sansCadratin plus bas). En streaming le texte affiché EST le texte
+  // diffusé morceau par morceau : il faut donc nettoyer CHAQUE morceau, pas seulement le retour.
+  // Règle volontairement SANS ancrage de ligne (^ $) : un morceau se termine à un endroit
+  // arbitraire, une règle « fin de ligne » y supprimerait un séparateur encore valide.
+  const _flux = d => (typeof d === 'string' && d.indexOf('—') >= 0)
+    ? d.replace(/\s—\s/g, ' : ').replace(/—/g, '-')
+    : d;
+  const _emet = d => onChunk(_flux(d));
   if (GROQ_KEYS.length) {
-    try { const out = await _groqStream(prompt, maxTokens, onChunk); _noteTotalOk(); return out; }   // Groq = le + rapide → chat fluide
+    try { const out = await _groqStream(prompt, maxTokens, _emet); _noteTotalOk(); return sansCadratin(out); }   // Groq = le + rapide → chat fluide
     catch (e) { console.warn('[AI stream] Groq: ' + String(e.message).slice(0, 90)); _aiStat('groqFail'); }
   }
   if (OPENROUTER_KEYS.length) {
-    try { const out = await _openrouterStream(prompt, maxTokens, onChunk); _noteTotalOk(); return out; }
+    try { const out = await _openrouterStream(prompt, maxTokens, _emet); _noteTotalOk(); return sansCadratin(out); }
     catch (e) { console.warn('[AI stream] OpenRouter: ' + String(e.message).slice(0, 90)); _aiStat('openrouterFail'); }
   }
   if (!opts.noClaude && claudeUsable()) {
-    try { const out = await _anthropicStream(prompt, maxTokens, onChunk); _noteTotalOk(); return out; }
+    try { const out = await _anthropicStream(prompt, maxTokens, _emet); _noteTotalOk(); return sansCadratin(out); }
     catch (e) { console.warn('[AI stream] Claude: ' + String(e.message).slice(0, 90)); }
   }
   throw new Error('streaming indisponible (repli bufferisé)');
 }
 
+/* ── TYPOGRAPHIE : LE CADRATIN EST BANNI DU DESK (veto utilisateur, 14/08/2026) ────────────────
+   « enlève ce caractère et ne le met plus jamais "—" du desk ».
+
+   POURQUOI ICI, ET PAS SEULEMENT DANS LES CHAÎNES STATIQUES : la quasi-totalité du texte lu par
+   le client (récaps de séance, récap quotidien et hebdo, analyses d'événement, narratifs du
+   Radar de Biais, décryptages, chat macro) est ÉCRITE PAR UN MODÈLE au moment de la génération.
+   Les modèles emploient le cadratin massivement. Nettoyer les libellés en dur sans assainir la
+   sortie IA aurait laissé revenir le caractère à chaque génération, indéfiniment.
+   `generateText` est le point de passage COMMUN à tous les fournisseurs (Groq, Gemini, GitHub,
+   OpenRouter, Cohere, xAI, Claude) : un seul filet couvre toute la chaîne.
+
+   INNOCUITÉ VIS-À-VIS DU JSON : beaucoup d'appelants font un JSON.parse sur cette valeur. Le
+   cadratin n'est JAMAIS de la syntaxe JSON, uniquement du contenu de chaîne, et aucun caractère
+   de remplacement ci-dessous n'est structurant (ni guillemet, ni antislash, ni accolade). Le
+   nettoyage peut donc précéder le parse sans risque.
+
+   REMPLACEMENT SELON LE SENS, jamais mécanique : un « - » partout aurait produit du mauvais
+   français. Les deux-points ne sont posés qu'UNE fois par ligne (« A : B : C » est illisible),
+   la virgule prend le relais ensuite. */
+function sansCadratin(t) {
+  if (typeof t !== 'string') return t;
+  if (t.indexOf('—') < 0 && !/\\u2014/i.test(t)) return t;   // sortie courante : aucun coût
+  return t.replace(/\\u2014/gi, '—')            // échappement littéral émis par certains modèles
+    .split('\n').map(ligne => {
+      let l = ligne
+        .replace(/(\d)\s*—\s*(\d)/g, '$1-$2')      // plage chiffrée : 12—15 -> 12-15
+        // Cadratin de PUCE en tête de ligne -> retiré. Exigence du COLLAGE À GAUCHE (aucune espace
+        // avant) : sans elle, un fragment de concaténation comme ' — service dégradé' était pris
+        // pour une puce, le séparateur sautait et les mots se collaient (« risque élevé service
+        // dégradé »). Une espace devant signe une incise, pas une puce : elle suit la voie normale.
+        .replace(/^—[ \t]*/, '')
+        .replace(/[ \t]*—[ \t]*$/, '')             // cadratin orphelin en fin de ligne
+        .replace(/([,;:])[ \t]*—[ \t]*/g, '$1 ');  // ponctuation déjà là -> pas de doublon
+      // Deux-points UNE SEULE FOIS par segment de phrase, la virgule ensuite : « A : B : C » est
+      // illisible. Le budget se calcule par SEGMENT (et non par ligne) car une réponse JSON tient
+      // sur une seule ligne : un compteur par ligne aurait donné un deux-points au premier item
+      // et une virgule à tous les autres, quel que soit leur contenu.
+      // ⚠️ Balayage PROGRESSIF, et non String.replace : replace évalue toujours la chaîne
+      // D'ORIGINE, donc le deux-points déjà posé restait invisible pour la décision suivante et
+      // « A — B — C » ressortait « A : B : C », exactement ce qu'on cherche à éviter.
+      const BORNES = ['. ', '! ', '? ', '"', '«', '»', ';', '\t'];
+      const RX = /(?:[ \t]+—[ \t]*|[ \t]*—[ \t]+)/;
+      let sortie = '', reste = l, garde = 0, m;
+      while ((m = RX.exec(reste)) && garde++ < 60) {
+        const deja = sortie + reste.slice(0, m.index);
+        const seg = deja.slice(Math.max(-1, ...BORNES.map(b => deja.lastIndexOf(b))) + 1);
+        sortie = deja + (/:\s/.test(seg) ? ', ' : ' : ');
+        reste = reste.slice(m.index + m[0].length);
+      }
+      return (sortie + reste).replace(/—/g, '-');  // reste : cadratin COLLÉ à un mot -> trait d'union
+    }).join('\n');
+}
+
 async function generateText(prompt, maxTokens = 1500, opts = {}) {
   try {
-    const out = await _generateTextInner(prompt, maxTokens, opts);
+    const out = sansCadratin(await _generateTextInner(prompt, maxTokens, opts));
     _noteTotalOk();
     return out;
   } catch (e) {
@@ -891,7 +952,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
 // Génère via Claude UNIQUEMENT (ignore Gemini). Utile quand le budget Gemini soft
 // est épuisé mais qu'on veut quand même produire un vrai résultat IA via Claude.
 async function generateTextClaudeOnly(prompt, maxTokens = 1500) {
-  return _anthropic(prompt, maxTokens);
+  return sansCadratin(await _anthropic(prompt, maxTokens));   // même veto typographique que la voie commune
 }
 
 function hasAnthropic() { return ANTHROPIC_KEYS.length > 0; }
@@ -943,6 +1004,7 @@ module.exports = {
   generateText,
   generateTextStream,
   generateTextClaudeOnly,
+  sansCadratin,     // exporté : sert aussi aux textes assemblés côté serveur (scrapers, agrégats)
   setQuotaPressure,
   pressure,
   shouldThrottle,

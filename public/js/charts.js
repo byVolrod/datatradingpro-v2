@@ -783,7 +783,7 @@ function _stfSet(side, per) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(_stfPref), keepalive: true,
     }).then(function (r) {
-      if (!r.ok) console.warn('[Force] période non enregistrée sur le compte — HTTP', r.status);
+      if (!r.ok) console.warn('[Force] période non enregistrée sur le compte : HTTP', r.status);
       else _stfSale = false;
     }).catch(function (e) { console.warn('[Force] période non enregistrée :', e && e.message); });
   } catch (e) {}
@@ -1707,7 +1707,7 @@ async function buildStrengthCharts() {
       <div class="strength-main-chart" id="chart-strength-${side}"></div>
     </div>`;
 
-  /* ⚠️ ORDRE D'INITIALISATION — LE COMPTE D'ABORD (correctif 12/08, bug user « je mets TD en haut et
+  /* ⚠️ ORDRE D'INITIALISATION : LE COMPTE D'ABORD (correctif 12/08, bug user « je mets TD en haut et
      TW en bas, je me déconnecte/reconnecte, tout revient à TD »).
      Vérifié de bout en bout en production : après déco/reco, /api/strength-tf renvoie bien le choix
      stocké. Le serveur est donc hors de cause — c'est l'amorçage client qui perdait la valeur.
@@ -2157,7 +2157,7 @@ function _renderRiskHistStatus(cur) {
   const isOn = /risk-on/i.test(cur.label || ''), isOff = /risk-off/i.test(cur.label || '');
   box.className = 'rsh-status ' + (isOn ? 'risk-on' : isOff ? 'risk-off' : 'neutral');
   const lbl = box.querySelector('.rsh-label'), desc = box.querySelector('.rsh-desc');
-  if (lbl) lbl.textContent = cur.label || '—';
+  if (lbl) lbl.textContent = cur.label || '-';
   if (desc) desc.textContent = cur.description || '';
 }
 
@@ -2395,7 +2395,7 @@ function _cotRing(ok, sPct, lPct, mod) {
     +   '<circle class="cot-ring-l" cx="40" cy="40" r="' + r + '" fill="none" stroke-dasharray="' + arc(lPct) + '"'
     +     ' stroke-dashoffset="' + (-(sPct / 100) * C).toFixed(2) + '"/>'
     + '</g>'
-    + '<text class="cot-ring-v" x="40" y="45.5" text-anchor="middle">' + (ok ? dom + '%' : '—') + '</text>'
+    + '<text class="cot-ring-v" x="40" y="45.5" text-anchor="middle">' + (ok ? dom + '%' : '-') + '</text>'
     + '</svg>';
 }
 
@@ -2437,7 +2437,7 @@ function buildCOTChart(gridId, typeArg) {
         const ecart = ok ? Math.abs((cur.shortPct || 0) - (cur.longPct || 0)) : 0;
         const mod   = !ok ? 'na' : ecart < 4 ? 'flat' : (cur.longPos > cur.shortPos ? 'bull' : 'bear');
         const VERDICT = { bull: 'Acheteur', bear: 'Vendeur', flat: 'Neutre', na: 'N.D.' };
-        const TIRET = '—';
+        const TIRET = '-';
         const net   = ok ? fmtK(Math.abs(cur.longPos - cur.shortPos)) : TIRET;
         const sPct  = ok ? (cur.shortPct || 0) : 50;
         const lPct  = ok ? (cur.longPct  || 0) : 50;
@@ -3726,7 +3726,7 @@ const FXL_BADGE_FR = { Bullish: 'Haussier', Bearish: 'Baissier', Neutral: 'Neutr
 function _fxlBadge(label) {
   // Donnée MANQUANTE ≠ « Neutre » : un champ absent/null s'affiche « — » (audit 16/07 — le défaut
   // silencieux « Neutre » rendait un payload incomplet indétectable, d'où le « tout Neutre »).
-  if (label == null || label === '') return '<span class="fxl-badge fxl-badge--na">—</span>';
+  if (label == null || label === '') return '<span class="fxl-badge fxl-badge--na">-</span>';
   const cls = label === 'Bullish' ? 'bull' : label === 'Bearish' ? 'bear' : 'neut';
   return `<span class="fxl-badge fxl-badge--${cls}">${FXL_BADGE_FR[label] || label}</span>`;
 }
@@ -3919,7 +3919,7 @@ window.deviationClass = deviationClass;
 // éclair À GAUCHE du réel, DANS le span coloré → il prend la COULEUR DU RÉSULTAT
 // (vert cv-pos / rouge cv-neg / blanc) via currentColor. Même parsing que deviationClass.
 function calActualCell(actual, forecast, low, title) {
-  if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
+  if (actual == null || actual === '') return '<span class="cv-empty">-</span>';
   let bolt = '';
   if (low != null && low !== '') {
     const a = parseFloat(String(actual).replace(',', '.'));
@@ -3932,7 +3932,7 @@ function calActualCell(actual, forecast, low, title) {
 }
 
 function calFormatTime(ts) {
-  if (!ts) return '—';
+  if (!ts) return '-';
   // PAS de timeZone fixe → heure LOCALE du navigateur de l'utilisateur (sa vraie heure locale).
   return new Date(ts).toLocaleTimeString('en-GB', {
     hour: '2-digit', minute: '2-digit', hour12: false,
@@ -3985,7 +3985,7 @@ function renderCalTable() {
     const imp      = (ev.impact || '').toLowerCase();
     const isNext   = i === nextIdx;
     const isPast   = (ev.timestamp || 0) < nowMs;
-    const dispTime = calFormatTime(ev.timestamp) || ev.time || '—';
+    const dispTime = calFormatTime(ev.timestamp) || ev.time || '-';
 
     // ── Row classes ──
     let rowCls = 'cal-row';
@@ -3996,13 +3996,13 @@ function renderCalTable() {
 
     const fcast = ev.forecast && ev.forecast !== ''
       ? `<span class="cv-forecast">${ev.forecast}</span>`
-      : '<span class="cv-empty">—</span>';
+      : '<span class="cv-empty">-</span>';
     const prev = ev.previous && ev.previous !== ''
       ? `<span class="cv-prev">${ev.previous}</span>`
-      : '<span class="cv-empty">—</span>';
+      : '<span class="cv-empty">-</span>';
     // HIGH / LOW : not in ForexFactory XML, show dash when absent
-    const hi  = ev.high  && ev.high  !== '' ? `<span class="cv-forecast">${ev.high}</span>`  : '<span class="cv-empty">—</span>';
-    const lo  = ev.low   && ev.low   !== '' ? `<span class="cv-prev">${ev.low}</span>`        : '<span class="cv-empty">—</span>';
+    const hi  = ev.high  && ev.high  !== '' ? `<span class="cv-forecast">${ev.high}</span>`  : '<span class="cv-empty">-</span>';
+    const lo  = ev.low   && ev.low   !== '' ? `<span class="cv-prev">${ev.low}</span>`        : '<span class="cv-empty">-</span>';
 
     const timeCell = `<td class="cth-time"><span class="cal-chv">›</span> ${dispTime}</td>`;
 
@@ -4073,7 +4073,7 @@ function renderCalTable() {
 const _calDetailCache = {};   // url → { specs, history } (cache navigateur : pas de re-fetch)
 function _calEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _calColorCell(actual, forecast, title) {
-  if (!actual) return '<span class="cv-empty">—</span>';
+  if (!actual) return '<span class="cv-empty">-</span>';
   // Même Deviation Signaling unifié que la table — TITRE COMPRIS. Sans lui, l'inversion des
   // indicateurs où « plus haut » est MAUVAIS (chômage, inscriptions) ne s'appliquait pas : la
   // fiche affichait en VERT ce que la ligne du calendrier affichait en ROUGE, pour la même donnée.
@@ -4084,8 +4084,8 @@ function _calDetailHeadVals(ev) {
   return `
     <div class="cal-detail-vals">
       <div class="cdv"><span class="cdv-lbl">Réel</span>${_calColorCell(ev.actual, ev.forecast, ev.title)}</div>
-      <div class="cdv"><span class="cdv-lbl">Prévision</span><span class="cv-forecast">${ev.forecast ? _calEsc(ev.forecast) : '—'}</span></div>
-      <div class="cdv"><span class="cdv-lbl">Précédent</span><span class="cv-prev">${ev.previous ? _calEsc(ev.previous) : '—'}</span></div>
+      <div class="cdv"><span class="cdv-lbl">Prévision</span><span class="cv-forecast">${ev.forecast ? _calEsc(ev.forecast) : '-'}</span></div>
+      <div class="cdv"><span class="cdv-lbl">Précédent</span><span class="cv-prev">${ev.previous ? _calEsc(ev.previous) : '-'}</span></div>
     </div>`;
 }
 // HTML Specs + History à partir des données détail (réutilisé par le déroulé inline)
@@ -4102,8 +4102,8 @@ function _calDetailBodyHtml(d, titre) {
          <tbody>${d.history.map(h => `<tr>
            <td>${_calEsc(h.date || '')}</td>
            <td>${_calColorCell(h.actual, h.forecast, titre)}</td>
-           <td><span class="cv-forecast">${h.forecast ? _calEsc(h.forecast) : '—'}</span></td>
-           <td><span class="cv-prev">${h.previous ? _calEsc(h.previous) : '—'}</span></td>
+           <td><span class="cv-forecast">${h.forecast ? _calEsc(h.forecast) : '-'}</span></td>
+           <td><span class="cv-prev">${h.previous ? _calEsc(h.previous) : '-'}</span></td>
          </tr>`).join('')}</tbody>
        </table>`
     : '';
@@ -4123,30 +4123,30 @@ const CAL_KB = [
   { rx: /core\s+cpi|core\s+consumer\s+price|cpi\s+core/i, name: 'Core CPI', cat: 'Inflation', what: "Le prix des courses hors énergie et nourriture (l'inflation « de fond »).", anticipates: 'PCE, décisions de la banque centrale', nextRx: /\bpce\b|rate decision|fomc/i, hiUp: true },
   { rx: /core\s+pce/i, name: 'Core PCE', cat: 'Inflation', what: "La mesure d'inflation préférée de la Fed.", anticipates: 'Orientation future de la Fed', nextRx: /rate decision|fomc/i, hiUp: true },
   { rx: /\bpce\b|personal\s+consumption/i, name: 'PCE', cat: 'Inflation', what: 'Le prix réellement payé par les ménages.', anticipates: 'Futures décisions de taux', nextRx: /rate decision|fomc/i, hiUp: true },
-  { rx: /\bppi\b|producer\s+price/i, name: 'PPI', cat: 'Inflation', what: 'Le coût de production des usines — en amont des prix consommateur.', anticipates: 'CPI futur (pression sur les prix)', nextRx: /\bcpi\b|consumer price|inflation rate/i, hiUp: true },
-  { rx: /\bcpi\b|consumer\s+price|inflation\s+rate/i, name: 'CPI', cat: 'Inflation', what: 'Le prix du panier de la ménagère — LA mesure d\'inflation de référence.', anticipates: 'Politique monétaire, taux, devise', nextRx: /rate decision|fomc|\bpce\b/i, hiUp: true },
+  { rx: /\bppi\b|producer\s+price/i, name: 'PPI', cat: 'Inflation', what: 'Le coût de production des usines : en amont des prix consommateur.', anticipates: 'CPI futur (pression sur les prix)', nextRx: /\bcpi\b|consumer price|inflation rate/i, hiUp: true },
+  { rx: /\bcpi\b|consumer\s+price|inflation\s+rate/i, name: 'CPI', cat: 'Inflation', what: 'Le prix du panier de la ménagère : LA mesure d\'inflation de référence.', anticipates: 'Politique monétaire, taux, devise', nextRx: /rate decision|fomc|\bpce\b/i, hiUp: true },
   { rx: /non-?farm|payrolls|\bnfp\b/i, name: 'NFP', cat: 'Emploi', what: 'Le score des nouveaux emplois créés dans le mois (hors agriculture).', anticipates: 'Chômage, salaires, banque centrale', nextRx: /unemployment|rate decision|fomc/i, hiUp: true },
   { rx: /unemployment\s+rate|jobless\s+rate/i, name: 'Taux de chômage', cat: 'Emploi', what: 'Le pourcentage de personnes sans travail.', anticipates: 'Consommation, croissance', nextRx: /retail sales|\bgdp\b/i, hiUp: false },
   { rx: /jobless\s+claims|initial\s+claims|continuing\s+claims/i, name: 'Inscriptions au chômage', cat: 'Emploi', what: 'Le thermomètre HEBDO du marché du travail (nouvelles demandes d\'allocations).', anticipates: 'NFP, santé de l\'emploi', nextRx: /non-?farm|payrolls/i, hiUp: false },
   { rx: /average\s+hourly\s+earnings|hourly\s+earnings|wage\s+growth|\bwages\b/i, name: 'Salaires horaires', cat: 'Emploi', what: 'La vitesse de hausse des salaires.', anticipates: 'Inflation future (CPI/PCE)', nextRx: /\bcpi\b|\bpce\b/i, hiUp: true },
   { rx: /\badp\b/i, name: 'ADP', cat: 'Emploi', what: 'Le « test » privé avant le vrai chiffre NFP.', anticipates: 'NFP (imparfaitement)', nextRx: /non-?farm|payrolls/i, hiUp: true },
-  { rx: /jolts|job\s+openings/i, name: 'JOLTS', cat: 'Emploi', what: 'Le nombre de postes à pourvoir — la « demande » de travailleurs.', anticipates: 'NFP, salaires, inflation', nextRx: /non-?farm|payrolls/i, hiUp: true },
+  { rx: /jolts|job\s+openings/i, name: 'JOLTS', cat: 'Emploi', what: 'Le nombre de postes à pourvoir : la « demande » de travailleurs.', anticipates: 'NFP, salaires, inflation', nextRx: /non-?farm|payrolls/i, hiUp: true },
   { rx: /\bgdp\b|gross\s+domestic/i, name: 'PIB', cat: 'Croissance', what: 'La richesse totale produite par le pays.', anticipates: 'Politique monétaire, bénéfices des entreprises', nextRx: /rate decision|fomc/i, hiUp: true },
   { rx: /retail\s+sales/i, name: 'Ventes au détail', cat: 'Croissance', what: 'L\'argent réellement dépensé par les consommateurs.', anticipates: 'PIB, croissance future', nextRx: /\bgdp\b/i, hiUp: true },
   { rx: /(?:ism\s+)?manufacturing\s+pmi|pmi\s+manufacturing|ism\s+manufacturing/i, name: 'PMI Manufacturier', cat: 'Croissance', what: 'La santé des usines (au-dessus de 50 = expansion, en dessous = contraction).', anticipates: 'PIB, emploi industriel', nextRx: /\bgdp\b/i, hiUp: true },
   { rx: /(?:ism\s+)?services\s+pmi|pmi\s+services|ism\s+services|non-?manufacturing/i, name: 'PMI Services', cat: 'Croissance', what: 'La santé des entreprises de services (au-dessus de 50 = expansion).', anticipates: 'PIB, emploi', nextRx: /\bgdp\b/i, hiUp: true },
   { rx: /trade\s+balance|balance\s+of\s+trade/i, name: 'Balance commerciale', cat: 'Croissance', what: 'La différence entre ce que le pays exporte et importe.', anticipates: 'Devise, PIB', nextRx: /\bgdp\b/i, hiUp: true },
-  { rx: /consumer\s+confidence|consumer\s+sentiment|michigan/i, name: 'Confiance des consommateurs', cat: 'Croissance', what: 'Le moral des ménages — leur envie de dépenser.', anticipates: 'Consommation, ventes au détail', nextRx: /retail\s+sales/i, hiUp: true },
+  { rx: /consumer\s+confidence|consumer\s+sentiment|michigan/i, name: 'Confiance des consommateurs', cat: 'Croissance', what: 'Le moral des ménages : leur envie de dépenser.', anticipates: 'Consommation, ventes au détail', nextRx: /retail\s+sales/i, hiUp: true },
   { rx: /building\s+permits|housing\s+starts|home\s+sales|new\s+home/i, name: 'Immobilier', cat: 'Croissance', what: 'La santé du secteur immobilier (permis, mises en chantier, ventes).', anticipates: 'Croissance, emploi BTP', nextRx: /\bgdp\b/i, hiUp: true },
   { rx: /industrial\s+production/i, name: 'Production industrielle', cat: 'Croissance', what: 'Ce que produisent les usines, mines et services publics.', anticipates: 'PIB, PMI manufacturier', nextRx: /\bgdp\b|pmi/i, hiUp: true },
   { rx: /durable\s+goods/i, name: 'Commandes de biens durables', cat: 'Croissance', what: 'Les commandes de biens qui durent (machines, avions, autos).', anticipates: 'Investissement des entreprises, PIB', nextRx: /\bgdp\b/i, hiUp: true },
   // Familles COMPLÉMENTAIRES (demande user 23/07 « décryptage pour chaque événement ») — noConcl : pas de
   // conclusion directionnelle automatique quand la polarité devise n'est pas univoque (taux crédit, stocks…).
-  { rx: /mortgage/i, name: 'Crédit immobilier', cat: 'Taux', what: 'Le taux (ou la demande) des crédits immobiliers — la santé du financement du logement.', anticipates: 'Immobilier, consommation', nextRx: /housing|home|building/i, hiUp: true, noConcl: true },
-  { rx: /crude|gasoline|distillate|natural gas storage|oil stock/i, name: "Stocks d'énergie", cat: 'Énergie', what: "Les réserves hebdo américaines (brut, essence, gaz) — l'équilibre offre/demande d'énergie.", anticipates: 'Prix du pétrole et du gaz, CAD', nextRx: /crude|oil/i, hiUp: false, noConcl: true },
+  { rx: /mortgage/i, name: 'Crédit immobilier', cat: 'Taux', what: 'Le taux (ou la demande) des crédits immobiliers : la santé du financement du logement.', anticipates: 'Immobilier, consommation', nextRx: /housing|home|building/i, hiUp: true, noConcl: true },
+  { rx: /crude|gasoline|distillate|natural gas storage|oil stock/i, name: "Stocks d'énergie", cat: 'Énergie', what: "Les réserves hebdo américaines (brut, essence, gaz) : l'équilibre offre/demande d'énergie.", anticipates: 'Prix du pétrole et du gaz, CAD', nextRx: /crude|oil/i, hiUp: false, noConcl: true },
   { rx: /auction/i, name: 'Adjudication obligataire', cat: 'Taux', what: "Une vente de dette d'État : le rendement obtenu montre l'appétit des investisseurs pour ce pays.", anticipates: 'Rendements obligataires, devise', nextRx: /auction/i, hiUp: true, noConcl: true },
   { rx: /current account/i, name: 'Balance courante', cat: 'Croissance', what: "Tous les échanges du pays avec l'étranger (biens, services, revenus).", anticipates: 'Devise, PIB', nextRx: /\bgdp\b|trade balance/i, hiUp: true },
-  { rx: /zew|\bifo\b|sentix|business climate|economic sentiment/i, name: 'Climat des affaires', cat: 'Croissance', what: "Le moral des investisseurs et des entreprises — un signal AVANCÉ de l'activité.", anticipates: 'PIB, PMI', nextRx: /\bgdp\b|pmi/i, hiUp: true },
+  { rx: /zew|\bifo\b|sentix|business climate|economic sentiment/i, name: 'Climat des affaires', cat: 'Croissance', what: "Le moral des investisseurs et des entreprises : un signal AVANCÉ de l'activité.", anticipates: 'PIB, PMI', nextRx: /\bgdp\b|pmi/i, hiUp: true },
   { rx: /money supply|\bm2\b|\bm3\b/i, name: 'Masse monétaire', cat: 'Inflation', what: 'La quantité de monnaie en circulation dans l\'économie.', anticipates: 'Inflation à moyen terme', nextRx: /\bcpi\b|inflation/i, hiUp: true, noConcl: true },
   { rx: /capacity utilization|factory orders/i, name: 'Activité industrielle', cat: 'Croissance', what: 'Le remplissage des usines et leurs carnets de commandes.', anticipates: 'PIB, production industrielle', nextRx: /\bgdp\b|industrial/i, hiUp: true },
   { rx: /\bpmi\b/i, name: 'PMI', cat: 'Croissance', what: 'Le moral des directeurs d\'achats (au-dessus de 50 = expansion, en dessous = contraction).', anticipates: 'PIB, tendance de l\'activité', nextRx: /\bgdp\b/i, hiUp: true },
@@ -4199,7 +4199,7 @@ function _calFlux(paires) {
 // Ce que surveille chaque banque : le MANDAT en une ligne, puis ses règles de décision en couples.
 // Les couples ne font que dérouler ce que la phrase disait déjà — rien n'a été ajouté.
 const _CAL_CB_WATCH = {
-  USD: { quoi: "L'inflation (PCE, cible 2 %) et le plein emploi — le double mandat.", flux: [
+  USD: { quoi: "L'inflation (PCE, cible 2 %) et le plein emploi : le double mandat.", flux: [
     ['Inflation tenace', 'taux élevés plus longtemps'],
     ['Inflation qui recolle à 2 % et emploi qui se tasse', 'arguments pour baisser'],
   ] },
@@ -4207,7 +4207,7 @@ const _CAL_CB_WATCH = {
     ['Inflation sous contrôle', 'porte ouverte aux baisses'],
     ['Salaires et services tenaces', 'statu quo'],
   ] },
-  GBP: { quoi: "L'inflation (cible 2 %), les salaires et les prix des services — les points durs du Royaume-Uni.", flux: [
+  GBP: { quoi: "L'inflation (cible 2 %), les salaires et les prix des services : les points durs du Royaume-Uni.", flux: [
     ['Salaires et services encore élevés', 'la BoE freine les baisses'],
   ] },
   JPY: { quoi: "Une inflation DURABLE portée par les salaires (négociations de printemps) et le yen.", flux: [
@@ -4220,7 +4220,7 @@ const _CAL_CB_WATCH = {
     ['Ménages très endettés', 'chaque hausse de taux pèse vite'],
   ] },
   AUD: { quoi: "L'inflation trimestrielle (cible 2-3 %), l'emploi et la consommation des ménages.", flux: [] },
-  NZD: { quoi: "L'inflation (cible 1-3 %) et l'emploi — mandat double, politique souvent tranchée.", flux: [] },
+  NZD: { quoi: "L'inflation (cible 1-3 %) et l'emploi : mandat double, politique souvent tranchée.", flux: [] },
 };
 // « Lecture pour la réunion » (23/07) : croise le TON du discours et le SCÉNARIO pricé par le marché
 // (probabilités /api/rates) → phrase déterministe : hausse/baisse/maintien attendu + ce que ce ton
@@ -4244,11 +4244,11 @@ function _calMeetReading(tone, sc, opts) {
     // Des propos EXISTENT et sont listés juste en dessous : dire « aucun propos récent » serait
     // faux. Ce qui manque, c'est un signal de taux dans ces propos — nuance qui change tout pour
     // le lecteur (« la banque n'a rien dit » vs « elle a parlé d'autre chose »).
-    ? 'propos récents sans signal de politique monétaire — c\'est ce discours qui donnera le ton'
-    : 'aucun propos récent — le ton du discours fera la différence';
+    ? 'propos récents sans signal de politique monétaire : c\'est ce discours qui donnera le ton'
+    : 'aucun propos récent : le ton du discours fera la différence';
   else if (!dom) txt = tone.sens;
   else txt = (M[tone.key] || {})[dom[0]] || tone.sens;
-  if (dom && !o.pricingAilleurs) txt += ` — marché : <strong>${dom[1]} ${Math.round(dom[2])}%</strong>`;
+  if (dom && !o.pricingAilleurs) txt += ` : marché : <strong>${dom[1]} ${Math.round(dom[2])}%</strong>`;
   return txt;
 }
 // Extraits de discours BC (23/07) : le SERVEUR balaie 14 j d'historique news (le client n'en garde
@@ -4311,12 +4311,12 @@ function _calDecisionOutcome(ev) {
     if (d === 0)      { geste = 'MAINTIENT'; sens = banque + ' MAINTIENT ses taux à ' + fr(a) + '%'; couleur = '#9aa0aa'; }
     else if (d > 0)   { geste = 'RELÈVE';    sens = banque + ' RELÈVE ses taux à ' + fr(a) + '% (+' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
     else              { geste = 'ABAISSE';   sens = banque + ' ABAISSE ses taux à ' + fr(a) + '% (' + fr(d) + ' pt)'; couleur = '#00e676'; }
-  } else sens = banque + ' — taux à ' + fr(a) + '%';
+  } else sens = banque + ' : taux à ' + fr(a) + '%';
   let attente = '';
   if (f != null) {
     if (a === f) attente = 'conforme aux attentes';
-    else if (a > f) attente = 'au-dessus des attentes (' + fr(f) + '% prévu) — surprise restrictive';
-    else attente = 'en dessous des attentes (' + fr(f) + '% prévu) — surprise accommodante';
+    else if (a > f) attente = 'au-dessus des attentes (' + fr(f) + '% prévu) : surprise restrictive';
+    else attente = 'en dessous des attentes (' + fr(f) + '% prévu) : surprise accommodante';
   }
   return { sens, attente, couleur, geste, taux };
 }
@@ -4352,7 +4352,7 @@ function _calConclusion(kb, a, f, ev) {
   }
   // Cas 2 — À VENIR : les deux scénarios face à face, au lieu de « ; en dessous, l'inverse ».
   if (f != null) {
-    return `<span class="cal-kb-line">Chiffre à venir — les deux scénarios :</span>` + _calFlux(kb.hiUp
+    return `<span class="cal-kb-line">Chiffre à venir : les deux scénarios :</span>` + _calFlux(kb.hiUp
       ? [[`Au-dessus de ${F}`, 'plutôt <strong>bon pour la devise</strong>'], [`En dessous de ${F}`, 'plutôt <strong>négatif</strong>']]
       : [[`En dessous de ${F}`, 'plutôt <strong>bon pour la devise</strong>'], [`Au-dessus de ${F}`, 'plutôt <strong>négatif</strong>']]);
   }
@@ -4453,11 +4453,11 @@ async function _calValueBlockHtml(ev) {
       const qhtml = quotes.map(q => {
         const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
         const dt = q.ts ? ' · ' + _calShortDateFr(q.ts) : '';
-        return `<div class="cal-kb-qline">${chip}<span class="cal-kb-quote">${_calEsc(q.statement || q.h)}</span><span class="cal-kb-qwho"> — ${_calEsc(q.who || cb.bank)}${dt}</span></div>`;   // déclaration en VO (jamais traduite), attribution + date
+        return `<div class="cal-kb-qline">${chip}<span class="cal-kb-quote">${_calEsc(q.statement || q.h)}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cb.bank)}${dt}</span></div>`;   // déclaration en VO (jamais traduite), attribution + date
       }).join('');
       rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${qhtml}</span></div>`);
     } else {
-      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Propos récents</span><span class="cal-kb-val cal-kb-muted">Aucune intervention récente à citer (période de réserve avant réunion possible) — voir la lecture ci-dessus.</span></div>`);
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Propos récents</span><span class="cal-kb-val cal-kb-muted">Aucune intervention récente à citer (période de réserve avant réunion possible) : voir la lecture ci-dessus.</span></div>`);
     }
     if (bank) {
       // Après une décision publiée, le taux de référence est CELUI QUI VIENT D'ÊTRE DÉCIDÉ : la
@@ -4481,7 +4481,7 @@ async function _calValueBlockHtml(ev) {
     // pour un indicateur hors familles majeures — lecture par la SURPRISE, sans jugement de polarité inventé.
     const a2 = _calNum(ev.actual), f2 = _calNum(ev.forecast);
     const g = [];
-    g.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">À savoir</span><span class="cal-kb-val"><span class="cal-kb-cat">Indicateur</span> Indicateur secondaire (hors familles majeures suivies par le desk) : il se lit par sa SURPRISE (réel vs prévision) plus que par son niveau — réaction de marché généralement limitée.</span></div>`);
+    g.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">À savoir</span><span class="cal-kb-val"><span class="cal-kb-cat">Indicateur</span> Indicateur secondaire (hors familles majeures suivies par le desk) : il se lit par sa SURPRISE (réel vs prévision) plus que par son niveau, réaction de marché généralement limitée.</span></div>`);
     if (a2 != null && f2 != null) {
       const lec = a2 > f2 ? 'AU-DESSUS de la prévision' : a2 < f2 ? 'SOUS la prévision' : 'EN LIGNE avec la prévision';
       g.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">Réel (${_calEsc(ev.actual)}) ${lec} (${_calEsc(ev.forecast)}).</span></div>`);
@@ -4505,7 +4505,7 @@ async function _calValueBlockHtml(ev) {
     const nxt = _calEvents.find(e => e && e.currency === ev.currency && (e.timestamp || 0) > (ev.timestamp || 0) && kb.nextRx.test(e.title || ''));
     if (nxt) {
       const d = nxt.timestamp ? new Date(nxt.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
-      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine échéance liée</span><span class="cal-kb-val">${_calEsc(nxt.title)}${d ? ' — ' + _calEsc(d) : ''}</span></div>`);
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine échéance liée</span><span class="cal-kb-val">${_calEsc(nxt.title)}${d ? ' : ' + _calEsc(d) : ''}</span></div>`);
     }
   }
   return `<div class="cal-kb"><div class="cal-detail-section">Décryptage DTP</div>${rows.join('')}</div>`;
@@ -4641,7 +4641,7 @@ async function _calAppendHistory(bodyEl, ev) {
       let cls = '';
       if (a != null && f != null && a !== f) cls = ((a > f) === !inv) ? 'g' : 'r';
       const hpct = haut(a);
-      return `<div class="cal-hist-col${i === rows.length - 1 ? ' last' : ''}" title="${_calEsc(r.actual)}${r.forecast ? ' (prév. ' + _calEsc(r.forecast) + ')' : ''} — ${_calEsc(d)}">
+      return `<div class="cal-hist-col${i === rows.length - 1 ? ' last' : ''}" title="${_calEsc(r.actual)}${r.forecast ? ' (prév. ' + _calEsc(r.forecast) + ')' : ''}, ${_calEsc(d)}">
         <div class="cal-hist-barwrap"><div class="cal-hist-bar ${cls}" style="height:${hpct}%"></div></div>
         <div class="cal-hist-val ${cls}">${_calEsc(r.actual)}</div>
         <div class="cal-hist-prev">${r.forecast ? 'prév. ' + _calEsc(r.forecast) : '&nbsp;'}</div>
@@ -4955,7 +4955,7 @@ window._retryCalendar = function() {
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);
   const tvSymbol = p => p === 'XAUUSD' ? 'OANDA:XAUUSD' : p === 'XAGUSD' ? 'OANDA:XAGUSD' : 'FX:' + p;
   const _esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-  const _nf = n => (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('fr-FR');
+  const _nf = n => (n == null || isNaN(n)) ? '-' : Number(n).toLocaleString('fr-FR');
   // Drapeau rond pour le dropdown (devise → flagcdn, métaux → pastille dorée/argentée).
   const _ddFlag = (c, extra) => {
     const f = FLAG[c];
@@ -5194,8 +5194,8 @@ window._retryCalendar = function() {
         }
         const imp = (ev.impact || '').toLowerCase();
         const cls = 'cal-row' + (i === nextIdx ? ' cal-row--next' : '') + (ts && ts < now ? ' cal-row--past' : '') + (imp === 'high' ? ' cal-row--high' : imp === 'medium' ? ' cal-row--med' : '');
-        const fc = (ev.forecast != null && ev.forecast !== '') ? '<span class="cv-forecast">' + _esc(ev.forecast) + '</span>' : '<span class="cv-empty">—</span>';
-        const pv = (ev.previous != null && ev.previous !== '') ? '<span class="cv-prev">' + _esc(ev.previous) + '</span>' : '<span class="cv-empty">—</span>';
+        const fc = (ev.forecast != null && ev.forecast !== '') ? '<span class="cv-forecast">' + _esc(ev.forecast) + '</span>' : '<span class="cv-empty">-</span>';
+        const pv = (ev.previous != null && ev.previous !== '') ? '<span class="cv-prev">' + _esc(ev.previous) + '</span>' : '<span class="cv-empty">-</span>';
         tb += '<tr class="' + cls + '">'
           + '<td class="cth-time">' + calFormatTime(ts) + '</td>'
           + '<td class="cth-flag">' + CAL_FLAG(ev.currency) + '</td>'
@@ -5284,7 +5284,7 @@ window._retryCalendar = function() {
       const sent = row.sentiment || 'Neutral';
       const sCls = /bull/i.test(sent) ? 'g' : /bear/i.test(sent) ? 'r' : 'n';
       const flag = FLAG[ccy] ? '<img class="sym-cot-flag" src="https://flagcdn.com/40x30/' + FLAG[ccy] + '.png" alt="">' : '';
-      const rd = row.reportDate ? new Date(row.reportDate).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      const rd = row.reportDate ? new Date(row.reportDate).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '-';
       hostEl.innerHTML =
         '<div class="sym-cot">'
         + '<div class="sym-cot-head">' + flag + '<span class="sym-cot-ccy">' + ccy + '</span>'

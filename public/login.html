@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index,follow" /><!-- page de connexion INDEXABLE (Bing WMT 16/07 : requêtes navigationnelles « datatradingpro connexion ») ; le reste du desk reste fermé (gate session + robots.txt) -->
   <link rel="canonical" href="https://desk.datatradingpro.com/login" />
-  <meta name="description" content="Connexion à DataTradingPro — le terminal de news et d'analyse de marché en temps réel : actualités priorisées, calendrier économique, force des devises et analyses institutionnelles." />
-  <title>DataTradingPro — Connexion</title>
+  <meta name="description" content="Connexion à DataTradingPro : le terminal de news et d'analyse de marché en temps réel : actualités priorisées, calendrier économique, force des devises et analyses institutionnelles." />
+  <title>DataTradingPro : Connexion</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e3b23a'/%3E%3Ctext x='32' y='32' text-anchor='middle' dominant-baseline='central' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='23' fill='%23000000'%3EDTP%3C/text%3E%3C/svg%3E" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e3b23a'/%3E%3Ctext x='32' y='32' text-anchor='middle' dominant-baseline='central' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='23' fill='%23000000'%3EDTP%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -63,7 +63,7 @@
       display: inline-flex; align-items: center; gap: 10px;
       font-family: var(--tight); font-weight: 800; font-size: 18px;
       letter-spacing: -0.02em; text-decoration: none; margin-bottom: 36px;
-      /* Logo DTP en OR signature (demande user 03/08) — dégradé or vif → or sombre, comme la landing. */
+      /* Logo DTP en OR signature (demande user 03/08) : dégradé or vif → or sombre, comme la landing. */
       background: linear-gradient(100deg, #f0d27a, #e3b23a 55%, #b8860b);
       -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
     }
@@ -133,7 +133,7 @@
     .lp-renew-btn:hover { filter: brightness(1.05); }
     .lp-error.lp-msg-success { color: #15803d; background: rgba(34,197,94,0.10); border-color: rgba(34,197,94,0.30); }
 
-    /* Submit — bouton CONTOUR OR (façon « Commencer ce mois-ci ») */
+    /* Submit : bouton CONTOUR OR (façon « Commencer ce mois-ci ») */
     .lp-btn {
       width: 100%; height: 48px; background: transparent; color: var(--text);
       border: 1.5px solid rgba(184,134,11,0.55); border-radius: 11px; font-family: var(--font); font-size: 14.5px;
@@ -201,7 +201,7 @@
     .lp-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(28,18,5,0.35); border-top-color: #1c1205; border-radius: 50%; animation: lp-spin 0.6s linear infinite; vertical-align: middle; margin-right: 7px; }
     @keyframes lp-spin { to { transform: rotate(360deg); } }
 
-    /* ════ PANNEAU IMAGES — rangées horizontales ALTERNÉES (≠ colonnes verticales) ════ */
+    /* ════ PANNEAU IMAGES : rangées horizontales ALTERNÉES (≠ colonnes verticales) ════ */
     .lp-left {
       flex: 1 1 0; min-width: 0; position: relative; overflow: hidden;
       background: #0a0a0c; border-left: 1px solid var(--line2);
@@ -242,8 +242,8 @@
     .lp-tagline-1 strong { color: var(--gold-bright); font-weight: 600; font-style: italic; }
     .lp-tagline-2 { font-size: 15.5px; color: rgba(255,255,255,0.86); line-height: 1.45; }
 
-    /* ── Barre applicative (app desktop seulement — html.dtp-desktop est posé par le preload) ── */
-    /* Bande de PRISE (app desktop) : SANS texte, mais ALIGNÉE sur la zone des boutons système —
+    /* ── Barre applicative (app desktop seulement : html.dtp-desktop est posé par le preload) ── */
+    /* Bande de PRISE (app desktop) : SANS texte, mais ALIGNÉE sur la zone des boutons système, 
        50 px (TOPBAR_H de main.js) et le MÊME fond #16171b (TITLEBAR_BG) : les boutons natifs se
        fondent dedans au lieu de flotter en boîte sombre sur la page. Un rail transparent laissait
        une bande blanche (le fond de la page) au-dessus du contenu — constaté user 03/08. */
@@ -274,12 +274,12 @@
       .lp-left-card { display: none; }
     }
   </style>
-  <script src="/js/noinspect.js?v=20260814bbg674"></script>
+  <script src="/js/noinspect.js?v=20260814bbg675"></script>
 </head>
 <body>
 
 <!-- BARRE APPLICATIVE (app desktop uniquement, 03/08 « je n'arrive pas à déplacer la fenêtre ») :
-     le déplacement manuel du preload écoute les pointerdown sur `.topbar` — cette page n'en avait
+     le déplacement manuel du preload écoute les pointerdown sur `.topbar` : cette page n'en avait
      pas, la fenêtre était donc indéplaçable depuis le login. La barre porte la classe `topbar`
      (aucun style du desk ne s'applique ici : la page est autonome) → le drag ET le double-clic
      agrandir fonctionnent avec le preload DÉJÀ INSTALLÉ, sans réinstallation. Elle cale aussi le
@@ -353,12 +353,12 @@
         </a>
       </div>
       <div class="lp-dl-intel" data-i18n-html="dlIntel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a></div>
-      <!-- (Note « premier lancement macOS » retirée — demande user 03/08.) -->
+      <!-- (Note « premier lancement macOS » retirée : demande user 03/08.) -->
 
     </div><!-- /.lp-card -->
   </div><!-- /.lp-right -->
 
-  <!-- ════════ PANNEAU IMAGES — rangées alternées ════════ -->
+  <!-- ════════ PANNEAU IMAGES : rangées alternées ════════ -->
   <div class="lp-left">
     <div class="im-rows" id="im-rows"></div>
     <div class="im-veil"></div>
@@ -455,7 +455,7 @@
   })();
 
   /* ── Login form ── */
-  /* ── i18n FR/EN — bascule complète de la page (persiste dans localStorage) ── */
+  /* ── i18n FR/EN : bascule complète de la page (persiste dans localStorage) ── */
   const I18N = {
     fr: {
       title:'Bon retour.', subtitle:'Connectez-vous à votre terminal macro & forex.',
@@ -466,9 +466,9 @@
       dlMacTitle:'Premier lancement sur macOS',
       dlMac1:'Si «&nbsp;Apple n\'a pas pu confirmer…&nbsp;» s\'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).',
       dlMac2:'Ouvrez <b>Réglages Système → Confidentialité et sécurité</b>.',
-      dlMac3:'Cliquez <b>«&nbsp;Ouvrir quand même&nbsp;»</b> — nécessaire une seule fois (app distribuée hors App Store).',
+      dlMac3:'Cliquez <b>«&nbsp;Ouvrir quand même&nbsp;»</b> : nécessaire une seule fois (app distribuée hors App Store).',
       tagline1:'<strong>Anticipez</strong> le marché.', tagline2:'Pas seulement le suivre.',
-      errCreds:'Email ou mot de passe incorrect', errConn:'Erreur de connexion — réessayez',
+      errCreds:'Email ou mot de passe incorrect', errConn:'Erreur de connexion : réessayez',
       subExpired:'Abonnement expiré', renew:'Renouveler mon abonnement',
       forgotNoEmail:'Entrez d’abord votre adresse e-mail ci-dessus, puis recliquez sur « Mot de passe oublié ».',
       forgotSent:'Demande envoyée. Si un compte actif existe pour cet e-mail, un nouveau mot de passe vient d’être envoyé. Si votre abonnement n’est plus actif, vous recevez à la place un e-mail expliquant comment le réactiver. (Pensez à vérifier vos spams.)'
@@ -482,9 +482,9 @@
       dlMacTitle:'First launch on macOS',
       dlMac1:'If “Apple could not verify…” appears, click <b>Done</b> (not “Move to Trash”).',
       dlMac2:'Open <b>System Settings → Privacy &amp; Security</b>.',
-      dlMac3:'Click <b>“Open Anyway”</b> — needed once only (non-App-Store app).',
+      dlMac3:'Click <b>“Open Anyway”</b> : needed once only (non-App-Store app).',
       tagline1:'<strong>Anticipate</strong> the market.', tagline2:'Not just follow it.',
-      errCreds:'Incorrect email or password', errConn:'Connection error — please try again',
+      errCreds:'Incorrect email or password', errConn:'Connection error : please try again',
       subExpired:'Subscription expired', renew:'Renew my subscription',
       forgotNoEmail:'Enter your email address above first, then click “Forgot password” again.',
       forgotSent:'Request sent. If an active account exists for this email, a new password has just been sent. If your subscription is no longer active, you’ll receive an email explaining how to reactivate it instead. (Check your spam folder too.)'
@@ -514,7 +514,7 @@
 
   // Bouton « Coller » : remplit le champ mot de passe depuis le presse-papiers (mdp reçu par e-mail).
   // Fonctionne au clic sur web ET dans l'app desktop. Si le presse-papiers est bloqué (permission refusée
-  // ou non supporté), on met le focus + une astuce Ctrl+V — jamais d'action silencieuse sans retour.
+  // ou non supporté), on met le focus + une astuce Ctrl+V : jamais d'action silencieuse sans retour.
   async function lpPastePw() {
     const inp = document.getElementById('lp-password');
     try {
@@ -553,7 +553,7 @@
       });
       const data = await r.json();
       // `replace` et NON `href` : `href` AJOUTERAIT une entrée d'historique, laissant la page de
-      // connexion coincée juste derrière le desk — un simple Retour y ramenait l'utilisateur pourtant
+      // connexion coincée juste derrière le desk : un simple Retour y ramenait l'utilisateur pourtant
       // authentifié. Les déconnexions subies (401, session reprise ailleurs) utilisaient déjà
       // `replace` : seule la connexion RÉUSSIE faisait exception.
       if (data.ok) { window.location.replace('/'); }
@@ -635,7 +635,7 @@
   }
   document.getElementById('lp-lang').value = LANG; enhanceSelect(document.getElementById('lp-lang'), _FLAGS); document.getElementById('lp-lang').addEventListener('change', function(e){ applyLang(e.target.value); }); applyLang(LANG);
 
-  /* ── GARDE « DÉJÀ CONNECTÉ » — CÔTÉ PAGE, ET C'EST INDISPENSABLE ────────────────────────────────
+  /* ── GARDE « DÉJÀ CONNECTÉ » : CÔTÉ PAGE, ET C'EST INDISPENSABLE ────────────────────────────────
      Le serveur ne peut PAS s'en charger, pour deux raisons cumulées :
      1. `express.static({ extensions: ['html'] })` sert login.html AVANT que la route
         `app.get('/login')` du serveur ne soit atteinte — cette garde-là n'est jamais exécutée ;

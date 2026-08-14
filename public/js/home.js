@@ -78,7 +78,7 @@
       host.innerHTML = layoutCards(cfg);
       if (_miniManquante) {
         if (++_miniEssais < 40) { _rattraperMinis(cfg); return; }
-        try { console.warn('[Accueil] aperçu des desks indisponible après ' + _miniEssais + ' essais — les cartes restent sans miniature.'); } catch (e) {}
+        try { console.warn('[Accueil] aperçu des desks indisponible après ' + _miniEssais + ' essais : les cartes restent sans miniature.'); } catch (e) {}
       }
     }, 700);
   }
@@ -178,7 +178,7 @@
      variation, en bande fine défilante — mêmes données que l'onglet LISTE FX (/api/fxlist), prix
      rafraîchis au même rythme que le tick du desk (150 s). Contenu doublé pour une boucle sans
      couture ; pause au survol. ── */
-  function _tkFmt(px) { return px == null ? '—' : Number(px).toFixed(px >= 40 ? 2 : 4); }
+  function _tkFmt(px) { return px == null ? '-' : Number(px).toFixed(px >= 40 ? 2 : 4); }
   // Micro-drapeaux RONDS de la paire (base sur quote, chevauchés) — mêmes visuels que le desk
   // (flagcdn + la table _CURR_ISO du calendrier). Sans iso connue : pas d'image, jamais de casse.
   function _tkFlags(b, q) {
@@ -235,7 +235,7 @@
       // Au-delà de 3 tentatives (~36 s), on le DIT au lieu de laisser un squelette qui tourne dans
       // le vide : l'utilisateur doit pouvoir distinguer « ça charge » de « ça ne marche pas ».
       if (_tkEchecs >= 3) {
-        host.innerHTML = _tkMessage('Cours indisponibles — nouvelle tentative…');
+        host.innerHTML = _tkMessage('Cours indisponibles : nouvelle tentative…');
         host.parentNode.classList.remove('home-ticker--skel');
       }
       if (_tkRetry) clearTimeout(_tkRetry);

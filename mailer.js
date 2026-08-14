@@ -90,10 +90,10 @@ async function verifyGmail() {
     try {
       await _gmailAccessToken();
       _mailStats.apiVerified = true; _mailStats.apiError = null;
-      console.log('[Mailer] ✅ API Gmail vérifiée (OAuth OK, HTTPS) — les emails partiront du compte Google → boîte de réception.');
+      console.log('[Mailer] ✅ API Gmail vérifiée (OAuth OK, HTTPS) : les emails partiront du compte Google → boîte de réception.');
     } catch (e) {
       _mailStats.apiVerified = false; _mailStats.apiError = String(e.message).slice(0, 160);
-      console.error('[Mailer] ❌ API Gmail KO:', _mailStats.apiError, '— vérifier GMAIL_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN.');
+      console.error('[Mailer] ❌ API Gmail KO:', _mailStats.apiError, 'vérifier GMAIL_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN.');
     }
   } else {
     _mailStats.apiVerified = false; _mailStats.apiError = 'API Gmail non configurée (3 env vars OAuth manquantes)';
@@ -314,7 +314,7 @@ async function _sendOvhSmtp(to, subject, html, att) {
 }
 
 async function _send(to, subject, html, attachments) {
-  if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide — email ignoré:', to); return false; }
+  if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide : email ignoré:', to); return false; }
   // (28/07, demande user) Le tiret cadratin « — » est BANNI des mails : normalisé en tiret simple
   // au POINT DE SORTIE UNIQUE → couvre les gabarits statiques ET les contenus générés par l'IA.
   // ⚠️ ÉLARGI le 12/08 : le filtre ne voyait que le caractère LITTÉRAL. Un gabarit qui écrit
@@ -323,7 +323,7 @@ async function _send(to, subject, html, attachments) {
   // demi-cadratin « – », qui produit exactement le même effet visuel. Une seule expression, au même
   // endroit : aucun gabarit futur ne peut rouvrir la brèche.
   const _tirets = s => String(s || '')
-    .replace(/&(?:mdash|ndash);|&#(?:8212|8211|151|150);/gi, '—')   // entités → caractère, pour un seul traitement ensuite
+    .replace(/&(?:mdash|ndash);|&#(?:8212|8211|151|150);/gi, '-')   // entités → caractère, pour un seul traitement ensuite
     .replace(/\s*[—–]\s*/g, ' - ');
   subject = _tirets(subject);
   html = _tirets(html).replace(/ -\s*([,;.!?])/g, '$1');
@@ -339,7 +339,7 @@ async function _send(to, subject, html, attachments) {
     if (RESEND_API_KEY)                        chain.push(['Resend',  _sendResend]);
   }
   if (!chain.length) {
-    console.warn('[Mailer] Aucun fournisseur configuré (GMAIL_*, MAILJET_* ou RESEND_API_KEY) — email non envoyé:', subject);
+    console.warn('[Mailer] Aucun fournisseur configuré (GMAIL_*, MAILJET_* ou RESEND_API_KEY) : email non envoyé:', subject);
     return false;
   }
   const errors = [];
@@ -529,9 +529,9 @@ function buildExpiredFollowup({ name, expiresAt }) {
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Le terminal a continué sans vous cette semaine</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre abonnement a expiré il y a une semaine${end ? ` (le <strong style="color:#fff;">${end}</strong>)` : ''} et votre accès est toujours suspendu. Pendant ce temps, le desk a continué de tourner : news en temps réel, calendrier, biais hebdomadaires, recherche bancaire.</p>
-    <p style="margin:0 0 14px;">Si c'est un oubli, tout se réactive en un clic — votre compte, vos réglages et votre journal sont intacts :</p>
+    <p style="margin:0 0 14px;">Si c'est un oubli, tout se réactive en un clic : votre compte, vos réglages et votre journal sont intacts :</p>
     ${_button('Réactiver mon accès', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Si vous avez choisi d'arrêter, aucun souci — ce message est notre dernier rappel automatique.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Si vous avez choisi d'arrêter, aucun souci : ce message est notre dernier rappel automatique.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À bientôt peut-être,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre accès est toujours suspendu', html: _layout('Toujours suspendu', body) };
@@ -543,16 +543,16 @@ async function sendExpiredFollowup(d) { const m = buildExpiredFollowup(d); retur
 //    Un seul gabarit, copy et nouveautés ADAPTÉES au jalon (plus le départ est ancien, plus on
 //    raconte le chemin parcouru). Informatif, jamais insistant (règle DTP : cadence sobre).
 const _WINBACK = {
-  1:  { titre: 'Un mois déjà — le desk a continué d\'avancer',
+  1:  { titre: 'Un mois déjà : le desk a continué d\'avancer',
         intro: 'il y a un mois, votre accès à DataTradingPro s\'est arrêté. En un mois, le terminal a déjà bougé :',
         nouveautes: ['📰 Le fil de news s\'est encore affiné (priorisation, décryptages IA)', '🏦 La recherche bancaire s\'est enrichie (Goldman Sachs, HSBC, ING, MUFG…)', '📅 La Semaine à Venir affiche désormais les événements concrets de chaque journée'] },
   3:  { titre: 'Ça fait 3 mois que vous nous avez quittés',
         intro: 'trois mois ont passé depuis la fin de votre accès, et le terminal d\'aujourd\'hui n\'est plus celui que vous avez connu :',
         nouveautes: ['🧩 Mon Desk : composez votre propre écran en widgets (grille libre, layouts sauvegardés)', '🧭 Radar de Biais recalculé en continu sur les données publiées', '🏦 Recherche bancaire : ~20 institutions réunies, résumées par l\'IA', '💻 L\'application desktop Windows/macOS est sortie'] },
-  6:  { titre: '6 mois — le terminal n\'est plus le même',
+  6:  { titre: '6 mois : le terminal n\'est plus le même',
         intro: 'six mois que votre accès s\'est arrêté. Depuis, DataTradingPro a changé de dimension :',
         nouveautes: ['🧩 Mon Desk personnalisable en widgets + application desktop', '🧭 Biais et force des devises en temps réel, ancrés sur les vraies publications', '🏦 Recherche institutionnelle complète avec analyses IA', '📮 Des synthèses quotidiennes et hebdomadaires rédigées par le desk'] },
-  12: { titre: 'Un an déjà — venez revoir ce que DataTradingPro est devenu',
+  12: { titre: 'Un an déjà : venez revoir ce que DataTradingPro est devenu',
         intro: 'cela fait un an que nous ne vous avons pas vu. En un an, le terminal a été repensé de fond en comble :',
         nouveautes: ['🖥️ Un desk complet : news temps réel, calendrier, biais, force des devises, COT, saisonnalité', '🧩 Mon Desk en widgets + application desktop native', '🏦 La recherche des grandes banques, résumée et exploitable en un clic', '🤖 Un copilote IA macro qui répond avec le contexte du moment'] },
 };
@@ -565,12 +565,12 @@ function buildWinback({ name, months }) {
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">${prenom}, ${m.intro}</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
-    <p style="margin:0 0 14px;">Votre compte existe toujours — réglages et journal compris. Un clic et vous retrouvez tout :</p>
+    <p style="margin:0 0 14px;">Votre compte existe toujours : réglages et journal compris. Un clic et vous retrouvez tout :</p>
     ${_button('Revenir sur le terminal', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Sans engagement, résiliable à tout moment. Et si vous préférez ne plus recevoir ces nouvelles, répondez simplement à ce mail.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Au plaisir de vous revoir,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  const subj = { 1: 'Un mois sans vous — le desk a continué d\'avancer', 3: 'Ça fait 3 mois : voyez ce que DataTradingPro est devenu', 6: '6 mois après : le terminal n\'est plus le même', 12: 'Un an déjà — DataTradingPro a bien changé' };
+  const subj = { 1: 'Un mois sans vous : le desk a continué d\'avancer', 3: 'Ça fait 3 mois : voyez ce que DataTradingPro est devenu', 6: '6 mois après : le terminal n\'est plus le même', 12: 'Un an déjà : DataTradingPro a bien changé' };
   return { subject: subj[months] || subj[3], html: _layout('Des nouvelles du desk', body) };
 }
 async function sendWinback(d) { const m = buildWinback(d); return _send(d.to, m.subject, m.html); }
@@ -591,13 +591,13 @@ function buildTemoignage({ name, review, angle } = {}) {
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Ce qu'un membre retient de DataTradingPro</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Derrière DataTradingPro, il y a <strong style="color:#fff;">JustOneTrader</strong> : un trader qui construisait son propre outil de suivi macro, et qui a fini par en faire un terminal complet — news en temps réel, calendrier, biais des devises, recherche des grandes banques. Le desk évolue chaque semaine, guidé par ce que les membres en font vraiment.</p>
+    <p style="margin:0 0 14px;">Derrière DataTradingPro, il y a <strong style="color:#fff;">JustOneTrader</strong> : un trader qui construisait son propre outil de suivi macro, et qui a fini par en faire un terminal complet, news en temps réel, calendrier, biais des devises, recherche des grandes banques. Le desk évolue chaque semaine, guidé par ce que les membres en font vraiment.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
       style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f3c344;border-radius:10px;margin:18px 0;">
       <tr><td style="padding:16px 18px;">
         <div style="color:#f3c344;font-size:14px;letter-spacing:2px;margin-bottom:8px;">${etoiles}</div>
         <div style="color:#e2e8f0;font-size:15px;line-height:1.65;font-style:italic;">« ${quote} »</div>
-        <div style="color:#8a9097;font-size:12.5px;margin-top:10px;">— membre DataTradingPro, avis vérifié Whop</div>
+        <div style="color:#8a9097;font-size:12.5px;margin-top:10px;"> : membre DataTradingPro, avis vérifié Whop</div>
       </td></tr>
     </table>
     <p style="margin:0 0 14px;">${lien}</p>
@@ -698,7 +698,7 @@ function buildPasswordReset({ to, name, password }) {
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Réinitialisation de votre mot de passe</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre mot de passe DataTradingPro a été réinitialisé. Voici votre nouveau mot de passe :</p>
-    ${_credBox([['Email', to], ['Nouveau mot de passe', password || '—']])}
+    ${_credBox([['Email', to], ['Nouveau mot de passe', password || '-']])}
     <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Pour votre sécurité, pensez à le modifier depuis votre profil après connexion. Si vous n'êtes pas à l'origine de cette demande, contactez-nous immédiatement.</p>
     ${_button('Me connecter', APP_URL)}
     ${_spamNote()}
@@ -1407,7 +1407,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${curHtml ? _sec('Les devises') + curHtml : ''}
     ${_sec('La force des devises')}
     ${_widgetImg('strength', '')}
-    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Vous venez de lire un extrait. Le rapport complet vous attend sur le desk&nbsp;: les huit devises analysées une à une — politique monétaire, inflation, croissance, emploi, biais et rendez-vous de la semaine — la lecture banque par banque et le calendrier détaillé.</p>
+    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Vous venez de lire un extrait. Le rapport complet vous attend sur le desk&nbsp;: les huit devises analysées une à une, politique monétaire, inflation, croissance, emploi, biais et rendez-vous de la semaine, la lecture banque par banque et le calendrier détaillé.</p>
     ${_campaignBtn('Ouvrir le Récap Hebdo', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:18px 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
@@ -1504,27 +1504,27 @@ const DECRYPT_CONCEPTS = [
   { key: 'divergence-bc', theme: 'rates', eyebrow: 'POLITIQUE MONÉTAIRE', title: 'Deux banques centrales, une paire : le vrai moteur des devises', paras: [
     "Une paire de devises met toujours DEUX économies face à face. Ce qui la fait tendre dans une direction sur des semaines, ce n'est pas une news isolée : c'est l'écart entre les trajectoires de leurs banques centrales.",
     "Quand l'une monte ses taux pendant que l'autre les baisse, l'argent migre vers le rendement le plus élevé. Cette divergence de politique crée les tendances les plus longues et les plus lisibles du marché des changes.",
-    "La règle de lecture : comparez toujours les DEUX côtés de la paire. Une devise « faible » face à une banque centrale ferme peut être « forte » face à une banque qui capitule — c'est l'écart qui compte, pas l'absolu.",
+    "La règle de lecture : comparez toujours les DEUX côtés de la paire. Une devise « faible » face à une banque centrale ferme peut être « forte » face à une banque qui capitule : c'est l'écart qui compte, pas l'absolu.",
   ] },
   { key: 'courbe-taux', theme: 'rates', eyebrow: 'TAUX', title: 'La courbe des taux : le thermomètre que le marché lit en premier', paras: [
     "La courbe des taux compare ce que rapporte un emprunt d'État à 2 ans et à 10 ans. Normalement, prêter plus longtemps rapporte plus : la courbe monte.",
-    "Quand le court terme rapporte PLUS que le long terme, la courbe s'inverse : le marché dit qu'il s'attend à des baisses de taux — donc à un ralentissement, voire une récession. Historiquement, ce signal a précédé la plupart des récessions américaines.",
+    "Quand le court terme rapporte PLUS que le long terme, la courbe s'inverse : le marché dit qu'il s'attend à des baisses de taux, donc à un ralentissement, voire une récession. Historiquement, ce signal a précédé la plupart des récessions américaines.",
     "La règle de lecture : une courbe qui se re-pentifie après inversion accompagne souvent le début du cycle de baisses ; le dollar et les actions n'y réagissent pas de la même façon selon que la re-pentification vient du court (baisses imminentes) ou du long (croissance qui revient).",
   ] },
   { key: 'intervention-japon', theme: 'risk', eyebrow: 'CHANGES', title: 'Intervention de change : quand un État défend sa monnaie', paras: [
     "Quand une devise chute trop vite, le ministère des Finances peut ordonner d'en acheter massivement pour casser le mouvement. Le Japon est le cas d'école : ses interventions sur le yen font bouger USD/JPY de plusieurs figures en minutes.",
-    "Une intervention ne se décrète jamais à l'avance — mais elle se devine : avertissements verbaux répétés (« nous surveillons avec la plus grande attention »), niveaux psychologiques, volatilité désordonnée. Le marché appelle ça l'escalade verbale.",
-    "La règle de lecture : l'intervention gagne une bataille, rarement la guerre — si l'écart de taux qui affaiblissait la devise persiste, le mouvement de fond finit souvent par reprendre. Elle définit surtout un niveau que l'État ne veut pas voir franchi trop vite.",
+    "Une intervention ne se décrète jamais à l'avance : mais elle se devine : avertissements verbaux répétés (« nous surveillons avec la plus grande attention »), niveaux psychologiques, volatilité désordonnée. Le marché appelle ça l'escalade verbale.",
+    "La règle de lecture : l'intervention gagne une bataille, rarement la guerre, si l'écart de taux qui affaiblissait la devise persiste, le mouvement de fond finit souvent par reprendre. Elle définit surtout un niveau que l'État ne veut pas voir franchi trop vite.",
   ] },
   { key: 'or-taux-reels', theme: 'inflation', eyebrow: 'MÉTAUX', title: "Pourquoi l'or vit au rythme des taux réels", paras: [
     "L'or ne verse ni intérêt ni dividende. Le détenir « coûte » donc ce que rapporterait un placement sûr à la place : le taux d'intérêt RÉEL, c'est-à-dire le taux après inflation.",
-    "Quand les taux réels montent, garder de l'or devient plus coûteux et il baisse souvent ; quand ils chutent — inflation qui dépasse les taux, ou banque centrale qui baisse —, l'or redevient attractif et monte.",
-    "La règle de lecture : suivez le rendement américain à 10 ans moins l'inflation anticipée. Un dollar faible amplifie la hausse de l'or ; un dollar fort la freine — les deux forces se lisent ensemble.",
+    "Quand les taux réels montent, garder de l'or devient plus coûteux et il baisse souvent ; quand ils chutent : inflation qui dépasse les taux, ou banque centrale qui baisse, , l'or redevient attractif et monte.",
+    "La règle de lecture : suivez le rendement américain à 10 ans moins l'inflation anticipée. Un dollar faible amplifie la hausse de l'or ; un dollar fort la freine : les deux forces se lisent ensemble.",
   ] },
   { key: 'petrole-devises', theme: 'growth', eyebrow: 'MATIÈRES PREMIÈRES', title: 'Pétrole et devises : qui gagne, qui perd quand le baril bouge', paras: [
-    "Certains pays VENDENT du pétrole (Canada, Norvège), d'autres l'ACHÈTENT massivement (Japon, zone euro). Quand le baril monte, les premiers encaissent plus de revenus — leur devise en profite ; les seconds paient une facture énergétique plus lourde — leur devise en souffre.",
+    "Certains pays VENDENT du pétrole (Canada, Norvège), d'autres l'ACHÈTENT massivement (Japon, zone euro). Quand le baril monte, les premiers encaissent plus de revenus : leur devise en profite ; les seconds paient une facture énergétique plus lourde : leur devise en souffre.",
     "C'est pourquoi le dollar canadien suit souvent le WTI, et pourquoi un choc pétrolier pèse structurellement sur le yen et l'euro. La corrélation n'est pas mécanique au jour le jour, mais elle structure les tendances.",
-    "La règle de lecture : sur un mouvement du pétrole, demandez-vous QUI exporte et QUI importe — et rappelez-vous qu'un baril durablement plus cher nourrit aussi l'inflation, donc les anticipations de taux.",
+    "La règle de lecture : sur un mouvement du pétrole, demandez-vous QUI exporte et QUI importe, et rappelez-vous qu'un baril durablement plus cher nourrit aussi l'inflation, donc les anticipations de taux.",
   ] },
   { key: 'risk-on-off', theme: 'risk', eyebrow: 'SENTIMENT', title: 'Risk-on / risk-off : la boussole du marché', paras: [
     "En risk-on, les investisseurs cherchent le rendement : les actions et les devises pro-cycliques (dollar australien, néo-zélandais, canadien) montent, les valeurs refuges reculent.",
@@ -1663,7 +1663,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   let lead;
   if (featured) {
     const when = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
-    lead = `${when ? _esc(when.charAt(0).toUpperCase() + when.slice(1)) + ', ' : 'Cette semaine, '}l'attention du marché se portera sur <strong style="color:#f3c344;">${_esc(featured.title)}</strong> — l'un des rendez-vous les plus suivis de la semaine, car il peut peser sur les anticipations de taux et réveiller la volatilité. Le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier.`;
+    lead = `${when ? _esc(when.charAt(0).toUpperCase() + when.slice(1)) + ', ' : 'Cette semaine, '}l'attention du marché se portera sur <strong style="color:#f3c344;">${_esc(featured.title)}</strong> : l'un des rendez-vous les plus suivis de la semaine, car il peut peser sur les anticipations de taux et réveiller la volatilité. Le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier.`;
   } else {
     lead = `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
   }
@@ -1698,8 +1698,8 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     //    « généralement »), jamais une prédiction ni une incitation à prendre position (règle DTP).
     if (featured.forecast || featured.previous) {
       const _inv = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts/i.test(featured.title || '');
-      const hawk = `le marché tend à repousser ses attentes d'assouplissement — la devise concernée est généralement soutenue, tandis que l'obligataire et les actifs sensibles aux taux passent sous pression`;
-      const dove = `la banque centrale est perçue comme plus accommodante — la devise concernée a tendance à s'affaiblir et les actifs sensibles aux taux respirent`;
+      const hawk = `le marché tend à repousser ses attentes d'assouplissement : la devise concernée est généralement soutenue, tandis que l'obligataire et les actifs sensibles aux taux passent sous pression`;
+      const dove = `la banque centrale est perçue comme plus accommodante : la devise concernée a tendance à s'affaiblir et les actifs sensibles aux taux respirent`;
       const above = _inv ? dove : hawk;
       const below = _inv ? hawk : dove;
       const _scCard = (arrow, t, txt) => `<div style="border:1px solid #232429;border-left:3px solid rgba(227,178,58,.55);border-radius:6px;padding:12px 14px;margin:0 0 10px;background:#131418;">`
@@ -1708,7 +1708,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
       appliedHtml += `<div style="margin:16px 0 4px;color:#f3c344;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">Les deux scénarios à connaître</div>`
         + _scCard('▲', 'Si le chiffre sort au-dessus des attentes', `Lecture « surprise haussière »&nbsp;: ${above}`)
         + _scCard('▼', 'S’il sort en-dessous', `Lecture « surprise baissière »&nbsp;: ${below}`)
-        + `<p style="margin:6px 0 0;font-size:12.5px;color:#7b828f;">Ce ne sont pas des prédictions&nbsp;: deux mécaniques types à avoir en tête avant la publication — la réaction réelle dépend toujours du contexte, à suivre en direct sur le Desk.</p>`;
+        + `<p style="margin:6px 0 0;font-size:12.5px;color:#7b828f;">Ce ne sont pas des prédictions&nbsp;: deux mécaniques types à avoir en tête avant la publication, la réaction réelle dépend toujours du contexte, à suivre en direct sur le Desk.</p>`;
     }
   }
 
@@ -1760,7 +1760,7 @@ const MINDSET_CONCEPTS = [
     "Le marché, lui, ne sait pas que tu viens de perdre. Il ne te doit rien.",
     "La position suivante n'a aucune raison d'être meilleure parce que la précédente était mauvaise.",
     "**Le temps entre deux trades fait partie du métier.** Ce n'est pas du temps perdu.",
-  ], closing: "Ta dernière position, tu l'as prise pour une raison — ou pour effacer la précédente ?" },
+  ], closing: "Ta dernière position, tu l'as prise pour une raison : ou pour effacer la précédente ?" },
 
   { key: 'ne-pas-trader', subject: "⏸️ Ne rien faire est une décision", cta: 'Je veux voir avant de décider', paras: [
     "Une journée sans position ressemble à une journée perdue.",
@@ -1769,7 +1769,7 @@ const MINDSET_CONCEPTS = [
     "Ce qui coûte cher, ce n'est pas la séance vide.",
     "C'est la position prise parce que la séance était vide.",
     "Un carnet où figure « aucune opportunité aujourd'hui » vaut mieux qu'un trade sans justification.",
-  ], closing: "Aujourd'hui, tu es entré parce que le contexte le disait — ou parce que tu étais devant l'écran ?" },
+  ], closing: "Aujourd'hui, tu es entré parce que le contexte le disait : ou parce que tu étais devant l'écran ?" },
 
   { key: 'stop-qui-recule', subject: "📏 Le stop qu'on déplace un peu", cta: 'Je fixe mes niveaux avant', paras: [
     "Le prix approche du stop. Et une petite voix dit : laisse-lui un peu d'air.",
@@ -1778,7 +1778,7 @@ const MINDSET_CONCEPTS = [
     "Le niveau que tu avais choisi disait quelque chose : à partir d'ici, ma lecture est fausse.",
     "En le reculant, tu ne protèges pas la position. Tu retardes le moment de l'admettre.",
     "La perte que tu refuses de prendre à 1 % se prend rarement à 1 % plus tard.",
-  ], closing: "Ton dernier stop, tu l'as respecté — ou tu lui as laissé « un peu d'air » ?" },
+  ], closing: "Ton dernier stop, tu l'as respecté : ou tu lui as laissé « un peu d'air » ?" },
 
   { key: 'objectif-chiffre', subject: "🎯 L'objectif mensuel qui fait forcer", cta: 'Je juge mon process, pas mon mois', paras: [
     "Se fixer un objectif chiffré au mois paraît sérieux. Professionnel, même.",
@@ -1796,7 +1796,7 @@ const MINDSET_CONCEPTS = [
     "On relit ses pertes. Rarement ses gains.",
     "Pourtant un trade gagnant peut avoir été mal pris.",
     "**Un bon résultat ne prouve pas une bonne décision.** Il peut juste prouver de la chance.",
-    "Et une décision hasardeuse récompensée une fois se répète — jusqu'à la fois où elle ne l'est plus.",
+    "Et une décision hasardeuse récompensée une fois se répète : jusqu'à la fois où elle ne l'est plus.",
     "La vraie question sur un gain n'est pas « combien ».",
     "C'est : est-ce que je referais exactement la même chose, en sachant seulement ce que je savais alors ?",
   ], closing: "Ton dernier gain venait de ta lecture, ou du fait que le marché a été clément ?" },
@@ -1808,13 +1808,13 @@ const MINDSET_CONCEPTS = [
     "Le seuil d'hésitation baisse, l'attente devient insupportable, le doute se règle par un clic.",
     "Ce n'est pas un problème de discipline. C'est un problème de ressource.",
     "Une séance manquée coûte moins qu'une séance menée à moitié présent.",
-  ], closing: "Ta dernière séance difficile, était-ce le marché — ou l'état dans lequel tu l'as abordée ?" },
+  ], closing: "Ta dernière séance difficile, était-ce le marché : ou l'état dans lequel tu l'as abordée ?" },
 
   { key: 'changer-de-methode', subject: "🪃 Changer de méthode après trois pertes", cta: 'Je garde ma méthode', paras: [
     "Trois pertes de suite, et l'approche entière devient suspecte.",
     "On cherche autre chose. Un réglage, un indicateur, une autre lecture.",
     "**Trois trades ne disent rien d'une méthode.** Ils ne disent rien du tout.",
-    "Toute approche a des séries perdantes — c'est une propriété, pas un défaut.",
+    "Toute approche a des séries perdantes : c'est une propriété, pas un défaut.",
     "Ce qui se juge sur trois trades, en revanche, c'est l'exécution :",
     "- As-tu respecté ta taille ?",
     "- As-tu attendu tes conditions ?",
@@ -1831,7 +1831,7 @@ const MINDSET_CONCEPTS = [
     "- Quelles publications peuvent réellement changer ta lecture ?",
     "- Lesquelles ne changeront rien, quoi qu'il arrive ?",
     "Le reste peut attendre la fin de ta séance.",
-  ], closing: "Ta dernière alerte t'a fait décider — ou seulement réagir ?" },
+  ], closing: "Ta dernière alerte t'a fait décider : ou seulement réagir ?" },
 
   { key: 'avis-des-autres', subject: "🗣️ Chercher un avis avant d'entrer", cta: 'Je construis ma lecture', paras: [
     "Avant d'entrer, on va souvent vérifier ce que pensent les autres.",
@@ -1839,7 +1839,7 @@ const MINDSET_CONCEPTS = [
     "**Un avis extérieur ne remplace pas une lecture.** Il la remplit d'emprunts.",
     "Et quand la position tourne mal, tu ne sais plus quoi corriger : ce n'était pas ton raisonnement.",
     "Une lecture t'appartient quand tu peux dire ce qui la rendrait fausse.",
-    "Sans ce point, ce n'est pas une analyse — c'est une opinion que tu as adoptée.",
+    "Sans ce point, ce n'est pas une analyse : c'est une opinion que tu as adoptée.",
   ], closing: "Ta dernière entrée reposait sur ta lecture, ou sur celle de quelqu'un d'autre ?" },
 
   { key: 'bruit-news', subject: "🔕 Tout suivre, ce n'est pas s'informer", paras: [
@@ -1977,7 +1977,7 @@ const MINDSET_CONCEPTS = [
   // ── Ajouts 28/07 (veille éditoriale : angles psychologie non couverts — texte 100 % DTP) ──
   { key: 'surtrading-ennui', subject: "🪑 L'ennui est plus cher que la peur", paras: [
     "On parle beaucoup de la peur en trading. Beaucoup moins de son cousin discret, qui coûte souvent plus cher : l'ennui. 🪑",
-    "Une séance calme s'installe, rien ne se passe… et l'envie monte de FABRIQUER un trade. Pas parce que le marché offre quelque chose — parce que toi, tu veux qu'il se passe quelque chose.",
+    "Une séance calme s'installe, rien ne se passe… et l'envie monte de FABRIQUER un trade. Pas parce que le marché offre quelque chose : parce que toi, tu veux qu'il se passe quelque chose.",
     "**Le marché ne paie pas la présence, il paie la sélection.** Un jour sans configuration est un jour réussi si tu n'as rien forcé.",
     "Les traders qui durent ont tous appris la même chose : savoir NE PAS trader est une compétence à part entière. 🧘",
     "- L'ennui déguise le sur-trading en « travail ».",
@@ -1989,20 +1989,20 @@ const MINDSET_CONCEPTS = [
   { key: 'euphorie-apres-gain', subject: "🎢 Ton pire trade arrive après ton meilleur", paras: [
     "Le moment le plus dangereux de ta semaine n'est pas après une perte. C'est juste après un GROS gain. 🎢",
     "L'euphorie s'installe et chuchote toujours la même chose : « tu as compris le marché ». Alors la taille grossit, les critères se relâchent, et le trade suivant part avec deux fois la conviction… et moitié moins d'analyse.",
-    "**Le marché n'a pas changé parce que tu as gagné.** Ta lecture d'hier n'était pas meilleure — elle a simplement été payée cette fois-ci.",
+    "**Le marché n'a pas changé parce que tu as gagné.** Ta lecture d'hier n'était pas meilleure : elle a simplement été payée cette fois-ci.",
     "Les statistiques des journaux de trading racontent presque toujours la même histoire : les pires drawdowns suivent les meilleures séries. 📉",
-    "- Après un gros gain, la taille devrait rester IDENTIQUE — c'est le test de discipline le plus dur.",
+    "- Après un gros gain, la taille devrait rester IDENTIQUE : c'est le test de discipline le plus dur.",
     "- L'euphorie se repère à un signe : l'envie d'y retourner tout de suite.",
     "- **Une série de gains valide ta méthode, pas ton intuition du moment.**",
     "- Le meilleur moment pour relire ses règles, c'est quand on croit ne plus en avoir besoin.",
     "Encaisser un gain avec le même calme qu'une perte : c'est là que se voit la maturité. 🧊",
-  ], closing: "Après ton dernier gros gain, ta taille de position est-elle restée la même — honnêtement ?" },
+  ], closing: "Après ton dernier gros gain, ta taille de position est-elle restée la même : honnêtement ?" },
   { key: 'rituel-cloture', subject: "🌙 Ta journée se gagne à sa clôture", paras: [
     "Tout le monde parle de la préparation du matin. Presque personne du moment qui compte autant : la CLÔTURE de ta journée. 🌙",
-    "Fermer l'écran sans regarder ce qui s'est passé, c'est laisser la journée s'évaporer — les bonnes décisions comme les mauvaises. Et une leçon non capturée est une leçon à repayer.",
+    "Fermer l'écran sans regarder ce qui s'est passé, c'est laisser la journée s'évaporer : les bonnes décisions comme les mauvaises. Et une leçon non capturée est une leçon à repayer.",
     "**Dix minutes suffisent** : qu'est-ce que j'avais prévu ? Qu'ai-je réellement fait ? Où l'écart s'est-il créé ?",
     "Ce n'est pas de la paperasse. C'est le seul moment où tu te vois trader de l'extérieur. 🔍",
-    "- Une journée non relue se répète — surtout ses erreurs.",
+    "- Une journée non relue se répète : surtout ses erreurs.",
     "- L'écart entre le plan et l'exécution EST la matière à travailler, pas le P&L.",
     "- **Clôturer sa journée, c'est aussi la quitter** : le marché n'a pas à te suivre au dîner.",
     "- Trois lignes honnêtes battent trois pages écrites pour se rassurer.",
@@ -2112,13 +2112,13 @@ const MINDSET_PRATIQUE = {
     'Note ta décision AVANT le résultat, pas après.',
     'En fin de semaine, sépare tes trades en deux piles : bien exécutés, mal exécutés. Ignore les gains.'],
   'serie-de-pertes': ['Fixe à l\'avance le nombre de pertes consécutives après lequel tu fermes la journée.',
-    'À ce seuil, arrête — sans négocier avec toi-même.',
+    'À ce seuil, arrête : sans négocier avec toi-même.',
     'Reprends le lendemain à taille réduite jusqu\'à deux exécutions propres d\'affilée.'],
   'patience-vs-agitation': ['Définis tes créneaux de séance, et ferme l\'écran en dehors.',
     'Hors créneau, autorise-toi la lecture, pas l\'exécution.',
     'Compte tes trades de la semaine : au-delà de ton rythme habituel, cherche ce qui t\'a poussé.'],
   'ego-avoir-tort': ['Écris ton invalidation avant l\'entrée, pas pendant.',
-    'Quand elle est touchée, sors — la relecture vient après, pas au moment du choix.',
+    'Quand elle est touchée, sors : la relecture vient après, pas au moment du choix.',
     'Relis une fois par mois les trades où tu as eu raison trop tard.'],
   'regularite': ['Choisis un indicateur de régularité que tu contrôles : risque respecté, journal tenu.',
     'Suis-le en série sur 20 séances, pas au jour le jour.',
@@ -2130,19 +2130,19 @@ const MINDSET_PRATIQUE = {
     'Ajoute une seule étiquette : conforme au plan, ou non.',
     'Au bout de 30 trades, compte le ratio. C\'est ton vrai tableau de bord.'],
   'risque-taille': ['Fixe ton risque par position en pourcentage, et calcule la taille à partir de là.',
-    'Si le calcul te gêne, c\'est que la position est trop grosse — pas que le calcul est mauvais.',
+    'Si le calcul te gêne, c\'est que la position est trop grosse : pas que le calcul est mauvais.',
     'Vérifie une fois par semaine que ton risque réel correspond à celui que tu avais décidé.'],
   'fomo-train': ['Quand tu vois un mouvement déjà parti, note l\'heure et ne fais rien pendant 10 minutes.',
     'Écris ce que tu aurais dû voir AVANT pour être positionné.',
     'Ce sont ces conditions-là qu\'il faut préparer, pas le mouvement d\'après.'],
   'comparaison': ['Coupe une semaine les comptes qui ne montrent que des gains.',
     'Compare-toi à TON mois précédent, sur le respect de ton plan.',
-    'Un résultat sans le risque pris à côté ne veut rien dire — le tien non plus.'],
+    'Un résultat sans le risque pris à côté ne veut rien dire : le tien non plus.'],
   'probabilites': ['Raisonne par séries de 20 trades, jamais sur le dernier.',
     'Note ton espérance sur la série, pas ton solde du jour.',
     'Un trade perdant conforme au plan est une bonne décision. Écris-le, pour t\'en souvenir.'],
   'surtrading-ennui': ['Fixe un nombre maximum de positions par séance, avant de commencer.',
-    'Atteint ce nombre, ferme — même si « ça a l\'air bien ».',
+    'Atteint ce nombre, ferme : même si « ça a l\'air bien ».',
     'Note ce que tu ressentais juste avant les trades hors plan : l\'ennui revient souvent.'],
   'euphorie-apres-gain': ['Après un gain inhabituel, garde la même taille sur les trois trades suivants.',
     'Écris pourquoi ce gain est arrivé : lecture juste, ou marché généreux ?',
@@ -2152,7 +2152,7 @@ const MINDSET_PRATIQUE = {
     'Relis ces lignes le lundi suivant, avant d\'ouvrir quoi que ce soit.'],
   'decider-avant-ouverture': ['Écris tes trois réponses avant l\'ouverture : ce qui te fait intervenir, ce qui t\'invalide, ce que tu fais si rien n\'arrive.',
     'Garde-les visibles pendant la séance.',
-    'Le soir, vérifie si tu as suivi ce papier — ou improvisé.'],
+    'Le soir, vérifie si tu as suivi ce papier : ou improvisé.'],
   'revenge-trade': ['Après une perte, impose-toi un délai fixe avant toute nouvelle position.',
     'Pendant ce délai, écris ce qui s\'est passé, sans chercher de coupable.',
     'Reprends à la taille prévue, jamais au-dessus.'],
@@ -2169,7 +2169,7 @@ const MINDSET_PRATIQUE = {
     'Demande-toi : le referais-je avec les informations que j\'avais alors ?',
     'Marque ceux qui étaient chanceux. Ce sont eux qui coûteront cher un jour.'],
   'fatigue-ecran': ['Note ton état en une ligne avant d\'ouvrir : reposé, moyen, fatigué.',
-    'En état « fatigué », lecture seulement — aucune exécution.',
+    'En état « fatigué », lecture seulement : aucune exécution.',
     'Au bout d\'un mois, croise cette colonne avec tes trades hors plan.'],
   'changer-de-methode': ['Avant de changer quoi que ce soit, exige 30 trades appliqués à la lettre.',
     'Sépare le problème : est-ce la méthode, ou son exécution ?',
@@ -2194,7 +2194,7 @@ const MINDSET_PLUS = {
     "Ce n'est pas un manque de rigueur. C'est la façon dont l'attention fonctionne : devant un prix qui bouge, le cerveau traite l'urgence avant la pertinence.",
     "Écrire avant, c'est simplement décider dans des conditions où tu raisonnes encore.",
     "La nuance : préparer ne veut pas dire tout prévoir. Un plan qui anticipe dix scénarios n'est plus un plan, c'est une liste d'excuses.",
-    "Trois lignes suffisent. Si tu ne peux pas les écrire, c'est que la lecture n'est pas encore claire — et c'est déjà une information.",
+    "Trois lignes suffisent. Si tu ne peux pas les écrire, c'est que la lecture n'est pas encore claire : et c'est déjà une information.",
   ],
   'revenge-trade': [
     "Le mécanisme est connu : après une perte, la tolérance au risque augmente au lieu de diminuer. On accepte pour se refaire ce qu'on aurait refusé une heure plus tôt.",
@@ -2211,7 +2211,7 @@ const MINDSET_PLUS = {
   'stop-qui-recule': [
     "Le mécanisme est bien décrit : on accepte plus de risque pour éviter une perte certaine que pour sécuriser un gain équivalent.",
     "Déplacer un stop, ce n'est donc pas un accident de discipline. C'est une réaction prévisible, et c'est justement pour ça qu'elle se prépare à l'avance.",
-    "La nuance : un stop peut légitimement bouger — dans le sens du gain, ou si ta lecture change pour une raison EXTÉRIEURE au prix.",
+    "La nuance : un stop peut légitimement bouger, dans le sens du gain, ou si ta lecture change pour une raison EXTÉRIEURE au prix.",
     "Ce qui ne se justifie jamais, c'est de l'élargir parce qu'il est sur le point d'être touché.",
   ],
   'objectif-chiffre': [
@@ -2222,21 +2222,21 @@ const MINDSET_PLUS = {
   ],
   'gagnants-a-relire': [
     "Le résultat contamine le jugement : un trade qui finit bien paraît rétrospectivement mieux pensé qu'il ne l'était.",
-    "En ne relisant que les pertes, tu ne corriges qu'une moitié de tes décisions — et tu renforces l'autre sans le savoir.",
+    "En ne relisant que les pertes, tu ne corriges qu'une moitié de tes décisions : et tu renforces l'autre sans le savoir.",
     "La nuance : un gain bien exécuté n'a pas besoin d'être disséqué. L'idée n'est pas de douter de tout.",
     "Un tri sur trente trades suffit à voir la tendance : combien de gains venaient de ta lecture, combien du hasard ?",
   ],
   'fatigue-ecran': [
-    "La fatigue ne dégrade pas l'analyse en premier. Elle dégrade l'inhibition — cette capacité à ne PAS agir.",
+    "La fatigue ne dégrade pas l'analyse en premier. Elle dégrade l'inhibition : cette capacité à ne PAS agir.",
     "C'est pour ça qu'on se sent lucide tout en enchaînant des décisions qu'on n'aurait pas prises reposé.",
     "La nuance : il ne s'agit pas d'attendre des conditions parfaites. Personne n'arrive frais tous les jours.",
-    "Il s'agit d'adapter ce que tu t'autorises à ton état — lire quand tu es moyen, exécuter quand tu es net.",
+    "Il s'agit d'adapter ce que tu t'autorises à ton état : lire quand tu es moyen, exécuter quand tu es net.",
   ],
   'changer-de-methode': [
     "Trois trades, c'est un échantillon trop petit pour distinguer une méthode défaillante d'une série normale. Statistiquement, il ne dit rien.",
-    "Le problème n'est pas de changer. C'est de changer AVANT d'avoir de quoi juger — et de recommencer ce cycle indéfiniment.",
+    "Le problème n'est pas de changer. C'est de changer AVANT d'avoir de quoi juger : et de recommencer ce cycle indéfiniment.",
     "La nuance : certaines méthodes doivent être abandonnées. Si le risque n'est pas maîtrisable, ou si elle ne correspond ni à ton temps ni à ton tempérament, insister ne sert à rien.",
-    "Mais cette décision-là se prend au calme, sur des dizaines de trades — jamais le soir d'une troisième perte.",
+    "Mais cette décision-là se prend au calme, sur des dizaines de trades : jamais le soir d'une troisième perte.",
   ],
   'alerte-permanente': [
     "Chaque interruption a un coût qu'on ne voit pas : il faut plusieurs minutes pour retrouver le fil d'un raisonnement coupé.",
@@ -2247,7 +2247,7 @@ const MINDSET_PLUS = {
   'avis-des-autres': [
     "Chercher un avis avant d'entrer sert rarement à s'informer. Ça sert à partager la responsabilité de la décision.",
     "Et une décision dont tu ne portes pas entièrement la raison est une décision que tu ne peux pas corriger.",
-    "La nuance : lire les autres est utile — après avoir formé ta propre lecture. Le désaccord devient alors une information, pas une pression.",
+    "La nuance : lire les autres est utile, après avoir formé ta propre lecture. Le désaccord devient alors une information, pas une pression.",
     "L'ordre compte plus que le contenu : ta lecture d'abord, celle des autres ensuite.",
   ],
 };
@@ -2536,7 +2536,7 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
     // Split robuste (même règle que le Point marché) : coupe après .!? SEULEMENT devant une majuscule —
     // « prév. 3,60% » et les décimales ne cassent pas la phrase.
     const desc = String(d.description || '').split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).slice(0, 2).join(' ');
-    return `<p style="margin:18px 0 6px;"><strong style="color:#f3c344;">${_esc(jour)} — ${_esc(d.title || '')}</strong></p>`
+    return `<p style="margin:18px 0 6px;"><strong style="color:#f3c344;">${_esc(jour)} : ${_esc(d.title || '')}</strong></p>`
       + (desc ? `<p style="margin:0 0 4px;">${_esc(desc)}</p>` : '');
   }).join('');
   const body = `
@@ -2550,7 +2550,7 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
     <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le détail de chaque journée (chiffres attendus, contexte, lecture du desk) est en direct sur le Desk.</p>
     <div style="margin:22px 0 18px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Ces publications donneront le ton de la semaine.</p>
-    <p style="margin:0 0 14px;">L'essentiel n'est pas d'être devant l'écran à chaque chiffre — c'est de savoir <strong style="color:#fff;">à l'avance lesquels peuvent changer la lecture du marché</strong>. 👀</p>
+    <p style="margin:0 0 14px;">L'essentiel n'est pas d'être devant l'écran à chaque chiffre : c'est de savoir <strong style="color:#fff;">à l'avance lesquels peuvent changer la lecture du marché</strong>. 👀</p>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
@@ -2599,7 +2599,7 @@ function buildAdminExpiryReminder({ clients }) {
       ? `<span style="color:#fb7185;font-weight:700;">EXPIRÉ depuis ${-days}j</span>`
       : `<span style="color:#f59e0b;font-weight:700;">expire dans ${days}j</span>`;
     return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#fff;font-size:13px;">${_esc(c.name || '—')}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#fff;font-size:13px;">${_esc(c.name || '-')}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#94a3b8;font-size:13px;font-family:monospace;">${_esc(c.email)}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#94a3b8;font-size:13px;">${when}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #26262b;font-size:12px;">${state}</td>
@@ -2691,7 +2691,7 @@ function buildAutoRenewOff({ name, expiresAt }) {
     <p style="margin:0 0 14px;">Vos données ne sont pas supprimées à l'échéance : elles vous attendent si vous revenez. Mais l'accès au terminal, lui, se ferme.</p>
     ${_button('Réactiver le renouvellement automatique', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Sans engagement : le renouvellement se coupe à nouveau quand vous le souhaitez, depuis votre espace Whop.</p>
-    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;"><strong style="color:#cbd5e1;">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> — votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;"><strong style="color:#cbd5e1;">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> : votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À bientôt sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Votre abonnement DataTradingPro ne sera pas renouvelé', html: _layout('Renouvellement automatique désactivé', body) };
@@ -2708,22 +2708,22 @@ function getEmailCatalog() {
   return [
     { key: 'welcome',       audience: 'Client', label: 'Bienvenue',                       trigger: 'À la création du compte client',              ...buildWelcome(s) },
     { key: 'passwordReset', audience: 'Client', label: 'Réinitialisation du mot de passe', trigger: 'Reset MDP (admin ou « mot de passe oublié »)', ...buildPasswordReset(s) },
-    { key: 'forgotNoSub',   audience: 'Client', label: 'MDP oublié — abonnement inactif',   trigger: '« Mot de passe oublié » sur un compte sans abonnement actif', ...buildForgotNoSub(s) },
+    { key: 'forgotNoSub',   audience: 'Client', label: 'MDP oublié : abonnement inactif',   trigger: '« Mot de passe oublié » sur un compte sans abonnement actif', ...buildForgotNoSub(s) },
     { key: 'trialUpsell',   audience: 'Client', label: 'Fin d\'essai gratuit',             trigger: 'Le jour où l\'essai 7 jours expire',          ...buildTrialUpsell(s) },
     { key: 'renewalFailed', audience: 'Client', label: 'Échec de renouvellement',          trigger: 'Abonnement non renouvelé → accès suspendu',   ...buildRenewalFailed(s) },
     { key: 'reactivated',   audience: 'Client', label: 'Compte réactivé',                  trigger: 'Compte remis en actif (paiement ou admin)',   ...buildReactivated(s) },
     { key: 'renewed',       audience: 'Client', label: 'Abonnement renouvelé',             trigger: 'Paiement Whop renouvelé',                     ...buildRenewed(s) },
     { key: 'reengagement',  audience: 'Client', label: 'Réengagement (inactif ~7j)',       trigger: 'Utilisateur inactif depuis ~7 jours',         ..._buildReengagement(s.name, 7) },
     // AUCUN ENVOI BRANCHÉ : visible ici pour relecture/validation avant d'être relié au webhook Whop.
-    { key: 'autoRenewOff', audience: 'Client', label: 'Renouvellement auto désactivé',  trigger: 'Client coupe le renouvellement auto — AUCUN ENVOI AUTOMATIQUE (à valider)', ...buildAutoRenewOff({ name: s.name, expiresAt: now + 7 * 86400000 }) },
-    { key: 'announcementV2', audience: 'Client', label: 'Annonce — v2 finalisée',           trigger: 'Broadcast manuel (admin) → tous les clients',  ...buildAnnouncementV2({ name: s.name }) },
-    { key: 'campaignIntro', audience: 'Client + Whop', label: 'Campagne — intro hebdo',       trigger: 'Broadcast campagne (admin) → clients DTP + Whop', ...buildCampaignIntro({ name: s.name, email: s.to }) },
+    { key: 'autoRenewOff', audience: 'Client', label: 'Renouvellement auto désactivé',  trigger: 'Client coupe le renouvellement auto : AUCUN ENVOI AUTOMATIQUE (à valider)', ...buildAutoRenewOff({ name: s.name, expiresAt: now + 7 * 86400000 }) },
+    { key: 'announcementV2', audience: 'Client', label: 'Annonce : v2 finalisée',           trigger: 'Broadcast manuel (admin) → tous les clients',  ...buildAnnouncementV2({ name: s.name }) },
+    { key: 'campaignIntro', audience: 'Client + Whop', label: 'Campagne : intro hebdo',       trigger: 'Broadcast campagne (admin) → clients DTP + Whop', ...buildCampaignIntro({ name: s.name, email: s.to }) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
     { key: 'adminRenewal',  audience: 'Admin',  label: 'Notif paiement / nouveau client',  trigger: 'Paiement Whop traité (→ toi)',                ...buildAdminRenewalNotice({ clientEmail: s.to, clientName: s.name, expiresAt: s.expiresAt, isNew: true }) },
-    { key: 'referredWelcome',  audience: 'Client', label: 'Parrainage — bienvenue filleul',  trigger: 'Un filleul s\'inscrit via un parrain',          ...buildReferredWelcome({ name: s.name, referrerName: 'Alex' }) },
-    { key: 'referralCredited', audience: 'Client', label: 'Parrainage — filleul confirmé', trigger: 'Un filleul s\'abonne via votre lien',          ...buildReferralCredited({ name: s.name, count: 1, untilNext: 2 }) },
-    { key: 'referralReward',   audience: 'Client', label: 'Parrainage — mois offert',       trigger: '3 parrainages atteints → 1 mois offert',      ...buildReferralReward({ name: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
-    { key: 'adminReferral',    audience: 'Admin',  label: 'Parrainage — mois crédité (→ toi)', trigger: 'Un membre débloque un mois offert',         ...buildAdminReferralReward({ refEmail: s.to, refName: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
+    { key: 'referredWelcome',  audience: 'Client', label: 'Parrainage : bienvenue filleul',  trigger: 'Un filleul s\'inscrit via un parrain',          ...buildReferredWelcome({ name: s.name, referrerName: 'Alex' }) },
+    { key: 'referralCredited', audience: 'Client', label: 'Parrainage : filleul confirmé', trigger: 'Un filleul s\'abonne via votre lien',          ...buildReferralCredited({ name: s.name, count: 1, untilNext: 2 }) },
+    { key: 'referralReward',   audience: 'Client', label: 'Parrainage : mois offert',       trigger: '3 parrainages atteints → 1 mois offert',      ...buildReferralReward({ name: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
+    { key: 'adminReferral',    audience: 'Admin',  label: 'Parrainage : mois crédité (→ toi)', trigger: 'Un membre débloque un mois offert',         ...buildAdminReferralReward({ refEmail: s.to, refName: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
   ];
 }
 
@@ -2749,7 +2749,7 @@ function renderEmailGallery(catalog, status) {
     </section>`;
   }).join('');
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DataTradingPro — Aperçu des emails</title>
+<title>DataTradingPro : Aperçu des emails</title>
 <style>
   *{box-sizing:border-box;}
   body{margin:0;background:#0a0a0c;color:#e6e9ef;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;padding:28px;}
@@ -2764,7 +2764,7 @@ function renderEmailGallery(catalog, status) {
 </style></head>
 <body>
   <div class="hd">
-    <h1>Data<span class="o">TradingPro</span> — Aperçu des emails</h1>
+    <h1>Data<span class="o">TradingPro</span> : Aperçu des emails</h1>
     <div class="sub">${cat.length} emails transactionnels · rendus avec des données d'exemple</div>
     <div class="panel">
       <span class="lbl">Envoi</span>
@@ -2791,35 +2791,35 @@ function buildReferralCredited({ name, count, untilNext }) {
     ${_button('Voir mes parrainages', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: `DataTradingPro — nouveau filleul confirmé (${count})`, html: _layout('Parrainage', body) };
+  return { subject: `DataTradingPro : nouveau filleul confirmé (${count})`, html: _layout('Parrainage', body) };
 }
 async function sendReferralCredited(d) { const m = buildReferralCredited(d); return _send(d.to, m.subject, m.html); }
 
 // ── 10) Parrainage : mois offert débloqué (→ parrain) ────────────────────────
 function buildReferralReward({ name, count, newExpiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
-  const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '—';
+  const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '';
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">🎁 1 mois offert débloqué !</p>
-    <p style="margin:0 0 14px;">Bravo ${prenom} — vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#f3c344;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
+    <p style="margin:0 0 14px;">Bravo ${prenom} : vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#f3c344;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
     ${_credBox([['Récompense', "1 mois d'accès offert"], ['Accès prolongé jusqu\'au', end]])}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès au terminal. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Merci de faire grandir la communauté,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: `DataTradingPro — 🎁 mois offert débloqué (palier ${count})`, html: _layout('Récompense parrainage', body) };
+  return { subject: `DataTradingPro : 🎁 mois offert débloqué (palier ${count})`, html: _layout('Récompense parrainage', body) };
 }
 async function sendReferralReward(d) { const m = buildReferralReward(d); return _send(d.to, m.subject, m.html); }
 
 // ── 11) Parrainage : notif ADMIN (→ toi) ─────────────────────────────────────
 function buildAdminReferralReward({ refEmail, refName, count, newExpiresAt }) {
-  const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '—';
+  const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '';
   const body = `
     <p style="margin:0 0 12px;color:#ffffff;font-size:17px;font-weight:700;">Mois offert crédité (parrainage)</p>
     <p style="margin:0 0 10px;">Un membre a atteint un palier de parrainage. <strong>1 mois d'accès DTP</strong> lui a été crédité automatiquement.</p>
     ${_credBox([['Membre', refName || refEmail], ['Email', refEmail], ['Parrainages', String(count)], ['Accès prolongé au', end]])}
     <p style="margin:0;font-size:13px;color:#9aa3b2;">Pour offrir aussi le mois côté <strong>facturation Whop</strong>, appliquez-le manuellement dans le tableau de bord Whop (le crédit ci-dessus ne touche que l'accès DTP, pas la facturation).</p>`;
-  return { subject: `DTP — mois offert crédité · ${refEmail}`, html: _layout('Admin — parrainage', body) };
+  return { subject: `DTP : mois offert crédité · ${refEmail}`, html: _layout('Admin : parrainage', body) };
 }
 async function sendAdminReferralReward(d) { const m = buildAdminReferralReward(d); const to = d.to || process.env.ADMIN_EMAIL || SUPPORT_EMAIL; return _send(to, m.subject, m.html); }
 
@@ -2828,7 +2828,7 @@ function buildReferredWelcome({ name, referrerName }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const par = referrerName ? _esc(referrerName) : 'votre parrain';
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue 🤝 — et à vous de jouer</p>
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue 🤝 : et à vous de jouer</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom}, vous avez rejoint <strong style="color:#fff;">DataTradingPro</strong> grâce à ${par}. Vous pouvez maintenant en profiter à votre tour avec notre programme de parrainage.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.10);border:1px solid rgba(227,178,58,0.4);border-radius:12px;margin:18px 0;">
       <tr><td style="padding:18px 20px;text-align:center;">
@@ -2840,7 +2840,7 @@ function buildReferredWelcome({ name, referrerName }) {
     ${_button('Voir mon lien de parrainage', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bon trading,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro — bienvenue 🎁 3 inscrits = 1 mois offert', html: _layout('Parrainage — bienvenue', body) };
+  return { subject: 'DataTradingPro : bienvenue 🎁 3 inscrits = 1 mois offert', html: _layout('Parrainage : bienvenue', body) };
 }
 async function sendReferredWelcome(d) { const m = buildReferredWelcome(d); return _send(d.to, m.subject, m.html); }
 

@@ -150,7 +150,7 @@
             var w2 = byId(id2); if (!w2 && !estVide && !estGrille) return '';
             var nCell = estGrille ? _tabCells(it, j).filter(function (x) { return x !== 'vide'; }).length : 0;
             var nomW = estGrille ? ('Onglet composite · ' + nCell + ' widget' + (nCell > 1 ? 's' : ''))
-              : (estVide ? 'Onglet vide — aucun widget' : w2.name);
+              : (estVide ? 'Onglet vide : aucun widget' : w2.name);
             var defLbl = estGrille ? 'GRILLE' : (estVide ? 'Vide' : (w2.tag || w2.name));
             return '<div class="wdg-set-row wdg-set-tabrow">'
               + '<div class="wdg-set-tabcol">'
@@ -532,7 +532,7 @@
   function _wjrHexChip(hex) { var n = hex.replace('#', ''), r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16), lt = function (c) { return Math.round(c + (255 - c) * 0.58); }; return { bg: 'rgba(' + r + ',' + g + ',' + b + ',.19)', fg: 'rgb(' + lt(r) + ',' + lt(g) + ',' + lt(b) + ')', bd: 'rgba(' + r + ',' + g + ',' + b + ',.42)' }; }
   function _wjrChip(colKey, value) { var sem = _WJR_SEMCOL[colKey] && _WJR_SEMCOL[colKey][String(value).toLowerCase()]; return sem ? _wjrHexChip(sem) : _WJR_CHIPS[_wjrHash(colKey + '|' + value) % _WJR_CHIPS.length]; }
   function _wjrChipHtml(text, c) { return '<span class="jr-chip" style="background:' + c.bg + ';color:' + c.fg + ';border-color:' + c.bd + '">' + esc(text) + '</span>'; }
-  function _wjrFmtDateFr(ts) { try { var d = new Date(ts); return d.getDate() + ' ' + _WJR_MONTHS[d.getMonth()] + ' ' + d.getFullYear(); } catch (e) { return '—'; } }
+  function _wjrFmtDateFr(ts) { try { var d = new Date(ts); return d.getDate() + ' ' + _WJR_MONTHS[d.getMonth()] + ' ' + d.getFullYear(); } catch (e) { return '-'; } }
   function _wjrDayEn(ts) { try { return _WJR_DAYS[new Date(ts).getDay()]; } catch (e) { return ''; } }
   function _wjrFmtNum(v, signed) { if (v == null || v === '') return ''; var n = Number(v); if (!isFinite(n)) return esc(String(v)); var s = (Math.round(n * 100) / 100).toString().replace('.', ','); return (signed && n > 0 ? '+' : '') + s; }
   function _wjrRingHtml(val, max) { var f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#e3b23a'; return '<span class="jr-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="#26262c" stroke-width="2.6"/><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" transform="rotate(-90 12 12)"/></svg><b>' + _wjrFmtNum(val) + '</b></span>'; }
@@ -551,17 +551,17 @@
   function _wjrCell(e, col) {
     var v = _wjrGet(e, col);
     switch (col.type) {
-      case 'title': return '<span class="jr-cv-title">' + (e.pair ? esc(e.pair) : '<i class="jr-ph">—</i>') + '</span>'
+      case 'title': return '<span class="jr-cv-title">' + (e.pair ? esc(e.pair) : '<i class="jr-ph">-</i>') + '</span>'
         + '<button class="jrd-open" data-open="' + esc(e.id || '') + '" title="Ouvrir / modifier ce trade"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5l-5.5 5.5M6.5 13.5h-4v-4M2.5 13.5l5.5-5.5"/></svg><span>OUVRIR</span></button>';
-      case 'text': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : '<span class="jr-cv-text">' + esc(v) + '</span>';
-      case 'date': { var ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _wjrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">—</i>'; }
-      case 'day': { var d = e.ts ? _wjrDayEn(e.ts) : ''; return d ? _wjrChipHtml(d, _WJR_CHIPS[8]) : '<i class="jr-ph">—</i>'; }
-      case 'select': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; return _wjrChipHtml((col.disp && col.disp[v]) || v, _wjrChip(col.k, v)); }
-      case 'multi': { var arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(function (x) { return _wjrChipHtml(x, _wjrChip(col.k, x)); }).join('') : '<i class="jr-ph">—</i>'; }
-      case 'num': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; var n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _wjrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
-      case 'money': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; var n2 = Number(v), cls2 = col.signed ? (n2 > 0 ? 'jr-pos' : n2 < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls2 + '">' + (col.signed && n2 > 0 ? '+' : '') + n2.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
-      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; var pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _wjrFmtNum(v) + '%</span></div>'; }
-      case 'ring': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : _wjrRingHtml(Number(v), col.max || 5);
+      case 'text': return (v == null || v === '') ? '<i class="jr-ph">-</i>' : '<span class="jr-cv-text">' + esc(v) + '</span>';
+      case 'date': { var ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _wjrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">-</i>'; }
+      case 'day': { var d = e.ts ? _wjrDayEn(e.ts) : ''; return d ? _wjrChipHtml(d, _WJR_CHIPS[8]) : '<i class="jr-ph">-</i>'; }
+      case 'select': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; return _wjrChipHtml((col.disp && col.disp[v]) || v, _wjrChip(col.k, v)); }
+      case 'multi': { var arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(function (x) { return _wjrChipHtml(x, _wjrChip(col.k, x)); }).join('') : '<i class="jr-ph">-</i>'; }
+      case 'num': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; var n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _wjrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
+      case 'money': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; var n2 = Number(v), cls2 = col.signed ? (n2 > 0 ? 'jr-pos' : n2 < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls2 + '">' + (col.signed && n2 > 0 ? '+' : '') + n2.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
+      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; var pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _wjrFmtNum(v) + '%</span></div>'; }
+      case 'ring': return (v == null || v === '') ? '<i class="jr-ph">-</i>' : _wjrRingHtml(Number(v), col.max || 5);
     }
     return '';
   }
@@ -638,7 +638,7 @@
     },
     {
       id: 'force-devises', name: 'Force des Devises', tag: 'FORCE', cat: 'Devises', h: 300,
-      desc: 'Qui mène, qui décroche — un panneau, la période de ton choix.',
+      desc: 'Qui mène, qui décroche : un panneau, la période de ton choix.',
       // UN SEUL panneau (demande user 01/08). Le double TD | TW venait de l'onglet › FORCE du desk,
       // qui a la largeur pour ça ; dans une carte de tableau de bord il donnait deux demi-graphes
       // illisibles. La barre de périodes reprend celle du desk (mêmes libellés, mêmes classes
@@ -871,7 +871,7 @@
           var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
           var dots = (typeof calImpDots === 'function') ? calImpDots : function () { return ''; };
           var actCell = (typeof calActualCell === 'function') ? calActualCell : function () { return ''; };
-          var vspan = function (raw, cls) { return raw && raw !== '' ? '<span class="' + cls + '">' + esc(raw) + '</span>' : '<span class="cv-empty">—</span>'; };
+          var vspan = function (raw, cls) { return raw && raw !== '' ? '<span class="' + cls + '">' + esc(raw) + '</span>' : '<span class="cv-empty">-</span>'; };
           var tbody = '', lastDay = '';
           evs.forEach(function (ev, i) {
             var dayKey = ev.timestamp ? new Date(ev.timestamp).toLocaleDateString('en-GB') : '';
@@ -895,7 +895,7 @@
               && _CAL_CB_RX.test(ev.title || '') && _CAL_CB_KEY_RX.test(ev.title || ''))
               ? ' <span class="cal-key-chip">Clé</span>' : '';
             tbody += '<tr class="' + cls + ' cal-row--click" data-idx="' + i + '">'
-              + '<td class="cth-time"><span class="cal-chv">›</span> ' + (esc(fmtTime(ev.timestamp)) || esc(ev.time) || '—') + '</td>'
+              + '<td class="cth-time"><span class="cal-chv">›</span> ' + (esc(fmtTime(ev.timestamp)) || esc(ev.time) || '-') + '</td>'
               + '<td class="cth-flag">' + flag(ev.currency) + '</td>'
               + '<td class="cth-curr">' + esc(ev.currency || '') + '</td>'
               + '<td class="cth-imp">' + dots(ev.impact) + '</td>'
@@ -1091,7 +1091,7 @@
             var when = b.next ? fmtD(b.next) + (b.nextDays != null ? ' · ' + (b.nextDays <= 0 ? 'auj.' : b.nextDays + ' j') : '') : '';
             return '<div class="wdg-taux-row">'
               + '<span class="wdg-taux-bank">' + flag(b.code) + '<b>' + esc(b.bank || b.code) + '</b></span>'
-              + '<span class="wdg-taux-rate">' + (b.rate != null ? esc(String(b.rate).replace('.', ',')) + '%' : '—') + '</span>'
+              + '<span class="wdg-taux-rate">' + (b.rate != null ? esc(String(b.rate).replace('.', ',')) + '%' : '-') + '</span>'
               + '<span class="wdg-taux-move wdg-taux-' + mv.c + '">' + mv.t + (prob != null ? ' ' + prob + '%' : '') + '</span>'
               + '<span class="wdg-taux-when">' + when + '</span></div>';
           }).join('');
@@ -1474,7 +1474,7 @@
     },
     {
       id: 'horloge', name: 'Horloge mondiale', cat: 'Macro', h: 210,
-      desc: 'Les grandes places à l’heure, statut d’ouverture + météo — choisis les tiennes.',
+      desc: 'Les grandes places à l’heure, statut d’ouverture + météo : choisis les tiennes.',
       // PLACES CHOISIES PAR CARTE (04/08, demande user « on doit pouvoir modifier les horloges et
       // ajouter plein d'autres pays ») : 27 centres financiers au catalogue, classés d'ouest en est.
       // Le desk garde ses 5 places par défaut ; seule la carte de Mon Desk est configurable.
@@ -1657,8 +1657,8 @@
         host.innerHTML = '<div class="wdg-calc">'
           + f('Capital', opt(it, W, 'capital'), '$') + f('Risque', opt(it, W, 'risque'), '%')
           + f('Stop-loss', 20, 'pips') + f('Valeur du pip (1 lot)', opt(it, W, 'pip'), '$')
-          + '<div class="wdg-calc-out"><div class="wdg-calc-o"><span>Risque</span><b class="wdg-calc-risk">—</b></div>'
-          + '<div class="wdg-calc-o wdg-calc-o--main"><span>Taille de position</span><b class="wdg-calc-lots">—</b></div></div>'
+          + '<div class="wdg-calc-out"><div class="wdg-calc-o"><span>Risque</span><b class="wdg-calc-risk">-</b></div>'
+          + '<div class="wdg-calc-o wdg-calc-o--main"><span>Taille de position</span><b class="wdg-calc-lots">-</b></div></div>'
           + '<div class="wdg-calc-note">Position = (capital × risque %) ÷ (stop × valeur du pip).</div>'
           + '</div>';
         var ins = host.querySelectorAll('input');
@@ -1668,8 +1668,8 @@
           var risk = cap * rk / 100;
           var lots = (sl > 0 && pv > 0) ? risk / (sl * pv) : 0;
           var rEl = host.querySelector('.wdg-calc-risk'), lEl = host.querySelector('.wdg-calc-lots');
-          if (rEl) rEl.textContent = risk > 0 ? risk.toFixed(2) + ' $' : '—';
-          if (lEl) lEl.textContent = lots > 0 ? lots.toFixed(2) + ' lot' + (lots >= 2 ? 's' : '') : '—';
+          if (rEl) rEl.textContent = risk > 0 ? risk.toFixed(2) + ' $' : '-';
+          if (lEl) lEl.textContent = lots > 0 ? lots.toFixed(2) + ' lot' + (lots >= 2 ? 's' : '') : '-';
         };
         ins.forEach(function (i) { i.addEventListener('input', compute); });
         compute();
@@ -2110,7 +2110,7 @@
   })()).concat([
     {
       id: 'onglets', name: 'Panneau à onglets', cat: 'Outils', h: 360,
-      desc: 'Plusieurs widgets dans une seule carte, avec sa propre barre d\'onglets — comme la barre › MONDE › FORCE du desk.',
+      desc: 'Plusieurs widgets dans une seule carte, avec sa propre barre d\'onglets : comme la barre › MONDE › FORCE du desk.',
       // CONTENEUR (demande user 26/07 « créer des onglets dans un layout ») : it.tabs = ids catalogue (persisté,
       // whitelist serveur). Barre = grammaire nav du desk (chevron/capitales/soulignement or). « + » ouvre la
       // bibliothèque en mode remplissage d'onglet (_pickTab). Onglet actif volatil.
@@ -2288,7 +2288,7 @@
             }
             var x = document.createElement('button');
             x.className = 'wdg-ico';
-            x.title = 'Retirer ' + w.name + (c == null ? ' — l\'onglet reste' : ' — la case reste');
+            x.title = 'Retirer ' + w.name + (c == null ? ' : l\'onglet reste' : ' : la case reste');
             x.innerHTML = ICO.close;
             x.addEventListener('click', function (ev) { ev.stopPropagation(); API.removeActiveTab(_pi2, c); });
             acts.appendChild(x);
@@ -2308,12 +2308,12 @@
             var w = !estG && id !== 'vide' && id !== 'grille' && byId(id);
             // Un onglet composite n'a pas UN widget : son libellé par défaut dit ce qu'il est.
             var lbl = labels[i] || (w ? (w.tag || w.name) : (estG ? 'GRILLE' : 'Vide'));
-            var ttl = w ? (w.name + ' — double-clic pour renommer')
-              : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) — double-clic pour renommer')
-                      : 'Onglet vide — choisis sa disposition dans le corps');
+            var ttl = w ? (w.name + ' : double-clic pour renommer')
+              : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) : double-clic pour renommer')
+                      : 'Onglet vide : choisis sa disposition dans le corps');
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w || estG ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
               + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(lbl) + '</span></button>';
-          }).join('') + '<button class="wdgt-add" title="Ajouter un onglet — il s\'ouvre vide, tu choisis son widget ensuite">+</button>';
+          }).join('') + '<button class="wdgt-add" title="Ajouter un onglet : il s\'ouvre vide, tu choisis son widget ensuite">+</button>';
         }
         // RENOMMAGE INLINE (demande user 28/07, réparé 03/08) : le libellé devient un champ —
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
@@ -2533,7 +2533,7 @@
     if (_roShown) return; _roShown = true;
     var b = document.createElement('div');
     b.className = 'wdg-undo wdg-undo--warn';
-    b.innerHTML = '<span>Desk non chargé — modifications non enregistrées. Recharge la page.</span>'
+    b.innerHTML = '<span>Desk non chargé : modifications non enregistrées. Recharge la page.</span>'
       + '<button class="wdg-undo-b" onclick="location.reload()">Recharger</button>';
     document.body.appendChild(b);
   }
@@ -2872,7 +2872,7 @@
     vide(false);
     el.innerHTML = vis.map(function (l) {
       // classes de la NAV DU DESK : l'apparence vient d'elle, pas d'une copie de ses valeurs
-      return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
+      return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' : double-clic pour renommer"'
         + ' role="button" tabindex="0"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         + '<span class="wdg-lay-chv">›</span>'
@@ -2888,7 +2888,7 @@
       // « + » = NOUVEL ONGLET (demande user 04/08) : ouvre la fenêtre des LAYOUTS sur le choix de
       // disposition (newLayout → _mgrMode='dispo'), comme le « + » d'un panneau à onglets.
       + (c.layouts.length < _LMAX
-          ? '<button class="nav-item wdg-lay wdg-lay-add" title="Nouvel onglet — choisir une disposition" onclick="DTPWidgets.newLayout()">+</button>'
+          ? '<button class="nav-item wdg-lay wdg-lay-add" title="Nouvel onglet : choisir une disposition" onclick="DTPWidgets.newLayout()">+</button>'
           : '');
   }
   // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
@@ -2940,13 +2940,13 @@
       box.innerHTML = '<div class="wdg-dispo-head">'
         + '<button class="wdg-btn" onclick="DTPWidgets.backManager()">‹ Retour</button>'
         + '<span class="wdg-dispo-t">Choisis une disposition</span></div>'
-        + '<div class="wdg-dispo-namerow"><input id="wdg-newname" class="wdg-lib-search" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Nom du layout (optionnel — modifiable ensuite)"></div>'
+        + '<div class="wdg-dispo-namerow"><input id="wdg-newname" class="wdg-lib-search" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Nom du layout (optionnel : modifiable ensuite)"></div>'
         + DISPO_ORDER.map(function (n) {
             var cards = DISPOS.map(function (d, i) { return d.n === n ? _dCard(d, i) : ''; }).join('');
             if (!cards) return '';
             return '<div class="wdg-dispo-row"><span class="wdg-dispo-num">' + n + '</span><div class="wdg-dispo-cards">' + cards + '</div></div>';
           }).join('')
-        + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » — remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
+        + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » : remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
       return;
     }
     // SÉLECTION EN GRILLE DE CARTES (refonte 04/08, demande user « il faut que ce soit intuitif
@@ -2958,12 +2958,12 @@
       var active = l.id === c.active;
       var stop = 'event.stopPropagation();';
       var del = (l.id === PROTECTED_ID)
-        ? '<span class="wdg-mgr-lock" title="Modèle par défaut — non supprimable">' + ICO.lock + '</span>'
+        ? '<span class="wdg-mgr-lock" title="Modèle par défaut : non supprimable">' + ICO.lock + '</span>'
         : (l.id === _delConfirm)
           ? '<button class="wdg-mgr-del confirm" onclick="' + stop + 'DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
           : '<button class="wdg-mgr-del" title="Supprimer ce layout" onclick="' + stop + 'DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
       return '<div class="wdg-mgr-card' + (active ? ' on' : '') + (l.hidden ? ' is-hidden' : '') + '" data-i="' + li + '"'
-        + ' role="button" tabindex="0" title="' + esc(l.name) + ' — cliquer pour ouvrir · double-clic sur le nom pour renommer"'
+        + ' role="button" tabindex="0" title="' + esc(l.name) + ' : cliquer pour ouvrir · double-clic sur le nom pour renommer"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')"'
         + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();DTPWidgets.switchLayout(\'' + l.id + '\');}">'
         + '<span class="wdg-mgr-face">' + _thumb(l.items, { labels: true }) + '</span>'
@@ -3008,7 +3008,7 @@
       + '<div class="wdg-mgr-io">'
       +   '<button class="wdg-btn" onclick="DTPWidgets.exportLayout()">Exporter le layout actif</button>'
       +   '<button class="wdg-btn" onclick="DTPWidgets.importLayout()">Importer un layout…</button>'
-      +   '<span class="wdg-mgr-io-hint">Fichier .json — pour partager un agencement ou le garder de côté.</span>'
+      +   '<span class="wdg-mgr-io-hint">Fichier .json : pour partager un agencement ou le garder de côté.</span>'
       + '</div>';
   }
   // Petit mot de statut (export/import…) — même bandeau que « Annuler », SANS bouton : volatil, 5 s.
@@ -3737,7 +3737,7 @@ function _spansAffiches(lay) {
         if (g.ids.every(function (x) { return x === 'vide'; })) { _clearGrid(it, j); avantVide = true; }
         else it.tabGrid[j] = _gridStr(g.code, g.ids);
         save(); _syncPanel(i); API.refresh(i);
-        _undoOffer((wc ? wc.name : 'Widget') + ' retiré — la case reste', function () {
+        _undoOffer((wc ? wc.name : 'Widget') + ' retiré : la case reste', function () {
           if (!itRef || itRef.w !== 'onglets' || !Array.isArray(itRef.tabs)) return;
           if (!Array.isArray(itRef.tabGrid)) itRef.tabGrid = [];
           itRef.tabGrid[j] = avant; if (avantVide) itRef.tabs[j] = 'grille';
@@ -3755,7 +3755,7 @@ function _spansAffiches(lay) {
       var w2 = (prev === 'grille') ? null : byId(prev);
       _clearGrid(it, j);
       save(); _syncPanel(i); API.refresh(i);
-      _undoOffer((w2 ? w2.name : (prev === 'grille' ? 'Disposition' : 'Widget')) + ' retiré — l\'onglet reste', function () {
+      _undoOffer((w2 ? w2.name : (prev === 'grille' ? 'Disposition' : 'Widget')) + ' retiré : l\'onglet reste', function () {
         if (!itRef || itRef.w !== 'onglets' || !Array.isArray(itRef.tabs)) return;
         if (itRef.tabs[j] === 'vide') {
           itRef.tabs[j] = prev;
@@ -4143,7 +4143,7 @@ function _spansAffiches(lay) {
     // écartés, géométrie normalisée par _normItem, re-sanitisé serveur au save. Plafond respecté.
     importLayout: function () {
       var c = STATE.cfg; if (!c) return;
-      if (c.layouts.length >= _LMAX) { _wdgNote('Plafond de ' + _LMAX + ' layouts atteint — supprime un layout avant d\'importer.'); return; }
+      if (c.layouts.length >= _LMAX) { _wdgNote('Plafond de ' + _LMAX + ' layouts atteint : supprime un layout avant d\'importer.'); return; }
       var inp = document.getElementById('wdg-import-file');
       if (!inp) {
         inp = document.createElement('input');
@@ -4373,7 +4373,7 @@ function _spansAffiches(lay) {
     var icon = document.createElement('div');
     icon.id = 'widgets-btn';
     icon.className = 'topbar-icon topbar-icon--desk';                        // hérite du style topbar (dont --active or)
-    icon.title = 'Mon Desk — mes widgets';
+    icon.title = 'Mon Desk : mes widgets';
     icon.setAttribute('role', 'button');
     // Icône « tableau de bord / template » (panneaux composables) — dessin DTP original.
     // Marges internes ALIGNÉES sur Journal/Calc (glyphe x=4→20 dans le viewBox 24, comme eux) → écart

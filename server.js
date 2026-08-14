@@ -288,13 +288,13 @@ function requireAuth(req, res, next) {
 
   if (req.session?.userId && _sessionExpired(req)) {
     req.session = null;   // couperet 24 h → reconnexion exigée (toutes plateformes)
-    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expirée — veuillez vous reconnecter' });
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expirée : veuillez vous reconnecter' });
     return res.redirect('/login');
   }
 
   if (!req.session?.userId) {
     if (req.path.startsWith('/api/')) {
-      return res.status(401).json({ error: 'Non autorisé — veuillez vous connecter' });
+      return res.status(401).json({ error: 'Non autorisé : veuillez vous connecter' });
     }
     return res.redirect('/login');
   }
@@ -519,7 +519,7 @@ app.post('/api/auth/forgot-password', (req, res) => {
           console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email}`);
         } else {
           mailer.sendForgotNoSub({ to: u.email, name: u.name }).catch(() => {});
-          console.log(`[Auth] forgot REFUSÉ (abonnement inactif) → ${u.email} — e-mail de réactivation envoyé`);
+          console.log(`[Auth] forgot REFUSÉ (abonnement inactif) → ${u.email} : e-mail de réactivation envoyé`);
         }
       } else {
         _recentForgot.delete(email);   // email inexistant → on libère le verrou (aucun reset effectué)
@@ -658,60 +658,61 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260814-typographie', ts: Date.UTC(2026, 7, 14, 21, 0), title: 'Une écriture plus nette dans tout le desk', desc: 'Le long tiret qui parsemait les textes du terminal a disparu de l ensemble des écrans, des rapports et des e-mails. Chaque phrase retrouve la ponctuation qui lui convient : deux-points quand une idée en explique une autre, virgule pour une incise, trait d union pour une fourchette de chiffres. La règle s applique aussi aux textes rédigés automatiquement, donc elle tient dans la durée au lieu de se défaire à la prochaine génération.' },
   { id: 'dtpu-20260814-hebdo-extrait', ts: Date.UTC(2026, 7, 14, 20, 0), title: 'Récap Hebdo par e-mail : un extrait fidèle du rapport', desc: 'Le mail hebdomadaire suit exactement les parties du rapport du desk et n en donne qu un aperçu : trois devises sur huit, les temps forts géopolitiques, les chiffres marquants et les banques centrales. Il l indique désormais clairement et renvoie au rapport complet, où les huit devises sont analysées une à une.' },
-  { id: 'dtpu-20260814-hebdo-durable', ts: Date.UTC(2026, 7, 14, 19, 0), title: 'Récap Hebdo : le mail retrouve tout son contenu', desc: 'Le mail hebdomadaire pouvait partir amputé — il ne gardait que l introduction et le graphique de force des devises, sans la géopolitique, la macro, les chiffres, les banques centrales ni les devises. Le rapport était stocké dans la file d actualité, qui tourne en quelques heures et finissait par l effacer. Il est désormais conservé à part, et le mail retrouve toutes ses sections.' },
+  { id: 'dtpu-20260814-hebdo-durable', ts: Date.UTC(2026, 7, 14, 19, 0), title: 'Récap Hebdo : le mail retrouve tout son contenu', desc: 'Le mail hebdomadaire pouvait partir amputé : il ne gardait que l introduction et le graphique de force des devises, sans la géopolitique, la macro, les chiffres, les banques centrales ni les devises. Le rapport était stocké dans la file d actualité, qui tourne en quelques heures et finissait par l effacer. Il est désormais conservé à part, et le mail retrouve toutes ses sections.' },
   { id: 'dtpu-20260814-mail-hebdo-macro', ts: Date.UTC(2026, 7, 14, 18, 0), title: 'Récap Hebdo par e-mail : la section Macro rejoint le mail', desc: 'Le mail hebdomadaire suit désormais l ordre du rapport du desk : l essentiel, le fil géopolitique, la macro, les chiffres de la semaine, les banques centrales, les devises et la force des devises. Les thèmes macro avaient leur place dans le rapport mais pas dans le mail, où ils se réduisaient à une seule phrase.' },
-  { id: 'dtpu-20260814-horizons-chf', ts: Date.UTC(2026, 7, 14, 16, 0), title: 'Radar de Biais : quand la banque et le marché ne disent pas la même chose', desc: 'Un nouveau repère apparaît sur la politique monétaire quand l orientation de fond d une banque centrale et ce que le marché anticipe pour sa prochaine réunion s opposent — une tension qui annonce souvent un retournement ; l infobulle précise le sens de chacun. Par ailleurs le franc suisse est désormais lu comme il doit l être : par l appétit pour le risque, sa vraie force motrice, et non par ses seules publications domestiques.' },
+  { id: 'dtpu-20260814-horizons-chf', ts: Date.UTC(2026, 7, 14, 16, 0), title: 'Radar de Biais : quand la banque et le marché ne disent pas la même chose', desc: 'Un nouveau repère apparaît sur la politique monétaire quand l orientation de fond d une banque centrale et ce que le marché anticipe pour sa prochaine réunion s opposent : une tension qui annonce souvent un retournement ; l infobulle précise le sens de chacun. Par ailleurs le franc suisse est désormais lu comme il doit l être : par l appétit pour le risque, sa vraie force motrice, et non par ses seules publications domestiques.' },
   { id: 'dtpu-20260814-recaps-seance', ts: Date.UTC(2026, 7, 14, 15, 0), title: 'Récaps de séance : la même structure que le récap quotidien', desc: 'Asie, Londres et New York se lisent désormais avec les rubriques du récap quotidien, dans le même ordre et en français : Géopolitique, Macro, Analyse de séance, À surveiller. Fini les intertitres anglais « CENTRAL BANKS & DATA » ou « ON WATCH » : dans l’onglet Analystes, passer d’un rapport à l’autre ne demande plus de réapprendre où regarder. Le contenu, lui, reste propre à chaque séance.' },
   { id: 'dtpu-20260814-puces', ts: Date.UTC(2026, 7, 14, 14, 0), title: 'Analyses : listes allégées', desc: 'Les petits points des listes à puces disparaissent des analyses du fil : le texte reste aligné, la lecture est plus nette.' },
   { id: 'dtpu-20260814-portage-gradue', ts: Date.UTC(2026, 7, 14, 9, 0), title: 'Radar de Biais : l avantage de taux compte maintenant par paliers', desc: 'Le niveau du taux directeur d une devise, comparé aux sept autres grandes banques, ne comptait qu au-delà d un écart de 1,5 point et pas du tout en dessous : une livre à 1,45 point d avance ne recevait rien, une livre à 1,50 recevait tout. Cet apport progresse désormais avec l écart, ce qui colle à la réalité du portage et évite qu un biais bascule sur cinq centièmes de point. Les devises très au-dessus ou très en dessous de la moyenne (franc suisse, yen, dollar australien) conservent exactement la lecture qu elles avaient.' },
-  { id: 'dtpu-20260814-fil-repare', ts: Date.UTC(2026, 7, 14, 13, 0), title: 'Fil d actualité : panne de la nuit réparée', desc: 'Le fil est resté muet entre jeudi soir et vendredi début d après-midi. La cause est identifiée et corrigée à la racine : chaque tentative de reconnexion laissait derrière elle un onglet de navigateur, jusqu à saturer le serveur et l empêcher de se reconnecter — plus la panne durait, plus elle se verrouillait. Les actualités de la période manquante sont récupérées automatiquement.' },
+  { id: 'dtpu-20260814-fil-repare', ts: Date.UTC(2026, 7, 14, 13, 0), title: 'Fil d actualité : panne de la nuit réparée', desc: 'Le fil est resté muet entre jeudi soir et vendredi début d après-midi. La cause est identifiée et corrigée à la racine : chaque tentative de reconnexion laissait derrière elle un onglet de navigateur, jusqu à saturer le serveur et l empêcher de se reconnecter, plus la panne durait, plus elle se verrouillait. Les actualités de la période manquante sont récupérées automatiquement.' },
   { id: 'dtpu-20260814-apercu-graphique', ts: Date.UTC(2026, 7, 14, 1, 30), title: 'Bibliothèque de widgets : le Graphique a enfin son aperçu', desc: 'Dans la bibliothèque de Mon Desk, la carte du widget Graphique n affichait qu une minuscule icône perdue dans un cadre vide. Elle montre désormais une vraie miniature en chandeliers, comme les autres widgets.' },
   { id: 'dtpu-20260814-graphique-banques', ts: Date.UTC(2026, 7, 14, 1, 0), title: 'Onglet Banques : un vrai graphique de trading', desc: 'Le graphique des positions de banques se manipule maintenant comme un terminal : cinq unités de temps (M15, H1, H4, D1, W1) sur de vraies bougies, bande de navigation pour se déplacer dans l historique, zoom à la molette, et les repères de prix et de date qui suivent le curseur sur les axes. Les niveaux d entrée, objectif et stop de chaque banque restent affichés.' },
-  { id: 'dtpu-20260813-couleurs-ton-bc', ts: Date.UTC(2026, 7, 14, 0, 20), title: 'Ton des banques centrales : la couleur suit enfin le sens', desc: 'Un ton hawkish ou dovish s affichait en ambre et bleu à certains endroits, en vert et rouge à d autres — le même ton pouvait donc changer de couleur d une vue à l autre. Partout désormais : vert quand le ton soutient la devise, rouge quand il pèse sur elle, gris quand il est neutre.' },
-  { id: 'dtpu-20260813-couleurs-donnees', ts: Date.UTC(2026, 7, 13, 23, 55), title: 'Données publiées : la couleur dit tout de suite si c est bon pour la devise', desc: 'Dans les récaps et la Semaine à Venir, chaque chiffre publié se colore selon ce qu il signifie POUR LA DEVISE : vert quand il la soutient, rouge quand il pèse sur elle, blanc quand il sort pile au consensus. Les indicateurs inversés sont traités correctement — un chômage plus élevé que prévu s affiche en rouge, pas en vert. Sans prévision à comparer, aucun jugement de couleur.' },
-  { id: 'dtpu-20260813-campagne-coherence-2', ts: Date.UTC(2026, 7, 13, 23, 30), title: 'Campagne e-mail : dates et indicateur de fraîcheur unifiés', desc: 'Les dates s écrivent désormais pareil dans les cinq onglets — comparer un envoi entre le Journal et les Statistiques ne demande plus de conversion mentale. Et une seule pastille En direct, celle de l en-tête : on en voyait deux clignoter à des rythmes différents sur certaines vues.' },
+  { id: 'dtpu-20260813-couleurs-ton-bc', ts: Date.UTC(2026, 7, 14, 0, 20), title: 'Ton des banques centrales : la couleur suit enfin le sens', desc: 'Un ton hawkish ou dovish s affichait en ambre et bleu à certains endroits, en vert et rouge à d autres : le même ton pouvait donc changer de couleur d une vue à l autre. Partout désormais : vert quand le ton soutient la devise, rouge quand il pèse sur elle, gris quand il est neutre.' },
+  { id: 'dtpu-20260813-couleurs-donnees', ts: Date.UTC(2026, 7, 13, 23, 55), title: 'Données publiées : la couleur dit tout de suite si c est bon pour la devise', desc: 'Dans les récaps et la Semaine à Venir, chaque chiffre publié se colore selon ce qu il signifie POUR LA DEVISE : vert quand il la soutient, rouge quand il pèse sur elle, blanc quand il sort pile au consensus. Les indicateurs inversés sont traités correctement : un chômage plus élevé que prévu s affiche en rouge, pas en vert. Sans prévision à comparer, aucun jugement de couleur.' },
+  { id: 'dtpu-20260813-campagne-coherence-2', ts: Date.UTC(2026, 7, 13, 23, 30), title: 'Campagne e-mail : dates et indicateur de fraîcheur unifiés', desc: 'Les dates s écrivent désormais pareil dans les cinq onglets : comparer un envoi entre le Journal et les Statistiques ne demande plus de conversion mentale. Et une seule pastille En direct, celle de l en-tête : on en voyait deux clignoter à des rythmes différents sur certaines vues.' },
   { id: 'dtpu-20260813-admin-echappement', ts: Date.UTC(2026, 7, 13, 23, 0), title: 'Panneau d administration : listes de contacts sécurisées', desc: 'Les listes qui affichent des adresses e-mail (liste noire, accès offerts, destinataires, journal des envois) échappent désormais leur contenu, et les adresses contenant des caractères de balisage sont refusées dès l inscription. Aucune action de votre part.' },
-  { id: 'dtpu-20260813-campagne-coherence', ts: Date.UTC(2026, 7, 13, 22, 0), title: 'Campagne e-mail : la semaine Invitation retrouve ses repères', desc: 'Une semaine sur six, celle du mail Invitation, le programme perdait son repère « cette semaine » et son bandeau de prochain envoi — précisément la semaine où ce mail part à toute la liste. C est réparé. Le nombre de contacts exclus d un envoi ne compte plus deux fois une même adresse, et le panneau ne recharge plus en continu des blocs que vous ne regardez pas.' },
+  { id: 'dtpu-20260813-campagne-coherence', ts: Date.UTC(2026, 7, 13, 22, 0), title: 'Campagne e-mail : la semaine Invitation retrouve ses repères', desc: 'Une semaine sur six, celle du mail Invitation, le programme perdait son repère « cette semaine » et son bandeau de prochain envoi : précisément la semaine où ce mail part à toute la liste. C est réparé. Le nombre de contacts exclus d un envoi ne compte plus deux fois une même adresse, et le panneau ne recharge plus en continu des blocs que vous ne regardez pas.' },
   { id: 'dtpu-20260813-pilotage-allege', ts: Date.UTC(2026, 7, 13, 21, 0), title: 'Campagne e-mail : un écran de pilotage allégé', desc: 'La grille de douze indicateurs du Pilotage disparaît : elle répétait deux fois les mêmes nombres et quatre de ses cartes ne mesuraient que le mail de bienvenue tout en s affichant comme les chiffres de la campagne. Les données d audience restent dans l onglet Audience, les résultats par envoi dans Statistiques. Le prochain e-mail annonce maintenant le bon contenu et sa vraie heure de départ.' },
-  { id: 'dtpu-20260813-analyses-tag-pays', ts: Date.UTC(2026, 7, 13, 20, 0), title: 'Analyses de données : un tag en moins, une heure juste', desc: 'Sur les analyses d événement, le tag de pays disparaît quand le titre le dit déjà — ANALYSE PPI US n a pas besoin d une étiquette US à côté. Le tag de la paire la plus exposée, lui, reste en tête.' },
+  { id: 'dtpu-20260813-analyses-tag-pays', ts: Date.UTC(2026, 7, 13, 20, 0), title: 'Analyses de données : un tag en moins, une heure juste', desc: 'Sur les analyses d événement, le tag de pays disparaît quand le titre le dit déjà : ANALYSE PPI US n a pas besoin d une étiquette US à côté. Le tag de la paire la plus exposée, lui, reste en tête.' },
   { id: 'dtpu-20260813-couleurs-inflation', ts: Date.UTC(2026, 7, 13, 19, 0), title: 'Radar de Biais : les couleurs disent toutes la même chose', desc: 'Dans le tableau macro, le NIVEAU d inflation s affichait sur une échelle de température (doré quand élevé, bleu quand bas) pendant que tout le reste du tableau parlait en impact sur la devise. Une inflation Élevée sortait donc dorée juste à côté d une Hausse verte, alors que les deux disent la même chose. Désormais une seule lecture partout : vert = soutient la devise, rouge = pèse sur elle, gris = neutre.' },
   { id: 'dtpu-20260813-analyses-donnees-us', ts: Date.UTC(2026, 7, 13, 18, 0), title: 'Quatre nouvelles données américaines désormais analysées', desc: 'Les prix à la production (PPI), l emploi privé ADP, les postes à pourvoir (JOLTS) et les ventes au détail donnent maintenant lieu à une analyse complète environ une heure après leur publication, comme le CPI ou le PIB : le chiffre face aux attentes, ce qui a surpris, la réaction des marchés et ce que la Fed peut en tirer. Le rapport de midi s appelle désormais Point Marché · Ouverture US.' },
   { id: 'dtpu-20260813-grappes-propos', ts: Date.UTC(2026, 7, 13, 16, 0), title: 'Fil d actus : les propos d un même intervenant regroupés', desc: 'Quand un banquier central enchaîne les déclarations, le fil ne se remplit plus de dix lignes quasi identiques : ses propos sont réunis en une seule carte, qui indique combien elle en contient et les déroule au clic. Le regroupement suit désormais toute la durée d une audition, et s applique aussi au widget Actus et aux news attachées à une paire.' },
-  { id: 'dtpu-20260812-graphique-repare', ts: Date.UTC(2026, 7, 12, 21, 30), title: 'Widget Graphique : il s affiche désormais dans Mon Desk', desc: 'Le widget Graphique lancé ce matin affichait « Graphique indisponible » : sa barre d outils cherchait un élément qui n existe que dans l onglet Marchés. Corrigé — choisissez votre paire et votre unité de temps, le chandelier s affiche dans votre grille.' },
-  { id: 'dtpu-20260812-biais-calendrier-seul', ts: Date.UTC(2026, 7, 12, 20, 30), title: 'Radar de Biais : le verdict ne dépend plus que des chiffres publiés', desc: 'Le biais de chaque devise se calculait pour deux tiers sur les colonnes que vous lisez — politique monétaire, inflation, croissance, emploi — et pour un tiers sur des éléments qui ne sont pas des publications économiques : la tendance des prix et le positionnement des maisons de recherche. Un biais pouvait donc bouger sans qu aucun chiffre ne soit sorti. Désormais seules les données du calendrier économique le font évoluer.' },
+  { id: 'dtpu-20260812-graphique-repare', ts: Date.UTC(2026, 7, 12, 21, 30), title: 'Widget Graphique : il s affiche désormais dans Mon Desk', desc: 'Le widget Graphique lancé ce matin affichait « Graphique indisponible » : sa barre d outils cherchait un élément qui n existe que dans l onglet Marchés. Corrigé : choisissez votre paire et votre unité de temps, le chandelier s affiche dans votre grille.' },
+  { id: 'dtpu-20260812-biais-calendrier-seul', ts: Date.UTC(2026, 7, 12, 20, 30), title: 'Radar de Biais : le verdict ne dépend plus que des chiffres publiés', desc: 'Le biais de chaque devise se calculait pour deux tiers sur les colonnes que vous lisez : politique monétaire, inflation, croissance, emploi, et pour un tiers sur des éléments qui ne sont pas des publications économiques : la tendance des prix et le positionnement des maisons de recherche. Un biais pouvait donc bouger sans qu aucun chiffre ne soit sorti. Désormais seules les données du calendrier économique le font évoluer.' },
   { id: 'dtpu-20260812-plus-de-reglages-memo', ts: Date.UTC(2026, 7, 12, 19, 0), title: 'Encore quatre réglages qui vous suivent désormais', desc: 'Le type de rapport dans la bibliothèque Analystes, les filtres banque et type de l onglet Institutions, et la colonne de tri de la Liste FX sont maintenant enregistrés sur votre compte. Vous les retrouvez à la reconnexion, y compris depuis un autre appareil. Les champs de recherche, eux, restent volontairement vierges à chaque ouverture : un filtre texte restauré en silence donnerait une liste presque vide sans qu on comprenne pourquoi.' },
-  { id: 'dtpu-20260812-mondesk-bibliotheque', ts: Date.UTC(2026, 7, 12, 22, 30), title: 'Mon Desk : votre bibliothèque d espaces de travail', desc: 'Vos dispositions s affichent en cartes centrées dans le bloc Mon Desk de l accueil : aperçu du desk flouté et assombri — traversé des couleurs de graphes du terminal —, nom au centre, date de dernière modification en bas, tri Récents et bouton Nouveau desk dans l en-tête. Sur téléphone, une carte par ligne, parfaitement lisible.' },
-  { id: 'dtpu-20260812-widgets-onglets-memo', ts: Date.UTC(2026, 7, 12, 17, 0), title: 'Mon Desk : les réglages des widgets placés dans un panneau à onglets sont enfin retenus', desc: 'Un widget posé dans un panneau à onglets — deux Force des Devises côte à côte, par exemple — oubliait son unité de temps au rechargement. Il lisait bien sa configuration mais ne parvenait jamais à l enregistrer. Vos choix sont désormais sauvegardés sur votre compte et restaurés à la reconnexion, y compris depuis un autre appareil.' },
+  { id: 'dtpu-20260812-mondesk-bibliotheque', ts: Date.UTC(2026, 7, 12, 22, 30), title: 'Mon Desk : votre bibliothèque d espaces de travail', desc: 'Vos dispositions s affichent en cartes centrées dans le bloc Mon Desk de l accueil : aperçu du desk flouté et assombri, traversé des couleurs de graphes du terminal, , nom au centre, date de dernière modification en bas, tri Récents et bouton Nouveau desk dans l en-tête. Sur téléphone, une carte par ligne, parfaitement lisible.' },
+  { id: 'dtpu-20260812-widgets-onglets-memo', ts: Date.UTC(2026, 7, 12, 17, 0), title: 'Mon Desk : les réglages des widgets placés dans un panneau à onglets sont enfin retenus', desc: 'Un widget posé dans un panneau à onglets : deux Force des Devises côte à côte, par exemple, oubliait son unité de temps au rechargement. Il lisait bien sa configuration mais ne parvenait jamais à l enregistrer. Vos choix sont désormais sauvegardés sur votre compte et restaurés à la reconnexion, y compris depuis un autre appareil.' },
   { id: 'dtpu-20260812-reglages-etanches', ts: Date.UTC(2026, 7, 12, 15, 30), title: 'Vos réglages restent les vôtres, même sur un ordinateur partagé', desc: 'Sur un poste utilisé par plusieurs personnes, les réglages laissés par la session précédente pouvaient être repris par le compte suivant. Chaque jeu de réglages porte désormais la marque de son propriétaire : il est écarté dès qu un autre compte se connecte, et la déconnexion nettoie ce qui reste. Vos préférences continuent bien sûr de vous suivre d un appareil à l autre.' },
   { id: 'dtpu-20260812-conforme-consensus', ts: Date.UTC(2026, 7, 12, 14, 30), title: 'Calendrier : un chiffre conforme aux attentes se voit enfin', desc: 'Un résultat sorti exactement sur la prévision s affichait en blanc, comme un chiffre qu on ne peut pas juger faute de consensus. Deux situations pourtant très différentes. Le résultat conforme prend désormais la couleur neutre du terminal : vous distinguez d un coup d œil une publication sans surprise d une publication non comparable.' },
-  { id: 'dtpu-20260812-data-instantanee', ts: Date.UTC(2026, 7, 12, 13, 30), title: 'Calendrier : les chiffres apparaissent dès leur publication', desc: 'Quand une annonce importante tombait, son résultat pouvait mettre plusieurs minutes à s afficher — au point de voir une ligne du CPI renseignée pendant que les trois autres de la même minute étaient encore vides. Le terminal sait désormais qu un chiffre est attendu et interroge la source toutes les 20 secondes jusqu à ce qu il arrive, puis reprend son rythme normal.' },
-  { id: 'dtpu-20260812-apercu-repare', ts: Date.UTC(2026, 7, 12, 23, 30), title: 'Mes desks : l aperçu de vos dispositions s affiche enfin', desc: 'La carte de chaque desk restait vide sur certains écrans. La miniature était bien calculée et présente, mais une règle de style écrite plus loin dans la feuille annulait sa hauteur : les blocs existaient, écrasés à zéro pixel. C est corrigé — l aperçu occupe la carte entière et montre la vraie disposition de vos widgets.' },
+  { id: 'dtpu-20260812-data-instantanee', ts: Date.UTC(2026, 7, 12, 13, 30), title: 'Calendrier : les chiffres apparaissent dès leur publication', desc: 'Quand une annonce importante tombait, son résultat pouvait mettre plusieurs minutes à s afficher : au point de voir une ligne du CPI renseignée pendant que les trois autres de la même minute étaient encore vides. Le terminal sait désormais qu un chiffre est attendu et interroge la source toutes les 20 secondes jusqu à ce qu il arrive, puis reprend son rythme normal.' },
+  { id: 'dtpu-20260812-apercu-repare', ts: Date.UTC(2026, 7, 12, 23, 30), title: 'Mes desks : l aperçu de vos dispositions s affiche enfin', desc: 'La carte de chaque desk restait vide sur certains écrans. La miniature était bien calculée et présente, mais une règle de style écrite plus loin dans la feuille annulait sa hauteur : les blocs existaient, écrasés à zéro pixel. C est corrigé : l aperçu occupe la carte entière et montre la vraie disposition de vos widgets.' },
   { id: 'dtpu-20260812-mails-lisibles', ts: Date.UTC(2026, 7, 12, 22, 0), title: 'E-mails : des textes plus courts et une ponctuation plus nette', desc: 'Le mot d introduction qui suit l avis d un membre était devenu un paragraphe convenu sur le travail de l équipe ; il tient maintenant en une phrase, qui rebondit sur ce que ce membre a réellement dit. Et le tiret long, banni de nos e-mails, ressortait encore quand il était écrit sous sa forme technique : il est désormais filtré sous toutes ses formes.' },
   { id: 'dtpu-20260812-jpy-cadre', ts: Date.UTC(2026, 7, 12, 21, 0), title: 'Force des Devises : plus aucune courbe coupée en bas du cadre', desc: 'Le graphique laissait volontairement sortir du cadre une devise nettement plus mobile que les autres, pour ne pas écraser les six restantes. Le seuil était trop bas : le yen le franchissait lors d une semaine ordinaire et devenait illisible, pour un gain de lisibilité minime. Les huit devises tiennent désormais dans le cadre sur toutes les périodes.' },
   { id: 'dtpu-20260812-tf-force-memo', ts: Date.UTC(2026, 7, 12, 20, 0), title: 'Force des Devises : votre unité de temps reste celle que vous avez choisie', desc: 'Les périodes des deux panneaux Force des Devises repassaient sur les valeurs par défaut après une déconnexion. Elles sont désormais enregistrées par le même mécanisme que vos autres réglages, celui qui suit déjà votre compte d un appareil à l autre. Vous choisissez TD en haut et TW en bas, vous revenez : c est encore là.' },
-  { id: 'dtpu-20260812-apercu-desk-look', ts: Date.UTC(2026, 7, 12, 18, 0), title: 'Mes desks : l aperçu occupe toute la carte, aux couleurs du terminal', desc: 'La vignette qui montre la forme de votre desk remplit désormais la carte entière au lieu de tenir dans un coin, et elle a pris les vraies couleurs du terminal : panneaux gris ardoise, barre de titre plus foncée, bordure fine — au lieu des blocs verts et bleus qui n existent nulle part dans le desk. Un fin liseré rappelle la famille de chaque widget.' },
-  { id: 'dtpu-20260812-nzd-inflation', ts: Date.UTC(2026, 7, 12, 16, 0), title: 'Radar de Biais : le niveau d inflation du dollar néo-zélandais enfin affiché', desc: 'La colonne Inflation du NZD restait vide, faute de recevoir la seule publication comparable à la cible de sa banque centrale — la Nouvelle-Zélande ne publie son indice des prix qu une fois par trimestre. C est corrigé : le NZD affiche désormais son niveau comme les sept autres devises.' },
+  { id: 'dtpu-20260812-apercu-desk-look', ts: Date.UTC(2026, 7, 12, 18, 0), title: 'Mes desks : l aperçu occupe toute la carte, aux couleurs du terminal', desc: 'La vignette qui montre la forme de votre desk remplit désormais la carte entière au lieu de tenir dans un coin, et elle a pris les vraies couleurs du terminal : panneaux gris ardoise, barre de titre plus foncée, bordure fine, au lieu des blocs verts et bleus qui n existent nulle part dans le desk. Un fin liseré rappelle la famille de chaque widget.' },
+  { id: 'dtpu-20260812-nzd-inflation', ts: Date.UTC(2026, 7, 12, 16, 0), title: 'Radar de Biais : le niveau d inflation du dollar néo-zélandais enfin affiché', desc: 'La colonne Inflation du NZD restait vide, faute de recevoir la seule publication comparable à la cible de sa banque centrale : la Nouvelle-Zélande ne publie son indice des prix qu une fois par trimestre. C est corrigé : le NZD affiche désormais son niveau comme les sept autres devises.' },
   { id: 'dtpu-20260812-apercu-desks', ts: Date.UTC(2026, 7, 12, 16, 30), title: 'Mes desks : l aperçu des dispositions fiabilisé sur mobile', desc: 'Sur certains téléphones, la vignette qui montre la forme de votre desk pouvait ne pas s afficher et laisser une carte vide. Sa hauteur et ses couleurs ne dépendent plus de fonctions CSS récentes que les navigateurs mobiles anciens ignorent.' },
-  { id: 'dtpu-20260812-mails-rapports', ts: Date.UTC(2026, 7, 12, 14, 0), title: 'E-mails : le même sommaire que le rapport que vous ouvrez', desc: "Le point marché reprend désormais les rubriques du Récap Quotidien — Géopolitique, Macro, Analyse par session, À surveiller — et le porte sous son vrai nom. Le point de la semaine ouvre sur la même introduction que le rapport, ajoute le fil géopolitique et affiche le biais de chaque devise. Ce que vous lisez dans votre boîte ressemble enfin à ce que vous retrouvez sur le desk." },
-  { id: 'dtpu-20260812-biais-temps-reel', ts: Date.UTC(2026, 7, 12, 12, 0), title: 'Radar de Biais : réaction immédiate aux chiffres, et un contrôle qui corrige', desc: 'Quand une publication à fort impact tombe — CPI, emploi, décision de taux — le Radar est prévenu directement par le calendrier et recalcule dans la foulée, au lieu d\'attendre de la découvrir plus tard. Un chiffre publié en retard n\'est plus manqué. Et un second contrôle passe désormais derrière chaque biais avant affichage : si le verdict contredit les colonnes que vous lisez, il est recalculé sur ces colonnes plutôt que publié tel quel.' },
-  { id: 'dtpu-20260812-widget-graphique', ts: Date.UTC(2026, 7, 12, 9, 0), title: 'Mon Desk : un widget graphique, et des bougies plus lisibles', desc: 'Nouveau widget « Graphique » : choisissez votre paire et votre unité de temps, et gardez le chandelier sous les yeux à côté du fil ou du calendrier. Vous pouvez en poser plusieurs, chacun sur sa paire. Les bougies elles-mêmes ont été reprises — vert et rouge francs, mèches enfin visibles, corps mieux espacés : on lit le rapport de force d\'un coup d\'œil.' },
+  { id: 'dtpu-20260812-mails-rapports', ts: Date.UTC(2026, 7, 12, 14, 0), title: 'E-mails : le même sommaire que le rapport que vous ouvrez', desc: "Le point marché reprend désormais les rubriques du Récap Quotidien : Géopolitique, Macro, Analyse par session, À surveiller, et le porte sous son vrai nom. Le point de la semaine ouvre sur la même introduction que le rapport, ajoute le fil géopolitique et affiche le biais de chaque devise. Ce que vous lisez dans votre boîte ressemble enfin à ce que vous retrouvez sur le desk." },
+  { id: 'dtpu-20260812-biais-temps-reel', ts: Date.UTC(2026, 7, 12, 12, 0), title: 'Radar de Biais : réaction immédiate aux chiffres, et un contrôle qui corrige', desc: 'Quand une publication à fort impact tombe : CPI, emploi, décision de taux, le Radar est prévenu directement par le calendrier et recalcule dans la foulée, au lieu d\'attendre de la découvrir plus tard. Un chiffre publié en retard n\'est plus manqué. Et un second contrôle passe désormais derrière chaque biais avant affichage : si le verdict contredit les colonnes que vous lisez, il est recalculé sur ces colonnes plutôt que publié tel quel.' },
+  { id: 'dtpu-20260812-widget-graphique', ts: Date.UTC(2026, 7, 12, 9, 0), title: 'Mon Desk : un widget graphique, et des bougies plus lisibles', desc: 'Nouveau widget « Graphique » : choisissez votre paire et votre unité de temps, et gardez le chandelier sous les yeux à côté du fil ou du calendrier. Vous pouvez en poser plusieurs, chacun sur sa paire. Les bougies elles-mêmes ont été reprises : vert et rouge francs, mèches enfin visibles, corps mieux espacés : on lit le rapport de force d\'un coup d\'œil.' },
   { id: 'dtpu-20260812-reglages-memorises', ts: Date.UTC(2026, 7, 12, 9, 30), title: 'Vos réglages vous suivent, d\'un appareil à l\'autre', desc: 'La période du Force des Devises, le type de positionnement COT, l\'unité de temps et le tri du DMX, le filtre d\'impact du calendrier, l\'onglet des alertes, le tri du Journal, l\'ordre de vos onglets : tout cela est désormais mémorisé sur votre compte. Vous vous reconnectez, même depuis un autre ordinateur, et le desk est exactement comme vous l\'aviez laissé.' },
   { id: 'dtpu-20260812-sauvegardes-3', ts: Date.UTC(2026, 7, 12, 10, 0), title: 'Mon Desk : trois sauvegardes de vos dispositions', desc: 'Vos dispositions sont sauvegardées automatiquement une fois par jour, et les trois dernières versions sont conservées. Si quelque chose se passe mal, le gestionnaire vous propose désormais chaque sauvegarde avec sa date : un clic pour revenir en arrière, et l\'opération reste réversible.' },
-  { id: 'dtpu-20260812-calendrier-doublons', ts: Date.UTC(2026, 7, 12, 8, 30), title: 'Calendrier : plus de lignes en double', desc: 'Certaines publications apparaissaient deux fois à la même heure — le CPI américain affichait notamment deux lignes identiques. Le calendrier n\'affiche plus que les taux publiés (CPI m/m, CPI y/y, Core CPI…), comme la référence du marché, et une même annonce ne peut plus se dédoubler.' },
+  { id: 'dtpu-20260812-calendrier-doublons', ts: Date.UTC(2026, 7, 12, 8, 30), title: 'Calendrier : plus de lignes en double', desc: 'Certaines publications apparaissaient deux fois à la même heure : le CPI américain affichait notamment deux lignes identiques. Le calendrier n\'affiche plus que les taux publiés (CPI m/m, CPI y/y, Core CPI…), comme la référence du marché, et une même annonce ne peut plus se dédoubler.' },
   { id: 'dtpu-20260812-alertes-onglets', ts: Date.UTC(2026, 7, 12, 8, 0), title: 'Alertes : tous les onglets visibles d\'emblée', desc: 'La barre d\'onglets du volet Alertes défilait horizontalement : l\'onglet DTP, celui des nouveautés du desk, restait hors champ. Elle tient maintenant entièrement à l\'écran dès l\'ouverture.' },
-  { id: 'dtpu-20260811-cot-epure',     ts: Date.UTC(2026, 7, 11, 21, 30), title: 'Positionnement COT : cartes épurées', desc: 'Chaque devise tient maintenant en deux temps : le donut dit qui domine et de combien — anneau affiné, camp minoritaire en retrait, et le pourcentage central précise enfin s\'il s\'agit des acheteurs ou des vendeurs — puis une seule ligne donne les positions longues, la position nette et les positions courtes. Les encadrés et liserés qui répétaient la même information ont disparu.' },
-  { id: 'dtpu-20260811-biais-categories', ts: Date.UTC(2026, 7, 11, 23, 0), title: 'Radar de Biais : le verdict découle des colonnes', desc: 'Le biais de chaque devise se calcule désormais à partir des catégories que vous lisez — politique monétaire en tête, puis emploi, croissance et inflation, avec le ton réel des banques centrales et le différentiel de taux. Il est aussi replacé face aux sept autres devises : sur le marché des changes tout est relatif, et huit devises ne peuvent pas monter ensemble. Résultat : une lecture qui correspond enfin à ce que montrent les colonnes.' },
+  { id: 'dtpu-20260811-cot-epure',     ts: Date.UTC(2026, 7, 11, 21, 30), title: 'Positionnement COT : cartes épurées', desc: 'Chaque devise tient maintenant en deux temps : le donut dit qui domine et de combien, anneau affiné, camp minoritaire en retrait, et le pourcentage central précise enfin s\'il s\'agit des acheteurs ou des vendeurs, puis une seule ligne donne les positions longues, la position nette et les positions courtes. Les encadrés et liserés qui répétaient la même information ont disparu.' },
+  { id: 'dtpu-20260811-biais-categories', ts: Date.UTC(2026, 7, 11, 23, 0), title: 'Radar de Biais : le verdict découle des colonnes', desc: 'Le biais de chaque devise se calcule désormais à partir des catégories que vous lisez : politique monétaire en tête, puis emploi, croissance et inflation, avec le ton réel des banques centrales et le différentiel de taux. Il est aussi replacé face aux sept autres devises : sur le marché des changes tout est relatif, et huit devises ne peuvent pas monter ensemble. Résultat : une lecture qui correspond enfin à ce que montrent les colonnes.' },
   { id: 'dtpu-20260811-geo-fusion',    ts: Date.UTC(2026, 7, 11, 22, 0),  title: 'Récap Hebdo : le fil géopolitique d\'un seul tenant', desc: 'Le récit de la semaine et sa chronologie ne sont plus deux sections qui se suivent en racontant la même chose : le récit explique les enjeux et les blocages, la chronologie enchaîne les faits datés, le tout sous une seule rubrique Géopolitique.' },
-  { id: 'dtpu-20260811-cal-ff',        ts: Date.UTC(2026, 7, 11, 20, 30), title: 'Calendrier : les noms que vous connaissez', desc: 'Les événements du calendrier portent désormais les intitulés de référence du marché — « CPI y/y », « Core CPI m/m », « Non-Farm Employment Change » — au lieu de libellés maison. Vous retrouvez d\'un coup d\'œil la publication que vous suivez ailleurs.' },
-  { id: 'dtpu-20260811-surveiller',    ts: Date.UTC(2026, 7, 11, 20, 0),  title: '« À surveiller » : l\'essentiel, et son décryptage', desc: 'Le tableau du récap quotidien ne liste plus que les publications à fort impact — fini les stocks hebdomadaires et les demandes de prêts qui noyaient les vraies échéances. Et chaque ligne s\'ouvre d\'un clic sur son Décryptage : ce que mesure l\'indicateur, comment lire le chiffre face à la prévision, et ce qui est en jeu.' },
+  { id: 'dtpu-20260811-cal-ff',        ts: Date.UTC(2026, 7, 11, 20, 30), title: 'Calendrier : les noms que vous connaissez', desc: 'Les événements du calendrier portent désormais les intitulés de référence du marché : « CPI y/y », « Core CPI m/m », « Non-Farm Employment Change » : au lieu de libellés maison. Vous retrouvez d\'un coup d\'œil la publication que vous suivez ailleurs.' },
+  { id: 'dtpu-20260811-surveiller',    ts: Date.UTC(2026, 7, 11, 20, 0),  title: '« À surveiller » : l\'essentiel, et son décryptage', desc: 'Le tableau du récap quotidien ne liste plus que les publications à fort impact : fini les stocks hebdomadaires et les demandes de prêts qui noyaient les vraies échéances. Et chaque ligne s\'ouvre d\'un clic sur son Décryptage : ce que mesure l\'indicateur, comment lire le chiffre face à la prévision, et ce qui est en jeu.' },
   { id: 'dtpu-20260811-lecture-rapports', ts: Date.UTC(2026, 7, 11, 19, 30), title: 'Rapports : une lecture plus directe', desc: 'Le Récap Hebdo se parcourt d\'un trait : les devises s\'enchaînent comme dans une note de desk, sans carte à déplier une par une, et chaque bloc porte le nom de sa banque centrale (« Fed / Pricing », « BoE / Pricing »). La ligne de période a quitté les en-têtes de tous les rapports : la date rejoint le titre, l\'écran respire.' },
-  { id: 'dtpu-20260811-impact-marche', ts: Date.UTC(2026, 7, 11, 17, 30), title: 'Analyses d\'événement : « Impact marché », marché exposé et 5 banques de plus', desc: 'Chaque analyse d\'un événement majeur se termine désormais par un bloc « Impact marché » : ce que le résultat implique pour la suite — ton restrictif ou accommodant, plutôt maintien ou mouvement à la prochaine réunion, et le point précis à surveiller ensuite. La news porte aussi le marché le plus exposé (ex. AUD/USD). Et la couverture s\'élargit : les décisions de la RBA, de la BoJ, de la Banque du Canada, de la RBNZ et de la BNS sont désormais analysées comme celles de la Fed, de la BCE et de la BoE.' },
+  { id: 'dtpu-20260811-impact-marche', ts: Date.UTC(2026, 7, 11, 17, 30), title: 'Analyses d\'événement : « Impact marché », marché exposé et 5 banques de plus', desc: 'Chaque analyse d\'un événement majeur se termine désormais par un bloc « Impact marché » : ce que le résultat implique pour la suite, ton restrictif ou accommodant, plutôt maintien ou mouvement à la prochaine réunion, et le point précis à surveiller ensuite. La news porte aussi le marché le plus exposé (ex. AUD/USD). Et la couverture s\'élargit : les décisions de la RBA, de la BoJ, de la Banque du Canada, de la RBNZ et de la BNS sont désormais analysées comme celles de la Fed, de la BCE et de la BoE.' },
   { id: 'dtpu-20260811-biais-v42', ts: Date.UTC(2026, 7, 11, 16, 0), title: 'Radar de Biais : niveaux mesurés et données restaurées', desc: 'Croissance et Emploi affichent désormais un NIVEAU (PMI face au seuil d\'expansion, chômage face à sa propre moyenne) ET sa dynamique, comme l\'inflation. Le niveau d\'inflation se compare à la cible de CHAQUE banque centrale et n\'est plus jamais déduit d\'une surprise. La posture affichée d\'une banque centrale ne se confond plus avec l\'effet du différentiel de taux, et les moteurs de la semaine expliquent leur mécanisme au survol.' },
-  { id: 'dtpu-20260811-force-7d', ts: Date.UTC(2026, 7, 11, 14, 0), title: 'Force des Devises : courbes 7D/1M haute densité', desc: 'Les vues 7 jours et 1 mois passent en données horaires réelles (~120 et ~500 points au lieu de 5-7) : accélérations, ralentissements et retournements deviennent visibles. Et plus aucune courbe ne disparaît sous le bord du graphique — les valeurs finales de toutes les devises restent lisibles.' },
-  { id: 'dtpu-20260811-weekly-structure', ts: Date.UTC(2026, 7, 11, 13, 0), title: 'Récap Hebdo : une note de desk, deux temps', desc: 'Le rapport se lit maintenant en deux temps : le récit géopolitique de la semaine avec sa chronologie rapide, puis la semaine devise par devise — Croissance économique, Emploi, Inflation, Politique monétaire avec le pricing, les rendez-vous datés de la semaine à venir, et le biais. Chaque devise garde sa courbe de force. Les blocs qui répétaient ces mêmes informations (Points Macro Clés, section Banques Centrales, vue d\'ensemble Force des Devises) ont été retirés.' },
-  { id: 'dtpu-20260811-fxdaily-structure', ts: Date.UTC(2026, 7, 11, 12, 0), title: 'Récap quotidien : plus court, plus clair', desc: 'Le rapport tient désormais en une lecture : une synthèse d\'ouverture unique (le fil des séances et le fait dominant), puis Géopolitique, Macro et À surveiller — chaque puce déroulant ce qui s\'est passé, pourquoi ça compte et la réaction du marché. L\'analyse par séance se lit en une phrase, les chiffres restant listés dessous avec leur heure. Quatre sections qui faisaient doublon ont disparu, et les propos marquants rejoignent les avis de maisons de recherche dans « Commentaires des banques ».' },
-  { id: 'dtpu-20260810-recap-actes',   ts: Date.UTC(2026, 7, 10, 13, 0), title: 'Récap Hebdo : lecture en 3 actes', desc: 'Le Récap Hebdo des Marchés est désormais balisé en trois actes numérotés — Géopolitique, Macro & Banques Centrales, Biais par devise — pour suivre le fil de la semaine d\'un coup d\'œil.' },
+  { id: 'dtpu-20260811-force-7d', ts: Date.UTC(2026, 7, 11, 14, 0), title: 'Force des Devises : courbes 7D/1M haute densité', desc: 'Les vues 7 jours et 1 mois passent en données horaires réelles (~120 et ~500 points au lieu de 5-7) : accélérations, ralentissements et retournements deviennent visibles. Et plus aucune courbe ne disparaît sous le bord du graphique : les valeurs finales de toutes les devises restent lisibles.' },
+  { id: 'dtpu-20260811-weekly-structure', ts: Date.UTC(2026, 7, 11, 13, 0), title: 'Récap Hebdo : une note de desk, deux temps', desc: 'Le rapport se lit maintenant en deux temps : le récit géopolitique de la semaine avec sa chronologie rapide, puis la semaine devise par devise, Croissance économique, Emploi, Inflation, Politique monétaire avec le pricing, les rendez-vous datés de la semaine à venir, et le biais. Chaque devise garde sa courbe de force. Les blocs qui répétaient ces mêmes informations (Points Macro Clés, section Banques Centrales, vue d\'ensemble Force des Devises) ont été retirés.' },
+  { id: 'dtpu-20260811-fxdaily-structure', ts: Date.UTC(2026, 7, 11, 12, 0), title: 'Récap quotidien : plus court, plus clair', desc: 'Le rapport tient désormais en une lecture : une synthèse d\'ouverture unique (le fil des séances et le fait dominant), puis Géopolitique, Macro et À surveiller, chaque puce déroulant ce qui s\'est passé, pourquoi ça compte et la réaction du marché. L\'analyse par séance se lit en une phrase, les chiffres restant listés dessous avec leur heure. Quatre sections qui faisaient doublon ont disparu, et les propos marquants rejoignent les avis de maisons de recherche dans « Commentaires des banques ».' },
+  { id: 'dtpu-20260810-recap-actes',   ts: Date.UTC(2026, 7, 10, 13, 0), title: 'Récap Hebdo : lecture en 3 actes', desc: 'Le Récap Hebdo des Marchés est désormais balisé en trois actes numérotés : Géopolitique, Macro & Banques Centrales, Biais par devise, pour suivre le fil de la semaine d\'un coup d\'œil.' },
   { id: 'dtpu-20260810-gew-essentiel', ts: Date.UTC(2026, 7, 10, 12, 30), title: 'Récap Éco des Marchés : « L\'essentiel » en 3 points', desc: 'Le rapport s\'ouvre sur la semaine résumée en 3 phrases simples. Chaque puce indique sa conséquence marché (→) et le calendrier replie les publications secondaires : l\'important reste visible.' },
   { id: 'dtpu-20260810-inst-rapides',  ts: Date.UTC(2026, 7, 10, 12, 0), title: 'Institutions : ouverture des rapports accélérée', desc: 'Les PDF récents sont préparés en avance côté serveur : l\'ouverture d\'un rapport de banque est quasi instantanée, même la première fois.' },
   { id: 'dtpu-20260810-institutions',  ts: Date.UTC(2026, 7, 10, 11, 0), title: 'Institutions : couverture des banques élargie', desc: 'Natixis, Goldman Sachs, Société Générale, UniCredit et Nordea alimentent à nouveau l\'onglet, et CIBC rejoint le catalogue avec ses rapports PDF (dont le flash NFP).' },
@@ -1437,7 +1438,7 @@ app.get('/api/admin/ai-test', requireSameOrigin, requireAdmin, async (_req, res)
   const ms = Date.now() - t0;
   const st = (() => { try { return ai.status(); } catch { return {}; } })();
   const u1 = st.usageToday || {}; const diff = k => (u1[k] || 0) - (u0[k] || 0);
-  const provider = diff('groq') > 0 ? 'Groq (principal)' : diff('gemini') > 0 ? 'Gemini' : diff('github') > 0 ? ('GitHub Models (' + ((st.github && st.github.model) || 'gpt-4o') + ')') : diff('openrouter') > 0 ? 'OpenRouter (:free)' : diff('cohere') > 0 ? 'Cohere' : diff('xai') > 0 ? 'xAI' : (diff('fallback') > 0 || diff('claude') > 0) ? 'Claude' : '—';
+  const provider = diff('groq') > 0 ? 'Groq (principal)' : diff('gemini') > 0 ? 'Gemini' : diff('github') > 0 ? ('GitHub Models (' + ((st.github && st.github.model) || 'gpt-4o') + ')') : diff('openrouter') > 0 ? 'OpenRouter (:free)' : diff('cohere') > 0 ? 'Cohere' : diff('xai') > 0 ? 'xAI' : (diff('fallback') > 0 || diff('claude') > 0) ? 'Claude' : '-';
   const intel = st.intel || {}; const color = ok ? '#22c55e' : '#ef4444';
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test IA DTP</title>
   <style>body{background:#0c0c0e;color:#e5e7eb;font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
@@ -1743,7 +1744,7 @@ app.get('/api/admin/welcome-backfill', requireSameOrigin, requireAdmin, async (r
     try { await auth.emailLogAdd('welcome:' + email); } catch {}                // marqueur → pas de renvoi
   }
   out.missingList = out.missingList.slice(0, 60);
-  console.log(`[Welcome backfill] ${send ? 'ENVOI' : 'DRY-RUN'} — ${out.missing} compte(s) sans bienvenue` + (send ? ` · ${out.chatSent} chat · ${out.emailSent} mail` : ''));
+  console.log(`[Welcome backfill] ${send ? 'ENVOI' : 'DRY-RUN'}, ${out.missing} compte(s) sans bienvenue` + (send ? ` · ${out.chatSent} chat · ${out.emailSent} mail` : ''));
   res.json(out);
 });
 
@@ -1786,7 +1787,7 @@ app.get('/api/admin/broadcast-v2', requireSameOrigin, requireAdmin, async (req, 
   const out = { dryRun: !send, audience, force, totalUsers: users.length, eligible: targets.length,
     sample: targets.slice(0, 25).map(u => ({ email: u.email, name: u.name || '', active: isActive(u) })) };
   if (!send) {
-    out.hint = 'Aperçu uniquement — RIEN n\'a été envoyé. Ajoute ?send=1 pour ENVOYER. Options : &audience=active|inactive|all, &force=1 (ignore l\'anti-doublon). Suivi : ?status=1.';
+    out.hint = 'Aperçu uniquement : RIEN n\'a été envoyé. Ajoute ?send=1 pour ENVOYER. Options : &audience=active|inactive|all, &force=1 (ignore l\'anti-doublon). Suivi : ?status=1.';
     return res.json(out);
   }
   // Envoi RÉEL → on répond tout de suite (la réponse ne peut pas attendre N×throttle) puis on envoie en fond.
@@ -1922,7 +1923,7 @@ app.post('/api/strength-tf', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-/* ─── RÉGLAGES D'AFFICHAGE — MÉMORISÉS PAR COMPTE (magasin générique) ─────────────────────────────
+/* ─── RÉGLAGES D'AFFICHAGE : MÉMORISÉS PAR COMPTE (magasin générique) ─────────────────────────────
    Demande user 12/08 : « chaque config ou affichage d'un widget que je configure doit être mémorisé
    pour chaque compte ». Jusqu'ici chaque réglage persistant avait son endpoint dédié (thememode:,
    zoom:, stftf:, seasonpair:…) — ce qui a laissé une quinzaine de contrôles PUREMENT VOLATILES,
@@ -2022,7 +2023,7 @@ async function _whopRenewOrCreate(mem) {
   if (existing) {
     if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
     const wasInactive = !existing.active;
-    if (!mem.expiresAt) console.warn(`[Whop] adhésion SANS échéance → compte passé ILLIMITÉ (${mem.email}) — vérifier que c'est voulu (audit 28/07)`);
+    if (!mem.expiresAt) console.warn(`[Whop] adhésion SANS échéance → compte passé ILLIMITÉ (${mem.email}) : vérifier que c'est voulu (audit 28/07)`);
     await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
     // CADENCE = LA RÉALITÉ GAGNE TOUJOURS : ce que le client PREND (période de facturation Whop)
     // écrase tout réglage manuel de l'admin. Admin avait mis « annuel » mais le client renouvelle en
@@ -2067,7 +2068,7 @@ async function _whopRenewOrCreate(mem) {
     _sendWelcomeChat(wu && wu.id);
     if (_wr && _wr.sent) { await auth.emailLogAdd(dedupKey); try { await auth.emailLogAdd('welcomeok:' + mem.email); } catch {} }   // welcomeok: = envoi CONFIRMÉ (protège du re-envoi par le filet)
     mailer.sendAdminRenewalNotice({ clientEmail: mem.email, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
-    console.log(`[Whop] Compte créé: ${mem.email}` + (_wr && _wr.sent ? ` (bienvenue ✅ ${_wr.provider})` : ' (bienvenue ❌ — sera relancée par le filet)'));
+    console.log(`[Whop] Compte créé: ${mem.email}` + (_wr && _wr.sent ? ` (bienvenue ✅ ${_wr.provider})` : ' (bienvenue ❌ : sera relancée par le filet)'));
     // Parrainage via lien d'affiliation Whop (?a=<username>) : l'adhésion porte l'username du
     // parrain → on crédite le filleul ICI, sans dépendre du cookie landing. Verrou referredby
     // = un filleul ne compte qu'une fois (même s'il repasse ensuite par la landing).
@@ -2731,7 +2732,7 @@ function _aiChatFallback(newsCtx) {
   let out = "L'Assistant IA Macro est momentanément saturé (forte demande sur les modèles). ";
   if (items.length) out += "En attendant, voici les derniers points de marché du desk :\n\n" + items.join('\n')
     + "\n\nRéessayez dans une minute pour une analyse détaillée.";
-  else out += "Réessayez dans une minute — le service reprend automatiquement.";
+  else out += "Réessayez dans une minute : le service reprend automatiquement.";
   return out;
 }
 function _aiChatPrompt(q, newsCtx) {
@@ -2748,7 +2749,7 @@ function _aiChatPrompt(q, newsCtx) {
         pillars.push(`Conclusion globale=${_vfr(conc[c])}`);
         return `${c}: ${pillars.join(', ')}`;
       });
-      biasLine = 'DTP Smart Bias hebdo — biais directionnel détaillé PAR DEVISE (chaque pilier + conclusion globale ; SEULE source pour toute question de biais) :\n' + lines.join('\n')
+      biasLine = 'DTP Smart Bias hebdo : biais directionnel détaillé PAR DEVISE (chaque pilier + conclusion globale ; SEULE source pour toute question de biais) :\n' + lines.join('\n')
         + '\nPour une PAIRE (ex. EURGBP / EUR/GBP) : normalise au format AAA/BBB et déduis le biais de la paire en COMPARANT la conclusion globale de la 1re devise à celle de la 2e (1re haussière vs 2e baissière => paire haussière, etc.).';
     }
   } catch {}
@@ -2798,7 +2799,7 @@ app.post('/api/ai/chat/stream', async (req, res) => {
   const streamChunks = (txt) => { for (let i = 0; i < txt.length && !_closed; i += 24) send('chunk', { t: txt.slice(i, i + 24) }); };
 
   if (!q) { send('error', { error: 'Message vide' }); return res.end(); }
-  if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) { send('error', { error: 'Trop de messages — réessayez dans une minute.' }); return res.end(); }
+  if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) { send('error', { error: 'Trop de messages : réessayez dans une minute.' }); return res.end(); }
   const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
   const sources = newsCtx.map(n => ({ name: 'DTP', date: _fmtDMY(n.timestamp) }));   // toutes les sources affichées comme DTP (demande utilisateur)
 
@@ -2811,7 +2812,7 @@ app.post('/api/ai/chat/stream', async (req, res) => {
   if (_uid && _role !== 'admin' && _role !== 'support') {
     _limDay = _aiChatToday();
     if (await _aiChatDailyCount(_uid, _limDay) >= AI_CHAT_DAILY_LIMIT) {
-      streamChunks(`Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain — merci de votre compréhension.`);
+      streamChunks(`Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain : merci de votre compréhension.`);
       send('done', { sources: [] }); return res.end();
     }
   }
@@ -2852,7 +2853,7 @@ app.post('/api/ai/chat', async (req, res) => {
   if (!q) return res.status(400).json({ error: 'Message vide' });
   const _uid = req.session?.userId, _role = req.session?.user?.role;
   // Anti-rafale (8/min) : protège même les comptes exemptés de la limite/jour, sans toucher au quota durable.
-  if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) return res.status(429).json({ error: 'Trop de messages — réessayez dans une minute.' });
+  if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) return res.status(429).json({ error: 'Trop de messages : réessayez dans une minute.' });
   // Sources RÉELLES = news récentes effectivement fournies en contexte à l'IA (pas de mock)
   const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
   const sources = newsCtx.map(n => ({ name: 'DTP', date: _fmtDMY(n.timestamp) }));   // toutes les sources affichées comme DTP (demande utilisateur)
@@ -2866,7 +2867,7 @@ app.post('/api/ai/chat', async (req, res) => {
     if (_uid && _role !== 'admin' && _role !== 'support') {
       _limDay = _aiChatToday();
       if (await _aiChatDailyCount(_uid, _limDay) >= AI_CHAT_DAILY_LIMIT)
-        return res.json({ answer: `Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain — merci de votre compréhension.`, sources: [] });
+        return res.json({ answer: `Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain : merci de votre compréhension.`, sources: [] });
     }
     const prompt = _aiChatPrompt(q, newsCtx);
     try { answer = await aiSmart('chat', prompt, 380, { priority: 'user' }); } catch (e) { answer = null; }   // DANS le budget (part 'chat'), tier user
@@ -3656,14 +3657,14 @@ app.get('/api/calendar-actuals-debug', async (_req, res) => {
     const row = (cells) => '<tr>' + cells.map(c => `<td style="padding:4px 9px;border-bottom:1px solid #222">${c}</td>`).join('') + '</tr>';
     const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <body style="background:#0d0d0d;color:#e8eaed;font-family:monospace;font-size:13px;padding:18px;line-height:1.5">
-<h2 style="color:#e3b23a">Diagnostic — Actuals calendrier (source : TradingView)</h2>
+<h2 style="color:#e3b23a">Diagnostic : Actuals calendrier (source : TradingView)</h2>
 <div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:18px">
   <div><b>API TradingView</b><br>événements reçus: <b style="color:${tvCount ? '#2ecc71' : '#ef4444'}">${tvCount}</b>${tvErr ? `<br><span style="color:#ef4444">erreur: ${esc(tvErr)}</span>` : ''}<br>${tvCount ? '✅ accessible depuis Render' : '❌ NON accessible (bloqué/timeout)'}</div>
   <div><b>Remplissage</b><br>actuals stockés (map): <b>${_calActualsMap.size}</b><br>remplis ce run: <b>${filledTV}</b></div>
   <div><b>Calendrier</b><br>événements: <b>${events.length}</b> · passés: <b>${past.length}</b><br>affichés AVEC actual: <b style="color:${withActual.length ? '#2ecc71' : '#ef4444'}">${withActual.length}</b></div>
 </div>
 <h3 style="color:#2ecc71">✅ Actuals remplis (échantillon)</h3>
-${sampleFilled.length ? `<table style="border-collapse:collapse">${sampleFilled.map(e => row([esc(e.currency), esc(e.title), `<b style="color:#2ecc71">${esc(e.actual)}</b>`, 'fc:' + esc(e.forecast || '—')])).join('')}</table>` : '<div style="color:#ef4444">Aucun actual rempli — si "API TradingView" ci-dessus = 0, l\'API est bloquée depuis Render.</div>'}
+${sampleFilled.length ? `<table style="border-collapse:collapse">${sampleFilled.map(e => row([esc(e.currency), esc(e.title), `<b style="color:#2ecc71">${esc(e.actual)}</b>`, 'fc:' + esc(e.forecast || '-')])).join('')}</table>` : '<div style="color:#ef4444">Aucun actual rempli : si "API TradingView" ci-dessus = 0, l\'API est bloquée depuis Render.</div>'}
 <h3 style="color:#ef4444;margin-top:20px">Événements passés ENCORE sans actual (${missing.length})</h3>
 <table style="border-collapse:collapse">${missing.map(e => row([esc(e.currency), esc(e.title), new Date(e.timestamp).toISOString().slice(5, 16).replace('T', ' ')])).join('')}</table>
 </body>`;
@@ -3964,7 +3965,7 @@ async function _fetchSessionWraps(full = false) {
   // ne peut rien voir — d'où deux « Récap Séance New York » identiques le même jour dans l'onglet
   // Analystes. On garde la version la plus RÉCENTE, c'est la version enrichie.
   _swCache = _swDedupJour(_swCache);
-  console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+  console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) : ${full ? 'full 30d' : 'quick'} refresh`);
   // VEILLE DE SILENCE. La source publie normalement trois wraps par jour (Asie ~04-06h UTC, Europe
   // ~10-12h, Amériques ~18-22h). Au-delà de 14 h sans le moindre nouveau wrap, ce n'est plus un
   // creux d'horaire : soit ils ont sauté une publication, soit leur page a changé et on ne lit plus
@@ -4171,7 +4172,7 @@ async function _maybeBackfillRecapCs() {
   const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap' && i._weekly && (i._weekly.v || 0) >= 2)
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   const cur = recaps.find(i => !i._weekly.cs && _recapCoveredMonday(i._weekly) > 0);
-  if (!_wrCsDiagDone) { _wrCsDiagDone = true; console.log('[Weekly Recap] CS backfill check — recaps=' + recaps.length + ' monNow=' + new Date(monNow).toISOString().slice(0, 10) + ' ' + recaps.map(r => r._weekly.weekEnding + (r._weekly.cs ? '(cs)' : '(no-cs)')).join(',') + ' → cible=' + (cur ? cur._weekly.weekEnding : 'aucune')); }
+  if (!_wrCsDiagDone) { _wrCsDiagDone = true; console.log('[Weekly Recap] CS backfill check : recaps=' + recaps.length + ' monNow=' + new Date(monNow).toISOString().slice(0, 10) + ' ' + recaps.map(r => r._weekly.weekEnding + (r._weekly.cs ? '(cs)' : '(no-cs)')).join(',') + ' → cible=' + (cur ? cur._weekly.weekEnding : 'aucune')); }
   if (!cur) return;
   _wrCsBackfillBusy = true;
   try {
@@ -4902,18 +4903,18 @@ async function _aiAlertCheck(force) {
 
   // ── INFO (panel + logs), JAMAIS d'email : quota du jour proche/épuisé = ATTENDU, service continu ──
   if (fc && (fc.risk === 'exhausted' || fc.risk === 'high' || fc.pctUsed >= 90)) {
-    _aiAlertNote('info', 'quota', 'Quota IA du jour à ' + fc.pctUsed + '% (' + fc.dayTotal + '/' + fc.dailyCap + '), risque ' + fc.risk + ' — service continu (repli 0-token + GitHub/Claude/OpenRouter).');
+    _aiAlertNote('info', 'quota', 'Quota IA du jour à ' + fc.pctUsed + '% (' + fc.dayTotal + '/' + fc.dailyCap + '), risque ' + fc.risk + ' : service continu (repli 0-token + GitHub/Claude/OpenRouter).');
   } else { _aiAlertClear('quota'); }
   const gemH = _telHealthScore(st.geminiKeys || 0, st.geminiCoolingNow || 0, (st.intel || {}).breakersOpen || 0, (st.usageToday || {}).gemini || 0, (st.usageToday || {}).gemini429 || 0);
   if (gemH != null && gemH < 25) {
-    _aiAlertNote('info', 'gemini_red', 'Gemini santé ' + gemH + '/100 (' + (st.geminiCoolingNow || 0) + ' cooldown 429 — probable quota journalier). Bascule GitHub/Claude/OpenRouter + repli déterministe.');
+    _aiAlertNote('info', 'gemini_red', 'Gemini santé ' + gemH + '/100 (' + (st.geminiCoolingNow || 0) + ' cooldown 429 : probable quota journalier). Bascule GitHub/Claude/OpenRouter + repli déterministe.');
   } else { _aiAlertClear('gemini_red'); }
   // ── INFO : rythme MENSUEL — projection au-dessus de l'enveloppe → visible au panel (le pacing
   //    _aiDailyCap resserre déjà automatiquement le plafond/jour, aucune action requise, JAMAIS d'email).
   try {
     const _proj = _aiMonthProjection();
     if (_proj > GEMINI_MONTHLY_BUDGET * 1.05) {
-      _aiAlertNote('info', 'pacing', 'Rythme mensuel : projection ' + _proj + '/' + GEMINI_MONTHLY_BUDGET + ' appels — le plafond journalier se resserre automatiquement (pacing), service continu.');
+      _aiAlertNote('info', 'pacing', 'Rythme mensuel : projection ' + _proj + '/' + GEMINI_MONTHLY_BUDGET + ' appels : le plafond journalier se resserre automatiquement (pacing), service continu.');
     } else { _aiAlertClear('pacing'); }
   } catch {}
 
@@ -4931,8 +4932,8 @@ async function _aiAlertCheck(force) {
   } else {
     // Incident clos → 1 seul mail « résolu » (si un critique avait été envoyé).
     if (_aiAlertClear('critical')) {
-      _aiAlertNote('info', 'resolved', 'Panne IA impactante résolue — service nominal.');
-      out.push({ subject: 'RÉSOLU — service IA rétabli', html:
+      _aiAlertNote('info', 'resolved', 'Panne IA impactante résolue : service nominal.');
+      out.push({ subject: 'RÉSOLU : service IA rétabli', html:
         '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">La panne IA impactante est terminée : la génération et/ou le filet de secours sont de nouveau opérationnels. Aucune action requise.</p>' });
     }
     // Backoff SANS impact (filet OK) = INFO seulement, pas d'email (c'est le cas nominal du repli).
@@ -5130,7 +5131,7 @@ async function aiSmart(category, prompt, maxTokens, opts = {}) {
     if (e && e.claudeTried) throw e;
   }
   if (claudeOverBudget && ai.claudeUsable && ai.claudeUsable()) { const out = await ai.generateTextClaudeOnly(prompt, maxTokens); _aiNoteClaude(category); return out; }
-  throw new Error("AI indisponible — budget Gemini épuisé ET aucun autre fournisseur (GitHub/OpenRouter/Cohere" + (opts.priority === "user" ? "/Claude" : "") + ") n'a répondu");
+  throw new Error("AI indisponible : budget Gemini épuisé ET aucun autre fournisseur (GitHub/OpenRouter/Cohere" + (opts.priority === "user" ? "/Claude" : "") + ") n'a répondu");
 }
 
 // ── COALESCING des générations à la demande ──────────────────────────────────
@@ -5341,10 +5342,10 @@ STYLE (impératif) :
 - Puces SYNTHÉTIQUES et percutantes. AUCUNE liaison inutile (« par ailleurs », « en outre », « de plus ») : va droit au fait.
 - FLÈCHE D'IMPACT « → » : relie SYSTÉMATIQUEMENT un événement / un chiffre / une décision à SA CONSÉQUENCE (mouvement de devise, bascule risk-on / risk-off, lecture de marché). Ex : « **CPI** US +0,4% m/m (vs +0,2% att., +0,1% préc.) → surprise haussière, **USD** se renforce ».
 - GRAS Markdown ** ** OBLIGATOIRE autour des DEVISES, BANQUES CENTRALES, INSTITUTIONS, ACRONYMES et INDICATEURS clés : **USD**, **EUR**, **JPY**, **DXY**, **Fed**, **BCE**, **BoC**, **BoE**, **CPI**, **PPI m/m**, **PMI Flash**, **NFP**…
-- DONNÉES MACRO : dès qu'un chiffre sort (CPI, PPI, emploi, PMI, PIB…), donne le détail DISPONIBLE dans la source — m/m et/ou a/a, réel, attendu, précédent — puis « → » et la lecture (surprise haussière / baissière, accélération, ralentissement, impact sur la banque centrale). Format : « **Indicateur** : réel (vs attendu, précédent) → conséquence ».
+- DONNÉES MACRO : dès qu'un chiffre sort (CPI, PPI, emploi, PMI, PIB…), donne le détail DISPONIBLE dans la source, m/m et/ou a/a, réel, attendu, précédent, puis « → » et la lecture (surprise haussière / baissière, accélération, ralentissement, impact sur la banque centrale). Format : « **Indicateur** : réel (vs attendu, précédent) → conséquence ».
 - Puces ≤ 30 mots, UNE idée par puce (SEULE EXCEPTION : la rubrique FX, voir plus bas).
 
-RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, %, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN, jamais un attendu/précédent absent de la source. Tu améliores UNIQUEMENT la forme et la clarté, jamais le contenu factuel.
+RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS, chiffres, niveaux/prix, %, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN, jamais un attendu/précédent absent de la source. Tu améliores UNIQUEMENT la forme et la clarté, jamais le contenu factuel.
 
 STRUCTURE : les rubriques sont EXACTEMENT CELLES DU RÉCAP QUOTIDIEN, dans CET ordre et sous CES NOMS FRANÇAIS EXACTS. N'invente AUCUN autre en-tête, ne les traduis pas en anglais, ne les renomme pas, ne les réordonne pas. OMETS une rubrique seulement si elle n'a aucun contenu réel.
 1. LEAD (obligatoire, EN PREMIER, et SANS en-tête de rubrique) : 3-4 puces de SYNTHÈSE de la séance (mouvements clés, décisions / propos de banques centrales, données majeures, et ce qui reste à surveiller). L'accroche narrative avant le détail, UNIQUEMENT à partir des points ci-dessous.
@@ -5353,7 +5354,7 @@ STRUCTURE : les rubriques sont EXACTEMENT CELLES DU RÉCAP QUOTIDIEN, dans CET o
 4. "Analyse de séance" : le marché, dans le détail. Couvre **DXY** EN PREMIER, puis CHAQUE devise majeure qui a bougé (**EUR**, **JPY**, **GBP**, **AUD**, **NZD**, **CAD**, **CHF**, **CNY**), en EXPLIQUANT le mouvement ET SON DRIVER (l'annonce macro / décision / actualité liée). ICI, 2 à 4 phrases par devise sont ATTENDUES (jamais une puce générique « L'EUR a surperformé »). Si la source ne donne pas le driver, énonce le mouvement sans inventer de cause. ENCHAÎNE ENSUITE, dans la MÊME rubrique, les autres classes d'actifs présentes (actions, matières premières, obligations, crypto, commerce & tarifs) : une puce chacune, préfixée de son sujet en gras (ex. « **Matières premières** : … »). Si le brut est un tas plat sous « HEADLINES » / « NEWS », RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet : un récap est TOUJOURS catégorisé, jamais un tas de titres. Si aucune info FX : UNE seule puce « Activité FX limitée sur la séance ».
 5. "À surveiller" EN DERNIER : UNIQUEMENT du PROSPECTIF, jamais un fait déjà survenu. Prochains catalyseurs (discours, statistiques clés, décisions de taux) et fils encore ouverts à la clôture de la séance → « → » puis CE QU'ILS PEUVENT DÉCLENCHER. Termine sur cette rubrique, sans conclusion ni fioriture. Omets-la si la source n'évoque aucune échéance.
 
-TRI : une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel / hors-sujet (« …at investingLive.com »). ÉCARTE les puces SANS VALEUR — un simple titre / annonce sans aucun fait, chiffre, niveau, citation ni analyse (ex « Le point sur les cryptos », « Tour d'horizon des marchés ») : elles n'apportent rien. Découpe les longs paragraphes en puces courtes. Si après tri une rubrique est vide, OMETS-la entièrement.
+TRI : une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel / hors-sujet (« …at investingLive.com »). ÉCARTE les puces SANS VALEUR : un simple titre / annonce sans aucun fait, chiffre, niveau, citation ni analyse (ex « Le point sur les cryptos », « Tour d'horizon des marchés ») : elles n'apportent rien. Découpe les longs paragraphes en puces courtes. Si après tri une rubrique est vide, OMETS-la entièrement.
 
 ${_MENTOR_RULES}
 
@@ -5415,7 +5416,7 @@ Réorganise-le en un rapport PROPRE structuré en RUBRIQUES claires, façon Data
 - Choisis des EN-TÊTES pertinents D'APRÈS LE CONTENU réel (ex: "OVERVIEW", "USD", "EUR", "GBP", "JPY", "AUD", "RATES", "COMMODITIES", "CENTRAL BANKS", "WHAT TO WATCH", "RISK EVENTS"…). Ne crée jamais une rubrique sans contenu réel.
 - Sous chaque en-tête, des phrases claires, concises et professionnelles (corrige grammaire, fragments, répétitions) : 1 à 4 puces par rubrique, qui se lisent comme un vrai récap d'analyste.
 - EN-TÊTES COURTS (1 à 3 mots, type catégorie). Chaque puce = UNE idée concise (≤30 mots), jamais un pavé multi-phrases : découpe les longs paragraphes en plusieurs puces courtes.
-RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, %, paires/tickers, banques centrales, prévisions, citations, dates. N'INVENTE RIEN, n'ajoute aucune opinion personnelle. Tu réorganises et clarifies UNIQUEMENT.
+RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS, chiffres, niveaux/prix, %, paires/tickers, banques centrales, prévisions, citations, dates. N'INVENTE RIEN, n'ajoute aucune opinion personnelle. Tu réorganises et clarifies UNIQUEMENT.
 - Garde la langue d'origine du rapport (généralement l'anglais). Ignore le promotionnel/légal ("Download", disclaimers, "This publication has been prepared by…").
 Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE","items":["phrase 1","phrase 2"]}]
 Titre : ${String(title || '').slice(0, 160)}
@@ -5510,7 +5511,7 @@ async function _generateNotableComments(dayKey) {
   try {
     if (aiAllowed('analyst', { priority: 'user' })) {
       _aiReset();
-      const ctx = uniq.map(n => '- ' + _stripMd(n.headline || '') + (n.description ? ' — ' + _stripMd(String(n.description)).replace(/\s+/g, ' ').slice(0, 340) : '')).join('\n');
+      const ctx = uniq.map(n => '- ' + _stripMd(n.headline || '') + (n.description ? ' - ' + _stripMd(String(n.description)).replace(/\s+/g, ' ').slice(0, 340) : '')).join('\n');
       const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 12 mots), ET une ligne « point » au FORMAT « <fait> → <impact> » (≤ 28 mots au total, les DEUX côtés OBLIGATOIRES et non vides).
 - <fait> = une proposition CLAIRE qui NOMME le sujet ET donne son chiffre/niveau exact (ex. « Le brut WTI recule à 89,31 $ », PAS « 89,31 $ » seul ; « L'inflation japonaise accélère à 3,1 % », PAS « inflation japonaise » seul).
 - <impact> = la conséquence marché DIRECTIONNELLE et concrète sur un actif précis (devise, taux, indice, or, pétrole), ex. « soutient le CAD, pèse sur les compagnies aériennes » ou « renforce les paris de hausse BoJ, yen en hausse ». JAMAIS un simple label (« cours du pétrole », « tensions ») ni une paraphrase vague.
@@ -5558,7 +5559,7 @@ ${ctx}`;
       const score = t => { let s = 0; String(t).toLowerCase().split(/[^a-z]+/).forEach(w => { if (kws.has(w)) s++; }); return s; };
       const top = notes.map(x => ({ ...x, s: score(x.title) })).sort((a, b) => b.s - a.s).slice(0, 3);
       if (top.length) html += '<div class="nc-item nc-item--banks"><div class="nc-h">Ce qu\'en disent les banques</div><p>'
-        + top.map(x => '<strong>' + _ncEsc(x.institution) + '</strong> — ' + _ncEsc(x.title) + ' <span style="opacity:.6">(' + _ncEsc(x.ago) + ')</span>').join('<br>')
+        + top.map(x => '<strong>' + _ncEsc(x.institution) + '</strong>' + _ncEsc(x.title) + ' <span style="opacity:.6">(' + _ncEsc(x.ago) + ')</span>').join('<br>')
         + '</p></div>';
     }
   } catch (e) {}
@@ -5981,7 +5982,7 @@ const RESEARCH_SPA_SITES = [
     url: 'https://www.sc.com/en/wealth-retail-banking/private-banking/latest-market-views/?files_type=1340',
     hrefRe: /sc\.com\/en\/uploads\/sites\/\d+\/content\/docs\/[^"'\s]*weekly-market-view[^"'\s]*\.pdf/i,
     seed: [
-      { title: 'Weekly Market View — Investor froth scaled back, but not eliminated', url: 'https://www.sc.com/en/uploads/sites/66/content/docs/wm-weekly-market-view-investor-froth-scaled-back-but-not-eliminated-12-june-2026.pdf', date: '2026-06-12', pdf: true },
+      { title: 'Weekly Market View : Investor froth scaled back, but not eliminated', url: 'https://www.sc.com/en/uploads/sites/66/content/docs/wm-weekly-market-view-investor-froth-scaled-back-but-not-eliminated-12-june-2026.pdf', date: '2026-06-12', pdf: true },
     ],
   },
   { name: 'Natixis', institution: 'Natixis', source: 'natixis', host: 'natixis.com',
@@ -5994,10 +5995,10 @@ const RESEARCH_SPA_SITES = [
     url: 'https://www.unicreditgroup.eu/en/business/our-investment-insights.html',
     hrefRe: /unicreditgroup\.eu\/content\/dam\/unicreditgroup-eu\/documents\/en\/business\/OurInvestmentInsights\/[^"'\s]+\.pdf/i,
     seed: [
-      { title: 'The Compass Checkpoint — dernière édition (Investment Institute)', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO.pdf', date: '2026-04-21', pdf: true },
+      { title: 'The Compass Checkpoint : dernière édition (Investment Institute)', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO.pdf', date: '2026-04-21', pdf: true },
       { title: 'The Compass 2026: A Strategic Guide for Investors in a Year of Adjustment', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/The-Compass-2026_English.pdf', date: '2025-12-04', pdf: true },
-      { title: 'The Compass 2026 — Strategic Outlook (press release)', url: 'https://www.unicreditgroup.eu/en/press-media/press-releases/2025/december/unicredit-investment-institute-presents--the-compass-2026---a-st.html', date: '2025-12-04' },
-      { title: 'The Investment Institute — The Compass Checkpoint, 16 July 2025', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO_JUL25.pdf', date: '2025-07-16', pdf: true },
+      { title: 'The Compass 2026 : Strategic Outlook (press release)', url: 'https://www.unicreditgroup.eu/en/press-media/press-releases/2025/december/unicredit-investment-institute-presents--the-compass-2026---a-st.html', date: '2025-12-04' },
+      { title: 'The Investment Institute : The Compass Checkpoint, 16 July 2025', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO_JUL25.pdf', date: '2025-07-16', pdf: true },
     ] },
   { name: 'Société Générale', institution: 'Societe Generale', source: 'socgen', host: 'societegenerale.com',
     url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/tagfilter/cross-asset-research/',
@@ -6005,7 +6006,7 @@ const RESEARCH_SPA_SITES = [
     seed: [
       { title: "Asia's 2026 Market Outlook: Resilience amid rotation", url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/asias-2026-market-outlook-resilience-amid-rotation-1/', date: '2025-12-11' },
       { title: 'Structured Products in 2026: Redefining Control in Uncertain Markets', url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/structured-products-in-2026-redefining-control-in-uncertain-markets/', date: '2025-12-08' },
-      { title: 'Weekly Update — In 2026, governments will shape interest rates', url: 'https://www.privatebanking.societegenerale.com/en/insights/weekly-update-2026-will-the-governments-that-will-shape-the-interest-rates/', date: '2025-12-05', pdf: true },
+      { title: 'Weekly Update : In 2026, governments will shape interest rates', url: 'https://www.privatebanking.societegenerale.com/en/insights/weekly-update-2026-will-the-governments-that-will-shape-the-interest-rates/', date: '2025-12-05', pdf: true },
       { title: 'The ECB can cut its rates further (SG Cross Asset Research)', url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/the-ecb-can-cut-its-rates-further/', date: '2025-05-06' },
     ] },
   // (CIBC RETIRÉE d'ici le 10/08 : la page est devenue un portail sans tuiles — zéro lien
@@ -6044,18 +6045,18 @@ const RESEARCH_SPA_SITES = [
     hrefRe: /westpaciq\.com\.au\/(?:economics|markets|article|publications?|research)\/[^"'\s]+/i,
     seed: [
       { title: 'Australian Business Conditions and Confidence, May', url: 'https://www.westpaciq.com.au/economics/2026/06/australian-business-conditions-may-2026', date: '2026-06-09' },
-      { title: 'Consumer Sentiment — Consumers still down in the dumps', url: 'https://www.westpaciq.com.au/economics/2026/06/matthew-csi-video-june-2026', date: '2026-06-10' },
+      { title: 'Consumer Sentiment : Consumers still down in the dumps', url: 'https://www.westpaciq.com.au/economics/2026/06/matthew-csi-video-june-2026', date: '2026-06-10' },
       { title: 'Morning Report', url: 'https://www.westpaciq.com.au/economics/2026/06/Morning-report-10-Jun-2026', date: '2026-06-10' },
-      { title: 'Around the Grounds — Markets', url: 'https://www.westpaciq.com.au/markets/2026/06/around-the-grounds-20260610', date: '2026-06-10' },
+      { title: 'Around the Grounds : Markets', url: 'https://www.westpaciq.com.au/markets/2026/06/around-the-grounds-20260610', date: '2026-06-10' },
     ] },
   { name: 'QCAM', institution: 'QCAM', source: 'qcam', host: 'q-cam.com',
     url: 'https://q-cam.com/news-publications/',
     hrefRe: /q-cam\.com\/news_type\/[^"'\s]+/i,
     seed: [
-      { title: 'QCAM Insight — Currency Update March 2026', url: 'https://q-cam.com/news_type/qcam-insight-currency-update-march-2026/', date: '2026-03-24' },
-      { title: 'FX Now! The Week Ahead — An FX compass in Central Bank Weeks', url: 'https://q-cam.com/news_type/fx-now-the-week-ahead/', date: '2026-03-16' },
+      { title: 'QCAM Insight : Currency Update March 2026', url: 'https://q-cam.com/news_type/qcam-insight-currency-update-march-2026/', date: '2026-03-24' },
+      { title: 'FX Now! The Week Ahead : An FX compass in Central Bank Weeks', url: 'https://q-cam.com/news_type/fx-now-the-week-ahead/', date: '2026-03-16' },
       { title: 'Temporary Shock or Game Changer?', url: 'https://q-cam.com/news_type/temporary-shock-or-game-changer/', date: '2026-03-05' },
-      { title: 'Two-Way Volatility Risks — QCAM Monthly (January 2026)', url: 'https://q-cam.com/news_type/two-way-volatility-risks-qcam-monthly-january-2026/', date: '2026-01-08' },
+      { title: 'Two-Way Volatility Risks : QCAM Monthly (January 2026)', url: 'https://q-cam.com/news_type/two-way-volatility-risks-qcam-monthly-january-2026/', date: '2026-01-08' },
     ] },
   { name: 'Goldman Sachs', institution: 'Goldman Sachs', source: 'goldman', host: 'goldmansachs.com',
     url: 'https://www.goldmansachs.com/insights/outlooks',
@@ -6197,7 +6198,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
           });
           console.log(`[ResearchPROXY ${cfg.source}] HTTP ${r.status} → +${_added} lien(s) (via proxy résidentiel)`);
         } else {
-          console.log(`[ResearchPROXY ${cfg.source}] HTTP ${r.status} (le proxy n'a pas débloqué — vérifier le proxy)`);
+          console.log(`[ResearchPROXY ${cfg.source}] HTTP ${r.status} (le proxy n'a pas débloqué : vérifier le proxy)`);
         }
       } catch (e) { console.warn(`[ResearchPROXY ${cfg.source}] échec:`, e.message); }
     }
@@ -6275,9 +6276,9 @@ async function _fetchWellsInto(merged, UA) {
 // axios+cheerio des articles "/wealth/insights/<cat>/<sous-cat>/<slug>/" + seed des derniers connus (datés).
 const HSBC_BASE = 'https://www.hsbc.com.sg';
 const HSBC_SEED = [
-  { t: 'FX Viewpoint: GBP — Resilient, but two key risks', u: '/wealth/insights/fx-insights/fx-viewpoint/gbp-resilient-but-two-key-risks/', d: '2026-05-19' },
+  { t: 'FX Viewpoint: GBP, Resilient, but two key risks', u: '/wealth/insights/fx-insights/fx-viewpoint/gbp-resilient-but-two-key-risks/', d: '2026-05-19' },
   { t: 'FX Viewpoint: "Risk-on" rally, but questions remain', u: '/wealth/insights/fx-insights/fx-viewpoint/risk-on-rally-but-questions-remain/', d: '2026-05-11' },
-  { t: 'FX Viewpoint Flash: JPY — FX Intervention?', u: '/wealth/insights/fx-insights/fx-viewpoint/jpy-fx-intervention/', d: '2026-05-05' },
+  { t: 'FX Viewpoint Flash: JPY, FX Intervention?', u: '/wealth/insights/fx-insights/fx-viewpoint/jpy-fx-intervention/', d: '2026-05-05' },
   { t: 'Investment Outlook: HSBC Perspectives Q3 2026', u: '/wealth/insights/market-outlook/investment-outlook/the-new-investment-trifecta-ai-energy-and-defence/', d: '2026-05-21' },
   { t: 'Trump-Xi summit – managed rivalry helps stabilise expectations', u: '/wealth/insights/market-outlook/special-coverage/trump-xi-summit-managed-rivalry-helps-stabilise-expectations/', d: '2026-05-18' },
   { t: 'Fed holds firm as inflation and uncertainty persist', u: '/wealth/insights/market-outlook/special-coverage/fed-holds-firm-as-inflation-and-uncertainty-persist/', d: '2026-04-30' },
@@ -6448,7 +6449,7 @@ async function _fetchBankResearch(full = false) {
 
   try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
   _persistHistory('bank_research', _brCache);   // persistance durable (Supabase, rétention 1 mois)
-  console.log(`[BankResearch] ${_brCache.length} articles (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+  console.log(`[BankResearch] ${_brCache.length} articles (was ${before}) : ${full ? 'full 30d' : 'quick'} refresh`);
   setTimeout(() => { _brWarmFreshPdfs().catch(() => {}); }, 4000);   // PDF récents → disque, en fond (1er clic instantané)
 }
 
@@ -7271,9 +7272,9 @@ app.post('/api/report-insights', async (req, res) => {
   } catch {}
   try {
     const prompt = `Tu es stratège FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport (recherche de banque, note macro OU recap de session), génère 4 à 8 "insights" courts pour un carrousel "AI Insights", classés par importance.
-OBJECTIF : des tags TRADEABLES et INTELLIGENTS — pour CHAQUE instrument que le rapport éclaire, un SIGNAL directionnel DÉDUIT des données/de l'analyse.
+OBJECTIF : des tags TRADEABLES et INTELLIGENTS, pour CHAQUE instrument que le rapport éclaire, un SIGNAL directionnel DÉDUIT des données/de l'analyse.
 - "asset" = TOUJOURS un INSTRUMENT TRADEABLE : paire FX ("EUR/USD","USD/JPY","GBP/USD","AUD/USD","USD/CAD","EUR/GBP","NZD/USD"…), devise ("US Dollar","EUR","GBP","JPY","CHF","CAD","AUD","NZD"), matière première ("Spot Gold","Brent Crude","WTI","Silver"), indice ("S&P 500","Nasdaq","DAX","Euro Stoxx 50") ou taux/obligataire ("US 10Y","Bund 10Y").
-- JAMAIS une DONNÉE / un INDICATEUR comme "asset" (PAS de "Core CPI","Core PCE","CPI","PCE","Inflation","GDP","PIB","NFP","Unemployment","Retail Sales","Sentiment"…) — ce ne sont pas des actifs tradeables. Si le rapport parle d'une donnée, DÉDUIS-EN l'instrument impacté (ex. inflation US plus forte → Fed plus hawkish → "US Dollar" BUY / "USD/JPY" BUY ; rendements en baisse → "US 10Y" BUY).
+- JAMAIS une DONNÉE / un INDICATEUR comme "asset" (PAS de "Core CPI","Core PCE","CPI","PCE","Inflation","GDP","PIB","NFP","Unemployment","Retail Sales","Sentiment"…) : ce ne sont pas des actifs tradeables. Si le rapport parle d'une donnée, DÉDUIS-EN l'instrument impacté (ex. inflation US plus forte → Fed plus hawkish → "US Dollar" BUY / "USD/JPY" BUY ; rendements en baisse → "US 10Y" BUY).
 - "signal" = "BUY" (haussier) / "SELL" (baissier) / "NEUTRAL". RAISONNE en stratège pour DÉDUIRE la direction depuis l'analyse : ex. « le GBP est sous pression » → asset "GBP/USD" signal "SELL" ; « le dollar reste soutenu par une croissance US robuste » → "US Dollar" BUY. Préfère la PAIRE quand 2 devises s'opposent.
 - ANCRE chaque signal au rapport : un vrai élément directionnel (donnée, biais de banque centrale, momentum, niveau technique, flux). Élément faible/absent → "NEUTRAL" ou n'inclus pas l'actif. N'invente AUCUN chiffre.
 Ajoute 1 à 2 cartes NARRATIVES de contexte (géopolitique, tarifs, énergie, sentiment…) sans actif tradeable clair → asset=null ET signal=null.
@@ -7410,17 +7411,17 @@ Summarise the story below into clear bullets capturing the KEY FACTS of THIS spe
 RULES:
 - 3 to 6 bullets depending on the real substance (more concrete facts = more bullets; never padding).
 - Keep the exact key figures and specifics (percentages, levels, dates, places, programs, names).
-- Put **bold** (markdown double asterisks) on the single most important phrase or number — sparingly (0 to 2 times total in the whole answer).
+- Put **bold** (markdown double asterisks) on the single most important phrase or number : sparingly (0 to 2 times total in the whole answer).
 - If the story enumerates a list (e.g. four demands/points/conditions), you MAY add ONE short header line ending with a colon (e.g. "Four points:") then that list as bullets right after.
-- One clear idea per bullet, neutral factual tone, no investment advice.${_CB_NEWS.has(category) ? "\n- BANQUE CENTRALE (Fed/BCE/BoE/BoJ/BoC/RBA/RBNZ/SNB) : précise le TON de la communication — hawkish, dovish ou neutre (attentiste) — ET la ou les FORMULATIONS qui le justifient ; dis si c'est plus hawkish/dovish que d'habitude si c'est perceptible. Base-toi UNIQUEMENT sur le contenu, sans rien inventer." : ""}
+- One clear idea per bullet, neutral factual tone, no investment advice.${_CB_NEWS.has(category) ? "\n- BANQUE CENTRALE (Fed/BCE/BoE/BoJ/BoC/RBA/RBNZ/SNB) : précise le TON de la communication, hawkish, dovish ou neutre (attentiste), ET la ou les FORMULATIONS qui le justifient ; dis si c'est plus hawkish/dovish que d'habitude si c'est perceptible. Base-toi UNIQUEMENT sur le contenu, sans rien inventer." : ""}
 - NEVER mention the news outlet or source: drop any "via X", "Reuters reports", "according to <agency/newspaper>", and all outlet names.
 - ${_MENTOR_RULES}
-- LAST bullet (mandatory): explain in ONE sentence the FUNDAMENTAL reason behind this news or market reaction — the underlying economic/monetary/geopolitical driver (e.g. WHY the index moved, WHY this decision matters), so a beginner understands the cause. Write the sentence DIRECTLY, with NO label or prefix (do NOT write "Pourquoi :" or similar). Base it ONLY on the story's content and standard economic logic; never invent figures; no advice.
+- LAST bullet (mandatory): explain in ONE sentence the FUNDAMENTAL reason behind this news or market reaction, the underlying economic/monetary/geopolitical driver (e.g. WHY the index moved, WHY this decision matters), so a beginner understands the cause. Write the sentence DIRECTLY, with NO label or prefix (do NOT write "Pourquoi :" or similar). Base it ONLY on the story's content and standard economic logic; never invent figures; no advice.
 - Réponds en FRANÇAIS (traduis si la source est dans une autre langue).
 - Reply ONLY with the lines: bullets start with •, the optional single header line ends with ":". No preamble, no conclusion.
 
 Headline: ${headline}
-Category: ${category || '—'}
+Category: ${category || '-'}
 Content: ${rawDesc.substring(0, 1100)}`, 650, { important: true, priority: 'user', claudeOverBudget: _imp });   // FR pour tout ; Claude-over-budget réservé à la macro importante (borne le coût)
 
       const bullets = [];
@@ -7531,7 +7532,7 @@ RULES:
 - Keep the [[n]] marker of each line EXACTLY, one line per marker, SAME order.
 - Preserve tickers, numbers, percentages, currency pairs and institution names (Fed, ECB, BoE, EUR/USD, Brent…) unchanged.
 - If a line is ALREADY in French, return it unchanged (with its marker).
-- Reply ONLY with the [[n]] lines translated — no preamble, no extra text.
+- Reply ONLY with the [[n]] lines translated : no preamble, no extra text.
 
 ${numbered}`, _trBudget(toTr), { important: true, priority: 'user', claudeOverBudget: false });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
       const map = {};
@@ -7611,7 +7612,7 @@ async function _gatherTerminalContext(pair) {
   try {
     const ro = await fetchCommunityOutlook('H1');
     const r = (ro || []).find(x => x.symbol === base + quote);
-    if (r) lines.push(`Retail sentiment ${base}/${quote}: ${r.longPct}% long / ${r.shortPct}% short — contrarian read: crowd ${r.longPct > r.shortPct ? 'net LONG → bearish bias' : 'net SHORT → bullish bias'}`);
+    if (r) lines.push(`Retail sentiment ${base}/${quote}: ${r.longPct}% long / ${r.shortPct}% short, contrarian read: crowd ${r.longPct > r.shortPct ? 'net LONG → bearish bias' : 'net SHORT → bullish bias'}`);
   } catch {}
   // 4) Risk sentiment global (safe-haven vs risk-on)
   try {
@@ -7775,7 +7776,7 @@ Write a structured London Open prep report. Return ONLY valid JSON:
   "keyRisks": ["risk 1","risk 2","risk 3"],
   "watchlist": [{"pair":"EUR/USD","bias":"bearish","reason":"ECB dovish"},{"pair":"USD/JPY","bias":"bullish","reason":"BoJ hold"}]
 }
-Be specific — name instruments (EUR/USD, DXY, XAU/USD, Brent, US10Y) and levels where known. Skip sections with no relevant news. Only output valid JSON.`;
+Be specific : name instruments (EUR/USD, DXY, XAU/USD, Brent, US10Y) and levels where known. Skip sections with no relevant news. Only output valid JSON.`;
 
   try {
     const text = await ai.generateText(prompt, 2500);
@@ -7870,7 +7871,7 @@ async function generateUSOpeningBriefing() {
     trade:recentNews.filter(i => i.category === 'Trade'),
   };
 
-  const prompt = `You are a professional market analyst at a prime brokerage writing the daily US opening briefing (08:45 NY). Style: Newsquawk — concise, factual, actionable. Today: ${dateStr}.
+  const prompt = `You are a professional market analyst at a prime brokerage writing the daily US opening briefing (08:45 NY). Style: Newsquawk, concise, factual, actionable. Today: ${dateStr}.
 
 OVERNIGHT / MORNING NEWS:
 CENTRAL BANKS:\n${summarise(sections.cb)}
@@ -8150,13 +8151,15 @@ function _stripMd(s) {
 
 // ── Anti tiret cadratin (« — ») : tic d'écriture IA banni de tout le contenu AFFICHÉ (demande user).
 // En début de ligne (puce) → retiré ; en milieu de phrase → virgule. Ne touche PAS le tiret court «–» (dates).
+// ⚠️ UNE SEULE RÈGLE POUR TOUT LE DESK (14/08). Cette fonction avait sa propre convention (toujours
+// une virgule) pendant que le filet posé sur la sortie IA en avait une autre : deux surfaces du même
+// produit auraient ponctué différemment la même phrase. Elle DÉLÈGUE donc désormais à `sansCadratin`
+// (ai.js), qui choisit selon le contexte : deux-points pour une explication (« CPI +0,4% : surprise
+// haussière », bien meilleur qu'une virgule), virgule ensuite, trait d'union pour une plage chiffrée.
+// Elle reste utile ici : elle couvre aussi le texte NON généré par l'IA (titres de dépêches Reuters,
+// contenus scrapés), que le filet d'ai.js ne voit jamais.
 function _noDash(s) {
-  if (s == null || typeof s !== 'string' || s.indexOf('—') === -1) return s;
-  return s
-    .replace(/^[ \t]*—[ \t]*/gm, '')          // « — item » en début de ligne → puce retirée
-    .replace(/[ \t]*—+[ \t]*/g, ', ')          // « texte — texte » → « texte, texte »
-    .replace(/,[ \t]*,+/g, ', ')               // virgules doublées éventuelles
-    .replace(/[ \t]+,/g, ',');
+  return ai.sansCadratin(s);
 }
 // Version PROFONDE : nettoie toutes les chaînes d'un objet/tableau EN PLACE (payloads IA uniquement —
 // jamais appliqué aux titres de news sources). Idempotent → sûr à chaque serve.
@@ -8250,7 +8253,7 @@ function buildUSOpening({ dateStr, s, reportType }) {
 
 function buildAsiaOpening({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Asia Opening — ${s.all.length} events in review · ${dateStr}`);
+  bullets.push(`Asia Opening : ${s.all.length} events in review · ${dateStr}`);
   _pushBullets(bullets, 'BoJ / RBA / PBOC Watch', s.cb, 3);
   _pushBullets(bullets, 'Asian Session Headlines', s.asian, 3);
   _pushBullets(bullets, 'Overnight Data', s.hdata.length ? s.hdata : s.data, 3);
@@ -8312,7 +8315,7 @@ function buildUSRecap({ dateStr, s, reportType }) {
 
 function buildDailyReview({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Daily Review — ${s.all.length} events · CB: ${s.cb.length} · Data: ${s.data.length} · Geo: ${s.geo.length} · ${dateStr}`);
+  bullets.push(`Daily Review : ${s.all.length} events · CB: ${s.cb.length} · Data: ${s.data.length} · Geo: ${s.geo.length} · ${dateStr}`);
   _pushBullets(bullets, 'Central Banks', s.cb, 4);
   _pushBullets(bullets, 'High-Impact Data', s.hdata.length ? s.hdata : s.data, 4);
   _pushBullets(bullets, 'Geopolitical', s.geo, 3);
@@ -8329,7 +8332,7 @@ function buildDailyReview({ dateStr, s, reportType }) {
 // London Opening Preparation (07:45 Paris — avant l'ouverture de Londres)
 function buildLondonOpening({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`London Opening — ${s.all.length} events reviewed · ${dateStr}`);
+  bullets.push(`London Opening : ${s.all.length} events reviewed · ${dateStr}`);
   _pushBullets(bullets, 'BoE / ECB Watch',       s.cb, 3);
   _pushBullets(bullets, 'Overnight Headlines',   [...s.asian, ...s.geo].slice(0,5), 3);
   _pushBullets(bullets, 'European Data Preview', s.hdata.length ? s.hdata : s.data, 3);
@@ -8343,7 +8346,7 @@ function buildLondonOpening({ dateStr, s, reportType }) {
 // Daily Market Recap (22:00 Paris — après clôture US)
 function buildDailyMarketRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Daily Market Recap — ${s.all.length} items · ${dateStr}`);
+  bullets.push(`Daily Market Recap : ${s.all.length} items · ${dateStr}`);
   _pushBullets(bullets, 'Global Market Sentiment', [...s.fx, ...s.nrg].slice(0,4), 2);
   _pushBullets(bullets, 'Central Banks & Policy',  s.cb, 4);
   _pushBullets(bullets, 'Key Macro Releases',      s.hdata.length >= 2 ? s.hdata : s.data, 4);
@@ -8358,7 +8361,7 @@ function buildDailyMarketRecap({ dateStr, s, reportType }) {
 // Global Economic Weekly (vendredi 18:00 Paris — revue macro hebdomadaire)
 function buildGlobalEconomicWeekly({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Global Economic Weekly — ${s.all.length} items · Week ending ${dateStr}`);
+  bullets.push(`Global Economic Weekly : ${s.all.length} items · Week ending ${dateStr}`);
   _pushBullets(bullets, 'Central Bank Highlights', s.cb, 6);
   _pushBullets(bullets, 'Major Data Releases',     s.hdata.length >= 3 ? s.hdata : s.data, 6);
   _pushBullets(bullets, 'Geopolitical Developments', s.geo, 5);
@@ -8371,7 +8374,7 @@ function buildGlobalEconomicWeekly({ dateStr, s, reportType }) {
 // Weekly Market Recap (vendredi 21:00 Paris — synthèse marchés hebdo)
 function buildWeeklyMarketRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Weekly Market Recap — ${s.all.length} items · Week ending ${dateStr}`);
+  bullets.push(`Weekly Market Recap : ${s.all.length} items · Week ending ${dateStr}`);
   _pushBullets(bullets, 'Key Market Drivers',     [...s.fx, ...s.nrg].slice(0,6), 3);
   _pushBullets(bullets, 'Central Bank Commentary', s.cb, 5);
   _pushBullets(bullets, 'Top Data Events',         s.hdata.length >= 2 ? s.hdata : s.data, 5);
@@ -8381,7 +8384,7 @@ function buildWeeklyMarketRecap({ dateStr, s, reportType }) {
   _pushBullets(bullets, 'Looking Ahead',          [...s.cb, ...s.data].slice(0,4), 2);
   // Titre plus parlant : si pas d'accroche forte (peu/pas de données), on évite le fade "Markets Update"
   let subtitle = _briefingSubtitle(reportType, s, ['Fed','ECB','BoJ']);
-  if (/:\s*Markets Update$/.test(subtitle)) subtitle = `${reportType} — Synthèse hebdomadaire des marchés`;
+  if (/:\s*Markets Update$/.test(subtitle)) subtitle = `${reportType} : Synthèse hebdomadaire des marchés`;
   return { subtitle, bullets, tags: _briefingTags(s, ['Weekly Recap','FX','Markets']) };
 }
 
@@ -8447,10 +8450,10 @@ function _gewCbEventComment(ccy, isSpeech) {
     if (isSpeech) {
       // Interprétation d'un DISCOURS : ton hawkish/dovish/hold IMPLICITE d'après le marché (proba prochaine réunion) + date probable de la prochaine réunion. 100% marché, zéro invention.
       const tone = _GEW_CB_TONE[b.move] || 'hold (statu quo)';
-      return `Interprétation — ton ${tone} d'après les probabilités de marché${nextTxt ? ` ; ${nextTxt}` : ''} : le marché anticipe un ${word} (${top}%).`;
+      return `Interprétation : ton ${tone} d'après les probabilités de marché${nextTxt ? ` ; ${nextTxt}` : ''} : le marché anticipe un ${word} (${top}%).`;
     }
     const traj = _GEW_CB_TRAJ[b.move] || '';
-    return `Politique monétaire — ${nextTxt ? nextTxt + ' : ' : ''}le marché anticipe un ${word} (${top}%)${traj ? `, ${traj}` : ''}.`;
+    return `Politique monétaire : ${nextTxt ? nextTxt + ' : ' : ''}le marché anticipe un ${word} (${top}%)${traj ? `, ${traj}` : ''}.`;
   } catch { return ''; }
 }
 // ── PROPOS RÉELS d'un discours BC (demande user : « des phrases du discours qui donnent des indications ») ──
@@ -8558,23 +8561,23 @@ async function generateGlobalEconomicWeekly(force = false) {
 
   // Événements PHARES (High) pour le titre + le narratif Highlights — avec le RÉSULTAT publié (actual)
   const marquee = evClean.filter(e => e.impact === 'High')
-    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || '—'}, préc. ${e.previous || '—'})` : ''}`);
+    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || ''}, préc. ${e.previous || ''})` : ''}`);
   // Communications des BANQUES CENTRALES de la semaine (décisions, discours, minutes, témoignages) →
   // grounding de la partie « banques centrales » de la Synthèse : ton, discours de présidents/gouverneurs,
   // changements de cap. (Demande user : compléter la synthèse par les discours/changements BC.)
   const cbEvents = evClean.filter(e => SB_CURRENCIES.includes(e.currency) && _GEW_CB_EVENT_RX.test(e.title || ''))
-    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || '—'}, préc. ${e.previous || '—'})` : ''}`);
+    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || ''}, préc. ${e.previous || ''})` : ''}`);
   const recentCtx = _recapClean(allNews.filter(i => i.timestamp > now - 7 * 86400000 && !i._briefing))
     .slice(0, 40).map(i => `[${i.category || ''}] ${i.headline}`);
 
   // ── IA : titre + Highlights (narratif) + insights + paires (RÉTROSPECTIF). Repli déterministe si IA KO. ──
   let title = 'Global Economic Weekly', highlights = '', synthese = [], insights = [], pairs = [], essentiel = [];
   if (nEv > 0) {
-    const prompt = `You are a senior macro strategist writing the WEEK IN REVIEW ("Global Economic Weekly"), a RETROSPECTIVE macro recap of the trading week that JUST ENDED (Monday–Friday), for a professional FX & markets desk (depth comparable to a top-tier bank's week-in-review note). The week is defined by the HIGH-IMPACT events below, each shown with its ACTUAL result versus consensus. Write ALL output text IN FRENCH (français soigné), polished, specific and RETROSPECTIVE / PAST TENSE — describe what the central banks DECIDED and how the data CAME OUT versus expectations (réel vs attendu). Keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
+    const prompt = `You are a senior macro strategist writing the WEEK IN REVIEW ("Global Economic Weekly"), a RETROSPECTIVE macro recap of the trading week that JUST ENDED (Monday–Friday), for a professional FX & markets desk (depth comparable to a top-tier bank's week-in-review note). The week is defined by the HIGH-IMPACT events below, each shown with its ACTUAL result versus consensus. Write ALL output text IN FRENCH (français soigné), polished, specific and RETROSPECTIVE / PAST TENSE : describe what the central banks DECIDED and how the data CAME OUT versus expectations (réel vs attendu). Keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
 {
   "title": "Global Economic Weekly: <titre accrocheur EN FRANÇAIS, RÉTROSPECTIF, nommant 2-3 faits marquants de la semaine écoulée, ex. 'Fed prudente et inflation en repli : ce qu'il faut retenir de la semaine'>",
   "essentiel": ["<la semaine en 3 PHRASES MAXIMUM, la plus importante d'abord : le FAIT + POURQUOI ça compte pour le marché, ≤ 20 mots chacune, français simple sans jargon>", "...", "..."],
-  "highlights": "<un récap SIMPLE et clair de 2 à 3 COURTS paragraphes (~150-220 mots au total), phrases COURTES, un fait par phrase, zéro remplissage, RÉTROSPECTIF (passé). Séparer les paragraphes par \\n\\n. NE JAMAIS couper une phrase en plein milieu.\\n\\n• Paragraphe 1 — L'ÉVÉNEMENT LE PLUS MARQUANT de la semaine : ce qui a été décidé/publié, la surprise versus consensus, l'effet sur le marché, en 2-3 phrases courtes.\\n\\n• Paragraphe 2 — LES DONNÉES MAJEURES de la semaine, toutes régions : réel vs attendu et l'effet marché, une phrase par publication marquante.\\n\\n• Paragraphe 3 (si matière) — LES BANQUES CENTRALES : décisions de taux + discours marquants avec leur TON ; s'appuyer STRICTEMENT sur le bloc « CENTRAL BANK COMMUNICATIONS » ci-dessous. Rien cette semaine → une phrase.>",
+  "highlights": "<un récap SIMPLE et clair de 2 à 3 COURTS paragraphes (~150-220 mots au total), phrases COURTES, un fait par phrase, zéro remplissage, RÉTROSPECTIF (passé). Séparer les paragraphes par \\n\\n. NE JAMAIS couper une phrase en plein milieu.\\n\\n• Paragraphe 1 : L'ÉVÉNEMENT LE PLUS MARQUANT de la semaine : ce qui a été décidé/publié, la surprise versus consensus, l'effet sur le marché, en 2-3 phrases courtes.\\n\\n• Paragraphe 2, LES DONNÉES MAJEURES de la semaine, toutes régions : réel vs attendu et l'effet marché, une phrase par publication marquante.\\n\\n• Paragraphe 3 (si matière), LES BANQUES CENTRALES : décisions de taux + discours marquants avec leur TON ; s'appuyer STRICTEMENT sur le bloc « CENTRAL BANK COMMUNICATIONS » ci-dessous. Rien cette semaine → une phrase.>",
   "synthese": [ { "heading": "<thème canonique>", "bullets": ["**<Sujet 2-4 mots> :** UNE phrase concrète (réel vs attendu quand dispo)", "..."] } ],
   "insights": ["<retrospective takeaway from the week just ended, 1 past-tense sentence (what happened / what surprised)>", "... 5 to 6 cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: how the pair MOVED over the week and which event/outcome drove it (bias = net direction over the week: BUY=up/stronger, SELL=down, NEUTRAL=flat)>" } ]
@@ -8582,18 +8585,18 @@ async function generateGlobalEconomicWeekly(force = false) {
 Rules:
 - "essentiel" = LA PREMIÈRE CHOSE que lit l'abonné : 3 phrases MAX qui résument TOUTE la semaine (ex. « La Fed a maintenu ses taux et reste prudente sur l'inflation. »). Chaque phrase = un fait majeur + sa conséquence, ≤ 20 mots, ZÉRO jargon (ou traduit). Quelqu'un qui ne lit QUE ces 3 lignes doit avoir compris la semaine.
 - Dans "synthese", chaque puce se TERMINE OBLIGATOIREMENT par « → » suivi de la conséquence concrète en ≤ 8 mots (ex. « → le dollar se renforce », « → la BoC peut baisser ses taux »). Une puce sans « → conséquence » est INVALIDE.
-- "synthese" = la SYNTHÈSE de la semaine en PUCES THÉMATIQUES (façon note de desk, LA MÊME que « Points Macro Clés ») : regroupe les faits sous CES en-têtes EXACTES et dans CET ORDRE, en n'incluant QUE celles ayant un contenu RÉEL cette semaine : "Banques Centrales & Politique Monétaire", "Inflation & Croissance", "Croissance & Emploi", "Commerce International", "Marchés & Cross-Asset". 2 à 3 puces MAX par thème. Chaque puce COMMENCE par un COURT LIBELLÉ EN GRAS (2-4 mots, ex. **BoC :**, **CPI US :**, **Chine — Exports :**) suivi d'UNE phrase COURTE et concrète (réel vs attendu vs précédent quand dispo) terminée par la CONSÉQUENCE simple (ce que ça change pour le trader/le marché). N'inclus AUCUN thème vide. Couvre OBLIGATOIREMENT les décisions de taux (BoC…) et les gros prints (CPI, PPI, PIB, emploi) présents dans les données. Ground STRICTEMENT dans les KEY EVENTS + CENTRAL BANK COMMUNICATIONS ci-dessous — invente rien. Traduis toute donnée anglaise (expected→attendu, previous→précédent). C'est cette "synthese" qui est AFFICHÉE ; "highlights" reste un résumé texte de secours.
-- 📖 LISIBILITÉ (PRIORITAIRE, demande du desk : « simple à lire et à comprendre ») : écris pour un trader NON-économiste. Phrases COURTES (≤ 18 mots), UNE idée par phrase, voix active. AUCUN jargon sans traduction : à la PREMIÈRE occurrence, glisse l'explication simple entre parenthèses — ex. « hawkish (favorable à des taux plus élevés) », « dovish (favorable à des taux plus bas) », « bps (points de base, 0,01 %) ». Pas de subordonnées à rallonge, pas de doubles négations, pas d'abréviations obscures. Quelqu'un qui découvre la macro doit comprendre CHAQUE puce du premier coup.
+- "synthese" = la SYNTHÈSE de la semaine en PUCES THÉMATIQUES (façon note de desk, LA MÊME que « Points Macro Clés ») : regroupe les faits sous CES en-têtes EXACTES et dans CET ORDRE, en n'incluant QUE celles ayant un contenu RÉEL cette semaine : "Banques Centrales & Politique Monétaire", "Inflation & Croissance", "Croissance & Emploi", "Commerce International", "Marchés & Cross-Asset". 2 à 3 puces MAX par thème. Chaque puce COMMENCE par un COURT LIBELLÉ EN GRAS (2-4 mots, ex. **BoC :**, **CPI US :**, **Chine : Exports :**) suivi d'UNE phrase COURTE et concrète (réel vs attendu vs précédent quand dispo) terminée par la CONSÉQUENCE simple (ce que ça change pour le trader/le marché). N'inclus AUCUN thème vide. Couvre OBLIGATOIREMENT les décisions de taux (BoC…) et les gros prints (CPI, PPI, PIB, emploi) présents dans les données. Ground STRICTEMENT dans les KEY EVENTS + CENTRAL BANK COMMUNICATIONS ci-dessous : invente rien. Traduis toute donnée anglaise (expected→attendu, previous→précédent). C'est cette "synthese" qui est AFFICHÉE ; "highlights" reste un résumé texte de secours.
+- 📖 LISIBILITÉ (PRIORITAIRE, demande du desk : « simple à lire et à comprendre ») : écris pour un trader NON-économiste. Phrases COURTES (≤ 18 mots), UNE idée par phrase, voix active. AUCUN jargon sans traduction : à la PREMIÈRE occurrence, glisse l'explication simple entre parenthèses : ex. « hawkish (favorable à des taux plus élevés) », « dovish (favorable à des taux plus bas) », « bps (points de base, 0,01 %) ». Pas de subordonnées à rallonge, pas de doubles négations, pas d'abréviations obscures. Quelqu'un qui découvre la macro doit comprendre CHAQUE puce du premier coup.
 - ${_MENTOR_RULES}
-- 5 to 7 key pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/USD, XAU/USD, USD/CAD…); "bias" is exactly "BUY", "SELL" or "NEUTRAL". Ground EVERYTHING in the events and results below — no invented data. No URLs, no source attributions.
+- 5 to 7 key pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/USD, XAU/USD, USD/CAD…); "bias" is exactly "BUY", "SELL" or "NEUTRAL". Ground EVERYTHING in the events and results below : no invented data. No URLs, no source attributions.
 
-WEEK JUST ENDED — KEY EVENTS (actual vs consensus, vs previous):
+WEEK JUST ENDED : KEY EVENTS (actual vs consensus, vs previous):
 ${marquee.join('\n') || '(no high-impact events)'}
 
-WEEK JUST ENDED — CENTRAL BANK COMMUNICATIONS (decisions, speeches, minutes, testimony — cover these EXPLICITLY in paragraph 3: which bank, what tone, any change of stance):
+WEEK JUST ENDED : CENTRAL BANK COMMUNICATIONS (decisions, speeches, minutes, testimony, cover these EXPLICITLY in paragraph 3: which bank, what tone, any change of stance):
 ${cbEvents.join('\n') || '(no central-bank communications this week)'}
 
-MARKET CONTEXT (news from the week just ended — includes central-bank speaker headlines; weave the relevant bits, especially governor/president remarks, into the recap):
+MARKET CONTEXT (news from the week just ended : includes central-bank speaker headlines; weave the relevant bits, especially governor/president remarks, into the recap):
 ${recentCtx.join('\n')}`;
     try {
       _aiReset();
@@ -8628,7 +8631,7 @@ ${recentCtx.join('\n')}`;
   if (!insights.length) insights = marquee.slice(0, 6);
   if (title === 'Global Economic Weekly') {
     const cb = evClean.find(e => /\b(FOMC|Fed|Rate Decision|Announcement|Policy|Interest Rate|BoJ|BoE|ECB|SNB|RBA|BoC|RBNZ)\b/i.test(e.title));
-    title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} — la décision de la semaine écoulée` : 'Banques centrales et données clés : la semaine écoulée');
+    title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} : la décision de la semaine écoulée` : 'Banques centrales et données clés : la semaine écoulée');
   }
 
   // ── Commentaire d'analyse PAR ÉVÉNEMENT (style Econoday) — UN seul appel groupé, caché (1×/sem).
@@ -8641,8 +8644,8 @@ ${recentCtx.join('\n')}`;
       // chiffre n'ont rien de commentable → PAS de commentaire (fini le remplissage « Pas de données pour l'événement N »).
       const withData = flat.filter(e => e.actual && String(e.actual).trim());
       if (withData.length) {
-        const list = withData.map((e, i) => `${i + 1}. ${e.country} ${e.title} — actual ${e.actual} vs consensus ${e.forecast || '—'}${e.previous ? `, previous ${e.previous}` : ''}`).join('\n');
-        const cprompt = `You are an Econoday-style economist. For EACH event below (each HAS an actual result), write ONE concise, specific analyst sentence EN FRANÇAIS, PAST TENSE: how the ACTUAL came in versus consensus (surprise à la hausse / à la baisse, ou conforme) and why it mattered for markets. Keep tickers/codes/acronyms as-is. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. If an event is not worth commenting, OMIT its number entirely. NEVER write filler such as « pas de données disponibles » or « l'événement N ». Return ONLY valid JSON mapping each event number to its French sentence, e.g. {"1":"Le chiffre est ressorti à ... contre ... attendu, ...","2":"..."}.
+        const list = withData.map((e, i) => `${i + 1}. ${e.country} ${e.title} : actual ${e.actual} vs consensus ${e.forecast || '-'}${e.previous ? `, previous ${e.previous}` : ''}`).join('\n');
+        const cprompt = `You are an Econoday-style economist. For EACH event below (each HAS an actual result), write ONE concise, specific analyst sentence EN FRANÇAIS, PAST TENSE: how the ACTUAL came in versus consensus (surprise à la hausse / à la baisse, ou conforme) and why it mattered for markets. Keep tickers/codes/acronyms as-is. Ground EVERYTHING in the numbers provided : invent nothing, add no ranges. If an event is not worth commenting, OMIT its number entirely. NEVER write filler such as « pas de données disponibles » or « l'événement N ». Return ONLY valid JSON mapping each event number to its French sentence, e.g. {"1":"Le chiffre est ressorti à ... contre ... attendu, ...","2":"..."}.
 
 EVENTS:
 ${list}`;
@@ -8679,7 +8682,7 @@ ${list}`;
   const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, essentiel, synthese, insights, pairs, days };
   // Description texte (recherche/affichage simple)
   const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 500) : ''];
-  days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.actual ? ' — réel ' + e.actual + ' vs cons. ' + (e.forecast || '—') : (e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / préc. ' + e.previous : '') : '')}`)); });
+  days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.actual ? ' : réel ' + e.actual + ' vs cons. ' + (e.forecast || '-') : (e.forecast ? ' : cons. ' + e.forecast + (e.previous ? ' / préc. ' + e.previous : '') : '')}`)); });
   // PUBLICATION = le SAMEDI qui CLÔTURE la semaine couverte (lendemain du vendredi de clôture, ~16h Paris) →
   // on DATE le GEW à ce week-end, PAS à l'instant de génération (sinon il « saute » à la date du jour à chaque régén).
   const pub = new Date(friday); pub.setUTCDate(friday.getUTCDate() + 1); pub.setUTCHours(16, 0, 0, 0);   // samedi clôturant la semaine couverte (week-end de publication)
@@ -8687,7 +8690,7 @@ ${list}`;
   const timeStr = new Date(pubTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const item = {
     id: weekPrefix + '-' + pubTs,
-    headline: `${title} — ${weekRange}`,
+    headline: `${title} : ${weekRange}`,
     description: descParts.filter(Boolean).join('\n'),
     category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: pubTs,
     priority: 'normal', tags: ['Bilan Hebdo', 'Global Economy', 'Macro'],
@@ -8702,7 +8705,7 @@ ${list}`;
   // « Hebdo Économique Mondial » disparaissait de l'historique — bug signalé).
   auth.weeklyReportSave('gew-' + weekKey, item).catch(e => console.warn('[GEW] persist échec:', e.message));
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
-  console.log(`[GEW] ${weekly.highlights ? 'IA' : 'repli'} ${weekKey} (${weekRange}) — ${days.length} jours, ${nEv} events, ${pairs.length} paires`);
+  console.log(`[GEW] ${weekly.highlights ? 'IA' : 'repli'} ${weekKey} (${weekRange}), ${days.length} jours, ${nEv} events, ${pairs.length} paires`);
   return item;
 }
 // Re-date le GEW COURANT au WEEK-END de publication (samedi clôturant la semaine couverte, ~16h Paris) →
@@ -8762,7 +8765,7 @@ const _RECAP_CCY_KW = {
 // semaine infirme le cadre, l'IA ajuste la conclusion. Actualisable à mesure que le régime macro évolue.
 const _RECAP_CCY_FRAME = {
   USD: "Politique : restrictive à long terme, mais le pricing court terme s'est assoupli après un IPC plus faible. Inflation : élevée mais en baisse tendancielle. Moteurs dominants : pricing de la Fed (inflation) et risque géopolitique (US-Iran). Biais de référence : neutre à court terme, haussier à long terme.",
-  EUR: "Politique : BCE restrictive, hausse encore possible (inflation core collante, croissance résiliente). HIÉRARCHIE des données zone euro : l'ALLEMAGNE d'abord (l'Ifo est l'indicateur AVANCÉ de la croissance de la zone), la FRANCE ensuite, puis le reste de la zone — pondère ta lecture en conséquence. Moteurs dominants : politique de la BCE (inflation), données allemandes, flux dollar, pétrole. Biais de référence : haussier modéré.",
+  EUR: "Politique : BCE restrictive, hausse encore possible (inflation core collante, croissance résiliente). HIÉRARCHIE des données zone euro : l'ALLEMAGNE d'abord (l'Ifo est l'indicateur AVANCÉ de la croissance de la zone), la FRANCE ensuite, puis le reste de la zone, pondère ta lecture en conséquence. Moteurs dominants : politique de la BCE (inflation), données allemandes, flux dollar, pétrole. Biais de référence : haussier modéré.",
   GBP: "Politique : restrictive (taux ~3,75 %) mais communication prospective plus accommodante. Inflation : élevée et persistante. Moteurs dominants : différentiels de taux et actualité politique britannique. Biais de référence : haussier mais vulnérable à une correction.",
   JPY: "Politique : BoJ très en retard de cycle (taux ~1,00 %) → DIFFÉRENTIEL DE TAUX nettement défavorable face au reste du G10 : le portage joue CONTRE le yen, d'où sa sous-performance STRUCTURELLE. Moteurs dominants : différentiel de taux, risque/épisodes d'intervention des autorités japonaises (corrections brutales de l'USD/JPY), pricing de la Fed. Biais de référence : baissier structurel, corrigé ponctuellement par les interventions.",
   CHF: "Politique : SNB au plancher (taux ~0 %, aucune hausse attendue avant fin 2027) → le DIFFÉRENTIEL DE TAUX le plus défavorable du G10 : le portage joue contre le franc, qui sous-performe structurellement. Moteurs dominants : différentiel de taux, sentiment Risk-On / Risk-Off (valeur refuge en période de stress). Biais de référence : baissier tant que la perspective de taux zéro prolongé tient ; demande refuge en risk-off.",
@@ -8831,47 +8834,47 @@ const _RECAP_DRIVER_EXCLUDE_RX = /g[ée]opolit|[ée]nergie|positionn|\bflux\b/i;
 //    TEMPS PARTIEL (enquête ménages), axe DISTINCT du saisonnier vs durable déjà présent. ──
 const _MENTOR_RULES = `RÈGLES D'ANALYSE DE DESK (applique-les quand le sujet s'y prête, sans les réciter) :
 - CPI / inflation : confronte le chiffre au consensus ET au pricing de taux du marché → signale tout MISPRICING (marché mal positionné avant/après la donnée) plutôt que de commenter le chiffre isolément.
-- FRAÎCHEUR d'un CPI : un CPI porte TOUJOURS sur un mois DÉJÀ ÉCOULÉ (publié en cours de mois suivant) — rappelle donc son MOIS DE RÉFÉRENCE, et quand le contexte fourni le permet, confronte-le à la tendance ACTUELLE du pétrole (jamais une tendance supposée). Si les deux divergent (inflation en repli grâce à un pétrole bas au mois de référence, pétrole déjà rebondi depuis), dis-le explicitement — « ce chiffre reflète un contexte énergétique qui n'est plus celui d'aujourd'hui » — car le marché peut alors mal valoriser la donnée.
-- « Monetary Policy Statement » et communiqués de banque centrale = un TEXTE, pas un chiffre : la substance (nuances hawkish/dovish, changements de formulation) se lit dans les DÉCLARATIONS et titres d'actualité liés fournis dans le contexte — appuie-toi dessus, jamais sur le seul intitulé de l'événement.
-- PMI : pour les ÉTATS-UNIS (USD), privilégie les PMI SERVICES (et Flash PMI Services) plutôt que les PMI Manufacturing / Flash Manufacturing — l'économie américaine est tirée par les services. Un FLASH PMI anticipe le PMI final → traite le Flash comme le signal principal et le final comme confirmation.
-- Emploi (Employment Change, NFP, taux d'emploi) : quand le contexte fourni le permet, qualifie la COMPOSITION des créations — emplois saisonniers/temporaires vs postes durables (CDI, contrats permanents) : une hausse tirée par le saisonnier vaut moins qu'une création durable.
-- Emploi, SECOND axe de composition (TEMPS PLEIN vs TEMPS PARTIEL) : quand le contexte fourni le permet, lis la RÉPARTITION de l'enquête ménages — des pertes de postes à temps plein compensées par du temps partiel masquent une dégradation du marché du travail derrière un NFP en apparence bon. Axe DISTINCT du saisonnier vs durable (un poste permanent peut être à temps partiel) : les deux se regardent séparément.
-- NOMS PROPRES — RÈGLE ABSOLUE : reprends un nom de personne EXACTEMENT tel qu'il apparaît dans les données fournies. N'AJOUTE JAMAIS un prénom, un titre ou une fonction qui n'y figure pas (constaté : « Hammack » complété en « Christopher Hammack », qui n'existe pas). Dans le doute, écris le seul patronyme. Même règle pour les intitulés d'institutions et les noms d'entreprises : jamais de complément inventé.`;
+- FRAÎCHEUR d'un CPI : un CPI porte TOUJOURS sur un mois DÉJÀ ÉCOULÉ (publié en cours de mois suivant), rappelle donc son MOIS DE RÉFÉRENCE, et quand le contexte fourni le permet, confronte-le à la tendance ACTUELLE du pétrole (jamais une tendance supposée). Si les deux divergent (inflation en repli grâce à un pétrole bas au mois de référence, pétrole déjà rebondi depuis), dis-le explicitement : « ce chiffre reflète un contexte énergétique qui n'est plus celui d'aujourd'hui » : car le marché peut alors mal valoriser la donnée.
+- « Monetary Policy Statement » et communiqués de banque centrale = un TEXTE, pas un chiffre : la substance (nuances hawkish/dovish, changements de formulation) se lit dans les DÉCLARATIONS et titres d'actualité liés fournis dans le contexte : appuie-toi dessus, jamais sur le seul intitulé de l'événement.
+- PMI : pour les ÉTATS-UNIS (USD), privilégie les PMI SERVICES (et Flash PMI Services) plutôt que les PMI Manufacturing / Flash Manufacturing, l'économie américaine est tirée par les services. Un FLASH PMI anticipe le PMI final → traite le Flash comme le signal principal et le final comme confirmation.
+- Emploi (Employment Change, NFP, taux d'emploi) : quand le contexte fourni le permet, qualifie la COMPOSITION des créations, emplois saisonniers/temporaires vs postes durables (CDI, contrats permanents) : une hausse tirée par le saisonnier vaut moins qu'une création durable.
+- Emploi, SECOND axe de composition (TEMPS PLEIN vs TEMPS PARTIEL) : quand le contexte fourni le permet, lis la RÉPARTITION de l'enquête ménages : des pertes de postes à temps plein compensées par du temps partiel masquent une dégradation du marché du travail derrière un NFP en apparence bon. Axe DISTINCT du saisonnier vs durable (un poste permanent peut être à temps partiel) : les deux se regardent séparément.
+- NOMS PROPRES : RÈGLE ABSOLUE : reprends un nom de personne EXACTEMENT tel qu'il apparaît dans les données fournies. N'AJOUTE JAMAIS un prénom, un titre ou une fonction qui n'y figure pas (constaté : « Hammack » complété en « Christopher Hammack », qui n'existe pas). Dans le doute, écris le seul patronyme. Même règle pour les intitulés d'institutions et les noms d'entreprises : jamais de complément inventé.`;
 function _recapCcyPrompt(ccy, ccyCtx, gSummary, deskBias) {
   const name = _RECAP_CCY_NAME[ccy] || ccy;
   const frame = _RECAP_CCY_FRAME[ccy] || '';
   // Le biais est IMPOSÉ par le desk (Smart Bias, source de vérité) → l'IA écrit bias + justification COHÉRENTS
   // avec lui (fini le badge qui contredit le texte). Vide si le desk n'a pas de biais frais (repli sur le biais IA).
-  const deskRule = deskBias ? `\n\nBIAIS IMPOSÉ PAR LE DESK (source de vérité, calcul quantitatif Smart Bias — le trader voit CE biais dans le Radar de Biais) : le biais du ${name} cette semaine est « ${deskBias} ». Ton champ "bias" DOIT être EXACTEMENT « ${deskBias} » ; ta "biasRationale" et ta "conclusion" doivent EXPLIQUER / être COHÉRENTES avec ce biais — ne le contredis JAMAIS.` : '';
+  const deskRule = deskBias ? `\n\nBIAIS IMPOSÉ PAR LE DESK (source de vérité, calcul quantitatif Smart Bias : le trader voit CE biais dans le Radar de Biais) : le biais du ${name} cette semaine est « ${deskBias} ». Ton champ "bias" DOIT être EXACTEMENT « ${deskBias} » ; ta "biasRationale" et ta "conclusion" doivent EXPLIQUER / être COHÉRENTES avec ce biais : ne le contredis JAMAIS.` : '';
   return `You are a senior FX / macro strategist writing the ${name} section of an institutional WEEKLY MARKET RECAP, IN FRENCH (français soigné, précis, ANALYTIQUE), à la manière d'une note de desk de banque d'investissement ou de hedge fund. Ne te contente PAS de résumer les news : EXPLIQUE les mécanismes macro (politique monétaire, inflation, différentiels de taux, flux, géopolitique, risk-on/off) et raconte une HISTOIRE cohérente pour la devise.
 
 Couvre le ${name} sur la semaine de trading qui vient de se clôturer, ANCRÉ UNIQUEMENT sur les données réelles ci-dessous (session wraps + résultats calendrier + titres mentionnant la devise + PRICING marché). N'INVENTE JAMAIS un chiffre, un niveau, une probabilité ou un événement absent des données.
 
 ${_MENTOR_RULES}
 
-CADRE MACRO DE RÉFÉRENCE (contexte à CONFRONTER aux données réelles de la semaine — NE PAS recopier mot pour mot ; si la semaine contredit ce cadre, AJUSTE la conclusion et le biais en conséquence) :
-${frame || '(aucun cadre spécifique — raisonne à partir des seules données)'}${deskRule}
+CADRE MACRO DE RÉFÉRENCE (contexte à CONFRONTER aux données réelles de la semaine : NE PAS recopier mot pour mot ; si la semaine contredit ce cadre, AJUSTE la conclusion et le biais en conséquence) :
+${frame || '(aucun cadre spécifique : raisonne à partir des seules données)'}${deskRule}
 
 Return ONLY valid JSON (no preamble, no markdown fences) :
 {
   "thesis": "<accroche COURTE et percutante (max ~12 mots), le titre qui claque façon desk. NE COMMENCE PAS par le code de la devise.>",
   "execSummary": "<LE PARAGRAPHE D'OUVERTURE de la devise, et le SEUL texte narratif de la section : 3 à 5 phrases qui RACONTENT LE CHEMIN de la semaine, jour par jour quand c'est pertinent. Modèle attendu : « Semaine volatile et finalement plus faible, le dollar pris entre une communication Fed toujours hawkish et une détérioration inattendue du marché du travail. Le DXY a débuté ferme lundi sur des PMI solides, s'est affaibli mardi-mercredi sur l'optimisme Ormuz, a rebondi jeudi vers 100 sur le regain de doutes, avant de chuter vendredi sur un NFP très décevant. » Commence par le VERDICT de la semaine (« Semaine volatile et finalement plus faible », « Semaine globalement flat », « Semaine résiliente mais dominée par le dollar »), puis déroule la trajectoire avec ses causes. INTERDIT de paraphraser le résumé global du rapport.>",
   "monetaryPolicy": "<UNE phrase MAXIMUM, et SEULEMENT si elle apporte quelque chose que les puces d'intervenants ne disent pas (ex. « narratif de statu quo prolongé de la BoE, renforcé par la communication antérieure de Bailey »). Sinon chaîne VIDE. ⚠️ Ce champ ne doit PAS redevenir un paragraphe : les propos et le pricing s'affichent en puces juste en dessous.>",
-  "inflation": "<UNE phrase MAXIMUM sur l'inflation de ${ccy} / ${name}, uniquement si les chiffres publiés ne parlent pas d'eux-mêmes. Sinon chaîne VIDE — les prints s'affichent en puces sous cette rubrique. JAMAIS le chiffre d'un autre pays.>",
-  "drivers": [ { "name": "<THÈME de la semaine pour cette devise, façon note de desk : Banque centrale | Fiscal | Commerce | Intervention / FX | Chine | Pétrole | Géopolitique | Risk-On/Off | Différentiel de taux | Flux obligataires>", "why": "<le fait CONCRET de la semaine sur ce thème, en 1 phrase dense — pas une généralité. Ex. « discussions Canada-US sur un arrangement intérimaire avant l'échéance tarifaire du 19 août : concessions évoquées sur les quotas laitiers en échange d'une baisse des tarifs acier/aluminium ». 1 à 3 thèmes MAX, uniquement ceux qui ont vraiment compté ; [] si les données ne portent que sur la macro déjà listée>" } ],
+  "inflation": "<UNE phrase MAXIMUM sur l'inflation de ${ccy} / ${name}, uniquement si les chiffres publiés ne parlent pas d'eux-mêmes. Sinon chaîne VIDE : les prints s'affichent en puces sous cette rubrique. JAMAIS le chiffre d'un autre pays.>",
+  "drivers": [ { "name": "<THÈME de la semaine pour cette devise, façon note de desk : Banque centrale | Fiscal | Commerce | Intervention / FX | Chine | Pétrole | Géopolitique | Risk-On/Off | Différentiel de taux | Flux obligataires>", "why": "<le fait CONCRET de la semaine sur ce thème, en 1 phrase dense : pas une généralité. Ex. « discussions Canada-US sur un arrangement intérimaire avant l'échéance tarifaire du 19 août : concessions évoquées sur les quotas laitiers en échange d'une baisse des tarifs acier/aluminium ». 1 à 3 thèmes MAX, uniquement ceux qui ont vraiment compté ; [] si les données ne portent que sur la macro déjà listée>" } ],
   "bias": "<EXACTEMENT l'un de : Haussier | Légèrement haussier | Neutre | Légèrement baissier | Baissier>",
   "biasRationale": "<UNE phrase, façon « Bias / Scénario » : ce qui pilotera la devise et ce qui l'invaliderait. Ex. « CHF sans dynamique domestique forte, sa performance restera dictée par les différentiels de taux US et le sentiment de risque global. » JAMAIS un rappel de ce qui précède.>",
   "catalysts": [],
   "conclusion": "<UNE phrase, façon « Semaine à venir » de la référence : les catalyseurs qui décideront de la semaine suivante. Ex. « CPI, PPI puis PCE deviennent les catalyseurs déterminants pour la réunion de septembre, désormais jugée à pile ou face après le NFP. » Jamais deux phrases, jamais de rappel du passé.>"
 }
 Règles :
-- "drivers" : 1 à 3 THÈMES seulement, et uniquement ceux qui APPORTENT une information absente des données chiffrées listées ailleurs (un dossier commercial, une intervention de change, un débat budgétaire, la Chine, le pétrole…). Chaque "why" = le FAIT concret de la semaine, dense, pas un mécanisme théorique. Si la semaine de cette devise n'a été QUE de la macro déjà listée, renvoie [] — mieux vaut aucun thème qu'un thème creux.
-- DIFFÉRENTIEL DE TAUX : quand le taux directeur de cette banque est très inférieur à la moyenne du G10 (typiquement CHF et JPY), la sous-performance de la devise vient d'abord du PORTAGE (les flux vendent la devise à taux bas pour acheter celles à taux hauts). Si ce mécanisme a pesé cette semaine, il DOIT figurer dans "drivers" (name « Différentiel de taux ») avec le mécanisme dans le "why", et l'analyse doit le nommer explicitement — ne l'attribue pas à un vague « sentiment ».
-- ZONE EURO (si ${ccy} = EUR) : hiérarchise les données — ALLEMAGNE d'abord (l'Ifo est l'indicateur AVANCÉ de la croissance de la zone), FRANCE ensuite, reste de la zone après. Une donnée allemande prime sur une donnée française contradictoire de même famille.
-- "catalysts" : renvoie TOUJOURS [] (rubrique retirée du rapport le 11/08 — chaque catalyseur figure déjà, avec son chiffre réel et sa lecture, dans les puces Croissance / Emploi / Inflation générées automatiquement). Règle historique conservée pour mémoire : UNIQUEMENT des données ÉCONOMIQUES publiées (CPI/inflation, PIB/croissance, emploi/chômage, PMI, ventes au détail, salaires, décisions ou anticipations de taux, discours de banque centrale…) qui ont RÉELLEMENT influencé la devise, avec leurs VRAIS chiffres (publié vs attendu). N'INCLUS JAMAIS de données de POSITIONNEMENT (COT / CFTC, « net positions », « NC net », non-commercial, hedge funds, positionnement des particuliers, open interest) : elles vivent dans l'onglet BIAIS (piliers Hedge Fund / Retail), PAS dans les catalyseurs. Si aucun catalyseur chiffré n'est présent dans les données, renvoie []. N'invente jamais de chiffres ni de consensus. N'ÉMETS JAMAIS une ligne contenant « Non disponible », « N/A » ou un champ vide : si tu n'as pas le vrai chiffre, OMETS entièrement la ligne (mieux vaut 1 catalyseur solide que 3 dont 2 vides).
+- "drivers" : 1 à 3 THÈMES seulement, et uniquement ceux qui APPORTENT une information absente des données chiffrées listées ailleurs (un dossier commercial, une intervention de change, un débat budgétaire, la Chine, le pétrole…). Chaque "why" = le FAIT concret de la semaine, dense, pas un mécanisme théorique. Si la semaine de cette devise n'a été QUE de la macro déjà listée, renvoie [] : mieux vaut aucun thème qu'un thème creux.
+- DIFFÉRENTIEL DE TAUX : quand le taux directeur de cette banque est très inférieur à la moyenne du G10 (typiquement CHF et JPY), la sous-performance de la devise vient d'abord du PORTAGE (les flux vendent la devise à taux bas pour acheter celles à taux hauts). Si ce mécanisme a pesé cette semaine, il DOIT figurer dans "drivers" (name « Différentiel de taux ») avec le mécanisme dans le "why", et l'analyse doit le nommer explicitement : ne l'attribue pas à un vague « sentiment ».
+- ZONE EURO (si ${ccy} = EUR) : hiérarchise les données, ALLEMAGNE d'abord (l'Ifo est l'indicateur AVANCÉ de la croissance de la zone), FRANCE ensuite, reste de la zone après. Une donnée allemande prime sur une donnée française contradictoire de même famille.
+- "catalysts" : renvoie TOUJOURS [] (rubrique retirée du rapport le 11/08, chaque catalyseur figure déjà, avec son chiffre réel et sa lecture, dans les puces Croissance / Emploi / Inflation générées automatiquement). Règle historique conservée pour mémoire : UNIQUEMENT des données ÉCONOMIQUES publiées (CPI/inflation, PIB/croissance, emploi/chômage, PMI, ventes au détail, salaires, décisions ou anticipations de taux, discours de banque centrale…) qui ont RÉELLEMENT influencé la devise, avec leurs VRAIS chiffres (publié vs attendu). N'INCLUS JAMAIS de données de POSITIONNEMENT (COT / CFTC, « net positions », « NC net », non-commercial, hedge funds, positionnement des particuliers, open interest) : elles vivent dans l'onglet BIAIS (piliers Hedge Fund / Retail), PAS dans les catalyseurs. Si aucun catalyseur chiffré n'est présent dans les données, renvoie []. N'invente jamais de chiffres ni de consensus. N'ÉMETS JAMAIS une ligne contenant « Non disponible », « N/A » ou un champ vide : si tu n'as pas le vrai chiffre, OMETS entièrement la ligne (mieux vaut 1 catalyseur solide que 3 dont 2 vides).
 - COHÉRENCE des catalyseurs : l'interprétation doit être LOGIQUE avec les chiffres. Si publié > attendu, ce n'est PAS « plus faible que prévu » (et inversement). Pour l'inflation/l'emploi : publié > attendu → « plus élevé/chaud que prévu » ; publié < attendu → « plus faible/mou que prévu ». Vérifie le SENS avant d'écrire l'impact sur la devise.
 - "bias" : DÉCOULE de la confrontation cadre de référence ↔ données réelles ; si la semaine infirme le cadre, ajuste (le biais doit refléter la semaine, pas le cadre figé).
-- Sers-toi du bloc PRICING MARCHÉ ci-dessous pour la politique monétaire (bps implicites, prochaine réunion, probabilités) — ne l'invente pas.
+- Sers-toi du bloc PRICING MARCHÉ ci-dessous pour la politique monétaire (bps implicites, prochaine réunion, probabilités) : ne l'invente pas.
 - TOUT EN FRANÇAIS : traduis expected→attendu, forecast→prévu, previous/prior→précédent, actual→publié. Aucun mot anglais hormis tickers / codes / acronymes de banque centrale et les tons consacrés (hawkish, dovish). ZÉRO markdown, ZÉRO astérisque, texte brut.
 
 CONTEXTE GLOBAL DE LA SEMAINE (cadrage cross-devise) : ${gSummary || '(n/a)'}
@@ -9078,7 +9081,7 @@ function _cbMergeRates(cbArr) {
     || ((a.code in RANK ? RANK[a.code] : 9) - (b.code in RANK ? RANK[b.code] : 9)));
 }
 function _recapCbPrompt(ratesCtx, cbNews, prevCtx) {
-  return `You are the chief central-bank strategist for an institutional FX & markets desk. For each of these 8 banks — Fed, BCE (ECB), BoE, BoJ, BoC, RBA, RBNZ, BNS (SNB) — write a WEEKLY per-bank block IN FRENCH (français soigné, précis, professionnel). Style = research note d'une banque d'investissement : d'abord un paragraphe de synthèse, puis les PROPOS CLÉS des banquiers centraux suivis d'une interprétation claire de leur signification.
+  return `You are the chief central-bank strategist for an institutional FX & markets desk. For each of these 8 banks : Fed, BCE (ECB), BoE, BoJ, BoC, RBA, RBNZ, BNS (SNB), write a WEEKLY per-bank block IN FRENCH (français soigné, précis, professionnel). Style = research note d'une banque d'investissement : d'abord un paragraphe de synthèse, puis les PROPOS CLÉS des banquiers centraux suivis d'une interprétation claire de leur signification.
 
 Ground EVERYTHING ONLY in the data below (market rate probabilities + this week's central-bank headlines + last week's stance). NEVER invent numbers, quotes, officials or events. Markets react to language shifts: surface even SUBTLE tone/wording changes vs last week.
 
@@ -9089,11 +9092,11 @@ Return ONLY valid JSON (no preamble, no code fences):
   "narrative": "<1 à 2 phrases COURTES résumant l'essentiel de la banque cette semaine (discours de gouverneurs / membres votants, données macro, décision, ton). Concis, SPÉCIFIQUE, aucune étiquette en gras, zéro remplissage.>",
   "decision": "<Si la banque a PRIS une décision de taux cette semaine (hausse / baisse / maintien) : dis-la et AJOUTE la phrase CLÉ du communiqué / discours qui la justifie, FIDÈLE aux données (jamais inventée). Ex. « Maintien : ‹ nous restons dépendants des données avant d'agir ›. » Si AUCUNE réunion cette semaine, renvoie une chaîne vide \"\".>",
   "guidance": "<1 SEULE phrase COURTE et directionnelle : ce que la banque signale pour la prochaine réunion (penche hausse / baisse / maintien) et au-delà (fin de cycle ?). NE RÉPÈTE PAS la probabilité chiffrée (elle est déjà affichée à côté). Concret, sans remplissage.>",
-  "changed": "<1 à 2 phrases : CE QUI A CHANGÉ depuis la dernière réunion / semaine précédente — inflexion de wording, nouvelle donnée, vote, révision de projection, changement de ton. Si rien de notable n'a changé, dis-le brièvement (ex. « Statu quo, aucune inflexion notable »). Ancré données uniquement.>",
+  "changed": "<1 à 2 phrases : CE QUI A CHANGÉ depuis la dernière réunion / semaine précédente, inflexion de wording, nouvelle donnée, vote, révision de projection, changement de ton. Si rien de notable n'a changé, dis-le brièvement (ex. « Statu quo, aucune inflexion notable »). Ancré données uniquement.>",
   "factors": "<1 à 2 phrases : les FACTEURS/indicateurs susceptibles de faire évoluer la trajectoire de taux d'ici la prochaine réunion (ex. prochaine inflation CPI/PCE, emploi NFP, salaires, croissance, tensions géopolitiques...). Ce que CETTE banque surveille en priorité.>",
-  "fxImpact": "<impact potentiel sur la devise concernée, en 3 horizons courts et neutres — format EXACT « CT : … · MT : … · LT : … » (CT=court terme, MT=moyen, LT=long). ANALYTIQUE et conditionnel (ex. « un ton plus ferme soutiendrait la devise »), JAMAIS une recommandation d'achat/vente ni une promesse.>",
+  "fxImpact": "<impact potentiel sur la devise concernée, en 3 horizons courts et neutres : format EXACT « CT : … · MT : … · LT : … » (CT=court terme, MT=moyen, LT=long). ANALYTIQUE et conditionnel (ex. « un ton plus ferme soutiendrait la devise »), JAMAIS une recommandation d'achat/vente ni une promesse.>",
   "quotes": [ {
-    "quote": "<propos CLÉ d'un responsable, FIDÈLE aux données (citation ou paraphrase fidèle ; jamais de mots ni chiffres inventés) — court>",
+    "quote": "<propos CLÉ d'un responsable, FIDÈLE aux données (citation ou paraphrase fidèle ; jamais de mots ni chiffres inventés) : court>",
     "speaker": "<NOM du responsable qui a tenu ce propos (ex. « Powell », « Lagarde », « Bailey »), tiré des données ; chaîne vide \"\" si inconnu>",
     "date": "<DATE du propos, format court FR (ex. « 12 juil. »), tirée de la date entre parenthèses en tête de la ligne de données ; chaîne vide \"\" si inconnue>",
     "analysis": "<interprétation : ton hawkish / dovish / attentiste ; ce qui a changé vs interventions précédentes ; ce que la banque surveille ; implications pour la prochaine réunion (penche-t-elle vers une hausse, une baisse ou un maintien) ; impact potentiel marché (devises, taux, actions, or...).>"
@@ -9101,11 +9104,11 @@ Return ONLY valid JSON (no preamble, no code fences):
 } ] }
 Rules:
 - Cover the 8 banks, in this order. "stance" strictly hawkish/dovish/neutral, EVIDENCE-BASED (not by habit). Do NOT default to hawkish : near-certain HOLD pricing + no directional communication → neutral. hawkish only with a real tightening signal ; dovish only with a real easing signal. The BoJ is structurally the most accommodative major.
-- "quotes" : 0 à 3 propos par banque, UNIQUEMENT de vrais propos présents dans les données (citation ou paraphrase FIDÈLE de ce que le responsable a dit) — JAMAIS de citation fabriquée, jamais de mots ou chiffres non présents. Si aucun responsable ne s'est exprimé cette semaine, "quotes" DOIT valoir [] — n'écris JAMAIS un faux « propos » du type « aucun responsable ne s'est exprimé ». Pour CHAQUE propos, renseigne "speaker" (le nom du responsable) ET "date" (la date entre parenthèses en tête de la ligne source) — UNIQUEMENT s'ils sont présents dans les données ; sinon laisse la chaîne vide, n'invente jamais un nom ni une date.
+- "quotes" : 0 à 3 propos par banque, UNIQUEMENT de vrais propos présents dans les données (citation ou paraphrase FIDÈLE de ce que le responsable a dit), JAMAIS de citation fabriquée, jamais de mots ou chiffres non présents. Si aucun responsable ne s'est exprimé cette semaine, "quotes" DOIT valoir [] : n'écris JAMAIS un faux « propos » du type « aucun responsable ne s'est exprimé ». Pour CHAQUE propos, renseigne "speaker" (le nom du responsable) ET "date" (la date entre parenthèses en tête de la ligne source) : UNIQUEMENT s'ils sont présents dans les données ; sinon laisse la chaîne vide, n'invente jamais un nom ni une date.
 - Le "narrative" doit être SPÉCIFIQUE à cette banque (responsables, données précises, wording réel), jamais un gabarit réutilisable. Si la banque a été calme, dis-le brièvement, sans remplissage générique (« l'économie se redresse » = INTERDIT).
-- ZÉRO DOUBLON : ne répète JAMAIS dans "narrative"/"guidance" la PROBABILITÉ CHIFFRÉE de la prochaine réunion (maintien/hausse/baisse en %) — elle est affichée séparément juste à côté. Reste QUALITATIF (« le marché penche pour un maintien »), sans le pourcentage.
+- ZÉRO DOUBLON : ne répète JAMAIS dans "narrative"/"guidance" la PROBABILITÉ CHIFFRÉE de la prochaine réunion (maintien/hausse/baisse en %) : elle est affichée séparément juste à côté. Reste QUALITATIF (« le marché penche pour un maintien »), sans le pourcentage.
 - CHIFFRES DE MARCHÉ INVENTÉS = INTERDITS, NI dans "narrative" NI dans "analysis" : les données ne contiennent PAS de niveaux de marché → décris TOUTE réaction QUALITATIVEMENT (« le dollar s'est affaibli », « l'or a progressé »), JAMAIS de rendement, prix, niveau, montant chiffré ($/€) ou % non explicitement fourni (INTERDIT : « l'or a progressé de 83 $ », « le 10 ans à 4,48% »).
-- Les MINUTES d'une réunion (FOMC Minutes, ECB Accounts…), un TÉMOIGNAGE au Congrès/Parlement (Humphrey-Hawkins) ou un RAPPORT de politique monétaire (semestriel) sont des ÉVÉNEMENTS DE COMMUNICATION MAJEURS : s'ils figurent dans les données de la semaine, ils DOIVENT être reflétés dans "narrative", "guidance" et "changed" (ton révélé, higher-for-longer / assouplissement, ce qu'ils changent), MÊME sans décision de taux cette semaine. N'écris JAMAIS « la banque n'a pas communiqué / rien cette semaine » si des minutes / un rapport / un témoignage figurent dans les données — décris-les.
+- Les MINUTES d'une réunion (FOMC Minutes, ECB Accounts…), un TÉMOIGNAGE au Congrès/Parlement (Humphrey-Hawkins) ou un RAPPORT de politique monétaire (semestriel) sont des ÉVÉNEMENTS DE COMMUNICATION MAJEURS : s'ils figurent dans les données de la semaine, ils DOIVENT être reflétés dans "narrative", "guidance" et "changed" (ton révélé, higher-for-longer / assouplissement, ce qu'ils changent), MÊME sans décision de taux cette semaine. N'écris JAMAIS « la banque n'a pas communiqué / rien cette semaine » si des minutes / un rapport / un témoignage figurent dans les données : décris-les.
 - ALL text in FRENCH. Keep central-bank acronyms as-is (Fed, ECB, BoE, BoJ, BoC, RBA, RBNZ, SNB). Translate any English data (expected→attendu, forecast→prévu, prior→précédent, actual→publié). No source attributions, no URLs.
 
 === RATE PROBABILITIES (par banque, marché) ===
@@ -9216,7 +9219,7 @@ async function generateWeeklyRecapAI(force = false) {
   const wrapDetailed = _wrapDetails.filter(r => r.status === 'fulfilled').map(r => r.value);
   // Corpus wraps détaillé : [Session] Titre — point1 · point2 · …
   const wraps = wrapDetailed.map(({ w, pts }) =>
-    `[${w.session || 'Wrap'}] ${w.title}${pts.length ? ' — ' + pts.join(' · ') : (w.description ? ' — ' + w.description : '')}`);
+    `[${w.session || 'Wrap'}] ${w.title}${pts.length ? ' : ' + pts.join(' · ') : (w.description ? ' : ' + w.description : '')}`);
   // Message de CLÔTURE de la semaine (wrap le plus récent = vendredi soir) → base du titre
   const closing = wrapDetailed[0];
   const closingMsg = closing ? `[${closing.w.session || 'Wrap'}] ${closing.w.title}${closing.pts.length ? '. ' + closing.pts.slice(0, 4).join('. ') : ''}` : '';
@@ -9302,47 +9305,47 @@ async function generateWeeklyRecapAI(force = false) {
       const day = _DOWFR[new Date(i.timestamp).getUTCDay()] || f.day || '';
       const t = String(f.title || '').replace(/^fx daily recap:?\s*/i, '').trim();
       const s = String(f.summary || '').replace(/\s+/g, ' ').trim();
-      return `- ${day} : ${t.slice(0, 130)}${s ? ' — ' + s.slice(0, 280) : ''}`;
+      return `- ${day} : ${t.slice(0, 130)}${s ? ' : ' + s.slice(0, 280) : ''}`;
     });
   const corpus = [
-    '=== CLOSING MESSAGE OF THE WEEK (latest Friday wrap — base the TITLE on this) ===', closingMsg || '(none)',
+    '=== CLOSING MESSAGE OF THE WEEK (latest Friday wrap : base the TITLE on this) ===', closingMsg || '(none)',
     '', '=== DAILY RECAPS OF THE WEEK (un par jour, base de l\'INTRO) ===', ...(_dailyRecaps.length ? _dailyRecaps : ['(aucun)']),
     '', '=== SESSION WRAPS (this week, Monday→Friday) ===', ...wraps.slice(0, 60),
-    '', '=== MAJOR RELEASES THIS WEEK (HIGH impact, dated, actual vs expected — you MUST cover the central-bank RATE DECISIONS and the big GDP/CPI/employment prints from THIS list, each with its date) ===', ...(majorReleases.length ? majorReleases : ['(none)']),
+    '', '=== MAJOR RELEASES THIS WEEK (HIGH impact, dated, actual vs expected : you MUST cover the central-bank RATE DECISIONS and the big GDP/CPI/employment prints from THIS list, each with its date) ===', ...(majorReleases.length ? majorReleases : ['(none)']),
     '', '=== ECONOMIC CALENDAR RESULTS (this week) ===', ...cal.slice(0, 90),
     '', '=== OTHER MACRO HEADLINES ===', ...news,
   ].join('\n');
 
   const CCY = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 
-  const prompt = `You are a senior macro strategist writing the institutional WEEKLY MARKET RECAP for a professional FX & markets desk (style and depth comparable to a top-tier bank's weekly review). The trading week (Monday–Friday) just closed. Write ALL output text IN FRENCH (français soigné, précis, professionnel) — smart, analytical and specific. Keep tickers/codes/central-bank acronyms as-is (USD/JPY, Fed, BoJ, BoE…).
+  const prompt = `You are a senior macro strategist writing the institutional WEEKLY MARKET RECAP for a professional FX & markets desk (style and depth comparable to a top-tier bank's weekly review). The trading week (Monday–Friday) just closed. Write ALL output text IN FRENCH (français soigné, précis, professionnel) : smart, analytical and specific. Keep tickers/codes/central-bank acronyms as-is (USD/JPY, Fed, BoJ, BoE…).
 
 Quality bar: cite concrete drivers (central bank names and officials, specific data prints with actual vs forecast where available, geopolitical events, oil/equity/yield moves). No generic filler, NEVER invent numbers or events.
 
 This call produces the GLOBAL part of the recap (the per-currency sections are written separately). Base it PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS below. Return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
 {
-  "title": "Weekly Market Recap: <titre accrocheur EN FRANÇAIS — DÉRIVÉ du MESSAGE DE CLÔTURE DE LA SEMAINE (sa 1re phrase clé), ex. 'Les marchés terminent en hausse alors que ...'>",
-  "intro": "<INTRO DE L'HEBDO : 2 à 3 phrases qui OUVRENT le rapport en racontant le FIL de la semaine, appuyées d'abord sur les DAILY RECAPS fournis (lundi → vendredi) : ce qui a dominé, comment le récit a évolué en cours de semaine, où on termine. Ton naturel de stratège — une histoire, pas une énumération>",
-  "geoNarrative": ["<court paragraphe NARRATIF (1 à 2 phrases) : le RÉCIT du fil géopolitique — ce qui s'est joué, POURQUOI ça comptait, ce que ça a fait bouger (pétrole, taux, devises), les points de blocage et les positions tenues par chaque camp. 3 à 6 paragraphes. ⚠️ NE RACONTE PAS LA SEMAINE JOUR PAR JOUR ICI : la séquence datée est le travail de \"geoTimeline\", juste en dessous, et les deux s'affichent l'un sous l'autre — une redite saute aux yeux. Ici on explique le MÉCANISME et les ENJEUX ; là-bas on égrène les faits. Tableau vide [] si aucun vrai fil cette semaine>"],
+  "title": "Weekly Market Recap: <titre accrocheur EN FRANÇAIS, DÉRIVÉ du MESSAGE DE CLÔTURE DE LA SEMAINE (sa 1re phrase clé), ex. 'Les marchés terminent en hausse alors que ...'>",
+  "intro": "<INTRO DE L'HEBDO : 2 à 3 phrases qui OUVRENT le rapport en racontant le FIL de la semaine, appuyées d'abord sur les DAILY RECAPS fournis (lundi → vendredi) : ce qui a dominé, comment le récit a évolué en cours de semaine, où on termine. Ton naturel de stratège : une histoire, pas une énumération>",
+  "geoNarrative": ["<court paragraphe NARRATIF (1 à 2 phrases) : le RÉCIT du fil géopolitique, ce qui s'est joué, POURQUOI ça comptait, ce que ça a fait bouger (pétrole, taux, devises), les points de blocage et les positions tenues par chaque camp. 3 à 6 paragraphes. ⚠️ NE RACONTE PAS LA SEMAINE JOUR PAR JOUR ICI : la séquence datée est le travail de \"geoTimeline\", juste en dessous, et les deux s'affichent l'un sous l'autre : une redite saute aux yeux. Ici on explique le MÉCANISME et les ENJEUX ; là-bas on égrène les faits. Tableau vide [] si aucun vrai fil cette semaine>"],
   "summary": "<3 to 5 sentence global overview of how markets traded this week (géopolitique, banques centrales, cross-asset)>",
   "insights": ["<concise standalone insight, 1 sentence>", "... 5 to 6 thematic insight cards"],
-  "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<une phrase SPÉCIFIQUE à CETTE paire qui JUSTIFIE le biais par un driver CONCRET de la semaine (donnée chiffrée, banque centrale, événement) — jamais générique, jamais recyclée d'une autre paire>" } ],
+  "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<une phrase SPÉCIFIQUE à CETTE paire qui JUSTIFIE le biais par un driver CONCRET de la semaine (donnée chiffrée, banque centrale, événement) : jamais générique, jamais recyclée d'une autre paire>" } ],
   "macro": [
     { "heading": "<macro theme, ex. Désescalade au Moyen-Orient>", "bullets": ["**<libellé court du sujet, 2-4 mots> :** deux ou trois phrases factuelles détaillées EN FRANÇAIS", "..."] }
   ],
-  "geoTimeline": "<SEULEMENT s'il existe un VRAI fil géopolitique suivi sur PLUSIEURS JOURS cette semaine. SINON null.> { \"titre\": \"<le fil, court, ex. 'US–Iran'>\", \"jours\": [ { \"jour\": \"<TEMPS FORT, pas un jour isolé : regroupe quand le récit ne change pas — « Lundi-Mardi », « Mercredi-Jeudi », « Vendredi »>\", \"points\": [\"UNE ligne dense qui résume CE moment de la semaine, façon télégramme : « pause des frappes, optimisme sur un accord rapide, effondrement du pétrole ». Pas de phrase construite, pas de détail secondaire — 3 ou 4 faits séparés par des virgules\"] } ], \"etatFin\": [] } ⚠️ 2 à 4 temps forts MAXIMUM (la chronologie tient en trois lignes), et \"etatFin\" TOUJOURS vide : l'état du dossier en fin de semaine est déjà le dernier paragraphe du récit géopolitique."
+  "geoTimeline": "<SEULEMENT s'il existe un VRAI fil géopolitique suivi sur PLUSIEURS JOURS cette semaine. SINON null.> { \"titre\": \"<le fil, court, ex. 'US–Iran'>\", \"jours\": [ { \"jour\": \"<TEMPS FORT, pas un jour isolé : regroupe quand le récit ne change pas, « Lundi-Mardi », « Mercredi-Jeudi », « Vendredi »>\", \"points\": [\"UNE ligne dense qui résume CE moment de la semaine, façon télégramme : « pause des frappes, optimisme sur un accord rapide, effondrement du pétrole ». Pas de phrase construite, pas de détail secondaire : 3 ou 4 faits séparés par des virgules\"] } ], \"etatFin\": [] } ⚠️ 2 à 4 temps forts MAXIMUM (la chronologie tient en trois lignes), et \"etatFin\" TOUJOURS vide : l'état du dossier en fin de semaine est déjà le dernier paragraphe du récit géopolitique."
 }
 Rules:
-- "macro" = Points Macro Clés, catégorisés avec CES en-têtes EXACTES et dans CET ORDRE (n'inclure QUE ceux ayant un contenu réel cette semaine, sans jamais les renommer ni les réordonner) : "Géopolitique", "Inflation & Croissance", "Performance Cross-Asset", "Commerce International & Tarifs", "Technologie & Innovation". N'utilise AUCUN autre en-tête. NE CRÉE PAS de thème « Banques centrales / Politique monétaire » : elles ont leur PROPRE section dédiée (n'évoque une banque centrale dans macro que si un fait cross-asset l'exige). Range chaque fait sous le bon thème : conflits/guerres/sanctions géopolitiques→Géopolitique ; CPI/PCE/PIB/emploi/PMI/salaires/croissance/consommation→Inflation & Croissance ; actions/obligations/rendements/FX/dollar/or/pétrole/matières/appétit pour le risque→Performance Cross-Asset ; droits de douane/accords commerciaux/guerre commerciale→Commerce International & Tarifs ; IA/semi-conducteurs/logiciel/innovation technologique→Technologie & Innovation. Un fait politique ou budgétaire → range-le sous le thème le plus proche (JAMAIS un 6e en-tête). Crée un thème « Technologie & Innovation » DISTINCT dès qu'il y a une actualité tech d'entreprise/innovation (procès ou partenariats IA, investissements en capacité de puces / data centers, régulation ou politique technologique) — un simple rebond boursier des valeurs/indices tech reste, lui, dans Performance Cross-Asset. De même, crée « Commerce International & Tarifs » dès qu'il y a droits de douane, accords ou tensions commerciales. CONCISION OBLIGATOIRE (le lecteur veut l'ESSENTIEL, pas un pavé) : chaque thème = 2 à 3 bullets MAXIMUM (les faits qui ont vraiment compté cette semaine — écarte le secondaire). Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant son sujet (2-4 mots, ex. **Actions US :**, **Rendements :**) suivi de 1 à 2 phrases COURTES et concrètes EN FRANÇAIS (un fait par phrase, zéro remplissage). N'écris JAMAIS le mot « sous-thème ». TRADUIS toute donnée anglaise (expected→attendu, etc.). DATE OBLIGATOIRE : chaque puce qui rapporte une DONNÉE ÉCONOMIQUE ou une DÉCISION DE TAUX se TERMINE par sa date de publication entre parenthèses (ex. « (15 juil.) »), prise dans le bloc « MAJOR RELEASES ». COUVERTURE DES MAJEURES (obligatoire) : la rubrique « Inflation & Croissance » DOIT inclure les DÉCISIONS DE TAUX majeures de la semaine (ex. « **BoC :** a maintenu son taux à 2,25 % (15 juil.) ») ET les gros prints PIB / CPI / emploi listés dans « MAJOR RELEASES » — n'en omets AUCUN qui y figure (ex. GBP GDP MoM, BoC Interest Rate Decision).
-- "insights": 5 to 6 thematic cards (1 phrase). "pairs": 5 to 7 KEY pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold…) with a directional bias for the COMING week — "bias" exactly "BUY", "SELL" or "NEUTRAL".
-- "pairs" — ZÉRO REMPLISSAGE : chaque "text" est PROPRE à sa paire, cite le DRIVER réel (donnée/banque centrale/événement de la semaine) qui explique le biais, et DIFFÈRE des autres. INTERDIT : deux paires au même texte ou une formule passe-partout (« a clôturé sur une note stable malgré les incertitudes », « note positive grâce à la demande »…). Si une paire n'a pas de catalyseur propre, dis-le précisément (ex. « EUR/USD sans catalyseur propre, dans le sillage de la faiblesse du dollar ») plutôt qu'une phrase générique. Idem pour "insights" : 1 idée FORTE et spécifique par carte, aucun doublon.
-- "geoTimeline" : construis-la EXCLUSIVEMENT à partir du CONTEXTE GÉOPOLITIQUE DATÉ ci-dessous — chaque point rattaché au bon JOUR d'après sa date, une phrase courte et factuelle, n'invente NI fait NI date. **N'inclus QUE les jours où il s'est réellement passé quelque chose d'IMPORTANT** (un vrai développement du fil : escalade, frappe/attaque majeure, décision, accord, cessez-le-feu, prise de parole marquante). NE crée PAS de jour pour un fait mineur, répétitif ou anecdotique — PAS de remplissage : il est NORMAL que certains jours (ex. lundi, mardi) soient absents si rien d'important ne s'y est produit. Ordre chronologique (du plus ancien au plus récent). Retourne null s'il n'y a pas de fil suivi sur plusieurs jours. La timeline REMPLACE le thème macro « Géopolitique » (n'écris PAS deux fois les mêmes faits : si tu remplis geoTimeline, allège ou omets le thème « Géopolitique » de "macro").
+- "macro" = Points Macro Clés, catégorisés avec CES en-têtes EXACTES et dans CET ORDRE (n'inclure QUE ceux ayant un contenu réel cette semaine, sans jamais les renommer ni les réordonner) : "Géopolitique", "Inflation & Croissance", "Performance Cross-Asset", "Commerce International & Tarifs", "Technologie & Innovation". N'utilise AUCUN autre en-tête. NE CRÉE PAS de thème « Banques centrales / Politique monétaire » : elles ont leur PROPRE section dédiée (n'évoque une banque centrale dans macro que si un fait cross-asset l'exige). Range chaque fait sous le bon thème : conflits/guerres/sanctions géopolitiques→Géopolitique ; CPI/PCE/PIB/emploi/PMI/salaires/croissance/consommation→Inflation & Croissance ; actions/obligations/rendements/FX/dollar/or/pétrole/matières/appétit pour le risque→Performance Cross-Asset ; droits de douane/accords commerciaux/guerre commerciale→Commerce International & Tarifs ; IA/semi-conducteurs/logiciel/innovation technologique→Technologie & Innovation. Un fait politique ou budgétaire → range-le sous le thème le plus proche (JAMAIS un 6e en-tête). Crée un thème « Technologie & Innovation » DISTINCT dès qu'il y a une actualité tech d'entreprise/innovation (procès ou partenariats IA, investissements en capacité de puces / data centers, régulation ou politique technologique) : un simple rebond boursier des valeurs/indices tech reste, lui, dans Performance Cross-Asset. De même, crée « Commerce International & Tarifs » dès qu'il y a droits de douane, accords ou tensions commerciales. CONCISION OBLIGATOIRE (le lecteur veut l'ESSENTIEL, pas un pavé) : chaque thème = 2 à 3 bullets MAXIMUM (les faits qui ont vraiment compté cette semaine, écarte le secondaire). Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant son sujet (2-4 mots, ex. **Actions US :**, **Rendements :**) suivi de 1 à 2 phrases COURTES et concrètes EN FRANÇAIS (un fait par phrase, zéro remplissage). N'écris JAMAIS le mot « sous-thème ». TRADUIS toute donnée anglaise (expected→attendu, etc.). DATE OBLIGATOIRE : chaque puce qui rapporte une DONNÉE ÉCONOMIQUE ou une DÉCISION DE TAUX se TERMINE par sa date de publication entre parenthèses (ex. « (15 juil.) »), prise dans le bloc « MAJOR RELEASES ». COUVERTURE DES MAJEURES (obligatoire) : la rubrique « Inflation & Croissance » DOIT inclure les DÉCISIONS DE TAUX majeures de la semaine (ex. « **BoC :** a maintenu son taux à 2,25 % (15 juil.) ») ET les gros prints PIB / CPI / emploi listés dans « MAJOR RELEASES » : n'en omets AUCUN qui y figure (ex. GBP GDP MoM, BoC Interest Rate Decision).
+- "insights": 5 to 6 thematic cards (1 phrase). "pairs": 5 to 7 KEY pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold…) with a directional bias for the COMING week, "bias" exactly "BUY", "SELL" or "NEUTRAL".
+- "pairs" : ZÉRO REMPLISSAGE : chaque "text" est PROPRE à sa paire, cite le DRIVER réel (donnée/banque centrale/événement de la semaine) qui explique le biais, et DIFFÈRE des autres. INTERDIT : deux paires au même texte ou une formule passe-partout (« a clôturé sur une note stable malgré les incertitudes », « note positive grâce à la demande »…). Si une paire n'a pas de catalyseur propre, dis-le précisément (ex. « EUR/USD sans catalyseur propre, dans le sillage de la faiblesse du dollar ») plutôt qu'une phrase générique. Idem pour "insights" : 1 idée FORTE et spécifique par carte, aucun doublon.
+- "geoTimeline" : construis-la EXCLUSIVEMENT à partir du CONTEXTE GÉOPOLITIQUE DATÉ ci-dessous, chaque point rattaché au bon JOUR d'après sa date, une phrase courte et factuelle, n'invente NI fait NI date. **N'inclus QUE les jours où il s'est réellement passé quelque chose d'IMPORTANT** (un vrai développement du fil : escalade, frappe/attaque majeure, décision, accord, cessez-le-feu, prise de parole marquante). NE crée PAS de jour pour un fait mineur, répétitif ou anecdotique : PAS de remplissage : il est NORMAL que certains jours (ex. lundi, mardi) soient absents si rien d'important ne s'y est produit. Ordre chronologique (du plus ancien au plus récent). Retourne null s'il n'y a pas de fil suivi sur plusieurs jours. La timeline REMPLACE le thème macro « Géopolitique » (n'écris PAS deux fois les mêmes faits : si tu remplis geoTimeline, allège ou omets le thème « Géopolitique » de "macro").
 - No source attributions, no URLs.
 
 Week's data (session wraps + economic calendar results + headlines):
 ${corpus}
 
-CONTEXTE GÉOPOLITIQUE DATÉ (pour "geoTimeline" — issu des RÉCAPS DE SESSION / rapports quotidiens ET du fil news, chaque ligne préfixée du JOUR de l'événement) :
+CONTEXTE GÉOPOLITIQUE DATÉ (pour "geoTimeline" : issu des RÉCAPS DE SESSION / rapports quotidiens ET du fil news, chaque ligne préfixée du JOUR de l'événement) :
 ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = null)'}`;
 
   // Budget Gemini : le Weekly Recap est PRIORITAIRE (1 appel/semaine, rapport phare).
@@ -9550,7 +9553,7 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
     const cbNews = [..._cbUniq.filter(l => CB_KEY_RX.test(l)), ..._cbUniq.filter(l => !CB_KEY_RX.test(l))].slice(0, 55).join('\n').slice(0, 9000);
     const ratesCtx = _recapCbRatesCtx();
     const prevItem = allNews.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && Array.isArray(i._weekly.centralBanks) && i._weekly.centralBanks.length);
-    const prevCtx = prevItem ? prevItem._weekly.centralBanks.map(c => { const t = c.narrative || c.stanceChange || ''; return `${c.bank} : ${c.stance}${t ? ' — ' + String(t).slice(0, 170) : ''}`; }).join('\n') : '';
+    const prevCtx = prevItem ? prevItem._weekly.centralBanks.map(c => { const t = c.narrative || c.stanceChange || ''; return `${c.bank} : ${c.stance}${t ? ' : ' + String(t).slice(0, 170) : ''}`; }).join('\n') : '';
     if ((ratesCtx || cbNews) && !(ai.backoffActive && ai.backoffActive())) {
       const cbTxt = await ai.generateText(_recapCbPrompt(ratesCtx, cbNews, prevCtx), 4096);
       aiNote('weekly');
@@ -9685,7 +9688,7 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
   // Persistance DURABLE (Supabase) → après un redémarrage Render on RECHARGE au lieu de régénérer (économie Gemini)
   auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[Weekly Recap] sauvegarde persistante échec:', e.message));
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
-  console.log(`[Weekly Recap] ${weekly.v >= 2 ? 'IA v2' : 'fallback'} ${weekKey} (${weekRange}) — ${Object.keys(weekly.currencies).length} devises, ${weekly.insights.length} insights`);
+  console.log(`[Weekly Recap] ${weekly.v >= 2 ? 'IA v2' : 'fallback'} ${weekKey} (${weekRange}), ${Object.keys(weekly.currencies).length} devises, ${weekly.insights.length} insights`);
   return item;
 }
 
@@ -9956,7 +9959,7 @@ function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine, 
     // devise et leur jour — la lecture narrative du POURQUOI est le travail de l'IA (champ `watch`).
     watch: (laRows || []).filter(e => /high/i.test(e.impact || '')).slice(0, 5).map(e => {
       const j = e.timestamp ? new Date(e.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
-      return `${e.currency ? e.currency + ' — ' : ''}${_fxrTxt(e.title, 90)}${j ? ` (${j})` : ''}`;
+      return `${e.currency ? e.currency + ' : ' : ''}${_fxrTxt(e.title, 90)}${j ? ` (${j})` : ''}`;
     }),
     lookahead: _fxrLookFromRows(laRows),
   };
@@ -10053,27 +10056,27 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
     // ── Génération IA (structure complète façon pro, EN ANGLAIS) ──
     let fxr = null;
     if (!(ai.backoffActive && ai.backoffActive())) {
-      const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » — même profondeur, ton et structure qu'un rapport analyste la référence. Le rapport couvre toute la journée de trading du ${dateLabel}.
+      const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » : même profondeur, ton et structure qu'un rapport analyste la référence. Le rapport couvre toute la journée de trading du ${dateLabel}.
 
-Rédige une NOTE DE DESK ULTRA-CONDENSÉE de la journée — droit à l'essentiel, UNIQUEMENT ce qui a compté pour les marchés — avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. RÈGLES CENTRALES, NON NÉGOCIABLES :
+Rédige une NOTE DE DESK ULTRA-CONDENSÉE de la journée : droit à l'essentiel, UNIQUEMENT ce qui a compté pour les marchés : avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. RÈGLES CENTRALES, NON NÉGOCIABLES :
 1. FONDAMENTAL + FLÈCHE D'IMPACT : chaque mouvement DONNE SA CAUSE tirée des données, reliée à son effet par la FLÈCHE « → » (façon note de desk) : « <cause + son chiffre> → <effet devise/actif> ». Ex : « CPI US +0,4% vs +0,2% att. → USD se renforce ». Si aucune cause dans les données : « sans catalyseur clair ».
 2. INTERDITS ABSOLUS (rédige autrement) : « a été marqué(e) par », « la séance/session/journée a été » ; toute causalité CIRCULAIRE ou creuse (« en raison de la stabilisation de l'économie », « grâce à l'optimisme sur l'économie ») ; toute variation citée sans cause précise ; toute formule répétée d'une section à l'autre.
-3. Les titres marqués [MAJEUR] sont les événements IMPORTANTS du jour : chaque [MAJEUR] qui explique un mouvement de devise visible dans FORCE DES DEVISES DOIT apparaître dans sa session. Croise systématiquement FORCE DES DEVISES avec le flux : un gros mouvement = son driver cité. La POLITIQUE compte AUTANT que la politique monétaire et les données : changements de gouvernement, démissions/nominations/successions de chefs d'État ou de gouvernement (Premier ministre, Président), ministres des Finances/Chanceliers/Secrétaires au Trésor, élections, remaniements, annonces budgétaires/fiscales/commerciales/réglementaires — si un tel événement touche un pays d'une devise suivie, il DOIT figurer dans sa session avec son effet devise (ex. un changement de Premier ministre UK dans Session Londres avec la réaction de la livre). Aucune actualité de ce niveau ne doit être omise.
-4. DENSE, PAS BAVARD : une note de desk, pas un article. Aucune phrase de contexte générique, aucune redite d'une section à l'autre. N'INVENTE aucun chiffre. Jamais le tiret cadratin « — ». Section sans contenu marquant = laissée VIDE (ne la remplis pas pour meubler). ⚠️ EXCEPTION IMPORTANTE : les puces « geopolitics », « macro » et « watch » sont le CŒUR du rapport — elles doivent être DÉTAILLÉES (la chaîne complète fait → contexte → conséquence → réaction chiffrée), pas télégraphiques. C'est ailleurs qu'on coupe.
+3. Les titres marqués [MAJEUR] sont les événements IMPORTANTS du jour : chaque [MAJEUR] qui explique un mouvement de devise visible dans FORCE DES DEVISES DOIT apparaître dans sa session. Croise systématiquement FORCE DES DEVISES avec le flux : un gros mouvement = son driver cité. La POLITIQUE compte AUTANT que la politique monétaire et les données : changements de gouvernement, démissions/nominations/successions de chefs d'État ou de gouvernement (Premier ministre, Président), ministres des Finances/Chanceliers/Secrétaires au Trésor, élections, remaniements, annonces budgétaires/fiscales/commerciales/réglementaires : si un tel événement touche un pays d'une devise suivie, il DOIT figurer dans sa session avec son effet devise (ex. un changement de Premier ministre UK dans Session Londres avec la réaction de la livre). Aucune actualité de ce niveau ne doit être omise.
+4. DENSE, PAS BAVARD : une note de desk, pas un article. Aucune phrase de contexte générique, aucune redite d'une section à l'autre. N'INVENTE aucun chiffre. Jamais le tiret cadratin « : ». Section sans contenu marquant = laissée VIDE (ne la remplis pas pour meubler). ⚠️ EXCEPTION IMPORTANTE : les puces « geopolitics », « macro » et « watch » sont le CŒUR du rapport : elles doivent être DÉTAILLÉES (la chaîne complète fait → contexte → conséquence → réaction chiffrée), pas télégraphiques. C'est ailleurs qu'on coupe.
 5. ${_MENTOR_RULES}
 
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, aucun caractère **). Garde les CLÉS en anglais et rédige toutes les VALEURS en français. Forme EXACTE attendue :
 {
   "title": "<titre d'une ligne percutant résumant la journée, ex. 'Le dollar recule, le pétrole chute sur l'optimisme d'un accord US-Iran'>",
   "geopolitics": ["<puce géopolitique = ÉTAT DES LIEUX factuel du dossier aujourd'hui, façon note de renseignement : ce qui s'est passé ou N'A PAS eu lieu, la position tenue par chaque camp, un vote, un blocage, un point de désaccord précis. Phrases COURTES et sèches, sans emphase. N'ajoute « → effet marché » QUE si les données montrent vraiment cet effet ; sinon la puce reste purement factuelle. Ex. de ton : « Aucun tir militaire direct US-Iran ce week-end, mais aucune avancée décisive non plus » ; « Différends persistants sur l'exclusion des navires US/israéliens et les frais de transit ». 3 à 6 puces ; tableau VIDE [] si rien de géopolitique>"],
-  "macro": ["<puce macro DÉTAILLÉE : commence par l'ACTEUR ou le SUJET (« BoJ : », « Hammack (Fed) → », « Ventes au détail UK : »), déroule la CHAÎNE COMPLÈTE — ce qui a été dit/publié, la source ou le contexte qui lui donne son poids, ce que ça change — puis « → » et la RÉACTION DE MARCHÉ avec son ampleur quand les données la donnent (« JPY +40 pips avant d'en rendre une partie »). Une puce peut enchaîner 2 ou 3 propositions séparées par « ; » : la richesse est ATTENDUE ici, c'est le cœur du rapport. 3 à 6 puces, les développements qui ont VRAIMENT compté>"],
+  "macro": ["<puce macro DÉTAILLÉE : commence par l'ACTEUR ou le SUJET (« BoJ : », « Hammack (Fed) → », « Ventes au détail UK : »), déroule la CHAÎNE COMPLÈTE : ce qui a été dit/publié, la source ou le contexte qui lui donne son poids, ce que ça change, puis « → » et la RÉACTION DE MARCHÉ avec son ampleur quand les données la donnent (« JPY +40 pips avant d'en rendre une partie »). Une puce peut enchaîner 2 ou 3 propositions séparées par « ; » : la richesse est ATTENDUE ici, c'est le cœur du rapport. 3 à 6 puces, les développements qui ont VRAIMENT compté>"],
   "watch": ["<puce « À surveiller » : le rendez-vous À VENIR + « → » + POURQUOI il compte (ce qu'il décide, pour quel pricing, ce qui bascule selon le résultat, le consensus attendu s'il est connu). Ex. « CPI US cette semaine → catalyseur majeur pour le pricing de la réunion Fed de septembre » ; « Décision RBA cette semaine → statu quo attendu à 4,35 %, attention au maintien ou non du langage de hausse ». ⚠️ N'INCLUS PAS QUE DU CALENDRIER : les FILS À SUIVRE comptent autant (un projet de loi en cours, une visite diplomatique reportée, une réunion de banque centrale lointaine devenue décisive, un discours du soir). Ordre CHRONOLOGIQUE. 4 à 6 puces. Jamais une date recopiée sans son enjeu>"],
   "summary": "<SYNTHÈSE D'OUVERTURE, COURTE : 2 phrases MAXIMUM (jamais 3). Phrase 1 = LE fait qui a dominé la journée avec son chiffre et son effet devise. Phrase 2 = ce qu'ont fait les autres devises majeures en une ligne. C'est un résumé de tête, PAS le rapport : le détail vit dans Macro et dans les séances, ne le répète pas ici>",
   "tags": ["<5 à 8 puces de thèmes courtes, ex. 'Accord US-Iran','Prix du pétrole','Réserve fédérale'>"],
   "insights": ["<3 puces prospectives, UNE phrase courte chacune, autonomes>"],
   "pairs": [ { "pair": "EUR/USD", "bias": "BUY|SELL|NEUTRAL", "text": "<une phrase concise de justification>" } ],
   "regions": [
-    { "name": "Session Asie", "code": "JPY · AUD · NZD · CNY", "summary": "<UNE phrase COURTE et SIMPLE (30 mots max) : QUELLE devise a bougé, DANS QUEL SENS, et le fait PRÉCIS qui l'explique — avec son chiffre quand il existe. Mots de tous les jours, zéro généralité (« la séance a été marquée par » est INTERDIT). Ex. « Le yen a monté sur les rumeurs de hausse de la BoJ, avant d'en rendre une partie sur un compte courant à 923 Md contre 1 512 attendus. »>" },
+    { "name": "Session Asie", "code": "JPY · AUD · NZD · CNY", "summary": "<UNE phrase COURTE et SIMPLE (30 mots max) : QUELLE devise a bougé, DANS QUEL SENS, et le fait PRÉCIS qui l'explique, avec son chiffre quand il existe. Mots de tous les jours, zéro généralité (« la séance a été marquée par » est INTERDIT). Ex. « Le yen a monté sur les rumeurs de hausse de la BoJ, avant d'en rendre une partie sur un compte courant à 923 Md contre 1 512 attendus. »>" },
     { "name": "Session Londres", "code": "EUR · GBP · CHF", "summary": "<idem, UNE phrase courte : la séance européenne (BCE/BoE, données, politique) et son effet sur EUR/GBP/CHF>" },
     { "name": "Session New York", "code": "USD · CAD", "summary": "<idem, UNE phrase courte : la séance américaine (Fed/BoC, données US-Canada) et son effet sur USD/CAD>" }
   ],
@@ -10083,15 +10086,15 @@ Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, au
 }
 
 Règles :
-- "regions" = EXACTEMENT les 3 SESSIONS « Session Asie », « Session Londres », « Session New York », dans CET ordre (jamais de découpage par pays : le Canada vit dans Session New York, la Suisse et le Royaume-Uni dans Session Londres). ⚠️ SIMPLICITÉ MAXIMALE (demande user 11/08 « clair et facile pour le trader qui lit ») : UNE phrase courte par session, en mots de tous les jours, UN seul fait — le trader doit comprendre la séance en trois secondes. PAS de sous-groupes, PAS de listes : les chiffres publiés s'affichent déjà tout seuls sous chaque session (avec leur heure), et le détail des mécanismes vit dans Macro. Ne répète JAMAIS ici ce qui est déjà dans Macro ou Géopolitique.
+- "regions" = EXACTEMENT les 3 SESSIONS « Session Asie », « Session Londres », « Session New York », dans CET ordre (jamais de découpage par pays : le Canada vit dans Session New York, la Suisse et le Royaume-Uni dans Session Londres). ⚠️ SIMPLICITÉ MAXIMALE (demande user 11/08 « clair et facile pour le trader qui lit ») : UNE phrase courte par session, en mots de tous les jours, UN seul fait, le trader doit comprendre la séance en trois secondes. PAS de sous-groupes, PAS de listes : les chiffres publiés s'affichent déjà tout seuls sous chaque session (avec leur heure), et le détail des mécanismes vit dans Macro. Ne répète JAMAIS ici ce qui est déjà dans Macro ou Géopolitique.
 - SECTIONS RETIRÉES (ne les produis PLUS) : « Titres principaux », « Focus banques centrales » et « Données économiques clés ». La posture d'une banque centrale se raconte dans "macro" AVEC son effet devise ; les chiffres publiés sont déjà listés, horodatés, sous chaque session. Deux blocs de moins, zéro information perdue.
-- "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais — l'affichage est traduit). "watch" en est la lecture NARRATIVE (le pourquoi) ; le tableau, lui, porte les dates et les chiffres. ⚠️ COHÉRENCE OBLIGATOIRE : chaque publication citée dans "watch" DOIT figurer dans le bloc ÉVÉNEMENTS À VENIR ci-dessous — le lecteur voit le tableau juste sous tes puces et doit y retrouver ce dont tu parles. Un fil à suivre non calendaire (projet de loi, visite diplomatique, discours) échappe à cette règle : il n'est dans aucun calendrier, dis-le simplement sans prétendre à une date de publication.
+- "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais : l'affichage est traduit). "watch" en est la lecture NARRATIVE (le pourquoi) ; le tableau, lui, porte les dates et les chiffres. ⚠️ COHÉRENCE OBLIGATOIRE : chaque publication citée dans "watch" DOIT figurer dans le bloc ÉVÉNEMENTS À VENIR ci-dessous : le lecteur voit le tableau juste sous tes puces et doit y retrouver ce dont tu parles. Un fil à suivre non calendaire (projet de loi, visite diplomatique, discours) échappe à cette règle : il n'est dans aucun calendrier, dis-le simplement sans prétendre à une date de publication.
 - "corporate" et "comments" : n'inclus que des éléments qui apparaissent réellement dans les titres.
-- DIFFÉRENTIEL DE TAUX : la faiblesse persistante des devises à taux directeur très bas face au reste du G10 (typiquement CHF ~0 % et JPY ~1 %) s'explique d'abord par le PORTAGE (différentiel de taux) — quand tu commentes leur sous-performance sans catalyseur du jour, nomme CE mécanisme, pas un vague « sentiment ».
-- ZONE EURO : hiérarchise les données — Allemagne d'abord (l'Ifo = indicateur AVANCÉ de la croissance de la zone), France ensuite, reste de la zone après.
+- DIFFÉRENTIEL DE TAUX : la faiblesse persistante des devises à taux directeur très bas face au reste du G10 (typiquement CHF ~0 % et JPY ~1 %) s'explique d'abord par le PORTAGE (différentiel de taux), quand tu commentes leur sous-performance sans catalyseur du jour, nomme CE mécanisme, pas un vague « sentiment ».
+- ZONE EURO : hiérarchise les données, Allemagne d'abord (l'Ifo = indicateur AVANCÉ de la croissance de la zone), France ensuite, reste de la zone après.
 
 === RÉCAPS DE SÉANCE DU JOUR (résumés internes DTP, base de l'INTRO) ===
-${wrapLines.join('\n').slice(0, 2500) || '(aucun récap de séance capturé — construis l\'intro depuis les titres majeurs)'}
+${wrapLines.join('\n').slice(0, 2500) || '(aucun récap de séance capturé : construis l\'intro depuis les titres majeurs)'}
 
 === TITRES & FLUX DU JOUR (${newsLines.length}) ===
 ${newsLines.join('\n').slice(0, 9000) || '(flux limité capturé)'}
@@ -10146,7 +10149,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     if (!fxr.watch || !fxr.watch.length) {
       fxr.watch = (laRows || []).filter(e => /high/i.test(e.impact || '')).slice(0, 5).map(e => {
         const j = e.timestamp ? new Date(e.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
-        return `${e.currency ? e.currency + ' — ' : ''}${_fxrTxt(e.title, 90)}${j ? ` (${j})` : ''}`;
+        return `${e.currency ? e.currency + ' : ' : ''}${_fxrTxt(e.title, 90)}${j ? ` (${j})` : ''}`;
       });
     }
     try { fxr.notableCommentsHtml = await _generateNotableComments(dayKey); } catch {}   // section « Commentaires marquants »
@@ -10171,7 +10174,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     saveHistory();
     auth.weeklyReportSave('fxr-' + dayKey, item).catch(e => console.warn('[FX Recap] persist échec:', e.message));
     try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
-    console.log(`[FX Recap] ${fxr._ai ? 'IA' : 'fallback'} ${dayKey} — ${(fxr.headlines||[]).length} headlines, ${(fxr.regions||[]).length} régions, ${(fxr.econData||[]).length} data, ${(fxr.lookahead||[]).length} look-ahead`);
+    console.log(`[FX Recap] ${fxr._ai ? 'IA' : 'fallback'} ${dayKey}, ${(fxr.headlines||[]).length} headlines, ${(fxr.regions||[]).length} régions, ${(fxr.econData||[]).length} data, ${(fxr.lookahead||[]).length} look-ahead`);
     return item;
   } catch (e) {
     console.error('[FX Recap] génération échouée:', e.message);
@@ -10243,7 +10246,7 @@ function _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows }) {
   if (_eco) secs.push(_eco);
   return {
     v: DTPD_VER, day: dayKey, _ai: false, dateLabel,
-    title: 'Point Marché — Ouverture US — ' + dateLabel,
+    title: 'Point Marché : Ouverture US' + dateLabel,
     summary: top.length ? ('À l\'ouverture US : ' + top.slice(0, 3).join(' · ')) : 'Synthèse des marchés à l\'ouverture US.',
     tags: [], sections: secs,
   };
@@ -10322,7 +10325,7 @@ async function generateDTPDaily(force = false) {
 
     let dtpd = null;
     if (!(ai.backoffActive && ai.backoffActive())) {
-      const prompt = `Tu es le stratège macro & FX senior de « DataTradingPro ». Tu rédiges le rapport quotidien « Point Marché — Ouverture US », publié vers midi (Paris) : une synthèse PROFESSIONNELLE et structurée de la nuit asiatique et de la matinée européenne, jusqu'à l'ouverture des marchés américains, le ${dateLabel}.
+      const prompt = `Tu es le stratège macro & FX senior de « DataTradingPro ». Tu rédiges le rapport quotidien « Point Marché : Ouverture US », publié vers midi (Paris) : une synthèse PROFESSIONNELLE et structurée de la nuit asiatique et de la matinée européenne, jusqu'à l'ouverture des marchés américains, le ${dateLabel}.
 
 Rédige un rapport COMPLET et dense (même profondeur qu'un rapport analyste de référence). Appuie-toi STRICTEMENT sur les données fournies. FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre : n'utilise que ceux présents ci-dessous. N'inclus une section QUE si tu as de la matière réelle pour elle.
 
@@ -10357,7 +10360,7 @@ Règles :
 - "kind" vaut "bullets" (liste à puces), "paras" (paragraphes) ou "data" (tableau de publications éco).
 - Section "Données économiques" (kind data) : UNIQUEMENT les chiffres du bloc DONNÉES ÉCONOMIQUES (actual/expected/previous) ; conserve les intitulés officiels tels quels.
 - Garde l'ordre des sections ci-dessus, mais OMETS toute section sans contenu réel. Vise 8 à 14 sections.
-- Aucun astérisque ni markdown dans le texte. N'utilise JAMAIS le tiret cadratin « — » : dans les titres de section, utilise « : » ; dans les phrases, une virgule.
+- Aucun astérisque ni markdown dans le texte. N'utilise JAMAIS le tiret cadratin « : » : dans les titres de section, utilise « : » ; dans les phrases, une virgule.
 
 === TITRES & FLUX (nuit + matinée, ${newsLines.length}) ===
 ${newsLines.join('\n').slice(0, 10000) || '(flux limité)'}
@@ -10368,7 +10371,7 @@ ${dataLines.join('\n').slice(0, 4500) || '(aucune)'}
 === FORCE DES DEVISES (intraday) ===
 ${csLine || '(n/d)'}
 
-=== SMART BIAS DTP — biais directionnel hebdo par devise (déjà calculé sur le desk, à utiliser comme contexte) ===
+=== SMART BIAS DTP : biais directionnel hebdo par devise (déjà calculé sur le desk, à utiliser comme contexte) ===
 ${biasLine || '(n/d)'}`;
       try {
         _aiReset();
@@ -10413,7 +10416,7 @@ ${biasLine || '(n/d)'}`;
     saveHistory();
     auth.weeklyReportSave('dtpd-' + dayKey, item).catch(e => console.warn('[DTP Daily] persist échec:', e.message));
     try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
-    console.log(`[DTP Daily] ${dtpd._ai ? 'IA' : 'fallback'} ${dayKey} — ${(dtpd.sections || []).length} sections`);
+    console.log(`[DTP Daily] ${dtpd._ai ? 'IA' : 'fallback'} ${dayKey}, ${(dtpd.sections || []).length} sections`);
     return item;
   } catch (e) {
     console.error('[DTP Daily] génération échouée:', e.message);
@@ -10463,7 +10466,7 @@ const EVA_CFG = {
   cpi:  { label: 'CPI US', report: 'CPI Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'CPI', 'USD'],   ccy: 'USD', cb: false, gnq: 'CPI inflation report',
     calRe:  /\b(inflation rate|consumer price|core inflation|\bcpi\b)\b/i,
     newsRe: /\b(\bcpi\b|inflation|consumer price|\bcore\b|shelter|services|goods|disinflation|supercore)\b/i,
-    sections: _EVA_DATA_SECTIONS, intro: "L'inflation américaine (CPI — indice des prix à la consommation)" },
+    sections: _EVA_DATA_SECTIONS, intro: "L'inflation américaine (CPI : indice des prix à la consommation)" },
   pce:  { label: 'PCE US', report: 'PCE Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'PCE', 'USD'],   ccy: 'USD', cb: false, gnq: 'PCE inflation Fed',
     calRe:  /\b(\bpce\b|personal consumption|core pce)\b/i,
     newsRe: /\b(\bpce\b|personal consumption|\bcore\b|inflation|deflator|personal income|personal spending)\b/i,
@@ -10475,7 +10478,7 @@ const EVA_CFG = {
   ism:  { label: 'ISM US', report: 'ISM Analysis',  category: 'Economic Commentary', tags: ['ISM', 'PMI', 'USD'],         ccy: 'USD', cb: false, gnq: 'ISM PMI services manufacturing',
     calRe:  /\bism\b/i,
     newsRe: /\b(\bism\b|\bpmi\b|manufacturing|services|new orders|prices paid|employment index)\b/i,
-    sections: _EVA_DATA_SECTIONS, intro: "L'activité américaine (ISM — PMI manufacturier / services)" },
+    sections: _EVA_DATA_SECTIONS, intro: "L'activité américaine (ISM : PMI manufacturier / services)" },
   // ── DONNÉES US MANQUANTES (13/08/2026) : PPI, ADP, JOLTS et ventes au détail figurent dans la liste
   //    de news du user (PDF « Learning Economics News ») mais n avaient AUCUNE règle — ces chiffres
   //    tombaient sans jamais produire d analyse. Libellés calés sur le calendrier de PRODUCTION (relevés
@@ -10484,19 +10487,19 @@ const EVA_CFG = {
   ppi:  { label: 'PPI US', report: 'PPI Analysis', category: 'Economic Commentary', tags: ['Inflation', 'PPI', 'USD'], ccy: 'USD', cb: false, gnq: 'PPI producer price index report',
     calRe:  /\b(producer price|\bppi\b)\b/i,
     newsRe: /\b(\bppi\b|producer price|wholesale|input costs?|factory gate|pipeline|margins?|\bcore\b|goods|services)\b/i,
-    sections: _EVA_DATA_SECTIONS, intro: 'Les prix à la production américains (PPI — ce que les usines facturent, en amont du CPI)' },
+    sections: _EVA_DATA_SECTIONS, intro: 'Les prix à la production américains (PPI : ce que les usines facturent, en amont du CPI)' },
   adp:  { label: 'ADP US', report: 'ADP Analysis', category: 'Economic Commentary', tags: ['Jobs', 'ADP', 'USD'], ccy: 'USD', cb: false, gnq: 'ADP private payrolls employment report',
     calRe:  /\badp\b/i,
     newsRe: /\b(\badp\b|private (?:sector )?(?:payrolls?|employment|hiring)|employment change|hiring|labou?r market|jobs)\b/i,
-    sections: _EVA_DATA_SECTIONS, intro: "L emploi privé américain (enquête ADP — le test avant le rapport officiel NFP)" },
+    sections: _EVA_DATA_SECTIONS, intro: "L emploi privé américain (enquête ADP : le test avant le rapport officiel NFP)" },
   jolts: { label: 'JOLTS US', report: 'JOLTS Analysis', category: 'Economic Commentary', tags: ['Jobs', 'JOLTS', 'USD'], ccy: 'USD', cb: false, gnq: 'JOLTS job openings labor turnover',
     calRe:  /\b(jolts|job openings)\b/i,
     newsRe: /\b(jolts|job openings|quits|layoffs?|labou?r turnover|vacancies|hires|labou?r market)\b/i,
-    sections: _EVA_DATA_SECTIONS, intro: 'Les postes à pourvoir aux États-Unis (JOLTS — la tension du marché du travail)' },
+    sections: _EVA_DATA_SECTIONS, intro: 'Les postes à pourvoir aux États-Unis (JOLTS : la tension du marché du travail)' },
   retail: { label: 'VENTES US', report: 'Retail Sales Analysis', category: 'Economic Commentary', tags: ['Retail', 'Growth', 'USD'], ccy: 'USD', cb: false, gnq: 'US retail sales consumer spending report',
     calRe:  /\bretail sales\b/i,
     newsRe: /\b(retail sales|consumer spending|control group|\bcore\b|spending|consumption|households?|shoppers?)\b/i,
-    sections: _EVA_DATA_SECTIONS, intro: 'La consommation américaine (ventes au détail — le moteur de la croissance US)' },
+    sections: _EVA_DATA_SECTIONS, intro: 'La consommation américaine (ventes au détail : le moteur de la croissance US)' },
   // ── BANQUES CENTRALES DU RESTE DU G8 (11/08/2026) ────────────────────────────────────────────────
   // Trou de couverture constaté : une décision RBA, BoJ, BoC, RBNZ ou BNS ne déclenchait AUCUNE analyse
   // d'événement — alors que ce sont exactement les rendez-vous qui font bouger AUD, JPY, CAD, NZD et CHF
@@ -10740,22 +10743,22 @@ Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
   "headline": "<titre court et précis, ex. « Taux maintenus, dot plot plus hawkish » ou « CPI au-dessus du consensus, cœur tenace »>",
   "lead": "<2 à 4 phrases de synthèse : le résultat, la SURPRISE éventuelle (RÉELLE, vs consensus/pricing), le ton, la réaction principale>",
   "sections": [ { "title": "<libellé COURT de section (≤ 40 caractères), en français, casse normale>", "points": ["<une phrase factuelle concrète>", "..."] } ],
-  "marketImpact": "<IMPACT MARCHÉ — 2 à 3 phrases TOURNÉES VERS LA SUITE, la lecture qu'en fait un desk : ce que ce résultat SIGNIFIE pour la trajectoire (ton hawkish / dovish / neutre, plutôt maintien ou mouvement à la prochaine réunion), ce qu'il change au pricing DÉJÀ en place, et LE point précis à surveiller ensuite (donnée ou réunion nommée). Concret et nuancé : si le signal est ambigu, dis-le et explique pourquoi. AUCUN conseil de position, aucune cible de prix, aucun chiffre inventé.>"
+  "marketImpact": "<IMPACT MARCHÉ : 2 à 3 phrases TOURNÉES VERS LA SUITE, la lecture qu'en fait un desk : ce que ce résultat SIGNIFIE pour la trajectoire (ton hawkish / dovish / neutre, plutôt maintien ou mouvement à la prochaine réunion), ce qu'il change au pricing DÉJÀ en place, et LE point précis à surveiller ensuite (donnée ou réunion nommée). Concret et nuancé : si le signal est ambigu, dis-le et explique pourquoi. AUCUN conseil de position, aucune cible de prix, aucun chiffre inventé.>"
 }
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
-🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) — VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
+🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) : VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
 ${_MENTOR_RULES}
-ARTICLES LIÉS : sous certains titres de dépêches, une ligne « › » donne un EXTRAIT du corps de l'article lié. EXPLOITE ces extraits comme un dossier d'articles liés à l'événement : va y RÉCUPÉRER les détails (composition d'un chiffre, votes, changements de formulation, nuances) puis RAFFINE-les dans ton analyse — ne recopie jamais un extrait brut. Si une section « RELATED STORIES » est fournie, RECOUPE tes conclusions avec ce dossier de presse (angles, chiffres confirmés par plusieurs sources, éléments de contexte absents des dépêches) — sans jamais citer le nom d'un agrégateur ni recopier un titre mot à mot.
-Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).${cfg.cb ? "\nBANQUE CENTRALE — précisions attendues : dans « Communiqué (forward guidance) », qualifie EXPLICITEMENT le ton (hawkish / dovish / neutre) et signale tout CHANGEMENT DE FORMULATION vs le communiqué précédent (même subtil, les marchés y sont très sensibles). Dans « Interprétation de marché », dis si l'intervention RENFORCE, AFFAIBLIT ou NE CHANGE PAS le scénario de politique monétaire, et quelles classes d'actifs ont réagi (devises, taux, actions, or) — UNIQUEMENT d'après les dépêches fournies, sans aucun chiffre inventé." : ""}
+ARTICLES LIÉS : sous certains titres de dépêches, une ligne « › » donne un EXTRAIT du corps de l'article lié. EXPLOITE ces extraits comme un dossier d'articles liés à l'événement : va y RÉCUPÉRER les détails (composition d'un chiffre, votes, changements de formulation, nuances) puis RAFFINE-les dans ton analyse, ne recopie jamais un extrait brut. Si une section « RELATED STORIES » est fournie, RECOUPE tes conclusions avec ce dossier de presse (angles, chiffres confirmés par plusieurs sources, éléments de contexte absents des dépêches) : sans jamais citer le nom d'un agrégateur ni recopier un titre mot à mot.
+Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).${cfg.cb ? "\nBANQUE CENTRALE : précisions attendues : dans « Communiqué (forward guidance) », qualifie EXPLICITEMENT le ton (hawkish / dovish / neutre) et signale tout CHANGEMENT DE FORMULATION vs le communiqué précédent (même subtil, les marchés y sont très sensibles). Dans « Interprétation de marché », dis si l'intervention RENFORCE, AFFAIBLIT ou NE CHANGE PAS le scénario de politique monétaire, et quelles classes d'actifs ont réagi (devises, taux, actions, or) : UNIQUEMENT d'après les dépêches fournies, sans aucun chiffre inventé." : ""}
 
 === RÉSULTAT (calendrier) ===
 ${actualLine}
 ${pricing ? `\n=== ANTICIPATIONS DE TAUX (marché ${cfg.ccy}, via rateprobability) ===\n${pricing}\n` : ''}
-=== DÉPÊCHES — ÉVÉNEMENT (${evCtx.length}) ===
+=== DÉPÊCHES : ÉVÉNEMENT (${evCtx.length}) ===
 ${evCtx.join('\n').slice(0, 9500)}
-${relCtx.length ? `\n=== RELATED STORIES — DOSSIER DE PRESSE DE L'ÉVÉNEMENT (${relCtx.length}) ===\n${relCtx.join('\n').slice(0, 3500)}\n` : ''}
+${relCtx.length ? `\n=== RELATED STORIES : DOSSIER DE PRESSE DE L'ÉVÉNEMENT (${relCtx.length}) ===\n${relCtx.join('\n').slice(0, 3500)}\n` : ''}
 
-=== DÉPÊCHES — RÉACTION DE MARCHÉ (${mktCtx.length}) ===
+=== DÉPÊCHES : RÉACTION DE MARCHÉ (${mktCtx.length}) ===
 ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
     const text = await ai.generateText(prompt, 2800);
     aiNote('news');
@@ -10799,7 +10802,7 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
   _evaState[evKey] = true;
   saveHistory();
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
-  console.log(`[EVA ${kind}] publié ${evKey} — ${parsed.sections.length} sections (${ctx.length} dépêches)`);
+  console.log(`[EVA ${kind}] publié ${evKey} : ${parsed.sections.length} sections (${ctx.length} dépêches)`);
   return item;
 }
 async function _checkEventAnalyses() {
@@ -11357,7 +11360,7 @@ async function _sbFundamentalRows() {
   SB_CURRENCIES.forEach(c => { parent[c] = _sbAvgToBias(subs.map(s => s.values[c])); });   // parent = agrégat des 8 enfants affichés
   const teOk = Object.keys(te).length;
   _sbSetLongCal(cal);   // ← partage les 6 mois avec la couche live (sinon elle mesure sur 21 j et perd les niveaux)
-  console.log(`[SmartBias] Fundamental = mélange DESK 3 mois (${usedCal} cellules) + TE (${teOk}/8 devises) — NZD parent=${parent.NZD} | calendrier profond partagé : ${_sbLongCal.items.length} publications`);
+  console.log(`[SmartBias] Fundamental = mélange DESK 3 mois (${usedCal} cellules) + TE (${teOk}/8 devises) : NZD parent=${parent.NZD} | calendrier profond partagé : ${_sbLongCal.items.length} publications`);
   return { parent, subs, cal };   // cal exposé → le MACRO TABLE en dérive niveau/tendance d'inflation sans re-fetch
 }
 
@@ -11446,7 +11449,7 @@ function _sbPricingLine(rb) {
   if (!rb) return null;
   const mi = rb.marketImplied;
   if (mi && mi.impliedRate != null) {
-    return `${mi.hold} % maintien · ${mi.cut} % baisse · ${mi.hike} % hausse — taux implicite ${mi.impliedRate} % (${mi.changeBps >= 0 ? '+' : ''}${mi.changeBps} bps) au prochain FOMC`;
+    return `${mi.hold} % maintien · ${mi.cut} % baisse · ${mi.hike} % hausse : taux implicite ${mi.impliedRate} % (${mi.changeBps >= 0 ? '+' : ''}${mi.changeBps} bps) au prochain FOMC`;
   }
   const sc = rb.scenario || {};
   const parts = [];
@@ -11455,7 +11458,7 @@ function _sbPricingLine(rb) {
   if (sc.hike != null && sc.hike > 0) parts.push(`${Math.round(sc.hike)} % hausse`);
   const head = parts.length ? parts.join(' · ') : null;
   const tail = (rb.expBps != null) ? `Δ ${rb.expBps >= 0 ? '+' : ''}${rb.expBps} bps` : '';
-  return [head, tail].filter(Boolean).join(' — ') || null;
+  return [head, tail].filter(Boolean).join(' - ') || null;
 }
 // CONFLUENCE de signaux {dir,n} pondérés (demande user : chaque colonne agrège ses sous-indicateurs, confirmés +
 // avancés) → 'up' / 'down' / 'flat'. specs = [[trendResult, poids], …]. Repli sur la stance du pilier si aucune série.
@@ -11636,7 +11639,7 @@ function _sbGroundMonetary(toneMap) {
       _bk.forEach(b => { diffs[b.code] = +((+b.rate) - (tot - (+b.rate)) / (_bk.length - 1)).toFixed(2); });
       line = 'Différentiel de taux directeurs (chaque devise vs la moyenne des autres banques du G8) : '
         + _bk.map(b => `${b.code} ${(+b.rate).toFixed(2)}% (${diffs[b.code] > 0 ? '+' : ''}${diffs[b.code]} pt)`).join(' · ')
-        + ' — un écart nettement NÉGATIF (typiquement CHF/JPY) = portage structurellement défavorable qui pèse sur la devise ; un écart nettement positif = portage favorable.';
+        + ' : un écart nettement NÉGATIF (typiquement CHF/JPY) = portage structurellement défavorable qui pèse sur la devise ; un écart nettement positif = portage favorable.';
     }
   } catch (e) { console.warn('[SmartBias] rate diff', e.message); }
   const values = {};
@@ -11970,7 +11973,7 @@ function _sbCoherence(macroTable, conclusion, diffs, monTone) {
       const m = macroTable[c] || {};
       const st = (m.monetary || {}).stance, inf = m.inflation || {};
       const g = (m.growthCell || {}).level, e = (m.employmentCell || {}).level;
-      const cellules = `politique ${st || '—'} · inflation ${inf.level || '—'}/${inf.trend || '—'} · croissance ${g || '—'} · emploi ${e || '—'}`;
+      const cellules = `politique ${st || '-'} · inflation ${inf.level || '-'}/${inf.trend || '-'} · croissance ${g || '-'} · emploi ${e || '-'}`;
       // 1) Invariant : la colonne Biais doit être EXACTEMENT la conclusion servie.
       if (m.bias && (conclusion || {})[c] && m.bias !== conclusion[c]) {
         out.push({ ccy: c, type: 'desync', attendu: conclusion[c], biais: m.bias, score: 0, cellules });
@@ -12047,7 +12050,7 @@ function _sbGardeBiais(macroTable, conclusion, diffs, monTone, prevConclusion, c
       } else {
         a.corrige = '';   // rien de plus sûr à proposer : on publie, mais l'alerte reste visible
       }
-      console.warn(`[${etiq}] ⚠ COHÉRENCE ${a.ccy} : cellules ${a.attendu} (score ${a.score}) vs verdict « ${a.biais} » — ${a.cellules}`
+      console.warn(`[${etiq}] ⚠ COHÉRENCE ${a.ccy} : cellules ${a.attendu} (score ${a.score}) vs verdict « ${a.biais} » : ${a.cellules}`
         + (a.corrige ? ` → ${a.corrige}` : ' → AUCUNE correction sûre, biais publié tel quel'));
     }
   } catch (e) { console.warn(`[${etiq}] garde-fou cohérence :`, e.message); }
@@ -12248,7 +12251,7 @@ function _sbDataNarrative(curr, rows, conclusion) {
   // Macro : on relie fondamentaux et politique monétaire en une lecture
   if (has(fund) && has(mon)) {
     const coherent = q(fund) === q(mon);
-    P.push(`Sur le plan macro, le contexte fondamental est ${q(fund)} et la politique monétaire ${q(mon)} — ${coherent ? 'des signaux qui vont dans le même sens' : 'des signaux à nuancer l’un par l’autre'}.`);
+    P.push(`Sur le plan macro, le contexte fondamental est ${q(fund)} et la politique monétaire ${q(mon)} : ${coherent ? 'des signaux qui vont dans le même sens' : 'des signaux à nuancer l’un par l’autre'}.`);
   } else if (has(fund)) P.push(`Côté macro, le contexte fondamental ressort ${q(fund)}.`);
   else if (has(mon))   P.push(`Côté macro, la politique monétaire ressort ${q(mon)}.`);
   // Positionnement : COT / retail / banques en récit
@@ -12263,7 +12266,7 @@ function _sbDataNarrative(curr, rows, conclusion) {
   if (has(seas)) tech.push(`la saisonnalité ${q(seas)}`);
   if (tech.length) P.push(`Techniquement, ${tech.join(' et ')}.`);
   // Conclusion : soutiens vs pressions, formulée en bilan
-  if (bulls.length && bears.length) P.push(`Au total, les soutiens (${bulls.join(', ')}) et les pressions (${bears.join(', ')}) se compensent en partie — d'où un biais ${ov} sans conviction tranchée.`);
+  if (bulls.length && bears.length) P.push(`Au total, les soutiens (${bulls.join(', ')}) et les pressions (${bears.join(', ')}) se compensent en partie : d'où un biais ${ov} sans conviction tranchée.`);
   else if (bulls.length) P.push(`Les principaux soutiens viennent de ${bulls.join(', ')}, sans réelle force opposée.`);
   else if (bears.length) P.push(`Les principales pressions viennent de ${bears.join(', ')}, sans réel soutien en face.`);
   else P.push('Aucun facteur ne domine nettement : un biais sans direction marquée.');
@@ -12342,7 +12345,7 @@ async function _sbVerifyBias(conclusion, ctxLines) {
   const cur = SB_CURRENCIES.map(c => `${c}=${conclusion[c] || 'Neutral'}`).join(', ');
   const prompt = `You are an FX bias AUDITOR (a guard-rail, NOT a re-calculator). Below is a computed weekly "Smart Bias" and the elapsed-week data it was built from.
 
-METHODOLOGY you MUST respect (do NOT re-weight): this bias DELIBERATELY prioritises what ACTUALLY HAPPENED last week — DTP's own Weekly Recap (price action) + the published macro data (calendar actual-vs-forecast) — OVER raw speculative positioning. COT is POSITIONING, often CONTRARIAN, a SECONDARY signal. NEVER flip a bias merely because COT disagrees.
+METHODOLOGY you MUST respect (do NOT re-weight): this bias DELIBERATELY prioritises what ACTUALLY HAPPENED last week, DTP's own Weekly Recap (price action) + the published macro data (calendar actual-vs-forecast) : OVER raw speculative positioning. COT is POSITIONING, often CONTRARIAN, a SECONDARY signal. NEVER flip a bias merely because COT disagrees.
 
 Your job: CONFIRM each currency's bias (ok:true) UNLESS it clearly CONTRADICTS what actually happened (e.g. labeled Bullish while the currency clearly WEAKENED last week per the recap/price action and the macro misses). Default strongly to ok:true. Flag at most the 1-2 MOST egregious contradictions; everything else MUST be ok:true. Allowed values: ${_SB_VALID_BIAS.map(v => '"' + v + '"').join(', ')}.
 
@@ -12376,7 +12379,7 @@ Return ONLY JSON, one entry per currency: {"USD":{"ok":true,"corrected":"<same o
     return out;
   }
   for (const k of corrections) { conclusion[k.c] = k.to; out[k.c] = { from: k.from, to: k.to, reason: k.reason }; }   // ≤2 → on applique les vraies corrections
-  console.log(`[SmartBias] audit IA : ${corrections.length} correction(s) appliquée(s) — ${SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' ')}`);
+  console.log(`[SmartBias] audit IA : ${corrections.length} correction(s) appliquée(s), ${SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' ')}`);
   return out;
 }
 
@@ -12473,7 +12476,7 @@ async function generateSmartBias(force = false, weekly = false) {
   if (!Object.keys(bankStances).length && _smartBias && _smartBias.bankStances) bankStances = _smartBias.bankStances;
   const bankOverview = {};
   SB_CURRENCIES.forEach(c => {
-    const vals = Object.values(bankStances).map(st => (st || {})[c]).filter(v => v && v !== '—');
+    const vals = Object.values(bankStances).map(st => (st || {})[c]).filter(v => v && v !== '-');
     bankOverview[c] = vals.length ? _sbAvgToBias(vals) : 'Neutral';
   });
 
@@ -12483,7 +12486,7 @@ async function generateSmartBias(force = false, weekly = false) {
   try {
     aiNote('bias');
     const mp = `You are an FX strategist. For EACH of the 8 majors (${SB_CURRENCIES.join(', ')}), rate the CURRENT central-bank MONETARY POLICY stance for that currency as EXACTLY one of "Very Bullish","Bullish","Neutral","Bearish","Very Bearish" (hawkish / tightening / hold-with-hawkish-guidance → Bullish ; dovish / cutting / easing-guidance → Bearish). Use ONLY the central-bank events + headlines below ; if a currency's central bank is not clearly covered → "Neutral". Be decisive when there is a clear lean.
-== CALENDAR — central-bank & rate events (actual vs forecast) ==
+== CALENDAR : central-bank & rate events (actual vs forecast) ==
 ${calLine || 'n/a'}
 == PAST-WEEK HEADLINES (central banks / officials) ==
 ${heads || 'n/a'}
@@ -12620,7 +12623,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
   // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
-  console.log(`[SmartBias] ${aiOk ? 'OK' : 'IA-DOWN (rows précédentes + Trend/Seasonality réels)'} — sources: COT=${cotLine ? 'oui' : 'NON'} retail=${retailLine ? 'oui' : 'NON'} banques=${bankLine ? 'oui' : 'NON'} calendrier=${calLine ? 'oui' : 'NON'} | conclusion: ${SB_CURRENCIES.map(c => c + '=' + (conclusion[c] || '?')).join(' ')}`);
+  console.log(`[SmartBias] ${aiOk ? 'OK' : 'IA-DOWN (rows précédentes + Trend/Seasonality réels)'}, sources: COT=${cotLine ? 'oui' : 'NON'} retail=${retailLine ? 'oui' : 'NON'} banques=${bankLine ? 'oui' : 'NON'} calendrier=${calLine ? 'oui' : 'NON'} | conclusion: ${SB_CURRENCIES.map(c => c + '=' + (conclusion[c] || '?')).join(' ')}`);
   try { broadcast({ type: 'smartbias_update', bias: _smartBias }); } catch {}
   return _smartBias;
 }
@@ -12693,7 +12696,7 @@ async function _sbRecomputeLive() {
       const _bs = _smartBias.bankStances || {};
       const _prevBank = prevRow('bankOverview');
       SB_CURRENCIES.forEach(c => {
-        const vals = Object.values(_bs).map(st => (st || {})[c]).filter(v => v && v !== '—');
+        const vals = Object.values(_bs).map(st => (st || {})[c]).filter(v => v && v !== '-');
         bankOverview[c] = vals.length ? _sbAvgToBias(vals) : (_prevBank[c] || 'Neutral');
       });
     } catch { Object.assign(bankOverview, prevRow('bankOverview')); }
@@ -12741,7 +12744,7 @@ async function _sbRecomputeLive() {
     _smartBias = next;
     // Trace UNIQUE au premier recalcul de la vie du process : confirme que la couche est bien armée.
     // Ensuite, silence total tant que rien ne change (sinon un tic toutes les 3 min inonderait les logs).
-    if (!_sbLiveSeen) { _sbLiveSeen = true; console.log('[SmartBias live] couche temps réel armée (recalcul toutes les 3 min, diffusion seulement si changement)' + (after === before ? ' — 1er passage : aucun changement' : '')); }
+    if (!_sbLiveSeen) { _sbLiveSeen = true; console.log('[SmartBias live] couche temps réel armée (recalcul toutes les 3 min, diffusion seulement si changement)' + (after === before ? ' : 1er passage : aucun changement' : '')); }
     if (after === before) return null;                          // rien n'a bougé → ni écriture ni diffusion
     // Persistance ESPACÉE (30 min) : inutile de réécrire un JSON de plusieurs ko à chaque tic ; le cycle
     // lourd, lui, persiste toujours. En cas de redémarrage on repart au pire d'un socle vieux de 30 min.
@@ -12750,7 +12753,7 @@ async function _sbRecomputeLive() {
       try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
       auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});
     }
-    console.log('[SmartBias live] mise à jour — ' + SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' '));
+    console.log('[SmartBias live] mise à jour' + SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' '));
     try { broadcast({ type: 'smartbias_update', bias: _sbApplyOverrides(_sbFreshenMacroTable(_sbFillNarrative(_smartBias))) }); } catch {}
     return _smartBias;
   } catch (e) { console.warn('[SmartBias live]', e.message); return null; }
@@ -12770,21 +12773,21 @@ async function _sbGenerateNarratives(rows, conclusion, ctxLines, only) {
     try {
       const ind  = rows.map(r => `${r.label}=${r.values[c] || 'Neutral'}`).join(', ');
       const bias = conclusion[c] || 'Neutral';
-      const prompt = `Tu es un stratège FX institutionnel de tout premier plan. Rédige EN FRANÇAIS le rapport hebdomadaire de marché pour ${c} UNIQUEMENT — ~350-450 mots, ton froid, analytique, technique, vocabulaire institutionnel dense (demande de valeurs refuges, repricing hawkish, marché sans tendance, rendements de la partie courte, "higher-for-longer"). Chaque phrase doit porter un fait macro, un chiffre, une décision de banque centrale ou un flux précis — AUCUN remplissage. Ne CONTREDIS JAMAIS le biais Overall calculé de ${c} (${bias}). Appuie TOUT strictement sur les données RÉELLES ci-dessous ; n'invente aucun chiffre. Écris avec TES PROPRES mots — ne recopie jamais une source externe.
+      const prompt = `Tu es un stratège FX institutionnel de tout premier plan. Rédige EN FRANÇAIS le rapport hebdomadaire de marché pour ${c} UNIQUEMENT : ~350-450 mots, ton froid, analytique, technique, vocabulaire institutionnel dense (demande de valeurs refuges, repricing hawkish, marché sans tendance, rendements de la partie courte, "higher-for-longer"). Chaque phrase doit porter un fait macro, un chiffre, une décision de banque centrale ou un flux précis : AUCUN remplissage. Ne CONTREDIS JAMAIS le biais Overall calculé de ${c} (${bias}). Appuie TOUT strictement sur les données RÉELLES ci-dessous ; n'invente aucun chiffre. Écris avec TES PROPRES mots : ne recopie jamais une source externe.
 
 Structure en prose fluide (PAS de markdown, PAS de titres, PAS de puces) :
 - Chronologie de la semaine ("En début de semaine" / "En milieu de semaine" / "Jeudi-vendredi") reliant ${c} aux thèmes de la semaine et à l'appétit pour le risque mondial.
-- Politique monétaire : ${CB_OF[c] || 'la banque centrale'} — cite les officiels mentionnés dans le contexte et explique leur posture.
+- Politique monétaire : ${CB_OF[c] || 'la banque centrale'} : cite les officiels mentionnés dans le contexte et explique leur posture.
 - Données macro : les publications de la semaine avec les chiffres EXACTS réalisé vs consensus tirés du contexte.
 - Taux & obligations : comportement des emprunts d'État et adjudications (bid-to-cover) tirés du contexte.
 - Perspectives : "À court terme :" le biais explicite (aligné sur ${bias}) + les catalyseurs qui l'invalideraient ; puis "À plus long terme :" l'équilibre macro structurel.
 
 Indicateurs ${c} : ${ind}
 
-CONTEXTE RÉEL (cette semaine — COT, recherche bancaire, calendrier économique réalisé vs prévu, régime de risque, actualités) :
+CONTEXTE RÉEL (cette semaine : COT, recherche bancaire, calendrier économique réalisé vs prévu, régime de risque, actualités) :
 ${ctx}
 
-Renvoie UNIQUEMENT le texte du rapport ${c} — aucun préambule, aucune étiquette, aucun guillemet, aucun JSON, aucune balise de code. Commence DIRECTEMENT par la chronologie de la semaine (ne commence JAMAIS par "Le biais hebdomadaire global ressort").`;
+Renvoie UNIQUEMENT le texte du rapport ${c} : aucun préambule, aucune étiquette, aucun guillemet, aucun JSON, aucune balise de code. Commence DIRECTEMENT par la chronologie de la semaine (ne commence JAMAIS par "Le biais hebdomadaire global ressort").`;
       const out = await aiSmart('bias', prompt, 1500, { scheduled: true });   // assez de tokens pour ~350-450 mots COMPLETS
       let txt = (out || '').replace(/```[a-z]*|```/gi, '').trim();
       // Plafond GÉNÉREUX (le rapport fait ~2800-3200 car.). Si jamais on dépasse, on coupe à la
@@ -13171,7 +13174,7 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
   _weekAhead = { generatedAt: Date.now(), v: WA_VER, week, days, editorialAI: days.filter(d => d.headline && d.summary).length };   // editorialAI = nb de jours rédigés par l'IA (diagnostic)
   try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
   auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
-  console.log(`[WeekAhead] OK — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
+  console.log(`[WeekAhead] OK : ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
   try { _waPublishNews(weekKey); } catch (e) { console.warn('[WeekAhead news]', e.message); }   // publie/màj la news Week Ahead dans le feed
   return _weekAhead;
 }
@@ -13238,7 +13241,7 @@ function _waPublishNews(weekKey) {
   const year = weekKey.slice(0, 4);
   // Titre 100 % FRANÇAIS (capture user 10/08 : « DTP Week Ahead — Week in Focus… » dans les alertes) :
   // c'est une publication MAISON, pas un titre de news externe (seuls ces derniers restent en VO).
-  const headline = `Semaine à Venir — ${_weekAhead.week || ''} ${year} : au programme ${highlights}`.replace(/\s+/g, ' ').slice(0, 230);
+  const headline = `Semaine à Venir${_weekAhead.week || ''} ${year} : au programme ${highlights}`.replace(/\s+/g, ' ').slice(0, 230);
   // Description = calendrier par jour + section WEEK AHEAD (éditorial par jour).
   // Format « JOUR: contenu » → le client style l'étiquette du jour (puce « section ») façon pro.
   const cal = days.map(d => {
@@ -13270,7 +13273,7 @@ function _waPublishNews(weekKey) {
   _waNewsKey = weekKey; _waNewsEdAI = edAI;
   try { saveHistory(); } catch {}
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: isNew }], total: allNews.length }); } catch {}
-  console.log(`[WeekAhead] news ${isNew ? 'publiée' : 'mise à jour'} (${weekKey}) — ${highlights.slice(0, 70)}`);
+  console.log(`[WeekAhead] news ${isNew ? 'publiée' : 'mise à jour'} (${weekKey}), ${highlights.slice(0, 70)}`);
 }
 
 // Éditorial IA du Week Ahead (titre + résumé par jour, épuré) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
@@ -13295,15 +13298,15 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
     const prompt = `Tu es un stratège macro senior qui rédige l'aperçu « semaine à venir » pour un terminal de trading institutionnel. Rédige, EN FRANÇAIS (français soigné et professionnel), l'aperçu d'UNE seule séance : ${d.dow} ${d.date} ${d.month}. Garde tels quels les tickers/codes/acronymes de banques centrales (USD/JPY, Fed, BCE, BoJ…).
 
 Publications / événements programmés ce jour-là (devise, intitulé, prévision, précédent) :
-${evs || 'Aucune donnée majeure programmée — séance plus calme.'}
+${evs || 'Aucune donnée majeure programmée : séance plus calme.'}
 
 Devises au centre de l'attention sur la semaine : ${focusWk || 'principales devises'}.
 
 Produis :
-(1) HEADLINE — le NOM CONCRET des événements du jour, pour comprendre d'un coup d'œil SANS lire la suite. Format : 1 à 3 événements séparés par « · », chacun = acteur/devise + événement (ex. « Fed : décision de taux et conférence de presse » ; « IPC zone euro · BoJ : décision de taux » ; « Politburo chinois · Ifo allemand »). Le PLUS important d'abord. INTERDIT : les formules génériques sans information (« sous surveillance », « en tête d'affiche », « au centre des marchés », « données économiques clés »…). Sans guillemets, sans point final.
-(2) SUMMARY — 2 à 3 phrases COURTES maximum : l'enjeu du jour, le chiffre/la décision attendue (prévision vs précédent si fournis), et ce qui ferait réagir les marchés. Dense et concret, zéro remplissage, ne répète pas la headline. Rédige avec tes propres mots ; ne recopie aucune source.
+(1) HEADLINE : le NOM CONCRET des événements du jour, pour comprendre d'un coup d'œil SANS lire la suite. Format : 1 à 3 événements séparés par « · », chacun = acteur/devise + événement (ex. « Fed : décision de taux et conférence de presse » ; « IPC zone euro · BoJ : décision de taux » ; « Politburo chinois · Ifo allemand »). Le PLUS important d'abord. INTERDIT : les formules génériques sans information (« sous surveillance », « en tête d'affiche », « au centre des marchés », « données économiques clés »…). Sans guillemets, sans point final.
+(2) SUMMARY : 2 à 3 phrases COURTES maximum : l'enjeu du jour, le chiffre/la décision attendue (prévision vs précédent si fournis), et ce qui ferait réagir les marchés. Dense et concret, zéro remplissage, ne répète pas la headline. Rédige avec tes propres mots ; ne recopie aucune source.
 
-Réponds UNIQUEMENT en JSON compact : {"headline":"...","summary":"..."} — rien d'autre.`;
+Réponds UNIQUEMENT en JSON compact : {"headline":"...","summary":"..."} : rien d'autre.`;
     let txt = null;
     try { txt = await aiSmart('weekahead', prompt, 750, { scheduled: true }); }
     catch (e) { items.push(null); continue; }
@@ -13697,7 +13700,7 @@ const EU_WRAP_SYMS = {
   ],
 };
 function _wrapFmtPrice(p, label) {
-  if (p == null || !isFinite(p)) return '—';
+  if (p == null || !isFinite(p)) return '-';
   if (/JPY/.test(label)) return p.toFixed(2);
   if (Math.abs(p) >= 1000) return p.toLocaleString('en-US', { maximumFractionDigits: 0 });
   if (Math.abs(p) >= 10)   return p.toFixed(2);
@@ -13772,7 +13775,7 @@ function _euWrapLead(levels) {
     pick(levels.cmd, 'Brent') || pick(levels.cmd, 'Gold'),
     pick(levels.fixed, 'US 10y'),
   ].filter(Boolean);
-  return parts.length ? `Clôture européenne — ${parts.join(' ; ')}.` : null;
+  return parts.length ? `Clôture européenne : ${parts.join(' ; ')}.` : null;
 }
 
 // Lignes-placeholder « (None) / N/A / Aucun … » que l'IA glisse parfois sous une rubrique vide
@@ -13899,16 +13902,16 @@ async function generateEuropeanMarketWrap(force = false) {
   const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
   const prompt = `Tu es reporter marchés senior dans une banque de premier plan ; tu rédiges la SYNTHÈSE DE MARCHÉ quotidienne à la clôture cash européenne (16:00 Paris), dans le style institutionnel et factuel d'une référence type Newsquawk. Date : ${dateStr}.
 
-NIVEAUX DE MARCHÉ RÉELS DU JOUR (utilise ces chiffres EXACTS ; les variations sont vs clôture précédente — n'invente JAMAIS et ne modifie JAMAIS un niveau) :
+NIVEAUX DE MARCHÉ RÉELS DU JOUR (utilise ces chiffres EXACTS ; les variations sont vs clôture précédente : n'invente JAMAIS et ne modifie JAMAIS un niveau) :
 ACTIONS:\n${lv(levels.eq)}
 DEVISES:\n${lv(levels.fx)}
 OBLIGATAIRE (rendements souverains, variation en pb):\n${lv(levels.fixed)}
 MATIERES PREMIERES:\n${lv(levels.cmd)}
 
-RÉSULTATS PUBLIÉS AUJOURD'HUI — CALENDRIER ÉCONOMIQUE (réel vs attendu vs précédent ; chiffres EXACTS, n'invente rien) :
+RÉSULTATS PUBLIÉS AUJOURD'HUI : CALENDRIER ÉCONOMIQUE (réel vs attendu vs précédent ; chiffres EXACTS, n'invente rien) :
 ${calRows.join('\n') || '(aucun)'}
 
-FLUX DE NEWS DU JOUR — utilise UNIQUEMENT ceci ; ancre CHAQUE affirmation dedans. N'invente RIEN (aucune donnée, niveau, %, citation, nom ou événement fictif) :
+FLUX DE NEWS DU JOUR : utilise UNIQUEMENT ceci ; ancre CHAQUE affirmation dedans. N'invente RIEN (aucune donnée, niveau, %, citation, nom ou événement fictif) :
 BANQUES CENTRALES:\n${summarise(s.cb, 8)}
 DONNEES EUROPEENNES (réel vs att./préc.):\n${summarise(s.euData.length ? s.euData : s.data, 8)}
 DONNEES NORD-AMERICAINES (réel vs att./préc.):\n${summarise(s.naData, 8)}
@@ -13934,17 +13937,17 @@ ACTUALITES NORD-AMERICAINES
 DONNEES NORD-AMERICAINES
 
 Chaque ligne de contenu commence par « - ». Format par rubrique :
-- SYNTHESE : 6 à 8 puces de SYNTHÈSE donnant la vue d'ensemble du jour, dans CET ordre — (1) principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières ; (2) SI le flux contient de la géopolitique, une puce GÉOPOLITIQUE dédiée (le fait dominant du jour : conflit, sanctions, détroit, négociations…) et son effet marché documenté (pétrole, valeurs refuges…) — ne l'omets JAMAIS quand la rubrique GEOPOLITIQUE ci-dessous a du contenu ; (3) 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux — jamais inventée) ; (4) une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre — juste les puces.
-- ANNONCES ECONOMIQUES : LA rubrique détaillée des publications du jour — une puce PAR publication du bloc RÉSULTATS PUBLIÉS (TOUTES les High d'abord, puis les Medium marquantes). Chaque puce : « Pays/Devise Indicateur : réel X vs attendu Y (préc. Z) », PUIS 1 à 2 phrases qui EXPLIQUENT L'IMPACT : (a) la lecture macro (surprise haussière/baissière, accélération ou ralentissement, ce que ça implique pour la banque centrale concernée : pression hawkish/dovish, statu quo conforté) et (b) la réaction de marché SI elle est documentée dans le flux ou les niveaux (« → le dollar s'est renforcé, les rendements 2 ans ont grimpé »). Si aucune réaction n'est documentée, donne UNIQUEMENT la lecture macro au conditionnel (« devrait conforter la patience de la Fed ») sans inventer de mouvement. C'est la rubrique la plus pédagogique du rapport : chiffre exact + pourquoi ça compte.
+- SYNTHESE : 6 à 8 puces de SYNTHÈSE donnant la vue d'ensemble du jour, dans CET ordre : (1) principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières ; (2) SI le flux contient de la géopolitique, une puce GÉOPOLITIQUE dédiée (le fait dominant du jour : conflit, sanctions, détroit, négociations…) et son effet marché documenté (pétrole, valeurs refuges…), ne l'omets JAMAIS quand la rubrique GEOPOLITIQUE ci-dessous a du contenu ; (3) 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux, jamais inventée) ; (4) une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre : juste les puces.
+- ANNONCES ECONOMIQUES : LA rubrique détaillée des publications du jour, une puce PAR publication du bloc RÉSULTATS PUBLIÉS (TOUTES les High d'abord, puis les Medium marquantes). Chaque puce : « Pays/Devise Indicateur : réel X vs attendu Y (préc. Z) », PUIS 1 à 2 phrases qui EXPLIQUENT L'IMPACT : (a) la lecture macro (surprise haussière/baissière, accélération ou ralentissement, ce que ça implique pour la banque centrale concernée : pression hawkish/dovish, statu quo conforté) et (b) la réaction de marché SI elle est documentée dans le flux ou les niveaux (« → le dollar s'est renforcé, les rendements 2 ans ont grimpé »). Si aucune réaction n'est documentée, donne UNIQUEMENT la lecture macro au conditionnel (« devrait conforter la patience de la Fed ») sans inventer de mouvement. C'est la rubrique la plus pédagogique du rapport : chiffre exact + pourquoi ça compte.
 - ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 5 lignes ANALYTIQUES (phrases complètes, profondeur d'une note de desk). Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
-- DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent — chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
+- DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent, chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
 - TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux. OBLIGATOIRE : reprends TOUS les titres marqués [MAJEUR] du bloc AUTRES TITRES (reformulés en français, sans le marqueur), puis complète avec les autres faits saillants.
 - COMMERCE/DOUANES : puces factuelles sur les accords commerciaux et droits de douane, issues du flux.
 - BANQUES CENTRALES : puces factuelles par banque (décision, répartition des votes, guidance), issues des données.
 - GEOPOLITIQUE : puces factuelles groupées par thème (Russie-Ukraine, puis Moyen-Orient) dans la rubrique.
 - ACTUALITES NORD-AMERICAINES : titres US/Canada (politique, budget, entreprises) en une ligne, issus du flux.
 
-RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %, pb, tickers, noms, citations, dates. Reformule pour la clarté uniquement. Pas de préambule, pas de markdown, pas de gras, pas de remarque de conclusion. Produis UNIQUEMENT les en-têtes de rubrique et leurs lignes « - ».`;
+RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait : chiffres, niveaux, %, pb, tickers, noms, citations, dates. Reformule pour la clarté uniquement. Pas de préambule, pas de markdown, pas de gras, pas de remarque de conclusion. Produis UNIQUEMENT les en-têtes de rubrique et leurs lignes « - ».`;
 
   let buckets = {};
   try {
@@ -13984,7 +13987,7 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %
   const _wrapPubTs = _parisDayRange(dateKey)[0] + 16 * 3600e3;
   const item = {
     id:          prefix + '-' + now,
-    headline:    `DTP Synthèse des Marchés — ${dateStr}`,
+    headline:    `DTP Synthèse des Marchés : ${dateStr}`,
     description,
     category:    'Global News',
     source:      'DTP Markets',
@@ -14000,7 +14003,7 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %
   allNews = [item, ...allNews.filter(i => !(i.id || '').startsWith(prefix))].slice(0, 2000);   // remplace l'ancien wrap du jour (toute version) par le neuf, MAINTENANT que la régén a réussi
   saveHistory();
   broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
-  console.log(`[EUWrap] Publié « ${item.headline} » — ${sectionCount} rubriques (${recent.length} news, ${levels.eq.length} niveaux actions)`);
+  console.log(`[EUWrap] Publié « ${item.headline} » : ${sectionCount} rubriques (${recent.length} news, ${levels.eq.length} niveaux actions)`);
   return item;
 }
 
@@ -14477,10 +14480,10 @@ app.get('/api/admin/api-keys', requireAdmin, async (_req, res) => {
   res.json({ keys: _apiKeys.map(k => ({ id: k.id, name: k.name, prefix: k.prefix, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt || null, calls: k.calls || 0, revoked: !!k.revoked, rateLimit: k.rateLimit || 60 })) });
 });
 app.post('/api/admin/api-keys', requireAdmin, async (req, res) => {
-  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible — réessayez dans quelques secondes (aucune clé n\'a été perdue).' });
+  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible : réessayez dans quelques secondes (aucune clé n\'a été perdue).' });
   const name = String((req.body && req.body.name) || '').trim().slice(0, 60);
   if (!name) return res.status(400).json({ error: 'Donnez un nom à la clé (ex. « Script perso », « Intégration TradingView »).' });
-  if (_apiKeys.filter(k => !k.revoked).length >= 20) return res.status(400).json({ error: 'Maximum 20 clés actives — révoquez-en une d\'abord.' });
+  if (_apiKeys.filter(k => !k.revoked).length >= 20) return res.status(400).json({ error: 'Maximum 20 clés actives : révoquez-en une d\'abord.' });
   const secret = 'dtp_' + _apiCrypto.randomBytes(24).toString('base64url');
   const k = { id: _apiCrypto.randomBytes(6).toString('hex'), name, hash: _apiHash(secret), prefix: secret.slice(0, 9) + '…', createdAt: Date.now(), lastUsedAt: null, calls: 0, revoked: false, rateLimit: 60 };
   _apiKeys.push(k);
@@ -14489,7 +14492,7 @@ app.post('/api/admin/api-keys', requireAdmin, async (req, res) => {
   res.json({ ok: true, key: secret, id: k.id, name: k.name, prefix: k.prefix });   // ⚠️ la clé complète n'est renvoyée qu'ICI, une seule fois
 });
 app.post('/api/admin/api-keys/:id/revoke', requireAdmin, async (req, res) => {
-  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible — réessayez.' });
+  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible : réessayez.' });
   const k = _apiKeys.find(x => x.id === req.params.id);
   if (!k) return res.status(404).json({ error: 'Clé introuvable' });
   k.revoked = true;
@@ -14498,7 +14501,7 @@ app.post('/api/admin/api-keys/:id/revoke', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 app.post('/api/admin/api-keys/:id/delete', requireAdmin, async (req, res) => {
-  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible — réessayez.' });
+  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible : réessayez.' });
   const before = _apiKeys.length;
   _apiKeys = _apiKeys.filter(x => x.id !== req.params.id);
   if (_apiKeys.length === before) return res.status(404).json({ error: 'Clé introuvable' });
@@ -14509,15 +14512,15 @@ app.post('/api/admin/api-keys/:id/delete', requireAdmin, async (req, res) => {
 // ── Endpoints /api/v1/* (lecture seule, enveloppe homogène) ──
 const _v1 = (res, data, meta) => res.json({ ok: true, data, meta: Object.assign({ generatedAt: new Date().toISOString() }, meta || {}) });
 const _V1_ENDPOINTS = [
-  { path: '/api/v1/status',     desc: 'État de la clé (nom, quota, usage) + liste des endpoints',                          params: '—' },
+  { path: '/api/v1/status',     desc: 'État de la clé (nom, quota, usage) + liste des endpoints',                          params: '-' },
   { path: '/api/v1/news',       desc: "Fil d'actualité du desk (le même que l'onglet ACTUS)",                              params: 'limit (≤200, déf. 50) · category · priority (high|normal) · q (recherche) · since (timestamp ms)' },
   { path: '/api/v1/calendar',   desc: 'Calendrier économique (réel / prévision / précédent, impact)',                      params: 'currency (ex. USD) · impact (high|medium|low) · from · to (timestamp ms) · limit (≤500)' },
   { path: '/api/v1/strength',   desc: 'Force des Devises (dernière valeur par devise ; séries via series=1)',              params: 'period (today|week, déf. today) · series (1 = séries complètes)' },
-  { path: '/api/v1/bias',       desc: 'Radar de Biais hebdo (vue synthétique par devise)',                                 params: '—' },
-  { path: '/api/v1/smart-bias', desc: 'Smart Bias Tracker (matrice 8 devises × indicateurs + conclusion)',                 params: '—' },
-  { path: '/api/v1/risk',       desc: 'Régime de Marché (risk-on / risk-off, score courant)',                              params: '—' },
-  { path: '/api/v1/rates',      desc: 'Banques centrales & taux (probabilités prochaine réunion, trajectoire)',            params: '—' },
-  { path: '/api/v1/reports',    desc: 'Rapports Analystes (liste : FX Daily Recap, DTP Daily, Récap Hebdo, GEW)',          params: 'type · limit (≤50, déf. 20) — détail complet via /api/v1/reports/{id}' },
+  { path: '/api/v1/bias',       desc: 'Radar de Biais hebdo (vue synthétique par devise)',                                 params: '-' },
+  { path: '/api/v1/smart-bias', desc: 'Smart Bias Tracker (matrice 8 devises × indicateurs + conclusion)',                 params: '-' },
+  { path: '/api/v1/risk',       desc: 'Régime de Marché (risk-on / risk-off, score courant)',                              params: '-' },
+  { path: '/api/v1/rates',      desc: 'Banques centrales & taux (probabilités prochaine réunion, trajectoire)',            params: '-' },
+  { path: '/api/v1/reports',    desc: 'Rapports Analystes (liste : FX Daily Recap, DTP Daily, Récap Hebdo, GEW)',          params: 'type · limit (≤50, déf. 20) : détail complet via /api/v1/reports/{id}' },
 ];
 app.get('/api/v1/status', requireApiKey, (req, res) => {
   const k = req.apiKey;
@@ -14692,7 +14695,7 @@ async function _aiVerifyRates(force = false) {
     .filter(n => n && n.timestamp > cutoff && /\b(fed|fomc|ecb|boe|boj|snb|boc|rba|rbnz)\b/i.test(n.headline || '') && /\b(rate|bps|basis point|hold|hike|cut|raise|lower|unchanged)\b/i.test(n.headline || ''))
     .slice(0, 25).map(n => '- ' + (n.headline || '').slice(0, 140));
   if (calLines.length + newsLines.length < 3) return;   // pas assez de données réelles → on garde l'ancrage config vérifié
-  const prompt = `From the REAL data below (economic-calendar central-bank rate decisions WITH actual values, plus news), determine the CURRENT policy interest rate (a number, in %) for each of the 8 central banks. Use ONLY the data provided; if a bank's current rate cannot be determined, return null for it — do NOT guess.
+  const prompt = `From the REAL data below (economic-calendar central-bank rate decisions WITH actual values, plus news), determine the CURRENT policy interest rate (a number, in %) for each of the 8 central banks. Use ONLY the data provided; if a bank's current rate cannot be determined, return null for it : do NOT guess.
 Banks: USD=Federal Reserve (target range upper bound), EUR=ECB deposit facility rate, GBP=Bank of England Bank Rate, JPY=Bank of Japan policy rate, CHF=SNB policy rate, CAD=Bank of Canada overnight rate, AUD=RBA cash rate, NZD=RBNZ OCR.
 
 CALENDAR RATE DECISIONS (currency | title | actual | date), most recent first:
@@ -15538,29 +15541,29 @@ const _CB_NEWS = new Set(['Fed', 'ECB', 'BoJ', 'BoE', 'BoC', 'RBA', 'SNB', 'RBNZ
 // Prompt d'analyse d'une news (puces FR). Variante BANQUE CENTRALE : ton hawkish/dovish + changement de
 // formulation + ce qu'elle surveille + implications + interprétation de marché (demande user). Sans invention.
 function _newsAnalysePrompt(item, desc, isCb) {
-  if (isCb) return `You are a senior central-bank strategist analysing a central-bank news item (speech, minutes, decision or official remarks) for a forex/macro trader, IN FRENCH. Base EVERYTHING ONLY on the content below — NEVER invent figures, quotes or events.
+  if (isCb) return `You are a senior central-bank strategist analysing a central-bank news item (speech, minutes, decision or official remarks) for a forex/macro trader, IN FRENCH. Base EVERYTHING ONLY on the content below : NEVER invent figures, quotes or events.
 
 Headline: ${item.headline}
-Category: ${item.category || '—'} (banque centrale)
+Category: ${item.category || '-'} (banque centrale)
 Context: ${desc}
 
-Rédige 3 à 5 puces analytiques COURTES, EN FRANÇAIS, propres à CE contenu. Couvre (SAUTE un point si le contenu ne le permet pas — ne force rien) :
+Rédige 3 à 5 puces analytiques COURTES, EN FRANÇAIS, propres à CE contenu. Couvre (SAUTE un point si le contenu ne le permet pas : ne force rien) :
 - Le TON : hawkish / dovish / neutre (attentiste), et ce qu'il signale.
-- Ce qui a CHANGÉ vs les communications précédentes (formulation, priorités) — seulement si perceptible.
+- Ce qui a CHANGÉ vs les communications précédentes (formulation, priorités) : seulement si perceptible.
 - Ce que la banque SURVEILLE (inflation, emploi, salaires, croissance, consommation, conditions financières...).
 - Les IMPLICATIONS pour les prochaines réunions / la trajectoire des taux.
-- L'INTERPRÉTATION DE MARCHÉ : impact probable ou observé (devises, taux, actions, or) — QUALITATIF, sans chiffre inventé.
+- L'INTERPRÉTATION DE MARCHÉ : impact probable ou observé (devises, taux, actions, or), QUALITATIF, sans chiffre inventé.
 ${_MENTOR_RULES}
 Règles : ~24 mots max par puce, jamais de source/auteur, aucun **gras**/markdown/astérisque. Commence chaque puce par • . Réponds UNIQUEMENT par les puces.`;
   return `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
 
 Headline: ${item.headline}
-Category: ${item.category || '—'}
+Category: ${item.category || '-'}
 Context: ${desc}
 
 Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
-- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
-- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
+- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade, do NOT restate the headline or just repeat the figures.
+- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) : skip if none.
 - Explain the concrete causal mechanism for THIS story, not generic phrasing.
 - Max 22 words per bullet. NEVER include source/author attribution.
 - NO bold, NO markdown, NO asterisks. Plain text only.
@@ -15726,7 +15729,7 @@ async function _smartTagNews() {
       perCycle--; _aiTagDayCount++;
       try {
         const out = await aiSmart('news',
-          `From this EXACT list only: ${AI_TAG_VOCAB.join(', ')} — pick the 0 to 3 tags that TRULY describe this market news. ` +
+          `From this EXACT list only: ${AI_TAG_VOCAB.join(', ')}, pick the 0 to 3 tags that TRULY describe this market news. ` +
           `If none clearly apply, answer NONE. Answer with just the chosen tags comma-separated (or NONE), nothing else.\nNews: ${item.headline}`,
           40, { important: true, claudeOverBudget: false });
         const up = AI_TAG_VOCAB.map(v => v.toUpperCase());
@@ -15881,13 +15884,13 @@ async function refreshMyfxbook() {
     if (hash === _lastMyfxHash) return;
     _lastMyfxHash = hash;
     broadcast({ type: 'community_outlook_update' });
-    console.log(`[Myfxbook] Updated — ${data.length} symbols, broadcasting`);
+    console.log(`[Myfxbook] Updated : ${data.length} symbols, broadcasting`);
   } catch {}
 }
 // Myfxbook lance un Chromium dédié. Désactivable pour économiser la RAM
 // (notamment si les identifiants Myfxbook ne sont pas valides) : DISABLE_MYFXBOOK=true
 if (process.env.DISABLE_MYFXBOOK === 'true') {
-  console.log('[Myfxbook] désactivé (DISABLE_MYFXBOOK=true) — économie mémoire');
+  console.log('[Myfxbook] désactivé (DISABLE_MYFXBOOK=true) : économie mémoire');
 } else {
   setTimeout(refreshMyfxbook, 2000);          // immediate startup fetch
   setInterval(refreshMyfxbook, 15 * 60 * 1000); // then every 15 min (sentiment retail)
@@ -15904,7 +15907,7 @@ if (_SELF_URL) {
     const _c = new AbortController(); const _t = setTimeout(() => _c.abort(), 8000);
     fetch(_SELF_URL + '/healthz', { signal: _c.signal }).catch(() => {}).finally(() => clearTimeout(_t));
   }, 13 * 60 * 1000);
-  console.log(`[KeepAlive] auto-ping ${_SELF_URL}/healthz / 13 min — anti-veille (chargement rapide)`);
+  console.log(`[KeepAlive] auto-ping ${_SELF_URL}/healthz / 13 min : anti-veille (chargement rapide)`);
 }
 
 // ── PRÉCHAUFFAGE des caches au démarrage → onglets instantanés (pas de "Loading…") ──
@@ -16062,7 +16065,7 @@ app.post('/api/admin/gift-access', requireAdmin, async (req, res) => {
     const action = String((req.body && req.body.action) || 'add');
     if (!email || !/.+@.+\..+/.test(email)) return res.status(400).json({ ok: false, error: 'e-mail invalide' });
     if (action === 'remove') {
-      if (_GIFT_SEED.includes(email)) return res.status(400).json({ ok: false, error: 'compte protégé par le code (seed) — à retirer dans server.js' });
+      if (_GIFT_SEED.includes(email)) return res.status(400).json({ ok: false, error: 'compte protégé par le code (seed) : à retirer dans server.js' });
       _giftSet.delete(email);
     } else _giftSet.add(email);
     await auth.aiCacheSet(_GIFT_KEY, [..._giftSet]);
@@ -16274,7 +16277,7 @@ setInterval(async () => {
       if (hash !== _lastCotHash) {
         _lastCotHash = hash;
         broadcast({ type: 'cot_update' });
-        console.log(`[COT] New report detected (${data[0]?.reportDate}) — broadcasting`);
+        console.log(`[COT] New report detected (${data[0]?.reportDate}) : broadcasting`);
         break;
       }
     }
@@ -16515,8 +16518,8 @@ async function _computeStrengthFresh(period, weekOfMs = null) {
   }
   const failCount = CS_PAIRS.length - pairData.length;
   if (failCount > 0) console.warn(`[CS/${period}] ${failCount}/${CS_PAIRS.length} pairs failed to load`);
-  if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs — repli sur le cache existant`); return (!weekOfMs && _csCache[period]) ? _csCache[period].data : null; }   // mode semaine passée : jamais le cache de la semaine COURANTE en repli
-  console.log(`[CS/${period}] ${pairData.length}/28 pairs loaded (iv=${usedInterval}) — cutoff=${cutoffSec ? new Date(cutoffSec*1000).toISOString() : 'none'} clip=±${clip}%`);
+  if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs : repli sur le cache existant`); return (!weekOfMs && _csCache[period]) ? _csCache[period].data : null; }   // mode semaine passée : jamais le cache de la semaine COURANTE en repli
+  console.log(`[CS/${period}] ${pairData.length}/28 pairs loaded (iv=${usedInterval}) : cutoff=${cutoffSec ? new Date(cutoffSec*1000).toISOString() : 'none'} clip=±${clip}%`);
 
   // Round timestamps to candle interval — aligns all 28 pairs to the same bins
   // (Yahoo Finance returns slightly different timestamps per pair, e.g. 09:30:00 vs 09:30:07)
@@ -17017,7 +17020,7 @@ function _calMailDots(impact) { const l = String(impact || '').toLowerCase(); if
 const _CAL_INVERTED_RX = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts|foreclosure|bankruptc|delinquen/i;
 function _calMailActual(actual, forecast, low, title) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
+  if (actual == null || actual === '') return '<span class="cv-empty">-</span>';
   const dev = (a, r) => { if (a == null || a === '' || r == null || r === '') return ''; const x = parseFloat(String(a).replace(',', '.')), y = parseFloat(String(r).replace(',', '.')); if (isNaN(x) || isNaN(y) || x === y) return ''; const good = _CAL_INVERTED_RX.test(String(title || '')) ? x < y : x > y; return good ? 'cv-pos' : 'cv-neg'; };
   let bolt = '';
   if (low != null && low !== '') {
@@ -17080,11 +17083,11 @@ app.get('/internal/email-widget/calendar', async (req, res) => {
     const isCpi = RX_CPI.test(ev.title || '');
     const imp = String(ev.impact || '').toLowerCase();
     let cls = 'cal-row'; if (imp === 'high') cls += ' cal-row--high'; else if (imp === 'medium') cls += ' cal-row--med'; if (isCpi) cls += ' cal-row--cpi';
-    const fc = ev.forecast && ev.forecast !== '' ? `<span class="cv-forecast">${_e(ev.forecast)}</span>` : '<span class="cv-empty">—</span>';
-    const pv = ev.previous && ev.previous !== '' ? `<span class="cv-prev">${_e(ev.previous)}</span>` : '<span class="cv-empty">—</span>';
-    const hi = ev.high && ev.high !== '' ? `<span class="cv-forecast">${_e(ev.high)}</span>` : '<span class="cv-empty">—</span>';
-    const lo = ev.low  && ev.low  !== '' ? `<span class="cv-prev">${_e(ev.low)}</span>`  : '<span class="cv-empty">—</span>';
-    tbody += `<tr class="${cls}"><td class="cth-time"><span class="cal-chv">›</span> ${_e(ev.time || '—')}</td><td class="cth-flag">${_calMailFlag(ev.currency)}</td><td class="cth-curr">${_e(ev.currency || '')}</td><td class="cth-imp">${_calMailDots(ev.impact)}</td><td class="cth-event">${_e(ev.title || '')}</td><td class="cth-val">${_calMailActual(ev.actual, ev.forecast, ev.low, ev.title)}</td><td class="cth-val">${hi}</td><td class="cth-val">${fc}</td><td class="cth-val">${lo}</td><td class="cth-val">${pv}</td></tr>`;
+    const fc = ev.forecast && ev.forecast !== '' ? `<span class="cv-forecast">${_e(ev.forecast)}</span>` : '<span class="cv-empty">-</span>';
+    const pv = ev.previous && ev.previous !== '' ? `<span class="cv-prev">${_e(ev.previous)}</span>` : '<span class="cv-empty">-</span>';
+    const hi = ev.high && ev.high !== '' ? `<span class="cv-forecast">${_e(ev.high)}</span>` : '<span class="cv-empty">-</span>';
+    const lo = ev.low  && ev.low  !== '' ? `<span class="cv-prev">${_e(ev.low)}</span>`  : '<span class="cv-empty">-</span>';
+    tbody += `<tr class="${cls}"><td class="cth-time"><span class="cal-chv">›</span> ${_e(ev.time || '-')}</td><td class="cth-flag">${_calMailFlag(ev.currency)}</td><td class="cth-curr">${_e(ev.currency || '')}</td><td class="cth-imp">${_calMailDots(ev.impact)}</td><td class="cth-event">${_e(ev.title || '')}</td><td class="cth-val">${_calMailActual(ev.actual, ev.forecast, ev.low, ev.title)}</td><td class="cth-val">${hi}</td><td class="cth-val">${fc}</td><td class="cth-val">${lo}</td><td class="cth-val">${pv}</td></tr>`;
   }
   const table = rows.length
     ? `<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>${tbody}</tbody></table>`
@@ -17142,7 +17145,7 @@ function _arlStdTitle(item) {
     if (wrapRe.test(raw)) raw = raw.replace(wrapRe, '').trim();
   }
   const escd = _ARL_ALL_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  const m = raw.match(new RegExp('^\\s*(?:' + escd + ')\\s*[:\\-—–]?\\s*', 'i'));
+  const m = raw.match(new RegExp('^\\s*(?:' + escd + ')\\s*[:\\--–]?\\s*', 'i'));
   const subject = (m ? raw.slice(m[0].length) : raw).trim();
   return _arlTitleFR(_stripMd(subject ? `${prefix}: ${subject}` : prefix));
 }
@@ -17510,7 +17513,7 @@ app.get('/api/admin/blacklist', requireSameOrigin, requireAdmin, (req, res) => {
 // N'affecte PAS les mails transactionnels (acces / securite / renouvellement) — seulement le marketing.
 // Idempotent. Repond en HTML (page de confirmation aux couleurs de la marque).
 function _unsubPage(title, msg, ok) {
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — DataTradingPro</title></head>
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} : DataTradingPro</title></head>
   <body style="margin:0;background:#0a0a0c;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#cbd5e1;">
     <div style="max-width:520px;margin:60px auto;padding:34px;background:#111114;border:1px solid #26262b;border-radius:14px;text-align:center;">
       <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.02em;">Data<span style="color:#e3b23a;">Trading</span>Pro</div>
@@ -17976,7 +17979,7 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
   { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
   { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
-  { id: 'invitation',    week: 7,    title: 'Invitation',                           pillar: 'Conversion',   status: 'ready',   stat: 'invitation',    when: 'Chaque dimanche · 17h (Paris)',                            desc: "Le mail de conversion de la rotation : il part une semaine sur six, le dimanche 17h. Ajouté ici le 13/08 — il tournait déjà dans _WEEK_ROTATION mais manquait à CETTE table, si bien que sa semaine n'avait ni repère « cette semaine » ni bandeau de prochain envoi." },
+  { id: 'invitation',    week: 7,    title: 'Invitation',                           pillar: 'Conversion',   status: 'ready',   stat: 'invitation',    when: 'Chaque dimanche · 17h (Paris)',                            desc: "Le mail de conversion de la rotation : il part une semaine sur six, le dimanche 17h. Ajouté ici le 13/08 : il tournait déjà dans _WEEK_ROTATION mais manquait à CETTE table, si bien que sa semaine n'avait ni repère « cette semaine » ni bandeau de prochain envoi." },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
@@ -18018,7 +18021,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     function _stepPlanned(seqId) {
       const wd = _SEQ2DAY[seqId]; if (wd == null) return null;   // 0 = dimanche (valide) → PAS `!wd`
       const dName = _WD_FR[wd] || '', tLabel = _SEQ2TIME[seqId] || 'dès 8h';
-      return { weekday: wd, date: _nextDateForWeekday(wd), label: 'Chaque ' + dName + ' · ' + tLabel + ' (Paris) — prochain : ' + _nextDateForWeekday(wd) };
+      return { weekday: wd, date: _nextDateForWeekday(wd), label: 'Chaque ' + dName + ' · ' + tLabel + ' (Paris) : prochain : ' + _nextDateForWeekday(wd) };
     }
     // PLAGE de dates de la semaine ISO courante (Lun→Dim), change chaque semaine — pour l'en-tête « SÉQUENCE HEBDOMADAIRE ».
     let weekRange = '';
@@ -18115,7 +18118,7 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
         dtp: r.dtpAccounts, whop: r.whopContacts, manual: r.manualExtra,
       },
       deliverability: { checks, score, reputation: null, nonMesure: true,
-        note: 'Configuration déclarée, non vérifiée — aucune mesure de délivrabilité réelle n\'est disponible sur un envoi SMTP direct.' },
+        note: 'Configuration déclarée, non vérifiée : aucune mesure de délivrabilité réelle n\'est disponible sur un envoi SMTP direct.' },
     });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -18127,7 +18130,7 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
 const _WD_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 function _isoWeekKey(y, m, d) { const dt = new Date(Date.UTC(y, m - 1, d)); const dow = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - dow + 3); const ft = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4)); const wk = 1 + Math.round(((dt - ft) / 864e5 - 3 + ((ft.getUTCDay() + 6) % 7)) / 7); return dt.getUTCFullYear() + '-W' + String(wk).padStart(2, '0'); }
 function _parisParts(d) { d = d || new Date(); const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', weekday: 'short', hour: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }); const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value; const wd = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday]; return { weekday: wd, hour: parseInt(p.hour, 10) % 24, isoWeek: _isoWeekKey(+p.year, +p.month, +p.day) }; }
-function _nextWeeklyLabel(weekday, hour) { for (let i = 0; i < 8; i++) { const cand = new Date(Date.now() + i * 864e5); const pp = _parisParts(cand); if (pp.weekday === weekday && (i > 0 || pp.hour < hour)) return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(cand) + ' à ' + String(hour).padStart(2, '0') + 'h00'; } return '—'; }
+function _nextWeeklyLabel(weekday, hour) { for (let i = 0; i < 8; i++) { const cand = new Date(Date.now() + i * 864e5); const pp = _parisParts(cand); if (pp.weekday === weekday && (i > 0 || pp.hour < hour)) return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(cand) + ' à ' + String(hour).padStart(2, '0') + 'h00'; } return '-'; }
 // ── LE RÉCAP HEBDO NE DOIT PAS VIVRE DANS LE TAMPON DE NEWS (14/08) ──────────────────────────
 // CONSTAT EN PRODUCTION : `weekly` valait NULL, donc le mail Récap Hebdo ne rendait que ses deux
 // sections inconditionnelles (« L'essentiel » et « La force des devises ») — géopolitique, macro,
@@ -18246,7 +18249,7 @@ function _recapChiffresSemaine(cal) {
   const bullets = liste.map(e => {
     const ccy = String(e.ccy || e.currency || '').toUpperCase();
     const att = e.forecast ? ` (attendu ${String(e.forecast)}` + (e.previous ? `, préc. ${String(e.previous)})` : ')') : (e.previous ? ` (préc. ${String(e.previous)})` : '');
-    return `**${e._jour || ''}** · ${ccy} — ${String(e.title || '').slice(0, 70)} : **${String(e.actual)}**${att}`;
+    return `**${e._jour || ''}** · ${ccy} : ${String(e.title || '').slice(0, 70)} : **${String(e.actual)}**${att}`;
   });
   return { heading: 'Les chiffres qui ont marqué la semaine', bullets };
 }
@@ -18378,7 +18381,7 @@ function _freshDaily() {
         const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).filter(x => x && x.event).slice(0, 5).map(x => {
           const when = x.ts ? _laDay(x.ts) : '';
           const vals = [x.forecast ? 'prév. ' + x.forecast : '', x.previous ? 'préc. ' + x.previous : ''].filter(Boolean).join(', ');
-          return [when, x.ccy || '', x.event].filter(Boolean).join(' · ') + (vals ? ' — ' + vals : '') + (/high/i.test(x.importance || '') ? ' (impact élevé)' : '');
+          return [when, x.ccy || '', x.event].filter(Boolean).join(' · ') + (vals ? ' - ' + vals : '') + (/high/i.test(x.importance || '') ? ' (impact élevé)' : '');
         });
         const surv = watch.concat(la).slice(0, 5);
         if (surv.length) secs.push({ title: 'À surveiller', kind: 'bullets', items: surv });
@@ -18512,8 +18515,8 @@ TITRE: <titre pédagogique accrocheur, une promesse de compréhension, 90 caract
 PARA1: <le MÉCANISME expliqué simplement (qu'est-ce que c'est, comment ça marche), 2-3 phrases>
 PARA2: <POURQUOI le marché y réagit (le lien avec les taux, les devises, les anticipations), 2-3 phrases>
 PARA3: <la RÈGLE DE LECTURE concrète (comment interpréter un chiffre au-dessus/en-dessous des attentes), 2-3 phrases>
-Règles ABSOLUES : pédagogie du MÉCANISME uniquement — AUCUNE incitation à acheter/vendre ou à prendre position, AUCUN pronostic, AUCUN chiffre précis de marché (ni niveau, ni cours, ni valeur d'indicateur) ; vocabulaire simple, jargon traduit à sa première occurrence ; français impeccable ; JAMAIS de tiret cadratin.
-CHOISIS le sujet d'après l'ACTUALITÉ RÉELLE de la semaine (ci-dessous) : le concept doit aider à COMPRENDRE ce qui va se jouer — sans le prédire.
+Règles ABSOLUES : pédagogie du MÉCANISME uniquement, AUCUNE incitation à acheter/vendre ou à prendre position, AUCUN pronostic, AUCUN chiffre précis de marché (ni niveau, ni cours, ni valeur d'indicateur) ; vocabulaire simple, jargon traduit à sa première occurrence ; français impeccable ; JAMAIS de tiret cadratin.
+CHOISIS le sujet d'après l'ACTUALITÉ RÉELLE de la semaine (ci-dessous) : le concept doit aider à COMPRENDRE ce qui va se jouer, sans le prédire.
 ${themeLbl ? 'THÈME DOMINANT de la semaine : ' + themeLbl + '.' : ''}
 ${majors.length ? 'RENDEZ-VOUS MAJEURS de la semaine : ' + majors.join(' ; ') + '.' : ''}
 SUJETS DÉJÀ ÉCRITS (INTERDITS, ainsi que toute reformulation proche) : ${usedTitles.join(' · ')}.
@@ -18621,7 +18624,7 @@ QUESTION: <question introspective au lecteur, tutoiement, finit par ?>`,
 // (analyse de la boîte du user, 17/07) — distillées en règles d'écriture RÉUTILISABLES. On ne copie
 // AUCUN texte, on ne cite personne, on n'imite aucune marque : seule la mécanique est reprise (elle
 // n'appartient à personne). Le fond reste 100 % DTP. Règle de non-plagiat = veto user.
-const _MINDSET_STYLE = `STYLE (mécaniques d'une newsletter qui accroche, à t'approprier — n'imite AUCUNE marque, ne cite AUCUN auteur, n'invente AUCUN témoignage) :
+const _MINDSET_STYLE = `STYLE (mécaniques d'une newsletter qui accroche, à t'approprier : n'imite AUCUNE marque, ne cite AUCUN auteur, n'invente AUCUN témoignage) :
 - Ouvre directement par le constat ou la scène. Aucune formule de politesse, aucun préambule, aucune méta-phrase du type « dans cet e-mail ».
 - Le lecteur doit se reconnaître dès la première ligne : décris ce qu'il VIT, pas ce qu'il devrait penser. Adresse-toi à LUI (« tu »), jamais à « les traders » en général.
 - UNE IDÉE PAR PHRASE. Phrases COURTES (20 mots maximum). Coupe toute phrase qui contient « car », « ce qui peut », « il est important de » : reformule en deux phrases sèches.
@@ -18752,7 +18755,7 @@ ${fmt.extra}
 ${_MINDSET_STYLE}
 Règles ABSOLUES : psychologie et discipline de trading UNIQUEMENT (état d'esprit) ; AUCUN actif ni paire de devises, AUCUN chiffre de prix, AUCUNE prédiction, AUCUNE incitation à acheter/vendre ou prendre position ; ton bienveillant, concret, jamais moralisateur ; tutoiement ; français impeccable ; JAMAIS de tiret cadratin ; respecte EXACTEMENT le nombre de paragraphes et les marqueurs de début imposés par le format.
 SUJETS DÉJÀ ÉCRITS (INTERDITS, ainsi que toute reformulation ou variante proche) : ${dejaTraites}.
-${retry ? 'ATTENTION : ta proposition précédente reprenait un sujet déjà écrit. Change COMPLÈTEMENT d\'angle et de vocabulaire — un thème que la liste ci-dessus n\'aborde nulle part.\n' : ''}Choisis UN thème NOUVEAU, jamais traité (ex. : gérer une série de gains, l'ennui des marchés calmes, la fatigue décisionnelle, trader après une mauvaise journée perso, la sur-optimisation, savoir ne rien faire, revenir après une pause, l'illusion du « presque »…).${macro ? `
+${retry ? 'ATTENTION : ta proposition précédente reprenait un sujet déjà écrit. Change COMPLÈTEMENT d\'angle et de vocabulaire : un thème que la liste ci-dessus n\'aborde nulle part.\n' : ''}Choisis UN thème NOUVEAU, jamais traité (ex. : gérer une série de gains, l'ennui des marchés calmes, la fatigue décisionnelle, trader après une mauvaise journée perso, la sur-optimisation, savoir ne rien faire, revenir après une pause, l'illusion du « presque »…).${macro ? `
 
 FAITS MACRO RÉELS de la semaine écoulée (le SEUL matériau autorisé pour l'ancrage ; n'invente RIEN d'autre, ne cite AUCUN de ces chiffres, nomme seulement l'événement) :
 ${macro}` : ''}`;
@@ -18774,7 +18777,7 @@ ${macro}` : ''}`;
       const next = [...aiPool, item].slice(-40);
       await auth.aiCacheSet('campaign:mindset-ai', next);
       try { await auth.aiCacheSet(GEN, { week: wk, key: item.key, format: fmt.key, at: Date.now() }); } catch {}   // verrou : 1 seule génération par semaine ISO
-      console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO) — format « ' + fmt.label + ' » : ' + item.subject);
+      console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO), format « ' + fmt.label + ' » : ' + item.subject);
       return { extras: next, forceKey: item.key };
     }
     console.warn('[Campagne] Mindset IA : concept rejeté (' + (tooClose ? 'sujet déjà traité après 2 tentatives' : 'forme ou veto informatif') + ') → rotation du catalogue | sujet=' + JSON.stringify((c && c.subject) || '').slice(0, 60) + ' paras=' + ((c && c.paras || []).length));
@@ -18906,7 +18909,7 @@ async function _schedulerTick() {
     const pp = _parisParts();
     if (pp.weekday === _campSchedule.weekday && pp.hour >= _campSchedule.hour && _campSchedule.lastSentWeek !== pp.isoWeek) {
       _campSchedule.lastSentWeek = pp.isoWeek; _saveSchedule();   // marque AVANT le run (anti double-tick dans l'heure)
-      console.log('[Scheduler] campagne hebdo declenchee — semaine', pp.isoWeek);
+      console.log('[Scheduler] campagne hebdo declenchee : semaine', pp.isoWeek);
       await _runWeeklyCampaign(pp.isoWeek);
     }
   } catch (e) { console.error('[Scheduler]', e.message); }
@@ -18973,7 +18976,7 @@ async function _invitationTick() {
     const _inWindow = md.day >= _invitSchedule.day && md.day <= _invitSchedule.day + 2;
     if (_inWindow && md.hour >= _invitSchedule.hour && _invitSchedule.lastSentMonth !== md.monthKey) {
       _invitSchedule.lastSentMonth = md.monthKey; _saveInvitSchedule();   // marque AVANT le run (anti double-tick)
-      console.log('[Scheduler] campagne invitation declenchee — mois', md.monthKey);
+      console.log('[Scheduler] campagne invitation declenchee : mois', md.monthKey);
       await _runInvitationCampaign(md.monthKey);
     }
   } catch (e) { console.error('[Scheduler invitation]', e.message); }
@@ -19152,7 +19155,7 @@ async function _temoignagePayload() {
     if (!angle) {
       try {
         const p = `Voici un avis client réel sur DataTradingPro (terminal de données macro/forex) : « ${String(review.description).slice(0, 500)} » (${review.stars}/5).
-Écris EN FRANÇAIS UNE SEULE phrase (deux au maximum, courtes) qui enchaîne après cette citation dans un e-mail. Elle doit rebondir sur ce que CE membre dit précisément, en reprenant son IDÉE et pas ses mots. INTERDIT : parler de « notre équipe de développement », de « mise à jour régulière de nos outils », de « commentaires positifs qui aident à affiner nos priorités » — ce genre de phrase creuse d'entreprise ne dit rien et alourdit le mail. Reste concret et factuel, aucun conseil d'investissement, aucun superlatif. N'utilise JAMAIS le tiret cadratin. Réponds avec la phrase seule, sans guillemets ni préambule.`;
+Écris EN FRANÇAIS UNE SEULE phrase (deux au maximum, courtes) qui enchaîne après cette citation dans un e-mail. Elle doit rebondir sur ce que CE membre dit précisément, en reprenant son IDÉE et pas ses mots. INTERDIT : parler de « notre équipe de développement », de « mise à jour régulière de nos outils », de « commentaires positifs qui aident à affiner nos priorités » : ce genre de phrase creuse d'entreprise ne dit rien et alourdit le mail. Reste concret et factuel, aucun conseil d'investissement, aucun superlatif. N'utilise JAMAIS le tiret cadratin. Réponds avec la phrase seule, sans guillemets ni préambule.`;
         angle = String(await aiSmart('campaign', p, 120, { important: true }) || '').trim();
         if (angle && angle.length > 40) { try { await auth.aiCacheSet(ck, angle); } catch (e) {} }
       } catch (e) { angle = ''; }                          // IA indisponible → repli neutre du gabarit
@@ -19385,7 +19388,7 @@ app.get('/api/admin/campaign-drip', requireSameOrigin, requireAdmin, async (req,
   const contacts = _dripState.contacts || {};
   let total = 0, introduced = 0, gotToday = 0;
   for (const email of Object.keys(contacts)) { total++; const st = _dripNormalize(contacts[email]); if (st.introduced) introduced++; if (st.wkKey === pp.isoWeek && Array.isArray(st.gotDays) && st.gotDays.includes(pp.weekday)) gotToday++; }
-  let todayLabel = '—'; try { const ctx = await _deskContext(); todayLabel = _loopStepFor().label + (ctx.themeLabel ? ' (' + ctx.themeLabel + ')' : ''); } catch {}
+  let todayLabel = '-'; try { const ctx = await _deskContext(); todayLabel = _loopStepFor().label + (ctx.themeLabel ? ' (' + ctx.themeLabel + ')' : ''); } catch {}
   const steps = _WEEK_ROTATION.map(s => { const cid = s.tpl === 'recap' ? 'recap-hebdo' : (s.id === 'outlook' ? 'outlook-hebdo' : s.id); const stt = _campaignStats[cid]; return { id: s.id, label: s.label, day: _WD_FR[_stepWd(s)], sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
@@ -19430,7 +19433,7 @@ app.get('/api/admin/campaign-master', requireSameOrigin, requireAdmin, async (re
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
   else if (a === 'send-tests') { _sendAllCampaignTests(_CAMP_TEST_TO).catch(() => {}); }   // (optionnel, via curl interne) forcer un aperçu des 5 — non exposé dans l'UI
   const active = !!_dripState.active, testMode = !!_dripState.testMode;
-  let nextTemplate = '—', nextWhen = '—';
+  let nextTemplate = '-', nextWhen = '-';
   try {
     // UNE SEULE SOURCE DE VÉRITÉ POUR « PROCHAIN E-MAIL » (13/08). Deux défauts vérifiés dans
     // l'ancienne version :
@@ -19486,7 +19489,7 @@ app.get('/api/admin/campaign-schedule', requireSameOrigin, requireAdmin, async (
   if (a === 'test') {   // envoie le digest hebdo (donnees live) a l'admin pour previsualiser le contenu
     const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
     const weekly = _freshWeekly();
-    if (!weekly) return res.json({ ok: false, error: 'Aucun Recap Hebdo disponible pour l\'instant — le digest sera pret des la prochaine generation.' });
+    if (!weekly) return res.json({ ok: false, error: 'Aucun Recap Hebdo disponible pour l\'instant : le digest sera pret des la prochaine generation.' });
     let prov = null, err = null; try { prov = await mailer.sendWeeklyDigest({ to, name: '', email: to, campaign: 'weekly-test', weekly }); } catch (e) { err = e.message; }
     return res.json({ ok: !!prov, test: true, to, error: err, note: 'Digest hebdo de test envoye a l\'admin.' });
   }
@@ -19509,7 +19512,7 @@ app.get('/api/admin/campaign-schedule', requireSameOrigin, requireAdmin, async (
   if (lastRun) lastRun.label = _campLabel(lastRun.campaign);
   const hasData = !!_freshWeekly();
   const issues = [];
-  if (_campSchedule.active && !hasData) issues.push('Le Recap Hebdo n\'est pas encore genere — le prochain digest attendra cette donnee.');
+  if (_campSchedule.active && !hasData) issues.push('Le Recap Hebdo n\'est pas encore genere : le prochain digest attendra cette donnee.');
   if (!process.env.OVH_SMTP_USER && !process.env.GMAIL_USER && !process.env.GMAIL_OAUTH_REFRESH_TOKEN) issues.push('Aucun fournisseur e-mail configure.');
   res.json({ ok: true, active: _campSchedule.active, weekday: _campSchedule.weekday, hour: _campSchedule.hour,
     weekdayLabel: _WD_FR[_campSchedule.weekday], cadence: 'hebdomadaire',
@@ -19559,7 +19562,7 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     let m = null, note = '';
     if (type === 'weekly') {
       let weekly = _freshWeekly();
-      if (!weekly) { weekly = _SAMPLE_WEEKLY; note = 'Aperçu de mise en page — le vrai Récap Hebdo est généré chaque samedi.'; }
+      if (!weekly) { weekly = _SAMPLE_WEEKLY; note = 'Aperçu de mise en page : le vrai Récap Hebdo est généré chaque samedi.'; }
       m = mailer.buildWeeklyDigest({ name: s.name, email: s.email, campaign: 'weekly-preview', weekly });
     } else if (type === 'decryptage') {
       const context = await _deskContext();
@@ -19572,7 +19575,7 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     } else if (type === 'pointmarche') {
       const context = await _deskContext();
       m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context, isMember });
-      if (!m) { m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
+      if (!m) { m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page : les données du desk apparaîtront à l'envoi."; }
     } else if (type === 'mindset') {
       const recentKeys = await _mindsetRecentKeys();
       // ?concept=<clé> : relire N'IMPORTE LEQUEL des thèmes, pas seulement celui épinglé du jour.
@@ -19580,11 +19583,11 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
       const _ck = String(req.query.concept || '').trim() || undefined;
       const _pool = await _mindsetAiPool().catch(() => []);
       m = mailer.buildCampaignMindset({ name: s.name, email: s.email, campaign: 'mindset-preview', recentKeys, isMember, conceptKey: _ck, extraConcepts: _pool });
-      if (_ck) note = 'Aperçu du thème « ' + (m && m.conceptTitle ? m.conceptTitle : _ck) + ' » — un thème par semaine, en rotation.';
+      if (_ck) note = 'Aperçu du thème « ' + (m && m.conceptTitle ? m.conceptTitle : _ck) + ' » : un thème par semaine, en rotation.';
     } else if (type === 'outlook') {
       const context = await _deskContext();
       m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context, isMember });
-      if (!m) { m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
+      if (!m) { m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page : les données du desk apparaîtront à l'envoi."; }
     } else if (type === 'invitation') {
       const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined;   // ?variant=0|1|2 pour voir les 3, sinon rotation du mois
       m = mailer.buildCampaignInvitation({ name: s.name, email: s.email, campaign: 'invitation-preview', variant, isMember });
@@ -19597,29 +19600,29 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     //    compte), pas marketing — d'où leur absence initiale ici. Données d'exemple uniquement.
     } else if (type === 'trial-upsell') {
       m = mailer.buildTrialUpsell({ name: s.name, expiresAt: new Date(Date.now() - 86400000).toISOString() });
-      note = "Aperçu — envoyé automatiquement le jour où un essai gratuit expire.";
+      note = "Aperçu : envoyé automatiquement le jour où un essai gratuit expire.";
     } else if (type === 'expired') {
       m = mailer.buildExpired({ name: s.name, expiresAt: new Date(Date.now() - 86400000).toISOString() });
-      note = "Aperçu — envoyé automatiquement quand l'abonnement payant arrive à échéance.";
+      note = "Aperçu : envoyé automatiquement quand l'abonnement payant arrive à échéance.";
     } else if (type === 'reengagement') {
       m = mailer.buildReengagement({ name: s.name, days: 7 });
-      note = "Aperçu — relance d'un client inactif depuis ~7 jours.";
+      note = "Aperçu : relance d'un client inactif depuis ~7 jours.";
     } else if (type === 'auto-renew-off') {
       m = mailer.buildAutoRenewOff({ name: s.name, expiresAt: new Date(Date.now() + 7 * 86400000).toISOString() });
-      note = "Aperçu — envoyé quand un client coupe le renouvellement automatique (son accès reste actif jusqu'à l'échéance).";
+      note = "Aperçu : envoyé quand un client coupe le renouvellement automatique (son accès reste actif jusqu'à l'échéance).";
     } else if (type === 'renewal-failed') {
       m = mailer.buildRenewalFailed({ name: s.name });
-      note = 'Aperçu — envoyé quand un renouvellement échoue / compte suspendu.';
+      note = 'Aperçu : envoyé quand un renouvellement échoue / compte suspendu.';
     } else if (type === 'welcome') {
       m = mailer.buildWelcome({ to: s.email, name: s.name, password: '••••••••', expiresAt: new Date(Date.now() + 30 * 86400000).toISOString() });
-      note = "Aperçu — envoyé à la création du compte (identifiants d'accès).";
+      note = "Aperçu : envoyé à la création du compte (identifiants d'accès).";
     } else if (type === 'expired-7j') {
       m = mailer.buildExpiredFollowup({ name: s.name, expiresAt: new Date(Date.now() - 7 * 86400000).toISOString() });
-      note = 'Aperçu — dernier rappel automatique, 7 jours après l\'expiration.';
+      note = 'Aperçu : dernier rappel automatique, 7 jours après l\'expiration.';
     } else if (type === 'winback') {
       const mo = [1, 3, 6, 12].includes(parseInt(req.query.months, 10)) ? parseInt(req.query.months, 10) : 3;
       m = mailer.buildWinback({ name: s.name, months: mo });
-      note = 'Aperçu — jalon ' + (mo === 12 ? '1 an' : mo + ' mois') + ' après le départ.';
+      note = 'Aperçu : jalon ' + (mo === 12 ? '1 an' : mo + ' mois') + ' après le départ.';
     } else if (type === 'temoignage') {
       // TÉMOIGNAGE (validation manuelle UNIQUEMENT — aucun envoi automatique n'existe pour ce type).
       // Avis réel Whop (le plus récent parmi les mieux notés, ou ?review=<id> pour en choisir un
@@ -19637,13 +19640,13 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
           angle = await auth.aiCacheGet(ck, 30 * 86400000).catch(() => '') || '';
           if (!angle) {
             const p = `Voici un avis client réel sur DataTradingPro (terminal de données macro/forex) : « ${review.description.slice(0, 500)} » (${review.stars}/5).
-Écris EN FRANÇAIS 2 phrases (3 maximum) qui enchaînent naturellement APRÈS cette citation dans un e-mail : elles doivent rebondir sur ce que CE membre dit précisément (reprends son idée, pas ses mots), relier ça au travail de développement du terminal par JustOneTrader, et rester factuelles — aucun conseil d'investissement, pas de superlatif creux. Réponds avec les phrases seules, sans guillemets ni préambule.`;
+Écris EN FRANÇAIS 2 phrases (3 maximum) qui enchaînent naturellement APRÈS cette citation dans un e-mail : elles doivent rebondir sur ce que CE membre dit précisément (reprends son idée, pas ses mots), relier ça au travail de développement du terminal par JustOneTrader, et rester factuelles, aucun conseil d'investissement, pas de superlatif creux. Réponds avec les phrases seules, sans guillemets ni préambule.`;
             angle = String(await aiSmart('campaign', p, 220, { important: true }) || '').trim();
             if (angle && angle.length > 40) { try { await auth.aiCacheSet(ck, angle); } catch (e) {} }
           }
         } catch (e) {}
         m = mailer.buildTemoignage({ name: s.name, review, angle });
-        note = 'Aperçu — avis ' + review.stars + '/5 (' + reviews.length + ' avis exploitables). AUCUN envoi automatique : ce template part uniquement si tu le décides.';
+        note = 'Aperçu : avis ' + review.stars + '/5 (' + reviews.length + ' avis exploitables). AUCUN envoi automatique : ce template part uniquement si tu le décides.';
       }
     } else {
       m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
@@ -19836,7 +19839,7 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
     } catch (e) { err = e.message; }
     const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : tpl === 'app-desktop' ? ' (Annonce app desktop, stats separees)' : tpl === 'desk-widgets' ? ' (Annonce accueil et Mon Desk, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
     return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
-      note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' — AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
+      note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' : AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }
 
   // ── Gabarit du broadcast : intro (defaut) OU annonce one-shot app desktop (?tpl=app-desktop).
@@ -19859,7 +19862,7 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
   if (!send) {
     return res.json({ dryRun: true, campaign: bId, report: audience.report,
       sample: recipients.slice(0, 25).map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })),
-      hint: `Apercu — RIEN envoye. ?test=1 = test a l'admin. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
+      hint: `Apercu : RIEN envoye. ?test=1 = test a l'admin. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
   }
   if (_campaignSend.running) return res.status(409).json({ error: 'Un envoi de campagne est deja en cours.', state: _campaignSend });
 
@@ -19868,7 +19871,7 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
     recipients, sample: bBuild,
     needsData: false, needsWidget: false, needsAI: false,   // gabarits sans widget embarque
   });
-  if (!pfB.ok) { await _campaignError('critical', bId, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE — aucun envoi.', preflight: pfB }); }
+  if (!pfB.ok) { await _campaignError('critical', bId, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE : aucun envoi.', preflight: pfB }); }
 
   // ── ENVOI REEL → reponse immediate (ne peut pas attendre N×throttle), puis envoi en fond ──
   _campaignSend = { running: true, campaign: bId, eligible: recipients.length, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: Date.now(), finishedAt: null };
@@ -20018,32 +20021,32 @@ const _ACTU_DOC = [
 // alimentée par le même fil (filtré par catégories source). Listées dans /sitemap-actualites.xml.
 const _ACTU_CATS = {
   'banques-centrales': {
-    title: 'Actualités banques centrales — Fed, BCE, BoE, BoJ…', h1: 'Actualités des banques centrales',
-    desc: 'Décisions de taux, discours et signaux des banques centrales (Fed, BCE, BoE, BoJ, SNB, BoC, RBA, RBNZ) — en direct, avec analyse en français.',
+    title: 'Actualités banques centrales : Fed, BCE, BoE, BoJ…', h1: 'Actualités des banques centrales',
+    desc: 'Décisions de taux, discours et signaux des banques centrales (Fed, BCE, BoE, BoJ, SNB, BoC, RBA, RBNZ) : en direct, avec analyse en français.',
     cats: new Set(['Fed', 'ECB', 'BoE', 'BoJ', 'SNB', 'BoC', 'BOC', 'RBA', 'RBNZ', 'PBoC', 'Central Banks']),
-    intro: 'Les banques centrales — Réserve fédérale américaine, BCE, Banque d’Angleterre, Banque du Japon — fixent le prix de l’argent et donnent le tempo de tout le marché des changes. Chaque décision de taux, chaque discours de Jerome Powell ou de Christine Lagarde peut faire bouger l’euro, le dollar ou le yen en quelques secondes. Cette page rassemble en continu les annonces, minutes et interventions officielles qui comptent, avec une lecture en français de ce qu’elles impliquent pour vos paires — votes internes et changements de ton (« hawkish » ou « dovish ») qui orientent les tendances de fond du forex.',
+    intro: 'Les banques centrales : Réserve fédérale américaine, BCE, Banque d’Angleterre, Banque du Japon, fixent le prix de l’argent et donnent le tempo de tout le marché des changes. Chaque décision de taux, chaque discours de Jerome Powell ou de Christine Lagarde peut faire bouger l’euro, le dollar ou le yen en quelques secondes. Cette page rassemble en continu les annonces, minutes et interventions officielles qui comptent, avec une lecture en français de ce qu’elles impliquent pour vos paires : votes internes et changements de ton (« hawkish » ou « dovish ») qui orientent les tendances de fond du forex.',
     faq: [
-      { q: 'Quand la Réserve fédérale décide-t-elle de ses taux ?', a: 'La Fed se réunit huit fois par an lors du FOMC. La décision et le communiqué tombent à 20h00 (heure de Paris), suivis d’une conférence de presse du président à 20h30 — des créneaux parmi les plus volatils pour l’EUR/USD.' },
+      { q: 'Quand la Réserve fédérale décide-t-elle de ses taux ?', a: 'La Fed se réunit huit fois par an lors du FOMC. La décision et le communiqué tombent à 20h00 (heure de Paris), suivis d’une conférence de presse du président à 20h30 : des créneaux parmi les plus volatils pour l’EUR/USD.' },
       { q: 'Que veulent dire « hawkish » et « dovish » ?', a: 'Un ton « hawkish » (faucon) signale une banque centrale prête à monter les taux pour contrer l’inflation, généralement positif pour sa devise. « Dovish » (colombe) indique l’inverse : des taux bas pour soutenir l’économie, souvent négatif pour la devise.' },
-      { q: 'Pourquoi une hausse de taux fait-elle monter une devise ?', a: 'Des taux plus élevés rémunèrent mieux les capitaux placés dans la devise, ce qui attire les flux étrangers et tend à l’apprécier — à condition que la hausse ne soit pas déjà anticipée par le marché.' },
+      { q: 'Pourquoi une hausse de taux fait-elle monter une devise ?', a: 'Des taux plus élevés rémunèrent mieux les capitaux placés dans la devise, ce qui attire les flux étrangers et tend à l’apprécier : à condition que la hausse ne soit pas déjà anticipée par le marché.' },
     ],
   },
   'geopolitique': {
     title: 'Actualités géopolitiques & marchés', h1: 'Géopolitique et marchés',
-    desc: 'Conflits, sanctions, tensions commerciales : l’actualité géopolitique qui fait bouger le forex, l’énergie et les indices — en direct, en français.',
+    desc: 'Conflits, sanctions, tensions commerciales : l’actualité géopolitique qui fait bouger le forex, l’énergie et les indices, en direct, en français.',
     cats: new Set(['Geopolitical', 'Trade']),
-    intro: 'Guerres, sanctions, élections, tensions commerciales : la géopolitique est l’un des moteurs les plus brutaux des marchés. Un conflit au Moyen-Orient propulse le pétrole et l’or, une menace de droits de douane secoue le yuan et les indices, une escalade fait fuir les capitaux vers les valeurs refuges (dollar, franc suisse, yen). Cette page suit en direct les événements géopolitiques qui déplacent réellement le forex, l’énergie et le risque de marché, avec un décryptage en français — pour distinguer le bruit médiatique des vrais chocs et comprendre le passage rapide entre appétit pour le risque (« risk-on ») et fuite vers la sécurité (« risk-off »).',
+    intro: 'Guerres, sanctions, élections, tensions commerciales : la géopolitique est l’un des moteurs les plus brutaux des marchés. Un conflit au Moyen-Orient propulse le pétrole et l’or, une menace de droits de douane secoue le yuan et les indices, une escalade fait fuir les capitaux vers les valeurs refuges (dollar, franc suisse, yen). Cette page suit en direct les événements géopolitiques qui déplacent réellement le forex, l’énergie et le risque de marché, avec un décryptage en français : pour distinguer le bruit médiatique des vrais chocs et comprendre le passage rapide entre appétit pour le risque (« risk-on ») et fuite vers la sécurité (« risk-off »).',
     faq: [
       { q: 'Qu’est-ce qu’un mouvement « risk-off » ?', a: 'En « risk-off », les investisseurs fuient les actifs risqués (actions, devises émergentes) vers les valeurs refuges : dollar américain, franc suisse, yen japonais et or. Une escalade géopolitique déclenche typiquement ce réflexe.' },
-      { q: 'Quelles devises profitent des tensions géopolitiques ?', a: 'Les monnaies refuges — USD, CHF et JPY — ainsi que l’or tendent à s’apprécier quand l’incertitude monte. Les devises liées aux matières premières (CAD, AUD, NOK) réagissent surtout aux chocs sur le pétrole.' },
+      { q: 'Quelles devises profitent des tensions géopolitiques ?', a: 'Les monnaies refuges : USD, CHF et JPY, ainsi que l’or tendent à s’apprécier quand l’incertitude monte. Les devises liées aux matières premières (CAD, AUD, NOK) réagissent surtout aux chocs sur le pétrole.' },
       { q: 'Les droits de douane influencent-ils le forex ?', a: 'Oui. Des tarifs douaniers pèsent sur les devises des pays exportateurs visés (yuan, euro) et peuvent renforcer ou affaiblir le dollar selon qu’ils nourrissent l’inflation ou freinent la croissance mondiale.' },
     ],
   },
   'forex': {
-    title: 'Actualités forex en direct — flux et analyse FX', h1: 'Actualités forex',
-    desc: 'Flux FX, mouvements de devises et analyse des paires majeures (EUR/USD, GBP/USD, USD/JPY…) — le fil forex du jour, en français.',
+    title: 'Actualités forex en direct : flux et analyse FX', h1: 'Actualités forex',
+    desc: 'Flux FX, mouvements de devises et analyse des paires majeures (EUR/USD, GBP/USD, USD/JPY…) : le fil forex du jour, en français.',
     cats: new Set(['FX Flows', 'Market Analysis']),
-    intro: 'Le marché des changes brasse plus de 7 000 milliards de dollars par jour, ce qui en fait le plus liquide de la planète. Les grandes paires — EUR/USD, GBP/USD, USD/JPY, USD/CHF — réagissent en temps réel aux données économiques, aux banques centrales et aux flux institutionnels. Cette page agrège le fil forex du jour : mouvements de devises, expirations d’options, analyses des principaux desks et niveaux techniques clés, avec une lecture en français. Que vous tradiez en intraday ou en swing sur plusieurs jours, l’idée est de voir d’un coup d’œil ce qui bouge sur le G10 et pourquoi, sans reconstituer l’information source par source.',
+    intro: 'Le marché des changes brasse plus de 7 000 milliards de dollars par jour, ce qui en fait le plus liquide de la planète. Les grandes paires : EUR/USD, GBP/USD, USD/JPY, USD/CHF, réagissent en temps réel aux données économiques, aux banques centrales et aux flux institutionnels. Cette page agrège le fil forex du jour : mouvements de devises, expirations d’options, analyses des principaux desks et niveaux techniques clés, avec une lecture en français. Que vous tradiez en intraday ou en swing sur plusieurs jours, l’idée est de voir d’un coup d’œil ce qui bouge sur le G10 et pourquoi, sans reconstituer l’information source par source.',
     faq: [
       { q: 'Quelles sont les paires de devises les plus tradées ?', a: 'Les « majeures » concentrent l’essentiel du volume : EUR/USD, USD/JPY, GBP/USD, USD/CHF, USD/CAD, AUD/USD et NZD/USD. L’EUR/USD représente à lui seul environ un quart des échanges mondiaux.' },
       { q: 'Quels sont les horaires des séances forex ?', a: 'Le marché est ouvert 24h/24 du dimanche soir au vendredi soir, réparti sur les sessions de Sydney, Tokyo, Londres et New York. Le chevauchement Londres–New York (14h–17h, heure de Paris) est le plus liquide.' },
@@ -20052,9 +20055,9 @@ const _ACTU_CATS = {
   },
   'energie-matieres-premieres': {
     title: 'Actualités énergie & matières premières', h1: 'Énergie et matières premières',
-    desc: 'Pétrole, gaz, or, métaux et agricoles : l’actualité des matières premières qui pèse sur l’inflation et les devises — en direct, en français.',
+    desc: 'Pétrole, gaz, or, métaux et agricoles : l’actualité des matières premières qui pèse sur l’inflation et les devises, en direct, en français.',
     cats: new Set(['Energy & Power', 'Metals', 'Ags & Softs']),
-    intro: 'Pétrole, gaz naturel, or, cuivre, blé : les matières premières sont au carrefour de l’inflation, de la géopolitique et des devises. Un baril de Brent qui s’envole nourrit l’inflation et pèse sur les banques centrales ; un or qui grimpe trahit la peur ou la baisse des taux réels ; le cuivre, lui, sert de baromètre à la croissance mondiale. Cette page suit en direct les cotations et l’actualité des grandes matières premières — énergie, métaux précieux et industriels, agricoles — avec une analyse en français de leurs répercussions sur le CAD, l’AUD, la NOK et l’ensemble du marché.',
+    intro: 'Pétrole, gaz naturel, or, cuivre, blé : les matières premières sont au carrefour de l’inflation, de la géopolitique et des devises. Un baril de Brent qui s’envole nourrit l’inflation et pèse sur les banques centrales ; un or qui grimpe trahit la peur ou la baisse des taux réels ; le cuivre, lui, sert de baromètre à la croissance mondiale. Cette page suit en direct les cotations et l’actualité des grandes matières premières : énergie, métaux précieux et industriels, agricoles, avec une analyse en français de leurs répercussions sur le CAD, l’AUD, la NOK et l’ensemble du marché.',
     faq: [
       { q: 'Pourquoi le prix du pétrole influence-t-il le forex ?', a: 'Un pétrole cher avantage les devises des pays exportateurs (CAD, NOK) et pénalise les importateurs (JPY, EUR). Il alimente aussi l’inflation, ce qui pousse les banques centrales à durcir leur politique monétaire.' },
       { q: 'Qu’est-ce que le Brent et le WTI ?', a: 'Ce sont les deux références mondiales du pétrole : le Brent (mer du Nord) pour l’Europe et l’Asie, le WTI (West Texas Intermediate) pour les États-Unis. Leur écart de prix reflète l’offre et la demande régionales.' },
@@ -20062,10 +20065,10 @@ const _ACTU_CATS = {
     ],
   },
   'donnees-economiques': {
-    title: 'Données économiques du jour — CPI, NFP, PMI…', h1: 'Données économiques',
-    desc: 'Inflation, emploi, PMI, PIB : les publications économiques du jour (US, zone euro, UK, Japon…) et leur lecture pour le forex — en français.',
+    title: 'Données économiques du jour : CPI, NFP, PMI…', h1: 'Données économiques',
+    desc: 'Inflation, emploi, PMI, PIB : les publications économiques du jour (US, zone euro, UK, Japon…) et leur lecture pour le forex, en français.',
     cats: new Set(['US Data', 'EU Data', 'UK Data', 'Swiss Data', 'Japanese Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'Economic Commentary']),
-    intro: 'Inflation (CPI), emploi américain (NFP), PIB, indices PMI, ventes au détail : les publications économiques rythment la volatilité du marché. Un chiffre au-dessus ou en dessous du consensus peut faire bondir une devise en une fraction de seconde, car il modifie les anticipations de taux des banques centrales. Cette page regroupe les données macro du jour — États-Unis, zone euro, Royaume-Uni, Japon, Chine — et leur lecture en français : ce que le marché attendait, ce qui est sorti, et ce que cela change pour le forex. L’essentiel n’est pas le chiffre brut mais l’écart à la prévision (la « surprise »), seul véritable moteur du mouvement de prix.',
+    intro: 'Inflation (CPI), emploi américain (NFP), PIB, indices PMI, ventes au détail : les publications économiques rythment la volatilité du marché. Un chiffre au-dessus ou en dessous du consensus peut faire bondir une devise en une fraction de seconde, car il modifie les anticipations de taux des banques centrales. Cette page regroupe les données macro du jour : États-Unis, zone euro, Royaume-Uni, Japon, Chine, et leur lecture en français : ce que le marché attendait, ce qui est sorti, et ce que cela change pour le forex. L’essentiel n’est pas le chiffre brut mais l’écart à la prévision (la « surprise »), seul véritable moteur du mouvement de prix.',
     faq: [
       { q: 'Qu’est-ce que le NFP et pourquoi est-il si suivi ?', a: 'Le Non-Farm Payrolls mesure les créations d’emplois non agricoles aux États-Unis. Publié le premier vendredi du mois à 14h30 (heure de Paris), c’est l’un des chiffres les plus volatils pour le dollar et l’or.' },
       { q: 'Pourquoi la « surprise » compte plus que le chiffre ?', a: 'Le marché intègre déjà le consensus dans les prix. Seul l’écart entre le chiffre publié et la prévision (la surprise) provoque le mouvement : une donnée conforme aux attentes, même élevée, bouge peu les cours.' },
@@ -20074,26 +20077,26 @@ const _ACTU_CATS = {
   },
   'taux-obligations': {
     title: 'Taux & obligations : rendements et Treasuries', h1: 'Taux et obligations',
-    desc: 'Rendements obligataires, dette souveraine et marchés de taux (US Treasuries, Bund, OAT, Gilts, JGB) et leur impact sur le forex — en direct, en français.',
+    desc: 'Rendements obligataires, dette souveraine et marchés de taux (US Treasuries, Bund, OAT, Gilts, JGB) et leur impact sur le forex : en direct, en français.',
     cats: new Set(['Fixed Income']),
     // titres en anglais (non traduits) → on capte aussi tout ce qui parle de taux/obligations, quelle que soit la catégorie source
     rx: /\b(yields?|bonds?|treasur(?:y|ies)|bund|gilts?|jgb|coupon|\d{1,2}\s?-?\s?year|\d{1,2}y\b|sovereign\s+debt|debt\s+auction|oat|btp|rendement|obligation|emprunt\s+d)/i,
-    intro: 'Le marché obligataire est le plus grand du monde, et ses rendements dictent le prix de l’argent partout ailleurs. Quand le rendement du Treasury américain à 10 ans grimpe, le dollar tend à se renforcer et les actions à souffrir ; l’écart de rendement entre deux pays (le « spread ») oriente directement leurs devises. Cette page suit en direct les taux souverains et l’actualité obligataire — US Treasuries, Bund allemand, OAT françaises, Gilts britanniques, JGB japonais — avec une lecture en français. Adjudications, courbe des taux, mouvements de spreads : autant de signaux qui précèdent souvent les grandes tendances du forex.',
+    intro: 'Le marché obligataire est le plus grand du monde, et ses rendements dictent le prix de l’argent partout ailleurs. Quand le rendement du Treasury américain à 10 ans grimpe, le dollar tend à se renforcer et les actions à souffrir ; l’écart de rendement entre deux pays (le « spread ») oriente directement leurs devises. Cette page suit en direct les taux souverains et l’actualité obligataire : US Treasuries, Bund allemand, OAT françaises, Gilts britanniques, JGB japonais, avec une lecture en français. Adjudications, courbe des taux, mouvements de spreads : autant de signaux qui précèdent souvent les grandes tendances du forex.',
     faq: [
       { q: 'Pourquoi le rendement du Treasury à 10 ans est-il si important ?', a: 'C’est la référence mondiale du « taux sans risque ». Il sert à valoriser quantité d’actifs et influence directement le dollar : un rendement en hausse attire les capitaux vers les États-Unis et soutient le billet vert.' },
       { q: 'Qu’est-ce qu’une courbe des taux inversée ?', a: 'Quand les taux courts dépassent les taux longs, la courbe est « inversée ». Historiquement, c’est un signal avancé de récession, car le marché anticipe de futures baisses de taux des banques centrales.' },
-      { q: 'Qu’est-ce qu’un spread de taux ?', a: 'C’est l’écart de rendement entre deux obligations — par exemple le Treasury américain et le Bund allemand. Un spread qui s’élargit en faveur des États-Unis tend à renforcer le dollar face à l’euro.' },
+      { q: 'Qu’est-ce qu’un spread de taux ?', a: 'C’est l’écart de rendement entre deux obligations : par exemple le Treasury américain et le Bund allemand. Un spread qui s’élargit en faveur des États-Unis tend à renforcer le dollar face à l’euro.' },
     ],
   },
   'indices-boursiers': {
-    title: 'Indices boursiers en direct — S&P 500, Nasdaq, CAC 40', h1: 'Indices boursiers',
+    title: 'Indices boursiers en direct : S&P 500, Nasdaq, CAC 40', h1: 'Indices boursiers',
     desc: 'Wall Street, Europe et Asie : l’actualité des grands indices actions (S&P 500, Nasdaq, CAC 40, DAX, FTSE, Nikkei) et sa lecture pour le risque de marché.',
     cats: new Set(['Equities', 'Equity News']),
     // matche les VRAIS noms d'indices + termes actions. IMPORTANT : « s&p 500 » seul (PAS « s&p »
     // tout court, sinon on capte « S&P Global » = societe de PMI/donnees, pas l'indice) ; et PAS le
     // suffixe generique « US Indexes » que FinancialJuice colle sur des news macro non-boursieres.
     rx: /\b(s&p ?500|nasdaq|dow jones|\bdow\b|\bdax\b|cac ?40|ftse ?100|\bftse\b|nikkei|hang seng|euro ?stoxx|\bstoxx\b|russell ?2000|\bibex\b|kospi|sensex|nifty ?50|wall street|stock market|stock index|equit(?:y|ies)|blue.?chip)\b/i,
-    intro: 'Le S&P 500, le Nasdaq, le CAC 40, le DAX, le Nikkei : les grands indices boursiers sont le thermomètre de l’appétit pour le risque, et ils dialoguent en permanence avec le forex. Quand Wall Street grimpe, les devises risquées (AUD, NZD) et le sentiment « risk-on » en profitent ; quand les actions plongent, les refuges (yen, franc suisse, dollar) reprennent la main. Cette page suit en direct l’actualité des indices actions d’Amérique, d’Europe et d’Asie, avec une lecture en français de ce qu’elle implique pour le marché des changes — records, corrections et rotations sectorielles donnent souvent le ton avant les devises.',
+    intro: 'Le S&P 500, le Nasdaq, le CAC 40, le DAX, le Nikkei : les grands indices boursiers sont le thermomètre de l’appétit pour le risque, et ils dialoguent en permanence avec le forex. Quand Wall Street grimpe, les devises risquées (AUD, NZD) et le sentiment « risk-on » en profitent ; quand les actions plongent, les refuges (yen, franc suisse, dollar) reprennent la main. Cette page suit en direct l’actualité des indices actions d’Amérique, d’Europe et d’Asie, avec une lecture en français de ce qu’elle implique pour le marché des changes : records, corrections et rotations sectorielles donnent souvent le ton avant les devises.',
     faq: [
       { q: 'Qu’est-ce que le S&P 500 ?', a: 'C’est l’indice des 500 plus grandes entreprises cotées aux États-Unis, pondéré par capitalisation. Il sert de référence mondiale à la santé des actions américaines et au sentiment de risque global.' },
       { q: 'Pourquoi les indices actions influencent-ils le forex ?', a: 'Ils reflètent l’appétit pour le risque : en « risk-on », les devises à haut rendement (AUD, NZD) montent et les refuges (JPY, CHF) baissent ; en « risk-off », c’est l’inverse. Le lien Nikkei–yen est particulièrement suivi.' },
@@ -20189,16 +20192,16 @@ function _buildActualitesHtml(slug = '', items = null, maxTs = null) {
   const nowFr = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(stampMs));
   // Méta/URL/H1 par page (principale ou catégorie)
   const pageUrl  = 'https://datatradingpro.com/actualites' + (slug ? '/' + slug : '');
-  const pageTitle = cat ? cat.title + ' — DataTradingPro' : 'Actualités macro & forex en direct — DataTradingPro';
-  const pageDesc  = cat ? cat.desc : 'Fil d’actualités macro & forex en direct : décisions de banques centrales, données économiques, géopolitique, matières premières — avec analyse en français. Mis à jour en continu.';
+  const pageTitle = cat ? cat.title + ' : DataTradingPro' : 'Actualités macro & forex en direct : DataTradingPro';
+  const pageDesc  = cat ? cat.desc : 'Fil d’actualités macro & forex en direct : décisions de banques centrales, données économiques, géopolitique, matières premières, avec analyse en français. Mis à jour en continu.';
   const pageH1    = cat ? cat.h1 : 'Actualités macro & forex en direct';
   const pageLead  = cat
     ? (cat.intro || cat.desc) + ' Retrouvez le fil complet, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.'
-    : 'Le fil des marchés du jour : décisions de banques centrales, données économiques, géopolitique, énergie et matières premières — avec une analyse en français. Retrouvez le tout en temps réel, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.';
+    : 'Le fil des marchés du jour : décisions de banques centrales, données économiques, géopolitique, énergie et matières premières, avec une analyse en français. Retrouvez le tout en temps réel, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.';
   // Navigation entre les pages Actualités (chips) — maillage interne + découverte crawler
   const chips = '<nav class="ac-nav"><a href="/actualites"' + (!slug ? ' class="on"' : '') + '>Toutes</a>'
     + Object.entries(_ACTU_CATS).map(([s, c]) => '<a href="/actualites/' + s + '"' + (s === slug ? ' class="on"' : '') + '>' + _actuEsc(c.h1) + '</a>').join('') + '</nav>';
-  const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', '@id': pageUrl + '#collection', name: pageTitle.replace(' — DataTradingPro', ''), url: pageUrl, inLanguage: 'fr-FR', dateModified: nowIso, isPartOf: { '@id': 'https://datatradingpro.com/#site' }, publisher: { '@id': 'https://datatradingpro.com/#org' }, image: 'https://datatradingpro.com/og-cover-v2.jpg', description: pageDesc,
+  const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', '@id': pageUrl + '#collection', name: pageTitle.replace(' : DataTradingPro', ''), url: pageUrl, inLanguage: 'fr-FR', dateModified: nowIso, isPartOf: { '@id': 'https://datatradingpro.com/#site' }, publisher: { '@id': 'https://datatradingpro.com/#org' }, image: 'https://datatradingpro.com/og-cover-v2.jpg', description: pageDesc,
     mainEntity: { '@type': 'ItemList', numberOfItems: items.length, itemListElement: items.slice(0, 30).map((i, ix) => ({ '@type': 'ListItem', position: ix + 1, name: h_title(i), url: pageUrl + '#a' + ix })) } };
   // Fil d'Ariane TOUJOURS présent : Accueil › Actualités [› catégorie]
   const bcNodes = [{ name: 'Accueil', item: 'https://datatradingpro.com/' }, { name: 'Actualités', item: 'https://datatradingpro.com/actualites' }];
@@ -20246,12 +20249,12 @@ function _buildActualitesHtml(slug = '', items = null, maxTs = null) {
     + '<p class="ac-lead">' + pageLead + '</p>'
     + '<p class="ac-upd">Mise à jour&nbsp;: ' + _actuEsc(nowFr) + ' (heure de Paris)</p>'
     + chips
-    + (feed || '<p class="ac-desc">Aucune actualité récente dans cette rubrique — consultez le <a href="/actualites">fil complet</a>.</p>')
+    + (feed || '<p class="ac-desc">Aucune actualité récente dans cette rubrique : consultez le <a href="/actualites">fil complet</a>.</p>')
     + (slug ? '' : recapHtml)
     + faqHtml
     + '<section class="ac-more"><h2>Comprendre les marchés</h2><div>' + links + '</div></section>'
     + '</main>'
-    + '<footer class="ac-foot"><a href="https://datatradingpro.com/">Accueil</a> · <a href="/actualites">Actualités</a> · <a href="https://datatradingpro.com/documentation/">Documentation</a> · <a href="https://datatradingpro.com/documentation/avertissement-risque.html">Avertissement risque</a><br>DataTradingPro — terminal d’analyse macro &amp; forex. Le trading comporte un risque de perte en capital.</footer>'
+    + '<footer class="ac-foot"><a href="https://datatradingpro.com/">Accueil</a> · <a href="/actualites">Actualités</a> · <a href="https://datatradingpro.com/documentation/">Documentation</a> · <a href="https://datatradingpro.com/documentation/avertissement-risque.html">Avertissement risque</a><br>DataTradingPro : terminal d’analyse macro &amp; forex. Le trading comporte un risque de perte en capital.</footer>'
     + '</body></html>';
 }
 function _actuServe(slug, res) {
@@ -20932,9 +20935,9 @@ async function fetchRiskSentiment() {
     'RISK-ON':         'Appétit pour le risque positif. Les actions et devises risquées sont demandées, les valeurs refuges sous légère pression.',
     'WEAK RISK-ON':    'Léger regain d\'appétit pour le risque : actions et devises risquées favorisées, valeurs refuges en repli.',
     'NEUTRAL':         'Le sentiment de marché est équilibré. Signaux mixtes sur les actifs risqués, pas de tendance directionnelle claire.',
-    'WEAK RISK-OFF':   'Légère aversion au risque. Prudence ambiante — obligations et valeurs refuges trouvent un support modéré.',
+    'WEAK RISK-OFF':   'Légère aversion au risque. Prudence ambiante : obligations et valeurs refuges trouvent un support modéré.',
     'RISK-OFF':        'Aversion au risque en hausse. Les capitaux se déplacent vers les valeurs refuges, les obligations et les devises défensives.',
-    'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
+    'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité : obligations, or, JPY et CHF demandés.',
   };
 
   // Le % d'affichage est CALÉ sur la bande du label (cohérence label ↔ nombre ↔ aiguille) via _riskPctLabel :
@@ -21113,7 +21116,7 @@ setInterval(() => {
   try {
     const rssMo = process.memoryUsage().rss / (1024 * 1024);
     if (rssMo > _MEM_SEUIL_MO) {
-      console.warn(`[MEM] RSS ${rssMo.toFixed(0)} Mo > seuil ${_MEM_SEUIL_MO} Mo — nettoyage anti-OOM (fermeture navigateurs)`);
+      console.warn(`[MEM] RSS ${rssMo.toFixed(0)} Mo > seuil ${_MEM_SEUIL_MO} Mo : nettoyage anti-OOM (fermeture navigateurs)`);
       try { clearOutlookCache(); } catch {}
       try { require('./scrapers/myfxbook').closeBrowser?.(); } catch {}
       try { require('./scrapers/forexfactory-news').closeBrowser?.(); } catch {}   // le + gros (Chromium FF)
@@ -21130,7 +21133,7 @@ server.listen(PORT, async () => {
   await auth.seedAdmin();
 
   console.log(`\n╔════════════════════════════════════════╗`);
-  console.log(`║   DataTradingPro — Terminal       ║`);
+  console.log(`║   DataTradingPro : Terminal       ║`);
   console.log(`║   http://localhost:${PORT}                  ║`);
   console.log(`║   Admin panel : /admin                  ║`);
   console.log(`╚════════════════════════════════════════╝\n`);
@@ -21214,7 +21217,7 @@ server.listen(PORT, async () => {
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
 function gracefulShutdown(signal) {
-  console.log(`[Shutdown] ${signal} reçu — fermeture propre…`);
+  console.log(`[Shutdown] ${signal} reçu : fermeture propre…`);
 
   // 1. Fermer toutes les connexions WebSocket proprement
   wss.clients.forEach(ws => {

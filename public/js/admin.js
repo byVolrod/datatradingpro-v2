@@ -123,8 +123,8 @@
     try {
       const d = await fetch('/api/admin/api-keys').then(r => r.json());
       const keys = d.keys || [];
-      if (!keys.length) { tb.innerHTML = '<tr><td colspan="8" style="color:#6f6f79;">Aucune clé — générez la première ci-dessus.</td></tr>'; return; }
-      const fd = ts => ts ? new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+      if (!keys.length) { tb.innerHTML = '<tr><td colspan="8" style="color:#6f6f79;">Aucune clé : générez la première ci-dessus.</td></tr>'; return; }
+      const fd = ts => ts ? new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
       tb.innerHTML = keys.map(k => `<tr data-kid="${k.id}" style="${k.revoked ? 'opacity:.45;' : ''}">
         <td style="color:#e6e6ea;font-weight:600;">${(k.name || '').replace(/</g, '&lt;')}</td>
         <td><code style="color:#9aa3b2;">${k.prefix || ''}</code></td>
@@ -212,7 +212,7 @@
   //   _dt(ts) → 13/08/2026 14:32   (date + heure, partout)
   //   _dj(ts) → 13 août            (jour seul, quand l heure n apporte rien)
   // _csHeure (heure seule) reste : c est un autre besoin, pas une 3e écriture de la date.
-  function _dt(ts){ try { return ts ? new Date(ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'; } catch (e) { return '—'; } }
+  function _dt(ts){ try { return ts ? new Date(ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '-'; } catch (e) { return '-'; } }
   function _dj(ts){ try { return ts ? new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : ''; } catch (e) { return ''; } }
   function _campMsg(t){ const e = document.getElementById('camp-msg'); if (e) e.textContent = t || ''; if (t && /[✅❌]/.test(t)) campToast(t, /❌/.test(t)); }
   // DEUX SYSTÈMES DE NOTIFICATION cohabitaient (13/08) : campToast, qui écrivait dans un conteneur
@@ -249,23 +249,23 @@
     { prev:'intro',       test:'intro',       name:'Bienvenue',            when:'Intro',      desc:'Présentation du desk + la semaine type (1er mail de la séquence).' },
     { prev:'decryptage',  test:'decryptage',  name:'Comprendre le marché', when:'Mardi',      desc:'Un concept macro choisi selon l\'actualité, décodé simplement.' },
     { prev:'pointmarche', test:'pointmarche', name:'Point marché',         when:'Mercredi',   desc:'Le brief du desk : séance, chiffres éco, force des devises.' },
-    { prev:'mindset',     test:'mindset',     name:'Mindset',              when:'Jeudi',      mindset:true, desc:'Psychologie et discipline de trading — 25 thèmes en rotation, un par semaine. Le sélecteur permet de tous les relire.' },
+    { prev:'mindset',     test:'mindset',     name:'Mindset',              when:'Jeudi',      mindset:true, desc:'Psychologie et discipline de trading : 25 thèmes en rotation, un par semaine. Le sélecteur permet de tous les relire.' },
     { prev:'weekly',      test:null,          name:'Récap hebdo',          when:'Samedi',     desc:'Rétrospective de la semaine, devise par devise (rendu dispo après génération du récap).' },
     { prev:'outlook',     test:'outlook',     name:'Semaine à venir',      when:'Dimanche',   desc:'L\'agenda éco trié par le desk pour la semaine qui s\'ouvre.' },
-    { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) — aperçu par variante.', variants:true },
+    { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) : aperçu par variante.', variants:true },
     { prev:'app-desktop', test:'app-desktop', name:'Annonce app desktop',  when:'One-shot',   oneshot:true, desc:'Annonce de l\'application Windows/macOS (campagne app-desktop-v1).' },
-    { prev:'desk-widgets', test:'desk-widgets', name:'Annonce accueil & Mon Desk', when:'One-shot', oneshot:true, desc:'Les deux nouveautés : l\'écran d\'accueil « Vue d\'ensemble », et Mon Desk — widgets composables, plusieurs dispositions, enregistrées par compte (campagne desk-widgets-v1).' },
+    { prev:'desk-widgets', test:'desk-widgets', name:'Annonce accueil & Mon Desk', when:'One-shot', oneshot:true, desc:'Les deux nouveautés : l\'écran d\'accueil « Vue d\'ensemble », et Mon Desk : widgets composables, plusieurs dispositions, enregistrées par compte (campagne desk-widgets-v1).' },
     // ── CYCLE DE VIE (transactionnels : déclenchés par l'état du compte, pas par le calendrier).
     //    Ajoutés le 27/07 pour pouvoir les RELIRE avant de valider un rattrapage. Pas de bouton « Test »
     //    (ils s'envoient sur événement) — l'aperçu suffit à vérifier le rendu.
     { prev:'trial-upsell',   test:null, name:'Fin d\'essai gratuit',  when:'Auto · fin d\'essai',  lifecycle:'trial-upsell', desc:'Part le jour où l\'essai expire. Rattrapage possible via « Comptes sans ce mail ».' },
     { prev:'expired',        test:null, name:'Abonnement expiré',     when:'Auto · à l\'échéance', lifecycle:'expired',      desc:'Part quand l\'abonnement payant arrive à échéance.' },
     { prev:'expired-7j',     test:null, name:'Relance J+7',           when:'Auto · J+7',           lifecycle:'expired-7j',   desc:'Dernier rappel automatique, 7 jours après l\'expiration si toujours pas renouvelé.' },
-    { prev:'winback',        test:null, name:'Win-back (jalons)',     when:'Auto · 1/3/6/12 mois', winback:true,             desc:'« Ça fait X que vous nous avez quittés » — 4 jalons après le départ, copy adaptée à l\'ancienneté.' },
+    { prev:'winback',        test:null, name:'Win-back (jalons)',     when:'Auto · 1/3/6/12 mois', winback:true,             desc:'« Ça fait X que vous nous avez quittés » : 4 jalons après le départ, copy adaptée à l\'ancienneté.' },
     { prev:'temoignage',     test:null, name:'Témoignage membre',     when:'Manuel · validation',  desc:'Un avis Whop réel + l\'histoire de JustOneTrader et du terminal. Ne part JAMAIS seul : aperçu pour validation.' },
     { prev:'reengagement',   test:null, name:'Réengagement',          when:'Auto · inactif 7j',    desc:'Relance d\'un client inactif depuis ~7 jours.' },
     { prev:'renewal-failed', test:null, name:'Renouvellement échoué', when:'Auto · sur échec',     desc:'Envoyé quand un paiement échoue / le compte est suspendu.' },
-    { prev:"auto-renew-off", test:null, name:"Renouvellement auto coupé", when:"Auto · à la coupure", desc:"Part quand un client désactive la reconduction côté Whop. L'accès reste actif jusqu'à l'échéance — le mail informe, une seule fois par échéance." },
+    { prev:"auto-renew-off", test:null, name:"Renouvellement auto coupé", when:"Auto · à la coupure", desc:"Part quand un client désactive la reconduction côté Whop. L'accès reste actif jusqu'à l'échéance : le mail informe, une seule fois par échéance." },
     { prev:'welcome',        test:null, name:'Bienvenue (accès)',     when:'Auto · création',      desc:'Identifiants d\'accès envoyés à la création du compte.' },
   ];
   // Liste maître (gauche) : un clic sélectionne le template → l'aperçu se charge à DROITE, les
@@ -343,7 +343,7 @@
       const d = await fetch('/api/admin/lifecycle-pending?type=' + encodeURIComponent(type)).then(r => r.json());
       if (!d.ok) throw new Error(d.error || 'erreur');
       _lcRows = d.pending || [];
-      document.getElementById('lc-title').textContent = d.label + ' — comptes sans ce mail';
+      document.getElementById('lc-title').textContent = d.label + ' : comptes sans ce mail';
       if (!_lcRows.length) {
         body.innerHTML = '<div class="empty-state">Aucun compte en attente : tous ceux dont l\'échéance est passée ont déjà reçu ce mail (' + d.alreadySent + ' au total).</div>';
         return;
@@ -351,7 +351,7 @@
       body.innerHTML =
         '<p class="hint" style="margin-bottom:10px">' + _lcRows.length + ' compte(s) dont l\'échéance est passée n\'ont jamais reçu ce mail'
         + (d.alreadySent ? ' · ' + d.alreadySent + ' déjà servi(s)' : '')
-        + '. Coche ceux à relancer — un envoi par compte, jamais de doublon.</p>'
+        + '. Coche ceux à relancer : un envoi par compte, jamais de doublon.</p>'
         + '<div class="row-inline" style="margin-bottom:8px"><button class="btn" onclick="lifecycleAll(1)">Tout cocher</button>'
         + '<button class="btn" onclick="lifecycleAll(0)">Tout décocher</button></div>'
         + '<div class="table-wrap"><table class="users-table"><thead><tr><th style="width:34px"></th><th>E-mail</th><th>Échéance</th><th>Ancienneté</th><th>État</th></tr></thead><tbody>'
@@ -360,7 +360,7 @@
             return '<tr><td><input type="checkbox" class="lc-ck" data-email="' + _escH(u.email) + '"'
               + (vieux || u.donneeIncoherente ? '' : ' checked') + ' style="width:auto"></td>'
               + '<td>' + _escH(u.email) + '</td>'
-              + '<td>' + (u.expiresAt ? String(u.expiresAt).slice(0, 10) : '—') + '</td>'
+              + '<td>' + (u.expiresAt ? String(u.expiresAt).slice(0, 10) : '-') + '</td>'
               + '<td>' + u.joursDepuis + ' j</td>'
               + '<td>' + (u.donneeIncoherente ? '<span class="badge badge-expired">date incohérente</span>'
                         : vieux ? '<span class="badge badge-soon">ancien</span>'
@@ -509,14 +509,14 @@
   const _CS_PAGE = 60;
 
   const _csNum = function (v) { return v == null ? '<span class="cs-nm" title="Non mesuré sur un envoi SMTP direct">non mesuré</span>' : v; };
-  const _csPct = function (v) { return v == null ? '<span class="cs-nm">—</span>' : (String(v).replace('.', ',') + '%'); };
+  const _csPct = function (v) { return v == null ? '<span class="cs-nm">-</span>' : (String(v).replace('.', ',') + '%'); };
   // (_csDate supprimee : ses appels passent par _dt — un seul format de date dans le panneau.)
-  const _csHeure = function (ts) { return ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; };
+  const _csHeure = function (ts) { return ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '-'; };
   // (_csEsc supprimée le 13/08 : c était le MÊME code que _escH, au caractère près, écrit deux fois
   //  pour deux onglets qui ne se parlaient pas. Une seule règle d échappement dans tout le panneau —
   //  et elle s applique désormais AUSSI aux listes qui affichent des adresses saisies à la main.)
   const _csDuree = function (ms) {
-    if (ms == null) return '—';
+    if (ms == null) return '-';
     const m = Math.round(ms / 60000);
     if (m < 60) return m + ' min';
     const h = Math.floor(m / 60);
@@ -566,9 +566,9 @@
     const cols = (d.colonnes || []).slice(0, 8);
     if (!cols.length) { box.innerHTML = '<div class="empty-state">Aucun envoi identifié à comparer pour l\'instant.</div>'; return; }
     // Lignes de KPI : [label, clé, format, sens (1 = plus haut est mieux, -1 = plus bas est mieux, 0 = neutre)]
-    const F_INT = function (v) { return v == null ? '—' : String(v); };
-    const F_PCT = function (v) { return v == null ? '—' : (String(v).replace('.', ',') + ' %'); };
-    const F_DATE = function (v) { return v ? _dt(v) : '—'; };
+    const F_INT = function (v) { return v == null ? '-' : String(v); };
+    const F_PCT = function (v) { return v == null ? '-' : (String(v).replace('.', ',') + ' %'); };
+    const F_DATE = function (v) { return v ? _dt(v) : '-'; };
     const ROWS = [
       ['Envois', 'envois', F_INT, 0],
       ['Personnes touchées', 'touches', F_INT, 0],
@@ -652,7 +652,7 @@
         + '<td>' + (x.ouvTot || 0) + '</td>'
         + '<td>' + _csPct(x.tauxCli) + '</td>'
         + '<td>' + (x.cliTot || 0) + '</td>'
-        + '<td title="Clics rapportés aux ouvertures — l’indicateur le moins sensible au gonflage du pixel">' + _csPct(x.ctor) + '</td>'
+        + '<td title="Clics rapportés aux ouvertures : l’indicateur le moins sensible au gonflage du pixel">' + _csPct(x.ctor) + '</td>'
         + '<td>' + _csNum(x.rebonds) + '</td>'
         + '<td><button class="btn btn-sm" onclick="csOuvrir(\'' + x.id + '\')">Voir les statistiques</button></td>'
         + '</tr>';
@@ -751,7 +751,7 @@
 
     document.getElementById('cs-d-apercu').innerHTML = d.html
       ? '<div class="cs-bloc-t">Le mail réellement envoyé</div><iframe class="cs-frame" sandbox="" srcdoc="' + _escH(d.html).replace(/"/g, '&quot;') + '"></iframe>'
-      : '<div class="cs-vide">Le contenu envoyé n’a pas été archivé pour cette campagne. Ré-afficher l’aperçu du gabarit montrerait le contenu d’aujourd’hui, pas celui qui est parti — on préfère ne rien montrer.</div>';
+      : '<div class="cs-vide">Le contenu envoyé n’a pas été archivé pour cette campagne. Ré-afficher l’aperçu du gabarit montrerait le contenu d’aujourd’hui, pas celui qui est parti : on préfère ne rien montrer.</div>';
 
     csDest();
   }
@@ -812,7 +812,7 @@
         + '<td>' + x.nOuv + '</td><td>' + _dt(x.ouvPremiere) + '</td><td>' + _dt(x.ouvDerniere) + '</td>'
         + '<td>' + (x.clique ? '<span class="cs-oui">oui</span>' : '<span class="cs-non">non</span>') + '</td>'
         + '<td>' + x.nCli + '</td>'
-        + '<td>' + (x.desabo ? '<span class="tag tag--red">' + _dt(x.desabo) + '</span>' : '—') + '</td>'
+        + '<td>' + (x.desabo ? '<span class="tag tag--red">' + _dt(x.desabo) + '</span>' : '-') + '</td>'
         + '<td>' + _csNum(x.rebond) + '</td></tr>';
     }).join('') : '<tr><td colspan="10" class="empty-state">Aucun destinataire dans ce filtre.</td></tr>';
     const pages = Math.ceil(r.length / _CS_PAGE);
@@ -986,13 +986,13 @@
       const mode = d.mode || (d.active ? (d.testMode ? 'test' : 'official') : 'paused');
       if (badge) badge.innerHTML = ({ test: '<span style="color:#e3b23a;font-weight:700;">🧪 MODE TEST</span>', official: '<span style="color:#00e676;font-weight:700;">● OFFICIELLE</span>', paused: '<span style="color:#8b93a1;">○ En pause</span>' })[mode];
       const dot = mode === 'test' ? '#e3b23a' : mode === 'official' ? '#00e676' : '#8b93a1';
-      const title = mode === 'test' ? ('Mode TEST — tout part sur ' + (d.testEmail || 'ta boîte')) : mode === 'official' ? 'Campagne OFFICIELLE (audience réelle)' : 'Campagne en pause';
+      const title = mode === 'test' ? ('Mode TEST : tout part sur ' + (d.testEmail || 'ta boîte')) : mode === 'official' ? 'Campagne OFFICIELLE (audience réelle)' : 'Campagne en pause';
       const statusBig = '<div style="display:flex;align-items:center;gap:10px;"><span style="width:12px;height:12px;border-radius:50%;background:' + dot + ';box-shadow:0 0 12px ' + dot + ';"></span><span style="font-size:18px;font-weight:800;color:' + dot + ';">' + title + '</span></div>';
       const rows = [
-        ['Prochain e-mail', '<b style="color:#e3b23a;">' + (d.nextTemplate || '—') + '</b>'],
-        ['Quand', d.active ? (d.nextWhen || '—') : 'en pause tant que non lancée'],
-        ['Destinataire', mode === 'test' ? ('<span style="color:#e3b23a;">🧪 ' + _escH(d.testEmail || '') + ' (test)</span>') : mode === 'official' ? ('<b style="color:#fff;">' + (d.contactsTracked || 0) + '</b> contacts (réel)') : '—'],
-        ['Dernier envoi', d.lastSent ? ('<b style="color:#c9ced8;">' + _escH(d.lastSent.title) + '</b> <span style="color:#8b93a1;">— ' + _dt(d.lastSent.ts) + '</span>') : '<span style="color:#8b93a1;">aucun pour l instant</span>'],
+        ['Prochain e-mail', '<b style="color:#e3b23a;">' + (d.nextTemplate || '-') + '</b>'],
+        ['Quand', d.active ? (d.nextWhen || '-') : 'en pause tant que non lancée'],
+        ['Destinataire', mode === 'test' ? ('<span style="color:#e3b23a;">🧪 ' + _escH(d.testEmail || '') + ' (test)</span>') : mode === 'official' ? ('<b style="color:#fff;">' + (d.contactsTracked || 0) + '</b> contacts (réel)') : '-'],
+        ['Dernier envoi', d.lastSent ? ('<b style="color:#c9ced8;">' + _escH(d.lastSent.title) + '</b> <span style="color:#8b93a1;">' + _dt(d.lastSent.ts) + '</span>') : '<span style="color:#8b93a1;">aucun pour l instant</span>'],
         ['Envoi en cours', d.running ? '<span style="color:#e3b23a;">🔄 oui, en train d’envoyer…</span>' : 'non']
       ];
       let extra = '';
@@ -1018,7 +1018,7 @@
     }
     _masterArmUntil = 0; _masterArmAction = '';
     var msg = document.getElementById('camp-master-msg'); if (msg) msg.textContent = '…';
-    const noteMap = { 'activate-test': '🧪 Mode test activé — chaque e-mail arrivera sur ta boîte, le bon jour', 'activate-official': '🚀 Campagne OFFICIELLE lancée (audience réelle)', 'pause': '⏸ Campagne mise en pause' };
+    const noteMap = { 'activate-test': '🧪 Mode test activé : chaque e-mail arrivera sur ta boîte, le bon jour', 'activate-official': '🚀 Campagne OFFICIELLE lancée (audience réelle)', 'pause': '⏸ Campagne mise en pause' };
     try { await fetch('/api/admin/campaign-master?action=' + action).then(r => r.json()); _campMsg(noteMap[action] || 'ok'); loadMaster(); loadCampErrors(); if (typeof loadSequence === 'function') loadSequence(); }
     catch { if (msg) msg.textContent = '❌ erreur'; }
   }
@@ -1044,13 +1044,13 @@
       clearTimeout(window._cprevRetryT);
       if (bad) {
         window._cprevRetryCount = (window._cprevRetryCount || 0) + 1;
-        if (ts) ts.textContent = '⟳ Déploiement en cours — nouvel essai (' + window._cprevRetryCount + '/5)…';
+        if (ts) ts.textContent = '⟳ Déploiement en cours : nouvel essai (' + window._cprevRetryCount + '/5)…';
         if (window._cprevRetryCount <= 5) window._cprevRetryT = setTimeout(_cprevLoad, 6000);
-        else if (ts) ts.textContent = '⚠ Aperçu indisponible — nouvel essai automatique dans moins d’une minute.';
+        else if (ts) ts.textContent = '⚠ Aperçu indisponible : nouvel essai automatique dans moins d’une minute.';
         return;
       }
       window._cprevRetryCount = 0;
-      if (ts) ts.textContent = '● En direct · MAJ ' + new Date().toLocaleTimeString('fr-FR') + ' —';
+      if (ts) ts.textContent = '● En direct · MAJ ' + new Date().toLocaleTimeString('fr-FR') + ' -';
     };
     var vv = (window._cprevVariant != null && window._cprevVariant !== '') ? ('&variant=' + window._cprevVariant) : '';   // Invitation : voir chaque variante
     var mo = (type === 'winback' && window._cprevMonths) ? ('&months=' + window._cprevMonths) : '';                       // Win-back : voir chaque jalon
@@ -1325,7 +1325,7 @@
   const _hcol = s => s == null ? '#6b7280' : s >= 75 ? '#22c55e' : s >= 40 ? '#ffb300' : '#ef4444';
   function aimRenderKpis(d) {
     const b = d.budget, g = (d.providers || {}).gemini || {};
-    const riskLbl = { low: 'Faible', medium: 'Modéré', high: 'Élevé', exhausted: 'Épuisé', unknown: '—' }[b.risk] || b.risk;
+    const riskLbl = { low: 'Faible', medium: 'Modéré', high: 'Élevé', exhausted: 'Épuisé', unknown: '-' }[b.risk] || b.risk;
     const press = Math.round((g.pressure || 0) * 100);
     const pressCol = press >= 75 ? '#ef4444' : press >= 55 ? '#ffb300' : '#22c55e';
     const bk = d.backoff && d.backoff.active;
@@ -1343,7 +1343,7 @@
     const g = P.gemini || {}, gh = P.github || {}, or = P.openrouter || {}, cl = P.claude || {}, gr = P.groq || {}, co = P.cohere || {}, xa = P.xai || {};
     const card = (label, tier, score, rows, chips) => {
       const col = _hcol(score);
-      return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-dot" style="background:${col};box-shadow:0 0 5px ${col}66"></span><span class="aim-prov-name">${label} <small>${tier}</small></span><span class="aim-prov-score" style="color:${col}">${score == null ? '—' : score}</span></div>`
+      return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-dot" style="background:${col};box-shadow:0 0 5px ${col}66"></span><span class="aim-prov-name">${label} <small>${tier}</small></span><span class="aim-prov-score" style="color:${col}">${score == null ? '-' : score}</span></div>`
         + `<div class="aim-prov-bar"><i style="width:${score == null ? 0 : score}%;background:${col}"></i></div>`
         + rows.map(r => `<div class="aim-kv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')
         + (chips && chips.length ? `<div class="aim-chips">${chips.join('')}</div>` : '')
@@ -1390,20 +1390,20 @@
     // Rythme MENSUEL : projection fin de mois au rythme observé (vert = enveloppe tenue, ambre/rouge = pacing va resserrer)
     const projRow = (b.monthProjected != null && b.monthly) ? (() => {
       const col = b.monthProjected > b.monthly * 1.1 ? '#ef4444' : b.monthProjected > b.monthly ? '#ffb300' : '#22c55e';
-      return `<div class="aim-fc-row"><span>Projection fin de mois</span><b style="color:${col}">${b.monthProjected} <span style="color:#6b7280">/ ${b.monthly} · ${b.daysLeftMonth || '—'} j restants</span></b></div>`;
+      return `<div class="aim-fc-row"><span>Projection fin de mois</span><b style="color:${col}">${b.monthProjected} <span style="color:#6b7280">/ ${b.monthly} · ${b.daysLeftMonth || '-'} j restants</span></b></div>`;
     })() : '';
     // Efficacité du cache à la demande + requêtes économisées (coalescing / cooldown de panne)
     const cacheRows = d.cache ? (() => {
-      const c = d.cache, pc = o => { const t = (o && ((o.hit || 0) + (o.miss || 0))) || 0; return t ? Math.round((o.hit || 0) / t * 100) + '%' : '—'; };
+      const c = d.cache, pc = o => { const t = (o && ((o.hit || 0) + (o.miss || 0))) || 0; return t ? Math.round((o.hit || 0) / t * 100) + '%' : '-'; };
       return `<div class="aim-fc-row"><span>Cache à la demande (hit)</span><b>info ${pc(c.info)} · analyse ${pc(c.analyse)} · réaction ${pc(c.react)}</b></div>`
         + `<div class="aim-fc-row"><span>Requêtes économisées</span><b>${(c.coalesced || 0)} coalescées · ${(c.coolskip || 0)} évitées (panne)</b></div>`
         + (c.usersIdle ? `<div class="aim-fc-row"><span>Activité</span><b style="color:#ffb300">personne connecté : fond au ralenti</b></div>` : '');
     })() : '';
     document.getElementById('aim-forecast').innerHTML =
       `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
-      + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + ' h') : '—'}</b></div>`
+      + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + ' h') : '-'}</b></div>`
       + projRow
-      + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '—'}</b></div>`
+      + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '-'}</b></div>`
       + `<div class="aim-fc-row"><span>Pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
       + cacheRows
       + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh;
@@ -1413,7 +1413,7 @@
       const M = d.mail; if (!M) return '<div class="aim-j-empty">indisponible</div>';
       const ovhOk = !!(M.ovh && M.ovh.configured);
       return `<div class="aim-kv"><span>Canal principal</span><b style="color:${ovhOk ? '#22c55e' : '#ef4444'}">${ovhOk ? 'OVH SMTP ✓' : 'non configuré'}</b></div>`
-        + `<div class="aim-kv"><span>Dernier canal</span><b>${M.lastProvider || '—'}</b></div>`
+        + `<div class="aim-kv"><span>Dernier canal</span><b>${M.lastProvider || '-'}</b></div>`
         + `<div class="aim-kv"><span>Envoyés / échecs</span><b>${(M.sent || 0)} / ${(M.failed || 0)}</b></div>`
         + (M.gmailApi && M.gmailApi.configured && M.gmailApi.verified === false ? `<div class="aim-kv"><span>Gmail API (secours)</span><b style="color:#ffb300">token expiré</b></div>` : '')
         + (M.lastError ? `<div class="aim-kv"><span>Dernière erreur</span><b style="color:#ef4444">${_esc2(String(M.lastError).slice(0, 52))}</b></div>` : '');
@@ -1582,8 +1582,8 @@
     // Whop
     const w = d.whop || {};
     document.getElementById('fin-whop').innerHTML = `
-      <div class="whop-stat"><span class="whop-dot ${w.configured ? 'whop-on' : 'whop-off'}"></span> API Whop ${w.configured ? 'connectée' : '— non configurée (WHOP_API_KEY)'}</div>
-      <div class="whop-stat"><span class="whop-dot ${w.webhookSecret ? 'whop-on' : 'whop-off'}"></span> Webhook ${w.webhookSecret ? 'sécurisé (token actif)' : '— non protégé (WHOP_WEBHOOK_SECRET)'}</div>
+      <div class="whop-stat"><span class="whop-dot ${w.configured ? 'whop-on' : 'whop-off'}"></span> API Whop ${w.configured ? 'connectée' : 'non configurée (WHOP_API_KEY)'}</div>
+      <div class="whop-stat"><span class="whop-dot ${w.webhookSecret ? 'whop-on' : 'whop-off'}"></span> Webhook ${w.webhookSecret ? 'sécurisé (token actif)' : 'non protégé (WHOP_WEBHOOK_SECRET)'}</div>
       <div class="whop-stat" style="border-bottom:none"><span class="whop-dot whop-on"></span> Renouvellement auto + email à chaque paiement</div>
       <a href="${w.renewUrl}" target="_blank" rel="noopener" class="btn-sm btn-primary" style="margin-top:14px;display:inline-block;text-decoration:none">Ouvrir la page Whop →</a>`;
   }
@@ -1707,7 +1707,7 @@
   function relTime(ts) {
     if (!ts) return 'jamais';
     const ms = Date.now() - new Date(ts).getTime();
-    if (!Number.isFinite(ms) || ms < 0) return '—';
+    if (!Number.isFinite(ms) || ms < 0) return '-';
     const mn = Math.floor(ms / 60000);
     if (mn < 1)   return 'à l\'instant';
     if (mn < 60)  return 'il y a ' + mn + ' min';
@@ -1844,7 +1844,7 @@
       `<button class="btn-ic${danger ? ' btn-ic--danger' : ''}" title="${label}" aria-label="${label}" onclick="${onclick}">${IC[icon]}</button>`;
     tbody.innerHTML = pageUsers.map(u => `
       <tr data-id="${u.id}">
-        <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${_escH(u.name || '—')}</span></div></td><!-- (XSS) nom/e-mail TOUJOURS échappés : modifiables par le client via son profil -->
+        <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${_escH(u.name || '-')}</span></div></td><!-- (XSS) nom/e-mail TOUJOURS échappés : modifiables par le client via son profil -->
         <td class="email">${_escH(u.email)}</td>
         <td><span class="badge badge-client">${cycleLabel(u)}</span></td>
         <td>${typeBadge(u)}</td>
@@ -1944,8 +1944,8 @@
   // (création seulement — en édition la durée vaut « ne rien changer », la forcer raccourcirait
   // l'accès d'un compte existant sans que l'admin l'ait demandé).
   const _TYPE_HINTS = {
-    essai: "Compte d'essai : aucun revenu compté, et à l'échéance c'est le mail « fin d'essai » qui part — jamais la relance de renouvellement.",
-    amis:  "Compte ami : accès offert — ne recevra JAMAIS de relance de paiement (ni renouvellement, ni fin d'essai). Tout le reste est normal.",
+    essai: "Compte d'essai : aucun revenu compté, et à l'échéance c'est le mail « fin d'essai » qui part : jamais la relance de renouvellement.",
+    amis:  "Compte ami : accès offert, ne recevra JAMAIS de relance de paiement (ni renouvellement, ni fin d'essai). Tout le reste est normal.",
   };
   function planSync(which) {
     const sel = document.getElementById(which + '-plan'); if (!sel) return;

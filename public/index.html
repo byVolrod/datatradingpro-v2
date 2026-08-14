@@ -27,16 +27,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <!-- App DESKTOP (Electron) : on pose .dtp-desktop + plateforme sur <html> AVANT le CSS → la topbar
        intégrée prend sa mise en page (hauteur 50px + marges des boutons système) dès le chargement, SANS
-       dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
+       dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260814bbg674" />
+  <link rel="stylesheet" href="/css/style.css?v=20260814bbg675" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
        ligne ~55 : si le document n'arrive PAS jusqu'au bout (connexion qui lâche en cours de
        transfert, proxy qui coupe, onglet mis en veille pendant le chargement), le filet n'est jamais
-       parsé et le spinner tourne indéfiniment — c'est le « chargement figé » signalé.
+       parsé et le spinner tourne indéfiniment : c'est le « chargement figé » signalé.
        Ici il ne dépend plus de rien de ce qui suit : dès que le <head> est reçu, les deux minuteurs
        existent. On expose aussi la fonction pour que la fin de body la réutilise (source unique). ══ -->
   <script>
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260814bbg674"></script>
+  <script defer src="/js/noinspect.js?v=20260814bbg675"></script>
 </head>
 <body>
 
@@ -92,11 +92,11 @@
   <div class="dtp-loader">
     <!-- Marque (même logo que la topbar) + barre de progression : le .dtp-loader__spin est
          RÉUTILISÉ comme barre (le filet de secours à 9 s le masque par cette classe). -->
-    <!-- (carré logo retiré — demande user 03/08 : le wordmark en dégradé or porte seul la marque) -->
+    <!-- (carré logo retiré : demande user 03/08 : le wordmark en dégradé or porte seul la marque) -->
     <div class="boot-brand"><span class="boot-name">DataTradingPro</span></div>
     <div class="dtp-loader__spin"></div>
     <!-- Libellé RETIRÉ (demande user 04/08) : la marque + la barre suffisent. On garde l'élément
-         VIDE — le filet de secours (9 s) y écrit son message d'action si le voile ne part pas. -->
+         VIDE : le filet de secours (9 s) y écrit son message d'action si le voile ne part pas. -->
     <div class="dtp-loader__label"></div>
   </div>
 </div>
@@ -187,7 +187,7 @@
     <!-- VIEW: SYMBOL (recherche → onglet pair : sous-onglets Overview / Radar de Biais / COT / Seasonality / Retail / Central Bank) -->
     <div class="view-panel hidden" id="view-symbol">
       <div class="sym-subtabs" id="sym-subtabs">
-        <span class="sym-bar-pair" id="sym-bar-pair">[—]</span>
+        <span class="sym-bar-pair" id="sym-bar-pair">[-]</span>
         <button class="sym-subtab sym-subtab--active" data-sub="overview" type="button">Aperçu</button>
         <button class="sym-subtab" data-sub="bias" type="button">Radar de Biais</button>
         <button class="sym-subtab" data-sub="cotbase" type="button">COT base</button>
@@ -200,7 +200,7 @@
         <div class="sym-subview" id="sym-sub-overview">
           <div class="sym-grid" id="sym-grid">
             <div class="sym-panel sym-panel--chart" style="grid-column:1;grid-row:1">
-              <div class="sym-phead"><span class="sym-ptitle">Graphiques techniques <span class="sym-hsep">|</span> <span class="sym-pair-orange" id="sym-pair-lbl">—</span></span></div>
+              <div class="sym-phead"><span class="sym-ptitle">Graphiques techniques <span class="sym-hsep">|</span> <span class="sym-pair-orange" id="sym-pair-lbl">-</span></span></div>
               <div class="sym-body" id="sym-tv"></div>
             </div>
             <div class="sym-panel" style="grid-column:3;grid-row:1">
@@ -251,7 +251,7 @@
             <input type="text" id="search-input" placeholder="Rechercher des événements..." />
           </div>
           <div class="toolbar-right">
-            <span class="item-count" id="item-count">— items</span>
+            <span class="item-count" id="item-count"> : items</span>
           </div>
         </div>
         <div class="section-dropdown hidden" id="section-dropdown">
@@ -284,7 +284,7 @@
 
   <!-- ══ VIEW: SEMAINE À VENIR : aperçu hebdomadaire (timeline + risk amCharts) ══ -->
   <div class="view-panel hidden" id="view-weekahead">
-    <!-- Barre d'en-tête STANDARD (.panel-header) — demande user 27/07 « les noms au même emplacement » :
+    <!-- Barre d'en-tête STANDARD (.panel-header) : demande user 27/07 « les noms au même emplacement » :
          le titre vivait auparavant dans .wa-wrap (colonne centrée) donc à un x variable, jamais aligné sur
          les autres vues. Il est désormais ici, comme partout ; le JS met à jour le libellé (« Semaine à
          Venir » / « Semaine écoulée »), la plage de dates et l'état des flèches ‹ ›. -->
@@ -325,7 +325,7 @@
           <span class="panel-title">Transactions bancaires</span>
         </div>
         <div class="panel-header-controls">
-          <!-- 04/08 (demande user) : horodatage « MAJ HH:MM » RETIRÉ de l'onglet BANQUES — il
+          <!-- 04/08 (demande user) : horodatage « MAJ HH:MM » RETIRÉ de l'onglet BANQUES : il
                occupait le coin droit sans être consulté. Le bloc qui l'écrivait (app.js) est gardé
                par `if (u && …)` : il se neutralise seul, aucune référence nulle. Pour le rétablir,
                il suffit de remettre ici un élément portant l'id « bank-update ». -->
@@ -622,13 +622,13 @@
     </div>
   </div>
 
-  <!-- ══ MON DESK : système de widgets composable (BÊTA — onglet créé par widgets.js pour l'ADMIN
+  <!-- ══ MON DESK : système de widgets composable (BÊTA, onglet créé par widgets.js pour l'ADMIN
        uniquement, cf. window._pdIsAdmin). Le conteneur reste inerte et invisible pour les clients. ══ -->
   <div class="view-panel hidden" id="view-widgets">
     <div class="panel">
       <!-- La barre d'onglets de layouts EST la barre de navigation du desk : on utilise la classe
            .navbar elle-même (et non un .panel-header réglé pour lui ressembler). Hauteur, fond,
-           bordure et alignement descendent donc de la nav — elles ne peuvent plus diverger.
+           bordure et alignement descendent donc de la nav : elles ne peuvent plus diverger.
            .wdg-bar n'ajoute que la répartition gauche/droite, que .navbar n'a pas à porter. -->
       <div class="navbar wdg-bar">
         <div class="panel-header-left">
@@ -694,7 +694,7 @@
         </div>
         <div class="wdg-mgr-list" id="wdg-mgr-list"></div>
         <!-- id explicite : la classe .wdg-mgr-foot sert AUSSI au pied de chaque carte de layout, et un
-             querySelector par classe attrapait le pied de la PREMIÈRE CARTE — la barre de sauvegarde
+             querySelector par classe attrapait le pied de la PREMIÈRE CARTE : la barre de sauvegarde
              s'injectait donc dans la carte au lieu du pied du gestionnaire (constaté user 06/08). -->
         <div class="wdg-mgr-foot" id="wdg-mgr-footbar">
           <button class="wdg-btn" onclick="DTPWidgets.exportCfg()" title="Télécharger tous tes layouts en JSON (sauvegarde personnelle)">↓ Exporter</button>
@@ -756,7 +756,7 @@
         </div>
         <div id="risk-widget" class="risk-widget-container"></div>
 
-        <!-- Bande historique (barres quotidiennes risk-on/off) directement sous la jauge —
+        <!-- Bande historique (barres quotidiennes risk-on/off) directement sous la jauge : 
              sous-titre « Risk Sentiment History » + ligne d'état dupliquée retirés (vue épurée 1 bloc) -->
         <div class="amchart-container rsh-chart" id="risk-history-chart"></div>
       </div>
@@ -910,21 +910,21 @@
       <div class="rp-section-label">Marchés</div>
       <div class="rp-assets" id="rp-assets"></div>
       <div class="rp-divider"></div>
-      <div class="rp-updated" id="rp-updated">Mis à jour : —</div>
+      <div class="rp-updated" id="rp-updated">Mis à jour : </div>
     </div>
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260814bbg674"></script>
-<script defer src="/js/app.js?v=20260814bbg674"></script>
-<script defer src="/js/charts.js?v=20260814bbg674"></script>
-<script defer src="/js/sessionmap.js?v=20260814bbg674"></script>
-<!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
+<script defer src="/js/jspdf.umd.min.js?v=20260814bbg675"></script>
+<script defer src="/js/app.js?v=20260814bbg675"></script>
+<script defer src="/js/charts.js?v=20260814bbg675"></script>
+<script defer src="/js/sessionmap.js?v=20260814bbg675"></script>
+<!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260814bbg674"></script>
-<script defer src="/js/home.js?v=20260814bbg674"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260814bbg674"></script>
-<script defer src="/js/i18n.js?v=20260814bbg674"></script>
+<script defer src="/js/widgets.js?v=20260814bbg675"></script>
+<script defer src="/js/home.js?v=20260814bbg675"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260814bbg675"></script>
+<script defer src="/js/i18n.js?v=20260814bbg675"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1801,7 +1801,7 @@
     </button>
     <div class="np-push-group">
       <!-- « Notifs navigateur » : le toggle pilote l'API Notifications du navigateur (bannières
-           système), pas un vrai push mobile — le libellé dit ce qu'il fait. -->
+           système), pas un vrai push mobile : le libellé dit ce qu'il fait. -->
       <span class="np-push-label">Notifs navigateur</span>
       <div class="np-push-toggle" id="np-push-toggle" onclick="npTogglePush()">
         <div class="np-push-thumb"></div>
@@ -1813,10 +1813,10 @@
   <!-- Filter tabs -->
   <div class="np-tabs-bar">
     <!-- Flèches ‹ › RETIRÉES (12/08) : la barre revient à la ligne, tous les onglets sont visibles
-         dès l'ouverture du volet — il n'y a plus rien à faire défiler. -->
+         dès l'ouverture du volet : il n'y a plus rien à faire défiler. -->
     <div class="np-tabs-scroll" id="np-tabs-scroll">
       <!-- 04/08 : les onglets sont GÉNÉRÉS depuis NP_KINDS (app.js, _npRenderTabs) pour qu'ils ne
-           puissent plus diverger des badges ni du panneau Filtre — c'est tout l'intérêt d'avoir une
+           puissent plus diverger des badges ni du panneau Filtre : c'est tout l'intérêt d'avoir une
            taxonomie unique. Seul « Tout » est écrit ici, comme ancre de départ. -->
       <button class="np-tab np-tab--active" data-nf="all">Tout</button>
     </div>

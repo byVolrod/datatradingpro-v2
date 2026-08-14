@@ -2,7 +2,7 @@
   "id": "/",
   "name": "DataTradingPro",
   "short_name": "DTP",
-  "description": "Terminal d'analyse macro & forex — news, calendrier, biais, force des devises.",
+  "description": "Terminal d'analyse macro & forex : news, calendrier, biais, force des devises.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1280,7 +1280,7 @@ function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
   _syncNewsModeBtn();
   const _icTxt = `${filtered.length} items`;
-  if (itemCountEl.textContent && itemCountEl.textContent !== '— items' && itemCountEl.textContent !== _icTxt && window._dtpFlash) window._dtpFlash(itemCountEl);   // flash discret : le compteur change vraiment (jamais au 1er remplissage du placeholder)
+  if (itemCountEl.textContent && itemCountEl.textContent !== 'items' && itemCountEl.textContent !== _icTxt && window._dtpFlash) window._dtpFlash(itemCountEl);   // flash discret : le compteur change vraiment (jamais au 1er remplissage du placeholder)
   itemCountEl.textContent = _icTxt;
   if (allItems.length) lsSet('dtp_news', allItems.slice(0, 150));   // persiste pour un affichage instantané au revisite
 
@@ -2240,7 +2240,7 @@ function _renderSnapshot(data) {
   const cell = r => {
     if (!r) return '<td class="rsnap-lbl"></td><td class="rsnap-val"></td>';
     const cls = r.pct == null ? '' : r.pct > 0 ? 'rsnap-up' : r.pct < 0 ? 'rsnap-dn' : '';
-    const val = r.pct == null ? '—' : `${r.pct > 0 ? '+' : ''}${r.pct.toFixed(1)}%`;
+    const val = r.pct == null ? '-' : `${r.pct > 0 ? '+' : ''}${r.pct.toFixed(1)}%`;
     return `<td class="rsnap-lbl">${r.label}</td><td class="rsnap-val ${cls}">${val}</td>`;
   };
   const blocks = groups.map(g => {
@@ -3833,7 +3833,7 @@ async function loadInstFlow() {
       const retEntry = retailMap[cur];
       const retLong  = retEntry ? retEntry.sum / retEntry.n : null;
       const div      = retLong !== null ? cotLong - retLong : null;
-      let sig = '—', sigCls = '';
+      let sig = '-', sigCls = '';
       if (div !== null) {
         if (div > 15)   { sig = '▲ HAUSSIER'; sigCls = 'inst-sig-bull'; }
         else if (div < -15) { sig = '▼ BAISSIER'; sigCls = 'inst-sig-bear'; }
@@ -3845,7 +3845,7 @@ async function loadInstFlow() {
       const retBar = retW !== null
         ? `<div class="inst-flow-mini-bar"><div class="inst-flow-mini-long inst-flow-mini-ret" style="width:${retW}%"></div></div>`
         : '<span style="color:var(--text4);font-size:10px">N/A</span>';
-      const divText = div !== null ? `${div > 0 ? '+' : ''}${div.toFixed(0)}%` : '—';
+      const divText = div !== null ? `${div > 0 ? '+' : ''}${div.toFixed(0)}%` : '-';
       return `<div class="inst-flow-row">
         <span class="inst-flow-cur">${_COT_FLAG[cur] || ''} ${cur}${c.derived ? '*' : ''}</span>
         <div class="inst-flow-cot">${cotBar}</div>
@@ -4039,7 +4039,7 @@ function initAnalystTab() {
           <div class="arlib-insights-header">
             <span class="arlib-insights-pair">${pair}</span>
             <span class="arlib-insights-bias" style="color:${biasColor}">${(data.bias || '').toUpperCase()}</span>
-            <span class="arlib-insights-conf">${data.confidence || '—'}% de confiance</span>
+            <span class="arlib-insights-conf">${data.confidence || '-'}% de confiance</span>
             <span class="arlib-insights-close" id="arlib-insights-close">×</span>
           </div>
           <div class="arlib-insights-summary">${data.summary || ''}</div>
@@ -4224,7 +4224,7 @@ async function loadWeekAheadView() {
       host.innerHTML = _waSkel();
       _waPollTimer = setTimeout(loadWeekAheadView, 12000);
     } else {
-      host.innerHTML = '<div class="wa-empty">Semaine à Venir indisponible pour le moment — nouvel essai automatique à la prochaine ouverture de l\'onglet.</div>';
+      host.innerHTML = '<div class="wa-empty">Semaine à Venir indisponible pour le moment : nouvel essai automatique à la prochaine ouverture de l\'onglet.</div>';
     }
   }
 }
@@ -4424,7 +4424,7 @@ function _waBuildChart(days) {
     try { chart.plotContainer.set('maskContent', false); chart.set('maskContent', false); } catch (e) {}
     const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, {
       xAxis, yAxis, valueYField: 'risk', categoryXField: 'day', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a),
-      tooltip: am5.Tooltip.new(root, { labelText: '{day} — indice {risk}/100\n{detail}' }),
+      tooltip: am5.Tooltip.new(root, { labelText: '{day} : indice {risk}/100\n{detail}' }),
     }));
     try { series.get('tooltip').label.setAll({ fontSize: 11 }); } catch {}
     series.strokes.template.setAll({ strokeWidth: 2 });
@@ -4567,7 +4567,7 @@ function _sbRenderMacroTable(cur, macro) {
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
   // Chaque cellule = conteneur flex → alignement vertical régulier même quand il y a 1 ou 2 tags (demande user « aligne bien »).
-  const cell = html => `<td><div class="mt-cell-tags">${html || '<span class="mt-empty">—</span>'}</div></td>`;
+  const cell = html => `<td><div class="mt-cell-tags">${html || '<span class="mt-empty">-</span>'}</div></td>`;
   const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
   const body = cur.map(c => {
     const m = macro[c] || {};
@@ -4579,7 +4579,7 @@ function _sbRenderMacroTable(cur, macro) {
     const _hz = mp.horizons || {};
     const _sensFr = d => d === 'Up' ? 'un resserrement' : d === 'Down' ? 'un assouplissement' : 'un maintien';
     const divTag = _hz.divergence
-      ? '<span class="mt-diverg" title="Structurellement ' + _sensFr(_hz.lt) + ', mais le marché price ' + _sensFr(_hz.ct) + ' pour la prochaine réunion — lecture en tension, surveiller le retournement.">⇄</span>'
+      ? '<span class="mt-diverg" title="Structurellement ' + _sensFr(_hz.lt) + ', mais le marché price ' + _sensFr(_hz.ct) + ' pour la prochaine réunion : lecture en tension, surveiller le retournement.">⇄</span>'
       : '';
     const monCell = divTag + (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : '');
     const infCell = (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : '');
@@ -4608,7 +4608,7 @@ function _sbRenderMacroTable(cur, macro) {
     return `<tr class="mt-row${active}" data-cur="${esc(c)}" onclick="_sbOpenDetail('${esc(c)}')" title="Voir le détail macro de ${esc(c)}">
       <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
       ${cell(monCell)}${cell(infCell)}${cell(gr)}${cell(em)}
-      <td class="mt-drv-cell"><div class="mt-cell-tags">${drv || '<span class="mt-empty">—</span>'}</div></td>
+      <td class="mt-drv-cell"><div class="mt-cell-tags">${drv || '<span class="mt-empty">-</span>'}</div></td>
       ${cell(bi)}
       <td class="mt-x"><span class="mt-chevron">›</span></td></tr>`;
   }).join('');
@@ -4635,7 +4635,7 @@ function _sbOpenDetail(curr, opts) {
   const macro = (d.macroTable && d.macroTable[curr]) ? d.macroTable[curr] : ((_sbMacroFromRows(d) || {})[curr] || {});
   const det = macro.detail || null;
   const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
-  const na = '<span class="mdet-na">—</span>';
+  const na = '<span class="mdet-na">-</span>';
   const relCls = s => /bull/i.test(s || '') ? 'mdet-up' : /bear/i.test(s || '') ? 'mdet-down' : 'mdet-flat';
   const fmtDate = ts => { if (!ts) return ''; const dt = new Date(ts); return dt.getDate() + ' ' + _MDET_MOIS[dt.getMonth()]; };
   // Rendu d'une publication réelle {actual, forecast, previous, surprise, ts, hist, ctry}.
@@ -4914,7 +4914,7 @@ function _sbMacroSummaryRows(curr, esc) {
   if (!macro) return '';
   const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
   const mp = macro.monetary || {}, inf = macro.inflation || {};
-  const row = (lbl, html) => `<div class="sbs-row sbs-mrow"><span class="sbs-row-lbl">${esc(lbl)}</span><span class="sbs-mrow-tags">${html || '<span class="mt-empty">—</span>'}</span></div>`;
+  const row = (lbl, html) => `<div class="sbs-row sbs-mrow"><span class="sbs-row-lbl">${esc(lbl)}</span><span class="sbs-mrow-tags">${html || '<span class="mt-empty">-</span>'}</span></div>`;
   let out = `<div class="sbs-left-sub">Vue macro</div>`;
   out += row('Politique monétaire', (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : ''));
   out += row('Inflation', (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : ''));
@@ -5163,7 +5163,7 @@ function _sbBankMatrixRows(cur) {
   if (bs && Object.keys(bs).length) {
     return Object.keys(bs).sort().map(name => {
       const values = {};
-      cur.forEach(c => { values[c] = (bs[name] || {})[c] || '—'; });
+      cur.forEach(c => { values[c] = (bs[name] || {})[c] || '-'; });
       return { label: name, values };
     });
   }
@@ -5176,7 +5176,7 @@ function _sbBankMatrixRows(cur) {
   });
   return [...byBank.values()].map(b => {
     const values = {};
-    cur.forEach(c => { const s = b.scores[c] || 0; values[c] = s > 0 ? 'Bullish' : s < 0 ? 'Bearish' : '—'; });
+    cur.forEach(c => { const s = b.scores[c] || 0; values[c] = s > 0 ? 'Bullish' : s < 0 ? 'Bearish' : '-'; });
     return { label: b.name, values };
   });
 }
@@ -5198,15 +5198,15 @@ function _sbMatToggleAcc(key, e) {
     let anchor = headRow;
     if (!subRows.length) {
       const tr = document.createElement('tr'); tr.className = 'sbm-sub-row'; tr.dataset.parent = key;
-      tr.innerHTML = `<td class="sbm-ind sbm-sub">—</td><td class="sbm-cell sbm-na" colspan="${cur.length}">Aucune donnée récente.</td>`;
+      tr.innerHTML = `<td class="sbm-ind sbm-sub">-</td><td class="sbm-cell sbm-na" colspan="${cur.length}">Aucune donnée récente.</td>`;
       anchor.after(tr); return;
     }
     subRows.forEach(sr => {
       const tr = document.createElement('tr'); tr.className = 'sbm-sub-row'; tr.dataset.parent = key;
       tr.innerHTML = `<td class="sbm-ind sbm-sub">${_sbMatEsc(sr.label)}</td>` + cur.map(c => {
-        const v = sr.values[c] || '—';
-        return v === '—'
-          ? `<td class="sbm-cell sbm-na">—</td>`
+        const v = sr.values[c] || '-';
+        return v === '-'
+          ? `<td class="sbm-cell sbm-na">-</td>`
           : `<td class="sbm-cell ${_sbColorCls(v)}" title="${_sbMatEsc(c)} · ${_sbMatEsc(sr.label)} : ${_sbMatEsc(BIAS_FR[v] || v)}">${_sbMatEsc(BIAS_FR[v] || v)}</td>`;
       }).join('');
       anchor.after(tr); anchor = tr;
@@ -5333,12 +5333,12 @@ function _fetchBankPositions(silent) {
 }
 
 function _bankFmt(pair, v) {
-  if (v == null || isNaN(v)) return '—';
+  if (v == null || isNaN(v)) return '-';
   const dec = String(pair).includes('JPY') ? 2 : 4;
   return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 function _bankDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const p = String(iso).split('-');
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
 }
@@ -6248,7 +6248,7 @@ function _brStagedLoader(content, first) {
   content.innerHTML = dtpLoader(first);
   const lbl = content.querySelector('.dtp-loader__label');
   [[6000, 'Téléchargement depuis la banque…'],
-   [18000, 'La source répond lentement — encore quelques instants…'],
+   [18000, 'La source répond lentement : encore quelques instants…'],
    [40000, 'Toujours en cours (gros rapport, première ouverture)…']]
     .forEach(([t, txt]) => setTimeout(() => { if (lbl && lbl.isConnected) lbl.textContent = txt; }, t));
 }
@@ -6800,7 +6800,7 @@ function _stdReportTitleRaw(item) {
     if (wrapRe.test(raw)) raw = raw.replace(wrapRe, '').trim();
   }
   const escd = _ALL_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  const m = raw.match(new RegExp('^\\s*(?:' + escd + ')\\s*[:\\-—–]?\\s*', 'i'));
+  const m = raw.match(new RegExp('^\\s*(?:' + escd + ')\\s*[:\\--–]?\\s*', 'i'));
   const subject = (m ? raw.slice(m[0].length) : raw).trim();
   return subject ? `${prefix}: ${subject}` : prefix;
 }
@@ -7436,7 +7436,7 @@ function _wrCbSection(cbs) {
     const nextFr = _wrCbNextFr(c.next, c.nextDays);
     const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
     const ctx = q ? (c.guidance || c.decision || c.narrative) : '';   // 1 ligne de contexte, uniquement si la banque s'est exprimée
-    const attr = q ? [q.date, q.speaker].filter(Boolean).map(_wrEsc).join(' — ') : '';   // date EN TÊTE (demande user : « lundi 05 juillet — Breeden : … »)
+    const attr = q ? [q.date, q.speaker].filter(Boolean).map(_wrEsc).join(' - ') : '';   // date EN TÊTE (demande user : « lundi 05 juillet — Breeden : … »)
     h += `<div class="wr-cb-row">`
       + `<div class="wr-cb-name"><strong>${_wrEsc(c.bank)}</strong> <span class="wr-cb-tag wr-cb-tag--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}</div>`
       + `<div class="wr-cb-body">`
@@ -7960,7 +7960,7 @@ function _renderFXDailyRecap(item) {
   // ⚠️ Le lecteur affichait le titre BRUT du serveur (« FX Daily Recap: … ») alors que la liste, elle,
   // passait par la traduction — le même rapport portait donc deux noms selon l'écran. On applique ici
   // la MÊME table de préfixes FR (_reportTitleToFR) : un seul nom partout, « Récap Quotidien ».
-  if (titleEl) titleEl.textContent = _stripTitleDateLead(_reportTitleToFR(_mdStrip(w.title || 'FX Daily Recap'))) + (_fxrDate ? ' — ' + _fxrDate : '');
+  if (titleEl) titleEl.textContent = _stripTitleDateLead(_reportTitleToFR(_mdStrip(w.title || 'FX Daily Recap'))) + (_fxrDate ? ' - ' + _fxrDate : '');
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
@@ -8104,8 +8104,8 @@ function _renderFXDailyRecap(item) {
     const _dots = i => (typeof calImpDots === 'function') ? calImpDots(i) : _wrEsc(i || '');
     // Cellules de VALEURS identiques au calendrier (réel coloré vs prévision via calActualCell ;
     // high/prévision en cv-forecast, low/précédent en cv-prev ; vide = tiret cv-empty).
-    const _vf = v => v ? `<span class="cv-forecast">${_wrEsc(v)}</span>` : '<span class="cv-empty">—</span>';
-    const _vp = v => v ? `<span class="cv-prev">${_wrEsc(v)}</span>` : '<span class="cv-empty">—</span>';
+    const _vf = v => v ? `<span class="cv-forecast">${_wrEsc(v)}</span>` : '<span class="cv-empty">-</span>';
+    const _vp = v => v ? `<span class="cv-prev">${_wrEsc(v)}</span>` : '<span class="cv-empty">-</span>';
     const _va = e => (typeof calActualCell === 'function') ? calActualCell(e.actual || '', e.forecast || '', e.low || '', e.event || '') : _vf(e.actual);
     let rows = '', lastDay = null;
     (w.lookahead || []).forEach(e => {
@@ -8115,7 +8115,7 @@ function _renderFXDailyRecap(item) {
         lastDay = dayLbl;
         rows += `<tr class="cal-day-sep"><td colspan="10">${_wrEsc(dayLbl.charAt(0).toUpperCase() + dayLbl.slice(1))}</td></tr>`;
       }
-      const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—';
+      const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '-';
       // Mention « · Banque centrale » RETIRÉE (demande user 11/08 : « comme le vrai calendrier ») — et
       // elle était FAUSSE : la catégorie est déduite du titre TradingView d'origine, où « Inflation
       // RATE YoY » déclenchait le mot-clé « rate ». Un CPI s'affichait donc en événement de banque
@@ -8125,7 +8125,7 @@ function _renderFXDailyRecap(item) {
       const _a = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
       rows += `<tr class="cal-row fxdr-cal-clic" role="button" tabindex="0" onclick="_fxrToggleCalRow(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleCalRow(this);}" title="Voir le décryptage"`
         + ` data-title="${_a(e.event)}" data-ccy="${_a(e.ccy)}" data-actual="${_a(e.actual)}" data-forecast="${_a(e.forecast)}" data-previous="${_a(e.previous)}" data-ts="${e.ts || 0}">`
-        + `<td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '—')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}<span class="fxdr-cal-chev">›</span></td>`
+        + `<td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '-')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}<span class="fxdr-cal-chev">›</span></td>`
         + `<td class="cth-val">${_va(e)}</td><td class="cth-val">${_vf(e.high)}</td><td class="cth-val">${_vf(e.forecast)}</td><td class="cth-val">${_vp(e.low)}</td><td class="cth-val">${_vp(e.previous)}</td></tr>`
         + `<tr class="fxdr-cal-detail" hidden><td colspan="10"></td></tr>`;
     });
@@ -8214,7 +8214,7 @@ function _renderDTPDaily(item) {
   document.getElementById('arlib-ai-insights')?.remove();
   // Idem : plus de ligne de période, la date rejoint le titre (une seule ligne d'en-tête, rien de perdu).
   const _dtpdDate = String(w.dateLabel || '').trim();
-  if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'Point Marché · Ouverture US') + (_dtpdDate ? ' — ' + _dtpdDate : '');
+  if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'Point Marché · Ouverture US') + (_dtpdDate ? ' - ' + _dtpdDate : '');
   if (navRight) navRight.innerHTML = `<span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
@@ -8228,7 +8228,7 @@ function _renderDTPDaily(item) {
     if (!s || !s.title) return;
     if (s.kind === 'data' && (s.data || []).length) {
       body += _sec(s.title) + `<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr><th>Devise</th><th>Publication</th><th class="num">Réel</th><th class="num">Att.</th><th class="num">Préc.</th></tr></thead><tbody>`;
-      s.data.forEach(r => { body += `<tr><td class="fxdr-ccy">${_wrEsc(r.ccy || '—')}</td><td>${_wrEsc(r.release)}</td><td class="num">${_wrEsc(r.actual || '')}</td><td class="num">${_wrEsc(r.expected || '')}</td><td class="num">${_wrEsc(r.previous || '')}</td></tr>`; });
+      s.data.forEach(r => { body += `<tr><td class="fxdr-ccy">${_wrEsc(r.ccy || '-')}</td><td>${_wrEsc(r.release)}</td><td class="num">${_wrEsc(r.actual || '')}</td><td class="num">${_wrEsc(r.expected || '')}</td><td class="num">${_wrEsc(r.previous || '')}</td></tr>`; });
       body += `</tbody></table></div>`;
     } else if (s.kind === 'paras' && (s.paras || []).length) {
       body += _sec(s.title) + `<div class="dtpd-paras">${s.paras.map(p => `<p>${_wrInline(p)}</p>`).join('')}</div>`;
@@ -10424,7 +10424,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     (ids || []).forEach(id => { try { fetch('/api/journal/img', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trade: id, images: [] }) }).catch(() => {}); } catch (e) {} });
   }
   function _jrFmtDate(ts) { try { const d = new Date(ts); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); } catch (e) { return ''; } }
-  function _jrNum(v) { return v == null ? '—' : String(v).replace('.', ','); }
+  function _jrNum(v) { return v == null ? '-' : String(v).replace('.', ','); }
 
   // ── FILTRES / RECHERCHE / TRI de la grille Trades (24/07, demande user) ────────────────────────────
   // La vue filtrée+triée alimente la grille ET les stats (« stats sur le sous-ensemble filtré » :
@@ -10501,7 +10501,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const cls = v => v > 0 ? 'jr-pos' : v < 0 ? 'jr-neg' : '';
     host.innerHTML =
       '<span class="jr-stat"><i>Trades</i><b>' + L.length + '</b></span>'
-      + '<span class="jr-stat"><i>Taux de réussite</i><b>' + (wr == null ? '—' : wr + '%') + '</b></span>'
+      + '<span class="jr-stat"><i>Taux de réussite</i><b>' + (wr == null ? '-' : wr + '%') + '</b></span>'
       + '<span class="jr-stat"><i>Total R</i><b class="' + cls(totR) + '">' + (totR >= 0 ? '+' : '') + (Math.round(totR * 100) / 100).toString().replace('.', ',') + '</b></span>'
       + '<span class="jr-stat"><i>Total $</i><b class="' + cls(totD) + '">' + (totD >= 0 ? '+' : '') + Math.round(totD).toLocaleString('fr-FR') + ' $</b></span>';
   }
@@ -10609,7 +10609,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   const _JR_MONTHS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const _JR_DAYS_EN = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-  function _jrFmtDateFr(ts) { try { const d = new Date(ts); return d.getDate() + ' ' + _JR_MONTHS_FR[d.getMonth()] + ' ' + d.getFullYear(); } catch (e) { return '—'; } }
+  function _jrFmtDateFr(ts) { try { const d = new Date(ts); return d.getDate() + ' ' + _JR_MONTHS_FR[d.getMonth()] + ' ' + d.getFullYear(); } catch (e) { return '-'; } }
   function _jrDayEn(ts) { try { return _JR_DAYS_EN[new Date(ts).getDay()]; } catch (e) { return ''; } }
   function _jrTsToInput(ts) { try { const d = new Date(ts), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); } catch (e) { return ''; } }
   function _jrFmtNum(v, signed) { if (v == null || v === '') return ''; const n = Number(v); if (!isFinite(n)) return _esc(String(v)); const s = (Math.round(n * 100) / 100).toString().replace('.', ','); return (signed && n > 0 ? '+' : '') + s; }
@@ -10621,15 +10621,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const v = _jrGet(e, col);
     switch (col.type) {
       case 'title': return '<span class="jr-cv-title">' + (e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>') + '</span><button class="jrd-open" data-open="' + _esc(e.id) + '" title="Ouvrir le trade"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5l-5.5 5.5M6.5 13.5h-4v-4M2.5 13.5l5.5-5.5"/></svg><span>OUVRIR</span></button>';
-      case 'text': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : '<span class="jr-cv-text">' + _esc(v) + '</span>';
-      case 'date': { const ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">—</i>'; }
-      case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIPS[8]) : '<i class="jr-ph">—</i>'; }
-      case 'select': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; return _jrChipHtml((col.disp && col.disp[v]) || v, _jrChip(col.k, v)); }
-      case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">—</i>'; }
-      case 'num': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
-      case 'money': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + (col.signed && n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
-      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + '%</span></div>'; }
-      case 'ring': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : _jrRingHtml(Number(v), col.max || 5);
+      case 'text': return (v == null || v === '') ? '<i class="jr-ph">-</i>' : '<span class="jr-cv-text">' + _esc(v) + '</span>';
+      case 'date': { const ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">-</i>'; }
+      case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIPS[8]) : '<i class="jr-ph">-</i>'; }
+      case 'select': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; return _jrChipHtml((col.disp && col.disp[v]) || v, _jrChip(col.k, v)); }
+      case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">-</i>'; }
+      case 'num': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
+      case 'money': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + (col.signed && n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
+      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + '%</span></div>'; }
+      case 'ring': return (v == null || v === '') ? '<i class="jr-ph">-</i>' : _jrRingHtml(Number(v), col.max || 5);
     }
     return '';
   }
@@ -10820,7 +10820,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const f = (filter || '').trim().toLowerCase(), cur = _jrGet(e, col);
       let h = _jrOptions(col).filter(o => o.toLowerCase().includes(f)).map(o => '<button class="jr-pop-opt" data-v="' + _esc(o) + '">' + _jrChipHtml((col.disp && col.disp[o]) || o, _jrChip(col.k, o)) + (String(cur) === o ? '<span class="jr-pop-ck">✓</span>' : '') + '</button>').join('');
       if (f && !_jrOptions(col).some(o => o.toLowerCase() === f)) h += '<button class="jr-pop-opt jr-pop-new" data-v="' + _esc(filter.trim()) + '">+ Créer « ' + _esc(filter.trim()) + ' »</button>';
-      h += '<button class="jr-pop-opt jr-pop-clear" data-v="">— Vider —</button>';
+      h += '<button class="jr-pop-opt jr-pop-clear" data-v=""> : Vider, </button>';
       box.innerHTML = h;
     };
     box.addEventListener('click', ev => { const b = ev.target.closest('.jr-pop-opt'); if (b) set(b.dataset.v); });
@@ -11508,7 +11508,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const c = (opt.colors && opt.colors[k]) || (v < 0 ? '#ff3d00' : opt.color || '#e3b23a');
       const vt = opt.fmt ? opt.fmt(v) : (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
       return '<div class="jrd-bar"><span class="jrd-bar-k" title="' + _esc(k) + '">' + _esc(k) + '</span><span class="jrd-bar-t"><i style="width:' + w + '%;background:' + c + '"></i></span><span class="jrd-bar-v">' + vt + '</span></div>';
-    }).join('') || '<div class="jrd-empty">—</div>';
+    }).join('') || '<div class="jrd-empty">-</div>';
     return '<div class="jrd-card"><div class="jrd-card-h">' + _esc(title) + '</div><div class="jrd-bars">' + body + '</div></div>';
   }
   // ── amCharts 5 : courbe de performance (toggle % / $PNL / $Equity) + donut de répartition ──
@@ -11643,7 +11643,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#e3b23a')
-        + _jrRing((wrD == null ? '—' : wrD + '%'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '')
+        + _jrRing((wrD == null ? '-' : wrD + '%'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '')
       + '</div><div class="jrd-row jrd-row--charts">'
         + '<div class="jrd-card jrd-card--donut"><div class="jrd-card-h">Répartition des résultats</div><div id="jr-result-donut" class="jr-chart-am jr-chart-am--donut"></div>' + _jrResultLegend(resMap) + '</div>'
         + '<div class="jrd-card jrd-card--eq"><div class="jrd-card-h">Courbe de performance<span class="jrd-eqtoggle">'
@@ -11659,8 +11659,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
         + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'RR cible moyen', '#a78bfa')
       + '</div><div class="jrd-rings" style="margin-top:10px;">'
-        + _jrRing(pf == null ? '—' : (Math.round(pf * 100) / 100).toString().replace('.', ','), 'Profit factor', pf != null && pf >= 1 ? '#00e676' : '#ff8f00', 'gains / pertes')
-        + _jrRing(expR == null ? '—' : fR(expR), 'Espérance / trade', expR != null && expR >= 0 ? '#00cc99' : '#ff3d00', 'en R')
+        + _jrRing(pf == null ? '-' : (Math.round(pf * 100) / 100).toString().replace('.', ','), 'Profit factor', pf != null && pf >= 1 ? '#00e676' : '#ff8f00', 'gains / pertes')
+        + _jrRing(expR == null ? '-' : fR(expR), 'Espérance / trade', expR != null && expR >= 0 ? '#00cc99' : '#ff3d00', 'en R')
         + _jrRing(maxDD > 0 ? '−' + (ddInD ? _jrMoneyShort(maxDD).replace(/^\+/, '') : fR(maxDD).replace(/^\+/, '') + ' R') : '0', 'Max drawdown', '#ff8f00', 'depuis un plus haut')
         + _jrRing(String(worstStreak), 'Série perdante max', worstStreak >= 4 ? '#ff3d00' : '#e3b23a', 'trades d\'affilée')
       + '</div></div>'
@@ -11817,7 +11817,7 @@ window._dtpJournalBadgeInit = function () {
     const lots = riskMoney / (sl * pipValAcct);
     const units = lots * contract;
     const notionalBase = units;                               // unités de la devise de base
-    const fmt = (v, d) => (v == null || !isFinite(v)) ? '—' : v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+    const fmt = (v, d) => (v == null || !isFinite(v)) ? '-' : v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
     const cur = acct === 'JPY' ? '¥' : acct === 'EUR' ? '€' : acct === 'GBP' ? '£' : (acct === 'USD' || acct === 'CAD' || acct === 'AUD' || acct === 'NZD') ? '$' : acct + ' ';
     try { sessionStorage.setItem('dtp_calc_setup', JSON.stringify({ acct: acct, balance: balance, risk: risk, sl: sl, sym: sym, mode: _riskMode })); } catch (_) {}   // dernier réglage : SESSION uniquement (volatil, jamais localStorage)
     res.innerHTML =
