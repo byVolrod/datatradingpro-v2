@@ -662,7 +662,7 @@ const DTP_UPDATES = [
   { id: 'dtpu-20260814-hebdo-durable', ts: Date.UTC(2026, 7, 14, 19, 0), title: 'Récap Hebdo : le mail retrouve tout son contenu', desc: 'Le mail hebdomadaire pouvait partir amputé — il ne gardait que l introduction et le graphique de force des devises, sans la géopolitique, la macro, les chiffres, les banques centrales ni les devises. Le rapport était stocké dans la file d actualité, qui tourne en quelques heures et finissait par l effacer. Il est désormais conservé à part, et le mail retrouve toutes ses sections.' },
   { id: 'dtpu-20260814-mail-hebdo-macro', ts: Date.UTC(2026, 7, 14, 18, 0), title: 'Récap Hebdo par e-mail : la section Macro rejoint le mail', desc: 'Le mail hebdomadaire suit désormais l ordre du rapport du desk : l essentiel, le fil géopolitique, la macro, les chiffres de la semaine, les banques centrales, les devises et la force des devises. Les thèmes macro avaient leur place dans le rapport mais pas dans le mail, où ils se réduisaient à une seule phrase.' },
   { id: 'dtpu-20260814-horizons-chf', ts: Date.UTC(2026, 7, 14, 16, 0), title: 'Radar de Biais : quand la banque et le marché ne disent pas la même chose', desc: 'Un nouveau repère apparaît sur la politique monétaire quand l orientation de fond d une banque centrale et ce que le marché anticipe pour sa prochaine réunion s opposent — une tension qui annonce souvent un retournement ; l infobulle précise le sens de chacun. Par ailleurs le franc suisse est désormais lu comme il doit l être : par l appétit pour le risque, sa vraie force motrice, et non par ses seules publications domestiques.' },
-  { id: 'dtpu-20260814-recaps-seance', ts: Date.UTC(2026, 7, 14, 15, 0), title: 'Récaps de séance : la même structure que le récap quotidien', desc: 'Asie, Londres et New York se lisent désormais avec les mêmes rubriques que le récap quotidien — Géopolitique, Macro, À surveiller — dans le même ordre. Dans l onglet Analystes, passer d un rapport à l autre ne demande plus de réapprendre où regarder. Le contenu reste propre à chaque séance.' },
+  { id: 'dtpu-20260814-recaps-seance', ts: Date.UTC(2026, 7, 14, 15, 0), title: 'Récaps de séance : la même structure que le récap quotidien', desc: 'Asie, Londres et New York se lisent désormais avec les rubriques du récap quotidien, dans le même ordre et en français : Géopolitique, Macro, Analyse de séance, À surveiller. Fini les intertitres anglais « CENTRAL BANKS & DATA » ou « ON WATCH » : dans l’onglet Analystes, passer d’un rapport à l’autre ne demande plus de réapprendre où regarder. Le contenu, lui, reste propre à chaque séance.' },
   { id: 'dtpu-20260814-puces', ts: Date.UTC(2026, 7, 14, 14, 0), title: 'Analyses : listes allégées', desc: 'Les petits points des listes à puces disparaissent des analyses du fil : le texte reste aligné, la lecture est plus nette.' },
   { id: 'dtpu-20260814-portage-gradue', ts: Date.UTC(2026, 7, 14, 9, 0), title: 'Radar de Biais : l avantage de taux compte maintenant par paliers', desc: 'Le niveau du taux directeur d une devise, comparé aux sept autres grandes banques, ne comptait qu au-delà d un écart de 1,5 point et pas du tout en dessous : une livre à 1,45 point d avance ne recevait rien, une livre à 1,50 recevait tout. Cet apport progresse désormais avec l écart, ce qui colle à la réalité du portage et évite qu un biais bascule sur cinq centièmes de point. Les devises très au-dessus ou très en dessous de la moyenne (franc suisse, yen, dollar australien) conservent exactement la lecture qu elles avaient.' },
   { id: 'dtpu-20260814-fil-repare', ts: Date.UTC(2026, 7, 14, 13, 0), title: 'Fil d actualité : panne de la nuit réparée', desc: 'Le fil est resté muet entre jeudi soir et vendredi début d après-midi. La cause est identifiée et corrigée à la racine : chaque tentative de reconnexion laissait derrière elle un onglet de navigateur, jusqu à saturer le serveur et l empêcher de se reconnecter — plus la panne durait, plus elle se verrouillait. Les actualités de la période manquante sont récupérées automatiquement.' },
@@ -5186,7 +5186,7 @@ function _aiMonthProjection() {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v11:';   // bump → régénère (v11 : règle PMI corrigée — priorité Services UNIQUEMENT pour l'US/USD ; v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
+const SW_SEG_VER  = 'v12:';   // bump → régénère (v12 : rubriques du RÉCAP QUOTIDIEN, en français : « Géopolitique · Macro · Analyse de séance · À surveiller » à la place de « CENTRAL BANKS & DATA / FX / ON WATCH ». Sans ce bump, les rapports déjà segmentés gardaient les anciens titres anglais en cache ; v11 : règle PMI corrigée — priorité Services UNIQUEMENT pour l'US/USD ; v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -5346,19 +5346,18 @@ STYLE (impératif) :
 
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, %, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN, jamais un attendu/précédent absent de la source. Tu améliores UNIQUEMENT la forme et la clarté, jamais le contenu factuel.
 
-STRUCTURE — rubriques dans CET ordre, OMETS toute rubrique sans contenu réel :
-1. LEAD (obligatoire, EN PREMIER) : 3-4 puces de SYNTHÈSE de la séance (mouvements clés, décisions / propos de banques centrales, données majeures, et « à surveiller »). L'accroche narrative avant le détail, UNIQUEMENT à partir des points ci-dessous.
-2. LE DOSSIER GÉOPOLITIQUE majeur s'il existe : GARDE le nom RÉEL de la source (ex « IRAN CONFLICT », sinon « GEOPOLITICS »). Faits marquants → impact sur le sentiment de risque (risk-off / risk-on) ; statut diplomatique / médiations ; énergie & risques collatéraux (Hormuz, Houthis, fret) → impact pétrole / prime de risque.
-3. CENTRAL BANKS & DATA : décisions et propos (interprète le TON — hawkish / dovish / hold — et ce que la banque SURVEILLE pour la prochaine réunion), PUIS toutes les données macro de la séance au format strict ci-dessus. Écarte si aucune donnée ni propos réels.
-4. FX (TOUJOURS présente, DÉTAILLÉE) : couvre **DXY** EN PREMIER, puis CHAQUE devise majeure qui a bougé (**EUR**, **JPY**, **GBP**, **AUD**, **NZD**, **CAD**, **CHF**, **CNY**), en EXPLIQUANT le mouvement ET SON DRIVER (l'annonce macro / décision / actualité liée). ICI, 2 à 4 phrases par devise sont ATTENDUES (jamais une puce générique « L'EUR a surperformé »). Si la source ne donne pas le driver, énonce le mouvement sans inventer de cause. Si aucune info FX : UNE seule puce « Activité FX limitée sur la séance ».
-5. LES AUTRES RUBRIQUES présentes : EQUITIES, COMMODITIES, FIXED INCOME, CRYPTO, TRADE/TARIFFS… GARDE les en-têtes RÉELS tels quels (ne traduis pas, ne renomme pas). Si le brut est un tas plat sous « HEADLINES » / « NEWS », NE laisse rien sous « HEADLINES » : RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet. Un récap est TOUJOURS catégorisé, jamais un tas de titres.
-6. ON WATCH (à surveiller) EN DERNIER, si la source évoque des échéances : prochains catalyseurs (discours, statistiques clés, décisions de taux) → ce qu'ils peuvent déclencher. Termine sur cette rubrique, sans conclusion ni fioriture.
+STRUCTURE : les rubriques sont EXACTEMENT CELLES DU RÉCAP QUOTIDIEN, dans CET ordre et sous CES NOMS FRANÇAIS EXACTS. N'invente AUCUN autre en-tête, ne les traduis pas en anglais, ne les renomme pas, ne les réordonne pas. OMETS une rubrique seulement si elle n'a aucun contenu réel.
+1. LEAD (obligatoire, EN PREMIER, et SANS en-tête de rubrique) : 3-4 puces de SYNTHÈSE de la séance (mouvements clés, décisions / propos de banques centrales, données majeures, et ce qui reste à surveiller). L'accroche narrative avant le détail, UNIQUEMENT à partir des points ci-dessous.
+2. "Géopolitique" : le dossier majeur s'il existe. Faits marquants → impact sur le sentiment de risque (risk-off / risk-on) ; statut diplomatique / médiations ; énergie & risques collatéraux (Hormuz, Houthis, fret) → impact pétrole / prime de risque. Si la source nomme le dossier (ex. « IRAN CONFLICT »), cite ce nom DANS la première puce, mais l'en-tête de rubrique reste "Géopolitique".
+3. "Macro" : banques centrales ET données publiées, ensemble (le récap quotidien les traite ensemble). D'abord décisions et propos : interprète le TON (hawkish / dovish / statu quo) et ce que la banque SURVEILLE pour sa prochaine réunion. Ensuite TOUTES les données macro de la séance, au format strict ci-dessus. Écarte si aucune donnée ni propos réels.
+4. "Analyse de séance" : le marché, dans le détail. Couvre **DXY** EN PREMIER, puis CHAQUE devise majeure qui a bougé (**EUR**, **JPY**, **GBP**, **AUD**, **NZD**, **CAD**, **CHF**, **CNY**), en EXPLIQUANT le mouvement ET SON DRIVER (l'annonce macro / décision / actualité liée). ICI, 2 à 4 phrases par devise sont ATTENDUES (jamais une puce générique « L'EUR a surperformé »). Si la source ne donne pas le driver, énonce le mouvement sans inventer de cause. ENCHAÎNE ENSUITE, dans la MÊME rubrique, les autres classes d'actifs présentes (actions, matières premières, obligations, crypto, commerce & tarifs) : une puce chacune, préfixée de son sujet en gras (ex. « **Matières premières** : … »). Si le brut est un tas plat sous « HEADLINES » / « NEWS », RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet : un récap est TOUJOURS catégorisé, jamais un tas de titres. Si aucune info FX : UNE seule puce « Activité FX limitée sur la séance ».
+5. "À surveiller" EN DERNIER : UNIQUEMENT du PROSPECTIF, jamais un fait déjà survenu. Prochains catalyseurs (discours, statistiques clés, décisions de taux) et fils encore ouverts à la clôture de la séance → « → » puis CE QU'ILS PEUVENT DÉCLENCHER. Termine sur cette rubrique, sans conclusion ni fioriture. Omets-la si la source n'évoque aucune échéance.
 
 TRI : une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel / hors-sujet (« …at investingLive.com »). ÉCARTE les puces SANS VALEUR — un simple titre / annonce sans aucun fait, chiffre, niveau, citation ni analyse (ex « Le point sur les cryptos », « Tour d'horizon des marchés ») : elles n'apportent rien. Découpe les longs paragraphes en puces courtes. Si après tri une rubrique est vide, OMETS-la entièrement.
 
 ${_MENTOR_RULES}
 
-Réponds UNIQUEMENT en JSON valide, LEAD EN PREMIER : [{"section":"LEAD","items":["synthèse 1","synthèse 2"]},{"section":"CENTRAL BANKS & DATA","items":["**CPI** US +0,4% m/m (vs +0,2% att.) → **USD** se renforce"]},{"section":"FX","items":["**DXY** …","**EUR** …"]}]
+Réponds UNIQUEMENT en JSON valide, LEAD EN PREMIER, avec CES noms de section EXACTS et AUCUN AUTRE : [{"section":"LEAD","items":["synthèse 1","synthèse 2"]},{"section":"Géopolitique","items":["…"]},{"section":"Macro","items":["**CPI** US +0,4% m/m (vs +0,2% att.) → **USD** se renforce"]},{"section":"Analyse de séance","items":["**DXY** …","**EUR** …"]},{"section":"À surveiller","items":["**CPI** US demain → catalyseur du pricing de la réunion Fed"]}]
 Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
   const text = await ai.generateText(prompt, 2800, _opts);   // _opts.noClaude=true depuis le préchauffage (pas de crédits payants en fond)
@@ -8274,34 +8273,40 @@ function buildAsiaOpening({ dateStr, s, reportType }) {
 // Les trois adoptent les catégories du quotidien — GÉOPOLITIQUE · MACRO · À SURVEILLER — dans le
 // même ordre et en français. Le CONTENU reste propre à chaque séance (la BoJ ne remonte pas dans
 // le récap de Londres) : c'est la GRAMMAIRE qui devient commune, pas les données.
-//   · « Macro » regroupe banques centrales ET données publiées — le quotidien les traite ensemble,
+//   · « Macro » regroupe banques centrales ET données publiées : le quotidien les traite ensemble,
 //     les séparer ici recréerait l'écart qu'on vient de supprimer ;
-//   · « À surveiller » porte ce qui reste OUVERT à la clôture de la séance (flux devises, matières
-//     premières, commerce) : les fils qui se prolongent dans la séance suivante.
+//   · « Analyse de séance » porte le MARCHÉ (devises, matières premières, commerce). C'est le
+//     pendant, pour une séance unique, de la rubrique « Analyse par session » du quotidien.
+//   · « À surveiller » n'est PAS produite ici, et c'est délibéré : dans le récap quotidien elle est
+//     STRICTEMENT PROSPECTIVE (le rendez-vous à venir + pourquoi il compte). Ces builders ne
+//     disposent d'aucune source d'événements futurs : la remplir avec le FX et les matières
+//     premières de la séance écoulée, comme je l'avais fait le 14/08, lui donnait le même nom que
+//     dans le quotidien mais PAS le même sens, ce qui est pire qu'une rubrique absente. La
+//     segmentation IA, elle, la crée quand le texte évoque de vraies échéances.
 function buildAsiaRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Récap séance Asie — ${s.all.length} éléments suivis · ${dateStr}`);
+  bullets.push(`Récap séance Asie : ${s.all.length} éléments suivis · ${dateStr}`);
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
-  _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data), ...s.asian], 4);
-  _pushBullets(bullets, 'À surveiller', [...s.fx, ...s.nrg, ...s.trade], 3);
+  _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
+  _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.asian, ...s.nrg, ...s.trade], 4);
   return { subtitle: _briefingSubtitle(reportType, s, ['BoJ', 'RBA', 'RBNZ', 'PBoC']), bullets, tags: _briefingTags(s, ['Asia Recap', 'JPY', 'AUD']) };
 }
 
 function buildLondonRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Récap séance Londres — ${s.all.length} éléments suivis · ${dateStr}`);
+  bullets.push(`Récap séance Londres : ${s.all.length} éléments suivis · ${dateStr}`);
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
-  _pushBullets(bullets, 'À surveiller', [...s.fx, ...s.nrg, ...s.trade], 3);
+  _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.nrg, ...s.trade], 4);
   return { subtitle: _briefingSubtitle(reportType, s, ['BoE', 'ECB']), bullets, tags: _briefingTags(s, ['London Recap', 'EUR', 'GBP']) };
 }
 
 function buildUSRecap({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`Récap séance New York — ${s.all.length} éléments suivis · ${dateStr}`);
+  bullets.push(`Récap séance New York : ${s.all.length} éléments suivis · ${dateStr}`);
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
-  _pushBullets(bullets, 'À surveiller', [...s.fx, ...s.nrg, ...s.trade], 3);
+  _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.nrg, ...s.trade], 4);
   return { subtitle: _briefingSubtitle(reportType, s, ['Fed', 'FOMC']), bullets, tags: _briefingTags(s, ['US Recap', 'USD']) };
 }
 

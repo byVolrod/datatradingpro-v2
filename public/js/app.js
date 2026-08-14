@@ -2171,13 +2171,31 @@ function parsePrimerBullets(description) {
 }
 
 // ── Rapports DTP : détection des rubriques (titres en MAJUSCULES) ──
+// Rubriques CANONIQUES du desk (celles du récap quotidien, reprises par les récaps de séance).
+// Elles s'écrivent en casse normale côté serveur : c'est le CSS (text-transform: uppercase) qui
+// les met en capitales à l'écran. Sans cette liste, le test ci-dessous les rejetterait, puisqu'il
+// exige des MAJUSCULES — et « GÉOPOLITIQUE » comme « À SURVEILLER » échouaient de toute façon
+// sur leur accent, la classe de caractères étant purement ASCII.
+const _RUBRIQUES_DESK = ['géopolitique', 'macro', 'analyse de séance', 'analyse par session', 'à surveiller'];
+// Un titre de rubrique est un GROUPE NOMINAL COURT. Sans ce garde-fou, toute phrase contenant un
+// deux-points devenait un titre : mesuré sur « Le marché a réagi ainsi: le dollar a reculé… », qui
+// remontait en intertitre doré au milieu du rapport. Les rubriques canoniques passent toujours ;
+// les anciennes rubriques anglaises des rapports déjà publiés (« Overnight Data », « Trade ») aussi.
+const _OUVERTURE_PHRASE = /^(le|la|les|un|une|des|du|de|ce|cet|cette|ces|il|elle|on|nous|vous|ils|elles|selon|après|avant|dans|pour|sur|par|avec|mais|donc|car|si|quand|lors|malgré|entre|chez|depuis|pendant|cela|leur|son|sa|ses|notre|votre)\b/i;
+function _estRubrique(t) {
+  const s = String(t || '').trim();
+  if (_RUBRIQUES_DESK.includes(s.toLowerCase())) return true;
+  if (s.split(/\s+/).length > 4) return false;      // un titre tient en 4 mots
+  return !_OUVERTURE_PHRASE.test(s);                // commence comme une phrase => ce n'en est pas un
+}
 function _isSectionHead(line) {
   const t = (line || '').trim();
   if (t.length < 2 || t.length > 42) return false;
   if (/\d{1,2}:\d{2}/.test(t)) return false;            // pas une horodatée
   if (/[.;:]$/.test(t)) return false;                   // pas une phrase
-  // Lettres en majuscules (autorise espaces, &, /, -, chiffres)
-  return /^[A-Z0-9][A-Z0-9 &/\-']+$/.test(t) && t === t.toUpperCase() && /[A-Z]/.test(t);
+  if (_RUBRIQUES_DESK.includes(t.toLowerCase())) return true;
+  // Lettres en majuscules (autorise ACCENTS, espaces, &, /, -, chiffres)
+  return /^[A-Z0-9ÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸÆŒ][A-Z0-9ÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸÆŒ &/\-']+$/.test(t) && t === t.toUpperCase() && /[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸÆŒ]/.test(t);
 }
 // Met en gras le mot-clé / chiffre de tête de la puce (sujet)
 function _reportLead(s) {
@@ -8558,7 +8576,13 @@ function renderArlibReader(item) {
         const line  = bullets[i];
         const isSub = /^↳/.test(line);
         const clean = isSub ? line.replace(/^↳\s*/, '') : line;
-        const sec   = !isSub && clean.match(/^([A-Za-z\s&/]+):\s+(.+)$/);
+        // ⚠️ ACCENTS (14/08) : cette classe était [A-Za-z] pur, donc ASCII. Les récaps de séance
+        // passés aux rubriques du quotidien (« Géopolitique: … », « Analyse de séance: … »,
+        // « À surveiller: … ») n'y correspondaient plus : leurs titres retombaient en simples puces,
+        // sans le doré ni le filet de séparation. Bornée à 28 caractères pour qu'une phrase
+        // ordinaire contenant deux-points ne soit pas promue en titre.
+        const _secM  = !isSub && clean.match(/^([A-Za-zÀ-ÖØ-öø-ÿ\s&/]{2,28}):\s+(.+)$/);
+        const sec    = (_secM && _estRubrique(_secM[1])) ? _secM : null;
 
         if (sec) {
           // Section header + first bullet on same line
