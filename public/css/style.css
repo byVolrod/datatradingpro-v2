@@ -1619,7 +1619,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* Bullet list inside expand panel */
 .article-points {
-  list-style: disc;
+  list-style: none;   /* puces retirées le 14/08 (demande user) — le retrait à gauche reste, il aligne le texte sous le titre */
   padding-left: 16px;
   margin: 0;
 }
@@ -1643,7 +1643,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .market-update-body th, .market-update-body td { border: 1px solid var(--border2); padding: 5px 8px; text-align: left; }
 /* Style "clean" — liste intégrée directement sur le fond (sans cadre gris), style DataTradingPro */
 .article-points--clean {
-  list-style: disc;
+  list-style: none;   /* puces retirées le 14/08 (demande user) — le retrait à gauche reste, il aligne le texte sous le titre */
   padding: 4px 24px 4px 22px;   /* retrait gauche pour aligner sous le titre, pas de cadre */
   margin: 4px 0;
   background: transparent;
