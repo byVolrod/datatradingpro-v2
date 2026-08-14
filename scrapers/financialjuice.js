@@ -1048,7 +1048,17 @@ async function fetchCentrifugoHistory(channel) {
         if (msg.id !== reqId) return;
         clearTimeout(timer);
         _ws.removeListener('message', onMsg);
-        for (const pub of (msg.result?.publications || [])) {
+        // POURQUOI ON JOURNALISE (14/08) : ce bloc rendait 0 SANS JAMAIS DIRE POURQUOI. Or « 0 item »
+        // recouvre deux causes opposées — historique DÉSACTIVÉ côté serveur (erreur 108 « not
+        // available ») ou requête REFUSÉE (permission, limite hors bornes). On a cherché longtemps
+        // sans le savoir. Désormais la réponse parle.
+        if (msg.error) {
+          console.warn(`[FJ history] ${channel} refusé — code ${msg.error.code} : ${msg.error.message}`);
+          resolve(out); return;
+        }
+        const _pubs = msg.result?.publications || [];
+        if (!_pubs.length) console.log(`[FJ history] ${channel} : réponse VIDE (historique non conservé sur ce canal)`);
+        for (const pub of _pubs) {
           const d = pub.data;
           if (!d) continue;
           if (d.ev && typeof d.msg === 'string') {
@@ -1068,7 +1078,12 @@ async function fetchCentrifugoHistory(channel) {
       } catch {}
     }
     _ws.on('message', onMsg);
-    _ws.send(JSON.stringify({ id: reqId, history: { channel, limit: 5000, reverse: false } }));
+    // LIMITE RAMENÉE À 500 (14/08) : Centrifugo REJETTE une limite au-delà de son maximum configuré
+    // (souvent 100-1000) — et un rejet rend 0, indistinguable d un historique vide. 500 reste large
+    // pour un trou de plusieurs heures, tout en restant dans les clous des configurations usuelles.
+    // reverse:true = on part du PLUS RÉCENT : si le serveur tronque, on garde ce qui compte (le trou
+    // le plus proche de maintenant) au lieu du début d un flux vieux de plusieurs jours.
+    _ws.send(JSON.stringify({ id: reqId, history: { channel, limit: 500, reverse: true } }));
   });
 }
 
