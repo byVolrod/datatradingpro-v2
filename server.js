@@ -12982,7 +12982,13 @@ app.get('/api/smart-bias', async (req, res) => {
   // Narratif RÉSOLU pour l'affichage (IA réel si dispo, sinon synthèse data-driven) — SANS muter le cache interne.
   // + overrides admin appliqués à la volée (correctifs humains, auto-expirés à la prochaine régén complète).
   const _resolved = _smartBias ? _sbApplyOverrides(_sbFreshenMacroTable(_sbFillNarrative(_smartBias))) : { currencies: SB_CURRENCIES, rows: [], conclusion: {} };
-  res.json(Object.assign({}, _resolved, { history }));
+  // Nettoyage typographique À LA LIVRAISON, et pas seulement à la génération : le Radar est SERVI
+  // DEPUIS UN CACHE qui survit aux déploiements. Après le retrait du cadratin, le code produisait
+  // bien un texte propre alors que la production en servait encore 9 (les libellés de pricing
+  // « … % hausse — Δ +24 bps » figés avant la mise en ligne). Sans cette passe, il aurait fallu
+  // attendre la régénération hebdomadaire, ou forcer un bump de BIAS_VER coûteux en appels IA.
+  // _noDashDeep est idempotent : sûr à chaque requête, y compris sur une charge déjà propre.
+  res.json(_noDashDeep(Object.assign({}, _resolved, { history })));
   // AUCUN appel IA déclenché par l'arrivée d'un utilisateur : la (re)génération du bias est UNIQUEMENT planifiée (samedi) + timers de fond (démarrage / horaire). Le narratif est figé (rempli data-driven s'il manque).
 });
 
