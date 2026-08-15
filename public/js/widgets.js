@@ -767,6 +767,13 @@
         // réglage. L'afficher aussi dans les réglages ferait le doublon déjà refusé ailleurs.
         { k: 'periode', lbl: 'Fenêtre', type: 'choix', def: 'semaine',
           choix: [['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']] },
+        // COLONNES HIGH / LOW MASQUABLES (15/08, demande user). Ce sont les bornes de la fourchette
+        // de consensus : utiles à qui les lit, du bruit pour qui suit seulement Réel / Prévision /
+        // Précédent. Elles restent AFFICHÉES par défaut (def: true) — un réglage neuf ne doit jamais
+        // changer ce que l'utilisateur voyait la veille. Le libellé reprend le mot exact de l'en-tête
+        // de colonne, pour qu'on sache tout de suite laquelle on éteint.
+        { k: 'col_high', lbl: 'Colonne High', type: 'bascule', def: true },
+        { k: 'col_low', lbl: 'Colonne Low', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
         var W = this;
@@ -867,6 +874,11 @@
             return cabler();
           }
           var nextIdx = evs.findIndex(function (e) { return (e.timestamp || 0) >= now; });
+          // Colonnes High / Low : masquables depuis les Réglages de la carte. Lues À CHAQUE RENDU
+          // (et non une fois au montage) pour que la bascule se voie immédiatement, sans rouvrir
+          // le widget. `opt()` renvoie le défaut `true` tant que rien n'a été touché.
+          var _vHigh = opt(it, W, 'col_high') !== false;
+          var _vLow = opt(it, W, 'col_low') !== false;
           var fmtTime = (typeof calFormatTime === 'function') ? calFormatTime : function () { return ''; };
           var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
           var dots = (typeof calImpDots === 'function') ? calImpDots : function () { return ''; };
@@ -879,7 +891,9 @@
               var d = new Date(ev.timestamp);
               var wd = d.toLocaleDateString('fr-FR', { weekday: 'long' });
               var ds = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-              tbody += '<tr class="cal-day-sep"><td colspan="10">' + esc(wd) + ', ' + ds + '</td></tr>';
+              // ⚠️ colspan DYNAMIQUE : il valait 10 en dur. Avec une colonne masquée, la ligne de
+              // séparation de jour aurait débordé d'une case et décalé la bordure du tableau.
+              tbody += '<tr class="cal-day-sep"><td colspan="' + (8 + (_vHigh ? 1 : 0) + (_vLow ? 1 : 0)) + '">' + esc(wd) + ', ' + ds + '</td></tr>';
               lastDay = dayKey;
             }
             var imp = (ev.impact || '').toLowerCase();
@@ -904,16 +918,17 @@
               // colonne disparaît — chaque valeur porte donc son propre libellé, affiché par CSS.
               // Sur écran large l'attribut est inerte (aucune règle ne le lit).
               + '<td class="cth-val" data-lbl="Réel">' + actCell(ev.actual, ev.forecast, ev.low, ev.title) + '</td>'
-              + '<td class="cth-val" data-lbl="Haut">' + vspan(ev.high, 'cv-forecast') + '</td>'
+              + (_vHigh ? '<td class="cth-val" data-lbl="Haut">' + vspan(ev.high, 'cv-forecast') + '</td>' : '')
               + '<td class="cth-val" data-lbl="Prév.">' + vspan(ev.forecast, 'cv-forecast') + '</td>'
-              + '<td class="cth-val" data-lbl="Bas">' + vspan(ev.low, 'cv-prev') + '</td>'
+              + (_vLow ? '<td class="cth-val" data-lbl="Bas">' + vspan(ev.low, 'cv-prev') + '</td>' : '')
               + '<td class="cth-val" data-lbl="Préc.">' + vspan(ev.previous, 'cv-prev') + '</td></tr>';
           });
           host.innerHTML = '<div class="wdg-cal-panel">' + barre()
             + '<div class="wdg-cal-wrap custom-scrollbar"><table class="cal-table">'
             + '<thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th>'
             + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th>'
-            + '<th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th>'
+            + (_vHigh ? '<th class="cth-val">HIGH</th>' : '') + '<th class="cth-val">PRÉVISION</th>'
+            + (_vLow ? '<th class="cth-val">LOW</th>' : '')
             + '<th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tbody + '</tbody></table></div></div>';
           // DÉROULÉ INLINE : on réutilise CELUI DU DESK (toggleCalDetailRow, charts.js) — il ne dépend
           // que de la ligne et de l'événement, donc il fonctionne tel quel dans le widget. Un chevron
