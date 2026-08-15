@@ -1163,11 +1163,25 @@
         const opts = (d.contenus || []).map(function (c) {
           return '<option value="' + c.id + '"' + (w.force && c.id === w.contenuId ? ' selected' : '') + '>' + c.label + '</option>';
         }).join('');
-        return '<div class="camp-plan-row' + (i === 0 ? ' camp-plan-row--now' : '') + '">'
-          + '<div class="camp-plan-wk">' + (i === 0 ? 'Cette semaine' : (i === 1 ? 'Semaine prochaine' : 'dans ' + i + ' sem.'))
+        // « MONTRE LE PROCHAIN UNE FOIS QUE LE MAIL EST PARTI » (15/08, demande user) : la mise en
+        // avant ne suit plus la semaine CALENDAIRE mais la prochaine échéance RÉELLE (prochainIdx,
+        // calculé côté serveur d'après le journal des envois). Le samedi après-midi, le panel
+        // désignait encore comme à venir un Récap Hebdo parti le matin même.
+        const _prochain = (typeof d.prochainIdx === 'number') ? d.prochainIdx : 0;
+        const _lbl = w.envoye ? 'Envoyé'
+          : (i === _prochain ? 'Prochain envoi'
+            : (i === 0 ? 'Cette semaine' : (i === 1 ? 'Semaine prochaine' : 'dans ' + i + ' sem.')));
+        // Heure réelle d'envoi + nombre de destinataires : « parti » sans preuve n'aide personne.
+        const _envInfo = w.envoye
+          ? '<span class="camp-plan-sent">✓ parti' + (w.envoyeAt ? ' ' + new Date(w.envoyeAt).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '')
+            + (w.envoyeN ? ' · ' + w.envoyeN + ' destinataire' + (w.envoyeN > 1 ? 's' : '') : '') + '</span>'
+          : '';
+        return '<div class="camp-plan-row' + (i === _prochain ? ' camp-plan-row--now' : '') + (w.envoye ? ' camp-plan-row--sent' : '') + '">'
+          + '<div class="camp-plan-wk">' + _lbl
           + '<span>' + _semaineFr(w.debut) + '</span></div>'
           + '<div class="camp-plan-main"><strong>' + w.contenu + '</strong>'
           + (quand ? '<span class="camp-plan-when">' + quand + '</span>' : '')
+          + _envInfo
           + (w.force ? '<span class="camp-plan-badge">forcé</span><span class="camp-plan-auto">rotation : ' + w.auto + '</span>' : '')
           + '</div>'
           + '<select class="camp-plan-input" data-wk="' + w.cle + '" onchange="campPlanForcer(this.value, this.dataset.wk)">'

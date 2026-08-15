@@ -971,3 +971,16 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .deliv-wrap--compact .deliv-row { border-bottom: 0; padding: 2px 0; font-size: var(--fs-label); }
 .deliv-wrap--compact .deliv-row { flex: 0 0 auto; }
 .deliv-wrap--compact .deliv-note { margin-top: var(--sp-2); font-size: var(--fs-meta); color: var(--text3); }
+
+/* ── PROGRAMME DES ENVOIS : ce qui est PARTI se distingue de ce qui VIENT (15/08, demande user) ──
+   Le programme épinglait « Cette semaine » sur la semaine calendaire : le samedi après-midi, un
+   Récap Hebdo déjà envoyé le matin restait présenté comme à venir. La ligne envoyée s'estompe et
+   porte son heure réelle d'envoi ; la mise en avant dorée passe à la prochaine échéance réelle. */
+.camp-plan-row--sent { opacity: .62; }
+.camp-plan-row--sent .camp-plan-wk { color: var(--green, #22c55e); }
+.camp-plan-sent {
+  display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 4px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+  color: var(--green, #22c55e); background: rgba(34, 197, 94, .12);
+  border: 1px solid rgba(34, 197, 94, .34);
+}

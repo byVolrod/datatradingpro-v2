@@ -17439,6 +17439,25 @@ app.get('/api/admin/campaign-audience', requireSameOrigin, requireAdmin, async (
 app.get('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (_req, res) => {
   try {
     const plan = await _campPlanGet();
+    // ── « MONTRE LE PROCHAIN UNE FOIS QUE LE MAIL EST PARTI » (15/08, demande user) ─────────────
+    // Le programme épinglait « Cette semaine » sur la semaine CALENDAIRE, sans regarder si son
+    // envoi avait déjà eu lieu : le samedi après-midi, le panel désignait encore comme à venir un
+    // Récap Hebdo parti le matin même, et le prochain contenu réel n'apparaissait nulle part.
+    // On lit donc le journal des envois : un contenu est ENVOYÉ dès qu'existe un marqueur
+    // « drip:day:<semaine>-<jour>: » (le mode test « drip:day-test: » est volontairement ignoré,
+    // sinon un test admin ferait passer une semaine pour traitée).
+    const _jrn = (() => { try { return auth.emailLogAll() || {}; } catch (e) { return {}; } })();
+    const _envoiDe = (cle, jour) => {
+      const pfx = 'drip:day:' + cle + '-' + jour + ':';
+      let at = null, n = 0;
+      for (const k of Object.keys(_jrn)) {
+        if (k.indexOf(pfx) !== 0) continue;
+        n++;
+        const t = Date.parse(_jrn[k]) || 0;
+        if (t && (!at || t < at)) at = t;   // le PREMIER destinataire sert d'heure d'envoi
+      }
+      return n ? { at, n } : null;
+    };
     const semaines = [];
     for (let a = 0; a < 8; a++) {
       const cle = _campWeekKey(a);
@@ -17448,15 +17467,23 @@ app.get('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (_req
       const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
       const d = new Date(p + 'T12:00:00Z');
       const lundi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + a * 7, 12));
+      const _jr = step ? _stepWd(step) : 0;
+      const _env = step ? _envoiDe(cle, _jr) : null;
       semaines.push({
         cle, debut: lundi.toISOString().slice(0, 10),
         contenuId: step ? step.id : '', contenu: step ? step.label : '',
-        jour: step ? _stepWd(step) : 0, heure: step ? (step.hour || 0) : 0,
+        jour: _jr, heure: step ? (step.hour || 0) : 0,
         force: !!forceId, auto: (_WEEK_ROTATION[_rotIdxForWeek(a)] || {}).label || '',
+        envoye: !!_env,                                        // l'envoi de CETTE semaine a eu lieu
+        envoyeAt: _env && _env.at ? new Date(_env.at).toISOString() : null,
+        envoyeN: _env ? _env.n : 0,                            // nombre de destinataires servis
       });
     }
+    // Index de la PROCHAINE échéance réelle : la première semaine dont l'envoi n'est pas parti.
+    // C'est elle que le panel doit mettre en avant, et non la semaine calendaire.
+    const prochainIdx = Math.max(0, semaines.findIndex(s => !s.envoye));
     res.json({
-      ok: true, semaines, temoignage: plan.temoignage || '',
+      ok: true, semaines, prochainIdx, temoignage: plan.temoignage || '',
       contenus: _WEEK_ROTATION.concat([DRIP_TEMOIGN]).map(s => ({ id: s.id, label: s.label })),
       testMode: !!_dripState.testMode,
     });
