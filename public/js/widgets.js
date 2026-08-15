@@ -1526,6 +1526,7 @@
         var W = this;
         var sig = '', q = '';
         var plus = 0, chargeEnCours = false;                // items révélés en plus du réglage (bouton « Charger plus »)
+        var remplissages = 0;                               // passes d'auto-complétion pour remplir la hauteur (cf. plus bas)
         // SECTIONS DÉCOCHÉES = un RÉGLAGE persisté (04/08, demande user : « enlève le bouton
         // sections, mets réglages pour choisir les sections ») — plus de menu volant dans la barre.
         var off = {};
@@ -1627,6 +1628,20 @@
             };
             liste.appendChild(b);
           }
+          // ── LE BLOC VIDE SOUS « CHARGER PLUS » (15/08, signalé par l'utilisateur) ──────────────
+          // La fenêtre se compte en ITEMS BRUTS (25) mais se consomme en LIGNES AFFICHÉES : les
+          // propos d'un même intervenant sont repliés en UNE carte depuis le 13/08, si bien qu'une
+          // audition de banquier central vaut « +11 propos » sur une seule ligne. Vingt-cinq items
+          // ne produisaient plus qu'une quinzaine de lignes, qui ne remplissaient pas le cadre : le
+          // widget affichait un grand vide sous le bouton ALORS QU'IL RESTAIT des éléments à
+          // montrer. On complète donc la fenêtre jusqu'à remplir la hauteur disponible.
+          // Bornes : uniquement des items DÉJÀ en mémoire (aucune requête réseau ici), et au plus
+          // quelques passes, pour ne pas boucler si le repliement absorbe tout ce qu'on ajoute.
+          if (!chargeEnCours && tout.length > cap && liste.clientHeight > 0
+              && liste.scrollHeight <= liste.clientHeight && remplissages < 6) {
+            remplissages++; plus += 25; render(true); return;
+          }
+          remplissages = 0;
           liste.scrollTop = _scroll;
         };
         // (le menu volant « Sections d'actualités » a été RETIRÉ 04/08 : le choix vit dans les

@@ -7792,7 +7792,17 @@ function _renderWeeklyRecap(item) {
         // 4) THÈMES DE LA SEMAINE — rendus comme dans la référence : des lignes intitulées
         //    (« Banque centrale : … », « Commerce : … », « Fiscal : … »), SANS titre de rubrique
         //    au-dessus. « Principaux moteurs » était un intitulé de plus pour trois lignes.
-        drivers.forEach(d => {
+        //    ⚠️ PAS DE GÉOPOLITIQUE ICI (15/08, demande user : « on aborde déjà la partie géo avant
+        //    la semaine devise par devise, ça fait répétitif »). Le rapport porte le fil géopolitique
+        //    dans sa propre section, EN AMONT. Le prompt ne produit plus ce thème, mais ce filtre
+        //    reste indispensable pour les rapports DÉJÀ GÉNÉRÉS : ils sont servis depuis un cache
+        //    durable et rejoueraient la redite jusqu'à leur régénération, c'est-à-dire des semaines.
+        //    On filtre sur le NOM du thème, jamais sur le texte : un moteur « Pétrole » a parfaitement
+        //    le droit d'expliquer une prime de risque géopolitique, c'est son canal de transmission.
+        //    « Guerre COMMERCIALE » est explicitement épargnée : c'est du commerce, pas de la
+        //    géopolitique, et l'écarter aurait supprimé le contenu tarifaire des anciens rapports.
+        const _wrGeoDrv = /^(?:(?:risques?|tensions?)\s+g[ée]opolit|g[ée]opolit|conflit|sanctions?|guerre(?!\s+commercial))/i;
+        drivers.filter(d => !(d && _wrGeoDrv.test(String(d.name || d.heading || '')))).forEach(d => {
           if (d && d.name) body += `<div class="wr-text wr-drv"><strong>${_wrEsc(d.name)} :</strong> ${_wrInline(d.why || '')}</div>`;
           else if (d && d.heading) {   // ancien format
             const _det = Array.isArray(d.bullets) ? d.bullets.join(' ') : (d.detail || '');
