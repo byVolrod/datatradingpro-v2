@@ -257,6 +257,35 @@ const _forceLogout = new Set();
 // (requireAuth + /me). Vidé au redémarrage = contrainte rétablie dès les prochains logins (jamais de
 // déconnexion de masse au boot). Staff (admin/support) NON concerné (plusieurs sessions autorisées).
 const _sessionEpoch = new Map();
+/* ── LA CONTRAINTE SURVIT AUX REDÉMARRAGES (15/08/2026) ─────────────────────────────────────────
+   Le registre ne vivait qu'en mémoire : chaque redéploiement le vidait, et deux sessions ouvertes
+   sur le MÊME compte pouvaient de nouveau cohabiter jusqu'à la prochaine reconnexion. Mesuré le
+   15/08 : une dizaine de déploiements dans la journée, donc autant de fenêtres où le partage
+   d'identifiants redevenait possible sans que personne ne le voie.
+   Le commentaire d'origine craignait « une déconnexion de masse au boot ». Elle n'a pas lieu : la
+   règle ne tue QUE les sessions dont le jeton diffère du DERNIER connu, c'est-à-dire précisément
+   celles qui ont été supplantées. La session la plus récente de chaque compte porte le jeton
+   enregistré et survit.
+   GARDE SUPPLÉMENTAIRE (voir requireAuth) : on n'éjecte que si la session PORTE un jeton. Une
+   session antérieure à ce mécanisme n'en a pas ; sans cette garde, la restauration du registre
+   l'aurait déconnectée au premier démarrage, ce qui aurait été un vrai effet de bord. */
+const _SESS_EPOCH_KV = 'sess:epochs';
+let _sessEpochSauveT = null;
+function _sessEpochSauver() {                   // écriture groupée : plusieurs connexions rapprochées = un seul write
+  if (_sessEpochSauveT) return;
+  _sessEpochSauveT = setTimeout(() => {
+    _sessEpochSauveT = null;
+    try { auth.aiCacheSet(_SESS_EPOCH_KV, Object.fromEntries(_sessionEpoch)).catch(() => {}); } catch (e) {}
+  }, 3000);
+}
+try {
+  auth.aiCacheGet(_SESS_EPOCH_KV).then(o => {
+    if (!o || typeof o !== 'object') return;
+    let n = 0;
+    for (const [k, v] of Object.entries(o)) if (typeof v === 'string' && v) { _sessionEpoch.set(String(k), v); n++; }
+    if (n) console.log('[Auth] session unique : ' + n + ' jeton(s) restauré(s) → la contrainte survit au redémarrage');
+  }).catch(() => {});
+} catch (e) {}
 
 // ── DÉCONNEXION ABSOLUE À 24 H (demande user 23/07, TOUTES plateformes : web, app Electron, PWA mobile —
 //    elles partagent la même session cookie donc le MÊME couperet serveur). Le cookie-session est GLISSANT
@@ -303,7 +332,9 @@ function requireAuth(req, res, next) {
   // plus récente (session unique par compte) → session tuée.
   const _sid = String(req.session.userId);
   const _ep = _sessionEpoch.get(_sid);
-  if (_forceLogout.has(_sid) || auth.isEmailBlacklisted(req.session.user?.email) || (_ep && _ep !== req.session.stoken)) {
+  // `req.session.stoken &&` : une session ANTERIEURE a ce mecanisme n en porte pas. Sans cette
+  // condition, la restauration du registre au demarrage l aurait deconnectee sans raison.
+  if (_forceLogout.has(_sid) || auth.isEmailBlacklisted(req.session.user?.email) || (_ep && req.session.stoken && _ep !== req.session.stoken)) {
     req.session = null;
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session terminée', loggedOut: true });
     return res.redirect('/login');
@@ -466,6 +497,7 @@ app.post('/api/auth/login', async (req, res) => {
       const _stok = require('crypto').randomUUID();
       req.session.stoken = _stok;
       _sessionEpoch.set(String(user.id), _stok);
+      _sessEpochSauver();   // le registre doit survivre au prochain redeploiement
     }
     res.json({ ok: true, role: user.role });
   } catch (e) {
@@ -540,7 +572,9 @@ app.get('/api/auth/me', async (req, res) => {
     // Éjection : blacklisté, suspendu (client non-actif), déconnexion admin, ou session supplantée par une
     // connexion plus récente (session unique par compte) → logout immédiat.
     const _mep = _sessionEpoch.get(String(req.session.userId));
-    const _superseded = !!(_mep && _mep !== req.session.stoken);
+    // Même garde que dans requireAuth : une session sans jeton est ANTÉRIEURE au mécanisme, elle ne
+    // doit pas être éjectée par la restauration du registre au démarrage.
+    const _superseded = !!(_mep && req.session.stoken && _mep !== req.session.stoken);
     if (_forceLogout.has(String(req.session.userId)) || auth.isEmailBlacklisted(fresh.email)
         || (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.active === false) || _superseded) {
       req.session = null; return res.json({ loggedIn: false, reason: _superseded ? 'elsewhere' : undefined });
