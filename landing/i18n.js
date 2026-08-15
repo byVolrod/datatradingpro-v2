@@ -23,6 +23,7 @@
     "terminal de trading forex & macro": "forex & macro trading terminal",
     "en français : news en temps réel, Smart Bias, force des devises, calendrier économique et recherche institutionnelle. Agrégés, filtrés et prêts à l'action.": "in French: real-time news, Smart Bias, currency strength, economic calendar and institutional research. Aggregated, filtered and ready to act on.",
     "Explorer les modules": "Explore the modules",
+    "Voir le terminal": "See the terminal",
     "Pensé avec": "Built with",
     "des traders qui prennent le contexte au sérieux": "traders who take context seriously",
     "Flux agrégés en continu": "Continuously aggregated feeds",

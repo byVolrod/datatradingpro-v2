@@ -1104,6 +1104,8 @@
       <div class="hero-cta">
         <a href="https://whop.com/joined/justonetrader/products/jot-dtp/" class="btn btn-cta btn-lg">Accéder au terminal</a>
         <a href="#modules-cles" class="btn btn-ghost btn-lg">Explorer les modules</a>
+        <!-- Declencheur de la demo : le bouton que demo.js attendait depuis toujours. -->
+        <button type="button" class="btn btn-ghost btn-lg" onclick="if(window.DTPDemo)DTPDemo.open()">Voir le terminal</button>
       </div>
       <div class="rating">
         <span class="stars">★★★★★</span>
@@ -2232,6 +2234,10 @@
 })();
 </script>
 <script defer src="/i18n.js?v=20260724b"></script>
+<!-- Demo interactive (overlay autonome, donnees explicitement SIMULEES). Le fichier existait
+     depuis longtemps mais AUCUNE page ne le chargeait et son bouton declencheur n existait pas :
+     369 lignes de demonstration honnete que personne ne pouvait atteindre. Rebranchee le 15/08. -->
+<script defer src="/demo.js?v=20260815"></script>
 </body>
 </html>
 
