@@ -98,18 +98,21 @@ const priceState = {};
   priceState[p.name] = { price: p.base, prev: p.base };
 });
 
-function tickPrices() {
-  [...FX_PAIRS, ...INDICES, ...COMMODITIES].forEach(p => {
-    const s = priceState[p.name];
-    s.prev = s.price;
-    s.price += s.price * p.vol * 5 * (Math.random() - 0.49);
-    s.price = parseFloat(s.price.toFixed(p.base < 10 ? 5 : p.base < 1000 ? 2 : 0));
-  });
-}
+// ── LA DERNIERE MACHINERIE DE PRIX SIMULES A ETE SUPPRIMEE (15/08/2026) ──────────────────────
+//  Cinq fonctions formaient un amas FERME, qui ne s appelait plus qu entre lui-meme :
+//    buildBiasSidebar (point d entree, ZERO appelant) -> makeItem / updateSidebarPrices /
+//    selectPair -> rebuildStockChart ; et tickPrices, deja neutralise par un `void`.
+//  Elles alimentaient une ancienne colonne de prix : prix rafraichis toutes les 3 s par
+//  Math.random, variation en % coloree, et reconstruction du graphique au clic.
+//  PREUVE DE LEUR MORT, verifiee page par page : #bias-pairs, #bias-indices, #bias-commodities,
+//  #bias-symbol-name, #chart-stock et .bias-tf-group n existent dans AUCUN des 4 fichiers HTML.
+//  Le listener d unite de temps etait lui aussi branche sur .bias-tf-group : jamais declenche.
+//  On ne garde pas ce code « au cas ou » : c est un generateur de fausses cotations, et le desk
+//  vient tout juste de cesser d en afficher.
+//  CE QUI SURVIT, et pourquoi : FX_PAIRS / INDICES / COMMODITIES (catalogue des instruments),
+//  priceState (son champ `price` sert de table de FORMATAGE : l ordre de grandeur decide du
+//  nombre de decimales de l axe), activeTimeframe et activePair (lus par buildStockChart).
 
-// (tickPrices désactivé : il alimentait l'ancien sidebar de prix simulés, qui n'est plus
-//  construit : c'était un intervalle 3 s tournant à vide. Le Radar de Biais réel le remplace.)
-void tickPrices;
 
 // ═══════════════════════════════════════════════
 //  BIAS SIDEBAR
@@ -119,67 +122,8 @@ let activePair = 'EUR/USD';
 let activeTimeframe = 'H4';
 let stockRoot = null;
 
-function buildBiasSidebar() {
-  const pairsEl = document.getElementById('bias-pairs');
-  const idxEl   = document.getElementById('bias-indices');
-  const comEl   = document.getElementById('bias-commodities');
 
-  function makeItem(p, container) {
-    const s = priceState[p.name];
-    const chg = ((s.price - p.base) / p.base * 100).toFixed(2);
-    const dir = chg >= 0 ? 'up' : 'down';
-    const dec = p.base < 10 ? 5 : p.base < 1000 ? 2 : 0;
-    const div = document.createElement('div');
-    div.className = `bias-pair-item${p.name === activePair ? ' active' : ''}`;
-    div.dataset.symbol = p.name;
-    div.innerHTML = `
-      <div>
-        <div class="pair-name">${p.name}</div>
-        <div class="pair-price" id="price-${p.name.replace('/','_')}">${s.price.toFixed(dec)}</div>
-      </div>
-      <div class="pair-change ${dir}" id="chg-${p.name.replace('/','_')}">${chg >= 0 ? '+' : ''}${chg}%</div>`;
-    div.addEventListener('click', () => selectPair(p.name));
-    container.appendChild(div);
-  }
 
-  FX_PAIRS.forEach(p => makeItem(p, pairsEl));
-  INDICES.forEach(p => makeItem(p, idxEl));
-  COMMODITIES.forEach(p => makeItem(p, comEl));
-
-  // Tick UI
-  setInterval(updateSidebarPrices, 3000);
-}
-
-function updateSidebarPrices() {
-  [...FX_PAIRS, ...INDICES, ...COMMODITIES].forEach(p => {
-    const s = priceState[p.name];
-    const dec = p.base < 10 ? 5 : p.base < 1000 ? 2 : 0;
-    const chg = ((s.price - p.base) / p.base * 100).toFixed(2);
-    const key = p.name.replace('/','_');
-    const priceEl = document.getElementById(`price-${key}`);
-    const chgEl   = document.getElementById(`chg-${key}`);
-    if (priceEl) { priceEl.textContent = s.price.toFixed(dec); priceEl.style.color = s.price >= s.prev ? 'var(--green)' : 'var(--red)'; setTimeout(() => { if (priceEl) priceEl.style.color = ''; }, 800); }
-    if (chgEl)  { chgEl.textContent = (chg >= 0 ? '+' : '') + chg + '%'; chgEl.className = `pair-change ${chg >= 0 ? 'up' : 'down'}`; }
-  });
-}
-
-function selectPair(name) {
-  activePair = name;
-  document.querySelectorAll('.bias-pair-item').forEach(el => el.classList.toggle('active', el.dataset.symbol === name));
-  const allPairs = [...FX_PAIRS, ...INDICES, ...COMMODITIES];
-  const p = allPairs.find(x => x.name === name);
-  if (!p) return;
-  const s = priceState[name];
-  const dec = p.base < 10 ? 5 : p.base < 1000 ? 2 : 0;
-  const chg = s.price - p.base;
-  const chgPct = (chg / p.base * 100).toFixed(2);
-  document.getElementById('bias-symbol-name').textContent = name;
-  document.getElementById('bias-symbol-price').textContent = s.price.toFixed(dec);
-  const chgEl = document.getElementById('bias-symbol-change');
-  chgEl.textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(dec)} (${chg >= 0 ? '+' : ''}${chgPct}%)`;
-  chgEl.className = `bias-symbol-change ${chg >= 0 ? 'positive' : 'negative'}`;
-  rebuildStockChart(name);
-}
 
 // ═══════════════════════════════════════════════
 //  STOCK CHART (BIAS view)
@@ -523,10 +467,6 @@ async function buildStockChart(symbol, containerId, tfKey) {
   return root;
 }
 
-function rebuildStockChart(symbol) {
-  if (stockRoot) { try { stockRoot.dispose(); } catch (_) {} stockRoot = null; }
-  stockRoot = buildStockChart(symbol);
-}
 
 // ═══════════════════════════════════════════════
 //  STRENGTH : Real Force des Devises (Single Chart + TF Selector)
@@ -3556,14 +3496,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch {}
 
-  // Timeframe buttons
-  document.querySelector('.bias-tf-group')?.addEventListener('click', e => {
-    const btn = e.target.closest('[data-tf]');
-    if (!btn) return;
-    activeTimeframe = btn.dataset.tf;
-    document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('tf-btn--active', b.dataset.tf === activeTimeframe));
-    rebuildStockChart(activePair);
-  });
+  // (Listener d unite de temps SUPPRIME le 15/08/2026 avec la sidebar de prix simulés : il etait
+  //  branche sur .bias-tf-group, absent de toutes les pages, et appelait rebuildStockChart, elle
+  //  aussi supprimee. Le laisser aurait mis un appel vers une fonction inexistante dans le code.
+  //  Les unites de temps du widget Graphique passent par son propre reglage, pas par ce chemin.)
 
   // Wire up COT type buttons and DMX timeframe buttons
   initCOTTabs();
