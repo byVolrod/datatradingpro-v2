@@ -16756,3 +16756,33 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   color: var(--orange, #e3b23a); font-size: 11px; font-weight: 700; cursor: help;
   border: 1px solid rgba(227, 178, 58, .45); border-radius: 3px; line-height: 1.35;
 }
+
+/* ── CALENDRIER : volet de réglages de l'onglet (15/08/2026) ─────────────────────────────────────
+   L'icône ⚙ du bandeau existait depuis toujours mais n'ouvrait rien : aucun gestionnaire dans le
+   dépôt. Elle donne désormais accès aux colonnes affichées. Volet ancré sous l'icône, fermé par
+   défaut, et refermé au clic ailleurs (cf. charts.js). Grammaire des interrupteurs recopiée sur
+   celle des réglages de widget, pour que le desk ne parle pas deux langues. */
+.cal-title-icons { position: relative; }
+.cal-set-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; min-width: 190px;
+  background: var(--bg1, #0c0c0e); border: 1px solid var(--border, #1c1c20); border-radius: var(--radius, 6px);
+  padding: 10px 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55);
+}
+.cal-set-pop[hidden] { display: none; }
+.cal-set-t {
+  color: var(--text3, #8b93a1); font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;
+}
+.cal-set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 5px 0; }
+.cal-set-row span { color: var(--text, #e6e6ea); font-size: 12px; }
+.cal-set-sw {
+  position: relative; width: 34px; height: 18px; flex: 0 0 34px; padding: 0; cursor: pointer;
+  background: var(--bg3, #202024); border: 1px solid var(--border, #1c1c20); border-radius: 999px;
+  transition: background .15s ease, border-color .15s ease;
+}
+.cal-set-sw i {
+  position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--text4, #555560); transition: transform .15s ease, background .15s ease;
+}
+.cal-set-sw.on { background: rgba(227, 178, 58, .22); border-color: rgba(227, 178, 58, .55); }
+.cal-set-sw.on i { transform: translateX(16px); background: var(--orange, #e3b23a); }

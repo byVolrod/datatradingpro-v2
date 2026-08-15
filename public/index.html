@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260815bbg681" />
+  <link rel="stylesheet" href="/css/style.css?v=20260815bbg683" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260815bbg681"></script>
+  <script defer src="/js/noinspect.js?v=20260815bbg683"></script>
 </head>
 <body>
 
@@ -456,7 +456,12 @@
           </div>
           <div class="cal-title-icons">
             <span class="cal-title-icon" title="Aide">?</span>
-            <span class="cal-title-icon" title="Paramètres">⚙</span>
+            <!-- Cette icône était purement décorative : aucun gestionnaire dans tout le dépôt. Elle
+                 ouvre désormais un petit volet de réglages (colonnes affichées), persisté par compte. -->
+            <span class="cal-title-icon" title="Paramètres" role="button" tabindex="0"
+                  onclick="_calToggleReglages()"
+                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_calToggleReglages();}">⚙</span>
+            <div class="cal-set-pop" id="cal-set-pop" hidden></div>
             <span class="cal-title-icon" title="Fermer">×</span>
           </div>
         </div>
@@ -915,16 +920,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260815bbg681"></script>
-<script defer src="/js/app.js?v=20260815bbg681"></script>
-<script defer src="/js/charts.js?v=20260815bbg681"></script>
-<script defer src="/js/sessionmap.js?v=20260815bbg681"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260815bbg683"></script>
+<script defer src="/js/app.js?v=20260815bbg683"></script>
+<script defer src="/js/charts.js?v=20260815bbg683"></script>
+<script defer src="/js/sessionmap.js?v=20260815bbg683"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260815bbg681"></script>
-<script defer src="/js/home.js?v=20260815bbg681"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260815bbg681"></script>
-<script defer src="/js/i18n.js?v=20260815bbg681"></script>
+<script defer src="/js/widgets.js?v=20260815bbg683"></script>
+<script defer src="/js/home.js?v=20260815bbg683"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260815bbg683"></script>
+<script defer src="/js/i18n.js?v=20260815bbg683"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

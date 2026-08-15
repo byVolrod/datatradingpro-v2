@@ -3905,7 +3905,56 @@ function calFormatTime(ts) {
   });
 }
 
+/* ── COLONNES HIGH / LOW MASQUABLES DANS L'ONGLET (15/08/2026) ────────────────────────────────
+   Elles ne l'etaient que sur la carte « Calendrier » de Mon Desk : un utilisateur qui les masquait
+   la-bas les retrouvait ici. Meme reglage, meme resultat, ou qu'on regarde.
+   Ce sont les bornes de la fourchette de consensus : utiles a qui les lit, du bruit pour qui suit
+   seulement Reel / Prevision / Precedent. AFFICHEES par defaut : un reglage neuf ne doit jamais
+   changer ce que l'utilisateur voyait la veille.
+   Stockage par COMPTE via DTPPref (magasin /api/ui-prefs), donc retrouve sur un autre appareil. */
+function _calColVisible(k) {
+  try { return window.DTPPref ? DTPPref.get('cal' + k, '1') !== '0' : true; } catch (e) { return true; }
+}
+function _calColSet(k, on) {
+  try { if (window.DTPPref) DTPPref.set('cal' + k, on ? '1' : '0'); } catch (e) {}
+  try { renderCalTable(); } catch (e) {}
+  try { _calMajReglages(); } catch (e) {}
+}
+window._calColSet = _calColSet;
+// Panneau de reglages de l'onglet : l'icone existait depuis toujours dans le HTML mais n'etait
+// reliee a rien (aucun gestionnaire dans le depot). Elle ouvre desormais ce petit volet.
+function _calMajReglages() {
+  const b = document.getElementById('cal-set-pop');
+  if (!b) return;
+  const l = (k, lbl) => '<label class="cal-set-row"><span>' + lbl + '</span>'
+    + '<button class="cal-set-sw' + (_calColVisible(k) ? ' on' : '') + '" role="switch" aria-checked="' + _calColVisible(k) + '"'
+    + ' onclick="_calColSet(\'' + k + '\', ' + (!_calColVisible(k)) + ')"><i></i></button></label>';
+  b.innerHTML = '<div class="cal-set-t">Colonnes affichees</div>' + l('colhigh', 'High') + l('collow', 'Low');
+}
+window._calToggleReglages = function () {
+  const b = document.getElementById('cal-set-pop');
+  if (!b) return;
+  const ouvert = !b.hasAttribute('hidden');
+  if (ouvert) { b.setAttribute('hidden', ''); return; }
+  _calMajReglages(); b.removeAttribute('hidden');
+};
+// Fermeture au clic AILLEURS et à Échap : sans ça, le volet reste ouvert par-dessus le tableau et
+// il faut retrouver l'icône pour s'en débarrasser. Écouteur unique, posé une seule fois.
+document.addEventListener('click', e => {
+  const b = document.getElementById('cal-set-pop');
+  if (!b || b.hasAttribute('hidden')) return;
+  if (b.contains(e.target)) return;                                  // clic DANS le volet : on garde
+  if (e.target.closest && e.target.closest('.cal-title-icon')) return;   // l'icône gère son propre bascule
+  b.setAttribute('hidden', '');
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const b = document.getElementById('cal-set-pop');
+  if (b && !b.hasAttribute('hidden')) b.setAttribute('hidden', '');
+});
 function renderCalTable() {
+  const _vHigh = _calColVisible('colhigh');
+  const _vLow = _calColVisible('collow');
   const wrap = document.getElementById('cal-table-wrap');
   if (!wrap) return;
 
@@ -3944,7 +3993,8 @@ function renderCalTable() {
       const d       = ev.timestamp ? new Date(ev.timestamp) : new Date(dayKey);
       const weekday = d.toLocaleDateString('fr-FR', { weekday: 'long' });
       const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      tbody += `<tr class="cal-day-sep"><td colspan="10">${weekday}, ${dateStr}</td></tr>`;
+      // colspan DYNAMIQUE : fige a 10, la ligne de separation debordait des qu une colonne partait.
+      tbody += `<tr class="cal-day-sep"><td colspan="${8 + (_vHigh ? 1 : 0) + (_vLow ? 1 : 0)}">${weekday}, ${dateStr}</td></tr>`;
       lastDayKey = dayKey;
     }
 
@@ -3984,9 +4034,9 @@ function renderCalTable() {
       <td class="cth-imp">${calImpDots(ev.impact)}</td>
       <td class="cth-event">${ev.title || ''}${_keyChip}</td>
       <td class="cth-val" data-lbl="Réel">${calActualCell(ev.actual, ev.forecast, ev.low, ev.title)}</td>
-      <td class="cth-val" data-lbl="Haut">${hi}</td>
+      ${_vHigh ? `<td class="cth-val" data-lbl="Haut">${hi}</td>` : ''}
       <td class="cth-val" data-lbl="Prév.">${fcast}</td>
-      <td class="cth-val" data-lbl="Bas">${lo}</td>
+      ${_vLow ? `<td class="cth-val" data-lbl="Bas">${lo}</td>` : ''}
       <td class="cth-val" data-lbl="Préc.">${prev}</td>
     </tr>`;
   });
@@ -4000,9 +4050,9 @@ function renderCalTable() {
         <th class="cth-imp">IMPACT</th>
         <th class="cth-event">ÉVÉNEMENT</th>
         <th class="cth-val">RÉEL</th>
-        <th class="cth-val">HIGH</th>
+        ${_vHigh ? `<th class="cth-val">HIGH</th>` : ""}
         <th class="cth-val">PRÉVISION</th>
-        <th class="cth-val">LOW</th>
+        ${_vLow ? `<th class="cth-val">LOW</th>` : ""}
         <th class="cth-val">PRÉCÉDENT</th>
       </tr>
     </thead>
