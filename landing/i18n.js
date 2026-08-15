@@ -32,7 +32,7 @@
     // Modules
     "Tout ce qu'il vous faut.": "Everything you need.",
     "Rien de superflu.": "Nothing you don't.",
-    "Un aperçu direct de chaque module, exactement ce que vous voyez dans le terminal.": "A direct preview of each module — exactly what you see in the terminal.",
+    "Chaque module dans la mise en page exacte du terminal. Les chiffres affichés ici sont des exemples : dans le desk, ils sont réels et mis à jour en continu.": "Every module in the terminal's exact layout. The figures shown here are examples: in the desk, they are real and updated continuously.",
     "Recherche institutionnelle": "Institutional research",
     "Goldman, ING, SocGen… leurs notes FX, droit au but.": "Goldman, ING, SocGen… their FX notes, straight to the point.",
     "Actus en temps réel": "Real-time news",
