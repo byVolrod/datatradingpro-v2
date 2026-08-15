@@ -692,6 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260815-titres-typo', ts: Date.UTC(2026, 7, 15, 23, 0), title: 'Fil d’actualité : la ponctuation des titres harmonisée', desc: 'Le long tiret disparaît aussi des titres de dépêches. Rien d’autre ne change : aucun mot n’est touché, aucun titre n’est traduit ni raccourci. Quand le nom du média figure en fin de titre, il est simplement séparé par un point médian, le même que le desk emploie partout ailleurs.' },
   { id: 'dtpu-20260815-pdf-bandeau', ts: Date.UTC(2026, 7, 15, 22, 0), title: 'Rapports de banques : une bande de moins avant le document', desc: 'Le bandeau qui répétait le titre du rapport et son nombre de pages a été retiré de la visionneuse PDF. Le titre figure déjà juste au-dessus, et le nombre de pages n’apprenait rien qu’un défilement ne montre. Le document commence donc plus haut dans l’écran.' },
   { id: 'dtpu-20260815-cal-onglet-colonnes', ts: Date.UTC(2026, 7, 15, 21, 0), title: 'Calendrier : les colonnes se règlent aussi dans l onglet', desc: 'La petite roue dentée du bandeau Calendrier ouvre enfin quelque chose : un volet où masquer les colonnes High et Low. Le réglage est retenu par compte, donc vous le retrouvez sur vos autres appareils, et il vaut aussi bien pour l onglet que pour la carte Calendrier de Mon Desk. Les deux colonnes restent affichées tant que vous n y touchez pas.' },
   { id: 'dtpu-20260815-bougies-reelles', ts: Date.UTC(2026, 7, 15, 19, 0), title: 'Widget Graphique : de vraies bougies de marché', desc: 'Le graphique de Mon Desk affiche désormais les vraies bougies du marché, celles qui alimentent déjà l onglet Banques, sur toutes les unités de temps et pour les paires de devises comme pour les indices et les matières premières. Si la source ne répond pas, l écran le dit clairement au lieu de tracer une courbe. L histogramme de volume a été retiré : le change au comptant n a pas de volume centralisé, et mieux vaut une rubrique en moins qu une rubrique approximative.' },
@@ -8325,7 +8326,19 @@ function _cleanItemMd(it) {
   if (typeof it.description === 'string') it.description = _noDash(it.description);
   if (typeof it.aiTitle === 'string')     it.aiTitle     = _noDash(it.aiTitle);
   for (const k of ['_weekly', '_dtpd', '_fxr', '_marketWrap']) if (it[k] && typeof it[k] === 'object') _noDashDeep(it[k]);
-  if ((it._briefing || it._dtpd || it._fxr || it._weekly || it._marketWrap) && typeof it.headline === 'string') it.headline = _noDash(it.headline);
+  // TITRES DE DÉPÊCHES TIERCES (15/08) : ils étaient volontairement épargnés, par prudence — on ne
+  // réécrit pas la phrase d'un éditeur. Le veto typographique s'applique désormais à eux AUSSI,
+  // mais à la TYPOGRAPHIE SEULE : aucun mot n'est touché, aucune traduction, aucune coupe. Seul le
+  // caractère change, comme dans le reste du desk.
+  // Cas particulier de l'ATTRIBUTION FINALE (« … — Reuters », « … — Bitwise ») : la règle générale
+  // y poserait un deux-points, ce qui se lit mal en fin de titre. On y met le point médian, le même
+  // séparateur que le desk emploie partout ailleurs pour juxtaposer deux éléments de même rang.
+  if (typeof it.headline === 'string') {
+    // Bornée à TROIS MOTS : c'est ce qui distingue un nom de source d'une proposition. Sans cette
+    // borne, « Le dollar recule — la Fed hésite sur septembre » passait pour une attribution et
+    // recevait un point médian là où il fallait un deux-points (mesuré au banc de test).
+    it.headline = _noDash(it.headline.replace(/\s+—\s+(\S+(?:\s+\S+){0,2})\s*$/, ' · $1'));
+  }
   return it;
 }
 
