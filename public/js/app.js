@@ -6152,12 +6152,11 @@ async function _brRenderPdfCanvas(content, data, ttl) {
   const nPages = Math.min(pdf.numPages, 40);
   if (window._brPdfDoc) { try { window._brPdfDoc.destroy(); } catch (e) {} }
   window._brPdfDoc = pdf;
-  const safeTtl = String(ttl).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   content.classList.add('br-rcontent--pdf');
-  content.innerHTML =
-    '<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">' + safeTtl + '</span>' +
-    '<span class="br-pdf-bar-lbl" style="color:#b8860b">' + pdf.numPages + ' page' + (pdf.numPages > 1 ? 's' : '') + '</span></div>' +
-    '<div class="br-pdf-canvaswrap" id="br-pdf-canvaswrap"></div>';
+  // Bandeau « <titre> · N pages » RETIRÉ (15/08, demande user) : le titre du rapport est déjà porté
+  // par l'en-tête de la visionneuse juste au-dessus, et le nombre de pages n'apprenait rien qu'un
+  // défilement ne montre. Une bande de moins avant d'arriver au document.
+  content.innerHTML = '<div class="br-pdf-canvaswrap" id="br-pdf-canvaswrap"></div>';
   const wrap = content.querySelector('#br-pdf-canvaswrap');
   const renderPage = async (num, cvs) => {
     if (cvs.dataset.done) return;
