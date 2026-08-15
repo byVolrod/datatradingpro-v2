@@ -2134,15 +2134,55 @@ async function _whopSuspend(email) {
     console.log(`[Whop] Suspendu: ${email}`);
   }
 }
+/* ── PANNE DU 15/08/2026 : WHOP A DÉSACTIVÉ NOTRE WEBHOOK ────────────────────────────────────────
+   « Your webhook endpoint rejected every delivery for 72 hours, so we have disabled it. »
+   CAUSE : WHOP_WEBHOOK_SECRET était posé côté serveur, mais l'URL déclarée dans le tableau de bord
+   Whop est nue (https://desk.datatradingpro.com/api/whop/webhook), SANS ?token=. Chaque livraison
+   repartait donc en 403 — et, faute du moindre log, personne ne pouvait le voir. Trois jours.
+
+   POURQUOI ON N'EXIGE PLUS LE JETON QUAND IL EST ABSENT : ce contrôle protégeait d'un faux event
+   « cancel » forgé par un tiers. Or cette attaque est DÉJÀ neutralisée en aval (audit du 28/07) :
+   avant toute suspension ou mise en liste noire, le code redemande à l'API Whop si une adhésion
+   valide subsiste, et ignore l'événement si c'est le cas. Le chemin de création, lui, ne croit
+   jamais le payload : il relit l'adhésion chez Whop avec la clé API. Un POST forgé ne peut donc
+   rien provoquer d'autre qu'un appel d'API inutile. Le jeton coûtait ici bien plus qu'il ne
+   rapportait : 72 heures d'événements perdus contre un risque déjà couvert deux fois.
+   Un jeton PRÉSENT mais FAUX reste refusé : c'est une sonde, pas une livraison légitime.
+
+   ET SURTOUT : plus jamais en silence. Toute livraison refusée est journalisée et alerte l'admin
+   (au plus une fois par heure), et l'heure de la dernière livraison acceptée est mémorisée. */
+let _whopWebhookAlerteAt = 0;
+let _whopWebhookDernier = 0;
+function _whopWebhookAlerte(motif, detail) {
+  console.error('[Whop] WEBHOOK REFUSÉ (' + motif + ') : ' + (detail || '') + ' — Whop désactive un endpoint qui refuse tout pendant 72 h.');
+  if (Date.now() - _whopWebhookAlerteAt < 3600000) return;      // une alerte par heure, pas un flot
+  _whopWebhookAlerteAt = Date.now();
+  // Échappement LOCAL : server.js n'a pas d'aide globale pour ça, et une alerte qui plante dans son
+  // propre try/catch ne partirait jamais — soit exactement le silence qu'on cherche à supprimer.
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  try {
+    mailer.sendAdminAlert({
+      subject: 'Webhook Whop refusé (' + motif + ')',
+      html: '<p>Une livraison du webhook Whop vient d\'être <b>refusée</b> : ' + _e(motif) + '.</p>'
+        + '<p>' + _e(detail) + '</p>'
+        + '<p><b>Whop désactive automatiquement un endpoint qui refuse toutes ses livraisons pendant 72 heures.</b> '
+        + 'Vérifiez l\'URL déclarée dans le tableau de bord Whop et réactivez le webhook si besoin.</p>',
+    }).catch(() => {});
+  } catch (e) {}
+}
 app.post('/api/whop/webhook', async (req, res) => {
-  // Sécurité : si un secret est configuré, le webhook doit le présenter (token URL ou header).
-  // → empêche un tiers d'envoyer un faux event "cancel" pour suspendre un membre.
-  // (Opt-in : tant que WHOP_WEBHOOK_SECRET n'est pas défini, comportement inchangé.)
   const _whSecret = process.env.WHOP_WEBHOOK_SECRET;
   if (_whSecret) {
     const provided = req.query.token || req.headers['x-webhook-token'] || req.headers['x-whop-token'];
-    if (provided !== _whSecret) return res.status(403).json({ error: 'forbidden' });
+    if (provided && provided !== _whSecret) {
+      _whopWebhookAlerte('jeton invalide', 'un jeton a été présenté mais ne correspond pas');
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    // Absence de jeton : on ACCEPTE (la vérification réelle se fait contre l'API Whop, cf. plus
+    // haut) mais on le signale, pour que la configuration finisse par être corrigée.
+    if (!provided) console.warn('[Whop] webhook accepté SANS jeton (URL Whop sans ?token=) — vérification assurée par relecture de l\'API.');
   }
+  _whopWebhookDernier = Date.now();
   res.json({ received: true });   // ACK immédiat (Whop n'attend pas)
   try {
     if (!whop.configured()) { console.warn('[Whop] WHOP_API_KEY absente'); return; }
