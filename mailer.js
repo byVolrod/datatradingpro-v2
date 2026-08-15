@@ -1235,7 +1235,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ? _geoN.map(p => `<p style="margin:0 0 10px;font-size:13.5px;line-height:1.65;color:#cbd5e1;">${_esc(_cutTxt(p, 320))}</p>`).join('')
       + (_gtJours.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${_gtJours.map(j => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">${_esc(_md(j.jour))}</span>&nbsp;&mdash; ${_esc(_cutTxt(_md(j.points.join(' ')), 190))}</td></tr>`).join('')}</table>` : '')
     : '';
-  const geoTitle = (w.geoTimeline && w.geoTimeline.titre) ? `Le fil géopolitique · ${_md(w.geoTimeline.titre)}` : 'Le fil géopolitique';
+  // Le rapport intitule cette section « Géopolitique », sans ornement : le mail dit pareil.
+  const geoTitle = 'Géopolitique';
   // EXTRAIT du rapport, PAR DEVISE (demande user, remplace la phrase force-des-devises) : 1-2 phrases de
   // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
   // COULEUR DU BIAIS — l'échelle du desk a exactement 5 niveaux (demande user 11/08). On teste « légèrement »
@@ -1248,6 +1249,31 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     if (/baissier/.test(s)) return '#ef4444';
     return '#9aa3b2';
   };
+  // ── BLOC DEVISE : L'ORDRE EXACT DU RAPPORT (15/08) ────────────────────────────────────────
+  // Avant, le mail résumait chaque devise en une phrase + une ligne de moteur, pendant que le
+  // rapport déroule : accroche, résumé, prints de croissance, d'emploi et d'inflation, banque
+  // centrale et pricing, moteurs, semaine à venir, biais. Le lecteur ne retrouvait donc pas le
+  // rapport qu'on lui promettait. Les trois devises de l'aperçu portent désormais TOUTES ces
+  // rubriques, avec les mêmes intitulés et dans le même ordre.
+  const _ssTitre = t => `<div style="color:#8b93a1;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px;">${_esc(t)}</div>`;
+  const _puce = h => `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:2px 0;">${h}</div>`;
+  // Même grammaire que le rapport : « CPI Y/Y : publié 3,5 % · attendu 3,8 % · préc. 3,4 % → lecture (15 juil.) ».
+  const _CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
+  const _print = pr => {
+    if (!pr || !pr.label || !pr.actual) return '';
+    const nums = [`publié <b style="color:#e6e6ea;">${_esc(_md(pr.actual))}</b>`,
+      pr.forecast ? `attendu ${_esc(_md(pr.forecast))}` : '',
+      pr.previous ? `préc. ${_esc(_md(pr.previous))}` : ''].filter(Boolean).join(' · ');
+    const ctry = (pr.ctry && _CTRY_FR[pr.ctry]) ? `<span style="color:#8b93a1;">${_CTRY_FR[pr.ctry]}</span> ` : '';
+    const lean = pr.lean ? ` <span style="color:#cbd5e1;">→ ${_esc(_md(pr.lean))}</span>` : '';
+    const dt = pr.date ? ` <span style="color:#6b7280;">(${_esc(_md(pr.date))})</span>` : '';
+    return _puce(`${ctry}<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(pr.label))}</span> : ${nums}${lean}${dt}`);
+  };
+  const _bloc = (titre, arr, max) => {
+    const l = (Array.isArray(arr) ? arr : []).slice(0, max || 3).map(_print).filter(Boolean).join('');
+    return l ? _ssTitre(titre) + l : '';
+  };
+  const _BK_MAIL = { USD: 'Fed', EUR: 'BCE', GBP: 'BoE', JPY: 'BoJ', CHF: 'BNS', CAD: 'BoC', AUD: 'RBA', NZD: 'RBNZ' };
   let curHtml = '';
   if (_curPick.length) {
     const rows = _curPick.map(c => {
@@ -1268,10 +1294,35 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       // le rapport porte les autres.
       const _d0 = (Array.isArray(cd.drivers) ? cd.drivers : []).filter(d => d && d.name && d.why)[0];
       const drvLine = _d0 ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#cbd5e1;font-weight:600;">${_esc(_md(_d0.name))}&nbsp;:</span> ${_esc(_cutTxt(_md(_d0.why), 150))}</div>` : '';
-      return `<tr><td style="padding:8px 0;border-top:1px solid #1f1f24;">
-        <span style="color:#f3c344;font-weight:800;font-size:12.5px;">${c}</span>${biasBadge}
-        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_txt, 230))}</div>
-        ${drvLine}${printLine}${pricingLine}
+      // Prints, dans l'ordre du rapport : croissance, emploi, inflation.
+      const _gro = _bloc(Array.isArray(cd.employmentPrints) && cd.employmentPrints.length ? 'Croissance économique' : 'Croissance & Emploi', cd.growthPrints, 3);
+      const _emp = _bloc('Emploi', cd.employmentPrints, 2);
+      const _inf = _bloc('Inflation', cd.inflationPrints, 3);
+      // Banque centrale / Pricing : même intitulé que le rapport, stance comprise.
+      const _cbB = (Array.isArray(cd.cbBullets) ? cd.cbBullets : []).slice(0, 2)
+        .map(q => _puce(typeof q === 'string' ? _esc(_md(q))
+          : `<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(q.speaker || ''))}</span>${q.date ? ` <span style="color:#6b7280;">(${_esc(_md(q.date))})</span>` : ''} → ${_esc(_md(q.text || ''))}`)).join('');
+      const _cbTxt = cd.monetaryPolicy ? `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:2px 0;">${_esc(_cutTxt(_md(cd.monetaryPolicy), 260))}</div>` : '';
+      const _pri = cd.pricing ? _puce(`<span style="color:#f3c344;font-weight:600;">Pricing :</span> ${_esc(_md(cd.pricing))}`) : '';
+      const _cb = (_cbTxt || _cbB || _pri)
+        ? _ssTitre((_BK_MAIL[c] || 'Banque centrale') + ' / Pricing' + (cd.cbStance ? ' · ' + _md(cd.cbStance) : '')) + _cbTxt + _cbB + _pri : '';
+      // Moteurs : TOUTES les lignes intitulées du rapport, pas seulement la première. La
+      // géopolitique en est exclue (15/08) : le fil géo est déjà raconté plus haut.
+      const _geoDrv = /^(?:(?:risques?|tensions?)\s+g[ée]opolit|g[ée]opolit|conflit|sanctions?|guerre(?!\s+commercial))/i;
+      const _drv = (Array.isArray(cd.drivers) ? cd.drivers : [])
+        .filter(d => d && d.name && d.why && !_geoDrv.test(String(d.name)))
+        .slice(0, 3)
+        .map(d => _puce(`<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(d.name))} :</span> ${_esc(_cutTxt(_md(d.why), 190))}`)).join('');
+      // Deux lignes de clôture, comme dans le rapport.
+      const _wa = Array.isArray(cd.weekAhead) ? cd.weekAhead.filter(Boolean) : [];
+      const _sav = (_wa.length || cd.conclusion)
+        ? _puce(`<span style="color:#cbd5e1;font-weight:600;">Semaine à venir :</span> ${cd.conclusion ? _esc(_cutTxt(_md(cd.conclusion), 190)) : ''}${_wa.length ? ` <span style="color:#8b93a1;">${_esc(_wa.map(_md).join(' · '))}</span>` : ''}`) : '';
+      const _bsc = cd.biasRationale ? _puce(`<span style="color:#cbd5e1;font-weight:600;">Biais / Scénario :</span> ${_esc(_cutTxt(_md(cd.biasRationale), 190))}`) : '';
+      const _th = cd.thesis ? ` <span style="color:#9aa3b2;font-size:12px;">${_esc(_md(cd.thesis))}</span>` : '';
+      return `<tr><td style="padding:12px 0;border-top:1px solid #1f1f24;">
+        <span style="color:#f3c344;font-weight:800;font-size:13.5px;">${c}</span>${biasBadge}${_th}
+        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:3px;">${_esc(_cutTxt(_txt, 300))}</div>
+        ${_gro}${_emp}${_inf}${_cb}${_drv ? _ssTitre('Moteurs de la semaine') + _drv : ''}${_sav}${_bsc}
       </td></tr>`;
     }).join('');
     curHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
@@ -1397,17 +1448,11 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const body = `
     <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 4px;color:#9aa3b2;font-size:13px;">La semaine de marché, relue par le desk.</p>
-    ${_sec("L'essentiel")}
-    ${lead ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#e6e6ea;">${_esc(lead).slice(0, 460)}</p>` : ''}
     ${insightsHtml}
-    ${macroFactHtml}
+    ${lead ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#e6e6ea;">${_esc(lead).slice(0, 460)}</p>` : ''}
     ${geoHtml ? _sec(geoTitle) + geoHtml : ''}
-    ${pastTableHtml ? _sec('Les chiffres de la semaine') + pastTableHtml : ''}
-    ${cbToneHtml ? _sec('Les banques centrales') + cbToneHtml : ''}
-    ${curHtml ? _sec('Les devises') + curHtml : ''}
-    ${_sec('La force des devises')}
-    ${_widgetImg('strength', '')}
-    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Vous venez de lire un extrait. Le rapport complet vous attend sur le desk&nbsp;: les huit devises analysées une à une, politique monétaire, inflation, croissance, emploi, biais et rendez-vous de la semaine, la lecture banque par banque et le calendrier détaillé.</p>
+    ${curHtml ? _sec('La semaine devise par devise') + curHtml : ''}
+    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Vous venez de lire le Récap Hebdo tel qu&rsquo;il paraît sur le desk, avec ses rubriques et son déroulé, mais limité à <strong style="color:#fff;">trois devises sur huit</strong>. Le rapport complet reprend les cinq autres au même niveau de détail, avec la courbe de force de chaque devise et le calendrier de la semaine.</p>
     ${_campaignBtn('Ouvrir le Récap Hebdo', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:18px 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
