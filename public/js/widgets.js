@@ -615,7 +615,12 @@
           + '<div id="' + id + '" class="wdg-cdl-chart"></div></div>';
         function dessine() {
           try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
-          try { buildStockChart(sym, id, ut); } catch (e) { fallback(host, 'Graphique indisponible.'); }
+          // buildStockChart est ASYNCHRONE depuis le 15/08 (il va chercher de vraies bougies) : un
+          // try/catch synchrone ne verrait plus rien passer. On attrape donc aussi le rejet.
+          try {
+            var _p = buildStockChart(sym, id, ut);
+            if (_p && typeof _p.catch === 'function') _p.catch(function () { fallback(host, 'Graphique indisponible.'); });
+          } catch (e) { fallback(host, 'Graphique indisponible.'); }
         }
         var sel = host.querySelector('.wdg-cdl-sym');
         if (sel) sel.addEventListener('change', function () {

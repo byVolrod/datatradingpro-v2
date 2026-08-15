@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260815-bougies-reelles', ts: Date.UTC(2026, 7, 15, 19, 0), title: 'Widget Graphique : de vraies bougies de marché', desc: 'Le graphique de Mon Desk affiche désormais les vraies bougies du marché, celles qui alimentent déjà l onglet Banques, sur toutes les unités de temps et pour les paires de devises comme pour les indices et les matières premières. Si la source ne répond pas, l écran le dit clairement au lieu de tracer une courbe. L histogramme de volume a été retiré : le change au comptant n a pas de volume centralisé, et mieux vaut une rubrique en moins qu une rubrique approximative.' },
   { id: 'dtpu-20260815-cal-colonnes', ts: Date.UTC(2026, 7, 15, 17, 0), title: 'Calendrier économique : masquer les colonnes High et Low', desc: 'Les colonnes High et Low, qui donnent les bornes de la fourchette de consensus, peuvent désormais être masquées depuis les réglages de la carte Calendrier. Deux interrupteurs, un par colonne, et le tableau se resserre aussitôt sur Réel, Prévision et Précédent. Elles restent affichées par défaut : votre calendrier ne change pas tant que vous n y touchez pas.' },
   { id: 'dtpu-20260815-hebdo-courbes', ts: Date.UTC(2026, 7, 15, 16, 0), title: 'Récap Hebdo : la courbe de chaque devise, jusque dans l e-mail', desc: 'Sous chaque devise, le rapport affiche sa courbe de force de la semaine. L e-mail du samedi la reprend maintenant aussi, devise par devise. Les intertitres passent en blanc pour mieux ressortir, l ouverture retrouve un vrai paragraphe au lieu d un texte coupé, et « Fed / Pricing » ou « BoJ / Pricing » laissent place à un intitulé unique, « Banque centrale », lisible sans connaître le sigle de chaque institution. Ce dernier changement vaut aussi dans le rapport du desk.' },
   { id: 'dtpu-20260815-hebdo-mail-identique', ts: Date.UTC(2026, 7, 15, 12, 0), title: 'Récap Hebdo par e-mail : le rapport du desk, à l identique', desc: 'Le mail du samedi ne résume plus le rapport, il le reprend : mêmes rubriques, même déroulé, du fil géopolitique jusqu à la semaine devise par devise. Chaque devise y arrive complète, avec sa croissance, son emploi, son inflation, sa banque centrale et son pricing, ses moteurs, sa semaine à venir et son biais. Seule différence assumée : l aperçu porte trois devises sur huit, les cinq autres vous attendent sur le desk.' },
@@ -13652,13 +13653,24 @@ function _bankGroupe(candles, n) {
   }
   return out;
 }
+// Symboles NON-FX du desk (indices, matières premières) vers Yahoo. Le widget Graphique propose
+// aussi ces instruments, or la route n'acceptait que des paires XXX/YYY : ils n'avaient donc AUCUNE
+// source réelle et retombaient sur des bougies simulées. Les symboles repris de /api/market-snapshot
+// (^GSPC, CL=F, GC=F) sont déjà éprouvés en production ; les quatre autres sont les symboles Yahoo
+// standards, vérifiés en direct au moment de la mise en place.
+const _CHART_SYM = {
+  'DAX': '^GDAXI', 'S&P 500': '^GSPC', 'FTSE': '^FTSE', 'CAC 40': '^FCHI',
+  'Gold': 'GC=F', 'Oil WTI': 'CL=F', 'Silver': 'SI=F',
+};
 app.get('/api/bank-ohlc', async (req, res) => {
   const pair = String(req.query.pair || '').toUpperCase();
-  if (!/^[A-Z]{3}\/[A-Z]{3}$/.test(pair)) return res.json({ candles: [] });
+  // `pair` (paire FX, usage historique de l'onglet BANQUES) OU `sym` (nom d'instrument du desk).
+  const ySym = /^[A-Z]{3}\/[A-Z]{3}$/.test(pair) ? _bankSym(pair) : _CHART_SYM[String(req.query.sym || '')];
+  if (!ySym) return res.json({ candles: [] });
   const tf = _BANK_TF[String(req.query.tf || 'D1').toUpperCase()] || _BANK_TF.D1;
   try {
     await getYFSession();
-    const raw = await yfFetch(_bankSym(pair), tf.iv, tf.rg);
+    const raw = await yfFetch(ySym, tf.iv, tf.rg);
     const r   = raw?.chart?.result?.[0];
     const ts  = r?.timestamp || [];
     const q   = r?.indicators?.quote?.[0] || {};

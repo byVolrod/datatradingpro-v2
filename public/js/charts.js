@@ -57,35 +57,10 @@ function disposeRoot(id) {
     if (existing) existing.dispose();
   } catch (_) {}
 }
-
-// ── OHLC data generator ──────────────────────────────────────────────────────
-
-function generateOHLC(basePrice, periods, tfHours = 4, volatility = 0.0008) {
-  const data = [];
-  let close = basePrice;
-  const now = Date.now();
-  const tfMs = tfHours * 3600000;
-
-  for (let i = periods; i >= 0; i--) {
-    const ts = now - i * tfMs;
-    const open = close;
-    const change = close * volatility * 10 * (Math.random() - 0.48);
-    close = Math.max(open + change, 0.001);
-    const hi = Math.max(open, close) * (1 + Math.random() * volatility * 3);
-    const lo = Math.min(open, close) * (1 - Math.random() * volatility * 3);
-    const vol = Math.round(800 + Math.random() * 4200);
-
-    data.push({
-      Date: ts,
-      Open: parseFloat(open.toFixed(5)),
-      High: parseFloat(hi.toFixed(5)),
-      Low: parseFloat(lo.toFixed(5)),
-      Close: parseFloat(close.toFixed(5)),
-      Volume: vol,
-    });
-  }
-  return data;
-}
+// (generateOHLC SUPPRIME le 15/08/2026 : il fabriquait des bougies par Math.random pour le widget
+//  Graphique. Le widget lit desormais de vraies bougies via /api/bank-ohlc. La fonction n avait plus
+//  aucun appelant ; on ne la garde pas « au cas ou » — un generateur de fausses cotations qui traine
+//  dans un terminal de trading finit toujours par etre rebranche quelque part.)
 
 // ── FX pairs config ──────────────────────────────────────────────────────────
 
@@ -116,7 +91,11 @@ const COMMODITIES = [
 // Live-ish ticker simulation
 const priceState = {};
 [...FX_PAIRS, ...INDICES, ...COMMODITIES].forEach(p => {
-  priceState[p.name] = { price: p.base, prev: p.base, data: generateOHLC(p.base, 200, 4, p.vol) };
+  // Le champ `data` portait 200 bougies ALEATOIRES par symbole, soit ~3000 fabriquees a chaque
+  // chargement de page : il n'etait lu NULLE PART. `price` reste utile, non comme cotation (le tic
+  // qui le faisait vivre est desactive plus bas) mais comme table de FORMATAGE : c'est son ordre de
+  // grandeur qui decide du nombre de decimales de l'axe des prix.
+  priceState[p.name] = { price: p.base, prev: p.base };
 });
 
 function tickPrices() {
@@ -209,7 +188,40 @@ function selectPair(name) {
 // `containerId` optionnel (widget « Mon Desk » — même patron que buildMeterChart) ; défaut = le
 // graphique de l'onglet MARCHÉS. Sans ce paramètre, deux graphiques bougies ne pouvaient pas coexister :
 // le second détruisait la racine amCharts du premier.
-function buildStockChart(symbol, containerId, tfKey) {
+/* ── DE VRAIES BOUGIES, OU AUCUNE (15/08/2026) ────────────────────────────────────────────────
+   Ce graphique dessinait une MARCHE ALEATOIRE (`generateOHLC`, Math.random) amorcee sur un prix
+   ECRIT EN DUR et jamais rafraichi — l'or y partait de 2328 $ quand il en cotait 4362. Par-dessus
+   ce bruit, le desk empilait deux moyennes mobiles, un RSI, un histogramme de volume, et une barre
+   d'outils invitant a tracer des lignes de tendance. Un client pouvait y faire de l'analyse
+   technique sur des chiffres qui n'ont jamais existe.
+   La source reelle etait deja en production : /api/bank-ohlc sert les bougies Yahoo qui alimentent
+   l'onglet BANQUES. On s'y branche.
+   REGLE : si la source ne repond pas, on affiche « Graphique indisponible. » — jamais une courbe
+   plausible. Un graphique faux est pire qu'un graphique absent. C'est le comportement que l'onglet
+   BANQUES applique deja (app.js ~5503) : on l'aligne.
+   Le VOLUME a disparu, et c'est voulu : le FX au comptant n'a pas de volume consolide, et la route
+   n'en renvoie aucun. Mieux vaut une rubrique en moins qu'une rubrique inventee. */
+const _TF_OHLC = { M1: 'M15', M5: 'M15', M15: 'M15', H1: 'H1', H4: 'H4', D1: 'D1', W1: 'W1' };
+async function _ohlcReel(nom, tfKey) {
+  // M1 et M5 n'existent pas cote source : on sert le M15, l'unite reelle la plus fine, plutot que
+  // de fabriquer des bougies intermediaires. L'utilisateur voit alors de vraies M15.
+  const tf = _TF_OHLC[tfKey] || 'H4';
+  const fx = /^[A-Z]{3}\/[A-Z]{3}$/.test(nom);
+  const q = fx ? 'pair=' + encodeURIComponent(nom) : 'sym=' + encodeURIComponent(nom);
+  try {
+    const r = await fetch('/api/bank-ohlc?' + q + '&tf=' + tf);
+    const j = await r.json();
+    const c = Array.isArray(j && j.candles) ? j.candles : [];
+    return c.filter(x => x && x.o != null && x.h != null && x.l != null && x.c != null)
+      .map(x => ({ Date: x.t, Open: x.o, High: x.h, Low: x.l, Close: x.c }));
+  } catch (e) { return []; }
+}
+function _grapheVide(cid, msg) {
+  const el = document.getElementById(cid);
+  if (el) el.innerHTML = '<div class="wr-chart-loading" style="padding:24px;text-align:center;">' + (msg || 'Graphique indisponible.') + '</div>';
+  return null;
+}
+async function buildStockChart(symbol, containerId, tfKey) {
   const _cid = containerId || 'chart-stock';
   disposeRoot(_cid);
   const all = [...FX_PAIRS, ...INDICES, ...COMMODITIES];
@@ -224,7 +236,9 @@ function buildStockChart(symbol, containerId, tfKey) {
   // On lit priceState par p.name (et non par `symbol`) : un widget dont la paire sauvegardée aurait
   // disparu du catalogue retombe sur EUR/USD au lieu de planter sur un état inexistant.
   const s = priceState[p.name];
-  const ohlcData = generateOHLC(s.price, periods, tfH, p.vol);
+  void periods; void tfH;              // bornes de l'ancienne simulation : la source decide desormais
+  const ohlcData = await _ohlcReel(p.name, tfKey || activeTimeframe);
+  if (!ohlcData.length) return _grapheVide(_cid);   // aucune donnee reelle -> on le DIT, on n'invente pas
 
   const root = _dtpAncreGraphe(am5.Root.new(_cid));
   if (!containerId) stockRoot = root;      // seul l'onglet MARCHÉS pilote la racine globale
@@ -350,58 +364,11 @@ function buildStockChart(symbol, containerId, tfKey) {
   );
   ema50.strokes.template.setAll({ strokeWidth: 1.5, strokeOpacity: 0.8 });
 
-  // ── Volume panel ─────────────────────────────
-  const volumePanel = stockChart.panels.push(
-    am5stock.StockPanel.new(root, {
-      wheelY: 'zoomX',
-      panX: true,
-      height: am5.percent(16),
-    })
-  );
-
-  volumePanel.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
-
-  const volumeValueAxis = volumePanel.yAxes.push(
-    am5xy.ValueAxis.new(root, {
-      renderer: am5xy.AxisRendererY.new(root, { pan: 'zoom', opposite: true }),
-      numberFormat: '#.0a',
-    })
-  );
-
-  const volumeDateAxis = volumePanel.xAxes.push(
-    am5xy.GaplessDateAxis.new(root, {
-      baseInterval: dateAxis.get('baseInterval'),
-      renderer: am5xy.AxisRendererX.new(root, {}),
-    })
-  );
-
-  const volumeSeries = volumePanel.series.push(
-    am5xy.ColumnSeries.new(root, {
-      name: 'Volume',
-      clustered: false,
-      valueXField: 'Date',
-      valueYField: 'Volume',
-      xAxis: volumeDateAxis,
-      yAxis: volumeValueAxis,
-    })
-  );
-
-  volumeSeries.columns.template.setAll({
-    width: am5.percent(80),
-    strokeOpacity: 0,
-    cornerRadiusTL: 1,
-    cornerRadiusTR: 1,
-  });
-
-  volumeSeries.columns.template.adapters.add('fill', (_fill, target) => {
-    const di = target.dataItem;
-    if (!di) return am5.color(0x444444);
-    const idx = di.index;
-    if (idx === 0) return am5.color(0x444444);
-    const prev = volumeSeries.dataItems[idx - 1];
-    return di.get('valueY') >= (prev?.get('valueY') ?? 0) ? am5.color(0x1a5c32) : am5.color(0x5c1a1a);
-  });
-
+  // ── Volume : RUBRIQUE RETIREE (15/08/2026) ────────────────────────────────────────────────
+  // L histogramme de volume etait entierement invente (Math.round(800 + Math.random()*4200)).
+  // Il n a pas ete remplace par une vraie serie parce qu il n en existe pas : le FX au comptant
+  // n a pas de volume consolide, et /api/bank-ohlc n en renvoie aucun. Une rubrique en moins vaut
+  // mieux qu une rubrique fabriquee.
   // ── RSI panel ────────────────────────────────
   const rsiPanel = stockChart.panels.push(
     am5stock.StockPanel.new(root, {
@@ -533,7 +500,6 @@ function buildStockChart(symbol, containerId, tfKey) {
   candleSeries.data.setAll(ohlcData);
   ema20.data.setAll(ema20Data);
   ema50.data.setAll(ema50Data);
-  volumeSeries.data.setAll(ohlcData);
   sbSeries.data.setAll(ohlcData);
   rsiSeries.data.setAll(rsiData);
 
@@ -548,7 +514,7 @@ function buildStockChart(symbol, containerId, tfKey) {
   cursor.lineX.setAll({ stroke: am5.color(0x444444), strokeWidth: 1, strokeDasharray: [4, 4] });
 
   // Sync cursors across panels
-  [volumePanel, rsiPanel].forEach(panel => {
+  [rsiPanel].forEach(panel => {   // (le panneau volume a ete retire : aucune donnee reelle)
     panel.set('cursor', am5xy.XYCursor.new(root, { behavior: 'zoomX', xAxis: panel.xAxes.getIndex(0) }));
   });
 
