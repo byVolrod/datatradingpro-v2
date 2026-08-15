@@ -2095,9 +2095,22 @@ async function _whopRenewOrCreate(mem) {
     mailer.sendAdminRenewalNotice({ clientEmail: existing.email, clientName: existing.name, expiresAt: mem.expiresAt, isNew: false }).catch(() => {});
     console.log(`[Whop] Renouvelé: ${mem.email} → ${mem.expiresAt || 'illimité'}`);
   } else {
-    // Anti-doublon : 1 seul mail de bienvenue par email (même si Whop refire l'event de création).
+    /* ── LE VERROU ANTI-DOUBLON NE BLOQUE PLUS LA CRÉATION DU COMPTE (15/08/2026) ───────────────
+       Ce garde-fou était testé ICI, AVANT createUser, et sortait de la fonction. Il ne protégeait
+       donc pas seulement d'un second mail de bienvenue : il empêchait DÉFINITIVEMENT de recréer un
+       compte pour une adresse déjà passée une fois. Un client supprimé du panel qui se réabonne via
+       Whop n'obtenait plus RIEN, et le log annonçait « Bienvenue déjà envoyée », ce qui envoyait le
+       lecteur sur une fausse piste.
+       Le doublon qu'il visait est déjà écarté en amont : si un compte existe pour cette adresse, on
+       est passé par la branche `existing` et on n'arrive jamais ici. Atteindre ce point signifie
+       qu'AUCUN compte n'existe.
+       Et on ne peut pas créer le compte en taisant le mail : c'est lui qui porte le mot de passe
+       généré. Un compte sans bienvenue est un compte inaccessible — le défaut « stranded welcome »
+       déjà corrigé en juin. La création et l'envoi vont donc ensemble.
+       Le marqueur reste écrit après un envoi réussi : il sert au filet _welcomeAutoHeal et à
+       l'écran de rattrapage admin. */
     const dedupKey = `whop-welcome:${mem.email}`;
-    if (await auth.emailLogHas(dedupKey)) { console.log(`[Whop] Bienvenue déjà envoyée (anti-doublon) → ${mem.email}`); return; }
+    if (await auth.emailLogHas(dedupKey)) console.log(`[Whop] ${mem.email} : bienvenue déjà envoyée par le passé, mais AUCUN compte n'existe → on le recrée et on renvoie l'accès.`);
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
     const wu = await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
     // ENVOI FIABLE D'ABORD (await + alerte admin si échec), marqueur SEULEMENT si l'email est VRAIMENT
