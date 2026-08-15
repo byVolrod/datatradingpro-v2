@@ -233,7 +233,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/robots.txt', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/api/geo', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
+  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/api/hero-ticker', '/api/geo', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/assets/images/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/', '/api/v1/'];   // /api/v1/ = API programmatique : le gate SESSION est bypassé mais CHAQUE route v1 exige une CLÉ API (requireApiKey)   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
 
 // Jeton d'appel INTERNE (préchauffage → 127.0.0.1) : généré à chaque boot (surclassable via env pour
@@ -20552,6 +20552,40 @@ async function _buildHeroStrength() {
   }
   return out.length ? { currencies: out, updatedAt: s.updatedAt || Date.now() } : null;
 }
+/* ── BANDEAU « EN DIRECT » DE LA LANDING : DE VRAIS PRIX (15/08/2026) ────────────────────────────
+   Le bandeau affichait 12 instruments avec leurs variations sous une pastille verte « EN DIRECT »,
+   alimentés par un tableau ÉCRIT EN DUR dans la page : EUR/USD 1.0847, or 2 418, BTC 64 980.
+   Aucune requête ne les mettait à jour. L'or cotait 4 380 le jour où je l'ai constaté.
+   On réutilise ici l'instantané Yahoo qui alimente déjà le desk (SNAP_GROUPS + _snapCache), donc
+   sans une seule requête réseau de plus : la landing lit le cache déjà rempli pour le terminal.
+   Si la source est muette, on renvoie une liste VIDE plutôt qu'un repli : c'est la page qui décide
+   alors de masquer la pastille « EN DIRECT », au lieu d'afficher de vieux prix comme s'ils vivaient. */
+app.get('/api/hero-ticker', async (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=60');
+  try {
+    if (!_snapCache.data || Date.now() - _snapCache.ts > 5 * 60 * 1000) {
+      await getYFSession();
+      const all = SNAP_GROUPS.flatMap(g => g.items);
+      const pct = {}, prix = {};
+      await Promise.all(all.map(async a => {
+        try {
+          const raw = await yfFetch(a.sym, '5m', '1d');
+          const meta = raw?.chart?.result?.[0]?.meta;
+          if (meta && meta.regularMarketPrice != null && meta.chartPreviousClose) {
+            prix[a.sym] = meta.regularMarketPrice;
+            pct[a.sym] = (meta.regularMarketPrice / meta.chartPreviousClose - 1) * 100;
+          }
+        } catch (e) {}
+      }));
+      _snapTicker = { at: Date.now(), items: all.filter(a => prix[a.sym] != null).map(a => ({
+        label: a.label, prix: prix[a.sym], pct: Math.round(pct[a.sym] * 100) / 100,
+      })) };
+    }
+    res.json({ items: (_snapTicker && _snapTicker.items) || [], at: (_snapTicker && _snapTicker.at) || 0 });
+  } catch (e) { res.json({ items: [], at: 0 }); }
+});
+let _snapTicker = null;
 app.get('/api/hero-strength', async (_req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Cache-Control', 'public, max-age=120');
