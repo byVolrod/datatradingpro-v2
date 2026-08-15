@@ -658,6 +658,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260815-hebdo-courbes', ts: Date.UTC(2026, 7, 15, 16, 0), title: 'Récap Hebdo : la courbe de chaque devise, jusque dans l e-mail', desc: 'Sous chaque devise, le rapport affiche sa courbe de force de la semaine. L e-mail du samedi la reprend maintenant aussi, devise par devise. Les intertitres passent en blanc pour mieux ressortir, l ouverture retrouve un vrai paragraphe au lieu d un texte coupé, et « Fed / Pricing » ou « BoJ / Pricing » laissent place à un intitulé unique, « Banque centrale », lisible sans connaître le sigle de chaque institution. Ce dernier changement vaut aussi dans le rapport du desk.' },
   { id: 'dtpu-20260815-hebdo-mail-identique', ts: Date.UTC(2026, 7, 15, 12, 0), title: 'Récap Hebdo par e-mail : le rapport du desk, à l identique', desc: 'Le mail du samedi ne résume plus le rapport, il le reprend : mêmes rubriques, même déroulé, du fil géopolitique jusqu à la semaine devise par devise. Chaque devise y arrive complète, avec sa croissance, son emploi, son inflation, sa banque centrale et son pricing, ses moteurs, sa semaine à venir et son biais. Seule différence assumée : l aperçu porte trois devises sur huit, les cinq autres vous attendent sur le desk.' },
   { id: 'dtpu-20260815-hebdo-geo-doublon', ts: Date.UTC(2026, 7, 15, 10, 0), title: 'Récap Hebdo : la géopolitique racontée une seule fois', desc: 'Le rapport ouvre déjà sur le fil géopolitique de la semaine. Chaque devise y revenait ensuite avec un thème « Géopolitique » qui redisait les mêmes événements. Ces répétitions sont retirées : dans la partie devise par devise, l influence de la géopolitique apparaît désormais par son canal réel, le pétrole, l appétit pour le risque ou les flux obligataires, c est à dire ce qui touche vraiment la devise.' },
   { id: 'dtpu-20260815-widget-fil-vide', ts: Date.UTC(2026, 7, 15, 9, 30), title: 'Widget Fil d actualité : plus de blanc sous le bouton', desc: 'Depuis que les propos d un même intervenant sont regroupés en une seule carte, le widget affichait moins de lignes que prévu et laissait un grand vide sous « Charger plus », alors qu il restait des actualités à montrer. La liste se complète maintenant d elle même jusqu à remplir le cadre.' },
@@ -16694,6 +16695,10 @@ app.get('/api/currency-strength', async (req, res) => {
 // serveur (aucune auth, aucun fetch client). Elle est capturée par emailWidget.renderWidgetPng().
 app.get('/internal/email-widget/strength', async (req, res) => {
   const period = ['today', 'week', '8h', '1d', '5d', '7d', '1m'].includes(req.query.period) ? req.query.period : 'week';
+  // `ccy` : rend la courbe d'UNE SEULE devise, exactement comme le Récap Hebdo du desk sous chaque
+  // bloc devise (il appelle buildStrengthChart avec `focusCurrency`). Sans devise, on garde le
+  // graphique des huit, tel qu'il alimentait déjà les autres mails.
+  const _ccyFocus = /^[A-Za-z]{3}$/.test(String(req.query.ccy || '')) ? String(req.query.ccy).toUpperCase() : null;
   let data = null;
   try { data = await computeCurrencyStrength(period); } catch (e) {}
   if (!data) data = { currencies: [], series: {}, updatedAt: null };
@@ -16719,7 +16724,7 @@ app.get('/internal/email-widget/strength', async (req, res) => {
 .stf-p.on{color:#fff;font-weight:800}
 .stf-p.on::after{content:'';position:absolute;left:8px;right:8px;bottom:0;height:2px;background:#e3b23a;border-radius:2px 2px 0 0}</style>
 </head><body><div id="stwrap"><div class="stf-bar"><span class="stf-title">Force des Devises</span><span class="stf-sp"></span>${stfBar}</div><div id="box"></div></div>
-<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildStrengthChart!=='function'){return setTimeout(go,120);}buildStrengthChart('box',window.__DATA,{isolated:true});setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};window.__CCY=${JSON.stringify(_ccyFocus)};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildStrengthChart!=='function'){return setTimeout(go,120);}buildStrengthChart('box',window.__DATA,{isolated:true,focusCurrency:window.__CCY||undefined});setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
 </body></html>`);
 });
 
@@ -19955,7 +19960,8 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
 app.get('/api/email-widget/:type.png', async (req, res) => {
   try {
     // renderWidgetPngSafe ne jette JAMAIS : cache frais → derniere bonne image (disque) → placeholder.
-    const png = await emailWidget.renderWidgetPngSafe(req.params.type, { period: req.query.period });
+    // `ccy` (15/08) : sert la courbe d'UNE devise, comme sous chaque bloc devise du Récap Hebdo.
+    const png = await emailWidget.renderWidgetPngSafe(req.params.type, { period: req.query.period, ccy: req.query.ccy });
     res.set('Content-Type', 'image/png');
     res.set('Cache-Control', 'public, max-age=600, stale-while-revalidate=86400');   // les proxys mail servent l'ancienne pendant le refresh
     res.send(png);

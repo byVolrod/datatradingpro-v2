@@ -91,7 +91,13 @@ async function renderWidgetPng(type, opts = {}) {
   const spec = SPECS[type];
   if (!spec) throw new Error('widget inconnu: ' + type);
   const period = String(opts.period || 'week').replace(/[^a-z0-9]/gi, '') || 'week';
-  const key = type + ':' + period;
+  // COURBE D'UNE SEULE DEVISE (15/08) : le Récap Hebdo du desk montre, sous chaque devise, SA propre
+  // courbe de force et non le graphique des huit. `buildStrengthChart` sait déjà le faire via
+  // `focusCurrency` ; il suffisait de faire descendre la devise jusqu'à la page de rendu.
+  // La devise entre dans la CLÉ DE CACHE : sans cela, les huit devises partageraient une seule image
+  // et le mail afficherait huit fois la courbe de la première.
+  const ccy = /^[A-Z]{3}$/.test(String(opts.ccy || '').toUpperCase()) ? String(opts.ccy).toUpperCase() : '';
+  const key = type + ':' + period + (ccy ? ':' + ccy : '');
 
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.png;
@@ -102,7 +108,7 @@ async function renderWidgetPng(type, opts = {}) {
     const page = await browser.newPage();
     try {
       await page.setViewport({ width: spec.w + 24, height: spec.h + 24, deviceScaleFactor: 2 });   // 2x = net en HD
-      await page.goto(`${BASE}${spec.path}?period=${period}`, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await page.goto(`${BASE}${spec.path}?period=${period}${ccy ? '&ccy=' + ccy : ''}`, { waitUntil: 'domcontentloaded', timeout: 25000 });
       await page.waitForFunction('window.__ready === true', { timeout: 20000 }).catch(() => {});   // chaque page de rendu pose __ready apres le rendu (+ delai d'animation)
       const el = await page.$(spec.sel);
       if (!el) throw new Error('element introuvable: ' + spec.sel);
@@ -144,7 +150,11 @@ async function renderWidgetPng(type, opts = {}) {
 async function renderWidgetPngSafe(type, opts = {}) {
   if (!SPECS[type]) return _FALLBACK_PNG;
   const period = String((opts && opts.period) || 'week').replace(/[^a-z0-9]/gi, '') || 'week';
-  const key = type + ':' + period, wk = _wk(type, period);
+  // ⚠️ La devise DOIT entrer ici aussi. Cette couche recalcule sa propre clé : sans elle, les huit
+  // courbes se partageraient une seule entrée de cache (et un seul « dernier bon » sur disque), et
+  // le mail aurait affiché huit fois la même devise.
+  const ccy = /^[A-Z]{3}$/.test(String((opts && opts.ccy) || '').toUpperCase()) ? String(opts.ccy).toUpperCase() : '';
+  const key = type + ':' + period + (ccy ? ':' + ccy : ''), wk = _wk(type, period + (ccy ? '_' + ccy : ''));
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.png;
   const lg = _lastGood.get(wk);

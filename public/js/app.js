@@ -7774,8 +7774,11 @@ function _renderWeeklyRecap(item) {
         if (cd.monetaryPolicy || cbBullets.length || cd.pricing) {
           // Rubrique nommée d'après LA banque de la devise (« Fed / Pricing », « BoE / Pricing »…),
           // comme dans la référence — « Politique monétaire » était le même intitulé pour les huit.
-          const _BK = { USD: 'Fed', EUR: 'BCE', GBP: 'BoE', JPY: 'BoJ', CHF: 'BNS', CAD: 'BoC', AUD: 'RBA', NZD: 'RBNZ' };
-          body += `<div class="wr-macro-heading">${_wrEsc((_BK[c] || 'Banque centrale') + ' / Pricing')}${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
+          // « BANQUE CENTRALE » pour les huit devises (15/08, demande user), au lieu de « Fed / Pricing »,
+          // « BoJ / Pricing »… : un intitulé unique se lit sans connaître le sigle de chaque institution,
+          // et le desk comme l'e-mail portent désormais le même. Le nom de la banque n'est pas perdu :
+          // il vit dans la posture et dans les propos attribués, juste en dessous.
+          body += `<div class="wr-macro-heading">Banque centrale${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
           if (cd.monetaryPolicy) body += `<div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
           // UN INTERVENANT = UNE PUCE (correctif 11/08) : le même officiel revenait deux fois de suite
           // (« Musalem … / Musalem … » constaté en prod), ce qu'aucune note de desk ne ferait.

@@ -921,11 +921,14 @@ function _cutTxt(s, n) {
   const sp = t.lastIndexOf(' ');
   return (sp > 0 ? t.slice(0, sp) : t).replace(/[\s,;:]+$/, '') + '…';
 }
-function _widgetImg(type, eyebrow, maxW, period) {
+function _widgetImg(type, eyebrow, maxW, period, ccy) {
   maxW = maxW || 532;
   const lbl = _esc(eyebrow || '');
   const per = period ? `&period=${encodeURIComponent(period)}` : '';
-  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}${per}" width="${maxW}" alt="${lbl} DataTradingPro" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
+  // `ccy` (15/08) : la courbe d'UNE devise, comme sous chaque bloc devise du Récap Hebdo du desk.
+  const cc = /^[A-Za-z]{3}$/.test(String(ccy || '')) ? `&ccy=${String(ccy).toUpperCase()}` : '';
+  const alt = ccy ? `Force du ${String(ccy).toUpperCase()} DataTradingPro` : `${lbl} DataTradingPro`;
+  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}${per}${cc}" width="${maxW}" alt="${alt}" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
 }
 // AGENDA en HTML (table facon calendrier du desk) construit a partir des MEMES evenements que le texte du mail
 // (context.upcoming) -> COHERENCE garantie : l'evenement annonce dans l'accroche figure toujours dans l'agenda.
@@ -1255,7 +1258,17 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // centrale et pricing, moteurs, semaine à venir, biais. Le lecteur ne retrouvait donc pas le
   // rapport qu'on lui promettait. Les trois devises de l'aperçu portent désormais TOUTES ces
   // rubriques, avec les mêmes intitulés et dans le même ordre.
-  const _ssTitre = t => `<div style="color:#8b93a1;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px;">${_esc(t)}</div>`;
+  // SOUS-TITRES EN BLANC (15/08, demande user « pour que ça ressorte bien comme dans le desk ») :
+  // le desk les peint avec `var(--text)`, c'est-à-dire la couleur de texte pleine, pas le gris des
+  // libellés secondaires. En gris, ils se noyaient dans les puces qu'ils sont censés annoncer.
+  const _ssTitre = t => `<div style="color:#e6e6ea;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 5px;">${_esc(t)}</div>`;
+  // ── L'OUVERTURE EST UN VRAI PARAGRAPHE (15/08, demande user « c'est pas sous forme de paragraphe »)
+  // Elle était coupée net à 460 caractères et tenait dans un seul <p> : le lecteur recevait une
+  // phrase tronquée en plein milieu, là où le rapport ouvre sur un texte complet, aéré, avant la
+  // section Géopolitique. On ne tronque plus et on respecte les sauts de ligne du rapport, comme
+  // le fait `_wrParas` côté desk.
+  const _introParas = t => String(t || '').split(/\n+/).map(x => x.trim()).filter(Boolean)
+    .map(x => `<p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#e6e6ea;">${_esc(x)}</p>`).join('');
   const _puce = h => `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:2px 0;">${h}</div>`;
   // Même grammaire que le rapport : « CPI Y/Y : publié 3,5 % · attendu 3,8 % · préc. 3,4 % → lecture (15 juil.) ».
   const _CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
@@ -1304,8 +1317,11 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
           : `<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(q.speaker || ''))}</span>${q.date ? ` <span style="color:#6b7280;">(${_esc(_md(q.date))})</span>` : ''} → ${_esc(_md(q.text || ''))}`)).join('');
       const _cbTxt = cd.monetaryPolicy ? `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:2px 0;">${_esc(_cutTxt(_md(cd.monetaryPolicy), 260))}</div>` : '';
       const _pri = cd.pricing ? _puce(`<span style="color:#f3c344;font-weight:600;">Pricing :</span> ${_esc(_md(cd.pricing))}`) : '';
+      // « BANQUE CENTRALE » et non « Fed / Pricing » (15/08, demande user) : un intitulé unique pour
+      // les huit devises, qui se lit sans connaître le sigle de chaque institution. Le nom de la
+      // banque reste visible, porté par la posture et les propos juste en dessous.
       const _cb = (_cbTxt || _cbB || _pri)
-        ? _ssTitre((_BK_MAIL[c] || 'Banque centrale') + ' / Pricing' + (cd.cbStance ? ' · ' + _md(cd.cbStance) : '')) + _cbTxt + _cbB + _pri : '';
+        ? _ssTitre('Banque centrale' + (cd.cbStance ? ' · ' + _md(cd.cbStance) : '')) + _cbTxt + _cbB + _pri : '';
       // Moteurs : TOUTES les lignes intitulées du rapport, pas seulement la première. La
       // géopolitique en est exclue (15/08) : le fil géo est déjà raconté plus haut.
       const _geoDrv = /^(?:(?:risques?|tensions?)\s+g[ée]opolit|g[ée]opolit|conflit|sanctions?|guerre(?!\s+commercial))/i;
@@ -1322,6 +1338,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       return `<tr><td style="padding:12px 0;border-top:1px solid #1f1f24;">
         <span style="color:#f3c344;font-weight:800;font-size:13.5px;">${c}</span>${biasBadge}${_th}
         <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:3px;">${_esc(_cutTxt(_txt, 300))}</div>
+        ${_widgetImg('strength', 'Force ' + c, 532, 'week', c)}
         ${_gro}${_emp}${_inf}${_cb}${_drv ? _ssTitre('Moteurs de la semaine') + _drv : ''}${_sav}${_bsc}
       </td></tr>`;
     }).join('');
@@ -1449,7 +1466,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 4px;color:#9aa3b2;font-size:13px;">La semaine de marché, relue par le desk.</p>
     ${insightsHtml}
-    ${lead ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#e6e6ea;">${_esc(lead).slice(0, 460)}</p>` : ''}
+    ${_introParas(lead)}
     ${geoHtml ? _sec(geoTitle) + geoHtml : ''}
     ${curHtml ? _sec('La semaine devise par devise') + curHtml : ''}
     <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Vous venez de lire le Récap Hebdo tel qu&rsquo;il paraît sur le desk, avec ses rubriques et son déroulé, mais limité à <strong style="color:#fff;">trois devises sur huit</strong>. Le rapport complet reprend les cinq autres au même niveau de détail, avec la courbe de force de chaque devise et le calendrier de la semaine.</p>
