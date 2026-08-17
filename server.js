@@ -6476,7 +6476,7 @@ async function _fetchWellsInto(merged, UA) {
     const res = await axios.get('https://www.wellsfargo.com/cib/insights/economics/', { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
     if (res.status === 200) {
       const $ = cheerio.load(res.data);
-      const neufs = [];
+      const liens = [];
       $('a[href*="bluematrix.com/docs/html"]').each((_, a) => {
         let href = ($(a).attr('href') || '').trim();
         if (href.startsWith('//')) href = 'https:' + href;
@@ -6485,12 +6485,18 @@ async function _fetchWellsInto(merged, UA) {
         const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
         if (title.length < 6) return;
         const id = _pubId('br-', href);
-        if (!merged.has(id)) neufs.push({ id, titre: title.slice(0, 120), url: href });
+        const ex = merged.get(id);
+        if (ex && ex._seed) return;                      // seed : date deja fiable, on n y touche pas
+        if (!liens.some(l => l.id === id)) liens.push({ id, titre: title.slice(0, 120), url: href, ex });
       });
-      // La liste CIB ne date pas ses cartes : on va chercher la date a la source (Last-Modified),
-      // et a defaut seulement on marque la date comme inconnue plutot que d afficher aujourd hui.
-      for (const n of neufs.slice(0, 12)) {
-        const vraie = await _wellsDatePubliee(n.url, UA);
+      // La liste CIB ne date pas ses cartes : on va chercher la date a la source (Last-Modified).
+      // On sonde AUSSI les liens deja connus : sans cela, un rapport entre un jour sans date gardait
+      // a jamais son heure de decouverte (c est exactement ce que la prod a montre le 17/08).
+      const lot = liens.slice(0, 12);
+      const dates2 = await Promise.all(lot.map(l => _wellsDatePubliee(l.url, UA)));
+      for (let k = 0; k < lot.length; k++) {
+        const n = lot[k], vraie = dates2[k];
+        if (n.ex) { _majDatation(n.ex, vraie, !vraie); continue; }
         merged.set(n.id, { id: n.id, title: n.titre, url: n.url, timestamp: vraie || Date.now(),
           ...(vraie ? {} : { dateInconnue: true }),
           categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
