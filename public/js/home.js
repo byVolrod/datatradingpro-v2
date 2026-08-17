@@ -90,6 +90,24 @@
   }
   var _icoHorloge = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 
+  // Icône d'une disposition, lue au catalogue exposé par widgets.js (DTPWidgets.layoutIcons).
+  // Rend '' si la disposition n'a pas d'icône, si l'id est hors catalogue, ou si widgets.js n'est
+  // pas encore chargé : c'est la MÊME course de chargement que DTPWidgets.thumb juste au-dessus,
+  // et le MÊME rattrapage la couvre (les deux outils arrivent dans le même fichier, la rangée de
+  // cartes est reconstruite dès qu'il est là). Le catalogue est mis en cache local au premier succès.
+  var _icoCat = null;
+  function _icoLayout(id) {
+    if (!id) return '';
+    try {
+      if (!_icoCat && window.DTPWidgets && DTPWidgets.layoutIcons) {
+        _icoCat = {};
+        DTPWidgets.layoutIcons().forEach(function (ic) { if (ic && ic.id) _icoCat[ic.id] = ic.svg || ''; });
+      }
+    } catch (e) {}
+    var svg = _icoCat && _icoCat[id];
+    return svg ? '<span class="home-card-ico" aria-hidden="true">' + svg + '</span>' : '';
+  }
+
   function layoutCards(cfg) {
     _cfgCourante = cfg;
     var lays = (cfg && cfg.layouts || []).filter(function (l) { return l && !l.hidden; }).slice(0, 8);
@@ -113,7 +131,10 @@
         + (vide ? '<span class="home-card-face"><span class="home-card-vide">Desk vide</span></span>'
                 : (mini ? '<span class="home-card-face">' + mini + '</span>' : ''))
         + '<span class="home-card-fav">' + (l.fav ? '★' : '') + '</span>'
-        + '<span class="home-card-nom">' + esc(l.name || 'Desk') + '</span>'
+        // Icône de la disposition (18/08) : même signe que dans la barre d'onglets du desk, devant
+        // le nom. `_icoLayout` rend '' pour une disposition sans icône ou un id hors catalogue :
+        // les cartes existantes ne bougent pas d'un pixel.
+        + '<span class="home-card-nom">' + _icoLayout(l.ico) + esc(l.name || 'Desk') + '</span>'
         + '<span class="home-card-pied">'
         +   (l.maj ? '<span class="home-card-date">' + _icoHorloge + _dateCourte(l.maj) + '</span>'
                    : '<span class="home-card-meta">' + n + ' widget' + (n > 1 ? 's' : '') + '</span>')

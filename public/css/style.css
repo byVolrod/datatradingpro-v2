@@ -17213,3 +17213,9 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
     overflow: visible; min-height: 0;
   }
 }
+
+/* Icône de disposition sur la carte « Mes desks » (18/08) : même signe que la barre d'onglets du
+   desk, posé devant le nom. inline-flex + alignement central pour que le trait de l'icône s'assoie
+   sur la ligne de base du nom, quelle que soit la taille de police de la carte. */
+.home-card-ico { display: inline-flex; align-items: center; vertical-align: -2px; margin-right: 6px; color: var(--orange, #e3b23a); }
+.home-card-ico svg { width: 14px; height: 14px; }
