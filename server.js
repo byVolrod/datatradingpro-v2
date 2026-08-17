@@ -5977,7 +5977,14 @@ function _mufgAdd(merged, seen, href, cat, cutoff, dateCarte) {
     .replace(/-/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase())
     .replace(/\b(Fx|Us|Usd|Eur|Jpy|Gbp|Cad|Aud|Nzd|Chf|Cny|Ai|Ecb|Boj|Fed|Cpi|Gdp|Em)\b/gi, m => m.toUpperCase());
   const id = _pubId('br-', link);
-  if (merged.has(id)) return;
+  // Un rapport DEJA en cache garde sa datation d origine : c est ainsi qu un slug menteur survivait
+  // au correctif (mesure en prod : « weekly-28-july-2026 » restait au 28/07 alors que la carte dit
+  // le 21/07). La carte etant la source qui fait foi, elle corrige aussi l existant.
+  if (merged.has(id)) {
+    const ex = merged.get(id);
+    if (dateCarte && ex && ex.timestamp !== dateCarte) { ex.timestamp = dateCarte; delete ex.dateInconnue; }
+    return;
+  }
   merged.set(id, { id, title, url: link, timestamp: ts, ...(dateInconnue ? { dateInconnue: true } : {}), categories: [cat.toUpperCase()], description: '', institution: 'MUFG', _source: 'mufg' });
 }
 async function _fetchMufgInto(merged, cutoff, UA) {
