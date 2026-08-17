@@ -692,6 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260817-news-alignement', ts: Date.UTC(2026, 7, 18, 0, 0), title: 'Fil d actualité : la description alignée sous le titre', desc: 'Le texte déplié d une actualité était décalé vers la droite par rapport à la première lettre du titre. Il commence désormais exactement sous le titre, ce qui rend la lecture plus nette.' },
   { id: 'dtpu-20260817-dmx-paire', ts: Date.UTC(2026, 7, 17, 23, 0), title: 'Nouveau widget : le DMX d une seule paire, en anneau', desc: 'En complément de l Aperçu DMX qui liste toutes les paires, un nouveau widget isole LA paire de votre choix et montre le partage acheteurs/vendeurs en anneau. La paire se choisit dans les réglages, parmi les 39 paires suivies.' },
   { id: 'dtpu-20260817-seances-horaires', ts: Date.UTC(2026, 7, 17, 22, 0), title: 'Sessions de marché : la carte ou les horaires, au choix', desc: 'Le widget Sessions de marché propose un second affichage dans ses réglages : une frise des horaires d\x27ouverture des quatre places, à votre heure, avec le repère de l\x27instant présent. Plus lisible que la mappemonde quand la carte est basse.' },
   { id: 'dtpu-20260817-eclairages-corps', ts: Date.UTC(2026, 7, 17, 21, 0), title: 'Rapports : les Éclairages IA ne restent plus muets sur Nordea et Goldman', desc: 'Certains rapports affichaient « Éclairages IA indisponibles ». Deux causes : Nordea publie ses articles dans une application dont la page ne contient aucun texte, et chez Goldman Sachs le lecteur ne récupérait que le pied de page du site. Le desk va désormais chercher le corps du rapport au bon endroit dans les deux cas.' },
@@ -1029,6 +1030,11 @@ function _wdgClean(body) {
       return {
         id,
         name: String(l.name || 'Sans nom').replace(/[<>]/g, '').trim().slice(0, 40) || 'Sans nom',
+        // ICÔNE de la disposition (17/08) : un simple identifiant du catalogue front (« graphe »,
+        // « boussole »…). Le serveur ne connaît pas ce catalogue et n'a pas à le connaître : il valide
+        // la FORME, comme pour `cfg`. ⚠️ Sans cette reprise, le champ serait DÉTRUIT au premier save
+        // et l'icône choisie disparaîtrait au rechargement — le piège déjà rencontré sur gw/gh.
+        ico: (typeof l.ico === 'string' && /^[a-z0-9-]{1,20}$/.test(l.ico)) ? l.ico : undefined,
         fav: !!l.fav,
         hidden: !!l.hidden,   // layout MASQUÉ (fermé) : absent de la barre d'onglets, ré-ouvrable au gestionnaire
         // Date de dernière modification (12/08) : affichée sur la carte d'accueil, comme une

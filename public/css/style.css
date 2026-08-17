@@ -1613,7 +1613,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .news-item--urgent:has(.news-description.visible)   { background: #241414 !important; }
 .news-item--breaking:has(.news-description.visible) { background: #241415 !important; }
 .news-description.visible { color: #8b8b95; }              /* sous-detail : texte gris plus doux que le titre */
-.news-description.visible .article-points { padding-left: 22px; }  /* contenu legerement decale a droite vs le titre (indentation) */
+/* Le contenu déplié s'aligne sur la PREMIÈRE LETTRE DU TITRE (17/08, demande user : « la description
+   est décalée vers la droite »). Le conteneur .news-description porte déjà le retrait qui le place
+   sous le titre (--news-desc-bleed) ; les 22px ajoutés ici décalaient donc le texte d'autant vers la
+   droite, sans rien aligner. Les puces ayant été retirées le 14/08 (list-style: none), ce retrait ne
+   servait plus à loger un marqueur : il ne produisait qu'un désalignement. */
+.news-description.visible .article-points { padding-left: 0; }
 .news-headline--clickable { cursor: pointer; }
 .news-headline--clickable:hover { text-decoration: none; }   /* pas de soulignement au survol */
 
