@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260817bbg708" />
+  <link rel="stylesheet" href="/css/style.css?v=20260817bbg709" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260817bbg708"></script>
+  <script defer src="/js/noinspect.js?v=20260817bbg709"></script>
 </head>
 <body>
 
@@ -670,10 +670,15 @@
         <!-- Rangée d'outils (organisation façon panneau Widgets d'un terminal pro, identité DTP) :
              puces de CATÉGORIES à gauche + réglage d'ESPACEMENT du desk à droite (déplacé depuis la barre) -->
         <div class="wdg-lib-tools">
+          <!-- ⚠️ `data-fam` et l'argument de filterFam DOIVENT être le nom de famille EXACT du
+               catalogue (widgets.js, tableau FAMS) : le filtre compare des chaînes. La puce
+               « Analyse de marché » envoyait 'Analytics', un nom abandonné lors de la traduction FR
+               des familles. Mesuré : 0 carte sur 11 et l'écran « Rien ne correspond à «  » ». -->
           <div class="wdg-lib-chips" id="wdg-lib-chips">
             <button class="wdg-chip on" data-fam="" onclick="DTPWidgets.filterFam('')">Tous</button>
-            <button class="wdg-chip" data-fam="Analytics" onclick="DTPWidgets.filterFam('Analytics')">Analyse de marché</button>
+            <button class="wdg-chip" data-fam="Analyse de marché" onclick="DTPWidgets.filterFam('Analyse de marché')">Analyse de marché</button>
             <button class="wdg-chip" data-fam="Fonctions" onclick="DTPWidgets.filterFam('Fonctions')">Données &amp; outils</button>
+            <button class="wdg-chip" data-fam="Vues du desk" onclick="DTPWidgets.filterFam('Vues du desk')">Vues du desk</button>
             <button class="wdg-chip" data-fam="_tpl" onclick="DTPWidgets.filterFam('_tpl')">Modèles prêts</button>
           </div>
           <div class="wdg-density" id="wdg-density" title="Espacement entre les widgets du desk">
@@ -920,16 +925,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260817bbg708"></script>
-<script defer src="/js/app.js?v=20260817bbg708"></script>
-<script defer src="/js/charts.js?v=20260817bbg708"></script>
-<script defer src="/js/sessionmap.js?v=20260817bbg708"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260817bbg709"></script>
+<script defer src="/js/app.js?v=20260817bbg709"></script>
+<script defer src="/js/charts.js?v=20260817bbg709"></script>
+<script defer src="/js/sessionmap.js?v=20260817bbg709"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260817bbg708"></script>
-<script defer src="/js/home.js?v=20260817bbg708"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260817bbg708"></script>
-<script defer src="/js/i18n.js?v=20260817bbg708"></script>
+<script defer src="/js/widgets.js?v=20260817bbg709"></script>
+<script defer src="/js/home.js?v=20260817bbg709"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260817bbg709"></script>
+<script defer src="/js/i18n.js?v=20260817bbg709"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

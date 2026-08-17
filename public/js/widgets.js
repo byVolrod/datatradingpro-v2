@@ -3523,7 +3523,10 @@
     var tplHtml = (PRESETS.some(pmatch) && (_libFam === '' || _libFam === '_tpl'))
       ? '<div class="wdg-lib-sec">' + (PRESETS.length > 1 ? 'Modèles prêts' : 'Modèle prêt') + '</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
 
-    var FAM_SUB = { Analytics: 'Analyse de marché', Fonctions: 'Données & outils', 'Vues du desk': 'Les onglets de la nav, en carte' };
+    // ⚠️ La clé DOIT être le nom de famille tel qu'il figure dans FAMS ci-dessus : ce dictionnaire est
+    // lu en FAM_SUB[fam]. La clé était 'Analytics' alors que la famille s'appelle 'Analyse de marché'
+    // → la PLUS GROSSE rubrique (11 widgets sur 25) était la seule sans sous-titre, en silence.
+    var FAM_SUB = { 'Analyse de marché': 'Ce que dit le marché', Fonctions: 'Données & outils', 'Vues du desk': 'Les onglets de la nav, en carte' };
     // FAVORIS (10/08, phase 2) : étoile en coin de carte → épingle le widget ; section « Favoris »
     // TOUJOURS en tête (accès en un geste aux widgets qu'on ajoute souvent). Persistés par compte
     // (cfg.wfavs, mêmes save/KV que le reste). L'étoile est un <span role=button> : un <button> dans
@@ -3532,7 +3535,10 @@
     var favSet = {}; favIds.forEach(function (x) { favSet[x] = 1; });
     var _card = function (w) {
       // Carte façon terminal pro : APERÇU visuel du widget (vignette dessinée) au-dessus, nom + description dessous.
-      return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
+      // L'infobulle porte AUSSI la description : depuis que la carte coupe le texte à deux lignes
+      // pleines (grille de hauteur régulière), c'est le seul endroit où lire une description longue
+      // sans ajouter le widget. Les descriptions vont de 38 à 112 caractères, une poignée dépasse.
+      return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' » · ' + esc(w.desc) + '">'
         + '<span class="wdg-lib-fav' + (favSet[w.id] ? ' on' : '') + '" role="button" tabindex="0"'
         +   ' title="' + (favSet[w.id] ? 'Retirer des favoris' : 'Épingler en favori (section Favoris en tête)') + '"'
         +   ' onclick="event.stopPropagation();DTPWidgets.toggleWfav(\'' + w.id + '\')"'

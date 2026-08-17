@@ -16108,8 +16108,10 @@ body.dtp-admin .view-panel > .panel > .panel-header {
 .wdg-mgr-foot .wdg-btn{ font-size: 11.5px; }
 .wdg-mgr-card--new{ font-size: 12px; }
 
-/* 5. La bibliothèque suit la même règle : nom du widget et sa description. */
-.wdg-lib-card .wdg-lib-nom, .wdg-lib-nom{ font-size: 12.5px; }
+/* 5. La bibliothèque suit la même règle : nom du widget et sa description.
+   ⚠️ La ligne « .wdg-lib-nom » a été RETIRÉE : cette classe n'existe nulle part (0 occurrence dans
+   widgets.js et index.html), le nom réel est .wdg-lib-name. Elle laissait croire que la taille du
+   titre se réglait ici. Le bloc de lisibilité en fin de fichier est la source de vérité. */
 .wdg-lib-card .wdg-lib-desc, .wdg-lib-desc{ font-size: 11.5px; line-height: 1.5; color: var(--text2, #9aa3b2); }
 
 /* ══ APERÇU DU DESK sur les cartes « Mes desks » (06/08) ══════════════════════════════════════════
@@ -17043,4 +17045,171 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   .wdg-ico-grid { grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); }
   .wdg-ico-pick { height: 42px; }
   .wdg-nom-actions .wdg-btn { flex: 1 1 auto; }
+}
+
+/* ══ BIBLIOTHÈQUE DE WIDGETS : LISIBILITÉ ══════════════════════════════════════════════════════
+   Ce bloc est la SOURCE DE VÉRITÉ de la lecture d'une carte de bibliothèque. Les réglages étaient
+   dispersés sur cinq endroits (l.11777, 12286, 12371, 12407, 14487) qui se recouvraient sans se
+   connaître : c'est le dernier qui gagne, donc éditer un des blocs antérieurs ne produisait rien.
+   Objectif : balayer la grille et comprendre ce que fait chaque widget sans lire mot à mot.
+   ⚠️ CONVERSION : style.css l.82 pose html{zoom:.9}. Toute valeur déclarée ici s'affiche à 90 %
+   (14px déclarés = 12,6px à l'écran). Les seuils cités en commentaire sont en px ÉCRAN. */
+
+/* 1. POLICE DE LA CARTE. La carte est un <button> et aucune règle ne posait font-family dessus.
+   Le titre forçait Inter Tight, mais la description retombait sur la police PAR DÉFAUT du
+   navigateur (mesuré : Arial) : deux familles typographiques dans la même carte, sur les 25. */
+.wdg-lib-card { font-family: var(--font-ui); }
+
+/* 2. HIÉRARCHIE TITRE / DESCRIPTION. Avant : 13px contre 11,5px, soit un ratio de 1,13, sous le pas
+   minimal de 1,2 d'une échelle typographique ; seules la graisse et la couleur séparaient les deux
+   niveaux, et la gouttière de 2px valait 10 % de l'interligne de la description. Le titre est le
+   point d'accroche du balayage : il passe à 14px (ratio 1,217) avec un interligne serré pour tenir
+   quand il double de ligne, et la gouttière double. Aucune couleur criarde ajoutée : l'or reste
+   réservé aux rubriques, le titre gagne par la taille et l'espace. */
+.wdg-lib-card .wdg-lib-name { font-size: 14px; line-height: 1.25; letter-spacing: -.005em; color: var(--text); }
+.wdg-lib-card .wdg-lib-main { gap: 4px; }
+
+/* 3. TRONCATURE PROPRE ET GRILLE RÉGULIÈRE. Avant : aucune troncature, donc les cartes
+   GRANDISSAIENT (68,6 ou 82,3px écran selon le texte, jusqu'à 113,4px à 640px) ; le contenu étant
+   centré verticalement, une carte étirée gagnait 6,9px de vide en haut et en bas et le titre ne
+   retombait jamais sur la même ligne d'une rangée à l'autre. La description est désormais coupée à
+   DEUX LIGNES ENTIÈRES, en fin de mot, avec points de suite (line-clamp) ; min-height réserve ces
+   deux lignes même quand le texte tient sur une, donc toutes les cartes font la même hauteur et
+   l'oeil descend sans à-coups. 3em = 2 lignes exactement (11,5px x 1,5 x 2 = 34,5px = 3 x 11,5),
+   et l'unité em suit la taille : le bloc téléphone à 11px retombe pile sur 2 lignes lui aussi.
+   ⚠️ CE QUE LA COUPE COÛTE, mesuré sur les 25 descriptions réelles : 8 coupées au grand écran,
+   11 dans la bande à 2 colonnes serrées, 19 à 320px de large. Le texte entier reste dans
+   l'infobulle du survol, donc HORS DE PORTÉE AU DOIGT. C'est pourquoi la coupe est levée sur
+   téléphone (bloc 12 en fin de fichier) : la hauteur régulière sert à aligner les RANGÉES d'une
+   grille à plusieurs colonnes, et sur téléphone il n'y a qu'une colonne, donc aucune rangée à
+   aligner et plus aucune raison de cacher du texte qu'on ne peut pas révéler autrement. */
+.wdg-lib-card .wdg-lib-desc {
+  font-size: 11.5px; line-height: 1.5; color: var(--text2);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; min-height: 3em;
+}
+
+/* 4. UNE VOIE RÉSERVÉE AU BADGE. Le « + » (et le badge N× quand le widget est déjà posé) est en
+   position:absolute top:8 right:8 AU-DESSUS de la colonne de texte, qui n'avait aucune réserve à
+   droite. Mesuré : le titre passait sous le badge entre 561 et 639px de large (jusqu'à 44,3 px² de
+   recouvrement) et même à 1440px la marge encre/badge était déjà négative (-4,2px, -6,0px avec le
+   N×) : seule la position verticale évitait le contact. On réserve une voie à droite, le texte
+   s'arrête avant, le badge ne peut plus toucher un titre à aucune largeur.
+   ⚠️ LARGEUR DE LA VOIE = décalage droit + largeur du PLUS LARGE occupant, jamais un chiffre rond
+   choisi à vue. Occupants mesurés (px déclarés, la boîte est positionnée sur le bord intérieur de
+   la bordure, PAS sur le padding : un padding-right seul ne les repousse pas) :
+     · « + »         : 6 + 10,2 = 16,2
+     · badge « 24× »  : 6 + 18,1 = 24,1   (2 chiffres = le pire cas, _IMAX vaut 24)
+     · étoile         : 6 + 18,8 = 24,8, et 26,5 pendant le survol (transform: scale(1.18))
+   D'où 28px : le plus large (26,5) plus 1,5px. À 24px, mesuré, l'étoile mordait l'encre de la
+   description (jusqu'à 12,9 px² à 665px de large, marge -1,4px).
+   ⚠️ NE PAS rétrécir l'étoile pour gagner ces 4px : son rembourrage EST sa surface de clic, déjà
+   à 15px écran. Ce sont les 4px de la colonne de texte qui sont négociables, pas la cible. */
+.wdg-lib-row .wdg-lib-card--prev { padding-right: 28px; }
+/* Les deux occupants sont ramenés au MÊME décalage droit (6px) : ils se superposent verticalement
+   en haut et en bas de la même voie, et la voie n'a qu'une seule valeur à couvrir. */
+.wdg-lib-card--prev .wdg-lib-plus, .wdg-lib-card--prev .wdg-lib-used { right: 6px; }
+
+/* 5. L'ÉTOILE FAVORI QUITTE L'APERÇU. À top:5 left:7 elle recouvrait le coin haut-gauche de la
+   vignette sur 134 px², soit 52 % de sa propre surface, et tombait pile sur la première étiquette
+   de 8 aperçus (« 08:30 », « USD », « EURUSD », « SYD »...). Elle descend dans la voie réservée
+   ci-dessus, en diagonale du « + » : l'aperçu redevient entier et l'étoile reste dans un coin.
+   Décalage droit ramené de 7 à 6px, comme le « + » : les deux occupants de la voie s'alignent
+   verticalement et la voie n'a qu'une seule valeur à couvrir. Rembourrage laissé intact (c'est la
+   surface de clic). */
+.wdg-lib-card--prev .wdg-lib-fav { top: auto; bottom: 5px; left: auto; right: 6px; color: var(--text3); }
+/* Le survol et l'état épinglé sont redéclarés ICI : les règles d'origine (l.16456) sont antérieures
+   et de spécificité inférieure, la ligne ci-dessus les aurait écrasées et figé l'étoile en gris. */
+.wdg-lib-card--prev .wdg-lib-fav:hover, .wdg-lib-card--prev .wdg-lib-fav.on { color: var(--orange); }
+
+/* 6. AFFORDANCES LISIBLES. Le « + » (--w-t16, 2,17:1) et l'étoile (2,42:1) étaient les éléments les
+   plus faibles du panneau, alors que le « + » EST le geste d'ajout : sous les 3:1 attendus d'un
+   élément d'interface non textuel. --text3 les porte à 3,9:1 sans les rendre bavards, et le survol
+   vire à l'or (règle existante conservée). Le badge N× monte à --text2 : lui est du TEXTE, il doit
+   tenir le seuil AA de 4,5:1 comme la description. */
+.wdg-lib-card .wdg-lib-plus { color: var(--text3); }
+.wdg-lib-card .wdg-lib-used { color: var(--text2); }
+
+/* 7. RUBRIQUES NETTEMENT DISTINCTES DES CARTES. L'en-tête de rubrique était le PLUS PETIT texte du
+   panneau (9px écran, sous le titre de carte à 11,7 et sous la description à 10,35) : il ne se
+   distinguait que par les capitales et l'or. Sa respiration jouait contre lui (14,4px au-dessus
+   pour 9,0px en dessous : presque autant d'air des deux côtés, donc mal rattaché à SA grille).
+   Il grossit d'un cran, gagne un filet fin façon en-tête de colonne du desk, et l'air passe
+   franchement au-dessus pour qu'il colle aux cartes qu'il annonce. */
+.wdg-lib-grid .wdg-lib-sec {
+  margin: 20px 2px 0; padding-bottom: 6px; font-size: 11px; letter-spacing: .08em;
+  border-bottom: 1px solid var(--hud-line);
+}
+.wdg-lib-grid .wdg-lib-sec:first-child { margin-top: 0; }
+/* Sous-titre et compteur : --text3 donnait 3,88:1 à 9px écran, le texte le plus faible du panneau
+   et sous le seuil AA de 4,5:1. --text2 le porte à 6,8:1 sans le faire remonter au premier plan. */
+.wdg-lib-sub, .wdg-lib-cnt { color: var(--text2); font-size: 10.5px; }
+
+/* 8. LA CARTE SE DÉTACHE DU FOND. Fond de carte #101012 contre fond de panneau #0d0e11 : 1,10:1,
+   autrement dit rien ; c'était la vignette qui dessinait le bloc, pas la carte. La bordure passe de
+   --hud-line (blanc à 5,5 %) à --border, filet très sombre déjà employé par les cartes du desk :
+   le bloc se lit sans éclaircir un seul aplat. Le survol or est redéclaré pour la même raison de
+   spécificité qu'au point 5. */
+.wdg-lib-row .wdg-lib-card { border-color: var(--border); }
+.wdg-lib-row .wdg-lib-card:hover { border-color: rgba(227,178,58,.55); background: var(--w-s3); }
+
+/* 9. FIN DE LA BANDE À DEUX COLONNES SERRÉES. minmax(258px,1fr) faisait tenir 2 colonnes dès 561px
+   de large : des cartes de 258px où le titre passait sur 2 lignes, la description sur 3 à 5, et où
+   le badge percutait le titre.
+   ⚠️ LE SEUIL SE CALCULE, il ne se devine pas. La boîte vaut min(760px, 92%) et la grille lui prend
+   2px de bordure + 22 ou 28px de rembourrage + ~11px d'ascenseur : à 1440px de large la rangée
+   mesure 718,7px déclarés, donc 2 colonnes de 355,3px. Une colonne tombe dès que 2 × seuil + 8px
+   de gouttière dépasse la largeur de rangée disponible.
+     · seuil 320 → 2 colonnes dès 674px de fenêtre : mesuré à 665px, colonnes de 320px, 16 des 25
+       descriptions coupées, 4 au MILIEU d'un mot et 2 étoiles mordant le texte. Bande subie de
+       674 à 743px, soit le paysage d'un téléphone courant (667px).
+     · seuil 355 → 2 colonnes seulement quand la boîte plafonne, MAIS 2 × 355 + 8 = 718 frôle les
+       718,7px : un ascenseur plus large (Windows en barres classiques) ferait retomber le grand
+       écran à UNE colonne. Marge nulle, écarté.
+     · seuil 340 (retenu) → 2 colonnes à partir de ~714px de fenêtre, colonnes de 340 à 355px, et
+       11px de marge sur l'ascenseur au grand écran. La bande serrée passe de 82 à 30px. */
+.wdg-lib-grid .wdg-lib-row { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+
+/* 10. L'APERÇU REND DE LA LARGEUR AU TEXTE. La vignette prenait 112px (31 % de la largeur de carte,
+   36 % à 640px) et c'est ELLE qui fixait la hauteur, alors que 12 des 25 aperçus portent des
+   étiquettes SVG rendues entre 4,5 et 5,9px écran : de la texture, pas de l'information (le plus
+   petit texte assumé du desk est 9px). Elle descend à 88px de large pour 42px de haut, proportion
+   calée sur le viewBox 120x56 des aperçus BORDURE DÉDUITE (le dessin occupe 88-2 sur 42-2, soit le
+   ratio 120/56 à 0,14px près) : aucune bande vide n'apparaît autour. Les 24px de large récupérés
+   financent la voie de 28px du point 4 : la colonne de texte n'en perd que 4, et c'est le texte
+   qui fixe désormais la hauteur de la carte. */
+.wdg-lib-card--prev .wdg-lib-prev { flex: 0 0 88px; height: 42px; }
+
+/* 11. PLUS DE CARTES À L'ÉCRAN. Le panneau plafonnait à 78 % de la hauteur disponible et la grille
+   demandait 2,42 écrans de défilement. Les cartes ayant maintenant toutes la même hauteur, monter
+   à 86 % fait entrer une rangée de plus sans rien tasser. */
+.wdg-lib-box { max-height: 86%; }
+
+/* 12. TÉLÉPHONE. Le bloc mobile (l.12417, `@media (max-width: 560px)`) rabotait le titre à 12px et
+   la description à 10px, soit 9px écran une fois le zoom appliqué : le plancher de lisibilité du
+   desk, atteint par de la PROSE. Comme la grille est en une colonne pleine largeur, la place ne
+   manque pas : on garde une hiérarchie franche (ratio 1,227) à des tailles qui se lisent au doigt.
+   ⚠️ CE BLOC DOIT AVOIR LE MÊME SEUIL (560px) QUE CELUI QU'IL CORRIGE. Écrit à 900px, il rabotait
+   AUSSI la bande 561-900px, que la règle d'origine ne touchait pas : 2 colonnes serrées ET texte
+   réduit au même endroit, exactement là où les coupes au milieu d'un mot apparaissaient. */
+@media (max-width: 560px) {
+  .wdg-lib-card .wdg-lib-name { font-size: 13.5px; }
+  .wdg-lib-card .wdg-lib-desc { font-size: 11px; }
+  .wdg-lib-grid .wdg-lib-sec { font-size: 10.5px; margin-top: 16px; }
+  /* La règle d'origine posait déjà une colonne unique : on la redit ici, sinon le minmax du
+     point 9, plus tardif et plus spécifique, reprendrait la main. */
+  .wdg-lib-grid .wdg-lib-row { grid-template-columns: 1fr; }
+  /* Idem pour la hauteur : `.wdg-lib-box { max-height: 86% }` du point 11 est à la RACINE et donc
+     postérieure au bloc mobile d'origine (l.12407, même spécificité) : elle écrasait en silence le
+     84 % voulu sur téléphone. On le repose ici, après elle. */
+  .wdg-lib-box { max-height: 84%; }
+  /* COUPE LEVÉE (cf. point 3). Une colonne unique = aucune rangée à aligner, et l'infobulle qui
+     porte le texte complet n'existe pas au doigt : couper ici ne réglerait rien et cacherait 19
+     des 25 descriptions à 320px. Les cartes reprennent des hauteurs inégales, ce qui ne gêne pas
+     la lecture d'une liste verticale. `display: block` remet la boîte en flux normal : c'est le
+     display -webkit-box qui porte la coupe, la remettre à zéro sans lui ne suffirait pas. */
+  .wdg-lib-card .wdg-lib-desc {
+    display: block; -webkit-line-clamp: none; line-clamp: none;
+    overflow: visible; min-height: 0;
+  }
 }
