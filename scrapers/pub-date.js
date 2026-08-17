@@ -176,6 +176,20 @@ async function lotNordea(axios, UA) {
 function cleNordea(url) { const m = String(url || '').match(/\/article\/(\d+)/); return m ? m[1] : null; }
 
 /**
+ * Repli Nordea par article. La requête en lot est plafonnée à 50 côté serveur (en demander 100 en
+ * rend 50) : les publications plus anciennes en sortent. L'endpoint unitaire, lui, répond toujours.
+ */
+async function dateNordeaUnitaire(axios, UA, id) {
+  try {
+    const r = await axios.get('https://corporate.nordea.com/api/research/item/' + encodeURIComponent(id), {
+      timeout: 12000, validateStatus: s => s < 500,
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
+    });
+    return parseDate(r.data && r.data.publishTime);
+  } catch { return null; }
+}
+
+/**
  * Natixis : SPA Angular, mais l'API des publications répond en anonyme.
  *
  * L'appariement se fait par TITRE, pas par identifiant : le jeton présent dans l'URL d'article
@@ -246,7 +260,11 @@ async function resoudreDate(item, deps, lots) {
   if (!url) return null;
   lots = lots || {};
 
-  if (source === 'nordea') { const c = cleNordea(url); return (c && lots.nordea && lots.nordea.get(c)) || null; }
+  if (source === 'nordea') {
+    const c = cleNordea(url);
+    if (!c) return null;
+    return (lots.nordea && lots.nordea.get(c)) || await dateNordeaUnitaire(axios, UA, c);
+  }
   if (source === 'natixis') { const c = normTitre(item.title); return (c && lots.natixis && lots.natixis.get(c)) || null; }
 
   // UniCredit publie des PDF mensuels : le mois est dans le nom du fichier (DEF_ENG_MO_JUN26).
@@ -290,5 +308,5 @@ async function prechargerLots(sources, deps) {
 
 module.exports = {
   parseDate, plausible, texteDe, dateJsonLd, dateMeta, dateVisible, dateSelecteur,
-  resoudreDate, prechargerLots, lotNordea, lotNatixis, cleNordea, normTitre,
+  resoudreDate, prechargerLots, lotNordea, lotNatixis, cleNordea, normTitre, dateNordeaUnitaire,
 };

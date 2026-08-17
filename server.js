@@ -6675,6 +6675,11 @@ const _PUBDATE = require('./scrapers/pub-date');
 const _BR_DATES_KV = 'br:dates_pub';
 const _BR_DATES_MAX = 3000;              // borne mémoire : au-delà, on oublie les plus anciennes tentatives
 const _BR_DATES_RETRY = 7 * 864e5;       // une source muette n'est resondée qu'une fois par semaine
+// Version de la MÉTHODE de résolution. Un échec mémorisé ne vaut que pour la méthode qui l'a produit :
+// quand on améliore une source, il faut rejouer ses échecs sans attendre la fenêtre d'une semaine.
+// v2 : repli Nordea par article (la requête en lot est plafonnée à 50, les publications plus anciennes
+// en sortaient et restaient sans date alors que l'endpoint unitaire les connaît).
+const _BR_DATES_VER = 2;
 // Plafond de pages sondées par rafraîchissement. 120 vide le retard d'un seul tour (mesuré en prod :
 // 96 publications à dater après la bascule) ; ensuite le régime de croisière est de quelques unités,
 // puisque chaque date résolue est mémorisée et n'est plus jamais redemandée. Quatre requêtes de front.
@@ -6707,7 +6712,8 @@ async function _brResoudreDates(items) {
     if (!it || !it.dateInconnue || !it.url) continue;
     const su = mem[it.url];
     if (su && su.d) { it.timestamp = su.d; delete it.dateInconnue; continue; }        // déjà résolue
-    if (su && !su.d && maintenant - (su.a || 0) < _BR_DATES_RETRY) continue;          // muette, trop tôt
+    // Échec déjà constaté : on ne réessaie ni avant la fenêtre, ni si la méthode n'a pas changé.
+    if (su && !su.d && (su.v || 1) === _BR_DATES_VER && maintenant - (su.a || 0) < _BR_DATES_RETRY) continue;
     aFaire.push(it);
   }
   if (!aFaire.length) return 0;
@@ -6724,7 +6730,7 @@ async function _brResoudreDates(items) {
       const it = lot[curseur++];
       let d = null;
       try { d = await _PUBDATE.resoudreDate(it, deps, lots); } catch {}
-      mem[it.url] = { d: d || 0, a: Date.now() };
+      mem[it.url] = { d: d || 0, a: Date.now(), v: _BR_DATES_VER };
       if (d) { it.timestamp = d; delete it.dateInconnue; resolues++; }
     }
   };
