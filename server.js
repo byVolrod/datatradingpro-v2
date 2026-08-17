@@ -692,6 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260817-banques-rapports', ts: Date.UTC(2026, 7, 17, 14, 0), title: 'Recherche institutionnelle : les rapports manquants sont de retour', desc: 'Quand une banque publiait plusieurs notes le même jour, une seule arrivait dans le desk et les autres étaient perdues en silence. Pour MUFG, cela représentait un rapport reçu sur cinq. Tous remontent désormais, pour toutes les banques. Les archives d années passées cessent aussi de réapparaître datées du jour en tête de liste.' },
   { id: 'dtpu-20260817-bandeau-defile', ts: Date.UTC(2026, 7, 17, 13, 0), title: 'Accueil : le bandeau de cotations défile, sans barre', desc: 'La barre de défilement apparue sous le bandeau est retirée, et la bande avance de nouveau toute seule, en continu, quels que soient les réglages d’animation de votre système. Passez la souris dessus pour la mettre en pause et lire une cotation au calme.' },
   { id: 'dtpu-20260817-bandeau-anim', ts: Date.UTC(2026, 7, 17, 12, 0), title: 'Accueil : le bandeau défile même avec les animations réduites', desc: 'Si votre système demande aux applications de limiter les animations, le bandeau de cotations s’arrêtait complètement. Un téléscripteur dont le mouvement EST le contenu : le couper supprimait sa fonction. Il défile désormais deux fois plus lentement dans ce mode, au lieu de se figer, et reste arrêtable d’un survol ou défilable à la main.' },
   { id: 'dtpu-20260817-bandeau-vitesse', ts: Date.UTC(2026, 7, 17, 9, 0), title: 'Accueil : le bandeau de cotations défile enfin visiblement', desc: 'Le bandeau du haut avançait d’un caractère toutes les cinq secondes : il défilait, mais trop lentement pour qu’on le voie. Sa vitesse est désormais constante et lisible, quel que soit le nombre de paires affichées. Et si votre système demande aux applications de limiter les animations, la bande ne bouge plus mais devient défilable à la main : vous gardez accès à toutes les cotations.' },
@@ -3868,7 +3869,7 @@ function _swParseRssItem($, el, filterByTitle) {
   else if (/asia[\s-]?pacific|asian/i.test(title))  session = 'Asia-Pacific';
 
   return {
-    id:          'sw-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16),
+    id:          _pubId('sw-', link),
     title,
     url:         link,
     timestamp:   ts,
@@ -4000,14 +4001,14 @@ async function _fetchSessionWraps(full = false) {
           // Slug SANS date (« …-market-news-wrap-oil-nzd-up ») : on lira la date sur la PAGE de l'article
           // (sinon ce wrap manquait dans la liste — ex. le Récap Asie du 14/07, bug signalé).
           const _lk = `https://investinglive.com/news/${slug}/`;
-          const _uid = 'sw-' + Buffer.from(_lk).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+          const _uid = _pubId('sw-', _lk);
           if (!merged.has(_uid) && _swUndated.length < 4) _swUndated.push({ slug, session, sh, link: _lk, id: _uid });
           continue;
         }
         if (!ts || ts < cutoff) continue;
         anyRecent = true;
         const link = `https://investinglive.com/news/${slug}/`;
-        const id   = 'sw-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
+        const id   = _pubId('sw-', link);
         if (merged.has(id)) {
           // déjà présent (RSS = pubDate réelle, ou scrape antérieur). On CORRIGE juste un timestamp resté
           // sur l'ancien défaut NOON (12:00:00 pile) → heure par session, sans toucher au titre/contenu RSS.
@@ -5829,6 +5830,19 @@ app.get('/api/session-wrap-content', async (req, res) => {
 
 // ── ING Think Bank Research ───────────────────────────────────────────────────
 // Filtres d'affichage des rapports de banque — appliqués au CHARGEMENT, à la DIFFUSION et à la PERSISTANCE.
+/* ── IDENTIFIANTS DE PUBLICATION : UN VRAI CONDENSAT (17/08/2026) ────────────────────────────────
+   AVANT : `Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16)`.
+   La FIN du base64 reflete la FIN de la chaine encodee. Or les URL d une meme banque partagent
+   massivement leur suffixe : toutes les publications MUFG du jour finissent par « -17-august-2026/ ».
+   MESURE FAITE SUR LES VRAIES URL : cinq rapports differents du 17 et du 14 aout, dans trois
+   rubriques distinctes (/fx/, /macro/, /rates/), recevaient TOUS l identifiant br-hdWd1c3QtMjAyNi8.
+   Et comme l ingestion fait `if (merged.has(id)) return`, seul le PREMIER survivait : les autres
+   etaient jetes en silence. C est la cause des banques qui « n arrivaient plus » — 20 items retenus
+   sur 94 liens pour le seul MUFG.
+   Un condensat depend de TOUTE l entree : deux URL differentes ne peuvent plus se confondre. */
+function _pubId(prefixe, entree) {
+  return prefixe + require('crypto').createHash('sha1').update(String(entree)).digest('hex').slice(0, 16);
+}
 const _BR_REMOVED = new Set(['amundi', 'lloyds']);   // banques retirées (Lloyds = lloydsbank.com BLOQUÉ depuis l'IP serveur → « Internet Banking - Error » ; Danske RÉACTIVÉ via PDF natifs)
 // Standard Chartered : on ne publie QUE les « Weekly Market View » (URL wm-weekly-market-view-…),
 // jamais les liens parasites de la même page (Modern slavery statement, Code of Conduct, Download the report…).
@@ -5877,7 +5891,7 @@ function _parseResearchFeed(xml, feed, cutoff, merged) {
       .replace(/\b(?:read more|continue reading|lire la suite(?: du rapport)?)\b[\s\S]*$/i, '')
       .replace(/&#8230;|…/g, '')
       .replace(/\s+/g, ' ').trim().slice(0, 400);
-    const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
+    const id = _pubId('br-', link);
     merged.set(id, {
       id, title, url: link,
       timestamp:   ts || Date.now(),
@@ -5914,13 +5928,23 @@ function _mufgAdd(merged, seen, href, cat, cutoff) {
   seen.add(href);
   const link = 'https://www.mufgresearch.com' + href;
   const slug = href.replace(new RegExp('^/' + cat + '/', 'i'), '').replace(/\/+$/, '');
-  const ts = _mufgParseDate(slug) || Date.now();
+  // ⚠️ Une publication dont la date ne s'analyse PAS recevait l'heure courante, donc passait pour
+  // le rapport du jour. Mesuré : « /credit/europe-credit-global-markets-monthly-june-2023/ »
+  // remontait daté d'aujourd'hui, en tête de liste. Avant de se rabattre sur maintenant, on cherche
+  // donc une ANNÉE dans l'adresse : si elle est antérieure à l'année en cours, c'est une archive et
+  // on l'écarte plutôt que de la faire passer pour neuve.
+  let ts = _mufgParseDate(slug);
+  if (!ts) {
+    const an = String(slug).match(/\b(20\d{2})\b/);
+    if (an && Number(an[1]) < new Date().getFullYear()) return;   // archive datée d'une année passée
+    ts = Date.now();
+  }
   if (ts < cutoff) return;
   const title = slug
     .replace(new RegExp('-(\\d{1,2}-(?:' + _MONTHS_RE + ')[a-z]*|(?:' + _MONTHS_RE + ')[a-z]*-\\d{1,2})-\\d{4}$', 'i'), '')
     .replace(/-/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase())
     .replace(/\b(Fx|Us|Usd|Eur|Jpy|Gbp|Cad|Aud|Nzd|Chf|Cny|Ai|Ecb|Boj|Fed|Cpi|Gdp|Em)\b/gi, m => m.toUpperCase());
-  const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+  const id = _pubId('br-', link);
   if (merged.has(id)) return;
   merged.set(id, { id, title, url: link, timestamp: ts, categories: [cat.toUpperCase()], description: '', institution: 'MUFG', _source: 'mufg' });
 }
@@ -5978,7 +6002,7 @@ async function _fetchCibcInto(merged, cutoff, UA) {
       const ts = Date.parse(String(pub.PublishedDate || '') + 'Z') || Date.parse(pub.PublishedDate) || 0;
       if (!ts || ts < cutoff) continue;
       const url = `https://economics.cibccm.com/cds?id=${uuid}&flag=E`;
-      const id = 'br-' + Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+      const id = _pubId('br-', url);
       if (merged.has(id)) continue;
       merged.set(id, {
         id, title, url, timestamp: ts,
@@ -6009,7 +6033,7 @@ async function _fetchSebInto(merged, cutoff, UA) {
         const ts = rep.publishedDate ? (new Date(rep.publishedDate).getTime() || Date.now()) : Date.now();
         if (ts < cutoff) continue;
         const link = `https://research.sebgroup.com/macro-ficc/reports/${rep.articleId}`;
-        const id = 'br-' + Buffer.from('seb-' + rep.articleId).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        const id = _pubId('br-', 'seb-' + rep.articleId);
         // PDF natif SEB : l'API expose PARFOIS rep.attachment.fileName (PDF public). Sinon, l'endpoint
         // « Open as PDF » de SEB (api/puppeteer/mficc/{id}) renvoie le VRAI PDF du rapport pour TOUS les
         // articles (vérifié : Content-Type application/pdf) → on l'utilise en repli pour que CHAQUE rapport
@@ -6070,7 +6094,7 @@ async function _fetchScotiaInto(merged, cutoff, UA) {
       // Publications ESPACÉES (hebdo/trimestriel) → on garde les 6 plus récentes, SANS cutoff d'âge
       // (sinon les "forecast tables" — dernières datant de plusieurs semaines — seraient exclues).
       posts.sort((a, b) => b.ts - a.ts).slice(0, 6).forEach(p => {
-        const id = 'br-' + Buffer.from(p.link).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        const id = _pubId('br-', p.link);
         if (merged.has(id)) return;
         merged.set(id, { id, title: p.title, url: p.link, timestamp: p.ts, categories: [page.cat], description: '', institution: 'Scotiabank', _source: 'scotia' });
       });
@@ -6103,7 +6127,7 @@ function _blackrockItemFromUrl(url) {
   const title = m[4].replace(/-/g, ' ').trim()
     .replace(/\b\w/g, c => c.toUpperCase())
     .replace(/\b(Us|Uk|Eu|Ai|Fx|Em|Esg|Ecb|Boj|Boe|Fed|Rba|Gdp|Cpi|Q1|Q2|Q3|Q4)\b/gi, x => x.toUpperCase());
-  const id = 'br-' + Buffer.from('blackrock-' + m[1] + m[2] + m[3] + '-' + m[4]).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+  const id = _pubId('br-', 'blackrock-' + m[1] + m[2] + m[3] + '-' + m[4]);
   return { id, title, url: url.split('#')[0].split('?')[0], timestamp: ts, categories: ['Macro'], description: '', institution: 'BlackRock', _source: 'blackrock', _pdf: true };
 }
 async function _fetchBlackRockInto(merged) {
@@ -6268,7 +6292,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
     // Seeds = rapports réels connus (garantis, 0 fetch) → remplissent l'onglet même si le scrape est bloqué.
     for (const s of (cfg.seed || [])) {
       const ts = Date.parse(s.date + 'T12:00:00Z'); if (isNaN(ts)) continue;
-      const id = 'br-' + Buffer.from(s.url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+      const id = _pubId('br-', s.url);
       if (merged.has(id)) continue;
       const it = { id, title: s.title, url: s.url, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source };
       if (s.pdf) it._pdf = true;
@@ -6280,7 +6304,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
       for (const p of (pubs || [])) {
         if (!p || !p.url || (p.ts && p.ts < cutoff)) continue;
         if (cfg.source === 'stanchart' && !/weekly-market-view/i.test(p.url)) continue;   // SC : ignorer les liens parasites (le scrape Puppeteer ne filtre pas par hrefRe)
-        const id = 'br-' + Buffer.from(p.url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        const id = _pubId('br-', p.url);
         if (merged.has(id)) continue;
         merged.set(id, { id, title: _brCleanTitle(p.title, cfg.source), url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
       }
@@ -6302,7 +6326,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
           if (_seen.has(key)) return; _seen.add(key);
           const title = _brCleanTitle(($(a).text() || '').replace(/\s+/g, ' ').trim(), cfg.source);
           if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
-          const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+          const id = _pubId('br-', key);
           if (merged.has(id)) return;
           const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());   // jamais de date future
           if (ts < cutoff) return;
@@ -6334,7 +6358,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
             if (_seen.has(key)) return; _seen.add(key);
             const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
             if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
-            const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+            const id = _pubId('br-', key);
             if (merged.has(id)) return;
             const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());
             if (ts < cutoff) return;
@@ -6369,7 +6393,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
             const key = href.split('#')[0];
             if (_seen.has(key)) continue; _seen.add(key);
             if (title.split(/\s+/).length < 3) continue;
-            const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+            const id = _pubId('br-', key);
             if (merged.has(id)) continue;
             const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());
             if (ts < cutoff) continue;
@@ -6396,7 +6420,7 @@ const WELLS_REPORTS = [
 async function _fetchWellsInto(merged, UA) {
   const now = Date.now();
   WELLS_REPORTS.forEach((r, i) => {
-    const id = 'br-' + Buffer.from(r.u).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+    const id = _pubId('br-', r.u);
     if (!merged.has(id)) merged.set(id, { id, title: r.t, url: r.u, timestamp: now - i * 3600000, categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
   });
   try {
@@ -6410,7 +6434,7 @@ async function _fetchWellsInto(merged, UA) {
         href = href.split('#')[0];
         const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
         if (title.length < 6) return;
-        const id = 'br-' + Buffer.from(href).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        const id = _pubId('br-', href);
         if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
       });
     }
@@ -6433,7 +6457,7 @@ async function _fetchHsbcInto(merged, UA) {
   HSBC_SEED.forEach(s => {
     const url = HSBC_BASE + s.u;
     const ts = Date.parse(s.d + 'T12:00:00Z'); if (isNaN(ts)) return;
-    const id = 'br-' + Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+    const id = _pubId('br-', url);
     if (!merged.has(id)) merged.set(id, { id, title: s.t, url, timestamp: ts, categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
   });
   try {
@@ -6448,7 +6472,7 @@ async function _fetchHsbcInto(merged, UA) {
         if (segs.length < 4) return;   // article = cat/sous-cat/slug (≥4 segments) ; on écarte les pages catégories
         const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
         if (title.length < 12 || title.length > 160 || seen.has(href)) return; seen.add(href);
-        const id = 'br-' + Buffer.from(href).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        const id = _pubId('br-', href);
         if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
       });
     }
@@ -6491,7 +6515,7 @@ async function _fetchDanskeInto(merged, cutoff) {
     let added = 0;
     for (const a of arts) {
       if (!a || !a.pdfUrl || (a.ts && a.ts < cutoff)) continue;
-      const id = 'br-' + Buffer.from(a.pdfUrl).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+      const id = _pubId('br-', a.pdfUrl);
       if (merged.has(id)) continue;
       merged.set(id, {
         id, title: a.title, url: a.pdfUrl, timestamp: Math.min(a.ts || Date.now(), Date.now()),
@@ -6584,6 +6608,24 @@ async function _fetchBankResearch(full = false) {
     // 10 items Lloyds dont un « frais » du jour, des mois après le retrait.
     .filter(_brAllowed)
     .map(i => (i.timestamp > _nowTs) ? { ...i, timestamp: _nowTs } : i);   // jamais de rapport « daté dans le futur » (mauvais parsing d'URL)
+  // ── DÉDUPLICATION PAR URL (17/08/2026) ────────────────────────────────────────────────────────
+  // Filet de MIGRATION, et garde-fou permanent. Les identifiants viennent de changer de schéma
+  // (condensat au lieu d'une tranche de base64, cf. _pubId) : les items déjà en cache portent donc
+  // l'ANCIEN identifiant, et la prochaine ingestion les rapporterait sous le NOUVEAU — le même
+  // rapport apparaîtrait deux fois dans l'onglet, une fois par identifiant.
+  // L'URL, elle, est la vraie identité d'une publication. On garde l'exemplaire le plus riche :
+  // celui qui porte déjà un contenu, sinon le plus récent.
+  const _parUrl = new Map();
+  for (const it of _all) {
+    const cle = String(it.url || it.id || '').replace(/\/+$/, '').toLowerCase();
+    const ex = _parUrl.get(cle);
+    if (!ex) { _parUrl.set(cle, it); continue; }
+    const mieux = (!!it.fullContent && !ex.fullContent) || (it.timestamp || 0) > (ex.timestamp || 0);
+    if (mieux) _parUrl.set(cle, it);
+  }
+  const _dedupes = _all.length - _parUrl.size;
+  if (_dedupes > 0) console.log('[BankResearch] ' + _dedupes + ' doublon(s) d URL fusionne(s)');
+  _all.length = 0; _all.push(..._parUrl.values());
   const _keepAll = i => ['blackrock', 'stanchart', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'kbc', 'westpac', 'qcam', 'goldman', 'danske'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge (Danske = PDF natifs interceptés ; Amundi/Lloyds retirés ; Standard Chartered conservé)
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
