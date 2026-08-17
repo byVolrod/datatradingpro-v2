@@ -1413,7 +1413,9 @@
          Aucun volume, aucun nombre de lots. L'anneau porte donc les pourcentages réels et rien
          d'autre : afficher des volumes supposerait de les inventer. */
       opts: [
-        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EURUSD', cache: true, choix: _dmxPairesChoix() },
+        // cache retire (18/08, demande user) : ce widget n a PAS de barre interne, cache: true
+        // masquait la paire du panneau de reglages, seul endroit ou la choisir.
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EURUSD', choix: _dmxPairesChoix() },
         { k: 'tf', lbl: 'Unité', type: 'choix', def: 'H1', choix: [['D1', '1D'], ['H4', '4H'], ['H1', '1H']] },
       ],
       mount: function (host, it) {
@@ -1483,8 +1485,8 @@
           zone.querySelectorAll('.wdg-dmx1-lab, .wdg-dmx1-fil').forEach(function (n) { n.remove(); });
           var bw = zone.clientWidth, bh = zone.clientHeight;
           // Le SVG est PLAFONNE a 340 px par le CSS (fidele a la reference, ou le donut garde une
-          // taille contenue au centre de la carte) : la geometrie des etiquettes suit le meme plafond.
-          var cote = Math.min(bw, bh, 340);
+          // taille contenue au centre de la carte) : la geometrie des etiquettes suit le meme plafond (390).
+          var cote = Math.min(bw, bh, 390);
           if (cote < 150) return;
           var cx = bw / 2, cy = bh / 2;
           var rBord = (cote / 2) * ((54 + 13) / 80);      // bord externe de l'anneau (viewBox 160, demi 80)
