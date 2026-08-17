@@ -145,7 +145,10 @@ async function scrapeResearchSpa(cfg) {
       if (seen.has(r.url)) continue; seen.add(r.url);
       const real = _parseDate(r.ctx) || _dateFromUrl(r.url);
       if (real) dated++;
-      items.push({ title: r.title, url: r.url, ts: real || Date.now() });
+      // `dateInconnue` : quand ni la carte ni l URL ne portent de date, l horodatage n est PAS une
+      // date de publication mais l instant ou l on a decouvert le lien. Le desk l affichait comme
+      // une date, si bien qu une note de 2023 pouvait s afficher « aujourd hui ». On le DIT.
+      items.push({ title: r.title, url: r.url, ts: real || Date.now(), dateInconnue: !real });
     }
     const top = items.slice(0, 14);
     if (top.length) { _cache[key] = { items: top, ts: Date.now() }; console.log(`[ResearchSPA ${key}] ${top.length} publications (${dated} datées) sur ${raw.length} liens bruts`); }

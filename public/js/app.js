@@ -5964,16 +5964,21 @@ function renderBrList() {
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const _DOC = '<svg width="13" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';
   const _BM = '<svg width="12" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
+  // Certaines banques ne datent pas leurs publications (listes HSBC, SocGen, UniCredit, QCAM, Westpac…).
+  // Le serveur les marque `dateInconnue` : l horodatage n est alors que l instant ou le desk a DECOUVERT
+  // le lien. L afficher au format jj/mm/aa faisait passer une note ancienne pour une note du jour.
+  // On affiche « n.d. » (non daté) et on reserve la date de decouverte a l infobulle.
   let _rows = '';
   for (const item of items) {
     _brRows[item.id] = item;
     const read    = isBrRead(item.id);
-    const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    const _nd     = !!item.dateInconnue;
+    const dateStr = _nd ? 'n.d.' : new Date(item.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const title   = item.title || '';
     const inst    = _instLogoHtml(_instBadge(item)) || '';
     _rows += `<tr class="arl-row${read ? ' arl-row--read' : ''}" data-id="${_e(item.id)}">`
       + `<td class="arl-c-bm"><span class="arl-bm">${_BM}</span></td>`
-      + `<td class="arl-c-date">${_e(dateStr)}</td>`
+      + `<td class="arl-c-date"${_nd ? ' title="Date de publication non communiquée par la source."' : ''}>${_e(dateStr)}</td>`
       + `<td class="arl-c-title"><div class="arl-tw"><span class="arl-ico br-doc-ico">${_DOC}</span><span class="arl-ttl" title="${_e(title).replace(/"/g, '&quot;')}">${_e(title)}</span></div></td>`
       + `<td class="arl-c-inst"><span class="br-inst-logo-card">${inst}</span></td></tr>`;
   }
@@ -6389,9 +6394,12 @@ function renderBrReader(item) {
   // récupéré) ou _brFinalizeReader s'en chargent → insights TOUJOURS basés sur le vrai contenu.
   if (brIns) brIns.innerHTML = '';
 
-  const dateStr = item.timestamp
-    ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
-    : '';
+  // Meme regle que la liste : sans date de la source, on le DIT au lieu d afficher la date de decouverte.
+  const dateStr = item.dateInconnue
+    ? 'Date non communiquée par la source'
+    : (item.timestamp
+      ? new Date(item.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+      : '');
 
   // Contenu DÉJÀ fourni (ex. SEB via API) → on l'affiche directement, aucun re-fetch.
   if (item.fullContent && content) {

@@ -692,6 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260817-banques-dates', ts: Date.UTC(2026, 7, 17, 16, 0), title: 'Recherche institutionnelle : des dates de publication honnêtes', desc: 'Goldman Sachs publie de nouveau dans l\'onglet, avec ses vraies dates. Les rapports Wells Fargo affichent la date du document et non celle où le desk les a repérés. Et quand une banque ne date pas sa publication, la colonne indique « n.d. » au lieu d\'une date inventée.' },
   { id: 'dtpu-20260817-banques-rapports', ts: Date.UTC(2026, 7, 17, 14, 0), title: 'Recherche institutionnelle : les rapports manquants sont de retour', desc: 'Quand une banque publiait plusieurs notes le même jour, une seule arrivait dans le desk et les autres étaient perdues en silence. Pour MUFG, cela représentait un rapport reçu sur cinq. Tous remontent désormais, pour toutes les banques. Les archives d années passées cessent aussi de réapparaître datées du jour en tête de liste.' },
   { id: 'dtpu-20260817-bandeau-defile', ts: Date.UTC(2026, 7, 17, 13, 0), title: 'Accueil : le bandeau de cotations défile, sans barre', desc: 'La barre de défilement apparue sous le bandeau est retirée, et la bande avance de nouveau toute seule, en continu, quels que soient les réglages d’animation de votre système. Passez la souris dessus pour la mettre en pause et lire une cotation au calme.' },
   { id: 'dtpu-20260817-bandeau-anim', ts: Date.UTC(2026, 7, 17, 12, 0), title: 'Accueil : le bandeau défile même avec les animations réduites', desc: 'Si votre système demande aux applications de limiter les animations, le bandeau de cotations s’arrêtait complètement. Un téléscripteur dont le mouvement EST le contenu : le couper supprimait sa fonction. Il défile désormais deux fois plus lentement dans ce mode, au lieu de se figer, et reste arrêtable d’un survol ou défilable à la main.' },
@@ -6306,7 +6307,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
         if (cfg.source === 'stanchart' && !/weekly-market-view/i.test(p.url)) continue;   // SC : ignorer les liens parasites (le scrape Puppeteer ne filtre pas par hrefRe)
         const id = _pubId('br-', p.url);
         if (merged.has(id)) continue;
-        merged.set(id, { id, title: _brCleanTitle(p.title, cfg.source), url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+        merged.set(id, { id, title: _brCleanTitle(p.title, cfg.source), url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), dateInconnue: !!p.dateInconnue, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
       }
     } catch (e) { console.warn(`[ResearchSPA ${cfg.source}] échec:`, e.message); }
 
@@ -6328,9 +6329,10 @@ async function _fetchResearchSpaInto(merged, cutoff) {
           if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
           const id = _pubId('br-', key);
           if (merged.has(id)) return;
-          const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());   // jamais de date future
+          const _dUrl = _dateFromUrlBr && _dateFromUrlBr(key);   // seule source de date REELLE ici
+          const ts = Math.min((_dUrl || Date.now()), Date.now());   // jamais de date future
           if (ts < cutoff) return;
-          merged.set(id, { id, title, url: key, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+          merged.set(id, { id, title, url: key, timestamp: ts, dateInconnue: !_dUrl, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
           _added++;
         });
         if (_added) console.log(`[ResearchHTTP ${cfg.source}] +${_added} lien(s) (server-rendered)`);
@@ -6360,9 +6362,10 @@ async function _fetchResearchSpaInto(merged, cutoff) {
             if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
             const id = _pubId('br-', key);
             if (merged.has(id)) return;
-            const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());
+            const _dUrl = _dateFromUrlBr && _dateFromUrlBr(key);   // seule source de date REELLE ici
+            const ts = Math.min((_dUrl || Date.now()), Date.now());   // jamais de date future
             if (ts < cutoff) return;
-            merged.set(id, { id, title, url: key, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+            merged.set(id, { id, title, url: key, timestamp: ts, dateInconnue: !_dUrl, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
             _added++;
           });
           console.log(`[ResearchPROXY ${cfg.source}] HTTP ${r.status} → +${_added} lien(s) (via proxy résidentiel)`);
@@ -6395,9 +6398,10 @@ async function _fetchResearchSpaInto(merged, cutoff) {
             if (title.split(/\s+/).length < 3) continue;
             const id = _pubId('br-', key);
             if (merged.has(id)) continue;
-            const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());
+            const _dUrl = _dateFromUrlBr && _dateFromUrlBr(key);   // seule source de date REELLE ici
+            const ts = Math.min((_dUrl || Date.now()), Date.now());   // jamais de date future
             if (ts < cutoff) continue;
-            merged.set(id, { id, title: title.slice(0, 160), url: key, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+            merged.set(id, { id, title: title.slice(0, 160), url: key, timestamp: ts, dateInconnue: !_dUrl, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
             _added++;
           }
           if (_added) console.log(`[ResearchJINA ${cfg.source}] +${_added} lien(s) (via lecteur)`);
@@ -6417,16 +6421,44 @@ const WELLS_REPORTS = [
   { t: 'U.S. Economic Forecast',                 u: 'https://wellsfargo.bluematrix.com/docs/html/88d2eafa-3a64-4cca-b013-4093132d9c99.html' },
   { t: 'International Economic Forecast',         u: 'https://wellsfargo.bluematrix.com/docs/html/5a40089f-bd2f-46bb-bf5e-afff22061029.html' },
 ];
+// Date REELLE d un document bluematrix : l en-tete Last-Modified du fichier HTML.
+// Mesure du 17/08/2026 : Weekly Commentary -> 05/06, U.S. Outlook -> 13/05, International -> 15/05,
+// et la date imprimee DANS le document correspond a l en-tete. C est donc une date de publication,
+// pas une approximation. On la lit en HEAD (quelques octets) plutot que de telecharger le rapport.
+async function _wellsDatePubliee(url, UA) {
+  try {
+    const r = await axios.head(url, { timeout: 8000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+    const lm = Date.parse(r.headers['last-modified'] || '');
+    if (!isNaN(lm) && lm > Date.parse('2015-01-01') && lm <= Date.now() + 864e5) return lm;
+  } catch {}
+  return null;
+}
+
 async function _fetchWellsInto(merged, UA) {
+  // Les UUID bluematrix pointent vers la DERNIERE version de chaque rapport : l URL ne change JAMAIS.
+  // Le code posait donc `timestamp: now` a la premiere decouverte, puis `if (!merged.has(id))` interdisait
+  // toute remise a jour : le rapport restait fige a sa date de decouverte et paraissait eternellement frais.
+  // Correctif : on RE-HORODATE a chaque rafraichissement depuis Last-Modified, meme si l item existe deja.
   const now = Date.now();
-  WELLS_REPORTS.forEach((r, i) => {
+  for (let i = 0; i < WELLS_REPORTS.length; i++) {
+    const r = WELLS_REPORTS[i];
     const id = _pubId('br-', r.u);
-    if (!merged.has(id)) merged.set(id, { id, title: r.t, url: r.u, timestamp: now - i * 3600000, categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
-  });
+    const vraie = await _wellsDatePubliee(r.u, UA);
+    const ex = merged.get(id);
+    if (ex) {
+      // Rapport deja connu : on corrige sa date si (et seulement si) on en tient une vraie.
+      if (vraie) { ex.timestamp = vraie; delete ex.dateInconnue; }
+    } else {
+      merged.set(id, { id, title: r.t, url: r.u, timestamp: vraie || (now - i * 3600000),
+        ...(vraie ? {} : { dateInconnue: true }),
+        categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
+    }
+  }
   try {
     const res = await axios.get('https://www.wellsfargo.com/cib/insights/economics/', { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
     if (res.status === 200) {
       const $ = cheerio.load(res.data);
+      const neufs = [];
       $('a[href*="bluematrix.com/docs/html"]').each((_, a) => {
         let href = ($(a).attr('href') || '').trim();
         if (href.startsWith('//')) href = 'https:' + href;
@@ -6435,10 +6467,61 @@ async function _fetchWellsInto(merged, UA) {
         const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
         if (title.length < 6) return;
         const id = _pubId('br-', href);
-        if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
+        if (!merged.has(id)) neufs.push({ id, titre: title.slice(0, 120), url: href });
       });
+      // La liste CIB ne date pas ses cartes : on va chercher la date a la source (Last-Modified),
+      // et a defaut seulement on marque la date comme inconnue plutot que d afficher aujourd hui.
+      for (const n of neufs.slice(0, 12)) {
+        const vraie = await _wellsDatePubliee(n.url, UA);
+        merged.set(n.id, { id: n.id, title: n.titre, url: n.url, timestamp: vraie || Date.now(),
+          ...(vraie ? {} : { dateInconnue: true }),
+          categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
+      }
     }
   } catch (e) { console.warn('[Wells] scrape échec:', e.message); }
+}
+
+/* ── GOLDMAN SACHS : la bonne page, et de vraies dates (17/08/2026) ───────────────────────────────
+   Le desk visait https://www.goldmansachs.com/insights/outlooks, la page des PERSPECTIVES ANNUELLES.
+   Mesure faite ce jour : elle ne contient AUCUN lien de publication en HTML serveur (0 sur 545 ko), pas
+   plus que /insights/articles ou /insights/goldman-sachs-research. Le contenu ne vivait donc que dans les
+   « seeds » ecrits en dur : des Outlook 2026 qui ne bougent jamais. D ou l impression que Goldman
+   « n envoyait plus rien ».
+   La page qui porte les publications est https://www.goldmansachs.com/insights : son bloc __NEXT_DATA__
+   (Next.js) expose titre + URL + `publishDate` reelle. Mesure : 10 publications, dont 4 du mois en cours.
+   On lit ce JSON en HTTP simple. Aucune raison de passer par Puppeteer : le rendu navigateur, lui, est
+   gate (corps vide), c est precisement ce que note le commentaire de PDF_RENDER_HOSTS. */
+async function _fetchGoldmanInto(merged, UA, cutoff) {
+  try {
+    const r = await axios.get('https://www.goldmansachs.com/insights', { timeout: 15000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+    if (r.status !== 200) return;
+    const m = String(r.data).match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (!m) { console.warn('[Goldman] __NEXT_DATA__ absent (page remaniée ?)'); return; }
+    let data; try { data = JSON.parse(m[1]); } catch { console.warn('[Goldman] __NEXT_DATA__ illisible'); return; }
+    const trouves = [];
+    (function parcours(o, prof) {
+      if (!o || typeof o !== 'object' || prof > 14) return;
+      if (Array.isArray(o)) { o.forEach(x => parcours(x, prof + 1)); return; }
+      const url = o.url || o.href || o.link || o.path;
+      const dt  = o.publishDate || o.publishedDate || o.displayDate || o.date;
+      const ti  = o.title || o.headline;
+      if (typeof url === 'string' && typeof dt === 'string' && typeof ti === 'string'
+          && /\/insights\/[a-z0-9-]+\/[a-z0-9-]{8,}/i.test(url)) trouves.push({ url, dt, ti });
+      for (const k of Object.keys(o)) parcours(o[k], prof + 1);
+    })(data, 0);
+    let n = 0;
+    for (const p of trouves) {
+      const ts = Date.parse(p.dt.length <= 10 ? p.dt + 'T12:00:00Z' : p.dt);
+      if (isNaN(ts) || ts < cutoff || ts > Date.now() + 864e5) continue;   // ni date illisible, ni trop vieux, ni futur
+      const url = p.url.startsWith('http') ? p.url : 'https://www.goldmansachs.com' + (p.url.startsWith('/') ? '' : '/') + p.url;
+      const id = _pubId('br-', url);
+      if (merged.has(id)) continue;
+      merged.set(id, { id, title: _brCleanTitle(p.ti, 'goldman').slice(0, 160), url, timestamp: ts,
+        categories: ['Macro'], description: '', institution: 'Goldman Sachs', _source: 'goldman' });
+      n++;
+    }
+    if (n) console.log('[Goldman] ' + n + ' publication(s) datée(s) via /insights');
+  } catch (e) { console.warn('[Goldman] scrape échec:', e.message); }
 }
 
 // HSBC — Wealth Insights (Singapour). Page en HTML SERVEUR (non bloquée, pas de login) → scrape direct
@@ -6473,7 +6556,7 @@ async function _fetchHsbcInto(merged, UA) {
         const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
         if (title.length < 12 || title.length > 160 || seen.has(href)) return; seen.add(href);
         const id = _pubId('br-', href);
-        if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
+        if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), dateInconnue: true, categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
       });
     }
   } catch (e) { console.warn('[HSBC] scrape échec:', e.message); }
@@ -6590,6 +6673,8 @@ async function _fetchBankResearch(full = false) {
   await _fetchDanskeInto(merged, cutoff);
   // Wells Fargo — CIB Economics (HTML serveur, scrape direct + rapports phares seedés)
   await _fetchWellsInto(merged, UA);
+  // Goldman Sachs : /insights en HTML serveur : titres + dates RÉELLES lus dans __NEXT_DATA__
+  await _fetchGoldmanInto(merged, UA, cutoff);
   // HSBC — Wealth Insights (HTML serveur, scrape direct + derniers articles seedés)
   await _fetchHsbcInto(merged, UA);
   // KBC « Sunrise » + « Weekly Overview » — newsletters reçues PAR E-MAIL (markets@newsletter.kbc.be),
