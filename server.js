@@ -6675,7 +6675,10 @@ const _PUBDATE = require('./scrapers/pub-date');
 const _BR_DATES_KV = 'br:dates_pub';
 const _BR_DATES_MAX = 3000;              // borne mémoire : au-delà, on oublie les plus anciennes tentatives
 const _BR_DATES_RETRY = 7 * 864e5;       // une source muette n'est resondée qu'une fois par semaine
-const _BR_DATES_LOT = 40;                // plafond de pages sondées par rafraîchissement
+// Plafond de pages sondées par rafraîchissement. 120 vide le retard d'un seul tour (mesuré en prod :
+// 96 publications à dater après la bascule) ; ensuite le régime de croisière est de quelques unités,
+// puisque chaque date résolue est mémorisée et n'est plus jamais redemandée. Quatre requêtes de front.
+const _BR_DATES_LOT = 120;
 let _brDates = null;
 
 async function _brDatesCharger() {
