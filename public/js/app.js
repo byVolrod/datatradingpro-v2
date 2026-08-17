@@ -4335,7 +4335,48 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
       if (d && d.loggedIn === false) { _dead = true; location.replace('/login' + (d.reason === 'elsewhere' ? '?ended=elsewhere' : '')); }
     } catch (e) {}
   }
+  // Le battement ne partait qu'au bout de 20 s : une session morte laissait donc l'écran vide
+  // pendant tout ce temps avant de renvoyer au login. On vérifie DÈS le chargement.
+  _beat();
   setInterval(_beat, 20000);
+})();
+
+/* ── JAMAIS D'ÉCRAN NOIR : LOGIN OU DESK, RIEN ENTRE LES DEUX (17/08/2026) ──────────────────────
+   Constat utilisateur sur l'application de bureau, lancée après un week-end : fenêtre ouverte,
+   fond noir, ni desk ni page de connexion. Le fond sombre prouve que la feuille de style est là ;
+   c'est donc le JavaScript qui n'a pas construit l'interface — script interrompu, ressource
+   manquante, ou reprise d'un onglet endormi.
+   La coquille Electron a bien un filet, mais il ne couvre que l'ÉCHEC RÉSEAU (page hors-ligne au
+   bout de 9 s). Une page qui se charge et ne peint rien passe entre les mailles. Et corriger la
+   coquille imposerait de reconstruire puis réinstaller l'application : ce filet-ci vit dans la
+   PAGE, donc il atteint l'app déjà installée dès le prochain lancement.
+   PRINCIPE : au bout de 20 s, si le desk n'a manifestement rien affiché, on tente UN rechargement ;
+   si le second essai échoue aussi, on part au login, qui renverra au desk si la session est
+   valide. Deux issues possibles, jamais le vide. Le drapeau de tentative vit dans sessionStorage :
+   il meurt avec l'onglet, donc aucune boucle au-delà de ces deux essais. */
+(function _filetEcranVide(){
+  if (location.pathname === '/login') return;
+  var CLE = 'dtp_relance_vide';
+  setTimeout(function () {
+    try {
+      // « Rien affiché » = le fil n'a produit AUCUNE ligne ET son chargeur initial est encore là.
+      // Deux conditions, parce qu'un fil vide mais chargé (filtre trop strict) n'est pas une panne.
+      var liste = document.getElementById('news-list');
+      var vide = !document.querySelector('.news-item')
+              && (!liste || !liste.children.length || !!liste.querySelector('.dtp-loader'));
+      if (!vide) { try { sessionStorage.removeItem(CLE); } catch (e) {} return; }
+      var deja = false;
+      try { deja = sessionStorage.getItem(CLE) === '1'; } catch (e) {}
+      if (!deja) {
+        try { sessionStorage.setItem(CLE, '1'); } catch (e) {}
+        console.warn('[DTP] interface non construite après 20 s → rechargement (1re tentative)');
+        return location.reload();
+      }
+      console.warn('[DTP] interface toujours vide après rechargement → retour au login');
+      try { sessionStorage.removeItem(CLE); } catch (e) {}
+      location.replace('/login');
+    } catch (e) {}
+  }, 20000);
 })();
 
 // ── Semaine à Venir : glisser pour redimensionner : splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──
