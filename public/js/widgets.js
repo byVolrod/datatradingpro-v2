@@ -3107,6 +3107,58 @@
     for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === id) return c.layouts[i];
     return null;
   }
+  // ── ICÔNES DE DISPOSITION (17/08) ─────────────────────────────────────────────────────────────
+  // Choisies à la création d'une disposition, elles la rendent reconnaissable sans lire son nom :
+  // dans la barre d'onglets (noms tronqués à 190 px) comme sur les cartes du gestionnaire.
+  // Dessins DTP ORIGINAUX, MÊME FACTURE que les icônes de widgets (table WICO plus bas) : viewBox 24,
+  // tracé au trait, `stroke="currentColor"`, aucun remplissage. Donc l'icône prend la couleur de son
+  // contexte (blanche dans l'onglet actif, grise au repos, or au survol) sans une seule règle de plus.
+  //
+  // ⚠️ L'IDENTIFIANT EST LE CONTRAT AVEC LE SERVEUR : le sanitizer de server.js ne reprend `ico` que
+  // s'il vaut /^[a-z0-9-]{1,20}$/. Un id avec accent, majuscule, espace ou plus long serait JETÉ EN
+  // SILENCE au premier enregistrement : l'icône choisie disparaîtrait au rechargement sans qu'aucune
+  // erreur n'apparaisse nulle part. Les accents vivent donc dans `nom` (libellé affiché), jamais
+  // dans `id`. Le test `scripts/` associé rejoue cette expression sur tout le catalogue.
+  var _LAYICO_RX = /^[a-z0-9-]{1,20}$/;
+  var _LAYSVG = 'viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+  var LAYICOS = [
+    { id: 'graphe',   nom: 'Graphique',  svg: '<svg ' + _LAYSVG + '><path d="M4 4v16h16"/><path d="M8 17v-5M12.5 17V8M17 17v-7"/></svg>' },
+    { id: 'courbe',   nom: 'Courbe',     svg: '<svg ' + _LAYSVG + '><path d="M4 17l4.5-5.5 3.5 3L20 6"/><circle cx="8.5" cy="11.5" r="1.15"/><circle cx="12" cy="14.5" r="1.15"/><circle cx="20" cy="6" r="1.15"/></svg>' },
+    { id: 'grille',   nom: 'Grille',     svg: '<svg ' + _LAYSVG + '><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>' },
+    { id: 'colonnes', nom: 'Colonnes',   svg: '<svg ' + _LAYSVG + '><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M9.2 5v14M14.8 5v14"/></svg>' },
+    { id: 'boussole', nom: 'Boussole',   svg: '<svg ' + _LAYSVG + '><circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2.2 4.8-4.8 2.2 2.2-4.8z"/></svg>' },
+    { id: 'cible',    nom: 'Réticule',   svg: '<svg ' + _LAYSVG + '><circle cx="12" cy="12" r="7.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>' },
+    { id: 'eclair',   nom: 'Éclair',     svg: '<svg ' + _LAYSVG + '><path d="M13.5 3L6 13.5h5L10.5 21 18 10.5h-5z"/></svg>' },
+    { id: 'horloge',  nom: 'Horloge',    svg: '<svg ' + _LAYSVG + '><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/></svg>' },
+    { id: 'balance',  nom: 'Balance',    svg: '<svg ' + _LAYSVG + '><path d="M12 4.5v15M7 19.5h10M5 8.5h14"/><path d="M5 8.5l-2.5 5h5zM19 8.5l-2.5 5h5z"/></svg>' },
+    { id: 'bouclier', nom: 'Bouclier',   svg: '<svg ' + _LAYSVG + '><path d="M12 3.5l7 2.6v5.4c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6.1z"/></svg>' },
+    { id: 'etoile',   nom: 'Étoile',     svg: '<svg ' + _LAYSVG + '><path d="M12 3.6l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8L3.5 9.8l5.9-.9z"/></svg>' },
+    { id: 'couches',  nom: 'Couches',    svg: '<svg ' + _LAYSVG + '><path d="M12 3.5l8.5 4.3L12 12.1 3.5 7.8z"/><path d="M3.5 12.2L12 16.5l8.5-4.3M3.5 16.4L12 20.7l8.5-4.3"/></svg>' },
+    { id: 'livre',    nom: 'Carnet',     svg: '<svg ' + _LAYSVG + '><path d="M4 5h5.5A2.5 2.5 0 0 1 12 7.5V19a2.5 2.5 0 0 0-2.5-2H4z"/><path d="M20 5h-5.5A2.5 2.5 0 0 0 12 7.5V19a2.5 2.5 0 0 1 2.5-2H20z"/></svg>' },
+    { id: 'ampoule',  nom: 'Idée',       svg: '<svg ' + _LAYSVG + '><path d="M9.2 17.5h5.6M10 20.5h4"/><path d="M12 3.5a5.5 5.5 0 0 0-3.2 9.9c.6.5 1 1.2 1 2v.1h4.4v-.1c0-.8.4-1.5 1-2A5.5 5.5 0 0 0 12 3.5z"/></svg>' },
+    { id: 'epingle',  nom: 'Épingle',    svg: '<svg ' + _LAYSVG + '><path d="M12 14.5V21"/><path d="M8 4.5h8l-1 4.2 2.6 2.6a1 1 0 0 1-.7 1.7H7.1a1 1 0 0 1-.7-1.7L9 8.7z"/></svg>' },
+    { id: 'terminal', nom: 'Terminal',   svg: '<svg ' + _LAYSVG + '><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M7.5 10l2.5 2-2.5 2M12.5 14.5h4"/></svg>' },
+    { id: 'fusee',    nom: 'Lancement',  svg: '<svg ' + _LAYSVG + '><path d="M12 3.5c2.7 2.3 4.2 5.5 4.2 9l-2 3.5H9.8l-2-3.5c0-3.5 1.5-6.7 4.2-9z"/><circle cx="12" cy="9.8" r="1.7"/><path d="M9.8 16l-2.3 1.5 1 3 2.2-1.6M14.2 16l2.3 1.5-1 3-2.2-1.6"/></svg>' },
+    { id: 'drapeau',  nom: 'Repère',     svg: '<svg ' + _LAYSVG + '><path d="M6 21V4"/><path d="M6 5h11.5l-2.2 3.6 2.2 3.6H6z"/></svg>' },
+  ];
+  // Catalogue exposé (DTPWidgets.layoutIcons) : une COPIE, pour qu'un appelant ne puisse pas altérer
+  // la table de référence dont dépend l'affichage de toutes les dispositions déjà enregistrées.
+  function layoutIcons() { return LAYICOS.map(function (ic) { return { id: ic.id, nom: ic.nom, svg: ic.svg }; }); }
+  // ⚠️ TABLE SANS PROTOTYPE (Object.create(null)). Avec un objet ordinaire, `_LAYICO['constructor']`
+  // renvoie la fonction Object au lieu de `undefined` : or « constructor » PASSE l'expression du
+  // sanitizer (11 lettres minuscules), donc une config portant `ico: 'constructor'` traversait le
+  // serveur, ressortait « trouvée » ici, et la barre d'onglets affichait le mot `undefined` en clair
+  // (mesuré au banc). Les autres membres hérités portent une majuscule et tombaient déjà.
+  var _LAYICO = Object.create(null);
+  LAYICOS.forEach(function (ic) { _LAYICO[ic.id] = ic; });
+  // Rendu d'une icône de disposition. Renvoie une chaîne VIDE quand la disposition n'en a pas (toutes
+  // celles créées avant aujourd'hui) ou quand l'identifiant n'est plus au catalogue : AUCUN élément
+  // n'est alors écrit, donc aucune gouttière flex ne s'ouvre et rien ne se décale par rapport à avant.
+  function _layIco(id, cls) {
+    var ic = id && _LAYICO[String(id)];
+    if (!ic) return '';
+    return '<span class="' + (cls || 'wdg-lay-ico') + '" aria-hidden="true">' + ic.svg + '</span>';
+  }
   // BARRE DES LAYOUTS = SEULEMENT quand PLUSIEURS sont affichés (logique user 04/08) :
   //  · UN SEUL layout affiché (l'œil 📂/👁 du gestionnaire pose `hidden` sur les autres) → AUCUN
   //    nom dans la barre — on est DANS le layout, la barre ne garde que « Personnaliser ».
@@ -3130,6 +3182,9 @@
         + ' role="button" tabindex="0"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         + '<span class="wdg-lay-chv">›</span>'
+        // Icône de la disposition, juste après le chevron : c'est le premier signe distinctif que
+        // l'œil rencontre. Rien n'est écrit si la disposition n'en a pas (cf. _layIco).
+        + _layIco(l.ico)
         + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
         + '<span class="wdg-lay-name">' + esc(l.name) + '</span>'
         // ✕ = FERMER l'onglet, PAS supprimer le layout (demande user 04/08) : il retourne dans
@@ -3179,28 +3234,90 @@
   // Gestionnaire de layouts (overlay) : favori · renommer (inline) · ouvrir · supprimer (confirmation inline).
   // 2 écrans : la LISTE (tes layouts, rien d'autre — les modèles prêts vivent dans la bibliothèque pour ne pas
   // brouiller la création) et le CHOIX DE DISPOSITION (création guidée, mini-schémas façon « Select Layout »).
-  var _mgrMode = null;                       // null = liste · 'dispo' = choix de disposition
+  var _mgrMode = null;                       // null = liste · 'dispo' = choix de disposition · 'nom' = nom + icône
   var _dispoTarget = 'new';                  // 'new' = créer un layout · 'current' = remplir le desk VIDE actif (écran guidé)
+  var _newDispo = null;                      // index DISPOS retenu à l'écran précédent, en attente de création
+  var _newIco = '';                          // identifiant d'icône retenu à l'écran « nom + icône » ('' = aucune)
   function renderManager() {
     var box = document.getElementById('wdg-mgr-list'); var c = STATE.cfg;
     if (!box || !c) return;
     if (_mgrMode === 'dispo') {
       // Rangées GROUPÉES par nombre de panneaux, le chiffre à gauche (façon « Select Layout » d'un terminal pro).
+      // ÉTAPE INTERCALÉE (17/08) : choisir une disposition ne crée plus le layout dans la foulée, elle
+      // ouvre l'écran « nom + icône ». EXCEPTION assumée quand la disposition remplit le desk VIDE DÉJÀ
+      // OUVERT (_dispoTarget = 'current') : aucun layout n'est créé là, celui qui est ouvert a déjà son
+      // nom et son icône, lui en redemander n'aurait aucun sens. Le geste y reste donc direct.
+      var _suite = (_dispoTarget === 'current') ? 'createLayout' : 'nameLayout';
       var _dCard = function (d, i) {
-        return '<button class="wdg-dispo-card" onclick="DTPWidgets.createLayout(' + i + ')" title="' + esc(d.name) + '">'
+        return '<button class="wdg-dispo-card" onclick="DTPWidgets.' + _suite + '(' + i + ')" title="' + esc(d.name) + '">'
           + (d.items.length ? _thumb(d.items) : '<span class="wdg-thumb wdg-thumb--free">∞</span>')
           + '<span class="wdg-dispo-name">' + esc(d.name) + '</span></button>';
       };
       box.innerHTML = '<div class="wdg-dispo-head">'
         + '<button class="wdg-btn" onclick="DTPWidgets.backManager()">‹ Retour</button>'
         + '<span class="wdg-dispo-t">Choisis une disposition</span></div>'
-        + '<div class="wdg-dispo-namerow"><input id="wdg-newname" class="wdg-lib-search" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Nom du layout (optionnel : modifiable ensuite)"></div>'
         + DISPO_ORDER.map(function (n) {
             var cards = DISPOS.map(function (d, i) { return d.n === n ? _dCard(d, i) : ''; }).join('');
             if (!cards) return '';
             return '<div class="wdg-dispo-row"><span class="wdg-dispo-num">' + n + '</span><div class="wdg-dispo-cards">' + cards + '</div></div>';
           }).join('')
         + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » : remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
+      return;
+    }
+    // ÉCRAN « NOM + ICÔNE » (17/08) : dernière étape avant la création. Il vit DANS le gestionnaire,
+    // comme le choix de disposition : le projet n'ouvre jamais de dialogue natif (prompt/confirm).
+    if (_mgrMode === 'nom') {
+      var dsp = (_newDispo == null) ? null : DISPOS[_newDispo | 0];
+      var _icoBtn = function (id, nom, dedans, extra) {
+        var on = (id === _newIco);
+        return '<button type="button" class="wdg-ico-pick' + (extra || '') + (on ? ' on' : '') + '" data-ico="' + id + '"'
+          + ' title="' + esc(nom) + '" aria-label="' + esc(nom) + '" aria-pressed="' + (on ? 'true' : 'false') + '"'
+          + ' onclick="DTPWidgets.setNewIco(\'' + id + '\')">' + dedans + '</button>';
+      };
+      box.innerHTML = '<div class="wdg-dispo-head">'
+        + '<button class="wdg-btn" onclick="DTPWidgets.backDispo()">‹ Retour</button>'
+        + '<span class="wdg-dispo-t">Nommer la disposition</span></div>'
+        + '<div class="wdg-nom">'
+        // Rappel de ce qui a été choisi à l'écran d'avant : sans lui, on nomme à l'aveugle.
+        +   '<div class="wdg-nom-apercu">'
+        +     (dsp && dsp.items.length ? _thumb(dsp.items) : '<span class="wdg-thumb wdg-thumb--free">∞</span>')
+        +     '<span class="wdg-dispo-name">' + esc(dsp ? dsp.name : 'Libre') + '</span>'
+        +   '</div>'
+        +   '<div class="wdg-nom-champs">'
+        +     '<label class="wdg-nom-lbl" for="wdg-newname">Nom de la disposition</label>'
+        // maxlength = 40, EXACTEMENT la coupe du sanitizer serveur : ce qu'on peut taper est ce qui
+        // sera gardé, sinon la fin du nom disparaîtrait au rechargement sans explication.
+        +     '<input id="wdg-newname" class="wdg-lib-search" type="text" maxlength="40" spellcheck="false"'
+        +       ' autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true"'
+        +       ' placeholder="Nouveau layout">'
+        +     '<div class="wdg-nom-lbl" id="wdg-ico-lbl">Icône</div>'
+        +     '<div class="wdg-ico-grid" role="group" aria-labelledby="wdg-ico-lbl">'
+        +       _icoBtn('', 'Sans icône', 'Aucune', ' wdg-ico-pick--none')
+        +       LAYICOS.map(function (ic) { return _icoBtn(ic.id, ic.nom, ic.svg, ''); }).join('')
+        +     '</div>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="wdg-nom-actions">'
+        +   '<button class="wdg-btn" onclick="DTPWidgets.backDispo()">Annuler</button>'
+        +   '<button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.createLayout(' + (_newDispo == null ? 'null' : (_newDispo | 0)) + ')">Créer la disposition</button>'
+        + '</div>'
+        // ⚠️ CE QUI EST PROMIS ICI DOIT EXISTER. Le double-clic sur une carte du gestionnaire ouvre
+        // editCardName, qui ne touche QUE le nom : il n'y a aujourd'hui aucun chemin pour changer
+        // l'icône après coup. Annoncer « nom et icône se changent ensuite » était donc faux, et
+        // envoyait l'utilisateur chercher un réglage inexistant. On dit ce que le code fait vraiment.
+        + '<div class="wdg-dispo-hint">Le nom se change ensuite : double-clic sur le nom d\'une carte du gestionnaire. L\'icône, elle, se choisit ici. Sans nom saisi, la disposition s\'appelle « Nouveau layout ».</div>';
+      // CLAVIER, même grammaire que le renommage inline (editCardName) : le champ prend le focus,
+      // Entrée valide, Échap annule. `stopPropagation` est indispensable : l'écoute Échap globale du
+      // desk fermerait TOUT le gestionnaire au lieu de reculer d'un seul écran.
+      var inp = document.getElementById('wdg-newname');
+      if (inp) {
+        inp.addEventListener('keydown', function (e) {
+          e.stopPropagation();
+          if (e.key === 'Enter') { e.preventDefault(); API.createLayout(_newDispo); }
+          else if (e.key === 'Escape') { e.preventDefault(); API.backDispo(); }
+        });
+        try { inp.focus(); } catch (_) {}
+      }
       return;
     }
     // SÉLECTION EN GRILLE DE CARTES (refonte 04/08, demande user « il faut que ce soit intuitif
@@ -3245,6 +3362,9 @@
         + '</span>'
         // Renommage au DOUBLE-CLIC (le simple clic ouvre le layout) — champ masqué jusque-là.
         + '<span class="wdg-mgr-foot">'
+        // L'icône est SŒUR du nom, pas son enfant : editCardName REMPLACE le nœud `.wdg-mgr-nom` par
+        // un champ de saisie ; imbriquée dedans, l'icône disparaîtrait pendant le renommage.
+        +   _layIco(l.ico, 'wdg-mgr-ico')
         +   '<span class="wdg-mgr-nom" ondblclick="' + stop + 'DTPWidgets.editCardName(\'' + l.id + '\', this)">' + esc(l.name) + '</span>'
         +   '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
         + '</span></div>';
@@ -4243,7 +4363,12 @@ function _spansAffiches(lay) {
               }
               return o;
             });
-            c.layouts.push({ id: 'lay-' + uid(), name: String(l.name || '').replace(/[<>"']/g, '').trim().slice(0, 40) || 'Importé', fav: false, items: items });
+            var neuf = { id: 'lay-' + uid(), name: String(l.name || '').replace(/[<>"']/g, '').trim().slice(0, 40) || 'Importé', fav: false, items: items };
+            // MÊME PIÈGE, UN NIVEAU AU-DESSUS : `ico` non recopié ici, et réimporter sa propre
+            // sauvegarde complète effaçait l'icône de TOUTES les dispositions. Revalidé (fichier
+            // extérieur) contre le catalogue, pas seulement contre la forme acceptée par le serveur.
+            if (typeof l.ico === 'string' && _LAYICO_RX.test(l.ico) && _LAYICO[l.ico]) neuf.ico = l.ico;
+            c.layouts.push(neuf);
             added++;
           });
           if (added) { save(); renderBar(); renderManager(); note(added + ' layout' + (added > 1 ? 's' : '') + ' importé' + (added > 1 ? 's' : '') + ' ✓'); }
@@ -4293,6 +4418,37 @@ function _spansAffiches(lay) {
       API.openManager();
     },
     backManager: function () { _mgrMode = null; renderManager(); },
+    // ÉTAPE 2 du parcours de création : la disposition est RETENUE, pas encore créée, on passe à
+    // l'écran « nom + icône ». L'icône repart à vide à chaque création : ne rien préselectionner évite
+    // qu'un choix précédent se colle en douce sur une disposition qu'on croyait neutre.
+    nameLayout: function (di) {
+      var c = STATE.cfg; if (!c || c.layouts.length >= _LMAX) return;
+      _newDispo = (di == null) ? null : (di | 0);
+      _newIco = '';
+      _mgrMode = 'nom';
+      renderManager();
+    },
+    // Annuler = revenir au CHOIX DE DISPOSITION (pas fermer le gestionnaire) : on recule d'un écran,
+    // le parcours reste rattrapable sans avoir à tout rouvrir.
+    backDispo: function () { _mgrMode = 'dispo'; renderManager(); },
+    setNewIco: function (id) {
+      var v = String(id == null ? '' : id);
+      // Un identifiant hors format serait REJETÉ par le sanitizer serveur : l'icône s'afficherait ici
+      // puis disparaîtrait au rechargement, sans le moindre message. On refuse en amont plutôt que de
+      // promettre un choix qui ne survivra pas à l'enregistrement.
+      if (v && !_LAYICO_RX.test(v)) return;
+      _newIco = v;
+      // MISE À JOUR EN PLACE, JAMAIS DE RE-RENDU : renderManager() réécrirait tout le panneau et
+      // effacerait le nom déjà tapé (le champ est reconstruit vide). On ne touche donc qu'aux classes
+      // et à l'état ARIA des pastilles.
+      var box = document.getElementById('wdg-mgr-list'); if (!box) return;
+      box.querySelectorAll('.wdg-ico-pick').forEach(function (b) {
+        var on = (b.getAttribute('data-ico') || '') === _newIco;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    },
+    layoutIcons: layoutIcons,        // catalogue d'icônes de disposition (lecture seule, copie défensive)
     // Renommage INLINE d'une carte de layout (double-clic sur son nom) : le libellé devient un
     // champ, Entrée/blur valide, Échap annule — même grammaire que les onglets.
     editCardName: function (id, span) {
@@ -4349,7 +4505,7 @@ function _spansAffiches(lay) {
         } catch (e) {}
       }
       if (_dispoTarget === 'current') {                 // remplir le desk VIDE actif (pas de nouveau layout)
-        _dispoTarget = 'new';
+        _dispoTarget = 'new'; _newDispo = null; _newIco = '';
         var l = activeLayout();
         if (!l || l.items.length) { API.closeManager(); return; }
         l.items = slots;
@@ -4357,12 +4513,20 @@ function _spansAffiches(lay) {
         return;
       }
       if (c.layouts.length >= _LMAX) return;
-      // Nom saisi à l'étape de création (parcours ordonné : nom → disposition → widgets) ; sinon édition inline.
+      // Nom saisi à l'écran « nom + icône » (parcours ordonné : disposition → nom/icône → widgets).
+      // Même nettoyage que le serveur (chevrons retirés, coupe à 40) ; VIDE = repli sur un nom par
+      // défaut, jamais de blocage : personne ne doit rester coincé sur un champ pour avancer.
       var nm = String((document.getElementById('wdg-newname') || {}).value || '').replace(/[<>]/g, '').trim().slice(0, 40);
       var id = 'lay-' + uid();
-      c.layouts.push({ id: id, name: nm || 'Nouveau layout', fav: false, items: slots });
+      var nouveau = { id: id, name: nm || 'Nouveau layout', fav: false, items: slots };
+      // `ico` reste ABSENT quand aucune icône n'est choisie : le champ est optionnel des deux côtés
+      // (sanitizer serveur comme rendu), et une disposition sans icône est un cas normal, pas un trou.
+      if (_newIco) nouveau.ico = _newIco;
+      c.layouts.push(nouveau);
+      _newDispo = null; _newIco = '';
+      // (L'ancien saut automatique en renommage inline quand le nom était vide a disparu avec
+      // l'arrivée de l'écran de nommage : le champ a été proposé, le laisser vide est un CHOIX.)
       c.active = id; save(); API.closeManager(); renderBar(); renderGrid();
-      if (!nm) setTimeout(function () { editTab(id); }, 60);   // pas de nom fourni → l'onglet passe en édition
     },
     applyPreset: function (i) {                         // écran guidé : composer un modèle prêt DANS ce desk vide
       var l = activeLayout(), p = PRESETS[i]; if (!l || !p || l.items.length) return;
@@ -4386,7 +4550,10 @@ function _spansAffiches(lay) {
     // persisté (le sanitizer serveur revalidera tout à l'import chez le destinataire).
     exportLayout: function () {
       var l = activeLayout(); if (!l) { _wdgNote('Aucun layout actif à exporter.'); return; }
-      var data = { v: 1, app: 'datatradingpro', name: l.name, items: l.items };
+      // `ico` VOYAGE AVEC LE FICHIER (17/08) : le même piège que tabs/tabLabels/cfg, un cran plus haut.
+      // Tout champ absent d'ici est perdu à l'aller ; tout champ absent de l'import est perdu au retour.
+      // Sans les deux, réimporter son propre export rendait la disposition anonyme dans la barre.
+      var data = { v: 1, app: 'datatradingpro', name: l.name, ico: l.ico || undefined, items: l.items };
       var slug = String(l.name || 'layout').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'layout';
       var url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
       var a = document.createElement('a');
@@ -4419,6 +4586,10 @@ function _spansAffiches(lay) {
             var ecartes = d.items.length - items.length;
             var nom = (String(d.name || 'Importé').replace(/[<>]/g, '').trim().slice(0, 34) || 'Importé');
             var l = { id: uid(), name: nom, items: items };
+            // Le fichier vient de l'extérieur : on revalide l'identifiant d'icône au lieu de le
+            // recopier. Un id hors catalogue ne casserait rien à l'écran (_layIco n'écrit rien) mais
+            // survivrait au sanitizer serveur et resterait une donnée morte dans la config.
+            if (typeof d.ico === 'string' && _LAYICO_RX.test(d.ico) && _LAYICO[d.ico]) l.ico = d.ico;
             c.layouts.push(l); c.active = l.id;
             save(); renderBar(); renderManager(); renderGrid();
             _wdgNote('Layout « ' + nom + ' » importé (' + items.length + ' widget' + (items.length > 1 ? 's' : '') + (ecartes > 0 ? ', ' + ecartes + ' inconnu' + (ecartes > 1 ? 's' : '') + ' écarté' + (ecartes > 1 ? 's' : '') : '') + ').');
@@ -4491,7 +4662,9 @@ function _spansAffiches(lay) {
         API.openManager();   // rafraîchit la date de sauvegarde (désormais = l'ancien état courant, ré-échangeable)
       }).catch(function () {});
     },
-    closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); _mgrMode = null; _dispoTarget = 'new'; },
+    // Fermer remet le parcours de création à zéro : rouvrir le gestionnaire doit repartir de la LISTE,
+    // pas rejouer une étape à moitié remplie (disposition retenue, icône choisie) d'une session passée.
+    closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); _mgrMode = null; _dispoTarget = 'new'; _newDispo = null; _newIco = ''; },
     editTab: editTab,                                     // double-clic sur un onglet → renommage inline
 
     // Densité de la grille : 'loose' = espacés (défaut) / 'tight' = collés. Persistée dans le cfg KV (par compte).
@@ -4574,7 +4747,15 @@ function _spansAffiches(lay) {
     if (md && md.classList.contains('open')) { _wdgBiasDetailClose(); return; }
     var lib = document.getElementById('wdg-lib'), mgr = document.getElementById('wdg-mgr');
     if (lib && lib.classList.contains('open')) { API.closeLib(); return; }
-    if (mgr && mgr.classList.contains('open')) { if (_mgrMode === 'dispo') API.backManager(); else API.closeManager(); return; }
+    // Échap RECULE D'UN ÉCRAN dans le parcours de création (nom + icône → dispositions → liste), il ne
+    // referme le gestionnaire qu'une fois revenu à la liste. Fermer d'un coup depuis l'écran de nommage
+    // ferait perdre la disposition déjà choisie pour une frappe destinée à corriger un nom.
+    if (mgr && mgr.classList.contains('open')) {
+      if (_mgrMode === 'nom') API.backDispo();
+      else if (_mgrMode === 'dispo') API.backManager();
+      else API.closeManager();
+      return;
+    }
     if (_fullscreenIdx != null) API.fullscreen(_fullscreenIdx);
   });
 

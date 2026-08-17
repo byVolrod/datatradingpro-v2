@@ -12169,7 +12169,10 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   color: var(--w-t8); background: var(--w-s1); border: 1px solid var(--hud-line, var(--border));
   padding: 2px 7px; border-radius: 3px;
 }
-/* Étape de création : champ NOM au-dessus des dispositions (parcours nom → disposition → widgets) */
+/* Ancienne rangée du champ NOM, restée au-dessus des dispositions jusqu'au 17/08. Le nom (et
+   désormais l'icône) se saisissent à l'écran suivant : cf. « ÉCRAN NOM + ICÔNE » en fin de feuille.
+   La règle est conservée : rien ne la porte plus, mais une disposition exportée d'une version
+   antérieure peut encore la traverser sans se déformer. */
 .wdg-dispo-namerow { margin: 0 0 12px; }
 
 /* Manquantes historiques : cadenas du desk protégé + ligne sauvegarde du pied de modale */
@@ -16960,4 +16963,84 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 
 @media (prefers-reduced-motion: reduce) {
   .np-item, .np-item.np-item--unread { animation: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   MON DESK · ÉCRAN « NOM + ICÔNE » d'une disposition, et affichage de l'icône choisie (17/08)
+   ════════════════════════════════════════════════════════════════════════════════════════════════
+   Le parcours de création devient : disposition → nom + icône → widgets. L'étape vit DANS le
+   gestionnaire (#wdg-mgr-list), comme le choix de disposition : le desk n'ouvre jamais de dialogue
+   natif. On réemploie la grammaire déjà posée là (.wdg-dispo-head, .wdg-btn, .wdg-lib-search,
+   .wdg-dispo-hint) pour que l'écran ne ressemble pas à une pièce rapportée.
+   TOKENS plutôt que valeurs recopiées : --hud-line pour les filets, --head-bg pour les fonds,
+   --text2/--text3 pour la hiérarchie de texte, --orange (or DTP) pour l'état choisi. */
+
+.wdg-nom { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
+/* Rappel de la disposition retenue : largeur FIGÉE, pour que l'aperçu conserve son ratio 2,15:1 et
+   que la colonne de saisie prenne tout le reste quelle que soit la largeur de la modale. */
+.wdg-nom-apercu { flex: 0 0 132px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wdg-nom-apercu .wdg-thumb { width: 100%; }
+.wdg-nom-champs { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.wdg-nom-lbl {
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--text2, var(--w-t6));
+}
+.wdg-nom-champs > .wdg-lib-search + .wdg-nom-lbl { margin-top: 6px; }
+
+/* GRILLE D'ICÔNES : des pastilles carrées qui se rangent d'elles-mêmes. auto-fill + minmax évite de
+   figer un nombre de colonnes : la modale rétrécit sur téléphone, la grille se replie sans déborder
+   et sans imposer de défilement horizontal. */
+.wdg-ico-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+.wdg-ico-pick {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 38px; padding: 0; cursor: pointer;
+  background: var(--head-bg); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  color: var(--text2, var(--w-t6));
+  transition: color .14s, border-color .14s, background .14s;
+}
+.wdg-ico-pick:hover { color: var(--orange); border-color: rgba(227, 178, 58, .5); }
+/* Choisie : la couleur seule se lit mal sur un écran mal calibré, elle s'accompagne d'un cerne. */
+.wdg-ico-pick.on { color: var(--orange); border-color: var(--orange); background: rgba(227, 178, 58, .1); }
+.wdg-ico-pick:focus-visible { outline: 2px solid rgba(227, 178, 58, .55); outline-offset: 1px; }
+/* « Aucune » est un mot au milieu de dessins : il prend deux cases pour rester lisible. */
+.wdg-ico-pick--none {
+  grid-column: span 2; font-family: var(--tight, 'Inter Tight', sans-serif);
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+}
+.wdg-nom-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* ICÔNE AFFICHÉE · barre d'onglets. color: inherit fait suivre l'onglet (blanc quand actif, gris au
+   repos, or au survol) parce que les tracés sont en currentColor. Une disposition SANS icône n'écrit
+   aucun élément (cf. _layIco) : la gouttière de .wdg-lay ne s'ouvre pas, les anciens onglets gardent
+   exactement leur position, rien ne saute. */
+.wdg-lay-ico { display: inline-flex; align-items: center; color: inherit; flex: 0 0 auto; }
+.wdg-lay-ico svg { width: 13px; height: 13px; }
+
+/* ICÔNE AFFICHÉE · pied des cartes du gestionnaire. Ce pied est en space-between : sans flex: 1 sur
+   le nom, l'arrivée d'un 3e enfant écarterait les trois éléments et le nom partirait au centre. Le
+   nom prend donc la place restante (et garde son ellipse), le compte reste calé à droite. */
+.wdg-mgr-card .wdg-mgr-ico { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; color: var(--text2, var(--w-t6)); }
+.wdg-mgr-card .wdg-mgr-ico svg { width: 14px; height: 14px; }
+.wdg-mgr-card.on .wdg-mgr-ico { color: var(--orange); }
+.wdg-mgr-card .wdg-mgr-nom { flex: 1 1 auto; min-width: 0; }
+.wdg-mgr-card .wdg-mgr-foot .wdg-mgr-count { margin-left: auto; }
+/* ⚠️ `flex-wrap: wrap` VENU DU PIED DU GESTIONNAIRE. La règle `.wdg-mgr-foot` écrite pour le pied de
+   la MODALE (une rangée de boutons, qui doit bien passer à la ligne) s'applique aussi au pied des
+   CARTES, et la règle des cartes plus bas ne la redéfinit jamais. Conséquence mesurée : un nom long
+   partait déjà seul sur une 2e ligne, et l'arrivée de l'icône en ouvrait une 3e, l'icône orpheline
+   au-dessus du nom (pied de 74,7 px contre 33,3 px pour les autres cartes, cartes de hauteur
+   inégale dans la grille). En flex-wrap, un élément dont la taille de contenu dépasse la ligne est
+   RENVOYÉ à la ligne avant d'être rétréci : le `min-width: 0` ci-dessus ne pouvait donc pas jouer.
+   On coupe le wrap ICI SEULEMENT (sélecteur porté par .wdg-mgr-card, le pied de la modale garde le
+   sien) : icône, nom et compte tiennent sur une ligne, et c'est l'ellipse du nom qui absorbe. */
+.wdg-mgr-card .wdg-mgr-foot { flex-wrap: nowrap; }
+
+/* Téléphone : l'aperçu passe AU-DESSUS du formulaire (une colonne de 132 px mangerait un tiers de la
+   largeur utile) et les pastilles grossissent pour rester touchables au doigt. */
+@media (max-width: 560px) {
+  .wdg-nom { flex-direction: column; gap: 10px; }
+  .wdg-nom-apercu { flex: 0 0 auto; width: 100%; max-width: 200px; align-self: center; }
+  .wdg-ico-grid { grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); }
+  .wdg-ico-pick { height: 42px; }
+  .wdg-nom-actions .wdg-btn { flex: 1 1 auto; }
 }
