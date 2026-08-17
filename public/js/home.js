@@ -251,6 +251,18 @@
       host.innerHTML = items + items;                    // doublé → la boucle repart sans couture à -50 %
       host.parentNode.classList.add('is-on');
       host.parentNode.classList.remove('home-ticker--skel');
+      // ── VITESSE CONSTANTE, ET PERCEPTIBLE (17/08/2026, constat user « le bandeau ne bouge pas ») ──
+      // La durée était FIGÉE à 90 s pour un déplacement de -50 %, c'est-à-dire la largeur d'UNE copie.
+      // Avec huit paires (~2400 px doublés), cela faisait 1200 px en 90 s : 13 px/s, soit un caractère
+      // toutes les cinq secondes. Le bandeau défilait donc réellement, mais trop lentement pour que
+      // l'œil le voie — d'où « il ne bouge pas ». Et la vitesse variait avec le nombre de paires :
+      // deux fois plus de cotations, deux fois plus vite.
+      // On fixe désormais la VITESSE (px/s) et on en déduit la durée : le rythme reste le même quoi
+      // qu'affiche la bande.
+      try {
+        var copie = host.scrollWidth / 2;                          // -50 % = la largeur d'une copie
+        if (copie > 0) host.style.animationDuration = Math.max(20, Math.round(copie / 55)) + 's';
+      } catch (e) {}
     }).catch(replanifie);
   }
 
