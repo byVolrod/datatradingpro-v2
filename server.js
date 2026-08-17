@@ -692,7 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
-  { id: 'dtpu-20260817-vraies-dates', ts: Date.UTC(2026, 7, 17, 19, 0), title: 'Recherche institutionnelle : la vraie date de chaque rapport', desc: 'Les rapports HSBC, Goldman Sachs, Nordea, Natixis, KBC, QCAM, UniCredit et Société Générale affichent désormais leur date de publication réelle, allée chercher à la source. Fini l\'horodatage du moment où le desk a repéré le lien : la colonne Date dit ce qu\'elle prétend dire, et le classement par fraîcheur devient juste.' },
+  { id: 'dtpu-20260817-vraies-dates', ts: Date.UTC(2026, 7, 17, 19, 0), title: 'Recherche institutionnelle : la vraie date de chaque rapport', desc: 'Les rapports HSBC, Goldman Sachs, Nordea, Natixis, MUFG, Westpac, KBC, QCAM, UniCredit et Société Générale affichent désormais leur date de publication réelle, allée chercher à la source. Fini l\'horodatage du moment où le desk a repéré le lien : la colonne Date dit ce qu\'elle prétend dire, et le classement par fraîcheur devient juste.' },
   { id: 'dtpu-20260817-banques-dates', ts: Date.UTC(2026, 7, 17, 17, 0), title: 'Recherche institutionnelle : des dates de publication honnêtes', desc: 'Goldman Sachs publie de nouveau dans l\'onglet, avec ses vraies dates. Les rapports Wells Fargo affichent la date du document et non celle où le desk les a repérés. Et quand une banque ne date pas sa publication, la colonne indique « n.d. » au lieu d\'une date inventée.' },
   { id: 'dtpu-20260817-banques-rapports', ts: Date.UTC(2026, 7, 17, 14, 0), title: 'Recherche institutionnelle : les rapports manquants sont de retour', desc: 'Quand une banque publiait plusieurs notes le même jour, une seule arrivait dans le desk et les autres étaient perdues en silence. Pour MUFG, cela représentait un rapport reçu sur cinq. Tous remontent désormais, pour toutes les banques. Les archives d années passées cessent aussi de réapparaître datées du jour en tête de liste.' },
   { id: 'dtpu-20260817-bandeau-defile', ts: Date.UTC(2026, 7, 17, 13, 0), title: 'Accueil : le bandeau de cotations défile, sans barre', desc: 'La barre de défilement apparue sous le bandeau est retirée, et la bande avance de nouveau toute seule, en continu, quels que soient les réglages d’animation de votre système. Passez la souris dessus pour la mettre en pause et lire une cotation au calme.' },
@@ -5848,7 +5848,21 @@ function _pubId(prefixe, entree) {
 const _BR_REMOVED = new Set(['amundi', 'lloyds']);   // banques retirées (Lloyds = lloydsbank.com BLOQUÉ depuis l'IP serveur → « Internet Banking - Error » ; Danske RÉACTIVÉ via PDF natifs)
 // Standard Chartered : on ne publie QUE les « Weekly Market View » (URL wm-weekly-market-view-…),
 // jamais les liens parasites de la même page (Modern slavery statement, Code of Conduct, Download the report…).
+/* Pages qui ne sont PAS des publications. Deux cas mesurés le 17/08/2026 :
+   · l'URL de LISTE elle-même, retenue par le scrape comme si c'était un rapport
+     (« research.natixis.com/Site/en/forex/latest-publications », affichée sous le titre générique
+     « Morning Line Express ») ;
+   · une page vitrine sans article dessous (HSBC « gar-ai » : aucun <h1>, aucune date nulle part,
+     178 ko de page marketing).
+   Elles n'ont pas de date de publication parce qu'elles n'en ont pas à avoir. Les dater serait
+   inventer ; la bonne réponse est de ne pas les publier dans l'onglet. */
+const _BR_NON_ARTICLE = [
+  /research\.natixis\.com\/Site\/[a-z]{2}\/[a-z-]+\/latest-publications\/?$/i,
+  /hsbc\.com(\.[a-z]{2})?\/wealth\/insights\/?$/i,
+  /hsbc\.com(\.[a-z]{2})?\/wealth\/insights\/learn-to-invest\/meet-life-goals\/gar-ai\/?$/i,
+];
 const _brAllowed = i => !!i && !_BR_REMOVED.has(i._source) &&
+  !_BR_NON_ARTICLE.some(rx => rx.test(i.url || '')) &&
   (i._source !== 'stanchart' || /weekly-market-view/i.test(i.url || '')) &&
   // Syz Group : on ne publie QUE les « Weekly Fixed Income » (le blog Fast Food for Thought mélange Weekly
   // Equities, Global Markets Outlook, etc. → on les écarte). Purge aussi les anciens items hors-catégorie.
@@ -5935,11 +5949,15 @@ function _mufgAdd(merged, seen, href, cat, cutoff) {
   // remontait daté d'aujourd'hui, en tête de liste. Avant de se rabattre sur maintenant, on cherche
   // donc une ANNÉE dans l'adresse : si elle est antérieure à l'année en cours, c'est une archive et
   // on l'écarte plutôt que de la faire passer pour neuve.
-  let ts = _mufgParseDate(slug);
+  // Toutes les adresses MUFG ne portent pas leur date : « /macro/japan-economic-calendar-week-of-
+  // august-3-to-7-2026/ » n'en a pas, et l'heure courante le faisait passer pour le rapport du jour
+  // (mesuré en prod le 17/08). On marque alors la date comme inconnue : le résolveur ira la chercher
+  // sur la page, et à défaut l'affichage dira « n.d. » plutôt que d'inventer aujourd'hui.
+  let ts = _mufgParseDate(slug), dateInconnue = false;
   if (!ts) {
     const an = String(slug).match(/\b(20\d{2})\b/);
     if (an && Number(an[1]) < new Date().getFullYear()) return;   // archive datée d'une année passée
-    ts = Date.now();
+    ts = Date.now(); dateInconnue = true;
   }
   if (ts < cutoff) return;
   const title = slug
@@ -5948,7 +5966,7 @@ function _mufgAdd(merged, seen, href, cat, cutoff) {
     .replace(/\b(Fx|Us|Usd|Eur|Jpy|Gbp|Cad|Aud|Nzd|Chf|Cny|Ai|Ecb|Boj|Fed|Cpi|Gdp|Em)\b/gi, m => m.toUpperCase());
   const id = _pubId('br-', link);
   if (merged.has(id)) return;
-  merged.set(id, { id, title, url: link, timestamp: ts, categories: [cat.toUpperCase()], description: '', institution: 'MUFG', _source: 'mufg' });
+  merged.set(id, { id, title, url: link, timestamp: ts, ...(dateInconnue ? { dateInconnue: true } : {}), categories: [cat.toUpperCase()], description: '', institution: 'MUFG', _source: 'mufg' });
 }
 async function _fetchMufgInto(merged, cutoff, UA) {
   const seen = new Set();
@@ -6032,7 +6050,9 @@ async function _fetchSebInto(merged, cutoff, UA) {
         if (!title || !/[a-z]/i.test(title)) continue;
         // Sécurité "titre anglais" : on écarte les titres avec lettres nordiques (å, ä, ö, ø, æ).
         if (/[åäöøæ]/i.test(title)) continue;
-        const ts = rep.publishedDate ? (new Date(rep.publishedDate).getTime() || Date.now()) : Date.now();
+        // Sans `publishedDate`, l'heure courante ferait passer un vieux rapport pour celui du jour.
+        const _sebTs = rep.publishedDate ? (new Date(rep.publishedDate).getTime() || 0) : 0;
+        const ts = _sebTs || Date.now();
         if (ts < cutoff) continue;
         const link = `https://research.sebgroup.com/macro-ficc/reports/${rep.articleId}`;
         const id = _pubId('br-', 'seb-' + rep.articleId);
@@ -6051,7 +6071,7 @@ async function _fetchSebInto(merged, cutoff, UA) {
         if (body.replace(/<[^>]*>/g, '').trim().length < 60) continue;
         const desc = String(rep.ingress || rep.text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
         merged.set(id, {
-          id, title, url: link, timestamp: ts, _pdfUrl: _sebPdf,
+          id, title, url: link, timestamp: ts, _pdfUrl: _sebPdf, ...(_sebTs ? {} : { dateInconnue: true }),
           // displayTags de SEB = OBJETS → on extrait la chaîne (sinon « [object Object] » en tag).
           categories: (() => {
             const dt = Array.isArray(rep.displayTags) ? rep.displayTags.map(t => typeof t === 'string' ? t : (t && (t.name || t.tag || t.label || t.value || t.text || t.title)) || '').filter(Boolean) : [];
@@ -6679,12 +6699,29 @@ const _BR_DATES_RETRY = 7 * 864e5;       // une source muette n'est resondée qu
 // quand on améliore une source, il faut rejouer ses échecs sans attendre la fenêtre d'une semaine.
 // v2 : repli Nordea par article (la requête en lot est plafonnée à 50, les publications plus anciennes
 // en sortaient et restaient sans date alors que l'endpoint unitaire les connaît).
-const _BR_DATES_VER = 2;
+// v3 : rattrapage des items que plus aucun scraper ne revoit, reconnus par _brDateSuspecte, plus les
+// dates manquantes de MUFG et SEB désormais marquées à l'ingestion.
+const _BR_DATES_VER = 3;
 // Plafond de pages sondées par rafraîchissement. 120 vide le retard d'un seul tour (mesuré en prod :
 // 96 publications à dater après la bascule) ; ensuite le régime de croisière est de quelques unités,
 // puisque chaque date résolue est mémorisée et n'est plus jamais redemandée. Quatre requêtes de front.
 const _BR_DATES_LOT = 120;
 let _brDates = null;
+
+/* RATTRAPAGE DE L'EXISTANT. Le marquage `dateInconnue` ne vaut que pour ce qu'un scraper revoit :
+   une publication qu'une banque ne liste plus ne repasse jamais, et gardait donc son heure de
+   découverte pour toujours. Il faut donc un moyen de RECONNAÎTRE une date de découverte a posteriori.
+
+   Signature retenue : chez ces sources, une date réellement lue passe toujours par un parseur qui la
+   normalise à midi pile (Date.UTC(…, 12)) ; elle ne peut donc pas porter de millisecondes. Une
+   milliseconde y trahit un `Date.now()`, c'est-à-dire l'instant de découverte. Mesuré le 17/08 : 147
+   items du cache dans ce cas.
+
+   SEB est volontairement ABSENT de cette liste : son API renvoie un ISO AVEC millisecondes, donc la
+   milliseconde y est au contraire le signe d'une VRAIE date (ses items s'étalent sur 31 jours). C'est
+   exactement le raisonnement inverse qui aurait fait étiqueter 91 bonnes dates comme inconnues. */
+const _BR_MIDI_PILE = new Set(['mufg', 'westpac', 'hsbc', 'nordea', 'natixis', 'qcam', 'kbc', 'socgen', 'unicredit', 'goldman']);
+const _brDateSuspecte = i => !!i && _BR_MIDI_PILE.has(i._source) && (i.timestamp || 0) % 1000 !== 0;
 
 async function _brDatesCharger() {
   if (_brDates) return _brDates;
@@ -6709,11 +6746,13 @@ async function _brResoudreDates(items) {
   const maintenant = Date.now();
   const aFaire = [];
   for (const it of items) {
-    if (!it || !it.dateInconnue || !it.url) continue;
+    if (!it || !it.url) continue;
+    // À résoudre : ce que les scrapers ont marqué sans date, ET ce que la signature ci-dessus dénonce.
+    if (!it.dateInconnue && !_brDateSuspecte(it)) continue;
     const su = mem[it.url];
     if (su && su.d) { it.timestamp = su.d; delete it.dateInconnue; continue; }        // déjà résolue
     // Échec déjà constaté : on ne réessaie ni avant la fenêtre, ni si la méthode n'a pas changé.
-    if (su && !su.d && (su.v || 1) === _BR_DATES_VER && maintenant - (su.a || 0) < _BR_DATES_RETRY) continue;
+    if (su && !su.d && (su.v || 1) === _BR_DATES_VER && maintenant - (su.a || 0) < _BR_DATES_RETRY) { it.dateInconnue = true; continue; }
     aFaire.push(it);
   }
   if (!aFaire.length) return 0;
@@ -6732,6 +6771,9 @@ async function _brResoudreDates(items) {
       try { d = await _PUBDATE.resoudreDate(it, deps, lots); } catch {}
       mem[it.url] = { d: d || 0, a: Date.now(), v: _BR_DATES_VER };
       if (d) { it.timestamp = d; delete it.dateInconnue; resolues++; }
+      // La source n'a pas de date à donner : on l'assume au lieu de laisser passer l'heure de
+      // découverte pour une date de publication.
+      else it.dateInconnue = true;
     }
   };
   await Promise.all([ouvrier(), ouvrier(), ouvrier(), ouvrier()]);

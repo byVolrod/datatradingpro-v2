@@ -113,7 +113,10 @@ function dateMeta(html) {
  * de 1 à 3 jours. Prendre la première date rencontrée dans le texte attraperait ces faux amis.
  */
 function dateVisible(html, cheerio) {
-  const RX = new RegExp('^([0-3]?\\d)\\s+(' + MOIS_RX + ')\\.?\\s+(20\\d\\d)$');
+  // Les deux ordres rencontrés : « 12 August 2026 » (HSBC) et « Jul 29, 2026 » (MUFG).
+  const RX = new RegExp('^(?:([0-3]?\\d)\\s+(' + MOIS_RX + ')\\.?\\s+(20\\d\\d)'
+                      + '|(' + MOIS_RX + ')\\.?\\s+([0-3]?\\d),?\\s+(20\\d\\d))$');
+  const lire = m => (m[1] ? parseDate(m[1] + ' ' + m[2] + ' ' + m[3]) : parseDate(m[4] + ' ' + m[5] + ', ' + m[6]));
   const propre = t => String(t || '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
   if (cheerio) {
     let $; try { $ = cheerio.load(html); } catch { $ = null; }
@@ -128,7 +131,7 @@ function dateVisible(html, cheerio) {
         if (!m) return;
         const n = $(el).find('*').length;
         if (n >= profondeur) return;
-        const t = parseDate(m[1] + ' ' + m[2] + ' ' + m[3]);
+        const t = lire(m);
         if (t) { trouve = t; profondeur = n; }
       });
       if (trouve) return trouve;
@@ -137,7 +140,7 @@ function dateVisible(html, cheerio) {
   // Repli sans cheerio : une ligne dont le contenu entier est la date.
   for (const ligne of texteDe(html).split('\n')) {
     const m = propre(ligne).match(RX);
-    if (m) { const t = parseDate(m[1] + ' ' + m[2] + ' ' + m[3]); if (t) return t; }
+    if (m) { const t = lire(m); if (t) return t; }
   }
   return null;
 }
@@ -246,6 +249,13 @@ const STRATEGIES = {
   hsbc: (h, ch) => dateVisible(h, ch),
   goldman: h => dateJsonLd(h) || dateMeta(h),
   qcam: h => dateJsonLd(h) || dateMeta(h),
+  // Westpac : JSON-LD présent et propre (mesuré : trois articles, trois dates distinctes, cohérentes
+  // avec leur contenu). Le desk n en tirait rien parce qu il ne lisait que la carte de la liste.
+  westpac: h => dateJsonLd(h) || dateMeta(h),
+  // MUFG : aucune métadonnée, mais la date est affichée seule, au format « Jul 29, 2026 ». Elle
+  // recoupe le contenu : le calendrier de la semaine du 17 août est daté du 14, celui du 3 au 7 du 31
+  // juillet. Le desk la manquait quand l adresse ne portait pas de date, et posait l heure courante.
+  mufg: (h, ch) => dateVisible(h, ch),
 };
 
 /**
