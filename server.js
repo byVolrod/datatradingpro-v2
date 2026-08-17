@@ -12414,9 +12414,14 @@ function _sbMonBrut(m, tone) {
    retranche donc la moyenne. Si les huit banques tiennent le même discours, le pilier contribue zéro
    à tout le monde, ce qui est la traduction honnête de « cette information ne départage personne ».
    Seul l'ÉCART à la moyenne compte encore. */
-function _sbMonMoyenne(macroTable, monTone) {
+function _sbMonMoyenne(macroTable, monTone, codes) {
+  // La liste de devises est PASSÉE, jamais capturée : cette fonction est appelée depuis la couche
+  // temps réel comme depuis le calcul de fond, et une capture aurait planté l'une des deux
+  // (« CCYS is not defined », constaté en production le 17/08 juste après la première pose).
+  const liste = Array.isArray(codes) && codes.length ? codes
+    : (Array.isArray(SB_CURRENCIES) ? SB_CURRENCIES : Object.keys(macroTable || {}));
   const vals = [];
-  for (const c of CCYS) {
+  for (const c of liste) {
     const v = _sbMonBrut((macroTable || {})[c], (monTone || {})[c]);
     if (v != null) vals.push(v);
   }
@@ -12465,18 +12470,18 @@ function _sbCellScore(m, carry, tone, code, sentiment, monMoy) {
 }
 // Conclusion finale = cellules (2/3) + piliers (1/3), puis RECENTRAGE cross-devises, puis paliers.
 function _sbConcludeFromCells(macroTable, pilierConclusion, diffs, monTone) {
-  // Moyenne monétaire des huit devises : calculée UNE fois, retranchée à chacune.
-  const _monMoy = _sbMonMoyenne(macroTable, monTone);
+  const CCYS = SB_CURRENCIES.filter(c => macroTable && macroTable[c]);
+  if (CCYS.length < 4) return null;                 // trop peu de matière pour un classement relatif
+  // Moyenne monétaire des devises réellement lues : calculée UNE fois, retranchée à chacune.
+  const _monMoy = _sbMonMoyenne(macroTable, monTone, CCYS);
   // Garde-fou de lisibilité : un pilier qui dit la même chose pour presque tout le monde est en panne
   // d'information. On le DIT dans les journaux plutôt que de le laisser pousser en silence.
   try {
-    const _st = CCYS.map(c => (((macroTable || {})[c] || {}).monetary || {}).stance).filter(Boolean);
-    const _top = _st.length ? _st.sort((a, b) => _st.filter(x => x === b).length - _st.filter(x => x === a).length)[0] : '';
-    const _n = _st.filter(x => x === _top).length;
-    if (_n >= 6) console.log('[SmartBias] pilier monétaire peu discriminant : « ' + _top + ' » sur ' + _n + '/' + _st.length + ' devises (centrage appliqué, moyenne ' + _monMoy.toFixed(2) + ')');
+    const _st = CCYS.map(c => ((macroTable[c] || {}).monetary || {}).stance).filter(Boolean);
+    const _cpt = {}; _st.forEach(x => { _cpt[x] = (_cpt[x] || 0) + 1; });
+    const _top = Object.keys(_cpt).sort((a, b) => _cpt[b] - _cpt[a])[0] || '';
+    if (_top && _cpt[_top] >= 6) console.log('[SmartBias] pilier monétaire peu discriminant : « ' + _top + ' » sur ' + _cpt[_top] + '/' + _st.length + ' devises (centrage appliqué, moyenne ' + _monMoy.toFixed(2) + ')');
   } catch {}
-  const CCYS = SB_CURRENCIES.filter(c => macroTable && macroTable[c]);
-  if (CCYS.length < 4) return null;                 // trop peu de matière pour un classement relatif
   /* ⚠️ v46 (12/08, demande user : « les biais doivent se mettre à jour UNIQUEMENT en fonction des
      données qui sortent du calendrier économique »). Le score mêlait jusqu'ici 2/3 de CELLULES
      (politique monétaire, inflation, croissance, emploi — les colonnes affichées, toutes nourries
@@ -12518,7 +12523,7 @@ function _sbCoherence(macroTable, conclusion, diffs, monTone) {
     const sc = {};
     // Le contrôleur de cohérence doit scorer EXACTEMENT comme le verdict, centrage compris : sans la
     // même moyenne, il dénoncerait des écarts qu il aurait lui-même fabriqués.
-    const _mm = _sbMonMoyenne(macroTable, monTone);
+    const _mm = _sbMonMoyenne(macroTable, monTone, SB_CURRENCIES.filter(c => macroTable && macroTable[c]));
     for (const c of CCYS) sc[c] = _sbCellScore(macroTable[c], (diffs || {})[c], (monTone || {})[c], c, null, _mm);
     const dispo = CCYS.filter(c => sc[c] != null);
     if (dispo.length < 4) return out;
