@@ -692,7 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
-  { id: 'dtpu-20260817-banques-dates', ts: Date.UTC(2026, 7, 17, 16, 0), title: 'Recherche institutionnelle : des dates de publication honnêtes', desc: 'Goldman Sachs publie de nouveau dans l\'onglet, avec ses vraies dates. Les rapports Wells Fargo affichent la date du document et non celle où le desk les a repérés. Et quand une banque ne date pas sa publication, la colonne indique « n.d. » au lieu d\'une date inventée.' },
+  { id: 'dtpu-20260817-banques-dates', ts: Date.UTC(2026, 7, 17, 17, 0), title: 'Recherche institutionnelle : des dates de publication honnêtes', desc: 'Goldman Sachs publie de nouveau dans l\'onglet, avec ses vraies dates. Les rapports Wells Fargo affichent la date du document et non celle où le desk les a repérés. Et quand une banque ne date pas sa publication, la colonne indique « n.d. » au lieu d\'une date inventée.' },
   { id: 'dtpu-20260817-banques-rapports', ts: Date.UTC(2026, 7, 17, 14, 0), title: 'Recherche institutionnelle : les rapports manquants sont de retour', desc: 'Quand une banque publiait plusieurs notes le même jour, une seule arrivait dans le desk et les autres étaient perdues en silence. Pour MUFG, cela représentait un rapport reçu sur cinq. Tous remontent désormais, pour toutes les banques. Les archives d années passées cessent aussi de réapparaître datées du jour en tête de liste.' },
   { id: 'dtpu-20260817-bandeau-defile', ts: Date.UTC(2026, 7, 17, 13, 0), title: 'Accueil : le bandeau de cotations défile, sans barre', desc: 'La barre de défilement apparue sous le bandeau est retirée, et la bande avance de nouveau toute seule, en continu, quels que soient les réglages d’animation de votre système. Passez la souris dessus pour la mettre en pause et lire une cotation au calme.' },
   { id: 'dtpu-20260817-bandeau-anim', ts: Date.UTC(2026, 7, 17, 12, 0), title: 'Accueil : le bandeau défile même avec les animations réduites', desc: 'Si votre système demande aux applications de limiter les animations, le bandeau de cotations s’arrêtait complètement. Un téléscripteur dont le mouvement EST le contenu : le couper supprimait sa fonction. Il défile désormais deux fois plus lentement dans ce mode, au lieu de se figer, et reste arrêtable d’un survol ou défilable à la main.' },
@@ -6288,14 +6288,28 @@ function _brCleanTitle(title, source) {
   return t.replace(/\s+/g, ' ').trim();
 }
 
+/* Une publication deja connue peut voir sa DATATION s ameliorer (le scrape finit par trouver la date
+   reelle) ou se degrader (on constate qu il n y en a pas). Le code se contentait de `continue` des que
+   l identifiant existait : une publication entree un jour sans date gardait a jamais son heure de
+   DECOUVERTE, presentee ensuite comme une date de publication. Pire, le passage aux identifiants par
+   condensat (17/08) a change tous les identifiants d un coup : toute la population sans date a ete
+   re-horodatee « aujourd hui » en bloc. Cette fonction remet la datation a jour a chaque passage. */
+function _majDatation(ex, ts, inconnue) {
+  // Un « seed » porte une date ECRITE A LA MAIN, verifiee : le scrape n a pas a la degrader.
+  // (Le scrape revoit souvent une publication seedee sans lire sa date sur la page.)
+  if (!ex || ex._seed) return;
+  if (!inconnue && ts) { ex.timestamp = Math.min(ts, Date.now()); delete ex.dateInconnue; }
+  else if (inconnue) ex.dateInconnue = true;
+}
+
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
     // Seeds = rapports réels connus (garantis, 0 fetch) → remplissent l'onglet même si le scrape est bloqué.
     for (const s of (cfg.seed || [])) {
       const ts = Date.parse(s.date + 'T12:00:00Z'); if (isNaN(ts)) continue;
       const id = _pubId('br-', s.url);
-      if (merged.has(id)) continue;
-      const it = { id, title: s.title, url: s.url, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source };
+      if (merged.has(id)) { merged.get(id)._seed = true; continue; }
+      const it = { id, title: s.title, url: s.url, timestamp: ts, _seed: true, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source };
       if (s.pdf) it._pdf = true;
       merged.set(id, it);
     }
@@ -6306,7 +6320,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
         if (!p || !p.url || (p.ts && p.ts < cutoff)) continue;
         if (cfg.source === 'stanchart' && !/weekly-market-view/i.test(p.url)) continue;   // SC : ignorer les liens parasites (le scrape Puppeteer ne filtre pas par hrefRe)
         const id = _pubId('br-', p.url);
-        if (merged.has(id)) continue;
+        if (merged.has(id)) { _majDatation(merged.get(id), p.ts, !!p.dateInconnue); continue; }
         merged.set(id, { id, title: _brCleanTitle(p.title, cfg.source), url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), dateInconnue: !!p.dateInconnue, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
       }
     } catch (e) { console.warn(`[ResearchSPA ${cfg.source}] échec:`, e.message); }
@@ -6328,8 +6342,8 @@ async function _fetchResearchSpaInto(merged, cutoff) {
           const title = _brCleanTitle(($(a).text() || '').replace(/\s+/g, ' ').trim(), cfg.source);
           if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
           const id = _pubId('br-', key);
-          if (merged.has(id)) return;
           const _dUrl = _dateFromUrlBr && _dateFromUrlBr(key);   // seule source de date REELLE ici
+          if (merged.has(id)) { _majDatation(merged.get(id), _dUrl, !_dUrl); return; }
           const ts = Math.min((_dUrl || Date.now()), Date.now());   // jamais de date future
           if (ts < cutoff) return;
           merged.set(id, { id, title, url: key, timestamp: ts, dateInconnue: !_dUrl, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
@@ -6361,8 +6375,8 @@ async function _fetchResearchSpaInto(merged, cutoff) {
             const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
             if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
             const id = _pubId('br-', key);
-            if (merged.has(id)) return;
             const _dUrl = _dateFromUrlBr && _dateFromUrlBr(key);   // seule source de date REELLE ici
+            if (merged.has(id)) { _majDatation(merged.get(id), _dUrl, !_dUrl); return; }
             const ts = Math.min((_dUrl || Date.now()), Date.now());   // jamais de date future
             if (ts < cutoff) return;
             merged.set(id, { id, title, url: key, timestamp: ts, dateInconnue: !_dUrl, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
@@ -6397,8 +6411,8 @@ async function _fetchResearchSpaInto(merged, cutoff) {
             if (_seen.has(key)) continue; _seen.add(key);
             if (title.split(/\s+/).length < 3) continue;
             const id = _pubId('br-', key);
-            if (merged.has(id)) continue;
             const _dUrl = _dateFromUrlBr && _dateFromUrlBr(key);   // seule source de date REELLE ici
+            if (merged.has(id)) { _majDatation(merged.get(id), _dUrl, !_dUrl); continue; }
             const ts = Math.min((_dUrl || Date.now()), Date.now());   // jamais de date future
             if (ts < cutoff) continue;
             merged.set(id, { id, title: title.slice(0, 160), url: key, timestamp: ts, dateInconnue: !_dUrl, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
@@ -6439,17 +6453,21 @@ async function _fetchWellsInto(merged, UA) {
   // Le code posait donc `timestamp: now` a la premiere decouverte, puis `if (!merged.has(id))` interdisait
   // toute remise a jour : le rapport restait fige a sa date de decouverte et paraissait eternellement frais.
   // Correctif : on RE-HORODATE a chaque rafraichissement depuis Last-Modified, meme si l item existe deja.
+  // Sondes EN PARALLÈLE : en série, 5 rapports × 8 s de délai d'attente bloqueraient le
+  // rafraîchissement jusqu'à 40 s pour rien. En parallèle, le pire cas reste un seul délai.
   const now = Date.now();
+  const dates = await Promise.all(WELLS_REPORTS.map(r => _wellsDatePubliee(r.u, UA)));
   for (let i = 0; i < WELLS_REPORTS.length; i++) {
     const r = WELLS_REPORTS[i];
     const id = _pubId('br-', r.u);
-    const vraie = await _wellsDatePubliee(r.u, UA);
+    const vraie = dates[i];
     const ex = merged.get(id);
     if (ex) {
       // Rapport deja connu : on corrige sa date si (et seulement si) on en tient une vraie.
+      ex._seed = true;
       if (vraie) { ex.timestamp = vraie; delete ex.dateInconnue; }
     } else {
-      merged.set(id, { id, title: r.t, url: r.u, timestamp: vraie || (now - i * 3600000),
+      merged.set(id, { id, title: r.t, url: r.u, timestamp: vraie || (now - i * 3600000), _seed: true,
         ...(vraie ? {} : { dateInconnue: true }),
         categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
     }
@@ -6541,7 +6559,8 @@ async function _fetchHsbcInto(merged, UA) {
     const url = HSBC_BASE + s.u;
     const ts = Date.parse(s.d + 'T12:00:00Z'); if (isNaN(ts)) return;
     const id = _pubId('br-', url);
-    if (!merged.has(id)) merged.set(id, { id, title: s.t, url, timestamp: ts, categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
+    if (merged.has(id)) { merged.get(id)._seed = true; return; }
+    merged.set(id, { id, title: s.t, url, timestamp: ts, _seed: true, categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
   });
   try {
     const res = await axios.get(HSBC_BASE + '/wealth/insights/', { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
@@ -6556,7 +6575,8 @@ async function _fetchHsbcInto(merged, UA) {
         const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
         if (title.length < 12 || title.length > 160 || seen.has(href)) return; seen.add(href);
         const id = _pubId('br-', href);
-        if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), dateInconnue: true, categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
+        if (merged.has(id)) { _majDatation(merged.get(id), null, true); return; }
+        merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), dateInconnue: true, categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
       });
     }
   } catch (e) { console.warn('[HSBC] scrape échec:', e.message); }
