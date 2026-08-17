@@ -1431,7 +1431,13 @@
         var zone = host.querySelector('.wdg-dmx1-anneau');
         var elS = host.querySelector('.wdg-dmx1-short'), elL = host.querySelector('.wdg-dmx1-long');
         var elP = host.querySelector('.wdg-dmx1-paire');
-        var vivant = true, _dern = '';
+        var vivant = true, _dern = '', _pcts = null;
+        // La carte est redimensionnable : les etiquettes suivent la geometrie reelle de la zone.
+        var _ro = null;
+        try {
+          _ro = new ResizeObserver(function () { if (_pcts && zone.isConnected) poserEtiquettes(_pcts[0], _pcts[1]); });
+          _ro.observe(zone);
+        } catch (e) {}
 
         function joli(sym) { return (sym && sym.length === 6) ? sym.slice(0, 3) + '/' + sym.slice(3) : (sym || ''); }
 
@@ -1445,35 +1451,68 @@
            les pousse à la frame suivante et la transition CSS fait « se charger » l'anneau. Le
            vert part collé au rouge (dashoffset 0 -> -aC) : il grandit en le suivant, l'ensemble
            balaie le cadran comme un chargement. */
+        /* SVG carré, arcs seuls : les étiquettes ne vivent PLUS dans le viewBox. Dedans, elles
+           grandissaient avec l'anneau (unités du viewBox : ~36 px sur une grande carte) et
+           débordaient du cadre (« Acheteurs » coupé au bord, capture user du 18/08). Elles sont
+           posées en HTML, en taille d'écran, par poserEtiquettes() sur la même géométrie. */
         function anneau(courtPct, longPct) {
-          var cx = 100, cy = 80, r = 54, ep = 26, c = 2 * Math.PI * r;
+          var cx = 80, cy = 80, r = 54, ep = 26, c = 2 * Math.PI * r;
           var pC = Math.max(0, Math.min(100, courtPct)), pL = Math.max(0, Math.min(100, longPct));
           var aC = pC / 100 * c, aL = pL / 100 * c;
-          // Étiquette d'un segment : angle médian (aiguille depuis midi), trait de rappel court,
-          // texte ancré du côté où il part (droite -> start, gauche -> end), jamais pour un segment
-          // nul. Rayons : bord externe de l'anneau (r + ep/2) puis 8 unités de trait.
-          function etiq(pctDebut, pct, texte) {
-            if (pct < 3) return '';
-            var ang = ((pctDebut + pct / 2) / 100 * 360 - 90) * Math.PI / 180;
-            var r1 = r + ep / 2 + 1, r2 = r1 + 8;
-            var x1 = cx + Math.cos(ang) * r1, y1 = cy + Math.sin(ang) * r1;
-            var x2 = cx + Math.cos(ang) * r2, y2 = cy + Math.sin(ang) * r2;
-            var droite = Math.cos(ang) >= 0;
-            return '<line class="wdg-dmx1-tick" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1)
-              + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"></line>'
-              + '<text class="wdg-dmx1-lab" x="' + (x2 + (droite ? 3 : -3)).toFixed(1) + '" y="' + (y2 + 2.5).toFixed(1)
-              + '" text-anchor="' + (droite ? 'start' : 'end') + '">' + texte + '</text>';
-          }
-          return '<svg viewBox="0 0 200 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
+          // Jour sombre entre les segments, comme la reference : 1,5 unite retiree de chaque cote
+          // de chaque frontiere (le fond noir affleure). Un segment quasi nul garde une longueur
+          // >= 0 : jamais de dasharray negatif.
+          var G = 1.5;
+          var dC = Math.max(0, aC - 2 * G), dL = Math.max(0, aL - 2 * G);
+          return '<svg viewBox="0 0 160 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
             + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--hud-line)" stroke-width="' + ep + '"></circle>'
             + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#ff3d00" stroke-width="' + ep + '"'
-            + ' stroke-dasharray="0 ' + c + '" data-fin="' + aC + ' ' + (c - aC) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
+            + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="' + (-G) + '" data-fin="' + dC + ' ' + (c - dC) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
             + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#00e676" stroke-width="' + ep + '"'
-            + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="0" data-fin="' + aL + ' ' + (c - aL) + '" data-dec="' + (-aC) + '"'
+            + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="' + (-G) + '" data-fin="' + dL + ' ' + (c - dL) + '" data-dec="' + (-(aC + G)) + '"'
             + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
-            + etiq(0, pC, 'Vendeurs · ' + Math.round(pC) + ' %')
-            + etiq(pC, pL, 'Acheteurs · ' + Math.round(pL) + ' %')
             + '</svg>';
+        }
+
+        /* Étiquettes en HTML, taille d'écran fixe, sur la géométrie de l'anneau : angle médian du
+           segment, rayon = bord externe + 8 px d'écran. Bornées dans la zone (une étiquette qui
+           sortirait du cadre est ramenée au bord), masquées si le segment est < 3 % ou si la zone
+           est trop petite pour les porter (< 150 px de côté utile). Repositionnées par le
+           ResizeObserver du widget : la carte est redimensionnable. */
+        function poserEtiquettes(pC, pL) {
+          zone.querySelectorAll('.wdg-dmx1-lab, .wdg-dmx1-fil').forEach(function (n) { n.remove(); });
+          var bw = zone.clientWidth, bh = zone.clientHeight;
+          // Le SVG est PLAFONNE a 340 px par le CSS (fidele a la reference, ou le donut garde une
+          // taille contenue au centre de la carte) : la geometrie des etiquettes suit le meme plafond.
+          var cote = Math.min(bw, bh, 340);
+          if (cote < 150) return;
+          var cx = bw / 2, cy = bh / 2;
+          var rBord = (cote / 2) * ((54 + 13) / 80);      // bord externe de l'anneau (viewBox 160, demi 80)
+          [[0, pC, 'Vendeurs · ' + Math.round(pC) + ' %'], [pC, pL, 'Acheteurs · ' + Math.round(pL) + ' %']]
+            .forEach(function (seg) {
+              if (seg[1] < 3) return;
+              var ang = ((seg[0] + seg[1] / 2) / 100 * 360 - 90) * Math.PI / 180;
+              // Trait de rappel incline, comme la reference : 13 px le long de l'angle median.
+              var fil = document.createElement('span');
+              fil.className = 'wdg-dmx1-fil';
+              fil.style.left = (cx + Math.cos(ang) * (rBord + 9)) + 'px';
+              fil.style.top = (cy + Math.sin(ang) * (rBord + 9)) + 'px';
+              fil.style.transform = 'translate(-50%, -50%) rotate(' + Math.round(ang * 180 / Math.PI) + 'deg)';
+              zone.appendChild(fil);
+              var x = cx + Math.cos(ang) * (rBord + 17), y = cy + Math.sin(ang) * (rBord + 17);
+              var el = document.createElement('span');
+              el.className = 'wdg-dmx1-lab';
+              el.textContent = seg[2];
+              zone.appendChild(el);
+              var w = el.offsetWidth, h = el.offsetHeight;
+              var gauche = Math.cos(ang) < 0;
+              var L2 = gauche ? x - w - 2 : x + 2;
+              // Bornage : jamais hors de la zone, quitte a coller au bord.
+              L2 = Math.max(2, Math.min(bw - w - 2, L2));
+              var T2 = Math.max(2, Math.min(bh - h - 2, y - h / 2));
+              el.style.left = L2 + 'px';
+              el.style.top = T2 + 'px';
+            });
         }
 
         function dessiner() {
@@ -1495,6 +1534,7 @@
                 // La pousse : cible posée à la frame SUIVANTE, pour que la transition CSS parte
                 // bien de « 0 » peint (poser la cible dans le même tour de boucle sauterait
                 // l'animation, le navigateur ne peignant que l'état final).
+                _pcts = [court, lng];
                 var svg = zone.querySelector('svg');
                 requestAnimationFrame(function () { requestAnimationFrame(function () {
                   if (!svg || !svg.isConnected) return;
@@ -1503,6 +1543,8 @@
                     if (a2.hasAttribute('data-dec')) a2.style.strokeDashoffset = a2.getAttribute('data-dec');
                   });
                   svg.classList.add('est-charge');
+                  poserEtiquettes(court, lng);
+                  zone.classList.add('est-charge');
                 }); });
               }
               elS.textContent = court + ' %';
@@ -1515,7 +1557,7 @@
         var iv = setInterval(dessiner, 60000);
         // Le socle attend une FONCTION de nettoyage (typeof un === 'function') : rendre un objet
         // laisserait l intervalle tourner apres le demontage de la carte.
-        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} try { if (_ro) _ro.disconnect(); } catch (e) {} };
       },
     },
     {
