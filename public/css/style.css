@@ -13383,9 +13383,9 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    moitié plutôt que de l'arrêter — un glissement linéaire lent, sans rebond, sans zoom, sans
    clignotement, c'est-à-dire sans les formes de mouvement qui gênent réellement.
    Et il reste MAÎTRISABLE : survol = pause (règle plus haut), et la bande se fait défiler à la main. */
-@media (prefers-reduced-motion: reduce) {
-  .home-ticker-in { animation-duration: calc(var(--home-tk-dur, 30s) * 2); }
-}
+/* (Exception « animations reduites » RETIREE le 17/08 : le bandeau garde la meme vitesse
+   partout, a la demande explicite du proprietaire, repetee. Le mouvement EST le contenu ici ;
+   le survol reste le moyen de l arreter.) */
 
 /* ════════════════════════════════════════════════════════════════════════════
    RÉGLAGES DES WIDGETS EN TIROIR LATÉRAL (03/08, référence user) : le panneau
@@ -16801,13 +16801,30 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .cal-set-sw.on { background: rgba(227, 178, 58, .22); border-color: rgba(227, 178, 58, .55); }
 .cal-set-sw.on i { transform: translateX(16px); background: var(--orange, #e3b23a); }
 
-/* ── BANDEAU DE COTATIONS : UTILISABLE MÊME SANS ANIMATION (17/08/2026) ──────────────────────────
-   La règle prefers-reduced-motion coupe le défilement, et c'est LÉGITIME : un mouvement continu
-   gêne réellement certaines personnes, et Windows expose ce réglage sous « Effets d'animation ».
-   Mais figer la bande la rendait aussi INCOMPLÈTE : les paires au-delà du bord droit devenaient
-   inatteignables, sans aucun moyen d'y accéder. On rend donc la bande défilable à la main dans ce
-   mode : le mouvement disparaît, l'information reste. */
+/* ── BANDEAU : DEFILEMENT AUTOMATIQUE, SANS BARRE (17/08/2026, demande user) ────────────────────
+   Le repli « defilable a la main » posait une barre de defilement sous la bande. L utilisateur n en
+   veut pas : il veut que ca defile tout seul, point. La barre est retiree, et l exception liee aux
+   animations reduites l est aussi (voir plus haut) : le bandeau avance desormais a la meme vitesse
+   partout. Choix assume du proprietaire du produit, formule deux fois. Le survol met toujours en
+   pause, ce qui laisse un moyen d arreter le mouvement a qui en a besoin. */
+
+/* ── LE BANDEAU DE COTATIONS DÉFILE TOUJOURS (17/08/2026, demande user répétée) ──────────────────
+   CAUSE RACINE de trois tentatives infructueuses : une règle GLOBALE (~l.10983) applique, sous
+   prefers-reduced-motion, `animation-duration:.001ms !important` et `animation-iteration-count:1
+   !important` à *, ::before et ::after. Elle écrase donc TOUT réglage posé sur .home-ticker-in,
+   quelle que soit la spécificité — seul un !important placé APRÈS peut la battre. Mes deux
+   correctifs précédents (vitesse, puis ralentissement) étaient donc morts avant d'être lus, et
+   c'est pour cela que l'écran ne changeait pas d'un pouce.
+   Ce bandeau est une EXCEPTION assumée à la règle globale : sur un téléscripteur, le mouvement
+   n'est pas un ornement, c'est le contenu. Le figer ne réduit pas la gêne, il supprime la fonction.
+   Le survol met toujours la bande en pause : qui a besoin d'arrêter le mouvement peut le faire. */
 @media (prefers-reduced-motion: reduce) {
-  .home-ticker { overflow-x: auto; scrollbar-width: thin; }
-  .home-ticker::before, .home-ticker::after { display: none; }   /* les voiles de bord masquaient le début du contenu défilé à la main */
+  .home-ticker-in {
+    animation-name: homeTicker !important;
+    animation-duration: var(--home-tk-dur, 30s) !important;
+    animation-timing-function: linear !important;
+    animation-iteration-count: infinite !important;
+    animation-play-state: running !important;
+  }
+  .home-ticker:hover .home-ticker-in { animation-play-state: paused !important; }
 }
