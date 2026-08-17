@@ -3181,10 +3181,10 @@
       return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' : double-clic pour renommer"'
         + ' role="button" tabindex="0"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
-        + '<span class="wdg-lay-chv">›</span>'
-        // Icône de la disposition, juste après le chevron : c'est le premier signe distinctif que
-        // l'œil rencontre. Rien n'est écrit si la disposition n'en a pas (cf. _layIco).
-        + _layIco(l.ico)
+        // L'icône choisie REMPLACE le chevron (18/08, demande user : « la flèche est l'icône par
+        // défaut du système »). Deux signes côte à côte se concurrençaient ; il n'y en a plus qu'un :
+        // l'icône de la disposition si elle existe, le chevron de la nav sinon.
+        + (l.ico && _layIco(l.ico) ? _layIco(l.ico) : '<span class="wdg-lay-chv">›</span>')
         + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
         + '<span class="wdg-lay-name">' + esc(l.name) + '</span>'
         // ✕ = FERMER l'onglet, PAS supprimer le layout (demande user 04/08) : il retourne dans
