@@ -692,6 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260817-vraies-dates', ts: Date.UTC(2026, 7, 17, 19, 0), title: 'Recherche institutionnelle : la vraie date de chaque rapport', desc: 'Les rapports HSBC, Goldman Sachs, Nordea, Natixis, KBC, QCAM, UniCredit et Société Générale affichent désormais leur date de publication réelle, allée chercher à la source. Fini l\'horodatage du moment où le desk a repéré le lien : la colonne Date dit ce qu\'elle prétend dire, et le classement par fraîcheur devient juste.' },
   { id: 'dtpu-20260817-banques-dates', ts: Date.UTC(2026, 7, 17, 17, 0), title: 'Recherche institutionnelle : des dates de publication honnêtes', desc: 'Goldman Sachs publie de nouveau dans l\'onglet, avec ses vraies dates. Les rapports Wells Fargo affichent la date du document et non celle où le desk les a repérés. Et quand une banque ne date pas sa publication, la colonne indique « n.d. » au lieu d\'une date inventée.' },
   { id: 'dtpu-20260817-banques-rapports', ts: Date.UTC(2026, 7, 17, 14, 0), title: 'Recherche institutionnelle : les rapports manquants sont de retour', desc: 'Quand une banque publiait plusieurs notes le même jour, une seule arrivait dans le desk et les autres étaient perdues en silence. Pour MUFG, cela représentait un rapport reçu sur cinq. Tous remontent désormais, pour toutes les banques. Les archives d années passées cessent aussi de réapparaître datées du jour en tête de liste.' },
   { id: 'dtpu-20260817-bandeau-defile', ts: Date.UTC(2026, 7, 17, 13, 0), title: 'Accueil : le bandeau de cotations défile, sans barre', desc: 'La barre de défilement apparue sous le bandeau est retirée, et la bande avance de nouveau toute seule, en continu, quels que soient les réglages d’animation de votre système. Passez la souris dessus pour la mettre en pause et lire une cotation au calme.' },
@@ -6660,6 +6661,79 @@ async function _brWarmFreshPdfs() {
   } catch {} finally { _brPdfWarmBusy = false; }
 }
 
+/* ── DATES DE PUBLICATION RÉELLES (17/08/2026) ───────────────────────────────────────────────────
+   Plusieurs sources ne datent pas leurs listes : le desk retombait sur l'heure de DÉCOUVERTE du lien
+   et l'affichait comme une date de publication. On va donc chercher la vraie date À LA SOURCE, une
+   fois par publication, puis on la MÉMORISE durablement (Supabase) : aucune page n'est retéléchargée
+   au rafraîchissement suivant.
+
+   Mémoire : { url: { d: timestamp | 0, a: date de la tentative } }. `d: 0` = source interrogée, elle
+   ne publie réellement aucune date ; on ne réessaie qu'au bout d'une semaine plutôt qu'à chaque tour.
+   Les méthodes par source, et les faux amis écartés (Last-Modified, dateModified), sont documentés
+   dans scrapers/pub-date.js. */
+const _PUBDATE = require('./scrapers/pub-date');
+const _BR_DATES_KV = 'br:dates_pub';
+const _BR_DATES_MAX = 3000;              // borne mémoire : au-delà, on oublie les plus anciennes tentatives
+const _BR_DATES_RETRY = 7 * 864e5;       // une source muette n'est resondée qu'une fois par semaine
+const _BR_DATES_LOT = 40;                // plafond de pages sondées par rafraîchissement
+let _brDates = null;
+
+async function _brDatesCharger() {
+  if (_brDates) return _brDates;
+  try { _brDates = (await auth.aiCacheGet(_BR_DATES_KV, 3650 * 864e5)) || {}; }
+  catch { _brDates = {}; }
+  if (typeof _brDates !== 'object' || Array.isArray(_brDates)) _brDates = {};
+  return _brDates;
+}
+async function _brDatesSauver() {
+  try {
+    const cles = Object.keys(_brDates || {});
+    if (cles.length > _BR_DATES_MAX) {
+      const gardees = cles.sort((x, y) => (_brDates[y].a || 0) - (_brDates[x].a || 0)).slice(0, _BR_DATES_MAX);
+      const neuf = {}; gardees.forEach(k => { neuf[k] = _brDates[k]; }); _brDates = neuf;
+    }
+    await auth.aiCacheSet(_BR_DATES_KV, _brDates);
+  } catch (e) { console.warn('[PubDate] persistance échouée:', e && e.message); }
+}
+
+async function _brResoudreDates(items) {
+  const mem = await _brDatesCharger();
+  const maintenant = Date.now();
+  const aFaire = [];
+  for (const it of items) {
+    if (!it || !it.dateInconnue || !it.url) continue;
+    const su = mem[it.url];
+    if (su && su.d) { it.timestamp = su.d; delete it.dateInconnue; continue; }        // déjà résolue
+    if (su && !su.d && maintenant - (su.a || 0) < _BR_DATES_RETRY) continue;          // muette, trop tôt
+    aFaire.push(it);
+  }
+  if (!aFaire.length) return 0;
+
+  const lot = aFaire.slice(0, _BR_DATES_LOT);
+  const deps = { axios, cheerio, UA: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36' };
+  let lots = {};
+  try { lots = await _PUBDATE.prechargerLots(new Set(lot.map(i => i._source)), deps); } catch {}
+
+  // Quatre de front : assez pour ne pas traîner, assez peu pour ne pas ressembler à un aspirateur.
+  let curseur = 0, resolues = 0;
+  const ouvrier = async () => {
+    while (curseur < lot.length) {
+      const it = lot[curseur++];
+      let d = null;
+      try { d = await _PUBDATE.resoudreDate(it, deps, lots); } catch {}
+      mem[it.url] = { d: d || 0, a: Date.now() };
+      if (d) { it.timestamp = d; delete it.dateInconnue; resolues++; }
+    }
+  };
+  await Promise.all([ouvrier(), ouvrier(), ouvrier(), ouvrier()]);
+  await _brDatesSauver();
+  const muettes = lot.length - resolues;
+  console.log('[PubDate] ' + resolues + '/' + lot.length + ' date(s) de publication retrouvée(s) à la source' +
+    (muettes ? ', ' + muettes + ' source(s) sans date publiée' : '') +
+    (aFaire.length > lot.length ? ' (' + (aFaire.length - lot.length) + ' en attente du prochain tour)' : ''));
+  return resolues;
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -6706,6 +6780,10 @@ async function _fetchBankResearch(full = false) {
   // KBC « Sunrise » + « Weekly Overview » — newsletters reçues PAR E-MAIL (markets@newsletter.kbc.be),
   // lues en IMAP read-only. DORMANT tant que KBC_MAIL_USER/PASS absents (App Password Gmail en env, VPS).
   try { await require('./scrapers/kbc-newsletter').fetchInto(merged); } catch (e) { console.warn('[KBC-mail]', e && e.message); }
+
+  // Les listes qui ne datent pas leurs cartes ont laissé des items marqués `dateInconnue` : on va
+  // chercher leur vraie date AVANT l'assemblage, pour qu'ils soient triés à leur place réelle.
+  try { await _brResoudreDates([...merged.values()]); } catch (e) { console.warn('[PubDate]', e && e.message); }
 
   const before = _brCache.length;
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
