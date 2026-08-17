@@ -692,6 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260817-eclairages-corps', ts: Date.UTC(2026, 7, 17, 21, 0), title: 'Rapports : les Éclairages IA ne restent plus muets sur Nordea et Goldman', desc: 'Certains rapports affichaient « Éclairages IA indisponibles ». Deux causes : Nordea publie ses articles dans une application dont la page ne contient aucun texte, et chez Goldman Sachs le lecteur ne récupérait que le pied de page du site. Le desk va désormais chercher le corps du rapport au bon endroit dans les deux cas.' },
   { id: 'dtpu-20260817-vraies-dates', ts: Date.UTC(2026, 7, 17, 19, 0), title: 'Recherche institutionnelle : la vraie date de chaque rapport', desc: 'Les rapports HSBC, Goldman Sachs, Nordea, Natixis, MUFG, Westpac, KBC, QCAM, UniCredit et Société Générale affichent désormais leur date de publication réelle, allée chercher à la source. Fini l\'horodatage du moment où le desk a repéré le lien : la colonne Date dit ce qu\'elle prétend dire, et le classement par fraîcheur devient juste.' },
   { id: 'dtpu-20260817-banques-dates', ts: Date.UTC(2026, 7, 17, 17, 0), title: 'Recherche institutionnelle : des dates de publication honnêtes', desc: 'Goldman Sachs publie de nouveau dans l\'onglet, avec ses vraies dates. Les rapports Wells Fargo affichent la date du document et non celle où le desk les a repérés. Et quand une banque ne date pas sa publication, la colonne indique « n.d. » au lieu d\'une date inventée.' },
   { id: 'dtpu-20260817-banques-rapports', ts: Date.UTC(2026, 7, 17, 14, 0), title: 'Recherche institutionnelle : les rapports manquants sont de retour', desc: 'Quand une banque publiait plusieurs notes le même jour, une seule arrivait dans le desk et les autres étaient perdues en silence. Pour MUFG, cela représentait un rapport reçu sur cinq. Tous remontent désormais, pour toutes les banques. Les archives d années passées cessent aussi de réapparaître datées du jour en tête de liste.' },
@@ -6692,6 +6693,7 @@ async function _brWarmFreshPdfs() {
    Les méthodes par source, et les faux amis écartés (Last-Modified, dateModified), sont documentés
    dans scrapers/pub-date.js. */
 const _PUBDATE = require('./scrapers/pub-date');
+const _PUBBODY = require('./scrapers/pub-body');
 const _BR_DATES_KV = 'br:dates_pub';
 const _BR_DATES_MAX = 3000;              // borne mémoire : au-delà, on oublie les plus anciennes tentatives
 const _BR_DATES_RETRY = 7 * 864e5;       // une source muette n'est resondée qu'une fois par semaine
@@ -7267,6 +7269,7 @@ app.get('/api/bank-research-content', async (req, res) => {
         validateStatus: () => true,
       });
     } catch (e) { r = { data: '' }; }   // fetch direct KO (timeout/DNS/reset) → on N'ABANDONNE PAS : extraction vide puis repli jina
+
     const $ = cheerio.load(r.data || '');
 
     // Lien vers le VRAI PDF du rapport (ING Think « download-link », ou tout /downloads/pdf/ ou .pdf)
@@ -7290,6 +7293,24 @@ app.get('/api/bank-research-content', async (req, res) => {
       if (_realPdf) { try { _brPdfMap.set(url, _realPdf); _saveJsonMap(BR_PDF_FILE, _brPdfMap); } catch {} }   // persiste le VRAI PDF → la réouverture (cache chaud) sert le PDF, pas le rendu
       else { const _saved = _brPrintMap.get(url); if (typeof _saved === 'string' && _saved) _printUrl = _saved; }       // repli : URL imprimable déjà connue
     } catch {}
+
+    /* CORPS D'ARTICLE DES SOURCES QUI NE LE LIVRENT PAS PAR LE CHEMIN NORMAL (17/08/2026).
+       Retour client : « Éclairages IA indisponibles pour ce rapport ». Mesuré ce jour :
+        · Nordea sert une coquille Angular, 0 caractère de texte quel que soit le sélecteur ; mais
+          l'API déjà interrogée pour la date expose `body` (7 543 car. sur « Riksbank Preview »).
+        · Goldman rend bien des paragraphes, mais les premiers sont le PIED DE PAGE du site
+          (« We harness every resource… ») : l'extraction en tirait 139 caractères de plaquette
+          institutionnelle. Le vrai corps est dans __NEXT_DATA__ (5 500 à 8 600 car.).
+       Placé APRÈS la résolution du PDF d'affichage : Goldman sert son rapport depuis gspublishing,
+       et un retour anticipé plus haut aurait fait perdre ce PDF au lecteur. */
+    try {
+      const _corps = await _PUBBODY.corpsDeRapport(url, r.data || '', { axios, UA: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36' });
+      if (_corps && _corps.replace(/<[^>]*>/g, ' ').trim().length > 200) {
+        return res.json({ html: _stripSource(_corps), source: 'corps', pdfUrl: _realPdf || '',
+          renderUrl: _brRenderUrlFor(url, _printUrl), subtitle: '', date: '',
+          section: 'Research', country: '', articleType: 'Article' });
+      }
+    } catch (e) { console.warn('[PubBody]', e && e.message); }
 
     // Extract metadata
     const subtitle = $('meta[property="og:description"]').attr('content')
