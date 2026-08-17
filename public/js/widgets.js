@@ -894,10 +894,12 @@
     {
       id: 'calendrier-jour', name: 'Calendrier économique', cat: 'Macro', h: 300,
       desc: 'Les prochaines publications, heure de Paris.',
-      // IDENTIQUE AU DESK : on reproduit la table du calendrier du desk (renderCalTable, charts.js:2995)
-      // — mêmes classes `cal-table`/`cth-*`, séparateurs de jour, 10 colonnes, états de ligne — et on
-      // appelle SES helpers globaux (calFormatTime, CAL_FLAG, calImpDots, calActualCell). Le widget
-      // hérite ainsi du style exact du desk. Lecture seule (le déroulé inline reste dans l'onglet dédié).
+      // MÊME DOM ET MÊME HABILLAGE que le desk (renderCalTable, charts.js) : classes `cal-table`/`cth-*`,
+      // séparateurs de jour, états de ligne, helpers globaux (calFormatTime, CAL_FLAG, calImpDots,
+      // calActualCell). ⚠️ PAS identique pour autant : la POSE diffère (le widget est toujours en
+      // table-layout fixed + largeurs en % par bandes de conteneur, le desk en layout auto), et le
+      // masquage Haut/Bas est une option DE CARTE (col_high/col_low) NON synchronisée avec le réglage
+      // DTPPref de l'onglet. Lecture seule (le déroulé inline reste dans l'onglet dédié).
       // FENÊTRE = LA SEMAINE (04/08, demande user) : lundi → vendredi, la date de la semaine en
       // étiquette, navigation d'une semaine à l'autre. Les anciens réglages « Lignes » (cap qui
       // aurait tronqué une semaine chargée en silence) et « Passé » (la semaine définit désormais
@@ -916,8 +918,8 @@
         // Précédent. Elles restent AFFICHÉES par défaut (def: true) — un réglage neuf ne doit jamais
         // changer ce que l'utilisateur voyait la veille. Le libellé reprend le mot exact de l'en-tête
         // de colonne, pour qu'on sache tout de suite laquelle on éteint.
-        { k: 'col_high', lbl: 'Colonne High', type: 'bascule', def: true },
-        { k: 'col_low', lbl: 'Colonne Low', type: 'bascule', def: true },
+        { k: 'col_high', lbl: 'Colonne Haut', type: 'bascule', def: true },
+        { k: 'col_low', lbl: 'Colonne Bas', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
         var W = this;
@@ -1052,8 +1054,10 @@
             var keyChip = (typeof _CAL_CB_RX !== 'undefined' && typeof _CAL_CB_KEY_RX !== 'undefined'
               && _CAL_CB_RX.test(ev.title || '') && _CAL_CB_KEY_RX.test(ev.title || ''))
               ? ' <span class="cal-key-chip">Clé</span>' : '';
+            // Chevron sans espace apres le span (comme le desk) : il est positionne en absolu par le
+            // CSS, un espace residuel decalerait les chiffres de l'heure de ~3,5 px.
             tbody += '<tr class="' + cls + ' cal-row--click" data-idx="' + i + '">'
-              + '<td class="cth-time"><span class="cal-chv">›</span> ' + (esc(fmtTime(ev.timestamp)) || esc(ev.time) || '-') + '</td>'
+              + '<td class="cth-time"><span class="cal-chv">›</span>' + (esc(fmtTime(ev.timestamp)) || esc(ev.time) || '-') + '</td>'
               + '<td class="cth-flag">' + flag(ev.currency) + '</td>'
               + '<td class="cth-curr">' + esc(ev.currency || '') + '</td>'
               + '<td class="cth-imp">' + dots(ev.impact) + '</td>'
@@ -1061,19 +1065,22 @@
               // `data-lbl` : en mise en page MOBILE la ligne devient une CARTE et l'en-tête de
               // colonne disparaît — chaque valeur porte donc son propre libellé, affiché par CSS.
               // Sur écran large l'attribut est inerte (aucune règle ne le lit).
-              + '<td class="cth-val" data-lbl="Réel">' + actCell(ev.actual, ev.forecast, ev.low, ev.title) + '</td>'
-              + (_vHigh ? '<td class="cth-val" data-lbl="Haut">' + vspan(ev.high, 'cv-forecast') + '</td>' : '')
-              + '<td class="cth-val" data-lbl="Prév.">' + vspan(ev.forecast, 'cv-forecast') + '</td>'
-              + (_vLow ? '<td class="cth-val" data-lbl="Bas">' + vspan(ev.low, 'cv-prev') + '</td>' : '')
-              + '<td class="cth-val" data-lbl="Préc.">' + vspan(ev.previous, 'cv-prev') + '</td></tr>';
+              // cth-val--* : masquage et intitules abreges par CLASSE (plus par nth-child) : une
+              // colonne retiree par le reglage ne peut plus faire lire une donnee sous le mauvais
+              // en-tete (le bug « Bas sous PRÉV » mesure au banc le 17/08).
+              + '<td class="cth-val cth-val--reel" data-lbl="Réel">' + actCell(ev.actual, ev.forecast, ev.low, ev.title) + '</td>'
+              + (_vHigh ? '<td class="cth-val cth-val--haut" data-lbl="Haut">' + vspan(ev.high, 'cv-forecast') + '</td>' : '')
+              + '<td class="cth-val cth-val--prev" data-lbl="Prév.">' + vspan(ev.forecast, 'cv-forecast') + '</td>'
+              + (_vLow ? '<td class="cth-val cth-val--bas" data-lbl="Bas">' + vspan(ev.low, 'cv-prev') + '</td>' : '')
+              + '<td class="cth-val cth-val--prec" data-lbl="Préc.">' + vspan(ev.previous, 'cv-prev') + '</td></tr>';
           });
           host.innerHTML = '<div class="wdg-cal-panel">' + barre()
             + '<div class="wdg-cal-wrap custom-scrollbar"><table class="cal-table">'
-            + '<thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th>'
-            + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th>'
-            + (_vHigh ? '<th class="cth-val">HIGH</th>' : '') + '<th class="cth-val">PRÉVISION</th>'
-            + (_vLow ? '<th class="cth-val">LOW</th>' : '')
-            + '<th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tbody + '</tbody></table></div></div>';
+            + '<thead><tr><th class="cth-time">Heure</th><th class="cth-flag">Pays</th><th class="cth-curr">Dev.</th>'
+            + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val cth-val--reel">RÉEL</th>'
+            + (_vHigh ? '<th class="cth-val cth-val--haut">HAUT</th>' : '') + '<th class="cth-val cth-val--prev">PRÉVISION</th>'
+            + (_vLow ? '<th class="cth-val cth-val--bas">BAS</th>' : '')
+            + '<th class="cth-val cth-val--prec">PRÉCÉDENT</th></tr></thead><tbody>' + tbody + '</tbody></table></div></div>';
           // DÉROULÉ INLINE : on réutilise CELUI DU DESK (toggleCalDetailRow, charts.js) — il ne dépend
           // que de la ligne et de l'événement, donc il fonctionne tel quel dans le widget. Un chevron
           // qui ne déroule rien serait un faux repère : la ligne s'ouvre ici comme dans l'onglet.

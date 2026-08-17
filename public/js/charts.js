@@ -3841,9 +3841,12 @@ function calFormatTime(ts) {
   });
 }
 
-/* ── COLONNES HIGH / LOW MASQUABLES DANS L'ONGLET (15/08/2026) ────────────────────────────────
+/* ── COLONNES HAUT / BAS MASQUABLES DANS L'ONGLET (15/08/2026) ────────────────────────────────
    Elles ne l'etaient que sur la carte « Calendrier » de Mon Desk : un utilisateur qui les masquait
-   la-bas les retrouvait ici. Meme reglage, meme resultat, ou qu'on regarde.
+   la-bas les retrouvait ici. ⚠️ Meme INTENTION mais DEUX reglages distincts : ici DTPPref
+   (calcolhigh/calcollow, par compte), cote widget une option DE CARTE (col_high/col_low) ; ils ne
+   sont PAS synchronises entre eux. Ne pas ecrire « meme reglage » : c'est faux, et cette phrase a
+   deja masque le decouplage reel (verifie au banc le 17/08).
    Ce sont les bornes de la fourchette de consensus : utiles a qui les lit, du bruit pour qui suit
    seulement Reel / Prevision / Precedent. AFFICHEES par defaut : un reglage neuf ne doit jamais
    changer ce que l'utilisateur voyait la veille.
@@ -3865,7 +3868,7 @@ function _calMajReglages() {
   const l = (k, lbl) => '<label class="cal-set-row"><span>' + lbl + '</span>'
     + '<button class="cal-set-sw' + (_calColVisible(k) ? ' on' : '') + '" role="switch" aria-checked="' + _calColVisible(k) + '"'
     + ' onclick="_calColSet(\'' + k + '\', ' + (!_calColVisible(k)) + ')"><i></i></button></label>';
-  b.innerHTML = '<div class="cal-set-t">Colonnes affichees</div>' + l('colhigh', 'High') + l('collow', 'Low');
+  b.innerHTML = '<div class="cal-set-t">Colonnes affichees</div>' + l('colhigh', 'Haut') + l('collow', 'Bas');
 }
 window._calToggleReglages = function () {
   const b = document.getElementById('cal-set-pop');
@@ -3956,7 +3959,10 @@ function renderCalTable() {
     const hi  = ev.high  && ev.high  !== '' ? `<span class="cv-forecast">${ev.high}</span>`  : '<span class="cv-empty">-</span>';
     const lo  = ev.low   && ev.low   !== '' ? `<span class="cv-prev">${ev.low}</span>`        : '<span class="cv-empty">-</span>';
 
-    const timeCell = `<td class="cth-time"><span class="cal-chv">›</span> ${dispTime}</td>`;
+    // Chevron SANS espace apres le span : le chevron est desormais positionne en absolu (CSS) dans
+    // la gouttiere gauche ; un espace residuel decalerait les chiffres de ~3,5 px et casserait
+    // l'alignement en-tete « Heure » / heures, mesure au banc.
+    const timeCell = `<td class="cth-time"><span class="cal-chv">›</span>${dispTime}</td>`;
 
     // Day-separator colspan includes all 9 columns (no chv column)
     const _evUrl = ev.url ? ` data-url="${encodeURIComponent(ev.url)}"` : '';
@@ -3969,27 +3975,31 @@ function renderCalTable() {
       <td class="cth-curr">${ev.currency || ''}</td>
       <td class="cth-imp">${calImpDots(ev.impact)}</td>
       <td class="cth-event">${ev.title || ''}${_keyChip}</td>
-      <td class="cth-val" data-lbl="Réel">${calActualCell(ev.actual, ev.forecast, ev.low, ev.title)}</td>
-      ${_vHigh ? `<td class="cth-val" data-lbl="Haut">${hi}</td>` : ''}
-      <td class="cth-val" data-lbl="Prév.">${fcast}</td>
-      ${_vLow ? `<td class="cth-val" data-lbl="Bas">${lo}</td>` : ''}
-      <td class="cth-val" data-lbl="Préc.">${prev}</td>
+      <td class="cth-val cth-val--reel" data-lbl="Réel">${calActualCell(ev.actual, ev.forecast, ev.low, ev.title)}</td>
+      ${_vHigh ? `<td class="cth-val cth-val--haut" data-lbl="Haut">${hi}</td>` : ''}
+      <td class="cth-val cth-val--prev" data-lbl="Prév.">${fcast}</td>
+      ${_vLow ? `<td class="cth-val cth-val--bas" data-lbl="Bas">${lo}</td>` : ''}
+      <td class="cth-val cth-val--prec" data-lbl="Préc.">${prev}</td>
     </tr>`;
   });
 
+  // Classes cth-val--* SUR CHAQUE colonne de valeurs (th ET td) : le CSS responsive masquait par
+  // nth-child, donc par POSITION : une colonne retiree du DOM (reglage Haut/Bas) decalait tout et
+  // la colonne Bas s'affichait sous l'en-tete « PRÉV » (mesure au banc, 17/08). Cibler la classe
+  // rend le masquage et les intitules abreges solidaires de la DONNEE, plus jamais de la position.
   wrap.innerHTML = `<table class="cal-table">
     <thead>
       <tr>
         <th class="cth-time">Heure</th>
-        <th class="cth-flag">CNTRY</th>
-        <th class="cth-curr">CURR.</th>
+        <th class="cth-flag">Pays</th>
+        <th class="cth-curr">Dev.</th>
         <th class="cth-imp">IMPACT</th>
         <th class="cth-event">ÉVÉNEMENT</th>
-        <th class="cth-val">RÉEL</th>
-        ${_vHigh ? `<th class="cth-val">HIGH</th>` : ""}
-        <th class="cth-val">PRÉVISION</th>
-        ${_vLow ? `<th class="cth-val">LOW</th>` : ""}
-        <th class="cth-val">PRÉCÉDENT</th>
+        <th class="cth-val cth-val--reel">RÉEL</th>
+        ${_vHigh ? `<th class="cth-val cth-val--haut">HAUT</th>` : ""}
+        <th class="cth-val cth-val--prev">PRÉVISION</th>
+        ${_vLow ? `<th class="cth-val cth-val--bas">BAS</th>` : ""}
+        <th class="cth-val cth-val--prec">PRÉCÉDENT</th>
       </tr>
     </thead>
     <tbody>${tbody}</tbody>
@@ -4682,7 +4692,9 @@ window._calResetToLive = _calResetToLive;
 // Skeleton du calendrier : epouse la structure reelle (.cal-table, 10 colonnes, separateurs de jour).
 // Injecte dans #cal-table-wrap PENDANT le fetch -> auto-efface par le renderCalTable() qui reecrit ce conteneur.
 function _calSkel() {
-  const cols = ['cth-time','cth-flag','cth-curr','cth-imp','cth-event','cth-val','cth-val','cth-val','cth-val','cth-val'];
+  // Memes classes cth-val--* que la vraie table : sans elles, le masquage responsive (par classe,
+  // plus par position) ne s'appliquerait pas au squelette et il serait plus large que la table reelle.
+  const cols = ['cth-time','cth-flag','cth-curr','cth-imp','cth-event','cth-val cth-val--reel','cth-val cth-val--haut','cth-val cth-val--prev','cth-val cth-val--bas','cth-val cth-val--prec'];
   let rows = '';
   for (let g = 0; g < 2; g++) {
     rows += '<tr class="cal-day-sep cal-skel-sep" aria-hidden="true"><td colspan="10"><span class="dtp-skel"></span></td></tr>';
@@ -4694,9 +4706,9 @@ function _calSkel() {
   }
   return '<table class="cal-table">'
     + '<thead><tr>'
-    + '<th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th>'
-    + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th>'
-    + '<th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th><th class="cth-val">PRÉCÉDENT</th>'
+    + '<th class="cth-time">Heure</th><th class="cth-flag">Pays</th><th class="cth-curr">Dev.</th>'
+    + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val cth-val--reel">RÉEL</th>'
+    + '<th class="cth-val cth-val--haut">HAUT</th><th class="cth-val cth-val--prev">PRÉVISION</th><th class="cth-val cth-val--bas">BAS</th><th class="cth-val cth-val--prec">PRÉCÉDENT</th>'
     + '</tr></thead>'
     + '<tbody>' + rows + '</tbody></table>';
 }
@@ -5154,11 +5166,11 @@ window._retryCalendar = function() {
           + '<td class="cth-curr">' + (ev.currency || '') + '</td>'
           + '<td class="cth-imp">' + calImpDots(ev.impact) + '</td>'
           + '<td class="cth-event">' + _esc(ev.title || '') + '</td>'
-          + '<td class="cth-val" data-lbl="Réel">' + calActualCell(ev.actual, ev.forecast, null, ev.title) + '</td>'
-          + '<td class="cth-val" data-lbl="Prév.">' + fc + '</td>'
-          + '<td class="cth-val" data-lbl="Préc.">' + pv + '</td></tr>';
+          + '<td class="cth-val cth-val--reel" data-lbl="Réel">' + calActualCell(ev.actual, ev.forecast, null, ev.title) + '</td>'
+          + '<td class="cth-val cth-val--prev" data-lbl="Prév.">' + fc + '</td>'
+          + '<td class="cth-val cth-val--prec" data-lbl="Préc.">' + pv + '</td></tr>';
       });
-      cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">PRÉVISION</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tb + '</tbody></table>';
+      cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">Pays</th><th class="cth-curr">Dev.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val cth-val--reel">RÉEL</th><th class="cth-val cth-val--prev">PRÉVISION</th><th class="cth-val cth-val--prec">PRÉCÉDENT</th></tr></thead><tbody>' + tb + '</tbody></table>';
     }).catch(() => {});
     // News filtrées sur la paire : EXACTEMENT le « Realtime Headline Ticker » de l'onglet News :
     // on tire du tableau maître (allItems) et on rend chaque item via buildNewsItem (badges, icône

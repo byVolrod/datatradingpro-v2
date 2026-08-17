@@ -8200,7 +8200,7 @@ function _renderFXDailyRecap(item) {
       rows += `<tr class="cal-row fxdr-cal-clic" role="button" tabindex="0" onclick="_fxrToggleCalRow(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleCalRow(this);}" title="Voir le décryptage"`
         + ` data-title="${_a(e.event)}" data-ccy="${_a(e.ccy)}" data-actual="${_a(e.actual)}" data-forecast="${_a(e.forecast)}" data-previous="${_a(e.previous)}" data-ts="${e.ts || 0}">`
         + `<td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '-')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}<span class="fxdr-cal-chev">›</span></td>`
-        + `<td class="cth-val">${_va(e)}</td><td class="cth-val">${_vf(e.high)}</td><td class="cth-val">${_vf(e.forecast)}</td><td class="cth-val">${_vp(e.low)}</td><td class="cth-val">${_vp(e.previous)}</td></tr>`
+        + `<td class="cth-val cth-val--reel">${_va(e)}</td><td class="cth-val cth-val--haut">${_vf(e.high)}</td><td class="cth-val cth-val--prev">${_vf(e.forecast)}</td><td class="cth-val cth-val--bas">${_vp(e.low)}</td><td class="cth-val cth-val--prec">${_vp(e.previous)}</td></tr>`
         + `<tr class="fxdr-cal-detail" hidden><td colspan="10"></td></tr>`;
     });
     // v14b : les puces NARRATIVES d'abord (le POURQUOI de chaque catalyseur, façon note de desk), le
@@ -8210,7 +8210,7 @@ function _renderFXDailyRecap(item) {
     if (_watch.length) { body += '<div class="fxdr-bullets">'; _watch.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; }
     if (rows) body += `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
       + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
-      + '<th class="cth-val">Réel</th><th class="cth-val">High</th><th class="cth-val">Prévision</th><th class="cth-val">Low</th><th class="cth-val">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+      + '<th class="cth-val cth-val--reel">Réel</th><th class="cth-val cth-val--haut">Haut</th><th class="cth-val cth-val--prev">Prévision</th><th class="cth-val cth-val--bas">Bas</th><th class="cth-val cth-val--prec">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   }
 
   // ── « Commentaires des banques » RETIRÉ (demande user 11/08, après l'avoir vu en vrai) : la liste de
