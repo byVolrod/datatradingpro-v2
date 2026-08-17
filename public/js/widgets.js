@@ -1431,32 +1431,48 @@
         var zone = host.querySelector('.wdg-dmx1-anneau');
         var elS = host.querySelector('.wdg-dmx1-short'), elL = host.querySelector('.wdg-dmx1-long');
         var elP = host.querySelector('.wdg-dmx1-paire');
-        var vivant = true;
+        var vivant = true, _dern = '';
 
         function joli(sym) { return (sym && sym.length === 6) ? sym.slice(0, 3) + '/' + sym.slice(3) : (sym || ''); }
 
         /* Anneau en SVG pur : deux arcs poses sur le meme cercle par stroke-dasharray. Pas de
            bibliotheque, donc rien a charger et rien a detruire au demontage. */
+        /* Gabarit de la référence (18/08, capture user) : centre VIDE, anneau plein (26), et les
+           étiquettes posées SUR les segments avec un trait de rappel, à l'angle médian de chaque
+           arc. La source ne publiant AUCUN volume (seulement des pourcentages), les étiquettes
+           portent les pourcentages réels : afficher des lots supposerait de les inventer.
+           Les arcs sont écrits À ZÉRO (dasharray '0 c') avec leur cible en data-* : dessiner()
+           les pousse à la frame suivante et la transition CSS fait « se charger » l'anneau. Le
+           vert part collé au rouge (dashoffset 0 -> -aC) : il grandit en le suivant, l'ensemble
+           balaie le cadran comme un chargement. */
         function anneau(courtPct, longPct) {
-          // Anneau un peu plus fin (22 au lieu de 26) : le centre gagne la place de porter la
-          // CONCLUSION. Lisibilité (18/08, demande user) : l'essentiel se lisait en petit tout en
-          // bas ; il vit désormais au milieu de l'anneau, là où l'œil va d'abord, en gros et coloré
-          // du camp dominant. À 50/50 on écrit « équilibre » en gris : pas de camp, pas de couleur.
-          var r = 54, c = 2 * Math.PI * r, ep = 22;
-          var aC = Math.max(0, Math.min(100, courtPct)) / 100 * c;
-          var aL = Math.max(0, Math.min(100, longPct)) / 100 * c;
-          var egal = Math.round(courtPct) === Math.round(longPct);
-          var domPct = Math.max(Math.round(courtPct), Math.round(longPct));
-          var domCoul = egal ? 'var(--txt-2, #9aa1ac)' : (courtPct > longPct ? '#ff3d00' : '#00e676');
-          var domLbl = egal ? 'équilibre' : (courtPct > longPct ? 'vendeurs' : 'acheteurs');
-          return '<svg viewBox="0 0 160 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
-            + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="var(--hud-line)" stroke-width="' + ep + '"></circle>'
-            + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="#ff3d00" stroke-width="' + ep + '"'
-            + ' stroke-dasharray="' + aC + ' ' + (c - aC) + '" transform="rotate(-90 80 80)"></circle>'
-            + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="#00e676" stroke-width="' + ep + '"'
-            + ' stroke-dasharray="' + aL + ' ' + (c - aL) + '" stroke-dashoffset="' + (-aC) + '" transform="rotate(-90 80 80)"></circle>'
-            + '<text x="80" y="80" text-anchor="middle" class="wdg-dmx1-cval" fill="' + domCoul + '">' + domPct + ' %</text>'
-            + '<text x="80" y="97" text-anchor="middle" class="wdg-dmx1-clbl">' + domLbl + '</text>'
+          var cx = 100, cy = 80, r = 54, ep = 26, c = 2 * Math.PI * r;
+          var pC = Math.max(0, Math.min(100, courtPct)), pL = Math.max(0, Math.min(100, longPct));
+          var aC = pC / 100 * c, aL = pL / 100 * c;
+          // Étiquette d'un segment : angle médian (aiguille depuis midi), trait de rappel court,
+          // texte ancré du côté où il part (droite -> start, gauche -> end), jamais pour un segment
+          // nul. Rayons : bord externe de l'anneau (r + ep/2) puis 8 unités de trait.
+          function etiq(pctDebut, pct, texte) {
+            if (pct < 3) return '';
+            var ang = ((pctDebut + pct / 2) / 100 * 360 - 90) * Math.PI / 180;
+            var r1 = r + ep / 2 + 1, r2 = r1 + 8;
+            var x1 = cx + Math.cos(ang) * r1, y1 = cy + Math.sin(ang) * r1;
+            var x2 = cx + Math.cos(ang) * r2, y2 = cy + Math.sin(ang) * r2;
+            var droite = Math.cos(ang) >= 0;
+            return '<line class="wdg-dmx1-tick" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1)
+              + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"></line>'
+              + '<text class="wdg-dmx1-lab" x="' + (x2 + (droite ? 3 : -3)).toFixed(1) + '" y="' + (y2 + 2.5).toFixed(1)
+              + '" text-anchor="' + (droite ? 'start' : 'end') + '">' + texte + '</text>';
+          }
+          return '<svg viewBox="0 0 200 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
+            + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--hud-line)" stroke-width="' + ep + '"></circle>'
+            + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#ff3d00" stroke-width="' + ep + '"'
+            + ' stroke-dasharray="0 ' + c + '" data-fin="' + aC + ' ' + (c - aC) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
+            + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#00e676" stroke-width="' + ep + '"'
+            + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="0" data-fin="' + aL + ' ' + (c - aL) + '" data-dec="' + (-aC) + '"'
+            + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
+            + etiq(0, pC, 'Vendeurs · ' + Math.round(pC) + ' %')
+            + etiq(pC, pL, 'Acheteurs · ' + Math.round(pL) + ' %')
             + '</svg>';
         }
 
@@ -1470,7 +1486,25 @@
               var row = (d && d.symbols || []).find(function (x) { return x && x.symbol === paire; });
               if (!row) { fallback(zone, 'Pas de donnée DMX pour ' + joli(paire) + '.'); elS.textContent = '--'; elL.textContent = '--'; return; }
               var court = Number(row.shortPct) || 0, lng = Number(row.longPct) || 0;
-              zone.innerHTML = anneau(court, lng);
+              // Re-rendu SEULEMENT si la donnée change : le tic de 60 s ne doit pas rejouer
+              // l'animation sur des valeurs identiques (l'anneau « clignoterait » sans information).
+              var cle = paire + '|' + court + '|' + lng;
+              if (cle !== _dern || !zone.querySelector('svg')) {
+                _dern = cle;
+                zone.innerHTML = anneau(court, lng);
+                // La pousse : cible posée à la frame SUIVANTE, pour que la transition CSS parte
+                // bien de « 0 » peint (poser la cible dans le même tour de boucle sauterait
+                // l'animation, le navigateur ne peignant que l'état final).
+                var svg = zone.querySelector('svg');
+                requestAnimationFrame(function () { requestAnimationFrame(function () {
+                  if (!svg || !svg.isConnected) return;
+                  svg.querySelectorAll('.wdg-dmx1-arc').forEach(function (a2) {
+                    a2.style.strokeDasharray = a2.getAttribute('data-fin');
+                    if (a2.hasAttribute('data-dec')) a2.style.strokeDashoffset = a2.getAttribute('data-dec');
+                  });
+                  svg.classList.add('est-charge');
+                }); });
+              }
               elS.textContent = court + ' %';
               elL.textContent = lng + ' %';
             })
