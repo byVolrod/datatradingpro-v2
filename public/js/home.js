@@ -261,7 +261,9 @@
       // qu'affiche la bande.
       try {
         var copie = host.scrollWidth / 2;                          // -50 % = la largeur d'une copie
-        if (copie > 0) host.style.animationDuration = Math.max(20, Math.round(copie / 55)) + 's';
+        // On pose une VARIABLE CSS, pas animationDuration : un style en ligne l emporterait sur la
+        // regle « animations reduites » qui double la duree, et celle-ci ne s appliquerait jamais.
+        if (copie > 0) host.style.setProperty('--home-tk-dur', Math.max(20, Math.round(copie / 55)) + 's');
       } catch (e) {}
     }).catch(replanifie);
   }

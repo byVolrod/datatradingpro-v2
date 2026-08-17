@@ -13354,7 +13354,9 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 .home-ticker::after { right: 0; background: linear-gradient(-90deg, var(--bg2), transparent); }
 .home-ticker-in {
   display: flex; align-items: center; height: 30px; width: max-content;
-  animation: homeTicker 90s linear infinite;
+  /* Duree pilotee par --home-tk-dur, pose par home.js depuis la LARGEUR mesuree (vitesse
+     constante). Repli 30s si la variable manque, pour qu une bande sans JS defile quand meme. */
+  animation: homeTicker var(--home-tk-dur, 30s) linear infinite;
 }
 .home-ticker:hover .home-ticker-in { animation-play-state: paused; }
 @keyframes homeTicker { to { transform: translateX(-50%); } }
@@ -13371,7 +13373,19 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 
 /* (v5 : le ticker n'est plus frère de .home-grid — l'espacement vit dans le padding de .home-inner) */
 
-@media (prefers-reduced-motion: reduce) { .home-ticker-in { animation: none; } }
+/* ── « ANIMATIONS RÉDUITES » : ON RALENTIT, ON NE COUPE PLUS (17/08/2026) ────────────────────────
+   Cette règle mettait `animation: none`, et c'est ce qui immobilisait la bande chez l'utilisateur :
+   Windows (Accessibilité → Effets visuels → Effets d'animation) demandait de limiter les animations,
+   le desk coupait tout. Diagnostic confirmé par la barre de défilement horizontale apparue sous le
+   bandeau après l'ajout du repli, visible sur sa capture.
+   Un bandeau de cotations n'est pas une décoration : le mouvement EST le contenu, comme sur un
+   téléscripteur. Le couper ne réduit pas la gêne, il supprime la fonction. On le ralentit donc de
+   moitié plutôt que de l'arrêter — un glissement linéaire lent, sans rebond, sans zoom, sans
+   clignotement, c'est-à-dire sans les formes de mouvement qui gênent réellement.
+   Et il reste MAÎTRISABLE : survol = pause (règle plus haut), et la bande se fait défiler à la main. */
+@media (prefers-reduced-motion: reduce) {
+  .home-ticker-in { animation-duration: calc(var(--home-tk-dur, 30s) * 2); }
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
    RÉGLAGES DES WIDGETS EN TIROIR LATÉRAL (03/08, référence user) : le panneau
