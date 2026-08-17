@@ -1438,15 +1438,25 @@
         /* Anneau en SVG pur : deux arcs poses sur le meme cercle par stroke-dasharray. Pas de
            bibliotheque, donc rien a charger et rien a detruire au demontage. */
         function anneau(courtPct, longPct) {
-          var r = 54, c = 2 * Math.PI * r, ep = 26;
+          // Anneau un peu plus fin (22 au lieu de 26) : le centre gagne la place de porter la
+          // CONCLUSION. Lisibilité (18/08, demande user) : l'essentiel se lisait en petit tout en
+          // bas ; il vit désormais au milieu de l'anneau, là où l'œil va d'abord, en gros et coloré
+          // du camp dominant. À 50/50 on écrit « équilibre » en gris : pas de camp, pas de couleur.
+          var r = 54, c = 2 * Math.PI * r, ep = 22;
           var aC = Math.max(0, Math.min(100, courtPct)) / 100 * c;
           var aL = Math.max(0, Math.min(100, longPct)) / 100 * c;
+          var egal = Math.round(courtPct) === Math.round(longPct);
+          var domPct = Math.max(Math.round(courtPct), Math.round(longPct));
+          var domCoul = egal ? 'var(--txt-2, #9aa1ac)' : (courtPct > longPct ? '#ff3d00' : '#00e676');
+          var domLbl = egal ? 'équilibre' : (courtPct > longPct ? 'vendeurs' : 'acheteurs');
           return '<svg viewBox="0 0 160 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
             + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="var(--hud-line)" stroke-width="' + ep + '"></circle>'
             + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="#ff3d00" stroke-width="' + ep + '"'
             + ' stroke-dasharray="' + aC + ' ' + (c - aC) + '" transform="rotate(-90 80 80)"></circle>'
             + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="#00e676" stroke-width="' + ep + '"'
             + ' stroke-dasharray="' + aL + ' ' + (c - aL) + '" stroke-dashoffset="' + (-aC) + '" transform="rotate(-90 80 80)"></circle>'
+            + '<text x="80" y="80" text-anchor="middle" class="wdg-dmx1-cval" fill="' + domCoul + '">' + domPct + ' %</text>'
+            + '<text x="80" y="97" text-anchor="middle" class="wdg-dmx1-clbl">' + domLbl + '</text>'
             + '</svg>';
         }
 
