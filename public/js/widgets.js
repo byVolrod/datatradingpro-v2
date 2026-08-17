@@ -582,6 +582,31 @@
     return function () { try { clearInterval(iv); } catch (e) {} };
   }
 
+  /* Catalogue de paires du réglage « Paire ». Les 72 symboles servis par /api/community-outlook,
+     filtrés par la MÊME règle que le desk (_dmxAllowed) : deux devises majeures, ou un métal coté
+     contre une majeure. Les exotiques (EURTRY, USDRUB, NOKSEK…) restent hors catalogue, comme dans
+     la liste « Aperçu DMX », pour que les deux widgets parlent du même univers. */
+  var _DMX_PAIRES = [
+    // Les 39 symboles que la source publie ET que la règle du desk retient. Générer les
+    // combinaisons ferait apparaître des paires inexistantes (JPY/USD, USD/EUR…) dans le réglage.
+    'EURUSD', 'EURGBP', 'EURJPY', 'EURCHF', 'EURCAD', 'EURAUD', 'EURNZD',
+    'GBPUSD', 'GBPJPY', 'GBPCHF', 'GBPCAD', 'GBPAUD', 'GBPNZD',
+    'USDJPY', 'USDCHF', 'USDCAD',
+    'AUDUSD', 'AUDJPY', 'AUDCHF', 'AUDCAD', 'AUDNZD',
+    'NZDUSD', 'NZDJPY', 'NZDCHF', 'NZDCAD',
+    'CADJPY', 'CADCHF', 'CHFJPY',
+    'XAUUSD', 'XAUEUR', 'XAUGBP', 'XAUJPY', 'XAUCHF', 'XAUAUD',
+    'XAGUSD', 'XAGEUR', 'XAGAUD', 'XPTUSD', 'XPDUSD',
+  ];
+  var _DMX_METAL_NOM = { XAU: 'Or', XAG: 'Argent', XPT: 'Platine', XPD: 'Palladium' };
+  function _dmxPairesChoix() {
+    return _DMX_PAIRES.map(function (p) {
+      var b = p.slice(0, 3), q = p.slice(3);
+      var nom = b + '/' + q + (_DMX_METAL_NOM[b] ? ' · ' + _DMX_METAL_NOM[b] : '');
+      return [p, nom];
+    });
+  }
+
   function fallback(host, msg) {
     if (!host) return;
     var i = _hostIdx(host);
@@ -1368,6 +1393,77 @@
           ro.observe(g);
         }
         return function () { try { if (ro) ro.disconnect(); } catch (e) {} };
+      },
+    },
+    {
+      id: 'dmx-paire', name: 'DMX par paire', tag: 'DMX', cat: 'Risque', h: 300,
+      desc: 'Le partage long/short de la foule sur UNE paire, en anneau.',
+      /* Complément du widget « Aperçu DMX », qui liste toutes les paires : celui-ci en isole UNE et
+         la donne à lire d'un coup d'œil. Même source (/api/community-outlook), même cache serveur.
+
+         ⚠️ La source ne publie QUE des pourcentages : `symbol`, `longPct`, `shortPct`, `trend`.
+         Aucun volume, aucun nombre de lots. L'anneau porte donc les pourcentages réels et rien
+         d'autre : afficher des volumes supposerait de les inventer. */
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EURUSD', cache: true, choix: _dmxPairesChoix() },
+        { k: 'tf', lbl: 'Unité', type: 'choix', def: 'H1', choix: [['D1', '1D'], ['H4', '4H'], ['H1', '1H']] },
+      ],
+      mount: function (host, it) {
+        var W = this;
+        host.innerHTML = '<div class="wdg-dmx1">'
+          + '<div class="wdg-dmx1-leg">'
+          + '<span><i style="background:#ff3d00"></i>Vendeurs</span>'
+          + '<span><i style="background:#00e676"></i>Acheteurs</span>'
+          + '<span class="wdg-dmx1-paire"></span></div>'
+          + '<div class="wdg-dmx1-anneau"></div>'
+          + '<div class="wdg-dmx1-pied">'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions vendeuses</span><b class="wdg-dmx1-short">--</b></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions acheteuses</span><b class="wdg-dmx1-long">--</b></div>'
+          + '</div></div>';
+        var zone = host.querySelector('.wdg-dmx1-anneau');
+        var elS = host.querySelector('.wdg-dmx1-short'), elL = host.querySelector('.wdg-dmx1-long');
+        var elP = host.querySelector('.wdg-dmx1-paire');
+        var vivant = true;
+
+        function joli(sym) { return (sym && sym.length === 6) ? sym.slice(0, 3) + '/' + sym.slice(3) : (sym || ''); }
+
+        /* Anneau en SVG pur : deux arcs poses sur le meme cercle par stroke-dasharray. Pas de
+           bibliotheque, donc rien a charger et rien a detruire au demontage. */
+        function anneau(courtPct, longPct) {
+          var r = 54, c = 2 * Math.PI * r, ep = 26;
+          var aC = Math.max(0, Math.min(100, courtPct)) / 100 * c;
+          var aL = Math.max(0, Math.min(100, longPct)) / 100 * c;
+          return '<svg viewBox="0 0 160 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
+            + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="var(--hud-line)" stroke-width="' + ep + '"></circle>'
+            + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="#ff3d00" stroke-width="' + ep + '"'
+            + ' stroke-dasharray="' + aC + ' ' + (c - aC) + '" transform="rotate(-90 80 80)"></circle>'
+            + '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="#00e676" stroke-width="' + ep + '"'
+            + ' stroke-dasharray="' + aL + ' ' + (c - aL) + '" stroke-dashoffset="' + (-aC) + '" transform="rotate(-90 80 80)"></circle>'
+            + '</svg>';
+        }
+
+        function dessiner() {
+          var paire = opt(it, W, 'paire') || 'EURUSD';
+          if (elP) elP.textContent = joli(paire);
+          fetch('/api/community-outlook?period=' + encodeURIComponent(opt(it, W, 'tf')))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!vivant || !host.isConnected) return;
+              var row = (d && d.symbols || []).find(function (x) { return x && x.symbol === paire; });
+              if (!row) { fallback(zone, 'Pas de donnée DMX pour ' + joli(paire) + '.'); elS.textContent = '--'; elL.textContent = '--'; return; }
+              var court = Number(row.shortPct) || 0, lng = Number(row.longPct) || 0;
+              zone.innerHTML = anneau(court, lng);
+              elS.textContent = court + ' %';
+              elL.textContent = lng + ' %';
+            })
+            .catch(function () { if (vivant && host.isConnected) fallback(zone, 'DMX indisponible.'); });
+        }
+
+        dessiner();
+        var iv = setInterval(dessiner, 60000);
+        // Le socle attend une FONCTION de nettoyage (typeof un === 'function') : rendre un objet
+        // laisserait l intervalle tourner apres le demontage de la carte.
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
       },
     },
     {
@@ -3189,6 +3285,7 @@
     'taux-cb': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9l6-4 6 4v11"/><path d="M9 20v-5h6v5"/></svg>',
     'risque-jauge': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4-4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>',
     'cot-inst': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
+    'dmx-paire':  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5M13.5 20c.3-2.3 1.8-3.6 3.5-3.6S20 17.7 20.5 20"/></svg>',
     'dmx-retail': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5M13.5 20c.3-2.3 1.8-3.6 3.5-3.6S20 17.7 20.5 20"/></svg>',
     'saison': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 12h18" opacity=".45"/><path d="M5 12V8M9 12v-4M9 12v3M13 12v-6M17 12V9M17 12v4M21 12v-2"/></svg>',
     'sessions': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg>',
@@ -3222,6 +3319,7 @@
     'taux-cb': '<svg ' + _PV + '><g font-family="monospace" font-size="6.5" fill="#9aa1ac"><text x="7" y="15">FED</text><text x="7" y="31">BCE</text><text x="7" y="47">BOE</text></g><rect x="30" y="8" width="56" height="8" rx="2" fill="#2b2b31"/><rect x="30" y="24" width="42" height="8" rx="2" fill="#2b2b31"/><rect x="30" y="40" width="48" height="8" rx="2" fill="#2b2b31"/><g font-family="monospace" font-size="7" fill="#e3b23a"><text x="92" y="15">4.50</text><text x="92" y="31">2.15</text><text x="92" y="47">4.00</text></g></svg>',
     'risque-jauge': '<svg ' + _PV + '><path d="M 24 48 A 36 36 0 0 1 60 12" fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round"/><path d="M 60 12 A 36 36 0 0 1 96 48" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="48" x2="78" y2="24" stroke="#e6e8ec" stroke-width="2"/><circle cx="60" cy="48" r="3.5" fill="#e6e8ec"/></svg>',
     'cot-inst': '<svg ' + _PV + '><line x1="60" y1="4" x2="60" y2="52" stroke="#3a3d44"/><rect x="60" y="7" width="34" height="7" fill="#22c55e"/><rect x="34" y="18" width="26" height="7" fill="#ef4444"/><rect x="60" y="29" width="20" height="7" fill="#22c55e"/><rect x="18" y="40" width="42" height="7" fill="#ef4444"/></svg>',
+    'dmx-paire': '<svg ' + _PV + '><circle cx="60" cy="32" r="17" fill="none" stroke="#ff3d00" stroke-width="8" stroke-dasharray="72 35" transform="rotate(-90 60 32)"/><circle cx="60" cy="32" r="17" fill="none" stroke="#00e676" stroke-width="8" stroke-dasharray="35 72" stroke-dashoffset="-72" transform="rotate(-90 60 32)"/></svg>',
     'dmx-retail': '<svg ' + _PV + '><g font-family="monospace" font-size="6" fill="#9aa1ac"><text x="6" y="13">EURUSD</text><text x="6" y="27">GBPJPY</text><text x="6" y="41">AUDUSD</text><text x="6" y="55">USDCAD</text></g><rect x="40" y="7" width="22" height="8" fill="#22c55e"/><rect x="62" y="7" width="52" height="8" fill="#ef4444"/><rect x="40" y="21" width="44" height="8" fill="#22c55e"/><rect x="84" y="21" width="30" height="8" fill="#ef4444"/><rect x="40" y="35" width="14" height="8" fill="#22c55e"/><rect x="54" y="35" width="60" height="8" fill="#ef4444"/><rect x="40" y="49" width="52" height="6" fill="#22c55e"/><rect x="92" y="49" width="22" height="6" fill="#ef4444"/></svg>',
     'saison': '<svg ' + _PV + '>' + (function () { var cells = '', G = '#14532d', g = '#22c55e', R = '#7f1d1d', r = '#ef4444', D = '#26262c'; var M = [[g, G, D, r, g, G, g, D], [R, g, G, g, D, r, G, g], [g, D, r, G, g, g, R, D]]; for (var yy = 0; yy < 3; yy++) for (var xx = 0; xx < 8; xx++) cells += '<rect x="' + (7 + xx * 14) + '" y="' + (7 + yy * 15) + '" width="12" height="13" rx="2" fill="' + M[yy][xx] + '"/>'; return cells; })() + '</svg>',
     'sessions': '<svg ' + _PV + '><g font-family="monospace" font-size="6" fill="#9aa1ac"><text x="6" y="13">SYD</text><text x="6" y="26">TOK</text><text x="6" y="39">LON</text><text x="6" y="52">NY</text></g><rect x="24" y="7" width="34" height="7" rx="3" fill="#3a3d44"/><rect x="34" y="20" width="36" height="7" rx="3" fill="#3a3d44"/><rect x="56" y="33" width="38" height="7" rx="3" fill="#e3b23a"/><rect x="76" y="46" width="38" height="7" rx="3" fill="#e3b23a" opacity=".65"/></svg>',
@@ -3278,7 +3376,7 @@
     var FAM_OF = {
       'graphique': 'Analyse de marché',
       'force-devises': 'Analyse de marché', 'barometre': 'Analyse de marché', 'risque-historique': 'Analyse de marché', 'radar-biais': 'Analyse de marché',
-      'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
+      'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'dmx-paire': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
       'horloge': 'Fonctions', 'onglets': 'Fonctions',
       // Vues du desk (adoption) : troisième famille dédiée — ce sont les onglets de la nav, pas des outils.
@@ -3396,7 +3494,7 @@
   var _ABBR = {
     'force-devises': 'FORCE', 'barometre': 'BARO', 'risque-historique': 'HISTO',
     'calendrier-jour': 'AGENDA', 'radar-biais': 'BIAIS', 'taux-cb': 'TAUX',
-    'risque-jauge': 'RISQUE', 'cot-inst': 'COT', 'dmx-retail': 'DMX',
+    'risque-jauge': 'RISQUE', 'cot-inst': 'COT', 'dmx-retail': 'DMX', 'dmx-paire': 'DMX',
     'saison': 'SAISON', 'sessions': 'MONDE', 'horloge': 'HEURE',
     'calculatrice': 'CALC', 'journal-mini': 'JOURNAL', 'onglets': 'ONGLETS',
     'fil-news': 'ACTUS',

@@ -16860,3 +16860,21 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 /* Repère de l'instant présent : le seul élément en or, pour qu'il se lise d'un coup d'œil. */
 .wdg-frise-now { position: absolute; top: -1px; bottom: -1px; width: 1px; background: #e3b23a; box-shadow: 0 0 4px rgba(227, 178, 58, .8); }
 .wdg-frise-reste { font-size: 10px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
+
+/* ── WIDGET « DMX PAR PAIRE » (17/08/2026) ─────────────────────────────────────────────────────
+   Complément du widget « Aperçu DMX » qui liste toutes les paires : celui-ci en isole UNE.
+   Anneau en SVG pur (deux arcs en stroke-dasharray) : aucune bibliothèque à charger.
+   Couleurs de la charte : rouge d'alerte pour les vendeurs, vert émeraude pour les acheteurs. */
+.wdg-dmx1 { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 6px; }
+.wdg-dmx1-leg { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; font-size: 10px; color: var(--txt-3, #6b7280); }
+.wdg-dmx1-leg span { display: inline-flex; align-items: center; gap: 5px; }
+.wdg-dmx1-leg i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+.wdg-dmx1-paire { margin-left: auto; color: var(--txt-2, #9aa1ac); font-weight: 700; letter-spacing: .03em; font-size: 11px; }
+.wdg-dmx1-anneau { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.wdg-dmx1-svg { width: 100%; height: 100%; max-height: 100%; }
+.wdg-dmx1-pied { flex: 0 0 auto; display: flex; gap: 8px; border-top: 1px solid var(--hud-line); padding-top: 7px; }
+.wdg-dmx1-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.wdg-dmx1-lbl { font-size: 10px; color: var(--txt-3, #6b7280); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wdg-dmx1-short, .wdg-dmx1-long { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.wdg-dmx1-short { color: #ff3d00; }
+.wdg-dmx1-long { color: #00e676; }
