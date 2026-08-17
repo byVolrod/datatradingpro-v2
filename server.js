@@ -692,6 +692,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260818-biais-trend', ts: Date.UTC(2026, 7, 18, 16, 0), title: 'Radar de Biais : la ligne Trend dit enfin ce que font les prix', desc: 'La ligne Trend affichait Range pour les huit devises, semaine après semaine, à cause d un seuil calibré pour une ancienne échelle de données. Elle lit désormais la vraie pente hebdomadaire de la force de chaque devise : un yen qui décroche s affiche en repli, un dollar australien qui monte s affiche en hausse.' },
   { id: 'dtpu-20260818-biblio-lisible', ts: Date.UTC(2026, 7, 18, 14, 0), title: 'Mon Desk : la bibliothèque de widgets se lit d\'un coup d\'œil', desc: 'Choisir un widget demandait de lire chaque carte mot à mot. Le nom passe devant, la description suit à sa juste place, et toutes les cartes font désormais la même hauteur : l\'œil descend la liste sans à-coups. Le « + » d\'ajout ne chevauche plus jamais un nom de widget, l\'étoile des favoris ne cache plus l\'aperçu, et les rubriques se détachent nettement des cartes qu\'elles annoncent. Sur écran étroit, les cartes prennent toute la largeur au lieu de se serrer à deux par ligne, et sur téléphone la description s\'affiche en entier. Les filtres de catégorie sont réparés : « Analyse de marché » ne renvoyait plus aucun widget, et une catégorie « Vues du desk » s\'ajoute pour retrouver les onglets du desk en un clic.' },
   { id: 'dtpu-20260818-recap-chrono-fr', ts: Date.UTC(2026, 7, 18, 12, 0), title: 'Récap Hebdo : plus une seule ligne en anglais dans la chronologie', desc: 'Une ligne de la Chronologie rapide pouvait rester en anglais quand la source ne l était pas. Elle est désormais écartée : le rapport reste intégralement en français.' },
   { id: 'dtpu-20260818-desk-icone', ts: Date.UTC(2026, 7, 18, 12, 0), title: 'Mon Desk : nommez vos dispositions et donnez-leur une icône', desc: 'Choisir une disposition ouvre maintenant un écran de nommage : vous lui donnez son nom et, si vous le souhaitez, une icône parmi dix-huit. L\'icône apparaît dans la barre d\'onglets et sur sa carte dans le gestionnaire, ce qui permet de reconnaître un desk d\'un coup d\'œil sans lire son nom. Vos dispositions existantes ne changent pas d\'aspect. L\'icône suit aussi les fichiers exportés et réimportés.' },
@@ -11601,16 +11602,33 @@ const SB_GEM_ROWS = [
   // seasonality : NON géré par l'IA → calculé en dur depuis la saisonnalité réelle (cf. _sbSeasonalityRow)
 ];
 
+/* Seuil RELATIF à l'échelle des données, pas une constante (18/08). Le seuil fixe 0,4 datait d'une
+   ancienne échelle de la force des devises : mesuré en production, les deltas hebdo vont de -0,261
+   (JPY, net repli) à +0,230 (AUD, nette hausse). 0,4 était donc INATTEIGNABLE et la ligne affichait
+   « Range » pour les huit devises, semaine après semaine, y compris quand le yen décrochait. Une
+   ligne qui dit toujours la même chose n'informe pas : elle ment par omission.
+   Le seuil devient 60 % de la moyenne des amplitudes du moment (plancher 0,04) : il suit l'échelle
+   des données au lieu de la présumer, et une future recalibration de la force des devises ne le
+   tuera pas une seconde fois. */
+function _sbSeuilPente(deltas) {
+  const abs = deltas.filter(d => Number.isFinite(d)).map(Math.abs);
+  if (!abs.length) return 0.04;
+  return Math.max(0.04, 0.6 * abs.reduce((a, b) => a + b, 0) / abs.length);
+}
 // Trend RÉEL dérivé de la force des devises (pente sur la semaine)
 async function _sbTrendRow() {
   const out = {};
   try {
     const cs = await computeCurrencyStrength('week');
+    const deltas = {};
     SB_CURRENCIES.forEach(c => {
       const s = cs?.series?.[c];
-      if (!s || s.length < 2) { out[c] = 'Range'; return; }
-      const d = s[s.length - 1].v - s[0].v;
-      out[c] = d > 0.4 ? 'Uptrend' : d < -0.4 ? 'Downtrend' : 'Range';
+      deltas[c] = (s && s.length >= 2) ? (s[s.length - 1].v - s[0].v) : NaN;
+    });
+    const seuil = _sbSeuilPente(Object.values(deltas));
+    SB_CURRENCIES.forEach(c => {
+      const d = deltas[c];
+      out[c] = !Number.isFinite(d) ? 'Range' : d > seuil ? 'Uptrend' : d < -seuil ? 'Downtrend' : 'Range';
     });
   } catch { SB_CURRENCIES.forEach(c => out[c] = 'Range'); }
   return out;
@@ -11622,11 +11640,16 @@ async function _sbTechnicalRow() {
   const out = {};
   try {
     const cs = await computeCurrencyStrength('1d');
+    // Même correction d'échelle que _sbTrendRow : le seuil fixe 0,3 souffrait du même mal.
+    const deltas = {};
     SB_CURRENCIES.forEach(c => {
       const s = cs?.series?.[c];
-      if (!s || s.length < 2) { out[c] = 'Range'; return; }
-      const d = s[s.length - 1].v - s[0].v;
-      out[c] = d > 0.3 ? 'Uptrend' : d < -0.3 ? 'Downtrend' : 'Range';
+      deltas[c] = (s && s.length >= 2) ? (s[s.length - 1].v - s[0].v) : NaN;
+    });
+    const seuil = _sbSeuilPente(Object.values(deltas));
+    SB_CURRENCIES.forEach(c => {
+      const d = deltas[c];
+      out[c] = !Number.isFinite(d) ? 'Range' : d > seuil ? 'Uptrend' : d < -seuil ? 'Downtrend' : 'Range';
     });
   } catch { SB_CURRENCIES.forEach(c => out[c] = 'Range'); }
   return out;
