@@ -469,6 +469,119 @@
     document.body.appendChild(el);
     _undoT = setTimeout(function () { if (el.parentNode) el.remove(); }, 7000);
   }
+
+  /* ── FRISE DES HORAIRES DE PLACES (17/08/2026) ────────────────────────────────────────────────
+     Second affichage du widget « Sessions de marché », au choix dans ses réglages. Là où la carte
+     montre OÙ les places sont ouvertes, la frise montre QUAND : une piste de 24 h par place, à
+     L'HEURE DU LECTEUR, avec le repère de l'instant présent. C'est la lecture utile dans une carte
+     basse, où la carte du monde devient minuscule.
+
+     Tout est calculé des fuseaux : aucun réseau, aucune bibliothèque. Les blocs sont convertis du
+     fuseau de la place vers celui du lecteur, et une séance qui enjambe minuit chez lui est coupée
+     en deux segments plutôt que d'être repliée n'importe où.
+
+     Couleurs : le vert et le rouge de la charte restent RÉSERVÉS à l'état ouvert/fermé (badge et
+     pastille). Les blocs de séance prennent donc des teintes distinctes et sourdes, dont l'or DTP
+     pour Londres, afin que la couleur du bloc ne soit jamais lue comme un signal de marché. */
+  var _FRISE_PLACES = [
+    { nom: 'Sydney',   tz: 'Australia/Sydney',   ouv: 9, fer: 17, ton: '#3b6ea5' },
+    { nom: 'Tokyo',    tz: 'Asia/Tokyo',         ouv: 9, fer: 15, ton: '#8c4a5e' },
+    { nom: 'Londres',  tz: 'Europe/London',      ouv: 8, fer: 17, ton: '#b8860b' },
+    { nom: 'New York', tz: 'America/New_York',   ouv: 9, fer: 17, ton: '#4a7c59' },
+  ];
+
+  /** Décalage en heures entre le fuseau d'une place et celui du lecteur (positif = place en avance). */
+  function _friseDecalage(tz, now) {
+    try {
+      var loc = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+      var ici = new Date(now.toLocaleString('en-US'));
+      return Math.round((loc - ici) / 60000) / 60;
+    } catch (e) { return 0; }
+  }
+
+  /** État d'une place : ouverte ? et dans combien de temps le prochain basculement. */
+  function _friseEtat(p, now) {
+    try {
+      var loc = new Date(now.toLocaleString('en-US', { timeZone: p.tz }));
+      var h = loc.getHours() + loc.getMinutes() / 60, j = loc.getDay();
+      if (j >= 1 && j <= 5 && h >= p.ouv && h < p.fer) return { ouvert: true, mins: Math.max(1, Math.round((p.fer - h) * 60)) };
+      for (var d = 0; d < 8; d++) {
+        var c = new Date(loc); c.setDate(loc.getDate() + d); c.setHours(p.ouv, 0, 0, 0);
+        if (c > loc && c.getDay() >= 1 && c.getDay() <= 5) return { ouvert: false, mins: Math.max(1, Math.round((c - loc) / 60000)) };
+      }
+      return { ouvert: false, mins: 0 };
+    } catch (e) { return { ouvert: false, mins: 0 }; }
+  }
+
+  function _friseDuree(m) {
+    var h = Math.floor(m / 60), mm = m % 60;
+    if (h <= 0) return mm + ' min';
+    if (h >= 24) return Math.floor(h / 24) + ' j ' + (h % 24) + ' h';
+    return h + ' h' + (mm ? ' ' + (mm < 10 ? '0' + mm : mm) : '');
+  }
+
+  /** Segments [début, fin] en heures LECTEUR, une séance qui enjambe minuit étant coupée en deux. */
+  function _friseSegments(p, now) {
+    var dec = _friseDecalage(p.tz, now);
+    var a = ((p.ouv - dec) % 24 + 24) % 24;
+    var b = ((p.fer - dec) % 24 + 24) % 24;
+    return (b > a) ? [[a, b]] : [[a, 24], [0, b]];
+  }
+
+  function _friseHeure(now, tz) {
+    try { return now.toLocaleTimeString('fr-FR', { timeZone: tz, hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+
+  /** Monte la frise dans `host` et rend sa fonction de nettoyage. */
+  function _monterFriseSeances(host) {
+    host.innerHTML = '<div class="wdg-frise">'
+      + '<div class="wdg-frise-head"><span class="live-dot live-dot--small wdg-frise-dot"></span>'
+      + '<span class="chart-header-sub wdg-frise-sub"></span></div>'
+      + '<div class="wdg-frise-corps"></div>'
+      + '<div class="wdg-frise-pied">Les plages qui se chevauchent marquent les pics de liquidité. Horaires ajustés à l\'heure d\'été.</div>'
+      + '</div>';
+    var corps = host.querySelector('.wdg-frise-corps');
+    var sub = host.querySelector('.wdg-frise-sub');
+    var pastille = host.querySelector('.wdg-frise-dot');
+
+    function dessiner() {
+      var now = new Date();
+      var maintenant = (now.getHours() + now.getMinutes() / 60) / 24 * 100;
+      var ouvertes = [], suivante = null, html = '';
+      _FRISE_PLACES.forEach(function (p) {
+        var e = _friseEtat(p, now);
+        if (e.ouvert) ouvertes.push(p.nom);
+        else if (!suivante || e.mins < suivante.mins) suivante = { nom: p.nom, mins: e.mins };
+        var blocs = _friseSegments(p, now).map(function (sg) {
+          return '<span class="wdg-frise-bloc' + (e.ouvert ? ' est-ouvert' : '') + '" style="left:' + (sg[0] / 24 * 100)
+            + '%;width:' + ((sg[1] - sg[0]) / 24 * 100) + '%;--frise-ton:' + p.ton + '"></span>';
+        }).join('');
+        html += '<div class="wdg-frise-ligne' + (e.ouvert ? ' est-ouvert' : '') + '">'
+          + '<div class="wdg-frise-tete">'
+          + '<span class="wdg-frise-place"><i></i>' + p.nom + '</span>'
+          + '<span class="wdg-frise-heures">' + _friseHeure(now, p.tz) + ' sur place</span>'
+          + '<span class="wdg-frise-badge">' + (e.ouvert ? 'OUVERT' : 'FERMÉ') + '</span>'
+          + '</div>'
+          + '<div class="wdg-frise-piste">' + blocs
+          + '<span class="wdg-frise-now" style="left:' + maintenant + '%"></span></div>'
+          + '<div class="wdg-frise-reste">' + (e.ouvert ? 'ferme dans ' + _friseDuree(e.mins)
+              : (e.mins ? 'ouvre dans ' + _friseDuree(e.mins) : '')) + '</div>'
+          + '</div>';
+      });
+      corps.innerHTML = html;
+      if (sub) {
+        if (ouvertes.length) { sub.textContent = ouvertes.join(' · ') + (ouvertes.length > 1 ? ' ouvertes' : ' ouverte'); sub.style.color = '#00e676'; }
+        else if (suivante) { sub.textContent = 'Fermé · ' + suivante.nom + ' ouvre dans ' + _friseDuree(suivante.mins); sub.style.color = '#8a8f98'; }
+      }
+      if (pastille) pastille.style.background = ouvertes.length ? '#00e676' : '#ff3d00';
+    }
+
+    dessiner();
+    var iv = setInterval(dessiner, 30000);
+    return function () { try { clearInterval(iv); } catch (e) {} };
+  }
+
   function fallback(host, msg) {
     if (!host) return;
     var i = _hostIdx(host);
@@ -1354,9 +1467,18 @@
       // (sessionmap.js) — continents GeoJSON on-brand (geodata amCharts partagé), terminateur jour/nuit,
       // badges villes .lf-city (classes globales → rendu identique), halos de session, résumé d'en-tête.
       // Instance Leaflet DÉDIÉE (window._dtpLfMap reste au desk) + timers locaux → cleanup complet.
-      opts: [{ k: 'nuit', lbl: 'Ombre nuit', type: 'bascule', def: true }],
+      opts: [
+        // Deux affichages au choix (demande user 17/08) : la carte du monde, ou la frise des horaires
+        // d'ouverture, plus lisible dans une carte basse. « Ombre nuit » ne concerne que la carte.
+        { k: 'vue', lbl: 'Affichage', type: 'choix', def: 'carte',
+          choix: [['carte', 'Carte du monde'], ['frise', 'Horaires des places']] },
+        { k: 'nuit', lbl: 'Ombre nuit', type: 'bascule', def: true },
+      ],
       mount: function (host, it) {
         var W = this;
+        // La frise se calcule uniquement des fuseaux : elle n'a besoin ni de Leaflet ni du réseau,
+        // donc son montage passe AVANT le garde « carte indisponible ».
+        if (opt(it, W, 'vue') === 'frise') return _monterFriseSeances(host);
         if (typeof L === 'undefined') { fallback(host, 'Carte indisponible.'); return null; }
         // PASTILLE D'ÉTAT, comme sur le desk (04/08, demande user « met comme celui d'origine ») :
         // l'en-tête de la carte des sessions du desk fait précéder ce texte d'une .live-dot qui vire
