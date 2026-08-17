@@ -5939,7 +5939,17 @@ function _mufgParseDate(slug) {
   if (dm) { const d = new Date(`${dm[1]} ${dm[2]} ${dm[3]}`); if (!isNaN(d.getTime())) return d.getTime(); }
   return null;
 }
-function _mufgAdd(merged, seen, href, cat, cutoff) {
+/** « Aug 17, 2026 » -> midi UTC. Ancré ^…$ : un <h6> qui contient autre chose n'est pas une date. */
+function _mufgDateCarte(txt) {
+  const m = String(txt || '').replace(/\s+/g, ' ').trim().match(/^([A-Za-z]{3,9})\.?\s+(\d{1,2}),\s*(20\d\d)$/);
+  if (!m) return null;
+  const mo = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 }[m[1].slice(0, 3).toLowerCase()];
+  if (mo == null) return null;
+  const t = Date.UTC(+m[3], mo, +m[2], 12);
+  return (t > Date.UTC(2015, 0, 1) && t <= Date.now() + 864e5) ? t : null;
+}
+
+function _mufgAdd(merged, seen, href, cat, cutoff, dateCarte) {
   href = (href || '').trim();
   if (!new RegExp('^/' + cat + '/[a-z]', 'i').test(href) || seen.has(href)) return;   // exclut /cat/ et la pagination /cat/?page=
   seen.add(href);
@@ -5954,7 +5964,8 @@ function _mufgAdd(merged, seen, href, cat, cutoff) {
   // august-3-to-7-2026/ » n'en a pas, et l'heure courante le faisait passer pour le rapport du jour
   // (mesuré en prod le 17/08). On marque alors la date comme inconnue : le résolveur ira la chercher
   // sur la page, et à défaut l'affichage dira « n.d. » plutôt que d'inventer aujourd'hui.
-  let ts = _mufgParseDate(slug), dateInconnue = false;
+  // La carte de la liste fait FOI ; le slug n'est qu'un repli (il ment 3 % du temps).
+  let ts = dateCarte || _mufgParseDate(slug), dateInconnue = false;
   if (!ts) {
     const an = String(slug).match(/\b(20\d{2})\b/);
     if (an && Number(an[1]) < new Date().getFullYear()) return;   // archive datée d'une année passée
@@ -5981,7 +5992,27 @@ async function _fetchMufgInto(merged, cutoff, UA) {
       // Sélecteur ROBUSTE : tout lien vers /cat/<slug> (MUFG a changé sa structure de carte
       // <div.card><a> → <a class="card">, ce qui cassait ".card a" → 0 rapport). _mufgAdd filtre
       // déjà le bruit (bare /cat/, pagination, dédup, date) → robuste aux refontes de la liste.
-      $('a[href^="/' + cat + '/"]').each((_, a) => _mufgAdd(merged, seen, $(a).attr('href'), cat, cutoff));
+      /* La date est SUR LA CARTE, dans la page que l'on vient déjà de télécharger : aucune requête
+         supplémentaire. C'est strictement meilleur que de la deviner depuis le slug, qui nomme parfois
+         la PÉRIODE COUVERTE et non la parution. Mesuré le 17/08/2026 : sur 63 adresses portant une
+         date, 2 mentent (« japan-economic-financial-weekly-28-july-2026 » a été publié le 21/07), 8
+         n'en portent aucune, et la forme ordinale « -7th-august-2026 » échappe au parseur. La carte,
+         elle, date 72 publications sur 72 et couvre 100 % de ce que le desk ingère.
+         Le <h6> qui porte les auteurs a la classe `author` ; l'autre <h6> porte la date. */
+      const _dCarte = new Map();
+      $('.card-grid .card').each((_, card) => {
+        const href = ($(card).find('a[href^="/"]').attr('href') || '').trim().split('#')[0];
+        if (!href) return;
+        $(card).find('.card__content h6').each((__, h6) => {
+          if (_dCarte.has(href) || $(h6).hasClass('author')) return;
+          const t = _mufgDateCarte($(h6).text());
+          if (t) _dCarte.set(href, t);
+        });
+      });
+      $('a[href^="/' + cat + '/"]').each((_, a) => {
+        const href = ($(a).attr('href') || '').trim();
+        _mufgAdd(merged, seen, href, cat, cutoff, _dCarte.get(href.split('#')[0]) || null);
+      });
     } catch (e) { console.warn('[MUFG ' + cat + ']', e.message); }
   }
   // Rapports importants ajoutés à la main (hors page 1 statique de la liste).
