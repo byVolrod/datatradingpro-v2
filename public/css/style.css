@@ -16918,3 +16918,7 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wdg-dmx1-short, .wdg-dmx1-long { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .wdg-dmx1-short { color: #ff3d00; }
 .wdg-dmx1-long { color: #00e676; }
+
+/* Rubrique du récap hebdo déclarée mais sans publication cette semaine (18/08). Le ton est sobre :
+   c'est une absence de donnée, pas un incident. Voir `rubriquesVides` côté serveur. */
+.wr-rien { color: var(--txt-3, #6b7280); font-style: italic; }

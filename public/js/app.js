@@ -7801,25 +7801,36 @@ function _renderWeeklyRecap(item) {
         // propre rubrique (employmentPrints) ; anciens rapports sans ce champ → libellé groupé (rétro-compat).
         const groPrints = Array.isArray(cd.growthPrints) ? cd.growthPrints : [];
         const empPrints = Array.isArray(cd.employmentPrints) ? cd.employmentPrints : [];
-        if (groPrints.length) {
-          body += `<div class="wr-macro-heading">${empPrints.length ? 'Croissance économique' : 'Croissance &amp; Emploi'}</div>`;
-          groPrints.forEach(p => { body += printRow(p); });
+        /* MÊME STRUCTURE POUR CHAQUE DEVISE (18/08, demande user). Une rubrique sans publication
+           DISPARAISSAIT : le lecteur ne pouvait pas distinguer « rien n est sorti cette semaine » de
+           « le desk a oublié de regarder ». Les rapports v44+ portent `rubriquesVides` ; pour eux les
+           quatre rubriques sont toujours affichées, une phrase sobre remplaçant les puces absentes.
+           Les rapports plus anciens n ont pas le champ et gardent l ancien comportement : pas de
+           rubrique inventée sur un rapport qui n a pas été produit pour ça. */
+        const _rubOK = Array.isArray(cd.rubriquesVides);
+        const _rien = '<div class="wr-text wr-rien">Aucune publication cette semaine.</div>';
+        if (groPrints.length || _rubOK) {
+          body += `<div class="wr-macro-heading">${(empPrints.length || _rubOK) ? 'Croissance économique' : 'Croissance &amp; Emploi'}</div>`;
+          if (groPrints.length) groPrints.forEach(p => { body += printRow(p); });
+          else body += _rien;
         }
-        if (empPrints.length) {
+        if (empPrints.length || _rubOK) {
           body += `<div class="wr-macro-heading">Emploi</div>`;
-          empPrints.forEach(p => { body += printRow(p); });
+          if (empPrints.length) empPrints.forEach(p => { body += printRow(p); });
+          else body += _rien;
         }
         // 2) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
         const infPrints = Array.isArray(cd.inflationPrints) ? cd.inflationPrints : [];
-        if (cd.inflation || infPrints.length) {
+        if (cd.inflation || infPrints.length || _rubOK) {
           body += `<div class="wr-macro-heading">Inflation</div>`;
           if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
           infPrints.forEach(p => { body += printRow(p); });
+          if (!cd.inflation && !infPrints.length) body += _rien;
         }
         // 3) Politique monétaire (« Fed / Pricing » de la référence) — prose IA + 1 puce PAR INTERVENANT
         //    + la ligne de pricing marché.
         const cbBullets = Array.isArray(cd.cbBullets) ? cd.cbBullets : [];
-        if (cd.monetaryPolicy || cbBullets.length || cd.pricing) {
+        if (cd.monetaryPolicy || cbBullets.length || cd.pricing || _rubOK) {
           // Rubrique nommée d'après LA banque de la devise (« Fed / Pricing », « BoE / Pricing »…),
           // comme dans la référence — « Politique monétaire » était le même intitulé pour les huit.
           // « BANQUE CENTRALE » pour les huit devises (15/08, demande user), au lieu de « Fed / Pricing »,
@@ -7839,6 +7850,8 @@ function _renderWeeklyRecap(item) {
             body += `<div class="wr-bullet"><strong>${_wrEsc(q.speaker || '')}</strong>${q.date ? ` <span class="wr-print-date">(${_wrEsc(q.date)})</span>` : ''} → ${_wrInline(q.text)}</div>`;
           });
           if (cd.pricing) body += `<div class="wr-bullet wr-cat"><strong>Pricing :</strong> ${_wrEsc(cd.pricing)}</div>`;
+          // Rubrique déclarée mais sans matière : on le dit, au lieu de laisser un intitulé nu.
+          if (!cd.monetaryPolicy && !cbBullets.length && !cd.pricing) body += _rien;
         }
         // 4) THÈMES DE LA SEMAINE — rendus comme dans la référence : des lignes intitulées
         //    (« Banque centrale : … », « Commerce : … », « Fiscal : … »), SANS titre de rubrique
