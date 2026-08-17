@@ -538,6 +538,7 @@
     host.innerHTML = '<div class="wdg-frise">'
       + '<div class="wdg-frise-head"><span class="live-dot live-dot--small wdg-frise-dot"></span>'
       + '<span class="chart-header-sub wdg-frise-sub"></span></div>'
+      + '<div class="wdg-frise-axe"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>'
       + '<div class="wdg-frise-corps"></div>'
       + '<div class="wdg-frise-pied">Les plages qui se chevauchent marquent les pics de liquidité. Horaires ajustés à l\'heure d\'été.</div>'
       + '</div>';
@@ -560,13 +561,13 @@
         html += '<div class="wdg-frise-ligne' + (e.ouvert ? ' est-ouvert' : '') + '">'
           + '<div class="wdg-frise-tete">'
           + '<span class="wdg-frise-place"><i></i>' + p.nom + '</span>'
-          + '<span class="wdg-frise-heures">' + _friseHeure(now, p.tz) + ' sur place</span>'
+          + '<span class="wdg-frise-reste">' + (e.ouvert ? 'ferme dans ' + _friseDuree(e.mins)
+              : (e.mins ? 'ouvre dans ' + _friseDuree(e.mins) : '')) + '</span>'
+          + '<span class="wdg-frise-heures">' + _friseHeure(now, p.tz) + '</span>'
           + '<span class="wdg-frise-badge">' + (e.ouvert ? 'OUVERT' : 'FERMÉ') + '</span>'
           + '</div>'
           + '<div class="wdg-frise-piste">' + blocs
           + '<span class="wdg-frise-now" style="left:' + maintenant + '%"></span></div>'
-          + '<div class="wdg-frise-reste">' + (e.ouvert ? 'ferme dans ' + _friseDuree(e.mins)
-              : (e.mins ? 'ouvre dans ' + _friseDuree(e.mins) : '')) + '</div>'
           + '</div>';
       });
       corps.innerHTML = html;
