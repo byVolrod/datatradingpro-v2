@@ -17792,3 +17792,60 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
   .wdg-si-pied, .wdg-rb-pied { display: none; }
   .wdg-rb-chrono { font-size: 24px; }
 }
+
+/* ── Chaleur de séance (19/08) ─────────────────────────────────────────────────────────────────
+   Grille auto-ajustable : les 28 tuiles se réorganisent selon la largeur de la carte, sans jamais
+   déborder ni imposer un nombre de colonnes qui ne tiendrait pas. */
+.wdg-hm { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
+.wdg-hm-grille { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 3px; align-content: start; }
+.wdg-hm-t { display: flex; flex-direction: column; gap: 1px; padding: 5px 6px; border-radius: 3px;
+  border: 1px solid var(--hud-line); min-width: 0; }
+/* Variation INCONNUE (la source peut rendre null) : case éteinte, jamais un faux zéro. */
+.wdg-hm-t.est-inconnu { opacity: .45; }
+.wdg-hm-s { font-size: 10px; font-weight: 600; letter-spacing: .02em; color: var(--txt-2, #9aa1ac);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wdg-hm-v { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
+.wdg-hm-pied { flex: 0 0 auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+
+/* ── Amplitude quotidienne (19/08) ─────────────────────────────────────────────────────────────
+   Le chiffre porte la carte ; le pied dit ce qui a été exclu et pourquoi. */
+.wdg-am { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
+.wdg-am-tete { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 11px; min-width: 0; }
+.wdg-am-sym { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
+.wdg-am-n { margin-left: auto; color: var(--txt-3, #6b7280); font-size: 10px; font-variant-numeric: tabular-nums; }
+.wdg-am-gros { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.wdg-am-gros b { font-size: 27px; line-height: 1; color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
+.wdg-am-gros span { font-size: 11px; color: var(--txt-2, #9aa1ac); min-width: 0; }
+.wdg-am-med { flex: 0 0 auto; font-size: 10px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
+.wdg-am-zone { flex: 1 1 auto; min-height: 0; }
+.wdg-am-pied { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+
+/* ── Points hauts et bas (19/08) ───────────────────────────────────────────────────────────────
+   Deux blocs identiques, séance et semaine, chacun avec sa réglette de position. */
+.wdg-hb { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 10px; padding: 10px 12px 8px; }
+.wdg-hb-bloc { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
+.wdg-hb-t { display: flex; align-items: baseline; gap: 8px; font-size: 10px; min-width: 0; }
+.wdg-hb-t span { color: var(--txt-2, #9aa1ac); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.wdg-hb-t i { font-style: normal; margin-left: auto; color: var(--txt-3, #6b7280); font-size: 9.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.wdg-hb-vals { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; font-size: 12px; }
+.wdg-hb-bas { color: #ff3d00; }
+.wdg-hb-haut { color: #00e676; margin-left: auto; }
+.wdg-hb-amp { flex: 1 1 auto; text-align: center; font-size: 10px; color: var(--txt-3, #6b7280); }
+html[data-theme="light"] .wdg-hb-bas { color: #c73000; }
+html[data-theme="light"] .wdg-hb-haut { color: #00783d; }
+/* Réglette : la position du dernier cours entre le bas et le haut de la période. */
+.wdg-hb-piste { position: relative; height: 4px; border-radius: 2px; background: var(--hud-line);
+  background-image: linear-gradient(90deg, rgba(255,61,0,.35), rgba(0,230,118,.35)); }
+.wdg-hb-cur { position: absolute; top: -3px; width: 2px; height: 10px; border-radius: 1px;
+  background: var(--orange, #e3b23a); transform: translateX(-50%); }
+.wdg-hb-pied { flex: 0 0 auto; margin-top: auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+
+/* Cartes basses : les pieds explicatifs cèdent avant les chiffres. */
+@media (max-height: 240px) {
+  .wdg-am-pied, .wdg-hb-pied, .wdg-hm-pied { display: none; }
+}

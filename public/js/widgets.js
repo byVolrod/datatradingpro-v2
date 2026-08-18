@@ -822,6 +822,63 @@
      (sa regex exige la barre oblique). Ne PAS confondre avec _dmxPairesChoix, qui rend le format
      colle « EURUSD » de /api/community-outlook — servir l un a la place de l autre ne renvoie
      rien du tout, en silence. */
+  /* ── BRIQUES PARTAGEES DES WIDGETS D AMPLITUDE (19/08) ─────────────────────────────────────
+     Factorisees des le deuxieme widget qui en avait besoin : amplitude quotidienne et points
+     hauts/bas font exactement les memes trois choses (taille du pip, datation d une bougie,
+     appel a /api/bank-ohlc) et divergeraient a la premiere retouche si chacun avait sa copie. */
+
+  /* Taille du pip. AUCUN champ de la source ne la donne : c est une CONVENTION de place, alignee
+     sur celle deja en production dans le journal de trading (app.js), inaccessible d ici car
+     enfermee dans une closure. A annoncer sur la carte comme une convention de calcul, jamais
+     comme une donnee recue. Les instruments non-FX se comptent en POINTS, pas en pips. */
+  function _pipTaille(sym) {
+    if (!/^[A-Z]{3}\/[A-Z]{3}$/.test(String(sym || ''))) return null;   // non-FX : points
+    return /JPY/.test(sym) ? 0.01 : 0.0001;
+  }
+  function _uniteAmpl(sym) { return _pipTaille(sym) ? 'pips' : 'points'; }
+
+  /* Une bougie est-elle CLOSE ? On ne le deduit JAMAIS de sa position dans le tableau : la
+     derniere ligne peut tres bien etre celle de vendredi un dimanche. On compare la date UTC de
+     la bougie a celle du jour (et, en hebdomadaire, la semaine). Le libelle en depend : ecrire
+     « seance en cours » sur une bougie close serait faux. */
+  function _memeJourUTC(t, ref) {
+    var a = new Date(t), b = new Date(ref == null ? Date.now() : ref);
+    return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+  }
+  function _memeSemaineUTC(t, ref) {
+    var a = new Date(t), b = new Date(ref == null ? Date.now() : ref);
+    var lundi = function (d) { var x = new Date(d); var j = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - j); x.setUTCHours(0, 0, 0, 0); return x.getTime(); };
+    return lundi(a) === lundi(b);
+  }
+  function _dateBougie(t) {
+    try { return new Date(t).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+
+  /* Bougies de /api/bank-ohlc, avec un CACHE par carte. Sans lui, deux widgets d amplitude plus
+     l onglet BANQUES plus le repli du widget Graphique tapent Yahoo en parallele a chaque
+     montage ; et le W1 retelecharge dix ans d hebdomadaires pour lire deux lignes.
+     Le delai maximal est explicite : la route peut mettre pres de vingt secondes a rendre un
+     tableau vide, et une carte muette pendant vingt secondes est une carte cassee. */
+  function _bougies(sym, tf, cache) {
+    var cle = sym + '|' + tf;
+    if (cache && cache[cle]) return Promise.resolve(cache[cle]);
+    var estFX = /^[A-Z]{3}\/[A-Z]{3}$/.test(String(sym || ''));
+    var url = '/api/bank-ohlc?' + (estFX ? 'pair=' : 'sym=') + encodeURIComponent(sym) + '&tf=' + encodeURIComponent(tf);
+    var minute = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('delai')); }, 12000); });
+    return Promise.race([
+      fetch(url).then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); }),
+      minute,
+    ]).then(function (d) {
+      // Horodatage filtre EN TETE : une bougie sans date ne peut ni etre datee ni etre exclue.
+      var c = ((d && d.candles) || []).filter(function (b) {
+        return b && Number.isFinite(b.t) && b.t > 0 && isFinite(b.o) && isFinite(b.h) && isFinite(b.l) && isFinite(b.c);
+      });
+      if (cache) cache[cle] = c;
+      return c;
+    });
+  }
+
   function _fxChoix() {
     var M = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'], out = [], vus = {};
     M.forEach(function (b) { M.forEach(function (q) {
@@ -1732,6 +1789,174 @@
        « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
 
     {
+      id: 'heatmap-seance', name: 'Chaleur de séance', tag: 'FX', cat: 'Marchés', h: 300, staff: true,
+      desc: 'Les 28 croisements majeurs colorés par leur variation du jour, du plus vert au plus rouge.',
+      /* ⚠️ PERIMETRE VOLONTAIREMENT ETROIT. La contre-verification a montre qu une heatmap
+         multi-periodes (1 mois, 3 mois, 12 mois) ferait DOUBLON avec la Liste FX, qui sert deja
+         ces colonnes. On garde la seule chose que la Liste FX ne rend PAS en chaleur : la
+         variation de SEANCE. Une tuile par croisement, triable, plutot qu un groupement par
+         devise de base qui donnerait sept lignes inegales (7, 6, 5, 4, 3, 2, 1). */
+      opts: [
+        { k: 'tri', lbl: 'Classement', type: 'choix', def: 'var',
+          choix: [['var', 'Par variation'], ['alpha', 'Alphabétique']] },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        skel(host, 6);
+        function dessiner() {
+          fetch('/api/fxlist').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            // Garde explicite : une reponse sans tableau `pairs` n est pas une reponse vide, c est
+            // une panne. On le dit au lieu d afficher une grille vide.
+            if (!d || !Array.isArray(d.pairs) || !d.pairs.length) { fallback(host, 'Variations indisponibles.'); return; }
+            var t = d.pairs.slice().filter(function (p) { return p && p.symbol; });
+            if (opt(it, W, 'tri') === 'alpha') t.sort(function (a, b) { return a.symbol.localeCompare(b.symbol); });
+            else t.sort(function (a, b) { return (Number(b.changePct) || 0) - (Number(a.changePct) || 0); });
+            var h = '<div class="wdg-hm"><div class="wdg-hm-grille">';
+            t.forEach(function (p) {
+              var v = Number(p.changePct);
+              // Une variation nulle n est pas la meme chose qu une variation ABSENTE : la source
+              // peut rendre null (cloture precedente inconnue). On l affiche en case eteinte.
+              var connu = isFinite(v);
+              var a = connu ? Math.min(Math.abs(v) / 0.8, 1) : 0;
+              var fond = !connu ? 'transparent' : (v >= 0 ? 'rgba(0,230,118,' + (0.10 + a * 0.55).toFixed(2) + ')' : 'rgba(255,61,0,' + (0.10 + a * 0.55).toFixed(2) + ')');
+              h += '<div class="wdg-hm-t' + (connu ? '' : ' est-inconnu') + '" style="background:' + fond + '">'
+                + '<span class="wdg-hm-s">' + esc(p.symbol) + '</span>'
+                + '<span class="wdg-hm-v">' + (connu ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--') + '</span></div>';
+            });
+            var maj = '';
+            try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
+            h += '</div><div class="wdg-hm-pied">Variation depuis la clôture précédente' + (maj ? ' &middot; MAJ ' + maj : '') + '</div></div>';
+            host.innerHTML = h;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Variations indisponibles.'); });
+        }
+        dessiner();
+        // 150 s : le pas du tick serveur. Plus court ne relirait que le meme cache.
+        var iv = setInterval(function () { if (!document.hidden) dessiner(); }, 150000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+      },
+    },
+
+    {
+      id: 'amplitude-jour', name: 'Amplitude quotidienne', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300, staff: true,
+      desc: 'De combien la paire bouge en une séance, en moyenne, sur les dernières semaines.',
+      /* ⚠️ LA BOUGIE DU JOUR N EST PAS « LA DERNIERE LIGNE ». On compare sa date UTC a celle du
+         jour : un dimanche, la derniere ligne est celle de vendredi, donc CLOSE, et elle doit
+         entrer dans la moyenne. Deduire « seance en cours » de la position dans le tableau est
+         l erreur classique de ce widget.
+         ⚠️ Le nombre de seances ECARTEES (bougie plate, donnee douteuse) est affiche des qu il
+         compte : sans cela, « moyenne sur 60 jours » porterait en silence sur moins. */
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'jours', lbl: 'Séances retenues', type: 'nombre', def: 60, min: 20, max: 250 },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, cache = {};
+        skel(host, 5);
+        function dessiner() {
+          var sym = opt(it, W, 'paire') || 'EUR/USD';
+          var n = opt(it, W, 'jours') || 60;
+          _bougies(sym, 'D1', cache).then(function (c) {
+            if (!vivant || !host.isConnected) return;
+            if (!c.length) { fallback(host, 'Bougies indisponibles.'); return; }
+            var derniere = c[c.length - 1];
+            var enCours = _memeJourUTC(derniere.t);
+            var closes = enCours ? c.slice(0, -1) : c;
+            var fenetre = closes.slice(-n);
+            var brut = fenetre.length;
+            // Bougie plate : haut egal au bas. Garde defensive, mais on COMPTE les ecartees.
+            var util = fenetre.filter(function (b) { return b.h > b.l; });
+            var ecartees = brut - util.length;
+            if (util.length < 10) { fallback(host, 'Historique insuffisant (n = ' + util.length + ' séances).'); return; }
+            var pip = _pipTaille(sym), unite = _uniteAmpl(sym);
+            var ampl = util.map(function (b) { return pip ? (b.h - b.l) / pip : (b.h - b.l); });
+            var moy = ampl.reduce(function (a, b) { return a + b; }, 0) / ampl.length;
+            var tri = ampl.slice().sort(function (a, b) { return a - b; });
+            var med = tri[Math.floor(tri.length / 2)];
+            var dec = pip ? 0 : 2;
+            host.innerHTML = '<div class="wdg-am">'
+              + '<div class="wdg-am-tete"><span class="wdg-am-sym">' + esc(sym) + '</span>'
+              + '<span class="wdg-am-n">' + util.length + ' séances</span></div>'
+              + '<div class="wdg-am-gros"><b>' + moy.toFixed(dec) + '</b><span>' + unite + ' en moyenne par séance</span></div>'
+              + '<div class="wdg-am-med">Médiane ' + med.toFixed(dec) + ' ' + unite + '</div>'
+              + '<div class="wdg-am-zone">' + _barresSvg(ampl.slice(-40), { couleur: 'var(--orange, #e3b23a)' }) + '</div>'
+              + '<div class="wdg-am-pied">'
+              + (enCours ? 'Séance du jour exclue, elle n\'est pas terminée. ' : 'Dernière séance retenue : ' + esc(_dateBougie(derniere.t)) + ', close. ')
+              + (ecartees > 0 ? ecartees + ' séance' + (ecartees > 1 ? 's' : '') + ' écartée' + (ecartees > 1 ? 's' : '') + ' (amplitude nulle). ' : '')
+              + (pip ? 'Le pip suit la convention de place, il n\'est pas fourni par la source.' : 'Amplitude en points de cotation.')
+              + '</div></div>';
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        return function () { vivant = false; };
+      },
+    },
+
+    {
+      id: 'hauts-bas', name: 'Points hauts et bas', tag: 'NIVEAUX', cat: 'Marchés', h: 260, staff: true,
+      desc: 'Les extrêmes de la séance et de la semaine, et où se situe le cours entre les deux.',
+      /* ⚠️ « En cours » se CALCULE, il ne se suppose pas : on compare la date UTC de la derniere
+         bougie au jour courant, et la semaine ISO en hebdomadaire. Un dimanche, la derniere ligne
+         est celle de vendredi : ecrire « séance en cours » serait faux.
+         ⚠️ Periode a peine ouverte : une reglette de position n a aucun sens sur une bougie de
+         quelques minutes. On bascule alors sur la periode PRECEDENTE et on le dit. */
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, cache = {};
+        skel(host, 4);
+
+        function bloc(titre, b, etat, sym) {
+          var pip = _pipTaille(sym), unite = _uniteAmpl(sym);
+          var etendue = pip ? (b.h - b.l) / pip : (b.h - b.l);
+          var pos = (b.h > b.l) ? (b.c - b.l) / (b.h - b.l) * 100 : 50;
+          var dec = /JPY/.test(sym) ? 3 : (pip ? 5 : 2);
+          return '<div class="wdg-hb-bloc">'
+            + '<div class="wdg-hb-t"><span>' + esc(titre) + '</span><i>' + esc(etat) + '</i></div>'
+            + '<div class="wdg-hb-vals"><span class="wdg-hb-bas">' + b.l.toFixed(dec) + '</span>'
+            + '<span class="wdg-hb-amp">' + etendue.toFixed(pip ? 0 : 2) + ' ' + unite + '</span>'
+            + '<span class="wdg-hb-haut">' + b.h.toFixed(dec) + '</span></div>'
+            + '<div class="wdg-hb-piste"><span class="wdg-hb-cur" style="left:' + Math.max(0, Math.min(100, pos)).toFixed(1) + '%"></span></div>'
+            + '</div>';
+        }
+
+        function dessiner() {
+          var sym = opt(it, W, 'paire') || 'EUR/USD';
+          Promise.all([_bougies(sym, 'D1', cache), _bougies(sym, 'W1', cache)]).then(function (r) {
+            if (!vivant || !host.isConnected) return;
+            var j = r[0], sem = r[1];
+            if (!j.length && !sem.length) { fallback(host, 'Bougies indisponibles.'); return; }
+            var h = '<div class="wdg-hb">';
+            if (j.length) {
+              var dj = j[j.length - 1];
+              var jourEnCours = _memeJourUTC(dj.t);
+              h += bloc('Séance', dj, jourEnCours ? 'en cours' : _dateBougie(dj.t) + ', close', sym);
+            }
+            if (sem.length) {
+              var ds = sem[sem.length - 1];
+              var semEnCours = _memeSemaineUTC(ds.t);
+              // Semaine a peine ouverte : la reglette porterait sur quelques minutes. On montre
+              // la semaine PRECEDENTE, complete, et on l annonce.
+              var ageMs = Date.now() - ds.t;
+              var tropJeune = semEnCours && ageMs < 0.1 * 7 * 86400000 && sem.length > 1;
+              var cible = tropJeune ? sem[sem.length - 2] : ds;
+              var etat = tropJeune ? 'semaine précédente, la nouvelle vient de s\'ouvrir'
+                : (semEnCours ? 'en cours' : 'dernière semaine close');
+              h += bloc('Semaine', cible, etat, sym);
+            }
+            h += '<div class="wdg-hb-pied">Le curseur situe le dernier cours entre le bas et le haut de la période.</div></div>';
+            host.innerHTML = h;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        return function () { vivant = false; };
+      },
+    },
+    {
       id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 240, staff: true,
       desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste.',
       /* Une carte a UNE seule information : c est ce qui la separe du widget Calendrier, qui est
@@ -2233,9 +2458,9 @@
         var W = this, vivant = true, cur = null;
         skel(host, 6);
 
-        // Convention de place, pas une donnee servie : le yen cote au centieme, le reste au
-        // dix-millieme. Repliquee ici faute de pouvoir atteindre _jrPipSize (closure d app.js).
-        function pip(paire) { return /JPY/.test(paire) ? 0.01 : 0.0001; }
+        // La convention de pip vit desormais au niveau module (_pipTaille) : trois widgets s en
+        // servent, et deux copies auraient diverge a la premiere retouche.
+        function pip(paire) { return _pipTaille(paire) || 0.0001; }
 
         function dessiner() {
           var paire = opt(it, W, 'paire') || 'EUR/USD';
@@ -4442,6 +4667,9 @@
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
+    'heatmap-seance': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1" fill="currentColor" opacity=".35" stroke="none"/><rect x="3.5" y="13.5" width="7" height="7" rx="1" fill="currentColor" opacity=".55" stroke="none"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>',
+    'amplitude-jour': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 19h16"/><path d="M12 8v8"/><path d="M9.5 10.5 12 8l2.5 2.5M9.5 13.5 12 16l2.5-2.5"/></svg>',
+    'hauts-bas': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 18h16"/><path d="M12 6v12" opacity=".45"/><circle cx="12" cy="13" r="2.2" fill="currentColor" stroke="none"/></svg>',
     'bandeau-ticker': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h5M11 8h4M18 8h3M3 16h3M9 16h6M18 16h3"/><path d="M2 12h20" opacity=".35"/></svg>',
     'matrice-croisee': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 9h17M3.5 14.5h17M9 3.5v17M14.5 3.5v17"/></svg>',
     'saison-courbe': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M6 12V7M9.5 12v3.5M13 12V6M16.5 12v4M20 12V9"/></svg>',
@@ -4481,6 +4709,9 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    'heatmap-seance': '<svg ' + _PV + '>' + (function () { var h = '', v = [.9,.5,.2,-.3,-.8,.6,.1,-.5,.7,-.2,.4,-.9,.3,-.6,.8,-.1,.5,-.4,.2,-.7,.6,-.3,.9,.1]; for (var i = 0; i < 24; i++) { var x = 5 + (i % 8) * 14, y = 6 + Math.floor(i / 8) * 15, a = Math.min(Math.abs(v[i]), 1); h += '<rect x="' + x + '" y="' + y + '" width="12" height="13" rx="1.5" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity="' + (0.12 + a * 0.6).toFixed(2) + '"/>'; } return h; })() + '</svg>',
+    'amplitude-jour': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + (function () { var v = [22, 30, 17, 34, 25, 12, 28, 20, 33, 16, 26, 23], h = ''; for (var i = 0; i < 12; i++) h += '<rect x="' + (8 + i * 9) + '" y="' + (46 - v[i]) + '" width="6" height="' + v[i] + '" fill="#e3b23a" opacity=".62"/>'; return h; })() + '<line x1="6" y1="22" x2="114" y2="22" stroke="#e3b23a" stroke-dasharray="3 3"/>' + '</svg>',
+    'hauts-bas': '<svg ' + _PV + '>' + '<line x1="14" y1="12" x2="106" y2="12" stroke="#00e676" stroke-width="1.6"/>' + '<line x1="14" y1="44" x2="106" y2="44" stroke="#ff3d00" stroke-width="1.6"/>' + '<rect x="14" y="26" width="92" height="4" rx="2" fill="#23232a"/>' + '<rect x="14" y="26" width="58" height="4" rx="2" fill="#e3b23a" opacity=".55"/>' + '<circle cx="72" cy="28" r="4" fill="#e3b23a"/>' + '</svg>',
     'bandeau-ticker': '<svg ' + _PV + '>' + '<rect x="4" y="18" width="112" height="20" rx="3" fill="#141418" stroke="#23232a"/>' + '<rect x="8" y="22" width="20" height="4" rx="1" fill="#6b7280"/><rect x="8" y="29" width="13" height="4" rx="1" fill="#22c55e"/>' + '<rect x="36" y="22" width="22" height="4" rx="1" fill="#6b7280"/><rect x="36" y="29" width="11" height="4" rx="1" fill="#ff3d00"/>' + '<rect x="66" y="22" width="18" height="4" rx="1" fill="#6b7280"/><rect x="66" y="29" width="15" height="4" rx="1" fill="#22c55e"/>' + '<rect x="92" y="22" width="20" height="4" rx="1" fill="#6b7280"/><rect x="92" y="29" width="9" height="4" rx="1" fill="#e3b23a"/>' + '</svg>',
     'matrice-croisee': '<svg ' + _PV + '>' + (function () { var h = '', C = ['#22c55e', '#ff3d00', '#3a3d44', '#22c55e', '#3a3d44', '#ff3d00']; for (var r = 0; r < 4; r++) for (var c = 0; c < 6; c++) { var mort = (r === c); h += '<rect x="' + (14 + c * 17) + '" y="' + (8 + r * 11) + '" width="16" height="10"' + ' fill="' + (mort ? '#1c1c20' : C[(r + c) % 6]) + '" opacity="' + (mort ? '1' : '.5') + '"/>'; } for (var i = 0; i < 4; i++) h += '<rect x="4" y="' + (10 + i * 11) + '" width="8" height="6" rx="1" fill="#6b7280"/>'; for (var j = 0; j < 6; j++) h += '<rect x="' + (16 + j * 17) + '" y="2" width="12" height="4" rx="1" fill="#6b7280"/>'; return h; })() + '</svg>',
     'saison-courbe': '<svg ' + _PV + '>' + '<line x1="6" y1="30" x2="114" y2="30" stroke="#3a3d44"/>' + (function () { var v = [8, -5, 12, 6, -9, 3, 14, -4, 7, -11, 5, 10], h = ''; for (var i = 0; i < 12; i++) { var y = v[i] >= 0 ? 30 - v[i] * 1.6 : 30, ht = Math.abs(v[i]) * 1.6; h += '<rect x="' + (7 + i * 9) + '" y="' + y + '" width="6" height="' + ht + '"' + ' fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".85"/>'; } return h; })() + '<rect x="61" y="6" width="6" height="44" fill="#e3b23a" opacity=".14"/>' + '</svg>',
