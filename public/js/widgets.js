@@ -1847,7 +1847,19 @@
          ⚠️ L identifiant est REGENERE a la duplication et a l import (voir API.duplicate) :
          sans cela deux cartes partageraient la meme note et s ecraseraient l une l autre. */
       opts: [
+        /* `doc` reste CACHE, et c est le seul cas legitime : ce n est pas un choix de
+           l utilisateur mais l identifiant interne du document. Les trois suivants sont de vrais
+           reglages, et sans eux la carte n avait aucun panneau. */
         { k: 'doc', lbl: 'Document', type: 'texte', def: '', cache: true },
+        /* Une check-list de regles de risque ne doit pas pouvoir etre detruite par une frappe
+           accidentelle sur une carte survolee. */
+        { k: 'verrou', lbl: 'Lecture seule', type: 'bascule', def: false },
+        /* Seule l HEURE etait affichee : une note touchee il y a trois jours annoncait
+           « enregistré à 09:14 », vrai et pourtant trompeur. */
+        { k: 'horodatage', lbl: 'Horodatage', type: 'choix', def: 'heure',
+          choix: [['heure', 'Heure'], ['date', 'Date et heure'], ['off', 'Masqué']] },
+        /* Un plan de semaine perime ne doit pas se confondre avec le plan du jour. 0 = jamais. */
+        { k: 'peremption', lbl: 'Signaler au-delà de (jours)', type: 'nombre', def: 0, min: 0, max: 90 },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, tMaj = null, dernier = '';
@@ -1868,8 +1880,44 @@
 
         function compteur() { car.textContent = ta.value.length + ' / ' + MAX; }
 
+        /* Horodatage. Seule l HEURE etait affichee : une note touchee il y a trois jours
+           annoncait « enregistré à 09:14 », ce qui se lit comme ce matin. Vrai, et pourtant
+           trompeur. Le mode « date et heure » leve l ambiguite ; « masqué » libere la ligne de
+           pied sur une carte basse. */
+        function quand(ms) {
+          var mode = opt(it, W, 'horodatage') || 'heure';
+          if (mode === 'off' || !ms) return '';
+          try {
+            var d = new Date(ms);
+            return (mode === 'date')
+              ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+              : d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          } catch (e) { return ''; }
+        }
+
+        /* Peremption : au-dela de N jours sans modification, une pastille discrete. Un plan de
+           semaine perime ne doit pas se confondre avec le plan du jour, ce qui est precisement
+           le risque d un bloc-notes qui persiste. 0 = jamais. */
+        function vieillesse(ms) {
+          var n = opt(it, W, 'peremption') || 0;
+          if (!n || !ms) return '';
+          var j = Math.floor((Date.now() - ms) / 86400000);
+          return j >= n ? ('<span class="wdg-nt-vieux">' + j + ' j</span>') : '';
+        }
+
+        /* Lecture seule : une check-list de regles de risque ne doit pas pouvoir etre detruite
+           par une frappe accidentelle sur une carte survolee. */
+        function verrouiller() {
+          var v = opt(it, W, 'verrou') === true;
+          ta.readOnly = v;
+          host.querySelector('.wdg-nt').classList.toggle('est-verrou', v);
+          if (v) { etat.textContent = 'verrouillé'; etat.className = 'wdg-nt-etat'; }
+          return v;
+        }
+
         function enregistrer() {
-          if (!vivant || ta.value === dernier) return;
+          // Verrouillee, la carte n ECRIT PAS : le reglage ne serait sinon qu un decor.
+          if (!vivant || ta.readOnly || ta.value === dernier) return;
           var texte = ta.value;
           fetch('/api/widget-notes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1880,16 +1928,17 @@
             dernier = texte;
             // L heure vient du SERVEUR et n est affichee qu APRES sa reponse : annoncer
             // « enregistré » avant confirmation serait un mensonge en cas de panne.
-            var h = '';
-            try { h = new Date(d.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+            var h = quand(d.maj);
             etat.textContent = h ? ('enregistré à ' + h) : 'enregistré';
             etat.className = 'wdg-nt-etat';
+            car.innerHTML = vieillesse(d.maj) + ta.value.length + ' / ' + MAX;
           }).catch(function () {
             if (vivant && host.isConnected) { etat.textContent = 'non enregistré'; etat.className = 'wdg-nt-etat est-ko'; }
           });
         }
 
         ta.addEventListener('input', function () {
+          if (ta.readOnly) return;
           if (ta.value.length > MAX) ta.value = ta.value.slice(0, MAX);
           compteur();
           etat.textContent = 'modifié…'; etat.className = 'wdg-nt-etat est-att';
@@ -1906,8 +1955,11 @@
           dernier = ta.value;
           compteur();
           if (n && n.maj) {
-            try { etat.textContent = 'enregistré à ' + new Date(n.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+            var h0 = quand(n.maj);
+            if (h0) etat.textContent = 'enregistré à ' + h0;
+            car.innerHTML = vieillesse(n.maj) + ta.value.length + ' / ' + MAX;
           }
+          verrouiller();
         }).catch(function () {
           if (vivant && host.isConnected) { etat.textContent = 'lecture impossible'; etat.className = 'wdg-nt-etat est-ko'; }
         });
@@ -1997,7 +2049,12 @@
          sur la carte. Reserve aux paires FX : sur un indice, la notion de seance mondiale n a
          pas le meme sens. */
       opts: [
-        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() },
+        /* L unite change la QUESTION posee : 60 pips sur EUR/USD et 60 pips sur USD/JPY ne pesent
+           pas la meme chose, 0,55 % et 0,41 % oui. Le pourcentage rend les places comparables
+           d une paire a l autre. */
+        { k: 'unite', lbl: 'Unité', type: 'choix', def: 'pips',
+          choix: [['pips', 'Pips'], ['pct', '% du cours']] },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cache = {};
@@ -2015,6 +2072,9 @@
           var sym = opt(it, W, 'paire') || 'EUR/USD';
           var pip = _pipTaille(sym);
           if (!pip) { fallback(host, 'Réservé aux paires de devises.'); return; }
+          // En pourcentage, l amplitude est rapportee au cours : 60 pips sur EUR/USD et 60 pips
+          // sur USD/JPY ne pesent pas la meme chose, 0,55 % et 0,41 % oui.
+          var enPct = opt(it, W, 'unite') === 'pct';
           _bougies(sym, 'H1', cache).then(function (c) {
             if (!vivant || !host.isConnected) return;
             if (c.length < 50) { fallback(host, 'Historique insuffisant.'); return; }
@@ -2041,7 +2101,9 @@
               });
               Object.keys(jours).forEach(function (k) {
                 var g = jours[k];
-                if (isFinite(g.h) && isFinite(g.l) && g.h > g.l) amp.push((g.h - g.l) / pip);
+                if (isFinite(g.h) && isFinite(g.l) && g.h > g.l) {
+                  amp.push(enPct ? (g.h - g.l) / g.l * 100 : (g.h - g.l) / pip);
+                }
               });
               var moy = amp.length ? amp.reduce(function (a, b) { return a + b; }, 0) / amp.length : null;
               return { nom: p.nom, moy: moy, n: amp.length, ouv: p.ouv, fer: p.fer, tz: p.tz };
@@ -2053,7 +2115,7 @@
               h += '<div class="wdg-as-l">'
                 + '<div class="wdg-as-t"><span>' + esc(l.nom) + '</span>'
                 + '<i>' + l.ouv + 'h-' + l.fer + 'h locale</i>'
-                + '<b>' + (l.moy != null ? l.moy.toFixed(0) + ' pips' : '--') + '</b></div>'
+                + '<b>' + (l.moy != null ? (enPct ? l.moy.toFixed(2).replace('.', ',') + ' %' : l.moy.toFixed(0) + ' pips') : '--') + '</b></div>'
                 + '<div class="wdg-as-piste"><span style="width:' + w.toFixed(1) + '%"></span></div>'
                 + '<div class="wdg-as-n">' + l.n + ' séance' + (l.n > 1 ? 's' : '') + '</div></div>';
             });
@@ -2075,7 +2137,7 @@
          ⚠️ Les couples separes par un trou de temps sont ecartes (voir _couplesValides) et le
          nombre d ecarts rejetes est affiche a cote de l echantillon. */
       opts: [
-        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() },
         { k: 'pas', lbl: 'Largeur des classes', type: 'choix', def: '0.25',
           choix: [['0.1', '0,1 %'], ['0.25', '0,25 %'], ['0.5', '0,5 %']] },
       ],
@@ -2139,14 +2201,19 @@
          ⚠️ La tuile en pips est reservee aux paires FX : sur un indice ou l or, le pip n a pas de
          sens et la valeur serait un nombre sans unite. */
       opts: [
-        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() },
+        /* Moyenne ou mediane : sur une paire FX la moyenne est tiree vers le haut par trois
+           journees de chiffres majeurs. La mediane dit la seance ORDINAIRE. Les deux se calculent
+           sur les memes valeurs : aucune donnee supplementaire n est requise. */
+        { k: 'mesure', lbl: 'Amplitude retenue', type: 'choix', def: 'moy',
+          choix: [['moy', 'Moyenne'], ['med', 'Médiane']] },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cache = {};
         skel(host, 4);
 
         // Ecart-type des variations en %, et amplitude vraie moyenne, sur les couples PLAUSIBLES.
-        function stats(c, tf, sym) {
+        function stats(c, tf, sym, mesure) {
           if (!c || c.length < 12) return null;
           var closes = c.slice(0, -1);            // periode en cours exclue : pas de cloture
           var v = _couplesValides(closes, tf);
@@ -2158,17 +2225,22 @@
           var tr = v.couples.map(function (p) {
             return Math.max(p[1].h - p[1].l, Math.abs(p[1].h - p[0].c), Math.abs(p[1].l - p[0].c));
           }).filter(isFinite);
-          var trMoy = tr.reduce(function (a, b) { return a + b; }, 0) / tr.length;
+          // Moyenne OU mediane, au choix : sur une paire FX la moyenne est tiree vers le haut par
+          // trois journees de chiffres majeurs, la mediane dit la seance ordinaire.
+          var trTri = tr.slice().sort(function (a, b) { return a - b; });
+          var trMoy = (mesure === 'med')
+            ? trTri[Math.floor(trTri.length / 2)]
+            : tr.reduce(function (a, b) { return a + b; }, 0) / tr.length;
           var pip = _pipTaille(sym);
           return { n: r.length, ec: ec, tr: trMoy, trPips: pip ? trMoy / pip : null, rejetes: v.rejetes };
         }
 
-        function colonne(titre, st) {
+        function colonne(titre, st, mes) {
           if (!st) return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
             + '<div class="wdg-vo-abs">indisponible</div></div>';
           return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
             + '<div class="wdg-vo-l"><i>Écart-type</i><b>' + st.ec.toFixed(2).replace('.', ',') + ' %</b></div>'
-            + '<div class="wdg-vo-l"><i>Amplitude vraie</i><b>'
+            + '<div class="wdg-vo-l"><i>Amplitude vraie' + (mes === 'med' ? ' (médiane)' : '') + '</i><b>'
             + (st.trPips != null ? st.trPips.toFixed(0) + ' pips' : st.tr.toFixed(2)) + '</b></div>'
             + '<div class="wdg-vo-n">' + st.n + ' périodes'
             + (st.rejetes > 0 ? ' &middot; ' + st.rejetes + ' écart' + (st.rejetes > 1 ? 's' : '') + ' écarté' + (st.rejetes > 1 ? 's' : '') : '')
@@ -2183,12 +2255,13 @@
             _bougies(sym, 'W1', cache).catch(function () { return null; }),
           ]).then(function (r) {
             if (!vivant || !host.isConnected) return;
-            var j = r[0] ? stats(r[0], 'D1', sym) : null;
-            var sem = r[1] ? stats(r[1], 'W1', sym) : null;
+            var mesure = opt(it, W, 'mesure') || 'moy';
+            var j = r[0] ? stats(r[0], 'D1', sym, mesure) : null;
+            var sem = r[1] ? stats(r[1], 'W1', sym, mesure) : null;
             if (!j && !sem) { fallback(host, 'Bougies indisponibles.'); return; }
             host.innerHTML = '<div class="wdg-vo">'
               + '<div class="wdg-vo-tete"><span class="wdg-vo-sym">' + esc(sym) + '</span></div>'
-              + '<div class="wdg-vo-cols">' + colonne('Séance', j) + colonne('Semaine', sem) + '</div>'
+              + '<div class="wdg-vo-cols">' + colonne('Séance', j, mesure) + colonne('Semaine', sem, mesure) + '</div>'
               + '<div class="wdg-vo-pied">Période en cours exclue. L\'amplitude vraie retient le plus grand écart entre le haut, le bas et la clôture précédente.</div></div>';
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
@@ -2207,6 +2280,10 @@
       opts: [
         { k: 'tri', lbl: 'Classement', type: 'choix', def: 'var',
           choix: [['var', 'Par variation'], ['alpha', 'Alphabétique']] },
+        /* Les tuiles portaient deux lignes en dur, ce qui les ecrase des que la carte descend
+           sous quelques colonnes de grille. On laisse choisir ce qu elles portent. */
+        { k: 'tuile', lbl: 'Contenu des tuiles', type: 'choix', def: 'complet',
+          choix: [['complet', 'Symbole et variation'], ['sym', 'Symbole seul'], ['var', 'Variation seule']] },
       ],
       mount: function (host, it) {
         var W = this, vivant = true;
@@ -2223,7 +2300,8 @@
             var t = d.pairs.slice().filter(function (p) { return p && p.symbol; });
             if (opt(it, W, 'tri') === 'alpha') t.sort(function (a, b) { return a.symbol.localeCompare(b.symbol); });
             else t.sort(function (a, b) { return (Number(b.changePct) || 0) - (Number(a.changePct) || 0); });
-            var h = '<div class="wdg-hm"><div class="wdg-hm-grille">';
+            var tuile = opt(it, W, 'tuile') || 'complet';
+            var h = '<div class="wdg-hm"><div class="wdg-hm-grille' + (tuile !== 'complet' ? ' est-court' : '') + '">';
             t.forEach(function (p) {
               var v = Number(p.changePct);
               // Une variation nulle n est pas la meme chose qu une variation ABSENTE : la source
@@ -2232,8 +2310,9 @@
               var a = connu ? Math.min(Math.abs(v) / 0.8, 1) : 0;
               var fond = !connu ? 'transparent' : (v >= 0 ? 'rgba(0,230,118,' + (0.10 + a * 0.55).toFixed(2) + ')' : 'rgba(255,61,0,' + (0.10 + a * 0.55).toFixed(2) + ')');
               h += '<div class="wdg-hm-t' + (connu ? '' : ' est-inconnu') + '" style="background:' + fond + '">'
-                + '<span class="wdg-hm-s">' + esc(p.symbol) + '</span>'
-                + '<span class="wdg-hm-v">' + (connu ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--') + '</span></div>';
+                + (tuile !== 'var' ? '<span class="wdg-hm-s">' + esc(p.symbol) + '</span>' : '')
+                + (tuile !== 'sym' ? '<span class="wdg-hm-v">' + (connu ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--') + '</span>' : '')
+                + '</div>';
             });
             var maj = '';
             try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
@@ -2258,7 +2337,7 @@
          ⚠️ Le nombre de seances ECARTEES (bougie plate, donnee douteuse) est affiche des qu il
          compte : sans cela, « moyenne sur 60 jours » porterait en silence sur moins. */
       opts: [
-        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() },
         { k: 'jours', lbl: 'Séances retenues', type: 'nombre', def: 60, min: 20, max: 250 },
       ],
       mount: function (host, it) {
@@ -2312,23 +2391,30 @@
          ⚠️ Periode a peine ouverte : une reglette de position n a aucun sens sur une bougie de
          quelques minutes. On bascule alors sur la periode PRECEDENTE et on le dit. */
       opts: [
-        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() },
+        /* Alerte de bord : quand le cours se traite dans les X % hauts ou bas de la periode, la
+           borne concernee et le curseur s allument. Un cours colle a son extreme est le seul
+           moment ou cette carte doit sauter aux yeux. */
+        { k: 'bord', lbl: 'Alerte pres d\'un extrême (%)', type: 'nombre', def: 10, min: 1, max: 25 },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cache = {};
         skel(host, 4);
 
-        function bloc(titre, b, etat, sym) {
+        function bloc(titre, b, etat, sym, bord) {
           var pip = _pipTaille(sym), unite = _uniteAmpl(sym);
           var etendue = pip ? (b.h - b.l) / pip : (b.h - b.l);
           var pos = (b.h > b.l) ? (b.c - b.l) / (b.h - b.l) * 100 : 50;
+          /* Un cours colle a son extreme est le seul moment ou cette carte doit sauter aux yeux.
+             Au-dela du seuil, la borne concernee et le curseur s allument. */
+          var pres = (pos >= 100 - bord) ? 'haut' : (pos <= bord) ? 'bas' : '';
           var dec = /JPY/.test(sym) ? 3 : (pip ? 5 : 2);
           return '<div class="wdg-hb-bloc">'
             + '<div class="wdg-hb-t"><span>' + esc(titre) + '</span><i>' + esc(etat) + '</i></div>'
             + '<div class="wdg-hb-vals"><span class="wdg-hb-bas">' + b.l.toFixed(dec) + '</span>'
             + '<span class="wdg-hb-amp">' + etendue.toFixed(pip ? 0 : 2) + ' ' + unite + '</span>'
             + '<span class="wdg-hb-haut">' + b.h.toFixed(dec) + '</span></div>'
-            + '<div class="wdg-hb-piste"><span class="wdg-hb-cur" style="left:' + Math.max(0, Math.min(100, pos)).toFixed(1) + '%"></span></div>'
+            + '<div class="wdg-hb-piste' + (pres ? ' est-pres-' + pres : '') + '"><span class="wdg-hb-cur" style="left:' + Math.max(0, Math.min(100, pos)).toFixed(1) + '%"></span></div>'
             + '</div>';
         }
 
@@ -2338,11 +2424,12 @@
             if (!vivant || !host.isConnected) return;
             var j = r[0], sem = r[1];
             if (!j.length && !sem.length) { fallback(host, 'Bougies indisponibles.'); return; }
+            var bord = opt(it, W, 'bord') || 10;
             var h = '<div class="wdg-hb">';
             if (j.length) {
               var dj = j[j.length - 1];
               var jourEnCours = _memeJourUTC(dj.t);
-              h += bloc('Séance', dj, jourEnCours ? 'en cours' : _dateBougie(dj.t) + ', close', sym);
+              h += bloc('Séance', dj, jourEnCours ? 'en cours' : _dateBougie(dj.t) + ', close', sym, bord);
             }
             if (sem.length) {
               var ds = sem[sem.length - 1];
@@ -2354,7 +2441,7 @@
               var cible = tropJeune ? sem[sem.length - 2] : ds;
               var etat = tropJeune ? 'semaine précédente, la nouvelle vient de s\'ouvrir'
                 : (semEnCours ? 'en cours' : 'dernière semaine close');
-              h += bloc('Semaine', cible, etat, sym);
+              h += bloc('Semaine', cible, etat, sym, bord);
             }
             h += '<div class="wdg-hb-pied">Le curseur situe le dernier cours entre le bas et le haut de la période.</div></div>';
             host.innerHTML = h;
@@ -2503,6 +2590,10 @@
           choix: [['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'],
             ['AUD', 'AUD'], ['NZD', 'NZD'], ['CAD', 'CAD'], ['CHF', 'CHF'], ['CNY', 'CNY']] },
         { k: 'indic', lbl: 'Indicateur', type: 'texte', def: '', cache: true },
+        /* Sur une carte etroite, une serie hebdomadaire rend treize etiquettes illisibles.
+           Plafond a 12 : c est ce que la source sait reellement fournir. Promettre 24 barres
+           serait un reglage qui ne se remplit jamais. */
+        { k: 'points', lbl: 'Publications affichées', type: 'nombre', def: 8, min: 3, max: 12 },
       ],
       mount: function (host, it) {
         var W = this, vivant = true;
@@ -2582,6 +2673,9 @@
             var g = parTitre[brut];
             var serie = g.pts.slice().sort(function (a, b) { return a.timestamp - b.timestamp; });
             if (serie.length < 2) { fallback(host, 'Une seule publication connue : pas de série à tracer.'); return; }
+            // Sur une carte etroite, treize etiquettes s ecrasent : on garde les N plus RECENTES.
+            var nPts = opt(it, W, 'points') || 8;
+            if (serie.length > nPts) serie = serie.slice(-nPts);
             rendre(serie, g.titre);
             // Selecteur DANS la carte : la liste depend des donnees, elle ne peut pas vivre dans
             // les opts statiques du catalogue.
@@ -2622,6 +2716,9 @@
         { k: 'vitesse', lbl: 'Vitesse', type: 'choix', def: 'normal',
           choix: [['lent', 'Lente'], ['normal', 'Normale'], ['rapide', 'Rapide']] },
         { k: 'var', lbl: 'Afficher la variation', type: 'bascule', def: true },
+        /* Symetrique de la bascule ci-dessus. Decoche, chaque segment se reduit a l etiquette et
+           a la variation : sur une carte etroite, deux fois plus d actifs par tour. */
+        { k: 'cours', lbl: 'Afficher le cours', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
         var W = this, vivant = true;
@@ -2629,14 +2726,14 @@
         var piste = host.querySelector('.wdg-tick-piste');
         var PX = { lent: 35, normal: 55, rapide: 85 };
 
-        function seg(x, avecVar) {
+        function seg(x, avecVar, avecCours) {
           var y = !!x.yield;
           var v = Number(x.chg);
           var cls = v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : '';
           var txt = (v > 0 ? '+' : '') + (isFinite(v) ? v.toFixed(y ? 2 : 2).replace('.', ',') : '--') + (y ? ' pt' : ' %');
           return '<span class="wdg-tick-seg ' + cls + '">'
             + '<b>' + esc(x.label) + '</b>'
-            + '<i>' + (isFinite(Number(x.price)) ? Number(x.price).toFixed(Number(x.dec) || 0) : '--') + '</i>'
+            + (avecCours ? '<i>' + (isFinite(Number(x.price)) ? Number(x.price).toFixed(Number(x.dec) || 0) : '--') + '</i>' : '')
             + (avecVar ? '<u>' + txt + '</u>' : '') + '</span>';
         }
 
@@ -2651,7 +2748,8 @@
             // qu un message honnete.
             if (!items.length) { fallback(host, 'Cotations indisponibles.'); return; }
             var avecVar = opt(it, W, 'var') !== false;
-            var un = items.map(function (x) { return seg(x, avecVar); }).join('');
+            var avecCours = opt(it, W, 'cours') !== false;
+            var un = items.map(function (x) { return seg(x, avecVar, avecCours); }).join('');
             // Contenu DOUBLE : la boucle se referme sans couture visible.
             piste.innerHTML = un + un;
             // Vitesse CONSTANTE en px/s : la duree suit la largeur reelle du contenu.
@@ -2684,6 +2782,11 @@
           choix: [['prix-var', 'Cours et variation'], ['prix', 'Cours seul'], ['var', 'Variation seule']] },
         { k: 'coul', lbl: 'Colorer selon la variation', type: 'bascule', def: true },
         { k: 'inverse', lbl: 'Remplir la moitié inversée', type: 'bascule', def: true },
+        /* Sur 64 cases, lire « tout ce qui touche le dollar » demande de balayer une ligne ET une
+           colonne. Ce reglage les eclaire et estompe le reste. */
+        { k: 'focus', lbl: 'Devise mise en avant', type: 'choix', def: 'aucune',
+          choix: [['aucune', 'Aucune'], ['USD', 'USD'], ['EUR', 'EUR'], ['JPY', 'JPY'], ['GBP', 'GBP'],
+            ['AUD', 'AUD'], ['CHF', 'CHF'], ['CAD', 'CAD'], ['NZD', 'NZD']] },
       ],
       mount: function (host, it) {
         var W = this, vivant = true;
@@ -2710,6 +2813,9 @@
             var contenu = opt(it, W, 'contenu') || 'prix-var';
             var coul = opt(it, W, 'coul') !== false;
             var inv = opt(it, W, 'inverse') !== false;
+            // La devise mise en avant eclaire SA ligne et SA colonne, et estompe le reste : sur
+            // 64 cases, « tout ce qui touche le dollar » se lit alors d un seul regard.
+            var focus = opt(it, W, 'focus') || 'aucune';
 
             var h = '<div class="wdg-mx"><table class="wdg-mx-t"><thead><tr><th></th>';
             DEV.forEach(function (q) { h += '<th>' + q + '</th>'; });
@@ -2729,7 +2835,9 @@
                 }
                 if (prix == null && chg == null) { h += '<td class="wdg-mx-vide">--</td>'; return; }
                 var cls = coul && isFinite(chg) ? (chg > 0 ? ' est-haut' : chg < 0 ? ' est-bas' : '') : '';
-                h += '<td class="wdg-mx-c' + cls + (inverse ? ' est-inv' : '') + '">';
+                var vedette = focus !== 'aucune' && (b === focus || q === focus);
+                var terne = focus !== 'aucune' && !vedette;
+                h += '<td class="wdg-mx-c' + cls + (inverse ? ' est-inv' : '') + (terne ? ' est-terne' : '') + (vedette ? ' est-vedette' : '') + '">';
                 if (contenu !== 'var') h += '<span class="wdg-mx-p">' + fmt(prix, q) + '</span>';
                 if (contenu !== 'prix') h += '<span class="wdg-mx-v">' + (isFinite(chg) ? (chg > 0 ? '+' : '') + chg.toFixed(etroit ? 1 : 2).replace('.', ',') + '<i class="wdg-mx-u"> %</i>' : '--') + '</span>';
                 h += '</td>';
@@ -2779,9 +2887,13 @@
          2) « avg » ne porte pas toujours sur 5 ans : pour les mois a venir, l annee courante est vide,
             la moyenne tombe a 4 observations. On COMPTE les valeurs reelles et on l ecrit. */
       opts: [
-        { k: 'symbole', lbl: 'Symbole', type: 'choix', def: '', cache: true, choix: _seasonChoix() },
+        { k: 'symbole', lbl: 'Symbole', type: 'choix', def: '', choix: _seasonChoix() },
         { k: 'mode', lbl: 'Affichage', type: 'choix', def: 'mensuel',
           choix: [['mensuel', 'Par mois'], ['cumule', 'Cumulé sur l\'année']] },
+        /* Un mois a +0,8 % de moyenne obtenu par UNE annee exceptionnelle ne vaut pas un mois a
+           +0,8 % obtenu quatre fois sur cinq. La regularite le dit, et elle se compte sur les
+           annees reellement observees. */
+        { k: 'regularite', lbl: 'Afficher la régularité', type: 'bascule', def: false },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cur = null, _ro = null;
@@ -2793,6 +2905,7 @@
           if (rows.length !== 12) { fallback(host, 'Saisonnalité indisponible.'); return; }
           var moisCourant = new Date().getMonth();
           var mode = opt(it, W, 'mode') || 'mensuel';
+          var regul = opt(it, W, 'regularite') === true;
 
           var vals, cumul = 0;
           if (mode === 'cumule') {
@@ -2819,7 +2932,16 @@
             + '<span class="wdg-sais-mode">' + (mode === 'cumule' ? 'Cumulé' : 'Par mois') + '</span></div>'
             + '<div class="wdg-sais-zone">' + svg + '</div>'
             + '<div class="wdg-sais-axe">' + MOIS.map(function (m, i) {
-              return '<span' + (i === moisCourant ? ' class="est-courant"' : '') + '>' + m + '</span>';
+              /* Regularite : le nombre d annees POSITIVES sur les annees reellement observees.
+                 Un mois a +0,8 % obtenu par une seule annee exceptionnelle ne vaut pas un mois a
+                 +0,8 % obtenu quatre fois sur cinq — et le denominateur varie d un mois a l autre,
+                 les mois a venir n ayant pas encore l annee courante. */
+              var reg = '';
+              if (regul) {
+                var vs = (rows[i] && rows[i].vals || []).filter(function (v) { return typeof v === 'number'; });
+                if (vs.length) reg = '<em>' + vs.filter(function (v) { return v > 0; }).length + '/' + vs.length + '</em>';
+              }
+              return '<span' + (i === moisCourant ? ' class="est-courant"' : '') + '>' + m + reg + '</span>';
             }).join('') + '</div>'
             + '<div class="wdg-sais-pied">Moyenne mensuelle sur ' + esc(periode)
             + ' &middot; rendement de fin de mois à fin de mois. Le mois en cours est partiel ('
@@ -2857,10 +2979,13 @@
          ⚠️ La taille du pip n est dans AUCUN champ de la source : c est une convention, redeclaree
          ici (le depot l a deja dans app.js mais enfermee dans une closure inaccessible). */
       opts: [
-        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() },
         { k: 'mesure', lbl: 'Mesure', type: 'choix', def: 'ampl',
           choix: [['ampl', 'Amplitude haut-bas'], ['exc', 'Excursion depuis l\'ouverture']] },
         { k: 'seuil', lbl: 'Seuil (pips)', type: 'nombre', def: 50, min: 10, max: 300 },
+        /* Second repere : le trader lit son objectif ET son invalidation dans la meme carte.
+           0 = un seul seuil. */
+        { k: 'cible', lbl: 'Second seuil (pips)', type: 'nombre', def: 0, min: 0, max: 300 },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cur = null;
@@ -2898,9 +3023,14 @@
                 paliers.push(x);
                 parts.push(mesures.filter(function (v) { return v >= x; }).length / n * 100);
               }
-              var iSeuil = Math.max(0, Math.round(seuil / 10) - 1);
               var atteint = mesures.filter(function (v) { return v >= seuil; }).length;
               var pct = atteint / n * 100;
+              /* Second repere : l objectif ET l invalidation dans la meme carte. 0 = un seul.
+                 On affiche toujours numerateur et denominateur : un pourcentage seul ne dit pas
+                 sur combien de seances il porte. */
+              var cible = opt(it, W, 'cible') || 0;
+              var atteint2 = cible > 0 ? mesures.filter(function (v) { return v >= cible; }).length : 0;
+              var pct2 = cible > 0 ? atteint2 / n * 100 : null;
 
               host.innerHTML = '<div class="wdg-freq">'
                 + '<div class="wdg-freq-tete"><span class="wdg-freq-paire">' + esc(paire) + '</span>'
@@ -2908,7 +3038,9 @@
                 + '<div class="wdg-freq-gros"><b>' + pct.toFixed(0) + ' %</b>'
                 + '<span>des séances ont parcouru au moins ' + seuil + ' pips</span></div>'
                 // Numerateur ET denominateur : un pourcentage seul ne dit pas sur quoi il porte.
-                + '<div class="wdg-freq-n">' + atteint + ' séances sur ' + n + '</div>'
+                + '<div class="wdg-freq-n">' + atteint + ' séances sur ' + n
+                + (pct2 != null ? '<span class="wdg-freq-c">' + cible + ' pips : ' + pct2.toFixed(0) + ' % (' + atteint2 + ')</span>' : '')
+                + '</div>'
                 + '<div class="wdg-freq-zone">' + _courbeSvg(parts, { aire: true }) + '</div>'
                 + '<div class="wdg-freq-axe"><span>10</span><span>100</span><span>200</span><span>300 pips</span></div>'
                 + '<div class="wdg-freq-pied">Fréquence observée sur les séances servies par la source, hors journée en cours. '

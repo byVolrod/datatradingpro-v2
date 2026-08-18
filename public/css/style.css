@@ -17943,3 +17943,38 @@ html[data-theme="light"] .wdg-tl-l.est-bas .wdg-tl-v { color: #c73000; }
   border-top: 1px solid var(--hud-line); padding-top: 5px; }
 
 @media (max-height: 220px) { .wdg-tl-pied { display: none; } }
+
+/* ── États visuels des nouveaux réglages (20/08) ───────────────────────────────────────────────── */
+
+/* Tuiles courtes : une seule ligne, donc des tuiles plus étroites et plus nombreuses par rangée. */
+.wdg-hm-grille.est-court { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
+
+/* Devise mise en avant : sa ligne et sa colonne restent nettes, le reste s'estompe. On ne masque
+   rien — la grille garde son sens, seule la hiérarchie de lecture change. */
+.wdg-mx-c.est-terne { opacity: .34; }
+.wdg-mx-c.est-vedette { box-shadow: inset 0 0 0 1px rgba(227, 178, 58, .28); }
+
+/* Second seuil de la fréquence d'amplitude : à droite du dénominateur, en or, sans le concurrencer. */
+.wdg-freq-c { margin-left: 10px; color: var(--orange, #e3b23a); }
+html[data-theme="light"] .wdg-freq-c { color: #816521; }
+
+/* Régularité saisonnière : sous le mois, plus petite que lui. */
+.wdg-sais-axe span { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; }
+.wdg-sais-axe em { font-style: normal; font-size: 8px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
+
+/* Cours proche d'un extrême : la piste s'allume du côté concerné. Teinte sémantique, pas décorative. */
+.wdg-hb-piste.est-pres-haut { box-shadow: 0 0 0 1px rgba(0, 230, 118, .45); }
+.wdg-hb-piste.est-pres-bas { box-shadow: 0 0 0 1px rgba(255, 61, 0, .45); }
+.wdg-hb-piste.est-pres-haut .wdg-hb-cur { background: #00e676; }
+.wdg-hb-piste.est-pres-bas .wdg-hb-cur { background: #ff3d00; }
+html[data-theme="light"] .wdg-hb-piste.est-pres-haut .wdg-hb-cur { background: #00783d; }
+html[data-theme="light"] .wdg-hb-piste.est-pres-bas .wdg-hb-cur { background: #c73000; }
+
+/* Notes verrouillées : le fond ne change pas (ce n'est pas une carte désactivée), seul le curseur
+   dit que la saisie est close. Le texte reste parfaitement lisible et sélectionnable. */
+.wdg-nt.est-verrou .wdg-nt-txt { cursor: default; }
+.wdg-nt.est-verrou .wdg-nt-txt::selection { background: rgba(227, 178, 58, .22); }
+/* Pastille d'ancienneté : discrète, en or, devant le compteur de caractères. */
+.wdg-nt-vieux { display: inline-block; margin-right: 8px; padding: 0 5px; border-radius: 3px;
+  background: rgba(227, 178, 58, .14); color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
+html[data-theme="light"] .wdg-nt-vieux { color: #816521; background: rgba(129, 101, 33, .12); }
