@@ -5123,12 +5123,14 @@
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
     'notes': '<svg ' + _PV + '>'
-      + '<rect x="8" y="6" width="104" height="38" rx="3" fill="#0d0d10" stroke="#23232a"/>'
-      + '<rect x="14" y="12" width="78" height="3.5" rx="1.5" fill="#6b7280" opacity=".7"/>'
-      + '<rect x="14" y="20" width="90" height="3.5" rx="1.5" fill="#6b7280" opacity=".5"/>'
-      + '<rect x="14" y="28" width="56" height="3.5" rx="1.5" fill="#6b7280" opacity=".5"/>'
-      + '<rect x="14" y="36" width="2" height="5" fill="#e3b23a"/>'
-      + '<rect x="72" y="48" width="40" height="3" rx="1.5" fill="#3a3d44"/>'
+      + '<rect x="8" y="6" width="104" height="36" rx="3" fill="#0d0d10" stroke="#23232a"/>'
+      + '<rect x="14" y="12" width="78" height="3.5" rx="1.5" fill="#9aa1ac" opacity=".7"/>'
+      + '<rect x="14" y="20" width="90" height="3.5" rx="1.5" fill="#6b7280" opacity=".55"/>'
+      + '<rect x="14" y="28" width="56" height="3.5" rx="1.5" fill="#6b7280" opacity=".55"/>'
+      + '<rect x="72" y="27" width="1.6" height="6" fill="#e3b23a"/>'
+      + '<circle cx="14" cy="49" r="2.4" fill="#22c55e"/>'
+      + '<rect x="21" y="47.5" width="32" height="3" rx="1.5" fill="#3a3d44"/>'
+      + '<rect x="88" y="47.5" width="24" height="3" rx="1.5" fill="#2b2b31"/>'
       + '</svg>',
     'ticklist': '<svg ' + _PV + '>'
       + (function () { var v = [.6, -.3, .9, -.7], h = '';
@@ -5139,23 +5141,68 @@
       return h; })()
       + '</svg>',
     'amplitude-seance': '<svg ' + _PV + '>'
-      + '<rect x="8" y="9" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="9" width="34" height="7" rx="2" fill="#e3b23a" opacity=".55"/>'
-      + '<rect x="8" y="24" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="24" width="92" height="7" rx="2" fill="#e3b23a" opacity=".9"/>'
-      + '<rect x="8" y="39" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="39" width="68" height="7" rx="2" fill="#e3b23a" opacity=".72"/>'
+      + (function () { var L = [['Tokyo', 34, '#8c4a5e'], ['Londres', 92, '#b8860b'], ['New York', 68, '#4a7c59']], h = '';
+      for (var i = 0; i < 3; i++) { var y = 9 + i * 15;
+        h += '<text x="8" y="' + (y + 6) + '" font-size="7" fill="#9aa1ac">' + L[i][0] + '</text>'
+          + '<rect x="42" y="' + y + '" width="66" height="7" rx="2" fill="#23232a"/>'
+          + '<rect x="42" y="' + y + '" width="' + (66 * L[i][1] / 100) + '" height="7" rx="2" fill="' + L[i][2] + '"/>'; }
+      return h; })()
       + '</svg>',
     'distribution-variations': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + (function () { var v = [2, 4, 8, 14, 22, 31, 36, 30, 21, 13, 7, 3], h = ''; for (var i = 0; i < 12; i++) h += '<rect x="' + (8 + i * 9) + '" y="' + (46 - v[i]) + '" width="7" height="' + v[i] + '"' + ' fill="' + (i < 6 ? '#ff3d00' : '#00e676') + '" opacity=".55"/>'; return h; })() + '<line x1="62" y1="6" x2="62" y2="50" stroke="#e3b23a" stroke-dasharray="2 3" opacity=".6"/>' + '</svg>',
-    'stats-volatilite': '<svg ' + _PV + '>' + '<line x1="60" y1="8" x2="60" y2="48" stroke="#23232a"/>' + '<rect x="8" y="12" width="44" height="9" rx="2" fill="#3a3d44" opacity=".55"/>' + '<rect x="8" y="26" width="30" height="9" rx="2" fill="#e3b23a" opacity=".75"/>' + '<rect x="8" y="40" width="22" height="6" rx="2" fill="#3a3d44" opacity=".4"/>' + '<rect x="68" y="12" width="44" height="9" rx="2" fill="#3a3d44" opacity=".55"/>' + '<rect x="68" y="26" width="38" height="9" rx="2" fill="#e3b23a" opacity=".75"/>' + '<rect x="68" y="40" width="26" height="6" rx="2" fill="#3a3d44" opacity=".4"/>' + '</svg>',
+    'stats-volatilite': '<svg ' + _PV + '>'
+      + '<line x1="60" y1="6" x2="60" y2="50" stroke="#23232a"/>'
+      + '<text x="10" y="12" font-size="7" fill="#6b7280">SÉANCE</text>'
+      + '<text x="68" y="12" font-size="7" fill="#6b7280">SEMAINE</text>'
+      + '<rect x="10" y="18" width="30" height="8" rx="2" fill="#3b82f6" opacity=".6"/>'
+      + '<rect x="10" y="32" width="42" height="8" rx="2" fill="#22c55e" opacity=".6"/>'
+      + '<rect x="68" y="18" width="40" height="8" rx="2" fill="#3b82f6" opacity=".6"/>'
+      + '<rect x="68" y="32" width="28" height="8" rx="2" fill="#22c55e" opacity=".6"/>'
+      + '<text x="10" y="49" font-size="6.5" fill="#5b5d66">écart-type · amplitude vraie</text>'
+      + '</svg>',
     'heatmap-seance': '<svg ' + _PV + '>' + (function () { var h = '', v = [.9,.5,.2,-.3,-.8,.6,.1,-.5,.7,-.2,.4,-.9,.3,-.6,.8,-.1,.5,-.4,.2,-.7,.6,-.3,.9,.1]; for (var i = 0; i < 24; i++) { var x = 5 + (i % 8) * 14, y = 6 + Math.floor(i / 8) * 15, a = Math.min(Math.abs(v[i]), 1); h += '<rect x="' + x + '" y="' + y + '" width="12" height="13" rx="1.5" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity="' + (0.12 + a * 0.6).toFixed(2) + '"/>'; } return h; })() + '</svg>',
-    'amplitude-jour': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + (function () { var v = [22, 30, 17, 34, 25, 12, 28, 20, 33, 16, 26, 23], h = ''; for (var i = 0; i < 12; i++) h += '<rect x="' + (8 + i * 9) + '" y="' + (46 - v[i]) + '" width="6" height="' + v[i] + '" fill="#e3b23a" opacity=".62"/>'; return h; })() + '<line x1="6" y1="22" x2="114" y2="22" stroke="#e3b23a" stroke-dasharray="3 3"/>' + '</svg>',
+    'amplitude-jour': '<svg ' + _PV + '>'
+      + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>'
+      + (function () { var v = [22, 30, 17, 34, 25, 12, 28, 20, 33, 16, 26, 23], moy = 24, h = '';
+      for (var i = 0; i < 12; i++) h += '<rect x="' + (8 + i * 9) + '" y="' + (46 - v[i]) + '" width="6" height="' + v[i] + '"'
+        + ' fill="' + (v[i] >= moy ? '#22c55e' : '#ef4444') + '" opacity=".5"/>';
+      return h; })()
+      + '<line x1="6" y1="22" x2="114" y2="22" stroke="#e3b23a" stroke-dasharray="3 3"/>'
+      + '<text x="110" y="18" text-anchor="end" font-size="7" fill="#e3b23a">moy.</text>'
+      + '</svg>',
     'hauts-bas': '<svg ' + _PV + '>' + '<line x1="14" y1="12" x2="106" y2="12" stroke="#00e676" stroke-width="1.6"/>' + '<line x1="14" y1="44" x2="106" y2="44" stroke="#ff3d00" stroke-width="1.6"/>' + '<rect x="14" y="26" width="92" height="4" rx="2" fill="#23232a"/>' + '<rect x="14" y="26" width="58" height="4" rx="2" fill="#e3b23a" opacity=".55"/>' + '<circle cx="72" cy="28" r="4" fill="#e3b23a"/>' + '</svg>',
-    'bandeau-ticker': '<svg ' + _PV + '>' + '<rect x="4" y="18" width="112" height="20" rx="3" fill="#141418" stroke="#23232a"/>' + '<rect x="8" y="22" width="20" height="4" rx="1" fill="#6b7280"/><rect x="8" y="29" width="13" height="4" rx="1" fill="#22c55e"/>' + '<rect x="36" y="22" width="22" height="4" rx="1" fill="#6b7280"/><rect x="36" y="29" width="11" height="4" rx="1" fill="#ff3d00"/>' + '<rect x="66" y="22" width="18" height="4" rx="1" fill="#6b7280"/><rect x="66" y="29" width="15" height="4" rx="1" fill="#22c55e"/>' + '<rect x="92" y="22" width="20" height="4" rx="1" fill="#6b7280"/><rect x="92" y="29" width="9" height="4" rx="1" fill="#e3b23a"/>' + '</svg>',
+    'bandeau-ticker': '<svg ' + _PV + '>'
+      + '<rect x="4" y="16" width="112" height="24" rx="3" fill="#141418" stroke="#23232a"/>'
+      + (function () { var A = [[8, 20, '#22c55e'], [34, 22, '#ef4444'], [60, 17, '#22c55e'], [84, 19, '#3b82f6']], h = '';
+      for (var i = 0; i < 4; i++) { var x = A[i][0];
+        h += '<rect x="' + x + '" y="21" width="' + A[i][1] + '" height="3.5" rx="1.5" fill="#9aa1ac" opacity=".75"/>'
+          + '<rect x="' + x + '" y="27" width="' + (A[i][1] - 6) + '" height="3.5" rx="1.5" fill="#6b7280"/>'
+          + '<rect x="' + x + '" y="33" width="' + (A[i][1] - 10) + '" height="3" rx="1.5" fill="' + A[i][2] + '"/>'; }
+      return h; })()
+      + '<path d="M110 24 L114 28 L110 32" fill="none" stroke="#3a3d44" stroke-width="1.4"/>'
+      + '</svg>',
     'matrice-croisee': '<svg ' + _PV + '>' + (function () { var h = '', C = ['#22c55e', '#ff3d00', '#3a3d44', '#22c55e', '#3a3d44', '#ff3d00']; for (var r = 0; r < 4; r++) for (var c = 0; c < 6; c++) { var mort = (r === c); h += '<rect x="' + (14 + c * 17) + '" y="' + (8 + r * 11) + '" width="16" height="10"' + ' fill="' + (mort ? '#1c1c20' : C[(r + c) % 6]) + '" opacity="' + (mort ? '1' : '.5') + '"/>'; } for (var i = 0; i < 4; i++) h += '<rect x="4" y="' + (10 + i * 11) + '" width="8" height="6" rx="1" fill="#6b7280"/>'; for (var j = 0; j < 6; j++) h += '<rect x="' + (16 + j * 17) + '" y="2" width="12" height="4" rx="1" fill="#6b7280"/>'; return h; })() + '</svg>',
     'saison-courbe': '<svg ' + _PV + '>' + '<line x1="6" y1="30" x2="114" y2="30" stroke="#3a3d44"/>' + (function () { var v = [8, -5, 12, 6, -9, 3, 14, -4, 7, -11, 5, 10], h = ''; for (var i = 0; i < 12; i++) { var y = v[i] >= 0 ? 30 - v[i] * 1.6 : 30, ht = Math.abs(v[i]) * 1.6; h += '<rect x="' + (7 + i * 9) + '" y="' + y + '" width="6" height="' + ht + '"' + ' fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".85"/>'; } return h; })() + '<rect x="61" y="6" width="6" height="44" fill="#e3b23a" opacity=".14"/>' + '</svg>',
-    'frequence-amplitude': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + '<polygon points="8,10 26,15 44,23 62,31 80,38 98,43 114,46 114,46 8,46" fill="#e3b23a" opacity=".13"/>' + '<polyline fill="none" stroke="#e3b23a" stroke-width="1.6" points="8,10 26,15 44,23 62,31 80,38 98,43 114,46"/>' + '<line x1="62" y1="6" x2="62" y2="50" stroke="#e3b23a" stroke-dasharray="2 3" opacity=".55"/>' + '<circle cx="62" cy="31" r="2.6" fill="#e3b23a"/>' + '</svg>',
-    'evenement-rebours': '<svg ' + _PV + '>' + '<circle cx="14" cy="13" r="4" fill="#3a3d44"/>' + '<rect x="22" y="10" width="16" height="5" rx="1" fill="#6b7280"/>' + '<rect x="42" y="11" width="3" height="3" rx="1.5" fill="#ff3d00"/><rect x="47" y="11" width="3" height="3" rx="1.5" fill="#ff3d00"/>' + '<rect x="18" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".85"/>' + '<rect x="40" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".85"/>' + '<rect x="62" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".85"/>'
-      + '<circle cx="38" cy="26" r="1.3" fill="#6b7280"/><circle cx="38" cy="31" r="1.3" fill="#6b7280"/>'
-      + '<circle cx="60" cy="26" r="1.3" fill="#6b7280"/><circle cx="60" cy="31" r="1.3" fill="#6b7280"/>'
-      + '<circle cx="82" cy="26" r="1.3" fill="#6b7280"/><circle cx="82" cy="31" r="1.3" fill="#6b7280"/>' + '<rect x="84" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".45"/>' + '<rect x="22" y="42" width="30" height="4" rx="1" fill="#3a3d44"/><rect x="58" y="42" width="30" height="4" rx="1" fill="#3a3d44"/>' + '</svg>',
+    'frequence-amplitude': '<svg ' + _PV + '>'
+      + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>'
+      + (function () { var v = [40, 34, 27, 21, 15, 10, 6], h = '';
+      for (var i = 0; i < 7; i++) h += '<rect x="' + (9 + i * 15) + '" y="' + (46 - v[i]) + '" width="11" height="' + v[i] + '"'
+        + ' fill="' + (i < 2 ? '#22c55e' : i < 5 ? '#ffb300' : '#ef4444') + '" opacity=".45"/>';
+      return h; })()
+      + '<polyline fill="none" stroke="#e3b23a" stroke-width="1.6" points="14,6 29,12 44,19 59,25 74,31 89,36 104,40"/>'
+      + '<circle cx="59" cy="25" r="2.8" fill="#e3b23a"/>'
+      + '</svg>',
+    'evenement-rebours': '<svg ' + _PV + '>'
+      + '<circle cx="13" cy="12" r="4.5" fill="#3b82f6" opacity=".7"/>'
+      + '<rect x="22" y="9.5" width="18" height="5" rx="1.5" fill="#9aa1ac" opacity=".7"/>'
+      + '<circle cx="46" cy="12" r="1.8" fill="#ef4444"/><circle cx="52" cy="12" r="1.8" fill="#ef4444"/><circle cx="58" cy="12" r="1.8" fill="#ef4444"/>'
+      + (function () { var h = '';
+      for (var i = 0; i < 3; i++) { var x = 20 + i * 26;
+        h += '<rect x="' + x + '" y="21" width="20" height="14" rx="2" fill="#e3b23a" opacity=".85"/>';
+        if (i < 2) h += '<circle cx="' + (x + 23) + '" cy="25" r="1.3" fill="#6b7280"/><circle cx="' + (x + 23) + '" cy="31" r="1.3" fill="#6b7280"/>'; }
+      return h; })()
+      + '<rect x="20" y="42" width="34" height="4" rx="1.5" fill="#3a3d44"/>'
+      + '<rect x="60" y="42" width="26" height="4" rx="1.5" fill="#22c55e" opacity=".55"/>'
+      + '</svg>',
     'serie-indicateur': '<svg ' + _PV + '>' + '<line x1="6" y1="44" x2="114" y2="44" stroke="#23232a"/>' + (function () { var v = [14, 20, 17, 26, 23, 32], h = ''; for (var i = 0; i < 6; i++) h += '<rect x="' + (10 + i * 17) + '" y="' + (44 - v[i]) + '" width="12" height="' + v[i] + '"' + ' fill="' + (i === 5 ? '#00e676' : '#e3b23a') + '" opacity="' + (i === 5 ? '.9' : '.55') + '"/>'; return h; })() + '<rect x="10" y="48" width="96" height="3" rx="1" fill="#3a3d44" opacity=".6"/>' + '</svg>',
     // Aperçu du Graphique (13/08) : il MANQUAIT — la carte retombait sur l icône de 17 px, perdue
     // dans une vignette de 120×56, d où l impression de carte vide. Série choisie à la main pour
