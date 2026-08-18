@@ -4,8 +4,12 @@
 ═══════════════════════════════════════════════ */
 'use strict';
 
-// ── Thème clair/sombre des graphiques (mode clair "full white") : fond + texte selon body.theme-light ──
-function _deskLight(){ try { return !!(document.body && document.body.classList.contains('theme-light')); } catch(e){ return false; } }
+// ── Thème clair/sombre des graphiques (mode clair "full white") : fond + texte selon le thème résolu ──
+// LA source de vérité du thème est html[data-theme] (posé par dtpSetTheme/_dtpThemeApply et par le
+// script anti-flash du <head>). L'ancienne lecture de body.theme-light visait une classe que plus
+// personne ne pose : les graphiques restaient sombres sur desk clair (audit du 18/08). Les couleurs
+// sont lues au BUILD du chart : un changement de thème à chaud s'applique au prochain rendu.
+function _deskLight(){ try { return document.documentElement.getAttribute('data-theme') === 'light'; } catch(e){ return false; } }
 function _deskChartBg(){ return _deskLight() ? 0xffffff : 0x0d0e11; }   /* sombre = #0d0e11 = fond panneau/cartes -> fonds graphiques homogenes */
 function _deskChartTxt(){ return _deskLight() ? 0x334155 : 0xcbd5e1; }
 function _deskChartGrid(){ return _deskLight() ? 0xd0d4da : 0x2b2e36; }
@@ -5122,7 +5126,8 @@ window._retryCalendar = function() {
     if (host && (window._symLastTvPair !== pair || !host.firstElementChild)) {
       host.innerHTML = '<div id="sym-tv-w" style="width:100%;height:100%"></div>';
       window._symLastTvPair = pair;
-      ensureTv(() => { try { new window.TradingView.widget({ container_id: 'sym-tv-w', symbol: tvSymbol(pair), interval: '60', timezone: 'Europe/Paris', theme: 'dark', style: '1', locale: 'fr', autosize: true, hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true });
+      // Même bascule de thème que les graphiques maison : lue sur html[data-theme] au montage.
+      ensureTv(() => { try { new window.TradingView.widget({ container_id: 'sym-tv-w', symbol: tvSymbol(pair), interval: '60', timezone: 'Europe/Paris', theme: _deskLight() ? 'light' : 'dark', style: '1', locale: 'fr', autosize: true, hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true });
         // TradingView (autosize) ne se recalibre que sur un resize global → on le pousse après le chargement
         // de l'iframe pour qu'il remplisse tout le panneau (sinon zone grise à droite du chart).
         [350, 1000, 1800].forEach(d => setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch {} }, d));

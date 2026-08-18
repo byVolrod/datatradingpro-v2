@@ -550,7 +550,6 @@
       + '<span class="chart-header-sub wdg-frise-sub"></span></div>'
       + '<div class="wdg-frise-axe"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>'
       + '<div class="wdg-frise-corps"></div>'
-      + '<div class="wdg-frise-pied">Les plages qui se chevauchent marquent les pics de liquidité. Horaires ajustés à l\'heure d\'été.</div>'
       + '</div>';
     var corps = host.querySelector('.wdg-frise-corps');
     var sub = host.querySelector('.wdg-frise-sub');
@@ -588,8 +587,11 @@
       });
       corps.innerHTML = html;
       if (sub) {
-        if (ouvertes.length) { sub.textContent = ouvertes.join(' · ') + (ouvertes.length > 1 ? ' ouvertes' : ' ouverte'); sub.style.color = '#00e676'; }
-        else if (suivante) { sub.textContent = 'Fermé · ' + suivante.nom + ' ouvre dans ' + _friseDuree(suivante.mins); sub.style.color = '#8a8f98'; }
+        // État porté par une CLASSE et plus par un style inline : l'inline gagnait sur toute règle
+        // CSS, le thème clair ne pouvait donc jamais ré-encrer ce texte (audit thème du 18/08).
+        // Les couleurs vivent dans style.css (.wdg-frise-sub), aux valeurs sombres d'origine.
+        if (ouvertes.length) { sub.textContent = ouvertes.join(' · ') + (ouvertes.length > 1 ? ' ouvertes' : ' ouverte'); sub.classList.add('est-ouvert'); }
+        else if (suivante) { sub.textContent = 'Fermé · ' + suivante.nom + ' ouvre dans ' + _friseDuree(suivante.mins); sub.classList.remove('est-ouvert'); }
       }
       if (pastille) pastille.style.background = ouvertes.length ? '#00e676' : '#ff3d00';
     }
@@ -815,14 +817,28 @@
       // illisibles. Ils restent déclarés ici pour que opt()/la persistance KV fonctionnent.
       opts: [
         { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true,
+          /* TOUTES les paires forex (18/08, demande user : le sélecteur n'offrait que les majeures
+             de FX_PAIRS). Le moteur TradingView accepte n'importe quel croisement FX ; les 28
+             croisements des 8 majeures passent devant, puis les indices et matières premières du
+             desk. Le moteur DTP de repli ne connaît que les paires historiques : sur un croisement
+             qu'il ignore il affiche « Graphique indisponible », il n'invente rien. */
           choix: (function () {
+            var FX28 = ['EUR/USD', 'EUR/GBP', 'EUR/JPY', 'EUR/CHF', 'EUR/CAD', 'EUR/AUD', 'EUR/NZD',
+              'GBP/USD', 'GBP/JPY', 'GBP/CHF', 'GBP/CAD', 'GBP/AUD', 'GBP/NZD',
+              'USD/JPY', 'USD/CHF', 'USD/CAD',
+              'AUD/USD', 'AUD/JPY', 'AUD/CHF', 'AUD/CAD', 'AUD/NZD',
+              'NZD/USD', 'NZD/JPY', 'NZD/CHF', 'NZD/CAD',
+              'CAD/JPY', 'CAD/CHF', 'CHF/JPY'];
             try {
-              return [].concat(
+              var vus = {}, out = [];
+              FX28.forEach(function (n) { vus[n] = 1; out.push([n, n]); });
+              [].concat(
                 (typeof FX_PAIRS !== 'undefined' ? FX_PAIRS : []),
                 (typeof INDICES !== 'undefined' ? INDICES : []),
                 (typeof COMMODITIES !== 'undefined' ? COMMODITIES : [])
-              ).map(function (p) { return [p.name, p.name]; });
-            } catch (e) { return [['EUR/USD', 'EUR/USD']]; }
+              ).forEach(function (p) { if (p && p.name && !vus[p.name]) { vus[p.name] = 1; out.push([p.name, p.name]); } });
+              return out;
+            } catch (e) { return FX28.map(function (n) { return [n, n]; }); }
           })() },
         { k: 'ut', lbl: 'Unité de temps', type: 'choix', def: 'H4', cache: true,
           choix: [['M15', '15 minutes'], ['H1', '1 heure'], ['H4', '4 heures'], ['D1', '1 jour'], ['W1', '1 semaine']] },
@@ -921,7 +937,9 @@
           sc.text = JSON.stringify({
             autosize: true, symbol: tvSym(sym), interval: _TVI[ut] || '240',
             timezone: 'Europe/Paris', style: '1', locale: 'fr',
-            theme: (document.body && document.body.classList.contains('theme-light')) ? 'light' : 'dark',
+            // Thème lu sur html[data-theme] (source de vérité) : body.theme-light n'est plus posé
+            // par personne, l'embed restait sombre sur desk clair (audit du 18/08).
+            theme: (document.documentElement.getAttribute('data-theme') === 'light') ? 'light' : 'dark',
             allow_symbol_change: false, save_image: false,
             support_host: 'https://www.tradingview.com',
           });
@@ -1676,6 +1694,13 @@
       opts: [
         { k: 'devise', lbl: 'Devise', type: 'choix', def: 'EUR',
           choix: [['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'], ['CHF', 'CHF'], ['CAD', 'CAD'], ['AUD', 'AUD'], ['NZD', 'NZD'], ['USD', 'USD']] },
+        /* Catégories du rapport TFF de la CFTC, servies par /api/cot?type=. Défaut Leveraged Funds
+           (demande user : c'est la catégorie que suivent les desks FX, les fonds à levier étant le
+           « smart money » spéculatif). Les noms de catégories sont ceux du rapport officiel : les
+           traduire les rendrait introuvables pour qui connaît le COT. */
+        { k: 'fonds', lbl: 'Type de fonds', type: 'choix', def: 'lev_money',
+          choix: [['lev_money', 'Leveraged Funds'], ['asset_mgr', 'Asset Managers'], ['dealer', 'Dealers'],
+            ['noncomm', 'Non-commerciaux'], ['other_rept', 'Autres reportables']] },
       ],
       mount: function (host, it) {
         var W = this;
@@ -1695,6 +1720,15 @@
         var elP = host.querySelector('.wdg-dmx1-paire'), elN = host.querySelector('.cot-net');
         var sSh = host.querySelector('.cot-sh'), sLg = host.querySelector('.cot-lg'), sNk = host.querySelector('.cot-nk');
         var vivant = true, _dern = '', _etiq = null;
+        // Libelles officiels CFTC, pour l en-tete de carte. Meme table que le reglage.
+        var NOMFONDS = { lev_money: 'Leveraged Funds', asset_mgr: 'Asset Managers', dealer: 'Dealers',
+          noncomm: 'Non-commerciaux', other_rept: 'Autres reportables' };
+        // La CFTC ne publie AUCUN contrat sur le dollar : la ligne USD servie par /api/cot est un
+        // AGREGAT calcule en inversant les 7 autres devises (drapeau `derived`). On l annonce, sinon
+        // le trader lirait 502K comme un chiffre du rapport officiel.
+        var elNote = document.createElement('div');
+        elNote.className = 'wdg-cot-note';
+        host.querySelector('.wdg-dmx1').appendChild(elNote);
 
         // 181390 -> « 181,4K » ; les volumes CFTC se lisent en milliers, comme la référence.
         function enK(n) {
@@ -1706,7 +1740,8 @@
 
         function dessiner() {
           var dev = opt(it, W, 'devise') || 'EUR';
-          fetch('/api/cot')
+          var fonds = opt(it, W, 'fonds') || 'lev_money';
+          fetch('/api/cot?type=' + encodeURIComponent(fonds))
             .then(function (r) { return r.json(); })
             .then(function (d) {
               if (!vivant || !host.isConnected) return;
@@ -1719,9 +1754,10 @@
               if (elP) {
                 var dr = '';
                 try { dr = row.reportDate ? ' · ' + new Date(row.reportDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : ''; } catch (e) {}
-                elP.textContent = dev + dr;
+                elP.textContent = dev + ' · ' + (NOMFONDS[fonds] || fonds) + dr;
               }
-              var cle = dev + '|' + row.longPos + '|' + row.shortPos;
+              // Le type de fonds entre dans la cle : changer de categorie doit re-animer l anneau.
+              var cle = dev + '|' + fonds + '|' + row.longPos + '|' + row.shortPos;
               _etiq = [pS, pL, 'Short · ' + enK(row.shortPos), 'Long · ' + enK(row.longPos)];
               if (cle !== _dern || !zone.querySelector('svg')) {
                 _dern = cle;
@@ -1743,11 +1779,17 @@
               sSh.textContent = pS.toFixed(1).replace('.', ',') + ' %';
               sLg.textContent = pL.toFixed(1).replace('.', ',') + ' %';
               // Position nette : le verdict de la référence (sentiment coloré + net en contrats).
+              // Le serveur renvoie Bullish/Bearish/Neutral (valeurs logiques) : on traduit a
+              // l AFFICHAGE, comme partout dans le desk. Aucun texte produit en anglais.
               var sent = String(row.sentiment || '');
-              elN.textContent = sent || '--';
+              elN.textContent = /bull/i.test(sent) ? 'Haussier' : /bear/i.test(sent) ? 'Baissier' : (sent ? 'Neutre' : '--');
               elN.style.color = /bull/i.test(sent) ? '#00e676' : /bear/i.test(sent) ? '#ff3d00' : '#ffb300';
               var net = Number(row.net) || 0;
               sNk.textContent = (net > 0 ? '+' : '') + enK(net);
+              elNote.textContent = row.derived
+                ? 'Agrégat calculé : la CFTC ne publie pas de contrat sur le dollar.'
+                : '';
+              elNote.style.display = row.derived ? '' : 'none';
             })
             .catch(function () { if (vivant && host.isConnected) fallback(zone, 'COT indisponible.'); });
         }

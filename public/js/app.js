@@ -4377,6 +4377,33 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
       location.replace('/login');
     } catch (e) {}
   }, 20000);
+
+  /* VEILLE CONTINUE (18/08, app de bureau laissée ouverte 2 jours → écran noir). Le filet ci-dessus
+     ne joue qu'au CHARGEMENT : une interface détruite en cours de route passait entre les mailles.
+     Toutes les 90 s on vérifie que la page tient encore debout.
+
+     Témoin = `.topbar`, balise STATIQUE d'index.html (l. 105) que rien ne construit ni ne retire en
+     JavaScript (vérifié). Sa disparition prouve donc que le document a été vidé, ce qui n'arrive
+     jamais en fonctionnement normal. Ne PAS utiliser #topbar-nav : « Mon Desk » le masque.
+
+     UN SEUL recours : recharger. Pas de renvoi au login comme dans le filet de démarrage — ici
+     l'utilisateur travaille depuis des heures, et sur un faux positif l'arracher de son écran
+     coûterait plus cher que la panne. Le drapeau de session interdit d'enchaîner les rechargements.
+
+     Un moteur de rendu MORT n'exécute plus rien : ce cas-là est rattrapé par la coquille Electron
+     (`render-process-gone`), pas ici. Les deux filets se complètent, aucun ne couvre l'autre. */
+  setInterval(function () {
+    try {
+      if (location.pathname === '/login') return;
+      if (document.querySelector('.topbar')) { try { sessionStorage.removeItem(CLE); } catch (e) {} return; }
+      var deja = false;
+      try { deja = sessionStorage.getItem(CLE) === '1'; } catch (e) {}
+      if (deja) return;
+      try { sessionStorage.setItem(CLE, '1'); } catch (e) {}
+      console.warn('[DTP] interface détruite en cours de route → rechargement');
+      location.reload();
+    } catch (e) {}
+  }, 90000);
 })();
 
 // ── Semaine à Venir : glisser pour redimensionner : splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──

@@ -285,6 +285,24 @@ function createWindow() {
     try { win._dtpAfficher(); } catch {}
   });
 
+  /* ── ÉCRAN NOIR APRÈS PLUSIEURS JOURS (18/08, constat user : app laissée ouverte 2 jours) ─────
+     Un moteur de rendu qui meurt (mémoire épuisée par des jours de graphes, pilote GPU, etc.) laisse
+     une fenêtre NOIRE : le JavaScript de la page est MORT, aucun filet côté page ne peut plus rien.
+     Seule la coquille voit l'événement. On recharge le desk : Electron recrée un moteur neuf.
+     Pare-boucle : pas plus d'un rechargement par minute, si le moteur meurt en boucle on laisse la
+     page hors-ligne faire son travail plutôt que de clignoter. */
+  let _dtpDernierSauvetage = 0;
+  const _dtpSauver = (motif) => {
+    if (!win || win.isDestroyed()) return;
+    const t = Date.now();
+    if (t - _dtpDernierSauvetage < 60000) return;
+    _dtpDernierSauvetage = t;
+    console.warn('[DTP] ' + motif + ' : rechargement du desk');
+    try { win.loadURL(DESK_URL, { extraHeaders: 'Cache-Control: no-cache\n' }); } catch {}
+  };
+  win.webContents.on('render-process-gone', (_e, d) => _dtpSauver('moteur de rendu mort (' + (d && d.reason || '?') + ')'));
+  win.on('unresponsive', () => _dtpSauver('fenêtre sans réponse'));
+
   // Menu CLIC-DROIT (contextuel) : Couper / Copier / Coller / Tout sélectionner. Electron n'en fournit AUCUN
   // par défaut → sans ça, impossible de COLLER (clic-droit) un mot de passe reçu par e-mail dans le champ login.
   win.webContents.on('context-menu', (_e, params) => {

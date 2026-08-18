@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260818bbg723" />
+  <link rel="stylesheet" href="/css/style.css?v=20260818bbg724" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260818bbg723"></script>
+  <script defer src="/js/noinspect.js?v=20260818bbg724"></script>
 </head>
 <body>
 
@@ -925,16 +925,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260818bbg723"></script>
-<script defer src="/js/app.js?v=20260818bbg723"></script>
-<script defer src="/js/charts.js?v=20260818bbg723"></script>
-<script defer src="/js/sessionmap.js?v=20260818bbg723"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260818bbg724"></script>
+<script defer src="/js/app.js?v=20260818bbg724"></script>
+<script defer src="/js/charts.js?v=20260818bbg724"></script>
+<script defer src="/js/sessionmap.js?v=20260818bbg724"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260818bbg723"></script>
-<script defer src="/js/home.js?v=20260818bbg723"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260818bbg723"></script>
-<script defer src="/js/i18n.js?v=20260818bbg723"></script>
+<script defer src="/js/widgets.js?v=20260818bbg724"></script>
+<script defer src="/js/home.js?v=20260818bbg724"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260818bbg724"></script>
+<script defer src="/js/i18n.js?v=20260818bbg724"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1405,9 +1405,10 @@
     // Start clock
     pdStartClock();
 
-    // Restore theme preference
-    const savedTheme = localStorage.getItem('pd_theme') || 'dark';
-    pdSetTheme(savedTheme, true);
+    // Le thème n'est PLUS restauré ici : la source de vérité est html[data-theme], posé par le
+    // script anti-flash du <head> puis par dtpSetTheme (app.js). L'ancien appel pdSetTheme(pd_theme)
+    // posait body.theme-light SANS data-theme : un compte avec pd_theme='light' en cache obtenait un
+    // desk à moitié clair (mécanisme doublon retiré, audit thème du 18/08).
 
   }).catch(() => window.location.href = '/login');
 
@@ -1762,17 +1763,10 @@
     }
   }
 
-  // ─── Theme buttons ────────────────────────────────────────────────────────
-  function pdSetTheme(theme, silent) {
-    ['light','dark','medium'].forEach(t => {
-      const btn = document.getElementById('pd-theme-' + t);
-      if (btn) btn.classList.toggle('pd-active', t === theme);
-    });
-    if (!silent) localStorage.setItem('pd_theme', theme);
-    // Apply body class (visual only for now)
-    document.body.classList.remove('theme-light','theme-dark','theme-medium');
-    document.body.classList.add('theme-' + theme);
-  }
+  // ─── Thème : pdSetTheme SUPPRIMÉ (18/08) ──────────────────────────────────
+  // C'était le second mécanisme de thème (classes body.theme-*), concurrent de html[data-theme]
+  // et jamais lu par la couche claire vivante de style.css : il ne produisait qu'un desk à moitié
+  // clair. Les boutons Apparence appellent dtpSetTheme (app.js), unique autorité.
 
   // ─── Renewal toggle ──────────────────────────────────────────────────────
   function pdToggleRenewal(el) {

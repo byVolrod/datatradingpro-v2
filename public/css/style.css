@@ -7379,10 +7379,18 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   border-bottom: 1px solid #050505;
   box-shadow: 0 1px 0 rgba(0,0,0,0.6);
 }
-/* Thème clair : le bandeau prend var(--bg2) (bloc theme-light en tête de feuille) mais gardait son
-   texte #f1f5f9 quasi blanc : date invisible sur fond clair (mesuré au banc, 250,248,242 vs
-   241,245,249). L'encre du thème le rend lisible ; sans effet en sombre (la classe est absente). */
-body.theme-light .cal-day-sep td { color: var(--text) !important; }
+/* Thème clair : la règle était keyée sur body.theme-light, une classe que plus rien ne pose
+   (mécanisme doublon retiré le 18/08) : elle était MORTE en prod, et le bandeau restait une bande
+   sombre #1b1d23 à texte quasi blanc au milieu d'un calendrier éclairci. Re-keyée sur le vrai
+   sélecteur du thème, et complétée : fond en-tête clair, encre, filets du thème. Sans effet en
+   sombre (attribut absent). */
+html[data-theme="light"] .cal-day-sep td {
+  background: var(--head-bg);
+  color: var(--text);
+  border-top-color: var(--border);
+  border-bottom-color: var(--border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+}
 
 /* Event rows — bloc compact, séparateur 1px, aucun arrondi */
 .cal-row {
@@ -11751,7 +11759,9 @@ body.wdg-mode #topbar-nav { display: none; }
   .cth-val   { width: 11%; font-size: 10px; }
   .cal-table thead th, .cal-row td { padding-left: 5px !important; padding-right: 5px !important; }
 }
-body.theme-light .wdg-cal-wrap { background: var(--bg1) !important; }   /* même bascule claire que .cal-table-wrap */
+/* Re-keyé le 18/08 : body.theme-light n'est plus posé par personne (la règle était morte en prod,
+   le widget calendrier restait une île #090909 sur desk clair). Même bascule que .cal-table-wrap. */
+html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 
 /* Widgets réutilisant des rendus du desk : on les fait remplir le corps du widget (règles additives,
    scoping .wdg-body → aucun effet sur les onglets du desk). */
@@ -16915,8 +16925,6 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    plus rien ne se lisait d un bloc). La reference les empile serrees depuis le haut. */
 .wdg-frise-corps { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   justify-content: flex-start; gap: 15px; overflow-y: auto; }
-.wdg-frise-pied { flex: 0 0 auto; font-size: 10.5px; color: var(--txt-3, #6b7280);
-  border-top: 1px solid var(--hud-line); padding-top: 8px; line-height: 1.35; }
 
 .wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
@@ -16952,7 +16960,6 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   .wdg-frise-axe span:nth-child(2), .wdg-frise-axe span:nth-child(4) { display: none; }
 }
 @media (max-height: 300px) {
-  .wdg-frise-pied { display: none; }
   .wdg-frise-corps { gap: 4px; }
 }
 
@@ -16967,7 +16974,15 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wdg-dmx1-leg { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; font-size: 10px; color: var(--txt-3, #6b7280); }
 .wdg-dmx1-leg span { display: inline-flex; align-items: center; gap: 5px; }
 .wdg-dmx1-leg i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
-.wdg-dmx1-paire { margin-left: auto; color: var(--txt-2, #9aa1ac); font-weight: 700; letter-spacing: .03em; font-size: 11px; }
+/* L en-tete porte desormais « EUR · Leveraged Funds · 11/08 » : plus long que l ancien « EUR » seul,
+   il doit CEDER avant de pousser la legende hors de la carte. min-width:0 debloque le retrecissement
+   d un enfant de flex (sans lui, la valeur `auto` refuse de passer sous la largeur du contenu). */
+.wdg-dmx1-paire { margin-left: auto; color: var(--txt-2, #9aa1ac); font-weight: 700; letter-spacing: .03em; font-size: 11px;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Mention d honnetete du COT : la CFTC ne publiant aucun contrat sur le dollar, la ligne USD est un
+   agregat calcule. Discrete mais lisible, jamais affichee pour les 7 devises reellement publiees. */
+.wdg-cot-note { flex: 0 0 auto; font-size: 10px; line-height: 1.35; color: var(--txt-3, #6b7280);
+  padding: 5px 4px 0; border-top: 1px solid var(--hud-line); margin-top: 2px; }
 .wdg-dmx1-anneau { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4px 0; }
 /* Taille CONTENUE, fidele a la reference : le donut garde une taille de lecture au centre de la
    carte au lieu de gonfler plein cadre sur un grand ecran. poserEtiquettes() suit le meme plafond. */
@@ -17330,3 +17345,113 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 /* Sous-valeur du pied de donut (pourcentage sous le volume, façon référence COT). */
 .wdg-dmx1-sous { font-size: 10px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
 .cot-net { font-size: 17px; font-weight: 700; line-height: 1.1; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   THÈME CLAIR : CORRECTIFS D'AUDIT (18/08, mesurés au banc de contraste WCAG bench.html/bench2.js)
+   Le vrai sélecteur du thème est html[data-theme="light"] (dtpSetTheme + script anti-flash du
+   <head>). La classe body.theme-light n'est plus posée par personne depuis le retrait de
+   pdSetTheme (index.html, 18/08) : toute règle encore keyée dessus est morte. Les correctifs
+   vivent donc ici, sous le sélecteur vivant, en fin de feuille pour gagner la cascade.
+   Le SOMBRE ne passe par AUCUNE de ces règles : il reste identique par construction.
+   Charte : vert/rouge/or gardent leur SENS. En TEXTE sur fond clair, ils prennent la variante
+   profonde de la même famille, précédent déjà validé du thème clair (--orange remappé #9b7409,
+   .home-fx is-up #05713b / is-down #ab2708). Sur plaque sombre FORCÉE (pastilles posées sur les
+   miniatures), c'est l'inverse : le fond reste sombre, donc texte clair et or VIF, comme en sombre.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* 1) TOKENS FANTÔMES --txt-1/2/3 et --bg-3 : consommés par la frise des sessions, les donuts
+   DMX/COT et .wr-rien avec un repli SOMBRE en dur. Jamais définis nulle part, donc le repli
+   s'appliquait AUSSI en clair : encre claire sur papier clair (1,09:1 mesuré). Définis SEULEMENT
+   en clair : en sombre, le repli reste la valeur exacte d'origine, rien ne bouge. */
+html[data-theme="light"] {
+  --txt-1: var(--text);    /* repli sombre #e6e8eb : texte de premier plan */
+  --txt-2: var(--text2);   /* repli sombre #9aa1ac : texte secondaire */
+  --txt-3: var(--text3);   /* repli sombre #6b7280 : texte éteint */
+  --bg-3: #e9e9e2;         /* piste 24 h de la frise : un creux discret sur carte blanche */
+}
+
+/* 2) FRISE DES SESSIONS. Le sous-titre porte désormais son état par une CLASSE (widgets.js ne pose
+   plus de style inline, qui gagnait sur toute règle CSS). Valeurs sombres = les anciennes valeurs
+   inline, au pixel. */
+.wdg-frise-sub { color: #8a8f98; }
+.wdg-frise-sub.est-ouvert { color: #00e676; }
+html[data-theme="light"] .wdg-frise-sub { color: var(--text3); }
+html[data-theme="light"] .wdg-frise-sub.est-ouvert { color: #05713b; }
+/* Badges OUVERT/FERMÉ : le voile teinté reste, le texte prend la variante profonde de sa famille. */
+html[data-theme="light"] .wdg-frise-badge { color: #ab2708; border-color: rgba(171, 39, 8, 0.5); }
+html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #05713b; border-color: rgba(5, 113, 59, 0.5); background: rgba(0, 230, 118, 0.09); }
+/* Pastille de place fermée : le gris #3a3f4b, discret en sombre (1,8:1), devenait un point dur sur
+   carte claire (9,4:1). On retrouve la même discrétion ; la pastille OUVERTE (vert charte) ne
+   change pas, sa règle est plus spécifique. */
+html[data-theme="light"] .wdg-frise-place i { background: #c6c9cf; }
+
+/* 3) DONUTS DMX / COT : valeurs 17 px en vert/rouge vifs, 1,5:1 sur panneau blanc. */
+html[data-theme="light"] .wdg-dmx1-short { color: #ab2708; }
+html[data-theme="light"] .wdg-dmx1-long { color: #05713b; }
+
+/* 4) PASTILLES POSÉES SUR LES MINIATURES (gestionnaire de dispositions, cartes Mes desks) : la
+   plaque reste volontairement SOMBRE dans les deux thèmes (rgba(10,10,12,.86), lisible sur
+   n'importe quel aperçu). En clair, --w-t2 et --orange basculent en encre : encre sur plaque noire,
+   1,06:1 mesuré. Sur plaque sombre on écrit clair et or VIF. */
+html[data-theme="light"] .wdg-mgr-acts > button,
+html[data-theme="light"] .wdg-mgr-acts > .wdg-mgr-lock,
+html[data-theme="light"] .wdg-mgr-def { color: #c8ccd4; }
+html[data-theme="light"] .wdg-mgr-acts > button:hover,
+html[data-theme="light"] .wdg-mgr-def:hover,
+html[data-theme="light"] .wdg-mgr-def.on,
+html[data-theme="light"] .wdg-mgr-badge,
+html[data-theme="light"] .wdg-mgr-acts .wdg-mgr-star.on,
+html[data-theme="light"] .home-card--visu .home-card-fav { color: #e3b23a; }
+
+/* 5) OR EN TEXTE SUR FOND CLAIR : le remap #9b7409 tombait entre 3,2 et 3,8 sur les surfaces
+   teintées et en petites capitales grasses. Un cran plus sombre, même famille : #7a5c07, déjà
+   employé par .home-ev-h en clair. */
+html[data-theme="light"] .wdg-lib-title,
+html[data-theme="light"] .wdg-lib-sec,
+html[data-theme="light"] .wdg-lib-cat,
+html[data-theme="light"] .wdg-lib-soon,
+html[data-theme="light"] .wdg-btn--gold,
+html[data-theme="light"] .wdg-ico-pick.on,
+html[data-theme="light"] .wdg-mgr-open,
+html[data-theme="light"] .wdg-tip,
+html[data-theme="light"] .cal-imp-btn { color: #7a5c07; }
+html[data-theme="light"] .cal-imp-btn--active { color: #7a5c07 !important; }   /* la base met !important */
+html[data-theme="light"] .wdg-tip-x { color: #9b7409; }
+
+/* 6) CARTE « BIENTÔT » DE LA BIBLIOTHÈQUE : l'opacité .62 posée sur TOUTE la carte écrasait le
+   badge (2,05:1) et la description (2,99:1). En clair, la carte reste pleine : seul son CONTENU
+   s'estompe, et moins fort ; le badge, qui porte l'information, reste net. */
+html[data-theme="light"] .wdg-lib-card--soon { opacity: 1; }
+html[data-theme="light"] .wdg-lib-card--soon .wdg-lib-prev,
+html[data-theme="light"] .wdg-lib-card--soon .wdg-lib-main { opacity: 0.78; }
+
+/* 7) RÉCAP QUOTIDIEN, table façon calendrier : gris clair #dcdce0 et filets noirs en dur. */
+html[data-theme="light"] .fxdr-callike { border-color: var(--border); }
+html[data-theme="light"] .fxdr-callike .cal-row td { color: var(--text); border-bottom-color: var(--border); }
+
+/* 8) TICKER DE LA FORCE DES DEVISES (reste v1 connu) : zinc #a1a1aa en dur, 2,56:1 sur clair. */
+html[data-theme="light"] .meter-ticker { color: var(--text2); }
+
+/* 9) CALENDRIER : L'ÎLE SOMBRE. Le conteneur garde #090909 en dur (hex ABSENT du mapping de la
+   tokenisation du 28/07, comme les textes ci-dessous) : tout l'onglet restait noir sous une
+   toolbar claire. Conteneur en panneau blanc ; les textes blancs en dur reprennent l'encre. La
+   colonne Heure (var(--text2), déjà tokenisée) redevient lisible d'elle-même ; on la ré-affirme
+   car la règle générique .cal-row td ci-dessous ferait sinon jeu égal avec elle dans la cascade. */
+html[data-theme="light"] .cal-table-wrap { background: var(--bg2); }
+html[data-theme="light"] .cal-row td { color: var(--text); }
+html[data-theme="light"] .cal-row td.cth-time { color: var(--text2); }
+html[data-theme="light"] .cal-row td.cth-event,
+html[data-theme="light"] .cal-row td.cth-curr { color: var(--text); }
+html[data-theme="light"] .cv-num,
+html[data-theme="light"] .cv-forecast,
+html[data-theme="light"] .cv-prev { color: var(--text); }
+html[data-theme="light"] .cdv { border-color: var(--border); }
+html[data-theme="light"] .cdv-lbl { color: var(--text3); }
+
+/* 10) MES DESKS : bordures blanches translucides invisibles sur page claire. Le survol doré est
+   ré-affirmé : la règle de base fait jeu égal en spécificité et perdrait contre celle-ci. */
+html[data-theme="light"] .home-zone--desks .home-card--visu { border-color: rgba(0, 0, 0, 0.18); }
+html[data-theme="light"] .home-desks-tri,
+html[data-theme="light"] .home-zone--desks .home-panel-head .home-desks-new { border-color: rgba(0, 0, 0, 0.30); }
+html[data-theme="light"] .home-desks-tri:hover,
+html[data-theme="light"] .home-zone--desks .home-panel-head .home-desks-new:hover { border-color: rgba(227, 178, 58, 0.55); }
