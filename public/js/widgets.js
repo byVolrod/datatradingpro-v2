@@ -1732,8 +1732,8 @@
        « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
 
     {
-      id: 'evenement-rebours', name: 'Compte a rebours d evenement', tag: 'CALENDRIER', cat: 'Macro', h: 240, staff: true,
-      desc: 'Le prochain chiffre macro attendu, isole, avec le temps qui reste.',
+      id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 240, staff: true,
+      desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste.',
       /* Une carte a UNE seule information : c est ce qui la separe du widget Calendrier, qui est
          une table. Le decompte ne se calcule QUE depuis timestamp (ms epoch UTC) : le champ `time`
          de la source est fige a l heure de Paris et mentirait a un lecteur d un autre fuseau.
@@ -1749,7 +1749,7 @@
             ['AUD', 'AUD'], ['NZD', 'NZD'], ['CAD', 'CAD'], ['CHF', 'CHF'], ['CNY', 'CNY']] },
         { k: 'impact', lbl: 'Impact', type: 'choix', def: 'all',
           choix: [['all', 'Tous'], ['High', 'Fort seulement']] },
-        { k: 'chiffres', lbl: 'Afficher prevision et precedent', type: 'bascule', def: true },
+        { k: 'chiffres', lbl: 'Afficher prévision et précédent', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, ev = null, autres = 0;
@@ -1799,10 +1799,10 @@
           h += '<span class="wdg-rb-h">' + esc(hh) + '</span>';
           eTete.innerHTML = h;
           eTit.innerHTML = '<span class="wdg-rb-nom">' + esc(ev.title || '') + '</span>'
-            + (autres > 0 ? '<span class="wdg-rb-autres">+' + autres + ' autre' + (autres > 1 ? 's' : '') + ' publication' + (autres > 1 ? 's' : '') + ' a cette heure</span>' : '');
+            + (autres > 0 ? '<span class="wdg-rb-autres">+' + autres + ' autre' + (autres > 1 ? 's' : '') + ' publication' + (autres > 1 ? 's' : '') + ' à cette heure</span>' : '');
           if (opt(it, W, 'chiffres') !== false) {
-            ePied.innerHTML = '<span><i>Prevision</i><b>' + esc(ev.forecast || '-') + '</b></span>'
-              + '<span><i>Precedent</i><b>' + esc(ev.previous || '-') + '</b></span>';
+            ePied.innerHTML = '<span><i>Prévision</i><b>' + esc(ev.forecast || '-') + '</b></span>'
+              + '<span><i>Précédent</i><b>' + esc(ev.previous || '-') + '</b></span>';
           } else { ePied.innerHTML = ''; }
         }
 
@@ -1828,7 +1828,7 @@
               eChr.innerHTML = calActualCell(ev.actual, ev.forecast, null, ev.title);
             } catch (e) { eChr.textContent = ev.actual; }
           } else {
-            eChr.textContent = 'Publie, chiffre non encore diffuse';
+            eChr.textContent = 'Publié, chiffre non encore diffusé';
           }
         }
 
@@ -1840,7 +1840,7 @@
             if (!vivant || !host.isConnected) return;
             var items = (d && d.items) || [];
             ev = choisir(items);
-            if (!ev) { fallback(host, 'Aucun evenement programme sur les dix prochains jours.'); return; }
+            if (!ev) { fallback(host, 'Aucun événement programmé sur les dix prochains jours.'); return; }
             rendreTete(); tic();
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Calendrier indisponible.'); });
         }
@@ -1855,8 +1855,8 @@
     },
 
     {
-      id: 'serie-indicateur', name: 'Serie d un indicateur', tag: 'MACRO', cat: 'Macro', h: 300, staff: true,
-      desc: 'Les dernieres publications d un indicateur, en barres, avec la surprise contre la prevision.',
+      id: 'serie-indicateur', name: 'Série d\'un indicateur', tag: 'MACRO', cat: 'Macro', h: 300, staff: true,
+      desc: 'Les dernières publications d\'un indicateur, en barres, avec la surprise contre la prévision.',
       /* ⚠️ LA SOURCE N EST PAS CELLE QU ON CROIT. /api/event-history existe, mais il compare les
          titres BRUTS alors que /api/calendar-events sert des titres RENOMMES : la reponse revient
          vide EN SILENCE pour tout indicateur renomme (le desk lui-meme a ce defaut). On construit
@@ -1906,7 +1906,7 @@
             // vaut mieux qu une barre fausse.
             corps = '<div class="wdg-si-liste">' + serie.map(function (p, i) {
               return '<div class="wdg-si-l"><span>' + esc(dates[i]) + '</span><b>' + esc(p.actual || '-') + '</b></div>';
-            }).join('') + '</div><div class="wdg-si-note">L unite change d une publication a l autre : les valeurs sont listees telles que la source les donne, sans graphe.</div>';
+            }).join('') + '</div><div class="wdg-si-note">L\'unité change d\'une publication à l\'autre : les valeurs sont listées telles que la source les donne, sans graphe.</div>';
           } else {
             corps = '<div class="wdg-si-zone">' + _barresSvg(vals, { signe: false }) + '</div>'
               + '<div class="wdg-si-axe">' + dates.map(function (dd, i) {
@@ -1932,7 +1932,7 @@
             var passes = items.filter(function (e) {
               return e && e.currency === dev && e.actual && String(e.actual).trim() && e.timestamp;
             });
-            if (!passes.length) { fallback(host, 'Aucune publication chiffree pour ' + esc(dev) + '.'); return; }
+            if (!passes.length) { fallback(host, 'Aucune publication chiffrée pour ' + esc(dev) + '.'); return; }
             // Regroupement par titre BRUT : c est la cle stable. Le libelle affiche peut avoir ete
             // renomme, deux titres bruts differents pouvant porter le meme libelle.
             var parTitre = {};
@@ -1948,7 +1948,7 @@
             var brut = (choisi && parTitre[choisi]) ? choisi : titres[0];
             var g = parTitre[brut];
             var serie = g.pts.slice().sort(function (a, b) { return a.timestamp - b.timestamp; });
-            if (serie.length < 2) { fallback(host, 'Une seule publication connue : pas de serie a tracer.'); return; }
+            if (serie.length < 2) { fallback(host, 'Une seule publication connue : pas de série à tracer.'); return; }
             rendre(serie, g.titre);
             // Selecteur DANS la carte : la liste depend des donnees, elle ne peut pas vivre dans
             // les opts statiques du catalogue.
@@ -1975,8 +1975,8 @@
       },
     },
     {
-      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marches', h: 140, staff: true,
-      desc: 'Les dix reperes du desk en bande fine defilante.',
+      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marchés', h: 140, staff: true,
+      desc: 'Les dix repères du desk en bande fine défilante.',
       /* Source : /api/ticker, liste FIGEE de 10 actifs cote serveur. On n offre donc AUCUN champ
          « ajouter un actif » : la source ne saurait pas le chercher.
          ⚠️ PIEGE MESURE : items[].chg est un POURCENTAGE, SAUF si items[].yield est vrai (le 10 ans
@@ -2039,7 +2039,7 @@
     },
 
     {
-      id: 'matrice-croisee', name: 'Matrice de taux croises', tag: 'FX', cat: 'Marches', h: 340, staff: true,
+      id: 'matrice-croisee', name: 'Matrice de taux croisés', tag: 'FX', cat: 'Marchés', h: 340, staff: true,
       desc: 'La grille des huit majeures : chaque croisement, son cours et sa variation du jour.',
       /* Source : /api/fxlist, qui cote 28 paires — soit UNE seule moitie des 56 cases hors diagonale
          (USD/JPY est cote, JPY/USD ne l est pas). L autre moitie est INVERSEE cote client, et cette
@@ -2050,7 +2050,7 @@
         { k: 'contenu', lbl: 'Cellule', type: 'choix', def: 'prix-var',
           choix: [['prix-var', 'Cours et variation'], ['prix', 'Cours seul'], ['var', 'Variation seule']] },
         { k: 'coul', lbl: 'Colorer selon la variation', type: 'bascule', def: true },
-        { k: 'inverse', lbl: 'Remplir la moitie inversee', type: 'bascule', def: true },
+        { k: 'inverse', lbl: 'Remplir la moitié inversée', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
         var W = this, vivant = true;
@@ -2106,7 +2106,7 @@
             h += '</tbody></table><div class="wdg-mx-pied">';
             var leg = [];
             if (etroit) leg.push('Variations en %');
-            if (inv) leg.push('les cases a point sont l inverse exact du croisement cote');
+            if (inv) leg.push('les cases à point sont l\'inverse exact du croisement coté');
             if (leg.length) h += '<span class="wdg-mx-leg">' + leg.join(' &middot; ') + '.</span>';
             var maj = '';
             try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
@@ -2137,7 +2137,7 @@
     },
 
     {
-      id: 'saison-courbe', name: 'Courbe saisonniere', tag: 'SAISONNALITE', cat: 'Macro', h: 300, staff: true,
+      id: 'saison-courbe', name: 'Courbe saisonnière', tag: 'SAISONNALITÉ', cat: 'Macro', h: 300, staff: true,
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
       /* Complement du widget « Saisonnalite » (table de chiffres) : celui-ci DESSINE la meme donnee.
          ⚠️ DEUX PIEGES QUE L ON AFFICHE AU LIEU DE LES CACHER :
@@ -2148,7 +2148,7 @@
       opts: [
         { k: 'symbole', lbl: 'Symbole', type: 'choix', def: '', cache: true, choix: _seasonChoix() },
         { k: 'mode', lbl: 'Affichage', type: 'choix', def: 'mensuel',
-          choix: [['mensuel', 'Par mois'], ['cumule', 'Cumule sur l annee']] },
+          choix: [['mensuel', 'Par mois'], ['cumule', 'Cumulé sur l\'année']] },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cur = null, _ro = null;
@@ -2157,7 +2157,7 @@
 
         function rendre(d) {
           var rows = (d && d.rows) || [], ans = (d && d.years) || [];
-          if (rows.length !== 12) { fallback(host, 'Saisonnalite indisponible.'); return; }
+          if (rows.length !== 12) { fallback(host, 'Saisonnalité indisponible.'); return; }
           var moisCourant = new Date().getMonth();
           var mode = opt(it, W, 'mode') || 'mensuel';
 
@@ -2183,14 +2183,14 @@
 
           host.innerHTML = '<div class="wdg-sais">'
             + '<div class="wdg-sais-tete"><span class="wdg-sais-sym">' + esc((d && d.symbol) || '') + '</span>'
-            + '<span class="wdg-sais-mode">' + (mode === 'cumule' ? 'Cumule' : 'Par mois') + '</span></div>'
+            + '<span class="wdg-sais-mode">' + (mode === 'cumule' ? 'Cumulé' : 'Par mois') + '</span></div>'
             + '<div class="wdg-sais-zone">' + svg + '</div>'
             + '<div class="wdg-sais-axe">' + MOIS.map(function (m, i) {
               return '<span' + (i === moisCourant ? ' class="est-courant"' : '') + '>' + m + '</span>';
             }).join('') + '</div>'
             + '<div class="wdg-sais-pied">Moyenne mensuelle sur ' + esc(periode)
-            + ' &middot; rendement de fin de mois a fin de mois. Le mois en cours est partiel ('
-            + nObs + ' annee' + (nObs > 1 ? 's' : '') + ' observee' + (nObs > 1 ? 's' : '') + ').</div>'
+            + ' &middot; rendement de fin de mois à fin de mois. Le mois en cours est partiel ('
+            + nObs + ' année' + (nObs > 1 ? 's' : '') + ' observée' + (nObs > 1 ? 's' : '') + ').</div>'
             + '</div>';
         }
 
@@ -2202,7 +2202,7 @@
             // Reponse perimee : le reglage a change pendant le vol.
             if (!vivant || !host.isConnected || cur !== sym) return;
             rendre(d);
-          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Saisonnalite indisponible.'); });
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Saisonnalité indisponible.'); });
         }
 
         dessiner();
@@ -2214,8 +2214,8 @@
     },
 
     {
-      id: 'frequence-amplitude', name: 'Frequence d amplitude', tag: 'VOLATILITE', cat: 'Marches', h: 320, staff: true,
-      desc: 'La part des seances ou la paire a parcouru au moins X pips.',
+      id: 'frequence-amplitude', name: 'Fréquence d\'amplitude', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320, staff: true,
+      desc: 'La part des séances où la paire a parcouru au moins X pips.',
       /* Le mot « probabilite » est ECARTE volontairement : ce que la source permet de calculer est
          une FREQUENCE HISTORIQUE OBSERVEE, pas une prevision.
          ⚠️ CE QUI EST INFAISABLE ICI, et qu on ne promettra donc jamais : « toucher +30 avant -30 ».
@@ -2226,7 +2226,7 @@
       opts: [
         { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
         { k: 'mesure', lbl: 'Mesure', type: 'choix', def: 'ampl',
-          choix: [['ampl', 'Amplitude haut-bas'], ['exc', 'Excursion depuis l ouverture']] },
+          choix: [['ampl', 'Amplitude haut-bas'], ['exc', 'Excursion depuis l\'ouverture']] },
         { k: 'seuil', lbl: 'Seuil (pips)', type: 'nombre', def: 50, min: 10, max: 300 },
       ],
       mount: function (host, it) {
@@ -2251,7 +2251,7 @@
               // La bougie du JOUR est exclue : son haut et son bas ne sont pas encore figes.
               var auj = new Date(); auj.setHours(0, 0, 0, 0);
               var bougies = c.filter(function (b) { return b && b.t < auj.getTime() && isFinite(b.h) && isFinite(b.l) && isFinite(b.o); });
-              if (bougies.length < 200) { fallback(host, 'Historique insuffisant (n = ' + bougies.length + ' seances).'); return; }
+              if (bougies.length < 200) { fallback(host, 'Historique insuffisant (n = ' + bougies.length + ' séances).'); return; }
 
               var P = pip(paire);
               var mesures = bougies.map(function (b) {
@@ -2271,15 +2271,15 @@
 
               host.innerHTML = '<div class="wdg-freq">'
                 + '<div class="wdg-freq-tete"><span class="wdg-freq-paire">' + esc(paire) + '</span>'
-                + '<span class="wdg-freq-mes">' + (mesure === 'exc' ? 'Excursion depuis l ouverture' : 'Amplitude haut-bas') + '</span></div>'
+                + '<span class="wdg-freq-mes">' + (mesure === 'exc' ? 'Excursion depuis l\'ouverture' : 'Amplitude haut-bas') + '</span></div>'
                 + '<div class="wdg-freq-gros"><b>' + pct.toFixed(0) + ' %</b>'
-                + '<span>des seances ont parcouru au moins ' + seuil + ' pips</span></div>'
+                + '<span>des séances ont parcouru au moins ' + seuil + ' pips</span></div>'
                 // Numerateur ET denominateur : un pourcentage seul ne dit pas sur quoi il porte.
-                + '<div class="wdg-freq-n">' + atteint + ' seances sur ' + n + '</div>'
+                + '<div class="wdg-freq-n">' + atteint + ' séances sur ' + n + '</div>'
                 + '<div class="wdg-freq-zone">' + _courbeSvg(parts, { aire: true }) + '</div>'
                 + '<div class="wdg-freq-axe"><span>10</span><span>100</span><span>200</span><span>300 pips</span></div>'
-                + '<div class="wdg-freq-pied">Frequence observee sur les seances servies par la source, hors journee en cours. '
-                + 'Amplitude brute : elle ne tient compte d aucun cout de transaction.</div>'
+                + '<div class="wdg-freq-pied">Fréquence observée sur les séances servies par la source, hors journée en cours. '
+                + 'Amplitude brute : elle ne tient compte d\'aucun coût de transaction.</div>'
                 + '</div>';
               void iSeuil; void paliers;
             })
@@ -4442,6 +4442,13 @@
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
+    'bandeau-ticker': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h5M11 8h4M18 8h3M3 16h3M9 16h6M18 16h3"/><path d="M2 12h20" opacity=".35"/></svg>',
+    'matrice-croisee': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 9h17M3.5 14.5h17M9 3.5v17M14.5 3.5v17"/></svg>',
+    'saison-courbe': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M6 12V7M9.5 12v3.5M13 12V6M16.5 12v4M20 12V9"/></svg>',
+    'frequence-amplitude': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h4v4h4v4h4v4h5"/><path d="M3 20h18" opacity=".4"/></svg>',
+    'evenement-rebours': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2"/><path d="M9.5 2.5h5"/></svg>',
+    'serie-indicateur': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 20v-5M10.5 20v-9M15 20v-6M19.5 20v-11"/></svg>',
+    'horloge': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>',
     'graphique': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 4v3M8 17v3M16 4v3M16 17v3"/><rect x="6" y="7" width="4" height="10" rx="1"/><rect x="14" y="7" width="4" height="10" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
     'force-devises': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 6-8"/><path d="M18 6h3v3"/></svg>',
     'barometre': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12v-5M9 12v-8M13 12v-3M17 12v-7M5 12v4M9 12v2M13 12v6M17 12v3"/><path d="M3 12h18" opacity=".45"/></svg>',
@@ -4474,6 +4481,15 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    'bandeau-ticker': '<svg ' + _PV + '>' + '<rect x="4" y="18" width="112" height="20" rx="3" fill="#141418" stroke="#23232a"/>' + '<rect x="8" y="22" width="20" height="4" rx="1" fill="#6b7280"/><rect x="8" y="29" width="13" height="4" rx="1" fill="#22c55e"/>' + '<rect x="36" y="22" width="22" height="4" rx="1" fill="#6b7280"/><rect x="36" y="29" width="11" height="4" rx="1" fill="#ff3d00"/>' + '<rect x="66" y="22" width="18" height="4" rx="1" fill="#6b7280"/><rect x="66" y="29" width="15" height="4" rx="1" fill="#22c55e"/>' + '<rect x="92" y="22" width="20" height="4" rx="1" fill="#6b7280"/><rect x="92" y="29" width="9" height="4" rx="1" fill="#e3b23a"/>' + '</svg>',
+    'matrice-croisee': '<svg ' + _PV + '>' + (function () { var h = '', C = ['#22c55e', '#ff3d00', '#3a3d44', '#22c55e', '#3a3d44', '#ff3d00']; for (var r = 0; r < 4; r++) for (var c = 0; c < 6; c++) { var mort = (r === c); h += '<rect x="' + (14 + c * 17) + '" y="' + (8 + r * 11) + '" width="16" height="10"' + ' fill="' + (mort ? '#1c1c20' : C[(r + c) % 6]) + '" opacity="' + (mort ? '1' : '.5') + '"/>'; } for (var i = 0; i < 4; i++) h += '<rect x="4" y="' + (10 + i * 11) + '" width="8" height="6" rx="1" fill="#6b7280"/>'; for (var j = 0; j < 6; j++) h += '<rect x="' + (16 + j * 17) + '" y="2" width="12" height="4" rx="1" fill="#6b7280"/>'; return h; })() + '</svg>',
+    'saison-courbe': '<svg ' + _PV + '>' + '<line x1="6" y1="30" x2="114" y2="30" stroke="#3a3d44"/>' + (function () { var v = [8, -5, 12, 6, -9, 3, 14, -4, 7, -11, 5, 10], h = ''; for (var i = 0; i < 12; i++) { var y = v[i] >= 0 ? 30 - v[i] * 1.6 : 30, ht = Math.abs(v[i]) * 1.6; h += '<rect x="' + (7 + i * 9) + '" y="' + y + '" width="6" height="' + ht + '"' + ' fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".85"/>'; } return h; })() + '<rect x="61" y="6" width="6" height="44" fill="#e3b23a" opacity=".14"/>' + '</svg>',
+    'frequence-amplitude': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + '<polygon points="8,10 26,15 44,23 62,31 80,38 98,43 114,46 114,46 8,46" fill="#e3b23a" opacity=".13"/>' + '<polyline fill="none" stroke="#e3b23a" stroke-width="1.6" points="8,10 26,15 44,23 62,31 80,38 98,43 114,46"/>' + '<line x1="62" y1="6" x2="62" y2="50" stroke="#e3b23a" stroke-dasharray="2 3" opacity=".55"/>' + '<circle cx="62" cy="31" r="2.6" fill="#e3b23a"/>' + '</svg>',
+    'evenement-rebours': '<svg ' + _PV + '>' + '<circle cx="14" cy="13" r="4" fill="#3a3d44"/>' + '<rect x="22" y="10" width="16" height="5" rx="1" fill="#6b7280"/>' + '<rect x="42" y="11" width="3" height="3" rx="1.5" fill="#ff3d00"/><rect x="47" y="11" width="3" height="3" rx="1.5" fill="#ff3d00"/>' + '<rect x="18" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".85"/>' + '<rect x="40" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".85"/>' + '<rect x="62" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".85"/>'
+      + '<circle cx="38" cy="26" r="1.3" fill="#6b7280"/><circle cx="38" cy="31" r="1.3" fill="#6b7280"/>'
+      + '<circle cx="60" cy="26" r="1.3" fill="#6b7280"/><circle cx="60" cy="31" r="1.3" fill="#6b7280"/>'
+      + '<circle cx="82" cy="26" r="1.3" fill="#6b7280"/><circle cx="82" cy="31" r="1.3" fill="#6b7280"/>' + '<rect x="84" y="22" width="18" height="13" rx="2" fill="#e3b23a" opacity=".45"/>' + '<rect x="22" y="42" width="30" height="4" rx="1" fill="#3a3d44"/><rect x="58" y="42" width="30" height="4" rx="1" fill="#3a3d44"/>' + '</svg>',
+    'serie-indicateur': '<svg ' + _PV + '>' + '<line x1="6" y1="44" x2="114" y2="44" stroke="#23232a"/>' + (function () { var v = [14, 20, 17, 26, 23, 32], h = ''; for (var i = 0; i < 6; i++) h += '<rect x="' + (10 + i * 17) + '" y="' + (44 - v[i]) + '" width="12" height="' + v[i] + '"' + ' fill="' + (i === 5 ? '#00e676' : '#e3b23a') + '" opacity="' + (i === 5 ? '.9' : '.55') + '"/>'; return h; })() + '<rect x="10" y="48" width="96" height="3" rx="1" fill="#3a3d44" opacity=".6"/>' + '</svg>',
     // Aperçu du Graphique (13/08) : il MANQUAIT — la carte retombait sur l icône de 17 px, perdue
     // dans une vignette de 120×56, d où l impression de carte vide. Série choisie à la main pour
     // raconter une vraie forme de marché (impulsion, repli, reprise) plutôt que du bruit, avec la
