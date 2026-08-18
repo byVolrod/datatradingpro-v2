@@ -17908,3 +17908,38 @@ html[data-theme="light"] .wdg-hb-haut { color: #00783d; }
 .wdg-as-pied { flex: 0 0 auto; margin-top: auto; font-size: 9.5px; line-height: 1.35;
   color: var(--txt-3, #6b7280); border-top: 1px solid var(--hud-line); padding-top: 5px; }
 @media (max-height: 240px) { .wdg-as-pied, .wdg-as-n { display: none; } }
+
+/* ── Notes (19/08) ─────────────────────────────────────────────────────────────────────────────
+   La zone de saisie occupe tout, le pied porte l'état d'enregistrement et le compteur. L'état ne
+   dit « enregistré » qu'APRÈS la réponse du serveur : l'annoncer avant serait un mensonge. */
+.wdg-nt { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 9px 10px 7px; }
+.wdg-nt-txt { flex: 1 1 auto; min-height: 0; width: 100%; resize: none; background: transparent;
+  border: none; outline: none; color: var(--txt-1, #e6e8eb); font-family: inherit; font-size: 12px;
+  line-height: 1.5; padding: 0; }
+.wdg-nt-txt::placeholder { color: var(--txt-3, #6b7280); }
+.wdg-nt-pied { flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px; font-size: 9.5px;
+  color: var(--txt-3, #6b7280); border-top: 1px solid var(--hud-line); padding-top: 5px; }
+.wdg-nt-car { margin-left: auto; font-variant-numeric: tabular-nums; }
+.wdg-nt-etat.est-att { color: var(--orange, #e3b23a); }
+.wdg-nt-etat.est-ko { color: #ff3d00; }
+html[data-theme="light"] .wdg-nt-etat.est-ko { color: #c73000; }
+
+/* ── Liste de suivi (19/08) ────────────────────────────────────────────────────────────────────
+   Trois colonnes alignées : symbole, cours, variation. Rien d'autre : les colonnes Biais et DMX
+   de la source ont des replis silencieux et présenteraient parfois du momentum comme un verdict. */
+.wdg-tl { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 9px 12px 7px; }
+.wdg-tl-corps { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.wdg-tl-l { display: flex; align-items: baseline; gap: 10px; padding: 5px 2px;
+  border-bottom: 1px solid var(--hud-line); font-size: 11.5px; }
+.wdg-tl-s { flex: 0 0 auto; min-width: 62px; color: var(--txt-2, #9aa1ac); font-weight: 600; letter-spacing: .02em; }
+.wdg-tl-p { flex: 1 1 auto; text-align: right; font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
+.wdg-tl-v { flex: 0 0 auto; min-width: 62px; text-align: right; font-variant-numeric: tabular-nums;
+  color: var(--txt-3, #6b7280); }
+.wdg-tl-l.est-haut .wdg-tl-v { color: #00e676; }
+.wdg-tl-l.est-bas .wdg-tl-v { color: #ff3d00; }
+html[data-theme="light"] .wdg-tl-l.est-haut .wdg-tl-v { color: #00783d; }
+html[data-theme="light"] .wdg-tl-l.est-bas .wdg-tl-v { color: #c73000; }
+.wdg-tl-pied { flex: 0 0 auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+
+@media (max-height: 220px) { .wdg-tl-pied { display: none; } }

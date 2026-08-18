@@ -1838,6 +1838,149 @@
        « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
 
     {
+      id: 'notes', name: 'Notes', tag: 'OUTILS', cat: 'Outils', h: 260, staff: true,
+      desc: 'Un bloc-notes qui reste, d\'un appareil à l\'autre.',
+      /* Le texte NE VIT PAS dans les réglages : leurs valeurs sont plafonnées à 32 caractères.
+         Il vit dans un magasin dédié (/api/widget-notes), et le réglage ne porte qu un
+         IDENTIFIANT de document. Ce réglage est `cache: true` : il n a rien à faire dans le
+         panneau, il n est pas un choix de l utilisateur.
+         ⚠️ L identifiant est REGENERE a la duplication et a l import (voir API.duplicate) :
+         sans cela deux cartes partageraient la meme note et s ecraseraient l une l autre. */
+      opts: [
+        { k: 'doc', lbl: 'Document', type: 'texte', def: '', cache: true },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, tMaj = null, dernier = '';
+        var doc = opt(it, W, 'doc') || '';
+        if (!/^[a-z0-9]{4,24}$/.test(doc)) {
+          // Premiere ouverture, ou copie repartie sans document : on en fabrique un.
+          doc = 'n' + Math.random().toString(36).slice(2, 12);
+          _ecrisOpt(host, it, 'doc', doc);
+        }
+        host.innerHTML = '<div class="wdg-nt">'
+          + '<textarea class="wdg-nt-txt" spellcheck="false" placeholder="Vos notes…"></textarea>'
+          + '<div class="wdg-nt-pied"><span class="wdg-nt-etat"></span><span class="wdg-nt-car"></span></div>'
+          + '</div>';
+        var ta = host.querySelector('.wdg-nt-txt');
+        var etat = host.querySelector('.wdg-nt-etat');
+        var car = host.querySelector('.wdg-nt-car');
+        var MAX = 4000;
+
+        function compteur() { car.textContent = ta.value.length + ' / ' + MAX; }
+
+        function enregistrer() {
+          if (!vivant || ta.value === dernier) return;
+          var texte = ta.value;
+          fetch('/api/widget-notes', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ doc: doc, t: texte }),
+          }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            if (!d || !d.ok) { etat.textContent = 'non enregistré'; etat.className = 'wdg-nt-etat est-ko'; return; }
+            dernier = texte;
+            // L heure vient du SERVEUR et n est affichee qu APRES sa reponse : annoncer
+            // « enregistré » avant confirmation serait un mensonge en cas de panne.
+            var h = '';
+            try { h = new Date(d.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+            etat.textContent = h ? ('enregistré à ' + h) : 'enregistré';
+            etat.className = 'wdg-nt-etat';
+          }).catch(function () {
+            if (vivant && host.isConnected) { etat.textContent = 'non enregistré'; etat.className = 'wdg-nt-etat est-ko'; }
+          });
+        }
+
+        ta.addEventListener('input', function () {
+          if (ta.value.length > MAX) ta.value = ta.value.slice(0, MAX);
+          compteur();
+          etat.textContent = 'modifié…'; etat.className = 'wdg-nt-etat est-att';
+          clearTimeout(tMaj); tMaj = setTimeout(enregistrer, 700);
+        });
+        // Fermeture d onglet : dernier enregistrement, sans attendre le debounce.
+        var auDepart = function () { clearTimeout(tMaj); enregistrer(); };
+        window.addEventListener('pagehide', auDepart);
+
+        fetch('/api/widget-notes').then(function (r) { return r.json(); }).then(function (d) {
+          if (!vivant || !host.isConnected) return;
+          var n = (d && d.docs && d.docs[doc]) || null;
+          ta.value = n ? String(n.t || '') : '';
+          dernier = ta.value;
+          compteur();
+          if (n && n.maj) {
+            try { etat.textContent = 'enregistré à ' + new Date(n.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+          }
+        }).catch(function () {
+          if (vivant && host.isConnected) { etat.textContent = 'lecture impossible'; etat.className = 'wdg-nt-etat est-ko'; }
+        });
+
+        return function () {
+          vivant = false;
+          try { clearTimeout(tMaj); } catch (e) {}
+          try { window.removeEventListener('pagehide', auDepart); } catch (e) {}
+        };
+      },
+    },
+
+    {
+      id: 'ticklist', name: 'Liste de suivi', tag: 'FX', cat: 'Marchés', h: 300, staff: true,
+      desc: 'Les paires que vous suivez, leur cours et leur variation du jour.',
+      /* ⚠️ CE QUE CE WIDGET N AFFICHE PAS, ET POURQUOI. /api/fxlist sert bien des colonnes `bias`
+         et `dmx`, mais elles ont des REPLIS SILENCIEUX : `dmx` retombe sur un ratio de jours
+         haussiers calcule chez nous quand la source de positionnement ne repond pas, et `bias`
+         sur un simple momentum a un mois. Les marqueurs qui permettraient de distinguer la vraie
+         valeur du repli sont SUPPRIMES avant l envoi. Afficher une colonne « Biais » montrerait
+         donc parfois du momentum en le faisant passer pour le Radar de Biais. On s en tient au
+         cours et a la variation, qui sont univoques.
+         ⚠️ La cle `ticks` a ete ajoutee a _WDG_LISTES cote serveur DANS LE MEME COMMIT : sans
+         cela la liste serait coupee a 32 caracteres au premier enregistrement. */
+      opts: [
+        { k: 'ticks', lbl: 'Paires suivies', type: 'multi',
+          def: ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD'], choix: _fxChoix() },
+        { k: 'tri', lbl: 'Classement', type: 'choix', def: 'liste',
+          choix: [['liste', 'Mon ordre'], ['var', 'Par variation'], ['sym', 'Par symbole']] },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        skel(host, 5);
+        function dessiner() {
+          var choisies = opt(it, W, 'ticks') || [];
+          if (!choisies.length) { emptyState(host, 'Aucune paire suivie.'); return; }
+          fetch('/api/fxlist').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            if (!d || !Array.isArray(d.pairs)) { fallback(host, 'Cotations indisponibles.'); return; }
+            var par = {};
+            d.pairs.forEach(function (p) { if (p && p.symbol) par[p.symbol] = p; });
+            var lignes = choisies.map(function (sym) { return par[sym] || { symbol: sym, absent: true }; });
+            var tri = opt(it, W, 'tri');
+            if (tri === 'sym') lignes.sort(function (a, b) { return a.symbol.localeCompare(b.symbol); });
+            else if (tri === 'var') lignes.sort(function (a, b) { return (Number(b.changePct) || 0) - (Number(a.changePct) || 0); });
+            var h = '<div class="wdg-tl"><div class="wdg-tl-corps">';
+            lignes.forEach(function (p) {
+              var v = Number(p.changePct), last = Number(p.last);
+              var dec = /JPY/.test(p.symbol) ? 3 : 5;
+              var cls = isFinite(v) ? (v > 0 ? ' est-haut' : v < 0 ? ' est-bas' : '') : '';
+              h += '<div class="wdg-tl-l' + cls + '">'
+                + '<span class="wdg-tl-s">' + esc(p.symbol) + '</span>'
+                // Une paire absente de la reponse n est pas une paire a zero : on l affiche vide.
+                + '<span class="wdg-tl-p">' + (isFinite(last) ? last.toFixed(dec) : '--') + '</span>'
+                + '<span class="wdg-tl-v">' + (isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--') + '</span>'
+                + '</div>';
+            });
+            var maj = '';
+            try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
+            h += '</div><div class="wdg-tl-pied">Variation depuis la clôture précédente'
+              + (maj ? ' &middot; MAJ ' + maj : '') + '</div></div>';
+            host.innerHTML = h;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Cotations indisponibles.'); });
+        }
+        dessiner();
+        var iv = setInterval(function () { if (!document.hidden) dessiner(); }, 150000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+      },
+    },
+    {
       id: 'amplitude-seance', name: 'Amplitude par séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 280, staff: true,
       desc: 'Combien la paire parcourt pendant Tokyo, Londres et New York, en moyenne.',
       /* ⚠️ TROIS PRECAUTIONS, toutes exigees par la contre-verification.
@@ -4932,6 +5075,8 @@
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
+    'notes': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h14v15H5z"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4"/></svg>',
+    'ticklist': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h9M4 12h9M4 17.5h9"/><path d="m16 6 2 2 4-4M16 17l2 2 4-4"/></svg>',
     'amplitude-seance': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h11M4 12h16M4 18h7"/></svg>',
     'distribution-variations': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5.5 20v-3M9 20v-8M12 20v-12M15 20v-8M18.5 20v-3"/></svg>',
     'stats-volatilite': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14M21 5v14" opacity=".4"/><path d="M6 12c1.5-4 3-4 4.5 0s3 6 4.5 0 2.5-3 3 0"/></svg>',
@@ -4977,6 +5122,22 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    'notes': '<svg ' + _PV + '>'
+      + '<rect x="8" y="6" width="104" height="38" rx="3" fill="#0d0d10" stroke="#23232a"/>'
+      + '<rect x="14" y="12" width="78" height="3.5" rx="1.5" fill="#6b7280" opacity=".7"/>'
+      + '<rect x="14" y="20" width="90" height="3.5" rx="1.5" fill="#6b7280" opacity=".5"/>'
+      + '<rect x="14" y="28" width="56" height="3.5" rx="1.5" fill="#6b7280" opacity=".5"/>'
+      + '<rect x="14" y="36" width="2" height="5" fill="#e3b23a"/>'
+      + '<rect x="72" y="48" width="40" height="3" rx="1.5" fill="#3a3d44"/>'
+      + '</svg>',
+    'ticklist': '<svg ' + _PV + '>'
+      + (function () { var v = [.6, -.3, .9, -.7], h = '';
+      for (var i = 0; i < 4; i++) { var y = 7 + i * 12;
+      h += '<rect x="8" y="' + y + '" width="30" height="4" rx="1.5" fill="#6b7280" opacity=".8"/>'
+        + '<rect x="48" y="' + y + '" width="28" height="4" rx="1.5" fill="#9aa1ac" opacity=".55"/>'
+        + '<rect x="86" y="' + y + '" width="' + (14 + Math.abs(v[i]) * 12) + '" height="4" rx="1.5" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".8"/>'; }
+      return h; })()
+      + '</svg>',
     'amplitude-seance': '<svg ' + _PV + '>'
       + '<rect x="8" y="9" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="9" width="34" height="7" rx="2" fill="#e3b23a" opacity=".55"/>'
       + '<rect x="8" y="24" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="24" width="92" height="7" rx="2" fill="#e3b23a" opacity=".9"/>'
@@ -5550,6 +5711,11 @@ function _spansAffiches(lay) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       if (l.items.length >= _IMAX) return _undoOffer('Ce desk est plein (' + _IMAX + ' widgets).');
       var copy = JSON.parse(JSON.stringify(l.items[i])); copy.locked = false;
+      /* Le reglage `doc` designe un DOCUMENT, pas une preference : le recopier ferait pointer les
+         deux cartes sur la meme note, et celle ou l on tape en dernier ecraserait l autre en
+         silence. La copie repart donc sans document, et s en fabrique un au montage.
+         (Defaut signale par la contre-verification du 19/08, corrige avant d ecrire le widget.) */
+      if (copy.cfg && copy.cfg.doc) delete copy.cfg.doc;
       l.items.splice(i + 1, 0, copy); save(); renderGrid();
     },
     toggleLock: function (i) {
@@ -5957,6 +6123,10 @@ function _spansAffiches(lay) {
                 var cfg = {}, w0 = byId(it.w);
                 Object.keys(it.cfg).slice(0, 12).forEach(function (k) {
                   if (!/^[a-z0-9_]{1,24}$/.test(k) || !optDef(w0, k)) return;   // clé inconnue du contrat → ignorée
+                  // MEME RAISON QU A LA DUPLICATION : un document appartient au compte qui l a
+                  // ecrit. L importer ferait pointer la carte importee sur la note de quelqu un
+                  // d autre, ou sur une note deja ouverte ailleurs.
+                  if (k === 'doc') return;
                   var v = it.cfg[k];
                   if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') cfg[k] = v;
                 });

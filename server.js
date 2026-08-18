@@ -703,6 +703,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260820-notes-ticklist', ts: Date.UTC(2026, 7, 20, 8, 0), title: 'Notes et Liste de suivi : deux outils qui vous suivent d un appareil à l autre', desc: 'Le bloc-notes garde vos observations par compte : vous les retrouvez sur un autre poste, et chaque carte a son propre document, même dupliquée. La liste de suivi affiche les paires que vous choisissez avec leur cours et leur variation du jour. Elle s en tient volontairement à ces deux colonnes : les indicateurs de biais et de positionnement de la source ont des valeurs de repli qu il serait trompeur de présenter comme des verdicts.' },
   { id: 'dtpu-20260819-amplitude-seance', ts: Date.UTC(2026, 7, 19, 23, 0), title: 'Amplitude par séance : ce que la paire parcourt à Tokyo, Londres et New York', desc: 'Un nouveau widget compare l amplitude moyenne d une paire pendant chacune des trois grandes séances, aux heures locales de chaque place et en tenant compte des changements d heure, qui ne tombent pas le même jour d un continent à l autre. Les séances se chevauchent : la carte le rappelle, la somme des trois ne fait pas la journée.' },
   { id: 'dtpu-20260819-widgets-lot4', ts: Date.UTC(2026, 7, 19, 21, 0), title: 'Deux widgets statistiques : distribution des variations et volatilité', desc: 'La distribution des variations montre la forme réelle des séances d une paire : combien de journées à plus 0,3 pour cent, combien à moins 1 pour cent. Les statistiques de volatilité donnent l écart-type des variations et l amplitude vraie moyenne, en séance et en semaine. Les deux excluent la période en cours, qui n a pas encore de clôture, et signalent les trous de série plutôt que de calculer par-dessus.' },
   { id: 'dtpu-20260819-widgets-lot3', ts: Date.UTC(2026, 7, 19, 18, 0), title: 'Trois widgets de plus : chaleur de séance, amplitude, hauts et bas', desc: 'La chaleur de séance colore les 28 croisements majeurs selon leur variation du jour. L\'amplitude quotidienne indique de combien une paire bouge en moyenne par séance, en excluant la journée en cours tant qu\'elle n\'est pas terminée. Les points hauts et bas donnent les extrêmes de la séance et de la semaine, avec un curseur qui situe le cours entre les deux. En rodage interne, comme les précédents.' },
@@ -954,7 +955,12 @@ const _WDG_ID_RX = /^[a-z0-9-]{2,40}$/; // ids de widgets = catalogue front (keb
 // le reglage semblerait accepte puis reviendrait ampute au rechargement.
 //   off    = sections decochees du fil d actualite
 //   villes = places affichees par l horloge mondiale (27 au catalogue ~= 110 caracteres)
-const _WDG_LISTES = new Set(['off', 'villes']);
+//   ticks  = paires suivies par la Ticklist (28 codes de 7 caracteres + separateurs ~= 223)
+//            ⚠️ AJOUTE LE 19/08 EN MEME TEMPS QUE LE WIDGET, et pas apres : sans cette entree la
+//            liste serait coupee a 32 caracteres au PREMIER enregistrement, l utilisateur
+//            retrouverait 4 paires au lieu de 28 au rechargement, et rien ne le lui dirait.
+//            C est exactement l incident deja paye sur les villes de l Horloge.
+const _WDG_LISTES = new Set(['off', 'villes', 'ticks']);
 
 function _wdgClean(body) {
   const b = (body && typeof body === 'object') ? body : {};                  // null/undefined/scalaire → objet vide
@@ -1124,6 +1130,78 @@ async function _wdgHistPush(uid) {
   await auth.aiCacheSet('wdg:' + uid + ':hist', { v: neuf });
   await auth.aiCacheSet('wdg:' + uid + ':bak', { at: neuf[0].at, cfg: neuf[0].cfg });   // compat descendante
 }
+/* ── NOTES DE WIDGET (19/08) ─────────────────────────────────────────────────────────────────
+   Pourquoi une route separee : le texte d une note ne peut PAS vivre dans `cfg`, dont les valeurs
+   sont plafonnees a 32 caracteres (240 pour les listes). Un magasin dedie, une cle par compte.
+
+   TROIS BORNES, parce qu un magasin sans plafond finit toujours par exploser :
+   - 4000 caracteres par note ;
+   - 48 documents par compte, le plus ancien evince quand on depasse ;
+   - a la LECTURE, on ne rend que les documents encore references par une carte du compte. Les
+     orphelins (cartes supprimees) cessent d etre servis et sortent au prochain enregistrement.
+     Sans cela, chaque note supprimee resterait immortelle dans la base.
+   Le reste du depot borne deja tout (12 layouts, 24 widgets, 12 cles de reglage) : cette route ne
+   fait pas exception. */
+const _NOTES_MAX_DOCS = 48;
+const _NOTES_MAX_CAR = 4000;
+const _NOTES_TTL = 10 * 365 * 24 * 3600 * 1000;   // une note n expire pas
+
+function _notesClean(v) {
+  const src = (v && typeof v === 'object' && v.docs && typeof v.docs === 'object') ? v.docs : {};
+  const out = {};
+  // Tri par fraicheur AVANT le plafond : on evince le plus ancien, jamais le plus recent.
+  const cles = Object.keys(src)
+    .filter((k) => /^[a-z0-9]{4,24}$/.test(k))
+    .sort((a, b) => (Number(src[b] && src[b].maj) || 0) - (Number(src[a] && src[a].maj) || 0))
+    .slice(0, _NOTES_MAX_DOCS);
+  for (const k of cles) {
+    const d = src[k];
+    if (!d || typeof d !== 'object') continue;
+    out[k] = { t: String(d.t == null ? '' : d.t).slice(0, _NOTES_MAX_CAR), maj: Number(d.maj) || 0 };
+  }
+  return { docs: out };
+}
+
+app.get('/api/widget-notes', async (req, res) => {
+  if (!req.session?.userId) return res.json({ docs: {} });
+  try {
+    const uid = req.session.userId;
+    const v = _notesClean(await auth.aiCacheGet('wdgnotes:' + uid, _NOTES_TTL));
+    // Ne rendre que les documents encore references par une carte : un document orphelin n a plus
+    // de proprietaire, le servir ne ferait que gonfler la reponse.
+    let vivants = null;
+    try {
+      const cfg = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL);
+      if (cfg && Array.isArray(cfg.layouts)) {
+        vivants = new Set();
+        cfg.layouts.forEach((l) => (l && Array.isArray(l.items) ? l.items : []).forEach((it) => {
+          if (it && it.cfg && typeof it.cfg.doc === 'string') vivants.add(it.cfg.doc);
+        }));
+      }
+    } catch {}
+    if (vivants) {
+      Object.keys(v.docs).forEach((k) => { if (!vivants.has(k)) delete v.docs[k]; });
+    }
+    res.json(v);
+  } catch { res.json({ docs: {} }); }
+});
+
+app.post('/api/widget-notes', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const uid = req.session.userId;
+    const b = req.body || {};
+    const doc = String(b.doc || '');
+    if (!/^[a-z0-9]{4,24}$/.test(doc)) return res.status(400).json({ ok: false, error: 'document invalide' });
+    const cur = _notesClean(await auth.aiCacheGet('wdgnotes:' + uid, _NOTES_TTL));
+    cur.docs[doc] = { t: String(b.t == null ? '' : b.t).slice(0, _NOTES_MAX_CAR), maj: Date.now() };
+    // Re-sanitise A L ECRITURE aussi : c est elle qui applique le plafond et l eviction.
+    const net = _notesClean(cur);
+    await auth.aiCacheSet('wdgnotes:' + uid, net, _NOTES_TTL);
+    res.json({ ok: true, maj: net.docs[doc] ? net.docs[doc].maj : Date.now() });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 app.get('/api/widgets', async (req, res) => {
   if (!req.session?.userId) return res.json({ cfg: null });
   try {
