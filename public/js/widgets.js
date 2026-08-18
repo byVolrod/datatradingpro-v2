@@ -711,7 +711,7 @@
   var CATALOG = [
     {
       id: 'graphique', name: 'Graphique', tag: 'CHART', cat: 'Marchés', h: 340,
-      desc: 'Les bougies de la paire de ton choix, dans ta grille.',
+      desc: 'Le graphique TradingView complet : dessin, indicateurs, toutes les unités.',
       // Le desk avait ses bougies dans l'onglet MARCHÉS uniquement : impossible de garder un graphique
       // sous les yeux à côté du fil ou du calendrier. Ce widget réutilise le VRAI constructeur du desk
       // (buildStockChart) — mêmes bougies, même thème, même EMA — avec deux réglages qui lui sont
@@ -734,13 +734,35 @@
         { k: 'ut', lbl: 'Unité de temps', type: 'choix', def: 'H4', cache: true,
           choix: [['M15', '15 minutes'], ['H1', '1 heure'], ['H4', '4 heures'], ['D1', '1 jour'], ['W1', '1 semaine']] },
       ],
+      /* MOTEUR TRADINGVIEW (18/08, décision user après question posée : « Widget TradingView
+         embarqué », sa capture montrant les outils de dessin et la barre d'unités natifs).
+         CSP vérifiée AVANT d'écrire une ligne : script-src et frame-src autorisent https:, donc le
+         script s3.tradingview.com et son iframe passent sans toucher à la sécurité de la page.
+         Le moteur DTP (bougies réelles amCharts) N'EST PAS supprimé : il devient le repli
+         AUTOMATIQUE quand l'embed ne charge pas (app de bureau hors ligne, réseau d'entreprise qui
+         bloque, panne TradingView). Un chien de garde bascule si aucune iframe n'est née en 8 s. */
       mount: function (host, it) {
         var W = this;
-        if (typeof buildStockChart !== 'function') { fallback(host, 'Graphique indisponible.'); return null; }
         var TF = [['M15', 'M15'], ['H1', 'H1'], ['H4', 'H4'], ['D1', 'D1'], ['W1', 'W1']];
         var paires = (W.opts[0].choix || []).map(function (c) { return c[0]; });
         var sym = opt(it, W, 'paire'); if (paires.indexOf(sym) < 0) sym = paires[0] || 'EUR/USD';
         var ut  = opt(it, W, 'ut');    if (!TF.some(function (t) { return t[0] === ut; })) ut = 'H4';
+
+        // Nom du desk -> symbole TradingView. Les paires FX se derivent (EUR/USD -> FX:EURUSD) ;
+        // indices et matieres premieres sont nommes, leur symbole TV ne se devine pas.
+        var _TVSYM = { 'DAX': 'XETR:DAX', 'S&P 500': 'SP:SPX', 'FTSE': 'TVC:UKX', 'CAC 40': 'EURONEXT:PX1',
+          'Gold': 'OANDA:XAUUSD', 'Silver': 'OANDA:XAGUSD', 'Oil WTI': 'TVC:USOIL' };
+        function tvSym(n) {
+          if (_TVSYM[n]) return _TVSYM[n];
+          if (n && n.indexOf('/') > 0) return 'FX:' + n.split('/').join('');
+          return 'FX:EURUSD';
+        }
+        var _TVI = { M15: '15', H1: '60', H4: '240', D1: 'D', W1: 'W' };
+        var _nettoie = null, _tvTimer = null, _replie = false;
+
+        // ── MOTEUR DTP (repli) : l'ancien widget, conservé tel quel. ──
+        function monterDtp() {
+        if (typeof buildStockChart !== 'function') { fallback(host, 'Graphique indisponible.'); return null; }
         var id = HOST_ID + '-cdl-' + uid();
         host.innerHTML = '<div class="wdg-cdl">'
           + '<div class="wdg-cdl-bar">'
@@ -778,6 +800,54 @@
         // Le conteneur doit avoir une taille avant qu'amCharts ne mesure : on dessine à la frame suivante.
         requestAnimationFrame(dessine);
         return function () { try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {} };
+        }
+
+        // ── MOTEUR TRADINGVIEW ──
+        function replisDtp() {
+          if (_replie || !host.isConnected) return;
+          _replie = true;
+          clearTimeout(_tvTimer);
+          console.warn('[Widget Graphique] TradingView injoignable, repli sur le moteur DTP');
+          _nettoie = monterDtp() || null;
+        }
+        function monterTv() {
+          // Notre sélecteur de paire reste LA surface de persistance (le réglage est mémorisé par
+          // compte) : allow_symbol_change est donc coupé côté TradingView, une seule autorité.
+          // L'unité de temps, elle, se change dans la barre native de TradingView : notre réglage
+          // ne fixe que l'unité d'OUVERTURE.
+          host.innerHTML = '<div class="wdg-tv">'
+            + '<div class="wdg-cdl-bar"><select class="wdg-cdl-sym" aria-label="Choisir la paire">'
+            + paires.map(function (p) { return '<option value="' + esc(p) + '"' + (p === sym ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('')
+            + '</select></div>'
+            + '<div class="wdg-tv-box"><div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div></div></div>'
+            + '</div>';
+          var boite = host.querySelector('.tradingview-widget-container');
+          var sc = document.createElement('script');
+          sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+          sc.async = true;
+          sc.text = JSON.stringify({
+            autosize: true, symbol: tvSym(sym), interval: _TVI[ut] || '240',
+            timezone: 'Europe/Paris', style: '1', locale: 'fr',
+            theme: (document.body && document.body.classList.contains('theme-light')) ? 'light' : 'dark',
+            allow_symbol_change: false, save_image: false,
+            support_host: 'https://www.tradingview.com',
+          });
+          sc.onerror = replisDtp;
+          boite.appendChild(sc);
+          var sel = host.querySelector('.wdg-cdl-sym');
+          if (sel) sel.addEventListener('change', function () {
+            sym = sel.value;
+            _ecrisOpt(host, it, 'paire', sym);
+            monterTv();                        // l'embed ne sait pas changer de symbole a chaud : on le remonte
+          });
+          clearTimeout(_tvTimer);
+          _tvTimer = setTimeout(function () {
+            if (host.isConnected && !host.querySelector('iframe')) replisDtp();
+          }, 8000);
+          _nettoie = function () { clearTimeout(_tvTimer); };
+        }
+        monterTv();
+        return function () { clearTimeout(_tvTimer); if (_nettoie) { try { _nettoie(); } catch (e) {} } };
       },
     },
     {

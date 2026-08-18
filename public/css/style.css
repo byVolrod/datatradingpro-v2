@@ -16967,6 +16967,14 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 /* Taille CONTENUE, fidele a la reference : le donut garde une taille de lecture au centre de la
    carte au lieu de gonfler plein cadre sur un grand ecran. poserEtiquettes() suit le meme plafond. */
 .wdg-dmx1-svg { width: 100%; height: 100%; max-width: 390px; max-height: 390px; }
+/* Widget Graphique en moteur TradingView : la boite occupe tout le corps de la carte, l iframe de
+   l embed (autosize) remplit la boite. La barre du haut ne garde que notre selecteur de paire, qui
+   est la surface de persistance du reglage par compte. */
+.wdg-tv { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-tv .wdg-cdl-bar { flex: 0 0 auto; }
+.wdg-tv-box { flex: 1 1 auto; min-height: 0; position: relative; }
+.wdg-tv-box .tradingview-widget-container, .wdg-tv-box .tradingview-widget-container__widget { height: 100%; width: 100%; }
+
 /* Trait de rappel des etiquettes : un fil fin gris, incline le long de l angle median du segment. */
 .wdg-dmx1-fil { position: absolute; width: 13px; height: 1px; background: var(--txt-3, #6b7280);
   pointer-events: none; opacity: 0; transition: opacity .3s ease .7s; }
