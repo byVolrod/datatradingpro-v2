@@ -835,6 +835,24 @@
     if (!/^[A-Z]{3}\/[A-Z]{3}$/.test(String(sym || ''))) return null;   // non-FX : points
     return /JPY/.test(sym) ? 0.01 : 0.0001;
   }
+  /* Deux bougies consecutives dans le TABLEAU ne sont pas forcement consecutives dans le TEMPS :
+     une serie peut avoir des trous (jour ferie, incident de collecte, changement de cotation).
+     Calculer une variation par-dessus un trou de trois semaines produit un chiffre aberrant qui
+     se fond dans la distribution sans que personne ne le voie. On borne donc l ecart admissible.
+     Le week-end fait deja un trou LEGITIME de trois jours en journalier : la borne est a quatre.
+     Les couples rejetes sont COMPTES, et affiches des qu ils comptent : sinon l echantillon
+     annonce serait plus grand que l echantillon reel. */
+  var _ECART_MAX = { D1: 4 * 86400000, W1: 10 * 86400000, H4: 5 * 3600000, H1: 90 * 60000, M15: 25 * 60000 };
+  function _couplesValides(c, tf) {
+    var max = _ECART_MAX[tf] || _ECART_MAX.D1;
+    var ok = [], rejetes = 0;
+    for (var i = 1; i < c.length; i++) {
+      if (c[i].t - c[i - 1].t <= max) ok.push([c[i - 1], c[i]]);
+      else rejetes++;
+    }
+    return { couples: ok, rejetes: rejetes };
+  }
+
   function _uniteAmpl(sym) { return _pipTaille(sym) ? 'pips' : 'points'; }
 
   /* Une bougie est-elle CLOSE ? On ne le deduit JAMAIS de sa position dans le tableau : la
@@ -1788,6 +1806,136 @@
        ne conserve qu une ligne par contrat). Mieux vaut deux widgets en moins qu un widget qui ment.
        « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
 
+    {
+      id: 'distribution-variations', name: 'Distribution des variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320, staff: true,
+      desc: 'La forme réelle des séances : combien de journées à +0,3 %, combien à -1 %.',
+      /* ⚠️ La derniere bougie est TOUJOURS retiree, sans test de date : la journee en cours n a
+         pas de cloture, donc pas de variation. Regle deterministe, identique pour tout le monde,
+         et ecrite sur la carte.
+         ⚠️ Les couples separes par un trou de temps sont ecartes (voir _couplesValides) et le
+         nombre d ecarts rejetes est affiche a cote de l echantillon. */
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'pas', lbl: 'Largeur des classes', type: 'choix', def: '0.25',
+          choix: [['0.1', '0,1 %'], ['0.25', '0,25 %'], ['0.5', '0,5 %']] },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, cache = {};
+        skel(host, 5);
+        function dessiner() {
+          var sym = opt(it, W, 'paire') || 'EUR/USD';
+          var pas = parseFloat(opt(it, W, 'pas')) || 0.25;
+          _bougies(sym, 'D1', cache).then(function (c) {
+            if (!vivant || !host.isConnected) return;
+            if (c.length < 30) { fallback(host, 'Historique insuffisant.'); return; }
+            // Journee en cours retiree sans condition : elle n a pas de cloture.
+            var closes = c.slice(0, -1);
+            var v = _couplesValides(closes, 'D1');
+            var vars = v.couples.map(function (p) { return (p[1].c / p[0].c - 1) * 100; })
+              .filter(function (x) { return isFinite(x); });
+            var n = vars.length;
+            if (n < 30) { fallback(host, 'Historique insuffisant (n = ' + n + ').'); return; }
+            // Classes symetriques autour de zero, bornees a +/- 5 pas.
+            var K = 10;
+            var classes = [], etiq = [];
+            for (var i = -K; i < K; i++) {
+              var bas = i * pas, haut = (i + 1) * pas;
+              // Intervalle SEMI-OUVERT [bas, haut) : une valeur ne peut pas tomber dans deux classes.
+              classes.push(vars.filter(function (x) {
+                if (i === -K) return x < haut;
+                if (i === K - 1) return x >= bas;
+                return x >= bas && x < haut;
+              }).length);
+              etiq.push(bas);
+            }
+            var moy = vars.reduce(function (a, b) { return a + b; }, 0) / n;
+            var hausse = vars.filter(function (x) { return x > 0; }).length;
+            host.innerHTML = '<div class="wdg-di">'
+              + '<div class="wdg-di-tete"><span class="wdg-di-sym">' + esc(sym) + '</span>'
+              + '<span class="wdg-di-n">n = ' + n + '</span></div>'
+              + '<div class="wdg-di-zone">' + _barresSvg(classes, { couleur: 'var(--orange, #e3b23a)' }) + '</div>'
+              + '<div class="wdg-di-axe"><span>' + (etiq[0]).toFixed(1).replace('.', ',') + ' %</span>'
+              + '<span>0</span><span>+' + (etiq[etiq.length - 1] + pas).toFixed(1).replace('.', ',') + ' %</span></div>'
+              + '<div class="wdg-di-stats">'
+              + '<span><i>Séances en hausse</i><b>' + (hausse / n * 100).toFixed(0) + ' %</b></span>'
+              + '<span><i>Variation moyenne</i><b>' + (moy >= 0 ? '+' : '') + moy.toFixed(2).replace('.', ',') + ' %</b></span>'
+              + '</div>'
+              + '<div class="wdg-di-pied">Séance en cours exclue, elle n\'a pas de clôture. '
+              + (v.rejetes > 0 ? v.rejetes + ' écart' + (v.rejetes > 1 ? 's' : '') + ' de dates écarté' + (v.rejetes > 1 ? 's' : '') + ' (trou dans la série). ' : '')
+              + 'Classes de ' + String(pas).replace('.', ',') + ' %, bornes incluses à gauche.</div></div>';
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        return function () { vivant = false; };
+      },
+    },
+
+    {
+      id: 'stats-volatilite', name: 'Statistiques de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 260, staff: true,
+      desc: 'L\'écart-type des variations, en séance et en semaine, avec l\'amplitude vraie moyenne.',
+      /* ⚠️ REPLI PAR COLONNE : si l hebdomadaire ne repond pas, la colonne journaliere reste
+         affichee. Une carte entierement muette parce qu UNE des deux series manque serait une
+         perte d information gratuite.
+         ⚠️ La tuile en pips est reservee aux paires FX : sur un indice ou l or, le pip n a pas de
+         sens et la valeur serait un nombre sans unite. */
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, cache = {};
+        skel(host, 4);
+
+        // Ecart-type des variations en %, et amplitude vraie moyenne, sur les couples PLAUSIBLES.
+        function stats(c, tf, sym) {
+          if (!c || c.length < 12) return null;
+          var closes = c.slice(0, -1);            // periode en cours exclue : pas de cloture
+          var v = _couplesValides(closes, tf);
+          if (v.couples.length < 10) return null;
+          var r = v.couples.map(function (p) { return (p[1].c / p[0].c - 1) * 100; }).filter(isFinite);
+          var moy = r.reduce(function (a, b) { return a + b; }, 0) / r.length;
+          var ec = Math.sqrt(r.reduce(function (a, b) { return a + (b - moy) * (b - moy); }, 0) / r.length);
+          // Amplitude vraie : le plus grand des trois ecarts, qui inclut les trous d ouverture.
+          var tr = v.couples.map(function (p) {
+            return Math.max(p[1].h - p[1].l, Math.abs(p[1].h - p[0].c), Math.abs(p[1].l - p[0].c));
+          }).filter(isFinite);
+          var trMoy = tr.reduce(function (a, b) { return a + b; }, 0) / tr.length;
+          var pip = _pipTaille(sym);
+          return { n: r.length, ec: ec, tr: trMoy, trPips: pip ? trMoy / pip : null, rejetes: v.rejetes };
+        }
+
+        function colonne(titre, st) {
+          if (!st) return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
+            + '<div class="wdg-vo-abs">indisponible</div></div>';
+          return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
+            + '<div class="wdg-vo-l"><i>Écart-type</i><b>' + st.ec.toFixed(2).replace('.', ',') + ' %</b></div>'
+            + '<div class="wdg-vo-l"><i>Amplitude vraie</i><b>'
+            + (st.trPips != null ? st.trPips.toFixed(0) + ' pips' : st.tr.toFixed(2)) + '</b></div>'
+            + '<div class="wdg-vo-n">' + st.n + ' périodes'
+            + (st.rejetes > 0 ? ' &middot; ' + st.rejetes + ' écart' + (st.rejetes > 1 ? 's' : '') + ' écarté' + (st.rejetes > 1 ? 's' : '') : '')
+            + '</div></div>';
+        }
+
+        function dessiner() {
+          var sym = opt(it, W, 'paire') || 'EUR/USD';
+          // Repli PAR COLONNE : chaque promesse se rabat sur null, jamais sur un rejet global.
+          Promise.all([
+            _bougies(sym, 'D1', cache).catch(function () { return null; }),
+            _bougies(sym, 'W1', cache).catch(function () { return null; }),
+          ]).then(function (r) {
+            if (!vivant || !host.isConnected) return;
+            var j = r[0] ? stats(r[0], 'D1', sym) : null;
+            var sem = r[1] ? stats(r[1], 'W1', sym) : null;
+            if (!j && !sem) { fallback(host, 'Bougies indisponibles.'); return; }
+            host.innerHTML = '<div class="wdg-vo">'
+              + '<div class="wdg-vo-tete"><span class="wdg-vo-sym">' + esc(sym) + '</span></div>'
+              + '<div class="wdg-vo-cols">' + colonne('Séance', j) + colonne('Semaine', sem) + '</div>'
+              + '<div class="wdg-vo-pied">Période en cours exclue. L\'amplitude vraie retient le plus grand écart entre le haut, le bas et la clôture précédente.</div></div>';
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        return function () { vivant = false; };
+      },
+    },
     {
       id: 'heatmap-seance', name: 'Chaleur de séance', tag: 'FX', cat: 'Marchés', h: 300, staff: true,
       desc: 'Les 28 croisements majeurs colorés par leur variation du jour, du plus vert au plus rouge.',
@@ -4667,6 +4815,8 @@
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
+    'distribution-variations': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5.5 20v-3M9 20v-8M12 20v-12M15 20v-8M18.5 20v-3"/></svg>',
+    'stats-volatilite': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14M21 5v14" opacity=".4"/><path d="M6 12c1.5-4 3-4 4.5 0s3 6 4.5 0 2.5-3 3 0"/></svg>',
     'heatmap-seance': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1" fill="currentColor" opacity=".35" stroke="none"/><rect x="3.5" y="13.5" width="7" height="7" rx="1" fill="currentColor" opacity=".55" stroke="none"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>',
     'amplitude-jour': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 19h16"/><path d="M12 8v8"/><path d="M9.5 10.5 12 8l2.5 2.5M9.5 13.5 12 16l2.5-2.5"/></svg>',
     'hauts-bas': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 18h16"/><path d="M12 6v12" opacity=".45"/><circle cx="12" cy="13" r="2.2" fill="currentColor" stroke="none"/></svg>',
@@ -4709,6 +4859,8 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    'distribution-variations': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + (function () { var v = [2, 4, 8, 14, 22, 31, 36, 30, 21, 13, 7, 3], h = ''; for (var i = 0; i < 12; i++) h += '<rect x="' + (8 + i * 9) + '" y="' + (46 - v[i]) + '" width="7" height="' + v[i] + '"' + ' fill="' + (i < 6 ? '#ff3d00' : '#00e676') + '" opacity=".55"/>'; return h; })() + '<line x1="62" y1="6" x2="62" y2="50" stroke="#e3b23a" stroke-dasharray="2 3" opacity=".6"/>' + '</svg>',
+    'stats-volatilite': '<svg ' + _PV + '>' + '<line x1="60" y1="8" x2="60" y2="48" stroke="#23232a"/>' + '<rect x="8" y="12" width="44" height="9" rx="2" fill="#3a3d44" opacity=".55"/>' + '<rect x="8" y="26" width="30" height="9" rx="2" fill="#e3b23a" opacity=".75"/>' + '<rect x="8" y="40" width="22" height="6" rx="2" fill="#3a3d44" opacity=".4"/>' + '<rect x="68" y="12" width="44" height="9" rx="2" fill="#3a3d44" opacity=".55"/>' + '<rect x="68" y="26" width="38" height="9" rx="2" fill="#e3b23a" opacity=".75"/>' + '<rect x="68" y="40" width="26" height="6" rx="2" fill="#3a3d44" opacity=".4"/>' + '</svg>',
     'heatmap-seance': '<svg ' + _PV + '>' + (function () { var h = '', v = [.9,.5,.2,-.3,-.8,.6,.1,-.5,.7,-.2,.4,-.9,.3,-.6,.8,-.1,.5,-.4,.2,-.7,.6,-.3,.9,.1]; for (var i = 0; i < 24; i++) { var x = 5 + (i % 8) * 14, y = 6 + Math.floor(i / 8) * 15, a = Math.min(Math.abs(v[i]), 1); h += '<rect x="' + x + '" y="' + y + '" width="12" height="13" rx="1.5" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity="' + (0.12 + a * 0.6).toFixed(2) + '"/>'; } return h; })() + '</svg>',
     'amplitude-jour': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + (function () { var v = [22, 30, 17, 34, 25, 12, 28, 20, 33, 16, 26, 23], h = ''; for (var i = 0; i < 12; i++) h += '<rect x="' + (8 + i * 9) + '" y="' + (46 - v[i]) + '" width="6" height="' + v[i] + '" fill="#e3b23a" opacity=".62"/>'; return h; })() + '<line x1="6" y1="22" x2="114" y2="22" stroke="#e3b23a" stroke-dasharray="3 3"/>' + '</svg>',
     'hauts-bas': '<svg ' + _PV + '>' + '<line x1="14" y1="12" x2="106" y2="12" stroke="#00e676" stroke-width="1.6"/>' + '<line x1="14" y1="44" x2="106" y2="44" stroke="#ff3d00" stroke-width="1.6"/>' + '<rect x="14" y="26" width="92" height="4" rx="2" fill="#23232a"/>' + '<rect x="14" y="26" width="58" height="4" rx="2" fill="#e3b23a" opacity=".55"/>' + '<circle cx="72" cy="28" r="4" fill="#e3b23a"/>' + '</svg>',
