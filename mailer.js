@@ -313,8 +313,19 @@ async function _sendOvhSmtp(to, subject, html, att) {
   return true;
 }
 
+/* Domaines RÉSERVÉS aux tests par les RFC 2606 / 6761 : ils ne peuvent PAS exister sur Internet.
+   Un envoi vers l'un d'eux ne peut donc que rebondir — et chaque rebond abîme la réputation
+   d'expédition du domaine, donc la délivrabilité des mails aux VRAIS clients.
+   Constaté le 18/08 : un compte de test resté en production (« Test STF »,
+   test-stf-…@test.local, créé le 12/08) a reçu un vrai e-mail de bienvenue. */
+const _DOMAINES_TEST = /@(?:[^@]*\.)?(?:local|localhost|test|invalid|example|internal)$|@example\.(?:com|net|org)$/i;
+
 async function _send(to, subject, html, attachments) {
   if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide : email ignoré:', to); return false; }
+  if (_DOMAINES_TEST.test(String(to).trim())) {
+    console.warn('[Mailer] domaine de test réservé (RFC 2606/6761) : envoi ANNULÉ →', to);
+    return false;
+  }
   // (28/07, demande user) Le tiret cadratin « — » est BANNI des mails : normalisé en tiret simple
   // au POINT DE SORTIE UNIQUE → couvre les gabarits statiques ET les contenus générés par l'IA.
   // ⚠️ ÉLARGI le 12/08 : le filtre ne voyait que le caractère LITTÉRAL. Un gabarit qui écrit

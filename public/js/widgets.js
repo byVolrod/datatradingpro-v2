@@ -598,7 +598,32 @@
 
     dessiner();
     var iv = setInterval(dessiner, 30000);
-    return function () { try { clearInterval(iv); } catch (e) {} };
+
+    /* PALIERS DE TAILLE (18/08, capture user : carte rétrécie → la 4e séance passait sous le bord,
+       avec une barre de défilement). Les règles compactes existaient, mais en @media (max-height),
+       qui interroge la FENÊTRE : une carte basse dans une grande fenêtre ne les déclenchait jamais.
+       On mesure donc la carte ELLE-MÊME et on pose un palier. Quatre séances doivent tenir sans
+       défilement : on resserre l'interligne, on affine la piste, on réduit la typo, et en dernier
+       recours on retire l'axe des heures — plutôt une frise lue d'un coup d'œil qu'une frise
+       complète et tronquée. */
+    var cadre = host.querySelector('.wdg-frise');
+    function palier() {
+      if (!cadre || !cadre.isConnected) return;
+      var h = cadre.clientHeight, w = cadre.clientWidth;
+      cadre.classList.toggle('est-moyen', h > 0 && h <= 320);
+      cadre.classList.toggle('est-compact', h > 0 && h <= 250);
+      cadre.classList.toggle('est-minus', h > 0 && h <= 190);
+      cadre.classList.toggle('est-mini', h > 0 && h <= 155);
+      cadre.classList.toggle('est-etroit', w > 0 && w <= 460);
+    }
+    palier();
+    var ro = null;
+    if (window.ResizeObserver && cadre) { ro = new ResizeObserver(palier); ro.observe(cadre); }
+
+    return function () {
+      try { clearInterval(iv); } catch (e) {}
+      try { if (ro) ro.disconnect(); } catch (e) {}
+    };
   }
 
   /* Catalogue de paires du réglage « Paire ». Les 72 symboles servis par /api/community-outlook,

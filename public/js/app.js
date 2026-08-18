@@ -9837,10 +9837,14 @@ function _chatRenderInbox(resetScroll){
   // 1) Conversations existantes, puis 2) TOUS les autres utilisateurs (pour pouvoir les contacter).
   const entries = [];
   /* Un identifiant technique n'est pas un nom : affiché tel quel il ne dit RIEN au support (« qui
-     est 3a34b9fc-9d3a-47cf ? ») et donne l'impression d'un compte corrompu. Quand ni le nom ni
-     l'e-mail ne sont connus, on le dit, en gardant les 8 premiers caractères pour pouvoir rapprocher
-     la conversation d'une ligne de base si besoin. */
-  const _nomLisible = (nom, mail, id) => nom || mail || ('Compte introuvable · ' + String(id || '').slice(0, 8));
+     est 3a34b9fc-9d3a-47cf ? ») et donne l'impression d'un compte corrompu.
+     Le libellé de repli n'AFFIRME RIEN sur l'existence du compte. Première version, le 18/08 :
+     « Compte introuvable » — vérification faite, c'était FAUX. Le compte existait, avec son nom et
+     son e-mail ; c'est la lecture qui avait échoué le temps que les nœuds Supabase flanchent
+     (primary/db3/db4 en indisponibilité tournante). Une panne passagère de lecture ne doit pas se
+     présenter au support comme un compte cassé. On garde donc les 8 premiers caractères de
+     l'identifiant, de quoi rapprocher la conversation d'une ligne de base, et rien de plus. */
+  const _nomLisible = (nom, mail, id) => nom || mail || ('Client · ' + String(id || '').slice(0, 8));
   threads.forEach(t => entries.push({
     id: String(t.user_id), name: _nomLisible(t.name, t.email, t.user_id), email: t.email || '',
     role: (userById.get(String(t.user_id)) || {}).role || 'user',

@@ -16953,15 +16953,49 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wdg-frise-now { position: absolute; top: -1px; bottom: -1px; width: 1px; background: #e3b23a;
   box-shadow: 0 0 4px rgba(227, 178, 58, .8); }
 
-/* Carte étroite : l heure locale de la place et le pied de page passent à la trappe avant le reste.
-   Mieux vaut une frise lisible qu une frise complète mais illisible. */
-@media (max-width: 460px) {
-  .wdg-frise-heures { display: none; }
-  .wdg-frise-axe span:nth-child(2), .wdg-frise-axe span:nth-child(4) { display: none; }
-}
-@media (max-height: 300px) {
-  .wdg-frise-corps { gap: 4px; }
-}
+/* PALIERS DE TAILLE — poses par le JS (ResizeObserver) sur la carte ELLE-MEME.
+   Ces regles etaient en @media (max-width/max-height), qui interroge la FENETRE : un widget
+   redimensionne dans une grande fenetre ne les declenchait jamais, et la 4e seance passait sous le
+   bord avec une barre de defilement (capture user du 18/08). Les paliers suivent la carte. */
+.wdg-frise.est-etroit .wdg-frise-heures { display: none; }
+.wdg-frise.est-etroit .wdg-frise-axe span:nth-child(2),
+.wdg-frise.est-etroit .wdg-frise-axe span:nth-child(4) { display: none; }
+
+/* Palier 1 : on resserre l interligne et on affine la piste. */
+.wdg-frise.est-moyen { gap: 6px; padding: 8px 12px 6px; }
+.wdg-frise.est-moyen .wdg-frise-corps { gap: 8px; }
+.wdg-frise.est-moyen .wdg-frise-piste { height: 14px; }
+.wdg-frise.est-moyen .wdg-frise-place { font-size: 12px; }
+
+/* Palier 2 : la typo descend, la piste s affine encore. */
+.wdg-frise.est-compact { gap: 4px; padding: 7px 10px 5px; }
+.wdg-frise.est-compact .wdg-frise-corps { gap: 5px; }
+.wdg-frise.est-compact .wdg-frise-ligne { gap: 2px; }
+.wdg-frise.est-compact .wdg-frise-piste { height: 11px; }
+.wdg-frise.est-compact .wdg-frise-place { font-size: 11px; }
+.wdg-frise.est-compact .wdg-frise-tete,
+.wdg-frise.est-compact .wdg-frise-reste,
+.wdg-frise.est-compact .wdg-frise-heures { font-size: 10px; }
+.wdg-frise.est-compact .wdg-frise-badge { font-size: 9px; padding: 1px 5px; }
+
+/* Palier 3, dernier recours : l axe des heures s efface pour que les QUATRE seances tiennent.
+   Les blocs restent positionnes en pourcentage de 0-24 h : la frise garde son sens sans lui. */
+.wdg-frise.est-minus { gap: 3px; padding: 6px 9px 4px; }
+.wdg-frise.est-minus .wdg-frise-axe { display: none; }
+.wdg-frise.est-minus .wdg-frise-corps { gap: 3px; }
+.wdg-frise.est-minus .wdg-frise-piste { height: 9px; }
+.wdg-frise.est-minus .wdg-frise-reste { display: none; }
+.wdg-frise.est-minus .wdg-frise-place { font-size: 10.5px; }
+
+/* Palier 4 : carte tres basse. La ligne d en-tete (« Londres . New York ouvertes ») s efface : la
+   meme information se lit deja sur chaque ligne, via la pastille verte et le badge OUVERT. */
+.wdg-frise.est-mini { gap: 2px; padding: 5px 8px 4px; }
+.wdg-frise.est-mini .wdg-frise-head { display: none; }
+.wdg-frise.est-mini .wdg-frise-corps { gap: 2px; }
+.wdg-frise.est-mini .wdg-frise-ligne { gap: 1px; }
+.wdg-frise.est-mini .wdg-frise-piste { height: 7px; }
+.wdg-frise.est-mini .wdg-frise-place { font-size: 10px; }
+.wdg-frise.est-mini .wdg-frise-badge { font-size: 8.5px; padding: 0 4px; }
 
 /* ── WIDGET « DMX PAR PAIRE » (17/08/2026) ─────────────────────────────────────────────────────
    Complément du widget « Aperçu DMX » qui liste toutes les paires : celui-ci en isole UNE.
@@ -17455,3 +17489,143 @@ html[data-theme="light"] .home-desks-tri,
 html[data-theme="light"] .home-zone--desks .home-panel-head .home-desks-new { border-color: rgba(0, 0, 0, 0.30); }
 html[data-theme="light"] .home-desks-tri:hover,
 html[data-theme="light"] .home-zone--desks .home-panel-head .home-desks-new:hover { border-color: rgba(227, 178, 58, 0.55); }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   THÈME CLAIR — LISIBILITÉ (18/08/2026)
+   ───────────────────────────────────────────────────────────────────────────────────────────────
+   Constat MESURÉ, pas estimé : le desk a été rendu localement puis sondé texte par texte dans les
+   deux thèmes (couleur calculée contre le fond RÉELLEMENT peint, remontée des ancêtres, ratio WCAG).
+   Résultat : 60 couples sélecteur+couleur lisibles en sombre et illisibles en clair, dont plusieurs
+   à ratio 1,0 — littéralement invisibles. Le thème clair a été greffé sur une feuille pensée sombre,
+   et ces textes-là n'ont jamais été tokenisés.
+
+   DEUX FAMILLES, deux traitements :
+   1. Textes quasi blancs des volets (profil, Copilote, Flash Marché, messagerie, listes) → ils
+      passent aux JETONS de texte, qui savent déjà s'adapter.
+   2. Couleurs SÉMANTIQUES (vert achat, rouge vente, ambre neutre, or signature). Elles sont
+      calibrées pour un fond sombre et se délavent sur du papier clair. Chaque variante ci-dessous
+      a été CALCULÉE : on assombrit la couleur d'origine en gardant SA TEINTE (rapport R:G:B
+      constant) jusqu'au premier palier qui franchit 4,5:1 sur TOUS les fonds clairs relevés
+      (#ffffff, #f2f2ee, #eaeae4, #e7e9ee, #fefbf5). Le vert reste vert, le rouge reste rouge : la
+      charte sémantique est conservée, seule sa luminosité s'adapte au support.
+
+   TOUT est porté par html[data-theme="light"] : le thème SOMBRE ne peut pas bouger, par
+   construction. C'était la condition non négociable de ce chantier.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Textes quasi blancs → jetons ───────────────────────────────────────────────────────────── */
+/* NOTE — la liste Analyste (.arl-ttl, .arl-c-date) est volontairement ABSENTE : ses cartes gardent
+   un fond sombre en thème clair. Y poser du texte sombre l'avait rendu illisible (mesuré à 1,06:1
+   après un premier jet) : un texte clair sur fond sombre n'est PAS un défaut, c'est le dessin voulu.
+   Le critère n'est jamais « la couleur est claire » mais « la couleur contraste avec SON fond ». */
+html[data-theme="light"] .pd-ref-headline,
+html[data-theme="light"] #pd-ref-count,
+html[data-theme="light"] .pd-username,
+html[data-theme="light"] .pd-avatar,
+html[data-theme="light"] .pd-avatar-large,
+html[data-theme="light"] #topbar-avatar-letter,
+html[data-theme="light"] .pd-lang-name,
+html[data-theme="light"] .ai-head-title,
+html[data-theme="light"] .sqwk-title,
+html[data-theme="light"] .sqwk-toggle-state,
+html[data-theme="light"] .chat-support-av,
+html[data-theme="light"] .cs-badge-ccy { color: var(--text) !important; }
+
+html[data-theme="light"] .pd-section-label,
+html[data-theme="light"] .pd-ref-empty-t,
+html[data-theme="light"] .pd-ref-desc,
+html[data-theme="light"] .sqwk-status,
+html[data-theme="light"] .tag--default,
+html[data-theme="light"] .tag--neutral,
+html[data-theme="light"] .rtc-k,
+html[data-theme="light"] .rtc-base.n,
+html[data-theme="light"] .mt-tag.mt-neu { color: var(--text2) !important; }
+
+/* ── 2. Couleurs sémantiques : mêmes teintes, luminosité adaptée au papier ─────────────────────── */
+
+/* Vert « achat / hausse » #00e676 → #00783d (4,63:1 au pire fond) */
+html[data-theme="light"] .fxl-pct--pos,
+html[data-theme="light"] .rtc-pill.g,
+html[data-theme="light"] .rtc-base.g,
+html[data-theme="light"] .rtc-v.g,
+html[data-theme="light"] .ai-head-ic,
+html[data-theme="light"] .ai-head-status,
+html[data-theme="light"] .ai-spark-txt,
+html[data-theme="light"] .chart-header-sub,
+html[data-theme="light"] .wdg-map-sub,
+html[data-theme="light"] .bank-st-tp { color: #00783d !important; }
+
+html[data-theme="light"] .fxl-chg--pos { color: #007659 !important; }   /* turquoise #00cc99 → 4,61:1 */
+html[data-theme="light"] .cv-actual.cv-pos { color: #127939 !important; }   /* #22e06a → 4,53:1 */
+html[data-theme="light"] .mt-tag.mt-pos { color: #167849 !important; }   /* #2ae389 → 4,51:1 */
+html[data-theme="light"] .mt-tag.sbm-bull { color: #0b765a !important; }   /* #14d3a1 → 4,60:1 */
+html[data-theme="light"] .sqwk-play { color: #1b7843 !important; }   /* #2ecc71 → 4,51:1 */
+html[data-theme="light"] #pd-ref-earn,
+html[data-theme="light"] .pd-ref-note strong { color: #157839 !important; }   /* #22c55e → 4,57:1 */
+
+/* Rouge « vente / baisse » #ff3d00 → #c73000 (4,50:1) */
+html[data-theme="light"] .fxl-pct--neg,
+html[data-theme="light"] .rtc-pill.r,
+html[data-theme="light"] .rtc-base.r,
+html[data-theme="light"] .bank-st-sl { color: #c73000 !important; }
+html[data-theme="light"] .mt-tag.mt-neg,
+html[data-theme="light"] .mt-tag.sbm-bear { color: #ab4c3c !important; }   /* #ff7259 → 4,51:1 */
+html[data-theme="light"] .pd-badge { color: #bf3636 !important; }   /* #ef4444 → 4,54:1 */
+
+/* Ambre « neutre » #ffb300 → #8a6100 (4,58:1) */
+html[data-theme="light"] .bank-st-active,
+html[data-theme="light"] .ci-med,
+html[data-theme="light"] .ci-dot-off { color: #8a6100 !important; }
+html[data-theme="light"] .mt-tag.sbm-neut { color: #826428 !important; }   /* #ffc44f → 4,55:1 */
+
+/* Or signature #e3b23a → #816521 (4,50:1). Le #b8860b de la charte ne suffit PAS sur papier clair
+   (mesuré à 2,9:1 sur les libellés d'horloge) : il reste réservé au thème sombre. */
+html[data-theme="light"] .clock-sun,
+html[data-theme="light"] .pd-zoom-val,
+html[data-theme="light"] .pd-theme-btn.pd-active,
+html[data-theme="light"] .clock-city-label--closed,
+html[data-theme="light"] .pd-ref-headline span,
+html[data-theme="light"] .pd-ref-note a { color: #816521 !important; }
+html[data-theme="light"] .mt-tag.mt-drv { color: #7d652e !important; }   /* #e0b452 → 4,58:1 */
+html[data-theme="light"] .clock-moon { color: #516a92 !important; }
+
+/* ── 3. Liste Analyste : titres quasi blancs sur cartes blanches ───────────────────────────────── */
+/* Les lignes « Récap Hebdo » (.arl-row--weekly) sont EXCLUES : elles portent un fond rouge très
+   sombre codé en dur, comme les lignes importantes du fil d actualité, et gardent donc un texte
+   clair qui contraste déjà. Le fil ne surcharge rien en thème clair non plus : ces lignes teintées
+   restent sombres par convention, et diverger ici casserait l unité des deux listes. */
+html[data-theme="light"] .arl-row:not(.arl-row--weekly) .arl-ttl,
+html[data-theme="light"] .arl-row:not(.arl-row--weekly):hover .arl-ttl { color: var(--text) !important; }
+html[data-theme="light"] .arl-row:not(.arl-row--weekly) .arl-c-date { color: var(--text2) !important; }
+/* Ligne déjà lue : estompée, mais elle doit rester lisible — au survol elle passait à #b6b6bc,
+   soit 2,4:1 sur blanc. */
+html[data-theme="light"] .arl-row--read:not(.arl-row--weekly) .arl-ttl,
+html[data-theme="light"] .arl-row--read:not(.arl-row--weekly):hover .arl-ttl { color: var(--text3) !important; }
+
+/* ── 4. Derniers textes gris trop pâles ────────────────────────────────────────────────────────── */
+html[data-theme="light"] .pd-ref-stat span { color: var(--text2) !important; }
+/* Étiquettes du fil : SEULEMENT sur les lignes à fond clair. Première version, trop large :
+   elle visait toutes les .news-tags .tag et a rendu « Info » et « Analyse » illisibles (1,95:1) sur
+   les lignes IMPORTANTES, qui gardent un fond rouge très sombre en thème clair. Même piège que la
+   liste Analyste : la question n est jamais la couleur seule, mais le couple couleur/fond. */
+/* Étiquettes en BLANC sur fond TRANSLUCIDE (recensées : .tag--green, .tag--red, [data-cat=Sanctions],
+   .sea-cfg-tab--on). Un fond rgba(...,0.15) prend la couleur de ce qu il y a DESSOUS : sombre en
+   thème sombre, donc le blanc passe ; pâle en thème clair, donc le blanc disparaît. On rend à
+   chacune un texte de SA teinte, assez foncé pour se lire sur la pastille pâle. */
+html[data-theme="light"] .tag--green { color: #157738 !important; }   /* 4,52:1 sur la pastille verte pâle */
+html[data-theme="light"] .tag--red,
+html[data-theme="light"] .tag[data-cat="Sanctions"] { color: #a32a1e !important; }
+html[data-theme="light"] .sea-cfg-tab--on { color: var(--text) !important; }
+/* Cellule devise du tableau macro (onglet BIAIS) : blanc sur papier. Le libelle vit dans un
+   span NU a l interieur du td, d ou la reprise des deux. */
+html[data-theme="light"] .mt-cur,
+html[data-theme="light"] .mt-cur span { color: var(--text) !important; }
+
+/* (Aucune regle generique sur .tag : essayee, puis RETIREE. .tag--info et .tag--analyse sont des
+   FILTRES qui portent leurs propres couleurs (turquoise, bleu) sur une barre restee sombre ; les
+   uniformiser les rendait illisibles. Une famille de classes ne partage pas forcement un fond.) */
+html[data-theme="light"] #pd-clock-time { color: var(--text) !important; }   /* bleu #8ab4f8 → 4,50:1 */
+
+/* Le calendrier n apparait PAS dans ce bloc : une regle claire plus fine existe deja plus haut
+   (.cal-row td + variantes cth-time/cth-event/cth-curr), et la mesure le donne conforme. Ajouter
+   un doublon ici n aurait rien corrige et aurait cree deux sources de verite. */
