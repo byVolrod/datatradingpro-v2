@@ -1732,6 +1732,249 @@
        « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
 
     {
+      id: 'evenement-rebours', name: 'Compte a rebours d evenement', tag: 'CALENDRIER', cat: 'Macro', h: 240, staff: true,
+      desc: 'Le prochain chiffre macro attendu, isole, avec le temps qui reste.',
+      /* Une carte a UNE seule information : c est ce qui la separe du widget Calendrier, qui est
+         une table. Le decompte ne se calcule QUE depuis timestamp (ms epoch UTC) : le champ `time`
+         de la source est fige a l heure de Paris et mentirait a un lecteur d un autre fuseau.
+         ⚠️ CORRECTIF EXIGE PAR LA CONTRE-VERIFICATION : on passe null en 3e argument de
+         calActualCell. Ce parametre est la borne basse, et elle declenche un eclair « sorti sous
+         l estimation basse ». Or low/high ne sont PAS un consensus d analystes : c est une
+         estimation IA, ou un calcul maison (prevision ± 0,7 x |prevision - precedent|). Afficher
+         cet eclair reviendrait a inventer une fourchette. Le desk fait deja ce choix ailleurs. */
+      opts: [
+        { k: 'devise', lbl: 'Devise', type: 'choix', def: 'all',
+          // Les 9 devises REELLEMENT servies par la source. Aucune n est inventee.
+          choix: [['all', 'Toutes'], ['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'],
+            ['AUD', 'AUD'], ['NZD', 'NZD'], ['CAD', 'CAD'], ['CHF', 'CHF'], ['CNY', 'CNY']] },
+        { k: 'impact', lbl: 'Impact', type: 'choix', def: 'all',
+          choix: [['all', 'Tous'], ['High', 'Fort seulement']] },
+        { k: 'chiffres', lbl: 'Afficher prevision et precedent', type: 'bascule', def: true },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, ev = null, autres = 0;
+        host.innerHTML = '<div class="wdg-rb">'
+          + '<div class="wdg-rb-tete"></div>'
+          + '<div class="wdg-rb-chrono">--</div>'
+          + '<div class="wdg-rb-titre"></div>'
+          + '<div class="wdg-rb-pied"></div></div>';
+        var eTete = host.querySelector('.wdg-rb-tete');
+        var eChr = host.querySelector('.wdg-rb-chrono');
+        var eTit = host.querySelector('.wdg-rb-titre');
+        var ePied = host.querySelector('.wdg-rb-pied');
+
+        function deuxCh(n) { return (n < 10 ? '0' : '') + n; }
+
+        function choisir(items) {
+          var dev = opt(it, W, 'devise'), imp = opt(it, W, 'impact');
+          var maintenant = Date.now();
+          var futurs = (items || []).filter(function (e) {
+            if (!e || !e.timestamp || e.timestamp <= maintenant) return false;
+            if (dev && dev !== 'all' && e.currency !== dev) return false;
+            if (imp === 'High' && e.impact !== 'High') return false;
+            return true;
+          });
+          if (!futurs.length) return null;
+          // Depart d egalite EXPLICITE : a la meme seconde, le Fort passe devant le Moyen.
+          futurs.sort(function (a, b) {
+            if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+            var ra = a.impact === 'High' ? 0 : 1, rb = b.impact === 'High' ? 0 : 1;
+            return ra - rb;
+          });
+          var premier = futurs[0];
+          // Combien d autres publications tombent a la MEME heure : information reelle, tiree du
+          // meme tableau, utile au trader (une seconde ou trois chiffres sortent ensemble).
+          autres = futurs.filter(function (e) { return e.timestamp === premier.timestamp; }).length - 1;
+          return premier;
+        }
+
+        function rendreTete() {
+          if (!ev) return;
+          var h = '';
+          try { h += CAL_FLAG(ev.currency); } catch (e) {}
+          h += '<span class="wdg-rb-dev">' + esc(ev.currency || '') + '</span>';
+          try { h += '<span class="wdg-rb-imp">' + calImpDots(ev.impact) + '</span>'; } catch (e) {}
+          var hh = '';
+          try { hh = calFormatTime(ev.timestamp); } catch (e) {}
+          h += '<span class="wdg-rb-h">' + esc(hh) + '</span>';
+          eTete.innerHTML = h;
+          eTit.innerHTML = '<span class="wdg-rb-nom">' + esc(ev.title || '') + '</span>'
+            + (autres > 0 ? '<span class="wdg-rb-autres">+' + autres + ' autre' + (autres > 1 ? 's' : '') + ' publication' + (autres > 1 ? 's' : '') + ' a cette heure</span>' : '');
+          if (opt(it, W, 'chiffres') !== false) {
+            ePied.innerHTML = '<span><i>Prevision</i><b>' + esc(ev.forecast || '-') + '</b></span>'
+              + '<span><i>Precedent</i><b>' + esc(ev.previous || '-') + '</b></span>';
+          } else { ePied.innerHTML = ''; }
+        }
+
+        function tic() {
+          if (!ev || !host.isConnected) return;
+          var reste = ev.timestamp - Date.now();
+          if (reste > 0) {
+            var sec = Math.floor(reste / 1000);
+            var j = Math.floor(sec / 86400); sec -= j * 86400;
+            var hr = Math.floor(sec / 3600); sec -= hr * 3600;
+            var mn = Math.floor(sec / 60); sec -= mn * 60;
+            eChr.textContent = (j > 0 ? j + ' j ' : '') + deuxCh(hr) + ':' + deuxCh(mn) + ':' + deuxCh(sec);
+            eChr.classList.remove('est-publie');
+            return;
+          }
+          // APRES L HEURE : on ne remet pas un compte a rebours a zero. Deux etats seulement, et
+          // AUCUNE promesse de delai : le chiffre arrive quand la source le publie, pas avant.
+          eChr.classList.add('est-publie');
+          if (ev.actual) {
+            try {
+              // 3e argument a null : pas de borne basse, donc pas d eclair sur une fourchette
+              // qui n existe pas. C est LE correctif de ce widget.
+              eChr.innerHTML = calActualCell(ev.actual, ev.forecast, null, ev.title);
+            } catch (e) { eChr.textContent = ev.actual; }
+          } else {
+            eChr.textContent = 'Publie, chiffre non encore diffuse';
+          }
+        }
+
+        function charger() {
+          fetch('/api/calendar-events').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            var items = (d && d.items) || [];
+            ev = choisir(items);
+            if (!ev) { fallback(host, 'Aucun evenement programme sur les dix prochains jours.'); return; }
+            rendreTete(); tic();
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Calendrier indisponible.'); });
+        }
+
+        charger();
+        // Deux minuteurs distincts : la seconde pour l affichage, la minute pour la donnee (le
+        // serveur cache 4 min, sonder plus vite ne relirait que le meme cache).
+        var ivT = setInterval(tic, 1000);
+        var ivD = setInterval(charger, 60000);
+        return function () { vivant = false; try { clearInterval(ivT); clearInterval(ivD); } catch (e) {} };
+      },
+    },
+
+    {
+      id: 'serie-indicateur', name: 'Serie d un indicateur', tag: 'MACRO', cat: 'Macro', h: 300, staff: true,
+      desc: 'Les dernieres publications d un indicateur, en barres, avec la surprise contre la prevision.',
+      /* ⚠️ LA SOURCE N EST PAS CELLE QU ON CROIT. /api/event-history existe, mais il compare les
+         titres BRUTS alors que /api/calendar-events sert des titres RENOMMES : la reponse revient
+         vide EN SILENCE pour tout indicateur renomme (le desk lui-meme a ce defaut). On construit
+         donc la serie depuis /api/calendar-events, qui republie l historique par titre (champ _h
+         redeploye en evenements synthetiques) AVEC le pays — ce que l autre route ne permet pas.
+         ⚠️ GARDE D UNITE : les valeurs sont des CHAINES deja formatees ('3.2%', '122K', '-8.0M').
+         Si deux suffixes differents cohabitent dans une serie, on ne dessine PAS de barres : une
+         barre qui compare des K a des % est un graphique faux. On liste alors les valeurs. */
+      opts: [
+        { k: 'devise', lbl: 'Devise', type: 'choix', def: 'USD',
+          choix: [['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'],
+            ['AUD', 'AUD'], ['NZD', 'NZD'], ['CAD', 'CAD'], ['CHF', 'CHF'], ['CNY', 'CNY']] },
+        { k: 'indic', lbl: 'Indicateur', type: 'texte', def: '', cache: true },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        skel(host, 5);
+
+        // Suffixe d unite d une valeur formatee : '122K' -> 'K', '3.2%' -> '%', '-8.0' -> ''.
+        function unite(v) { var m = String(v == null ? '' : v).trim().match(/([KMBT%])\s*$/i); return m ? m[1].toUpperCase() : ''; }
+        // Valeur numerique d une chaine formatee, SANS son suffixe (on ne convertit pas les
+        // echelles entre elles : la garde d unite s en charge en amont).
+        function nombre(v) {
+          var t = String(v == null ? '' : v).replace(/[^0-9.,+-]/g, '').replace(',', '.');
+          var n = parseFloat(t);
+          return isFinite(n) ? n : null;
+        }
+
+        function rendre(serie, titre) {
+          var unites = {};
+          serie.forEach(function (p) { unites[unite(p.actual)] = 1; });
+          var melange = Object.keys(unites).length > 1;
+          var vals = serie.map(function (p) { return nombre(p.actual); });
+          var dates = serie.map(function (p) {
+            try { return new Date(p.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch (e) { return ''; }
+          });
+          var etendue = '';
+          try {
+            etendue = serie.length + ' publication' + (serie.length > 1 ? 's' : '') + ' \u00b7 '
+              + new Date(serie[0].timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+              + ' \u2192 ' + new Date(serie[serie.length - 1].timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+          } catch (e) {}
+
+          var corps;
+          if (melange) {
+            // Unites melangees : on RENONCE au graphe et on montre les chiffres. Un chiffre juste
+            // vaut mieux qu une barre fausse.
+            corps = '<div class="wdg-si-liste">' + serie.map(function (p, i) {
+              return '<div class="wdg-si-l"><span>' + esc(dates[i]) + '</span><b>' + esc(p.actual || '-') + '</b></div>';
+            }).join('') + '</div><div class="wdg-si-note">L unite change d une publication a l autre : les valeurs sont listees telles que la source les donne, sans graphe.</div>';
+          } else {
+            corps = '<div class="wdg-si-zone">' + _barresSvg(vals, { signe: false }) + '</div>'
+              + '<div class="wdg-si-axe">' + dates.map(function (dd, i) {
+                return '<span><i>' + esc(serie[i].actual || '') + '</i><em>' + esc(dd) + '</em></span>';
+              }).join('') + '</div>';
+          }
+          host.innerHTML = '<div class="wdg-si">'
+            + '<div class="wdg-si-tete"><span class="wdg-si-titre">' + esc(titre) + '</span></div>'
+            + corps
+            + '<div class="wdg-si-pied">' + esc(etendue) + '</div></div>';
+        }
+
+        function charger() {
+          var dev = opt(it, W, 'devise') || 'USD';
+          var choisi = opt(it, W, 'indic') || '';
+          fetch('/api/calendar-events').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            var items = (d && d.items) || [];
+            // Publications PASSEES de la devise, qui portent un chiffre.
+            var passes = items.filter(function (e) {
+              return e && e.currency === dev && e.actual && String(e.actual).trim() && e.timestamp;
+            });
+            if (!passes.length) { fallback(host, 'Aucune publication chiffree pour ' + esc(dev) + '.'); return; }
+            // Regroupement par titre BRUT : c est la cle stable. Le libelle affiche peut avoir ete
+            // renomme, deux titres bruts differents pouvant porter le meme libelle.
+            var parTitre = {};
+            passes.forEach(function (e) {
+              var brut = e._tvTitle || e.title || '';
+              (parTitre[brut] = parTitre[brut] || { titre: e.title || brut, pts: [] }).pts.push(e);
+            });
+            var titres = Object.keys(parTitre).sort(function (a, b) {
+              var la = Math.max.apply(null, parTitre[a].pts.map(function (x) { return x.timestamp; }));
+              var lb = Math.max.apply(null, parTitre[b].pts.map(function (x) { return x.timestamp; }));
+              return lb - la;
+            });
+            var brut = (choisi && parTitre[choisi]) ? choisi : titres[0];
+            var g = parTitre[brut];
+            var serie = g.pts.slice().sort(function (a, b) { return a.timestamp - b.timestamp; });
+            if (serie.length < 2) { fallback(host, 'Une seule publication connue : pas de serie a tracer.'); return; }
+            rendre(serie, g.titre);
+            // Selecteur DANS la carte : la liste depend des donnees, elle ne peut pas vivre dans
+            // les opts statiques du catalogue.
+            var tete = host.querySelector('.wdg-si-tete');
+            if (tete) {
+              var sel = document.createElement('select');
+              sel.className = 'wdg-si-sel';
+              titres.slice(0, 40).forEach(function (t) {
+                var o = document.createElement('option');
+                o.value = t; o.textContent = parTitre[t].titre;
+                if (t === brut) o.selected = true;
+                sel.appendChild(o);
+              });
+              // Signature reelle : _ecrisOpt(host, it, cle, valeur) — memorise le choix sans
+              // reconstruire la carte, comme le fait deja le widget Graphique pour sa paire.
+              sel.addEventListener('change', function () { _ecrisOpt(host, it, 'indic', sel.value); charger(); });
+              tete.appendChild(sel);
+            }
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Historique indisponible.'); });
+        }
+
+        charger();
+        return function () { vivant = false; };
+      },
+    },
+    {
       id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marches', h: 140, staff: true,
       desc: 'Les dix reperes du desk en bande fine defilante.',
       /* Source : /api/ticker, liste FIGEE de 10 actifs cote serveur. On n offre donc AUCUN champ

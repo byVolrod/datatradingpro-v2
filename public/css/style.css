@@ -17737,3 +17737,58 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 @media (max-height: 260px) {
   .wdg-freq-pied, .wdg-sais-pied { display: none; }
 }
+
+/* ── Compte à rebours d'événement (19/08) ──────────────────────────────────────────────────────
+   Une carte à UNE information : le chrono domine, tout le reste le sert. */
+.wdg-rb { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px;
+  align-items: center; justify-content: center; padding: 10px 14px 8px; text-align: center; }
+.wdg-rb-tete { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; font-size: 11px;
+  color: var(--txt-3, #6b7280); }
+.wdg-rb-tete img, .wdg-rb-tete .cal-flag { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; }
+.wdg-rb-dev { color: var(--txt-2, #9aa1ac); font-weight: 700; letter-spacing: .04em; }
+.wdg-rb-h { font-variant-numeric: tabular-nums; }
+.wdg-rb-chrono { flex: 0 0 auto; font-size: 30px; line-height: 1.1; font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: .01em; color: var(--txt-1, #e6e8eb); }
+/* Le chiffre publié n'a plus la taille d'un décompte : c'est un résultat, pas une attente. */
+.wdg-rb-chrono.est-publie { font-size: 20px; color: var(--orange, #e3b23a); }
+.wdg-rb-titre { flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; }
+.wdg-rb-nom { font-size: 12px; color: var(--txt-2, #9aa1ac); line-height: 1.3; }
+.wdg-rb-autres { font-size: 9.5px; color: var(--txt-3, #6b7280); }
+.wdg-rb-pied { flex: 0 0 auto; display: flex; gap: 22px; border-top: 1px solid var(--hud-line);
+  padding-top: 7px; margin-top: 2px; }
+.wdg-rb-pied span { display: flex; flex-direction: column; gap: 2px; }
+.wdg-rb-pied i { font-style: normal; font-size: 9px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--txt-3, #6b7280); }
+.wdg-rb-pied b { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
+
+/* ── Série d'un indicateur (19/08) ─────────────────────────────────────────────────────────────
+   L'axe porte la valeur BRUTE telle que la source la donne, sous la barre : le lecteur voit le
+   chiffre, pas seulement une hauteur. */
+.wdg-si { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
+.wdg-si-tete { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.wdg-si-titre { font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--txt-1, #e6e8eb);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wdg-si-sel { margin-left: auto; flex: 0 1 auto; max-width: 55%; background: var(--bg-3, #17171b);
+  color: var(--txt-2, #9aa1ac); border: 1px solid var(--hud-line); border-radius: 3px;
+  font-size: 10px; padding: 2px 4px; font-family: inherit; }
+.wdg-si-zone { flex: 1 1 auto; min-height: 0; }
+.wdg-si-axe { flex: 0 0 auto; display: flex; justify-content: space-between; gap: 2px; }
+.wdg-si-axe span { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+.wdg-si-axe i { font-style: normal; font-size: 9.5px; font-variant-numeric: tabular-nums;
+  color: var(--txt-2, #9aa1ac); }
+.wdg-si-axe em { font-style: normal; font-size: 8.5px; color: var(--txt-3, #6b7280); }
+.wdg-si-pied { flex: 0 0 auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+/* Unités mélangées : pas de graphe, une liste. Un chiffre juste vaut mieux qu'une barre fausse. */
+.wdg-si-liste { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.wdg-si-l { display: flex; justify-content: space-between; gap: 10px; padding: 4px 2px;
+  border-bottom: 1px solid var(--hud-line); font-size: 11px; }
+.wdg-si-l span { color: var(--txt-3, #6b7280); }
+.wdg-si-l b { font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
+.wdg-si-note { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280); padding-top: 5px; }
+
+/* Carte basse : les pieds explicatifs cèdent avant les chiffres. */
+@media (max-height: 240px) {
+  .wdg-si-pied, .wdg-rb-pied { display: none; }
+  .wdg-rb-chrono { font-size: 24px; }
+}
