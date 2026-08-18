@@ -589,6 +589,83 @@
      filtrés par la MÊME règle que le desk (_dmxAllowed) : deux devises majeures, ou un métal coté
      contre une majeure. Les exotiques (EURTRY, USDRUB, NOKSEK…) restent hors catalogue, comme dans
      la liste « Aperçu DMX », pour que les deux widgets parlent du même univers. */
+  /* ── DONUT PARTAGÉ (18/08) : anneau animé + étiquettes en taille d'écran ─────────────────────
+     Factorisé du widget « DMX par paire » quand le « COT par devise » est arrivé : deux widgets, un
+     seul donut. Les corps sont ceux éprouvés du DMX (jour entre segments, pousse à la frame
+     suivante, étiquettes bornées et JAMAIS posées sur l'anneau). Les TEXTES d'étiquettes sont des
+     paramètres : le DMX affiche des pourcentages (sa source n'a pas de volumes), le COT affiche les
+     volumes réels de la CFTC. */
+        /* SVG carré, arcs seuls : les étiquettes ne vivent PLUS dans le viewBox. Dedans, elles
+     grandissaient avec l'anneau (unités du viewBox : ~36 px sur une grande carte) et
+     débordaient du cadre (« Acheteurs » coupé au bord, capture user du 18/08). Elles sont
+     posées en HTML, en taille d'écran, par poserEtiquettes() sur la même géométrie. */
+  function _donutSvg(courtPct, longPct) {
+    var cx = 80, cy = 80, r = 54, ep = 26, c = 2 * Math.PI * r;
+    var pC = Math.max(0, Math.min(100, courtPct)), pL = Math.max(0, Math.min(100, longPct));
+    var aC = pC / 100 * c, aL = pL / 100 * c;
+    // Jour sombre entre les segments, comme la reference : 1,5 unite retiree de chaque cote
+    // de chaque frontiere (le fond noir affleure). Un segment quasi nul garde une longueur
+    // >= 0 : jamais de dasharray negatif.
+    var G = 1.5;
+    var dC = Math.max(0, aC - 2 * G), dL = Math.max(0, aL - 2 * G);
+    return '<svg viewBox="0 0 160 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
+      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--hud-line)" stroke-width="' + ep + '"></circle>'
+      + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#ff3d00" stroke-width="' + ep + '"'
+      + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="' + (-G) + '" data-fin="' + dC + ' ' + (c - dC) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
+      + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#00e676" stroke-width="' + ep + '"'
+      + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="' + (-G) + '" data-fin="' + dL + ' ' + (c - dL) + '" data-dec="' + (-(aC + G)) + '"'
+      + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
+      + '</svg>';
+  }
+
+        /* Étiquettes en HTML, taille d'écran fixe, sur la géométrie de l'anneau : angle médian du
+     segment, rayon = bord externe + 8 px d'écran. Bornées dans la zone (une étiquette qui
+     sortirait du cadre est ramenée au bord), masquées si le segment est < 3 % ou si la zone
+     est trop petite pour les porter (< 150 px de côté utile). Repositionnées par le
+     ResizeObserver du widget : la carte est redimensionnable. */
+  function _donutEtiquettes(zone, pC, pL, texteC, texteL) {
+    zone.querySelectorAll('.wdg-dmx1-lab, .wdg-dmx1-fil').forEach(function (n) { n.remove(); });
+    var bw = zone.clientWidth, bh = zone.clientHeight;
+    // Le SVG est PLAFONNE a 340 px par le CSS (fidele a la reference, ou le donut garde une
+    // taille contenue au centre de la carte) : la geometrie des etiquettes suit le meme plafond (390).
+    var cote = Math.min(bw, bh, 390);
+    if (cote < 150) return;
+    var cx = bw / 2, cy = bh / 2;
+    var rBord = (cote / 2) * ((54 + 13) / 80);      // bord externe de l'anneau (viewBox 160, demi 80)
+    [[0, pC, texteC], [pC, pL, texteL]]
+      .forEach(function (seg) {
+        if (seg[1] < 3) return;
+        var ang = ((seg[0] + seg[1] / 2) / 100 * 360 - 90) * Math.PI / 180;
+        // Trait de rappel incline, comme la reference : 13 px le long de l'angle median.
+        var fil = document.createElement('span');
+        fil.className = 'wdg-dmx1-fil';
+        fil.style.left = (cx + Math.cos(ang) * (rBord + 9)) + 'px';
+        fil.style.top = (cy + Math.sin(ang) * (rBord + 9)) + 'px';
+        fil.style.transform = 'translate(-50%, -50%) rotate(' + Math.round(ang * 180 / Math.PI) + 'deg)';
+        zone.appendChild(fil);
+        var x = cx + Math.cos(ang) * (rBord + 17), y = cy + Math.sin(ang) * (rBord + 17);
+        var el = document.createElement('span');
+        el.className = 'wdg-dmx1-lab';
+        el.textContent = seg[2];
+        zone.appendChild(el);
+        var w = el.offsetWidth, h = el.offsetHeight;
+        var gauche = Math.cos(ang) < 0;
+        var L2 = gauche ? x - w - 2 : x + 2;
+        // Bornage : jamais hors de la zone.
+        L2 = Math.max(2, Math.min(bw - w - 2, L2));
+        var T2 = Math.max(2, Math.min(bh - h - 2, y - h / 2));
+        /* GARANTIE DE NON-CHEVAUCHEMENT (18/08, demande user) : si le bornage a repousse
+           l etiquette vers l anneau, elle finirait DESSUS. On mesure la distance du point du
+           rectangle le plus proche du centre : sous le bord externe + 3 px, l etiquette est
+           MASQUEE (et son fil avec) plutot que posee sur le donut : le pied de carte porte
+           deja les memes pourcentages, une etiquette qui chevauche n informe plus, elle salit. */
+        var px2 = Math.max(L2, Math.min(cx, L2 + w)), py2 = Math.max(T2, Math.min(cy, T2 + h));
+        if (Math.hypot(px2 - cx, py2 - cy) < rBord + 3) { el.remove(); fil.remove(); return; }
+        el.style.left = L2 + 'px';
+        el.style.top = T2 + 'px';
+      });
+  }
+
   var _DMX_PAIRES = [
     // Les 39 symboles que la source publie ET que la règle du desk retient. Générer les
     // combinaisons ferait apparaître des paires inexistantes (JPY/USD, USD/EUR…) dans le réglage.
@@ -1509,7 +1586,7 @@
         // La carte est redimensionnable : les etiquettes suivent la geometrie reelle de la zone.
         var _ro = null;
         try {
-          _ro = new ResizeObserver(function () { if (_pcts && zone.isConnected) poserEtiquettes(_pcts[0], _pcts[1]); });
+          _ro = new ResizeObserver(function () { if (_pcts && zone.isConnected) _donutEtiquettes(zone, _pcts[0], _pcts[1], 'Vendeurs · ' + Math.round(_pcts[0]) + ' %', 'Acheteurs · ' + Math.round(_pcts[1]) + ' %'); });
           _ro.observe(zone);
         } catch (e) {}
 
@@ -1525,76 +1602,9 @@
            les pousse à la frame suivante et la transition CSS fait « se charger » l'anneau. Le
            vert part collé au rouge (dashoffset 0 -> -aC) : il grandit en le suivant, l'ensemble
            balaie le cadran comme un chargement. */
-        /* SVG carré, arcs seuls : les étiquettes ne vivent PLUS dans le viewBox. Dedans, elles
-           grandissaient avec l'anneau (unités du viewBox : ~36 px sur une grande carte) et
-           débordaient du cadre (« Acheteurs » coupé au bord, capture user du 18/08). Elles sont
-           posées en HTML, en taille d'écran, par poserEtiquettes() sur la même géométrie. */
-        function anneau(courtPct, longPct) {
-          var cx = 80, cy = 80, r = 54, ep = 26, c = 2 * Math.PI * r;
-          var pC = Math.max(0, Math.min(100, courtPct)), pL = Math.max(0, Math.min(100, longPct));
-          var aC = pC / 100 * c, aL = pL / 100 * c;
-          // Jour sombre entre les segments, comme la reference : 1,5 unite retiree de chaque cote
-          // de chaque frontiere (le fond noir affleure). Un segment quasi nul garde une longueur
-          // >= 0 : jamais de dasharray negatif.
-          var G = 1.5;
-          var dC = Math.max(0, aC - 2 * G), dL = Math.max(0, aL - 2 * G);
-          return '<svg viewBox="0 0 160 160" class="wdg-dmx1-svg" preserveAspectRatio="xMidYMid meet">'
-            + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--hud-line)" stroke-width="' + ep + '"></circle>'
-            + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#ff3d00" stroke-width="' + ep + '"'
-            + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="' + (-G) + '" data-fin="' + dC + ' ' + (c - dC) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
-            + '<circle class="wdg-dmx1-arc" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#00e676" stroke-width="' + ep + '"'
-            + ' stroke-dasharray="0 ' + c + '" stroke-dashoffset="' + (-G) + '" data-fin="' + dL + ' ' + (c - dL) + '" data-dec="' + (-(aC + G)) + '"'
-            + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>'
-            + '</svg>';
-        }
 
-        /* Étiquettes en HTML, taille d'écran fixe, sur la géométrie de l'anneau : angle médian du
-           segment, rayon = bord externe + 8 px d'écran. Bornées dans la zone (une étiquette qui
-           sortirait du cadre est ramenée au bord), masquées si le segment est < 3 % ou si la zone
-           est trop petite pour les porter (< 150 px de côté utile). Repositionnées par le
-           ResizeObserver du widget : la carte est redimensionnable. */
-        function poserEtiquettes(pC, pL) {
-          zone.querySelectorAll('.wdg-dmx1-lab, .wdg-dmx1-fil').forEach(function (n) { n.remove(); });
-          var bw = zone.clientWidth, bh = zone.clientHeight;
-          // Le SVG est PLAFONNE a 340 px par le CSS (fidele a la reference, ou le donut garde une
-          // taille contenue au centre de la carte) : la geometrie des etiquettes suit le meme plafond (390).
-          var cote = Math.min(bw, bh, 390);
-          if (cote < 150) return;
-          var cx = bw / 2, cy = bh / 2;
-          var rBord = (cote / 2) * ((54 + 13) / 80);      // bord externe de l'anneau (viewBox 160, demi 80)
-          [[0, pC, 'Vendeurs · ' + Math.round(pC) + ' %'], [pC, pL, 'Acheteurs · ' + Math.round(pL) + ' %']]
-            .forEach(function (seg) {
-              if (seg[1] < 3) return;
-              var ang = ((seg[0] + seg[1] / 2) / 100 * 360 - 90) * Math.PI / 180;
-              // Trait de rappel incline, comme la reference : 13 px le long de l'angle median.
-              var fil = document.createElement('span');
-              fil.className = 'wdg-dmx1-fil';
-              fil.style.left = (cx + Math.cos(ang) * (rBord + 9)) + 'px';
-              fil.style.top = (cy + Math.sin(ang) * (rBord + 9)) + 'px';
-              fil.style.transform = 'translate(-50%, -50%) rotate(' + Math.round(ang * 180 / Math.PI) + 'deg)';
-              zone.appendChild(fil);
-              var x = cx + Math.cos(ang) * (rBord + 17), y = cy + Math.sin(ang) * (rBord + 17);
-              var el = document.createElement('span');
-              el.className = 'wdg-dmx1-lab';
-              el.textContent = seg[2];
-              zone.appendChild(el);
-              var w = el.offsetWidth, h = el.offsetHeight;
-              var gauche = Math.cos(ang) < 0;
-              var L2 = gauche ? x - w - 2 : x + 2;
-              // Bornage : jamais hors de la zone.
-              L2 = Math.max(2, Math.min(bw - w - 2, L2));
-              var T2 = Math.max(2, Math.min(bh - h - 2, y - h / 2));
-              /* GARANTIE DE NON-CHEVAUCHEMENT (18/08, demande user) : si le bornage a repousse
-                 l etiquette vers l anneau, elle finirait DESSUS. On mesure la distance du point du
-                 rectangle le plus proche du centre : sous le bord externe + 3 px, l etiquette est
-                 MASQUEE (et son fil avec) plutot que posee sur le donut : le pied de carte porte
-                 deja les memes pourcentages, une etiquette qui chevauche n informe plus, elle salit. */
-              var px2 = Math.max(L2, Math.min(cx, L2 + w)), py2 = Math.max(T2, Math.min(cy, T2 + h));
-              if (Math.hypot(px2 - cx, py2 - cy) < rBord + 3) { el.remove(); fil.remove(); return; }
-              el.style.left = L2 + 'px';
-              el.style.top = T2 + 'px';
-            });
-        }
+
+
 
         function dessiner() {
           var paire = opt(it, W, 'paire') || 'EURUSD';
@@ -1611,7 +1621,7 @@
               var cle = paire + '|' + court + '|' + lng;
               if (cle !== _dern || !zone.querySelector('svg')) {
                 _dern = cle;
-                zone.innerHTML = anneau(court, lng);
+                zone.innerHTML = _donutSvg(court, lng);
                 // La pousse : cible posée à la frame SUIVANTE, pour que la transition CSS parte
                 // bien de « 0 » peint (poser la cible dans le même tour de boucle sauterait
                 // l'animation, le navigateur ne peignant que l'état final).
@@ -1624,7 +1634,7 @@
                     if (a2.hasAttribute('data-dec')) a2.style.strokeDashoffset = a2.getAttribute('data-dec');
                   });
                   svg.classList.add('est-charge');
-                  poserEtiquettes(court, lng);
+                  _donutEtiquettes(zone, court, lng, 'Vendeurs · ' + Math.round(court) + ' %', 'Acheteurs · ' + Math.round(lng) + ' %');
                   zone.classList.add('est-charge');
                 }); });
               }
@@ -1638,6 +1648,105 @@
         var iv = setInterval(dessiner, 60000);
         // Le socle attend une FONCTION de nettoyage (typeof un === 'function') : rendre un objet
         // laisserait l intervalle tourner apres le demontage de la carte.
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} try { if (_ro) _ro.disconnect(); } catch (e) {} };
+      },
+    },
+    {
+      id: 'cot-devise', name: 'COT par devise', tag: 'COT', cat: 'Risque', h: 320,
+      desc: 'Le positionnement CFTC d\'UNE devise : long/short en volumes réels, et la position nette.',
+      /* Le donut de référence, INTÉGRALEMENT reproductible ici : contrairement au DMX (pourcentages
+         seuls), la source COT porte les positions ABSOLUES (longPos/shortPos en contrats, net,
+         sentiment, date du rapport CFTC). Même design et mêmes garde-fous que « DMX par paire »
+         (donut partagé _donutSvg/_donutEtiquettes), avec le pied à TROIS colonnes de la référence :
+         short, long, position nette. */
+      opts: [
+        { k: 'devise', lbl: 'Devise', type: 'choix', def: 'EUR',
+          choix: [['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'], ['CHF', 'CHF'], ['CAD', 'CAD'], ['AUD', 'AUD'], ['NZD', 'NZD'], ['USD', 'USD']] },
+      ],
+      mount: function (host, it) {
+        var W = this;
+        host.innerHTML = '<div class="wdg-dmx1">'
+          + '<div class="wdg-dmx1-leg">'
+          + '<span><i style="background:#ff3d00"></i>Short</span>'
+          + '<span><i style="background:#00e676"></i>Long</span>'
+          + '<span class="wdg-dmx1-paire"></span></div>'
+          + '<div class="wdg-dmx1-anneau"></div>'
+          + '<div class="wdg-dmx1-pied">'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions short</span><b class="wdg-dmx1-short">--</b><span class="wdg-dmx1-sous cot-sh">&nbsp;</span></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions long</span><b class="wdg-dmx1-long">--</b><span class="wdg-dmx1-sous cot-lg">&nbsp;</span></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Position nette</span><b class="cot-net">--</b><span class="wdg-dmx1-sous cot-nk">&nbsp;</span></div>'
+          + '</div></div>';
+        var zone = host.querySelector('.wdg-dmx1-anneau');
+        var elS = host.querySelector('.wdg-dmx1-short'), elL = host.querySelector('.wdg-dmx1-long');
+        var elP = host.querySelector('.wdg-dmx1-paire'), elN = host.querySelector('.cot-net');
+        var sSh = host.querySelector('.cot-sh'), sLg = host.querySelector('.cot-lg'), sNk = host.querySelector('.cot-nk');
+        var vivant = true, _dern = '', _etiq = null;
+
+        // 181390 -> « 181,4K » ; les volumes CFTC se lisent en milliers, comme la référence.
+        function enK(n) {
+          var v = Number(n) || 0;
+          return (Math.abs(v) >= 1000)
+            ? (v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + 'K'
+            : String(Math.round(v));
+        }
+
+        function dessiner() {
+          var dev = opt(it, W, 'devise') || 'EUR';
+          fetch('/api/cot')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!vivant || !host.isConnected) return;
+              var row = (d && d.currencies || []).find(function (x) { return x && x.key === dev; });
+              if (!row) { fallback(zone, 'Pas de donnée COT pour ' + dev + '.'); return; }
+              var tot = (Number(row.longPos) || 0) + (Number(row.shortPos) || 0);
+              // Pourcentages recalculés des POSITIONS (la source arrondit les siens à l'entier).
+              var pS = tot ? (Number(row.shortPos) || 0) / tot * 100 : 0;
+              var pL = tot ? (Number(row.longPos) || 0) / tot * 100 : 0;
+              if (elP) {
+                var dr = '';
+                try { dr = row.reportDate ? ' · ' + new Date(row.reportDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : ''; } catch (e) {}
+                elP.textContent = dev + dr;
+              }
+              var cle = dev + '|' + row.longPos + '|' + row.shortPos;
+              _etiq = [pS, pL, 'Short · ' + enK(row.shortPos), 'Long · ' + enK(row.longPos)];
+              if (cle !== _dern || !zone.querySelector('svg')) {
+                _dern = cle;
+                zone.innerHTML = _donutSvg(pS, pL);
+                var svg = zone.querySelector('svg');
+                requestAnimationFrame(function () { requestAnimationFrame(function () {
+                  if (!svg || !svg.isConnected) return;
+                  svg.querySelectorAll('.wdg-dmx1-arc').forEach(function (a2) {
+                    a2.style.strokeDasharray = a2.getAttribute('data-fin');
+                    if (a2.hasAttribute('data-dec')) a2.style.strokeDashoffset = a2.getAttribute('data-dec');
+                  });
+                  svg.classList.add('est-charge');
+                  _donutEtiquettes(zone, pS, pL, _etiq[2], _etiq[3]);
+                  zone.classList.add('est-charge');
+                }); });
+              }
+              elS.textContent = enK(row.shortPos);
+              elL.textContent = enK(row.longPos);
+              sSh.textContent = pS.toFixed(1).replace('.', ',') + ' %';
+              sLg.textContent = pL.toFixed(1).replace('.', ',') + ' %';
+              // Position nette : le verdict de la référence (sentiment coloré + net en contrats).
+              var sent = String(row.sentiment || '');
+              elN.textContent = sent || '--';
+              elN.style.color = /bull/i.test(sent) ? '#00e676' : /bear/i.test(sent) ? '#ff3d00' : '#ffb300';
+              var net = Number(row.net) || 0;
+              sNk.textContent = (net > 0 ? '+' : '') + enK(net);
+            })
+            .catch(function () { if (vivant && host.isConnected) fallback(zone, 'COT indisponible.'); });
+        }
+
+        var _ro = null;
+        try {
+          _ro = new ResizeObserver(function () { if (_etiq && zone.isConnected) _donutEtiquettes(zone, _etiq[0], _etiq[1], _etiq[2], _etiq[3]); });
+          _ro.observe(zone);
+        } catch (e) {}
+        dessiner();
+        // Le COT est un rapport HEBDOMADAIRE (CFTC du mardi) : un rafraîchissement de fond toutes
+        // les 30 min suffit largement, il n'y a rien d'intrajournalier à suivre.
+        var iv = setInterval(dessiner, 1800000);
         return function () { vivant = false; try { clearInterval(iv); } catch (e) {} try { if (_ro) _ro.disconnect(); } catch (e) {} };
       },
     },
@@ -3579,6 +3688,7 @@
     'radar-biais': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" opacity=".4"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-4"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>',
     'taux-cb': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9l6-4 6 4v11"/><path d="M9 20v-5h6v5"/></svg>',
     'risque-jauge': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4-4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    'cot-devise':  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
     'cot-inst': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
     'dmx-paire':  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5M13.5 20c.3-2.3 1.8-3.6 3.5-3.6S20 17.7 20.5 20"/></svg>',
     'dmx-retail': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5M13.5 20c.3-2.3 1.8-3.6 3.5-3.6S20 17.7 20.5 20"/></svg>',
@@ -3614,6 +3724,7 @@
     'taux-cb': '<svg ' + _PV + '><g font-family="monospace" font-size="6.5" fill="#9aa1ac"><text x="7" y="15">FED</text><text x="7" y="31">BCE</text><text x="7" y="47">BOE</text></g><rect x="30" y="8" width="56" height="8" rx="2" fill="#2b2b31"/><rect x="30" y="24" width="42" height="8" rx="2" fill="#2b2b31"/><rect x="30" y="40" width="48" height="8" rx="2" fill="#2b2b31"/><g font-family="monospace" font-size="7" fill="#e3b23a"><text x="92" y="15">4.50</text><text x="92" y="31">2.15</text><text x="92" y="47">4.00</text></g></svg>',
     'risque-jauge': '<svg ' + _PV + '><path d="M 24 48 A 36 36 0 0 1 60 12" fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round"/><path d="M 60 12 A 36 36 0 0 1 96 48" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round"/><line x1="60" y1="48" x2="78" y2="24" stroke="#e6e8ec" stroke-width="2"/><circle cx="60" cy="48" r="3.5" fill="#e6e8ec"/></svg>',
     'cot-inst': '<svg ' + _PV + '><line x1="60" y1="4" x2="60" y2="52" stroke="#3a3d44"/><rect x="60" y="7" width="34" height="7" fill="#22c55e"/><rect x="34" y="18" width="26" height="7" fill="#ef4444"/><rect x="60" y="29" width="20" height="7" fill="#22c55e"/><rect x="18" y="40" width="42" height="7" fill="#ef4444"/></svg>',
+    'cot-devise': '<svg ' + _PV + '><circle cx="60" cy="32" r="17" fill="none" stroke="#00e676" stroke-width="8" stroke-dasharray="78 29" transform="rotate(-90 60 32)"/><circle cx="60" cy="32" r="17" fill="none" stroke="#ff3d00" stroke-width="8" stroke-dasharray="29 78" stroke-dashoffset="-78" transform="rotate(-90 60 32)"/></svg>',
     'dmx-paire': '<svg ' + _PV + '><circle cx="60" cy="32" r="17" fill="none" stroke="#ff3d00" stroke-width="8" stroke-dasharray="72 35" transform="rotate(-90 60 32)"/><circle cx="60" cy="32" r="17" fill="none" stroke="#00e676" stroke-width="8" stroke-dasharray="35 72" stroke-dashoffset="-72" transform="rotate(-90 60 32)"/></svg>',
     'dmx-retail': '<svg ' + _PV + '><g font-family="monospace" font-size="6" fill="#9aa1ac"><text x="6" y="13">EURUSD</text><text x="6" y="27">GBPJPY</text><text x="6" y="41">AUDUSD</text><text x="6" y="55">USDCAD</text></g><rect x="40" y="7" width="22" height="8" fill="#22c55e"/><rect x="62" y="7" width="52" height="8" fill="#ef4444"/><rect x="40" y="21" width="44" height="8" fill="#22c55e"/><rect x="84" y="21" width="30" height="8" fill="#ef4444"/><rect x="40" y="35" width="14" height="8" fill="#22c55e"/><rect x="54" y="35" width="60" height="8" fill="#ef4444"/><rect x="40" y="49" width="52" height="6" fill="#22c55e"/><rect x="92" y="49" width="22" height="6" fill="#ef4444"/></svg>',
     'saison': '<svg ' + _PV + '>' + (function () { var cells = '', G = '#14532d', g = '#22c55e', R = '#7f1d1d', r = '#ef4444', D = '#26262c'; var M = [[g, G, D, r, g, G, g, D], [R, g, G, g, D, r, G, g], [g, D, r, G, g, g, R, D]]; for (var yy = 0; yy < 3; yy++) for (var xx = 0; xx < 8; xx++) cells += '<rect x="' + (7 + xx * 14) + '" y="' + (7 + yy * 15) + '" width="12" height="13" rx="2" fill="' + M[yy][xx] + '"/>'; return cells; })() + '</svg>',
@@ -3683,7 +3794,7 @@
     var FAM_OF = {
       'graphique': 'Analyse de marché',
       'force-devises': 'Analyse de marché', 'barometre': 'Analyse de marché', 'risque-historique': 'Analyse de marché', 'radar-biais': 'Analyse de marché',
-      'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'dmx-paire': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
+      'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'dmx-paire': 'Analyse de marché', 'cot-devise': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
       'horloge': 'Fonctions', 'onglets': 'Fonctions',
       // Vues du desk (adoption) : troisième famille dédiée — ce sont les onglets de la nav, pas des outils.
@@ -3817,7 +3928,7 @@
   var _ABBR = {
     'force-devises': 'FORCE', 'barometre': 'BARO', 'risque-historique': 'HISTO',
     'calendrier-jour': 'AGENDA', 'radar-biais': 'BIAIS', 'taux-cb': 'TAUX',
-    'risque-jauge': 'RISQUE', 'cot-inst': 'COT', 'dmx-retail': 'DMX', 'dmx-paire': 'DMX',
+    'risque-jauge': 'RISQUE', 'cot-inst': 'COT', 'dmx-retail': 'DMX', 'dmx-paire': 'DMX', 'cot-devise': 'COT',
     'saison': 'SAISON', 'sessions': 'MONDE', 'horloge': 'HEURE',
     'calculatrice': 'CALC', 'journal-mini': 'JOURNAL', 'onglets': 'ONGLETS',
     'fil-news': 'ACTUS',

@@ -17321,3 +17321,7 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    du DMX se scrollait sans fin en une colonne). Les listes courtes gardent leurs pastilles en ligne. */
 .wdg-set-chips--long { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .wdg-set-chips--long .wdg-set-chip { width: 100%; text-align: center; justify-content: center; }
+
+/* Sous-valeur du pied de donut (pourcentage sous le volume, façon référence COT). */
+.wdg-dmx1-sous { font-size: 10px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
+.cot-net { font-size: 17px; font-weight: 700; line-height: 1.1; }
