@@ -17629,3 +17629,111 @@ html[data-theme="light"] #pd-clock-time { color: var(--text) !important; }   /* 
 /* Le calendrier n apparait PAS dans ce bloc : une regle claire plus fine existe deja plus haut
    (.cal-row td + variantes cth-time/cth-event/cth-curr), et la mesure le donne conforme. Ajouter
    un doublon ici n aurait rien corrige et aurait cree deux sources de verite. */
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   NOUVEAUX WIDGETS (19/08) — Bandeau de cotations, Matrice de taux croisés, Courbe saisonnière,
+   Fréquence d'amplitude. Même grammaire que les cartes existantes : marge intérieure 10/12/8, titre
+   discret en haut, pied en petit, tokens de thème partout (donc lisibles en clair comme en sombre).
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* Traceurs partagés : le SVG épouse sa boîte, le trait garde son épaisseur (non-scaling-stroke). */
+.wdg-tr-svg { width: 100%; height: 100%; display: block; }
+
+/* ── Bandeau de cotations ──────────────────────────────────────────────────────────────────────
+   La piste porte DEUX fois le contenu et se translate de la moitié : la boucle est sans couture.
+   La durée vient du JS (--wdg-tick-dur), calculée depuis la largeur réelle, pour une vitesse
+   constante en px/s quel que soit le nombre d'actifs choisis. */
+.wdg-tick { height: 100%; display: flex; align-items: center; overflow: hidden; padding: 0 2px; }
+.wdg-tick-piste { display: flex; align-items: center; gap: 0; white-space: nowrap; will-change: transform;
+  animation: wdg-tick-def var(--wdg-tick-dur, 30s) linear infinite; }
+.wdg-tick:hover .wdg-tick-piste { animation-play-state: paused; }
+@keyframes wdg-tick-def { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.wdg-tick-seg { display: inline-flex; align-items: baseline; gap: 7px; padding: 6px 14px;
+  border-right: 1px solid var(--hud-line); font-size: 11.5px; }
+.wdg-tick-seg b { color: var(--txt-2, #9aa1ac); font-weight: 600; letter-spacing: .02em; }
+.wdg-tick-seg i { font-style: normal; font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
+.wdg-tick-seg u { text-decoration: none; font-variant-numeric: tabular-nums; font-size: 10.5px; color: var(--txt-3, #6b7280); }
+.wdg-tick-seg.est-haut u { color: #00e676; }
+.wdg-tick-seg.est-bas u { color: #ff3d00; }
+html[data-theme="light"] .wdg-tick-seg.est-haut u { color: #00783d; }
+html[data-theme="light"] .wdg-tick-seg.est-bas u { color: #c73000; }
+/* Respect du réglage système « animations réduites » : la bande s'arrête, elle ne disparaît pas. */
+@media (prefers-reduced-motion: reduce) { .wdg-tick-piste { animation: none; } }
+
+/* ── Matrice de taux croisés ───────────────────────────────────────────────────────────────────
+   Cellules COLLÉES, séparées d'un filet 1px : densité de salle de marché. La table défile dans sa
+   propre boîte, jamais la page. */
+.wdg-mx { height: 100%; display: flex; flex-direction: column; min-height: 0; padding: 8px 10px 6px; }
+/* table-layout: fixed = la table NE PEUT PLUS pousser sa carte. Sans lui, la largeur auto se cale
+   sur le contenu le plus large et neuf colonnes de cours debordaient (mesure au banc : 448 px exiges
+   pour 358 disponibles). En fixe, les colonnes se partagent la largeur reelle et le contenu s adapte.
+   C est la seule garantie structurelle : tout reglage de police ou de decimales ne fait que reculer
+   le seuil de debordement, il ne le supprime pas. */
+.wdg-mx-t { flex: 1 1 auto; width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10.5px;
+  font-variant-numeric: tabular-nums; }
+.wdg-mx-t td, .wdg-mx-t th { overflow: hidden; }
+.wdg-mx-t th { color: var(--txt-3, #6b7280); font-weight: 700; letter-spacing: .05em; font-size: 10px;
+  padding: 4px 3px; text-align: center; border-bottom: 1px solid var(--hud-line); }
+.wdg-mx-t tbody th { text-align: left; border-bottom: none; border-right: 1px solid var(--hud-line); padding-right: 6px; }
+.wdg-mx-t td { padding: 3px 4px; text-align: right; border-bottom: 1px solid var(--hud-line);
+  border-right: 1px solid var(--hud-line); line-height: 1.25; }
+.wdg-mx-p { display: block; color: var(--txt-1, #e6e8eb); }
+.wdg-mx-v { display: block; font-size: 9.5px; color: var(--txt-3, #6b7280); }
+.wdg-mx-c.est-haut .wdg-mx-v { color: #00e676; }
+.wdg-mx-c.est-bas .wdg-mx-v { color: #ff3d00; }
+html[data-theme="light"] .wdg-mx-c.est-haut .wdg-mx-v { color: #00783d; }
+html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
+/* Diagonale : case MORTE. On n'y écrit pas « 1,0000 » — ce n'est pas un cours, c'est une identité. */
+.wdg-mx-diag { background: var(--hud-line); opacity: .35; }
+.wdg-mx-vide { color: var(--txt-3, #6b7280); text-align: center; }
+/* Case inversée : un point discret suffit à la distinguer, la légende du pied l'explique. */
+.wdg-mx-c.est-inv .wdg-mx-p::after { content: '·'; margin-left: 3px; color: var(--txt-3, #6b7280); }
+.wdg-mx-pied { flex: 0 0 auto; display: flex; justify-content: space-between; gap: 10px; padding-top: 6px;
+  font-size: 9.5px; color: var(--txt-3, #6b7280); }
+.wdg-mx-leg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wdg-mx-maj { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+/* Carte etroite : le cours cede, la grille reste ENTIERE. Une matrice tronquee ne vaut rien.
+.wdg-mx.est-etroit .wdg-mx-p { display: none; }
+.wdg-mx.est-etroit .wdg-mx-t { font-size: 9.5px; }
+.wdg-mx.est-etroit .wdg-mx-v { font-size: 9.5px; color: var(--txt-2, #9aa1ac); }
+.wdg-mx.est-etroit td { padding: 3px 2px; }
+.wdg-mx-u { font-style: normal; }
+/* Sur carte etroite le symbole % disparait des 64 cellules (la legende du pied le rappelle) :
+   neuf colonnes le repetaient, pour un gain de largeur decisif. */
+.wdg-mx.est-etroit .wdg-mx-u { display: none; }
+.wdg-mx.est-etroit .wdg-mx-t { font-size: 9px; }
+
+/* ── Courbe saisonnière ────────────────────────────────────────────────────────────────────────
+   L'axe des mois est en HTML, en taille d'écran : dans le SVG il serait étiré avec le tracé. */
+.wdg-sais { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
+.wdg-sais-tete { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 11px; min-width: 0; }
+.wdg-sais-sym { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
+.wdg-sais-mode { margin-left: auto; color: var(--txt-3, #6b7280); font-size: 10px; }
+.wdg-sais-zone { flex: 1 1 auto; min-height: 0; }
+.wdg-sais-axe { flex: 0 0 auto; display: flex; justify-content: space-between; font-size: 9px;
+  color: var(--txt-3, #6b7280); letter-spacing: .01em; }
+.wdg-sais-axe .est-courant { color: var(--orange, #e3b23a); font-weight: 700; }
+.wdg-sais-pied { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+
+/* ── Fréquence d'amplitude ─────────────────────────────────────────────────────────────────────
+   Le chiffre-clé domine, mais le numérateur et le dénominateur restent visibles juste dessous :
+   un pourcentage seul ne dit pas sur combien de séances il porte. */
+.wdg-freq { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
+.wdg-freq-tete { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 11px; min-width: 0; }
+.wdg-freq-paire { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
+.wdg-freq-mes { margin-left: auto; color: var(--txt-3, #6b7280); font-size: 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wdg-freq-gros { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.wdg-freq-gros b { font-size: 26px; line-height: 1; color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
+.wdg-freq-gros span { font-size: 11px; color: var(--txt-2, #9aa1ac); min-width: 0; }
+.wdg-freq-n { flex: 0 0 auto; font-size: 10px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
+.wdg-freq-zone { flex: 1 1 auto; min-height: 0; }
+.wdg-freq-axe { flex: 0 0 auto; display: flex; justify-content: space-between; font-size: 9px; color: var(--txt-3, #6b7280); }
+.wdg-freq-pied { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+
+/* Cartes basses : le pied explicatif cède avant les chiffres, jamais l'inverse. */
+@media (max-height: 260px) {
+  .wdg-freq-pied, .wdg-sais-pied { display: none; }
+}

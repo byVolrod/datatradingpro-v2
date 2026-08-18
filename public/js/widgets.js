@@ -640,6 +640,104 @@
      grandissaient avec l'anneau (unités du viewBox : ~36 px sur une grande carte) et
      débordaient du cadre (« Acheteurs » coupé au bord, capture user du 18/08). Elles sont
      posées en HTML, en taille d'écran, par poserEtiquettes() sur la même géométrie. */
+  /* ── TRACEURS PARTAGÉS (19/08) : courbe et histogramme ────────────────────────────────────────
+     Factorisés AVANT d'écrire les widgets qui en ont besoin (obligataire, séries macro, courbe
+     saisonnière, cotation unique, distribution des variations) : sans cela, cinq widgets auraient
+     produit cinq façons différentes de dessiner la même chose, comme c'était parti pour le donut
+     avant qu'on ne le factorise.
+
+     Technique : viewBox fixe + preserveAspectRatio="none" pour que le tracé ÉPOUSE la carte quelle
+     que soit sa taille, et vector-effect="non-scaling-stroke" pour que le trait garde son épaisseur
+     réelle malgré l'étirement (sans lui, une carte large donne un trait horizontal épais et un trait
+     vertical filiforme). Aucune étiquette dans le SVG : elles seraient déformées par le même
+     étirement. Les libellés se posent en HTML, en taille d'écran, comme pour le donut.
+
+     Les deux traceurs rendent aussi min/max, pour que l'appelant puisse écrire ses libellés sans
+     recalculer l'échelle — et surtout sans risquer une échelle différente de celle du tracé. */
+  var _TR_W = 300, _TR_H = 100;
+
+  // Échelle commune : bornes des valeurs + 4 % de marge, jamais un intervalle nul (série plate).
+  function _trEchelle(vals, zeroInclus) {
+    var v = vals.filter(function (x) { return typeof x === 'number' && isFinite(x); });
+    if (!v.length) return null;
+    var mn = Math.min.apply(null, v), mx = Math.max.apply(null, v);
+    if (zeroInclus) { mn = Math.min(mn, 0); mx = Math.max(mx, 0); }
+    if (mx - mn < 1e-9) { var d = Math.abs(mx) > 1e-9 ? Math.abs(mx) * 0.1 : 1; mn -= d; mx += d; }
+    var marge = (mx - mn) * 0.04;
+    return { min: mn - marge, max: mx + marge, brutMin: Math.min.apply(null, v), brutMax: Math.max.apply(null, v) };
+  }
+
+  /* Courbe. vals = tableau de nombres (les trous `null` coupent le tracé au lieu de le faire
+     plonger à zéro : une donnée manquante n'est pas une valeur nulle). */
+  function _courbeSvg(vals, o) {
+    o = o || {};
+    var e = _trEchelle(vals, !!o.zero);
+    if (!e) return '';
+    var n = vals.length;
+    if (n < 2) return '';
+    var X = function (i) { return i / (n - 1) * _TR_W; };
+    var Y = function (v) { return _TR_H - (v - e.min) / (e.max - e.min) * _TR_H; };
+
+    // Segments continus : chaque suite de valeurs valides devient un tracé distinct.
+    var segs = [], cur = [];
+    vals.forEach(function (v, i) {
+      if (typeof v === 'number' && isFinite(v)) cur.push(X(i).toFixed(2) + ',' + Y(v).toFixed(2));
+      else { if (cur.length > 1) segs.push(cur); cur = []; }
+    });
+    if (cur.length > 1) segs.push(cur);
+    if (!segs.length) return '';
+
+    var couleur = o.couleur || 'var(--orange, #e3b23a)';
+    var h = '<svg viewBox="0 0 ' + _TR_W + ' ' + _TR_H + '" class="wdg-tr-svg" preserveAspectRatio="none">';
+    // Ligne de zéro : seulement si zéro est DANS l'échelle, sinon elle mentirait sur sa position.
+    if (o.zero && e.min < 0 && e.max > 0) {
+      h += '<line x1="0" y1="' + Y(0).toFixed(2) + '" x2="' + _TR_W + '" y2="' + Y(0).toFixed(2) + '"'
+        + ' stroke="var(--hud-line)" stroke-width="1" vector-effect="non-scaling-stroke"></line>';
+    }
+    if (o.aire) {
+      segs.forEach(function (sg) {
+        var x0 = sg[0].split(',')[0], x1 = sg[sg.length - 1].split(',')[0];
+        h += '<polygon class="wdg-tr-aire" points="' + x0 + ',' + _TR_H + ' ' + sg.join(' ') + ' ' + x1 + ',' + _TR_H + '"'
+          + ' fill="' + couleur + '" opacity=".12"></polygon>';
+      });
+    }
+    segs.forEach(function (sg) {
+      h += '<polyline class="wdg-tr-ligne" points="' + sg.join(' ') + '" fill="none" stroke="' + couleur + '"'
+        + ' stroke-width="' + (o.epaisseur || 1.6) + '" stroke-linejoin="round" stroke-linecap="round"'
+        + ' vector-effect="non-scaling-stroke"></polyline>';
+    });
+    h += '</svg>';
+    return h;
+  }
+
+  /* Histogramme. Barres colorées par signe si o.signe (vert au-dessus de zéro, rouge en dessous),
+     sinon d'une seule couleur. Utilisé par la distribution des variations et les amplitudes. */
+  function _barresSvg(vals, o) {
+    o = o || {};
+    var e = _trEchelle(vals, true);
+    if (!e || !vals.length) return '';
+    var n = vals.length, pas = _TR_W / n, jour = Math.min(pas * 0.22, 2.4);
+    var Y = function (v) { return _TR_H - (v - e.min) / (e.max - e.min) * _TR_H; };
+    var y0 = Y(0);
+    var h = '<svg viewBox="0 0 ' + _TR_W + ' ' + _TR_H + '" class="wdg-tr-svg" preserveAspectRatio="none">';
+    if (e.min < 0 && e.max > 0) {
+      h += '<line x1="0" y1="' + y0.toFixed(2) + '" x2="' + _TR_W + '" y2="' + y0.toFixed(2) + '"'
+        + ' stroke="var(--hud-line)" stroke-width="1" vector-effect="non-scaling-stroke"></line>';
+    }
+    vals.forEach(function (v, i) {
+      if (typeof v !== 'number' || !isFinite(v)) return;
+      var y = Y(v), haut = Math.min(y, y0), bas = Math.max(y, y0);
+      // Une barre de hauteur nulle serait invisible : on lui laisse un filet de 0,6.
+      var ht = Math.max(bas - haut, 0.6);
+      var col = o.signe ? (v >= 0 ? '#00e676' : '#ff3d00') : (o.couleur || 'var(--orange, #e3b23a)');
+      h += '<rect class="wdg-tr-barre" x="' + (i * pas + jour / 2).toFixed(2) + '" y="' + haut.toFixed(2) + '"'
+        + ' width="' + Math.max(pas - jour, 0.4).toFixed(2) + '" height="' + ht.toFixed(2) + '"'
+        + ' fill="' + col + '" opacity="' + (o.opacite || 0.85) + '"></rect>';
+    });
+    h += '</svg>';
+    return h;
+  }
+
   function _donutSvg(courtPct, longPct) {
     var cx = 80, cy = 80, r = 54, ep = 26, c = 2 * Math.PI * r;
     var pC = Math.max(0, Math.min(100, courtPct)), pL = Math.max(0, Math.min(100, longPct));
@@ -720,6 +818,21 @@
     'XAGUSD', 'XAGEUR', 'XAGAUD', 'XPTUSD', 'XPDUSD',
   ];
   var _DMX_METAL_NOM = { XAU: 'Or', XAG: 'Argent', XPT: 'Platine', XPD: 'Palladium' };
+  /* Les 28 croisements des huit majeures, au format « EUR/USD » : celui qu attend /api/bank-ohlc
+     (sa regex exige la barre oblique). Ne PAS confondre avec _dmxPairesChoix, qui rend le format
+     colle « EURUSD » de /api/community-outlook — servir l un a la place de l autre ne renvoie
+     rien du tout, en silence. */
+  function _fxChoix() {
+    var M = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'], out = [], vus = {};
+    M.forEach(function (b) { M.forEach(function (q) {
+      if (b === q) return;
+      var k = b + '/' + q;
+      // Un seul sens par croisement : EUR/USD OU USD/EUR, jamais les deux.
+      if (!vus[q + '/' + b]) { vus[k] = 1; out.push([k, k]); }
+    }); });
+    return out;
+  }
+
   function _dmxPairesChoix() {
     return _DMX_PAIRES.map(function (p) {
       var b = p.slice(0, 3), q = p.slice(3);
@@ -1609,6 +1722,332 @@
         return function () { try { if (ro) ro.disconnect(); } catch (e) {} };
       },
     },
+    /* ═══ NOUVEAUX WIDGETS (19/08) — bibliotheque elargie, ADMIN d abord ═══════════════════════
+       Chacun est passe par une specification puis une CONTRE-VERIFICATION adversariale : un second
+       agent a relu le code source ligne a ligne pour tenter de REFUTER chaque champ affirme. Les
+       quatre ci-dessous sont ceux dont la spec a tenu sans reserve. Deux candidats ont ete ECARTES
+       a ce stade parce que la donnee n existe pas : le graphe obligataire (/api/market-snapshot ne
+       garde que « meta », la serie temporelle Yahoo est jetee) et l historique COT (scrapers/cot.js
+       ne conserve qu une ligne par contrat). Mieux vaut deux widgets en moins qu un widget qui ment.
+       « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
+
+    {
+      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marches', h: 140, staff: true,
+      desc: 'Les dix reperes du desk en bande fine defilante.',
+      /* Source : /api/ticker, liste FIGEE de 10 actifs cote serveur. On n offre donc AUCUN champ
+         « ajouter un actif » : la source ne saurait pas le chercher.
+         ⚠️ PIEGE MESURE : items[].chg est un POURCENTAGE, SAUF si items[].yield est vrai (le 10 ans
+         US), ou c est un ecart en POINTS. Afficher « % » sur le 10 ans serait un chiffre faux. */
+      opts: [
+        { k: 'actifs', lbl: 'Actifs', type: 'multi',
+          def: ['EUR/USD', 'USD/JPY', 'GBP/USD', 'XAU/USD', 'S&P 500', 'NASDAQ', 'DXY', 'WTI', 'BTC/USD', 'US 10Y'],
+          choix: [['EUR/USD', 'EUR/USD'], ['USD/JPY', 'USD/JPY'], ['GBP/USD', 'GBP/USD'], ['XAU/USD', 'XAU/USD'],
+            ['S&P 500', 'S&P 500'], ['NASDAQ', 'NASDAQ'], ['DXY', 'DXY'], ['WTI', 'WTI'], ['BTC/USD', 'BTC/USD'], ['US 10Y', 'US 10Y']] },
+        { k: 'vitesse', lbl: 'Vitesse', type: 'choix', def: 'normal',
+          choix: [['lent', 'Lente'], ['normal', 'Normale'], ['rapide', 'Rapide']] },
+        { k: 'var', lbl: 'Afficher la variation', type: 'bascule', def: true },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        host.innerHTML = '<div class="wdg-tick"><div class="wdg-tick-piste"></div></div>';
+        var piste = host.querySelector('.wdg-tick-piste');
+        var PX = { lent: 35, normal: 55, rapide: 85 };
+
+        function seg(x, avecVar) {
+          var y = !!x.yield;
+          var v = Number(x.chg);
+          var cls = v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : '';
+          var txt = (v > 0 ? '+' : '') + (isFinite(v) ? v.toFixed(y ? 2 : 2).replace('.', ',') : '--') + (y ? ' pt' : ' %');
+          return '<span class="wdg-tick-seg ' + cls + '">'
+            + '<b>' + esc(x.label) + '</b>'
+            + '<i>' + (isFinite(Number(x.price)) ? Number(x.price).toFixed(Number(x.dec) || 0) : '--') + '</i>'
+            + (avecVar ? '<u>' + txt + '</u>' : '') + '</span>';
+        }
+
+        function dessiner() {
+          fetch('/api/ticker').then(function (r) { return r.json(); }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            var choisis = opt(it, W, 'actifs') || [];
+            var items = (d && d.items || []).filter(function (x) {
+              return x && x.label && (!choisis.length || choisis.indexOf(x.label) >= 0);
+            });
+            // Le serveur rend { items: [] } en cas de panne : une bande vide qui tourne serait pire
+            // qu un message honnete.
+            if (!items.length) { fallback(host, 'Cotations indisponibles.'); return; }
+            var avecVar = opt(it, W, 'var') !== false;
+            var un = items.map(function (x) { return seg(x, avecVar); }).join('');
+            // Contenu DOUBLE : la boucle se referme sans couture visible.
+            piste.innerHTML = un + un;
+            // Vitesse CONSTANTE en px/s : la duree suit la largeur reelle du contenu.
+            requestAnimationFrame(function () {
+              if (!piste.isConnected) return;
+              var w = piste.scrollWidth / 2;
+              var vit = PX[opt(it, W, 'vitesse')] || PX.normal;
+              if (w > 0) piste.style.setProperty('--wdg-tick-dur', Math.max(6, w / vit).toFixed(1) + 's');
+            });
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Cotations indisponibles.'); });
+        }
+
+        dessiner();
+        // Cache serveur de 60 s : sonder plus vite ne relirait que le meme cache.
+        var iv = setInterval(dessiner, 60000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+      },
+    },
+
+    {
+      id: 'matrice-croisee', name: 'Matrice de taux croises', tag: 'FX', cat: 'Marches', h: 340, staff: true,
+      desc: 'La grille des huit majeures : chaque croisement, son cours et sa variation du jour.',
+      /* Source : /api/fxlist, qui cote 28 paires — soit UNE seule moitie des 56 cases hors diagonale
+         (USD/JPY est cote, JPY/USD ne l est pas). L autre moitie est INVERSEE cote client, et cette
+         inversion est SIGNALEE a l ecran : ce n est pas une cotation recue.
+         ⚠️ La variation inverse n est PAS -r : c est -r / (1 + r/100). L oppose simple est faux.
+         ⚠️ Jamais ?force=1 sur un minuteur : cela remet le TTL a zero et relance 28 requetes Yahoo. */
+      opts: [
+        { k: 'contenu', lbl: 'Cellule', type: 'choix', def: 'prix-var',
+          choix: [['prix-var', 'Cours et variation'], ['prix', 'Cours seul'], ['var', 'Variation seule']] },
+        { k: 'coul', lbl: 'Colorer selon la variation', type: 'bascule', def: true },
+        { k: 'inverse', lbl: 'Remplir la moitie inversee', type: 'bascule', def: true },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        var DEV = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
+        skel(host, 8);
+
+        function fmt(v, q) {
+          if (!isFinite(v)) return '--';
+          // Nombre de decimales : /api/fxlist ne sert PAS de champ « dec » (contrairement a /api/ticker).
+          // C est donc une convention d affichage, pas une donnee : 3 decimales en JPY, 5 ailleurs.
+          return v.toFixed(q === 'JPY' ? 3 : 5);
+        }
+
+        function dessiner() {
+          fetch('/api/fxlist').then(function (r) { return r.json(); }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            var paires = (d && d.pairs) || [];
+            if (!paires.length) { fallback(host, 'Cotations indisponibles.'); return; }
+            var par = {};
+            paires.forEach(function (p) { if (p && p.base && p.quote) par[p.base + p.quote] = p; });
+
+            // Largeur connue AVANT de composer les cellules : elle decide du nombre de decimales.
+            var etroit = host.clientWidth > 0 && host.clientWidth <= 470;
+            var contenu = opt(it, W, 'contenu') || 'prix-var';
+            var coul = opt(it, W, 'coul') !== false;
+            var inv = opt(it, W, 'inverse') !== false;
+
+            var h = '<div class="wdg-mx"><table class="wdg-mx-t"><thead><tr><th></th>';
+            DEV.forEach(function (q) { h += '<th>' + q + '</th>'; });
+            h += '</tr></thead><tbody>';
+            DEV.forEach(function (b) {
+              h += '<tr><th>' + b + '</th>';
+              DEV.forEach(function (q) {
+                if (b === q) { h += '<td class="wdg-mx-diag"></td>'; return; }
+                var p = par[b + q], prix = null, chg = null, inverse = false;
+                if (p) { prix = Number(p.last); chg = Number(p.changePct); }
+                else if (inv && par[q + b]) {
+                  var o = par[q + b];
+                  var l = Number(o.last), c = Number(o.changePct);
+                  if (isFinite(l) && l !== 0) { prix = 1 / l; inverse = true; }
+                  // Inversion EXACTE de la variation : 1/(1+r) - 1, et non -r.
+                  if (isFinite(c) && (1 + c / 100) !== 0) { chg = -c / (1 + c / 100); inverse = true; }
+                }
+                if (prix == null && chg == null) { h += '<td class="wdg-mx-vide">--</td>'; return; }
+                var cls = coul && isFinite(chg) ? (chg > 0 ? ' est-haut' : chg < 0 ? ' est-bas' : '') : '';
+                h += '<td class="wdg-mx-c' + cls + (inverse ? ' est-inv' : '') + '">';
+                if (contenu !== 'var') h += '<span class="wdg-mx-p">' + fmt(prix, q) + '</span>';
+                if (contenu !== 'prix') h += '<span class="wdg-mx-v">' + (isFinite(chg) ? (chg > 0 ? '+' : '') + chg.toFixed(etroit ? 1 : 2).replace('.', ',') + '<i class="wdg-mx-u"> %</i>' : '--') + '</span>';
+                h += '</td>';
+              });
+              h += '</tr>';
+            });
+            h += '</tbody></table><div class="wdg-mx-pied">';
+            var leg = [];
+            if (etroit) leg.push('Variations en %');
+            if (inv) leg.push('les cases a point sont l inverse exact du croisement cote');
+            if (leg.length) h += '<span class="wdg-mx-leg">' + leg.join(' &middot; ') + '.</span>';
+            var maj = '';
+            try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
+            if (maj) h += '<span class="wdg-mx-maj">MAJ ' + maj + '</span>';
+            h += '</div></div>';
+            host.innerHTML = h;
+            palier();
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Cotations indisponibles.'); });
+        }
+
+        dessiner();
+        /* PALIER DE LARGEUR (mesure au banc : 9 colonnes de cours a 5 decimales debordent sous
+           ~460 px). On ne rogne pas la grille et on ne cree pas de defilement horizontal parasite :
+           sur carte etroite la matrice garde ses 64 croisements mais ne montre que la VARIATION,
+           l information qui se lit d un balayage. Le cours reste accessible en elargissant. */
+        var cadre = null;
+        function palier() {
+          cadre = host.querySelector('.wdg-mx');
+          if (cadre) cadre.classList.toggle('est-etroit', host.clientWidth > 0 && host.clientWidth <= 470);
+        }
+        var _ro = null;
+        if (window.ResizeObserver) { _ro = new ResizeObserver(palier); _ro.observe(host); }
+        // Aligne sur le tick serveur de 150 s. On saute le tour quand l onglet est cache : inutile de
+        // solliciter la route pour une carte que personne ne regarde.
+        var iv = setInterval(function () { if (!document.hidden) dessiner(); }, 150000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} try { if (_ro) _ro.disconnect(); } catch (e) {} };
+      },
+    },
+
+    {
+      id: 'saison-courbe', name: 'Courbe saisonniere', tag: 'SAISONNALITE', cat: 'Macro', h: 300, staff: true,
+      desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
+      /* Complement du widget « Saisonnalite » (table de chiffres) : celui-ci DESSINE la meme donnee.
+         ⚠️ DEUX PIEGES QUE L ON AFFICHE AU LIEU DE LES CACHER :
+         1) Le MOIS EN COURS est partiel — le serveur garde le dernier cours vu, donc pour ce mois-ci
+            c est le cours du jour. Sa barre est hachuree et le pied le dit.
+         2) « avg » ne porte pas toujours sur 5 ans : pour les mois a venir, l annee courante est vide,
+            la moyenne tombe a 4 observations. On COMPTE les valeurs reelles et on l ecrit. */
+      opts: [
+        { k: 'symbole', lbl: 'Symbole', type: 'choix', def: '', cache: true, choix: _seasonChoix() },
+        { k: 'mode', lbl: 'Affichage', type: 'choix', def: 'mensuel',
+          choix: [['mensuel', 'Par mois'], ['cumule', 'Cumule sur l annee']] },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, cur = null, _ro = null;
+        var MOIS = ['Janv.', 'Fevr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Aout', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+        skel(host, 6);
+
+        function rendre(d) {
+          var rows = (d && d.rows) || [], ans = (d && d.years) || [];
+          if (rows.length !== 12) { fallback(host, 'Saisonnalite indisponible.'); return; }
+          var moisCourant = new Date().getMonth();
+          var mode = opt(it, W, 'mode') || 'mensuel';
+
+          var vals, cumul = 0;
+          if (mode === 'cumule') {
+            // Cumul construit depuis avg : une transformation d une donnee reelle. Un mois sans
+            // moyenne n AJOUTE RIEN (il ne vaut pas zero) : la courbe reste plate, elle ne plonge pas.
+            vals = rows.map(function (r) {
+              if (typeof r.avg === 'number' && isFinite(r.avg)) cumul += r.avg;
+              return cumul;
+            });
+          } else {
+            vals = rows.map(function (r) { return (typeof r.avg === 'number' && isFinite(r.avg)) ? r.avg : null; });
+          }
+
+          var svg = mode === 'cumule'
+            ? _courbeSvg(vals, { zero: true, aire: true })
+            : _barresSvg(vals, { signe: true });
+
+          // Nombre d observations REELLES du mois courant : compte des valeurs non nulles.
+          var nObs = (rows[moisCourant] && rows[moisCourant].vals || []).filter(function (v) { return typeof v === 'number'; }).length;
+          var periode = (ans.length ? ans[0] + '-' + ans[ans.length - 1] : '5 ans');
+
+          host.innerHTML = '<div class="wdg-sais">'
+            + '<div class="wdg-sais-tete"><span class="wdg-sais-sym">' + esc((d && d.symbol) || '') + '</span>'
+            + '<span class="wdg-sais-mode">' + (mode === 'cumule' ? 'Cumule' : 'Par mois') + '</span></div>'
+            + '<div class="wdg-sais-zone">' + svg + '</div>'
+            + '<div class="wdg-sais-axe">' + MOIS.map(function (m, i) {
+              return '<span' + (i === moisCourant ? ' class="est-courant"' : '') + '>' + m + '</span>';
+            }).join('') + '</div>'
+            + '<div class="wdg-sais-pied">Moyenne mensuelle sur ' + esc(periode)
+            + ' &middot; rendement de fin de mois a fin de mois. Le mois en cours est partiel ('
+            + nObs + ' annee' + (nObs > 1 ? 's' : '') + ' observee' + (nObs > 1 ? 's' : '') + ').</div>'
+            + '</div>';
+        }
+
+        function dessiner() {
+          var sym = opt(it, W, 'symbole') || '';
+          var url = sym ? ('/api/seasonality?symbol=' + encodeURIComponent(sym)) : '/api/seasonality';
+          cur = sym;
+          fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+            // Reponse perimee : le reglage a change pendant le vol.
+            if (!vivant || !host.isConnected || cur !== sym) return;
+            rendre(d);
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Saisonnalite indisponible.'); });
+        }
+
+        dessiner();
+        // Le serveur cache 6 h : aucun minuteur. Seul le redimensionnement redessine (le SVG est
+        // etire par le CSS, mais le pied et l axe doivent se recaler).
+        if (window.ResizeObserver) { _ro = new ResizeObserver(function () {}); _ro.observe(host); }
+        return function () { vivant = false; try { if (_ro) _ro.disconnect(); } catch (e) {} };
+      },
+    },
+
+    {
+      id: 'frequence-amplitude', name: 'Frequence d amplitude', tag: 'VOLATILITE', cat: 'Marches', h: 320, staff: true,
+      desc: 'La part des seances ou la paire a parcouru au moins X pips.',
+      /* Le mot « probabilite » est ECARTE volontairement : ce que la source permet de calculer est
+         une FREQUENCE HISTORIQUE OBSERVEE, pas une prevision.
+         ⚠️ CE QUI EST INFAISABLE ICI, et qu on ne promettra donc jamais : « toucher +30 avant -30 ».
+         Une bougie D1 donne h et l, jamais l ORDRE dans lequel ils ont ete touches. Le M15 le
+         permettrait mais ne remonte qu a un mois : trop court pour une statistique.
+         ⚠️ La taille du pip n est dans AUCUN champ de la source : c est une convention, redeclaree
+         ici (le depot l a deja dans app.js mais enfermee dans une closure inaccessible). */
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+        { k: 'mesure', lbl: 'Mesure', type: 'choix', def: 'ampl',
+          choix: [['ampl', 'Amplitude haut-bas'], ['exc', 'Excursion depuis l ouverture']] },
+        { k: 'seuil', lbl: 'Seuil (pips)', type: 'nombre', def: 50, min: 10, max: 300 },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, cur = null;
+        skel(host, 6);
+
+        // Convention de place, pas une donnee servie : le yen cote au centieme, le reste au
+        // dix-millieme. Repliquee ici faute de pouvoir atteindre _jrPipSize (closure d app.js).
+        function pip(paire) { return /JPY/.test(paire) ? 0.01 : 0.0001; }
+
+        function dessiner() {
+          var paire = opt(it, W, 'paire') || 'EUR/USD';
+          var mesure = opt(it, W, 'mesure') || 'ampl';
+          var seuil = opt(it, W, 'seuil') || 50;
+          cur = paire;
+          fetch('/api/bank-ohlc?pair=' + encodeURIComponent(paire) + '&tf=D1')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!vivant || !host.isConnected || cur !== paire) return;
+              var c = (d && d.candles) || [];
+              if (!c.length) { fallback(host, 'Bougies indisponibles.'); return; }
+              // La bougie du JOUR est exclue : son haut et son bas ne sont pas encore figes.
+              var auj = new Date(); auj.setHours(0, 0, 0, 0);
+              var bougies = c.filter(function (b) { return b && b.t < auj.getTime() && isFinite(b.h) && isFinite(b.l) && isFinite(b.o); });
+              if (bougies.length < 200) { fallback(host, 'Historique insuffisant (n = ' + bougies.length + ' seances).'); return; }
+
+              var P = pip(paire);
+              var mesures = bougies.map(function (b) {
+                return mesure === 'exc' ? Math.max(b.h - b.o, b.o - b.l) / P : (b.h - b.l) / P;
+              }).filter(function (v) { return isFinite(v) && v >= 0; });
+              var n = mesures.length;
+
+              // Escalier decroissant : pour chaque palier de 10 pips, la PART des seances qui l atteignent.
+              var paliers = [], parts = [];
+              for (var x = 10; x <= 300; x += 10) {
+                paliers.push(x);
+                parts.push(mesures.filter(function (v) { return v >= x; }).length / n * 100);
+              }
+              var iSeuil = Math.max(0, Math.round(seuil / 10) - 1);
+              var atteint = mesures.filter(function (v) { return v >= seuil; }).length;
+              var pct = atteint / n * 100;
+
+              host.innerHTML = '<div class="wdg-freq">'
+                + '<div class="wdg-freq-tete"><span class="wdg-freq-paire">' + esc(paire) + '</span>'
+                + '<span class="wdg-freq-mes">' + (mesure === 'exc' ? 'Excursion depuis l ouverture' : 'Amplitude haut-bas') + '</span></div>'
+                + '<div class="wdg-freq-gros"><b>' + pct.toFixed(0) + ' %</b>'
+                + '<span>des seances ont parcouru au moins ' + seuil + ' pips</span></div>'
+                // Numerateur ET denominateur : un pourcentage seul ne dit pas sur quoi il porte.
+                + '<div class="wdg-freq-n">' + atteint + ' seances sur ' + n + '</div>'
+                + '<div class="wdg-freq-zone">' + _courbeSvg(parts, { aire: true }) + '</div>'
+                + '<div class="wdg-freq-axe"><span>10</span><span>100</span><span>200</span><span>300 pips</span></div>'
+                + '<div class="wdg-freq-pied">Frequence observee sur les seances servies par la source, hors journee en cours. '
+                + 'Amplitude brute : elle ne tient compte d aucun cout de transaction.</div>'
+                + '</div>';
+              void iSeuil; void paliers;
+            })
+            .catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+
+        dessiner();
+        return function () { vivant = false; };
+      },
+    },
+
     {
       id: 'dmx-paire', name: 'DMX par paire', tag: 'DMX', cat: 'Risque', h: 300,
       desc: 'Le partage long/short de la foule sur UNE paire, en anneau.',
