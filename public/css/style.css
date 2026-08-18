@@ -16897,41 +16897,46 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 
    Le vert et le rouge de la charte restent réservés à l état ouvert/fermé ; la couleur d un bloc
    de séance (--frise-ton, posé en ligne) ne doit jamais se lire comme un signal de marché. */
-.wdg-frise { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 8px; overflow: hidden; }
+.wdg-frise { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 9px; overflow: hidden;
+  /* Marges interieures (18/08, capture user : axe, lignes et pied COLLES aux contours). */
+  padding: 10px 12px 8px; }
 .wdg-frise-head { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; min-width: 0; }
 .wdg-frise-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Axe des heures : aligné sur la piste, donc mêmes bornes et mêmes extrémités. */
-.wdg-frise-axe { flex: 0 0 auto; display: flex; justify-content: space-between; font-size: 9px;
+.wdg-frise-axe { flex: 0 0 auto; display: flex; justify-content: space-between; font-size: 10px;
   color: var(--txt-3, #6b7280); letter-spacing: .02em; padding-bottom: 1px;
   border-bottom: 1px solid var(--hud-line); }
 
 /* Les lignes se répartissent la hauteur : plus de vide en bas quand la carte est haute,
    et rien qui déborde quand elle est basse. */
+/* Lignes COMPACTES, groupees en haut (18/08, capture user sur carte haute : space-evenly etirait
+   les quatre lignes sur toute la hauteur, des dizaines de pixels de vide entre le nom et sa piste,
+   plus rien ne se lisait d un bloc). La reference les empile serrees depuis le haut. */
 .wdg-frise-corps { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-  justify-content: space-evenly; gap: 6px; overflow-y: auto; }
-.wdg-frise-pied { flex: 0 0 auto; font-size: 10px; color: var(--txt-3, #6b7280);
-  border-top: 1px solid var(--hud-line); padding-top: 6px; line-height: 1.35; }
+  justify-content: flex-start; gap: 15px; overflow-y: auto; }
+.wdg-frise-pied { flex: 0 0 auto; font-size: 10.5px; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 8px; line-height: 1.35; }
 
 .wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
-.wdg-frise-place { display: flex; align-items: center; gap: 5px; color: var(--txt-2, #9aa1ac);
-  font-weight: 600; letter-spacing: .01em; flex: 0 0 auto; }
+.wdg-frise-place { display: flex; align-items: center; gap: 6px; color: var(--txt-2, #9aa1ac);
+  font-size: 13px; font-weight: 600; letter-spacing: .01em; flex: 0 0 auto; }
 .wdg-frise-place i { width: 5px; height: 5px; border-radius: 50%; background: #3a3f4b; flex: 0 0 auto; }
 .wdg-frise-ligne.est-ouvert .wdg-frise-place { color: var(--txt-1, #e6e8eb); }
 .wdg-frise-ligne.est-ouvert .wdg-frise-place i { background: #00e676; box-shadow: 0 0 5px rgba(0, 230, 118, .55); }
 /* Le temps restant est la seule part élastique : c est lui qui se tronque si la carte est étroite. */
-.wdg-frise-reste { flex: 1 1 auto; min-width: 0; font-size: 10px; color: var(--txt-3, #6b7280);
+.wdg-frise-reste { flex: 1 1 auto; min-width: 0; font-size: 11px; color: var(--txt-3, #6b7280);
   font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wdg-frise-heures { flex: 0 0 auto; font-size: 10px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
-.wdg-frise-badge { flex: 0 0 auto; font-size: 9px; font-weight: 700; letter-spacing: .04em;
-  padding: 1px 5px; border-radius: 3px; border: 1px solid rgba(255, 61, 0, .45);
+.wdg-frise-heures { flex: 0 0 auto; font-size: 11px; color: var(--txt-2, #9aa1ac); font-variant-numeric: tabular-nums; }
+.wdg-frise-badge { flex: 0 0 auto; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 7px; border-radius: 3px; border: 1px solid rgba(255, 61, 0, .45);
   color: #ff3d00; background: rgba(255, 61, 0, .07); }
 .wdg-frise-ligne.est-ouvert .wdg-frise-badge { border-color: rgba(0, 230, 118, .45); color: #00e676; background: rgba(0, 230, 118, .07); }
 
 /* La piste couvre 24 h ; les blocs sont positionnés en pourcentage par le JS.
    Trame toutes les 3 h : assez pour situer un bloc, assez peu pour ne pas faire grille. */
-.wdg-frise-piste { position: relative; height: 14px; border-radius: 3px; overflow: hidden;
+.wdg-frise-piste { position: relative; height: 18px; border-radius: 3px; overflow: hidden;
   background: var(--bg-3, #0f0f12); border: 1px solid var(--hud-line);
   background-image: repeating-linear-gradient(to right, var(--hud-line) 0 1px, transparent 1px 12.5%); }
 .wdg-frise-bloc { position: absolute; top: 0; bottom: 0; background: var(--frise-ton, #3a3f4b); opacity: .34; }

@@ -515,6 +515,14 @@
     } catch (e) { return { ouvert: false, mins: 0 }; }
   }
 
+  /* « 09:30 » : heure de frise a l heure du lecteur, minutes comprises (un fuseau a la demi-heure
+     décalerait les plages de trente minutes, l arrondi mentirait). */
+  function _friseHF(h) {
+    h = ((h % 24) + 24) % 24;
+    var H = Math.floor(h), M = Math.round((h - H) * 60);
+    if (M === 60) { H = (H + 1) % 24; M = 0; }
+    return (H < 10 ? '0' : '') + H + ':' + (M < 10 ? '0' : '') + M;
+  }
   function _friseDuree(m) {
     var h = Math.floor(m / 60), mm = m % 60;
     if (h <= 0) return mm + ' min';
@@ -565,7 +573,13 @@
           + '<span class="wdg-frise-place"><i></i>' + p.nom + '</span>'
           + '<span class="wdg-frise-reste">' + (e.ouvert ? 'ferme dans ' + _friseDuree(e.mins)
               : (e.mins ? 'ouvre dans ' + _friseDuree(e.mins) : '')) + '</span>'
-          + '<span class="wdg-frise-heures">' + _friseHeure(now, p.tz) + '</span>'
+          + (function () {
+              // Plage d ouverture convertie dans le fuseau du lecteur, comme la reference. Une
+              // seance qui enjambe minuit s affiche telle quelle (« 23:00 - 07:00 ») : c est la
+              // convention de lecture des plages horaires, pas une erreur.
+              var dec = _friseDecalage(p.tz, now);
+              return '<span class="wdg-frise-heures">' + _friseHF(p.ouv - dec) + ' - ' + _friseHF(p.fer - dec) + '</span>';
+            })()
           + '<span class="wdg-frise-badge">' + (e.ouvert ? 'OUVERT' : 'FERMÉ') + '</span>'
           + '</div>'
           + '<div class="wdg-frise-piste">' + blocs
