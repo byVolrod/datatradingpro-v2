@@ -241,6 +241,17 @@ const _PUBLIC_PREFIXES = ['/css/', '/js/', '/assets/images/', '/api/auth/', '/ap
 // routes protégées prenaient un 401 silencieux.
 const _INTERNAL_TOKEN = process.env.DTP_INTERNAL_TOKEN || require('crypto').randomBytes(24).toString('hex');
 
+/* LECTURE SEULE — garde-fou posé le 18/08 après incident RÉEL.
+   Un serveur lancé sur un poste de développement pour INSPECTER le desk (banc de rendu, mesure de
+   contraste…) se connecte aux VRAIES bases Supabase et aux VRAIS fournisseurs d'e-mail : ses tâches
+   de démarrage ont donc écrit en production depuis une machine locale. Constaté ce jour-là : un
+   message d'accueil inséré dans la conversation d'un client réel, un e-mail de bienvenue parti, une
+   alerte admin envoyée. La campagne (163 contacts) a été ÉVALUÉE au même moment et n'est passée à
+   côté que parce que ses verrous hebdomadaires ne s'ouvraient pas à cette heure-là.
+   Poser DTP_LECTURE_SEULE=1 neutralise tout ce qui ÉCRIT ou ENVOIE en tâche de fond. La production
+   ne définit pas cette variable : son comportement reste strictement identique. */
+const _LECTURE_SEULE = /^(1|true|oui)$/i.test(String(process.env.DTP_LECTURE_SEULE || ''));
+
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
 // 1 clic (fini le « pas à jour » quand la session reste ouverte après un déploiement).
@@ -1914,6 +1925,8 @@ async function _welcomeChatBackfill(reason) {
   return out;
 }
 // Rattrapage idempotent au démarrage (~80 s après le boot : laisse la DB/redondance se stabiliser).
+if (_LECTURE_SEULE) console.warn('[DTP] LECTURE SEULE : aucune tâche de fond n\'écrira ni n\'enverra.');
+if (!_LECTURE_SEULE)
 setTimeout(() => { _welcomeChatBackfill('boot').catch(e => console.error('[WelcomeChatBackfill] boot KO:', e.message)); }, 80 * 1000);
 // Déclencheur manuel (admin) — renvoie le décompte (clients / déjà reçu / envoyés / erreurs).
 app.post('/api/admin/welcome-chat-backfill', requireAdmin, async (_req, res) => {
@@ -2467,8 +2480,10 @@ async function _welcomeAutoHeal(send = true, cap = 20) {
   return out;
 }
 // Planif : boot+120 s (après le 1er reconcile) puis toutes les 6 h. Déclencheur/inspection admin ci-dessous.
+if (!_LECTURE_SEULE) {
 setTimeout(() => { _welcomeAutoHeal(true).catch(e => console.error('[Welcome auto-heal] boot:', e.message)); }, 120 * 1000);
 setInterval(() => { _welcomeAutoHeal(true).catch(e => console.error('[Welcome auto-heal] cycle:', e.message)); }, 6 * 60 * 60 * 1000);
+}
 app.get('/api/admin/welcome-heal', requireSameOrigin, requireAdmin, async (req, res) => {
   try { const r = await _welcomeAutoHeal(req.query.send === '1', parseInt(req.query.cap, 10) || 20); res.json(r); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -2726,6 +2741,20 @@ app.get('/api/admin/chat', requireSupport, async (_req, res) => {
   try {
     const [threads, users] = await Promise.all([auth.chatThreads(), auth.getAllUsers()]);   // parallèle = 1 seul aller-retour
     const byId = new Map(users.map(u => [String(u.id), u]));
+
+    /* RATTRAPAGE D'IDENTITÉ (18/08). getAllUsers() lit UNE base (avec cache 60 s) alors que l'auth
+       vit sur la redondance db2/3/4 : un compte servi par un autre nœud restait introuvable ici, et
+       la messagerie affichait alors son identifiant technique brut (« 3a34b9fc-9d3a-… ») en guise de
+       nom. getUserById, lui, porte le repli miroir et interroge les autres nœuds.
+       Borné à 12 lectures : c'est un rattrapage d'exception, pas un second inventaire. */
+    const manquants = threads.map(t => String(t.user_id)).filter(id => id && !byId.has(id)).slice(0, 12);
+    if (manquants.length) {
+      const repêchés = await Promise.all(manquants.map(id =>
+        auth.getUserById(id).catch(() => null)));
+      repêchés.forEach(u => { if (u && u.id != null) byId.set(String(u.id), u); });
+      const restants = manquants.length - repêchés.filter(Boolean).length;
+      if (restants) console.warn('[chat] ' + restants + ' fil(s) sans compte résolu (compte supprimé ?)');
+    }
     res.json({ threads: threads.map(t => { const p = _presenceWithFallback(t.user_id, t.lastAt); return { ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '', online: p.online, lastSeen: p.lastSeen }; }) });   // repli lastSeen = dernier message
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -20126,8 +20155,13 @@ async function _dripTick() {
   } catch (e) { console.error('[Drip]', e.message); }
   finally { _dripRunning = false; }
 }
+/* Le plus dangereux des trois : ce tick peut expédier la campagne à TOUS les contacts. Lors de
+   l'incident du 18/08 il a bien été évalué depuis un poste local ; seuls ses verrous hebdomadaires
+   ont évité l'envoi. On ne compte plus sur cette chance. */
+if (!_LECTURE_SEULE) {
 setInterval(_dripTick, 30 * 60 * 1000);   // toutes les 30 min (la fenetre + synchro semaine + CAP limitent le debit)
 setTimeout(_dripTick, 90 * 1000);         // 1er check apres le boot
+}
 
 // Etat + pilotage de la boucle (admin). ?action=status(defaut)|activate|pause
 app.get('/api/admin/campaign-drip', requireSameOrigin, requireAdmin, async (req, res) => {

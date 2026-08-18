@@ -1627,7 +1627,7 @@
         else if (/^data:/.test(last))   last = '📎 Pièce jointe';
         else last = last.slice(0, 48);
         return `<div class="ad-thread${t.user_id===_adChatUser?' active':''}" onclick="openAdThread('${t.user_id}')">
-          <div class="ad-thread-name">${_esc2(t.name || t.email || ('User '+t.user_id))}${t.unread?` <span class="ad-thread-badge">${t.unread}</span>`:''}</div>
+          <div class="ad-thread-name">${_esc2(t.name || t.email || ('Compte introuvable · ' + String(t.user_id || '').slice(0, 8)))}${t.unread?` <span class="ad-thread-badge">${t.unread}</span>`:''}</div>
           <div class="ad-thread-last">${_esc2(last)}</div>
         </div>`;
       }).join('');

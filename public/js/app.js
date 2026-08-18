@@ -9836,14 +9836,19 @@ function _chatRenderInbox(resetScroll){
   const threadIds = new Set(threads.map(t => String(t.user_id)));
   // 1) Conversations existantes, puis 2) TOUS les autres utilisateurs (pour pouvoir les contacter).
   const entries = [];
+  /* Un identifiant technique n'est pas un nom : affiché tel quel il ne dit RIEN au support (« qui
+     est 3a34b9fc-9d3a-47cf ? ») et donne l'impression d'un compte corrompu. Quand ni le nom ni
+     l'e-mail ne sont connus, on le dit, en gardant les 8 premiers caractères pour pouvoir rapprocher
+     la conversation d'une ligne de base si besoin. */
+  const _nomLisible = (nom, mail, id) => nom || mail || ('Compte introuvable · ' + String(id || '').slice(0, 8));
   threads.forEach(t => entries.push({
-    id: String(t.user_id), name: t.name || t.email || t.user_id, email: t.email || '',
+    id: String(t.user_id), name: _nomLisible(t.name, t.email, t.user_id), email: t.email || '',
     role: (userById.get(String(t.user_id)) || {}).role || 'user',
     last: t.last || '', lastAt: t.lastAt || 0, unread: t.unread || 0,
     online: !!(userById.get(String(t.user_id)) || {}).online, hasThread: true,
   }));
   users.forEach(u => { if (!threadIds.has(String(u.id))) entries.push({
-    id: String(u.id), name: u.name || u.email || u.id, email: u.email || '',
+    id: String(u.id), name: _nomLisible(u.name, u.email, u.id), email: u.email || '',
     role: u.role || 'user', last: '', lastAt: 0, unread: 0, online: !!u.online, hasThread: false,
   }); });
   // TRI : les VRAIES conversations d'abord, la plus RÉCEMMENT active en tête (fini « la dernière
