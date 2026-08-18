@@ -16995,7 +16995,7 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    l anneau et debordaient du cadre). Position absolue posee par poserEtiquettes(), fondu une fois
    l anneau dessine. */
 .wdg-dmx1-anneau { position: relative; }
-.wdg-dmx1-lab { position: absolute; font-size: 10px; font-weight: 600; color: var(--txt-2, #9aa1ac);
+.wdg-dmx1-lab { position: absolute; font-size: 12px; font-weight: 600; color: var(--txt-1, #e6e8eb);
   white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .3s ease .7s; }
 .wdg-dmx1-anneau.est-charge .wdg-dmx1-lab { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
@@ -17303,3 +17303,21 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    sur la ligne de base du nom, quelle que soit la taille de police de la carte. */
 .home-card-ico { display: inline-flex; align-items: center; vertical-align: -2px; margin-right: 6px; color: var(--orange, #e3b23a); }
 .home-card-ico svg { width: 14px; height: 14px; }
+
+/* ── Bibliothèque : carte « Bientôt » (18/08) : palier de déploiement des nouveaux widgets ──────
+   La carte se voit (les clients savent ce qui arrive) mais reste inerte : légèrement estompée,
+   badge or discret en coin, pas de curseur d'action. Le badge est le seul élément en or : c'est
+   une promesse, pas un signal de marché. */
+.wdg-lib-card--soon { opacity: .62; cursor: default; }
+.wdg-lib-card--soon:hover { border-color: var(--hud-line); }
+.wdg-lib-soon {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--orange, #e3b23a); border: 1px solid rgba(227, 178, 58, .4);
+  background: rgba(227, 178, 58, .07); border-radius: 3px; padding: 1px 6px;
+}
+
+/* Reglages : longue liste de choix en DEUX COLONNES (18/08, demande user : la liste des 39 paires
+   du DMX se scrollait sans fin en une colonne). Les listes courtes gardent leurs pastilles en ligne. */
+.wdg-set-chips--long { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wdg-set-chips--long .wdg-set-chip { width: 100%; text-align: center; justify-content: center; }

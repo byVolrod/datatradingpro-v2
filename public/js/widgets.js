@@ -257,7 +257,9 @@
                 + '<span>' + esc(c[1]) + '</span><i>✓</i></button>';
             }).join('') + '</div>';
       } else {
-        ctl = '<span class="wdg-set-chips">' + o.choix.map(function (c) {
+        // Longue liste (la paire du DMX en a 39) : DEUX COLONNES (18/08, demande user), sinon le
+        // panneau se scrolle sans fin. Les listes courtes gardent la rangee en pastilles.
+        ctl = '<span class="wdg-set-chips' + (o.choix.length > 10 ? ' wdg-set-chips--long' : '') + '">' + o.choix.map(function (c) {
           return '<button class="wdg-set-chip' + (c[0] === cur ? ' on' : '') + '"'
             + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\'' + AC + ')">' + esc(c[1]) + '</button>';
         }).join('') + '</span>';
@@ -1579,9 +1581,16 @@
               var w = el.offsetWidth, h = el.offsetHeight;
               var gauche = Math.cos(ang) < 0;
               var L2 = gauche ? x - w - 2 : x + 2;
-              // Bornage : jamais hors de la zone, quitte a coller au bord.
+              // Bornage : jamais hors de la zone.
               L2 = Math.max(2, Math.min(bw - w - 2, L2));
               var T2 = Math.max(2, Math.min(bh - h - 2, y - h / 2));
+              /* GARANTIE DE NON-CHEVAUCHEMENT (18/08, demande user) : si le bornage a repousse
+                 l etiquette vers l anneau, elle finirait DESSUS. On mesure la distance du point du
+                 rectangle le plus proche du centre : sous le bord externe + 3 px, l etiquette est
+                 MASQUEE (et son fil avec) plutot que posee sur le donut : le pied de carte porte
+                 deja les memes pourcentages, une etiquette qui chevauche n informe plus, elle salit. */
+              var px2 = Math.max(L2, Math.min(cx, L2 + w)), py2 = Math.max(T2, Math.min(cy, T2 + h));
+              if (Math.hypot(px2 - cx, py2 - cy) < rBord + 3) { el.remove(); fil.remove(); return; }
               el.style.left = L2 + 'px';
               el.style.top = T2 + 'px';
             });
@@ -3635,6 +3644,18 @@
   // survivre d'une ouverture de bibliothèque à l'autre et le clic suivant tombait au mauvais endroit.
   // Un seul point d'oubli, appelé partout.
   function _oublieCibles() { _pickIdx = null; _pickTab = null; _pickTabAt = null; _pickCell = null; _pickSwap = null; }
+  /* ── DÉPLOIEMENT PAR PALIERS (18/08, décision user pour l'élargissement de la bibliothèque) ──
+     Un widget marqué `staff: true` dans le catalogue est ACTIF pour les comptes admin/support et
+     affiché « Bientôt » pour les autres : la carte se voit (les clients savent ce qui arrive, comme
+     un fil d'annonces), mais ne s'ajoute pas. C'est un PALIER DE PRODUIT, pas une barrière de
+     sécurité : les données de ces widgets viennent d'endpoints déjà gardés par la session côté
+     serveur. Le rôle vit dans window._pdUser (posé au chargement du desk). */
+  function _estStaff() {
+    try { var u = window._pdUser; return !!(u && (u.role === 'admin' || u.role === 'support')); }
+    catch (e) { return false; }
+  }
+  function _wBientot(w) { return !!(w && w.staff) && !_estStaff(); }
+
   var _justAdded = null;                     // id du widget qu'on vient d'ajouter (flash « ✓ Ajouté » sur sa carte)
   // « + » d'un Panneau à onglets → la bibliothèque choisit le SOUS-widget (ajouté comme onglet, pas
   // comme carte). `at` (03/08) : position d'un onglet VIDE → le choix REMPLIT cet onglet-là.
@@ -3703,6 +3724,16 @@
       // L'infobulle porte AUSSI la description : depuis que la carte coupe le texte à deux lignes
       // pleines (grille de hauteur régulière), c'est le seul endroit où lire une description longue
       // sans ajouter le widget. Les descriptions vont de 38 à 112 caractères, une poignée dépasse.
+      if (_wBientot(w)) {
+        // Carte « Bientôt » : visible (le client voit ce qui arrive) mais inerte : ni ajout, ni
+        // favori. aria-disabled plutôt que disabled : l'infobulle (description) doit rester lisible.
+        return '<button class="wdg-lib-card wdg-lib-card--prev wdg-lib-card--soon" aria-disabled="true" title="' + esc(w.desc) + '">'
+          + '<span class="wdg-lib-prev">' + (WPREV[w.id] || WICO[w.id] || '') + '</span>'
+          + '<span class="wdg-lib-main"><span class="wdg-lib-name">' + esc(w.name) + '</span>'
+          + '<span class="wdg-lib-desc">' + esc(w.desc) + '</span></span>'
+          + '<span class="wdg-lib-soon">Bientôt</span>'
+          + '</button>';
+      }
       return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' » · ' + esc(w.desc) + '">'
         + '<span class="wdg-lib-fav' + (favSet[w.id] ? ' on' : '') + '" role="button" tabindex="0"'
         +   ' title="' + (favSet[w.id] ? 'Retirer des favoris' : 'Épingler en favori (section Favoris en tête)') + '"'
@@ -4360,6 +4391,9 @@ function _spansAffiches(lay) {
     },
     add: function (wid) {
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
+      // Ceinture si appel direct (la carte est inerte et n offre jamais ce clic) : refus SILENCIEUX,
+      // « note » n existe pas a cette portee (variable locale d importCfg, verifie le 18/08).
+      if (_wBientot(w)) return;
       if (_pickSwap != null && l.items[_pickSwap]) {
         var old = l.items[_pickSwap], ancien = byId(old.w);
         if (wid !== old.w) {
