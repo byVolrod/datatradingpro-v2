@@ -842,6 +842,37 @@
      Le week-end fait deja un trou LEGITIME de trois jours en journalier : la borne est a quatre.
      Les couples rejetes sont COMPTES, et affiches des qu ils comptent : sinon l echantillon
      annonce serait plus grand que l echantillon reel. */
+  /* Heure locale EXACTE d une place, pour un instant donne. On n utilise PAS _friseDecalage ici :
+     cette fonction mesure l ecart entre la place et LE LECTEUR, pas entre la place et UTC. S en
+     servir pour dater une bougie donnerait un decoupage faux pour tout utilisateur hors du fuseau
+     du developpeur, et faux deux fois par an pour les autres (les changements d heure ne tombent
+     pas le meme jour a Londres, New York et Tokyo).
+     Intl formate l instant DANS le fuseau demande : le passage a l heure d ete est donc traite
+     pour la date de CHAQUE bougie, pas pour aujourd hui. */
+  var _fmtH = {};
+  function _heureLocale(tz, ms) {
+    try {
+      if (!_fmtH[tz]) _fmtH[tz] = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+      var p = _fmtH[tz].formatToParts(new Date(ms));
+      var h = 0, mn = 0;
+      p.forEach(function (x) { if (x.type === 'hour') h = parseInt(x.value, 10); if (x.type === 'minute') mn = parseInt(x.value, 10); });
+      return (h % 24) + mn / 60;
+    } catch (e) { return null; }
+  }
+
+  /* L unite de temps SERVIE est-elle celle qu on a demandee ? La route accepte un parametre `tf`
+     et retombe sur le journalier quand elle ne le reconnait pas : sans ce controle, un widget qui
+     croit decouper des bougies horaires decouperait en realite des journees entieres, et publierait
+     des amplitudes de seance parfaitement fausses. On mesure l ecart MEDIAN entre deux
+     horodatages, la mediane resistant aux trous de week-end. */
+  function _pasMedian(c) {
+    if (!c || c.length < 5) return null;
+    var e = [];
+    for (var i = 1; i < c.length; i++) e.push(c[i].t - c[i - 1].t);
+    e.sort(function (a, b) { return a - b; });
+    return e[Math.floor(e.length / 2)];
+  }
+
   var _ECART_MAX = { D1: 4 * 86400000, W1: 10 * 86400000, H4: 5 * 3600000, H1: 90 * 60000, M15: 25 * 60000 };
   function _couplesValides(c, tf) {
     var max = _ECART_MAX[tf] || _ECART_MAX.D1;
@@ -1806,6 +1837,92 @@
        ne conserve qu une ligne par contrat). Mieux vaut deux widgets en moins qu un widget qui ment.
        « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
 
+    {
+      id: 'amplitude-seance', name: 'Amplitude par séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 280, staff: true,
+      desc: 'Combien la paire parcourt pendant Tokyo, Londres et New York, en moyenne.',
+      /* ⚠️ TROIS PRECAUTIONS, toutes exigees par la contre-verification.
+         1. On VERIFIE que la route a bien servi des bougies horaires : elle retombe sur le
+            journalier quand elle ne reconnait pas l unite demandee, et le widget publierait alors
+            des amplitudes de seance calculees sur des journees entieres.
+         2. L heure locale de chaque place est lue POUR LA DATE DE LA BOUGIE, jamais pour
+            aujourd hui : les changements d heure ne tombent pas le meme jour à Londres, New York
+            et Tokyo.
+         3. Fenetre en intervalle SEMI-OUVERT [ouverture, fermeture) : l heure de fermeture
+            appartient a la seance suivante, pas aux deux.
+         Les seances se CHEVAUCHENT (Londres et New York partagent l apres-midi) : chaque ligne
+         est donc mesuree independamment, et la somme des trois ne fait pas la journee. C est dit
+         sur la carte. Reserve aux paires FX : sur un indice, la notion de seance mondiale n a
+         pas le meme sens. */
+      opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', cache: true, choix: _fxChoix() },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, cache = {};
+        skel(host, 4);
+        // Les trois places qui font le volume. Sydney est ecarte : sa seance chevauche le
+        // changement de jour, ce qui demanderait une regle d attribution de jour a expliquer
+        // pour un apport marginal.
+        var PLACES = [
+          { nom: 'Tokyo', tz: 'Asia/Tokyo', ouv: 9, fer: 15 },
+          { nom: 'Londres', tz: 'Europe/London', ouv: 8, fer: 17 },
+          { nom: 'New York', tz: 'America/New_York', ouv: 9, fer: 17 },
+        ];
+
+        function dessiner() {
+          var sym = opt(it, W, 'paire') || 'EUR/USD';
+          var pip = _pipTaille(sym);
+          if (!pip) { fallback(host, 'Réservé aux paires de devises.'); return; }
+          _bougies(sym, 'H1', cache).then(function (c) {
+            if (!vivant || !host.isConnected) return;
+            if (c.length < 50) { fallback(host, 'Historique insuffisant.'); return; }
+            // Controle d unite AVANT tout calcul : une tolerance large (30 min a 2 h) absorbe
+            // les trous de marche sans laisser passer du journalier.
+            var pas = _pasMedian(c);
+            if (!pas || pas < 30 * 60000 || pas > 2 * 3600000) {
+              fallback(host, 'La source n\'a pas servi de bougies horaires pour cette paire.');
+              return;
+            }
+            var lignes = PLACES.map(function (p) {
+              var amp = [], jours = {};
+              c.forEach(function (b) {
+                var hl = _heureLocale(p.tz, b.t);
+                if (hl == null) return;
+                // Intervalle SEMI-OUVERT : l heure de fermeture n appartient pas a la seance.
+                if (hl < p.ouv || hl >= p.fer) return;
+                // Regroupement par journee de la place, pour mesurer l amplitude de la SEANCE
+                // entiere et non celle d une bougie isolee.
+                var cle = new Date(b.t).toISOString().slice(0, 10) + '|' + Math.floor(hl / 24);
+                var g = jours[cle] || (jours[cle] = { h: -Infinity, l: Infinity });
+                if (b.h > g.h) g.h = b.h;
+                if (b.l < g.l) g.l = b.l;
+              });
+              Object.keys(jours).forEach(function (k) {
+                var g = jours[k];
+                if (isFinite(g.h) && isFinite(g.l) && g.h > g.l) amp.push((g.h - g.l) / pip);
+              });
+              var moy = amp.length ? amp.reduce(function (a, b) { return a + b; }, 0) / amp.length : null;
+              return { nom: p.nom, moy: moy, n: amp.length, ouv: p.ouv, fer: p.fer, tz: p.tz };
+            });
+            var max = Math.max.apply(null, lignes.map(function (l) { return l.moy || 0; })) || 1;
+            var h = '<div class="wdg-as"><div class="wdg-as-tete"><span class="wdg-as-sym">' + esc(sym) + '</span></div>';
+            lignes.forEach(function (l) {
+              var w = l.moy ? Math.max(3, l.moy / max * 100) : 0;
+              h += '<div class="wdg-as-l">'
+                + '<div class="wdg-as-t"><span>' + esc(l.nom) + '</span>'
+                + '<i>' + l.ouv + 'h-' + l.fer + 'h locale</i>'
+                + '<b>' + (l.moy != null ? l.moy.toFixed(0) + ' pips' : '--') + '</b></div>'
+                + '<div class="wdg-as-piste"><span style="width:' + w.toFixed(1) + '%"></span></div>'
+                + '<div class="wdg-as-n">' + l.n + ' séance' + (l.n > 1 ? 's' : '') + '</div></div>';
+            });
+            h += '<div class="wdg-as-pied">Les séances se chevauchent : la somme des trois ne fait pas la journée. '
+              + 'Heures locales de chaque place, changement d\'heure compris.</div></div>';
+            host.innerHTML = h;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        return function () { vivant = false; };
+      },
+    },
     {
       id: 'distribution-variations', name: 'Distribution des variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320, staff: true,
       desc: 'La forme réelle des séances : combien de journées à +0,3 %, combien à -1 %.',
@@ -4815,6 +4932,7 @@
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
+    'amplitude-seance': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h11M4 12h16M4 18h7"/></svg>',
     'distribution-variations': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5.5 20v-3M9 20v-8M12 20v-12M15 20v-8M18.5 20v-3"/></svg>',
     'stats-volatilite': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14M21 5v14" opacity=".4"/><path d="M6 12c1.5-4 3-4 4.5 0s3 6 4.5 0 2.5-3 3 0"/></svg>',
     'heatmap-seance': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1" fill="currentColor" opacity=".35" stroke="none"/><rect x="3.5" y="13.5" width="7" height="7" rx="1" fill="currentColor" opacity=".55" stroke="none"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>',
@@ -4859,6 +4977,11 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    'amplitude-seance': '<svg ' + _PV + '>'
+      + '<rect x="8" y="9" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="9" width="34" height="7" rx="2" fill="#e3b23a" opacity=".55"/>'
+      + '<rect x="8" y="24" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="24" width="92" height="7" rx="2" fill="#e3b23a" opacity=".9"/>'
+      + '<rect x="8" y="39" width="100" height="7" rx="2" fill="#23232a"/><rect x="8" y="39" width="68" height="7" rx="2" fill="#e3b23a" opacity=".72"/>'
+      + '</svg>',
     'distribution-variations': '<svg ' + _PV + '>' + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>' + (function () { var v = [2, 4, 8, 14, 22, 31, 36, 30, 21, 13, 7, 3], h = ''; for (var i = 0; i < 12; i++) h += '<rect x="' + (8 + i * 9) + '" y="' + (46 - v[i]) + '" width="7" height="' + v[i] + '"' + ' fill="' + (i < 6 ? '#ff3d00' : '#00e676') + '" opacity=".55"/>'; return h; })() + '<line x1="62" y1="6" x2="62" y2="50" stroke="#e3b23a" stroke-dasharray="2 3" opacity=".6"/>' + '</svg>',
     'stats-volatilite': '<svg ' + _PV + '>' + '<line x1="60" y1="8" x2="60" y2="48" stroke="#23232a"/>' + '<rect x="8" y="12" width="44" height="9" rx="2" fill="#3a3d44" opacity=".55"/>' + '<rect x="8" y="26" width="30" height="9" rx="2" fill="#e3b23a" opacity=".75"/>' + '<rect x="8" y="40" width="22" height="6" rx="2" fill="#3a3d44" opacity=".4"/>' + '<rect x="68" y="12" width="44" height="9" rx="2" fill="#3a3d44" opacity=".55"/>' + '<rect x="68" y="26" width="38" height="9" rx="2" fill="#e3b23a" opacity=".75"/>' + '<rect x="68" y="40" width="26" height="6" rx="2" fill="#3a3d44" opacity=".4"/>' + '</svg>',
     'heatmap-seance': '<svg ' + _PV + '>' + (function () { var h = '', v = [.9,.5,.2,-.3,-.8,.6,.1,-.5,.7,-.2,.4,-.9,.3,-.6,.8,-.1,.5,-.4,.2,-.7,.6,-.3,.9,.1]; for (var i = 0; i < 24; i++) { var x = 5 + (i % 8) * 14, y = 6 + Math.floor(i / 8) * 15, a = Math.min(Math.abs(v[i]), 1); h += '<rect x="' + x + '" y="' + y + '" width="12" height="13" rx="1.5" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity="' + (0.12 + a * 0.6).toFixed(2) + '"/>'; } return h; })() + '</svg>',
