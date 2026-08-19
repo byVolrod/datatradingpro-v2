@@ -663,7 +663,11 @@
     var mn = Math.min.apply(null, v), mx = Math.max.apply(null, v);
     if (zeroInclus) { mn = Math.min(mn, 0); mx = Math.max(mx, 0); }
     if (mx - mn < 1e-9) { var d = Math.abs(mx) > 1e-9 ? Math.abs(mx) * 0.1 : 1; mn -= d; mx += d; }
-    var marge = (mx - mn) * 0.04;
+    var ampl = mx - mn;
+    var typique = Math.max(Math.abs(mx), Math.abs(mn));
+    // Marge = 4 % de l ecart, MAIS au moins 60 % de cet ecart quand il est minuscule devant les
+    // valeurs elles-memes : les barres restent alors substantielles tout en restant comparables.
+    var marge = Math.max(ampl * 0.04, (typique > 0 && ampl < typique * 0.15) ? ampl * 0.6 : 0);
     return { min: mn - marge, max: mx + marge, brutMin: Math.min.apply(null, v), brutMax: Math.max.apply(null, v) };
   }
 
@@ -714,11 +718,17 @@
      sinon d'une seule couleur. Utilisé par la distribution des variations et les amplitudes. */
   function _barresSvg(vals, o) {
     o = o || {};
-    var e = _trEchelle(vals, true);
+    // Le zero n est force que si on le DEMANDE : sur une serie de valeurs proches, l imposer
+    // ecrase toute difference et rend les barres indistinguables (constate sur trois taux a 6,8 %).
+    var e = _trEchelle(vals, o.zero !== false);
     if (!e || !vals.length) return '';
-    var n = vals.length, pas = _TR_W / n, jour = Math.min(pas * 0.22, 2.4);
+    var n = vals.length, pas = _TR_W / n;
+    // Largeur PLAFONNEE : trois barres ne doivent pas devenir trois paves pleine largeur.
+    var large = Math.min(pas * 0.78, o.largeurMax || 1e9);
+    var jour = Math.max((pas - large) / 2, Math.min(pas * 0.11, 1.2));
     var Y = function (v) { return _TR_H - (v - e.min) / (e.max - e.min) * _TR_H; };
-    var y0 = Y(0);
+    var dansEchelle = e.min <= 0 && e.max >= 0;
+    var y0 = dansEchelle ? Y(0) : _TR_H;
     var h = '<svg viewBox="0 0 ' + _TR_W + ' ' + _TR_H + '" class="wdg-tr-svg" preserveAspectRatio="none">';
     if (e.min < 0 && e.max > 0) {
       h += '<line x1="0" y1="' + y0.toFixed(2) + '" x2="' + _TR_W + '" y2="' + y0.toFixed(2) + '"'
@@ -729,9 +739,9 @@
       var y = Y(v), haut = Math.min(y, y0), bas = Math.max(y, y0);
       // Une barre de hauteur nulle serait invisible : on lui laisse un filet de 0,6.
       var ht = Math.max(bas - haut, 0.6);
-      var col = o.signe ? (v >= 0 ? '#00e676' : '#ff3d00') : (o.couleur || 'var(--orange, #e3b23a)');
-      h += '<rect class="wdg-tr-barre" x="' + (i * pas + jour / 2).toFixed(2) + '" y="' + haut.toFixed(2) + '"'
-        + ' width="' + Math.max(pas - jour, 0.4).toFixed(2) + '" height="' + ht.toFixed(2) + '"'
+      var col = (o.couleurs && o.couleurs[i]) || (o.signe ? (v >= 0 ? '#00e676' : '#ff3d00') : (o.couleur || 'var(--orange, #e3b23a)'));
+      h += '<rect class="wdg-tr-barre" x="' + (i * pas + jour).toFixed(2) + '" y="' + haut.toFixed(2) + '"'
+        + ' width="' + Math.max(pas - 2 * jour, 0.4).toFixed(2) + '" height="' + ht.toFixed(2) + '"'
         + ' fill="' + col + '" opacity="' + (o.opacite || 0.85) + '"></rect>';
     });
     h += '</svg>';
@@ -2021,7 +2031,7 @@
     },
 
     {
-      id: 'ticklist', name: 'Liste de suivi', tag: 'FX', cat: 'Marchés', h: 300, staff: true,
+      id: 'ticklist', name: 'Liste de suivi', tag: 'FX', cat: 'Marchés', h: 176, staff: true,
       desc: 'Les paires que vous suivez, leur cours et leur variation du jour.',
       /* ⚠️ CE QUE CE WIDGET N AFFICHE PAS, ET POURQUOI. /api/fxlist sert bien des colonnes `bias`
          et `dmx`, mais elles ont des REPLIS SILENCIEUX : `dmx` retombe sur un ratio de jours
@@ -2081,7 +2091,7 @@
       },
     },
     {
-      id: 'amplitude-seance', name: 'Amplitude par séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 280, staff: true,
+      id: 'amplitude-seance', name: 'Amplitude par séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 224, staff: true,
       desc: 'Combien la paire parcourt pendant Tokyo, Londres et New York, en moyenne.',
       /* ⚠️ TROIS PRECAUTIONS, toutes exigees par la contre-verification.
          1. On VERIFIE que la route a bien servi des bougies horaires : elle retombe sur le
@@ -2158,9 +2168,9 @@
             });
             var max = Math.max.apply(null, lignes.map(function (l) { return l.moy || 0; })) || 1;
             var h = '<div class="wdg-as"><div class="wdg-as-tete"><span class="wdg-as-sym">' + esc(sym) + '</span></div>';
-            lignes.forEach(function (l) {
+            lignes.forEach(function (l, iP) {
               var w = l.moy ? Math.max(3, l.moy / max * 100) : 0;
-              h += '<div class="wdg-as-l">'
+              h += '<div class="wdg-as-l" data-place="' + iP + '">'
                 + '<div class="wdg-as-t"><span>' + esc(l.nom) + '</span>'
                 + '<i>' + l.ouv + 'h-' + l.fer + 'h locale</i>'
                 + '<b>' + (l.moy != null ? (enPct ? l.moy.toFixed(2).replace('.', ',') + ' %' : l.moy.toFixed(0) + ' pips') : '--') + '</b></div>'
@@ -2224,7 +2234,11 @@
             host.innerHTML = '<div class="wdg-di">'
               + '<div class="wdg-di-tete"><span class="wdg-di-sym">' + esc(sym) + '</span>'
               + '<span class="wdg-di-n">n = ' + n + '</span></div>'
-              + '<div class="wdg-di-zone">' + _barresSvg(classes, { couleur: 'var(--orange, #e3b23a)' }) + '</div>'
+              // Une classe sous zero est une seance de BAISSE, au-dessus une seance de HAUSSE :
+              // la couleur ne fait que dire ce que l abscisse dit deja, elle n invente rien.
+              + '<div class="wdg-di-zone">' + _barresSvg(classes, {
+                couleurs: etiq.map(function (b0) { return b0 < 0 ? '#ff3d00' : '#00e676'; }),
+              }) + '</div>'
               + '<div class="wdg-di-axe"><span>' + (etiq[0]).toFixed(1).replace('.', ',') + ' %</span>'
               + '<span>0</span><span>+' + (etiq[etiq.length - 1] + pas).toFixed(1).replace('.', ',') + ' %</span></div>'
               + '<div class="wdg-di-stats">'
@@ -2243,7 +2257,7 @@
     },
 
     {
-      id: 'stats-volatilite', name: 'Statistiques de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 260, staff: true,
+      id: 'stats-volatilite', name: 'Statistiques de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 210, staff: true,
       desc: 'L\'écart-type des variations, en séance et en semaine, avec l\'amplitude vraie moyenne.',
       /* ⚠️ REPLI PAR COLONNE : si l hebdomadaire ne repond pas, la colonne journaliere reste
          affichee. Une carte entierement muette parce qu UNE des deux series manque serait une
@@ -2321,7 +2335,7 @@
       },
     },
     {
-      id: 'heatmap-seance', name: 'Chaleur de séance', tag: 'FX', cat: 'Marchés', h: 300, staff: true,
+      id: 'heatmap-seance', name: 'Chaleur de séance', tag: 'FX', cat: 'Marchés', h: 268, staff: true,
       desc: 'Les 28 croisements majeurs colorés par leur variation du jour, du plus vert au plus rouge.',
       /* ⚠️ PERIMETRE VOLONTAIREMENT ETROIT. La contre-verification a montre qu une heatmap
          multi-periodes (1 mois, 3 mois, 12 mois) ferait DOUBLON avec la Liste FX, qui sert deja
@@ -2420,7 +2434,7 @@
               + '<span class="wdg-am-n">' + util.length + ' séances</span></div>'
               + '<div class="wdg-am-gros"><b>' + moy.toFixed(dec) + '</b><span>' + unite + ' en moyenne par séance</span></div>'
               + '<div class="wdg-am-med">Médiane ' + med.toFixed(dec) + ' ' + unite + '</div>'
-              + '<div class="wdg-am-zone">' + _barresSvg(ampl.slice(-40), { couleur: 'var(--orange, #e3b23a)' }) + '</div>'
+              + '<div class="wdg-am-zone">' + _barresSvg(ampl.slice(-40).map(function (v) { return v - moy; }), { signe: true, zero: true }) + '</div>'
               + '<div class="wdg-am-pied">'
               + (enCours ? 'Séance du jour exclue, elle n\'est pas terminée. ' : 'Dernière séance retenue : ' + esc(_dateBougie(derniere.t)) + ', close. ')
               + (ecartees > 0 ? ecartees + ' séance' + (ecartees > 1 ? 's' : '') + ' écartée' + (ecartees > 1 ? 's' : '') + ' (amplitude nulle). ' : '')
@@ -2435,7 +2449,7 @@
     },
 
     {
-      id: 'hauts-bas', name: 'Points hauts et bas', tag: 'NIVEAUX', cat: 'Marchés', h: 260, staff: true,
+      id: 'hauts-bas', name: 'Points hauts et bas', tag: 'NIVEAUX', cat: 'Marchés', h: 148, staff: true,
       desc: 'Les extrêmes de la séance et de la semaine, et où se situe le cours entre les deux.',
       /* ⚠️ « En cours » se CALCULE, il ne se suppose pas : on compare la date UTC de la derniere
          bougie au jour courant, et la semaine ISO en hebdomadaire. Un dimanche, la derniere ligne
@@ -2505,7 +2519,7 @@
       },
     },
     {
-      id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 240, staff: true,
+      id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 186, staff: true,
       desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste.',
       /* Une carte a UNE seule information : c est ce qui la separe du widget Calendrier, qui est
          une table. Le decompte ne se calcule QUE depuis timestamp (ms epoch UTC) : le champ `time`
@@ -2685,7 +2699,15 @@
               return '<div class="wdg-si-l"><span>' + esc(dates[i]) + '</span><b>' + esc(p.actual || '-') + '</b></div>';
             }).join('') + '</div><div class="wdg-si-note">L\'unité change d\'une publication à l\'autre : les valeurs sont listées telles que la source les donne, sans graphe.</div>';
           } else {
-            corps = '<div class="wdg-si-zone">' + _barresSvg(vals, { signe: false }) + '</div>'
+            // Le vert/rouge dit le SENS par rapport a la publication precedente, rien d autre :
+            // une hausse n est pas une bonne nouvelle en soi (chomage, inflation). C est dit en pied.
+            var sens = vals.map(function (v, i) {
+              if (i === 0 || typeof vals[i - 1] !== 'number') return 'var(--orange, #e3b23a)';
+              if (v > vals[i - 1]) return '#00e676';
+              if (v < vals[i - 1]) return '#ff3d00';
+              return 'var(--orange, #e3b23a)';
+            });
+            corps = '<div class="wdg-si-zone">' + _barresSvg(vals, { signe: false, zero: false, largeurMax: 46, couleurs: sens }) + '</div>'
               + '<div class="wdg-si-axe">' + dates.map(function (dd, i) {
                 return '<span><i>' + esc(serie[i].actual || '') + '</i><em>' + esc(dd) + '</em></span>';
               }).join('') + '</div>';
@@ -2693,7 +2715,9 @@
           host.innerHTML = '<div class="wdg-si">'
             + '<div class="wdg-si-tete"><span class="wdg-si-titre">' + esc(titre) + '</span></div>'
             + corps
-            + '<div class="wdg-si-pied">' + esc(etendue) + '</div></div>';
+            + '<div class="wdg-si-pied">' + esc(etendue)
+            + (melange ? '' : ' · vert = en hausse sur la publication précédente, rouge = en baisse')
+            + '</div></div>';
         }
 
         function charger() {
@@ -2755,7 +2779,7 @@
       },
     },
     {
-      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marchés', h: 140, staff: true,
+      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marchés', h: 64, staff: true,
       desc: 'Les dix repères du desk en bande fine défilante.',
       /* Source : /api/ticker, liste FIGEE de 10 actifs cote serveur. On n offre donc AUCUN champ
          « ajouter un actif » : la source ne saurait pas le chercher.
@@ -3074,8 +3098,12 @@
               // Escalier decroissant : pour chaque palier de 10 pips, la PART des seances qui l atteignent.
               var paliers = [], parts = [];
               for (var x = 10; x <= 300; x += 10) {
-                paliers.push(x);
-                parts.push(mesures.filter(function (v) { return v >= x; }).length / n * 100);
+                var part = mesures.filter(function (v) { return v >= x; }).length / n * 100;
+                paliers.push(x); parts.push(part);
+                /* On s arrete des que le palier devient anecdotique : au-dela, la courbe rase le zero
+                   et occupe les quatre cinquiemes de la carte pour ne rien montrer. On garde
+                   toujours les paliers demandes par les deux reglages de seuil. */
+                if (part < 1 && x > seuil && (!opt(it, W, 'cible') || x > opt(it, W, 'cible'))) break;
               }
               var atteint = mesures.filter(function (v) { return v >= seuil; }).length;
               var pct = atteint / n * 100;
@@ -3096,7 +3124,10 @@
                 + (pct2 != null ? '<span class="wdg-freq-c">' + cible + ' pips : ' + pct2.toFixed(0) + ' % (' + atteint2 + ')</span>' : '')
                 + '</div>'
                 + '<div class="wdg-freq-zone">' + _courbeSvg(parts, { aire: true }) + '</div>'
-                + '<div class="wdg-freq-axe"><span>10</span><span>100</span><span>200</span><span>300 pips</span></div>'
+                // L axe porte les bornes REELLES du trace, pas une graduation jamais atteinte.
+                + '<div class="wdg-freq-axe"><span>' + paliers[0] + '</span>'
+                + '<span>' + paliers[Math.floor(paliers.length / 2)] + '</span>'
+                + '<span>' + paliers[paliers.length - 1] + ' pips</span></div>'
                 + '<div class="wdg-freq-pied">Fréquence observée sur les séances servies par la source, hors journée en cours. '
                 + 'Amplitude brute : elle ne tient compte d\'aucun coût de transaction.</div>'
                 + '</div>';
@@ -5396,7 +5427,7 @@
       + '<rect x="20" y="42" width="34" height="4" rx="1.5" fill="#3a3d44"/>'
       + '<rect x="60" y="42" width="26" height="4" rx="1.5" fill="#22c55e" opacity=".55"/>'
       + '</svg>',
-    'serie-indicateur': '<svg ' + _PV + '>' + '<line x1="6" y1="44" x2="114" y2="44" stroke="#23232a"/>' + (function () { var v = [14, 20, 17, 26, 23, 32], h = ''; for (var i = 0; i < 6; i++) h += '<rect x="' + (10 + i * 17) + '" y="' + (44 - v[i]) + '" width="12" height="' + v[i] + '"' + ' fill="' + (i === 5 ? '#00e676' : '#e3b23a') + '" opacity="' + (i === 5 ? '.9' : '.55') + '"/>'; return h; })() + '<rect x="10" y="48" width="96" height="3" rx="1" fill="#3a3d44" opacity=".6"/>' + '</svg>',
+    'serie-indicateur': '<svg ' + _PV + '>' + '<line x1="6" y1="44" x2="114" y2="44" stroke="#23232a"/>' + (function () { var v = [14, 20, 17, 26, 23, 32], h = ''; for (var i = 0; i < 6; i++) { var c = i === 0 ? '#e3b23a' : (v[i] > v[i - 1] ? '#00e676' : '#ff3d00'); h += '<rect x="' + (10 + i * 17) + '" y="' + (44 - v[i]) + '" width="12" height="' + v[i] + '" fill="' + c + '" opacity=".75"/>'; } return h; })() + '<rect x="10" y="48" width="96" height="3" rx="1" fill="#3a3d44" opacity=".6"/>' + '</svg>',
     // Aperçu du Graphique (13/08) : il MANQUAIT — la carte retombait sur l icône de 17 px, perdue
     // dans une vignette de 120×56, d où l impression de carte vide. Série choisie à la main pour
     // raconter une vraie forme de marché (impulsion, repli, reprise) plutôt que du bruit, avec la

@@ -11813,11 +11813,15 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 .wdg-lib.open { display: block; }
 .wdg-lib-backdrop { position: absolute; inset: 0; background: rgba(6,6,8,.72); backdrop-filter: blur(6px); }
 .wdg-lib-box {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: min(760px, 92%); max-height: 78%; display: flex; flex-direction: column;
-  background: var(--bg); border: 1px solid rgba(227,178,58,.3); border-radius: var(--radius);
-  box-shadow: 0 18px 50px rgba(0,0,0,.6);
+  position: absolute; top: 0; left: 0; bottom: 0; transform: none;
+  width: min(468px, 90%); max-height: none; display: flex; flex-direction: column;
+  background: var(--bg); border: 0; border-right: 1px solid rgba(227,178,58,.3); border-radius: 0;
+  box-shadow: 14px 0 44px rgba(0,0,0,.55);
+  animation: wdgVoletG .18s ease-out;
+  container-type: inline-size; container-name: dtpvolet;
 }
+@keyframes wdgVoletG { from { transform: translateX(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .wdg-lib-box { animation: none; } }
 .wdg-lib-head {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
   padding: 11px 14px; border-bottom: 1px solid var(--hud-line, var(--border));
@@ -11844,7 +11848,7 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 .wdg-lib-sec { grid-column: 1 / -1; margin: 6px 2px 0; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--orange); display: flex; align-items: baseline; gap: 8px; }
 .wdg-lib-sub { font-weight: 500; letter-spacing: .02em; text-transform: none; color: var(--text3, var(--w-t9)); font-size: 10px; }
 .wdg-lib-sec:first-child { margin-top: 0; }
-.wdg-lib-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 8px; }
+.wdg-lib-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(198px, 1fr)); gap: 8px; }
 .wdg-lib-row .wdg-lib-card { flex-direction: row; align-items: center; gap: 11px; text-align: left; padding: 10px 12px; }
 .wdg-lib-ico { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; color: var(--orange); background: rgba(227,178,58,.09); border: 1px solid rgba(227,178,58,.22); }
 .wdg-lib-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -12129,7 +12133,9 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 .wdg-lay-add:hover { color: var(--orange); }
 
 /* ── Gestionnaire de layouts (overlay, réutilise .wdg-lib) ── */
-.wdg-mgr-box { width: min(560px, 92%); }
+/* Meme largeur que la bibliotheque : les deux onglets du panneau se remplacent en place, une
+   largeur differente ferait sauter le volet a chaque bascule Layouts <-> Widgets. */
+.wdg-mgr-box { width: min(468px, 90%); }
 .wdg-mgr-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .wdg-mgr-row {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
@@ -12372,9 +12378,16 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   padding: 11px 14px 12px; border-bottom: 1px solid var(--hud-line, var(--border));   /* décollé de la recherche */
 }
 .wdg-lib-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Volet étroit : chaque bloc de réglages porte son intitulé, sinon deux rangées de boutons
+   empilées se lisent comme une seule liste. */
+.wdg-lib-grp { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wdg-lib-lbl { font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text3, var(--w-t9)); }
 .wdg-lib-chips .wdg-chip { padding: 4px 11px; font-size: 10.5px; }
 .wdg-lib-cnt { font-size: 10px; color: var(--text3, var(--w-t9)); margin-left: 5px; font-weight: 400; }
-@media (max-width: 640px) {
+/* Seuil sur la largeur du VOLET : à 468 px les puces et le réglage d'espacement ne tiennent pas
+   côte à côte. Un @media n'aurait jamais déclenché ici, la fenêtre restant large. */
+@container dtpvolet (max-width: 640px) {
   .wdg-lib-tools { flex-direction: column; align-items: stretch; gap: 8px; }
   .wdg-lib-tools .wdg-density { align-self: flex-start; }
 }
@@ -12459,7 +12472,7 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   #view-widgets .panel-header-controls { flex: 1 1 100%; justify-content: flex-start; }
 
   /* (3)+(4) Modales BIBLIOTHÈQUE / MES LAYOUTS : plus compactes (police, marges, cartes réduites). */
-  .wdg-lib-box { width: 94%; max-height: 84%; }
+  .wdg-lib-box { width: 94%; max-height: none; }
   .wdg-lib-head { padding: 9px 12px; }
   .wdg-lib-title { font-size: 11.5px; }
   /* (4) barre de recherche : plus fine (mais reste confortable au doigt) + marges resserrées */
@@ -17319,9 +17332,12 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wdg-lib-card--prev .wdg-lib-prev { flex: 0 0 88px; height: 42px; }
 
 /* 11. PLUS DE CARTES À L'ÉCRAN. Le panneau plafonnait à 78 % de la hauteur disponible et la grille
-   demandait 2,42 écrans de défilement. Les cartes ayant maintenant toutes la même hauteur, monter
-   à 86 % fait entrer une rangée de plus sans rien tasser. */
-.wdg-lib-box { max-height: 86%; }
+   demandait 2,42 écrans de défilement. Les cartes ayant toutes la même hauteur, on était monté à
+   86 % pour faire entrer une rangée de plus.
+   ⚠️ CADUC depuis le passage en VOLET GAUCHE (19/08) : le volet va de haut en bas, un plafond en
+   pourcentage lui reprenait 114 px mesurés au banc. Le besoin d'origine (voir plus de cartes) est
+   satisfait au-delà par la pleine hauteur. */
+.wdg-lib-box { max-height: none; }
 
 /* 12. TÉLÉPHONE. Le bloc mobile (l.12417, `@media (max-width: 560px)`) rabotait le titre à 12px et
    la description à 10px, soit 9px écran une fois le zoom appliqué : le plancher de lisibilité du
@@ -17337,10 +17353,10 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
   /* La règle d'origine posait déjà une colonne unique : on la redit ici, sinon le minmax du
      point 9, plus tardif et plus spécifique, reprendrait la main. */
   .wdg-lib-grid .wdg-lib-row { grid-template-columns: 1fr; }
-  /* Idem pour la hauteur : `.wdg-lib-box { max-height: 86% }` du point 11 est à la RACINE et donc
-     postérieure au bloc mobile d'origine (l.12407, même spécificité) : elle écrasait en silence le
-     84 % voulu sur téléphone. On le repose ici, après elle. */
-  .wdg-lib-box { max-height: 84%; }
+  /* Le volet occupe aussi toute la hauteur sur téléphone : c'est un volet, pas une boîte. La
+     cascade décrite ici (le 86 % racine écrasait le 84 % mobile) n'a plus d'objet, les deux
+     plafonds étant levés. */
+  .wdg-lib-box { max-height: none; }
   /* COUPE LEVÉE (cf. point 3). Une colonne unique = aucune rangée à aligner, et l'infobulle qui
      porte le texte complet n'existe pas au doigt : couper ici ne réglerait rien et cacherait 19
      des 25 descriptions à 320px. Les cartes reprennent des hauteurs inégales, ce qui ne gêne pas
@@ -17677,7 +17693,7 @@ html[data-theme="light"] .wdg-tick-seg.est-bas u { color: #c73000; }
 .wdg-mx-t tbody th { text-align: left; border-bottom: none; border-right: 1px solid var(--hud-line); padding-right: 6px; }
 .wdg-mx-t td { padding: 3px 4px; text-align: right; border-bottom: 1px solid var(--hud-line);
   border-right: 1px solid var(--hud-line); line-height: 1.25; }
-.wdg-mx-p { display: block; color: var(--txt-1, #e6e8eb); }
+.wdg-mx-p { display: block; color: var(--txt-1, #e6e8eb); font-size: 11px; }
 .wdg-mx-v { display: block; font-size: 9.5px; color: var(--txt-3, #6b7280); }
 .wdg-mx-c.est-haut .wdg-mx-v { color: #00e676; }
 .wdg-mx-c.est-bas .wdg-mx-v { color: #ff3d00; }
@@ -17705,7 +17721,7 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 
 /* ── Courbe saisonnière ────────────────────────────────────────────────────────────────────────
    L'axe des mois est en HTML, en taille d'écran : dans le SVG il serait étiré avec le tracé. */
-.wdg-sais { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
+.wdg-sais { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
 .wdg-sais-tete { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 11px; min-width: 0; }
 .wdg-sais-sym { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
 .wdg-sais-mode { margin-left: auto; color: var(--txt-3, #6b7280); font-size: 10px; }
@@ -17719,7 +17735,7 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 /* ── Fréquence d'amplitude ─────────────────────────────────────────────────────────────────────
    Le chiffre-clé domine, mais le numérateur et le dénominateur restent visibles juste dessous :
    un pourcentage seul ne dit pas sur combien de séances il porte. */
-.wdg-freq { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
+.wdg-freq { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
 .wdg-freq-tete { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 11px; min-width: 0; }
 .wdg-freq-paire { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
 .wdg-freq-mes { margin-left: auto; color: var(--txt-3, #6b7280); font-size: 10px;
@@ -17733,14 +17749,16 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 .wdg-freq-pied { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280);
   border-top: 1px solid var(--hud-line); padding-top: 5px; }
 
-/* Cartes basses : le pied explicatif cède avant les chiffres, jamais l'inverse. */
-@media (max-height: 260px) {
+/* Carte basse : le pied explicatif cède avant les chiffres, jamais l'inverse. Le seuil porte sur
+   la hauteur de la CARTE (@container), pas sur celle du navigateur : un @media ne se déclenchait
+   jamais sur un écran normal, et sur un écran court il masquait le pied de toutes les cartes. */
+@container dtpw (max-height: 250px) {
   .wdg-freq-pied, .wdg-sais-pied { display: none; }
 }
 
 /* ── Compte à rebours d'événement (19/08) ──────────────────────────────────────────────────────
    Une carte à UNE information : le chrono domine, tout le reste le sert. */
-.wdg-rb { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px;
+.wdg-rb { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 6px;
   align-items: center; justify-content: center; padding: 10px 14px 8px; text-align: center; }
 .wdg-rb-tete { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; font-size: 11px;
   color: var(--txt-3, #6b7280); }
@@ -17764,7 +17782,7 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 /* ── Série d'un indicateur (19/08) ─────────────────────────────────────────────────────────────
    L'axe porte la valeur BRUTE telle que la source la donne, sous la barre : le lecteur voit le
    chiffre, pas seulement une hauteur. */
-.wdg-si { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
+.wdg-si { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
 .wdg-si-tete { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .wdg-si-titre { font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--txt-1, #e6e8eb);
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -17787,31 +17805,31 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 .wdg-si-l b { font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
 .wdg-si-note { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280); padding-top: 5px; }
 
-/* Carte basse : les pieds explicatifs cèdent avant les chiffres. */
-@media (max-height: 240px) {
-  .wdg-si-pied, .wdg-rb-pied { display: none; }
-  .wdg-rb-chrono { font-size: 24px; }
-}
+/* Cartes basses : les pieds explicatifs cèdent avant les chiffres. Seuils distincts : le compte à
+   rebours est une carte volontairement courte, son pied doit survivre à sa hauteur par défaut. */
+@container dtpw (max-height: 250px) { .wdg-si-pied { display: none; } }
+@container dtpw (max-height: 158px) { .wdg-rb-pied { display: none; } }
+@container dtpw (max-height: 132px) { .wdg-rb-chrono { font-size: 24px; } }
 
 /* ── Chaleur de séance (19/08) ─────────────────────────────────────────────────────────────────
    Grille auto-ajustable : les 28 tuiles se réorganisent selon la largeur de la carte, sans jamais
    déborder ni imposer un nombre de colonnes qui ne tiendrait pas. */
-.wdg-hm { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
+.wdg-hm { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
 .wdg-hm-grille { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 3px; align-content: start; }
-.wdg-hm-t { display: flex; flex-direction: column; gap: 1px; padding: 5px 6px; border-radius: 3px;
+  grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 2px; align-content: start; }
+.wdg-hm-t { display: flex; flex-direction: column; gap: 0; padding: 3px 5px; border-radius: 3px;
   border: 1px solid var(--hud-line); min-width: 0; }
 /* Variation INCONNUE (la source peut rendre null) : case éteinte, jamais un faux zéro. */
 .wdg-hm-t.est-inconnu { opacity: .45; }
-.wdg-hm-s { font-size: 10px; font-weight: 600; letter-spacing: .02em; color: var(--txt-2, #9aa1ac);
+.wdg-hm-s { font-size: 9.5px; font-weight: 600; letter-spacing: 0; color: var(--txt-2, #9aa1ac);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wdg-hm-v { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
+.wdg-hm-v { font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); }
 .wdg-hm-pied { flex: 0 0 auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
   border-top: 1px solid var(--hud-line); padding-top: 5px; }
 
 /* ── Amplitude quotidienne (19/08) ─────────────────────────────────────────────────────────────
    Le chiffre porte la carte ; le pied dit ce qui a été exclu et pourquoi. */
-.wdg-am { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
+.wdg-am { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
 .wdg-am-tete { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 11px; min-width: 0; }
 .wdg-am-sym { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
 .wdg-am-n { margin-left: auto; color: var(--txt-3, #6b7280); font-size: 10px; font-variant-numeric: tabular-nums; }
@@ -17825,7 +17843,7 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 
 /* ── Points hauts et bas (19/08) ───────────────────────────────────────────────────────────────
    Deux blocs identiques, séance et semaine, chacun avec sa réglette de position. */
-.wdg-hb { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 10px; padding: 10px 12px 8px; }
+.wdg-hb { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 10px; padding: 10px 12px 8px; }
 .wdg-hb-bloc { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
 .wdg-hb-t { display: flex; align-items: baseline; gap: 8px; font-size: 10px; min-width: 0; }
 .wdg-hb-t span { color: var(--txt-2, #9aa1ac); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
@@ -17845,15 +17863,15 @@ html[data-theme="light"] .wdg-hb-haut { color: #00783d; }
 .wdg-hb-pied { flex: 0 0 auto; margin-top: auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
   border-top: 1px solid var(--hud-line); padding-top: 5px; }
 
-/* Cartes basses : les pieds explicatifs cèdent avant les chiffres. */
-@media (max-height: 240px) {
-  .wdg-am-pied, .wdg-hb-pied, .wdg-hm-pied { display: none; }
-}
+/* Cartes basses : les pieds explicatifs cèdent avant les chiffres. Points hauts et bas tient en
+   136 px par défaut : son seuil est bien plus bas que celui des deux autres. */
+@container dtpw (max-height: 250px) { .wdg-am-pied, .wdg-hm-pied { display: none; } }
+@container dtpw (max-height: 122px) { .wdg-hb-pied { display: none; } }
 
 /* ── Distribution des variations (19/08) ───────────────────────────────────────────────────────
    L'histogramme porte la carte ; les deux chiffres de synthèse dessous, et le pied dit ce qui a
    été exclu du dénominateur. */
-.wdg-di { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
+.wdg-di { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 10px 12px 8px; }
 .wdg-di-tete { flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
 .wdg-di-sym { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
 .wdg-di-n { margin-left: auto; color: var(--txt-3, #6b7280); font-size: 10px; font-variant-numeric: tabular-nums; }
@@ -17870,7 +17888,7 @@ html[data-theme="light"] .wdg-hb-haut { color: #00783d; }
 
 /* ── Statistiques de volatilité (19/08) ────────────────────────────────────────────────────────
    Deux colonnes indépendantes : si l'une manque, l'autre reste lisible. */
-.wdg-vo { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 8px; padding: 10px 12px 8px; }
+.wdg-vo { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 8px; padding: 10px 12px 8px; }
 .wdg-vo-tete { flex: 0 0 auto; font-size: 11px; }
 .wdg-vo-sym { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
 .wdg-vo-cols { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -17887,14 +17905,13 @@ html[data-theme="light"] .wdg-hb-haut { color: #00783d; }
 .wdg-vo-pied { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280);
   border-top: 1px solid var(--hud-line); padding-top: 5px; }
 
-@media (max-height: 240px) {
-  .wdg-di-pied, .wdg-vo-pied { display: none; }
-}
+@container dtpw (max-height: 250px) { .wdg-di-pied { display: none; } }
+@container dtpw (max-height: 178px) { .wdg-vo-pied { display: none; } }
 
 /* ── Amplitude par séance (19/08) ──────────────────────────────────────────────────────────────
    Trois lignes comparables : la piste est à la même échelle pour les trois places, sinon la
    comparaison visuelle mentirait. */
-.wdg-as { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 9px; padding: 10px 12px 8px; }
+.wdg-as { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 9px; padding: 10px 12px 8px; }
 .wdg-as-tete { flex: 0 0 auto; font-size: 11px; }
 .wdg-as-sym { color: var(--txt-1, #e6e8eb); font-weight: 700; letter-spacing: .02em; }
 .wdg-as-l { flex: 0 0 auto; display: flex; flex-direction: column; gap: 3px; }
@@ -17905,9 +17922,18 @@ html[data-theme="light"] .wdg-hb-haut { color: #00783d; }
 .wdg-as-piste { height: 7px; border-radius: 3px; background: var(--hud-line); overflow: hidden; }
 .wdg-as-piste span { display: block; height: 100%; border-radius: 3px; background: var(--orange, #e3b23a); opacity: .8; }
 .wdg-as-n { font-size: 9px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
+/* Une teinte par place, reprise de la vignette de la bibliothèque : la couleur identifie Tokyo,
+   Londres ou New York, elle ne dit RIEN du sens du marché. D'où des teintes sourdes, volontairement
+   éloignées des tokens sémantiques vifs (#00e676 / #ff3d00) réservés aux états haussier/baissier. */
+.wdg-as-l[data-place="0"] .wdg-as-piste span { background: #8c4a5e; }
+.wdg-as-l[data-place="1"] .wdg-as-piste span { background: var(--orange, #e3b23a); }
+.wdg-as-l[data-place="2"] .wdg-as-piste span { background: #4a7c59; }
+html[data-theme="light"] .wdg-as-l[data-place="0"] .wdg-as-piste span { background: #7c3d50; }
+html[data-theme="light"] .wdg-as-l[data-place="2"] .wdg-as-piste span { background: #3d6b4a; }
 .wdg-as-pied { flex: 0 0 auto; margin-top: auto; font-size: 9.5px; line-height: 1.35;
   color: var(--txt-3, #6b7280); border-top: 1px solid var(--hud-line); padding-top: 5px; }
-@media (max-height: 240px) { .wdg-as-pied, .wdg-as-n { display: none; } }
+@container dtpw (max-height: 196px) { .wdg-as-pied { display: none; } }
+@container dtpw (max-height: 160px) { .wdg-as-n { display: none; } }
 
 /* ── Notes (19/08) ─────────────────────────────────────────────────────────────────────────────
    La zone de saisie occupe tout, le pied porte l'état d'enregistrement et le compteur. L'état ne
@@ -17927,7 +17953,7 @@ html[data-theme="light"] .wdg-nt-etat.est-ko { color: #c73000; }
 /* ── Liste de suivi (19/08) ────────────────────────────────────────────────────────────────────
    Trois colonnes alignées : symbole, cours, variation. Rien d'autre : les colonnes Biais et DMX
    de la source ont des replis silencieux et présenteraient parfois du momentum comme un verdict. */
-.wdg-tl { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 9px 12px 7px; }
+.wdg-tl { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 5px; padding: 9px 12px 7px; }
 .wdg-tl-corps { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .wdg-tl-l { display: flex; align-items: baseline; gap: 10px; padding: 5px 2px;
   border-bottom: 1px solid var(--hud-line); font-size: 11.5px; }
@@ -17942,7 +17968,7 @@ html[data-theme="light"] .wdg-tl-l.est-bas .wdg-tl-v { color: #c73000; }
 .wdg-tl-pied { flex: 0 0 auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
   border-top: 1px solid var(--hud-line); padding-top: 5px; }
 
-@media (max-height: 220px) { .wdg-tl-pied { display: none; } }
+@container dtpw (max-height: 140px) { .wdg-tl-pied { display: none; } }
 
 /* ── États visuels des nouveaux réglages (20/08) ───────────────────────────────────────────────── */
 
