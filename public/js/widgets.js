@@ -5206,9 +5206,11 @@
       // sous-titre changent avec l'écran, la croix ferme toujours tout.
       var _t = _vol.querySelector('.wdg-lib-title'), _st = _vol.querySelector('.wdg-lib-sous');
       if (_t) _t.textContent = _mgrMode === 'nom' ? 'Créer un layout' : _mgrMode === 'dispo' ? 'Choisir une disposition' : 'Layouts';
-      if (_st) _st.textContent = _mgrMode === 'nom' ? 'Nommez votre layout et choisissez son icône.'
-        : _mgrMode === 'dispo' ? 'La grille de départ : chaque emplacement se remplit ensuite depuis la bibliothèque.'
-        : 'Vos dispositions : réordonnez, renommez, choisissez celle qui s\'ouvre.';
+      // Sous-titre sur la LISTE seulement : les captures des sous-écrans n'en portent pas.
+      if (_st) {
+        _st.textContent = _mgrMode ? '' : 'Vos dispositions : réordonnez, renommez, choisissez celle qui s\'ouvre.';
+        _st.style.display = _mgrMode ? 'none' : '';
+      }
     }
     if (!box || !c) return;
     if (_mgrMode === 'dispo') {
@@ -5228,7 +5230,7 @@
             if (!cards) return '';
             return '<div class="wdg-dispo-row"><span class="wdg-dispo-num">' + n + '</span><div class="wdg-dispo-cards">' + cards + '</div></div>';
           }).join('')
-        + '<div class="wdg-dispo-hint">Chaque emplacement affichera « + Choisir un widget » : remplis-le depuis la bibliothèque. « Libre » = partir d\'une page vide.</div>';
+        + '';
       return;
     }
     // ÉCRAN « NOM + ICÔNE » (17/08) : dernière étape avant la création. Il vit DANS le gestionnaire,
@@ -5296,7 +5298,7 @@
         // editCardName, qui ne touche QUE le nom : il n'y a aujourd'hui aucun chemin pour changer
         // l'icône après coup. Annoncer « nom et icône se changent ensuite » était donc faux, et
         // envoyait l'utilisateur chercher un réglage inexistant. On dit ce que le code fait vraiment.
-        + '<div class="wdg-dispo-hint">Étape suivante : choisir la disposition de la grille. Sans nom saisi, le layout s\'appelle « Nouveau layout ». Le nom se change ensuite d\'un clic sur le crayon.</div>';
+        + '';
       // CLAVIER, même grammaire que le renommage inline (editCardName) : le champ prend le focus,
       // Entrée valide, Échap annule. `stopPropagation` est indispensable : l'écoute Échap globale du
       // desk fermerait TOUT le gestionnaire au lieu de reculer d'un seul écran.
@@ -5374,15 +5376,10 @@
       + '</div>'
       + (c.layouts.length >= _LMAX ? '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>' : '')
       // Les MODÈLES PRÊTS ne vivent plus ici (ils brouillaient la création) : ils restent dans la bibliothèque.
-      // Une phrase, une fois : le sens de « Par défaut » ne doit pas dépendre d'un survol.
-      + '<div class="wdg-mgr-tplhint"><b class="wdg-mgr-hint-k"><i>★</i> Par défaut</b> = le layout qui s\'ouvre à votre arrivée sur Mon Desk. Sans étoile, c\'est le dernier utilisé qui revient.</div>'
-      + '<div class="wdg-mgr-tplhint">Envie d\'un desk pré-composé ? Les modèles prêts sont dans la <button class="wdg-mgr-tpllink" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">bibliothèque de widgets</button>.</div>'
-      // EXPORT / IMPORT (10/08, phase 2) : partager ou sauvegarder un agencement en fichier .json.
-      + '<div class="wdg-mgr-io">'
-      +   '<button class="wdg-btn" onclick="DTPWidgets.exportLayout()">Exporter le layout actif</button>'
-      +   '<button class="wdg-btn" onclick="DTPWidgets.importLayout()">Importer un layout…</button>'
-      +   '<span class="wdg-mgr-io-hint">Fichier .json : pour partager un agencement ou le garder de côté.</span>'
-      + '</div>';
+      // Textes d'aide RETIRÉS (20/08, « enlève le texte inutile ») : le sens de l'étoile vit dans son
+      // infobulle, les modèles prêts dans la bibliothèque, l'export/import de l'ensemble dans le pied
+      // du volet. exportLayout/importLayout (unitaires) restent dans l'API mais sans bouton : assumé.
+      + '';
   }
   // Petit mot de statut (export/import…) — même bandeau que « Annuler », SANS bouton : volatil, 5 s.
   function _wdgNote(msg) {
