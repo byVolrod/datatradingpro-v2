@@ -469,14 +469,15 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 function requireAuth(req, res, next) {
+  // Le DESK ne doit jamais être indexé (app privée) : en-tête posé AVANT le court-circuit des
+  // chemins publics : /login est public et sortait avant de recevoir l'en-tête (mesuré en prod).
+  if (/^desk\./i.test(req.hostname || '')) res.set('X-Robots-Tag', 'noindex');
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
     _PUBLIC_PREFIXES.some(p => req.path.startsWith(p));
   if (isPublic) return next();
 
   // Le DESK ne doit jamais être indexé (app privée) : en-tête explicite sur toutes ses réponses.
   // Le robots.txt du desk autorise / et /login : les moteurs peuvent donc LIRE cet en-tête et
-  // désindexer proprement (la Search Console listait « indexée malgré le blocage robots »).
-  if (/^desk\./i.test(req.hostname || '')) res.set('X-Robots-Tag', 'noindex');
 
   // Appel interne (prewarm) : jeton de boot + socket loopback exigés tous les deux.
   if (req.headers['x-dtp-internal'] === _INTERNAL_TOKEN && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')) return next();
