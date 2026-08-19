@@ -18221,3 +18221,27 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
 /* Badge « Fermé » : gris discret, même gabarit que « Actif ». */
 .wdg-mgr-badge--off { color: var(--text3, var(--w-t9)); border-color: var(--hud-line, var(--border));
   background: transparent; }
+
+/* ═══ SAUVEGARDES AUTO : rangées lisibles (20/08, « améliore ceci ») ══════════════════════════════
+   Trois pastilles grises identiques, en vrac sur deux lignes, n'annonçaient leur effet qu'au
+   survol. Grammaire du volet : un intitulé discret, une rangée pleine largeur par sauvegarde,
+   l'ancienneté relative en tête, la date exacte à côté, l'action ÉCRITE à droite. */
+#wdg-mgr-footbar .wdg-mgr-bak { background: transparent; border: 0; padding: 6px 0 0; gap: 5px;
+  flex-direction: column; align-items: stretch; border-top: 1px solid var(--hud-line, var(--border)); border-radius: 0; }
+.wdg-bak-tete { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--text3, var(--w-t9)); }
+.wdg-bak-l { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0;
+  padding: 7px 10px; cursor: pointer; text-align: left;
+  background: var(--head-bg); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  transition: border-color .14s, background .14s; }
+.wdg-bak-l:hover { border-color: rgba(227, 178, 58, .5); background: var(--w-s3); }
+.wdg-bak-age { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--text, var(--w-t1));
+  font-variant-numeric: tabular-nums; }
+.wdg-bak-date { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 10px; color: var(--text3, var(--w-t9)); font-variant-numeric: tabular-nums; }
+.wdg-bak-tag { flex: 0 0 auto; font-size: 8.5px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--orange, #e3b23a); border: 1px solid rgba(227, 178, 58, .4);
+  background: rgba(227, 178, 58, .07); border-radius: 3px; padding: 1px 5px; }
+.wdg-bak-go { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; color: var(--text3, var(--w-t9));
+  transition: color .12s; }
+.wdg-bak-l:hover .wdg-bak-go { color: var(--orange, #e3b23a); }

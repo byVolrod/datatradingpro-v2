@@ -6816,11 +6816,26 @@ function _spansAffiches(lay) {
         var vs = (j.versions && j.versions.length) ? j.versions : (j.at ? [{ i: 0, at: j.at }] : []);
         if (!vs.length) return;
         var fmt = function (t) { return new Date(t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
-        slot.innerHTML = '<span class="wdg-mgr-bak-lbl">Sauvegardes auto</span>'
-          + vs.map(function (v) {
-              return '<button class="wdg-btn" onclick="DTPWidgets.restoreBackup(' + v.i + ')"'
+        // Ancienneté RELATIVE en tête de rangée (« il y a 2 j ») : c'est elle qu'on lit pour choisir
+        // où revenir, la date exacte reste à côté. Rangées pleine largeur avec l'action ÉCRITE
+        // (« Restaurer ») : trois pastilles grises identiques n'annonçaient leur effet qu'au survol.
+        var age = function (t) {
+          var m = Math.max(0, Math.round((Date.now() - t) / 60000));
+          if (m < 60) return 'il y a ' + m + ' min';
+          var h = Math.round(m / 60);
+          if (h < 48) return 'il y a ' + h + ' h';
+          return 'il y a ' + Math.round(h / 24) + ' j';
+        };
+        slot.innerHTML = '<div class="wdg-bak-tete">'
+          + '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.3"/><path d="M3 4.5V9h4.5"/><path d="M12 7.5V12l3 2"/></svg>'
+          + '<span>Sauvegardes automatiques</span></div>'
+          + vs.map(function (v, k) {
+              return '<button class="wdg-bak-l" onclick="DTPWidgets.restoreBackup(' + v.i + ')"'
                 + ' title="Revenir à cette sauvegarde (réversible : l\'état actuel reprend la tête de l\'historique)">'
-                + esc(fmt(v.at)) + (v.panneaux ? ' · ' + v.panneaux + ' dispo.' : '') + '</button>';
+                + '<span class="wdg-bak-age">' + esc(age(v.at)) + '</span>'
+                + '<span class="wdg-bak-date">' + esc(fmt(v.at)) + (v.panneaux ? ' · ' + v.panneaux + ' dispo.' : '') + '</span>'
+                + (k === 0 ? '<span class="wdg-bak-tag">la plus récente</span>' : '')
+                + '<span class="wdg-bak-go">Restaurer</span></button>';
             }).join('');
       }).catch(function () {});
     },
