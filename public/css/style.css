@@ -18389,3 +18389,11 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
 html[data-theme="light"] .nrx-svg { background: #ffffff; }
 html[data-theme="light"] .nrx-ligne, html[data-theme="light"] .nrx-mark { stroke: #816521; }
 html[data-theme="light"] .nrx-pt { fill: #816521; }
+
+/* ⚠️ RESPONSIVE (20/08, contrôle d'après-modif) : la grille « 3 par rangée » des vignettes, ajoutée
+   en fin de feuille, ÉCRASAIT la règle mobile « 1 colonne à 560px » (l.17355), plus ancienne donc
+   perdante à ordre égal. Mesuré au banc : 3 colonnes à 375px, cartes de ~105px illisibles. On
+   repose la colonne unique ICI, après la grille, pour qu'elle regagne la cascade. */
+@media (max-width: 560px) {
+  .wdg-lib-grid .wdg-lib-row { grid-template-columns: 1fr; }
+}
