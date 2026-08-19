@@ -108,9 +108,41 @@ let allNews = [];
 // un simple slice(0, 2000) évinçait les rapports du matin les jours à très fort volume (FOMC), et le
 // rattrapage du boot suivant les croyait manquants → re-publication en bloc horodatée « maintenant ».
 // Les rapports (_reportType) sont gardés à part (bornés à 300, ~1 mois) et réinjectés après la coupe.
+// Créneaux Paris des briefings quotidiens : un rapport RATTRAPÉ après un redémarrage portait
+// l'heure du boot (pile de neuf rapports à 22:33, constatée par le user) : on le retamponne à
+// l'heure de son créneau, même jour. Marge 90 min : un rapport publié À son créneau n'est jamais
+// touché ; FX Daily Recap (23:45 voulu), analyses d'événement (heure de l'événement) et Synthèses
+// de séance (_marketWrap) ne figurent pas dans la table : jamais retamponnés.
+const _SLOTS_RAPPORT = [
+  [/asia.?pac opening|dtp daily asia/i, 1, 30],
+  [/london opening/i, 7, 45],
+  [/asia session recap/i, 9, 30],
+  [/^dtp daily$/i, 12, 0],
+  [/us opening/i, 14, 45],
+  [/london session recap/i, 17, 30],
+  [/daily market recap/i, 22, 0],
+  [/us session recap/i, 22, 15],
+  [/daily event review/i, 23, 0],
+];
+function _snapRapportTs(i) {
+  try {
+    const cible = String(i._reportType || '') + ' ' + String(i.headline || '').slice(0, 40);
+    for (const [rx, h, m] of _SLOTS_RAPPORT) {
+      if (!rx.test(cible)) continue;
+      // Heure du créneau CE JOUR-LÀ (Paris), reconstruite depuis le jour de l'item.
+      const d = new Date(i.timestamp || Date.now());
+      const paris = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+      const dec = d.getTime() - paris.getTime();   // décalage local->Paris à cette date (DST compris)
+      const slot = new Date(paris); slot.setHours(h, m, 0, 0);
+      const slotTs = slot.getTime() + dec;
+      if (Math.abs((i.timestamp || 0) - slotTs) > 90 * 60 * 1000) i.timestamp = slotTs;
+      return;
+    }
+  } catch (e) {}
+}
 function _capNews(arr) {
   const rapports = [], flux = [];
-  for (const i of arr) { if (i && i._reportType) rapports.push(i); else if (i) flux.push(i); }
+  for (const i of arr) { if (i && i._reportType) { _snapRapportTs(i); rapports.push(i); } else if (i) flux.push(i); }
   const vus = new Set();
   return [...flux.slice(0, 2000), ...rapports.slice(0, 300)]
     .filter(i => { const k = i.id; if (k == null) return true; if (vus.has(k)) return false; vus.add(k); return true; })
@@ -832,6 +864,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-rapports-heure', ts: Date.UTC(2026, 7, 22, 15, 0), title: 'Chaque rapport reprend sa vraie heure dans le fil', desc: 'Après une mise à jour du serveur, les rapports du jour régénérés pouvaient s empiler dans le fil à l heure du redémarrage, tous à la même minute. Chaque rapport rattrapé est désormais horodaté à son créneau réel : la préparation de Londres à 7h45, le récap d Asie à 9h30, le récap de New York à 22h15. Le fil se remet en ordre de lui-même, y compris pour les rapports déjà mal datés.' },
   { id: 'dtpu-20260822-rapports-stables', ts: Date.UTC(2026, 7, 22, 14, 0), title: 'Les rapports du jour ne se republient plus en bloc après une mise à jour', desc: 'Les jours à très fort volume d actualité, les rapports du matin pouvaient être évincés de la mémoire du fil, et un redémarrage les republiait alors tous d un coup, horodatés à l instant du redémarrage : neuf rapports empilés à la même minute. Les rapports sont désormais protégés de cette éviction : ils gardent leur heure et leur place. Le chargement de la journée en cours va aussi plus loin : même un jour de FOMC à plus de mille dépêches se parcourt jusqu à sa première news avant de passer au jour précédent.' },
   { id: 'dtpu-20260822-impact-structure', ts: Date.UTC(2026, 7, 22, 12, 0), title: 'Impact marché : un verdict, un mécanisme, les actifs fléchés', desc: 'Le bouton Impact marché des titres importants se structure : une phrase de verdict en gras, le mécanisme en une ou deux phrases, puis la liste des actifs concernés avec leur direction (Brent ↑, Or ↑, USD ↑ demande refuge…). Toujours descriptif, jamais un conseil. Le graphique de réaction passe aussi en vraies bougies, avec l instant de la publication marqué et son étiquette horaire. Les tags de catégorie du fil, eux, reviennent à leur forme d avant.' },
   { id: 'dtpu-20260822-fil-fomc', ts: Date.UTC(2026, 7, 22, 10, 0), title: 'Fil d actualité : les Minutes des banques centrales sont analysées, et le fil ne se fige plus', desc: 'Trois corrections d un coup. Les Minutes du FOMC, les comptes rendus de la BCE, de la RBA et de la BoJ déclenchent désormais une analyse complète environ une heure après publication : le ton, ce qui s est dit, les divisions, et l impact pour la devise : ils passaient au travers parce qu ils ne publient pas de chiffre. Le fil se resynchronise maintenant au retour au premier plan sur mobile : il pouvait rester figé sur de vieilles news avec la pastille verte allumée. Et la journée en cours se charge désormais en entier : vous remontez jusqu à la première news du jour, et Charger plus ouvre le jour précédent.' },
