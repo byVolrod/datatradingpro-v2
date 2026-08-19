@@ -20967,9 +20967,31 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
   let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { _relacher(); return res.status(500).json({ error: e.message }); }
   const recipients = audience.recipients;
   if (!send) {
+    // ── MODE BLANC DÉTAILLÉ (?plan=1, 20/08) : dit CONTACT PAR CONTACT ce que ?send=1 ferait —
+    //    désabonné, déjà servi (marqueur de CETTE campagne), ou à envoyer. C'est l'écran qu'on lit
+    //    AVANT d'autoriser un envoi de masse : un total et 25 exemples ne suffisaient pas.
+    //    Si le journal est inaccessible, on répond « mesure indisponible » : jamais de faux zéros
+    //    (emailLogHasMany LÈVE volontairement là où emailLogHas retournerait false). ──
+    if (req.query.plan === '1') {
+      try {
+        const cles = [];
+        recipients.forEach(r => { cles.push('unsub:' + r.email, 'campaign:' + bId + ':' + r.email); });
+        const vu = await auth.emailLogHasMany(cles);
+        const contacts = recipients.map(r => ({
+          email: r.email, name: r.name || '', src: (r.sources || []).join('+'),
+          etat: vu['unsub:' + r.email] ? 'desabonne' : vu['campaign:' + bId + ':' + r.email] ? 'deja-servi' : 'a-envoyer',
+        }));
+        const compte = { 'a-envoyer': 0, 'deja-servi': 0, 'desabonne': 0 };
+        contacts.forEach(c => { compte[c.etat]++; });
+        return res.json({ dryRun: true, plan: true, campaign: bId, total: contacts.length, compte, contacts });
+      } catch (e) {
+        return res.status(503).json({ dryRun: true, plan: true, campaign: bId, mesure: 'indisponible',
+          error: 'Journal des envois inaccessible : ' + e.message + '. AUCUN envoi ne doit partir tant que cette mesure ne repond pas.' });
+      }
+    }
     return res.json({ dryRun: true, campaign: bId, report: audience.report,
       sample: recipients.slice(0, 25).map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })),
-      hint: `Apercu : RIEN envoye. ?test=1 = test a l'admin. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
+      hint: `Apercu : RIEN envoye. ?test=1 = test a l'admin. ?plan=1 = mode blanc detaille. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
   }
   // (le verrou est revendique plus haut, AVANT l'appel a _campaignAudience : voir le commentaire)
 
@@ -20979,6 +21001,14 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
     needsData: false, needsWidget: false, needsAI: false,   // gabarits sans widget embarque
   });
   if (!pfB.ok) { _relacher(); await _campaignError('critical', bId, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE : aucun envoi.', preflight: pfB }); }
+
+  // ── PAUSE DU DRIP pendant la diffusion (20/08, contre-expertise) : son verrou « 1 mail/semaine »
+  //    est par SEMAINE ISO et le one-shot ne l'écrit pas — sans pause, un contact pouvait recevoir
+  //    le drip ET l'annonce la même semaine. On mémorise l'état pour ne restaurer QUE ce qu'on a
+  //    coupé : si l'admin avait déjà mis le drip en pause, il le reste après. Un crash au milieu
+  //    laisse le drip en pause : direction SÛRE (pas de double mail), et visible au panneau.
+  const _dripEtaitActif = !!(_dripState && _dripState.active);
+  if (_dripEtaitActif) { _dripState.active = false; try { _saveDrip(true); } catch {} console.log('[Campagne ' + bId + '] drip mis en PAUSE pendant la diffusion'); }
 
   // ── ENVOI REEL → reponse immediate (ne peut pas attendre N×throttle), puis envoi en fond ──
   // Le verrou est deja pose : on complete seulement le decompte, sans le relacher au passage.
@@ -20999,8 +21029,9 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
       if (throttle) await new Promise(rr => setTimeout(rr, throttle));
     }
     _campaignSend.running = false; _campaignSend.finishedAt = Date.now();
+    if (_dripEtaitActif) { _dripState.active = true; try { _saveDrip(true); } catch {} console.log('[Campagne ' + bId + '] drip REACTIVE apres diffusion'); }
     console.log(`[Campagne ${bId}] envoyes=${_campaignSend.sent} deja=${_campaignSend.skipped} desab=${_campaignSend.unsub} echecs=${_campaignSend.failed} / ${recipients.length} cible(s)`);
-  })().catch(e => { _campaignSend.running = false; _campaignSend.finishedAt = Date.now(); console.error('[Campagne] erreur:', e.message); });
+  })().catch(e => { _campaignSend.running = false; _campaignSend.finishedAt = Date.now(); if (_dripEtaitActif) { _dripState.active = true; try { _saveDrip(true); } catch {} } console.error('[Campagne] erreur:', e.message); });
 });
 
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :

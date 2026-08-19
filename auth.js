@@ -1057,6 +1057,7 @@ module.exports = {
   weeklyReportSave,
   weeklyReportList,
   emailLogHas,
+  emailLogHasMany,
   emailLogAdd,
   emailLogAll,
   aiCacheGet,
@@ -1183,6 +1184,29 @@ async function emailLogHas(key) {
     // retourne "non loggé" ; l'emailLogAdd qui suit l'envoi écrira de toute façon le backstop local.
   }
   return false;
+}
+// Lecture GROUPÉE du journal d'envois, pour le MODE BLANC des diffusions de masse.
+// ⚠️ DÉLIBÉRÉMENT DIFFÉRENTE d'emailLogHas : ici une erreur Supabase LÈVE au lieu de retourner
+// false. emailLogHas absorbe l'erreur pour ne jamais bloquer un envoi unitaire (le backstop local
+// rattrape) ; en MASSE, un false erroné ferait annoncer « à envoyer » des centaines de contacts
+// déjà servis. Le mode blanc préfère répondre « mesure indisponible » que mentir.
+async function emailLogHasMany(keys) {
+  const uniq = [...new Set((keys || []).map(k => String(k)))];
+  const out = {};
+  const manquantes = [];
+  for (const k of uniq) {
+    if (Object.prototype.hasOwnProperty.call(_emailFile, k)) out[k] = true;
+    else manquantes.push(k);
+  }
+  await _emailEnsureDb();
+  if (!_emailDb) return out;   // table absente : le fichier local est la seule vérité disponible
+  for (let i = 0; i < manquantes.length; i += 200) {
+    const lot = manquantes.slice(i, i + 200);
+    const { data, error } = await supabase.from(EMAILLOG_TABLE).select('key').in('key', lot);
+    if (error) throw new Error('email_log inaccessible : ' + error.message);
+    (data || []).forEach(r => { out[r.key] = true; });
+  }
+  return out;
 }
 async function emailLogAdd(key) {
   const k = String(key);

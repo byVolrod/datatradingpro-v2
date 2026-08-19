@@ -280,7 +280,7 @@
     { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) : aperçu par variante.', variants:true },
     { prev:'app-desktop', test:'app-desktop', name:'Annonce app desktop',  when:'One-shot',   oneshot:true, desc:'Annonce de l\'application Windows/macOS (campagne app-desktop-v1).' },
     { prev:'desk-widgets', test:'desk-widgets', name:'Annonce accueil & Mon Desk', when:'One-shot', oneshot:true, desc:'Les deux nouveautés : l\'écran d\'accueil « Vue d\'ensemble », et Mon Desk : widgets composables, plusieurs dispositions, enregistrées par compte (campagne desk-widgets-v1).' },
-    { prev:'bibliotheque-widgets', test:'bibliotheque-widgets', name:'Annonce bibliothèque de widgets', when:'One-shot', oneshot:true, desc:'Quatorze widgets de plus dans Mon Desk : cotations, amplitude et volatilité, macro, outils. Envoi UNIQUE à toute la liste, hors rotation hebdomadaire (campagne bibliotheque-widgets-v1). Par défaut le mail annonce une arrivée progressive : les 14 widgets sont encore en rodage interne.' },
+    { prev:'bibliotheque-widgets', test:'bibliotheque-widgets', broadcast:'bibliotheque-widgets', name:'Annonce bibliothèque de widgets', when:'One-shot', oneshot:true, desc:'Quatorze widgets de plus dans Mon Desk : cotations, amplitude et volatilité, macro, outils. Envoi UNIQUE à toute la liste, hors rotation hebdomadaire (campagne bibliotheque-widgets-v1). Par défaut le mail annonce une arrivée progressive : les 14 widgets sont encore en rodage interne.' },
     // ── CYCLE DE VIE (transactionnels : déclenchés par l'état du compte, pas par le calendrier).
     //    Ajoutés le 27/07 pour pouvoir les RELIRE avant de valider un rattrapage. Pas de bouton « Test »
     //    (ils s'envoient sur événement) — l'aperçu suffit à vérifier le rendu.
@@ -321,12 +321,99 @@
     if (t.mindset) acts.push('<select class="camp-btn" id="cprev-mindset" onchange="campPreviewMindset(this.value)" style="max-width:280px;"><option value="">Thème de la semaine</option></select>');
     if (t.test) acts.push('<button class="camp-btn" onclick="campDripTest(\'' + t.test + '\')">🧪 Test sur ma boîte</button>');
     if (t.lifecycle) acts.push('<button class="camp-btn" onclick="lifecycleOpen(\'' + t.lifecycle + '\')">Comptes sans ce mail</button>');
+    // Envoi UNIQUE : le bouton vit SOUS l'aperçu — on ne peut pas déclencher sans avoir le mail
+    // sous les yeux. Il ouvre le MODE BLANC, jamais l'envoi directement.
+    if (t.broadcast) acts.push('<button class="camp-btn" onclick="oneshotOpen(\'' + t.broadcast + '\')">Envoi unique à toute la liste…</button>');
     var a = document.getElementById('cprev-actions'); if (a) a.innerHTML = acts.join('');
     if (t.mindset) _msFill();
     if (t.variants) campPreviewInvit(0);
     else if (t.winback) campPreviewWinback(3);
     else { window._cprevConcept = null; campPreview(t.prev); }
   }
+  // ── ENVOI UNIQUE (20/08) : mode blanc PUIS confirmation inline PUIS envoi + suivi. ──
+  // Le mode blanc (?plan=1) répond contact par contact : à envoyer / déjà servi / désabonné.
+  // Si le journal d'envois est inaccessible, le serveur répond 503 « mesure indisponible » et
+  // AUCUN bouton d'envoi n'est affiché : on n'envoie pas en masse à l'aveugle.
+  var _osTpl = null;
+  function oneshotOpen(tpl){
+    _osTpl = tpl;
+    var m = document.getElementById('oneshot-modal'); if (!m) return;
+    m.classList.add('open');
+    document.getElementById('os-title').textContent = 'Envoi unique : ' + tpl;
+    document.getElementById('os-body').innerHTML = '<div class="skel" style="height:120px"></div>';
+    document.getElementById('os-actions').innerHTML = '';
+    fetch('/api/admin/campaign-send?plan=1&tpl=' + encodeURIComponent(tpl))
+      .then(function(r){
+        // r.ok AVANT r.json : un 403/409/503 porte un message qu'il faut MONTRER, pas avaler.
+        return r.json().then(function(j){ return { ok: r.ok, j: j }; });
+      })
+      .then(function(x){
+        var b = document.getElementById('os-body'), a = document.getElementById('os-actions');
+        if (!b) return;
+        var j = x.j || {};
+        if (!x.ok || j.mesure === 'indisponible') {
+          b.innerHTML = '<p class="hint" style="color:var(--red,#ef4444)">' + (j.error || 'Mode blanc indisponible.') + '</p>';
+          a.innerHTML = '<button class="camp-btn" onclick="oneshotClose()">Fermer</button>';
+          return;
+        }
+        var c = j.compte || {};
+        b.innerHTML = '<p class="hint">Campagne <b>' + (j.campaign || '') + '</b> : ' + (j.total || 0) + ' contact(s).'
+          + ' À envoyer : <b>' + (c['a-envoyer'] || 0) + '</b> · Déjà servis : <b>' + (c['deja-servi'] || 0) + '</b>'
+          + ' · Désabonnés : <b>' + (c['desabonne'] || 0) + '</b>.</p>'
+          + '<p class="hint">Le drip hebdo sera mis en pause pendant la diffusion, puis remis dans son état d\'avant.</p>'
+          + '<div style="max-height:320px;overflow:auto;border:1px solid var(--line,#26262c);border-radius:6px">'
+          + '<table class="admin-table"><thead><tr><th>E-mail</th><th>Source</th><th>État</th></tr></thead><tbody>'
+          + (j.contacts || []).map(function(ct){
+              var col = ct.etat === 'a-envoyer' ? 'var(--green,#22c55e)' : ct.etat === 'desabonne' ? 'var(--red,#ef4444)' : 'var(--muted,#9ca3af)';
+              return '<tr><td>' + ct.email + '</td><td>' + (ct.src || '') + '</td><td style="color:' + col + '">' + ct.etat + '</td></tr>';
+            }).join('')
+          + '</tbody></table></div>';
+        var n = c['a-envoyer'] || 0;
+        a.innerHTML = '<button class="camp-btn" onclick="oneshotClose()">Annuler</button>'
+          + (n > 0 ? '<button class="camp-btn camp-btn--danger" onclick="oneshotArm(this,' + n + ')">Envoyer à ' + n + ' contact(s)…</button>' : '');
+      })
+      .catch(function(e){
+        var b = document.getElementById('os-body');
+        if (b) b.innerHTML = '<p class="hint" style="color:var(--red,#ef4444)">Erreur réseau : ' + e.message + '</p>';
+      });
+  }
+  // Confirmation INLINE en deux temps (jamais de dialog natif) : le 1er clic arme, le 2e envoie.
+  function oneshotArm(btn, n){
+    btn.textContent = 'Confirmer l\'envoi RÉEL à ' + n + ' contact(s)';
+    btn.onclick = function(){ oneshotSend(); };
+  }
+  function oneshotSend(){
+    if (!_osTpl) return;
+    var a = document.getElementById('os-actions');
+    if (a) a.innerHTML = '<span class="hint">Lancement…</span>';
+    fetch('/api/admin/campaign-send?send=1&tpl=' + encodeURIComponent(_osTpl))
+      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+      .then(function(x){
+        var b = document.getElementById('os-body'), a2 = document.getElementById('os-actions');
+        if (!x.ok) {
+          if (b) b.innerHTML = '<p class="hint" style="color:var(--red,#ef4444)">' + ((x.j || {}).error || 'Refusé.') + '</p>';
+          if (a2) a2.innerHTML = '<button class="camp-btn" onclick="oneshotClose()">Fermer</button>';
+          return;
+        }
+        if (b) b.innerHTML = '<p class="hint">Diffusion lancée en arrière-plan (' + ((x.j || {}).eligible || '?') + ' cible(s)).</p><div id="os-suivi" class="hint"></div>';
+        if (a2) a2.innerHTML = '<button class="camp-btn" onclick="oneshotClose()">Fermer</button>';
+        var t = setInterval(function(){
+          var s = document.getElementById('os-suivi');
+          if (!s) { clearInterval(t); return; }
+          fetch('/api/admin/campaign-send?status=1&tpl=' + encodeURIComponent(_osTpl)).then(function(r){ return r.json(); }).then(function(j){
+            var st = j.state || j;
+            s.textContent = 'Envoyés : ' + (st.sent || 0) + ' · Déjà servis : ' + (st.skipped || 0)
+              + ' · Désabonnés : ' + (st.unsub || 0) + ' · Échecs : ' + (st.failed || 0)
+              + (st.running ? ' · en cours…' : ' · terminé.');
+            if (!st.running) clearInterval(t);
+          }).catch(function(){});
+        }, 2500);
+      })
+      .catch(function(){});
+  }
+  function oneshotClose(){ var m = document.getElementById('oneshot-modal'); if (m) m.classList.remove('open'); _osTpl = null; }
+  window.oneshotOpen = oneshotOpen; window.oneshotSend = oneshotSend; window.oneshotClose = oneshotClose; window.oneshotArm = oneshotArm;
+
   // Mindset : prévisualise un thème précis. La liste est chargée une fois puis gardée.
   var _msList = null;
   function campPreviewMindset(k){
