@@ -1382,7 +1382,7 @@ async function _completerJourCourant() {
   if (_jourCompletEnCours || !allItems.length) return;
   _jourCompletEnCours = true;
   try {
-    for (let hop = 0; hop < 6; hop++) {
+    for (let hop = 0; hop < 14; hop++) {
       const parTs = allItems.filter(i => i && i.timestamp);
       if (!parTs.length) break;
       const plusRecent = parTs.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
@@ -1422,7 +1422,7 @@ async function loadMore() {
   renderNews();
 
   try {
-    for (let hop = 0; hop < 4; hop++) {
+    for (let hop = 0; hop < 10; hop++) {
       const oldestTs = allItems.length > 0 ? Math.min(...allItems.map(i => i.timestamp)) : Date.now();
       const r    = await fetch(`/api/news/history?before=${oldestTs}&limit=100`);
       const data = await r.json();

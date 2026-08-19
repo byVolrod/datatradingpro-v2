@@ -104,6 +104,18 @@ const BR_CACHE_FILE = path.join(_CACHE_DIR, 'cache_bank_research.json');
 const BR_MAX_AGE    = 90 * 24 * 60 * 60 * 1000;   // 90 j d'historique Institution (était 45) — borné aussi en NOMBRE + OCTETS à la persistance (Supabase free)
 
 let allNews = [];
+// Plafond du magasin de news QUI PROTÈGE LES RAPPORTS DTP (20/08, flood 22:24 constaté par le user) :
+// un simple slice(0, 2000) évinçait les rapports du matin les jours à très fort volume (FOMC), et le
+// rattrapage du boot suivant les croyait manquants → re-publication en bloc horodatée « maintenant ».
+// Les rapports (_reportType) sont gardés à part (bornés à 300, ~1 mois) et réinjectés après la coupe.
+function _capNews(arr) {
+  const rapports = [], flux = [];
+  for (const i of arr) { if (i && i._reportType) rapports.push(i); else if (i) flux.push(i); }
+  const vus = new Set();
+  return [...flux.slice(0, 2000), ...rapports.slice(0, 300)]
+    .filter(i => { const k = i.id; if (k == null) return true; if (vus.has(k)) return false; vus.add(k); return true; })
+    .sort((x, y) => (y.timestamp || 0) - (x.timestamp || 0));
+}
 let allCalendar = [];   // FF calendar events served separately
 let isFirstLoad = true;
 let _saveTimer  = null;
@@ -820,6 +832,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-rapports-stables', ts: Date.UTC(2026, 7, 22, 14, 0), title: 'Les rapports du jour ne se republient plus en bloc après une mise à jour', desc: 'Les jours à très fort volume d actualité, les rapports du matin pouvaient être évincés de la mémoire du fil, et un redémarrage les republiait alors tous d un coup, horodatés à l instant du redémarrage : neuf rapports empilés à la même minute. Les rapports sont désormais protégés de cette éviction : ils gardent leur heure et leur place. Le chargement de la journée en cours va aussi plus loin : même un jour de FOMC à plus de mille dépêches se parcourt jusqu à sa première news avant de passer au jour précédent.' },
   { id: 'dtpu-20260822-impact-structure', ts: Date.UTC(2026, 7, 22, 12, 0), title: 'Impact marché : un verdict, un mécanisme, les actifs fléchés', desc: 'Le bouton Impact marché des titres importants se structure : une phrase de verdict en gras, le mécanisme en une ou deux phrases, puis la liste des actifs concernés avec leur direction (Brent ↑, Or ↑, USD ↑ demande refuge…). Toujours descriptif, jamais un conseil. Le graphique de réaction passe aussi en vraies bougies, avec l instant de la publication marqué et son étiquette horaire. Les tags de catégorie du fil, eux, reviennent à leur forme d avant.' },
   { id: 'dtpu-20260822-fil-fomc', ts: Date.UTC(2026, 7, 22, 10, 0), title: 'Fil d actualité : les Minutes des banques centrales sont analysées, et le fil ne se fige plus', desc: 'Trois corrections d un coup. Les Minutes du FOMC, les comptes rendus de la BCE, de la RBA et de la BoJ déclenchent désormais une analyse complète environ une heure après publication : le ton, ce qui s est dit, les divisions, et l impact pour la devise : ils passaient au travers parce qu ils ne publient pas de chiffre. Le fil se resynchronise maintenant au retour au premier plan sur mobile : il pouvait rester figé sur de vieilles news avec la pastille verte allumée. Et la journée en cours se charge désormais en entier : vous remontez jusqu à la première news du jour, et Charger plus ouvre le jour précédent.' },
   { id: 'dtpu-20260822-biais-taux', ts: Date.UTC(2026, 7, 22, 8, 0), title: 'Onglet Biais : les taux directeurs s affichent au-dessus de la matrice', desc: 'Le différentiel de taux pèse déjà dans le biais : c est le portage, un moteur structurel des devises. Il devient visible : un bandeau en tête de l onglet Biais affiche le taux directeur de chacune des huit banques, trié du plus haut au plus bas, avec l écart à la moyenne des sept autres : exactement la grandeur que le modèle consomme. Vert quand le portage joue pour la devise, rouge quand il joue contre, neutre dans la zone où il ne pèse pas.' },
@@ -7320,7 +7333,7 @@ async function _fetchConveraUpdates() {
     const have = new Set(allNews.map(i => i.id));
     const fresh = added.filter(i => !have.has(i.id));
     if (fresh.length) {
-      allNews = [...fresh, ...allNews].sort((a, b) => b.timestamp - a.timestamp).slice(0, 2000);
+      allNews = _capNews([...fresh, ...allNews].sort((a, b) => b.timestamp - a.timestamp));
       saveHistory();
       try { broadcast({ type: 'news_update', items: fresh, total: allNews.length }); } catch {}
       console.log(`[Convera] +${fresh.length} market update(s) injecté(s) dans le feed`);
@@ -8726,7 +8739,7 @@ Rules: start each bullet with a dash (-). Be specific (name pairs, levels, bps).
       _briefing:   true,
     };
 
-    allNews = [item, ...allNews].slice(0, 2000);
+    allNews = _capNews([item, ...allNews]);
     saveHistory();
     broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
     console.log(`[USBriefing] Generated & pushed: "${item.headline}"`);
@@ -8831,7 +8844,7 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
     _reportType: reportType,
   };
 
-  allNews = [item, ...allNews].slice(0, 2000);
+  allNews = _capNews([item, ...allNews]);
   saveHistory();
   broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
   console.log(`[DTP] "${item.headline}" → ${bullets.length} bullets (${recent.length} items)`);
@@ -9058,7 +9071,7 @@ function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }
     priority: 'normal', tags: tags.length ? tags : [reportType],
     _briefing: true, _reportType: reportType,
   };
-  allNews = [item, ...allNews].slice(0, 2000);
+  allNews = _capNews([item, ...allNews]);
   saveHistory();
   broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
   console.log(`[DTP] "${item.headline}" → ${bullets.length} bullets (7d window)`);
@@ -9526,7 +9539,7 @@ ${list}`;
   };
   // Remplacement ATOMIQUE de la MÊME SEMAINE uniquement : les GEW des semaines PASSÉES restent visibles
   // (historique, demande user). L'ancien de la semaine ne disparaît qu'au moment où le nouveau est prêt.
-  allNews = [item, ...allNews.filter(i => !(i._reportType === 'Global Economic Weekly' && (i.id || '').startsWith(weekPrefix)))].slice(0, 2000);
+  allNews = _capNews([item, ...allNews.filter(i => !(i._reportType === 'Global Economic Weekly' && (i.id || '').startsWith(weekPrefix)))]);
   saveHistory();
   // Clé DISTINCTE 'gew-<semaine>' : l'ancienne clé nue (weekKey) était LA MÊME que celle du Weekly Market
   // Recap → chaque régénération de l'un ÉCRASAIT l'autre dans le store durable (c'est pour ça que le
@@ -10546,7 +10559,7 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
   // Copie durable POSÉE À LA GÉNÉRATION : ne pas attendre qu une relecture du tampon la sauve —
   // entre deux lectures, le volume de news peut déjà avoir évincé le rapport.
   try { _weeklyMemoriser(weekly); } catch (e) {}
-  allNews = [item, ...allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && (i.id || '').startsWith(weekPrefix)))].slice(0, 2000);
+  allNews = _capNews([item, ...allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && (i.id || '').startsWith(weekPrefix)))]);
   saveHistory();
   // Persistance DURABLE (Supabase) → après un redémarrage Render on RECHARGE au lieu de régénérer (économie Gemini)
   auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[Weekly Recap] sauvegarde persistante échec:', e.message));
@@ -10574,7 +10587,7 @@ async function _loadPersistedWeekly(force = false) {
     // semaines/jours PASSÉS restent affichés (l'ancien dédup « un seul Weekly global » cachait l'historique).
     _dedupRecaps();
     _fxrPurgeWeekend();   // retire aussi l'existant (déjà en allNews via news_history) daté un week-end
-    if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
+    if (added) { allNews = _capNews(allNews); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
   } catch (e) { console.warn('[Weekly Recap] rechargement persistant échec:', e.message); }
 }
 
@@ -11038,7 +11051,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     };
     // Remplace uniquement le recap du MÊME JOUR couvert : l'historique des jours passés reste affiché
     // (le store le persiste, _dedupRecaps garde la meilleure version par jour).
-    allNews = [item, ...allNews.filter(i => !(i._reportType === 'FX Daily Recap' && i._fxr && i._fxr.day === dayKey))].slice(0, 2000);
+    allNews = _capNews([item, ...allNews.filter(i => !(i._reportType === 'FX Daily Recap' && i._fxr && i._fxr.day === dayKey))]);
     saveHistory();
     auth.weeklyReportSave('fxr-' + dayKey, item).catch(e => console.warn('[FX Recap] persist échec:', e.message));
     try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
@@ -11280,7 +11293,7 @@ ${biasLine || '(n/d)'}`;
     };
     // Remplace uniquement le rapport du MÊME JOUR couvert (avant : TOUS les DTP Daily étaient retirés
     // d'allNews à chaque publication → l'historique des jours passés ne revenait qu'au rechargement du store).
-    allNews = [item, ...allNews.filter(i => !(i._reportType === 'DTP Daily' && i._dtpd && i._dtpd.day === dayKey))].slice(0, 2000);
+    allNews = _capNews([item, ...allNews.filter(i => !(i._reportType === 'DTP Daily' && i._dtpd && i._dtpd.day === dayKey))]);
     saveHistory();
     auth.weeklyReportSave('dtpd-' + dayKey, item).catch(e => console.warn('[DTP Daily] persist échec:', e.message));
     try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
@@ -11703,7 +11716,7 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
     _pair: _EVA_PAIR[cfg.ccy] || null,          // paire la plus exposée (tag sur la news)
     _impact: impact || null,                    // lecture prospective du desk
   };
-  allNews = [item, ...allNews.filter(i => !(i.id || '').startsWith(idPrefix))].slice(0, 2000);   // remplace toute version antérieure du même événement
+  allNews = _capNews([item, ...allNews.filter(i => !(i.id || '').startsWith(idPrefix))]);   // remplace toute version antérieure du même événement
   _evaState[evKey] = true;
   saveHistory();
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
@@ -14331,7 +14344,7 @@ function _waPublishNews(weekKey) {
     timestamp: ts, priority: 'normal', tags: tags.slice(0, 6),
   };
   const isNew = !existing;
-  if (isNew) allNews = [item, ...allNews].slice(0, 2000); else allNews[idx] = item;
+  if (isNew) allNews = _capNews([item, ...allNews]); else allNews[idx] = item;
   _waNewsKey = weekKey; _waNewsEdAI = edAI;
   try { saveHistory(); } catch {}
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: isNew }], total: allNews.length }); } catch {}
@@ -15073,7 +15086,7 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait : chiffres, niveaux, %, 
     _reportType: 'European Market Wrap',
     _wrapVer:    WRAP_VER,
   };
-  allNews = [item, ...allNews.filter(i => !(i.id || '').startsWith(prefix))].slice(0, 2000);   // remplace l'ancien wrap du jour (toute version) par le neuf, MAINTENANT que la régén a réussi
+  allNews = _capNews([item, ...allNews.filter(i => !(i.id || '').startsWith(prefix))]);   // remplace l'ancien wrap du jour (toute version) par le neuf, MAINTENANT que la régén a réussi
   saveHistory();
   broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
   console.log(`[EUWrap] Publié « ${item.headline} » : ${sectionCount} rubriques (${recent.length} news, ${levels.eq.length} niveaux actions)`);
