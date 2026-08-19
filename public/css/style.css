@@ -18004,3 +18004,56 @@ html[data-theme="light"] .wdg-hb-piste.est-pres-bas .wdg-hb-cur { background: #c
 .wdg-nt-vieux { display: inline-block; margin-right: 8px; padding: 0 5px; border-radius: 3px;
   background: rgba(227, 178, 58, .14); color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
 html[data-theme="light"] .wdg-nt-vieux { color: #816521; background: rgba(129, 101, 33, .12); }
+
+/* ═══ VOLET « PERSONNALISER » : CARTES EN VIGNETTE HAUTE (20/08, demande user avec captures) ══════
+   La bibliothèque servait des cartes HORIZONTALES : vignette 88×42 à gauche, nom + description à
+   droite. La disposition demandée place la VIGNETTE EN HAUT, pleine largeur de la carte, et le NOM
+   CENTRÉ DESSOUS, trois par rangée. La description quitte la carte (elle doublait la hauteur et
+   noyait le nom) mais reste intégralement dans l'infobulle `title`, déjà posée par le rendu : aucune
+   information n'est perdue, elle change de support.
+   ⚠️ Ce bloc doit rester APRÈS la l.17332 (`.wdg-lib-card--prev .wdg-lib-prev { flex: 0 0 88px }`),
+   sinon la largeur fixe de l'ancienne vignette reprend la main. */
+.wdg-lib-grid .wdg-lib-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card {
+  flex-direction: column; align-items: stretch; text-align: center;
+  gap: 0; padding: 0 0 9px; overflow: hidden; position: relative;
+}
+/* La vignette prend toute la largeur et une hauteur fixe : les cartes d'une rangée s'alignent au
+   pixel, ce qu'une hauteur dictée par le dessin ne garantit pas. */
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card--prev .wdg-lib-prev {
+  flex: 0 0 auto; width: 100%; height: 62px; margin: 0 0 8px;
+  background: var(--bg2, #0f0f12); border-bottom: 1px solid var(--hud-line, var(--border));
+  display: block; overflow: hidden;
+}
+.wdg-lib-grid .wdg-lib-row .wdg-lib-main { flex: 1 1 auto; gap: 2px; padding: 0 8px; text-align: center; }
+/* Deux lignes maximum, coupées proprement : les noms longs ne doivent pas décaler la rangée. */
+.wdg-lib-grid .wdg-lib-row .wdg-lib-name {
+  font-size: 11.5px; line-height: 1.28; text-align: center;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* La description vit désormais dans l'infobulle de la carte (attribut `title` du rendu). */
+.wdg-lib-grid .wdg-lib-row .wdg-lib-desc { display: none; }
+/* Le « + », le compteur d'usage et l'étoile reviennent en coins de vignette. */
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card--prev .wdg-lib-plus,
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card--prev .wdg-lib-used { top: 5px; right: 6px; }
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card--prev .wdg-lib-fav { top: 3px; left: 4px; bottom: auto; right: auto; }
+/* « Bientôt » passe SOUS le nom, comme sur la disposition demandée, au lieu de flotter en coin. */
+.wdg-lib-grid .wdg-lib-row .wdg-lib-soon {
+  position: static; display: block; margin: 3px auto 0; width: fit-content;
+}
+/* Compteur total, en tête de la liste (disposition demandée). */
+.wdg-lib-tot { grid-column: 1 / -1; margin: 0 2px 2px; font-family: var(--tight, 'Inter Tight', sans-serif);
+  font-size: 13px; font-weight: 700; color: var(--text, var(--w-t1)); }
+.wdg-lib-tot span { font-weight: 500; color: var(--text3, var(--w-t9)); }
+/* Cadenas des cartes « Bientôt » : DESSIN VECTORIEL, pas l'émoji. L'émoji dépend d'une police
+   installée (absent du banc de mesure, donc pas garanti chez un client non plus) : un carré vide
+   à la place du cadenas serait pire que pas de cadenas. Posé en CSS, rien à ajouter au rendu. */
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card--soon .wdg-lib-prev { position: relative; opacity: .42; }
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card--soon .wdg-lib-prev::after {
+  content: ''; position: absolute; inset: 0; opacity: .95; background-repeat: no-repeat;
+  background-position: center; background-size: 17px 17px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e3b23a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10' rx='2'/%3E%3Cpath d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/%3E%3C/svg%3E");
+}
+html[data-theme="light"] .wdg-lib-grid .wdg-lib-row .wdg-lib-card--soon .wdg-lib-prev::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23816521' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10' rx='2'/%3E%3Cpath d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/%3E%3C/svg%3E");
+}

@@ -5578,6 +5578,7 @@
       ? '<div class="wdg-lib-sec">Favoris <i class="wdg-lib-star">★</i><span class="wdg-lib-cnt">(' + favList.length + ')</span>'
         + '<span class="wdg-lib-sub">Vos widgets épinglés</span></div><div class="wdg-lib-row">' + favList.map(_card).join('') + '</div>'
       : '';
+    var fam0 = function (w) { return FAM_OF[w.id] || 'Fonctions'; };
     var html = (_libFam === '_tpl' ? [] : FAMS).map(function (fam) {
       if (_libFam && _libFam !== fam) return '';                              // puce de catégorie active → une seule famille
       var list = CATALOG.filter(function (w) { return (FAM_OF[w.id] || 'Fonctions') === fam && match(w); });
@@ -5586,7 +5587,14 @@
       return '<div class="wdg-lib-sec">' + esc(fam) + '<span class="wdg-lib-cnt">(' + list.length + ')</span>'
         + '<span class="wdg-lib-sub">' + esc(FAM_SUB[fam] || '') + '</span></div><div class="wdg-lib-row">' + cards + '</div>';
     }).join('');
-    box.innerHTML = (tplHtml + favHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
+    // COMPTEUR TOTAL en tête de liste (disposition demandée) : on compte ce qui est REELLEMENT
+    // affiche, filtre de recherche et puce de categorie compris, sinon le nombre contredit l ecran.
+    var nTot = CATALOG.filter(function (w) {
+      return match(w) && (!_libFam || _libFam === '_tpl' || (FAM_OF[w.id] || 'Fonctions') === fam0(w));
+    }).length;
+    var totHtml = (_libFam === '_tpl' || !html) ? '' :
+      '<div class="wdg-lib-tot">Tous les widgets <span>(' + nTot + ')</span></div>';
+    box.innerHTML = (totHtml + tplHtml + favHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
   }
 
   /* ── MODÈLE PRÊT : UN SEUL, et c'est le DESK DE BASE À L'IDENTIQUE (demande user 02/08). Il lit la même
