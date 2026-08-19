@@ -904,28 +904,76 @@
     catch (e) { return ''; }
   }
 
-  /* Bougies de /api/bank-ohlc, avec un CACHE par carte. Sans lui, deux widgets d amplitude plus
-     l onglet BANQUES plus le repli du widget Graphique tapent Yahoo en parallele a chaque
-     montage ; et le W1 retelecharge dix ans d hebdomadaires pour lire deux lignes.
-     Le delai maximal est explicite : la route peut mettre pres de vingt secondes a rendre un
-     tableau vide, et une carte muette pendant vingt secondes est une carte cassee. */
-  function _bougies(sym, tf, cache) {
-    var cle = sym + '|' + tf;
-    if (cache && cache[cle]) return Promise.resolve(cache[cle]);
-    var estFX = /^[A-Z]{3}\/[A-Z]{3}$/.test(String(sym || ''));
-    var url = '/api/bank-ohlc?' + (estFX ? 'pair=' : 'sym=') + encodeURIComponent(sym) + '&tf=' + encodeURIComponent(tf);
+  /* Cache PARTAGE par toutes les cartes (le parametre `cache` reste accepte pour ne rien casser,
+     mais n est plus la source de verite). Duree de vie courte : la donnee journaliere ne bouge pas
+     souvent, mais une carte ne doit pas rester figee sur une lecture d il y a une heure. */
+  var _ohlcCache = Object.create(null);     // cle -> { t: horodatage, c: bougies }
+  var _ohlcVol = Object.create(null);       // cle -> promesse EN VOL (deduplication)
+  var _OHLC_TTL = 5 * 60 * 1000;
+
+  function _bougiesUn(url) {
     var minute = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('delai')); }, 12000); });
     return Promise.race([
-      fetch(url).then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); }),
+      fetch(url).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); }),
       minute,
     ]).then(function (d) {
       // Horodatage filtre EN TETE : une bougie sans date ne peut ni etre datee ni etre exclue.
       var c = ((d && d.candles) || []).filter(function (b) {
         return b && Number.isFinite(b.t) && b.t > 0 && isFinite(b.o) && isFinite(b.h) && isFinite(b.l) && isFinite(b.c);
       });
-      if (cache) cache[cle] = c;
+      /* Un tableau VIDE n est pas un succes : la route rend { candles: [] } quand la source a
+         echoue (symbole refuse, Yahoo muet). Le traiter comme une reponse valide graverait l echec
+         dans le cache pour cinq minutes. */
+      if (!c.length) throw new Error('aucune bougie');
       return c;
     });
+  }
+
+  /* Bougies de /api/bank-ohlc.
+     ⚠️ LE BUG SIGNALE LE 19/08 (« Bougies indisponibles » sur une carte, definitivement) venait
+     d ici. Les journaux de PRODUCTION montrent des echecs PASSAGERS de la source
+     (« [YF] session attempt failed ... timeout of 5000ms », « crumb indisponible »), et les widgets
+     n avaient NI reessai NI rafraichissement : un incident de quelques secondes restait affiche
+     jusqu au remontage de la carte. Trois corrections :
+     - cache PARTAGE entre toutes les cartes (et non par carte) : huit cartes qui demandent la meme
+       paire ne produisent plus qu UNE requete ;
+     - deduplication des requetes EN VOL : deux cartes simultanees attendent la MEME promesse ;
+     - UN reessai apres 1,5 s, suffisant pour absorber un incident passager sans aggraver la charge
+       quand la source est vraiment tombee. */
+  function _bougies(sym, tf, cache) {
+    var cle = sym + '|' + tf;
+    var hit = _ohlcCache[cle];
+    if (hit && Date.now() - hit.t < _OHLC_TTL) return Promise.resolve(hit.c);
+    if (_ohlcVol[cle]) return _ohlcVol[cle];
+
+    var estFX = /^[A-Z]{3}\/[A-Z]{3}$/.test(String(sym || ''));
+    var url = '/api/bank-ohlc?' + (estFX ? 'pair=' : 'sym=') + encodeURIComponent(sym) + '&tf=' + encodeURIComponent(tf);
+
+    var p = _bougiesUn(url).catch(function () {
+      return new Promise(function (res) { setTimeout(res, 1500); }).then(function () { return _bougiesUn(url); });
+    }).then(function (c) {
+      _ohlcCache[cle] = { t: Date.now(), c: c };
+      if (cache) cache[cle] = c;              // compatibilite avec les appelants existants
+      delete _ohlcVol[cle];
+      return c;
+    }).catch(function (e) {
+      delete _ohlcVol[cle];                   // l echec ne se met PAS en cache : la tentative suivante repart propre
+      throw e;
+    });
+    _ohlcVol[cle] = p;
+    return p;
+  }
+
+  /* Rafraichissement d une carte a bougies. Sans lui, un echec passager restait AFFICHE jusqu au
+     remontage : c est exactement le defaut signale. Ici la carte se repare toute seule au tour
+     suivant, et suit la donnee quand elle bouge. On saute le tour quand l onglet est cache :
+     inutile de solliciter la source pour une carte que personne ne regarde. */
+  function _rafraichirBougies(host, dessiner, ms) {
+    var iv = setInterval(function () {
+      if (!host || !host.isConnected || document.hidden) return;
+      try { dessiner(); } catch (e) {}
+    }, ms || 5 * 60 * 1000);
+    return function () { try { clearInterval(iv); } catch (e) {} };
   }
 
   function _fxChoix() {
@@ -2125,7 +2173,8 @@
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
-        return function () { vivant = false; };
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
       },
     },
     {
@@ -2188,7 +2237,8 @@
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
-        return function () { vivant = false; };
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
       },
     },
 
@@ -2266,7 +2316,8 @@
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
-        return function () { vivant = false; };
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
       },
     },
     {
@@ -2378,7 +2429,8 @@
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
-        return function () { vivant = false; };
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
       },
     },
 
@@ -2448,7 +2500,8 @@
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
-        return function () { vivant = false; };
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
       },
     },
     {
@@ -2988,7 +3041,7 @@
         { k: 'cible', lbl: 'Second seuil (pips)', type: 'nombre', def: 0, min: 0, max: 300 },
       ],
       mount: function (host, it) {
-        var W = this, vivant = true, cur = null;
+        var W = this, vivant = true, cur = null, cache = {};
         skel(host, 6);
 
         // La convention de pip vit desormais au niveau module (_pipTaille) : trois widgets s en
@@ -3000,12 +3053,13 @@
           var mesure = opt(it, W, 'mesure') || 'ampl';
           var seuil = opt(it, W, 'seuil') || 50;
           cur = paire;
-          fetch('/api/bank-ohlc?pair=' + encodeURIComponent(paire) + '&tf=D1')
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
+          /* ⚠️ Ce widget etait le SEUL des six a garder son propre fetch : sans controle de r.ok,
+             sans delai maximal et surtout SANS REESSAI. C est precisement lui que l utilisateur a
+             vu bloque sur « Bougies indisponibles » le 19/08, alors que les cinq autres widgets
+             affichaient la meme paire sans probleme. Il passe par la brique partagee. */
+          _bougies(paire, 'D1', cache)
+            .then(function (c) {
               if (!vivant || !host.isConnected || cur !== paire) return;
-              var c = (d && d.candles) || [];
-              if (!c.length) { fallback(host, 'Bougies indisponibles.'); return; }
               // La bougie du JOUR est exclue : son haut et son bas ne sont pas encore figes.
               var auj = new Date(); auj.setHours(0, 0, 0, 0);
               var bougies = c.filter(function (b) { return b && b.t < auj.getTime() && isFinite(b.h) && isFinite(b.l) && isFinite(b.o); });
@@ -3046,13 +3100,20 @@
                 + '<div class="wdg-freq-pied">Fréquence observée sur les séances servies par la source, hors journée en cours. '
                 + 'Amplitude brute : elle ne tient compte d\'aucun coût de transaction.</div>'
                 + '</div>';
-              void iSeuil; void paliers;
             })
-            .catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+            .catch(function (e) {
+              /* Distinguer la panne de DONNEE de la faute de CODE. Un « void iSeuil » laisse par
+                 une refonte de reglages a fait afficher « Bougies indisponibles » pendant que la
+                 source rendait 518 bougies : le message accusait la donnee d une ReferenceError.
+                 On journalise desormais, et le message reste honnete dans les deux cas. */
+              if (e && e.name === 'ReferenceError') console.error('[wdg frequence-amplitude]', e.message);
+              if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.');
+            });
         }
 
         dessiner();
-        return function () { vivant = false; };
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
       },
     },
 
