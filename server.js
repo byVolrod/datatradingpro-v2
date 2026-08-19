@@ -20890,6 +20890,9 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
       else if (tpl === 'invitation') { const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined; const r = await mailer.sendCampaignInvitation({ to, name: '', campaign: 'invitation-test', variant }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'app-desktop') { const r = await mailer.sendAnnouncementDesktop({ to, name: '', campaign: 'app-desktop-test' }); provider = r ? (r.provider || r) : null; }
+      // Annonce de la bibliotheque elargie.  reste a FAUX tant que les widgets sont en
+      // rodage interne : le mail annonce alors leur arrivee progressive, pas leur disponibilite.
+      else if (tpl === 'bibliotheque-widgets') { const r = await mailer.sendAnnonceWidgets({ to, name: '', campaign: 'bibliotheque-widgets-test', ouverts: req.query.ouverts === '1' }); provider = r ? (r.provider || r) : false; }
       else if (tpl === 'desk-widgets') { const r = await mailer.sendAnnonceDesk({ to, name: '', campaign: 'desk-widgets-test' }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }

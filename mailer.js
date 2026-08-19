@@ -1149,6 +1149,62 @@ const _ANNONCE_DESK_IMGS = [
   { fichier: 'annonce-mondesk.jpg', cid: 'annonce-mondesk@datatradingpro', motif: /https?:\/\/[^"]*annonce-mondesk\.jpg/g },
   { fichier: 'annonce-dispositions.jpg', cid: 'annonce-dispositions@datatradingpro', motif: /https?:\/\/[^"]*annonce-dispositions\.jpg/g },
 ];
+/* ANNONCE : la bibliotheque de widgets s&rsquo;elargit (19/08/2026).
+   TON maison : assure et precis, benefice avant fonctionnalite, ni superlatif creux ni urgence
+   inventee. VETO permanent : on n&rsquo;incite JAMAIS a prendre une position, on decrit un outil de
+   travail. Aucun tiret cadratin (bani depuis le 14/08).
+   ⚠️ Le paragraphe « disponibilite » est le SEUL a changer selon la decision : widgets ouverts a
+   tous, ou encore en rodage interne. Il est isole et commente pour etre bascule d&rsquo;une ligne. */
+function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
+  campaign = campaign || 'bibliotheque-widgets-v1';
+  const prenom = _esc((name || '').split(' ')[0] || '');
+  const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+  const unsub  = unsubUrl(email || '');
+  const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
+
+  const fam = (titre, texte) => `
+    <p style="margin:16px 0 6px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">${titre}</p>
+    <p style="margin:0 0 8px;">${texte}</p>`;
+
+  /* ← LA SEULE LIGNE A BASCULER. `ouverts` a vrai quand les widgets sont ouverts a tous. */
+  const dispo = ouverts
+    ? `Ils sont <strong style="color:#fff;">disponibles d&egrave;s maintenant</strong> dans la biblioth&egrave;que de Mon Desk.`
+    : `Ils arrivent progressivement dans la biblioth&egrave;que de Mon Desk, au fur et &agrave; mesure de leur rodage.`;
+
+  const body = `
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Quatorze widgets de plus dans Mon Desk&nbsp;: cotations, amplitude, macro et outils.</div>
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">Quatorze widgets de plus pour <span style="color:#f3c344;">composer votre desk</span>.</p>
+    <p style="margin:0 0 6px;">La biblioth&egrave;que de Mon Desk s&rsquo;&eacute;largit. ${dispo}</p>
+
+    ${fam('Cotations et march&eacute;', 'Un <strong style="color:#fff;">bandeau de cotations</strong> d&eacute;filant, une <strong style="color:#fff;">matrice des taux crois&eacute;s</strong> qui donne les 28 croisements des huit majeures d&rsquo;un seul balayage, une <strong style="color:#fff;">chaleur de s&eacute;ance</strong> qui les colore selon la variation du jour, et une <strong style="color:#fff;">liste de suivi</strong> o&ugrave; vous choisissez vos paires.')}
+
+    ${fam('Amplitude et volatilit&eacute;', 'De combien une paire bouge en moyenne par s&eacute;ance, ce qu&rsquo;elle parcourt pendant Tokyo, Londres et New York, la part des s&eacute;ances qui atteignent un seuil donn&eacute;, la forme r&eacute;elle de ses journ&eacute;es, son &eacute;cart-type, et ses points hauts et bas avec la position du cours entre les deux.')}
+
+    ${fam('Macro', 'Un <strong style="color:#fff;">compte &agrave; rebours</strong> sur le prochain chiffre attendu, qui bascule sur le r&eacute;sultat d&egrave;s sa publication. La <strong style="color:#fff;">s&eacute;rie d&rsquo;un indicateur</strong> sur ses derni&egrave;res parutions. Et la <strong style="color:#fff;">courbe saisonni&egrave;re</strong>, mois par mois sur cinq ans.')}
+
+    ${fam('Outils', 'Un <strong style="color:#fff;">bloc-notes</strong> qui vous suit d&rsquo;un appareil &agrave; l&rsquo;autre, avec verrou de lecture seule pour vos r&egrave;gles de risque.')}
+
+    <p style="margin:18px 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Ce qu&rsquo;ils n&rsquo;affichent pas</p>
+    <p style="margin:0 0 8px;">Chaque widget a &eacute;t&eacute; construit sur une r&egrave;gle simple&nbsp;: ne jamais montrer une donn&eacute;e que la source ne fournit pas. Quand une information manque, la carte le dit au lieu de combler le vide. Quand une moyenne porte sur quatre ann&eacute;es et non cinq, elle l&rsquo;&eacute;crit. Quand une s&eacute;ance n&rsquo;est pas termin&eacute;e, elle est exclue du calcul et vous en &ecirc;tes averti.</p>
+    <p style="margin:0 0 18px;">Trois widgets envisag&eacute;s ont d&rsquo;ailleurs &eacute;t&eacute; abandonn&eacute;s pour cette raison&nbsp;: la donn&eacute;e n&rsquo;existait pas, ou pas de mani&egrave;re fiable.</p>
+
+    <p style="margin:0 0 22px;text-align:center;">
+      <a href="${ouvrir}" style="display:inline-block;background:#f3c344;color:#101014;text-decoration:none;font-weight:700;font-size:14px;padding:12px 26px;border-radius:6px;">Ouvrir mon desk</a>
+    </p>
+
+    <p style="margin:0 0 4px;font-size:12px;color:#8a8f99;">Chaque carte se r&egrave;gle&nbsp;: paire, unit&eacute;, profondeur d&rsquo;historique, seuils. Vos dispositions sont conserv&eacute;es par compte.</p>
+    <p style="margin:0;font-size:11px;color:#6b7280;"><a href="${unsub}" style="color:#6b7280;">Se d&eacute;sinscrire</a></p>`;
+
+  return { subject: 'Quatorze widgets de plus dans Mon Desk', html: _layout('Nouveaux widgets', body) };
+}
+
+async function sendAnnonceWidgets(d) {
+  d = d || {};
+  const m = buildAnnonceWidgets({ name: d.name, email: d.email || d.to, campaign: d.campaign, ouverts: d.ouverts });
+  return _send(d.to, m.subject, m.html);
+}
+
 async function sendAnnonceDesk(d) {
   d = d || {};
   const m = buildAnnonceDesk({ name: d.name, email: d.email || d.to, campaign: d.campaign });
@@ -2942,6 +2998,7 @@ module.exports = {
   buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   listMindsetConcepts,
+  buildAnnonceWidgets, sendAnnonceWidgets,
   buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildAnnonceDesk, sendAnnonceDesk, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, DECRYPT_CONCEPTS, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
