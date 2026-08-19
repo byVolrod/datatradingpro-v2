@@ -18293,3 +18293,27 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
 .tag--impact:hover, .tag--impact.tag--active { background: rgba(227, 178, 58, .12); color: #f3c95d; }
 html[data-theme="light"] .tag--impact { color: #816521; border-color: rgba(129, 101, 33, .45); }
 html[data-theme="light"] .tag--impact:hover, html[data-theme="light"] .tag--impact.tag--active { background: rgba(129, 101, 33, .1); color: #6b5217; }
+
+/* ═══ MODE CLAIR : fautifs relevés sur capture user (20/08) ═══════════════════════════════════════
+   Règle d'audit (17/08) : la couleur contraste avec SON fond. Variantes sombres de la palette
+   calculée : vert #00783d, rouge #c73000, ambre #8a6100 (les vifs restent au thème sombre). */
+/* Badge sous la jauge : base blanche teintée, texte en variante sombre. */
+html[data-theme="light"] .risk-readout-badge { background: rgba(255,255,255,.92); }
+html[data-theme="light"] .risk-readout-badge.risk-on  { color: #00783d; border-color: rgba(0,120,61,.5);  background: color-mix(in oklab, #22c55e 10%, #ffffff); }
+html[data-theme="light"] .risk-readout-badge.risk-off { color: #c73000; border-color: rgba(199,48,0,.5);  background: color-mix(in oklab, #ef4444 10%, #ffffff); }
+html[data-theme="light"] .risk-readout-badge.neutral  { color: #8a6100; border-color: rgba(138,97,0,.5);  background: color-mix(in oklab, #ffb300 12%, #ffffff); }
+/* Statut au-dessus du graphe d'historique : mêmes bases claires. */
+html[data-theme="light"] .rsh-status.risk-on  { background: color-mix(in oklab, #22c55e 9%, #ffffff); }
+html[data-theme="light"] .rsh-status.risk-on  .rsh-label { color: #00783d; }
+html[data-theme="light"] .rsh-status.risk-off { background: color-mix(in oklab, #ef4444 9%, #ffffff); }
+html[data-theme="light"] .rsh-status.risk-off .rsh-label { color: #c73000; }
+html[data-theme="light"] .rsh-status .rsh-desc { color: #5b6570; }
+/* Ligne de news importante : le bordeaux mat du sombre devient un voile rouge clair, et les textes
+   qui étaient éclaircis pour le bordeaux reprennent des encres sombres. */
+html[data-theme="light"] .news-item--breaking { background: #f9e7e5; border-bottom-color: rgba(199,48,0,.25); }
+html[data-theme="light"] .news-item--breaking .news-headline { color: #3d1512; }
+html[data-theme="light"] .news-item--breaking .news-time,
+html[data-theme="light"] .news-item--breaking .news-category-text { color: #7a4a44; }
+html[data-theme="light"] .news-item--breaking:hover { background: #f3d9d6; }
+/* Bandeau de date du fil : bande claire, encre sombre (le oklab sombre restait tel quel). */
+html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; border-top-color: #dcd9d2; border-bottom-color: #dcd9d2; }

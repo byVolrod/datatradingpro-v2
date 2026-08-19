@@ -1955,14 +1955,19 @@ function buildRiskGauge() {
       // neutre ») : le dégradé de l'arc donnait un badge AMBRE pour une LÉGÈRE AVERSION, alors
       // que la charte tranche : aversion = rouge, appétit = vert, neutre = ambre. Le label EN
       // (data.label, valeur logique) est la SOURCE UNIQUE : aucun seuil recalculé ici.
-      const _etatHex = /risk-off/i.test(data.label) ? '#ef4444' : /risk-on/i.test(data.label) ? '#22c55e' : '#ffb300';
+      const _clair = _deskLight();
+      const _etatHex = /risk-off/i.test(data.label) ? (_clair ? '#c73000' : '#ef4444')
+        : /risk-on/i.test(data.label) ? (_clair ? '#00783d' : '#22c55e')
+        : (_clair ? '#8a6100' : '#ffb300');
       const _arcHex = _etatHex;
       const _badgeTint = document.getElementById('risk-badge-val');
       if (_badgeTint) { _badgeTint.style.color = _arcHex; _badgeTint.style.borderColor = _arcHex; }
       const _tickerEl = document.getElementById('risk-ticker');
       if (_tickerEl) {
-        _tickerEl.style.color = `color-mix(in oklab, ${_arcHex} 52%, #c7cacc)`;        // texte description teinté
-        _tickerEl.style.background = `color-mix(in oklab, ${_arcHex} 13%, #0c0e13)`;     // fond sombre teinté
+        // Bases THEME-AWARE (20/08) : les littéraux sombres (#c7cacc sur #0c0e13) peignaient une
+        // bande noire au milieu du thème clair.
+        _tickerEl.style.color = `color-mix(in oklab, ${_arcHex} 52%, ${_clair ? '#3a3f46' : '#c7cacc'})`;
+        _tickerEl.style.background = `color-mix(in oklab, ${_arcHex} ${_clair ? '9%' : '13%'}, ${_clair ? '#faf8f4' : '#0c0e13'})`;
         _tickerEl.style.borderColor = `color-mix(in oklab, ${_arcHex} 30%, transparent)`;
         const _d = _tickerEl.querySelector('.risk-ticker-dot'); if (_d) _d.style.background = _arcHex;   // le point
         const _s = _tickerEl.querySelector('strong');           if (_s) _s.style.color = _arcHex;        // le label "WEAK RISK-OFF"
@@ -2012,8 +2017,9 @@ function buildRiskHistoryChart(containerId, data) {
     paddingLeft: 4, paddingRight: 6, paddingTop: 6, paddingBottom: 2,
     layout: root.verticalLayout,
   }));
-  // Fond identique au panneau "Sentiment de risque" (#0d0e11), pas le _deskChartBg() un poil plus clair.
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0e11), fillOpacity: 1 }));
+  // Fond THEME-AWARE (20/08, mode clair : la bande restait noire sur panneau blanc). En sombre,
+  // _deskChartBg rend 0x0d0e11 : exactement l'homogénéité panneau que visait l'ancien littéral.
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
   chart.zoomOutButton.set('forceHidden', true);
 
   // Axe X : DateAxis quotidien
