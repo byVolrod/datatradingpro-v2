@@ -18317,3 +18317,30 @@ html[data-theme="light"] .news-item--breaking .news-category-text { color: #7a4a
 html[data-theme="light"] .news-item--breaking:hover { background: #f3d9d6; }
 /* Bandeau de date du fil : bande claire, encre sombre (le oklab sombre restait tel quel). */
 html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; border-top-color: #dcd9d2; border-bottom-color: #dcd9d2; }
+
+/* ═══ HABILLAGE TERMINAL ADMIN, 2e passe (20/08, calibrée sur les captures de référence fournies) ══
+   Deux traits de grammaire relevés sur les captures : des séparateurs verticaux FINS entre onglets,
+   et des titres de panneaux en CASSE NORMALE, un cran plus grands, au lieu des capitales espacées.
+   Toujours : tokens DTP, compte admin seulement, desktop seulement. */
+@media (hover: hover) and (min-width: 901px) {
+  /* Séparateurs 1px entre les onglets de nav et de sous-nav : la rangée se lit comme des cellules
+     de terminal, pas comme des boutons flottants. Le dernier n'en porte pas (bord propre). */
+  body.dtp-admin .nav-item,
+  body.dtp-admin .right-tab,
+  body.dtp-admin .sym-subtab { border-right: 1px solid var(--hud-line, rgba(255,255,255,.055)); }
+  body.dtp-admin .nav-item:last-child,
+  body.dtp-admin .right-tab:last-child,
+  body.dtp-admin .sym-subtab:last-child { border-right: 0; }
+  /* Titres de panneaux : casse normale, 13px, graisse forte, chasse neutre. Le liseré orange
+     d'avant-titre reste : c'est une signature DTP, pas un emprunt. */
+  body.dtp-admin .panel-title,
+  body.dtp-admin .chart-header-title,
+  body.dtp-admin .sbs-head-title,
+  body.dtp-admin .np-filter-title,
+  body.dtp-admin .sbm-title,
+  body.dtp-admin .inst-title,
+  body.dtp-admin .sym-ptitle {
+    text-transform: none; letter-spacing: .01em; font-size: 13px; font-weight: 650;
+  }
+  body.dtp-admin .wdg-title { text-transform: none; letter-spacing: .01em; font-size: 12.5px; font-weight: 650; }
+}
