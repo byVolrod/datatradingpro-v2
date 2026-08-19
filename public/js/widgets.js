@@ -393,7 +393,9 @@
   var _resetArm = null;              // remise à zéro : 1er clic arme, 2e clic exécute (retombe seul)
   var _swapBack = null;                      // dernier remplacement, pour l'annulation
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
-  var _peek = null;                       // id du layout dont la miniature est dépliée (accordéon, volatil : un rechargement le referme)
+  var _peek = null;
+  var _icoTab = 'ico';                    // onglet du choix d'icône : 'ico' | 'emo' | 'flag' (volatil)
+  var _icoQ = '';                         // recherche dans le choix d'icône (volatile)                       // id du layout dont la miniature est dépliée (accordéon, volatil : un rechargement le referme)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
   // info = « i » cerclé ; réglages = curseurs d'ajustement.
   var ICO = {
@@ -5058,11 +5060,61 @@
   // Rendu d'une icône de disposition. Renvoie une chaîne VIDE quand la disposition n'en a pas (toutes
   // celles créées avant aujourd'hui) ou quand l'identifiant n'est plus au catalogue : AUCUN élément
   // n'est alors écrit, donc aucune gouttière flex ne s'ouvre et rien ne se décale par rapport à avant.
+  /* ⚠️ ENCODAGE DES IDENTIFIANTS D'ICÔNE. Le sanitizer serveur n'accepte que /^[a-z0-9-]{1,20}$/
+     (server.js, _wdgClean) : un identifiant hors de ce jeu est SILENCIEUSEMENT effacé au premier
+     enregistrement. D'où le choix de 'f-us' pour un drapeau et de 'e-1f680' pour un émoji (point de
+     code en hexadécimal, plusieurs points de code séparés par des tirets). Aucune modification
+     serveur n'est donc nécessaire, et rien ne se perd au rechargement. */
+  function _emoDeId(id) {
+    var p = String(id).slice(2).split('-').filter(Boolean);
+    try {
+      var cps = p.map(function (h) { return parseInt(h, 16); });
+      if (!cps.length || cps.some(function (c) { return !isFinite(c) || c <= 0 || c > 0x10ffff; })) return '';
+      return String.fromCodePoint.apply(String, cps);
+    } catch (e) { return ''; }
+  }
+  function _idDeEmo(ch) {
+    return 'e-' + Array.from(ch).map(function (c) { return c.codePointAt(0).toString(16); }).join('-');
+  }
   function _layIco(id, cls) {
-    var ic = id && _LAYICO[String(id)];
+    var t = String(id || '');
+    if (/^e-[0-9a-f-]+$/.test(t)) {
+      var ch = _emoDeId(t);
+      return ch ? '<span class="' + (cls || 'wdg-lay-ico') + ' wdg-lay-ico--emo" aria-hidden="true">' + ch + '</span>' : '';
+    }
+    /* Drapeau = IMAGE, jamais l'émoji drapeau : Windows ne fournit aucun glyphe pour les drapeaux
+       de pays, on y verrait deux lettres dans un carré. Même source que le reste du desk. */
+    if (/^f-[a-z]{2}$/.test(t)) {
+      return '<span class="' + (cls || 'wdg-lay-ico') + '" aria-hidden="true">'
+        + '<img class="wdg-lay-flag" src="https://flagcdn.com/w40/' + t.slice(2) + '.png" width="16" alt="" loading="lazy"></span>';
+    }
+    var ic = id && _LAYICO[t];
     if (!ic) return '';
     return '<span class="' + (cls || 'wdg-lay-ico') + '" aria-hidden="true">' + ic.svg + '</span>';
   }
+  /* Émojis : liste courte et VOLONTAIREMENT sobre, chacun avec des mots-clés français pour la
+     recherche (sans eux, un champ de recherche sur des pictogrammes ne sert à rien). */
+  var LAYEMO = [
+    ['\u{1F680}', 'fusée départ lancement'], ['\u{1F4C8}', 'hausse graphique montée'],
+    ['\u{1F4C9}', 'baisse graphique chute'], ['\u{1F4CA}', 'barres statistiques données'],
+    ['\u{1F3AF}', 'cible objectif'], ['\u{1F525}', 'feu chaud actif'],
+    ['\u{26A1}', 'éclair rapide volatilité'], ['\u{1F4A1}', 'idée ampoule'],
+    ['\u{1F510}', 'sécurité verrou'], ['\u{1F553}', 'horloge heure séance'],
+    ['\u{1F4C5}', 'calendrier agenda'], ['\u{1F5DE}', 'journal actualité news'],
+    ['\u{1F3E6}', 'banque centrale'], ['\u{1F4B1}', 'change devises forex'],
+    ['\u{1F30D}', 'monde global macro'], ['\u{1F50D}', 'recherche analyse loupe'],
+    ['\u{1F4DD}', 'notes carnet'], ['\u{2B50}', 'étoile favori'],
+    ['\u{1F9ED}', 'boussole direction biais'], ['\u{1F6A6}', 'feux signal alerte'],
+    ['\u{1F9EA}', 'test essai laboratoire'], ['\u{1F4BC}', 'travail portefeuille'],
+    ['\u{1F31E}', 'matin ouverture'], ['\u{1F319}', 'nuit clôture asie'],
+  ];
+  /* Drapeaux : les places qui comptent pour un desk FX, dans l'ordre des huit majeures. */
+  var LAYFLAG = [
+    ['us', 'états-unis usd dollar'], ['eu', 'europe eur euro'], ['jp', 'japon jpy yen'],
+    ['gb', 'royaume-uni gbp livre'], ['au', 'australie aud'], ['ch', 'suisse chf franc'],
+    ['ca', 'canada cad'], ['nz', 'nouvelle-zélande nzd'], ['cn', 'chine cny yuan'],
+    ['de', 'allemagne'], ['fr', 'france'], ['br', 'brésil'],
+  ];
   // BARRE DES LAYOUTS = SEULEMENT quand PLUSIEURS sont affichés (logique user 04/08) :
   //  · UN SEUL layout affiché (l'œil 📂/👁 du gestionnaire pose `hidden` sur les autres) → AUCUN
   //    nom dans la barre — on est DANS le layout, la barre ne garde que « Personnaliser ».
@@ -5144,6 +5196,10 @@
   var _newIco = '';                          // identifiant d'icône retenu à l'écran « nom + icône » ('' = aucune)
   function renderManager() {
     var box = document.getElementById('wdg-mgr-list'); var c = STATE.cfg;
+    // Les sous-écrans (choix de disposition, nom + icône) portent LEURS propres actions : laisser
+    // le pied du volet affiché montrait deux boutons « Créer » à l'écran en même temps.
+    var _vol = document.getElementById('wdg-mgr');
+    if (_vol) _vol.classList.toggle('mgr-sub', _mgrMode === 'dispo' || _mgrMode === 'nom');
     if (!box || !c) return;
     if (_mgrMode === 'dispo') {
       // Rangées GROUPÉES par nombre de panneaux, le chiffre à gauche (façon « Select Layout » d'un terminal pro).
@@ -5194,16 +5250,44 @@
         +     '<input id="wdg-newname" class="wdg-lib-search" type="text" maxlength="40" spellcheck="false"'
         +       ' autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true"'
         +       ' placeholder="Nouveau layout">'
-        +     '<div class="wdg-nom-lbl" id="wdg-ico-lbl">Icône</div>'
+        +     '<div class="wdg-nom-lbl" id="wdg-ico-lbl">Icône du layout</div>'
+        +     '<div class="wdg-ico-tabs" role="tablist">'
+        +       ['ico', 'emo', 'flag'].map(function (t, i) {
+                 var lbl = ['Icônes', 'Émojis', 'Drapeaux'][i];
+                 return '<button type="button" role="tab" class="wdg-ico-tab' + (_icoTab === t ? ' on' : '') + '"'
+                   + ' aria-selected="' + (_icoTab === t ? 'true' : 'false') + '"'
+                   + ' onclick="DTPWidgets.setIcoTab(\'' + t + '\')">' + lbl + '</button>';
+               }).join('')
+        +     '</div>'
+        +     '<input id="wdg-ico-q" class="wdg-lib-search wdg-ico-q" type="text" spellcheck="false"'
+        +       ' autocomplete="off" placeholder="Rechercher une icône…" value="' + esc(_icoQ) + '"'
+        +       ' oninput="DTPWidgets.filterIco(this.value)">'
         +     '<div class="wdg-ico-grid" role="group" aria-labelledby="wdg-ico-lbl">'
-        +       _icoBtn('', 'Sans icône', 'Aucune', ' wdg-ico-pick--none')
-        +       LAYICOS.map(function (ic) { return _icoBtn(ic.id, ic.nom, ic.svg, ''); }).join('')
+        +       (function () {
+                 // La recherche porte sur les MOTS-CLÉS, pas sur le dessin : sans eux un champ de
+                 // recherche sur des pictogrammes ne filtrerait rien.
+                 var q = _icoQ.trim().toLowerCase();
+                 var garde = function (mots) { return !q || String(mots).toLowerCase().indexOf(q) !== -1; };
+                 var vide = (!q && _icoTab === 'ico') ? _icoBtn('', 'Sans icône', 'Aucune', ' wdg-ico-pick--none') : '';
+                 var corps = '';
+                 if (_icoTab === 'ico') {
+                   corps = LAYICOS.filter(function (ic) { return garde(ic.nom + ' ' + ic.id); })
+                     .map(function (ic) { return _icoBtn(ic.id, ic.nom, ic.svg, ''); }).join('');
+                 } else if (_icoTab === 'emo') {
+                   corps = LAYEMO.filter(function (e) { return garde(e[1]); })
+                     .map(function (e) { return _icoBtn(_idDeEmo(e[0]), e[1], '<span class="wdg-ico-emo">' + e[0] + '</span>', ''); }).join('');
+                 } else {
+                   corps = LAYFLAG.filter(function (f) { return garde(f[1]); })
+                     .map(function (f) { return _icoBtn('f-' + f[0], f[1], '<img class="wdg-ico-flag" src="https://flagcdn.com/w40/' + f[0] + '.png" width="20" alt="" loading="lazy">', ''); }).join('');
+                 }
+                 return (vide + corps) || '<div class="wdg-ico-vide">Aucune icône ne correspond à « ' + esc(_icoQ) + ' ».</div>';
+               })()
         +     '</div>'
         +   '</div>'
         + '</div>'
         + '<div class="wdg-nom-actions">'
-        +   '<button class="wdg-btn" onclick="DTPWidgets.backDispo()">Annuler</button>'
-        +   '<button class="wdg-btn wdg-btn--gold" onclick="DTPWidgets.createLayout(' + (_newDispo == null ? 'null' : (_newDispo | 0)) + ')">Créer la disposition</button>'
+        +   '<button class="wdg-lib-bbtn wdg-lib-bbtn--fort" onclick="DTPWidgets.createLayout(' + (_newDispo == null ? 'null' : (_newDispo | 0)) + ')">Créer la disposition</button>'
+        +   '<button class="wdg-lib-bbtn" onclick="DTPWidgets.backDispo()">Annuler</button>'
         + '</div>'
         // ⚠️ CE QUI EST PROMIS ICI DOIT EXISTER. Le double-clic sur une carte du gestionnaire ouvre
         // editCardName, qui ne touche QUE le nom : il n'y a aujourd'hui aucun chemin pour changer
@@ -6669,6 +6753,17 @@ function _spansAffiches(lay) {
     // Chevron de rangée : déplie la miniature d'agencement. ACCORDÉON (un seul ouvert) — plusieurs
     // rangées dépliées repoussaient les suivantes hors de l'écran, ce qui est précisément le défaut
     // que la mise en rangées corrige.
+    // Onglet et recherche du choix d'icône. Le champ garde le focus et le curseur : re-rendre tout
+    // l'écran à chaque frappe le lui ferait perdre, et la saisie deviendrait impossible.
+    setIcoTab: function (t) { _icoTab = String(t || 'ico'); _icoQ = ''; renderManager(); },
+    filterIco: function (v) {
+      _icoQ = String(v || '');
+      var ch = document.getElementById('wdg-ico-q');
+      var pos = ch ? ch.selectionStart : null;
+      renderManager();
+      var ne = document.getElementById('wdg-ico-q');
+      if (ne) { ne.focus(); if (pos != null) { try { ne.setSelectionRange(pos, pos); } catch (e) {} } }
+    },
     peekLayout: function (id) { _peek = (_peek === id) ? null : id; renderManager(); },
     askDelete: function (id) { if (id === PROTECTED_ID) return; _delConfirm = id; renderManager(); },   // 1er clic : confirmation inline (jamais pour le modèle par défaut)
     deleteLayout: function (id) {

@@ -18151,3 +18151,41 @@ html[data-theme="light"] .wdg-lib-grid .wdg-lib-row .wdg-lib-card--soon .wdg-lib
 #wdg-mgr-list .wdg-mgr-card .wdg-mgr-badge { order: 4; }
 #wdg-mgr-list .wdg-mgr-card .wdg-mgr-acts { order: 5; }
 #wdg-mgr-list .wdg-mgr-card .wdg-mgr-face { order: 6; }
+
+/* ⚠️ CORRECTIF (20/08). La barre « Sauvegardes auto » est injectée en TÊTE de #wdg-mgr-footbar par
+   le rendu (widgets.js, insertBefore firstChild) et portait `flex: 1 1 100%`, écrit à l'époque où le
+   pied était une RANGÉE : la base de 100 % la faisait alors passer à la ligne, ce qui était voulu.
+   Le pied étant devenu une COLONNE, cette même base porte sur la HAUTEUR : la barre réclamait toute
+   la hauteur du pied et, avec flex-grow à 1, poussait les deux boutons hors du volet. C'est le
+   débordement constaté. On la borne à sa hauteur naturelle et on la place APRÈS les deux actions,
+   par `order` : la sauvegarde est une information de service, pas la première chose à lire. */
+#wdg-mgr-footbar .wdg-mgr-bak { flex: 0 0 auto; width: 100%; margin: 0; order: 9; }
+#wdg-mgr-footbar .wdg-lib-bbtn--fort { order: 1; }
+#wdg-mgr-footbar .wdg-lib-bbtn { order: 2; }
+#wdg-mgr-footbar .wdg-mgr-io2 { order: 3; }
+/* Pied en colonne : rien ne doit y déborder horizontalement. */
+#wdg-mgr-footbar { max-width: 100%; overflow: hidden; }
+
+/* ═══ ÉCRAN « CRÉER UN LAYOUT » : onglets d'icône + recherche (20/08, disposition demandée) ═══════ */
+.wdg-ico-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 2px 0 8px; }
+.wdg-ico-tab {
+  padding: 8px 6px; cursor: pointer; background: var(--head-bg);
+  border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11.5px; font-weight: 700;
+  color: var(--text2, var(--w-t6)); transition: color .14s, border-color .14s, background .14s;
+}
+.wdg-ico-tab:hover { color: var(--text, var(--w-t1)); border-color: rgba(227, 178, 58, .4); }
+.wdg-ico-tab.on { color: var(--orange, #e3b23a); border-color: rgba(227, 178, 58, .55); background: rgba(227, 178, 58, .08); }
+.wdg-ico-q { margin-bottom: 8px; }
+/* Émoji et drapeau prennent la même boîte que les icônes vectorielles : la grille reste régulière. */
+.wdg-ico-emo { font-size: 17px; line-height: 1; }
+.wdg-ico-flag { display: block; border-radius: 2px; }
+.wdg-ico-vide { grid-column: 1 / -1; padding: 14px 4px; font-size: 11px; color: var(--text3, var(--w-t9)); }
+/* Drapeau porté par un layout (barre, rangées du gestionnaire) : même gabarit que les icônes. */
+.wdg-lay-flag { display: block; border-radius: 2px; }
+.wdg-lay-ico--emo { font-size: 13px; line-height: 1; }
+/* Les deux actions de l'écran de création s'empilent pleine largeur, comme le pied du volet. */
+.wdg-nom-actions { display: flex; flex-direction: column; align-items: stretch; gap: 7px; }
+/* Sous-écrans du volet Layouts (choix de disposition, nom + icône) : le pied général s'efface,
+   l'écran porte ses propres actions. Sans cela, deux boutons « Créer » cohabitaient. */
+#wdg-mgr.mgr-sub #wdg-mgr-footbar { display: none; }
