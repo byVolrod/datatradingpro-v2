@@ -4884,6 +4884,38 @@ function _sbCloseDetail() {
 }
 window._sbCloseDetail = _sbCloseDetail;
 
+// ── TAUX DIRECTEURS dans l'onglet BIAIS (20/08, demande user, référence Central Bank Rates) ──
+// Le différentiel de taux est DÉJÀ un moteur du biais (pilier monétaire v41, portage gradué v47) :
+// ce bandeau MONTRE la grandeur consommée : chaque taux + son écart à la moyenne des 7 autres
+// (exclusion-de-soi, comme le modèle). Source unique /api/rates (celle de l'onglet TAUX) : aucun
+// second calcul, aucune divergence possible entre l'affichage et le score.
+const _SBR_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz' };
+function _sbRatesStrip() {
+  const slot = document.getElementById('sbm-rates');
+  if (!slot) return;
+  fetch('/api/rates').then(r => r.json()).then(d => {
+    const banks = ((d && d.banks) || []).filter(b => b && b.code && typeof b.rate === 'number');
+    if (banks.length < 4) { slot.innerHTML = ''; return; }
+    const rows = banks.slice().sort((a, b) => b.rate - a.rate);
+    const html = rows.map(b => {
+      // Écart à la moyenne des 7 AUTRES (exclusion-de-soi) : la définition exacte du modèle.
+      const autres = banks.filter(x => x.code !== b.code);
+      const moy = autres.reduce((s2, x) => s2 + x.rate, 0) / (autres.length || 1);
+      const diff = b.rate - moy;
+      const cls = diff >= 0.75 ? 'est-haut' : diff <= -0.75 ? 'est-bas' : 'est-mid';
+      const dTxt = (diff >= 0 ? '+' : '') + diff.toFixed(2).replace('.', ',');
+      const iso = _SBR_ISO[b.code] || '';
+      return '<span class="sbm-rate ' + cls + '" title="Écart à la moyenne des 7 autres banques : ' + dTxt + ' pt (le différentiel que le pilier monétaire consomme)">'
+        + (iso ? '<img src="https://flagcdn.com/w20/' + iso + '.png" width="14" height="10" alt="" loading="lazy">' : '')
+        + '<b>' + b.code + '</b><i>' + b.rate.toFixed(2).replace('.', ',') + '%</i>'
+        + '<em>' + dTxt + '</em></span>';
+    }).join('');
+    slot.innerHTML = '<span class="sbm-rates-lbl">Taux directeurs</span>' + html
+      + '<span class="sbm-rates-note">écart vs moyenne G8 : compté dans le biais</span>';
+    if (window.DTP_translate) window.DTP_translate(slot);
+  }).catch(() => { slot.innerHTML = ''; });
+}
+
 function renderBiasView(d) {
   const host = document.getElementById('bias-content');
   if (!host) return;
@@ -4905,10 +4937,12 @@ function renderBiasView(d) {
   // Tableau plein onglet + panneau de DÉTAIL rétractable dessous (clic sur une devise) + splitter horizontal (demande
   // user : « j'veux un ouvrir comme ceci puis les infos s'affichent » façon grille macro Notion, panneau sous le tableau).
   host.classList.remove('has-detail');
-  host.innerHTML = `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`
+  host.innerHTML = `<div class="sbm-rates" id="sbm-rates"></div>`
+    + `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`
     + `<div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>`
     + `<div class="sbm-summary-host" id="sbm-summary"></div>`;
   if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> tableau)
+  _sbRatesStrip();   // bandeau Taux directeurs (rempli en asynchrone, vide si /api/rates cale)
   _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);   // historique de semaines dans l'en-tête
   // Ré-ouvre le détail si une devise était sélectionnée (ex. changement de semaine) → continuité.
   if (_sbActiveCur && cur.includes(_sbActiveCur)) _sbOpenDetail(_sbActiveCur);
