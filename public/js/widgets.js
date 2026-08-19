@@ -1897,10 +1897,11 @@
        a ce stade parce que la donnee n existe pas : le graphe obligataire (/api/market-snapshot ne
        garde que « meta », la serie temporelle Yahoo est jetee) et l historique COT (scrapers/cot.js
        ne conserve qu une ligne par contrat). Mieux vaut deux widgets en moins qu un widget qui ment.
-       « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres. */
+       « staff: true » = actif pour les comptes admin/support, carte « Bientot » pour les autres.
+       OUVERTS A TOUS le 20/08 (fin du rodage) : le drapeau est retire des 14 entrees, le mecanisme reste. */
 
     {
-      id: 'notes', name: 'Notes', tag: 'OUTILS', cat: 'Outils', h: 260, staff: true,
+      id: 'notes', name: 'Notes', tag: 'OUTILS', cat: 'Outils', h: 260,
       desc: 'Un bloc-notes qui reste, d\'un appareil à l\'autre.',
       /* Le texte NE VIT PAS dans les réglages : leurs valeurs sont plafonnées à 32 caractères.
          Il vit dans un magasin dédié (/api/widget-notes), et le réglage ne porte qu un
@@ -2035,7 +2036,7 @@
     },
 
     {
-      id: 'ticklist', name: 'Liste de suivi', tag: 'FX', cat: 'Marchés', h: 176, staff: true,
+      id: 'ticklist', name: 'Liste de suivi', tag: 'FX', cat: 'Marchés', h: 176,
       desc: 'Les paires que vous suivez, leur cours et leur variation du jour.',
       /* ⚠️ CE QUE CE WIDGET N AFFICHE PAS, ET POURQUOI. /api/fxlist sert bien des colonnes `bias`
          et `dmx`, mais elles ont des REPLIS SILENCIEUX : `dmx` retombe sur un ratio de jours
@@ -2095,7 +2096,7 @@
       },
     },
     {
-      id: 'amplitude-seance', name: 'Amplitude par séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 224, staff: true,
+      id: 'amplitude-seance', name: 'Amplitude par séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 224,
       desc: 'Combien la paire parcourt pendant Tokyo, Londres et New York, en moyenne.',
       /* ⚠️ TROIS PRECAUTIONS, toutes exigees par la contre-verification.
          1. On VERIFIE que la route a bien servi des bougies horaires : elle retombe sur le
@@ -2192,7 +2193,7 @@
       },
     },
     {
-      id: 'distribution-variations', name: 'Distribution des variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320, staff: true,
+      id: 'distribution-variations', name: 'Distribution des variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
       desc: 'La forme réelle des séances : combien de journées à +0,3 %, combien à -1 %.',
       /* ⚠️ La derniere bougie est TOUJOURS retiree, sans test de date : la journee en cours n a
          pas de cloture, donc pas de variation. Regle deterministe, identique pour tout le monde,
@@ -2261,7 +2262,7 @@
     },
 
     {
-      id: 'stats-volatilite', name: 'Statistiques de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 210, staff: true,
+      id: 'stats-volatilite', name: 'Statistiques de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 210,
       desc: 'L\'écart-type des variations, en séance et en semaine, avec l\'amplitude vraie moyenne.',
       /* ⚠️ REPLI PAR COLONNE : si l hebdomadaire ne repond pas, la colonne journaliere reste
          affichee. Une carte entierement muette parce qu UNE des deux series manque serait une
@@ -2339,7 +2340,7 @@
       },
     },
     {
-      id: 'heatmap-seance', name: 'Chaleur de séance', tag: 'FX', cat: 'Marchés', h: 268, staff: true,
+      id: 'heatmap-seance', name: 'Chaleur de séance', tag: 'FX', cat: 'Marchés', h: 268,
       desc: 'Les 28 croisements majeurs colorés par leur variation du jour, du plus vert au plus rouge.',
       /* ⚠️ PERIMETRE VOLONTAIREMENT ETROIT. La contre-verification a montre qu une heatmap
          multi-periodes (1 mois, 3 mois, 12 mois) ferait DOUBLON avec la Liste FX, qui sert deja
@@ -2397,7 +2398,7 @@
     },
 
     {
-      id: 'amplitude-jour', name: 'Amplitude quotidienne', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300, staff: true,
+      id: 'amplitude-jour', name: 'Amplitude quotidienne', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300,
       desc: 'De combien la paire bouge en une séance, en moyenne, sur les dernières semaines.',
       /* ⚠️ LA BOUGIE DU JOUR N EST PAS « LA DERNIERE LIGNE ». On compare sa date UTC a celle du
          jour : un dimanche, la derniere ligne est celle de vendredi, donc CLOSE, et elle doit
@@ -2453,7 +2454,7 @@
     },
 
     {
-      id: 'hauts-bas', name: 'Points hauts et bas', tag: 'NIVEAUX', cat: 'Marchés', h: 148, staff: true,
+      id: 'hauts-bas', name: 'Points hauts et bas', tag: 'NIVEAUX', cat: 'Marchés', h: 148,
       desc: 'Les extrêmes de la séance et de la semaine, et où se situe le cours entre les deux.',
       /* ⚠️ « En cours » se CALCULE, il ne se suppose pas : on compare la date UTC de la derniere
          bougie au jour courant, et la semaine ISO en hebdomadaire. Un dimanche, la derniere ligne
@@ -2523,7 +2524,7 @@
       },
     },
     {
-      id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 186, staff: true,
+      id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 186,
       desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste.',
       /* Une carte a UNE seule information : c est ce qui la separe du widget Calendrier, qui est
          une table. Le decompte ne se calcule QUE depuis timestamp (ms epoch UTC) : le champ `time`
@@ -2646,7 +2647,7 @@
     },
 
     {
-      id: 'serie-indicateur', name: 'Série d\'un indicateur', tag: 'MACRO', cat: 'Macro', h: 300, staff: true,
+      id: 'serie-indicateur', name: 'Série d\'un indicateur', tag: 'MACRO', cat: 'Macro', h: 300,
       desc: 'Les dernières publications d\'un indicateur, en barres, avec la surprise contre la prévision.',
       /* ⚠️ LA SOURCE N EST PAS CELLE QU ON CROIT. /api/event-history existe, mais il compare les
          titres BRUTS alors que /api/calendar-events sert des titres RENOMMES : la reponse revient
@@ -2783,7 +2784,7 @@
       },
     },
     {
-      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marchés', h: 64, staff: true,
+      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marchés', h: 64,
       desc: 'Les dix repères du desk en bande fine défilante.',
       /* Source : /api/ticker, liste FIGEE de 10 actifs cote serveur. On n offre donc AUCUN champ
          « ajouter un actif » : la source ne saurait pas le chercher.
@@ -2851,7 +2852,7 @@
     },
 
     {
-      id: 'matrice-croisee', name: 'Matrice de taux croisés', tag: 'FX', cat: 'Marchés', h: 340, staff: true,
+      id: 'matrice-croisee', name: 'Matrice de taux croisés', tag: 'FX', cat: 'Marchés', h: 340,
       desc: 'La grille des huit majeures : chaque croisement, son cours et sa variation du jour.',
       /* Source : /api/fxlist, qui cote 28 paires — soit UNE seule moitie des 56 cases hors diagonale
          (USD/JPY est cote, JPY/USD ne l est pas). L autre moitie est INVERSEE cote client, et cette
@@ -2959,7 +2960,7 @@
     },
 
     {
-      id: 'saison-courbe', name: 'Courbe saisonnière', tag: 'SAISONNALITÉ', cat: 'Macro', h: 300, staff: true,
+      id: 'saison-courbe', name: 'Courbe saisonnière', tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
       /* Complement du widget « Saisonnalite » (table de chiffres) : celui-ci DESSINE la meme donnee.
          ⚠️ DEUX PIEGES QUE L ON AFFICHE AU LIEU DE LES CACHER :
@@ -3050,7 +3051,7 @@
     },
 
     {
-      id: 'frequence-amplitude', name: 'Fréquence d\'amplitude', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320, staff: true,
+      id: 'frequence-amplitude', name: 'Fréquence d\'amplitude', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
       desc: 'La part des séances où la paire a parcouru au moins X pips.',
       /* Le mot « probabilite » est ECARTE volontairement : ce que la source permet de calculer est
          une FREQUENCE HISTORIQUE OBSERVEE, pas une prevision.

@@ -820,6 +820,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260820-widgets-ouverts', ts: Date.UTC(2026, 7, 20, 23, 55), title: 'Les quatorze nouveaux widgets sont ouverts à tous', desc: 'Fin du rodage : les quatorze widgets ajoutés cette semaine sont disponibles dès maintenant dans la bibliothèque de Mon Desk, pour tous les comptes. Cotations et matrice des croisements, chaleur de séance, liste de suivi, amplitude et volatilité sous toutes leurs coutures, compte à rebours d événement, série d un indicateur, courbe saisonnière, et un bloc-notes qui vous suit d un appareil à l autre. Chaque carte a ses réglages : paire, unité, profondeur d historique, seuils.' },
   { id: 'dtpu-20260821-reaction-graphique', ts: Date.UTC(2026, 7, 21, 22, 30), title: 'Le tag du marché exposé ouvre maintenant sa réaction en graphique', desc: 'Sur les analyses d événement, le tag du marché le plus exposé (AUD/USD, EUR/USD…) n est plus une simple étiquette : un clic ouvre la courbe 15 minutes de ce marché, avec l instant exact de la publication marqué d un trait. Vous voyez le déclencheur et la réaction sur le même écran. Au passage : les couleurs du sentiment de risque suivent désormais la zone du cadran (un état faible ou neutre est ambre, comme l aiguille), la frise des sessions a été reprise (colonnes alignées, états discrets, seule la séance ouverte porte sa couleur), et les sauvegardes automatiques n affichent plus que la plus récente, les anciennes restant à un clic.' },
   { id: 'dtpu-20260821-bascule-theme', ts: Date.UTC(2026, 7, 21, 21, 0), title: 'Changer de thème met à jour le panneau de risque immédiatement', desc: 'Après un passage du clair au sombre (ou l inverse), le graphique d historique du sentiment gardait le fond de l ancien thème jusqu au rechargement de la page. Le changement de thème reconstruit maintenant ce graphique sur-le-champ, avec les données déjà chargées, et le badge comme la ligne d état reprennent aussitôt les encres du nouveau thème.' },
   { id: 'dtpu-20260821-clair-risque', ts: Date.UTC(2026, 7, 21, 20, 0), title: 'Thème clair : le panneau de risque et le fil rentrent dans le rang', desc: 'En thème clair, plusieurs zones restaient sombres : la ligne d état du sentiment, le badge sous la jauge, le graphique d historique sur fond noir, les lignes de news importantes en bordeaux et le bandeau de date du fil. Tout passe en bases claires, avec des encres foncées calculées pour rester lisibles : vert profond pour l appétit, rouge brique pour l aversion, ambre foncé pour le neutre.' },
@@ -20668,7 +20669,7 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     } else if (type === 'bibliotheque-widgets') {
       // Aperçu de l'annonce ONE-SHOT de la bibliothèque. Sans cette branche, le panneau retombait
       // sur le mail d'intro : l'admin relisait un mail, un AUTRE serait parti.
-      m = mailer.buildAnnonceWidgets({ name: s.name, email: s.email, campaign: 'bibliotheque-widgets-preview', ouverts: req.query.ouverts === '1' });
+      m = mailer.buildAnnonceWidgets({ name: s.name, email: s.email, campaign: 'bibliotheque-widgets-preview', ouverts: req.query.ouverts !== '0' });
       note = 'Annonce de la bibliothèque de widgets (campagne bibliotheque-widgets-v1, envoi unique hors rotation). Par défaut le mail annonce une arrivée PROGRESSIVE : les 14 widgets sont encore en rodage interne (staff). Ajouter ?ouverts=1 seulement le jour où ils sont ouverts à tous.';
     // ── MAILS DE CYCLE DE VIE (demande user 27/07 : les avoir dans la bibliothèque du panel pour les
     //    RELIRE avant de valider un rattrapage). Ils sont transactionnels (déclenchés par l'état du
@@ -20937,7 +20938,9 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
      ne sont pas ouverts a tous, sinon le mail annonce une disponibilite que le compte n'a pas. La
      valeur est lue UNE SEULE FOIS ici et passee a l'apercu comme a l'envoi : deux lectures
      separees pouvaient diverger et faire relire un mail different de celui qui part. */
-  const bOuverts = req.query.ouverts === '1';
+  // Les 14 widgets sont OUVERTS A TOUS depuis le 20/08 (fin du rodage) : le defaut du mail est
+  // donc « disponibles des maintenant ». ?ouverts=0 garde l ancienne variante « progressive ».
+  const bOuverts = req.query.ouverts !== '0';
   const bBuild = () => bTpl === 'app-desktop'
     ? mailer.buildAnnouncementDesktop({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
     : bTpl === 'desk-widgets'
