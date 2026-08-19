@@ -2477,6 +2477,12 @@ function buildNewsItem(item) {
   // si la news ne le mérite pas / si le budget IA ne l'a pas produite). Plus de clic, plus de
   // « Analyse en cours… », plus de bouton qui disparaît.
   const hasNotes  = !item._marketUpdate && Array.isArray(item.analyse) && item.analyse.length > 0;
+  // « Impact marché » (EVA v9) vit en QUEUE de l'analyse : on l'élève en 4e bouton, comme Info /
+  // Analyse / Réaction. Le bouton n'apparaît que si la section existe vraiment.
+  // Détection par le champ STRUCTURÉ _impact (server.js, EVA v9) : la section « Impact marché »
+  // vit dans la DESCRIPTION côté serveur, pas dans le tableau analyse : l'ancienne clé ne
+  // trouvait rien (mesuré en prod : 0 news détectée).
+  const hasImpact = typeof item._impact === 'string' && item._impact.trim().length > 40;
   // For speaker openers: only show ⓘ Info if there's actual content (desc bullets OR existing quotes)
   const speakerQuotesAtRender = isSpeaker ? getSpeakerQuotes(speakerKey, item.timestamp) : [];
   // hasArticleUrl: used only inside openPanel to fetch deeper content when description is short
@@ -2541,6 +2547,7 @@ function buildNewsItem(item) {
   let infoTagEl     = null;
   let analysisTagEl = null;
   let reactionTagEl = null;
+  let impactTagEl   = null;   // 4e pill « Impact » (section Impact marché des analyses d'événement)
   let arrowEl       = null;  // chevron ∨ / ^ indicator
 
   if (hasNotes || hasInfo || hasEco) {
@@ -2589,7 +2596,7 @@ function buildNewsItem(item) {
       expandEl.classList.remove('visible');
       activeTab = null;
       if (item && item.id != null) delete _openNewsPanels[item.id];   // fermé par l'utilisateur → on n'y revient plus
-      [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
+      [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl].forEach(t => t && t.classList.remove('tag--active'));
       if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
       return;
     }
@@ -2598,8 +2605,8 @@ function buildNewsItem(item) {
     activeTab = tab;
     if (item && item.id != null) _openNewsPanels[item.id] = tab;       // ouvert par l'utilisateur → reste ouvert (persiste)
     // État actif des pills (Info/Analyse/Réaction) : un seul actif à la fois
-    [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
-    const _activePill = tab === 'info' ? infoTagEl : tab === 'analysis' ? analysisTagEl : reactionTagEl;
+    [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl].forEach(t => t && t.classList.remove('tag--active'));
+    const _activePill = tab === 'info' ? infoTagEl : tab === 'analysis' ? analysisTagEl : tab === 'impact' ? impactTagEl : reactionTagEl;
     if (_activePill) _activePill.classList.add('tag--active');
     const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
@@ -2846,6 +2853,15 @@ function buildNewsItem(item) {
       return;
     }
 
+    if (tab === 'impact') {
+      // SEULEMENT la section « Impact marché » de l'analyse : de son intertitre à la fin (elle clôt
+      // l'analyse par construction, EVA v9). Aucun fetch : tout est déjà attaché à la news.
+      expandEl.innerHTML = _renderInfoBullets(['Impact marché :', String(item._impact || '')]);
+      _dtpTranslateQuotes(expandEl);
+      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      if (impactTagEl) impactTagEl.classList.add('tag--active');
+      return;
+    }
     if (tab === 'analysis') {
       // Analyse PRÉ-CALCULÉE côté serveur, attachée à la news → affichage instantané, aucun fetch.
       expandEl.innerHTML = _renderInfoBullets(item.analyse || []);
@@ -2922,7 +2938,13 @@ function buildNewsItem(item) {
     }
 
     // Amélioration Gemini (style DTP), mise en cache → aucune requête aux ouvertures suivantes
-    const _improvable = !isPrimer && !hasGrouped && !isSpeaker && rawDesc.length >= 30;
+    // ⚠️ NE JAMAIS résumer NOS PROPRES RAPPORTS (20/08, bug user : la Synthèse des Marchés
+    // s'affichait complète puis était REMPLACÉE quelques secondes après par 6 puces IA).
+    // L'amélioration Gemini existe pour condenser les dépêches BRUTES scrapées ; nos rapports
+    // (_marketWrap, analyses d'événement, dailys, récaps) sont déjà rédigés, structurés et en
+    // français : les « améliorer » détruisait les sections ANNONCES/ACTIONS/DEVISES.
+    const _dtpRedige = !!(item._marketWrap || item._eventAnalysis || item._dtpd || item._fxr || item._weekly);
+    const _improvable = !isPrimer && !hasGrouped && !isSpeaker && !_dtpRedige && rawDesc.length >= 30;
     if (_improvable) {
       if (_infoCache.has(item.id)) {
         const b = _infoCache.get(item.id);
@@ -3045,6 +3067,15 @@ function buildNewsItem(item) {
     tagsEl.appendChild(analysisTagEl);
   }
 
+  if (hasImpact) {
+    impactTagEl = document.createElement('span');
+    impactTagEl.className = 'tag tag--impact';
+    impactTagEl.style.cursor = 'pointer';
+    impactTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v4.2M6 5.2L2.6 9.8M6 5.2l3.4 4.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="5.4" r="1" fill="currentColor"/></svg> Impact';
+    impactTagEl.onclick = e => { e.stopPropagation(); openPanel('impact'); };
+    tagsEl.appendChild(impactTagEl);
+  }
+
   // Insert tags BETWEEN headline and expand panel so the order is:
   // headline → tags → [expand panel when open]
   content.insertBefore(tagsEl, expandEl);
@@ -3053,7 +3084,7 @@ function buildNewsItem(item) {
   // On restaure simplement l'onglet qu'il avait ouvert (persiste entre re-renders / arrivées de news).
   if (expandEl && item && _openNewsPanels[item.id]) {
     const _t  = _openNewsPanels[item.id];
-    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
+    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'impact' && hasImpact) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
     if (_ok) requestAnimationFrame(() => openPanel(_t));
     else delete _openNewsPanels[item.id];                    // l'onglet n'existe plus → on nettoie
   }
@@ -7029,7 +7060,12 @@ function _canonTag(t) {
   // Tag « Bonds »/« Obligations » BANNI GLOBALEMENT (demande user 27/07 « il ne doit pas exister ») :
   // point d'étranglement unique — même une catégorie « Bonds » fournie par une SOURCE (Recherche bancaire /
   // Notes d'Analystes) est ici supprimée (return '' → _dedupeTags la saute).
-  if (/^(bonds?|obligations?)$/i.test(t)) return '';
+  // « Fixed Income » rejoint le ban (20/08, demande user « enlève le tag obligations ») : même
+  // famille, même redondance — la catégorie de la colonne suffit, la puce n'apportait rien.
+  if (/^(bonds?|obligations?|fixed income|obligataire)$/i.test(t)) return '';
+  // « Devises » banni aussi (20/08, demande user) : sur un desk forex, TOUT est devises, la puce
+  // ne discrimine rien. Les tags de paire (EUR, GBP, AUDUSD…) restent : eux portent l'info.
+  if (/^(devises?|currencies)$/i.test(t)) return '';
   if (/^geopolitic/i.test(t)) return 'Geopolitical';
   return t;
 }
