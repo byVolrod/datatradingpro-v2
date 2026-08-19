@@ -789,15 +789,40 @@ function connectWS() {
   };
 }
 
+// ── RETOUR AU PREMIER PLAN (20/08) : iOS gèle timers et sockets en arrière-plan : le reconnect de
+//    5 s ne part jamais tant que le téléphone est en poche, et au réveil il peut rester une pleine
+//    fenêtre à attendre. Dès que la page redevient visible, si le socket n'est pas OUVERT on
+//    reconnecte SUR-LE-CHAMP : le serveur répond par un snapshot 'initial', que la fusion ci-dessus
+//    applique. Une reconnexion de trop est inoffensive ; une minute de fil figé ne l'est pas. ──
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  try {
+    if (!ws || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      connectWS();
+    }
+  } catch (e) {}
+});
+
 function handleMessage(msg) {
   if (msg.total) serverTotal = msg.total;
 
   if (msg.type === 'initial') {
     _wsInitReceived = true;
-    if ((msg.items?.length ?? 0) > allItems.length) {
-      allItems = (msg.items || []).sort((a, b) => b.timestamp - a.timestamp);
+    // ⚠️ FUSION, plus jamais une comparaison de LONGUEURS (20/08, capture user : téléphone à
+    // 21:35, dernier item 20:31, pastille verte). Le fil est plafonné à 200 des deux côtés : après
+    // une absence, le serveur renvoyait 200 items plus RÉCENTS, le client en tenait déjà 200, et
+    // « 200 > 200 » jetait le snapshot frais : fil figé en silence. On fusionne par id : le
+    // snapshot (plus frais) PRIME sur la version locale du même item, rien n'est perdu ni jeté.
+    const neuf = msg.items || [];
+    if (neuf.length) {
+      const parId = new Map();
+      allItems.forEach(i => { if (i) parId.set(i.id != null ? i.id : ('_l' + parId.size), i); });
+      neuf.forEach(i => { if (i && i.id != null) parId.set(i.id, i); });
+      allItems = [...parId.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     }
     renderNews(); // always clear the spinner once the server responds
+    _completerJourCourant();   // le snapshot (plafonné 200) peut couper la journée : on la complète en fond
   } else if (msg.type === 'community_outlook_update') {
     if (document.getElementById('rtab-dmx')?.classList.contains('active') &&
         typeof buildDMXChart === 'function') {
@@ -1345,6 +1370,36 @@ function renderNews(hasNew = false) {
   }
   // Miroir LIVE : si l'onglet Semaine à Venir est ouvert, son « Realtime Headline Ticker » = clone exact de l'onglet News (mis à jour à chaque dépêche WebSocket).
   try { const _wav = document.getElementById('view-weekahead'); if (_wav && !_wav.classList.contains('hidden') && typeof _waSyncNews === 'function') _waSyncNews(); } catch {}
+}
+
+// ── JOURNÉE COURANTE COMPLÈTE (20/08, demande user « scroll jusqu'avant la première news de la
+//    journée, puis Charger plus = jour précédent ») : le snapshot serveur est plafonné à 200 items,
+//    un jour chargé (FOMC…) était donc COUPÉ en deux : le bouton tombait en pleine journée. Dès que
+//    la liste locale ne remonte pas plus loin que la journée la plus récente, on complète en fond
+//    par l'historique (mêmes lots que Charger plus), jusqu'à toucher le jour précédent. ──
+let _jourCompletEnCours = false;
+async function _completerJourCourant() {
+  if (_jourCompletEnCours || !allItems.length) return;
+  _jourCompletEnCours = true;
+  try {
+    for (let hop = 0; hop < 6; hop++) {
+      const parTs = allItems.filter(i => i && i.timestamp);
+      if (!parTs.length) break;
+      const plusRecent = parTs.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
+      const plusVieux  = parTs.reduce((a, b) => (b.timestamp < a.timestamp ? b : a));
+      // Le plus vieux item local est-il encore dans la MÊME journée que le plus récent ? Alors la
+      // journée est coupée : on remonte encore. Sinon, le jour précédent a commencé : terminé.
+      if (formatDate(plusVieux.timestamp) !== formatDate(plusRecent.timestamp)) break;
+      const r = await fetch('/api/news/history?before=' + plusVieux.timestamp + '&limit=100');
+      const data = await r.json();
+      if (data.total) serverTotal = data.total;
+      const vus = new Set(allItems.map(i => i.id));
+      const frais = (data.items || []).filter(i => i && !vus.has(i.id));
+      if (!frais.length) { serverTotal = allItems.length; break; }   // historique épuisé
+      allItems = [...allItems, ...frais].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+    renderNews();
+  } catch (e) {} finally { _jourCompletEnCours = false; }
 }
 
 async function loadMore() {
