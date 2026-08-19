@@ -18246,16 +18246,16 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
   transition: color .12s; }
 .wdg-bak-l:hover .wdg-bak-go { color: var(--orange, #e3b23a); }
 
-/* ═══ HABILLAGE « TERMINAL » — COMPTE ADMIN SEULEMENT (20/08) ═════════════════════════════════════
+/* ═══ HABILLAGE « TERMINAL » — TOUS LES COMPTES (généralisé le 20/08 après validation admin) ═════════════════════════════════════
    Demande user : pousser le desk d'un cran vers la workstation professionnelle (onglets fins,
    bordures 1px, angles quasi carrés, densité, zéro ombre), EN VALIDATION sur le compte admin avant
-   toute généralisation. Crochet = body.dtp-admin (posé au boot par index.html pour le seul rôle
+   toute généralisation. Crochet = body (posé au boot par index.html pour le seul rôle
    admin, précédent du 05/08) : un client ne peut pas en hériter par accident.
    IDENTITÉ : tokens DTP uniquement (or #e3b23a, palettes du desk). L'ergonomie s'inspire des
    terminaux pro ; aucune couleur ni marque externe reprise (purge IP de juillet, règle vivante).
    Scopé DESKTOP (hover + >900px) : les hauteurs tactiles mobiles (navbar 40px…) restent intactes. */
 @media (hover: hover) and (min-width: 901px) {
-  body.dtp-admin {
+  body {
     /* Angles quasi carrés : --radius irrigue cartes, boutons, volets. 2px, pas 0 : le 0 absolu
        crénelle les bordures 1px sur les écrans non entiers. */
     --radius: 2px;
@@ -18266,24 +18266,24 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
   }
   /* Onglets : plus compacts, inactifs plus discrets ; l'actif garde le soulignement or 2px déjà
      en place (l.10832) et gagne juste un texte plus net. */
-  body.dtp-admin .nav-item { padding: 0 11px; font-size: 10.5px; letter-spacing: .07em; }
-  body.dtp-admin .nav-item:not(.nav-item--active):not(.active) { color: var(--w-t10, #8a8f99); }
+  body .nav-item { padding: 0 11px; font-size: 10.5px; letter-spacing: .07em; }
+  body .nav-item:not(.nav-item--active):not(.active) { color: var(--w-t10, #8a8f99); }
   /* En-têtes de panneaux : padding réduit, titre d'un demi-cran plus petit. */
-  body.dtp-admin .panel-header { padding: 0 8px; }
-  body.dtp-admin .wdg-head { padding: 2px 5px 2px 7px; }
-  body.dtp-admin .wdg-title { font-size: 11px; }
+  body .panel-header { padding: 0 8px; }
+  body .wdg-head { padding: 2px 5px 2px 7px; }
+  body .wdg-title { font-size: 11px; }
   /* Zéro ombre portée sur les panneaux du desk : la profondeur vient des filets 1px, pas du flou.
      Les VOLETS et POPOVERS (surcouches) gardent la leur : sans elle ils se fondent dans la page. */
-  body.dtp-admin .panel, body.dtp-admin .card, body.dtp-admin .wdg-mgr-card,
-  body.dtp-admin .wdg-lib-card, body.dtp-admin .home-card { box-shadow: none; }
+  body .panel, body .card, body .wdg-mgr-card,
+  body .wdg-lib-card, body .home-card { box-shadow: none; }
   /* Tables : lignes plus denses. Calendrier 9px -> 6px vertical, news resserrées, listes FX idem. */
-  body.dtp-admin .cal-row td { padding-top: 6px; padding-bottom: 6px; }
-  body.dtp-admin .news-item { --c-pad: 14px; padding-top: 7px; padding-bottom: 7px; }
-  body.dtp-admin .fxl-row td { padding-top: 5px; padding-bottom: 5px; }
-  body.dtp-admin .bank-row td { padding-top: 6px; padding-bottom: 6px; }
-  body.dtp-admin .wa-ev { padding: 4px 0; }
+  body .cal-row td { padding-top: 6px; padding-bottom: 6px; }
+  body .news-item { --c-pad: 14px; padding-top: 7px; padding-bottom: 7px; }
+  body .fxl-row td { padding-top: 5px; padding-bottom: 5px; }
+  body .bank-row td { padding-top: 6px; padding-bottom: 6px; }
+  body .wa-ev { padding: 4px 0; }
   /* Boutons du desk : silhouette plus carrée, hauteur contenue (le radius suit déjà le token). */
-  body.dtp-admin .wdg-btn { border-radius: var(--radius); }
+  body .wdg-btn { border-radius: var(--radius); }
 }
 
 /* Pill « Impact » du fil (4e bouton des titres importants, 20/08) : la lecture prospective de
@@ -18318,31 +18318,31 @@ html[data-theme="light"] .news-item--breaking:hover { background: #f3d9d6; }
 /* Bandeau de date du fil : bande claire, encre sombre (le oklab sombre restait tel quel). */
 html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; border-top-color: #dcd9d2; border-bottom-color: #dcd9d2; }
 
-/* ═══ HABILLAGE TERMINAL ADMIN, 2e passe (20/08, calibrée sur les captures de référence fournies) ══
+/* ═══ HABILLAGE TERMINAL, 2e passe — TOUS LES COMPTES (20/08, calibrée sur les captures de référence fournies) ══
    Deux traits de grammaire relevés sur les captures : des séparateurs verticaux FINS entre onglets,
    et des titres de panneaux en CASSE NORMALE, un cran plus grands, au lieu des capitales espacées.
    Toujours : tokens DTP, compte admin seulement, desktop seulement. */
 @media (hover: hover) and (min-width: 901px) {
   /* Séparateurs 1px entre les onglets de nav et de sous-nav : la rangée se lit comme des cellules
      de terminal, pas comme des boutons flottants. Le dernier n'en porte pas (bord propre). */
-  body.dtp-admin .nav-item,
-  body.dtp-admin .right-tab,
-  body.dtp-admin .sym-subtab { border-right: 1px solid var(--hud-line, rgba(255,255,255,.055)); }
-  body.dtp-admin .nav-item:last-child,
-  body.dtp-admin .right-tab:last-child,
-  body.dtp-admin .sym-subtab:last-child { border-right: 0; }
+  body .nav-item,
+  body .right-tab,
+  body .sym-subtab { border-right: 1px solid var(--hud-line, rgba(255,255,255,.055)); }
+  body .nav-item:last-child,
+  body .right-tab:last-child,
+  body .sym-subtab:last-child { border-right: 0; }
   /* Titres de panneaux : casse normale, 13px, graisse forte, chasse neutre. Le liseré orange
      d'avant-titre reste : c'est une signature DTP, pas un emprunt. */
-  body.dtp-admin .panel-title,
-  body.dtp-admin .chart-header-title,
-  body.dtp-admin .sbs-head-title,
-  body.dtp-admin .np-filter-title,
-  body.dtp-admin .sbm-title,
-  body.dtp-admin .inst-title,
-  body.dtp-admin .sym-ptitle {
+  body .panel-title,
+  body .chart-header-title,
+  body .sbs-head-title,
+  body .np-filter-title,
+  body .sbm-title,
+  body .inst-title,
+  body .sym-ptitle {
     text-transform: none; letter-spacing: .01em; font-size: 13px; font-weight: 650;
   }
-  body.dtp-admin .wdg-title { text-transform: none; letter-spacing: .01em; font-size: 12.5px; font-weight: 650; }
+  body .wdg-title { text-transform: none; letter-spacing: .01em; font-size: 12.5px; font-weight: 650; }
 }
 
 /* Sauvegardes auto : UNE rangée visible (la plus récente), les anciennes derrière un dépliage.
