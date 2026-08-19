@@ -355,6 +355,75 @@ function _gardeSession(req, res, next) {
   next();
 }
 
+/* ── DETECTION DU PARTAGE DE COMPTE (19/08) ──────────────────────────────────────────────────
+   Le verrou de session unique ne se declenche qu a un nouveau LOGIN : deux personnes qui se
+   partagent le cookie portent le meme jeton et ne sont jamais separees. On les repere autrement,
+   par leur EMPREINTE : le reseau /24 et le navigateur. Rien n est ecrit en base (un incident
+   d egress de 18 To a deja ete paye ici), et personne n est deconnecte automatiquement : un client
+   legitime sur son ordinateur ET son telephone en 4G presente deux reseaux au meme instant.
+   L administrateur voit, l administrateur tranche. */
+const _empreintes = new Map();              // userId -> Map(empreinte -> dernier vu)
+const _EMPR_FENETRE = 12 * 60 * 1000;       // au-dela, une empreinte n est plus « active »
+const _EMPR_MAX_COMPTES = 500;              // borne dure : jamais de croissance libre en memoire
+
+function _empreinteDe(req) {
+  const ip = _clientIp(req);
+  // Reseau plutot qu adresse exacte : un bail DHCP renouvele ne doit pas compter pour un partage.
+  const reseau = ip.indexOf(":") >= 0
+    ? ip.split(":").slice(0, 3).join(":")
+    : ip.split(".").slice(0, 3).join(".");
+  const ua = String(req.headers["user-agent"] || "").slice(0, 200);
+  let h = 0;
+  for (let i = 0; i < ua.length; i++) { h = ((h << 5) - h + ua.charCodeAt(i)) | 0; }
+  return reseau + "|" + (h >>> 0).toString(36);
+}
+
+function _noterEmpreinte(req) {
+  try {
+    const uid = String(req.session && req.session.userId || "");
+    if (!uid) return;
+    let m = _empreintes.get(uid);
+    if (!m) {
+      if (_empreintes.size >= _EMPR_MAX_COMPTES) return;   // borne atteinte : on n ajoute plus
+      m = new Map(); _empreintes.set(uid, m);
+    }
+    m.set(_empreinteDe(req), Date.now());
+    if (m.size > 8) {                                      // borne par compte
+      const vieilles = [...m.entries()].sort((a, b) => a[1] - b[1]).slice(0, m.size - 8);
+      vieilles.forEach(([k]) => m.delete(k));
+    }
+  } catch (e) {}
+}
+
+/* Comptes vus depuis PLUSIEURS empreintes dans la fenetre. Ce n est pas une preuve de partage :
+   c est un signal, a lire avec le nombre de reseaux DISTINCTS, qui est le plus parlant. */
+function _comptesPartages() {
+  const seuil = Date.now() - _EMPR_FENETRE;
+  const out = [];
+  for (const [uid, m] of _empreintes) {
+    const vives = [...m.entries()].filter(([, t]) => t >= seuil);
+    if (vives.length < 2) continue;
+    const reseaux = new Set(vives.map(([k]) => k.split("|")[0]));
+    out.push({
+      userId: uid,
+      empreintes: vives.length,
+      reseaux: reseaux.size,
+      dernier: Math.max(...vives.map(([, t]) => t)),
+    });
+  }
+  // Le plus suspect en tete : plusieurs RESEAUX pese plus que plusieurs navigateurs.
+  return out.sort((a, b) => (b.reseaux - a.reseaux) || (b.empreintes - a.empreintes));
+}
+
+// Menage : les empreintes mortes ne doivent pas s accumuler.
+setInterval(() => {
+  const seuil = Date.now() - _EMPR_FENETRE;
+  for (const [uid, m] of _empreintes) {
+    for (const [k, t] of m) if (t < seuil) m.delete(k);
+    if (!m.size) _empreintes.delete(uid);
+  }
+}, 5 * 60 * 1000);
+
 function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
     _PUBLIC_PREFIXES.some(p => req.path.startsWith(p));
@@ -388,6 +457,7 @@ function requireAuth(req, res, next) {
     return res.redirect('/login');
   }
   req.user = req.session.user;
+  _noterEmpreinte(req);   // signal de partage, en memoire seule
   next();
 }
 
@@ -1888,6 +1958,34 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
 
 // Déconnexion FORCÉE (admin) : tue la session active de l'utilisateur SANS le suspendre → éjecté du desk
 // au prochain heartbeat (~20 s) / appel API. Un nouveau login légitime lève l'ordre.
+/* Comptes vus depuis plusieurs empreintes en meme temps. A LIRE COMME UN SIGNAL, PAS UNE PREUVE :
+   un client legitime sur son ordinateur et son telephone en 4G apparait ici avec deux reseaux.
+   C est le nombre de RESEAUX distincts, et sa persistance dans le temps, qui distinguent le vrai
+   partage. Aucune deconnexion n est declenchee : la decision reste humaine. */
+app.get('/api/admin/partage', requireAdmin, async (req, res) => {
+  try {
+    const brut = _comptesPartages();
+    if (!brut.length) return res.json({ comptes: [], fenetreMin: Math.round(_EMPR_FENETRE / 60000) });
+    const users = await auth.getAllUsers();
+    const parId = new Map(users.map((u) => [String(u.id), u]));
+    res.json({
+      fenetreMin: Math.round(_EMPR_FENETRE / 60000),
+      comptes: brut.slice(0, 50).map((c) => {
+        const u = parId.get(c.userId);
+        return {
+          userId: c.userId,
+          nom: (u && (u.name || u.email)) || null,   // null = compte non resolu, jamais un id brut
+          email: (u && u.email) || null,
+          role: (u && u.role) || null,
+          reseaux: c.reseaux,
+          empreintes: c.empreintes,
+          dernier: c.dernier,
+        };
+      }),
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/admin/users/:id/disconnect', requireAdmin, (req, res) => {
   /* _forceLogout est un Set EN MEMOIRE, vide a chaque demarrage : l ordre de deconnexion
      disparaissait au prochain deploiement, alors que le cookie du client, lui, survit. La seule

@@ -106,6 +106,30 @@
 
   // ── Navigation (rail latéral groupé par domaine — refonte 26/07) ────────────
   //    Chargement PARESSEUX conservé : une vue ne va chercher ses données qu'à son ouverture.
+  /* PARTAGE DE COMPTE : comptes vus depuis plusieurs reseaux dans la fenetre courante.
+     ⚠️ A LIRE COMME UN SIGNAL, PAS UNE PREUVE. Un client legitime sur son ordinateur ET son
+     telephone en 4G apparait ici avec deux reseaux. C est le nombre de reseaux, et surtout sa
+     PERSISTANCE d un jour a l autre, qui distinguent le vrai partage. Rien n est deconnecte
+     automatiquement : la decision reste humaine, avec le bouton Deconnecter de la fiche.
+     Le bloc reste MASQUE quand il n y a rien : un encart vide en permanence finit par etre ignore. */
+  async function chargerPartage() {
+    var box = document.getElementById("adm-partage");
+    if (!box) return;
+    try {
+      var d = await fetch("/api/admin/partage").then(function (r) { return r.json(); });
+      var l = (d && d.comptes) || [];
+      if (!l.length) { box.style.display = "none"; box.innerHTML = ""; return; }
+      box.style.display = "";
+      box.innerHTML = "<div class=\"adm-partage-t\">" + l.length + " compte" + (l.length > 1 ? "s" : "")
+        + " vu" + (l.length > 1 ? "s" : "") + " depuis plusieurs reseaux (" + (d.fenetreMin || 12) + " dernieres minutes)"
+        + "<i>signal, pas preuve : un meme client sur ordinateur et telephone apparait ici</i></div>"
+        + "<div class=\"adm-partage-l\">" + l.map(function (c) {
+          return "<span class=\"adm-partage-c\">" + _esc2(c.nom || ("Compte " + String(c.userId).slice(0, 8)))
+            + "<b>" + c.reseaux + " reseaux</b></span>";
+        }).join("") + "</div>";
+    } catch (e) { box.style.display = "none"; }
+  }
+
   function admTab(name) {
     document.querySelectorAll('.rail-item').forEach(b => b.classList.toggle('rail-item--active', b.dataset.tab === name));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('tab-panel--active', p.id === 'tab-' + name));
@@ -115,6 +139,7 @@
     if (name === 'aimon') { loadAIMon(); setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 60); }
     if (name === 'campaign') loadCampaign();
     if (name === 'api') loadApiKeys();
+    if (name === 'users') chargerPartage();   // signal de partage, recalcule a chaque ouverture
   }
 
   // ── Accès API : gestion des clés (liste, création une-seule-fois, révocation inline) ──

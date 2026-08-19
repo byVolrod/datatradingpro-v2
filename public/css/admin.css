@@ -984,3 +984,17 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
   color: var(--green, #22c55e); background: rgba(34, 197, 94, .12);
   border: 1px solid rgba(34, 197, 94, .34);
 }
+
+/* ── Signal de partage de compte (19/08) ───────────────────────────────────────────────────────
+   Encart discret en tête de la liste des utilisateurs. Il ne crie pas : ce n'est pas une alerte,
+   c'est une observation qui demande un jugement humain. Masqué quand il n'y a rien à montrer. */
+.adm-partage { margin: 0 0 14px; padding: 10px 12px; border-radius: 6px;
+  border: 1px solid rgba(227, 178, 58, .28); background: rgba(227, 178, 58, .06); }
+.adm-partage-t { font-size: 12px; color: var(--text, #e6e8eb); font-weight: 600; }
+.adm-partage-t i { display: block; margin-top: 2px; font-style: normal; font-size: 10.5px;
+  font-weight: 400; color: var(--text3, #6b7280); }
+.adm-partage-l { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.adm-partage-c { display: inline-flex; align-items: baseline; gap: 7px; padding: 3px 9px;
+  border-radius: 4px; background: rgba(255, 255, 255, .04); border: 1px solid var(--border, #26262c);
+  font-size: 11px; color: var(--text2, #9aa1ac); }
+.adm-partage-c b { font-size: 10px; font-weight: 700; color: var(--orange, #e3b23a); }
