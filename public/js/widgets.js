@@ -394,6 +394,7 @@
   var _swapBack = null;                      // dernier remplacement, pour l'annulation
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
   var _peek = null;
+  var _newNom = '';                       // nom saisi a l'étape 1 (l'input n'existe plus quand l'étape 2 crée)
   var _icoTab = 'ico';                    // onglet du choix d'icône : 'ico' | 'emo' | 'flag' (volatil)
   var _icoQ = '';                         // recherche dans le choix d'icône (volatile)                       // id du layout dont la miniature est dépliée (accordéon, volatil : un rechargement le referme)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
@@ -5199,23 +5200,29 @@
     // Les sous-écrans (choix de disposition, nom + icône) portent LEURS propres actions : laisser
     // le pied du volet affiché montrait deux boutons « Créer » à l'écran en même temps.
     var _vol = document.getElementById('wdg-mgr');
-    if (_vol) _vol.classList.toggle('mgr-sub', _mgrMode === 'dispo' || _mgrMode === 'nom');
+    if (_vol) {
+      _vol.classList.toggle('mgr-sub', _mgrMode === 'dispo' || _mgrMode === 'nom');
+      // L'en-tête du volet PORTE l'étape (capture : « Create New Layout » en titre) : le titre et le
+      // sous-titre changent avec l'écran, la croix ferme toujours tout.
+      var _t = _vol.querySelector('.wdg-lib-title'), _st = _vol.querySelector('.wdg-lib-sous');
+      if (_t) _t.textContent = _mgrMode === 'nom' ? 'Créer un layout' : _mgrMode === 'dispo' ? 'Choisir une disposition' : 'Layouts';
+      if (_st) _st.textContent = _mgrMode === 'nom' ? 'Nommez votre layout et choisissez son icône.'
+        : _mgrMode === 'dispo' ? 'La grille de départ : chaque emplacement se remplit ensuite depuis la bibliothèque.'
+        : 'Vos dispositions : réordonnez, renommez, choisissez celle qui s\'ouvre.';
+    }
     if (!box || !c) return;
     if (_mgrMode === 'dispo') {
-      // Rangées GROUPÉES par nombre de panneaux, le chiffre à gauche (façon « Select Layout » d'un terminal pro).
-      // ÉTAPE INTERCALÉE (17/08) : choisir une disposition ne crée plus le layout dans la foulée, elle
-      // ouvre l'écran « nom + icône ». EXCEPTION assumée quand la disposition remplit le desk VIDE DÉJÀ
-      // OUVERT (_dispoTarget = 'current') : aucun layout n'est créé là, celui qui est ouvert a déjà son
-      // nom et son icône, lui en redemander n'aurait aucun sens. Le geste y reste donc direct.
-      var _suite = (_dispoTarget === 'current') ? 'createLayout' : 'nameLayout';
+      // Rangées GROUPÉES par nombre de panneaux, le chiffre à gauche. Depuis la reprise du 20/08
+      // (ordre des captures : nom d'abord), la disposition est la DERNIÈRE étape : la choisir CRÉE le
+      // layout, dans les deux parcours. Le nom vient de _newNom, stocké à l'étape précédente.
+      var _suite = 'createLayout';
       var _dCard = function (d, i) {
         return '<button class="wdg-dispo-card" onclick="DTPWidgets.' + _suite + '(' + i + ')" title="' + esc(d.name) + '">'
           + (d.items.length ? _thumb(d.items) : '<span class="wdg-thumb wdg-thumb--free">∞</span>')
           + '<span class="wdg-dispo-name">' + esc(d.name) + '</span></button>';
       };
       box.innerHTML = '<div class="wdg-dispo-head">'
-        + '<button class="wdg-btn" onclick="DTPWidgets.backManager()">‹ Retour</button>'
-        + '<span class="wdg-dispo-t">Choisis une disposition</span></div>'
+        + '<button class="wdg-btn" onclick="DTPWidgets.backFromDispo()">‹ Retour</button></div>'
         + DISPO_ORDER.map(function (n) {
             var cards = DISPOS.map(function (d, i) { return d.n === n ? _dCard(d, i) : ''; }).join('');
             if (!cards) return '';
@@ -5227,29 +5234,23 @@
     // ÉCRAN « NOM + ICÔNE » (17/08) : dernière étape avant la création. Il vit DANS le gestionnaire,
     // comme le choix de disposition : le projet n'ouvre jamais de dialogue natif (prompt/confirm).
     if (_mgrMode === 'nom') {
-      var dsp = (_newDispo == null) ? null : DISPOS[_newDispo | 0];
       var _icoBtn = function (id, nom, dedans, extra) {
         var on = (id === _newIco);
         return '<button type="button" class="wdg-ico-pick' + (extra || '') + (on ? ' on' : '') + '" data-ico="' + id + '"'
           + ' title="' + esc(nom) + '" aria-label="' + esc(nom) + '" aria-pressed="' + (on ? 'true' : 'false') + '"'
           + ' onclick="DTPWidgets.setNewIco(\'' + id + '\')">' + dedans + '</button>';
       };
-      box.innerHTML = '<div class="wdg-dispo-head">'
-        + '<button class="wdg-btn" onclick="DTPWidgets.backDispo()">‹ Retour</button>'
-        + '<span class="wdg-dispo-t">Nommer la disposition</span></div>'
-        + '<div class="wdg-nom">'
-        // Rappel de ce qui a été choisi à l'écran d'avant : sans lui, on nomme à l'aveugle.
-        +   '<div class="wdg-nom-apercu">'
-        +     (dsp && dsp.items.length ? _thumb(dsp.items) : '<span class="wdg-thumb wdg-thumb--free">∞</span>')
-        +     '<span class="wdg-dispo-name">' + esc(dsp ? dsp.name : 'Libre') + '</span>'
-        +   '</div>'
+      // L'écran suit la capture : nom, icône (3 familles), actions. L'aperçu de disposition a
+      // disparu AVEC SA RAISON D'ÊTRE : la disposition se choisit désormais APRÈS, il n'y a plus
+      // rien à rappeler ici. Le titre de l'étape vit dans l'en-tête du volet (voir plus bas).
+      box.innerHTML = '<div class="wdg-nom">'
         +   '<div class="wdg-nom-champs">'
-        +     '<label class="wdg-nom-lbl" for="wdg-newname">Nom de la disposition</label>'
+        +     '<label class="wdg-nom-lbl" for="wdg-newname">Nom du layout</label>'
         // maxlength = 40, EXACTEMENT la coupe du sanitizer serveur : ce qu'on peut taper est ce qui
         // sera gardé, sinon la fin du nom disparaîtrait au rechargement sans explication.
         +     '<input id="wdg-newname" class="wdg-lib-search" type="text" maxlength="40" spellcheck="false"'
         +       ' autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true"'
-        +       ' placeholder="Nouveau layout">'
+        +       ' placeholder="Nom du layout…" value="' + esc(_newNom) + '">'
         +     '<div class="wdg-nom-lbl" id="wdg-ico-lbl">Icône du layout</div>'
         +     '<div class="wdg-ico-tabs" role="tablist">'
         +       ['ico', 'emo', 'flag'].map(function (t, i) {
@@ -5259,6 +5260,7 @@
                    + ' onclick="DTPWidgets.setIcoTab(\'' + t + '\')">' + lbl + '</button>';
                }).join('')
         +     '</div>'
+        +     '<div class="wdg-ico-panel">'
         +     '<input id="wdg-ico-q" class="wdg-lib-search wdg-ico-q" type="text" spellcheck="false"'
         +       ' autocomplete="off" placeholder="Rechercher une icône…" value="' + esc(_icoQ) + '"'
         +       ' oninput="DTPWidgets.filterIco(this.value)">'
@@ -5283,17 +5285,18 @@
                  return (vide + corps) || '<div class="wdg-ico-vide">Aucune icône ne correspond à « ' + esc(_icoQ) + ' ».</div>';
                })()
         +     '</div>'
+        +     '</div>'
         +   '</div>'
         + '</div>'
         + '<div class="wdg-nom-actions">'
-        +   '<button class="wdg-lib-bbtn wdg-lib-bbtn--fort" onclick="DTPWidgets.createLayout(' + (_newDispo == null ? 'null' : (_newDispo | 0)) + ')">Créer la disposition</button>'
-        +   '<button class="wdg-lib-bbtn" onclick="DTPWidgets.backDispo()">Annuler</button>'
+        +   '<button class="wdg-lib-bbtn wdg-lib-bbtn--fort" onclick="DTPWidgets.nameDone()">Créer le layout</button>'
+        +   '<button class="wdg-lib-bbtn" onclick="DTPWidgets.backManager()">Annuler</button>'
         + '</div>'
         // ⚠️ CE QUI EST PROMIS ICI DOIT EXISTER. Le double-clic sur une carte du gestionnaire ouvre
         // editCardName, qui ne touche QUE le nom : il n'y a aujourd'hui aucun chemin pour changer
         // l'icône après coup. Annoncer « nom et icône se changent ensuite » était donc faux, et
         // envoyait l'utilisateur chercher un réglage inexistant. On dit ce que le code fait vraiment.
-        + '<div class="wdg-dispo-hint">Le nom se change ensuite : double-clic sur le nom d\'une carte du gestionnaire. L\'icône, elle, se choisit ici. Sans nom saisi, la disposition s\'appelle « Nouveau layout ».</div>';
+        + '<div class="wdg-dispo-hint">Étape suivante : choisir la disposition de la grille. Sans nom saisi, le layout s\'appelle « Nouveau layout ». Le nom se change ensuite d\'un clic sur le crayon.</div>';
       // CLAVIER, même grammaire que le renommage inline (editCardName) : le champ prend le focus,
       // Entrée valide, Échap annule. `stopPropagation` est indispensable : l'écoute Échap globale du
       // desk fermerait TOUT le gestionnaire au lieu de reculer d'un seul écran.
@@ -5301,8 +5304,8 @@
       if (inp) {
         inp.addEventListener('keydown', function (e) {
           e.stopPropagation();
-          if (e.key === 'Enter') { e.preventDefault(); API.createLayout(_newDispo); }
-          else if (e.key === 'Escape') { e.preventDefault(); API.backDispo(); }
+          if (e.key === 'Enter') { e.preventDefault(); API.nameDone(); }
+          else if (e.key === 'Escape') { e.preventDefault(); API.backManager(); }
         });
         try { inp.focus(); } catch (_) {}
       }
@@ -5320,7 +5323,8 @@
         ? '<span class="wdg-mgr-lock" title="Modèle par défaut : non supprimable">' + ICO.lock + '</span>'
         : (l.id === _delConfirm)
           ? '<button class="wdg-mgr-del confirm" onclick="' + stop + 'DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
-          : '<button class="wdg-mgr-del" title="Supprimer ce layout" onclick="' + stop + 'DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
+          : '<button class="wdg-mgr-del" title="Supprimer ce layout" onclick="' + stop + 'DTPWidgets.askDelete(\'' + l.id + '\')">'
+            + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6.5 7l1 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg></button>';
       return '<div class="wdg-mgr-card' + (active ? ' on' : '') + (l.hidden ? ' is-hidden' : '') + (l.id === _peek ? ' peek' : '') + '" data-i="' + li + '"'
         + ' role="button" tabindex="0" title="' + esc(l.name) + ' : cliquer pour ouvrir · double-clic sur le nom pour renommer"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')"'
@@ -5330,25 +5334,29 @@
         +   ' onclick="' + stop + 'DTPWidgets.peekLayout(\'' + l.id + '\')">'
         +   '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
         + '</button>'
-        + (active ? '<span class="wdg-mgr-badge">Actif</span>' : '')
+        + (active ? '<span class="wdg-mgr-badge">Actif</span>' : (l.hidden ? '<span class="wdg-mgr-badge wdg-mgr-badge--off">Fermé</span>' : ''))
         + '<span class="wdg-mgr-acts">'
         // ÉTOILE MUETTE → PASTILLE LISIBLE (06/08). Un ★ seul dans une rangée de trois icônes
         // n'apprend rien : il fallait survoler pour découvrir ce qu'il faisait. La pastille est à la
         // fois l'INDICATEUR (on voit d'un coup d'œil quel layout s'ouvrira) et la COMMANDE.
+        // QUATRE BOUTONS-ICÔNES, comme la capture : étoile (par défaut), crayon (renommer), dossier
+        // (afficher/retirer de la barre), corbeille (supprimer). L'étoile redevient icône seule : la
+        // pastille avec mot du 06/08 cède devant la reprise à l'identique demandée le 20/08 ; le
+        // sens reste écrit en toutes lettres dans la ligne d'aide sous la liste.
         +   '<button class="wdg-mgr-def' + (l.fav ? ' on' : '') + '"'
         +     ' title="' + (l.fav
                   ? 'C\'est le layout qui s\'ouvre à l\'arrivée sur Mon Desk. Cliquer pour ne plus l\'imposer (retour au dernier utilisé).'
                   : 'Faire de « ' + esc(l.name) + ' » le layout qui s\'ouvre à l\'arrivée sur Mon Desk.') + '"'
         +     ' onclick="' + stop + 'DTPWidgets.toggleFav(\'' + l.id + '\')">'
-        // POSÉE = ÉTOILE SEULE, LIBRE = ÉTOILE + MOT (demande user 06/08). Une fois le choix fait,
-        // l'étoile dorée suffit à le dire et la carte respire ; sur les autres, le mot est ce qui
-        // invite à agir — c'est là qu'on a besoin de savoir ce que le bouton ferait.
-        +     '<i>' + (l.fav ? '★' : '☆') + '</i>' + (l.fav ? '' : '<span>Par défaut</span>')
+        +     '<i>' + (l.fav ? '★' : '☆') + '</i>'
         +   '</button>'
-        +   '<button class="wdg-mgr-eye' + (l.hidden ? '' : ' on') + '" title="' + (l.hidden ? 'Afficher aussi dans la barre (plusieurs layouts côte à côte)' : 'Ne plus afficher dans la barre') + '" onclick="' + stop + 'DTPWidgets.toggleHide(\'' + l.id + '\')">'
-        +     (l.hidden
-                ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/></svg>'
-                : '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h6.5A1.5 1.5 0 0 1 19 9v1.5"/><path d="M4.8 10.5h15.4l-2 7a1.5 1.5 0 0 1-1.4 1H6.1a1.5 1.5 0 0 1-1.4-1.1z"/></svg>')
+        // Le crayon appelle le MÊME renommage inline que le double-clic : un chemin visible de plus
+        // vers une fonction qui existait déjà, pas une seconde implémentation.
+        +   '<button class="wdg-mgr-pen" title="Renommer" onclick="' + stop + 'DTPWidgets.editCardName(\'' + l.id + '\', this.closest(\'.wdg-mgr-card\').querySelector(\'.wdg-mgr-nom\'))">'
+        +     '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M17 3.5l3.5 3.5L8 19.5 4 20l.5-4z"/></svg>'
+        +   '</button>'
+        +   '<button class="wdg-mgr-eye' + (l.hidden ? '' : ' on') + '" title="' + (l.hidden ? 'Afficher dans la barre (rouvrir)' : 'Retirer de la barre (fermer)') + '" onclick="' + stop + 'DTPWidgets.toggleHide(\'' + l.id + '\')">'
+        +     '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h6.5A1.5 1.5 0 0 1 19 9v1.5"/><path d="M4.8 10.5h15.4l-2 7a1.5 1.5 0 0 1-1.4 1H6.1a1.5 1.5 0 0 1-1.4-1.1z"/></svg>'
         +   '</button>'
         +   del
         + '</span>'
@@ -5363,9 +5371,6 @@
         + '<span class="wdg-mgr-face">' + _thumb(l.items, { labels: true }) + '</span>'
         + '</div>';
     }).join('')
-      + (c.layouts.length < _LMAX
-          ? '<button class="wdg-mgr-card wdg-mgr-card--new" onclick="DTPWidgets.newLayout()"><span class="wdg-mgr-plus">+</span><span>Créer un layout</span></button>'
-          : '')
       + '</div>'
       + (c.layouts.length >= _LMAX ? '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>' : '')
       // Les MODÈLES PRÊTS ne vivent plus ici (ils brouillaient la création) : ils restent dans la bibliothèque.
@@ -6549,9 +6554,13 @@ function _spansAffiches(lay) {
     },
     // Création GUIDÉE : « + » ouvre le CHOIX DE DISPOSITION (mini-schémas) ; createLayout(i) crée le layout
     // avec les emplacements du squelette DISPOS[i] (ou vide pour « Libre »).
+    // ORDRE DES ETAPES (20/08, captures) : nom + icône D'ABORD, disposition ENSUITE. L'ancien ordre
+    // (disposition puis nom) faisait nommer un agencement qu'on venait à peine de voir ; le nouveau
+    // suit le parcours demandé : on crée l'identité du layout, puis on choisit sa grille.
     newLayout: function () {
       var c = STATE.cfg; if (!c || c.layouts.length >= _LMAX) return;
-      _dispoTarget = 'new'; _mgrMode = 'dispo';
+      _dispoTarget = 'new'; _mgrMode = 'nom';
+      _newNom = ''; _newIco = ''; _newDispo = null; _icoTab = 'ico'; _icoQ = '';
       API.openManager();
     },
     pickDispo: function () {                            // écran guidé (desk vide) : la disposition remplit CE desk
@@ -6571,6 +6580,14 @@ function _spansAffiches(lay) {
     },
     // Annuler = revenir au CHOIX DE DISPOSITION (pas fermer le gestionnaire) : on recule d'un écran,
     // le parcours reste rattrapable sans avoir à tout rouvrir.
+    // Étape 1 validée : le nom est STOCKÉ (l'input disparaît avec l'écran), puis choix de la grille.
+    nameDone: function () {
+      _newNom = String((document.getElementById('wdg-newname') || {}).value || '').replace(/[<>]/g, '').trim().slice(0, 40);
+      _mgrMode = 'dispo'; renderManager();
+    },
+    // Retour depuis le choix de disposition : vers l'étape nom si on crée, vers la liste sinon
+    // (le desk vide guidé n'a pas d'étape nom : son layout a déjà les siens).
+    backFromDispo: function () { _mgrMode = (_dispoTarget === 'current') ? null : 'nom'; renderManager(); },
     backDispo: function () { _mgrMode = 'dispo'; renderManager(); },
     setNewIco: function (id) {
       var v = String(id == null ? '' : id);
@@ -6657,7 +6674,10 @@ function _spansAffiches(lay) {
       // Nom saisi à l'écran « nom + icône » (parcours ordonné : disposition → nom/icône → widgets).
       // Même nettoyage que le serveur (chevrons retirés, coupe à 40) ; VIDE = repli sur un nom par
       // défaut, jamais de blocage : personne ne doit rester coincé sur un champ pour avancer.
-      var nm = String((document.getElementById('wdg-newname') || {}).value || '').replace(/[<>]/g, '').trim().slice(0, 40);
+      // Le nom vient de l'étape 1 (stocké par nameDone) : l'input n'est plus à l'écran ici. On
+      // retente l'input par prudence (parcours guidé, anciens chemins), le stock prime.
+      var nm = (_newNom || String((document.getElementById('wdg-newname') || {}).value || '')).replace(/[<>]/g, '').trim().slice(0, 40);
+      _newNom = '';
       var id = 'lay-' + uid();
       var nouveau = { id: id, name: nm || 'Nouveau layout', fav: false, items: slots };
       // `ico` reste ABSENT quand aucune icône n'est choisie : le champ est optionnel des deux côtés

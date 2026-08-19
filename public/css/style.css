@@ -18189,3 +18189,35 @@ html[data-theme="light"] .wdg-lib-grid .wdg-lib-row .wdg-lib-card--soon .wdg-lib
 /* Sous-écrans du volet Layouts (choix de disposition, nom + icône) : le pied général s'efface,
    l'écran porte ses propres actions. Sans cela, deux boutons « Créer » cohabitaient. */
 #wdg-mgr.mgr-sub #wdg-mgr-footbar { display: none; }
+
+/* ═══ ÉCRANS DU VOLET LAYOUTS, 3e passe à l'identique (20/08, captures) ═══════════════════════════ */
+/* Panneau encadré : la recherche et la grille d'icônes vivent dans UNE boîte, comme la capture. */
+.wdg-ico-panel { border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.wdg-ico-panel .wdg-ico-q { margin-bottom: 0; }
+/* Icônes en GLYPHES nus : la capture ne met de cadre qu'à l'icône choisie. */
+.wdg-ico-panel .wdg-ico-grid { border: 0; padding: 0; background: transparent;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 2px; }
+.wdg-ico-panel .wdg-ico-pick {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  padding: 0; background: transparent; border: 1px solid transparent; border-radius: 5px;
+  color: var(--text2, var(--w-t6)); cursor: pointer; transition: color .12s, border-color .12s, background .12s;
+}
+.wdg-ico-panel .wdg-ico-pick:hover { color: var(--text, var(--w-t1)); background: var(--w-s3); }
+.wdg-ico-panel .wdg-ico-pick.on { color: var(--orange, #e3b23a); border-color: var(--orange, #e3b23a); background: rgba(227, 178, 58, .08); }
+/* « Aucune » reste une pastille texte : un glyphe vide ne se devine pas. */
+.wdg-ico-panel .wdg-ico-pick--none { width: auto; padding: 0 9px; font-size: 9.5px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; grid-column: span 2; }
+/* Actions de l'étape : pleine largeur réelle (le conteneur ne doit porter aucun retrait). */
+.wdg-nom-actions { padding: 0; margin-top: 10px; }
+.wdg-nom { padding: 0 14px; }
+.wdg-nom-champs { max-width: none; }
+/* Rangées : les quatre boutons-icônes partagent le gabarit 22 px ; l'étoile redevient carrée. */
+#wdg-mgr-list .wdg-mgr-def { width: 22px; padding: 0; justify-content: center; }
+#wdg-mgr-list .wdg-mgr-def > i { font-size: 13px; }
+/* Dossier « ouvert » en vert, comme la capture (token risk-on du desk). */
+#wdg-mgr-list .wdg-mgr-eye.on { color: #22c55e; border-color: rgba(34, 197, 94, .35); }
+html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-color: rgba(21, 128, 61, .4); }
+/* Badge « Fermé » : gris discret, même gabarit que « Actif ». */
+.wdg-mgr-badge--off { color: var(--text3, var(--w-t9)); border-color: var(--hud-line, var(--border));
+  background: transparent; }
