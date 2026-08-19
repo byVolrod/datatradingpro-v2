@@ -820,6 +820,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260820-annonce-widgets', ts: Date.UTC(2026, 7, 20, 23, 30), title: 'Une annonce va récapituler les quatorze nouveaux widgets', desc: 'Un courriel unique va reprendre, en clair, les quatorze widgets ajoutés cette semaine à la bibliothèque de Mon Desk : cotations et matrice des croisements, amplitude et volatilité, compte à rebours et séries macro, bloc-notes et liste de suivi. Il explique aussi ce que ces cartes n affichent volontairement PAS, et pourquoi trois widgets envisagés ont été abandonnés faute de donnée fiable. Vous le recevrez une seule fois : il ne fait pas partie de la rotation hebdomadaire.' },
   { id: 'dtpu-20260820-volets-refonte', ts: Date.UTC(2026, 7, 20, 22, 0), title: 'Volets Widgets et Layouts : nouvelle présentation, plus directe', desc: 'Les deux volets prennent une présentation plus lisible. En haut, une icône, le nom de l écran et une phrase qui dit à quoi il sert, à la place du bandeau et des onglets. Vos layouts passent en liste : une ligne par disposition, avec sa poignée de déplacement, son nom, et ses actions alignées à droite. La miniature de l agencement n a pas disparu, elle se déplie d un clic sur le chevron, ce qui laisse voir dix dispositions d un coup au lieu de trois. En bas, deux boutons pleine largeur pour créer un layout et ouvrir la bibliothèque ; export, import et réinitialisation restent juste en dessous.' },
   { id: 'dtpu-20260820-volet-vignettes', ts: Date.UTC(2026, 7, 20, 20, 0), title: 'La bibliothèque de widgets passe en vignettes, trois par rangée', desc: 'Les cartes de la bibliothèque étaient horizontales : une petite image à gauche, le nom et sa description à droite. La description doublait la hauteur de chaque carte et noyait le nom qu on cherche. Les cartes montrent désormais leur aperçu en grand, en haut, avec le nom centré dessous, trois par rangée : on balaie la bibliothèque à l œil au lieu de la lire. La description reste accessible en survolant la carte. Un compteur indique le nombre de widgets affichés, et les cartes encore en préparation portent un cadenas.' },
   { id: 'dtpu-20260820-volet-gauche', ts: Date.UTC(2026, 7, 20, 18, 0), title: 'Le panneau Personnaliser passe en volet, à gauche de votre desk', desc: 'La bibliothèque de widgets et la gestion des dispositions s ouvraient dans une fenêtre au centre, qui recouvrait précisément le desk que vous êtes en train de composer. Elles glissent maintenant depuis le bord gauche, sur toute la hauteur : vous voyez votre desk pendant que vous choisissez, et chaque bloc de réglages porte son intitulé. Les deux onglets, Widgets et Layouts, gardent la même largeur pour que rien ne saute quand vous basculez de l un à l autre.' },
@@ -20655,6 +20656,11 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
       m = mailer.buildAnnouncementDesktop({ name: s.name, email: s.email, campaign: 'app-desktop-preview' });
     } else if (type === 'desk-widgets') {
       m = mailer.buildAnnonceDesk({ name: s.name, email: s.email, campaign: 'desk-widgets-preview' });
+    } else if (type === 'bibliotheque-widgets') {
+      // Aperçu de l'annonce ONE-SHOT de la bibliothèque. Sans cette branche, le panneau retombait
+      // sur le mail d'intro : l'admin relisait un mail, un AUTRE serait parti.
+      m = mailer.buildAnnonceWidgets({ name: s.name, email: s.email, campaign: 'bibliotheque-widgets-preview', ouverts: req.query.ouverts === '1' });
+      note = 'Annonce de la bibliothèque de widgets (campagne bibliotheque-widgets-v1, envoi unique hors rotation). Par défaut le mail annonce une arrivée PROGRESSIVE : les 14 widgets sont encore en rodage interne (staff). Ajouter ?ouverts=1 seulement le jour où ils sont ouverts à tous.';
     // ── MAILS DE CYCLE DE VIE (demande user 27/07 : les avoir dans la bibliothèque du panel pour les
     //    RELIRE avant de valider un rattrapage). Ils sont transactionnels (déclenchés par l'état du
     //    compte), pas marketing — d'où leur absence initiale ici. Données d'exemple uniquement.
@@ -20908,36 +20914,67 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
   // ── Gabarit du broadcast : intro (defaut) OU annonce one-shot app desktop (?tpl=app-desktop).
   //    Chaque gabarit a SON id de campagne → marqueurs anti-doublon et stats separes.
   const bTpl = String(req.query.tpl || 'intro');
-  const bId  = bTpl === 'app-desktop' ? 'app-desktop-v1' : bTpl === 'desk-widgets' ? 'desk-widgets-v1' : CAMPAIGN_ID;
+  /* ⚠️ PIEGE REFERME (20/08). 'bibliotheque-widgets' etait accepte par la branche ?test=1 mais
+     ABSENT des trois expressions ci-dessous : un appel ?tpl=bibliotheque-widgets&send=1 partait
+     donc sur le repli, c'est-a-dire qu'il envoyait le mail INTRO a toute la liste, ET sous les
+     marqueurs campaign:intro-v1:<email>. Deux degats en un : le mauvais mail chez le client, et
+     l'anti-doublon d'une AUTRE campagne brule (l'intro n'aurait plus jamais pu partir). */
+  const bId  = bTpl === 'app-desktop' ? 'app-desktop-v1'
+    : bTpl === 'desk-widgets' ? 'desk-widgets-v1'
+    : bTpl === 'bibliotheque-widgets' ? 'bibliotheque-widgets-v1'
+    : CAMPAIGN_ID;
+  /* Les 14 widgets annonces portent tous staff: true dans le catalogue : hors admin et support ils
+     s'affichent « Bientot » et ne sont pas ajoutables. Le drapeau ouverts DOIT rester faux tant qu'ils
+     ne sont pas ouverts a tous, sinon le mail annonce une disponibilite que le compte n'a pas. La
+     valeur est lue UNE SEULE FOIS ici et passee a l'apercu comme a l'envoi : deux lectures
+     separees pouvaient diverger et faire relire un mail different de celui qui part. */
+  const bOuverts = req.query.ouverts === '1';
   const bBuild = () => bTpl === 'app-desktop'
     ? mailer.buildAnnouncementDesktop({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
     : bTpl === 'desk-widgets'
     ? mailer.buildAnnonceDesk({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
+    : bTpl === 'bibliotheque-widgets'
+    ? mailer.buildAnnonceWidgets({ name: '', email: 'apercu@datatradingpro.com', campaign: bId, ouverts: bOuverts })
     : mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: bId });
   const bSend = (email, nm) => bTpl === 'app-desktop'
     ? mailer.sendAnnouncementDesktop({ to: email, name: nm, campaign: bId })
     : bTpl === 'desk-widgets'
     ? mailer.sendAnnonceDesk({ to: email, name: nm, campaign: bId })
+    : bTpl === 'bibliotheque-widgets'
+    ? mailer.sendAnnonceWidgets({ to: email, name: nm, campaign: bId, ouverts: bOuverts })
     : mailer.sendCampaignIntro({ to: email, name: nm, campaign: bId });
 
-  let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }
+  /* ⚠️ VERROU ATOMIQUE (20/08). Il etait teste APRES l'attente de _campaignAudience, qui interroge
+     la base des comptes ET l'API Whop : plusieurs secondes. Deux clics dans cette fenetre voyaient
+     tous les deux running=false et lancaient DEUX diffusions. Le marqueur anti-doublon limite les
+     degats mais ne les annule pas : il est ecrit APRES le retour du fournisseur, donc les deux
+     boucles peuvent envoyer au meme contact avant que l'une n'ait logge. On revendique donc AVANT
+     toute attente, comme le fait _runWeeklyCampaign, et on relache sur chaque sortie anticipee. */
+  if (send) {
+    if (_campaignSend.running) return res.status(409).json({ error: 'Un envoi de campagne est deja en cours.', state: _campaignSend });
+    _campaignSend = { running: true, campaign: bId, eligible: 0, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: Date.now(), finishedAt: null };
+  }
+  const _relacher = () => { if (send) { _campaignSend.running = false; _campaignSend.finishedAt = Date.now(); } };
+
+  let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { _relacher(); return res.status(500).json({ error: e.message }); }
   const recipients = audience.recipients;
   if (!send) {
     return res.json({ dryRun: true, campaign: bId, report: audience.report,
       sample: recipients.slice(0, 25).map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })),
       hint: `Apercu : RIEN envoye. ?test=1 = test a l'admin. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
   }
-  if (_campaignSend.running) return res.status(409).json({ error: 'Un envoi de campagne est deja en cours.', state: _campaignSend });
+  // (le verrou est revendique plus haut, AVANT l'appel a _campaignAudience : voir le commentaire)
 
   // ── PRE-FLIGHT avant broadcast reel : fournisseur mail + audience + rendu du gabarit. Bloque si critique. ──
   const pfB = await _runCampaignPreflight({
     recipients, sample: bBuild,
     needsData: false, needsWidget: false, needsAI: false,   // gabarits sans widget embarque
   });
-  if (!pfB.ok) { await _campaignError('critical', bId, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE : aucun envoi.', preflight: pfB }); }
+  if (!pfB.ok) { _relacher(); await _campaignError('critical', bId, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE : aucun envoi.', preflight: pfB }); }
 
   // ── ENVOI REEL → reponse immediate (ne peut pas attendre N×throttle), puis envoi en fond ──
-  _campaignSend = { running: true, campaign: bId, eligible: recipients.length, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: Date.now(), finishedAt: null };
+  // Le verrou est deja pose : on complete seulement le decompte, sans le relacher au passage.
+  _campaignSend.eligible = recipients.length; _campaignSend.startedAt = Date.now();
   res.json({ started: true, campaign: bId, eligible: recipients.length, note: 'Envoi lance en arriere-plan. Suivi : ?status=1.' });
   const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
   (async () => {

@@ -280,6 +280,7 @@
     { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) : aperçu par variante.', variants:true },
     { prev:'app-desktop', test:'app-desktop', name:'Annonce app desktop',  when:'One-shot',   oneshot:true, desc:'Annonce de l\'application Windows/macOS (campagne app-desktop-v1).' },
     { prev:'desk-widgets', test:'desk-widgets', name:'Annonce accueil & Mon Desk', when:'One-shot', oneshot:true, desc:'Les deux nouveautés : l\'écran d\'accueil « Vue d\'ensemble », et Mon Desk : widgets composables, plusieurs dispositions, enregistrées par compte (campagne desk-widgets-v1).' },
+    { prev:'bibliotheque-widgets', test:'bibliotheque-widgets', name:'Annonce bibliothèque de widgets', when:'One-shot', oneshot:true, desc:'Quatorze widgets de plus dans Mon Desk : cotations, amplitude et volatilité, macro, outils. Envoi UNIQUE à toute la liste, hors rotation hebdomadaire (campagne bibliotheque-widgets-v1). Par défaut le mail annonce une arrivée progressive : les 14 widgets sont encore en rodage interne.' },
     // ── CYCLE DE VIE (transactionnels : déclenchés par l'état du compte, pas par le calendrier).
     //    Ajoutés le 27/07 pour pouvoir les RELIRE avant de valider un rattrapage. Pas de bouton « Test »
     //    (ils s'envoient sur événement) — l'aperçu suffit à vérifier le rendu.

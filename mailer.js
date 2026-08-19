@@ -1186,17 +1186,19 @@ function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
     ${fam('Outils', 'Un <strong style="color:#fff;">bloc-notes</strong> qui vous suit d&rsquo;un appareil &agrave; l&rsquo;autre, avec verrou de lecture seule pour vos r&egrave;gles de risque.')}
 
     <p style="margin:18px 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Ce qu&rsquo;ils n&rsquo;affichent pas</p>
-    <p style="margin:0 0 8px;">Chaque widget a &eacute;t&eacute; construit sur une r&egrave;gle simple&nbsp;: ne jamais montrer une donn&eacute;e que la source ne fournit pas. Quand une information manque, la carte le dit au lieu de combler le vide. Quand une moyenne porte sur quatre ann&eacute;es et non cinq, elle l&rsquo;&eacute;crit. Quand une s&eacute;ance n&rsquo;est pas termin&eacute;e, elle est exclue du calcul et vous en &ecirc;tes averti.</p>
+    <p style="margin:0 0 8px;">Chaque widget a &eacute;t&eacute; construit sur une r&egrave;gle simple&nbsp;: ne jamais montrer une donn&eacute;e que la source ne fournit pas. Quand une information manque, la carte le dit au lieu de combler le vide. Quand une moyenne porte sur quatre ann&eacute;es et non cinq, elle l&rsquo;&eacute;crit. Quand une s&eacute;ance n&rsquo;est pas termin&eacute;e, les cartes qui mesurent une amplitude ou une variation l&rsquo;excluent du calcul, et le disent.</p>
     <p style="margin:0 0 18px;">Trois widgets envisag&eacute;s ont d&rsquo;ailleurs &eacute;t&eacute; abandonn&eacute;s pour cette raison&nbsp;: la donn&eacute;e n&rsquo;existait pas, ou pas de mani&egrave;re fiable.</p>
 
-    <p style="margin:0 0 22px;text-align:center;">
-      <a href="${ouvrir}" style="display:inline-block;background:#f3c344;color:#101014;text-decoration:none;font-weight:700;font-size:14px;padding:12px 26px;border-radius:6px;">Ouvrir mon desk</a>
-    </p>
+    ${_campaignBtn('Ouvrir mon desk', ouvrir)}
 
     <p style="margin:0 0 4px;font-size:12px;color:#8a8f99;">Chaque carte se r&egrave;gle&nbsp;: paire, unit&eacute;, profondeur d&rsquo;historique, seuils. Vos dispositions sont conserv&eacute;es par compte.</p>
-    <p style="margin:0;font-size:11px;color:#6b7280;"><a href="${unsub}" style="color:#6b7280;">Se d&eacute;sinscrire</a></p>`;
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;border:0;">`;
 
-  return { subject: 'Quatorze widgets de plus dans Mon Desk', html: _layout('Nouveaux widgets', body) };
+  /* _campaignLayout et NON _layout : _layout est le gabarit TRANSACTIONNEL (pas de mention legale,
+     pas de lien de desinscription, pas de rendu mobile). Un envoi de masse sans desinscription
+     visible se fait classer en courrier indesirable, et c'est aussi ce que la loi demande. Le lien
+     n'est donc plus ecrit a la main dans le corps : le gabarit de campagne le pose lui-meme. */
+  return { subject: 'Quatorze widgets de plus dans Mon Desk', html: _campaignLayout('Nouveaux widgets', body, unsub) };
 }
 
 async function sendAnnonceWidgets(d) {
