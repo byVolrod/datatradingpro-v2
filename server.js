@@ -282,6 +282,19 @@ const _sessionEpoch = new Map();
    l'aurait déconnectée au premier démarrage, ce qui aurait été un vrai effet de bord. */
 const _SESS_EPOCH_KV = 'sess:epochs';
 let _sessEpochSauveT = null;
+/* Ferme les WebSockets d un compte dont le jeton n est plus valide. `garder` = le jeton qui
+   survit (celui de la session qui vient d agir), ou null pour tout fermer. */
+function _fermerSockets(uid, garder) {
+  try {
+    if (typeof wss === 'undefined' || !wss.clients) return;
+    wss.clients.forEach((c) => {
+      if (c._uid === uid && (!garder || c._stoken !== garder)) {
+        try { c.close(1008, 'session terminée'); } catch (e) {}
+      }
+    });
+  } catch (e) {}
+}
+
 function _sessEpochSauver() {                   // écriture groupée : plusieurs connexions rapprochées = un seul write
   if (_sessEpochSauveT) return;
   _sessEpochSauveT = setTimeout(() => {
@@ -316,6 +329,30 @@ function _sessionExpired(req) {
   if (!req.session?.userId) return false;
   if (!req.session.loginAt) { req.session.loginAt = Date.now(); return false; }   // legacy → ancrée maintenant
   return Date.now() - req.session.loginAt > _sessionMaxMs(req);
+}
+
+/* Regle d ejection, EXTRAITE de requireAuth pour etre appliquee partout ou elle manquait : au
+   WebSocket, et aux routes /api/auth/me/* que le prefixe public exemptait du garde.
+   On ne change RIEN a la politique : memes conditions, meme tolerance pour les sessions anterieures
+   au mecanisme (celles qui n ont pas de jeton). Une seule definition, donc plus de divergence
+   possible entre les endroits ou elle s applique. */
+function _sessionMorte(req) {
+  if (!req.session || !req.session.userId) return 'absente';
+  if (_sessionExpired(req)) return 'expiree';
+  const sid = String(req.session.userId);
+  if (_forceLogout.has(sid)) return 'deconnectee';
+  if (auth.isEmailBlacklisted(req.session.user && req.session.user.email)) return 'blacklistee';
+  const ep = _sessionEpoch.get(sid);
+  if (ep && req.session.stoken && ep !== req.session.stoken) return 'supplantee';
+  return null;
+}
+
+/* Garde LOCALE pour les routes sous un prefixe public. requireAuth ne peut pas servir ici : il
+   sort en next() des qu il voit /api/auth/, precisement le prefixe de ces routes. */
+function _gardeSession(req, res, next) {
+  const mort = _sessionMorte(req);
+  if (mort) { req.session = null; return res.status(401).json({ error: 'Session terminée', loggedOut: true }); }
+  next();
 }
 
 function requireAuth(req, res, next) {
@@ -509,6 +546,16 @@ app.post('/api/auth/login', async (req, res) => {
       req.session.stoken = _stok;
       _sessionEpoch.set(String(user.id), _stok);
       _sessEpochSauver();   // le registre doit survivre au prochain redeploiement
+      /* Le WebSocket vit des heures : sans cette boucle, la session ejectee du desk continuerait de
+         recevoir le fil temps reel jusqu a ce que l onglet soit ferme. On coupe les sockets du meme
+         compte dont le jeton n est plus le bon. */
+      try {
+        wss.clients.forEach((c) => {
+          if (c._uid === String(user.id) && c._stoken && c._stoken !== _stok) {
+            try { c.close(1008, 'session supplantée'); } catch (e) {}
+          }
+        });
+      } catch (e) {}
     }
     res.json({ ok: true, role: user.role });
   } catch (e) {
@@ -703,6 +750,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260819-securite-session', ts: Date.UTC(2026, 7, 19, 22, 0), title: 'Sécurité : changer votre mot de passe déconnecte désormais les autres appareils', desc: 'Jusqu ici, modifier son mot de passe ne coupait aucune session déjà ouverte ailleurs : le réflexe naturel de quelqu un dont le compte a fuité restait sans effet. C est corrigé, et l appareil depuis lequel vous faites le changement reste connecté. Le flux temps réel du desk exige lui aussi une session valide, et il se ferme immédiatement quand une session prend fin.' },
   { id: 'dtpu-20260820-widgets-reglages', ts: Date.UTC(2026, 7, 20, 14, 0), title: 'Les nouveaux widgets gagnent leurs réglages, et leurs vignettes leurs couleurs', desc: 'Quatre des widgets ajoutés cette semaine n avaient aucun panneau de réglages, et six ne laissaient même pas changer de paire : un défaut de configuration de ma part, corrigé. Chacun dispose maintenant de deux à quatre réglages utiles : horizon de variation sur la matrice, devise mise en avant, moyenne ou médiane sur la volatilité, unité en pips ou en pourcentage, second seuil de comparaison, alerte quand le cours approche d un extrême, verrou de lecture seule sur les notes. Les vignettes de la bibliothèque, elles, reprennent la palette des widgets historiques au lieu du tout doré.' },
   { id: 'dtpu-20260820-notes-ticklist', ts: Date.UTC(2026, 7, 20, 8, 0), title: 'Notes et Liste de suivi : deux outils qui vous suivent d un appareil à l autre', desc: 'Le bloc-notes garde vos observations par compte : vous les retrouvez sur un autre poste, et chaque carte a son propre document, même dupliquée. La liste de suivi affiche les paires que vous choisissez avec leur cours et leur variation du jour. Elle s en tient volontairement à ces deux colonnes : les indicateurs de biais et de positionnement de la source ont des valeurs de repli qu il serait trompeur de présenter comme des verdicts.' },
   { id: 'dtpu-20260819-amplitude-seance', ts: Date.UTC(2026, 7, 19, 23, 0), title: 'Amplitude par séance : ce que la paire parcourt à Tokyo, Londres et New York', desc: 'Un nouveau widget compare l amplitude moyenne d une paire pendant chacune des trois grandes séances, aux heures locales de chaque place et en tenant compte des changements d heure, qui ne tombent pas le même jour d un continent à l autre. Les séances se chevauchent : la carte le rappelle, la somme des trois ne fait pas la journée.' },
@@ -1841,7 +1889,15 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
 // Déconnexion FORCÉE (admin) : tue la session active de l'utilisateur SANS le suspendre → éjecté du desk
 // au prochain heartbeat (~20 s) / appel API. Un nouveau login légitime lève l'ordre.
 app.post('/api/admin/users/:id/disconnect', requireAdmin, (req, res) => {
-  _forceLogout.add(String(req.params.id));
+  /* _forceLogout est un Set EN MEMOIRE, vide a chaque demarrage : l ordre de deconnexion
+     disparaissait au prochain deploiement, alors que le cookie du client, lui, survit. La seule
+     arme manuelle contre le partage se desarmait donc toute seule. On double l ordre d une
+     ROTATION DE JETON, qui est persistee et verifiee partout. */
+  const _id = String(req.params.id);
+  _forceLogout.add(_id);
+  _sessionEpoch.set(_id, require('crypto').randomUUID());
+  _sessEpochSauver();
+  _fermerSockets(_id, null);
   res.json({ ok: true });
 });
 
@@ -1881,6 +1937,11 @@ app.post('/api/admin/users/:id/password', requireAdmin, async (req, res) => {
   try {
     const id = String(req.params.id);   // id TEXTE/uuid (cf. migration) → +id = NaN cassait reset MDP pour les comptes uuid
     await auth.changePassword(id, req.body.password);
+    // Reinitialiser un mot de passe depuis le panneau doit COUPER les sessions en cours, sinon
+    // l operation ne sert a rien contre un compte visiblement partage.
+    _sessionEpoch.set(String(id), require('crypto').randomUUID());
+    _sessEpochSauver();
+    _fermerSockets(String(id), null);
     res.json({ ok: true });
     // Email de réinitialisation (non bloquant) avec le nouveau mot de passe
     auth.getUserById(id)
@@ -2172,8 +2233,10 @@ app.post('/api/ui-prefs', async (req, res) => {
 });
 
 // ─── User self-service password change ────────────────────────────────────────
-app.put('/api/auth/me/password', async (req, res) => {
-  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+/* ⚠️ Cette route vit sous le prefixe PUBLIC /api/auth/ : requireAuth ne la voit pas. Sans le garde
+   local, une session SUPPLANTEE (donc censement morte) pouvait encore changer le mot de passe avec
+   l ancien qu elle connaissait, et verrouiller le proprietaire dehors. */
+app.put('/api/auth/me/password', _gardeSession, async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Champs requis' });
   if (newPassword.length < 6) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
@@ -2181,6 +2244,15 @@ app.put('/api/auth/me/password', async (req, res) => {
     const user = await auth.verifyLogin(req.session.user.email, currentPassword);
     if (!user) return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
     await auth.changePassword(req.session.userId, newPassword);
+    /* Le jeton TOURNE : sans cela, changer son mot de passe ne coupait personne. C etait le
+       reflexe naturel du client dont le compte fuit, et il n avait aucun effet — les sessions
+       ouvertes ailleurs survivaient jusqu a 30 jours. On pose le nouveau jeton sur la session
+       APPELANTE pour ne pas deconnecter celui qui vient de changer son mot de passe. */
+    const _neuf = require('crypto').randomUUID();
+    req.session.stoken = _neuf;
+    _sessionEpoch.set(String(req.session.userId), _neuf);
+    _sessEpochSauver();
+    _fermerSockets(String(req.session.userId), _neuf);
     res.json({ ok: true });
   } catch (e) {
     console.error('[Auth] password change error:', e.message);
@@ -2582,7 +2654,8 @@ app.get('/api/admin/whop-reconcile', requireSameOrigin, requireAdmin, async (_re
 });
 
 // Mise à jour du profil (nom) par l'utilisateur — persiste en BDD + session
-app.put('/api/auth/me/profile', async (req, res) => {
+// Meme angle mort que /me/password : le prefixe public exempte cette route de requireAuth.
+app.put('/api/auth/me/profile', _gardeSession, async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
   // (Audit 28/07 — XSS stocké) Le nom est saisi par N'IMPORTE QUEL client et ré-affiché dans la
   // session ADMIN : on retire balises/contrôles à la SOURCE (le front échappe aussi — défense en
@@ -16645,12 +16718,25 @@ wss.on('connection', (ws, req) => {
     const ok = !origin || ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith(o));
     if (!ok) { try { ws.close(1008, 'origin not allowed'); } catch {} return; }
   }
+  /* ⚠️ AUTHENTIFICATION DU FLUX (19/08). Ce gestionnaire n en avait AUCUNE : il envoyait d emblee
+     les 200 dernieres actualites, les rapports Analystes et la recherche bancaire a n importe quelle
+     connexion. La seule barriere etait le controle d origine ci-dessus, qui (a) accepte
+     explicitement une origine ABSENTE — donc tout client hors navigateur — et (b) ne s active que si
+     ALLOWED_ORIGINS est renseigne, ce qui n etait PAS le cas en production (verifie sur le serveur).
+     Le coeur du produit vendu etait donc lisible sans compte.
+     On applique ici la MEME regle que requireAuth, ni plus ni moins. Seul le desk ouvre un
+     WebSocket (public/js/app.js) : la landing passe par des routes REST, elle n est pas touchee. */
+  const _uid = _wsUserIdFromReq(req);   // execute le middleware de session : req.session est peuple
+  const _mortWs = _sessionMorte(req);
+  if (_mortWs) {
+    try { ws.close(1008, 'session ' + _mortWs); } catch (e) {}
+    return;
+  }
   console.log(`[WS] Client connected (${wss.clients.size})`);
 
-  // Présence : on associe ce WS à l'utilisateur (cookie de session) → statut "en ligne".
-  const _uid = _wsUserIdFromReq(req);
   const _role = (req.session && req.session.user && req.session.user.role) || null;
-  ws._uid = _uid; ws._role = _role;   // tag du socket → envoi CIBLE (notif chat instantanee, sans polling)
+  // Le jeton tague le socket : une connexion plus recente pourra fermer celui-ci (voir le login).
+  ws._uid = _uid; ws._role = _role; ws._stoken = req.session.stoken || null;
   if (_uid) { _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1); _stampSeen(_uid); }   // present -> derniere presence = maintenant
 
   ws.send(JSON.stringify({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length }));
