@@ -18289,10 +18289,10 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
 /* Pill « Impact » du fil (4e bouton des titres importants, 20/08) : la lecture prospective de
    l'analyse d'événement, élevée au rang d'Info/Analyse/Réaction. Or DTP : c'est un éclairage,
    pas un état de marché (le vert/rouge restent aux directions). */
-.tag--impact { color: var(--orange, #e3b23a); border-color: rgba(227, 178, 58, .45); }
-.tag--impact:hover, .tag--impact.tag--active { background: rgba(227, 178, 58, .12); color: #f3c95d; }
-html[data-theme="light"] .tag--impact { color: #816521; border-color: rgba(129, 101, 33, .45); }
-html[data-theme="light"] .tag--impact:hover, html[data-theme="light"] .tag--impact.tag--active { background: rgba(129, 101, 33, .1); color: #6b5217; }
+.tag--impact { color: #2ecc71; border-color: rgba(46, 204, 113, .5); }   /* vert de la reference Market Impact */
+.tag--impact:hover, .tag--impact.tag--active { background: rgba(46, 204, 113, .12); color: #4ade80; }
+html[data-theme="light"] .tag--impact { color: #00783d; border-color: rgba(0, 120, 61, .5); }
+html[data-theme="light"] .tag--impact:hover, html[data-theme="light"] .tag--impact.tag--active { background: rgba(0, 120, 61, .1); color: #005c2e; }
 
 /* ═══ MODE CLAIR : fautifs relevés sur capture user (20/08) ═══════════════════════════════════════
    Règle d'audit (17/08) : la couleur contraste avec SON fond. Variantes sombres de la palette
@@ -18427,3 +18427,9 @@ html[data-theme="light"] .nrx-pt { fill: #816521; }
 .sbm-rates-note { margin-left: auto; font-size: 9px; color: var(--text3, #6b7280); font-style: italic; }
 html[data-theme="light"] .sbm-rate.est-haut em { color: #00783d; }
 html[data-theme="light"] .sbm-rate.est-bas em { color: #c73000; }
+
+/* Étiquette horaire sous le marqueur du graphique de réaction (référence fournie). */
+.nrx { position: relative; }
+.nrx-tmark { position: absolute; bottom: 16px; transform: translateX(-50%); padding: 1px 6px;
+  font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; border-radius: 3px;
+  background: var(--orange, #e3b23a); color: #101014; }

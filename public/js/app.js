@@ -2937,7 +2937,8 @@ function buildNewsItem(item) {
     if (tab === 'impact') {
       // SEULEMENT la section « Impact marché » de l'analyse : de son intertitre à la fin (elle clôt
       // l'analyse par construction, EVA v9). Aucun fetch : tout est déjà attaché à la news.
-      expandEl.innerHTML = _renderInfoBullets(['Impact marché :', String(item._impact || '')]);
+      // v11 : l'impact est MULTILIGNE (verdict gras, mécanisme, actifs fléchés) : une puce par ligne.
+      expandEl.innerHTML = _renderInfoBullets(['Impact marché :', ...String(item._impact || '').split('\n').filter(Boolean)]);
       _dtpTranslateQuotes(expandEl);
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (impactTagEl) impactTagEl.classList.add('tag--active');
@@ -3156,7 +3157,7 @@ function buildNewsItem(item) {
     impactTagEl = document.createElement('span');
     impactTagEl.className = 'tag tag--impact';
     impactTagEl.style.cursor = 'pointer';
-    impactTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v4.2M6 5.2L2.6 9.8M6 5.2l3.4 4.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="5.4" r="1" fill="currentColor"/></svg> Impact';
+    impactTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v4.2M6 5.2L2.6 9.8M6 5.2l3.4 4.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="5.4" r="1" fill="currentColor"/></svg> Impact marché';
     impactTagEl.onclick = e => { e.stopPropagation(); openPanel('impact'); };
     tagsEl.appendChild(impactTagEl);
   }
@@ -7179,12 +7180,7 @@ function _canonTag(t) {
   // Tag « Bonds »/« Obligations » BANNI GLOBALEMENT (demande user 27/07 « il ne doit pas exister ») :
   // point d'étranglement unique — même une catégorie « Bonds » fournie par une SOURCE (Recherche bancaire /
   // Notes d'Analystes) est ici supprimée (return '' → _dedupeTags la saute).
-  // « Fixed Income » rejoint le ban (20/08, demande user « enlève le tag obligations ») : même
-  // famille, même redondance — la catégorie de la colonne suffit, la puce n'apportait rien.
-  if (/^(bonds?|obligations?|fixed income|obligataire)$/i.test(t)) return '';
-  // « Devises » banni aussi (20/08, demande user) : sur un desk forex, TOUT est devises, la puce
-  // ne discrimine rien. Les tags de paire (EUR, GBP, AUDUSD…) restent : eux portent l'info.
-  if (/^(devises?|currencies)$/i.test(t)) return '';
+  if (/^(bonds?|obligations?)$/i.test(t)) return '';
   if (/^geopolitic/i.test(t)) return 'Geopolitical';
   return t;
 }
@@ -8128,7 +8124,18 @@ function _newsReactSvg(candles, t0, pair) {
   if (mx - mn < 1e-9) { mx += 1e-4; mn -= 1e-4; }
   const X = t => PAD + (t - cs[0].t) / (cs[cs.length - 1].t - cs[0].t || 1) * (W - 2 * PAD);
   const Y = v => PAD + (mx - v) / (mx - mn) * (H - 2 * PAD);
-  const d = cs.map((c, i) => (i ? 'L' : 'M') + X(c.t).toFixed(1) + ' ' + Y(c.c).toFixed(1)).join(' ');
+  // BOUGIES (référence fournie) : corps vert/rouge + mèches, à la place de la ligne de clôtures.
+  const cw = Math.max(2, Math.min(9, (W - 2 * PAD) / cs.length * 0.62));
+  const chandelles = cs.map(c => {
+    const x = X(c.t), up = c.c >= c.o;
+    const col = up ? '#22c55e' : '#ef4444';
+    const yH = Y(Math.max(c.h, c.l)), yL = Y(Math.min(c.h, c.l));
+    const yO = Y(c.o), yC = Y(c.c);
+    const top = Math.min(yO, yC), hBody = Math.max(Math.abs(yC - yO), 0.8);
+    return '<line x1="' + x.toFixed(1) + '" y1="' + Y(c.h).toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + Y(c.l).toFixed(1) + '" stroke="' + col + '" stroke-width="1"></line>'
+      + '<rect x="' + (x - cw / 2).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + cw.toFixed(1) + '" height="' + hBody.toFixed(1) + '" fill="' + col + '"></rect>'
+      + (void yH, void yL, '');
+  }).join('');
   // Point le plus proche de la publication (bougie qui la CONTIENT : la précédente ou l'égale).
   let ni = 0; for (let i = 0; i < cs.length; i++) if (cs[i].t <= t0) ni = i;
   const nx = X(cs[ni].t), nyv = cs[ni].c;
@@ -8139,9 +8146,10 @@ function _newsReactSvg(candles, t0, pair) {
     + '<span class="nrx-pub">publication ' + hf(t0) + '</span></div>'
     + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="nrx-svg">'
     + '<line x1="' + nx.toFixed(1) + '" y1="0" x2="' + nx.toFixed(1) + '" y2="' + H + '" class="nrx-mark"></line>'
-    + '<path d="' + d + '" fill="none" class="nrx-ligne" vector-effect="non-scaling-stroke"></path>'
-    + '<circle cx="' + nx.toFixed(1) + '" cy="' + Y(nyv).toFixed(1) + '" r="3" class="nrx-pt"></circle>'
+    + chandelles
+    + (void d, void nyv, '')
     + '</svg>'
+    + '<div class="nrx-tmark" style="left:' + (nx / W * 100).toFixed(2) + '%">' + hf(t0) + '</div>'
     + '<div class="nrx-axe"><span>' + hf(cs[0].t) + '</span>'
     + '<span>' + mn.toFixed(dec) + ' – ' + mx.toFixed(dec) + '</span>'
     + '<span>' + hf(cs[cs.length - 1].t) + '</span></div></div>';
