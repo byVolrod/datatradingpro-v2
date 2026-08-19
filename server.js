@@ -277,7 +277,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/robots.txt', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/api/hero-ticker', '/api/geo', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
+  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/api/hero-ticker', '/api/geo', '/actualites', '/sitemap-actualites.xml', '/api/updates-public']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/assets/images/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/', '/api/v1/'];   // /api/v1/ = API programmatique : le gate SESSION est bypassé mais CHAQUE route v1 exige une CLÉ API (requireApiKey)   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
 
 // Jeton d'appel INTERNE (préchauffage → 127.0.0.1) : généré à chaque boot (surclassable via env pour
@@ -472,6 +472,11 @@ function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
     _PUBLIC_PREFIXES.some(p => req.path.startsWith(p));
   if (isPublic) return next();
+
+  // Le DESK ne doit jamais être indexé (app privée) : en-tête explicite sur toutes ses réponses.
+  // Le robots.txt du desk autorise / et /login : les moteurs peuvent donc LIRE cet en-tête et
+  // désindexer proprement (la Search Console listait « indexée malgré le blocage robots »).
+  if (/^desk\./i.test(req.hostname || '')) res.set('X-Robots-Tag', 'noindex');
 
   // Appel interne (prewarm) : jeton de boot + socket loopback exigés tous les deux.
   if (req.headers['x-dtp-internal'] === _INTERNAL_TOKEN && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')) return next();
@@ -864,6 +869,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260820-vitrine-sync', ts: Date.UTC(2026, 7, 20, 16, 30), title: 'Le site vitrine affiche désormais les nouveautés du desk en direct', desc: 'La page d accueil publique gagne une section Nouveautés alimentée par le même fil que l onglet DTP du desk : chaque évolution du terminal apparaît sur le site vitrine sans intervention, avec sa date. Les visiteurs voient ce que les abonnés reçoivent réellement, semaine après semaine.' },
   { id: 'dtpu-20260822-rapports-heure', ts: Date.UTC(2026, 7, 22, 15, 0), title: 'Chaque rapport reprend sa vraie heure dans le fil', desc: 'Après une mise à jour du serveur, les rapports du jour régénérés pouvaient s empiler dans le fil à l heure du redémarrage, tous à la même minute. Chaque rapport rattrapé est désormais horodaté à son créneau réel : la préparation de Londres à 7h45, le récap d Asie à 9h30, le récap de New York à 22h15. Le fil se remet en ordre de lui-même, y compris pour les rapports déjà mal datés.' },
   { id: 'dtpu-20260822-rapports-stables', ts: Date.UTC(2026, 7, 22, 14, 0), title: 'Les rapports du jour ne se republient plus en bloc après une mise à jour', desc: 'Les jours à très fort volume d actualité, les rapports du matin pouvaient être évincés de la mémoire du fil, et un redémarrage les republiait alors tous d un coup, horodatés à l instant du redémarrage : neuf rapports empilés à la même minute. Les rapports sont désormais protégés de cette éviction : ils gardent leur heure et leur place. Le chargement de la journée en cours va aussi plus loin : même un jour de FOMC à plus de mille dépêches se parcourt jusqu à sa première news avant de passer au jour précédent.' },
   { id: 'dtpu-20260822-impact-structure', ts: Date.UTC(2026, 7, 22, 12, 0), title: 'Impact marché : un verdict, un mécanisme, les actifs fléchés', desc: 'Le bouton Impact marché des titres importants se structure : une phrase de verdict en gras, le mécanisme en une ou deux phrases, puis la liste des actifs concernés avec leur direction (Brent ↑, Or ↑, USD ↑ demande refuge…). Toujours descriptif, jamais un conseil. Le graphique de réaction passe aussi en vraies bougies, avec l instant de la publication marqué et son étiquette horaire. Les tags de catégorie du fil, eux, reviennent à leur forme d avant.' },
@@ -993,6 +999,18 @@ const DTP_UPDATES = [
   { id: 'dtpu-20260809-nfp-tete',      ts: Date.UTC(2026, 7, 9, 12, 0), title: 'Semaine à Venir : le NFP remonte en tête', desc: 'Les publications majeures (NFP, décisions de taux) sont désormais classées en tête de la Semaine à Venir et de son alerte news.' },
   { id: 'dtpu-20260808-decryptage',    ts: Date.UTC(2026, 7, 8, 12, 0), title: 'Décryptage : lisibilité améliorée sur mobile', desc: 'Le bloc cause → conséquence du Décryptage s\'adapte maintenant aux panneaux étroits : plus de texte tronqué sur téléphone.' },
 ];
+// ── NOUVEAUTÉS PUBLIQUES pour la VITRINE (20/08, demande user « le site vitrine doit être à jour à
+//    chaque fois qu'on met à jour le desk ») : mêmes entrées que l'onglet DTP du desk, champs
+//    réduits (titre, texte, date), 6 dernières, CORS * comme les endpoints hero. La landing les
+//    affiche dans sa section « Nouveautés » : publier une entrée DTP_UPDATES met la vitrine à jour,
+//    sans toucher la landing. ──
+app.get('/api/updates-public', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=600');
+  const now = Date.now();
+  res.json({ items: DTP_UPDATES.slice(0, 6).map(u => ({ t: u.title, d: u.desc, ts: Math.min(u.ts, now) })) });
+});
+
 app.get('/api/dtp-updates', (req, res) => {
   if (!req.session?.userId) return res.json({ items: [] });
   // ts borné au présent : une entrée datée de la journée (midi UTC) lue le matin partait dans le
