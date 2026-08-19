@@ -8201,14 +8201,28 @@ function _renderFXDailyRecap(item) {
   const _lead = [w.intro, w.summary].filter(Boolean).join('\n\n');
   if (_lead) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(_lead)}</div>`;
 
-  // ── Géopolitique (v14) : puces factuelles du jour ──
+  // ── Géopolitique (v19, structure du mentor) : note de renseignement exhaustive, puis la
+  //    DISTILLATION « Points clés à retenir ». Les anciens rapports (sans geoKeyPoints) gardent
+  //    leurs puces seules : rien ne casse. ──
   if ((w.geopolitics || []).length) {
     body += _sec('Géopolitique') + '<div class="fxdr-bullets">';
     w.geopolitics.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
     body += '</div>';
+    if ((w.geoKeyPoints || []).length) {
+      body += '<div class="fxdr-grp-title fxdr-keypts-t">Points clés à retenir</div><div class="fxdr-bullets fxdr-keypts">';
+      w.geoKeyPoints.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+      body += '</div>';
+    }
   }
 
-  // ── Macro (v14) : les développements macro qui ont compté, fait + chiffre → effet ──
+  // ── Banques centrales (v19) : institution : fait → interprétation → réaction chiffrée. ──
+  if ((w.cb || []).length) {
+    body += _sec('Banques centrales') + '<div class="fxdr-bullets">';
+    w.cb.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+    body += '</div>';
+  }
+
+  // ── Macro (v19) : les AUTRES moteurs (données, flux, commerce) : fait + chiffre → effet ──
   if ((w.macro || []).length) {
     body += _sec('Macro') + '<div class="fxdr-bullets">';
     w.macro.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });

@@ -18397,3 +18397,8 @@ html[data-theme="light"] .nrx-pt { fill: #816521; }
 @media (max-width: 560px) {
   .wdg-lib-grid .wdg-lib-row { grid-template-columns: 1fr; }
 }
+
+/* Récap quotidien v19 : la distillation « Points clés à retenir » se distingue du renseignement
+   brut au-dessus (filet + retrait), sans changer la grammaire de puces. */
+.fxdr-keypts-t { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--hud-line, var(--border)); }
+.fxdr-keypts .wr-bullet { font-weight: 600; }
