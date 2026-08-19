@@ -1951,7 +1951,12 @@ function buildRiskGauge() {
       // Couleur d'arc COURANTE (sous le marqueur) → teinte le badge ET la ligne d'état (ticker),
       // en SYNCHRO avec la jauge (même _riskArcColor que l'aiguille). Recalculé à CHAQUE refresh =
       // la ligne d'état change de couleur en temps réel, simultanément avec la jauge.
-      const _arcHex = '#' + _riskArcColor(gaugeVal).toString(16).padStart(6, '0');
+      // ÉTAT et non dégradé (20/08, demande user « fais bien ressortir risk-on / risk-off /
+      // neutre ») : le dégradé de l'arc donnait un badge AMBRE pour une LÉGÈRE AVERSION, alors
+      // que la charte tranche : aversion = rouge, appétit = vert, neutre = ambre. Le label EN
+      // (data.label, valeur logique) est la SOURCE UNIQUE : aucun seuil recalculé ici.
+      const _etatHex = /risk-off/i.test(data.label) ? '#ef4444' : /risk-on/i.test(data.label) ? '#22c55e' : '#ffb300';
+      const _arcHex = _etatHex;
       const _badgeTint = document.getElementById('risk-badge-val');
       if (_badgeTint) { _badgeTint.style.color = _arcHex; _badgeTint.style.borderColor = _arcHex; }
       const _tickerEl = document.getElementById('risk-ticker');
@@ -2045,7 +2050,15 @@ function buildRiskHistoryChart(containerId, data) {
   series.columns.template.setAll({ width: am5.percent(72), strokeOpacity: 0, cornerRadiusTL: 1, cornerRadiusTR: 1 });
   series.columns.template.adapters.add('fill', (_f, t) => {
     const di = t.dataItem; if (!di) return am5.color(0x444444);
-    return am5.color(_riskArcColor(di.get('valueY')));   // barre = MÊME couleur que l'AIGUILLE (même mapping _riskArcColor, NON étiré) → une barre matche le marqueur à valeur égale
+    // TROIS COULEURS D'ÉTAT (20/08, charte : risk-on vert, risk-off rouge, neutre ambre), pilotées
+    // par le LABEL serveur de CHAQUE jour (source unique). Le dégradé continu rendait l'aversion
+    // orange boueux et l'appétit olive : rien ne tranchait. Repli signe si label absent (vieux points).
+    const lab = String((di.dataContext || {}).label || '');
+    if (/risk-off|aversion/i.test(lab)) return am5.color(0xef4444);
+    if (/risk-on|app[ée]tit/i.test(lab)) return am5.color(0x22c55e);
+    if (lab) return am5.color(0xffb300);
+    const v = di.get('valueY') || 0;
+    return am5.color(v < 0 ? 0xef4444 : v > 0 ? 0x22c55e : 0xffb300);
   });
 
   const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', snapToSeries: [series] }));
