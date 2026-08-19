@@ -8003,6 +8003,10 @@ function _dtpThemeApply(mode) {
   document.documentElement.dataset.thememode = mode;
   document.documentElement.dataset.theme = _dtpThemeResolve(mode);
   try { localStorage.setItem('dtp_theme', mode); } catch (e) {}
+  // ÉVÉNEMENT DE THÈME (20/08, bug user) : certains graphiques amCharts évaluent leur fond à la
+  // CONSTRUCTION (_deskChartBg au build) : après une bascule, l'historique du risque restait au
+  // thème d'avant (blanc en sombre). L'événement permet à ces graphiques de se reconstruire.
+  try { window.dispatchEvent(new CustomEvent('dtp-theme', { detail: { theme: document.documentElement.dataset.theme } })); } catch (e) {}
   const seg = document.getElementById('pd-theme-seg');
   if (seg) seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
   // Le panneau Apparence a ses propres boutons (Mode Clair / Mode Sombre / Système) : ils doivent

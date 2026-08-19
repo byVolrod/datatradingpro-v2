@@ -1999,6 +1999,22 @@ function buildRiskGauge() {
 //  Source UNIQUE : /api/risk-history (échantillonné depuis fetchRiskSentiment serveur). On ne recalcule rien.
 // ═══════════════════════════════════════════════
 let _riskHistCtl = null;
+// ── Bascule de thème : le FOND du graphe d'historique est évalué au build (_deskChartBg) : après
+//    un changement de thème il restait à l'ancien (constaté user 20/08 : bande blanche en sombre).
+//    On RECONSTRUIT avec les données déjà en mémoire (aucun fetch), et on rejoue le dernier snapshot
+//    de risque pour que badge et bande d'état reprennent aussi les encres du nouveau thème. ──
+window.addEventListener('dtp-theme', () => {
+  try {
+    const host = document.getElementById('risk-history-chart');
+    if (host && window._dtpRiskHistory) {
+      try { disposeRoot('risk-history-chart'); } catch (e) {}
+      host.innerHTML = '';
+      _riskHistCtl = buildRiskHistoryChart('risk-history-chart', window._dtpRiskHistory);
+    }
+    if (window._dtpRisk) window.dispatchEvent(new CustomEvent('dtp-risk', { detail: window._dtpRisk }));
+  } catch (e) {}
+});
+
 const RH_GREEN = 0x22c55e;   // pct ≥ 0 → risk-on (vert de marque DTP)
 const RH_RED   = 0xef4444;   // pct < 0 → risk-off (rouge de marque DTP)
 const RH_ZERO  = 0x6b7280;   // ligne zéro = gris neutre
