@@ -393,6 +393,7 @@
   var _resetArm = null;              // remise à zéro : 1er clic arme, 2e clic exécute (retombe seul)
   var _swapBack = null;                      // dernier remplacement, pour l'annulation
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
+  var _peek = null;                       // id du layout dont la miniature est dépliée (accordéon, volatil : un rechargement le referme)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
   // info = « i » cerclé ; réglages = curseurs d'ajustement.
   var ICO = {
@@ -5236,11 +5237,15 @@
         : (l.id === _delConfirm)
           ? '<button class="wdg-mgr-del confirm" onclick="' + stop + 'DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
           : '<button class="wdg-mgr-del" title="Supprimer ce layout" onclick="' + stop + 'DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
-      return '<div class="wdg-mgr-card' + (active ? ' on' : '') + (l.hidden ? ' is-hidden' : '') + '" data-i="' + li + '"'
+      return '<div class="wdg-mgr-card' + (active ? ' on' : '') + (l.hidden ? ' is-hidden' : '') + (l.id === _peek ? ' peek' : '') + '" data-i="' + li + '"'
         + ' role="button" tabindex="0" title="' + esc(l.name) + ' : cliquer pour ouvrir · double-clic sur le nom pour renommer"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')"'
         + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();DTPWidgets.switchLayout(\'' + l.id + '\');}">'
-        + '<span class="wdg-mgr-face">' + _thumb(l.items, { labels: true }) + '</span>'
+        + '<span class="wdg-mgr-grip" title="Glisser pour réordonner">' + ICO.grip + '</span>'
+        + '<button class="wdg-mgr-chev" title="Aperçu de la disposition" aria-expanded="' + (l.id === _peek ? 'true' : 'false') + '"'
+        +   ' onclick="' + stop + 'DTPWidgets.peekLayout(\'' + l.id + '\')">'
+        +   '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
+        + '</button>'
         + (active ? '<span class="wdg-mgr-badge">Actif</span>' : '')
         + '<span class="wdg-mgr-acts">'
         // ÉTOILE MUETTE → PASTILLE LISIBLE (06/08). Un ★ seul dans une rangée de trois icônes
@@ -5270,7 +5275,9 @@
         +   _layIco(l.ico, 'wdg-mgr-ico')
         +   '<span class="wdg-mgr-nom" ondblclick="' + stop + 'DTPWidgets.editCardName(\'' + l.id + '\', this)">' + esc(l.name) + '</span>'
         +   '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
-        + '</span></div>';
+        + '</span>'
+        + '<span class="wdg-mgr-face">' + _thumb(l.items, { labels: true }) + '</span>'
+        + '</div>';
     }).join('')
       + (c.layouts.length < _LMAX
           ? '<button class="wdg-mgr-card wdg-mgr-card--new" onclick="DTPWidgets.newLayout()"><span class="wdg-mgr-plus">+</span><span>Créer un layout</span></button>'
@@ -6659,6 +6666,10 @@ function _spansAffiches(lay) {
       l.fav = !was;
       save(); renderBar(); renderManager();
     },
+    // Chevron de rangée : déplie la miniature d'agencement. ACCORDÉON (un seul ouvert) — plusieurs
+    // rangées dépliées repoussaient les suivantes hors de l'écran, ce qui est précisément le défaut
+    // que la mise en rangées corrige.
+    peekLayout: function (id) { _peek = (_peek === id) ? null : id; renderManager(); },
     askDelete: function (id) { if (id === PROTECTED_ID) return; _delConfirm = id; renderManager(); },   // 1er clic : confirmation inline (jamais pour le modèle par défaut)
     deleteLayout: function (id) {
       var c = STATE.cfg; if (!c) return;

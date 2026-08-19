@@ -18057,3 +18057,97 @@ html[data-theme="light"] .wdg-nt-vieux { color: #816521; background: rgba(129, 1
 html[data-theme="light"] .wdg-lib-grid .wdg-lib-row .wdg-lib-card--soon .wdg-lib-prev::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23816521' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10' rx='2'/%3E%3Cpath d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/%3E%3C/svg%3E");
 }
+
+/* ═══ VOLET : LISTE DES LAYOUTS EN RANGÉES (20/08, disposition demandée avec captures) ════════════
+   La liste servait des cartes-miniatures en grille. La disposition demandée est une LISTE DE
+   RANGÉES : poignée, chevron, icône, nom, badge, puis les actions alignées à droite.
+   La miniature n'est PAS supprimée (elle avait fait l'objet d'un correctif dédié en août) : elle
+   passe DERRIÈRE le chevron, qui la déplie sur toute la largeur de la rangée. C'était déjà le sens
+   du chevron sur la disposition demandée.
+   Préfixe #wdg-mgr-list : les définitions de `.wdg-mgr-card` sont éparpillées sur cinq blocs
+   antérieurs, un sélecteur de même spécificité se ferait écraser en silence. */
+#wdg-mgr-list .wdg-mgr-grid { display: flex; flex-direction: column; gap: 5px; }
+#wdg-mgr-list .wdg-mgr-card {
+  display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 8px 10px; text-align: left; min-height: 0;
+}
+#wdg-mgr-list .wdg-mgr-grip {
+  flex: 0 0 auto; display: inline-flex; align-items: center; color: var(--text3, var(--w-t9));
+  cursor: grab; opacity: .55;
+}
+#wdg-mgr-list .wdg-mgr-card:hover .wdg-mgr-grip { opacity: 1; }
+#wdg-mgr-list .wdg-mgr-chev {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0; background: transparent; border: 0; cursor: pointer;
+  color: var(--text3, var(--w-t9)); transition: transform .15s, color .15s;
+}
+#wdg-mgr-list .wdg-mgr-chev:hover { color: var(--orange, #e3b23a); }
+#wdg-mgr-list .wdg-mgr-card.peek .wdg-mgr-chev { transform: rotate(90deg); color: var(--orange, #e3b23a); }
+/* Le pied (icône + nom + compteur) devient le CORPS de la rangée et prend la place libre. */
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-foot {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 7px;
+  padding: 0; border: 0; margin: 0; justify-content: flex-start;
+}
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-nom {
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--text, var(--w-t1));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#wdg-mgr-list .wdg-mgr-card.on .wdg-mgr-nom { color: var(--orange, #e3b23a); }
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-count { margin-left: 0; flex: 0 0 auto; font-size: 9.5px; color: var(--text3, var(--w-t9)); }
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-acts {
+  position: static; flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+  max-width: none; overflow: visible;
+}
+/* Miniature : sa propre ligne, repliée par défaut. */
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-face { flex: 0 0 100%; display: none; margin-top: 6px; }
+#wdg-mgr-list .wdg-mgr-card.peek .wdg-mgr-face { display: block; }
+#wdg-mgr-list .wdg-mgr-badge { position: static; flex: 0 0 auto; }
+/* La carte « Créer un layout » suit la même rangée pleine largeur. */
+#wdg-mgr-list .wdg-mgr-card--new { justify-content: center; gap: 7px; padding: 10px; }
+
+/* ═══ VOLET : EN-TÊTE ET BARRE D'ACTIONS (20/08, disposition demandée) ════════════════════════════
+   L'en-tête portait un bandeau doré « PERSONNALISER » et deux onglets internes. La disposition
+   demandée met : une icône, le nom de l'écran en casse normale, une phrase qui dit à quoi il sert.
+   La navigation entre les deux écrans descend en bas du volet, en bouton pleine largeur. */
+.wdg-lib-head { gap: 9px; justify-content: flex-start; padding-bottom: 9px; }
+.wdg-lib-hico { flex: 0 0 auto; display: inline-flex; align-items: center; color: var(--orange, #e3b23a); }
+.wdg-lib-head .wdg-lib-title {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 15px; font-weight: 700;
+  letter-spacing: -0.01em; text-transform: none; color: var(--text, var(--w-t1));
+}
+.wdg-lib-head .wdg-lib-x { flex: 0 0 auto; margin-left: auto; }
+.wdg-lib-sous {
+  flex: 0 0 auto; margin: 0; padding: 0 14px 2px;
+  font-size: 11px; line-height: 1.45; color: var(--text3, var(--w-t9));
+}
+/* Barre d'actions du bas : boutons EMPILÉS et PLEINE LARGEUR. */
+.wdg-lib-bas, #wdg-mgr-footbar {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: stretch; gap: 7px;
+  padding: 10px 14px; border-top: 1px solid var(--hud-line, var(--border)); justify-content: flex-start;
+}
+.wdg-lib-bbtn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 11px 12px; cursor: pointer;
+  background: var(--head-bg); border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: 700;
+  color: var(--text, var(--w-t1)); transition: border-color .14s, background .14s, color .14s;
+}
+.wdg-lib-bbtn:hover { border-color: rgba(227, 178, 58, .55); color: var(--orange, #e3b23a); background: var(--w-s3); }
+.wdg-lib-bbtn svg { flex: 0 0 auto; }
+/* L'action principale se distingue sans crier : bordure dorée, fond à peine teinté. */
+.wdg-lib-bbtn--fort { border-color: rgba(227, 178, 58, .45); color: var(--orange, #e3b23a); background: rgba(227, 178, 58, .06); }
+.wdg-lib-bbtn--fort:hover { background: rgba(227, 178, 58, .13); }
+/* Export / import / réinitialisation : conservés, mais en rangée secondaire sous les deux actions. */
+.wdg-mgr-io2 { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding-top: 2px; }
+.wdg-mgr-io2 .wdg-btn { font-size: 10.5px; }
+/* ORDRE de la rangée : poignée, chevron, nom, badge, actions, puis la miniature sur sa ligne.
+   Le balisage garde son ordre d'origine (les gestionnaires existants s'appuient dessus) : c'est
+   `order` qui compose la rangée. */
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-grip { order: 1; }
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-chev { order: 2; }
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-foot { order: 3; }
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-badge { order: 4; }
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-acts { order: 5; }
+#wdg-mgr-list .wdg-mgr-card .wdg-mgr-face { order: 6; }

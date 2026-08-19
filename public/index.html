@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260819bbg741" />
+  <link rel="stylesheet" href="/css/style.css?v=20260819bbg742" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260819bbg741"></script>
+  <script defer src="/js/noinspect.js?v=20260819bbg742"></script>
 </head>
 <body>
 
@@ -656,13 +656,11 @@
       <div class="wdg-lib-box">
         <!-- Panneau UNIFIÉ « Personnaliser » : onglets internes Widgets | Layouts (grammaire nav du desk) -->
         <div class="wdg-lib-head">
-          <span class="wdg-lib-title">Personnaliser</span>
-          <div class="wdg-panel-tabs">
-            <button class="wdg-ptab" onclick="DTPWidgets.closeLib();DTPWidgets.openManager()">› Layouts</button>
-            <button class="wdg-ptab on">› Widgets</button>
-          </div>
+          <span class="wdg-lib-hico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.4"/></svg></span>
+          <span class="wdg-lib-title">Widgets</span>
           <button class="wdg-lib-x" onclick="DTPWidgets.closeLib()" title="Fermer">×</button>
         </div>
+        <p class="wdg-lib-sous">Ajoutez des panneaux à votre desk et réglez leur espacement.</p>
         <div class="wdg-lib-search-row">
           <input type="text" id="wdg-lib-search" class="wdg-lib-search" placeholder="Rechercher un widget…"
                  autocomplete="off" spellcheck="false" oninput="DTPWidgets.filterLib(this.value)">
@@ -693,6 +691,9 @@
           </div>
         </div>
         <div class="wdg-lib-grid" id="wdg-lib-grid"></div>
+        <div class="wdg-lib-bas">
+          <button class="wdg-lib-bbtn" onclick="DTPWidgets.closeLib();DTPWidgets.openManager()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 3l9 4.8-9 4.8-9-4.8z"/><path d="M3 12.2l9 4.8 9-4.8"/><path d="M3 16.6l9 4.8 9-4.8"/></svg><span>Mes layouts</span></button>
+        </div>
       </div>
     </div>
 
@@ -701,22 +702,24 @@
       <div class="wdg-lib-backdrop" onclick="DTPWidgets.closeManager()"></div>
       <div class="wdg-lib-box wdg-mgr-box">
         <div class="wdg-lib-head">
-          <span class="wdg-lib-title">Personnaliser</span>
-          <div class="wdg-panel-tabs">
-            <button class="wdg-ptab on">› Layouts</button>
-            <button class="wdg-ptab" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()">› Widgets</button>
-          </div>
+          <span class="wdg-lib-hico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 3l9 4.8-9 4.8-9-4.8z"/><path d="M3 12.2l9 4.8 9-4.8"/><path d="M3 16.6l9 4.8 9-4.8"/></svg></span>
+          <span class="wdg-lib-title">Layouts</span>
           <button class="wdg-lib-x" onclick="DTPWidgets.closeManager()" title="Fermer">×</button>
         </div>
+        <p class="wdg-lib-sous">Vos dispositions : réordonnez, renommez, choisissez celle qui s'ouvre.</p>
         <div class="wdg-mgr-list" id="wdg-mgr-list"></div>
         <!-- id explicite : la classe .wdg-mgr-foot sert AUSSI au pied de chaque carte de layout, et un
              querySelector par classe attrapait le pied de la PREMIÈRE CARTE : la barre de sauvegarde
              s'injectait donc dans la carte au lieu du pied du gestionnaire (constaté user 06/08). -->
         <div class="wdg-mgr-foot" id="wdg-mgr-footbar">
-          <button class="wdg-btn" onclick="DTPWidgets.exportCfg()" title="Télécharger tous tes layouts en JSON (sauvegarde personnelle)">↓ Exporter</button>
-          <button class="wdg-btn" onclick="document.getElementById('wdg-import-file').click()" title="Ajouter les layouts d'un fichier exporté (rien n'est écrasé)">↑ Importer</button>
-          <input type="file" id="wdg-import-file" accept=".json,application/json" style="display:none" onchange="DTPWidgets.importCfg(this)">
-          <button class="wdg-btn" onclick="DTPWidgets.reset()" title="Tout réinitialiser au layout par défaut">Réinitialiser tout</button>
+          <button class="wdg-lib-bbtn wdg-lib-bbtn--fort" onclick="DTPWidgets.newLayout()"><span>+</span><span>Créer un layout</span></button>
+          <button class="wdg-lib-bbtn" onclick="DTPWidgets.closeManager();DTPWidgets.openLib()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.4"/></svg><span>Bibliothèque de widgets</span></button>
+          <div class="wdg-mgr-io2">
+            <button class="wdg-btn" onclick="DTPWidgets.exportCfg()" title="Télécharger tous tes layouts en JSON (sauvegarde personnelle)">↓ Exporter</button>
+            <button class="wdg-btn" onclick="document.getElementById('wdg-import-file').click()" title="Ajouter les layouts d'un fichier exporté (rien n'est écrasé)">↑ Importer</button>
+            <input type="file" id="wdg-import-file" accept=".json,application/json" style="display:none" onchange="DTPWidgets.importCfg(this)">
+            <button class="wdg-btn" onclick="DTPWidgets.reset()" title="Tout réinitialiser au layout par défaut">Réinitialiser tout</button>
+          </div>
         </div>
       </div>
     </div>
@@ -931,16 +934,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260819bbg741"></script>
-<script defer src="/js/app.js?v=20260819bbg741"></script>
-<script defer src="/js/charts.js?v=20260819bbg741"></script>
-<script defer src="/js/sessionmap.js?v=20260819bbg741"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260819bbg742"></script>
+<script defer src="/js/app.js?v=20260819bbg742"></script>
+<script defer src="/js/charts.js?v=20260819bbg742"></script>
+<script defer src="/js/sessionmap.js?v=20260819bbg742"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260819bbg741"></script>
-<script defer src="/js/home.js?v=20260819bbg741"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260819bbg741"></script>
-<script defer src="/js/i18n.js?v=20260819bbg741"></script>
+<script defer src="/js/widgets.js?v=20260819bbg742"></script>
+<script defer src="/js/home.js?v=20260819bbg742"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260819bbg742"></script>
+<script defer src="/js/i18n.js?v=20260819bbg742"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
