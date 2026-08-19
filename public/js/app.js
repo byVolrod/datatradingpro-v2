@@ -3094,8 +3094,12 @@ function buildNewsItem(item) {
   const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
   const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
     'UK Data', 'US Data', 'EU Data', 'Swiss Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'New Zealand Data']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Economic Commentary = retirés à la demande) + TOUTES les catégories « <Pays> Data » (demande user 23/07 : « UK Data » doublonnait « Données » + « UK » — le serveur ne les émet plus pour les nouveaux items, ceci couvre les items déjà stockés)
-  // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
-  for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
+  // RAPPORTS DTP : on ne montre que quelques tags « de base » (pas les 7-8 thèmes IA) → flux net
+  // comme les autres news. La règle existait pour DTP Daily seul (_dtpd) ; le FX Daily Recap et les
+  // récaps de séance y avaient échappé et affichaient toute leur liste (constat user 20/08 « trop de
+  // tags »). Elle couvre désormais TOUTE la famille des rapports maison (_reportType).
+  const _capRapport = !!(item._dtpd || item._fxr || item._reportType);
+  for (const tag of (_capRapport ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
     if (_tagPaysRedondant(tag)) continue;
     if (_HIDDEN_TAGS.has(tag)) continue;
