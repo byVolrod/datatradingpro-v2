@@ -1956,8 +1956,12 @@ function buildRiskGauge() {
       // que la charte tranche : aversion = rouge, appétit = vert, neutre = ambre. Le label EN
       // (data.label, valeur logique) est la SOURCE UNIQUE : aucun seuil recalculé ici.
       const _clair = _deskLight();
-      const _etatHex = /risk-off/i.test(data.label) ? (_clair ? '#c73000' : '#ef4444')
-        : /risk-on/i.test(data.label) ? (_clair ? '#00783d' : '#22c55e')
+      // Zone du cadran, pas seulement le signe : WEAK et NEUTRAL = zone ambre (la ou pointe
+      // l aiguille pour ces etats), RISK-ON/OFF francs = vert/rouge francs.
+      const _lab = String(data.label || '');
+      const _etatHex = /weak|neutral/i.test(_lab) ? (_clair ? '#8a6100' : '#ffb300')
+        : /risk-off/i.test(_lab) ? (_clair ? '#c73000' : '#ef4444')
+        : /risk-on/i.test(_lab) ? (_clair ? '#00783d' : '#22c55e')
         : (_clair ? '#8a6100' : '#ffb300');
       const _arcHex = _etatHex;
       const _badgeTint = document.getElementById('risk-badge-val');
@@ -2076,11 +2080,15 @@ function buildRiskHistoryChart(containerId, data) {
     // par le LABEL serveur de CHAQUE jour (source unique). Le dégradé continu rendait l'aversion
     // orange boueux et l'appétit olive : rien ne tranchait. Repli signe si label absent (vieux points).
     const lab = String((di.dataContext || {}).label || '');
-    if (/risk-off|aversion/i.test(lab)) return am5.color(0xef4444);
-    if (/risk-on|app[ée]tit/i.test(lab)) return am5.color(0x22c55e);
-    if (lab) return am5.color(0xffb300);
+    // Zone du cadran (2e passe user) : un jour FAIBLE ou NEUTRE est ambre, comme l aiguille l etait
+    // ce jour-la ; seuls les jours francs prennent le vert/rouge franc. Repli sans label : la borne
+    // ±30 approxime la zone ambre du degrade (7 crans sur -100..100).
+    if (/weak|neutral/i.test(lab)) return am5.color(0xffb300);
+    if (/risk-off/i.test(lab)) return am5.color(0xef4444);
+    if (/risk-on/i.test(lab)) return am5.color(0x22c55e);
     const v = di.get('valueY') || 0;
-    return am5.color(v < 0 ? 0xef4444 : v > 0 ? 0x22c55e : 0xffb300);
+    if (Math.abs(v) < 30) return am5.color(0xffb300);
+    return am5.color(v < 0 ? 0xef4444 : 0x22c55e);
   });
 
   const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', snapToSeries: [series] }));

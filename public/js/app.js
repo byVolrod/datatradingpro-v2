@@ -2548,6 +2548,7 @@ function buildNewsItem(item) {
   let analysisTagEl = null;
   let reactionTagEl = null;
   let impactTagEl   = null;   // 4e pill « Impact » (section Impact marché des analyses d'événement)
+  let marcheTagEl   = null;   // pill du MARCHÉ exposé (item._pair) : ouvre le graphique de réaction
   let arrowEl       = null;  // chevron ∨ / ^ indicator
 
   if (hasNotes || hasInfo || hasEco) {
@@ -2596,7 +2597,7 @@ function buildNewsItem(item) {
       expandEl.classList.remove('visible');
       activeTab = null;
       if (item && item.id != null) delete _openNewsPanels[item.id];   // fermé par l'utilisateur → on n'y revient plus
-      [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl].forEach(t => t && t.classList.remove('tag--active'));
+      [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl, marcheTagEl].forEach(t => t && t.classList.remove('tag--active'));
       if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
       return;
     }
@@ -2605,8 +2606,8 @@ function buildNewsItem(item) {
     activeTab = tab;
     if (item && item.id != null) _openNewsPanels[item.id] = tab;       // ouvert par l'utilisateur → reste ouvert (persiste)
     // État actif des pills (Info/Analyse/Réaction) : un seul actif à la fois
-    [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl].forEach(t => t && t.classList.remove('tag--active'));
-    const _activePill = tab === 'info' ? infoTagEl : tab === 'analysis' ? analysisTagEl : tab === 'impact' ? impactTagEl : reactionTagEl;
+    [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl, marcheTagEl].forEach(t => t && t.classList.remove('tag--active'));
+    const _activePill = tab === 'info' ? infoTagEl : tab === 'analysis' ? analysisTagEl : tab === 'impact' ? impactTagEl : tab === 'marche' ? marcheTagEl : reactionTagEl;
     if (_activePill) _activePill.classList.add('tag--active');
     const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
@@ -2853,6 +2854,31 @@ function buildNewsItem(item) {
       return;
     }
 
+    if (tab === 'marche') {
+      // Courbe 15 min du marché exposé, publication marquée. Fenêtre : 4 h avant → 8 h après.
+      // L'historique 15 min de la source couvre ~5 jours : au-delà on le DIT, on n'invente pas.
+      expandEl.innerHTML = dtpLoader('Chargement de la réaction…', { small: true });
+      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      if (marcheTagEl) marcheTagEl.classList.add('tag--active');
+      const t0 = item.timestamp || Date.now();
+      fetch('/api/bank-ohlc?pair=' + encodeURIComponent(item._pair) + '&tf=M15')
+        .then(r => r.json())
+        .then(d => {
+          if (activeTab !== 'marche') return;
+          const all = (d && d.candles) || [];
+          const fen = all.filter(c => c.t >= t0 - 4 * 3600e3 && c.t <= t0 + 8 * 3600e3);
+          const couvre = all.length && all[0].t <= t0;
+          if (!couvre || fen.length < 6) {
+            expandEl.innerHTML = '<div class="iq-note">Réaction indisponible : l\'historique 15 minutes de la source ne couvre plus l\'heure de cette publication.</div>';
+            return;
+          }
+          expandEl.innerHTML = _newsReactSvg(fen, t0, item._pair);
+        })
+        .catch(() => {
+          if (activeTab === 'marche') expandEl.innerHTML = '<div class="iq-note">Réaction indisponible pour le moment.</div>';
+        });
+      return;
+    }
     if (tab === 'impact') {
       // SEULEMENT la section « Impact marché » de l'analyse : de son intertitre à la fin (elle clôt
       // l'analyse par construction, EVA v9). Aucun fetch : tout est déjà attaché à la news.
@@ -2983,8 +3009,12 @@ function buildNewsItem(item) {
     const tp = document.createElement('span');
     tp.className = 'tag tag--pair';
     tp.dataset.cat = 'pair';
-    tp.textContent = item._pair;
-    tp.title = 'Marché le plus exposé à cet événement';
+    // GRAPHIQUE DE RÉACTION (20/08, spec user) : la pill du marché exposé n'est plus une étiquette,
+    // elle OUVRE la courbe 15 min avec l'instant de la publication marqué. Cliquable seulement si
+    // le panneau dépliable existe (toujours vrai sur une analyse d'événement).
+    tp.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 8.5L4.5 5.5L6.5 7.5L10.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ' + item._pair;
+    tp.title = 'Marché le plus exposé : voir sa réaction à la publication';
+    if (expandEl) { tp.style.cursor = 'pointer'; tp.onclick = e => { e.stopPropagation(); openPanel('marche'); }; marcheTagEl = tp; }
     tagsEl.appendChild(tp);
   }
   // TAG DE PAYS REDONDANT (13/08, demande user : « enlève le tag US, on sait déjà que c est US par le
@@ -3084,7 +3114,7 @@ function buildNewsItem(item) {
   // On restaure simplement l'onglet qu'il avait ouvert (persiste entre re-renders / arrivées de news).
   if (expandEl && item && _openNewsPanels[item.id]) {
     const _t  = _openNewsPanels[item.id];
-    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'impact' && hasImpact) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
+    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'impact' && hasImpact) || (_t === 'marche' && marcheTagEl) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
     if (_ok) requestAnimationFrame(() => openPanel(_t));
     else delete _openNewsPanels[item.id];                    // l'onglet n'existe plus → on nettoie
   }
@@ -7999,6 +8029,35 @@ function _renderWeeklyRecap(item) {
 // thememode:<userId> (suit la reconnexion, comme sym-recent) ; localStorage = cache anti-flash
 // appliqué par le script inline du <head> avant le premier rendu. « Système » suit l'OS en direct.
 function _dtpThemeResolve(mode) { return mode === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : (mode === 'light' ? 'light' : 'dark'); }
+// ── GRAPHIQUE DE RÉACTION d'une news (20/08, spec user) : courbe 15 min du marché le plus exposé,
+//    l'instant de la publication marqué d'un trait or. SVG local : aucun amCharts, aucun poids. ──
+function _newsReactSvg(candles, t0, pair) {
+  const W = 640, H = 150, PAD = 6;
+  const cs = candles.slice().sort((a, b) => a.t - b.t);
+  const vals = cs.map(c => c.c);
+  let mn = Math.min(...vals), mx = Math.max(...vals);
+  if (mx - mn < 1e-9) { mx += 1e-4; mn -= 1e-4; }
+  const X = t => PAD + (t - cs[0].t) / (cs[cs.length - 1].t - cs[0].t || 1) * (W - 2 * PAD);
+  const Y = v => PAD + (mx - v) / (mx - mn) * (H - 2 * PAD);
+  const d = cs.map((c, i) => (i ? 'L' : 'M') + X(c.t).toFixed(1) + ' ' + Y(c.c).toFixed(1)).join(' ');
+  // Point le plus proche de la publication (bougie qui la CONTIENT : la précédente ou l'égale).
+  let ni = 0; for (let i = 0; i < cs.length; i++) if (cs[i].t <= t0) ni = i;
+  const nx = X(cs[ni].t), nyv = cs[ni].c;
+  const hf = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const dec = Math.abs(nyv) > 50 ? 2 : 5;
+  return '<div class="nrx">'
+    + '<div class="nrx-tete"><b>' + pair + '</b><span>réaction · bougies 15 min</span>'
+    + '<span class="nrx-pub">publication ' + hf(t0) + '</span></div>'
+    + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="nrx-svg">'
+    + '<line x1="' + nx.toFixed(1) + '" y1="0" x2="' + nx.toFixed(1) + '" y2="' + H + '" class="nrx-mark"></line>'
+    + '<path d="' + d + '" fill="none" class="nrx-ligne" vector-effect="non-scaling-stroke"></path>'
+    + '<circle cx="' + nx.toFixed(1) + '" cy="' + Y(nyv).toFixed(1) + '" r="3" class="nrx-pt"></circle>'
+    + '</svg>'
+    + '<div class="nrx-axe"><span>' + hf(cs[0].t) + '</span>'
+    + '<span>' + mn.toFixed(dec) + ' – ' + mx.toFixed(dec) + '</span>'
+    + '<span>' + hf(cs[cs.length - 1].t) + '</span></div></div>';
+}
+
 function _dtpThemeApply(mode) {
   document.documentElement.dataset.thememode = mode;
   document.documentElement.dataset.theme = _dtpThemeResolve(mode);

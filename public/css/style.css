@@ -18344,3 +18344,48 @@ html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; bor
   }
   body.dtp-admin .wdg-title { text-transform: none; letter-spacing: .01em; font-size: 12.5px; font-weight: 650; }
 }
+
+/* Sauvegardes auto : UNE rangée visible (la plus récente), les anciennes derrière un dépliage.
+   Le badge « la plus récente » devient inutile : la rangée visible l'est par construction. */
+.wdg-mgr-bak .bak-vieux { display: none; }
+.wdg-mgr-bak.ouvert .bak-vieux { display: flex; }
+.wdg-bak-plus { align-self: flex-start; background: transparent; border: 0; padding: 2px 0 0;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .03em; color: var(--text3, var(--w-t9));
+  cursor: pointer; transition: color .12s; }
+.wdg-bak-plus:hover { color: var(--orange, #e3b23a); }
+
+/* ═══ FRISE DES SESSIONS, reprise pro (20/08, « je le trouve pas beau ») ══════════════════════════
+   Trois défauts : badges FERMÉ rouge vif ×4 (fermé n'est pas une alerte : le rouge est réservé au
+   baissier/alerte par la charte), colonnes flottantes (chaque nom décalait heures et badge), et
+   segments fermés en teintes délavées (.34) qui salissaient la carte. Grammaire terminal :
+   colonnes fixes, état en petit texte, gris neutre pour le fermé, la couleur à l'OUVERT seul. */
+.wdg-frise-tete { gap: 10px; }
+.wdg-frise-place { flex: 0 0 76px; order: 1; }
+.wdg-frise-heures { order: 2; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.wdg-frise-badge { order: 3; flex: 0 0 auto; border: 0; background: transparent; padding: 0;
+  font-size: 9px; font-weight: 700; letter-spacing: .09em; color: var(--txt-3, #6b7280); }
+.wdg-frise-ligne.est-ouvert .wdg-frise-badge { border: 0; background: transparent; color: #00e676; }
+.wdg-frise-reste { order: 4; text-align: right; }
+/* Piste plus fine, segments nets : gris neutre fermé, couleur de place à l'ouvert. */
+.wdg-frise-piste { height: 12px; border-radius: 2px; }
+.wdg-frise-bloc { opacity: 1; background: #23262c; border-radius: 2px; }
+.wdg-frise-bloc.est-ouvert { background: var(--frise-ton, #b8860b); opacity: .92; }
+html[data-theme="light"] .wdg-frise-bloc { background: #dcd9d2; }
+html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #00783d; }
+
+/* ═══ GRAPHIQUE DE RÉACTION d'une news (20/08) : courbe 15 min + instant de publication marqué ════ */
+.nrx { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px 2px; }
+.nrx-tete { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
+.nrx-tete b { color: var(--text, #e6e8eb); font-weight: 700; }
+.nrx-tete span { color: var(--text3, #6b7280); font-size: 10px; }
+.nrx-pub { margin-left: auto; color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
+.nrx-svg { width: 100%; height: 150px; display: block; background: var(--bg-3, #0f0f12);
+  border: 1px solid var(--hud-line, var(--border)); border-radius: 3px; }
+.nrx-ligne { stroke: var(--orange, #e3b23a); stroke-width: 1.6; }
+.nrx-mark { stroke: var(--orange, #e3b23a); stroke-width: 1; stroke-dasharray: 3 3; opacity: .85; }
+.nrx-pt { fill: var(--orange, #e3b23a); }
+.nrx-axe { display: flex; justify-content: space-between; font-size: 9.5px;
+  color: var(--text3, #6b7280); font-variant-numeric: tabular-nums; }
+html[data-theme="light"] .nrx-svg { background: #ffffff; }
+html[data-theme="light"] .nrx-ligne, html[data-theme="light"] .nrx-mark { stroke: #816521; }
+html[data-theme="light"] .nrx-pt { fill: #816521; }

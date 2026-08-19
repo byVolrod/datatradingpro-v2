@@ -6830,14 +6830,24 @@ function _spansAffiches(lay) {
           + '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.3"/><path d="M3 4.5V9h4.5"/><path d="M12 7.5V12l3 2"/></svg>'
           + '<span>Sauvegardes automatiques</span></div>'
           + vs.map(function (v, k) {
-              return '<button class="wdg-bak-l" onclick="DTPWidgets.restoreBackup(' + v.i + ')"'
+              // UNE SEULE rangée visible (20/08, demande user « gagne en espace ») : la plus récente,
+              // qui l'est par construction (le badge devenait redondant). Les anciennes restent à UN
+              // CLIC (bak-vieux + dépliage) : la leçon du 12/08 est qu'une sauvegarde unique SANS
+              // recours avait déjà porté un état cassé sans s'en douter.
+              return '<button class="wdg-bak-l' + (k > 0 ? ' bak-vieux' : '') + '" onclick="DTPWidgets.restoreBackup(' + v.i + ')"'
                 + ' title="Revenir à cette sauvegarde (réversible : l\'état actuel reprend la tête de l\'historique)">'
                 + '<span class="wdg-bak-age">' + esc(age(v.at)) + '</span>'
                 + '<span class="wdg-bak-date">' + esc(fmt(v.at)) + (v.panneaux ? ' · ' + v.panneaux + ' dispo.' : '') + '</span>'
-                + (k === 0 ? '<span class="wdg-bak-tag">la plus récente</span>' : '')
                 + '<span class="wdg-bak-go">Restaurer</span></button>';
-            }).join('');
+            }).join('')
+          + (vs.length > 1 ? '<button type="button" class="wdg-bak-plus" onclick="DTPWidgets.bakToggle(this)" data-n="' + (vs.length - 1) + '">› ' + (vs.length - 1) + ' plus ancienne(s)</button>' : '');
       }).catch(function () {});
+    },
+    // Dépliage des sauvegardes anciennes (une seule visible par défaut, demande user 20/08).
+    bakToggle: function (btn) {
+      var b = btn && btn.closest('.wdg-mgr-bak'); if (!b) return;
+      var ouvert = b.classList.toggle('ouvert');
+      btn.textContent = ouvert ? 'Masquer les anciennes' : ('› ' + (btn.getAttribute('data-n') || '') + ' plus ancienne(s)');
     },
     restoreBackup: function (i) {
       fetch('/api/widgets/restore', {
