@@ -3178,7 +3178,7 @@ function buildNewsItem(item) {
   // sales » recevaient un tag EUR/USD, à cause du seul tag « US ». Un tag faux est pire que pas de
   // tag : il envoie lire une réaction qui n'a aucun rapport avec la news.
   const _HORS_FX = ['Geopolitical', 'Metals', 'Gold', 'Silver', 'Crypto', 'Energy & Power', 'Energy',
-    'Equities', 'Commodities', 'Oil'];
+    'Equities', 'Commodities', 'Oil', 'Ags & Softs', 'Agriculture', 'Softs', 'Gov Update'];
   // Comment chaque devise se NOMME dans un titre. Le titre est plus fiable que les tags : il dit
   // « Euro », « Canadian Dollar », « Yen », là où les tags se contentent d'un pays.
   const _MOTS_DEV = [
@@ -3228,7 +3228,11 @@ function buildNewsItem(item) {
   // laisserait croire le contraire. « forecast to remain steady », « expected to hold », « ahead
   // of », « countdown to ». À ne pas confondre avec « (Forecast 4.4%, Previous 4.2%) », qui est la
   // signature d'un chiffre DÉJÀ tombé : ici le mot est suivi de « to », pas d'une valeur.
-  const _ANNONCE_A_VENIR = /(\b(?:forecast|expected|set|poised|due)\s+to\b|\bpreview\b|\bahead of\b|\bcountdown to\b|\bfocus shifts to\b|\bawaiting\b)/i;
+  const _ANNONCE_A_VENIR = /(\b(?:forecast|expected|set|poised|due)\s+to\b|\bpreview\b|\bahead of\b|\bcountdown to\b|\bfocus shifts to\b|\bawaits?\b|\bawaiting\b|\bin focus\b|\beyes on\b|\beyeing\b|\bbraces? for\b|\blooks? ahead\b)/i;
+  // Les CHRONIQUES récurrentes (« Forex Today », « [MARKET UPDATE] », « … price today : ») sont des
+  // billets de synthèse, jamais l'annonce d'un chiffre : leur heure de parution est celle du
+  // rédacteur, pas celle du marché.
+  const _CHRONIQUE = /^\s*(?:\[?\s*(?:market update|live updates?)\s*\]?|forex today|fx today|crypto today|crypto (?:market )?overview)\b|\bprice today\s*:/i;
   // Filet général du récit : un VERBE D'ACTION DE PRIX dans les ~60 premiers caractères raconte un
   // mouvement, il n'annonce pas un chiffre. Il rattrape ce que _SUJET_DEVISE laisse passer, sans
   // qu'il faille énumérer toutes les devises du monde — « Mexican Peso dips on Middle East
@@ -3236,6 +3240,23 @@ function buildNewsItem(item) {
   // ⚠️ Neutralisé quand le titre porte la signature d'un chiffre publié : « Australian Unemployment
   // Rate Actual 4.5% » doit passer même si un verbe traîne dans la phrase.
   const _VERBE_RECIT = /^[^.!?]{0,60}?\b(?:dips?|gains?|slides?|surges?|eases?|climbs?|retreats?|trims?|pares?|edges?|softens?|steadies|jumps?|slumps?|weakens?|strengthens?|rallies|tumbles?|recovers?|extends?|rises?|falls?|drops?|advances?|firms?|struggles?|stabilises?|stabilizes?)\b/i;
+  // ── CRÉNEAU D'AGENDA ≠ PUBLICATION ─────────────────────────────────────────────────────────
+  // Défaut trouvé en relecture adverse, et la preuve tient dans l'échantillon lui-même : le fil
+  // publie le CRÉNEAU et le RÉSULTAT en deux dépêches distinctes.
+  //     « PBoC Interest Rate 1 Yr »                                    ← la ligne d'agenda
+  //     « PBoC Interest Rate 1 Yr Actual 3.00% (Forecast 3%, ...) »    ← le chiffre
+  // « FOMC Rate Statement & SEP » apparaît DEUX FOIS mot pour mot dans les 213 news — seul titre
+  // exactement dupliqué du lot. Une décision de taux ne se publie pas deux fois ; une ligne
+  // d'agenda, si. Ces titres recevaient un tag : la bulle se serait posée sur un instant où il ne
+  // s'est rien produit, exactement le défaut que toute la règle cherche à éviter.
+  // Un créneau nu ne porte AUCUN signal permettant de le distinguer d'une publication — ni chiffre,
+  // ni verbe, ni consensus. La seule marque fiable est donc la présence d'une VALEUR.
+  // ⚠️ Exception : le propos d'un banquier central n'a pas de valeur chiffrée et reste pourtant un
+  // événement daté — c'est le fait de parler qui est l'événement.
+  const _PROPOS_BC = /^(?:Fed|FOMC|ECB|BCE|BoE|BoJ|BoC|RBA|RBNZ|SNB|PBoC|Riksbank|Norges Bank)(?:'s|\u2019s)?\s+[A-Z][A-Za-z\-'\u2019]+(?:\s+[A-Z][A-Za-z\-'\u2019]+)?\s*:/;
+  // La maturité d'un taux (« 1 Yr », « 10Y ») est un libellé, pas une valeur publiée : sans ce
+  // retrait, « PBoC Interest Rate 1 Yr » passerait pour un chiffre à cause de son « 1 ».
+  const _SANS_MATURITE = h => String(h || '').replace(/\b\d+\s?(?:Yr|Y|M|Mo)\b/gi, '');
   const _deviseDeLaNews = () => {
     const tousTags = (item.tags || []).concat([String(item.category || '')]);
     if (tousTags.some(t => _HORS_FX.indexOf(String(t)) >= 0)) return null;
@@ -3243,6 +3264,9 @@ function buildNewsItem(item) {
     if (_CAT_RECIT.indexOf(String(item.category || '')) >= 0) return null;
     if (_SUJET_DEVISE.test(String(item.headline || ''))) return null;
     if (_ANNONCE_A_VENIR.test(String(item.headline || ''))) return null;
+    if (_CHRONIQUE.test(String(item.headline || ''))) return null;
+    // Pas de valeur publiée et pas de propos tenu → c'est un créneau d'agenda, pas un événement.
+    if (!/\d/.test(_SANS_MATURITE(item.headline)) && !_PROPOS_BC.test(String(item.headline || ''))) return null;
     if (!_SIG_PUBLICATION.test(String(item.headline || '')) && _VERBE_RECIT.test(String(item.headline || ''))) return null;
     // Il faut un ÉVÉNEMENT DATÉ : un chiffre publié (signature réel/attendu/précédent dans le
     // titre), une catégorie de publication, ou une banque centrale. Ce filtre s'applique AVANT la
