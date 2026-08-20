@@ -2388,6 +2388,49 @@ const _MOVE_KEYS = {
   'gbp/usd':       /\b(gbp|pound|sterling|\bboe\b|bailey|\buk\b|britain|british|\busd\b|dollar)\b/i,
   'aud/usd':       /\b(aud|aussie|\brba\b|australia|australian|\busd\b|dollar)\b/i,
 };
+// ── RÉACTION DU MARCHÉ : récupération PARTAGÉE ────────────────────────────────────────────────
+// Le panneau « Réaction » et la grille sous le graphique montrent la MÊME chose ; seules leur
+// mise en page et leur conduite en cas de vide diffèrent (le panneau retire son onglet et bascule
+// sur Info, la grille se contente de ne rien afficher). On partage donc la DONNÉE, pas le rendu :
+// c'est ce qui empêche les deux affichages de diverger avec le temps.
+function _reactionMoves(item, ok, echec) {
+  fetch('/api/market-moves?since=' + item.timestamp)
+    .then(r => r.json())
+    .then(data => {
+      // Ne garder QUE les mouvements PERTINENTS à la news (devise/matière première citée dans le
+      // titre ou les tags) → plus jamais un actif sans rapport, du Brent sur une news yen.
+      const hay = ((item.headline || '') + ' ' + (item.tags || []).join(' ') + ' ' + (item.category || '')).toLowerCase();
+      ok((data.moves || []).filter(m => _moveRelevant(m.label, hay)));
+    })
+    .catch(() => { if (echec) echec(); });
+}
+// Une PUCE par actif : prix avant → après, puis la variation.
+function _movesLi(moves) {
+  return moves.map(m => {
+    const u = m.unit ? ' ' + m.unit : '';
+    return '<li class="rx-li ' + (m.dir === 'up' ? 'rx-up' : 'rx-dn') + '">'
+      + '<span class="rx-name">' + m.label + '</span>'
+      + '<span class="rx-flow">' + m.refPrice + u + ' <span class="rx-ar">&rarr;</span> ' + m.peakPrice + u + '</span>'
+      + '<span class="rx-pct">' + m.movePct + '</span></li>';
+  }).join('');
+}
+// Explication du mouvement, mise en cache : zéro requête à la réouverture, et le panneau comme la
+// grille profitent du même cache — ouvrir l'un puis l'autre ne redemande rien.
+function _reactionExplain(item, moves, ok) {
+  if (_reactCache.has(item.id)) { ok(_reactCache.get(item.id)); return; }
+  const movesStr = moves.map(m => m.label + ' ' + (m.dir === 'up' ? '+' : '-') + m.movePct).join(', ');
+  fetch('/api/reaction-explain', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: item.id, headline: item.headline, moves: movesStr, important: !!(item.priority === 'high' || item.urgent) }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      const b = (d && Array.isArray(d.bullets) && d.bullets.length) ? d.bullets : ((d && d.text) ? [d.text] : []);
+      if (b.length) _reactCache.set(item.id, b);   // succès uniquement : un échec réessaie plus tard
+      ok(b);
+    })
+    .catch(() => {});
+}
 function _moveRelevant(label, hay) {
   const re = _MOVE_KEYS[String(label || '').toLowerCase().trim()];
   return re ? re.test(hay) : true;   // instrument hors map → conservé
@@ -2863,71 +2906,36 @@ function buildNewsItem(item) {
       if (reactionTagEl) reactionTagEl.classList.add('tag--active');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
 
-      fetch(`/api/market-moves?since=${item.timestamp}`)
-        .then(r => r.json())
-        .then(data => {
-          if (activeTab !== 'reaction') return;
-          // Ne garder QUE les mouvements PERTINENTS à la news (devise/commodité citée dans le titre/tags)
-          // → plus jamais un actif sans rapport (ex. Brent pour une news Yen).
-          const _hay = ((item.headline || '') + ' ' + (item.tags || []).join(' ') + ' ' + (item.category || '')).toLowerCase();
-          const _rxMoves = (data.moves || []).filter(m => _moveRelevant(m.label, _hay));
-          if (!_rxMoves.length) {
-            // No real moves : remove the Réaction tag entirely and fall back to Info
-            if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
-            activeTab = null;
-            if (hasInfo) {
-              openPanel('info');  // switch to Info panel
-            } else {
-              expandEl.classList.remove('visible');
-              if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
-            }
-            return;
+      _reactionMoves(item, _rxMoves => {
+        if (activeTab !== 'reaction') return;
+        if (!_rxMoves.length) {
+          // No real moves : remove the Réaction tag entirely and fall back to Info
+          if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
+          activeTab = null;
+          if (hasInfo) {
+            openPanel('info');  // switch to Info panel
           } else {
-            // Réaction façon flux marché : une PUCE par actif, prix AVANT → APRÈS + variation (style "X passé de A à B").
-            const movesHtml = _rxMoves.map(m => {
-              const cls = m.dir === 'up' ? 'rx-up' : 'rx-dn';
-              const u   = m.unit ? ' ' + m.unit : '';
-              return `<li class="rx-li ${cls}">`
-                + `<span class="rx-name">${m.label}</span>`
-                + `<span class="rx-flow">${m.refPrice}${u} <span class="rx-ar">&rarr;</span> ${m.peakPrice}${u}</span>`
-                + `<span class="rx-pct">${m.movePct}</span>`
-                + `</li>`;
-            }).join('');
-            expandEl.innerHTML =
-              `<div class="rx-block${isRed ? ' rx-block--alert' : ''}">`
-              + `<div class="rx-head">R&eacute;action &agrave; : ${nowTime}</div>`
-              + `<ul class="rx-list">${movesHtml}</ul>`
-              + `<div class="rx-explain" id="rx-explain-${item.id}"></div>`
-              + `</div>`;
-
-            // Explication Gemini du mouvement (mise en cache → 0 requête à la réouverture)
-            const movesStr = _rxMoves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
-            // Explication = LISTE À PUCES (1 phrase courte par puce, en langue source) : façon pro.
-            const _applyExplain = val => {
-              const arr = Array.isArray(val) ? val : (val ? [String(val)] : []);
-              if (!arr.length) return;
-              const el = document.getElementById(`rx-explain-${item.id}`);
-              if (el && activeTab === 'reaction') { el.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(el); }
-            };
-            if (_reactCache.has(item.id)) {
-              _applyExplain(_reactCache.get(item.id));
-            } else {
-              fetch('/api/reaction-explain', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: item.id, headline: item.headline, moves: movesStr, important: !!(item.priority === 'high' || item.urgent) }),
-              })
-                .then(r => r.json())
-                .then(d => {
-                  const b = (d && Array.isArray(d.bullets) && d.bullets.length) ? d.bullets : ((d && d.text) ? [d.text] : []);
-                  if (b.length) _reactCache.set(item.id, b);   // succès uniquement (un échec réessaie à la prochaine ouverture)
-                  _applyExplain(b);
-                })
-                .catch(() => {});
-            }
+            expandEl.classList.remove('visible');
+            if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
           }
-        })
-        .catch(() => {
+          return;
+        } else {
+          const movesHtml = _movesLi(_rxMoves);
+          expandEl.innerHTML =
+            `<div class="rx-block${isRed ? ' rx-block--alert' : ''}">`
+            + `<div class="rx-head">R&eacute;action &agrave; : ${nowTime}</div>`
+            + `<ul class="rx-list">${movesHtml}</ul>`
+            + `<div class="rx-explain" id="rx-explain-${item.id}"></div>`
+            + `</div>`;
+
+          // Explication du mouvement : une puce par idée, mise en cache et partagée avec la grille.
+          _reactionExplain(item, _rxMoves, arr => {
+            if (!arr.length) return;
+            const el = document.getElementById(`rx-explain-${item.id}`);
+            if (el && activeTab === 'reaction') { el.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(el); }
+          });
+        }
+      }, () => {
           if (activeTab !== 'reaction') return;
           // API error → same fallback as "no moves": remove tag, switch to Info
           if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
@@ -2958,6 +2966,29 @@ function buildNewsItem(item) {
       return;
     }
 
+    // ── LES QUATRE LECTURES, ENSEMBLE (référence fournie) ────────────────────────────────────
+    // Sous le graphique, les quatre blocs s'affichent EN MÊME TEMPS au lieu d'attendre chacun son
+    // clic. Une réaction de marché se lit en confrontant le chiffre, ce qu'en dit le desk et ce
+    // qu'a fait le prix : les faire alterner derrière des onglets obligeait à mémoriser l'un pour
+    // lire l'autre. La pastille de chaque bloc reprend EXACTEMENT la couleur de son tag, si bien
+    // qu'on sait d'un coup d'œil de quel bouton chaque bloc est la réponse.
+    const _rxgHeure = ts => { try { return ts ? 'à ' + new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) { return ''; } };
+    const _rxgBloc = (cle, titre, quand, corps) => (corps
+      ? '<div class="rxg-b rxg-b--' + cle + '"><div class="rxg-t"><i></i>' + titre
+        + (quand ? '<span>' + quand + '</span>' : '') + '</div><div class="rxg-c">' + corps + '</div></div>'
+      : '');
+    const _rxgHtml = gid => {
+      const anaTs = item._anaAt || item.timestamp;
+      const bInfo = hasInfo ? _rxgBloc('info', isInfoQuote ? 'Contexte' : 'Info', '', infoBody) : '';
+      const bAna = hasNotes ? _rxgBloc('analyse', 'Analyse', _rxgHeure(anaTs), _renderInfoBullets(item.analyse || [])) : '';
+      const bImp = hasImpact ? _rxgBloc('impact', 'Impact marché', _rxgHeure(anaTs),
+        _renderInfoBullets(String(item._impact || '').split('\n').filter(Boolean))) : '';
+      // La Réaction dépend d'une requête : sa case est un conteneur « display: contents », donc
+      // invisible tant qu'il est vide et qui ne consomme aucune cellule de la grille.
+      return (bInfo || bAna || bImp)
+        ? '<div class="rxg">' + bInfo + '<div class="rxg-slot" id="rxg-rx-' + gid + '"></div>' + bAna + bImp + '</div>'
+        : '';
+    };
     if (tab === 'marche') {
       // ── RÉACTION DU MARCHÉ ────────────────────────────────────────────────────────────────
       // Bougies d'une MINUTE + CERCLE ROUGE sur l'instant de publication (demande user, référence
@@ -2984,8 +3015,23 @@ function buildNewsItem(item) {
         // La phrase fixe vit dans son propre élément : le dictionnaire est indexé par CHAÎNE
         // EXACTE, donc une phrase où l'on incruste une date ne serait jamais traduite.
         + '<div class="nrx-note">' + _dPub + ' à ' + _hPub + ' &middot; <span>Le cercle rouge marque la minute de publication.</span></div>'
-        + '</div>';
+        + '</div>'
+        + _rxgHtml(_gid);
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      _dtpTranslateQuotes(expandEl);   // les puces des blocs viennent en langue source
+      // Seul le bloc Réaction demande une requête : les trois autres sont déjà attachés à la news.
+      // Le cache d'explication est partagé avec le panneau Réaction — ouvrir l'un puis l'autre ne
+      // redemande rien au serveur.
+      _reactionMoves(item, moves => {
+        const slot = document.getElementById('rxg-rx-' + _gid);
+        if (!slot || !slot.isConnected || !moves || !moves.length) return;   // pas de mouvement : la case reste vide
+        slot.innerHTML = _rxgBloc('reaction', 'Réaction', _rxgHeure(Date.now()),
+          '<ul class="rx-list">' + _movesLi(moves) + '</ul><div class="rxg-x"></div>');
+        _reactionExplain(item, moves, arr => {
+          const x = slot.querySelector('.rxg-x');
+          if (x && arr.length) { x.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(x); }
+        });
+      });
       const _echec = m => { const h = document.getElementById(_gid); if (h) h.innerHTML = '<div class="iq-note">' + m + '</div>'; };
       _chargerLwc(() => {
         // Entre le clic et le chargement de la bibliothèque, l'utilisateur a pu changer d'onglet
@@ -3344,7 +3390,7 @@ function buildNewsItem(item) {
     }
     return vues.size === 1 ? Array.from(vues)[0] : null;
   };
-  let _pairePosee = false;
+  let _pairePosee = false, _pairEl = null;
   const _marcheDepuisTag = (t, tag) => {
     if (!_PAIR_DE_DEVISE[tag] || !isRed || !expandEl || item._pair) return;
     _pairePosee = true;
@@ -3371,6 +3417,10 @@ function buildNewsItem(item) {
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
     _marcheDepuisTag(t, tag);   // news importante → devient la paire cliquable (2 drapeaux)
+    // Le tag de PAIRE ne s'insère pas AU MILIEU des thèmes : il est mis de côté et posé après eux,
+    // juste avant les boutons de panneaux — l'ordre de la référence est « Inflation, Rates,
+    // AUDUSD, Info, Analyse, Réaction, Impact marché ».
+    if (_pairePosee && !_pairEl) { _pairEl = t; continue; }
     tagsEl.appendChild(t);
   }
   for (const tag of (item._dtpd ? [] : smartTags)) {
@@ -3385,6 +3435,10 @@ function buildNewsItem(item) {
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
     _marcheDepuisTag(t, tag);   // news importante → devient la paire cliquable (2 drapeaux)
+    // Le tag de PAIRE ne s'insère pas AU MILIEU des thèmes : il est mis de côté et posé après eux,
+    // juste avant les boutons de panneaux — l'ordre de la référence est « Inflation, Rates,
+    // AUDUSD, Info, Analyse, Réaction, Impact marché ».
+    if (_pairePosee && !_pairEl) { _pairEl = t; continue; }
     tagsEl.appendChild(t);
   }
 
@@ -3398,9 +3452,10 @@ function buildNewsItem(item) {
       t.className = 'tag tag--default';
       t.dataset.cat = _dev;
       _marcheDepuisTag(t, _dev);
-      if (_pairePosee) tagsEl.appendChild(t);
+      if (_pairePosee) _pairEl = t;
     }
   }
+  if (_pairEl) tagsEl.appendChild(_pairEl);   // la paire ferme la série des thèmes
 
   // ── Badge Rumour : info non confirmée / bruit de marché ──────────────────────
   // Détection par texte (Unconfirmed/Rumour/Chatter/Speculation…) ou flag API FJ/FF
@@ -3493,7 +3548,10 @@ function buildNewsItem(item) {
           reactionTagEl.style.cursor = 'pointer';
           reactionTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 9L4.5 6L7 8.5L10.5 3.5M10.5 3.5H8M10.5 3.5V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Réaction';
           reactionTagEl.onclick = e => { e.stopPropagation(); openPanel('reaction'); };
-          tagsEl.appendChild(reactionTagEl);
+          // Le tag arrive APRÈS coup (il dépend d'une requête) : on l'INSÈRE à sa place plutôt que
+          // de l'ajouter à la fin, sinon il passerait derrière « Impact marché ».
+          if (impactTagEl && impactTagEl.parentNode === tagsEl) tagsEl.insertBefore(reactionTagEl, impactTagEl);
+          else tagsEl.appendChild(reactionTagEl);
         })
         .catch(() => {})
     );

@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-quatre-lectures', ts: Date.UTC(2026, 7, 21, 14, 0), title: 'Les quatre lectures d une news s affichent ensemble sous le graphique', desc: 'Au clic sur le marche expose d une publication, le graphique est desormais suivi des quatre lectures affichees EN MEME TEMPS : le resume du chiffre, la reaction du marche avec les prix avant et apres, l analyse du desk et l impact marche. Il fallait auparavant ouvrir chaque onglet a son tour et memoriser l un pour lire l autre, alors qu une reaction se comprend en confrontant les quatre. La pastille de couleur de chaque bloc reprend celle de son bouton, pour savoir d un coup d oeil a quoi il repond. Sur telephone les blocs s empilent au lieu de se serrer. La rangee de tags suit aussi un ordre fixe : les themes, puis la paire, puis les quatre lectures.' },
   { id: 'dtpu-20260821-fil-profondeur', ts: Date.UTC(2026, 7, 21, 11, 0), title: 'Le fil se deroule sur au moins six heures avant Charger plus', desc: 'Le bouton Charger plus pouvait arriver apres une heure de fil a peine, selon le nombre de depeches tombees. La regle etait comptee en nombre d articles, or la densite du fil varie enormement : une heure de publication peut en compter soixante quand une heure calme en compte huit. Le fil garantit desormais au moins six heures d historique deroulables d un seul tenant, et va chercher ce qui manque tout seul si besoin. Le bouton continue de tomber pile a un changement de jour, jamais au milieu d une journee coupee en deux.' },
   { id: 'dtpu-20260821-tags-doublons', ts: Date.UTC(2026, 7, 21, 9, 0), title: 'Fin des tags qui repetent la categorie', desc: 'Sur une publication de la zone euro, la ligne affichait la categorie Donnees EU a gauche, puis les tags Donnees et EU a droite : trois fois la meme information. Un tag dont le libelle est deja un mot de la categorie n apprend rien, il ne s affiche plus. La regle compare mot a mot, donc un tag qui recoupe partiellement la categorie sans dire la meme chose reste bien visible.' },
   { id: 'dtpu-20260821-cercle-rouge', ts: Date.UTC(2026, 7, 21, 8, 0), title: 'Le cercle rouge est de retour sur le graphique de reaction', desc: 'Le graphique qui s ouvre au clic sur le marche expose d une news est desormais epure : plus de barre d outils, plus d indicateurs, plus de volume, juste les bougies. Et surtout, un cercle rouge marque la minute exacte ou le chiffre est tombe, avec un trait vertical, exactement comme demande. Il suit le graphique quand vous zoomez ou faites defiler, et reste visible quelle que soit la largeur, y compris sur telephone. L echelle de prix a droite affiche le detail au dix-milliemme, ce qu il faut pour lire une reaction de quelques points. Les bougies a la minute viennent des contrats a terme, seule source qui en fournisse de vraies a cette echelle : le comptant renvoie un prix unique par minute, donc des bougies plates.' },
@@ -3214,16 +3215,54 @@ const _newsVisible = n => !!n && !isGlobalNewsNoise(n.headline) && (!_isPrimerNe
 // Chaque (re)connexion réinjectait donc les 11 briefings PRIMER masqués dans le fil — d'autant plus
 // visible depuis qu'on reconnecte au retour d'onglet. Le total suit le filtre : annoncer un total
 // qui compte des éléments jamais servis fait croire au client qu'il reste des pages à charger.
-const _initialPayload = () => {
+const _initialPayload = (admin) => {
   const items = allNews.filter(_newsVisible).slice(0, 200);
+  if (admin) items.unshift(_newsExemple());
   return { type: 'initial', items, total: items.length };
 };
 
-app.get('/api/news', (_req, res) => {
+/* ── NEWS D'EXEMPLE, COMPTE ADMIN UNIQUEMENT ─────────────────────────────────────────────────
+   Calquée sur le cas de référence fourni par l'utilisateur (décision de la RBA → AUD/USD) pour
+   qu'il valide sur exactement la même situation.
+   Construite À LA VOLÉE et JAMAIS écrite dans allNews : elle ne peut donc être ni persistée, ni
+   reprise par un récap, ni comptée dans une statistique, ni diffusée à un client par l'un des
+   chemins de diffusion. Elle n'existe que le temps d'une réponse, et seulement pour un admin.
+   Antidatée de 50 min : horodatée à l'instant, elle n'aurait AUCUNE bougie APRÈS elle et le
+   graphique de réaction n'aurait rien à montrer.
+   Elle porte de quoi exercer les QUATRE blocs : description (Info), analyse (Analyse), _impact
+   (Impact marché), priority 'high' (la devise devient la paire cliquable). Le titre reste en
+   anglais : les titres ne sont JAMAIS traduits. À RETIRER après validation. */
+function _newsExemple() {
+  const now = Date.now() - 50 * 60 * 1000;
+  return {
+    id: 'dtp-exemple-rba-audusd',
+    headline: 'RBA keeps the Cash rate unchanged at 4.35%, as expected, while it stated that inflation is still elevated and risks are skewed to the upside, but noted financial conditions appear somewhat restrictive and trims CPI forecasts',
+    description: [
+      'La Banque de Réserve d\'Australie laisse son taux directeur à 4,35 %, comme le marché l\'attendait, et à l\'unanimité.',
+      'Elle maintient que l\'inflation reste élevée et que les risques penchent du côté d\'une accélération.',
+      'Elle note toutefois que les conditions financières lui paraissent désormais un peu restrictives, et abaisse ses prévisions d\'inflation.',
+    ].join('\n'),
+    category: 'Australian Data',
+    source: 'DTP Markets',
+    time: new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+    timestamp: now,
+    priority: 'high',
+    tags: ['Inflation', 'Rates', 'RBA'],
+    analyse: [
+      'Taux inchangé et attendu : ce n\'est donc pas la décision qui fait le prix, mais le ton du communiqué.',
+      'Le ton reste ferme sur le fond, l\'inflation étant jugée trop haute avec des risques orientés à la hausse.',
+      'Mais deux inflexions vont dans l\'autre sens : des conditions financières décrites comme restrictives, et des prévisions d\'inflation revues en baisse. C\'est un maintien un peu moins ferme que le précédent.',
+    ],
+    _impact: 'Le marché avait déjà intégré le maintien du taux : l\'écart au consensus se joue donc sur le communiqué, et il penche légèrement du côté accommodant. À surveiller sur AUD/USD, dont la réaction se lit à la minute de publication, et sur les taux australiens à 2 ans, les plus sensibles aux anticipations. Cette lecture décrit le mécanisme, elle ne préjuge pas de la suite.',
+  };
+}
+
+app.get('/api/news', (req, res) => {
   // Les rapports DTP (primers/briefings) sont masqués du flux — SAUF le « DTP Daily US Opening News »
   // qui doit apparaître dans l'onglet News (demande utilisateur), déroulé en rapport complet au clic.
   const items = allNews.filter(_newsVisible).slice(0, 200);
   items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
+  if (req.session?.user?.role === 'admin') items.unshift(_newsExemple());   // exemple, admin seul
   res.json({ items, total: items.length });
 });
 
@@ -17114,7 +17153,7 @@ wss.on('connection', (ws, req) => {
   ws._uid = _uid; ws._role = _role; ws._stoken = req.session.stoken || null;
   if (_uid) { _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1); _stampSeen(_uid); }   // present -> derniere presence = maintenant
 
-  ws.send(JSON.stringify(_initialPayload()));   // ⚠️ envoi DIRECT : il ne passe pas par broadcast(), donc il doit filtrer lui-même
+  ws.send(JSON.stringify(_initialPayload(req.session?.user?.role === 'admin')));   // ⚠️ envoi DIRECT : il ne passe pas par broadcast(), donc il doit filtrer lui-même
   // Envoyer aussi les session wraps et bank research au moment de la connexion
   if (_swCache.length > 0) ws.send(JSON.stringify({ type: 'sw_update', items: _swCache }));
   if (_brCache.length > 0) ws.send(JSON.stringify({ type: 'br_update', items: _brCache }));
