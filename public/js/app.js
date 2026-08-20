@@ -2913,45 +2913,64 @@ function buildNewsItem(item) {
     }
 
     if (tab === 'marche') {
-      // RÉACTION DU MARCHÉ, bougies d'une MINUTE (20/08, demande user : « on doit bien voir
-      // l'APRÈS la bougie de la news, en M1 »). L'ancienne fenêtre — 15 min, 4 h avant / 8 h après —
-      // écrasait toute la réaction dans deux ou trois bougies : on voyait qu'il s'était passé
-      // quelque chose, jamais QUOI. En M1 sur une fenêtre serrée, le mouvement se lit minute par
-      // minute, et la publication est placée au PREMIER TIERS pour laisser la place à la suite.
-      // REPLI EN CASCADE : la source ne garde le 1 min que quelques jours et le 5 min qu'un mois.
-      // Sur une publication ancienne on redescend d'un cran plutôt que d'afficher « indisponible »,
-      // et le graphique DIT toujours quelle unité il montre : une échelle tue est une échelle qui ment.
-      expandEl.innerHTML = dtpLoader('Chargement de la réaction…', { small: true });
-      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
-      if (marcheTagEl) marcheTagEl.classList.add('tag--active');
+      // ── RÉACTION DU MARCHÉ : GRAPHIQUE TRADINGVIEW (20/08, demande user) ──────────────────
+      // Le dessin maison a été retiré, et la raison est une MESURE, pas une préférence : sur
+      // /api/bank-ohlc en unité 1 min, la source renvoie o = h = l = c sur 200 bougies sur 200.
+      // Il n'existe tout simplement PAS de vraie bougie à la minute sur le change chez ce
+      // fournisseur — juste un prix par minute. Les « bougies » sortaient donc en tirets plats
+      // (constat de l'utilisateur, capture à l'appui). Aux unités supérieures la donnée redevient
+      // correcte (15 min : 4,3 pips d'amplitude moyenne), mais c'est justement la minute qui
+      // intéresse quand on regarde la réaction à un chiffre.
+      // TradingView apporte la vraie bougie à la minute, en direct, et laisse zoomer.
+      // ⚠️ CE QU'ON PERD, ET C'EST ASSUMÉ : l'embarqué gratuit n'accepte aucune annotation, donc
+      // la bulle rouge sur l'instant de publication n'est plus dessinée. L'heure exacte est
+      // affichée en toutes lettres au-dessus du graphique et rappelée en légende.
       const t0 = item.timestamp || Date.now();
       const _paire = _pairActive || item._pair;
-      const _PLANS = [
-        { tf: 'M1',  av: 25 * 60e3,   ap: 75 * 60e3,   lbl: '1 min',  min: 10 },
-        { tf: 'M5',  av: 90 * 60e3,   ap: 240 * 60e3,  lbl: '5 min',  min: 8 },
-        { tf: 'M15', av: 4 * 3600e3,  ap: 8 * 3600e3,  lbl: '15 min', min: 6 },
-      ];
-      const _essaie = i => {
-        if (i >= _PLANS.length) {
-          if (activeTab === 'marche') expandEl.innerHTML = '<div class="iq-note">Réaction indisponible : l\'historique de la source ne couvre plus l\'heure de cette publication.</div>';
-          return;
-        }
-        const p = _PLANS[i];
-        fetch('/api/bank-ohlc?pair=' + encodeURIComponent(_paire) + '&tf=' + p.tf)
-          .then(r => r.json())
-          .then(d => {
-            if (activeTab !== 'marche') return;
-            const all = (d && d.candles) || [];
-            const fen = all.filter(c => c.t >= t0 - p.av && c.t <= t0 + p.ap);
-            // Il faut que l'historique REMONTE avant la publication, et qu'il reste assez de
-            // bougies pour que le dessin veuille dire quelque chose.
-            const couvre = all.length && all[0].t <= t0;
-            if (!couvre || fen.length < p.min) { _essaie(i + 1); return; }
-            expandEl.innerHTML = _newsReactSvg(fen, t0, _paire, p.lbl);
-          })
-          .catch(() => { _essaie(i + 1); });
-      };
-      _essaie(0);
+      if (!_paire) { expandEl.innerHTML = '<div class="iq-note">Marché exposé introuvable pour cette publication.</div>'; expandEl.classList.add('visible'); return; }
+      if (marcheTagEl) marcheTagEl.classList.add('tag--active');
+      const _hPub = new Date(t0).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const _dPub = new Date(t0).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+      // L'identifiant du conteneur doit être un identifiant HTML valide : les identifiants de news
+      // portent des points et des tirets selon la source.
+      const _tvId = 'tvr-' + String(item.id || '').replace(/[^a-zA-Z0-9]/g, '') + '-' + _paire.replace('/', '');
+      expandEl.innerHTML = '<div class="nrx">'
+        + '<div class="nrx-tete"><b>' + _paire + '</b><span>réaction · bougies 1 min</span>'
+        + '<span class="nrx-pub">publication ' + _hPub + '</span></div>'
+        + '<div class="nrx-tv" id="' + _tvId + '">' + dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
+        // La phrase fixe vit dans son propre élément : le dictionnaire est indexé par CHAÎNE
+        // EXACTE, donc une phrase où l'on incruste une date ne serait jamais traduite.
+        + '<div class="nrx-note">' + _dPub + ' à ' + _hPub + ' &middot; <span>Repérez cette minute sur le graphique pour lire la réaction.</span></div>'
+        + '</div>';
+      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      if (window.DTP_tv && window.DTP_tv.charger) {
+        window.DTP_tv.charger(() => {
+          // Entre le clic et le chargement de tv.js, l'utilisateur a pu changer d'onglet ou
+          // replier la news : sans ces deux gardes, on injecterait un graphique dans un conteneur
+          // détaché, et TradingView lèverait une exception sur un identifiant introuvable.
+          if (activeTab !== 'marche') return;
+          const hote = document.getElementById(_tvId);
+          if (!hote || !hote.isConnected) return;
+          hote.innerHTML = '';
+          try {
+            new window.TradingView.widget({
+              container_id: _tvId, symbol: window.DTP_tv.symbole(_paire.replace('/', '')),
+              interval: '1', timezone: 'Europe/Paris',
+              theme: (typeof _deskLight === 'function' && _deskLight()) ? 'light' : 'dark',
+              style: '1', locale: 'fr', autosize: true,
+              hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true,
+            });
+            // Comme dans la vue Symbole : en autosize, TradingView ne se recalibre que sur un
+            // resize global, sinon il laisse une bande grise à droite.
+            [350, 1000, 1800].forEach(d => setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, d));
+          } catch (e) {
+            hote.innerHTML = '<div class="iq-note">Graphique indisponible pour le moment.</div>';
+          }
+        });
+      } else {
+        const hote = document.getElementById(_tvId);
+        if (hote) hote.innerHTML = '<div class="iq-note">Graphique indisponible pour le moment.</div>';
+      }
       return;
     }
     if (tab === 'impact') {
@@ -3122,7 +3141,7 @@ function buildNewsItem(item) {
   // « Bonds / Obligations / Fixed Income » : bannis ICI, au point d'AFFICHAGE (20/08, demande user).
   // Le ban de _canonTag ne s'applique qu'à la CANONISATION : un tag déjà stocké sur un item ancien
   // n'y repassait pas et s'affichait quand même. Ici, aucun chemin ne l'évite.
-  const _HIDDEN_TAGS = new Set(['Bonds', 'Obligations', 'Fixed Income', 'Obligataire', 'China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
+  const _HIDDEN_TAGS = new Set(['Data', 'Données', 'Bonds', 'Obligations', 'Fixed Income', 'Obligataire', 'China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
     'UK Data', 'US Data', 'EU Data', 'Swiss Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'New Zealand Data']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Economic Commentary = retirés à la demande) + TOUTES les catégories « <Pays> Data » (demande user 23/07 : « UK Data » doublonnait « Données » + « UK » — le serveur ne les émet plus pour les nouveaux items, ceci couvre les items déjà stockés)
   // RAPPORTS DTP : on ne montre que quelques tags « de base » (pas les 7-8 thèmes IA) → flux net
   // comme les autres news. La règle existait pour DTP Daily seul (_dtpd) ; le FX Daily Recap et les
@@ -3178,10 +3197,60 @@ function buildNewsItem(item) {
   // tolère UN mot devant (« India Gold price today ») sans attraper « Canadian Dollar gains on
   // higher oil prices », où la matière première n'est qu'une cause citée en fin de phrase.
   const _SUJET_HORS_FX = /^\s*(?:[\w'’.]+\s+)?(gold|silver|bitcoin|ethereum|crypto|crude|brent|wti|oil|copper|platinum|palladium)\b/i;
+  // ── RÉCIT DE MARCHÉ ≠ ÉVÉNEMENT ────────────────────────────────────────────────────────────
+  // Refus explicite de l'utilisateur (20/08) sur « Euro eases from three-month high as US Dollar
+  // stabilises », catégorie « Commentaire économique » : « pas pour les commentaires économiques ».
+  // La raison de fond dépasse cette catégorie. Le graphique marque un INSTANT — celui où le chiffre
+  // tombe. Sur un récit de marché, l'instant de publication de l'article n'est PAS l'instant où le
+  // marché a bougé : le graphique affirmerait une causalité qui n'existe pas.
+  // Mesuré sur 213 news importantes réelles : « Economic Commentary » compte 16 items dont
+  // 2 seulement sont de vraies publications, « FX Flows » 10 dont 0, « Market Analysis » 5 dont 0.
+  // L'exclusion en bloc coûte donc 2 items sur 31 — et respecte à la lettre la demande, ce qu'une
+  // exception « sauf si le titre a la signature d'une publication » ne ferait pas : l'utilisateur
+  // reverrait un tag sur une news affichée « Commentaire économique ».
+  const _CAT_RECIT = ['Economic Commentary', 'FX Flows', 'Market Analysis', 'Analysis', 'Market Wrap'];
+  // ⚠️ « Global News » N'EST PAS dans cette liste, et c'est mesuré : 3 de ses 5 items sont de
+  // vraies publications (Australian Employment Change, taux PBoC, ZEW allemand). L'exclure aurait
+  // coûté plus que ce qu'elle aurait évité.
+  const _SIG_PUBLICATION = /(\bactual\b|\bforecast\b|\bprev\.|\bprevious\b|vs\.?\s*exp)/i;
+  // Un titre qui COMMENCE par le nom d'une devise raconte une action de prix, pas une publication :
+  // « Euro surges as traders ignore… », « Swiss Franc picks up… », « Canadian Dollar gains
+  // traction… ». Ces news arrivaient par la catégorie « Fed », qui sert de fourre-tout dès que le
+  // titre mentionne la Fed. On teste le NOM DE LA DEVISE et non l'adjectif de pays, sans quoi
+  // « Australian Unemployment Rate Actual 4.5% » serait pris pour un récit.
+  // ⚠️ « euro » porte une exception : « Euro Area CPI … » commence par le mot Euro mais nomme une
+  // RÉGION, pas la devise en train de bouger. Sans ce garde-fou, toutes les publications de la zone
+  // euro étaient prises pour des récits et perdaient leur paire — défaut attrapé par le banc sur
+  // la news de test elle-même. « Eurozone » n'a pas besoin de l'exception : le \b ne coupe pas
+  // le mot après « euro ».
+  const _SUJET_DEVISE = /^\s*(?:the\s+)?(?:united states dollar index|dollar index|japanese yen|british pound|swiss franc|canadian dollar|australian dollar|new zealand dollar|us dollar|u\.s\. dollar|euro(?!\s+area)|yen|pound|sterling|franc|dollar|aussie|kiwi|loonie|greenback|[A-Z]{3}\/[A-Z]{3})\b/i;
+  // Une ANNONCE À VENIR n'a rien publié : il n'y a aucune réaction à montrer, et le graphique
+  // laisserait croire le contraire. « forecast to remain steady », « expected to hold », « ahead
+  // of », « countdown to ». À ne pas confondre avec « (Forecast 4.4%, Previous 4.2%) », qui est la
+  // signature d'un chiffre DÉJÀ tombé : ici le mot est suivi de « to », pas d'une valeur.
+  const _ANNONCE_A_VENIR = /(\b(?:forecast|expected|set|poised|due)\s+to\b|\bpreview\b|\bahead of\b|\bcountdown to\b|\bfocus shifts to\b|\bawaiting\b)/i;
+  // Filet général du récit : un VERBE D'ACTION DE PRIX dans les ~60 premiers caractères raconte un
+  // mouvement, il n'annonce pas un chiffre. Il rattrape ce que _SUJET_DEVISE laisse passer, sans
+  // qu'il faille énumérer toutes les devises du monde — « Mexican Peso dips on Middle East
+  // tensions » arrivait par la catégorie « Fed » et recevait un EUR/USD.
+  // ⚠️ Neutralisé quand le titre porte la signature d'un chiffre publié : « Australian Unemployment
+  // Rate Actual 4.5% » doit passer même si un verbe traîne dans la phrase.
+  const _VERBE_RECIT = /^[^.!?]{0,60}?\b(?:dips?|gains?|slides?|surges?|eases?|climbs?|retreats?|trims?|pares?|edges?|softens?|steadies|jumps?|slumps?|weakens?|strengthens?|rallies|tumbles?|recovers?|extends?|rises?|falls?|drops?|advances?|firms?|struggles?|stabilises?|stabilizes?)\b/i;
   const _deviseDeLaNews = () => {
     const tousTags = (item.tags || []).concat([String(item.category || '')]);
     if (tousTags.some(t => _HORS_FX.indexOf(String(t)) >= 0)) return null;
     if (_SUJET_HORS_FX.test(String(item.headline || ''))) return null;
+    if (_CAT_RECIT.indexOf(String(item.category || '')) >= 0) return null;
+    if (_SUJET_DEVISE.test(String(item.headline || ''))) return null;
+    if (_ANNONCE_A_VENIR.test(String(item.headline || ''))) return null;
+    if (!_SIG_PUBLICATION.test(String(item.headline || '')) && _VERBE_RECIT.test(String(item.headline || ''))) return null;
+    // Il faut un ÉVÉNEMENT DATÉ : un chiffre publié (signature réel/attendu/précédent dans le
+    // titre), une catégorie de publication, ou une banque centrale. Ce filtre s'applique AVANT la
+    // lecture du titre : sans lui, « Aussie highest since early June » suffirait à déclencher un
+    // AUD/USD alors qu'aucun chiffre n'est tombé.
+    const estEvenement = _SIG_PUBLICATION.test(String(item.headline || ''))
+      || tousTags.some(t => /Data$/i.test(String(t)) || String(t) === 'Data' || _DEV_BANQUE[t]);
+    if (!estEvenement) return null;
     // 1) LE TITRE D'ABORD. Une seule devise nommée : c'est elle. Deux devises dont le dollar :
     //    c'est le croisement au dollar, et donc la paire que le desk sait afficher — « Canadian
     //    Dollar gains on weaker US Dollar » donne USD/CAD, pas EUR/USD.
@@ -3192,10 +3261,7 @@ function buildNewsItem(item) {
     // Trois devises ou plus, ou deux sans le dollar (EUR contre CAD) : le desk ne sait pas afficher
     // ce croisement, et choisir pour le lecteur serait présenter un arbitrage comme un fait.
     if (dansTitre.length >= 2) return null;
-    // 2) À DÉFAUT, les tags — mais seulement sur une vraie publication ou une décision de banque
-    //    centrale, jamais sur un commentaire de marché où le tag pays ne désigne qu'un décor.
-    const estEvenement = tousTags.some(t => /Data$/i.test(String(t)) || String(t) === 'Data' || _DEV_BANQUE[t]);
-    if (!estEvenement) return null;
+    // 2) À DÉFAUT, les tags. Le filtre « événement » a déjà été appliqué plus haut.
     const vues = new Set();
     for (const t of tousTags.concat([String(item.category || '').replace(/\s+Data$/i, '')])) {
       const d = _SBR_ISO[t] ? t : (_DEV_BANQUE[t] || _DEV_PAYS[t] || null);
@@ -8247,76 +8313,6 @@ function _nrxQuand(libelle, ts) {
   if (!ts) return '';
   let h = ''; try { h = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
   return '<div class="nrx-quand">' + libelle + ' à ' + h + '</div>';
-}
-
-function _newsReactSvg(candles, t0, pair, unite) {
-  const W = 640, H = 150, PAD = 6;
-  const cs = candles.slice().sort((a, b) => a.t - b.t);
-  // ⚠️ L'échelle se calcule sur les EXTRÊMES (plus haut / plus bas), pas sur les clôtures. Calée
-  // sur les seules clôtures, toute mèche qui dépassait sortait du cadre et était rognée en
-  // silence : le graphique amputait précisément le pic que la publication venait de provoquer.
-  let mn = Math.min.apply(null, cs.map(c => Math.min(c.l, c.o, c.c)));
-  let mx = Math.max.apply(null, cs.map(c => Math.max(c.h, c.o, c.c)));
-  if (mx - mn < 1e-9) { mx += 1e-4; mn -= 1e-4; }
-  const marge = (mx - mn) * 0.08; mn -= marge; mx += marge;   // les extrêmes ne collent pas au bord
-  const X = t => PAD + (t - cs[0].t) / (cs[cs.length - 1].t - cs[0].t || 1) * (W - 2 * PAD);
-  const Y = v => PAD + (mx - v) / (mx - mn) * (H - 2 * PAD);
-  // BOUGIES (référence fournie) : corps vert/rouge + mèches, à la place de la ligne de clôtures.
-  const cw = Math.max(1.5, Math.min(9, (W - 2 * PAD) / cs.length * 0.62));
-  const chandelles = cs.map(c => {
-    const x = X(c.t), up = c.c >= c.o;
-    const col = up ? '#22c55e' : '#ef4444';
-    const yH = Y(Math.max(c.h, c.l)), yL = Y(Math.min(c.h, c.l));
-    const yO = Y(c.o), yC = Y(c.c);
-    const top = Math.min(yO, yC), hBody = Math.max(Math.abs(yC - yO), 0.8);
-    return '<line x1="' + x.toFixed(1) + '" y1="' + Y(c.h).toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + Y(c.l).toFixed(1) + '" stroke="' + col + '" stroke-width="1"></line>'
-      + '<rect x="' + (x - cw / 2).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + cw.toFixed(1) + '" height="' + hBody.toFixed(1) + '" fill="' + col + '"></rect>'
-      + (void yH, void yL, '');
-  }).join('');
-  // Point le plus proche de la publication (bougie qui la CONTIENT : la précédente ou l'égale).
-  let ni = 0; for (let i = 0; i < cs.length; i++) if (cs[i].t <= t0) ni = i;
-  const nx = X(cs[ni].t), nyv = cs[ni].c;
-  const hf = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const dec = Math.abs(nyv) > 50 ? 2 : 5;
-  // ⚠️ `void d` référençait la variable de l'ancienne COURBE, supprimée en passant aux bougies :
-  // ReferenceError à chaque ouverture, donc « Réaction indisponible » alors que les données
-  // arrivaient. Même famille de défaut que le `void iSeuil` du 19/08 : `node -c` ne voit pas une
-  // variable morte, seule l'EXÉCUTION la révèle. Le banc exécute désormais cette fonction.
-  // BULLE ROUGE sur l'instant de la publication (référence fournie) : un halo qui entoure la
-  // bougie du chiffre, pour que l'œil tombe dessus sans chercher le trait.
-  const ry = Y(nyv);
-  const halo = '<circle cx="' + nx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="26" class="nrx-halo"></circle>'
-    + '<circle cx="' + nx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="3.2" class="nrx-pt"></circle>';
-  // ÉCHELLE DE PRIX à droite (référence fournie) : sans elle on voit une forme, pas une amplitude.
-  // ⚠️ En HTML et NON en <text> SVG : le graphe est étiré horizontalement
-  // (preserveAspectRatio="none") pour que les bougies occupent toute la largeur quel que soit
-  // l'écran — un texte placé dedans subirait le même étirement et sortirait déformé.
-  // Le dernier prix est encadré, comme sur un terminal : c'est celui que l'œil cherche en premier.
-  const pct = v => (Y(v) / H * 100).toFixed(2);
-  let prix = '';
-  for (let k = 0; k <= 4; k++) {
-    const v = mx - (mx - mn) * k / 4;
-    prix += '<span style="top:' + pct(v) + '%">' + v.toFixed(dec) + '</span>';
-  }
-  const dernier = cs[cs.length - 1].c;
-  const monte = dernier >= cs[ni].c;   // par rapport au prix AU MOMENT de la publication
-  prix += '<b class="' + (monte ? 'est-haut' : 'est-bas') + '" style="top:' + pct(dernier) + '%">' + dernier.toFixed(dec) + '</b>';
-  return '<div class="nrx">'
-    + '<div class="nrx-tete"><b>' + pair + '</b><span>réaction · bougies ' + (unite || '15 min') + '</span>'
-    + '<span class="nrx-pub">publication ' + hf(t0) + '</span></div>'
-    + '<div class="nrx-zone">'
-    + '<div class="nrx-plot">'
-    + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="nrx-svg">'
-    + '<line x1="' + nx.toFixed(1) + '" y1="0" x2="' + nx.toFixed(1) + '" y2="' + H + '" class="nrx-mark"></line>'
-    + chandelles + halo
-    + '</svg>'
-    + '<div class="nrx-tmark" style="left:' + (nx / W * 100).toFixed(2) + '%">' + hf(t0) + '</div>'
-    + '</div>'
-    + '<div class="nrx-prix">' + prix + '</div>'
-    + '</div>'
-    + '<div class="nrx-axe"><span>' + hf(cs[0].t) + '</span>'
-    + '<span>' + mn.toFixed(dec) + ' – ' + mx.toFixed(dec) + '</span>'
-    + '<span>' + hf(cs[cs.length - 1].t) + '</span></div></div>';
 }
 
 function _dtpThemeApply(mode) {

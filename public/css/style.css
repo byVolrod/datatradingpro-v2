@@ -18379,35 +18379,13 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
 .nrx-tete b { color: var(--text, #e6e8eb); font-weight: 700; }
 .nrx-tete span { color: var(--text3, #6b7280); font-size: 10px; }
 .nrx-pub { margin-left: auto; color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
-.nrx-svg { width: 100%; height: 150px; display: block; background: var(--bg-3, #0f0f12);
-  border: 1px solid var(--hud-line, var(--border)); border-radius: 3px; }
-/* Le graphe et son échelle de prix, côte à côte. L'échelle est en HTML (et non en <text> SVG)
-   parce que le graphe est étiré horizontalement : un texte à l'intérieur sortirait déformé. */
-.nrx-zone { display: flex; align-items: stretch; gap: 0; }
-.nrx-plot { position: relative; flex: 1; min-width: 0; }
-.nrx-prix { position: relative; width: 56px; flex: 0 0 56px; font-size: 9.5px;
-  font-variant-numeric: tabular-nums; color: var(--text3, #6b7280); }
-.nrx-prix span, .nrx-prix b { position: absolute; left: 5px; transform: translateY(-50%);
-  white-space: nowrap; line-height: 1; }
-/* Le dernier prix est encadré, comme sur un terminal : c'est celui que l'œil cherche en premier.
-   Sa couleur dit le sens du mouvement DEPUIS la publication, pas depuis l'ouverture. */
-.nrx-prix b { left: 2px; padding: 2px 4px; border-radius: 2px; font-weight: 700; color: #fff; }
-.nrx-prix b.est-haut { background: #22c55e; }
-.nrx-prix b.est-bas  { background: #ef4444; }
-/* Heure de la publication, sous le trait vertical. Elle n'avait AUCUN style : faute de
-   positionnement, son « left: x% » restait sans effet et l'heure tombait sous le graphe, collée
-   à gauche, sans rapport visible avec le trait qu'elle légende. */
-.nrx-tmark { position: absolute; bottom: 3px; transform: translateX(-50%); pointer-events: none;
-  padding: 1px 4px; border-radius: 2px; font-size: 9.5px; font-weight: 700; line-height: 1.3;
-  font-variant-numeric: tabular-nums; color: #0c0c0e; background: var(--orange, #e3b23a); }
-.nrx-ligne { stroke: var(--orange, #e3b23a); stroke-width: 1.6; }
-.nrx-mark { stroke: var(--orange, #e3b23a); stroke-width: 1; stroke-dasharray: 3 3; opacity: .85; }
-.nrx-pt { fill: var(--orange, #e3b23a); }
-.nrx-axe { display: flex; justify-content: space-between; font-size: 9.5px;
-  color: var(--text3, #6b7280); font-variant-numeric: tabular-nums; }
-html[data-theme="light"] .nrx-svg { background: #ffffff; }
-html[data-theme="light"] .nrx-ligne, html[data-theme="light"] .nrx-mark { stroke: #816521; }
-html[data-theme="light"] .nrx-pt { fill: #816521; }
+/* Le graphique TradingView du panneau « Réaction du marché ». Hauteur fixe : l'embarqué est
+   en autosize et un conteneur sans hauteur le réduirait à zéro. */
+.nrx-tv { width: 100%; height: 340px; border: 1px solid var(--hud-line, var(--border));
+  border-radius: 3px; overflow: hidden; background: var(--bg-3, #0f0f12); }
+/* Le rappel de l'heure de publication : l'embarqué gratuit n'accepte aucune annotation, donc
+   l'instant du chiffre se dit en toutes lettres au lieu d'être dessiné sur le graphique. */
+.nrx-note { font-size: 10px; color: var(--text3, #6b7280); line-height: 1.4; }
 
 /* ⚠️ RESPONSIVE (20/08, contrôle d'après-modif) : la grille « 3 par rangée » des vignettes, ajoutée
    en fin de feuille, ÉCRASAIT la règle mobile « 1 colonne à 560px » (l.17355), plus ancienne donc
@@ -18425,10 +18403,6 @@ html[data-theme="light"] .nrx-pt { fill: #816521; }
 /* ═══ RÉACTION : bulle rouge sur l'instant de la publication (20/08, référence fournie) ═══════════
    Le halo entoure la bougie du chiffre : l'œil tombe dessus sans chercher le trait. Rouge d'alerte
    de la charte, très dilué (c'est un repère, pas un état de marché). */
-.nrx-halo { fill: rgba(239, 68, 68, .13); stroke: rgba(239, 68, 68, .5); stroke-width: 1; }
-.nrx-pt { fill: #ef4444; }
-html[data-theme="light"] .nrx-halo { fill: rgba(199, 48, 0, .1); stroke: rgba(199, 48, 0, .45); }
-html[data-theme="light"] .nrx-pt { fill: #c73000; }
 /* Drapeaux dans la pill de paire : images (aucun glyphe de drapeau sur Windows). */
 .tag-flag { display: inline-block; vertical-align: -1px; border-radius: 2px; margin-right: 1px; }
 /* Un tag qui NOMME un pays ou une devise porte son drapeau (« EUR », « GBPUSD »). L'écart se met

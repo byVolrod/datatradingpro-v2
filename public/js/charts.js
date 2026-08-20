@@ -5121,6 +5121,10 @@ window._retryCalendar = function() {
     else if (_subtab === 'cb') renderCb(pair, ccys);
   }
   window.loadSymbolView = loadSymbolView;
+  // Le chargeur TradingView est PARTAGÉ (20/08) : le fil d'actualité en a besoin pour le graphique
+  // de réaction. Une seule instance de tv.js pour tout le desk — ensureTv sérialise déjà les
+  // appels concurrents, donc deux vues qui s'ouvrent en même temps ne chargent pas le script deux fois.
+  window.DTP_tv = { charger: ensureTv, symbole: tvSymbol };
 
   // ── Force des Devises de la vue symbole : widget complet (sélecteur de période TD/TW/8H/1D/7D/1M)
   //    focalisé sur la paire (les 2 devises de la paire colorées, les autres masquées/re-cliquables) ──
