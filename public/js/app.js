@@ -2913,28 +2913,45 @@ function buildNewsItem(item) {
     }
 
     if (tab === 'marche') {
-      // Courbe 15 min du marché exposé, publication marquée. Fenêtre : 4 h avant → 8 h après.
-      // L'historique 15 min de la source couvre ~5 jours : au-delà on le DIT, on n'invente pas.
+      // RÉACTION DU MARCHÉ, bougies d'une MINUTE (20/08, demande user : « on doit bien voir
+      // l'APRÈS la bougie de la news, en M1 »). L'ancienne fenêtre — 15 min, 4 h avant / 8 h après —
+      // écrasait toute la réaction dans deux ou trois bougies : on voyait qu'il s'était passé
+      // quelque chose, jamais QUOI. En M1 sur une fenêtre serrée, le mouvement se lit minute par
+      // minute, et la publication est placée au PREMIER TIERS pour laisser la place à la suite.
+      // REPLI EN CASCADE : la source ne garde le 1 min que quelques jours et le 5 min qu'un mois.
+      // Sur une publication ancienne on redescend d'un cran plutôt que d'afficher « indisponible »,
+      // et le graphique DIT toujours quelle unité il montre : une échelle tue est une échelle qui ment.
       expandEl.innerHTML = dtpLoader('Chargement de la réaction…', { small: true });
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (marcheTagEl) marcheTagEl.classList.add('tag--active');
       const t0 = item.timestamp || Date.now();
-      fetch('/api/bank-ohlc?pair=' + encodeURIComponent(_pairActive || item._pair) + '&tf=M15')
-        .then(r => r.json())
-        .then(d => {
-          if (activeTab !== 'marche') return;
-          const all = (d && d.candles) || [];
-          const fen = all.filter(c => c.t >= t0 - 4 * 3600e3 && c.t <= t0 + 8 * 3600e3);
-          const couvre = all.length && all[0].t <= t0;
-          if (!couvre || fen.length < 6) {
-            expandEl.innerHTML = '<div class="iq-note">Réaction indisponible : l\'historique 15 minutes de la source ne couvre plus l\'heure de cette publication.</div>';
-            return;
-          }
-          expandEl.innerHTML = _newsReactSvg(fen, t0, _pairActive || item._pair);
-        })
-        .catch(() => {
-          if (activeTab === 'marche') expandEl.innerHTML = '<div class="iq-note">Réaction indisponible pour le moment.</div>';
-        });
+      const _paire = _pairActive || item._pair;
+      const _PLANS = [
+        { tf: 'M1',  av: 25 * 60e3,   ap: 75 * 60e3,   lbl: '1 min',  min: 10 },
+        { tf: 'M5',  av: 90 * 60e3,   ap: 240 * 60e3,  lbl: '5 min',  min: 8 },
+        { tf: 'M15', av: 4 * 3600e3,  ap: 8 * 3600e3,  lbl: '15 min', min: 6 },
+      ];
+      const _essaie = i => {
+        if (i >= _PLANS.length) {
+          if (activeTab === 'marche') expandEl.innerHTML = '<div class="iq-note">Réaction indisponible : l\'historique de la source ne couvre plus l\'heure de cette publication.</div>';
+          return;
+        }
+        const p = _PLANS[i];
+        fetch('/api/bank-ohlc?pair=' + encodeURIComponent(_paire) + '&tf=' + p.tf)
+          .then(r => r.json())
+          .then(d => {
+            if (activeTab !== 'marche') return;
+            const all = (d && d.candles) || [];
+            const fen = all.filter(c => c.t >= t0 - p.av && c.t <= t0 + p.ap);
+            // Il faut que l'historique REMONTE avant la publication, et qu'il reste assez de
+            // bougies pour que le dessin veuille dire quelque chose.
+            const couvre = all.length && all[0].t <= t0;
+            if (!couvre || fen.length < p.min) { _essaie(i + 1); return; }
+            expandEl.innerHTML = _newsReactSvg(fen, t0, _paire, p.lbl);
+          })
+          .catch(() => { _essaie(i + 1); });
+      };
+      _essaie(0);
       return;
     }
     if (tab === 'impact') {
@@ -8164,16 +8181,20 @@ function _nrxQuand(libelle, ts) {
   return '<div class="nrx-quand">' + libelle + ' à ' + h + '</div>';
 }
 
-function _newsReactSvg(candles, t0, pair) {
+function _newsReactSvg(candles, t0, pair, unite) {
   const W = 640, H = 150, PAD = 6;
   const cs = candles.slice().sort((a, b) => a.t - b.t);
-  const vals = cs.map(c => c.c);
-  let mn = Math.min(...vals), mx = Math.max(...vals);
+  // ⚠️ L'échelle se calcule sur les EXTRÊMES (plus haut / plus bas), pas sur les clôtures. Calée
+  // sur les seules clôtures, toute mèche qui dépassait sortait du cadre et était rognée en
+  // silence : le graphique amputait précisément le pic que la publication venait de provoquer.
+  let mn = Math.min.apply(null, cs.map(c => Math.min(c.l, c.o, c.c)));
+  let mx = Math.max.apply(null, cs.map(c => Math.max(c.h, c.o, c.c)));
   if (mx - mn < 1e-9) { mx += 1e-4; mn -= 1e-4; }
+  const marge = (mx - mn) * 0.08; mn -= marge; mx += marge;   // les extrêmes ne collent pas au bord
   const X = t => PAD + (t - cs[0].t) / (cs[cs.length - 1].t - cs[0].t || 1) * (W - 2 * PAD);
   const Y = v => PAD + (mx - v) / (mx - mn) * (H - 2 * PAD);
   // BOUGIES (référence fournie) : corps vert/rouge + mèches, à la place de la ligne de clôtures.
-  const cw = Math.max(2, Math.min(9, (W - 2 * PAD) / cs.length * 0.62));
+  const cw = Math.max(1.5, Math.min(9, (W - 2 * PAD) / cs.length * 0.62));
   const chandelles = cs.map(c => {
     const x = X(c.t), up = c.c >= c.o;
     const col = up ? '#22c55e' : '#ef4444';
@@ -8198,14 +8219,33 @@ function _newsReactSvg(candles, t0, pair) {
   const ry = Y(nyv);
   const halo = '<circle cx="' + nx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="26" class="nrx-halo"></circle>'
     + '<circle cx="' + nx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="3.2" class="nrx-pt"></circle>';
+  // ÉCHELLE DE PRIX à droite (référence fournie) : sans elle on voit une forme, pas une amplitude.
+  // ⚠️ En HTML et NON en <text> SVG : le graphe est étiré horizontalement
+  // (preserveAspectRatio="none") pour que les bougies occupent toute la largeur quel que soit
+  // l'écran — un texte placé dedans subirait le même étirement et sortirait déformé.
+  // Le dernier prix est encadré, comme sur un terminal : c'est celui que l'œil cherche en premier.
+  const pct = v => (Y(v) / H * 100).toFixed(2);
+  let prix = '';
+  for (let k = 0; k <= 4; k++) {
+    const v = mx - (mx - mn) * k / 4;
+    prix += '<span style="top:' + pct(v) + '%">' + v.toFixed(dec) + '</span>';
+  }
+  const dernier = cs[cs.length - 1].c;
+  const monte = dernier >= cs[ni].c;   // par rapport au prix AU MOMENT de la publication
+  prix += '<b class="' + (monte ? 'est-haut' : 'est-bas') + '" style="top:' + pct(dernier) + '%">' + dernier.toFixed(dec) + '</b>';
   return '<div class="nrx">'
-    + '<div class="nrx-tete"><b>' + pair + '</b><span>réaction · bougies 15 min</span>'
+    + '<div class="nrx-tete"><b>' + pair + '</b><span>réaction · bougies ' + (unite || '15 min') + '</span>'
     + '<span class="nrx-pub">publication ' + hf(t0) + '</span></div>'
+    + '<div class="nrx-zone">'
+    + '<div class="nrx-plot">'
     + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="nrx-svg">'
     + '<line x1="' + nx.toFixed(1) + '" y1="0" x2="' + nx.toFixed(1) + '" y2="' + H + '" class="nrx-mark"></line>'
     + chandelles + halo
     + '</svg>'
     + '<div class="nrx-tmark" style="left:' + (nx / W * 100).toFixed(2) + '%">' + hf(t0) + '</div>'
+    + '</div>'
+    + '<div class="nrx-prix">' + prix + '</div>'
+    + '</div>'
     + '<div class="nrx-axe"><span>' + hf(cs[0].t) + '</span>'
     + '<span>' + mn.toFixed(dec) + ' – ' + mx.toFixed(dec) + '</span>'
     + '<span>' + hf(cs[cs.length - 1].t) + '</span></div></div>';

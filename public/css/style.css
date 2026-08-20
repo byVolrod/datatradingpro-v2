@@ -18381,6 +18381,25 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
 .nrx-pub { margin-left: auto; color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
 .nrx-svg { width: 100%; height: 150px; display: block; background: var(--bg-3, #0f0f12);
   border: 1px solid var(--hud-line, var(--border)); border-radius: 3px; }
+/* Le graphe et son échelle de prix, côte à côte. L'échelle est en HTML (et non en <text> SVG)
+   parce que le graphe est étiré horizontalement : un texte à l'intérieur sortirait déformé. */
+.nrx-zone { display: flex; align-items: stretch; gap: 0; }
+.nrx-plot { position: relative; flex: 1; min-width: 0; }
+.nrx-prix { position: relative; width: 56px; flex: 0 0 56px; font-size: 9.5px;
+  font-variant-numeric: tabular-nums; color: var(--text3, #6b7280); }
+.nrx-prix span, .nrx-prix b { position: absolute; left: 5px; transform: translateY(-50%);
+  white-space: nowrap; line-height: 1; }
+/* Le dernier prix est encadré, comme sur un terminal : c'est celui que l'œil cherche en premier.
+   Sa couleur dit le sens du mouvement DEPUIS la publication, pas depuis l'ouverture. */
+.nrx-prix b { left: 2px; padding: 2px 4px; border-radius: 2px; font-weight: 700; color: #fff; }
+.nrx-prix b.est-haut { background: #22c55e; }
+.nrx-prix b.est-bas  { background: #ef4444; }
+/* Heure de la publication, sous le trait vertical. Elle n'avait AUCUN style : faute de
+   positionnement, son « left: x% » restait sans effet et l'heure tombait sous le graphe, collée
+   à gauche, sans rapport visible avec le trait qu'elle légende. */
+.nrx-tmark { position: absolute; bottom: 3px; transform: translateX(-50%); pointer-events: none;
+  padding: 1px 4px; border-radius: 2px; font-size: 9.5px; font-weight: 700; line-height: 1.3;
+  font-variant-numeric: tabular-nums; color: #0c0c0e; background: var(--orange, #e3b23a); }
 .nrx-ligne { stroke: var(--orange, #e3b23a); stroke-width: 1.6; }
 .nrx-mark { stroke: var(--orange, #e3b23a); stroke-width: 1; stroke-dasharray: 3 3; opacity: .85; }
 .nrx-pt { fill: var(--orange, #e3b23a); }

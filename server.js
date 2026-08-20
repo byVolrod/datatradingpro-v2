@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-reaction-m1', ts: Date.UTC(2026, 7, 21, 2, 0), title: 'Réaction du marché : bougies à la minute, et on voit enfin l après', desc: 'Le graphique qui s ouvre au clic sur la devise d une news importante passe en bougies d une minute, sur une fenêtre serrée autour de la publication. Celle-ci se place au premier quart : les trois quarts restants montrent ce que le marché a fait APRÈS le chiffre, ce qui est précisément la question qu on se pose. Une échelle de prix apparaît à droite, avec le dernier cours encadré en vert ou en rouge selon le sens du mouvement depuis la publication. Sur une news plus ancienne, le graphique redescend automatiquement en 5 puis 15 minutes et annonce toujours l unité qu il affiche. Deux défauts corrigés au passage : les mèches qui dépassaient étaient rognées sans prévenir, donc le pic provoqué par la publication pouvait être amputé ; et l heure de publication s affichait sous le graphique au lieu de légender son trait.' },
   { id: 'dtpu-20260820-tags-drapeaux', ts: Date.UTC(2026, 7, 21, 1, 0), title: 'Les tags portent le drapeau du pays concerné', desc: 'Sur chaque actualité, un tag qui nomme un pays ou une devise affiche désormais son drapeau : une inflation de la zone euro se repère au drapeau européen sans avoir à lire le titre. Sur une publication importante, la devise devient le marché le plus exposé et porte les deux drapeaux de la paire, EURUSD par exemple, sur lequel un clic ouvre le graphique. Les tags de thème comme Données ou Inflation restent sans drapeau : c est ce qui permet au drapeau de vouloir dire quelque chose.' },
   { id: 'dtpu-20260821-analyse-rapide', ts: Date.UTC(2026, 7, 21, 0, 30), title: 'L analyse d une publication arrive en quelques minutes au lieu d une heure', desc: 'Après un chiffre important, le desk attendait une heure entière avant de publier son analyse. Ce délai ne servait qu à laisser les dépêches arriver, ce qu une autre vérification faisait déjà mieux : le desk s abstient tant qu il n a pas assez de matière. L analyse paraît maintenant huit à treize minutes après la publication, quand elle vous est encore utile.' },
   { id: 'dtpu-20260821-fil-briefings', ts: Date.UTC(2026, 7, 21, 0, 0), title: 'Fin des rapports qui réapparaissaient sans raison en tête du fil', desc: 'Certains rapports internes, normalement réservés à l onglet Analystes, se glissaient dans le fil d actualité à chaque reconnexion du terminal, notamment au retour sur l onglet du navigateur. Ils semblaient sortir de nulle part et restaient épinglés en haut. Le filtre qui les écarte existait pour les envois en direct mais manquait à l envoi initial : il est désormais posé sur tous les chemins.' },
@@ -3224,7 +3225,11 @@ const _initialPayload = (admin) => {
    bulle rouge). Le titre reste en anglais : les titres ne sont JAMAIS traduits (règle du desk).
    À RETIRER après validation. */
 function _newsTestAdmin() {
-  const now = Date.now();
+  // ⚠️ ANTIDATÉE de 50 min. Une news de test horodatée à l'instant n'a par construction AUCUNE
+  // bougie APRÈS elle : le graphique de réaction n'aurait rien à montrer, ce qui est précisément
+  // ce qu'on veut valider. 50 min laissent ~50 bougies d'une minute après la publication, tout en
+  // gardant l'item en tête du fil.
+  const now = Date.now() - 50 * 60 * 1000;
   return {
     id: 'dtp-test-tags-eurusd',
     headline: 'Euro Area CPI (Aug YY) 2.4% vs. Exp. 2.2% (Prev. 2.0%); Core CPI 2.7% (Prev. 2.6%)',
@@ -14783,6 +14788,11 @@ app.get('/api/bank-positions', async (_req, res) => {
 // l'agrège nous-mêmes à partir du 60m (4 bougies horaires → 1 bougie H4), en respectant la règle
 // OHLC : open de la première, close de la dernière, high/low sur l'ensemble.
 const _BANK_TF = {
+  // Yahoo borne l'historique par unité : le 1 min ne remonte qu'à quelques jours, le 5 min à un
+  // mois. On demande donc la plage MAXIMALE que la source accepte pour chaque unité, et c'est
+  // l'appelant qui redescend d'un cran quand la fenêtre voulue n'est plus couverte.
+  M1:  { iv: '1m',  rg: '5d',   grp: 0 },
+  M5:  { iv: '5m',  rg: '1mo',  grp: 0 },
   M15: { iv: '15m', rg: '1mo',  grp: 0 },
   H1:  { iv: '60m', rg: '3mo',  grp: 0 },
   H4:  { iv: '60m', rg: '2y',   grp: 4 },   // agrégé depuis le 60m
