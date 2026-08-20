@@ -3400,9 +3400,31 @@ function buildNewsItem(item) {
   // La maturité d'un taux (« 1 Yr », « 10Y ») est un libellé, pas une valeur publiée : sans ce
   // retrait, « PBoC Interest Rate 1 Yr » passerait pour un chiffre à cause de son « 1 ».
   const _SANS_MATURITE = h => String(h || '').replace(/\b\d+\s?(?:Yr|Y|M|Mo)\b/gi, '');
+  // Une PAIRE nommée telle quelle dans le titre : « USD/JPY », « GBP/USD », ou collée « USDJPY ».
+  // On n'accepte que les croisements que le desk sait afficher, c'est-à-dire ceux au dollar.
+  const _PAIRE_EXPLICITE = /\b(USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD)\s*\/\s*(USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD)\b/;
+  const _paireDuTitre = () => {
+    const m = String(item.headline || '').toUpperCase().match(_PAIRE_EXPLICITE);
+    if (!m) return null;
+    const a = m[1], b = m[2];
+    if (a === b) return null;
+    // Le desk n'affiche que les croisements au dollar : la devise à charter est l'AUTRE.
+    if (b === 'USD') return a;
+    if (a === 'USD') return b;
+    return null;   // EUR/GBP, GBP/JPY… : rien à afficher, on ne choisit pas à la place du lecteur
+  };
   const _deviseDeLaNews = () => {
     const tousTags = (item.tags || []).concat([String(item.category || '')]);
     if (tousTags.some(t => _HORS_FX.indexOf(String(t)) >= 0)) return null;
+    // ⚠️ LA PAIRE NOMMÉE DANS LE TITRE EMPORTE TOUT, et passe donc AVANT les filtres de récit.
+    // Les deux cas tranchés par l'utilisateur sont tous deux des récits de prix : « Euro eases from
+    // three-month high… » refusé, « [MARKET UPDATE] USD/JPY dips 17 pips… from 159.05 to 158.88 »
+    // accepté. Ce qui les sépare n'est ni la catégorie ni le verbe : c'est que le second NOMME SA
+    // PAIRE. Le sujet est alors sans ambiguïté et le graphique illustre EXACTEMENT ce dont le titre
+    // parle — c'est le cas où il sert le plus. Les filtres de récit restent faits pour les titres
+    // au sujet flou, et ils continuent de s'appliquer à eux.
+    const _expl = _paireDuTitre();
+    if (_expl) return _expl;
     if (_SUJET_HORS_FX.test(String(item.headline || ''))) return null;
     if (_CAT_RECIT.indexOf(String(item.category || '')) >= 0) return null;
     if (_SUJET_DEVISE.test(String(item.headline || ''))) return null;
@@ -3489,11 +3511,18 @@ function buildNewsItem(item) {
     tagsEl.appendChild(t);
   }
 
-  // TAG DE PAIRE DÉDUIT : posé seulement si les boucles de tags n'en ont pas déjà produit un,
-  // sur une news importante, et quand la devise est identifiée SANS ambiguïté. Il ouvre la
-  // réaction du marché au clic, exactement comme le tag issu d'une devise explicite.
-  if (!_pairePosee && isRed && expandEl && !item._pair) {
-    const _dev = _deviseDeLaNews();
+  // TAG DE PAIRE : posé seulement si les boucles de tags n'en ont pas déjà produit un, et quand la
+  // devise est identifiée SANS ambiguïté. Il ouvre la réaction du marché au clic, exactement comme
+  // le tag issu d'une devise explicite. Deux portes y mènent, et elles n'ont pas le même verrou :
+  // une paire NOMMÉE dans le titre entre toujours, une paire DÉDUITE exige une news majeure.
+  if (!_pairePosee && expandEl && !item._pair) {
+    // ⚠️ LE VERROU « NEWS MAJEURE » GARDE LA DÉDUCTION, PAS UNE PAIRE NOMMÉE.
+    // isRed est là pour qu'on ne DEVINE pas un marché exposé sur une news mineure. Quand le titre
+    // écrit « USD/JPY » noir sur blanc, il n'y a plus rien à deviner : le sujet est déclaré.
+    // Mesure qui tranche : nos propres [MARKET UPDATE] partent en priority:'normal' (server.js),
+    // donc isRed y est faux — garder le verrou pour eux, c'est laisser la référence sans tag.
+    const _nommee = _paireDuTitre();
+    const _dev = (_nommee || isRed) ? _deviseDeLaNews() : null;
     if (_dev && _PAIR_DE_DEVISE[_dev]) {
       const t = document.createElement('span');
       t.className = 'tag tag--default';

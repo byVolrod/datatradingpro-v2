@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-paire-nommee', ts: Date.UTC(2026, 7, 22, 9, 0), title: 'Une actualite qui nomme sa paire ouvre son graphique', desc: 'Quand un titre ecrit lui-meme la paire dont il parle, par exemple « USD/JPY recule de 17 points, de 159,05 a 158,88 », il porte desormais son tag de paire et ouvre son graphique au clic. Ces titres etaient jusqu ici ecartes avec les recits de marche, parce qu ils en ont la tournure. Mais la difference compte : un recit vague sur l euro qui reflue laisse le lecteur deviner de quoi on parle, alors qu un titre qui nomme sa paire et ses niveaux designe exactement ce que le graphique doit montrer. Les recits sans paire nommee restent ecartes, comme avant.' },
   { id: 'dtpu-20260822-poignee-visible', ts: Date.UTC(2026, 7, 22, 8, 0), title: 'La poignee de redimensionnement du graphique se voit', desc: 'Le graphique des transactions bancaires se redimensionnait deja, mais sa poignee etait invisible tant qu on ne la survolait pas — et personne ne survole au hasard la bordure d un panneau. Elle porte desormais un trait visible et une courte barre arrondie en son centre, la marque habituelle de ce qui se tire. Elle est horizontale quand le graphique est sous le tableau, verticale quand il est a cote.' },
   { id: 'dtpu-20260822-reaction-majeures', ts: Date.UTC(2026, 7, 22, 6, 0), title: 'Le bouton Reaction apparait sur toutes les publications majeures', desc: 'Il n apparaissait presque jamais : il attendait qu un detecteur signale un mouvement, or ses seuils sont ceux d un choc — quarante points sur l euro-dollar en huit minutes. Sur dix heures de seance, aucun actif ne les franchissait. Desormais, des que le desk a etabli quel marche est expose par une publication, il mesure la reaction de CE marche, sans seuil : l amplitude devient le contenu du panneau et non sa condition d apparition. Un marche qui ne bouge presque pas apres un chiffre est d ailleurs une information. Le bloc ne montre plus qu une phrase, comme demande, au lieu d un tableau de prix suivi de la meme chose en toutes lettres.' },
   { id: 'dtpu-20260822-remplacer-onglets', ts: Date.UTC(2026, 7, 22, 5, 0), title: 'Remplacer un widget marche aussi dans les panneaux a onglets', desc: 'Le bouton Remplacer etait arrive sur l en-tete des cartes, mais pas dans la barre d un widget place dans un panneau a onglets — alors que c est justement la qu on change le plus souvent de widget. Il y est desormais, et vise l onglet ou la case concernee.' },
@@ -3231,7 +3232,7 @@ const _newsVisible = n => !!n && !isGlobalNewsNoise(n.headline) && (!_isPrimerNe
 // qui compte des éléments jamais servis fait croire au client qu'il reste des pages à charger.
 const _initialPayload = (admin) => {
   const items = allNews.filter(_newsVisible).slice(0, 200);
-  if (admin) items.unshift(_newsExemple());
+  if (admin) items.unshift(..._newsExemples());
   return { type: 'initial', items, total: items.length };
 };
 
@@ -3246,7 +3247,12 @@ const _initialPayload = (admin) => {
    Elle porte de quoi exercer les QUATRE blocs : description (Info), analyse (Analyse), _impact
    (Impact marché), priority 'high' (la devise devient la paire cliquable). Le titre reste en
    anglais : les titres ne sont JAMAIS traduits. À RETIRER après validation. */
-function _newsExemple() {
+// Deux exemples, un par CHEMIN menant au tag de paire, pour que les deux se valident à l'œil :
+//   1. paire DÉDUITE d'une publication majeure (RBA → AUD/USD), verrouillée par « news majeure » ;
+//   2. paire NOMMÉE par le titre (USD/JPY), qui entre SANS ce verrou et reste en priorité normale.
+function _newsExemples() { return [_newsExempleRba(), _newsExempleMarketUpdate()]; }
+
+function _newsExempleRba() {
   const now = Date.now() - 50 * 60 * 1000;
   return {
     id: 'dtp-exemple-rba-audusd',
@@ -3282,12 +3288,45 @@ function _newsExemple() {
   };
 }
 
+// ⚠️ EXEMPLE « PAIRE NOMMÉE » : il reste en priority:'normal' À DESSEIN. C'est précisément ce qui
+// démontre le comportement demandé — un titre qui écrit « USD/JPY » et son mouvement obtient son
+// tag et son graphique sans être classé news majeure, là où une paire DÉDUITE l'exigerait encore.
+// Le format reprend celui de nos [MARKET UPDATE] (server.js, injection Convera).
+function _newsExempleMarketUpdate() {
+  const now = Date.now() - 24 * 60 * 1000;
+  return {
+    id: 'dtp-exemple-mu-usdjpy',
+    headline: '[MARKET UPDATE] USD/JPY dips 17 pips lower in a sharp move before paring back halfway; news flow quiet; dipping from 159.05 to 158.88 before paring to 159.00',
+    // Mêmes budgets que les prompts (200 à 280 caractères par bloc) : l'exemple montre le format visé.
+    description: [
+      'USD/JPY décroche brutalement de 17 points, de 159,05 à 158,88, sans publication pour l' + Q + 'expliquer.',
+      'La paire en efface ensuite la moitié et revient vers 159,00.',
+      'Le flux d' + Q + 'actualité est calme : le mouvement vient du carnet, pas d' + Q + 'une nouvelle.',
+    ].join('\n'),
+    category: 'Market Analysis',
+    source: 'DTP Markets',
+    time: new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+    timestamp: now,
+    priority: 'normal',
+    tags: ['Analysis'],
+    analyse: [
+      'Un décrochage net sans nouvelle derrière signe un mouvement de flux : un ordre de taille absorbé dans un carnet peu garni.',
+      'La reprise de la moitié du chemin le confirme. Un vrai changement d' + Q + 'avis laisse le prix sur ses nouveaux niveaux, il ne le ramène pas.',
+    ],
+    _moves: [
+      // 159,05 → 158,88, soit 0,170 : 17 points sur une paire en yen, où le point vaut 0,01.
+      { label: 'USD/JPY', sym: 'USDJPY=X', refPrice: 159.050, peakPrice: 158.880, move: '-0.170', movePct: '-0.11%', points: 17, dir: 'down', unit: '', minutes: 3 },
+    ],
+    _impact: 'Mouvement de flux, pas de fond : rien n' + Q + 'est réévalué et la moitié est déjà reprise. Le repère utile reste 159,05, le niveau d' + Q + 'avant le décrochage. Tant qu' + Q + 'il tient au-dessus, la séance reste calme sur le yen.',
+  };
+}
+
 app.get('/api/news', (req, res) => {
   // Les rapports DTP (primers/briefings) sont masqués du flux — SAUF le « DTP Daily US Opening News »
   // qui doit apparaître dans l'onglet News (demande utilisateur), déroulé en rapport complet au clic.
   const items = allNews.filter(_newsVisible).slice(0, 200);
   items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
-  if (req.session?.user?.role === 'admin') items.unshift(_newsExemple());   // exemple, admin seul
+  if (req.session?.user?.role === 'admin') items.unshift(..._newsExemples());   // exemples, admin seul
   res.json({ items, total: items.length });
 });
 
