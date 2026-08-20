@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-reaction-retrouvee', ts: Date.UTC(2026, 7, 22, 18, 0), title: 'Le bouton Reaction ne se supprime plus lui-meme', desc: 'Sur une publication majeure, ouvrir Reaction pouvait faire DISPARAITRE le bouton et basculer sur Info. Le panneau ne savait pas quel marche etait expose par cette actualite-la : il le demandait a une variable globale qui n est renseignee que si vous avez d abord clique le tag de la paire, et qui pouvait meme porter la paire d une AUTRE actualite. Faute de marche a mesurer, il retombait sur le detecteur de chocs, ne trouvait rien, et en concluait qu il n y avait pas de reaction a montrer. Le panneau utilise desormais la paire deduite pour cette actualite precise, qui ne peut pas venir d ailleurs.' },
   { id: 'dtpu-20260821-flux-differe', ts: Date.UTC(2026, 7, 22, 17, 0), title: 'Une actualite qui vient de tomber le dit clairement, au lieu d annoncer une fermeture', desc: 'Les cotations gratuites arrivent avec une dizaine de minutes de decalage. Sur une actualite qui vient de tomber, les minutes qui la suivent n existent donc pas encore : le graphique ressemble alors exactement a celui d une actualite publiee marche ferme, alors que le marche est ouvert et que les cotations arrivent. Le desk distingue desormais les deux et le dit dans les mots justes : cotations en cours d arrivee d un cote, marche ferme de l autre. Le message disparait de lui-meme des que les cotations sont la, pour ne pas rester affiche a tort.' },
   { id: 'dtpu-20260821-reaction-lisible', ts: Date.UTC(2026, 7, 22, 16, 0), title: 'Le graphique de reaction devient enfin lisible', desc: 'Il montrait 30 minutes avant la publication et 90 apres, a la minute. Le soir, cet intervalle ne contient que deux points et demi d amplitude : il n y avait litteralement rien a voir, et huit minutes sur dix s y dessinaient en trait plat faute d echange. Ce n etait ni la source ni la qualite des donnees, c etait qu on zoomait sur un intervalle ou le prix ne parcourt rien. Le graphique montre desormais six heures avant et deux heures apres, en bougies de cinq minutes : environ 90 bougies, 30 points d amplitude, et la grande majorite avec un vrai corps. Le contexte d avant est ce qui rend le mouvement d apres lisible. Le cercle rouge marque toujours la minute exacte de la publication.' },
   { id: 'dtpu-20260821-marche-ferme', ts: Date.UTC(2026, 7, 22, 15, 0), title: 'Une actualite tombee marche ferme le dit, au lieu d afficher un cadre vide', desc: 'Le marche des changes ferme une heure par jour et tout le week-end. Une actualite publiee pendant cette coupure n a aucune cotation qui lui corresponde : le graphique affichait alors un cadre noir avec un message d indisponibilite. Il montre desormais la seance qui precede, avec un bandeau qui precise que le marche etait ferme et a quelle heure remonte la derniere cotation. Sans cette mention, le repere se poserait sur la derniere bougie d avant la fermeture et se lirait comme une reaction qui n a pas eu lieu.' },
@@ -3240,7 +3241,6 @@ const _newsVisible = n => !!n && !isGlobalNewsNoise(n.headline) && (!_isPrimerNe
 // qui compte des éléments jamais servis fait croire au client qu'il reste des pages à charger.
 const _initialPayload = (admin) => {
   const items = allNews.filter(_newsVisible).slice(0, 200);
-  if (admin) items.unshift(..._newsExemples());
   return { type: 'initial', items, total: items.length };
 };
 
@@ -3255,83 +3255,11 @@ const _initialPayload = (admin) => {
    Elle porte de quoi exercer les QUATRE blocs : description (Info), analyse (Analyse), _impact
    (Impact marché), priority 'high' (la devise devient la paire cliquable). Le titre reste en
    anglais : les titres ne sont JAMAIS traduits. À RETIRER après validation. */
-// Deux exemples, un par CHEMIN menant au tag de paire, pour que les deux se valident à l'œil :
-//   1. paire DÉDUITE d'une publication majeure (RBA → AUD/USD), verrouillée par « news majeure » ;
-//   2. paire NOMMÉE par le titre (USD/JPY), qui entre SANS ce verrou et reste en priorité normale.
-function _newsExemples() { return [_newsExempleRba(), _newsExempleMarketUpdate()]; }
-
-function _newsExempleRba() {
-  const now = Date.now() - 50 * 60 * 1000;
-  return {
-    id: 'dtp-exemple-rba-audusd',
-    headline: 'RBA keeps the Cash rate unchanged at 4.35%, as expected, while it stated that inflation is still elevated and risks are skewed to the upside, but noted financial conditions appear somewhat restrictive and trims CPI forecasts',
-    // Les quatre blocs de l'exemple tiennent le MÊME budget que celui imposé aux prompts
-    // (200 à 280 caractères) : il sert de démonstration du format visé.
-    description: [
-      'La Banque de Réserve d\'Australie laisse son taux à 4,35 %, comme attendu et à l\'unanimité.',
-      'Elle juge l\'inflation encore élevée, avec des risques orientés à la hausse.',
-      'Elle note cependant des conditions financières un peu restrictives et abaisse ses prévisions d\'inflation.',
-    ].join('\n'),
-    category: 'Australian Data',
-    source: 'DTP Markets',
-    time: new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
-    timestamp: now,
-    priority: 'high',
-    tags: ['Inflation', 'Rates', 'RBA'],
-    analyse: [
-      'Taux inchangé et attendu : ce n\'est pas la décision qui fait le prix, mais le ton du communiqué.',
-      'Le fond reste ferme, mais deux inflexions l\'adoucissent : conditions financières jugées restrictives et prévisions d\'inflation abaissées. Un maintien moins ferme que le précédent.',
-    ],
-    // ⚠️ AUCUN champ _moves : l'exemple NE DICTE PAS sa réaction, il la fait MESURER comme une
-    // vraie news. Il en portait un (AUD/USD 0,7060 → 0,7040, -0,28 %) hérité de l'époque où seul
-    // /api/market-moves alimentait le panneau, avec des seuils de choc qui le laissaient vide.
-    // Résultat visible en production : le graphique traçait de vraies bougies autour de 0,7110
-    // pendant que la Réaction annonçait une chute de 0,28 % depuis 0,7060. Le texte et le tracé
-    // racontaient deux marchés différents, sur la même carte. Depuis, _mouvementPaire lit la paire
-    // exposée sur LES MÊMES bougies que le graphique et sans seuil : les deux ne peuvent plus
-    // diverger, et une séance calme donne « quasi inchangé », qui est une information.
-    _impact: 'Le maintien était déjà intégré : l\'écart au consensus se joue sur le communiqué, et il penche légèrement du côté accommodant. À surveiller sur AUD/USD et sur les taux australiens à 2 ans, les plus sensibles aux anticipations.',
-  };
-}
-
-// ⚠️ EXEMPLE « PAIRE NOMMÉE » : il reste en priority:'normal' À DESSEIN. C'est précisément ce qui
-// démontre le comportement demandé — un titre qui écrit « USD/JPY » et son mouvement obtient son
-// tag et son graphique sans être classé news majeure, là où une paire DÉDUITE l'exigerait encore.
-// Le format reprend celui de nos [MARKET UPDATE] (server.js, injection Convera).
-function _newsExempleMarketUpdate() {
-  const now = Date.now() - 24 * 60 * 1000;
-  return {
-    id: 'dtp-exemple-mu-usdjpy',
-    headline: '[MARKET UPDATE] USD/JPY dips 17 pips lower in a sharp move before paring back halfway; news flow quiet; dipping from 159.05 to 158.88 before paring to 159.00',
-    // Mêmes budgets que les prompts (200 à 280 caractères par bloc) : l'exemple montre le format visé.
-    description: [
-      'USD/JPY décroche brutalement de 17 points, de 159,05 à 158,88, sans publication pour l\'expliquer.',
-      'La paire en efface ensuite la moitié et revient vers 159,00.',
-      'Le flux d\'actualité est calme : le mouvement vient du carnet, pas d\'une nouvelle.',
-    ].join('\n'),
-    category: 'Market Analysis',
-    source: 'DTP Markets',
-    time: new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
-    timestamp: now,
-    priority: 'normal',
-    tags: ['Analysis'],
-    analyse: [
-      'Un décrochage net sans nouvelle derrière signe un mouvement de flux : un ordre de taille absorbé dans un carnet peu garni.',
-      'La reprise de la moitié du chemin le confirme. Un vrai changement d\'avis laisse le prix sur ses nouveaux niveaux, il ne le ramène pas.',
-    ],
-    // Pas de _moves ici non plus : les 17 points du titre sont ceux de la RÉFÉRENCE, pas ceux du
-    // marché à l'heure où vous ouvrez la news. Les imposer ferait mentir le graphique juste en
-    // dessous, qui lui montre le vrai. La Réaction se mesure donc sur les mêmes bougies que lui.
-    _impact: 'Mouvement de flux, pas de fond : rien n\'est réévalué et la moitié est déjà reprise. Le repère utile reste 159,05, le niveau d\'avant le décrochage. Tant qu\'il tient au-dessus, la séance reste calme sur le yen.',
-  };
-}
-
 app.get('/api/news', (req, res) => {
   // Les rapports DTP (primers/briefings) sont masqués du flux — SAUF le « DTP Daily US Opening News »
   // qui doit apparaître dans l'onglet News (demande utilisateur), déroulé en rapport complet au clic.
   const items = allNews.filter(_newsVisible).slice(0, 200);
   items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
-  if (req.session?.user?.role === 'admin') items.unshift(..._newsExemples());   // exemples, admin seul
   res.json({ items, total: items.length });
 });
 

@@ -2756,6 +2756,12 @@ function buildNewsItem(item) {
   let infoTagEl     = null;
   let analysisTagEl = null;
   let reactionTagEl = null;
+  // ⚠️ DÉCLARÉE ICI, EN TÊTE, ET PAS À L'ENDROIT OÙ ELLE EST REMPLIE (600 lignes plus bas).
+  // openPanel() la lit pour savoir quel marché mesurer ; un `let` reste en zone morte temporelle
+  // jusqu'à sa ligne de déclaration, donc tout appel de openPanel() qui surviendrait avant elle
+  // lèverait une ReferenceError. Aujourd'hui aucun ne le fait, mais cela tient au hasard de
+  // l'ordre du code, pas à une garantie : la déclarer en tête supprime la question.
+  let _paireExposee = null;   // paire déduite pour CETTE news (jamais celle d'une autre)
   let impactTagEl   = null;   // 4e pill « Impact » (section Impact marché des analyses d'événement)
   let marcheTagEl   = null;   // pill du MARCHÉ exposé (item._pair) : ouvre le graphique de réaction
   // Paire à tracer, posée au CLIC : une analyse d'événement porte _pair, une news de données
@@ -3018,7 +3024,18 @@ function buildNewsItem(item) {
             expandEl.classList.remove('visible');
             if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
           }
-      }, _pairActive || item._pair);   // idem : la paire exposee rend ses mouvements pertinents
+      // ⚠️ LA PAIRE DE CETTE NEWS-CI, PAS CELLE QU'ON A CLIQUÉE AILLEURS. On passait
+      // « _pairActive || item._pair » : _pairActive est une variable GLOBALE, renseignée seulement
+      // quand on clique un tag de paire, et appartenant alors à la news cliquée. Deux conséquences,
+      // toutes deux constatées :
+      //  1. ouvrir « Réaction » sans avoir cliqué la paire ne transmettait AUCUNE paire → on
+      //     retombait sur le détecteur de chocs, dont les seuils ne sont jamais franchis en séance
+      //     ordinaire → zéro mouvement → le tag Réaction SE SUPPRIMAIT LUI-MÊME et le panneau
+      //     basculait sur Info. C'est le tag disparu sur la publication RBA.
+      //  2. après avoir cliqué la paire d'une news, ouvrir « Réaction » sur une AUTRE news mesurait
+      //     encore la paire de la première.
+      // _paireExposee est déduite pour CETTE news et ne peut pas fuir vers une autre.
+      }, _paireExposee || item._pair || _pairActive);
       return;
     }
 
@@ -3074,7 +3091,11 @@ function buildNewsItem(item) {
       //     depuis nos propres fichiers) : même rendu, aucune barre d'outils, et surtout
       //     timeToCoordinate() qui donne la position exacte de la minute du chiffre.
       const t0 = item.timestamp || Date.now();
-      const _paire = _pairActive || item._pair;
+      // Même ordre que le panneau Réaction, et pour la même raison : _pairActive est GLOBALE et
+      // porte la dernière paire cliquée, quelle que soit la news. Ici elle est presque toujours
+      // juste (on arrive par un clic sur le tag), mais s'appuyer sur une variable qui peut venir
+      // d'ailleurs est un piège qui n'attend que le prochain point d'entrée.
+      const _paire = _paireExposee || item._pair || _pairActive;
       if (!_paire) { expandEl.innerHTML = '<div class="iq-note">Marché exposé introuvable pour cette publication.</div>'; expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); return; }
       if (marcheTagEl) marcheTagEl.classList.add('tag--active');
       // ⚠️ PLEINE LARGEUR. .news-description ré-indente son contenu de ~248 px pour l'aligner sous le
@@ -3534,7 +3555,7 @@ function buildNewsItem(item) {
     }
     return vues.size === 1 ? Array.from(vues)[0] : null;
   };
-  let _pairePosee = false, _pairEl = null, _paireExposee = null;
+  let _pairePosee = false, _pairEl = null;   // _paireExposee est déclarée en tête de buildNewsItem
   // ⚠️ « forcee » N'EST PAS UN CONFORT, C'EST LE CORRECTIF D'UN DÉFAUT BLOQUANT. Le verrou
   // « news majeure » avait été retiré du garde qui APPELLE cette fonction, mais pas d'ICI, où le
   // tag est réellement posé : la voie « paire nommée » se rouvrait donc pour se refermer aussitôt,
