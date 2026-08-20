@@ -1712,42 +1712,6 @@
 </section>
 
 <!-- PRICING -->
-<section class="blk" id="nouveautes" style="display:none;background:var(--bg2);border-top:1px solid var(--line)">
-  <div class="wrap">
-    <div class="sec-eye">Le terminal évolue chaque semaine</div>
-    <h2 class="sec-t">Dernières nouveautés du desk</h2>
-    <p class="sec-s">Cette section se met à jour automatiquement : ce que les abonnés voient arriver dans le terminal, sans filtre marketing.</p>
-    <div id="nvx-liste" style="display:grid;gap:14px;max-width:860px;margin:26px auto 0"></div>
-  </div>
-</section>
-<script>
-(function(){
-  /* Nouveautés LIVE depuis le desk (même recette que le fil hero) : la vitrine reste à jour à
-     chaque évolution du terminal, sans redéploiement de la landing. Section masquée si l'appel
-     échoue : jamais de cadre vide. */
-  function esc(s){var d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML;}
-  fetch('https://desk.datatradingpro.com/api/updates-public',{cache:'no-store'})
-    .then(function(r){return r.ok?r.json():null;})
-    .then(function(d){
-      var items=(d&&d.items)||[];
-      if(!items.length)return;
-      var box=document.getElementById('nvx-liste');
-      var sec=document.getElementById('nouveautes');
-      if(!box||!sec)return;
-      box.innerHTML=items.map(function(u){
-        var dt='';
-        try{dt=new Date(u.ts).toLocaleDateString('fr-FR',{day:'numeric',month:'long'});}catch(e){}
-        return '<article style="border:1px solid var(--line);border-radius:10px;padding:16px 18px;background:var(--bg)">'
-          +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">'
-          +'<h3 style="font-size:15px;margin:0;color:var(--text)">'+esc(u.t)+'</h3>'
-          +'<span style="font-size:12px;color:var(--text2)">'+esc(dt)+'</span></div>'
-          +'<p style="font-size:13.5px;line-height:1.55;color:var(--text2);margin:8px 0 0">'+esc(u.d)+'</p>'
-          +'</article>';
-      }).join('');
-      sec.style.display='';
-    }).catch(function(){});
-})();
-</script>
 <section class="blk" id="tarifs" style="background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
   <div class="wrap">
     <div class="sec-eye">Tarifs</div>

@@ -4786,7 +4786,12 @@ function _sbRenderMacroTable(cur, macro) {
   const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
   // Chaque cellule = conteneur flex → alignement vertical régulier même quand il y a 1 ou 2 tags (demande user « aligne bien »).
   const cell = html => `<td><div class="mt-cell-tags">${html || '<span class="mt-empty">-</span>'}</div></td>`;
-  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
+  // PORTAGE = 5e catégorie affichée (20/08, demande user « le biais doit prendre en compte le
+  // différentiel de taux ET afficher la catégorie »). La grandeur entre DÉJÀ dans le score depuis
+  // le 03/08 (pilier monétaire v41) puis en courbe graduée le 14/08 (v47) : cette colonne ne
+  // recalcule rien, elle REND VISIBLE ce qui pesait en coulisse. Placée juste après la politique
+  // monétaire, dont elle est une composante.
+  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Portage</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
   const body = cur.map(c => {
     const m = macro[c] || {};
     const mp = m.monetary || {}, inf = m.inflation || {};
@@ -4825,7 +4830,7 @@ function _sbRenderMacroTable(cur, macro) {
     // Ligne CLIQUABLE → ouvre le panneau de détail macro (demande user « j'veux un ouvrir comme ceci puis les infos s'affichent »).
     return `<tr class="mt-row${active}" data-cur="${esc(c)}" onclick="_sbOpenDetail('${esc(c)}')" title="Voir le détail macro de ${esc(c)}">
       <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
-      ${cell(monCell)}${cell(infCell)}${cell(gr)}${cell(em)}
+      ${cell(monCell)}<td class="mt-cell mt-portage" data-portage="${esc(c)}"><div class="mt-cell-tags">${_sbPortageCell(c)}</div></td>${cell(infCell)}${cell(gr)}${cell(em)}
       <td class="mt-drv-cell"><div class="mt-cell-tags">${drv || '<span class="mt-empty">-</span>'}</div></td>
       ${cell(bi)}
       <td class="mt-x"><span class="mt-chevron">›</span></td></tr>`;
@@ -4956,7 +4961,16 @@ function _sbOpenDetail(curr, opts) {
       <div class="mdet-grid">${cards}</div>
     </div>`;
   if (host) host.classList.add('has-detail');
-  if (zone) { zone.classList.remove('sbm-matrix-zone--full'); zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, Math.round(host.clientHeight * 0.46))) + 'px'; }
+  if (zone) {
+    zone.classList.remove('sbm-matrix-zone--full');
+    // ⚠️ La hauteur se calcule sur la place RÉELLEMENT libre : le bandeau des taux est rempli en
+    // ASYNCHRONE (il mesure 0 quand ce calcul tombe) et n'était donc pas déduit : la matrice
+    // réclamait 46 % du panneau ENTIER, bandeau compris, et débordait par-dessous — le
+    // chevauchement constaté sur mobile.
+    const _bandeau = document.getElementById('sbm-rates');
+    const _libre = Math.max(120, host.clientHeight - (_bandeau ? _bandeau.offsetHeight : 0));
+    zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, Math.round(_libre * 0.46))) + 'px';
+  }
   if (!ext) _sbRenderHeadDd(curr);   // synchronise le dropdown « Scanner » de l'en-tête sur la devise active
   if (!ext) requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
@@ -4979,12 +4993,46 @@ window._sbCloseDetail = _sbCloseDetail;
 // (exclusion-de-soi, comme le modèle). Source unique /api/rates (celle de l'onglet TAUX) : aucun
 // second calcul, aucune divergence possible entre l'affichage et le score.
 const _SBR_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz' };
+// Taux directeurs mémorisés à l'arrivée : le bandeau ET la colonne Portage lisent LA MÊME source
+// (/api/rates, celle de l'onglet TAUX). Une seule définition du différentiel = aucune divergence
+// possible entre ce qui s'affiche en haut et ce qui s'affiche dans le tableau.
+let _sbTaux = null;
+// Écart à la moyenne des AUTRES banques (exclusion-de-soi) : la définition exacte du modèle.
+function _sbEcart(code) {
+  if (!_sbTaux || typeof _sbTaux[code] !== 'number') return null;
+  const codes = Object.keys(_sbTaux).filter(k => k !== code);
+  if (!codes.length) return null;
+  const moy = codes.reduce((a, k) => a + _sbTaux[k], 0) / codes.length;
+  return _sbTaux[code] - moy;
+}
+// Catégorie affichée. Les bornes ±0,75 pt sont celles SOUS LESQUELLES la courbe en S du modèle
+// (v47) ne donne aucun effet : le libellé dit donc exactement ce que le score fait.
+function _sbPortageCell(code) {
+  const d = _sbEcart(code);
+  if (d == null) return '<span class="mt-empty">-</span>';
+  const cls = d >= 0.75 ? 'mt-t-ok' : d <= -0.75 ? 'mt-t-bad' : 'mt-t-mid';
+  const lbl = d >= 0.75 ? 'Favorable' : d <= -0.75 ? 'Défavorable' : 'Neutre';
+  const txt = (d >= 0 ? '+' : '') + d.toFixed(2).replace('.', ',');
+  return '<span class="mt-tag ' + cls + '" title="Taux ' + _sbTaux[code].toFixed(2).replace('.', ',')
+    + ' %, soit ' + txt + ' pt vs la moyenne des 7 autres banques. Au-delà de ±0,75 pt, le portage pèse sur le biais.">'
+    + lbl + ' ' + txt + '</span>';
+}
+// Remplit les cellules déjà rendues (le tableau sort avant la réponse de /api/rates).
+function _sbPortageFill() {
+  document.querySelectorAll('[data-portage]').forEach(td => {
+    const z = td.querySelector('.mt-cell-tags');
+    if (z) z.innerHTML = _sbPortageCell(td.getAttribute('data-portage'));
+  });
+}
+
 function _sbRatesStrip() {
   const slot = document.getElementById('sbm-rates');
   if (!slot) return;
   fetch('/api/rates').then(r => r.json()).then(d => {
     const banks = ((d && d.banks) || []).filter(b => b && b.code && typeof b.rate === 'number');
     if (banks.length < 4) { slot.innerHTML = ''; return; }
+    _sbTaux = {}; banks.forEach(b => { _sbTaux[b.code] = b.rate; });
+    _sbPortageFill();   // le tableau est déjà rendu : on remplit sa colonne Portage
     const rows = banks.slice().sort((a, b) => b.rate - a.rate);
     const html = rows.map(b => {
       // Écart à la moyenne des 7 AUTRES (exclusion-de-soi) : la définition exacte du modèle.

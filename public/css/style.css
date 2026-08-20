@@ -18452,3 +18452,22 @@ html[data-theme="light"] .nrx-pt { fill: #c73000; }
 .tag--marche:hover, .tag--marche.tag--active { background: rgba(227, 178, 58, .12); color: var(--orange, #e3b23a); }
 html[data-theme="light"] .tag--marche { border-color: rgba(129, 101, 33, .5); }
 html[data-theme="light"] .tag--marche:hover, html[data-theme="light"] .tag--marche.tag--active { background: rgba(129, 101, 33, .1); color: #816521; }
+
+/* ═══ RADAR DE BIAIS : colonne PORTAGE (différentiel de taux) ═══════════════════════════════════
+   Charte : favorable = vert (le portage joue POUR la devise), défavorable = rouge, neutre = ambre
+   discret. Mêmes teintes que les autres catégories de la matrice, pour qu'une ligne se lise d'un
+   seul balayage. */
+.mt-tag.mt-t-ok  { color: #00e676; border-color: rgba(0, 230, 118, .35); background: rgba(0, 230, 118, .09); }
+.mt-tag.mt-t-bad { color: #ff3d00; border-color: rgba(255, 61, 0, .35); background: rgba(255, 61, 0, .09); }
+.mt-tag.mt-t-mid { color: var(--text3, #6b7280); border-color: var(--hud-line, var(--border)); background: transparent; }
+html[data-theme="light"] .mt-tag.mt-t-ok  { color: #00783d; border-color: rgba(0, 120, 61, .4); background: rgba(0, 230, 118, .1); }
+html[data-theme="light"] .mt-tag.mt-t-bad { color: #c73000; border-color: rgba(199, 48, 0, .4); background: rgba(255, 61, 0, .09); }
+/* Bandeau des taux : UNE ligne défilable sur écran étroit. En plusieurs lignes il gonflait la tête
+   du panneau et poussait le tableau hors de sa zone (chevauchement constaté sur mobile). */
+.sbm-rates { flex: 0 0 auto; }
+@media (max-width: 900px) {
+  .sbm-rates { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sbm-rates::-webkit-scrollbar { display: none; }
+  .sbm-rate { flex: 0 0 auto; }
+  .sbm-rates-note { display: none; }   /* la note explicative cède la place au doigt */
+}
