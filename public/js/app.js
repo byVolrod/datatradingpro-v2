@@ -3142,8 +3142,71 @@ function buildNewsItem(item) {
   // devise ordinaires (« US », « EUR ») ne distinguerait plus rien et cesserait d'être un signal.
   // ⚠️ Images et non émojis : Windows ne fournit AUCUN glyphe de drapeau de pays.
   const _drapImg = iso => '<img class="tag-flag" src="https://flagcdn.com/w20/' + iso + '.png" width="13" height="10" alt="" loading="lazy">';
+  // ── DE QUELLE DEVISE PARLE CETTE NEWS ? ────────────────────────────────────────────────────
+  // Mesuré en production le 20/08 : sur 219 news importantes du magasin, ZÉRO ne porte un tag
+  // devise (« GBP »). Les tags réels sont « Fed, Rates, Data », « BoJ, UK, Japan, FX », et la
+  // catégorie « UK Data ». Le tag de paire, qui exigeait un tag devise, ne pouvait donc JAMAIS
+  // apparaître sur une vraie news — seulement sur un item fabriqué pour le tester. On déduit
+  // désormais la devise de ce qui existe vraiment, par ordre de fiabilité décroissante.
+  const _DEV_BANQUE = { Fed: 'USD', FOMC: 'USD', ECB: 'EUR', BCE: 'EUR', BoE: 'GBP', BoJ: 'JPY',
+    SNB: 'CHF', BoC: 'CAD', RBA: 'AUD', RBNZ: 'NZD' };
+  const _DEV_PAYS = { US: 'USD', USA: 'USD', 'United States': 'USD', EU: 'EUR', Eurozone: 'EUR',
+    'Euro Area': 'EUR', Germany: 'EUR', UK: 'GBP', Britain: 'GBP', JP: 'JPY', Japan: 'JPY',
+    CH: 'CHF', Switzerland: 'CHF', Swiss: 'CHF', CA: 'CAD', Canada: 'CAD', Canadian: 'CAD',
+    AU: 'AUD', Australia: 'AUD', Australian: 'AUD', NZ: 'NZD', 'New Zealand': 'NZD' };
+  // Sujets dont le marché exposé n'est PAS une paire de devises. Mesuré sur 120 news importantes
+  // réelles : sans ce filtre, « South Korea defense minister… » et « Trump is squeezing Iran's oil
+  // sales » recevaient un tag EUR/USD, à cause du seul tag « US ». Un tag faux est pire que pas de
+  // tag : il envoie lire une réaction qui n'a aucun rapport avec la news.
+  const _HORS_FX = ['Geopolitical', 'Metals', 'Gold', 'Silver', 'Crypto', 'Energy & Power', 'Energy',
+    'Equities', 'Commodities', 'Oil'];
+  // Comment chaque devise se NOMME dans un titre. Le titre est plus fiable que les tags : il dit
+  // « Euro », « Canadian Dollar », « Yen », là où les tags se contentent d'un pays.
+  const _MOTS_DEV = [
+    ['CAD', /\b(canadian dollar|loonie|\bCAD\b|canadian|canada)\b/i],
+    ['AUD', /\b(australian dollar|aussie|\bAUD\b|australian|australia)\b/i],
+    ['NZD', /\b(new zealand dollar|kiwi|\bNZD\b|new zealand)\b/i],
+    ['JPY', /\b(yen|\bJPY\b|japanese|japan)\b/i],
+    ['GBP', /\b(pound|sterling|\bGBP\b|british|britain|\bUK\b)\b/i],
+    ['CHF', /\b(franc|\bCHF\b|swiss|switzerland)\b/i],
+    ['EUR', /\b(euro|\bEUR\b|eurozone|euro area|german|germany|dutch|netherlands|french|france|italian|italy|spanish|spain)\b/i],
+    ['USD', /\b(us dollar|u\.s\. dollar|\bUSD\b|greenback|dollar index|\bDXY\b)\b/i],
+  ];
+  // Le SUJET du titre, quand les tags mentent. Mesuré : « Gold remains depressed below $4,500 amid
+  // hawkish Fed » n'est taggé que « Fed » — aucun tag « Gold » — et recevait donc un EUR/USD. Une
+  // matière première en tête de titre est le sujet de la news, quel que soit son étiquetage. On
+  // tolère UN mot devant (« India Gold price today ») sans attraper « Canadian Dollar gains on
+  // higher oil prices », où la matière première n'est qu'une cause citée en fin de phrase.
+  const _SUJET_HORS_FX = /^\s*(?:[\w'’.]+\s+)?(gold|silver|bitcoin|ethereum|crypto|crude|brent|wti|oil|copper|platinum|palladium)\b/i;
+  const _deviseDeLaNews = () => {
+    const tousTags = (item.tags || []).concat([String(item.category || '')]);
+    if (tousTags.some(t => _HORS_FX.indexOf(String(t)) >= 0)) return null;
+    if (_SUJET_HORS_FX.test(String(item.headline || ''))) return null;
+    // 1) LE TITRE D'ABORD. Une seule devise nommée : c'est elle. Deux devises dont le dollar :
+    //    c'est le croisement au dollar, et donc la paire que le desk sait afficher — « Canadian
+    //    Dollar gains on weaker US Dollar » donne USD/CAD, pas EUR/USD.
+    const hl = String(item.headline || '');
+    const dansTitre = _MOTS_DEV.filter(m => m[1].test(hl)).map(m => m[0]);
+    if (dansTitre.length === 1) return dansTitre[0];
+    if (dansTitre.length === 2 && dansTitre.indexOf('USD') >= 0) return dansTitre.find(d => d !== 'USD');
+    // Trois devises ou plus, ou deux sans le dollar (EUR contre CAD) : le desk ne sait pas afficher
+    // ce croisement, et choisir pour le lecteur serait présenter un arbitrage comme un fait.
+    if (dansTitre.length >= 2) return null;
+    // 2) À DÉFAUT, les tags — mais seulement sur une vraie publication ou une décision de banque
+    //    centrale, jamais sur un commentaire de marché où le tag pays ne désigne qu'un décor.
+    const estEvenement = tousTags.some(t => /Data$/i.test(String(t)) || String(t) === 'Data' || _DEV_BANQUE[t]);
+    if (!estEvenement) return null;
+    const vues = new Set();
+    for (const t of tousTags.concat([String(item.category || '').replace(/\s+Data$/i, '')])) {
+      const d = _SBR_ISO[t] ? t : (_DEV_BANQUE[t] || _DEV_PAYS[t] || null);
+      if (d) vues.add(d);
+    }
+    return vues.size === 1 ? Array.from(vues)[0] : null;
+  };
+  let _pairePosee = false;
   const _marcheDepuisTag = (t, tag) => {
     if (!_PAIR_DE_DEVISE[tag] || !isRed || !expandEl || item._pair) return;
+    _pairePosee = true;
     const paire = _PAIR_DE_DEVISE[tag];
     t.style.cursor = 'pointer';
     t.classList.add('tag--marche', 'tag--pays');   // tag--pays : espacement du drapeau (voir style.css)
@@ -3178,6 +3241,20 @@ function buildNewsItem(item) {
     t.textContent = NEWS_TAG_FR[tag] || tag;
     _marcheDepuisTag(t, tag);   // news importante → devient la paire cliquable (2 drapeaux)
     tagsEl.appendChild(t);
+  }
+
+  // TAG DE PAIRE DÉDUIT : posé seulement si les boucles de tags n'en ont pas déjà produit un,
+  // sur une news importante, et quand la devise est identifiée SANS ambiguïté. Il ouvre la
+  // réaction du marché au clic, exactement comme le tag issu d'une devise explicite.
+  if (!_pairePosee && isRed && expandEl && !item._pair) {
+    const _dev = _deviseDeLaNews();
+    if (_dev && _PAIR_DE_DEVISE[_dev]) {
+      const t = document.createElement('span');
+      t.className = 'tag tag--default';
+      t.dataset.cat = _dev;
+      _marcheDepuisTag(t, _dev);
+      if (_pairePosee) tagsEl.appendChild(t);
+    }
   }
 
   // ── Badge Rumour : info non confirmée / bruit de marché ──────────────────────
