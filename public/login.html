@@ -183,6 +183,10 @@
     .lp-dl-btn svg { width: 17px; height: 17px; color: var(--text2); flex: 0 0 auto; }
     .lp-dl-k { display: block; font-size: 10.5px; color: var(--text3); line-height: 1.25; }
     .lp-dl-v { display: block; font-size: 13px; color: var(--text); font-weight: 600; line-height: 1.25; }
+    .lp-foot { margin-top: 22px; text-align: center; }
+    .lp-foot-brand { font-family: var(--font-title, var(--font)); font-size: 15px; font-weight: 700; color: var(--text2); letter-spacing: -0.01em; }
+    .lp-foot-brand b { color: var(--gold); font-weight: 700; }
+    .lp-foot-legal { margin-top: 5px; font-size: 10.5px; line-height: 1.45; color: var(--text3); }
     .lp-dl-intel { margin-top: 9px; text-align: center; font-size: 11px; color: var(--text3); }
     .lp-dl-intel a { color: var(--gold); text-decoration: none; font-weight: 600; }
     .lp-dl-intel a:hover { text-decoration: underline; }
@@ -258,23 +262,43 @@
 
     /* ── Responsive ── */
     @media (max-width: 900px) {
-      html, body { overflow: auto; }
-      .lp-layout { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
-      .lp-left  { order: -1; flex: none; height: 30vh; min-height: 200px; border-left: none; border-bottom: 1px solid var(--line2); }
-      .lp-right { flex: none; padding: 38px 26px; }
-      .lp-left-card { padding: 14px 20px; }
-      .lp-tagline-1 { font-size: 21px; }
-      .lp-title { font-size: 32px; }
+      /* ⚠️ RELÂCHER LA HAUTEUR FIXE, PAS SEULEMENT L'OVERFLOW. html et body sont à
+         « height: 100% ; overflow: hidden » ; cette media query remettait overflow:auto SANS
+         toucher la hauteur. Conséquence mesurée à 375x812 : la page défilait À L'INTÉRIEUR DU
+         BODY et non dans le document, qui annonçait scrollHeight = 812, c'est-à-dire « rien à
+         faire défiler » — alors que le contenu descendait jusqu'à 874. Les boutons de
+         téléchargement étaient coupés et le lien Mac Intel purement inatteignable.
+         C'est le pire cas : un contenu qui n'est ni visible, ni accessible au doigt. */
+      html, body { height: auto; min-height: 100%; overflow: visible; overflow-x: hidden; }
+      /* 100dvh et non 100vh : sur mobile la barre d'adresse fait varier vh et la page saute. */
+      .lp-layout { flex-direction: column; height: auto; min-height: 100dvh; overflow: visible; }
+      /* LA MOSAÏQUE DISPARAÎT SUR MOBILE. Elle occupait 195 px, soit 24 % de l'écran, et c'est
+         elle qui repoussait les téléchargements hors de vue. Sur un petit écran, l'écran de
+         connexion doit montrer ce qui SERT : le formulaire, la langue, les téléchargements et
+         de quoi nous joindre. Elle reste entière dès 901 px de large. */
+      .lp-left { display: none; }
+      .lp-right { flex: 1 1 auto; padding: 32px 24px; overflow: visible; }
+      .lp-title { font-size: 30px; }
     }
     @media (max-width: 480px) {
-      .lp-left { height: 24vh; min-height: 160px; }
-      .lp-right { padding: 30px 20px; }
-      .lp-title { font-size: 28px; }
-      .lp-dl-row { flex-direction: column; }
-      .lp-left-card { display: none; }
+      .lp-right { padding: 22px 18px; }
+      .lp-card { max-width: 100%; }
+      .lp-title { font-size: 26px; }
+      .lp-subtitle { margin-bottom: 18px; }
+      .lp-contact { margin-bottom: 16px; }
+      .lp-divider { margin-bottom: 14px; }
+      .lp-lang-row { margin-bottom: 12px; }
+      .lp-foot { margin-top: 16px; }
+      /* ⚠️ LES DEUX BOUTONS RESTENT CÔTE À CÔTE. Les empiler (l'ancienne règle) ajoutait ~60 px
+         et rejetait de nouveau le pied de page hors de l'écran : c'était fabriquer, plus bas,
+         exactement le défaut qu'on corrige plus haut. À deux ils tiennent, le libellé se plie. */
+      .lp-dl-row { flex-direction: row; gap: 8px; }
+      .lp-dl-btn { padding: 10px 8px; gap: 7px; }
+      .lp-dl-k { font-size: 9.5px; }
+      .lp-dl-v { font-size: 12px; }
     }
   </style>
-  <script src="/js/noinspect.js?v=20260821bbg807"></script>
+  <script src="/js/noinspect.js?v=20260821bbg808"></script>
 </head>
 <body>
 
@@ -331,6 +355,10 @@
 
       </form>
 
+      <!-- ⚠️ .lp-contact ÉTAIT DÉJÀ STYLÉE (voir plus haut) MAIS AUCUN BALISAGE NE L'UTILISAIT :
+           la ligne avait été prévue puis jamais posée. Quelqu'un qui n'arrive pas à se connecter
+           n'avait donc aucun moyen de nous joindre depuis l'écran où il est bloqué. -->
+      <div class="lp-contact" data-i18n-html="loginContact">Une question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contactez-nous</a></div>
 
       <div class="lp-divider"></div>
 
@@ -354,6 +382,14 @@
       </div>
       <div class="lp-dl-intel" data-i18n-html="dlIntel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a></div>
       <!-- (Note « premier lancement macOS » retirée : demande user 03/08.) -->
+
+      <!-- PIED DE PAGE : la marque et la mention légale closent l'écran. Sur mobile, la mosaïque
+           d'images est masquée (voir la media query) : sans ce pied, la page se terminait sur un
+           lien de téléchargement, sans rien qui signe la page. -->
+      <div class="lp-foot">
+        <div class="lp-foot-brand">Data<b>TradingPro</b></div>
+        <div class="lp-foot-legal" data-i18n="loginLegal">© 2026 DataTradingPro. Données macro &amp; forex. Aucun conseil en investissement.</div>
+      </div>
 
     </div><!-- /.lp-card -->
   </div><!-- /.lp-right -->
@@ -462,6 +498,8 @@
       email:'Adresse e-mail', emailPh:'votre@email.com', password:'Mot de passe',
       pwToggle:'Afficher/masquer', pastePw:'Coller le mot de passe', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
       signin:'Se connecter', signingIn:'Connexion…', langLabel:'Langue :', dlFor:'Télécharger pour',
+      loginContact:'Une question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contactez-nous</a>',
+      loginLegal:'© 2026 DataTradingPro. Données macro & forex. Aucun conseil en investissement.',
       dlIntel:'Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a>',
       dlMacTitle:'Premier lancement sur macOS',
       dlMac1:'Si «&nbsp;Apple n\'a pas pu confirmer…&nbsp;» s\'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).',
@@ -478,6 +516,8 @@
       email:'Email address', emailPh:'you@email.com', password:'Password',
       pwToggle:'Show / hide', pastePw:'Paste password', remember:'Stay signed in', forgot:'Forgot password?',
       signin:'Sign in', signingIn:'Signing in…', langLabel:'Language:', dlFor:'Download for',
+      loginContact:'A question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contact us</a>',
+      loginLegal:'© 2026 DataTradingPro. Macro &amp; FX data. Not investment advice.',
       dlIntel:'Mac Intel (before 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Download the Intel version</a>',
       dlMacTitle:'First launch on macOS',
       dlMac1:'If “Apple could not verify…” appears, click <b>Done</b> (not “Move to Trash”).',
