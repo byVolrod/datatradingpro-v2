@@ -18596,3 +18596,166 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
   .wdg-td-l { grid-template-columns: 52px 46px minmax(0, 1fr) 42px; }
   .wdg-td-lbl { display: none; }   /* la couleur porte déjà l'information */
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   CORRECTIFS RESPONSIVE MOBILE — 21/08/2026
+   Issus d'un audit par MESURE du rendu (5 zones, 25 défauts mesurés, 21 confirmés après
+   vérification adverse). Chaque règle ci-dessous répond à un chiffre relevé au navigateur,
+   jamais à une impression.
+
+   ⚠️ POURQUOI TOUT EST REGROUPÉ ICI, EN FIN DE FICHIER, ET NON À CÔTÉ DES RÈGLES CONCERNÉES :
+   quatre des défauts avaient EXACTEMENT la même cause — une garde tactile posée correctement,
+   puis annulée sans bruit par une règle de MÊME SPÉCIFICITÉ écrite plus bas dans ces 18 600
+   lignes. Corriger sur place aurait reproduit le problème au prochain ajout. En fin de fichier,
+   la cascade joue pour nous : plus rien ne peut écraser ces règles par simple position.
+
+   ⚠️ LE ZOOM GLOBAL COMPTE DANS CHAQUE CALCUL. Le desk applique html{zoom:.9} : une cible de
+   32 px CSS n'est peinte qu'à 28,8 px à l'écran. Le seuil de 32 px RÉELS exige donc 36 px CSS.
+   Toutes les valeurs ci-dessous sont posées en px CSS et tiennent compte de ce facteur.
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. TOPBAR SOUS 400 px : LA RECHERCHE DE SYMBOLE REDEVIENT ATTEIGNABLE ─────────────────
+   Mesuré à 320 px : .topbar-symbol-search s'étendait de x=139 à x=169 alors que son conteneur
+   est coupé à x=121 — soit 0 px visible, et document.elementFromPoint en son centre ne la
+   renvoyait JAMAIS. Elle est le SEUL accès mobile à la vue paire : injoignable, la
+   fonctionnalité n'existe pas sur téléphone. Cause : .topbar-right et .logo gardent une largeur
+   fixe quelle que soit la taille de l'écran, et le centre absorbe tout le manque avant d'être
+   masqué par overflow:hidden.
+   On rend donc de la place au lieu d'en demander : le logo se resserre, les écarts se réduisent,
+   et la pilule de sentiment cède — c'est un INDICATEUR, pas une commande, et elle est déjà
+   lisible ailleurs. Un bouton qui n'ouvre plus rien coûte plus cher qu'un voyant absent. */
+@media (max-width: 480px) {
+  .logo { padding: 0 4px 0 2px; }
+  .topbar-center { padding: 0; gap: 3px; min-width: 0; flex: 1 1 auto; }
+  .topbar-right { gap: 4px; padding-left: 4px; padding-right: 4px; }
+  .topbar-icon--calc { margin-right: 0; }
+  .topbar-icon--ai .ai-spark-txt { display: none; }   /* l'icône IA mesurait le double des autres */
+}
+@media (max-width: 400px) {
+  .topbar-sentiment { display: none; }
+}
+
+/* ── 1bis. SOUS 400 px, LA BARRE PASSE SUR DEUX RANGÉES ────────────────────────────────────
+   Mesuré à 320 px, correctifs tactiles appliqués : la barre porte HUIT icônes de 32,4 px plus
+   le logo, soit 302 px pour 320 disponibles, et il manquait encore 27,6 px pour que la
+   recherche de symbole soit atteignable. Aucun réglage de marge ne comble cela.
+   Les trois autres issues étaient toutes pires :
+     - rapetisser les icônes ramène le défaut de cible tactile qu'on vient de corriger ;
+     - masquer le Journal ou la Calculatrice SUPPRIME leur seul accès : ils ne figurent pas
+       dans la barre d'onglets, la topbar est leur unique porte d'entrée ;
+     - masquer le support laisse un client bloqué sans moyen de nous joindre.
+   Donc on donne une deuxième rangée aux outils, et la recherche y prend toute la largeur —
+   ce qui la rend au passage bien plus utilisable au doigt qu'un bouton de 34 px.
+   ⚠️ --topbar-h EST RECALCULÉE DANS LE MÊME BLOC : 29 règles en dépendent, dont le calage des
+   volets latéraux (top: var(--topbar-h)). L'oublier ferait passer les volets SOUS la barre et
+   recouvrirait la navigation — le défaut est explicitement consigné au cahier des charges. */
+@media (max-width: 400px) {
+  :root {
+    --topbar-h: 84px;                      /* 44 (rangée des icônes) + 40 (rangée des outils) */
+    --header-h: calc(var(--topbar-h) + var(--navbar-h));
+  }
+  .topbar { flex-wrap: wrap; align-content: center; row-gap: 2px; padding: 0 6px; }
+  .topbar-center {
+    order: 3; flex: 1 0 100%; justify-content: flex-start;
+    gap: 6px; padding: 0; min-width: 0; overflow: visible;
+  }
+  /* La recherche occupe ce qui reste de la rangée : cible large, et le champ déplié a enfin
+     la place de montrer ce qu'on tape. */
+  .topbar-symbol-search { flex: 1 1 auto; min-width: 0; max-width: none; }
+}
+@media (max-width: 360px) {
+  .topbar { padding: 0 6px; }
+}
+
+/* ── 2. CIBLES TACTILES : LES GARDES QUI ÉTAIENT ÉCRASÉES ──────────────────────────────────
+   Le seuil du projet est 32 px RÉELS. Avec le zoom .9, il faut donc 36 px CSS.
+   Relevés avant correction : icônes de topbar 28 px, boutons d'en-tête de widget 30 px,
+   œil du mot de passe 13,5 px, croix de disposition 13,5 px. */
+@media (hover: none), (pointer: coarse), (max-width: 768px) {
+  .topbar-icon,
+  .topbar-icon--journal,
+  .topbar-icon--calc { width: 36px; height: 36px; }
+  #topbar-avatar { width: 36px; height: 36px; }
+
+  /* Les glyphes ne bougent PAS : seule la zone de tap grandit, la densité du HUD est intacte. */
+  .topbar-icon svg { width: 16px; height: 16px; }
+
+  .wdg-ico, .wdg-step { width: 36px; height: 36px; }
+  /* ⚠️ Les POIGNÉES de redimensionnement ne sont PAS agrandies : elles ne servent à rien au
+     doigt, et les élargir ne ferait qu'étendre une zone morte. Voir le point 5. */
+  .wdg-grip { width: 36px; height: 36px; }
+
+  .pd-pw-toggle { width: 36px; height: 36px; right: 2px; justify-content: center; }
+
+  /* Mesurée à 31 px de large entre 401 et 480 px : juste sous le seuil, alors que c est le seul
+     accès à la vue paire. On lui garantit une cible pleine sans toucher au dessin de la loupe. */
+  .topbar-symbol-search { min-width: 36px; min-height: 36px; }
+
+  /* La croix de disposition garde son dessin fin ; c'est sa ZONE qui s'élargit, en
+     pseudo-élément, pour ne pas épaissir la barre. Mesuré : 7 px la séparent de l'onglet
+     suivant, l'extension de 8 px ne mord donc sur aucune autre cible. */
+  .wdg-lay-x { position: relative; }
+  .wdg-lay-x::after { content: ''; position: absolute; left: -9px; right: -9px; top: -9px; bottom: -9px; }
+}
+
+/* ── 3. LE FIL : LE CHEVRON ET LES PASTILLES ───────────────────────────────────────────────
+   Le chevron tombait à 20 × 11 px CSS (9,9 px peints) parce que la grille ≤560px remettait sa
+   hauteur minimale à zéro. Il est le SEUL indicateur « il y a quelque chose à déplier », et un
+   doigt qui le rate tombe sur la carte, qui ne porte aucun gestionnaire : le tap ne fait alors
+   RIEN, et le lecteur en conclut que la news n'a pas de contenu.
+   Les pastilles Info / Analyse / Réaction / Impact sont la navigation interne d'une news
+   dépliée ; elles faisaient 22 px CSS de haut, espacées de 5 px seulement. */
+@media (max-width: 560px) {
+  .news-arrow-col { min-width: 36px; min-height: 36px; }
+  .news-tags .tag--info,
+  .news-tags .tag--analyse,
+  .news-tags .tag--reaction,
+  .news-tags .tag--impact,
+  .news-tags .tag--marche,
+  .news-tags .tag--pair,
+  .news-tags .tag--marche.tag--pays { min-height: 32px; padding-top: 0; padding-bottom: 0; }
+}
+
+/* ── 4. ONGLET BANQUES ─────────────────────────────────────────────────────────────────────
+   La poignée du graphique faisait 8,1 px de haut et n'avait pas de touch-action : le navigateur
+   pouvait réclamer le geste et l'annuler en plein glissement. Le chevron d'ouverture du détail
+   ne faisait que 22 px de large alors qu'il est la seule ouverture sur téléphone. */
+@media (max-width: 1100px) {
+  .bank-chart-grip { top: -14px; height: 28px; touch-action: none; }
+  .bank-chart-grip::after  { top: 14px; }   /* le filet reste optiquement au même endroit */
+  .bank-chart-grip::before { top: 11px; }   /* la pastille reste centrée */
+}
+@media (max-width: 560px) {
+  .bank-table td.bank-exp { position: relative; }
+  .bank-table td.bank-exp::after { content: ''; position: absolute; inset: -3px -9px; }
+}
+
+/* ── 5. POIGNÉES DE REDIMENSIONNEMENT : PLUS DE BANDE MORTE AU DOIGT ───────────────────────
+   `touch-action: none` posé sur des poignées qui n'ont AUCUN gestionnaire tactile crée une
+   bande où le défilement de la page ne marche plus — sans que rien ne l'explique. Sur le bord
+   droit du desk, c'est toute la hauteur de l'écran qui devenait inerte.
+   Sur pointeur grossier, ces poignées n'ont pas d'usage : on leur rend le défilement. */
+@media (hover: none), (pointer: coarse) {
+  .wdg-resize, .wdg-resize-e { touch-action: auto; }
+}
+
+/* ── 6. IPHONE À ENCOCHE : RESPECTER LA ZONE SÛRE ──────────────────────────────────────────
+   Sans ces marges, le séparateur du logo débordait de 23 px sous la topbar et barrait la moitié
+   de la barre d'onglets, et la recherche dépliée se plaçait à 58 % sous la barre d'état. */
+@supports (padding: max(0px)) {
+  @media (max-width: 900px) {
+    .topbar { padding-left: max(6px, env(safe-area-inset-left));
+              padding-right: max(6px, env(safe-area-inset-right)); }
+    .pd-drawer { padding-top: env(safe-area-inset-top); }
+  }
+}
+
+/* ── 7. LISIBILITÉ : LE PLANCHER DE TAILLE DE TEXTE ────────────────────────────────────────
+   Le zoom global .9 n'était jamais neutralisé : un texte déclaré à 9 px n'était peint qu'à
+   8,1 px. Le projet s'impose un plancher de 11 px RÉELS, soit 12,2 px CSS.
+   On relève donc les deux endroits mesurés sous le plancher, sans toucher au reste. */
+@media (max-width: 560px) {
+  .nav-item { font-size: 12.5px; }
+  /* Le Radar de Biais déclarait ses étiquettes à 9 px, soit 8,1 px réellement peints. */
+  .mt-tag { font-size: 10.5px; }
+}
