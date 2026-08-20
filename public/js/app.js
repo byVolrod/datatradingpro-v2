@@ -2363,6 +2363,21 @@ const _MOVE_KEYS = {
 function _reactionMoves(item, ok, echec, paire) {
   // Un item peut PORTER ses propres mouvements (news d'exemple) : on ne va rien chercher.
   if (Array.isArray(item._moves) && item._moves.length) { ok(item._moves.slice()); return; }
+  // MARCHÉ EXPOSÉ CONNU → on mesure SA réaction, sans seuil. C'est ce qui fait apparaître le
+  // panneau sur les publications majeures : /api/market-moves ne répond que sur un choc, et une
+  // publication qui ne fait bouger le prix que de quelques points reste une publication majeure.
+  const _pex = String(paire || item._pair || '').toUpperCase();
+  if (/^[A-Z]{3}\/[A-Z]{3}$/.test(_pex)) {
+    fetch('/api/react-ohlc?pair=' + encodeURIComponent(_pex) + '&ts=' + item.timestamp)
+      .then(r => r.json())
+      .then(d => {
+        const m = _mouvementPaire((d && d.candles) || [], item.timestamp, _pex);
+        if (m) { ok([m]); return; }
+        if (echec) echec();   // cotations indisponibles : on ne prétend pas
+      })
+      .catch(() => { if (echec) echec(); });
+    return;
+  }
   fetch('/api/market-moves?since=' + item.timestamp)
     .then(r => r.json())
     .then(data => {
@@ -2380,15 +2395,35 @@ function _reactionMoves(item, ok, echec, paire) {
     })
     .catch(() => { if (echec) echec(); });
 }
-// Une PUCE par actif : prix avant → après, puis la variation.
-function _movesLi(moves) {
-  return moves.map(m => {
-    const u = m.unit ? ' ' + m.unit : '';
-    return '<li class="rx-li ' + (m.dir === 'up' ? 'rx-up' : 'rx-dn') + '">'
-      + '<span class="rx-name">' + m.label + '</span>'
-      + '<span class="rx-flow">' + m.refPrice + u + ' <span class="rx-ar">&rarr;</span> ' + m.peakPrice + u + '</span>'
-      + '<span class="rx-pct">' + m.movePct + '</span></li>';
-  }).join('');
+// Mouvement de LA paire exposée, calculé sur les MÊMES bougies que le graphique de réaction.
+// C'est le point : le texte et le tracé lisent la même source, ils ne peuvent donc pas se
+// contredire — et il n'y a AUCUN seuil, l'amplitude est le contenu, pas la condition.
+// Fenêtre de 8 min après la publication, comme le calcul serveur : au-delà, on ne mesure plus une
+// réaction mais une dérive.
+function _mouvementPaire(candles, t0, pair) {
+  const tri = (candles || []).slice().sort((a, b) => a.t - b.t);
+  let ref = null;
+  for (const c of tri) if (c.t <= t0) ref = c;   // la bougie qui CONTIENT la publication
+  if (!ref || !ref.c) return null;
+  const fin = t0 + 8 * 60e3;
+  let ext = ref, ecart = 0;
+  for (const c of tri) {
+    if (c.t <= t0 || c.t > fin || c.c == null) continue;
+    const d = Math.abs(c.c - ref.c);
+    if (d > ecart) { ecart = d; ext = c; }
+  }
+  const brut = ext.c - ref.c;
+  const yen = /JPY/.test(pair);
+  const dec = yen ? 3 : 5, pip = yen ? 0.01 : 0.0001;
+  return {
+    label: pair, sym: pair,
+    refPrice: +ref.c.toFixed(dec), peakPrice: +ext.c.toFixed(dec),
+    move: (brut >= 0 ? '+' : '') + brut.toFixed(dec),
+    movePct: (brut >= 0 ? '+' : '') + (brut / ref.c * 100).toFixed(2) + '%',
+    points: Math.round(Math.abs(brut) / pip),
+    dir: brut >= 0 ? 'up' : 'down', unit: '',
+    minutes: Math.max(1, Math.round((ext.t - ref.t) / 60000)),
+  };
 }
 // Explication du mouvement, mise en cache : zéro requête à la réouverture, et le panneau comme la
 // grille profitent du même cache — ouvrir l'un puis l'autre ne redemande rien.
@@ -2900,11 +2935,14 @@ function buildNewsItem(item) {
           }
           return;
         } else {
-          const movesHtml = _movesLi(_rxMoves);
           expandEl.innerHTML =
             `<div class="rx-block${isRed ? ' rx-block--alert' : ''}">`
             + `<div class="rx-head">R&eacute;action &agrave; : ${nowTime}</div>`
-            + `<ul class="rx-list">${movesHtml}</ul>`
+            // ⚠️ UNE PHRASE, PAS UN TABLEAU DE PRIX (demande user, référence à l'appui). La liste
+            // des instruments avec leurs cours et leurs pourcentages redisait en tableau ce que la
+            // phrase dit en toutes lettres. La référence ne garde que la phrase : elle se lit d'un
+            // trait, là où un tableau oblige à recomposer mentalement ce qu'il raconte. Les chiffres
+            // restent, à leur place : dans la phrase.
             + `<div class="rx-explain" id="rx-explain-${item.id}"></div>`
             + `</div>`;
 
@@ -2990,22 +3028,20 @@ function buildNewsItem(item) {
       // quatre lectures, qui ont besoin de toute la ligne pour tenir en deux colonnes lisibles.
       expandEl.classList.add('news-description--pleine');
       const _hPub = new Date(t0).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      const _dPub = new Date(t0).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
       const _gid = 'rxg-' + String(item.id || '').replace(/[^a-zA-Z0-9]/g, '') + '-' + _paire.replace('/', '');
       // L'en-tête (paire + unité + heure) a été RETIRÉ (demande user) : la paire est déjà sur le
       // tag qu'on vient de cliquer et l'heure est rappelée sous le graphique — la ligne répétait
       // deux informations déjà présentes de part et d'autre.
       expandEl.innerHTML = '<div class="nrx">'
-        + '<div class="nrx-lwc" id="' + _gid + '">' + dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
+        + '<div class="nrx-lwc" id="' + _gid + '" title="Bougies du contrat à terme, seule cotation offrant de vraies bougies à la minute sur le change. Flux différé d\u2019environ dix minutes : le graphique se complète tant qu\u2019il reste ouvert.">'
+        +   dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
         // La phrase fixe vit dans son propre élément : le dictionnaire est indexé par CHAÎNE
         // EXACTE, donc une phrase où l'on incruste une date ne serait jamais traduite.
-        + '<div class="nrx-note">' + _dPub + ' à ' + _hPub + ' &middot; <span>Le cercle rouge marque la minute de publication.</span>'
-        // ⚠️ ON DIT CE QUE C'EST. Le flux est différé d'une dizaine de minutes (mesuré) et les
-        // bougies viennent du contrat à terme, seule source fournissant de vraies bougies à la
-        // minute sur le change — le comptant renvoie un prix unique par minute. Les niveaux du
-        // terme s'écartent du comptant de quelques points. Taire l'un ou l'autre laisserait croire
-        // à un direct au cours comptant : ce serait faux.
-        + '<br><span class="nrx-src">Contrat à terme, seule cotation offrant de vraies bougies à la minute. Flux différé d’environ dix minutes : le graphique se complète tout seul tant qu’il reste ouvert.</span></div>'
+        // ⚠️ LA NOTE SOUS LE GRAPHIQUE EST RETIRÉE (demande user), mais l'information de source
+        // NE DISPARAÎT PAS pour autant : elle passe dans l'infobulle du graphique. Les bougies
+        // viennent du contrat à terme et le flux est différé d'une dizaine de minutes ; taire les
+        // deux laisserait croire à un direct au cours comptant, ce qui serait faux. Elle ne coûte
+        // plus une ligne à l'écran, elle reste à une seconde de curseur.
         + '</div>'
         + _rxgHtml(_gid);
       expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
@@ -3016,8 +3052,10 @@ function buildNewsItem(item) {
       _reactionMoves(item, moves => {
         const slot = document.getElementById('rxg-rx-' + _gid);
         if (!slot || !slot.isConnected || !moves || !moves.length) return;   // pas de mouvement : la case reste vide
-        slot.innerHTML = _rxgBloc('reaction', 'Réaction', _rxgHeure(Date.now()),
-          '<ul class="rx-list">' + _movesLi(moves) + '</ul><div class="rxg-x"></div>');
+        // ⚠️ UNE PHRASE, PAS UN TABLEAU DE PRIX (demande user, référence à l'appui). La liste des
+        // instruments redisait en tableau ce que la phrase dit en toutes lettres, et un tableau
+        // oblige à recomposer mentalement ce qu'il raconte. Les chiffres restent dans la phrase.
+        slot.innerHTML = _rxgBloc('reaction', 'Réaction', _rxgHeure(Date.now()), '<div class="rxg-x"></div>');
         _reactionExplain(item, moves, arr => {
           const x = slot.querySelector('.rxg-x');
           if (x && arr.length) { x.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(x); }
@@ -3398,11 +3436,12 @@ function buildNewsItem(item) {
     }
     return vues.size === 1 ? Array.from(vues)[0] : null;
   };
-  let _pairePosee = false, _pairEl = null;
+  let _pairePosee = false, _pairEl = null, _paireExposee = null;
   const _marcheDepuisTag = (t, tag) => {
     if (!_PAIR_DE_DEVISE[tag] || !isRed || !expandEl || item._pair) return;
     _pairePosee = true;
     const paire = _PAIR_DE_DEVISE[tag];
+    _paireExposee = paire;   // retenue pour la Réaction : c'est SA réaction qu'on mesurera
     t.style.cursor = 'pointer';
     t.classList.add('tag--marche', 'tag--pays');   // tag--pays : espacement du drapeau (voir style.css)
     t.title = 'Voir la réaction de ' + paire + ' au moment de cette publication';
@@ -3538,6 +3577,13 @@ function buildNewsItem(item) {
     _queueReactionCheck(() =>
       (Array.isArray(item._moves) && item._moves.length
         ? Promise.resolve({ moves: item._moves })      // l'item porte sa réaction : aucune requête
+        // ⚠️ MARCHÉ EXPOSÉ CONNU → le tag naît de la NEWS, pas d'une requête. Avant, il attendait
+        // que /api/market-moves signale un mouvement, or ses seuils sont ceux d'un CHOC : sur dix
+        // heures et trente fenêtres, aucun actif ne les franchissait. Le tag n'apparaissait donc
+        // quasiment jamais, y compris sur les publications majeures — celles-là mêmes où il a le
+        // plus de sens. L'amplitude est le CONTENU du panneau, plus sa condition d'existence.
+        : _paireExposee
+        ? Promise.resolve({ moves: [{ label: _paireExposee }] })
         : fetch(`/api/market-moves?since=${item.timestamp}`).then(r => r.json()))
         .then(data => {
           if (!data.moves || data.moves.length === 0) return;

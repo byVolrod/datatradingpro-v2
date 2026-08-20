@@ -4540,6 +4540,18 @@
               g.addEventListener('click', function (ev) { ev.stopPropagation(); API.toggleSubSettings(_pi2, c); });
               acts.appendChild(g);
             }
+            // REMPLACER (21/08, demande user) : le bouton existait sur l'en-tête d'une carte mais
+            // PAS ici, alors qu'un panneau à onglets est justement l'endroit où l'on change le plus
+            // souvent de widget. Il ouvre la bibliothèque en visant CET onglet — ou CETTE case d'un
+            // onglet composite — exactement comme le parcours historique par le « + ».
+            var r = document.createElement('button');
+            r.className = 'wdg-ico'; r.title = 'Remplacer ' + w.name + ' par un autre widget';
+            r.innerHTML = ICO.swap;
+            r.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              if (c == null) _pickTabFor(it, actIdx); else _pickCellFor(it, actIdx, c);
+            });
+            acts.appendChild(r);
             var x = document.createElement('button');
             x.className = 'wdg-ico';
             x.title = 'Retirer ' + w.name + (c == null ? ' : l\'onglet reste' : ' : la case reste');

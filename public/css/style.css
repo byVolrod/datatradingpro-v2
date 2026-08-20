@@ -18440,12 +18440,6 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
   box-shadow: 0 0 0 1px rgba(239, 68, 68, .12); }
 html[data-theme="light"] .nrx-vline { border-left-color: rgba(199, 48, 0, .7); }
 html[data-theme="light"] .nrx-rond { background: rgba(199, 48, 0, .1); border-color: rgba(199, 48, 0, .5); }
-/* Le rappel de l'heure de publication, sous le graphique. */
-.nrx-note { font-size: 10px; color: var(--text3, #6b7280); line-height: 1.4; }
-/* La mention de source et de delai : DISCRETE mais toujours la. Elle dit que les bougies viennent
-   du contrat a terme et que le flux est differe — sans elle, le lecteur croirait lire du comptant
-   en direct, et prendrait des niveaux pour ce qu ils ne sont pas. */
-.nrx-src { color: var(--text4, #4b5563); font-size: 9.5px; }
 
 /* ── LES QUATRE LECTURES SOUS LE GRAPHIQUE ─────────────────────────────────────────────────────
    Deux colonnes sur écran large, une seule dès qu'on manque de place : un bloc de texte à moins
