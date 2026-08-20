@@ -2737,6 +2737,10 @@ function buildNewsItem(item) {
 
   function openPanel(tab) {
     if (!expandEl) return;
+    // La pleine largeur est RESERVEE au panneau du graphique : les panneaux de TEXTE gardent leur
+    // alignement sous le titre, qui est ce qui rend le fil lisible en diagonale. On la retire donc
+    // a chaque ouverture, et seul le panneau « marche » la remet.
+    expandEl.classList.remove('news-description--pleine');
     const isOpen    = expandEl.classList.contains('visible');
     const isSameTab = activeTab === tab;
 
@@ -3005,12 +3009,17 @@ function buildNewsItem(item) {
       const _paire = _pairActive || item._pair;
       if (!_paire) { expandEl.innerHTML = '<div class="iq-note">Marché exposé introuvable pour cette publication.</div>'; expandEl.classList.add('visible'); return; }
       if (marcheTagEl) marcheTagEl.classList.add('tag--active');
+      // ⚠️ PLEINE LARGEUR. .news-description ré-indente son contenu de ~248 px pour l'aligner sous le
+      // titre : parfait pour du texte, mais cette marge ampute le graphique et écrase la grille des
+      // quatre lectures, qui ont besoin de toute la ligne pour tenir en deux colonnes lisibles.
+      expandEl.classList.add('news-description--pleine');
       const _hPub = new Date(t0).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       const _dPub = new Date(t0).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
       const _gid = 'rxg-' + String(item.id || '').replace(/[^a-zA-Z0-9]/g, '') + '-' + _paire.replace('/', '');
+      // L'en-tête (paire + unité + heure) a été RETIRÉ (demande user) : la paire est déjà sur le
+      // tag qu'on vient de cliquer et l'heure est rappelée sous le graphique — la ligne répétait
+      // deux informations déjà présentes de part et d'autre.
       expandEl.innerHTML = '<div class="nrx">'
-        + '<div class="nrx-tete"><b>' + _paire + '</b><span>réaction · bougies 1 min</span>'
-        + '<span class="nrx-pub">publication ' + _hPub + '</span></div>'
         + '<div class="nrx-lwc" id="' + _gid + '">' + dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
         // La phrase fixe vit dans son propre élément : le dictionnaire est indexé par CHAÎNE
         // EXACTE, donc une phrase où l'on incruste une date ne serait jamais traduite.

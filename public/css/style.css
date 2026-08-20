@@ -18375,10 +18375,6 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
 
 /* ═══ GRAPHIQUE DE RÉACTION d'une news (20/08) : courbe 15 min + instant de publication marqué ════ */
 .nrx { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px 2px; }
-.nrx-tete { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
-.nrx-tete b { color: var(--text, #e6e8eb); font-weight: 700; }
-.nrx-tete span { color: var(--text3, #6b7280); font-size: 10px; }
-.nrx-pub { margin-left: auto; color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
 /* Le graphique de réaction (lightweight-charts). Hauteur fixe : la bibliothèque dessine dans un
    canevas et un conteneur sans hauteur le réduirait à zéro. `position: relative` est ce qui rend
    le repère de publication positionnable par-dessus. */
@@ -18404,6 +18400,17 @@ html[data-theme="light"] .nrx-rond { background: rgba(199, 48, 0, .1); border-co
 /* ── LES QUATRE LECTURES SOUS LE GRAPHIQUE ─────────────────────────────────────────────────────
    Deux colonnes sur écran large, une seule dès qu'on manque de place : un bloc de texte à moins
    de 300 px devient illisible, mieux vaut empiler. */
+/* PLEINE LARGEUR pour le panneau du graphique. .news-description ré-indente son contenu de
+   ~248 px (padding-left: --news-desc-bleed) afin de l'aligner sous le titre : c'est ce qui rend le
+   fil lisible en diagonale, et il faut le garder pour le TEXTE. Mais un graphique et une grille à
+   deux colonnes n'ont rien à aligner sous le titre — cette marge leur coûtait un quart de la ligne
+   et écrasait les blocs. Ils reprennent donc toute la largeur, avec la même respiration à gauche
+   qu'à droite. */
+/* ⚠️ TROIS CLASSES, et ce n'est pas de la superstition : le padding du panneau est déclaré sur
+   « .news-description.visible », donc avec DEUX classes. Un modificateur à une seule classe perd
+   la cascade quelle que soit sa position dans le fichier — mesuré, le décalage restait à 248 px.
+   Trois classes tranchent sans dépendre de l'ordre des règles. */
+.news-description.visible.news-description--pleine { padding-left: 14px; }
 .rxg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 /* La case de la Réaction attend sa requête : « display: contents » la rend transparente à la
    grille, donc elle n'occupe AUCUNE cellule tant qu'elle est vide. */
@@ -18416,10 +18423,19 @@ html[data-theme="light"] .nrx-rond { background: rgba(199, 48, 0, .1); border-co
    bloc est la réponse sans avoir à lire le titre. */
 .rxg-t i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: 0 0 5px;
   align-self: center; }
-.rxg-t span { margin-left: auto; font-size: 9.5px; font-weight: 500; color: var(--text3, #6b7280);
+/* L'heure suit le titre au lieu d'être repoussée au bord droit : collée au titre elle se lit dans
+   le même mouvement (« Réaction à 12h51 »), alors qu'à l'autre bout du bloc l'œil devait faire
+   l'aller-retour pour rattacher l'heure à ce qu'elle date. */
+.rxg-t span { margin-left: 2px; font-size: 9.5px; font-weight: 500; color: var(--text3, #6b7280);
   font-variant-numeric: tabular-nums; }
 .rxg-c { font-size: 11px; line-height: 1.5; color: var(--text2, #b6bcc6); }
-.rxg-c .article-points, .rxg-c .rx-list { margin: 0; }
+/* Dans un bloc, le texte coule en PARAGRAPHES : ni puce ni retrait. Le fil garde ses listes à
+   puces, qui servent à balayer une longue description ; ici chaque bloc ne dit qu'une chose et
+   tient en trois lignes, la puce n'aiderait plus à rien et le retrait mangerait de la largeur. */
+.rxg-c .article-points, .rxg-c .rx-list { margin: 0; padding-left: 0; list-style: none; }
+.rxg-c .article-points > li { margin: 0 0 5px; padding-left: 0; }
+.rxg-c .article-points > li::marker, .rxg-c .article-points > li::before { content: none; }
+.rxg-c .article-points > li:last-child { margin-bottom: 0; }
 .rxg-b--info     { color: #3f9280; }
 .rxg-b--analyse  { color: #007aa3; }
 .rxg-b--reaction { color: #8e7fce; }
