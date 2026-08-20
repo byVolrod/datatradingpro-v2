@@ -2947,7 +2947,7 @@ function buildNewsItem(item) {
         if (activeTab !== 'marche') return;
         const hote = document.getElementById(_gid);
         if (!hote || !hote.isConnected) return;
-        fetch('/api/react-ohlc?pair=' + encodeURIComponent(_paire))
+        fetch('/api/react-ohlc?pair=' + encodeURIComponent(_paire) + '&ts=' + t0)
           .then(r => r.json())
           .then(d => {
             if (activeTab !== 'marche' || !hote.isConnected) return;
@@ -3131,7 +3131,18 @@ function buildNewsItem(item) {
   // catégorie rendue à gauche (ex. cat « Géopolitique » + tag « Géopolitique », ou « Énergie »/« Énergie »).
   // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
   const _catLabel = catFr(item.category || '');
-  const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
+  // ⚠️ Le doublon n'est pas toujours une ÉGALITÉ. Constat user 20/08 : catégorie « Données EU »
+  // affichée à gauche, et les tags « Données » et « EU » répétés à droite — trois fois la même
+  // information sur une seule ligne. Un tag dont le libellé est un MOT de la catégorie n'apprend
+  // rien : on le retire aussi. Comparaison mot à mot (et non par simple inclusion de chaîne) pour
+  // ne pas faire disparaître « Or » au motif que la catégorie contient « Trésorerie ».
+  const _catMots = new Set(String(_catLabel).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  const _isCatDup = tag => {
+    const lbl = NEWS_TAG_FR[tag] || tag;
+    if (lbl === _catLabel) return true;
+    const mots = String(lbl).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    return mots.length > 0 && mots.every(m => _catMots.has(m));
+  };
   // « Bonds / Obligations / Fixed Income » : bannis ICI, au point d'AFFICHAGE (20/08, demande user).
   // Le ban de _canonTag ne s'applique qu'à la CANONISATION : un tag déjà stocké sur un item ancien
   // n'y repassait pas et s'affichait quand même. Ici, aucun chemin ne l'évite.
@@ -3317,6 +3328,10 @@ function buildNewsItem(item) {
     tagsEl.appendChild(t);
   }
   for (const tag of (item._dtpd ? [] : smartTags)) {
+    // ⚠️ _HIDDEN_TAGS manquait ICI : le filtre n'existait que dans la boucle des tags de l'item.
+    // Un tag banni qui arrivait par la DÉDUCTION passait donc au travers — c'est pourquoi
+    // « Données » restait affiché après avoir été ajouté à la liste des tags masqués.
+    if (_HIDDEN_TAGS.has(tag)) continue;
     if (_isCatDup(tag) || shownTags.has(tag) || _tagPaysRedondant(tag)) continue;
     shownTags.add(tag);
     const t = document.createElement('span');

@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-tags-doublons', ts: Date.UTC(2026, 7, 21, 9, 0), title: 'Fin des tags qui repetent la categorie', desc: 'Sur une publication de la zone euro, la ligne affichait la categorie Donnees EU a gauche, puis les tags Donnees et EU a droite : trois fois la meme information. Un tag dont le libelle est deja un mot de la categorie n apprend rien, il ne s affiche plus. La regle compare mot a mot, donc un tag qui recoupe partiellement la categorie sans dire la meme chose reste bien visible.' },
   { id: 'dtpu-20260821-cercle-rouge', ts: Date.UTC(2026, 7, 21, 8, 0), title: 'Le cercle rouge est de retour sur le graphique de reaction', desc: 'Le graphique qui s ouvre au clic sur le marche expose d une news est desormais epure : plus de barre d outils, plus d indicateurs, plus de volume, juste les bougies. Et surtout, un cercle rouge marque la minute exacte ou le chiffre est tombe, avec un trait vertical, exactement comme demande. Il suit le graphique quand vous zoomez ou faites defiler. Les bougies a la minute viennent des contrats a terme, seule source qui en fournisse de vraies a cette echelle : le comptant renvoie un prix unique par minute, donc des bougies plates.' },
   { id: 'dtpu-20260821-creneau-agenda', ts: Date.UTC(2026, 7, 21, 6, 0), title: 'Plus de graphique sur une ligne d agenda', desc: 'Le fil publie separement le rendez-vous et son resultat : une ligne FOMC Rate Statement annonce le creneau, une ligne avec le chiffre annonce la publication. Le marche expose s affichait sur les deux, or sur la ligne d agenda rien n est encore tombe : le graphique se serait ouvert sur un moment ou il ne s est rien produit. Il faut desormais que le titre porte une valeur publiee, ou qu il rapporte les propos d un banquier central, pour que le marche expose apparaisse.' },
   { id: 'dtpu-20260821-reaction-tradingview', ts: Date.UTC(2026, 7, 21, 5, 0), title: 'La reaction du marche passe sur un graphique TradingView', desc: 'Le graphique qui s ouvre au clic sur le marche expose d une news est desormais un vrai TradingView : bougies a la minute, en direct, avec le zoom et les outils habituels. La raison du changement est une mesure : notre fournisseur de cotations ne livre pas de vraie bougie a la minute sur le change, il renvoie un seul prix par minute. Les bougies sortaient donc en tirets plats. L heure exacte de publication du chiffre est rappelee au-dessus du graphique pour retrouver la minute qui compte.' },
@@ -14878,25 +14879,63 @@ function _futPour(pair) {
   if (p[0] === 'USD' && _FUT_DEV[p[1]]) return { sym: _FUT_DEV[p[1]], inv: true };
   return null;
 }
+// Lecture SANS session : requête nue vers Yahoo, sans cookie ni crumb. Mesurée à 5302 bougies sur
+// 6E=F, là où le chemin avec session en rend ZÉRO. Sert de secours au chemin normal.
+function _yfNu(sym, interval, range) {
+  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(sym)
+    + '?interval=' + interval + '&range=' + range + '&includePrePost=false';
+  return new Promise(ok => {
+    const req = require('https').get(url, {
+      headers: { 'User-Agent': YF_UA, 'Accept': 'application/json', 'Referer': 'https://finance.yahoo.com/' },
+      timeout: 12000,
+    }, r => {
+      let d = '';
+      r.on('data', c => { d += c; if (d.length > 8e6) { try { r.destroy(); } catch (e) {} ok(null); } });   // garde-fou mémoire
+      r.on('end', () => { try { ok(JSON.parse(d)); } catch (e) { ok(null); } });
+    });
+    req.on('timeout', () => { try { req.destroy(); } catch (e) {} ok(null); });
+    req.on('error', () => ok(null));
+  });
+}
+function _reactCandles(raw, inv) {
+  const r = raw?.chart?.result?.[0];
+  const ts = r?.timestamp || [];
+  const q = r?.indicators?.quote?.[0] || {};
+  const out = [];
+  for (let i = 0; i < ts.length; i++) {
+    const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
+    if (o == null || h == null || l == null || c == null || o <= 0 || h <= 0 || l <= 0 || c <= 0) continue;
+    out.push(inv
+      ? { t: ts[i] * 1000, o: 1 / o, h: 1 / l, l: 1 / h, c: 1 / c }   // haut et bas ÉCHANGÉS
+      : { t: ts[i] * 1000, o, h, l, c });
+  }
+  return out;
+}
 app.get('/api/react-ohlc', async (req, res) => {
   const f = _futPour(req.query.pair);
-  if (!f) return res.json({ candles: [], source: null });
+  if (!f) return res.json({ candles: [], source: null, via: 'paire-non-couverte' });
+  // La PLAGE suit l'âge de la news : une journée suffit pour une publication du jour et pèse
+  // ~40 Ko, contre ~440 Ko pour cinq jours. Inutile de télécharger dix fois trop pour afficher
+  // deux heures autour d'un chiffre.
+  const age = Date.now() - (parseInt(req.query.ts, 10) || Date.now());
+  const range = age > 20 * 3600e3 ? '5d' : '1d';
+  let candles = [], via = 'aucun';
   try {
     await getYFSession();
-    const raw = await yfFetch(f.sym, '1m', '5d');
-    const r = raw?.chart?.result?.[0];
-    const ts = r?.timestamp || [];
-    const q = r?.indicators?.quote?.[0] || {};
-    const candles = [];
-    for (let i = 0; i < ts.length; i++) {
-      const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
-      if (o == null || h == null || l == null || c == null || o <= 0 || h <= 0 || l <= 0 || c <= 0) continue;
-      candles.push(f.inv
-        ? { t: ts[i] * 1000, o: 1 / o, h: 1 / l, l: 1 / h, c: 1 / c }   // haut et bas ÉCHANGÉS
-        : { t: ts[i] * 1000, o, h, l, c });
-    }
-    res.json({ candles, source: 'terme' });
-  } catch (e) { res.json({ candles: [], source: null }); }
+    const raw = await yfFetch(f.sym, '1m', range);
+    candles = _reactCandles(raw, f.inv);
+    if (candles.length) via = 'session';
+  } catch (e) {}
+  if (!candles.length) {
+    // ⚠️ SECOURS SANS SESSION. Mesuré le 20/08 : le chemin avec session rendait zéro bougie sur
+    // 6E=F alors qu'une requête nue depuis le MÊME conteneur en ramenait 5302. Le champ « via »
+    // dit lequel a servi — un endpoint qui échoue en silence se débogue à l'aveugle.
+    try {
+      candles = _reactCandles(await _yfNu(f.sym, '1m', range), f.inv);
+      if (candles.length) via = 'sans-session';
+    } catch (e) {}
+  }
+  res.json({ candles, source: candles.length ? 'terme' : null, via, sym: f.sym, inv: f.inv });
 });
 
 // ─── Market Snapshot (tableau SNAPSHOT des rapports DTP) — prix réels Yahoo ───
