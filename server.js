@@ -3213,59 +3213,16 @@ const _newsVisible = n => !!n && !isGlobalNewsNoise(n.headline) && (!_isPrimerNe
 // Chaque (re)connexion réinjectait donc les 11 briefings PRIMER masqués dans le fil — d'autant plus
 // visible depuis qu'on reconnecte au retour d'onglet. Le total suit le filtre : annoncer un total
 // qui compte des éléments jamais servis fait croire au client qu'il reste des pages à charger.
-const _initialPayload = (admin) => {
+const _initialPayload = () => {
   const items = allNews.filter(_newsVisible).slice(0, 200);
-  if (admin) items.unshift(_newsTestAdmin());
   return { type: 'initial', items, total: items.length };
 };
 
-/* ── NEWS DE TEST ADMIN (20/08, demande user : « fais-moi une news épinglée type test pour que je
-   valide », cas EUR/USD CPI) ────────────────────────────────────────────────────────────────────
-   Construite À LA VOLÉE à chaque lecture et JAMAIS écrite dans allNews. Ce choix n'est pas une
-   commodité : un item de test rangé dans le magasin serait persisté, repris par les récaps, compté
-   dans les statistiques et surtout diffusable à un client par n'importe lequel des chemins de
-   diffusion. Ici il n'existe que le temps d'une réponse, et seulement pour un compte admin.
-   Horodatée à l'instant de la lecture → toujours en tête du fil, donc « épinglée » sans qu'il faille
-   inventer un mécanisme d'épinglage.
-   Elle porte de quoi exercer TOUS les boutons : analyse (Analyse), _impact (Impact marché),
-   description (Info), priority 'high' (→ la devise devient la paire cliquable, graphique et
-   bulle rouge). Le titre reste en anglais : les titres ne sont JAMAIS traduits (règle du desk).
-   À RETIRER après validation. */
-function _newsTestAdmin() {
-  // ⚠️ ANTIDATÉE de 50 min. Une news de test horodatée à l'instant n'a par construction AUCUNE
-  // bougie APRÈS elle : le graphique de réaction n'aurait rien à montrer, ce qui est précisément
-  // ce qu'on veut valider. 50 min laissent ~50 bougies d'une minute après la publication, tout en
-  // gardant l'item en tête du fil.
-  const now = Date.now() - 50 * 60 * 1000;
-  return {
-    id: 'dtp-test-tags-eurusd',
-    headline: 'Euro Area CPI (Aug YY) 2.4% vs. Exp. 2.2% (Prev. 2.0%); Core CPI 2.7% (Prev. 2.6%)',
-    description: [
-      'L\'inflation de la zone euro ressort à 2,4 % sur un an, deux dixièmes au-dessus du consensus et quatre dixièmes au-dessus du mois précédent.',
-      'Le sous-jacent, qui exclut l\'énergie et l\'alimentation, remonte lui aussi à 2,7 % contre 2,6 %.',
-      'Les deux mesures repassent donc au-dessus de la cible de 2 % de la BCE, ce qui éloigne l\'hypothèse d\'une baisse de taux rapide.',
-    ].join('\n'),
-    category: 'EU Data',
-    source: 'DTP Markets',
-    time: new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
-    timestamp: now,
-    priority: 'high',
-    tags: ['Data', 'Inflation', 'EUR'],
-    analyse: [
-      'La surprise porte sur les deux mesures à la fois : quand le sous-jacent monte avec l\'ensemble, la hausse ne s\'explique pas par un poste volatil isolé.',
-      'Le marché n\'attendait aucune accélération : le consensus tablait sur une stabilité à 2,2 %. C\'est l\'écart au consensus, et non le niveau, qui fait bouger les prix.',
-      'Un sous-jacent à 2,7 % laisse peu de marge à la BCE pour assouplir avant d\'avoir vu deux ou trois publications dans l\'autre sens.',
-    ],
-    _impact: 'Une inflation au-dessus du consensus soutient mécaniquement l\'euro : elle repousse l\'horizon de baisse des taux et resserre le différentiel avec le dollar. À surveiller sur EUR/USD, dont la réaction se lit au moment de la publication, et sur les taux allemands à 2 ans, les plus sensibles aux anticipations de politique monétaire. Cette lecture décrit le mécanisme, elle ne préjuge pas de la suite.',
-    _testAdmin: true,
-  };
-}
-app.get('/api/news', (req, res) => {
+app.get('/api/news', (_req, res) => {
   // Les rapports DTP (primers/briefings) sont masqués du flux — SAUF le « DTP Daily US Opening News »
   // qui doit apparaître dans l'onglet News (demande utilisateur), déroulé en rapport complet au clic.
   const items = allNews.filter(_newsVisible).slice(0, 200);
   items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
-  if (req.session?.user?.role === 'admin') items.unshift(_newsTestAdmin());   // news de test, admin seul
   res.json({ items, total: items.length });
 });
 
@@ -17156,7 +17113,7 @@ wss.on('connection', (ws, req) => {
   ws._uid = _uid; ws._role = _role; ws._stoken = req.session.stoken || null;
   if (_uid) { _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1); _stampSeen(_uid); }   // present -> derniere presence = maintenant
 
-  ws.send(JSON.stringify(_initialPayload(req.session?.user?.role === 'admin')));   // ⚠️ envoi DIRECT : il ne passe pas par broadcast(), donc il doit filtrer lui-même
+  ws.send(JSON.stringify(_initialPayload()));   // ⚠️ envoi DIRECT : il ne passe pas par broadcast(), donc il doit filtrer lui-même
   // Envoyer aussi les session wraps et bank research au moment de la connexion
   if (_swCache.length > 0) ws.send(JSON.stringify({ type: 'sw_update', items: _swCache }));
   if (_brCache.length > 0) ws.send(JSON.stringify({ type: 'br_update', items: _brCache }));
