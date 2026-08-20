@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-graphiques-fiabilite', ts: Date.UTC(2026, 7, 21, 20, 0), title: 'Graphiques : la source est dite, et le fil revient a 100 news par lot', desc: 'Le graphique de reaction indique desormais d ou viennent ses bougies et quel est son delai : elles proviennent du contrat a terme, seule cotation qui fournisse de vraies bougies a la minute sur le change, et le flux est differe d une dizaine de minutes. Le graphique se complete tout seul tant qu il reste ouvert, pour que les minutes qui suivent la publication finissent par apparaitre. Mieux vaut dire ce que montre un graphique que laisser croire a un direct qu on ne peut pas tenir. Le graphique de l onglet Banques passe sur la meme technologie, en gardant ses lignes Entree, Objectif et Stop, et ne peut plus rester vide sans raison. Le fil, lui, affiche 100 actualites puis un bouton Charger plus tous les 100.' },
   { id: 'dtpu-20260821-roles-couleurs', ts: Date.UTC(2026, 7, 21, 18, 0), title: 'Chacune des quatre lectures dit une chose, et une seule', desc: 'Les quatre lectures d une publication avaient des roles qui se chevauchaient : Reaction expliquait le pourquoi et le ton du communique, ce qui est justement le travail d Analyse et d Impact marche. Vous lisiez trois fois le meme raisonnement. Reaction ne dit plus que ce que le PRIX a fait : sens, amplitude en points, niveaux de depart et d arrivee, et si le mouvement a tenu. Info dit ce qui a ete annonce, Analyse ce que cela veut dire, Impact marche ce que cela implique. Les couleurs des quatre boutons sont aussi plus lisibles : celle d Analyse etait sous le seuil de contraste et fatiguait a la lecture. Et les drapeaux des paires deviennent ronds, comme dans le Radar de Biais.' },
   { id: 'dtpu-20260821-blocs-largeur', ts: Date.UTC(2026, 7, 21, 16, 0), title: 'Le graphique et ses quatre lectures prennent toute la largeur', desc: 'Le panneau qui s ouvre sous une news etait aligne sous le titre, ce qui laissait un quart de la ligne inutilise a gauche. C est bien pour du texte, qui se lit en diagonale, mais cela ecrasait le graphique et les quatre blocs. Ils reprennent desormais toute la largeur : chaque bloc gagne un quart de sa taille. Les blocs sont aussi mis en forme comme demande, en paragraphes sans puces, avec l heure collee au titre. La ligne de rappel au-dessus du graphique, qui repetait la paire et l heure deja affichees ailleurs, est retiree.' },
   { id: 'dtpu-20260821-quatre-lectures', ts: Date.UTC(2026, 7, 21, 14, 0), title: 'Les quatre lectures d une news s affichent ensemble sous le graphique', desc: 'Au clic sur le marche expose d une publication, le graphique est desormais suivi des quatre lectures affichees EN MEME TEMPS : le resume du chiffre, la reaction du marche avec les prix avant et apres, l analyse du desk et l impact marche. Il fallait auparavant ouvrir chaque onglet a son tour et memoriser l un pour lire l autre, alors qu une reaction se comprend en confrontant les quatre. La pastille de couleur de chaque bloc reprend celle de son bouton, pour savoir d un coup d oeil a quoi il repond. Sur telephone les blocs s empilent au lieu de se serrer. La rangee de tags suit aussi un ordre fixe : les themes, puis la paire, puis les quatre lectures.' },
@@ -14860,18 +14861,30 @@ app.get('/api/bank-ohlc', async (req, res) => {
   const ySym = /^[A-Z]{3}\/[A-Z]{3}$/.test(pair) ? _bankSym(pair) : _CHART_SYM[String(req.query.sym || '')];
   if (!ySym) return res.json({ candles: [] });
   const tf = _BANK_TF[String(req.query.tf || 'D1').toUpperCase()] || _BANK_TF.D1;
+  // ⚠️ MÊME CHEMIN DE SECOURS QUE /api/react-ohlc, et pour la même raison MESURÉE : la lecture
+  // avec session Yahoo (cookie + crumb) peut rendre ZÉRO bougie alors qu'une requête NUE depuis le
+  // même conteneur en ramène des milliers. Constaté le 21/08 sur USD/JPY en D1, H4 ET M15 — le
+  // graphique de l'onglet Banques était donc VIDE, sans que rien ne le signale. Le champ « via »
+  // dit lequel des deux chemins a servi.
+  const _lire = async () => {
+    let candles = [], via = 'aucun';
+    try {
+      await getYFSession();
+      candles = _reactCandles(await yfFetch(ySym, tf.iv, tf.rg), false);
+      if (candles.length) via = 'session';
+    } catch (e) {}
+    if (!candles.length) {
+      try {
+        candles = _reactCandles(await _yfNu(ySym, tf.iv, tf.rg), false);
+        if (candles.length) via = 'sans-session';
+      } catch (e) {}
+    }
+    return { candles: _bankGroupe(candles, tf.grp), via };
+  };
   try {
-    await getYFSession();
-    const raw = await yfFetch(ySym, tf.iv, tf.rg);
-    const r   = raw?.chart?.result?.[0];
-    const ts  = r?.timestamp || [];
-    const q   = r?.indicators?.quote?.[0] || {};
-    let candles = ts.map((t, i) => ({
-      t: t * 1000, o: q.open?.[i], h: q.high?.[i], l: q.low?.[i], c: q.close?.[i],
-    })).filter(c => c.o != null && c.c != null && c.h != null && c.l != null);
-    candles = _bankGroupe(candles, tf.grp);
-    res.json({ candles });
-  } catch (e) { res.json({ candles: [] }); }
+    const { candles, via } = await _lire();
+    res.json({ candles, via });
+  } catch (e) { res.json({ candles: [], via: 'erreur' }); }
 });
 
 // ─── BOUGIES À LA MINUTE POUR LA RÉACTION AUX NEWS ───────────────────────────

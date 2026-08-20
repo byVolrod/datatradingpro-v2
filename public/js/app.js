@@ -866,7 +866,7 @@ function handleMessage(msg) {
       // RÉELLEMENT AFFICHÉE dans le feed (passe les filtres ET dans les `displayLimit` premières).
       // → la notif est TOUJOURS synchro avec une news visible ; sinon pas de notif. (Anti-désync.)
       const _fl = getFilteredItems();
-      const _renderedIds = new Set(_fl.slice(0, _alignLimitToDay(_fl, _etendreAuMinimum(_fl, displayLimit))).map(i => i.id));
+      const _renderedIds = new Set(_fl.slice(0, Math.min(displayLimit, _fl.length)).map(i => i.id));
       _flashBreakingNews(truly_new.find(i => _renderedIds.has(i.id) && !(i._briefing || i.source === 'DTP' || isPrimerItem(i)) && _isImportantNews(i)));
     }
     // Refresh analyst library if a new briefing arrived and analyst view is active
@@ -1298,35 +1298,6 @@ function _newsCmp(a, b) {
 // simple au sextuple d'une heure à l'autre — mesuré le 20/08, 61 dépêches dans l'heure de 14 h
 // contre 8 dans celle de 16 h. Un plafond en items donne donc une profondeur imprévisible : les
 // mêmes 100 items valent une heure un jour de publication et six heures un après-midi calme.
-const _MIN_HISTO_MS = 6 * 3600e3;
-// Repousse la limite jusqu'à couvrir la fenêtre voulue. La liste est triée du plus récent au plus
-// ancien : filtered[0] est le sommet du fil.
-function _etendreAuMinimum(filtered, limit) {
-  if (!filtered.length) return limit;
-  const sommet = filtered[0].timestamp || 0;
-  let end = Math.min(limit, filtered.length);
-  while (end < filtered.length && sommet - (filtered[end - 1].timestamp || 0) < _MIN_HISTO_MS) end++;
-  return end;
-}
-// Profondeur RÉELLEMENT disponible côté client, en millisecondes.
-function _profondeurLocale() {
-  if (!allItems.length) return 0;
-  let recent = 0, vieux = Infinity;
-  for (const i of allItems) {
-    const t = i && i.timestamp;
-    if (!t) continue;
-    if (t > recent) recent = t;
-    if (t < vieux) vieux = t;
-  }
-  return (recent && vieux !== Infinity) ? recent - vieux : 0;
-}
-function _alignLimitToDay(filtered, limit) {
-  if (filtered.length <= limit) return filtered.length;
-  const lastDay = formatDate(filtered[limit - 1].timestamp);
-  let end = limit;
-  while (end < filtered.length && formatDate(filtered[end].timestamp) === lastDay) end++;
-  return end;
-}
 try { window.groupSpeakerQuotes = _groupSpeakerQuotes; } catch {}   // partagé : widget Actus + news de paire
 
 function renderNews(hasNew = false) {
@@ -1344,13 +1315,14 @@ function renderNews(hasNew = false) {
   }
 
   // Collapse same-speaker quote clusters into single grouped cards
-  // ⚠️ L'ORDRE COMPTE : on étend d'abord en TEMPS (au moins 6 h), PUIS on aligne sur la fin de la
-  // journée. L'inverse casserait la propriété acquise le 15/07 — le bouton tombe toujours à une
-  // frontière de jour, jamais au milieu d'une journée coupée en deux.
-  const effLimit = _alignLimitToDay(filtered, _etendreAuMinimum(filtered, displayLimit));
-  // Si la liste LOCALE ne remonte pas assez loin, aucun étirement de limite n'y changera rien :
-  // il faut aller chercher l'historique. Le garde-fou interne empêche les appels en rafale.
-  if (_profondeurLocale() < _MIN_HISTO_MS) _completerJourCourant();
+  // PAGINATION PAR LOTS DE 100 (21/08, demande user : « il faut 100 news puis le bouton Charger
+  // plus doit apparaître tous les 100 news »). Exactement displayLimit éléments, ni plus ni moins.
+  // ⚠️ CETTE RÈGLE REMPLACE DEUX RÈGLES ANTÉRIEURES, et c'est assumé : l'alignement sur la fin de
+  // journée (15/07) et la profondeur minimale de 6 h (20/08). Toutes deux étiraient le lot au-delà
+  // de 100 et rendaient la position du bouton imprévisible — ce que la nouvelle consigne écarte.
+  const effLimit = Math.min(displayLimit, filtered.length);
+  // La liste locale doit contenir de quoi remplir le lot : sinon on complète par l'historique.
+  if (filtered.length < displayLimit) _completerJourCourant();
   const visible = _groupSpeakerQuotes(filtered.slice(0, effLimit));
 
   // Group by date, sorted most-recent date first, items within each group newest first
@@ -1415,9 +1387,9 @@ let _jourCompletEnCours = false, _dernierEssaiProfondeur = -1;
 async function _completerJourCourant() {
   if (_jourCompletEnCours || !allItems.length) return;
   // ⚠️ GARDE ANTI-BOUCLE. Cette fonction se termine par un renderNews(), et renderNews la rappelle
-  // quand la profondeur est insuffisante. Une fois l'historique épuisé, la profondeur reste
-  // insuffisante pour toujours : sans ce verrou, chaque rendu redemanderait un lot au serveur qui
-  // n'a plus rien à donner — une boucle de requêtes que rien ne signalerait à l'écran.
+  // quand le lot n'est pas rempli. Une fois l'historique épuisé, le lot ne se remplira JAMAIS :
+  // sans ce verrou, chaque rendu redemanderait un lot au serveur qui n'a plus rien à donner — une
+  // boucle de requêtes que rien ne signalerait à l'écran.
   // On ne retente donc QUE si la liste a bougé depuis le dernier essai (nouvelles dépêches, ou lot
   // effectivement ramené). Aucun ajout = épuisement = on s'arrête.
   if (_dernierEssaiProfondeur === allItems.length) return;
@@ -1429,13 +1401,11 @@ async function _completerJourCourant() {
       if (!parTs.length) break;
       const plusRecent = parTs.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
       const plusVieux  = parTs.reduce((a, b) => (b.timestamp < a.timestamp ? b : a));
-      // DEUX conditions, et il faut les DEUX. La journée courante doit être complète (acquis du
-      // 15/07 : le bouton tombe à une frontière de jour), ET la profondeur minimale doit être
-      // atteinte. Sans la seconde, à 00 h 30 la première condition était satisfaite d'emblée et le
-      // fil s'arrêtait après trente minutes d'historique.
-      const jourComplet = formatDate(plusVieux.timestamp) !== formatDate(plusRecent.timestamp);
-      const assezProfond = (plusRecent.timestamp - plusVieux.timestamp) >= _MIN_HISTO_MS;
-      if (jourComplet && assezProfond) break;
+      // On s'arrête dès que le LOT AFFICHABLE est rempli : la règle est en nombre de news, pas en
+      // durée ni en journées. On compte les items VISIBLES (après filtres) et non les items bruts —
+      // le fil en écarte une bonne part, et compter les bruts s'arrêterait trop tôt.
+      void plusRecent;
+      if (getFilteredItems().length >= displayLimit) break;
       const r = await fetch('/api/news/history?before=' + plusVieux.timestamp + '&limit=100');
       const data = await r.json();
       if (data.total) serverTotal = data.total;
@@ -1452,11 +1422,9 @@ async function loadMore() {
   if (loadingMore) return;
 
   const filtered = getFilteredItems();
-  const effLimit = _alignLimitToDay(filtered, displayLimit);
-  if (filtered.length > effLimit) {
-    // More items already loaded in memory : just reveal them. On repart de la FIN de journée affichée
-    // (effLimit, pas displayLimit) + 100 → le rendu ré-alignera sur la fin de la journée suivante.
-    displayLimit = effLimit + 100;
+  if (filtered.length > displayLimit) {
+    // Le lot suivant est DÉJÀ en mémoire : on le révèle, sans requête.
+    displayLimit += 100;
     renderNews();
     return;
   }
@@ -1477,8 +1445,7 @@ async function loadMore() {
       const fresh = (data.items || []).filter(i => !existingIds.has(i.id));
       if (!fresh.length) { serverTotal = allItems.length; break; }   // historique épuisé → plus de bouton
       allItems = [...allItems, ...fresh].sort((a, b) => b.timestamp - a.timestamp);
-      const f2 = getFilteredItems();
-      if (_alignLimitToDay(f2, _etendreAuMinimum(f2, displayLimit + 100)) < f2.length) break;   // la journée à la frontière est complète ET la fenêtre est couverte
+      if (getFilteredItems().length >= displayLimit + 100) break;   // le lot suivant est complet
     }
     displayLimit += 100;
   } catch {}
@@ -2393,14 +2360,21 @@ const _MOVE_KEYS = {
 // mise en page et leur conduite en cas de vide diffèrent (le panneau retire son onglet et bascule
 // sur Info, la grille se contente de ne rien afficher). On partage donc la DONNÉE, pas le rendu :
 // c'est ce qui empêche les deux affichages de diverger avec le temps.
-function _reactionMoves(item, ok, echec) {
+function _reactionMoves(item, ok, echec, paire) {
   fetch('/api/market-moves?since=' + item.timestamp)
     .then(r => r.json())
     .then(data => {
       // Ne garder QUE les mouvements PERTINENTS à la news (devise/matière première citée dans le
       // titre ou les tags) → plus jamais un actif sans rapport, du Brent sur une news yen.
       const hay = ((item.headline || '') + ' ' + (item.tags || []).join(' ') + ' ' + (item.category || '')).toLowerCase();
-      ok((data.moves || []).filter(m => _moveRelevant(m.label, hay)));
+      // ⚠️ La paire DÉDUITE est gardée SANS passer par le crible, et surtout PAS en l'ajoutant au
+      // texte cherché : essayé, mesuré, mauvais — écrire « AUD/USD » dans ce texte fait passer
+      // EUR/USD et USD/JPY, dont les motifs reconnaissent « usd ». On teste donc l'ÉGALITÉ du
+      // libellé, ce qui n'ouvre la porte à rien d'autre. Quand on a établi quel marché est exposé,
+      // ses mouvements sont pertinents par définition.
+      const cible = String(paire || item._pair || '').toUpperCase().replace(/s/g, '');
+      const memePaire = l => { const n = String(l || '').toUpperCase().replace(/[s/]/g, ''); return !!cible && n === cible.replace('/', ''); };
+      ok((data.moves || []).filter(m => memePaire(m.label) || _moveRelevant(m.label, hay)));
     })
     .catch(() => { if (echec) echec(); });
 }
@@ -2950,7 +2924,7 @@ function buildNewsItem(item) {
             expandEl.classList.remove('visible');
             if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
           }
-        });
+      }, _pairActive || item._pair);   // idem : la paire exposee rend ses mouvements pertinents
       return;
     }
 
@@ -3023,7 +2997,13 @@ function buildNewsItem(item) {
         + '<div class="nrx-lwc" id="' + _gid + '">' + dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
         // La phrase fixe vit dans son propre élément : le dictionnaire est indexé par CHAÎNE
         // EXACTE, donc une phrase où l'on incruste une date ne serait jamais traduite.
-        + '<div class="nrx-note">' + _dPub + ' à ' + _hPub + ' &middot; <span>Le cercle rouge marque la minute de publication.</span></div>'
+        + '<div class="nrx-note">' + _dPub + ' à ' + _hPub + ' &middot; <span>Le cercle rouge marque la minute de publication.</span>'
+        // ⚠️ ON DIT CE QUE C'EST. Le flux est différé d'une dizaine de minutes (mesuré) et les
+        // bougies viennent du contrat à terme, seule source fournissant de vraies bougies à la
+        // minute sur le change — le comptant renvoie un prix unique par minute. Les niveaux du
+        // terme s'écartent du comptant de quelques points. Taire l'un ou l'autre laisserait croire
+        // à un direct au cours comptant : ce serait faux.
+        + '<br><span class="nrx-src">Contrat à terme, seule cotation offrant de vraies bougies à la minute. Flux différé d’environ dix minutes : le graphique se complète tout seul tant qu’il reste ouvert.</span></div>'
         + '</div>'
         + _rxgHtml(_gid);
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
@@ -3040,7 +3020,7 @@ function buildNewsItem(item) {
           const x = slot.querySelector('.rxg-x');
           if (x && arr.length) { x.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(x); }
         });
-      });
+      }, null, _paire);   // la paire ouverte fait partie du crible de pertinence
       const _echec = m => { const h = document.getElementById(_gid); if (h) h.innerHTML = '<div class="iq-note">' + m + '</div>'; };
       _chargerLwc(() => {
         // Entre le clic et le chargement de la bibliothèque, l'utilisateur a pu changer d'onglet
@@ -3062,7 +3042,22 @@ function buildNewsItem(item) {
               _echec('Réaction indisponible : les cotations à la minute ne couvrent plus l\'heure de cette publication.');
               return;
             }
-            _dessinerReaction(hote, fen, t0, _paire);
+            const majBougies = _dessinerReaction(hote, fen, t0, _paire);
+            // RATTRAPAGE. Le flux étant différé, les minutes qui suivent la publication n'existent
+            // pas encore au premier affichage : sans ce rappel, le lecteur verrait un graphique
+            // amputé et n'aurait aucune raison de soupçonner qu'il lui manque dix minutes.
+            if (_rxTimer) { clearInterval(_rxTimer); _rxTimer = null; }
+            _rxTimer = setInterval(() => {
+              // Le panneau a pu être refermé ou remplacé : on s'arrête plutôt que de tirer dans le vide.
+              if (!hote.isConnected || activeTab !== 'marche') { clearInterval(_rxTimer); _rxTimer = null; return; }
+              fetch('/api/react-ohlc?pair=' + encodeURIComponent(_paire) + '&ts=' + t0)
+                .then(r => r.json())
+                .then(d2 => {
+                  const f2 = ((d2 && d2.candles) || []).filter(c => c.t >= av && c.t <= ap);
+                  if (f2.length && typeof majBougies === 'function') majBougies(f2);
+                })
+                .catch(() => {});
+            }, 60000);
           })
           .catch(() => { if (activeTab === 'marche') _echec('Graphique indisponible pour le moment.'); });
       }, () => _echec('Graphique indisponible pour le moment.'));
@@ -5830,7 +5825,7 @@ function _sbStartClocks() {
 // ═══════════════════ ONGLET BANK : transactions bancaires ═══════════════════
 let _bankPositions = [];
 let _bankActiveId  = null;
-let _bankChartRoot = null;
+let _bankChartRoot = null, _bankObs = null;
 let _bankLiveGuide = null;   // ligne de prix LIVE du chart (déplacée à chaque refresh, sans rebuild)
 let _bankTimer     = null;
 
@@ -5984,11 +5979,12 @@ function _updateBankChartPrice(p) {
   // Temps réel : déplace la ligne de prix LIVE sur le chart (sans recharger les bougies)
   if (_bankLiveGuide && _bankLiveGuide.pair === p.pair && p.currentPrice != null) {
     try {
-      _bankLiveGuide.di.set('value', p.currentPrice);
-      _bankLiveGuide.di.get('label')?.set('text', _bankFmt(p.pair, p.currentPrice));
-      // Anti-clip permanent : si le prix live sort de la plage affichée, on re-cale l'axe (avant : badge invisible)
-      if (_bankLiveGuide.yAxis && _bankLiveGuide.candles) _bankFitAxis(_bankLiveGuide.yAxis, _bankLiveGuide.candles, p);
-    } catch {}
+      // Une ligne de prix se DEPLACE par applyOptions : on ne reconstruit ni les bougies ni le
+      // graphique. L anti-clip n a plus lieu d etre — la plage affichee inclut desormais les
+      // niveaux du trade par construction (autoscaleInfoProvider), y compris le prix live.
+      _bankLiveGuide.ligne.applyOptions({ price: p.currentPrice });
+      if (_bankLiveGuide.serie) _bankLiveGuide.serie.applyOptions({});   // relance le calage de l axe
+    } catch (e) {}
   }
 }
 
@@ -6043,153 +6039,93 @@ function _bankTFInit(p) {
   });
 }
 function buildBankChart(p) {
+  // ── GRAPHIQUE DE L'ONGLET BANQUES (21/08, demande user « ajoute le graphique TradingView ») ──
+  // On utilise lightweight-charts, la bibliothèque LIBRE de TradingView, et NON son embarqué.
+  // La raison est décisive : l'embarqué vit dans un cadre d'origine étrangère où l'on ne peut RIEN
+  // dessiner — or les lignes Entrée / Objectif / Stop sont tout l'intérêt de cet onglet, sans elles
+  // on ne voit plus où se situe le prix par rapport au trade de la banque. La bibliothèque donne le
+  // même rendu et expose createPriceLine, qui pose la ligne AVEC son étiquette sur l'axe des prix.
   const el = document.getElementById('bank-chart');
-  if (!el || typeof am5 === 'undefined') return;
-  if (_bankChartRoot) { try { _bankChartRoot.dispose(); } catch {} _bankChartRoot = null; }
+  if (!el) return;
+  if (_bankChartRoot) { try { _bankChartRoot.remove(); } catch (e) {} _bankChartRoot = null; }
+  if (_bankObs) { try { _bankObs.disconnect(); } catch (e) {} _bankObs = null; }
   _bankLiveGuide = null;
   el.innerHTML = dtpLoader('Chargement du graphique…', { small: true });
 
-  fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair) + '&tf=' + encodeURIComponent(_bankTF))
-    .then(r => r.json())
-    .then(d => {
-      const candles = (d.candles || []).map(c => ({ Date: c.t, Open: c.o, High: c.h, Low: c.l, Close: c.c }));
-      el.innerHTML = '';
-      if (!candles.length) { el.innerHTML = '<div class="bank-chart-loading">Graphique indisponible.</div>'; return; }
-
-      const dec  = p.pair.includes('JPY') ? 2 : (candles[0].Close < 10 ? 4 : 2);
-      const fmt  = '#,###.' + '0'.repeat(dec);
-      const mono = "'SF Mono', ui-monospace, Menlo, Consolas, monospace";
-      const root = _dtpAncreGraphe(am5.Root.new('bank-chart'));
-      _bankChartRoot = root;
-      _dtpChartPremium(el, 640);   // chargement premium : overlay shimmer pendant appear(500,60) -> reveal en fondu (re-build a chaque clic de ligne)
-      // Suppression robuste du logo amCharts (le petit rond bleu) : forceHidden ne suffit pas
-      if (root._logo) {
-        root._logo.set('forceHidden', true);
-        root._logo.set('visible', false);
-        try { root._logo.children.clear(); } catch {}
-        try { root._logo.dispose(); } catch {}
-      }
-      if (window.am5locales_fr_FR) root.locale = am5locales_fr_FR;   // mois en français (mars, avr., juin) + virgule décimale sur l'axe
-      root.setThemes([am5themes_Animated.new(root)]);
-      root.interfaceColors.set('text', am5.color(0x8a8a93));
-
-      const chart = root.container.children.push(am5xy.XYChart.new(root, {
-        panX: true, panY: false, wheelY: 'zoomX', pinchZoomX: true, paddingLeft: 0, paddingRight: 2, paddingTop: 6, paddingBottom: 4,
-      }));
-      chart.zoomOutButton.set('forceHidden', true);   // masque le bouton bleu de dézoom amCharts
-
-      // ── Axe prix à droite + grille discrète (façon TradingView) ──
-      const yRend = am5xy.AxisRendererY.new(root, { opposite: true });
-      yRend.labels.template.setAll({ fill: am5.color(0x8a8a93), fontSize: 10, fontFamily: mono });
-      yRend.grid.template.setAll({ stroke: am5.color(0x1c1c20), strokeOpacity: 1 });
-      const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-        renderer: yRend, numberFormat: fmt, tooltip: am5.Tooltip.new(root, {}),
-      }));
-      const xRend = am5xy.AxisRendererX.new(root, {});
-      xRend.labels.template.setAll({ fill: am5.color(0x6f6f78), fontSize: 10, fontFamily: mono });
-      xRend.grid.template.setAll({ stroke: am5.color(0x16161a), strokeOpacity: 1 });
-      const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
-        baseInterval: { timeUnit: 'day', count: 1 },
-        renderer: xRend, tooltip: am5.Tooltip.new(root, {}),
-      }));
-      // Tooltips d'axes sombres (date en bas, prix à droite)
-      [xAxis, yAxis].forEach(ax => {
-        const tt = ax.get('tooltip'); if (!tt) return;
-        tt.get('background')?.setAll({ fill: am5.color(0x18181c), stroke: am5.color(0x2a2a30) });
-        tt.label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10, fontFamily: mono });
-      });
-
-      // ── Bougies aux couleurs TradingView + lecture OHLC au survol ──
-      const series = chart.series.push(am5xy.CandlestickSeries.new(root, {
-        xAxis, yAxis, valueXField: 'Date',
-        openValueYField: 'Open', highValueYField: 'High', lowValueYField: 'Low', valueYField: 'Close',
-        tooltip: am5.Tooltip.new(root, {
-          pointerOrientation: 'horizontal',
-          labelText: `O {openValueY.formatNumber('${fmt}')}   H {highValueY.formatNumber('${fmt}')}   L {lowValueY.formatNumber('${fmt}')}   C {valueY.formatNumber('${fmt}')}`,
-        }),
-      }));
-      const stt = series.get('tooltip');
-      if (stt) {
-        stt.get('background')?.setAll({ fill: am5.color(0x141418), stroke: am5.color(0x2a2a30) });
-        stt.label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10.5, fontFamily: mono });
-      }
-      series.columns.template.setAll({ strokeWidth: 1, width: am5.percent(62) });
-      const colOf = t => { const di = t.dataItem; return di && di.get('valueY') >= di.get('openValueY') ? am5.color(0x26a69a) : am5.color(0xef5350); };
-      series.columns.template.adapters.add('fill', (_f, t) => colOf(t));
-      series.columns.template.adapters.add('stroke', (_s, t) => colOf(t));
-      series.data.setAll(candles);
-
-      // ── Crosshair façon TradingView ──
-      const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'zoomX', xAxis, yAxis, snapToSeries: [series], snapToSeriesBy: 'x' }));   // 'none' = crosshair seul ; le glisser fait un PAN (panX), plus de zoom de sélection
-      cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
-      cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
-      // BANDE DE NAVIGATION RETIRÉE (13/08, demande user « enlève les indicateurs ») : ajoutée le
-      // matin même pour donner le repère « où suis-je dans l historique », elle occupait un tiers de
-      // la hauteur et se lisait comme un panneau d indicateur de plus. Le déplacement reste possible
-      // à la molette et au glisser — sans meuble à l écran.
-      // Zoom molette + déplacement, sur l'axe du temps uniquement (le prix reste à l'échelle).
-      chart.set('wheelX', 'zoomX');
-      chart.set('wheelY', 'zoomX');
-      chart.set('panX', true);
-      // Étiquettes qui suivent le curseur SUR les axes — le repère qu'on cherche d'instinct.
-      xAxis.set('tooltip', am5.Tooltip.new(root, { themeTags: ['axis'] }));
-      yAxis.set('tooltip', am5.Tooltip.new(root, { themeTags: ['axis'] }));
-      try {
-        xAxis.get('tooltip').get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
-        yAxis.get('tooltip').get('background')?.setAll({ fill: am5.color(0x2a2a30), stroke: am5.color(0x3a3a44) });
-        xAxis.get('tooltip').label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10, fontFamily: mono });
-        yAxis.get('tooltip').label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10, fontFamily: mono });
-      } catch (e) {}
-
-      // ── Lignes Entry / Take Profit / Stop Loss + prix LIVE : clone pro : pilule de NOM collée au
-      // bord droit DU GRAPHE + pilule de VALEUR sur l'axe de prix (façon TradingView). La ligne du
-      // prix live (verte, pointillée) bouge ensuite à chaque refresh sans recharger le chart. ──
-      const fmtFr = v => v.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
-      const pill = { cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 };
-      const mkGuide = (value, name, color, dash) => {
-        // 1) ligne + pilule de VALEUR sur l'axe
-        const di = yAxis.makeDataItem({ value });
-        yAxis.createAxisRange(di);
-        di.get('grid')?.setAll({ stroke: am5.color(color), strokeOpacity: 0.95, strokeWidth: 1, strokeDasharray: dash });
-        di.get('label')?.setAll({
-          text: fmtFr(value), inside: false, centerY: am5.p50,
-          fontSize: 10.5, fontWeight: '700', fontFamily: mono, fill: am5.color(0xffffff),
-          background: am5.RoundedRectangle.new(root, { fill: am5.color(color), ...pill }),
+  const echec = m => { el.innerHTML = '<div class="bank-chart-loading">' + m + '</div>'; };
+  _chargerLwc(() => {
+    fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair) + '&tf=' + encodeURIComponent(_bankTF))
+      .then(r => r.json())
+      .then(d => {
+        if (!el.isConnected) return;
+        const brut = (d.candles || []).slice().sort((a, b) => a.t - b.t);
+        if (!brut.length) { echec('Graphique indisponible.'); return; }
+        el.innerHTML = '';
+        const clair = (typeof _deskLight === 'function' && _deskLight());
+        const dec = p.pair.includes('JPY') ? 3 : 5;
+        const hPar = t => { try {
+          const D = new Date(t * 1000);
+          // Au-delà de l'heure, la date seule suffit et évite un axe illisible.
+          return (_bankTF === 'D1' || _bankTF === 'W1')
+            ? D.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'short' })
+            : D.toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return ''; } };
+        const chart = window.LightweightCharts.createChart(el, {
+          width: el.clientWidth || 640, height: el.clientHeight || 320,
+          layout: { background: { color: clair ? '#ffffff' : '#0f0f12' }, textColor: clair ? '#5b6472' : '#8b93a1', fontSize: 10 },
+          grid: { vertLines: { color: clair ? '#eef0f3' : '#16161a' }, horzLines: { color: clair ? '#eef0f3' : '#16161a' } },
+          rightPriceScale: { borderColor: clair ? '#d8dce2' : '#1c1c20' },
+          timeScale: { borderColor: clair ? '#d8dce2' : '#1c1c20', timeVisible: _bankTF !== 'D1' && _bankTF !== 'W1', secondsVisible: false, tickMarkFormatter: hPar },
+          localization: { timeFormatter: hPar },
+          crosshair: { mode: 0 },
         });
-        // 2) pilule de NOM dans le graphe, alignée à droite (Entry / Take Profit / Stop Loss)
-        if (name) {
-          const dn = yAxis.makeDataItem({ value });
-          yAxis.createAxisRange(dn);
-          dn.get('grid')?.setAll({ strokeOpacity: 0 });
-          dn.get('label')?.setAll({
-            text: name, inside: true, x: am5.p100, centerX: am5.p100, dx: -4, centerY: am5.p50,
-            fontSize: 10.5, fontWeight: '700', fill: am5.color(0xffffff),
-            background: am5.RoundedRectangle.new(root, { fill: am5.color(color), ...pill }),
-          });
+        const serie = chart.addCandlestickSeries({
+          upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
+          wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+          priceFormat: { type: 'price', precision: dec, minMove: Math.pow(10, -dec) },
+        });
+        const vus = new Set();
+        const data = brut.map(c => ({ time: Math.floor(c.t / 1000), open: c.o, high: c.h, low: c.l, close: c.c }))
+          .filter(x => (vus.has(x.time) ? false : (vus.add(x.time), true)));   // la bibliothèque refuse les doublons
+        serie.setData(data);
+
+        // ⚠️ L'AXE DOIT MONTRER TOUT LE TRADE. Les lignes de prix ne comptent PAS dans le calage
+        // automatique de la bibliothèque : une entrée ou un stop hors de la plage des bougies serait
+        // simplement invisible — c'est le défaut qui avait déjà été corrigé à la main sur l'ancien
+        // graphique. Ici on l'exprime une fois pour toutes, en étendant la plage demandée.
+        const niveaux = () => [p.entry, p.tp, p.sl, p.currentPrice].filter(v => typeof v === 'number' && isFinite(v) && v > 0);
+        serie.applyOptions({ autoscaleInfoProvider: original => {
+          const r = original();
+          const n = niveaux();
+          if (!r || !r.priceRange || !n.length) return r;
+          const min = Math.min(r.priceRange.minValue, ...n), max = Math.max(r.priceRange.maxValue, ...n);
+          const marge = (max - min) * 0.06 || Math.pow(10, -dec) * 10;   // 6 % d'air, jamais une plage nulle
+          return { ...r, priceRange: { minValue: min - marge, maxValue: max + marge } };
+        } });
+
+        // Entrée bleu · Objectif vert charte · Stop rouge d'alerte · prix LIVE en or signature.
+        const ligne = (prix, titre, couleur, plein) => (typeof prix === 'number' && prix > 0)
+          ? serie.createPriceLine({ price: prix, color: couleur, lineWidth: 1,
+              lineStyle: plein ? window.LightweightCharts.LineStyle.Solid : window.LightweightCharts.LineStyle.Dashed,
+              axisLabelVisible: true, title: titre })
+          : null;
+        ligne(p.entry, 'Entrée', '#3b82f6', false);
+        ligne(p.tp, 'Objectif', '#00c853', false);
+        ligne(p.sl, 'Stop', '#ff3d00', false);
+        const live = ligne(p.currentPrice, '', '#e3b23a', true);
+        if (live) _bankLiveGuide = { ligne: live, serie, pair: p.pair };
+
+        chart.timeScale().fitContent();
+        _bankChartRoot = chart;
+        // Le panneau se redimensionne (splitter, plein écran, mobile) et la bibliothèque ne suit pas
+        // d'elle-même.
+        if (window.ResizeObserver) {
+          _bankObs = new ResizeObserver(() => { try { chart.applyOptions({ width: el.clientWidth, height: el.clientHeight }); } catch (e) {} });
+          _bankObs.observe(el);
         }
-        return di;
-      };
-      // Niveaux du trade — LIBELLÉS FRANÇAIS + palette CHARTE DTP, alignés sur les statuts de la table :
-      // Objectif (TP) vert #00e676 · Stop rouge #ff3d00 · Entrée bleu · PRIX LIVE = OR signature (distinct
-      // du vert TP — avant, prix et objectif partageaient la même couleur → illisible quand proches).
-      if (p.entry) mkGuide(p.entry, 'Entrée',   0x3b82f6, [4, 3]);
-      if (p.tp)    mkGuide(p.tp,    'Objectif', 0x00c853, [4, 3]);
-      if (p.sl)    mkGuide(p.sl,    'Stop',     0xff3d00, [4, 3]);
-      if (p.currentPrice) {
-        const di = mkGuide(p.currentPrice, '', 0xe3b23a, [1, 2]);   // prix live = OR DTP pointillé
-        _bankLiveGuide = { di, pair: p.pair, dec };
-      }
-
-      // FIX : l'axe Y auto-calé sur les BOUGIES → toute ligne Entrée/Objectif/Stop/prix HORS de cette plage
-      // était CLIPPÉE. _bankFitAxis étend min/max pour TOUJOURS montrer l'intégralité du trade — et il est
-      // RAPPELÉ par _updateBankChartPrice (refresh 60 s) : un prix live qui sort de la plage ne se clippe plus.
-      _bankFitAxis(yAxis, candles, p);
-      _bankLiveGuide = _bankLiveGuide ? { ..._bankLiveGuide, yAxis, candles } : _bankLiveGuide;
-
-      series.appear(500);
-      chart.appear(500, 60);
-    })
-    .catch(() => { el.innerHTML = '<div class="bank-chart-loading">Graphique indisponible.</div>'; });
+      })
+      .catch(() => { if (el.isConnected) echec('Graphique indisponible.'); });
+  }, () => echec('Graphique indisponible.'));
 }
 
 function loadInstitutionView() {
@@ -8489,13 +8425,14 @@ function _chargerLwc(ok, echec) {
 }
 
 // ── GRAPHIQUE DE RÉACTION : bougies + CERCLE ROUGE sur la minute de publication ───────────────
-let _rxChart = null, _rxObs = null;
+let _rxChart = null, _rxObs = null, _rxTimer = null;
 function _dessinerReaction(hote, candles, t0, paire) {
   // Un panneau ouvert précédemment peut encore vivre : sans ce nettoyage, chaque ouverture
   // laisserait derrière elle un graphique et son observateur de taille.
   try { if (_rxChart) _rxChart.remove(); } catch (e) {}
   try { if (_rxObs) _rxObs.disconnect(); } catch (e) {}
-  _rxChart = null; _rxObs = null;
+  try { if (_rxTimer) clearInterval(_rxTimer); } catch (e) {}
+  _rxChart = null; _rxObs = null; _rxTimer = null;
   hote.innerHTML = '<div class="nrx-cible" aria-hidden="true"><i class="nrx-vline"></i><b class="nrx-rond"></b></div>';
   const cible = hote.firstElementChild;
   const clair = (typeof _deskLight === 'function' && _deskLight());
@@ -8576,6 +8513,17 @@ function _dessinerReaction(hote, candles, t0, paire) {
     _rxObs.observe(hote);
   }
   _rxChart = chart;
+  // Rafraîchisseur : met à jour les bougies SANS reconstruire le graphique, donc sans perdre le
+  // zoom ni le déplacement que le lecteur vient de faire.
+  return nouvelles => {
+    try {
+      const v = new Set();
+      const d2 = nouvelles.slice().sort((a, b) => a.t - b.t)
+        .map(c => ({ time: Math.floor(c.t / 1000), open: c.o, high: c.h, low: c.l, close: c.c }))
+        .filter(x => (v.has(x.time) ? false : (v.add(x.time), true)));
+      if (d2.length) { serie.setData(d2); placer(); }
+    } catch (e) {}
+  };
 }
 
 function _dtpThemeApply(mode) {
