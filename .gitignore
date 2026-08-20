@@ -46,3 +46,6 @@ _tmpserve.js
 # volumineux et sans valeur en historique. Ils s etaient glisses dans un commit le 20/08.
 pdf_cache/
 render_pdf/
+
+# Pages de controle locales (bancs de rendu). Jamais livrees.
+.banc/

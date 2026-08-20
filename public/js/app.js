@@ -8397,9 +8397,15 @@ function _dessinerReaction(hote, candles, t0, paire) {
     localization: { timeFormatter: hPar },
     crosshair: { mode: 0 },
   });
+  // ⚠️ PRÉCISION DES PRIX. Par défaut la bibliothèque arrondit à deux décimales : l'axe affichait
+  // « 1,17 » sur toutes les graduations, donc une échelle strictement illisible sur du change, où
+  // le mouvement d'une publication se compte en fractions de centième. Les paires en yen se cotent
+  // à trois décimales, toutes les autres à cinq.
+  const _yen = /JPY/.test(String(paire || ''));
   const serie = chart.addCandlestickSeries({
     upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
     wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+    priceFormat: { type: 'price', precision: _yen ? 3 : 5, minMove: _yen ? 0.001 : 0.00001 },
   });
   // La bibliothèque exige des SECONDES, triées et sans doublon : un horodatage répété la fait
   // lever une exception et le panneau resterait vide.
@@ -8420,17 +8426,38 @@ function _dessinerReaction(hote, candles, t0, paire) {
   const placer = () => {
     let x = null, y = null;
     try { x = chart.timeScale().timeToCoordinate(bougie.time); y = serie.priceToCoordinate((bougie.high + bougie.low) / 2); } catch (e) {}
-    if (x == null || y == null) { cible.style.display = 'none'; return; }
+    // ⚠️ La bibliothèque renvoie une coordonnée MÊME quand l'instant est sorti du champ visible :
+    // une valeur négative ou au-delà de la largeur. Sans cette borne, le repère restait posé hors
+    // cadre — invisible seulement parce que le conteneur rogne, donc un faux qui ne se voit pas.
+    // Mesuré à x = -211 px après rétrécissement du conteneur. La borne le fait aussi disparaître
+    // proprement quand on fait défiler le graphique loin de la publication.
+    const larg = hote.clientWidth;
+    if (x == null || y == null || x < 0 || x > larg || y < 0 || y > hote.clientHeight) { cible.style.display = 'none'; return; }
     cible.style.display = 'block';
     cible.style.left = x + 'px';
     rond.style.top = y + 'px';
   };
+  // ⚠️ Après un changement de largeur, la bibliothèque ne recalcule son échelle de temps qu'à la
+  // frame suivante : appeler placer() dans la foulée lit des coordonnées PÉRIMÉES. D'où le report
+  // d'une frame — c'est exactement ce qui envoyait le repère à -211 px.
+  const replacer = () => { if (window.requestAnimationFrame) window.requestAnimationFrame(placer); else placer(); };
   placer();
   chart.timeScale().subscribeVisibleTimeRangeChange(placer);
   // Le conteneur suit la largeur du fil (volet ouvert, plein écran, mobile) et la bibliothèque
   // ne se redimensionne pas d'elle-même.
   if (window.ResizeObserver) {
-    _rxObs = new ResizeObserver(() => { try { chart.applyOptions({ width: hote.clientWidth }); placer(); } catch (e) {} });
+    _rxObs = new ResizeObserver(() => {
+      try {
+        chart.applyOptions({ width: hote.clientWidth });
+        // ⚠️ La bibliothèque conserve l'ÉCARTEMENT des bougies quand la largeur change : elle
+        // affiche donc moins de bougies, ancrées à droite, et la publication sort du champ par la
+        // gauche. Mesuré sur un conteneur ramené à 336 px : le repère passait à x = -20 et
+        // disparaissait — précisément sur mobile, là où il est le plus utile. On réajuste la
+        // fenêtre pour que toute la période reste visible quelle que soit la largeur.
+        chart.timeScale().fitContent();
+      } catch (e) {}
+      replacer();
+    });
     _rxObs.observe(hote);
   }
   _rxChart = chart;
