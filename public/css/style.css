@@ -3535,12 +3535,23 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    graphique quand il est à côté du tableau, hauteur au-dessus quand il est en dessous.
    Position volatile, comme le splitter du desk : elle repart à zéro au rechargement. */
 .bank-chart-grip { position: absolute; z-index: 4; background: transparent; }
-.bank-chart-grip::after { content: ''; position: absolute; background: var(--border2, #26262c);
+/* Le TRAIT : visible au repos, dore au survol. Il etait transparent tant qu on ne le survolait
+   pas — donc invisible pour qui ne sait pas qu il existe, et personne ne va survoler au hasard
+   la bordure d un graphique. Une poignee qu on ne voit pas n existe pas. */
+.bank-chart-grip::after { content: ''; position: absolute; background: var(--border3, #32323a);
   transition: background .15s; }
-.bank-chart-grip:hover::after, .bank-chart-grip.est-actif::after { background: var(--orange, #e3b23a); }
+/* La POIGNEE : une courte barre arrondie au centre du trait, la grammaire universelle du
+   « ceci se tire ». Le trait seul se confond avec une simple bordure de panneau. */
+.bank-chart-grip::before { content: ''; position: absolute; border-radius: 3px;
+  background: var(--border3, #32323a); transition: background .15s, transform .15s; }
+.bank-chart-grip:hover::after, .bank-chart-grip.est-actif::after,
+.bank-chart-grip:hover::before, .bank-chart-grip.est-actif::before { background: var(--orange, #e3b23a); }
 /* Côte à côte : la poignée borde le graphique à GAUCHE et ajuste sa largeur. */
-.bank-chart-grip { top: 0; bottom: 0; left: -3px; width: 7px; cursor: col-resize; }
-.bank-chart-grip::after { top: 0; bottom: 0; left: 3px; width: 1px; }
+.bank-chart-grip { top: 0; bottom: 0; left: -4px; width: 9px; cursor: col-resize; }
+.bank-chart-grip::after { top: 0; bottom: 0; left: 4px; width: 1px; }
+/* Cote a cote : la poignee est VERTICALE, centree en hauteur. */
+.bank-chart-grip::before { left: 2px; top: 50%; margin-top: -18px; width: 5px; height: 36px; }
+.bank-chart-grip:hover::before, .bank-chart-grip.est-actif::before { transform: scaleX(1.2); }
 .bank-chart-col {
   position: relative;
   width: var(--bank-chart-w, 42%);
@@ -3633,8 +3644,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .bank-layout { flex-direction: column; }
   .bank-chart-col { width: auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: var(--bank-chart-h, 340px); }
   /* Empilé : la poignée passe AU-DESSUS du graphique et ajuste sa hauteur. */
-  .bank-chart-grip { top: -3px; left: 0; right: 0; bottom: auto; width: auto; height: 7px; cursor: row-resize; }
-  .bank-chart-grip::after { left: 0; right: 0; top: 3px; width: auto; height: 1px; }
+  .bank-chart-grip { top: -4px; left: 0; right: 0; bottom: auto; width: auto; height: 9px; cursor: row-resize; }
+  .bank-chart-grip::after { left: 0; right: 0; top: 4px; width: auto; height: 1px; }
+  /* Empile : la poignee est HORIZONTALE, centree en largeur. */
+  .bank-chart-grip::before { top: 2px; left: 50%; margin-left: -18px; width: 36px; height: 5px; }
+  .bank-chart-grip:hover::before, .bank-chart-grip.est-actif::before { transform: scaleY(1.2); }
   /* Topbar : la recherche centrale est ABSOLUE-centrée → sur écran moyen elle chevauche le bloc
      de droite (RISK + icônes). On la masque dès 1100px (au lieu de 768) → plus de chevauchement. */
   .topbar-symbol-search { display: none; }
