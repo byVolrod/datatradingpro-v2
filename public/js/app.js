@@ -2361,7 +2361,12 @@ const _MOVE_KEYS = {
 // sur Info, la grille se contente de ne rien afficher). On partage donc la DONNÉE, pas le rendu :
 // c'est ce qui empêche les deux affichages de diverger avec le temps.
 function _reactionMoves(item, ok, echec, paire) {
-  // Un item peut PORTER ses propres mouvements (news d'exemple) : on ne va rien chercher.
+  // ⚠️ ÉCHAPPATOIRE VOLONTAIREMENT INEMPLOYÉE. Un item peut imposer ses propres mouvements ; plus
+  // aucun ne le fait. Les news d'exemple s'en servaient, et cela produisait exactement ce qu'on
+  // veut éviter : le graphique traçait de vraies bougies autour de 0,7110 pendant que la Réaction
+  // annonçait une chute depuis 0,7060, tirée d'un _moves écrit en dur. Deux marchés sur la même
+  // carte. Le chemin normal ci-dessous lit LES MÊMES bougies que le graphique, il ne peut donc pas
+  // le contredire. Ne re-remplir _moves que pour une donnée MESURÉE, jamais pour illustrer.
   if (Array.isArray(item._moves) && item._moves.length) { ok(item._moves.slice()); return; }
   // MARCHÉ EXPOSÉ CONNU → on mesure SA réaction, sans seuil. C'est ce qui fait apparaître le
   // panneau sur les publications majeures : /api/market-moves ne répond que sur un choc, et une
@@ -2429,10 +2434,42 @@ function _mouvementPaire(candles, t0, pair) {
 // grille profitent du même cache — ouvrir l'un puis l'autre ne redemande rien.
 function _reactionExplain(item, moves, ok) {
   if (_reactCache.has(item.id)) { ok(_reactCache.get(item.id)); return; }
-  const movesStr = moves.map(m => m.label + ' ' + (m.dir === 'up' ? '+' : '-') + m.movePct).join(', ');
+  // ⚠️ NE PLUS PRÉFIXER DE SIGNE : movePct PORTE DÉJÀ le sien (« -0.28% »), et ce préfixe
+  // fabriquait « AUD/USD --0.28% ». Toutes les explications de réaction produites jusqu'ici l'ont
+  // été depuis ce chiffre malformé, à charge pour le modèle de deviner ce que vaut un double signe.
+  // On transmet aussi la MATIÈRE que le panneau réclame — amplitude en points, niveaux de départ
+  // et d'arrivée, durée. Le prompt demandait « la fourchette en points » à un modèle qui ne
+  // recevait qu'un pourcentage : c'était l'inviter à l'inventer.
+  const _sgn = m => {
+    let p = String(m.movePct || '').trim().replace(/^([+-])\1+/, '$1');   // filet anti double signe
+    if (p && !/^[+-]/.test(p)) p = (m.dir === 'up' ? '+' : '-') + p;       // source sans signe
+    return p;
+  };
+  const _fmt = m => {
+    // Les cours arrivent en NOMBRES : 0.70600 devient 0.706 et 1.08300 devient 1.083. Sur du
+    // change, un cours amputé de ses décimales se lit faux — et c'est cette chaîne qui sert de
+    // matière première au texte affiché. On rétablit la convention de la paire.
+    const dec = /JPY/i.test(m.label || '') ? 3 : 5;
+    const prix = v => (typeof v === 'number' ? v.toFixed(dec) : String(v));
+    const t = [m.label, _sgn(m)];
+    if (m.points != null) t.push('soit ' + m.points + ' point' + (Math.abs(m.points) > 1 ? 's' : ''));
+    if (m.refPrice != null && m.peakPrice != null) t.push('de ' + prix(m.refPrice) + ' à ' + prix(m.peakPrice));
+    if (m.minutes) t.push('en ' + m.minutes + ' min');
+    return t.join(' ');
+  };
+  const movesStr = moves.map(_fmt).join(' ; ');
   fetch('/api/reaction-explain', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: item.id, headline: item.headline, moves: movesStr, important: !!(item.priority === 'high' || item.urgent) }),
+    body: JSON.stringify({
+      id: item.id, headline: item.headline, moves: movesStr,
+      // Liste FERMÉE des instruments citables, et les chiffres bruts pour un repli factuel côté
+      // serveur : sans elle, rien ne permet de distinguer un instrument mesuré d'un instrument
+      // inventé, et le panneau a déjà affiché un « DXY +0,14 % » qu'aucune donnée ne portait.
+      labels: moves.map(m => m.label).filter(Boolean),
+      data: moves.map(m => ({ label: m.label, pct: _sgn(m), points: m.points, dir: m.dir,
+                              ref: m.refPrice, pic: m.peakPrice, minutes: m.minutes })),
+      important: !!(item.priority === 'high' || item.urgent),
+    }),
   })
     .then(r => r.json())
     .then(d => {

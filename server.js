@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-reaction-mesuree', ts: Date.UTC(2026, 7, 22, 12, 0), title: 'La Reaction ne dit plus que ce qui a ete mesure', desc: 'Le bloc Reaction pouvait citer un marche sur lequel le desk n avait AUCUNE mesure : sur une decision de banque centrale, il a affiche une variation du DXY alors que seule la paire exposee avait ete relevee. Un chiffre plausible reste un chiffre invente. Trois corrections : le desk transmet desormais la matiere reelle (amplitude en points, niveaux de depart et d arrivee, duree) au lieu d un simple pourcentage, il interdit explicitement de nommer un marche non mesure, et un controle automatique refuse et fait reecrire toute phrase qui prete une valeur a un marche absent des mesures. Si la reecriture echoue, le desk redige lui-meme une phrase batie uniquement sur les chiffres releves. Un defaut de signe, present depuis l origine, faussait par ailleurs le chiffre transmis a l analyse : il est corrige. Les textes ecrits avant ce correctif ne sont plus servis. Enfin, quand un marche ne bouge pas apres une publication, le desk l ecrit au lieu de chercher un mouvement : c est une information, cela veut dire que le chiffre etait deja integre.' },
   { id: 'dtpu-20260822-app-ecran-noir', ts: Date.UTC(2026, 7, 22, 10, 0), title: 'Application de bureau : l ecran noir apres une longue ouverture est corrige', desc: 'Laissee ouverte plusieurs heures, l application pouvait n afficher plus que du noir alors que la fenetre repondait encore. Les deux protections en place ne pouvaient pas l attraper : l une exige que l affichage soit mort, l autre que la fenetre soit figee, et ici ni l un ni l autre. C est le composant graphique qui tombait, en laissant tout le reste vivant. Trois ajouts : la protection qui manquait sur ce composant, la mise en veille de l affichage desactivee quand l application passe en arriere-plan, et une verification toutes les deux minutes qui recharge la page si l ecran est reellement noir, apres deux constats de suite pour ne jamais recharger sous vos yeux sans raison. La mise a jour se fait toute seule au prochain demarrage, en version 1.0.17.' },
   { id: 'dtpu-20260822-paire-nommee', ts: Date.UTC(2026, 7, 22, 9, 0), title: 'Une actualite qui nomme sa paire ouvre son graphique', desc: 'Quand un titre ecrit lui-meme la paire dont il parle, par exemple « USD/JPY recule de 17 points, de 159,05 a 158,88 », il porte desormais son tag de paire et ouvre son graphique au clic. Ces titres etaient jusqu ici ecartes avec les recits de marche, parce qu ils en ont la tournure. Mais la difference compte : un recit vague sur l euro qui reflue laisse le lecteur deviner de quoi on parle, alors qu un titre qui nomme sa paire et ses niveaux designe exactement ce que le graphique doit montrer. Les recits sans paire nommee restent ecartes, comme avant.' },
   { id: 'dtpu-20260822-poignee-visible', ts: Date.UTC(2026, 7, 22, 8, 0), title: 'La poignee de redimensionnement du graphique se voit', desc: 'Le graphique des transactions bancaires se redimensionnait deja, mais sa poignee etait invisible tant qu on ne la survolait pas — et personne ne survole au hasard la bordure d un panneau. Elle porte desormais un trait visible et une courte barre arrondie en son centre, la marque habituelle de ce qui se tire. Elle est horizontale quand le graphique est sous le tableau, verticale quand il est a cote.' },
@@ -3275,16 +3276,14 @@ function _newsExempleRba() {
       'Taux inchangé et attendu : ce n\'est pas la décision qui fait le prix, mais le ton du communiqué.',
       'Le fond reste ferme, mais deux inflexions l\'adoucissent : conditions financières jugées restrictives et prévisions d\'inflation abaissées. Un maintien moins ferme que le précédent.',
     ],
-    // La news d'exemple porte SA PROPRE réaction. Les seuils de détection sont calibrés pour un
-    // CHOC (42 points sur EUR/USD en huit minutes, 12 dollars sur l'or) : sur une séance calme
-    // aucun actif ne les franchit, et le bloc Réaction resterait donc vide sur un exemple. Un item
-    // qui porte un champ _moves court-circuite la détection — mécanisme général, mais seul
-    // l'exemple s'en sert aujourd'hui.
-    _moves: [
-      // Un seul instrument : le MARCHÉ EXPOSÉ, comme la référence. Le champ « points » nourrit la
-      // phrase — « reculé d'environ 20 points » — qu'un modèle ne peut pas inventer.
-      { label: 'AUD/USD', sym: 'AUDUSD=X', refPrice: 0.7060, peakPrice: 0.7040, move: '-0.00200', movePct: '-0.28%', points: 20, dir: 'down', unit: '', minutes: 2 },
-    ],
+    // ⚠️ AUCUN champ _moves : l'exemple NE DICTE PAS sa réaction, il la fait MESURER comme une
+    // vraie news. Il en portait un (AUD/USD 0,7060 → 0,7040, -0,28 %) hérité de l'époque où seul
+    // /api/market-moves alimentait le panneau, avec des seuils de choc qui le laissaient vide.
+    // Résultat visible en production : le graphique traçait de vraies bougies autour de 0,7110
+    // pendant que la Réaction annonçait une chute de 0,28 % depuis 0,7060. Le texte et le tracé
+    // racontaient deux marchés différents, sur la même carte. Depuis, _mouvementPaire lit la paire
+    // exposée sur LES MÊMES bougies que le graphique et sans seuil : les deux ne peuvent plus
+    // diverger, et une séance calme donne « quasi inchangé », qui est une information.
     _impact: 'Le maintien était déjà intégré : l\'écart au consensus se joue sur le communiqué, et il penche légèrement du côté accommodant. À surveiller sur AUD/USD et sur les taux australiens à 2 ans, les plus sensibles aux anticipations.',
   };
 }
@@ -3314,10 +3313,9 @@ function _newsExempleMarketUpdate() {
       'Un décrochage net sans nouvelle derrière signe un mouvement de flux : un ordre de taille absorbé dans un carnet peu garni.',
       'La reprise de la moitié du chemin le confirme. Un vrai changement d' + Q + 'avis laisse le prix sur ses nouveaux niveaux, il ne le ramène pas.',
     ],
-    _moves: [
-      // 159,05 → 158,88, soit 0,170 : 17 points sur une paire en yen, où le point vaut 0,01.
-      { label: 'USD/JPY', sym: 'USDJPY=X', refPrice: 159.050, peakPrice: 158.880, move: '-0.170', movePct: '-0.11%', points: 17, dir: 'down', unit: '', minutes: 3 },
-    ],
+    // Pas de _moves ici non plus : les 17 points du titre sont ceux de la RÉFÉRENCE, pas ceux du
+    // marché à l'heure où vous ouvrez la news. Les imposer ferait mentir le graphique juste en
+    // dessous, qui lui montre le vrai. La Réaction se mesure donc sur les mêmes bougies que lui.
     _impact: 'Mouvement de flux, pas de fond : rien n' + Q + 'est réévalué et la moitié est déjà reprise. Le repère utile reste 159,05, le niveau d' + Q + 'avant le décrochage. Tant qu' + Q + 'il tient au-dessus, la séance reste calme sur le yen.',
   };
 }
@@ -8480,8 +8478,69 @@ Content: ${rawDesc.substring(0, 1100)}`, 650, { important: true, priority: 'user
 // ─── Réaction : explication Gemini du mouvement de marché (cache persistant) ───
 const REACT_CACHE_FILE = path.join(_CACHE_DIR, 'cache_reaction.json');
 const _reactCache = _loadJsonMap(REACT_CACHE_FILE);
+// ── Le panneau Réaction ne doit dire QUE ce qui a été mesuré ────────────────────────────────
+// Instruments qu'un modèle cite spontanément quand il comble un budget de caractères. La liste
+// n'a pas à être exhaustive : elle couvre ce qui a été observé en production (« le DXY a augmenté
+// de 0,14 % » sur une news RBA, alors que seule AUD/USD avait été mesurée).
+// ⚠️ PAS de « or » ni « argent » nus : en français ce sont d'abord une conjonction et de la
+// monnaie (« or le mouvement… », « l'argent des institutionnels »). Mesuré au banc : le mot nu
+// déclenchait à tort. Le métal se nomme donc par des formes non ambiguës.
+const _RX_INSTRUMENT = /\b(DXY|dollar index|indice dollar|XAU|XAG|gold|silver|l['’]or|d['’]or|once d['’]or|p[ée]trole|crude|Brent|WTI|rendements?|yields?|Treasuries?|Bunds?|Gilts?|OAT|S&P\s?500|SPX|Nasdaq|NDX|Dow|CAC\s?40|DAX|FTSE|Nikkei|Bitcoin|BTC|VIX|[A-Z]{3}\/[A-Z]{3})\b/gi;
+// Une valeur de marché : avec unité, ou simple décimale (un cours se dit « 0.7040 », sans unité).
+const _RX_CHIFFRE = /[+-]?\d+(?:[.,]\d+)?\s*(?:%|pips?|points?|pdb|bps?|dollars?|cents?|\$|€|£|¥)|[+-]?\d+[.,]\d+/gi;
+// VRAI si le texte accroche un CHIFFRE à un instrument qui n'a pas été mesuré.
+// ⚠️ ON RATTACHE CHAQUE CHIFFRE AU PLUS PROCHE INSTRUMENT QUI LE PRÉCÈDE, jamais à une fenêtre
+// de N caractères : mesuré au banc, la fenêtre attribuait « AUD/USD touchait 0.7040 » au « DXY »
+// cité juste avant, et condamnait une phrase parfaitement honnête. Un chiffre sans instrument
+// devant lui appartient à la news elle-même (« taux maintenu à 4,35 % ») et ne prouve rien.
+// On ne sanctionne que le chiffre : nommer un marché sans lui prêter de valeur reste une tournure,
+// lui prêter une valeur qu'on n'a pas mesurée est une invention.
+function _reactionInvente(texte, labels) {
+  const t = String(texte || '');
+  if (!t) return false;
+  const permis = new Set((labels || []).map(l => String(l).toUpperCase().replace(/[^A-Z]/g, '')));
+  const marques = [];
+  _RX_INSTRUMENT.lastIndex = 0;
+  for (let m; (m = _RX_INSTRUMENT.exec(t));) {
+    marques.push({ i: m.index, nom: m[0].toUpperCase().replace(/[^A-Z]/g, '') });
+  }
+  if (!marques.length) return false;
+  _RX_CHIFFRE.lastIndex = 0;
+  for (let c; (c = _RX_CHIFFRE.exec(t));) {
+    let porteur = null;
+    for (const mk of marques) { if (mk.i < c.index) porteur = mk; else break; }
+    if (!porteur) continue;                                        // chiffre de la news, pas d'un marché
+    if (c.index - porteur.i > 120) continue;                       // trop loin : le lien n'est pas établi
+    if (!permis.has(porteur.nom)) return true;                     // valeur prêtée à un marché non mesuré
+  }
+  return false;
+}
+// Repli 100 % déterministe : rien que les chiffres reçus, dans une phrase lisible. Il ne se
+// déclenche qu'après un second refus, mais il garantit que le panneau ne peut PAS mentir.
+function _reactionRepli(data) {
+  const d = (data || [])[0];
+  if (!d || !d.label) return [];
+  // Les cours arrivent en NOMBRES : 0.70600 devient 0.706 et un cours de change amputé de ses
+  // décimales se lit faux. On rétablit la convention de la paire (3 décimales en yen, 5 sinon).
+  const dec = /JPY/i.test(d.label) ? 3 : 5;
+  const prix = v => (typeof v === 'number' ? v.toFixed(dec) : String(v));
+  // « A progressé de 0 point » ne veut rien dire. Un marché qui ne bouge pas après une
+  // publication est pourtant un RÉSULTAT, souvent le plus parlant : il dit que le chiffre était
+  // déjà intégré. On l'écrit comme tel.
+  if (!d.points) return [d.label + ' est resté quasi inchangé dans les minutes qui ont suivi la publication, à moins d\'un point de son niveau d\'avant.'];
+  const sens = d.dir === 'up' ? 'progressé' : 'reculé';
+  const bouts = [d.label + ' a ' + sens];
+  if (d.points != null) bouts.push('de ' + d.points + ' point' + (Math.abs(d.points) > 1 ? 's' : ''));
+  if (d.pct) bouts.push('(' + d.pct + ')');
+  if (d.ref != null && d.pic != null) bouts.push(', de ' + prix(d.ref) + ' à ' + prix(d.pic));
+  if (d.minutes) bouts.push(', en ' + d.minutes + ' min');
+  return [bouts.join(' ').replace(/ ,/g, ',') + ' après la publication.'];
+}
+
 app.post('/api/reaction-explain', async (req, res) => {
   const { id, headline, moves } = req.body || {};
+  const _labels = Array.isArray(req.body && req.body.labels) ? req.body.labels.filter(Boolean) : [];
+  const _mdata  = Array.isArray(req.body && req.body.data)   ? req.body.data.filter(Boolean)   : [];
   if (!headline || !moves) return res.json({ text: '' });
 
   // Explication en FRANÇAIS pour TOUTES les news (demande user 2026-07-01) — « important » ne pilote plus que le budget.
@@ -8491,7 +8550,10 @@ app.post('/api/reaction-explain', async (req, res) => {
   // Préfixe bumpé à chaque changement de RÔLE du panneau : sans cela, les explications déjà en
   // cache — écrites avec l'ancienne consigne, donc empiétant sur Analyse — continueraient d'être
   // servies pendant des jours.
-  const cacheKey = (_rcb ? 'frcb4:' : 'fr5:') + (id || headline.substring(0, 120));
+  // ⚠️ PRÉFIXE BUMPÉ (fr6/frcb5) : les explications déjà en cache ont été écrites depuis un
+  // chiffre à double signe et sous un prompt qui autorisait l'invention. Sans ce bump, elles
+  // continueraient d'être servies pendant des jours, correctif ou pas.
+  const cacheKey = (_rcb ? 'frcb5:' : 'fr6:') + (id || headline.substring(0, 120));
   if (_reactCache.has(cacheKey)) { _aiCacheStats.react.hit++; return res.json(_reactCache.get(cacheKey)); }
   _aiCacheStats.react.miss++;
 
@@ -8510,22 +8572,47 @@ app.post('/api/reaction-explain', async (req, res) => {
       // demandait auparavant « le pourquoi » et, sur une banque centrale, « le TON du discours et
       // l'impact sur les anticipations de taux » : il produisait donc la même chose que les deux
       // panneaux suivants, et le lecteur lisait trois fois le même raisonnement.
-      const text = await aiSmart('news', `You are a markets reporter on a trading desk.
+      const _prompt = `You are a markets reporter on a trading desk.
 Describe THE PRICE ACTION that followed the news below, as ONE bullet of 1 to 2 sentences.
 LONGUEUR : vise 200 à 280 caractères AU TOTAL, espaces compris. Ce budget est le MÊME pour les quatre lectures d'une news (Info, Réaction, Analyse, Impact marché) : elles s'affichent côte à côte dans une grille, et un bloc deux fois plus court que son voisin passe à tort pour moins important.
 The SUBJECT is the price: how it first behaved (one-way move, or two-way chop), the RANGE in pips, then where it settled shortly after.
 A SHORT attribution clause to the DATA ITSELF is welcome, inside the same sentence — never a separate thought.
 Model answer (target style): « Action de prix à double sens dans un couloir de 6 points, le sous-jacent au-dessus du consensus étant compensé par un indice global conforme et un ralentissement des services. GBP/USD a ensuite penché modestement à la hausse. »
-⚠️ NE COMMENTE PAS le TON du communiqué, les ANTICIPATIONS DE TAUX ni ce que cela IMPLIQUE pour la suite.${_rcb ? " Même pour une communication de BANQUE CENTRALE : ne commente NI le ton (hawkish/dovish), NI les anticipations de taux — décris le mouvement de la devise concernée et, s'ils ont bougé, des instruments sensibles aux taux." : ""} Ces trois-là appartiennent aux panneaux « Analyse » et « Impact marché » de la MÊME news : les répéter ici dirait trois fois la même chose. Ici, on RACONTE LE PRIX.
+⚠️ NE COMMENTE PAS le TON du communiqué, les ANTICIPATIONS DE TAUX ni ce que cela IMPLIQUE pour la suite.${_rcb ? " Même pour une communication de BANQUE CENTRALE : ne commente NI le ton (hawkish/dovish), NI les anticipations de taux." : ""} Ces trois-là appartiennent aux panneaux « Analyse » et « Impact marché » de la MÊME news : les répéter ici dirait trois fois la même chose. Ici, on RACONTE LE PRIX.
+⚠️⚠️ RÈGLE ABSOLUE — N'INVENTE AUCUN CHIFFRE ET AUCUN INSTRUMENT.
+Les SEULS instruments que tu peux nommer sont ceux listés dans « Observed moves » ci-dessous : ${_labels.join(', ') || '(voir Observed moves)'}.
+Les SEULS chiffres que tu peux écrire sont ceux qui y figurent (pourcentage, points, niveaux, durée) ; tu peux les reformuler, jamais en ajouter.
+Il t'est INTERDIT de citer le DXY, l'or, le pétrole, les rendements obligataires, les indices actions ou toute autre paire, même « s'ils ont probablement bougé » : tu n'as AUCUNE mesure sur eux, et une valeur plausible reste une valeur inventée.
+Si la matière fournie est maigre, écris une phrase plus courte. Ne comble jamais un budget de caractères avec un chiffre que tu n'as pas reçu.
 Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
 Start each bullet with • . Reply ONLY with the bullet(s), no preamble.
 
 Headline: ${headline}
-Observed moves: ${String(moves).slice(0, 300)}`, _rcb ? 300 : 220, { important: true, priority: 'user', claudeOverBudget: _imp });
+Observed moves: ${String(moves).slice(0, 500)}`;
+      // ⚠️ 500 et non 300 : la matière transmise porte désormais points, niveaux et durée. À 300 on
+      // tronquait en plein milieu, et un modèle qui reçoit un chiffre coupé le complète de tête.
+      const _rendu = t => {
+        let b = String(t || '').split('\n').map(l => l.trim())
+          .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean).slice(0, 3);
+        if (!b.length) { const c = String(t || '').replace(/^[•\-\*\s]+/, '').trim(); if (c) b = [c]; }
+        return b;
+      };
+      const _tirer = p => aiSmart('news', p, _rcb ? 300 : 220, { important: true, priority: 'user', claudeOverBudget: _imp });
 
-      let bullets = String(text || '').split('\n').map(l => l.trim())
-        .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean).slice(0, 3);
-      if (!bullets.length) { const c = String(text || '').replace(/^[•\-\*\s]+/, '').trim(); if (c) bullets = [c]; }
+      let bullets = _rendu(await _tirer(_prompt));
+      // GARDE-FOU : le prompt INTERDIT d'inventer, ce filet VÉRIFIE. Une consigne n'est pas une
+      // garantie, et c'est exactement ici qu'un « DXY +0,14 % » sans aucune mesure derrière est
+      // passé à l'écran sur une news RBA.
+      if (_labels.length && _reactionInvente(bullets.join(' '), _labels)) {
+        _aiCacheStats.reactInvent = (_aiCacheStats.reactInvent || 0) + 1;
+        bullets = _rendu(await _tirer(_prompt + '\n\n⚠️ TA RÉPONSE PRÉCÉDENTE CITAIT UN CHIFFRE SUR UN INSTRUMENT NON MESURÉ. Recommence en ne nommant QUE ' + _labels.join(', ') + ' et en n\'écrivant QUE les chiffres fournis. Une phrase plus courte est préférable à un chiffre inventé.'));
+        if (_reactionInvente(bullets.join(' '), _labels)) {
+          // Deux refus : on cesse de demander et on écrit nous-mêmes, avec les seuls chiffres reçus.
+          const repli = _reactionRepli(_mdata);
+          if (repli.length) bullets = repli;
+          else return { bullets: [], text: '' };   // rien de sûr à dire : on se tait
+        }
+      }
       const r = { bullets, text: bullets.join(' ') };   // text conservé pour rétro-compat
       if (bullets.length) {
         _reactCache.set(cacheKey, r);
