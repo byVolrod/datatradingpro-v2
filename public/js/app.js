@@ -2604,6 +2604,9 @@ function buildNewsItem(item) {
   let reactionTagEl = null;
   let impactTagEl   = null;   // 4e pill « Impact » (section Impact marché des analyses d'événement)
   let marcheTagEl   = null;   // pill du MARCHÉ exposé (item._pair) : ouvre le graphique de réaction
+  // Paire à tracer, posée au CLIC : une analyse d'événement porte _pair, une news de données
+  // (« UK CPI ») ne porte qu'un tag DEVISE — c'est lui qui décide alors du marché affiché.
+  let _pairActive   = item._pair || null;
   let arrowEl       = null;  // chevron ∨ / ^ indicator
 
   if (hasNotes || hasInfo || hasEco) {
@@ -2916,7 +2919,7 @@ function buildNewsItem(item) {
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (marcheTagEl) marcheTagEl.classList.add('tag--active');
       const t0 = item.timestamp || Date.now();
-      fetch('/api/bank-ohlc?pair=' + encodeURIComponent(item._pair) + '&tf=M15')
+      fetch('/api/bank-ohlc?pair=' + encodeURIComponent(_pairActive || item._pair) + '&tf=M15')
         .then(r => r.json())
         .then(d => {
           if (activeTab !== 'marche') return;
@@ -2927,7 +2930,7 @@ function buildNewsItem(item) {
             expandEl.innerHTML = '<div class="iq-note">Réaction indisponible : l\'historique 15 minutes de la source ne couvre plus l\'heure de cette publication.</div>';
             return;
           }
-          expandEl.innerHTML = _newsReactSvg(fen, t0, item._pair);
+          expandEl.innerHTML = _newsReactSvg(fen, t0, _pairActive || item._pair);
         })
         .catch(() => {
           if (activeTab === 'marche') expandEl.innerHTML = '<div class="iq-note">Réaction indisponible pour le moment.</div>';
@@ -3106,6 +3109,23 @@ function buildNewsItem(item) {
   // récaps de séance y avaient échappé et affichaient toute leur liste (constat user 20/08 « trop de
   // tags »). Elle couvre désormais TOUTE la famille des rapports maison (_reportType).
   const _capRapport = !!(item._dtpd || item._fxr || item._reportType);
+  // ── TAG DEVISE CLIQUABLE (20/08, demande user : « UK CPI → GBP → on clique, on a GBP/USD ») ──
+  // Sur une news IMPORTANTE, la devise ouvre le graphique du marché le plus exposé, bulle rouge
+  // sur l'instant de la publication. Réservé aux news importantes : rendre CHAQUE devise du fil
+  // cliquable ferait de la rangée de tags un champ de mines. Une news de données n'a pas de
+  // champ paire (seules les analyses d'événement en portent) : la devise suffit à le déduire.
+  // Appelée par les DEUX boucles de tags : une devise vient des tags de l'item OU des smart-tags.
+  const _marcheDepuisTag = (t, tag) => {
+    if (!_PAIR_DE_DEVISE[tag] || !isRed || !expandEl || item._pair) return;
+    const paire = _PAIR_DE_DEVISE[tag];
+    t.style.cursor = 'pointer';
+    t.classList.add('tag--marche');
+    t.title = 'Voir la réaction de ' + paire + ' au moment de cette publication';
+    const fl = c => (_SBR_ISO[c] ? '<img class="tag-flag" src="https://flagcdn.com/w20/' + _SBR_ISO[c] + '.png" width="13" height="10" alt="" loading="lazy">' : '');
+    const cc = paire.split('/');
+    t.innerHTML = fl(cc[0]) + fl(cc[1]) + ' ' + (NEWS_TAG_FR[tag] || tag);
+    t.onclick = e => { e.stopPropagation(); _pairActive = paire; marcheTagEl = t; openPanel('marche'); };
+  };
   for (const tag of (_capRapport ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
     if (_tagPaysRedondant(tag)) continue;
@@ -3118,6 +3138,7 @@ function buildNewsItem(item) {
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
+    _marcheDepuisTag(t, tag);
     tagsEl.appendChild(t);
   }
   for (const tag of (item._dtpd ? [] : smartTags)) {
@@ -3127,6 +3148,7 @@ function buildNewsItem(item) {
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
+    _marcheDepuisTag(t, tag);
     tagsEl.appendChild(t);
   }
 
@@ -3181,7 +3203,7 @@ function buildNewsItem(item) {
   // On restaure simplement l'onglet qu'il avait ouvert (persiste entre re-renders / arrivées de news).
   if (expandEl && item && _openNewsPanels[item.id]) {
     const _t  = _openNewsPanels[item.id];
-    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'impact' && hasImpact) || (_t === 'marche' && marcheTagEl) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
+    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'impact' && hasImpact) || (_t === 'marche' && (marcheTagEl || _pairActive)) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
     if (_ok) requestAnimationFrame(() => openPanel(_t));
     else delete _openNewsPanels[item.id];                    // l'onglet n'existe plus → on nettoie
   }
@@ -8129,6 +8151,10 @@ function _dtpThemeResolve(mode) { return mode === 'system' ? (matchMedia('(prefe
 //    l'instant de la publication marqué d'un trait or. SVG local : aucun amCharts, aucun poids. ──
 // Bandeau « à HH:MM » en tête d'un panneau (référence fournie) : dit QUAND le desk a produit
 // cette lecture. Silencieux si l'horodatage manque (anciens items) : jamais d'heure inventée.
+// Devise → marché le plus exposé. MIROIR EXACT de _EVA_PAIR (server.js) : le tag d'une news et
+// celui d'une analyse d'événement ouvrent LE MÊME graphique pour la même devise.
+const _PAIR_DE_DEVISE = { USD: 'EUR/USD', EUR: 'EUR/USD', GBP: 'GBP/USD', JPY: 'USD/JPY', CHF: 'USD/CHF', CAD: 'USD/CAD', AUD: 'AUD/USD', NZD: 'NZD/USD' };
+
 function _nrxQuand(libelle, ts) {
   if (!ts) return '';
   let h = ''; try { h = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }

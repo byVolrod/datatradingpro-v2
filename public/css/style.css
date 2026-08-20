@@ -18446,3 +18446,9 @@ html[data-theme="light"] .nrx-pt { fill: #c73000; }
 /* « Analyse à 8h12 » en tête d'un panneau : discret, il date la lecture sans voler le contenu. */
 .nrx-quand { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--text3, #6b7280); padding: 2px 0 6px; }
+/* Tag DEVISE cliquable d'une news importante : il ouvre le graphique du marché exposé. Encadré or
+   discret pour signaler qu'il agit, sans crier plus fort que les pills Info/Analyse. */
+.tag--marche { border-color: rgba(227, 178, 58, .5); }
+.tag--marche:hover, .tag--marche.tag--active { background: rgba(227, 178, 58, .12); color: var(--orange, #e3b23a); }
+html[data-theme="light"] .tag--marche { border-color: rgba(129, 101, 33, .5); }
+html[data-theme="light"] .tag--marche:hover, html[data-theme="light"] .tag--marche.tag--active { background: rgba(129, 101, 33, .1); color: #816521; }
