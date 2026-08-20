@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-ia-nuit', ts: Date.UTC(2026, 7, 22, 19, 0), title: 'L intelligence du desk ne dort plus la nuit', desc: 'Les traitements de fond etaient coupes de 21h a 8h30 pour economiser le quota, a une epoque ou celui-ci etait trois fois plus etroit. Releve du jour : 24 pour cent du budget mensuel consomme a douze jours de la fin du mois, et un seul appel dans la journee. La coupure ne protegeait donc plus rien et coutait quelque chose : rien ne se preparait pendant la nuit, et les rapports se generaient au moment ou vous les ouvriez le matin au lieu d etre prets. Le desk travaille desormais 24h/24. Les vraies protections restent en place et ne dependent pas de l heure : un plafond quotidien lisse sur les jours restants du mois, et une reserve de 40 pour cent du quota aux demandes faites depuis le desk, qui passent donc toujours en priorite.' },
   { id: 'dtpu-20260821-reaction-retrouvee', ts: Date.UTC(2026, 7, 22, 18, 0), title: 'Le bouton Reaction ne se supprime plus lui-meme', desc: 'Sur une publication majeure, ouvrir Reaction pouvait faire DISPARAITRE le bouton et basculer sur Info. Le panneau ne savait pas quel marche etait expose par cette actualite-la : il le demandait a une variable globale qui n est renseignee que si vous avez d abord clique le tag de la paire, et qui pouvait meme porter la paire d une AUTRE actualite. Faute de marche a mesurer, il retombait sur le detecteur de chocs, ne trouvait rien, et en concluait qu il n y avait pas de reaction a montrer. Le panneau utilise desormais la paire deduite pour cette actualite precise, qui ne peut pas venir d ailleurs.' },
   { id: 'dtpu-20260821-flux-differe', ts: Date.UTC(2026, 7, 22, 17, 0), title: 'Une actualite qui vient de tomber le dit clairement, au lieu d annoncer une fermeture', desc: 'Les cotations gratuites arrivent avec une dizaine de minutes de decalage. Sur une actualite qui vient de tomber, les minutes qui la suivent n existent donc pas encore : le graphique ressemble alors exactement a celui d une actualite publiee marche ferme, alors que le marche est ouvert et que les cotations arrivent. Le desk distingue desormais les deux et le dit dans les mots justes : cotations en cours d arrivee d un cote, marche ferme de l autre. Le message disparait de lui-meme des que les cotations sont la, pour ne pas rester affiche a tort.' },
   { id: 'dtpu-20260821-reaction-lisible', ts: Date.UTC(2026, 7, 22, 16, 0), title: 'Le graphique de reaction devient enfin lisible', desc: 'Il montrait 30 minutes avant la publication et 90 apres, a la minute. Le soir, cet intervalle ne contient que deux points et demi d amplitude : il n y avait litteralement rien a voir, et huit minutes sur dix s y dessinaient en trait plat faute d echange. Ce n etait ni la source ni la qualite des donnees, c etait qu on zoomait sur un intervalle ou le prix ne parcourt rien. Le graphique montre desormais six heures avant et deux heures apres, en bougies de cinq minutes : environ 90 bougies, 30 points d amplitude, et la grande majorite avec un vrai corps. Le contexte d avant est ce qui rend le mouvement d apres lisible. Le cercle rouge marque toujours la minute exacte de la publication.' },
@@ -5552,11 +5553,25 @@ function _aiDayFraction() {
   const p = _aiParis();
   return Math.min(1, (p.getHours() * 3600 + p.getMinutes() * 60 + p.getSeconds()) / 86400);
 }
-// Fenêtre CALME (heure de Paris) : 21h00 → 8h30 = on coupe l'IA de fond pour économiser le quota
-// (peu d'activité la nuit). Réglable via AI_QUIET_START/AI_QUIET_END (minutes depuis minuit).
-const AI_QUIET_START = parseInt(process.env.AI_QUIET_START, 10) || (21 * 60);      // 21:00
-const AI_QUIET_END   = parseInt(process.env.AI_QUIET_END, 10)   || (8 * 60 + 30);  // 8:30 (aligné sur l'intention projet documentée)
+// Fenêtre CALME (heure de Paris) : coupure de l'IA de fond pour économiser le quota.
+// ⚠️ DÉSACTIVÉE PAR DÉFAUT DEPUIS LE 21/08, SUR MESURE ET NON PAR PRINCIPE. Elle courait de 21h00
+// à 8h30, à une époque où le budget mensuel était de 7 500 appels. Relevé en production ce
+// jour-là : 5 652 appels consommés sur un budget de 24 000, soit 24 % à douze jours de la fin du
+// mois, avec un plafond quotidien de 800 et UN SEUL appel dans la journée. La coupure ne
+// protégeait donc plus rien, et elle coûtait : aucun préchauffage la nuit, donc des rapports
+// générés au moment où quelqu'un les ouvre le matin plutôt qu'à l'avance.
+// Les vrais garde-fous restent en place et ne dépendent pas de l'heure : le plafond quotidien
+// (_aiDailyCap, lissé sur les jours restants du mois) et la réserve de 40 % du quota aux requêtes
+// utilisateur, qui fait céder le préchauffage en premier.
+// POUR LA REMETTRE : AI_QUIET_START=1260 AI_QUIET_END=510 (minutes depuis minuit, heure de Paris).
+// Fenêtre vide (début == fin) = pas de coupure.
+// ⚠️ parseInt(...) || defaut REFUSAIT LA VALEUR 0 : « AI_QUIET_START=0 » retombait sur 21h00,
+// c'est-à-dire exactement le contraire de ce qu'on demandait. D'où la lecture explicite.
+const _aiMinEnv = (nom, defaut) => { const v = parseInt(process.env[nom], 10); return Number.isFinite(v) ? v : defaut; };
+const AI_QUIET_START = _aiMinEnv('AI_QUIET_START', 0);
+const AI_QUIET_END   = _aiMinEnv('AI_QUIET_END', 0);
 function _aiQuietHours() {
+  if (AI_QUIET_START === AI_QUIET_END) return false;   // fenêtre vide → l'IA tourne 24 h/24
   let h = 12, m = 0;
   try { const s = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false }); h = parseInt(s.slice(0, 2), 10); m = parseInt(s.slice(3, 5), 10); } catch {}
   const mins = h * 60 + m;
