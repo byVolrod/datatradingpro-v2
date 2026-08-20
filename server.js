@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-tag-reaction', ts: Date.UTC(2026, 7, 21, 23, 0), title: 'Le tag Reaction reapparait sur les news importantes', desc: 'Le bouton Reaction, qui montre ce que le prix a fait juste apres une publication, ne s affichait plus sur aucune actualite. Il n apparait que si le desk detecte un mouvement de marche, or la lecture des cotations echouait en silence : aucun mouvement detecte, donc aucun bouton. Trois de nos graphiques dependaient de cette meme lecture et sont retablis d un coup. Le bouton reprend aussi sa place, entre Analyse et Impact marche.' },
   { id: 'dtpu-20260821-fond-description', ts: Date.UTC(2026, 7, 21, 22, 0), title: 'Le fond du detail d une actualite couvre toute la largeur', desc: 'Quand vous depliez une actualite, le fond du bloc de detail s arretait avant le bord gauche de la carte, surtout sur telephone et dans les widgets etroits : il restait une bande sombre le long du texte. Le decalage etait calcule a partir de la largeur des colonnes du bureau, or sur un ecran etroit la ligne se replie et ces colonnes ne sont plus au meme endroit. Le desk mesure desormais le decalage reel, ce qui fonctionne quelle que soit la mise en page, et le recalcule si vous tournez votre telephone ou redimensionnez la fenetre.' },
   { id: 'dtpu-20260821-graphiques-fiabilite', ts: Date.UTC(2026, 7, 21, 20, 0), title: 'Graphiques : la source est dite, et le fil revient a 100 news par lot', desc: 'Le graphique de reaction indique desormais d ou viennent ses bougies et quel est son delai : elles proviennent du contrat a terme, seule cotation qui fournisse de vraies bougies a la minute sur le change, et le flux est differe d une dizaine de minutes. Le graphique se complete tout seul tant qu il reste ouvert, pour que les minutes qui suivent la publication finissent par apparaitre. Mieux vaut dire ce que montre un graphique que laisser croire a un direct qu on ne peut pas tenir. Le graphique de l onglet Banques passe sur la meme technologie, en gardant ses lignes Entree, Objectif et Stop, et ne peut plus rester vide sans raison. Le fil, lui, affiche 100 actualites puis un bouton Charger plus tous les 100.' },
   { id: 'dtpu-20260821-roles-couleurs', ts: Date.UTC(2026, 7, 21, 18, 0), title: 'Chacune des quatre lectures dit une chose, et une seule', desc: 'Les quatre lectures d une publication avaient des roles qui se chevauchaient : Reaction expliquait le pourquoi et le ton du communique, ce qui est justement le travail d Analyse et d Impact marche. Vous lisiez trois fois le meme raisonnement. Reaction ne dit plus que ce que le PRIX a fait : sens, amplitude en points, niveaux de depart et d arrivee, et si le mouvement a tenu. Info dit ce qui a ete annonce, Analyse ce que cela veut dire, Impact marche ce que cela implique. Les couleurs des quatre boutons sont aussi plus lisibles : celle d Analyse etait sous le seuil de contraste et fatiguait a la lecture. Et les drapeaux des paires deviennent ronds, comme dans le Radar de Biais.' },
@@ -14867,24 +14868,9 @@ app.get('/api/bank-ohlc', async (req, res) => {
   // même conteneur en ramène des milliers. Constaté le 21/08 sur USD/JPY en D1, H4 ET M15 — le
   // graphique de l'onglet Banques était donc VIDE, sans que rien ne le signale. Le champ « via »
   // dit lequel des deux chemins a servi.
-  const _lire = async () => {
-    let candles = [], via = 'aucun';
-    try {
-      await getYFSession();
-      candles = _reactCandles(await yfFetch(ySym, tf.iv, tf.rg), false);
-      if (candles.length) via = 'session';
-    } catch (e) {}
-    if (!candles.length) {
-      try {
-        candles = _reactCandles(await _yfNu(ySym, tf.iv, tf.rg), false);
-        if (candles.length) via = 'sans-session';
-      } catch (e) {}
-    }
-    return { candles: _bankGroupe(candles, tf.grp), via };
-  };
   try {
-    const { candles, via } = await _lire();
-    res.json({ candles, via });
+    const { raw, via } = await _yfChart(ySym, tf.iv, tf.rg);
+    res.json({ candles: _bankGroupe(_reactCandles(raw, false), tf.grp), via });
   } catch (e) { res.json({ candles: [], via: 'erreur' }); }
 });
 
@@ -14927,6 +14913,20 @@ function _yfNu(sym, interval, range) {
     req.on('error', () => ok(null));
   });
 }
+// ── LECTURE D'UNE SÉRIE YAHOO : UNE SEULE PORTE ───────────────────────────────────────────────
+// Session d'abord, requête NUE en secours. TROIS endpoints en dépendent — les bougies de l'onglet
+// Banques, celles du graphique de réaction, et la détection des mouvements de marché — et les
+// TROIS sont tombés à zéro le même jour parce que chacun ne tentait que la voie avec session.
+// Un secours écrit trois fois est un secours qu'on oublie deux fois : il vit ici, et nulle part
+// ailleurs. Le champ « via » dit laquelle des deux voies a servi, pour qu'un échec ne soit jamais
+// silencieux.
+async function _yfChart(sym, iv, rg) {
+  const utile = d => !!(d && d.chart && d.chart.result && d.chart.result[0]
+    && Array.isArray(d.chart.result[0].timestamp) && d.chart.result[0].timestamp.length);
+  try { await getYFSession(); const a = await yfFetch(sym, iv, rg); if (utile(a)) return { raw: a, via: 'session' }; } catch (e) {}
+  try { const b = await _yfNu(sym, iv, rg); if (utile(b)) return { raw: b, via: 'sans-session' }; } catch (e) {}
+  return { raw: null, via: 'aucun' };
+}
 function _reactCandles(raw, inv) {
   const r = raw?.chart?.result?.[0];
   const ts = r?.timestamp || [];
@@ -14949,22 +14949,8 @@ app.get('/api/react-ohlc', async (req, res) => {
   // deux heures autour d'un chiffre.
   const age = Date.now() - (parseInt(req.query.ts, 10) || Date.now());
   const range = age > 20 * 3600e3 ? '5d' : '1d';
-  let candles = [], via = 'aucun';
-  try {
-    await getYFSession();
-    const raw = await yfFetch(f.sym, '1m', range);
-    candles = _reactCandles(raw, f.inv);
-    if (candles.length) via = 'session';
-  } catch (e) {}
-  if (!candles.length) {
-    // ⚠️ SECOURS SANS SESSION. Mesuré le 20/08 : le chemin avec session rendait zéro bougie sur
-    // 6E=F alors qu'une requête nue depuis le MÊME conteneur en ramenait 5302. Le champ « via »
-    // dit lequel a servi — un endpoint qui échoue en silence se débogue à l'aveugle.
-    try {
-      candles = _reactCandles(await _yfNu(f.sym, '1m', range), f.inv);
-      if (candles.length) via = 'sans-session';
-    } catch (e) {}
-  }
+  const { raw, via } = await _yfChart(f.sym, '1m', range);
+  const candles = _reactCandles(raw, f.inv);
   res.json({ candles, source: candles.length ? 'terme' : null, via, sym: f.sym, inv: f.inv });
 });
 
@@ -22521,17 +22507,16 @@ app.get('/api/market-moves', async (req, res) => {
   const cacheKey = Math.floor(since / 60000).toString();
   if (_moveCache.has(cacheKey)) return res.json(_moveCache.get(cacheKey));
 
-  await getYFSession();
-
   const sinceSec  = Math.floor(since / 1000);
   const windowSec = 8 * 60; // réaction = mouvement RAPIDE dans les ~8 min suivant l'event (pas une dérive lente)
 
   const moves = (await Promise.all(MOVE_ASSETS.map(async asset => {
     try {
-      const url = yfUrl(asset.sym, '1m', '5d');
-      const r = await axios.get(url, { headers: yfHeaders(), timeout: 10000, validateStatus: () => true });
-      if (r.status !== 200) return null;
-      const result = r.data?.chart?.result?.[0];
+      // ⚠️ Passe par _yfChart : la lecture avec session rendait ZÉRO mouvement sur toutes les
+      // fenêtres (50 min, 2 h, 6 h, mesuré le 21/08), et comme le tag « Réaction » n'est créé que
+      // si l'endpoint renvoie au moins un mouvement, il ne pouvait apparaître sur AUCUNE news.
+      const { raw } = await _yfChart(asset.sym, '1m', '5d');
+      const result = raw?.chart?.result?.[0];
       if (!result) return null;
 
       const timestamps = result.timestamp || [];
