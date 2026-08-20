@@ -2880,7 +2880,7 @@ function buildNewsItem(item) {
     if (tab === 'reaction') {
       const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       expandEl.innerHTML = dtpLoader('Chargement des données de marché…', { small: true });
-      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (reactionTagEl) reactionTagEl.classList.add('tag--active');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
 
@@ -2931,7 +2931,7 @@ function buildNewsItem(item) {
     if (tab === 'eco') {
       // Décryptage DTP (pédagogie éco / banque centrale) : même bloc que le déroulé calendrier.
       expandEl.innerHTML = dtpLoader('Chargement du décryptage…', { small: true });
-      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       Promise.resolve(typeof dtpEventInsightHtml === 'function' ? dtpEventInsightHtml(item) : '')
@@ -2981,7 +2981,7 @@ function buildNewsItem(item) {
       //     timeToCoordinate() qui donne la position exacte de la minute du chiffre.
       const t0 = item.timestamp || Date.now();
       const _paire = _pairActive || item._pair;
-      if (!_paire) { expandEl.innerHTML = '<div class="iq-note">Marché exposé introuvable pour cette publication.</div>'; expandEl.classList.add('visible'); return; }
+      if (!_paire) { expandEl.innerHTML = '<div class="iq-note">Marché exposé introuvable pour cette publication.</div>'; expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); return; }
       if (marcheTagEl) marcheTagEl.classList.add('tag--active');
       // ⚠️ PLEINE LARGEUR. .news-description ré-indente son contenu de ~248 px pour l'aligner sous le
       // titre : parfait pour du texte, mais cette marge ampute le graphique et écrase la grille des
@@ -3006,7 +3006,7 @@ function buildNewsItem(item) {
         + '<br><span class="nrx-src">Contrat à terme, seule cotation offrant de vraies bougies à la minute. Flux différé d’environ dix minutes : le graphique se complète tout seul tant qu’il reste ouvert.</span></div>'
         + '</div>'
         + _rxgHtml(_gid);
-      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       _dtpTranslateQuotes(expandEl);   // les puces des blocs viennent en langue source
       // Seul le bloc Réaction demande une requête : les trois autres sont déjà attachés à la news.
       // Le cache d'explication est partagé avec le panneau Réaction — ouvrir l'un puis l'autre ne
@@ -3070,7 +3070,7 @@ function buildNewsItem(item) {
       expandEl.innerHTML = _nrxQuand('Impact marché', item._anaAt || item.timestamp)
         + _renderInfoBullets(['Impact marché :', ...String(item._impact || '').split('\n').filter(Boolean)]);
       _dtpTranslateQuotes(expandEl);
-      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (impactTagEl) impactTagEl.classList.add('tag--active');
       return;
     }
@@ -3080,7 +3080,7 @@ function buildNewsItem(item) {
       // le desk a écrit cette lecture, donc à quelle distance de la publication elle se situe.
       expandEl.innerHTML = _nrxQuand('Analyse', item._anaAt || item.timestamp) + _renderInfoBullets(item.analyse || []);
       _dtpTranslateQuotes(expandEl);   // puces en langue source → FR (la traduction ne partait jamais ici)
-      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.add('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       return;
@@ -3089,7 +3089,7 @@ function buildNewsItem(item) {
     // Info tab : if no inline description but has a ForexFactory article URL, fetch real content
     if (tab === 'info' && rawDesc.length <= 30 && hasArticleUrl) {
       expandEl.innerHTML = dtpLoader('Chargement du résumé…', { small: true });
-      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       fetch(`/api/article?url=${encodeURIComponent(item.url)}&headline=${encodeURIComponent(item.headline || '')}`)
@@ -3124,7 +3124,7 @@ function buildNewsItem(item) {
 
     // Affichage immédiat (description brute) : instantané
     expandEl.innerHTML = infoBody;
-    expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+    expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
     _ecoFill(expandEl);   // Décryptage DTP sous les puces (plus de pill dédiée dans le fil)
     // Contenu SOURCE anglais qui échappe aux résumés IA (citations speaker, propos agrégés, puces de la
     // description scrapée des news standard) → traduction FR en place (instantané en source puis remplacé).
@@ -8392,6 +8392,40 @@ function _dtpThemeResolve(mode) { return mode === 'system' ? (matchMedia('(prefe
 // Devise → marché le plus exposé. MIROIR EXACT de _EVA_PAIR (server.js) : le tag d'une news et
 // celui d'une analyse d'événement ouvrent LE MÊME graphique pour la même devise.
 const _PAIR_DE_DEVISE = { USD: 'EUR/USD', EUR: 'EUR/USD', GBP: 'GBP/USD', JPY: 'USD/JPY', CHF: 'USD/CHF', CAD: 'USD/CAD', AUD: 'AUD/USD', NZD: 'NZD/USD' };
+
+// ── FOND DE LA DESCRIPTION : PLEINE LARGEUR DE LA CARTE ───────────────────────────────────────
+// Le décalage entre le bord de la carte et la colonne de contenu était exprimé en CSS par une
+// SOMME DE LARGEURS DE COLONNES (--news-desc-bleed). Cette somme ne vaut que pour la mise en page
+// en colonnes du bureau : dès que la ligne se replie — mobile, widget étroit — le nombre et l'ordre
+// des colonnes qui précèdent le contenu changent, et le fond s'arrêtait à 34 px du bord gauche au
+// lieu de 0 (mesuré). Une somme de largeurs ne peut pas suivre une mise en page qui se réorganise.
+// On MESURE donc l'écart réel, ce qui ne suppose rien de la disposition.
+// ⚠️ offsetLeft et clientWidth sont en pixels CSS et se comptent depuis .news-item, déjà en
+// « position: relative » : ils sont donc insensibles au zoom global du desk (html { zoom: .9 }),
+// contrairement à getBoundingClientRect qui rend des pixels ÉCRAN. Mélanger les deux fabrique de
+// faux défauts — c'est le piège qui m'a déjà coûté une heure sur ce même écran.
+function _fondPleineLargeur(el) {
+  try {
+    if (!el || !el.isConnected) return;
+    const carte = el.closest && el.closest('.news-item');
+    if (!carte || el.offsetParent !== carte) return;   // mise en page inattendue : on ne touche à rien
+    el.style.marginLeft = '0px'; el.style.marginRight = '0px';   // on part du nu pour mesurer
+    const g = el.offsetLeft;
+    const d = carte.clientWidth - (g + el.offsetWidth);
+    if (g < 0 || d < 0) return;                         // valeurs aberrantes : on laisse le CSS faire
+    el.style.marginLeft = (-g) + 'px';
+    el.style.marginRight = (-d) + 'px';
+  } catch (e) {}
+}
+// La largeur de la carte change avec la fenêtre (rotation, volet, plein écran) : les panneaux
+// ouverts doivent se re-mesurer, sinon le fond garde l'écart de l'ancienne disposition.
+let _fondTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_fondTimer);
+  _fondTimer = setTimeout(() => {
+    document.querySelectorAll('.news-description.visible').forEach(_fondPleineLargeur);
+  }, 160);
+});
 
 function _nrxQuand(libelle, ts) {
   if (!ts) return '';
