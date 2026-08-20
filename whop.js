@@ -14,7 +14,12 @@ function _auth() { return { Authorization: `Bearer ${WHOP_API_KEY}`, 'Content-Ty
 // Renvoie null si ce n'est PAS le produit DTP (on ignore les autres offres Whop).
 function _normalize(m) {
   if (!m || !m.email) return null;
-  if (m.product && m.product !== DTP_PRODUCT) return null;       // ← uniquement le produit DTP
+  // ⚠️ LE PRODUIT SE PRÉSENTE SOUS PLUSIEURS NOMS selon l'endpoint (product, product_id, plan.product) :
+  // ne lire que `m.product` laissait passer pour du DTP toute adhésion dont le payload nomme le champ
+  // autrement — c'est ainsi qu'un inscrit à la NEWSLETTER (produit Whop gratuit) a reçu un compte desk
+  // et le mail d'ACCÈS (constaté le 20/08). On lit les trois, et on DIT si le produit est inconnu.
+  const prod = m.product || m.product_id || (m.plan && (m.plan.product || m.plan.product_id)) || null;
+  if (prod && prod !== DTP_PRODUCT) return null;                 // ← uniquement le produit DTP
   const endTs = m.renewal_period_end || m.expires_at || null;   // timestamps unix (secondes)
   return {
     email:     String(m.email).toLowerCase().trim(),
@@ -24,7 +29,11 @@ function _normalize(m) {
     periodStart: m.renewal_period_start ? m.renewal_period_start * 1000 : null,
     periodEnd:   m.renewal_period_end ? m.renewal_period_end * 1000 : null,
     plan:      m.plan || null,
-    product:   m.product || null,
+    product:   prod,
+    // `produitConnu` à faux = le payload ne dit PAS de quel produit il s'agit : l'appelant qui accorde
+    // un accès payant DOIT alors re-vérifier auprès de l'API (getMembershipByEmail filtre, lui, sur
+    // le produit DTP). Sans ce drapeau, « produit absent » était silencieusement traité comme « DTP ».
+    produitConnu: !!prod,
     status:    m.status || null,
     // username de l'AFFILIÉ qui a parrainé CETTE adhésion (lien ?a=<username>) — pour créditer le parrain
     affiliateUsername: m.affiliate_username || (m.affiliate && m.affiliate.username) || null,
@@ -352,4 +361,4 @@ async function revenueStats(opts) {
   return data;
 }
 
-module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, revenueStats, configured: () => !!WHOP_API_KEY };
+module.exports = { productId: DTP_PRODUCT, getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, revenueStats, configured: () => !!WHOP_API_KEY };

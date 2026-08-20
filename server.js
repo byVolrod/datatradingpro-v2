@@ -870,6 +870,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260820-newsletter-acces', ts: Date.UTC(2026, 7, 20, 18, 0), title: 'S inscrire à la newsletter ne crée plus de compte au terminal', desc: 'Rejoindre la newsletter déclenchait la même chose qu un abonnement au desk : création d un compte et envoi du courriel d accès avec un mot de passe. Deux offres différentes, un seul traitement. C est corrigé : seul un abonnement au terminal ouvre un accès, et une inscription à la newsletter reste une inscription à la newsletter. Les abonnés payants ne sont pas affectés : leur accès est vérifié auprès de la plateforme de paiement avant toute création.' },
   { id: 'dtpu-20260820-vitrine-sync', ts: Date.UTC(2026, 7, 20, 16, 30), title: 'Le site vitrine affiche désormais les nouveautés du desk en direct', desc: 'La page d accueil publique gagne une section Nouveautés alimentée par le même fil que l onglet DTP du desk : chaque évolution du terminal apparaît sur le site vitrine sans intervention, avec sa date. Les visiteurs voient ce que les abonnés reçoivent réellement, semaine après semaine.' },
   { id: 'dtpu-20260822-rapports-heure', ts: Date.UTC(2026, 7, 22, 15, 0), title: 'Chaque rapport reprend sa vraie heure dans le fil', desc: 'Après une mise à jour du serveur, les rapports du jour régénérés pouvaient s empiler dans le fil à l heure du redémarrage, tous à la même minute. Chaque rapport rattrapé est désormais horodaté à son créneau réel : la préparation de Londres à 7h45, le récap d Asie à 9h30, le récap de New York à 22h15. Le fil se remet en ordre de lui-même, y compris pour les rapports déjà mal datés.' },
   { id: 'dtpu-20260822-rapports-stables', ts: Date.UTC(2026, 7, 22, 14, 0), title: 'Les rapports du jour ne se republient plus en bloc après une mise à jour', desc: 'Les jours à très fort volume d actualité, les rapports du matin pouvaient être évincés de la mémoire du fil, et un redémarrage les republiait alors tous d un coup, horodatés à l instant du redémarrage : neuf rapports empilés à la même minute. Les rapports sont désormais protégés de cette éviction : ils gardent leur heure et leur place. Le chargement de la journée en cours va aussi plus loin : même un jour de FOMC à plus de mille dépêches se parcourt jusqu à sa première news avant de passer au jour précédent.' },
@@ -2634,7 +2635,19 @@ app.post('/api/whop/webhook', async (req, res) => {
     // MAUVAIS ACTEUR (remboursement, chargeback, litige, ban, terminaison, fraude) → blacklist AUTO. Un simple
     // cancel/expire = churn normal → seulement suspendu (GARDE pour le win-back, cf systeme churn/audience).
     const banEvent = /refund|chargeback|terminat|ban|block|dispute|fraud/.test(action);
-    if (mem.valid && !invalidEvent) await _whopRenewOrCreate(mem);
+    // ⚠️ PRODUIT DTP EXIGÉ AVANT TOUT ACCÈS (20/08) : le webhook reçoit les événements de TOUS les
+    // produits du compte Whop, newsletter gratuite comprise. Il n'en vérifiait aucun : rejoindre la
+    // newsletter créait un compte desk et envoyait le mail d'accès avec un mot de passe. La
+    // réconciliation, elle, filtrait déjà sur le produit (product_id dans la requête) : deux chemins,
+    // un seul garde-fou. Quand le payload ne nomme pas le produit, on RE-VÉRIFIE auprès de l'API
+    // (getMembershipByEmail filtre sur le produit DTP) plutôt que de présumer : c'est la même
+    // discipline que la branche d'invalidation ci-dessous, et un vrai payeur n'est jamais bloqué.
+    let _estDTP = mem.produitConnu ? (mem.product === whop.productId) : false;
+    if (mem.valid && !invalidEvent && !_estDTP) {
+      try { const _v = await whop.getMembershipByEmail(mem.email); _estDTP = !!(_v && _v.valid); } catch (e) {}
+      if (!_estDTP) console.log('[Whop] event hors produit DTP (newsletter ou autre offre) → aucun compte, aucun mail d\'accès :', mem.email);
+    }
+    if (mem.valid && !invalidEvent && _estDTP) await _whopRenewOrCreate(mem);
     else {
       // (Audit 28/07 — CRITIQUES) Avant de suspendre/blacklister, on exige que l'API WHOP (source
       // de vérité, pas le payload) confirme qu'il ne reste AUCUNE adhésion DTP valide pour cet
