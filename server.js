@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-cercle-rouge', ts: Date.UTC(2026, 7, 21, 8, 0), title: 'Le cercle rouge est de retour sur le graphique de reaction', desc: 'Le graphique qui s ouvre au clic sur le marche expose d une news est desormais epure : plus de barre d outils, plus d indicateurs, plus de volume, juste les bougies. Et surtout, un cercle rouge marque la minute exacte ou le chiffre est tombe, avec un trait vertical, exactement comme demande. Il suit le graphique quand vous zoomez ou faites defiler. Les bougies a la minute viennent des contrats a terme, seule source qui en fournisse de vraies a cette echelle : le comptant renvoie un prix unique par minute, donc des bougies plates.' },
   { id: 'dtpu-20260821-creneau-agenda', ts: Date.UTC(2026, 7, 21, 6, 0), title: 'Plus de graphique sur une ligne d agenda', desc: 'Le fil publie separement le rendez-vous et son resultat : une ligne FOMC Rate Statement annonce le creneau, une ligne avec le chiffre annonce la publication. Le marche expose s affichait sur les deux, or sur la ligne d agenda rien n est encore tombe : le graphique se serait ouvert sur un moment ou il ne s est rien produit. Il faut desormais que le titre porte une valeur publiee, ou qu il rapporte les propos d un banquier central, pour que le marche expose apparaisse.' },
   { id: 'dtpu-20260821-reaction-tradingview', ts: Date.UTC(2026, 7, 21, 5, 0), title: 'La reaction du marche passe sur un graphique TradingView', desc: 'Le graphique qui s ouvre au clic sur le marche expose d une news est desormais un vrai TradingView : bougies a la minute, en direct, avec le zoom et les outils habituels. La raison du changement est une mesure : notre fournisseur de cotations ne livre pas de vraie bougie a la minute sur le change, il renvoie un seul prix par minute. Les bougies sortaient donc en tirets plats. L heure exacte de publication du chiffre est rappelee au-dessus du graphique pour retrouver la minute qui compte.' },
   { id: 'dtpu-20260821-tag-publication', ts: Date.UTC(2026, 7, 21, 4, 30), title: 'Le marche expose ne s affiche plus que sur les vraies publications', desc: 'Le tag de paire apparaissait aussi sur des commentaires de marche, alors qu il ouvre un graphique cale sur l instant d une publication. Sur un recit du type l euro recule depuis son plus haut de trois mois, cet instant n est pas celui ou le marche a bouge : le graphique laissait croire a un lien qui n existe pas. Il est maintenant reserve aux evenements dates, c est-a-dire un chiffre publie ou une decision de banque centrale. Les commentaires economiques, les analyses de marche, les flux de change, les annonces a venir et les sujets hors change en sont exclus. Sur les news importantes en circulation, une sur neuf porte desormais un tag, et chacune correspond a une publication reelle.' },
@@ -14854,6 +14855,48 @@ app.get('/api/bank-ohlc', async (req, res) => {
     candles = _bankGroupe(candles, tf.grp);
     res.json({ candles });
   } catch (e) { res.json({ candles: [] }); }
+});
+
+// ─── BOUGIES À LA MINUTE POUR LA RÉACTION AUX NEWS ───────────────────────────
+// ⚠️ SOURCE = CONTRATS À TERME (CME), et c'est une MESURE qui l'impose, pas une préférence.
+// Sur le COMPTANT, Yahoo renvoie o = h = l = c sur 933 bougies sur 933 : 100 % plates, il
+// n'existe tout simplement aucune vraie bougie à la minute (vérifié sur EURUSD=X ET GBPUSD=X).
+// Sur le contrat à terme euro (6E=F) : 611 bougies, 9 % plates, 1,13 point de base d'amplitude
+// moyenne. Le comptant est inexploitable à cette échelle, le terme ne l'est pas.
+// Le niveau du terme diffère du comptant de quelques points (report/déport) : c'est la FORME de
+// la réaction qui est lue ici, pas un niveau de cotation, et le graphique le dit en légende.
+const _FUT_DEV = { EUR: '6E=F', GBP: '6B=F', JPY: '6J=F', CHF: '6S=F', CAD: '6C=F', AUD: '6A=F', NZD: '6N=F' };
+// Un contrat cote TOUJOURS la devise en dollars. Pour EUR/USD, GBP/USD, AUD/USD et NZD/USD, il
+// va donc dans le même sens que la paire. Pour USD/JPY, USD/CHF et USD/CAD il va à l'INVERSE :
+// il faut retourner la bougie (1/prix) ET échanger le haut et le bas. Sans cette inversion la
+// réaction s'afficherait à l'envers — un défaut que l'œil ne peut pas détecter et qui ferait
+// lire exactement le contraire de ce qui s'est passé.
+function _futPour(pair) {
+  const p = String(pair || '').toUpperCase().split('/');
+  if (p.length !== 2) return null;
+  if (p[1] === 'USD' && _FUT_DEV[p[0]]) return { sym: _FUT_DEV[p[0]], inv: false };
+  if (p[0] === 'USD' && _FUT_DEV[p[1]]) return { sym: _FUT_DEV[p[1]], inv: true };
+  return null;
+}
+app.get('/api/react-ohlc', async (req, res) => {
+  const f = _futPour(req.query.pair);
+  if (!f) return res.json({ candles: [], source: null });
+  try {
+    await getYFSession();
+    const raw = await yfFetch(f.sym, '1m', '5d');
+    const r = raw?.chart?.result?.[0];
+    const ts = r?.timestamp || [];
+    const q = r?.indicators?.quote?.[0] || {};
+    const candles = [];
+    for (let i = 0; i < ts.length; i++) {
+      const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
+      if (o == null || h == null || l == null || c == null || o <= 0 || h <= 0 || l <= 0 || c <= 0) continue;
+      candles.push(f.inv
+        ? { t: ts[i] * 1000, o: 1 / o, h: 1 / l, l: 1 / h, c: 1 / c }   // haut et bas ÉCHANGÉS
+        : { t: ts[i] * 1000, o, h, l, c });
+    }
+    res.json({ candles, source: 'terme' });
+  } catch (e) { res.json({ candles: [], source: null }); }
 });
 
 // ─── Market Snapshot (tableau SNAPSHOT des rapports DTP) — prix réels Yahoo ───

@@ -18379,12 +18379,26 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
 .nrx-tete b { color: var(--text, #e6e8eb); font-weight: 700; }
 .nrx-tete span { color: var(--text3, #6b7280); font-size: 10px; }
 .nrx-pub { margin-left: auto; color: var(--orange, #e3b23a); font-variant-numeric: tabular-nums; }
-/* Le graphique TradingView du panneau « Réaction du marché ». Hauteur fixe : l'embarqué est
-   en autosize et un conteneur sans hauteur le réduirait à zéro. */
-.nrx-tv { width: 100%; height: 340px; border: 1px solid var(--hud-line, var(--border));
+/* Le graphique de réaction (lightweight-charts). Hauteur fixe : la bibliothèque dessine dans un
+   canevas et un conteneur sans hauteur le réduirait à zéro. `position: relative` est ce qui rend
+   le repère de publication positionnable par-dessus. */
+.nrx-lwc { position: relative; width: 100%; height: 320px; border: 1px solid var(--hud-line, var(--border));
   border-radius: 3px; overflow: hidden; background: var(--bg-3, #0f0f12); }
-/* Le rappel de l'heure de publication : l'embarqué gratuit n'accepte aucune annotation, donc
-   l'instant du chiffre se dit en toutes lettres au lieu d'être dessiné sur le graphique. */
+/* LE REPÈRE DE PUBLICATION : trait vertical + cercle rouge sur la minute du chiffre, posé en
+   coordonnées écran et recalculé à chaque déplacement ou zoom du graphique.
+   Il se superpose au canevas, d'où le z-index ; il ne doit jamais intercepter la souris, sinon il
+   bloquerait le déplacement du graphique juste à l'endroit le plus intéressant. */
+.nrx-cible { position: absolute; top: 0; bottom: 0; left: 0; width: 0; z-index: 3;
+  pointer-events: none; display: none; }
+/* Le trait s'arrête au-dessus de l'axe des heures : le traverser brouillerait les graduations. */
+.nrx-vline { position: absolute; top: 0; bottom: 24px; left: 0; width: 0;
+  border-left: 1px dashed rgba(239, 68, 68, .75); }
+.nrx-rond { position: absolute; left: 0; width: 46px; height: 46px; margin: -23px 0 0 -23px;
+  border-radius: 50%; background: rgba(239, 68, 68, .14); border: 1px solid rgba(239, 68, 68, .6);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, .12); }
+html[data-theme="light"] .nrx-vline { border-left-color: rgba(199, 48, 0, .7); }
+html[data-theme="light"] .nrx-rond { background: rgba(199, 48, 0, .1); border-color: rgba(199, 48, 0, .5); }
+/* Le rappel de l'heure de publication, sous le graphique. */
 .nrx-note { font-size: 10px; color: var(--text3, #6b7280); line-height: 1.4; }
 
 /* ⚠️ RESPONSIVE (20/08, contrôle d'après-modif) : la grille « 3 par rangée » des vignettes, ajoutée

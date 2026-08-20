@@ -2913,64 +2913,58 @@ function buildNewsItem(item) {
     }
 
     if (tab === 'marche') {
-      // ── RÉACTION DU MARCHÉ : GRAPHIQUE TRADINGVIEW (20/08, demande user) ──────────────────
-      // Le dessin maison a été retiré, et la raison est une MESURE, pas une préférence : sur
-      // /api/bank-ohlc en unité 1 min, la source renvoie o = h = l = c sur 200 bougies sur 200.
-      // Il n'existe tout simplement PAS de vraie bougie à la minute sur le change chez ce
-      // fournisseur — juste un prix par minute. Les « bougies » sortaient donc en tirets plats
-      // (constat de l'utilisateur, capture à l'appui). Aux unités supérieures la donnée redevient
-      // correcte (15 min : 4,3 pips d'amplitude moyenne), mais c'est justement la minute qui
-      // intéresse quand on regarde la réaction à un chiffre.
-      // TradingView apporte la vraie bougie à la minute, en direct, et laisse zoomer.
-      // ⚠️ CE QU'ON PERD, ET C'EST ASSUMÉ : l'embarqué gratuit n'accepte aucune annotation, donc
-      // la bulle rouge sur l'instant de publication n'est plus dessinée. L'heure exacte est
-      // affichée en toutes lettres au-dessus du graphique et rappelée en légende.
+      // ── RÉACTION DU MARCHÉ ────────────────────────────────────────────────────────────────
+      // Bougies d'une MINUTE + CERCLE ROUGE sur l'instant de publication (demande user, référence
+      // à l'appui). Deux mesures ont dicté ce montage :
+      //  1. LA SOURCE. Le comptant Yahoo renvoie o = h = l = c sur 933 bougies sur 933 à la
+      //     minute : 100 % plates, aucun tracé possible. Les CONTRATS À TERME, eux, donnent de
+      //     vraies bougies (6E=F : 9 % plates, 1,13 pdb d'amplitude moyenne). D'où /api/react-ohlc.
+      //  2. LE RENDU. L'embarqué TradingView impose ses barres d'outils et n'accepte AUCUNE
+      //     annotation : l'iframe est d'origine étrangère, on ne peut rien y dessiner. On utilise
+      //     donc lightweight-charts, la bibliothèque LIBRE de TradingView (Apache 2.0, servie
+      //     depuis nos propres fichiers) : même rendu, aucune barre d'outils, et surtout
+      //     timeToCoordinate() qui donne la position exacte de la minute du chiffre.
       const t0 = item.timestamp || Date.now();
       const _paire = _pairActive || item._pair;
       if (!_paire) { expandEl.innerHTML = '<div class="iq-note">Marché exposé introuvable pour cette publication.</div>'; expandEl.classList.add('visible'); return; }
       if (marcheTagEl) marcheTagEl.classList.add('tag--active');
       const _hPub = new Date(t0).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       const _dPub = new Date(t0).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-      // L'identifiant du conteneur doit être un identifiant HTML valide : les identifiants de news
-      // portent des points et des tirets selon la source.
-      const _tvId = 'tvr-' + String(item.id || '').replace(/[^a-zA-Z0-9]/g, '') + '-' + _paire.replace('/', '');
+      const _gid = 'rxg-' + String(item.id || '').replace(/[^a-zA-Z0-9]/g, '') + '-' + _paire.replace('/', '');
       expandEl.innerHTML = '<div class="nrx">'
         + '<div class="nrx-tete"><b>' + _paire + '</b><span>réaction · bougies 1 min</span>'
         + '<span class="nrx-pub">publication ' + _hPub + '</span></div>'
-        + '<div class="nrx-tv" id="' + _tvId + '">' + dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
+        + '<div class="nrx-lwc" id="' + _gid + '">' + dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
         // La phrase fixe vit dans son propre élément : le dictionnaire est indexé par CHAÎNE
         // EXACTE, donc une phrase où l'on incruste une date ne serait jamais traduite.
-        + '<div class="nrx-note">' + _dPub + ' à ' + _hPub + ' &middot; <span>Repérez cette minute sur le graphique pour lire la réaction.</span></div>'
+        + '<div class="nrx-note">' + _dPub + ' à ' + _hPub + ' &middot; <span>Le cercle rouge marque la minute de publication.</span></div>'
         + '</div>';
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
-      if (window.DTP_tv && window.DTP_tv.charger) {
-        window.DTP_tv.charger(() => {
-          // Entre le clic et le chargement de tv.js, l'utilisateur a pu changer d'onglet ou
-          // replier la news : sans ces deux gardes, on injecterait un graphique dans un conteneur
-          // détaché, et TradingView lèverait une exception sur un identifiant introuvable.
-          if (activeTab !== 'marche') return;
-          const hote = document.getElementById(_tvId);
-          if (!hote || !hote.isConnected) return;
-          hote.innerHTML = '';
-          try {
-            new window.TradingView.widget({
-              container_id: _tvId, symbol: window.DTP_tv.symbole(_paire.replace('/', '')),
-              interval: '1', timezone: 'Europe/Paris',
-              theme: (typeof _deskLight === 'function' && _deskLight()) ? 'light' : 'dark',
-              style: '1', locale: 'fr', autosize: true,
-              hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true,
-            });
-            // Comme dans la vue Symbole : en autosize, TradingView ne se recalibre que sur un
-            // resize global, sinon il laisse une bande grise à droite.
-            [350, 1000, 1800].forEach(d => setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, d));
-          } catch (e) {
-            hote.innerHTML = '<div class="iq-note">Graphique indisponible pour le moment.</div>';
-          }
-        });
-      } else {
-        const hote = document.getElementById(_tvId);
-        if (hote) hote.innerHTML = '<div class="iq-note">Graphique indisponible pour le moment.</div>';
-      }
+      const _echec = m => { const h = document.getElementById(_gid); if (h) h.innerHTML = '<div class="iq-note">' + m + '</div>'; };
+      _chargerLwc(() => {
+        // Entre le clic et le chargement de la bibliothèque, l'utilisateur a pu changer d'onglet
+        // ou replier la news : sans ces gardes on dessinerait dans un conteneur détaché.
+        if (activeTab !== 'marche') return;
+        const hote = document.getElementById(_gid);
+        if (!hote || !hote.isConnected) return;
+        fetch('/api/react-ohlc?pair=' + encodeURIComponent(_paire))
+          .then(r => r.json())
+          .then(d => {
+            if (activeTab !== 'marche' || !hote.isConnected) return;
+            const brut = (d && d.candles) || [];
+            // Fenêtre serrée autour du chiffre : 30 min avant, 90 min après. La publication tombe
+            // ainsi au premier quart, et les trois quarts restants montrent la SUITE — c'est
+            // précisément ce qu'on vient lire.
+            const av = t0 - 30 * 60e3, ap = t0 + 90 * 60e3;
+            const fen = brut.filter(c => c.t >= av && c.t <= ap);
+            if (fen.length < 8 || !brut.some(c => c.t <= t0)) {
+              _echec('Réaction indisponible : les cotations à la minute ne couvrent plus l\'heure de cette publication.');
+              return;
+            }
+            _dessinerReaction(hote, fen, t0, _paire);
+          })
+          .catch(() => { if (activeTab === 'marche') _echec('Graphique indisponible pour le moment.'); });
+      }, () => _echec('Graphique indisponible pour le moment.'));
       return;
     }
     if (tab === 'impact') {
@@ -8337,6 +8331,94 @@ function _nrxQuand(libelle, ts) {
   if (!ts) return '';
   let h = ''; try { h = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
   return '<div class="nrx-quand">' + libelle + ' à ' + h + '</div>';
+}
+
+// ── lightweight-charts : chargé à la demande, une seule fois ──────────────────────────────────
+// Bibliothèque LIBRE de TradingView (Apache 2.0), servie depuis NOS fichiers et non depuis un
+// CDN : le desk ne dépend d'aucun tiers pour afficher un graphique. Le nom du fichier porte sa
+// version parce que les fichiers statiques sont servis avec un cache de 30 jours — sans version
+// dans le nom, une mise à jour de la bibliothèque ne serait jamais reprise par les navigateurs.
+let _lwcEnCours = false;
+function _chargerLwc(ok, echec) {
+  if (window.LightweightCharts) { ok(); return; }
+  if (_lwcEnCours) {   // un autre panneau charge déjà : on attend le même script
+    let n = 0;
+    const t = setInterval(() => {
+      if (window.LightweightCharts) { clearInterval(t); ok(); }
+      else if (++n > 80) { clearInterval(t); if (echec) echec(); }   // 12 s
+    }, 150);
+    return;
+  }
+  _lwcEnCours = true;
+  const s = document.createElement('script');
+  s.src = '/js/vendor/lightweight-charts-4.2.3.js';
+  s.async = true;
+  s.onload = () => { if (window.LightweightCharts) ok(); else if (echec) echec(); };
+  s.onerror = () => { _lwcEnCours = false; if (echec) echec(); };
+  document.head.appendChild(s);
+}
+
+// ── GRAPHIQUE DE RÉACTION : bougies + CERCLE ROUGE sur la minute de publication ───────────────
+let _rxChart = null, _rxObs = null;
+function _dessinerReaction(hote, candles, t0, paire) {
+  // Un panneau ouvert précédemment peut encore vivre : sans ce nettoyage, chaque ouverture
+  // laisserait derrière elle un graphique et son observateur de taille.
+  try { if (_rxChart) _rxChart.remove(); } catch (e) {}
+  try { if (_rxObs) _rxObs.disconnect(); } catch (e) {}
+  _rxChart = null; _rxObs = null;
+  hote.innerHTML = '<div class="nrx-cible" aria-hidden="true"><i class="nrx-vline"></i><b class="nrx-rond"></b></div>';
+  const cible = hote.firstElementChild;
+  const clair = (typeof _deskLight === 'function' && _deskLight());
+  // L'axe doit afficher l'heure de PARIS : les horodatages sont en temps universel et la
+  // bibliothèque les rendrait tels quels — le lecteur verrait deux heures différentes pour le
+  // même chiffre, celle du fil et celle du graphique.
+  const hPar = t => { try { return new Date(t * 1000).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
+  const chart = window.LightweightCharts.createChart(hote, {
+    width: hote.clientWidth || 640, height: 320,
+    layout: { background: { color: clair ? '#ffffff' : '#0f0f12' }, textColor: clair ? '#5b6472' : '#8b93a1', fontSize: 10 },
+    grid: { vertLines: { color: clair ? '#eef0f3' : '#16161a' }, horzLines: { color: clair ? '#eef0f3' : '#16161a' } },
+    rightPriceScale: { borderColor: clair ? '#d8dce2' : '#1c1c20' },
+    timeScale: { borderColor: clair ? '#d8dce2' : '#1c1c20', timeVisible: true, secondsVisible: false, tickMarkFormatter: hPar },
+    localization: { timeFormatter: hPar },
+    crosshair: { mode: 0 },
+  });
+  const serie = chart.addCandlestickSeries({
+    upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
+    wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+  });
+  // La bibliothèque exige des SECONDES, triées et sans doublon : un horodatage répété la fait
+  // lever une exception et le panneau resterait vide.
+  const vus = new Set();
+  const data = candles.slice().sort((a, b) => a.t - b.t)
+    .map(c => ({ time: Math.floor(c.t / 1000), open: c.o, high: c.h, low: c.l, close: c.c }))
+    .filter(d => (vus.has(d.time) ? false : (vus.add(d.time), true)));
+  if (!data.length) { hote.innerHTML = '<div class="iq-note">Réaction indisponible pour cette publication.</div>'; return; }
+  serie.setData(data);
+  const tSec = Math.floor(t0 / 1000);
+  // La bougie qui CONTIENT la publication : la dernière dont l'horodatage lui est antérieur.
+  let bougie = data[0];
+  for (const d of data) if (d.time <= tSec) bougie = d;
+  chart.timeScale().setVisibleRange({ from: data[0].time, to: data[data.length - 1].time });
+  // Le cercle est posé en COORDONNÉES ÉCRAN, recalculées à chaque déplacement ou zoom : c'est ce
+  // que l'embarqué TradingView ne permet pas, son cadre étant d'origine étrangère.
+  const rond = cible.querySelector('.nrx-rond');
+  const placer = () => {
+    let x = null, y = null;
+    try { x = chart.timeScale().timeToCoordinate(bougie.time); y = serie.priceToCoordinate((bougie.high + bougie.low) / 2); } catch (e) {}
+    if (x == null || y == null) { cible.style.display = 'none'; return; }
+    cible.style.display = 'block';
+    cible.style.left = x + 'px';
+    rond.style.top = y + 'px';
+  };
+  placer();
+  chart.timeScale().subscribeVisibleTimeRangeChange(placer);
+  // Le conteneur suit la largeur du fil (volet ouvert, plein écran, mobile) et la bibliothèque
+  // ne se redimensionne pas d'elle-même.
+  if (window.ResizeObserver) {
+    _rxObs = new ResizeObserver(() => { try { chart.applyOptions({ width: hote.clientWidth }); placer(); } catch (e) {} });
+    _rxObs.observe(hote);
+  }
+  _rxChart = chart;
 }
 
 function _dtpThemeApply(mode) {
