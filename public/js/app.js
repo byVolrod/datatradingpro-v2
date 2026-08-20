@@ -2400,6 +2400,23 @@ function _reactionMoves(item, ok, echec, paire) {
     })
     .catch(() => { if (echec) echec(); });
 }
+// Regroupe des bougies d'une minute en bougies de N minutes : ouverture de la première, clôture
+// de la dernière, plus haut et plus bas de l'ensemble. C'est ce qui rend le tracé lisible aux
+// heures creuses — une minute sans échange n'a pas de corps et se dessine en tiret, alors que
+// cinq minutes regroupées en ont presque toujours un (mesuré : 84 % contre 62 % sur une journée,
+// et 67 % contre 21 % sur la tranche de 22 h à Paris).
+function _agregeBougies(cs, m) {
+  const pas = m * 60e3;
+  const par = new Map();
+  for (const c of (cs || []).slice().sort((a, b) => a.t - b.t)) {
+    if (c == null || c.o == null) continue;
+    const k = Math.floor(c.t / pas);
+    const g = par.get(k);
+    if (!g) par.set(k, { t: k * pas, o: c.o, h: c.h, l: c.l, c: c.c });
+    else { g.h = Math.max(g.h, c.h); g.l = Math.min(g.l, c.l); g.c = c.c; }
+  }
+  return [...par.values()];
+}
 // Mouvement de LA paire exposée, calculé sur les MÊMES bougies que le graphique de réaction.
 // C'est le point : le texte et le tracé lisent la même source, ils ne peuvent donc pas se
 // contredire — et il n'y a AUCUN seuil, l'amplitude est le contenu, pas la condition.
@@ -3113,12 +3130,24 @@ function buildNewsItem(item) {
             // Fenêtre serrée autour du chiffre : 30 min avant, 90 min après. La publication tombe
             // ainsi au premier quart, et les trois quarts restants montrent la SUITE — c'est
             // précisément ce qu'on vient lire.
-            const av = t0 - 30 * 60e3, ap = t0 + 90 * 60e3;
-            const fen = brut.filter(c => c.t >= av && c.t <= ap);
-            if (fen.length < 8 || !brut.some(c => c.t <= t0)) {
+            // ⚠️ LA FENÊTRE FAIT LA LISIBILITÉ, PAS LA SOURCE NI L'UNITÉ. Le tracé précédent
+            // montrait 30 min avant et 90 min après, à la minute : le soir, cette fenêtre ne
+            // contient que 2,5 POINTS d'amplitude, donc rien à voir, et 80 % des minutes s'y
+            // dessinent en tiret faute de mouvement. Ce n'était ni le flux ni l'unité : c'était
+            // qu'on zoomait sur un intervalle où le prix ne parcourt rien.
+            // Mesuré, publication fictive sur données réelles (fenêtre → bougies / amplitude / corps) :
+            //    30 min + 90 min, M1  →  56 bougies,  2,5 points, 20 % avec corps
+            //     6 h    +  2 h,  M5  →  80 bougies, 26,5 points, 80 % avec corps
+            // La seconde donne la densité de la référence tout en gardant une PETITE unité, comme
+            // demandé. Le contexte d'avant est ce qui rend le mouvement d'après lisible : sans lui,
+            // on regarde un plat de deux points en croyant regarder une réaction.
+            const av = t0 - 6 * 3600e3, ap = t0 + 2 * 3600e3;
+            const fenM1 = brut.filter(c => c.t >= av && c.t <= ap);
+            if (fenM1.length < 8 || !brut.some(c => c.t <= t0)) {
               _echec('Réaction indisponible : les cotations à la minute ne couvrent plus l\'heure de cette publication.');
               return;
             }
+            const fen = _agregeBougies(fenM1, 5);
             const majBougies = _dessinerReaction(hote, fen, t0, _paire);
             // RATTRAPAGE. Le flux étant différé, les minutes qui suivent la publication n'existent
             // pas encore au premier affichage : sans ce rappel, le lecteur verrait un graphique
@@ -3130,7 +3159,10 @@ function buildNewsItem(item) {
               fetch('/api/react-ohlc?pair=' + encodeURIComponent(_paire) + '&ts=' + t0)
                 .then(r => r.json())
                 .then(d2 => {
-                  const f2 = ((d2 && d2.candles) || []).filter(c => c.t >= av && c.t <= ap);
+                  // Le rattrapage doit REGROUPER COMME LE PREMIER TRACÉ : renvoyer des bougies
+                  // d'une minute à un graphique dessiné en cinq minutes le ferait changer d'unité
+                  // tout seul sous les yeux du lecteur.
+                  const f2 = _agregeBougies(((d2 && d2.candles) || []).filter(c => c.t >= av && c.t <= ap), 5);
                   if (f2.length && typeof majBougies === 'function') majBougies(f2);
                 })
                 .catch(() => {});
@@ -3319,7 +3351,14 @@ function buildNewsItem(item) {
   // « Bonds / Obligations / Fixed Income » : bannis ICI, au point d'AFFICHAGE (20/08, demande user).
   // Le ban de _canonTag ne s'applique qu'à la CANONISATION : un tag déjà stocké sur un item ancien
   // n'y repassait pas et s'affichait quand même. Ici, aucun chemin ne l'évite.
-  const _HIDDEN_TAGS = new Set(['Data', 'Données', 'Bonds', 'Obligations', 'Fixed Income', 'Obligataire', 'China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
+  // ⚠️ « Analysis » / « Analyse » : bannis pour DEUX raisons, pas une (demande user 21/08).
+  // 1. Doublon : ils accompagnent une catégorie « Analyse de marché » déjà écrite à gauche du
+  //    titre. _isCatDup ne les attrapait pas, car il compare le LIBELLÉ FR et « Analysis » n'a
+  //    pas de traduction dans le dictionnaire des tags : le mot anglais ne figure donc dans
+  //    aucun mot de la catégorie française, et le doublon passait au travers.
+  // 2. Collision : le tag voisine avec le BOUTON « Analyse » de la même news. Deux pastilles
+  //    presque homonymes côte à côte, dont une seule est cliquable, se lisent comme un défaut.
+  const _HIDDEN_TAGS = new Set(['Analysis', 'Analyse', 'Data', 'Données', 'Bonds', 'Obligations', 'Fixed Income', 'Obligataire', 'China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
     'UK Data', 'US Data', 'EU Data', 'Swiss Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'New Zealand Data']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Economic Commentary = retirés à la demande) + TOUTES les catégories « <Pays> Data » (demande user 23/07 : « UK Data » doublonnait « Données » + « UK » — le serveur ne les émet plus pour les nouveaux items, ceci couvre les items déjà stockés)
   // RAPPORTS DTP : on ne montre que quelques tags « de base » (pas les 7-8 thèmes IA) → flux net
   // comme les autres news. La règle existait pour DTP Daily seul (_dtpd) ; le FX Daily Recap et les
@@ -8684,6 +8723,19 @@ function _dessinerReaction(hote, candles, t0, paire) {
   // La bougie qui CONTIENT la publication : la dernière dont l'horodatage lui est antérieur.
   let bougie = data[0];
   for (const d of data) if (d.time <= tSec) bougie = d;
+  // ⚠️ MARCHÉ FERMÉ AU MOMENT DE LA PUBLICATION : le contrat à terme ferme une heure par jour
+  // (21 h à 22 h en temps universel) et tout le week-end. Une news tombée là n'a AUCUNE bougie qui
+  // la contienne, et le repère se poserait alors sur la dernière cotation en laissant croire que
+  // le prix a réagi à cet instant. On l'écrit plutôt que de le laisser deviner.
+  const _dernier = data[data.length - 1];
+  if (tSec > _dernier.time + 120) {
+    bougie = _dernier;
+    const note = document.createElement('div');
+    note.className = 'nrx-ferme';
+    note.textContent = 'Marché fermé au moment de cette publication : le repère marque la dernière cotation d’avant la fermeture, à '
+      + hPar(_dernier.time) + '. La réaction se lira à la réouverture.';
+    hote.appendChild(note);
+  }
   chart.timeScale().setVisibleRange({ from: data[0].time, to: data[data.length - 1].time });
   // Le cercle est posé en COORDONNÉES ÉCRAN, recalculées à chaque déplacement ou zoom : c'est ce
   // que l'embarqué TradingView ne permet pas, son cadre étant d'origine étrangère.

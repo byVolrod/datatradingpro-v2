@@ -1191,8 +1191,14 @@
 
         // Nom du desk -> symbole TradingView. Les paires FX se derivent (EUR/USD -> FX:EURUSD) ;
         // indices et matieres premieres sont nommes, leur symbole TV ne se devine pas.
-        var _TVSYM = { 'DAX': 'XETR:DAX', 'S&P 500': 'SP:SPX', 'FTSE': 'TVC:UKX', 'CAC 40': 'EURONEXT:PX1',
-          'Gold': 'OANDA:XAUUSD', 'Silver': 'OANDA:XAGUSD', 'Oil WTI': 'TVC:USOIL' };
+        // ⚠️ UN SEUL BROKER PARTOUT : FXCM (prefixe « FX: »), demande utilisateur. On melangeait
+        // quatre fournisseurs — XETR, SP, TVC, EURONEXT, OANDA — donc quatre cotations, quatre
+        // series d ecarts et quatre calendriers d ouverture dans la meme bibliotheque de widgets.
+        // Verifie aupres de la recherche de symboles TradingView : FXCM expose bien GER30, SPX500,
+        // UK100, FRA40, XAUUSD, XAGUSD et USOIL. Ce sont des CFD, donc quelques points d ecart avec
+        // l indice comptant : c est le prix a payer pour lire toutes les cartes dans la meme unite.
+        var _TVSYM = { 'DAX': 'FX:GER30', 'S&P 500': 'FX:SPX500', 'FTSE': 'FX:UK100', 'CAC 40': 'FX:FRA40',
+          'Gold': 'FX:XAUUSD', 'Silver': 'FX:XAGUSD', 'Oil WTI': 'FX:USOIL' };
         function tvSym(n) {
           if (_TVSYM[n]) return _TVSYM[n];
           if (n && n.indexOf('/') > 0) return 'FX:' + n.split('/').join('');

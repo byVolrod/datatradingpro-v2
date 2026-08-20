@@ -18440,6 +18440,13 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
    le repère de publication positionnable par-dessus. */
 .nrx-lwc { position: relative; width: 100%; height: 320px; border: 1px solid var(--hud-line, var(--border));
   border-radius: 3px; overflow: hidden; background: var(--bg-3, #0f0f12); }
+/* Bandeau « marché fermé » : posé DANS le graphique, en bas, quand la publication tombe pendant
+   la coupure quotidienne du contrat ou le week-end. Sans lui, le repère se poserait sur la
+   dernière cotation d'avant la fermeture et se lirait comme une réaction qui n'a pas eu lieu. */
+.nrx-ferme { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; pointer-events: none;
+  padding: 5px 8px; font-size: 10px; line-height: 1.35; color: var(--txt-2, #8b93a1);
+  background: color-mix(in srgb, var(--bg-3, #0f0f12) 88%, transparent);
+  border-top: 1px solid var(--hud-line, var(--border)); }
 /* LE REPÈRE DE PUBLICATION : trait vertical + cercle rouge sur la minute du chiffre, posé en
    coordonnées écran et recalculé à chaque déplacement ou zoom du graphique.
    Il se superpose au canevas, d'où le z-index ; il ne doit jamais intercepter la souris, sinon il

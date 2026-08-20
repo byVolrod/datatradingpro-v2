@@ -4974,7 +4974,11 @@ window._retryCalendar = function() {
   // identiques à l'écran, deux comportements. Défaut TD, comme l'accueil.
   let _symStrPeriod = (function () { try { return DTPPref.get('symstf', 'today'); } catch (e) { return 'today'; } })();
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);
-  const tvSymbol = p => p === 'XAUUSD' ? 'OANDA:XAUUSD' : p === 'XAGUSD' ? 'OANDA:XAGUSD' : 'FX:' + p;
+  // ⚠️ UN SEUL BROKER PARTOUT : FXCM (préfixe « FX: » chez TradingView), demande utilisateur.
+  // L'or et l'argent venaient d'OANDA, les paires de FXCM : deux cotations différentes dans le
+  // même onglet, avec leurs propres écarts et horaires. Vérifié auprès de la recherche de
+  // symboles TradingView : FXCM expose bien FX:XAUUSD et FX:XAGUSD, il n'y a rien à concéder.
+  const tvSymbol = p => 'FX:' + p;
   const _esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   const _nf = n => (n == null || isNaN(n)) ? '-' : Number(n).toLocaleString('fr-FR');
   // Drapeau rond pour le dropdown (devise → flagcdn, métaux → pastille dorée/argentée).
