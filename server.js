@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-tag-normal', ts: Date.UTC(2026, 7, 22, 13, 0), title: 'Le tag de paire apparait vraiment sur les actualites qui nomment leur paire', desc: 'La regle livree plus tot aujourd hui ne fonctionnait pas : le verrou avait ete leve a un endroit du code mais pas a celui ou le tag est reellement pose, si bien qu aucune actualite de priorite normale n obtenait son tag ni son graphique, pas meme l exemple fourni pour la demontrer. Une relecture adverse automatisee l a trouve, preuve a l execution. C est corrige et verifie autrement : le controle execute desormais le vrai code et regarde le resultat affiche, au lieu de verifier la fonction qui choisit la devise. Le filtre qui ecarte les commentaires de marche vagues reste intact, il a ete reverifie sur dix cas.' },
   { id: 'dtpu-20260822-reaction-mesuree', ts: Date.UTC(2026, 7, 22, 12, 0), title: 'La Reaction ne dit plus que ce qui a ete mesure', desc: 'Le bloc Reaction pouvait citer un marche sur lequel le desk n avait AUCUNE mesure : sur une decision de banque centrale, il a affiche une variation du DXY alors que seule la paire exposee avait ete relevee. Un chiffre plausible reste un chiffre invente. Trois corrections : le desk transmet desormais la matiere reelle (amplitude en points, niveaux de depart et d arrivee, duree) au lieu d un simple pourcentage, il interdit explicitement de nommer un marche non mesure, et un controle automatique refuse et fait reecrire toute phrase qui prete une valeur a un marche absent des mesures. Si la reecriture echoue, le desk redige lui-meme une phrase batie uniquement sur les chiffres releves. Un defaut de signe, present depuis l origine, faussait par ailleurs le chiffre transmis a l analyse : il est corrige. Les textes ecrits avant ce correctif ne sont plus servis. Enfin, quand un marche ne bouge pas apres une publication, le desk l ecrit au lieu de chercher un mouvement : c est une information, cela veut dire que le chiffre etait deja integre.' },
   { id: 'dtpu-20260822-app-ecran-noir', ts: Date.UTC(2026, 7, 22, 10, 0), title: 'Application de bureau : l ecran noir apres une longue ouverture est corrige', desc: 'Laissee ouverte plusieurs heures, l application pouvait n afficher plus que du noir alors que la fenetre repondait encore. Les deux protections en place ne pouvaient pas l attraper : l une exige que l affichage soit mort, l autre que la fenetre soit figee, et ici ni l un ni l autre. C est le composant graphique qui tombait, en laissant tout le reste vivant. Trois ajouts : la protection qui manquait sur ce composant, la mise en veille de l affichage desactivee quand l application passe en arriere-plan, et une verification toutes les deux minutes qui recharge la page si l ecran est reellement noir, apres deux constats de suite pour ne jamais recharger sous vos yeux sans raison. La mise a jour se fait toute seule au prochain demarrage, en version 1.0.17.' },
   { id: 'dtpu-20260822-paire-nommee', ts: Date.UTC(2026, 7, 22, 9, 0), title: 'Une actualite qui nomme sa paire ouvre son graphique', desc: 'Quand un titre ecrit lui-meme la paire dont il parle, par exemple « USD/JPY recule de 17 points, de 159,05 a 158,88 », il porte desormais son tag de paire et ouvre son graphique au clic. Ces titres etaient jusqu ici ecartes avec les recits de marche, parce qu ils en ont la tournure. Mais la difference compte : un recit vague sur l euro qui reflue laisse le lecteur deviner de quoi on parle, alors qu un titre qui nomme sa paire et ses niveaux designe exactement ce que le graphique doit montrer. Les recits sans paire nommee restent ecartes, comme avant.' },
@@ -3299,9 +3300,9 @@ function _newsExempleMarketUpdate() {
     headline: '[MARKET UPDATE] USD/JPY dips 17 pips lower in a sharp move before paring back halfway; news flow quiet; dipping from 159.05 to 158.88 before paring to 159.00',
     // Mêmes budgets que les prompts (200 à 280 caractères par bloc) : l'exemple montre le format visé.
     description: [
-      'USD/JPY décroche brutalement de 17 points, de 159,05 à 158,88, sans publication pour l' + Q + 'expliquer.',
+      'USD/JPY décroche brutalement de 17 points, de 159,05 à 158,88, sans publication pour l\'expliquer.',
       'La paire en efface ensuite la moitié et revient vers 159,00.',
-      'Le flux d' + Q + 'actualité est calme : le mouvement vient du carnet, pas d' + Q + 'une nouvelle.',
+      'Le flux d\'actualité est calme : le mouvement vient du carnet, pas d\'une nouvelle.',
     ].join('\n'),
     category: 'Market Analysis',
     source: 'DTP Markets',
@@ -3311,12 +3312,12 @@ function _newsExempleMarketUpdate() {
     tags: ['Analysis'],
     analyse: [
       'Un décrochage net sans nouvelle derrière signe un mouvement de flux : un ordre de taille absorbé dans un carnet peu garni.',
-      'La reprise de la moitié du chemin le confirme. Un vrai changement d' + Q + 'avis laisse le prix sur ses nouveaux niveaux, il ne le ramène pas.',
+      'La reprise de la moitié du chemin le confirme. Un vrai changement d\'avis laisse le prix sur ses nouveaux niveaux, il ne le ramène pas.',
     ],
     // Pas de _moves ici non plus : les 17 points du titre sont ceux de la RÉFÉRENCE, pas ceux du
     // marché à l'heure où vous ouvrez la news. Les imposer ferait mentir le graphique juste en
     // dessous, qui lui montre le vrai. La Réaction se mesure donc sur les mêmes bougies que lui.
-    _impact: 'Mouvement de flux, pas de fond : rien n' + Q + 'est réévalué et la moitié est déjà reprise. Le repère utile reste 159,05, le niveau d' + Q + 'avant le décrochage. Tant qu' + Q + 'il tient au-dessus, la séance reste calme sur le yen.',
+    _impact: 'Mouvement de flux, pas de fond : rien n\'est réévalué et la moitié est déjà reprise. Le repère utile reste 159,05, le niveau d\'avant le décrochage. Tant qu\'il tient au-dessus, la séance reste calme sur le yen.',
   };
 }
 

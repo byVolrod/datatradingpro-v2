@@ -3496,8 +3496,17 @@ function buildNewsItem(item) {
     return vues.size === 1 ? Array.from(vues)[0] : null;
   };
   let _pairePosee = false, _pairEl = null, _paireExposee = null;
-  const _marcheDepuisTag = (t, tag) => {
-    if (!_PAIR_DE_DEVISE[tag] || !isRed || !expandEl || item._pair) return;
+  // ⚠️ « forcee » N'EST PAS UN CONFORT, C'EST LE CORRECTIF D'UN DÉFAUT BLOQUANT. Le verrou
+  // « news majeure » avait été retiré du garde qui APPELLE cette fonction, mais pas d'ICI, où le
+  // tag est réellement posé : la voie « paire nommée » se rouvrait donc pour se refermer aussitôt,
+  // et AUCUNE news en priorité normale n'obtenait son tag ni son graphique — pas même la news
+  // d'exemple livrée pour le démontrer. Un test unitaire sur la déduction ne pouvait pas le voir :
+  // il validait la fonction qui CHOISIT la devise, jamais celle qui POSE le tag.
+  // Le paramètre est explicite parce que les deux boucles de tags s'appuient légitimement sur
+  // isRed pour tenir le veto « pas de tag sur les commentaires économiques » : retirer le test
+  // sèchement ouvrirait la voie DÉDUITE et casserait ce veto.
+  const _marcheDepuisTag = (t, tag, forcee) => {
+    if (!_PAIR_DE_DEVISE[tag] || (!isRed && !forcee) || !expandEl || item._pair) return;
     _pairePosee = true;
     const paire = _PAIR_DE_DEVISE[tag];
     _paireExposee = paire;   // retenue pour la Réaction : c'est SA réaction qu'on mesurera
@@ -3564,7 +3573,9 @@ function buildNewsItem(item) {
       const t = document.createElement('span');
       t.className = 'tag tag--default';
       t.dataset.cat = _dev;
-      _marcheDepuisTag(t, _dev);
+      // Le 3e argument est ce qui fait VRAIMENT entrer une paire nommée : sans lui, la fonction
+      // ressortait sur son propre test isRed et le tag n'était jamais inséré dans le DOM.
+      _marcheDepuisTag(t, _dev, !!_nommee);
       if (_pairePosee) _pairEl = t;
     }
   }
