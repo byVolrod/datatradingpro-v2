@@ -3118,15 +3118,30 @@ function buildNewsItem(item) {
   // cliquable ferait de la rangée de tags un champ de mines. Une news de données n'a pas de
   // champ paire (seules les analyses d'événement en portent) : la devise suffit à le déduire.
   // Appelée par les DEUX boucles de tags : une devise vient des tags de l'item OU des smart-tags.
+  // ── DRAPEAU SUR LES TAGS (20/08, demande user, capture de référence à l'appui) ──
+  // Un tag qui NOMME un pays ou une devise porte son drapeau : « EUR CPI » se lit d'un coup d'œil,
+  // sans avoir à parcourir le titre. Les tags de THÈME (Données, Inflation, Taux…) restent nus,
+  // exactement comme la référence : un drapeau posé partout ne distinguerait plus rien et cesserait
+  // donc d'être une information.
+  // ⚠️ Images et non émojis : Windows ne fournit AUCUN glyphe de drapeau de pays.
+  const _ISO_TAG = { US: 'us', EU: 'eu', UK: 'gb', JP: 'jp', CH: 'ch', CA: 'ca', AU: 'au', NZ: 'nz', CN: 'cn' };
+  const _drapImg = iso => '<img class="tag-flag" src="https://flagcdn.com/w20/' + iso + '.png" width="13" height="10" alt="" loading="lazy">';
+  const _tagDrapeau = (t, tag) => {
+    const iso = _SBR_ISO[tag] || _ISO_TAG[tag];
+    if (!iso) return;
+    t.classList.add('tag--pays');
+    t.innerHTML = _drapImg(iso) + (NEWS_TAG_FR[tag] || tag);
+  };
   const _marcheDepuisTag = (t, tag) => {
     if (!_PAIR_DE_DEVISE[tag] || !isRed || !expandEl || item._pair) return;
     const paire = _PAIR_DE_DEVISE[tag];
     t.style.cursor = 'pointer';
     t.classList.add('tag--marche');
     t.title = 'Voir la réaction de ' + paire + ' au moment de cette publication';
-    const fl = c => (_SBR_ISO[c] ? '<img class="tag-flag" src="https://flagcdn.com/w20/' + _SBR_ISO[c] + '.png" width="13" height="10" alt="" loading="lazy">' : '');
     const cc = paire.split('/');
-    t.innerHTML = fl(cc[0]) + fl(cc[1]) + ' ' + (NEWS_TAG_FR[tag] || tag);
+    // Le tag porte les DEUX drapeaux et le nom de la PAIRE (« EUR/USD »), pas la seule devise :
+    // il annonce ainsi ce qui va s'ouvrir au clic au lieu de le faire deviner.
+    t.innerHTML = _drapImg(_SBR_ISO[cc[0]] || '') + _drapImg(_SBR_ISO[cc[1]] || '') + paire.replace('/', '');
     t.onclick = e => { e.stopPropagation(); _pairActive = paire; marcheTagEl = t; openPanel('marche'); };
   };
   for (const tag of (_capRapport ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
@@ -3141,7 +3156,8 @@ function buildNewsItem(item) {
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
-    _marcheDepuisTag(t, tag);
+    _tagDrapeau(t, tag);        // pays/devise → son drapeau
+    _marcheDepuisTag(t, tag);   // news importante → devient la paire cliquable (2 drapeaux)
     tagsEl.appendChild(t);
   }
   for (const tag of (item._dtpd ? [] : smartTags)) {
@@ -3151,7 +3167,8 @@ function buildNewsItem(item) {
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
-    _marcheDepuisTag(t, tag);
+    _tagDrapeau(t, tag);        // pays/devise → son drapeau
+    _marcheDepuisTag(t, tag);   // news importante → devient la paire cliquable (2 drapeaux)
     tagsEl.appendChild(t);
   }
 
@@ -3241,6 +3258,8 @@ function buildNewsItem(item) {
           }
           reactionTagEl = document.createElement('span');
           reactionTagEl.className = 'tag tag--reaction';
+          // L'heure de la mesure vit dans le panneau (voir openPanel) : « Réaction à 8h07 », comme
+          // la référence. Les panneaux Analyse et Impact la portent déjà.
           reactionTagEl.style.cursor = 'pointer';
           reactionTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 9L4.5 6L7 8.5L10.5 3.5M10.5 3.5H8M10.5 3.5V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Réaction';
           reactionTagEl.onclick = e => { e.stopPropagation(); openPanel('reaction'); };

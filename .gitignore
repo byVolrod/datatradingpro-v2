@@ -41,3 +41,8 @@ data/
 .claude/
 apercu-email-reengagement.html
 _tmpserve.js
+
+# Caches PDF d execution (proxy/rendu des rapports de banques) : regeneres a la demande,
+# volumineux et sans valeur en historique. Ils s etaient glisses dans un commit le 20/08.
+pdf_cache/
+render_pdf/

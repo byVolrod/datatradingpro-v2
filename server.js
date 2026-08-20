@@ -871,6 +871,9 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260820-tags-drapeaux', ts: Date.UTC(2026, 7, 21, 1, 0), title: 'Les tags portent le drapeau du pays concerné', desc: 'Sur chaque actualité, un tag qui nomme un pays ou une devise affiche désormais son drapeau : une inflation de la zone euro se repère au drapeau européen sans avoir à lire le titre. Sur une publication importante, la devise devient le marché le plus exposé et porte les deux drapeaux de la paire, EURUSD par exemple, sur lequel un clic ouvre le graphique. Les tags de thème comme Données ou Inflation restent sans drapeau : c est ce qui permet au drapeau de vouloir dire quelque chose.' },
+  { id: 'dtpu-20260821-analyse-rapide', ts: Date.UTC(2026, 7, 21, 0, 30), title: 'L analyse d une publication arrive en quelques minutes au lieu d une heure', desc: 'Après un chiffre important, le desk attendait une heure entière avant de publier son analyse. Ce délai ne servait qu à laisser les dépêches arriver, ce qu une autre vérification faisait déjà mieux : le desk s abstient tant qu il n a pas assez de matière. L analyse paraît maintenant huit à treize minutes après la publication, quand elle vous est encore utile.' },
+  { id: 'dtpu-20260821-fil-briefings', ts: Date.UTC(2026, 7, 21, 0, 0), title: 'Fin des rapports qui réapparaissaient sans raison en tête du fil', desc: 'Certains rapports internes, normalement réservés à l onglet Analystes, se glissaient dans le fil d actualité à chaque reconnexion du terminal, notamment au retour sur l onglet du navigateur. Ils semblaient sortir de nulle part et restaient épinglés en haut. Le filtre qui les écarte existait pour les envois en direct mais manquait à l envoi initial : il est désormais posé sur tous les chemins.' },
   { id: 'dtpu-20260820-widget-differentiel', ts: Date.UTC(2026, 7, 20, 23, 30), title: 'Nouveau widget : Différentiel de taux', desc: 'Le comparatif des taux directeurs devient un widget de la bibliothèque, à poser où vous voulez sur votre desk. Chaque devise est comparée à la moyenne des sept autres banques centrales : vert quand le portage joue pour elle, rouge quand il joue contre, avec l écart en points. Trois classements au choix : par écart, par taux ou par devise. À ne pas confondre avec le widget Taux directeurs, qui répond à une autre question : ce que la banque fera à sa prochaine réunion. L onglet Biais, lui, retrouve sa présentation d origine.' },
   { id: 'dtpu-20260820-biais-portage', ts: Date.UTC(2026, 7, 20, 22, 30), title: 'Radar de Biais : le différentiel de taux devient une colonne à part entière', desc: 'Le portage, c est-à-dire l écart entre le taux d une banque centrale et celui des sept autres, pesait déjà dans le calcul du biais depuis le mois d août. Il s affiche désormais comme les autres catégories, dans sa propre colonne : Favorable quand le portage joue pour la devise, Défavorable quand il joue contre, Neutre entre les deux, avec l écart en points. Le bandeau des taux, lui, ne chevauche plus le tableau sur téléphone : il défile sur une seule ligne.' },
   { id: 'dtpu-20260820-tag-devise-graphique', ts: Date.UTC(2026, 7, 20, 21, 30), title: 'Cliquez sur la devise d une news importante pour voir le marché réagir', desc: 'Sur une publication importante, la devise concernée devient cliquable et porte les drapeaux du marché le plus exposé : sur une inflation britannique, un clic sur GBP ouvre le graphique GBP/USD en bougies, avec l instant exact de la publication entouré d une bulle rouge. Le déclencheur et la réaction sur un seul écran, sans quitter le fil.' },
@@ -3192,11 +3195,65 @@ app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
 // PRIMER : briefings auto-générés (Daily Recap, London Session/Opening, Asia-Pac…) → MASQUÉS du site
 // (demande utilisateur). Détection robuste : flag interne _briefing OU titre commençant par « PRIMER ».
 const _isPrimerNews = n => !!(n && (n._briefing || /^\s*\[?\s*primer\b/i.test(String(n.headline || ''))));
-app.get('/api/news', (_req, res) => {
+// VISIBILITÉ DU FIL — prédicat UNIQUE. La règle existait déjà mais était RECOPIÉE à cinq endroits,
+// et la copie manquait précisément là où elle comptait le plus : le message WS « initial ».
+const _newsVisible = n => !!n && !isGlobalNewsNoise(n.headline) && (!_isPrimerNews(n) || n._reportType === 'DTP Daily');
+// Charge utile du message « initial » : MÊME filtre que /api/news (20/08).
+// ⚠️ CAUSE RACINE du défaut signalé deux fois par l'utilisateur (« c'est quoi toutes ces news qui
+// viennent de sortir », puis « pourquoi c'est épinglé là ») : les trois envois d'« initial »
+// passaient allNews.slice(0, 200) BRUT, et broadcast() ne filtre que le type « news_update ».
+// Chaque (re)connexion réinjectait donc les 11 briefings PRIMER masqués dans le fil — d'autant plus
+// visible depuis qu'on reconnecte au retour d'onglet. Le total suit le filtre : annoncer un total
+// qui compte des éléments jamais servis fait croire au client qu'il reste des pages à charger.
+const _initialPayload = (admin) => {
+  const items = allNews.filter(_newsVisible).slice(0, 200);
+  if (admin) items.unshift(_newsTestAdmin());
+  return { type: 'initial', items, total: items.length };
+};
+
+/* ── NEWS DE TEST ADMIN (20/08, demande user : « fais-moi une news épinglée type test pour que je
+   valide », cas EUR/USD CPI) ────────────────────────────────────────────────────────────────────
+   Construite À LA VOLÉE à chaque lecture et JAMAIS écrite dans allNews. Ce choix n'est pas une
+   commodité : un item de test rangé dans le magasin serait persisté, repris par les récaps, compté
+   dans les statistiques et surtout diffusable à un client par n'importe lequel des chemins de
+   diffusion. Ici il n'existe que le temps d'une réponse, et seulement pour un compte admin.
+   Horodatée à l'instant de la lecture → toujours en tête du fil, donc « épinglée » sans qu'il faille
+   inventer un mécanisme d'épinglage.
+   Elle porte de quoi exercer TOUS les boutons : analyse (Analyse), _impact (Impact marché),
+   description (Info), priority 'high' (→ la devise devient la paire cliquable, graphique et
+   bulle rouge). Le titre reste en anglais : les titres ne sont JAMAIS traduits (règle du desk).
+   À RETIRER après validation. */
+function _newsTestAdmin() {
+  const now = Date.now();
+  return {
+    id: 'dtp-test-tags-eurusd',
+    headline: 'Euro Area CPI (Aug YY) 2.4% vs. Exp. 2.2% (Prev. 2.0%); Core CPI 2.7% (Prev. 2.6%)',
+    description: [
+      'L\'inflation de la zone euro ressort à 2,4 % sur un an, deux dixièmes au-dessus du consensus et quatre dixièmes au-dessus du mois précédent.',
+      'Le sous-jacent, qui exclut l\'énergie et l\'alimentation, remonte lui aussi à 2,7 % contre 2,6 %.',
+      'Les deux mesures repassent donc au-dessus de la cible de 2 % de la BCE, ce qui éloigne l\'hypothèse d\'une baisse de taux rapide.',
+    ].join('\n'),
+    category: 'EU Data',
+    source: 'DTP Markets',
+    time: new Date(now).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+    timestamp: now,
+    priority: 'high',
+    tags: ['Data', 'Inflation', 'EUR'],
+    analyse: [
+      'La surprise porte sur les deux mesures à la fois : quand le sous-jacent monte avec l\'ensemble, la hausse ne s\'explique pas par un poste volatil isolé.',
+      'Le marché n\'attendait aucune accélération : le consensus tablait sur une stabilité à 2,2 %. C\'est l\'écart au consensus, et non le niveau, qui fait bouger les prix.',
+      'Un sous-jacent à 2,7 % laisse peu de marge à la BCE pour assouplir avant d\'avoir vu deux ou trois publications dans l\'autre sens.',
+    ],
+    _impact: 'Une inflation au-dessus du consensus soutient mécaniquement l\'euro : elle repousse l\'horizon de baisse des taux et resserre le différentiel avec le dollar. À surveiller sur EUR/USD, dont la réaction se lit au moment de la publication, et sur les taux allemands à 2 ans, les plus sensibles aux anticipations de politique monétaire. Cette lecture décrit le mécanisme, elle ne préjuge pas de la suite.',
+    _testAdmin: true,
+  };
+}
+app.get('/api/news', (req, res) => {
   // Les rapports DTP (primers/briefings) sont masqués du flux — SAUF le « DTP Daily US Opening News »
   // qui doit apparaître dans l'onglet News (demande utilisateur), déroulé en rapport complet au clic.
-  const items = allNews.filter(n => !isGlobalNewsNoise(n.headline) && (!_isPrimerNews(n) || (n && n._reportType === 'DTP Daily'))).slice(0, 200);
+  const items = allNews.filter(_newsVisible).slice(0, 200);
   items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
+  if (req.session?.user?.role === 'admin') items.unshift(_newsTestAdmin());   // news de test, admin seul
   res.json({ items, total: items.length });
 });
 
@@ -3421,7 +3478,7 @@ app.get('/api/news/search', (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 500);
   if (q.length < 2) return res.json({ items: [], total: 0, days });
   const since = Date.now() - days * 864e5;
-  const vis = n => !isGlobalNewsNoise(n.headline) && (!_isPrimerNews(n) || (n && n._reportType === 'DTP Daily'));
+  const vis = _newsVisible;
   const match = n => {
     if ((n.headline || '').toLowerCase().includes(q)) return true;
     if ((n.description || '').toLowerCase().includes(q)) return true;
@@ -11811,7 +11868,14 @@ async function _checkEventAnalyses() {
       // « résultat » est le TEXTE publié, que les dépêches liées apportent au prompt.
       const ev = (cal || []).filter(e => e && e.currency === cfg.ccy && cfg.calRe.test(e.title || '')
           && (cfg.sansActual ? true : (e.actual != null && e.actual !== ''))
-          && (now - (e.timestamp || 0)) >= 60 * 60 * 1000 && (now - (e.timestamp || 0)) <= 14 * 3600 * 1000)   // 1 h → 14 h (couvre la séance → régénère les analyses du jour au bump de version)
+          // DÉLAI RAMENÉ À 8 MIN (20/08, référence fournie : « full analysis 3 min after »). L'heure
+          // d'attente n'était pas un besoin de l'analyse mais une précaution : laisser les dépêches
+          // arriver. Or cette précaution existe DÉJÀ et mieux placée, sous forme de garde de MATIÈRE
+          // (evCtx.length < 4 → on s'abstient) : elle mesure ce qu'on a vraiment au lieu de parier
+          // sur une durée. Un chiffre majeur a ses 4 dépêches en quelques minutes ; un événement
+          // discret n'en aura pas plus en une heure. Le tic tourne toutes les 5 min : l'analyse sort
+          // donc 8 à 13 min après la publication, l'ordre de grandeur de la référence.
+          && (now - (e.timestamp || 0)) >= 8 * 60 * 1000 && (now - (e.timestamp || 0)) <= 14 * 3600 * 1000)   // 8 min → 14 h (couvre la séance → régénère les analyses du jour au bump de version)
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
       if (!ev) continue;
       const dayKey = new Date(ev.timestamp).toISOString().slice(0, 10);
@@ -11827,7 +11891,7 @@ async function _checkEventAnalyses() {
   } catch (e) { console.warn('[EVA] check échec:', e.message); }
   finally { _evaBusy = false; }
 }
-setInterval(() => { _checkEventAnalyses().catch(() => {}); }, 5 * 60 * 1000);   // toutes les 5 min : publie ~1 h après l'événement (fenêtre 1 h–5 h)
+setInterval(() => { _checkEventAnalyses().catch(() => {}); }, 5 * 60 * 1000);   // toutes les 5 min : publie 8 à 13 min après l'événement (fenêtre 8 min–14 h)
 setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        // rattrapage au démarrage (si un FOMC/NFP est tombé pendant un redéploiement)
 
 // ─── Schedule all briefings ───────────────────────────────────────────────────
@@ -15692,7 +15756,7 @@ app.get('/api/v1/news', requireApiKey, (req, res) => {
   const cat = String(req.query.category || '').toLowerCase();
   const prio = String(req.query.priority || '').toLowerCase();
   const since = parseInt(req.query.since, 10) || 0;
-  let items = allNews.filter(n => n && !isGlobalNewsNoise(n.headline) && (!_isPrimerNews(n) || n._reportType === 'DTP Daily'));
+  let items = allNews.filter(_newsVisible);
   if (since) items = items.filter(n => (n.timestamp || 0) > since);
   if (cat)   items = items.filter(n => String(n.category || '').toLowerCase() === cat);
   if (prio)  items = items.filter(n => String(n.priority || 'normal').toLowerCase() === prio);
@@ -16939,7 +17003,7 @@ async function refreshNews() {
   if (count > 0 || isFirstLoad) {
     if (isFirstLoad) {
       isFirstLoad = false;
-      broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
+      broadcast(_initialPayload());
     } else {
       broadcast({ type: 'news_update', items: added, total: allNews.length });
     }
@@ -16988,7 +17052,7 @@ wss.on('connection', (ws, req) => {
   ws._uid = _uid; ws._role = _role; ws._stoken = req.session.stoken || null;
   if (_uid) { _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1); _stampSeen(_uid); }   // present -> derniere presence = maintenant
 
-  ws.send(JSON.stringify({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length }));
+  ws.send(JSON.stringify(_initialPayload(req.session?.user?.role === 'admin')));   // ⚠️ envoi DIRECT : il ne passe pas par broadcast(), donc il doit filtrer lui-même
   // Envoyer aussi les session wraps et bank research au moment de la connexion
   if (_swCache.length > 0) ws.send(JSON.stringify({ type: 'sw_update', items: _swCache }));
   if (_brCache.length > 0) ws.send(JSON.stringify({ type: 'br_update', items: _brCache }));
@@ -17486,7 +17550,7 @@ async function _runBootBackfill(tag) {
     if (items.length === 0) { console.log(`[Backfill ${tag}] 0 item récupéré`); return 0; }
     const count = mergeItems(items).length;
     console.log(`[Backfill ${tag}] +${count} historical items merged (total: ${allNews.length})`);
-    if (count > 0) broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
+    if (count > 0) broadcast(_initialPayload());
     return items.length;
   } catch (e) { console.error(`[Backfill ${tag}] error:`, e.message); return 0; }
 }
