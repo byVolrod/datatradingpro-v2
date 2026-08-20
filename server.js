@@ -135,6 +135,7 @@ function _snapRapportTs(i) {
       const dec = d.getTime() - paris.getTime();   // décalage local->Paris à cette date (DST compris)
       const slot = new Date(paris); slot.setHours(h, m, 0, 0);
       const slotTs = slot.getTime() + dec;
+      if (slotTs > Date.now()) return;   // jamais d horodatage dans le futur (creneau du jour pas encore atteint)
       if (Math.abs((i.timestamp || 0) - slotTs) > 90 * 60 * 1000) i.timestamp = slotTs;
       return;
     }
@@ -870,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260820-rapports-creneau', ts: Date.UTC(2026, 7, 20, 19, 0), title: 'Fin des piles de rapports après une mise à jour', desc: 'Après un redémarrage du serveur, les rapports de la journée pouvaient être régénérés tous en même temps, même quand leur heure de publication n était pas encore arrivée : neuf rapports empilés à la même minute, en pleine nuit. La règle qui empêchait cela ne protégeait que trois rapports sur onze ; elle les couvre désormais tous. Un rapport ne peut plus paraître avant son heure.' },
   { id: 'dtpu-20260820-newsletter-acces', ts: Date.UTC(2026, 7, 20, 18, 0), title: 'S inscrire à la newsletter ne crée plus de compte au terminal', desc: 'Rejoindre la newsletter déclenchait la même chose qu un abonnement au desk : création d un compte et envoi du courriel d accès avec un mot de passe. Deux offres différentes, un seul traitement. C est corrigé : seul un abonnement au terminal ouvre un accès, et une inscription à la newsletter reste une inscription à la newsletter. Les abonnés payants ne sont pas affectés : leur accès est vérifié auprès de la plateforme de paiement avant toute création.' },
   { id: 'dtpu-20260820-vitrine-sync', ts: Date.UTC(2026, 7, 20, 16, 30), title: 'Le site vitrine affiche désormais les nouveautés du desk en direct', desc: 'La page d accueil publique gagne une section Nouveautés alimentée par le même fil que l onglet DTP du desk : chaque évolution du terminal apparaît sur le site vitrine sans intervention, avec sa date. Les visiteurs voient ce que les abonnés reçoivent réellement, semaine après semaine.' },
   { id: 'dtpu-20260822-rapports-heure', ts: Date.UTC(2026, 7, 22, 15, 0), title: 'Chaque rapport reprend sa vraie heure dans le fil', desc: 'Après une mise à jour du serveur, les rapports du jour régénérés pouvaient s empiler dans le fil à l heure du redémarrage, tous à la même minute. Chaque rapport rattrapé est désormais horodaté à son créneau réel : la préparation de Londres à 7h45, le récap d Asie à 9h30, le récap de New York à 22h15. Le fil se remet en ordre de lui-même, y compris pour les rapports déjà mal datés.' },
@@ -11915,7 +11917,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     const _pNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
     const _minsNow = _pNow.getHours() * 60 + _pNow.getMinutes();
     daily.forEach(({ fn, name, h, m, winH, winM, afterHour }) => {
-      if (afterHour && _minsNow < h * 60 + m) {
+      if (_minsNow < h * 60 + m) {
         console.log(`[DTP] rattrapage ${name} : créneau ${h}h${String(m).padStart(2, '0')} pas encore passé → on attend.`);
         return;
       }
