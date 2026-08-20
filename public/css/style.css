@@ -18403,37 +18403,6 @@ html[data-theme="light"] .nrx-pt { fill: #816521; }
 .fxdr-keypts-t { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--hud-line, var(--border)); }
 .fxdr-keypts .wr-bullet { font-weight: 600; }
 
-/* ═══ BIAIS : bandeau « Taux directeurs » (20/08, référence Central Bank Rates) ═══════════════════
-   La grandeur que le pilier monétaire consomme, rendue visible : taux trié décroissant + écart à
-   la moyenne des 7 autres. Vert/rouge = le SENS du portage (charte), ambre discret = zone neutre
-   (±0,75 pt, le seuil sous lequel la courbe en S v47 ne donne rien). */
-.sbm-rates { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 5px 10px;
-  border-bottom: 1px solid var(--hud-line, var(--border)); background: var(--head-bg); min-height: 0; }
-.sbm-rates:empty { display: none; }
-.sbm-rates-lbl { font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
-  color: var(--text3, #6b7280); margin-right: 2px; }
-.sbm-rate { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px;
-  border: 1px solid var(--hud-line, var(--border)); border-radius: var(--radius);
-  font-size: 10.5px; font-variant-numeric: tabular-nums; background: var(--bg-3, #0f0f12); }
-.sbm-rate img { border-radius: 2px; display: block; }
-.sbm-rate b { color: var(--text, #e6e8eb); font-weight: 700; }
-.sbm-rate i { font-style: normal; color: var(--text2, #9aa1ac); }
-.sbm-rate em { font-style: normal; font-size: 9.5px; font-weight: 700; }
-.sbm-rate.est-haut em { color: #22c55e; }
-.sbm-rate.est-bas em { color: #ef4444; }
-.sbm-rate.est-mid em { color: var(--text3, #6b7280); }
-.sbm-rate.est-haut { border-color: rgba(34, 197, 94, .3); }
-.sbm-rate.est-bas { border-color: rgba(239, 68, 68, .3); }
-.sbm-rates-note { margin-left: auto; font-size: 9px; color: var(--text3, #6b7280); font-style: italic; }
-html[data-theme="light"] .sbm-rate.est-haut em { color: #00783d; }
-html[data-theme="light"] .sbm-rate.est-bas em { color: #c73000; }
-
-/* Étiquette horaire sous le marqueur du graphique de réaction (référence fournie). */
-.nrx { position: relative; }
-.nrx-tmark { position: absolute; bottom: 16px; transform: translateX(-50%); padding: 1px 6px;
-  font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; border-radius: 3px;
-  background: var(--orange, #e3b23a); color: #101014; }
-
 /* ═══ RÉACTION : bulle rouge sur l'instant de la publication (20/08, référence fournie) ═══════════
    Le halo entoure la bougie du chiffre : l'œil tombe dessus sans chercher le trait. Rouge d'alerte
    de la charte, très dilué (c'est un repère, pas un état de marché). */
@@ -18453,21 +18422,41 @@ html[data-theme="light"] .nrx-pt { fill: #c73000; }
 html[data-theme="light"] .tag--marche { border-color: rgba(129, 101, 33, .5); }
 html[data-theme="light"] .tag--marche:hover, html[data-theme="light"] .tag--marche.tag--active { background: rgba(129, 101, 33, .1); color: #816521; }
 
-/* ═══ RADAR DE BIAIS : colonne PORTAGE (différentiel de taux) ═══════════════════════════════════
-   Charte : favorable = vert (le portage joue POUR la devise), défavorable = rouge, neutre = ambre
-   discret. Mêmes teintes que les autres catégories de la matrice, pour qu'une ligne se lise d'un
-   seul balayage. */
-.mt-tag.mt-t-ok  { color: #00e676; border-color: rgba(0, 230, 118, .35); background: rgba(0, 230, 118, .09); }
-.mt-tag.mt-t-bad { color: #ff3d00; border-color: rgba(255, 61, 0, .35); background: rgba(255, 61, 0, .09); }
-.mt-tag.mt-t-mid { color: var(--text3, #6b7280); border-color: var(--hud-line, var(--border)); background: transparent; }
-html[data-theme="light"] .mt-tag.mt-t-ok  { color: #00783d; border-color: rgba(0, 120, 61, .4); background: rgba(0, 230, 118, .1); }
-html[data-theme="light"] .mt-tag.mt-t-bad { color: #c73000; border-color: rgba(199, 48, 0, .4); background: rgba(255, 61, 0, .09); }
-/* Bandeau des taux : UNE ligne défilable sur écran étroit. En plusieurs lignes il gonflait la tête
-   du panneau et poussait le tableau hors de sa zone (chevauchement constaté sur mobile). */
-.sbm-rates { flex: 0 0 auto; }
-@media (max-width: 900px) {
-  .sbm-rates { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .sbm-rates::-webkit-scrollbar { display: none; }
-  .sbm-rate { flex: 0 0 auto; }
-  .sbm-rates-note { display: none; }   /* la note explicative cède la place au doigt */
+
+/* ═══ WIDGET « Différentiel de taux » (20/08) ═════════════════════════════════════════════════════
+   Égaliseur bidirectionnel autour d'un axe central : à droite le portage joue POUR la devise, à
+   gauche il joue CONTRE. Mêmes tokens sémantiques que le reste du desk. */
+.wdg-td { height: 100%; display: flex; flex-direction: column; min-height: 0; gap: 3px; padding: 8px 10px 7px;
+  container-type: size; container-name: dtpw; }
+.wdg-td-tete { flex: 0 0 auto; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--txt-3, #6b7280); padding-bottom: 3px; }
+.wdg-td-l { flex: 1 1 auto; min-height: 0; display: grid; align-items: center; gap: 7px;
+  grid-template-columns: 58px 52px minmax(0, 1fr) 46px 74px; font-size: 11px; }
+.wdg-td-dev { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.wdg-td-dev b { color: var(--txt-1, #e6e8eb); font-weight: 700; }
+.wdg-td-fl { border-radius: 2px; display: block; flex: 0 0 auto; }
+.wdg-td-taux { color: var(--txt-2, #9aa1ac); font-variant-numeric: tabular-nums; text-align: right; }
+/* Piste : l'axe central est le taux moyen des autres banques. */
+.wdg-td-piste { position: relative; height: 8px; border-radius: 2px; background: var(--bg-3, #0f0f12);
+  border: 1px solid var(--hud-line); overflow: hidden; }
+.wdg-td-piste::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+  background: var(--hud-line); }
+.wdg-td-piste i { position: absolute; top: 1px; bottom: 1px; border-radius: 1px; background: #3a3f4b; }
+.wdg-td-l.est-pour   .wdg-td-piste i { background: #00e676; }
+.wdg-td-l.est-contre .wdg-td-piste i { background: #ff3d00; }
+.wdg-td-ecart { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; color: var(--txt-3, #6b7280); }
+.wdg-td-l.est-pour   .wdg-td-ecart { color: #00e676; }
+.wdg-td-l.est-contre .wdg-td-ecart { color: #ff3d00; }
+.wdg-td-lbl { font-size: 9.5px; font-weight: 700; letter-spacing: .03em; color: var(--txt-3, #6b7280); }
+.wdg-td-l.est-pour   .wdg-td-lbl { color: #00e676; }
+.wdg-td-l.est-contre .wdg-td-lbl { color: #ff3d00; }
+.wdg-td-pied { flex: 0 0 auto; margin-top: auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280);
+  border-top: 1px solid var(--hud-line); padding-top: 5px; }
+html[data-theme="light"] .wdg-td-l.est-pour   .wdg-td-ecart, html[data-theme="light"] .wdg-td-l.est-pour   .wdg-td-lbl { color: #00783d; }
+html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-lbl { color: #c73000; }
+/* Carte basse : le pied explicatif cède avant les chiffres (même règle que les autres widgets). */
+@container dtpw (max-height: 210px) { .wdg-td-pied { display: none; } }
+@container dtpw (max-width: 330px) {
+  .wdg-td-l { grid-template-columns: 52px 46px minmax(0, 1fr) 42px; }
+  .wdg-td-lbl { display: none; }   /* la couleur porte déjà l'information */
 }

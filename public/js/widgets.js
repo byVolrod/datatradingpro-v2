@@ -845,6 +845,13 @@
      sur celle deja en production dans le journal de trading (app.js), inaccessible d ici car
      enfermee dans une closure. A annoncer sur la carte comme une convention de calcul, jamais
      comme une donnee recue. Les instruments non-FX se comptent en POINTS, pas en pips. */
+  // Drapeau d'une devise : même source que le reste du desk. Images et non émojis (Windows ne
+  // fournit aucun glyphe de drapeau de pays).
+  var _DEV_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz' };
+  function _drapeauDev(code) {
+    var iso = _DEV_ISO[code];
+    return iso ? '<img class="wdg-td-fl" src="https://flagcdn.com/w20/' + iso + '.png" width="15" height="11" alt="" loading="lazy">' : '';
+  }
   function _pipTaille(sym) {
     if (!/^[A-Z]{3}\/[A-Z]{3}$/.test(String(sym || ''))) return null;   // non-FX : points
     return /JPY/.test(sym) ? 0.01 : 0.0001;
@@ -1707,6 +1714,72 @@
         var iv = setInterval(reload, 60000);
         _BIAS_SINKS.push(paint);                                   // push serveur → repeint sans attendre le filet
         return function () { clearInterval(iv); var i = _BIAS_SINKS.indexOf(paint); if (i >= 0) _BIAS_SINKS.splice(i, 1); };
+      },
+    },
+    {
+      /* DIFFÉRENTIEL DE TAUX (20/08, demande user : le bandeau de l'onglet Biais devient un widget).
+         ⚠️ NE PAS CONFONDRE avec « Taux directeurs » juste en dessous : celui-là répond « que va
+         faire la banque à sa prochaine réunion » (scénario + probabilités) ; celui-ci répond « quelle
+         devise le PORTAGE favorise aujourd'hui », en comparant chaque taux à la moyenne des SEPT
+         AUTRES (exclusion-de-soi). Même source /api/rates : les deux cartes ne peuvent pas se
+         contredire. C'est la grandeur que le Radar de Biais consomme déjà dans son pilier monétaire. */
+      id: 'taux-diff', name: 'Différentiel de taux', tag: 'TAUX', cat: 'Macro', h: 300,
+      desc: 'Quelle devise le portage favorise : chaque taux directeur comparé à la moyenne des sept autres.',
+      opts: [
+        { k: 'tri', lbl: 'Classement', type: 'choix', def: 'ecart',
+          choix: [['ecart', 'Par écart'], ['taux', 'Par taux'], ['nom', 'Par devise']] },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        skel(host, 8);
+        function dessiner() {
+          fetch('/api/rates').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            var banks = ((d && d.banks) || []).filter(function (b) { return b && b.code && typeof b.rate === 'number'; });
+            if (banks.length < 4) { fallback(host, 'Taux indisponibles.'); return; }
+            var moyDe = function (code) {
+              var a = banks.filter(function (x) { return x.code !== code; });
+              return a.reduce(function (s, x) { return s + x.rate; }, 0) / (a.length || 1);
+            };
+            var lignes = banks.map(function (b) {
+              var e = b.rate - moyDe(b.code);
+              return { code: b.code, rate: b.rate, ecart: e };
+            });
+            var tri = opt(it, W, 'tri') || 'ecart';
+            lignes.sort(function (a, b) {
+              if (tri === 'nom') return a.code.localeCompare(b.code);
+              if (tri === 'taux') return b.rate - a.rate;
+              return b.ecart - a.ecart;
+            });
+            // Échelle commune aux deux sens : les barres sont comparables entre elles.
+            var maxAbs = Math.max.apply(null, lignes.map(function (l) { return Math.abs(l.ecart); })) || 1;
+            var html = '<div class="wdg-td">'
+              + '<div class="wdg-td-tete"><span>Écart au taux moyen des 7 autres banques</span></div>';
+            lignes.forEach(function (l) {
+              // Seuil ±0,75 pt : celui SOUS LEQUEL le modèle de biais ne compte aucun effet de
+              // portage. Le libellé dit donc exactement ce que le calcul fait.
+              var cls = l.ecart >= 0.75 ? 'est-pour' : l.ecart <= -0.75 ? 'est-contre' : 'est-neutre';
+              var lbl = l.ecart >= 0.75 ? 'Favorable' : l.ecart <= -0.75 ? 'Défavorable' : 'Neutre';
+              var larg = Math.max(2, Math.abs(l.ecart) / maxAbs * 50);   // 50 % = une demi-piste
+              var sens = l.ecart >= 0 ? 'right' : 'left';
+              html += '<div class="wdg-td-l ' + cls + '">'
+                + '<span class="wdg-td-dev">' + _drapeauDev(l.code) + '<b>' + esc(l.code) + '</b></span>'
+                + '<span class="wdg-td-taux">' + l.rate.toFixed(2).replace('.', ',') + ' %</span>'
+                + '<span class="wdg-td-piste"><i style="' + sens + ':50%;width:' + larg.toFixed(1) + '%"></i></span>'
+                + '<span class="wdg-td-ecart">' + (l.ecart >= 0 ? '+' : '') + l.ecart.toFixed(2).replace('.', ',') + '</span>'
+                + '<span class="wdg-td-lbl">' + lbl + '</span>'
+                + '</div>';
+            });
+            html += '<div class="wdg-td-pied">Le portage joue POUR une devise dont le taux dépasse la moyenne des autres, CONTRE dans le cas inverse. Au-delà de ±0,75 point, l\'effet est compté dans le Radar de Biais.</div></div>';
+            host.innerHTML = html;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Taux indisponibles.'); });
+        }
+        dessiner();
+        var iv = setInterval(dessiner, 5 * 60 * 1000);   // la source bouge à l'heure, pas à la seconde
+        return function () { vivant = false; clearInterval(iv); };
       },
     },
     {
@@ -5415,6 +5488,7 @@
     'risque-historique': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16c2-1 3-6 5-6s3 8 5 8 3-11 5-11 2 4 3 4"/></svg>',
     'calendrier-jour': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8 3.5v3M16 3.5v3"/></svg>',
     'radar-biais': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" opacity=".4"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-4"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>',
+    'taux-diff': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18"/><path d="M12 6h6"/><path d="M12 11H6"/><path d="M12 16h4"/></svg>',
     'taux-cb': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9l6-4 6 4v11"/><path d="M9 20v-5h6v5"/></svg>',
     'risque-jauge': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4-4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>',
     'cot-devise':  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
@@ -5440,6 +5514,8 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    'taux-diff': '<svg ' + _PV + '><line x1="60" y1="8" x2="60" y2="48" stroke="#3a3f4b"/>' + (function () { var v = [22, 14, 6, -8, -18], h = ''; for (var i = 0; i < 5; i++) { var y = 11 + i * 8, w = Math.abs(v[i]) * 1.6; h += '<rect x="' + (v[i] >= 0 ? 60 : 60 - w) + '" y="' + y + '" width="' + w + '" height="5" rx="1" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".8"/>'; } return h; })() + '</svg>',
+
     'notes': '<svg ' + _PV + '>'
       + '<rect x="8" y="6" width="104" height="36" rx="3" fill="#0d0d10" stroke="#23232a"/>'
       + '<rect x="14" y="12" width="78" height="3.5" rx="1.5" fill="#9aa1ac" opacity=".7"/>'

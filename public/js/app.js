@@ -3102,7 +3102,10 @@ function buildNewsItem(item) {
   // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
   const _catLabel = catFr(item.category || '');
   const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
-  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
+  // « Bonds / Obligations / Fixed Income » : bannis ICI, au point d'AFFICHAGE (20/08, demande user).
+  // Le ban de _canonTag ne s'applique qu'à la CANONISATION : un tag déjà stocké sur un item ancien
+  // n'y repassait pas et s'affichait quand même. Ici, aucun chemin ne l'évite.
+  const _HIDDEN_TAGS = new Set(['Bonds', 'Obligations', 'Fixed Income', 'Obligataire', 'China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
     'UK Data', 'US Data', 'EU Data', 'Swiss Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'New Zealand Data']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Economic Commentary = retirés à la demande) + TOUTES les catégories « <Pays> Data » (demande user 23/07 : « UK Data » doublonnait « Données » + « UK » — le serveur ne les émet plus pour les nouveaux items, ceci couvre les items déjà stockés)
   // RAPPORTS DTP : on ne montre que quelques tags « de base » (pas les 7-8 thèmes IA) → flux net
   // comme les autres news. La règle existait pour DTP Daily seul (_dtpd) ; le FX Daily Recap et les
@@ -4791,7 +4794,7 @@ function _sbRenderMacroTable(cur, macro) {
   // le 03/08 (pilier monétaire v41) puis en courbe graduée le 14/08 (v47) : cette colonne ne
   // recalcule rien, elle REND VISIBLE ce qui pesait en coulisse. Placée juste après la politique
   // monétaire, dont elle est une composante.
-  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Portage</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
+  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
   const body = cur.map(c => {
     const m = macro[c] || {};
     const mp = m.monetary || {}, inf = m.inflation || {};
@@ -4830,7 +4833,7 @@ function _sbRenderMacroTable(cur, macro) {
     // Ligne CLIQUABLE → ouvre le panneau de détail macro (demande user « j'veux un ouvrir comme ceci puis les infos s'affichent »).
     return `<tr class="mt-row${active}" data-cur="${esc(c)}" onclick="_sbOpenDetail('${esc(c)}')" title="Voir le détail macro de ${esc(c)}">
       <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
-      ${cell(monCell)}<td class="mt-cell mt-portage" data-portage="${esc(c)}"><div class="mt-cell-tags">${_sbPortageCell(c)}</div></td>${cell(infCell)}${cell(gr)}${cell(em)}
+      ${cell(monCell)}${cell(infCell)}${cell(gr)}${cell(em)}
       <td class="mt-drv-cell"><div class="mt-cell-tags">${drv || '<span class="mt-empty">-</span>'}</div></td>
       ${cell(bi)}
       <td class="mt-x"><span class="mt-chevron">›</span></td></tr>`;
@@ -4963,13 +4966,7 @@ function _sbOpenDetail(curr, opts) {
   if (host) host.classList.add('has-detail');
   if (zone) {
     zone.classList.remove('sbm-matrix-zone--full');
-    // ⚠️ La hauteur se calcule sur la place RÉELLEMENT libre : le bandeau des taux est rempli en
-    // ASYNCHRONE (il mesure 0 quand ce calcul tombe) et n'était donc pas déduit : la matrice
-    // réclamait 46 % du panneau ENTIER, bandeau compris, et débordait par-dessous — le
-    // chevauchement constaté sur mobile.
-    const _bandeau = document.getElementById('sbm-rates');
-    const _libre = Math.max(120, host.clientHeight - (_bandeau ? _bandeau.offsetHeight : 0));
-    zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, Math.round(_libre * 0.46))) + 'px';
+    zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, Math.round(host.clientHeight * 0.46))) + 'px';
   }
   if (!ext) _sbRenderHeadDd(curr);   // synchronise le dropdown « Scanner » de l'en-tête sur la devise active
   if (!ext) requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
@@ -4993,65 +4990,6 @@ window._sbCloseDetail = _sbCloseDetail;
 // (exclusion-de-soi, comme le modèle). Source unique /api/rates (celle de l'onglet TAUX) : aucun
 // second calcul, aucune divergence possible entre l'affichage et le score.
 const _SBR_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz' };
-// Taux directeurs mémorisés à l'arrivée : le bandeau ET la colonne Portage lisent LA MÊME source
-// (/api/rates, celle de l'onglet TAUX). Une seule définition du différentiel = aucune divergence
-// possible entre ce qui s'affiche en haut et ce qui s'affiche dans le tableau.
-let _sbTaux = null;
-// Écart à la moyenne des AUTRES banques (exclusion-de-soi) : la définition exacte du modèle.
-function _sbEcart(code) {
-  if (!_sbTaux || typeof _sbTaux[code] !== 'number') return null;
-  const codes = Object.keys(_sbTaux).filter(k => k !== code);
-  if (!codes.length) return null;
-  const moy = codes.reduce((a, k) => a + _sbTaux[k], 0) / codes.length;
-  return _sbTaux[code] - moy;
-}
-// Catégorie affichée. Les bornes ±0,75 pt sont celles SOUS LESQUELLES la courbe en S du modèle
-// (v47) ne donne aucun effet : le libellé dit donc exactement ce que le score fait.
-function _sbPortageCell(code) {
-  const d = _sbEcart(code);
-  if (d == null) return '<span class="mt-empty">-</span>';
-  const cls = d >= 0.75 ? 'mt-t-ok' : d <= -0.75 ? 'mt-t-bad' : 'mt-t-mid';
-  const lbl = d >= 0.75 ? 'Favorable' : d <= -0.75 ? 'Défavorable' : 'Neutre';
-  const txt = (d >= 0 ? '+' : '') + d.toFixed(2).replace('.', ',');
-  return '<span class="mt-tag ' + cls + '" title="Taux ' + _sbTaux[code].toFixed(2).replace('.', ',')
-    + ' %, soit ' + txt + ' pt vs la moyenne des 7 autres banques. Au-delà de ±0,75 pt, le portage pèse sur le biais.">'
-    + lbl + ' ' + txt + '</span>';
-}
-// Remplit les cellules déjà rendues (le tableau sort avant la réponse de /api/rates).
-function _sbPortageFill() {
-  document.querySelectorAll('[data-portage]').forEach(td => {
-    const z = td.querySelector('.mt-cell-tags');
-    if (z) z.innerHTML = _sbPortageCell(td.getAttribute('data-portage'));
-  });
-}
-
-function _sbRatesStrip() {
-  const slot = document.getElementById('sbm-rates');
-  if (!slot) return;
-  fetch('/api/rates').then(r => r.json()).then(d => {
-    const banks = ((d && d.banks) || []).filter(b => b && b.code && typeof b.rate === 'number');
-    if (banks.length < 4) { slot.innerHTML = ''; return; }
-    _sbTaux = {}; banks.forEach(b => { _sbTaux[b.code] = b.rate; });
-    _sbPortageFill();   // le tableau est déjà rendu : on remplit sa colonne Portage
-    const rows = banks.slice().sort((a, b) => b.rate - a.rate);
-    const html = rows.map(b => {
-      // Écart à la moyenne des 7 AUTRES (exclusion-de-soi) : la définition exacte du modèle.
-      const autres = banks.filter(x => x.code !== b.code);
-      const moy = autres.reduce((s2, x) => s2 + x.rate, 0) / (autres.length || 1);
-      const diff = b.rate - moy;
-      const cls = diff >= 0.75 ? 'est-haut' : diff <= -0.75 ? 'est-bas' : 'est-mid';
-      const dTxt = (diff >= 0 ? '+' : '') + diff.toFixed(2).replace('.', ',');
-      const iso = _SBR_ISO[b.code] || '';
-      return '<span class="sbm-rate ' + cls + '" title="Écart à la moyenne des 7 autres banques : ' + dTxt + ' pt (le différentiel que le pilier monétaire consomme)">'
-        + (iso ? '<img src="https://flagcdn.com/w20/' + iso + '.png" width="14" height="10" alt="" loading="lazy">' : '')
-        + '<b>' + b.code + '</b><i>' + b.rate.toFixed(2).replace('.', ',') + '%</i>'
-        + '<em>' + dTxt + '</em></span>';
-    }).join('');
-    slot.innerHTML = '<span class="sbm-rates-lbl">Taux directeurs</span>' + html
-      + '<span class="sbm-rates-note">écart vs moyenne G8 : compté dans le biais</span>';
-    if (window.DTP_translate) window.DTP_translate(slot);
-  }).catch(() => { slot.innerHTML = ''; });
-}
 
 function renderBiasView(d) {
   const host = document.getElementById('bias-content');
@@ -5074,12 +5012,10 @@ function renderBiasView(d) {
   // Tableau plein onglet + panneau de DÉTAIL rétractable dessous (clic sur une devise) + splitter horizontal (demande
   // user : « j'veux un ouvrir comme ceci puis les infos s'affichent » façon grille macro Notion, panneau sous le tableau).
   host.classList.remove('has-detail');
-  host.innerHTML = `<div class="sbm-rates" id="sbm-rates"></div>`
-    + `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`
+  host.innerHTML = `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`
     + `<div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>`
     + `<div class="sbm-summary-host" id="sbm-summary"></div>`;
   if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> tableau)
-  _sbRatesStrip();   // bandeau Taux directeurs (rempli en asynchrone, vide si /api/rates cale)
   _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);   // historique de semaines dans l'en-tête
   // Ré-ouvre le détail si une devise était sélectionnée (ex. changement de semaine) → continuité.
   if (_sbActiveCur && cur.includes(_sbActiveCur)) _sbOpenDetail(_sbActiveCur);
