@@ -3266,7 +3266,9 @@ function buildNewsItem(item) {
   // qui ouvre la réaction du marché au clic. Un drapeau posé aussi sur les tags de pays ou de
   // devise ordinaires (« US », « EUR ») ne distinguerait plus rien et cesserait d'être un signal.
   // ⚠️ Images et non émojis : Windows ne fournit AUCUN glyphe de drapeau de pays.
-  const _drapImg = iso => '<img class="tag-flag" src="https://flagcdn.com/w20/' + iso + '.png" width="13" height="10" alt="" loading="lazy">';
+  // w40 et non w20 : l'image est recadrée en cercle et affichée sur des écrans à forte densité —
+  // une source de 20 px de large y sortirait floue.
+  const _drapImg = iso => '<img class="tag-flag" src="https://flagcdn.com/w40/' + iso + '.png" width="13" height="13" alt="" loading="lazy">';
   // ── DE QUELLE DEVISE PARLE CETTE NEWS ? ────────────────────────────────────────────────────
   // Mesuré en production le 20/08 : sur 219 news importantes du magasin, ZÉRO ne porte un tag
   // devise (« GBP »). Les tags réels sont « Fed, Rates, Data », « BoJ, UK, Japan, FX », et la

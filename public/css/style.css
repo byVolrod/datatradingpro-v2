@@ -1872,9 +1872,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 /* PAR DÉFAUT : couleurs DTP — Info = sarcelle-vert #3F9280, Analyse = bleu #007AA3,
    Réaction = violet léger #8B5CF6 (fond transparent + contour léger, comme Info/Analyse). */
-.tag--info     { background: transparent; border-color: rgba(63,146,128,0.3); color: #3f9280; }
-.tag--analyse  { background: transparent; border-color: rgba(0,122,163,0.3);  color: #007aa3; }
-.tag--reaction { background: rgba(95,81,158,0.12); border-color: #5f519e; color: #8e7fce; border-radius: 4px; }
+/* COULEURS DES QUATRE LECTURES. Éclaircies le 21/08, et c'est une MESURE qui l'a décidé, pas un
+   goût : sur le fond du desk, « Analyse » (#007aa3) tombait à 3,93 de contraste, sous le seuil de
+   lisibilité de 4,5, et « Info » (#3f9280) tenait à 5,13 sans aucune marge. Les valeurs actuelles
+   vont de 6,5 à 10,7. Mêmes familles de teinte qu'avant — le lecteur ne réapprend rien. */
+.tag--info     { background: transparent; border-color: rgba(53,201,174,0.34); color: #35c9ae; }
+.tag--analyse  { background: transparent; border-color: rgba(74,159,224,0.34); color: #4a9fe0; }
+.tag--reaction { background: rgba(163,148,245,0.12); border-color: rgba(163,148,245,0.5); color: #a394f5; border-radius: 4px; }
 /* Contexte = news « propos/citation » hors marché : gris-ardoise neutre (jamais une couleur de marché) */
 .tag--contexte { background: transparent; border: 1px solid var(--border2); color: var(--text2); }
 .tag--contexte:hover { color: var(--text); border-color: var(--border3); }
@@ -1882,14 +1886,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Note de cadrage dans le déplié d'une news « propos/citation » hors marché */
 .iq-note { font-size: 11.5px; color: var(--text3); font-style: italic; margin: 0 0 8px; line-height: 1.5; }
 /* Hover : teinte un peu plus vive + contour plus net */
-.tag--info:hover     { color: #4fb39c; border-color: rgba(63,146,128,0.55); }
-.tag--analyse:hover  { color: #1898c2; border-color: rgba(0,122,163,0.55); }
-.tag--reaction:hover { background: rgba(95,81,158,0.18); border-color: #8d7ed6; color: #b9adff; }   /* survol = contour violet plus vif (pas rempli) */
+.tag--info:hover     { color: #5cdcc4; border-color: rgba(53,201,174,0.62); }
+.tag--analyse:hover  { color: #74b9ec; border-color: rgba(74,159,224,0.62); }
+.tag--reaction:hover { background: rgba(163,148,245,0.18); border-color: rgba(163,148,245,0.75); color: #bdb2ff; }   /* survol = contour violet plus vif (pas rempli) */
 
 /* ACTIF = description DÉROULÉE → tag ALLUMÉ (Info cyan / Analyse bleu / Réaction violet).
    L'icône ⓘ hérite de la couleur (pas de règle .tag-icon → suit le `color` du tag). */
-.tag--info.tag--active     { background: rgba(63,146,128,0.14); border-color: rgba(63,146,128,0.6); color: #4fb39c; }
-.tag--analyse.tag--active  { background: rgba(0,122,163,0.14);  border-color: rgba(0,122,163,0.6);  color: #1898c2; }
+.tag--info.tag--active     { background: rgba(53,201,174,0.14); border-color: rgba(53,201,174,0.65); color: #5cdcc4; }
+.tag--analyse.tag--active  { background: rgba(74,159,224,0.14); border-color: rgba(74,159,224,0.65); color: #74b9ec; }
 .tag--reaction.tag--active { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.6); color: #a78bfa; }
 
 /* ═══════════════ RÉACTION — MÊME rendu À PLAT que les autres tags (demande user 2026-07-02) ═══════════════
@@ -18289,8 +18293,8 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
 /* Pill « Impact » du fil (4e bouton des titres importants, 20/08) : la lecture prospective de
    l'analyse d'événement, élevée au rang d'Info/Analyse/Réaction. Or DTP : c'est un éclairage,
    pas un état de marché (le vert/rouge restent aux directions). */
-.tag--impact { color: #2ecc71; border-color: rgba(46, 204, 113, .5); }   /* vert de la reference Market Impact */
-.tag--impact:hover, .tag--impact.tag--active { background: rgba(46, 204, 113, .12); color: #4ade80; }
+.tag--impact { color: #3ddc84; border-color: rgba(61, 220, 132, .5); }
+.tag--impact:hover, .tag--impact.tag--active { background: rgba(61, 220, 132, .12); color: #63e89c; }
 html[data-theme="light"] .tag--impact { color: #00783d; border-color: rgba(0, 120, 61, .5); }
 html[data-theme="light"] .tag--impact:hover, html[data-theme="light"] .tag--impact.tag--active { background: rgba(0, 120, 61, .1); color: #005c2e; }
 
@@ -18436,10 +18440,10 @@ html[data-theme="light"] .nrx-rond { background: rgba(199, 48, 0, .1); border-co
 .rxg-c .article-points > li { margin: 0 0 5px; padding-left: 0; }
 .rxg-c .article-points > li::marker, .rxg-c .article-points > li::before { content: none; }
 .rxg-c .article-points > li:last-child { margin-bottom: 0; }
-.rxg-b--info     { color: #3f9280; }
-.rxg-b--analyse  { color: #007aa3; }
-.rxg-b--reaction { color: #8e7fce; }
-.rxg-b--impact   { color: #2ecc71; }
+.rxg-b--info     { color: #35c9ae; }
+.rxg-b--analyse  { color: #4a9fe0; }
+.rxg-b--reaction { color: #a394f5; }
+.rxg-b--impact   { color: #3ddc84; }
 html[data-theme="light"] .rxg-b--info    { color: #2b6b5c; }
 html[data-theme="light"] .rxg-b--analyse { color: #005f80; }
 html[data-theme="light"] .rxg-b--reaction{ color: #5d4fa0; }
@@ -18463,7 +18467,19 @@ html[data-theme="light"] .rxg-b--impact  { color: #00783d; }
    Le halo entoure la bougie du chiffre : l'œil tombe dessus sans chercher le trait. Rouge d'alerte
    de la charte, très dilué (c'est un repère, pas un état de marché). */
 /* Drapeaux dans la pill de paire : images (aucun glyphe de drapeau sur Windows). */
-.tag-flag { display: inline-block; vertical-align: -1px; border-radius: 2px; margin-right: 1px; }
+/* DRAPEAUX RONDS (demande user), comme les micro-drapeaux de la matrice du Radar de Biais : le
+   desk a déjà cette convention, la reprendre ici évite deux façons de dessiner un drapeau.
+   « object-fit: cover » recadre le drapeau rectangulaire au centre du cercle — sans lui, l'image
+   serait ÉCRASÉE pour tenir dans un carré et les proportions seraient fausses. */
+.tag-flag { display: inline-block; width: 13px; height: 13px; border-radius: 50%;
+  object-fit: cover; vertical-align: -2px; margin-right: 1px; }
+/* Les deux drapeaux d'une paire se CHEVAUCHENT légèrement : ils forment un seul symbole, celui du
+   croisement, et non deux pays juxtaposés.
+   ⚠️ Le « gap: 0 » n'est pas décoratif : .tag est un conteneur FLEX avec gap: 4px, qui annulait
+   exactement la marge négative de -4 px — mesuré, les drapeaux restaient séparés d'un pixel au
+   lieu de se recouvrir. L'écart avec le libellé est repris par la marge du dernier drapeau. */
+.tag--pays { gap: 0; }
+.tag--pays .tag-flag + .tag-flag { margin-left: -4px; }
 /* Un tag qui NOMME un pays ou une devise porte son drapeau (« EUR », « GBPUSD »). L'écart se met
    après le DERNIER drapeau seulement : les deux drapeaux d'une paire restent ainsi collés l'un à
    l'autre, comme un seul symbole, et c'est le mot qui s'en détache. */

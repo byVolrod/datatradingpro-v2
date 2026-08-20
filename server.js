@@ -871,6 +871,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-roles-couleurs', ts: Date.UTC(2026, 7, 21, 18, 0), title: 'Chacune des quatre lectures dit une chose, et une seule', desc: 'Les quatre lectures d une publication avaient des roles qui se chevauchaient : Reaction expliquait le pourquoi et le ton du communique, ce qui est justement le travail d Analyse et d Impact marche. Vous lisiez trois fois le meme raisonnement. Reaction ne dit plus que ce que le PRIX a fait : sens, amplitude en points, niveaux de depart et d arrivee, et si le mouvement a tenu. Info dit ce qui a ete annonce, Analyse ce que cela veut dire, Impact marche ce que cela implique. Les couleurs des quatre boutons sont aussi plus lisibles : celle d Analyse etait sous le seuil de contraste et fatiguait a la lecture. Et les drapeaux des paires deviennent ronds, comme dans le Radar de Biais.' },
   { id: 'dtpu-20260821-blocs-largeur', ts: Date.UTC(2026, 7, 21, 16, 0), title: 'Le graphique et ses quatre lectures prennent toute la largeur', desc: 'Le panneau qui s ouvre sous une news etait aligne sous le titre, ce qui laissait un quart de la ligne inutilise a gauche. C est bien pour du texte, qui se lit en diagonale, mais cela ecrasait le graphique et les quatre blocs. Ils reprennent desormais toute la largeur : chaque bloc gagne un quart de sa taille. Les blocs sont aussi mis en forme comme demande, en paragraphes sans puces, avec l heure collee au titre. La ligne de rappel au-dessus du graphique, qui repetait la paire et l heure deja affichees ailleurs, est retiree.' },
   { id: 'dtpu-20260821-quatre-lectures', ts: Date.UTC(2026, 7, 21, 14, 0), title: 'Les quatre lectures d une news s affichent ensemble sous le graphique', desc: 'Au clic sur le marche expose d une publication, le graphique est desormais suivi des quatre lectures affichees EN MEME TEMPS : le resume du chiffre, la reaction du marche avec les prix avant et apres, l analyse du desk et l impact marche. Il fallait auparavant ouvrir chaque onglet a son tour et memoriser l un pour lire l autre, alors qu une reaction se comprend en confrontant les quatre. La pastille de couleur de chaque bloc reprend celle de son bouton, pour savoir d un coup d oeil a quoi il repond. Sur telephone les blocs s empilent au lieu de se serrer. La rangee de tags suit aussi un ordre fixe : les themes, puis la paire, puis les quatre lectures.' },
   { id: 'dtpu-20260821-fil-profondeur', ts: Date.UTC(2026, 7, 21, 11, 0), title: 'Le fil se deroule sur au moins six heures avant Charger plus', desc: 'Le bouton Charger plus pouvait arriver apres une heure de fil a peine, selon le nombre de depeches tombees. La regle etait comptee en nombre d articles, or la densite du fil varie enormement : une heure de publication peut en compter soixante quand une heure calme en compte huit. Le fil garantit desormais au moins six heures d historique deroulables d un seul tenant, et va chercher ce qui manque tout seul si besoin. Le bouton continue de tomber pile a un changement de jour, jamais au milieu d une journee coupee en deux.' },
@@ -8424,7 +8425,10 @@ app.post('/api/reaction-explain', async (req, res) => {
   const _imp = _isImportantNews(headline, '', '') || !!req.body.important;
   // Banque centrale ? /api/reaction-explain ne reçoit pas la catégorie → on la retrouve via l'item (par id), sinon regex sur le titre.
   const _rcb = _CB_NEWS.has((((allNews || []).find(i => i && i.id === id) || {}).category)) || /\b(fed|fomc|powell|warsh|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|schlegel|boc|macklem|rba|bullock|rbnz)\b/i.test(headline);
-  const cacheKey = (_rcb ? 'frcb1:' : 'fr2:') + (id || headline.substring(0, 120));
+  // Préfixe bumpé à chaque changement de RÔLE du panneau : sans cela, les explications déjà en
+  // cache — écrites avec l'ancienne consigne, donc empiétant sur Analyse — continueraient d'être
+  // servies pendant des jours.
+  const cacheKey = (_rcb ? 'frcb2:' : 'fr3:') + (id || headline.substring(0, 120));
   if (_reactCache.has(cacheKey)) { _aiCacheStats.react.hit++; return res.json(_reactCache.get(cacheKey)); }
   _aiCacheStats.react.miss++;
 
@@ -8437,8 +8441,18 @@ app.post('/api/reaction-explain', async (req, res) => {
     if (_aiInflightMap.has(cacheKey)) _aiCacheStats.coalesced++;   // génération identique DÉJÀ en vol → partage (1 seule requête IA)
     const result = await _aiInflight(cacheKey, async () => {
       const _langRule = 'Réponds en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
+      // ⚠️ CE PANNEAU NE DIT QUE CE QUE LE PRIX A FAIT. Les quatre lectures d'une même news ont des
+      // rôles DISTINCTS (référence fournie) : Info = ce qui a été annoncé, Réaction = ce que le prix
+      // a fait, Analyse = ce que ça veut dire, Impact marché = ce que ça implique. Le prompt
+      // demandait auparavant « le pourquoi » et, sur une banque centrale, « le TON du discours et
+      // l'impact sur les anticipations de taux » : il produisait donc la même chose que les deux
+      // panneaux suivants, et le lecteur lisait trois fois le même raisonnement.
       const text = await aiSmart('news', `You are a markets reporter on a trading desk.
-Explain the market reaction to the news below as 1 to ${_rcb ? '3' : '2'} BULLETS, ONE short sentence per bullet (max 22 words): link the price move to the headline (the causal mechanism, the "why").${_rcb ? " Comme c'est une communication de BANQUE CENTRALE, relie le mouvement au TON du discours (hawkish / dovish / neutre) et précise l'impact sur les ANTICIPATIONS DE TAUX et les principales DEVISES." : ""} Neutral, factual tone, no advice. Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
+Describe ONLY WHAT THE PRICE DID after the news below, as 1 to 2 BULLETS, ONE short sentence per bullet (max 22 words).
+State the DIRECTION, the AMPLITUDE (pips, points or %), the levels moved FROM and TO, and whether the move HELD or faded.
+Model answer: « AUD/USD a reculé d'environ 20 points juste après, de 0,7060 à 0,7040, sans rebond depuis. »
+⚠️ NEVER explain WHY.${_rcb ? " Même pour une communication de BANQUE CENTRALE : ne commente NI le ton (hawkish/dovish), NI les anticipations de taux — décris seulement le mouvement de la devise concernée et des instruments sensibles aux taux." : ""} No interpretation, no implication, no advice: those belong to the "Analyse" and "Impact marché" panels of the SAME news, and repeating them here would say the same thing three times.
+Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
 Start each bullet with • . Reply ONLY with the bullet(s), no preamble.
 
 Headline: ${headline}
@@ -11774,7 +11788,11 @@ async function generateEventAnalysis(kind, ev, evKey, idPrefix) {
   let parsed = null;
   try {
     _aiReset();
-    const prompt = `Tu es l'économiste en chef de "DataTradingPro". ${cfg.intro} EST TOMBÉ il y a environ 1 heure. Rédige UNE analyse APPROFONDIE mais SYNTHÉTIQUE, façon desk macro premium, EN FRANÇAIS, UNIQUEMENT à partir du RÉSULTAT et des DÉPÊCHES ci-dessous. N'INVENTE AUCUN chiffre ni détail : si une info n'est pas fournie, ne l'évoque pas. Mets l'accent sur CE QUI A SURPRIS (vs consensus), CE QUI A CHANGÉ, et la RÉACTION du marché (taux, dollar, actions, obligations) + l'évolution des ANTICIPATIONS. Compare au précédent/attendu. Ton neutre et factuel, aucun conseil.
+    // ⚠️ « il y a quelques minutes » et non « environ 1 heure » : le délai de publication est passé
+    // de 1 h à 8 min le 20/08, et le prompt annonçait encore l'ancien délai. Un modèle à qui l'on
+    // dit qu'une heure s'est écoulée décrit un marché déjà stabilisé, alors qu'il commente en
+    // réalité les premières minutes.
+    const prompt = `Tu es l'économiste en chef de "DataTradingPro". ${cfg.intro} EST TOMBÉ il y a quelques minutes. Rédige UNE analyse APPROFONDIE mais SYNTHÉTIQUE, façon desk macro premium, EN FRANÇAIS, UNIQUEMENT à partir du RÉSULTAT et des DÉPÊCHES ci-dessous. N'INVENTE AUCUN chiffre ni détail : si une info n'est pas fournie, ne l'évoque pas. Mets l'accent sur CE QUI A SURPRIS (vs consensus), CE QUI A CHANGÉ, et la RÉACTION du marché (taux, dollar, actions, obligations) + l'évolution des ANTICIPATIONS. Compare au précédent/attendu. Ton neutre et factuel, aucun conseil.
 
 Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 {
