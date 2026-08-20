@@ -222,6 +222,12 @@ function createWindow() {
       nodeIntegration: false,            // la page web n'a AUCUN accès Node (sécurité)
       contextIsolation: true,
       spellcheck: false,
+      // Electron met le rendu en VEILLE quand la fenêtre est masquée ou en arrière-plan depuis
+      // longtemps : minuteurs ralentis, animations gelées, surface de dessin libérée. C'est une
+      // économie utile pour un navigateur à vingt onglets, pas pour un terminal qu'on laisse
+      // ouvert la journée et qui doit continuer de recevoir le fil en direct. Le réveil après
+      // plusieurs heures de veille est précisément le moment où l'écran noir apparaît.
+      backgroundThrottling: false,
     },
   });
 
@@ -292,6 +298,26 @@ function createWindow() {
      Pare-boucle : pas plus d'un rechargement par minute, si le moteur meurt en boucle on laisse la
      page hors-ligne faire son travail plutôt que de clignoter. */
   let _dtpDernierSauvetage = 0;
+  // Une image est « noire » si AUCUN de ses pixels n'atteint un minimum de luminosité. On réduit
+  // à 16x16 avant d'analyser : 256 pixels suffisent à savoir s'il y a quoi que ce soit à l'écran,
+  // et c'est mille fois moins de travail qu'une image de 2560 pixels de large.
+  // Le seuil est bas (24 sur 255) parce que le desk EST sombre : il ne s'agit pas de détecter une
+  // page peu lumineuse mais une page où il n'y a RIEN — ni texte, ni bordure, ni accent.
+  const _estEcranNoir = (img) => {
+    try {
+      const petite = img.resize({ width: 16, height: 16, quality: 'good' });
+      const bmp = petite.toBitmap();          // BGRA, 4 octets par pixel
+      if (!bmp || bmp.length < 64) return false;   // capture inexploitable : on ne conclut pas
+      let max = 0;
+      for (let i = 0; i < bmp.length; i += 4) {
+        const v = Math.max(bmp[i], bmp[i + 1], bmp[i + 2]);
+        if (v > max) max = v;
+        if (max >= 24) return false;          // un seul pixel clair suffit à prouver que ça peint
+      }
+      return true;
+    } catch (e) { return false; }
+  };
+
   const _dtpSauver = (motif) => {
     if (!win || win.isDestroyed()) return;
     const t = Date.now();
@@ -302,6 +328,38 @@ function createWindow() {
   };
   win.webContents.on('render-process-gone', (_e, d) => _dtpSauver('moteur de rendu mort (' + (d && d.reason || '?') + ')'));
   win.on('unresponsive', () => _dtpSauver('fenêtre sans réponse'));
+  // ⚠️ LE TROU QUI LAISSAIT PASSER L'ÉCRAN NOIR. Les deux gardes ci-dessus supposent que quelque
+  // chose est MORT ou FIGÉ. Quand c'est le processus GPU qui tombe, le moteur de rendu reste
+  // vivant et la fenêtre reste réactive — on peut la déplacer, la fermer — elle peint simplement
+  // du noir. Aucun des deux événements ne survient. Celui-ci, si.
+  app.on('child-process-gone', (_e, d) => {
+    if (d && (d.type === 'GPU' || d.type === 'Utility')) _dtpSauver('processus ' + d.type + ' perdu (' + (d.reason || '?') + ')');
+  });
+
+  // ══ CHIEN DE GARDE D'AFFICHAGE ═══════════════════════════════════════════════════════════════
+  // On ne peut pas énumérer toutes les causes d'un écran noir : pilote graphique, mise en veille
+  // du système, perte de la surface de composition, bascule de carte graphique sur un portable.
+  // On surveille donc LE SYMPTÔME. Toutes les deux minutes, si la fenêtre est visible, on capture
+  // une image et on regarde si elle est UNIFORMÉMENT noire.
+  // ⚠️ Le fond du desk est lui-même très sombre (#0c0c0e) : le test ne peut pas être « sombre ».
+  // Il porte sur le MAXIMUM de luminosité de toute l'image — un écran réel contient toujours du
+  // texte clair et des accents or, donc un maximum élevé ; un écran noir n'a rien du tout.
+  // Deux constats consécutifs sont exigés avant de recharger : une capture peut tomber pendant une
+  // transition, et recharger le desk sous les yeux de quelqu'un qui travaille est coûteux.
+  let _noirDeSuite = 0;
+  const _garde = setInterval(async () => {
+    try {
+      if (!win || win.isDestroyed() || !win.isVisible() || win.isMinimized()) { _noirDeSuite = 0; return; }
+      if (win.webContents.isLoading()) { _noirDeSuite = 0; return; }
+      const img = await win.webContents.capturePage();
+      if (!img || img.isEmpty()) return;
+      if (_estEcranNoir(img)) {
+        _noirDeSuite++;
+        if (_noirDeSuite >= 2) { _noirDeSuite = 0; _dtpSauver('écran noir détecté'); }
+      } else _noirDeSuite = 0;
+    } catch (e) { /* une capture qui échoue n'est pas une preuve : on ne recharge pas */ }
+  }, 120000);
+  win.on('closed', () => { try { clearInterval(_garde); } catch (e) {} });
 
   // Menu CLIC-DROIT (contextuel) : Couper / Copier / Coller / Tout sélectionner. Electron n'en fournit AUCUN
   // par défaut → sans ça, impossible de COLLER (clic-droit) un mot de passe reçu par e-mail dans le champ login.
