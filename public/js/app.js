@@ -3135,25 +3135,18 @@ function buildNewsItem(item) {
   // cliquable ferait de la rangée de tags un champ de mines. Une news de données n'a pas de
   // champ paire (seules les analyses d'événement en portent) : la devise suffit à le déduire.
   // Appelée par les DEUX boucles de tags : une devise vient des tags de l'item OU des smart-tags.
-  // ── DRAPEAU SUR LES TAGS (20/08, demande user, capture de référence à l'appui) ──
-  // Un tag qui NOMME un pays ou une devise porte son drapeau : « EUR CPI » se lit d'un coup d'œil,
-  // sans avoir à parcourir le titre. Les tags de THÈME (Données, Inflation, Taux…) restent nus,
-  // exactement comme la référence : un drapeau posé partout ne distinguerait plus rien et cesserait
-  // donc d'être une information.
+  // ── DRAPEAUX : SUR LE SEUL TAG DE PAIRE (20/08, demande user) ──
+  // Ils ne marquent PAS « cette news parle de tel pays » — le titre le dit déjà — mais « ici, un
+  // graphique t'attend » : ils n'apparaissent que sur le tag de paire d'une news importante, celui
+  // qui ouvre la réaction du marché au clic. Un drapeau posé aussi sur les tags de pays ou de
+  // devise ordinaires (« US », « EUR ») ne distinguerait plus rien et cesserait d'être un signal.
   // ⚠️ Images et non émojis : Windows ne fournit AUCUN glyphe de drapeau de pays.
-  const _ISO_TAG = { US: 'us', EU: 'eu', UK: 'gb', JP: 'jp', CH: 'ch', CA: 'ca', AU: 'au', NZ: 'nz', CN: 'cn' };
   const _drapImg = iso => '<img class="tag-flag" src="https://flagcdn.com/w20/' + iso + '.png" width="13" height="10" alt="" loading="lazy">';
-  const _tagDrapeau = (t, tag) => {
-    const iso = _SBR_ISO[tag] || _ISO_TAG[tag];
-    if (!iso) return;
-    t.classList.add('tag--pays');
-    t.innerHTML = _drapImg(iso) + (NEWS_TAG_FR[tag] || tag);
-  };
   const _marcheDepuisTag = (t, tag) => {
     if (!_PAIR_DE_DEVISE[tag] || !isRed || !expandEl || item._pair) return;
     const paire = _PAIR_DE_DEVISE[tag];
     t.style.cursor = 'pointer';
-    t.classList.add('tag--marche');
+    t.classList.add('tag--marche', 'tag--pays');   // tag--pays : espacement du drapeau (voir style.css)
     t.title = 'Voir la réaction de ' + paire + ' au moment de cette publication';
     const cc = paire.split('/');
     // Le tag porte les DEUX drapeaux et le nom de la PAIRE (« EUR/USD »), pas la seule devise :
@@ -3173,7 +3166,6 @@ function buildNewsItem(item) {
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
-    _tagDrapeau(t, tag);        // pays/devise → son drapeau
     _marcheDepuisTag(t, tag);   // news importante → devient la paire cliquable (2 drapeaux)
     tagsEl.appendChild(t);
   }
@@ -3184,7 +3176,6 @@ function buildNewsItem(item) {
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = NEWS_TAG_FR[tag] || tag;
-    _tagDrapeau(t, tag);        // pays/devise → son drapeau
     _marcheDepuisTag(t, tag);   // news importante → devient la paire cliquable (2 drapeaux)
     tagsEl.appendChild(t);
   }
