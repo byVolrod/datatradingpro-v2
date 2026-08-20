@@ -549,11 +549,16 @@
 
   /** Monte la frise dans `host` et rend sa fonction de nettoyage. */
   function _monterFriseSeances(host) {
+    // AXE GRADUÉ TOUTES LES TROIS HEURES (référence fournie) : cinq repères ne suffisaient pas à
+    // situer une barre à l'œil — entre « 6h » et « 12h » il fallait estimer. Neuf repères donnent
+    // la lecture directe.
+    var _axe = [0, 3, 6, 9, 12, 15, 18, 21, 24].map(function (h) { return '<span>' + h + 'h</span>'; }).join('');
     host.innerHTML = '<div class="wdg-frise">'
       + '<div class="wdg-frise-head"><span class="live-dot live-dot--small wdg-frise-dot"></span>'
       + '<span class="chart-header-sub wdg-frise-sub"></span></div>'
-      + '<div class="wdg-frise-axe"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>'
+      + '<div class="wdg-frise-axe">' + _axe + '</div>'
       + '<div class="wdg-frise-corps"></div>'
+      + '<div class="wdg-frise-note">Les plages qui se chevauchent sont les heures de plus forte liquidité. Les horaires suivent l\'heure d\'été de chaque place.</div>'
       + '</div>';
     var corps = host.querySelector('.wdg-frise-corps');
     var sub = host.querySelector('.wdg-frise-sub');
@@ -567,28 +572,42 @@
         var e = _friseEtat(p, now);
         if (e.ouvert) ouvertes.push(p.nom);
         else if (!suivante || e.mins < suivante.mins) suivante = { nom: p.nom, mins: e.mins };
-        var blocs = _friseSegments(p, now).map(function (sg) {
+        // L'horaire s'écrit DANS la barre (référence fournie) : à côté, l'œil devait faire
+        // l'aller-retour entre un texte à droite et un bloc à gauche pour savoir ce qu'il regardait.
+        // Il n'est écrit que dans le segment le PLUS LARGE : une séance coupée par minuit produit
+        // deux segments, et répéter l'horaire dans chacun le dédoublerait.
+        var _dec = _friseDecalage(p.tz, now);
+        var _plage = _friseHF(p.ouv - _dec) + ' - ' + _friseHF(p.fer - _dec);
+        var _segs = _friseSegments(p, now);
+        var _large = 0;
+        _segs.forEach(function (sg, k) { if ((sg[1] - sg[0]) > (_segs[_large][1] - _segs[_large][0])) _large = k; });
+        var blocs = _segs.map(function (sg, k) {
+          var w = (sg[1] - sg[0]) / 24 * 100;
+          // Sous ~14 % de la piste, l'horaire ne tient pas : on le laisse alors à l'en-tête.
+          var texte = (k === _large && w >= 14) ? '<b>' + _plage + '</b>' : '';
           return '<span class="wdg-frise-bloc' + (e.ouvert ? ' est-ouvert' : '') + '" style="left:' + (sg[0] / 24 * 100)
-            + '%;width:' + ((sg[1] - sg[0]) / 24 * 100) + '%;--frise-ton:' + p.ton + '"></span>';
+            + '%;width:' + w + '%;--frise-ton:' + p.ton + '">' + texte + '</span>';
         }).join('');
+        var _horaireDansBarre = _segs.some(function (sg, k) { return k === _large && ((sg[1] - sg[0]) / 24 * 100) >= 14; });
         html += '<div class="wdg-frise-ligne' + (e.ouvert ? ' est-ouvert' : '') + '">'
           + '<div class="wdg-frise-tete">'
           + '<span class="wdg-frise-place"><i></i>' + p.nom + '</span>'
           + '<span class="wdg-frise-reste">' + (e.ouvert ? 'ferme dans ' + _friseDuree(e.mins)
               : (e.mins ? 'ouvre dans ' + _friseDuree(e.mins) : '')) + '</span>'
-          + (function () {
-              // Plage d ouverture convertie dans le fuseau du lecteur, comme la reference. Une
-              // seance qui enjambe minuit s affiche telle quelle (« 23:00 - 07:00 ») : c est la
-              // convention de lecture des plages horaires, pas une erreur.
-              var dec = _friseDecalage(p.tz, now);
-              return '<span class="wdg-frise-heures">' + _friseHF(p.ouv - dec) + ' - ' + _friseHF(p.fer - dec) + '</span>';
-            })()
+          // L'horaire ne reste en en-tête que si la barre était trop étroite pour le porter :
+          // sinon il serait écrit deux fois sur la même ligne.
+          + (_horaireDansBarre ? '' : '<span class="wdg-frise-heures">' + _plage + '</span>')
           + '<span class="wdg-frise-badge">' + (e.ouvert ? 'OUVERT' : 'FERMÉ') + '</span>'
           + '</div>'
-          + '<div class="wdg-frise-piste">' + blocs
-          + '<span class="wdg-frise-now" style="left:' + maintenant + '%"></span></div>'
+          + '<div class="wdg-frise-piste">' + blocs + '</div>'
           + '</div>';
       });
+      // UNE SEULE ligne « maintenant », qui TRAVERSE les quatre places au lieu d'un trait par
+      // piste : c'est ce qui permet de lire d'un coup quelles séances se chevauchent à cet
+      // instant. Son étiquette porte l'heure du lecteur, sans quoi il faudrait la déduire de l'axe.
+      var _hNow = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      html += '<span class="wdg-frise-now" style="left:' + maintenant + '%"></span>'
+        + '<span class="wdg-frise-nowlbl" style="left:' + maintenant + '%">' + _hNow + '</span>';
       corps.innerHTML = html;
       if (sub) {
         // État porté par une CLASSE et plus par un style inline : l'inline gagnait sur toute règle

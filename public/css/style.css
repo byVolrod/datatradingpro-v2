@@ -16945,6 +16945,9 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wdg-frise-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Axe des heures : aligné sur la piste, donc mêmes bornes et mêmes extrémités. */
+/* Note de bas de bloc : elle explique ce que veut dire un chevauchement, information qui ne se
+   devine pas et qui est le principal interet de cette frise. */
+.wdg-frise-note { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--text4, #4b5563); }
 .wdg-frise-axe { flex: 0 0 auto; display: flex; justify-content: space-between; font-size: 10px;
   color: var(--txt-3, #6b7280); letter-spacing: .02em; padding-bottom: 1px;
   border-bottom: 1px solid var(--hud-line); }
@@ -16954,8 +16957,12 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 /* Lignes COMPACTES, groupees en haut (18/08, capture user sur carte haute : space-evenly etirait
    les quatre lignes sur toute la hauteur, des dizaines de pixels de vide entre le nom et sa piste,
    plus rien ne se lisait d un bloc). La reference les empile serrees depuis le haut. */
-.wdg-frise-corps { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-  justify-content: flex-start; gap: 15px; overflow-y: auto; }
+/* position: relative — le repere de l instant TRAVERSE desormais toutes les places : il est pose
+   par rapport au corps, plus par rapport a chaque piste. C est ce qui permet de voir d un coup
+   quelles seances se chevauchent maintenant. overflow-y en visible : un defilement rognerait le
+   trait et son etiquette (les paliers de taille garantissent que les 4 places tiennent). */
+.wdg-frise-corps { position: relative; flex: 1 1 auto; min-height: 0; display: flex;
+  flex-direction: column; justify-content: flex-start; gap: 15px; overflow: visible; }
 
 .wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
@@ -16978,11 +16985,23 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 .wdg-frise-piste { position: relative; height: 18px; border-radius: 3px; overflow: hidden;
   background: var(--bg-3, #0f0f12); border: 1px solid var(--hud-line);
   background-image: repeating-linear-gradient(to right, var(--hud-line) 0 1px, transparent 1px 12.5%); }
-.wdg-frise-bloc { position: absolute; top: 0; bottom: 0; background: var(--frise-ton, #3a3f4b); opacity: .34; }
-.wdg-frise-bloc.est-ouvert { opacity: .8; }
+/* La barre porte son horaire : a cote, l oeil devait faire l aller-retour entre un texte a droite
+   et un bloc a gauche pour savoir ce qu il regardait. */
+.wdg-frise-bloc { position: absolute; top: 0; bottom: 0; background: var(--frise-ton, #3a3f4b);
+  opacity: .34; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  border-radius: 2px; }
+.wdg-frise-bloc.est-ouvert { opacity: .88; }
+.wdg-frise-bloc b { font-size: 9.5px; font-weight: 600; color: #fff; white-space: nowrap;
+  font-variant-numeric: tabular-nums; letter-spacing: .01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55); }
 /* Repère de l instant présent : le seul élément en or, pour qu il se lise d un coup d œil. */
-.wdg-frise-now { position: absolute; top: -1px; bottom: -1px; width: 1px; background: #e3b23a;
-  box-shadow: 0 0 4px rgba(227, 178, 58, .8); }
+.wdg-frise-now { position: absolute; top: 0; bottom: 13px; width: 0; border-left: 1px dashed #e3b23a;
+  pointer-events: none; z-index: 2; }
+/* L etiquette porte l heure du lecteur : sans elle il faudrait la deduire de l axe. */
+.wdg-frise-nowlbl { position: absolute; bottom: -2px; transform: translateX(-50%); z-index: 3;
+  padding: 1px 5px; border-radius: 3px; background: #e3b23a; color: #0c0c0e;
+  font-size: 9.5px; font-weight: 700; line-height: 1.35; font-variant-numeric: tabular-nums;
+  pointer-events: none; white-space: nowrap; }
 
 /* PALIERS DE TAILLE — poses par le JS (ResizeObserver) sur la carte ELLE-MEME.
    Ces regles etaient en @media (max-width/max-height), qui interroge la FENETRE : un widget
@@ -18386,9 +18405,18 @@ html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; bor
 .wdg-frise-reste { order: 4; text-align: right; }
 /* Piste plus fine, segments nets : gris neutre fermé, couleur de place à l'ouvert. */
 .wdg-frise-piste { height: 12px; border-radius: 2px; }
-.wdg-frise-bloc { opacity: 1; background: #23262c; border-radius: 2px; }
-.wdg-frise-bloc.est-ouvert { background: var(--frise-ton, #b8860b); opacity: .92; }
-html[data-theme="light"] .wdg-frise-bloc { background: #dcd9d2; }
+/* CHAQUE PLACE GARDE SA COULEUR, ouverte ou fermee (21/08, reference fournie) : c est elle qui
+   identifie la seance d une ligne a l autre. Auparavant les fermees viraient toutes au meme gris,
+   et la frise perdait sa lecture d ensemble. Seule l INTENSITE distingue ouvert de ferme — l etat
+   est deja dit par le badge et par la pastille du nom, le repeter par un gris coutait l identite.
+   ⚠️ L opacite vit sur un PSEUDO-ELEMENT et non sur le bloc : posee sur le bloc, elle attenuerait
+   AUSSI l horaire ecrit dedans, qui deviendrait illisible sur les seances fermees. */
+.wdg-frise-bloc { opacity: 1; background: transparent; border-radius: 2px; }
+.wdg-frise-bloc::before { content: ""; position: absolute; inset: 0; border-radius: 2px;
+  background: var(--frise-ton, #3a3f4b); opacity: .40; }
+.wdg-frise-bloc.est-ouvert::before { opacity: .92; }
+.wdg-frise-bloc b { position: relative; z-index: 1; }
+html[data-theme="light"] .wdg-frise-bloc::before { opacity: .5; }
 html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #00783d; }
 
 /* ═══ GRAPHIQUE DE RÉACTION d'une news (20/08) : courbe 15 min + instant de publication marqué ════ */

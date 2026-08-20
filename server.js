@@ -871,6 +871,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-frise-seances', ts: Date.UTC(2026, 7, 22, 4, 0), title: 'La frise des seances se lit d un coup d oeil', desc: 'Le widget Sessions de marche, en affichage Horaires des places, est refait : l axe est gradue toutes les trois heures au lieu de six, chaque plage porte son horaire ECRIT DANS la barre au lieu d un texte a cote, et un trait vertical marque l heure courante en traversant les quatre places — c est lui qui montre d un coup quelles seances se chevauchent, donc ou se trouve la liquidite. Chaque place garde aussi SA couleur, ouverte ou fermee : elles viraient toutes au meme gris une fois fermees et la frise perdait sa lecture d ensemble.' },
+  { id: 'dtpu-20260822-format-lectures', ts: Date.UTC(2026, 7, 22, 3, 0), title: 'Les quatre lectures d une news ont maintenant le meme format', desc: 'Info, Reaction, Analyse et Impact marche s affichent cote a cote dans une grille. Leurs longueurs etaient tres inegales : un bloc de deux lignes voisinait avec un pave de six, et l oeil en concluait a tort que le plus court comptait moins. Les quatre visent desormais la meme longueur, entre deux cents et deux cent quatre-vingts caracteres, chacun gardant strictement son role. Assez pour dire quelque chose, assez court pour etre lu d un trait.' },
   { id: 'dtpu-20260822-bouton-remplacer', ts: Date.UTC(2026, 7, 22, 2, 0), title: 'Remplacer un widget se fait en un clic', desc: 'Changer le widget d un emplacement demandait d ouvrir ses reglages puis de cliquer Remplacer. C est le geste le plus courant de la personnalisation : il passe dans l en-tete, a cote de la croix, et ouvre directement la bibliotheque. La croix garde exactement sa fonction. Dupliquer, plein ecran et verrouiller restent dans les reglages, ou ils sont ecrits en toutes lettres.' },
   { id: 'dtpu-20260822-bank-resize', ts: Date.UTC(2026, 7, 22, 1, 30), title: 'Le graphique des transactions bancaires se redimensionne', desc: 'Une poignee borde desormais le graphique de l onglet Banques : tirez-la pour lui donner plus de place, ou pour rendre la place au tableau. Elle ajuste la hauteur quand le graphique est sous le tableau et la largeur quand il est a cote. Un double-clic revient a la taille d origine.' },
   { id: 'dtpu-20260822-axe-heures', ts: Date.UTC(2026, 7, 22, 1, 0), title: 'Les heures du graphique Force des Devises se lisent enfin', desc: 'La ligne des heures sous le graphique etait trop pale pour etre lue sans effort : son contraste tombait sous le seuil de lisibilite. Elle est eclaircie, legerement agrandie, et ses chiffres passent en chasse fixe pour que l axe ne semble plus vibrer quand il defile. Un filet le separe des courbes.' },
@@ -3246,10 +3248,12 @@ function _newsExemple() {
   return {
     id: 'dtp-exemple-rba-audusd',
     headline: 'RBA keeps the Cash rate unchanged at 4.35%, as expected, while it stated that inflation is still elevated and risks are skewed to the upside, but noted financial conditions appear somewhat restrictive and trims CPI forecasts',
+    // Les quatre blocs de l'exemple tiennent le MÊME budget que celui imposé aux prompts
+    // (200 à 280 caractères) : il sert de démonstration du format visé.
     description: [
-      'La Banque de Réserve d\'Australie laisse son taux directeur à 4,35 %, comme le marché l\'attendait, et à l\'unanimité.',
-      'Elle maintient que l\'inflation reste élevée et que les risques penchent du côté d\'une accélération.',
-      'Elle note toutefois que les conditions financières lui paraissent désormais un peu restrictives, et abaisse ses prévisions d\'inflation.',
+      'La Banque de Réserve d\'Australie laisse son taux à 4,35 %, comme attendu et à l\'unanimité.',
+      'Elle juge l\'inflation encore élevée, avec des risques orientés à la hausse.',
+      'Elle note cependant des conditions financières un peu restrictives et abaisse ses prévisions d\'inflation.',
     ].join('\n'),
     category: 'Australian Data',
     source: 'DTP Markets',
@@ -3258,9 +3262,8 @@ function _newsExemple() {
     priority: 'high',
     tags: ['Inflation', 'Rates', 'RBA'],
     analyse: [
-      'Taux inchangé et attendu : ce n\'est donc pas la décision qui fait le prix, mais le ton du communiqué.',
-      'Le ton reste ferme sur le fond, l\'inflation étant jugée trop haute avec des risques orientés à la hausse.',
-      'Mais deux inflexions vont dans l\'autre sens : des conditions financières décrites comme restrictives, et des prévisions d\'inflation revues en baisse. C\'est un maintien un peu moins ferme que le précédent.',
+      'Taux inchangé et attendu : ce n\'est pas la décision qui fait le prix, mais le ton du communiqué.',
+      'Le fond reste ferme, mais deux inflexions l\'adoucissent : conditions financières jugées restrictives et prévisions d\'inflation abaissées. Un maintien moins ferme que le précédent.',
     ],
     // La news d'exemple porte SA PROPRE réaction. Les seuils de détection sont calibrés pour un
     // CHOC (42 points sur EUR/USD en huit minutes, 12 dollars sur l'or) : sur une séance calme
@@ -3271,7 +3274,7 @@ function _newsExemple() {
       { label: 'AUD/USD', sym: 'AUDUSD=X', refPrice: 0.7060, peakPrice: 0.7040, move: '-0.00200', movePct: '-0.28%', dir: 'down', unit: '', minutes: 2 },
       { label: 'DXY', sym: 'DX-Y.NYB', refPrice: 98.120, peakPrice: 98.260, move: '+0.140', movePct: '+0.14%', dir: 'up', unit: 'pts', minutes: 3 },
     ],
-    _impact: 'Le marché avait déjà intégré le maintien du taux : l\'écart au consensus se joue donc sur le communiqué, et il penche légèrement du côté accommodant. À surveiller sur AUD/USD, dont la réaction se lit à la minute de publication, et sur les taux australiens à 2 ans, les plus sensibles aux anticipations. Cette lecture décrit le mécanisme, elle ne préjuge pas de la suite.',
+    _impact: 'Le maintien était déjà intégré : l\'écart au consensus se joue sur le communiqué, et il penche légèrement du côté accommodant. À surveiller sur AUD/USD et sur les taux australiens à 2 ans, les plus sensibles aux anticipations.',
   };
 }
 
@@ -8444,7 +8447,7 @@ app.post('/api/reaction-explain', async (req, res) => {
   // Préfixe bumpé à chaque changement de RÔLE du panneau : sans cela, les explications déjà en
   // cache — écrites avec l'ancienne consigne, donc empiétant sur Analyse — continueraient d'être
   // servies pendant des jours.
-  const cacheKey = (_rcb ? 'frcb3:' : 'fr4:') + (id || headline.substring(0, 120));
+  const cacheKey = (_rcb ? 'frcb4:' : 'fr5:') + (id || headline.substring(0, 120));
   if (_reactCache.has(cacheKey)) { _aiCacheStats.react.hit++; return res.json(_reactCache.get(cacheKey)); }
   _aiCacheStats.react.miss++;
 
@@ -8464,7 +8467,8 @@ app.post('/api/reaction-explain', async (req, res) => {
       // l'impact sur les anticipations de taux » : il produisait donc la même chose que les deux
       // panneaux suivants, et le lecteur lisait trois fois le même raisonnement.
       const text = await aiSmart('news', `You are a markets reporter on a trading desk.
-Describe THE PRICE ACTION that followed the news below, as ONE bullet of 1 to 2 sentences (max 45 words).
+Describe THE PRICE ACTION that followed the news below, as ONE bullet of 1 to 2 sentences.
+LONGUEUR : vise 200 à 280 caractères AU TOTAL, espaces compris. Ce budget est le MÊME pour les quatre lectures d'une news (Info, Réaction, Analyse, Impact marché) : elles s'affichent côte à côte dans une grille, et un bloc deux fois plus court que son voisin passe à tort pour moins important.
 The SUBJECT is the price: how it first behaved (one-way move, or two-way chop), the RANGE in pips, then where it settled shortly after.
 A SHORT attribution clause to the DATA ITSELF is welcome, inside the same sentence — never a separate thought.
 Model answer (target style): « Action de prix à double sens dans un couloir de 6 points, le sous-jacent au-dessus du consensus étant compensé par un indice global conforme et un ralentissement des services. GBP/USD a ensuite penché modestement à la hausse. »
@@ -11816,7 +11820,7 @@ Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
   "headline": "<titre court et précis, ex. « Taux maintenus, dot plot plus hawkish » ou « CPI au-dessus du consensus, cœur tenace »>",
   "lead": "<2 à 4 phrases de synthèse : le résultat, la SURPRISE éventuelle (RÉELLE, vs consensus/pricing), le ton, la réaction principale>",
   "sections": [ { "title": "<libellé COURT de section (≤ 40 caractères), en français, casse normale>", "points": ["<une phrase factuelle concrète>", "..."] } ],
-  "marketImpact": { "verdict": "<UNE phrase de verdict, directe (ex. « Haussier pour le brut et les primes de risque géopolitiques. »)>", "mecanisme": "<1-2 phrases : POURQUOI ce signal change la donne (ce qu il retire ou ajoute au pricing)>", "actifs": [ { "nom": "<actif/paire, ex. Brent/WTI, Or, USD>", "fleche": "<↑ | ↓ | mixte>", "note": "<qualificatif court, ex. « demande refuge potentielle », optionnel>" } ] },
+  "marketImpact": { "verdict": "<UNE phrase de verdict, directe (ex. « Haussier pour le brut et les primes de risque géopolitiques. »)>", "mecanisme": "<1 à 2 phrases : POURQUOI ce signal change la donne (ce qu il retire ou ajoute au pricing). VERDICT ET MECANISME REUNIS : vise 200 à 280 caracteres au total, le MEME budget que les trois autres lectures de la news, qui s affichent a cote dans une grille>", "actifs": [ { "nom": "<actif/paire, ex. Brent/WTI, Or, USD>", "fleche": "<↑ | ↓ | mixte>", "note": "<qualificatif court, ex. « demande refuge potentielle », optionnel>" } ] },
 }
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
 🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) : VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
@@ -16902,25 +16906,29 @@ Headline: ${item.headline}
 Category: ${item.category || '-'} (banque centrale)
 Context: ${desc}
 
-Rédige 3 à 5 puces analytiques COURTES, EN FRANÇAIS, propres à CE contenu. Couvre (SAUTE un point si le contenu ne le permet pas : ne force rien) :
+Rédige 2 à 3 puces analytiques COURTES, EN FRANÇAIS, propres à CE contenu.
+LONGUEUR : vise 200 à 280 caractères AU TOTAL, espaces compris. Ce budget est le MÊME pour les quatre lectures d'une news (Info, Réaction, Analyse, Impact marché) : elles s'affichent côte à côte dans une grille, et un bloc deux fois plus court que son voisin passe à tort pour moins important.
+Couvre les points les PLUS PARLANTS parmi les suivants (saute ceux que le contenu ne permet pas : ne force rien, et n'essaie pas de tous les caser dans le budget) :
 - Le TON : hawkish / dovish / neutre (attentiste), et ce qu'il signale.
 - Ce qui a CHANGÉ vs les communications précédentes (formulation, priorités) : seulement si perceptible.
 - Ce que la banque SURVEILLE (inflation, emploi, salaires, croissance, consommation, conditions financières...).
 - Les IMPLICATIONS pour les prochaines réunions / la trajectoire des taux.
 - L'INTERPRÉTATION DE MARCHÉ : impact probable ou observé (devises, taux, actions, or), QUALITATIF, sans chiffre inventé.
 ${_MENTOR_RULES}
-Règles : ~24 mots max par puce, jamais de source/auteur, aucun **gras**/markdown/astérisque. Commence chaque puce par • . Réponds UNIQUEMENT par les puces.`;
+Règles : jamais de source/auteur, aucun **gras**/markdown/astérisque. Commence chaque puce par • . Réponds UNIQUEMENT par les puces.`;
   return `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
 
 Headline: ${item.headline}
 Category: ${item.category || '-'}
 Context: ${desc}
 
-Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
+Write 2 SHORT bullets tailored to THIS specific news (not a template).
+LONGUEUR : vise 200 à 280 caractères AU TOTAL, espaces compris. Ce budget est le MÊME pour les quatre lectures d'une news (Info, Réaction, Analyse, Impact marché) : elles s'affichent côte à côte dans une grille, et un bloc deux fois plus court que son voisin passe à tort pour moins important.
+Rules:
 - Add ANALYTICAL value: drivers, implications, levels, what it means for the trade, do NOT restate the headline or just repeat the figures.
 - Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) : skip if none.
 - Explain the concrete causal mechanism for THIS story, not generic phrasing.
-- Max 22 words per bullet. NEVER include source/author attribution.
+- NEVER include source/author attribution.
 - NO bold, NO markdown, NO asterisks. Plain text only.
 - Rédige en FRANÇAIS.
 ${_MENTOR_RULES}
