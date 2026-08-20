@@ -866,7 +866,7 @@ function handleMessage(msg) {
       // RÉELLEMENT AFFICHÉE dans le feed (passe les filtres ET dans les `displayLimit` premières).
       // → la notif est TOUJOURS synchro avec une news visible ; sinon pas de notif. (Anti-désync.)
       const _fl = getFilteredItems();
-      const _renderedIds = new Set(_fl.slice(0, _alignLimitToDay(_fl, displayLimit)).map(i => i.id));
+      const _renderedIds = new Set(_fl.slice(0, _alignLimitToDay(_fl, _etendreAuMinimum(_fl, displayLimit))).map(i => i.id));
       _flashBreakingNews(truly_new.find(i => _renderedIds.has(i.id) && !(i._briefing || i.source === 'DTP' || isPrimerItem(i)) && _isImportantNews(i)));
     }
     // Refresh analyst library if a new briefing arrived and analyst view is active
@@ -1292,6 +1292,34 @@ function _newsCmp(a, b) {
 // JOURNÉES COMPLÈTES — la limite est étendue jusqu'à la fin de la journée en cours d'affichage (même
 // clé formatDate que les en-têtes de date) → le bouton arrive juste avant que la journée précédente
 // commence, jamais au milieu d'une journée coupée en deux.
+// ── PROFONDEUR MINIMALE AVANT « CHARGER PLUS » (20/08, demande user : « faut qu'on puisse
+//    scroller jusqu'à 6 h d'historique au moins ») ─────────────────────────────────────────────
+// Exprimée en HEURES et non en nombre d'items, et c'est le point : la densité du fil varie du
+// simple au sextuple d'une heure à l'autre — mesuré le 20/08, 61 dépêches dans l'heure de 14 h
+// contre 8 dans celle de 16 h. Un plafond en items donne donc une profondeur imprévisible : les
+// mêmes 100 items valent une heure un jour de publication et six heures un après-midi calme.
+const _MIN_HISTO_MS = 6 * 3600e3;
+// Repousse la limite jusqu'à couvrir la fenêtre voulue. La liste est triée du plus récent au plus
+// ancien : filtered[0] est le sommet du fil.
+function _etendreAuMinimum(filtered, limit) {
+  if (!filtered.length) return limit;
+  const sommet = filtered[0].timestamp || 0;
+  let end = Math.min(limit, filtered.length);
+  while (end < filtered.length && sommet - (filtered[end - 1].timestamp || 0) < _MIN_HISTO_MS) end++;
+  return end;
+}
+// Profondeur RÉELLEMENT disponible côté client, en millisecondes.
+function _profondeurLocale() {
+  if (!allItems.length) return 0;
+  let recent = 0, vieux = Infinity;
+  for (const i of allItems) {
+    const t = i && i.timestamp;
+    if (!t) continue;
+    if (t > recent) recent = t;
+    if (t < vieux) vieux = t;
+  }
+  return (recent && vieux !== Infinity) ? recent - vieux : 0;
+}
 function _alignLimitToDay(filtered, limit) {
   if (filtered.length <= limit) return filtered.length;
   const lastDay = formatDate(filtered[limit - 1].timestamp);
@@ -1316,7 +1344,13 @@ function renderNews(hasNew = false) {
   }
 
   // Collapse same-speaker quote clusters into single grouped cards
-  const effLimit = _alignLimitToDay(filtered, displayLimit);   // journées complètes uniquement
+  // ⚠️ L'ORDRE COMPTE : on étend d'abord en TEMPS (au moins 6 h), PUIS on aligne sur la fin de la
+  // journée. L'inverse casserait la propriété acquise le 15/07 — le bouton tombe toujours à une
+  // frontière de jour, jamais au milieu d'une journée coupée en deux.
+  const effLimit = _alignLimitToDay(filtered, _etendreAuMinimum(filtered, displayLimit));
+  // Si la liste LOCALE ne remonte pas assez loin, aucun étirement de limite n'y changera rien :
+  // il faut aller chercher l'historique. Le garde-fou interne empêche les appels en rafale.
+  if (_profondeurLocale() < _MIN_HISTO_MS) _completerJourCourant();
   const visible = _groupSpeakerQuotes(filtered.slice(0, effLimit));
 
   // Group by date, sorted most-recent date first, items within each group newest first
@@ -1377,9 +1411,17 @@ function renderNews(hasNew = false) {
 //    un jour chargé (FOMC…) était donc COUPÉ en deux : le bouton tombait en pleine journée. Dès que
 //    la liste locale ne remonte pas plus loin que la journée la plus récente, on complète en fond
 //    par l'historique (mêmes lots que Charger plus), jusqu'à toucher le jour précédent. ──
-let _jourCompletEnCours = false;
+let _jourCompletEnCours = false, _dernierEssaiProfondeur = -1;
 async function _completerJourCourant() {
   if (_jourCompletEnCours || !allItems.length) return;
+  // ⚠️ GARDE ANTI-BOUCLE. Cette fonction se termine par un renderNews(), et renderNews la rappelle
+  // quand la profondeur est insuffisante. Une fois l'historique épuisé, la profondeur reste
+  // insuffisante pour toujours : sans ce verrou, chaque rendu redemanderait un lot au serveur qui
+  // n'a plus rien à donner — une boucle de requêtes que rien ne signalerait à l'écran.
+  // On ne retente donc QUE si la liste a bougé depuis le dernier essai (nouvelles dépêches, ou lot
+  // effectivement ramené). Aucun ajout = épuisement = on s'arrête.
+  if (_dernierEssaiProfondeur === allItems.length) return;
+  _dernierEssaiProfondeur = allItems.length;
   _jourCompletEnCours = true;
   try {
     for (let hop = 0; hop < 14; hop++) {
@@ -1387,9 +1429,13 @@ async function _completerJourCourant() {
       if (!parTs.length) break;
       const plusRecent = parTs.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
       const plusVieux  = parTs.reduce((a, b) => (b.timestamp < a.timestamp ? b : a));
-      // Le plus vieux item local est-il encore dans la MÊME journée que le plus récent ? Alors la
-      // journée est coupée : on remonte encore. Sinon, le jour précédent a commencé : terminé.
-      if (formatDate(plusVieux.timestamp) !== formatDate(plusRecent.timestamp)) break;
+      // DEUX conditions, et il faut les DEUX. La journée courante doit être complète (acquis du
+      // 15/07 : le bouton tombe à une frontière de jour), ET la profondeur minimale doit être
+      // atteinte. Sans la seconde, à 00 h 30 la première condition était satisfaite d'emblée et le
+      // fil s'arrêtait après trente minutes d'historique.
+      const jourComplet = formatDate(plusVieux.timestamp) !== formatDate(plusRecent.timestamp);
+      const assezProfond = (plusRecent.timestamp - plusVieux.timestamp) >= _MIN_HISTO_MS;
+      if (jourComplet && assezProfond) break;
       const r = await fetch('/api/news/history?before=' + plusVieux.timestamp + '&limit=100');
       const data = await r.json();
       if (data.total) serverTotal = data.total;
@@ -1432,7 +1478,7 @@ async function loadMore() {
       if (!fresh.length) { serverTotal = allItems.length; break; }   // historique épuisé → plus de bouton
       allItems = [...allItems, ...fresh].sort((a, b) => b.timestamp - a.timestamp);
       const f2 = getFilteredItems();
-      if (_alignLimitToDay(f2, displayLimit + 100) < f2.length) break;   // la journée à la frontière est complète
+      if (_alignLimitToDay(f2, _etendreAuMinimum(f2, displayLimit + 100)) < f2.length) break;   // la journée à la frontière est complète ET la fenêtre est couverte
     }
     displayLimit += 100;
   } catch {}
