@@ -2938,7 +2938,8 @@ function buildNewsItem(item) {
       // SEULEMENT la section « Impact marché » de l'analyse : de son intertitre à la fin (elle clôt
       // l'analyse par construction, EVA v9). Aucun fetch : tout est déjà attaché à la news.
       // v11 : l'impact est MULTILIGNE (verdict gras, mécanisme, actifs fléchés) : une puce par ligne.
-      expandEl.innerHTML = _renderInfoBullets(['Impact marché :', ...String(item._impact || '').split('\n').filter(Boolean)]);
+      expandEl.innerHTML = _nrxQuand('Impact marché', item._anaAt || item.timestamp)
+        + _renderInfoBullets(['Impact marché :', ...String(item._impact || '').split('\n').filter(Boolean)]);
       _dtpTranslateQuotes(expandEl);
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (impactTagEl) impactTagEl.classList.add('tag--active');
@@ -2946,7 +2947,9 @@ function buildNewsItem(item) {
     }
     if (tab === 'analysis') {
       // Analyse PRÉ-CALCULÉE côté serveur, attachée à la news → affichage instantané, aucun fetch.
-      expandEl.innerHTML = _renderInfoBullets(item.analyse || []);
+      // HEURE DE PRODUCTION (référence fournie : « Analysis At: 8:12 AM ») : le lecteur sait QUAND
+      // le desk a écrit cette lecture, donc à quelle distance de la publication elle se situe.
+      expandEl.innerHTML = _nrxQuand('Analyse', item._anaAt || item.timestamp) + _renderInfoBullets(item.analyse || []);
       _dtpTranslateQuotes(expandEl);   // puces en langue source → FR (la traduction ne partait jamais ici)
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.add('tag--active');
@@ -3068,7 +3071,11 @@ function buildNewsItem(item) {
     // GRAPHIQUE DE RÉACTION (20/08, spec user) : la pill du marché exposé n'est plus une étiquette,
     // elle OUVRE la courbe 15 min avec l'instant de la publication marqué. Cliquable seulement si
     // le panneau dépliable existe (toujours vrai sur une analyse d'événement).
-    tp.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 8.5L4.5 5.5L6.5 7.5L10.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ' + item._pair;
+    // DRAPEAUX des deux devises (référence fournie) : on lit le marché d'un coup d'œil. Images et
+    // non émojis : Windows ne fournit aucun glyphe de drapeau (leçon du sélecteur d'icônes 20/08).
+    const _fl = c => (_SBR_ISO[c] ? '<img class="tag-flag" src="https://flagcdn.com/w20/' + _SBR_ISO[c] + '.png" width="13" height="10" alt="" loading="lazy">' : '');
+    const _cc = String(item._pair).split('/');
+    tp.innerHTML = (_fl(_cc[0]) + _fl(_cc[1]) || '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 8.5L4.5 5.5L6.5 7.5L10.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>') + ' ' + item._pair;
     tp.title = 'Marché le plus exposé : voir sa réaction à la publication';
     if (expandEl) { tp.style.cursor = 'pointer'; tp.onclick = e => { e.stopPropagation(); openPanel('marche'); }; marcheTagEl = tp; }
     tagsEl.appendChild(tp);
@@ -8120,6 +8127,14 @@ function _renderWeeklyRecap(item) {
 function _dtpThemeResolve(mode) { return mode === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : (mode === 'light' ? 'light' : 'dark'); }
 // ── GRAPHIQUE DE RÉACTION d'une news (20/08, spec user) : courbe 15 min du marché le plus exposé,
 //    l'instant de la publication marqué d'un trait or. SVG local : aucun amCharts, aucun poids. ──
+// Bandeau « à HH:MM » en tête d'un panneau (référence fournie) : dit QUAND le desk a produit
+// cette lecture. Silencieux si l'horodatage manque (anciens items) : jamais d'heure inventée.
+function _nrxQuand(libelle, ts) {
+  if (!ts) return '';
+  let h = ''; try { h = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
+  return '<div class="nrx-quand">' + libelle + ' à ' + h + '</div>';
+}
+
 function _newsReactSvg(candles, t0, pair) {
   const W = 640, H = 150, PAD = 6;
   const cs = candles.slice().sort((a, b) => a.t - b.t);
@@ -8145,13 +8160,21 @@ function _newsReactSvg(candles, t0, pair) {
   const nx = X(cs[ni].t), nyv = cs[ni].c;
   const hf = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const dec = Math.abs(nyv) > 50 ? 2 : 5;
+  // ⚠️ `void d` référençait la variable de l'ancienne COURBE, supprimée en passant aux bougies :
+  // ReferenceError à chaque ouverture, donc « Réaction indisponible » alors que les données
+  // arrivaient. Même famille de défaut que le `void iSeuil` du 19/08 : `node -c` ne voit pas une
+  // variable morte, seule l'EXÉCUTION la révèle. Le banc exécute désormais cette fonction.
+  // BULLE ROUGE sur l'instant de la publication (référence fournie) : un halo qui entoure la
+  // bougie du chiffre, pour que l'œil tombe dessus sans chercher le trait.
+  const ry = Y(nyv);
+  const halo = '<circle cx="' + nx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="26" class="nrx-halo"></circle>'
+    + '<circle cx="' + nx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="3.2" class="nrx-pt"></circle>';
   return '<div class="nrx">'
     + '<div class="nrx-tete"><b>' + pair + '</b><span>réaction · bougies 15 min</span>'
     + '<span class="nrx-pub">publication ' + hf(t0) + '</span></div>'
     + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="nrx-svg">'
     + '<line x1="' + nx.toFixed(1) + '" y1="0" x2="' + nx.toFixed(1) + '" y2="' + H + '" class="nrx-mark"></line>'
-    + chandelles
-    + (void d, void nyv, '')
+    + chandelles + halo
     + '</svg>'
     + '<div class="nrx-tmark" style="left:' + (nx / W * 100).toFixed(2) + '%">' + hf(t0) + '</div>'
     + '<div class="nrx-axe"><span>' + hf(cs[0].t) + '</span>'

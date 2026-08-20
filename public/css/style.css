@@ -18433,3 +18433,16 @@ html[data-theme="light"] .sbm-rate.est-bas em { color: #c73000; }
 .nrx-tmark { position: absolute; bottom: 16px; transform: translateX(-50%); padding: 1px 6px;
   font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; border-radius: 3px;
   background: var(--orange, #e3b23a); color: #101014; }
+
+/* ═══ RÉACTION : bulle rouge sur l'instant de la publication (20/08, référence fournie) ═══════════
+   Le halo entoure la bougie du chiffre : l'œil tombe dessus sans chercher le trait. Rouge d'alerte
+   de la charte, très dilué (c'est un repère, pas un état de marché). */
+.nrx-halo { fill: rgba(239, 68, 68, .13); stroke: rgba(239, 68, 68, .5); stroke-width: 1; }
+.nrx-pt { fill: #ef4444; }
+html[data-theme="light"] .nrx-halo { fill: rgba(199, 48, 0, .1); stroke: rgba(199, 48, 0, .45); }
+html[data-theme="light"] .nrx-pt { fill: #c73000; }
+/* Drapeaux dans la pill de paire : images (aucun glyphe de drapeau sur Windows). */
+.tag-flag { display: inline-block; vertical-align: -1px; border-radius: 2px; margin-right: 1px; }
+/* « Analyse à 8h12 » en tête d'un panneau : discret, il date la lecture sans voler le contenu. */
+.nrx-quand { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text3, #6b7280); padding: 2px 0 6px; }
