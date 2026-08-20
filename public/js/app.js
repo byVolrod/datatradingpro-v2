@@ -8723,17 +8723,38 @@ function _dessinerReaction(hote, candles, t0, paire) {
   // La bougie qui CONTIENT la publication : la dernière dont l'horodatage lui est antérieur.
   let bougie = data[0];
   for (const d of data) if (d.time <= tSec) bougie = d;
-  // ⚠️ MARCHÉ FERMÉ AU MOMENT DE LA PUBLICATION : le contrat à terme ferme une heure par jour
-  // (21 h à 22 h en temps universel) et tout le week-end. Une news tombée là n'a AUCUNE bougie qui
-  // la contienne, et le repère se poserait alors sur la dernière cotation en laissant croire que
-  // le prix a réagi à cet instant. On l'écrit plutôt que de le laisser deviner.
+  // ⚠️ AUCUNE BOUGIE NE CONTIENT LA PUBLICATION : DEUX CAUSES OPPOSÉES, À NE PAS CONFONDRE.
+  //   a) FLUX EN RETARD — le marché est ouvert, mais la cotation gratuite arrive avec une dizaine
+  //      de minutes de décalage (mesuré : 10 à 11 min sur les quatre contrats). Une news qui vient
+  //      de tomber n'a donc PAS ENCORE ses minutes suivantes. Elles arrivent, le graphique se
+  //      complète tout seul.
+  //   b) MARCHÉ FERMÉ — le contrat ferme une heure par jour (21 h à 22 h en temps universel) et
+  //      tout le week-end. Là, aucune cotation n'arrivera avant la réouverture.
+  // Les annoncer pareil serait FAUX dans un cas comme dans l'autre : dire « marché fermé » sur une
+  // news fraîche est un mensonge, et promettre des minutes qui n'arriveront pas en est un autre.
+  // On les sépare en comparant l'ÂGE DE LA NEWS au RETARD OBSERVÉ du flux : tant que la
+  // publication tombe dans la tranche que le flux n'a pas encore livrée, c'est (a).
+  // Dans les deux cas le repère se pose sur la dernière cotation connue, et on écrit laquelle :
+  // sans cette phrase il se lirait comme une réaction qui n'a pas eu lieu.
   const _dernier = data[data.length - 1];
   if (tSec > _dernier.time + 120) {
     bougie = _dernier;
+    const _maintenant = Math.floor(Date.now() / 1000);
+    const _retard = Math.max(0, _maintenant - _dernier.time);   // âge de la dernière bougie affichée
+    const _age = Math.max(0, _maintenant - tSec);               // ancienneté de la publication
+    // ⚠️ « _retard » N'EST LE DÉCALAGE DU FLUX QUE SI LA FENÊTRE VA JUSQU'À MAINTENANT. La fenêtre
+    // s'arrête 2 h après la publication : pour une news d'il y a trois heures, sa dernière bougie
+    // est vieille d'une heure PAR CONSTRUCTION, sans que le flux ait le moindre retard. Comparer
+    // les deux sans cette garde faisait annoncer « les cotations arrivent » sur une news ancienne
+    // publiée marché fermé — une promesse que rien ne tiendrait. Défaut trouvé au banc, pas à l'œil.
+    const _fenetreVaJusquAMaintenant = (tSec + 2 * 3600) >= _maintenant;
     const note = document.createElement('div');
     note.className = 'nrx-ferme';
-    note.textContent = 'Marché fermé au moment de cette publication : le repère marque la dernière cotation d’avant la fermeture, à '
-      + hPar(_dernier.time) + '. La réaction se lira à la réouverture.';
+    note.textContent = (_fenetreVaJusquAMaintenant && _age < _retard + 300)
+      ? 'Les cotations qui suivent cette publication ne sont pas encore arrivées : le flux est différé d’une dizaine de minutes. Le repère marque la dernière cotation connue, à '
+        + hPar(_dernier.time) + '. Le graphique se complète tout seul, laissez-le ouvert.'
+      : 'Marché fermé au moment de cette publication : le repère marque la dernière cotation d’avant la fermeture, à '
+        + hPar(_dernier.time) + '. La réaction se lira à la réouverture.';
     hote.appendChild(note);
   }
   chart.timeScale().setVisibleRange({ from: data[0].time, to: data[data.length - 1].time });
@@ -8786,7 +8807,19 @@ function _dessinerReaction(hote, candles, t0, paire) {
       const d2 = nouvelles.slice().sort((a, b) => a.t - b.t)
         .map(c => ({ time: Math.floor(c.t / 1000), open: c.o, high: c.h, low: c.l, close: c.c }))
         .filter(x => (v.has(x.time) ? false : (v.add(x.time), true)));
-      if (d2.length) { serie.setData(d2); placer(); }
+      if (!d2.length) return;
+      serie.setData(d2);
+      // ⚠️ LE BANDEAU DOIT MOURIR QUAND SA RAISON D'ÊTRE DISPARAÎT. Il annonce « les cotations qui
+      // suivent ne sont pas encore arrivées » ; le flux étant différé d'une dizaine de minutes,
+      // elles arrivent justement ici. Le laisser en place le rendrait faux au bout de quelques
+      // minutes, et un avertissement périmé se lit comme une panne.
+      if (d2[d2.length - 1].time > tSec) {
+        // La publication est maintenant couverte : on recale le repère sur SA bougie.
+        for (const d of d2) if (d.time <= tSec) bougie = d;
+        const vieux = hote.querySelector('.nrx-ferme');
+        if (vieux) vieux.remove();
+      }
+      placer();
     } catch (e) {}
   };
 }
