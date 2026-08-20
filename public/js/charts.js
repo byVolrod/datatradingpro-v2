@@ -877,12 +877,22 @@ function buildStrengthChart(containerId, data, opts = {}) {
   );
   // Axe X : AUCUN tooltip de date : curseur « sans information » demandé
   // (uniquement le croisillon + le point d'ancrage coloré sur la courbe survolée).
+  // LISIBILITÉ DE L'AXE DES HEURES (21/08, demande user), décidée par la MESURE : sur le fond du
+  // graphique, l'ancien gris #6b7280 tombait à 3,96 de contraste, sous le seuil de 4,5. Une heure
+  // qu'on doit deviner ne sert à rien — c'est elle qui permet de rattacher un mouvement à un
+  // moment. Le nouveau gris atteint 7,5, et reste discret : il ne concurrence pas les courbes.
+  // Chiffres à CHASSE FIXE : sans cela « 11:00 » et « 17:00 » n'ont pas la même largeur et l'axe
+  // semble vibrer quand il défile.
   xAxis.get('renderer').labels.template.setAll({
-    fill: am5.color(0x6b7280), fontSize: 10,            // gris discret (façon DTP)
-    fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
+    fill: am5.color(_deskLight() ? 0x4b5563 : 0x9aa3b2), fontSize: 11,
+    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    fontWeight: '500',
     minPosition: 0.012, maxPosition: 0.99,
   });
   xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeDasharray: [2, 4] });   // grille TRÈS discrète GRIS (jamais "trait noir"), derrière les courbes
+  // Un filet sépare l'axe du tracé : sans lui les heures flottent sous les courbes et on ne sait
+  // plus si un libellé appartient à l'axe ou au graphique.
+  xAxis.get('renderer').setAll({ stroke: am5.color(_deskLight() ? 0xd8dce2 : 0x26262c), strokeOpacity: 1, strokeWidth: 1 });
   // Axe X façon DTP : la DATE pleine au changement de jour (ex. "05/06/2026" tout à gauche) + heures HH:mm ensuite.
   xAxis.set('dateFormats',             { minute: 'HH:mm', hour: 'HH:mm', day: 'dd/MM/yyyy', week: 'dd/MM', month: 'MMM yyyy' });
   xAxis.set('periodChangeDateFormats', { minute: 'HH:mm', hour: 'dd/MM/yyyy', day: 'dd/MM/yyyy', week: 'MMM', month: 'yyyy' });

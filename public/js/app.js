@@ -6041,7 +6041,60 @@ function _bankTFInit(p) {
     if (p2) buildBankChart(p2);
   });
 }
+// ── REDIMENSIONNEMENT DU GRAPHIQUE BANQUES (21/08, demande user) ──────────────────────────────
+// Une seule poignée pour deux dispositions : côte à côte, elle ajuste la LARGEUR de la colonne ;
+// empilé, sa HAUTEUR. L'axe se lit sur la disposition RÉELLE et non sur une largeur de fenêtre
+// devinée : c'est la même media query que le CSS qui décide, donc les deux ne peuvent pas diverger.
+// La taille est volatile, comme le splitter du desk : elle repart au défaut à chaque rechargement.
+function _bankGripWire() {
+  const grip = document.getElementById('bank-chart-grip');
+  const col = document.getElementById('bank-chart-col');
+  if (!grip || !col || grip._wired) return;
+  grip._wired = true;
+  const empile = () => window.matchMedia('(max-width: 1100px)').matches;
+  grip.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const vert = empile();
+    const dep = vert ? e.clientY : e.clientX;
+    const dim0 = vert ? col.offsetHeight : col.offsetWidth;
+    const max = vert ? Math.round(window.innerHeight * 0.8) : Math.round(window.innerWidth * 0.75);
+    grip.classList.add('est-actif');
+    // ⚠️ Les enfants ne doivent PAS intercepter le pointeur pendant le glissé : le graphique est un
+    // canevas qui capte les événements et le déplacement se figerait dès qu'on passe dessus.
+    col.style.pointerEvents = 'none';
+    grip.setPointerCapture(e.pointerId);
+    const bouge = ev => {
+      // Empilé, la poignée est EN HAUT : tirer vers le haut AGRANDIT, d'où le signe inversé.
+      const d = vert ? (dep - ev.clientY) : (dep - ev.clientX);
+      const v = Math.max(180, Math.min(max, dim0 + d));
+      if (vert) col.style.setProperty('--bank-chart-h', v + 'px');
+      else col.style.setProperty('--bank-chart-w', v + 'px');
+    };
+    const fini = () => {
+      grip.classList.remove('est-actif');
+      col.style.pointerEvents = '';
+      grip.removeEventListener('pointermove', bouge);
+      grip.removeEventListener('pointerup', fini);
+      grip.removeEventListener('pointercancel', fini);
+      try { grip.releasePointerCapture(e.pointerId); } catch (err) {}
+      // La bibliothèque de graphique ne suit pas seule : son observateur de taille s'en charge,
+      // mais on pousse un resize pour les vues qui n'en ont pas.
+      try { window.dispatchEvent(new Event('resize')); } catch (err) {}
+    };
+    grip.addEventListener('pointermove', bouge);
+    grip.addEventListener('pointerup', fini);
+    grip.addEventListener('pointercancel', fini);
+  });
+  // Double-clic : retour à la taille par défaut, sans avoir à viser.
+  grip.addEventListener('dblclick', () => {
+    col.style.removeProperty('--bank-chart-h');
+    col.style.removeProperty('--bank-chart-w');
+    try { window.dispatchEvent(new Event('resize')); } catch (err) {}
+  });
+}
+
 function buildBankChart(p) {
+  _bankGripWire();
   // ── GRAPHIQUE DE L'ONGLET BANQUES (21/08, demande user « ajoute le graphique TradingView ») ──
   // On utilise lightweight-charts, la bibliothèque LIBRE de TradingView, et NON son embarqué.
   // La raison est décisive : l'embarqué vit dans un cadre d'origine étrangère où l'on ne peut RIEN

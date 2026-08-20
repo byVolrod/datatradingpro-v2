@@ -5033,9 +5033,10 @@
         + '<header class="wdg-head" draggable="' + (locked ? 'false' : 'true') + '" title="Glisser pour déplacer ce widget">'
         // (poignée ⠿ RETIRÉE 04/08 : l'en-tête entier est la zone de saisie — cf. _wireGrid)
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
-        // BANDEAU À DEUX BOUTONS (04/08, demande user « le moins possible — 2 en moyenne ») :
-        // Réglages + Fermer. Remplacer, Dupliquer, Plein écran, Verrouiller et « vider l'onglet »
-        // vivent tous dans le panneau Réglages, où ils sont LIBELLÉS (donc plus clairs qu'une icône).
+        // BANDEAU (21/08, demande user) : Réglages · REMPLACER · Fermer. « Remplacer » remonte des
+        // réglages vers l'en-tête : changer le widget d'un emplacement est le geste le plus courant
+        // de la personnalisation, il ne devait pas coûter deux clics et l'ouverture d'un panneau.
+        // Dupliquer, Plein écran et Verrouiller restent dans les Réglages, où ils sont LIBELLÉS.
         +   '<span class="wdg-actions">'
         // ENGRENAGE SEULEMENT S'IL SERT (04/08, demande user + exemples à l'appui) : un widget sans
         // réglage déclaré n'affiche pas de bouton qui ouvrirait un panneau vide (rapports
@@ -5043,6 +5044,7 @@
         +     (((w.opts && w.opts.length) || w.id === 'onglets')
                 ? '<button class="wdg-ico" title="Réglages du widget" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
                 : '')
+        +     '<button class="wdg-ico" title="Remplacer par un autre widget" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
         +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer ce widget') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
         + '</header>'

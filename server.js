@@ -871,6 +871,9 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-bouton-remplacer', ts: Date.UTC(2026, 7, 22, 2, 0), title: 'Remplacer un widget se fait en un clic', desc: 'Changer le widget d un emplacement demandait d ouvrir ses reglages puis de cliquer Remplacer. C est le geste le plus courant de la personnalisation : il passe dans l en-tete, a cote de la croix, et ouvre directement la bibliotheque. La croix garde exactement sa fonction. Dupliquer, plein ecran et verrouiller restent dans les reglages, ou ils sont ecrits en toutes lettres.' },
+  { id: 'dtpu-20260822-bank-resize', ts: Date.UTC(2026, 7, 22, 1, 30), title: 'Le graphique des transactions bancaires se redimensionne', desc: 'Une poignee borde desormais le graphique de l onglet Banques : tirez-la pour lui donner plus de place, ou pour rendre la place au tableau. Elle ajuste la hauteur quand le graphique est sous le tableau et la largeur quand il est a cote. Un double-clic revient a la taille d origine.' },
+  { id: 'dtpu-20260822-axe-heures', ts: Date.UTC(2026, 7, 22, 1, 0), title: 'Les heures du graphique Force des Devises se lisent enfin', desc: 'La ligne des heures sous le graphique etait trop pale pour etre lue sans effort : son contraste tombait sous le seuil de lisibilite. Elle est eclaircie, legerement agrandie, et ses chiffres passent en chasse fixe pour que l axe ne semble plus vibrer quand il defile. Un filet le separe des courbes.' },
   { id: 'dtpu-20260821-tags-uniformes', ts: Date.UTC(2026, 7, 22, 0, 0), title: 'Les quatre boutons d une news ont enfin la meme allure', desc: 'Le bouton Reaction se distinguait des trois autres par sa FORME : fond rempli et coins plus arrondis, la ou Info, Analyse et Impact marche sont des pastilles a simple contour. Seule la couleur doit les differencier, puisque c est elle qui dit a quoi chaque bouton repond. Les quatre sont desormais identiques au pixel pres, seules leurs quatre couleurs changent. Les deux drapeaux du tag de paire se lisent aussi comme deux cercles distincts, separes par un fin anneau sombre : sur deux drapeaux aux couleurs proches ils fusionnaient en une tache.' },
   { id: 'dtpu-20260821-tag-reaction', ts: Date.UTC(2026, 7, 21, 23, 0), title: 'Le tag Reaction reapparait sur les news importantes', desc: 'Le bouton Reaction, qui montre ce que le prix a fait juste apres une publication, ne s affichait plus sur aucune actualite. Il n apparait que si le desk detecte un mouvement de marche, or la lecture des cotations echouait en silence : aucun mouvement detecte, donc aucun bouton. Trois de nos graphiques dependaient de cette meme lecture et sont retablis d un coup. Le bouton reprend aussi sa place, entre Analyse et Impact marche.' },
   { id: 'dtpu-20260821-fond-description', ts: Date.UTC(2026, 7, 21, 22, 0), title: 'Le fond du detail d une actualite couvre toute la largeur', desc: 'Quand vous depliez une actualite, le fond du bloc de detail s arretait avant le bord gauche de la carte, surtout sur telephone et dans les widgets etroits : il restait une bande sombre le long du texte. Le decalage etait calcule a partir de la largeur des colonnes du bureau, or sur un ecran etroit la ligne se replie et ces colonnes ne sont plus au meme endroit. Le desk mesure desormais le decalage reel, ce qui fonctionne quelle que soit la mise en page, et le recalcule si vous tournez votre telephone ou redimensionnez la fenetre.' },
@@ -8441,7 +8444,7 @@ app.post('/api/reaction-explain', async (req, res) => {
   // Préfixe bumpé à chaque changement de RÔLE du panneau : sans cela, les explications déjà en
   // cache — écrites avec l'ancienne consigne, donc empiétant sur Analyse — continueraient d'être
   // servies pendant des jours.
-  const cacheKey = (_rcb ? 'frcb2:' : 'fr3:') + (id || headline.substring(0, 120));
+  const cacheKey = (_rcb ? 'frcb3:' : 'fr4:') + (id || headline.substring(0, 120));
   if (_reactCache.has(cacheKey)) { _aiCacheStats.react.hit++; return res.json(_reactCache.get(cacheKey)); }
   _aiCacheStats.react.miss++;
 
@@ -8461,10 +8464,11 @@ app.post('/api/reaction-explain', async (req, res) => {
       // l'impact sur les anticipations de taux » : il produisait donc la même chose que les deux
       // panneaux suivants, et le lecteur lisait trois fois le même raisonnement.
       const text = await aiSmart('news', `You are a markets reporter on a trading desk.
-Describe ONLY WHAT THE PRICE DID after the news below, as 1 to 2 BULLETS, ONE short sentence per bullet (max 22 words).
-State the DIRECTION, the AMPLITUDE (pips, points or %), the levels moved FROM and TO, and whether the move HELD or faded.
-Model answer: « AUD/USD a reculé d'environ 20 points juste après, de 0,7060 à 0,7040, sans rebond depuis. »
-⚠️ NEVER explain WHY.${_rcb ? " Même pour une communication de BANQUE CENTRALE : ne commente NI le ton (hawkish/dovish), NI les anticipations de taux — décris seulement le mouvement de la devise concernée et des instruments sensibles aux taux." : ""} No interpretation, no implication, no advice: those belong to the "Analyse" and "Impact marché" panels of the SAME news, and repeating them here would say the same thing three times.
+Describe THE PRICE ACTION that followed the news below, as ONE bullet of 1 to 2 sentences (max 45 words).
+The SUBJECT is the price: how it first behaved (one-way move, or two-way chop), the RANGE in pips, then where it settled shortly after.
+A SHORT attribution clause to the DATA ITSELF is welcome, inside the same sentence — never a separate thought.
+Model answer (target style): « Action de prix à double sens dans un couloir de 6 points, le sous-jacent au-dessus du consensus étant compensé par un indice global conforme et un ralentissement des services. GBP/USD a ensuite penché modestement à la hausse. »
+⚠️ NE COMMENTE PAS le TON du communiqué, les ANTICIPATIONS DE TAUX ni ce que cela IMPLIQUE pour la suite.${_rcb ? " Même pour une communication de BANQUE CENTRALE : ne commente NI le ton (hawkish/dovish), NI les anticipations de taux — décris le mouvement de la devise concernée et, s'ils ont bougé, des instruments sensibles aux taux." : ""} Ces trois-là appartiennent aux panneaux « Analyse » et « Impact marché » de la MÊME news : les répéter ici dirait trois fois la même chose. Ici, on RACONTE LE PRIX.
 Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
 Start each bullet with • . Reply ONLY with the bullet(s), no preamble.
 
