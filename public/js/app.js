@@ -2361,6 +2361,8 @@ const _MOVE_KEYS = {
 // sur Info, la grille se contente de ne rien afficher). On partage donc la DONNÉE, pas le rendu :
 // c'est ce qui empêche les deux affichages de diverger avec le temps.
 function _reactionMoves(item, ok, echec, paire) {
+  // Un item peut PORTER ses propres mouvements (news d'exemple) : on ne va rien chercher.
+  if (Array.isArray(item._moves) && item._moves.length) { ok(item._moves.slice()); return; }
   fetch('/api/market-moves?since=' + item.timestamp)
     .then(r => r.json())
     .then(data => {
@@ -3534,8 +3536,9 @@ function buildNewsItem(item) {
 
   if (item.timestamp && Date.now() - item.timestamp < REACTION_AGE_LIMIT && _isMarketMoving) {
     _queueReactionCheck(() =>
-      fetch(`/api/market-moves?since=${item.timestamp}`)
-        .then(r => r.json())
+      (Array.isArray(item._moves) && item._moves.length
+        ? Promise.resolve({ moves: item._moves })      // l'item porte sa réaction : aucune requête
+        : fetch(`/api/market-moves?since=${item.timestamp}`).then(r => r.json()))
         .then(data => {
           if (!data.moves || data.moves.length === 0) return;
           if (reactionTagEl) return; // already present

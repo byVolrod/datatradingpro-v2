@@ -3258,6 +3258,15 @@ function _newsExemple() {
       'Le ton reste ferme sur le fond, l\'inflation étant jugée trop haute avec des risques orientés à la hausse.',
       'Mais deux inflexions vont dans l\'autre sens : des conditions financières décrites comme restrictives, et des prévisions d\'inflation revues en baisse. C\'est un maintien un peu moins ferme que le précédent.',
     ],
+    // La news d'exemple porte SA PROPRE réaction. Les seuils de détection sont calibrés pour un
+    // CHOC (42 points sur EUR/USD en huit minutes, 12 dollars sur l'or) : sur une séance calme
+    // aucun actif ne les franchit, et le bloc Réaction resterait donc vide sur un exemple. Un item
+    // qui porte un champ _moves court-circuite la détection — mécanisme général, mais seul
+    // l'exemple s'en sert aujourd'hui.
+    _moves: [
+      { label: 'AUD/USD', sym: 'AUDUSD=X', refPrice: 0.7060, peakPrice: 0.7040, move: '-0.00200', movePct: '-0.28%', dir: 'down', unit: '', minutes: 2 },
+      { label: 'DXY', sym: 'DX-Y.NYB', refPrice: 98.120, peakPrice: 98.260, move: '+0.140', movePct: '+0.14%', dir: 'up', unit: 'pts', minutes: 3 },
+    ],
     _impact: 'Le marché avait déjà intégré le maintien du taux : l\'écart au consensus se joue donc sur le communiqué, et il penche légèrement du côté accommodant. À surveiller sur AUD/USD, dont la réaction se lit à la minute de publication, et sur les taux australiens à 2 ans, les plus sensibles aux anticipations. Cette lecture décrit le mécanisme, elle ne préjuge pas de la suite.',
   };
 }
