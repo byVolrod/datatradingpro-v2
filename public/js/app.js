@@ -12842,6 +12842,9 @@ window._dtpJournalBadgeInit = function () {
       + '</div>';
   }
   function _wire() {
+    // Le bouton « Calculer » a ete retire du balisage : le calcul est desormais permanent, et un
+    // bouton qui ne fait rien de plus apprend a l utilisateur a cliquer pour rien. On garde ce
+    // cablage defensif au cas ou une version en cache du HTML le contiendrait encore.
     const go = document.getElementById('calc-go'); if (go) go.onclick = _calcCompute;
     // Copier la taille calculée : délégation câblée UNE fois (le innerHTML de #calc-results est régénéré à chaque calcul)
     const resHost = document.getElementById('calc-results');
@@ -12858,7 +12861,26 @@ window._dtpJournalBadgeInit = function () {
     // .onchange / .oninput (affectation de propriété) et non addEventListener → IDEMPOTENT : _wire() tourne à
     // CHAQUE ouverture de la Calculatrice (loadCalculatorView) ; addEventListener empilait un handler de plus par
     // ouverture → _calcCompute se déclenchait N fois par changement. L'affectation remplace, jamais n'empile.
-    ['calc-acct', 'calc-balance', 'calc-risk', 'calc-sl', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.onchange = _calcCompute; });
+    // ⚠️ « oninput » SUR LES CHAMPS DE SAISIE, PAS « onchange ». onchange ne se declenche qu a la
+    // PERTE DU FOCUS : taper un solde ne mettait rien a jour tant qu on ne cliquait pas ailleurs,
+    // ce qui donnait l impression qu il fallait appuyer sur un bouton pour obtenir un resultat.
+    // Une calculatrice doit repondre pendant qu on tape. Les listes deroulantes gardent onchange :
+    // il n y a pas de frappe a suivre, et « input » y ferait doublon.
+    ['calc-balance', 'calc-risk', 'calc-sl'].forEach(id => { const el = document.getElementById(id); if (el) el.oninput = _calcCompute; });
+    ['calc-acct', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.onchange = _calcCompute; });
+    // Paliers de risque : 0,5 / 1 / 2 % couvrent l ecrasante majorite des cas. Trois clics
+    // remplacent une saisie, et le palier actif se voit.
+    document.querySelectorAll('.calc-preset').forEach(b => {
+      b.onclick = () => {
+        const rk = document.getElementById('calc-risk');
+        if (!rk) return;
+        if (_riskMode !== 'pct') document.getElementById('calc-risk-mode').click();   // repasse en %
+        rk.value = b.getAttribute('data-r');
+        document.querySelectorAll('.calc-preset').forEach(x => x.classList.remove('est-actif'));
+        b.classList.add('est-actif');
+        _calcCompute();
+      };
+    });
     const mode = document.getElementById('calc-risk-mode');
     if (mode) mode.onclick = () => {
       _riskMode = _riskMode === 'pct' ? 'amount' : 'pct';
