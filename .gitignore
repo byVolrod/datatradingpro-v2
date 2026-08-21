@@ -52,3 +52,10 @@ render_pdf/
 
 # Sauvegardes chiffrees et phrase secrete : JAMAIS dans le depot.
 _sauvegarde-dtp/
+
+# Repertoires de travail crees par des agents d audit (bancs cp/rsync, leurres de certificats).
+# Ils ne doivent JAMAIS entrer dans le depot : un `git add -A` les a emportes une fois le 21/08.
+cptest/
+cptest2/
+gtest/
+*test/dest*/
