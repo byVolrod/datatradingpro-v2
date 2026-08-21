@@ -1085,6 +1085,8 @@
 .pricing-card:hover::before{opacity:1}
 /* Le badge DTP du logo prend un eclat au survol, comme un sceau. */
 .logo:hover .mk{transform:translateY(-1px);box-shadow:0 6px 20px -4px rgba(230,189,77,.75)}
+/* Logo reduit au seul sceau DTP (21/08, demande user : texte retire) : on l agrandit un peu pour qu il tienne le role de logo, et on epaissit les 3 lettres. */
+.logo--markonly .mk{width:34px;height:34px;border-radius:9px;font-size:11px;letter-spacing:-.2px}
 .logo-wm{font-family:var(--tight);font-weight:800;letter-spacing:-.02em}
  html{scrollbar-width:thin;scrollbar-color:#cdb15a transparent} </style>
 </head>
@@ -1155,7 +1157,7 @@
 <!-- NAV -->
 <nav>
   <div class="nav-in">
-    <a href="#" class="logo" aria-label="DataTradingPro"><span class="mk">DTP</span><span class="logo-wm">DataTradingPro</span></a>
+    <a href="#" class="logo logo--markonly" aria-label="DataTradingPro"><span class="mk">DTP</span></a>
     <div class="nav-links" id="navLinks">
       <a href="#modules-cles">Le terminal</a>
       <a href="#method">Méthode</a>
