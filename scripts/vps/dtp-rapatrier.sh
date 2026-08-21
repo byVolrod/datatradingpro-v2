@@ -17,6 +17,24 @@ CLE="${DTP_SSH_KEY:-$HOME/.ssh/dtp_deploy}"
 DEST="${DTP_SAUVEGARDES:-$HOME/Documents/WEB/_sauvegarde-dtp}"
 GARDER=10
 SSHOPT=(-i "$CLE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=25)
+# ⚠️ MULTIPLEXAGE DES SESSIONS SSH — appris a nos depens.
+# Ce script ouvre une vingtaine de sessions SSH successives. Beaucoup de serveurs (fail2ban,
+# et c'est le cas du notre) sanctionnent ce rythme en FERMANT LE PORT 22. Se faire couper au
+# milieu d'une migration, c'est l'arret net avec une machine a moitie montee — exactement ce
+# qu'on cherche a eviter. On fait donc passer toutes les sessions dans UNE SEULE connexion.
+#
+# Le multiplexage n'est pas fiable sous MSYS/Cygwin (l'OpenSSH de Git Bash n'implemente pas
+# les sockets de controle). On l'active donc SELON LE SYSTEME plutot que de le supposer
+# partout : ailleurs, on retombe sur des connexions separees — plus lent, mais correct.
+MUXDIR="${TMPDIR:-/tmp}/dtp-mux-$"
+case "$(uname -s)" in
+  Linux|Darwin)
+    mkdir -p "$MUXDIR" && chmod 700 "$MUXDIR"
+    SSHOPT+=(-o ControlMaster=auto -o ControlPath="$MUXDIR/%r@%h:%p" -o ControlPersist=180)
+    trap 'ssh -O exit -o ControlPath="$MUXDIR/%r@%h:%p" root@"$SERVEUR" 2>/dev/null; rm -rf "$MUXDIR"' EXIT
+    ;;
+  *) : ;;   # MSYS/Cygwin/Windows : multiplexage non fiable, on s'en passe
+esac
 
 ok()   { echo "  v $*"; }
 info() { echo "  · $*"; }
