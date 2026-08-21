@@ -404,6 +404,8 @@
     // RÉGLAGES = trois curseurs HORIZONTAUX. Les pastilles sont OUVERTES : elles étaient remplies de
     // #0d0e11 en dur (la couleur du fond sombre) et devenaient deux taches noires en thème clair.
     gear: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h4M12 7h8M4 12h10M18 12h2M4 17h6M14 17h6"/><circle cx="10" cy="7" r="1.9"/><circle cx="16" cy="12" r="1.9"/><circle cx="12" cy="17" r="1.9"/></svg>',
+    // Point d'interrogation cerclé, au gabarit des autres icônes d'en-tête (13 px, trait 1.7).
+    aide: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2-2.4 3.6"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg>',
     grip: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.5 3"/><path d="M20 5v5h-5"/></svg>',
     // REMPLACER = flèches d'échange VERTICALES. Horizontales, elles se confondaient avec les curseurs
@@ -1302,6 +1304,7 @@
     {
       id: 'force-devises', name: 'Force des Devises', tag: 'FORCE', cat: 'Devises', h: 300,
       desc: 'Qui mène, qui décroche : un panneau, la période de ton choix.',
+      aide: "<p>Chaque courbe est une devise, mesurée contre l'ensemble des autres sur la période choisie. Ce qui compte n'est pas le niveau absolu d'une courbe mais leur <strong>ordre relatif</strong> : la devise la plus haute est celle que le marché a le plus recherchée, la plus basse celle qu'il a le plus vendue.</p><p>Le zéro sépare simplement ce qui s'apprécie de ce qui se déprécie sur la fenêtre. Un écartement croissant entre deux courbes signale une tendance qui se construit sur la paire correspondante ; un resserrement, une tendance qui s'épuise.</p>",
       // UN SEUL panneau (demande user 01/08). Le double TD | TW venait de l'onglet › FORCE du desk,
       // qui a la largeur pour ça ; dans une carte de tableau de bord il donnait deux demi-graphes
       // illisibles. La barre de périodes reprend celle du desk (mêmes libellés, mêmes classes
@@ -1378,6 +1381,7 @@
     {
       id: 'barometre', name: 'Baromètre des Devises', tag: 'BAROMÈTRE', cat: 'Devises', h: 300,
       desc: 'La force des 8 majeures en égaliseur bidirectionnel (le vrai baromètre du desk).',
+      aide: "<p>Un égaliseur bidirectionnel : chaque devise s'écarte de l'axe central vers le haut si elle se renforce, vers le bas si elle faiblit. La trame éteinte reste visible, de sorte qu'une devise sans mouvement se distingue d'une devise sans donnée.</p><p>La lecture est comparative et instantanée : ce sont les <strong>extrémités opposées</strong> qui désignent les paires où le mouvement est le plus net, la plus forte contre la plus faible.</p>",
       // Réutilise buildMeterChart du desk (HTML pur, classes .meter-*). Son timer interne s'auto-termine
       // hors de l'onglet METER (garde #rtab-meter) → snapshot rafraîchi à chaque réouverture, zéro fuite.
       mount: function (host) {
@@ -1413,6 +1417,7 @@
     {
       id: 'calendrier-jour', name: 'Calendrier économique', cat: 'Macro', h: 300,
       desc: 'Les prochaines publications, heure de Paris.',
+      aide: "<p>Les publications du jour avec leur importance, la valeur attendue et, une fois publiée, la valeur réelle. La colonne à surveiller n'est pas le chiffre mais son <strong>écart au consensus</strong> : c'est la surprise qui déplace un marché, pas le niveau.</p><p>Les points d'impact indiquent la capacité historique de la publication à faire bouger les prix. Un événement à trois points sans surprise fait souvent moins qu'un événement à deux points très au-dessus des attentes.</p>",
       // MÊME DOM ET MÊME HABILLAGE que le desk (renderCalTable, charts.js) : classes `cal-table`/`cth-*`,
       // séparateurs de jour, états de ligne, helpers globaux (calFormatTime, CAL_FLAG, calImpDots,
       // calActualCell). ⚠️ PAS identique pour autant : la POSE diffère (le widget est toujours en
@@ -1700,6 +1705,7 @@
     {
       id: 'radar-biais', name: 'Radar de Biais', cat: 'Macro', h: 320,
       desc: 'Le biais net de chaque devise, du plus haussier au plus baissier.',
+      aide: "<p>Le biais de chaque devise est une <strong>confluence</strong>, pas un indicateur : politique monétaire, inflation, croissance et emploi sont pondérés puis combinés. Une devise n'est haussière que si plusieurs piliers vont dans le même sens.</p><p>Le tableau est donc à lire par colonnes autant que par lignes : deux devises au même biais peuvent le devoir à des raisons opposées, et c'est cette différence qui fait la qualité d'une paire.</p>",
       // IDENTIQUE AU DESK : réutilise le VRAI builder de l'onglet BIAIS (_sbRenderMacroTable, global app.js) +
       // la même donnée (/api/smart-bias : currencies + macroTable) → tableau Radar de Biais RIGOUREUSEMENT identique
       // (mêmes colonnes Devise/Politique monétaire/Inflation/Croissance/Emploi/Driver/Biais, mêmes tags sémantiques).
@@ -1750,6 +1756,7 @@
          contredire. C'est la grandeur que le Radar de Biais consomme déjà dans son pilier monétaire. */
       id: 'taux-diff', name: 'Différentiel de taux', tag: 'TAUX', cat: 'Macro', h: 300,
       desc: 'Quelle devise le portage favorise : chaque taux directeur comparé à la moyenne des sept autres.',
+      aide: "<p>Le taux de chaque banque centrale est comparé à la <strong>moyenne des sept autres</strong>, elle-même calculée en excluant la devise concernée : sans cette exclusion, une devise se comparerait en partie à elle-même et l'écart serait mécaniquement atténué.</p><p>Au-delà de ±0,75 point, l'effet de portage est jugé significatif et compté dans le Radar de Biais. En dessous, l'écart existe mais ne discrimine pas assez pour peser sur une décision.</p>",
       opts: [
         { k: 'tri', lbl: 'Classement', type: 'choix', def: 'ecart',
           choix: [['ecart', 'Par écart'], ['taux', 'Par taux'], ['nom', 'Par devise']] },
@@ -1810,6 +1817,7 @@
     {
       id: 'taux-cb', name: 'Taux directeurs', cat: 'Macro', h: 320,
       desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
+      aide: "<p>Le taux directeur en vigueur pour chaque banque, avec ce que le marché price pour la prochaine réunion. La probabilité affichée ne dit pas ce qui va arriver : elle dit ce qui est <strong>déjà dans les prix</strong>.</p><p>C'est cette distinction qui rend la donnée exploitable. Une hausse annoncée et pricée à 90 % ne fera pas bouger la devise ; c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p>",
       // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
       // (Maintien/Hausse/Baisse) de la prochaine réunion + probabilité + date. HTML pur, cleanup null.
       // Réglage UTILE (04/08) : filtrer sur UNE banque — le trader suit souvent une seule courbe
@@ -1863,7 +1871,8 @@
       // dtp-risk (source unique app.js) → toujours la même valeur que la jauge de l'onglet RISQUE.
       // Réglage UTILE (04/08) : dans une carte basse, la bande d'historique écrase l'arc — on peut
       // ne garder que la jauge.
-      opts: [{ k: 'histo', lbl: 'Historique', type: 'bascule', def: true }],
+      opts: [{ k: 'histo',
+      aide: "<p>Une mesure d'appétit pour le risque agrégée à partir de plusieurs marchés. En <strong>risque-on</strong>, les devises cycliques et les actions sont recherchées ; en <strong>risque-off</strong>, ce sont les valeurs refuges.</p><p>Cet indicateur sert de toile de fond : il n'indique pas quoi acheter, il indique quel régime domine, et donc quelles corrélations sont actives à ce moment-là.</p>", lbl: 'Historique', type: 'bascule', def: true }],
       mount: function (host, it) {
         var W = this;
         if (!(window.am5 && window.am5radar) || typeof _riskArcColor !== 'function' || typeof _riskBandInner !== 'function' || typeof GAUGE_LABEL_FR === 'undefined') { fallback(host, 'Jauge indisponible.'); return null; }
@@ -1964,6 +1973,7 @@
     {
       id: 'cot-inst', name: 'Positionnement COT', tag: 'COT', cat: 'Risque', h: 340,
       desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
+      aide: "<p>Le positionnement déclaré des grands intervenants sur les contrats à terme, publié chaque semaine avec plusieurs jours de décalage. C'est une photographie du <strong>passé récent</strong>, jamais un signal d'entrée.</p><p>Sa valeur est dans les extrêmes et dans les inflexions : un positionnement très étiré d'un côté signale une asymétrie, un retournement de tendance dans les positions signale souvent un changement de régime avant les prix.</p>",
       // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
       // → mêmes cartes donut SVG .cot-cell, mêmes 5 catégories CFTC. Zéro root amCharts.
       // 04/08 : la barre de catégories inline est RETIRÉE (doublon du réglage « Catégorie » ci-dessous,
@@ -3566,6 +3576,7 @@
     {
       id: 'sessions', name: 'Sessions de marché', tag: 'MONDE', cat: 'Macro', h: 340,
       desc: 'La carte du monde des 4 grandes sessions FX, en direct.',
+      aide: "<p>Les séances asiatique, européenne et américaine, avec leurs chevauchements. Le volume et la volatilité ne sont pas répartis uniformément dans la journée : ils se concentrent aux ouvertures et sur le recouvrement Londres-New York.</p><p>Le même signal n'a donc pas la même portée selon l'heure. Une cassure en séance asiatique tient moins souvent qu'une cassure à l'ouverture européenne, faute de participants pour la porter.</p>",
       // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de la VRAIE carte Leaflet de l'onglet MONDE
       // (sessionmap.js) — continents GeoJSON on-brand (geodata amCharts partagé), terminateur jour/nuit,
       // badges villes .lf-city (classes globales → rendu identique), halos de session, résumé d'en-tête.
@@ -3720,6 +3731,7 @@
     {
       id: 'horloge', name: 'Horloge mondiale', cat: 'Macro', h: 210,
       desc: 'Les grandes places à l’heure, statut d’ouverture + météo : choisis les tiennes.',
+      aide: "<p>L'heure des grandes places financières, pour situer une publication ou une prise de parole dans la journée de marché sans conversion mentale.</p><p>Utile surtout pour les décalages saisonniers : les changements d'heure ne tombent pas aux mêmes dates des deux côtés de l'Atlantique, et une réunion peut se décaler d'une heure pendant quelques semaines chaque année.</p>",
       // PLACES CHOISIES PAR CARTE (04/08, demande user « on doit pouvoir modifier les horloges et
       // ajouter plein d'autres pays ») : 27 centres financiers au catalogue, classés d'ouest en est.
       // Le desk garde ses 5 places par défaut ; seule la carte de Mon Desk est configurable.
@@ -3900,6 +3912,7 @@
     {
       id: 'calculatrice', name: 'Calculatrice de position', cat: 'Outils', h: 280,
       desc: 'Taille de lot depuis capital, risque % et stop (pips).',
+      aide: "<p>La taille de position qui respecte le risque défini, à partir du capital, du pourcentage risqué et de la distance au stop. Le résultat se recalcule à chaque frappe : il n'y a rien à valider.</p><p>Le calcul part du <strong>risque</strong>, jamais de la taille souhaitée. C'est ce qui rend deux trades comparables entre eux, quelle que soit la paire et quelle que soit la volatilité du moment.</p>",
       // AUTONOME (aucune dépendance au desk). Le CALCUL reste volatil (charte DTP : pas de localStorage) ;
       // seules les valeurs de DÉPART sont des réglages de carte — le compte d'un trader ne change pas tous les jours.
       opts: [
@@ -3939,6 +3952,7 @@
     {
       id: 'journal-mini', name: 'Journal de trading', cat: 'Outils', h: 300,
       desc: 'Ton journal de trading complet, dans Mon Desk.',
+      aide: "<p>Vos trades consignés, avec le taux de réussite et la courbe de performance qui se construisent d'eux-mêmes. Les statistiques ne valent que ce que vaut la saisie : un journal partiel donne des chiffres flatteurs.</p><p>La lecture utile n'est pas le résultat mais la <strong>régularité</strong> : dispersion des gains et des pertes, respect du risque annoncé, écart entre le plan et l'exécution.</p>",
       // LE WIDGET = LE VRAI JOURNAL, À L'IDENTIQUE (24/07, demande user « tout pareil au moindre détail ») :
       // au lieu de RÉIMPLÉMENTER le journal (toujours un détail qui diverge), on RELOCALISE le VRAI panneau
       // #view-journal .panel-journal DANS le host du widget et on appelle window.loadJournalView(). C'est
@@ -5075,6 +5089,11 @@
         // de la personnalisation, il ne devait pas coûter deux clics et l'ouverture d'un panneau.
         // Dupliquer, Plein écran et Verrouiller restent dans les Réglages, où ils sont LIBELLÉS.
         +   '<span class="wdg-actions">'
+        // AIDE (21/08, demande user) : TOUJOURS présente, sur tous les widgets sans exception. Un
+        // bouton d'aide qui n'apparaît que sur certains laisse croire que les autres n'en ont pas
+        // besoin, alors que ce sont souvent les plus denses. Placée en PREMIER : on cherche à
+        // comprendre avant de régler.
+        +     '<button class="wdg-ico wdg-ico--aide" title="À quoi sert ce widget ?" onclick="DTPWidgets.aide(' + idx + ')">' + ICO.aide + '</button>'
         // ENGRENAGE SEULEMENT S'IL SERT (04/08, demande user + exemples à l'appui) : un widget sans
         // réglage déclaré n'affiche pas de bouton qui ouvrirait un panneau vide (rapports
         // Institutions/Analystes, Baromètre…). Le ✕ de retrait, lui, est TOUJOURS là.
@@ -7023,6 +7042,69 @@ function _spansAffiches(lay) {
       _BIAS_SINKS.slice().forEach(function (fn) { try { fn(bias); } catch (e) {} });
     },
   };
+  /* ═══ VOLET D'AIDE DES WIDGETS (21/08, demande user) ═════════════════════════════════════════
+     Un volet à droite qui explique à quoi sert le widget, dans le registre du desk : ce qu'il
+     montre, comment le lire, à quoi il sert dans une décision.
+
+     ⚠️ IL REPREND LA GRAMMAIRE DES VOLETS DU DESK, il n'en invente pas une autre : calé SOUS la
+     topbar (jamais top:0, sinon il recouvre la barre et bloque ses icônes), rideau flouté derrière,
+     un seul volet ouvert à la fois via `_closeOtherPanels`. Trois volets qui s'ouvriraient
+     différemment donneraient trois produits dans le même écran.
+
+     ⚠️ LE CONTENU EST CONSTRUIT À PARTIR DE CE QUE LE WIDGET DÉCLARE DÉJÀ : son nom, sa catégorie,
+     sa description courte, et ses réglages. Un widget qui gagne une option voit donc son aide se
+     mettre à jour toute seule. Le champ `aide` permet d'ajouter une lecture plus approfondie là où
+     elle apporte quelque chose ; sans lui, le volet reste juste et utile, jamais vide. */
+  function _aideFermer() {
+    var d = document.getElementById('wdg-aide'), o = document.getElementById('wdg-aide-ov');
+    if (d) d.classList.remove('open');
+    if (o) o.classList.remove('open');
+  }
+  function _aideOuvrir(idx) {
+    var it = STATE.items && STATE.items[idx];
+    var w  = it && CATALOG.filter(function (x) { return x.id === it.w; })[0];
+    if (!w) return;
+    try { if (typeof _closeOtherPanels === 'function') _closeOtherPanels('wdgaide'); } catch (e) {}
+
+    var ov = document.getElementById('wdg-aide-ov');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'wdg-aide-ov'; ov.className = 'wdg-aide-ov';
+      ov.onclick = _aideFermer;
+      document.body.appendChild(ov);
+    }
+    var d = document.getElementById('wdg-aide');
+    if (!d) {
+      d = document.createElement('aside');
+      d.id = 'wdg-aide'; d.className = 'wdg-aide';
+      document.body.appendChild(d);
+    }
+
+    var reglages = (w.opts || []).map(function (o2) {
+      var choix = (o2.choix || []).map(function (c) { return esc(c[1]); }).join(' · ');
+      return '<li><b>' + esc(o2.lbl || o2.k) + '</b>' + (choix ? ' : ' + choix : '') + '</li>';
+    }).join('');
+
+    d.innerHTML =
+      '<header class="wdg-aide-head">'
+      + '<div><span class="wdg-aide-cat">' + esc(w.cat || '') + (w.tag ? ' · ' + esc(w.tag) : '') + '</span>'
+      + '<h3 class="wdg-aide-nom">' + esc(w.name) + '</h3></div>'
+      + '<button class="wdg-aide-x" title="Fermer" aria-label="Fermer">' + ICO.close + '</button>'
+      + '</header>'
+      + '<div class="wdg-aide-corps">'
+      +   '<section><h4>Ce que montre ce widget</h4><p>' + esc(w.desc || '') + '</p></section>'
+      +   (w.aide ? '<section><h4>Comment le lire</h4>' + w.aide + '</section>' : '')
+      +   (reglages ? '<section><h4>Réglages disponibles</h4><ul class="wdg-aide-ul">' + reglages + '</ul></section>'
+                    : '<section><h4>Réglages disponibles</h4><p class="wdg-aide-vide">Ce widget n\'a aucun réglage : il affiche la même chose pour tout le monde.</p></section>')
+      + '</div>';
+    var x = d.querySelector('.wdg-aide-x'); if (x) x.onclick = _aideFermer;
+
+    requestAnimationFrame(function () { ov.classList.add('open'); d.classList.add('open'); });
+  }
+  API.aide = _aideOuvrir;
+  // Échap ferme, comme partout ailleurs dans le desk.
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') _aideFermer(); });
+
   window.DTPWidgets = API;
   // Crochets de BANC (non documentés, sans effet en production) : ils donnent accès à l'état et au
   // rendu pour pouvoir vérifier au navigateur, sur le vrai desk, ce qu'un test unitaire ne prouve
