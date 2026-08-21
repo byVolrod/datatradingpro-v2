@@ -2706,37 +2706,27 @@ function _dataReleaseBullets(item) {
      livrés avec l'assurance d'une phrase générée. D'où le champ `sens` : +1 quand un chiffre élevé
      traduit une économie plus forte, -1 quand c'est l'inverse. Les familles trop ambiguës pour être
      tranchées ne sont tout simplement PAS commentées : mieux vaut se taire que se tromper. */
-  /* `repere` : EN UN COUP D'ŒIL, DE QUOI PARLE-T-ON. Demande user du 21/08, sur une capture où le
-     desk annonçait « un essoufflement de l'activité » pour un PMI à 53,2. C'est exact face aux
-     attentes, mais un lecteur qui ne connaît pas l'indicateur peut y lire une contraction, alors
-     qu'au-dessus de 50 l'activité progresse encore. La lecture face au consensus et la lecture en
-     valeur absolue sont deux choses différentes, et il fallait donner les deux. */
-  const FAMILLES = [
-    { rx: /\bpmi\b/i,                                        sens: +1, fort: `une activité plus soutenue qu'anticipé`,                 faible: `un essoufflement de l'activité`,
-      repere: (v, aff) => `enquête mensuelle auprès des directeurs d'achat. Le seuil est <strong>50</strong> : au-dessus l'activité progresse, en dessous elle recule. À ${aff}, elle ${v > 50 ? `<strong>progresse encore</strong>` : (v < 50 ? `<strong>se contracte</strong>` : `est à l'arrêt`)}.` },
-    { rx: /\bcpi\b|\bppi\b|inflation|price index/i,          sens: +1, fort: `des pressions sur les prix plus fortes qu'attendu, ce qui pousse la banque centrale vers plus de fermeté`, faible: `des pressions sur les prix plus faibles qu'attendu, ce qui laisse à la banque centrale de la marge pour assouplir`,
-      repere: () => `mesure de la hausse des prix. C'est l'indicateur que la banque centrale surveille en premier pour décider de ses taux, d'où sa capacité à déplacer une devise.` },
-    /* ⚠️ `sens: -1` : ici un chiffre PLUS HAUT est une MAUVAISE nouvelle (plus de chômeurs, plus
-       d'inscriptions). Les libellés `fort`/`faible` décrivent l'état de l'ÉCONOMIE, jamais le sens
-       de variation du chiffre. Je les avais d'abord écrits à l'envers, et le desk annonçait « un
-       marché de l'emploi plus solide que prévu » sur une hausse des inscriptions au chômage. */
-    { rx: /jobless claims|unemployment (?:rate|claims)|ch[oô]mage/i, sens: -1, fort: `un marché de l'emploi plus solide que prévu`, faible: `un marché de l'emploi plus dégradé que prévu`,
-      repere: () => `l'indicateur compte les personnes sans emploi ou nouvellement inscrites. Ici un chiffre qui <strong>monte</strong> est une mauvaise nouvelle, contrairement à la plupart des indicateurs.` },
-    { rx: /non[- ]farm|payrolls?\b|\bnfp\b|employment change|emploi/i, sens: +1, fort: `des créations d'emplois supérieures aux attentes`, faible: `des créations d'emplois décevantes`,
-      repere: () => `nombre d'emplois créés sur le mois. C'est la publication la plus suivie du calendrier : elle pèse directement sur les décisions de la banque centrale.` },
-    { rx: /retail sales|ventes au d[ée]tail/i,               sens: +1, fort: `une consommation des ménages plus vigoureuse qu'attendu`, faible: `une consommation des ménages plus molle qu'attendu`,
-      repere: () => `évolution des ventes du commerce de détail. C'est le reflet le plus direct de la consommation des ménages, qui porte l'essentiel de l'activité.` },
-    { rx: /\bgdp\b|gross domestic|\bpib\b/i,                 sens: +1, fort: `une croissance supérieure aux attentes`,                 faible: `une croissance inférieure aux attentes`,
-      repere: () => `la richesse produite sur la période : la mesure la plus large de la croissance, mais aussi la plus tardive.` },
-    { rx: /industrial production|manufacturing production|production industrielle/i, sens: +1, fort: `une production industrielle plus dynamique qu'attendu`, faible: `une production industrielle plus faible qu'attendu`,
-      repere: () => `volume réellement produit par l'industrie sur le mois : une lecture concrète de l'activité, après les enquêtes d'opinion.` },
-    { rx: /confidence|sentiment|\bzew\b|\bifo\b|\bsentix\b/i, sens: +1, fort: `un moral des acteurs meilleur qu'attendu`,               faible: `un moral des acteurs plus dégradé qu'attendu`,
-      repere: () => `enquête d'opinion auprès des entreprises ou des investisseurs. Elle <strong>anticipe</strong> l'activité plutôt qu'elle ne la constate : c'est un signal avancé, pas une mesure.` },
-    { rx: /building permits|housing starts|home sales|mises en chantier/i, sens: +1, fort: `un marché immobilier plus actif qu'attendu`, faible: `un marché immobilier plus atone qu'attendu`,
-      repere: () => `permis accordés et chantiers lancés. Ils annoncent l'activité du bâtiment des mois suivants, et réagissent vite aux taux d'intérêt.` },
-  ];
-  /* La devise concernée, déduite du pays cité dans le titre. Elle sert à donner au lecteur du desk
-     la seule chose qui l'intéresse vraiment après le chiffre : dans quel sens ça pousse. */
+  /* ── CE QU'EST L'INDICATEUR : ON LIT LA FICHE DU DESK, ON NE LA RÉÉCRIT PAS ────────────────
+     Demande user du 21/08 : « utilise le PDF que je t'avais envoyé pour bien expliquer ». Cette
+     fiche existe déjà : c'est `CAL_KB` (charts.js), la base tirée de « Learning Economics News »,
+     qui alimente le Décryptage du calendrier. On la lit ici par `dtpKbPourTitre`.
+
+     ⚠️ J'avais d'abord écrit une SECONDE liste d'indicateurs dans ce fichier, avec mes propres
+     définitions et mon propre signe d'inversion. Deux listes qui disent la même chose finissent
+     toujours par diverger, et c'est la copie oubliée qui se met à mentir : exactement le défaut
+     trouvé le matin même dans `requireAuth`, qui recopiait la règle de session au lieu de
+     l'appeler. Une seule base, deux surfaces.
+
+     ⚠️ Le bloc « Décryptage » complet reste RÉSERVÉ AU CALENDRIER : décision de l'utilisateur du
+     23/07 (`hasEco = false` dans le fil). On n'en reprend que la définition et la lecture.
+
+     ⚠️ AUCUNE ÉTIQUETTE devant les phrases (demande user du 21/08 : « met la phrase direct, pas
+     genre Repère : »). Un « Repère : » ou un « Ce que ça dit : » devant chaque ligne fait fiche de
+     cours ; sur un desk, la phrase se suffit. Les puces sont déjà des puces. */
+  const kb = (typeof dtpKbPourTitre === 'function') ? dtpKbPourTitre(h) : null;
+
+  /* La devise concernée, déduite du pays cité dans le titre : c'est la seule chose qui intéresse
+     vraiment un desk après le chiffre, à savoir dans quel sens ça pousse. */
   const PAYS = [
     [/\b(us|u\.s\.|united states|american)\b/i, 'USD'], [/\b(canadian|canada)\b/i, 'CAD'],
     [/\b(uk|british|britain|united kingdom)\b/i, 'GBP'], [/\b(euro ?zone|ez|german|germany|french|france|italian|spanish|emu)\b/i, 'EUR'],
@@ -2745,25 +2735,45 @@ function _dataReleaseBullets(item) {
   ];
   const devise = (PAYS.find(p => p[0].test(h)) || [null, null])[1];
 
-  const fam = FAMILLES.find(f => f.rx.test(h));
-  if (forecast !== null && actual !== forecast && fam) {
-    const auDessus = actual > forecast;
-    // « robuste » = la surprise va dans le sens d'une économie plus forte, quel que soit le signe.
-    const robuste = fam.sens > 0 ? auDessus : !auDessus;
-    /* Le sens pour la devise. On l'énonce comme un MÉCANISME, pas comme une consigne : une surprise
-       de croissance ou d'inflation déplace les anticipations de taux, et c'est par là qu'elle
-       touche la devise. « Toutes choses égales par ailleurs » n'est pas une précaution de style :
-       une donnée ne fixe jamais un cours à elle seule, et un desk qui l'oublie se fait rattraper
-       par le premier titre géopolitique venu. */
-    // « l'EUR » et non « le EUR » : le desk est en francais, l elision se fait sur la voyelle.
+  /* 3) LA LECTURE. Mêmes familles que la conclusion du calendrier (`_calConclusion`), condensées
+        en une phrase. `hiUp` vient de la fiche : c'est lui qui gère les indicateurs INVERSÉS, où un
+        chiffre qui monte est une mauvaise nouvelle (chômage, inscriptions). `noConcl` marque ceux
+        dont la polarité n'est pas univoque : on se tait plutôt que de livrer un contresens avec
+        l'assurance d'une phrase générée. */
+  if (kb && !kb.noConcl && forecast !== null && actual !== forecast) {
+    const fort = (actual > forecast) === !!kb.hiUp;
+    const LECTURE = {
+      Inflation:  [`<strong>Inflation plus forte que prévu</strong>, ce qui pousse la banque centrale à garder des taux élevés`,
+                   // « lui » n'aurait pas d'antécédent : la phrase est lue seule, hors du contexte
+                   // de la ligne precedente. On nomme la banque centrale.
+                   `<strong>Inflation plus faible que prévu</strong>, ce qui laisse à la banque centrale de la marge pour baisser ses taux`],
+      Emploi:     [`<strong>Marché de l'emploi plus solide que prévu</strong>, ce qui permet de tenir des taux élevés plus longtemps`,
+                   `<strong>Marché de l'emploi plus faible que prévu</strong>, ce qui pousse plutôt vers des baisses de taux`],
+      Croissance: [`<strong>Activité plus forte que prévu</strong>, signe d'une économie solide`,
+                   `<strong>Activité plus faible que prévu</strong>, signe d'un ralentissement`],
+    };
+    const m = (LECTURE[kb.cat] || LECTURE.Croissance)[fort ? 0 : 1];
+    // « l'EUR » et non « le EUR » : le desk est en français, l'élision se fait sur la voyelle.
     const _art = /^[AEIOU]/.test(devise || '') ? "l'" + devise : 'le ' + devise;
-    const sensDevise = devise ? ` Toutes choses égales par ailleurs, cela <strong>${robuste ? 'soutient' : 'pèse sur'}</strong> ${_art}, par les anticipations de taux.` : '';
-    bullets.push(`Ce que ça dit : ${robuste ? fam.fort : fam.faible}.${sensDevise}`);
+    /* Le sens pour la devise est énoncé comme un MÉCANISME, pas comme une consigne. « Toutes choses
+       égales par ailleurs » n'est pas une précaution de style : une donnée ne fixe jamais un cours
+       à elle seule, et un desk qui l'oublie se fait rattraper par le premier titre venu. */
+    const sensDevise = devise ? ` Toutes choses égales par ailleurs, cela <strong>${fort ? 'soutient' : 'pèse sur'}</strong> ${_art} par les anticipations de taux.` : '';
+    bullets.push(`${m}.${sensDevise}`);
   }
 
-  // 4) De quoi parle-t-on, pour qui ne suit pas cet indicateur toutes les semaines.
-  if (fam && typeof fam.repere === 'function') {
-    bullets.push(`Repère : ${fam.repere(actual, aFmt)}`);
+  // 4) LA DÉFINITION, mot pour mot depuis la fiche, en dernier : elle sert à qui ne connaît pas
+  //    l'indicateur, et ne doit pas retarder la lecture de ceux qui le connaissent.
+  if (kb && kb.what) {
+    /* Sur les indices d'activité, la fiche donne déjà le seuil de 50 ; on y ajoute la SITUATION de
+       la valeur publiée. Sans elle, « activité plus faible que prévu » sur un PMI à 53,2 peut se
+       lire comme une contraction alors que l'activité progresse encore : la lecture face au
+       consensus et la lecture en valeur absolue sont deux choses différentes, et il faut les deux. */
+    const _estPMI = /pmi/i.test(String(kb.name || ''));
+    const _situe = (_estPMI && Number.isFinite(actual))
+      ? ` À ${aFmt}, elle ${actual > 50 ? '<strong>progresse encore</strong>' : (actual < 50 ? '<strong>se contracte</strong>' : "est à l'arrêt")}.`
+      : '';
+    bullets.push(`${kb.what}${_situe}`);
   }
 
   return bullets.slice(0, 4);

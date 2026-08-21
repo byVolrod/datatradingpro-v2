@@ -4585,6 +4585,17 @@ function dtpEventInsightMatch(headline, currency) {
   if (_CAL_CB_RX.test(h) && _CAL_CB_BY_CCY[ccy]) return true;
   return CAL_KB.some(k => k.rx.test(h));
 }
+/* Le FIL DE NEWS a besoin de la DÉFINITION d'un indicateur, pas du bloc complet : le « Décryptage »
+   reste réservé au calendrier (décision user du 23/07, commit c383758). On expose donc la seule
+   fiche, pour que la description d'une news s'appuie sur LA MÊME BASE que le calendrier, celle
+   tirée de la fiche pédagogique « Learning Economics News ».
+   ⚠️ C'est le point de la manœuvre : j'avais d'abord écrit une seconde liste d'indicateurs dans
+   app.js, à côté de celle-ci. Deux listes qui disent la même chose finissent toujours par diverger,
+   et c'est la copie oubliée qui se met à mentir. Une seule base, deux surfaces. */
+function dtpKbPourTitre(headline) {
+  const h = String(headline || '');
+  return CAL_KB.find(k => k.rx.test(h)) || null;
+}
 async function dtpEventInsightHtml(item) {
   return _calValueBlockHtml({ title: item.headline, currency: _dtpNewsCcy(item.headline, item.currency), actual: item.actual, forecast: item.forecast, timestamp: item.timestamp });
 }
