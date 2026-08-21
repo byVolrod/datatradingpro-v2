@@ -38,10 +38,24 @@ if ! flock -n 9; then
 fi
 
 cd "$REPO" || { echo "$(horo) depot introuvable"; exit 1; }
+
+# AUTO-MISE A JOUR : ce script vit dans /usr/local/bin mais sa SOURCE est versionnee dans le depot.
+# Sans cette recopie, une amelioration du deployeur ne prendrait jamais effet — il faudrait s en
+# souvenir et la poser a la main, ce que personne ne fait.
+if [ -f "$REPO/scripts/vps/dtp-deploy.sh" ] && ! cmp -s "$REPO/scripts/vps/dtp-deploy.sh" /usr/local/bin/dtp-deploy.sh; then
+  cp -f "$REPO/scripts/vps/dtp-deploy.sh" /usr/local/bin/dtp-deploy.sh && chmod +x /usr/local/bin/dtp-deploy.sh
+  echo "$(horo) deployeur mis a jour depuis le depot"
+fi
 export GIT_SSH_COMMAND="ssh -i /root/.ssh/dtp_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 
 # ── 2. Y A-T-IL QUELQUE CHOSE À DÉPLOYER ? ───────────────────────────────────
-git fetch origin main -q 2>/dev/null || { echo "$(horo) fetch KO"; exit 0; }
+# ⚠️ « +refs/… » ET --force : un fetch ORDINAIRE peut REFUSER de mettre à jour la référence de
+# suivi quand l'historique distant a été RÉÉCRIT (mise à jour non linéaire). Le serveur resterait
+# alors bloqué sur l'ancienne version, en annonçant « déjà à jour », ce qui est le pire des cas :
+# une panne silencieuse. Ici le dépôt local n'est qu'un miroir de déploiement — il n'a aucun
+# travail propre à protéger, donc suivre le distant sans condition est exactement ce qu'on veut.
+git fetch --force --prune origin '+refs/heads/main:refs/remotes/origin/main' -q 2>/dev/null \
+  || { echo "$(horo) fetch KO"; exit 0; }
 LOCAL=$(git rev-parse HEAD 2>/dev/null)
 DISTANT=$(git rev-parse origin/main 2>/dev/null)
 [ -z "$DISTANT" ] && exit 0
