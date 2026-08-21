@@ -5714,9 +5714,10 @@
     (lay ? lay.items : []).forEach(function (i) { used[i.w] = (used[i.w] || 0) + 1; });
     var q = _libQ.toLowerCase();
     var match = function (w) { return !q || (w.name + ' ' + w.desc + ' ' + w.cat).toLowerCase().indexOf(q) !== -1; };
-    // BIBLIOTHÈQUE PAR FAMILLES (demande user 23/07 : reprendre l'ORGANISATION du terminal PMT — 2 rails :
-    // « Fonctions » = panneaux de données/outils qu'on consulte ; « Analytics » = panneaux d'analyse de marché.
-    // Identité 100% DTP, aucune reprise visuelle PMT). FAM_OF mappe chaque widget à sa famille.
+    // BIBLIOTHÈQUE PAR FAMILLES (23/07) : deux rails, parce qu'un trader ne cherche pas un widget
+    // par son nom mais par ce qu'il vient y faire. « Fonctions » = panneaux de données et outils
+    // qu'on consulte ; « Analyse de marché » = panneaux qui portent une lecture du marché.
+    // FAM_OF mappe chaque widget à sa famille.
     var FAM_OF = {
       'graphique': 'Analyse de marché',
       'force-devises': 'Analyse de marché', 'barometre': 'Analyse de marché', 'risque-historique': 'Analyse de marché', 'radar-biais': 'Analyse de marché',
