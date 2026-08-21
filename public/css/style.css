@@ -19052,7 +19052,7 @@ body.dtp-premium .topbar {
 /* Séparateur or plus présent sous la barre d'onglets active — signature discrète du mode admin. */
 body.dtp-premium .right-panel-tabs,
 body.dtp-premium .nav {
-  box-shadow: inset 0 -1px 0 rgba(227,178,58,.16);
+  box-shadow: inset 0 -1px 0 rgba(227,178,58,.08);
 }
 
 /* ═══ LISIBILITÉ DU FIL DE NEWS — POUR TOUS LES TRADERS (21/08, demande user) ══════════════════
@@ -19207,8 +19207,8 @@ html[data-theme="light"] .wdg-tabic-grid { background: #fff; }
 /* Un cheveu doré affleure le bas du bandeau, sous le filet : présence, pas décoration. */
 .panel-header::after, .chart-header::after, .wdg-head::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(227,178,58,.26) 16%, rgba(227,178,58,.26) 84%, transparent);
-  opacity: .78; transition: opacity .2s ease;
+  background: linear-gradient(90deg, transparent, rgba(227,178,58,.10) 20%, rgba(227,178,58,.10) 80%, transparent);
+  opacity: .5; transition: opacity .2s ease;
 }
 .wdg-card:hover .wdg-head::after,
 .view-panel:hover > .panel > .panel-header::after { opacity: 1; }
