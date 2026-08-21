@@ -576,16 +576,21 @@ function requireAuth(req, res, next) {
     return res.redirect('/login');
   }
 
-  // Éjection immédiate : blacklisté / déconnexion forcée (admin) / session supplantée par une connexion
-  // plus récente (session unique par compte) → session tuée.
-  const _sid = String(req.session.userId);
-  const _ep = _sessionEpoch.get(_sid);
-  // `req.session.stoken &&` : une session ANTERIEURE a ce mecanisme n en porte pas. Sans cette
-  // condition, la restauration du registre au demarrage l aurait deconnectee sans raison.
-  if (_forceLogout.has(_sid) || auth.isEmailBlacklisted(req.session.user?.email) || (_ep && req.session.stoken && _ep !== req.session.stoken)) {
+  /* Éjection immédiate : blacklisté / déconnexion forcée (admin) / session supplantée par une
+     connexion plus récente / compte repris depuis un autre navigateur.
+     ⚠️ ON APPELLE `_sessionMorte`, ON NE LA RECOPIE PLUS. Cette garde-ci recopiait la règle, et la
+     copie avait déjà pris du retard : elle ignorait le contrôle d'appareil ajouté le 21/08, si bien
+     qu'un navigateur dépossédé gardait l'accès aux routes API jusqu'à son battement suivant. Une
+     règle de sécurité écrite à deux endroits finit toujours par diverger à l'un des deux. */
+  const _mort = _sessionMorte(req);
+  if (_mort) {
     req.session = null;
-    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session terminée', loggedOut: true });
-    return res.redirect('/login');
+    // La RAISON accompagne le 401 : sans elle, le desk renvoyait vers une page de connexion muette
+    // et le membre était déconnecté sans jamais savoir pourquoi. Mesuré au banc : selon la route
+    // qui répondait en premier, il voyait le message ou pas.
+    const _repris = (_mort === 'supplantee' || _mort === 'autre-appareil') ? 'elsewhere' : undefined;
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session terminée', loggedOut: true, reason: _repris });
+    return res.redirect('/login' + (_repris ? '?ended=elsewhere' : ''));
   }
   req.user = req.session.user;
   _noterEmpreinte(req);   // signal de partage, en memoire seule
@@ -973,6 +978,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-donnees-lisibles', ts: Date.UTC(2026, 7, 23, 5, 0), title: 'Donnees economiques : le resume explique enfin ce que le chiffre veut dire', desc: 'Sous chaque publication economique, le resume se lisait comme un releve de calcul : « Sort a 0.6 vs 0.4 attendu ». Trois choses manquaient. L unite avait disparu, alors que selon l indicateur il peut s agir de pourcents, de points ou de milliers d emplois. Les decimales etaient rabotees, si bien qu un precedent a 1,0 % s affichait « (1) » et se lisait comme un renvoi de note. Et surtout, hors indices d activite et inflation, aucune lecture n etait proposee : le lecteur recevait une soustraction, pas une information. Les chiffres portent desormais leur unite, en ecriture francaise, et la comparaison precise sa periode, d un mois sur l autre ou sur un an. Une ligne « Ce que ca dit » traduit la publication en clair pour l emploi, la consommation, la croissance, la production, le moral des acteurs, l immobilier, les prix et les indices d activite. Elle tient compte du fait qu un chiffre en hausse n est pas toujours une bonne nouvelle : une hausse du chomage ou des inscriptions au chomage est lue comme telle. Sur les indicateurs trop ambigus pour etre tranches sans risque de contresens, le desk se tait plutot que d affirmer.' },
   { id: 'dtpu-20260821-session-unique', ts: Date.UTC(2026, 7, 23, 4, 0), title: 'Un compte, une connexion : la regle s applique desormais partout', desc: 'Le terminal n autorise qu une seule connexion active par compte. C etait deja le cas, mais deux situations y echappaient. La premiere : les comptes de l equipe n etaient pas soumis a la regle, ce qui la rendait invisible a qui la testait avec son propre acces. La seconde, plus importante : deux personnes qui se transmettaient une session ouverte n etaient pas separees, parce que rien ne permettait de les distinguer. Chaque navigateur porte maintenant une empreinte qui lui est propre et qui ne se transmet pas avec une session copiee. La regle est simple et sans surprise : la connexion la plus recente garde la main, la precedente est fermee dans les vingt secondes avec un message qui l explique. Ouvrir plusieurs onglets sur le meme ordinateur ne change rien, c est le meme navigateur. Se connecter depuis un autre appareil ferme la session precedente, comme sur un service de streaming.' },
   { id: 'dtpu-20260821-force-quadrillage', ts: Date.UTC(2026, 7, 23, 3, 0), title: 'Force des Devises : le quadrillage pointille disparait, les courbes respirent', desc: 'Le graphique portait deux series de traits pointilles horizontaux : les paliers de l echelle, et surtout une ligne par devise, tiree depuis sa pastille en travers de toute la largeur. A huit devises affichees, cela faisait huit traits de couleurs differentes poses par dessus les courbes, pour une information que la pastille donne deja au bout de chaque ligne. Les deux sont retires. Ce que la lecture y perd : rien. Sur ce graphique aucune valeur ne se lit sur une horizontale, ce qui compte est le classement des devises entre elles et leur position par rapport au zero. Le zero reste donc trace, en blanc plein, et les graduations chiffrees restent dans la colonne de droite pour qui veut le niveau exact. Les reperes d heures, eux, sont conserves : ce sont eux qui rattachent un mouvement a un moment.' },
   { id: 'dtpu-20260821-mobile-lot3', ts: Date.UTC(2026, 7, 23, 2, 0), title: 'iPhone a encoche et fleches du calendrier : les derniers reglages mobiles', desc: 'Sur les iPhone recents, la barre du haut recoit un retrait de pres de 50 pixels pour laisser passer l encoche. Le logo, lui, se voyait imposer la hauteur totale : il debordait sous la barre et son separateur venait barrer la moitie de la rangee d onglets. De meme, la recherche de symbole depliee se posait a cheval sous la barre d etat. Les deux sont recales sur la zone reellement utilisable, sans aucun effet sur les autres appareils. Les fleches qui font defiler les mois du calendrier, elles, n avaient aucun reglage mobile et mesuraient moins de la moitie de la taille minimale pour etre touchees au doigt : corrige.' },

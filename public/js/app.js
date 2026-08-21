@@ -2629,35 +2629,106 @@ function _dataReleaseBullets(item) {
   const previous = prevM ? fNum(prevM[1]) : null;
   if (actual === null) return [];
 
+  /* ── LISIBILITÉ DES CHIFFRES (21/08) ────────────────────────────────────────────────────────
+     Trois défauts se cumulaient sur une même ligne, du genre « Sort à 0.6 vs 0.4 attendu ».
+     · L'UNITÉ disparaissait : « 0.6 » au lieu de « 0,6 % ». Un chiffre sans unité n'est pas une
+       donnée, c'est un nombre — et selon l'indicateur il peut s'agir de points, de milliers
+       d'emplois ou de pourcents.
+     · Le SÉPARATEUR restait anglais alors que tout le desk est en français.
+     · Les décimales étaient rabotées : `parseFloat('1.0')` vaut 1, donc « le précédent (1) » se
+       lisait comme un renvoi de note de bas de page, pas comme la valeur 1,0 %.
+     On garde donc le TEXTE d'origine du nombre pour l'affichage, et le nombre calculé pour les
+     comparaisons : les deux usages n'ont pas les mêmes besoins. */
+  const uniteApres = (brut) => {
+    if (!brut) return '';
+    const i = h.indexOf(brut);
+    if (i < 0) return '';
+    const suite = h.slice(i + brut.length, i + brut.length + 4);
+    const m = suite.match(/^\s*(%|pts?\b|bps\b|[KMB]\b)/i);
+    return m ? (m[1] === '%' ? ' %' : ' ' + m[1]) : '';
+  };
+  const UNITE = uniteApres(actM && actM[1]);
+  const fmt = (brut, val) => {
+    // La capture avale la ponctuation qui suit quand aucune unité ne l'arrête : « Forecast 48.5, »
+    // donnait « 48,5, » à l'écran. On la retire avant tout formatage.
+    let t = String(brut == null ? val : brut).trim().replace(/[.,]+$/, '');
+    // « 1,234.5 » = séparateur de milliers à l'anglaise → espace fine + virgule décimale.
+    if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(t)) t = t.replace(/,/g, ' ').replace('.', ',');
+    else t = t.replace('.', ',');
+    return t + UNITE;
+  };
+  const fmtEcart = (d) => (d > 0 ? '+' : '') + String(d).replace('.', ',') + UNITE;
+  const aFmt = fmt(actM && actM[1], actual);
+  const pFmt = fmt(prevM && prevM[1], previous);
+  const eFmt = fmt(expM && expM[1], forecast);
+  // Période de comparaison, quand le titre la donne : « d'un mois sur l'autre » vaut mieux qu'un
+  // « précédent » qui laisse le lecteur deviner de quoi on parle.
+  const periode = /\bmom\b|month[- ]on[- ]month/i.test(h) ? "d'un mois sur l'autre"
+                : /\byoy\b|year[- ]on[- ]year|annual/i.test(h) ? 'sur un an'
+                : /\bqoq\b|quarter[- ]on[- ]quarter/i.test(h) ? "d'un trimestre à l'autre" : '';
+
   // Nom de l'indicateur (avant les chiffres)
   const nameM = h.match(/^([A-Za-z&.\s/()]+?)(?=\s*-?\d|\s+actual|\s+\()/i);
   const name  = (nameM ? nameM[1] : 'L\'indicateur').replace(/\s+/g,' ').trim();
 
   const bullets = [];
 
-  // 1) Actual vs Forecast
+  // 1) Le chiffre face à l'attente
   if (forecast !== null) {
     const diff = +(actual - forecast).toFixed(2);
-    if (diff > 0)      bullets.push(`Sort à <strong>${actual}</strong> vs <strong>${forecast}</strong> attendu : <strong>au-dessus</strong> du consensus (+${diff}).`);
-    else if (diff < 0) bullets.push(`Sort à <strong>${actual}</strong> vs <strong>${forecast}</strong> attendu : <strong>sous</strong> le consensus (${diff}).`);
-    else               bullets.push(`Sort à <strong>${actual}</strong>, <strong>conforme</strong> aux attentes.`);
+    if (diff > 0)      bullets.push(`Publié à <strong>${aFmt}</strong> pour <strong>${eFmt}</strong> attendu : <strong>au-dessus</strong> du consensus de ${fmtEcart(diff)}.`);
+    else if (diff < 0) bullets.push(`Publié à <strong>${aFmt}</strong> pour <strong>${eFmt}</strong> attendu : <strong>sous</strong> le consensus de ${fmtEcart(diff)}.`);
+    else               bullets.push(`Publié à <strong>${aFmt}</strong>, <strong>conforme</strong> à ce qui était attendu.`);
   } else {
-    bullets.push(`Donnée publiée à <strong>${actual}</strong>.`);
+    bullets.push(`Donnée publiée à <strong>${aFmt}</strong>, sans consensus publié pour la comparer.`);
   }
 
-  // 2) Actual vs Previous (tendance)
+  // 2) Le chiffre face au précédent
   if (previous !== null && previous !== actual) {
     const up = actual > previous;
-    bullets.push(`${up ? '<strong>Accélération</strong>' : '<strong>Ralentissement</strong>'} vs le précédent (<strong>${previous}</strong>).`);
+    /* « Accélération » ne veut dire quelque chose que sur un TAUX DE VARIATION (MoM, YoY, QoQ). Sur
+       un niveau — un taux de chômage, un nombre d'inscriptions, une balance — la même donnée passe
+       simplement de 4,1 à 4,3 : parler d'accélération y est au mieux bizarre, au pire trompeur. */
+    const mot = periode
+      ? (up ? '<strong>Accélération</strong> ' + periode : '<strong>Ralentissement</strong> ' + periode)
+      : (up ? '<strong>En hausse</strong>' : '<strong>En baisse</strong>');
+    bullets.push(`${mot} : le relevé précédent était de <strong>${pFmt}</strong>.`);
+  } else if (previous !== null) {
+    bullets.push(`<strong>Stable</strong> par rapport au relevé précédent (<strong>${pFmt}</strong>).`);
   }
 
-  // 3) Lecture trader contextuelle
-  const isPMI = /\bpmi\b/i.test(h);
-  const isCPI = /\bcpi\b|inflation|prices?\b/i.test(h);
-  if (forecast !== null) {
-    const beat = actual > forecast;
-    if (isPMI)      bullets.push(beat ? `Signal d'activité manufacturière <strong>plus robuste</strong> qu'anticipé.` : `Signal d'un <strong>essoufflement</strong> de l'activité.`);
-    else if (isCPI) bullets.push(beat ? `Pressions inflationnistes <strong>plus fortes</strong> → biais <strong>hawkish</strong>.` : `Inflation <strong>plus faible</strong> → biais <strong>dovish</strong>.`);
+  /* 3) CE QUE ÇA VEUT DIRE. C'est la partie qui manquait : hors PMI et inflation, le lecteur ne
+        recevait que de l'arithmétique. Une donnée sans lecture n'apprend rien à qui ne connaît pas
+        déjà l'indicateur.
+     ⚠️ LE SENS N'EST PAS TOUJOURS « PLUS HAUT = MIEUX ». Un taux de chômage ou des inscriptions au
+     chômage qui dépassent l'attente sont une MAUVAISE nouvelle ; un déficit commercial qui se creuse
+     aussi. Traiter tout dépassement comme une bonne surprise produirait des contresens réguliers,
+     livrés avec l'assurance d'une phrase générée. D'où le champ `sens` : +1 quand un chiffre élevé
+     traduit une économie plus forte, -1 quand c'est l'inverse. Les familles trop ambiguës pour être
+     tranchées ne sont tout simplement PAS commentées : mieux vaut se taire que se tromper. */
+  const FAMILLES = [
+    { rx: /\bpmi\b/i,                                        sens: +1, fort: `une activité plus soutenue qu'anticipé`,                 faible: `un essoufflement de l'activité` },
+    { rx: /\bcpi\b|\bppi\b|inflation|price index/i,          sens: +1, fort: `des pressions sur les prix plus fortes qu'attendu, ce qui pousse la banque centrale vers plus de fermeté`, faible: `des pressions sur les prix plus faibles qu'attendu, ce qui lui laisse de la marge pour assouplir` },
+    /* ⚠️ `sens: -1` : ici un chiffre PLUS HAUT est une MAUVAISE nouvelle (plus de chômeurs, plus
+       d'inscriptions). Les libellés `fort`/`faible` décrivent l'état de l'ÉCONOMIE, jamais le sens
+       de variation du chiffre. Je les avais d'abord écrits à l'envers, et le desk annonçait « un
+       marché de l'emploi plus solide que prévu » sur une hausse des inscriptions au chômage. */
+    { rx: /jobless claims|unemployment (?:rate|claims)|ch[oô]mage/i, sens: -1, fort: `un marché de l'emploi plus solide que prévu`, faible: `un marché de l'emploi plus dégradé que prévu` },
+    { rx: /non[- ]farm|payrolls?\b|\bnfp\b|employment change|emploi/i, sens: +1, fort: `des créations d'emplois supérieures aux attentes`, faible: `des créations d'emplois décevantes` },
+    { rx: /retail sales|ventes au d[ée]tail/i,               sens: +1, fort: `une consommation des ménages plus vigoureuse qu'attendu`, faible: `une consommation des ménages plus molle qu'attendu` },
+    { rx: /\bgdp\b|gross domestic|\bpib\b/i,                 sens: +1, fort: `une croissance supérieure aux attentes`,                 faible: `une croissance inférieure aux attentes` },
+    { rx: /industrial production|manufacturing production|production industrielle/i, sens: +1, fort: `une production industrielle plus dynamique qu'attendu`, faible: `une production industrielle plus faible qu'attendu` },
+    { rx: /confidence|sentiment|\bzew\b|\bifo\b|\bsentix\b/i, sens: +1, fort: `un moral des acteurs meilleur qu'attendu`,               faible: `un moral des acteurs plus dégradé qu'attendu` },
+    { rx: /building permits|housing starts|home sales|mises en chantier/i, sens: +1, fort: `un marché immobilier plus actif qu'attendu`, faible: `un marché immobilier plus atone qu'attendu` },
+  ];
+  if (forecast !== null && actual !== forecast) {
+    const fam = FAMILLES.find(f => f.rx.test(h));
+    if (fam) {
+      const auDessus = actual > forecast;
+      // « robuste » = la surprise va dans le sens d'une économie plus forte, quel que soit le signe.
+      const robuste = fam.sens > 0 ? auDessus : !auDessus;
+      bullets.push(`Ce que ça dit : ${robuste ? fam.fort : fam.faible}.`);
+    }
   }
 
   return bullets.slice(0, 4);
@@ -5020,7 +5091,13 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
       if (_a) { _ent['x-dtp-appareil'] = _a; if (_premier) _ent['x-dtp-appareil-neuf'] = '1'; }
       _premier = false;
       const r = await fetch('/api/auth/me', { cache: 'no-store', headers: _ent });
-      if (r.status === 401) { _dead = true; return location.replace('/login'); }
+      if (r.status === 401) {
+        // La raison vient du serveur : sans elle, le membre repris ailleurs atterrissait sur une
+        // page de connexion muette et ne pouvait pas comprendre ce qui venait de se passer.
+        const _d = await r.json().catch(function(){ return null; });
+        _dead = true;
+        return location.replace('/login' + (_d && _d.reason === 'elsewhere' ? '?ended=elsewhere' : ''));
+      }
       const d = await r.json().catch(function(){ return null; });
       if (d && d.loggedIn === false) { _dead = true; location.replace('/login' + (d.reason === 'elsewhere' ? '?ended=elsewhere' : '')); }
     } catch (e) {}
