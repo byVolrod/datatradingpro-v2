@@ -2310,10 +2310,28 @@ function buildMeterChart(containerId) {   // containerId optionnel (widget « Mo
   }
 
   loadAndRender();
+  /* ⚠️ LA GARDE DE VISIBILITÉ DÉPEND DE L'ENDROIT OÙ LE GRAPHIQUE VIT (21/08).
+     Elle ne testait que l'onglet BAROMÈTRE du desk. Or cette fonction sert AUSSI la carte « Mon
+     Desk », où cet onglet n'est évidemment pas actif : le minuteur se supprimait donc lui-même AU
+     PREMIER TOUR, quinze secondes après l'affichage. La carte paraissait vivante et ne bougeait
+     plus jamais. C'est pire qu'une carte sans mise à jour, parce que rien ne le signale.
+     On teste désormais la visibilité de CE conteneur-ci : l'onglet du desk quand c'est lui, la
+     carte quand c'est elle. Même intention, appliquée au bon élément. */
+  const _surDesk = !containerId || containerId === 'chart-meter';
   _meterTimer = setInterval(() => {
-    const panel = document.getElementById('rtab-meter');
-    if (!panel || !panel.classList.contains('active')) { clearInterval(_meterTimer); _meterTimer = null; return; }
-    loadAndRender();                                      // ne poll que si l'onglet METER est visible
+    if (_surDesk) {
+      const panel = document.getElementById('rtab-meter');
+      if (!panel || !panel.classList.contains('active')) { clearInterval(_meterTimer); _meterTimer = null; return; }
+    } else {
+      // Carte Mon Desk : on s'arrête si elle a quitté le document, et on saute le tour si elle est
+      // masquée ou hors écran. Dépenser du réseau pour ce que personne ne regarde a déjà coûté cher.
+      const el = document.getElementById(containerId);
+      if (!el || !el.isConnected) { clearInterval(_meterTimer); _meterTimer = null; return; }
+      if (document.hidden) return;
+      const b = el.getBoundingClientRect();
+      if (b.width < 2 || b.bottom < -200 || b.top > (window.innerHeight || 0) + 200) return;
+    }
+    loadAndRender();
   }, 15 * 1000);   // temps réel : MAJ toutes les 15 s
 }
 

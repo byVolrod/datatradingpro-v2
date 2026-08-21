@@ -1375,7 +1375,28 @@
             _ecrisOpt(host, it, 'periodes', btn.dataset.per);
           });
         });
-        return function () { try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {} };
+        /* ⚠️ CETTE CARTE NE SE METTAIT JAMAIS À JOUR (mesuré le 21/08). Elle affichait la force des
+           devises figée à l'instant de son affichage, jusqu'au rechargement de la page : sur un
+           terminal, une donnée juste mais immobile se lit comme une donnée fausse.
+           On redessine la MÊME période, sans remonter la carte : un remontage détruirait et
+           reconstruirait le graphique, ce qui ferait clignoter l'écran à chaque tour.
+           60 s : la force des devises se recalcule en continu côté serveur, mais elle se lit sur
+           des heures. Inutile de payer un aller-retour toutes les vingt secondes pour une courbe
+           dont la forme ne change pas à cette échelle.
+           On saute le tour si la carte est masquée ou hors écran : rafraîchir ce que personne ne
+           regarde a déjà coûté un incident de trafic à ce projet. */
+        var _ivFx = setInterval(function () {
+          if (!host || !host.isConnected) { clearInterval(_ivFx); return; }
+          if (document.hidden) return;
+          var b = host.getBoundingClientRect();
+          if (b.width < 2 || b.bottom < -200 || b.top > (window.innerHeight || 0) + 200) return;
+          var actif = host.querySelector('.wdg-fx-tf.stf-btn--active');
+          try { dessine(actif ? actif.dataset.per : per); } catch (e) {}
+        }, 60 * 1000);
+        return function () {
+          try { clearInterval(_ivFx); } catch (e) {}
+          try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
+        };
       },
     },
     {
@@ -1397,7 +1418,8 @@
     // (« Classement des Devises » RETIRÉ du catalogue le 23/07, demande user — les configs qui le
     //  contiennent encore sont ignorées proprement par renderGrid : byId() → null → carte sautée.)
     {
-      id: 'risque-historique', name: 'Historique du Sentiment', cat: 'Risque', h: 260,
+      id: 'risque-historique', name: 'Historique du Sentiment',
+      maj: 5 * 60 * 1000,   // serie agregee, et surtout auto-reparation si le premier chargement echoue, cat: 'Risque', h: 260,
       desc: "L'appétit pour le risque des dernières semaines.",
       // Le serveur accepte déjà 7 à 366 jours (/api/risk-history) : la fenêtre était figée à 60 côté widget.
       opts: [{ k: 'jours', lbl: 'Fenêtre', type: 'choix', def: '60',
@@ -1415,7 +1437,8 @@
       },
     },
     {
-      id: 'calendrier-jour', name: 'Calendrier économique', cat: 'Macro', h: 300,
+      id: 'calendrier-jour', name: 'Calendrier économique',
+      maj: 60 * 1000,   // les valeurs reelles se remplissent au fil des publications : c'est la ou l'immobilite se voit le plus, cat: 'Macro', h: 300,
       desc: 'Les prochaines publications, heure de Paris.',
       aide: "<p>Les publications du jour avec leur importance, la valeur attendue et, une fois publiée, la valeur réelle. La colonne à surveiller n'est pas le chiffre mais son <strong>écart au consensus</strong> : c'est la surprise qui déplace un marché, pas le niveau.</p><p>Les points d'impact indiquent la capacité historique de la publication à faire bouger les prix. Un événement à trois points sans surprise fait souvent moins qu'un événement à deux points très au-dessus des attentes.</p>",
       // MÊME DOM ET MÊME HABILLAGE que le desk (renderCalTable, charts.js) : classes `cal-table`/`cth-*`,
@@ -1815,7 +1838,8 @@
       },
     },
     {
-      id: 'taux-cb', name: 'Taux directeurs', cat: 'Macro', h: 320,
+      id: 'taux-cb', name: 'Taux directeurs',
+      maj: 5 * 60 * 1000,   // la source des probabilites bouge a l'heure, pas a la seconde, cat: 'Macro', h: 320,
       desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
       aide: "<p>Le taux directeur en vigueur pour chaque banque, avec ce que le marché price pour la prochaine réunion. La probabilité affichée ne dit pas ce qui va arriver : elle dit ce qui est <strong>déjà dans les prix</strong>.</p><p>C'est cette distinction qui rend la donnée exploitable. Une hausse annoncée et pricée à 90 % ne fera pas bouger la devise ; c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p>",
       // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
@@ -1971,7 +1995,8 @@
       },
     },
     {
-      id: 'cot-inst', name: 'Positionnement COT', tag: 'COT', cat: 'Risque', h: 340,
+      id: 'cot-inst', name: 'Positionnement COT',
+      maj: 30 * 60 * 1000,   // le COT est hebdomadaire : ce rythme sert a se reparer, pas a rafraichir, tag: 'COT', cat: 'Risque', h: 340,
       desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
       aide: "<p>Le positionnement déclaré des grands intervenants sur les contrats à terme, publié chaque semaine avec plusieurs jours de décalage. C'est une photographie du <strong>passé récent</strong>, jamais un signal d'entrée.</p><p>Sa valeur est dans les extrêmes et dans les inflexions : un positionnement très étiré d'un côté signale une asymétrie, un retournement de tendance dans les positions signale souvent un changement de régime avant les prix.</p>",
       // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
@@ -2755,7 +2780,8 @@
     },
 
     {
-      id: 'serie-indicateur', name: 'Série d\'un indicateur', tag: 'MACRO', cat: 'Macro', h: 300,
+      id: 'serie-indicateur', name: 'Série d\'un indicateur',
+      maj: 5 * 60 * 1000,   // une publication peut tomber pendant que la carte est ouverte, tag: 'MACRO', cat: 'Macro', h: 300,
       desc: 'Les dernières publications d\'un indicateur, en barres, avec la surprise contre la prévision.',
       /* ⚠️ LA SOURCE N EST PAS CELLE QU ON CROIT. /api/event-history existe, mais il compare les
          titres BRUTS alors que /api/calendar-events sert des titres RENOMMES : la reponse revient
@@ -3068,7 +3094,8 @@
     },
 
     {
-      id: 'saison-courbe', name: 'Courbe saisonnière', tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
+      id: 'saison-courbe', name: 'Courbe saisonnière',
+      maj: 30 * 60 * 1000,   // donnee historique : le rythme sert a se reparer, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
       /* Complement du widget « Saisonnalite » (table de chiffres) : celui-ci DESSINE la meme donnee.
          ⚠️ DEUX PIEGES QUE L ON AFFICHE AU LIEU DE LES CACHER :
@@ -3513,7 +3540,8 @@
       },
     },
     {
-      id: 'saison', name: 'Saisonnalité', tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
+      id: 'saison', name: 'Saisonnalité',
+      maj: 30 * 60 * 1000,   // donnee historique : le rythme sert a se reparer, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
       desc: "La table de performance mensuelle par année (rendements × 5 ans).",
       // IDENTIQUE AU DESK (23/07) : même table heatmap .season-table (cellules rendues par le MÊME
       // _seasonCell global de charts.js — vert/rouge ∝ |valeur|, flèches, colonne Moy.), même badge
@@ -5136,11 +5164,57 @@
       lay.items.forEach(function (it, idx) {
         var w = byId(it.w), body = document.getElementById(HOST_ID + '-b' + idx);
         if (!w || !body || body._wdgClean) return;            // _wdgClean : déjà monté par refresh() entre-temps
-        try { var un = w.mount(body, it); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } }   // it = config d'item (Panneau à onglets lit it.tabs)
+        try {
+          var un = w.mount(body, it);                        // it = config d'item (Panneau à onglets lit it.tabs)
+          var maj = _majAuto(w, body, it, un);                // widget déclarant `maj` → remontage périodique
+          if (typeof maj === 'function') { STATE.mounted.push(maj); body._wdgClean = maj; }
+          else if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; }
+        }
         catch (e) { fallback(body, 'Widget indisponible.'); }
       });
     });
   }
+/* ═══ MISE A JOUR PERIODIQUE D'UNE CARTE (21/08) ═══════════════════════════════════════════════
+   Mesure faite AVANT d'ecrire : 22 widgets sur 34 se mettaient deja a jour, par leur propre
+   minuteur, par le helper de bougies ou par un evenement du desk. Douze ne le faisaient jamais.
+   Trois n'en ont pas besoin (Notes, Calculatrice, Panneau a onglets : leur contenu vient de vous).
+   Deux delegent a un moteur du desk. Restaient SEPT cartes qui, une fois affichees, ne changeaient
+   plus jusqu'au rechargement de la page.
+
+   ⚠️ LE VRAI ENJEU N'EST PAS LA FRAICHEUR, C'EST L'AUTO-REPARATION. Sur des donnees lentes
+   (saisonnalite, COT hebdomadaire) une carte figee ne ment pas beaucoup. Mais si le PREMIER
+   chargement echoue, faute d'une source momentanement muette, la carte reste en erreur POUR
+   TOUJOURS. C'est exactement le defaut signale le 19/08 sur les cartes a bougies (« Bougies
+   indisponibles » de facon definitive), corrige la par un reessai et un rafraichissement.
+
+   ⚠️ IMPLEMENTATION CENTRALE, PAS SEPT RETOUCHES. Chaque widget declare `maj` en millisecondes ;
+   le montage s'occupe du reste. Sept modifications eparpillees dans sept mille lignes auraient
+   diverge a la premiere evolution, et rien n'aurait signale l'oubli du huitieme widget.
+
+   ⚠️ ON NE REMONTE PAS UNE CARTE INVISIBLE : onglet en arriere-plan, carte hors ecran, element
+   retire du document. Rafraichir ce que personne ne regarde depense du reseau et du quota sans
+   rien apporter, et c'est precisement ce qui a coute un incident d'egress a ce projet. */
+  function _majAuto(w, body, it, un) {
+    var ms = w && w.maj;
+    if (!ms || typeof w.mount !== 'function') return null;
+    var mort = false, courant = un;
+    var iv = setInterval(function () {
+      if (mort || !body || !body.isConnected || document.hidden) return;
+      try {
+        var b = body.getBoundingClientRect();
+        if (b.width < 2 || b.bottom < -200 || b.top > (window.innerHeight || 0) + 200) return;
+      } catch (e) {}
+      try { if (typeof courant === 'function') courant(); } catch (e) {}
+      courant = null;
+      try { courant = w.mount(body, it); } catch (e) { /* la carte garde son dernier etat */ }
+    }, ms);
+    return function () {
+      mort = true;
+      try { clearInterval(iv); } catch (e) {}
+      try { if (typeof courant === 'function') courant(); } catch (e) {}
+    };
+  }
+
   function layoutById(id) {
     var c = STATE.cfg; if (!c) return null;
     for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === id) return c.layouts[i];
