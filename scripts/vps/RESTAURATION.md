@@ -173,22 +173,47 @@ Chiffres mesurés sur cette installation, pas une estimation de principe.
 | Déchiffrer l’archive | quelques secondes | 612 Ko |
 | Cloner le dépôt | **quelques secondes** | 38 Mo en `--depth 1` (1 070 Mo sans) |
 | Copier config + données | quelques secondes | |
-| **Construire l’image Docker** | **8-20 min** | ⚠️ **LE goulot** : l’image installe Chromium et une vingtaine de bibliothèques système, sans aucun cache sur une machine neuve |
+| **Mettre l’image en place** | **2-5 min** *si l’ancien serveur vit* | `dtp-migrer.sh` la lui **transfère** telle quelle (`docker save` → `docker load`, de machine à machine) |
+| ↳ *à défaut, la construire* | 8-20 min | ⚠️ **LE goulot** quand le transfert n’est pas possible : l’image installe Chromium et une vingtaine de bibliothèques système, sans aucun cache |
 | Démarrage jusqu’à la santé réelle | 1-2 min | scrapers, session Yahoo, Puppeteer |
 | DNS si l’IP change | minutes à heures | **hors de tout contrôle** |
 
-**Total réaliste : 20 à 45 minutes**, dominé par la construction de l’image.
-Pas « quelques minutes ».
+**Total réaliste :**
 
-### Pour descendre à quelques minutes
+- **10 à 20 minutes** quand l’ancien serveur répond encore — le cas d’une migration *choisie*.
+  L’image n’est pas reconstruite, elle est reprise telle quelle.
+- **20 à 45 minutes** quand l’ancien serveur est mort — le cas d’une migration *subie*.
+  Il faut alors reconstruire, et c’est irréductible.
 
-Le seul vrai levier est de **ne plus construire l’image sur le serveur** : la publier une fois
-dans un registre (GitHub Container Registry, gratuit pour un dépôt privé) et la faire *tirer*
-par la nouvelle machine. Les 8-20 minutes de construction deviennent 1-2 minutes de
-téléchargement.
+Dans les deux cas, hors provisionnement de la machine et hors DNS, qui ne dépendent de personne
+ici. Ce n’est pas « quelques instants » : le dire serait promettre ce qu’on ne peut pas tenir un
+jour de panne.
 
-Cela demande deux choses, non faites aujourd’hui : un workflow qui publie l’image à chaque
-commit sur `main`, et un `docker-compose.yml` qui référence `image:` au lieu de `build: .`.
+### Comment le transfert d’image est décidé
+
+C’est automatique, mais **conditionné** : `dtp-migrer.sh` ne reprend l’image de l’ancien serveur
+que si les trois conditions suivantes sont vraies, chacune vérifiée et non supposée.
+
+1. **L’ancien serveur joint le nouveau en SSH.** Le transfert va de machine à machine. Le faire
+   transiter par le poste d’administration lui ferait *téléverser* près d’un gigaoctet — et une
+   liaison domestique téléverse bien plus lentement qu’elle ne reçoit.
+2. **Les deux sont au même commit.** Le `Dockerfile` copie les sources *dans* l’image : une image
+   plus ancienne ferait tourner du vieux code en donnant l’illusion d’avoir migré, et la
+   prochaine mise à jour reconstruirait de toute façon.
+3. **L’image existe bien** sur l’ancien serveur.
+
+Si l’une manque, le script le dit et construit. Un raccourci qu’on ne peut pas vérifier n’en
+est pas un.
+
+### Pour descendre plus bas encore
+
+Il resterait à publier l’image dans un registre (GitHub Container Registry, gratuit sur dépôt
+privé) : la machine neuve la *tirerait* même si l’ancienne est morte — soit le seul cas que le
+transfert direct ne couvre pas.
+
+⚠️ Cela demande **un jeton d’accès en lecture** à créer côté GitHub, puis à déposer dans le
+`.env`. C’est votre geste, pas le mien : je ne crée pas d’identifiants. Tant qu’il n’existe pas,
+la migration *subie* passe par la construction, et c’est un compromis assumé — pas un oubli.
 
 ### ⚠️ Cette procédure n’a jamais été exécutée en entier
 

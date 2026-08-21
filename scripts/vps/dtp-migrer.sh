@@ -147,8 +147,55 @@ sshc "$CIBLE" 'test -s /opt/datatradingpro/data/app/cache_email_log.json' \
   || ko "cache_email_log.json manquant : refus de démarrer, le serveur réexpédierait les campagnes."
 
 # ── 7. DEMARRER ET ATTENDRE LA SANTE REELLE ──────────────────────────────────────────────────
-etape "7. Construire et démarrer (l'étape longue : ~8 à 20 min)"
-sshc "$CIBLE" 'cd /opt/datatradingpro && docker compose up -d --build 2>&1 | tail -4' 2>&1 | sed 's/^/    /'
+etape "7. Mettre l'image en place, puis démarrer"
+# ⚠️ C'EST ICI QUE SE JOUE LE TEMPS TOTAL DE LA MIGRATION.
+# Construire l'image sur une machine neuve prend 8 a 20 min : elle installe Chromium et une
+# vingtaine de bibliotheques systeme, sans aucun cache. Or l'ancien serveur porte DEJA cette
+# image construite. On la lui prend telle quelle — quelques minutes de transfert au lieu de
+# vingt minutes de construction — et on ne construit QUE si ce chemin n'est pas praticable.
+#
+# Trois conditions, VERIFIEES et non supposees :
+#   a) l'ancien serveur joint le nouveau en SSH. Le transfert va de machine a machine, JAMAIS
+#      via la machine d'administration : y faire transiter ~1 Go la ferait TELEVERSER autant,
+#      et une liaison domestique televerse bien plus lentement qu elle ne recoit ;
+#   b) son code est au MEME commit que celui qu'on vient de cloner. Sinon l'image contient une
+#      version plus ancienne (le Dockerfile y copie les sources) : on ferait tourner du vieux
+#      code en croyant migrer, et la prochaine mise a jour reconstruirait de toute facon ;
+#   c) l'image existe vraiment sur l'ancien serveur.
+# Si l'une manque, on construit. Un raccourci qu'on ne peut pas verifier n'en est pas un.
+IMG="datatradingpro:actuel"
+TRANSFERE=non
+SSHINT="ssh -i /root/.ssh/dtp_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+if sshc "$ANCIEN" true 2>/dev/null; then
+  CIMG=$(sshc "$ANCIEN" 'cd /opt/datatradingpro && git rev-parse --short HEAD' 2>/dev/null)
+  AIMG=$(sshc "$ANCIEN" "docker image inspect $IMG >/dev/null 2>&1 && echo oui || echo non")
+  PONT=$(sshc "$ANCIEN" "$SSHINT -o ConnectTimeout=15 root@$CIBLE true 2>/dev/null && echo oui || echo non")
+  if [ "$CIMG" = "$COMMIT" ] && [ "$AIMG" = "oui" ] && [ "$PONT" = "oui" ]; then
+    info "image déjà construite sur l'ancien serveur, au même commit ($COMMIT) : on la transfère"
+    T0=$(date +%s)
+    sshc "$ANCIEN" "docker save $IMG | gzip -1 | $SSHINT root@$CIBLE 'gunzip | docker load'" 2>&1 | tail -2 | sed 's/^/    /'
+    if sshc "$CIBLE" "docker image inspect $IMG >/dev/null 2>&1"; then
+      TRANSFERE=oui
+      ok "image transférée et chargée en $(( $(date +%s) - T0 )) s — construction évitée"
+    else
+      info "le transfert n'a pas abouti : on construit (plus long, pas plus risqué)"
+    fi
+  else
+    [ "$CIMG" != "$COMMIT" ] && info "ancien serveur au commit $CIMG, cible au commit $COMMIT : image écartée, on construit"
+    [ "$AIMG" != "oui" ]     && info "pas d'image $IMG sur l'ancien serveur : on construit"
+    [ "$PONT" != "oui" ]     && info "l'ancien serveur ne joint pas la cible en SSH : on construit"
+  fi
+else
+  info "ancien serveur injoignable : on construit l'image sur place"
+fi
+
+if [ "$TRANSFERE" = "oui" ]; then
+  # --no-build : interdit toute reconstruction silencieuse de l'image qu'on vient de transferer.
+  sshc "$CIBLE" 'cd /opt/datatradingpro && docker compose up -d --no-build 2>&1 | tail -4' 2>&1 | sed 's/^/    /'
+else
+  info "construction de l'image sur la cible : compter 8 à 20 min"
+  sshc "$CIBLE" 'cd /opt/datatradingpro && docker compose up -d --build 2>&1 | tail -4' 2>&1 | sed 's/^/    /'
+fi
 info "attente de la santé réelle (pas du simple démarrage)…"
 SANTE=inconnue
 for _ in $(seq 1 120); do

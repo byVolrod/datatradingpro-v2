@@ -5,6 +5,11 @@
 services:
   datatradingpro:
     build: .
+    # ⚠️ NOM D'IMAGE EXPLICITE — sans lui, Compose forge un nom derive du dossier, imprevisible
+    # d'une machine a l'autre. Le nom fixe rend l'image TRANSFERABLE : lors d'une migration on
+    # peut l'envoyer telle quelle a la nouvelle machine (docker save/load) au lieu de la
+    # reconstruire. Mesure : 8 a 20 min de construction contre quelques minutes de transfert.
+    image: datatradingpro:actuel
     container_name: datatradingpro
     # Nettoie les verrous Chromium périmés (de l'ancien conteneur) AVANT de lancer le serveur
     # → puppeteer (FF-News, FJ, myfxbook) relance correctement après chaque redéploiement/redémarrage.
