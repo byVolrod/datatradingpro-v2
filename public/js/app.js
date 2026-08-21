@@ -5512,7 +5512,7 @@ function renderBiasView(d) {
   // user : « j'veux un ouvrir comme ceci puis les infos s'affichent » façon grille macro Notion, panneau sous le tableau).
   host.classList.remove('has-detail');
   host.innerHTML = `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`
-    + `<div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>`
+    + `<div class="sbm-vsplit" id="sbm-vsplit" onpointerdown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>`
     + `<div class="sbm-summary-host" id="sbm-summary"></div>`;
   if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> tableau)
   _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);   // historique de semaines dans l'en-tête
@@ -5543,10 +5543,26 @@ function _sbVSplitStart(e) {
   e.preventDefault();
   const zone = document.getElementById('sbm-matrix-zone'); if (!zone) return;
   const startY = e.clientY, startH = zone.offsetHeight;
+  /* ⚠️ EVENEMENTS DE POINTEUR, PAS DE SOURIS. Changer le seul « onpointerdown » du balisage ne
+     suffirait pas : le glissement demarrerait sans jamais se poursuivre, puisque le suivi ecoutait
+     « mousemove ». Au doigt, la poignee affichait donc une invitation a tirer... qui ne repondait
+     pas. Les evenements de pointeur couvrent souris, doigt et stylet d'un seul jeu.
+     setPointerCapture : le doigt sort tres vite de la poignee de 1 px ; sans capture, le
+     glissement s'interrompt des le premier pixel. « pointercancel » est indispensable aussi :
+     le navigateur peut reprendre le geste pour faire defiler, et sans cette sortie on laisserait
+     le curseur et la selection bloques. */
+  try { if (e.currentTarget && e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
   document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none';
   const onMove = ev => { let h = startH + (ev.clientY - startY); h = Math.max(120, Math.min(760, h)); _sbMatrixH = h; zone.style.height = h + 'px'; };
-  const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); document.body.style.cursor = ''; document.body.style.userSelect = ''; };
-  window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    document.body.style.cursor = ''; document.body.style.userSelect = '';
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 window._sbVSplitStart = _sbVSplitStart;
 // Dropdown devise CUSTOM (drapeau rond + code + caret ; popover "Scanner" ; actif = orange, hover = clair).

@@ -3311,6 +3311,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Splitter horizontal = même logique que le resizer News : 1px neutre, orange au survol/drag, collé (zéro vide) */
 .sbm-vsplit { height: 1px; background: var(--border); cursor: row-resize; margin: 0; position: relative; }
 .sbm-vsplit::after { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }   /* zone grabbable */
+/* Au doigt, 1 px de trait et 12 px de zone ne suffisent pas : la poignee invite a tirer et ne
+   repond pas. On epaissit la ZONE (pas le trait) et on prend la main sur le geste, sinon le
+   navigateur reclame le defilement et annule le glissement en cours. */
+@media (hover: none), (pointer: coarse) {
+  .sbm-vsplit { touch-action: none; }
+  .sbm-vsplit::after { top: -14px; bottom: -14px; }
+}
 .sbm-vsplit:hover, body.is-resizing-v .sbm-vsplit { background: rgba(227,178,58,0.72); }
 .sbm-vsplit:hover { background: #e3b23a; box-shadow: 0 0 8px rgba(227,178,58,.45); }
 /* Dropdown devise CUSTOM (drapeau rond + code + caret ; popover "Scanner") */
@@ -3609,6 +3616,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .bank-row--active:hover { background: rgba(227,178,58,0.14); }
 .bank-row td { padding: 9px 14px; color: var(--text2); white-space: nowrap; vertical-align: middle; }
 .bank-name { color: var(--text) !important; font-weight: var(--fw-semibold); }
+/* ⚠️ COLONNE D'IDENTITE FIGEE SUR TELEPHONE. Sans elle, faire defiler le tableau vers la droite
+   fait sortir le nom de la banque de l'ecran : on lit des chiffres sans savoir de qui ils sont.
+   Meme regle que la colonne « Devise » du Radar de Biais. Les fonds sont OPAQUES, sinon le
+   contenu qui defile dessous transparait a travers. */
+@media (max-width: 560px) {
+  .bank-table th.bank-th-exp, .bank-table td.bank-exp { position: sticky; left: 0; z-index: 2; background: var(--bg); }
+  .bank-table thead th:nth-child(2), .bank-table td.bank-name { position: sticky; left: 26px; z-index: 2; background: var(--bg); }
+  .bank-table thead th.bank-th-exp, .bank-table thead th:nth-child(2) { z-index: 3; }
+  .bank-row--active td.bank-exp, .bank-row--active td.bank-name { background: #16130c; }
+}
 .bank-pair { font-family: var(--font-mono); color: var(--text) !important; }
 .bank-date { color: var(--text2) !important; font-family: var(--font-mono); }
 .bank-exp { width: 26px; text-align: center; color: var(--text3); }
@@ -13099,6 +13116,16 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    viennent de la nav du desk. On ne déclare ici que la répartition gauche/droite et l'étirement
    vertical des deux zones, pour que les onglets et « Personnaliser » occupent toute la hauteur. */
 .wdg-bar { justify-content: space-between; padding-right: 10px; }
+/* ⚠️ LA BARRE « MON DESK » SE REPLIE SUR TELEPHONE. Mesure : la moitie de la barre restait vide
+   pendant que les onglets de disposition etaient coupes et que le « + » sortait de l'ecran — la
+   place existait, elle etait juste du mauvais cote. En repliant, la rangee des dispositions
+   recupere toute la largeur. On ne se sert PAS de :empty pour detecter le groupe de droite : il
+   contient un commentaire HTML et des retours a la ligne, donc :empty ne matche jamais. */
+@media (max-width: 560px) {
+  #view-widgets .wdg-bar { flex-wrap: wrap; height: auto; min-height: var(--navbar-h, 40px); }
+  #view-widgets .wdg-bar > .panel-header-left { flex: 1 1 100%; min-width: 0; }
+  #view-widgets .wdg-bar > .panel-header-controls { flex: 0 0 auto; }
+}
 .wdg-bar > .panel-header-left, .wdg-bar > .panel-header-controls { align-self: stretch; align-items: stretch; }
 /* min-width:0 comme la nav : sur un écran étroit, beaucoup de layouts doivent RÉTRACTER la zone
    d'onglets, pas repousser « Personnaliser » hors du bandeau. */

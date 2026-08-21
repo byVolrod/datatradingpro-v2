@@ -5096,6 +5096,11 @@ window._retryCalendar = function() {
       if (x) x.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); closeSymbol(); });
     }
     if (window.activateView) window.activateView('symbol');
+    /* ⚠️ AMENER L'ONGLET DANS LE CHAMP. Sur telephone la barre deborde largement (734 px de
+       contenu pour 433 visibles a 390 px) : un onglet cree en 10e position naissait HORS ECRAN.
+       La vue basculait, mais la barre montrait encore les premiers onglets — on ne savait ni ou
+       l'on etait, ni comment fermer la paire. Le navigateur ne fait pas ce defilement seul. */
+    try { if (tab && tab.scrollIntoView) tab.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); } catch (_) {}
   }
   window.openSymbol = openSymbol;
 
