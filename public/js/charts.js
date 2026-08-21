@@ -934,9 +934,14 @@ function buildStrengthChart(containerId, data, opts = {}) {
     am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0.07, extraMax: 0.07 })
   );
 
-  // Zero reference line : gris clair UNI (distincte de la grille pointillée)
+  // Zero reference line : gris clair UNI (c'est désormais la SEULE horizontale du graphique)
   const zeroRange = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
-  zeroRange.get('grid').setAll({ stroke: am5.color(0xffffff), strokeWidth: 1, strokeOpacity: 0.45 });
+  // ⚠️ `visible: true` EXPLICITE, et ce n'est pas une precaution decorative : la grille d'une plage
+  // d'axe est fabriquee A PARTIR du gabarit `yAxisRenderer.grid.template`, que l'on vient de passer
+  // en `visible: false` pour supprimer le quadrillage. Sans ce rappel, le zero heriterait de
+  // l'invisibilite du gabarit et disparaitrait avec lui : on perdrait la seule reference qui porte
+  // du sens sur ce graphique, en croyant n'avoir enleve qu'une grille.
+  zeroRange.get('grid').setAll({ visible: true, forceHidden: false, stroke: am5.color(0xffffff), strokeWidth: 1, strokeOpacity: 0.45 });
   zeroRange.get('label').set('visible', false);
 
   const seriesArr = [];
