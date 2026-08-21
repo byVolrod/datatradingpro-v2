@@ -46,21 +46,49 @@ mkdir -p "$DEST"
 echo "══ Rapatriement des sauvegardes ══"
 ssh "${SSHOPT[@]}" "root@$SERVEUR" true 2>/dev/null || ko "serveur injoignable ($SERVEUR)"
 
-DISTANTES=$(ssh "${SSHOPT[@]}" "root@$SERVEUR" 'ls -1 /root/sauvegardes/dtp-*.tar.gz.gpg 2>/dev/null' || true)
+# On separe « le dossier est vide » de « la commande a echoue » : annoncer « aucune sauvegarde »
+# quand on n'a pas pu regarder enverrait l'operateur en produire une alors qu'elles existent.
+DISTANTES=$(ssh "${SSHOPT[@]}" "root@$SERVEUR" 'ls -d /root/sauvegardes >/dev/null 2>&1 && ls -1 /root/sauvegardes/dtp-*.tar.gz.gpg 2>/dev/null; echo "__FIN__:$?"')
+printf '%s\n' "$DISTANTES" | grep -q '__FIN__:' || ko "impossible de lister les sauvegardes sur $SERVEUR (commande sans reponse) : ce n'est PAS la preuve qu'il n'y en a aucune."
+DISTANTES=$(printf '%s\n' "$DISTANTES" | grep -v '__FIN__:')
 [ -n "$DISTANTES" ] || ko "aucune sauvegarde sur le serveur : en produire une d'abord (dtp-sauvegarde.sh)"
 
 NEUVES=0
 while IFS= read -r d; do
   [ -n "$d" ] || continue
   n=$(basename "$d")
-  if [ -f "$DEST/$n" ]; then info "$n : déjà présente"; continue; fi
-  scp "${SSHOPT[@]}" "root@$SERVEUR:$d" "$DEST/" >/dev/null 2>&1 || { echo "  X $n : transfert échoué"; continue; }
-  # ⚠️ ON VERIFIE LA TAILLE APRES TRANSFERT. Un scp interrompu laisse un fichier TRONQUE, qui a
-  # l'air d'une sauvegarde et n'en est pas. Le decouvrir le jour de la panne serait le pire moment.
-  TD=$(ssh "${SSHOPT[@]}" "root@$SERVEUR" "stat -c%s '$d'")
-  TL=$(stat -c%s "$DEST/$n" 2>/dev/null || echo 0)
-  if [ "$TD" != "$TL" ]; then rm -f "$DEST/$n"; echo "  X $n : taille incohérente ($TL vs $TD), fichier supprimé"; continue; fi
-  ok "$n rapatriée ($(( TL / 1024 )) Ko, taille vérifiée)"
+  TD=$(ssh "${SSHOPT[@]}" "root@$SERVEUR" "stat -c%s '$d'" 2>/dev/null || echo '')
+  # ⚠️ TAILLE PORTABLE : `stat -c%s` est du GNU. Sur macOS/BSD il echoue, la taille locale valait 0,
+  # et le script supprimait CHAQUE archive qu'il venait de telecharger correctement.
+  taille() { stat -c%s "$1" 2>/dev/null || stat -f%z "$1" 2>/dev/null || echo ''; }
+  if [ -f "$DEST/$n" ]; then
+    # « Deja presente » ne suffit pas : un telechargement interrompu laisse un fichier partiel que
+    # cette condition faisait sauter POUR TOUJOURS, y compris sa verification de taille.
+    TL=$(taille "$DEST/$n")
+    if [ -n "$TD" ] && [ -n "$TL" ] && [ "$TD" != "$TL" ]; then
+      info "$n : presente mais INCOMPLETE ($TL au lieu de $TD) -> nouveau telechargement"
+      rm -f "$DEST/$n"
+    else
+      info "$n : déjà présente"; continue
+    fi
+  fi
+  # Telechargement ATOMIQUE : on ecrit a cote, on ne renomme qu'une fois la taille verifiee. Ainsi
+  # un scp coupe ne laisse jamais, sous son nom definitif, un fichier qui a l'air d'une sauvegarde.
+  scp "${SSHOPT[@]}" "root@$SERVEUR:$d" "$DEST/$n.partiel" >/dev/null 2>&1 || { rm -f "$DEST/$n.partiel"; echo "  X $n : transfert échoué"; continue; }
+  TL=$(taille "$DEST/$n.partiel")
+  if [ -z "$TD" ] || [ -z "$TL" ]; then
+    # Taille indeterminee : on GARDE le fichier et on le dit. Supprimer sur un doute, c'est detruire
+    # une sauvegarde valable parce qu'une commande de mesure a echoue.
+    mv -f "$DEST/$n.partiel" "$DEST/$n"
+    info "$n rapatriée, mais taille NON VERIFIEE (mesure indisponible) : a controler"
+  elif [ "$TD" != "$TL" ]; then
+    rm -f "$DEST/$n.partiel"
+    echo "  X $n : taille incohérente ($TL au lieu de $TD), telechargement partiel supprimé"
+    continue
+  else
+    mv -f "$DEST/$n.partiel" "$DEST/$n"
+    ok "$n rapatriée ($(( TL / 1024 )) Ko, taille vérifiée)"
+  fi
   NEUVES=$((NEUVES + 1))
 done <<< "$DISTANTES"
 

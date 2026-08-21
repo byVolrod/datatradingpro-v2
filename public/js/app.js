@@ -2706,29 +2706,64 @@ function _dataReleaseBullets(item) {
      livrés avec l'assurance d'une phrase générée. D'où le champ `sens` : +1 quand un chiffre élevé
      traduit une économie plus forte, -1 quand c'est l'inverse. Les familles trop ambiguës pour être
      tranchées ne sont tout simplement PAS commentées : mieux vaut se taire que se tromper. */
+  /* `repere` : EN UN COUP D'ŒIL, DE QUOI PARLE-T-ON. Demande user du 21/08, sur une capture où le
+     desk annonçait « un essoufflement de l'activité » pour un PMI à 53,2. C'est exact face aux
+     attentes, mais un lecteur qui ne connaît pas l'indicateur peut y lire une contraction, alors
+     qu'au-dessus de 50 l'activité progresse encore. La lecture face au consensus et la lecture en
+     valeur absolue sont deux choses différentes, et il fallait donner les deux. */
   const FAMILLES = [
-    { rx: /\bpmi\b/i,                                        sens: +1, fort: `une activité plus soutenue qu'anticipé`,                 faible: `un essoufflement de l'activité` },
-    { rx: /\bcpi\b|\bppi\b|inflation|price index/i,          sens: +1, fort: `des pressions sur les prix plus fortes qu'attendu, ce qui pousse la banque centrale vers plus de fermeté`, faible: `des pressions sur les prix plus faibles qu'attendu, ce qui lui laisse de la marge pour assouplir` },
+    { rx: /\bpmi\b/i,                                        sens: +1, fort: `une activité plus soutenue qu'anticipé`,                 faible: `un essoufflement de l'activité`,
+      repere: (v, aff) => `enquête mensuelle auprès des directeurs d'achat. Le seuil est <strong>50</strong> : au-dessus l'activité progresse, en dessous elle recule. À ${aff}, elle ${v > 50 ? `<strong>progresse encore</strong>` : (v < 50 ? `<strong>se contracte</strong>` : `est à l'arrêt`)}.` },
+    { rx: /\bcpi\b|\bppi\b|inflation|price index/i,          sens: +1, fort: `des pressions sur les prix plus fortes qu'attendu, ce qui pousse la banque centrale vers plus de fermeté`, faible: `des pressions sur les prix plus faibles qu'attendu, ce qui laisse à la banque centrale de la marge pour assouplir`,
+      repere: () => `mesure de la hausse des prix. C'est l'indicateur que la banque centrale surveille en premier pour décider de ses taux, d'où sa capacité à déplacer une devise.` },
     /* ⚠️ `sens: -1` : ici un chiffre PLUS HAUT est une MAUVAISE nouvelle (plus de chômeurs, plus
        d'inscriptions). Les libellés `fort`/`faible` décrivent l'état de l'ÉCONOMIE, jamais le sens
        de variation du chiffre. Je les avais d'abord écrits à l'envers, et le desk annonçait « un
        marché de l'emploi plus solide que prévu » sur une hausse des inscriptions au chômage. */
-    { rx: /jobless claims|unemployment (?:rate|claims)|ch[oô]mage/i, sens: -1, fort: `un marché de l'emploi plus solide que prévu`, faible: `un marché de l'emploi plus dégradé que prévu` },
-    { rx: /non[- ]farm|payrolls?\b|\bnfp\b|employment change|emploi/i, sens: +1, fort: `des créations d'emplois supérieures aux attentes`, faible: `des créations d'emplois décevantes` },
-    { rx: /retail sales|ventes au d[ée]tail/i,               sens: +1, fort: `une consommation des ménages plus vigoureuse qu'attendu`, faible: `une consommation des ménages plus molle qu'attendu` },
-    { rx: /\bgdp\b|gross domestic|\bpib\b/i,                 sens: +1, fort: `une croissance supérieure aux attentes`,                 faible: `une croissance inférieure aux attentes` },
-    { rx: /industrial production|manufacturing production|production industrielle/i, sens: +1, fort: `une production industrielle plus dynamique qu'attendu`, faible: `une production industrielle plus faible qu'attendu` },
-    { rx: /confidence|sentiment|\bzew\b|\bifo\b|\bsentix\b/i, sens: +1, fort: `un moral des acteurs meilleur qu'attendu`,               faible: `un moral des acteurs plus dégradé qu'attendu` },
-    { rx: /building permits|housing starts|home sales|mises en chantier/i, sens: +1, fort: `un marché immobilier plus actif qu'attendu`, faible: `un marché immobilier plus atone qu'attendu` },
+    { rx: /jobless claims|unemployment (?:rate|claims)|ch[oô]mage/i, sens: -1, fort: `un marché de l'emploi plus solide que prévu`, faible: `un marché de l'emploi plus dégradé que prévu`,
+      repere: () => `l'indicateur compte les personnes sans emploi ou nouvellement inscrites. Ici un chiffre qui <strong>monte</strong> est une mauvaise nouvelle, contrairement à la plupart des indicateurs.` },
+    { rx: /non[- ]farm|payrolls?\b|\bnfp\b|employment change|emploi/i, sens: +1, fort: `des créations d'emplois supérieures aux attentes`, faible: `des créations d'emplois décevantes`,
+      repere: () => `nombre d'emplois créés sur le mois. C'est la publication la plus suivie du calendrier : elle pèse directement sur les décisions de la banque centrale.` },
+    { rx: /retail sales|ventes au d[ée]tail/i,               sens: +1, fort: `une consommation des ménages plus vigoureuse qu'attendu`, faible: `une consommation des ménages plus molle qu'attendu`,
+      repere: () => `évolution des ventes du commerce de détail. C'est le reflet le plus direct de la consommation des ménages, qui porte l'essentiel de l'activité.` },
+    { rx: /\bgdp\b|gross domestic|\bpib\b/i,                 sens: +1, fort: `une croissance supérieure aux attentes`,                 faible: `une croissance inférieure aux attentes`,
+      repere: () => `la richesse produite sur la période : la mesure la plus large de la croissance, mais aussi la plus tardive.` },
+    { rx: /industrial production|manufacturing production|production industrielle/i, sens: +1, fort: `une production industrielle plus dynamique qu'attendu`, faible: `une production industrielle plus faible qu'attendu`,
+      repere: () => `volume réellement produit par l'industrie sur le mois : une lecture concrète de l'activité, après les enquêtes d'opinion.` },
+    { rx: /confidence|sentiment|\bzew\b|\bifo\b|\bsentix\b/i, sens: +1, fort: `un moral des acteurs meilleur qu'attendu`,               faible: `un moral des acteurs plus dégradé qu'attendu`,
+      repere: () => `enquête d'opinion auprès des entreprises ou des investisseurs. Elle <strong>anticipe</strong> l'activité plutôt qu'elle ne la constate : c'est un signal avancé, pas une mesure.` },
+    { rx: /building permits|housing starts|home sales|mises en chantier/i, sens: +1, fort: `un marché immobilier plus actif qu'attendu`, faible: `un marché immobilier plus atone qu'attendu`,
+      repere: () => `permis accordés et chantiers lancés. Ils annoncent l'activité du bâtiment des mois suivants, et réagissent vite aux taux d'intérêt.` },
   ];
-  if (forecast !== null && actual !== forecast) {
-    const fam = FAMILLES.find(f => f.rx.test(h));
-    if (fam) {
-      const auDessus = actual > forecast;
-      // « robuste » = la surprise va dans le sens d'une économie plus forte, quel que soit le signe.
-      const robuste = fam.sens > 0 ? auDessus : !auDessus;
-      bullets.push(`Ce que ça dit : ${robuste ? fam.fort : fam.faible}.`);
-    }
+  /* La devise concernée, déduite du pays cité dans le titre. Elle sert à donner au lecteur du desk
+     la seule chose qui l'intéresse vraiment après le chiffre : dans quel sens ça pousse. */
+  const PAYS = [
+    [/\b(us|u\.s\.|united states|american)\b/i, 'USD'], [/\b(canadian|canada)\b/i, 'CAD'],
+    [/\b(uk|british|britain|united kingdom)\b/i, 'GBP'], [/\b(euro ?zone|ez|german|germany|french|france|italian|spanish|emu)\b/i, 'EUR'],
+    [/\b(japan|japanese)\b/i, 'JPY'], [/\b(australian|australia)\b/i, 'AUD'],
+    [/\b(swiss|switzerland)\b/i, 'CHF'], [/\b(new zealand|nz)\b/i, 'NZD'],
+  ];
+  const devise = (PAYS.find(p => p[0].test(h)) || [null, null])[1];
+
+  const fam = FAMILLES.find(f => f.rx.test(h));
+  if (forecast !== null && actual !== forecast && fam) {
+    const auDessus = actual > forecast;
+    // « robuste » = la surprise va dans le sens d'une économie plus forte, quel que soit le signe.
+    const robuste = fam.sens > 0 ? auDessus : !auDessus;
+    /* Le sens pour la devise. On l'énonce comme un MÉCANISME, pas comme une consigne : une surprise
+       de croissance ou d'inflation déplace les anticipations de taux, et c'est par là qu'elle
+       touche la devise. « Toutes choses égales par ailleurs » n'est pas une précaution de style :
+       une donnée ne fixe jamais un cours à elle seule, et un desk qui l'oublie se fait rattraper
+       par le premier titre géopolitique venu. */
+    // « l'EUR » et non « le EUR » : le desk est en francais, l elision se fait sur la voyelle.
+    const _art = /^[AEIOU]/.test(devise || '') ? "l'" + devise : 'le ' + devise;
+    const sensDevise = devise ? ` Toutes choses égales par ailleurs, cela <strong>${robuste ? 'soutient' : 'pèse sur'}</strong> ${_art}, par les anticipations de taux.` : '';
+    bullets.push(`Ce que ça dit : ${robuste ? fam.fort : fam.faible}.${sensDevise}`);
+  }
+
+  // 4) De quoi parle-t-on, pour qui ne suit pas cet indicateur toutes les semaines.
+  if (fam && typeof fam.repere === 'function') {
+    bullets.push(`Repère : ${fam.repere(actual, aFmt)}`);
   }
 
   return bullets.slice(0, 4);
@@ -3627,7 +3662,17 @@ function buildNewsItem(item) {
     const _expl = _paireDuTitre();
     if (_expl) return _expl;
     if (_SUJET_HORS_FX.test(String(item.headline || ''))) return null;
-    if (_CAT_RECIT.indexOf(String(item.category || '')) >= 0) return null;
+    /* ⚠️ UN CHIFFRE PUBLIÉ N'EST PAS UN RÉCIT, quelle que soit la catégorie où la source l'a rangé.
+       Mesuré sur « US S&P Manufacturing PMI Flash Actual 53.2 (Forecast 53.9, Previous 53.9) » :
+       la source la classe en « Economic Commentary », qui figure dans _CAT_RECIT, et la déduction
+       s'arrêtait donc ici. Le lecteur voyait un tag « US » — un pays, qui ne mène nulle part — au
+       lieu de la devise concernée, seule à ouvrir la réaction du marché.
+       Le veto de catégorie garde son sens pour les commentaires : il vise les titres au sujet flou.
+       Or « Actual / Forecast / Previous » n'est pas un sujet flou, c'est une signature de
+       publication. Même raisonnement que pour une paire nommée : quand le titre déclare son objet,
+       il n'y a plus rien à deviner, et c'est la déduction qu'il faut protéger, pas bloquer. */
+    const _chiffrePublie = _SIG_PUBLICATION.test(String(item.headline || ''));
+    if (!_chiffrePublie && _CAT_RECIT.indexOf(String(item.category || '')) >= 0) return null;
     if (_SUJET_DEVISE.test(String(item.headline || ''))) return null;
     if (_ANNONCE_A_VENIR.test(String(item.headline || ''))) return null;
     if (_CHRONIQUE.test(String(item.headline || ''))) return null;
@@ -3683,9 +3728,24 @@ function buildNewsItem(item) {
     t.innerHTML = _drapImg(_SBR_ISO[cc[0]] || '') + _drapImg(_SBR_ISO[cc[1]] || '') + paire.replace('/', '');
     t.onclick = e => { e.stopPropagation(); _pairActive = paire; marcheTagEl = t; openPanel('marche'); };
   };
+  /* ── UN TAG, UNE FONCTION (21/08, demande user) ────────────────────────────────────────────
+     Sur « US S&P Manufacturing PMI Flash Actual 53.2 », le desk affichait « US » : un tag de PAYS,
+     qui ne mène nulle part. Le tag utile est la DEVISE, parce qu'elle est cliquable et ouvre la
+     réaction du marché. Les deux côte à côte disent la même chose, dont une seule fois utilement.
+     On efface donc le tag de pays QUAND, ET SEULEMENT QUAND, le tag de devise correspondant sera
+     réellement posé : on reproduit ici les gardes exactes de `_marcheDepuisTag`, faute de quoi on
+     supprimerait l'information du pays sans rien mettre à la place. */
+  const _devPrevue = (function () {
+    if (item._pair || !expandEl) return null;
+    const d = (_paireDuTitre() || isRed || _SIG_PUBLICATION.test(String(item.headline || '')))
+      ? _deviseDeLaNews() : null;
+    return (d && _PAIR_DE_DEVISE[d]) ? d : null;
+  })();
+  const _paysDejaDitParLaDevise = (tag) => !!_devPrevue && _DEV_PAYS[tag] === _devPrevue;
+
   for (const tag of (_capRapport ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
-    if (_tagPaysRedondant(tag)) continue;
+    if (_tagPaysRedondant(tag) || _paysDejaDitParLaDevise(tag)) continue;
     if (_HIDDEN_TAGS.has(tag)) continue;
     if (tag === 'FX' && item.category === 'FX Flows') continue;   // redondant : la catégorie « Flux FX » est déjà affichée à gauche (demande user)
     if (tag === 'Rates' && !_ratesGuard.test(_hl)) continue;
@@ -3707,7 +3767,7 @@ function buildNewsItem(item) {
     // Un tag banni qui arrivait par la DÉDUCTION passait donc au travers — c'est pourquoi
     // « Données » restait affiché après avoir été ajouté à la liste des tags masqués.
     if (_HIDDEN_TAGS.has(tag)) continue;
-    if (_isCatDup(tag) || shownTags.has(tag) || _tagPaysRedondant(tag)) continue;
+    if (_isCatDup(tag) || shownTags.has(tag) || _tagPaysRedondant(tag) || _paysDejaDitParLaDevise(tag)) continue;
     shownTags.add(tag);
     const t = document.createElement('span');
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
@@ -3732,14 +3792,20 @@ function buildNewsItem(item) {
     // Mesure qui tranche : nos propres [MARKET UPDATE] partent en priority:'normal' (server.js),
     // donc isRed y est faux — garder le verrou pour eux, c'est laisser la référence sans tag.
     const _nommee = _paireDuTitre();
-    const _dev = (_nommee || isRed) ? _deviseDeLaNews() : null;
+    /* TROISIÈME PORTE : une DONNÉE CHIFFRÉE publiée. Elle n'a pas à passer par le verrou « news
+       majeure », pour la même raison qu'une paire nommée : « Actual 53.2 (Forecast 53.9) » désigne
+       son sujet sans ambiguïté, et le pays qui le précède désigne la devise. Beaucoup de
+       publications arrivent en priorité normale : les soumettre au verrou revenait à laisser sans
+       tag exploitable exactement les news que le desk existe pour lire. */
+    const _chiffre = _SIG_PUBLICATION.test(String(item.headline || ''));
+    const _dev = (_nommee || isRed || _chiffre) ? _deviseDeLaNews() : null;
     if (_dev && _PAIR_DE_DEVISE[_dev]) {
       const t = document.createElement('span');
       t.className = 'tag tag--default';
       t.dataset.cat = _dev;
       // Le 3e argument est ce qui fait VRAIMENT entrer une paire nommée : sans lui, la fonction
       // ressortait sur son propre test isRed et le tag n'était jamais inséré dans le DOM.
-      _marcheDepuisTag(t, _dev, !!_nommee);
+      _marcheDepuisTag(t, _dev, !!_nommee || _chiffre);
       if (_pairePosee) _pairEl = t;
     }
   }

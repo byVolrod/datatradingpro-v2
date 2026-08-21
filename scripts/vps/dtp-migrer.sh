@@ -4,7 +4,7 @@
 #
 #  Se lance depuis la machine d'administration, PAS depuis un serveur.
 #
-#    DTP_BACKUP_PASS='…' ./dtp-migrer.sh <ip-du-nouveau-serveur> [--avec-dns]
+#    DTP_BACKUP_PASS='…' ./dtp-migrer.sh <ip-du-nouveau-serveur>
 #
 #  ⚠️ CE SCRIPT NE BASCULE PAS LE DNS. Il monte le nouveau serveur, le verifie de bout en bout,
 #  et S'ARRETE LA en affichant comment basculer. C'est deliberé : la bascule DNS est le seul geste
@@ -48,15 +48,17 @@ ok()    { echo "  v $*"; }
 ko()    { echo "  X $*"; exit 1; }
 info()  { echo "  · $*"; }
 
-[ -n "$CIBLE" ] || ko "usage : DTP_BACKUP_PASS='…' $0 <ip-du-nouveau-serveur> [--avec-dns]"
+[ -n "$CIBLE" ] || ko "usage : DTP_BACKUP_PASS='…' $0 <ip-du-nouveau-serveur>"
 # ⚠️ LA PHRASE SECRETE EST LUE PAR LE SCRIPT, JAMAIS TRANSMISE PAR QUI LANCE LA COMMANDE.
 # C'est ce qui permet de dire simplement « migre vers telle machine » : l'operateur n'a pas
 # a manipuler la phrase, ni a l'avoir sous les yeux, ni a la coller dans un terminal ou elle
 # resterait dans l'historique du shell. Elle vit dans un fichier a 600, hors du depot.
 PHRASE_FIC="${DTP_BACKUP_PASS_FILE:-$HOME/Documents/WEB/_sauvegarde-dtp/.phrase}"
 if [ -z "${DTP_BACKUP_PASS:-}" ] && [ -f "$PHRASE_FIC" ]; then
-  DTP_BACKUP_PASS=$(head -c 4096 "$PHRASE_FIC" | tr -d '
-')
+  # ⚠️ On retire AUSSI le retour chariot : un fichier cree sous Windows finit en CRLF, et un
+  # « \r » colle a la phrase la rend fausse. L'archive serait alors declaree « phrase erronee ou
+  # fichier corrompu » le jour de la panne, pour un caractere invisible.
+  DTP_BACKUP_PASS=$(head -c 4096 "$PHRASE_FIC" | tr -d '\r\n')
   export DTP_BACKUP_PASS
   info() { echo "  · $*"; }   # info() est defini plus bas, on l'avance pour ce message
   echo "  · phrase secrete lue depuis $PHRASE_FIC"
@@ -64,7 +66,27 @@ fi
 [ -n "${DTP_BACKUP_PASS:-}" ] || ko "aucune phrase secrete : ni DTP_BACKUP_PASS, ni $PHRASE_FIC. L'archive est chiffree, on ne peut pas l'ouvrir sans."
 [ -f "$CLE" ] || ko "cle SSH introuvable : $CLE"
 
+# Raccourci de connexion. ⚠️ DEFINI ICI, avant la garde ci-dessous : une fonction bash doit
+# exister AVANT son premier appel, et cette garde-la interroge les deux machines.
 sshc()  { ssh "${SSHOPT[@]}" "root@$1" "${@:2}"; }
+
+# ⚠️ ⚠️ LA GARDE LA PLUS IMPORTANTE DU SCRIPT. A l'etape 5, la cible recoit « rm -rf
+# /opt/datatradingpro » avant le clonage. Si l'IP saisie est celle de l'ANCIEN serveur (une faute
+# de frappe, un copier-coller de la mauvaise ligne, un DNS deja bascule), ce script EFFACE LA
+# PRODUCTION EN LIGNE, puis la remonte depuis une archive : au mieux une coupure, au pire la perte
+# de tout ce qui n'etait pas dans la sauvegarde. Une migration doit etre incapable de detruire ce
+# qu'elle est censee sauver.
+[ "$CIBLE" != "$ANCIEN" ] || ko "la cible est l'ANCIEN serveur ($ANCIEN). Ce script efface /opt/datatradingpro sur la cible : refus categorique."
+case "$CIBLE" in
+  localhost|127.0.0.1|::1|0.0.0.0) ko "cible « $CIBLE » : ce script s'execute depuis la machine d'administration, pas sur elle-meme." ;;
+esac
+# Meme machine derriere deux noms ? On compare l'identite SSH plutot que la chaine saisie.
+_EMPR_CIBLE=$(sshc "$CIBLE" 'cat /etc/machine-id 2>/dev/null || hostname' 2>/dev/null || echo '')
+_EMPR_ANCIEN=$(sshc "$ANCIEN" 'cat /etc/machine-id 2>/dev/null || hostname' 2>/dev/null || echo '')
+if [ -n "$_EMPR_CIBLE" ] && [ "$_EMPR_CIBLE" = "$_EMPR_ANCIEN" ]; then
+  ko "la cible et l'ancien serveur sont LA MEME MACHINE (identite systeme identique). Refus."
+fi
+
 
 # ── 0. LE NOUVEAU SERVEUR REPOND-IL ? ────────────────────────────────────────────────────────
 etape "0. Accès au serveur cible ($CIBLE)"
@@ -85,12 +107,26 @@ mkdir -p "$LOCALE_DIR"
 ARCHIVE=""
 if sshc "$ANCIEN" true 2>/dev/null; then
   info "ancien serveur joignable : on produit une sauvegarde FRAICHE"
-  printf '%s' "$DTP_BACKUP_PASS" | sshc "$ANCIEN" 'read -r P; DTP_BACKUP_PASS="$P" /usr/local/bin/dtp-sauvegarde.sh' 2>&1 | tail -2 | sed 's/^/    /'
+  printf '%s' "$DTP_BACKUP_PASS" | sshc "$ANCIEN" 'read -r P; DTP_BACKUP_PASS="$P" /usr/local/bin/dtp-sauvegarde.sh; echo "__CODE__:$?"' 2>&1 | tee "$LOCALE_DIR/.derniere-sauvegarde.log" | tail -3 | sed 's/^/    /'
+  # ⚠️ ON TESTE LE CODE DE SORTIE. Sans lui, une sauvegarde qui echoue (disque plein : le script
+  # refuse sous 800 Mo libres, ce qui est UN MOTIF FREQUENT DE MIGRATION) laissait le script
+  # continuer : « ls -t » remontait l'archive de la veille ou de la semaine, et la ligne suivante
+  # annoncait « archive fraiche rapatriee ». On migrait avec des donnees perimees en croyant le
+  # contraire, ce qui contredit le principe meme affiche en tete de ce fichier.
+  grep -q '__CODE__:0' "$LOCALE_DIR/.derniere-sauvegarde.log" \
+    || ko "la sauvegarde a ECHOUE sur l'ancien serveur (voir $LOCALE_DIR/.derniere-sauvegarde.log). On n'utilise pas une archive plus ancienne sans le dire : relancez apres correction, ou coupez l'acces a l'ancien serveur pour partir volontairement de la derniere archive locale."
   DIST=$(sshc "$ANCIEN" 'ls -t /root/sauvegardes/dtp-*.tar.gz.gpg 2>/dev/null | head -1')
   [ -n "$DIST" ] || ko "aucune archive produite sur l'ancien serveur"
+  # Et on PROUVE qu'elle vient d'etre ecrite : un code 0 sur un script absent ne prouverait rien.
+  _AGE_MIN=$(sshc "$ANCIEN" "echo \$(( ( \$(date +%s) - \$(stat -c %Y '$DIST') ) / 60 ))")
+  [ "${_AGE_MIN:-9999}" -le 30 ] || ko "l'archive la plus recente de l'ancien serveur date de ${_AGE_MIN} min : elle n'a PAS ete produite a l'instant. Refus de la presenter comme fraiche."
   scp "${SSHOPT[@]}" "root@$ANCIEN:$DIST" "$LOCALE_DIR/" >/dev/null 2>&1 || ko "rapatriement de l'archive impossible"
   ARCHIVE="$LOCALE_DIR/$(basename "$DIST")"
-  ok "archive fraîche rapatriée : $(basename "$ARCHIVE")"
+  # scp interrompu = fichier TRONQUE qui a l'air d'une sauvegarde. On compare les tailles.
+  _TD=$(sshc "$ANCIEN" "stat -c%s '$DIST'")
+  _TL=$(stat -c%s "$ARCHIVE" 2>/dev/null || stat -f%z "$ARCHIVE" 2>/dev/null || echo 0)
+  [ "${_TD:-1}" = "${_TL:-0}" ] || { rm -f "$ARCHIVE"; ko "archive tronquee au transfert (${_TL} au lieu de ${_TD} octets), supprimee."; }
+  ok "archive fraîche rapatriée et vérifiée : $(basename "$ARCHIVE") (${_AGE_MIN} min, ${_TL} octets)"
 else
   info "ancien serveur INJOIGNABLE : on utilise la sauvegarde locale la plus récente"
   ARCHIVE=$(ls -t "$LOCALE_DIR"/dtp-*.tar.gz.gpg 2>/dev/null | head -1)
@@ -148,7 +184,11 @@ ok "code cloné au commit $COMMIT"
 etape "6. Poser les secrets, la configuration et les données"
 sshc "$CIBLE" 'R=$(ls -d /root/restauration/dtp-*/ | head -1)
   cp -f "$R/config/env" /opt/datatradingpro/.env && chmod 600 /opt/datatradingpro/.env
-  [ -f "$R/config/docker-compose.yml" ] && cp -f "$R/config/docker-compose.yml" /opt/datatradingpro/
+  # ⚠️ ON NE RECOPIE PLUS docker-compose.yml DEPUIS L'ARCHIVE. Celui du depot vient d'etre clone et
+  # fait autorite : c'est lui qui porte « image: datatradingpro:actuel », sans quoi le transfert
+  # d'image de l'etape 7 ne retrouve pas son image et reconstruit pour rien. Une archive un peu
+  # ancienne ecrasait donc silencieusement la version courante par une version perimee.
+  [ -f "$R/config/docker-compose.yml" ] && cp -f "$R/config/docker-compose.yml" /opt/datatradingpro/docker-compose.yml.archive
   cp -a "$R/config/nginx-sites-available/." /etc/nginx/sites-available/ 2>/dev/null
   ln -sf /etc/nginx/sites-available/datatradingpro /etc/nginx/sites-enabled/
   [ -d "$R/config/letsencrypt" ] && cp -a "$R/config/letsencrypt/." /etc/letsencrypt/ 2>/dev/null
@@ -158,7 +198,14 @@ sshc "$CIBLE" 'R=$(ls -d /root/restauration/dtp-*/ | head -1)
   [ -f "$R/config/crontab.txt" ] && crontab "$R/config/crontab.txt"
   cd /opt/datatradingpro
   git remote set-url origin '"$DEPOT"' 2>/dev/null
-  nginx -t 2>&1 | tail -2'
+  # ⚠️ RECHARGER, PAS SEULEMENT TESTER. nginx a ete installe par apt a l'etape 3 : il tourne donc
+  # avec la configuration Debian par defaut, un seul bloc sur le port 80. Poser le vhost et les
+  # certificats ne change RIEN tant qu'on ne recharge pas : la machine ne sert rien sur 443, et la
+  # verification finale le decouvrirait trop tard. La procedure manuelle, elle, rechargeait.
+  nginx -t 2>&1 | tail -2 && systemctl reload nginx 2>&1 | tail -1 && echo "__NGINX__:recharge"'
+sshc "$CIBLE" 'systemctl is-active --quiet nginx && nginx -t 2>/dev/null' \
+  || ko "nginx n'est pas actif avec une configuration valide sur la cible : elle ne servirait rien."
+ok "nginx actif, configuration valide, rechargée"
 CLES=$(sshc "$CIBLE" 'grep -c "^[A-Z_]*=" /opt/datatradingpro/.env')
 [ "${CLES:-0}" -gt 20 ] || ko ".env restauré avec seulement ${CLES} clés : c'est anormal."
 ok "$CLES clés d'environnement en place"

@@ -47,7 +47,18 @@ TMP=$(mktemp -d)
 GARDER=7          # nombre d'archives conservées sur la machine (le disque est étroit)
 
 msg() { echo "$(date '+%F %T') $*"; }
-nettoyer() { rm -rf "$TMP"; }
+# ⚠️ Le nettoyage retire AUSSI l'archive en cours d'ecriture. Une interruption (Ctrl-C, session SSH
+# coupee, machine qui s'arrete) laissait sinon dans /root/sauvegardes un fichier tronque, portant un
+# nom parfaitement normal, que la rotation compterait comme une sauvegarde et que la migration
+# choisirait comme « la plus recente ». _FINI passe a 1 quand l'archive est verifiee.
+_FINI=0
+nettoyer() {
+  rm -rf "$TMP"
+  if [ "$_FINI" != "1" ] && [ -n "${ARCHIVE:-}" ] && [ -f "${ARCHIVE:-}" ]; then
+    rm -f "$ARCHIVE"
+    msg "interrompu : l'archive incomplete a ete supprimee (une sauvegarde a moitie ecrite est un piege)"
+  fi
+}
 trap nettoyer EXIT
 
 if [ -z "${DTP_BACKUP_PASS:-}" ]; then
@@ -116,18 +127,34 @@ fi
 chmod 600 "$ARCHIVE"
 
 # ── 5. VÉRIFICATION : une sauvegarde non verifiee n'en est pas une ───────────────────────────
-if ! gpg --batch --yes --quiet --decrypt --passphrase-fd 3 "$ARCHIVE" 3<<<"$DTP_BACKUP_PASS" \
-     2>/dev/null | tar -tzf - >/dev/null 2>&1; then
+# ⚠️ ON RELIT LE CONTENU, PAS SEULEMENT LA STRUCTURE. Un `tar -tzf` qui rend 0 prouve seulement
+# que l'archive est un tar valide : une archive VIDE, ou une archive ou la copie du .env a echoue,
+# passe ce test sans broncher et repart avec la mention « relue et verifiee ». On exige donc la
+# presence nommee de ce dont une restauration ne peut PAS se passer.
+_LISTE=$(gpg --batch --yes --quiet --decrypt --passphrase-fd 3 "$ARCHIVE" 3<<<"$DTP_BACKUP_PASS" 2>/dev/null | tar -tzf - 2>/dev/null)
+if [ -z "$_LISTE" ]; then
   msg "ERREUR : l'archive ne se relit pas. Elle est SUPPRIMEE — mieux vaut aucune sauvegarde"
   msg "         qu'une sauvegarde en laquelle on croit a tort."
   rm -f "$ARCHIVE"
   exit 1
 fi
+for _att in "config/env" "donnees/cache_email_log.json" "config/cle-deploiement"; do
+  if ! printf '%s\n' "$_LISTE" | grep -q "$_att"; then
+    msg "ERREUR : l'archive ne contient pas $_att. Elle est SUPPRIMEE : une sauvegarde a laquelle"
+    msg "         il manque les cles, les desinscrits ou la cle de deploiement ne restaure rien."
+    rm -f "$ARCHIVE"
+    exit 1
+  fi
+done
 
 TAILLE=$(du -h "$ARCHIVE" | cut -f1)
-msg "sauvegarde OK : $ARCHIVE ($TAILLE) — relue et verifiee"
+msg "sauvegarde OK : $ARCHIVE ($TAILLE) — relue, et contenu verifie ($(printf '%s\n' "$_LISTE" | wc -l) entrees)"
 
 # ── 6. ROTATION ─────────────────────────────────────────────────────────────────────────────
+_FINI=1   # l'archive est verifiee : le nettoyage ne doit plus la supprimer
+# ⚠️ La rotation ne raisonne que sur les archives QU'ON VIENT DE VALIDER. Avant, elle comptait les
+# FICHIERS : une archive illisible restee sur le disque occupait un rang et poussait dehors la
+# derniere archive complete. On supprimait donc du bon pour garder du mauvais.
 ls -1t "$DEST"/dtp-*.tar.gz.gpg 2>/dev/null | tail -n +$((GARDER + 1)) | while read -r vieux; do
   rm -f "$vieux" && msg "rotation : $vieux supprime"
 done
