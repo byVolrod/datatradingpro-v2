@@ -941,7 +941,14 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // en `visible: false` pour supprimer le quadrillage. Sans ce rappel, le zero heriterait de
   // l'invisibilite du gabarit et disparaitrait avec lui : on perdrait la seule reference qui porte
   // du sens sur ce graphique, en croyant n'avoir enleve qu'une grille.
-  zeroRange.get('grid').setAll({ visible: true, forceHidden: false, stroke: am5.color(0xffffff), strokeWidth: 1, strokeOpacity: 0.45 });
+  // ⚠️ COULEUR SELON LE THEME. Le zero etait blanc EN DUR. Or en theme clair le fond du graphique
+  // est blanc pur (_deskChartBg) : la ligne etait donc blanche sur blanc, invisible. Tant qu'une
+  // grille existait, on ne s'en apercevait pas ; maintenant que le zero est la seule horizontale,
+  // le graphique clair se retrouverait sans aucune reference. Ardoise en clair, blanc en sombre.
+  zeroRange.get('grid').setAll({
+    visible: true, forceHidden: false,
+    stroke: am5.color(_deskLight() ? 0x334155 : 0xffffff), strokeWidth: 1, strokeOpacity: 0.45,
+  });
   zeroRange.get('label').set('visible', false);
 
   const seriesArr = [];
