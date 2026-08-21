@@ -11133,7 +11133,10 @@ function _chatRender(messages){
     // support : mes bulles = 'support' ; client : mes bulles = 'user'
     const mine = support ? (m.sender==='support') : (m.sender==='user');
     const t = m.text || '';
-    const isImg = /^data:image\//.test(t);
+    /* Meme validation que cote admin (voir la note dans admin.js) : la forme COMPLETE de l URI,
+       formats raster uniquement, jamais SVG. Ici la piece jointe vient du support et s affiche chez
+       le client : le sens du risque est inverse, la regle reste la meme. */
+    const isImg = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]{16,}$/.test(t);
     let inner;
     if (isImg)                  inner = `<img class="chat-img" src="${t}" alt="image jointe" onclick="_chatLightbox(this.src)">`;
     else if (/^data:/.test(t))  inner = `<a class="chat-file" href="${t}" download>📎 Fichier joint</a>`;

@@ -91,7 +91,14 @@ cp -a /usr/local/bin/dtp-deploy.sh config/                       2>/dev/null || 
 # ── 2. LES DONNÉES IRREMPLAÇABLES ───────────────────────────────────────────────────────────
 # Liste EXPLICITE : un « cp -a data/ » embarquerait 1,8 Go de cache de navigateur.
 mkdir -p donnees
-for f in cache_email_log.json news_history.json cache_bank_positions.json \
+# ⚠️ LES QUATRE FICHIERS DE COMPTES AJOUTES LE 21/08. Ils manquaient, et leur absence coutait cher :
+#   users_blacklist.json  : la liste noire repart VIDE, donc des comptes ecartes peuvent se recreer ;
+#   users_deleted.json    : les comptes supprimes ne sont plus reconnus comme tels et peuvent revenir ;
+#   users_mirror.json     : le seul fichier portant des empreintes de mots de passe, qui permet de se
+#                           connecter quand la base ne repond pas ;
+#   users_pending.json    : les ecritures faites hors ligne, en attente de rejeu vers la base.
+# L archive etant chiffree, les empreintes y sont protegees.
+for f in cache_email_log.json news_history.json users_mirror.json users_deleted.json users_blacklist.json users_pending.json cache_bank_positions.json \
          cache_smart_bias_history.json cache_smart_bias.json cache_ai_usage.json \
          cache_session_wraps.json cache_bank_research.json cache_rates_state.json; do
   [ -f "$REPO/data/app/$f" ] && cp -a "$REPO/data/app/$f" donnees/ 2>/dev/null

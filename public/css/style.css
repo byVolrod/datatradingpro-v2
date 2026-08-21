@@ -3297,18 +3297,27 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .sbm-arr { font-weight: var(--fw-bold); margin-right: 3px; }
 /* Ligne conclusion : texte COMPLET (Weak Bearish/Bullish lisible, sur 2 lignes si besoin, jamais "…") */
 .sbm-concl { white-space: normal; font-size: 9px; line-height: 1.12; text-overflow: clip; padding: 4px 3px; }
-/* Conclusion globale = couleurs PLATES façon pro (vert #007b43 / rouge #ad0000 / gris #667085) */
-.sbm-concl.sbm-vbull { background: #007b43; }
-.sbm-concl.sbm-bull  { background: #007b43; }
-.sbm-concl.sbm-neut  { background: #667085; }
-.sbm-concl.sbm-bear  { background: #ad0000; }
-.sbm-concl.sbm-vbear { background: #ad0000; }
-/* Couleurs sémantiques FIXES — RGB EXACTS de la référence (clone fidèle) — fond + texte blanc */
-.sbm-vbull { background: #025232; color: #fff; }   /* Très haussier  rgb(2,82,50)    */
-.sbm-bull  { background: #006941; color: #fff; }   /* Haussier       rgb(0,105,65)   */
-.sbm-neut  { background: #667085; color: #fff; }   /* Neutre         rgb(102,112,133)*/
-.sbm-bear  { background: #780000; color: #fff; }   /* Baissier       rgb(120,0,0)    */
-.sbm-vbear { background: #540000; color: #fff; }   /* Très baissier  rgb(84,0,0)     */
+/* Conclusion globale : mêmes teintes que les paliers ci-dessous, en aplat. Deux paliers voisins y
+   partagent une couleur, parce que la conclusion répond « haussier ou baissier », pas « à quel
+   point » : la nuance appartient à la matrice, pas au verdict. */
+.sbm-concl.sbm-vbull { background: #047857; }
+.sbm-concl.sbm-bull  { background: #047857; }
+.sbm-concl.sbm-neut  { background: #6b7280; }
+.sbm-concl.sbm-bear  { background: #991b1b; }
+.sbm-concl.sbm-vbear { background: #991b1b; }
+/* Palette sémantique du Radar de Biais, telle que la fixe la charte DTP (voir CLAUDE.md) :
+   dégradé vert vers rouge sur cinq paliers, fond plein et texte blanc, pour que le niveau se lise
+   à la couleur avant de se lire au mot. Contraste du blanc mesuré sur chacun des cinq fonds. */
+.sbm-vbull { background: #047857; color: #fff; }   /* Très haussier */
+/* ⚠️ #05875f AU LIEU DU #059669 DE LA CHARTE, et c'est une correction mesurée, pas une préférence.
+   Ces cellules portent du texte de 10 px : le seuil de lisibilité applicable est 4,5. Le blanc sur
+   #059669 tombe à 3,77 et devient pénible à lire en grille dense. On assombrit du STRICT MINIMUM,
+   à teinte constante (90 % de la valeur), ce qui remonte à 4,53. La couleur reste celle de la
+   charte à l'œil ; seule sa luminance change, juste assez. */
+.sbm-bull  { background: #05875f; color: #fff; }   /* Haussier      */
+.sbm-neut  { background: #6b7280; color: #fff; }   /* Neutre        */
+.sbm-bear  { background: #dc2626; color: #fff; }   /* Baissier      */
+.sbm-vbear { background: #991b1b; color: #fff; }   /* Très baissier */
 .sbm-na { background: #1a1a1f; color: #5b5b64; }   /* N/A : donnée non chargée (gris atténué distinct) */
 /* Accordéon de la matrice : Fundamental Data / Bank Overview dépliables → sous-indicateurs par devise */
 .sbm-ind-acc { cursor: pointer; user-select: none; }

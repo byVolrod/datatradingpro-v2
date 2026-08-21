@@ -112,7 +112,7 @@ function analystPreview() {
       </div>
       <div id="arlib-ai-insights">
         <div class="ai-insights-head">
-          <span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16"> AI Insights</span>
+          <span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="16" height="16"> AI Insights</span>
           <span class="ai-insights-nav"><button type="button">‹</button><span class="ai-insights-count">1-4 of ${insights.length}</span><button type="button">›</button></span>
         </div>
         <div class="ai-insights-cards">${insights.join('')}</div>
@@ -152,7 +152,7 @@ app.get('/chat', (_req, res) => {
     <div class="ai-messages" id="ai-messages">
       <div class="ai-day-sep"><span>Today</span></div>
       <div class="ai-row ai-row--ai">
-        <div class="ai-chip"><img class="ai-chip-img" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="22" height="22" decoding="sync"></div>
+        <div class="ai-chip"><img class="ai-chip-img" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="22" height="22" decoding="sync"></div>
         <div class="ai-ai-body">
           <div class="ai-ai-text">Bonjour ! Je suis votre assistant IA Macro. Posez-moi des questions sur les tendances du marché, les indicateurs économiques ou les perspectives des marchés mondiaux.</div>
           <div class="ai-time">20:48</div>

@@ -1,3 +1,10 @@
+/* ⚠️ AUCUNE VALEUR DE REPLI POUR LES IDENTIFIANTS (21/08). Elles etaient ecrites en dur ici :
+   le depot a ete public jusqu au 21/08, donc ces identifiants ont ete lisibles par tout le monde,
+   et ils le restent dans l historique git. Un repli en dur donne en plus l illusion que le service
+   fonctionne sans configuration : le jour ou la variable d environnement manque, on se connecte
+   silencieusement avec un compte qu on croyait retire.
+   Les identifiants vivent desormais UNIQUEMENT dans l environnement. Sans eux, le scraper
+   s arrete proprement au lieu de tenter une connexion avec une valeur perimee. */
 /**
  * FinancialJuice scraper
  *
@@ -47,8 +54,8 @@ function _resolveChromeExec() {
 const CHROME_PATH = _resolveChromeExec();
 const FJ_PROFILE  = path.join(__dirname, '..', '.chrome_profile_fj');
 
-const FJ_EMAIL  = process.env.FJ_EMAIL  || 'volrod.dev@gmail.com';
-const FJ_PASS   = process.env.FJ_PASS   || '123123Pp';
+const FJ_EMAIL  = process.env.FJ_EMAIL || '';
+const FJ_PASS   = process.env.FJ_PASS || '';
 const HOME_URL  = 'https://www.financialjuice.com/home';
 const TOKEN_URL = 'https://www.financialjuice.com/widgets/centrifugo-token.ashx';
 const WS_URL    = 'wss://rt.financialjuice.com/connection/websocket';

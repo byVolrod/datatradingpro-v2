@@ -1757,7 +1757,16 @@
       const box = document.getElementById('ad-chat-msgs');
       box.innerHTML = msgs.map(m => {
         const t = m.text || '';
-        const body = /^data:image\//.test(t)
+/* ⚠️ FAILLE CORRIGEE LE 21/08 : XSS STOCKEE, ABONNE VERS ADMIN.
+   Le test se contentait du PREFIXE `data:image/`. Or `data:image/svg+xml;base64,...` est une
+   image au sens du prefixe ET un document capable de porter du script. Un abonne joignait donc
+   une piece a la messagerie de support, et le script s executait DANS LA SESSION ADMIN a
+   l ouverture du fil : escalade de privileges complete depuis un compte client ordinaire.
+   On valide desormais la FORME COMPLETE de l URI de donnees, on n autorise que des formats
+   raster (jamais SVG), et tout ce qui ne correspond pas est traite comme du TEXTE, donc echappe.
+   Un prefixe n est pas une validation : il dit par quoi la chaine commence, jamais ce qu elle est. */
+        const _IMG_OK = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]{16,}$/;
+        const body = _IMG_OK.test(t)
           ? `<a href="${t}" target="_blank" rel="noopener"><img src="${t}" alt="image" style="max-width:220px;max-height:220px;border-radius:8px;display:block"></a>`
           : _esc2(t);
         return `<div class="ad-msg ad-msg--${m.sender}"><div>${body}</div><div class="ad-msg-meta">${new Date(m.created_at).toLocaleString('fr-FR')}</div></div>`;

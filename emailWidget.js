@@ -108,6 +108,11 @@ async function renderWidgetPng(type, opts = {}) {
     const page = await browser.newPage();
     try {
       await page.setViewport({ width: spec.w + 24, height: spec.h + 24, deviceScaleFactor: 2 });   // 2x = net en HD
+      /* Les pages de rendu ne sont plus publiques depuis le 21/08 : elles servaient en clair, sans
+         aucune authentification, des widgets vendus par abonnement. Puppeteer se declare donc appel
+         interne. Le serveur exige EN PLUS que la connexion vienne de la boucle locale : le jeton seul
+         ne suffirait pas s il fuitait. */
+      try { await page.setExtraHTTPHeaders({ 'x-dtp-internal': process.env.DTP_INTERNAL_TOKEN || '' }); } catch (e) {}
       await page.goto(`${BASE}${spec.path}?period=${period}${ccy ? '&ccy=' + ccy : ''}`, { waitUntil: 'domcontentloaded', timeout: 25000 });
       await page.waitForFunction('window.__ready === true', { timeout: 20000 }).catch(() => {});   // chaque page de rendu pose __ready apres le rendu (+ delai d'animation)
       const el = await page.$(spec.sel);

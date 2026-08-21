@@ -1,3 +1,10 @@
+/* ⚠️ AUCUNE VALEUR DE REPLI POUR LES IDENTIFIANTS (21/08). Elles etaient ecrites en dur ici :
+   le depot a ete public jusqu au 21/08, donc ces identifiants ont ete lisibles par tout le monde,
+   et ils le restent dans l historique git. Un repli en dur donne en plus l illusion que le service
+   fonctionne sans configuration : le jour ou la variable d environnement manque, on se connecte
+   silencieusement avec un compte qu on croyait retire.
+   Les identifiants vivent desormais UNIQUEMENT dans l environnement. Sans eux, le scraper
+   s arrete proprement au lieu de tenter une connexion avec une valeur perimee. */
 /**
  * Myfxbook Community Outlook — retail trader sentiment
  *
@@ -50,8 +57,8 @@ const CACHE_TTL    = 15 * 60 * 1000;   // 15 min in-memory cache (sentiment reta
 const DISK_TTL     = 30 * 60 * 1000;   // 30 min disk cache (survives server restart)
 const SESSION_TTL  = 55 * 60 * 1000;   // 55 min session cache (token expires ~1h)
 
-const MFB_EMAIL = process.env.MFB_EMAIL || 'gostan.dev@gmail.com';
-const MFB_PASS  = process.env.MFB_PASS  || 'Turquie25#';
+const MFB_EMAIL = process.env.MFB_EMAIL || '';
+const MFB_PASS  = process.env.MFB_PASS || '';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
