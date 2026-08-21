@@ -10605,13 +10605,36 @@ let   _sqwkStarted    = false;       // flux déjà amorcé (évite de re-marque
 function _sqwkTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
 function _sqwkEsc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-// Une VRAIE news exploitable pour le squawk (pas de rapport/primer/bruit)
+/* ⚠️ SQUAWK = NEWS ECONOMIQUES MAJEURES SEULEMENT (21/08, demande user : « uniquement lors des
+   news economiques majeures, fiable, reel »). Avant, le squawk lisait A VOIX HAUTE presque tout le
+   flux (toute depeche FinancialJuice de 14 caracteres) : un mur de voix qui noyait l essentiel et
+   ne meritait pas d etre ecoute. On restreint a ce qui BOUGE VRAIMENT le marche.
+
+   Deux conditions cumulees :
+   1. MAJEURE : _isImportantNews (high impact, priorite haute, urgent, ou resultat de calendrier) —
+      le meme signal deja utilise par le bandeau LIVE, donc coherent avec le reste du desk ;
+   2. ECONOMIQUE : une publication de donnees, un resultat de calendrier, ou une banque centrale.
+      Sans cette seconde condition, un titre geopolitique urgent (frappe, sanctions) passerait ;
+      il est important, mais ce n est pas une news ECONOMIQUE au sens demande. */
+const _SQWK_ECO_CATS = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','FOMC',
+  'EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data',
+  'Fixed Income']);
 function _sqwkUsable(it) {
   if (!it || !it.headline) return false;
   if (it._briefing || it.source === 'DTP' || (typeof isPrimerItem === 'function' && isPrimerItem(it))) return false;
   const h = it.headline;
   if (/^\[No Title\]|^RT @|^@[A-Za-z]/.test(h)) return false;
-  return h.replace(/[^a-z0-9]/gi, '').length >= 14;
+  if (h.replace(/[^a-z0-9]/gi, '').length < 14) return false;
+  // 1) MAJEURE
+  if (typeof _isImportantNews === 'function' && !_isImportantNews(it)) return false;
+  // 2) ECONOMIQUE : categorie eco/BC, resultat de calendrier, ou donnee a fort impact
+  const cat = String(it.category || '');
+  const estEco = _SQWK_ECO_CATS.has(cat)
+    || it._calendarResult === true || it.isCalendar === true
+    || /\bactual\s*:/i.test(it.description || '')
+    || it._highImpact === true
+    || /Data$/i.test(cat);
+  return estEco;
 }
 
 function _sqwkRender() {
@@ -10623,16 +10646,41 @@ function _sqwkRender() {
   ).join('');
 }
 
+/* ⚠️ LES VOIX SE CHARGENT EN ASYNCHRONE, et c est la cause n°1 d un squawk MUET : au premier appel,
+   getVoices() renvoie souvent une liste VIDE, aucune voix n est choisie, et selon le navigateur la
+   lecture ne demarre pas. On precharge la liste et on la garde a jour via onvoiceschanged. On
+   choisit la MEILLEURE voix anglaise disponible : les voix « Google » et « Natural » (Microsoft)
+   sonnent nettement moins robotiques que la voix systeme par defaut. */
+let _sqwkVoix = null;
+function _sqwkChargerVoix() {
+  try {
+    const vs = window.speechSynthesis.getVoices() || [];
+    if (!vs.length) return;
+    const enUS = vs.filter(v => /en[-_]US/i.test(v.lang));
+    const pool = enUS.length ? enUS : vs.filter(v => /^en/i.test(v.lang));
+    // Ordre de preference : Google US > Microsoft Natural > premiere anglaise disponible.
+    _sqwkVoix = pool.find(v => /google/i.test(v.name))
+             || pool.find(v => /natural|aria|jenny|guy/i.test(v.name))
+             || pool[0] || null;
+  } catch {}
+}
+if ('speechSynthesis' in window) {
+  _sqwkChargerVoix();
+  try { window.speechSynthesis.onvoiceschanged = _sqwkChargerVoix; } catch {}
+}
 // Voix "salle de marché" (Web Speech API, gratuite) : synchronisée avec l'écriture
 function _sqwkSpeak(text) {
   if (!_sqwkLive || !('speechSynthesis' in window)) return;
-  if (typeof _npGlobalMute === 'function' && _npGlobalMute()) return;   // "Muet"/OFF des notifs = silence global (pas de voix)
+  if (typeof _npGlobalMute === 'function' && _npGlobalMute()) return;   // "Muet"/OFF des notifs = silence global
   try {
-    window.speechSynthesis.cancel();   // coupe la phrase précédente (pas d'empilement)
+    if (!_sqwkVoix) _sqwkChargerVoix();                 // derniere chance si les voix viennent d arriver
+    window.speechSynthesis.cancel();                    // pas d empilement de phrases
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US'; u.pitch = 0.9; u.rate = 1.0; u.volume = 1;
-    const v = (window.speechSynthesis.getVoices() || []).find(x => /en[-_]US/i.test(x.lang));
-    if (v) u.voice = v;
+    u.lang = 'en-US'; u.pitch = 0.95; u.rate = 1.02; u.volume = 1;
+    if (_sqwkVoix) u.voice = _sqwkVoix;
+    /* ⚠️ Certains navigateurs SUSPENDENT la synthese apres un temps d inactivite : une reprise
+       (resume) juste avant speak() evite un silence sur la premiere phrase apres une pause. */
+    try { window.speechSynthesis.resume(); } catch {}
     window.speechSynthesis.speak(u);
   } catch {}
 }

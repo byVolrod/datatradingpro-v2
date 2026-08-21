@@ -19048,3 +19048,36 @@ body.dtp-admin .right-panel-tabs,
 body.dtp-admin .nav {
   box-shadow: inset 0 -1px 0 rgba(227,178,58,.10);
 }
+
+/* ═══ LISIBILITÉ DU FIL DE NEWS — POUR TOUS LES TRADERS (21/08, demande user) ══════════════════
+   « Faire ressortir un peu plus les news, le texte ; mieux lire, agréable aux yeux. » Ce n'est PAS
+   l'habillage décoratif admin (auras dorées) : c'est une couche de LISIBILITÉ, pour tout le monde,
+   dans l'esprit d'une grille de terminal institutionnel.
+
+   ⚠️ LE SÉPARATEUR AVAIT ÉTÉ RETIRÉ À LA DEMANDE, mais c'était un trait franc. Ici on remet un filet
+   BEAUCOUP plus discret (token --row-sep, ~2 à 3 % d'encre), celui-là même de la référence montrée :
+   il aide l'œil à suivre une ligne sans jamais devenir une barre. Contraste faible, rendu premium.
+   Bloc en fin de fichier : il doit gagner sur le `border-bottom: none` défini plus haut. */
+#view-news .news-item {
+  border-bottom: var(--row-sep);
+}
+#view-news .news-item:last-child { border-bottom: none; }
+
+/* Texte principal un cran plus net : le titre porte l'information, il mérite le meilleur contraste.
+   Léger, pour ne pas durcir la lecture d'un fil qui défile. */
+#view-news .news-item .news-headline {
+  color: #eef2f7;
+  letter-spacing: -.002em;
+}
+/* La description, elle, reste en retrait mais lisible : la hiérarchie titre > description guide la
+   lecture. Interligne un rien plus ample = respiration entre deux dépêches denses. */
+#view-news .news-description { line-height: 1.58; }
+
+/* Survol : l'éclaircissement du fond est conservé (il sépare la ligne active), le titre passe au
+   blanc pur. Un très fin liseré doré à gauche marque la ligne visée sans peser. */
+#view-news .news-item { position: relative; }
+#view-news .news-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: rgba(227,178,58,0); pointer-events: none; transition: background .16s ease;
+}
+#view-news .news-item:hover::before { background: rgba(227,178,58,.55); }
