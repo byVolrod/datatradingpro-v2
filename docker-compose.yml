@@ -1,11 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────
-#  DataTradingPro — Container Manager / VPS Docker
+#  DataTradingPro : Container Manager / VPS Docker
 #  Construit l'image (Chromium inclus) et lance le serveur en permanence.
 # ─────────────────────────────────────────────────────────────────────
 services:
   datatradingpro:
     build: .
-    # ⚠️ NOM D'IMAGE EXPLICITE — sans lui, Compose forge un nom derive du dossier, imprevisible
+    # ⚠️ NOM D'IMAGE EXPLICITE : sans lui, Compose forge un nom derive du dossier, imprevisible
     # d'une machine a l'autre. Le nom fixe rend l'image TRANSFERABLE : lors d'une migration on
     # peut l'envoyer telle quelle a la nouvelle machine (docker save/load) au lieu de la
     # reconstruire. Mesure : 8 a 20 min de construction contre quelques minutes de transfert.

@@ -920,10 +920,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
   });
   // Échelle DTP : 2 décimales fixes + décimale FRANÇAISE (virgule) → « 4,00 / 0,00 / -16,00 ».
   yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
-  // Grille horizontale discrète : pointillés gris foncé
-  yAxisRenderer.grid.template.setAll({
-    stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeWidth: 1, strokeDasharray: [2, 4],   // grille TRÈS discrète GRIS (jamais "trait noir")
-  });
+  // Plus de grille horizontale (21/08, demande user : « enlève ces lignes pointillées »).
+  // Ce que la lecture y perd : rien d'utile. Sur la Force des Devises, aucune valeur absolue ne
+  // se lit sur une horizontale — ce qui compte est le CLASSEMENT des devises entre elles et leur
+  // position par rapport au zéro. Or le zéro reste tracé, en blanc plein, juste en dessous : la
+  // seule référence qui porte du sens est donc conservée, et les graduations chiffrées de la
+  // gouttière droite restent là pour qui veut le niveau exact.
+  yAxisRenderer.grid.template.setAll({ visible: false });
 
   const yAxis = chart.yAxes.push(
     // extraMin/Max = marge HAUT/BAS (~7%) → la devise la plus forte/faible (ex. USD au sommet) et son
@@ -1154,11 +1157,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
       paddingLeft: 0,
     });
     range.get('tick').set('visible', false);
-    range.get('grid').setAll({ stroke: color, strokeOpacity: 0.20, strokeDasharray: [3, 3] });
-    if (dim) {   // mode isolé : on masque le badge + la ligne de la devise estompée
-      range.get('label').set('visible', false);
-      range.get('grid').set('strokeOpacity', 0);
-    }
+    // Même demande du 21/08 : la pastille de chaque devise ne tire plus son horizontale pointillée
+    // en travers du graphique. À huit devises, cela faisait huit lignes de couleurs différentes
+    // superposées aux courbes, pour une information que la pastille donne déjà à son extrémité.
+    // ⚠️ `visible` et NON `forceHidden` : plus bas, l'affichage/masquage d'une courbe remet
+    // `forceHidden` à false sur cette grille — la ligne serait revenue au premier clic de légende.
+    range.get('grid').setAll({ visible: false });
+    if (dim) range.get('label').set('visible', false);   // mode isolé : badge de la devise estompée
 
     seriesArr.push(series);
     seriesMap[ccy] = series;

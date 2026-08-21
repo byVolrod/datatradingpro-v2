@@ -1,5 +1,5 @@
 # Les scripts serveur DOIVENT arriver en LF sur Linux.
-# Un .sh en CRLF echoue avec « cannot execute: required file not found » — message qui ne dit
+# Un .sh en CRLF echoue avec « cannot execute: required file not found » : message qui ne dit
 # PAS que le probleme vient des fins de ligne. On l epingle plutot que de compter sur la config
 # git de la machine qui commit.
 *.sh   text eol=lf

@@ -1,6 +1,6 @@
 # Déploiement du serveur : ce qu'il faut savoir avant d'y toucher
 
-## Le dépôt est PRIVÉ depuis le 21/08/2026 — conséquence directe sur le déploiement
+## Le dépôt est PRIVÉ depuis le 21/08/2026 : conséquence directe sur le déploiement
 
 Tant que `datatradingpro-v2` était public, le serveur récupérait le code par **HTTPS anonyme**.
 Cela masquait une incohérence : le script de déploiement était écrit pour SSH (il pose
@@ -12,7 +12,7 @@ Le jour où le dépôt est passé en privé, le serveur s'est arrêté net sur :
 fatal: could not read Username for 'https://github.com'
 ```
 
-**Le site continuait de tourner** — il servait simplement la dernière version construite — mais
+**Le site continuait de tourner**, servant simplement la dernière version construite, mais
 plus aucune mise à jour ne pouvait l'atteindre. C'est le pire genre de panne : silencieuse.
 
 **Règle : les remotes du serveur doivent rester en SSH.**
@@ -111,10 +111,10 @@ Pour que la sauvegarde existe sans qu'on y pense, ajouter à la crontab du serve
 
 ⚠️ **Sur la phrase secrète dans la crontab.** Elle protège l'archive *là où celle-ci va se
 retrouver* : sur une autre machine, un disque externe, un espace de stockage. Elle ne protège pas
-contre quelqu'un qui posséderait déjà le serveur — celui-ci contient de toute façon le `.env` en
+contre quelqu'un qui posséderait déjà le serveur : celui-ci contient de toute façon le `.env` en
 clair, avec les quatre-vingts clés. La poser dans la crontab n'ajoute donc **aucune exposition
 nouvelle**, et c'est le prix d'une sauvegarde qui se fait toute seule.
 
 Ce qui compte, en revanche : la phrase doit **aussi** vivre dans votre gestionnaire de mots de
 passe. Si elle n'existe que sur le serveur et que le serveur disparaît, les archives deviennent
-illisibles — et l'on aura sauvegardé pour rien.
+illisibles, et l'on aura sauvegardé pour rien.

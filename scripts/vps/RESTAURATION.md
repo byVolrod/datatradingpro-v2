@@ -19,7 +19,7 @@ panne**, quand on n'a ni le temps ni le calme de deviner.
 | **Caches IA, traductions, PDF, profils Chrome** | serveur | oui, se régénèrent |
 
 ⚠️ **La phrase secrète de l'archive n'est nulle part sur le serveur.** Elle doit vivre dans votre
-gestionnaire de mots de passe. Sans elle, l'archive est un bloc inutile — c'est le prix du
+gestionnaire de mots de passe. Sans elle, l'archive est un bloc inutile : c'est le prix du
 chiffrement, et c'est voulu : elle contient toutes vos clés.
 
 ---
@@ -27,7 +27,7 @@ chiffrement, et c'est voulu : elle contient toutes vos clés.
 ## Avant la panne : faire une sauvegarde et la SORTIR de la machine
 
 ```bash
-# Sur le serveur — la phrase secrète n'est jamais ecrite sur le disque.
+# Sur le serveur : la phrase secrète n'est jamais ecrite sur le disque.
 DTP_BACKUP_PASS='votre-phrase-secrete' /usr/local/bin/dtp-sauvegarde.sh
 ```
 
@@ -110,7 +110,7 @@ cp /opt/datatradingpro/scripts/vps/dtp-sauvegarde.sh /usr/local/bin/ && chmod +x
 crontab /root/restauration/dtp-*/config/crontab.txt
 ```
 
-⚠️ Vérifier que les remotes sont bien en **SSH** — en HTTPS, un dépôt privé donne
+⚠️ Vérifier que les remotes sont bien en **SSH** : en HTTPS, un dépôt privé donne
 `could not read Username`, et c'est une panne silencieuse (voir `LISEZ-MOI.md`) :
 
 ```bash
@@ -130,7 +130,7 @@ echo "sante : $s"
 curl -s -o /dev/null -w 'desk local : %{http_code}\n' http://127.0.0.1:3000/healthz
 ```
 
-Puis, **depuis l'extérieur** — c'est la seule vérification qui compte :
+Puis, **depuis l'extérieur** : c'est la seule vérification qui compte :
 
 ```bash
 curl -s -o /dev/null -w 'connexion : %{http_code}\n' https://desk.datatradingpro.com/login
@@ -146,7 +146,7 @@ voie le site.
 
 `/opt/dtp-downloads` n'est pas dans l'archive (~520 Mo reconstructibles). Sans lui, l'application
 de bureau ne peut plus se mettre à jour. Reconstruire (`cd desktop && npm run build:win`) puis
-déposer `DataTradingPro-Setup.exe`, son `.blockmap` et `latest.yml` — **le manifeste en dernier**,
+déposer `DataTradingPro-Setup.exe`, son `.blockmap` et `latest.yml` : **le manifeste en dernier**,
 voir la fiche mémoire de l'application desktop.
 
 ---
@@ -180,9 +180,9 @@ Chiffres mesurés sur cette installation, pas une estimation de principe.
 
 **Total réaliste :**
 
-- **10 à 20 minutes** quand l’ancien serveur répond encore — le cas d’une migration *choisie*.
+- **10 à 20 minutes** quand l’ancien serveur répond encore : le cas d’une migration *choisie*.
   L’image n’est pas reconstruite, elle est reprise telle quelle.
-- **20 à 45 minutes** quand l’ancien serveur est mort — le cas d’une migration *subie*.
+- **20 à 45 minutes** quand l’ancien serveur est mort : le cas d’une migration *subie*.
   Il faut alors reconstruire, et c’est irréductible.
 
 Dans les deux cas, hors provisionnement de la machine et hors DNS, qui ne dépendent de personne
@@ -195,7 +195,7 @@ C’est automatique, mais **conditionné** : `dtp-migrer.sh` ne reprend l’imag
 que si les trois conditions suivantes sont vraies, chacune vérifiée et non supposée.
 
 1. **L’ancien serveur joint le nouveau en SSH.** Le transfert va de machine à machine. Le faire
-   transiter par le poste d’administration lui ferait *téléverser* près d’un gigaoctet — et une
+   transiter par le poste d’administration lui ferait *téléverser* près d’un gigaoctet, et une
    liaison domestique téléverse bien plus lentement qu’elle ne reçoit.
 2. **Les deux sont au même commit.** Le `Dockerfile` copie les sources *dans* l’image : une image
    plus ancienne ferait tourner du vieux code en donnant l’illusion d’avoir migré, et la
@@ -208,12 +208,12 @@ est pas un.
 ### Pour descendre plus bas encore
 
 Il resterait à publier l’image dans un registre (GitHub Container Registry, gratuit sur dépôt
-privé) : la machine neuve la *tirerait* même si l’ancienne est morte — soit le seul cas que le
+privé) : la machine neuve la *tirerait* même si l’ancienne est morte, soit le seul cas que le
 transfert direct ne couvre pas.
 
 ⚠️ Cela demande **un jeton d’accès en lecture** à créer côté GitHub, puis à déposer dans le
 `.env`. C’est votre geste, pas le mien : je ne crée pas d’identifiants. Tant qu’il n’existe pas,
-la migration *subie* passe par la construction, et c’est un compromis assumé — pas un oubli.
+la migration *subie* passe par la construction, et c’est un compromis assumé : pas un oubli.
 
 ### ⚠️ Cette procédure n’a jamais été exécutée en entier
 

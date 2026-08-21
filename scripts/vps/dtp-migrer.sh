@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
-#  MIGRATION DTP VERS UN SERVEUR NEUF — une seule commande, verifiee a chaque etape.
+#  MIGRATION DTP VERS UN SERVEUR NEUF : une seule commande, verifiee a chaque etape.
 #
 #  Se lance depuis la machine d'administration, PAS depuis un serveur.
 #
@@ -22,16 +22,16 @@ ANCIEN="${DTP_ANCIEN_SERVEUR:-149.71.44.90}"
 CLE="${DTP_SSH_KEY:-$HOME/.ssh/dtp_deploy}"
 DEPOT="git@github.com:byVolrod/datatradingpro-v2.git"
 SSHOPT=(-i "$CLE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=25)
-# ⚠️ MULTIPLEXAGE DES SESSIONS SSH — appris a nos depens.
+# ⚠️ MULTIPLEXAGE DES SESSIONS SSH : appris a nos depens.
 # Ce script ouvre une vingtaine de sessions SSH successives. Beaucoup de serveurs (fail2ban,
 # et c'est le cas du notre) sanctionnent ce rythme en FERMANT LE PORT 22. Se faire couper au
-# milieu d'une migration, c'est l'arret net avec une machine a moitie montee — exactement ce
+# milieu d'une migration, c'est l'arret net avec une machine a moitie montee : exactement ce
 # qu'on cherche a eviter. On fait donc passer toutes les sessions dans UNE SEULE connexion.
 #
 # Le multiplexage n'est pas fiable sous MSYS/Cygwin (l'OpenSSH de Git Bash n'implemente pas
 # les sockets de controle). On l'active donc SELON LE SYSTEME plutot que de le supposer
-# partout : ailleurs, on retombe sur des connexions separees — plus lent, mais correct.
-MUXDIR="${TMPDIR:-/tmp}/dtp-mux-$"
+# partout : ailleurs, on retombe sur des connexions separees, plus lent, mais correct.
+MUXDIR="${TMPDIR:-/tmp}/dtp-mux-$$"
 case "$(uname -s)" in
   Linux|Darwin)
     mkdir -p "$MUXDIR" && chmod 700 "$MUXDIR"
@@ -94,7 +94,7 @@ if sshc "$ANCIEN" true 2>/dev/null; then
 else
   info "ancien serveur INJOIGNABLE : on utilise la sauvegarde locale la plus récente"
   ARCHIVE=$(ls -t "$LOCALE_DIR"/dtp-*.tar.gz.gpg 2>/dev/null | head -1)
-  [ -n "$ARCHIVE" ] || ko "aucune sauvegarde locale dans $LOCALE_DIR — rien à restaurer."
+  [ -n "$ARCHIVE" ] || ko "aucune sauvegarde locale dans $LOCALE_DIR : rien à restaurer."
   AGE=$(( ( $(date +%s) - $(stat -c %Y "$ARCHIVE") ) / 86400 ))
   ok "archive locale : $(basename "$ARCHIVE") (${AGE} jour(s))"
   [ "$AGE" -le 7 ] || info "ATTENTION : cette archive a ${AGE} jours. Tout ce qui a change depuis sera perdu."
@@ -107,7 +107,7 @@ etape "2. Vérifier l'archive AVANT de commencer"
 LISTE=$(gpg --batch --quiet --decrypt --passphrase-fd 3 "$ARCHIVE" 3<<<"$DTP_BACKUP_PASS" 2>/dev/null | tar -tzf - 2>/dev/null)
 [ -n "$LISTE" ] || ko "l'archive ne s'ouvre pas (phrase secrète erronée, ou fichier corrompu)"
 for attendu in "config/env" "donnees/cache_email_log.json" "config/cle-deploiement"; do
-  echo "$LISTE" | grep -q "$attendu" || ko "l'archive ne contient pas $attendu — elle est incomplète, on n'y va pas."
+  echo "$LISTE" | grep -q "$attendu" || ko "l'archive ne contient pas $attendu : elle est incomplète, on n'y va pas."
 done
 ok "archive lisible et complète ($(echo "$LISTE" | wc -l) entrées)"
 
@@ -171,8 +171,8 @@ etape "7. Mettre l'image en place, puis démarrer"
 # ⚠️ C'EST ICI QUE SE JOUE LE TEMPS TOTAL DE LA MIGRATION.
 # Construire l'image sur une machine neuve prend 8 a 20 min : elle installe Chromium et une
 # vingtaine de bibliotheques systeme, sans aucun cache. Or l'ancien serveur porte DEJA cette
-# image construite. On la lui prend telle quelle — quelques minutes de transfert au lieu de
-# vingt minutes de construction — et on ne construit QUE si ce chemin n'est pas praticable.
+# image construite. On la lui prend telle quelle : quelques minutes de transfert au lieu de
+# vingt minutes de construction, et on ne construit QUE si ce chemin n'est pas praticable.
 #
 # Trois conditions, VERIFIEES et non supposees :
 #   a) l'ancien serveur joint le nouveau en SSH. Le transfert va de machine a machine, JAMAIS
@@ -196,7 +196,7 @@ if sshc "$ANCIEN" true 2>/dev/null; then
     sshc "$ANCIEN" "docker save $IMG | gzip -1 | $SSHINT root@$CIBLE 'gunzip | docker load'" 2>&1 | tail -2 | sed 's/^/    /'
     if sshc "$CIBLE" "docker image inspect $IMG >/dev/null 2>&1"; then
       TRANSFERE=oui
-      ok "image transférée et chargée en $(( $(date +%s) - T0 )) s — construction évitée"
+      ok "image transférée et chargée en $(( $(date +%s) - T0 )) s : construction évitée"
     else
       info "le transfert n'a pas abouti : on construit (plus long, pas plus risqué)"
     fi
@@ -237,7 +237,7 @@ VIA_NGINX=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "desk
 [ "$VIA_NGINX" = "200" ] && ok "page de connexion servie par la nouvelle machine : HTTP $VIA_NGINX" \
                          || info "réponse via nginx : HTTP $VIA_NGINX (à vérifier avant de basculer)"
 
-etape "MIGRATION PRÊTE — le DNS n'a PAS été touché"
+etape "MIGRATION PRÊTE : le DNS n'a PAS été touché"
 echo "  L'ancien serveur continue de servir. Rien n'est visible côté client."
 echo ""
 echo "  Nouvelle machine : $CIBLE   (commit $COMMIT, conteneur sain)"
