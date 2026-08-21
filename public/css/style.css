@@ -178,7 +178,11 @@ html { zoom: var(--dtp-zoom, 1); }
   --ls-caps: 0.08em;  /* letter-spacing UNIQUE de tous les titres uppercase */
   --topbar-h:    54px;
   --tabs-bar-h:  28px;
-  --navbar-h:    28px;
+  /* 30 px (21/08, demande user : « un peu plus large, legerement ») : la barre etait a 28 px,
+     assez serree pour que les onglets touchent presque le filet du bas. Deux pixels suffisent a
+     redonner de l air sans changer le rythme du desk. Les DEUX barres suivent, elles partagent
+     ce token : c est ce qui les garde identiques. */
+  --navbar-h:    30px;
   --header-h:    calc(var(--topbar-h) + var(--navbar-h));
   --toolbar-h:   34px;
 }

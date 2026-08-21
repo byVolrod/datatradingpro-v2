@@ -4582,6 +4582,18 @@
             // manquait sur les widgets sans réglages — Force des Devises notamment (constat user).
             var acts = document.createElement('span');
             acts.className = 'wdg-subgear wdgt-subacts';           // .wdg-subgear = cible du balayage
+            /* AIDE (21/08) : le bouton existait sur l'en-tête d'une carte mais PAS ici. Or un
+               panneau à onglets empile plusieurs widgets sous des étiquettes courtes (FORCE, MONDE)
+               qui ne disent rien de ce qu'ils font : c'est justement là qu'on a le plus besoin de
+               savoir. Placé EN PREMIER, comme sur les cartes : on cherche à comprendre avant de
+               régler. Il vise le widget par son IDENTITÉ, un sous-widget n'ayant pas d'index dans
+               la disposition. */
+            var _a = document.createElement('button');
+            _a.className = 'wdg-ico wdg-ico--aide';
+            _a.title = 'À quoi sert ce widget ? · ' + w.name;
+            _a.innerHTML = ICO.aide;
+            _a.addEventListener('click', function (ev) { ev.stopPropagation(); API.aideDe(w.id); });
+            acts.appendChild(_a);
             if (w.opts && w.opts.length) {
               var g = document.createElement('button');
               g.className = 'wdg-ico'; g.title = 'Réglages · ' + w.name; g.innerHTML = ICO.gear;
@@ -7134,9 +7146,15 @@ function _spansAffiches(lay) {
     if (d) d.classList.remove('open');
     if (o) o.classList.remove('open');
   }
-  function _aideOuvrir(idx) {
-    var it = STATE.items && STATE.items[idx];
-    var w  = it && CATALOG.filter(function (x) { return x.id === it.w; })[0];
+  function _aideOuvrir(ref) {
+    var w = null;
+    if (ref && typeof ref === 'object' && ref.id) {
+      w = ref;                                    // widget passé directement (sous-widget d'un onglet)
+    } else {
+      var lay = activeLayout();                   // MÊME source que le rendu : la disposition active
+      var it = lay && lay.items && lay.items[ref];
+      w = it && CATALOG.filter(function (x) { return x.id === it.w; })[0];
+    }
     if (!w) return;
     try { if (typeof _closeOtherPanels === 'function') _closeOtherPanels('wdgaide'); } catch (e) {}
 
@@ -7176,6 +7194,12 @@ function _spansAffiches(lay) {
     requestAnimationFrame(function () { ov.classList.add('open'); d.classList.add('open'); });
   }
   API.aide = _aideOuvrir;
+  /* Ouvre l'aide d'un widget par son IDENTIFIANT. Les sous-widgets d'un panneau à onglets ne
+     figurent pas dans la disposition : ils n'ont pas d'index, seulement une identité. */
+  API.aideDe = function (id) {
+    var w = CATALOG.filter(function (x) { return x.id === id; })[0];
+    if (w) _aideOuvrir(w);
+  };
   // Échap ferme, comme partout ailleurs dans le desk.
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') _aideFermer(); });
 

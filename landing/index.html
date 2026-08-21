@@ -1064,7 +1064,61 @@
 </head>
 <body>
 <!-- Parrainage : capture ?ref= -> cookie partagé .datatradingpro.com (lu par le desk au 1er login) -->
-<script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r){var d=location.hostname.indexOf('datatradingpro.com')>-1?';domain=.datatradingpro.com':'';document.cookie='dtp_ref='+encodeURIComponent(r)+';path=/;max-age=5184000;samesite=lax'+d;}}catch(e){}})();</script>
+<!-- ═══ COOKIE D'AFFILIATION : DEPOSE APRES CONSENTEMENT SEULEMENT (21/08) ═══════════════════
+     Ce cookie credite la personne qui a recommande DTP. Il n'est PAS strictement necessaire au
+     fonctionnement du site : sous la reglementation europeenne, il exige donc un consentement
+     prealable. Il etait auparavant depose des l'arrivee.
+
+     ⚠️ LA BANNIERE N'APPARAIT QUE SUR UNE ARRIVEE PAR LIEN DE PARRAINAGE (parametre ?ref=), soit
+     une infime minorite des visites. Afficher un bandeau a tout le monde pour un cookie que la
+     plupart ne recevront jamais serait une gene inutile, et la gene finit toujours par se payer en
+     clics reflexes qui ne valent pas consentement. On demande a qui est concerne, quand il l'est.
+
+     Le choix est memorise pour ne pas etre repose a chaque visite. Un refus est respecte : aucun
+     cookie n'est depose, et le site fonctionne a l'identique. -->
+<style>
+.dtp-consent{position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;max-width:560px;margin:0 auto;
+  background:#111214;border:1px solid #26262c;border-radius:10px;padding:14px 16px;
+  box-shadow:0 10px 34px rgba(0,0,0,.5);font-family:Inter,system-ui,sans-serif;display:none}
+.dtp-consent.on{display:block}
+.dtp-consent p{margin:0 0 11px;font-size:13px;line-height:1.55;color:#cbd2dc}
+.dtp-consent a{color:#e0b452}
+.dtp-consent-b{display:flex;gap:8px;flex-wrap:wrap}
+.dtp-consent button{font:inherit;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.dtp-consent .oui{background:#e3b23a;color:#17181d}
+.dtp-consent .non{background:transparent;color:#9aa3b2;border-color:#2e2e36}
+.dtp-consent .non:hover{color:#e6e8ec}
+</style>
+<div class="dtp-consent" id="dtp-consent" role="dialog" aria-live="polite" aria-label="Cookie de parrainage">
+  <p>Vous arrivez par un lien de parrainage. Avec votre accord, nous déposons un cookie pour créditer la personne qui vous a recommandé DataTradingPro. Il ne sert qu'à cela et rien d'autre. <a href="/documentation/politique-confidentialite.html">En savoir plus</a>.</p>
+  <div class="dtp-consent-b">
+    <button class="oui" type="button" id="dtp-consent-oui">Accepter</button>
+    <button class="non" type="button" id="dtp-consent-non">Refuser</button>
+  </div>
+</div>
+<script>(function(){
+  try{
+    var ref=new URLSearchParams(location.search).get('ref');
+    if(!ref) return;                                   // pas concerne : aucune banniere, aucun cookie
+    var CLE='dtp_consent_ref';
+    var poser=function(){
+      var d=location.hostname.indexOf('datatradingpro.com')>-1?';domain=.datatradingpro.com':'';
+      document.cookie='dtp_ref='+encodeURIComponent(ref)+';path=/;max-age=5184000;samesite=lax'+d;
+    };
+    var choix=null; try{choix=localStorage.getItem(CLE);}catch(e){}
+    if(choix==='oui'){poser();return;}                 // deja accepte : on n'importune plus
+    if(choix==='non'){return;}                         // deja refuse : on respecte, definitivement
+    var box=document.getElementById('dtp-consent'); if(!box) return;
+    box.classList.add('on');
+    var fin=function(v){
+      try{localStorage.setItem(CLE,v);}catch(e){}
+      if(v==='oui') poser();
+      box.classList.remove('on');
+    };
+    document.getElementById('dtp-consent-oui').addEventListener('click',function(){fin('oui');});
+    document.getElementById('dtp-consent-non').addEventListener('click',function(){fin('non');});
+  }catch(e){}
+})();</script>
 
 <!-- TICKER -->
 <div class="ticker">
@@ -1806,7 +1860,7 @@
       </div>
       <div class="fcol">
         <h5>En savoir plus</h5>
-        <a href="/documentation/comprendre-le-cot-cftc.html">Lire le COT / CFTC</a><a href="/documentation/rapports-banques-forex.html">Rapports de banques</a><a href="/documentation/glossaire-macro-forex.html">Glossaire macro &amp; forex</a><a href="/documentation/trader-les-news-forex.html">Trader les news forex</a><a href="/documentation/trader-le-nfp.html">Trader le NFP</a><a href="/documentation/sessions-horaires-forex.html">Sessions du forex</a><a href="/documentation/avertissement-risque.html">Avertissement de risque</a><a href="/documentation/conditions-generales.html">Conditions générales</a><a href="mailto:contact@datatradingpro.com">Contact</a>
+        <a href="/documentation/comprendre-le-cot-cftc.html">Lire le COT / CFTC</a><a href="/documentation/rapports-banques-forex.html">Rapports de banques</a><a href="/documentation/glossaire-macro-forex.html">Glossaire macro &amp; forex</a><a href="/documentation/trader-les-news-forex.html">Trader les news forex</a><a href="/documentation/trader-le-nfp.html">Trader le NFP</a><a href="/documentation/sessions-horaires-forex.html">Sessions du forex</a><a href="/documentation/avertissement-risque.html">Avertissement de risque</a><a href="/documentation/conditions-generales.html">Conditions générales</a><a href="/documentation/mentions-legales.html">Mentions légales</a><a href="/documentation/politique-confidentialite.html">Confidentialité</a><a href="mailto:contact@datatradingpro.com">Contact</a>
       </div>
     </div>
     <div class="risk">Avertissement : le trading comporte un risque de perte. DataTradingPro fournit de l'information et des outils d'analyse, pas du conseil en investissement, et n'exécute aucun ordre. Les performances passées ne préjugent pas des performances futures.</div>
