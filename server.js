@@ -978,6 +978,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-synthese-courte', ts: Date.UTC(2026, 7, 23, 8, 0), title: 'Synthese des Marches : plus courte, et les chiffres enfin ecrits en francais', desc: 'Le rapport quotidien s etait allonge au point de se lire comme un article. Il redisait en prose des chiffres qu il venait d ecrire : une ligne annoncait reel -0,5 pour -0,5 attendu, puis expliquait que les ventes avaient stagne. Deux fois la meme information. Les consignes de redaction sont resserrees : le bloc de tete passe a quatre ou six puces d une seule phrase, chaque publication economique tient sur une ligne, et les rubriques de marche sur deux a trois lignes au lieu de cinq. Une ligne, une information. Les chiffres sont par ailleurs normalises en ecriture francaise : virgule decimale, espace avant le pourcentage, et separateur de milliers converti. Ce dernier point n etait pas cosmetique : un cours de l or ecrit 4,647 a l anglaise se lisait 4,647 en francais, soit mille fois moins. Les rapports du jour se regenerent automatiquement.' },
   { id: 'dtpu-20260821-fiche-indicateurs', ts: Date.UTC(2026, 7, 23, 7, 0), title: 'Chaque publication economique porte desormais sa definition, celle de la fiche du desk', desc: 'Sous une donnee economique, le desk explique maintenant ce que mesure l indicateur, en reprenant mot pour mot la fiche pedagogique qui alimente deja le Decryptage du calendrier. Meme source pour les deux ecrans, donc jamais deux explications differentes du meme chiffre. La lecture face au consensus vient de la meme fiche, y compris pour les indicateurs inverses ou un chiffre qui monte est une mauvaise nouvelle, comme le chomage ou les inscriptions hebdomadaires. Sur les indices d activite, la valeur est situee par rapport au seuil de 50 : a 56,8 l activite progresse encore, meme quand le chiffre deçoit les attentes. C etait un vrai risque de lecture. Les phrases sont ecrites directement, sans etiquette devant : sur un desk, la phrase se suffit.' },
   { id: 'dtpu-20260821-donnees-trader', ts: Date.UTC(2026, 7, 23, 6, 0), title: 'Donnees economiques : le sens pour la devise, un repere sur l indicateur, et le bon tag', desc: 'Suite directe de l amelioration precedente, cette fois pensee pour la lecture d un desk. Trois ajouts. La ligne de lecture precise desormais dans quel sens la surprise pousse la devise concernee, en passant par les anticipations de taux, et elle le formule comme un mecanisme et non comme une consigne : une donnee ne fixe jamais un cours a elle seule. Une ligne Repere explique en une phrase ce que mesure l indicateur, pour qui ne le suit pas toutes les semaines. Sur les indices d activite elle rappelle le seuil de 50 et le situe : a 53,2 l activite progresse encore, meme quand le chiffre decoit les attentes. C etait un vrai risque de lecture, un essoufflement face au consensus pouvant se lire comme un recul. Enfin, le tag. Une publication chiffree affichait le tag du PAYS, US par exemple, qui ne menait nulle part, au lieu du tag de la DEVISE, seul a ouvrir la reaction du marche au clic. La cause etait une categorie de la source rangeant ces news parmi les commentaires. Un titre qui porte Actual, Forecast et Previous n est pas un commentaire : il est desormais traite comme la publication qu il est. Le tag pays disparait quand la devise le dit deja, pour qu un tag affiche corresponde toujours a une fonction.' },
   { id: 'dtpu-20260821-donnees-lisibles', ts: Date.UTC(2026, 7, 23, 5, 0), title: 'Donnees economiques : le resume explique enfin ce que le chiffre veut dire', desc: 'Sous chaque publication economique, le resume se lisait comme un releve de calcul : « Sort a 0.6 vs 0.4 attendu ». Trois choses manquaient. L unite avait disparu, alors que selon l indicateur il peut s agir de pourcents, de points ou de milliers d emplois. Les decimales etaient rabotees, si bien qu un precedent a 1,0 % s affichait « (1) » et se lisait comme un renvoi de note. Et surtout, hors indices d activite et inflation, aucune lecture n etait proposee : le lecteur recevait une soustraction, pas une information. Les chiffres portent desormais leur unite, en ecriture francaise, et la comparaison precise sa periode, d un mois sur l autre ou sur un an. Une ligne « Ce que ca dit » traduit la publication en clair pour l emploi, la consommation, la croissance, la production, le moral des acteurs, l immobilier, les prix et les indices d activite. Elle tient compte du fait qu un chiffre en hausse n est pas toujours une bonne nouvelle : une hausse du chomage ou des inscriptions au chomage est lue comme telle. Sur les indicateurs trop ambigus pour etre tranches sans risque de contresens, le desk se tait plutot que d affirmer.' },
@@ -15362,8 +15363,39 @@ async function _wrapLevels() {
 
 // Structure CALQUÉE sur la référence (image de référence) : LEAD + rubriques marché + EUROPEAN DATA + NOTABLE
 // HEADLINES + TRADE/TARIFFS + CENTRAL BANKS + GEOPOLITICS + bloc NORD-AMÉRICAIN (NEWS + DATA).
+/* Écriture FRANÇAISE des nombres dans les rapports. Le modèle rend « +0.5% à 653.49 » : point
+   décimal anglais et pourcentage collé, dans un desk intégralement en français. Une consigne de
+   prompt ne suffit pas ici, c'est le genre de détail qu'un modèle relâche dès que la phrase
+   s'allonge : on normalise APRÈS, de façon déterministe.
+   ⚠️ On ne touche QU'AU point ENTRE DEUX CHIFFRES. « U.S. », « att. -0,5 » ou une fin de phrase
+   suivie d'un chiffre ne sont pas concernés : le motif exige un chiffre de chaque côté.
+   ⚠️ Le cadratin est retiré au passage (veto typographique du desk), y compris dans la sortie IA :
+   c'est précisément là qu'il revient, puisque le modèle en produit spontanément. */
+function _frNombres(t) {
+  let s = String(t || '');
+  /* ⚠️ LES MILLIERS D'ABORD, ET C'EST L'ORDRE QUI COMPTE. En anglais la virgule sépare les
+     milliers : « l'or à 4,647 » vaut 4647. Converti sans précaution, ce nombre se lirait
+     « 4,647 » en français, soit mille fois moins. On remplace donc la virgule de millier par une
+     espace AVANT de transformer les points décimaux en virgules ; l'inverse rendrait les deux
+     rôles indistinguables. La boucle traite les nombres à plusieurs groupes (1,234,567). */
+  /* ⚠️ ON RAISONNE PAR JETON NUMÉRIQUE ENTIER, PAS PAR VOISINAGE. Premier jet : je regardais le
+     point « entre deux chiffres » avec des gardes de contexte, et « 21.08.2026 » devenait
+     « 21,08,2026 ». Un motif local ne peut pas distinguer une décimale d'une date, parce que la
+     différence n'est pas dans le voisinage du point : elle est dans le NOMBRE DE POINTS du jeton.
+     Deux points ou plus (date, version, adresse) : on ne touche à rien. */
+  s = s.replace(/\d[\d.,]*\d/g, (jeton) => {
+    if ((jeton.match(/\./g) || []).length >= 2) return jeton;   // date, version : intouchable
+    return jeton.replace(/,(\d{3})(?!\d)/g, ' $1')              // millier anglais -> espace
+                .replace(/\./, ',');                             // décimale -> virgule
+  });
+  return s
+    .replace(/(\d)\s*%/g, '$1 %')             // 0,5% -> 0,5 %
+    .replace(/\s+—\s+/g, ' : ')                // cadratin encadré -> deux-points (veto typographique)
+    .replace(/—/g, '-');                       // cadratin résiduel
+}
+
 const EU_WRAP_SECTIONS = ['SYNTHESE','ANNONCES ECONOMIQUES','ACTIONS','DEVISES','OBLIGATAIRE','MATIERES PREMIERES','DONNEES EUROPEENNES','TITRES MARQUANTS','COMMERCE/DOUANES','BANQUES CENTRALES','GEOPOLITIQUE','ACTUALITES NORD-AMERICAINES','DONNEES NORD-AMERICAINES'];
-const WRAP_VER = 'wrap-fr-3';   // v3 : rubrique dédiée ANNONCES ECONOMIQUES en tête (une puce PAR publication majeure : réel vs attendu + IMPACT expliqué — demande user 15/07 « parle + des sorties d'annonces éco et explique l'impact »). v2 : résultats calendrier injectés au prompt. bump → régénère le wrap du jour au prochain run/boot
+const WRAP_VER = 'wrap-fr-4';   // v3 : rubrique dédiée ANNONCES ECONOMIQUES en tête (une puce PAR publication majeure : réel vs attendu + IMPACT expliqué — demande user 15/07 « parle + des sorties d'annonces éco et explique l'impact »). v2 : résultats calendrier injectés au prompt. bump → régénère le wrap du jour au prochain run/boot
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -15414,14 +15446,16 @@ function _euWrapBuild(buckets, fallbackLead) {
     .filter(s => s.length > 1 && !_EU_PLACEHOLDER.test(s));
   // LEAD = bloc de SYNTHÈSE en tête (puces, SANS en-tête), façon pro. À défaut (IA KO) → lead déterministe (niveaux).
   const leadItems = clean(buckets['SYNTHESE']).filter(s => s.length > 4);
-  if (leadItems.length) leadItems.slice(0, 6).forEach(it => out.push('- ' + it));
+  if (leadItems.length) leadItems.slice(0, 5).forEach(it => out.push('- ' + it));
   else if (fallbackLead) out.push('- ' + fallbackLead);
   for (const h of EU_WRAP_SECTIONS) {
     if (h === 'SYNTHESE') continue;               // déjà rendu en tête (sans titre)
     const items = clean(buckets[h]);
     if (!items.length) continue;                  // rubrique vide (ou seulement « (None) ») → omise
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
-    items.slice(0, h === 'ANNONCES ECONOMIQUES' ? 12 : 8).forEach(it => out.push('- ' + it));   // jusqu'à 8 lignes/rubrique (12 pour les annonces éco : jours chargés type CPI+claims+PMI)
+    // Plafonds resserrés (21/08, demande user « raccourcis ») : 5 lignes par rubrique, 8 pour les
+    // annonces éco, qui restent la rubrique de fond les jours chargés (CPI + claims + PMI).
+    items.slice(0, h === 'ANNONCES ECONOMIQUES' ? 8 : 5).forEach(it => out.push('- ' + it));
   }
   return out.join('\n');
 }
@@ -15564,15 +15598,17 @@ ACTUALITES NORD-AMERICAINES
 DONNEES NORD-AMERICAINES
 
 Chaque ligne de contenu commence par « - ». Format par rubrique :
-- SYNTHESE : 6 à 8 puces de SYNTHÈSE donnant la vue d'ensemble du jour, dans CET ordre : (1) principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières ; (2) SI le flux contient de la géopolitique, une puce GÉOPOLITIQUE dédiée (le fait dominant du jour : conflit, sanctions, détroit, négociations…) et son effet marché documenté (pétrole, valeurs refuges…), ne l'omets JAMAIS quand la rubrique GEOPOLITIQUE ci-dessous a du contenu ; (3) 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux, jamais inventée) ; (4) une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre : juste les puces.
-- ANNONCES ECONOMIQUES : LA rubrique détaillée des publications du jour, une puce PAR publication du bloc RÉSULTATS PUBLIÉS (TOUTES les High d'abord, puis les Medium marquantes). Chaque puce : « Pays/Devise Indicateur : réel X vs attendu Y (préc. Z) », PUIS 1 à 2 phrases qui EXPLIQUENT L'IMPACT : (a) la lecture macro (surprise haussière/baissière, accélération ou ralentissement, ce que ça implique pour la banque centrale concernée : pression hawkish/dovish, statu quo conforté) et (b) la réaction de marché SI elle est documentée dans le flux ou les niveaux (« → le dollar s'est renforcé, les rendements 2 ans ont grimpé »). Si aucune réaction n'est documentée, donne UNIQUEMENT la lecture macro au conditionnel (« devrait conforter la patience de la Fed ») sans inventer de mouvement. C'est la rubrique la plus pédagogique du rapport : chiffre exact + pourquoi ça compte.
-- ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 5 lignes ANALYTIQUES (phrases complètes, profondeur d'une note de desk). Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
+- SYNTHESE : 4 à 6 puces, UNE SEULE PHRASE CHACUNE, 25 mots maximum. Dans CET ordre : (1) principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières ; (2) SI le flux contient de la géopolitique, une puce GÉOPOLITIQUE dédiée (le fait dominant du jour : conflit, sanctions, détroit, négociations…) et son effet marché documenté (pétrole, valeurs refuges…), ne l'omets JAMAIS quand la rubrique GEOPOLITIQUE ci-dessous a du contenu ; (3) 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux, jamais inventée) ; (4) une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre : juste les puces.
+- ANNONCES ECONOMIQUES : une puce PAR publication du bloc RÉSULTATS PUBLIÉS (les High d'abord, puis les Medium marquantes), TOUJOURS sur UNE SEULE LIGNE : « Devise Indicateur : réel X, attendu Y (préc. Z) », puis UNE proposition de 15 mots maximum qui dit ce que ça implique (pression hawkish/dovish, statu quo conforté) OU la réaction de marché si le flux la documente (« → le dollar s'est renforcé »). Sans réaction documentée, reste au conditionnel, n'invente aucun mouvement. INTERDIT de reformuler les chiffres en toutes lettres : « réel -0,5 %, attendu -0,5 % ; consommation atone » et JAMAIS « les ventes au détail ont stagné à -0,5 % contre -0,5 % attendu ». Le chiffre est déjà écrit, ne le redis pas.
+- ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 3 lignes, UNE PHRASE chacune, 30 mots maximum. Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
 - DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent, chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
 - TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux. OBLIGATOIRE : reprends TOUS les titres marqués [MAJEUR] du bloc AUTRES TITRES (reformulés en français, sans le marqueur), puis complète avec les autres faits saillants.
 - COMMERCE/DOUANES : puces factuelles sur les accords commerciaux et droits de douane, issues du flux.
 - BANQUES CENTRALES : puces factuelles par banque (décision, répartition des votes, guidance), issues des données.
 - GEOPOLITIQUE : puces factuelles groupées par thème (Russie-Ukraine, puis Moyen-Orient) dans la rubrique.
 - ACTUALITES NORD-AMERICAINES : titres US/Canada (politique, budget, entreprises) en une ligne, issus du flux.
+
+CONCISION, C'EST LA CONSIGNE PRINCIPALE : ce rapport se lit sur un desk, entre deux publications, pas dans un fauteuil. Une ligne = une information. Supprime tout ce qui ne fait que relier : « il convient de noter », « par ailleurs », « tandis que les indices US ont également affiché des gains modérés » quand la ligne a déjà donné le mouvement. Ne redis jamais en prose un chiffre que la ligne vient d'écrire. À information égale, la version la plus courte gagne.
 
 RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait : chiffres, niveaux, %, pb, tickers, noms, citations, dates. Reformule pour la clarté uniquement. Pas de préambule, pas de markdown, pas de gras, pas de remarque de conclusion. Produis UNIQUEMENT les en-têtes de rubrique et leurs lignes « - ».`;
 
@@ -15597,7 +15633,7 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait : chiffres, niveaux, %, 
   if ((!buckets['ANNONCES ECONOMIQUES'] || !buckets['ANNONCES ECONOMIQUES'].length) && calRows.length)
     buckets['ANNONCES ECONOMIQUES'] = calRows.map(l => l.replace(/^- /, ''));
 
-  const description = _euWrapBuild(buckets, _euWrapLead(levels));
+  const description = _frNombres(_euWrapBuild(buckets, _euWrapLead(levels)));
   const sectionCount = EU_WRAP_SECTIONS.filter(h => (buckets[h] || []).length).length;
   if (!description || sectionCount < 2) {   // ne JAMAIS publier un rapport vide (cold start sans données) → retry plus tard
     console.warn(`[EUWrap] contenu insuffisant (${sectionCount} rubrique(s)) → non publié, retry ultérieur.`);
