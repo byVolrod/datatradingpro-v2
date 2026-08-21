@@ -19046,7 +19046,7 @@ body.dtp-premium .topbar {
 /* Séparateur or plus présent sous la barre d'onglets active — signature discrète du mode admin. */
 body.dtp-premium .right-panel-tabs,
 body.dtp-premium .nav {
-  box-shadow: inset 0 -1px 0 rgba(227,178,58,.10);
+  box-shadow: inset 0 -1px 0 rgba(227,178,58,.16);
 }
 
 /* ═══ LISIBILITÉ DU FIL DE NEWS — POUR TOUS LES TRADERS (21/08, demande user) ══════════════════
@@ -19159,3 +19159,58 @@ body.dtp-premium .nav {
 .wdg-tabic-none { font-size: 15px; font-weight: 700; color: var(--text3, #6f6f79); }
 html[data-theme="light"] .wdg-tabic > summary { background: rgba(0,0,0,.03); }
 html[data-theme="light"] .wdg-tabic-grid { background: #fff; }
+
+/* ═══ EN-TÊTES DE PANNEAUX : FINITION ÉPURÉE PREMIUM (21/08, demande user, référence à l'appui) ══
+   La référence montrée tient par trois choses : des en-têtes AÉRÉS (le titre respire), des
+   contrôles discrets rangés à droite, et aucune décoration parasite. On affine dans ce sens,
+   par TOKENS et en fin de fichier (les règles canoniques des titres vivent plus haut ; ici on ne
+   touche qu'à l'air et aux contrôles, jamais aux polices : la grammaire de titres du desk est
+   scellée et alignée au pixel). */
+.chart-header, .panel-header, .wdg-head, .panel-head {
+  padding-left: 12px; padding-right: 8px;
+  gap: 8px;
+}
+/* Les contrôles d'en-tête (icônes, boutons de période) : présents mais silencieux, révélés au
+   survol du PANNEAU, pas seulement du bouton. C'est ce qui donne l'impression « épuré » de la
+   référence : au repos on ne voit que le titre et la donnée. */
+.chart-header .wdg-ico, .wdg-head .wdg-ico, .panel-header .wdg-ico {
+  opacity: .55; transition: opacity .15s ease, color .15s ease;
+}
+.chart-panel:hover .chart-header .wdg-ico,
+.wdg-card:hover .wdg-head .wdg-ico,
+.view-panel:hover .panel-header .wdg-ico { opacity: 1; }
+/* Filet bas des en-têtes légèrement adouci : la séparation reste, le trait pèse moins. */
+.chart-header, .wdg-head { border-bottom-color: color-mix(in srgb, var(--border) 72%, transparent); }
+
+/* ═══ BANDEAUX DE PANNEAU — FINITION ÉPURÉE PREMIUM (21/08, demande user, exemple à l'appui) ═════
+   Les en-têtes de panneau (vues, graphiques, cartes Mon Desk) étaient des barres plates. On leur
+   donne la même signature discrète que le reste du terminal : un très léger dégradé de tête pour la
+   profondeur, un fin repère doré avant le titre (le même geste que l'en-tête du panneau admin), et
+   un filet de base net. Pour TOUS les utilisateurs (le premium est désormais général). Sobre : rien
+   de clignotant, aucun coût de mise en page. */
+.panel-header, .chart-header, .wdg-head {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.025), transparent 62%);
+  position: relative;
+}
+/* Repère doré vertical avant le titre : présent, discret ; c'est la marque du desk sans un aplat. */
+.panel-title::before, .chart-header-title::before, .wdg-title::before {
+  content: ''; display: inline-block; width: 2px; height: 11px;
+  background: linear-gradient(180deg, #e3b23a, #b8860b);
+  border-radius: 1px; margin-right: 8px; vertical-align: -1px; opacity: .9;
+}
+/* Un cheveu doré affleure le bas du bandeau, sous le filet : présence, pas décoration. */
+.panel-header::after, .chart-header::after, .wdg-head::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(227,178,58,.26) 16%, rgba(227,178,58,.26) 84%, transparent);
+  opacity: .78; transition: opacity .2s ease;
+}
+.wdg-card:hover .wdg-head::after,
+.view-panel:hover > .panel > .panel-header::after { opacity: 1; }
+/* Thème clair : le dégradé de tête s'inverse en un voile sombre très léger pour garder la même
+   profondeur sur fond blanc, et le repère doré passe à l'or sombre lisible. */
+html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, html[data-theme="light"] .wdg-head {
+  background-image: linear-gradient(180deg, rgba(0,0,0,.03), transparent 62%);
+}
+html[data-theme="light"] .panel-title::before,
+html[data-theme="light"] .chart-header-title::before,
+html[data-theme="light"] .wdg-title::before { background: linear-gradient(180deg, #b8860b, #8a6a12); }
