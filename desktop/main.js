@@ -11,6 +11,21 @@
 const { app, BrowserWindow, Menu, Tray, nativeImage, shell, dialog, nativeTheme, ipcMain, screen } = require('electron');
 const path = require('path');
 const https = require('https');
+const fs = require('fs');
+
+/* ══ REPLI EN RENDU LOGICIEL ═══════════════════════════════════════════════════════════════════
+   Sur certaines machines, l'accélération matérielle ne peint tout simplement pas : c'est la cause
+   des écrans noirs à répétition. Les gardes de sauvetage rechargent le desk, ce qui est le bon
+   réflexe UNE fois — mais si le pilote est en cause, le problème revient et on recharge en
+   boucle. Au bout de trois sauvetages en moins d'une heure, l'application en tire la conclusion,
+   pose ce marqueur et redémarre sans accélération. Le rendu est un peu moins fluide, mais il
+   PEINT, et le marqueur survit aux redémarrages : le poste est réglé une fois pour toutes.
+   ⚠️ Ceci DOIT s'exécuter avant que l'application ne soit prête : disableHardwareAcceleration()
+   est ignoré une fois le moteur démarré. C'est pourquoi le bloc est ici, en tête de fichier. */
+const _MARQUEUR_LOGICIEL = path.join(app.getPath('userData'), 'rendu-logiciel.flag');
+if (fs.existsSync(_MARQUEUR_LOGICIEL)) {
+  try { app.disableHardwareAcceleration(); console.warn('[DTP] rendu logiciel actif (ecrans noirs repetes sur ce poste)'); } catch (e) {}
+}
 
 // Modal de mise à jour AUX COULEURS DTP (les dialogues natifs de l'OS ne sont pas stylables) : petite
 // fenêtre enfant sans cadre, fond sombre + accent or, cohérente avec l'app. Renvoie 'primary'|'secondary'.
@@ -318,12 +333,30 @@ function createWindow() {
     } catch (e) { return false; }
   };
 
+  // Sauvetages récents : sert à distinguer un incident isolé d'un poste dont le pilote graphique
+  // ne fonctionne pas. On ne garde qu'une heure d'historique.
+  let _sauvetages = [];
   const _dtpSauver = (motif) => {
     if (!win || win.isDestroyed()) return;
     const t = Date.now();
     if (t - _dtpDernierSauvetage < 60000) return;
     _dtpDernierSauvetage = t;
     console.warn('[DTP] ' + motif + ' : rechargement du desk');
+
+    // ⚠️ TROIS SAUVETAGES EN UNE HEURE = LE RECHARGEMENT NE RESOUT RIEN. Continuer reviendrait à
+    // recharger le desk sous les yeux de quelqu'un qui travaille, indéfiniment. On bascule le
+    // poste en rendu logiciel et on redémarre : c'est la seule action qui traite la cause.
+    _sauvetages = _sauvetages.filter(x => t - x < 3600e3);
+    _sauvetages.push(t);
+    if (_sauvetages.length >= 3 && !fs.existsSync(_MARQUEUR_LOGICIEL)) {
+      try {
+        fs.writeFileSync(_MARQUEUR_LOGICIEL, new Date().toISOString() + ' — ' + motif + '\n');
+        console.warn('[DTP] 3 sauvetages en 1 h : passage en rendu logiciel et redemarrage');
+        app.relaunch(); app.exit(0);
+        return;
+      } catch (e) { /* si on ne peut pas ecrire le marqueur, on se contente de recharger */ }
+    }
+
     try { win.loadURL(DESK_URL, { extraHeaders: 'Cache-Control: no-cache\n' }); } catch {}
   };
   win.webContents.on('render-process-gone', (_e, d) => _dtpSauver('moteur de rendu mort (' + (d && d.reason || '?') + ')'));

@@ -46,6 +46,13 @@ if [ -f "$REPO/scripts/vps/dtp-deploy.sh" ] && ! cmp -s "$REPO/scripts/vps/dtp-d
   cp -f "$REPO/scripts/vps/dtp-deploy.sh" /usr/local/bin/dtp-deploy.sh && chmod +x /usr/local/bin/dtp-deploy.sh
   echo "$(horo) deployeur mis a jour depuis le depot"
 fi
+# Le script de SAUVEGARDE suit le même chemin : il doit être disponible sans qu'on ait à se
+# connecter à la machine. C'est précisément quand l'accès SSH est difficile qu'on a besoin
+# d'une sauvegarde — la faire dépendre d'une connexion manuelle serait un contresens.
+if [ -f "$REPO/scripts/vps/dtp-sauvegarde.sh" ] && ! cmp -s "$REPO/scripts/vps/dtp-sauvegarde.sh" /usr/local/bin/dtp-sauvegarde.sh; then
+  cp -f "$REPO/scripts/vps/dtp-sauvegarde.sh" /usr/local/bin/dtp-sauvegarde.sh && chmod +x /usr/local/bin/dtp-sauvegarde.sh
+  echo "$(horo) script de sauvegarde mis a jour depuis le depot"
+fi
 export GIT_SSH_COMMAND="ssh -i /root/.ssh/dtp_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 
 # ── 2. Y A-T-IL QUELQUE CHOSE À DÉPLOYER ? ───────────────────────────────────
