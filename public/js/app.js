@@ -11648,12 +11648,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const host = document.getElementById('jr-toolbar'); if (!host) return;
     host.innerHTML =
       '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : tes colonnes deviennent TON journal">&#8593; Importer (Notion / CSV)</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent VOTRE journal">&#8593; Importer (Notion / CSV)</button>'
       + '<input type="file" id="jr-import-file" accept=".zip,.csv,.tsv,.txt,application/zip,application/x-zip-compressed,text/csv,text/tab-separated-values" style="display:none">'
       + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">&#9881; Propriétés</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-export" title="Télécharger ton journal en CSV (ré-importable ici, lisible dans Excel)">&#8595; Exporter (CSV)</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-export" title="Telecharger votre journal en CSV (ré-importable ici, lisible dans Excel)">&#8595; Exporter (CSV)</button>'
       + '<span class="jr-tb-spacer"></span>'
-      + '<span class="jr-tb-mode ' + (_jrCustom ? 'jr-tb-mode--perso' : '') + '">' + (_jrCustom ? '● Journal perso' : '○ Gabarit DTP') + '</span>';
+      // L'indicateur porte desormais son EXPLICATION : « ○ Gabarit DTP » ne disait a personne ce
+      // qu'il fallait en comprendre. Le titre dit ce que le mode change concretement.
+      + '<span class="jr-tb-mode ' + (_jrCustom ? 'jr-tb-mode--perso' : '') + '" title="'
+      + (_jrCustom
+          ? 'Journal perso : les colonnes et les options viennent de VOTRE import. Le gabarit DTP n\'est plus applique, pour ne jamais melanger les deux.'
+          : 'Gabarit DTP : colonnes et options par defaut. Importez votre journal et ce sont vos propres colonnes qui prennent la main.')
+      + '">' + (_jrCustom ? '● Journal perso' : '○ Gabarit DTP') + '</span>';
     const add = document.getElementById('jr-add'); if (add) add.onclick = _jrAddRow;
     const pr = document.getElementById('jr-props'); if (pr) pr.onclick = () => _jrPropsMenu(pr);
     const imp = document.getElementById('jr-import'), f = document.getElementById('jr-import-file');
@@ -11712,11 +11718,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + span + '">'
         + '<div class="jr-empty-wrap">'
         + '<div class="jr-empty-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg></div>'
-        + '<div class="jr-empty-title">Ton journal est prêt</div>'
-        + '<div class="jr-empty-sub">Consigne ton premier trade ou importe ton journal existant : statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
+        + '<div class="jr-empty-title">Votre journal est pret</div>'
+        + '<div class="jr-empty-sub">Consignez votre premier trade ou importez votre journal existant : statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
         + '<div class="jr-empty-actions">'
         + '<button type="button" class="jr-tb-btn jr-tb-btn--add jr-addrow">+ Ajouter un trade</button>'
-        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : tes colonnes deviennent ton journal">&#8593; Importer (Notion / CSV)</button>'
+        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent votre journal">&#8593; Importer (Notion / CSV)</button>'
         + '</div></div></td></tr></tbody>';
       const ei = document.getElementById('jr-empty-import');
       if (ei) ei.onclick = () => { const f = document.getElementById('jr-import-file'); if (f) f.click(); };
@@ -12005,7 +12011,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     for (const s of _JR_SECT_DEF) {
       const val = (e.sections && e.sections[s.k]) || '';
       h += '<div class="jrd-sect"><div class="jrd-sect-h">' + s.label + '</div>'
-        + '<textarea class="jrd-sect-ta" data-sk="' + s.k + '" placeholder="Ajoute ton analyse…" rows="2">' + _esc(val) + '</textarea></div>';
+        + '<textarea class="jrd-sect-ta" data-sk="' + s.k + '" placeholder="Ajoutez votre analyse…" rows="2">' + _esc(val) + '</textarea></div>';
     }
     h += '</div>';
     // 2 blocs images (captures de graphiques) sous les sections : chargés à la demande (clé KV séparée, anti-egress).
@@ -12374,20 +12380,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
       _jrCols.forEach(c => { if (c.builtin && !_keep[c.k] && !(idx[c.k] >= 0)) c.hidden = true; });
     }
     _jrEdit = null; _jrRender();
-    const _ccNote = _customCols.length ? ' · ' + _customCols.length + ' propriété(s) créée(s) depuis tes colonnes' : '';
+    const _ccNote = _customCols.length ? ' · ' + _customCols.length + ' propriete(s) creee(s) depuis vos colonnes' : '';
     const _dupNote = skipped ? ' · ' + skipped + ' doublon(s) ignoré(s)' : '';
     const _capNote = (_jrList.length >= 500) ? ' · cap 500 atteint : les plus anciens au-delà sont retirés' : '';
     if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + _dupNote + _capNote + pairNote + _ccNote + ' : journal personnalisé'); }
     else if (skipped) {
       // Rien de neuf : tout le fichier est déjà dans le journal → on retire les colonnes créées en anticipation.
       _customCols.forEach(cc => { const ix = _jrCols.findIndex(c => c.k === cc.k); if (ix >= 0) _jrCols.splice(ix, 1); });
-      _jrStatus('Aucun nouveau trade : les ' + skipped + ' ligne(s) du fichier sont déjà dans ton journal.');
+      _jrStatus('Aucun nouveau trade : les ' + skipped + ' ligne(s) du fichier sont deja dans votre journal.');
       return 0;
     }
     else {
       // Import raté → on retire les colonnes personnalisées créées en anticipation (aucune valeur importée)
       _customCols.forEach(cc => { const ix = _jrCols.findIndex(c => c.k === cc.k); if (ix >= 0) _jrCols.splice(ix, 1); });
-      _jrStatus('Import impossible : aucune colonne « Paire » reconnue dans le fichier (' + (rows.length - 1) + ' ligne(s) lue(s)). Vérifie que ton export contient bien une colonne paire/symbole.');
+      _jrStatus('Import impossible : aucune colonne « Paire » reconnue dans le fichier (' + (rows.length - 1) + ' ligne(s) lue(s)). Verifiez que votre export contient bien une colonne paire/symbole.');
     }
     return added;
   }
@@ -12446,7 +12452,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // au « _all.csv » de Notion qui contient TOUTES les lignes, sinon le plus gros : tous niveaux confondus).
   async function _jrUnzipBestCsv(buf) {
     const cands = await _jrZipCollectCsvs(new Uint8Array(buf), 0, []);
-    if (!cands.length) throw new Error('aucun .csv trouvé (ni dans les sous-zips Notion) : exporte ton journal en « Markdown & CSV ».');
+    if (!cands.length) throw new Error('aucun .csv trouvé (ni dans les sous-zips Notion) : exportez votre journal en « Markdown & CSV ».');
     cands.sort((a, b) => (/_all\.csv$/i.test(b.e.name) - /_all\.csv$/i.test(a.e.name)) || (b.e.uSize - a.e.uSize));
     const best = cands[0];
     console.log('[Journal import] CSV retenu :', best.e.name, '(' + best.e.uSize + 'o, méthode ' + best.e.method + ') · ' + cands.length + ' CSV trouvé(s)');
@@ -12614,7 +12620,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
-    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment : ajoute ton premier trade ou importe ton journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
+    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment : ajoutez votre premier trade ou importez votre journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
     const sum = a => a.reduce((x, y) => x + y, 0);
     const rs = L.map(_jrRof).filter(r => r != null), wins = rs.filter(r => r > 0), losses = rs.filter(r => r < 0);
     const totR = sum(rs), totD = sum(L.map(e => _jrN(e.pl) || 0));
