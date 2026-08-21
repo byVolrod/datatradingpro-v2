@@ -978,6 +978,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-synthese-sans-resume', ts: Date.UTC(2026, 7, 23, 10, 0), title: 'Synthese des Marches : le resume de tete disparait, le rapport va droit au fait', desc: 'Le rapport de cloture s ouvrait sur quatre puces de synthese qui redisaient ce que les rubriques donnaient juste en dessous. Le Stoxx et le DXY y figuraient une premiere fois, puis une seconde dans Marches ; les PMI une premiere fois, puis une seconde dans Macro. Sur un texte deja court que l on parcourt entre deux publications, un resume place avant fait lire deux fois la meme chose. Il est retire : le rapport commence directement par la geopolitique, qui donne le regime de la seance, puis enchaine sur la macro, les banques centrales, les marches et les echeances a surveiller.' },
   { id: 'dtpu-20260821-synthese-structure', ts: Date.UTC(2026, 7, 23, 9, 0), title: 'Synthese des Marches : meme structure que les autres rapports du desk', desc: 'Le rapport de cloture suivait sa propre organisation, heritee d empilements successifs : treize rubriques, dont plusieurs disaient la meme chose. Trois d entre elles portaient des chiffres publies, quatre decoupaient le marche en actions, devises, obligataire et matieres premieres pour souvent deux lignes chacune, et trois autres alignaient des titres qui reprenaient ce que la geopolitique et la macro venaient d expliquer. Il en reste cinq, dans l ordre des recaps quotidien et hebdomadaire : la synthese en tete, puis Geopolitique, Macro, Banques centrales et Marches, et enfin A surveiller. La geopolitique passe devant la macro parce que c est elle qui donne le regime de la seance, et c est deja l ordre des autres rapports. La rubrique Banques centrales dit qui a parle, sur quel ton, et ce que cela change pour la prochaine reunion ; elle disparait les jours sans intervention plutot que de rester vide. Passer d un rapport a l autre ne demande plus de reapprendre ou regarder.' },
   { id: 'dtpu-20260821-synthese-courte', ts: Date.UTC(2026, 7, 23, 8, 0), title: 'Synthese des Marches : plus courte, et les chiffres enfin ecrits en francais', desc: 'Le rapport quotidien s etait allonge au point de se lire comme un article. Il redisait en prose des chiffres qu il venait d ecrire : une ligne annoncait reel -0,5 pour -0,5 attendu, puis expliquait que les ventes avaient stagne. Deux fois la meme information. Les consignes de redaction sont resserrees : le bloc de tete passe a quatre ou six puces d une seule phrase, chaque publication economique tient sur une ligne, et les rubriques de marche sur deux a trois lignes au lieu de cinq. Une ligne, une information. Les chiffres sont par ailleurs normalises en ecriture francaise : virgule decimale, espace avant le pourcentage, et separateur de milliers converti. Ce dernier point n etait pas cosmetique : un cours de l or ecrit 4,647 a l anglaise se lisait 4,647 en francais, soit mille fois moins. Les rapports du jour se regenerent automatiquement.' },
   { id: 'dtpu-20260821-fiche-indicateurs', ts: Date.UTC(2026, 7, 23, 7, 0), title: 'Chaque publication economique porte desormais sa definition, celle de la fiche du desk', desc: 'Sous une donnee economique, le desk explique maintenant ce que mesure l indicateur, en reprenant mot pour mot la fiche pedagogique qui alimente deja le Decryptage du calendrier. Meme source pour les deux ecrans, donc jamais deux explications differentes du meme chiffre. La lecture face au consensus vient de la meme fiche, y compris pour les indicateurs inverses ou un chiffre qui monte est une mauvaise nouvelle, comme le chomage ou les inscriptions hebdomadaires. Sur les indices d activite, la valeur est situee par rapport au seuil de 50 : a 56,8 l activite progresse encore, meme quand le chiffre deçoit les attentes. C etait un vrai risque de lecture. Les phrases sont ecrites directement, sans etiquette devant : sur un desk, la phrase se suffit.' },
@@ -15408,8 +15409,14 @@ function _frNombres(t) {
        rubrique « Titres principaux » pour cette raison exacte.
    Cinq rubriques désormais, dans l'ordre du récap. La géopolitique passe DEVANT la macro : c'est
    elle qui donne le régime de la séance, et c'est l'ordre des autres rapports. */
-const EU_WRAP_SECTIONS = ['SYNTHESE','GEOPOLITIQUE','MACRO','BANQUES CENTRALES','MARCHES','À SURVEILLER'];
-const WRAP_VER = 'wrap-fr-5';   // v5 : structure alignée sur les récaps (Synthèse → Géopolitique → Macro → Banques centrales → Marchés → À surveiller), 13 rubriques ramenées à 6. v4 : rapport raccourci + nombres en écriture française. v3 : rubrique dédiée aux annonces économiques. v2 : résultats calendrier injectés au prompt. Tout bump régénère le wrap du jour au prochain run/boot.
+/* ⚠️ PLUS DE BLOC DE SYNTHÈSE EN TÊTE (21/08, demande user « enlève cette partie »). Il redisait
+   ce que les rubriques donnaient juste en dessous : le Stoxx et le DXY y figuraient une première
+   fois, puis une seconde dans MARCHES ; les PMI une première fois, puis une seconde dans MACRO.
+   Sur un rapport de clôture qu'on parcourt, un résumé qui précède un texte déjà court fait lire
+   deux fois la même chose. Le rapport ouvre désormais directement sur la géopolitique, comme le
+   récap quotidien ouvre sur elle après son intro. */
+const EU_WRAP_SECTIONS = ['GEOPOLITIQUE','MACRO','BANQUES CENTRALES','MARCHES','À SURVEILLER'];
+const WRAP_VER = 'wrap-fr-6';   // v6 : bloc de synthèse en tête retiré (il redisait les rubriques suivantes). v5 : structure alignée sur les récaps, 13 rubriques ramenées à 5. v4 : rapport raccourci + nombres en écriture française. v3 : rubrique dédiée aux annonces économiques. v2 : résultats calendrier injectés au prompt. Tout bump régénère le wrap du jour au prochain run/boot.
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -15439,31 +15446,20 @@ function _euWrapParse(aiText) {
 }
 
 // Lead façon pro (1re ligne, rendue en gras) construit depuis les VRAIS niveaux : « European close — Stoxx 600 …; EUR/USD …; Brent … ».
-function _euWrapLead(levels) {
-  const pick = (arr, lbl) => { const l = (arr || []).find(x => x.includes(lbl)); return l ? l.replace(/^- /, '') : null; };
-  const parts = [
-    pick(levels.eq, 'Stoxx 600') || pick(levels.eq, 'Euro Stoxx 50') || pick(levels.eq, 'DAX'),
-    pick(levels.eq, 'S&P 500'),
-    pick(levels.fx, 'EUR/USD'),
-    pick(levels.cmd, 'Brent') || pick(levels.cmd, 'Gold'),
-    pick(levels.fixed, 'US 10y'),
-  ].filter(Boolean);
-  return parts.length ? `Clôture européenne : ${parts.join(' ; ')}.` : null;
-}
+/* _euWrapLead a ete RETIRE le 21/08 : il fabriquait le lead de repli du bloc de synthese, et ce
+   bloc n'existe plus. Une fonction qui n'est plus appelee mais qui reste en place se lit comme du
+   code vivant, et le prochain qui touche au rapport perd du temps a comprendre pourquoi elle ne
+   produit rien. */
 
 // Lignes-placeholder « (None) / N/A / Aucun … » que l'IA glisse parfois sous une rubrique vide
 // au lieu de l'omettre → on les jette pour que la rubrique disparaisse proprement (façon pro).
 const _EU_PLACEHOLDER = /^\(?\s*(none|n\/?a|nil|aucun(e)?|n[ée]ant|rien|empty|tba|tbd|—|-)\s*\)?\.?$/i;
-function _euWrapBuild(buckets, fallbackLead) {
+function _euWrapBuild(buckets) {
   const out = [];
   const clean = arr => (arr || []).map(s => s.replace(/^[-•*·]\s*/, '').trim())
     .filter(s => s.length > 1 && !_EU_PLACEHOLDER.test(s));
-  // LEAD = bloc de SYNTHÈSE en tête (puces, SANS en-tête), façon pro. À défaut (IA KO) → lead déterministe (niveaux).
-  const leadItems = clean(buckets['SYNTHESE']).filter(s => s.length > 4);
-  if (leadItems.length) leadItems.slice(0, 5).forEach(it => out.push('- ' + it));
-  else if (fallbackLead) out.push('- ' + fallbackLead);
+  // Le rapport commence par sa première rubrique : plus aucun bloc de synthèse en tête.
   for (const h of EU_WRAP_SECTIONS) {
-    if (h === 'SYNTHESE') continue;               // déjà rendu en tête (sans titre)
     const items = clean(buckets[h]);
     if (!items.length) continue;                  // rubrique vide (ou seulement « (None) ») → omise
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
@@ -15476,7 +15472,7 @@ function _euWrapBuild(buckets, fallbackLead) {
 }
 
 // Repli déterministe (IA indisponible / vide) : rubriques marché depuis les niveaux réels + top headlines,
-// alignées sur la structure de référence (LEAD géré à part par _euWrapLead).
+// alignées sur la structure de référence.
 function _euWrapFallback(levels, s) {
   /* ⚠️ LE REPLI DOIT PARLER LA MÊME LANGUE QUE LA NOUVELLE STRUCTURE. Il remplit les rubriques PAR
      LEUR NOM : laissé sur les anciens noms, il aurait rempli des rubriques que plus personne ne
@@ -15605,7 +15601,6 @@ AUTRES TITRES:\n${_fmtPrio(_allPrio)}
 
 Rédige la synthèse avec EXACTEMENT ces en-têtes de rubrique, chacun SEUL sur sa ligne, en MAJUSCULES, SANS deux-points, dans CET ordre. N'omets une rubrique QUE si le flux/les niveaux ci-dessus n'ont vraiment rien pour elle.
 
-SYNTHESE
 GEOPOLITIQUE
 MACRO
 BANQUES CENTRALES
@@ -15613,7 +15608,6 @@ MARCHES
 À SURVEILLER
 
 Chaque ligne de contenu commence par « - ». Format par rubrique :
-- SYNTHESE : 4 à 6 puces, UNE SEULE PHRASE CHACUNE, 25 mots maximum. Dans CET ordre : (1) le fait dominant de la séance, chiffré ; (2) les principaux mouvements de marché (indices, DXY puis majeures, ton obligataire, matières premières) ; (3) SI le flux contient de la géopolitique, une puce dédiée au fait dominant et à son effet marché documenté ; (4) la ou les publications économiques majeures du jour avec le réel face à l'attendu. PAS de sous-titre, PAS de puce « À suivre » ici : elle a sa rubrique.
 - GEOPOLITIQUE : état des lieux FACTUEL et sec, groupé par théâtre (Russie-Ukraine, puis Moyen-Orient, puis commerce et droits de douane, qui relèvent du même registre). Une flèche « → » vers l'effet marché UNIQUEMENT si le flux ou les niveaux le documentent. Aucun effet supposé.
 - MACRO : LA rubrique des chiffres publiés, toutes zones confondues (Europe ET Amérique du Nord, dans cet ordre). Une puce PAR publication du bloc RÉSULTATS PUBLIÉS, les High d'abord puis les Medium marquantes, TOUJOURS sur UNE SEULE LIGNE : « Devise Indicateur : réel X, attendu Y (préc. Z) », puis UNE proposition de 15 mots maximum qui dit ce que ça implique (pression hawkish/dovish, statu quo conforté) OU la réaction de marché si le flux la documente (« → le dollar s'est renforcé »). Sans réaction documentée, reste au conditionnel, n'invente aucun mouvement. INTERDIT de reformuler les chiffres en toutes lettres : « réel -0,5 %, attendu -0,5 % ; consommation atone » et JAMAIS « les ventes au détail ont stagné à -0,5 % contre -0,5 % attendu ». Le chiffre est déjà écrit, ne le redis pas.
 - BANQUES CENTRALES : le TON et les PROPOS du jour, rubrique omise s'il n'y a eu ni décision ni intervention. Une puce par banque ou par intervenant : qui a parlé, ce qu'il a dit (propos en version originale s'il est cité dans le flux, jamais traduit), et ce que cela change pour la prochaine réunion. Qualifie le ton en un mot lorsqu'il est net : restrictif, accommodant, ou statu quo. N'attribue JAMAIS un propos à quelqu'un dont le nom n'est pas dans les données, et ne complète jamais un prénom absent.
@@ -15645,7 +15639,7 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait : chiffres, niveaux, %, 
   if ((!buckets['MACRO'] || !buckets['MACRO'].length) && calRows.length)
     buckets['MACRO'] = calRows.map(l => l.replace(/^- /, ''));
 
-  const description = _frNombres(_euWrapBuild(buckets, _euWrapLead(levels)));
+  const description = _frNombres(_euWrapBuild(buckets));
   const sectionCount = EU_WRAP_SECTIONS.filter(h => (buckets[h] || []).length).length;
   if (!description || sectionCount < 2) {   // ne JAMAIS publier un rapport vide (cold start sans données) → retry plus tard
     console.warn(`[EUWrap] contenu insuffisant (${sectionCount} rubrique(s)) → non publié, retry ultérieur.`);
