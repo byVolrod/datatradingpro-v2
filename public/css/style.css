@@ -18934,3 +18934,57 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
 html[data-theme="light"] .wdg-aide-ov { background: rgba(0,0,0,.28); }
 html[data-theme="light"] .wdg-aide-cat { color: #8a6a12; }
 html[data-theme="light"] .wdg-aide-corps h4 { color: #6b7280; }
+
+/* ═══ ONGLETS ACTIFS : PLUS AUCUN SOULIGNEMENT OR (21/08, demande user) ════════════════════════
+   « Aucun underline, aucune bordure orange visible. L'effet doit rester très discret, élégant et
+   proche d'un terminal institutionnel. »
+
+   Ce qui distingue désormais l'onglet actif : son encre passe au blanc et sa graisse augmente,
+   posées sur un fond à peine plus clair. C'est la grammaire des terminaux de marché, où le trait
+   de couleur est réservé à ce qui porte un SENS (hausse, baisse, alerte) et jamais à la simple
+   navigation. Un soulignement doré sur chaque barre d'onglets banalisait la couleur de marque au
+   point qu'elle ne signalait plus rien.
+
+   Bloc placé en FIN de fichier : plusieurs de ces règles portent `!important` plus haut, et seule
+   une déclaration postérieure de même poids les neutralise. */
+.nav-item--active:not(.nav-item--symbol)::after,
+.nav-item.active:not(.nav-item--symbol)::after,
+.right-tab--active::after,
+.stf-btn--active::after, .cot-type-btn--active::after, .dmx-tf-btn--active::after,
+.inst-tab--active::after, .jr-tab--active::after, .np-tab--active::after,
+.expand-tab.expand-tab--active::after, .tf-btn--active::after, .ct-btn--active::after,
+.cot-tf-btn--active::after, .ind-btn--active::after,
+.wdg-ptab.on::after {
+  content: none !important;
+  background: transparent !important;
+  height: 0 !important;
+}
+/* Les bordures basses dorées suivent le même sort : elles faisaient le même trait, autrement. */
+.sym-subtab--active, .np-tab--active, .jr-tab--active, .wdg-jrtab button.on {
+  border-bottom-color: transparent !important;
+}
+/* Marquage de remplacement : un fond à peine perceptible, qui « assied » l'onglet sans le souligner. */
+.nav-item--active:not(.nav-item--symbol), .nav-item.active:not(.nav-item--symbol),
+.right-tab--active, .stf-btn--active, .cot-type-btn--active, .dmx-tf-btn--active,
+.inst-tab--active, .jr-tab--active, .np-tab--active, .expand-tab.expand-tab--active,
+.tf-btn--active, .ct-btn--active, .cot-tf-btn--active, .ind-btn--active,
+.sym-subtab--active, .wdg-ptab.on {
+  background: rgba(255, 255, 255, .055) !important;
+  border-radius: 4px 4px 0 0;
+}
+html[data-theme="light"] .nav-item--active:not(.nav-item--symbol),
+html[data-theme="light"] .nav-item.active:not(.nav-item--symbol),
+html[data-theme="light"] .right-tab--active, html[data-theme="light"] .inst-tab--active,
+html[data-theme="light"] .jr-tab--active, html[data-theme="light"] .np-tab--active,
+html[data-theme="light"] .expand-tab.expand-tab--active, html[data-theme="light"] .sym-subtab--active,
+html[data-theme="light"] .wdg-ptab.on {
+  background: rgba(0, 0, 0, .055) !important;
+}
+
+/* ═══ BIBLIOTHÈQUE DE WIDGETS : NOMS SANS GRAS (21/08, demande user) ═══════════════════════════
+   Sur une grille de cartes, tous les noms en gras se valent : plus rien ne ressort, et l'ensemble
+   pèse. Le nom reste parfaitement lisible en graisse normale, et c'est l'aperçu visuel de chaque
+   carte qui porte l'attention, ce qui est son rôle. */
+.wdg-lib-name,
+.wdg-lib-card .wdg-lib-name,
+.wdg-lib-grid .wdg-lib-row .wdg-lib-name { font-weight: 500; }
