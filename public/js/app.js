@@ -5513,9 +5513,17 @@ function _sbTauxCell(c) {
   if (typeof r !== 'number') return '<span class="mt-taux-vide">·</span>';
   // Intensité proportionnelle au taux le plus élevé du jour : l'échelle se recalcule d'elle-même
   // quand les banques bougent, plutôt que d'être figée sur un maximum écrit en dur qui vieillirait.
+  /* ⚠️ OR, PAS VERT. Le vert #00e676 est le token BUY/haussier de la charte : l'employer pour un
+     NIVEAU de taux lui donnerait un sens directionnel qu'il n'a pas, et deux échelles de couleur
+     dans le même tableau rendent la lecture contradictoire. L'or #e3b23a est la couleur signature
+     du desk et la langue de ce qui INFORME sans orienter — c'est déjà celle des tags « driver »
+     de ce même tableau. Le niveau se lit à l'intensité du fond, pas à la teinte. */
   const f = _sbTauxMax > 0 ? Math.max(0, Math.min(1, r / _sbTauxMax)) : 0;
-  const a = (0.06 + f * 0.30).toFixed(3);   // jamais totalement transparent, jamais opaque
-  return `<span class="mt-taux-v" style="background:rgba(0,230,118,${a})">${r.toFixed(2).replace('.', ',')} %</span>`;
+  // Sous 0,10 %, il n'y a pas de portage à signaler : la valeur passe en gris et perd son fond.
+  // Peindre « 0,00 % » comme une donnée forte serait un contresens visuel.
+  if (r < 0.10) return `<span class="mt-taux-v mt-taux-v--nul">${r.toFixed(2).replace('.', ',')} %</span>`;
+  const a = (0.05 + f * 0.16).toFixed(3);   // jamais totalement transparent, jamais opaque
+  return `<span class="mt-taux-v" style="background:rgba(227,178,58,${a})">${r.toFixed(2).replace('.', ',')} %</span>`;
 }
 
 function _sbChargerTaux() {

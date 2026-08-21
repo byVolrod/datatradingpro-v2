@@ -3223,14 +3223,27 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    largeur et la colonne semble vibrer d'une ligne à l'autre.
    L'intensité du fond est calculée en JS (proportionnelle au taux le plus haut du jour) : elle ne
    peut pas être figée ici sans vieillir dès qu'une banque bouge. */
-.macro-table th.mt-taux-h, .macro-table td.mt-taux { width: 96px; white-space: nowrap; }
+/* La colonne est ALIGNÉE À DROITE et la pastille a une largeur MINIMALE : sans cela « 0,00 » et
+   « 12,50 » produisent des pastilles de largeurs différentes, les chiffres ne tombent pas en
+   colonne et l'œil ne peut plus comparer d'un balayage vertical. C'est tout l'objet d'une grille
+   dense. Chiffres à chasse fixe pour la même raison. */
+.macro-table th.mt-taux-h, .macro-table td.mt-taux { width: 104px; white-space: nowrap; text-align: right; }
+.macro-table th.mt-taux-h { text-align: right; }
 .mt-taux-v {
-  display: inline-block; padding: 2px 8px; border-radius: 4px;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 11.5px; font-weight: 600; letter-spacing: -.01em;
-  color: var(--txt, #e6e8ec);
+  /* Même grammaire que les autres tags du tableau (.mt-tag) : encre nette, fond léger, pas de
+     bordure, pas de pastille. La cohérence prime sur l'invention d'un style de plus. */
+  display: inline-block; min-width: 62px; padding: 3px 9px; border-radius: 5px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 600; letter-spacing: .012em;
+  line-height: 1.5; text-align: right;
+  color: #e0b452;                       /* or du desk : informe, n'oriente pas */
 }
+/* Taux nul ou quasi nul : aucun portage à signaler, donc ni or ni fond. */
+.mt-taux-v--nul { color: #7c8794; background: rgba(154,164,178,.07); }
 .mt-taux-vide { color: #4a4f58; font-size: 12px; }
+/* Thème clair : l'or clair passe sous le seuil de lisibilité sur fond blanc → or sombre de la charte. */
+html[data-theme="light"] .mt-taux-v { color: #8a6a12; }
+html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 
 /* Colonne chevron (affordance « cliquer pour ouvrir ») */
 .macro-table th.mt-x-h, .macro-table td.mt-x { width: 22px; padding-left: 0; padding-right: 8px; text-align: right; }

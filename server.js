@@ -978,6 +978,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-essai-fr-large', ts: Date.UTC(2026, 7, 23, 13, 0), title: 'Essai d un mois : toutes les depeches depliees arrivent directement en francais', desc: 'La pre-traduction ne se limite plus aux news importantes : pendant un mois, toute depeche que vous depliez s ouvre directement en francais, sans le bref passage par l anglais qui precedait la bascule. Deux garde-fous encadrent l essai. Cette tache est la premiere a ceder : elle s arrete d elle-meme des que la consommation quotidienne d intelligence artificielle approche son plafond, et le terminal revient alors au comportement actuel, la traduction a l ouverture. Un plafond qui lui est propre l empeche par ailleurs de consommer la reserve destinee a des contenus qui n ont aucun repli, comme les analyses du Radar de Biais ou la Semaine a Venir. Les depeches importantes sont traduites en premier, de sorte que si la journee se coupe en cours de route, ce sont celles qui comptent qui auront ete faites. Le volume traite chaque jour est mesure et consultable, pour decider a la fin du mois sur des chiffres plutot que sur une impression.' },
   { id: 'dtpu-20260821-depeches-fr', ts: Date.UTC(2026, 7, 23, 12, 0), title: 'Les depeches importantes s ouvrent directement en francais', desc: 'Jusqu ici, une news importante dont la depeche etait trop courte pour meriter une analyse s affichait en anglais, puis basculait en francais apres un aller-retour. D ou l anglais visible une fraction de seconde, et durablement les jours ou le service de traduction ne repondait pas. Ces depeches sont desormais traduites A L AVANCE, en tache de fond : le depliage s ouvre directement en francais, sans requete et sans clignotement. La portee est volontairement limitee aux news importantes. Le fil depasse mille depeches par jour et tout traduire consommerait le budget reserve a des contenus qui n ont aucun repli, comme les narratifs du Radar de Biais ou la Semaine a Venir. Le reste du fil garde la traduction a l ouverture, deja en place. Et si une traduction echoue, rien n est enregistre : la depeche sera retentee au passage suivant plutot que de rester figee en anglais.' },
   { id: 'dtpu-20260821-biais-taux', ts: Date.UTC(2026, 7, 23, 11, 0), title: 'Radar de Biais : le taux directeur de chaque banque, juste avant le biais', desc: 'Le tableau disait qu une politique monetaire etait restrictive ou accommodante sans jamais montrer le niveau, alors que c est lui qui fait le portage, et que le portage pese deja dans le calcul du biais. Une colonne Taux directeur est ajoutee avant la colonne Biais. Le fond vert s intensifie avec le taux, de sorte que le classement des devises se lit d un coup d oeil, sans avoir a comparer les chiffres un a un ; l echelle se recalcule chaque jour sur le taux le plus eleve du moment plutot que d etre figee. La donnee vient de la meme source que le widget Differentiel de taux et que l onglet Taux : trois endroits qui affichent un taux directeur ne peuvent pas se contredire. Si la source est momentanement indisponible, la colonne affiche un point et le reste du tableau est intact.' },
   { id: 'dtpu-20260821-synthese-sans-resume', ts: Date.UTC(2026, 7, 23, 10, 0), title: 'Synthese des Marches : le resume de tete disparait, le rapport va droit au fait', desc: 'Le rapport de cloture s ouvrait sur quatre puces de synthese qui redisaient ce que les rubriques donnaient juste en dessous. Le Stoxx et le DXY y figuraient une premiere fois, puis une seconde dans Marches ; les PMI une premiere fois, puis une seconde dans Macro. Sur un texte deja court que l on parcourt entre deux publications, un resume place avant fait lire deux fois la meme chose. Il est retire : le rapport commence directement par la geopolitique, qui donne le regime de la seance, puis enchaine sur la macro, les banques centrales, les marches et les echeances a surveiller.' },
@@ -5599,6 +5600,9 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       cohere: { keys: (st.cohere || {}).keys || 0, models: (st.cohere || {}).models || 0, coolingKeys: (st.cohere || {}).coolingNow || 0, callsToday: u.cohere || 0, failToday: u.cohereFail || 0, failWindow: sum('cohere', 'fail'), callsWindow: sum('cohere', 'calls') },
       xai: { keys: (st.xai || {}).keys || 0, models: (st.xai || {}).models || 0, coolingKeys: (st.xai || {}).coolingNow || 0, paid: true, callsToday: u.xai || 0, failToday: u.xaiFail || 0, failWindow: sum('xai', 'fail'), callsWindow: sum('xai', 'calls') },
       claude: { keys: st.anthropicKeys || 0, usable: !!st.claudeUsable, usedToday: st.claudeUsedToday || 0, dailyMax: st.claudeDailyMax || 0, cooling: st.claudeCooling || [], callsToday: u.claude || 0, callsWindow: sum('claude', 'calls') },
+      // ESSAI PRE-TRADUCTION (21/08, un mois) : remonte dans le moniteur IA, regle du desk. Sans
+      // ce chiffre, la decision de poursuivre ou d arreter se prendrait a l impression.
+      descFr: _descFrStats(),
     };
     const health = {
       gemini: _telHealthScore(providers.gemini.keys, providers.gemini.coolingKeys, providers.gemini.breakersOpen, providers.gemini.callsToday, providers.gemini.err429Today),
@@ -17298,12 +17302,47 @@ function _parseAnalyseBullets(text) {
    ⚠️ Et `_traduireLot` passe `important: true` à l'IA. Sans ce drapeau, `aiAllowed('news')` refuse
    100 % des appels EN SILENCE : c'est exactement ce qui a rendu l'endpoint de traduction inopérant
    pendant des semaines en juillet, sans une seule erreur visible. */
+/* ═══ ESSAI D'UN MOIS : PRÉ-TRADUIRE TOUT CE QUI SE DÉPLIE (feu vert user du 21/08/2026) ═══════
+   Décision explicite : « on va pré-traduire, quand on déroule on a direct en FR, pendant 1 mois ;
+   si c'est ok on continue, et si on a épuisé le quota alors on revient comme maintenant ».
+   La portée n'est donc plus limitée aux news importantes : toute dépêche dépliable est candidate.
+
+   LE RETOUR EN ARRIÈRE EST AUTOMATIQUE, ET IL L'EST PAR CONSTRUCTION. Cette tâche s'exécute en
+   priorité « background », que le gouverneur coupe dès 60 % du plafond quotidien. Quota épuisé =
+   plus aucune pré-traduction, et le client retombe tout seul sur la traduction au dépliage, celle
+   d'aujourd'hui. Il n'y a rien à débrancher en urgence : le mécanisme cède avant de nuire.
+
+   ⚠️ PLAFOND DÉDIÉ EN PLUS. Le tiers « background » est PARTAGÉ avec d'autres préchauffages ; sans
+   plafond propre, la traduction pourrait consommer toute cette réserve et affamer les autres. Le
+   plafond ci-dessous borne la dépense de CETTE tâche, indépendamment des parts du gouverneur.
+   `DESC_FR_MAX_JOUR=0` la désactive complètement, sans redéploiement.
+
+   ⚠️ ON MESURE, sinon dans un mois la décision se prendra à l'impression. Le compteur du jour est
+   remonté dans le moniteur IA du panneau admin, à côté des autres consommations. */
 const DESC_FR_PAR_CYCLE = 8;
+const DESC_FR_MAX_JOUR = (function () {
+  const v = parseInt(process.env.DESC_FR_MAX_JOUR, 10);
+  return Number.isFinite(v) ? v : 400;
+})();
+let _descFrJour = '', _descFrCount = 0, _descFrEssais = 0;
+function _descFrStats() {
+  return { jour: _descFrJour, traduites: _descFrCount, tentees: _descFrEssais, plafond: DESC_FR_MAX_JOUR };
+}
 async function _enrichDescriptionsFr() {
   try {
     const maintenant = Date.now();
+    const jour = _aiDay();
+    if (_descFrJour !== jour) { _descFrJour = jour; _descFrCount = 0; _descFrEssais = 0; }
+    if (DESC_FR_MAX_JOUR <= 0 || _descFrCount >= DESC_FR_MAX_JOUR) return;   // plafond du jour atteint
     const cibles = [];
-    for (const it of allNews) {
+    /* IMPORTANTES D'ABORD. La portée est désormais large, mais le budget reste fini : si la journée
+       se coupe en cours de route, il faut que ce soient les dépêches qui comptent qui aient été
+       traduites, pas celles qui se trouvaient en tête de liste. Tri STABLE : à importance égale,
+       l'ordre du fil (récence) est conservé. */
+    const _ordre = [...allNews].sort((a, b) =>
+      (_isImportantNews((b || {}).headline, (b || {}).category, (b || {}).priority) ? 1 : 0)
+      - (_isImportantNews((a || {}).headline, (a || {}).category, (a || {}).priority) ? 1 : 0));
+    for (const it of _ordre) {
       if (!it || it._descFr) continue;
       if (Array.isArray(it.analyse) && it.analyse.length) continue;      // l'analyse FR sera affichée
       if (it._briefing || it._marketWrap || it._eventAnalysis || it._dtpd) continue;   // déjà produits en français
@@ -17311,11 +17350,11 @@ async function _enrichDescriptionsFr() {
       const d = String(it.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       if (d.length < 20 || d.length > 900) continue;                     // ni vide, ni un article entier
       if (_looksFr(d)) continue;                                          // déjà en français : rien à dépenser
-      if (!_isImportantNews(it.headline, it.category, it.priority)) continue;
       cibles.push({ it, d });
-      if (cibles.length >= DESC_FR_PAR_CYCLE) break;
+      if (cibles.length >= Math.min(DESC_FR_PAR_CYCLE, DESC_FR_MAX_JOUR - _descFrCount)) break;
     }
     if (!cibles.length) return;
+    _descFrEssais += cibles.length;
     const { translations } = await _traduireLot(cibles.map(c => c.d), { priority: 'background' });
     let poses = 0;
     (translations || []).forEach((fr, i) => {
@@ -17325,10 +17364,11 @@ async function _enrichDescriptionsFr() {
       // ne serait jamais retentée — le défaut exact qu'on a payé sur le cache en juillet.
       if (c && fr && fr !== c.d) { c.it._descFr = fr; poses++; }
     });
+    _descFrCount += poses;
     if (poses) {
       try { saveHistory(); } catch (e) {}
       try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch (e) {}
-      console.log('[DescFR] ' + poses + ' dépêche(s) importante(s) pré-traduites');
+      console.log('[DescFR] ' + poses + ' dépêche(s) pré-traduites — ' + _descFrCount + '/' + DESC_FR_MAX_JOUR + ' aujourd\'hui');
     }
   } catch (e) { console.error('[DescFR]', e.message); }
 }
