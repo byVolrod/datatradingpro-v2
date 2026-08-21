@@ -998,3 +998,43 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
   border-radius: 4px; background: rgba(255, 255, 255, .04); border: 1px solid var(--border, #26262c);
   font-size: 11px; color: var(--text2, #9aa1ac); }
 .adm-partage-c b { font-size: 10px; font-weight: 700; color: var(--orange, #e3b23a); }
+
+/* ═══ FINITION PREMIUM DU PANNEAU ADMIN (21/08, demande user) ══════════════════════════════════
+   La page entière est réservée à l'administrateur : aucun gardiennage par classe n'est nécessaire,
+   tout admin.html est déjà privé. Même grammaire que le desk : scène en pseudo-élément hors flux,
+   aura d'or lente, filet doré en tête de carte. Coût nul en mise en page, animation coupée si
+   l'appareil demande la sobriété. */
+@keyframes admAura { from { transform: translateX(0); } to { transform: translateX(56px); } }
+
+.adm-main { position: relative; isolation: isolate; }
+.adm-main::before {
+  content: ''; position: fixed; inset: var(--topbar-h) 0 0 var(--rail-w); z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 60% 30%, transparent 58%, rgba(0,0,0,.30)),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.010) 0 1px, transparent 1px 3px);
+}
+.adm-main::after {
+  content: ''; position: fixed; z-index: -1; pointer-events: none;
+  top: 40px; right: 6%; width: 760px; height: 420px;
+  background: radial-gradient(closest-side, rgba(227,178,58,.055), transparent 72%);
+  animation: admAura 24s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) { .adm-main::after { animation: none; } }
+@media (max-width: 760px) { .adm-main::before { left: 0; } }
+
+/* Les cartes prennent la lumière, comme sur le desk. */
+.panel-card {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,.02), transparent 38%), var(--bg2);
+  box-shadow: 0 16px 38px -26px rgba(0,0,0,.65);
+}
+.panel-card::before {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  pointer-events: none; opacity: .34; transition: opacity .2s ease;
+  background: linear-gradient(90deg, transparent, rgba(227,178,58,.32), transparent);
+}
+.panel-card:hover::before { opacity: .9; }
+
+/* Le rail latéral reçoit le même soupçon d'or que la topbar du desk en mode admin. */
+.adm-rail { background-image: linear-gradient(180deg, rgba(227,178,58,.05), transparent 40%); }
+.topbar { background-image: linear-gradient(180deg, rgba(227,178,58,.04), transparent 60%); }

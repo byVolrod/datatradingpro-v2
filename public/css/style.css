@@ -18992,3 +18992,59 @@ html[data-theme="light"] .wdg-ptab.on {
 .wdg-lib-name,
 .wdg-lib-card .wdg-lib-name,
 .wdg-lib-grid .wdg-lib-row .wdg-lib-name { font-weight: 500; }
+
+/* ═══ PREMIUM ADMIN — EXTENSION À TOUT LE DESK (21/08, demande user) ═══════════════════════════
+   La première couche premium ne couvrait que la vue Widgets. Demande : « la totalité du desk ».
+   On étend la même grammaire (scène en pseudo-élément z-index négatif, aura d'or lente, filet doré
+   sur les cartes) à TOUTES les vues et au panneau droit.
+
+   ⚠️ TOUJOURS SOUS body.dtp-admin : un client ne peut hériter d'aucune de ces règles. Sans la
+   classe, pas un pixel ne change — c'est la garantie posée lors de la première couche, on la tient.
+   ⚠️ COÛT NUL EN MISE EN PAGE : pseudo-éléments hors flux, pointer-events:none, une seule animation
+   lente, coupée si l'appareil demande la sobriété. Rien n'intercepte un geste, rien ne recalcule. */
+
+/* La scène derrière chaque vue-panneau et le panneau droit — profondeur lue dans les gouttières. */
+body.dtp-admin .view-panel,
+body.dtp-admin #panel-right { position: relative; isolation: isolate; }
+body.dtp-admin .view-panel::before,
+body.dtp-admin #panel-right::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(0deg, rgba(0,0,0,.28), transparent 24%),
+    radial-gradient(120% 80% at 50% 38%, transparent 60%, rgba(0,0,0,.24)),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.010) 0 1px, transparent 1px 3px);
+}
+/* Une aura d'or par vue, décalée, très diluée — ressentie, pas vue. */
+body.dtp-admin .view-panel::after {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  top: -160px; left: 8%; width: 820px; height: 440px;
+  background: radial-gradient(closest-side, rgba(227,178,58,.06), transparent 72%);
+  animation: homeAura 26s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) { body.dtp-admin .view-panel::after { animation: none; } }
+
+/* Toutes les cartes/panneaux prennent la lumière : voile blanc léger + ombre portée douce. */
+body.dtp-admin .view-panel > .panel,
+body.dtp-admin #panel-right .chart-panel,
+body.dtp-admin #panel-right .clocks-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 40%), var(--bg);
+  box-shadow: 0 14px 34px -24px rgba(0,0,0,.6);
+}
+/* Filet d'or discret en tête des panneaux de vue et du panneau droit — net au survol. */
+body.dtp-admin .view-panel > .panel::before,
+body.dtp-admin #panel-right .chart-header::before {
+  content: ''; position: absolute; top: 0; left: 8%; right: 8%; height: 1px;
+  pointer-events: none; opacity: .32; transition: opacity .2s ease;
+  background: linear-gradient(90deg, transparent, rgba(227,178,58,.30), transparent);
+}
+body.dtp-admin .view-panel > .panel:hover::before { opacity: .85; }
+
+/* La topbar reçoit un soupçon d'or en soubassement : la marque respire sans s'imposer. */
+body.dtp-admin .topbar {
+  background-image: linear-gradient(180deg, rgba(227,178,58,.04), transparent 60%);
+}
+/* Séparateur or plus présent sous la barre d'onglets active — signature discrète du mode admin. */
+body.dtp-admin .right-panel-tabs,
+body.dtp-admin .nav {
+  box-shadow: inset 0 -1px 0 rgba(227,178,58,.10);
+}
