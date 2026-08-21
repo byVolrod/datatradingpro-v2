@@ -49,3 +49,6 @@ render_pdf/
 
 # Pages de controle locales (bancs de rendu). Jamais livrees.
 .banc/
+
+# Sauvegardes chiffrees et phrase secrete : JAMAIS dans le depot.
+_sauvegarde-dtp/

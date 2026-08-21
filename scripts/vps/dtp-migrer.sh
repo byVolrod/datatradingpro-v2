@@ -29,7 +29,19 @@ ko()    { echo "  X $*"; exit 1; }
 info()  { echo "  · $*"; }
 
 [ -n "$CIBLE" ] || ko "usage : DTP_BACKUP_PASS='…' $0 <ip-du-nouveau-serveur> [--avec-dns]"
-[ -n "${DTP_BACKUP_PASS:-}" ] || ko "DTP_BACKUP_PASS n'est pas defini : l'archive est chiffree, on ne peut pas l'ouvrir sans."
+# ⚠️ LA PHRASE SECRETE EST LUE PAR LE SCRIPT, JAMAIS TRANSMISE PAR QUI LANCE LA COMMANDE.
+# C'est ce qui permet de dire simplement « migre vers telle machine » : l'operateur n'a pas
+# a manipuler la phrase, ni a l'avoir sous les yeux, ni a la coller dans un terminal ou elle
+# resterait dans l'historique du shell. Elle vit dans un fichier a 600, hors du depot.
+PHRASE_FIC="${DTP_BACKUP_PASS_FILE:-$HOME/Documents/WEB/_sauvegarde-dtp/.phrase}"
+if [ -z "${DTP_BACKUP_PASS:-}" ] && [ -f "$PHRASE_FIC" ]; then
+  DTP_BACKUP_PASS=$(head -c 4096 "$PHRASE_FIC" | tr -d '
+')
+  export DTP_BACKUP_PASS
+  info() { echo "  · $*"; }   # info() est defini plus bas, on l'avance pour ce message
+  echo "  · phrase secrete lue depuis $PHRASE_FIC"
+fi
+[ -n "${DTP_BACKUP_PASS:-}" ] || ko "aucune phrase secrete : ni DTP_BACKUP_PASS, ni $PHRASE_FIC. L'archive est chiffree, on ne peut pas l'ouvrir sans."
 [ -f "$CLE" ] || ko "cle SSH introuvable : $CLE"
 
 sshc()  { ssh "${SSHOPT[@]}" "root@$1" "${@:2}"; }
