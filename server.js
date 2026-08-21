@@ -991,6 +991,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-icones-onglets', ts: Date.UTC(2026, 7, 24, 1, 0), title: 'Panneau a onglets : choisir une icone pour chaque onglet', desc: 'Dans la configuration du panneau a onglets, chaque onglet peut recevoir une icone, choisie dans une petite palette epuree, et affichee a cote de son nom dans la barre. Dix-huit icones au trait fin, aux couleurs du terminal : graphique, bougies, tendance, calendrier, horloge, cloche, globe, banque et d autres. On l ouvre d un clic sur le carre a gauche du nom de l onglet, on choisit, et l icone apparait aussitot ; un bouton permet de la retirer. Le choix est enregistre automatiquement et suit le compte.' },
   { id: 'dtpu-20260821-dtp-partout', ts: Date.UTC(2026, 7, 24, 0, 0), title: 'Le nom s affiche partout en trois lettres : DTP', desc: 'Le nom ecrit en toutes lettres DataTradingPro laisse place au sigle DTP, plus court et plus lisible, la ou il apparait : en haut a gauche du terminal, sur l ecran de demarrage, et sur le site vitrine, pied de page et maquettes du produit compris. L identite reste la meme, l affichage est simplement plus compact et plus net.' },
   { id: 'dtpu-20260821-separateurs', ts: Date.UTC(2026, 7, 23, 23, 30), title: 'Le filet de separation entre les lignes devient enfin visible', desc: 'Les fines lignes qui separent les lignes du fil d actualite et du calendrier existaient deja, mais reglees si bas qu on ne les voyait pas : sept niveaux d ecart avec le fond, invisibles a l oeil. Elles sont relevees au niveau exact qui avait ete valide sur le calendrier, environ dix-huit niveaux d ecart : visibles pour guider la lecture d une ligne a l autre, tout en restant discretes et sobres, dans l esprit d une grille de terminal institutionnel. Le fil d actualite masquait en plus son filet par une regle prioritaire qui forcait l ancienne valeur : c est corrige, la separation s y voit desormais comme sur le calendrier.' },
   { id: 'dtpu-20260821-premium-tous', ts: Date.UTC(2026, 7, 23, 23, 0), title: 'L habillage premium du desk est maintenant visible par tout le monde', desc: 'L habillage premium, d abord reserve au compte administrateur le temps de le valider, est desormais actif pour tous les utilisateurs sur l ensemble du terminal : la scene sombre en profondeur, le halo dore tres dilue, le fin filet dore en tete de chaque carte et le soupcon d or sous les barres. Rien ne change au fonctionnement ni aux droits, c est purement visuel, et l effet n a aucun cout d affichage : il ne recalcule aucune mise en page, n intercepte aucun geste, et se coupe si l appareil demande la sobriete.' },
@@ -1398,6 +1399,15 @@ function _wdgClean(body) {
             const tl = it.tabLabels.slice(0, o.tabs.length)
               .map(s => (typeof s === 'string' ? s.replace(/[<>]/g, '').trim().slice(0, 18) : ''));
             if (tl.some(Boolean)) o.tabLabels = tl;
+          }
+          // ICONES D ONGLET PERSONNALISEES (21/08, demande user) : meme contrat que tabLabels, tableau
+          // PARALLELE aligne sur tabs. On ne stocke qu un SLUG court [a-z0-9-] (le front le mappe sur un
+          // SVG d une liste fixe) : jamais de balise, jamais de markup. Non repris ici = detruit au save,
+          // le piege documente juste au-dessus.
+          if (o.tabs && Array.isArray(it.tabIcons)) {
+            const ti = it.tabIcons.slice(0, o.tabs.length)
+              .map(s => (typeof s === 'string' ? s.replace(/[^a-z0-9-]/g, '').slice(0, 20) : ''));
+            if (ti.some(Boolean)) o.tabIcons = ti;
           }
           // DISPOSITION D'UN ONGLET (06/08) : un onglet peut contenir NON PAS un widget mais une petite
           // grille de 2 à 4 widgets. Le modèle garde `tabs` en CHAÎNES — l'onglet composite y est le

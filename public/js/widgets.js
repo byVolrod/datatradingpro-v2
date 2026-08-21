@@ -35,6 +35,30 @@
 
   var STATE = { cfg: null, mounted: [], saveT: null, booted: false };
   var HOST_ID = 'wdg-grid';
+  /* Icones d onglet : slug -> chemin SVG. Jeu volontairement RESTREINT et coherent (trait fin,
+     concepts du desk). Le serveur ne stocke que le slug ; le rendu se fait ici. */
+  var _TAB_ICONS = {
+    graphique:  '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 19V5\"/><path d=\"M4 15l4-4 3 3 5-6 3 3\"/></svg>',
+    bougies:    '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 4v3M7 15v5M17 4v6M17 18v2\"/><rect x=\"5\" y=\"7\" width=\"4\" height=\"8\" rx=\"1\"/><rect x=\"15\" y=\"10\" width=\"4\" height=\"8\" rx=\"1\"/></svg>',
+    calendrier: '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 9h18M8 3v4M16 3v4\"/></svg>',
+    horloge:    '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 8v4l3 2\"/></svg>',
+    etoile:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4l2.3 4.9 5.2.6-3.9 3.6 1 5.1L12 16.9 7.4 18.8l1-5.1L4.5 10l5.2-.6z\"/></svg>',
+    liste:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01\"/></svg>',
+    filtre:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 5h16l-6 7v6l-4 2v-8z\"/></svg>',
+    dollar:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3v18M8 7.5a3 3 0 0 1 3-2.5h2a2.5 2.5 0 0 1 0 5h-2a2.5 2.5 0 0 0 0 5h2a3 3 0 0 0 3-2.5\"/></svg>',
+    pourcent:   '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 5L5 19\"/><circle cx=\"7.5\" cy=\"7.5\" r=\"2.5\"/><circle cx=\"16.5\" cy=\"16.5\" r=\"2.5\"/></svg>',
+    globe:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M4 12h16M12 4c2.5 2.5 2.5 13 0 16M12 4c-2.5 2.5-2.5 13 0 16\"/></svg>',
+    banque:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 10h16M4 10l8-5 8 5M6 10v7M10 10v7M14 10v7M18 10v7M4 20h16\"/></svg>',
+    cloche:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6\"/><path d=\"M10 20a2 2 0 0 0 4 0\"/></svg>',
+    eclair:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M13 3L5 13h6l-1 8 8-11h-6z\"/></svg>',
+    cible:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><circle cx=\"12\" cy=\"12\" r=\"0.6\" fill=\"currentColor\"/></svg>',
+    jauge:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 15a8 8 0 0 1 16 0\"/><path d=\"M12 15l4-4\"/></svg>',
+    drapeau:    '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 21V4M5 4h11l-1.5 4L16 12H5\"/></svg>',
+    livre:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 4h10a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2z\"/><path d=\"M5 18a2 2 0 0 1 2-2h10\"/></svg>',
+    tendance:   '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 17l6-6 4 4 8-8\"/><path d=\"M17 7h4v4\"/></svg>',
+  };
+  var _TAB_ICON_ORDER = ['graphique','bougies','tendance','pourcent','dollar','jauge','cible','filtre','liste','calendrier','horloge','cloche','globe','drapeau','banque','livre','etoile','eclair'];
+  function _tabIconSvg(slug) { return (slug && _TAB_ICONS[slug]) ? _TAB_ICONS[slug] : ''; }
   var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
   var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
   var _IMAX = 24;                         // = _WDG_MAX_ITEMS côté serveur : au-delà, le serveur TRONQUE
@@ -140,6 +164,7 @@
     if (w.id === 'onglets') {
       var tl = Array.isArray(it.tabs) ? it.tabs : [];
       var lb = Array.isArray(it.tabLabels) ? it.tabLabels : [];
+      var ic = Array.isArray(it.tabIcons) ? it.tabIcons : [];   // icone par onglet (slug)
       onglets = '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Onglets · renommer ou retirer</div>'
         + tl.map(function (id2, j) {
             // Onglet VIDE (sentinel 'vide') : il apparaît AUSSI ici — renommable, retirable.
@@ -152,7 +177,18 @@
             var nomW = estGrille ? ('Onglet composite · ' + nCell + ' widget' + (nCell > 1 ? 's' : ''))
               : (estVide ? 'Onglet vide : aucun widget' : w2.name);
             var defLbl = estGrille ? 'GRILLE' : (estVide ? 'Vide' : (w2.tag || w2.name));
+            var _cur = _tabIconSvg(ic[j]);
+            /* SELECTEUR D ICONE (21/08). <details> natif : le resume est l icone courante, le contenu
+               la grille de choix. Aucun etat JS a gerer, aucune fuite, ferme au clic exterieur par le
+               navigateur. Chaque choix appelle setTabIcon ; « aucune » retire l icone. */
+            var _grid = '<button type="button" class="wdg-tabic-b wdg-tabic-none" title="Aucune icone" onclick="DTPWidgets.setTabIcon(' + idx + ',' + j + ',\'\')">–</button>'
+              + _TAB_ICON_ORDER.map(function (sl) {
+                  return '<button type="button" class="wdg-tabic-b' + (ic[j] === sl ? ' on' : '') + '" title="' + sl + '" onclick="DTPWidgets.setTabIcon(' + idx + ',' + j + ',\'' + sl + '\')">' + _tabIconSvg(sl) + '</button>';
+                }).join('');
+            var _picker = '<details class="wdg-tabic"><summary class="wdg-tabic-cur" title="Icone de l onglet">' + (_cur || '<span class="wdg-tabic-ph">+</span>') + '</summary>'
+              + '<div class="wdg-tabic-grid">' + _grid + '</div></details>';
             return '<div class="wdg-set-row wdg-set-tabrow">'
+              + _picker
               + '<div class="wdg-set-tabcol">'
               +   '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || defLbl) + '"'
               +   ' autocomplete="off" name="dtp-nom-onglet" data-lpignore="true" data-1p-ignore data-bwignore data-protonpass-ignore="true" data-form-type="other"'
@@ -406,6 +442,9 @@
     gear: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h4M12 7h8M4 12h10M18 12h2M4 17h6M14 17h6"/><circle cx="10" cy="7" r="1.9"/><circle cx="16" cy="12" r="1.9"/><circle cx="12" cy="17" r="1.9"/></svg>',
     // Point d'interrogation cerclé, au gabarit des autres icônes d'en-tête (13 px, trait 1.7).
     aide: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2-2.4 3.6"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg>',
+    // ── ICONES D ONGLET (21/08, demande user) : jeu FIXE, choisi dans la config du panneau a onglets
+    //    et affiche a cote du nom. Slugs stables (persistes) ; trait fin, style epure, aligne DTP. ──
+    _dummy_before_grip: 0,
     grip: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.5 3"/><path d="M20 5v5h-5"/></svg>',
     // REMPLACER = flèches d'échange VERTICALES. Horizontales, elles se confondaient avec les curseurs
@@ -4432,6 +4471,7 @@
         // rien : une entrée inconnue reste EN PLACE et se signale dans son corps.
         var tabs = (Array.isArray(it.tabs) ? it.tabs : []).map(String);
         var labels = Array.isArray(it.tabLabels) ? it.tabLabels.slice() : [];   // libellés personnalisés (double-clic → renommage), alignés sur tabs
+        var icons  = Array.isArray(it.tabIcons)  ? it.tabIcons.slice()  : [];   // icone perso par onglet (slug -> SVG via _tabIconSvg), meme alignement
         var actIdx = Math.min((it._tabAct | 0), Math.max(0, tabs.length - 1));
         // TABLEAU, pas scalaire : un onglet composite monte plusieurs widgets, et un seul cleanup
         // mémorisé laisserait N-1 roots amCharts, cartes Leaflet et timers orphelins à CHAQUE
@@ -4637,8 +4677,9 @@
             var ttl = w ? (w.name + ' : double-clic pour renommer')
               : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) : double-clic pour renommer')
                       : 'Onglet vide : choisis sa disposition dans le corps');
+            var _ic = _tabIconSvg(icons[i]);
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w || estG ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
-              + '<span class="wdgt-chv">›</span><span class="wdgt-nm">' + esc(lbl) + '</span></button>';
+              + '<span class="wdgt-chv">›</span>' + (_ic ? '<span class="wdgt-tico">' + _ic + '</span>' : '') + '<span class="wdgt-nm">' + esc(lbl) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet : il s\'ouvre vide, tu choisis son widget ensuite">+</button>';
         }
         // RENOMMAGE INLINE (demande user 28/07, réparé 03/08) : le libellé devient un champ —
@@ -6326,6 +6367,19 @@ function _spansAffiches(lay) {
     //    survol — renommage et retrait vivent dans le panneau paramètres). Patron setOpt : muter
     //    l'item → save → _syncPanel (le volet reste ouvert, sa liste se met à jour) → refresh (le
     //    corps remonte avec la nouvelle barre d'onglets).
+    setTabIcon: function (i, j, slug) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i]; if (!Array.isArray(it.tabs) || j >= it.tabs.length) return;
+      // Slug d une liste FIXE, ou chaine vide (retrait). Rien d autre n est accepte.
+      var sl = (slug && _TAB_ICONS[slug]) ? slug : '';
+      var arr = Array.isArray(it.tabIcons) ? it.tabIcons.slice() : [];
+      while (arr.length < it.tabs.length) arr.push('');
+      if ((arr[j] || '') === sl) return;                 // no-op : pas de re-rendu inutile
+      arr[j] = sl;
+      it.tabIcons = arr;
+      save(); API.refresh(i);
+      setTimeout(function () { _syncPanel(i); }, 0);     // re-rend le volet apres le clic (cf. renameTab)
+    },
     renameTab: function (i, j, v) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (!Array.isArray(it.tabs) || !it.tabs[j]) return;

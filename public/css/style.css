@@ -19119,3 +19119,43 @@ body.dtp-premium .nav {
   .wdg-body .mt-taux,
   .wdg-body td { overflow: visible; text-overflow: clip; }
 }
+
+/* ═══ ICÔNE PAR ONGLET (panneau à onglets, 21/08) ═════════════════════════════════════════════
+   L'icône choisie s'affiche entre le chevron et le nom de l'onglet — discrète, à la couleur du
+   texte, un peu plus vive quand l'onglet est actif. */
+.wdgt-tico { display: inline-flex; align-items: center; margin: 0 5px 0 1px; color: var(--text3, #6f6f79); flex: 0 0 auto; }
+.wdgt-tico svg { display: block; }
+.wdgt-tab.on .wdgt-tico { color: #e0b452; }
+.wdgt-tab:hover .wdgt-tico { color: var(--text2, #9a9aa4); }
+
+/* Sélecteur d'icône dans la config (liste « Renommer ou retirer ») : un <details> natif. */
+.wdg-tabic { flex: 0 0 auto; position: relative; }
+.wdg-tabic > summary {
+  list-style: none; cursor: pointer; width: 30px; height: 30px; border-radius: 6px;
+  display: grid; place-items: center; color: var(--text2, #9a9aa4);
+  background: rgba(255,255,255,.04); border: 1px solid var(--hud-line, #1c1c20);
+  transition: background .14s, color .14s, border-color .14s;
+}
+.wdg-tabic > summary::-webkit-details-marker { display: none; }
+.wdg-tabic > summary:hover { color: #e0b452; border-color: rgba(227,178,58,.4); background: rgba(227,178,58,.06); }
+.wdg-tabic[open] > summary { color: #e0b452; border-color: rgba(227,178,58,.5); }
+.wdg-tabic-ph { font-size: 15px; line-height: 1; color: var(--text3, #6f6f79); font-weight: 600; }
+
+/* La grille de choix : petite palette flottante, épurée, alignée DTP. */
+.wdg-tabic-grid {
+  position: absolute; z-index: 40; top: 34px; left: 0;
+  display: grid; grid-template-columns: repeat(6, 28px); gap: 4px;
+  padding: 8px; border-radius: 9px;
+  background: var(--bg2, #16171b); border: 1px solid var(--hud-line, #26262c);
+  box-shadow: 0 16px 40px -18px rgba(0,0,0,.7);
+}
+.wdg-tabic-b {
+  width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+  display: grid; place-items: center; color: var(--text2, #9a9aa4);
+  background: transparent; border: 1px solid transparent; transition: background .12s, color .12s, border-color .12s;
+}
+.wdg-tabic-b:hover { background: rgba(227,178,58,.10); color: #e3b23a; }
+.wdg-tabic-b.on { border-color: rgba(227,178,58,.55); color: #e3b23a; background: rgba(227,178,58,.08); }
+.wdg-tabic-none { font-size: 15px; font-weight: 700; color: var(--text3, #6f6f79); }
+html[data-theme="light"] .wdg-tabic > summary { background: rgba(0,0,0,.03); }
+html[data-theme="light"] .wdg-tabic-grid { background: #fff; }
