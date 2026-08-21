@@ -313,6 +313,11 @@ const _forceLogout = new Set();
 // (requireAuth + /me). Vidé au redémarrage = contrainte rétablie dès les prochains logins (jamais de
 // déconnexion de masse au boot). Staff (admin/support) NON concerné (plusieurs sessions autorisées).
 const _sessionEpoch = new Map();
+/* Le staff est-il soumis, lui aussi, à la session unique ? OUI par défaut depuis le 21/08 : l'ancienne
+   exemption rendait la règle intestable pour qui la vérifiait avec son propre compte (admin). Poser
+   DTP_SESSION_UNIQUE_STAFF=0 la rétablit, sans redéploiement, si travailler sur deux postes redevient
+   nécessaire. */
+const _SESSION_UNIQUE_STAFF = !/^(0|false|non)$/i.test(String(process.env.DTP_SESSION_UNIQUE_STAFF || '1'));
 /* ── LA CONTRAINTE SURVIT AUX REDÉMARRAGES (15/08/2026) ─────────────────────────────────────────
    Le registre ne vivait qu'en mémoire : chaque redéploiement le vidait, et deux sessions ouvertes
    sur le MÊME compte pouvaient de nouveau cohabiter jusqu'à la prochaine reconnexion. Mesuré le
@@ -341,6 +346,12 @@ function _fermerSockets(uid, garder) {
 }
 
 function _sessEpochSauver() {                   // écriture groupée : plusieurs connexions rapprochées = un seul write
+  /* ⚠️ JAMAIS EN LECTURE SEULE. Ce registre est PARTAGÉ avec la production : même table `ai_cache`,
+     même clé `sess:epochs`. Un serveur lancé sur un poste de développement pour une mesure écrase
+     donc la carte des jetons de TOUS les comptes en ligne, et déconnecte en masse des clients qui
+     n'ont rien demandé. Le mode lecture seule ne couvrait que les tâches de fond ; cette écriture-ci
+     part d'un simple login, y compris un login de test. Le trou est refermé ici. */
+  if (_LECTURE_SEULE) return;
   if (_sessEpochSauveT) return;
   _sessEpochSauveT = setTimeout(() => {
     _sessEpochSauveT = null;
@@ -355,6 +366,56 @@ try {
     if (n) console.log('[Auth] session unique : ' + n + ' jeton(s) restauré(s) → la contrainte survit au redémarrage');
   }).catch(() => {});
 } catch (e) {}
+
+/* ═══ SECOND VERROU : LE PARTAGE DE COOKIE (21/08) ══════════════════════════════════════════════
+   Le verrou par jeton ci-dessus se déclenche à un LOGIN. Deux personnes qui se partagent le même
+   COOKIE ne se connectent jamais : elles portent le même jeton, et aucune comparaison de jetons ne
+   peut les distinguer. C'était la limite assumée du mécanisme, et c'est précisément le cas que la
+   demande vise (« qu'on ne puisse pas être deux sur un même compte »).
+
+   On donne donc à chaque NAVIGATEUR un identifiant tiré au sort, conservé dans son `localStorage`.
+   Il n'est PAS transporté par un cookie recopié : c'est ce qui permet enfin de séparer deux
+   personnes derrière une même session. Le desk l'annonce au chargement ; le dernier à annoncer
+   détient le compte, les autres sont éjectés à leur battement suivant (20 s au plus).
+
+   ⚠️ L'ANNONCE SE FAIT AU CHARGEMENT, JAMAIS AU BATTEMENT. Si chaque battement réclamait la
+   session, A et B se chasseraient mutuellement toutes les vingt secondes, indéfiniment, sans que
+   ni l'un ni l'autre ne puisse travailler. Réclamer est un ÉVÉNEMENT, vérifier est un état.
+
+   ⚠️ SANS IDENTIFIANT, ON N'ÉJECTE PAS. `localStorage` indisponible (navigation privée verrouillée,
+   réglage d'entreprise), ancienne version du desk encore en cache : la requête arrive sans
+   identifiant. On la laisse passer. Un verrou qui déconnecte faute d'information punit d'abord le
+   client légitime, et il le fait sans que personne ne comprenne pourquoi.
+
+   ⚠️ TOUT EN MÉMOIRE, jamais en base : un incident d'egress de 18 To a déjà été payé pour une
+   écriture par requête. Un redémarrage remet simplement les compteurs à zéro, et la contrainte se
+   rétablit au premier chargement de chaque desk. */
+const _sessionDevice = new Map();          // userId -> { dev, ts }
+const _DEV_MAX_COMPTES = 5000;             // borne dure : jamais de croissance libre en mémoire
+const _RX_DEV = /^[a-z0-9-]{8,64}$/;
+
+/* L'identifiant voyage en en-tête sur les requêtes HTTP, et en paramètre d'URL sur le WebSocket :
+   un navigateur ne peut pas poser d'en-tête sur une connexion WebSocket. */
+function _devDeLaRequete(req) {
+  let d = String((req.headers && req.headers['x-dtp-appareil']) || '').toLowerCase().trim();
+  if (!d && req.url && req.url.indexOf('?') >= 0) {
+    try { d = String(new URLSearchParams(req.url.split('?')[1]).get('a') || '').toLowerCase().trim(); } catch (e) {}
+  }
+  return _RX_DEV.test(d) ? d : null;
+}
+
+/* Réclamation : ce navigateur-ci devient le détenteur du compte. Renvoie true si la détention a
+   CHANGÉ de main (donc s'il y a lieu de couper ce qui reste de l'ancienne). */
+function _devReclamer(uid, dev) {
+  if (!uid || !dev) return false;
+  const av = _sessionDevice.get(uid);
+  _sessionDevice.set(uid, { dev, ts: Date.now() });
+  if (_sessionDevice.size > _DEV_MAX_COMPTES) {          // purge des plus anciens, borne mémoire
+    const tries = [..._sessionDevice.entries()].sort((a, b) => a[1].ts - b[1].ts);
+    for (let i = 0; i < tries.length - _DEV_MAX_COMPTES; i++) _sessionDevice.delete(tries[i][0]);
+  }
+  return !!(av && av.dev !== dev);
+}
 
 // ── DÉCONNEXION ABSOLUE À 24 H (demande user 23/07, TOUTES plateformes : web, app Electron, PWA mobile —
 //    elles partagent la même session cookie donc le MÊME couperet serveur). Le cookie-session est GLISSANT
@@ -389,7 +450,26 @@ function _sessionMorte(req) {
   if (auth.isEmailBlacklisted(req.session.user && req.session.user.email)) return 'blacklistee';
   const ep = _sessionEpoch.get(sid);
   if (ep && req.session.stoken && ep !== req.session.stoken) return 'supplantee';
+  /* Second verrou : même session (donc même cookie), mais un AUTRE navigateur l'a réclamée depuis.
+     On n'éjecte que si la requête porte un identifiant : sans lui, on ne sait rien, et ne rien
+     savoir ne justifie pas de déconnecter quelqu'un. */
+  const dv = _sessionDevice.get(sid), mien = _devDeLaRequete(req);
+  if (dv && mien && dv.dev !== mien) return 'autre-appareil';
   return null;
+}
+
+/* Ferme les WebSockets d'un compte ouverts depuis un AUTRE navigateur que celui qui vient de
+   réclamer. Sans cela, l'onglet éjecté continuerait de recevoir le fil temps réel : il verrait le
+   produit vivre alors qu'il n'y a plus droit, jusqu'à ce qu'il soit fermé. */
+function _fermerSocketsAppareil(uid, garderDev) {
+  try {
+    if (typeof wss === 'undefined' || !wss.clients) return;
+    wss.clients.forEach((c) => {
+      if (c._uid === uid && c._dev && c._dev !== garderDev) {
+        try { c.close(1008, 'session reprise sur un autre appareil'); } catch (e) {}
+      }
+    });
+  } catch (e) {}
 }
 
 /* Garde LOCALE pour les routes sous un prefixe public. requireAuth ne peut pas servir ici : il
@@ -661,8 +741,16 @@ app.post('/api/auth/login', async (req, res) => {
     req.session.remember = !!remember;
     if (remember) { try { req.sessionOptions.maxAge = _SESSION_MAX_LONG_MS; } catch (e) {} }
     _forceLogout.delete(String(user.id));   // un login légitime lève un éventuel ordre de déconnexion (kick ponctuel)
-    // Session UNIQUE par compte (clients) : jeton neuf → invalide les sessions précédentes (anti-partage d'identifiants).
-    if (user.role !== 'admin' && user.role !== 'support') {
+    /* Session UNIQUE par compte : jeton neuf → invalide les sessions précédentes (anti-partage).
+       ⚠️ LE STAFF N'EST PLUS EXEMPTÉ (21/08, demande user : « qu'on ne puisse pas se connecter à
+       deux sur un même compte »). L'exemption d'origine rendait la règle INVÉRIFIABLE pour qui la
+       testait : on essaie naturellement avec SON compte, qui est admin, on voit deux sessions
+       cohabiter, et on en conclut que rien ne marche. Mesuré au banc avant correction : client
+       verrouillé, admin et support non. La règle vaut désormais pour tout le monde.
+       `DTP_SESSION_UNIQUE_STAFF=0` rétablit l'ancien comportement sans toucher au code : un
+       administrateur qui travaille sur deux postes se déconnecterait lui-même en permanence, et il
+       faut pouvoir revenir en arrière sans redéployer. */
+    if (_SESSION_UNIQUE_STAFF || (user.role !== 'admin' && user.role !== 'support')) {
       const _stok = require('crypto').randomUUID();
       req.session.stoken = _stok;
       _sessionEpoch.set(String(user.id), _stok);
@@ -753,7 +841,21 @@ app.get('/api/auth/me', async (req, res) => {
     const _mep = _sessionEpoch.get(String(req.session.userId));
     // Même garde que dans requireAuth : une session sans jeton est ANTÉRIEURE au mécanisme, elle ne
     // doit pas être éjectée par la restauration du registre au démarrage.
-    const _superseded = !!(_mep && req.session.stoken && _mep !== req.session.stoken);
+    const _tokenSupplante = !!(_mep && req.session.stoken && _mep !== req.session.stoken);
+
+    /* SECOND VERROU : le navigateur. Le desk annonce son identifiant à CHAQUE battement, mais ne
+       RÉCLAME le compte qu'au chargement de la page (en-tête `x-dtp-appareil-neuf`). Sans cette
+       distinction, deux navigateurs se réclameraient le compte toutes les 20 secondes et se
+       chasseraient l'un l'autre sans fin. */
+    const _dev = _devDeLaRequete(req), _uidS = String(req.session.userId);
+    let _devSupplante = false;
+    if (_dev && String(req.headers['x-dtp-appareil-neuf'] || '') === '1') {
+      if (_devReclamer(_uidS, _dev)) _fermerSocketsAppareil(_uidS, _dev);   // reprise : on coupe l'ancien flux
+    } else if (_dev) {
+      const _det = _sessionDevice.get(_uidS);
+      _devSupplante = !!(_det && _det.dev !== _dev);
+    }
+    const _superseded = _tokenSupplante || _devSupplante;
     if (_forceLogout.has(String(req.session.userId)) || auth.isEmailBlacklisted(fresh.email)
         || (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.active === false) || _superseded) {
       req.session = null; return res.json({ loggedIn: false, reason: _superseded ? 'elsewhere' : undefined });
@@ -871,6 +973,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-session-unique', ts: Date.UTC(2026, 7, 23, 4, 0), title: 'Un compte, une connexion : la regle s applique desormais partout', desc: 'Le terminal n autorise qu une seule connexion active par compte. C etait deja le cas, mais deux situations y echappaient. La premiere : les comptes de l equipe n etaient pas soumis a la regle, ce qui la rendait invisible a qui la testait avec son propre acces. La seconde, plus importante : deux personnes qui se transmettaient une session ouverte n etaient pas separees, parce que rien ne permettait de les distinguer. Chaque navigateur porte maintenant une empreinte qui lui est propre et qui ne se transmet pas avec une session copiee. La regle est simple et sans surprise : la connexion la plus recente garde la main, la precedente est fermee dans les vingt secondes avec un message qui l explique. Ouvrir plusieurs onglets sur le meme ordinateur ne change rien, c est le meme navigateur. Se connecter depuis un autre appareil ferme la session precedente, comme sur un service de streaming.' },
   { id: 'dtpu-20260821-force-quadrillage', ts: Date.UTC(2026, 7, 23, 3, 0), title: 'Force des Devises : le quadrillage pointille disparait, les courbes respirent', desc: 'Le graphique portait deux series de traits pointilles horizontaux : les paliers de l echelle, et surtout une ligne par devise, tiree depuis sa pastille en travers de toute la largeur. A huit devises affichees, cela faisait huit traits de couleurs differentes poses par dessus les courbes, pour une information que la pastille donne deja au bout de chaque ligne. Les deux sont retires. Ce que la lecture y perd : rien. Sur ce graphique aucune valeur ne se lit sur une horizontale, ce qui compte est le classement des devises entre elles et leur position par rapport au zero. Le zero reste donc trace, en blanc plein, et les graduations chiffrees restent dans la colonne de droite pour qui veut le niveau exact. Les reperes d heures, eux, sont conserves : ce sont eux qui rattachent un mouvement a un moment.' },
   { id: 'dtpu-20260821-mobile-lot3', ts: Date.UTC(2026, 7, 23, 2, 0), title: 'iPhone a encoche et fleches du calendrier : les derniers reglages mobiles', desc: 'Sur les iPhone recents, la barre du haut recoit un retrait de pres de 50 pixels pour laisser passer l encoche. Le logo, lui, se voyait imposer la hauteur totale : il debordait sous la barre et son separateur venait barrer la moitie de la rangee d onglets. De meme, la recherche de symbole depliee se posait a cheval sous la barre d etat. Les deux sont recales sur la zone reellement utilisable, sans aucun effet sur les autres appareils. Les fleches qui font defiler les mois du calendrier, elles, n avaient aucun reglage mobile et mesuraient moins de la moitie de la taille minimale pour etre touchees au doigt : corrige.' },
   { id: 'dtpu-20260821-mobile-lot2', ts: Date.UTC(2026, 7, 23, 1, 0), title: 'Telephone : la recherche de paire, le tableau des banques et Mon Desk redeviennent utilisables', desc: 'Quatre corrections mesurees. Ouvrir une paire faisait basculer la vue mais creait son onglet HORS ECRAN : la barre continuait d afficher les premiers onglets, impossible de savoir ou l on etait ni de refermer la paire. La barre suit desormais l onglet actif. Dans le tableau des banques, faire defiler vers la droite faisait sortir le nom de la banque de l ecran : on lisait des chiffres sans savoir de qui ils etaient ; la colonne d identite reste maintenant visible, comme dans le Radar de Biais. La poignee de redimensionnement du Radar invitait a tirer sans jamais repondre au doigt : elle repond. Et la barre Mon Desk, qui coupait ses onglets de disposition alors que la moitie de la barre restait vide, se replie proprement.' },
@@ -17348,7 +17451,9 @@ wss.on('connection', (ws, req) => {
 
   const _role = (req.session && req.session.user && req.session.user.role) || null;
   // Le jeton tague le socket : une connexion plus recente pourra fermer celui-ci (voir le login).
-  ws._uid = _uid; ws._role = _role; ws._stoken = req.session.stoken || null;
+  // `_dev` : le navigateur d'où vient ce flux (paramètre `?a=`, un WebSocket ne porte pas d'en-tête).
+  // Il permet de couper CE socket-ci quand un autre navigateur reprend le compte.
+  ws._uid = _uid; ws._role = _role; ws._stoken = req.session.stoken || null; ws._dev = _devDeLaRequete(req);
   if (_uid) { _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1); _stampSeen(_uid); }   // present -> derniere presence = maintenant
 
   ws.send(JSON.stringify(_initialPayload(req.session?.user?.role === 'admin')));   // ⚠️ envoi DIRECT : il ne passe pas par broadcast(), donc il doit filtrer lui-même

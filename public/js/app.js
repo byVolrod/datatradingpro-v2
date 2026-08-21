@@ -762,10 +762,43 @@ function _searchServer7d(q) {
   }, 320);
 }
 
+/* ── IDENTIFIANT DE NAVIGATEUR (session unique, 21/08) ─────────────────────────────────────────
+   Un compte = une connexion. Le verrou serveur par jeton ne sépare pas deux personnes qui se
+   partagent le même COOKIE : elles portent le même jeton. Cet identifiant-ci, lui, vit dans le
+   `localStorage` du navigateur et n'est donc PAS emporté avec un cookie recopié. C'est ce qui
+   permet enfin de distinguer les deux, et de ne garder que la connexion la plus récente.
+
+   ⚠️ EXCEPTION ASSUMÉE à la règle « rien dans localStorage » du cahier des charges : cette règle
+   vise l'état d'INTERFACE (historique de chat, position du splitter), qui doit repartir propre à
+   chaque chargement. Ici il ne s'agit pas d'interface mais d'un mécanisme de sécurité, et il ne
+   fonctionne que s'il survit au rechargement : un identifiant volatil changerait à chaque F5, et le
+   membre se déconnecterait lui-même en rechargeant sa page.
+
+   ⚠️ Si `localStorage` est indisponible (navigation privée verrouillée, politique d'entreprise), on
+   renvoie une chaîne vide : le desk n'envoie alors aucun identifiant et le serveur, faute
+   d'information, N'ÉJECTE PERSONNE. Le membre légitime passe ; c'est le bon sens du compromis. */
+let _dtpAppareilCache = null;
+function _dtpAppareil() {
+  if (_dtpAppareilCache !== null) return _dtpAppareilCache;
+  try {
+    let v = localStorage.getItem('dtp_appareil');
+    if (!/^[a-z0-9-]{8,64}$/.test(String(v || ''))) {
+      v = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+      localStorage.setItem('dtp_appareil', v);
+    }
+    _dtpAppareilCache = v;
+  } catch (e) { _dtpAppareilCache = ''; }
+  return _dtpAppareilCache;
+}
+
 // ═══ WebSocket ════════════════════════════
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
+  // `?a=` : un navigateur ne peut poser aucun en-tête sur un WebSocket. Sans ce paramètre, le flux
+  // temps réel continuerait d'alimenter un onglet dont la session a été reprise ailleurs.
+  const _a = _dtpAppareil();
+  ws = new WebSocket(`${proto}://${location.host}${_a ? '?a=' + encodeURIComponent(_a) : ''}`);
 
   ws.onopen = () => {
     showStatus('Connecté', 'ok');
@@ -4978,10 +5011,15 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
 (function _authHeartbeat(){
   if (location.pathname === '/login') return;
   let _dead = false;
+  let _premier = true;   // seul le PREMIER battement réclame le compte (voir _dtpAppareil)
   async function _beat(){
     if (_dead) return;
     try {
-      const r = await fetch('/api/auth/me', { cache: 'no-store' });
+      const _ent = { };
+      const _a = _dtpAppareil();
+      if (_a) { _ent['x-dtp-appareil'] = _a; if (_premier) _ent['x-dtp-appareil-neuf'] = '1'; }
+      _premier = false;
+      const r = await fetch('/api/auth/me', { cache: 'no-store', headers: _ent });
       if (r.status === 401) { _dead = true; return location.replace('/login'); }
       const d = await r.json().catch(function(){ return null; });
       if (d && d.loggedIn === false) { _dead = true; location.replace('/login' + (d.reason === 'elsewhere' ? '?ended=elsewhere' : '')); }
