@@ -256,13 +256,19 @@ else
   info "ancien serveur injoignable : on construit l'image sur place"
 fi
 
+# ⚠️ ON TESTE LE CODE DE SORTIE DE `docker compose up`. Sans lui, un demarrage refuse (compose
+# invalide, port deja pris, image absente) passait inapercu : on attendait dix minutes la sante
+# d'un conteneur qui n'avait jamais ete cree, puis on accusait « la sante » au lieu du demarrage.
+# Le `| tail -4` masque le statut, d'ou le marqueur explicite.
 if [ "$TRANSFERE" = "oui" ]; then
   # --no-build : interdit toute reconstruction silencieuse de l'image qu'on vient de transferer.
-  sshc "$CIBLE" 'cd /opt/datatradingpro && docker compose up -d --no-build 2>&1 | tail -4' 2>&1 | sed 's/^/    /'
+  _UP=$(sshc "$CIBLE" 'cd /opt/datatradingpro && docker compose up -d --no-build 2>&1; echo "__UP__:$?"')
 else
   info "construction de l'image sur la cible : compter 8 à 20 min"
-  sshc "$CIBLE" 'cd /opt/datatradingpro && docker compose up -d --build 2>&1 | tail -4' 2>&1 | sed 's/^/    /'
+  _UP=$(sshc "$CIBLE" 'cd /opt/datatradingpro && docker compose up -d --build 2>&1; echo "__UP__:$?"')
 fi
+printf '%s\n' "$_UP" | grep -v '__UP__:' | tail -4 | sed 's/^/    /'
+printf '%s\n' "$_UP" | grep -q '__UP__:0' || ko "\`docker compose up\` a echoue sur la cible (voir ci-dessus). On n'attend pas dix minutes la sante d'un conteneur qui n'existe pas."
 info "attente de la santé réelle (pas du simple démarrage)…"
 SANTE=inconnue
 for _ in $(seq 1 120); do
@@ -281,8 +287,14 @@ LOCAL=$(sshc "$CIBLE" 'curl -s -o /dev/null -w "%{http_code}" --max-time 15 http
 [ "$LOCAL" = "200" ] && ok "santé applicative : HTTP $LOCAL" || ko "l'application ne répond pas en local (HTTP $LOCAL)"
 VIA_NGINX=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "desk.datatradingpro.com:443:$CIBLE" \
             --insecure "https://desk.datatradingpro.com/login" 2>/dev/null || echo '000')
-[ "$VIA_NGINX" = "200" ] && ok "page de connexion servie par la nouvelle machine : HTTP $VIA_NGINX" \
-                         || info "réponse via nginx : HTTP $VIA_NGINX (à vérifier avant de basculer)"
+# ⚠️ CETTE VERIFICATION EST BLOQUANTE, et c'est la SEULE qui prouve que la machine servirait le
+# site. Elle etait degradee en simple « info » : le script affichait donc « MIGRATION PRETE » y
+# compris sur un HTTP 000, c'est-a-dire quand rien n'ecoutait sur 443. Annoncer pret ce qui ne l'est
+# pas est pire que ne rien annoncer : on bascule le DNS sur la foi de ce message.
+case "$VIA_NGINX" in
+  200|301|302) ok "page de connexion servie par la nouvelle machine : HTTP $VIA_NGINX" ;;
+  *) ko "la nouvelle machine ne sert PAS le site (HTTP $VIA_NGINX en l'interrogeant par son IP avec le bon nom d'hote). Le DNS n'a pas ete touche : l'ancien serveur continue de servir. Corriger, puis relancer." ;;
+esac
 
 etape "MIGRATION PRÊTE : le DNS n'a PAS été touché"
 echo "  L'ancien serveur continue de servir. Rien n'est visible côté client."

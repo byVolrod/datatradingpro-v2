@@ -56,7 +56,18 @@ systemctl enable --now docker
 
 ### 2. Ouvrir l'archive
 
+⚠️ **L'archive est sur VOTRE machine, pas sur la machine neuve.** L'étape suivante ouvrait un
+fichier qui n'avait jamais été déposé : il faut d'abord le transférer.
+
 ```bash
+# Depuis VOTRE machine :
+scp -i ~/.ssh/dtp_deploy -o IdentitiesOnly=yes \
+    "C:/Users/muham/Documents/WEB/_sauvegarde-dtp/dtp-AAAAMMJJ-HHMM.tar.gz.gpg" \
+    root@<ip-du-nouveau-serveur>:/root/restauration/
+```
+
+```bash
+# Puis SUR la machine neuve :
 mkdir -p /root/restauration && cd /root/restauration
 gpg --decrypt dtp-AAAAMMJJ-HHMM.tar.gz.gpg | tar -xzf -
 cd dtp-AAAAMMJJ-HHMM
@@ -115,7 +126,9 @@ crontab /root/restauration/dtp-*/config/crontab.txt
 
 ```bash
 git -C /opt/datatradingpro remote set-url origin git@github.com:byVolrod/datatradingpro-v2.git
-git -C /opt/datatradingpro remote set-url backup git@github.com:byVolrod/datatradingpro-v2-backup.git
+# `set-url` echoue sur un depot fraichement clone : le remote « backup » n'y existe pas encore.
+git -C /opt/datatradingpro remote add backup git@github.com:byVolrod/datatradingpro-v2-backup.git 2>/dev/null \
+  || git -C /opt/datatradingpro remote set-url backup git@github.com:byVolrod/datatradingpro-v2-backup.git
 ```
 
 ### 7. Démarrer, puis VÉRIFIER
@@ -132,8 +145,14 @@ curl -s -o /dev/null -w 'desk local : %{http_code}\n' http://127.0.0.1:3000/heal
 
 Puis, **depuis l'extérieur** : c'est la seule vérification qui compte :
 
+⚠️ Tant que le DNS n'est pas basculé, ce nom pointe encore sur l'ANCIEN serveur : l'interroger
+directement mesurerait la machine qu'on quitte, et donnerait un vert trompeur. On force donc la
+résolution vers la NOUVELLE machine, en lui présentant le bon nom d'hôte.
+
 ```bash
-curl -s -o /dev/null -w 'connexion : %{http_code}\n' https://desk.datatradingpro.com/login
+curl -s -o /dev/null -w 'connexion : %{http_code}\n' \
+     --resolve desk.datatradingpro.com:443:<ip-du-nouveau-serveur> --insecure \
+     https://desk.datatradingpro.com/login
 ```
 
 ### 8. Le DNS
