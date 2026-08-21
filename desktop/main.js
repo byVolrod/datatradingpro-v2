@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, Tray, nativeImage, shell, dialog, nativeTheme, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, shell, dialog, nativeTheme, ipcMain, screen, powerMonitor } = require('electron');
 const path = require('path');
 const https = require('https');
 const fs = require('fs');
@@ -23,6 +23,29 @@ const fs = require('fs');
    ⚠️ Ceci DOIT s'exécuter avant que l'application ne soit prête : disableHardwareAcceleration()
    est ignoré une fois le moteur démarré. C'est pourquoi le bloc est ici, en tête de fichier. */
 const _MARQUEUR_LOGICIEL = path.join(app.getPath('userData'), 'rendu-logiciel.flag');
+/* ⚠️ JOURNAL D'INCIDENT. Trois correctifs ont deja ete tentes sur cet ecran noir sans succes, et
+   a chaque fois on a raisonne sans AUCUNE trace de ce qui s'etait reellement passe sur le poste.
+   On consigne desormais chaque evenement d'affichage dans un petit fichier, borne a 200 lignes :
+   la prochaine fois, on saura si c'est le processus graphique qui tombe, la veille du poste, ou
+   le moteur de rendu. Diagnostiquer sans mesure, c'est proposer un quatrieme correctif au hasard. */
+const _JOURNAL = path.join(app.getPath('userData'), 'incidents-affichage.log');
+/* ⚠️ LES COMPTEURS D INCIDENTS VIVENT ICI, PAS DANS createWindow(). Le 2e incident RECREE la
+   fenetre : si l historique etait local a la fenetre, il repartirait de zero a chaque recreation,
+   le compteur ne depasserait jamais deux, et le 3e palier (rendu logiciel) ne serait JAMAIS
+   atteint. Un poste au pilote defaillant recreerait sa fenetre indefiniment sans jamais basculer
+   sur le remede qui, lui, traite la cause. */
+let _sauvetages = [];
+let _dtpDernierSauvetage = 0;
+function _noter(txt) {
+  try {
+    const ligne = new Date().toISOString() + '  ' + txt + '\n';
+    let ancien = '';
+    try { ancien = fs.readFileSync(_JOURNAL, 'utf8'); } catch (e) {}
+    const lignes = (ancien + ligne).split('\n').slice(-200);
+    fs.writeFileSync(_JOURNAL, lignes.join('\n'));
+  } catch (e) {}
+  try { console.warn('[DTP] ' + txt); } catch (e) {}
+}
 if (fs.existsSync(_MARQUEUR_LOGICIEL)) {
   try { app.disableHardwareAcceleration(); console.warn('[DTP] rendu logiciel actif (ecrans noirs repetes sur ce poste)'); } catch (e) {}
 }
@@ -312,7 +335,7 @@ function createWindow() {
      Seule la coquille voit l'événement. On recharge le desk : Electron recrée un moteur neuf.
      Pare-boucle : pas plus d'un rechargement par minute, si le moteur meurt en boucle on laisse la
      page hors-ligne faire son travail plutôt que de clignoter. */
-  let _dtpDernierSauvetage = 0;
+  // (compteurs d incidents : voir _sauvetages / _dtpDernierSauvetage au niveau module)
   // Une image est « noire » si AUCUN de ses pixels n'atteint un minimum de luminosité. On réduit
   // à 16x16 avant d'analyser : 256 pixels suffisent à savoir s'il y a quoi que ce soit à l'écran,
   // et c'est mille fois moins de travail qu'une image de 2560 pixels de large.
@@ -333,30 +356,72 @@ function createWindow() {
     } catch (e) { return false; }
   };
 
+  /* ══ FORCER UN REPEINT SANS RIEN RECHARGER ═════════════════════════════════════════════════
+     Un décalage d'un pixel puis retour : cela oblige le gestionnaire de fenêtres à reconstruire la
+     surface de composition, ce qu'un rechargement de page ne fait PAS. C'est précisément pour cela
+     que les tentatives précédentes échouaient : elles rechargeaient le contenu alors que le
+     contenu n'avait jamais été le problème.
+     ⚠️ On ne fait PAS « hide() » puis « show() » : cela ramènerait la fenêtre au premier plan et volerait
+     le focus à quelqu'un en train de travailler dans une autre application. Le décalage d'un pixel
+     ne se voit pas et ne dérange personne. */
+  const _dtpRepeindre = (motif) => {
+    try {
+      if (!win || win.isDestroyed() || win.isMinimized()) return;
+      const b = win.getBounds();
+      win.setBounds({ x: b.x, y: b.y, width: b.width + 1, height: b.height });
+      setTimeout(() => { try { if (win && !win.isDestroyed()) win.setBounds(b); } catch (e) {} }, 120);
+      try { win.webContents.invalidate(); } catch (e) {}
+      _noter('repeint force (' + motif + ')');
+    } catch (e) { _noter('repeint impossible : ' + (e && e.message)); }
+  };
+
   // Sauvetages récents : sert à distinguer un incident isolé d'un poste dont le pilote graphique
   // ne fonctionne pas. On ne garde qu'une heure d'historique.
-  let _sauvetages = [];
+  // _sauvetages vit au niveau module (voir plus haut) : il doit SURVIVRE a la recreation de la fenetre.
   const _dtpSauver = (motif) => {
     if (!win || win.isDestroyed()) return;
     const t = Date.now();
     if (t - _dtpDernierSauvetage < 60000) return;
     _dtpDernierSauvetage = t;
-    console.warn('[DTP] ' + motif + ' : rechargement du desk');
+    _noter('incident : ' + motif);
 
     // ⚠️ TROIS SAUVETAGES EN UNE HEURE = LE RECHARGEMENT NE RESOUT RIEN. Continuer reviendrait à
     // recharger le desk sous les yeux de quelqu'un qui travaille, indéfiniment. On bascule le
     // poste en rendu logiciel et on redémarre : c'est la seule action qui traite la cause.
     _sauvetages = _sauvetages.filter(x => t - x < 3600e3);
     _sauvetages.push(t);
+
+    /* ⚠️ ESCALADE EN TROIS TEMPS, ET LE DEUXIÈME EST LE CORRECTIF QUI MANQUAIT.
+       1er incident : on repeint et on recharge. Suffit quand c'est la page qui a lâché.
+       2e incident : ON RECRÉE LA FENÊTRE. Recharger une page ne recrée pas la surface
+         d'affichage : la fenêtre native reste la même. Quand c'est la surface qui est morte, tous
+         les rechargements du monde repeignent du noir. C'est ce qui a fait échouer les tentatives
+         précédentes, et c'est le seul geste qui reconstruise vraiment l'affichage sans redémarrer.
+       3e incident : le poste a un vrai problème de pilote → rendu logiciel et redémarrage. */
     if (_sauvetages.length >= 3 && !fs.existsSync(_MARQUEUR_LOGICIEL)) {
       try {
         fs.writeFileSync(_MARQUEUR_LOGICIEL, new Date().toISOString() + ' — ' + motif + '\n');
-        console.warn('[DTP] 3 sauvetages en 1 h : passage en rendu logiciel et redemarrage');
+        _noter('3e incident en 1 h : passage en rendu logiciel et redemarrage');
         app.relaunch(); app.exit(0);
         return;
       } catch (e) { /* si on ne peut pas ecrire le marqueur, on se contente de recharger */ }
     }
 
+    if (_sauvetages.length === 2) {
+      try {
+        const b = win.getBounds();
+        const plein = win.isMaximized();
+        _noter('2e incident : RECREATION de la fenetre (le rechargement ne recree pas la surface)');
+        const ancienne = win;
+        win = null;
+        createWindow();
+        try { if (win && !win.isDestroyed()) { win.setBounds(b); if (plein) win.maximize(); } } catch (e) {}
+        try { ancienne.destroy(); } catch (e) {}
+        return;
+      } catch (e) { _noter('recreation impossible : ' + (e && e.message)); }
+    }
+
+    _dtpRepeindre(motif);
     try { win.loadURL(DESK_URL, { extraHeaders: 'Cache-Control: no-cache\n' }); } catch {}
   };
   win.webContents.on('render-process-gone', (_e, d) => _dtpSauver('moteur de rendu mort (' + (d && d.reason || '?') + ')'));
@@ -379,6 +444,12 @@ function createWindow() {
   // texte clair et des accents or, donc un maximum élevé ; un écran noir n'a rien du tout.
   // Deux constats consécutifs sont exigés avant de recharger : une capture peut tomber pendant une
   // transition, et recharger le desk sous les yeux de quelqu'un qui travaille est coûteux.
+  /* ⚠️ CE CHIEN DE GARDE A UNE LIMITE QU'IL FAUT CONNAÎTRE. « capturePage() » lit ce que PEINT le
+     moteur de rendu, pas ce qui arrive à l'écran. Si le moteur peint correctement mais que la
+     surface d'affichage est perdue, la capture revient NORMALE et le garde ne voit rien, alors que
+     l'utilisateur, lui, a un écran noir. C'est une des trois raisons pour lesquelles les correctifs
+     précédents ne pouvaient pas fonctionner. C'est le suivi du réveil du poste, plus haut, qui
+     couvre ce cas : on n'attend plus de le détecter, on repeint au moment où le risque apparaît. */
   let _noirDeSuite = 0;
   const _garde = setInterval(async () => {
     try {
@@ -392,6 +463,27 @@ function createWindow() {
       } else _noirDeSuite = 0;
     } catch (e) { /* une capture qui échoue n'est pas une preuve : on ne recharge pas */ }
   }, 120000);
+  /* ══ RÉVEIL DU POSTE ═══════════════════════════════════════════════════════════════════════
+     ⚠️ C'EST LA PISTE QUI MANQUAIT, et elle correspond exactement au symptôme décrit : « écran noir
+     quand l'application est restée ouverte trop longtemps ». Une application qu'on laisse ouverte
+     traverse forcément des mises en veille de l'écran, des verrouillages de session, des mises en
+     veille de la machine. Au réveil, Windows recrée la surface d'affichage, et une fenêtre
+     Electron ne s'y raccroche pas toujours : elle reste peinte en noir alors que tout est vivant.
+     « powerMonitor » n'était utilisé NULLE PART dans ce fichier : aucun des trois correctifs
+     précédents ne pouvait donc voir ce moment-là.
+     On force un repeint peu après chaque réveil. Le délai laisse au système le temps de finir sa
+     propre reprise : agir trop tôt, c'est repeindre dans une surface qui n'existe pas encore. */
+  const _apresReveil = (quoi) => {
+    _noter('reveil du poste (' + quoi + ') : repeint preventif');
+    setTimeout(() => _dtpRepeindre('reveil ' + quoi), 1500);
+    setTimeout(() => _dtpRepeindre('reveil ' + quoi + ' (2e passe)'), 6000);
+  };
+  try {
+    powerMonitor.on('resume', () => _apresReveil('sortie de veille'));
+    powerMonitor.on('unlock-screen', () => _apresReveil('session deverrouillee'));
+    powerMonitor.on('user-did-become-active', () => _apresReveil('retour de l utilisateur'));
+  } catch (e) { _noter('powerMonitor indisponible : ' + (e && e.message)); }
+
   win.on('closed', () => { try { clearInterval(_garde); } catch (e) {} });
 
   // Menu CLIC-DROIT (contextuel) : Couper / Copier / Coller / Tout sélectionner. Electron n'en fournit AUCUN
