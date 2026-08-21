@@ -183,18 +183,6 @@
     .lp-dl-btn svg { width: 17px; height: 17px; color: var(--text2); flex: 0 0 auto; }
     .lp-dl-k { display: block; font-size: 10.5px; color: var(--text3); line-height: 1.25; }
     .lp-dl-v { display: block; font-size: 13px; color: var(--text); font-weight: 600; line-height: 1.25; }
-    .lp-foot { margin-top: 22px; text-align: center; }
-    /* Logo + nom sur une seule ligne, centrés. Le nom reprend EXACTEMENT le dégradé or de l'ancien
-       bandeau du haut : c'est la même marque, elle n'a pas à changer d'aspect en changeant de place. */
-    .lp-foot-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
-      font-family: var(--tight); font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
-    .lp-foot-brand img { display: block; border-radius: 6px; flex: 0 0 auto; }
-    .lp-foot-brand span {
-      background: linear-gradient(100deg, #f0d27a, #e3b23a 55%, #b8860b);
-      -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
-    }
-    .lp-foot-brand:hover span { filter: brightness(1.08); }
-    .lp-foot-legal { margin-top: 5px; font-size: 10.5px; line-height: 1.45; color: var(--text3); }
     .lp-dl-intel { margin-top: 9px; text-align: center; font-size: 11px; color: var(--text3); }
     .lp-dl-intel a { color: var(--gold); text-decoration: none; font-weight: 600; }
     .lp-dl-intel a:hover { text-decoration: underline; }
@@ -296,7 +284,6 @@
       .lp-contact { margin-bottom: 16px; }
       .lp-divider { margin-bottom: 14px; }
       .lp-lang-row { margin-bottom: 12px; }
-      .lp-foot { margin-top: 16px; }
       /* ⚠️ LES DEUX BOUTONS RESTENT CÔTE À CÔTE. Les empiler (l'ancienne règle) ajoutait ~60 px
          et rejetait de nouveau le pied de page hors de l'écran : c'était fabriquer, plus bas,
          exactement le défaut qu'on corrige plus haut. À deux ils tiennent, le libellé se plie. */
@@ -306,7 +293,7 @@
       .lp-dl-v { font-size: 12px; }
     }
   </style>
-  <script src="/js/noinspect.js?v=20260821bbg812"></script>
+  <script src="/js/noinspect.js?v=20260821bbg813"></script>
 </head>
 <body>
 
@@ -392,21 +379,7 @@
       <div class="lp-dl-intel" data-i18n-html="dlIntel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a></div>
       <!-- (Note « premier lancement macOS » retirée : demande user 03/08.) -->
 
-      <!-- PIED DE PAGE : la marque et la mention légale closent l'écran. Sur mobile, la mosaïque
-           d'images est masquée (voir la media query) : sans ce pied, la page se terminait sur un
-           lien de téléchargement, sans rien qui signe la page. -->
-      <div class="lp-foot">
-        <!-- ⚠️ LE VRAI LOGO, PAS UN MOT ÉCRIT EN GRIS. Ma première version écrivait « Data » en
-             --text2 (#55555f) : sur fond blanc cela ressortait comme une tache sombre sans raison,
-             et c'est ce que l'utilisateur a signalé. On sert donc /favicon.svg, qui EST la source
-             unique de la marque (le même fichier alimente l'icône de l'onglet et celle de
-             l'application) : carré doré, aucune zone sombre parasite. -->
-        <a class="lp-foot-brand" href="https://datatradingpro.com/">
-          <img src="/favicon.svg" alt="" width="26" height="26" aria-hidden="true">
-          <span>DataTradingPro</span>
-        </a>
-        <div class="lp-foot-legal" data-i18n="loginLegal">© 2026 DataTradingPro. Données macro &amp; forex. Aucun conseil en investissement.</div>
-      </div>
+      <!-- (Pied de page marque + mention légale retiré : demande user 21/08.) -->
 
     </div><!-- /.lp-card -->
   </div><!-- /.lp-right -->
@@ -515,8 +488,7 @@
       email:'Adresse e-mail', emailPh:'votre@email.com', password:'Mot de passe',
       pwToggle:'Afficher/masquer', pastePw:'Coller le mot de passe', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
       signin:'Se connecter', signingIn:'Connexion…', langLabel:'Langue :', dlFor:'Télécharger pour',
-      loginContact:'Une question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contactez-nous</a>',
-      loginLegal:'© 2026 DataTradingPro. Données macro & forex. Aucun conseil en investissement.',
+      loginContact:'Une question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contactez-nous</a>',
       dlIntel:'Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a>',
       dlMacTitle:'Premier lancement sur macOS',
       dlMac1:'Si «&nbsp;Apple n\'a pas pu confirmer…&nbsp;» s\'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).',
@@ -533,8 +505,7 @@
       email:'Email address', emailPh:'you@email.com', password:'Password',
       pwToggle:'Show / hide', pastePw:'Paste password', remember:'Stay signed in', forgot:'Forgot password?',
       signin:'Sign in', signingIn:'Signing in…', langLabel:'Language:', dlFor:'Download for',
-      loginContact:'A question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contact us</a>',
-      loginLegal:'© 2026 DataTradingPro. Macro &amp; FX data. Not investment advice.',
+      loginContact:'A question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contact us</a>',
       dlIntel:'Mac Intel (before 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Download the Intel version</a>',
       dlMacTitle:'First launch on macOS',
       dlMac1:'If “Apple could not verify…” appears, click <b>Done</b> (not “Move to Trash”).',
