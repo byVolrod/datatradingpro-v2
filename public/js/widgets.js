@@ -5960,9 +5960,15 @@
   // grille 12 colonnes, chaque bloc teinté par la FAMILLE du widget + micro-libellé quand la place le permet.
   // Choix assumé face au screenshot serveur : instantané, hors-ligne, et JAMAIS périmé (la vignette ne peut
   // pas mentir sur le contenu du desk puisqu'elle est recalculée depuis lui).
+  /* ⚠️ PALETTE TONALE ALIGNEE DTP (21/08, demande user : « pas tres beau avec le vert, aligne a
+     DTP »). L ancienne posait du bleu, du vert et du violet SATURES a cote de l or : sur une carte
+     de modele, l apercu ressemblait a un jouet, pas a un plan de terminal. On garde une teinte par
+     famille pour qu elles restent distinguables, mais toutes DESATUREES et harmonisees autour de
+     l or signature. Les blocs sont rendus a ~26 % d opacite : ces teintes y restent lisibles sans
+     jamais crier. */
   var _CAT_COL = {
-    'Devises': '#e3b23a', 'Macro': '#4a9eda', 'Risque': '#e0574a',
-    'News': '#8b7ad8', 'Outils': '#3fae86', 'Autre': '#7e8590',
+    'Devises': '#e3b23a', 'Macro': '#7d94b5', 'Risque': '#cf6a5a',
+    'News': '#c2a25e', 'Outils': '#6f9f8c', 'Autre': '#7e8590',
   };
   // Abréviations ÉCRITES (jamais une troncature au milieu d'un mot : « BAROMÈ » ne veut rien dire).
   var _ABBR = {

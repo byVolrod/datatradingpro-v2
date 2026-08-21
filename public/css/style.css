@@ -19081,3 +19081,41 @@ body.dtp-admin .nav {
   background: rgba(227,178,58,0); pointer-events: none; transition: background .16s ease;
 }
 #view-news .news-item:hover::before { background: rgba(227,178,58,.55); }
+
+/* ═══ MOBILE : LIRE LA NEWS ENTIÈRE + NE PLUS COUPER LES DONNÉES DES WIDGETS (21/08) ═══════════
+   Constat user sur téléphone : « on n'arrive pas à lire toute la news entière, et certaines données
+   des widgets sont coupées ». Deux corrections, sous 560px, en fin de fichier pour gagner la cascade. */
+@media (max-width: 560px) {
+
+  /* 1 · LE PANNEAU DÉPLIÉ D'UNE NEWS (Info / Analyse / Réaction) DOIT S'ÉTALER SUR TOUTE LA LARGEUR.
+     Dans la grille mobile de la ligne, il héritait de la colonne étroite du titre : le texte se
+     retrouvait dans un couloir de quelques centimètres, illisible. On le force à occuper les quatre
+     colonnes de la grille, à retourner à la ligne, et à ne rien masquer. */
+  .news-item .news-description,
+  .news-item .expand-panel,
+  .news-item .news-expand {
+    grid-column: 1 / -1 !important;
+    width: 100% !important; max-width: 100% !important;
+    white-space: normal !important; overflow: visible !important;
+    word-break: break-word; -webkit-line-clamp: unset;
+  }
+  /* Le titre lui-même : jamais tronqué, il retourne à la ligne autant que nécessaire. */
+  .news-item .news-headline {
+    white-space: normal !important; overflow: visible !important; text-overflow: clip !important;
+    -webkit-line-clamp: unset !important;
+  }
+
+  /* 2 · LES DONNÉES D'UN WIDGET NE SONT PLUS ROGNÉES : ce qui est plus large que la carte DÉFILE
+     horizontalement au doigt, au lieu d'être coupé. Une donnée coupée est une donnée perdue ; une
+     donnée qui déborde reste atteignable d'un glissement. */
+  .wdg-body { overflow: auto !important; -webkit-overflow-scrolling: touch; }
+  .wdg-cal-wrap { overflow-x: auto !important; }
+  .wdg-body table,
+  .wdg-body .macro-table,
+  .wdg-body .cal-table { min-width: max-content; }
+  /* Les cellules de valeur cessent d'être tronquées en « … » : sur téléphone, le chiffre EST
+     l'information, il doit se lire en entier quitte à faire défiler. */
+  .wdg-body .cth-val,
+  .wdg-body .mt-taux,
+  .wdg-body td { overflow: visible; text-overflow: clip; }
+}
