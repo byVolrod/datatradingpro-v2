@@ -132,7 +132,7 @@ html { zoom: var(--dtp-zoom, 1); }
   --grid-line-v: rgba(255,255,255,0.035);   /* séparateurs VERTICAUX (encore + discrets) */
   --panel-depth: 0 1px 2px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.018);  /* profondeur très légère (interne + externe) */
   /* ─ Look "ligne de widget" unifie sur la reference fil d'actualite (demande : meme separation/effet partout) ─ */
-  --row-sep:       1px solid rgba(255,255,255,0.028);  /* filet horizontal TRES subtil entre lignes (≈2x + fin que --hud-line) */
+  --row-sep:       1px solid rgba(255,255,255,0.075);  /* filet entre lignes : ~18 niveaux d ecart sur le fond desk = VISIBLE mais sobre, niveau valide sur le calendrier (avant 2,8% = 7 niveaux, invisible ; retour user 21/08) */
   --row-hover:     #16171c;                            /* hover sobre NEUTRE (fini la teinte or) */
   --row-card-bg:   #15161b;                            /* fond de la carte au deroule */
   --row-card-bd:   1px solid rgba(0,0,0,0.42);         /* bordures fines tres sombres haut+bas de la carte */
@@ -11033,7 +11033,7 @@ body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-
 
 /* === News : refonte "flat" epuree (terminal pro) — texte medium, separateurs tres discrets, fond froid, alerte rouge legere === */
 .news-item .news-headline { font-weight: 450 !important; }                                  /* texte medium/standard, plus de gras massif */
-.news-item { border-bottom: 1px solid rgba(255,255,255,0.028) !important; background: #121317 !important; }  /* separateur a peine perceptible + fond froid neutre */
+.news-item { border-bottom: 1px solid rgba(255,255,255,0.075) !important; background: #121317 !important; }  /* ⚠️ separateur RELEVE a 7,5% (21/08) : cette regle en !important ecrasait le token --row-sep et rendait le filet invisible (retour user « j ai pas l impression de le voir ») ; ~18 niveaux d ecart = visible mais sobre */
 .news-item:hover { background: #16171c !important; }
 .news-item--urgent, .news-item--breaking { background: rgba(255,61,0,0.085) !important; border-bottom: 1px solid rgba(255,61,0,0.10) !important; }  /* fond de BASE = ancienne teinte de survol (rouge deja bien visible au repos) */
 .news-item--urgent:hover, .news-item--breaking:hover { background: rgba(255,61,0,0.13) !important; }  /* survol : rouge un cran + accentue par-dessus la base */
@@ -12814,7 +12814,7 @@ html[data-theme="light"] {
   --sb-thumb-hover: #b4b4ab;
   --hud-line:      rgba(0, 0, 0, 0.09);
   --grid-line-v:   rgba(0, 0, 0, 0.055);
-  --row-sep:       1px solid rgba(0, 0, 0, 0.05);
+  --row-sep:       1px solid rgba(0, 0, 0, 0.08);   /* theme clair : releve avec le sombre (21/08) */
   --row-hover:     #ecece6;
   --st-flat:     #17181d;   /* valeur « égal/neutre » : blanc en sombre → encre en clair */
   --orange-bg:   rgba(184, 134, 11, 0.10);
