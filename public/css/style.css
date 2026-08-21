@@ -3216,6 +3216,22 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Cellules multi-tags : conteneur flex → alignement vertical régulier (1 ou 2 tags), fini le décalage (demande user) */
 .mt-cell-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .mt-cell-tags .mt-tag { margin: 0; }
+/* ── Colonne TAUX DIRECTEUR (21/08) ───────────────────────────────────────────────────────────
+   Le niveau de taux de chaque banque, juste avant le biais. Le fond vert s'intensifie avec le
+   taux : le classement des devises se lit sans lire les chiffres, et l'œil trouve d'abord les
+   monnaies à fort portage. Chiffres à CHASSE FIXE, sinon « 4,35 » et « 0,00 » n'ont pas la même
+   largeur et la colonne semble vibrer d'une ligne à l'autre.
+   L'intensité du fond est calculée en JS (proportionnelle au taux le plus haut du jour) : elle ne
+   peut pas être figée ici sans vieillir dès qu'une banque bouge. */
+.macro-table th.mt-taux-h, .macro-table td.mt-taux { width: 96px; white-space: nowrap; }
+.mt-taux-v {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11.5px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--txt, #e6e8ec);
+}
+.mt-taux-vide { color: #4a4f58; font-size: 12px; }
+
 /* Colonne chevron (affordance « cliquer pour ouvrir ») */
 .macro-table th.mt-x-h, .macro-table td.mt-x { width: 22px; padding-left: 0; padding-right: 8px; text-align: right; }
 .mt-chevron { color: #4a4a52; font-size: 15px; font-weight: 700; display: inline-block; transition: color .12s, transform .12s; }

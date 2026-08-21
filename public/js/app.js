@@ -5482,7 +5482,59 @@ function _sbMacroFromRows(d) {
   });
   return out;
 }
+/* ═══ COLONNE « TAUX DIRECTEUR » DU RADAR DE BIAIS (21/08, demande user) ════════════════════════
+   Le taux de chaque banque centrale, juste avant le biais. Il manquait la donnée la plus simple :
+   on lisait « politique monétaire restrictive » sans jamais voir le niveau, alors que c'est lui qui
+   fait le portage, et le portage pèse déjà dans le score du pilier monétaire.
+
+   Lecture d'un coup d'œil : le fond vert s'intensifie avec le taux, de sorte que le classement des
+   devises se voit sans lire les chiffres. L'ergonomie est celle des tableaux de taux directeurs du
+   métier ; la couleur, elle, est le vert de marque du desk, pas celle d'un autre site.
+
+   ⚠️ MÊME SOURCE que le widget « Différentiel de taux » et que l'onglet TAUX : `/api/rates`. Trois
+   surfaces qui affichent un taux directeur ne doivent pas pouvoir se contredire, et c'est
+   précisément le genre d'écart qu'on ne découvre que devant un client.
+
+   ⚠️ LES TAUX ARRIVENT EN ASYNCHRONE alors que le tableau se rend en synchrone. On ne reconstruit
+   donc PAS le tableau à leur arrivée : cela refermerait le panneau de détail que l'utilisateur
+   vient peut-être d'ouvrir. On ne remplace que le contenu des cellules concernées. */
+let _sbTaux = null;          // { USD: 4.25, … } ou null tant que rien n'est chargé
+let _sbTauxMax = 0;
+let _sbTauxT = 0;            // horodatage du dernier chargement réussi
+
+function _sbTauxCell(c) {
+  if (!_sbTaux) return '<span class="mt-taux-vide">·</span>';
+  const r = _sbTaux[c];
+  if (typeof r !== 'number') return '<span class="mt-taux-vide">·</span>';
+  // Intensité proportionnelle au taux le plus élevé du jour : l'échelle se recalcule d'elle-même
+  // quand les banques bougent, plutôt que d'être figée sur un maximum écrit en dur qui vieillirait.
+  const f = _sbTauxMax > 0 ? Math.max(0, Math.min(1, r / _sbTauxMax)) : 0;
+  const a = (0.06 + f * 0.30).toFixed(3);   // jamais totalement transparent, jamais opaque
+  return `<span class="mt-taux-v" style="background:rgba(0,230,118,${a})">${r.toFixed(2).replace('.', ',')} %</span>`;
+}
+
+function _sbChargerTaux() {
+  if (_sbTaux && Date.now() - _sbTauxT < 5 * 60 * 1000) return;   // la source bouge à l'heure
+  fetch('/api/rates', { cache: 'no-store' })
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => {
+      const banks = ((d && d.banks) || []).filter(b => b && b.code && typeof b.rate === 'number');
+      if (banks.length < 4) return;                                // donnée partielle : on garde l'ancienne
+      const t = {};
+      banks.forEach(b => { t[b.code] = b.rate; });
+      _sbTaux = t;
+      _sbTauxMax = Math.max.apply(null, banks.map(b => b.rate)) || 0;
+      _sbTauxT = Date.now();
+      // Remplissage EN PLACE : uniquement les cellules, jamais le tableau entier.
+      document.querySelectorAll('[data-taux-cur]').forEach(td => {
+        td.innerHTML = _sbTauxCell(td.getAttribute('data-taux-cur'));
+      });
+    })
+    .catch(() => {});   // silencieux : la colonne affiche « · », le reste du tableau est intact
+}
+
 function _sbRenderMacroTable(cur, macro) {
+  _sbChargerTaux();   // au rendu : servi depuis le cache si frais, sinon rempli à l'arrivée
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
   // Chaque cellule = conteneur flex → alignement vertical régulier même quand il y a 1 ou 2 tags (demande user « aligne bien »).
@@ -5492,7 +5544,7 @@ function _sbRenderMacroTable(cur, macro) {
   // le 03/08 (pilier monétaire v41) puis en courbe graduée le 14/08 (v47) : cette colonne ne
   // recalcule rien, elle REND VISIBLE ce qui pesait en coulisse. Placée juste après la politique
   // monétaire, dont elle est une composante.
-  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
+  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th class="mt-taux-h">Taux directeur</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
   const body = cur.map(c => {
     const m = macro[c] || {};
     const mp = m.monetary || {}, inf = m.inflation || {};
@@ -5533,6 +5585,7 @@ function _sbRenderMacroTable(cur, macro) {
       <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
       ${cell(monCell)}${cell(infCell)}${cell(gr)}${cell(em)}
       <td class="mt-drv-cell"><div class="mt-cell-tags">${drv || '<span class="mt-empty">-</span>'}</div></td>
+      <td class="mt-taux" data-taux-cur="${esc(c)}">${_sbTauxCell(c)}</td>
       ${cell(bi)}
       <td class="mt-x"><span class="mt-chevron">›</span></td></tr>`;
   }).join('');
