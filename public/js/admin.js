@@ -1965,6 +1965,10 @@
       pause:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
       play:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
       kick:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+      // Newsletter (enveloppe) / desinscrit (enveloppe barree) / blocage (interdiction).
+      mail:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',
+      mailoff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/><path d="M3 3l18 18"/></svg>',
+      ban:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
       del:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
     };
     const icBtn = (icon, label, onclick, danger) =>
@@ -1982,7 +1986,13 @@
           ${icBtn('edit', 'Modifier', `openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active},'${esc(u.plancad || '')}')`)}
           ${icBtn('pwd', 'Mot de passe', `openPwd('${esc(String(u.id))}')`)}
           ${u.role !== 'admin' ? icBtn(u.active ? 'pause' : 'play', u.active ? 'Suspendre' : 'Réactiver', `toggleSuspend('${esc(String(u.id))}',${u.active})`)
-            + icBtn('kick', 'Déconnecter du desk', `forceDisconnect('${esc(String(u.id))}')`) : ''}
+            + icBtn('kick', 'Déconnecter du desk', `forceDisconnect('${esc(String(u.id))}')`)
+            + icBtn(u.unsub ? 'mailoff' : 'mail',
+                u.unsubFige ? 'Désinscrit définitivement (non réversible)'
+                            : (u.unsub ? 'Réabonner à la newsletter' : 'Désinscrire de la newsletter'),
+                u.unsubFige ? '' : `toggleNewsletter('${esc(String(u.id))}',${!!u.unsub})`)
+            + icBtn('ban', u.blackliste ? 'Débloquer l accès au terminal' : 'Bloquer l accès au terminal',
+                `toggleBlacklist('${esc(String(u.id))}',${!!u.blackliste})`, !u.blackliste) : ''}
           ${icBtn('del', 'Supprimer', `deleteUser('${esc(String(u.id))}')`, true)}
         </td>
       </tr>`).join('');
@@ -2205,6 +2215,45 @@
     } catch { showToast('Erreur réseau : réessayez', 'err'); }
   }
 
+  // ── Newsletter : désinscrire / réabonner un compte depuis sa fiche ──────────
+  // Réversible et sans effet sur l'accès : aucune confirmation, un clic suffit. L'état affiché
+  // vient de la RÉPONSE du serveur, jamais de ce qu'on a demandé — si l'écriture échoue, le
+  // bouton ne ment pas.
+  async function toggleNewsletter(id, estDesinscrit) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/newsletter`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inscrit: !!estDesinscrit }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { showToast(d.error || 'Erreur : réessayez', 'err'); return; }
+      showToast(d.unsub ? '✓ Désinscrit de la newsletter' : '✓ Réabonné à la newsletter');
+      loadUsers();
+    } catch { showToast('Erreur réseau : réessayez', 'err'); }
+  }
+
+  // ── Blocage de l'accès au terminal (liste noire) ────────────────────────────
+  // BLOQUER coupe l'accès : confirmation EN LIGNE, comme la suppression. Le cahier des charges
+  // interdit les dialogues natifs, et on réutilise le motif déjà en place plutôt que d'en
+  // inventer un second. DÉBLOQUER ne casse rien : direct.
+  function toggleBlacklist(id, estBloque) {
+    if (estBloque) { _blacklistAppliquer(id, false); return; }
+    const cell = document.querySelector(`tr[data-id="${id}"] td.actions`);
+    if (!cell || cell.dataset.confirming) return;
+    cell.dataset.prevHtml = cell.innerHTML;
+    cell.dataset.confirming = '1';
+    cell.innerHTML = `<span class="del-confirm"><span class="del-confirm-txt">Bloquer l'accès&nbsp;?</span><button class="btn-sm btn-danger" onclick="_blacklistAppliquer(\'${esc(String(id))}\', true)">Oui</button><button class="btn-sm" onclick="cancelDeleteUser(\'${esc(String(id))}\')">Non</button></span>`;
+  }
+  async function _blacklistAppliquer(id, bloquer) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/blacklist`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bloque: !!bloquer }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { showToast(d.error || 'Erreur : réessayez', 'err'); loadUsers(); return; }
+      showToast(d.blackliste ? '✓ Accès bloqué : compte éjecté du terminal' : '✓ Accès rétabli');
+      loadUsers();
+    } catch { showToast('Erreur réseau : réessayez', 'err'); loadUsers(); }
+  }
   // ── Edit modal ──────────────────────────────────────────────────────────────
   function openEdit(id, name, role, plan, active, plancad) {
     document.getElementById('edit-id').value = id;

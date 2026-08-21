@@ -1059,6 +1059,8 @@ module.exports = {
   emailLogHas,
   emailLogHasMany,
   emailLogAdd,
+  emailLogDel,
+  estUnsubPermanent,
   emailLogAll,
   aiCacheGet,
   aiCacheSet,
@@ -1222,6 +1224,29 @@ async function emailLogAdd(key) {
       if (error && _emailTableMissing(error)) _emailDb = false;
     }
   } catch {}
+}
+
+// RETRAIT d'une clé du journal — VOLONTAIREMENT LIMITÉ AUX MARQUEURS « unsub: ».
+// ⚠️ Ce journal n'est pas qu'une liste de désinscrits : c'est AUSSI la garde anti-doublon des
+// envois (« ce mail a déjà été envoyé à cette adresse »). Supprimer une clé quelconque ferait
+// donc RENVOYER un mail déjà parti. Le garde ci-dessous n'est pas une précaution de style : il
+// est ce qui empêche qu'un bouton « réabonner » du panneau ne réexpédie une campagne entière.
+async function emailLogDel(key) {
+  const k = String(key);
+  if (!k.startsWith('unsub:')) throw new Error('emailLogDel refuse une clé hors « unsub: » (garde anti-doublon)');
+  delete _emailFile[k]; _emailSaveFile();
+  try {
+    await _emailEnsureDb();
+    if (_emailDb) {
+      const { error } = await supabase.from(EMAILLOG_TABLE).delete().eq('key', k);
+      if (error && _emailTableMissing(error)) _emailDb = false;
+    }
+  } catch {}
+}
+// Un désinscrit PERMANENT ne se réabonne pas : le seed le rétablirait au prochain démarrage, et
+// surtout c'est une contrainte assumée. On le dit à l'appelant au lieu de laisser croire au succès.
+function estUnsubPermanent(email) {
+  return _PERMANENT_UNSUB_SEED.includes(String(email || '').toLowerCase().trim());
 }
 
 // Journal COMPLET { clé → date d'envoi ISO } pour l'écran « Journal des envois » du panel admin.

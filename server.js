@@ -1660,7 +1660,24 @@ function _cadOf(u) {
 }
 
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
-  try { res.json((await auth.getAllUsers()).map(u => Object.assign({}, u, { plancad: _planCads[String(u.id)] || '' }))); }
+  try {
+    const us = await auth.getAllUsers();
+    // Les deux ÉTATS que le panneau doit pouvoir BASCULER. Sans eux il proposerait « désinscrire »
+    // à quelqu'un qui l'est déjà, et l'admin ne saurait pas où il en est.
+    // ⚠️ UNE seule requête groupée pour toute la liste (emailLogHasMany), jamais un appel par
+    // compte : à 49 comptes cela ferait 49 allers-retours Supabase à chaque ouverture de l'écran.
+    let uns = {};
+    try { uns = await auth.emailLogHasMany(us.map(u => 'unsub:' + String(u.email || '').toLowerCase().trim())); } catch (e) {}
+    res.json(us.map(u => {
+      const em = String(u.email || '').toLowerCase().trim();
+      return Object.assign({}, u, {
+        plancad: _planCads[String(u.id)] || '',
+        unsub: !!uns['unsub:' + em],
+        unsubFige: (() => { try { return auth.estUnsubPermanent(em); } catch (e) { return false; } })(),
+        blackliste: (() => { try { return auth.isEmailBlacklisted(em); } catch (e) { return false; } })(),
+      });
+    }));
+  }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2130,6 +2147,58 @@ app.post('/api/admin/users/:id/disconnect', requireAdmin, (req, res) => {
   _sessEpochSauver();
   _fermerSockets(_id, null);
   res.json({ ok: true });
+});
+
+/* NEWSLETTER par utilisateur (demande user 21/08). Le panneau savait suspendre et deconnecter,
+   mais pour desinscrire quelqu un il fallait passer par la liste globale de campagne en recopiant
+   l adresse a la main : une manipulation ou l on se trompe de destinataire. */
+app.post('/api/admin/users/:id/newsletter', requireSameOrigin, requireAdmin, async (req, res) => {
+  try {
+    const u = await auth.getUserById(String(req.params.id));
+    if (!u || !u.email) return res.status(404).json({ error: 'Compte introuvable' });
+    const em = String(u.email).toLowerCase().trim();
+    const veutInscrire = !!(req.body && req.body.inscrit === true);
+    if (veutInscrire) {
+      // Un desinscrit PERMANENT ne se reabonne pas : le seed le retablirait au demarrage suivant.
+      // On le dit, plutot que d annoncer un succes que le prochain redemarrage dementira.
+      if (auth.estUnsubPermanent(em)) return res.status(409).json({ error: 'Desinscription permanente : ce contact ne peut pas etre reabonne.' });
+      await auth.emailLogDel('unsub:' + em);
+    } else {
+      await auth.emailLogAdd('unsub:' + em);
+    }
+    // RELECTURE : on renvoie l etat CONSTATE, pas celui qu on croit avoir ecrit.
+    const etat = await auth.emailLogHas('unsub:' + em);
+    res.json({ ok: true, unsub: !!etat });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* BLOCAGE DU TERMINAL par utilisateur. La liste noire existait deja pour les campagnes, mais elle
+   coupe AUSSI le login : requireAuth la consulte a CHAQUE requete. C est donc deja le vrai
+   « bloquer du terminal » ; il manquait seulement de pouvoir l actionner depuis la fiche du compte
+   au lieu de recopier l adresse dans un champ a l autre bout du panneau. */
+app.post('/api/admin/users/:id/blacklist', requireSameOrigin, requireAdmin, async (req, res) => {
+  try {
+    const u = await auth.getUserById(String(req.params.id));
+    if (!u || !u.email) return res.status(404).json({ error: 'Compte introuvable' });
+    const em = String(u.email).toLowerCase().trim();
+    const veutBloquer = !(req.body && req.body.bloque === false);
+    if (veutBloquer) {
+      await auth.blacklistEmail(em);
+      /* Bloquer sans ejecter serait a moitie fait : requireAuth consulte bien la liste noire a
+         chaque requete, mais un flux temps reel DEJA OUVERT ne repasse pas par la. On applique
+         donc la meme sequence que le bouton « Deconnecter » : ordre en memoire, rotation du
+         jeton PERSISTE (elle survit au redeploiement) et fermeture des sockets. */
+      _forceLogout.add(String(u.id));
+      _sessionEpoch.set(String(u.id), require('crypto').randomUUID());
+      _sessEpochSauver();
+      _fermerSockets(String(u.id), null);
+    } else {
+      await auth.unblacklistEmail(em);
+      _forceLogout.delete(String(u.id));
+    }
+    const etat = auth.isEmailBlacklisted(em);
+    res.json({ ok: true, blackliste: !!etat });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
