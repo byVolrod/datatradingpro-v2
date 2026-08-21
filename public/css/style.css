@@ -16960,11 +16960,17 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    elle se lit comme un propos isolé et l utilisateur ne déplie jamais. Discret, jamais clignotant
    (règle desk : aucune animation sur les indicateurs du fil live). */
 .news-grp-cpt {
+  /* NEUTRE, plus doré (21/08, demande user). Ce compteur est une MÉTADONNÉE (« +2 propos »), pas un
+     signal : l'or du desk est réservé à ce qui porte la marque ou appelle l'attention, et ce badge
+     l'employait pour une simple quantité. Encre claire, fond et bordure neutres. */
   display: inline-flex; align-items: center; margin-left: 7px; padding: 1px 5px;
-  border: 1px solid rgba(227, 178, 58, .3); border-radius: 3px;
-  background: rgba(227, 178, 58, .09); color: var(--orange, #e3b23a);
+  border: 1px solid rgba(255, 255, 255, .16); border-radius: 3px;
+  background: rgba(255, 255, 255, .06); color: var(--text2, #b4b8bf);
   font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9.5px; font-weight: 700;
   letter-spacing: .02em; vertical-align: middle; white-space: nowrap;
+}
+html[data-theme="light"] .news-grp-cpt {
+  border-color: rgba(0, 0, 0, .18); background: rgba(0, 0, 0, .05); color: var(--text2, #565c64);
 }
 
 /* Sélecteur d unité de temps du graphique Banques (13/08) : même grammaire que les autres sélecteurs
