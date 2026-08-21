@@ -2742,24 +2742,32 @@ function _dataReleaseBullets(item) {
         l'assurance d'une phrase générée. */
   if (kb && !kb.noConcl && forecast !== null && actual !== forecast) {
     const fort = (actual > forecast) === !!kb.hiUp;
+    /* UNE SEULE PHRASE (demande user du 21/08). Le verdict, sa conséquence et le sens pour la
+       devise formaient trois propositions dont deux phrases : on lisait deux fois le même
+       raisonnement. Chaque entrée porte donc sa LIAISON, parce qu'elles ne s'enchaînent pas de la
+       même façon : « ce qui pousse … ET soutient … » prolonge une relative déjà ouverte, tandis
+       qu'une apposition (« signe d'une économie solide ») a besoin d'ouvrir la sienne. */
     const LECTURE = {
-      Inflation:  [`<strong>Inflation plus forte que prévu</strong>, ce qui pousse la banque centrale à garder des taux élevés`,
+      Inflation:  [{ t: `<strong>Inflation plus forte que prévu</strong>, ce qui pousse la banque centrale à garder des taux élevés`, l: ' et ' },
                    // « lui » n'aurait pas d'antécédent : la phrase est lue seule, hors du contexte
                    // de la ligne precedente. On nomme la banque centrale.
-                   `<strong>Inflation plus faible que prévu</strong>, ce qui laisse à la banque centrale de la marge pour baisser ses taux`],
-      Emploi:     [`<strong>Marché de l'emploi plus solide que prévu</strong>, ce qui permet de tenir des taux élevés plus longtemps`,
-                   `<strong>Marché de l'emploi plus faible que prévu</strong>, ce qui pousse plutôt vers des baisses de taux`],
-      Croissance: [`<strong>Activité plus forte que prévu</strong>, signe d'une économie solide`,
-                   `<strong>Activité plus faible que prévu</strong>, signe d'un ralentissement`],
+                   { t: `<strong>Inflation plus faible que prévu</strong>, ce qui laisse à la banque centrale de la marge pour baisser ses taux`, l: ' et ' }],
+      Emploi:     [{ t: `<strong>Marché de l'emploi plus solide que prévu</strong>, ce qui permet de tenir des taux élevés plus longtemps`, l: ' et ' },
+                   { t: `<strong>Marché de l'emploi plus faible que prévu</strong>, ce qui pousse vers des baisses de taux`, l: ' et ' }],
+      Croissance: [{ t: `<strong>Activité plus forte que prévu</strong>, signe d'une économie solide`, l: ', ce qui ', taux: true },
+                   { t: `<strong>Activité plus faible que prévu</strong>, signe d'un ralentissement`, l: ', ce qui ', taux: true }],
     };
     const m = (LECTURE[kb.cat] || LECTURE.Croissance)[fort ? 0 : 1];
     // « l'EUR » et non « le EUR » : le desk est en français, l'élision se fait sur la voyelle.
     const _art = /^[AEIOU]/.test(devise || '') ? "l'" + devise : 'le ' + devise;
-    /* Le sens pour la devise est énoncé comme un MÉCANISME, pas comme une consigne. « Toutes choses
-       égales par ailleurs » n'est pas une précaution de style : une donnée ne fixe jamais un cours
-       à elle seule, et un desk qui l'oublie se fait rattraper par le premier titre venu. */
-    const sensDevise = devise ? ` Toutes choses égales par ailleurs, cela <strong>${fort ? 'soutient' : 'pèse sur'}</strong> ${_art} par les anticipations de taux.` : '';
-    bullets.push(`${m}.${sensDevise}`);
+    /* « plutôt » n'est pas une précaution de style : une donnée ne fixe jamais un cours à elle
+       seule, et un desk qui l'oublie se fait rattraper par le premier titre venu. Le mécanisme
+       (« par les anticipations de taux ») n'est rappelé QUE sur la croissance : sur l'inflation et
+       l'emploi, la phrase vient déjà de parler des taux, le répéter serait du remplissage. */
+    const sensDevise = devise
+      ? `${m.l}<strong>${fort ? 'soutient' : 'pèse'}</strong> plutôt ${fort ? '' : 'sur '}${_art}${m.taux ? ' par les anticipations de taux' : ''}`
+      : '';
+    bullets.push(`${m.t}${sensDevise}.`);
   }
 
   // 4) LA DÉFINITION, mot pour mot depuis la fiche, en dernier : elle sert à qui ne connaît pas
