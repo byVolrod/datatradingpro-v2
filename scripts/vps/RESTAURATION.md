@@ -71,7 +71,10 @@ est dans l'archive.
 ```bash
 mkdir -p /root/.ssh && cp config/cle-deploiement /root/.ssh/dtp_deploy && chmod 600 /root/.ssh/dtp_deploy
 export GIT_SSH_COMMAND="ssh -i /root/.ssh/dtp_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-git clone git@github.com:byVolrod/datatradingpro-v2.git /opt/datatradingpro
+# ⚠️ --depth 1 : le serveur est un MIROIR DE DEPLOIEMENT, il n’a aucun besoin de l’historique.
+# Mesure : l’historique complet pese 1 070 Mo, le dernier etat 38 Mo. C’est 28 fois moins a
+# telecharger, sur une machine qu’on remonte dans l’urgence.
+git clone --depth 1 --branch main git@github.com:byVolrod/datatradingpro-v2.git /opt/datatradingpro
 cd /opt/datatradingpro
 ```
 
@@ -156,3 +159,40 @@ voir la fiche mémoire de l'application desktop.
 - **Les certificats** peuvent être régénérés par `certbot --nginx` si l'archive est trop ancienne.
 - **Les mots de passe présents dans l'historique git** (FinancialJuice, Myfxbook) : à faire tourner,
   indépendamment de toute restauration.
+
+---
+
+## Combien de temps ça prend, honnêtement
+
+Chiffres mesurés sur cette installation, pas une estimation de principe.
+
+| Étape | Durée | Remarque |
+|---|---|---|
+| Provisionner la machine | 5-15 min | dépend de l’hébergeur, hors de cette procédure |
+| Installer docker, nginx, certbot, gnupg | 2-5 min | |
+| Déchiffrer l’archive | quelques secondes | 612 Ko |
+| Cloner le dépôt | **quelques secondes** | 38 Mo en `--depth 1` (1 070 Mo sans) |
+| Copier config + données | quelques secondes | |
+| **Construire l’image Docker** | **8-20 min** | ⚠️ **LE goulot** : l’image installe Chromium et une vingtaine de bibliothèques système, sans aucun cache sur une machine neuve |
+| Démarrage jusqu’à la santé réelle | 1-2 min | scrapers, session Yahoo, Puppeteer |
+| DNS si l’IP change | minutes à heures | **hors de tout contrôle** |
+
+**Total réaliste : 20 à 45 minutes**, dominé par la construction de l’image.
+Pas « quelques minutes ».
+
+### Pour descendre à quelques minutes
+
+Le seul vrai levier est de **ne plus construire l’image sur le serveur** : la publier une fois
+dans un registre (GitHub Container Registry, gratuit pour un dépôt privé) et la faire *tirer*
+par la nouvelle machine. Les 8-20 minutes de construction deviennent 1-2 minutes de
+téléchargement.
+
+Cela demande deux choses, non faites aujourd’hui : un workflow qui publie l’image à chaque
+commit sur `main`, et un `docker-compose.yml` qui référence `image:` au lieu de `build: .`.
+
+### ⚠️ Cette procédure n’a jamais été exécutée en entier
+
+La **sauvegarde** est testée : archive produite, relue, contenu vérifié fichier par fichier.
+La **restauration**, elle, est écrite et raisonnée mais n’a jamais tourné sur une machine
+neuve. Tant qu’elle ne l’a pas été, c’est un plan solide, pas une garantie. La seule façon de
+savoir est de la dérouler pour de vrai sur un serveur jetable.
