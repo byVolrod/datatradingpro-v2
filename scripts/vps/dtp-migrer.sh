@@ -142,7 +142,7 @@ fi
 etape "2. Vérifier l'archive AVANT de commencer"
 LISTE=$(gpg --batch --quiet --decrypt --passphrase-fd 3 "$ARCHIVE" 3<<<"$DTP_BACKUP_PASS" 2>/dev/null | tar -tzf - 2>/dev/null)
 [ -n "$LISTE" ] || ko "l'archive ne s'ouvre pas (phrase secrète erronée, ou fichier corrompu)"
-for attendu in "config/env" "donnees/cache_email_log.json" "config/cle-deploiement"; do
+for attendu in "config/env" "donnees/cache_email_log.json" "config/cle-deploiement" "donnees/dump/users.json"; do
   echo "$LISTE" | grep -q "$attendu" || ko "l'archive ne contient pas $attendu : elle est incomplète, on n'y va pas."
 done
 ok "archive lisible et complète ($(echo "$LISTE" | wc -l) entrées)"

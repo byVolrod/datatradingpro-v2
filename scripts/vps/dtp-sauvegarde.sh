@@ -88,6 +88,26 @@ cp -a /etc/letsencrypt           config/letsencrypt              2>/dev/null || 
 cp -a /root/.ssh/dtp_deploy      config/cle-deploiement          2>/dev/null || true
 cp -a /usr/local/bin/dtp-deploy.sh config/                       2>/dev/null || true
 
+# ── 1 bis. LA BASE DE DONNEES ───────────────────────────────────────────────────────────────
+# ⚠️ LE TROU LE PLUS GRAVE DE L AUDIT DU 21/08 : les comptes clients, leurs abonnements et les
+# empreintes de leurs mots de passe n existaient QU A UN SEUL ENDROIT, chez Supabase. La
+# redondance db2/db3/db4 protege d une PANNE, pas d une SUPPRESSION : trois copies d une ligne
+# effacee, cela fait trois lignes effacees. On exporte donc la base AVANT de fabriquer l archive,
+# pour qu elle parte dans le meme fichier chiffre.
+#
+# ⚠️ L EXPORT ECHOUE BRUYAMMENT si la table des comptes est illisible, et la sauvegarde s arrete.
+# Produire une archive sans les comptes ferait croire que les clients sont sauvegardes alors
+# qu ils ne le sont pas : c est pire que pas d archive du tout, parce qu on ne le decouvrirait
+# que le jour de la panne.
+msg "export de la base Supabase..."
+if (cd "$REPO" && node scripts/vps/dtp-export-bdd.js 2>&1 | sed 's/^/    /'); then
+  cp -a "$REPO/data/app/dump" donnees/ 2>/dev/null || true
+else
+  msg "ERREUR : l export de la base a echoue. Aucune archive ne sera produite : mieux vaut pas"
+  msg "        de sauvegarde qu une sauvegarde a laquelle il manque les comptes clients."
+  exit 1
+fi
+
 # ── 2. LES DONNÉES IRREMPLAÇABLES ───────────────────────────────────────────────────────────
 # Liste EXPLICITE : un « cp -a data/ » embarquerait 1,8 Go de cache de navigateur.
 mkdir -p donnees
@@ -145,7 +165,7 @@ if [ -z "$_LISTE" ]; then
   rm -f "$ARCHIVE"
   exit 1
 fi
-for _att in "config/env" "donnees/cache_email_log.json" "config/cle-deploiement"; do
+for _att in "config/env" "donnees/cache_email_log.json" "config/cle-deploiement" "donnees/dump/users.json"; do
   if ! printf '%s\n' "$_LISTE" | grep -q "$_att"; then
     msg "ERREUR : l'archive ne contient pas $_att. Elle est SUPPRIMEE : une sauvegarde a laquelle"
     msg "         il manque les cles, les desinscrits ou la cle de deploiement ne restaure rien."
