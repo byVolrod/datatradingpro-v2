@@ -978,6 +978,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-synthese-structure', ts: Date.UTC(2026, 7, 23, 9, 0), title: 'Synthese des Marches : meme structure que les autres rapports du desk', desc: 'Le rapport de cloture suivait sa propre organisation, heritee d empilements successifs : treize rubriques, dont plusieurs disaient la meme chose. Trois d entre elles portaient des chiffres publies, quatre decoupaient le marche en actions, devises, obligataire et matieres premieres pour souvent deux lignes chacune, et trois autres alignaient des titres qui reprenaient ce que la geopolitique et la macro venaient d expliquer. Il en reste cinq, dans l ordre des recaps quotidien et hebdomadaire : la synthese en tete, puis Geopolitique, Macro, Banques centrales et Marches, et enfin A surveiller. La geopolitique passe devant la macro parce que c est elle qui donne le regime de la seance, et c est deja l ordre des autres rapports. La rubrique Banques centrales dit qui a parle, sur quel ton, et ce que cela change pour la prochaine reunion ; elle disparait les jours sans intervention plutot que de rester vide. Passer d un rapport a l autre ne demande plus de reapprendre ou regarder.' },
   { id: 'dtpu-20260821-synthese-courte', ts: Date.UTC(2026, 7, 23, 8, 0), title: 'Synthese des Marches : plus courte, et les chiffres enfin ecrits en francais', desc: 'Le rapport quotidien s etait allonge au point de se lire comme un article. Il redisait en prose des chiffres qu il venait d ecrire : une ligne annoncait reel -0,5 pour -0,5 attendu, puis expliquait que les ventes avaient stagne. Deux fois la meme information. Les consignes de redaction sont resserrees : le bloc de tete passe a quatre ou six puces d une seule phrase, chaque publication economique tient sur une ligne, et les rubriques de marche sur deux a trois lignes au lieu de cinq. Une ligne, une information. Les chiffres sont par ailleurs normalises en ecriture francaise : virgule decimale, espace avant le pourcentage, et separateur de milliers converti. Ce dernier point n etait pas cosmetique : un cours de l or ecrit 4,647 a l anglaise se lisait 4,647 en francais, soit mille fois moins. Les rapports du jour se regenerent automatiquement.' },
   { id: 'dtpu-20260821-fiche-indicateurs', ts: Date.UTC(2026, 7, 23, 7, 0), title: 'Chaque publication economique porte desormais sa definition, celle de la fiche du desk', desc: 'Sous une donnee economique, le desk explique maintenant ce que mesure l indicateur, en reprenant mot pour mot la fiche pedagogique qui alimente deja le Decryptage du calendrier. Meme source pour les deux ecrans, donc jamais deux explications differentes du meme chiffre. La lecture face au consensus vient de la meme fiche, y compris pour les indicateurs inverses ou un chiffre qui monte est une mauvaise nouvelle, comme le chomage ou les inscriptions hebdomadaires. Sur les indices d activite, la valeur est situee par rapport au seuil de 50 : a 56,8 l activite progresse encore, meme quand le chiffre deçoit les attentes. C etait un vrai risque de lecture. Les phrases sont ecrites directement, sans etiquette devant : sur un desk, la phrase se suffit.' },
   { id: 'dtpu-20260821-donnees-trader', ts: Date.UTC(2026, 7, 23, 6, 0), title: 'Donnees economiques : le sens pour la devise, un repere sur l indicateur, et le bon tag', desc: 'Suite directe de l amelioration precedente, cette fois pensee pour la lecture d un desk. Trois ajouts. La ligne de lecture precise desormais dans quel sens la surprise pousse la devise concernee, en passant par les anticipations de taux, et elle le formule comme un mecanisme et non comme une consigne : une donnee ne fixe jamais un cours a elle seule. Une ligne Repere explique en une phrase ce que mesure l indicateur, pour qui ne le suit pas toutes les semaines. Sur les indices d activite elle rappelle le seuil de 50 et le situe : a 53,2 l activite progresse encore, meme quand le chiffre decoit les attentes. C etait un vrai risque de lecture, un essoufflement face au consensus pouvant se lire comme un recul. Enfin, le tag. Une publication chiffree affichait le tag du PAYS, US par exemple, qui ne menait nulle part, au lieu du tag de la DEVISE, seul a ouvrir la reaction du marche au clic. La cause etait une categorie de la source rangeant ces news parmi les commentaires. Un titre qui porte Actual, Forecast et Previous n est pas un commentaire : il est desormais traite comme la publication qu il est. Le tag pays disparait quand la devise le dit deja, pour qu un tag affiche corresponde toujours a une fonction.' },
@@ -15394,8 +15395,21 @@ function _frNombres(t) {
     .replace(/—/g, '-');                       // cadratin résiduel
 }
 
-const EU_WRAP_SECTIONS = ['SYNTHESE','ANNONCES ECONOMIQUES','ACTIONS','DEVISES','OBLIGATAIRE','MATIERES PREMIERES','DONNEES EUROPEENNES','TITRES MARQUANTS','COMMERCE/DOUANES','BANQUES CENTRALES','GEOPOLITIQUE','ACTUALITES NORD-AMERICAINES','DONNEES NORD-AMERICAINES'];
-const WRAP_VER = 'wrap-fr-4';   // v3 : rubrique dédiée ANNONCES ECONOMIQUES en tête (une puce PAR publication majeure : réel vs attendu + IMPACT expliqué — demande user 15/07 « parle + des sorties d'annonces éco et explique l'impact »). v2 : résultats calendrier injectés au prompt. bump → régénère le wrap du jour au prochain run/boot
+/* STRUCTURE ALIGNÉE SUR LES RÉCAPS DU DESK (21/08, demande user « que ce soit cohérent avec le DTP
+   et les autres rapports »). Le quotidien FX suit Synthèse → Géopolitique → Macro → séances → À
+   surveiller ; l'hebdo ouvre lui aussi sur la géopolitique. La Synthèse des Marchés en était restée
+   à TREIZE rubriques, héritées d'un empilement, dont plusieurs se recouvraient :
+     · trois rubriques de chiffres publiés (ANNONCES ECONOMIQUES, DONNEES EUROPEENNES,
+       DONNEES NORD-AMERICAINES) : c'est UNE seule matière, la macro du jour ;
+     · quatre rubriques de marché (ACTIONS, DEVISES, OBLIGATAIRE, MATIERES PREMIERES) : quatre
+       titres pour souvent deux lignes chacun ;
+     · trois rubriques de titres (TITRES MARQUANTS, ACTUALITES NORD-AMERICAINES, COMMERCE/DOUANES)
+       qui redisaient ce que Géo et Macro venaient de dire. Le quotidien avait déjà supprimé sa
+       rubrique « Titres principaux » pour cette raison exacte.
+   Cinq rubriques désormais, dans l'ordre du récap. La géopolitique passe DEVANT la macro : c'est
+   elle qui donne le régime de la séance, et c'est l'ordre des autres rapports. */
+const EU_WRAP_SECTIONS = ['SYNTHESE','GEOPOLITIQUE','MACRO','BANQUES CENTRALES','MARCHES','À SURVEILLER'];
+const WRAP_VER = 'wrap-fr-5';   // v5 : structure alignée sur les récaps (Synthèse → Géopolitique → Macro → Banques centrales → Marchés → À surveiller), 13 rubriques ramenées à 6. v4 : rapport raccourci + nombres en écriture française. v3 : rubrique dédiée aux annonces économiques. v2 : résultats calendrier injectés au prompt. Tout bump régénère le wrap du jour au prochain run/boot.
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -15453,9 +15467,10 @@ function _euWrapBuild(buckets, fallbackLead) {
     const items = clean(buckets[h]);
     if (!items.length) continue;                  // rubrique vide (ou seulement « (None) ») → omise
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
-    // Plafonds resserrés (21/08, demande user « raccourcis ») : 5 lignes par rubrique, 8 pour les
-    // annonces éco, qui restent la rubrique de fond les jours chargés (CPI + claims + PMI).
-    items.slice(0, h === 'ANNONCES ECONOMIQUES' ? 8 : 5).forEach(it => out.push('- ' + it));
+    // Plafonds resserrés (21/08) : MACRO garde 8 lignes, c'est la rubrique de fond les jours
+    // chargés (CPI + claims + PMI le même jour) ; MARCHES 6, une par famille plus deux ; le reste 5.
+    const _cap = h === 'MACRO' ? 8 : (h === 'MARCHES' ? 6 : 5);
+    items.slice(0, _cap).forEach(it => out.push('- ' + it));
   }
   return out.join('\n');
 }
@@ -15463,20 +15478,27 @@ function _euWrapBuild(buckets, fallbackLead) {
 // Repli déterministe (IA indisponible / vide) : rubriques marché depuis les niveaux réels + top headlines,
 // alignées sur la structure de référence (LEAD géré à part par _euWrapLead).
 function _euWrapFallback(levels, s) {
+  /* ⚠️ LE REPLI DOIT PARLER LA MÊME LANGUE QUE LA NOUVELLE STRUCTURE. Il remplit les rubriques PAR
+     LEUR NOM : laissé sur les anciens noms, il aurait rempli des rubriques que plus personne ne
+     rend, et le jour où l'IA est en quota le rapport serait sorti VIDE sans que rien ne le signale.
+     C'est le genre de panne qui ne se voit qu'un jour de forte charge, c'est-à-dire au pire moment. */
   const b = {};
   const strip = arr => (arr || []).map(l => l.replace(/^- /, ''));
-  if (levels.eq.length)    b['ACTIONS']            = strip(levels.eq);
-  if (levels.fx.length)    b['DEVISES']            = strip(levels.fx);
-  if (levels.fixed.length) b['OBLIGATAIRE']        = strip(levels.fixed);
-  if (levels.cmd.length)   b['MATIERES PREMIERES'] = strip(levels.cmd);
   const top = (arr, n) => (arr || []).slice(0, n).map(i => i.headline).filter(Boolean);
-  if (s.euData.length || s.data.length)     b['DONNEES EUROPEENNES']         = top(s.euData.length ? s.euData : s.data, 8);
-  if (s.all.length)                         b['TITRES MARQUANTS']            = top(s.all, 8);
-  if (s.trade.length)                       b['COMMERCE/DOUANES']            = top(s.trade, 4);
-  if (s.cb.length)                          b['BANQUES CENTRALES']           = top(s.cb, 6);
-  if (s.geo.length)                         b['GEOPOLITIQUE']                = top(s.geo, 8);
-  if (s.naNews.length)                      b['ACTUALITES NORD-AMERICAINES'] = top(s.naNews, 8);
-  if (s.naData.length)                      b['DONNEES NORD-AMERICAINES']    = top(s.naData, 8);
+
+  // MARCHES : les quatre familles de niveaux réels, à la suite, dans l'ordre de la consigne.
+  const marches = [].concat(strip(levels.eq), strip(levels.fx), strip(levels.fixed), strip(levels.cmd));
+  if (marches.length) b['MARCHES'] = marches;
+
+  // MACRO : Europe puis Amérique du Nord, une seule matière.
+  const macro = [].concat(top(s.euData.length ? s.euData : s.data, 5), top(s.naData, 5));
+  if (macro.length) b['MACRO'] = macro;
+
+  // GEOPOLITIQUE : le commerce et les droits de douane y sont rattachés, comme dans la consigne.
+  const geo = [].concat(top(s.geo, 5), top(s.trade, 3));
+  if (geo.length) b['GEOPOLITIQUE'] = geo;
+
+  if (s.cb.length) b['BANQUES CENTRALES'] = top(s.cb, 5);
   return b;
 }
 
@@ -15584,29 +15606,19 @@ AUTRES TITRES:\n${_fmtPrio(_allPrio)}
 Rédige la synthèse avec EXACTEMENT ces en-têtes de rubrique, chacun SEUL sur sa ligne, en MAJUSCULES, SANS deux-points, dans CET ordre. N'omets une rubrique QUE si le flux/les niveaux ci-dessus n'ont vraiment rien pour elle.
 
 SYNTHESE
-ANNONCES ECONOMIQUES
-ACTIONS
-DEVISES
-OBLIGATAIRE
-MATIERES PREMIERES
-DONNEES EUROPEENNES
-TITRES MARQUANTS
-COMMERCE/DOUANES
-BANQUES CENTRALES
 GEOPOLITIQUE
-ACTUALITES NORD-AMERICAINES
-DONNEES NORD-AMERICAINES
+MACRO
+BANQUES CENTRALES
+MARCHES
+À SURVEILLER
 
 Chaque ligne de contenu commence par « - ». Format par rubrique :
-- SYNTHESE : 4 à 6 puces, UNE SEULE PHRASE CHACUNE, 25 mots maximum. Dans CET ordre : (1) principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières ; (2) SI le flux contient de la géopolitique, une puce GÉOPOLITIQUE dédiée (le fait dominant du jour : conflit, sanctions, détroit, négociations…) et son effet marché documenté (pétrole, valeurs refuges…), ne l'omets JAMAIS quand la rubrique GEOPOLITIQUE ci-dessous a du contenu ; (3) 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux, jamais inventée) ; (4) une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre : juste les puces.
-- ANNONCES ECONOMIQUES : une puce PAR publication du bloc RÉSULTATS PUBLIÉS (les High d'abord, puis les Medium marquantes), TOUJOURS sur UNE SEULE LIGNE : « Devise Indicateur : réel X, attendu Y (préc. Z) », puis UNE proposition de 15 mots maximum qui dit ce que ça implique (pression hawkish/dovish, statu quo conforté) OU la réaction de marché si le flux la documente (« → le dollar s'est renforcé »). Sans réaction documentée, reste au conditionnel, n'invente aucun mouvement. INTERDIT de reformuler les chiffres en toutes lettres : « réel -0,5 %, attendu -0,5 % ; consommation atone » et JAMAIS « les ventes au détail ont stagné à -0,5 % contre -0,5 % attendu ». Le chiffre est déjà écrit, ne le redis pas.
-- ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 3 lignes, UNE PHRASE chacune, 30 mots maximum. Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
-- DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent, chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
-- TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux. OBLIGATOIRE : reprends TOUS les titres marqués [MAJEUR] du bloc AUTRES TITRES (reformulés en français, sans le marqueur), puis complète avec les autres faits saillants.
-- COMMERCE/DOUANES : puces factuelles sur les accords commerciaux et droits de douane, issues du flux.
-- BANQUES CENTRALES : puces factuelles par banque (décision, répartition des votes, guidance), issues des données.
-- GEOPOLITIQUE : puces factuelles groupées par thème (Russie-Ukraine, puis Moyen-Orient) dans la rubrique.
-- ACTUALITES NORD-AMERICAINES : titres US/Canada (politique, budget, entreprises) en une ligne, issus du flux.
+- SYNTHESE : 4 à 6 puces, UNE SEULE PHRASE CHACUNE, 25 mots maximum. Dans CET ordre : (1) le fait dominant de la séance, chiffré ; (2) les principaux mouvements de marché (indices, DXY puis majeures, ton obligataire, matières premières) ; (3) SI le flux contient de la géopolitique, une puce dédiée au fait dominant et à son effet marché documenté ; (4) la ou les publications économiques majeures du jour avec le réel face à l'attendu. PAS de sous-titre, PAS de puce « À suivre » ici : elle a sa rubrique.
+- GEOPOLITIQUE : état des lieux FACTUEL et sec, groupé par théâtre (Russie-Ukraine, puis Moyen-Orient, puis commerce et droits de douane, qui relèvent du même registre). Une flèche « → » vers l'effet marché UNIQUEMENT si le flux ou les niveaux le documentent. Aucun effet supposé.
+- MACRO : LA rubrique des chiffres publiés, toutes zones confondues (Europe ET Amérique du Nord, dans cet ordre). Une puce PAR publication du bloc RÉSULTATS PUBLIÉS, les High d'abord puis les Medium marquantes, TOUJOURS sur UNE SEULE LIGNE : « Devise Indicateur : réel X, attendu Y (préc. Z) », puis UNE proposition de 15 mots maximum qui dit ce que ça implique (pression hawkish/dovish, statu quo conforté) OU la réaction de marché si le flux la documente (« → le dollar s'est renforcé »). Sans réaction documentée, reste au conditionnel, n'invente aucun mouvement. INTERDIT de reformuler les chiffres en toutes lettres : « réel -0,5 %, attendu -0,5 % ; consommation atone » et JAMAIS « les ventes au détail ont stagné à -0,5 % contre -0,5 % attendu ». Le chiffre est déjà écrit, ne le redis pas.
+- BANQUES CENTRALES : le TON et les PROPOS du jour, rubrique omise s'il n'y a eu ni décision ni intervention. Une puce par banque ou par intervenant : qui a parlé, ce qu'il a dit (propos en version originale s'il est cité dans le flux, jamais traduit), et ce que cela change pour la prochaine réunion. Qualifie le ton en un mot lorsqu'il est net : restrictif, accommodant, ou statu quo. N'attribue JAMAIS un propos à quelqu'un dont le nom n'est pas dans les données, et ne complète jamais un prénom absent.
+- MARCHES : 4 à 6 lignes au total, UNE PHRASE chacune, 30 mots maximum, dans cet ordre : actions, devises, obligataire, matières premières. Commence chaque ligne par le niveau réel (nomme l'indice, la paire, l'échéance ou la matière première, son niveau et sa variation en % ou en points de base), puis le moteur. Les devises couvrent le DXY puis les principales majeures.
+- À SURVEILLER : 2 à 4 puces chronologiques sur les événements et intervenants à venir trouvés dans les données, avec l'enjeu en quelques mots. Rien d'inventé : si les données ne contiennent aucune échéance, omets la rubrique.
 
 CONCISION, C'EST LA CONSIGNE PRINCIPALE : ce rapport se lit sur un desk, entre deux publications, pas dans un fauteuil. Une ligne = une information. Supprime tout ce qui ne fait que relier : « il convient de noter », « par ailleurs », « tandis que les indices US ont également affiché des gains modérés » quand la ligne a déjà donné le mouvement. Ne redis jamais en prose un chiffre que la ligne vient d'écrire. À information égale, la version la plus courte gagne.
 
@@ -15630,8 +15642,8 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait : chiffres, niveaux, %, 
   }
   // Repli ANNONCES ECONOMIQUES (IA KO) : les résultats RÉELS du calendrier (réel vs attendu vs précédent),
   // factuels, sans impact inventé — la rubrique n'est jamais vide un jour de publications.
-  if ((!buckets['ANNONCES ECONOMIQUES'] || !buckets['ANNONCES ECONOMIQUES'].length) && calRows.length)
-    buckets['ANNONCES ECONOMIQUES'] = calRows.map(l => l.replace(/^- /, ''));
+  if ((!buckets['MACRO'] || !buckets['MACRO'].length) && calRows.length)
+    buckets['MACRO'] = calRows.map(l => l.replace(/^- /, ''));
 
   const description = _frNombres(_euWrapBuild(buckets, _euWrapLead(levels)));
   const sectionCount = EU_WRAP_SECTIONS.filter(h => (buckets[h] || []).length).length;
