@@ -978,6 +978,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260821-depeches-fr', ts: Date.UTC(2026, 7, 23, 12, 0), title: 'Les depeches importantes s ouvrent directement en francais', desc: 'Jusqu ici, une news importante dont la depeche etait trop courte pour meriter une analyse s affichait en anglais, puis basculait en francais apres un aller-retour. D ou l anglais visible une fraction de seconde, et durablement les jours ou le service de traduction ne repondait pas. Ces depeches sont desormais traduites A L AVANCE, en tache de fond : le depliage s ouvre directement en francais, sans requete et sans clignotement. La portee est volontairement limitee aux news importantes. Le fil depasse mille depeches par jour et tout traduire consommerait le budget reserve a des contenus qui n ont aucun repli, comme les narratifs du Radar de Biais ou la Semaine a Venir. Le reste du fil garde la traduction a l ouverture, deja en place. Et si une traduction echoue, rien n est enregistre : la depeche sera retentee au passage suivant plutot que de rester figee en anglais.' },
   { id: 'dtpu-20260821-biais-taux', ts: Date.UTC(2026, 7, 23, 11, 0), title: 'Radar de Biais : le taux directeur de chaque banque, juste avant le biais', desc: 'Le tableau disait qu une politique monetaire etait restrictive ou accommodante sans jamais montrer le niveau, alors que c est lui qui fait le portage, et que le portage pese deja dans le calcul du biais. Une colonne Taux directeur est ajoutee avant la colonne Biais. Le fond vert s intensifie avec le taux, de sorte que le classement des devises se lit d un coup d oeil, sans avoir a comparer les chiffres un a un ; l echelle se recalcule chaque jour sur le taux le plus eleve du moment plutot que d etre figee. La donnee vient de la meme source que le widget Differentiel de taux et que l onglet Taux : trois endroits qui affichent un taux directeur ne peuvent pas se contredire. Si la source est momentanement indisponible, la colonne affiche un point et le reste du tableau est intact.' },
   { id: 'dtpu-20260821-synthese-sans-resume', ts: Date.UTC(2026, 7, 23, 10, 0), title: 'Synthese des Marches : le resume de tete disparait, le rapport va droit au fait', desc: 'Le rapport de cloture s ouvrait sur quatre puces de synthese qui redisaient ce que les rubriques donnaient juste en dessous. Le Stoxx et le DXY y figuraient une premiere fois, puis une seconde dans Marches ; les PMI une premiere fois, puis une seconde dans Macro. Sur un texte deja court que l on parcourt entre deux publications, un resume place avant fait lire deux fois la meme chose. Il est retire : le rapport commence directement par la geopolitique, qui donne le regime de la seance, puis enchaine sur la macro, les banques centrales, les marches et les echeances a surveiller.' },
   { id: 'dtpu-20260821-synthese-structure', ts: Date.UTC(2026, 7, 23, 9, 0), title: 'Synthese des Marches : meme structure que les autres rapports du desk', desc: 'Le rapport de cloture suivait sa propre organisation, heritee d empilements successifs : treize rubriques, dont plusieurs disaient la meme chose. Trois d entre elles portaient des chiffres publies, quatre decoupaient le marche en actions, devises, obligataire et matieres premieres pour souvent deux lignes chacune, et trois autres alignaient des titres qui reprenaient ce que la geopolitique et la macro venaient d expliquer. Il en reste cinq, dans l ordre des recaps quotidien et hebdomadaire : la synthese en tete, puis Geopolitique, Macro, Banques centrales et Marches, et enfin A surveiller. La geopolitique passe devant la macro parce que c est elle qui donne le regime de la seance, et c est deja l ordre des autres rapports. La rubrique Banques centrales dit qui a parle, sur quel ton, et ce que cela change pour la prochaine reunion ; elle disparait les jours sans intervention plutot que de rester vide. Passer d un rapport a l autre ne demande plus de reapprendre ou regarder.' },
@@ -8775,6 +8776,11 @@ Observed moves: ${String(moves).slice(0, 500)}`;
 //     Batch + cache DURABLE par texte (chaque citation traduite 1 seule fois, réutilisée ensuite) +
 //     coalescing (2 users, même contenu → 1 appel). Repli = texte original (jamais cassé). Gratuit-first
 //     (claudeOverBudget:false → Groq/Gemini/GitHub/OpenRouter/Cohere, jamais de crédits payants pour une trad).
+/* Heuristique « ce texte est-il DÉJÀ en français ? ». Définie ICI, au niveau module, parce que
+   DEUX chemins s'en servent : l'anti-poison du cache de traduction, et la pré-traduction de fond
+   qui doit éviter de dépenser une requête sur une dépêche déjà française. Elle était locale à la
+   fonction de traduction ; l'utiliser ailleurs aurait voulu dire la recopier. */
+const _looksFr = s => /[àâçéèêëîïôùûüœÀÂÇÉÈÊËÎÏÔÙÛ]/.test(s) || /\b(le|la|les|des|une?|du|au|aux|est|sont|pour|avec|sur|dans|plus|selon|après|avant)\b/i.test(s);
 const TRANSLATE_CACHE_FILE = path.join(_CACHE_DIR, 'cache_translate.json');
 const _trCache = _loadJsonMap(TRANSLATE_CACHE_FILE);
 const _trKey = t => 'tr:' + String(t).slice(0, 200);
@@ -8786,18 +8792,23 @@ function _trBudget(lignes) {
   const car = lignes.join(' ').length;
   return Math.max(300, Math.min(4000, Math.round((car / 2.6) * 1.45) + 60 * lignes.length + 120));
 }
-app.post('/api/translate', async (req, res) => {
-  const texts = Array.isArray(req.body && req.body.texts)
-    ? req.body.texts.map(t => String(t || '').replace(/\s+/g, ' ').trim()).filter(t => t.length >= 2).slice(0, 16)
-    : [];
-  if (!texts.length) return res.json({ translations: [] });
+/* ─── TRADUCTION D'UN LOT : IMPLEMENTATION UNIQUE ────────────────────────────────────────────
+   Appelee par DEUX chemins : l'endpoint /api/translate (au clic, priorite « user ») et la
+   pre-traduction de fond des news importantes (priorite « background »).
+   ⚠️ C'est une extraction, pas une reecriture. Ecrire un second traducteur a cote aurait donne
+   deux comportements a maintenir pour la meme tache : le cache anti-poison, la relance ciblee des
+   lignes ratees et le cooldown de panne auraient diverge, et c'est la copie oubliee qui se met a
+   mentir. Meme lecon que `requireAuth` qui recopiait la regle de session, corrige le matin meme.
+   Renvoie { translations, fallback? } ; ne jette jamais. */
+async function _traduireLot(texts, opts = {}) {
+  const _prio = opts.priority || 'user';
   const result = texts.map(t => _trCache.has(_trKey(t)) ? _trCache.get(_trKey(t)) : null);
   const missIdx = result.map((v, i) => (v == null ? i : -1)).filter(i => i >= 0);
-  if (!missIdx.length) return res.json({ translations: result });   // tout en cache → 0 appel IA
+  if (!missIdx.length) return ({ translations: result });   // tout en cache → 0 appel IA
 
   const toTr = missIdx.map(i => texts[i]);
   const cacheKey = 'trb:' + toTr.join('').slice(0, 300);   // coalescing des batches identiques simultanés
-  if (_aiFailCooling(cacheKey)) { missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; }); return res.json({ translations: result, fallback: true }); }
+  if (_aiFailCooling(cacheKey)) { missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; }); return ({ translations: result, fallback: true }); }
   try {
     const out = await _aiInflight(cacheKey, async () => {
       const numbered = toTr.map((t, i) => `[[${i + 1}]] ${t}`).join('\n');
@@ -8808,7 +8819,7 @@ RULES:
 - If a line is ALREADY in French, return it unchanged (with its marker).
 - Reply ONLY with the [[n]] lines translated : no preamble, no extra text.
 
-${numbered}`, _trBudget(toTr), { important: true, priority: 'user', claudeOverBudget: false });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
+${numbered}`, _trBudget(toTr), { important: true, priority: _prio, claudeOverBudget: false });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
       const map = {};
       String(txt || '').split('\n').forEach(l => { const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (m) { const n = parseInt(m[1], 10) - 1; if (n >= 0 && n < toTr.length) map[n] = m[2].trim(); } });
       const passe1 = toTr.map((orig, i) => map[i] || null);
@@ -8822,7 +8833,7 @@ ${numbered}`, _trBudget(toTr), { important: true, priority: 'user', claudeOverBu
         try {
           const t2 = await aiSmart('news', `Translate each numbered line into natural, professional FRENCH. Keep the [[n]] marker EXACTLY, one line per marker, same order. Preserve tickers, numbers and institution names. Reply ONLY with the [[n]] lines.
 
-${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.map(i => toTr[i])), { important: true, priority: 'user', claudeOverBudget: false });
+${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.map(i => toTr[i])), { important: true, priority: _prio, claudeOverBudget: false });
           String(t2 || '').split('\n').forEach(l => {
             const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (!m) return;
             const k = parseInt(m[1], 10) - 1, cible = rates[k];
@@ -8836,7 +8847,6 @@ ${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.m
     // (marqueur manquant / ligne renvoyée telle quelle) répondait l'original ET le figeait dans le
     // cache durable → cette phrase restait en anglais pour toujours. Désormais : on ne met en cache
     // qu'une vraie traduction, ou une identité si la source est DÉJÀ française (accents/mots outils).
-    const _looksFr = s => /[àâçéèêëîïôùûüœÀÂÇÉÈÊËÎÏÔÙÛ]/.test(s) || /\b(le|la|les|des|une?|du|au|aux|est|sont|pour|avec|sur|dans|plus|selon|après|avant)\b/i.test(s);
     missIdx.forEach((origIdx, k) => {
       const src = texts[origIdx];
       const fr = out && out[k];
@@ -8845,12 +8855,20 @@ ${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.m
     });
     while (_trCache.size > 8000) _trCache.delete(_trCache.keys().next().value);
     _saveJsonMap(TRANSLATE_CACHE_FILE, _trCache);
-    res.json({ translations: result });
+    return ({ translations: result });
   } catch (e) {
     _aiFailMark(cacheKey);
     missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; });   // IA en panne → original
-    res.json({ translations: result, fallback: true });
+    return ({ translations: result, fallback: true });
   }
+}
+
+app.post('/api/translate', async (req, res) => {
+  const texts = Array.isArray(req.body && req.body.texts)
+    ? req.body.texts.map(t => String(t || '').replace(/\s+/g, ' ').trim()).filter(t => t.length >= 2).slice(0, 16)
+    : [];
+  if (!texts.length) return res.json({ translations: [] });
+  res.json(await _traduireLot(texts, { priority: 'user' }));
 });
 
 // ─── Analyst Outlook endpoint ────────────────────────────────────────────────
@@ -17257,6 +17275,64 @@ function _parseAnalyseBullets(text) {
     .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim())
     .filter(Boolean).slice(0, 3);
 }
+/* ═══ PRÉ-TRADUCTION DES DÉPÊCHES IMPORTANTES (21/08, demande user) ════════════════════════════
+   `_enrichAnalyses` couvre déjà les news qui ont de la MATIÈRE : elle en produit une analyse
+   française, et c'est elle qu'on lit au dépliage. Le trou était ailleurs : une news IMPORTANTE dont
+   la dépêche est trop courte pour mériter une analyse (moins de 120 caractères) n'en reçoit aucune
+   et tombe sur le texte source, en anglais. Il était alors traduit AU CLIC, d'où l'anglais visible
+   une fraction de seconde, et durablement quand le fournisseur ne répond pas.
+   On traduit donc ces dépêches-là À L'AVANCE, en tâche de fond.
+
+   PORTÉE DÉLIBÉRÉMENT ÉTROITE (choix arbitré avec l'utilisateur) : seulement les news IMPORTANTES,
+   pas le fil entier. Le fil dépasse mille dépêches par jour ; tout traduire saturerait le budget de
+   fond, qui est coupé à 60 % du plafond quotidien, et affamerait les narratifs du Radar de Biais et
+   la Semaine à Venir, qui n'ont aucun repli.
+
+   ⚠️ PRIORITÉ « background » : cette tâche doit céder AVANT tout le reste. Une traduction de confort
+   ne doit jamais passer devant une génération que personne ne peut remplacer.
+
+   ⚠️ La traduction passe par `_traduireLot`, la MÊME fonction que le clic : cache durable par texte,
+   anti-poison (un raté n'est jamais mis en cache comme s'il était une traduction), relance ciblée
+   des lignes ratées, cooldown de panne. Rien de tout cela n'est réécrit ici.
+
+   ⚠️ Et `_traduireLot` passe `important: true` à l'IA. Sans ce drapeau, `aiAllowed('news')` refuse
+   100 % des appels EN SILENCE : c'est exactement ce qui a rendu l'endpoint de traduction inopérant
+   pendant des semaines en juillet, sans une seule erreur visible. */
+const DESC_FR_PAR_CYCLE = 8;
+async function _enrichDescriptionsFr() {
+  try {
+    const maintenant = Date.now();
+    const cibles = [];
+    for (const it of allNews) {
+      if (!it || it._descFr) continue;
+      if (Array.isArray(it.analyse) && it.analyse.length) continue;      // l'analyse FR sera affichée
+      if (it._briefing || it._marketWrap || it._eventAnalysis || it._dtpd) continue;   // déjà produits en français
+      if (maintenant - (it.timestamp || 0) > 6 * 60 * 60 * 1000) continue;             // récentes seulement
+      const d = String(it.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (d.length < 20 || d.length > 900) continue;                     // ni vide, ni un article entier
+      if (_looksFr(d)) continue;                                          // déjà en français : rien à dépenser
+      if (!_isImportantNews(it.headline, it.category, it.priority)) continue;
+      cibles.push({ it, d });
+      if (cibles.length >= DESC_FR_PAR_CYCLE) break;
+    }
+    if (!cibles.length) return;
+    const { translations } = await _traduireLot(cibles.map(c => c.d), { priority: 'background' });
+    let poses = 0;
+    (translations || []).forEach((fr, i) => {
+      const c = cibles[i];
+      // On ne pose la traduction que si c'en est une : `_traduireLot` renvoie la SOURCE quand il
+      // échoue sur une ligne. La poser telle quelle figerait l'anglais dans `_descFr` et la news
+      // ne serait jamais retentée — le défaut exact qu'on a payé sur le cache en juillet.
+      if (c && fr && fr !== c.d) { c.it._descFr = fr; poses++; }
+    });
+    if (poses) {
+      try { saveHistory(); } catch (e) {}
+      try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch (e) {}
+      console.log('[DescFR] ' + poses + ' dépêche(s) importante(s) pré-traduites');
+    }
+  } catch (e) { console.error('[DescFR]', e.message); }
+}
+
 async function _enrichAnalyses() {
   if (_aiAnaBusy) return;
   // Purge des analyses au schéma périmé (≠ v5) → régénérées ci-dessous, TOUTES en FRANÇAIS (cache anafr2).
@@ -17467,6 +17543,8 @@ async function refreshNews() {
   _enrichAnalyses().catch(() => {});
   // Titre explicatif IA des news « propos/citation » hors marché (_infoQuote) — meme cadence, cap partage.
   _enrichInfoTitles().catch(() => {});
+  // Pré-traduction FR des dépêches IMPORTANTES sans analyse (priorité background : cède en premier).
+  _enrichDescriptionsFr().catch(() => {});
   // Affinage des TAGS (moins urgent) : reste throttle 1 cycle sur 3 pour lisser le RPM. Tag heuristique deja affiche.
   globalThis._newsAiTick = (globalThis._newsAiTick || 0) + 1;
   if (globalThis._newsAiTick % 3 === 0) _smartTagNews().catch(() => {});

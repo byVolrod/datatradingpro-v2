@@ -2836,8 +2836,13 @@ function buildNewsItem(item) {
   const content = document.createElement('div');
   content.className = 'news-content';
 
-  // Pre-compute
-  const rawDesc   = (item.description || '').replace(/<[^>]*>/g, '').trim();
+  /* Pre-compute
+     `_descFr` : traduction PRÉ-CALCULÉE côté serveur pour les news importantes qui n'ont pas
+     d'analyse (dépêche trop courte pour en mériter une). Quand elle existe, le dépliage s'ouvre
+     DIRECTEMENT en français, sans requête et sans le clignotement anglais→français qu'imposait la
+     traduction au clic. Absente, on garde exactement le comportement d'avant : la source s'affiche
+     et `_dtpTranslateQuotes` la remplace en place. */
+  const rawDesc   = (item._descFr || item.description || '').replace(/<[^>]*>/g, '').trim();
   // Tag « Analyse » : affiché UNIQUEMENT si une vraie analyse IA a été PRÉ-CALCULÉE côté serveur
   // et attachée à la news (item.analyse). Sinon → juste Info (système intelligent : pas d'analyse
   // si la news ne le mérite pas / si le budget IA ne l'a pas produite). Plus de clic, plus de
