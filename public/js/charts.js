@@ -926,7 +926,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // position par rapport au zéro. Or le zéro reste tracé, en blanc plein, juste en dessous : la
   // seule référence qui porte du sens est donc conservée, et les graduations chiffrées de la
   // gouttière droite restent là pour qui veut le niveau exact.
-  yAxisRenderer.grid.template.setAll({ visible: false });
+  /* ⚠️ GRILLE DE FOND HORIZONTALE REMISE (21/08, demande user : « ajoute la grille en fond qu il y
+     a » sur la reference). Je l avais retiree plus tot ; la reference montre bien une grille de
+     fond discrete. On la remet NEUTRE et tres legere, au MEME style que la grille verticale (X) :
+     un quadrillage uniforme derriere les courbes. Ce ne sont PAS les lignes colorees par devise que
+     vous aviez fait retirer, celles-la restent supprimees ; c est un simple fond gris pointille. */
+  yAxisRenderer.grid.template.setAll({ visible: true, stroke: am5.color(_deskLight() ? 0xd0d4da : 0x2b2b31), strokeOpacity: _deskLight() ? 0.5 : 0.2, strokeWidth: 1, strokeDasharray: [2, 4] });
 
   const yAxis = chart.yAxes.push(
     // extraMin/Max = marge HAUT/BAS (~7%) → la devise la plus forte/faible (ex. USD au sommet) et son
@@ -1141,7 +1146,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
         // nouveaux points, sauter les intermediaires donne un long segment droit qui file jusqu au
         // bord du graphe (constat user). On ne l applique donc QUE la ou le probleme existe : au-dela
         // de 0,9 point par pixel, c est-a-dire le TW et lui seul aujourd hui.
-        minDistance: _ptPx > 0.9 ? 2 : 0.5,
+        /* ⚠️ DECIMATION REDUITE (21/08) : le user trouve nos courbes TROP LISSES compare a la
+           reference, qui est tres nerveuse. On dessine donc PLUS de points. 2 px -> 1 px sur les TF
+           denses (TW) : on garde le detail nerveux tout en evitant le moire pur du 0 px (constat
+           « c est hache » d avant). 0,5 -> 0 sur les TF peu denses (TD) : on trace TOUT, aucune
+           perte. La donnee etait deja entiere ; c est le RENDU qui montre desormais sa nervosite. */
+        minDistance: _ptPx > 0.9 ? 1 : 0,
         tooltip: am5.Tooltip.new(root, {
           labelText: `[bold ${hexStr}]${ccy}[/]: {valueY.formatNumber("+#.##;-#.##;0.00")}`,
           getFillFromSprite: false,
