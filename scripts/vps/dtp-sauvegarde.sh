@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
-#  SAUVEGARDE DTP — uniquement CE QUI NE SE RECONSTRUIT PAS.
+#  SAUVEGARDE DTP : uniquement CE QUI NE SE RECONSTRUIT PAS.
 #
 #  Une sauvegarde qui copie tout est une sauvegarde qu'on ne fait jamais tourner : trop lourde,
 #  trop lente, et elle remplit le disque (déjà à 84 %). Celle-ci ne prend que l'irremplaçable.
@@ -99,9 +99,9 @@ done
 
 # ── 3. UN MANIFESTE : ce qu'on a pris, et surtout CE QU'ON N'A PAS PRIS ──────────────────────
 {
-  echo "Sauvegarde DataTradingPro — $HORO"
+  echo "Sauvegarde DataTradingPro : $HORO"
   echo "commit deploye : $(cd "$REPO" && git rev-parse HEAD 2>/dev/null)"
-  echo "machine        : $(hostname)  —  $(uname -sr)"
+  echo "machine        : $(hostname)  ·  $(uname -sr)"
   echo ""
   echo "CONTENU :"
   find . -type f | sed 's|^\./|  |' | sort
@@ -133,7 +133,7 @@ chmod 600 "$ARCHIVE"
 # presence nommee de ce dont une restauration ne peut PAS se passer.
 _LISTE=$(gpg --batch --yes --quiet --decrypt --passphrase-fd 3 "$ARCHIVE" 3<<<"$DTP_BACKUP_PASS" 2>/dev/null | tar -tzf - 2>/dev/null)
 if [ -z "$_LISTE" ]; then
-  msg "ERREUR : l'archive ne se relit pas. Elle est SUPPRIMEE — mieux vaut aucune sauvegarde"
+  msg "ERREUR : l'archive ne se relit pas. Elle est SUPPRIMEE, mieux vaut aucune sauvegarde"
   msg "         qu'une sauvegarde en laquelle on croit a tort."
   rm -f "$ARCHIVE"
   exit 1
@@ -148,7 +148,7 @@ for _att in "config/env" "donnees/cache_email_log.json" "config/cle-deploiement"
 done
 
 TAILLE=$(du -h "$ARCHIVE" | cut -f1)
-msg "sauvegarde OK : $ARCHIVE ($TAILLE) — relue, et contenu verifie ($(printf '%s\n' "$_LISTE" | wc -l) entrees)"
+msg "sauvegarde OK : $ARCHIVE ($TAILLE), relue, et contenu verifie ($(printf '%s\n' "$_LISTE" | wc -l) entrees)"
 
 # ── 6. ROTATION ─────────────────────────────────────────────────────────────────────────────
 _FINI=1   # l'archive est verifiee : le nettoyage ne doit plus la supprimer

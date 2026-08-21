@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-#  DÉPLOIEMENT DTP — un seul à la fois, et la coupure réduite au strict minimum.
+#  DÉPLOIEMENT DTP : un seul à la fois, et la coupure réduite au strict minimum.
 #
 #  POURQUOI CE SCRIPT EXISTE (incident du 21/08/2026, « 502 Bad Gateway ») :
-#  DEUX tâches planifiées déployaient en parallèle — dtp-autodeploy.sh toutes les
-#  2 min et auto-update.sh toutes les 5 min — sur le MÊME conteneur, plus les
+#  DEUX tâches planifiées déployaient en parallèle : dtp-autodeploy.sh toutes les
+#  2 min et auto-update.sh toutes les 5 min : sur le MÊME conteneur, plus les
 #  déploiements manuels. Docker renomme l'ancien conteneur avant de le remplacer ;
 #  quand un second processus le supprime pendant ce temps, le remplacement échoue :
 #      Container datatradingpro Recreate
@@ -13,7 +13,7 @@
 #
 #  DEUX CORRECTIONS, ET ELLES SONT DISTINCTES :
 #   1. UN VERROU (flock) : deux déploiements ne peuvent plus se chevaucher, quelle
-#      que soit leur origine — cron, main, ou les deux.
+#      que soit leur origine : cron, main, ou les deux.
 #   2. CONSTRUIRE AVANT D'ARRÊTER : `docker compose build` est la partie longue
 #      (~9 s de build + le téléchargement des couches). Elle se fait désormais
 #      pendant que l'ancien conteneur SERT ENCORE. La coupure se limite au
@@ -40,7 +40,7 @@ fi
 cd "$REPO" || { echo "$(horo) depot introuvable"; exit 1; }
 
 # AUTO-MISE A JOUR : ce script vit dans /usr/local/bin mais sa SOURCE est versionnee dans le depot.
-# Sans cette recopie, une amelioration du deployeur ne prendrait jamais effet — il faudrait s en
+# Sans cette recopie, une amelioration du deployeur ne prendrait jamais effet : il faudrait s en
 # souvenir et la poser a la main, ce que personne ne fait.
 if [ -f "$REPO/scripts/vps/dtp-deploy.sh" ] && ! cmp -s "$REPO/scripts/vps/dtp-deploy.sh" /usr/local/bin/dtp-deploy.sh; then
   cp -f "$REPO/scripts/vps/dtp-deploy.sh" /usr/local/bin/dtp-deploy.sh && chmod +x /usr/local/bin/dtp-deploy.sh
@@ -48,7 +48,7 @@ if [ -f "$REPO/scripts/vps/dtp-deploy.sh" ] && ! cmp -s "$REPO/scripts/vps/dtp-d
 fi
 # Le script de SAUVEGARDE suit le même chemin : il doit être disponible sans qu'on ait à se
 # connecter à la machine. C'est précisément quand l'accès SSH est difficile qu'on a besoin
-# d'une sauvegarde — la faire dépendre d'une connexion manuelle serait un contresens.
+# d'une sauvegarde : la faire dépendre d'une connexion manuelle serait un contresens.
 if [ -f "$REPO/scripts/vps/dtp-sauvegarde.sh" ] && ! cmp -s "$REPO/scripts/vps/dtp-sauvegarde.sh" /usr/local/bin/dtp-sauvegarde.sh; then
   cp -f "$REPO/scripts/vps/dtp-sauvegarde.sh" /usr/local/bin/dtp-sauvegarde.sh && chmod +x /usr/local/bin/dtp-sauvegarde.sh
   echo "$(horo) script de sauvegarde mis a jour depuis le depot"
@@ -59,7 +59,7 @@ export GIT_SSH_COMMAND="ssh -i /root/.ssh/dtp_deploy -o IdentitiesOnly=yes -o St
 # ⚠️ « +refs/… » ET --force : un fetch ORDINAIRE peut REFUSER de mettre à jour la référence de
 # suivi quand l'historique distant a été RÉÉCRIT (mise à jour non linéaire). Le serveur resterait
 # alors bloqué sur l'ancienne version, en annonçant « déjà à jour », ce qui est le pire des cas :
-# une panne silencieuse. Ici le dépôt local n'est qu'un miroir de déploiement — il n'a aucun
+# une panne silencieuse. Ici le dépôt local n'est qu'un miroir de déploiement : il n'a aucun
 # travail propre à protéger, donc suivre le distant sans condition est exactement ce qu'on veut.
 git fetch --force --prune origin '+refs/heads/main:refs/remotes/origin/main' -q 2>/dev/null \
   || { echo "$(horo) fetch KO"; exit 0; }
