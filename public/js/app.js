@@ -612,6 +612,15 @@ function _isNoiseHead(s) {
       || /^key\s+takeaways?$/.test(t)
       || /^highlights?$/.test(t);
 }
+/* MAJUSCULE DE PHRASE (22/08, demande user, capture à l'appui) : au retour à la ligne = nouvelle
+   phrase = majuscule. Les traductions IA (et certaines dépêches source) livrent des lignes en
+   minuscule initiale — on normalise AU RENDU, comme le cadratin : ça couvre aussi tout ce qui est
+   déjà en cache. On ne touche QUE la première lettre minuscule (précédée d'éventuels guillemets,
+   gras **, tirets) : un sigle déjà en capitales (EUR/USD) ou un chiffre en tête restent intacts. */
+function _majPhrase(s) {
+  return String(s || '').replace(/^([\s"'«»“”‘’(\[\-–—•]*(?:\*\*)?[\s"'«“‘(\[]*)(\p{Ll})/u,
+    (m, pre, ch) => pre + ch.toLocaleUpperCase('fr-FR'));
+}
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // coupe toute attribution de source ("via NYT", "- Reuters", "(Mehr News)") en fin de puce
@@ -619,7 +628,8 @@ function _renderInfoBullets(bullets) {
   const items = (bullets || [])
     .map(b => _decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
     .filter(Boolean)
-    .filter(s => !_isJunkBullet(s));   // écarte les jetons parasites (/federalreserve, @handle, url nue…)
+    .filter(s => !_isJunkBullet(s))    // écarte les jetons parasites (/federalreserve, @handle, url nue…)
+    .map(_majPhrase);                  // nouvelle ligne = nouvelle phrase = majuscule (voir _majPhrase)
   const html = items.map(it => {
     const noMd = it.replace(/\*\*/g, '').trim();
     // sous-titre : ligne courte finissant par ":" (ex. « Four points: ») → libellé, pas une puce
@@ -3013,7 +3023,7 @@ function buildNewsItem(item) {
       if (isInfoQuote) {
         const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const quote = _dtpTitle(item.headline);
-        const extra = rawDesc.length > 30 ? `<li>${esc(rawDesc)}</li>` : '';
+        const extra = rawDesc.length > 30 ? `<li>${esc(_majPhrase(rawDesc))}</li>` : '';
         return `<div class="iq-note">Propos personnels repris tels quels, sans portée directe sur les marchés.</div>
           <ul class="article-points article-points--clean"><li>${esc(quote)}</li>${extra}</ul>`;
       }
@@ -3119,7 +3129,7 @@ function buildNewsItem(item) {
           ? rawDesc.split(/\n|\r\n/).map(l => l.trim()).filter(Boolean)
           : [];
         const descHtml = descLines.length
-          ? `<ul class="article-points">${descLines.map(l => `<li>${l.replace(/^[-•*]\s/, '')}</li>`).join('')}</ul>`
+          ? `<ul class="article-points">${descLines.map(l => `<li>${_majPhrase(l.replace(/^[-•*]\s/, ''))}</li>`).join('')}</ul>`
           : '';
 
         // Quotes as bullets
@@ -3330,7 +3340,23 @@ function buildNewsItem(item) {
             // demandé. Le contexte d'avant est ce qui rend le mouvement d'après lisible : sans lui,
             // on regarde un plat de deux points en croyant regarder une réaction.
             const av = t0 - 6 * 3600e3, ap = t0 + 2 * 3600e3;
-            const fenM1 = brut.filter(c => c.t >= av && c.t <= ap);
+            /* ⚠️ MARCHÉ FERMÉ À LA PUBLICATION (22/08, capture user un samedi) : la fenêtre calée
+               sur t0 n'attrape alors que la QUEUE d'avant-clôture — une quinzaine de minutes
+               étalées sur toute la largeur, bougies obèses, rien à lire. Quand la dernière
+               cotation précède t0 de plus de 2 h (week-end ; la coupure quotidienne d'1 h ne
+               déclenche pas), on re-fenêtre sur la FIN DE SÉANCE RÉELLE : les 3 dernières heures
+               cotées. Le lecteur voit le vrai contexte d'avant-fermeture, dense ; le repère se
+               pose sur la dernière cotation et la note « marché fermé » (déjà en place) dit
+               laquelle. Partagé par le premier tracé ET le rattrapage : une seule fenêtre. */
+            const _fenetreReaction = (bts) => {
+              let dernAvant = 0;
+              for (const c of bts) if (c.t <= ap && c.t > dernAvant) dernAvant = c.t;
+              if (dernAvant && (t0 - dernAvant) > 2 * 3600e3) {
+                return bts.filter(c => c.t >= dernAvant - 3 * 3600e3 && c.t <= dernAvant);
+              }
+              return bts.filter(c => c.t >= av && c.t <= ap);
+            };
+            const fenM1 = _fenetreReaction(brut);
             if (fenM1.length < 8 || !brut.some(c => c.t <= t0)) {
               _echec('Réaction indisponible : les cotations à la minute ne couvrent plus l\'heure de cette publication.');
               return;
@@ -3350,7 +3376,7 @@ function buildNewsItem(item) {
                   // Le rattrapage doit REGROUPER COMME LE PREMIER TRACÉ : renvoyer des bougies
                   // d'une minute à un graphique dessiné en cinq minutes le ferait changer d'unité
                   // tout seul sous les yeux du lecteur.
-                  const f2 = _agregeBougies(((d2 && d2.candles) || []).filter(c => c.t >= av && c.t <= ap), 5);
+                  const f2 = _agregeBougies(_fenetreReaction((d2 && d2.candles) || []), 5);   // MÊME fenêtre que le 1er tracé (dont le re-fenêtrage marché fermé)
                   if (f2.length && typeof majBougies === 'function') majBougies(f2);
                 })
                 .catch(() => {});
