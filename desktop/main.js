@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, Tray, nativeImage, shell, dialog, nativeTheme, ipcMain, screen, powerMonitor } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, shell, dialog, nativeTheme, ipcMain, screen, powerMonitor, globalShortcut } = require('electron');
 const path = require('path');
 const https = require('https');
 const fs = require('fs');
@@ -408,17 +408,9 @@ function createWindow() {
     }
 
     if (_sauvetages.length === 2) {
-      try {
-        const b = win.getBounds();
-        const plein = win.isMaximized();
-        _noter('2e incident : RECREATION de la fenetre (le rechargement ne recree pas la surface)');
-        const ancienne = win;
-        win = null;
-        createWindow();
-        try { if (win && !win.isDestroyed()) { win.setBounds(b); if (plein) win.maximize(); } } catch (e) {}
-        try { ancienne.destroy(); } catch (e) {}
-        return;
-      } catch (e) { _noter('recreation impossible : ' + (e && e.message)); }
+      _noter('2e incident : RECREATION de la fenetre (le rechargement ne recree pas la surface)');
+      _reparerAffichage('2e incident auto');   // même geste que la réparation manuelle : surface neuve
+      return;
     }
 
     _dtpRepeindre(motif);
@@ -614,6 +606,34 @@ function montrerFenetre() {
   win.focus();
 }
 
+/* ═══ RÉPARATION MANUELLE DE L'AFFICHAGE (22/08) ══════════════════════════════════════════════
+   ⚠️ POURQUOI UN DÉCLENCHEUR MANUEL EST INDISPENSABLE, malgré toute la détection automatique.
+   Le cas signalé par l'utilisateur — fenêtre RÉACTIVE (on voit son cadre, on peut la déplacer) mais
+   peinte tout en NOIR — est celui d'une SURFACE de composition perdue. Le moteur de rendu, lui,
+   continue de peindre correctement : `capturePage` (le chien de garde) lit donc une image NORMALE
+   et ne voit RIEN, et aucun processus n'est « mort » pour déclencher les autres gardes. C'est
+   précisément le trou qu'aucune détection ne peut combler de façon fiable.
+   La seule réponse sûre : quand l'utilisateur VOIT le noir, il déclenche lui-même la réparation.
+   RECRÉER LA FENÊTRE reconstruit la surface, ce qu'un rechargement de page ne fait pas. Accessible
+   par la barre système (qui, elle, s'affiche toujours) ET par un raccourci global (qui marche même
+   si la fenêtre noire a le focus). */
+let _reparEnCours = false;
+function _reparerAffichage(origine) {
+  if (_reparEnCours) return;
+  _reparEnCours = true;
+  try {
+    _noter('reparation manuelle de l affichage (' + (origine || '?') + ') : recreation de la fenetre');
+    const anc = win;
+    let b = null, plein = false;
+    try { if (anc && !anc.isDestroyed()) { b = anc.getBounds(); plein = anc.isMaximized(); } } catch (e) {}
+    win = null;
+    createWindow();
+    try { if (win && !win.isDestroyed()) { if (b) win.setBounds(b); if (plein) win.maximize(); win.show(); win.focus(); } } catch (e) {}
+    try { if (anc && !anc.isDestroyed()) anc.destroy(); } catch (e) {}
+  } catch (e) { _noter('reparation impossible : ' + (e && e.message)); }
+  setTimeout(() => { _reparEnCours = false; }, 2000);   // anti double-déclenchement, jamais bloqué
+}
+
 function createTray() {
   if (tray) return;
   let img;
@@ -624,6 +644,9 @@ function createTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Ouvrir DataTradingPro', click: montrerFenetre },
     { label: 'Actualiser', click: () => { if (win && !win.isDestroyed()) win.webContents.reload(); } },
+    // Écran noir : ce menu s'affiche toujours (surface distincte de la fenêtre), donc c'est la
+    // sortie de secours quand la fenêtre, elle, est peinte en noir. Recrée la fenêtre → surface neuve.
+    { label: 'Réparer l\'affichage (écran noir)', click: () => _reparerAffichage('menu barre système') },
     { type: 'separator' },
     { label: 'Quitter', click: () => { app.quit(); } },
   ]));
@@ -633,7 +656,18 @@ function createTray() {
   tray.on('double-click', montrerFenetre);
 }
 
-app.whenReady().then(() => { buildMenu(); createWindow(); createTray(); setupAutoUpdate(); });
+app.whenReady().then(() => {
+  buildMenu(); createWindow(); createTray(); setupAutoUpdate();
+  // Raccourci global de secours pour l'écran noir : il fonctionne même si la fenêtre noire a le
+  // focus (globalShortcut est intercepté avant la fenêtre). CmdOrCtrl+Alt+R = « Réparer ».
+  try {
+    const ok = globalShortcut.register('CommandOrControl+Alt+R', () => _reparerAffichage('raccourci global'));
+    if (!ok) _noter('raccourci de reparation non enregistre (deja pris ?)');
+  } catch (e) { _noter('raccourci de reparation : ' + (e && e.message)); }
+});
+
+// Libère le raccourci global à la fermeture (sinon Windows le garde réservé).
+app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch {} });
 
 // L'icône doit disparaître avec l'app : sans ça, Windows laisse une icône fantôme jusqu'à ce que
 // l'utilisateur survole la zone de notification.
