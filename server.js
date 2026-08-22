@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-tag-indicateur-impact', ts: Date.UTC(2026, 7, 24, 5, 0), title: 'Fil : l indicateur est nomme avec son drapeau, et l Impact marche arrive sur les statistiques', desc: 'Quand une statistique tombe avec son chiffre (taux de chomage australien, CPI americain...), sa ligne porte desormais un tag qui NOMME l indicateur, drapeau du pays en tete : on identifie la publication d un coup d oeil, et le survol du tag en donne la definition. Le tag de la paire la plus exposee (deux drapeaux, cliquable vers la reaction du marche) reste a ses cotes. Et la lecture « Impact marche », jusqu ici reservee aux grandes analyses d evenement, est maintenant generee aussi pour les statistiques importantes du fil : verdict, mecanisme et actifs exposes avec leurs fleches, dans la meme grille de lectures que Info, Analyse et Reaction. Le tout apparait en direct, sans recharger la page.' },
   { id: 'dtpu-20260822-boutons-harmonises', ts: Date.UTC(2026, 7, 24, 4, 0), title: 'Boutons des widgets : memes tailles partout et ordre plus intuitif', desc: 'Passe d harmonisation sur l ensemble du terminal, pour un rendu de vrai systeme de design. Les petits boutons en tete de chaque widget (reglages, remplacer, aide, fermer) avaient, selon la vue, des tailles legerement differentes : ils sont desormais parfaitement carres et identiques partout, sur ordinateur comme sur telephone ou la zone tactile s agrandit d un bloc pour le doigt. Leur ordre devient plus logique et IDENTIQUE partout, en-tetes de cartes comme barres des panneaux a onglets : d abord les commandes qui modifient le widget, puis l aide, et la fermeture toujours a l extreme droite. Les onglets de panneau adoptent aussi une seule taille de texte. Sur telephone, les titres du fil ne touchent plus le bord et le defilement est plus doux. Rien ne change au fonctionnement : ce sont uniquement les dimensions et l alignement qui sont mis au propre.' },
   { id: 'dtpu-20260821-bandeaux-premium', ts: Date.UTC(2026, 7, 24, 3, 0), title: 'Les bandeaux de panneau gagnent une finition premium plus soignee', desc: 'Les en-tetes de panneau du terminal, jusque-la des barres plates, recoivent une finition plus soignee et sobre : un tres leger degrade de tete pour la profondeur, un fin repere dore juste avant le titre comme signature du desk, et un cheveu dore qui affleure le bas du bandeau, un peu plus marque a la demande, qui se precise au survol. C est purement visuel, present pour tous les utilisateurs, et pense pour rester epure a la maniere d un terminal institutionnel.' },
   { id: 'dtpu-20260821-force-grille', ts: Date.UTC(2026, 7, 24, 2, 0), title: 'Force des Devises : grille de fond remise et courbes plus nerveuses', desc: 'Deux ajustements demandes en comparant notre graphique a une reference. La grille de fond horizontale, discrete et grise, est remise derriere les courbes, en complement de la grille verticale qui existait deja : le graphique retrouve son quadrillage leger, sans les lignes colorees par devise qui avaient ete retirees. Les courbes, elles, sont rendues avec davantage de points : la donnee etait deja fine cote serveur, mais le trace en simplifiait une partie pour eviter le moire ; ce filtre est allege, si bien que les courbes montrent desormais leur vraie nervosite, plus proche de ce que l on attend d un indicateur de force des devises.' },
@@ -5644,6 +5645,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       // ESSAI PRE-TRADUCTION (21/08, un mois) : remonte dans le moniteur IA, regle du desk. Sans
       // ce chiffre, la decision de poursuivre ou d arreter se prendrait a l impression.
       descFr: _descFrStats(),
+      impacts: _impactStats(),   // « Impact marché » sur les stats du fil : généré/tenté/plafond du jour
     };
     const health = {
       gemini: _telHealthScore(providers.gemini.keys, providers.gemini.coolingKeys, providers.gemini.breakersOpen, providers.gemini.callsToday, providers.gemini.err429Today),
@@ -11942,6 +11944,24 @@ const EVA_CFG = {
 // la devise de l'événement face à sa contrepartie la plus liquide. Sert de tag sur la news ET d'ancre
 // pour la lecture « Impact marché » (le lecteur sait TOUT DE SUITE quel marché regarder).
 const _EVA_PAIR = { USD: 'EUR/USD', EUR: 'EUR/USD', GBP: 'GBP/USD', JPY: 'USD/JPY', CHF: 'USD/CHF', CAD: 'USD/CAD', AUD: 'AUD/USD', NZD: 'NZD/USD' };
+// APLATISSEUR « Impact marché » (extrait de generateEventAnalysis le 22/08, pour être PARTAGÉ avec
+// _enrichImpacts) : l'IA renvoie soit l'objet {verdict, mecanisme, actifs:[{nom, fleche, note}]},
+// soit un texte legacy — les deux formes sont acceptées, aplaties en texte multiligne (le front
+// rend ligne à ligne, ** = gras).
+function _impactAplatir(mi) {
+  if (mi && typeof mi === 'object' && !Array.isArray(mi)) {
+    const verdict = _stripMd(String(mi.verdict || '')).replace(/\s+/g, ' ').trim().slice(0, 220);
+    const meca = _stripMd(String(mi.mecanisme || mi.mechanism || '')).replace(/\s+/g, ' ').trim().slice(0, 450);
+    const actifs = (Array.isArray(mi.actifs) ? mi.actifs : []).filter(a => a && a.nom).slice(0, 6)
+      .map(a => {
+        const fl = /^(↑|hausse|up)/i.test(String(a.fleche || '')) ? '↑' : /^(↓|baisse|down)/i.test(String(a.fleche || '')) ? '↓' : 'mixte';
+        const note = _stripMd(String(a.note || '')).replace(/\s+/g, ' ').trim().slice(0, 120);
+        return '- **' + _stripMd(String(a.nom)).slice(0, 40) + ' :** ' + fl + (note ? ' : ' + note : '');
+      });
+    return [verdict ? '**' + verdict + '**' : '', meca, ...actifs].filter(Boolean).join('\n');
+  }
+  return _stripMd(String(mi || '')).replace(/\s+/g, ' ').trim().slice(0, 700);
+}
 // Titre de section → MAJUSCULES SANS ACCENT (le rendu « titre orange » n'accepte que l'ASCII majuscule).
 function _evaHead(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -12197,21 +12217,7 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
   // puis les ACTIFS avec flèches (↑ ↓ mixte). L'IA renvoie soit l'objet {verdict, mecanisme,
   // actifs:[{nom, fleche, note}]}, soit l'ancien texte : les deux formes sont acceptées, aplaties
   // en texte multiligne (le front rend ligne à ligne, ** = gras).
-  let impact = '';
-  const mi = parsed.marketImpact;
-  if (mi && typeof mi === 'object' && !Array.isArray(mi)) {
-    const verdict = _stripMd(String(mi.verdict || '')).replace(/\s+/g, ' ').trim().slice(0, 220);
-    const meca = _stripMd(String(mi.mecanisme || mi.mechanism || '')).replace(/\s+/g, ' ').trim().slice(0, 450);
-    const actifs = (Array.isArray(mi.actifs) ? mi.actifs : []).filter(a => a && a.nom).slice(0, 6)
-      .map(a => {
-        const fl = /^(↑|hausse|up)/i.test(String(a.fleche || '')) ? '↑' : /^(↓|baisse|down)/i.test(String(a.fleche || '')) ? '↓' : 'mixte';
-        const note = _stripMd(String(a.note || '')).replace(/\s+/g, ' ').trim().slice(0, 120);
-        return '- **' + _stripMd(String(a.nom)).slice(0, 40) + ' :** ' + fl + (note ? ' : ' + note : '');
-      });
-    impact = [verdict ? '**' + verdict + '**' : '', meca, ...actifs].filter(Boolean).join('\n');
-  } else {
-    impact = _stripMd(String(mi || '')).replace(/\s+/g, ' ').trim().slice(0, 700);
-  }
+  const impact = _impactAplatir(parsed.marketImpact);   // aplatisseur PARTAGÉ (cf. _impactAplatir)
   if (impact.length > 40) { lines.push('Impact marché :'); lines.push(...impact.split('\n').map(l => l.startsWith('-') || l.startsWith('**') ? l : '- ' + l)); }
   const description = lines.join('\n');
   if (description.replace(/\n/g, ' ').trim().length < 80) return null;   // trop maigre → on s'abstient
@@ -17415,6 +17421,107 @@ async function _enrichDescriptionsFr() {
   } catch (e) { console.error('[DescFR]', e.message); }
 }
 
+/* ═══ « IMPACT MARCHÉ » SUR LES STATISTIQUES IMPORTANTES DU FIL (22/08, demande user) ═══════════
+   Le rendu client est DÉJÀ entièrement générique : dès qu'un item porte `_impact`, la pill verte
+   « Impact marché » et son panneau apparaissent (app.js:hasImpact). Mais le serveur n'écrivait ce
+   champ qu'à UN endroit : les analyses EVA — donc 0 % des dépêches de statistique du fil l'avaient.
+   Ce pipeline comble le trou : pour chaque dépêche TIER-1 (`_highImpact`, regex NFP/CPI/PIB…)
+   portant un CHIFFRE PUBLIÉ dans son titre, on génère la même lecture prospective structurée
+   {verdict, mécanisme, actifs ↑/↓} que l'Impact marché des EVA, aplatie par le MÊME code.
+
+   GARDE-FOUS (tous hérités des leçons du projet) :
+   - PROSPECTIF, jamais « mesuré » : le prompt interdit d'inventer des mouvements de marché — il ne
+     dispose QUE du titre (réel vs attendu vs précédent) et raisonne en mécanique, pas en réaction
+     (la réaction mesurée, c'est l'onglet Réaction). Cf. l'incident « DXY +0,14 % jamais mesuré ».
+   - `important: true` OBLIGATOIRE sur aiSmart('news') : sans lui, refus budget EN SILENCE (panne
+     muette de juillet).
+   - Cache durable par id (`impfr1:`) : un impact généré ne se régénère jamais, même vide (pas de
+     retente en boucle sur une news que l'IA ne sait pas lire).
+   - Plafond journalier PROPRE (IMPACT_MAX_JOUR, env surchargable) + 2/cycle : la tâche cède avant
+     d'affamer les générations sans repli. Compteur exposé au moniteur IA admin (règle projet). */
+const IMPACT_PAR_CYCLE = 2;
+const IMPACT_MAX_JOUR = (function () {
+  const v = parseInt(process.env.IMPACT_MAX_JOUR, 10);
+  return Number.isFinite(v) ? v : 120;
+})();
+let _impJour = '', _impCount = 0, _impEssais = 0, _impBusy = false;
+const _impCache = new Map();
+function _impactStats() {
+  return { jour: _impJour, generes: _impCount, tentes: _impEssais, plafond: IMPACT_MAX_JOUR };
+}
+// Devise de la statistique : tables bilingues du récap (les plus riches), USD testé EN DERNIER
+// (c'est le motif le plus « attrape-tout » : Fed/Treasur/U.S. sortent dans des titres non-US).
+function _impCcyDuTitre(h) {
+  for (const c of ['AUD', 'NZD', 'CAD', 'CHF', 'GBP', 'JPY', 'EUR', 'USD']) {
+    if (_RECAP_CCY_KW[c] && _RECAP_CCY_KW[c].test(h)) return c;
+  }
+  return '';
+}
+async function _enrichImpacts() {
+  if (_impBusy) return;
+  const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  if (!hasAI) return;
+  _impBusy = true;
+  try {
+    const jour = _aiDay();
+    if (_impJour !== jour) { _impJour = jour; _impCount = 0; _impEssais = 0; }
+    let perCycle = IMPACT_PAR_CYCLE;
+    try { if (typeof ai.shouldThrottle === 'function' && ai.shouldThrottle()) perCycle = 1; } catch {}
+    for (const item of allNews) {
+      if (!item || item._impact) continue;                                       // déjà servi (EVA ou passage précédent)
+      if (item._briefing || item._eventAnalysis || item._marketWrap || item._dtpd || item._infoQuote) continue;
+      if (item._highImpact !== true) continue;                                   // tier-1 uniquement (NFP/CPI/PIB/retail…)
+      if (Date.now() - (item.timestamp || 0) > 6 * 60 * 60 * 1000) continue;     // récentes seulement
+      const h = String(item.headline || '');
+      // CHIFFRE PUBLIÉ exigé : un « réel » numérique dans le titre (l'annonce d'un chiffre À VENIR
+      // n'a pas d'impact à lire — elle n'a pas encore de surprise).
+      if (!/-?\d+(?:[.,]\d+)?\s*%?/.test(h)) continue;
+      if (!/\b(actual|vs\.?|exp(?:ected)?\.?|forecast|prev(?:ious)?\.?|est\.?)\b/i.test(h)) continue;
+      const ck = 'impfr1:' + item.id;
+      // 1) cache mémoire chaud
+      if (_impCache.has(ck)) {
+        const t = _impCache.get(ck);
+        if (typeof t === 'string' && t.length > 40) { item._impact = t; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      // 2) cache durable (Supabase) — aucune requête IA
+      let cached = null; try { cached = await auth.aiCacheGet(ck); } catch {}
+      if (typeof cached === 'string') {
+        _impCache.set(ck, cached);
+        if (cached.length > 40) { item._impact = cached; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      // 3) génération IA (bornée par plafond du jour + 2/cycle)
+      if (perCycle <= 0 || _impCount >= IMPACT_MAX_JOUR) break;
+      perCycle--; _impEssais++;
+      try {
+        const ccy = _impCcyDuTitre(h);
+        const paire = ccy ? (_EVA_PAIR[ccy] || null) : null;
+        const prompt = `Tu es l'économiste en chef de "DataTradingPro". Une statistique macro vient de tomber. Tu ne disposes QUE de son TITRE (réel vs attendu vs précédent) : n'invente AUCUN chiffre, AUCUN mouvement de marché, AUCUNE réaction déjà observée — tu écris une lecture PROSPECTIVE (mécanique), pas un constat. EN FRANÇAIS, ton neutre et factuel, aucun conseil.
+Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
+{ "verdict": "<UNE phrase directe : le signal de cette publication (surprise réelle vs consensus, ou conforme)>", "mecanisme": "<1 à 2 phrases : POURQUOI ce chiffre change (ou ne change pas) le pricing de politique monétaire. VERDICT ET MECANISME REUNIS : vise 200 à 280 caractères au total, le MÊME budget que les trois autres lectures de la news, affichées à côté dans une grille>", "actifs": [ { "nom": "<actif/paire, ex. ${paire || 'EUR/USD'}, US10Y, Or>", "fleche": "<↑ | ↓ | mixte>", "note": "<qualificatif court, optionnel>" } ] }
+🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL : un chiffre CONFORME aux attentes N'EST PAS une surprise → verdict « conforme, peu de raison de repricer ». Ne présente comme surprise QUE l'écart RÉEL vs consensus. 1 à 3 actifs maximum, les plus directement exposés${paire ? ` (la paire la plus liquide côté ${ccy} est ${paire})` : ''}.
+${_MENTOR_RULES}
+=== TITRE (seule matière autorisée) ===
+${h.slice(0, 240)}`;
+        const out = await aiSmart('news', prompt, 320, { important: true, claudeOverBudget: true });
+        let flat = '';
+        try { const m = String(out || '').match(/\{[\s\S]*\}/); flat = _impactAplatir(m ? JSON.parse(m[0]) : out); }
+        catch { flat = _impactAplatir(out); }
+        _impCache.set(ck, flat || '');                                            // cache même vide → pas de retente
+        if (_impCache.size > 1000) _impCache.delete(_impCache.keys().next().value);
+        auth.aiCacheSet(ck, flat || '').catch(() => {});
+        if (flat && flat.length > 40) {
+          item._impact = flat; _impCount++;
+          try { saveHistory(); } catch {}
+          try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {}
+          console.log(`[Impact] « ${h.slice(0, 60)} » → lecture posée (${_impCount}/${IMPACT_MAX_JOUR} aujourd'hui)`);
+        }
+      } catch { /* budget épuisé / panne → la news reste sans pill Impact, retentée jamais (cache) ou au prochain boot */ }
+    }
+  } finally { _impBusy = false; }
+}
+
 async function _enrichAnalyses() {
   if (_aiAnaBusy) return;
   // Purge des analyses au schéma périmé (≠ v5) → régénérées ci-dessous, TOUTES en FRANÇAIS (cache anafr2).
@@ -17627,6 +17734,8 @@ async function refreshNews() {
   _enrichInfoTitles().catch(() => {});
   // Pré-traduction FR des dépêches IMPORTANTES sans analyse (priorité background : cède en premier).
   _enrichDescriptionsFr().catch(() => {});
+  // « Impact marché » sur les statistiques tier-1 du fil (2/cycle, plafond journalier propre, cache durable).
+  _enrichImpacts().catch(() => {});
   // Affinage des TAGS (moins urgent) : reste throttle 1 cycle sur 3 pour lisser le RPM. Tag heuristique deja affiche.
   globalThis._newsAiTick = (globalThis._newsAiTick || 0) + 1;
   if (globalThis._newsAiTick % 3 === 0) _smartTagNews().catch(() => {});

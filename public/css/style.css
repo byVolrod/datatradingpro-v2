@@ -19276,3 +19276,17 @@ html[data-theme="light"] .wdg-title::before { background: linear-gradient(180deg
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
+
+/* ═══ TAG INDICATEUR (22/08, demande user) : drapeau du pays + nom de l'indicateur sur les
+   publications chiffrées (🇦🇺 Taux de chômage, 🇺🇸 CPI…). Grammaire DTP sobre : c'est un tag
+   INFORMATIF (non cliquable), il nomme le SUJET de la news — un cran plus présent que les tags
+   de thème (texte clair, filet un rien plus net), sans singer le tag de paire (or, cliquable),
+   qui garde son rôle « un graphique t'attend ». L'infobulle porte la définition de la fiche. */
+.tag--indic {
+  color: var(--text);
+  background: var(--bg3, #16171b);
+  border: 1px solid var(--bg5, #232429);
+  font-weight: var(--fw-semibold, 600);
+}
+.tag--indic .tag-flag { border-radius: 50%; width: 13px; height: 13px; object-fit: cover; }
+html[data-theme="light"] .tag--indic { background: #f1f2f4; border-color: #d9dbe0; color: #1c1d22; }

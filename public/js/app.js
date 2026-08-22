@@ -875,15 +875,20 @@ function handleMessage(msg) {
     const incoming = (msg.items || []).map(item => isFirstUpdate ? item : { ...item, _new: true });
     const existingIds = new Set(allItems.map(i => i.id));
     const truly_new = incoming.filter(i => !existingIds.has(i.id));
-    // News déjà affichées mais ENRICHIES après coup (analyse IA pré-calculée) → on patch en place
-    // pour que le tag « Analyse » apparaisse directement dans le feed, sans clic ni rechargement.
+    // News déjà affichées mais ENRICHIES après coup → on patch en place pour que les tags
+    // apparaissent directement dans le feed, sans clic ni rechargement. Champs patchés :
+    // - analyse (tag « Analyse », historique)
+    // - _impact (22/08 : pill « Impact marché » désormais posée par le serveur sur les stats
+    //   tier-1 du fil — sans ce patch elle n'apparaissait qu'au rechargement de la page)
+    // - _descFr (pré-traduction : même logique, la version FR arrive après coup)
     let _patched = false;
     for (const inc of incoming) {
       if (!existingIds.has(inc.id)) continue;
-      if (Array.isArray(inc.analyse) && inc.analyse.length) {
-        const ex = allItems.find(i => i.id === inc.id);
-        if (ex && !(Array.isArray(ex.analyse) && ex.analyse.length)) { ex.analyse = inc.analyse; _patched = true; }
-      }
+      const ex = allItems.find(i => i.id === inc.id);
+      if (!ex) continue;
+      if (Array.isArray(inc.analyse) && inc.analyse.length && !(Array.isArray(ex.analyse) && ex.analyse.length)) { ex.analyse = inc.analyse; _patched = true; }
+      if (typeof inc._impact === 'string' && inc._impact.length > 40 && !ex._impact) { ex._impact = inc._impact; _patched = true; }
+      if (typeof inc._descFr === 'string' && inc._descFr && !ex._descFr) { ex._descFr = inc._descFr; _patched = true; }
     }
     if (truly_new.length === 0) { if (_patched) renderNews(true); return; }
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
@@ -3765,6 +3770,35 @@ function buildNewsItem(item) {
     return (d && _PAIR_DE_DEVISE[d]) ? d : null;
   })();
   const _paysDejaDitParLaDevise = (tag) => !!_devPrevue && _DEV_PAYS[tag] === _devPrevue;
+
+  /* ── TAG INDICATEUR + DRAPEAU (22/08, demande user, maquette fournie) ───────────────────────
+     Sur une PUBLICATION chiffrée (« Australian Unemployment Rate (Jul) 4.5% vs. Exp. 4.4% »), la
+     rangée de tags NOMME l'indicateur, drapeau du pays en tête : 🇦🇺 Taux de chômage. La fiche
+     vient de CAL_KB (charts.js, la base qui nourrit déjà les puces du dépliage) : nom court
+     curaté + définition, qui sert d'infobulle — survoler le tag explique l'indicateur.
+     ⚠️ EXCEPTION ASSUMÉE au principe du 20/08 « drapeaux sur le seul tag de paire » (posé plus
+     haut) : ce principe visait les tags de PAYS/DEVISE nus (« US », « EUR »), qui répètent le
+     titre. Ici le drapeau qualifie un indicateur NOMMÉ — demande explicite du 22/08, maquette à
+     l'appui. Le tag de paire garde son rôle propre (2 drapeaux = un graphique t'attend).
+     Gates : signature de publication obligatoire (jamais sur un récit, une annonce à venir ou
+     une chronique — un titre sans « Actual/vs/Forecast » ne passe pas), et jamais sur les
+     rapports maison (leur titre dit déjà tout). */
+  (function () {
+    if (item._reportType || item._dtpd || item._eventAnalysis || item._briefing || item._marketWrap) return;
+    const hl0 = String(item.headline || '');
+    if (!_SIG_PUBLICATION.test(hl0)) return;
+    const kb = (typeof dtpKbPourTitre === 'function') ? dtpKbPourTitre(hl0) : null;
+    if (!kb || !kb.name) return;
+    const devIndic = _devPrevue || (function () { try { return _deviseDeLaNews(); } catch (e) { return null; } })();
+    const iso = devIndic ? _SBR_ISO[devIndic] : null;
+    const ti = document.createElement('span');
+    ti.className = 'tag tag--indic';
+    ti.dataset.cat = 'indic';
+    ti.innerHTML = (iso ? _drapImg(iso) : '') + kb.name;
+    if (kb.what) ti.title = kb.what;   // la définition de la fiche : le survol explique l'indicateur
+    tagsEl.appendChild(ti);
+    shownTags.add(kb.name);            // pas de doublon si un tag homonyme arrive par ailleurs
+  })();
 
   for (const tag of (_capRapport ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
