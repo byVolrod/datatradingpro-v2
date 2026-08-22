@@ -5633,7 +5633,7 @@ function _sbRenderMacroTable(cur, macro) {
       ${cell(monCell)}${cell(infCell)}${cell(gr)}${cell(em)}
       <td class="mt-drv-cell"><div class="mt-cell-tags">${drv || '<span class="mt-empty">-</span>'}</div></td>
       <td class="mt-taux" data-taux-cur="${esc(c)}">${_sbTauxCell(c)}</td>
-      ${cell(bi)}
+      <td class="mt-bias-cell"><div class="mt-cell-tags">${bi || '<span class="mt-empty">-</span>'}</div></td>
       <td class="mt-x"><span class="mt-chevron">›</span></td></tr>`;
   }).join('');
   return `<table class="macro-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -5764,7 +5764,12 @@ function _sbOpenDetail(curr, opts) {
   if (host) host.classList.add('has-detail');
   if (zone) {
     zone.classList.remove('sbm-matrix-zone--full');
-    zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, Math.round(host.clientHeight * 0.46))) + 'px';
+    /* ⚠️ AUDIT 22/08 : sur mobile, host (.bias-content) n'est PAS borné en hauteur (mesuré
+       2354px CSS) → 46% = 899px, la matrice dépassait l'écran dès l'ouverture du détail, et le
+       premier toucher du splitter la faisait sauter de 118 à 149px d'un coup. Une seule borne
+       partagée : jamais plus de 46% du VIEWPORT (le plus petit des deux mondes). */
+    var _sbZoneMax = Math.round(Math.min(host.clientHeight, window.innerHeight) * 0.46);
+    zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, _sbZoneMax)) + 'px';
   }
   if (!ext) _sbRenderHeadDd(curr);   // synchronise le dropdown « Scanner » de l'en-tête sur la devise active
   if (!ext) requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));

@@ -10329,7 +10329,7 @@ html[data-theme="light"] .cal-day-sep td {
     height: calc(var(--vph) - var(--topbar-h) - var(--kb, 0px)) !important;
     transition: transform .24s ease, height .18s ease;
   }
-  .fxl-table { min-width: 760px; font-size: 10px; }
+  .fxl-table { min-width: 760px; font-size: 11px; }   /* 10 → 11 (audit 22/08) : l'échelle était INVERSÉE — 10px entre 481 et 768 mais 11px sous 480 ; le scroll horizontal absorbe déjà le surplus */
   /* Inertie tactile sur tous les conteneurs de tables larges (FX LIST / CALENDAR / BANK / Week Ahead) */
   .fxl-table-scroll, .cal-table-wrap, .bank-table-wrap, #wa-cal-body { -webkit-overflow-scrolling: touch; }
   .am-chart, .am-chart--donut { height: 200px; }
@@ -12641,7 +12641,13 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   .mt-cur .sbm-flag { width: 15px; height: 15px; }
   .mt-cell-tags { gap: 3px 4px; }
   .mt-tag { font-size: 9px; padding: 2px 6px; margin: 1px 3px 1px 0; letter-spacing: 0; }
-  .macro-table td:nth-child(7) .mt-tag { white-space: normal; }
+  /* ⚠️ AUDIT 22/08 : nth-child(7) visait le Biais AVANT l'insertion de la colonne « Taux
+     directeur » (20/08) — depuis, il visait le Taux et le Biais partait hors écran. Le renderer
+     pose désormais .mt-bias-cell : insensible aux futures insertions de colonnes. */
+  .macro-table .mt-bias-cell .mt-tag { white-space: normal; }
+  /* La colonne Taux se compacte au même régime que le reste : 7 colonnes retiennent l'écran. */
+  .macro-table td.mt-taux { padding: 6px 3px; }
+  .macro-table .mt-taux-v { font-size: 9.5px; padding: 2px 4px; }
   /* Colonne « Devise » FIGÉE à gauche : à 375px la table tient sans scroll, mais sous ~360px
      un léger défilement horizontal peut subsister → la devise reste toujours visible (UX pro,
      jamais de contexte perdu). Fonds opaques pour couvrir le contenu qui défile dessous. */
@@ -15616,13 +15622,17 @@ body.home-mode #calc-btn.topbar-icon--active {
    et le pincement, qui sont ses gestes utiles (zoom temporel, déplacement de carte).
    Réservé au tactile : sur pointeur fin, la molette et le glisser gardent leur comportement. */
 @media (pointer: coarse) {
+  /* ⚠️ AUDIT 22/08 : `.chart-container` et `.strength-chart-wrap` n'existent NULLE PART dans le
+     DOM généré — la classe réelle du graphe Force plein écran est `.strength-main-chart`
+     (buildStrengthCharts). Sélecteurs morts remplacés ; le canevas suit. */
   .wdg-fx-chart, .wdg-metre, .wdg-riskgauge, .wdg-jr-chart, .wdg-lfmap,
-  .wdg-lfmap .leaflet-container, .chart-container, .strength-chart-wrap {
+  .wdg-lfmap .leaflet-container, .strength-main-chart {
     touch-action: pan-y;
   }
   /* Le canevas d'amCharts est un ENFANT du conteneur et réinstalle ses écouteurs : sans cette
      ligne il continuait d'avaler le geste malgré la règle du parent. */
-  .wdg-fx-chart canvas, .wdg-metre canvas, .wdg-riskgauge canvas, .wdg-jr-chart canvas {
+  .wdg-fx-chart canvas, .wdg-metre canvas, .wdg-riskgauge canvas, .wdg-jr-chart canvas,
+  .strength-main-chart canvas {
     touch-action: pan-y;
   }
 }
@@ -15690,9 +15700,8 @@ body.home-mode #calc-btn.topbar-icon--active {
   /* Calendrier : barre de filtres + navigation + en-tête consomment ~150px AVANT la première
      ligne. Sous 500px il ne restait pas de quoi lire une journée. */
   .home-zone-body:has(.wdg-cal-panel) { min-height: 520px; }
-  /* Force des devises : c'est la HAUTEUR qui aligne les étiquettes sur leur courbe. Écrasées, elles
-     se tassent en pile parce que l'algorithme d'anti-chevauchement doit les écarter de force. */
-  .home-zone-body:has(.wdg-fx-chart) { min-height: 400px; }
+  /* Force des devises : (règle 400px RETIRÉE à l'audit du 22/08 — code MORT : le même sélecteur
+     reçoit 520px plus bas, même média, même spécificité → l'ordre source tranchait déjà.) */
   /* Carte des sessions : sous 300px les badges de villes se superposent. */
   .home-zone-body:has(.wdg-lfmap) { min-height: 320px; }
 }
@@ -16730,7 +16739,7 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
    côte à côte — le net, qui est le verdict, reste seul sur sa ligne. */
 @media (max-width: 1100px) { .cot-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 820px)  { .cot-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px)  {
+@media (max-width: 560px)  {   /* 520 → 560 (audit 22/08) : LE seuil standard du desk — le COT était le seul composant à basculer en 1 colonne à 520, d'où deux colonnes écrasées entre 521 et 560 pendant que tout le reste était déjà empilé */
   .cot-grid { grid-template-columns: 1fr; grid-auto-rows: minmax(210px, auto); }
   .cot-ring { max-width: 96px; max-height: 96px; }
 }
@@ -18846,7 +18855,11 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
   .bank-chart-grip::before { top: 11px; }   /* la pastille reste centrée */
 }
 @media (max-width: 560px) {
-  .bank-table td.bank-exp { position: relative; }
+  /* ⚠️ AUDIT 22/08 : `position:relative` ici ÉCRASAIT le `position:sticky; left:0` posé plus haut
+     (l.~3670) sur cette même cellule — le chevron, SEULE ouverture du détail au doigt, partait
+     hors écran au premier défilement horizontal. Le ::after (zone de tap étendue) s'ancre tout
+     aussi bien sur un élément sticky : on rend l'intention explicite au lieu de la dégrader. */
+  .bank-table td.bank-exp { position: sticky; left: 0; }
   .bank-table td.bank-exp::after { content: ''; position: absolute; inset: -3px -9px; }
 }
 
@@ -18873,11 +18886,21 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
 /* ── 7. LISIBILITÉ : LE PLANCHER DE TAILLE DE TEXTE ────────────────────────────────────────
    Le zoom global .9 n'était jamais neutralisé : un texte déclaré à 9 px n'était peint qu'à
    8,1 px. Le projet s'impose un plancher de 11 px RÉELS, soit 12,2 px CSS.
-   On relève donc les deux endroits mesurés sous le plancher, sans toucher au reste. */
-@media (max-width: 560px) {
+   ⚠️ 560 → 768 (audit 22/08) : le plancher s'arrêtait à 560 alors que la règle mobile des
+   onglets (≤768) descendait à 11px CSS = 9,9px réels — la plage 561-768 (tablette portrait,
+   grands téléphones) restait SOUS le plancher que le fichier s'impose. */
+@media (max-width: 768px) {
   .nav-item { font-size: 12.5px; }
   /* Le Radar de Biais déclarait ses étiquettes à 9 px, soit 8,1 px réellement peints. */
   .mt-tag { font-size: 10.5px; }
+}
+/* Complément du plancher (audit 22/08, mesures 7,2-8,6px réels) : textes porteurs de DONNÉES
+   encore sous le plancher — en-têtes de la matrice de Biais, en-têtes du détail devise,
+   horodatages des blocs de lecture dépliés. Mêmes valeurs que la correction .mt-tag validée. */
+@media (max-width: 560px) {
+  .macro-table th { font-size: 10.5px; }
+  .mdet-hd { font-size: 10.5px; }
+  .rxg-t span { font-size: 10.5px; }
 }
 
 /* ═══ VOLET D'AIDE DES WIDGETS (21/08) ═════════════════════════════════════════════════════════
@@ -19105,6 +19128,14 @@ body.dtp-premium .nav {
     white-space: normal !important; overflow: visible !important;
     word-break: break-word; -webkit-line-clamp: unset;
   }
+  /* ⚠️ AUDIT 22/08 (mesuré : bande de 52px non couverte à droite de CHAQUE news dépliée) : le
+     panneau déplié est étalé par _fondPleineLargeur (app.js) via des MARGES NÉGATIVES, qui
+     supposent une largeur AUTO. Le width:100% ci-dessus le décalait de 44px à gauche SANS
+     l'élargir : décalé + largeur figée = 52px de vide à droite. Pour LUI seul, on rend la
+     largeur aux marges négatives ; expand-panel/news-expand, non étalés, gardent le 100%. */
+  .news-item .news-description {
+    width: auto !important; max-width: none !important;
+  }
   /* Le titre lui-même : jamais tronqué, il retourne à la ligne autant que nécessaire. */
   .news-item .news-headline {
     white-space: normal !important; overflow: visible !important; text-overflow: clip !important;
@@ -19290,3 +19321,128 @@ html[data-theme="light"] .wdg-title::before { background: linear-gradient(180deg
 }
 .tag--indic .tag-flag { border-radius: 50%; width: 13px; height: 13px; object-fit: cover; }
 html[data-theme="light"] .tag--indic { background: #f1f2f4; border-color: #d9dbe0; color: #1c1d22; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   CORRECTIFS DE L'AUDIT MOBILE DU 22/08 — 48 agents, chaque constat MESURÉ (Puppeteer, desk
+   booté + snapshots de prod) puis VÉRIFIÉ par une contre-mesure adverse indépendante.
+   Posés EN FIN DE FICHIER : c'est la seule position où une règle mobile ne peut plus être
+   écrasée par une déclaration plus tardive — le mécanisme exact qui avait tué la moitié des
+   règles mobiles existantes (7 familles de règles mortes retrouvées par cet audit).
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* [1] LA RACINE DU DÉFILEMENT MOBILE. `.views-col { flex-basis:52% }` (règle tablette ≤1024)
+   s'appliquait aussi à 390px et rendait MORTES les 3 règles de hauteur mobile : dans le flex
+   column mobile à hauteur indéfinie, une flex-basis en % se résout à la taille du CONTENU et la
+   propriété height est ignorée. Résultat mesuré : #news-list clientH = scrollH = 5907px (ne
+   défile JAMAIS), c'est le body qui défilait — emportant la toolbar hors écran, tuant le sticky
+   des dates, l'ancrage anti-saut de renderNews ET le confinement tactile du 22/08.
+   UNE ligne réactive les quatre d'un coup (vérifié : liste 747/5178 scrollable, sticky à <3px,
+   dérive d'ancrage 0, et 769-1280px strictement inchangés). */
+@media (max-width: 768px) {
+  .views-col { flex-basis: auto; }
+  /* Même racine pour les vues SANS panneau droit (Banques, Taux, Semaine à Venir…) : leur règle
+     `flex:1 1 100% !important` (l.~3571) reproduit le défaut à l'identique — dans le flex column
+     mobile, 100% d'une hauteur indéfinie = taille du contenu, hauteur ignorée. Mesuré au banc :
+     .views-col à 3517px (= contenu) et body scrolleur. L'!important est requis pour la battre. */
+  .main-layout.hide-right-panel .views-col { flex-basis: auto !important; }
+
+  /* [7] Vue RISQUE plein écran : `.panel-right { flex:1 1 50% }` écrasait la hauteur mobile →
+     l'historique passait sous le pli (52% caché à 390, 100% à 375) et le titre d'axe se lisait
+     « nt (%) ». flex:0 0 auto ressuscite le calc(--vph − --header-h) (vérifié : 613,77px). */
+  .main-layout.show-right-mobile #panel-right { flex: 0 0 auto; }
+  /* [8] Onglet FORCE : `.right-tab-panel{height:100%}` ne résout plus dans main-layout height:auto
+     → graphes à 0px. La croissance flex ne dépend pas de la résolution des % (vérifié : panneau
+     581,9px, courbes tracées). [7] y ajoute le défilement interne du contenu. */
+  .right-tab-panel { flex: 1 1 auto; overflow-y: auto; }
+
+  /* [16] Famille BANQUES : les 3 correctifs mobiles s'arrêtaient à 560px alors que la table
+     déborde déjà à 768 — la fenêtre 561-768 (grands téléphones, tablette portrait) n'avait NI
+     colonne d'identité figée, NI détail borné, NI colonne graphe masquée. Rejoués ici pour
+     couvrir toute la plage tactile. */
+  .bank-table th.bank-th-exp, .bank-table td.bank-exp { position: sticky; left: 0; z-index: 2; background: var(--bg); }
+  .bank-table thead th:nth-child(2), .bank-table td.bank-name { position: sticky; left: 26px; z-index: 2; background: var(--bg); }
+  .bank-table thead th.bank-th-exp, .bank-table thead th:nth-child(2) { z-index: 3; }
+  .bank-row--active td.bank-exp, .bank-row--active td.bank-name { background: #16130c; }
+  .bank-table th.bank-chart-col-h, .bank-table td.bank-chart-cell { display: none; }
+  .bank-detail { position: sticky; left: 0; width: calc(var(--vpw) - 24px); max-width: calc(var(--vpw) - 24px); box-sizing: border-box; }
+
+  /* [12] Lecteur de rapports : TOUTES ses adaptations mobiles étaient mortes (définies AVANT
+     leurs règles de base, même spécificité). Rejouées ici : le document rend ses marges desktop
+     (40px 56px = 27% d'un iPhone perdu) et les insights leur gouttière. */
+  .br-document { padding: 24px 20px; font-size: 14px; }
+  .br-doc-title { font-size: 22px; }
+  #arlib-ai-insights { padding: 0 14px; }
+}
+@media (max-width: 480px) {
+  .br-document { padding: 16px 14px; }
+  .br-doc-title { font-size: 18px; }
+  #arlib-ai-insights { padding: 0 10px; }
+}
+@media (max-width: 390px) {
+  .br-document { padding: 12px 10px; font-size: 13px; }
+}
+
+/* [10] VUE PAIRE : la règle d'empilement mobile était écrasée par le lot « design terminal »
+   (grid-template !important hors média) → 4 panneaux entassés dans la moitié gauche de l'écran,
+   colonne droite VIDE. Rejouée ici avec le même poids. */
+@media (max-width: 1100px) {
+  .sym-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: repeat(4, minmax(240px, auto)) !important;
+  }
+  /* [17] Boutons M15/H1/H4/D1/W1 du graphe Banques : cibles de 17,4px, sous le minimum tactile.
+     La zone grandit, les glyphes ne bougent pas (grammaire du lot tactile). */
+  .bank-tf-b { min-height: 28px; padding: 6px 10px; }
+  .bank-tf { gap: 4px; }
+}
+
+/* [9] SAISONNALITÉ : table-layout:fixed + width:100% dans un rail flex à contenu libre → table
+   posée à ~1 111 111px de large, AUCUNE valeur visible. min-width:100% + width:auto la ramène
+   à l'écran (prouvé par bascule live). */
+.season-table { min-width: 100%; width: auto; }
+
+/* [14] Barre d'outils du fil : « Sections » 13,9px et recherche 19px de haut — les height:100%
+   se résolvent à auto dans la toolbar en wrap. Mêmes 32px que les pastilles déjà corrigées.
+   [26] La recherche passe pleine largeur (l'intention du bloc mobile, morte car écrite en
+   width sur un enfant flex : c'est flex-basis qui commande ici). */
+@media (max-width: 560px) {
+  .toolbar-select, .toolbar-search { min-height: 32px; }
+  .toolbar-search { flex-basis: 100%; }
+
+  /* [15] SEMAINE À VENIR : le graphe de risque hebdo gardait sa hauteur desktop (84px) — sous le
+     seuil « graphe écrasé » du banc. Même doctrine que Force des Devises : sur téléphone un
+     graphe a besoin de PLUS de hauteur, pas moins. */
+  .wa3 .wa-chart { height: 160px; }
+
+  /* [19] Lignes de rapport (Analystes/Institutions) : min-height est IGNORÉ sur une table-cell
+     (mesuré : déclaré 44, rendu 33). height agit comme un minimum sur les cellules de table. */
+  .arl-row > td { height: 44px; }
+}
+
+/* [28][34] Flèches ‹ › du calendrier : le grossissement tactile était écrit AVANT la règle de
+   base → glyphe 13px et padding 0 5px au lieu des valeurs voulues. Rejoué ici (la cible 36×36
+   survivait déjà, on rétablit le dessin). */
+@media (hover: none), (pointer: coarse), (max-width: 768px) {
+  .cal-range-arrow { font-size: 16px; padding: 0 8px; }
+}
+
+/* [25] SURVOL COLLANT SUR TACTILE : après un tap, la ligne de news gardait son fond de survol —
+   les 2 neutralisations existantes étaient mortes (refonte « flat » posée en !important après
+   elles). Sur écran sans survol, l'état :hover N'EXISTE PAS légitimement : on rend à chaque
+   famille son fond DE REPOS exact (valeurs de leurs règles de base respectives). */
+@media (hover: none) {
+  .news-item:hover { background: var(--bg2) !important; }
+  .news-item--read:hover { background: var(--bg2) !important; }
+  .news-item--high:hover { background: rgba(220, 38, 38, 0.10) !important; }
+  .news-item--urgent:hover, .news-item--breaking:hover { background: #261715 !important; }
+  body.theme-light .news-item--urgent:hover, body.theme-light .news-item--breaking:hover { background: #fdeeea !important; }
+  .br-card:hover, .arlib-card:hover { background: transparent !important; }
+}
+
+/* [36] TOPBAR 2 RANGÉES (<400px) : le recalcul du 22/08 reperdait le terme d'encoche iPhone que
+   le fichier ajoutait déjà — en plein écran / web-app, la 2e rangée passait sous l'encoche. */
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media (max-width: 400px) {
+    :root { --topbar-h: calc(84px + env(safe-area-inset-top, 0px)); }
+  }
+}

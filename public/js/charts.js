@@ -2070,7 +2070,20 @@ function buildRiskHistoryChart(containerId, data) {
   const el = document.getElementById(containerId);
   if (!el) return null;
   try { disposeRoot(containerId); } catch {}
-  const root = _dtpAncreGraphe(am5.Root.new(containerId));
+  /* ⚠️ AUDIT 22/08 : _dtpAncreGraphe pose `zoom:calc(1/var(--dtp-zoom))` en inline sur root.dom.
+     Monté DIRECTEMENT sur #risk-history-chart, ce zoom rescalait aussi les longueurs de layout
+     de .rsh-chart : la bande se rendait 11% plus grande que sa cote CSS (210px écran au lieu de
+     189). On monte donc le root sur un div INTERNE 100%/100% — exactement le patron déjà utilisé
+     par la carte Mon Desk (widgets.js) : l'ancre anti-flou reste sur le canevas, le conteneur
+     garde ses cotes. Le div est recréé à chaque build (dispose + innerHTML='' en amont). */
+  let _mnt = el.querySelector(':scope > .rsh-mount');
+  if (!_mnt) {
+    _mnt = document.createElement('div');
+    _mnt.className = 'rsh-mount';
+    _mnt.style.cssText = 'width:100%;height:100%';
+    el.innerHTML = ''; el.appendChild(_mnt);
+  }
+  const root = _dtpAncreGraphe(am5.Root.new(_mnt));
   root._logo?.set('forceHidden', true);
   root.setThemes([am5themes_Animated.new(root), applyTerminalTheme(root)]);
   { try { window._dtpChartPremium && window._dtpChartPremium(el, 620); } catch (e) {} }   // chargement premium : overlay shimmer pendant appear(500) -> reveal fondu (build-once ; update()=data.setAll)
