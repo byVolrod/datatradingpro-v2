@@ -3868,6 +3868,32 @@ function buildNewsItem(item) {
   }
   if (_pairEl) tagsEl.appendChild(_pairEl);   // la paire ferme la série des thèmes
 
+  /* ── MARCHÉ EXPOSÉ « OR » SUR LE GÉOPOLITIQUE (22/08, réf. user : news Iran/US → XAUUSD) ─────
+     Le veto _HORS_FX a raison de refuser une PAIRE DE DEVISES à une news géopolitique — mesuré,
+     il évitait des EUR/USD absurdes. Mais le marché exposé d'une tension géopolitique EXISTE :
+     c'est l'or, la valeur refuge. On pose donc XAU/USD sur les news géopolitiques IMPORTANTES
+     (et sur les news dont l'or est le SUJET du titre), avec la même mécanique que la paire :
+     clic → réaction du marché à l'instant de la publication (contrat GC=F côté serveur, coté en
+     dollars → jamais d'inversion). Déterministe : refuge = or, jamais deviné par une IA.
+     Pastille or (pas de drapeau : l'or n'a pas de pays) — grammaire DTP, pas celle d'un tiers. */
+  if (!_pairePosee && !item._pair && expandEl && !item._reportType && !item._briefing) {
+    const _catGeo = String(item.category || '') === 'Geopolitical'
+      || (item.tags || []).indexOf('Geopolitical') >= 0;
+    const _sujetOr = /^\s*(?:[\w'’.]+\s+)?(gold|xau)\b/i.test(String(item.headline || ''));
+    if ((_catGeo && isRed) || _sujetOr) {
+      _pairePosee = true;
+      _paireExposee = 'XAU/USD';                 // la Réaction mesurera l'or
+      const tg = document.createElement('span');
+      tg.className = 'tag tag--marche tag--or';
+      tg.dataset.cat = 'XAU';
+      tg.style.cursor = 'pointer';
+      tg.title = 'Marché refuge le plus exposé : voir la réaction de l\'or à cette actualité';
+      tg.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.4" fill="#e3b23a" opacity=".9"/><circle cx="6" cy="6" r="4.4" stroke="#b8860b" stroke-width="1"/></svg> XAUUSD';
+      tg.onclick = e => { e.stopPropagation(); _pairActive = 'XAU/USD'; marcheTagEl = tg; openPanel('marche'); };
+      tagsEl.appendChild(tg);
+    }
+  }
+
   // ── Badge Rumour : info non confirmée / bruit de marché ──────────────────────
   // Détection par texte (Unconfirmed/Rumour/Chatter/Speculation…) ou flag API FJ/FF
   const _isRumour = /\b(unconfirmed|unverified|rumou?r|chatter|speculation|speculative|reportedly|allegedly)\b/i.test(item.headline || '')
