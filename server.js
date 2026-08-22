@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260822-reaction-minute', ts: Date.UTC(2026, 7, 24, 9, 0), title: 'Reaction a la bougie d une minute, analyse plus rapide et horodatages exacts', desc: 'Trois affinages sur la lecture d une publication. Le graphique de reaction choisit desormais son unite selon le mouvement reellement mesure : quand le marche a bouge (un CPI du matin, l or), il trace la bougie d UNE minute sur une fenetre serree autour de la publication — on voit la reaction seconde apres seconde ; quand la fenetre est plate, il garde la vue large en cinq minutes, plus lisible. L unite ne change jamais en cours de lecture. L or s affiche a deux decimales, comme il se cote. Les statistiques majeures qui tombent en titre nu (sans article) deviennent eligibles a l Analyse et passent en tete de file : la lecture arrive dans les minutes qui suivent le chiffre. Enfin, l en-tete des panneaux Analyse et Impact marche affiche l heure VRAIE de la generation, pas celle de la news.' },
   { id: 'dtpu-20260822-lecture-weekend', ts: Date.UTC(2026, 7, 24, 8, 0), title: 'Fil : majuscules des phrases traduites + graphique de reaction lisible le week-end', desc: 'Deux finitions de lecture. Les depeches traduites en francais commencaient parfois leurs phrases en minuscule : chaque retour a la ligne ouvre desormais sa phrase avec une majuscule, y compris sur les traductions deja en memoire. Et le graphique de reaction ouvert un samedi ne montrait qu une poignee de bougies etirees sur toute la largeur : quand le marche etait ferme au moment de la publication, il affiche desormais les trois dernieres heures reellement cotees avant la fermeture — un contexte dense et lisible (verifie : 37 bougies, 25 points d amplitude, contre une dizaine etiree avant), le repere et la note de fermeture restant en place.' },
   { id: 'dtpu-20260822-geo-or', ts: Date.UTC(2026, 7, 24, 7, 0), title: 'Les actualites geopolitiques montrent leur marche refuge : l or', desc: 'Une tension geopolitique importante n expose pas une paire de devises : elle expose l or, la valeur refuge. Ces actualites portent desormais une pastille doree XAUUSD ; un clic ouvre le graphique de reaction de l or, bougies minute par minute avec le repere rouge sur l instant exact de la publication — la meme mecanique que sur les statistiques. La source des bougies est le contrat a terme sur l or, le seul a offrir de vraies bougies a la minute (verifie : zero bougie plate sur la seance). Les actualites dont l or est le sujet du titre recoivent la meme pastille.' },
   { id: 'dtpu-20260822-mobile-defilement', ts: Date.UTC(2026, 7, 24, 6, 0), title: 'Mobile : le defilement du terminal est enfin fluide et chaque vue tient l ecran', desc: 'Grand audit du rendu sur telephone : 48 verifications automatisees, chaque defaut mesure puis contre-verifie avant correction. Le resultat le plus visible : le fil d actualite defile desormais DANS son cadre — la barre de recherche et les filtres restent en place, la date du jour reste epinglee en haut pendant la lecture, et une depeche qui arrive ne fait plus sauter la page sous le doigt. Le panneau deplie d une news occupe toute la largeur (une bande restait vide a droite). Les vues Risque et Force des Devises retrouvent leur pleine hauteur — les courbes s affichaient parfois sur un ecran vide. La Saisonnalite, la vue paire, le lecteur de rapports, le tableau des Banques (colonne fixe en defilement), le Radar de Biais (colonne Biais revenue a l ecran) et une vingtaine d autres details (tailles de texte sous le seuil de lisibilite, zones de tap trop petites, survols qui restaient colles apres un toucher) sont corriges dans la meme passe.' },
@@ -17323,7 +17324,17 @@ function _meritsAnalysis(item) {
   if (!item || item._briefing || item._marketUpdate) return false;
   if (Date.now() - item.timestamp > 6 * 60 * 60 * 1000) return false;            // récentes uniquement
   const desc = String(item.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  if (desc.length < 120) return false;                                           // pas assez de matière → Info suffit
+  if (desc.length < 120) {
+    /* PUBLICATION TIER-1 SANS CORPS (22/08, réf. user « Full analysis 3 min after ») : une
+       statistique majeure tombe souvent en titre nu — mais ce titre PORTE toute la matière
+       (réel vs attendu vs précédent), et le prompt le transmet (« Headline: »). L'exclure au
+       motif « pas assez de matière » privait d'Analyse exactement les news qui la méritent le
+       plus vite. On l'accepte quand le titre a un chiffre ET la signature d'une publication. */
+    const h = String(item.headline || '');
+    if (item._highImpact === true && /-?\d/.test(h)
+      && /\b(actual|vs\.?|exp(?:ected)?\.?|forecast|prev(?:ious)?\.?|est\.?)\b/i.test(h)) return true;
+    return false;                                                                // sinon : Info suffit
+  }
   return true;   // TOUTES les news avec matière (plus seulement high/important) : l'analyse FR pré-calculée = la description au dépliage → FR instantané partout ; volume borné par AI_ANALYSE_DAILY_MAX + perCycle
 }
 function _parseAnalyseBullets(text) {
@@ -17516,7 +17527,7 @@ ${h.slice(0, 240)}`;
         if (_impCache.size > 1000) _impCache.delete(_impCache.keys().next().value);
         auth.aiCacheSet(ck, flat || '').catch(() => {});
         if (flat && flat.length > 40) {
-          item._impact = flat; _impCount++;
+          item._impact = flat; item._impAt = Date.now(); _impCount++;   // heure VRAIE de la lecture (affichée en tête du panneau)
           try { saveHistory(); } catch {}
           try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {}
           console.log(`[Impact] « ${h.slice(0, 60)} » → lecture posée (${_impCount}/${IMPACT_MAX_JOUR} aujourd'hui)`);
@@ -17545,7 +17556,12 @@ async function _enrichAnalyses() {
     try { if ((typeof ai.shouldThrottle === 'function' && ai.shouldThrottle()) || _aiUsersIdle()) perCycle = 1; else if (typeof ai.underPressure === 'function' && ai.underPressure()) perCycle = 2; } catch {}
     // PRIORISATION APPRISE : les catégories que les utilisateurs DÉPLIENT réellement passent en premier
     // (habitudes _expandHabits, signal = clics Info). Tri STABLE → à rang égal, l'ordre du feed (récence) est conservé.
-    const _byHabit = [...allNews].sort((a, b) => ((_expandHabits[(b || {}).category] || 0) - (_expandHabits[(a || {}).category] || 0)));
+    // ⚠️ DEVANT TOUT (22/08, réf. user « analysis 3 min after ») : une publication TIER-1 fraîche
+    // (<30 min) sans analyse SAUTE LA FILE — c'est la lecture que le desk attend à la minute.
+    const _rangUrgent = it => (it && it._highImpact === true && !(Array.isArray(it.analyse) && it.analyse.length)
+      && Date.now() - (it.timestamp || 0) < 30 * 60 * 1000) ? 1 : 0;
+    const _byHabit = [...allNews].sort((a, b) => (_rangUrgent(b) - _rangUrgent(a))
+      || ((_expandHabits[(b || {}).category] || 0) - (_expandHabits[(a || {}).category] || 0)));
     for (const item of _byHabit) {
       if (!item || (Array.isArray(item.analyse) && item.analyse.length)) continue; // déjà analysée
       if (!_meritsAnalysis(item)) continue;
@@ -17578,7 +17594,7 @@ async function _enrichAnalyses() {
         if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
         _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
         auth.aiCacheSet(ck, bullets).catch(() => {});
-        if (bullets.length) { item.analyse = bullets; item[isCb ? '_anaCbV1' : '_anaV5'] = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (bullets.length) { item.analyse = bullets; item._anaAt = Date.now(); item[isCb ? '_anaCbV1' : '_anaV5'] = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }   // _anaAt = l'heure VRAIE de l'analyse (réf. user « Analysis At: ») — le front l'affichait déjà, personne ne la posait
       } catch { /* budget épuisé / pas de clé → la news reste en Info seul */ }
     }
   } finally { _aiAnaBusy = false; }

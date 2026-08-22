@@ -899,6 +899,9 @@ function handleMessage(msg) {
       if (Array.isArray(inc.analyse) && inc.analyse.length && !(Array.isArray(ex.analyse) && ex.analyse.length)) { ex.analyse = inc.analyse; _patched = true; }
       if (typeof inc._impact === 'string' && inc._impact.length > 40 && !ex._impact) { ex._impact = inc._impact; _patched = true; }
       if (typeof inc._descFr === 'string' && inc._descFr && !ex._descFr) { ex._descFr = inc._descFr; _patched = true; }
+      // Horodatages VRAIS des lectures (« Analyse à 8h12 » = l'heure de l'analyse, pas de la news).
+      if (inc._anaAt && !ex._anaAt) ex._anaAt = inc._anaAt;
+      if (inc._impAt && !ex._impAt) ex._impAt = inc._impAt;
     }
     if (truly_new.length === 0) { if (_patched) renderNews(true); return; }
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
@@ -3339,29 +3342,50 @@ function buildNewsItem(item) {
             // La seconde donne la densité de la référence tout en gardant une PETITE unité, comme
             // demandé. Le contexte d'avant est ce qui rend le mouvement d'après lisible : sans lui,
             // on regarde un plat de deux points en croyant regarder une réaction.
-            const av = t0 - 6 * 3600e3, ap = t0 + 2 * 3600e3;
-            /* ⚠️ MARCHÉ FERMÉ À LA PUBLICATION (22/08, capture user un samedi) : la fenêtre calée
-               sur t0 n'attrape alors que la QUEUE d'avant-clôture — une quinzaine de minutes
-               étalées sur toute la largeur, bougies obèses, rien à lire. Quand la dernière
+            /* ── L'UNITÉ SUIT L'AMPLITUDE MESURÉE (22/08, réf. user : réaction lue à la bougie
+               d'UNE minute). Le M5 sur 6h+2h avait été choisi sur le cas pathologique du SOIR :
+               une fenêtre M1 n'y contenait que 2,5 points — rien à lire. Mais sur un CPI du matin
+               ou sur l'or, la minute est parfaitement lisible (réf. : 22 pips visibles sur 1h).
+               Règle : on mesure l'amplitude RELATIVE de la fenêtre serrée (30 min avant → 90
+               après) ; si le marché y a parcouru ≥ 0,03 %, on trace en M1 serré — sinon M5
+               large. Le seuil est calé sur la PATHOLOGIE d'origine (2,5 pips ≈ 0,019 % → M5)
+               et sous la nuit ordinaire (mesurée ce jour : 6,5 pips ≈ 0,056 % → M1, lisible) :
+               M1 partout où le marché vit, M5 seulement quand la fenêtre est vraiment plate.
+               Une seule règle, tous instruments, jamais devinée : mesurée sur les bougies reçues.
+               ⚠️ MARCHÉ FERMÉ à la publication (capture user un samedi) : la fenêtre calée sur t0
+               n'attrape que la queue d'avant-clôture, étalée en bougies obèses. Si la dernière
                cotation précède t0 de plus de 2 h (week-end ; la coupure quotidienne d'1 h ne
-               déclenche pas), on re-fenêtre sur la FIN DE SÉANCE RÉELLE : les 3 dernières heures
-               cotées. Le lecteur voit le vrai contexte d'avant-fermeture, dense ; le repère se
-               pose sur la dernière cotation et la note « marché fermé » (déjà en place) dit
-               laquelle. Partagé par le premier tracé ET le rattrapage : une seule fenêtre. */
-            const _fenetreReaction = (bts) => {
+               déclenche pas), on re-fenêtre sur la FIN DE SÉANCE réelle — même choix d'unité.
+               ⚠️ L'unité est VERROUILLÉE au premier tracé : le rattrapage ne regroupe jamais
+               autrement (un graphique qui change d'unité tout seul sous les yeux du lecteur est
+               le défaut déjà écarté plus bas). */
+            const _fenetreReaction = (bts, uniteForcee) => {
+              const ap6 = t0 + 2 * 3600e3;
               let dernAvant = 0;
-              for (const c of bts) if (c.t <= ap && c.t > dernAvant) dernAvant = c.t;
-              if (dernAvant && (t0 - dernAvant) > 2 * 3600e3) {
-                return bts.filter(c => c.t >= dernAvant - 3 * 3600e3 && c.t <= dernAvant);
+              for (const c of bts) if (c.t <= ap6 && c.t > dernAvant) dernAvant = c.t;
+              const ferme = dernAvant && (t0 - dernAvant) > 2 * 3600e3;
+              const base = ferme ? dernAvant : t0;
+              const serre = ferme ? bts.filter(c => c.t >= dernAvant - 2 * 3600e3 && c.t <= dernAvant)
+                                  : bts.filter(c => c.t >= t0 - 30 * 60e3 && c.t <= t0 + 90 * 60e3);
+              const large = ferme ? bts.filter(c => c.t >= dernAvant - 3 * 3600e3 && c.t <= dernAvant)
+                                  : bts.filter(c => c.t >= t0 - 6 * 3600e3 && c.t <= ap6);
+              let unite = uniteForcee;
+              if (!unite) {
+                let h = -Infinity, l = Infinity, dernier = 0;
+                for (const c of serre) { if (c.h > h) h = c.h; if (c.l < l) l = c.l; dernier = c.c; }
+                const ampRel = (dernier > 0 && h > l) ? (h - l) / dernier : 0;
+                unite = (serre.length >= 25 && ampRel >= 0.0004) ? 1 : 5;
               }
-              return bts.filter(c => c.t >= av && c.t <= ap);
+              return { m1: unite === 1 ? serre : large, unite };
             };
-            const fenM1 = _fenetreReaction(brut);
+            const _fen0 = _fenetreReaction(brut);
+            const _uniteChoisie = _fen0.unite;
+            const fenM1 = _fen0.m1;
             if (fenM1.length < 8 || !brut.some(c => c.t <= t0)) {
               _echec('Réaction indisponible : les cotations à la minute ne couvrent plus l\'heure de cette publication.');
               return;
             }
-            const fen = _agregeBougies(fenM1, 5);
+            const fen = _uniteChoisie === 1 ? fenM1 : _agregeBougies(fenM1, 5);
             const majBougies = _dessinerReaction(hote, fen, t0, _paire);
             // RATTRAPAGE. Le flux étant différé, les minutes qui suivent la publication n'existent
             // pas encore au premier affichage : sans ce rappel, le lecteur verrait un graphique
@@ -3376,7 +3400,10 @@ function buildNewsItem(item) {
                   // Le rattrapage doit REGROUPER COMME LE PREMIER TRACÉ : renvoyer des bougies
                   // d'une minute à un graphique dessiné en cinq minutes le ferait changer d'unité
                   // tout seul sous les yeux du lecteur.
-                  const f2 = _agregeBougies(_fenetreReaction((d2 && d2.candles) || []), 5);   // MÊME fenêtre que le 1er tracé (dont le re-fenêtrage marché fermé)
+                  // MÊME fenêtre ET MÊME unité que le 1er tracé (unité verrouillée : jamais de
+                  // changement de regroupement sous les yeux du lecteur).
+                  const _r2 = _fenetreReaction((d2 && d2.candles) || [], _uniteChoisie);
+                  const f2 = _uniteChoisie === 1 ? _r2.m1 : _agregeBougies(_r2.m1, 5);
                   if (f2.length && typeof majBougies === 'function') majBougies(f2);
                 })
                 .catch(() => {});
@@ -3390,7 +3417,7 @@ function buildNewsItem(item) {
       // SEULEMENT la section « Impact marché » de l'analyse : de son intertitre à la fin (elle clôt
       // l'analyse par construction, EVA v9). Aucun fetch : tout est déjà attaché à la news.
       // v11 : l'impact est MULTILIGNE (verdict gras, mécanisme, actifs fléchés) : une puce par ligne.
-      expandEl.innerHTML = _nrxQuand('Impact marché', item._anaAt || item.timestamp)
+      expandEl.innerHTML = _nrxQuand('Impact marché', item._impAt || item._anaAt || item.timestamp)
         + _renderInfoBullets(['Impact marché :', ...String(item._impact || '').split('\n').filter(Boolean)]);
       _dtpTranslateQuotes(expandEl);
       expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
@@ -9099,10 +9126,11 @@ function _dessinerReaction(hote, candles, t0, paire) {
   // le mouvement d'une publication se compte en fractions de centième. Les paires en yen se cotent
   // à trois décimales, toutes les autres à cinq.
   const _yen = /JPY/.test(String(paire || ''));
+  const _or = /XAU/.test(String(paire || ''));   // l'or cote en dollars entiers : « 4400,30 », pas « 4400,30000 »
   const serie = chart.addCandlestickSeries({
     upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
     wickUpColor: '#22c55e', wickDownColor: '#ef4444',
-    priceFormat: { type: 'price', precision: _yen ? 3 : 5, minMove: _yen ? 0.001 : 0.00001 },
+    priceFormat: { type: 'price', precision: _or ? 2 : _yen ? 3 : 5, minMove: _or ? 0.01 : _yen ? 0.001 : 0.00001 },
   });
   // La bibliothèque exige des SECONDES, triées et sans doublon : un horodatage répété la fait
   // lever une exception et le panneau resterait vide.
