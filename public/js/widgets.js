@@ -4622,18 +4622,12 @@
             // manquait sur les widgets sans réglages — Force des Devises notamment (constat user).
             var acts = document.createElement('span');
             acts.className = 'wdg-subgear wdgt-subacts';           // .wdg-subgear = cible du balayage
-            /* AIDE (21/08) : le bouton existait sur l'en-tête d'une carte mais PAS ici. Or un
-               panneau à onglets empile plusieurs widgets sous des étiquettes courtes (FORCE, MONDE)
-               qui ne disent rien de ce qu'ils font : c'est justement là qu'on a le plus besoin de
-               savoir. Placé EN PREMIER, comme sur les cartes : on cherche à comprendre avant de
-               régler. Il vise le widget par son IDENTITÉ, un sous-widget n'ayant pas d'index dans
-               la disposition. */
-            var _a = document.createElement('button');
-            _a.className = 'wdg-ico wdg-ico--aide';
-            _a.title = 'À quoi sert ce widget ? · ' + w.name;
-            _a.innerHTML = ICO.aide;
-            _a.addEventListener('click', function (ev) { ev.stopPropagation(); API.aideDe(w.id); });
-            acts.appendChild(_a);
+            /* ORDRE CANONIQUE DU CLUSTER (22/08, capture user : deux panneaux affichaient deux
+               ordres differents — « pour tous les widgets met pareil ») : Réglages → Remplacer →
+               Aide → Fermer, IDENTIQUE a l'en-tete de carte (l.~5180). D'abord ce qui MODIFIE le
+               widget, puis l'aide, et la fermeture toujours a l'extreme droite. L'aide reste
+               presente partout ; elle vise le widget par son IDENTITÉ, un sous-widget n'ayant pas
+               d'index dans la disposition. */
             if (w.opts && w.opts.length) {
               var g = document.createElement('button');
               g.className = 'wdg-ico'; g.title = 'Réglages · ' + w.name; g.innerHTML = ICO.gear;
@@ -4652,6 +4646,15 @@
               if (c == null) _pickTabFor(it, actIdx); else _pickCellFor(it, actIdx, c);
             });
             acts.appendChild(r);
+            // AIDE (21/08) : presente sur TOUS les widgets — un panneau a onglets empile des
+            // widgets sous des etiquettes courtes (FORCE, MONDE) qui ne disent rien de ce qu'ils
+            // font, c'est la qu'on en a le plus besoin. Avant-derniere, juste avant la croix.
+            var _a = document.createElement('button');
+            _a.className = 'wdg-ico wdg-ico--aide';
+            _a.title = 'À quoi sert ce widget ? · ' + w.name;
+            _a.innerHTML = ICO.aide;
+            _a.addEventListener('click', function (ev) { ev.stopPropagation(); API.aideDe(w.id); });
+            acts.appendChild(_a);
             var x = document.createElement('button');
             x.className = 'wdg-ico';
             x.title = 'Retirer ' + w.name + (c == null ? ' : l\'onglet reste' : ' : la case reste');
