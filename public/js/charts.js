@@ -2096,8 +2096,14 @@ function buildRiskHistoryChart(containerId, data) {
   xAxis.set('periodChangeDateFormats', { day: 'MM-dd', week: 'MM-dd', month: 'MM-dd' });
 
   // Axe Y : Sentiment (%) de -100 à +100
-  const yRenderer = am5xy.AxisRendererY.new(root, { opposite: false, inside: false, minWidth: 40 });   // axe Y (Sentiment %) à GAUCHE
-  yRenderer.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9, paddingLeft: 4, paddingRight: 8 });   /* espace le "100%" de la ligne d'axe (look pro) */
+  const yRenderer = am5xy.AxisRendererY.new(root, { opposite: false, inside: false, minWidth: 22 });   // axe Y (Sentiment %) à GAUCHE
+  /* ⚠️ CHIFFRES DE L'AXE Y RETIRÉS (22/08, demande user : « le 100 est sur une ligne, garde le côté
+     minimaliste »). Sur cette bande de FOND, courte par nature, l'axe ne pouvait souvent afficher
+     qu'un seul label — « 100% » — posé tout seul sur la ligne du haut, ce qui faisait bâclé. La
+     bande n'a pas besoin de son échelle chiffrée : le titre « Sentiment (%) », la ligne de zéro et
+     la couleur des barres (vert au-dessus, rouge en dessous) disent déjà tout. On retire donc les
+     nombres et on garde l'essentiel. minWidth réduit à 22 px : la place gagnée revient au tracé. */
+  yRenderer.labels.template.setAll({ visible: false, forceHidden: true });
   yRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeWidth: 1, strokeDasharray: [] });   // grille continue TRÈS discrète (le « 0% » = l'axe orange fin ci-dessous)
   const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
     min: -100, max: 100, strictMinMax: true, numberFormat: "#'%'", renderer: yRenderer,

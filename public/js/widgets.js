@@ -5170,18 +5170,19 @@
         // de la personnalisation, il ne devait pas coûter deux clics et l'ouverture d'un panneau.
         // Dupliquer, Plein écran et Verrouiller restent dans les Réglages, où ils sont LIBELLÉS.
         +   '<span class="wdg-actions">'
-        // AIDE (21/08, demande user) : TOUJOURS présente, sur tous les widgets sans exception. Un
-        // bouton d'aide qui n'apparaît que sur certains laisse croire que les autres n'en ont pas
-        // besoin, alors que ce sont souvent les plus denses. Placée en PREMIER : on cherche à
-        // comprendre avant de régler.
-        +     '<button class="wdg-ico wdg-ico--aide" title="À quoi sert ce widget ?" onclick="DTPWidgets.aide(' + idx + ')">' + ICO.aide + '</button>'
-        // ENGRENAGE SEULEMENT S'IL SERT (04/08, demande user + exemples à l'appui) : un widget sans
-        // réglage déclaré n'affiche pas de bouton qui ouvrirait un panneau vide (rapports
-        // Institutions/Analystes, Baromètre…). Le ✕ de retrait, lui, est TOUJOURS là.
+        // ORDRE INTUITIF DU CLUSTER (22/08, demande user « ordonne mieux les boutons ») :
+        // d'abord les commandes qui MODIFIENT le widget (Réglages, puis Remplacer) — regroupées
+        // parce qu'elles répondent à la même intention « ajuster cet emplacement » ; ensuite l'AIDE
+        // (informative, occasionnelle) ; enfin la FERMETURE, action terminale toujours à l'extrême
+        // droite. L'aide reste présente sur TOUS les widgets sans exception, elle passe simplement
+        // d'un « d'abord » peu naturel à sa place logique, juste avant la croix.
+        // ENGRENAGE SEULEMENT S'IL SERT (04/08) : un widget sans réglage déclaré n'affiche pas un
+        // bouton qui ouvrirait un panneau vide (rapports Institutions/Analystes, Baromètre…).
         +     (((w.opts && w.opts.length) || w.id === 'onglets')
                 ? '<button class="wdg-ico" title="Réglages du widget" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
                 : '')
         +     '<button class="wdg-ico" title="Remplacer par un autre widget" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
+        +     '<button class="wdg-ico wdg-ico--aide" title="À quoi sert ce widget ?" onclick="DTPWidgets.aide(' + idx + ')">' + ICO.aide + '</button>'
         +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer ce widget') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
         + '</header>'

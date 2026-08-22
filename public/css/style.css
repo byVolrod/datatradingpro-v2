@@ -19220,3 +19220,59 @@ html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, 
 html[data-theme="light"] .panel-title::before,
 html[data-theme="light"] .chart-header-title::before,
 html[data-theme="light"] .wdg-title::before { background: linear-gradient(180deg, #b8860b, #8a6a12); }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   HARMONISATION DIMENSIONNELLE — DESIGN SYSTEM (22/08, demande user : « donner l'impression d'un
+   véritable design system, composants cohérents, alignés et proportionnés, desktop ET mobile »)
+
+   Constat mesuré : le bouton-icône d'en-tête .wdg-ico était défini CINQ fois avec des tailles
+   différentes (18×18, 22×22, 30×28, 36×36, plus des variantes larges) réparties dans le fichier et
+   dans des media-queries dont certaines étaient déjà mortes (écrasées par une règle plus tardive —
+   piège connu du desk). Résultat : selon la vue, le même bouton n'avait pas la même taille.
+   Ce bloc, placé EN DERNIER (donc vainqueur du cascade, y compris sur mobile où les @media
+   n'ajoutent aucune spécificité), fixe UNE taille canonique, CARRÉE, pilotée par tokens. On ne
+   touche ni aux couleurs, ni à la typo, ni aux effets, ni à la logique : seulement les dimensions.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+:root {
+  --ico-btn:      24px;   /* bouton-icône d'en-tête (aide/réglages/remplacer/fermer) — CARRÉ, valeur UNIQUE */
+  --ico-btn-tap:  36px;   /* même bouton sur écran tactile — aligné sur .topbar-icon (36px), cohérence de tap */
+  --ico-svg:      15px;   /* glyphe SVG dans un bouton-icône (repos desktop) */
+  --ico-svg-tap:  16px;   /* glyphe sur tactile — aligné sur .topbar-icon svg (16px) */
+  --tab-fs:       11px;   /* taille de police UNIQUE des onglets de panneau (.wdgt-tab) */
+}
+
+/* ── Cluster de commandes d'en-tête : un carré unique partout ─────────────────────────────────── */
+.wdg-ico, .wdg-step {
+  width: var(--ico-btn); height: var(--ico-btn);
+  border-radius: var(--r-2, 4px);
+  font-size: var(--ico-svg);
+}
+.wdg-ico svg, .wdg-step svg { width: var(--ico-svg); height: var(--ico-svg); }
+.wdg-ico--x { font-size: var(--ico-svg); }   /* la croix cesse d'être un cran plus grosse que ses voisines */
+.wdg-actions { gap: var(--sp-05, 2px); }      /* espacement du cluster UNIFIÉ (fini le 1px/3px selon la vue) */
+
+/* ── Onglets de panneau : une seule taille de police + un seul letter-spacing ───────────────────── */
+.wdgt-tab { font-size: var(--tab-fs); letter-spacing: .05em; }
+
+/* ── Écran tactile / mobile : la ZONE de tap grandit, le glyphe suit le token, la densité reste ──
+   (regroupe et rend cohérents les .wdg-ico 22/30/36 épars ; nothing overrides this block) */
+@media (hover: none), (pointer: coarse), (max-width: 768px) {
+  .wdg-ico, .wdg-step, .wdg-grip { width: var(--ico-btn-tap); height: var(--ico-btn-tap); }
+  .wdg-ico svg, .wdg-step svg { width: var(--ico-svg-tap); height: var(--ico-svg-tap); }
+  .wdg-ico--x { font-size: var(--ico-svg-tap); }
+  .wdg-actions { gap: var(--sp-1, 4px); }   /* un peu plus d'air entre cibles tactiles */
+}
+
+/* ═══ LISIBILITÉ MOBILE — FIL D'ACTUALITÉ & DÉFILEMENT (22/08, captures user : titres coupés à
+   droite, défilement peu fluide) ══════════════════════════════════════════════════════════════ */
+@media (max-width: 560px) {
+  /* Le titre ne doit JAMAIS toucher le bord droit ni déborder : il enveloppe, et un mot trop long
+     (URL, nom propre collé) casse proprement au lieu de filer hors écran. */
+  .news-item .news-headline { overflow-wrap: anywhere; word-break: normal; padding-right: 2px; }
+  .news-item .news-content  { min-width: 0; }
+}
+/* Défilement tactile plus doux et confiné (le geste ne « fuit » pas vers le conteneur parent). */
+.news-list, .wdg-body, .wdgt-body, .wdgt-mount, .view-panel, .np-scroll, .wdg-aide-corps {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
