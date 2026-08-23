@@ -2283,6 +2283,30 @@
       mount: function (host, it) {
         var W = this, vivant = true;
         skel(host, 5);
+        /* Mémoire du DIFF (refonte 23/08 « la carte semble figée ») : le re-rendu total toutes
+           les 150 s rendait la ligne qui venait de bouger indiscernable. On ne reconstruit plus
+           qu'au changement de STRUCTURE (paires, tri, présence du verdict ou d'une mini-courbe) ;
+           au tick, on réécrit cours et variation DANS les nœuds existants et on fond (_majFlash)
+           les seules lignes qui ont réellement changé. Le tri « par variation » réordonne presque
+           à chaque tick : le diff RÉINSÈRE les nœuds existants dans le nouvel ordre (appendChild
+           déplace sans recréer) — sans cela le fondu ne survivrait pas au reclassement. */
+        var prevStruct = null, prevVals = null, prevVerd = null;
+
+        /* Mini-courbe par ligne. ⚠️ sparkLast n'est PAS de l'intraday : côté serveur, la série
+           vient du JOURNALIER (yfFetch '1d') et sparkLast = les 30 dernières CLÔTURES quotidiennes
+           rééchantillonnées à 24 points, soit ~6 semaines. Le pied l'étiquette « tendance
+           ~6 semaines » — l'étiqueter « séance » serait un mensonge (mesuré en contre-lecture). */
+        function sparkPts(p) {
+          var a = Array.isArray(p.sparkLast) ? p.sparkLast.map(Number).filter(isFinite) : [];
+          if (a.length < 2) return '';
+          var mn = Math.min.apply(null, a), mx = Math.max.apply(null, a);
+          return a.map(function (v, i) {
+            var x = i / (a.length - 1) * 48;
+            var y = mx > mn ? 13 - (v - mn) / (mx - mn) * 12 : 7;
+            return x.toFixed(1) + ',' + y.toFixed(1);
+          }).join(' ');
+        }
+
         function dessiner() {
           var choisies = opt(it, W, 'ticks') || [];
           if (!choisies.length) { emptyState(host, 'Aucune paire suivie.'); return; }
@@ -2291,31 +2315,113 @@
             return r.json();
           }).then(function (d) {
             if (!vivant || !host.isConnected) return;
-            if (!d || !Array.isArray(d.pairs)) { fallback(host, 'Cotations indisponibles.'); return; }
+            if (!d || !Array.isArray(d.pairs)) { fallback(host, 'Cotations indisponibles.'); prevStruct = null; return; }
             var par = {};
             d.pairs.forEach(function (p) { if (p && p.symbol) par[p.symbol] = p; });
             var lignes = choisies.map(function (sym) { return par[sym] || { symbol: sym, absent: true }; });
             var tri = opt(it, W, 'tri');
             if (tri === 'sym') lignes.sort(function (a, b) { return a.symbol.localeCompare(b.symbol); });
             else if (tri === 'var') lignes.sort(function (a, b) { return (Number(b.changePct) || 0) - (Number(a.changePct) || 0); });
-            var h = '<div class="wdg-tl"><div class="wdg-tl-corps">';
-            lignes.forEach(function (p) {
-              var v = Number(p.changePct), last = Number(p.last);
-              var dec = /JPY/.test(p.symbol) ? 3 : 5;
-              var cls = isFinite(v) ? (v > 0 ? ' est-haut' : v < 0 ? ' est-bas' : '') : '';
-              h += '<div class="wdg-tl-l' + cls + '">'
-                + '<span class="wdg-tl-s">' + esc(p.symbol) + '</span>'
+
+            /* ── Une seule passe de calcul, servie aux DEUX chemins (reconstruction et diff).
+               ⚠️ La source rend NULL pour une variation inconnue, et Number(null) vaut 0 : sans
+               la garde `== null`, une paire sans clôture précédente s'afficherait « +0,00 % »
+               et entrerait dans le verdict comme un zéro CONNU (piège attrapé au banc). */
+            var rows = lignes.map(function (p) {
+              var v = p.changePct == null ? NaN : Number(p.changePct);
+              var last = p.last == null ? NaN : Number(p.last);
+              var pts = p.absent ? '' : sparkPts(p);
+              // Le survol situe la séance dans la tendance : ret1M est déjà servi, rien à payer.
+              var titre = [];
+              if (isFinite(v)) titre.push((v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' % séance');
+              var r1 = p.ret1M == null ? NaN : Number(p.ret1M);
+              if (isFinite(r1)) titre.push((r1 > 0 ? '+' : '') + r1.toFixed(1).replace('.', ',') + ' % sur 1 mois');
+              return { p: p, pts: pts, titre: titre.join(' · '),
+                cls: isFinite(v) ? (v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : '') : '',
                 // Une paire absente de la reponse n est pas une paire a zero : on l affiche vide.
-                + '<span class="wdg-tl-p">' + (isFinite(last) ? last.toFixed(dec) : '--') + '</span>'
-                + '<span class="wdg-tl-v">' + (isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--') + '</span>'
-                + '</div>';
+                prix: isFinite(last) ? last.toFixed(/JPY/.test(p.symbol) ? 3 : 5) : '--',
+                vTxt: isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--',
+                sig: (isFinite(last) ? last : '') + '|' + (isFinite(v) ? v : '') };
             });
-            var maj = '';
-            try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
-            h += '</div><div class="wdg-tl-pied">Variation depuis la clôture précédente'
-              + (maj ? ' &middot; MAJ ' + maj : '') + '</div></div>';
-            host.innerHTML = h;
-          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Cotations indisponibles.'); });
+
+            /* ── VERDICT : qui mène parmi VOS paires, et le niveau d'activité de l'ensemble.
+               Seuils sur la moyenne des |variations| : <0,15 % rien ne bouge encore ·
+               0,15-0,40 % activité ordinaire · >0,40 % séance animée. Factuel, jamais un avis
+               directionnel. Toutes absentes → pas de verdict (silence honnête, même règle que
+               les lignes vides). */
+            var connues = lignes.filter(function (p) { return !p.absent && p.changePct != null && isFinite(Number(p.changePct)); });
+            var vHtml = '', vSous = '';
+            if (connues.length) {
+              var top = connues[0], somme = 0;
+              connues.forEach(function (p) {
+                var x = Math.abs(Number(p.changePct)); somme += x;
+                if (x > Math.abs(Number(top.changePct))) top = p;
+              });
+              var moyAbs = somme / connues.length;
+              var quali = moyAbs < 0.15 ? 'rien ne bouge encore' : moyAbs <= 0.40 ? 'activité ordinaire' : 'séance animée';
+              var tv = Number(top.changePct);
+              vHtml = '<span' + (tv > 0 ? ' class="est-haut"' : tv < 0 ? ' class="est-bas"' : '') + '>' + esc(top.symbol) + '</span>'
+                + ' mène : ' + (tv > 0 ? '+' : '') + tv.toFixed(2).replace('.', ',') + ' % · ' + quali;
+              if (connues.length > 1) vSous = 'Vos ' + connues.length + ' paires bougent de ' + moyAbs.toFixed(2).replace('.', ',') + ' % en moyenne.';
+            }
+
+            // /api/fxlist sert updatedAt en ISO (pas en ms) : Date.parse, repli sur l'heure du fetch.
+            var ts = Date.parse(d.updatedAt || '') || Date.now();
+            // Marqueurs de structure en ordre STABLE (celui du réglage) : sous tri « par
+            // variation », l'ordre d'affichage change à chaque tick et ne doit pas casser le diff.
+            var parSym = {};
+            rows.forEach(function (r) { parSym[r.p.symbol] = r; });
+            var struct = tri + '|' + choisies.join(',') + '|' + (vHtml ? 1 : 0) + (vSous ? 1 : 0) + '|'
+              + choisies.map(function (sym) { var r = parSym[sym]; return !r || r.p.absent ? 'a' : (r.pts ? 's' : 'p'); }).join('');
+
+            var corps = host.querySelector('.wdg-tl .wdg-tl-corps');
+            if (corps && prevStruct === struct) {
+              /* ── DIFF : réinsertion dans le nouvel ordre puis retouche en place. */
+              rows.forEach(function (r) {
+                var el = corps.querySelector('.wdg-tl-l[data-sym="' + r.p.symbol + '"]');
+                if (!el) return;
+                corps.appendChild(el);            // déplace sans recréer : le fondu survit au tri
+                el.classList.toggle('est-haut', r.cls === 'est-haut');
+                el.classList.toggle('est-bas', r.cls === 'est-bas');
+                if (r.titre) el.setAttribute('title', r.titre); else el.removeAttribute('title');
+                var eP = el.querySelector('.wdg-tl-p'); if (eP) eP.textContent = r.prix;
+                var eV = el.querySelector('.wdg-tl-v'); if (eV) eV.textContent = r.vTxt;
+                if (r.pts) {
+                  var pl = el.querySelector('.wdg-tl-spark polyline');
+                  if (pl) pl.setAttribute('points', r.pts);
+                }
+                if (prevVals && prevVals[r.p.symbol] !== r.sig) _majFlash(el);
+              });
+              var vt = host.querySelector('.wdg-tl .wdg-verdict-txt');
+              if (vt && vHtml && vHtml !== prevVerd) { vt.innerHTML = vHtml; _majFlash(vt); }
+              var vsE = host.querySelector('.wdg-tl .wdg-verdict-sous');
+              if (vsE) vsE.textContent = vSous;
+              var sp = host.querySelector('.wdg-tl .wdg-vie');
+              if (sp) { sp.setAttribute('data-ts', ts); sp.textContent = _vie(ts); }
+            } else {
+              var h = '<div class="wdg-tl"><div class="wdg-tl-corps">';
+              rows.forEach(function (r) {
+                h += '<div class="wdg-tl-l wdg-maj-surf' + (r.cls ? ' ' + r.cls : '') + '" data-sym="' + esc(r.p.symbol) + '"'
+                  + (r.titre ? ' title="' + esc(r.titre) + '"' : '') + '>'
+                  + '<span class="wdg-tl-s">' + esc(r.p.symbol) + '</span>'
+                  + (r.pts ? '<svg class="wdg-tl-spark" viewBox="0 0 48 14" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + r.pts + '" fill="none" stroke="currentColor" stroke-width="1"/></svg>' : '')
+                  + '<span class="wdg-tl-p">' + r.prix + '</span>'
+                  + '<span class="wdg-tl-v">' + r.vTxt + '</span>'
+                  + '</div>';
+              });
+              h += '</div>';
+              if (vHtml) {
+                h += '<div class="wdg-verdict"><b class="wdg-verdict-txt wdg-maj-txt">' + vHtml + '</b>'
+                  + (vSous ? '<span class="wdg-verdict-sous">' + esc(vSous) + '</span>' : '') + '</div>';
+              }
+              h += '<div class="wdg-tl-pied">Variation depuis la clôture précédente &middot; mini-courbe : tendance ~6 semaines '
+                + _vieSpan(ts) + '</div></div>';
+              host.innerHTML = h;
+            }
+            prevStruct = struct; prevVerd = vHtml;
+            prevVals = {};
+            rows.forEach(function (r) { prevVals[r.p.symbol] = r.sig; });
+          }).catch(function () { if (vivant && host.isConnected) { fallback(host, 'Cotations indisponibles.'); prevStruct = null; } });
         }
         dessiner();
         var iv = setInterval(function () { if (!document.hidden) dessiner(); }, 150000);
@@ -2846,6 +2952,13 @@
       mount: function (host, it) {
         var W = this, vivant = true;
         skel(host, 6);
+        /* Mémoire du DIFF (23/08) : le re-rendu total toutes les 150 s rendait invisible la tuile
+           qui venait de bouger. ⚠️ Le tri par DÉFAUT est « par variation » : l'ORDRE change
+           presque à chaque tick — un diff « seulement si rien n'a bougé » serait mort-né
+           (contre-lecture). Le diff RÉINSÈRE donc les nœuds existants dans le nouvel ordre
+           (appendChild déplace sans recréer) avant de retoucher leur contenu : le fondu de MAJ
+           survit au reclassement. Changement d'option → reconstruction, comme avant. */
+        var prevStruct = null, prevVals = null, prevVerd = null;
         function dessiner() {
           fetch('/api/fxlist').then(function (r) {
             if (!r.ok) throw new Error('http');
@@ -2854,29 +2967,142 @@
             if (!vivant || !host.isConnected) return;
             // Garde explicite : une reponse sans tableau `pairs` n est pas une reponse vide, c est
             // une panne. On le dit au lieu d afficher une grille vide.
-            if (!d || !Array.isArray(d.pairs) || !d.pairs.length) { fallback(host, 'Variations indisponibles.'); return; }
+            if (!d || !Array.isArray(d.pairs) || !d.pairs.length) { fallback(host, 'Variations indisponibles.'); prevStruct = null; return; }
             var t = d.pairs.slice().filter(function (p) { return p && p.symbol; });
-            if (opt(it, W, 'tri') === 'alpha') t.sort(function (a, b) { return a.symbol.localeCompare(b.symbol); });
+            var triOpt = opt(it, W, 'tri');
+            if (triOpt === 'alpha') t.sort(function (a, b) { return a.symbol.localeCompare(b.symbol); });
             else t.sort(function (a, b) { return (Number(b.changePct) || 0) - (Number(a.changePct) || 0); });
             var tuile = opt(it, W, 'tuile') || 'complet';
-            var h = '<div class="wdg-hm"><div class="wdg-hm-grille' + (tuile !== 'complet' ? ' est-court' : '') + '">';
-            t.forEach(function (p) {
-              var v = Number(p.changePct);
+
+            /* ── VERDICT déterministe, sur les seules variations FINIES (la source rend null
+               quand la clôture précédente manque : jamais comptées, ni dans les extrêmes ni dans
+               les dénominateurs « 6/7 » — contre-lecture). Ligne 1 : meneuse + lanterne + compte
+               hausses/baisses. Ligne 2 : lecture DEVISE de la même donnée. Sous 0,15 % d'ampli-
+               tude max, séance atone : nommer une meneuse à +0,08 % serait du bruit. */
+            var fmtV = function (v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; };
+            // ⚠️ Number(null) vaut 0 : sans la garde `!= null`, une variation ABSENTE entrerait
+            // dans le verdict comme un zéro connu (piège attrapé au banc).
+            var finies = t.filter(function (p) { return p.changePct != null && isFinite(Number(p.changePct)); });
+            var vHtml = '', vSous = '', teteSym = null, queueSym = null;
+            if (finies.length) {
+              var tete = finies[0], queue = finies[0], mobile = finies[0], nbH = 0, nbB = 0;
+              finies.forEach(function (p) {
+                var v = Number(p.changePct);
+                if (v > 0) nbH++; else if (v < 0) nbB++;
+                if (v > Number(tete.changePct)) tete = p;
+                if (v < Number(queue.changePct)) queue = p;
+                if (Math.abs(v) > Math.abs(Number(mobile.changePct))) mobile = p;
+              });
+              if (Math.abs(Number(mobile.changePct)) < 0.15) {
+                vHtml = 'Séance atone : la plus mobile est <span class="est-present">' + esc(mobile.symbol) + '</span> ('
+                  + fmtV(Number(mobile.changePct)) + ')';
+                vSous = 'Aucun croisement ne dépasse 0,15 % de variation.';
+              } else {
+                teteSym = tete.symbol; queueSym = queue.symbol;
+                // Couleur par SIGNE réel : si tout baisse, la « meneuse » n'est pas peinte en vert.
+                var vT = Number(tete.changePct), vQ = Number(queue.changePct);
+                vHtml = '<span' + (vT > 0 ? ' class="est-haut"' : vT < 0 ? ' class="est-bas"' : '') + '>' + esc(tete.symbol) + '</span>'
+                  + ' mène (' + fmtV(vT) + ') · '
+                  + '<span' + (vQ < 0 ? ' class="est-bas"' : vQ > 0 ? ' class="est-haut"' : '') + '>' + esc(queue.symbol) + '</span>'
+                  + ' ferme la marche (' + fmtV(vQ) + ') · '
+                  + nbH + ' hausse' + (nbH > 1 ? 's' : '') + ' / ' + nbB + ' baisse' + (nbB > 1 ? 's' : '');
+                /* Lecture devise : une devise « gagne » un croisement quand elle est la base d'une
+                   hausse ou la contrepartie d'une baisse. Dénominateur = croisements FINIS de la
+                   devise, jamais « 7 » en dur. */
+                var st = {};
+                finies.forEach(function (p) {
+                  if (!p.base || !p.quote) return;
+                  var v = Number(p.changePct);
+                  st[p.base] = st[p.base] || { f: 0, w: 0, t: 0 };
+                  st[p.quote] = st[p.quote] || { f: 0, w: 0, t: 0 };
+                  st[p.base].t++; st[p.quote].t++;
+                  if (v > 0) { st[p.base].f++; st[p.quote].w++; }
+                  else if (v < 0) { st[p.base].w++; st[p.quote].f++; }
+                });
+                var forte = null, faible = null;
+                Object.keys(st).forEach(function (dv) {
+                  var s = st[dv]; if (!s.t) return;
+                  if (!forte || s.f / s.t > forte.s.f / forte.s.t) forte = { dev: dv, s: s };
+                  if (!faible || s.w / s.t > faible.s.w / faible.s.t) faible = { dev: dv, s: s };
+                });
+                if (forte && faible && forte.dev !== faible.dev && forte.s.f > 0 && faible.s.w > 0) {
+                  vSous = forte.dev + ' se renforce sur ' + forte.s.f + '/' + forte.s.t + ' croisements · '
+                    + faible.dev + ' faiblit sur ' + faible.s.w + '/' + faible.s.t + '.';
+                }
+              }
+            }
+
+            /* ── Une seule passe de calcul des tuiles, pour les deux chemins. */
+            var rows = t.map(function (p) {
               // Une variation nulle n est pas la meme chose qu une variation ABSENTE : la source
-              // peut rendre null (cloture precedente inconnue). On l affiche en case eteinte.
+              // peut rendre null (cloture precedente inconnue). On l affiche en case eteinte —
+              // et comme Number(null) vaut 0, la garde `== null` est ce qui rend la case éteinte
+              // réellement atteignable (le banc a montré qu'elle ne l'était pas sans elle).
+              var v = p.changePct == null ? NaN : Number(p.changePct);
               var connu = isFinite(v);
               var a = connu ? Math.min(Math.abs(v) / 0.8, 1) : 0;
-              var fond = !connu ? 'transparent' : (v >= 0 ? 'rgba(0,230,118,' + (0.10 + a * 0.55).toFixed(2) + ')' : 'rgba(255,61,0,' + (0.10 + a * 0.55).toFixed(2) + ')');
-              h += '<div class="wdg-hm-t' + (connu ? '' : ' est-inconnu') + '" style="background:' + fond + '">'
-                + (tuile !== 'var' ? '<span class="wdg-hm-s">' + esc(p.symbol) + '</span>' : '')
-                + (tuile !== 'sym' ? '<span class="wdg-hm-v">' + (connu ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--') + '</span>' : '')
-                + '</div>';
+              // Le survol situe la séance dans la tendance : ret1M déjà servi, zéro appel de plus.
+              var titre = [];
+              if (connu) titre.push(fmtV(v) + ' séance');
+              var r1 = p.ret1M == null ? NaN : Number(p.ret1M);
+              if (isFinite(r1)) titre.push((r1 > 0 ? '+' : '') + r1.toFixed(1).replace('.', ',') + ' % sur 1 mois');
+              return { p: p, connu: connu, titre: titre.join(' · '),
+                fond: !connu ? 'transparent' : (v >= 0 ? 'rgba(0,230,118,' + (0.10 + a * 0.55).toFixed(2) + ')' : 'rgba(255,61,0,' + (0.10 + a * 0.55).toFixed(2) + ')'),
+                vTxt: connu ? fmtV(v) : '--',
+                sig: connu ? String(v) : '' };
             });
-            var maj = '';
-            try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
-            h += '</div><div class="wdg-hm-pied">Variation depuis la clôture précédente' + (maj ? ' &middot; MAJ ' + maj : '') + '</div></div>';
-            host.innerHTML = h;
-          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Variations indisponibles.'); });
+
+            // /api/fxlist sert updatedAt en ISO (pas en ms) : Date.parse, repli sur l'heure du fetch.
+            var ts = Date.parse(d.updatedAt || '') || Date.now();
+            // Identité de structure : options + ENSEMBLE des symboles (ordre stable : trié), pas
+            // l'ordre d'affichage — c'est justement lui qui bouge à chaque tick.
+            var struct = triOpt + '|' + tuile + '|' + (vHtml ? 1 : 0) + (vSous ? 1 : 0) + '|'
+              + t.map(function (p) { return p.symbol; }).sort().join(',');
+
+            var grille = host.querySelector('.wdg-hm .wdg-hm-grille');
+            if (grille && prevStruct === struct) {
+              /* ── DIFF : réinsertion dans le nouvel ordre puis retouche en place. */
+              rows.forEach(function (r) {
+                var el = grille.querySelector('.wdg-hm-t[data-sym="' + r.p.symbol + '"]');
+                if (!el) return;
+                grille.appendChild(el);           // déplace sans recréer : le fondu survit au tri
+                el.style.background = r.fond;
+                el.classList.toggle('est-inconnu', !r.connu);
+                el.classList.toggle('est-tete', r.p.symbol === teteSym);
+                el.classList.toggle('est-queue', r.p.symbol === queueSym);
+                if (r.titre) el.setAttribute('title', r.titre); else el.removeAttribute('title');
+                var eV = el.querySelector('.wdg-hm-v'); if (eV) eV.textContent = r.vTxt;
+                if (prevVals && prevVals[r.p.symbol] !== r.sig) _majFlash(el);
+              });
+              var vt = host.querySelector('.wdg-hm .wdg-verdict-txt');
+              if (vt && vHtml && vHtml !== prevVerd) { vt.innerHTML = vHtml; _majFlash(vt); }
+              var vsE = host.querySelector('.wdg-hm .wdg-verdict-sous');
+              if (vsE) vsE.textContent = vSous;
+              var sp = host.querySelector('.wdg-hm .wdg-vie');
+              if (sp) { sp.setAttribute('data-ts', ts); sp.textContent = _vie(ts); }
+            } else {
+              var h = '<div class="wdg-hm"><div class="wdg-hm-grille' + (tuile !== 'complet' ? ' est-court' : '') + '">';
+              rows.forEach(function (r) {
+                h += '<div class="wdg-hm-t wdg-maj-surf' + (r.connu ? '' : ' est-inconnu')
+                  + (r.p.symbol === teteSym ? ' est-tete' : '') + (r.p.symbol === queueSym ? ' est-queue' : '')
+                  + '" data-sym="' + esc(r.p.symbol) + '" style="background:' + r.fond + '"'
+                  + (r.titre ? ' title="' + esc(r.titre) + '"' : '') + '>'
+                  + (tuile !== 'var' ? '<span class="wdg-hm-s">' + esc(r.p.symbol) + '</span>' : '')
+                  + (tuile !== 'sym' ? '<span class="wdg-hm-v">' + r.vTxt + '</span>' : '')
+                  + '</div>';
+              });
+              h += '</div>';
+              if (vHtml) {
+                h += '<div class="wdg-verdict"><b class="wdg-verdict-txt wdg-maj-txt">' + vHtml + '</b>'
+                  + (vSous ? '<span class="wdg-verdict-sous">' + esc(vSous) + '</span>' : '') + '</div>';
+              }
+              h += '<div class="wdg-hm-pied">Variation depuis la clôture précédente ' + _vieSpan(ts) + '</div></div>';
+              host.innerHTML = h;
+            }
+            prevStruct = struct; prevVerd = vHtml;
+            prevVals = {};
+            rows.forEach(function (r) { prevVals[r.p.symbol] = r.sig; });
+          }).catch(function () { if (vivant && host.isConnected) { fallback(host, 'Variations indisponibles.'); prevStruct = null; } });
         }
         dessiner();
         // 150 s : le pas du tick serveur. Plus court ne relirait que le meme cache.
@@ -3349,19 +3575,34 @@
       ],
       mount: function (host, it) {
         var W = this, vivant = true;
-        host.innerHTML = '<div class="wdg-tick"><div class="wdg-tick-piste"></div></div>';
-        var piste = host.querySelector('.wdg-tick-piste');
         var PX = { lent: 35, normal: 55, rapide: 85 };
+        /* Mémoire du DIFF (23/08, fin du SAUT de bande) : reconstruire la piste toutes les 60 s
+           PUIS recalculer --wdg-tick-dur repositionnait l'animation CSS en cours — le seul widget
+           animé du lot se recomposait brutalement chaque minute. À sélection et réglages
+           constants, on ne touche plus NI à la piste NI à la durée : cours et variation sont
+           réécrits DANS les segments (les DEUX copies de la boucle), l'animation ne repart
+           jamais. La dérive de largeur quand le NOMBRE de chiffres d'un cours change est réelle
+           mais marginale (tabular-nums) : on l'assume, c'est le prix du défilement continu. */
+        var prevStruct = null, prevVals = null, prevTete = null;
 
-        function seg(x, avecVar, avecCours) {
+        // ⚠️ Number(null) vaut 0 : sans les gardes `== null`, un cours ou une variation ABSENTS
+        // s'afficheraient « 0 » et entreraient dans la pastille comme des zéros connus (banc).
+        function prixTxt(x) {
+          var pv = x.price == null ? NaN : Number(x.price);
+          return isFinite(pv) ? pv.toFixed(Number(x.dec) || 0) : '--';
+        }
+        function chgTxt(x) {
           var y = !!x.yield;
-          var v = Number(x.chg);
-          var cls = v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : '';
-          var txt = (v > 0 ? '+' : '') + (isFinite(v) ? v.toFixed(y ? 2 : 2).replace('.', ',') : '--') + (y ? ' pt' : ' %');
-          return '<span class="wdg-tick-seg ' + cls + '">'
+          var v = x.chg == null ? NaN : Number(x.chg);
+          return (v > 0 ? '+' : '') + (isFinite(v) ? v.toFixed(2).replace('.', ',') : '--') + (y ? ' pt' : ' %');
+        }
+        function seg(x, avecVar, avecCours) {
+          var v = x.chg == null ? NaN : Number(x.chg);
+          var cls = v > 0 ? ' est-haut' : v < 0 ? ' est-bas' : '';
+          return '<span class="wdg-tick-seg wdg-maj-surf' + cls + '" data-label="' + esc(x.label) + '">'
             + '<b>' + esc(x.label) + '</b>'
-            + (avecCours ? '<i>' + (isFinite(Number(x.price)) ? Number(x.price).toFixed(Number(x.dec) || 0) : '--') + '</i>' : '')
-            + (avecVar ? '<u>' + txt + '</u>' : '') + '</span>';
+            + (avecCours ? '<i>' + prixTxt(x) + '</i>' : '')
+            + (avecVar ? '<u>' + chgTxt(x) + '</u>' : '') + '</span>';
         }
 
         function dessiner() {
@@ -3373,20 +3614,91 @@
             });
             // Le serveur rend { items: [] } en cas de panne : une bande vide qui tourne serait pire
             // qu un message honnete.
-            if (!items.length) { fallback(host, 'Cotations indisponibles.'); return; }
+            if (!items.length) { fallback(host, 'Cotations indisponibles.'); prevStruct = null; return; }
             var avecVar = opt(it, W, 'var') !== false;
             var avecCours = opt(it, W, 'cours') !== false;
-            var un = items.map(function (x) { return seg(x, avecVar, avecCours); }).join('');
-            // Contenu DOUBLE : la boucle se referme sans couture visible.
-            piste.innerHTML = un + un;
-            // Vitesse CONSTANTE en px/s : la duree suit la largeur reelle du contenu.
-            requestAnimationFrame(function () {
-              if (!piste.isConnected) return;
-              var w = piste.scrollWidth / 2;
-              var vit = PX[opt(it, W, 'vitesse')] || PX.normal;
-              if (w > 0) piste.style.setProperty('--wdg-tick-dur', Math.max(6, w / vit).toFixed(1) + 's');
+            var vit = opt(it, W, 'vitesse') || 'normal';
+            // /api/ticker sert updatedAt en MILLISECONDES (vérifié serveur) — enfin exploité.
+            var ts = (typeof d.updatedAt === 'number' ? d.updatedAt : Date.parse(d.updatedAt || '')) || Date.now();
+
+            /* ── PASTILLE MENEUSE : plus forte |variation| parmi les actifs COMPARABLES. Le
+               10 ans US est en POINTS, pas en % (piège documenté en tête de widget) : il est
+               exclu de la comparaison dès qu'il n'est pas seul — et une sélection 100 %
+               rendement n'a pas de pastille (comparer est impossible, silence honnête). */
+            var top = null;
+            items.forEach(function (x) {
+              if (x.yield) return;
+              var v = x.chg == null ? NaN : Number(x.chg);
+              if (!isFinite(v)) return;
+              if (!top || Math.abs(v) > Math.abs(Number(top.chg))) top = x;
             });
-          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Cotations indisponibles.'); });
+
+            var struct = items.map(function (x) { return x.label; }).join('\u0001')
+              + '|' + (avecVar ? 1 : 0) + (avecCours ? 1 : 0) + '|' + vit + '|' + (top ? 1 : 0);
+
+            var racine = host.querySelector('.wdg-tick');
+            var piste = racine ? racine.querySelector('.wdg-tick-piste') : null;
+            if (racine && piste && prevStruct === struct) {
+              /* ── DIFF : réécriture en place, l'animation ne bouge pas d'un pixel. */
+              items.forEach(function (x) {
+                var v = x.chg == null ? NaN : Number(x.chg);
+                var sig = String(x.price) + '|' + String(x.chg);
+                piste.querySelectorAll('.wdg-tick-seg[data-label="' + x.label + '"]').forEach(function (el) {
+                  el.classList.toggle('est-haut', v > 0);
+                  el.classList.toggle('est-bas', v < 0);
+                  var eI = el.querySelector('i'); if (eI) eI.textContent = prixTxt(x);
+                  var eU = el.querySelector('u'); if (eU) eU.textContent = chgTxt(x);
+                  if (prevVals && prevVals[x.label] !== sig) _majFlash(el);
+                });
+              });
+              if (top) {
+                var tete = racine.querySelector('.wdg-tick-tete');
+                if (tete) {
+                  var vT = Number(top.chg);
+                  tete.classList.toggle('est-haut', vT > 0);
+                  tete.classList.toggle('est-bas', vT < 0);
+                  var fl = tete.querySelector('.wdg-tick-fl'); if (fl) fl.textContent = vT > 0 ? '▲' : vT < 0 ? '▼' : '·';
+                  var eB = tete.querySelector('b'); if (eB) eB.textContent = top.label;
+                  var eU2 = tete.querySelector('u'); if (eU2) eU2.textContent = chgTxt(top);
+                  var sp = tete.querySelector('.wdg-vie');
+                  if (sp) { sp.setAttribute('data-ts', ts); sp.textContent = _vie(ts); }
+                  var tSig = top.label + '|' + top.chg;
+                  if (prevTete != null && prevTete !== tSig) _majFlash(eU2 || tete);
+                  prevTete = tSig;
+                }
+              }
+            } else {
+              /* ── RECONSTRUCTION (premier rendu, retour de panne, sélection/réglage changé) :
+                 seul chemin qui recalcule la durée — donc le seul où l'animation repart. */
+              var un = items.map(function (x) { return seg(x, avecVar, avecCours); }).join('');
+              var teteH = '';
+              if (top) {
+                var v3 = Number(top.chg);
+                teteH = '<div class="wdg-tick-tete' + (v3 > 0 ? ' est-haut' : v3 < 0 ? ' est-bas' : '')
+                  + '" title="Plus forte variation du bandeau">'
+                  + '<i class="wdg-tick-fl">' + (v3 > 0 ? '▲' : v3 < 0 ? '▼' : '·') + '</i>'
+                  + '<b>' + esc(top.label) + '</b>'
+                  + '<u class="wdg-maj-txt">' + chgTxt(top) + '</u>'
+                  + _vieSpan(ts) + '</div>';
+              }
+              // Contenu DOUBLE : la boucle se referme sans couture visible. La fenêtre .wdg-tick-fen
+              // isole le défilement de la pastille fixe.
+              host.innerHTML = '<div class="wdg-tick">' + teteH
+                + '<div class="wdg-tick-fen"><div class="wdg-tick-piste">' + un + un + '</div></div></div>';
+              piste = host.querySelector('.wdg-tick-piste');
+              // Vitesse CONSTANTE en px/s : la duree suit la largeur reelle du contenu.
+              requestAnimationFrame(function () {
+                if (!piste || !piste.isConnected) return;
+                var w = piste.scrollWidth / 2;
+                var v = PX[vit] || PX.normal;
+                if (w > 0) piste.style.setProperty('--wdg-tick-dur', Math.max(6, w / v).toFixed(1) + 's');
+              });
+              prevTete = top ? top.label + '|' + top.chg : null;
+            }
+            prevStruct = struct;
+            prevVals = {};
+            items.forEach(function (x) { prevVals[x.label] = String(x.price) + '|' + String(x.chg); });
+          }).catch(function () { if (vivant && host.isConnected) { fallback(host, 'Cotations indisponibles.'); prevStruct = null; } });
         }
 
         dessiner();
@@ -3419,9 +3731,15 @@
         var W = this, vivant = true;
         var DEV = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
         skel(host, 8);
+        /* Mémoire du DIFF (23/08) : le re-rendu des 64 cellules d'un bloc rendait invisible la
+           cellule qui venait de bouger. Le diff ne s'applique QUE si la structure est identique
+           (options, palier étroit, présence/type de chaque case) — c'est ce qui borne le risque
+           relevé en contre-lecture ; toute autre situation reconstruit, comme avant. */
+        var prevStruct = null, prevVals = null, prevVerd = null;
 
         function fmt(v, q) {
-          if (!isFinite(v)) return '--';
+          // isFinite GLOBAL coerce null en 0 : la garde `== null` évite un toFixed sur null.
+          if (v == null || !isFinite(v)) return '--';
           // Nombre de decimales : /api/fxlist ne sert PAS de champ « dec » (contrairement a /api/ticker).
           // C est donc une convention d affichage, pas une donnee : 3 decimales en JPY, 5 ailleurs.
           return v.toFixed(q === 'JPY' ? 3 : 5);
@@ -3431,7 +3749,7 @@
           fetch('/api/fxlist').then(function (r) { return r.json(); }).then(function (d) {
             if (!vivant || !host.isConnected) return;
             var paires = (d && d.pairs) || [];
-            if (!paires.length) { fallback(host, 'Cotations indisponibles.'); return; }
+            if (!paires.length) { fallback(host, 'Cotations indisponibles.'); prevStruct = null; return; }
             var par = {};
             paires.forEach(function (p) { if (p && p.base && p.quote) par[p.base + p.quote] = p; });
 
@@ -3444,45 +3762,161 @@
             // 64 cases, « tout ce qui touche le dollar » se lit alors d un seul regard.
             var focus = opt(it, W, 'focus') || 'aucune';
 
-            var h = '<div class="wdg-mx"><table class="wdg-mx-t"><thead><tr><th></th>';
-            DEV.forEach(function (q) { h += '<th>' + q + '</th>'; });
-            h += '</tr></thead><tbody>';
+            /* ── PASSE DONNÉES : les 64 cases calculées AVANT de choisir entre reconstruction et
+               diff — une seule vérité pour les deux chemins. L'inversion est calculée MÊME quand
+               la bascule « moitié inversée » est décochée : la bascule gouverne l'AFFICHAGE, pas
+               le verdict devise, qui a besoin des 7 croisements de chaque devise. */
+            /* ⚠️ chg vit en NaN (jamais null) quand il est inconnu : Number(null) vaut 0 et
+               isFinite GLOBAL coerce null en 0 — une case vide compterait alors comme un zéro
+               CONNU dans la moyenne devise (piège attrapé au banc). NaN, lui, échoue proprement
+               à tous les tests isFinite. */
+            var cells = [];
             DEV.forEach(function (b) {
-              h += '<tr><th>' + b + '</th>';
               DEV.forEach(function (q) {
-                if (b === q) { h += '<td class="wdg-mx-diag"></td>'; return; }
-                var p = par[b + q], prix = null, chg = null, inverse = false;
-                if (p) { prix = Number(p.last); chg = Number(p.changePct); }
-                else if (inv && par[q + b]) {
+                if (b === q) { cells.push({ b: b, q: q, diag: true }); return; }
+                var p = par[b + q], prix = null, chg = NaN, inverse = false;
+                if (p) {
+                  prix = p.last == null ? null : Number(p.last);
+                  chg = p.changePct == null ? NaN : Number(p.changePct);
+                }
+                else if (par[q + b]) {
                   var o = par[q + b];
-                  var l = Number(o.last), c = Number(o.changePct);
+                  var l = o.last == null ? NaN : Number(o.last);
+                  var c = o.changePct == null ? NaN : Number(o.changePct);
                   if (isFinite(l) && l !== 0) { prix = 1 / l; inverse = true; }
                   // Inversion EXACTE de la variation : 1/(1+r) - 1, et non -r.
                   if (isFinite(c) && (1 + c / 100) !== 0) { chg = -c / (1 + c / 100); inverse = true; }
                 }
-                if (prix == null && chg == null) { h += '<td class="wdg-mx-vide">--</td>'; return; }
-                var cls = coul && isFinite(chg) ? (chg > 0 ? ' est-haut' : chg < 0 ? ' est-bas' : '') : '';
-                var vedette = focus !== 'aucune' && (b === focus || q === focus);
-                var terne = focus !== 'aucune' && !vedette;
-                h += '<td class="wdg-mx-c' + cls + (inverse ? ' est-inv' : '') + (terne ? ' est-terne' : '') + (vedette ? ' est-vedette' : '') + '">';
-                if (contenu !== 'var') h += '<span class="wdg-mx-p">' + fmt(prix, q) + '</span>';
-                if (contenu !== 'prix') h += '<span class="wdg-mx-v">' + (isFinite(chg) ? (chg > 0 ? '+' : '') + chg.toFixed(etroit ? 1 : 2).replace('.', ',') + '<i class="wdg-mx-u"> %</i>' : '--') + '</span>';
-                h += '</td>';
+                // Case inversée non affichée (bascule décochée) : rendue vide, donnée gardée.
+                var cache = inverse && !inv;
+                cells.push({ b: b, q: q, prix: prix, chg: chg, inverse: inverse,
+                  vide: cache || (prix == null && !isFinite(chg)) });
               });
-              h += '</tr>';
             });
-            h += '</tbody></table><div class="wdg-mx-pied">';
-            var leg = [];
-            if (etroit) leg.push('Variations en %');
-            if (inv) leg.push('les cases à point sont l\'inverse exact du croisement coté');
-            if (leg.length) h += '<span class="wdg-mx-leg">' + leg.join(' &middot; ') + '.</span>';
-            var maj = '';
-            try { maj = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) {}
-            if (maj) h += '<span class="wdg-mx-maj">MAJ ' + maj + '</span>';
-            h += '</div></div>';
-            host.innerHTML = h;
-            palier();
-          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Cotations indisponibles.'); });
+
+            /* ── VERDICT devise, déterministe : moyenne des variations des 7 croisements de
+               chaque devise pris DANS LE SENS D/Q (coté direct ou inversé par la formule exacte
+               ci-dessus). Les changePct non finis sont ignorés, et une devise n'est nommée
+               meneuse/lanterne qu'avec >= 5 croisements finis sur 7 — en dessous, le chiffre
+               serait du bruit présenté en conclusion (règle de la contre-lecture). Sous ±0,10 %
+               de moyenne max : séance étale. Jamais un conseil, un constat de séance. */
+            var moyD = [];
+            DEV.forEach(function (D) {
+              var s = 0, n = 0;
+              cells.forEach(function (c) {
+                if (c.diag || c.b !== D) return;
+                if (isFinite(c.chg)) { s += c.chg; n++; }
+              });
+              if (n >= 5) moyD.push({ dev: D, moy: s / n, n: n });
+            });
+            var fmtM = function (v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; };
+            var vHtml = '', vSous = '', teteDev = null, queueDev = null;
+            if (moyD.length >= 2) {
+              var forte = moyD[0], faible = moyD[0], mob = moyD[0];
+              moyD.forEach(function (m) {
+                if (m.moy > forte.moy) forte = m;
+                if (m.moy < faible.moy) faible = m;
+                if (Math.abs(m.moy) > Math.abs(mob.moy)) mob = m;
+              });
+              if (Math.abs(mob.moy) < 0.10) {
+                vHtml = 'Séance étale : <span class="est-present">' + mob.dev + '</span> la plus mobile à ' + fmtM(mob.moy) + ' en moy.';
+                vSous = 'Aucune devise ne s\'écarte de ±0,10 % en moyenne sur ses croisements.';
+              } else if (forte.dev !== faible.dev) {
+                teteDev = forte.dev; queueDev = faible.dev;
+                vHtml = '<span' + (forte.moy > 0 ? ' class="est-haut"' : forte.moy < 0 ? ' class="est-bas"' : '') + '>' + forte.dev + '</span>'
+                  + ' mène la séance (' + fmtM(forte.moy) + ' en moy. sur ses ' + forte.n + ' croisements) · '
+                  + '<span' + (faible.moy < 0 ? ' class="est-bas"' : faible.moy > 0 ? ' class="est-haut"' : '') + '>' + faible.dev + '</span>'
+                  + ' ferme la marche (' + fmtM(faible.moy) + ')';
+                vSous = 'Moyenne des variations de séance de ses croisements, moitié inversée comprise.';
+              }
+            }
+
+            var celluleV = function (c) {
+              return isFinite(c.chg)
+                ? (c.chg > 0 ? '+' : '') + c.chg.toFixed(etroit ? 1 : 2).replace('.', ',') + '<i class="wdg-mx-u"> %</i>'
+                : '--';
+            };
+            // /api/fxlist sert updatedAt en ISO (pas en ms) : Date.parse, repli sur l'heure du fetch.
+            var ts = Date.parse(d.updatedAt || '') || Date.now();
+            var struct = contenu + '|' + (coul ? 1 : 0) + (inv ? 1 : 0) + '|' + focus + '|' + (etroit ? 1 : 0)
+              + '|' + (vHtml ? 1 : 0) + (vSous ? 1 : 0) + '|'
+              + cells.map(function (c) {
+                  return c.diag ? 'd' : c.vide ? 'v'
+                    : (isFinite(c.chg) ? 'c' : 'x') + (c.prix != null ? 'p' : '') + (c.inverse ? 'i' : '');
+                }).join('');
+
+            var racine = host.querySelector('.wdg-mx');
+            if (racine && prevStruct === struct) {
+              /* ── DIFF à structure constante : cours et variation réécrits en place, classes
+                 sémantiques rejouées, fondu sur les seules cases qui ont bougé. */
+              cells.forEach(function (c) {
+                if (c.diag || c.vide) return;
+                var el = racine.querySelector('td[data-cle="' + c.b + c.q + '"]');
+                if (!el) return;
+                if (coul) {
+                  el.classList.toggle('est-haut', isFinite(c.chg) && c.chg > 0);
+                  el.classList.toggle('est-bas', isFinite(c.chg) && c.chg < 0);
+                }
+                var eP = el.querySelector('.wdg-mx-p'); if (eP) eP.textContent = fmt(c.prix, c.q);
+                var eV = el.querySelector('.wdg-mx-v'); if (eV) eV.innerHTML = celluleV(c);
+                var sig = c.prix + '|' + c.chg;
+                if (prevVals && prevVals[c.b + c.q] !== sig) _majFlash(el);
+              });
+              // Soulignés meneuse/lanterne rejoués sur les en-têtes (ligne ET colonne).
+              racine.querySelectorAll('th[data-dev]').forEach(function (th) {
+                var dv = th.getAttribute('data-dev');
+                th.classList.toggle('est-tete', dv === teteDev);
+                th.classList.toggle('est-queue', dv === queueDev);
+              });
+              var vt = racine.querySelector('.wdg-verdict-txt');
+              if (vt && vHtml && vHtml !== prevVerd) { vt.innerHTML = vHtml; _majFlash(vt); }
+              var vsE = racine.querySelector('.wdg-verdict-sous');
+              if (vsE) vsE.textContent = vSous;
+              var sp = racine.querySelector('.wdg-vie');
+              if (sp) { sp.setAttribute('data-ts', ts); sp.textContent = _vie(ts); }
+            } else {
+              var thCls = function (dv) {
+                return dv === teteDev ? ' class="est-tete"' : dv === queueDev ? ' class="est-queue"' : '';
+              };
+              var h = '<div class="wdg-mx"><table class="wdg-mx-t"><thead><tr><th></th>';
+              DEV.forEach(function (q) { h += '<th data-dev="' + q + '"' + thCls(q) + '>' + q + '</th>'; });
+              h += '</tr></thead><tbody>';
+              DEV.forEach(function (b) {
+                h += '<tr><th data-dev="' + b + '"' + thCls(b) + '>' + b + '</th>';
+                cells.forEach(function (c) {
+                  if (c.b !== b) return;
+                  if (c.diag) { h += '<td class="wdg-mx-diag"></td>'; return; }
+                  if (c.vide) { h += '<td class="wdg-mx-vide">--</td>'; return; }
+                  var cls = coul && isFinite(c.chg) ? (c.chg > 0 ? ' est-haut' : c.chg < 0 ? ' est-bas' : '') : '';
+                  var vedette = focus !== 'aucune' && (c.b === focus || c.q === focus);
+                  var terne = focus !== 'aucune' && !vedette;
+                  h += '<td class="wdg-mx-c wdg-maj-surf' + cls + (c.inverse ? ' est-inv' : '') + (terne ? ' est-terne' : '') + (vedette ? ' est-vedette' : '')
+                    + '" data-cle="' + c.b + c.q + '">';
+                  if (contenu !== 'var') h += '<span class="wdg-mx-p">' + fmt(c.prix, c.q) + '</span>';
+                  if (contenu !== 'prix') h += '<span class="wdg-mx-v">' + celluleV(c) + '</span>';
+                  h += '</td>';
+                });
+                h += '</tr>';
+              });
+              h += '</tbody></table>';
+              if (vHtml) {
+                h += '<div class="wdg-verdict"><b class="wdg-verdict-txt wdg-maj-txt">' + vHtml + '</b>'
+                  + (vSous ? '<span class="wdg-verdict-sous">' + esc(vSous) + '</span>' : '') + '</div>';
+              }
+              h += '<div class="wdg-mx-pied">';
+              var leg = [];
+              if (etroit) leg.push('Variations en %');
+              if (inv) leg.push('les cases à point sont l\'inverse exact du croisement coté');
+              if (leg.length) h += '<span class="wdg-mx-leg">' + leg.join(' &middot; ') + '.</span>';
+              h += '<span class="wdg-mx-maj">' + _vieSpan(ts) + '</span>';
+              h += '</div></div>';
+              host.innerHTML = h;
+              palier();
+            }
+            prevStruct = struct; prevVerd = vHtml;
+            prevVals = {};
+            cells.forEach(function (c) { if (!c.diag && !c.vide) prevVals[c.b + c.q] = c.prix + '|' + c.chg; });
+          }).catch(function () { if (vivant && host.isConnected) { fallback(host, 'Cotations indisponibles.'); prevStruct = null; } });
         }
 
         dessiner();

@@ -17880,6 +17880,8 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 .wdg-mx-leg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wdg-mx-maj { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 /* Carte etroite : le cours cede, la grille reste ENTIERE. Une matrice tronquee ne vaut rien.
+   (Commentaire referme le 23/08 : il restait OUVERT et avalait les 5 regles suivantes — le mode
+   etroit ne masquait pas les cours et le « % » des 64 cellules rendait en italique.) */
 .wdg-mx.est-etroit .wdg-mx-p { display: none; }
 .wdg-mx.est-etroit .wdg-mx-t { font-size: 9.5px; }
 .wdg-mx.est-etroit .wdg-mx-v { font-size: 9.5px; color: var(--txt-2, #9aa1ac); }
@@ -19529,3 +19531,59 @@ html[data-theme="light"] .wdg-verdict .est-present { color: #816521; }
 @media (prefers-reduced-motion: reduce) {
   .wdg-freq-rep.est-auj, .wdg-di-auj, .wdg-as-auj { transition: none; }
 }
+
+/* ═══ FAMILLE MARCHÉ LIVE : le PRÉSENT sur les 4 cartes de cotations (23/08) ════════════════════
+   Complète la GRAMMAIRE COMMUNE DE VIE (verdicts .wdg-verdict, fondu .est-maj, horodatage
+   .wdg-vie) : mini-courbes de la Liste de suivi, meneuse/lanterne de la Carte de chaleur et de
+   la Matrice, pastille fixe du Bandeau. En FIN de feuille, règle du projet. */
+/* Liste de suivi : mini-courbe par ligne. ⚠️ Donnée QUOTIDIENNE (~6 semaines), pas de l'intraday
+   — le pied de carte porte la légende. Couleur héritée de la ligne : les règles historiques
+   (l.18135+) ne colorent que .wdg-tl-v, l'enfant, jamais la ligne — d'où ces règles dédiées. */
+.wdg-tl-spark { flex: 0 0 48px; width: 48px; height: 14px; align-self: center; color: var(--txt-3, #6b7280); opacity: .9; }
+.wdg-tl-spark polyline { fill: none; stroke: currentColor; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.wdg-tl-l.est-haut .wdg-tl-spark { color: #00e676; }
+.wdg-tl-l.est-bas .wdg-tl-spark { color: #ff3d00; }
+html[data-theme="light"] .wdg-tl-l.est-haut .wdg-tl-spark { color: #00783d; }
+html[data-theme="light"] .wdg-tl-l.est-bas .wdg-tl-spark { color: #c73000; }
+/* Carte de chaleur : liseré sur la meneuse (or DTP, doctrine « présent marqué ») et la lanterne
+   (rouge charte). Bordures, pas du texte : mêmes valeurs dans les deux thèmes sauf l'or, illisible
+   sur fond clair (leçon de l'audit thème clair). */
+.wdg-hm-t.est-tete { box-shadow: inset 0 0 0 1px rgba(227, 178, 58, .55); }
+.wdg-hm-t.est-queue { box-shadow: inset 0 0 0 1px rgba(255, 61, 0, .45); }
+html[data-theme="light"] .wdg-hm-t.est-tete { box-shadow: inset 0 0 0 1px rgba(129, 101, 33, .65); }
+/* Matrice : soulignés sémantiques sous les en-têtes (ligne ET colonne) de la devise qui mène et
+   de celle qui ferme la marche — la table entière se met à porter la conclusion du verdict. */
+.wdg-mx-t th.est-tete { box-shadow: inset 0 -2px 0 #00e676; }
+.wdg-mx-t th.est-queue { box-shadow: inset 0 -2px 0 #ff3d00; }
+html[data-theme="light"] .wdg-mx-t th.est-tete { box-shadow: inset 0 -2px 0 #00783d; }
+html[data-theme="light"] .wdg-mx-t th.est-queue { box-shadow: inset 0 -2px 0 #c73000; }
+/* Bandeau : pastille FIXE à gauche (plus forte variation comparable) + fenêtre de défilement.
+   .wdg-tick-fen est en flex pour que la piste garde sa largeur de CONTENU : translateX(-50%)
+   se mesure sur la piste elle-même, la boucle reste sans couture. Le masque fond l'entrée des
+   segments sous la pastille. */
+.wdg-tick-tete { flex: 0 0 auto; display: inline-flex; align-items: baseline; gap: 6px; padding: 0 12px 0 8px;
+  border-right: 1px solid var(--hud-line); font-size: 11.5px; }
+.wdg-tick-tete b { color: var(--txt-1, #e6e8eb); font-weight: 600; letter-spacing: .02em; }
+.wdg-tick-fl { font-style: normal; font-size: 9px; }
+.wdg-tick-tete u { text-decoration: none; font-variant-numeric: tabular-nums; font-size: 10.5px; color: var(--txt-3, #6b7280); }
+.wdg-tick-tete.est-haut .wdg-tick-fl, .wdg-tick-tete.est-haut u { color: #00e676; }
+.wdg-tick-tete.est-bas .wdg-tick-fl, .wdg-tick-tete.est-bas u { color: #ff3d00; }
+html[data-theme="light"] .wdg-tick-tete.est-haut .wdg-tick-fl, html[data-theme="light"] .wdg-tick-tete.est-haut u { color: #00783d; }
+html[data-theme="light"] .wdg-tick-tete.est-bas .wdg-tick-fl, html[data-theme="light"] .wdg-tick-tete.est-bas u { color: #c73000; }
+.wdg-tick-fen { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; overflow: hidden; align-self: stretch; }
+/* Fondu d'entrée des segments SOUS la pastille seulement : sans pastille (sélection 100 %
+   rendement), un bord qui s'efface n'aurait aucune raison d'être. */
+.wdg-tick-tete + .wdg-tick-fen {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px); mask-image: linear-gradient(90deg, transparent, #000 14px); }
+/* Matrice et Bandeau n'étaient pas encore des conteneurs dtpw (contrairement aux cartes de la
+   vague 1) : requis pour que leurs verdicts cèdent en carte basse/étroite. */
+.wdg-mx, .wdg-tick { container-type: size; container-name: dtpw; }
+/* Carte basse : le verdict cède au seuil du pied de chaque carte (les chiffres, jamais). La
+   matrice n'a pas de seuil de pied existant : 280 px = la table de 9 rangées plus le pied, mesuré
+   avec les tailles de police du bloc historique. Le bandeau vit en 64 px de HAUT : c'est la
+   LARGEUR qui manque en carte étroite, la pastille cède donc en max-width. */
+@container dtpw (max-height: 250px) { .wdg-hm .wdg-verdict { display: none; } }
+@container dtpw (max-height: 140px) { .wdg-tl .wdg-verdict { display: none; } }
+@container dtpw (max-height: 280px) { .wdg-mx .wdg-verdict { display: none; } }
+@container dtpw (max-width: 340px) { .wdg-tick-tete { display: none; } }
+@container dtpw (max-width: 240px) { .wdg-tl-spark { display: none; } }
