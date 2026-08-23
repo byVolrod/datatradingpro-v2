@@ -804,6 +804,170 @@
   }
   /* ═══ fin verdicts calendrier & séries ═══ */
 
+  /* ═══ CALCULS DÉTERMINISTES — CORRÉLATIONS, HEURES, SURPRISES, SEMAINE (23/08) ═══════════════
+     Quatrième famille de helpers PURS (aucun DOM), testables au banc, même doctrine que les
+     trois familles au-dessus : chaque garde a sa raison écrite, et le silence chiffré vaut
+     toujours mieux qu'un chiffre approximatif. */
+
+  /* Rendements quotidiens ln(c/c_prev) d'une série D1, indexés par JOUR UTC (clé ISO du jour de
+     la bougie d'ARRIVÉE). L'appariement inter-paires se fera par ces clés : deux tableaux Yahoo
+     peuvent différer d'une séance (trou de cotation), et un appariement par INDEX décalerait
+     toute la corrélation en silence (même piège que l'écart 10a-3m de la courbe des taux).
+     _couplesValides écarte les couples séparés d'un trou > 4 jours : un rendement calculé
+     par-dessus trois semaines de vide fausserait la matrice sans que rien ne le signale. */
+  function _cxRendements(c) {
+    var out = {};
+    if (!c || c.length < 2) return out;
+    _couplesValides(c, 'D1').couples.forEach(function (p) {
+      // Un cours nul ou négatif ne se log-transforme pas : le couple est simplement ignoré.
+      if (!(p[0].c > 0) || !(p[1].c > 0)) return;
+      out[new Date(p[1].t).toISOString().slice(0, 10)] = Math.log(p[1].c / p[0].c);
+    });
+    return out;
+  }
+
+  /* Corrélation de Pearson de deux tableaux alignés. null quand elle n'existe pas : moins de
+     2 points, longueurs différentes, ou variance nulle (série constante : division par zéro). */
+  function _cxPearson(xs, ys) {
+    var n = xs.length;
+    if (n < 2 || n !== ys.length) return null;
+    var sx = 0, sy = 0, i;
+    for (i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; }
+    var mx = sx / n, my = sy / n, cov = 0, vx = 0, vy = 0;
+    for (i = 0; i < n; i++) {
+      var dx = xs[i] - mx, dy = ys[i] - my;
+      cov += dx * dy; vx += dx * dx; vy += dy * dy;
+    }
+    if (!(vx > 0) || !(vy > 0)) return null;
+    return cov / Math.sqrt(vx * vy);
+  }
+
+  /* r d'un COUPLE de paires : jours communs aux deux dictionnaires de rendements, les 30
+     derniers (chaque couple a SA fenêtre : deux paires n'ont pas les mêmes trous). Sous 20
+     séances communes, silence chiffré : un r sur 12 points se raconte plus qu'il ne se mesure. */
+  var _CX_FEN = 30, _CX_MIN = 20;
+  function _cxCouple(mA, mB) {
+    var jours = Object.keys(mA).filter(function (j) { return j in mB; }).sort();
+    if (jours.length > _CX_FEN) jours = jours.slice(-_CX_FEN);
+    if (jours.length < _CX_MIN) return null;
+    var r = _cxPearson(jours.map(function (j) { return mA[j]; }), jours.map(function (j) { return mB[j]; }));
+    return r == null ? null : { r: r, n: jours.length };
+  }
+
+  /* Libellé de session d'une heure de PARIS — table FIXE, jamais déduite des données : le
+     verdict de « Volatilité par heure » nomme un créneau, pas une mesure. Les bornes suivent
+     l'usage du desk (ouvertures de places à l'heure de Paris, été comme hiver à une heure près). */
+  function _vhSession(h) {
+    h = ((Math.floor(h) % 24) + 24) % 24;
+    if (h >= 22 || h < 6) return 'nuit calme';
+    if (h < 7) return 'avant l\'Europe';
+    if (h < 10) return 'ouverture Europe';
+    if (h < 14) return 'séance européenne';
+    if (h < 17) return 'ouverture US';
+    return 'après-midi US';
+  }
+
+  /* Pic et creux d'un tableau de 24 moyennes horaires (des trous null sont admis : une heure
+     jamais cotée n'a pas de moyenne). Gardes : au moins 12 heures documentées (un « pic » sur
+     un quart de journée serait du bruit) et une moyenne générale strictement positive. Les
+     ratios rapportent chaque extrême à la moyenne des heures documentées : le « 2,1× » du
+     verdict. */
+  function _vhPicCreux(moy) {
+    var tot = 0, n = 0;
+    moy.forEach(function (v) { if (typeof v === 'number' && isFinite(v)) { tot += v; n++; } });
+    if (n < 12) return null;
+    var g = tot / n;
+    if (!(g > 0)) return null;
+    var pic = -1, creux = -1;
+    moy.forEach(function (v, i) {
+      if (typeof v !== 'number' || !isFinite(v)) return;
+      if (pic < 0 || v > moy[pic]) pic = i;
+      if (creux < 0 || v < moy[creux]) creux = i;
+    });
+    return { pic: pic, creux: creux, moyG: g, rPic: moy[pic] / g, rCreux: moy[creux] / g };
+  }
+
+  /* Badge d'une publication pour « Écart au consensus » : mêmes règles que _rbVerdict (le
+     rebours), rendues compactes. Le MOT (« au-dessus / en dessous ») vient de la comparaison
+     numérique brute, la COULEUR de deviationClass (polarité chômage déjà inversée là-bas) : un
+     chômage au-dessus du consensus rend « au-dessus » EN ROUGE, deux informations, deux sources.
+     Suffixes différents (3K contre 3M : parseFloat les croirait égaux) : pas de badge du tout.
+     `rel` = écart RELATIF au consensus (|delta| / |consensus|), seule grandeur comparable entre
+     indicateurs d'unités différentes — c'est elle qui classe « la plus grosse surprise » ; null
+     quand le consensus vaut zéro (rien à rapporter). */
+  function _ecBadge(ev) {
+    if (!ev) return null;
+    var a = String(ev.actual == null ? '' : ev.actual).trim();
+    var f = String(ev.forecast == null ? '' : ev.forecast).trim();
+    if (!a || !f) return null;
+    var aN = _nombreVal(a), fN = _nombreVal(f);
+    if (aN == null || fN == null || _uniteVal(a) !== _uniteVal(f)) return null;
+    var cls = '';
+    try { cls = (typeof deviationClass === 'function') ? (deviationClass(a, f, ev.title) || '') : ''; } catch (e) { cls = ''; }
+    if (!cls) return null;
+    if (cls === 'cv-neu') return { mot: 'conforme', cls: 'cv-neu', sens: 0, delta: '', rel: 0 };
+    var dec = Math.max(_decimalesVal(a), _decimalesVal(f));
+    var u = _uniteVal(f);
+    var delta = aN - fN;
+    return {
+      mot: aN > fN ? 'au-dessus' : 'en dessous',
+      cls: cls,
+      sens: aN > fN ? 1 : -1,
+      delta: (delta > 0 ? '+' : '') + delta.toFixed(dec).replace('.', ',') + (u === '%' ? ' pt' : u),
+      rel: fN !== 0 ? Math.abs(delta / fN) : null,
+    };
+  }
+
+  // Lundi 00h00 UTC de la semaine d'un instant : même arithmétique que _memeSemaineUTC.
+  function _psLundiUTC(ref) {
+    var d = new Date(ref == null ? Date.now() : ref);
+    var j = (d.getUTCDay() + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - j);
+    d.setUTCHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  /* Variation d'une paire DEPUIS LE LUNDI 00h UTC de la semaine courante : open de la première
+     bougie de la semaine → close de la dernière (qui peut être la bougie vive du jour : la
+     variation va bien « jusqu'à maintenant »). État 'ouverture' : la seule bougie de la semaine
+     est celle d'AUJOURD'HUI, encore ouverte — publier ce chiffre en « performance de la
+     semaine » maquillerait une variation de séance en variation hebdo, la carte préfère le
+     dire. Le week-end, le lundi calculé est celui de la semaine qui vient de se CLORE : le
+     classement reste juste, figé. */
+  function _psVarSemaine(c, ref) {
+    var lundi = _psLundiUTC(ref);
+    var sem = (c || []).filter(function (b) { return b && b.t >= lundi; });
+    if (!sem.length) return { pct: null, etat: 'vide' };
+    var closes = sem.filter(function (b) { return !_memeJourUTC(b.t, ref); });
+    if (!closes.length && _memeJourUTC(sem[0].t, ref)) return { pct: null, etat: 'ouverture' };
+    var deb = sem[0].o, fin = sem[sem.length - 1].c;
+    if (!(deb > 0) || !isFinite(fin)) return { pct: null, etat: 'vide' };
+    return { pct: (fin - deb) / deb * 100, etat: 'ok' };
+  }
+
+  /* Classement des 8 devises depuis les 7 paires contre USD. Le sens de cotation s'inverse pour
+     les paires en USD/xxx : USD/JPY qui monte, c'est le yen qui BAISSE. L'agrégat USD (le dollar
+     n'a pas de paire propre) = moyenne inversée des 7, et il n'est calculé que COMPLET : sur 5
+     paires disponibles au lieu de 7, la « moyenne » changerait de définition selon les pannes du
+     moment — mieux vaut une ligne absente qu'un agrégat à géométrie variable. */
+  var _PS_PAIRES = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD'];
+  function _psPerfs(vars) {
+    var out = [], usd = [], complet = true;
+    _PS_PAIRES.forEach(function (p) {
+      var v = vars[p];
+      var baseUSD = p.slice(0, 3) === 'USD';
+      if (v == null || !isFinite(v)) { complet = false; return; }
+      out.push({ dev: baseUSD ? p.slice(4) : p.slice(0, 3), pct: baseUSD ? -v : v, calc: false });
+      usd.push(baseUSD ? v : -v);
+    });
+    if (complet && usd.length === 7) {
+      out.push({ dev: 'USD', pct: usd.reduce(function (a, b) { return a + b; }, 0) / 7, calc: true });
+    }
+    out.sort(function (a, b) { return b.pct - a.pct; });
+    return out;
+  }
+  /* ═══ fin calculs corrélations, heures, surprises, semaine ═══ */
+
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
   // ── ÉTATS UNIFORMES DES WIDGETS (28/07) : chargement · vide · erreur ────────────────────────────
   // Une seule grammaire pour les ~30 points de repli du catalogue : icône discrète, message court,
@@ -2623,6 +2787,416 @@
           try { clearInterval(iv); } catch (e) {}
           try { clearInterval(ivT); } catch (e) {}
         };
+      },
+    },
+    {
+      /* CORRÉLATIONS ENTRE PAIRES (23/08). Les 7 majors contre USD en JOURNALIER : rendements
+         ln(c/c_prev) appariés par jour UTC (helpers _cx*, testés au banc), Pearson sur les 30
+         dernières séances COMMUNES de chaque couple. Matrice TRIANGULAIRE : la moitié haute ne
+         ferait que répéter la moitié basse. La corrélation porte sur les PAIRES telles qu'elles
+         cotent (USD/JPY monte quand le yen baisse) : c'est la lecture utile pour le RECOUVREMENT
+         de positions, et c'est ce que dit le verdict — un constat d'exposition, jamais un
+         conseil. Les 7 fetchs passent par le cache OHLC partagé (TTL 5 min) : les cartes qui
+         suivent déjà ces paires ne coûtent aucune requête de plus. */
+      id: 'correlations', name: 'Corrélations entre paires', tag: 'CORRÉLATIONS', cat: 'Marchés', h: 320,
+      desc: 'La corrélation sur 30 séances entre les 7 paires majeures, en matrice triangulaire.',
+      aide: "<p>Chaque cellule mesure à quel point deux paires évoluent ensemble sur leurs 30 dernières séances communes : vert quand elles montent et baissent de concert, rouge quand l'une monte quand l'autre baisse, d'autant plus soutenu que le lien est fort (r × 100 dans la cellule). La corrélation porte sur les paires telles qu'elles cotent : USD/JPY qui monte, c'est le dollar qui monte face au yen.</p><p>La lecture de décision est le <strong>recouvrement d'exposition</strong> : deux positions dans le même sens sur un couple très corrélé font une seule exposition, pas deux ; sur un couple très anti-corrélé, elles se compensent en partie. Une corrélation dit ce qui s'est mesuré, jamais ce qui va durer.</p>",
+      src: "Clôtures quotidiennes réelles des 7 paires contre dollar, relues toutes les 5 minutes ; rendements logarithmiques appariés par jour UTC, 30 dernières séances communes par couple et 20 minimum : en dessous, la cellule se tait.",
+      watch: "Les couples au-delà de ±0,80 : c'est là que deux positions « différentes » n'en font qu'une ; et le changement de camp d'un couple habituellement corrélé, souvent la trace d'une histoire locale (banque centrale, chiffre national) qui casse le régime commun.",
+      mount: function (host) {
+        var vivant = true, cache = {};
+        var prevCle = null;   // fondu de MAJ : seulement quand les couples de tête changent réellement
+        skel(host, 6);
+        var PAIRES = _PS_PAIRES;   // les 7 majors contre USD, même liste que « Performance de la semaine »
+        function fmtR(r) { return (r > 0 ? '+' : '') + r.toFixed(2).replace('.', ','); }
+
+        function dessiner() {
+          Promise.all(PAIRES.map(function (p) {
+            // Une paire muette ne fait pas tomber la matrice : sa ligne rend « n/d », le reste vit.
+            return _bougies(p, 'D1', cache).catch(function () { return null; });
+          })).then(function (res) {
+            if (!vivant || !host.isConnected) return;
+            var rend = {}, nDispo = 0;
+            PAIRES.forEach(function (p, i) {
+              if (res[i] && res[i].length >= 2) { rend[p] = _cxRendements(res[i]); nDispo++; }
+            });
+            if (nDispo < 2) { fallback(host, 'Bougies indisponibles.'); return; }
+
+            // r par couple (clé 'colonne|ligne', colonne < ligne) + extrêmes pour le verdict.
+            var R = {}, plus = null, moins = null;
+            for (var i = 1; i < PAIRES.length; i++) {
+              for (var j = 0; j < i; j++) {
+                var cple = (rend[PAIRES[j]] && rend[PAIRES[i]]) ? _cxCouple(rend[PAIRES[j]], rend[PAIRES[i]]) : null;
+                R[j + '|' + i] = cple;
+                if (!cple) continue;
+                if (!plus || cple.r > plus.r) plus = { a: PAIRES[j], b: PAIRES[i], r: cple.r, n: cple.n };
+                if (!moins || cple.r < moins.r) moins = { a: PAIRES[j], b: PAIRES[i], r: cple.r, n: cple.n };
+              }
+            }
+
+            /* Matrice triangulaire. En-têtes SANS barre oblique (sept colonnes ne laissent pas la
+               place), l'infobulle porte le nom complet. Les cellules au-dessus de la diagonale
+               sont des vides de grille : les rendre « miroir » doublerait le bruit sans informer. */
+            var h = '<div class="wdg-cx"><div class="wdg-cx-grille" style="grid-template-columns:auto repeat(' + (PAIRES.length - 1) + ',1fr)">';
+            h += '<span class="wdg-cx-coin"></span>';
+            var k;
+            for (k = 0; k < PAIRES.length - 1; k++) {
+              h += '<span class="wdg-cx-et" title="' + esc(PAIRES[k]) + '">' + esc(PAIRES[k].replace('/', '')) + '</span>';
+            }
+            for (var li = 1; li < PAIRES.length; li++) {
+              h += '<span class="wdg-cx-lg" title="' + esc(PAIRES[li]) + '">' + esc(PAIRES[li].replace('/', '')) + '</span>';
+              for (var co = 0; co < PAIRES.length - 1; co++) {
+                if (co >= li) { h += '<span class="wdg-cx-vide"></span>'; continue; }
+                var cel = R[co + '|' + li];
+                if (!cel) {
+                  // Moins de 20 séances communes (ou paire muette) : silence chiffré, dit tel quel.
+                  h += '<span class="wdg-cx-c est-nd" title="' + esc(PAIRES[co] + ' vs ' + PAIRES[li]) + ' : moins de ' + _CX_MIN + ' séances communes">n/d</span>';
+                  continue;
+                }
+                var av = Math.min(Math.abs(cel.r), 1);
+                // Fond vert/rouge par SIGNE, alpha par FORCE (mêmes rampes que la carte de
+                // chaleur) ; le texte reste un token de thème, lisible sur ces fonds translucides.
+                var fond = cel.r >= 0 ? 'rgba(0,230,118,' + (0.08 + av * 0.5).toFixed(2) + ')' : 'rgba(255,61,0,' + (0.08 + av * 0.5).toFixed(2) + ')';
+                var force = av > 0.8 ? ' est-fort' : av >= 0.5 ? ' est-modere' : ' est-faible';
+                h += '<span class="wdg-cx-c' + force + '" style="background:' + fond + '"'
+                  + ' title="' + esc(PAIRES[co] + ' vs ' + PAIRES[li] + ' : r ' + fmtR(cel.r) + ' sur ' + cel.n + ' séances communes') + '">'
+                  + (cel.r > 0 ? '+' : cel.r < 0 ? '-' : '') + Math.round(Math.abs(cel.r) * 100) + '</span>';
+              }
+            }
+            h += '</div>';
+
+            /* ── VERDICT : le couple le plus corrélé et le plus anti-corrélé. Nommés seulement
+               au-delà de ±0,50 : présenter un r de +0,3 comme « le couple le plus corrélé »
+               fabriquerait un lien qui n'existe pas. Constat d'exposition, jamais un conseil. */
+            var vb = '', vs = '', etat = 'faible', cle = 'rien';
+            if (plus) {
+              if (plus.r >= 0.5) {
+                etat = plus.r > 0.8 ? 'fort' : 'modere';
+                vb = '<span class="est-haut">' + esc(plus.a) + ' et ' + esc(plus.b) + '</span> évoluent ensemble (r '
+                  + fmtR(plus.r) + ' sur ' + plus.n + ' séances)';
+                vs = 'Deux positions dans le même sens y font une seule exposition.';
+              } else {
+                vb = 'Aucun couple nettement corrélé (max r ' + fmtR(plus.r) + ')';
+                vs = 'Les 7 majors vivent chacune leur vie sur la fenêtre mesurée.';
+              }
+              if (moins && moins.r <= -0.5) {
+                vs += ' À l\'opposé : ' + moins.a + ' et ' + moins.b + ' (r ' + fmtR(moins.r) + '), deux positions de même sens s\'y compensent en partie.';
+              }
+              cle = plus.a + plus.b + plus.r.toFixed(2) + '|' + (moins ? moins.a + moins.b + moins.r.toFixed(2) : '');
+            }
+
+            var ts = 0;
+            PAIRES.forEach(function (p) { var t = _bougiesMaj(p + '|D1'); if (t > ts) ts = t; });
+            if (vb) {
+              h += '<div class="wdg-verdict" data-etat="' + etat + '"><b class="wdg-verdict-txt wdg-maj-txt">' + vb + '</b>'
+                + (vs ? '<span class="wdg-verdict-sous">' + esc(vs) + '</span>' : '') + '</div>';
+            }
+            h += '<div class="wdg-cx-pied">Rendements quotidiens (ln), 30 dernières séances communes par couple, 20 minimum. Cellules : r × 100. ' + _vieSpan(ts) + '</div></div>';
+            host.innerHTML = h;
+            if (prevCle != null && cle !== prevCle) _majFlash(host.querySelector('.wdg-verdict-txt'));
+            prevCle = cle;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        var stop = _rafraichirBougies(host, dessiner);   // 5 min : le TTL du cache OHLC partagé
+        return function () { vivant = false; stop(); };
+      },
+    },
+    {
+      /* VOLATILITÉ PAR HEURE (23/08). ~3 mois de bougies HORAIRES d'une paire : amplitude
+         (haut-bas) moyenne PAR HEURE UTC, affichée à l'heure de PARIS. Les seaux sont agrégés en
+         UTC (stables quel que soit le fuseau du lecteur) puis replacés au décalage Paris MESURÉ
+         PAR INTL pour maintenant : jamais un +1/+2 codé en dur, c'est le fuseau qui sait quand
+         l'heure change — autour d'une bascule été/hiver, les créneaux historiques glissent d'une
+         heure au plus, et c'est dit en pied plutôt que caché. L'heure COURANTE est marquée or
+         PAR INDEX (option `marque` de _barresSvg, même mécanique que la saisonnalité). Mêmes
+         gardes d'unité que « Amplitude par séance » : la route retombe sur le journalier quand
+         elle ne reconnaît pas le tf demandé, et sans contrôle la carte publierait des « heures »
+         calculées sur des journées entières. */
+      id: 'vol-horaire', name: 'Volatilité par heure', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300,
+      desc: 'À quelles heures la paire bouge vraiment : amplitude moyenne des 24 heures, heure de Paris.',
+      aide: "<p>Pour la paire choisie, l'amplitude moyenne (haut moins bas, en pips) de chaque heure de la journée sur environ trois mois de bougies horaires, affichée à l'heure de Paris ; la barre or est l'heure en cours. Le verdict nomme le pic et le creux avec leur créneau (ouverture Europe, ouverture US, nuit calme…).</p><p>La volatilité ne se répartit pas au hasard : elle se concentre aux <strong>ouvertures de places</strong> et sur le recouvrement Londres-New York. Savoir si l'heure actuelle est un pic ou un creux type change la lecture d'un mouvement : le même chemin parcouru à 4h du matin et à 15h30 ne raconte pas la même chose.</p>",
+      src: "Bougies horaires réelles (~3 mois), relues toutes les 5 minutes ; moyennes par heure UTC replacées au décalage Paris du moment, mesuré par le fuseau lui-même : autour d'un changement d'heure, les créneaux historiques glissent d'une heure au plus.",
+      watch: "Une séance qui s'anime dans un creux type (nuit, avant l'Europe) : ce n'est pas une heure qui bouge d'habitude, donc quelque chose la fait bouger ; et l'entrée dans le pic 14h-17h, où se jouent la plupart des cassures de la journée.",
+      opts: [{ k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() }],
+      mount: function (host, it) {
+        var W = this, vivant = true, cache = {};
+        var prevCle = null;
+        skel(host, 5);
+        function dessiner() {
+          var sym = opt(it, W, 'paire') || 'EUR/USD';
+          var pip = _pipTaille(sym);
+          if (!pip) { fallback(host, 'Réservé aux paires de devises.'); return; }
+          _bougies(sym, 'H1', cache).then(function (c) {
+            if (!vivant || !host.isConnected) return;
+            // Sous 200 bougies, une moyenne par heure reposerait sur une poignée de séances : silence.
+            if (c.length < 200) { fallback(host, 'Historique horaire insuffisant.'); return; }
+            var pas = _pasMedian(c);
+            if (!pas || pas < 30 * 60000 || pas > 2 * 3600000) {
+              fallback(host, 'La source n\'a pas servi de bougies horaires pour cette paire.');
+              return;
+            }
+            /* Agrégat par heure UTC. L'heure EN COURS est exclue : une bougie encore ouverte
+               sous-estime son amplitude (règle de la famille : l'inachevé ne rentre pas dans la
+               moyenne à laquelle on le compare). */
+            var hVive = Math.floor(Date.now() / 3600e3) * 3600e3;
+            var somme = [], nb = [], k;
+            for (k = 0; k < 24; k++) { somme.push(0); nb.push(0); }
+            var jours = {};
+            c.forEach(function (b) {
+              if (b.t >= hVive) return;
+              var amp = (b.h - b.l) / pip;
+              if (!(amp >= 0)) return;
+              var hU = new Date(b.t).getUTCHours();
+              somme[hU] += amp; nb[hU]++;
+              jours[new Date(b.t).toISOString().slice(0, 10)] = 1;
+            });
+            /* Décalage Paris-UTC de MAINTENANT via _heureLocale (Intl). L'heure rendue est une
+               fraction : on la tronque, le décalage Paris-UTC est toujours un entier d'heures. */
+            var hPar = _heureLocale('Europe/Paris', Date.now());
+            var hNow = hPar == null ? null : Math.floor(hPar);
+            var decal = hNow == null ? 0 : ((hNow - new Date().getUTCHours()) % 24 + 24) % 24;
+            // moy[heure de Paris] : chaque seau UTC replacé sous son étiquette parisienne.
+            var moy = [];
+            for (k = 0; k < 24; k++) {
+              var hU2 = ((k - decal) % 24 + 24) % 24;
+              moy.push(nb[hU2] ? somme[hU2] / nb[hU2] : null);
+            }
+            var pc = _vhPicCreux(moy);
+            if (!pc) { fallback(host, 'Trop peu d\'heures documentées pour cette paire.'); return; }
+
+            // Barres or : pleines pour l'heure en cours, adoucies ailleurs — le liseré `marque`
+            // dit « c'est maintenant », la hauteur dit le reste. Jamais de vert/rouge ici : une
+            // amplitude n'a pas de sens directionnel.
+            var coul = [];
+            for (k = 0; k < 24; k++) coul.push(hNow != null && k === hNow ? 'var(--orange, #e3b23a)' : 'rgba(227, 178, 58, .38)');
+            var fois = function (x) { return x.toFixed(1).replace('.', ',') + '×'; };
+            var hTxt = function (x) { return x + 'h-' + ((x + 1) % 24) + 'h'; };
+
+            /* ── VERDICT : pic et creux calculés (_vhPicCreux), créneau nommé par la table FIXE
+               _vhSession, situation de l'heure actuelle. Factuel : rien ne dit quoi trader. */
+            var vb = 'Pic de volatilité : <span class="est-present">' + hTxt(pc.pic) + '</span> (' + _vhSession(pc.pic) + '), '
+              + fois(pc.rPic) + ' la moyenne des 24 h';
+            var rNow = (hNow != null && typeof moy[hNow] === 'number' && isFinite(moy[hNow])) ? moy[hNow] / pc.moyG : null;
+            var vs = 'Creux : ' + hTxt(pc.creux) + ' (' + _vhSession(pc.creux) + '), ' + fois(pc.rCreux) + '.'
+              + (rNow != null
+                ? ' L\'heure actuelle (' + hNow + 'h, ' + _vhSession(hNow) + ') est à ' + fois(rNow) + '.'
+                : (hNow != null ? ' L\'heure actuelle (' + hNow + 'h) n\'a pas d\'historique coté.' : ''));
+            var etat = rNow == null ? 'ordinaire' : rNow >= 1.5 ? 'pic' : rNow <= 0.5 ? 'creux' : 'ordinaire';
+
+            // Axe : une étiquette toutes les 4 heures, posée au centre de sa barre (pourcentage).
+            var axe = '';
+            for (k = 0; k < 24; k += 4) {
+              axe += '<span style="left:' + ((k + 0.5) / 24 * 100).toFixed(1) + '%">' + k + 'h</span>';
+            }
+
+            var ts = _bougiesMaj(sym + '|H1');
+            host.innerHTML = '<div class="wdg-vh">'
+              + '<div class="wdg-vh-tete"><span>' + esc(sym) + ' : amplitude par heure</span>'
+              + '<span>' + Object.keys(jours).length + ' jours cotés</span></div>'
+              + '<div class="wdg-vh-zone">' + _barresSvg(moy, { signe: false, couleurs: coul, marque: hNow == null ? null : hNow }) + '</div>'
+              + '<div class="wdg-vh-ech">' + axe + '</div>'
+              + '<div class="wdg-verdict" data-etat="' + etat + '"><b class="wdg-verdict-txt wdg-maj-txt">' + vb + '</b>'
+              + '<span class="wdg-verdict-sous">' + esc(vs) + '</span></div>'
+              + '<div class="wdg-vh-pied">Amplitude moyenne haut-bas par heure (pips), heure de Paris, barre or = heure en cours. '
+              + _vieSpan(ts) + '</div></div>';
+
+            // Fondu de MAJ : pic, creux, heure courante ou son ratio ont réellement bougé.
+            var cle = sym + '|' + pc.pic + '|' + pc.creux + '|' + hNow + '|' + (rNow == null ? '' : rNow.toFixed(1));
+            if (prevCle != null && cle !== prevCle) _majFlash(host.querySelector('.wdg-verdict-txt'));
+            prevCle = cle;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
+      },
+    },
+    {
+      /* ÉCART AU CONSENSUS (23/08). Les 10 dernières publications à FORT impact qui portent un
+         réel ET un consensus, de la plus récente à la plus ancienne, chacune avec son badge
+         au-dessus / en dessous / conforme (_ecBadge : le MOT vient du chiffre, la COULEUR de
+         deviationClass, polarité chômage inversée là-bas — un chômage au-dessus rend donc
+         « au-dessus » en rouge, deux informations, deux sources). Le bilan du bas compte la
+         DIRECTION brute des surprises : « surprennent à la hausse » est un constat de chiffres,
+         pas un jugement favorable, les compteurs restent donc SANS couleur. La « plus forte
+         surprise » est classée à l'écart RELATIF (|delta| / |consensus|), seule grandeur
+         comparable entre des indicateurs en %, en K et en M. */
+      id: 'ecart-consensus', name: 'Écart au consensus', tag: 'SURPRISES', cat: 'Macro', h: 320,
+      desc: 'Les 10 dernières publications fortes : réel contre consensus, et de quel côté elles surprennent.',
+      aide: "<p>Les dix dernières publications à fort impact qui portent un réel et un consensus, de la plus récente à la plus ancienne : le badge dit si le chiffre est sorti au-dessus, en dessous ou conforme, et de combien. La couleur suit le sens favorable à la devise : pour un chômage, « au-dessus » s'affiche en rouge.</p><p>Ce qui déplace un marché n'est pas le niveau d'un chiffre mais sa <strong>surprise</strong>, et la ligne du bas dit de quel côté les données surprennent ces derniers jours : une série de surprises du même côté nourrit les anticipations de taux bien plus qu'une publication isolée.</p>",
+      src: "Le calendrier économique du desk, publications passées à fort impact, relu toutes les 5 minutes ; réel et consensus ne sont comparés qu'à unités identiques, jamais des K contre des M.",
+      watch: "Un enchaînement de surprises du même côté sur une même devise, et les écarts relatifs les plus forts : ce sont eux qui déplacent les anticipations de taux, bien avant les réunions.",
+      // Réglage UTILE (même motif que le compte à rebours) : suivre les surprises d'UNE devise.
+      opts: [{ k: 'devise', lbl: 'Devise', type: 'choix', def: 'all',
+        choix: [['all', 'Toutes'], ['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'],
+          ['AUD', 'AUD'], ['NZD', 'NZD'], ['CAD', 'CAD'], ['CHF', 'CHF'], ['CNY', 'CNY']] }],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        var prevCle = null, dernierFetch = 0;
+        skel(host, 6);
+        var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
+        function charger() {
+          fetch('/api/calendar-events').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            dernierFetch = Date.now();
+            var dev = opt(it, W, 'devise') || 'all';
+            var maintenant = Date.now();
+            // PASSÉ seulement, fort impact, réel ET consensus présents : la carte parle de
+            // surprises constatées, jamais d'événements à venir (le rebours s'en charge).
+            var rows = ((d && d.items) || []).filter(function (e) {
+              if (!e || !e.timestamp || e.timestamp > maintenant) return false;
+              if (e.impact !== 'High') return false;
+              if (dev !== 'all' && e.currency !== dev) return false;
+              return !!(e.actual && String(e.actual).trim() && e.forecast && String(e.forecast).trim());
+            }).sort(function (a, b) { return b.timestamp - a.timestamp; }).slice(0, 10);
+            if (!rows.length) { fallback(host, 'Aucune publication forte avec réel et consensus.'); return; }
+
+            var nDessus = 0, nDessous = 0, nConf = 0, plusForte = null;
+            var h = '<div class="wdg-ec"><div class="wdg-ec-liste custom-scrollbar">'
+              + '<div class="wdg-ec-head"><span>Publication</span><span class="r">Réel / attendu</span><span class="r">Écart</span></div>';
+            rows.forEach(function (e) {
+              var b = _ecBadge(e);
+              if (b) {
+                if (b.sens > 0) nDessus++; else if (b.sens < 0) nDessous++; else nConf++;
+                if (b.rel != null && b.sens !== 0 && (!plusForte || b.rel > plusForte.rel)) plusForte = { e: e, rel: b.rel };
+              }
+              var quand = '';
+              try { quand = new Date(e.timestamp).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }); } catch (er) {}
+              h += '<div class="wdg-ec-l" title="' + esc((e.title || '') + (quand ? ' · ' + quand : '') + ' · réel ' + e.actual + ', attendu ' + e.forecast) + '">'
+                + '<span class="wdg-ec-t">' + flag(e.currency) + '<b>' + esc(e.title || '') + '</b><i>' + esc(quand) + '</i></span>'
+                + '<span class="wdg-ec-v"><b>' + esc(String(e.actual)) + '</b> / ' + esc(String(e.forecast)) + '</span>'
+                + (b
+                  ? '<span class="wdg-ec-b ' + b.cls + '">' + b.mot + (b.delta ? ' ' + b.delta : '') + '</span>'
+                  // Unités différentes ou valeur illisible : pas de badge inventé, un « n/c » honnête.
+                  : '<span class="wdg-ec-b est-nc" title="Valeurs non comparables (unités différentes ou illisibles)">n/c</span>')
+                + '</div>';
+            });
+            h += '</div>';
+
+            /* ── VERDICT : bilan directionnel des N + la plus forte surprise, en écart relatif. */
+            var nJuges = nDessus + nDessous + nConf;
+            var vb = '', vs = '', etat = 'partage';
+            if (nJuges) {
+              etat = nDessus > nDessous ? 'hausse' : nDessous > nDessus ? 'baisse' : 'partage';
+              vb = nDessus + ' au-dessus, ' + nDessous + ' en dessous' + (nConf ? ', ' + nConf + ' conforme' + (nConf > 1 ? 's' : '') : '')
+                + ' : les publications ' + (etat === 'hausse' ? 'surprennent plutôt à la hausse'
+                  : etat === 'baisse' ? 'surprennent plutôt à la baisse' : 'ne penchent d\'aucun côté');
+              if (plusForte) {
+                vs = 'La plus forte, en écart relatif au consensus : ' + (plusForte.e.title || '')
+                  + ' (réel ' + plusForte.e.actual + ' vs ' + plusForte.e.forecast + ' attendu).';
+              }
+              if (rows.length < 10) vs += (vs ? ' ' : '') + 'Bilan sur les ' + rows.length + ' publications disponibles.';
+            }
+            if (vb) {
+              h += '<div class="wdg-verdict" data-etat="' + etat + '"><b class="wdg-verdict-txt wdg-maj-txt">' + esc(vb) + '</b>'
+                + (vs ? '<span class="wdg-verdict-sous">' + esc(vs) + '</span>' : '') + '</div>';
+            }
+            h += '<div class="wdg-ec-pied">Fort impact, passé seulement. La couleur suit le sens FAVORABLE (chômage inversé), le mot suit le chiffre. ' + _vieSpan(dernierFetch) + '</div></div>';
+            host.innerHTML = h;
+            var cle = rows.map(function (e) { return e.timestamp + '|' + e.actual; }).join(';');
+            if (prevCle != null && cle !== prevCle) _majFlash(host.querySelector('.wdg-verdict-txt'));
+            prevCle = cle;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Calendrier indisponible.'); });
+        }
+        charger();
+        // 5 min, garde de visibilité : le calendrier serveur est lui-même en cache de quelques minutes.
+        var iv = setInterval(function () { if (!document.hidden && host.isConnected) charger(); }, 5 * 60 * 1000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+      },
+    },
+    {
+      /* PERFORMANCE DE LA SEMAINE (23/08). Les 8 devises classées par leur variation DEPUIS LE
+         LUNDI 00h UTC de la semaine courante, calculée des bougies quotidiennes des 7 paires
+         contre dollar (helpers _ps*, testés au banc). USD n'a pas de paire propre : son agrégat
+         = moyenne inversée des 7, calculé seulement COMPLET, et marqué « calc. » SUR sa ligne
+         (la mention vit sur la carte, pas seulement dans une infobulle — même règle que le
+         verdict COT). Lundi sans bougie close : la carte dit « semaine à peine ouverte » plutôt
+         que de maquiller la séance du jour en chiffre hebdo. Week-end : classement figé,
+         étiqueté « semaine close ». */
+      id: 'perf-semaine', name: 'Performance de la semaine', tag: 'HEBDO', cat: 'Devises', h: 300,
+      desc: 'Qui gagne la semaine : les 8 devises classées par leur variation depuis lundi.',
+      aide: "<p>Les huit devises majeures classées par leur variation depuis le lundi 00h UTC, calculée des sept paires contre dollar ; le dollar n'a pas de paire propre, sa ligne « calc. » est la moyenne inversée des sept. Barre verte vers la droite : la devise gagne sa semaine ; rouge vers la gauche : elle la perd.</p><p>La lecture hebdomadaire lisse le bruit des séances : une devise en tête sur un vrai écart raconte un <strong>flux</strong> (taux, macro, risque), pas un sursaut d'une heure. L'écart tête-queue de la ligne du bas dit si la semaine discrimine vraiment ou si tout se tient dans un mouchoir.</p>",
+      src: "Bougies quotidiennes réelles des 7 paires contre dollar, relues toutes les 5 minutes ; la variation court du lundi 00h UTC au dernier cours connu, et l'agrégat USD n'est calculé que lorsque les 7 paires répondent.",
+      watch: "Le creusement de l'écart tête-queue en cours de semaine, et une devise qui change de moitié de classement après un chiffre ou une banque centrale : la rotation se voit ici avant de se voir sur une paire isolée.",
+      mount: function (host) {
+        var vivant = true, cache = {};
+        var prevCle = null;
+        skel(host, 8);
+        function fmtP(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; }
+        function dessiner() {
+          Promise.all(_PS_PAIRES.map(function (p) {
+            return _bougies(p, 'D1', cache).catch(function () { return null; });
+          })).then(function (res) {
+            if (!vivant || !host.isConnected) return;
+            var vars = {}, ouvertures = 0, vivantes = 0;
+            _PS_PAIRES.forEach(function (p, i) {
+              if (!res[i]) return;
+              var v = _psVarSemaine(res[i]);
+              vivantes++;
+              if (v.etat === 'ouverture') ouvertures++;
+              vars[p] = v.etat === 'ok' ? v.pct : null;
+            });
+            if (!vivantes) { fallback(host, 'Bougies indisponibles.'); return; }
+            /* Lundi à peine entamé : chaque paire vivante n'a que sa bougie du jour, encore
+               ouverte. État calme et dit, pas une erreur : le classement arrive tout seul. */
+            if (ouvertures && ouvertures === vivantes) {
+              emptyState(host, 'Semaine à peine ouverte : aucune bougie close depuis lundi 00h UTC. Le classement arrive avec la première clôture.');
+              prevCle = null;
+              return;
+            }
+            var perfs = _psPerfs(vars);
+            if (perfs.length < 2) { fallback(host, 'Bougies indisponibles.'); return; }
+            var jU = new Date().getUTCDay();
+            var enWE = jU === 0 || jU === 6;
+            var max = 0;
+            perfs.forEach(function (r) { if (Math.abs(r.pct) > max) max = Math.abs(r.pct); });
+            if (!(max > 0)) max = 1;   // toutes à zéro : barres nulles plutôt qu'une division par zéro
+
+            var h = '<div class="wdg-ps"><div class="wdg-ps-liste">';
+            perfs.forEach(function (r) {
+              // Piste bidirectionnelle à axe central : la barre part du zéro, vert à droite,
+              // rouge à gauche — même grammaire que le différentiel de taux.
+              var w = Math.min(50, Math.abs(r.pct) / max * 50);
+              h += '<div class="wdg-ps-l' + (r.calc ? ' est-calc' : '') + '"'
+                + (r.calc ? ' title="USD : agrégat calculé, moyenne inversée des 7 paires contre dollar"' : '') + '>'
+                + '<span class="wdg-ps-d">' + _drapeauDev(r.dev) + '<b>' + esc(r.dev) + '</b>' + (r.calc ? '<i>calc.</i>' : '') + '</span>'
+                + '<span class="wdg-ps-piste"><u class="' + (r.pct >= 0 ? 'est-haut' : 'est-bas') + '"'
+                + ' style="' + (r.pct >= 0 ? 'left:50%' : 'right:50%') + ';width:' + w.toFixed(1) + '%"></u></span>'
+                + '<span class="wdg-ps-v ' + (r.pct > 0 ? 'est-haut' : r.pct < 0 ? 'est-bas' : '') + '">' + fmtP(r.pct) + '</span>'
+                + '</div>';
+            });
+            h += '</div>';
+
+            /* ── VERDICT : tête et queue, couleur par SIGNE réel (si tout baisse, la « meneuse »
+               n'est pas peinte en vert — règle de la carte de chaleur), écart tête-queue en sous. */
+            var tete = perfs[0], queue = perfs[perfs.length - 1];
+            var vT = tete.pct, vQ = queue.pct;
+            var vb = (enWE ? 'Semaine close : ' : '')
+              + '<span' + (vT > 0 ? ' class="est-haut"' : vT < 0 ? ' class="est-bas"' : '') + '>' + esc(tete.dev) + '</span>'
+              + ' mène la semaine (' + fmtP(vT) + ') · '
+              + '<span' + (vQ < 0 ? ' class="est-bas"' : vQ > 0 ? ' class="est-haut"' : '') + '>' + esc(queue.dev) + '</span>'
+              + ' ferme la marche (' + fmtP(vQ) + ')';
+            var vs = 'Écart tête-queue : ' + (vT - vQ).toFixed(2).replace('.', ',') + ' point' + (vT - vQ >= 2 ? 's' : '') + '.'
+              + ((tete.calc || queue.calc) ? ' USD est un agrégat calculé (moyenne inversée des 7 paires).' : '')
+              + (perfs.length < 8 ? ' ' + perfs.length + ' devises sur 8 : une partie des paires n\'a pas répondu.' : '');
+            var ts = 0;
+            _PS_PAIRES.forEach(function (p) { var t = _bougiesMaj(p + '|D1'); if (t > ts) ts = t; });
+            h += '<div class="wdg-verdict" data-etat="' + (enWE ? 'close' : 'live') + '"><b class="wdg-verdict-txt wdg-maj-txt">' + vb + '</b>'
+              + '<span class="wdg-verdict-sous">' + esc(vs) + '</span></div>'
+              + '<div class="wdg-ps-pied">Variation depuis lundi 00h UTC, bougies quotidiennes' + (enWE ? ', classement figé jusqu\'à la réouverture' : '') + '. ' + _vieSpan(ts) + '</div></div>';
+            host.innerHTML = h;
+            var cle = perfs.map(function (r) { return r.dev + ':' + r.pct.toFixed(2); }).join(';');
+            if (prevCle != null && cle !== prevCle) _majFlash(host.querySelector('.wdg-verdict-txt'));
+            prevCle = cle;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; stop(); };
       },
     },
     {
@@ -7652,6 +8226,10 @@
     'taux-cb': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9l6-4 6 4v11"/><path d="M9 20v-5h6v5"/></svg>',
     'courbe-taux-us': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17c4-1 6-2.5 8-5s4-4.5 8-6"/><circle cx="4" cy="17" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="20" cy="6" r="1.2" fill="currentColor" stroke="none"/></svg>',
     'reunion-bc': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="13" height="13" rx="2"/><path d="M3.5 9.5h13M7 3.5v3M13 3.5v3"/><circle cx="17.5" cy="16.5" r="4"/><path d="M17.5 14.8v1.9l1.3 1"/></svg>',
+    'correlations': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="7.5" r="3.2"/><circle cx="16.5" cy="16.5" r="3.2"/><path d="M10 10l4 4"/><path d="M16.5 4.5v3M15 6h3M6 15.5h3" opacity=".5"/></svg>',
+    'vol-horaire': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5.5 20v-4M9 20v-9M12.5 20v-6M16 20v-3"/><circle cx="18.5" cy="7" r="3.4"/><path d="M18.5 5.6V7l1.1.8"/></svg>',
+    'ecart-consensus': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4" opacity=".5"/><circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/></svg>',
+    'perf-semaine': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16"/><path d="M5 7h13M5 12h9M5 17h5"/><circle cx="20.5" cy="7" r="1.2" fill="currentColor" stroke="none"/></svg>',
     'risque-jauge': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4-4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>',
     'cot-devise':  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
     'cot-inst': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
@@ -7693,6 +8271,44 @@
           + '<rect x="27" y="' + (y + 2) + '" width="24" height="5" rx="2" fill="#9aa1ac" opacity=".6"/>'
           + '<rect x="60" y="' + (y + 2) + '" width="18" height="5" rx="2" fill="#6b7280" opacity=".8"/>'
           + '<rect x="86" y="' + (y + 2) + '" width="' + L[i][2] + '" height="5" rx="2" fill="' + L[i][1] + '" opacity=".75"/>'; }
+      return h; })()
+      + '</svg>',
+    'correlations': '<svg ' + _PV + '>'
+      // Triangle inférieur d'une matrice 5×5 : cellules vertes/rouges d'intensité variable.
+      + (function () { var v = [[.9], [.6, -.8], [.3, .5, -.4], [-.7, .2, .8, -.3]], h = '';
+      for (var li = 0; li < 4; li++) { for (var co = 0; co <= li; co++) { var r = v[li][co], a = Math.abs(r);
+        h += '<rect x="' + (26 + co * 20) + '" y="' + (6 + li * 12) + '" width="18" height="10" rx="1.5"'
+          + ' fill="' + (r >= 0 ? '#00e676' : '#ff3d00') + '" opacity="' + (0.15 + a * 0.55).toFixed(2) + '"/>'; }
+        h += '<rect x="8" y="' + (9 + li * 12) + '" width="14" height="4" rx="1.5" fill="#6b7280" opacity=".7"/>'; }
+      return h; })()
+      + '</svg>',
+    'vol-horaire': '<svg ' + _PV + '>'
+      + '<line x1="6" y1="46" x2="114" y2="46" stroke="#23232a"/>'
+      // Le profil type d'une journée FX : creux la nuit, bosse Europe, pic à l'ouverture US.
+      + (function () { var v = [5, 4, 4, 5, 6, 8, 12, 18, 22, 19, 16, 14, 15, 24, 32, 34, 28, 20, 14, 10, 8, 6, 5, 5], h = '';
+      for (var i = 0; i < 24; i++) {
+        h += '<rect x="' + (7 + i * 4.5) + '" y="' + (46 - v[i]) + '" width="3.4" height="' + v[i] + '"'
+          + (i === 15 ? ' fill="#e3b23a"' : ' fill="#e3b23a" opacity=".38"') + '/>'; }
+      return h; })()
+      + '<text x="7" y="54" font-size="6" fill="#6b7280">0h</text>'
+      + '<text x="100" y="54" font-size="6" fill="#6b7280">23h</text>'
+      + '</svg>',
+    'ecart-consensus': '<svg ' + _PV + '>'
+      + (function () { var L = [['#00e676', 26], ['#ff3d00', 20], ['#00e676', 24], ['#ffb300', 16]], h = '';
+      for (var i = 0; i < 4; i++) { var y = 7 + i * 12;
+        h += '<circle cx="12" cy="' + (y + 3) + '" r="3.4" fill="#7d94b5" opacity=".55"/>'
+          + '<rect x="20" y="' + y + '" width="38" height="5" rx="2" fill="#9aa1ac" opacity=".6"/>'
+          + '<rect x="64" y="' + y + '" width="16" height="5" rx="2" fill="#6b7280" opacity=".8"/>'
+          + '<rect x="86" y="' + y + '" width="' + L[i][1] + '" height="5" rx="2" fill="' + L[i][0] + '" opacity=".75"/>'; }
+      return h; })()
+      + '</svg>',
+    'perf-semaine': '<svg ' + _PV + '>'
+      + '<line x1="60" y1="4" x2="60" y2="52" stroke="#3a3f4b"/>'
+      + (function () { var v = [24, 16, 8, -6, -14, -22], h = '';
+      for (var i = 0; i < 6; i++) { var y = 6 + i * 8, w = Math.abs(v[i]) * 1.5;
+        h += '<rect x="8" y="' + (y + .5) + '" width="12" height="4" rx="1.5" fill="#6b7280" opacity=".7"/>'
+          + '<rect x="' + (v[i] >= 0 ? 60 : 60 - w) + '" y="' + y + '" width="' + w + '" height="5" rx="1"'
+          + ' fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".8"/>'; }
       return h; })()
       + '</svg>',
 
@@ -7864,6 +8480,8 @@
       'force-devises': 'Analyse de marché', 'barometre': 'Analyse de marché', 'risque-historique': 'Analyse de marché', 'radar-biais': 'Analyse de marché',
       'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'dmx-paire': 'Analyse de marché', 'cot-devise': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
       'courbe-taux-us': 'Analyse de marché', 'reunion-bc': 'Analyse de marché',
+      'correlations': 'Analyse de marché', 'vol-horaire': 'Analyse de marché',
+      'ecart-consensus': 'Analyse de marché', 'perf-semaine': 'Analyse de marché',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
       'horloge': 'Fonctions', 'onglets': 'Fonctions',
       // Vues du desk (adoption) : troisième famille dédiée — ce sont les onglets de la nav, pas des outils.
