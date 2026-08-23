@@ -920,9 +920,6 @@ function _campaignBtnGhost(label, url) {
       <a href="${url}" style="display:inline-block;padding:10px 22px;color:#f3c344;font-weight:700;font-size:13.5px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
-// Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
-// PAS d'intitule visible au-dessus (le contexte est deja donne par le texte du mail) ; l'`eyebrow` ne sert plus
-// que d'alt (accessibilite + repli si image bloquee). Cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook.
 // Coupe PROPRE d'un texte : fin de phrase si possible, sinon fin de mot + points de suspension.
 function _cutTxt(s, n) {
   s = String(s || '').trim();
@@ -933,6 +930,122 @@ function _cutTxt(s, n) {
   const sp = t.lastIndexOf(' ');
   return (sp > 0 ? t.slice(0, sp) : t).replace(/[\s,;:]+$/, '') + '…';
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  GRAMMAIRE DE TEXTE PARTAGÉE (24/08) : les mails « rapport entier » écrivent tous
+//  avec les mêmes briques. Ces helpers vivaient en DOUBLE, recopiés à l'identique
+//  dans buildWeeklyDigest et dans buildCampaignPointMarche : deux copies = deux
+//  vérités, et le jour où l'une corrige un piège l'autre le garde (c'est ainsi que
+//  l'échappement-avant-coupe a survécu six mois d'un côté seulement).
+//  UN SEUL NIVEAU DE MISE EN AVANT (doctrine user 24/08 « y a trop d'encadré ») :
+//  le gras doré. Pas de carte, pas de cadre décoratif, pas d'empilement.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Nettoyeur MARKDOWN des textes IA. Le rapport arrive avec des `**gras**`, des `#` et des
+// backticks que le HTML d'un mail ne rend pas : sans lui, le lecteur voit les astérisques.
+// ⚠️ Il écrase aussi les sauts de ligne : pour un texte à paragraphes, découper AVANT (_paraBlocs).
+// ⚠️ TYPÉ (24/08, défaut mesuré) : l'ancienne version faisait String() sur N'IMPORTE QUOI. Un
+// champ narratif arrivé en objet (`{texte:'perdu'}`) devenait la chaîne « [object Object] »,
+// non vide, donc traitée comme du contenu légitime et IMPRIMÉE dans le mail : « Synthèse
+// [object Object] », « Facteurs : [object Object] ». Un tableau devenait « a,b », un nombre
+// « 0 ». Ces champs sont TOUS narratifs (titre, synthèse, intitulé, libellé, citation) : seule
+// une chaîne y a un sens. Les valeurs CHIFFRÉES du produit passent par `_num`, qui accepte les
+// nombres et distingue correctement un vrai « 0 » d'un champ absent. Rejeter ici ne perd donc
+// aucune information : cela refuse une structure malformée au lieu de l'afficher.
+const _md = s => (typeof s === 'string' ? s : '').replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
+
+// Valeur CHIFFRÉE d'un print/calendrier. PIÈGE transversal du projet, dans les DEUX sens :
+// une valeur absente n'est pas un zéro (Number(null) === 0), et un vrai « 0 » n'est pas une
+// valeur absente. On teste donc la CHAÎNE, jamais la véracité JS d'un nombre.
+// Typé lui aussi : un objet ne doit pas ressortir en « [object Object] » dans une colonne
+// de chiffres. Un nombre est accepté tel quel (0 compris), une chaîne est conservée.
+const _num = v => (typeof v === 'number') ? (isFinite(v) ? String(v) : '')
+  : (typeof v === 'string' ? v.trim() : '');
+
+// Prénom d'adresse. `(name || '').split(' ')` plantait dès que l'appelant passait autre chose
+// qu'une chaîne (objet, nombre, tableau, booléen : 8 crashs sur 8 en banc) : « .split is not a
+// function », et le mail ne partait pas du tout. Un prénom illisible ne doit jamais coûter un envoi.
+const _prenom = n => (typeof n === 'string' ? n : '').trim().split(/\s+/)[0] || '';
+
+// Découpe un texte long en PARAGRAPHES lisibles : d'abord les sauts de ligne du rapport (comme
+// _wrParas côté desk), puis, pour un bloc trop dense, un paragraphe toutes les 2 phrases. La
+// coupe de phrase se fait après . ! ? suivi d'une majuscule ou d'un guillemet : les décimales
+// des cotations (« 1.1750 ») ne coupent pas, et RIEN n'est perdu (contrairement à un match glouton).
+function _paraBlocs(txt, parPara) {
+  const out = [];
+  // Même typage que `_md` : un objet ou un tableau passé en texte de corps sortait en
+  // « [object Object] » au milieu d'un paragraphe. Une chaîne, ou rien.
+  for (const bloc of (typeof txt === 'string' ? txt : '').split(/\n+/)) {
+    const t = _md(bloc);
+    if (!t) continue;
+    if (t.length <= 300) { out.push(t); continue; }
+    const ph = t.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).filter(Boolean);
+    const n = Math.max(1, parPara || 2);
+    for (let i = 0; i < ph.length; i += n) { const p = ph.slice(i, i + n).join(' ').trim(); if (p) out.push(p); }
+  }
+  return out;
+}
+// Paragraphes de corps. AUCUNE troncature : ces mails PORTENT le rapport, ils ne le résument plus.
+const _paraHtml = (txt, col, size) => _paraBlocs(txt)
+  .map(p => `<p style="margin:0 0 12px;font-size:${size || '13.5px'};line-height:1.7;color:${col || '#cbd5e1'};">${_esc(p)}</p>`).join('');
+
+// Sous-rubrique d'un bloc (blanc, capitales, 11px) : le 2e et DERNIER niveau de titre.
+const _ssTitre = t => `<div style="color:#e6e6ea;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 5px;">${_esc(t)}</div>`;
+// Ligne de détail (gris) : le contenu est du HTML DÉJÀ échappé par l'appelant.
+const _puce = h => `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:3px 0;">${h}</div>`;
+// Puce de lecture (corps, pastille or) : retrait négatif pour que la 2e ligne s'aligne sous le texte.
+const _puceOr = h => `<div style="color:#cbd5e1;font-size:13.5px;line-height:1.62;margin:0 0 7px;padding-left:13px;text-indent:-13px;"><span style="color:${TOK.or};font-weight:700;">&bull;</span>&nbsp;${h}</div>`;
+// Ligne INTITULÉE (« Pricing : … ») : l'intitulé porte le seul accent de la ligne.
+const _ligne = (label, htmlValeur) => _puce(`<span style="color:#cbd5e1;font-weight:600;">${_esc(label)}&nbsp;:</span> ${htmlValeur}`);
+
+// Couleur du BIAIS : l'échelle du desk a exactement 5 crans (demande user 11/08). On teste
+// « légèrement » EN PREMIER : « légèrement haussier » contient « haussier », l'ordre inverse
+// le peindrait en vert franc.
+const _biasCol = b => {
+  const s = String(b || '').toLowerCase();
+  if (/^l[ée]g\S*\s+haussier/.test(s)) return '#7bc99a';
+  if (/^l[ée]g\S*\s+baissier/.test(s)) return '#e08d86';
+  if (/haussier/.test(s)) return TOK.vert;
+  if (/baissier/.test(s)) return TOK.rouge;
+  return TOK.gris;
+};
+// Drapeau + code devise (le drapeau est un plus, jamais l'information : le code reste écrit).
+const _CCY_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
+const _ccyFlag = ccy => {
+  const c = String(ccy || '').toUpperCase(); if (!c) return '';
+  const iso = _CCY_ISO[c];
+  return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:4px;">` : '')
+    + `<span style="color:#cbd5e1;font-weight:700;">${_esc(c)}</span>`;
+};
+// PAS DE BADGE ACHAT / VENTE DANS LES MAILS (règle produit, 24/08). Le desk affiche le biais
+// par paire de son carrousel ; un e-mail poussé dans la boîte du lecteur, lui, est INFORMATIF
+// et ne doit jamais énoncer une direction à prendre. Un helper `_signalFR` avait été introduit
+// ici pour traduire BUY/SELL/NEUTRAL : il rendait « EUR/USD ACHAT : au-dessus de 1.09 », soit
+// une position, dans un mail dont la doctrine l'interdit. Il a été retiré, pas commenté : la
+// phrase factuelle du desk (`pairs[].text`) reste rendue en entier, seul le badge disparaît.
+
+// Avertissement de LONGUEUR : ces deux mails portent un rapport entier, donc Gmail peut les
+// tronquer (limite ~102 Ko) et afficher « Message tronqué ». Le dire une fois, sobrement, vaut
+// mieux qu'un lecteur qui croit que le desk s'est arrêté en cours de route.
+// ⚠️ CONDITIONNEL (défaut mesuré) : la note était écrite MÊME sur le chemin de repli, un mail
+// de 11 Ko que rien ne tronque jamais. Annoncer un rognage qui n'arrivera pas est un mensonge
+// gratuit. On ne l'écrit qu'au-delà d'un corps réellement volumineux.
+// LE SEUIL EST ATTEINT, ET C'EST ASSUMÉ. Mesure du 24/08 sur une semaine chargée (huit
+// devises, calendrier passé de 38 lignes et calendrier à venir de 22) : le Récap Hebdo pèse
+// ~120 Ko de HTML, le Récap Quotidien ~52 Ko, plus ~52 Ko d'image embarquée. Couper le
+// rapport pour tenir sous les 102 Ko contredirait la demande même de ces deux mails (« on
+// offre ENTIÈREMENT le récap »). On a donc traité l'effet, pas la matière : tout ce qui est
+// structurellement compressible l'a été (une seule cellule pour l'heure et la devise, la
+// couleur de base portée par la cellule et non par un span à chaque valeur), le BOUTON
+// « Ouvrir le desk » est remonté AVANT le rapport pour ne jamais tomber dans la zone repliée,
+// la désinscription voyage aussi en en-tête List-Unsubscribe, et cette note prévient le lecteur.
+const _SEUIL_LONG = 45000;   // octets de corps HTML : en-deçà, aucune messagerie ne rogne
+const _noteLongue = corps => (String(corps || '').length < _SEUIL_LONG) ? ''
+  : `<p style="margin:20px 0 0;font-size:12px;color:${TOK.grisPied};">Rapport long&nbsp;: certaines messageries le tronquent en fin de message. Il reste lisible en entier sur le desk.</p>`;
+
+// Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
+// PAS d'intitule visible au-dessus (le contexte est deja donne par le texte du mail) ; l'`eyebrow` ne sert plus
+// que d'alt (accessibilite + repli si image bloquee). Cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook.
 function _widgetImg(type, eyebrow, maxW, period, ccy, opts) {
   maxW = maxW || 532;
   const lbl = _esc(eyebrow || '');
@@ -1280,321 +1393,423 @@ async function sendAnnouncementDesktop(d) {
   return _send(d.to, m.subject, html, att);
 }
 
-// ── Digest HEBDO (récurrent, AUTO-GÉNÉRÉ) — construit à partir des vraies données du Récap Hebdo du desk.
-// `weekly` = objet _weekly {summary, insights, pairs:[{pair,bias,text}], centralBanks:[{bank,stance}]}.
-// Renvoie null si aucune donnée (règle « pas de données → pas de mail »). 100% informatif.
+// ══════════════════════════════════════════════════════════════════════════════
+//  UNE SEULE GRAMMAIRE DE TABLE DE CALENDRIER pour les deux mails (24/08)
+//  Le quotidien séparait ses jours par une LIGNE-TITRE dorée pleine largeur ; l'hebdo
+//  répétait le jour dans une COLONNE, « Vendredi 21 août » cinq fois de suite, en
+//  `nowrap`, mangeant une part visible des 390 px d'un téléphone pour une valeur déjà
+//  écrite juste au-dessus. Deux grammaires pour la même idée dans le même produit.
+//  Le séparateur de jour gagne : il dit la chose une fois et rend la place aux chiffres.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Cellule de table : le style est identique partout, il vit à UN endroit.
+const _TDC = `padding:6px;border-top:1px solid ${TOK.filet2};`;
+// Séparateur de jour (pleine largeur, or, capitales) : la ligne-titre du calendrier du desk.
+const _trJour = (j, cols) => `<tr><td colspan="${cols}" style="padding:9px 6px 4px;color:${TOK.or};font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-top:1px solid ${TOK.filet};">${_esc(j)}</td></tr>`;
+// PREMIÈRE CELLULE d'une ligne de calendrier : heure au-dessus, drapeau + code devise dessous.
+// Deux colonnes fusionnées en une (grammaire de `_tabPublications`) : sur 390 px, quatre
+// colonnes nowrap volaient la largeur au libellé de l'événement, qui est l'information.
+const _tdQuand = (heure, ccy) => `<td style="${_TDC}white-space:nowrap;vertical-align:top;">${heure ? `<div style="color:${TOK.or};font-weight:700;font-size:11.5px;">${_esc(heure)}</div>` : ''}${ccy ? `<div style="font-size:11px;${heure ? 'margin-top:2px;' : ''}">${_ccyFlag(ccy)}</div>` : ''}</td>`;
+// DERNIÈRE CELLULE : le réel coloré, puis les références empilées (haut/prévision/bas/précédent).
+// La couleur et la taille de base vivent sur le `<td>`, pas dans un span par valeur : la même
+// information en un tiers d'octets, ce qui compte sur un rapport de plusieurs dizaines de lignes.
+const _tdVals = (reelHtml, refs) => `<td align="right" style="${_TDC}color:${TOK.gris};font-size:11px;white-space:nowrap;vertical-align:top;">${reelHtml}${(reelHtml && refs) ? '<br>' : ''}${refs}${(!reelHtml && !refs) ? '·' : ''}</td>`;
+
+// COULEUR DU RÉEL : miroir exact de `deviationClass` du desk (public/js/charts.js), qui
+// distingue TROIS états depuis le 12/08 sur demande explicite de l'utilisateur (« mets une
+// couleur si c'est positif, négatif ou neutre ») :
+//   · au-dessus / en-dessous du consensus → vert ou rouge, POLARITÉ INTELLIGENTE (un chômage
+//     plus BAS que prévu est une bonne surprise : la couleur s'inverse pour ces indicateurs) ;
+//   · CONFORME au consensus → ambre neutre. Le marché n'a pas été surpris : c'est une
+//     information, pas une absence d'information ;
+//   · sans consensus → blanc, on ne déduit jamais un signal du précédent.
+// Le mail rendait les deux derniers cas de la MÊME couleur : le miroir était incomplet d'un état.
+const _INV_RX = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts|foreclosure|bankruptc|delinquen/i;
+function _actCol(a, f, title) {
+  const x = parseFloat(String(_num(a)).replace(',', '.')), y = parseFloat(String(_num(f)).replace(',', '.'));
+  if (isNaN(x) || isNaN(y)) return '#e6e6ea';
+  if (x === y) return TOK.ambre;
+  return (_INV_RX.test(String(title || '')) ? x < y : x > y) ? TOK.vert : TOK.rouge;
+}
+
+// Table de calendrier d'une SEMAINE (rubriques « Chiffres publiés » et « À surveiller » du
+// Récap Hebdo). `groupes` = [{ dayLabel, events:[{time, ccy, title, actual, forecast, previous}] }].
+// Aucun plafond, aucune dédup, aucun filtre d'impact : le rapport est livré entier.
+function _tabCalSemaine(groupes) {
+  let out = '';
+  for (const g of (Array.isArray(groupes) ? groupes : [])) {
+    // ⚠️ Une entrée NULLE dans le calendrier faisait sauter TOUT le Récap Hebdo de la semaine
+    // (« Cannot read properties of null (reading 'events') ») : le tableau était testé, jamais
+    // ses éléments. Un jour malformé se saute, il ne coûte pas l'envoi.
+    if (!g || typeof g !== 'object') continue;
+    // AUCUN filtre au-delà du nom de l'événement. Un rendez-vous sans le moindre chiffre
+    // (des minutes de banque centrale, par exemple) reste une ligne du calendrier de la
+    // semaine : il sort avec un « · » en valeurs, comme sur le desk, plutôt que d'être
+    // effacé du rapport. C'est déjà la grammaire de « À surveiller » du Récap Quotidien.
+    const evs = (Array.isArray(g.events) ? g.events : [])
+      .filter(e => e && typeof e === 'object' && _md(e.title));
+    if (!evs.length) continue;
+    const jour = _md(g.dayLabel);
+    if (jour) out += _trJour(jour, 3);
+    for (const e of evs) {
+      const reel = _num(e.actual), att = _num(e.forecast), pre = _num(e.previous);
+      // PRÉCÉDENT enfin rendu : le lecteur voyait le réel et le consensus, jamais la valeur
+      // d'avant, donc il ne pouvait pas juger la TENDANCE. Empilé sous le consensus plutôt
+      // qu'en 6e colonne : à 390 px de large, une colonne de plus écrase le libellé.
+      const refs = [att ? 'prév. ' + _esc(att) : '', pre ? 'préc. ' + _esc(pre) : ''].filter(Boolean).join('<br>');
+      out += `<tr>${_tdQuand(_md(e.time), e.ccy)}`
+        + `<td style="${_TDC}color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(e.title))}</td>`
+        + _tdVals(reel ? `<b style="color:${_actCol(e.actual, e.forecast, e.title)};font-size:12px;">${_esc(reel)}</b>` : '', refs)
+        + `</tr>`;
+    }
+  }
+  return out ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:2px 0 8px;">${out}</table>` : '';
+}
+
+// ── VOTRE RÉCAP HEBDO (récurrent, AUTO-GÉNÉRÉ) ────────────────────────────────────────────
+// REFONTE 24/08, demande user : « pour le récap hebdo pareil, on offre entièrement le récap
+// hebdo, toutes les devises ». Le mail ne s'arrête plus à trois devises sur huit (et ne
+// l'écrit plus noir sur blanc) : il DONNE le rapport entier, dans l'ordre du desk.
+// Ce qui a été DÉBRIDÉ : la sélection _curPick (3 devises), et toutes les coupes qui
+// amputaient un rapport déjà borné côté serveur (execSummary 300, monetaryPolicy 260,
+// drivers 190, propos 180, géo 320, chronologie 190, prints 3/2/3, cbBullets 2…).
+// Ce qui a été BRANCHÉ : trois blocs entiers écrits puis jetés depuis des semaines, jamais
+// injectés dans `body` : le ton des banques centrales, le fait marquant macro et le tableau
+// des chiffres de la semaine avec son classement par la grille du mentor.
+// UNE SEULE IMAGE (doctrine 24/08) : la Force des Devises de la semaine. Les huit courbes
+// par devise ont été RETIRÉES, et pas seulement pour la sobriété : _sendWithInlineWidgets
+// ne construit qu'UN cid par type:période, donc les huit <img> auraient toutes affiché la
+// MÊME courbe, celle de la première devise (défaut mesuré, déjà visible sur trois devises).
+// `weekly` = objet _weekly complet (_freshWeekly le sert entier, jamais un extrait).
+// Renvoie null si aucune donnée (règle « pas de données → pas de mail »). 100 % informatif.
 function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   campaign = campaign || 'weekly';
   const w = weekly || {};
-  const _md = s => String(s == null ? '' : s).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
-  const insights = (Array.isArray(w.insights) ? w.insights : []).map(t => _md(typeof t === 'string' ? t : (t && t.text))).filter(Boolean);
-  const cbList = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && c.bank);
-  // OUVERTURE — v43 : le rapport n'ouvre plus sur `summary` mais sur `intro`, le lead bâti à partir des
-  // récaps quotidiens de la semaine. Le mail lisait encore `summary` : il ouvrait donc sur un autre texte
-  // que le desk, sur la même semaine. `summary` reste le repli (éditions antérieures à la v42).
-  const lead = _md(w.intro) || _md(w.summary) || insights[0] || '';
-  if (!lead && !insights.length) return null;
-  const prenomRaw = (name || '').split(' ')[0] || '';
-  const prenom = _esc(prenomRaw);
-  const hello = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+  const prenomRaw = _prenom(name);
+  const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
   const unsub = unsubUrl(email || '');
-  // AVANT-GOUT du rapport Recap Hebdo (demande user : plus de cartes de paires) : les POINTS CLES de la semaine,
-  // tires des insights REELS du rapport -> puces or, memes donnees que l'onglet Analystes.
-  // REFONTE 28/07 (« simple, épuré, lisible, pro ») : UNE seule grammaire de section (filet or +
-  // label capitales) remplace les 7 phrases d'intro grises qui se ressemblaient toutes. Moins de
-  // blocs, moins de lignes par bloc, un rythme de lecture constant. (23/08 : la grammaire est
-  // devenue _secTitle, partagée par TOUS les mails à sections.)
-  const _sec = _secTitle;
-  const keyPts = insights.slice(lead === insights[0] ? 1 : 0, (lead === insights[0] ? 1 : 0) + 3);
-  const insightsHtml = keyPts.length
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${keyPts.map(p => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;line-height:1.6;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 230)}</td></tr>`).join('')}</table>`
-    : '';
-  // Ton des banques centrales des 3 DEVISES VEDETTES (demande user) : 1 ligne = une phrase du président qui
-  // montre le ton (hawkish/dovish). On ne montre QUE ces 3 banques (pas les 8), sans décision/guidance/prochaine réunion.
-  const _cbBiasCol = b => /hawk/i.test(b) ? '#22c55e' : /dov/i.test(b) ? '#ef4444' : '#9aa3b2';   // SÉMANTIQUE : hawkish=haussier→vert · dovish=baissier→rouge · neutre=gris
-  const _curSrc = (w.currencies && typeof w.currencies === 'object') ? w.currencies : {};
-  const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => {
-    const t = _curSrc[c] && (_curSrc[c].execSummary || _curSrc[c].analysis);   // v43 : execSummary est le champ de tête
-    return t && String(t).trim().length > 30;
-  }).slice(0, 3);
-  const _cbTone = _curPick.map(code => cbList.find(c => c.code === code)).filter(Boolean).slice(0, 3);
-  const cbToneHtml = _cbTone.length ? `<div style="border:1px solid #232429;border-radius:6px;overflow:hidden;background:#0d0e11;">
-    ${_cbTone.map((c, i) => {
-      const bias = _md(c.bias5 || c.stance || 'Neutre');
-      // UN seul propos attribué par banque (v40) : deux citations par banque × 3 banques noyaient
-      // la section. Le lecteur retient QUI a parlé et sur quel ton — c'est l'essentiel.
-      const qs = (c.quotes || []).filter(q => q && q.quote).slice(0, 1);
-      const lines = qs.length
-        ? qs.map(q => {
-            const _attr = [q.speaker, q.date].filter(Boolean).map(s => _esc(_md(String(s)))).join(', ');
-            return (_attr ? '<b>' + _attr + '&nbsp;:</b> ' : '') + '« ' + _esc(_cutTxt(_md(q.quote), 180)) + ' »';
-          })
-        : [(c.guidance ? _esc(_cutTxt(_md(c.guidance), 170)) : (c.narrative ? _esc(_cutTxt(_md(c.narrative), 170)) : ''))].filter(Boolean);
-      const est = (c.source && c.source !== 'market') ? ' <span style="color:#7b828f;font-size:9px;font-weight:700;">est.</span>' : '';
-      return `<div style="padding:10px 12px;${i ? 'border-top:1px solid #1f1f24;' : ''}">
-        <div><span style="color:#f3c344;font-weight:800;font-size:13px;">${_esc(_md(c.bank))}</span> <span style="color:${_cbBiasCol(bias)};font-weight:700;font-size:12px;">${_esc(bias)}</span>${est}</div>
-        ${lines.map(l => `<div style="color:#cbd5e1;font-size:12.5px;line-height:1.55;margin-top:3px;font-style:italic;">${l}</div>`).join('')}
-      </div>`;
-    }).join('')}
-    </div>` : '';
-  // LE FIL GÉOPOLITIQUE (v43, miroir du rapport) : le RÉCIT d'abord (geoNarrative), la « Chronologie
-  // rapide » ensuite, une ligne par temps fort. C'est l'ordre exact du desk — le mail s'arrête à
-  // 2 paragraphes et 3 temps forts : au-delà on recopierait le rapport au lieu d'y renvoyer.
-  const _geoN = (Array.isArray(w.geoNarrative) ? w.geoNarrative : []).map(_md).filter(Boolean).slice(0, 2);
-  const _gtJours = (w.geoTimeline && Array.isArray(w.geoTimeline.jours))
-    ? w.geoTimeline.jours.filter(j => j && j.jour && Array.isArray(j.points) && j.points.length).slice(0, 3) : [];
-  const geoHtml = (_geoN.length || _gtJours.length)
-    ? _geoN.map(p => `<p style="margin:0 0 10px;font-size:13.5px;line-height:1.65;color:#cbd5e1;">${_esc(_cutTxt(p, 320))}</p>`).join('')
-      + (_gtJours.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${_gtJours.map(j => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">${_esc(_md(j.jour))}</span>&nbsp;&mdash; ${_esc(_cutTxt(_md(j.points.join(' ')), 190))}</td></tr>`).join('')}</table>` : '')
-    : '';
-  // Le rapport intitule cette section « Géopolitique », sans ornement : le mail dit pareil.
-  const geoTitle = 'Géopolitique';
-  // EXTRAIT du rapport, PAR DEVISE (demande user, remplace la phrase force-des-devises) : 1-2 phrases de
-  // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
-  // COULEUR DU BIAIS — l'échelle du desk a exactement 5 niveaux (demande user 11/08). On teste « légèrement »
-  // EN PREMIER : « légèrement haussier » contient « haussier », l'ordre inverse le peindrait en vert franc.
-  const _biasCol = b => {
-    const s = String(b || '').toLowerCase();
-    if (/^l[ée]g\S*\s+haussier/.test(s)) return '#7bc99a';
-    if (/^l[ée]g\S*\s+baissier/.test(s)) return '#e08d86';
-    if (/haussier/.test(s)) return '#22c55e';
-    if (/baissier/.test(s)) return '#ef4444';
-    return '#9aa3b2';
-  };
-  // ── BLOC DEVISE : L'ORDRE EXACT DU RAPPORT (15/08) ────────────────────────────────────────
-  // Avant, le mail résumait chaque devise en une phrase + une ligne de moteur, pendant que le
-  // rapport déroule : accroche, résumé, prints de croissance, d'emploi et d'inflation, banque
-  // centrale et pricing, moteurs, semaine à venir, biais. Le lecteur ne retrouvait donc pas le
-  // rapport qu'on lui promettait. Les trois devises de l'aperçu portent désormais TOUTES ces
-  // rubriques, avec les mêmes intitulés et dans le même ordre.
-  // SOUS-TITRES EN BLANC (15/08, demande user « pour que ça ressorte bien comme dans le desk ») :
-  // le desk les peint avec `var(--text)`, c'est-à-dire la couleur de texte pleine, pas le gris des
-  // libellés secondaires. En gris, ils se noyaient dans les puces qu'ils sont censés annoncer.
-  const _ssTitre = t => `<div style="color:#e6e6ea;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 5px;">${_esc(t)}</div>`;
-  // ── L'OUVERTURE EST UN VRAI PARAGRAPHE (15/08, demande user « c'est pas sous forme de paragraphe »)
-  // Elle était coupée net à 460 caractères et tenait dans un seul <p> : le lecteur recevait une
-  // phrase tronquée en plein milieu, là où le rapport ouvre sur un texte complet, aéré, avant la
-  // section Géopolitique. On ne tronque plus et on respecte les sauts de ligne du rapport, comme
-  // le fait `_wrParas` côté desk.
-  const _introParas = t => String(t || '').split(/\n+/).map(x => x.trim()).filter(Boolean)
-    .map(x => `<p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#e6e6ea;">${_esc(x)}</p>`).join('');
-  const _puce = h => `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:2px 0;">${h}</div>`;
-  // Même grammaire que le rapport : « CPI Y/Y : publié 3,5 % · attendu 3,8 % · préc. 3,4 % → lecture (15 juil.) ».
+  const P = [];
+  const S = (titre, contenu) => { if (contenu && String(contenu).trim()) P.push(_secTitle(titre) + contenu); };
+
+  // OUVERTURE (v43) : le rapport ouvre sur `intro` (le lead bâti sur les récaps quotidiens de
+  // la semaine), pas sur `summary`. Le desk n'écrit JAMAIS les deux : `summary` n'est que le
+  // repli des éditions antérieures à la v42. Les rendre tous les deux dirait la semaine 2 fois.
+  const insights = (Array.isArray(w.insights) ? w.insights : []).map(t => _md(typeof t === 'string' ? t : (t && t.text))).filter(Boolean);
+  const lead = _md(w.intro) || _md(w.summary) || insights[0] || '';
+
+  // ── EN-TÊTE : le nom du mail, la semaine couverte, le titre réel du rapport ───────────────
+  // Le mail ne disait même pas QUELLE semaine il couvrait (weekRange / weekEnding jamais lus).
+  const periode = _md(w.weekRange) || (_num(w.weekEnding) ? 'semaine au ' + _md(w.weekEnding) : '');
+  const titreRap = _md(w.title).replace(/^Weekly Market Recap\s*[:\-]?\s*/i, '').replace(/^R[ée]cap Hebdo\s*[:\-]?\s*/i, '');
+  const entete = `${_H1}Votre Récap Hebdo</p>`
+    + (periode ? `<p style="margin:-8px 0 10px;color:${TOK.grisDoux};font-size:12px;">${_esc(periode)}</p>` : '')
+    + (titreRap ? `<p style="margin:0 0 14px;color:#e6e6ea;font-size:14.5px;font-weight:600;line-height:1.5;">${_esc(titreRap)}</p>` : '');
+
+  // Le lead, en paragraphes, SANS troncature (seul texte déjà non tronqué du mail : il le reste).
+  P.push(_paraHtml(lead, '#e6e6ea', '14px'));
+
+  // ── ÉCLAIRAGES : les idées du desk sur la semaine, TOUTES (le mail n'en montrait que 3, et
+  //    les coupait à 230 caractères APRÈS échappement, ce qui pouvait trancher une entité HTML
+  //    en plein milieu : on coupe avant d'échapper, ici on ne coupe plus du tout).
+  const _reste = insights.filter(t => t !== lead);
+  // PAIRES du rapport (w.pairs, jusqu'à 8 objets {pair, bias, text}) : elles n'étaient lues
+  // NULLE PART, alors que le mail rendait déjà `w.insights`, de la même famille, et que le
+  // mail QUOTIDIEN rend son équivalent. Le badge de biais, lui, ne passe pas : règle produit
+  // (informatif uniquement) : la phrase factuelle du desk est rendue en entier, sans direction.
+  const pairesW = (Array.isArray(w.pairs) ? w.pairs : []).filter(p => p && _md(p.pair)).map(p => {
+    const txt = _md(p.text);
+    return _puceOr(`<span style="color:${TOK.blanc};font-weight:700;">${_esc(_md(p.pair))}</span>${txt ? ' : ' + _esc(txt) : ''}`);
+  }).join('');
+  S('Éclairages', _reste.map(t => _puceOr(_esc(t))).join('') + pairesW);
+
+  // ── GÉOPOLITIQUE : le RÉCIT d'abord, la « Chronologie rapide » ensuite (ordre du desk) ────
+  // Les points d'un jour sont filtrés UN PAR UN : un `points` contenant un null ou un objet
+  // faisait sortir « lundi : a ; ; [object Object] » (le join() précédait le nettoyage).
+  const geoN = (Array.isArray(w.geoNarrative) ? w.geoNarrative : []).map(_md).filter(Boolean);
+  const gt = (w.geoTimeline && Array.isArray(w.geoTimeline.jours))
+    ? w.geoTimeline.jours.map(j => ({ jour: _md(j && j.jour), pts: (Array.isArray(j && j.points) ? j.points : []).map(_md).filter(Boolean) }))
+      .filter(j => j.jour && j.pts.length) : [];
+  const gtTitre = _md(w.geoTimeline && w.geoTimeline.titre);
+  const geoHtml = geoN.map(p => _paraHtml(p)).join('')
+    // Intitulé en UN mot ; le titre que le rapport donne à sa chronologie (« Énergie et
+    // corridors maritimes ») est une DONNÉE, il descend d'une ligne au lieu d'allonger le titre.
+    + (gt.length ? _ssTitre('Chronologie')
+      + (gtTitre ? `<div style="color:${TOK.grisDoux};font-size:12px;margin:0 0 4px;">${_esc(gtTitre)}</div>` : '')
+      + gt.map(j => _puce(`<span style="color:${TOK.or};font-weight:700;">${_esc(j.jour)}</span> : ${_esc(j.pts.join(' ; '))}`)).join('') : '');
+  S('Géopolitique', geoHtml);
+
+  // ── BANQUES CENTRALES : la section ABSENTE du mail envoyé jusqu'ici (le bloc existait,
+  //    il n'était jamais injecté). Elle porte ce que le desk range par devise plus bas :
+  //    posture, décision, orientation, effet devise, probabilités du marché.
+  //    RÉPARTITION VOLONTAIRE, pour ne rien dire deux fois : les PROPOS datés (quotes) sont
+  //    rendus dans le bloc de LEUR devise (cd.cbBullets en vient). Ils ne reviennent ici que
+  //    pour une banque dont la devise n'a PAS de bloc : sinon ils seraient perdus en silence.
+  const cbList = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && _md(c.bank));
+  // `!Array.isArray` : typeof [] vaut 'object', donc un tableau passait et Object.keys rendait
+  // '0','1', et le mail affichait des blocs devise intitulés « 0 » et « 1 » en or 17px.
+  const curSrc = (w.currencies && typeof w.currencies === 'object' && !Array.isArray(w.currencies)) ? w.currencies : {};
+  // ORDRE DU DESK (_WR_ORDER) puis toute clé inattendue : « toutes les devises » est la
+  // demande centrale, aucune ne doit disparaître parce qu'elle manque à une liste en dur.
+  // La SEULE condition est de ressembler à un code devise (3 lettres majuscules) : une clé
+  // technique glissée dans l'objet (`_meta`) ne doit pas devenir un bloc devise fantôme.
+  const _ORDRE = ['USD', 'EUR', 'JPY', 'GBP', 'CHF', 'AUD', 'CAD', 'NZD'];
+  const _estDevise = c => /^[A-Z]{3}$/.test(String(c)) && curSrc[c] && typeof curSrc[c] === 'object' && !Array.isArray(curSrc[c]);
+  const codes = _ORDRE.filter(_estDevise)
+    .concat(Object.keys(curSrc).filter(c => _ORDRE.indexOf(c) < 0 && _estDevise(c)));
+  // SÉMANTIQUE de la charte : hawkish = resserrement = vert · dovish = assouplissement = rouge.
+  const _tonCol = b => /hawk/i.test(b) ? TOK.vert : (/dov/i.test(b) ? TOK.rouge : TOK.gris);
+  const _dateFR = d => { const t = Date.parse(String(d || '') + (/^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? 'T00:00:00Z' : '')); if (!isFinite(t)) return _md(d); try { return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' }).format(new Date(t)); } catch (e) { return _md(d); } };
+  // Probabilités : le serveur les produit déjà en POURCENTAGES 0-100 à deux décimales
+  // (server.js 16159 et 16225). On arrondit à l'entier, on n'invente aucune conversion.
+  const _pc = v => (typeof v === 'number' && isFinite(v)) ? Math.round(v) + ' %' : '';
+  const cbHtml = cbList.map(c => {
+    const ton = _md(c.bias5 || c.stance);
+    const est = (c.source && c.source !== 'market') ? ` <span style="color:#7b828f;font-size:9px;font-weight:700;">est.</span>` : '';
+    const tete = `<div style="margin:14px 0 3px;"><span style="color:${TOK.or};font-weight:800;font-size:13.5px;">${_esc(_md(c.bank))}</span>${ton ? ` <span style="color:${_tonCol(ton)};font-weight:700;font-size:12px;">${_esc(ton)}</span>` : ''}${est}</div>`;
+    const det = [];
+    const taux = _num(c.rate);
+    if (taux) det.push(_ligne('Taux directeur', _esc(taux)));
+    if (_md(c.decision)) det.push(_ligne('Décision', _esc(_md(c.decision))));
+    if (_md(c.changed)) det.push(_ligne('Ce qui a changé', _esc(_md(c.changed))));
+    if (_md(c.guidance)) det.push(_ligne('Orientation', _esc(_md(c.guidance))));
+    const fac = Array.isArray(c.factors) ? c.factors.map(_md).filter(Boolean).join(' · ') : _md(c.factors);
+    if (fac) det.push(_ligne('Facteurs', _esc(fac)));
+    if (_md(c.fxImpact)) det.push(_ligne('Effet devise', _esc(_md(c.fxImpact))));
+    const sc = (c.scenario && typeof c.scenario === 'object') ? c.scenario : null;
+    const probs = sc ? [_pc(sc.hold) ? 'statu quo ' + _pc(sc.hold) : '', _pc(sc.hike) ? 'hausse ' + _pc(sc.hike) : '', _pc(sc.cut) ? 'baisse ' + _pc(sc.cut) : ''].filter(Boolean).join(' · ') : '';
+    const reunion = _md(c.next) ? _dateFR(c.next) + ((typeof c.nextDays === 'number' && isFinite(c.nextDays)) ? ` (dans ${c.nextDays} j)` : '') : '';
+    if (probs || reunion) det.push(_ligne('Prochaine réunion', _esc([reunion, probs].filter(Boolean).join(' · '))));
+    const narr = _md(c.narrative) ? _paraHtml(c.narrative) : '';
+    // RÉPARTITION DES PROPOS, sans rien perdre ni rien dire deux fois :
+    //  · banque ORPHELINE (sa devise n'a pas de bloc) → citation ET interprétation, c'est le
+    //    seul endroit où elles peuvent être lues. `q.analysis` n'était lu nulle part : jeté.
+    //  · banque RATTACHÉE → son bloc devise porte déjà `cd.cbBullets`, dont le texte vaut
+    //    `analysis || quote` (server.js 10984). Quand une analyse existe, la CITATION VERBATIM
+    //    du banquier central ne figurait alors NULLE PART dans le mail : on l'écrit ici, seule.
+    //    Sans analyse, cbBullets porte déjà la citation : on n'écrit rien, ce serait un doublon.
+    const orphelin = !(c.code && codes.indexOf(String(c.code).toUpperCase()) >= 0);
+    const props = (Array.isArray(c.quotes) ? c.quotes : []).map(q => {
+      if (!q) return '';
+      const attr = [_md(q.speaker), _md(q.date)].filter(Boolean).join(', ');
+      const cit = _md(q.quote), ana = _md(q.analysis);
+      const corps = orphelin
+        ? [cit ? '« ' + _esc(cit) + ' »' : '', ana ? _esc(ana) : ''].filter(Boolean).join(' → ')
+        : ((ana && cit) ? '« ' + _esc(cit) + ' »' : '');
+      if (!corps) return '';
+      return _puce(`${attr ? `<span style="color:#cbd5e1;font-weight:600;">${_esc(attr)}</span> : ` : ''}${corps}`);
+    }).filter(Boolean).join('');
+    // GARDE RÉPARÉE : les deux branches valaient `tete`, donc elle ne filtrait jamais rien et
+    // une banque réduite à son nom sortait en or avec RIEN dessous. On garde l'entête tant
+    // qu'elle porte une information (posture), sinon le bloc ne s'écrit pas du tout.
+    return (det.length || narr || props) ? tete + narr + det.join('') + props : (ton ? tete : '');
+  }).join('');
+  S('Banques centrales', cbHtml);
+
+  // ── THÈMES MACRO ─────────────────────────────────────────────────────────────────────────
+  // ⚠️ Le 14/08, cette section avait été RETIRÉE du mail : sa taxonomie (« Performance
+  // Cross-Asset », « Commerce International & Tarifs »…) avait quitté le récap du desk le
+  // 11/08, et le mail affichait donc des rubriques absentes du rapport qu'il annonçait.
+  // Elle revient le 24/08 sur demande explicite (« on offre entièrement le récap hebdo ») :
+  // la matière EST produite, elle est datée et sourcée, la cacher revenait à jeter le tiers
+  // du travail du desk. Le thème géopolitique est sauté quand le récit géo l'a déjà raconté,
+  // et les thèmes banque centrale sont déjà écartés déterministiquement côté serveur.
+  // DEUX DÉFAUTS RÉPARÉS ICI, tous deux des pertes sèches :
+  //  1. un thème qui porte un `detail` mais AUCUNE puce disparaissait ENTIÈREMENT, intitulé
+  //     compris, alors que le serveur produit `detail` indépendamment des puces (server 10806).
+  //  2. le thème « Géopolitique » sautait dès que le RÉCIT géo existait. Le desk, lui, ne le
+  //     retire que si la CHRONOLOGIE existe (app.js 8850 : `_geoTheme = !_gt ? … : null`) :
+  //     sans chronologie il rend le thème, ses puces et son intitulé. On s'aligne : le doublon
+  //     à éviter est chronologie/thème, pas récit/thème (le récit raconte, le thème liste).
+  const macroHtml = (Array.isArray(w.macro) ? w.macro : [])
+    .map(m => ({ h: _md(m && m.heading), b: (Array.isArray(m && m.bullets) ? m.bullets : []).map(_md).filter(Boolean), d: _md(m && m.detail) }))
+    .filter(x => x.h && (x.b.length || x.d))
+    .filter(x => !(gt.length && /g[ée]opolit/i.test(x.h)))
+    .map(x => _ssTitre(x.h) + x.b.map(b => _puceOr(_esc(b))).join('') + (x.d ? _paraHtml(x.d) : '')).join('');
+  S('Points macro', macroHtml);
+
+  // ── LE CALENDRIER DE LA SEMAINE : PUBLIÉ, PUIS À VENIR ───────────────────────────────────
+  // TOUT ce que le rapport porte, sans sélection ni plafond. Ce qui a été retiré ici, et
+  // pourquoi (quatre pertes mesurées, toutes silencieuses) :
+  //  · le filtre `major || high` jetait une publication à impact MOYEN pourtant PUBLIÉE, alors
+  //    que le serveur fait entrer dans `past` tout événement porteur d'un réel (server 20562) ;
+  //  · le filtre `_num(e.actual)` jetait une décision de taux annoncée sans chiffre exploitable
+  //    (BoE Bank Rate) : elle garde pourtant son consensus et son précédent ;
+  //  · la dédup « devise + famille » jetait une publication sur deux dès que deux prints d'une
+  //    même devise tombaient dans la même famille : « CPI YoY » et « Core CPI YoY » sont DEUX
+  //    chiffres que le trader lit séparément, pas deux variantes d'un même. La clé de famille
+  //    était en plus tronquée à 22 caractères, donc « Foreign Direct Investment YTD » et
+  //    « … Change » fusionnaient ;
+  //  · le plafond de 12 lignes coupait 6 publications sur 18 distinctes.
+  // La sélection n'a plus lieu d'être : le serveur a déjà borné `past` et `upcoming` (45
+  // événements chacun, majeurs protégés, server 20570) et les a triés chronologiquement. Le
+  // classement par grande famille et la grille de priorité ont donc disparu avec le plafond :
+  // ils n'existaient que pour choisir QUI aurait les 12 places.
+  const _cal = (w.calendar && typeof w.calendar === 'object' && !Array.isArray(w.calendar)) ? w.calendar : {};
+  S('Chiffres publiés', _tabCalSemaine(_cal.past));
+  // `upcoming` (le calendrier de la semaine qui vient) est produit et stocké AVEC le rapport
+  // (server 20569) et n'était lu NULLE PART : le mail livrait le pendant passé et gardait
+  // celui-ci pour lui. Même grammaire de table, sans colonne « réel » remplie : ce sont des
+  // rendez-vous, pas des résultats.
+  S('À surveiller', _tabCalSemaine(_cal.upcoming));
+
+  // ── LA SEMAINE DEVISE PAR DEVISE : TOUTES les devises publiées, TOUTES leurs rubriques,
+  //    dans l'ordre exact du desk : entête (code + biais + accroche) · résumé exécutif ·
+  //    Croissance économique · Emploi · Inflation · Banque centrale · moteurs ·
+  //    « Semaine à venir : » · « Biais / Scénario : ».
   const _CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
+  // Même grammaire que le rapport : « [All.] CPI Y/Y : publié 3,5 % · attendu 3,8 % · préc. 3,4 % → lecture (15 juil.) ».
   const _print = pr => {
-    if (!pr || !pr.label || !pr.actual) return '';
-    const nums = [`publié <b style="color:#e6e6ea;">${_esc(_md(pr.actual))}</b>`,
-      pr.forecast ? `attendu ${_esc(_md(pr.forecast))}` : '',
-      pr.previous ? `préc. ${_esc(_md(pr.previous))}` : ''].filter(Boolean).join(' · ');
-    const ctry = (pr.ctry && _CTRY_FR[pr.ctry]) ? `<span style="color:#8b93a1;">${_CTRY_FR[pr.ctry]}</span> ` : '';
-    const lean = pr.lean ? ` <span style="color:#cbd5e1;">→ ${_esc(_md(pr.lean))}</span>` : '';
-    const dt = pr.date ? ` <span style="color:#6b7280;">(${_esc(_md(pr.date))})</span>` : '';
+    // Un print sans réel ne s'affiche pas (règle du desk). _num, pas la véracité JS : un
+    // réel « 0 » est une valeur légitime, il ne doit pas disparaître comme un champ absent.
+    if (!pr || !_md(pr.label) || !_num(pr.actual)) return '';
+    const nums = [`publié <b style="color:#e6e6ea;">${_esc(_num(pr.actual))}</b>`,
+      _num(pr.forecast) ? `attendu ${_esc(_num(pr.forecast))}` : '',
+      _num(pr.previous) ? `préc. ${_esc(_num(pr.previous))}` : ''].filter(Boolean).join(' · ');
+    const ctry = (pr.ctry && _CTRY_FR[pr.ctry]) ? `<span style="color:${TOK.grisDoux};">${_CTRY_FR[pr.ctry]}</span> ` : '';
+    const lean = _md(pr.lean) ? ` <span style="color:#cbd5e1;">→ ${_esc(_md(pr.lean))}</span>` : '';
+    const dt = _md(pr.date) ? ` <span style="color:#6b7280;">(${_esc(_md(pr.date))})</span>` : '';
     return _puce(`${ctry}<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(pr.label))}</span> : ${nums}${lean}${dt}`);
   };
-  const _bloc = (titre, arr, max) => {
-    const l = (Array.isArray(arr) ? arr : []).slice(0, max || 3).map(_print).filter(Boolean).join('');
-    return l ? _ssTitre(titre) + l : '';
-  };
-  const _BK_MAIL = { USD: 'Fed', EUR: 'BCE', GBP: 'BoE', JPY: 'BoJ', CHF: 'BNS', CAD: 'BoC', AUD: 'RBA', NZD: 'RBNZ' };
-  let curHtml = '';
-  if (_curPick.length) {
-    const rows = _curPick.map(c => {
-      const cd = _curSrc[c] || {};
-      // v39 : sous l'extrait, la ligne PRICING (probas de taux, même source que l'onglet TAUX) + le PRINT
-      // le plus parlant de la semaine (inflation d'abord, sinon croissance/emploi) — factuel, informatif only.
-      const _p = (Array.isArray(cd.inflationPrints) && cd.inflationPrints[0]) || (Array.isArray(cd.growthPrints) && cd.growthPrints[0]) || null;
-      const printLine = _p && _p.actual ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#cbd5e1;font-weight:600;">${_esc(_md(_p.label))}</span>&nbsp;: ${_esc(_p.actual)}${_p.forecast ? ' (attendu ' + _esc(_p.forecast) + ')' : ''}${_p.lean ? ' → ' + _esc(_p.lean) : ''}${_p.date ? ' <span style="color:#7b828f;">(' + _esc(_p.date) + ')</span>' : ''}</div>` : '';
-      const pricingLine = cd.pricing ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#f3c344;font-weight:600;">Pricing&nbsp;:</span> ${_esc(_cutTxt(_md(cd.pricing), 150))}</div>` : '';
-      // v43 : le texte de tête d'une devise est `execSummary` (le CHEMIN de la semaine : verdict puis
-      // trajectoire). `analysis` en repli pour les rapports d'avant la refonte.
-      const _txt = _md(cd.execSummary || cd.analysis);
-      // Le BIAIS est la conclusion du bloc devise sur le desk — il manquait au mail, qui donnait donc
-      // le récit sans le verdict. Même source (Smart Bias), même échelle à 5 niveaux.
-      const _b = _md(cd.bias);
-      const biasBadge = _b ? ` <span style="color:${_biasCol(_b)};font-weight:700;font-size:11.5px;">${_esc(_b)}</span>` : '';
-      // Moteurs v43 = thèmes factuels rendus en LIGNES INTITULÉES (« Commerce : … ») — un seul ici,
-      // le rapport porte les autres.
-      const _d0 = (Array.isArray(cd.drivers) ? cd.drivers : []).filter(d => d && d.name && d.why)[0];
-      const drvLine = _d0 ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#cbd5e1;font-weight:600;">${_esc(_md(_d0.name))}&nbsp;:</span> ${_esc(_cutTxt(_md(_d0.why), 150))}</div>` : '';
-      // Prints, dans l'ordre du rapport : croissance, emploi, inflation.
-      const _gro = _bloc(Array.isArray(cd.employmentPrints) && cd.employmentPrints.length ? 'Croissance économique' : 'Croissance & Emploi', cd.growthPrints, 3);
-      const _emp = _bloc('Emploi', cd.employmentPrints, 2);
-      const _inf = _bloc('Inflation', cd.inflationPrints, 3);
-      // Banque centrale / Pricing : même intitulé que le rapport, stance comprise.
-      const _cbB = (Array.isArray(cd.cbBullets) ? cd.cbBullets : []).slice(0, 2)
-        .map(q => _puce(typeof q === 'string' ? _esc(_md(q))
-          : `<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(q.speaker || ''))}</span>${q.date ? ` <span style="color:#6b7280;">(${_esc(_md(q.date))})</span>` : ''} → ${_esc(_md(q.text || ''))}`)).join('');
-      const _cbTxt = cd.monetaryPolicy ? `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:2px 0;">${_esc(_cutTxt(_md(cd.monetaryPolicy), 260))}</div>` : '';
-      const _pri = cd.pricing ? _puce(`<span style="color:#f3c344;font-weight:600;">Pricing :</span> ${_esc(_md(cd.pricing))}`) : '';
-      // « BANQUE CENTRALE » et non « Fed / Pricing » (15/08, demande user) : un intitulé unique pour
-      // les huit devises, qui se lit sans connaître le sigle de chaque institution. Le nom de la
-      // banque reste visible, porté par la posture et les propos juste en dessous.
-      const _cb = (_cbTxt || _cbB || _pri)
-        ? _ssTitre('Banque centrale' + (cd.cbStance ? ' · ' + _md(cd.cbStance) : '')) + _cbTxt + _cbB + _pri : '';
-      // Moteurs : TOUTES les lignes intitulées du rapport, pas seulement la première. La
-      // géopolitique en est exclue (15/08) : le fil géo est déjà raconté plus haut.
-      const _geoDrv = /^(?:(?:risques?|tensions?)\s+g[ée]opolit|g[ée]opolit|conflit|sanctions?|guerre(?!\s+commercial))/i;
-      const _drv = (Array.isArray(cd.drivers) ? cd.drivers : [])
-        .filter(d => d && d.name && d.why && !_geoDrv.test(String(d.name)))
-        .slice(0, 3)
-        .map(d => _puce(`<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(d.name))} :</span> ${_esc(_cutTxt(_md(d.why), 190))}`)).join('');
-      // Deux lignes de clôture, comme dans le rapport.
-      const _wa = Array.isArray(cd.weekAhead) ? cd.weekAhead.filter(Boolean) : [];
-      const _sav = (_wa.length || cd.conclusion)
-        ? _puce(`<span style="color:#cbd5e1;font-weight:600;">Semaine à venir :</span> ${cd.conclusion ? _esc(_cutTxt(_md(cd.conclusion), 190)) : ''}${_wa.length ? ` <span style="color:#8b93a1;">${_esc(_wa.map(_md).join(' · '))}</span>` : ''}`) : '';
-      const _bsc = cd.biasRationale ? _puce(`<span style="color:#cbd5e1;font-weight:600;">Biais / Scénario :</span> ${_esc(_cutTxt(_md(cd.biasRationale), 190))}`) : '';
-      const _th = cd.thesis ? ` <span style="color:#9aa3b2;font-size:12px;">${_esc(_md(cd.thesis))}</span>` : '';
-      return `<tr><td style="padding:12px 0;border-top:1px solid #1f1f24;">
-        <span style="color:#f3c344;font-weight:800;font-size:13.5px;">${c}</span>${biasBadge}${_th}
-        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:3px;">${_esc(_cutTxt(_txt, 300))}</div>
-        ${_widgetImg('strength', 'Force ' + c, 532, 'week', c)}
-        ${_gro}${_emp}${_inf}${_cb}${_drv ? _ssTitre('Moteurs de la semaine') + _drv : ''}${_sav}${_bsc}
-      </td></tr>`;
-    }).join('');
-    curHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
-  }
-  // EXTRACTIONS DE DONNÉES du rapport (demande user « légèrement + complet, valeur ajoutée ») — v19.
-  // (L'ancienne table « rendez-vous à venir » était du code mort : jamais injectée, elle doublait le mail
-  // « Semaine à venir » du dimanche. Remplacée par deux extractions RÉTROSPECTIVES, fidèles au Récap.)
-  // #1 — LE FAIT MARQUANT : le 1er thème macro RÉEL du rapport (ordre canonique du desk) + ses 2 premières puces.
-  // Le FAIT MARQUANT rejoint « L'essentiel » (v40) : c'était un 3e bloc de texte qui doublait les
-  // points clés. Une seule ligne titrée, intégrée au haut du mail.
-  const _macAll = (Array.isArray(w.macro) ? w.macro : []).filter(s => s && s.heading && Array.isArray(s.bullets) && s.bullets.length);
-  const _mac = _macAll[0];
-  // ⚠️ PAS DE SECTION « MACRO » DANS CE MAIL — et ce n est PAS un oubli (14/08).
-  // J en avais ajouté une le matin même : erreur. Sa source, `w.macro`, porte l ANCIENNE taxonomie
-  // (« Performance Cross-Asset », « Commerce International & Tarifs »…) que le récap du desk a
-  // justement RETIRÉE le 11/08 comme redondante. Le mail affichait donc des rubriques qui n existent
-  // plus dans le rapport qu il annonce — l inverse du but recherché. Le seul usage LÉGITIME de
-  // `w.macro` ici reste le FAIT MARQUANT repris dans « L essentiel » juste au-dessus.
-  // Le mail suit la structure RÉELLE du desk : essentiel · géopolitique · chiffres · banques
-  // centrales · devises · force des devises.
+  // La géopolitique est exclue des moteurs : le fil géo est déjà raconté plus haut.
+  const _geoDrv = /^(?:(?:risques?|tensions?)\s+g[ée]opolit|g[ée]opolit|conflit|sanctions?|guerre(?!\s+commercial))/i;
+  const curHtml = codes.map(c => {
+    const cd = curSrc[c] || {};
+    // v44 : `rubriquesVides` déclare ce qui n'a rien donné. Quand le champ existe, les QUATRE
+    // rubriques restent affichées, une devise sans publication recevant la phrase sobre du
+    // desk : le lecteur ne doit jamais confondre « rien n'est sorti » et « on n'a pas regardé ».
+    // ⚠️ On ne se fie PAS à ce tableau pour la banque centrale : le test serveur (11006) porte
+    // sur `cbQuotes`, un champ qui n'existe nulle part, donc « banque » y est déclarée vide dès
+    // que `pricing` manque, propos ou pas. On teste la matière réelle.
+    // ⚠️ On lit le CONTENU du tableau, plus sa seule existence : `rubriquesVides: []` déclare
+    // que RIEN n'est vide et déclenchait pourtant les quatre « Aucune publication cette
+    // semaine. », donc la phrase contredisait la donnée qui la produit. Les clés sont celles du
+    // serveur (server 11002) : 'croissance', 'emploi', 'inflation', 'banque'.
+    const rvSet = Array.isArray(cd.rubriquesVides) ? new Set(cd.rubriquesVides.map(x => _md(x).toLowerCase())) : null;
+    const rv = !!rvSet;   // rétro-compat : présence du champ = rapport v44 ou plus récent
+    const declVide = k => !!(rvSet && rvSet.has(k));
+    const vide = `<div style="color:${TOK.grisPied};font-size:12.5px;margin:3px 0;">Aucune publication cette semaine.</div>`;
+    const listeP = arr => (Array.isArray(arr) ? arr : []).map(_print).filter(Boolean).join('');
+    // Entête : le CODE en gras, son biais en couleur, l'accroche en gris. Pas de badge, pas de cadre.
+    const b = _md(cd.bias);
+    const th = _md(cd.thesis);
+    const tete = `<div style="margin:20px 0 4px;padding-top:12px;border-top:1px solid ${TOK.filet2};">
+      <span style="color:${TOK.or};font-weight:800;font-size:17px;letter-spacing:.02em;">${_esc(c)}</span>${b ? ` <span style="color:${_biasCol(b)};font-weight:700;font-size:12px;">${_esc(b)}</span>` : ''}
+      ${th ? `<div style="color:${TOK.gris};font-size:12.5px;line-height:1.5;margin-top:3px;">${_esc(th)}</div>` : ''}
+    </div>`;
+    // Résumé exécutif, en entier (il était coupé à 300 caractères).
+    const exec = _paraHtml(cd.execSummary || cd.analysis);
+    // RETRO-COMPAT : sans `employmentPrints` ni `rubriquesVides`, le rapport est antérieur au
+    // découpage croissance/emploi et son intitulé était « Croissance & Emploi ».
+    const titreCroi = (Array.isArray(cd.employmentPrints) && cd.employmentPrints.length) || rv ? 'Croissance économique' : 'Croissance & Emploi';
+    const croiL = listeP(cd.growthPrints);
+    const empL = ((Array.isArray(cd.employmentPrints) && cd.employmentPrints.length) || rv) ? listeP(cd.employmentPrints) : '';
+    const infTxt = _md(cd.inflation) ? _puce(_esc(_md(cd.inflation))) : '';
+    const infPr = listeP(cd.inflationPrints);
+    const infL = infTxt + infPr;
+    // Banque centrale : intitulé UNIQUE pour les huit devises (15/08) + posture accolée.
+    // DÉDUP PAR INTERVENANT au rendu, comme le desk, mais sur l'intervenant ET son propos :
+    // dédupliquer sur le SEUL nom supprimait le 2e propos d'un officiel qui parle deux fois
+    // dans la semaine (Powell lundi puis vendredi), et cette 2e prise de parole n'était alors
+    // lue NULLE PART. On ne retire plus qu'un doublon exact, ce que la dédup visait vraiment.
+    const vus = new Set();
+    const cbB = (Array.isArray(cd.cbBullets) ? cd.cbBullets : []).map(q => {
+      if (typeof q === 'string') return _md(q) ? _puce(_esc(_md(q))) : '';
+      if (!q) return '';
+      const sp = _md(q.speaker), tx = _md(q.text), dt = _md(q.date);
+      if (!sp && !tx) return '';
+      const k = (sp + '|' + dt + '|' + tx).toLowerCase(); if (vus.has(k)) return ''; vus.add(k);
+      return _puce(`${sp ? `<span style="color:#cbd5e1;font-weight:600;">${_esc(sp)}</span>` : ''}${dt ? ` <span style="color:#6b7280;">(${_esc(dt)})</span>` : ''}${(sp || dt) && tx ? ' → ' : ''}${_esc(tx)}`);
+    }).filter(Boolean).join('');
+    const cbTxt = _md(cd.monetaryPolicy) ? _puce(_esc(_md(cd.monetaryPolicy))) : '';
+    const pri = _md(cd.pricing) ? _ligne('Pricing', _esc(_md(cd.pricing))) : '';
+    const cbL = cbTxt + cbB + pri;
+    const titreCB = 'Banque centrale' + (_md(cd.cbStance) ? ' · ' + _md(cd.cbStance) : '');
+    // LES QUATRE RUBRIQUES, dans l'ordre du desk. Quand les QUATRE sont vides, la phrase
+    // « Aucune publication cette semaine. » s'écrivait quatre fois sous quatre intertitres :
+    // huit lignes de vide pour deux lignes utiles (mesuré sur NZD et CHF). Le même fait tient
+    // en une ligne, qui nomme les rubriques regardées : rien n'est perdu, rien n'est empilé.
+    const rubs = [
+      { titre: titreCroi, html: croiL, vide: !croiL && declVide('croissance') },
+      { titre: 'Emploi', html: empL, vide: !empL && declVide('emploi') },
+      { titre: 'Inflation', html: infL, vide: !infL && declVide('inflation') },
+      // La banque centrale se lit dans les deux sens : la matière réelle d'abord (le test
+      // serveur, 11006, porte sur `cbQuotes`, un champ qui n'existe nulle part, donc
+      // « banque » y est déclarée vide dès que `pricing` manque, propos ou pas), et la phrase
+      // sobre seulement si le rapport a VRAIMENT déclaré cette rubrique vide.
+      { titre: titreCB, html: cbL, vide: !cbL && declVide('banque') },
+    ];
+    const vides = rubs.filter(r => r.vide);
+    const rubBloc = (!rubs.some(r => r.html) && vides.length === rubs.length)
+      ? `<div style="color:${TOK.grisPied};font-size:12.5px;margin:8px 0 3px;">Aucune publication cette semaine&nbsp;: ${_esc(vides.map(r => r.titre.toLowerCase()).join(', '))}.</div>`
+      : rubs.map(r => r.html ? _ssTitre(r.titre) + r.html : (r.vide ? _ssTitre(r.titre) + vide : '')).join('');
+    // Moteurs : TOUS les thèmes du rapport, en lignes intitulées (le mail n'en gardait que 3).
+    const drv = (Array.isArray(cd.drivers) ? cd.drivers : [])
+      .filter(d => d && _md(d.name) && _md(d.why) && !_geoDrv.test(String(d.name)))
+      .map(d => _ligne(_md(d.name), _esc(_md(d.why)))).join('');
+    // Deux lignes de clôture, comme dans le rapport.
+    const wa = (Array.isArray(cd.weekAhead) ? cd.weekAhead : []).map(_md).filter(Boolean);
+    const sav = (wa.length || _md(cd.conclusion))
+      ? _ligne('Semaine à venir', `${_esc(_md(cd.conclusion))}${wa.length ? ` <span style="color:${TOK.grisDoux};">${_esc(wa.join(' · '))}</span>` : ''}`) : '';
+    const bsc = _md(cd.biasRationale) ? _ligne('Biais / Scénario', _esc(_md(cd.biasRationale))) : '';
+    // « Semaine à venir » et « Biais / Scénario » ne sont PAS des moteurs : rendus avec la
+    // même grammaire juste sous l'intertitre « Moteurs », ils étaient lus comme deux moteurs
+    // de plus. Ils regardent devant, ils ont leur propre intertitre.
+    const aVenir = (sav || bsc) ? _ssTitre('À venir') + sav + bsc : '';
+    const corps = exec + rubBloc + (drv ? _ssTitre('Moteurs') + drv : '') + aVenir;
+    // Une devise sans la moindre matière ne s'écrit pas : pas de code doré orphelin.
+    return (corps || b || th) ? tete + corps : '';
+  }).join('');
 
-  const macroFactHtml = _mac ? `<div style="border-left:2px solid #232429;padding:2px 0 2px 11px;margin:12px 0 0;">
-      <div style="color:#8b93a1;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${_esc(_md(_mac.heading))}</div>
-      <div style="color:#cbd5e1;font-size:13px;line-height:1.6;margin-top:4px;">${_esc(_cutTxt(_md(_mac.bullets[0]), 230))}</div>
-    </div>` : '';
-  // #2 — LES CHIFFRES QUI ONT MARQUÉ LA SEMAINE : résultats RÉELS publiés (calendrier passé du rapport),
-  // majeurs d'abord. RÉEL coloré selon la POLARITÉ intelligente (miroir de _calMailActual/deviationClass du
-  // desk : indicateurs INVERSÉS — chômage, inscriptions, licenciements… — plus bas que prévu = vert).
-  const _WD_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
-  const _wdFlag = ccy => { const c = String(ccy || '').toUpperCase(); const iso = _WD_ISO[c]; return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:4px;">` : '') + (c ? `<span style="color:#cbd5e1;font-weight:700;font-size:11px;">${_esc(c)}</span>` : ''); };
-  const _wdTh = t => `<td style="padding:6px 10px;color:#8b93a1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;${(t === 'r' || t === 'a') ? 'text-align:right;' : ''}">${t === 'd' ? 'Jour' : t === 'c' ? 'Devise' : t === 'e' ? 'Événement' : t === 'a' ? 'Réel' : 'Prév.'}</td>`;
-  const _INV_RX = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts|foreclosure|bankruptc|delinquen/i;
-  const _actCol = (a, f, title) => { const x = parseFloat(String(a == null ? '' : a).replace(',', '.')), y = parseFloat(String(f == null ? '' : f).replace(',', '.')); if (isNaN(x) || isNaN(y) || x === y) return '#e6e6ea'; const good = _INV_RX.test(String(title || '')) ? x < y : x > y; return good ? '#22c55e' : '#ef4444'; };
-  const _pastFlat = [];
-  for (const d of ((w.calendar && Array.isArray(w.calendar.past)) ? w.calendar.past : [])) for (const e of (d.events || [])) { if (e && e.actual) _pastFlat.push({ e, day: d.dayLabel }); }
-  // Classement par IMPORTANCE réelle (décision de taux > inflation > croissance/emploi > commerce/activité >
-  // confiance) — miroir de _gewKeyRank du desk. SINON un mardi chargé (sondages de confiance, données Chine)
-  // remplit les 7 lignes et évince la décision BoC + le CPI/PPI (demande user « il manque le CAD, le PPI, le CPI »).
-  // ── LA GRILLE DU DESK PASSE DEVANT (14/08, demande user) ──────────────────────────────────
-  // Le classement par grande famille (taux > inflation > croissance > emploi > activité) laissait
-  // remonter des lignes secondaires — un chômage suisse, un taux de chômage néo-zélandais — pendant
-  // que les indicateurs que l'utilisateur suit VRAIMENT avec son mentor (NFP, CPI, PPI, PCE, ventes
-  // au détail, ISM, JOLTS, ADP, PIB, décision FOMC) pouvaient ne pas tenir dans les 5 lignes.
-  // Ces quinze noms viennent de SA grille de travail : ce sont eux qu'il attend dans ce tableau.
-  // C'est une PRIORITÉ, pas un filtre : si la semaine n'en compte pas cinq, le classement par
-  // famille reprend la main pour compléter — un tableau vide n'aiderait personne.
-  // ── LA GRILLE DU DESK PASSE DEVANT (14/08, demande user) ──────────────────────────────────
-  // Le classement par grande famille laissait trois taux de chômage étrangers (CHF, NZD, EUR) manger
-  // la table pendant que le NFP, le CPI américain ou les ventes au détail n y tenaient pas. Or ce sont
-  // EUX que l utilisateur suit avec son mentor.
-  // Un simple drapeau « dans la grille » ne suffisait pas : presque tout y figure, donc il ne
-  // départageait rien (vérifié — le classement était identique avant/après). On GRADUE donc selon la
-  // hiérarchie de SA grille : la décision de taux d abord, puis le NFP, l inflation, la croissance,
-  // et enfin les indicateurs de second rang de chaque famille (chômage, salaires, JOLTS, ADP —
-  // « le test avant le vrai chiffre », dit son mentor de l ADP).
-  // PRIORITÉ, PAS FILTRE : hors grille = 0, et le classement par famille reprend la main pour
-  // compléter les 5 lignes si la semaine est pauvre. Un tableau vide n aiderait personne.
-  const _GRILLE = [
-    [/\bfomc\b|fed interest rate decision|rate decision|interest rate decision/i, 10],
-    [/non-?farm|payrolls|\bnfp\b/i,                                                9],
-    [/\bcpi\b|inflation rate|consumer price/i,                                     8],
-    [/\bpce\b/i,                                                                   7],
-    [/\bppi\b|producer price/i,                                                    6],
-    [/retail sales/i,                                                              6],
-    [/\bism\b/i,                                                                   5],
-    [/\bgdp\b|gross domestic/i,                                                    5],
-    [/unemployment rate/i,                                                         4],
-    [/average (hourly |weekly )?earnings|average earnings/i,                       4],
-    [/jolts|job openings/i,                                                        3],
-    [/\badp\b/i,                                                                   3],
-  ];
-  const _dansLaGrille = t => { const x = String(t || ''); for (const [re, r] of _GRILLE) if (re.test(x)) return r; return 0; };
-  const _mailKeyRank = t => {
-    const s = String(t || '').toLowerCase();
-    if (/rate decision|interest rate|rate statement|monetary policy report|\bfomc\b|cash rate|\bocr\b|bank rate|official rate|refi|deposit rate/.test(s)) return 6;   // décisions de taux
-    if (/\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/.test(s)) return 5;                                                                          // inflation
-    if (/\bgdp\b|gross domestic|growth rate/.test(s)) return 4;                                                                                                        // croissance
-    if (/payroll|non[-\s]?farm|\bnfp\b|unemployment|jobless|employment change|\bjobs\b|earnings|wage/.test(s)) return 3;                                                // emploi
-    if (/retail sales|\bpmi\b|\bism\b|industrial production|trade balance|balance of trade|durable goods|imports|exports/.test(s)) return 2;                            // activité/commerce
-    return 1;                                                                                                                                                          // confiance/sentiment/secondaire
-  };
-  // Dédup par FAMILLE (une SEULE ligne par CPI / PPI / emploi… — sinon 6 variantes du même CPI, index inclus,
-  // noient la BoC et les autres majeures) + préférence pour le titre PHARE (YoY/Rate/Decision) de la famille.
-  const _fam = t => { const s = String(t || '').toLowerCase();
-    if (/rate decision|interest rate|monetary policy/.test(s)) return 'taux';
-    if (/\bppi\b|producer price/.test(s)) return 'ppi';
-    if (/\bcpi\b|inflation|consumer price|\bpce\b/.test(s)) return 'cpi';
-    if (/\bgdp\b|gross domestic|growth rate/.test(s)) return 'pib';
-    if (/payroll|non[-\s]?farm|\bnfp\b|unemployment|jobless|employment|\bjobs\b|earnings|\bwage/.test(s)) return 'emploi';
-    if (/retail sales/.test(s)) return 'ventes';
-    if (/import/.test(s)) return 'imports';
-    if (/export/.test(s)) return 'exports';
-    if (/balance of trade|trade balance/.test(s)) return 'balance';
-    if (/confidence|sentiment/.test(s)) return 'confiance';
-    return s.replace(/\b(yoy|mom|qoq|s\.a|final|prelim|core|a\/a|m\/m)\b/g, '').replace(/\s+/g, ' ').trim().slice(0, 22);
-  };
-  const _headline = t => /decision|\byoy\b|\ba\/a\b|rate\b|\bmom\b|m\/m/i.test(String(t || '')) ? 0 : 1;   // titres phares d'abord
-  const _famSeen = new Set();
-  const _pastRows = _pastFlat
-    .filter(r => r.e && (r.e.major || /high/i.test(r.e.impact || '')))
-    .map((r, i) => ({ r, i, rk: _mailKeyRank(r.e.title), gr: _dansLaGrille(r.e.title) }))
-    // Grille du desk d'abord, puis importance de famille, puis titre phare, puis chronologie.
-    .sort((a, b) => (b.gr - a.gr) || (b.rk - a.rk) || (_headline(a.r.e.title) - _headline(b.r.e.title)) || (a.i - b.i))
-    .filter(x => { const k = String(x.r.e.ccy || '') + '|' + _fam(x.r.e.title); if (_famSeen.has(k)) return false; _famSeen.add(k); return true; })   // 1 ligne / famille / devise
-    .slice(0, 5)   // v40 : 5 lignes suffisent (8 = mur de chiffres) — déjà triées par importance
-    .map(x => x.r);
-  const pastTableHtml = _pastRows.length ? `
-    <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">
-    <tr style="background:#101014;">${_wdTh('d')}${_wdTh('c')}${_wdTh('e')}${_wdTh('a')}${_wdTh('r')}</tr>
-    ${_pastRows.map(({ e, day }) => `<tr>
-      <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11px;white-space:nowrap;">${_esc(day)}</td>
-      <td style="padding:7px 10px;border-top:1px solid #1f1f24;white-space:nowrap;">${_wdFlag(e.ccy)}</td>
-      <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#e6e6ea;font-size:12.5px;">${_esc(e.title)}</td>
-      <td style="padding:7px 10px;border-top:1px solid #1f1f24;font-size:12px;font-weight:800;text-align:right;white-space:nowrap;color:${_actCol(e.actual, e.forecast, e.title)};">${_esc(e.actual)}</td>
-      <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;">${_esc(e.forecast || '·')}</td>
-    </tr>`).join('')}
-    </table></div>` : '';
-  // PARCOURS DE LECTURE (v43) : le mail suit désormais LES ACTES DU RAPPORT, dans le même ordre —
-  // l'essentiel, le fil géopolitique, les chiffres, les banques centrales, les devises. (Avant, les
-  // devises passaient avant les banques : le lecteur voyait le verdict par devise avant d'avoir lu ce
-  // qui l'explique, et l'ordre du mail ne ressemblait plus à celui du rapport qu'il allait ouvrir.)
-  // Chaque section n'apparaît que si elle a de la matière.
+  // L'UNIQUE image : la Force des Devises sur LA SEMAINE, juste avant les blocs devise
+  // (elle porte ce que le texte ne peut pas dire : la trajectoire relative des huit).
+  if (curHtml) P.push(_widgetImg('strength', 'La force des devises sur la semaine', null, 'week'));
+  S('Les devises', curHtml);
+
+  // Rien de rendu du tout = pas de mail (règle « pas de données → pas de mail »).
+  const corpsRapport = P.join('');
+  if (!corpsRapport.trim()) return null;
+
+  // PROMESSE HONNÊTE (défaut mesuré) : la phrase de clôture affirmait « dans son intégralité,
+  // devise par devise » y compris quand le mail ne portait AUCUN bloc devise (rapport réduit à
+  // son intro, à sa géopolitique ou à son seul calendrier : six entrées minimales testées, la
+  // phrase tombait à chaque fois). On ne promet que ce qui est réellement dans le corps.
+  const cloture = curHtml
+    ? "Vous venez de lire le Récap Hebdo du desk dans son intégralité, devise par devise. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct."
+    : "Vous venez de lire le Récap Hebdo du desk, tel qu'il a été publié. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct.";
+
+  // BOUTON EN TÊTE, pas en pied. Ce mail porte un rapport entier : sur une semaine chargée
+  // (huit devises, calendrier complet, image du widget), il dépasse le seuil à partir duquel
+  // Gmail replie la fin du message derrière « Message tronqué ». Un bouton placé APRÈS le
+  // rapport tombe alors dans la zone repliée, et le lecteur n'a plus de chemin vers le desk.
+  // On ne coupe rien du rapport pour tenir sous le seuil (c'est la demande : le rapport
+  // ENTIER) : on met le seul lien d'action là où il survit, et la note de fin prévient
+  // honnêtement du repliement. La désinscription, elle, voyage aussi dans l'en-tête
+  // List-Unsubscribe (posé par _sendOvhSmtp), donc elle reste atteignable en un clic.
   const body = `
     <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 4px;color:#9aa3b2;font-size:13px;">La semaine de marché, relue par le desk.</p>
-    ${insightsHtml}
-    ${_introParas(lead)}
-    ${geoHtml ? _sec(geoTitle) + geoHtml : ''}
-    ${curHtml ? _sec('La semaine devise par devise') + curHtml : ''}
-    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;">Vous venez de lire le Récap Hebdo tel qu&rsquo;il paraît sur le desk, avec ses rubriques et son déroulé, mais limité à <strong style="color:#fff;">trois devises sur huit</strong>. Le rapport complet reprend les cinq autres au même niveau de détail, avec la courbe de force de chaque devise et le calendrier de la semaine.</p>
-    ${_campaignBtn('Ouvrir le Récap Hebdo', trackClickUrl(campaign, email, LANDING_URL))}
+    ${entete}
+    <div style="margin:2px 0 10px;">${_campaignBtn('Ouvrir le desk', trackClickUrl(campaign, email, LANDING_URL))}</div>
+    ${corpsRapport}
+    <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;color:#cbd5e1;">${cloture}</p>
+    ${_noteLongue(corpsRapport)}
     <p style="margin:18px 0 4px;">Bonne semaine,</p>
-    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
+    <p style="margin:0 0 16px;color:${TOK.gris};">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  // Sujets ROTATIFS (déterministes par semaine) : accrocheurs, factuels, jamais deux fois de suite le même.
+  // Sujets ROTATIFS (déterministes par semaine) : le nom du mail d'abord, la promesse ensuite.
   const _wkR = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
   const _subsR = [
-    '📰 Votre semaine de marché, relue par le desk',
-    '🗞️ Ce que cette semaine a changé sur les marchés',
-    '📰 La semaine en clair, devise par devise',
+    '📰 Votre Récap Hebdo : la semaine en entier',
+    '🗞️ Votre Récap Hebdo, devise par devise',
+    '📰 Votre Récap Hebdo : ce que la semaine a changé',
   ];
   const subject = _subsR[_wkR % _subsR.length];
-  return { subject, html: _campaignLayout('Point de la semaine', body, unsub) };
+  return { subject, html: _campaignLayout('Votre Récap Hebdo', body, unsub) };
 }
-async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength']); }   // cb-tone RETIRE : le widget n'est plus dans le corps du digest → l'attacher creait une piece jointe orpheline (Gmail « Une piece jointe »). 0 PJ.
+// UNE image, période SEMAINE. `strength` tout court rendait le widget sur la période par
+// défaut alors que le corps demandait period=week : le type porte désormais sa période, donc
+// l'image embarquée est bien celle que le mail annonce.
+async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:week']); }
 
 // ── DÉCRYPTAGE — e-mail ÉDUCATIF évergreen (S2 de la séquence). Décode les grandes annonces éco (macro US)
 // que les abonnés voient chaque semaine dans le calendrier : sigles (CPI, NFP, PCE, FOMC…) rendus lisibles,
@@ -1759,56 +1974,218 @@ function _bankNotesBlock(notes) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
     <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Les notes complètes (Goldman Sachs, ING, Scotiabank&hellip;) se lisent en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`;
 }
-// APERCU du RAPPORT QUOTIDIEN (Point marche) — carte facon rapport du desk : en-tete (titre reel du
-// rapport + date), sections par theme (titre or + puces / paras / mini-tableau de donnees), puis mention
-// « le rapport complet est sur le Desk ». Cape a 6 sections x 5 lignes. Zero invention.
-function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
-  // « Le VRAI récap quotidien » (retour user 23/08) : ce bloc porte le rapport du jour tel qu'il
-  // paraît sur le desk, sections et puces COMPLÈTES (les caps larges ne sont que des filets).
-  const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 8);
+// ══════════════════════════════════════════════════════════════════════════════
+//  RÉCAP QUOTIDIEN : LE RAPPORT ENTIER DANS LE MAIL (24/08)
+//  Demande user : « on offre le récap du jour du desk dans le template pour offrir
+//  cette valeur ». Ce n'est donc plus un APERÇU qui renvoie au desk : le mail EST le
+//  rapport. Source = `daily.full`, l'objet _fxr COMPLET posé par server.js (l.20681)
+//  et jusqu'ici lu NULLE PART : tout ce que `sections` n'avait pas recopié était perdu
+//  avant même d'arriver au mail.
+//  ORDRE DU DESK (public/js/app.js, _renderFXDailyRecap), repris tel quel :
+//    Éclairages · Synthèse · Géopolitique (+ points clés) · Banques centrales · Macro ·
+//    Les séances (+ données publiées) · Par pays · À surveiller.
+//  INTITULÉS EN DEUX MOTS (doctrine 24/08 : « simple, évident, intuitif ») : « Analyse par
+//  session » est devenu « Les séances », « Données du jour » « Par pays », « Biais du desk »
+//  « Biais ». Le contenu n'a pas bougé d'une ligne, seul l'intitulé se lit d'un coup d'œil.
+//  ⚠️ `watch` et `corporate` valent [] EN DUR depuis le 24/08 (server.js 11315 / 11334) :
+//     ne JAMAIS les rendre. `comments` et `notableCommentsHtml` ne sont plus rendus par le
+//     desk depuis le 11/08 : le mail est le miroir du desk, il ne les rend pas non plus.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Tableau SOBRE de publications (4 colonnes MAXIMUM, contrainte mobile) : heure + devise,
+// libellé (+ pays et lecture), réel, attendu/précédent.
+// Le RÉEL reste en BLANC : le colorer supposerait de connaître la polarité de chaque
+// indicateur (un chômage plus BAS est une BONNE surprise). La lecture honnête, c'est le
+// `lean` que le rapport a déjà calculé, écrit en toutes lettres sous le libellé.
+function _tabPublications(rows, entete1) {
+  const l = (Array.isArray(rows) ? rows : []).filter(r => r && r.label);
+  if (!l.length) return '';
+  const th = (t, right) => `<td${right ? ' align="right"' : ''} style="padding:5px 6px;color:#8b93a1;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid ${TOK.filet};">${t}</td>`;
+  const corps = l.map(r => {
+    // _num, pas la véracité JS : un réel « 0 » est une VALEUR, un champ absent est vide.
+    const heure = _num(r.t), dev = _num(r.ccy), reel = _num(r.actual), att = _num(r.forecast), pre = _num(r.previous);
+    const pays = _md(r.country), lean = _md(r.lean);
+    return `<tr>
+      <td style="padding:7px 6px;border-top:1px solid ${TOK.filet2};white-space:nowrap;vertical-align:top;">
+        ${heure ? `<div style="color:${TOK.or};font-weight:700;font-size:11.5px;">${_esc(heure)}</div>` : ''}
+        ${dev ? `<div style="font-size:11px;${heure ? 'margin-top:2px;' : ''}">${_ccyFlag(dev)}</div>` : ''}
+      </td>
+      <td style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(r.label))}${(pays || lean) ? `<div style="color:${TOK.grisDoux};font-size:11px;margin-top:2px;">${_esc(pays)}${(pays && lean) ? ' · ' : ''}${_esc(lean)}</div>` : ''}</td>
+      <td align="right" style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.blanc};font-weight:700;font-size:12.5px;white-space:nowrap;vertical-align:top;">${reel ? _esc(reel) : '·'}</td>
+      <td align="right" style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.gris};font-size:11px;white-space:nowrap;vertical-align:top;">${att ? 'att. ' + _esc(att) : ''}${(att && pre) ? '<br>' : ''}${pre ? 'préc. ' + _esc(pre) : ''}${(!att && !pre) ? '·' : ''}</td>
+    </tr>`;
+  }).join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0 10px;">
+    <tr>${th(entete1 || 'Heure')}${th('Publication')}${th('Réel', true)}${th('Att. / préc.', true)}</tr>${corps}</table>`;
+}
+
+// « À surveiller » = LE CALENDRIER DÉROULÉ (le rapport a supprimé les puces narratives le
+// 24/08 : elles paraphrasaient le tableau juste en dessous). Lignes séparatrices de jour,
+// comme sur le desk. Rendu en HTML et non en image : un lecteur qui bloque les images garde
+// ses dates, ses devises et son consensus.
+function _tabAgendaFXR(rows) {
+  const l = (Array.isArray(rows) ? rows : []).filter(r => r && r.event);
+  if (!l.length) return '';
+  const _fmt = (ts, opts) => { try { return new Intl.DateTimeFormat('fr-FR', Object.assign({ timeZone: 'Europe/Paris' }, opts)).format(new Date(ts)); } catch (e) { return ''; } };
+  // Tri défensif : les lignes sans horodatage passent en fin plutôt que de casser la chronologie.
+  const tri = l.slice().sort((a, b) => (a.ts ? a.ts : 8.64e15) - (b.ts ? b.ts : 8.64e15));
+  let out = '', jourVu = '';
+  for (const e of tri) {
+    // Une ligne SANS horodatage ne doit pas hériter du dernier séparateur de jour : elle
+    // serait annoncée à une date que la donnée ne dit pas. Elle a son propre intertitre.
+    const j = e.ts ? _fmt(e.ts, { weekday: 'long', day: 'numeric', month: 'long' }) : 'Date à confirmer';
+    if (j && j !== jourVu) { jourVu = j; out += _trJour(j, 3); }
+    const heure = e.ts ? _fmt(e.ts, { hour: '2-digit', minute: '2-digit' }) : '';
+    // CINQ valeurs, comme le calendrier du desk : réel · HAUT · prévision · BAS · précédent
+    // (app.js 9563, colonnes `cth-val--haut` et `cth-val--bas`). Le mail n'en lisait que trois :
+    // la fourchette haute et la fourchette basse disparaissaient sur CHAQUE ligne, alors
+    // qu'elles sont réellement remplies (server 4380 : _calApplyRanges les pose sur tout
+    // événement doté d'une prévision). Empilées dans la colonne de droite plutôt qu'en deux
+    // colonnes de plus : à 390 px de large, sept colonnes écrasent le libellé de l'événement.
+    const reel = _num(e.actual), haut = _num(e.high), att = _num(e.forecast), bas = _num(e.low), pre = _num(e.previous);
+    const refs = [haut ? 'haut ' + _esc(haut) : '', att ? 'prév. ' + _esc(att) : '',
+      bas ? 'bas ' + _esc(bas) : '', pre ? 'préc. ' + _esc(pre) : ''].filter(Boolean).join('<br>');
+    out += `<tr>${_tdQuand(heure, e.ccy)}`
+      + `<td style="${_TDC}color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(e.event))}</td>`
+      + _tdVals(reel ? `<b style="color:${_actCol(e.actual, e.forecast, e.event)};font-size:12px;">${_esc(reel)}</b>` : '', refs)
+      + `</tr>`;
+  }
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:2px 0 6px;">${out}</table>`;
+}
+
+// LE RAPPORT ENTIER, rubrique par rubrique. Chaque section ne s'écrit QUE si elle a de la
+// matière : jamais d'intertitre orphelin, jamais de « non disponible » (zéro invention).
+function _recapQuotidienFull(fx) {
+  if (!fx || typeof fx !== 'object') return '';
+  const P = [];
+  const S = (titre, contenu) => { if (contenu && String(contenu).trim()) P.push(_secTitle(titre) + contenu); };
+  const puces = v => (Array.isArray(v) ? v : []).map(x => _md(typeof x === 'string' ? x : (x && x.text))).filter(Boolean).map(t => _puceOr(_esc(t))).join('');
+
+  // 1) ÉCLAIRAGES : le carrousel du haut du rapport : les idées du desk, puis les paires et
+  //    ce que le desk en dit. SANS badge de direction : le desk affiche ACHAT/VENTE dans son
+  //    carrousel, un mail poussé dans une boîte n'énonce jamais une position à prendre (règle
+  //    produit, informatif uniquement). La phrase factuelle, elle, passe en entier.
+  const paires = (Array.isArray(fx.pairs) ? fx.pairs : []).filter(p => p && _md(p.pair)).map(p => {
+    const txt = _md(p.text);
+    return _puceOr(`<span style="color:${TOK.blanc};font-weight:700;">${_esc(_md(p.pair))}</span>${txt ? ' : ' + _esc(txt) : ''}`);
+  }).join('');
+  S('Éclairages', puces(fx.insights) + paires);
+
+  // 2) SYNTHÈSE : `intro` est vide EN DUR depuis la v16 (fusionnée dans `summary`) mais on
+  //    garde la concaténation du desk : les rapports v14 archivés la portent encore.
+  //    ⚠️ On ne garde que les CHAÎNES avant de recoller : un `summary` arrivé en objet passait
+  //    le `filter(Boolean)`, et le `join` le transformait en la chaîne « [object Object] »,
+  //    déjà du texte quand `_md` la recevait. Le filtrage de type doit précéder le join.
+  S('Synthèse', _paraHtml([fx.intro, fx.summary].filter(x => typeof x === 'string' && x.trim()).join('\n\n'), '#e6e6ea', '14px'));
+
+  // 3) GÉOPOLITIQUE (+ ses POINTS CLÉS, sous-titre INTERNE à la rubrique côté desk).
+  const geo = puces(fx.geopolitics), geoPts = puces(fx.geoKeyPoints);
+  S('Géopolitique', geo + (geoPts ? _ssTitre('Points clés') + geoPts : ''));
+
+  // 4) BANQUES CENTRALES : champ `cb` (v19) : décisions, minutes, discours, opérations du
+  //    Trésor vivent ICI et nulle part ailleurs. Absent des rapports v18 : la section saute.
+  S('Banques centrales', puces(fx.cb));
+
+  // 5) MACRO : les AUTRES moteurs (données, flux, commerce, budgets). C'est le cœur du rapport.
+  S('Macro', puces(fx.macro));
+
+  // 6) ANALYSE PAR SESSION + les données publiées RATTACHÉES à chaque séance. Le rattachement
+  //    se fait par TEST SUR LE NOM de la région (comme app.js 9484), jamais par index : l'IA
+  //    peut réordonner ses cartes, l'index mentirait en silence.
+  const sess = (fx.dataBySession && typeof fx.dataBySession === 'object' && !Array.isArray(fx.dataBySession)) ? fx.dataBySession : {};
+  // RATTACHEMENT ÉLARGI : le nom de la carte est écrit par l'IA, qui ne dit pas toujours
+  // « Séance Asie ». Sur « Séance Tokyo », le test échouait, la carte sortait sans chiffres et
+  // les chiffres ressortaient plus bas sous un second intitulé « Séance Asie » : le lecteur
+  // voyait deux fois la même séance. On reconnaît donc aussi les places financières et les
+  // continents que le rapport emploie réellement.
+  const clef = n => /asie|asia|tokyo|sydney|wellington|shanghai|hong.?kong|singapour/i.test(n) ? 'asia'
+    : (/londres|london|europe|europ[ée]|francfort|frankfurt|zurich|z[üu]rich/i.test(n) ? 'london'
+    : (/new.?york|wall.?street|am[ée]ric|[ée]tats.?unis|\bus\b/i.test(n) ? 'ny' : ''));
+  const vus = {};
+  let sessHtml = '';
+  for (const r of (Array.isArray(fx.regions) ? fx.regions : [])) {
+    if (!r || !r.name) continue;
+    const k = clef(String(r.name)); if (k) vus[k] = 1;
+    const pubs = (k && Array.isArray(sess[k])) ? sess[k] : [];
+    const code = _md(r.code);
+    // Sous-groupes : interdits par le prompt depuis la v16, donc vides en pratique. On les
+    // rend quand même pour les rapports archivés qui en portent.
+    const grp = (Array.isArray(r.groups) ? r.groups : []).map(g => (g && g.title ? _ssTitre(g.title) : '')
+      + (Array.isArray(g && g.items) ? g.items.filter(i => i && (i.heading || i.text))
+        .map(i => i.heading ? _ligne(_md(i.heading), _esc(_md(i.text))) : _puce(_esc(_md(i.text)))).join('') : '')).join('');
+    sessHtml += `<div style="margin:14px 0 2px;"><span style="color:${TOK.blanc};font-weight:700;font-size:13.5px;">${_esc(_md(r.name))}</span>${code ? ` <span style="color:${TOK.grisDoux};font-size:11.5px;">${_esc(code)}</span>` : ''}</div>`
+      + _paraHtml(r.summary) + grp
+      + (pubs.length ? _ssTitre('Données publiées') + _tabPublications(pubs) : '');
+  }
+  // Séance sans carte de région : ses chiffres seraient perdus en silence. On les publie
+  // sous leur propre intitulé plutôt que de les jeter.
+  // ⚠️ On boucle sur TOUTES les clés de `dataBySession`, pas sur les trois attendues. Le filet
+  // ne couvrait que asia/london/ny : une clé `europe` (ou toute autre que l'IA inventerait)
+  // voyait ses publications disparaître sans la moindre trace, alors que le commentaire
+  // ci-dessus promettait précisément de ne pas les jeter. Une clé inconnue garde son nom.
+  const NOMS = { asia: 'Séance Asie', london: 'Séance Londres', ny: 'Séance New York' };
+  for (const k of Object.keys(sess)) {
+    if (vus[k] || !Array.isArray(sess[k]) || !sess[k].length) continue;
+    const nomK = NOMS[k] || (_md(k).charAt(0).toUpperCase() + _md(k).slice(1));   // clé inconnue : son nom, capitalisé, rien d'inventé
+    sessHtml += `<div style="margin:14px 0 2px;"><span style="color:${TOK.blanc};font-weight:700;font-size:13.5px;">${_esc(nomK)}</span></div>`
+      + _ssTitre('Données publiées') + _tabPublications(sess[k]);
+  }
+  S('Les séances', sessHtml);
+
+  // 7) DONNÉES DU JOUR (par pays) : RÉTRO-COMPAT STRICTE, exactement comme le desk (app.js
+  //    9463) : rendue SEULEMENT si aucune séance ne porte de données, c'est-à-dire pour les
+  //    rapports antérieurs à la v11. Sinon ce seraient LES MÊMES publications deux fois.
+  const aSession = Object.keys(sess).some(k => Array.isArray(sess[k]) && sess[k].length);
+  if (!aSession) {
+    let hp = '';
+    for (const c of (Array.isArray(fx.dataByCountry) ? fx.dataByCountry : [])) {
+      if (!c || !Array.isArray(c.families)) continue;
+      const rows = [];
+      for (const f of c.families) for (const it of (Array.isArray(f && f.items) ? f.items : [])) {
+        if (it && it.label) rows.push({ ccy: c.ccy, country: f.name, label: it.label, actual: it.actual, forecast: it.forecast, previous: it.previous, lean: it.lean });
+      }
+      if (!rows.length) continue;
+      hp += `<div style="margin:14px 0 2px;color:${TOK.blanc};font-weight:700;font-size:13px;">${_esc(_md(c.country || c.ccy))}</div>` + _tabPublications(rows, 'Devise');
+    }
+    S('Par pays', hp);
+  }
+
+  // 8) À SURVEILLER : dernière rubrique du rapport, le calendrier des prochains jours.
+  S('À surveiller', _tabAgendaFXR(fx.lookahead));
+
+  return P.join('');
+}
+
+// REPLI pour les rapports SANS `full` (mails rendus sur un cache antérieur au 24/08, ou
+// Point Marché `kind:'dtpd'` qui n'a jamais de `full`) : on déroule les `sections` telles
+// quelles, même grammaire, sans plafond. Aucune régression, une source de moins.
+function _recapQuotidienSections(sections) {
+  const secs = (Array.isArray(sections) ? sections : []).filter(s => s && _md(s.title));
   if (!secs.length) return '';
-  const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">Le récap quotidien du desk, tel qu'il paraît dans l'onglet Analyste&nbsp;:</p>`;
-  const head = `<div style="padding:13px 16px;border-bottom:1px solid #232429;">
-      <div style="color:#f3c344;font-weight:800;font-size:13.5px;letter-spacing:.01em;">${_esc(reportTitle || 'Point Marché : le rapport du jour')}</div>
-      ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:3px;">${_esc(dateLabel)}</div>` : ''}
-    </div>`;
-  const blocks = secs.map(s => {
-    const title = `<div style="margin:14px 0 4px;color:#f3c344;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
+  return secs.map(s => {
+    // ⚠️ TITRE ÉCHAPPÉ. `_secTitle` reçoit ailleurs des libellés écrits en dur, entités HTML
+    // comprises, donc il n'échappe pas lui-même : c'est à l'appelant de le faire quand le
+    // titre vient de l'IA. Ici il n'était pas échappé, et il vient bel et bien de l'IA :
+    // `_dtpdSanitize` (server 11607) ne fait que retirer le markdown, passer en capitales et
+    // couper à 60 caractères, il ne touche ni <, ni >, ni &, ni ". Un titre « RISQUE
+    // <script>… » créait donc une VRAIE balise script, EXÉCUTÉE au moteur (mesuré au Chrome),
+    // et l'aperçu admin charge ce HTML dans une iframe SANS sandbox, en même origine que le
+    // panneau. Corollaire cosmétique : « TAUX & OBLIGATIONS » sortait avec une esperluette
+    // brute, du HTML invalide.
+    const titre = _esc(_md(s.title));
     if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
-      // VRAI tableau (demande user) : Devise (+ drapeau) | Publication | Réel | Att. | Préc. — façon calendrier
-      // du desk. Le réel en blanc gras, attendu/précédent estompés → l'écart saute aux yeux. Drapeau à gauche.
-      // COMPACT MOBILE : en-têtes courts, padding 5px, nowrap sur Devise et Réel.
-      const _ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
-      const _flag = ccy => { const c = String(ccy || '').toUpperCase(); const iso = _ISO[c]; return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:5px;">` : '') + (c ? `<span style="color:#cbd5e1;font-weight:700;">${_esc(c)}</span>` : ''); };
-      // Couleur du RÉEL (demande user) : vert si valeur positive, rouge si négative (charte DTP risk-on/off),
-      // blanc si nul / non chiffré (ex. « · », « 19.1B » reste vert car >0). Signe = 1er nombre + parenthèses compta.
-      const _actColor = v => { const s = String(v == null ? '' : v).trim(); const n = parseFloat(s.replace(/[^0-9.\-]/g, '')); if (!s || s === '·' || isNaN(n) || n === 0) return '#ffffff'; return (n < 0 || /^\s*[-(]/.test(s)) ? '#ef4444' : '#22c55e'; };
-      const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #232429;">${label}</td>`;
-      const rows = s.data.slice(0, 8).map(r => `<tr>
-          <td style="padding:7px 5px;border-top:1px solid #1f1f24;white-space:nowrap;font-size:11.5px;">${_flag(r.ccy)}</td>
-          <td style="padding:7px 5px;color:#e6e6ea;font-size:12.5px;line-height:1.4;border-top:1px solid #1f1f24;">${_esc(r.release || '')}</td>
-          <td align="right" style="padding:7px 5px;color:${_actColor(r.actual)};font-weight:700;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.actual || '·')}</td>
-          <td align="right" style="padding:7px 5px;color:#9aa3b2;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.expected || '·')}</td>
-          <td align="right" style="padding:7px 5px;color:#7b828f;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.previous || '·')}</td>
-        </tr>`).join('');
-      return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #232429;border-radius:8px;border-collapse:separate;">
-          <tr>${_th('Devise')}${_th('Publication')}${_th('Réel', true)}${_th('Att.', true)}${_th('Préc.', true)}</tr>
-          ${rows}
-        </table>` : '';
+      // La section `data` était FILTRÉE puis remplacée par une image : images bloquées =
+      // chiffres disparus. Elle redevient un tableau HTML.
+      const rows = s.data.filter(r => r && (r.release || r.label))
+        .map(r => ({ ccy: r.ccy, label: r.release || r.label, actual: r.actual, forecast: r.expected || r.forecast, previous: r.previous }));
+      const t = _tabPublications(rows, 'Devise');
+      return t ? _secTitle(titre) + t : '';
     }
     const arr = (s.kind === 'paras' ? s.paras : s.items) || [];
-    const items = arr.slice(0, 8).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
-    return items ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>` : '';
+    const items = (Array.isArray(arr) ? arr : []).map(_md).filter(Boolean)
+      .map(x => _puceOr(_esc(x))).join('');
+    return items ? _secTitle(titre) + items : '';
   }).join('');
-  if (!blocks) return '';
-  return `${intro}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #232429;border-radius:10px;">
-      <tr><td>${head}</td></tr>
-      <tr><td style="padding:0 16px 14px;">${blocks}</td></tr>
-    </table>
-    ${hasComments
-      ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#f3c344;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`
-      : `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`}`;
 }
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
@@ -2574,119 +2951,155 @@ function buildCampaignInvitation({ name, email, campaign, variant, isMember } = 
 }
 async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignInvitation({ name: d.name, email: d.email || d.to, campaign: d.campaign || 'invitation', variant: d.variant, isMember: d.isMember }); if (!m) return false; const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, variant: m.variant } : false; }
 
-// ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
-// quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
-// Force des Devises. Règle « pas de données -> pas de mail » (renvoie null). 100% informatif, CTA adapté.
+// ── VOTRE RÉCAP QUOTIDIEN (ex « Point marché », S3) ───────────────────────────────────────
+// REFONTE 24/08, demande user : « on offre le récap du jour du desk dans le template pour
+// offrir cette valeur ». Le mail ne teasait plus rien : il DONNE le rapport quotidien entier,
+// dans l'ordre du desk, sections comprises. Son nom suit : « Votre Récap Quotidien ».
+// VOUVOIEMENT assumé (« Votre », pas « Ton ») : tous les mails de campagne vouvoient le
+// lecteur, un tutoiement isolé casserait la cohérence demandée le 23/08.
+// Source, dans l'ordre : `daily.full` (l'objet _fxr complet, posé par server.js le 24/08),
+// puis `daily.sections` en repli (rapports en cache d'avant cette date, et Point Marché
+// `kind:'dtpd'` qui n'a JAMAIS de `full`, piège mesuré : il est plus récent que le Récap
+// toute la matinée, donc ce repli sert vraiment).
+// UNE SEULE IMAGE dans tout le mail (doctrine 24/08) : la Force des Devises du jour. Le
+// calendrier n'est plus un PNG, il EST la rubrique « À surveiller », en HTML : un lecteur
+// qui bloque les images garde ses dates et son consensus.
+// Règle « pas de données -> pas de mail » (renvoie null). 100 % informatif, CTA adapté.
 function buildCampaignPointMarche({ name, email, campaign, context, isMember } = {}) {
   campaign = campaign || 'point-hebdo';
   const ctx = context || {};
-  const _md = s => String(s == null ? '' : s).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
-  const upcoming = Array.isArray(ctx.upcoming) ? ctx.upcoming : [];
-  const daily = ctx.daily || null;         // { summary, insights[] } depuis _dtpd/_fxr
+  const daily = ctx.daily || null;         // { kind, title, dateLabel, summary, insights[], sections[], full }
   const weekly = ctx.weekly || null;
   const bias = Array.isArray(ctx.bias) ? ctx.bias : [];   // [{ ccy, label, signal }]
-  const cs = ctx.cs || null;               // { strong:[{ccy}], weak:[{ccy}] } ou { ranked:[ccy...] }
   const risk = ctx.risk || null;           // { label, description }
   const themeLabel = ctx.themeLabel || '';
 
-  const moves = _md((daily && (daily.summary || (daily.insights && daily.insights[0]))) || (weekly && weekly.summary) || '');
-  const hasData = !!(moves || bias.length || (cs && (cs.strong || cs.ranked)) || upcoming.length);
-  if (!hasData) return null;   // pas de donnees -> pas de mail
+  // ⚠️ `full` n'existe QUE sur un Récap Quotidien (kind:'fxr'). Le Point Marché du desk
+  // (kind:'dtpd') n'en a pas : lire d.full sans tester le kind rendrait `undefined`.
+  const full = (daily && daily.kind === 'fxr' && daily.full && typeof daily.full === 'object' && !Array.isArray(daily.full)) ? daily.full : null;
+  // Texte d'ouverture : la synthèse du rapport, COMPLÈTE (plus de plafond qui l'ampute), sinon
+  // le premier éclairage, sinon le résumé hebdo. Sert aussi de garde « il y a de la matière ».
+  const moves = _md((full && full.summary) || (daily && (daily.summary || (Array.isArray(daily.insights) && daily.insights[0]))) || (weekly && weekly.summary) || '');
+  // ── CHEMIN DE REPLI (Point Marché `kind:'dtpd'`, ou rapport en cache d'avant le 24/08) ────
+  // DEUX PERTES SÈCHES réparées ici. `_recapQuotidienFull` rend la SYNTHÈSE et les ÉCLAIRAGES
+  // du rapport ; le repli, lui, ne déroulait que `sections`. Or `daily.summary` n'était écrit
+  // qu'en l'ABSENCE de corps (`corpsRapport ? '' : …`) et `daily.insights` n'était lu nulle
+  // part : dès que le Point Marché portait des sections, sa synthèse ET ses points clés
+  // disparaissaient du mail. Ce chemin n'est pas théorique : `_freshDaily` (server 20599)
+  // sert le Point Marché EN PRIORITÉ tant qu'il est plus récent que le Récap, donc toute la
+  // matinée. Les points clés reprennent l'intitulé du desk, « Points clés ».
+  const _eclRepli = full ? [] : (Array.isArray(daily && daily.insights) ? daily.insights : [])
+    .map(x => _md(typeof x === 'string' ? x : (x && x.text))).filter(Boolean)
+    .filter(t => t !== moves);   // le 1er éclairage sert de texte de tête quand il n'y a pas de synthèse
+  const corpsRapport = full ? _recapQuotidienFull(full)
+    : ((_eclRepli.length ? _secTitle('Points clés') + _eclRepli.map(t => _puceOr(_esc(t))).join('') : '')
+       + _recapQuotidienSections(daily && daily.sections));
+  // La rubrique « Synthèse » n'existe que dans le rendu `full`. Partout ailleurs, le texte de
+  // tête est le SEUL endroit où la synthèse du rapport peut être lue : la taire la jetait.
+  const synthEcrite = !!(full && [full.intro, full.summary].some(x => _md(x)));
+  // GARDE DURCIE (24/08) : l'ancien test passait au vert avec un SEUL événement de calendrier,
+  // donc un mail qui promet le rapport entier pouvait partir avec un corps quasi vide. On exige
+  // désormais du RAPPORT : soit son corps rendu, soit au minimum sa synthèse.
+  if (!corpsRapport && !moves) return null;
 
-  const prenomRaw = (name || '').split(' ')[0] || '';
+  const prenomRaw = _prenom(name);
   const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
 
-  // Accroche editoriale : theme dominant + climat de risque tisses PROPREMENT (em-dashes -> grammaire OK pour tous
-  // les themes ; label de risque reformule court -> plus de « regime de risque Risk-on (appetit pour le risque) »).
+  // Accroche éditoriale : thème dominant + climat de risque, tissés proprement (jamais de
+  // « régime de risque Risk-on (appétit pour le risque) » recopié brut).
+  // UN SEUL NIVEAU DE MISE EN AVANT (doctrine 24/08) : le gras doré, et lui seul. La même
+  // phrase portait deux teintes de gras, l'or sur le thème et le BLANC sur le climat de
+  // risque : deux niveaux dans une seule phrase, exactement ce que la doctrine écarte. Le
+  // climat de risque reste écrit en toutes lettres, simplement sans second accent.
   const _riskClause = (() => {
     const l = String((risk && risk.label) || '').toLowerCase();
-    if (/off|aversion/.test(l)) return 'où l\'<strong style="color:#fff;">aversion au risque</strong> reprend le dessus';
-    if (/on|appétit|appetit/.test(l)) return 'porté par l\'<strong style="color:#fff;">appétit pour le risque</strong>';
+    if (/off|aversion/.test(l)) return "où l'aversion au risque reprend le dessus";
+    if (/on|appétit|appetit/.test(l)) return "porté par l'appétit pour le risque";
     return 'sans biais de risque marqué';
   })();
-  // Accroche COURTE une-ligne (structure de newsletter : un hook, une respiration, puis le fond) —
-  // choisie selon le VRAI climat de risque du desk, jamais inventée.
-  const _rl = String((risk && risk.label) || '').toLowerCase();
-  const hook = /off|aversion/.test(_rl) ? 'Séance nerveuse sur les marchés.'
-    : /on|appétit|appetit/.test(_rl) ? "L'appétit pour le risque est de retour."
-    : 'Une séance à lire entre les lignes.';
-  let lead = `Voici votre point marché, en clair, droit à l'essentiel, sans le bruit.`;
+  let lead = `Voici le récap du jour, tel que le desk le publie, en entier.`;
   if (themeLabel && risk && risk.label) {
-    lead = `Le desk garde le cap sur un thème dominant, <strong style="color:#f3c344;">${_esc(themeLabel)}</strong>, dans un marché ${_riskClause}. Voici ce qu'il faut en retenir.`;
+    lead = `Le desk garde le cap sur un thème dominant, <strong style="color:${TOK.or};">${_esc(themeLabel)}</strong>, dans un marché ${_riskClause}. Voici le rapport du jour, en entier.`;
   } else if (themeLabel) {
-    lead = `Le desk garde le cap sur un thème dominant : <strong style="color:#f3c344;">${_esc(themeLabel)}</strong>. Voici ce qu'il faut en retenir.`;
+    lead = `Le desk garde le cap sur un thème dominant : <strong style="color:${TOK.or};">${_esc(themeLabel)}</strong>. Voici le rapport du jour, en entier.`;
   } else if (risk && risk.label) {
-    lead = `Un marché ${_riskClause}. Voici ce que le desk en retient.`;
+    lead = `Un marché ${_riskClause}. Voici le rapport du jour, en entier.`;
   }
 
-  // Resume du RECAP JOURNALIER : la SYNTHESE de seance COMPLETE (retour user 23/08 « fournis le vrai
-  // recap quotidien » : l'ancien plafond 680 amputait la synthese aux 2/3). Le texte est deja borne et
-  // dense cote rapport ; le plafond large ne sert que de filet, coupe PROPREMENT en fin de phrase
-  // (_cutTxt), puis DECOUPE en paragraphes courts (2 phrases max) : une idee par paragraphe.
-  const _movesTxt = moves ? _cutTxt(moves, 1800) : '';
-  // Split SANS PERTE : coupe apres .!? suivi d'espace + majuscule/guillemet (les decimales a point des
-  // cotations « 1.1750 » ne coupent pas et ne perdent JAMAIS de texte, contrairement a un match glouton).
-  const _sentences = _movesTxt ? _movesTxt.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).filter(Boolean) : [];
-  const _paras = [];
-  for (let i = 0; i < _sentences.length; i += 2) _paras.push(_sentences.slice(i, i + 2).join(' ').replace(/\s+/g, ' ').trim());
-  const movesHtml = _paras.filter(Boolean).map((p, i) => `<p style="margin:${i === 0 ? '18px' : '0'} 0 12px;">${_esc(p)}</p>`).join('');
+  // En-tête : le NOM du mail (« Votre Récap Quotidien »), la date du rapport, puis son titre
+  // réel débarrassé de son préfixe (le desk écrit « Récap Quotidien: Le dollar recule… » :
+  // répéter le préfixe sous le H1 ferait bégayer le mail).
+  const dateLbl = _md(daily && daily.dateLabel);
+  const titreRap = _md((full && full.title) || (daily && daily.title)).replace(/^R[ée]cap Quotidien\s*[:\-]?\s*/i, '');
+  const entete = `${_H1}Votre Récap Quotidien</p>`
+    + (dateLbl ? `<p style="margin:-8px 0 10px;color:${TOK.grisDoux};font-size:12px;">${_esc(dateLbl)}</p>` : '')
+    + (titreRap ? `<p style="margin:0 0 14px;color:#e6e6ea;font-size:14.5px;font-weight:600;line-height:1.5;">${_esc(titreRap)}</p>` : '');
 
-  // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises sur LA JOURNEE (TD) —
-  // coherent avec le brief de seance (le Point marche parle du jour, pas de la semaine).
+  // La synthèse ne s'écrit ici QUE si la rubrique « Synthèse » ne l'a pas déjà écrite. Le test
+  // portait avant sur la présence d'un CORPS : dès que le repli `sections` produisait quelque
+  // chose, la synthèse du Point Marché n'était plus écrite nulle part. On teste ce qu'il faut
+  // tester : la rubrique a-t-elle été rendue, oui ou non.
+  const movesHtml = synthEcrite ? '' : _paraHtml(moves, '#e6e6ea', '14px');
+
+  // L'UNIQUE image du mail : le vrai widget du desk, Force des Devises sur LA JOURNÉE (le
+  // récap parle du jour, pas de la semaine). Elle porte ce que le texte ne peut pas dire :
+  // la trajectoire relative des huit devises, heure par heure.
   const strengthWidget = _widgetImg('strength', 'La force des devises', null, 'today');
 
-  // « Brief de la seance » : le detail par theme tire du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst) — on brief la
-  // journee. On RETIRE la section « DONNEES ECONOMIQUES » brute (kind:'data', sans date) : elle est REMPLACEE par le
-  // VRAI widget calendrier du desk ci-dessous (demande user : « met le calendrier economique (le widget) du desk »).
-  const _briefSections = (daily && Array.isArray(daily.sections)) ? daily.sections.filter(s => s && s.kind !== 'data') : (daily && daily.sections);
-  const briefHtml = _dailyBriefBlock(_briefSections, daily && daily.dateLabel, daily && daily.title, daily && daily.hasComments);
-  // CALENDRIER ECONOMIQUE DU DESK (widget PNG, 10 colonnes AVEC Heure + date par jour + REEL colore/prevision/precedent),
-  // fenetre = LA SEMAINE EN COURS (period=thisweek) : les publications deja sorties (avec REEL) + le reste de la semaine.
-  const calWidget = _widgetImg('calendar', "Le calendrier économique de la semaine", null, 'thisweek');
-
-  // Ton des banques centrales : TEASER pur (demande user : ne RIEN dévoiler) → une phrase de curiosité
-  // + bouton secondaire vers le Desk. Affiché uniquement s'il y a EU des tons lus cette semaine.
-  const _cbs = (weekly && Array.isArray(weekly.centralBanks) ? weekly.centralBanks : []).filter(c => c && c.bank && c.stance);
-  const tonesHtml = _cbs.length
-    ? `<p style="margin:18px 0 2px;color:#cbd5e1;">Les banques centrales ont aussi parlé cette semaine. Le desk a lu leur ton pour vous, banque par banque, et vous l'explique simplement.</p>`
+  // Le biais du desk, s'il est fourni : une ligne, valeurs réelles, aucune recommandation.
+  const _b = bias.filter(b => b && b.ccy && _md(b.label));
+  const biasHtml = _b.length
+    ? _secTitle('Biais') + _puce(_b.map(b => `<span style="color:#cbd5e1;font-weight:700;">${_esc(String(b.ccy).toUpperCase())}</span> <span style="color:${_biasCol(b.label)};font-weight:600;">${_esc(_md(b.label))}</span>`).join(' &nbsp;·&nbsp; '))
     : '';
 
-  // Leçon de clôture (une idée, originale DTP) : pourquoi cette lecture compte — sans pousser de position.
-  const lessonHtml = `<p style="margin:16px 0 14px;color:#cbd5e1;">🎯 Un chiffre seul ne dit rien&nbsp;: c'est l'écart avec l'attendu, et ce que les banques centrales en font, qui fait bouger les devises. Cette lecture-là, le desk vous la donne en direct.</p>`;
+  // PROMESSE HONNÊTE (défaut mesuré) : la phrase affirmait « dans son intégralité » même
+  // quand le corps se réduisait à une phrase de synthèse, à l'image et au bouton. On ne
+  // promet le rapport entier que lorsqu'il est réellement là.
+  const clotureJ = corpsRapport
+    ? "Vous venez de lire le Récap Quotidien du desk dans son intégralité. Sur le desk, il s'accompagne du calendrier économique en direct, de la force des devises et du Smart Bias."
+    : "Le desk publie ce récap chaque jour, avec le calendrier économique en direct, la force des devises et le Smart Bias.";
 
+  // BOUTON EN TÊTE (même raison que le Récap Hebdo) : le mail porte un rapport entier, donc
+  // il peut dépasser le seuil de repliement de Gmail. Un lien d'action placé après le rapport
+  // tomberait dans la zone repliée. On ne coupe pas le rapport pour tenir : on place le lien
+  // là où il survit et la note de fin prévient du repliement.
+  const corpsMail = `${movesHtml}${corpsRapport}${biasHtml}`;
   const body = `
-    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 10px;font-size:15.5px;color:#ffffff;font-weight:700;">${hook}</p>
+    <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    ${entete}
     <p style="margin:0 0 6px;">${lead}</p>
     ${movesHtml}
+    <div style="margin:12px 0 4px;">${cta.btn}</div>
     ${strengthWidget}
-    ${briefHtml}
-    ${calWidget}
-    ${tonesHtml}
-    ${lessonHtml}
-    <div style="margin:18px 0 6px;">${cta.btn}</div>
-    <p style="margin:0 0 4px;">Bonne semaine,</p>
-    <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
+    ${corpsRapport}
+    ${biasHtml}
+    <p style="margin:24px 0 12px;font-size:13.5px;line-height:1.6;color:#cbd5e1;">${clotureJ}</p>
+    ${_noteLongue(corpsMail)}
+    <p style="margin:16px 0 4px;">Bonne séance,</p>
+    <p style="margin:0 0 16px;color:${TOK.gris};">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  // Sujets ROTATIFS (déterministes par semaine) : accrocheurs façon newsletter, factuels façon DTP —
-  // jamais deux mercredis de suite le même objet (délivrabilité + envie de cliquer).
+  // Sujets ROTATIFS (déterministes par semaine) : le NOM du mail d'abord, la promesse ensuite.
+  // Un emoji au plus, jamais deux fois de suite le même objet (délivrabilité).
   const _wk = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
   const _subs = themeLabel ? [
-    `📊 ${themeLabel} : ce que le desk en retient`,
-    `👀 ${themeLabel} mène la danse, voici pourquoi`,
-    `🧭 Le point du desk : ${themeLabel} donne le ton`,
+    `📊 Votre Récap Quotidien : ${themeLabel} donne le ton`,
+    `🧭 Votre Récap Quotidien : la séance en clair`,
+    `👀 Votre Récap Quotidien, en entier`,
   ] : [
-    '📊 Le point du desk : la séance en clair',
-    "👀 Ce que le marché vous dit aujourd'hui",
-    "🧭 Le point du desk, droit à l'essentiel",
+    '📊 Votre Récap Quotidien : la séance en clair',
+    "🧭 Votre Récap Quotidien : ce que le desk retient",
+    '👀 Votre Récap Quotidien, en entier',
   ];
   const subject = _subs[_wk % _subs.length];
-  return { subject, html: _campaignLayout('Point marché', body, unsub) };
+  return { subject, html: _campaignLayout('Votre Récap Quotidien', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today', 'calendar:thisweek']); }
+// UNE seule image embarquée : le calendrier PNG a disparu du corps (la rubrique « À surveiller »
+// le rend en HTML). Le garde-fou de _sendWithInlineWidgets l'aurait ignoré de toute façon, mais
+// un type listé qui n'existe plus dans le HTML est un piège pour la relecture suivante.
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today']); }
 
 // ── OUTLOOK (« la semaine a venir ») — agenda PUR, tourne vers l'avenir, SANS pousser de position. Reutilise le
 // VRAI widget calendrier du desk. Regle « pas de donnees -> pas de mail » (renvoie null).
