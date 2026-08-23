@@ -6844,9 +6844,9 @@
         watch: "Plusieurs banques qui convergent sur la même paire en peu de temps, et les changements d'avis d'un établissement sur sa propre position.",
       },
       analyst: {
-        lire: "<p>Les rapports du desk : récaps de séance structurés par thème (titres en or), Éclairages IA avec badges ACHAT / VENTE / NEUTRE par actif, et le catalogue de recherche. Un récap se lit comme un compte rendu de séance : le bloc d'introduction donne le fil, les sections détaillent marché par marché.</p>",
+        lire: "<p>Les rapports du desk : récaps de séance structurés par thème (titres en or), Éclairages desk avec badges ACHAT / VENTE / NEUTRE par actif, et le catalogue de recherche. Un récap se lit comme un compte rendu de séance : le bloc d'introduction donne le fil, les sections détaillent marché par marché.</p>",
         src: "Rapports et récaps produits par le desk à chaque séance, préparés à l'avance et servis depuis le cache : l'ouverture est instantanée.",
-        watch: "Les badges des Éclairages IA quand ils changent d'une séance à l'autre, et les thèmes qui reviennent d'un récap au suivant : la persistance d'un sujet dit son poids.",
+        watch: "Les badges des Éclairages desk quand ils changent d'une séance à l'autre, et les thèmes qui reviennent d'un récap au suivant : la persistance d'un sujet dit son poids.",
       },
       bias: {
         lire: "<p>L'onglet BIAIS complet : la matrice haute densité des devises et de leurs piliers, puis, au clic sur une devise, le panneau de synthèse (indicateurs à gauche, narratif et événements de la semaine à droite). La matrice se lit par <strong>contraste</strong> : deux devises aux biais opposés désignent les paires les plus nettes.</p>",
@@ -6979,7 +6979,7 @@
     return [
       _vueDesk('vue-fxlist', 'Liste FX', 'LISTE FX', 'Devises', 'view-fxlist', 'fxlist', "L'onglet LISTE FX du desk, à l'identique (signaux, prix, MAJ live)."),
       _vueDesk('vue-institution', 'Institutions', 'INSTITUTIONS', 'News', 'view-institution', 'institution', "L'onglet INSTITUTIONS du desk : la recherche des grandes banques."),
-      _vueDesk('vue-analyst', 'Analystes', 'ANALYSTES', 'News', 'view-analyst', 'analyst', "L'onglet ANALYSTES du desk : rapports, récaps de séance, Éclairages IA."),
+      _vueDesk('vue-analyst', 'Analystes', 'ANALYSTES', 'News', 'view-analyst', 'analyst', "L'onglet ANALYSTES du desk : rapports, récaps de séance, Éclairages desk."),
       _vueDesk('vue-bias', 'Onglet Biais', 'BIAIS', 'Macro', 'view-bias', 'bias', "L'onglet BIAIS complet du desk : matrice Smart Bias + synthèse."),
       _vueDesk('vue-weekahead', 'Semaine à Venir', 'SEMAINE', 'Macro', 'view-weekahead', 'weekahead', "L'onglet SEMAINE À VENIR du desk : profil de risque + agenda éditorialisé.", _waExtra),
       _vueDesk('vue-taux', 'Onglet Taux', 'TAUX', 'Macro', 'view-taux', 'taux', "L'onglet TAUX du desk : cartes par banque, pricing des décisions, temps réel.", _tauxExtra),

@@ -7380,7 +7380,7 @@ async function _brEmbedPdf(item, endpointUrl) {
   return true;
 }
 // Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
-// (jamais un cadre vide ni un message technique). Les Éclairages IA restent affichés au-dessus, façon pro.
+// (jamais un cadre vide ni un message technique). Les Éclairages desk restent affichés au-dessus, façon pro.
 function _brShowExternalCard(item) {
   const content = document.getElementById('br-rcontent'); if (!content) return;
   content.classList.remove('br-rcontent--pdf');
@@ -7437,7 +7437,7 @@ async function _brShowRenderedPdf(item, renderUrl) {
   _brShowExternalCard(item);
 }
 
-// Garantit les Éclairages IA (+ tags) à CHAQUE ouverture de rapport Institution, quel que soit le mode
+// Garantit les Éclairages desk (+ tags) à CHAQUE ouverture de rapport Institution, quel que soit le mode
 // d'affichage (PDF natif / proxy / rendu / HTML). item.description est souvent VIDE (PDF natifs SEB/ING/
 // BlackRock, MUFG…) → on alimente depuis le MEILLEUR contenu dispo : fullContent → HTML déjà fetché →
 // corps de l'article récupéré → description. Le 1er ayant > 80 caractères gagne.
@@ -7455,7 +7455,7 @@ function _brEnsureInsights(item, brIns, tagsEl, preHtml) {
   // on affiche un état clair avec un bouton Réessayer au lieu de rien.
   const fail = () => {
     brIns.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:0 0 12px;background:#101014;border:1px solid #26262b;border-radius:6px;font-size:12.5px;color:#8b93a1;">'
-      + 'Éclairages IA indisponibles pour ce rapport (contenu non extractible pour le moment).'
+      + 'Éclairages desk indisponibles pour ce rapport (contenu non extractible pour le moment).'
       + '<button type="button" id="br-ins-retry" style="margin-left:auto;background:transparent;border:1px solid #3a3f4b;border-radius:4px;color:#e3b23a;font-size:12px;padding:4px 12px;cursor:pointer;">Réessayer</button></div>';
     const rb = document.getElementById('br-ins-retry');
     if (rb) rb.onclick = () => { brIns.innerHTML = dtpLoader('Analyse du rapport…'); _brEnsureInsights(item, brIns, tagsEl, preHtml); };
@@ -7481,7 +7481,7 @@ function renderBrReader(item) {
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   if (content) content.classList.remove('br-rcontent--pdf');
 
-  // ── Éclairages IA (carrousel au-dessus, TOUJOURS : y compris au-dessus d'un PDF, façon pro) ──
+  // ── Éclairages desk (carrousel au-dessus, TOUJOURS : y compris au-dessus d'un PDF, façon pro) ──
   let brIns = document.getElementById('br-ai-insights');
   if (!brIns && content) {
     brIns = document.createElement('div');
@@ -7538,7 +7538,7 @@ function renderBrReader(item) {
     .then(async data => {
       if (!content) return;
       data = data || {};
-      // Éclairages IA + tags GARANTIS depuis le CONTENU du rapport (le corps vit dans le PDF/HTML ;
+      // Éclairages desk + tags GARANTIS depuis le CONTENU du rapport (le corps vit dans le PDF/HTML ;
       // item.description est souvent vide) → carrousel rempli + tags pertinents MÊME en mode PDF brut.
       if (brIns) _brEnsureInsights(item, brIns, tagsEl, data.html);
       // PDF natif (proxifié) puis, à défaut, page rendable → rendu PDF serveur (Puppeteer). NOUVEAU : si
@@ -7597,7 +7597,7 @@ function renderBrReader(item) {
         // Extraction impossible (site protégé / anti-bot / login). On N'EMBARQUE PAS l'URL d'origine
         // en iframe : ces sites envoient X-Frame-Options / frame-ancestors → l'iframe reste un CADRE
         // VIDE (« ça ne s'affiche pas »). On affiche une carte PROPRE : en-tête + titre + aperçu +
-        // bouton « Ouvrir le rapport original ». (Les Éclairages IA, panneau dédié, résument le rapport.)
+        // bouton « Ouvrir le rapport original ». (Les Éclairages desk, panneau dédié, résument le rapport.)
         _noEmbed = true;
         const preview = (item.description || '').trim();
         const safe = (item.url || '').replace(/"/g, '&quot;');
@@ -8287,7 +8287,7 @@ document.addEventListener('click', (ev) => {
 
 // ── Reader ────────────────────────────────────────────────────────────────────
 
-// Charge et affiche les Éclairages IA (cartes) d'un rapport via Gemini
+// Charge et affiche les Éclairages desk (cartes) d'un rapport via Gemini
 const _aiInsightsCache = {};      // cache navigateur : pas de requête à la réouverture d'un rapport
 const _aiInsightsInflight = {};   // requêtes en vol (ck → Promise) : déduplique les appels simultanés
 async function _loadAIInsights(item, el) {
@@ -8310,7 +8310,7 @@ async function _loadAIInsights(item, el) {
   const ck = item.id || (item.headline || '').slice(0, 60);
   let d = _aiInsightsCache[ck];
   if (!d) {
-    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20" decoding="sync"> Éclairages IA</span></div><div class="ai-insights-loading">Chargement des résumés…</div>`;
+    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20" decoding="sync"> Éclairages desk</span></div><div class="ai-insights-loading">Chargement des résumés…</div>`;
     try {
       // Déduplication : si une requête est déjà en vol pour CE rapport (ex. double appel
       // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
@@ -8329,7 +8329,7 @@ async function _loadAIInsights(item, el) {
     if (!d || !d.insights || !d.insights.length) {
       // FILET CLIENT : le serveur n'a renvoyé AUCUN insight (IA vide + secours serveur vide) → on NE VIDE
       // PAS le panneau. On fabrique des cartes extractives à partir des PUCES du rapport (item.lines) ou, à
-      // défaut, du TEXTE rendu. Ainsi les « Éclairages IA » ne disparaissent JAMAIS quand il y a du contenu
+      // défaut, du TEXTE rendu. Ainsi les « Éclairages desk » ne disparaissent JAMAIS quand il y a du contenu
       // (corrige les rapports Analyst au panneau vide, quel que soit le format/le quota IA).
       const _ttl  = String(item.headline || item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       const _cand = (Array.isArray(item.lines) && item.lines.length) ? item.lines : String(text || '').split(/(?<=[.!?])\s+|\n+/);
@@ -8362,7 +8362,7 @@ async function _loadAIInsights(item, el) {
     const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20">`;
     // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) : défilement manuel via les flèches
     el.innerHTML = `<div class="ai-insights-head">
-        <span class="ai-insights-title">${chip} Éclairages IA</span>
+        <span class="ai-insights-title">${chip} Éclairages desk</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
           <span class="ai-insights-count"></span>
@@ -8393,7 +8393,7 @@ function _aiInsCount(cardsEl) {
   countEl.textContent = `${start}-${end} sur ${total}`;
 }
 
-// Défilement des cartes Éclairages IA via les flèches (scopé au panneau cliqué).
+// Défilement des cartes Éclairages desk via les flèches (scopé au panneau cliqué).
 // Par PAGE ENTIÈRE (23/08) : le pas fixe de 290px découpait des cartes à cheval — désormais on
 // avance d'une largeur de conteneur, et le scroll-snap cale sur des cartes complètes.
 function aiInsScroll(btn, dir) {
@@ -8405,7 +8405,7 @@ function aiInsScroll(btn, dir) {
 const _EYE_OFF = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
 const _EYE     = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
 
-// Afficher / masquer la grille de cartes Éclairages IA (cible paramétrable : Analyst ou Institution)
+// Afficher / masquer la grille de cartes Éclairages desk (cible paramétrable : Analyst ou Institution)
 function aiInsToggle(btn, hostId) {
   const host = document.getElementById(hostId || 'arlib-ai-insights');
   // Cible la rangée de cartes ; NO-OP tant qu'elle n'existe pas (pendant le chargement) → ne hide JAMAIS
@@ -8545,7 +8545,7 @@ window._gewToggleFold = function (btn) {
 let _wrStrengthData = null;     // données de force (TW) chargées 1 seule fois pour tout le rapport
 let _wrChartObserver = null;
 
-// Rapport complet, lu de haut en bas (PAS de badges) : Éclairages IA → Résumé → Points Macro Clés
+// Rapport complet, lu de haut en bas (PAS de badges) : Éclairages desk → Résumé → Points Macro Clés
 // → Currency Analysis (chaque devise à la suite : analyse + courbe ISOLÉE + drivers).
 // ── Section Banques Centrales NIVEAU INSTITUTIONNEL (Weekly Recap v18) : 4 majeures en bloc complet
 //    (Fed/BCE/BoE/BoJ) + 4 breves (BoC/RBA/RBNZ/SNB). Donnees = w.centralBanks enrichi cote serveur
@@ -8678,7 +8678,7 @@ function _renderWeeklyRecap(item) {
   // au-dessus du texte.
   if (_rdateEl) _rdateEl.textContent = '';
 
-  // Éclairages IA (composant Institution, alimenté par les insights Gemini du recap)
+  // Éclairages desk (composant Institution, alimenté par les insights Gemini du recap)
   const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20">`;
   // Cartes : insights thématiques (texte) PUIS paires/instruments avec badge de biais (SELL/BUY/NEUTRAL)
   // _wrInline (pas _wrEsc) → le markdown **gras** de l'IA est rendu en <strong>, jamais affiché brut.
@@ -8695,7 +8695,7 @@ function _renderWeeklyRecap(item) {
   const insightsHtml = allCards.length ? `
     <div id="arlib-ai-insights">
       <div class="ai-insights-head">
-        <span class="ai-insights-title">${chip} Éclairages IA</span>
+        <span class="ai-insights-title">${chip} Éclairages desk</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
           <span class="ai-insights-count">${allCards.length} éclairages</span>
@@ -8834,7 +8834,7 @@ function _renderWeeklyRecap(item) {
        « Points Macro Clés » (ses thèmes Cross-Asset / Commerce & Tarifs / Techno répétaient les blocs
        devises), la section « Banques Centrales » autonome (sa matière vit dans la rubrique Politique
        monétaire de CHAQUE devise, comme « Fed / Pricing » dans la référence), la vue d'ensemble Force
-       des Devises (chaque devise garde SA courbe, dans son bloc) et les Éclairages IA.
+       des Devises (chaque devise garde SA courbe, dans son bloc) et les Éclairages desk.
        ⚠️ Rendu SEULEMENT : le serveur continue de produire ces champs, dont les e-mails ont besoin.
        Les bandeaux d'actes numérotés disparaissent avec eux — deux sections n'ont pas besoin d'actes. */
     // v27 — CHRONOLOGIE GÉOPOLITIQUE (façon référence Eliott) : jour par jour + « État en fin de semaine ».
@@ -9007,7 +9007,7 @@ function _renderWeeklyRecap(item) {
     }
   }
 
-  // Éclairages IA : conservés sur le Rapport Éco (GEW), RETIRÉS du Récap Hebdo (refonte 11/08) — il va
+  // Éclairages desk : conservés sur le Rapport Éco (GEW), RETIRÉS du Récap Hebdo (refonte 11/08) — il va
   // droit au récit géopolitique puis aux devises, sans carrousel d'ouverture.
   content.innerHTML = `<div class="wr">${isGew ? insightsHtml : ''}<div class="wr-body">${body}</div></div>`;
   if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(content, '.gew-ev-quote-txt');   // propos de discours (souvent EN) → FR (cache serveur)
@@ -9383,7 +9383,7 @@ function _renderFXDailyRecap(item) {
   const _rdateEl = document.getElementById('arlib-rdate');
   if (_rdateEl) _rdateEl.textContent = '';
 
-  // Éclairages IA (réutilise le composant Institution) : cartes thématiques + paires avec badge de biais.
+  // Éclairages desk (réutilise le composant Institution) : cartes thématiques + paires avec badge de biais.
   const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20">`;
   const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrInline(typeof t === 'string' ? t : (t.text || ''))}</div>`);
   const pairCards = (w.pairs || []).map(p => {
@@ -9398,7 +9398,7 @@ function _renderFXDailyRecap(item) {
   const insightsHtml = allCards.length ? `
     <div id="arlib-ai-insights">
       <div class="ai-insights-head">
-        <span class="ai-insights-title">${chip} Éclairages IA</span>
+        <span class="ai-insights-title">${chip} Éclairages desk</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
           <span class="ai-insights-count">${allCards.length} éclairages</span>
@@ -9670,10 +9670,10 @@ function _renderDTPDaily(item) {
   content.innerHTML = body || '<div class="fxdr-exec">Rapport en cours de génération…</div>';
 }
 
-// FILET UNIVERSEL (demande user : Éclairages IA dans TOUS les rapports Analyste). Après le rendu de n'importe
-// quel rapport (DTP Daily, FX Daily, Weekly, Récap Séance, briefing…), si le panneau « Éclairages IA » est resté
+// FILET UNIVERSEL (demande user : Éclairages desk dans TOUS les rapports Analyste). Après le rendu de n'importe
+// quel rapport (DTP Daily, FX Daily, Weekly, Récap Séance, briefing…), si le panneau « Éclairages desk » est resté
 // VIDE (insights propres absents, IA en quota, description trop courte au 1er appel…), on le reconstruit à partir
-// des PUCES RÉELLEMENT RENDUES du rapport → les Éclairages IA n'y manquent JAMAIS quand il y a du contenu.
+// des PUCES RÉELLEMENT RENDUES du rapport → les Éclairages desk n'y manquent JAMAIS quand il y a du contenu.
 function _ensureArlibInsights(item) {
   if (!item) return;
   let attempts = 0;
@@ -9681,14 +9681,14 @@ function _ensureArlibInsights(item) {
     try {
       if (_currentArlibItem !== item) return;              // l'utilisateur a changé de rapport → on abandonne ce filet
       let el = document.getElementById('arlib-ai-insights') || document.getElementById('br-ai-insights');
-      if (el && el.querySelector('.ai-insights-card')) return;   // Éclairages IA déjà présents → terminé
+      if (el && el.querySelector('.ai-insights-card')) return;   // Éclairages desk déjà présents → terminé
       const content = document.getElementById('arlib-rcontent');
       let lines = content ? [...content.querySelectorAll('.arlib-rbullet > span:not(.arlib-rbullet-dot), .arlib-rbullet-sub > span:not(.arlib-rbullet-dot)')]
         .map(s => (s.textContent || '').replace(/\s+/g, ' ').trim()).filter(t => t.length > 8) : [];
       if (!lines.length && content) lines = [...content.querySelectorAll('li, p')]
         .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim()).filter(t => t.length > 20);
       lines = lines.slice(0, 40);
-      if (lines.length && content) {   // contenu prêt → on (re)fabrique les Éclairages IA à partir des puces réelles (secours garanti)
+      if (lines.length && content) {   // contenu prêt → on (re)fabrique les Éclairages desk à partir des puces réelles (secours garanti)
         if (!el) {   // rapport DTP/FX/Weekly SANS insights bakés (échec IA génération) → le conteneur n'existe pas : on le CRÉE en tête du rapport
           el = document.createElement('div'); el.id = 'arlib-ai-insights';
           content.insertBefore(el, content.firstChild);
@@ -9705,7 +9705,7 @@ function _ensureArlibInsights(item) {
 }
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
-  _ensureArlibInsights(item);   // filet : garantit les Éclairages IA après le rendu, quel que soit le type de rapport
+  _ensureArlibInsights(item);   // filet : garantit les Éclairages desk après le rendu, quel que soit le type de rapport
   if (item && item._dtpd)   { _renderDTPDaily(item); return; }      // ← « Point Marché · Ouverture US »
   if (item && item._fxr)    { _renderFXDailyRecap(item); return; }  // ← rendu riche FX Daily Recap (façon pro)
   if (item && item._weekly) { _renderWeeklyRecap(item); return; }   // ← rendu riche Weekly Recap
@@ -9715,7 +9715,7 @@ function renderArlibReader(item) {
   const content    = document.getElementById('arlib-rcontent');
   if (!content) return;
 
-  // ── Éclairages IA : cartes générées par IA, placées AU-DESSUS du contenu ──
+  // ── Éclairages desk : cartes générées par IA, placées AU-DESSUS du contenu ──
   let insightsEl = document.getElementById('arlib-ai-insights');
   if (!insightsEl) {
     insightsEl = document.createElement('div');
@@ -9725,11 +9725,11 @@ function renderArlibReader(item) {
   insightsEl.innerHTML = '';
   // Les sources à contenu ASYNCHRONE (session wraps InvestingLive, ING Think) rechargent les
   // insights APRÈS le chargement du contenu (avec le vrai texte complet). On NE les charge PAS
-  // ici : sinon double requête + le panneau se VIDE pendant le chargement = les Éclairages IA
+  // ici : sinon double requête + le panneau se VIDE pendant le chargement = les Éclairages desk
   // "disparaissent". On laisse un placeholder « analyse… » jusqu'à ce que le contenu soit prêt.
   const _asyncSrc = item && (item._source === 'investinglive' || item._source === 'ing-think');
   if (_asyncSrc) {
-    insightsEl.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20"> Éclairages IA</span> <span class="ai-insights-load">· analyse…</span></div>`;
+    insightsEl.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20"> Éclairages desk</span> <span class="ai-insights-load">· analyse…</span></div>`;
   } else {
     _loadAIInsights(item, insightsEl);
   }
@@ -9750,7 +9750,7 @@ function renderArlibReader(item) {
   let html = '';
 
   // Récupère les PUCES réellement rendues du rapport (texte propre, sans la pastille) → servent
-  // de base aux Éclairages IA : 1 carte par puce = plusieurs petites cases, jamais un gros bloc.
+  // de base aux Éclairages desk : 1 carte par puce = plusieurs petites cases, jamais un gros bloc.
   function _collectReportLines(root) {
     if (!root) return [];
     const out = [];
@@ -9879,7 +9879,7 @@ function renderArlibReader(item) {
       } else if ((tag === 'strong' || tag === 'b') && !el.closest('p, li')) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré
-        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon pro) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les Éclairages IA
+        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon pro) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les Éclairages desk
         // ≥2 (et non >3) : « FX », « US », « UK », « EU », « USD »… sont des EN-TÊTES légitimes de 2-3 car.
         // Le seuil >3 faisait DISPARAÎTRE le titre « FX » (2 car) → ses puces se collaient à la rubrique précédente.
         if (t.length >= 2) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
