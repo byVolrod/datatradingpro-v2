@@ -8380,10 +8380,12 @@ function _aiInsCount(cardsEl) {
   countEl.textContent = `${start}-${end} sur ${total}`;
 }
 
-// Défilement des cartes Éclairages IA via les flèches (scopé au panneau cliqué)
+// Défilement des cartes Éclairages IA via les flèches (scopé au panneau cliqué).
+// Par PAGE ENTIÈRE (23/08) : le pas fixe de 290px découpait des cartes à cheval — désormais on
+// avance d'une largeur de conteneur, et le scroll-snap cale sur des cartes complètes.
 function aiInsScroll(btn, dir) {
   const c = btn?.closest('.ai-insights-head')?.nextElementSibling;
-  if (c) c.scrollBy({ left: dir * 290, behavior: 'smooth' });
+  if (c) c.scrollBy({ left: dir * c.clientWidth, behavior: 'smooth' });
 }
 
 // Icônes œil (propres, style PT)

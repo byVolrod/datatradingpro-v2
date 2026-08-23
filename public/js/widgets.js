@@ -2368,7 +2368,7 @@
       },
     },
     {
-      id: 'distribution-variations', name: 'Distribution des variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
+      id: 'distribution-variations', name: 'Histogramme des variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
       desc: 'La forme réelle des séances : combien de journées à +0,3 %, combien à -1 %.',
       /* ⚠️ La derniere bougie est TOUJOURS retiree, sans test de date : la journee en cours n a
          pas de cloture, donc pas de variation. Regle deterministe, identique pour tout le monde,
@@ -2515,7 +2515,7 @@
       },
     },
     {
-      id: 'heatmap-seance', name: 'Chaleur de séance', tag: 'FX', cat: 'Marchés', h: 268,
+      id: 'heatmap-seance', name: 'Carte de chaleur FX', tag: 'FX', cat: 'Marchés', h: 268,
       desc: 'Les 28 croisements majeurs colorés par leur variation du jour, du plus vert au plus rouge.',
       /* ⚠️ PERIMETRE VOLONTAIREMENT ETROIT. La contre-verification a montre qu une heatmap
          multi-periodes (1 mois, 3 mois, 12 mois) ferait DOUBLON avec la Liste FX, qui sert deja
@@ -3136,7 +3136,7 @@
     },
 
     {
-      id: 'saison-courbe', name: 'Courbe saisonnière',
+      id: 'saison-courbe', name: 'Rendement moyen par mois',
       maj: 30 * 60 * 1000, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,   // donnee historique : le rythme sert a se reparer
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
       /* Complement du widget « Saisonnalite » (table de chiffres) : celui-ci DESSINE la meme donnee.
@@ -3331,7 +3331,7 @@
     },
 
     {
-      id: 'dmx-paire', name: 'DMX par paire', tag: 'DMX', cat: 'Risque', h: 300,
+      id: 'dmx-paire', name: 'Particuliers par paire', tag: 'DMX', cat: 'Risque', h: 300,
       desc: 'Le partage long/short de la foule sur UNE paire, en anneau.',
       /* Complément du widget « Aperçu DMX », qui liste toutes les paires : celui-ci en isole UNE et
          la donne à lire d'un coup d'œil. Même source (/api/community-outlook), même cache serveur.
@@ -3553,7 +3553,7 @@
       },
     },
     {
-      id: 'dmx-retail', name: 'Aperçu DMX', tag: 'DMX', cat: 'Risque', h: 340,
+      id: 'dmx-retail', name: 'Sentiment des particuliers', tag: 'DMX', cat: 'Risque', h: 340,
       desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
       // IDENTIQUE AU DESK (23/07) : réutilise buildDMXChart(force, {wrapId, period, sort}) de charts.js
       // → mêmes barres .dmx2-row, même en-tête (boutons TF 1D/4H/1H + tri) et même légende Long/Short.
@@ -6649,8 +6649,12 @@ function _spansAffiches(lay) {
         // Ajout d'un ONGLET dans un Panneau à onglets (jamais un panneau dans lui-même).
         if (wid !== 'onglets') {
           var pt = l.items[_pickTab];
-          if (_pickTabAt != null && Array.isArray(pt.tabs) && pt.tabs[_pickTabAt] === 'vide') {
-            // REMPLISSAGE d'un onglet vide (03/08) : le widget prend SA place, nom conservé.
+          /* ⚠️ BUG CORRIGÉ (23/08, constat user : « Remplacer a AJOUTÉ un onglet ») : la condition
+             exigeait un onglet 'vide' — sur un onglet OCCUPÉ (le cas nominal du bouton Remplacer),
+             elle échouait et on retombait dans l'ajout en fin. Un onglet ciblé se REMPLACE, vide
+             ou occupé ; seul un onglet composite ('grille') passe encore par l'ajout : l'écraser
+             en silence détruirait plusieurs widgets d'un coup. */
+          if (_pickTabAt != null && Array.isArray(pt.tabs) && pt.tabs[_pickTabAt] != null && pt.tabs[_pickTabAt] !== 'grille') {
             pt.tabs[_pickTabAt] = wid;
             pt._tabAct = _pickTabAt;
           } else {

@@ -19439,6 +19439,23 @@ html[data-theme="light"] .tag--indic { background: #f1f2f4; border-color: #d9dbe
   .br-card:hover, .arlib-card:hover { background: transparent !important; }
 }
 
+/* ÉCLAIRAGES IA : JAMAIS de carte coupée (23/08, capture user : badge « NEUTRE » tronqué au bord).
+   Les cartes à largeur FIXE laissaient dépasser une fraction de la 3e — badge coupé en plein
+   milieu. Elles se dimensionnent désormais pour qu'un nombre ENTIER tienne (3 → 2 → 1 selon la
+   largeur), avec accrochage au défilement : on ne voit que des cartes complètes. La variante
+   --fixed (grille statique) garde son propre régime. */
+.ai-insights-cards:not(.ai-insights-cards--fixed) { scroll-snap-type: x mandatory; }
+.ai-insights-cards:not(.ai-insights-cards--fixed) > .ai-insights-card {
+  scroll-snap-align: start;
+  flex: 0 0 calc((100% - 24px) / 3); width: auto; min-width: 0;
+}
+@media (max-width: 900px) {
+  .ai-insights-cards:not(.ai-insights-cards--fixed) > .ai-insights-card { flex-basis: calc((100% - 12px) / 2); }
+}
+@media (max-width: 560px) {
+  .ai-insights-cards:not(.ai-insights-cards--fixed) > .ai-insights-card { flex-basis: 100%; }
+}
+
 /* [36] TOPBAR 2 RANGÉES (<400px) : le recalcul du 22/08 reperdait le terme d'encoche iPhone que
    le fichier ajoutait déjà — en plein écran / web-app, la 2e rangée passait sous l'encoche. */
 @supports (padding-top: env(safe-area-inset-top)) {
