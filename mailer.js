@@ -1806,8 +1806,6 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
       ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#f3c344;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`
       : `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`}`;
 }
-// Nombres en toutes lettres (le corps d'un mail pédagogique écrit « en quatre étapes », pas « en 4 étapes »).
-const _NB_FR = { 1: 'une', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq', 6: 'six' };
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
 // via recentKeys. Repli evergreen (decodeur 4 familles) si aucune donnee. Renvoie aussi conceptKey (marquage).
@@ -1828,25 +1826,24 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   // Accroche ancree sur l'evenement VEDETTE du calendrier (context.featured = ce que le widget affiche en tete)
   // -> le mail vedette le MEME evenement que le calendrier affiche -> jamais de contradiction texte/calendrier.
   const featured = (context && context.featured) || majors[0] || upcoming[0] || null;
-  // ARCHITECTURE (retour user 23/08 : « restructure mieux ») : une seule ligne narrative :
-  // APPRENDRE (le concept, star du mail et de l'objet 🎓) -> APPLIQUER (le rendez-vous vedette,
-  // ses chiffres et les deux scénarios, réunis en UNE section « Cette semaine, concrètement ») ->
-  // AGENDA (le widget + le compte des temps forts). Avant, le rendez-vous était éclaté en deux
-  // endroits (encart d'ouverture puis application après l'image) avec la pédagogie en sandwich :
-  // le lecteur revisitait le même sujet deux fois.
-  // MODE LEÇON (retour user 23/08 : « plus simple à comprendre, en mode éducation ») : le mail
-  // annonce son plan en trois étapes et le SUIT, au lieu d'aligner trois paragraphes qui se
-  // ressemblent puis une application.
-  //   ⚠️ PIÈGE MESURÉ (audit du catalogue, 23/08) : ne PAS titrer les paragraphes un par un
-  //   (« ce que c'est » / « pourquoi le marché y réagit »). Le contrat de rédaction n'est tenu que
-  //   par 6 concepts sur 14 : `risk-on-off` oppose risk-on et risk-off, `gestion-risque` enchaîne
-  //   tentation puis discipline. Des intitulés fixes mentiraient donc sur 8 concepts. On groupe
-  //   l'explication sous UNE étape « Comprendre », toujours exacte quel que soit le concept.
+  // ══ DOCTRINE « UN SEUL SUJET » (retour user 23/08 : « le badge me dérange, pas trop d'information,
+  //    d'autres news ou quoi, faut se focaliser ») ══
+  //    Le mail du mardi enseigne UNE notion et l'applique à UN rendez-vous. Tout le reste est parti :
+  //      - le badge de catégorie (« INFLATION ») : le titre dit déjà de quoi on parle ;
+  //      - le widget calendrier et son compte de temps forts : 76 autres publications noyaient la leçon ;
+  //      - le décodeur evergreen des 4 familles : un second cours dans le premier ;
+  //      - TOUS les cadres (encadré or, encart du rendez-vous, cartes de scénario). Cinq blocs encadrés
+  //        se disputaient l'attention, donc plus rien ne ressortait. Un seul niveau de mise en avant
+  //        subsiste : le gras or. Ce qui se lit en deux lignes s'écrit en deux lignes.
   const _cParas = (c.paras || []).filter(Boolean);
   const _regleIdx = _cParas.length > 1 ? _cParas.length - 1 : -1;
   // Le dernier paragraphe porte l'essentiel actionnable. Il s'annonce « La règle de lecture » quand
-  // il le dit lui-même (6 concepts + tous ceux générés par l'IA, dont le prompt l'impose), sinon
-  // « À retenir », vrai dans tous les cas.
+  // il le dit lui-même (6 concepts sur 14 + tous ceux générés par l'IA, dont le prompt l'impose),
+  // sinon « À retenir », vrai dans tous les cas.
+  //   ⚠️ PIÈGE MESURÉ (audit du catalogue, 23/08) : ne JAMAIS titrer les paragraphes un par un
+  //   (« ce que c'est » / « pourquoi le marché y réagit »). Le contrat de rédaction n'est tenu que par
+  //   6 concepts sur 14 : `risk-on-off` oppose deux régimes, `gestion-risque` enchaîne tentation puis
+  //   discipline. Des intitulés fixes mentiraient donc sur 8 mails.
   const _regleDeclaree = _regleIdx >= 0 && /^\s*la règle de lecture/i.test(String(_cParas[_regleIdx]));
   const _regleTitre = _regleDeclaree ? 'La règle de lecture' : 'À retenir';
   const _regleTxt = (() => {
@@ -1854,86 +1851,46 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     const t = String(_cParas[_regleIdx]).replace(/^\s*la règle de lecture\s*:?\s*/i, '');
     return t.charAt(0).toUpperCase() + t.slice(1);   // le préfixe retiré laissait une minuscule en tête
   })();
-  const _aAppliquer = !!(featured && featured.title);
-  // Étapes réellement présentes : Comprendre (s'il reste des paragraphes) + l'essentiel + la pratique.
-  const _nEtapes = (_regleIdx > 0 ? 1 : 0) + (_regleIdx >= 0 ? 1 : 1) + (_aAppliquer ? 1 : 0);
-  const lead = `Votre leçon du mardi, en ${_NB_FR[_nEtapes] || _nEtapes} étapes : un concept macro expliqué simplement, l'essentiel à retenir, puis son application sur le calendrier de la semaine.`;
-  let _etape = 0;
-  const _numComprendre = (_regleIdx > 0) ? ++_etape : 0;
-  const _numRegle = ++_etape;
-  const _numPratique = _aAppliquer ? ++_etape : 0;
-  // « Comprendre » : tous les paragraphes SAUF le dernier (l'explication proprement dite).
-  const etapesHtml = _numComprendre
-    ? _secTitle(`${_numComprendre} &middot; Comprendre`)
-      + _cParas.slice(0, _regleIdx).map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')
-    : _cParas.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('');
+  const lead = `Votre leçon du mardi.`;
+  // Titre SEUL, sans badge de catégorie. L'explication coule en paragraphes, l'essentiel tient sur
+  // une ligne mise en valeur par la couleur, pas par un cadre.
   const conceptHtml = `
-    <div style="margin:20px 0 8px;">
-      <div style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
-      <div style="color:#ffffff;font-weight:800;font-size:18px;line-height:1.3;margin:10px 0 2px;letter-spacing:-.01em;">${_esc(c.title)}</div>
-    </div>
-    ${etapesHtml}
-    ${_regleIdx >= 0 ? _goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${_numRegle} &middot; ${_regleTitre}</div><div>${_esc(_regleTxt)}</div>`) : ''}`;
+    <div style="color:#ffffff;font-weight:800;font-size:18px;line-height:1.3;margin:18px 0 14px;letter-spacing:-.01em;">${_esc(c.title)}</div>
+    ${_cParas.slice(0, _regleIdx >= 0 ? _regleIdx : _cParas.length).map(p => `<p style="margin:0 0 13px;">${_esc(p)}</p>`).join('')}
+    ${_regleIdx >= 0 ? `<p style="margin:18px 0 13px;color:${TOK.or};font-weight:700;">${_regleTitre}&nbsp;: <span style="color:#e6e6ea;font-weight:400;">${_esc(_regleTxt)}</span></p>` : ''}`;
 
-  // « Cette semaine, concrètement » : UNE section qui réunit TOUT le rendez-vous vedette : l'encart
-  // (nom, date/heure or, attentes du marché ou pourquoi il compte), la phrase d'application du
-  // concept, puis les deux scénarios. Chiffres = VRAIES prévision/précédent du calendrier, zéro invention.
+  // « Cette semaine » : LE rendez-vous auquel la notion s'applique, en une ligne, puis les deux
+  // mécaniques types. Chiffres = VRAIES prévision/précédent du calendrier, zéro invention.
   let appliedHtml = '';
   if (featured && featured.title) {
     const fwhen = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
     const fnums = [];
     if (featured.forecast) fnums.push(`prévision <strong style="color:#e6e6ea;">${_esc(featured.forecast)}</strong>`);
     if (featured.previous) fnums.push(`précédent <strong style="color:#e6e6ea;">${_esc(featured.previous)}</strong>`);
-    const sousLigne = fnums.length
-      ? `Le marché attend ${fnums.join(', ')}.`
-      : `L'un des rendez-vous les plus suivis de la semaine : il peut peser sur les anticipations de taux et réveiller la volatilité.`;
-    appliedHtml = _secTitle(`${_numPratique} &middot; Mettez-la en pratique cette semaine`)
-      + _encart(
-        `<div style="color:#ffffff;font-weight:800;font-size:15px;letter-spacing:-.01em;">${_esc(featured.title)}</div>`
-        + (fwhen ? `<div style="color:${TOK.or};font-weight:700;font-size:12px;margin-top:3px;">${_esc(fwhen.charAt(0).toUpperCase() + fwhen.slice(1))}</div>` : '')
-        + `<div style="color:#aab2c0;font-size:12.5px;line-height:1.55;margin-top:7px;">${sousLigne}</div>`, true)
-      + `<p style="margin:0 0 12px;">Le marché ne regarde pas le niveau brut du chiffre&nbsp;: il le compare aux attentes. C'est cet écart, et lui seul, qui fait bouger le dollar, l'or et les indices.</p>`;
-    // ── LES DEUX SCÉNARIOS (refonte 15/07) : la mécanique type au-dessus/en-dessous des attentes, appliquée à
-    //    L'ÉVÉNEMENT vedette. Polarité par indicateur (chômage/inscriptions : un chiffre plus haut = économie plus
-    //    faible → lecture inversée). 100% INFORMATIF : on décrit des mécaniques de marché habituelles (« tend à »,
-    //    « généralement »), jamais une prédiction ni une incitation à prendre position (règle DTP).
+    const fnumLine = fnums.length ? ` Le marché attend ${fnums.join(', ')}.` : '';
+    appliedHtml = `<p style="margin:24px 0 6px;color:#ffffff;font-weight:700;font-size:15px;">Cette semaine</p>`
+      + `<p style="margin:0 0 13px;"><strong style="color:#fff;">${_esc(featured.title)}</strong>${fwhen ? ', ' + _esc(fwhen) : ''}.${fnumLine}</p>`;
+    // ── LES DEUX MÉCANIQUES (refonte 15/07) : au-dessus / en-dessous des attentes, appliquées à
+    //    L'ÉVÉNEMENT vedette. Polarité par indicateur (chômage/inscriptions : un chiffre plus haut =
+    //    économie plus faible → lecture inversée). 100 % INFORMATIF : on décrit des mécaniques de marché
+    //    habituelles (« tend à », « généralement »), jamais une prédiction ni une incitation à prendre
+    //    position (règle DTP). Deux LIGNES, plus deux cartes encadrées : même information, moitié moins haut.
     if (featured.forecast || featured.previous) {
       const _inv = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts/i.test(featured.title || '');
-      const hawk = `le marché tend à repousser ses attentes d'assouplissement : la devise concernée est généralement soutenue, tandis que l'obligataire et les actifs sensibles aux taux passent sous pression`;
-      const dove = `la banque centrale est perçue comme plus accommodante : la devise concernée a tendance à s'affaiblir et les actifs sensibles aux taux respirent`;
-      const above = _inv ? dove : hawk;
-      const below = _inv ? hawk : dove;
-      const _scCard = (arrow, t, txt) => `<div style="border:1px solid #232429;border-left:3px solid rgba(243,195,68,.55);border-radius:6px;padding:12px 14px;margin:0 0 10px;background:#131418;">`
-        + `<div style="color:#fff;font-weight:700;font-size:13.5px;margin-bottom:4px;">${arrow} ${t}</div>`
-        + `<div style="color:#aab2c0;font-size:13px;line-height:1.55;">${txt}.</div></div>`;
-      appliedHtml += `<p style="margin:14px 0 8px;color:#cbd5e1;">Les deux scénarios à avoir en tête&nbsp;:</p>`
-        + _scCard('▲', 'Si le chiffre sort au-dessus des attentes', `Lecture « surprise haussière »&nbsp;: ${above}`)
-        + _scCard('▼', 'S’il sort en-dessous', `Lecture « surprise baissière »&nbsp;: ${below}`)
-        + `<p style="margin:6px 0 0;font-size:12.5px;color:#7b828f;">Ce ne sont pas des prédictions&nbsp;: deux mécaniques types à avoir en tête avant la publication, la réaction réelle dépend toujours du contexte, à suivre en direct sur le Desk.</p>`;
+      const hawk = `le marché tend à repousser ses attentes d'assouplissement : la devise concernée est généralement soutenue, l'obligataire et les actifs sensibles aux taux passent sous pression.`;
+      const dove = `la banque centrale est perçue comme plus accommodante : la devise concernée a tendance à s'affaiblir et les actifs sensibles aux taux respirent.`;
+      const _scLigne = (fleche, t, txt) => `<p style="margin:0 0 13px;"><span style="color:${TOK.or};font-weight:700;">${fleche} ${t}&nbsp;:</span> ${txt}</p>`;
+      appliedHtml += _scLigne('▲', 'Au-dessus des attentes', _inv ? dove : hawk)
+        + _scLigne('▼', 'En-dessous', _inv ? hawk : dove)
+        + `<p style="margin:0 0 4px;font-size:12.5px;color:#7b828f;">Ce ne sont pas des prédictions, mais deux mécaniques types à avoir en tête avant la publication. La réaction réelle dépend toujours du contexte, à suivre en direct sur le Desk.</p>`;
     }
   }
-
-  // Agenda de la semaine = VRAI widget calendrier economique du desk (inline cid a l'envoi), en
-  // CLÔTURE du mail, avec le compte des temps forts fusionné dans sa note (fini la note isolée).
-  const agendaHtml = upcoming.length
-    ? _secTitle(`L'agenda de la semaine`)
-      + _widgetImg('calendar', "L'agenda de la semaine")
-      + `<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le desk suit <strong style="color:#cbd5e1;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> cette semaine : chaque publication est reprise, chiffrée et remise en contexte en direct.</p>`
-    : '';
-
-  // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
-  const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
-    const rows = fam.items.slice(0, 3).map(it => `<tr><td style="padding:9px 0 3px;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(it.k)}</span><div style="color:#aab2c0;font-size:12.5px;line-height:1.45;margin-top:2px;">${_esc(it.d)}</div><div style="color:#f3c344;font-size:11.5px;font-weight:600;margin-top:1px;">&rarr; ${_esc(it.a)}</div></td></tr>`).join('');
-    return `<div style="margin:18px 0 4px;"><span style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:6px;">${_esc(fam.name)}</span></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
-  }).join('') : '';
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
     ${conceptHtml}
     ${appliedHtml}
-    ${agendaHtml}
-    ${evergreen}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
@@ -1941,7 +1898,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   `;
   return { subject: '🎓 ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
-async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey, extraConcepts: d.extraConcepts }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey, extraConcepts: d.extraConcepts }); /* plus AUCUN widget embarqué : le calendrier a été retiré du mail (doctrine « un seul sujet ») */ const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
 // ── MINDSET (track psychologie/discipline) — bibliotheque de mails ORIGINAUX DTP (voix or, informatif, ZERO
 // promesse de gains, aucun texte repris d'une newsletter existante). Structure : accroche -> croyance -> faille ->
