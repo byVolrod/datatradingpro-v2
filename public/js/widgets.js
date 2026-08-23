@@ -1458,7 +1458,7 @@
     //  contiennent encore sont ignorées proprement par renderGrid : byId() → null → carte sautée.)
     {
       id: 'risque-historique', name: 'Historique du Sentiment',
-      maj: 5 * 60 * 1000,   // serie agregee, et surtout auto-reparation si le premier chargement echoue, cat: 'Risque', h: 260,
+      maj: 5 * 60 * 1000, cat: 'Risque', h: 260,   // serie agregee, et surtout auto-reparation si le premier chargement echoue
       desc: "L'appétit pour le risque des dernières semaines.",
       // Le serveur accepte déjà 7 à 366 jours (/api/risk-history) : la fenêtre était figée à 60 côté widget.
       opts: [{ k: 'jours', lbl: 'Fenêtre', type: 'choix', def: '60',
@@ -1477,7 +1477,7 @@
     },
     {
       id: 'calendrier-jour', name: 'Calendrier économique',
-      maj: 60 * 1000,   // les valeurs reelles se remplissent au fil des publications : c'est la ou l'immobilite se voit le plus, cat: 'Macro', h: 300,
+      maj: 60 * 1000, cat: 'Macro', h: 300,   // les valeurs reelles se remplissent au fil des publications : c'est la ou l'immobilite se voit le plus
       desc: 'Les prochaines publications, heure de Paris.',
       aide: "<p>Les publications du jour avec leur importance, la valeur attendue et, une fois publiée, la valeur réelle. La colonne à surveiller n'est pas le chiffre mais son <strong>écart au consensus</strong> : c'est la surprise qui déplace un marché, pas le niveau.</p><p>Les points d'impact indiquent la capacité historique de la publication à faire bouger les prix. Un événement à trois points sans surprise fait souvent moins qu'un événement à deux points très au-dessus des attentes.</p>",
       // MÊME DOM ET MÊME HABILLAGE que le desk (renderCalTable, charts.js) : classes `cal-table`/`cth-*`,
@@ -1878,7 +1878,7 @@
     },
     {
       id: 'taux-cb', name: 'Taux directeurs',
-      maj: 5 * 60 * 1000,   // la source des probabilites bouge a l'heure, pas a la seconde, cat: 'Macro', h: 320,
+      maj: 5 * 60 * 1000, cat: 'Macro', h: 320,   // la source des probabilites bouge a l'heure, pas a la seconde
       desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
       aide: "<p>Le taux directeur en vigueur pour chaque banque, avec ce que le marché price pour la prochaine réunion. La probabilité affichée ne dit pas ce qui va arriver : elle dit ce qui est <strong>déjà dans les prix</strong>.</p><p>C'est cette distinction qui rend la donnée exploitable. Une hausse annoncée et pricée à 90 % ne fera pas bouger la devise ; c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p>",
       // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
@@ -1934,8 +1934,11 @@
       // dtp-risk (source unique app.js) → toujours la même valeur que la jauge de l'onglet RISQUE.
       // Réglage UTILE (04/08) : dans une carte basse, la bande d'historique écrase l'arc — on peut
       // ne garder que la jauge.
-      opts: [{ k: 'histo',
-      aide: "<p>Une mesure d'appétit pour le risque agrégée à partir de plusieurs marchés. En <strong>risque-on</strong>, les devises cycliques et les actions sont recherchées ; en <strong>risque-off</strong>, ce sont les valeurs refuges.</p><p>Cet indicateur sert de toile de fond : il n'indique pas quoi acheter, il indique quel régime domine, et donc quelles corrélations sont actives à ce moment-là.</p>", lbl: 'Historique', type: 'bascule', def: true }],
+      /* ⚠️ BUG RÉPARÉ (23/08, trouvé à l'inventaire des fiches) : ce champ `aide` vivait À
+         L'INTÉRIEUR de l'objet d'option `histo` — le volet « ? » lit `w.aide`, jamais `opt.aide`,
+         donc cette fiche, écrite depuis le 21/08, ne s'était JAMAIS affichée. */
+      aide: "<p>Une mesure d'appétit pour le risque agrégée à partir de plusieurs marchés. En <strong>risque-on</strong>, les devises cycliques et les actions sont recherchées ; en <strong>risque-off</strong>, ce sont les valeurs refuges.</p><p>Cet indicateur sert de toile de fond : il n'indique pas quoi acheter, il indique quel régime domine, et donc quelles corrélations sont actives à ce moment-là.</p>",
+      opts: [{ k: 'histo', lbl: 'Historique', type: 'bascule', def: true }],
       mount: function (host, it) {
         var W = this;
         if (!(window.am5 && window.am5radar) || typeof _riskArcColor !== 'function' || typeof _riskBandInner !== 'function' || typeof GAUGE_LABEL_FR === 'undefined') { fallback(host, 'Jauge indisponible.'); return null; }
@@ -2035,7 +2038,7 @@
     },
     {
       id: 'cot-inst', name: 'Positionnement COT',
-      maj: 30 * 60 * 1000,   // le COT est hebdomadaire : ce rythme sert a se reparer, pas a rafraichir, tag: 'COT', cat: 'Risque', h: 340,
+      maj: 30 * 60 * 1000, tag: 'COT', cat: 'Risque', h: 340,   // le COT est hebdomadaire : ce rythme sert a se reparer, pas a rafraichir
       desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
       aide: "<p>Le positionnement déclaré des grands intervenants sur les contrats à terme, publié chaque semaine avec plusieurs jours de décalage. C'est une photographie du <strong>passé récent</strong>, jamais un signal d'entrée.</p><p>Sa valeur est dans les extrêmes et dans les inflexions : un positionnement très étiré d'un côté signale une asymétrie, un retournement de tendance dans les positions signale souvent un changement de régime avant les prix.</p>",
       // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
@@ -2820,7 +2823,7 @@
 
     {
       id: 'serie-indicateur', name: 'Série d\'un indicateur',
-      maj: 5 * 60 * 1000,   // une publication peut tomber pendant que la carte est ouverte, tag: 'MACRO', cat: 'Macro', h: 300,
+      maj: 5 * 60 * 1000, tag: 'MACRO', cat: 'Macro', h: 300,   // une publication peut tomber pendant que la carte est ouverte
       desc: 'Les dernières publications d\'un indicateur, en barres, avec la surprise contre la prévision.',
       /* ⚠️ LA SOURCE N EST PAS CELLE QU ON CROIT. /api/event-history existe, mais il compare les
          titres BRUTS alors que /api/calendar-events sert des titres RENOMMES : la reponse revient
@@ -3134,7 +3137,7 @@
 
     {
       id: 'saison-courbe', name: 'Courbe saisonnière',
-      maj: 30 * 60 * 1000,   // donnee historique : le rythme sert a se reparer, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
+      maj: 30 * 60 * 1000, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,   // donnee historique : le rythme sert a se reparer
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
       /* Complement du widget « Saisonnalite » (table de chiffres) : celui-ci DESSINE la meme donnee.
          ⚠️ DEUX PIEGES QUE L ON AFFICHE AU LIEU DE LES CACHER :
@@ -3580,7 +3583,7 @@
     },
     {
       id: 'saison', name: 'Saisonnalité',
-      maj: 30 * 60 * 1000,   // donnee historique : le rythme sert a se reparer, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,
+      maj: 30 * 60 * 1000, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,   // donnee historique : le rythme sert a se reparer
       desc: "La table de performance mensuelle par année (rendements × 5 ans).",
       // IDENTIQUE AU DESK (23/07) : même table heatmap .season-table (cellules rendues par le MÊME
       // _seasonCell global de charts.js — vert/rouge ∝ |valeur|, flèches, colonne Moy.), même badge
@@ -4630,7 +4633,7 @@
                d'index dans la disposition. */
             if (w.opts && w.opts.length) {
               var g = document.createElement('button');
-              g.className = 'wdg-ico'; g.title = 'Réglages · ' + w.name; g.innerHTML = ICO.gear;
+              g.className = 'wdg-ico'; g.title = 'Réglages'; g.innerHTML = ICO.gear;
               g.addEventListener('click', function (ev) { ev.stopPropagation(); API.toggleSubSettings(_pi2, c); });
               acts.appendChild(g);
             }
@@ -4639,7 +4642,7 @@
             // souvent de widget. Il ouvre la bibliothèque en visant CET onglet — ou CETTE case d'un
             // onglet composite — exactement comme le parcours historique par le « + ».
             var r = document.createElement('button');
-            r.className = 'wdg-ico'; r.title = 'Remplacer ' + w.name + ' par un autre widget';
+            r.className = 'wdg-ico'; r.title = 'Remplacer';
             r.innerHTML = ICO.swap;
             r.addEventListener('click', function (ev) {
               ev.stopPropagation();
@@ -4651,13 +4654,13 @@
             // font, c'est la qu'on en a le plus besoin. Avant-derniere, juste avant la croix.
             var _a = document.createElement('button');
             _a.className = 'wdg-ico wdg-ico--aide';
-            _a.title = 'À quoi sert ce widget ? · ' + w.name;
+            _a.title = 'Aide';
             _a.innerHTML = ICO.aide;
             _a.addEventListener('click', function (ev) { ev.stopPropagation(); API.aideDe(w.id); });
             acts.appendChild(_a);
             var x = document.createElement('button');
             x.className = 'wdg-ico';
-            x.title = 'Retirer ' + w.name + (c == null ? ' : l\'onglet reste' : ' : la case reste');
+            x.title = 'Retirer';
             x.innerHTML = ICO.close;
             x.addEventListener('click', function (ev) { ev.stopPropagation(); API.removeActiveTab(_pi2, c); });
             acts.appendChild(x);
@@ -4683,7 +4686,7 @@
             var _ic = _tabIconSvg(icons[i]);
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w || estG ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
               + '<span class="wdgt-chv">›</span>' + (_ic ? '<span class="wdgt-tico">' + _ic + '</span>' : '') + '<span class="wdgt-nm">' + esc(lbl) + '</span></button>';
-          }).join('') + '<button class="wdgt-add" title="Ajouter un onglet : il s\'ouvre vide, tu choisis son widget ensuite">+</button>';
+          }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
         }
         // RENOMMAGE INLINE (demande user 28/07, réparé 03/08) : le libellé devient un champ —
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
@@ -5155,8 +5158,8 @@
         return '<section class="wdg-card wdg-card--slot" data-idx="' + idx + '" style="--gw:' + (_lgs[idx] || it.gw) + ';--gh:' + it.gh + ';">'
           + '<button class="wdg-slot-x" title="Retirer l\'emplacement" onclick="DTPWidgets.remove(' + idx + ')">×</button>'
           + '<button class="wdg-slot-add" onclick="DTPWidgets.pickFor(' + idx + ')">+<span>Choisir un widget</span></button>'
-          + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
-          + '<div class="wdg-resize-e" title="Glisser pour élargir"></div></section>';
+          + '<div class="wdg-resize" title="Redimensionner"></div>'
+          + '<div class="wdg-resize-e" title="Élargir"></div></section>';
       }
       var w = byId(it.w);
       if (!w) return '';                                                     // widget retiré du catalogue → ignoré
@@ -5165,7 +5168,7 @@
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
       return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + (_lgs[idx] || it.gw) + ';--gh:' + it.gh + ';">'
-        + '<header class="wdg-head" draggable="' + (locked ? 'false' : 'true') + '" title="Glisser pour déplacer ce widget">'
+        + '<header class="wdg-head" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer">'
         // (poignée ⠿ RETIRÉE 04/08 : l'en-tête entier est la zone de saisie — cf. _wireGrid)
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
         // BANDEAU (21/08, demande user) : Réglages · REMPLACER · Fermer. « Remplacer » remonte des
@@ -5182,11 +5185,11 @@
         // ENGRENAGE SEULEMENT S'IL SERT (04/08) : un widget sans réglage déclaré n'affiche pas un
         // bouton qui ouvrirait un panneau vide (rapports Institutions/Analystes, Baromètre…).
         +     (((w.opts && w.opts.length) || w.id === 'onglets')
-                ? '<button class="wdg-ico" title="Réglages du widget" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
+                ? '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
                 : '')
-        +     '<button class="wdg-ico" title="Remplacer par un autre widget" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
-        +     '<button class="wdg-ico wdg-ico--aide" title="À quoi sert ce widget ?" onclick="DTPWidgets.aide(' + idx + ')">' + ICO.aide + '</button>'
-        +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer tout le panneau' : 'Retirer ce widget') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
+        +     '<button class="wdg-ico" title="Remplacer" onclick="DTPWidgets.replaceStart(' + idx + ')">' + ICO.swap + '</button>'
+        +     '<button class="wdg-ico wdg-ico--aide" title="Aide" onclick="DTPWidgets.aide(' + idx + ')">' + ICO.aide + '</button>'
+        +     '<button class="wdg-ico wdg-ico--x" title="' + (w.id === 'onglets' ? 'Retirer le panneau' : 'Retirer') + '" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
         +   '</span>'
         + '</header>'
         + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'
@@ -5195,8 +5198,8 @@
         // Panneau DISTINCT pour le widget affiché dans un onglet (son engrenage vit dans SA barre).
         + (w.id === 'onglets' ? '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-ss' + idx + '" hidden></div>' : '')
         + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
-        + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div>'
-        + '<div class="wdg-resize-e" title="Glisser pour élargir"></div></section>';
+        + '<div class="wdg-resize" title="Redimensionner"></div>'
+        + '<div class="wdg-resize-e" title="Élargir"></div></section>';
     }).join('')
     // BLOC FANTÔME INTELLIGENT (28/07) : il COMBLE EXACTEMENT le trou de la disposition — largeur
     // restante de la dernière rangée × hauteur de cette rangée (simulation du placement 12 col).
@@ -5398,7 +5401,7 @@
     vide(false);
     el.innerHTML = vis.map(function (l) {
       // classes de la NAV DU DESK : l'apparence vient d'elle, pas d'une copie de ses valeurs
-      return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' : double-clic pour renommer"'
+      return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' · renommer : double-clic"'
         + ' role="button" tabindex="0"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         // L'icône choisie REMPLACE le chevron (18/08, demande user : « la flèche est l'icône par
@@ -5410,7 +5413,7 @@
         // ✕ = FERMER l'onglet, PAS supprimer le layout (demande user 04/08) : il retourne dans
         // Personnaliser › Layouts, prêt à être rouvert. Quand il n'en reste qu'UN, la barre entière
         // se masque (cf. plus haut) → l'espace est rendu au desk.
-        + '<button class="wdg-lay-x" title="Fermer cet onglet (le layout reste dans Personnaliser)"'
+        + '<button class="wdg-lay-x" title="Fermer \'onglet"'
         +   ' onclick="event.stopPropagation();DTPWidgets.toggleHide(\'' + l.id + '\')">×</button>'
         + '</span>';
     }).join('')
@@ -5591,7 +5594,7 @@
           : '<button class="wdg-mgr-del" title="Supprimer ce layout" onclick="' + stop + 'DTPWidgets.askDelete(\'' + l.id + '\')">'
             + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6.5 7l1 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-12"/><path d="M10 11v6M14 11v6"/></svg></button>';
       return '<div class="wdg-mgr-card' + (active ? ' on' : '') + (l.hidden ? ' is-hidden' : '') + (l.id === _peek ? ' peek' : '') + '" data-i="' + li + '"'
-        + ' role="button" tabindex="0" title="' + esc(l.name) + ' : cliquer pour ouvrir · double-clic sur le nom pour renommer"'
+        + ' role="button" tabindex="0" title="' + esc(l.name) + ' · ouvrir"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')"'
         + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();DTPWidgets.switchLayout(\'' + l.id + '\');}">'
         + '<span class="wdg-mgr-grip" title="Glisser pour réordonner">' + ICO.grip + '</span>'
@@ -5924,7 +5927,7 @@
       }
       return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' » · ' + esc(w.desc) + '">'
         + '<span class="wdg-lib-fav' + (favSet[w.id] ? ' on' : '') + '" role="button" tabindex="0"'
-        +   ' title="' + (favSet[w.id] ? 'Retirer des favoris' : 'Épingler en favori (section Favoris en tête)') + '"'
+        +   ' title="' + (favSet[w.id] ? 'Retirer des favoris' : 'Épingler en favori') + '"'
         +   ' onclick="event.stopPropagation();DTPWidgets.toggleWfav(\'' + w.id + '\')"'
         +   ' onkeydown="if(event.key===\'Enter\'){event.stopPropagation();DTPWidgets.toggleWfav(\'' + w.id + '\');}">' + (favSet[w.id] ? '★' : '☆') + '</span>'
         + '<span class="wdg-lib-prev">' + (WPREV[w.id] || WICO[w.id] || '') + '</span>'
@@ -7121,7 +7124,7 @@ function _spansAffiches(lay) {
               // CLIC (bak-vieux + dépliage) : la leçon du 12/08 est qu'une sauvegarde unique SANS
               // recours avait déjà porté un état cassé sans s'en douter.
               return '<button class="wdg-bak-l' + (k > 0 ? ' bak-vieux' : '') + '" onclick="DTPWidgets.restoreBackup(' + v.i + ')"'
-                + ' title="Revenir à cette sauvegarde (réversible : l\'état actuel reprend la tête de l\'historique)">'
+                + ' title="Revenir à cette sauvegarde">'
                 + '<span class="wdg-bak-age">' + esc(age(v.at)) + '</span>'
                 + '<span class="wdg-bak-date">' + esc(fmt(v.at)) + (v.panneaux ? ' · ' + v.panneaux + ' dispo.' : '') + '</span>'
                 + '<span class="wdg-bak-go">Restaurer</span></button>';

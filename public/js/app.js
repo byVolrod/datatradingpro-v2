@@ -3550,7 +3550,7 @@ function buildNewsItem(item) {
     const _fl = c => (_SBR_ISO[c] ? '<img class="tag-flag" src="https://flagcdn.com/w20/' + _SBR_ISO[c] + '.png" width="13" height="10" alt="" loading="lazy">' : '');
     const _cc = String(item._pair).split('/');
     tp.innerHTML = (_fl(_cc[0]) + _fl(_cc[1]) || '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 8.5L4.5 5.5L6.5 7.5L10.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>') + ' ' + item._pair;
-    tp.title = 'Marché le plus exposé : voir sa réaction à la publication';
+    tp.title = 'Réaction de ' + item._pair;
     if (expandEl) { tp.style.cursor = 'pointer'; tp.onclick = e => { e.stopPropagation(); openPanel('marche'); }; marcheTagEl = tp; }
     tagsEl.appendChild(tp);
   }
@@ -3807,7 +3807,7 @@ function buildNewsItem(item) {
     _paireExposee = paire;   // retenue pour la Réaction : c'est SA réaction qu'on mesurera
     t.style.cursor = 'pointer';
     t.classList.add('tag--marche', 'tag--pays');   // tag--pays : espacement du drapeau (voir style.css)
-    t.title = 'Voir la réaction de ' + paire + ' au moment de cette publication';
+    t.title = 'Réaction de ' + paire;
     const cc = paire.split('/');
     // Le tag porte les DEUX drapeaux et le nom de la PAIRE (« EUR/USD »), pas la seule devise :
     // il annonce ainsi ce qui va s'ouvrir au clic au lieu de le faire deviner.
@@ -3946,7 +3946,7 @@ function buildNewsItem(item) {
       tg.className = 'tag tag--default tag--marche tag--or';   // tag--default = le CONTOUR, comme les paires FX (demande user 23/08) ; tag--marche le dore
       tg.dataset.cat = 'XAU';
       tg.style.cursor = 'pointer';
-      tg.title = 'Marché refuge le plus exposé : voir la réaction de l\'or à cette actualité';
+      tg.title = 'Réaction de l\'or';
       tg.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.4" fill="#e3b23a" opacity=".9"/><circle cx="6" cy="6" r="4.4" stroke="#b8860b" stroke-width="1"/></svg> XAUUSD';
       tg.onclick = e => { e.stopPropagation(); _pairActive = 'XAU/USD'; marcheTagEl = tg; openPanel('marche'); };
       tagsEl.appendChild(tg);
@@ -5680,7 +5680,13 @@ function _sbRenderMacroTable(cur, macro) {
   // recalcule rien, elle REND VISIBLE ce qui pesait en coulisse. Placée juste après la politique
   // monétaire, dont elle est une composante.
   const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th class="mt-taux-h">Taux directeur</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
-  const body = cur.map(c => {
+  /* ORDRE STATIQUE DE DESK (23/08, demande user « classe dans un ordre plus intuitif, statique
+     pour le trader ») : l'ordre arrivait tel quel du payload (USD, EUR, GBP, CAD…). On impose le
+     canon du desk — l'ordre de LIQUIDITÉ déjà utilisé par les récaps et le serveur (_WR_ORDER) :
+     majors d'abord, puis bloc matières premières. Identique à chaque visite, l'œil mémorise. */
+  const _MT_ORDRE = ['USD', 'EUR', 'JPY', 'GBP', 'CHF', 'AUD', 'CAD', 'NZD'];
+  const _mtRang = c => { const i = _MT_ORDRE.indexOf(String(c).toUpperCase()); return i < 0 ? 99 : i; };
+  const body = cur.slice().sort((a, b) => _mtRang(a) - _mtRang(b)).map(c => {
     const m = macro[c] || {};
     const mp = m.monetary || {}, inf = m.inflation || {};
     // DIVERGENCE LONG TERME / COURT TERME (14/08, principe du mentor) : quand l orientation

@@ -3351,9 +3351,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const p = SPK_PATH[kind], c = SPK_COL[kind], gid = 'rtcg-' + kind;
       return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="none">'
         + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
-        + '<stop stop-color="' + c + '" stop-opacity="0.30"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/></linearGradient></defs>'
+        + '<stop stop-color="' + c + '" stop-opacity="0.42"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/></linearGradient></defs>'
         + '<path d="' + p + ' L62 28 L0 28 Z" fill="url(#' + gid + ')"/>'
-        + '<path d="' + p + '" stroke="' + c + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        + '<path d="' + p + '" stroke="' + c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';   // trait 1,5→2 + dégradé 0,30→0,42 (23/08 : le viewBox écrasé rendait ~0,8px, quasi invisible)
     };
     // Header directionnel = PROCHAIN MOUVEMENT (champ `stance` = FedWatch/biais maison curé) → COHÉRENT avec le
     // « Prochain mouvement » du Radar de Biais (demande user « aligner TAUX sur la stance »). Repli sur `move` (ancien).

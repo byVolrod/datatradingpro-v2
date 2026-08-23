@@ -10171,14 +10171,14 @@ html[data-theme="light"] .cal-day-sep td {
 /* Bandeau 5 métriques (clone pro) : chaque cellule bordée porte SA mini-courbe décorative
    calée bas-droite DERRIÈRE le texte (z-0), libellé pouvant passer sur 2 lignes. */
 .rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--bg2); flex: 0 0 auto; }
-.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 22px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 64px; justify-content: flex-start; }   /* padding-bas = bande réservée à la sparkline (le texte ne passe plus dessus) */
+.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 28px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 70px; justify-content: flex-start; }   /* padding-bas 22→28 = bande sparkline agrandie (23/08), le texte ne passe toujours pas dessus */
 .rtc-m:last-child { border-right: 0; }
 .rtc-k { position: relative; z-index: 1; font-size: 10px; letter-spacing: .02em; color: #aab3bf; line-height: 1.25; }   /* libellés éclaircis + agrandis (lisibilité) */
 .rtc-v { position: relative; z-index: 1; font-size: var(--fs-title); font-weight: var(--fw-bold); color: var(--text); font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff3d00; } .rtc-v.n { color: var(--text2); } .rtc-v.w { color: var(--text); }
 .rtc-prob { color: var(--orange); }   /* Probability = or (clone pro text-primary) */
 /* La courbe COMBLE le bas de la cellule : étirée sur toute la largeur (preserveAspectRatio none), ~45% de hauteur */
-.rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 3px; width: auto; height: 15px; max-height: 15px; z-index: 0; opacity: .8; pointer-events: none; }
+.rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 3px; width: auto; height: 22px; max-height: 22px; z-index: 0; opacity: .95; pointer-events: none; }   /* 15→22px + opacité .8→.95 (23/08, demande user : courbes quasi invisibles — le viewBox 28 écrasé à 15px rendait un trait de ~0,8px) */
 /* ── Scenario Distribution : OCCUPE l'espace libre entre métriques et tableau (plus de vide noir),
       contenu centré verticalement, barres épaisses rounded-sm, % à droite de la barre ── */
 .rtc-dist { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px 8px; flex: 0 0 auto; }   /* COLLÉE sous les métriques (l'ancien flex:1 + centré créait le grand vide) */
