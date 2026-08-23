@@ -4597,6 +4597,44 @@ async function _calValueBlockHtml(ev) {
       rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine échéance liée</span><span class="cal-kb-val">${_calEsc(nxt.title)}${d ? ' : ' + _calEsc(d) : ''}</span></div>`);
     }
   }
+  /* ── POSTURE BANQUE CENTRALE SOUS LA DONNÉE (23/08, call mentor : « CPI UK au-dessus des
+     attentes, GBP sans réaction : BoE dovish » — une donnée ne se lit qu'à travers la posture de
+     SA banque). Le bloc BC était réservé aux ÉVÉNEMENTS de banque centrale : une publication
+     (CPI, NFP…) sortait sans le ton du banquier ni le pricing — Bailey absent de la news CPI UK,
+     constat user. Version COMPACTE, déterministe, jamais bloquante : ton récent mesuré + la ligne
+     de lecture mentor + 1-2 derniers propos DATÉS et ATTRIBUÉS + prochaine réunion pricée. */
+  try {
+    const cbD = _CAL_CB_BY_CCY[ev.currency];
+    if (cbD && !_CAL_CB_RX.test(title)) {
+      const bcRows = [];
+      let q2 = [];
+      try { const srv2 = await _calCbQuotesGet(ev.currency, null); if (srv2 && srv2.quotes) q2 = srv2.quotes.map(q => ({ h: q.h, ts: q.ts || 0 })); } catch (e) {}
+      q2 = q2.map(q => { const p = _calQuoteParts(q.h); return { ts: q.ts, who: p.who, statement: p.statement, t: _calToneOf([p.statement]) }; })
+        .sort((a, b) => (b.t ? 1 : 0) - (a.t ? 1 : 0) || (b.ts || 0) - (a.ts || 0)).slice(0, 2);
+      const ton2 = _calToneOf(q2.map(q => q.statement || ''));
+      let bank2 = null; try { const r2 = await _calRatesGet(); bank2 = r2 && r2.banks && r2.banks.find(b => b.code === ev.currency); } catch (e) {}
+      if (ton2) {
+        // La leçon du mentor, rendue déterministe par le ton MESURÉ (jamais supposé) :
+        const sens2 = /hawk/i.test(ton2.label || '')
+          ? 'ce ton AMPLIFIE les surprises qui vont dans son sens (inflation chaude, emploi solide) et amortit les autres'
+          : /dov/i.test(ton2.label || '')
+            ? 'ce ton AMORTIT les surprises de fermeté : un chiffre chaud bouge peu, le marché sait que la banque n\'entend pas réagir'
+            : 'sans posture affirmée, la surprise garde tout son poids';
+        bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture par la posture</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${ton2.color};border-color:${ton2.color}44;">${ton2.label}</span> ${sens2}.</span></div>`);
+      }
+      if (q2.length) {
+        const qh2 = q2.map(q => `<div class="cal-kb-qline"><span class="cal-kb-quote">${_calEsc(q.statement || '')}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cbD.bank)}${q.ts ? ' · ' + _calShortDateFr(q.ts) : ''}</span></div>`).join('');
+        bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Derniers propos</span><span class="cal-kb-val">${qh2}</span></div>`);
+      }
+      if (bank2 && bank2.next) {
+        const sc2 = bank2.scenario || {};
+        const pv2 = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
+        const pr2 = [pv2(sc2.hold) ? `maintien ${pv2(sc2.hold)}%` : '', pv2(sc2.cut) ? `baisse ${pv2(sc2.cut)}%` : '', pv2(sc2.hike) ? `hausse ${pv2(sc2.hike)}%` : ''].filter(Boolean).join(' · ');
+        bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank2.next))}${bank2.nextDays != null && bank2.nextDays > 0 ? ` (dans ${bank2.nextDays} j)` : ''}${pr2 ? `<div class="cal-kb-sub">${pr2}${bank2.source === 'market' ? ' · pricing de marché' : ''}</div>` : ''}</span></div>`);
+      }
+      if (bcRows.length) rows.push(`<div class="cal-detail-section">Banque centrale · ${_calEsc(cbD.bank)}</div>` + bcRows.join(''));
+    }
+  } catch (e) {}
   return `<div class="cal-kb"><div class="cal-detail-section">Décryptage DTP</div>${rows.join('')}</div>`;
 }
 
