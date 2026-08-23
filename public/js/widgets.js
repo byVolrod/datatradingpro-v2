@@ -985,6 +985,45 @@
     catch (e) { return ''; }
   }
 
+  /* ═══ GRAMMAIRE COMMUNE DE VIE DES WIDGETS (23/08, refonte « statique / on comprend pas ») ═════
+     UNE implémentation partagée par les 15 cartes — jamais un helper par widget.
+     - _vie(ts) : âge relatif court (« à l'instant », « il y a 4 min »…).
+     - _vieSpan(ts) : LE span d'horodatage canonique (classe .wdg-vie, data-ts) ; un SEUL minuteur
+       global de 30 s retimbre tous les [data-ts] montés — zéro minuteur par carte, rien à nettoyer.
+     - _bougiesMaj(cle) : l'heure de la dernière lecture du cache OHLC partagé (source du ts des
+       cartes à bougies ; les réponses qui portent updatedAt/updatedTs l'utilisent directement).
+     - _majFlash(el) : LA transition de mise à jour — pose .est-maj sans transition (état initial
+       peint), la retire au double requestAnimationFrame ; le RETOUR fait le fondu via la
+       transition CSS de la base. Aucune keyframe, jamais de répétition (règle dure du projet :
+       pas d'animation clignotante sur un indicateur live). */
+  function _vie(ts) {
+    var d = Date.now() - (+ts || 0);
+    if (!(d >= 0) || !ts) return '';
+    if (d < 60e3) return 'à l\'instant';
+    if (d < 3600e3) return 'il y a ' + Math.round(d / 60e3) + ' min';
+    if (d < 48 * 3600e3) return 'il y a ' + Math.round(d / 3600e3) + ' h';
+    return 'il y a ' + Math.round(d / 86400e3) + ' j';
+  }
+  function _vieSpan(ts) {
+    return ts ? '<span class="wdg-vie" data-ts="' + (+ts) + '">' + _vie(ts) + '</span>' : '';
+  }
+  function _bougiesMaj(cle) { var e = _ohlcCache[cle]; return e && e.t ? e.t : 0; }
+  function _majFlash(el) {
+    if (!el) return;
+    try {
+      el.classList.add('est-maj');
+      requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.remove('est-maj'); }); });
+    } catch (e) {}
+  }
+  // Retimbrage global : UN minuteur pour toutes les cartes (30 s), ne touche que les spans montés.
+  setInterval(function () {
+    try {
+      document.querySelectorAll('.wdg-vie[data-ts]').forEach(function (s) {
+        var t = +s.getAttribute('data-ts'); if (t) s.textContent = _vie(t);
+      });
+    } catch (e) {}
+  }, 30000);
+
   /* Cache PARTAGE par toutes les cartes (le parametre `cache` reste accepte pour ne rien casser,
      mais n est plus la source de verite). Duree de vie courte : la donnee journaliere ne bouge pas
      souvent, mais une carte ne doit pas rester figee sur une lecture d il y a une heure. */

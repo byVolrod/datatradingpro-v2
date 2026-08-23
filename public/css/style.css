@@ -19439,6 +19439,35 @@ html[data-theme="light"] .tag--indic { background: #f1f2f4; border-color: #d9dbe
   .br-card:hover, .arlib-card:hover { background: transparent !important; }
 }
 
+/* ═══ GRAMMAIRE COMMUNE DE VIE DES WIDGETS (23/08, refonte des 15 nouveaux widgets) ═════════════
+   UNE écriture pour tous : horodatage .wdg-vie, verdict .wdg-verdict, fondu .est-maj, accents
+   sémantiques. Posée en fin de feuille (cascade garantie), thème clair couvert. */
+.wdg-vie { font-size: 9px; color: var(--text3, #6f6f79); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wdg-verdict { flex: 0 0 auto; font-size: 11px; line-height: 1.4; color: var(--text, #e6e8eb); padding: 6px 10px 7px; border-top: var(--row-sep, 1px solid rgba(255,255,255,.075)); }
+.wdg-verdict-txt { font-weight: var(--fw-semibold, 600); }
+.wdg-verdict-sous { display: block; font-size: 9.5px; color: var(--text3, #6b7280); margin-top: 1px; }
+/* Accents sémantiques DANS le texte des verdicts — charte états de marché, avec leur thème clair. */
+.wdg-verdict .est-haut, .wdg-tuile .est-haut { color: #00e676; }
+.wdg-verdict .est-bas, .wdg-tuile .est-bas { color: #ff3d00; }
+.wdg-verdict .est-neutre { color: #ffb300; }
+.wdg-verdict .est-present { color: var(--orange, #e3b23a); }
+html[data-theme="light"] .wdg-verdict .est-haut { color: #00783d; }
+html[data-theme="light"] .wdg-verdict .est-bas { color: #c73000; }
+html[data-theme="light"] .wdg-verdict .est-neutre { color: #8a6a12; }
+/* Fondu de mise à jour : la classe .est-maj peint l'état initial, son RETRAIT fait le fondu.
+   Deux régimes par la transition de la BASE : texte (opacité) et surface (fond). */
+.wdg-maj-txt { transition: opacity .4s ease; }
+.wdg-maj-txt.est-maj { opacity: .35; transition: none; }
+.wdg-maj-surf { transition: background-color .6s ease; }
+.wdg-maj-surf.est-maj { background-color: rgba(227, 178, 58, .15) !important; transition: none; }
+/* Jauge fine générique des verdicts (piste + remplissage or + repère de moyenne). */
+.wdg-jauge { position: relative; height: 4px; border-radius: 2px; background: var(--hud-line, rgba(255,255,255,.055)); margin: 4px 10px 0; overflow: visible; }
+.wdg-jauge > span { display: block; height: 100%; border-radius: 2px; background: var(--orange, #e3b23a); transition: width .5s ease; }
+.wdg-jauge > i { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--text3, #6f6f79); }
+@media (prefers-reduced-motion: reduce) {
+  .wdg-maj-txt, .wdg-maj-surf, .wdg-jauge > span { transition: none; }
+}
+
 /* ÉCLAIRAGES IA : JAMAIS de carte coupée (23/08, capture user : badge « NEUTRE » tronqué au bord).
    Les cartes à largeur FIXE laissaient dépasser une fraction de la 3e — badge coupé en plein
    milieu. Elles se dimensionnent désormais pour qu'un nombre ENTIER tienne (3 → 2 → 1 selon la
