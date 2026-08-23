@@ -2975,12 +2975,25 @@ function buildNewsItem(item) {
   //    inaccessible sur toute news ayant aussi « Info ». Slot séparé, re-rempli après CHAQUE rendu du
   //    panneau (le résumé IA remplace innerHTML de façon asynchrone et écraserait le bloc).
   async function _ecoFill(host) {
-    if (!hasEco || !host || !host.isConnected) return;
+    /* DEUX DÉCISIONS QUI COHABITENT. 23/07 : le Décryptage COMPLET reste réservé au calendrier
+       (hasEco=false, décision user : « pas pour les news »). 23/08 (call mentor) : mais une
+       PUBLICATION MAJEURE doit montrer la POSTURE de sa banque centrale — « CPI UK chaud sans
+       réaction du GBP : BoE dovish », et Bailey était invisible sous la news (constat user).
+       On ne ressuscite donc PAS le bloc pédagogique : SEUL le bloc Banque centrale compact
+       (ton mesuré, lecture par la posture, propos datés/attribués, réunion pricée) s'insère
+       en bas du panneau Info, et uniquement sur les publications majeures (fiche CAL_KB +
+       signature de publication chiffrée). */
+    if (!host || !host.isConnected) return;
     try {
-      const html = (typeof dtpEventInsightHtml === 'function') ? await dtpEventInsightHtml(item) : '';
+      const hl0 = String(item.headline || '');
+      if (typeof dtpBcBlockHtml !== 'function' || typeof dtpKbPourTitre !== 'function') return;
+      if (!_SIG_PUBLICATION.test(hl0) || !dtpKbPourTitre(hl0)) return;   // publications majeures seulement
+      const ccy0 = (typeof _dtpNewsCcy === 'function') ? _dtpNewsCcy(hl0, item.currency) : '';
+      if (!ccy0) return;
+      const html = await dtpBcBlockHtml(ccy0, item.timestamp || 0);
       if (!html || !host.isConnected || !host.classList.contains('visible')) return;
       let slot = host.querySelector('.news-eco-slot');
-      if (!slot) { slot = document.createElement('div'); slot.className = 'news-eco-slot'; host.appendChild(slot); }
+      if (!slot) { slot = document.createElement('div'); slot.className = 'news-eco-slot cal-kb'; host.appendChild(slot); }
       slot.innerHTML = html;
       if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(host, '.cal-kb-quote');   // propos BC → FR en place
     } catch {}

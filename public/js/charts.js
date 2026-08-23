@@ -4604,17 +4604,51 @@ async function _calValueBlockHtml(ev) {
      constat user. Version COMPACTE, déterministe, jamais bloquante : ton récent mesuré + la ligne
      de lecture mentor + 1-2 derniers propos DATÉS et ATTRIBUÉS + prochaine réunion pricée. */
   try {
-    const cbD = _CAL_CB_BY_CCY[ev.currency];
-    if (cbD && !_CAL_CB_RX.test(title)) {
+    if (!_CAL_CB_RX.test(title)) {
+      const bcHtml = await _calBcCompactHtml(ev.currency, ev.timestamp || 0);
+      if (bcHtml) rows.push(bcHtml);
+    }
+  } catch (e) {}
+  return `<div class="cal-kb"><div class="cal-detail-section">Décryptage DTP</div>${rows.join('')}</div>`;
+}
+
+/* ── BLOC « BANQUE CENTRALE » COMPACT, RÉUTILISABLE (23/08, call mentor) ────────────────────────
+   Rendu sous les publications du CALENDRIER (via _calValueBlockHtml ci-dessus) ET sous l'Info
+   des publications majeures du FIL (app.js, dtpBcBlockHtml) — le Décryptage complet reste
+   réservé au calendrier (décision user du 23/07), seul CE bloc voyage : ton mesuré, lecture par
+   la posture, propos datés/attribués, prochaine réunion pricée. Jamais bloquant. */
+async function _calBcCompactHtml(ccy, tsPub) {
+  try {
+    const cbD = _CAL_CB_BY_CCY[ccy];
+    if (cbD) {
       const bcRows = [];
       let q2 = [];
-      try { const srv2 = await _calCbQuotesGet(ev.currency, null); if (srv2 && srv2.quotes) q2 = srv2.quotes.map(q => ({ h: q.h, ts: q.ts || 0 })); } catch (e) {}
-      q2 = q2.map(q => { const p = _calQuoteParts(q.h); return { ts: q.ts, who: p.who, statement: p.statement, t: _calToneOf([p.statement]) }; })
-        .sort((a, b) => (b.t ? 1 : 0) - (a.t ? 1 : 0) || (b.ts || 0) - (a.ts || 0)).slice(0, 2);
-      const ton2 = _calToneOf(q2.map(q => q.statement || ''));
-      let bank2 = null; try { const r2 = await _calRatesGet(); bank2 = r2 && r2.banks && r2.banks.find(b => b.code === ev.currency); } catch (e) {}
+      try { const srv2 = await _calCbQuotesGet(ccy, null); if (srv2 && srv2.quotes) q2 = srv2.quotes.map(q => ({ h: q.h, ts: q.ts || 0 })); } catch (e) {}
+      /* REPLI FIL EN MÉMOIRE (23/08, constat user « on n'a pas eu le ton avec le discours ») :
+         la fiche des réunions l'a toujours eu, le bloc compact ne l'avait pas — si l'endpoint
+         des propos revenait vide, le ton disparaissait alors que les dépêches « BoE's
+         Bailey: … » étaient LÀ, dans le fil. Même filet que la fiche réunion. */
+      if (!q2.length) {
+        const items2 = (typeof allItems !== 'undefined' && Array.isArray(allItems)) ? allItems : [];
+        const cutoff2 = Date.now() - 30 * 86400e3;
+        q2 = items2.filter(i => i && i.headline && (i.timestamp || 0) > cutoff2 && /:/.test(i.headline) && cbD.rx.test(i.headline))
+          .map(i => ({ h: i.headline, ts: i.timestamp || 0 }));
+      }
+      q2 = q2.map(q => { const p = _calQuoteParts(q.h); return { ts: q.ts, who: p.who, statement: p.statement, t: _calToneOf([p.statement]) }; });
+      /* TON AVANT / APRÈS LA PUBLICATION (23/08, validé user) : même partage que la fiche des
+         réunions — les propos se séparent autour de l'heure de la publication. C'est la
+         COMPARAISON qui informe : la posture au moment où le chiffre est tombé (celle qui a
+         décidé de la réaction) et ce que la banque a dit DEPUIS. */
+      const _tsPub = tsPub || 0;
+      const _avant2 = _tsPub ? q2.filter(q => (q.ts || 0) < _tsPub) : q2;
+      const _apres2 = _tsPub ? q2.filter(q => (q.ts || 0) >= _tsPub) : [];
+      const tonAvant2 = _calToneOf(_avant2.map(q => q.statement || ''));
+      const tonApres2 = _calToneOf(_apres2.map(q => q.statement || ''));
+      const ton2 = tonAvant2 || _calToneOf(q2.map(q => q.statement || ''));
       if (ton2) {
-        // La leçon du mentor, rendue déterministe par le ton MESURÉ (jamais supposé) :
+        // La leçon du mentor, rendue déterministe par le ton MESURÉ (jamais supposé). Le ton
+        // retenu pour la lecture est celui d'AVANT la publication : c'est lui qui a décidé de
+        // la réaction (CPI UK chaud + BoE dovish = GBP immobile).
         const sens2 = /hawk/i.test(ton2.label || '')
           ? 'ce ton AMPLIFIE les surprises qui vont dans son sens (inflation chaude, emploi solide) et amortit les autres'
           : /dov/i.test(ton2.label || '')
@@ -4622,21 +4656,36 @@ async function _calValueBlockHtml(ev) {
             : 'sans posture affirmée, la surprise garde tout son poids';
         bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture par la posture</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${ton2.color};border-color:${ton2.color}44;">${ton2.label}</span> ${sens2}.</span></div>`);
       }
-      if (q2.length) {
-        const qh2 = q2.map(q => `<div class="cal-kb-qline"><span class="cal-kb-quote">${_calEsc(q.statement || '')}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cbD.bank)}${q.ts ? ' · ' + _calShortDateFr(q.ts) : ''}</span></div>`).join('');
+      const _ligneTon2 = (lbl, t) => `<div class="cal-kb-row"><span class="cal-kb-lbl">${lbl}</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${t.color};border-color:${t.color}44;">${t.label}</span> ${t.sens || ''}</span></div>`;
+      if (_tsPub && tonAvant2 && tonApres2) {
+        bcRows.push(_ligneTon2('Ton · avant la publication', tonAvant2));
+        bcRows.push(_ligneTon2('Ton · depuis la publication', tonApres2));
+      }
+      // Propos affichés : 1 d'avant + 1 d'après quand les deux existent (la comparaison), sinon
+      // les 2 plus parlants (signal d'abord, puis fraîcheur).
+      const _tri2 = a => a.sort((x, y) => (y.t ? 1 : 0) - (x.t ? 1 : 0) || (y.ts || 0) - (x.ts || 0));
+      let _montres2 = [];
+      if (_avant2.length && _apres2.length) _montres2 = [_tri2(_avant2.slice())[0], _tri2(_apres2.slice())[0]];
+      else _montres2 = _tri2(q2.slice()).slice(0, 2);
+      if (_montres2.length) {
+        const qh2 = _montres2.map(q => `<div class="cal-kb-qline"><span class="cal-kb-quote">${_calEsc(q.statement || '')}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cbD.bank)}${q.ts ? ' · ' + _calShortDateFr(q.ts) : ''}</span></div>`).join('');
         bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Derniers propos</span><span class="cal-kb-val">${qh2}</span></div>`);
       }
+      let bank2 = null; try { const r2 = await _calRatesGet(); bank2 = r2 && r2.banks && r2.banks.find(b => b.code === ccy); } catch (e) {}
       if (bank2 && bank2.next) {
         const sc2 = bank2.scenario || {};
         const pv2 = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
         const pr2 = [pv2(sc2.hold) ? `maintien ${pv2(sc2.hold)}%` : '', pv2(sc2.cut) ? `baisse ${pv2(sc2.cut)}%` : '', pv2(sc2.hike) ? `hausse ${pv2(sc2.hike)}%` : ''].filter(Boolean).join(' · ');
         bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank2.next))}${bank2.nextDays != null && bank2.nextDays > 0 ? ` (dans ${bank2.nextDays} j)` : ''}${pr2 ? `<div class="cal-kb-sub">${pr2}${bank2.source === 'market' ? ' · pricing de marché' : ''}</div>` : ''}</span></div>`);
       }
-      if (bcRows.length) rows.push(`<div class="cal-detail-section">Banque centrale · ${_calEsc(cbD.bank)}</div>` + bcRows.join(''));
+      if (bcRows.length) return `<div class="cal-detail-section">Banque centrale · ${_calEsc(cbD.bank)}</div>` + bcRows.join('');
     }
   } catch (e) {}
-  return `<div class="cal-kb"><div class="cal-detail-section">Décryptage DTP</div>${rows.join('')}</div>`;
+  return '';
 }
+// Exposé au FIL (app.js) : le bloc BC seul, prêt à s'insérer en bas du panneau Info d'une
+// publication majeure — enveloppé .cal-kb par l'appelant pour hériter des styles du Décryptage.
+async function dtpBcBlockHtml(ccy, tsPub) { return _calBcCompactHtml(ccy, tsPub || 0); }
 
 // ── Exposés pour le FIL DE NEWS (app.js) : une news d'événement (donnée éco / banque centrale)
 //    porte le MÊME Décryptage DTP que le calendrier (onglet « Décryptage » au dépliage). ──
