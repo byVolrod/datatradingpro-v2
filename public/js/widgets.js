@@ -2333,6 +2333,299 @@
       },
     },
     {
+      /* COURBE DES TAUX US (23/08). La route /api/us-yields sert les 4 échéances du Trésor
+         (3 mois, 5 ans, 10 ans, 30 ans) cotées en % DIRECT, plus 90 jours de clôtures par
+         échéance. Le widget dessine la COURBE (forme du moment) et la série de l'ÉCART
+         10 ans - 3 mois (l'inversion se lit dans le temps, pas sur un point). Le verdict est
+         DÉTERMINISTE sur cet écart : seuils ±0,25 pt, pente 90 j au seuil 0,10 pt. Jamais un
+         conseil directionnel : la carte dit le régime de la courbe, pas où aller. */
+      id: 'courbe-taux-us', name: 'Courbe des taux US', tag: 'TAUX US', cat: 'Macro', h: 300,
+      desc: 'La courbe des rendements du Trésor US (3 mois à 30 ans) et l\'écart 10 ans - 3 mois sur 90 jours.',
+      aide: "<p>La courbe relie les rendements du Trésor américain du 3 mois au 30 ans. Sa <strong>forme</strong> résume ce que le marché obligataire pense du cycle : pentue quand le long terme rapporte plus que le court (régime normal), plate quand l'écart se referme, inversée quand le court rapporte davantage que le long.</p><p>L'écart <strong>10 ans - 3 mois</strong> est la mesure la plus suivie : son passage durable sous zéro a historiquement précédé les récessions américaines, avec plusieurs trimestres d'avance et sans jamais donner de date. C'est un baromètre de régime, pas un signal d'entrée.</p>",
+      src: "Rendements du Trésor US lus sur les indices de rendement cotés en séance américaine, cache serveur de 10 minutes ; la donnée bouge aux heures de cotation US, pas la nuit ni le week-end.",
+      watch: "Les franchissements de seuil de l'écart 10 ans - 3 mois (au-delà de +0,25 pt, autour de zéro, sous -0,25 pt) et sa pente sur 90 jours : une inversion qui se résorbe change la lecture autant que l'inversion elle-même.",
+      mount: function (host) {
+        var vivant = true;
+        /* Mémoire du verdict : le fondu de MAJ (grammaire commune) ne se joue que sur un VRAI
+           changement d'état ou d'écart, jamais au premier rendu ni sur un re-fetch identique. */
+        var prevCle = null;
+        skel(host, 5);
+
+        function fmtPct(v) { return v.toFixed(2).replace('.', ',') + ' %'; }
+        function fmtPt(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ','); }
+
+        function rendre(d) {
+          var s = (d && d.series) || {};
+          // ok:false ou séries pivot absentes : la route ne sert pas de squelette, nous non plus.
+          if (!d || !d.ok || !s.m3 || !s.y10 || s.m3.last == null || s.y10.last == null) {
+            fallback(host, 'Rendements indisponibles.'); return;
+          }
+          /* Échéances dans l'ordre de la courbe. Seuls m3 et y10 conditionnent le ok côté
+             serveur : une échéance intermédiaire muette est simplement ABSENTE, la courbe
+             relie ce qui existe au lieu d'inventer un point. */
+          var pts = [];
+          [['m3', '3 mois'], ['y5', '5 ans'], ['y10', '10 ans'], ['y30', '30 ans']].forEach(function (e) {
+            var sr = s[e[0]];
+            if (sr && typeof sr.last === 'number' && isFinite(sr.last)) pts.push({ lbl: sr.lbl || e[1], v: sr.last });
+          });
+          if (pts.length < 2) { fallback(host, 'Rendements indisponibles.'); return; }
+
+          /* Géométrie en POURCENTAGES de la zone, partagée entre le SVG (viewBox 0-100 étiré,
+             doctrine des traceurs partagés) et les étiquettes HTML posées par-dessus en taille
+             d'écran : un texte DANS un viewBox étiré se déformerait. X garde 6 % de marge pour
+             que les points de bord respirent ; Y descend de 24 à 88 % : la bande du haut est
+             réservée aux valeurs affichées au-dessus de chaque point. */
+          var vs2 = pts.map(function (p) { return p.v; });
+          var mn = Math.min.apply(null, vs2), mx = Math.max.apply(null, vs2);
+          if (mx - mn < 0.05) { mn -= 0.1; mx += 0.1; }   // courbe quasi plate : échelle minimale, jamais de division par ~0
+          var X = function (i) { return 6 + i / (pts.length - 1) * 88; };
+          var Y = function (v) { return 24 + (mx - v) / (mx - mn) * 64; };
+          var pStr = pts.map(function (p, i) { return X(i).toFixed(2) + ',' + Y(p.v).toFixed(2); }).join(' ');
+          var svg = '<svg viewBox="0 0 100 100" class="wdg-tr-svg" preserveAspectRatio="none">'
+            + '<polygon points="' + X(0).toFixed(2) + ',92 ' + pStr + ' ' + X(pts.length - 1).toFixed(2) + ',92"'
+            + ' fill="var(--orange, #e3b23a)" opacity=".08"></polygon>'
+            + '<polyline points="' + pStr + '" fill="none" stroke="var(--orange, #e3b23a)" stroke-width="1.6"'
+            + ' stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>'
+            + pts.map(function (p, i) {
+              // Points en légère ellipse une fois étirés, assumé pour un repère de 2 unités,
+              // même précédent que o.point de _courbeSvg.
+              return '<circle cx="' + X(i).toFixed(2) + '" cy="' + Y(p.v).toFixed(2) + '" r="2" fill="var(--orange, #e3b23a)"></circle>';
+            }).join('')
+            + '</svg>';
+          // Étiquettes de bord CALÉES vers l'intérieur (translate 0 / -100 %) : jamais coupées.
+          var tx = function (i) { return i === 0 ? '0' : (i === pts.length - 1 ? '-100%' : '-50%'); };
+          var labs = pts.map(function (p, i) {
+            return '<span class="wdg-ct-lab" style="left:' + X(i).toFixed(1) + '%;top:' + Y(p.v).toFixed(1) + '%;'
+              + 'transform:translate(' + tx(i) + ',calc(-100% - 3px))">' + fmtPct(p.v) + '</span>';
+          }).join('');
+          var axe = pts.map(function (p, i) {
+            return '<span style="left:' + X(i).toFixed(1) + '%;transform:translateX(' + tx(i) + ')">' + esc(p.lbl) + '</span>';
+          }).join('');
+
+          /* Série 90 j de l'écart 10 ans - 3 mois : les deux historiques sont APPARIÉS par jour
+             UTC : les tableaux Yahoo peuvent différer d'une séance (trou de cotation) et un
+             appariement par INDEX décalerait tout le calcul en silence. */
+          var m3J = {};
+          (s.m3.hist || []).forEach(function (p) {
+            if (p && p.t != null && typeof p.v === 'number' && isFinite(p.v)) m3J[new Date(p.t).toISOString().slice(0, 10)] = p.v;
+          });
+          var ecarts = [];
+          (s.y10.hist || []).forEach(function (p) {
+            if (!p || p.t == null || typeof p.v !== 'number' || !isFinite(p.v)) return;
+            var m = m3J[new Date(p.t).toISOString().slice(0, 10)];
+            if (m != null) ecarts.push(+(p.v - m).toFixed(3));
+          });
+          var ecart = +(s.y10.last - s.m3.last).toFixed(3);
+
+          /* Verdict DÉTERMINISTE (seuils ±0,25 pt sur l'écart, pente 90 j au seuil 0,10 pt).
+             La lecture d'école est FACTUELLE : l'inversion a précédé les récessions US, elle ne
+             date rien et ne conseille rien. */
+          var etat, vtxt, cls;
+          if (ecart > 0.25) { etat = 'pentue'; cls = 'est-haut'; vtxt = '<span class="est-haut">Courbe normalement pentue</span>'; }
+          else if (ecart >= -0.25) { etat = 'plate'; cls = 'est-neutre'; vtxt = '<span class="est-neutre">Courbe plate</span>'; }
+          else { etat = 'inversee'; cls = 'est-bas'; vtxt = '<span class="est-bas">Courbe INVERSÉE</span>'; }
+          var pente = '';
+          if (ecarts.length >= 2) {
+            var dlt = ecarts[ecarts.length - 1] - ecarts[0];
+            pente = dlt >= 0.10 ? 'se repentifie sur 90 jours (' + fmtPt(dlt) + ' pt)'
+              : dlt <= -0.10 ? 's\'aplatit sur 90 jours (' + fmtPt(dlt) + ' pt)'
+              : 'stable sur 90 jours (' + fmtPt(dlt) + ' pt)';
+          }
+          var vsous = 'Écart 10 ans - 3 mois : ' + fmtPt(ecart) + ' pt' + (pente ? ', ' + pente : '') + '. '
+            + (etat === 'inversee'
+              ? 'Ce régime a historiquement précédé les récessions US, avec de longs délais et sans date.'
+              : 'Lecture d\'école : une inversion durable (écart négatif) a historiquement précédé les récessions US.');
+
+          // Fraîcheur HONNÊTE : l'horodatage vient de la RÉPONSE (cache serveur 10 min), jamais
+          // de la lecture. Garde == null : un updatedAt absent ne devient pas « 1970 ».
+          var ts = d.updatedAt != null ? +d.updatedAt : 0;
+
+          host.innerHTML = '<div class="wdg-ct">'
+            + '<div class="wdg-ct-tete"><span>Trésor US : 3 mois à 30 ans</span>'
+            + '<span class="wdg-ct-e ' + cls + '">10a-3m ' + fmtPt(ecart) + ' pt</span></div>'
+            + '<div class="wdg-ct-zone">' + svg + labs + '</div>'
+            + '<div class="wdg-ct-ech">' + axe + '</div>'
+            + (ecarts.length >= 2
+              ? '<div class="wdg-ct-sec"><div class="wdg-ct-sect"><span>Écart 10 ans - 3 mois, 90 jours</span></div>'
+                + '<div class="wdg-ct-spark">' + _courbeSvg(ecarts, { zero: true, aire: true }) + '</div></div>' : '')
+            + '<div class="wdg-verdict" data-etat="' + etat + '"><b class="wdg-verdict-txt wdg-maj-txt">' + vtxt + '</b>'
+            + '<span class="wdg-verdict-sous">' + esc(vsous) + '</span></div>'
+            + '<div class="wdg-ct-pied">Rendements cotés en séance US, cache serveur 10 min. ' + _vieSpan(ts) + '</div>'
+            + '</div>';
+
+          // Fondu de MAJ : uniquement quand l'état ou l'écart arrondi change réellement.
+          var cle = etat + '|' + ecart.toFixed(2);
+          if (prevCle != null && cle !== prevCle) _majFlash(host.querySelector('.wdg-verdict-txt'));
+          prevCle = cle;
+        }
+
+        function dessiner() {
+          fetch('/api/us-yields').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            rendre(d);
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Rendements indisponibles.'); });
+        }
+        dessiner();
+        // Aligné sur le cache serveur (10 min), et l'intervalle SE RÉPARE tout seul : après un
+        // échec (fallback affiché), le tour suivant retente. On saute le tour onglet caché.
+        var iv = setInterval(function () { if (!document.hidden) dessiner(); }, 10 * 60 * 1000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+      },
+    },
+    {
+      /* PROCHAINE RÉUNION BC (23/08). Même source /api/rates que « Taux directeurs » et
+         « Différentiel de taux » : les trois cartes ne peuvent pas se contredire. Celle-ci répond
+         « QUAND tombe la prochaine décision, et qu'est-ce qui est déjà dans les prix » : les huit
+         banques triées par réunion la plus proche, compte à rebours vivant, scénario dominant.
+         ⚠️ Pas de champ `maj` : le chrono 1 s vit DANS le mount : un remontage périodique
+         recréerait le chrono et ferait cligner la liste ; le re-fetch 5 min est interne. */
+      id: 'reunion-bc', name: 'Prochaine réunion BC', tag: 'RÉUNIONS', cat: 'Macro', h: 300,
+      desc: 'Les huit banques centrales classées par réunion la plus proche : compte à rebours et scénario pricé.',
+      aide: "<p>Chaque banque centrale est classée par la date de sa <strong>prochaine réunion</strong>, avec un compte à rebours jusqu'au jour J et le scénario que le marché price le plus (maintien, hausse ou baisse, avec sa probabilité). La ligne du haut, marquée en or, est la prochaine décision toutes banques confondues.</p><p>La probabilité dit ce qui est <strong>déjà dans les prix</strong> : une décision conforme au scénario dominant fait peu bouger la devise, c'est la surprise qui la déplace. Un pricing partagé (aucune issue au-dessus de 60 %) signale une réunion à vrai risque de mouvement.</p>",
+      src: "Les mêmes taux et probabilités de marché que l'onglet TAUX du desk, relus toutes les 5 minutes ; la source donne le jour de chaque réunion, pas l'heure de la décision : le compte à rebours vise le jour J.",
+      watch: "Les réunions à pricing partagé et les probabilités qui se déplacent dans les derniers jours : le repricing d'avant réunion fait souvent bouger la devise davantage que la décision elle-même.",
+      // Réglage UTILE (même motif que « Taux directeurs ») : suivre UNE banque : la carte devient
+      // un compte à rebours dédié à la seule courbe de politique monétaire qu'on trade.
+      opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'all',
+        choix: [['all', 'Toutes'], ['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'SNB'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ']] }],
+      mount: function (host, it) {
+        var W = this, vivant = true;
+        /* Mémoire du verdict : le fondu ne se joue que sur un VRAI changement (banque de tête,
+           scénario, probabilité, date), jamais parce que le rebours a avancé d'une seconde. */
+        var prevCle = null;
+        skel(host, 8);
+        var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+        function fmtD(iso) { try { var p = String(iso).split('-'); return parseInt(p[2], 10) + ' ' + MOIS[parseInt(p[1], 10) - 1]; } catch (e) { return esc(iso); } }
+        /* Cible du rebours = MINUIT UTC du jour de réunion : la source donne le jour, jamais
+           l'heure de la décision : le pied de carte le dit, on ne fabrique pas une précision qui
+           n'existe pas. Garde isFinite : un `next` absent ou illisible rend null, pas NaN. */
+        function cibleMs(b) { var t = Date.parse(String((b && b.next) || '') + 'T00:00:00Z'); return isFinite(t) ? t : null; }
+        function rebours(t) {
+          var d = t - Date.now();
+          if (d <= 0) return 'aujourd\'hui';
+          if (d < 24 * 3600e3) {
+            var h = Math.floor(d / 3600e3), m = Math.floor(d % 3600e3 / 60e3), sec = Math.floor(d % 60e3 / 1e3);
+            return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+          }
+          var j = Math.floor(d / 86400e3), h2 = Math.floor(d % 86400e3 / 3600e3);
+          return j + ' j ' + h2 + ' h';
+        }
+        // Variante du VERDICT : « dans 3 j 14 h » ou « aujourd'hui » : le mot « dans » vit DANS le
+        // span retimbré, sinon le passage au jour J écrirait « dans aujourd'hui ».
+        function reboursV(t) { return t - Date.now() <= 0 ? 'aujourd\'hui' : 'dans ' + rebours(t); }
+        function scnDom(b) {
+          var sc = (b && b.scenario) || {};
+          var cands = [['hold', sc.hold], ['hike', sc.hike], ['cut', sc.cut]].filter(function (x) { return x[1] != null && isFinite(x[1]); });
+          if (!cands.length) return null;
+          cands.sort(function (a, b2) { return (b2[1] || 0) - (a[1] || 0); });
+          return { type: cands[0][0], pct: Math.round(cands[0][1]) };
+        }
+        // Accords écrits une fois : « maintien pricé à » mais « hausse pricée à » (féminin).
+        var SCN = {
+          hold: { t: 'Maintien', vp: 'maintien pricé à', cls: 'est-neutre' },
+          hike: { t: 'Hausse', vp: 'hausse pricée à', cls: 'est-haut' },
+          cut: { t: 'Baisse', vp: 'baisse pricée à', cls: 'est-bas' },
+        };
+
+        function dessiner() {
+          fetch('/api/rates').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            var banks = ((d && d.banks) || []).filter(function (b) { return b && b.code; });
+            var veut = opt(it, W, 'banque') || 'all';
+            if (veut !== 'all') banks = banks.filter(function (b) { return b.code === veut; });
+            if (!banks.length) { fallback(host, 'Réunions indisponibles.'); return; }
+            var lignes = banks.map(function (b) { return { b: b, t: cibleMs(b), scn: scnDom(b) }; });
+            /* Réunion la plus PROCHE d'abord ; une banque sans date connue descend en bas mais ne
+               disparaît pas : une ligne honnête « date inconnue » vaut mieux qu'une absence muette. */
+            lignes.sort(function (a, b2) { return (a.t == null ? Infinity : a.t) - (b2.t == null ? Infinity : b2.t); });
+            var iPrem = -1;
+            lignes.forEach(function (l, i) { if (iPrem < 0 && l.t != null) iPrem = i; });
+
+            var html = '<div class="wdg-rbc"><div class="wdg-rbc-liste custom-scrollbar">'
+              + '<div class="wdg-rbc-head"><span>Banque</span><span>Réunion</span><span class="r">Rebours</span><span class="r">Scénario pricé</span></div>';
+            lignes.forEach(function (l, i) {
+              var b = l.b;
+              // Pricing PARTAGÉ : le dominant sous 60 % : la réunion est une vraie inconnue.
+              var partage = l.scn != null && l.scn.pct < 60;
+              var scnH = l.scn
+                ? '<span class="wdg-rbc-scn ' + SCN[l.scn.type].cls + (partage ? ' est-partage' : '') + '"'
+                  + (partage ? ' title="Pricing partagé : aucune issue ne dépasse 60 %"' : '') + '>'
+                  + SCN[l.scn.type].t + ' ' + l.scn.pct + ' %</span>'
+                : '<span class="wdg-rbc-scn">-</span>';
+              html += '<div class="wdg-rbc-l' + (i === iPrem ? ' est-present' : '') + '">'
+                + '<span class="wdg-rbc-bq">' + _drapeauDev(b.code) + '<b>' + esc(b.bank || b.code) + '</b></span>'
+                + '<span class="wdg-rbc-date">' + (b.next ? fmtD(b.next) : 'date inconnue') + '</span>'
+                + (l.t != null ? '<span class="wdg-rbc-cpt" data-cible="' + l.t + '">' + rebours(l.t) + '</span>'
+                  : '<span class="wdg-rbc-cpt">-</span>')
+                + scnH + '</div>';
+            });
+            html += '</div>';
+
+            // ── Verdict : la prochaine décision toutes banques confondues, puis la suivante et
+            //    les issues OUVERTES (pricing partagé). Factuel : rien ne dit quoi trader.
+            var vbH, vsT, etatV, cle;
+            var prem = iPrem >= 0 ? lignes[iPrem] : null;
+            if (prem) {
+              var pb = prem.b, ps = prem.scn;
+              etatV = ps ? ps.type : 'inconnu';
+              vbH = 'Prochaine décision : <span class="est-present">' + esc(pb.bank || pb.code) + '</span> '
+                + '<span class="wdg-rbc-vcpt" data-cible="' + prem.t + '">' + reboursV(prem.t) + '</span>'
+                + (ps ? ' : <span class="' + SCN[ps.type].cls + '">' + SCN[ps.type].vp + ' ' + ps.pct + ' %</span>' : '');
+              var suiv = null;
+              for (var k = iPrem + 1; k < lignes.length; k++) if (lignes[k].t != null) { suiv = lignes[k]; break; }
+              var parts = lignes.filter(function (l) { return l.scn != null && l.scn.pct < 60; })
+                .map(function (l) { return (l.b.bank || l.b.code) + ' (' + l.scn.pct + ' %)'; });
+              vsT = (suiv ? 'Ensuite : ' + (suiv.b.bank || suiv.b.code) + ' le ' + fmtD(suiv.b.next) + '. ' : '')
+                + (parts.length ? 'Issue ouverte (dominant sous 60 %) : ' + parts.join(', ') + '.'
+                  : 'Aucune issue ouverte : chaque scénario dominant dépasse 60 %.');
+              cle = pb.code + '|' + (ps ? ps.type + ps.pct : '') + '|' + (pb.next || '');
+            } else {
+              etatV = 'inconnu';
+              vbH = 'Aucune date de réunion connue';
+              vsT = 'La source n\'annonce de date pour aucune banque affichée.';
+              cle = 'aucune';
+            }
+            var ts = d && d.asOf != null ? +d.asOf : 0;
+            html += '<div class="wdg-verdict" data-etat="' + etatV + '"><b class="wdg-verdict-txt wdg-maj-txt">' + vbH + '</b>'
+              + '<span class="wdg-verdict-sous">' + esc(vsT) + '</span></div>'
+              + '<div class="wdg-rbc-pied">Le rebours vise le JOUR de la réunion : la source donne la date, pas l\'heure de la décision. Probabilités de marché relues toutes les 5 min. ' + _vieSpan(ts) + '</div>'
+              + '</div>';
+            host.innerHTML = html;
+            if (prevCle != null && cle !== prevCle) _majFlash(host.querySelector('.wdg-verdict-txt'));
+            prevCle = cle;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Réunions indisponibles.'); });
+        }
+
+        /* Chrono 1 s : réécrit les rebours EN PLACE, jamais un re-rendu complet à la seconde (la
+           liste ne doit pas cligner, et le scroll ne doit pas se perdre). Garde document.hidden :
+           un onglet caché n'anime rien ; au retour, le premier tour recale tout d'un coup. */
+        var ivT = setInterval(function () {
+          if (document.hidden || !host.isConnected) return;
+          var ns = host.querySelectorAll('[data-cible]');
+          for (var i = 0; i < ns.length; i++) {
+            var t = +ns[i].getAttribute('data-cible');
+            if (!t) continue;
+            ns[i].textContent = ns[i].classList.contains('wdg-rbc-vcpt') ? reboursV(t) : rebours(t);
+          }
+        }, 1000);
+        dessiner();
+        // Aligné sur le rythme de la source (comme « Taux directeurs ») ; l'intervalle se répare
+        // tout seul après un échec : le tour suivant retente.
+        var iv = setInterval(function () { if (!document.hidden) dessiner(); }, 5 * 60 * 1000);
+        return function () {
+          vivant = false;
+          try { clearInterval(iv); } catch (e) {}
+          try { clearInterval(ivT); } catch (e) {}
+        };
+      },
+    },
+    {
       id: 'risque-jauge', name: 'Sentiment de Risque', tag: 'RISQUE', cat: 'Risque', h: 300,
       desc: "L'appétit / l'aversion du marché en direct (risk-on / risk-off).",
       // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de buildRiskGauge (charts.js) — mêmes classes
@@ -7357,6 +7650,8 @@
     'radar-biais': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" opacity=".4"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-4"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>',
     'taux-diff': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18"/><path d="M12 6h6"/><path d="M12 11H6"/><path d="M12 16h4"/></svg>',
     'taux-cb': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9l6-4 6 4v11"/><path d="M9 20v-5h6v5"/></svg>',
+    'courbe-taux-us': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17c4-1 6-2.5 8-5s4-4.5 8-6"/><circle cx="4" cy="17" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="20" cy="6" r="1.2" fill="currentColor" stroke="none"/></svg>',
+    'reunion-bc': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="13" height="13" rx="2"/><path d="M3.5 9.5h13M7 3.5v3M13 3.5v3"/><circle cx="17.5" cy="16.5" r="4"/><path d="M17.5 14.8v1.9l1.3 1"/></svg>',
     'risque-jauge': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4-4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>',
     'cot-devise':  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
     'cot-inst': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
@@ -7382,6 +7677,24 @@
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
     'taux-diff': '<svg ' + _PV + '><line x1="60" y1="8" x2="60" y2="48" stroke="#3a3f4b"/>' + (function () { var v = [22, 14, 6, -8, -18], h = ''; for (var i = 0; i < 5; i++) { var y = 11 + i * 8, w = Math.abs(v[i]) * 1.6; h += '<rect x="' + (v[i] >= 0 ? 60 : 60 - w) + '" y="' + y + '" width="' + w + '" height="5" rx="1" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".8"/>'; } return h; })() + '</svg>',
+    'courbe-taux-us': '<svg ' + _PV + '>'
+      + '<line x1="8" y1="46" x2="112" y2="46" stroke="#23232a"/>'
+      + '<polyline points="14,38 45,29 78,20 106,13" fill="none" stroke="#e3b23a" stroke-width="1.6"/>'
+      + '<circle cx="14" cy="38" r="2" fill="#e3b23a"/><circle cx="45" cy="29" r="2" fill="#e3b23a"/>'
+      + '<circle cx="78" cy="20" r="2" fill="#e3b23a"/><circle cx="106" cy="13" r="2" fill="#e3b23a"/>'
+      + '<text x="10" y="55" font-size="6" fill="#6b7280">3 mois</text>'
+      + '<text x="94" y="55" font-size="6" fill="#6b7280">30 ans</text>'
+      + '</svg>',
+    'reunion-bc': '<svg ' + _PV + '>'
+      + (function () { var L = [['#e3b23a', '#ffb300', 30], ['#3a3d44', '#00e676', 24], ['#3a3d44', '#ff3d00', 20]], h = '';
+      for (var i = 0; i < 3; i++) { var y = 8 + i * 15;
+        h += '<rect x="8" y="' + y + '" width="2" height="9" fill="' + L[i][0] + '"' + (i ? ' opacity="0"' : '') + '/>'
+          + '<circle cx="18" cy="' + (y + 4.5) + '" r="4" fill="#7d94b5" opacity=".55"/>'
+          + '<rect x="27" y="' + (y + 2) + '" width="24" height="5" rx="2" fill="#9aa1ac" opacity=".6"/>'
+          + '<rect x="60" y="' + (y + 2) + '" width="18" height="5" rx="2" fill="#6b7280" opacity=".8"/>'
+          + '<rect x="86" y="' + (y + 2) + '" width="' + L[i][2] + '" height="5" rx="2" fill="' + L[i][1] + '" opacity=".75"/>'; }
+      return h; })()
+      + '</svg>',
 
     'notes': '<svg ' + _PV + '>'
       + '<rect x="8" y="6" width="104" height="36" rx="3" fill="#0d0d10" stroke="#23232a"/>'
@@ -7550,6 +7863,7 @@
       'graphique': 'Analyse de marché',
       'force-devises': 'Analyse de marché', 'barometre': 'Analyse de marché', 'risque-historique': 'Analyse de marché', 'radar-biais': 'Analyse de marché',
       'risque-jauge': 'Analyse de marché', 'cot-inst': 'Analyse de marché', 'dmx-retail': 'Analyse de marché', 'dmx-paire': 'Analyse de marché', 'cot-devise': 'Analyse de marché', 'saison': 'Analyse de marché', 'sessions': 'Analyse de marché',
+      'courbe-taux-us': 'Analyse de marché', 'reunion-bc': 'Analyse de marché',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
       'horloge': 'Fonctions', 'onglets': 'Fonctions',
       // Vues du desk (adoption) : troisième famille dédiée — ce sont les onglets de la nav, pas des outils.

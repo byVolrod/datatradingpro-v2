@@ -19700,3 +19700,73 @@ html[data-theme="light"] .wdg-si-axe span:last-child i { color: #816521; }
    carte (17983-17984 : 250 px pour l'historique, 158 px pour le rebours) — jamais les chiffres. */
 @container dtpw (max-height: 250px) { .wdg-si .wdg-verdict { display: none; } }
 @container dtpw (max-height: 158px) { .wdg-rb .wdg-verdict, .wdg-rb-suivant { display: none; } }
+
+/* ═══ COURBE DES TAUX US & PROCHAINE RÉUNION BC (23/08, 2 nouveaux widgets Macro) ═══════════════
+   Grammaire commune de vie (verdict .wdg-verdict, fondu .est-maj, horodatage .wdg-vie) : mêmes
+   règles que les familles au-dessus, posées en FIN de feuille (la cascade garantit la victoire
+   sur les blocs historiques). Les deux racines sont des conteneurs dtpw : le verdict cède en
+   carte basse, jamais les chiffres. */
+/* Courbe des taux : le SVG épouse la zone (preserveAspectRatio none, doctrine des traceurs
+   partagés) et les ÉTIQUETTES vivent en HTML, en taille d'écran, posées par pourcentage de la
+   zone : un texte DANS un viewBox étiré se déformerait avec la carte. */
+.wdg-ct { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; gap: 6px; padding: 10px 12px 8px; }
+.wdg-ct-tete { flex: 0 0 auto; display: flex; justify-content: space-between; gap: 8px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--txt-3, #6b7280); }
+/* L'écart du bandeau porte la couleur de l'ÉTAT (pentue/plate/inversée), pas un sens de trade. */
+.wdg-ct-e { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.wdg-ct-e.est-haut { color: #00e676; }
+.wdg-ct-e.est-bas { color: #ff3d00; }
+.wdg-ct-e.est-neutre { color: #ffb300; }
+.wdg-ct-zone { position: relative; flex: 1 1 auto; min-height: 44px; }
+.wdg-ct-zone .wdg-tr-svg { position: absolute; inset: 0; }
+.wdg-ct-lab { position: absolute; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--txt-1, #e6e8eb); white-space: nowrap; pointer-events: none; }
+.wdg-ct-ech { position: relative; flex: 0 0 auto; height: 12px; }
+.wdg-ct-ech span { position: absolute; top: 0; font-size: 9px; color: var(--txt-3, #6b7280); white-space: nowrap; }
+.wdg-ct-sec { flex: 0 0 auto; }
+.wdg-ct-sect { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--txt-3, #6b7280); margin-bottom: 3px; }
+.wdg-ct-spark { height: 34px; }
+.wdg-ct-pied { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280); }
+html[data-theme="light"] .wdg-ct-e.est-haut { color: #00783d; }
+html[data-theme="light"] .wdg-ct-e.est-bas { color: #c73000; }
+html[data-theme="light"] .wdg-ct-e.est-neutre { color: #8a6a12; }
+/* Prochaine réunion BC : liste en grille dense (grammaire des tables du desk, cf. .wdg-taux) ;
+   la ligne de la décision la plus PROCHE porte le liseré or .est-present (présent marqué,
+   doctrine DTP). Le rebours est un TEXTE réécrit chaque seconde : aucune animation, aucune
+   keyframe (règle dure : jamais de clignotement sur un indicateur live). */
+.wdg-rbc { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; }
+.wdg-rbc-liste { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.wdg-rbc-head, .wdg-rbc-l { display: grid; grid-template-columns: minmax(72px, 1.1fr) 58px minmax(78px, .9fr) minmax(100px, 1.1fr); gap: 8px; align-items: center; padding: 5px 12px; }
+.wdg-rbc-head { position: sticky; top: 0; z-index: 1; background: var(--w-s4, #101014); border-bottom: 1px solid var(--hud-line, rgba(255,255,255,.075)); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--w-t7, #6b7280); }
+.wdg-rbc-head .r, .wdg-rbc-cpt, .wdg-rbc-scn { text-align: right; }
+.wdg-rbc-l { border-bottom: 1px solid var(--w-f4, rgba(255,255,255,.045)); border-left: 2px solid transparent; font-size: 11.5px; }
+.wdg-rbc-l:hover { background: var(--w-s3, rgba(255,255,255,.025)); }
+.wdg-rbc-l.est-present { border-left-color: var(--orange, #e3b23a); background: rgba(227, 178, 58, .05); }
+.wdg-rbc-bq { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--w-t1, #e6e8eb); }
+.wdg-rbc-bq b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wdg-rbc-date { font-size: 10.5px; color: var(--txt-3, #6b7280); white-space: nowrap; }
+.wdg-rbc-cpt { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--w-t1, #e6e8eb); white-space: nowrap; }
+.wdg-rbc-l.est-present .wdg-rbc-cpt { color: var(--orange, #e3b23a); }
+.wdg-rbc-scn { font-size: 10.5px; font-weight: 700; white-space: nowrap; color: var(--txt-3, #6b7280); }
+.wdg-rbc-scn.est-haut { color: #00e676; }
+.wdg-rbc-scn.est-bas { color: #ff3d00; }
+.wdg-rbc-scn.est-neutre { color: #ffb300; }
+/* Pricing partagé (dominant < 60 %) : souligné pointillé + title : l'issue est ouverte. */
+.wdg-rbc-scn.est-partage { text-decoration: underline dotted; text-underline-offset: 2px; }
+.wdg-rbc-vcpt { font-variant-numeric: tabular-nums; }
+.wdg-rbc-pied { flex: 0 0 auto; padding: 5px 12px 6px; font-size: 9.5px; line-height: 1.35; color: var(--txt-3, #6b7280); }
+/* Or vif illisible sur papier clair (leçon de l'audit thème clair) : même valeur sombre que les
+   autres textes or de la grammaire. */
+html[data-theme="light"] .wdg-rbc-scn.est-haut { color: #00783d; }
+html[data-theme="light"] .wdg-rbc-scn.est-bas { color: #c73000; }
+html[data-theme="light"] .wdg-rbc-scn.est-neutre { color: #8a6a12; }
+html[data-theme="light"] .wdg-rbc-l.est-present .wdg-rbc-cpt { color: #816521; }
+html[data-theme="light"] .wdg-rbc-l.est-present { border-left-color: #816521; }
+/* Carte basse : verdict et pied cèdent au seuil des familles précédentes (250 px), puis la
+   section d'écart 90 j de la courbe (190 px), jamais les chiffres. */
+@container dtpw (max-height: 250px) { .wdg-ct .wdg-verdict, .wdg-ct-pied, .wdg-rbc .wdg-verdict, .wdg-rbc-pied { display: none; } }
+@container dtpw (max-height: 190px) { .wdg-ct-sec { display: none; } }
+/* Carte étroite : la colonne date cède (le rebours et le scénario se lisent d'un balayage,
+   la date est déjà dans le rebours) : motif de l'écran étroit du Différentiel de taux. */
+@container dtpw (max-width: 330px) {
+  .wdg-rbc-head, .wdg-rbc-l { grid-template-columns: minmax(58px, 1fr) minmax(70px, .9fr) minmax(88px, 1fr); gap: 6px; padding: 5px 9px; }
+  .wdg-rbc-date, .wdg-rbc-head span:nth-child(2) { display: none; }
+}
