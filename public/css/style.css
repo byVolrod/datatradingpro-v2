@@ -19618,3 +19618,35 @@ html[data-theme="light"] .season-table tr.est-courant td:nth-last-child(2) { out
    rangées + pied encore lisibles aux tailles de police des blocs historiques). */
 @container dtpw (max-height: 250px) { .wdg-sais .wdg-verdict { display: none; } }
 @container dtpw (max-height: 230px) { .wdg-dmx1 .wdg-verdict, .wdg-seawrap .wdg-verdict { display: none; } }
+
+/* ═══ FAMILLE CALENDRIER & SÉRIES : le PRÉSENT sur les 2 cartes (23/08) ═════════════════════════
+   Complète la GRAMMAIRE COMMUNE DE VIE (verdict .wdg-verdict, fondu .est-maj, horodatage
+   .wdg-vie) : verdict de publication du compte à rebours (réel contre consensus), ligne
+   « Ensuite », dernière publication marquée or de l'historique d'indicateur. En FIN de feuille,
+   règle du projet : la cascade garantit la victoire sur les blocs historiques des widgets. */
+/* Compte à rebours : pendant la fenêtre de publication, l'heure de la tête passe or — présent
+   marqué, même token que le chrono publié. Or vif illisible sur papier clair (leçon de l'audit
+   thème clair) → même valeur sombre que les autres textes or de la grammaire. */
+.wdg-rb-h.est-publie { color: var(--orange, #e3b23a); }
+html[data-theme="light"] .wdg-rb-h.est-publie { color: #816521; }
+/* Ligne « Ensuite » : le prochain événement, en retrait — une information d'agenda, pas un titre.
+   La carte est centrée (colonne flex) : une ligne trop longue s'ellipse au lieu de pousser. */
+.wdg-rb-suivant { flex: 0 0 auto; font-size: 9.5px; color: var(--txt-3, #6b7280);
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Les verdicts de cette famille parlent en classes cv-* (chartées par le calendrier — TROIS
+   couleurs, arbitrage user du 12/08 : le « conforme » reste blanc/encre via --st-flat, jamais
+   d'ambre). Le vert fluo et le rouge des tokens n'ont d'override clair que sur .cv-actual : on
+   les pose ici pour le TEXTE des verdicts (l'audit thème clair a payé 1295 textes illisibles
+   pour cet oubli-là). */
+html[data-theme="light"] .wdg-verdict .cv-pos { color: #127939 !important; }
+html[data-theme="light"] .wdg-verdict .cv-neg { color: #c73000 !important; }
+/* Historique d'un indicateur : la DERNIÈRE publication marquée or sur l'axe. Le liseré de la
+   barre vient de l'option `marque` de _barresSvg (par INDEX — jamais rect:last-of-type, qui
+   désignerait la dernière barre DESSINÉE quand une valeur illisible troue la série) ; l'axe,
+   lui, liste TOUTES les publications : son dernier span est toujours la dernière publication. */
+.wdg-si-axe span:last-child i { color: var(--orange, #e3b23a); font-weight: 700; }
+html[data-theme="light"] .wdg-si-axe span:last-child i { color: #816521; }
+/* Carte basse : verdicts et lignes d'agenda cèdent aux seuils des pieds existants de chaque
+   carte (17983-17984 : 250 px pour l'historique, 158 px pour le rebours) — jamais les chiffres. */
+@container dtpw (max-height: 250px) { .wdg-si .wdg-verdict { display: none; } }
+@container dtpw (max-height: 158px) { .wdg-rb .wdg-verdict, .wdg-rb-suivant { display: none; } }

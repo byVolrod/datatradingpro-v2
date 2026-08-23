@@ -630,6 +630,180 @@
   }
   /* ═══ fin verdicts saisonnalité & positionnement ═══ */
 
+  /* ═══ VERDICTS DÉTERMINISTES — FAMILLE CALENDRIER & SÉRIES (23/08) ════════════════════════════
+     Même doctrine que les familles précédentes : helpers PURS (aucun DOM), testables au banc,
+     partagés entre le compte à rebours et l'historique d'indicateur. Les valeurs du calendrier
+     sont des CHAÎNES formatées ('3.2%', '122K', '-8.0M') : chaque comparaison chiffrée passe par
+     le couple lecture (_nombreVal) + garde d'unité (_uniteVal) — Number(null) vaut 0 et
+     parseFloat mélangerait des K à des M, deux pièges déjà mordus ailleurs dans le desk. */
+  // Suffixe d'unité d'une valeur macro formatée : '122K' → 'K', '3.2%' → '%', '-8.0' → ''.
+  function _uniteVal(v) { var m = String(v == null ? '' : v).trim().match(/([KMBT%])\s*$/i); return m ? m[1].toUpperCase() : ''; }
+  // Valeur numérique SANS son suffixe. Jamais de conversion d'échelle entre suffixes : l'égalité
+  // des unités se vérifie AVANT toute soustraction ou comparaison inter-valeurs.
+  function _nombreVal(v) {
+    var t = String(v == null ? '' : v).replace(/[^0-9.,+-]/g, '').replace(',', '.');
+    var n = parseFloat(t);
+    return isFinite(n) ? n : null;
+  }
+  // Décimales d'une chaîne formatée ('3.25%' → 2) : l'écart réel-prévision se rend à la précision
+  // la plus fine des deux chaînes, jamais avec la traîne binaire d'un flottant (0.20000000000018).
+  function _decimalesVal(v) { var m = String(v == null ? '' : v).replace(',', '.').match(/\.(\d+)/); return m ? m[1].length : 0; }
+  // Abréviations FR des pays de la zone euro (mêmes libellés que le détail du Radar de Biais —
+  // les deux copies d'app.js vivent dans des closures inaccessibles d'ici).
+  var _CTRY_ABR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
+
+  /* Identité d'un événement du calendrier : titre BRUT + devise + PAYS + même minute. Le titre
+     affiché peut avoir été renommé côté serveur (_tvTitle porte alors le brut) : on compare
+     toujours le brut. Le PAYS est OBLIGATOIRE dans l'identité (contre-lecture) : la clé serveur
+     (_calHistKey) l'intègre précisément parce que « EUR|unemployment rate » fusionnait les
+     chômages allemand, espagnol, italien et zone euro — matcher sans lui peut accrocher le réel
+     d'un AUTRE pays publié à la même minute. */
+  function _rbMemeEvenement(a, b) {
+    if (!a || !b) return false;
+    return (a._tvTitle || a.title || '') === (b._tvTitle || b.title || '')
+      && a.currency === b.currency
+      && String(a.ctry || '') === String(b.ctry || '')
+      && Math.abs((a.timestamp || 0) - (b.timestamp || 0)) < 60000;
+  }
+
+  /* Ligne d'ATTENTE du compte à rebours : le consensus situé face à la publication précédente.
+     Licite seulement à unités identiques et valeurs lisibles — sinon chaîne vide (silence
+     honnête, jamais de phrase inventée). Le sens est un CONSTAT sur le consensus, pas un
+     jugement bon/mauvais : aucune couleur sémantique ici (un chômage « attendu en hausse »
+     n'est pas un vert). Retour : texte HTML sûr, '' s'il n'y a rien à dire. */
+  function _rbAttente(ev) {
+    if (!ev) return '';
+    var f = String(ev.forecast == null ? '' : ev.forecast).trim();
+    var p = String(ev.previous == null ? '' : ev.previous).trim();
+    if (!f || !p) return '';
+    var fN = _nombreVal(f), pN = _nombreVal(p);
+    if (fN == null || pN == null || _uniteVal(f) !== _uniteVal(p)) return '';
+    var sens = fN > pN ? 'consensus en hausse' : fN < pN ? 'consensus en baisse' : 'consensus stable';
+    return 'Attendu ' + esc(f) + ' après ' + esc(p) + ' : ' + sens + '.';
+  }
+
+  /* Verdict de PUBLICATION du compte à rebours : réel contre attendu, purement factuel.
+     - La COULEUR vient de deviationClass (helper global du calendrier : la polarité chômage y est
+       déjà inversée) ; les MOTS (« au-dessus / sous le consensus ») viennent de la comparaison
+       numérique brute. Un chômage au-dessus du consensus rend donc « au-dessus » EN ROUGE :
+       deux informations, deux sources, aucune contradiction.
+     - L'ÉCART chiffré exige l'ÉGALITÉ des suffixes (contre-lecture : deviationClass compare des
+       parseFloat nus et mélangerait des K à des M). Suffixes différents : la couleur reste, mais
+       ni delta ni phrase de sens — les mots n'affirment que le mesuré ; et un « conforme » issu
+       d'une égalité inter-unités (3K = 3M pour parseFloat) retombe en neutre sans couleur.
+     Retour { txt, cls } (cls '' = pas de prévision comparable), ou null sans réel. */
+  function _rbVerdict(ev) {
+    if (!ev || ev.actual == null || String(ev.actual).trim() === '') return null;
+    var a = String(ev.actual).trim(), f = String(ev.forecast == null ? '' : ev.forecast).trim();
+    var aN = _nombreVal(a), fN = f ? _nombreVal(f) : null;
+    var cls = '';
+    try { cls = (typeof deviationClass === 'function') ? (deviationClass(ev.actual, ev.forecast, ev.title) || '') : ''; } catch (e) { cls = ''; }
+    if (!f || aN == null || fN == null || !cls) {
+      // Pas de prévision comparable : on publie le chiffre, on ne juge pas — même règle que la
+      // cellule du calendrier, qui laisse le réel sans couleur dans ce cas.
+      return { txt: 'Publié : ' + esc(a), cls: '' };
+    }
+    if (_uniteVal(a) !== _uniteVal(f)) {
+      return { txt: 'Réel ' + esc(a) + ' vs ' + esc(f) + ' attendu.', cls: cls === 'cv-neu' ? '' : cls };
+    }
+    if (cls === 'cv-neu') return { txt: 'Réel ' + esc(a) + ', conforme au consensus.', cls: 'cv-neu' };
+    var dec = Math.max(_decimalesVal(a), _decimalesVal(f));
+    var u = _uniteVal(f);
+    var delta = aN - fN;
+    // « pt » pour des pourcentages (un écart de % s'exprime en points, jamais en « % de % ») ;
+    // un suffixe K/M/B/T se recopie tel quel ; signe toujours écrit, virgule décimale FR.
+    var deltaTxt = (delta > 0 ? '+' : '') + delta.toFixed(dec).replace('.', ',') + (u === '%' ? ' pt' : u);
+    return {
+      txt: 'Réel ' + esc(a) + ' vs ' + esc(f) + ' attendu : '
+        + (aN > fN ? 'au-dessus du consensus' : 'sous le consensus') + ' (' + deltaTxt + ').',
+      cls: cls,
+    };
+  }
+
+  /* Verdict de l'« Historique d'un indicateur » : [tendance] · [extrême de la fenêtre] ·
+     [surprise de la dernière publication]. Chaque segment a sa garde et se TAIT quand la donnée
+     ne le permet pas — jamais de phrase approximative :
+     - tendance : variations consécutives de même signe en FIN de série ; un trou (valeur non
+       numérique) INTERROMPT le comptage — on ne saute jamais par-dessus une inconnue ;
+     - extrême : dernier point face à toutes les valeurs numériques, >= 4 points exigés (« plus
+       haut des 3 publications » serait du bruit) et une fenêtre qui bouge réellement (max > min) ;
+     - surprise : réel vs prévision de la DERNIÈRE publication (champ forecast des événements
+       synthétiques _h, déjà servi par le calendrier), mêmes gardes d'unité que le rebours.
+     `seulSurprise` : en mode liste (unités mélangées dans la série), tendance et extrême seraient
+     des comparaisons inter-unités — seule la surprise, interne à UNE publication, reste licite.
+     Retour { txt } (HTML sûr) ou null quand aucun segment ne peut s'affirmer. */
+  function _siVerdict(serie, titre, seulSurprise) {
+    if (!serie || serie.length < 2) return null;
+    var vals = serie.map(function (p) { return _nombreVal(p.actual); });
+    var n = vals.length, segs = [];
+
+    if (!seulSurprise) {
+      // ── Tendance. difs[0] = dernière variation, difs[1] = celle d'avant, etc.
+      var difs = [];
+      for (var i = n - 1; i >= 1; i--) {
+        if (typeof vals[i] !== 'number' || typeof vals[i - 1] !== 'number') break;
+        difs.push(vals[i] - vals[i - 1]);
+      }
+      if (difs.length) {
+        var d0 = difs[0], k = 1;
+        while (k < difs.length && ((d0 > 0 && difs[k] > 0) || (d0 < 0 && difs[k] < 0) || (d0 === 0 && difs[k] === 0))) k++;
+        if (d0 === 0) segs.push('stable sur ' + (k + 1) + ' publications');
+        else if (k >= 2) segs.push(k + ' ' + (d0 > 0 ? 'hausses' : 'baisses') + ' consécutives');
+        else {
+          // Variation isolée : si elle CASSE une série d'au moins 2 dans l'autre sens, on le dit.
+          var m = 1;
+          while (m < difs.length && ((d0 > 0 && difs[m] < 0) || (d0 < 0 && difs[m] > 0))) m++;
+          m -= 1;
+          if (m >= 2) segs.push(d0 > 0 ? 'première hausse après ' + m + ' baisses' : 'premier repli après ' + m + ' hausses');
+          else segs.push(d0 > 0 ? 'en hausse sur la publication précédente' : 'en baisse sur la publication précédente');
+        }
+      }
+
+      // ── Extrême de la fenêtre.
+      var nums = vals.filter(function (v) { return typeof v === 'number'; });
+      var vDer = vals[n - 1];
+      if (typeof vDer === 'number' && nums.length >= 4) {
+        var mx = Math.max.apply(null, nums), mn = Math.min.apply(null, nums);
+        if (mx > mn) {
+          var ext = vDer >= mx ? 'plus haut' : vDer <= mn ? 'plus bas' : null;
+          if (ext) {
+            // « depuis mars » : mois de la PREMIÈRE valeur numérique comparée (pas serie[0]
+            // aveuglément — une valeur illisible ne participe pas à la comparaison).
+            var dep = '';
+            for (var j = 0; j < n; j++) {
+              if (typeof vals[j] !== 'number') continue;
+              try { dep = ' (depuis ' + _MOIS_PLEIN[new Date(serie[j].timestamp).getMonth()].toLowerCase() + ')'; } catch (e) {}
+              break;
+            }
+            segs.push(ext + ' des ' + nums.length + ' publications' + dep);
+          }
+        }
+      }
+    }
+
+    // ── Surprise de la dernière publication.
+    var der = serie[n - 1];
+    var aB = String(der.actual == null ? '' : der.actual).trim();
+    var fB = String(der.forecast == null ? '' : der.forecast).trim();
+    if (aB && fB && _uniteVal(aB) === _uniteVal(fB)) {
+      var aN = _nombreVal(aB), fN = _nombreVal(fB);
+      if (aN != null && fN != null) {
+        var cls = '';
+        try { cls = (typeof deviationClass === 'function') ? (deviationClass(aB, fB, titre) || '') : ''; } catch (e) { cls = ''; }
+        if (cls === 'cv-neu') segs.push('réel ' + esc(aB) + ', <span class="cv-neu">conforme au consensus</span>');
+        else if (cls) {
+          segs.push('réel ' + esc(aB) + ' vs ' + esc(fB) + ' attendu : <span class="' + cls + '">'
+            + (aN > fN ? 'au-dessus du consensus' : 'sous le consensus') + '</span>');
+        }
+      }
+    }
+
+    if (!segs.length) return null;
+    var txt = segs.join(' · ');
+    return { txt: txt.charAt(0).toUpperCase() + txt.slice(1) };
+  }
+  /* ═══ fin verdicts calendrier & séries ═══ */
+
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
   // ── ÉTATS UNIFORMES DES WIDGETS (28/07) : chargement · vide · erreur ────────────────────────────
   // Une seule grammaire pour les ~30 points de repli du catalogue : icône discrète, message court,
@@ -3459,7 +3633,7 @@
     },
     {
       id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 186,
-      desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste.',
+      desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste, puis le réel contre le consensus.',
       /* Une carte a UNE seule information : c est ce qui la separe du widget Calendrier, qui est
          une table. Le decompte ne se calcule QUE depuis timestamp (ms epoch UTC) : le champ `time`
          de la source est fige a l heure de Paris et mentirait a un lecteur d un autre fuseau.
@@ -3467,7 +3641,12 @@
          calActualCell. Ce parametre est la borne basse, et elle declenche un eclair « sorti sous
          l estimation basse ». Or low/high ne sont PAS un consensus d analystes : c est une
          estimation IA, ou un calcul maison (prevision ± 0,7 x |prevision - precedent|). Afficher
-         cet eclair reviendrait a inventer une fourchette. Le desk fait deja ce choix ailleurs. */
+         cet eclair reviendrait a inventer une fourchette. Le desk fait deja ce choix ailleurs.
+         ⚠️ FENETRE DE PUBLICATION (refonte 23/08) : a l heure H, la carte ne saute PLUS a
+         l evenement suivant — elle RESTE 20 minutes sur l evenement publie et va CHERCHER son
+         reel dans la reponse (avant, `ev` capture futur n etait jamais rafraichi : la branche du
+         reel etait morte, le moment le plus utile du widget passait a la trappe). Identite de
+         correspondance : _rbMemeEvenement, titre brut + devise + PAYS + minute. */
       opts: [
         { k: 'devise', lbl: 'Devise', type: 'choix', def: 'all',
           // Les 9 devises REELLEMENT servies par la source. Aucune n est inventee.
@@ -3478,18 +3657,40 @@
         { k: 'chiffres', lbl: 'Afficher prévision et précédent', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
-        var W = this, vivant = true, ev = null, autres = 0;
-        host.innerHTML = '<div class="wdg-rb">'
-          + '<div class="wdg-rb-tete"></div>'
-          + '<div class="wdg-rb-chrono">--</div>'
-          + '<div class="wdg-rb-titre"></div>'
-          + '<div class="wdg-rb-pied"></div></div>';
-        var eTete = host.querySelector('.wdg-rb-tete');
-        var eChr = host.querySelector('.wdg-rb-chrono');
-        var eTit = host.querySelector('.wdg-rb-titre');
-        var ePied = host.querySelector('.wdg-rb-pied');
+        var W = this, vivant = true, ev = null, autres = 0, suivant = null;
+        /* 20 min : assez pour lire le chiffre et son eventuelle revision, assez court pour que la
+           carte redevienne un compte a rebours avant la publication suivante d une meme matinee. */
+        var HOLD = 20 * 60 * 1000;
+        var dernierFetch = 0;        // heure du dernier fetch reussi : la reponse n a pas d updatedAt
+        var evPrevInitial = null;    // « Précédent » memorise a la selection → detecte la revision
+        var evRevise = false;
+        var chronoCle = null;        // dernier etat rendu du chrono : tic() n ecrit que ce qui change
+        var eTete, eChr, eTit, eVerdW, eVerd, ePied, eSuiv;
 
         function deuxCh(n) { return (n < 10 ? '0' : '') + n; }
+        function enFenetre() { return !!ev && Date.now() >= ev.timestamp && Date.now() < ev.timestamp + HOLD; }
+
+        /* Le squelette se (re)construit aussi APRES un fallback : avant, une seule erreur laissait
+           la carte en erreur POUR TOUJOURS — les rendus suivants ecrivaient dans des references
+           DOM detachees, en silence. */
+        function batir() {
+          host.innerHTML = '<div class="wdg-rb">'
+            + '<div class="wdg-rb-tete"></div>'
+            + '<div class="wdg-rb-chrono wdg-maj-txt">--</div>'
+            + '<div class="wdg-rb-titre wdg-maj-txt"></div>'
+            + '<div class="wdg-verdict" style="display:none"><b class="wdg-verdict-txt wdg-maj-txt"></b></div>'
+            + '<div class="wdg-rb-pied"></div>'
+            + '<div class="wdg-rb-suivant" style="display:none"></div></div>';
+          eTete = host.querySelector('.wdg-rb-tete');
+          eChr = host.querySelector('.wdg-rb-chrono');
+          eTit = host.querySelector('.wdg-rb-titre');
+          eVerdW = host.querySelector('.wdg-verdict');
+          eVerd = host.querySelector('.wdg-verdict-txt');
+          ePied = host.querySelector('.wdg-rb-pied');
+          eSuiv = host.querySelector('.wdg-rb-suivant');
+          chronoCle = null;
+        }
+        batir();
 
         function choisir(items) {
           var dev = opt(it, W, 'devise'), imp = opt(it, W, 'impact');
@@ -3500,7 +3701,7 @@
             if (imp === 'High' && e.impact !== 'High') return false;
             return true;
           });
-          if (!futurs.length) return null;
+          if (!futurs.length) { suivant = null; return null; }
           // Depart d egalite EXPLICITE : a la meme seconde, le Fort passe devant le Moyen.
           futurs.sort(function (a, b) {
             if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
@@ -3511,51 +3712,115 @@
           // Combien d autres publications tombent a la MEME heure : information reelle, tiree du
           // meme tableau, utile au trader (une seconde ou trois chiffres sortent ensemble).
           autres = futurs.filter(function (e) { return e.timestamp === premier.timestamp; }).length - 1;
+          /* « Ensuite » : le premier evenement STRICTEMENT apres l heure du courant — ceux de la
+             meme seconde sont deja comptes dans « +N autres » (les repeter en « Ensuite »
+             annoncerait comme suivant ce qui tombe en meme temps). */
+          suivant = null;
+          for (var i = 0; i < futurs.length; i++) {
+            if (futurs[i].timestamp > premier.timestamp) { suivant = futurs[i]; break; }
+          }
           return premier;
         }
 
         function rendreTete() {
-          if (!ev) return;
+          if (!ev || !eTete || !eTete.isConnected) return;
           var h = '';
           try { h += CAL_FLAG(ev.currency); } catch (e) {}
           h += '<span class="wdg-rb-dev">' + esc(ev.currency || '') + '</span>';
           try { h += '<span class="wdg-rb-imp">' + calImpDots(ev.impact) + '</span>'; } catch (e) {}
           var hh = '';
           try { hh = calFormatTime(ev.timestamp); } catch (e) {}
-          h += '<span class="wdg-rb-h">' + esc(hh) + '</span>';
+          // L heure passe or une fois atteinte (present marque), le tic entretient la classe.
+          h += '<span class="wdg-rb-h' + (Date.now() >= ev.timestamp ? ' est-publie' : '') + '">' + esc(hh) + '</span>';
+          // Heure du FETCH (grammaire commune) : le chrono prouve que la carte tourne, pas que la
+          // donnee est fraiche — c est ce span qui le dit.
+          h += _vieSpan(dernierFetch);
           eTete.innerHTML = h;
           eTit.innerHTML = '<span class="wdg-rb-nom">' + esc(ev.title || '') + '</span>'
             + (autres > 0 ? '<span class="wdg-rb-autres">+' + autres + ' autre' + (autres > 1 ? 's' : '') + ' publication' + (autres > 1 ? 's' : '') + ' à cette heure</span>' : '');
-          if (opt(it, W, 'chiffres') !== false) {
-            ePied.innerHTML = '<span><i>Prévision</i><b>' + esc(ev.forecast || '-') + '</b></span>'
-              + '<span><i>Précédent</i><b>' + esc(ev.previous || '-') + '</b></span>';
-          } else { ePied.innerHTML = ''; }
+          var s = '';
+          if (suivant) {
+            var quand = '';
+            try {
+              var dn = new Date(suivant.timestamp), mnt = new Date();
+              var memeJour = dn.getFullYear() === mnt.getFullYear() && dn.getMonth() === mnt.getMonth() && dn.getDate() === mnt.getDate();
+              // Un suivant un autre jour porte sa date : « 14:30 » nu aurait promis aujourd hui.
+              quand = (memeJour ? '' : dn.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ') + calFormatTime(suivant.timestamp);
+            } catch (e) {}
+            s = 'Ensuite : ' + (suivant.currency || '') + ' · ' + (suivant.title || '') + (quand ? ' · ' + quand : '');
+          }
+          if (eSuiv) { eSuiv.textContent = s; eSuiv.style.display = s ? '' : 'none'; }
+        }
+
+        function rendrePied() {
+          if (!ePied || !ePied.isConnected || !ev) return;
+          if (opt(it, W, 'chiffres') === false) { ePied.innerHTML = ''; return; }
+          /* « (révisé) » : la source a change la valeur precedente au moment de la publication —
+             information reelle tiree du meme payload, on la NOMME au lieu de la glisser. */
+          var h = '<span><i>Prévision</i><b>' + esc(ev.forecast || '-') + '</b></span>'
+            + '<span><i>Précédent' + (evRevise ? ' (révisé)' : '') + '</i><b>' + esc(ev.previous || '-') + '</b></span>';
+          if (ev.actual && Date.now() >= ev.timestamp) {
+            var v = _rbVerdict(ev);
+            h += '<span><i>Réel</i><b' + (v && v.cls ? ' class="' + v.cls + '"' : '') + '>' + esc(String(ev.actual)) + '</b></span>';
+          }
+          ePied.innerHTML = h;
+        }
+
+        function majVerdict(fondu) {
+          if (!eVerd || !eVerd.isConnected || !ev) return;
+          var html = '', cls = '';
+          if (Date.now() >= ev.timestamp && ev.actual) {
+            var v = _rbVerdict(ev);
+            if (v) { html = v.txt; cls = v.cls; }
+          } else if (opt(it, W, 'chiffres') !== false) {
+            /* La ligne d attente reprend prevision et precedent : elle suit donc la bascule
+               « Afficher prévision et précédent ». Le verdict de PUBLICATION, lui, s affiche
+               toujours : c est LE moment pour lequel la carte existe. */
+            html = _rbAttente(ev);
+          }
+          eVerd.className = 'wdg-verdict-txt wdg-maj-txt' + (cls ? ' ' + cls : '');
+          eVerd.innerHTML = html;
+          if (eVerdW) eVerdW.style.display = html ? '' : 'none';
+          if (fondu && html) _majFlash(eVerd);
         }
 
         function tic() {
-          if (!ev || !host.isConnected) return;
+          if (!ev || !host.isConnected || !eChr || !eChr.isConnected) return;
           var reste = ev.timestamp - Date.now();
+          var eH = eTete ? eTete.querySelector('.wdg-rb-h') : null;
           if (reste > 0) {
             var sec = Math.floor(reste / 1000);
             var j = Math.floor(sec / 86400); sec -= j * 86400;
             var hr = Math.floor(sec / 3600); sec -= hr * 3600;
             var mn = Math.floor(sec / 60); sec -= mn * 60;
-            eChr.textContent = (j > 0 ? j + ' j ' : '') + deuxCh(hr) + ':' + deuxCh(mn) + ':' + deuxCh(sec);
+            var t = (j > 0 ? j + ' j ' : '') + deuxCh(hr) + ':' + deuxCh(mn) + ':' + deuxCh(sec);
+            if (t !== chronoCle) { eChr.textContent = t; chronoCle = t; }
             eChr.classList.remove('est-publie');
+            if (eH) eH.classList.remove('est-publie');
             return;
           }
-          // APRES L HEURE : on ne remet pas un compte a rebours a zero. Deux etats seulement, et
-          // AUCUNE promesse de delai : le chiffre arrive quand la source le publie, pas avant.
+          // APRES L HEURE : on ne remet pas un compte a rebours a zero, et AUCUNE promesse de
+          // delai : le chiffre arrive quand la source le publie, pas avant.
           eChr.classList.add('est-publie');
+          if (eH) eH.classList.add('est-publie');
+          var cle = 'p|' + String(ev.actual || '');
+          if (cle === chronoCle) return;
+          chronoCle = cle;
           if (ev.actual) {
             try {
               // 3e argument a null : pas de borne basse, donc pas d eclair sur une fourchette
-              // qui n existe pas. C est LE correctif de ce widget.
+              // qui n existe pas. C est LE correctif historique de ce widget, conserve.
               eChr.innerHTML = calActualCell(ev.actual, ev.forecast, null, ev.title);
             } catch (e) { eChr.textContent = ev.actual; }
           } else {
             eChr.textContent = 'Publié, chiffre non encore diffusé';
           }
+          /* L instant de la bascule (heure atteinte, puis arrivee du reel) : fondu UNE FOIS de la
+             grammaire commune — la contre-lecture a remplace le keyframe « est-nouveau » de la
+             spec par ce mecanisme partage. Jamais de boucle, jamais de clignotement. */
+          _majFlash(eChr);
+          rendrePied();
+          majVerdict(true);
         }
 
         function charger() {
@@ -3564,11 +3829,54 @@
             return r.json();
           }).then(function (d) {
             if (!vivant || !host.isConnected) return;
+            dernierFetch = Date.now();
             var items = (d && d.items) || [];
-            ev = choisir(items);
-            if (!ev) { fallback(host, 'Aucun événement programmé sur les dix prochains jours.'); return; }
-            rendreTete(); tic();
-          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Calendrier indisponible.'); });
+            if (!host.querySelector('.wdg-rb')) batir();   // reprise apres fallback
+            if (enFenetre()) {
+              /* FENETRE DE PUBLICATION : on RESTE sur l evenement et on va CHERCHER son reel dans
+                 la reponse. Identite stricte _rbMemeEvenement (titre brut + devise + PAYS +
+                 minute) : sans le pays, on peut accrocher l actual d un AUTRE pays a la meme
+                 minute (chomages de la zone euro). Le fallback ne s applique JAMAIS ici :
+                 remplacer la carte pendant qu un chiffre vient de tomber effacerait le seul
+                 moment pour lequel elle existe. */
+              var pub = null;
+              for (var i = 0; i < items.length; i++) {
+                if (items[i] && items[i].actual && _rbMemeEvenement(items[i], ev)) { pub = items[i]; break; }
+              }
+              if (pub) {
+                if (evPrevInitial != null && pub.previous && String(pub.previous) !== String(evPrevInitial)) evRevise = true;
+                var avait = String(ev.actual || '');
+                ev = Object.assign({}, ev, {
+                  actual: pub.actual || ev.actual || '',
+                  forecast: pub.forecast || ev.forecast || '',
+                  previous: pub.previous || ev.previous || '',
+                });
+                if (String(ev.actual || '') !== avait) chronoCle = null;   // le tic re-rend le reel (et fond)
+              }
+              rendreTete(); rendrePied(); tic();
+              return;
+            }
+            var avant = ev;
+            var prochain = choisir(items);
+            if (!prochain) {
+              ev = null; chronoCle = null;
+              fallback(host, 'Aucun événement programmé sur les dix prochains jours.');
+              return;
+            }
+            var change = !avant || !_rbMemeEvenement(prochain, avant);
+            ev = prochain;
+            if (change) {
+              evPrevInitial = ev.previous == null ? '' : String(ev.previous);
+              evRevise = false; chronoCle = null;
+            }
+            rendreTete(); rendrePied(); majVerdict(false); tic();
+            // Passage a l evenement suivant : fondu une-fois sur le chrono et le titre.
+            if (change && avant) { _majFlash(eChr); _majFlash(eTit); }
+          }).catch(function () {
+            /* Une erreur reseau n efface NI un compte a rebours encore exact NI un chiffre qui
+               vient d etre publie : le fallback n intervient que si la carte n a rien a montrer. */
+            if (vivant && host.isConnected && !ev) fallback(host, 'Calendrier indisponible.');
+          });
         }
 
         charger();
@@ -3581,8 +3889,8 @@
     },
 
     {
-      id: 'serie-indicateur', name: 'Série d\'un indicateur',
-      maj: 5 * 60 * 1000, tag: 'MACRO', cat: 'Macro', h: 300,   // une publication peut tomber pendant que la carte est ouverte
+      id: 'serie-indicateur', name: 'Historique d\'un indicateur',
+      tag: 'MACRO', cat: 'Macro', h: 300,
       desc: 'Les dernières publications d\'un indicateur, en barres, avec la surprise contre la prévision.',
       /* ⚠️ LA SOURCE N EST PAS CELLE QU ON CROIT. /api/event-history existe, mais il compare les
          titres BRUTS alors que /api/calendar-events sert des titres RENOMMES : la reponse revient
@@ -3591,7 +3899,12 @@
          redeploye en evenements synthetiques) AVEC le pays — ce que l autre route ne permet pas.
          ⚠️ GARDE D UNITE : les valeurs sont des CHAINES deja formatees ('3.2%', '122K', '-8.0M').
          Si deux suffixes differents cohabitent dans une serie, on ne dessine PAS de barres : une
-         barre qui compare des K a des % est un graphique faux. On liste alors les valeurs. */
+         barre qui compare des K a des % est un graphique faux. On liste alors les valeurs.
+         ⚠️ PLUS DE CHAMP `maj` (refonte 23/08) : _majAuto REMONTAIT toute la carte toutes les
+         5 minutes — squelette rejoue, <select> detruit, focus perdu : l impression d un widget
+         casse. La cadence vit desormais ICI (setInterval interne nettoye au demontage, qui
+         conserve aussi le reessai d un premier chargement en echec — la raison d etre de
+         _majAuto), et le rendu est IDEMPOTENT : rien de neuf, rien de touche. */
       opts: [
         { k: 'devise', lbl: 'Devise', type: 'choix', def: 'USD',
           choix: [['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'],
@@ -3604,23 +3917,15 @@
       ],
       mount: function (host, it) {
         var W = this, vivant = true;
+        var dernierFetch = 0;
+        var prevSig = null;   // signature du dernier rendu : null = rien de fiable a l ecran
         skel(host, 5);
 
-        // Suffixe d unite d une valeur formatee : '122K' -> 'K', '3.2%' -> '%', '-8.0' -> ''.
-        function unite(v) { var m = String(v == null ? '' : v).trim().match(/([KMBT%])\s*$/i); return m ? m[1].toUpperCase() : ''; }
-        // Valeur numerique d une chaine formatee, SANS son suffixe (on ne convertit pas les
-        // echelles entre elles : la garde d unite s en charge en amont).
-        function nombre(v) {
-          var t = String(v == null ? '' : v).replace(/[^0-9.,+-]/g, '').replace(',', '.');
-          var n = parseFloat(t);
-          return isFinite(n) ? n : null;
-        }
-
-        function rendre(serie, titre) {
+        function rendre(serie, titre, suivant) {
           var unites = {};
-          serie.forEach(function (p) { unites[unite(p.actual)] = 1; });
+          serie.forEach(function (p) { unites[_uniteVal(p.actual)] = 1; });
           var melange = Object.keys(unites).length > 1;
-          var vals = serie.map(function (p) { return nombre(p.actual); });
+          var vals = serie.map(function (p) { return _nombreVal(p.actual); });
           var dates = serie.map(function (p) {
             try { return new Date(p.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch (e) { return ''; }
           });
@@ -3647,16 +3952,41 @@
               if (v < vals[i - 1]) return '#ff3d00';
               return 'var(--orange, #e3b23a)';
             });
-            corps = '<div class="wdg-si-zone">' + _barresSvg(vals, { signe: false, zero: false, largeurMax: 46, couleurs: sens }) + '</div>'
+            /* Le PRESENT est marque PAR INDEX via l option `marque` de _barresSvg (vague 3) : le
+               lisere or suit la DERNIERE PUBLICATION meme quand des valeurs non finies trouent la
+               serie — un selecteur CSS rect:last-of-type aurait marque la derniere barre
+               DESSINEE, pas la derniere publication (contre-lecture). Si la derniere valeur ne se
+               lit pas, le helper ne dessine rien a cet index : pas de lisere menteur. */
+            corps = '<div class="wdg-si-zone wdg-maj-txt">' + _barresSvg(vals, { signe: false, zero: false, largeurMax: 46, couleurs: sens, marque: vals.length - 1 }) + '</div>'
               + '<div class="wdg-si-axe">' + dates.map(function (dd, i) {
                 return '<span><i>' + esc(serie[i].actual || '') + '</i><em>' + esc(dd) + '</em></span>';
               }).join('') + '</div>';
           }
+
+          /* Verdict (grammaire commune, EN BAS avant le pied). En mode liste, tendance et extreme
+             compareraient des K a des % : seule la surprise — interne a UNE publication — reste. */
+          var v = _siVerdict(serie, titre, melange);
+
+          // La prochaine publication du MEME indicateur : la carte regarde aussi devant.
+          var nextTxt = '';
+          if (suivant && suivant.timestamp) {
+            try {
+              var dn = new Date(suivant.timestamp);
+              nextTxt = '<span class="wdg-si-next">prochaine : '
+                + esc(dn.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }))
+                + ' ' + esc(dn.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }))
+                + (suivant.forecast ? ', prév. ' + esc(String(suivant.forecast)) : '') + '</span>';
+            } catch (e) {}
+          }
+
           host.innerHTML = '<div class="wdg-si">'
             + '<div class="wdg-si-tete"><span class="wdg-si-titre">' + esc(titre) + '</span></div>'
             + corps
+            + (v ? '<div class="wdg-verdict"><b class="wdg-verdict-txt wdg-maj-txt">' + v.txt + '</b></div>' : '')
             + '<div class="wdg-si-pied">' + esc(etendue)
             + (melange ? '' : ' · vert = en hausse sur la publication précédente, rouge = en baisse')
+            + (nextTxt ? ' · ' + nextTxt : '')
+            + ' ' + _vieSpan(dernierFetch)
             + '</div></div>';
         }
 
@@ -3668,18 +3998,27 @@
             return r.json();
           }).then(function (d) {
             if (!vivant || !host.isConnected) return;
+            dernierFetch = Date.now();
             var items = (d && d.items) || [];
+            var maintenant = Date.now();
+            /* Cle d identite : titre BRUT + PAYS — meme regle que la cle serveur (_calHistKey) et
+               que le compte a rebours. « EUR|unemployment rate » fusionnait les chomages
+               allemand, espagnol, italien et zone euro en UNE serie aux valeurs incomparables
+               (3,4 % allemand contre 12 % espagnol : des « variations » qui n existent pas).
+               Le pays en SUFFIXE OPTIONNEL : les choix memorises avant cette cle (sans pays)
+               restent valides pour tous les indicateurs sans pays. */
+            function cleDe(e) { var c = String((e && e.ctry) || ''); return ((e && (e._tvTitle || e.title)) || '') + (c ? '||' + c : ''); }
             // Publications PASSEES de la devise, qui portent un chiffre.
             var passes = items.filter(function (e) {
-              return e && e.currency === dev && e.actual && String(e.actual).trim() && e.timestamp;
+              return e && e.currency === dev && e.actual && String(e.actual).trim() && e.timestamp && e.timestamp <= maintenant;
             });
-            if (!passes.length) { fallback(host, 'Aucune publication chiffrée pour ' + esc(dev) + '.'); return; }
-            // Regroupement par titre BRUT : c est la cle stable. Le libelle affiche peut avoir ete
-            // renomme, deux titres bruts differents pouvant porter le meme libelle.
+            if (!passes.length) { prevSig = null; fallback(host, 'Aucune publication chiffrée pour ' + dev + '.'); return; }
+            // Regroupement par cle (titre brut + pays) : le libelle affiche peut avoir ete
+            // renomme, deux cles differentes pouvant porter le meme libelle.
             var parTitre = {};
             passes.forEach(function (e) {
-              var brut = e._tvTitle || e.title || '';
-              (parTitre[brut] = parTitre[brut] || { titre: e.title || brut, pts: [] }).pts.push(e);
+              var k = cleDe(e);
+              (parTitre[k] = parTitre[k] || { titre: e.title || e._tvTitle || '', ctry: String(e.ctry || ''), pts: [] }).pts.push(e);
             });
             var titres = Object.keys(parTitre).sort(function (a, b) {
               var la = Math.max.apply(null, parTitre[a].pts.map(function (x) { return x.timestamp; }));
@@ -3689,20 +4028,45 @@
             var brut = (choisi && parTitre[choisi]) ? choisi : titres[0];
             var g = parTitre[brut];
             var serie = g.pts.slice().sort(function (a, b) { return a.timestamp - b.timestamp; });
-            if (serie.length < 2) { fallback(host, 'Une seule publication connue : pas de série à tracer.'); return; }
+            if (serie.length < 2) { prevSig = null; fallback(host, 'Une seule publication connue : pas de série à tracer.'); return; }
             // Sur une carte etroite, treize etiquettes s ecrasent : on garde les N plus RECENTES.
             var nPts = opt(it, W, 'points') || 8;
             if (serie.length > nPts) serie = serie.slice(-nPts);
-            rendre(serie, g.titre);
+            // Prochaine publication du MEME indicateur (meme cle) : premier item futur du payload.
+            var suivant = null;
+            items.forEach(function (e) {
+              if (!e || e.currency !== dev || !e.timestamp || e.timestamp <= maintenant) return;
+              if (cleDe(e) !== brut) return;
+              if (!suivant || e.timestamp < suivant.timestamp) suivant = e;
+            });
+
+            /* IDEMPOTENCE : rien de neuf → on ne touche pas au DOM (c est ce qui preserve le
+               <select> et son focus entre deux cycles) ; seul l horodatage est retimbre a l heure
+               de CE fetch — la fraicheur affichee est celle de la lecture, pas du dernier rendu. */
+            var sig = brut + '::' + serie.map(function (p) { return p.timestamp + '|' + p.actual; }).join(';')
+              + '::' + (suivant ? (suivant.timestamp + '|' + (suivant.forecast || '')) : '');
+            if (sig === prevSig && host.querySelector('.wdg-si')) {
+              var vie = host.querySelector('.wdg-si .wdg-vie');
+              if (vie) { vie.setAttribute('data-ts', String(dernierFetch)); vie.textContent = _vie(dernierFetch); }
+              return;
+            }
+            var etaitRendu = prevSig != null && !!host.querySelector('.wdg-si');
+            prevSig = sig;
+            rendre(serie, g.titre, suivant);
             // Selecteur DANS la carte : la liste depend des donnees, elle ne peut pas vivre dans
-            // les opts statiques du catalogue.
+            // les opts statiques du catalogue. Libelles homonymes (meme indicateur publie par
+            // plusieurs pays de la zone euro) desambiguises par l abreviation FR du pays.
             var tete = host.querySelector('.wdg-si-tete');
             if (tete) {
+              var nbParLibelle = {};
+              titres.forEach(function (t) { var lb = parTitre[t].titre; nbParLibelle[lb] = (nbParLibelle[lb] || 0) + 1; });
               var sel = document.createElement('select');
               sel.className = 'wdg-si-sel';
               titres.slice(0, 40).forEach(function (t) {
                 var o = document.createElement('option');
-                o.value = t; o.textContent = parTitre[t].titre;
+                var g2 = parTitre[t];
+                o.value = t;
+                o.textContent = g2.titre + (nbParLibelle[g2.titre] > 1 && g2.ctry ? ' (' + (_CTRY_ABR[g2.ctry] || g2.ctry) + ')' : '');
                 if (t === brut) o.selected = true;
                 sel.appendChild(o);
               });
@@ -3711,11 +4075,21 @@
               sel.addEventListener('change', function () { _ecrisOpt(host, it, 'indic', sel.value); charger(); });
               tete.appendChild(sel);
             }
-          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Historique indisponible.'); });
+            /* Nouveau point (ou revision) sur une carte deja rendue : fondu une-fois de la
+               grammaire commune — jamais de squelette rejoue, jamais de clignotement. */
+            if (etaitRendu) {
+              _majFlash(host.querySelector('.wdg-si-zone'));
+              _majFlash(host.querySelector('.wdg-verdict-txt'));
+            }
+          }).catch(function () { if (vivant && host.isConnected) { prevSig = null; fallback(host, 'Historique indisponible.'); } });
         }
 
         charger();
-        return function () { vivant = false; };
+        /* Cadence 5 min EN INTERNE (une publication peut tomber pendant que la carte est
+           ouverte), avec la garde de visibilite de _majAuto qu elle remplace : onglet cache =
+           pas d appel. Nettoyee au demontage — condition posee par la contre-lecture. */
+        var iv = setInterval(function () { if (!document.hidden && host.isConnected) charger(); }, 5 * 60 * 1000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
       },
     },
     {
