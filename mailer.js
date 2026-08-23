@@ -1826,24 +1826,15 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   // Accroche ancree sur l'evenement VEDETTE du calendrier (context.featured = ce que le widget affiche en tete)
   // -> le mail vedette le MEME evenement que le calendrier affiche -> jamais de contradiction texte/calendrier.
   const featured = (context && context.featured) || majors[0] || upcoming[0] || null;
-  // LEAD D'ENJEU (refonte 15/07, inspirée des meilleurs mails d'anticipation) : on ouvre sur CE QUI SE JOUE
-  // (le rendez-vous + pourquoi il compte), pas sur une statistique de volume. Le compte des temps forts passe
-  // en 2de phrase. 100% factuel (l'événement vedette est réellement le plus suivi du calendrier de la semaine).
-  // RESTRUCTURE (retour user 23/08 : « restructure ceci ») : fini la phrase-fleuve d'intro. Le
-  // rendez-vous vedette devient un ENCART lisible d'un coup d'œil (nom en blanc, date/heure en or,
-  // pourquoi il compte en dessous), le compte des temps forts passe en note discrète.
-  let lead, rdvHtml = '';
-  if (featured) {
-    const when = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
-    lead = `Un rendez-vous concentre l'attention du marché cette semaine :`;
-    rdvHtml = _encart(
-      `<div style="color:#ffffff;font-weight:800;font-size:15px;letter-spacing:-.01em;">${_esc(featured.title)}</div>`
-      + (when ? `<div style="color:${TOK.or};font-weight:700;font-size:12px;margin-top:3px;">${_esc(when.charAt(0).toUpperCase() + when.slice(1))}</div>` : '')
-      + `<div style="color:#aab2c0;font-size:12.5px;line-height:1.55;margin-top:7px;">L'un des rendez-vous les plus suivis de la semaine : il peut peser sur les anticipations de taux et réveiller la volatilité.</div>`, true)
-      + `<p style="margin:0 0 4px;font-size:12.5px;color:#7b828f;">Le desk suit <strong style="color:#cbd5e1;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier cette semaine.</p>`;
-  } else {
-    lead = `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
-  }
+  // ARCHITECTURE (retour user 23/08 : « restructure mieux ») : une seule ligne narrative :
+  // APPRENDRE (le concept, star du mail et de l'objet 🎓) -> APPLIQUER (le rendez-vous vedette,
+  // ses chiffres et les deux scénarios, réunis en UNE section « Cette semaine, concrètement ») ->
+  // AGENDA (le widget + le compte des temps forts). Avant, le rendez-vous était éclaté en deux
+  // endroits (encart d'ouverture puis application après l'image) avec la pédagogie en sandwich :
+  // le lecteur revisitait le même sujet deux fois.
+  const lead = featured
+    ? `Votre rendez-vous pédagogie du mardi : un concept, sa règle de lecture, et son application concrète sur le calendrier de la semaine.`
+    : `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
 
   // Le concept suit la grammaire commune : la RÈGLE DE LECTURE (contrat PARA3, l'essentiel actionnable)
   // sort du mur de texte et prend l'ENCADRÉ OR, comme l'essentiel des autres templates.
@@ -1862,23 +1853,24 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     ${_cParas.map((p, i) => i === _regleIdx ? '' : `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}
     ${_regleIdx >= 0 ? _goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">La règle de lecture</div><div>${_esc(_regleTxt)}</div>`) : ''}`;
 
-  // Agenda de la semaine = VRAI widget calendrier economique du desk (inline cid a l'envoi). Meme ordre que
-  // l'accroche (evenement vedette en tete) -> coherent. Affiche seulement s'il y a des evenements a venir.
-  const agendaHtml = upcoming.length
-    ? `${_widgetImg('calendar', "L'agenda de la semaine")}<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>`
-    : '';
-
-  // « Cette semaine, concretement » : rattache le concept educatif a l'evenement VEDETTE avec ses VRAIS chiffres
-  // (prevision/precedent du calendrier) -> developpe le contenu, ancre dans le live, zero invention. Remplace
-  // l'ancien bloc « grandes banques » (juge sans valeur ici par l'utilisateur).
+  // « Cette semaine, concrètement » : UNE section qui réunit TOUT le rendez-vous vedette : l'encart
+  // (nom, date/heure or, attentes du marché ou pourquoi il compte), la phrase d'application du
+  // concept, puis les deux scénarios. Chiffres = VRAIES prévision/précédent du calendrier, zéro invention.
   let appliedHtml = '';
   if (featured && featured.title) {
     const fwhen = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
     const fnums = [];
-    if (featured.forecast) fnums.push(`prévision <strong style="color:#cbd5e1;">${_esc(featured.forecast)}</strong>`);
-    if (featured.previous) fnums.push(`précédent <strong style="color:#cbd5e1;">${_esc(featured.previous)}</strong>`);
-    const fnumLine = fnums.length ? ` Le marché attend ${fnums.join(', ')}.` : '';
-    appliedHtml = `<p style="margin:18px 0 12px;"><strong style="color:#f3c344;">Cette semaine, concrètement&nbsp;:</strong> le rendez-vous à surveiller est <strong style="color:#fff;">${_esc(featured.title)}</strong>${fwhen ? ' (' + _esc(fwhen) + ')' : ''}.${fnumLine} C'est exactement la mécanique décrite plus haut, à lire en direct&nbsp;: le marché compare le chiffre aux attentes, pas au niveau brut, et c'est l'écart qui fait bouger le dollar, l'or et les indices.</p>`;
+    if (featured.forecast) fnums.push(`prévision <strong style="color:#e6e6ea;">${_esc(featured.forecast)}</strong>`);
+    if (featured.previous) fnums.push(`précédent <strong style="color:#e6e6ea;">${_esc(featured.previous)}</strong>`);
+    const sousLigne = fnums.length
+      ? `Le marché attend ${fnums.join(', ')}.`
+      : `L'un des rendez-vous les plus suivis de la semaine : il peut peser sur les anticipations de taux et réveiller la volatilité.`;
+    appliedHtml = _secTitle('Cette semaine, concrètement')
+      + _encart(
+        `<div style="color:#ffffff;font-weight:800;font-size:15px;letter-spacing:-.01em;">${_esc(featured.title)}</div>`
+        + (fwhen ? `<div style="color:${TOK.or};font-weight:700;font-size:12px;margin-top:3px;">${_esc(fwhen.charAt(0).toUpperCase() + fwhen.slice(1))}</div>` : '')
+        + `<div style="color:#aab2c0;font-size:12.5px;line-height:1.55;margin-top:7px;">${sousLigne}</div>`, true)
+      + `<p style="margin:0 0 12px;">C'est exactement la mécanique décrite plus haut, à lire en direct&nbsp;: le marché compare le chiffre aux attentes, pas au niveau brut, et c'est l'écart qui fait bouger le dollar, l'or et les indices.</p>`;
     // ── LES DEUX SCÉNARIOS (refonte 15/07) : la mécanique type au-dessus/en-dessous des attentes, appliquée à
     //    L'ÉVÉNEMENT vedette. Polarité par indicateur (chômage/inscriptions : un chiffre plus haut = économie plus
     //    faible → lecture inversée). 100% INFORMATIF : on décrit des mécaniques de marché habituelles (« tend à »,
@@ -1892,12 +1884,20 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
       const _scCard = (arrow, t, txt) => `<div style="border:1px solid #232429;border-left:3px solid rgba(243,195,68,.55);border-radius:6px;padding:12px 14px;margin:0 0 10px;background:#131418;">`
         + `<div style="color:#fff;font-weight:700;font-size:13.5px;margin-bottom:4px;">${arrow} ${t}</div>`
         + `<div style="color:#aab2c0;font-size:13px;line-height:1.55;">${txt}.</div></div>`;
-      appliedHtml += `<div style="margin:16px 0 4px;color:#f3c344;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">Les deux scénarios à connaître</div>`
+      appliedHtml += `<p style="margin:14px 0 8px;color:#cbd5e1;">Les deux scénarios à avoir en tête&nbsp;:</p>`
         + _scCard('▲', 'Si le chiffre sort au-dessus des attentes', `Lecture « surprise haussière »&nbsp;: ${above}`)
         + _scCard('▼', 'S’il sort en-dessous', `Lecture « surprise baissière »&nbsp;: ${below}`)
         + `<p style="margin:6px 0 0;font-size:12.5px;color:#7b828f;">Ce ne sont pas des prédictions&nbsp;: deux mécaniques types à avoir en tête avant la publication, la réaction réelle dépend toujours du contexte, à suivre en direct sur le Desk.</p>`;
     }
   }
+
+  // Agenda de la semaine = VRAI widget calendrier economique du desk (inline cid a l'envoi), en
+  // CLÔTURE du mail, avec le compte des temps forts fusionné dans sa note (fini la note isolée).
+  const agendaHtml = upcoming.length
+    ? _secTitle(`L'agenda de la semaine`)
+      + _widgetImg('calendar', "L'agenda de la semaine")
+      + `<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le desk suit <strong style="color:#cbd5e1;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> cette semaine : chaque publication est reprise, chiffrée et remise en contexte en direct.</p>`
+    : '';
 
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
   const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
@@ -1908,10 +1908,9 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
-    ${rdvHtml}
     ${conceptHtml}
-    ${agendaHtml}
     ${appliedHtml}
+    ${agendaHtml}
     ${evergreen}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
