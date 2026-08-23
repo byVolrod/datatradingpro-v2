@@ -479,11 +479,15 @@ function _shell(title, bodyHtml, footInner, under) {
 
 // ── Gabarit TRANSACTIONNEL (bienvenue, MDP, cycle de vie) — même carte que la campagne,
 //    pied « support + ne pas répondre » (pas de désinscription : ces envois sont contractuels).
-function _layout(title, bodyHtml) {
+//    opts.repondable : SUPPRIME la ligne « ne pas y répondre » quand le corps INVITE à répondre
+//    (réengagement : « réponds simplement à ce mail ») — les deux phrases se contredisaient.
+function _layout(title, bodyHtml, opts) {
   return _shell(title, bodyHtml,
     `DataTradingPro · Terminal de news &amp; d'analyse en temps réel.<br>
           Besoin d'aide&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:${TOK.or};text-decoration:none;">${SUPPORT_EMAIL}</a>`,
-    `Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.`);
+    (opts && opts.repondable)
+      ? `Vous pouvez répondre directement à cet email : nous lisons tout.`
+      : `Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.`);
 }
 
 // Bouton PRINCIPAL — même or plein, mêmes coins et même « bulletproofing » Outlook que la
@@ -543,7 +547,8 @@ function buildWelcome({ to, name, password, expiresAt }) {
     ${creds}
     ${_button('Ouvrir mon desk', APP_URL)}
     <p style="margin:0;font-size:13px;">Bienvenue parmi nous,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'Bienvenue sur DataTradingPro : votre accès est activé', html: _layout('Bienvenue', body) };
+  // repondable si le corps invite à répondre (branche sans mot de passe : « répondez simplement à ce message »)
+  return { subject: 'Bienvenue sur DataTradingPro : votre accès est activé', html: _layout('Bienvenue', body, { repondable: !password }) };
 }
 async function sendWelcome(d) { const m = buildWelcome(d); return _send(d.to, m.subject, m.html); }
 
@@ -632,7 +637,8 @@ function buildWinback({ name, months }) {
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Au plaisir de vous revoir,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   const subj = { 1: 'Un mois sans vous : le desk a continué d\'avancer', 3: 'Ça fait 3 mois : voyez ce que DataTradingPro est devenu', 6: '6 mois après : le terminal n\'est plus le même', 12: 'Un an déjà : DataTradingPro a bien changé' };
-  return { subject: subj[months] || subj[3], html: _layout('Des nouvelles du desk', body) };
+  // repondable : le corps propose « répondez simplement à ce mail » pour ne plus recevoir ces nouvelles
+  return { subject: subj[months] || subj[3], html: _layout('Des nouvelles du desk', body, { repondable: true }) };
 }
 async function sendWinback(d) { const m = buildWinback(d); return _send(d.to, m.subject, m.html); }
 
@@ -819,7 +825,7 @@ function _buildReengagement(name, days) {
     ${_goldBox(`☕ Dix minutes de session de Londres suffisent pour voir ce que le desk t'apporte. Et si quelque chose ne t'a pas plu, <strong style="color:#fff;">réponds simplement à ce mail</strong> : on lit tout.`)}
     ${_button('Revenir sur mon desk', APP_URL)}
     <p style="margin:14px 0 0;font-size:13px;">On se revoit sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: `${prenom}, ton desk DataTradingPro t'attend 👀`, html: _layout('On se revoit ?', body) };
+  return { subject: `${prenom}, ton desk DataTradingPro t'attend 👀`, html: _layout('On se revoit ?', body, { repondable: true }) };
 }
 function buildReengagement({ name, days }) { return _buildReengagement(name, days); }
 async function sendReengagement(d) { const m = _buildReengagement(d.name, d.days); return _send(d.to, m.subject, m.html); }
