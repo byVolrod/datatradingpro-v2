@@ -87,6 +87,13 @@ const TTL = 10 * 60 * 1000;   // 10 min : un mail ouvert plusieurs fois ne relan
 const _cache = new Map();      // key -> { png, ts }
 const _inflight = new Map();   // key -> Promise
 
+// Filtre des paramètres supplémentaires : on n'accepte que des couples `cle=valeur` déjà encodés,
+// dans un alphabet strict. Ils partent dans une URL ET dans une clé de cache : aucune chaîne libre.
+function _extraSain(s) {
+  return String(s || '').split('&')
+    .filter(p => /^[A-Za-z0-9_.~-]{1,24}=[A-Za-z0-9_.%~+-]{0,160}$/.test(p))
+    .slice(0, 4).join('&');
+}
 async function renderWidgetPng(type, opts = {}) {
   const spec = SPECS[type];
   if (!spec) throw new Error('widget inconnu: ' + type);
@@ -97,7 +104,11 @@ async function renderWidgetPng(type, opts = {}) {
   // La devise entre dans la CLÉ DE CACHE : sans cela, les huit devises partageraient une seule image
   // et le mail afficherait huit fois la courbe de la première.
   const ccy = /^[A-Z]{3}$/.test(String(opts.ccy || '').toUpperCase()) ? String(opts.ccy).toUpperCase() : '';
-  const key = type + ':' + period + (ccy ? ':' + ccy : '');
+  // `extra` (24/08) : paramètres supplémentaires venus de l'URL du mail (ex. l'identité de l'événement
+  // vedette du calendrier). Ils entrent dans la CLÉ DE CACHE, sinon deux événements différents
+  // partageraient une seule image, exactement le piège déjà rencontré avec les huit devises ci-dessus.
+  const extra = _extraSain(opts.extra);
+  const key = type + ':' + period + (ccy ? ':' + ccy : '') + (extra ? ':' + extra : '');
 
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.png;
@@ -113,7 +124,7 @@ async function renderWidgetPng(type, opts = {}) {
          interne. Le serveur exige EN PLUS que la connexion vienne de la boucle locale : le jeton seul
          ne suffirait pas s il fuitait. */
       try { await page.setExtraHTTPHeaders({ 'x-dtp-internal': process.env.DTP_INTERNAL_TOKEN || '' }); } catch (e) {}
-      await page.goto(`${BASE}${spec.path}?period=${period}${ccy ? '&ccy=' + ccy : ''}`, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await page.goto(`${BASE}${spec.path}?period=${period}${ccy ? '&ccy=' + ccy : ''}${extra ? '&' + extra : ''}`, { waitUntil: 'domcontentloaded', timeout: 25000 });
       await page.waitForFunction('window.__ready === true', { timeout: 20000 }).catch(() => {});   // chaque page de rendu pose __ready apres le rendu (+ delai d'animation)
       const el = await page.$(spec.sel);
       if (!el) throw new Error('element introuvable: ' + spec.sel);
@@ -159,7 +170,11 @@ async function renderWidgetPngSafe(type, opts = {}) {
   // courbes se partageraient une seule entrée de cache (et un seul « dernier bon » sur disque), et
   // le mail aurait affiché huit fois la même devise.
   const ccy = /^[A-Z]{3}$/.test(String((opts && opts.ccy) || '').toUpperCase()) ? String(opts.ccy).toUpperCase() : '';
-  const key = type + ':' + period + (ccy ? ':' + ccy : ''), wk = _wk(type, period + (ccy ? '_' + ccy : ''));
+  // Même raison pour `extra` : deux événements vedettes différents ne doivent jamais partager une
+  // entrée de cache NI un « dernier bon » sur disque.
+  const extra = _extraSain(opts && opts.extra);
+  const key = type + ':' + period + (ccy ? ':' + ccy : '') + (extra ? ':' + extra : '');
+  const wk = _wk(type, period + (ccy ? '_' + ccy : '') + (extra ? '_' + extra : ''));
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.png;
   const lg = _lastGood.get(wk);

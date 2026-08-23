@@ -11312,7 +11312,7 @@ function _fxrSanitize(p, dayKey, dateLabel) {
     geoKeyPoints: _fxrA(p.geoKeyPoints).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 500)).filter(Boolean).slice(0, 5),
     cb:          _fxrA(p.cb).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 900)).filter(Boolean).slice(0, 6),
     macro:       _fxrA(p.macro).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 900)).filter(Boolean).slice(0, 8),
-    watch:       _fxrA(p.watch).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 500)).filter(Boolean).slice(0, 8),
+    watch:       [],   // RETIRE le 24/08 : les puces paraphrasaient le tableau calendrier juste en dessous
     summary:  _fxrTxt(p.summary, 1500),   // ← LE texte de tête (fil des séances + fait dominant chiffré)
     tags:     _fxrA(p.tags).map(t => _fxrTxt(t, 40)).filter(Boolean).slice(0, 10),
     insights: _fxrA(p.insights).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 400)).filter(Boolean).slice(0, 6),
@@ -11331,7 +11331,7 @@ function _fxrSanitize(p, dayKey, dateLabel) {
     // des banques », sans titre propre. Volontairement COURTS (3 max, 220 car.) : c'est un complément,
     // pas un chapitre.
     comments: _fxrA(p.comments).filter(x => x && (x.author || x.text)).map(x => ({ author: _fxrTxt(x.author, 60), text: _fxrTxt(x.text, 220) })).slice(0, 3),
-    corporate: _fxrA(p.corporate).filter(x => x && (x.name || x.ticker || x.text)).map(x => ({ ticker: _fxrTxt(x.ticker, 10).toUpperCase(), name: _fxrTxt(x.name, 60), text: _fxrTxt(x.text, 900) })).slice(0, 20),
+    corporate: [],   // RETIRE le 24/08 : actualite d entreprise hors sujet sur un terminal macro et forex
     lookahead: _fxrA(p.lookahead).filter(x => x && x.event).map(x => ({ category: _fxrTxt(x.category, 40), event: _fxrTxt(x.event, 170), importance: imp(x.importance) })).slice(0, 16),
   };
 }
@@ -11476,7 +11476,6 @@ Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, au
   "geoKeyPoints": ["<« Point clé à retenir » : la DISTILLATION de la section géopolitique en 3 à 5 lignes : ce que le lecteur doit retenir, avec « → » et la conséquence quand elle est mesurée (« → élargissement notable du risque régional »). JAMAIS une redite mot à mot d'une puce ci-dessus : c'est la synthèse exécutive. [] si geopolitics est vide>"],
   "cb": ["<puce BANQUES CENTRALES & TRÉSOR : l'INSTITUTION ou l'INTERVENANT d'abord (« US Treasury (Bessent) : », « ECB Lagarde (discours) : », « ECB Rehn : »), puis le FAIT (annonce, chiffre, citation), puis « → » l'INTERPRÉTATION (ce que ça signale pour la politique ou le marché), puis « → » la RÉACTION DE MARCHÉ chiffrée quand les données la donnent (« fait fortement reculer les rendements longs, USD s'affaiblit largement »). Décisions, minutes, discours, opérations du Trésor et de liquidité vivent ICI et nulle part ailleurs. 2 à 6 puces ; [] si aucune intervention notable>"],
   "macro": ["<puce macro DÉTAILLÉE : les AUTRES moteurs de séance : données, flux, politique commerciale, budgets. ⚠️ AUCUNE banque centrale ni Trésor ici : ils vivent dans "cb" juste au-dessus, une redite saute aux yeux. Commence par l'ACTEUR ou le SUJET (« Ventes au détail UK : », « Tarifs US : »), déroule la CHAÎNE COMPLÈTE : ce qui a été dit/publié, la source ou le contexte qui lui donne son poids, ce que ça change, puis « → » et la RÉACTION DE MARCHÉ avec son ampleur quand les données la donnent (« JPY +40 pips avant d'en rendre une partie »). Une puce peut enchaîner 2 ou 3 propositions séparées par « ; » : la richesse est ATTENDUE ici, c'est le cœur du rapport. 3 à 6 puces, les développements qui ont VRAIMENT compté>"],
-  "watch": ["<puce « À surveiller » : le rendez-vous À VENIR + « → » + POURQUOI il compte (ce qu'il décide, pour quel pricing, ce qui bascule selon le résultat, le consensus attendu s'il est connu). Ex. « CPI US cette semaine → catalyseur majeur pour le pricing de la réunion Fed de septembre » ; « Décision RBA cette semaine → statu quo attendu à 4,35 %, attention au maintien ou non du langage de hausse ». ⚠️ N'INCLUS PAS QUE DU CALENDRIER : les FILS À SUIVRE comptent autant (un projet de loi en cours, une visite diplomatique reportée, une réunion de banque centrale lointaine devenue décisive, un discours du soir). Ordre CHRONOLOGIQUE. 4 à 6 puces. Jamais une date recopiée sans son enjeu>"],
   "summary": "<SYNTHÈSE D'OUVERTURE, COURTE : 2 phrases MAXIMUM (jamais 3). Phrase 1 = LE fait qui a dominé la journée avec son chiffre et son effet devise. Phrase 2 = ce qu'ont fait les autres devises majeures en une ligne. C'est un résumé de tête, PAS le rapport : le détail vit dans Macro et dans les séances, ne le répète pas ici>",
   "tags": ["<5 à 8 puces de thèmes courtes, ex. 'Accord US-Iran','Prix du pétrole','Réserve fédérale'>"],
   "insights": ["<3 puces prospectives, UNE phrase courte chacune, autonomes>"],
@@ -11487,15 +11486,15 @@ Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, au
     { "name": "Session New York", "code": "USD · CAD", "summary": "<idem, UNE phrase courte : la séance américaine (Fed/BoC, données US-Canada) et son effet sur USD/CAD>" }
   ],
   "comments": [ { "author": "<banque ou maison de recherche citée dans les titres, ex. Goldman Sachs, Pantheon Macroeconomics>", "text": "<UNE phrase COURTE : ce que cette maison dit du marché. Uniquement si un tel avis apparaît RÉELLEMENT dans les titres ; 3 maximum, sinon tableau vide>" } ],
-  "corporate": [ { "ticker": "NVDA", "name": "Nvidia", "text": "<actualité propre à l'entreprise>" } ],
   "lookahead": [ { "category": "Événement banque centrale", "event": "Décision de politique du FOMC", "importance": "High" } ]
 }
 
 Règles :
 - "regions" = EXACTEMENT les 3 SESSIONS « Session Asie », « Session Londres », « Session New York », dans CET ordre (jamais de découpage par pays : le Canada vit dans Session New York, la Suisse et le Royaume-Uni dans Session Londres). ⚠️ SIMPLICITÉ MAXIMALE (demande user 11/08 « clair et facile pour le trader qui lit ») : UNE phrase courte par session, en mots de tous les jours, UN seul fait, le trader doit comprendre la séance en trois secondes. PAS de sous-groupes, PAS de listes : les chiffres publiés s'affichent déjà tout seuls sous chaque session (avec leur heure), et le détail des mécanismes vit dans Macro. Ne répète JAMAIS ici ce qui est déjà dans Macro ou Géopolitique.
 - SECTIONS RETIRÉES (ne les produis PLUS) : « Titres principaux », « Focus banques centrales » et « Données économiques clés ». La posture d'une banque centrale se raconte dans "macro" AVEC son effet devise ; les chiffres publiés sont déjà listés, horodatés, sous chaque session. Deux blocs de moins, zéro information perdue.
-- "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais : l'affichage est traduit). "watch" en est la lecture NARRATIVE (le pourquoi) ; le tableau, lui, porte les dates et les chiffres. ⚠️ COHÉRENCE OBLIGATOIRE : chaque publication citée dans "watch" DOIT figurer dans le bloc ÉVÉNEMENTS À VENIR ci-dessous : le lecteur voit le tableau juste sous tes puces et doit y retrouver ce dont tu parles. Un fil à suivre non calendaire (projet de loi, visite diplomatique, discours) échappe à cette règle : il n'est dans aucun calendrier, dis-le simplement sans prétendre à une date de publication.
-- "corporate" et "comments" : n'inclus que des éléments qui apparaissent réellement dans les titres.
+- "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais : l'affichage est traduit). C'est la SEULE matière de la rubrique « À surveiller » : elle se lit comme le calendrier, avec ses dates et ses chiffres.
+- SECTIONS RETIRÉES (ne les produis PLUS) : "watch" et "corporate". Les puces "watch" paraphrasaient le tableau juste en dessous sans rien y ajouter, et l'actualité d'entreprise n'a pas sa place dans un terminal macro et forex.
+- "comments" : n'inclus que des éléments qui apparaissent réellement dans les titres.
 - DIFFÉRENTIEL DE TAUX : la faiblesse persistante des devises à taux directeur très bas face au reste du G10 (typiquement CHF ~0 % et JPY ~1 %) s'explique d'abord par le PORTAGE (différentiel de taux), quand tu commentes leur sous-performance sans catalyseur du jour, nomme CE mécanisme, pas un vague « sentiment ».
 - ZONE EURO : hiérarchise les données, Allemagne d'abord (l'Ifo = indicateur AVANCÉ de la croissance de la zone), France ensuite, reste de la zone après.
 
@@ -11552,12 +11551,8 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     // retiré du rapport — la section faisait doublon avec les données horodatées de chaque session.)
     if (!fxr.tags      || !fxr.tags.length)      fxr.tags      = _fxrAutoTags(newsItems);
     // « À surveiller » narratif : repli déterministe si l'IA ne l'a pas rempli (le tableau reste la source des dates).
-    if (!fxr.watch || !fxr.watch.length) {
-      fxr.watch = (laRows || []).filter(e => /high/i.test(e.impact || '')).slice(0, 5).map(e => {
-        const j = e.timestamp ? new Date(e.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
-        return `${e.currency ? e.currency + ' : ' : ''}${_fxrTxt(e.title, 90)}${j ? ` (${j})` : ''}`;
-      });
-    }
+    // (Repli déterministe de `watch` RETIRÉ le 24/08 : il recopiait le calendrier en puces, c'est-à-dire
+    //  exactement le doublon que la rubrique « À surveiller » vient de supprimer. Le tableau reste seul.)
     try { fxr.notableCommentsHtml = await _generateNotableComments(dayKey); } catch {}   // section « Commentaires marquants »
 
     // HORODATAGE STABLE = le JOUR COUVERT (jamais l'instant de génération — c'était le bug « il sort à
@@ -18844,21 +18839,114 @@ app.get('/internal/email-widget/bias', async (req, res) => {
 </body></html>`);
 });
 
-// Semaine a Venir (_renderWeekAhead, app.js) — TENTATIVE via app.js (fallback si l'init casse).
+// ── Profil de Risque Hebdo : la courbe DESSINEE EN SVG PUR, cote serveur (widget e-mail UNIQUEMENT) ──
+// POURQUOI ce doublon du desk : sur le desk la courbe est un graphe amCharts (_waBuildChart, app.js:5438)
+// dont la toute premiere ligne utile appelle _dtpAncreGraphe(), une globale qui vit dans /js/charts.js.
+// Cette page e-mail ne charge PAS charts.js : l appel jetait donc une ReferenceError, immediatement avalee
+// par le try/catch silencieux d app.js (« le graphique est un bonus »). Resultat mesure EN PRODUCTION sur
+// /api/email-widget/week-ahead.png : les cartes par jour sortaient bien, mais la boite « PROFIL DE RISQUE
+// HEBDO » etait TOTALEMENT VIDE, sans le moindre signal (emailWidget.js ne lit jamais window.__err).
+// Plutot que d ajouter une dependance de plus, on applique la doctrine e-mail du projet (celle de la page
+// de maintenance) : un e-mail doit etre AUTONOME. Zero script externe, zero CDN, zero animation, zero
+// dependance de timing. La courbe est donc calculee ici en JS pur et injectee en SVG inline : deterministe,
+// elle ne peut plus sortir vide, meme CDN injoignable.
+// CE QUI EST REPRODUIT DU DESK, A LA LETTRE : ligne lissee doree #e3b23a epaisseur 2 ; aire sous la courbe
+// en degrade VERTICAL #e3b23a a 32 % vers #0c0c0e a 0 % ; axe Y masque avec la MEME plage (span =
+// max(1, max - min), min = max(0, min - span*0,14), max = max + span*0,30) ; marges 4 / 4 / 16 haut / 0 bas
+// (le 16 du haut est la place des valeurs ecrites au-dessus des points) ; jours FR abreges 11px graisse 600
+// en #aab3bf ; un point par jour, le PIC de la semaine plein r=4 et les autres creux r=2,5 ; la valeur de
+// chaque jour 6 px au-dessus de son point (10px, 700 + or pour le pic, 600 + #a7aeb9 sinon).
+// LISSAGE : spline cubique MONOTONE (Fritsch-Carlson) convertie en Bezier. Elle passe EXACTEMENT par chaque
+// point et, contrairement a un Catmull-Rom brut, ses tangentes bornees interdisent tout depassement absurde
+// au-dessus du max ou sous le min (piege classique des splines sur une sparkline de 40 px de haut).
+function _waCourbeRisqueSvg(days, largeur, hauteur) {
+  const W = Number(largeur) > 0 ? Number(largeur) : 574;   // .wa-chart = 640 - 2*20 (.wa-wrap) - 2*12 - 2*1 (.wa-chartbox)
+  const H = Number(hauteur) > 0 ? Number(hauteur) : 74;    // .wa-chart { height: 74px } (la page e-mail n a pas la classe .wa3)
+  const DOW_FR = { Mon: 'LUN', Tue: 'MAR', Wed: 'MER', Thu: 'JEU', Fri: 'VEN', Sat: 'SAM', Sun: 'DIM' };
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const a2  = v => Math.round(v * 100) / 100;              // 2 decimales : chemin lisible, zero flottant a rallonge
+  // PIEGE Number(null) === 0 : un risk absent n est PAS un zero, c est le repli 50 du desk (app.js:5466).
+  const pts = (Array.isArray(days) ? days : []).map(d => {
+    const k = String((d && d.dow) || '').slice(0, 3);
+    return { jour: DOW_FR[k] || k.toUpperCase(), risk: (d && typeof d.risk === 'number' && isFinite(d.risk)) ? d.risk : 50 };
+  });
+  if (!pts.length) return '';   // aucun jour : on ne rend RIEN plutot qu un SVG bancal (la boite reste sobre)
+  // Geometrie : memes marges que le desk + une bande basse pour les libelles de jours (l equivalent de l axe X amCharts).
+  const padL = 4, padR = 4, padT = 16, padB = 0, hAxe = 18;
+  const xG = padL, xD = W - padR, yHaut = padT, yBas = H - padB - hAxe;
+  const largeurPlot = Math.max(1, xD - xG), hauteurPlot = Math.max(1, yBas - yHaut);
+  const maxR = pts.reduce((m, p) => Math.max(m, p.risk), pts[0].risk);
+  const minR = pts.reduce((m, p) => Math.min(m, p.risk), pts[0].risk);
+  const span = Math.max(1, maxR - minR);                    // le max(1,…) tient la ligne plate quand tous les jours sont egaux
+  const yMin = Math.max(0, minR - span * 0.14), yMax = maxR + span * 0.30;
+  const etendue = Math.max(0.0001, yMax - yMin);
+  const cell = largeurPlot / pts.length;                    // CategoryAxis amCharts : un point au CENTRE de sa cellule
+  const px = i => xG + (i + 0.5) * cell;
+  const py = v => yBas - ((v - yMin) / etendue) * hauteurPlot;
+  // Spline monotone : tangentes m[i] bornees facon Fritsch-Carlson, puis conversion Hermite -> Bezier cubique.
+  let dLigne = '';
+  if (pts.length > 1) {
+    const X = pts.map((p, i) => px(i)), Y = pts.map(p => py(p.risk)), n = pts.length, dlt = [], m = [];
+    for (let i = 0; i < n - 1; i++) dlt.push((Y[i + 1] - Y[i]) / (X[i + 1] - X[i]));
+    m[0] = dlt[0]; m[n - 1] = dlt[n - 2];
+    for (let i = 1; i < n - 1; i++) m[i] = (dlt[i - 1] + dlt[i]) / 2;
+    for (let i = 0; i < n - 1; i++) {
+      if (dlt[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }   // palier : tangente nulle des deux cotes, sinon la courbe bombe
+      const a = m[i] / dlt[i], b = m[i + 1] / dlt[i];
+      if (a < 0) m[i] = 0;
+      if (b < 0) m[i + 1] = 0;
+      const s = a * a + b * b;
+      if (s > 9) { const t = 3 / Math.sqrt(s); m[i] = t * a * dlt[i]; m[i + 1] = t * b * dlt[i]; }   // cercle de Fritsch-Carlson : rayon 3 = zero depassement
+    }
+    dLigne = 'M' + a2(X[0]) + ' ' + a2(Y[0]);
+    for (let i = 0; i < n - 1; i++) {
+      const h = (X[i + 1] - X[i]) / 3;
+      dLigne += ' C' + a2(X[i] + h) + ' ' + a2(Y[i] + m[i] * h) + ' ' + a2(X[i + 1] - h) + ' ' + a2(Y[i + 1] - m[i + 1] * h) + ' ' + a2(X[i + 1]) + ' ' + a2(Y[i + 1]);
+    }
+  }
+  // Aire : le chemin de la ligne referme sur la base du plot. Un seul jour = pas d aire (une bande de 0 px de large).
+  const dAire = dLigne ? dLigne + ' L' + a2(px(pts.length - 1)) + ' ' + a2(yBas) + ' L' + a2(px(0)) + ' ' + a2(yBas) + ' Z' : '';
+  let sPts = '', sVal = '', sJours = '';
+  pts.forEach((p, i) => {
+    const x = px(i), y = py(p.risk), pic = p.risk === maxR;
+    sPts   += `<circle cx="${a2(x)}" cy="${a2(y)}" r="${pic ? 4 : 2.5}" fill="${pic ? '#e3b23a' : '#0c0c0e'}" stroke="#e3b23a" stroke-width="${pic ? 2 : 1.5}"/>`;
+    // dy -6 du desk + la descendante de la police : la BASE du texte tombe donc a 8 px au-dessus du point.
+    sVal   += `<text x="${a2(x)}" y="${a2(y - 8)}" text-anchor="middle" font-size="10" font-weight="${pic ? '700' : '600'}" fill="${pic ? '#e3b23a' : '#a7aeb9'}">${esc(Math.round(p.risk))}</text>`;
+    sJours += `<text x="${a2(x)}" y="${a2(yBas + 12)}" text-anchor="middle" font-size="11" font-weight="600" fill="#aab3bf">${esc(p.jour)}</text>`;
+  });
+  return `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Profil de risque de la semaine"`
+    + ` font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif">`
+    + `<defs><linearGradient id="waRisqueDeg" x1="0" y1="0" x2="0" y2="1">`
+    + `<stop offset="0" stop-color="#e3b23a" stop-opacity="0.32"/><stop offset="1" stop-color="#0c0c0e" stop-opacity="0"/></linearGradient></defs>`
+    + (dAire  ? `<path d="${dAire}" fill="url(#waRisqueDeg)" stroke="none"/>` : '')
+    + (dLigne ? `<path d="${dLigne}" fill="none" stroke="#e3b23a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : '')
+    + sPts + sVal + sJours + `</svg>`;
+}
+
+// Semaine a Venir (_renderWeekAhead, app.js) : TENTATIVE via app.js (fallback si l'init casse).
 app.get('/internal/email-widget/week-ahead', async (req, res) => {
   const src = (typeof _weekAhead !== 'undefined' && _weekAhead) ? _weekAhead : { week: '', days: [] };
   // On ne garde que les jours AVEC un evenement (sinon des cartes vides gonflent la hauteur du widget).
   const days = (src.days || []).filter(d => String((d && (d.headline || d.title || d.summary || d.description)) || '').trim());
   const data = { week: src.week || '', days };
+  // La courbe du profil de risque est rendue ICI, en SVG serveur (voir _waCourbeRisqueSvg juste au-dessus).
+  // Les 2 modules amCharts du CDN ont donc ete RETIRES de cette page : ils ne servaient plus qu a faire
+  // entrer _waBuildChart dans un chemin qui echouait de toute facon (charts.js absent). Sans eux, la garde
+  // d entree d app.js:5440 (typeof am5 === 'undefined') sort proprement, la page ne depend plus d aucun
+  // fichier distant, et le parseur n est plus bloque par deux scripts non differes.
+  const svgRisque = _waCourbeRisqueSvg(days, 574, 74);
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css">
-<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
-<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
 <script src="/js/app.js" defer></script>
 <style>html,body{margin:0;padding:0;background:#0c0e13}#wa-content{width:640px;height:auto;box-sizing:border-box}.wa-wrap{height:auto!important;min-height:0!important;padding-bottom:16px!important}.wa-timeline{height:auto!important;max-height:none!important;min-height:0!important;overflow:visible!important;flex:none!important}#wa-content *{opacity:1!important;visibility:visible!important}#wa-content .wa-tl-item,#wa-content .wa-card,#wa-content .wa-day{transform:none!important;animation:none!important;transition:none!important}</style>
 </head><body><div id="wa-content"></div>
-<script>window._waData=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var n=0;function go(){n++;try{if(typeof _renderWeekAhead!=='function'){if(n<80)return setTimeout(go,150);window.__ready=true;return;}_renderWeekAhead(window._waData);setTimeout(function(){try{document.querySelectorAll('#wa-content .wa-card,#wa-content .wa-tl-item,#wa-content .wa-day').forEach(function(el){el.style.opacity='1';el.style.transform='none';el.style.transition='none';el.style.animation='none';});}catch(e){}window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}setTimeout(go,400);})();</script>
+<script>window._waData=${JSON.stringify(data).replace(/</g, '\\u003c')};window._waSvg=${JSON.stringify(svgRisque).replace(/</g, '\\u003c')};(function(){var n=0;
+/* PIEGE : la boite .wa-chartbox et son #wa-risk-chart sont ecrits par _renderWeekAhead (host.innerHTML,
+   app.js:5266) - tout SVG pose AVANT serait ecrase. On l injecte donc APRES l appel, puis une seconde fois
+   a la fin (le desk construit sa courbe dans un requestAnimationFrame differe : la derniere pose gagne). */
+function pose(){try{var b=document.getElementById('wa-risk-chart');if(!b||!window._waSvg)return;b.innerHTML=window._waSvg;var bx=b.parentNode;if(bx&&bx.querySelectorAll)Array.prototype.forEach.call(bx.querySelectorAll('.chart-skel'),function(s){try{s.remove();}catch(e){}});}catch(e){}}
+function go(){n++;try{if(typeof _renderWeekAhead!=='function'){if(n<80)return setTimeout(go,150);window.__ready=true;return;}_renderWeekAhead(window._waData);pose();setTimeout(function(){try{document.querySelectorAll('#wa-content .wa-card,#wa-content .wa-tl-item,#wa-content .wa-day').forEach(function(el){el.style.opacity='1';el.style.transform='none';el.style.transition='none';el.style.animation='none';});}catch(e){}pose();window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}setTimeout(go,400);})();</script>
 </body></html>`);
 });
 
@@ -19099,6 +19187,10 @@ function _calMailActual(actual, forecast, low, title) {
 }
 app.get('/internal/email-widget/calendar', async (req, res) => {
   const weekMode = String((req.query && req.query.period) || '').toLowerCase() === 'thisweek';   // ?period=thisweek (Point marché) : LA SEMAINE EN COURS ; défaut/'week' : prospectif (Décryptage)
+  // ?period=vedette (24/08, « Comprendre le marché ») : UNE SEULE ligne, le rendez-vous dont parle la
+  // leçon. Ce mail ne porte plus qu'une image et elle doit montrer CET événement : le texte autour,
+  // les deux mécaniques comprises, est bâti dessus, une image décalée le contredirait.
+  const vedetteMode = String((req.query && req.query.period) || '').toLowerCase() === 'vedette';
   let items = [];
   try { items = await _buildTVCalendar(); } catch (e) {}
   if (!Array.isArray(items) || !items.length) { try { items = (_tvCalCache && _tvCalCache.items) || []; } catch (e) {} }
@@ -19133,7 +19225,29 @@ app.get('/internal/email-widget/calendar', async (req, res) => {
     const cpiHead = up.filter(e => RX_CPI.test(e.title || '')).slice(0, 1);
     const rest    = up.filter(e => !RX_CPI.test(e.title || '') && ['high', 'medium'].includes(String(e.impact || '').toLowerCase()));
     const ordered = [...cpiHead, ...rest.filter(_withFc), ...rest.filter(e => !_withFc(e))];
-    rows    = ordered.slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    if (vedetteMode) {
+      // 1) L'événement EXACT annoncé par le mail (titre + horodatage transmis dans l'URL). C'est la
+      //    voie normale : elle épingle l'image, même si un rendez-vous passe entre la rédaction du
+      //    mail et le rendu de l'image.
+      const qEv = String((req.query && req.query.ev) || '').trim().toLowerCase();
+      const qTs = Number((req.query && req.query.ts) || 0);
+      const sem = up.filter(e => (e.timestamp || 0) <= now + 7 * 86400000 && ['high', 'medium'].includes(String(e.impact || '').toLowerCase()));
+      const memeTitre = e => String(e.title || '').trim().toLowerCase() === qEv;
+      let cible = null;
+      if (qEv) cible = sem.find(e => memeTitre(e) && (!qTs || Math.abs((e.timestamp || 0) - qTs) < 12e5)) || sem.find(memeTitre) || null;
+      if (!cible && qTs) cible = sem.find(e => Math.abs((e.timestamp || 0) - qTs) < 12e5) || null;
+      // 2) Repli : EXACTEMENT le choix de `_deskContext` (classement par famille puis `_calFeatured`,
+      //    inflation d'abord). Reclasser est indispensable : les événements bruts du calendrier n'ont
+      //    pas de champ `family`, et sans lui `_calFeatured` retomberait sur le premier « High » venu.
+      if (!cible) {
+        const classe = sem.map(e => { const f = _calClassify(e.title); return Object.assign({}, e, { family: f && f.family }); });
+        const v = _calFeatured(classe);
+        cible = v ? (sem.find(e => e.title === v.title && e.timestamp === v.timestamp) || v) : null;
+      }
+      rows = cible ? [cible] : ordered.slice(0, 1);
+    } else {
+      rows  = ordered.slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    }
   }
   try { _calApplyRanges(rows); } catch (e) {}   // remplit HIGH/LOW (fourchette de prevision) comme le desk
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -20535,19 +20649,23 @@ function _freshDaily() {
         // denses avec le driver chiffré), pas seulement son accroche.
         const regs = (Array.isArray(fx.regions) ? fx.regions : []).filter(r => r && r.name && r.summary).slice(0, 4).map(r => r.name + ' : ' + _dense(r.summary, 560));
         if (regs.length) secs.push({ title: 'Analyse par session', kind: 'bullets', items: regs });
-        // « À surveiller » — MÊME NOM que dans le rapport (le mail disait « À suivre »). Deux
-        // matières, dans l'ordre du desk : d'abord la lecture NARRATIVE (`watch` : le catalyseur ET
-        // pourquoi il compte), puis les échéances datées du calendrier. L'intitulé SEUL (« FDI (YTD)
-        // YoY ») ne dit rien à un lecteur de mail : on porte la date FR (Paris), la devise et le
-        // consensus attendu, pour qu'il sache QUAND, sur QUELLE devise et CE QUI est attendu.
+        // « À surveiller » = LE CALENDRIER, déroulé (demande user 24/08, même règle que le rapport :
+        // les puces narratives `watch` paraphrasaient les lignes du calendrier sans rien ajouter).
+        // L'intitulé SEUL (« FDI (YTD) YoY ») ne dit rien à un lecteur de mail : on porte la date FR
+        // (Paris), la devise et le consensus attendu, pour qu'il sache QUAND, sur QUELLE devise et
+        // CE QUI est attendu. Fort impact d'abord, puis retour à l'ordre chronologique : une seule
+        // journée américaine chargée ne doit pas consommer toutes les places (piège FXR v18).
         const _laDay = ts => { try { return new Date(ts).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' }); } catch { return ''; } };
-        const watch = (Array.isArray(fx.watch) ? fx.watch : []).filter(Boolean).slice(0, 4).map(t => _dense(t, 480));
-        const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).filter(x => x && x.event).slice(0, 6).map(x => {
-          const when = x.ts ? _laDay(x.ts) : '';
-          const vals = [x.forecast ? 'prév. ' + x.forecast : '', x.previous ? 'préc. ' + x.previous : ''].filter(Boolean).join(', ');
-          return [when, x.ccy || '', x.event].filter(Boolean).join(' · ') + (vals ? ' - ' + vals : '') + (/high/i.test(x.importance || '') ? ' (impact élevé)' : '');
-        });
-        const surv = watch.concat(la).slice(0, 8);
+        const _laBruts = (Array.isArray(fx.lookahead) ? fx.lookahead : []).filter(x => x && x.event);
+        const _laFort = _laBruts.filter(x => /high/i.test(x.importance || ''));
+        const _laReste = _laBruts.filter(x => !/high/i.test(x.importance || ''));
+        const surv = [..._laFort, ..._laReste].slice(0, 8)
+          .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+          .map(x => {
+            const when = x.ts ? _laDay(x.ts) : '';
+            const vals = [x.forecast ? 'prév. ' + x.forecast : '', x.previous ? 'préc. ' + x.previous : ''].filter(Boolean).join(', ');
+            return [when, x.ccy || '', x.event].filter(Boolean).join(' · ') + (vals ? ' - ' + vals : '') + (/high/i.test(x.importance || '') ? ' (impact élevé)' : '');
+          });
         if (surv.length) secs.push({ title: 'À surveiller', kind: 'bullets', items: surv });
         // NOM DU RAPPORT EN FRANÇAIS (demande user 11/08 : « Daily Recap doit avoir le même nom,
         // Récap Quotidien »). Le desk applique cette table de préfixes à l'affichage ; le mail

@@ -511,17 +511,14 @@ function _credBox(rows) {
   return _encart(`<table role="presentation" cellpadding="0" cellspacing="0" width="100%">${items}</table>`);
 }
 
-// Encart "Note importante" : astuce anti-spam. RÈGLE (retour user 23/08 : « ne pas gonfler le
-// mail ») : cet encadré ne se pose QUE dans les mails qui n'ont AUCUN autre encadré (or, encart,
-// identifiants, note de retard). Un mail = un encadré maximum ; expired/trialUpsell le gardent
-// seulement quand leur note de retard (conditionnelle) ne s'affiche pas.
+// Astuce anti-spam. RÈGLE (retour user 24/08 : « uniquement pour les templates qu'il faut, ça prend
+// beaucoup de place ») : elle ne sert qu'au PREMIER contact, le seul moment où le lecteur peut mettre
+// l'expéditeur en contacts avant de rater la suite. Elle vit donc dans le SEUL mail de bienvenue, et
+// sous forme d'UNE LIGNE discrète : l'encadré or de six lignes qu'elle occupait dans onze templates
+// mangeait autant de place que le message lui-même.
 function _spamNote() {
   const sender = _esc(_parseFrom().email);
-  return _goldBox(`<strong style="color:${TOK.or};">📌 Pour ne plus rater nos emails</strong>
-      <ul style="margin:7px 0 0;padding-left:18px;color:#e6e6ea;">
-        <li>Ajoutez <strong style="color:${TOK.blanc};">${sender}</strong> à vos <strong>contacts</strong>.</li>
-        <li>S'il arrive dans vos spams, cliquez sur <strong>« Non spam »</strong>.</li>
-      </ul>`);
+  return `<p style="margin:0 0 12px;font-size:12.5px;color:${TOK.grisPied};">Pour ne rater aucun message, ajoutez <strong style="color:#9aa3b2;">${sender}</strong> à vos contacts.</p>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -546,6 +543,7 @@ function buildWelcome({ to, name, password, expiresAt }) {
     <p style="margin:0 0 6px;color:#9aa3b2;font-size:13px;">Vos identifiants de connexion :</p>
     ${creds}
     ${_button('Ouvrir mon desk', APP_URL)}
+    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bienvenue parmi nous,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   // repondable si le corps invite à répondre (branche sans mot de passe : « répondez simplement à ce message »)
   return { subject: 'Bienvenue sur DataTradingPro : votre accès est activé', html: _layout('Bienvenue', body, { repondable: !password }) };
@@ -561,7 +559,6 @@ function buildRenewalFailed({ name }) {
     <p style="margin:0 0 14px;">Le renouvellement de votre abonnement <strong style="color:#fff;">DataTradingPro</strong> n'a pas pu aboutir, et votre accès est pour l'instant <strong style="color:${TOK.rouge};">suspendu</strong>. Votre desk, lui, reste en place : dispositions, journal, réglages, rien n'a bougé.</p>
     <p style="margin:0 0 14px;">Un clic suffit pour reprendre le fil des marchés :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Nous restons à votre disposition,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : échec du renouvellement de votre abonnement', html: _layout('Renouvellement', body) };
 }
@@ -579,7 +576,6 @@ function buildExpired({ name, expiresAt }) {
     ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Votre desk vous attend, intact : news, calendrier économique, force des devises, analyses institutionnelles. Un clic et vous reprenez le fil :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
-    ${d.tardif ? '' : _spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre abonnement a expiré', html: _layout('Abonnement expiré', body) };
 }
@@ -598,7 +594,6 @@ function buildExpiredFollowup({ name, expiresAt }) {
     <p style="margin:0 0 14px;">Si c'est un oubli, tout se réactive en un clic : votre compte, vos réglages et votre journal sont intacts :</p>
     ${_button('Réactiver mon accès', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Si vous avez choisi d'arrêter, aucun souci : ce message est notre dernier rappel automatique.</p>
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">À bientôt peut-être,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre accès est toujours suspendu', html: _layout('Toujours suspendu', body) };
 }
@@ -634,7 +629,6 @@ function buildWinback({ name, months }) {
     <p style="margin:0 0 14px;">Votre desk existe toujours : réglages, dispositions et journal compris. Un clic et vous retrouvez tout :</p>
     ${_button('Retrouver mon desk', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Sans engagement, résiliable à tout moment. Et si vous préférez ne plus recevoir ces nouvelles, répondez simplement à ce mail.</p>
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Au plaisir de vous revoir,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   const subj = { 1: 'Un mois sans vous : le desk a continué d\'avancer', 3: 'Ça fait 3 mois : voyez ce que DataTradingPro est devenu', 6: '6 mois après : le terminal n\'est plus le même', 12: 'Un an déjà : DataTradingPro a bien changé' };
   // repondable : le corps propose « répondez simplement à ce mail » pour ne plus recevoir ces nouvelles
@@ -681,7 +675,6 @@ function buildForgotNoSub({ name }) {
     <p style="margin:0 0 14px;">Vous venez de demander la réinitialisation de votre mot de passe DataTradingPro. Or votre <strong style="color:#fff;">abonnement n'est pas actif</strong> : votre accès au terminal est actuellement <strong style="color:${TOK.rouge};">suspendu</strong>.</p>
     <p style="margin:0 0 14px;">Pour des raisons de sécurité, nous ne réinitialisons le mot de passe que pour les comptes disposant d'un <strong style="color:#fff;">abonnement actif</strong>. Dès que le vôtre sera réactivé, vous pourrez de nouveau vous connecter (et réinitialiser votre mot de passe si besoin).</p>
     ${_button('Réactiver mon abonnement', WHOP_RENEW_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : réinitialisation impossible : abonnement inactif', html: _layout('Abonnement inactif', body) };
 }
@@ -697,7 +690,6 @@ function buildReactivated({ name, expiresAt }) {
     <p style="margin:0 0 14px;">Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> est de nouveau <strong style="color:${TOK.vert};">actif</strong>, et tout est resté en place : vos dispositions, votre journal, vos réglages. Vous reprenez exactement là où vous vous étiez arrêté.${end ? ` Votre accès court jusqu'au <strong style="color:#fff;">${end}</strong>.` : ''}</p>
     <p style="margin:0 0 14px;">Le desk a continué de travailler pendant votre absence : chaque publication porte désormais sa lecture banque centrale, et chaque widget de Mon Desk affiche son verdict.</p>
     ${_button('Retrouver mon desk', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Heureux de vous retrouver,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre accès est réactivé', html: _layout('Réactivation', body) };
 }
@@ -712,7 +704,6 @@ function buildRenewed({ name, expiresAt }) {
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> a bien été <strong style="color:${TOK.vert};">renouvelé</strong>${end ? ` jusqu'au <strong style="color:#fff;">${end}</strong>` : ''}. Rien ne bouge de votre côté : vos dispositions, votre journal et vos réglages restent en place, et votre desk continue de travailler pour vous, séance après séance.</p>
     ${_button('Ouvrir mon desk', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Au plaisir de vous accompagner,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre abonnement est renouvelé', html: _layout('Renouvellement', body) };
 }
@@ -728,7 +719,6 @@ function buildGestureMonth({ name, expiresAt }) {
     <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous ajoutons <strong style="color:${TOK.vert};">1 mois supplémentaire</strong> à votre abonnement DataTradingPro. C'est notre façon de prendre soin de ceux qui nous font confiance.</p>
     ${end ? `<p style="margin:0 0 14px;">Votre accès est désormais valable jusqu'au <strong style="color:#fff;">${end}</strong>.</p>` : ''}
     ${_button('Ouvrir mon desk', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Merci de votre confiance,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : 1 mois offert pour la maintenance 🎁', html: _layout('Geste commercial', body) };
 }
@@ -748,7 +738,6 @@ function buildLaunchLive({ name } = {}) {
     </table>
     <p style="margin:0 0 14px;">Vos <strong style="color:#fff;">identifiants restent les mêmes</strong> : connectez-vous, tout se charge en temps réel.</p>
     ${_button('Accéder à mon terminal →', APP_URL)}
-    ${_spamNote()}
     <p style="margin:14px 0 0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro est de nouveau en ligne, nouvelle interface 🚀', html: _layout('De nouveau en ligne', body) };
 }
@@ -790,7 +779,6 @@ function buildTrialUpsell({ name, expiresAt }) {
     </table>
     ${_button('Activer mon abonnement mensuel', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Abonnement mensuel sans engagement : votre accès est réactivé immédiatement après l'inscription.</p>
-    ${d.tardif ? '' : _spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Votre essai DataTradingPro est terminé : réactivez votre accès', html: _layout('Fin d\'essai', body) };
 }
@@ -945,14 +933,20 @@ function _cutTxt(s, n) {
   const sp = t.lastIndexOf(' ');
   return (sp > 0 ? t.slice(0, sp) : t).replace(/[\s,;:]+$/, '') + '…';
 }
-function _widgetImg(type, eyebrow, maxW, period, ccy) {
+function _widgetImg(type, eyebrow, maxW, period, ccy, opts) {
   maxW = maxW || 532;
   const lbl = _esc(eyebrow || '');
   const per = period ? `&period=${encodeURIComponent(period)}` : '';
   // `ccy` (15/08) : la courbe d'UNE devise, comme sous chaque bloc devise du Récap Hebdo du desk.
   const cc = /^[A-Za-z]{3}$/.test(String(ccy || '')) ? `&ccy=${String(ccy).toUpperCase()}` : '';
-  const alt = ccy ? `Force du ${String(ccy).toUpperCase()} DataTradingPro` : `${lbl} DataTradingPro`;
-  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}${per}${cc}" width="${maxW}" alt="${alt}" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
+  // `opts.params` (24/08) : paramètres supplémentaires déjà encodés (ex. l'identité de l'événement
+  // vedette, pour que l'image montre EXACTEMENT celui dont parle le texte autour).
+  // `opts.alt` : quand l'image PORTE l'information, son texte de remplacement doit la porter aussi.
+  // Beaucoup de messageries bloquent les images par défaut : sans alt parlant, l'info disparaît.
+  const sup = (opts && opts.params) ? String(opts.params) : '';
+  const alt = (opts && opts.alt) ? _esc(opts.alt)
+    : (ccy ? `Force du ${String(ccy).toUpperCase()} DataTradingPro` : `${lbl} DataTradingPro`);
+  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}${per}${cc}${sup}" width="${maxW}" alt="${alt}" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
 }
 // AGENDA en HTML (table facon calendrier du desk) construit a partir des MEMES evenements que le texte du mail
 // (context.upcoming) -> COHERENCE garantie : l'evenement annonce dans l'accroche figure toujours dans l'agenda.
@@ -1022,9 +1016,20 @@ async function _sendWithInlineWidgets(to, subject, html, types) {
         // GARDE-FOU « 0 piece jointe orpheline » : on n'attache un widget QUE s'il est REFERENCE dans le HTML.
         // Sinon le PNG etait attache sans cid correspondant → Gmail l'affichait comme « Une piece jointe ».
         const re = new RegExp('https?:\\/\\/[^"]*\\/api\\/email-widget\\/' + wt.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\.png[^"]*', 'g');
-        if (!re.test(html)) continue;   // widget non reference → NE PAS l'attacher
+        const trouve = html.match(re);
+        if (!trouve || !trouve.length) continue;   // widget non reference → NE PAS l'attacher
         re.lastIndex = 0;
-        const png = await ew.renderWidgetPngSafe(wt, period ? { period } : {});
+        // Les paramètres SUPPLÉMENTAIRES posés dans l'URL du HTML (ex. l'identité de l'événement
+        // vedette) doivent suivre jusqu'au rendu, sinon l'image embarquée montrerait autre chose que
+        // ce que le texte annonce. On retire `t` (anti-cache navigateur) et `period` (déjà passé à
+        // part) : les garder ferait exploser la clé de cache et re-rendrait une image par envoi.
+        let extra = '';
+        try {
+          const q = String(trouve[0]).split('?')[1] || '';
+          extra = q.split('&').filter(p => p && !/^t=/.test(p) && !/^period=/.test(p))
+            .filter(p => /^[A-Za-z0-9_.%~-]+=[A-Za-z0-9_.%~+-]*$/.test(p)).join('&');
+        } catch (e) { extra = ''; }
+        const png = await ew.renderWidgetPngSafe(wt, Object.assign({}, period ? { period } : {}, extra ? { extra } : {}));
         if (png && png.length > 2000) {    // > placeholder 1x1 → vraie image
           const cid = wt + (period ? '-' + period : '') + '@datatradingpro';
           att.push({ filename: wt + (period ? '-' + period : '') + '.png', content: png, cid, contentType: 'image/png' });
@@ -1199,8 +1204,7 @@ function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
       'apercu-widgets-outils.png', 'Aper&ccedil;u du widget Notes : bloc-notes synchronis&eacute; entre appareils')}
 
     ${_secTitle('Ce qu&rsquo;ils n&rsquo;affichent pas')}
-    <p style="margin:0 0 8px;">Chaque widget a &eacute;t&eacute; construit sur une r&egrave;gle simple&nbsp;: ne jamais montrer une donn&eacute;e que la source ne fournit pas. Quand une information manque, la carte le dit au lieu de combler le vide. Quand une moyenne porte sur quatre ann&eacute;es et non cinq, elle l&rsquo;&eacute;crit. Quand une s&eacute;ance n&rsquo;est pas termin&eacute;e, les cartes qui mesurent une amplitude ou une variation l&rsquo;excluent du calcul, et le disent.</p>
-    <p style="margin:0 0 18px;">Trois widgets envisag&eacute;s ont d&rsquo;ailleurs &eacute;t&eacute; abandonn&eacute;s pour cette raison&nbsp;: la donn&eacute;e n&rsquo;existait pas, ou pas de mani&egrave;re fiable.</p>
+    <p style="margin:0 0 18px;">Une r&egrave;gle simple&nbsp;: jamais une donn&eacute;e que la source ne fournit pas. Quand une information manque, la carte le dit plut&ocirc;t que de combler le vide. Trois widgets envisag&eacute;s ont d&rsquo;ailleurs &eacute;t&eacute; abandonn&eacute;s pour cette raison.</p>
 
     ${_campaignBtn('Ouvrir mon desk', ouvrir)}
 
@@ -1868,8 +1872,16 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     if (featured.forecast) fnums.push(`prévision <strong style="color:#e6e6ea;">${_esc(featured.forecast)}</strong>`);
     if (featured.previous) fnums.push(`précédent <strong style="color:#e6e6ea;">${_esc(featured.previous)}</strong>`);
     const fnumLine = fnums.length ? ` Le marché attend ${fnums.join(', ')}.` : '';
+    // L'UNIQUE image du mail (demande user 24/08) : l'aperçu du calendrier du desk, réduit au SEUL
+    // rendez-vous dont parle la leçon (period=vedette). On transmet son identité exacte (titre +
+    // horodatage) pour que l'image montre CET événement et pas un autre : le texte qui l'entoure,
+    // les deux mécaniques comprises, est bâti sur `featured`, une image décalée le contredirait.
+    // Le texte de remplacement porte toute l'information : messagerie qui bloque les images = rien de perdu.
+    const _txtVedette = `${featured.title}${fwhen ? ', ' + fwhen : ''}.${fnumLine.replace(/<[^>]+>/g, '')}`;
+    const _paramsVedette = `&ev=${encodeURIComponent(String(featured.title).slice(0, 120))}`
+      + (featured.ts || featured.timestamp ? `&ts=${encodeURIComponent(String(featured.ts || featured.timestamp))}` : '');
     appliedHtml = `<p style="margin:24px 0 6px;color:#ffffff;font-weight:700;font-size:15px;">Cette semaine</p>`
-      + `<p style="margin:0 0 13px;"><strong style="color:#fff;">${_esc(featured.title)}</strong>${fwhen ? ', ' + _esc(fwhen) : ''}.${fnumLine}</p>`;
+      + _widgetImg('calendar', 'Le rendez-vous de la semaine', 532, 'vedette', null, { params: _paramsVedette, alt: _txtVedette });
     // ── LES DEUX MÉCANIQUES (refonte 15/07) : au-dessus / en-dessous des attentes, appliquées à
     //    L'ÉVÉNEMENT vedette. Polarité par indicateur (chômage/inscriptions : un chiffre plus haut =
     //    économie plus faible → lecture inversée). 100 % INFORMATIF : on décrit des mécaniques de marché
@@ -1898,7 +1910,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   `;
   return { subject: '🎓 ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
-async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey, extraConcepts: d.extraConcepts }); /* plus AUCUN widget embarqué : le calendrier a été retiré du mail (doctrine « un seul sujet ») */ const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey, extraConcepts: d.extraConcepts }); /* UNE seule image : l'aperçu du calendrier réduit au rendez-vous vedette, embarqué en inline (cid) */ const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar:vedette']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
 // ── MINDSET (track psychologie/discipline) — bibliotheque de mails ORIGINAUX DTP (voix or, informatif, ZERO
 // promesse de gains, aucun texte repris d'une newsletter existante). Structure : accroche -> croyance -> faille ->
@@ -2554,7 +2566,6 @@ function buildCampaignInvitation({ name, email, campaign, variant, isMember } = 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:2px 0 4px;">${benefitsHtml}</table>
     ${_goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Une semaine offerte</div><div style="margin-bottom:6px;">${v.exclu}</div><div><strong style="color:#fff;">${v.ctaLead}</strong></div>`)}
     <div style="margin:14px 0 4px;">${_campaignBtn(v.ctaLabel, igUrl)}</div>
-    <p style="margin:6px 0 0;font-size:12px;color:#7b828f;">Ou retrouvez-nous directement sur Instagram : <a href="${igUrl}" style="color:#f3c344;text-decoration:none;font-weight:700;">@datatradingpro</a></p>
     <p style="margin:18px 0 4px;">${v.signoff}</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">

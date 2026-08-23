@@ -42,6 +42,12 @@ window.dtpLoader = dtpLoader;
 // N'agit qu'au BUILD (ne PAS rappeler sur une simple MAJ de données via data.setAll) → zéro clignotement.
 // Renvoie une fonction reveal() pour révéler immédiatement en sortie anticipée (pas de données / exception).
 //   Usage : const rv = _dtpChartPremium(el, dur+delay+120); …build + series.appear(dur,delay)… (rv() dans un catch).
+// GARDE-FOU (24/08, panne mesurée) : `_dtpAncreGraphe` vit dans charts.js, mais app.js l'APPELLE
+// (courbe du profil de risque, graphes de la vue Analyste). Toute page qui charge app.js SANS charts.js
+// levait donc une ReferenceError, avalée par un catch silencieux : le cadre du graphe restait vide, sans
+// la moindre trace. C'est exactement ce qui a vidé la boîte « Profil de risque hebdo » du widget e-mail.
+// Le helper ne fait qu'annuler le zoom du desk : hors du desk, ne rien faire est le bon comportement.
+function _dtpAncre(root) { try { return (typeof _dtpAncreGraphe === 'function') ? _dtpAncreGraphe(root) : root; } catch (e) { return root; } }
 function _dtpChartPremium(host, revealMs) {
   try {
     const el = typeof host === 'string' ? document.getElementById(host) : host;
@@ -5440,7 +5446,7 @@ function _waBuildChart(days) {
   if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
   try {
     if (_waChartRoot) { try { _waChartRoot.dispose(); } catch {} _waChartRoot = null; }
-    const root = _dtpAncreGraphe(am5.Root.new('wa-risk-chart'));
+    const root = _dtpAncre(am5.Root.new('wa-risk-chart'));
     _waChartRoot = root;
     _dtpChartPremium(el, 300);   // chargement premium : overlay shimmer -> reveal en fondu (build-only ; sparkline sans .appear -> reveal court)
     try { root._logo && root._logo.dispose(); } catch {}
@@ -9517,20 +9523,17 @@ function _renderFXDailyRecap(item) {
   // (Les avis de maisons de recherche n'ont plus de section à eux : ils sont fusionnés plus bas dans
   //  « Commentaires des banques » — demande user 11/08.)
 
-  // ── Corporate News (badge ticker) ──
-  if ((w.corporate || []).length) {
-    body += _sec('Actualité des entreprises') + '<div class="fxdr-grid">';
-    w.corporate.forEach(c => {
-      body += `<div class="fxdr-card fxdr-corp"><div class="fxdr-corp-head">${c.ticker ? `<span class="fxdr-ticker">${_wrEsc(c.ticker)}</span>` : ''}<span class="fxdr-card-title">${_wrEsc(c.name || '')}</span></div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
-    });
-    body += '</div>';
-  }
+  // ── « Actualité des entreprises » RETIRÉE (demande user 24/08) : le desk est un terminal MACRO et
+  //    FOREX. Une brève sur un recrutement chez un fabricant de puces n'aide pas à lire une devise et
+  //    coupait la lecture entre les rubriques qui, elles, servent. Le rendu est supprimé y compris
+  //    pour les anciens rapports, pour que la structure soit la même tous les jours. Le serveur ne
+  //    demande plus ce champ à l'IA.
 
   // ── Looking Ahead — MÊME identité que l'onglet Calendrier (demande user 16/07 « comme le calendrier
   //    économique ») : séparateurs de jours, heure, drapeau rond + devise, points d'impact ●●●.
   //    Réutilise les briques RÉELLES du calendrier (CAL_FLAG / calImpDots / cal-day-sep, charts.js).
   //    Anciens rapports (sans ts/ccy) : ligne sans heure/drapeau, rien ne casse.
-  if ((w.lookahead || []).length || (w.watch || []).length) {
+  if ((w.lookahead || []).length) {   // la rubrique EST le calendrier : sans ligne, pas de rubrique
     const _flag = c => (typeof CAL_FLAG === 'function' && c) ? CAL_FLAG(c) : '';
     const _dots = i => (typeof calImpDots === 'function') ? calImpDots(i) : _wrEsc(i || '');
     // Cellules de VALEURS identiques au calendrier (réel coloré vs prévision via calActualCell ;
@@ -9560,11 +9563,13 @@ function _renderFXDailyRecap(item) {
         + `<td class="cth-val cth-val--reel">${_va(e)}</td><td class="cth-val cth-val--haut">${_vf(e.high)}</td><td class="cth-val cth-val--prev">${_vf(e.forecast)}</td><td class="cth-val cth-val--bas">${_vp(e.low)}</td><td class="cth-val cth-val--prec">${_vp(e.previous)}</td></tr>`
         + `<tr class="fxdr-cal-detail" hidden><td colspan="10"></td></tr>`;
     });
-    // v14b : les puces NARRATIVES d'abord (le POURQUOI de chaque catalyseur, façon note de desk), le
-    // tableau calendrier ensuite (les dates et les chiffres). L'un explique, l'autre chiffre.
-    const _watch = (w.watch || []).filter(Boolean);
+    // PUCES NARRATIVES RETIRÉES (demande user 24/08 : « supprime ceci et déroule les news du
+    // calendrier »). Elles paraphrasaient le tableau juste en dessous : « Minutes de la RBA (mardi
+    // 25 août) → à surveiller pour des indications sur la politique monétaire » ne dit rien que la
+    // ligne de calendrier ne dise déjà, avec en plus l'heure, la devise, l'impact et les chiffres
+    // attendus. La rubrique est désormais le CALENDRIER lui-même, déroulé, chaque ligne s'ouvrant
+    // sur son Décryptage d'un clic.
     body += _sec('À surveiller');
-    if (_watch.length) { body += '<div class="fxdr-bullets">'; _watch.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; }
     if (rows) body += `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
       + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
       + '<th class="cth-val cth-val--reel">Réel</th><th class="cth-val cth-val--haut">Haut</th><th class="cth-val cth-val--prev">Prévision</th><th class="cth-val cth-val--bas">Bas</th><th class="cth-val cth-val--prec">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
@@ -13046,7 +13051,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrBuildEquityChart(L) {
     const id = 'jr-eq-chart', el = document.getElementById(id); if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
     _jrDisposeRoot(id);
-    const root = _dtpAncreGraphe(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const root = _dtpAncre(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
     _dtpChartPremium(el, 790);   // chargement premium : overlay shimmer pendant appear(650,60) -> reveal en fondu (re-build au rendu dashboard)
     const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 10, paddingBottom: 2 }));
     const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 66 });
@@ -13085,7 +13090,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrBuildResultDonut(resMap) {
     const id = 'jr-result-donut', el = document.getElementById(id); if (!el || typeof am5percent === 'undefined') return;
     _jrDisposeRoot(id);
-    const root = _dtpAncreGraphe(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const root = _dtpAncre(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
     _dtpChartPremium(el, 680);   // chargement premium : overlay shimmer pendant appear(600) -> reveal en fondu (re-build au rendu dashboard)
     const chart = root.container.children.push(am5percent.PieChart.new(root, { innerRadius: am5.percent(64), paddingTop: 2, paddingBottom: 2 }));
     const series = chart.series.push(am5percent.PieSeries.new(root, { valueField: 'v', categoryField: 'k', alignLabels: false }));
