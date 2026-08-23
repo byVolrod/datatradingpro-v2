@@ -19492,3 +19492,40 @@ html[data-theme="light"] .wdg-verdict .est-neutre { color: #8a6a12; }
     :root { --topbar-h: calc(84px + env(safe-area-inset-top, 0px)); }
   }
 }
+
+/* ═══ FAMILLE VOLATILITÉ : le PRÉSENT sur les 5 cartes (23/08) ══════════════════════════════════
+   Complète la GRAMMAIRE COMMUNE DE VIE (verdicts .wdg-verdict, fondu .est-maj, jauge .wdg-jauge,
+   horodatage .wdg-vie) posée plus haut. En FIN de feuille, règle du projet : la cascade garantit
+   que ces règles gagnent sur les blocs historiques des widgets. */
+/* Repères posés PAR-DESSUS les tracés (courbe de fréquence, histogramme des variations) : de
+   simples <i> absolus en HTML, pour ne pas toucher aux helpers SVG partagés. Trait fin gris =
+   seuil visé ; trait 2 px or = où en est AUJOURD'HUI (présent marqué, doctrine DTP). */
+.wdg-freq-zone { position: relative; }
+.wdg-freq-rep { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--txt-3, #6b7280); opacity: .55; pointer-events: none; }
+.wdg-freq-rep.est-auj { width: 2px; background: var(--orange, #e3b23a); opacity: .9; transition: left .5s ease; }
+.wdg-di-zone { position: relative; }
+.wdg-di-auj { position: absolute; top: 2px; bottom: 0; width: 2px; background: var(--orange, #e3b23a); pointer-events: none; transition: left .5s ease; }
+/* Amplitude par séance : la place EN SÉANCE est marquée (liseré + badge strictement STATIQUE,
+   jamais de pulse : règle anti-clignotement), et le parcours d'AUJOURD'HUI se superpose en bas
+   de la piste de moyenne, à la même échelle : la comparaison se fait à l'œil. */
+.wdg-as-l.est-live { border-left: 2px solid var(--orange, #e3b23a); padding-left: 6px; }
+.wdg-as-badge { font-style: normal; font-size: 9px; letter-spacing: .06em; font-weight: 700; color: var(--orange, #e3b23a); }
+html[data-theme="light"] .wdg-as-badge { color: #816521; }
+.wdg-as-piste { position: relative; }
+.wdg-as-auj { position: absolute; left: 0; bottom: 0; height: 3px; display: block; background: var(--orange, #e3b23a); transition: width .5s ease; }
+/* Statistiques de volatilité : les lignes du présent en or — la volatilité n'est PAS
+   directionnelle, donc or DTP, jamais vert/rouge (charte des tokens sémantiques). */
+.wdg-vo-l.est-auj b { color: var(--orange, #e3b23a); }
+html[data-theme="light"] .wdg-vo-l.est-auj b { color: #816521; }
+/* Le socle n'avait pas d'override clair pour .est-present : l'or vif est illisible sur fond
+   clair (leçon de l'audit thème clair), même valeur que les autres textes or du desk. */
+html[data-theme="light"] .wdg-verdict .est-present { color: #816521; }
+/* Carte basse : le verdict cède au MÊME seuil que le pied de chaque carte (les chiffres, jamais). */
+@container dtpw (max-height: 250px) {
+  .wdg-am .wdg-verdict, .wdg-freq .wdg-verdict, .wdg-di .wdg-verdict { display: none; }
+}
+@container dtpw (max-height: 196px) { .wdg-as .wdg-verdict { display: none; } }
+@container dtpw (max-height: 178px) { .wdg-vo .wdg-verdict { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .wdg-freq-rep.est-auj, .wdg-di-auj, .wdg-as-auj { transition: none; }
+}

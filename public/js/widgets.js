@@ -967,6 +967,19 @@
 
   function _uniteAmpl(sym) { return _pipTaille(sym) ? 'pips' : 'points'; }
 
+  /* État d'une séance rapportée à sa MOYENNE (ratio en %). Amplitude quotidienne et Amplitude par
+     séance partagent ces bornes : deux jeux de seuils auraient divergé à la première retouche.
+     <60 calme · 60-110 norme · 110-150 nourrie · >150 extrême. Le MOT rendu appartient à chaque
+     carte (les phrases diffèrent), l'état non. Jamais de conseil directionnel : l'état dit ce qui
+     est PARCOURU, pas où aller. */
+  function _ampEtat(ratio) {
+    if (!isFinite(ratio)) return null;
+    if (ratio < 60) return 'calme';
+    if (ratio <= 110) return 'norme';
+    if (ratio <= 150) return 'nourrie';
+    return 'extreme';
+  }
+
   /* Une bougie est-elle CLOSE ? On ne le deduit JAMAIS de sa position dans le tableau : la
      derniere ligne peut tres bien etre celle de vendredi un dimanche. On compare la date UTC de
      la bougie a celle du jour (et, en hebdomadaire, la semaine). Le libelle en depend : ecrire
@@ -2344,6 +2357,40 @@
           { nom: 'Londres', tz: 'Europe/London', ouv: 8, fer: 17 },
           { nom: 'New York', tz: 'America/New_York', ouv: 9, fer: 17 },
         ];
+        // Mémoire des chiffres du JOUR : fondu de MAJ seulement sur un vrai changement, à paire
+        // constante — jamais au premier rendu.
+        var prevSymAS = null, prevSigAS = null;
+
+        /* Jour + heure locaux d'une place, MAINTENANT, via Intl (même mécanique que _heureLocale :
+           le fuseau traite lui-même les changements d'heure). L'heure seule ne suffit pas pour
+           deux questions : une place n'ouvre PAS le samedi, quelle que soit l'heure affichée, et
+           « prochaine ouverture » doit compter en jour local DE LA PLACE. */
+        var _fmtJH = {};
+        function jourHeure(tz, ms) {
+          try {
+            if (!_fmtJH[tz]) _fmtJH[tz] = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+            var JOURS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+            var j = null, hh = 0, mn = 0;
+            _fmtJH[tz].formatToParts(new Date(ms)).forEach(function (x) {
+              if (x.type === 'weekday') j = JOURS[x.value];
+              if (x.type === 'hour') hh = parseInt(x.value, 10);
+              if (x.type === 'minute') mn = parseInt(x.value, 10);
+            });
+            return j == null ? null : { j: j, h: (hh % 24) + mn / 60 };
+          } catch (e) { return null; }
+        }
+        /* Heures d'attente avant la PROCHAINE ouverture d'une place fermée. Compte en heures
+           locales de la place et SAUTE samedi/dimanche : vendredi 22 h, Tokyo n'ouvre pas « dans
+           11 h » mais lundi (trou relevé par la contre-lecture). Un changement d'heure DANS la
+           fenêtre d'attente décale d'une heure au plus : accepté, l'affichage est indicatif. */
+        function attenteOuverture(p) {
+          var jh = jourHeure(p.tz, Date.now());
+          if (!jh) return null;
+          if (jh.j >= 1 && jh.j <= 5 && jh.h < p.ouv) return p.ouv - jh.h;
+          var att = 24 - jh.h + p.ouv, j = (jh.j + 1) % 7;
+          while (j === 0 || j === 6) { att += 24; j = (j + 1) % 7; }
+          return att;
+        }
 
         function dessiner() {
           var sym = opt(it, W, 'paire') || 'EUR/USD';
@@ -2364,11 +2411,20 @@
             }
             var lignes = PLACES.map(function (p) {
               var amp = [], jours = {};
+              /* Parcours d'AUJOURD'HUI (date UTC) dans la même fenêtre horaire : le présent de la
+                 ligne. La séance du jour est EXCLUE de la moyenne, règle de toute la famille :
+                 une période inachevée ne rentre pas dans l'historique auquel on la compare. */
+              var aujH = -Infinity, aujL = Infinity;
               c.forEach(function (b) {
                 var hl = _heureLocale(p.tz, b.t);
                 if (hl == null) return;
                 // Intervalle SEMI-OUVERT : l heure de fermeture n appartient pas a la seance.
                 if (hl < p.ouv || hl >= p.fer) return;
+                if (_memeJourUTC(b.t)) {
+                  if (b.h > aujH) aujH = b.h;
+                  if (b.l < aujL) aujL = b.l;
+                  return;
+                }
                 // Regroupement par journee de la place, pour mesurer l amplitude de la SEANCE
                 // entiere et non celle d une bougie isolee.
                 var cle = new Date(b.t).toISOString().slice(0, 10) + '|' + Math.floor(hl / 24);
@@ -2383,22 +2439,100 @@
                 }
               });
               var moy = amp.length ? amp.reduce(function (a, b) { return a + b; }, 0) / amp.length : null;
-              return { nom: p.nom, moy: moy, n: amp.length, ouv: p.ouv, fer: p.fer, tz: p.tz };
+              var auj = (isFinite(aujH) && isFinite(aujL) && aujH > aujL)
+                ? (enPct ? (aujH - aujL) / aujL * 100 : (aujH - aujL) / pip) : null;
+              /* État de la place MAINTENANT, en jour + heure locaux DE LA PLACE. Une place fermée
+                 qui n'a pas encore ouvert ne rend jamais « 0 pips, 0 % » : elle dit pourquoi elle
+                 se tait (garde de la contre-lecture). */
+              var jh = jourHeure(p.tz, Date.now());
+              var ouvrable = !!(jh && jh.j >= 1 && jh.j <= 5);
+              return { nom: p.nom, moy: moy, n: amp.length, ouv: p.ouv, fer: p.fer, tz: p.tz,
+                auj: auj, place: p, weekEnd: !!(jh && !ouvrable),
+                pasEncore: !!(jh && ouvrable && jh.h < p.ouv),
+                ouverte: !!(jh && ouvrable && jh.h >= p.ouv && jh.h < p.fer) };
             });
             var max = Math.max.apply(null, lignes.map(function (l) { return l.moy || 0; })) || 1;
+            var fmtA = function (v) { return enPct ? v.toFixed(2).replace('.', ',') + ' %' : v.toFixed(0) + ' pips'; };
             var h = '<div class="wdg-as"><div class="wdg-as-tete"><span class="wdg-as-sym">' + esc(sym) + '</span></div>';
             lignes.forEach(function (l, iP) {
               var w = l.moy ? Math.max(3, l.moy / max * 100) : 0;
-              h += '<div class="wdg-as-l" data-place="' + iP + '">'
+              var ratio = (l.auj != null && l.moy) ? l.auj / l.moy * 100 : null;
+              // Surcouche du jour sur la MÊME échelle que la moyenne : comparaison à l'œil.
+              var wAuj = l.auj != null ? Math.min(100, Math.max(1, l.auj / max * 100)) : null;
+              var nTxt;
+              if (ratio != null) nTxt = fmtA(l.auj) + ' aujourd\'hui &middot; ' + Math.round(ratio) + ' % de la moyenne &middot; ' + l.n + ' séance' + (l.n > 1 ? 's' : '');
+              else if (l.weekEnd) nTxt = 'Fermée le week-end &middot; ' + l.n + ' séance' + (l.n > 1 ? 's' : '');
+              else if (l.pasEncore) nTxt = 'Pas encore ouverte aujourd\'hui &middot; ' + l.n + ' séance' + (l.n > 1 ? 's' : '');
+              else nTxt = l.n + ' séance' + (l.n > 1 ? 's' : '');
+              // Badge strictement STATIQUE (règle dure : jamais d'animation clignotante sur du live).
+              h += '<div class="wdg-as-l' + (l.ouverte ? ' est-live' : '') + '" data-place="' + iP + '">'
                 + '<div class="wdg-as-t"><span>' + esc(l.nom) + '</span>'
+                + (l.ouverte ? '<em class="wdg-as-badge">EN SÉANCE</em>' : '')
                 + '<i>' + l.ouv + 'h-' + l.fer + 'h locale</i>'
-                + '<b>' + (l.moy != null ? (enPct ? l.moy.toFixed(2).replace('.', ',') + ' %' : l.moy.toFixed(0) + ' pips') : '--') + '</b></div>'
-                + '<div class="wdg-as-piste"><span style="width:' + w.toFixed(1) + '%"></span></div>'
-                + '<div class="wdg-as-n">' + l.n + ' séance' + (l.n > 1 ? 's' : '') + '</div></div>';
+                + '<b>' + (l.moy != null ? fmtA(l.moy) : '--') + '</b></div>'
+                + '<div class="wdg-as-piste"><span style="width:' + w.toFixed(1) + '%"></span>'
+                + (wAuj != null ? '<u class="wdg-as-auj" style="width:' + wAuj.toFixed(1) + '%"></u>' : '')
+                + '</div>'
+                + '<div class="wdg-as-n' + (l.ouverte ? ' wdg-maj-txt' : '') + '">' + nTxt + '</div></div>';
             });
+
+            /* ── VERDICT : qui est en séance MAINTENANT, et où elle en est. En chevauchement
+               (Londres + New York), le détail porte sur la place ouverte la plus récente (l'ordre
+               de PLACES est chronologique). Rien d'ouvert : on dit QUAND ça rouvre. */
+            var ouvertes = lignes.filter(function (l) { return l.ouverte; });
+            var ETAT_TXT = { calme: 'séance calme pour l\'instant', norme: 'rythme normal', nourrie: 'séance déjà nourrie', extreme: 'séance exceptionnelle' };
+            var vb = '', vs = '';
+            if (ouvertes.length === 1) {
+              var u = ouvertes[0];
+              var r1 = (u.auj != null && u.moy) ? u.auj / u.moy * 100 : null;
+              if (r1 != null) {
+                vb = u.nom + ' en séance : ' + fmtA(u.auj) + ' parcourus, ' + Math.round(r1) + ' % de sa moyenne';
+                var t1 = ETAT_TXT[_ampEtat(r1)] || '';
+                vs = t1 ? t1.charAt(0).toUpperCase() + t1.slice(1) + '.' : '';
+              } else {
+                vb = u.nom + ' en séance';
+                vs = 'Ouverture récente : première bougie horaire en attente.';
+              }
+            } else if (ouvertes.length > 1) {
+              vb = ouvertes.map(function (l) { return l.nom; }).join(' + ') + ' en séance';
+              var ld = ouvertes[ouvertes.length - 1];
+              var r2 = (ld.auj != null && ld.moy) ? ld.auj / ld.moy * 100 : null;
+              vs = r2 != null
+                ? ld.nom + ' : ' + fmtA(ld.auj) + ', ' + Math.round(r2) + ' % de sa moyenne : ' + (ETAT_TXT[_ampEtat(r2)] || '') + '.'
+                : ld.nom + ' : première bougie horaire en attente.';
+            } else {
+              vb = 'Aucune place en séance';
+              var proch = null;
+              lignes.forEach(function (l) {
+                var att = attenteOuverture(l.place);
+                if (att != null && (proch == null || att < proch.att)) proch = { l: l, att: att };
+              });
+              if (proch) {
+                var hE = Math.floor(proch.att), mnE = Math.round((proch.att - hE) * 60);
+                if (mnE === 60) { hE += 1; mnE = 0; }
+                var dTxt = hE >= 24
+                  ? Math.floor(hE / 24) + ' j ' + (hE % 24) + ' h'
+                  : hE + ' h' + (mnE > 0 ? ' ' + (mnE < 10 ? '0' : '') + mnE : '');
+                vs = 'Prochaine ouverture : ' + proch.l.nom + ', ' + proch.l.ouv + ' h locales (dans ' + dTxt + ').';
+              }
+            }
+            h += '<div class="wdg-verdict" data-etat="' + (ouvertes.length ? 'live' : 'ferme') + '">'
+              + '<b class="wdg-verdict-txt wdg-maj-txt">' + esc(vb) + '</b>'
+              + (vs ? '<span class="wdg-verdict-sous">' + esc(vs) + '</span>' : '')
+              + '</div>';
+
             h += '<div class="wdg-as-pied">Les séances se chevauchent : la somme des trois ne fait pas la journée. '
-              + 'Heures locales de chaque place, changement d\'heure compris.</div></div>';
+              + 'Heures locales de chaque place, changement d\'heure compris. '
+              + _vieSpan(_bougiesMaj(sym + '|H1')) + '</div></div>';
             host.innerHTML = h;
+
+            // Fondu de MAJ : un chiffre du jour a bougé, ou une place a ouvert/fermé (paire constante).
+            var sig = lignes.map(function (l) { return (l.ouverte ? 1 : 0) + ':' + (l.auj == null ? '' : l.auj.toFixed(4)); }).join(';');
+            if (prevSymAS === sym && prevSigAS != null && sig !== prevSigAS) {
+              _majFlash(host.querySelector('.wdg-verdict-txt'));
+              host.querySelectorAll('.wdg-as-l.est-live .wdg-as-n').forEach(function (el) { _majFlash(el); });
+            }
+            prevSymAS = sym; prevSigAS = sig;
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
@@ -2421,6 +2555,11 @@
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cache = {};
+        /* Mémoire de rendu : signature de la STRUCTURE (paire, pas, échantillon, classes) pour ne
+           réécrire que le présent quand rien d'autre n'a bougé — le repère du jour GLISSE alors
+           via sa transition CSS au lieu de réapparaître — et dernière variation du jour pour ne
+           jouer le fondu de MAJ que sur un vrai changement. */
+        var prevSig = null, prevV = null;
         skel(host, 5);
         function dessiner() {
           var sym = opt(it, W, 'paire') || 'EUR/USD';
@@ -2450,6 +2589,66 @@
             }
             var moy = vars.reduce(function (a, b) { return a + b; }, 0) / n;
             var hausse = vars.filter(function (x) { return x > 0; }).length;
+
+            /* ── LE PRÉSENT : où tombe AUJOURD'HUI dans la forme affichée — la seule utilité
+               temps réel de la carte. GARDE DE DATE (contre-lecture) : la dernière ligne n'est
+               « aujourd'hui » QUE si sa date UTC le dit ; tout le week-end c'est la bougie de
+               VENDREDI, donc « Dernière séance close ». La variation exige aussi un écart de
+               dates plausible avec la clôture précédente (même borne que _couplesValides :
+               samedi, vendredi-vs-jeudi passe cette borne, d'où la garde de date en plus). */
+            var derniere = c[c.length - 1], avant = c.length > 1 ? c[c.length - 2] : null;
+            var enCours = _memeJourUTC(derniere.t);
+            var vRef = null;
+            if (avant && derniere.t - avant.t <= _ECART_MAX.D1 && isFinite(derniere.c) && isFinite(avant.c) && avant.c > 0) {
+              var vv = (derniere.c / avant.c - 1) * 100;
+              if (isFinite(vv)) vRef = vv;
+            }
+            var etat = '', vbH = '', vsT = '', lxPct = null;
+            if (vRef != null) {
+              var pctl = Math.round(vars.filter(function (x) { return x <= vRef; }).length / n * 100);
+              // Bandes par percentile de la variation SIGNÉE : le milieu est ordinaire, les
+              // flancs sont animés, les extrémités sont la queue de distribution.
+              if (pctl >= 90 || pctl <= 10) { etat = 'queue'; vsT = 'Queue de distribution : l\'essentiel du mouvement type est déjà fait.'; }
+              else if (pctl >= 75 || pctl <= 25) { etat = 'anime'; vsT = 'Séance plus mouvementée que d\'ordinaire.'; }
+              else { etat = 'ordinaire'; vsT = 'Au cœur de la distribution : séance ordinaire' + (enCours ? ' à ce stade' : '') + '.'; }
+              var vTxt = '<span class="' + (vRef >= 0 ? 'est-haut' : 'est-bas') + '">' + (vRef >= 0 ? '+' : '') + vRef.toFixed(2).replace('.', ',') + ' %</span>';
+              var prefixe = enCours ? 'Aujourd\'hui : ' : 'Dernière séance close : ';
+              if (etat === 'ordinaire') vbH = prefixe + vTxt + ' (P' + pctl + ')';
+              else if (pctl >= 50) vbH = prefixe + vTxt + ', au-dessus de ' + pctl + ' % des séances';
+              else vbH = prefixe + vTxt + ', plus bas que ' + (100 - pctl) + ' % des séances';
+              if (enCours) {
+                /* Repère 2 px or SUR l'histogramme, sans recolorer une classe entière (ce serait
+                   mentir sur l'historique). Position bornée aux limites du tracé : une séance
+                   hors bornes se colle au bord. Réservé au jour EN COURS : pointer une séance
+                   close de vendredi comme du présent serait le mensonge corrigé plus haut. */
+                var lo = etiq[0], hi = etiq[etiq.length - 1] + pas;
+                lxPct = (Math.max(lo, Math.min(hi, vRef)) - lo) / (2 * K * pas) * 100;
+              }
+            }
+            var ts = _bougiesMaj(sym + '|D1');
+
+            /* Diff minimal : à STRUCTURE identique (même paire, même pas, même échantillon), on
+               ne réécrit que le présent — repère, verdict, horodatage. Toute autre différence
+               (nouvelle séance close, changement de réglage) rebâtit la carte entière. */
+            var sig = sym + '|' + pas + '|' + n + '|' + classes.join(',') + '|' + (enCours ? 1 : 0) + '|' + (vRef == null ? 0 : 1);
+            if (sig === prevSig && host.querySelector('.wdg-di')) {
+              var repEl = host.querySelector('.wdg-di-auj');
+              if (repEl && lxPct != null) repEl.style.left = lxPct.toFixed(1) + '%';
+              var vd = host.querySelector('.wdg-di .wdg-verdict');
+              if (vd) {
+                vd.setAttribute('data-etat', etat);
+                var vt = vd.querySelector('.wdg-verdict-txt');
+                if (vt) vt.innerHTML = vbH;
+                var vsE = vd.querySelector('.wdg-verdict-sous');
+                if (vsE) vsE.textContent = vsT;
+                if (vt && prevV != null && vRef != null && Math.abs(vRef - prevV) > 1e-9) _majFlash(vt);
+              }
+              var vieEl = host.querySelector('.wdg-di-pied .wdg-vie');
+              if (vieEl && ts) { vieEl.setAttribute('data-ts', String(+ts)); vieEl.textContent = _vie(ts); }
+              prevV = vRef;
+              return;
+            }
+
             host.innerHTML = '<div class="wdg-di">'
               + '<div class="wdg-di-tete"><span class="wdg-di-sym">' + esc(sym) + '</span>'
               + '<span class="wdg-di-n">n = ' + n + '</span></div>'
@@ -2457,16 +2656,23 @@
               // la couleur ne fait que dire ce que l abscisse dit deja, elle n invente rien.
               + '<div class="wdg-di-zone">' + _barresSvg(classes, {
                 couleurs: etiq.map(function (b0) { return b0 < 0 ? '#ff3d00' : '#00e676'; }),
-              }) + '</div>'
+              })
+              + (lxPct != null ? '<i class="wdg-di-auj" style="left:' + lxPct.toFixed(1) + '%"></i>' : '')
+              + '</div>'
               + '<div class="wdg-di-axe"><span>' + (etiq[0]).toFixed(1).replace('.', ',') + ' %</span>'
               + '<span>0</span><span>+' + (etiq[etiq.length - 1] + pas).toFixed(1).replace('.', ',') + ' %</span></div>'
+              + (vbH ? '<div class="wdg-verdict" data-etat="' + etat + '">'
+                  + '<b class="wdg-verdict-txt wdg-maj-txt">' + vbH + '</b>'
+                  + '<span class="wdg-verdict-sous">' + esc(vsT) + '</span></div>' : '')
               + '<div class="wdg-di-stats">'
               + '<span><i>Séances en hausse</i><b>' + (hausse / n * 100).toFixed(0) + ' %</b></span>'
               + '<span><i>Variation moyenne</i><b>' + (moy >= 0 ? '+' : '') + moy.toFixed(2).replace('.', ',') + ' %</b></span>'
               + '</div>'
               + '<div class="wdg-di-pied">Séance en cours exclue, elle n\'a pas de clôture. '
               + (v.rejetes > 0 ? v.rejetes + ' écart' + (v.rejetes > 1 ? 's' : '') + ' de dates écarté' + (v.rejetes > 1 ? 's' : '') + ' (trou dans la série). ' : '')
-              + 'Classes de ' + String(pas).replace('.', ',') + ' %, bornes incluses à gauche.</div></div>';
+              + 'Classes de ' + String(pas).replace('.', ',') + ' %, bornes incluses à gauche. '
+              + _vieSpan(ts) + '</div></div>';
+            prevSig = sig; prevV = vRef;
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
@@ -2493,6 +2699,9 @@
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cache = {};
+        // Mémoire des lignes du PRÉSENT : fondu de MAJ seulement sur un vrai changement, à paire
+        // constante — jamais au premier rendu.
+        var prevSymVo = null, prevSigVo = null;
         skel(host, 4);
 
         // Ecart-type des variations en %, et amplitude vraie moyenne, sur les couples PLAUSIBLES.
@@ -2515,16 +2724,19 @@
             ? trTri[Math.floor(trTri.length / 2)]
             : tr.reduce(function (a, b) { return a + b; }, 0) / tr.length;
           var pip = _pipTaille(sym);
-          return { n: r.length, ec: ec, tr: trMoy, trPips: pip ? trMoy / pip : null, rejetes: v.rejetes };
+          // r est rendu AUSSI : le régime (écart-type des 20 dernières séances vs l'échantillon)
+          // se calcule dessus sans refaire la série.
+          return { n: r.length, ec: ec, tr: trMoy, trPips: pip ? trMoy / pip : null, rejetes: v.rejetes, r: r };
         }
 
-        function colonne(titre, st, mes) {
+        function colonne(titre, st, mes, presL) {
           if (!st) return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
             + '<div class="wdg-vo-abs">indisponible</div></div>';
           return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
             + '<div class="wdg-vo-l"><i>Écart-type</i><b>' + st.ec.toFixed(2).replace('.', ',') + ' %</b></div>'
             + '<div class="wdg-vo-l"><i>Amplitude vraie' + (mes === 'med' ? ' (médiane)' : '') + '</i><b>'
             + (st.trPips != null ? st.trPips.toFixed(0) + ' pips' : st.tr.toFixed(2)) + '</b></div>'
+            + (presL || '')
             + '<div class="wdg-vo-n">' + st.n + ' périodes'
             + (st.rejetes > 0 ? ' &middot; ' + st.rejetes + ' écart' + (st.rejetes > 1 ? 's' : '') + ' écarté' + (st.rejetes > 1 ? 's' : '') : '')
             + '</div></div>';
@@ -2542,10 +2754,72 @@
             var j = r[0] ? stats(r[0], 'D1', sym, mesure) : null;
             var sem = r[1] ? stats(r[1], 'W1', sym, mesure) : null;
             if (!j && !sem) { fallback(host, 'Bougies indisponibles.'); return; }
+
+            /* ── Ligne du PRÉSENT par colonne : l'amplitude vraie de la période en cours (MÊME
+               formule que l'historique), à comparer d'un regard aux moyennes affichées. Période
+               « en cours » identifiée par sa date UTC : un dimanche, la dernière ligne est celle
+               de vendredi et s'étiquette « close », jamais « en cours » (règle de la famille). */
+            function presente(cc, tf, st, lblCours, lblClose) {
+              if (!cc || cc.length < 2 || !st || !(st.tr > 0)) return '';
+              var d = cc[cc.length - 1], p = cc[cc.length - 2];
+              var enCours = tf === 'W1' ? _memeSemaineUTC(d.t) : _memeJourUTC(d.t);
+              // Trou de dates trop grand : la clôture précédente ne veut rien dire, on retombe
+              // sur le simple haut-bas de la période.
+              var okPrev = isFinite(p.c) && (d.t - p.t) <= (_ECART_MAX[tf] || _ECART_MAX.D1);
+              var tr = okPrev ? Math.max(d.h - d.l, Math.abs(d.h - p.c), Math.abs(d.l - p.c)) : (d.h - d.l);
+              if (!isFinite(tr) || tr <= 0) return '';
+              var pip = _pipTaille(sym);
+              var val = pip ? (tr / pip).toFixed(0) + ' pips' : tr.toFixed(2);
+              return '<div class="wdg-vo-l est-auj"><i>' + (enCours ? lblCours : lblClose) + '</i>'
+                + '<b class="wdg-maj-txt">' + val + ' &middot; ' + Math.round(tr / st.tr * 100) + ' %</b></div>';
+            }
+            var presJ = r[0] ? presente(r[0], 'D1', j, 'Séance en cours', 'Dernière séance close') : '';
+            var presS = r[1] ? presente(r[1], 'W1', sem, 'Semaine en cours', 'Dernière semaine close') : '';
+
+            /* ── RÉGIME : l'écart-type des 20 dernières séances rapporté à celui de tout
+               l'échantillon journalier — le point de référence présent qui manquait : il dit si
+               les moyennes affichées décrivent le marché ACTUEL. Moins de 20 couples : on se
+               TAIT (un « -28 % » calculé sur 12 points serait du bruit présenté en verdict,
+               garde de la contre-lecture). Si l'hebdo manque, le régime tient sur la seule
+               colonne journalière : le repli PAR COLONNE reste entier. Or DTP pour « élevée » :
+               la volatilité n'est pas directionnelle, jamais de vert/rouge ici (charte). */
+            var verdict = '';
+            if (j && j.r && j.r.length >= 20 && j.ec > 0) {
+              var d20 = j.r.slice(-20);
+              var m20 = d20.reduce(function (a, b) { return a + b; }, 0) / d20.length;
+              var ec20 = Math.sqrt(d20.reduce(function (a, b) { return a + (b - m20) * (b - m20); }, 0) / d20.length);
+              var ratio = ec20 / j.ec * 100;
+              var etat = ratio < 80 ? 'retrait' : (ratio <= 120 ? 'norme' : 'eleve');
+              var reg = { retrait: 'Volatilité en retrait', norme: 'Volatilité dans sa norme', eleve: 'Volatilité élevée' }[etat];
+              var delta = Math.round(Math.abs(ratio - 100));
+              var sous = etat === 'norme'
+                ? 'Les 20 dernières séances bougent comme l\'habitude (' + Math.round(ratio) + ' %) : les moyennes affichées décrivent bien le marché actuel.'
+                : etat === 'retrait'
+                  ? 'Les 20 dernières séances bougent ' + delta + ' % de moins que l\'habitude.'
+                  : 'Les 20 dernières séances bougent ' + delta + ' % de plus que l\'habitude : les moyennes affichées sous-estiment le présent.';
+              verdict = '<div class="wdg-verdict" data-etat="' + etat + '">'
+                + '<b class="wdg-verdict-txt' + (etat === 'eleve' ? ' est-present' : '') + '">' + reg + '</b>'
+                + '<span class="wdg-verdict-sous">' + sous + '</span></div>';
+            }
+
+            // Horodatage : la lecture la plus ANCIENNE des deux séries (afficher la plus fraîche
+            // prétendrait que tout est à jour alors qu'une des colonnes ne l'est pas).
+            var t1 = _bougiesMaj(sym + '|D1'), t2 = _bougiesMaj(sym + '|W1');
+            var ts = t1 && t2 ? Math.min(t1, t2) : (t1 || t2);
+
             host.innerHTML = '<div class="wdg-vo">'
               + '<div class="wdg-vo-tete"><span class="wdg-vo-sym">' + esc(sym) + '</span></div>'
-              + '<div class="wdg-vo-cols">' + colonne('Séance', j, mesure) + colonne('Semaine', sem, mesure) + '</div>'
-              + '<div class="wdg-vo-pied">Période en cours exclue. L\'amplitude vraie retient le plus grand écart entre le haut, le bas et la clôture précédente.</div></div>';
+              + verdict
+              + '<div class="wdg-vo-cols">' + colonne('Séance', j, mesure, presJ) + colonne('Semaine', sem, mesure, presS) + '</div>'
+              + '<div class="wdg-vo-pied">Période en cours exclue. L\'amplitude vraie retient le plus grand écart entre le haut, le bas et la clôture précédente. '
+              + _vieSpan(ts) + '</div></div>';
+
+            // Fondu de MAJ sur les lignes du présent quand leur chiffre a bougé (paire constante).
+            var sigV = presJ + '§' + presS;
+            if (prevSymVo === sym && prevSigVo != null && sigV !== prevSigVo) {
+              host.querySelectorAll('.wdg-vo-l.est-auj b').forEach(function (el) { _majFlash(el); });
+            }
+            prevSymVo = sym; prevSigVo = sigV;
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
@@ -2626,6 +2900,9 @@
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cache = {};
+        /* Mémoire du chiffre du JOUR : le fondu de MAJ ne se joue que si la valeur a réellement
+           bougé, jamais au premier rendu ni au changement de paire (faux signal sinon). */
+        var prevSym = null, prevAuj = null;
         skel(host, 5);
         function dessiner() {
           var sym = opt(it, W, 'paire') || 'EUR/USD';
@@ -2648,17 +2925,70 @@
             var tri = ampl.slice().sort(function (a, b) { return a - b; });
             var med = tri[Math.floor(tri.length / 2)];
             var dec = pip ? 0 : 2;
+
+            /* ── LE PRÉSENT. La moyenne ne bouge pas de la journée : ce qui rend la carte vivante
+               est la bougie du JOUR, déjà servie par la route et suivie par le tick de 5 min. En
+               cours : amplitude d'aujourd'hui vs moyenne + percentile sur les séances closes.
+               Week-end / férié : la dernière séance CLOSE, étiquetée par sa date — jamais
+               « aujourd'hui » sur une bougie de vendredi (piège documenté en tête de widget). */
+            var refAmp = pip ? (derniere.h - derniere.l) / pip : (derniere.h - derniere.l);
+            var ratio = (moy > 0 && isFinite(refAmp) && refAmp >= 0) ? refAmp / moy * 100 : null;
+            var etat = ratio == null ? null : _ampEtat(ratio);
+            var verdict = '';
+            if (etat) {
+              var vb, vs;
+              if (enCours) {
+                var pctl = Math.round(tri.filter(function (v) { return v <= refAmp; }).length / tri.length * 100);
+                vb = 'Aujourd\'hui : ' + refAmp.toFixed(dec) + ' ' + unite + ', ' + Math.round(ratio) + ' % de la moyenne (P' + pctl + ')';
+                vs = {
+                  calme: 'Séance encore calme : marge habituelle restante ~' + Math.max(0, moy - refAmp).toFixed(dec) + ' ' + unite + '.',
+                  norme: 'Séance dans la norme de la paire.',
+                  nourrie: 'Séance déjà nourrie : l\'amplitude type est consommée, les cassures tardives ont moins de carburant.',
+                  extreme: 'Séance exceptionnelle : plus d\'une fois et demie l\'amplitude type.',
+                }[etat];
+              } else {
+                var quand = _dateBougie(derniere.t);
+                quand = quand ? quand.charAt(0).toUpperCase() + quand.slice(1) : 'Dernière séance';
+                vb = quand + ' : ' + refAmp.toFixed(dec) + ' ' + unite + ', ' + Math.round(ratio) + ' % de la moyenne';
+                vs = 'Séance close ' + { calme: 'sous sa norme', norme: 'dans la norme', nourrie: 'au-dessus de sa norme', extreme: 'très au-dessus de sa norme' }[etat] + '.';
+              }
+              /* Jauge : piste 0-140 % de la moyenne, repère « moyenne » à 100/140 = 71,4 % de la
+                 largeur. Convention UNIQUE (la contre-lecture a relevé la contradiction
+                 piste 0-140 / repère à 100 %) : on VOIT le dépassement au lieu de plafonner la
+                 piste à la moyenne. */
+              var jw = Math.min(ratio, 140) / 140 * 100;
+              verdict = '<div class="wdg-verdict" data-etat="' + etat + '">'
+                + '<b class="wdg-verdict-txt wdg-maj-txt">' + esc(vb) + '</b>'
+                + '<span class="wdg-verdict-sous">' + esc(vs) + '</span>'
+                + '<div class="wdg-jauge"><span style="width:' + jw.toFixed(1) + '%"></span><i style="left:71.4%" title="moyenne"></i></div>'
+                + '</div>';
+            }
+
+            /* Le graphe marque AUJOURD'HUI : la bougie du jour est poussée en fin de série, en or,
+               les séances closes gardant leur vert/rouge par signe de l'écart à la moyenne. */
+            var serieG = ampl.slice(-40).map(function (v) { return v - moy; });
+            var coulG = serieG.map(function (v) { return v >= 0 ? '#00e676' : '#ff3d00'; });
+            if (enCours && ratio != null) { serieG.push(refAmp - moy); coulG.push('#e3b23a'); }
+
             host.innerHTML = '<div class="wdg-am">'
               + '<div class="wdg-am-tete"><span class="wdg-am-sym">' + esc(sym) + '</span>'
               + '<span class="wdg-am-n">' + util.length + ' séances</span></div>'
               + '<div class="wdg-am-gros"><b>' + moy.toFixed(dec) + '</b><span>' + unite + ' en moyenne par séance</span></div>'
               + '<div class="wdg-am-med">Médiane ' + med.toFixed(dec) + ' ' + unite + '</div>'
-              + '<div class="wdg-am-zone">' + _barresSvg(ampl.slice(-40).map(function (v) { return v - moy; }), { signe: true, zero: true }) + '</div>'
+              + verdict
+              + '<div class="wdg-am-zone">' + _barresSvg(serieG, { signe: true, zero: true, couleurs: coulG }) + '</div>'
               + '<div class="wdg-am-pied">'
               + (enCours ? 'Séance du jour exclue, elle n\'est pas terminée. ' : 'Dernière séance retenue : ' + esc(_dateBougie(derniere.t)) + ', close. ')
               + (ecartees > 0 ? ecartees + ' séance' + (ecartees > 1 ? 's' : '') + ' écartée' + (ecartees > 1 ? 's' : '') + ' (amplitude nulle). ' : '')
               + (pip ? 'Le pip suit la convention de place, il n\'est pas fourni par la source.' : 'Amplitude en points de cotation.')
+              + ' ' + _vieSpan(_bougiesMaj(sym + '|D1'))
               + '</div></div>';
+
+            // Fondu de MAJ : seulement quand le chiffre du JOUR a réellement bougé, à paire constante.
+            if (prevSym === sym && enCours && prevAuj != null && Math.abs(refAmp - prevAuj) > 1e-9) {
+              _majFlash(host.querySelector('.wdg-verdict-txt'));
+            }
+            prevSym = sym; prevAuj = enCours ? refAmp : null;
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
         }
         dessiner();
@@ -3287,6 +3617,9 @@
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cur = null, cache = {};
+        /* Mémoire du parcours du JOUR : le fondu de MAJ ne se joue qu'à réglages constants et sur
+           un vrai changement de valeur, jamais au premier rendu. */
+        var prevCleF = null, prevAujM = null;
         skel(host, 6);
 
         // La convention de pip vit desormais au niveau module (_pipTaille) : trois widgets s en
@@ -3305,9 +3638,14 @@
           _bougies(paire, 'D1', cache)
             .then(function (c) {
               if (!vivant || !host.isConnected || cur !== paire) return;
-              // La bougie du JOUR est exclue : son haut et son bas ne sont pas encore figes.
-              var auj = new Date(); auj.setHours(0, 0, 0, 0);
-              var bougies = c.filter(function (b) { return b && b.t < auj.getTime() && isFinite(b.h) && isFinite(b.l) && isFinite(b.o); });
+              /* La bougie du JOUR est exclue de l'échantillon (haut/bas pas encore figés) mais
+                 EXTRAITE d'abord : c'est elle qui porte le présent de la carte. Détection en date
+                 UTC des DEUX côtés : l'ancien filtre coupait à minuit LOCAL pendant que le reste
+                 de la famille raisonne en jour UTC — deux règles pour la même question
+                 (incohérence relevée par la contre-lecture). */
+              var dernC = c[c.length - 1];
+              var bAuj = (dernC && _memeJourUTC(dernC.t) && isFinite(dernC.h) && isFinite(dernC.l) && isFinite(dernC.o)) ? dernC : null;
+              var bougies = c.filter(function (b) { return b && !_memeJourUTC(b.t) && isFinite(b.h) && isFinite(b.l) && isFinite(b.o); });
               if (bougies.length < 200) { fallback(host, 'Historique insuffisant (n = ' + bougies.length + ' séances).'); return; }
 
               var P = pip(paire);
@@ -3335,6 +3673,51 @@
               var atteint2 = cible > 0 ? mesures.filter(function (v) { return v >= cible; }).length : 0;
               var pct2 = cible > 0 ? atteint2 / n * 100 : null;
 
+              /* ── LE PRÉSENT : où en est la séance face au seuil visé. Fréquence CONDITIONNELLE
+                 (courbe de survie) : parmi les séances closes arrivées AU MOINS là où on en est,
+                 la part qui a fini au-delà du seuil. L'amplitude ne fait que croître dans la
+                 journée : le conditionnement est exact — mais SEULEMENT tant que aujM < seuil.
+                 Au-delà, l'ensemble « >= seuil » CONTIENT « >= aujM » et le quotient dépasserait
+                 100 % (cas relevé par la contre-lecture) : on bascule sur la fréquence simple.
+                 Jour record : dénominateur nul, on le DIT au lieu de diviser. Moins de 20 séances
+                 comparables : le pourcentage serait du bruit, on se tait. Le second seuil
+                 (réglage « cible ») reste hors verdict : silence assumé. */
+              var aujM = bAuj ? (mesure === 'exc' ? Math.max(bAuj.h - bAuj.o, bAuj.o - bAuj.l) : (bAuj.h - bAuj.l)) / P : null;
+              if (aujM != null && !(isFinite(aujM) && aujM >= 0)) aujM = null;
+              var vEtat = '', vb = '', vs = '';
+              if (aujM != null) {
+                if (aujM >= seuil) {
+                  vEtat = 'atteint';
+                  vb = 'Seuil de ' + seuil + ' pips atteint (' + Math.round(aujM) + ' parcourus)';
+                  vs = pct.toFixed(0) + ' % des séances y parviennent.';
+                } else {
+                  vEtat = 'encours';
+                  vb = 'Aujourd\'hui : ' + Math.round(aujM) + ' pips sur ' + seuil + ' visés (' + Math.round(aujM / seuil * 100) + ' %)';
+                  var denom = mesures.filter(function (v) { return v >= aujM; }).length;
+                  if (denom === 0) vs = 'Amplitude record : aucune séance close de l\'échantillon n\'est arrivée aussi loin.';
+                  else if (denom < 20) vs = 'Seulement ' + denom + ' séances closes arrivées aussi loin : trop peu pour une fréquence fiable.';
+                  else vs = 'Parmi les ' + denom + ' séances arrivées à ' + Math.round(aujM) + ' pips, ' + Math.round(atteint / denom * 100) + ' % ont franchi les ' + seuil + '.';
+                }
+              } else if (mesures.length) {
+                // Week-end / férié : la dernière ligne est une séance CLOSE, on l'étiquette ainsi.
+                vEtat = 'clos';
+                var dernM = mesures[mesures.length - 1];
+                vb = 'Dernière séance close : ' + Math.round(dernM) + ' pips, seuil ' + (dernM >= seuil ? 'franchi' : 'non atteint');
+                vs = pct.toFixed(0) + ' % des séances ' + (dernM >= seuil ? 'y parviennent' : 'l\'atteignent') + '.';
+              }
+
+              /* Repères posés en HTML PAR-DESSUS la courbe (les helpers SVG partagés restent
+                 intacts) : trait fin = seuil visé, trait or = où en est aujourd'hui. Échelle =
+                 bornes RÉELLES du tracé, position bornée 0-100 (un jour record sort de l'axe,
+                 il se colle au bord droit). */
+              var rep = '';
+              var p0 = paliers[0], pFin = paliers[paliers.length - 1];
+              if (pFin > p0) {
+                var lx = function (v) { return Math.max(0, Math.min(100, (v - p0) / (pFin - p0) * 100)).toFixed(1); };
+                rep = '<i class="wdg-freq-rep" style="left:' + lx(seuil) + '%"></i>'
+                  + (aujM != null ? '<i class="wdg-freq-rep est-auj" style="left:' + lx(aujM) + '%"></i>' : '');
+              }
+
               host.innerHTML = '<div class="wdg-freq">'
                 + '<div class="wdg-freq-tete"><span class="wdg-freq-paire">' + esc(paire) + '</span>'
                 + '<span class="wdg-freq-mes">' + (mesure === 'exc' ? 'Excursion depuis l\'ouverture' : 'Amplitude haut-bas') + '</span></div>'
@@ -3344,14 +3727,28 @@
                 + '<div class="wdg-freq-n">' + atteint + ' séances sur ' + n
                 + (pct2 != null ? '<span class="wdg-freq-c">' + cible + ' pips : ' + pct2.toFixed(0) + ' % (' + atteint2 + ')</span>' : '')
                 + '</div>'
-                + '<div class="wdg-freq-zone">' + _courbeSvg(parts, { aire: true }) + '</div>'
+                + (vb ? '<div class="wdg-verdict" data-etat="' + vEtat + '">'
+                    + '<b class="wdg-verdict-txt wdg-maj-txt">' + esc(vb) + '</b>'
+                    + '<span class="wdg-verdict-sous">' + esc(vs) + '</span>'
+                    // Jauge du parcours vers le seuil : repère « seuil » au bout de la piste.
+                    + (vEtat !== 'clos' ? '<div class="wdg-jauge"><span style="width:' + Math.min(100, aujM / seuil * 100).toFixed(1) + '%"></span><i style="left:100%" title="seuil"></i></div>' : '')
+                    + '</div>' : '')
+                + '<div class="wdg-freq-zone">' + _courbeSvg(parts, { aire: true }) + rep + '</div>'
                 // L axe porte les bornes REELLES du trace, pas une graduation jamais atteinte.
                 + '<div class="wdg-freq-axe"><span>' + paliers[0] + '</span>'
                 + '<span>' + paliers[Math.floor(paliers.length / 2)] + '</span>'
                 + '<span>' + paliers[paliers.length - 1] + ' pips</span></div>'
                 + '<div class="wdg-freq-pied">Fréquence observée sur les séances servies par la source, hors journée en cours. '
-                + 'Amplitude brute : elle ne tient compte d\'aucun coût de transaction.</div>'
+                + 'Amplitude brute : elle ne tient compte d\'aucun coût de transaction. '
+                + _vieSpan(_bougiesMaj(paire + '|D1')) + '</div>'
                 + '</div>';
+
+              // Fondu de MAJ : réglages constants + valeur du jour réellement différente.
+              var cleV = paire + '|' + mesure + '|' + seuil;
+              if (prevCleF === cleV && prevAujM != null && aujM != null && Math.abs(aujM - prevAujM) > 1e-9) {
+                _majFlash(host.querySelector('.wdg-verdict-txt'));
+              }
+              prevCleF = cleV; prevAujM = aujM;
             })
             .catch(function (e) {
               /* Distinguer la panne de DONNEE de la faute de CODE. Un « void iSeuil » laisse par
