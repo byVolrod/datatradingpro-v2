@@ -13298,21 +13298,40 @@ window._dtpJournalBadgeInit = function () {
     const qToAcct = _rate(quote, acct);
     if (qToAcct == null) { res.innerHTML = '<div class="calc-empty">Conversion ' + quote + '→' + acct + ' indisponible.</div>'; return; }
     const pipValAcct = pipValQuote * qToAcct;                 // valeur d'un pip (1 lot) dans la devise du compte
-    const lots = riskMoney / (sl * pipValAcct);
+    /* COÛTS DE TRANSACTION (23/08, demande user) : vides = 0 = formule d'avant, à l'identique.
+       Le SPREAD se paie à l'entrée : sur un trade perdant, le prix a parcouru sl + spread pips —
+       il s'AJOUTE donc à la distance risquée. La COMMISSION se paie par lot (aller-retour, devise
+       du compte). La taille résout riskMoney = lots × ((sl + spread) × pip + commission) : le
+       risque affiché reste le risque RÉEL, coûts compris, au lieu d'être dépassé en douce. */
+    const spread = Math.max(0, _num('calc-spread') || 0);
+    const comm = Math.max(0, _num('calc-comm') || 0);
+    const coutParLot = (sl + spread) * pipValAcct + comm;
+    if (!(coutParLot > 0)) { res.innerHTML = '<div class="calc-empty">Paramètres invalides.</div>'; return; }
+    const lots = riskMoney / coutParLot;
     const units = lots * contract;
+    const aDesCouts = spread > 0 || comm > 0;
     const notionalBase = units;                               // unités de la devise de base
     const fmt = (v, d) => (v == null || !isFinite(v)) ? '-' : v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
     const cur = acct === 'JPY' ? '¥' : acct === 'EUR' ? '€' : acct === 'GBP' ? '£' : (acct === 'USD' || acct === 'CAD' || acct === 'AUD' || acct === 'NZD') ? '$' : acct + ' ';
-    try { sessionStorage.setItem('dtp_calc_setup', JSON.stringify({ acct: acct, balance: balance, risk: risk, sl: sl, sym: sym, mode: _riskMode })); } catch (_) {}   // dernier réglage : SESSION uniquement (volatil, jamais localStorage)
+    try { sessionStorage.setItem('dtp_calc_setup', JSON.stringify({ acct: acct, balance: balance, risk: risk, sl: sl, spread: spread, comm: comm, sym: sym, mode: _riskMode })); } catch (_) {}   // dernier réglage : SESSION uniquement (volatil, jamais localStorage)
     res.innerHTML =
       '<div class="calc-card calc-card--hero"><span class="calc-k">Taille de position</span><span class="calc-v">' + fmt(lots, 2) + ' <em>lots</em></span>'
-      + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités</span>'
+      + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités' + (aDesCouts ? ' · coûts inclus' : '') + '</span>'
       + '<button type="button" class="calc-copy" data-copy="' + lots.toFixed(2) + '" title="Copier la taille en lots">Copier</button></div>'
       + '<div class="calc-grid">'
       + '<div class="calc-card"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? String(risk).replace('.', ',') + '% du solde' : 'montant fixe') + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Valeur du pip</span><span class="calc-v">' + cur + fmt(pipValAcct * lots, 2) + '</span><span class="calc-sub">' + cur + fmt(pipValAcct, 2) + ' / lot</span></div>'
-      + '<div class="calc-card"><span class="calc-k">Stop-loss</span><span class="calc-v">' + fmt(sl, 0) + ' <em>pips</em></span><span class="calc-sub">perte max ≈ ' + cur + fmt(sl * pipValAcct * lots, 2) + '</span></div>'
+      + '<div class="calc-card"><span class="calc-k">Stop-loss</span><span class="calc-v">' + fmt(sl, 0) + ' <em>pips</em></span><span class="calc-sub">perte max ≈ ' + cur + fmt(riskMoney, 2) + (aDesCouts ? ', coûts compris' : '') + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Notionnel</span><span class="calc-v">' + fmt(notionalBase, 0) + ' ' + base + '</span><span class="calc-sub">cours ' + sym + ' : ' + fmt(price, quote === 'JPY' ? 3 : 5) + '</span></div>'
+      /* Carte COÛTS : seulement quand ils existent — une carte de zéros n'apprend rien. Elle DIT
+         ce que la taille a déjà absorbé : le lecteur voit pourquoi elle est un peu plus petite. */
+      + (aDesCouts
+        ? '<div class="calc-card calc-card--couts"><span class="calc-k">Coûts (déjà inclus)</span><span class="calc-v">' + cur + fmt((spread * pipValAcct + comm) * lots, 2) + '</span><span class="calc-sub">'
+          + (spread > 0 ? 'spread ' + String(spread).replace('.', ',') + ' pip' + (spread > 1 ? 's' : '') + ' ≈ ' + cur + fmt(spread * pipValAcct * lots, 2) : '')
+          + (spread > 0 && comm > 0 ? ' · ' : '')
+          + (comm > 0 ? 'commission ' + cur + fmt(comm * lots, 2) + ' (' + cur + fmt(comm, 2) + ' / lot)' : '')
+          + '</span></div>'
+        : '')
       + '</div>';
   }
   function _wire() {
@@ -13340,7 +13359,7 @@ window._dtpJournalBadgeInit = function () {
     // ce qui donnait l impression qu il fallait appuyer sur un bouton pour obtenir un resultat.
     // Une calculatrice doit repondre pendant qu on tape. Les listes deroulantes gardent onchange :
     // il n y a pas de frappe a suivre, et « input » y ferait doublon.
-    ['calc-balance', 'calc-risk', 'calc-sl'].forEach(id => { const el = document.getElementById(id); if (el) el.oninput = _calcCompute; });
+    ['calc-balance', 'calc-risk', 'calc-sl', 'calc-spread', 'calc-comm'].forEach(id => { const el = document.getElementById(id); if (el) el.oninput = _calcCompute; });
     ['calc-acct', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.onchange = _calcCompute; });
     // Paliers de risque : 0,5 / 1 / 2 % couvrent l ecrasante majorite des cas. Trois clics
     // remplacent une saisie, et le palier actif se voit.

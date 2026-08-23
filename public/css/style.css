@@ -19470,6 +19470,25 @@ html[data-theme="light"] .wdg-verdict .est-neutre { color: #8a6a12; }
   .wdg-maj-txt, .wdg-maj-surf, .wdg-jauge > span { transition: none; }
 }
 
+/* ═══ CALCULATRICE : LISIBILITÉ SUR GRAND ÉCRAN (23/08, capture user : cartes étirées sur toute
+   la largeur, texte perdu dedans, bas de page vide). Le contenu se BORNE (720px de résultats) et
+   se centre dans l'espace restant ; les chiffres GROSSISSENT (16→19px, héros 30→38px) : l'œil
+   tombe sur la taille de position, plus sur du vide. Aucune logique touchée. */
+.calc-wrap { grid-template-columns: minmax(280px, 340px) minmax(0, 760px); justify-content: center; column-gap: 28px; padding: 22px 24px; }
+.calc-results { align-self: start; }
+.calc-card { padding: 14px 16px; gap: 4px; }
+.calc-card .calc-v { font-size: 19px; }
+.calc-card--hero .calc-v { font-size: 38px; }
+.calc-card--hero { padding: 18px 20px; }
+.calc-card .calc-k { font-size: 10px; letter-spacing: .07em; }
+.calc-card .calc-sub { font-size: 11px; }
+/* Carte Coûts : liseré or discret — elle explique ce que la taille a déjà absorbé. */
+.calc-card--couts { border-color: rgba(227, 178, 58, .35); }
+.calc-card--couts .calc-v { color: var(--orange, #e3b23a); }
+@media (max-width: 900px) {
+  .calc-wrap { grid-template-columns: 1fr; padding: 12px; }
+}
+
 /* ═══ CALENDRIER MOBILE RESSERRÉ (23/08, demande user : « on dirait qu'il est gros, rends-le
    épuré, propre, aligné »). Mesuré avant : cartes de 50px, heure 14px, intitulé 14,5px, padding
    11/12 — des tailles de LECTURE D'ARTICLE, pas de terminal. On redescend à la densité du desk
