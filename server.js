@@ -15370,6 +15370,36 @@ const SNAP_GROUPS = [
   { title: 'CRYPTO', items: [
     { sym: 'BTC-USD', label: 'Bitcoin' }, { sym: 'ETH-USD', label: 'Ethereum' } ] },
 ];
+/* ─── COURBE DES TAUX US (23/08, widget « Courbe des taux US ») ─────────────────────────────────
+   Rendements du Trésor via les indices CBOE de Yahoo (^IRX 13 sem., ^FVX 5 ans, ^TNX 10 ans,
+   ^TYX 30 ans) : cotation DIRECTE en pourcent (sondé le 23/08 : ^TNX → 4.738 = 4,74 %), aucune
+   normalisation. Dernier niveau + 90 jours d'historique de clôtures (l'inversion se lit dans le
+   temps, pas sur un seul point). Même porte Yahoo unique que le reste (_yfChart), cache 10 min :
+   la donnée bouge à l'échelle de l'heure de cotation, pas davantage. */
+const _YIELDS_SYMS = [['m3', '^IRX', '3 mois'], ['y5', '^FVX', '5 ans'], ['y10', '^TNX', '10 ans'], ['y30', '^TYX', '30 ans']];
+let _yieldsCache = { ts: 0, data: null };
+app.get('/api/us-yields', async (_req, res) => {
+  if (_yieldsCache.data && Date.now() - _yieldsCache.ts < 10 * 60 * 1000) return res.json(_yieldsCache.data);
+  try {
+    const series = {};
+    await Promise.all(_YIELDS_SYMS.map(async ([k, sym, lbl]) => {
+      try {
+        const { raw } = await _yfChart(sym, '1d', '6mo');
+        const r0 = raw && raw.chart && raw.chart.result && raw.chart.result[0];
+        const ts = (r0 && r0.timestamp) || [], q = r0 && r0.indicators.quote[0];
+        const hist = [];
+        for (let i = 0; i < ts.length; i++) { const v = q && q.close && q.close[i]; if (v != null && isFinite(v)) hist.push({ t: ts[i] * 1000, v: +v.toFixed(3) }); }
+        if (hist.length) series[k] = { lbl, last: hist[hist.length - 1].v, hist: hist.slice(-90) };
+      } catch (e) {}
+    }));
+    // Sans le 10 ans ET le 3 mois, le widget n'a ni courbe ni verdict : on ne sert pas un squelette.
+    if (!series.y10 || !series.m3) return res.json({ ok: false, series: {} });
+    const data = { ok: true, updatedAt: Date.now(), series };
+    _yieldsCache = { ts: Date.now(), data };
+    res.json(data);
+  } catch (e) { res.json({ ok: false, series: {} }); }
+});
+
 let _snapCache = { ts: 0, data: null };
 app.get('/api/market-snapshot', async (_req, res) => {
   if (_snapCache.data && Date.now() - _snapCache.ts < 60 * 1000) return res.json(_snapCache.data);

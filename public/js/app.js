@@ -13280,7 +13280,16 @@ window._dtpJournalBadgeInit = function () {
     if (fu != null && ut != null) return fu * ut;
     return null;
   }
+  let _calcPucesSym = null;   // dernière paire pour laquelle les puces de spread ont été rendues
+  let _majPucesSpread = null; // posée par _wire() (elle a besoin du DOM câblé) ; lue par _calcCompute
   function _calcCompute() {
+    // Les puces « spread typique » suivent la paire : au premier rendu la liste des paires n'est
+    // pas encore remplie (elles se calculaient sur du vide) → on les resynchronise dès que la
+    // paire effective change, quel que soit le chemin qui a déclenché le calcul.
+    try {
+      const _symPuces = (document.getElementById('calc-pair') || {}).value || '';
+      if (_symPuces && _symPuces !== _calcPucesSym && typeof _majPucesSpread === 'function') { _calcPucesSym = _symPuces; _majPucesSpread(); }
+    } catch (e) {}
     const acct = (document.getElementById('calc-acct') || {}).value || 'USD';
     const balance = _num('calc-balance'), risk = _num('calc-risk'), sl = _num('calc-sl');
     const sym = (document.getElementById('calc-pair') || {}).value || '';
@@ -13319,9 +13328,9 @@ window._dtpJournalBadgeInit = function () {
       + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités' + (aDesCouts ? ' · coûts inclus' : '') + '</span>'
       + '<button type="button" class="calc-copy" data-copy="' + lots.toFixed(2) + '" title="Copier la taille en lots">Copier</button></div>'
       + '<div class="calc-grid">'
-      + '<div class="calc-card"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? String(risk).replace('.', ',') + '% du solde' : 'montant fixe') + '</span></div>'
+      + '<div class="calc-card calc-card--risque"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? String(risk).replace('.', ',') + '% du solde' : 'montant fixe') + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Valeur du pip</span><span class="calc-v">' + cur + fmt(pipValAcct * lots, 2) + '</span><span class="calc-sub">' + cur + fmt(pipValAcct, 2) + ' / lot</span></div>'
-      + '<div class="calc-card"><span class="calc-k">Stop-loss</span><span class="calc-v">' + fmt(sl, 0) + ' <em>pips</em></span><span class="calc-sub">perte max ≈ ' + cur + fmt(riskMoney, 2) + (aDesCouts ? ', coûts compris' : '') + '</span></div>'
+      + '<div class="calc-card"><span class="calc-k">Stop-loss</span><span class="calc-v">' + fmt(sl, 0) + ' <em>pips</em></span><span class="calc-sub">perte max ≈ <b class="calc-rouge">' + cur + fmt(riskMoney, 2) + '</b>' + (aDesCouts ? ', coûts compris' : '') + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Notionnel</span><span class="calc-v">' + fmt(notionalBase, 0) + ' ' + base + '</span><span class="calc-sub">cours ' + sym + ' : ' + fmt(price, quote === 'JPY' ? 3 : 5) + '</span></div>'
       /* Carte COÛTS : seulement quand ils existent — une carte de zéros n'apprend rien. Elle DIT
          ce que la taille a déjà absorbé : le lecteur voit pourquoi elle est un peu plus petite. */
@@ -13360,6 +13369,42 @@ window._dtpJournalBadgeInit = function () {
     // Une calculatrice doit repondre pendant qu on tape. Les listes deroulantes gardent onchange :
     // il n y a pas de frappe a suivre, et « input » y ferait doublon.
     ['calc-balance', 'calc-risk', 'calc-sl', 'calc-spread', 'calc-comm'].forEach(id => { const el = document.getElementById(id); if (el) el.oninput = _calcCompute; });
+    /* VALEURS PROPOSÉES spread/commission (23/08, demande user) : des puces cliquables SOUS les
+       champs, comme les préréglages de risque. Le spread proposé suit la PAIRE choisie (table
+       indicative d'un compte standard : ordre de grandeur, pas une promesse de courtier — d'où le
+       mot « indicatif » dans l'infobulle) ; les commissions proposées sont les barèmes ECN
+       courants par lot aller-retour. Cliquer REMPLIT le champ et recalcule : la main garde
+       toujours le dernier mot. */
+    const _SPREAD_TYPIQUE = { 'EUR/USD': 0.6, 'GBP/USD': 0.9, 'USD/JPY': 0.7, 'USD/CHF': 1.0, 'AUD/USD': 0.8, 'USD/CAD': 1.2, 'NZD/USD': 1.4, 'EUR/GBP': 1.1, 'EUR/JPY': 1.2, 'GBP/JPY': 1.8, 'XAU/USD': 2.5 };
+    const _puces = (hostId, inputId, vals) => {
+      const host = document.getElementById(hostId); if (!host) return;
+      host.innerHTML = vals.map(v =>
+        '<button type="button" class="calc-preset" data-v="' + v[0] + '" title="' + v[2] + '">' + v[1] + '</button>').join('');
+      host.querySelectorAll('.calc-preset').forEach(b => {
+        b.onclick = () => {
+          const inp = document.getElementById(inputId);
+          if (inp) { inp.value = b.getAttribute('data-v'); _calcCompute(); }
+          host.querySelectorAll('.calc-preset').forEach(x => x.classList.toggle('est-actif', x === b));
+        };
+      });
+    };
+    _majPucesSpread = () => {
+      const sym = (document.getElementById('calc-pair') || {}).value || '';
+      const typ = _SPREAD_TYPIQUE[sym];
+      _puces('calc-spread-presets', 'calc-spread', [
+        ['0', '0', 'Sans spread (compte brut)'],
+        ...(typ != null ? [[String(typ), String(typ).replace('.', ',') + ' pip' + (typ > 1 ? 's' : ''), 'Spread indicatif ' + sym + ' (compte standard, ordre de grandeur)']] : []),
+        [typ != null ? String(+(typ * 2).toFixed(1)) : '1.5', typ != null ? String(+(typ * 2).toFixed(1)).replace('.', ',') : '1,5', 'Conditions larges (annonces, faible liquidité)'],
+      ]);
+    };
+    _puces('calc-comm-presets', 'calc-comm', [
+      ['0', '0', 'Sans commission (spread seul)'],
+      ['3.5', '3,50', 'Barème ECN courant : 3,50 par lot aller-retour'],
+      ['7', '7', 'Barème ECN courant : 7 par lot aller-retour'],
+    ]);
+    _majPucesSpread();
+    const _pairSel = document.getElementById('calc-pair');
+    if (_pairSel) _pairSel.addEventListener('change', _majPucesSpread);
     ['calc-acct', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.onchange = _calcCompute; });
     // Paliers de risque : 0,5 / 1 / 2 % couvrent l ecrasante majorite des cas. Trois clics
     // remplacent une saisie, et le palier actif se voit.
