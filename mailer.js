@@ -1806,6 +1806,8 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
       ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#f3c344;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`
       : `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`}`;
 }
+// Nombres en toutes lettres (le corps d'un mail pédagogique écrit « en quatre étapes », pas « en 4 étapes »).
+const _NB_FR = { 1: 'une', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq', 6: 'six' };
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
 // via recentKeys. Repli evergreen (decodeur 4 familles) si aucune donnee. Renvoie aussi conceptKey (marquage).
@@ -1832,26 +1834,46 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   // AGENDA (le widget + le compte des temps forts). Avant, le rendez-vous était éclaté en deux
   // endroits (encart d'ouverture puis application après l'image) avec la pédagogie en sandwich :
   // le lecteur revisitait le même sujet deux fois.
-  const lead = featured
-    ? `Votre rendez-vous pédagogie du mardi : un concept, sa règle de lecture, et son application concrète sur le calendrier de la semaine.`
-    : `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
-
-  // Le concept suit la grammaire commune : la RÈGLE DE LECTURE (contrat PARA3, l'essentiel actionnable)
-  // sort du mur de texte et prend l'ENCADRÉ OR, comme l'essentiel des autres templates.
+  // MODE LEÇON (retour user 23/08 : « plus simple à comprendre, en mode éducation ») : le mail
+  // annonce son plan en trois étapes et le SUIT, au lieu d'aligner trois paragraphes qui se
+  // ressemblent puis une application.
+  //   ⚠️ PIÈGE MESURÉ (audit du catalogue, 23/08) : ne PAS titrer les paragraphes un par un
+  //   (« ce que c'est » / « pourquoi le marché y réagit »). Le contrat de rédaction n'est tenu que
+  //   par 6 concepts sur 14 : `risk-on-off` oppose risk-on et risk-off, `gestion-risque` enchaîne
+  //   tentation puis discipline. Des intitulés fixes mentiraient donc sur 8 concepts. On groupe
+  //   l'explication sous UNE étape « Comprendre », toujours exacte quel que soit le concept.
   const _cParas = (c.paras || []).filter(Boolean);
   const _regleIdx = _cParas.length > 1 ? _cParas.length - 1 : -1;
+  // Le dernier paragraphe porte l'essentiel actionnable. Il s'annonce « La règle de lecture » quand
+  // il le dit lui-même (6 concepts + tous ceux générés par l'IA, dont le prompt l'impose), sinon
+  // « À retenir », vrai dans tous les cas.
+  const _regleDeclaree = _regleIdx >= 0 && /^\s*la règle de lecture/i.test(String(_cParas[_regleIdx]));
+  const _regleTitre = _regleDeclaree ? 'La règle de lecture' : 'À retenir';
   const _regleTxt = (() => {
     if (_regleIdx < 0) return '';
     const t = String(_cParas[_regleIdx]).replace(/^\s*la règle de lecture\s*:?\s*/i, '');
     return t.charAt(0).toUpperCase() + t.slice(1);   // le préfixe retiré laissait une minuscule en tête
   })();
+  const _aAppliquer = !!(featured && featured.title);
+  // Étapes réellement présentes : Comprendre (s'il reste des paragraphes) + l'essentiel + la pratique.
+  const _nEtapes = (_regleIdx > 0 ? 1 : 0) + (_regleIdx >= 0 ? 1 : 1) + (_aAppliquer ? 1 : 0);
+  const lead = `Votre leçon du mardi, en ${_NB_FR[_nEtapes] || _nEtapes} étapes : un concept macro expliqué simplement, l'essentiel à retenir, puis son application sur le calendrier de la semaine.`;
+  let _etape = 0;
+  const _numComprendre = (_regleIdx > 0) ? ++_etape : 0;
+  const _numRegle = ++_etape;
+  const _numPratique = _aAppliquer ? ++_etape : 0;
+  // « Comprendre » : tous les paragraphes SAUF le dernier (l'explication proprement dite).
+  const etapesHtml = _numComprendre
+    ? _secTitle(`${_numComprendre} &middot; Comprendre`)
+      + _cParas.slice(0, _regleIdx).map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')
+    : _cParas.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('');
   const conceptHtml = `
     <div style="margin:20px 0 8px;">
       <div style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
       <div style="color:#ffffff;font-weight:800;font-size:18px;line-height:1.3;margin:10px 0 2px;letter-spacing:-.01em;">${_esc(c.title)}</div>
     </div>
-    ${_cParas.map((p, i) => i === _regleIdx ? '' : `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}
-    ${_regleIdx >= 0 ? _goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">La règle de lecture</div><div>${_esc(_regleTxt)}</div>`) : ''}`;
+    ${etapesHtml}
+    ${_regleIdx >= 0 ? _goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${_numRegle} &middot; ${_regleTitre}</div><div>${_esc(_regleTxt)}</div>`) : ''}`;
 
   // « Cette semaine, concrètement » : UNE section qui réunit TOUT le rendez-vous vedette : l'encart
   // (nom, date/heure or, attentes du marché ou pourquoi il compte), la phrase d'application du
@@ -1865,12 +1887,12 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     const sousLigne = fnums.length
       ? `Le marché attend ${fnums.join(', ')}.`
       : `L'un des rendez-vous les plus suivis de la semaine : il peut peser sur les anticipations de taux et réveiller la volatilité.`;
-    appliedHtml = _secTitle('Cette semaine, concrètement')
+    appliedHtml = _secTitle(`${_numPratique} &middot; Mettez-la en pratique cette semaine`)
       + _encart(
         `<div style="color:#ffffff;font-weight:800;font-size:15px;letter-spacing:-.01em;">${_esc(featured.title)}</div>`
         + (fwhen ? `<div style="color:${TOK.or};font-weight:700;font-size:12px;margin-top:3px;">${_esc(fwhen.charAt(0).toUpperCase() + fwhen.slice(1))}</div>` : '')
         + `<div style="color:#aab2c0;font-size:12.5px;line-height:1.55;margin-top:7px;">${sousLigne}</div>`, true)
-      + `<p style="margin:0 0 12px;">C'est exactement la mécanique décrite plus haut, à lire en direct&nbsp;: le marché compare le chiffre aux attentes, pas au niveau brut, et c'est l'écart qui fait bouger le dollar, l'or et les indices.</p>`;
+      + `<p style="margin:0 0 12px;">Le marché ne regarde pas le niveau brut du chiffre&nbsp;: il le compare aux attentes. C'est cet écart, et lui seul, qui fait bouger le dollar, l'or et les indices.</p>`;
     // ── LES DEUX SCÉNARIOS (refonte 15/07) : la mécanique type au-dessus/en-dessous des attentes, appliquée à
     //    L'ÉVÉNEMENT vedette. Polarité par indicateur (chômage/inscriptions : un chiffre plus haut = économie plus
     //    faible → lecture inversée). 100% INFORMATIF : on décrit des mécaniques de marché habituelles (« tend à »,
