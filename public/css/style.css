@@ -11836,7 +11836,13 @@ body.wdg-mode #topbar-nav { display: none; }
    table `table-layout: fixed` ne récupère pas l'espace restant — 119 px sur 493 restaient inutilisés
    et la colonne tombait à 60 px. On calcule donc le solde à la main, colonnes masquées déduites. */
 .wdg-cal-panel { container-type: inline-size; container-name: dtpcal; }
-@container dtpcal (max-width: 640px) {
+/* Ceinture ACCUEIL (23/08) : la zone qui héberge le calendrier devient AUSSI le conteneur — si un
+   hôte montait la table sans .wdg-cal-panel, le kit adaptatif s'appliquerait quand même. */
+.home-zone-body:has(.wdg-cal-wrap) { container-type: inline-size; container-name: dtpcal; }
+/* 640 → 700 (23/08, capture user accueil : panneau ~660px JUSTE AU-DESSUS du seuil → 10 colonnes
+   au chausse-pied, « 1.41… », « PRÉVISI » coupés. À 700 le kit couvre l'accueil ; les valeurs ne
+   se tronquent JAMAIS, c'est l'intitulé d'événement qui cède). */
+@container dtpcal (max-width: 700px) {
   .wdg-cal-wrap { overflow-x: hidden; }
   .wdg-cal-wrap .cal-table { table-layout: fixed; width: 100%; }
   .wdg-cal-wrap .cth-event { min-width: 0; }
