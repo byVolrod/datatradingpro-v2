@@ -20521,16 +20521,18 @@ function _freshDaily() {
         // v19 : dans le mail, la géo est représentée par ses POINTS CLÉS (distillés) plutôt que par
         // les 14 puces de renseignement : un mail se survole. Repli sur les puces si le champ manque
         // (anciens rapports). « Banques centrales » s'intercale, comme dans le rapport.
+        // « Le VRAI récap quotidien » (retour user 23/08) : le mail porte les sections du rapport en
+        // ENTIER ou presque, plus un digest. Tranches élargies (4 → 6) + puces moins amputées (420 → 560).
         const geoSrc = (Array.isArray(fx.geoKeyPoints) && fx.geoKeyPoints.length) ? fx.geoKeyPoints : (Array.isArray(fx.geopolitics) ? fx.geopolitics : []);
-        const geo = geoSrc.filter(Boolean).slice(0, 4).map(t => _dense(t, 420));
+        const geo = geoSrc.filter(Boolean).slice(0, 6).map(t => _dense(t, 560));
         if (geo.length) secs.push({ title: 'Géopolitique : points clés', kind: 'bullets', items: geo });
-        const cbm = (Array.isArray(fx.cb) ? fx.cb : []).filter(Boolean).slice(0, 4).map(t => _dense(t, 420));
+        const cbm = (Array.isArray(fx.cb) ? fx.cb : []).filter(Boolean).slice(0, 6).map(t => _dense(t, 560));
         if (cbm.length) secs.push({ title: 'Banques centrales', kind: 'bullets', items: cbm });
-        const mac = (Array.isArray(fx.macro) ? fx.macro : []).filter(Boolean).slice(0, 4).map(t => _dense(t, 420));
+        const mac = (Array.isArray(fx.macro) ? fx.macro : []).filter(Boolean).slice(0, 6).map(t => _dense(t, 560));
         if (mac.length) secs.push({ title: 'Macro', kind: 'bullets', items: mac });
         // Analyse par session (Asie / Londres / New York) : le récit COMPLET de la séance (2-3 phrases
         // denses avec le driver chiffré), pas seulement son accroche.
-        const regs = (Array.isArray(fx.regions) ? fx.regions : []).filter(r => r && r.name && r.summary).slice(0, 4).map(r => r.name + ' : ' + _dense(r.summary, 460));
+        const regs = (Array.isArray(fx.regions) ? fx.regions : []).filter(r => r && r.name && r.summary).slice(0, 4).map(r => r.name + ' : ' + _dense(r.summary, 560));
         if (regs.length) secs.push({ title: 'Analyse par session', kind: 'bullets', items: regs });
         // « À surveiller » — MÊME NOM que dans le rapport (le mail disait « À suivre »). Deux
         // matières, dans l'ordre du desk : d'abord la lecture NARRATIVE (`watch` : le catalyseur ET
@@ -20538,13 +20540,13 @@ function _freshDaily() {
         // YoY ») ne dit rien à un lecteur de mail : on porte la date FR (Paris), la devise et le
         // consensus attendu, pour qu'il sache QUAND, sur QUELLE devise et CE QUI est attendu.
         const _laDay = ts => { try { return new Date(ts).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' }); } catch { return ''; } };
-        const watch = (Array.isArray(fx.watch) ? fx.watch : []).filter(Boolean).slice(0, 3).map(t => _dense(t, 380));
-        const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).filter(x => x && x.event).slice(0, 5).map(x => {
+        const watch = (Array.isArray(fx.watch) ? fx.watch : []).filter(Boolean).slice(0, 4).map(t => _dense(t, 480));
+        const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).filter(x => x && x.event).slice(0, 6).map(x => {
           const when = x.ts ? _laDay(x.ts) : '';
           const vals = [x.forecast ? 'prév. ' + x.forecast : '', x.previous ? 'préc. ' + x.previous : ''].filter(Boolean).join(', ');
           return [when, x.ccy || '', x.event].filter(Boolean).join(' · ') + (vals ? ' - ' + vals : '') + (/high/i.test(x.importance || '') ? ' (impact élevé)' : '');
         });
-        const surv = watch.concat(la).slice(0, 5);
+        const surv = watch.concat(la).slice(0, 8);
         if (surv.length) secs.push({ title: 'À surveiller', kind: 'bullets', items: surv });
         // NOM DU RAPPORT EN FRANÇAIS (demande user 11/08 : « Daily Recap doit avoir le même nom,
         // Récap Quotidien »). Le desk applique cette table de préfixes à l'affichage ; le mail

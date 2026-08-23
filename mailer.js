@@ -535,12 +535,12 @@ function buildWelcome({ to, name, password, expiresAt }) {
     <p style="margin:0 0 4px;font-size:13px;color:#9aa3b2;">Connectez-vous avec l'email ci-dessus. Si vous n'avez pas (ou plus) votre mot de passe, cliquez sur « Mot de passe oublié » sur la page de connexion, ou répondez simplement à ce message, on vous aide.</p>`;
   const body = `
     ${_H1}Bienvenue, ${prenom} 👋</p>
-    <p style="margin:0 0 14px;">Votre accès à <strong style="color:#fff;">DataTradingPro</strong> a été activé. Vous disposez désormais du flux de news en temps réel, du calendrier économique et des analyses institutionnelles.</p>
+    <p style="margin:0 0 14px;">Votre accès à <strong style="color:#fff;">DataTradingPro</strong> est activé : votre desk est prêt. Le flux de news en temps réel, le calendrier économique et les analyses institutionnelles vous attendent.</p>
     <p style="margin:0 0 6px;color:#9aa3b2;font-size:13px;">Vos identifiants de connexion :</p>
     ${creds}
-    ${_button('Accéder au terminal', APP_URL)}
+    ${_button('Ouvrir mon desk', APP_URL)}
     ${_spamNote()}
-    <p style="margin:0;font-size:13px;">Excellents trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+    <p style="margin:0;font-size:13px;">Bienvenue parmi nous,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Bienvenue sur DataTradingPro : votre accès est activé', html: _layout('Bienvenue', body) };
 }
 async function sendWelcome(d) { const m = buildWelcome(d); return _send(d.to, m.subject, m.html); }
@@ -551,8 +551,8 @@ function buildRenewalFailed({ name }) {
   const body = `
     ${_H1}Renouvellement de votre abonnement</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro. Par conséquent, votre accès au terminal est actuellement <strong style="color:${TOK.rouge};">suspendu</strong>.</p>
-    <p style="margin:0 0 14px;">Pour réactiver votre accès et reprendre le suivi des marchés en temps réel, il vous suffit de renouveler votre abonnement en un clic ci-dessous :</p>
+    <p style="margin:0 0 14px;">Le renouvellement de votre abonnement <strong style="color:#fff;">DataTradingPro</strong> n'a pas pu aboutir, et votre accès est pour l'instant <strong style="color:${TOK.rouge};">suspendu</strong>. Votre desk, lui, reste en place : dispositions, journal, réglages, rien n'a bougé.</p>
+    <p style="margin:0 0 14px;">Un clic suffit pour reprendre le fil des marchés :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Nous restons à votre disposition,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -570,7 +570,7 @@ function buildExpired({ name, expiresAt }) {
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre période d'abonnement à <strong style="color:#fff;">DataTradingPro</strong>${end ? ` est arrivée à échéance le <strong style="color:#fff;">${end}</strong>${d.recent ? '' : `, ${d.quand}`}` : ' a expiré'}. Votre accès au terminal est ${d.recent ? 'désormais' : 'depuis'} <strong style="color:${TOK.rouge};">suspendu</strong>.</p>
     ${_noteRetard(d)}
-    <p style="margin:0 0 14px;">Pour reprendre le suivi des marchés en temps réel (news, calendrier économique, force des devises, analyses institutionnelles), renouvelez votre abonnement en un clic :</p>
+    <p style="margin:0 0 14px;">Votre desk vous attend, intact : news, calendrier économique, force des devises, analyses institutionnelles. Un clic et vous reprenez le fil :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -624,8 +624,8 @@ function buildWinback({ name, months }) {
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">${prenom}, ${m.intro}</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
-    <p style="margin:0 0 14px;">Votre compte existe toujours : réglages et journal compris. Un clic et vous retrouvez tout :</p>
-    ${_button('Revenir sur le terminal', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;">Votre desk existe toujours : réglages, dispositions et journal compris. Un clic et vous retrouvez tout :</p>
+    ${_button('Retrouver mon desk', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Sans engagement, résiliable à tout moment. Et si vous préférez ne plus recevoir ces nouvelles, répondez simplement à ce mail.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Au plaisir de vous revoir,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -684,12 +684,13 @@ function buildReactivated({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
   const body = `
-    ${_H1}Votre accès est réactivé ✅</p>
+    ${_H1}Votre desk vous attend, ${prenom} ✅</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Bonne nouvelle : votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> est de nouveau <strong style="color:${TOK.vert};">actif</strong>. Vous avez à nouveau accès au flux de news en temps réel, au calendrier économique et aux analyses.${end ? ` Votre accès est valable jusqu'au <strong style="color:#fff;">${end}</strong>.` : ''}</p>
-    ${_button('Accéder au terminal', APP_URL)}
+    <p style="margin:0 0 14px;">Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> est de nouveau <strong style="color:${TOK.vert};">actif</strong>, et tout est resté en place : vos dispositions, votre journal, vos réglages. Vous reprenez exactement là où vous vous étiez arrêté.${end ? ` Votre accès court jusqu'au <strong style="color:#fff;">${end}</strong>.` : ''}</p>
+    <p style="margin:0 0 14px;">Le desk a continué de travailler pendant votre absence : chaque publication porte désormais sa lecture banque centrale, et chaque widget de Mon Desk affiche son verdict.</p>
+    ${_button('Retrouver mon desk', APP_URL)}
     ${_spamNote()}
-    <p style="margin:0;font-size:13px;">Bons trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+    <p style="margin:0;font-size:13px;">Heureux de vous retrouver,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre accès est réactivé', html: _layout('Réactivation', body) };
 }
 async function sendReactivated(d) { const m = buildReactivated(d); return _send(d.to, m.subject, m.html); }
@@ -699,12 +700,12 @@ function buildRenewed({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
   const body = `
-    ${_H1}Abonnement renouvelé ✅</p>
+    ${_H1}Merci de votre confiance ✅</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Merci ! Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> a bien été <strong style="color:${TOK.vert};">renouvelé</strong>${end ? ` jusqu'au <strong style="color:#fff;">${end}</strong>` : ''}. Votre accès au terminal continue sans interruption.</p>
-    ${_button('Accéder au terminal', APP_URL)}
+    <p style="margin:0 0 14px;">Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> a bien été <strong style="color:${TOK.vert};">renouvelé</strong>${end ? ` jusqu'au <strong style="color:#fff;">${end}</strong>` : ''}. Rien ne bouge de votre côté : vos dispositions, votre journal et vos réglages restent en place, et votre desk continue de travailler pour vous, séance après séance.</p>
+    ${_button('Ouvrir mon desk', APP_URL)}
     ${_spamNote()}
-    <p style="margin:0;font-size:13px;">Bons trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+    <p style="margin:0;font-size:13px;">Au plaisir de vous accompagner,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre abonnement est renouvelé', html: _layout('Renouvellement', body) };
 }
 async function sendRenewed(d) { const m = buildRenewed(d); return _send(d.to, m.subject, m.html); }
@@ -716,9 +717,9 @@ function buildGestureMonth({ name, expiresAt }) {
   const body = `
     ${_H1}1 mois offert 🎁</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous vous offrons <strong style="color:${TOK.vert};">1 mois supplémentaire</strong> sur votre abonnement DataTradingPro, c'est notre geste commercial.</p>
+    <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous ajoutons <strong style="color:${TOK.vert};">1 mois supplémentaire</strong> à votre abonnement DataTradingPro. C'est notre façon de prendre soin de ceux qui nous font confiance.</p>
     ${end ? `<p style="margin:0 0 14px;">Votre accès est désormais valable jusqu'au <strong style="color:#fff;">${end}</strong>.</p>` : ''}
-    ${_button('Accéder au terminal', APP_URL)}
+    ${_button('Ouvrir mon desk', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Merci de votre confiance,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : 1 mois offert pour la maintenance 🎁', html: _layout('Geste commercial', body) };
@@ -775,10 +776,10 @@ function buildTrialUpsell({ name, expiresAt }) {
     ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">retrouver votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, passez dès maintenant à l'<strong style="color:#fff;">abonnement mensuel</strong>, sans engagement et résiliable à tout moment :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, avec la lecture banque centrale sur chaque publication</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Calendrier économique, résultats live et graphe de réaction à la minute</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Recherche des grandes banques &amp; Récap Quotidien / Récap Hebdo</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Mon Desk : une quarantaine de widgets, verdict et fraîcheur affichés sur chaque carte</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">📰 News &amp; squawk en temps réel, avec la lecture banque centrale sur chaque publication</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">📅 Calendrier économique, résultats live et graphe de réaction à la minute</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">🏦 Recherche des grandes banques &amp; Récap Quotidien / Récap Hebdo</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">📊 Mon Desk : une quarantaine de widgets, verdict et fraîcheur affichés sur chaque carte</td></tr>
     </table>
     ${_button('Activer mon abonnement mensuel', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Abonnement mensuel sans engagement : votre accès est réactivé immédiatement après l'inscription.</p>
@@ -794,37 +795,31 @@ async function sendTrialUpsell(d) { const m = buildTrialUpsell(d); return _send(
 function _buildReengagement(name, days) {
   const prenom = _esc((name || '').split(' ')[0] || 'trader');
   const d = days || 7;
-  // Encart "Pour démarrer en 5 minutes" (liseré or, à notre sauce)
-  const startBox = _encart(`
-        <div style="color:${TOK.or};font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
-        <div style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:10px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</div>
-        <div style="color:#e2e8f0;font-size:14px;line-height:1.9;">
-          → <strong style="color:#fff;">Recherche bancaire</strong> <span style="color:${TOK.gris};">(Goldman Sachs, HSBC, ING, MUFG…)</span><br>
-          → <strong style="color:#fff;">Calendrier économique</strong> <span style="color:${TOK.gris};">(résultats live + lecture banque centrale au clic)</span><br>
-          → <strong style="color:#fff;">Force des devises · COT · Sentiment des particuliers</strong> <span style="color:${TOK.gris};">(qui mène, qui décroche)</span>
-        </div>
-        <div style="color:${TOK.grisDoux};font-size:12.5px;font-style:italic;margin-top:12px;">Tu auras compris ce que t'apporte DataTradingPro en moins de temps qu'un café. ☕</div>`, true);
+  // STRUCTURE COMMUNE (23/08, retour user « je vois pas de cohérence ») : H1 standard,
+  // paragraphe, sections _secTitle + lignes « → », UN encadré or (l'essentiel : l'invitation
+  // à répondre), UN seul CTA or en clôture. Le tutoiement (voix historique du mail) reste.
   const body = `
-    ${_H1}Hey ${prenom},</p>
-    <p style="margin:0 0 14px;">Il y a ${d} jours, tu as activé ton accès à <strong style="color:#fff;">DataTradingPro</strong>. Depuis, je ne t'ai pas vu revenir.</p>
-    <p style="margin:0 0 8px;color:#9aa3b2;">C'est peut-être que&nbsp;:</p>
-    <ul style="margin:0 0 6px;padding-left:18px;color:#cbd5e1;font-size:14px;line-height:1.8;">
-      <li>Tu n'as pas eu le temps d'explorer <span style="color:#9aa3b2;">(le terminal est dense, c'est vrai)</span></li>
-      <li>Tu ne sais pas par où commencer</li>
-      <li>Quelque chose ne t'a pas plu : dans ce cas, <strong style="color:#fff;">réponds-moi</strong>, je lis tout</li>
-    </ul>
-    ${startBox}
-    ${_button('Revenir sur le terminal →', APP_URL)}
-    <p style="margin:18px 0 10px;color:#9aa3b2;font-size:13px;">Et tout le reste t'attend aussi&nbsp;:</p>
+    ${_H1}Ton desk t'attend, ${prenom}</p>
+    <p style="margin:0 0 14px;">Il y a ${d} jours, tu as activé ton accès à <strong style="color:#fff;">DataTradingPro</strong>. Depuis, on ne t'a pas revu. Le terminal est dense, c'est vrai : voici par où commencer.</p>
+    ${_secTitle('Pour démarrer en 5 minutes')}
+    <p style="margin:0 0 8px;color:#cbd5e1;font-size:14px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 6px;">
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ <strong style="color:#fff;">Recherche bancaire</strong> <span style="color:${TOK.gris};">(Goldman Sachs, HSBC, ING, MUFG…)</span></td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ <strong style="color:#fff;">Calendrier économique</strong> <span style="color:${TOK.gris};">(résultats live + lecture banque centrale au clic)</span></td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ <strong style="color:#fff;">Force des devises · COT · Sentiment des particuliers</strong> <span style="color:${TOK.gris};">(qui mène, qui décroche)</span></td></tr>
+    </table>
+    ${_secTitle('Et le reste de ton desk')}
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📊 <strong style="color:#fff;">Liste FX</strong> : la vue d'ensemble du Forex (force, biais, momentum 1M/3M/12M)</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">⚡ <strong style="color:#fff;">Le fil d'actualité</strong> : les news qui bougent les marchés, avec leur impact décrypté en direct</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📝 <strong style="color:#fff;">Récap Quotidien &amp; Récap Hebdo</strong> : le marché résumé, à ta place</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🧩 <strong style="color:#fff;">Mon Desk</strong> : une quarantaine de widgets, chaque carte affiche son verdict</td></tr>
     </table>
+    ${_goldBox(`☕ Dix minutes de session de Londres suffisent pour voir ce que le desk t'apporte. Et si quelque chose ne t'a pas plu, <strong style="color:#fff;">réponds simplement à ce mail</strong> : on lit tout.`)}
+    ${_button('Revenir sur mon desk', APP_URL)}
     ${_spamNote()}
-    <p style="margin:14px 0 0;font-size:13px;">On se revoit sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: `${prenom}, ton terminal DataTradingPro t'attend 👀`, html: _layout('On se revoit ?', body) };
+    <p style="margin:14px 0 0;font-size:13px;">On se revoit sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: `${prenom}, ton desk DataTradingPro t'attend 👀`, html: _layout('On se revoit ?', body) };
 }
 function buildReengagement({ name, days }) { return _buildReengagement(name, days); }
 async function sendReengagement(d) { const m = _buildReengagement(d.name, d.days); return _send(d.to, m.subject, m.html); }
@@ -849,10 +844,11 @@ function buildAnnouncementV2({ name } = {}) {
     ${_H1}C'est officiel : la v2 est finalisée 🚀</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Ça y est. Après des mois de développement et d'écoute, <strong style="color:#fff;">la version 2 de DataTradingPro est officiellement finalisée.</strong></p>
-    <p style="margin:0 0 14px;">Ce n'est plus une promesse : c'est le terminal le plus abouti qu'on ait livré. Tout ce qu'un trader macro attend, réuni et <strong style="color:#fff;">connecté sur un seul écran</strong> :</p>
+    <p style="margin:0 0 14px;">Ce n'est plus une promesse : c'est le terminal le plus abouti qu'on ait livré. Tout ce qu'un trader macro attend, réuni et <strong style="color:#fff;">connecté sur un seul écran</strong>.</p>
+    ${_secTitle('Ce que réunit votre desk')}
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
     <p style="margin:0 0 14px;color:#9aa3b2;font-size:13px;">+ Mon Desk (une quarantaine de widgets à composer), Sentiment de Risque, saisonnalité, taux des banques centrales, journal de trading…</p>
-    <p style="margin:14px 0 4px;color:#fff;font-size:15px;font-weight:700;">Arrêtez de deviner les mouvements. Commencez à les comprendre.</p>
+    <p style="margin:14px 0 4px;">Arrêtez de deviner les mouvements. <strong style="color:#fff;">Commencez à les comprendre.</strong></p>
     ${_button('Rejoindre DataTradingPro →', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
     ${_goldBox(`⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins : <strong style="color:#fff;">rejoignez le lancement maintenant.</strong>`)}
@@ -1728,9 +1724,11 @@ function _bankNotesBlock(notes) {
 // rapport + date), sections par theme (titre or + puces / paras / mini-tableau de donnees), puis mention
 // « le rapport complet est sur le Desk ». Cape a 6 sections x 5 lignes. Zero invention.
 function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
-  const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 6);
+  // « Le VRAI récap quotidien » (retour user 23/08) : ce bloc porte le rapport du jour tel qu'il
+  // paraît sur le desk, sections et puces COMPLÈTES (les caps larges ne sont que des filets).
+  const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 8);
   if (!secs.length) return '';
-  const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">L'essentiel du rapport quotidien du desk, sans entrer dans le détail&nbsp;:</p>`;
+  const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">Le récap quotidien du desk, tel qu'il paraît dans l'onglet Analyste&nbsp;:</p>`;
   const head = `<div style="padding:13px 16px;border-bottom:1px solid #232429;">
       <div style="color:#f3c344;font-weight:800;font-size:13.5px;letter-spacing:.01em;">${_esc(reportTitle || 'Point Marché : le rapport du jour')}</div>
       ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:3px;">${_esc(dateLabel)}</div>` : ''}
@@ -1760,7 +1758,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
         </table>` : '';
     }
     const arr = (s.kind === 'paras' ? s.paras : s.items) || [];
-    const items = arr.slice(0, 5).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
+    const items = arr.slice(0, 8).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
     return items ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>` : '';
   }).join('');
   if (!blocks) return '';
@@ -1796,20 +1794,38 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   // LEAD D'ENJEU (refonte 15/07, inspirée des meilleurs mails d'anticipation) : on ouvre sur CE QUI SE JOUE
   // (le rendez-vous + pourquoi il compte), pas sur une statistique de volume. Le compte des temps forts passe
   // en 2de phrase. 100% factuel (l'événement vedette est réellement le plus suivi du calendrier de la semaine).
-  let lead;
+  // RESTRUCTURE (retour user 23/08 : « restructure ceci ») : fini la phrase-fleuve d'intro. Le
+  // rendez-vous vedette devient un ENCART lisible d'un coup d'œil (nom en blanc, date/heure en or,
+  // pourquoi il compte en dessous), le compte des temps forts passe en note discrète.
+  let lead, rdvHtml = '';
   if (featured) {
     const when = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
-    lead = `${when ? _esc(when.charAt(0).toUpperCase() + when.slice(1)) + ', ' : 'Cette semaine, '}l'attention du marché se portera sur <strong style="color:#f3c344;">${_esc(featured.title)}</strong> : l'un des rendez-vous les plus suivis de la semaine, car il peut peser sur les anticipations de taux et réveiller la volatilité. Le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier.`;
+    lead = `Un rendez-vous concentre l'attention du marché cette semaine :`;
+    rdvHtml = _encart(
+      `<div style="color:#ffffff;font-weight:800;font-size:15px;letter-spacing:-.01em;">${_esc(featured.title)}</div>`
+      + (when ? `<div style="color:${TOK.or};font-weight:700;font-size:12px;margin-top:3px;">${_esc(when.charAt(0).toUpperCase() + when.slice(1))}</div>` : '')
+      + `<div style="color:#aab2c0;font-size:12.5px;line-height:1.55;margin-top:7px;">L'un des rendez-vous les plus suivis de la semaine : il peut peser sur les anticipations de taux et réveiller la volatilité.</div>`, true)
+      + `<p style="margin:0 0 4px;font-size:12.5px;color:#7b828f;">Le desk suit <strong style="color:#cbd5e1;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier cette semaine.</p>`;
   } else {
     lead = `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
   }
 
+  // Le concept suit la grammaire commune : la RÈGLE DE LECTURE (contrat PARA3, l'essentiel actionnable)
+  // sort du mur de texte et prend l'ENCADRÉ OR, comme l'essentiel des autres templates.
+  const _cParas = (c.paras || []).filter(Boolean);
+  const _regleIdx = _cParas.length > 1 ? _cParas.length - 1 : -1;
+  const _regleTxt = (() => {
+    if (_regleIdx < 0) return '';
+    const t = String(_cParas[_regleIdx]).replace(/^\s*la règle de lecture\s*:?\s*/i, '');
+    return t.charAt(0).toUpperCase() + t.slice(1);   // le préfixe retiré laissait une minuscule en tête
+  })();
   const conceptHtml = `
     <div style="margin:20px 0 8px;">
       <div style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
       <div style="color:#ffffff;font-weight:800;font-size:18px;line-height:1.3;margin:10px 0 2px;letter-spacing:-.01em;">${_esc(c.title)}</div>
     </div>
-    ${c.paras.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}`;
+    ${_cParas.map((p, i) => i === _regleIdx ? '' : `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}
+    ${_regleIdx >= 0 ? _goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">La règle de lecture</div><div>${_esc(_regleTxt)}</div>`) : ''}`;
 
   // Agenda de la semaine = VRAI widget calendrier economique du desk (inline cid a l'envoi). Meme ordre que
   // l'accroche (evenement vedette en tete) -> coherent. Affiche seulement s'il y a des evenements a venir.
@@ -1857,6 +1873,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
+    ${rdvHtml}
     ${conceptHtml}
     ${agendaHtml}
     ${appliedHtml}
@@ -2456,36 +2473,48 @@ async function sendCampaignMindset(d) { d = d || {}; const m = buildCampaignMind
 // ROTATION MENSUELLE (mois calendaire % 3) → anti-lassitude. 100% produit, ZERO promesse de gain (conforme
 // au veto informatif : on vend l'OUTIL, jamais une position). CTA = Instagram. Or mail #f3c344.
 const IG_URL = 'https://www.instagram.com/datatradingpro';
+// REFONTE 23/08 (retour user : « il faut valoriser le desk + améliorer le mail ») : les puces
+// génériques (« analyse structurée », « temps réel ») ne disaient rien du desk RÉEL. Chaque variante
+// valorise désormais des capacités CONCRÈTES et nommées (lecture banque centrale, graphe de réaction,
+// récaps rédigés, force des devises, biais) ; l'offre passe dans l'ENCADRÉ OR (grammaire commune) avec
+// un titre H1. Toujours zéro promesse de gain : on décrit ce que le desk fait, jamais ce qu'on gagnerait.
 const _INVIT_VARIANTS = [
   { key: 'pro', eyebrow: 'INVITATION',
     subject: "Votre semaine d'accès au Desk DataTradingPro",
-    lead: "Vous faites partie de la communauté DataTradingPro, mais vous n'avez pas encore ouvert le Desk. C'est l'outil que nos abonnés consultent chaque matin pour lire le marché macro et forex, sans y passer des heures.",
+    h1: 'Votre desk vous attend déjà',
+    lead: "Vous faites partie de la communauté DataTradingPro, mais vous n'avez pas encore ouvert le Desk : le terminal que nos abonnés consultent chaque matin pour lire le marché macro et forex en quelques minutes.",
+    secTitle: 'Ce que votre desk réunit',
     benefits: [
-      ['Analyse macro structurée', " : le contexte du jour, expliqué clairement."],
-      ['Actualités de marché en temps réel', " : ce qui bouge, dès que ça bouge."],
-      ["Outils d'aide à la décision", " : calendrier économique, force des devises, biais du marché."],
+      ['La lecture banque centrale', " : chaque publication majeure (CPI, emploi, PIB) est confrontée au ton réel de sa banque centrale, en direct sous la news."],
+      ['Le fil et le graphe de réaction', " : la news importante arrive avec la réaction du marché, minute par minute, sur la paire concernée."],
+      ['Les récaps rédigés', " : chaque séance et chaque semaine résumées par le desk, façon salle de marché, en français."],
+      ['Vos repères en un écran', " : calendrier économique, force des devises, biais du marché, taux."],
     ],
     exclu: "Ce mois-ci, nous ouvrons un nombre limité d'accès découverte, réservés à la communauté.",
-    ctaLead: "Écrivez-nous sur Instagram et nous vous offrons une semaine complète d'accès au Desk, sans engagement.",
+    ctaLead: "Écrivez-nous sur Instagram et nous vous offrons une semaine complète d'accès au Desk, sans carte et sans engagement.",
     ctaLabel: "Nous écrire sur Instagram", signoff: "Bien à vous," },
   { key: 'convivial', eyebrow: 'UNE SEMAINE OFFERTE',
     subject: "On vous ouvre le Desk pendant une semaine 👀",
+    h1: 'Le Desk, de l’intérieur',
     lead: "Petit message pour vous : vous êtes dans la communauté DataTradingPro, mais on ne vous a encore jamais montré le Desk de l'intérieur. C'est là que tout se passe, chaque matin.",
+    secTitle: 'Ce qui vous attend derrière la porte',
     benefits: [
-      ['Le marché du jour, au clair', " : la macro et le forex résumés, sans jargon."],
-      ['Les news en direct', " : ce qui compte vraiment, au moment où ça arrive."],
-      ['Vos repères pour décider', " : calendrier, force des devises et biais, réunis au même endroit."],
+      ['Le marché du jour, déjà lu', " : les récaps de séance rédigés par le desk, la macro et le forex sans jargon."],
+      ['Les news qui comptent, en direct', " : chaque chiffre important arrive avec sa lecture banque centrale et la réaction du marché."],
+      ['Vos repères réunis', " : calendrier, force des devises, biais et taux, au même endroit."],
     ],
     exclu: "On garde quelques accès offerts pour les membres curieux ce mois-ci.",
     ctaLead: "Envoyez-nous un petit message sur Instagram, et on vous offre une semaine sur le Desk. Aucune carte, aucun engagement.",
     ctaLabel: "Écrire sur Instagram", signoff: "À très vite," },
   { key: 'performance', eyebrow: 'GAGNEZ DU TEMPS',
     subject: "Lisez le marché en quelques minutes chaque matin",
-    lead: "Combien de temps passez-vous à rassembler l'actu macro, le calendrier et le sentiment du marché ? Sur le Desk DataTradingPro, tout est réuni au même endroit, prêt à lire en quelques minutes.",
+    h1: 'Tout le marché, un seul écran',
+    lead: "Combien de temps passez-vous à rassembler l'actu macro, le calendrier et le sentiment du marché ? Sur le Desk DataTradingPro, tout est réuni, déjà lu et remis en contexte par le desk.",
+    secTitle: 'Ce que le desk fait pour vous',
     benefits: [
-      ['Le contexte macro, synthétisé', " : fini les dix onglets ouverts en parallèle."],
-      ['Les news filtrées, en direct', " : le signal, pas le bruit."],
-      ['De quoi décider vite et clair', " : force des devises, biais, calendrier économique."],
+      ['Il lit les banques centrales', " : chaque publication majeure est confrontée au ton de sa banque centrale, à l'instant où elle tombe."],
+      ['Il filtre et mesure', " : le fil ne garde que le signal, et la réaction du marché s'affiche minute par minute."],
+      ['Il rédige vos récaps', " : la séance et la semaine résumées en français, prêtes à lire."],
     ],
     exclu: "Ce mois-ci, on ouvre l'accès une semaine, gratuitement, pour que vous testiez en conditions réelles.",
     ctaLead: "Un simple message sur Instagram suffit pour activer votre semaine offerte.",
@@ -2500,16 +2529,17 @@ function buildCampaignInvitation({ name, email, campaign, variant, isMember } = 
   const unsub = unsubUrl(email || '');
   const igUrl = trackClickUrl(campaign, email, IG_URL);
   const benefitsHtml = v.benefits.map(b => `<tr>
-      <td style="padding:5px 10px 5px 0;vertical-align:top;width:12px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f3c344;"></span></td>
-      <td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><strong style="color:#fff;">${b[0]}</strong>${b[1]}</td>
+      <td style="padding:5px 10px 5px 0;vertical-align:top;width:12px;"><span style="color:#f3c344;font-weight:700;">&rarr;</span></td>
+      <td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><strong style="color:#fff;">${b[0]}</strong>${b[1]}</td>
     </tr>`).join('');
   const body = `
-    <div style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${v.eyebrow}</div>
-    <p style="margin:16px 0 6px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 14px;">${v.lead}</p>
+    <div style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;margin-bottom:14px;">${v.eyebrow}</div>
+    ${_H1}${_esc(v.h1 || 'Votre desk vous attend')}</p>
+    <p style="margin:0 0 6px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 4px;">${v.lead}</p>
+    ${_secTitle(_esc(v.secTitle || 'Ce que votre desk réunit'))}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:2px 0 4px;">${benefitsHtml}</table>
-    <p style="margin:16px 0 8px;color:#cbd5e1;">${v.exclu}</p>
-    <p style="margin:0 0 2px;color:#e6e6ea;">${v.ctaLead}</p>
+    ${_goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Une semaine offerte</div><div style="margin-bottom:6px;">${v.exclu}</div><div><strong style="color:#fff;">${v.ctaLead}</strong></div>`)}
     <div style="margin:14px 0 4px;">${_campaignBtn(v.ctaLabel, igUrl)}</div>
     <p style="margin:6px 0 0;font-size:12px;color:#7b828f;">Ou retrouvez-nous directement sur Instagram : <a href="${igUrl}" style="color:#f3c344;text-decoration:none;font-weight:700;">@datatradingpro</a></p>
     <p style="margin:18px 0 4px;">${v.signoff}</p>
@@ -2567,10 +2597,11 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     lead = `Un marché ${_riskClause}. Voici ce que le desk en retient.`;
   }
 
-  // Resume du RECAP JOURNALIER : la SYNTHESE de seance UNIQUEMENT (daily.summary), coupee PROPREMENT en fin de
-  // phrase (helper module _cutTxt), puis DECOUPEE en paragraphes courts (2 phrases max) : une idee par
-  // paragraphe, lecture mobile rapide — structure de newsletter, texte 100 % desk, zero invention.
-  const _movesTxt = moves ? _cutTxt(moves, 680) : '';
+  // Resume du RECAP JOURNALIER : la SYNTHESE de seance COMPLETE (retour user 23/08 « fournis le vrai
+  // recap quotidien » : l'ancien plafond 680 amputait la synthese aux 2/3). Le texte est deja borne et
+  // dense cote rapport ; le plafond large ne sert que de filet, coupe PROPREMENT en fin de phrase
+  // (_cutTxt), puis DECOUPE en paragraphes courts (2 phrases max) : une idee par paragraphe.
+  const _movesTxt = moves ? _cutTxt(moves, 1800) : '';
   // Split SANS PERTE : coupe apres .!? suivi d'espace + majuscule/guillemet (les decimales a point des
   // cotations « 1.1750 » ne coupent pas et ne perdent JAMAIS de texte, contrairement a un match glouton).
   const _sentences = _movesTxt ? _movesTxt.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).filter(Boolean) : [];
@@ -2663,24 +2694,31 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
     ? _sumTitles.slice(0, -1).map(t => `<strong style="color:#f3c344;">${_esc(t)}</strong>`).join(', ') + ' et ' + `<strong style="color:#f3c344;">${_esc(_sumTitles[_sumTitles.length - 1])}</strong>`
     : (_sumTitles[0] ? `<strong style="color:#f3c344;">${_esc(_sumTitles[0])}</strong>` : '');
   const count = hiDays || majors.length;
-  // Mini-sections par jour : titre du jour (thème FR) + description factuelle (2 phrases, déjà rédigées par le desk).
-  const _daySections = _hiDaysList.map(d => {
-    const jour = _DOW_FR[d.dow] || d.dow || '';
+  // REFONTE (retour user 23/08 : « il se répète, il y a l'image du desk et la retranscription
+  // textuelle ») : les mini-sections PAR JOUR redisaient exactement ce que le widget Semaine à Venir
+  // montre déjà. Le mail devient hiérarchique : le WIDGET porte la liste des journées, le texte ne
+  // garde qu'UN zoom éditorial sur le rendez-vous n°1 de la semaine (ce que l'image ne met pas en avant).
+  const _zoomDay = (featured && _hiDaysList.find(d => d && d.title && featured.title && String(d.title).toLowerCase().includes(String((featured.title || '').split(' ')[0] || '').toLowerCase()))) || _hiDaysList[0] || null;
+  let zoomHtml = '';
+  if (_zoomDay) {
+    const jour = _DOW_FR[_zoomDay.dow] || _zoomDay.dow || '';
     // Split robuste (même règle que le Point marché) : coupe après .!? SEULEMENT devant une majuscule —
     // « prév. 3,60% » et les décimales ne cassent pas la phrase.
-    const desc = String(d.description || '').split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).slice(0, 2).join(' ');
-    return `<p style="margin:18px 0 6px;"><strong style="color:#f3c344;">${_esc(jour)} : ${_esc(d.title || '')}</strong></p>`
-      + (desc ? `<p style="margin:0 0 4px;">${_esc(desc)}</p>` : '');
-  }).join('');
+    const desc = String(_zoomDay.description || '').split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).slice(0, 3).join(' ');
+    zoomHtml = _secTitle('Le rendez-vous n°1 de la semaine')
+      + _encart(`<div style="color:#ffffff;font-weight:800;font-size:14.5px;">${_esc(_zoomDay.title || '')}</div>`
+        + (jour ? `<div style="color:${TOK.or};font-weight:700;font-size:12px;margin-top:3px;">${_esc(jour)}</div>` : '')
+        + (desc ? `<div style="color:#aab2c0;font-size:12.5px;line-height:1.55;margin-top:7px;">${_esc(desc)}</div>` : ''), true);
+  }
   const body = `
     <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 14px;">Une nouvelle semaine s'ouvre sur les marchés${weekLabel ? ` (<strong style="color:#fff;">${_esc(weekLabel)}</strong>)` : ''}. 📅</p>
     ${_sommaire
       ? `<p style="margin:0 0 14px;">${count ? `<strong style="color:#fff;">${count} rendez-vous</strong> retiendront` : 'Plusieurs rendez-vous retiendront'} particulièrement l'attention du desk&nbsp;: ${_sommaire}.</p>`
       : `<p style="margin:0 0 14px;">${themeLabel ? `Sur fond d'<strong style="color:#f3c344;">${_esc(themeLabel)}</strong>, plusieurs` : 'Plusieurs'} temps forts se profilent cette semaine.</p>`}
-    ${_daySections}
     ${_widgetImg('week-ahead', 'La semaine à venir')}
     <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le détail de chaque journée (chiffres attendus, contexte, lecture du desk) est en direct sur le Desk.</p>
+    ${zoomHtml}
     <div style="margin:22px 0 18px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Ces publications donneront le ton de la semaine.</p>
     <p style="margin:0 0 14px;">L'essentiel n'est pas d'être devant l'écran à chaque chiffre : c'est de savoir <strong style="color:#fff;">à l'avance lesquels peuvent changer la lecture du marché</strong>. 👀</p>
@@ -2814,19 +2852,19 @@ function buildAutoRenewOff({ name, expiresAt }) {
     ${_H1}Votre renouvellement automatique est désactivé</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre abonnement DataTradingPro arrive à échéance <strong style="color:#fff;">${quand}</strong>${fin ? ` (le ${fin})` : ''}. Le renouvellement automatique étant désactivé, il <strong style="color:#fff;">prendra fin à cette date</strong> et ne sera pas reconduit.</p>
-    <p style="margin:0 0 10px;">Concrètement, voici ce qui s'arrête à l'échéance :</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:6px 0 18px;">
+    ${_secTitle("Ce qui s'arrête à l'échéance")}
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px;">
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ Le desk en temps réel : news, squawk, calendrier économique et résultats live</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ <strong style="color:#fff;">Mon Desk</strong> et vos dispositions de widgets enregistrées</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ Votre <strong style="color:#fff;">Journal de trading</strong>, ses statistiques et sa courbe d'équité</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;">→ L'onglet Biais, la Recherche bancaire et les récaps hebdomadaires</td></tr>
     </table>
-    <p style="margin:0 0 14px;">Vos données ne sont pas supprimées à l'échéance : elles vous attendent si vous revenez. Mais l'accès au terminal, lui, se ferme.</p>
+    <p style="margin:0 0 14px;">Vos données ne sont pas supprimées à l'échéance : votre desk reste en place et vous attend si vous revenez. Seul l'accès se ferme.</p>
     ${_button('Réactiver le renouvellement automatique', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Sans engagement : le renouvellement se coupe à nouveau quand vous le souhaitez, depuis votre espace Whop.</p>
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;"><strong style="color:#cbd5e1;">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> : votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.</p>
+    ${_goldBox(`<strong style="color:${TOK.or};">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> : votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.`)}
     ${_spamNote()}
-    <p style="margin:0;font-size:13px;">À bientôt sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+    <p style="margin:0;font-size:13px;">À bientôt sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Votre abonnement DataTradingPro ne sera pas renouvelé', html: _layout('Renouvellement automatique désactivé', body) };
 }
 async function sendAutoRenewOff(d) { const m = buildAutoRenewOff(d); return _send(d.to, m.subject, m.html); }
@@ -2936,8 +2974,8 @@ function buildReferralReward({ name, count, newExpiresAt }) {
     ${_H1}🎁 1 mois offert débloqué !</p>
     <p style="margin:0 0 14px;">Bravo ${prenom} : vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#f3c344;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
     ${_credBox([['Récompense', "1 mois d'accès offert"], ['Accès prolongé jusqu\'au', end]])}
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès au terminal. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
-    ${_button('Accéder au terminal', APP_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
+    ${_button('Ouvrir mon desk', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Merci de faire grandir la communauté,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: `DataTradingPro : 🎁 mois offert débloqué (palier ${count})`, html: _layout('Récompense parrainage', body) };
