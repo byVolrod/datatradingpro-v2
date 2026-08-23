@@ -108,4 +108,47 @@ echo "$(horo) deploye ${DISTANT:0:7} sante=$SANTE"
 # ménage, c'est le disque plein qui finit par empêcher tout déploiement.
 docker image prune -f >/dev/null 2>&1
 
+# ── 7. CAMOUFLAGE DU 502 (23/08, demande user : « cache l'erreur, camoufle ») ─
+# Pendant la fenêtre de redéploiement (ou un crash), nginx rendait un « 502 Bad
+# Gateway » nu. On lui fait servir une page DTP de transition qui se recharge
+# toute seule dès que l'app répond : la coupure devient invisible.
+# INSTALLÉ PAR LE DÉPLOYEUR lui-même (idempotent) : pas besoin d'un accès SSH,
+# c'est précisément quand tout va mal qu'on ne l'a pas.
+# ⚠️ SÉCURITÉ ABSOLUE SUR NGINX : toute modification est suivie de `nginx -t` ;
+# si le test échoue, on REMET la conf comme avant et on ne recharge pas :
+# jamais le camouflage d'une coupure ne doit CAUSER une coupure.
+ENTRETIEN_DIR=/opt/dtp-maintenance
+ENTRETIEN_SRC="$REPO/scripts/vps/dtp-entretien.html"
+if [ -f "$ENTRETIEN_SRC" ]; then
+  mkdir -p "$ENTRETIEN_DIR"
+  if ! cmp -s "$ENTRETIEN_SRC" "$ENTRETIEN_DIR/dtp-entretien.html"; then
+    cp -f "$ENTRETIEN_SRC" "$ENTRETIEN_DIR/dtp-entretien.html"
+    echo "$(horo) page d entretien mise a jour"
+  fi
+  # Le fragment nginx : error_page vers la page locale. `include` posé UNE fois
+  # dans chaque bloc server de desk.* (après server_name), rollback si nginx -t refuse.
+  FRAG=/etc/nginx/dtp-entretien.conf
+  if [ ! -f "$FRAG" ] || ! grep -q dtp-entretien.html "$FRAG" 2>/dev/null; then
+    printf '%s\n' \
+      '# DTP : camouflage des coupures (redeploiement / crash) - genere par dtp-deploy.sh' \
+      'error_page 502 503 504 /dtp-entretien.html;' \
+      'location = /dtp-entretien.html { root /opt/dtp-maintenance; internal; }' \
+      > "$FRAG"
+    echo "$(horo) fragment nginx d entretien ecrit"
+  fi
+  SITE=$(grep -rl 'desk\.datatradingpro\.com' /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1)
+  if [ -n "$SITE" ] && ! grep -q 'dtp-entretien.conf' "$SITE"; then
+    cp -f "$SITE" "$SITE.avant-entretien"
+    # Injection après CHAQUE server_name contenant desk. (blocs 80 et 443).
+    sed -i '/server_name[^;]*desk\.datatradingpro\.com/a\    include /etc/nginx/dtp-entretien.conf;' "$SITE"
+    if nginx -t >/dev/null 2>&1; then
+      nginx -s reload >/dev/null 2>&1
+      echo "$(horo) camouflage 502 ACTIF (nginx recharge)"
+    else
+      cp -f "$SITE.avant-entretien" "$SITE"
+      echo "$(horo) nginx -t REFUSE le fragment -> conf remise comme avant, camouflage NON pose"
+    fi
+  fi
+fi
+
 [ "$SANTE" = "healthy" ] || exit 1
