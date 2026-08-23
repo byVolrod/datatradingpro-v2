@@ -480,6 +480,156 @@
     L.sort(function (a, b) { return f(a).localeCompare(f(b), 'fr', { numeric: true, sensitivity: 'base' }); });
     return [['', 'Compte']].concat(L.map(function (p) { return [p, f(p)]; }));
   }
+
+  /* ═══ VERDICTS DÉTERMINISTES — FAMILLE SAISONNALITÉ & POSITIONNEMENT (23/08) ══════════════════
+     Helpers PURS (aucun DOM) : testables au banc, partagés entre cartes. La courbe et la table
+     de saisonnalité lisent la MÊME réponse /api/seasonality — deux copies du verdict auraient
+     divergé à la première retouche (c'était déjà le cas des mois : la courbe écrivait « Fevr. »
+     sans accent pendant que la table laissait l'anglais « Jan » de la source). */
+  // Mois TRADUITS à l'affichage (règle du desk : les valeurs logiques restent, l'affichage est FR).
+  var _MOIS_FR = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
+  var _MOIS_PLEIN = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  // Signe TOUJOURS écrit : comparer « 0,62 % » à « 0,84 % » sans signe fait relire deux fois.
+  function _pctFR(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; }
+  /* « d'EUR/USD » mais « de GBP/JPY » — et « de USD » : l'usage FR du COT écrit « de USD »,
+     jamais « d'USD », donc U reste hors élision (seule graphie qui couvre paires ET devises). */
+  function _dElision(nom) { return (/^[AEIO]/.test(nom) ? 'd\'' : 'de ') + nom; }
+
+  /* Verdict saisonnier du MOIS COURANT — partagé par « Rendement moyen par mois » et la table
+     « Saisonnalité ». ⚠️ PIÈGE central (contre-lecture) : pour le mois courant, la colonne de
+     l'année en cours est PARTIELLE (le serveur garde le dernier cours vu, pas une fin de mois)
+     et le `avg` servi l'INCLUT. La compter dans le rang, la moyenne ou les hausses/baisses
+     ferait juger un mois inachevé : on l'EXCLUT de tous les agrégats et on la montre À PART
+     (« Août en cours : … »). Retour { txt, sous, etat } en HTML sûr (tout le dynamique passe
+     par esc), ou null quand la donnée ne permet pas de conclure — silence honnête, jamais une
+     phrase inventée. Les mots directionnels sont des CONSTATS (biais historique), pas des
+     conseils : « baissier » qualifie l'historique, on n'écrit jamais « vendez ». */
+  function _saisonVerdict(rows, years, symbol) {
+    if (!rows || rows.length !== 12) return null;
+    var m = new Date().getMonth();
+    var iNow = (years || []).indexOf(new Date().getFullYear());
+    var tous = (rows[m] && rows[m].vals) || [];
+    // Années CLOSES du mois courant : la colonne de l'année en cours est écartée (partielle).
+    var clos = [];
+    tous.forEach(function (v, i) { if (typeof v === 'number' && isFinite(v) && i !== iNow) clos.push(v); });
+    var partiel = (iNow >= 0 && typeof tous[iNow] === 'number' && isFinite(tous[iNow])) ? tous[iNow] : null;
+    if (!clos.length) return null;                       // un partiel seul ne fait pas un historique
+
+    var moy = clos.reduce(function (a, b) { return a + b; }, 0) / clos.length;
+    var nB = clos.filter(function (v) { return v < 0; }).length;
+    var nH = clos.length - nB;
+    var nomMois = _MOIS_PLEIN[m], sym = String(symbol || '');
+    // Le partiel du mois en cours : la SEULE valeur de la carte qui bouge en journée — montrée
+    // en comparatif (face à la moyenne HISTORIQUE, recalculée hors partiel), jamais comptée.
+    var pPart = partiel != null
+      ? '<span class="est-present">' + esc(nomMois + ' en cours') + '</span> : ' + esc(_pctFR(partiel))
+        + ' vs moy. hist. ' + esc(_pctFR(moy)) + '.'
+      : '';
+
+    // Moins de 3 années closes : un « biais » sur 1-2 observations serait du bruit présenté en
+    // conclusion (même prudence que les dénominateurs minimaux de la vague volatilité).
+    if (clos.length < 3) {
+      var sN = clos.length > 1 ? 's' : '';
+      return { etat: 'partage',
+        txt: '<span class="est-present">' + esc(nomMois) + '</span> : ' + clos.length + ' année' + sN
+          + ' close' + sN + ' observée' + sN + ' seulement sur ' + esc(sym) + ' : pas de biais saisonnier lisible.',
+        sous: pPart };
+    }
+
+    /* Biais affirmé SEULEMENT si la moyenne et la majorité des années vont dans le MÊME sens
+       (>= 60 % des années closes). Une moyenne positive portée par une seule année exceptionnelle
+       contre trois baisses n'est pas un biais : c'est un cas partagé, et on le dit. */
+    var majB = moy < 0 && nB / clos.length >= 0.6;
+    var majH = moy > 0 && nH / clos.length >= 0.6;
+    if (!majB && !majH) {
+      return { etat: 'partage',
+        txt: '<span class="est-present">' + esc(nomMois) + '</span> : historique partagé sur ' + esc(sym)
+          + ' (' + nH + ' hausse' + (nH > 1 ? 's' : '') + ' / ' + nB + ' baisse' + (nB > 1 ? 's' : '')
+          + ', moy. ' + esc(_pctFR(moy)) + ') : pas de biais saisonnier net.',
+        sous: pPart };
+    }
+
+    /* Rang du mois parmi les moyennes de référence : celles des 11 AUTRES mois telles que servies
+       (aucune ne porte de partiel — seuls les mois passés de l'année courante y figurent, clos),
+       la nôtre RECALCULÉE hors partiel. Rang 1 = « le pire/meilleur mois », sinon « le Ne ». */
+    var rang = 1;
+    rows.forEach(function (r, i) {
+      if (i === m || !r || typeof r.avg !== 'number' || !isFinite(r.avg)) return;
+      if (majB ? r.avg < moy : r.avg > moy) rang++;
+    });
+    var ordinal = rang === 1 ? 'le' : 'le ' + rang + 'e';
+    return {
+      etat: majB ? 'baissier' : 'haussier',
+      txt: '<span class="est-present">' + esc(nomMois) + '</span> est historiquement ' + ordinal + ' '
+        + (majB ? 'pire' : 'meilleur') + ' mois ' + esc(_dElision(sym)) + ' : '
+        + (majB ? nB : nH) + ' années sur ' + clos.length + ' en '
+        + (majB ? '<span class="est-bas">baisse</span>' : '<span class="est-haut">hausse</span>')
+        + ' (moy. ' + esc(_pctFR(moy)) + ').',
+      sous: 'Biais saisonnier ' + (majB ? '<span class="est-bas">baissier</span>' : '<span class="est-haut">haussier</span>')
+        + ' : signal de contexte, pas de timing.' + (pPart ? ' ' + pPart : ''),
+    };
+  }
+
+  /* Lecture CONTRARIENNE du sentiment retail (« Particuliers par paire »). Seuils fixes :
+     >= 75 % d'un côté = lecture marquée, >= 60 % = « plutôt », entre 40 et 60 = partagés.
+     La couleur s'INVERSE volontairement : foule acheteuse (vert) = lecture baissière (rouge) —
+     c'est tout l'intérêt du sentiment retail, et c'est un constat de positionnement, jamais un
+     conseil (« lecture contrarienne » se dit, « vendez » jamais). lng/court arrivent déjà gardés
+     (== null → NaN en amont) : NaN ne franchit aucun seuil, le verdict se tait. */
+  function _dmxVerdict(lng, court, nomPaire, uniteLbl) {
+    if (!isFinite(lng) || !isFinite(court)) return null;
+    var ou = ' (' + esc(uniteLbl) + ') : lecture contrarienne ';
+    if (lng >= 60) {
+      return { etat: 'baissier',
+        txt: Math.round(lng) + ' % des particuliers sont <span class="est-haut">acheteurs</span> '
+          + esc(_dElision(nomPaire)) + ou
+          + (lng >= 75 ? '<span class="est-bas">baissière</span> marquée.' : 'plutôt <span class="est-bas">baissière</span>.'),
+        sous: lng >= 75 ? 'La foule très chargée d\'un côté nourrit les mouvements inverses.' : '' };
+    }
+    if (lng <= 40) {
+      return { etat: 'haussier',
+        txt: Math.round(court) + ' % des particuliers sont <span class="est-bas">vendeurs</span> '
+          + esc(_dElision(nomPaire)) + ou
+          + (lng <= 25 ? '<span class="est-haut">haussière</span> marquée.' : 'plutôt <span class="est-haut">haussière</span>.'),
+        sous: lng <= 25 ? 'La foule très chargée d\'un côté nourrit les mouvements inverses.' : '' };
+    }
+    return { etat: 'partage',
+      txt: 'Particuliers partagés sur ' + esc(nomPaire) + ' (' + Math.round(lng) + ' % / ' + Math.round(court)
+        + ' %) : pas de lecture contrarienne.',
+      sous: '' };
+  }
+
+  /* Verdict COT (« COT par devise ») : intensité par la part longue recalculée (pS/pL), sens par
+     le net. « très majoritairement » >= 75 ou <= 25 · « nettement » >= 60 ou <= 40 · équilibre à
+     moins de 3 points de 50 · « légèrement » sinon. netTxt et dateRapport arrivent FORMATÉS
+     (enK et la date vivent dans la carte) ; `derived` = ligne USD, agrégat maison : la mention
+     vit DANS la phrase (contre-lecture : la note sous le donut ne suffit pas quand le verdict
+     au-dessus se lit comme un chiffre du rapport officiel). Pas de tendance multi-semaines :
+     /api/cot ne sert qu'UNE semaine par devise, le front n'invente rien. */
+  function _cotVerdict(nomFonds, dev, pL, net, netTxt, dateRapport, derived) {
+    if (!isFinite(pL) || !isFinite(net)) return null;
+    var pLr = Math.round(pL);
+    var agr = derived ? ' (agrégat calculé : la CFTC ne publie pas de contrat dollar)' : '';
+    var dRap = dateRapport ? ' (rapport du ' + esc(dateRapport) + ')' : '';
+    if (Math.abs(pL - 50) < 3) {
+      return { etat: 'equilibre',
+        txt: 'Les ' + esc(nomFonds) + ' sont <span class="est-neutre">à l\'équilibre</span> sur ' + esc(dev) + agr
+          + ' (' + pLr + ' % long, net ' + esc(netTxt) + ')' + dRap + ' : pas de conviction affichée.',
+        sous: '' };
+    }
+    var sensH = net > 0;
+    var intens = (pL >= 75 || pL <= 25) ? 'très majoritairement' : (pL >= 60 || pL <= 40) ? 'nettement' : 'légèrement';
+    return {
+      etat: sensH ? 'acheteur' : 'vendeur',
+      txt: 'Les ' + esc(nomFonds) + ' sont ' + intens + ' <span class="' + (sensH ? 'est-haut' : 'est-bas') + '">'
+        + (sensH ? 'acheteurs' : 'vendeurs') + ' nets</span> ' + esc(_dElision(dev)) + agr + ' : '
+        + pLr + ' % long, net ' + esc(netTxt) + ' contrats' + dRap + '.',
+      // Positionnement étiré = constat de saturation, pas une invitation à prendre l'inverse.
+      sous: intens === 'très majoritairement' ? 'Positionnement étiré : le carburant pour prolonger le mouvement se raréfie.' : '',
+    };
+  }
+  /* ═══ fin verdicts saisonnalité & positionnement ═══ */
+
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
   // ── ÉTATS UNIFORMES DES WIDGETS (28/07) : chargement · vide · erreur ────────────────────────────
   // Une seule grammaire pour les ~30 points de repli du catalogue : icône discrète, message court,
@@ -774,6 +924,14 @@
         + ' stroke-width="' + (o.epaisseur || 1.6) + '" stroke-linejoin="round" stroke-linecap="round"'
         + ' vector-effect="non-scaling-stroke"></polyline>';
     });
+    /* o.point : index du PRÉSENT à marquer d'un point or (mois courant de la courbe saisonnière).
+       Garde `!= null` : l'index 0 est valide. Seulement si la valeur existe : marquer un trou
+       poserait le point sur du vide. Le viewBox étant étiré (preserveAspectRatio none), le point
+       rend en légère ellipse — assumé pour un repère de 2,5 unités, comme la barre de zéro. */
+    if (o.point != null && typeof vals[o.point] === 'number' && isFinite(vals[o.point])) {
+      h += '<circle cx="' + X(o.point).toFixed(2) + '" cy="' + Y(vals[o.point]).toFixed(2) + '" r="2.5"'
+        + ' fill="var(--orange, #e3b23a)"></circle>';
+    }
     h += '</svg>';
     return h;
   }
@@ -804,9 +962,15 @@
       // Une barre de hauteur nulle serait invisible : on lui laisse un filet de 0,6.
       var ht = Math.max(bas - haut, 0.6);
       var col = (o.couleurs && o.couleurs[i]) || (o.signe ? (v >= 0 ? '#00e676' : '#ff3d00') : (o.couleur || 'var(--orange, #e3b23a)'));
+      /* o.marque : index du PRÉSENT (mois courant) — liseré or autour de la barre, fill
+         sémantique CONSERVÉ (l'or dit « c'est maintenant », le vert/rouge continue de dire le
+         signe). Garde `!= null` : l'index 0 (janvier) est valide. */
+      var marque = o.marque != null && i === o.marque;
       h += '<rect class="wdg-tr-barre" x="' + (i * pas + jour).toFixed(2) + '" y="' + haut.toFixed(2) + '"'
         + ' width="' + Math.max(pas - 2 * jour, 0.4).toFixed(2) + '" height="' + ht.toFixed(2) + '"'
-        + ' fill="' + col + '" opacity="' + (o.opacite || 0.85) + '"></rect>';
+        + ' fill="' + col + '" opacity="' + (o.opacite || 0.85) + '"'
+        + (marque ? ' stroke="var(--orange, #e3b23a)" stroke-width="1" vector-effect="non-scaling-stroke"' : '')
+        + '></rect>';
     });
     h += '</svg>';
     return h;
@@ -3958,8 +4122,10 @@
         { k: 'regularite', lbl: 'Afficher la régularité', type: 'bascule', def: false },
       ],
       mount: function (host, it) {
-        var W = this, vivant = true, cur = null, _ro = null;
-        var MOIS = ['Janv.', 'Fevr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Aout', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+        var W = this, vivant = true, cur = null;
+        /* Mémoire du verdict : le fondu de MAJ (grammaire commune) ne se joue que sur un VRAI
+           changement de texte, jamais au premier rendu. */
+        var prevVerd = null;
         skel(host, 6);
 
         function rendre(d) {
@@ -3981,19 +4147,33 @@
             vals = rows.map(function (r) { return (typeof r.avg === 'number' && isFinite(r.avg)) ? r.avg : null; });
           }
 
+          /* Le PRÉSENT est marqué DANS le tracé (doctrine DTP) : liseré or sur la barre du mois
+             courant, point or sur la courbe cumulée — l'étiquette d'axe seule ne suffisait pas
+             (elle marquait le mois sans distinguer sa valeur). */
           var svg = mode === 'cumule'
-            ? _courbeSvg(vals, { zero: true, aire: true })
-            : _barresSvg(vals, { signe: true });
+            ? _courbeSvg(vals, { zero: true, aire: true, point: moisCourant })
+            : _barresSvg(vals, { signe: true, marque: moisCourant });
+
+          /* Verdict PARTAGÉ avec la table Saisonnalité (même helper, même exclusion du mois
+             partiel — le `avg` servi inclut l'année en cours, _saisonVerdict la retire). */
+          var v = _saisonVerdict(rows, ans, (d && d.symbol) || '');
 
           // Nombre d observations REELLES du mois courant : compte des valeurs non nulles.
-          var nObs = (rows[moisCourant] && rows[moisCourant].vals || []).filter(function (v) { return typeof v === 'number'; }).length;
+          var nObs = (rows[moisCourant] && rows[moisCourant].vals || []).filter(function (v2) { return typeof v2 === 'number'; }).length;
           var periode = (ans.length ? ans[0] + '-' + ans[ans.length - 1] : '5 ans');
+          /* Fraîcheur HONNÊTE : le ts vient de la RÉPONSE (cache serveur 6 h, voire repli
+             persistant après panne Yahoo) — « il y a 5 h » dit l'âge du servi, jamais un faux
+             temps réel. Retimbré par le minuteur global de la grammaire commune. */
+          var ts = Date.parse((d && d.updatedAt) || '') || 0;
 
           host.innerHTML = '<div class="wdg-sais">'
             + '<div class="wdg-sais-tete"><span class="wdg-sais-sym">' + esc((d && d.symbol) || '') + '</span>'
             + '<span class="wdg-sais-mode">' + (mode === 'cumule' ? 'Cumulé' : 'Par mois') + '</span></div>'
+            + (v ? '<div class="wdg-verdict" data-etat="' + v.etat + '">'
+                + '<b class="wdg-verdict-txt wdg-maj-txt">' + v.txt + '</b>'
+                + (v.sous ? '<span class="wdg-verdict-sous">' + v.sous + '</span>' : '') + '</div>' : '')
             + '<div class="wdg-sais-zone">' + svg + '</div>'
-            + '<div class="wdg-sais-axe">' + MOIS.map(function (m, i) {
+            + '<div class="wdg-sais-axe">' + _MOIS_FR.map(function (m, i) {
               /* Regularite : le nombre d annees POSITIVES sur les annees reellement observees.
                  Un mois a +0,8 % obtenu par une seule annee exceptionnelle ne vaut pas un mois a
                  +0,8 % obtenu quatre fois sur cinq — et le denominateur varie d un mois a l autre,
@@ -4007,8 +4187,13 @@
             }).join('') + '</div>'
             + '<div class="wdg-sais-pied">Moyenne mensuelle sur ' + esc(periode)
             + ' &middot; rendement de fin de mois à fin de mois. Le mois en cours est partiel ('
-            + nObs + ' année' + (nObs > 1 ? 's' : '') + ' observée' + (nObs > 1 ? 's' : '') + ').</div>'
+            + nObs + ' année' + (nObs > 1 ? 's' : '') + ' observée' + (nObs > 1 ? 's' : '') + '). '
+            + _vieSpan(ts) + '</div>'
             + '</div>';
+
+          // Fondu de MAJ (grammaire commune) : uniquement quand le verdict change réellement.
+          if (prevVerd != null && v && v.txt !== prevVerd) _majFlash(host.querySelector('.wdg-verdict-txt'));
+          prevVerd = v ? v.txt : null;
         }
 
         function dessiner() {
@@ -4023,10 +4208,12 @@
         }
 
         dessiner();
-        // Le serveur cache 6 h : aucun minuteur. Seul le redimensionnement redessine (le SVG est
-        // etire par le CSS, mais le pied et l axe doivent se recaler).
-        if (window.ResizeObserver) { _ro = new ResizeObserver(function () {}); _ro.observe(host); }
-        return function () { vivant = false; try { if (_ro) _ro.disconnect(); } catch (e) {} };
+        /* Le serveur cache 6 h et le socle REMONTE la carte toutes les 30 min (champ `maj` du
+           catalogue) : aucun minuteur ici — le retimbrage de l'horodatage est porté par le
+           minuteur GLOBAL de la grammaire commune, rien à nettoyer. L'ancien ResizeObserver au
+           callback VIDE promettait un recalage inexistant (code mort relevé par la
+           contre-lecture) : retiré, le SVG est étiré par le CSS et l'axe HTML suit tout seul. */
+        return function () { vivant = false; };
       },
     },
 
@@ -4217,19 +4404,23 @@
       ],
       mount: function (host, it) {
         var W = this;
+        // 23/08 : verdict contrarien inséré ENTRE la légende et l'anneau (spec de la refonte) +
+        // horodatage updatedTs dans la légende — la carte à anneau n'a pas de pied de texte.
         host.innerHTML = '<div class="wdg-dmx1">'
           + '<div class="wdg-dmx1-leg">'
           + '<span><i style="background:#ff3d00"></i>Vendeurs</span>'
           + '<span><i style="background:#00e676"></i>Acheteurs</span>'
-          + '<span class="wdg-dmx1-paire"></span></div>'
+          + '<span class="wdg-dmx1-paire"></span><span class="wdg-dmx1-vie"></span></div>'
+          + '<div class="wdg-verdict" style="display:none"><b class="wdg-verdict-txt wdg-maj-txt"></b><span class="wdg-verdict-sous"></span></div>'
           + '<div class="wdg-dmx1-anneau"></div>'
           + '<div class="wdg-dmx1-pied">'
-          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions vendeuses</span><b class="wdg-dmx1-short">--</b></div>'
-          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions acheteuses</span><b class="wdg-dmx1-long">--</b></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions vendeuses</span><b class="wdg-dmx1-short wdg-maj-txt">--</b></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions acheteuses</span><b class="wdg-dmx1-long wdg-maj-txt">--</b></div>'
           + '</div></div>';
         var zone = host.querySelector('.wdg-dmx1-anneau');
         var elS = host.querySelector('.wdg-dmx1-short'), elL = host.querySelector('.wdg-dmx1-long');
         var elP = host.querySelector('.wdg-dmx1-paire');
+        var elVerd = host.querySelector('.wdg-verdict'), elVie = host.querySelector('.wdg-dmx1-vie');
         var vivant = true, _dern = '', _pcts = null;
         // La carte est redimensionnable : les etiquettes suivent la geometrie reelle de la zone.
         var _ro = null;
@@ -4261,12 +4452,25 @@
             .then(function (r) { return r.json(); })
             .then(function (d) {
               if (!vivant || !host.isConnected) return;
+              /* Fraîcheur : updatedTs (ms) est servi par la route et n'était JAMAIS lu. Retimbré
+                 à CHAQUE tic — c'est la preuve visible que le tic de 60 s vit, même quand
+                 l'anneau, à juste titre, ne se re-rend pas (garde anti-clignotement plus bas). */
+              if (elVie) elVie.innerHTML = _vieSpan(d && d.updatedTs != null ? +d.updatedTs : 0);
               var row = (d && d.symbols || []).find(function (x) { return x && x.symbol === paire; });
-              if (!row) { fallback(zone, 'Pas de donnée DMX pour ' + joli(paire) + '.'); elS.textContent = '--'; elL.textContent = '--'; return; }
+              if (!row) {
+                fallback(zone, 'Pas de donnée DMX pour ' + joli(paire) + '.'); elS.textContent = '--'; elL.textContent = '--';
+                /* Le fallback ne remplace QUE l'anneau : le verdict inséré AU-DESSUS survivrait,
+                   périmé, sur une paire sans donnée (trou relevé par la contre-lecture). Vidé. */
+                if (elVerd) { elVerd.style.display = 'none'; elVerd.querySelector('.wdg-verdict-txt').textContent = ''; }
+                return;
+              }
               var court = Number(row.shortPct) || 0, lng = Number(row.longPct) || 0;
               // Re-rendu SEULEMENT si la donnée change : le tic de 60 s ne doit pas rejouer
               // l'animation sur des valeurs identiques (l'anneau « clignoterait » sans information).
               var cle = paire + '|' + court + '|' + lng;
+              // Vraie MAJ = une clé différente APRÈS un premier rendu : le fondu de la grammaire
+              // commune ne se joue jamais sur le rendu initial.
+              var nouveau = _dern !== '' && cle !== _dern;
               if (cle !== _dern || !zone.querySelector('svg')) {
                 _dern = cle;
                 zone.innerHTML = _donutSvg(court, lng);
@@ -4288,6 +4492,32 @@
               }
               elS.textContent = court + ' %';
               elL.textContent = lng + ' %';
+
+              /* ── VERDICT contrarien (tout l'intérêt du sentiment retail, jamais dit jusqu'ici).
+                 Garde `== null` AVANT Number : la source peut rendre null et Number(null) vaut 0
+                 — « 0 % acheteurs » fabriquerait un « haussière marquée » sur une donnée ABSENTE
+                 (le piège exact qui a mordu la vague 2). L'unité s'affiche par son LIBELLÉ
+                 d'option (« 1H »), jamais la valeur logique (« H1 ») — règle du desk, dérivée du
+                 réglage lui-même pour ne pas diverger de la liste. */
+              var lngV = row.longPct == null ? NaN : Number(row.longPct);
+              var courtV = row.shortPct == null ? NaN : Number(row.shortPct);
+              var tfVal = opt(it, W, 'tf') || 'H1', tfLbl = tfVal;
+              (W.opts || []).forEach(function (o2) {
+                if (o2.k !== 'tf') return;
+                (o2.choix || []).forEach(function (ch) { if (ch[0] === tfVal) tfLbl = ch[1]; });
+              });
+              var v = _dmxVerdict(lngV, courtV, joli(paire), tfLbl);
+              if (v && elVerd) {
+                elVerd.style.display = '';
+                elVerd.setAttribute('data-etat', v.etat);
+                elVerd.querySelector('.wdg-verdict-txt').innerHTML = v.txt;
+                elVerd.querySelector('.wdg-verdict-sous').textContent = v.sous;
+              } else if (elVerd) elVerd.style.display = 'none';
+              // Fondu de MAJ (grammaire commune) sur une VRAIE nouvelle donnée uniquement.
+              if (nouveau) {
+                _majFlash(elS); _majFlash(elL);
+                if (elVerd) _majFlash(elVerd.querySelector('.wdg-verdict-txt'));
+              }
             })
             .catch(function () { if (vivant && host.isConnected) fallback(zone, 'DMX indisponible.'); });
         }
@@ -4320,20 +4550,24 @@
       ],
       mount: function (host, it) {
         var W = this;
+        // 23/08 : verdict inséré ENTRE la légende et l'anneau (même gabarit que DMX par paire) —
+        // l'embryon de verdict (sentiment coloré en 3e colonne) reste, le verdict le CHAPEAUTE.
         host.innerHTML = '<div class="wdg-dmx1">'
           + '<div class="wdg-dmx1-leg">'
           + '<span><i style="background:#ff3d00"></i>Short</span>'
           + '<span><i style="background:#00e676"></i>Long</span>'
           + '<span class="wdg-dmx1-paire"></span></div>'
+          + '<div class="wdg-verdict" style="display:none"><b class="wdg-verdict-txt wdg-maj-txt"></b><span class="wdg-verdict-sous"></span></div>'
           + '<div class="wdg-dmx1-anneau"></div>'
           + '<div class="wdg-dmx1-pied">'
-          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions short</span><b class="wdg-dmx1-short">--</b><span class="wdg-dmx1-sous cot-sh">&nbsp;</span></div>'
-          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions long</span><b class="wdg-dmx1-long">--</b><span class="wdg-dmx1-sous cot-lg">&nbsp;</span></div>'
-          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Position nette</span><b class="cot-net">--</b><span class="wdg-dmx1-sous cot-nk">&nbsp;</span></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions short</span><b class="wdg-dmx1-short wdg-maj-txt">--</b><span class="wdg-dmx1-sous cot-sh">&nbsp;</span></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Positions long</span><b class="wdg-dmx1-long wdg-maj-txt">--</b><span class="wdg-dmx1-sous cot-lg">&nbsp;</span></div>'
+          + '<div class="wdg-dmx1-col"><span class="wdg-dmx1-lbl">Position nette</span><b class="cot-net wdg-maj-txt">--</b><span class="wdg-dmx1-sous cot-nk">&nbsp;</span></div>'
           + '</div></div>';
         var zone = host.querySelector('.wdg-dmx1-anneau');
         var elS = host.querySelector('.wdg-dmx1-short'), elL = host.querySelector('.wdg-dmx1-long');
         var elP = host.querySelector('.wdg-dmx1-paire'), elN = host.querySelector('.cot-net');
+        var elVerd = host.querySelector('.wdg-verdict');
         var sSh = host.querySelector('.cot-sh'), sLg = host.querySelector('.cot-lg'), sNk = host.querySelector('.cot-nk');
         var vivant = true, _dern = '', _etiq = null;
         // Libelles officiels CFTC, pour l en-tete de carte. Meme table que le reglage.
@@ -4362,18 +4596,35 @@
             .then(function (d) {
               if (!vivant || !host.isConnected) return;
               var row = (d && d.currencies || []).find(function (x) { return x && x.key === dev; });
-              if (!row) { fallback(zone, 'Pas de donnée COT pour ' + dev + '.'); return; }
+              if (!row) {
+                fallback(zone, 'Pas de donnée COT pour ' + dev + '.');
+                // Même trou que DMX (contre-lecture) : le fallback ne remplace que l'anneau, un
+                // verdict périmé survivrait au-dessus. Vidé.
+                if (elVerd) { elVerd.style.display = 'none'; elVerd.querySelector('.wdg-verdict-txt').textContent = ''; }
+                return;
+              }
               var tot = (Number(row.longPos) || 0) + (Number(row.shortPos) || 0);
               // Pourcentages recalculés des POSITIONS (la source arrondit les siens à l'entier).
               var pS = tot ? (Number(row.shortPos) || 0) / tot * 100 : 0;
               var pL = tot ? (Number(row.longPos) || 0) / tot * 100 : 0;
+              // Date du rapport, formatée UNE fois : l'en-tête et le verdict la partagent.
+              var drTxt = '';
+              try { drTxt = row.reportDate ? new Date(row.reportDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : ''; } catch (e) {}
               if (elP) {
-                var dr = '';
-                try { dr = row.reportDate ? ' · ' + new Date(row.reportDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : ''; } catch (e) {}
-                elP.textContent = dev + ' · ' + (NOMFONDS[fonds] || fonds) + dr;
+                /* La preuve de vie d'une donnée HEBDOMADAIRE est l'âge de son RAPPORT (mardi
+                   CFTC, publié le vendredi : voir cette ancienneté est une information de
+                   trading) — JAMAIS l'heure de service, qui ferait passer un rapport de 4 jours
+                   pour du frais (règle de la grammaire commune : ts = reportDate, échelle en
+                   jours). Le span .wdg-vie est retimbré par le minuteur global. */
+                var tsRap = row.reportDate ? Date.parse(row.reportDate) : NaN;
+                elP.innerHTML = esc(dev + ' · ' + (NOMFONDS[fonds] || fonds) + (drTxt ? ' · rapport du ' + drTxt : ''))
+                  + (isFinite(tsRap) ? ' (' + _vieSpan(tsRap) + ')' : '');
               }
               // Le type de fonds entre dans la cle : changer de categorie doit re-animer l anneau.
               var cle = dev + '|' + fonds + '|' + row.longPos + '|' + row.shortPos;
+              // Vraie MAJ (nouveau rapport ou changement de réglage) après un premier rendu :
+              // seul cas où le fondu de la grammaire commune se joue.
+              var nouveau = _dern !== '' && cle !== _dern;
               _etiq = [pS, pL, 'Short · ' + enK(row.shortPos), 'Long · ' + enK(row.longPos)];
               if (cle !== _dern || !zone.querySelector('svg')) {
                 _dern = cle;
@@ -4406,6 +4657,33 @@
                 ? 'Agrégat calculé : la CFTC ne publie pas de contrat sur le dollar.'
                 : '';
               elNote.style.display = row.derived ? '' : 'none';
+
+              /* ── VERDICT : la phrase qui LIT le donut (l'embryon en 3e colonne restait noyé).
+                 Gardes `== null` avant Number (Number(null) vaut 0 : un net ABSENT deviendrait
+                 « à l'équilibre ») + tot > 0 (sans positions, pS/pL valent 0 et mentiraient).
+                 Le verdict s'appuie UNIQUEMENT sur la semaine servie : /api/cot n'expose pas la
+                 précédente (scrapers/cot.js ne garde que la ligne la plus récente par devise),
+                 donc AUCUNE tendance multi-semaines n'est affirmée — netPrev resterait une
+                 évolution SERVEUR, hors de ce lot, dont ce front ne dépend jamais. */
+              var lpV = row.longPos == null ? NaN : Number(row.longPos);
+              var spV = row.shortPos == null ? NaN : Number(row.shortPos);
+              var netV = row.net == null ? NaN : Number(row.net);
+              var v = (isFinite(lpV) && isFinite(spV) && isFinite(netV) && tot > 0)
+                ? _cotVerdict(NOMFONDS[fonds] || fonds, dev, pL, netV, (netV > 0 ? '+' : '') + enK(netV), drTxt, !!row.derived)
+                : null;
+              if (v && elVerd) {
+                elVerd.style.display = '';
+                elVerd.setAttribute('data-etat', v.etat);
+                elVerd.querySelector('.wdg-verdict-txt').innerHTML = v.txt;
+                elVerd.querySelector('.wdg-verdict-sous').textContent = v.sous;
+              } else if (elVerd) elVerd.style.display = 'none';
+              /* Fondu de MAJ (grammaire commune) sur le verdict et les <b> du pied — uniquement
+                 sur une vraie nouvelle donnée. Le COT ne bouge pas en intrajournalier : simuler
+                 du vivant entre deux rapports serait mentir, on ne fond qu'au changement réel. */
+              if (nouveau) {
+                _majFlash(elS); _majFlash(elL); _majFlash(elN);
+                if (elVerd) _majFlash(elVerd.querySelector('.wdg-verdict-txt'));
+              }
             })
             .catch(function () { if (vivant && host.isConnected) fallback(zone, 'COT indisponible.'); });
         }
@@ -4469,47 +4747,63 @@
         if (typeof _seasonCell !== 'function') { fallback(host, 'Saisonnalité indisponible.'); return null; }
         var fmt = (typeof _seasonFmtPair === 'function') ? _seasonFmtPair : function (c) { return c; };
         // 04/08 : le sélecteur de paire inline est RETIRÉ (doublon du réglage « Paire » — même cas que
-        // COT et DMX) ; il désynchronisait en plus le badge (badge [NZD/USD] vs liste AUD\CAD, capture
-        // user), le <select> n'étant pas recalé sur la paire du compte au montage. Le badge suffit à
-        // dire quelle paire est affichée ; le choix vit dans l'engrenage.
+        // COT et DMX) ; le badge suffit à dire quelle paire est affichée ; le choix vit dans l'engrenage.
+        // 23/08 : les trois blocs `.wdg-sea-sel` qui SURVIVAIENT à ce retrait (querySelector sans
+        // correspondance, recalage d'option et listener change inatteignables) sont SUPPRIMÉS —
+        // code mort confirmé par la contre-lecture. La carte gagne le verdict saisonnier PARTAGÉ
+        // avec la courbe, la ligne du mois courant et l'horodatage de la réponse.
         host.innerHTML = '<div class="wdg-seawrap">'
-          + '<div class="dmx-header-bar"><span class="season-pair-badge wdg-sea-badge">[EUR/USD]</span><span style="flex:1"></span></div>'
-          + '<div class="season-table-wrap custom-scrollbar wdg-sea-tbl"><div class="wdg-skel"><span class="wdg-skel-l" style="width:72%"></span><span class="wdg-skel-l" style="width:88%"></span><span class="wdg-skel-l" style="width:60%"></span></div></div>';
-        var sel = host.querySelector('.wdg-sea-sel'), badge = host.querySelector('.wdg-sea-badge'), tblWrap = host.querySelector('.wdg-sea-tbl');
+          + '<div class="dmx-header-bar"><span class="season-pair-badge wdg-sea-badge">[EUR/USD]</span><span style="flex:1"></span><span class="wdg-sea-vie"></span></div>'
+          + '<div class="wdg-verdict" style="display:none"><b class="wdg-verdict-txt wdg-maj-txt"></b><span class="wdg-verdict-sous"></span></div>'
+          + '<div class="season-table-wrap custom-scrollbar wdg-sea-tbl wdg-maj-txt"><div class="wdg-skel"><span class="wdg-skel-l" style="width:72%"></span><span class="wdg-skel-l" style="width:88%"></span><span class="wdg-skel-l" style="width:60%"></span></div></div>';
+        var badge = host.querySelector('.wdg-sea-badge'), tblWrap = host.querySelector('.wdg-sea-tbl');
+        var elVerd = host.querySelector('.wdg-verdict'), elVie = host.querySelector('.wdg-sea-vie');
         var cur = null;
         function load(p) {
           cur = p;
-          if (sel && !sel.querySelector('option[value="' + p.replace(/"/g, '') + '"]')) {   // paire du compte hors liste FX (catalogue Stocks/Indices…)
-            var op = document.createElement('option'); op.value = p; op.textContent = fmt(p); sel.insertBefore(op, sel.firstChild);
-          }
-          if (sel) sel.value = p;
           if (badge) badge.textContent = '[' + fmt(p) + ']';
           fetch('/api/seasonality?symbol=' + encodeURIComponent(p)).then(function (r) { return r.json(); }).then(function (data) {
             if (!host.isConnected || p !== cur) return;                    // réponse périmée (changement de paire)
             if (!data || !Array.isArray(data.rows) || !data.rows.length) return fallback(tblWrap, 'Aucune donnée');
             if (badge && data.symbol) badge.textContent = '[' + data.symbol + ']';
             var yrs = data.years || [];
+            var moisCourant = new Date().getMonth();
             var head = '<tr><th class="season-th season-th--m"></th>' + yrs.map(function (y) { return '<th class="season-th">\'' + String(y).slice(2) + '</th>'; }).join('') + '<th class="season-th season-th--avg">Moy.</th></tr>';
-            var body = data.rows.map(function (row) {
-              return '<tr><td class="season-month">' + esc(row.month) + '</td>' + (row.vals || []).map(function (v) { return _seasonCell(v, false); }).join('') + _seasonCell(row.avg, true) + '</tr>';
+            var body = data.rows.map(function (row, i) {
+              /* Mois TRADUITS à l'affichage : la source sert Jan..Dec (valeurs logiques, règle du
+                 desk) et les 12 lignes sont dans l'ordre civil — l'index suffit, `row.month`
+                 reste le repli si la table module venait à manquer. La ligne du mois COURANT est
+                 marquée (présent en or, doctrine DTP). */
+              return '<tr' + (i === moisCourant ? ' class="est-courant"' : '') + '><td class="season-month">' + esc(_MOIS_FR[i] || row.month) + '</td>' + (row.vals || []).map(function (v) { return _seasonCell(v, false); }).join('') + _seasonCell(row.avg, true) + '</tr>';
             }).join('');
+            var deja = !!tblWrap.querySelector('.season-table');
             tblWrap.innerHTML = '<table class="season-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+            /* La cellule mois courant × année courante est PARTIELLE (le serveur garde le cours
+               du jour, pas une fin de mois). _seasonCell (helper global charts.js) ne pose aucune
+               classe : le liseré vit en CSS via nth-last-child(2) — l'année courante est TOUJOURS
+               la dernière colonne avant Moy. (years = N-4..N) — ici on ne pose que le title. */
+            var cNow = tblWrap.querySelector('tr.est-courant td:nth-last-child(2)');
+            if (cNow) cNow.title = 'Mois en cours (partiel)';
+            // Changement de paire : fondu de MAJ (grammaire commune) au lieu du flash sec du
+            // remplacement — jamais au premier rendu (le squelette n'est pas un « avant »).
+            if (deja) _majFlash(tblWrap);
+            // Verdict saisonnier PARTAGÉ avec la courbe (même helper, même exclusion du partiel).
+            var v = _saisonVerdict(data.rows, yrs, data.symbol || fmt(p));
+            if (v && elVerd) {
+              elVerd.style.display = '';
+              elVerd.setAttribute('data-etat', v.etat);
+              elVerd.querySelector('.wdg-verdict-txt').innerHTML = v.txt;
+              elVerd.querySelector('.wdg-verdict-sous').innerHTML = v.sous || '';
+            } else if (elVerd) elVerd.style.display = 'none';
+            /* Fraîcheur HONNÊTE : ts de la RÉPONSE (cache 6 h serveur, repli persistant possible),
+               retimbré par le minuteur global — jamais l'heure du fetch, qui mentirait. */
+            if (elVie) elVie.innerHTML = _vieSpan(Date.parse((data && data.updatedAt) || '') || 0);
           }).catch(function () { if (host.isConnected && p === cur) fallback(tblWrap, 'Saisonnalité indisponible.'); });
         }
         if (pin) load(pin);
         else fetch('/api/season-pair').then(function (r) { return r.json(); }).then(function (d) {
           load((d && d.pair) ? d.pair : 'EURUSD');
         }).catch(function () { load('EURUSD'); });
-        if (sel) sel.addEventListener('change', function () {
-          var p = sel.value;
-          if (pin) {                                    // carte épinglée : le choix reste DANS la carte
-            var i = _hostIdx(host);
-            if (i != null) return API.setOpt(i, 'paire', p);
-            return load(p);
-          }
-          try { fetch('/api/season-pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pair: p }) }); } catch (e) {}
-          load(p);
-        });
         return null;
       },
     },

@@ -19587,3 +19587,34 @@ html[data-theme="light"] .wdg-tick-tete.est-bas .wdg-tick-fl, html[data-theme="l
 @container dtpw (max-height: 280px) { .wdg-mx .wdg-verdict { display: none; } }
 @container dtpw (max-width: 340px) { .wdg-tick-tete { display: none; } }
 @container dtpw (max-width: 240px) { .wdg-tl-spark { display: none; } }
+
+/* ═══ FAMILLE SAISONNALITÉ & POSITIONNEMENT : le PRÉSENT sur les 4 cartes (23/08) ═══════════════
+   Complète la GRAMMAIRE COMMUNE DE VIE (verdict .wdg-verdict, fondu .est-maj, horodatage
+   .wdg-vie) : verdict saisonnier partagé (courbe + table), ligne du mois en cours de la table,
+   lecture contrarienne DMX, verdict COT daté de son rapport. En FIN de feuille, règle du projet. */
+/* Table de saisonnalité : la ligne du MOIS EN COURS en or (présent marqué, tokens du thème —
+   aucun hex nouveau). Liseré posé en box-shadow inset, PAS en border : une bordure de 2 px sur
+   une seule ligne décalerait la colonne des mois d'un rang à l'autre. */
+.season-table tr.est-courant td { background: rgba(227, 178, 58, .06); }
+.season-table tr.est-courant .season-month { color: var(--orange, #e3b23a); font-weight: 700;
+  box-shadow: inset 2px 0 0 var(--orange, #e3b23a); }
+/* La CELLULE mois courant × année courante est PARTIELLE (le serveur garde le cours du jour,
+   pas une fin de mois) : liseré POINTILLÉ — la seule cellule qui bouge en journée — et title
+   posé par le JS. Ciblage nth-last-child(2) : l'année courante est TOUJOURS la dernière colonne
+   avant Moy. (years = N-4..N), et _seasonCell, helper global de charts.js, ne pose aucune
+   classe (contre-lecture : ne pas promettre une classe qui n'existe pas). */
+.season-table tr.est-courant td:nth-last-child(2) { outline: 1px dotted rgba(227, 178, 58, .75); outline-offset: -1px; }
+html[data-theme="light"] .season-table tr.est-courant td:nth-last-child(2) { outline-color: rgba(129, 101, 33, .8); }
+/* Horodatage dans la header-bar (la table n'a pas de pied de texte) — grammaire .wdg-vie. */
+.wdg-sea-vie { flex: 0 0 auto; margin-left: 8px; display: inline-flex; align-items: center; }
+/* Idem pour les cartes à anneau : l'horodatage se cale à droite de la légende, après la paire. */
+.wdg-dmx1-vie { flex: 0 0 auto; margin-left: 6px; }
+/* Les cartes donut (DMX par paire, COT) et la table n'étaient pas des conteneurs dtpw
+   (contrairement aux cartes des vagues 1-2) : requis pour que leurs verdicts cèdent en carte
+   basse. container-type:size est sûr ici : les deux racines ont height:100%. */
+.wdg-dmx1, .wdg-seawrap { container-type: size; container-name: dtpw; }
+/* Carte basse : le verdict cède, jamais les chiffres. La courbe saisonnière suit le seuil de son
+   pied (250 px, motif vague 1) ; anneau et table cèdent à 230 px (légende/header + anneau ou 4
+   rangées + pied encore lisibles aux tailles de police des blocs historiques). */
+@container dtpw (max-height: 250px) { .wdg-sais .wdg-verdict { display: none; } }
+@container dtpw (max-height: 230px) { .wdg-dmx1 .wdg-verdict, .wdg-seawrap .wdg-verdict { display: none; } }
