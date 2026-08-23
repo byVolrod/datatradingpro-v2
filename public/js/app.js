@@ -3164,15 +3164,14 @@ function buildNewsItem(item) {
       _reactionMoves(item, _rxMoves => {
         if (activeTab !== 'reaction') return;
         if (!_rxMoves.length) {
-          // No real moves : remove the Réaction tag entirely and fall back to Info
+          /* AUCUN MOUVEMENT MESURABLE (23/08, demande user : « j'ai cliqué et le tag a disparu »).
+             L'ancien comportement supprimait le tag et basculait sur Info SANS UN MOT : pour le
+             lecteur, le bouton venait de s'évaporer sous son clic. On DIT désormais pourquoi,
+             dans le panneau, puis on retire le tag — il ne promettra plus rien — sans forcer la
+             bascule : le lecteur lit l'explication et choisit lui-même la suite. */
           if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
-          activeTab = null;
-          if (hasInfo) {
-            openPanel('info');  // switch to Info panel
-          } else {
-            expandEl.classList.remove('visible');
-            if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
-          }
+          expandEl.innerHTML = '<div class="iq-note">Aucun mouvement de marché mesurable autour de cette publication — rien à montrer ici, le bouton Réaction a été retiré de cette actualité.</div>';
+          expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
           return;
         } else {
           expandEl.innerHTML =
@@ -3195,15 +3194,11 @@ function buildNewsItem(item) {
         }
       }, () => {
           if (activeTab !== 'reaction') return;
-          // API error → same fallback as "no moves": remove tag, switch to Info
+          // Erreur API → même règle que « aucun mouvement » : on EXPLIQUE puis on retire le tag,
+          // jamais de disparition muette sous le clic (23/08).
           if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
-          activeTab = null;
-          if (hasInfo) {
-            openPanel('info');
-          } else {
-            expandEl.classList.remove('visible');
-            if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
-          }
+          expandEl.innerHTML = '<div class="iq-note">Données de marché momentanément indisponibles pour cette publication — le bouton Réaction a été retiré de cette actualité.</div>';
+          expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       // ⚠️ LA PAIRE DE CETTE NEWS-CI, PAS CELLE QU'ON A CLIQUÉE AILLEURS. On passait
       // « _pairActive || item._pair » : _pairActive est une variable GLOBALE, renseignée seulement
       // quand on clique un tag de paire, et appartenant alors à la news cliquée. Deux conséquences,
@@ -3795,8 +3790,18 @@ function buildNewsItem(item) {
   // Le paramètre est explicite parce que les deux boucles de tags s'appuient légitimement sur
   // isRed pour tenir le veto « pas de tag sur les commentaires économiques » : retirer le test
   // sèchement ouvrirait la voie DÉDUITE et casserait ce veto.
+  /* FERMETURE HEBDO DES MARCHÉS (23/08, demande user : « le week-end les marchés sont fermés,
+     n'affiche pas ce type de tags ») : une news PUBLIÉE pendant la fermeture du week-end (CME,
+     en UTC : vendredi ≥ 21 h, tout samedi, dimanche < 22 h) n'a AUCUNE réaction à montrer — ni
+     maintenant ni plus tard, le repère tomberait dans un trou de cotation. On ne pose donc pas
+     le tag. Une news du vendredi consultée le dimanche GARDE le sien : sa réaction existe. */
+  const _weekendFerme = ts => {
+    const d = new Date(ts || Date.now()); const j = d.getUTCDay(), h = d.getUTCHours();
+    return j === 6 || (j === 5 && h >= 21) || (j === 0 && h < 22);
+  };
   const _marcheDepuisTag = (t, tag, forcee) => {
     if (!_PAIR_DE_DEVISE[tag] || (!isRed && !forcee) || !expandEl || item._pair) return;
+    if (_weekendFerme(item.timestamp)) return;   // publiée marchés fermés : pas de tag (voir ci-dessus)
     _pairePosee = true;
     const paire = _PAIR_DE_DEVISE[tag];
     _paireExposee = paire;   // retenue pour la Réaction : c'est SA réaction qu'on mesurera
@@ -3933,11 +3938,12 @@ function buildNewsItem(item) {
     const _catGeo = String(item.category || '') === 'Geopolitical'
       || (item.tags || []).indexOf('Geopolitical') >= 0;
     const _sujetOr = /^\s*(?:[\w'’.]+\s+)?(gold|xau)\b/i.test(String(item.headline || ''));
-    if ((_catGeo && isRed) || _sujetOr) {
+    // Garde week-end (23/08, demande user) : publiée marchés fermés → pas de tag (voir _weekendFerme).
+    if (((_catGeo && isRed) || _sujetOr) && !_weekendFerme(item.timestamp)) {
       _pairePosee = true;
       _paireExposee = 'XAU/USD';                 // la Réaction mesurera l'or
       const tg = document.createElement('span');
-      tg.className = 'tag tag--marche tag--or';
+      tg.className = 'tag tag--default tag--marche tag--or';   // tag--default = le CONTOUR, comme les paires FX (demande user 23/08) ; tag--marche le dore
       tg.dataset.cat = 'XAU';
       tg.style.cursor = 'pointer';
       tg.title = 'Marché refuge le plus exposé : voir la réaction de l\'or à cette actualité';
@@ -4016,7 +4022,10 @@ function buildNewsItem(item) {
     || (_REACTION_CATS.test(item.category) && _REACTION_KW.test(item.headline))
     || _REACTION_KW.test(item.headline);
 
-  if (item.timestamp && Date.now() - item.timestamp < REACTION_AGE_LIMIT && _isMarketMoving) {
+  // ⚠️ + garde week-end (23/08, demande user : le tag Réaction cliqué DISPARAISSAIT sur une news
+  // du dimanche — zéro mouvement mesurable marchés fermés, le tag s'auto-supprimait sans un mot).
+  // Publiée pendant la fermeture hebdo → pas de pill du tout : rien à mesurer, ni maintenant ni après.
+  if (item.timestamp && Date.now() - item.timestamp < REACTION_AGE_LIMIT && _isMarketMoving && !_weekendFerme(item.timestamp)) {
     _queueReactionCheck(() =>
       (Array.isArray(item._moves) && item._moves.length
         ? Promise.resolve({ moves: item._moves })      // l'item porte sa réaction : aucune requête

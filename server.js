@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260823-tags-weekend', ts: Date.UTC(2026, 7, 24, 10, 0), title: 'Week-end : plus de tags de marche sur les news publiees marches fermes', desc: 'Une actualite publiee pendant la fermeture du week-end n a aucune reaction de marche a montrer — ni sur le moment, ni plus tard. Les tags de paire, le tag or et le bouton Reaction ne se posent donc plus sur ces publications (une news du vendredi consultee le dimanche garde les siens : sa reaction existe). Et quand une reaction s avere introuvable sur une news en semaine, le panneau EXPLIQUE desormais pourquoi avant de retirer le bouton, au lieu de le faire disparaitre sans un mot sous le clic. Le tag XAUUSD recoit aussi son contour, comme les paires de devises.' },
   { id: 'dtpu-20260822-reaction-minute', ts: Date.UTC(2026, 7, 24, 9, 0), title: 'Reaction a la bougie d une minute, analyse plus rapide et horodatages exacts', desc: 'Trois affinages sur la lecture d une publication. Le graphique de reaction choisit desormais son unite selon le mouvement reellement mesure : quand le marche a bouge (un CPI du matin, l or), il trace la bougie d UNE minute sur une fenetre serree autour de la publication — on voit la reaction seconde apres seconde ; quand la fenetre est plate, il garde la vue large en cinq minutes, plus lisible. L unite ne change jamais en cours de lecture. L or s affiche a deux decimales, comme il se cote. Les statistiques majeures qui tombent en titre nu (sans article) deviennent eligibles a l Analyse et passent en tete de file : la lecture arrive dans les minutes qui suivent le chiffre. Enfin, l en-tete des panneaux Analyse et Impact marche affiche l heure VRAIE de la generation, pas celle de la news.' },
   { id: 'dtpu-20260822-lecture-weekend', ts: Date.UTC(2026, 7, 24, 8, 0), title: 'Fil : majuscules des phrases traduites + graphique de reaction lisible le week-end', desc: 'Deux finitions de lecture. Les depeches traduites en francais commencaient parfois leurs phrases en minuscule : chaque retour a la ligne ouvre desormais sa phrase avec une majuscule, y compris sur les traductions deja en memoire. Et le graphique de reaction ouvert un samedi ne montrait qu une poignee de bougies etirees sur toute la largeur : quand le marche etait ferme au moment de la publication, il affiche desormais les trois dernieres heures reellement cotees avant la fermeture — un contexte dense et lisible (verifie : 37 bougies, 25 points d amplitude, contre une dizaine etiree avant), le repere et la note de fermeture restant en place.' },
   { id: 'dtpu-20260822-geo-or', ts: Date.UTC(2026, 7, 24, 7, 0), title: 'Les actualites geopolitiques montrent leur marche refuge : l or', desc: 'Une tension geopolitique importante n expose pas une paire de devises : elle expose l or, la valeur refuge. Ces actualites portent desormais une pastille doree XAUUSD ; un clic ouvre le graphique de reaction de l or, bougies minute par minute avec le repere rouge sur l instant exact de la publication — la meme mecanique que sur les statistiques. La source des bougies est le contrat a terme sur l or, le seul a offrir de vraies bougies a la minute (verifie : zero bougie plate sur la seance). Les actualites dont l or est le sujet du titre recoivent la meme pastille.' },
@@ -15313,8 +15314,15 @@ app.get('/api/react-ohlc', async (req, res) => {
   // deux heures autour d'un chiffre.
   const age = Date.now() - (parseInt(req.query.ts, 10) || Date.now());
   const range = age > 20 * 3600e3 ? '5d' : '1d';
-  const { raw, via } = await _yfChart(f.sym, '1m', range);
-  const candles = _reactCandles(raw, f.inv);
+  let { raw, via } = await _yfChart(f.sym, '1m', range);
+  let candles = _reactCandles(raw, f.inv);
+  // FILET WEEK-END (23/08, panneau vide constaté un dimanche) : « 1d » sur un jour sans séance
+  // peut revenir vide ou quasi — on retente en « 5d » pour retrouver la dernière séance cotée.
+  if (candles.length < 8 && range === '1d') {
+    const r2 = await _yfChart(f.sym, '1m', '5d');
+    const c2 = _reactCandles(r2.raw, f.inv);
+    if (c2.length > candles.length) { candles = c2; via = (r2.via || via) + '+repli5d'; }
+  }
   res.json({ candles, source: candles.length ? 'terme' : null, via, sym: f.sym, inv: f.inv });
 });
 
