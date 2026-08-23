@@ -19476,6 +19476,18 @@ html[data-theme="light"] .wdg-verdict .est-neutre { color: #8a6a12; }
   .wdg-maj-txt, .wdg-maj-surf, .wdg-jauge > span { transition: none; }
 }
 
+/* ═══ ONGLETS RISQUE / FORCE SUR MOBILE : CHAQUE GRAPHE À PLEINE HAUTEUR (23/08, captures user :
+   courbes de Force coupées, historique du risque écrasé). Le panneau MARCHÉS empile ses graphes
+   dans ~580px : deux graphes de Force s'y partageaient 263px chacun, l'historique du risque se
+   comprimait sous la jauge. Doctrine du desk (déjà appliquée à Mon Desk) : sur téléphone un
+   graphe a besoin de PLUS de hauteur, pas moins — chaque graphe reçoit un PLANCHER et le panneau
+   DÉFILE entre eux (l'overflow-y:auto du panneau est posé par l'audit du 22/08). */
+@media (max-width: 768px) {
+  .right-tab-panel .strength-main-chart { min-height: 380px; flex: 0 0 auto; }
+  .right-tab-panel .rsh-chart { min-height: 150px; flex: 0 0 auto; }
+  .right-tab-panel .risk-widget-container { min-height: 330px; flex: 0 0 auto; }
+}
+
 /* ═══ CALCULATRICE : LISIBILITÉ SUR GRAND ÉCRAN (23/08, capture user : cartes étirées sur toute
    la largeur, texte perdu dedans, bas de page vide). Le contenu se BORNE (720px de résultats) et
    se centre dans l'espace restant ; les chiffres GROSSISSENT (16→19px, héros 30→38px) : l'œil
