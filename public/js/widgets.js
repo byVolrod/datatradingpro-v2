@@ -6069,12 +6069,14 @@
         // correspondance, recalage d'option et listener change inatteignables) sont SUPPRIMÉS —
         // code mort confirmé par la contre-lecture. La carte gagne le verdict saisonnier PARTAGÉ
         // avec la courbe, la ligne du mois courant et l'horodatage de la réponse.
+        /* VERDICT RETIRÉ de la table (23/08, demande user « enlève ceci de saisonnalité ») : sur
+           CE widget la table dit déjà tout, le verdict faisait doublon. Il reste sur « Rendement
+           moyen par mois », où il est la lecture principale. */
         host.innerHTML = '<div class="wdg-seawrap">'
           + '<div class="dmx-header-bar"><span class="season-pair-badge wdg-sea-badge">[EUR/USD]</span><span style="flex:1"></span><span class="wdg-sea-vie"></span></div>'
-          + '<div class="wdg-verdict" style="display:none"><b class="wdg-verdict-txt wdg-maj-txt"></b><span class="wdg-verdict-sous"></span></div>'
           + '<div class="season-table-wrap custom-scrollbar wdg-sea-tbl wdg-maj-txt"><div class="wdg-skel"><span class="wdg-skel-l" style="width:72%"></span><span class="wdg-skel-l" style="width:88%"></span><span class="wdg-skel-l" style="width:60%"></span></div></div>';
         var badge = host.querySelector('.wdg-sea-badge'), tblWrap = host.querySelector('.wdg-sea-tbl');
-        var elVerd = host.querySelector('.wdg-verdict'), elVie = host.querySelector('.wdg-sea-vie');
+        var elVie = host.querySelector('.wdg-sea-vie');
         var cur = null;
         function load(p) {
           cur = p;
@@ -6104,14 +6106,7 @@
             // Changement de paire : fondu de MAJ (grammaire commune) au lieu du flash sec du
             // remplacement — jamais au premier rendu (le squelette n'est pas un « avant »).
             if (deja) _majFlash(tblWrap);
-            // Verdict saisonnier PARTAGÉ avec la courbe (même helper, même exclusion du partiel).
-            var v = _saisonVerdict(data.rows, yrs, data.symbol || fmt(p));
-            if (v && elVerd) {
-              elVerd.style.display = '';
-              elVerd.setAttribute('data-etat', v.etat);
-              elVerd.querySelector('.wdg-verdict-txt').innerHTML = v.txt;
-              elVerd.querySelector('.wdg-verdict-sous').innerHTML = v.sous || '';
-            } else if (elVerd) elVerd.style.display = 'none';
+            // (Verdict retiré le 23/08, demande user : la table dit déjà tout — voir le squelette.)
             /* Fraîcheur HONNÊTE : ts de la RÉPONSE (cache 6 h serveur, repli persistant possible),
                retimbré par le minuteur global — jamais l'heure du fetch, qui mentirait. */
             if (elVie) elVie.innerHTML = _vieSpan(Date.parse((data && data.updatedAt) || '') || 0);
