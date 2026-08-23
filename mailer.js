@@ -507,7 +507,10 @@ function _credBox(rows) {
   return _encart(`<table role="presentation" cellpadding="0" cellspacing="0" width="100%">${items}</table>`);
 }
 
-// Encart "Note importante" : astuce anti-spam (à mettre dans tous les emails)
+// Encart "Note importante" : astuce anti-spam. RÈGLE (retour user 23/08 : « ne pas gonfler le
+// mail ») : cet encadré ne se pose QUE dans les mails qui n'ont AUCUN autre encadré (or, encart,
+// identifiants, note de retard). Un mail = un encadré maximum ; expired/trialUpsell le gardent
+// seulement quand leur note de retard (conditionnelle) ne s'affiche pas.
 function _spamNote() {
   const sender = _esc(_parseFrom().email);
   return _goldBox(`<strong style="color:${TOK.or};">📌 Pour ne plus rater nos emails</strong>
@@ -539,7 +542,6 @@ function buildWelcome({ to, name, password, expiresAt }) {
     <p style="margin:0 0 6px;color:#9aa3b2;font-size:13px;">Vos identifiants de connexion :</p>
     ${creds}
     ${_button('Ouvrir mon desk', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bienvenue parmi nous,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Bienvenue sur DataTradingPro : votre accès est activé', html: _layout('Bienvenue', body) };
 }
@@ -572,7 +574,7 @@ function buildExpired({ name, expiresAt }) {
     ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Votre desk vous attend, intact : news, calendrier économique, force des devises, analyses institutionnelles. Un clic et vous reprenez le fil :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
-    ${_spamNote()}
+    ${d.tardif ? '' : _spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : votre abonnement a expiré', html: _layout('Abonnement expiré', body) };
 }
@@ -756,7 +758,6 @@ function buildPasswordReset({ to, name, password }) {
     ${_credBox([['Email', to], ['Nouveau mot de passe', password || '-']])}
     <p style="margin:0 0 4px;font-size:13px;color:#9aa3b2;">Pour votre sécurité, pensez à le modifier depuis votre profil après connexion. Si vous n'êtes pas à l'origine de cette demande, contactez-nous immédiatement.</p>
     ${_button('Me connecter', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">L'équipe DataTradingPro</p>`;
   return { subject: 'DataTradingPro : votre mot de passe a été réinitialisé', html: _layout('Réinitialisation', body) };
 }
@@ -783,7 +784,7 @@ function buildTrialUpsell({ name, expiresAt }) {
     </table>
     ${_button('Activer mon abonnement mensuel', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Abonnement mensuel sans engagement : votre accès est réactivé immédiatement après l'inscription.</p>
-    ${_spamNote()}
+    ${d.tardif ? '' : _spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Votre essai DataTradingPro est terminé : réactivez votre accès', html: _layout('Fin d\'essai', body) };
 }
@@ -817,7 +818,6 @@ function _buildReengagement(name, days) {
     </table>
     ${_goldBox(`☕ Dix minutes de session de Londres suffisent pour voir ce que le desk t'apporte. Et si quelque chose ne t'a pas plu, <strong style="color:#fff;">réponds simplement à ce mail</strong> : on lit tout.`)}
     ${_button('Revenir sur mon desk', APP_URL)}
-    ${_spamNote()}
     <p style="margin:14px 0 0;font-size:13px;">On se revoit sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: `${prenom}, ton desk DataTradingPro t'attend 👀`, html: _layout('On se revoit ?', body) };
 }
@@ -852,7 +852,6 @@ function buildAnnouncementV2({ name } = {}) {
     ${_button('Rejoindre DataTradingPro →', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
     ${_goldBox(`⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins : <strong style="color:#fff;">rejoignez le lancement maintenant.</strong>`)}
-    ${_spamNote()}
     <p style="margin:14px 0 0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>
     <p style="margin:14px 0 0;font-size:11px;color:#6b7280;">Vous recevez cet email en tant que membre DataTradingPro. <a href="mailto:${SUPPORT_EMAIL}?subject=Desabonnement" style="color:#6b7280;text-decoration:underline;">Se désabonner</a>.</p>`;
   return { subject: "C'est officiel : DataTradingPro v2 est finalisé 🚀", html: _layout('DataTradingPro v2', body) };
@@ -984,13 +983,13 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
     <p style="margin:0 0 14px;">Merci de faire partie de l'aventure <strong style="color:#f3c344;">DataTradingPro</strong>. Plusieurs fois par semaine, le desk vous &eacute;crit&nbsp;: <strong style="color:#fff;">l'actualit&eacute; macro&eacute;conomique d&eacute;crypt&eacute;e</strong>, les <strong style="color:#fff;">&eacute;v&eacute;nements majeurs</strong> expliqu&eacute;s simplement et des <strong style="color:#fff;">synth&egrave;ses de march&eacute;</strong> qui vont &agrave; l'essentiel, de quoi comprendre ce qui fait vraiment bouger les march&eacute;s, sans y passer la journ&eacute;e.</p>
     <p style="margin:0 0 14px;">L'objectif est simple&nbsp;: vous aider &agrave; <strong style="color:#fff;">lire l'actualit&eacute; macro comme un professionnel</strong>, anticiper les r&eacute;actions des march&eacute;s et prendre des d&eacute;cisions de trading plus &eacute;clair&eacute;es. C'est <strong style="color:#f3c344;">100% gratuit</strong>, et chaque e-mail est pens&eacute; pour vous apporter un maximum de valeur en quelques minutes de lecture.</p>
     <p style="margin:0 0 16px;">Concr&egrave;tement, voici votre <strong style="color:#fff;">semaine type</strong>&nbsp;:</p>
-    <ul style="margin:0 0 20px;padding-left:20px;color:#cbd5e1;">
-      <li style="margin:6px 0;">🗓️ <strong style="color:#fff;">Semaine &agrave; venir</strong>&nbsp;: chaque dimanche, l'agenda tri&eacute; par le desk, vous savez o&ugrave; regarder avant que la semaine ne commence.</li>
-      <li style="margin:6px 0;">🎓 <strong style="color:#fff;">Comprendre le march&eacute;</strong>&nbsp;: chaque mardi, un concept macro choisi selon l'actualit&eacute; et d&eacute;cod&eacute; simplement, comme au desk.</li>
-      <li style="margin:6px 0;">📊 <strong style="color:#fff;">Point march&eacute;</strong>&nbsp;: chaque mercredi, le brief du desk, la s&eacute;ance, les chiffres &eacute;co et la force des devises, en clair.</li>
-      <li style="margin:6px 0;">🧠 <strong style="color:#fff;">Mindset</strong>&nbsp;: chaque jeudi, psychologie et discipline, de quoi garder la t&ecirc;te froide quand le march&eacute; s'agite.</li>
-      <li style="margin:6px 0;">📰 <strong style="color:#fff;">R&eacute;cap hebdo</strong>&nbsp;: chaque samedi, la r&eacute;trospective de la semaine &eacute;coul&eacute;e, devise par devise, sans le bruit.</li>
-    </ul>
+    <div style="margin:0 0 20px;color:#cbd5e1;">
+      <p style="margin:6px 0;">🗓️ <strong style="color:#fff;">Semaine &agrave; venir</strong>&nbsp;: chaque dimanche, l'agenda tri&eacute; par le desk, vous savez o&ugrave; regarder avant que la semaine ne commence.</p>
+      <p style="margin:6px 0;">🎓 <strong style="color:#fff;">Comprendre le march&eacute;</strong>&nbsp;: chaque mardi, un concept macro choisi selon l'actualit&eacute; et d&eacute;cod&eacute; simplement, comme au desk.</p>
+      <p style="margin:6px 0;">📊 <strong style="color:#fff;">Point march&eacute;</strong>&nbsp;: chaque mercredi, le brief du desk, la s&eacute;ance, les chiffres &eacute;co et la force des devises, en clair.</p>
+      <p style="margin:6px 0;">🧠 <strong style="color:#fff;">Mindset</strong>&nbsp;: chaque jeudi, psychologie et discipline, de quoi garder la t&ecirc;te froide quand le march&eacute; s'agite.</p>
+      <p style="margin:6px 0;">📰 <strong style="color:#fff;">R&eacute;cap hebdo</strong>&nbsp;: chaque samedi, la r&eacute;trospective de la semaine &eacute;coul&eacute;e, devise par devise, sans le bruit.</p>
+    </div>
     <p style="margin:0 0 6px;">Pour explorer le terminal quand vous voulez&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
@@ -1162,9 +1161,14 @@ function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
   const unsub  = unsubUrl(email || '');
   const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
 
-  const fam = (titre, texte) => `
+  /* Chaque famille montre son APERCU : mosaique des vraies cartes du desk (captures du banc,
+     donnees plausibles), fichiers public/assets/images/apercu-widgets-*.png. En GALERIE le src
+     reste l'URL absolue (l'apercu marche sans envoi) ; a l'ENVOI, sendAnnonceWidgets bascule ces
+     src en pieces inline cid: comme sendAnnonceDesk (Gmail/Outlook bloquent les images distantes). */
+  const fam = (titre, texte, img, alt) => `
     ${_secTitle(titre)}
-    <p style="margin:0 0 8px;">${texte}</p>`;
+    <p style="margin:0 0 8px;">${texte}</p>
+    ${img ? `<img src="${APP_URL}/assets/images/${img}" width="640" alt="${alt}" style="display:block;width:100%;max-width:640px;height:auto;border:1px solid #232429;border-radius:8px;margin:6px 0 18px;">` : ''}`;
 
   /* ← LA SEULE LIGNE A BASCULER. `ouverts` a vrai quand les widgets sont ouverts a tous. */
   const dispo = ouverts
@@ -1177,13 +1181,17 @@ function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
     ${_H1}Quatorze widgets de plus pour <span style="color:#f3c344;">composer votre desk</span>.</p>
     <p style="margin:0 0 6px;">La biblioth&egrave;que de Mon Desk s&rsquo;&eacute;largit. ${dispo}</p>
 
-    ${fam('Cotations et march&eacute;', 'Un <strong style="color:#fff;">bandeau de cotations</strong> d&eacute;filant, une <strong style="color:#fff;">matrice de taux crois&eacute;s</strong> qui donne les 28 croisements des huit majeures d&rsquo;un seul balayage, une <strong style="color:#fff;">carte de chaleur FX</strong> qui les colore selon la variation du jour, et une <strong style="color:#fff;">liste de suivi</strong> o&ugrave; vous choisissez vos paires.')}
+    ${fam('Cotations et march&eacute;', 'Un <strong style="color:#fff;">bandeau de cotations</strong> d&eacute;filant, une <strong style="color:#fff;">matrice de taux crois&eacute;s</strong> qui donne les 28 croisements des huit majeures d&rsquo;un seul balayage, une <strong style="color:#fff;">carte de chaleur FX</strong> qui les colore selon la variation du jour, et une <strong style="color:#fff;">liste de suivi</strong> o&ugrave; vous choisissez vos paires.',
+      'apercu-widgets-cotations.png', 'Aper&ccedil;u des widgets de cotations : bandeau d&eacute;filant, matrice des croisements, carte de chaleur FX et liste de suivi')}
 
-    ${fam('Amplitude et volatilit&eacute;', 'De combien une paire bouge en moyenne par s&eacute;ance, ce qu&rsquo;elle parcourt pendant Tokyo, Londres et New York, la part des s&eacute;ances qui atteignent un seuil donn&eacute;, la forme r&eacute;elle de ses journ&eacute;es, son &eacute;cart-type, et ses points hauts et bas avec la position du cours entre les deux.')}
+    ${fam('Amplitude et volatilit&eacute;', 'De combien une paire bouge en moyenne par s&eacute;ance, ce qu&rsquo;elle parcourt pendant Tokyo, Londres et New York, la part des s&eacute;ances qui atteignent un seuil donn&eacute;, la forme r&eacute;elle de ses journ&eacute;es, son &eacute;cart-type, et ses points hauts et bas avec la position du cours entre les deux.',
+      'apercu-widgets-volatilite.png', 'Aper&ccedil;u des widgets d&rsquo;amplitude et de volatilit&eacute; : amplitude par s&eacute;ance et par jour, probabilit&eacute; de mouvement, histogramme, statistiques et points hauts et bas')}
 
-    ${fam('Macro', 'Un <strong style="color:#fff;">compte &agrave; rebours</strong> sur le prochain chiffre attendu, qui bascule sur le r&eacute;sultat d&egrave;s sa publication. L&rsquo;<strong style="color:#fff;">historique d&rsquo;un indicateur</strong> sur ses derni&egrave;res parutions. Et le <strong style="color:#fff;">rendement moyen par mois</strong>, sur cinq ans.')}
+    ${fam('Macro', 'Un <strong style="color:#fff;">compte &agrave; rebours</strong> sur le prochain chiffre attendu, qui bascule sur le r&eacute;sultat d&egrave;s sa publication. L&rsquo;<strong style="color:#fff;">historique d&rsquo;un indicateur</strong> sur ses derni&egrave;res parutions. Et le <strong style="color:#fff;">rendement moyen par mois</strong>, sur cinq ans.',
+      'apercu-widgets-macro.png', 'Aper&ccedil;u des widgets macro : compte &agrave; rebours d&rsquo;&eacute;v&eacute;nement, historique d&rsquo;un indicateur et rendement moyen par mois')}
 
-    ${fam('Outils', 'Un <strong style="color:#fff;">bloc-notes</strong> qui vous suit d&rsquo;un appareil &agrave; l&rsquo;autre, avec verrou de lecture seule pour vos r&egrave;gles de risque.')}
+    ${fam('Outils', 'Un <strong style="color:#fff;">bloc-notes</strong> qui vous suit d&rsquo;un appareil &agrave; l&rsquo;autre, avec verrou de lecture seule pour vos r&egrave;gles de risque.',
+      'apercu-widgets-outils.png', 'Aper&ccedil;u du widget Notes : bloc-notes synchronis&eacute; entre appareils')}
 
     ${_secTitle('Ce qu&rsquo;ils n&rsquo;affichent pas')}
     <p style="margin:0 0 8px;">Chaque widget a &eacute;t&eacute; construit sur une r&egrave;gle simple&nbsp;: ne jamais montrer une donn&eacute;e que la source ne fournit pas. Quand une information manque, la carte le dit au lieu de combler le vide. Quand une moyenne porte sur quatre ann&eacute;es et non cinq, elle l&rsquo;&eacute;crit. Quand une s&eacute;ance n&rsquo;est pas termin&eacute;e, les cartes qui mesurent une amplitude ou une variation l&rsquo;excluent du calcul, et le disent.</p>
@@ -1201,10 +1209,32 @@ function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
   return { subject: 'Quatorze widgets de plus dans Mon Desk', html: _campaignLayout('Nouveaux widgets', body, unsub) };
 }
 
+/* Les QUATRE apercus de familles, embarques en pieces inline (cid:) comme _ANNONCE_DESK_IMGS.
+   Ce sont les vraies cartes du desk capturees au banc (donnees plausibles), assemblees en mosaique
+   par famille. Repli identique : fichier absent ou trop petit, l'URL absolue reste dans le HTML. */
+const _ANNONCE_WIDGETS_IMGS = [
+  { fichier: 'apercu-widgets-cotations.png',  cid: 'apercu-widgets-cotations@datatradingpro',  motif: /https?:\/\/[^"]*apercu-widgets-cotations\.png/g },
+  { fichier: 'apercu-widgets-volatilite.png', cid: 'apercu-widgets-volatilite@datatradingpro', motif: /https?:\/\/[^"]*apercu-widgets-volatilite\.png/g },
+  { fichier: 'apercu-widgets-macro.png',      cid: 'apercu-widgets-macro@datatradingpro',      motif: /https?:\/\/[^"]*apercu-widgets-macro\.png/g },
+  { fichier: 'apercu-widgets-outils.png',     cid: 'apercu-widgets-outils@datatradingpro',     motif: /https?:\/\/[^"]*apercu-widgets-outils\.png/g },
+];
+
 async function sendAnnonceWidgets(d) {
   d = d || {};
   const m = buildAnnonceWidgets({ name: d.name, email: d.email || d.to, campaign: d.campaign, ouverts: d.ouverts });
-  return _send(d.to, m.subject, m.html);
+  // Meme mecanique que sendAnnonceDesk : lecture du PNG, bascule src -> cid:, piece inline.
+  // Garde-fou taille : sous 5 Ko le fichier est suspect (tronque, placeholder), on n'attache pas.
+  let html = m.html; const att = [];
+  for (const img of _ANNONCE_WIDGETS_IMGS) {
+    try {
+      const buf = require('fs').readFileSync(require('path').join(__dirname, 'public', 'assets', 'images', img.fichier));
+      if (buf && buf.length > 5000) {
+        html = html.replace(img.motif, 'cid:' + img.cid);
+        att.push({ filename: img.fichier, content: buf, cid: img.cid, contentType: 'image/png' });
+      }
+    } catch (_) {}
+  }
+  return _send(d.to, m.subject, html, att.length ? att : null);
 }
 
 async function sendAnnonceDesk(d) {
@@ -2863,7 +2893,6 @@ function buildAutoRenewOff({ name, expiresAt }) {
     ${_button('Réactiver le renouvellement automatique', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Sans engagement : le renouvellement se coupe à nouveau quand vous le souhaitez, depuis votre espace Whop.</p>
     ${_goldBox(`<strong style="color:${TOK.or};">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> : votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.`)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">À bientôt sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Votre abonnement DataTradingPro ne sera pas renouvelé', html: _layout('Renouvellement automatique désactivé', body) };
 }
@@ -2960,7 +2989,6 @@ function buildReferralCredited({ name, count, untilNext }) {
     ${_credBox([['Filleuls confirmés', String(count)], ['Avant 1 mois offert', restant]])}
     <p style="margin:0 0 14px;">Plus que <strong style="color:#f3c344;">${restant}</strong> et nous créditons <strong style="color:#fff;">1 mois d'accès offert</strong> sur votre compte.</p>
     ${_button('Voir mes parrainages', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: `DataTradingPro : nouveau filleul confirmé (${count})`, html: _layout('Parrainage', body) };
 }
@@ -2976,7 +3004,6 @@ function buildReferralReward({ name, count, newExpiresAt }) {
     ${_credBox([['Récompense', "1 mois d'accès offert"], ['Accès prolongé jusqu\'au', end]])}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
     ${_button('Ouvrir mon desk', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Merci de faire grandir la communauté,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: `DataTradingPro : 🎁 mois offert débloqué (palier ${count})`, html: _layout('Récompense parrainage', body) };
 }
@@ -3007,7 +3034,6 @@ function buildReferredWelcome({ name, referrerName }) {
       </div>`)}
     <p style="margin:0 0 14px;">Partagez votre lien personnel : à chaque <strong style="color:#fff;">3ᵉ</strong> abonné venu grâce à vous, nous créditons <strong style="color:#f3c344;">1 mois d'accès offert</strong> sur votre compte. Votre lien se trouve dans <strong style="color:#fff;">Profil&nbsp;▸&nbsp;Parrainages</strong>.</p>
     ${_button('Voir mon lien de parrainage', APP_URL)}
-    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bon trading,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : bienvenue 🎁 3 inscrits = 1 mois offert', html: _layout('Parrainage : bienvenue', body) };
 }
