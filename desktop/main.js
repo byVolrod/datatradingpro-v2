@@ -143,21 +143,28 @@ function setupAutoUpdate() {
   // Windows : electron-updater, mais on PROPOSE avant de télécharger (dialogue dès la détection au lancement).
   let autoUpdater;
   try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
-  autoUpdater.autoDownload = false;                        // on ne télécharge qu'APRÈS l'accord de l'utilisateur
-  autoUpdater.autoInstallOnAppQuit = true;                 // filet : appliquée au prochain quit
-  let _downloading = false;
-
+  /* ⚠️ TÉLÉCHARGEMENT AUTOMATIQUE (23/08, cause racine du desk figé en 1.0.18 malgré 3 correctifs
+     publiés). L'ancien réglage (autoDownload=false) n'installait RIEN sans un clic sur le modal
+     « Mettre à jour » — un modal rendu DANS la fenêtre. Or le poste de l'utilisateur perd sa
+     surface graphique (écran noir) : le modal s'affichait dans du noir, personne ne pouvait
+     cliquer, et l'app tournait indéfiniment sur la version malade, correctifs jamais reçus.
+     Désormais : téléchargement EN SILENCE dès la détection, installation garantie au prochain
+     redémarrage (autoInstallOnAppQuit) — modal visible ou pas. Le modal ne sert plus qu'à
+     PROPOSER le redémarrage immédiat quand la fenêtre, elle, est en état de l'afficher. */
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;                 // l'installation ne dépend plus d'aucun clic
   autoUpdater.on('update-available', (info) => {
-    if (_downloading || !win || win.isDestroyed()) return;
-    showUpdateModal({
-      title: 'Mise à jour disponible',
-      message: `Une nouvelle version de DataTradingPro${info && info.version ? ' (' + info.version + ')' : ''} est disponible.`,
-      detail: 'Elle apporte les dernières améliorations de l’application. Le téléchargement se fait en arrière-plan, puis l’app redémarre.',
-      primary: 'Mettre à jour maintenant', secondary: 'Plus tard',
-    }).then(c => { if (c === 'primary') { _downloading = true; autoUpdater.downloadUpdate().catch(() => {}); } });
+    try { _noter('mise a jour detectee (' + ((info && info.version) || '?') + ') : telechargement silencieux'); } catch (e) {}
   });
 
   autoUpdater.on('update-downloaded', () => {
+    // BULLE BARRE SYSTÈME d'abord : elle vit HORS de la fenêtre, donc reste visible même quand la
+    // surface de la fenêtre est peinte en noir — le cas exact qui rendait le modal invisible.
+    try {
+      if (tray && process.platform === 'win32') {
+        tray.displayBalloon({ title: 'DataTradingPro : mise à jour prête', content: 'Elle s\'installera au prochain redémarrage de l\'app (clic droit sur l\'icône → Quitter, puis relancez).' });
+      }
+    } catch (e) {}
     if (!win || win.isDestroyed()) return;
     showUpdateModal({
       title: 'Mise à jour prête',
