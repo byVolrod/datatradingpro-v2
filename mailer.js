@@ -367,10 +367,10 @@ async function _send(to, subject, html, attachments) {
 // Envoi de test (bouton admin) : renvoie le canal utilisé pour preuve de bout en bout.
 async function sendTest(to) {
   const html = _layout('Test d\'envoi', `
-    <h2 style="color:#f3c344;margin:0 0 12px;">✅ Test d'envoi DataTradingPro</h2>
+    ${_H1}✅ Test d'envoi DataTradingPro</p>
     <p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Si tu lis cet email <b>dans ta boîte de réception</b> (pas les spams),
     l'envoi fonctionne parfaitement. 🎉</p>
-    <p style="color:#64748b;font-size:13px;">Email automatique de vérification, tu peux l'ignorer.</p>`);
+    <p style="color:${TOK.grisDoux};font-size:13px;">Email automatique de vérification, tu peux l'ignorer.</p>`);
   const provider = await _send(to, 'DataTradingPro : test d\'envoi ✅', html);   // string (canal) si OK, false sinon
   return { ok: !!provider, provider: provider || null, lastError: _mailStats.lastError || null };
 }
@@ -391,51 +391,104 @@ function _delai(expiresAt) {
   else quand = `il y a ${Math.round(jours / 30)} mois`;
   return { jours, recent: false, quand, tardif: jours >= 7 };
 }
+// ══════════════════════════════════════════════════════════════════════════════
+//  CHARTE VISUELLE COMMUNE DES MAILS — SOURCE UNIQUE (23/08)
+//  Tous les gabarits (transactionnel ET campagne) piochent ICI. Les divergences
+//  passées (deux gris quasi identiques, deux ors, trois rouges, deux rayons de
+//  coins) venaient de styles recopiés mail par mail : ne JAMAIS redéfinir ces
+//  valeurs en dur dans un template.
+//  OR DES MAILS = #f3c344 (doré du favicon/logo DTP, choix user 2026-07-11 : le
+//  #e3b23a du desk paraissait orange en mail). Le desk garde #e3b23a.
+// ══════════════════════════════════════════════════════════════════════════════
+const TOK = {
+  or:       '#f3c344',                                              // or signature (CTA, accents, libellés)
+  orSombre: '#b8860b',                                              // or sombre (bordures ghost, dégradé)
+  orDeg:    'linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b)',  // dégradé wordmark + bandeau haut
+  orFond:   'rgba(243,195,68,0.07)',                                // fond des encadrés or
+  orFilet:  'rgba(243,195,68,0.28)',                                // bordure des encadrés or
+  fond:     '#0d0e11',                                              // fond de page (token desk)
+  panneau:  '#16171b',                                              // carte principale (token desk)
+  encart:   '#101014',                                              // encarts internes (identifiants, citations…)
+  filet:    '#232429',                                              // bordure principale (token desk)
+  filet2:   '#1f1f24',                                              // séparateurs de lignes
+  blanc:    '#ffffff',
+  texte:    '#c8ccd4',                                              // corps de texte
+  gris:     '#9aa3b2',                                              // texte secondaire
+  grisDoux: '#8b93a1',                                              // annotations
+  grisPied: '#6f6f79',                                              // pieds de page
+  vert:     '#22c55e',                                              // charte DTP : positif / risk-on
+  rouge:    '#ef4444',                                              // charte DTP : négatif / risk-off
+  ambre:    '#ffb300',                                              // charte DTP : neutre / attention
+};
+// H1 de mail — LA graisse/taille unique des titres (19px/800 blanc resserré), même
+// grammaire dans les deux familles. Balise OUVRANTE (à fermer par </p>) pour pouvoir
+// être injectée telle quelle dans les gabarits existants.
+const _H1 = `<p style="margin:0 0 14px;font-size:19px;font-weight:800;color:${TOK.blanc};letter-spacing:-0.01em;">`;
+// Libellé de SECTION — filet or à gauche + capitales or (grammaire de bandeau du desk).
+function _secTitle(t) {
+  return `<p style="margin:22px 0 8px;padding-left:9px;border-left:2px solid ${TOK.or};color:${TOK.or};font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;">${t}</p>`;
+}
+// ENCADRÉ OR — la mise en avant de l'essentiel (astuce, annonce, question à retenir).
+function _goldBox(inner) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${TOK.orFond};border:1px solid ${TOK.orFilet};border-radius:8px;margin:18px 0;">
+    <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">${inner}</td></tr></table>`;
+}
+// ENCART SOMBRE — bloc interne (identifiants, citation, aide au démarrage). `gold` = liseré or.
+function _encart(inner, gold) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${TOK.encart};border:1px solid ${TOK.filet};${gold ? `border-left:3px solid ${TOK.or};` : ''}border-radius:8px;margin:18px 0;">
+    <tr><td style="padding:14px 18px;">${inner}</td></tr></table>`;
+}
+
 // Encart d'excuse — UNIQUEMENT sur les envois nettement en retard (≥ 7 j). Reconnaître le retard
 // vaut mieux que d'écrire un message au présent des semaines après les faits.
 function _noteRetard(d) {
   if (!d.tardif) return '';
-  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f3c344;border-radius:10px;margin:18px 0;">
-      <tr><td style="padding:13px 16px;color:#9aa3b2;font-size:13px;line-height:1.6;">Ce message vous parvient avec du retard : votre accès s'est en réalité interrompu <strong style="color:#cbd5e1;">${d.quand}</strong> et nous aurions dû vous prévenir aussitôt. Toutes nos excuses.</td></tr>
-    </table>`;
+  return _encart(`<div style="color:${TOK.gris};font-size:13px;line-height:1.6;">Ce message vous parvient avec du retard : votre accès s'est en réalité interrompu <strong style="color:#cbd5e1;">${d.quand}</strong> et nous aurions dû vous prévenir aussitôt. Toutes nos excuses.</div>`, true);
 }
 
-// ── Gabarit HTML commun (dark, professionnel — DataTradingPro) ────────────────
-function _layout(title, bodyHtml) {
+// ── SQUELETTE COMMUN des deux gabarits (transactionnel + campagne) ────────────
+//  UNE seule carte pour toute la maison : bandeau or dégradé, wordmark or, sous-titre
+//  capitales, corps, pied. Seuls le pied interne et la ligne sous la carte varient.
+function _shell(title, bodyHtml, footInner, under) {
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${_esc(title)}</title></head>
-<body style="margin:0;padding:0;background:#0a0a0c;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0c;padding:32px 16px;">
+<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">
+<title>${_esc(title)}</title>
+<style>@media (max-width:480px){ .dtp-pad{padding:20px 16px !important;} .dtp-wrap{padding:24px 8px !important;} }</style></head>
+<body style="margin:0;padding:0;background:${TOK.fond};font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="dtp-wrap" style="background:${TOK.fond};padding:30px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#141417;border:1px solid #26262b;border-radius:14px;overflow:hidden;">
-        <!-- Header -->
-        <tr><td style="padding:28px 32px 18px;border-bottom:1px solid #26262b;">
-          <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">DataTradingPro</div>
-          <div style="font-size:12px;font-weight:600;color:#f3c344;margin-top:4px;">Terminal de news &amp; d'analyse de marché en temps réel</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:${TOK.panneau};border:1px solid ${TOK.filet};border-radius:10px;overflow:hidden;">
+        <tr><td bgcolor="#f3c344" height="3" style="height:3px;line-height:3px;font-size:0;background:${TOK.orDeg};mso-line-height-rule:exactly;">&nbsp;</td></tr>
+        <tr><td style="padding:24px 34px 16px;border-bottom:1px solid ${TOK.filet};">
+          <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:${TOK.or};background:${TOK.orDeg};-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">DataTradingPro</div>
+          <div style="font-size:11px;font-weight:600;color:#9a9aa4;margin-top:6px;letter-spacing:.09em;text-transform:uppercase;">Terminal macro &amp; forex</div>
         </td></tr>
-        <!-- Body -->
-        <tr><td style="padding:28px 32px;color:#cbd5e1;font-size:15px;line-height:1.65;">
+        <tr><td class="dtp-pad" style="padding:26px 34px;color:${TOK.texte};font-size:15px;line-height:1.66;">
           ${bodyHtml}
         </td></tr>
-        <!-- Footer -->
-        <tr><td style="padding:18px 32px;border-top:1px solid #26262b;color:#6b7280;font-size:12px;line-height:1.6;">
-          DataTradingPro · Terminal de news & d'analyse en temps réel.<br>
-          Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;text-decoration:none;">${SUPPORT_EMAIL}</a>
+        <tr><td style="padding:18px 34px;border-top:1px solid ${TOK.filet};color:${TOK.grisPied};font-size:12px;line-height:1.6;">
+          ${footInner}
         </td></tr>
       </table>
-      <div style="color:#4b5563;font-size:11px;margin-top:16px;">Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.</div>
+      <div style="color:#565660;font-size:11px;margin-top:14px;line-height:1.7;max-width:600px;">${under}</div>
     </td></tr>
   </table>
 </body></html>`;
 }
 
-function _button(label, url) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr>
-    <td style="background:#f3c344;border-radius:10px;">
-      <a href="${url}" style="display:inline-block;padding:13px 28px;color:#0a0a0c;font-weight:700;font-size:14px;text-decoration:none;">${_esc(label)}</a>
-    </td></tr></table>`;
+// ── Gabarit TRANSACTIONNEL (bienvenue, MDP, cycle de vie) — même carte que la campagne,
+//    pied « support + ne pas répondre » (pas de désinscription : ces envois sont contractuels).
+function _layout(title, bodyHtml) {
+  return _shell(title, bodyHtml,
+    `DataTradingPro · Terminal de news &amp; d'analyse en temps réel.<br>
+          Besoin d'aide&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:${TOK.or};text-decoration:none;">${SUPPORT_EMAIL}</a>`,
+    `Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.`);
 }
+
+// Bouton PRINCIPAL — même or plein, mêmes coins et même « bulletproofing » Outlook que la
+// campagne (_campaignBtn) : UN seul style de CTA dans toute la maison.
+function _button(label, url) { return _campaignBtn(label, url); }
 
 function _credBox(rows) {
   // Échappe la valeur ; si c'est un email, on la pré-emballe dans un <a> blanc : ça empêche
@@ -444,29 +497,24 @@ function _credBox(rows) {
     const raw = String(v == null ? '' : v).trim();
     const s = _esc(raw);
     return _EMAIL_RE.test(raw)
-      ? `<a href="mailto:${s}" style="color:#ffffff;text-decoration:none;">${s}</a>`
+      ? `<a href="mailto:${s}" style="color:${TOK.blanc};text-decoration:none;">${s}</a>`
       : s;
   };
   const items = rows.map(([k, v]) =>
-    `<tr><td style="padding:6px 0;color:#94a3b8;font-size:13px;width:130px;">${_esc(k)}</td>
-         <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:600;font-family:monospace;">${fmt(v)}</td></tr>`
+    `<tr><td style="padding:6px 0;color:${TOK.gris};font-size:13px;width:130px;">${_esc(k)}</td>
+         <td style="padding:6px 0;color:${TOK.blanc};font-size:14px;font-weight:600;font-family:monospace;">${fmt(v)}</td></tr>`
   ).join('');
-  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:14px 18px;margin:18px 0;">${items}</table>`;
+  return _encart(`<table role="presentation" cellpadding="0" cellspacing="0" width="100%">${items}</table>`);
 }
 
 // Encart "Note importante" : astuce anti-spam (à mettre dans tous les emails)
 function _spamNote() {
   const sender = _esc(_parseFrom().email);
-  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.35);border-radius:10px;margin:20px 0;">
-    <tr><td style="padding:14px 16px;color:#f3d9b0;font-size:13px;line-height:1.6;">
-      <strong style="color:#f3c344;">📌 Pour ne plus rater nos emails</strong>
-      <ul style="margin:7px 0 0;padding-left:18px;color:#e2cba0;">
-        <li>Ajoutez <strong style="color:#fff;">${sender}</strong> à vos <strong>contacts</strong>.</li>
+  return _goldBox(`<strong style="color:${TOK.or};">📌 Pour ne plus rater nos emails</strong>
+      <ul style="margin:7px 0 0;padding-left:18px;color:#e6e6ea;">
+        <li>Ajoutez <strong style="color:${TOK.blanc};">${sender}</strong> à vos <strong>contacts</strong>.</li>
         <li>S'il arrive dans vos spams, cliquez sur <strong>« Non spam »</strong>.</li>
-      </ul>
-    </td></tr></table>`;
+      </ul>`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -482,13 +530,13 @@ function buildWelcome({ to, name, password, expiresAt }) {
   // avec « Mot de passe oublié » au besoin. Email NON destructif.
   const creds = password
     ? `${_credBox([['Email', to], ['Mot de passe', password], ['Abonnement', `valide jusqu'au ${end}`]])}
-    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Par sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.</p>`
+    <p style="margin:0 0 4px;font-size:13px;color:#9aa3b2;">Par sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.</p>`
     : `${_credBox([['Email', to], ['Abonnement', `valide jusqu'au ${end}`]])}
-    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Connectez-vous avec l'email ci-dessus. Si vous n'avez pas (ou plus) votre mot de passe, cliquez sur « Mot de passe oublié » sur la page de connexion, ou répondez simplement à ce message, on vous aide.</p>`;
+    <p style="margin:0 0 4px;font-size:13px;color:#9aa3b2;">Connectez-vous avec l'email ci-dessus. Si vous n'avez pas (ou plus) votre mot de passe, cliquez sur « Mot de passe oublié » sur la page de connexion, ou répondez simplement à ce message, on vous aide.</p>`;
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue, ${prenom} 👋</p>
+    ${_H1}Bienvenue, ${prenom} 👋</p>
     <p style="margin:0 0 14px;">Votre accès à <strong style="color:#fff;">DataTradingPro</strong> a été activé. Vous disposez désormais du flux de news en temps réel, du calendrier économique et des analyses institutionnelles.</p>
-    <p style="margin:0 0 6px;color:#94a3b8;font-size:13px;">Vos identifiants de connexion :</p>
+    <p style="margin:0 0 6px;color:#9aa3b2;font-size:13px;">Vos identifiants de connexion :</p>
     ${creds}
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
@@ -501,9 +549,9 @@ async function sendWelcome(d) { const m = buildWelcome(d); return _send(d.to, m.
 function buildRenewalFailed({ name }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Renouvellement de votre abonnement</p>
+    ${_H1}Renouvellement de votre abonnement</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro. Par conséquent, votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
+    <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro. Par conséquent, votre accès au terminal est actuellement <strong style="color:${TOK.rouge};">suspendu</strong>.</p>
     <p style="margin:0 0 14px;">Pour réactiver votre accès et reprendre le suivi des marchés en temps réel, il vous suffit de renouveler votre abonnement en un clic ci-dessous :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
     ${_spamNote()}
@@ -518,9 +566,9 @@ function buildExpired({ name, expiresAt }) {
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
   const d = _delai(expiresAt);
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre abonnement a expiré</p>
+    ${_H1}Votre abonnement a expiré</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Votre période d'abonnement à <strong style="color:#fff;">DataTradingPro</strong>${end ? ` est arrivée à échéance le <strong style="color:#fff;">${end}</strong>${d.recent ? '' : `, ${d.quand}`}` : ' a expiré'}. Votre accès au terminal est ${d.recent ? 'désormais' : 'depuis'} <strong style="color:#e25563;">suspendu</strong>.</p>
+    <p style="margin:0 0 14px;">Votre période d'abonnement à <strong style="color:#fff;">DataTradingPro</strong>${end ? ` est arrivée à échéance le <strong style="color:#fff;">${end}</strong>${d.recent ? '' : `, ${d.quand}`}` : ' a expiré'}. Votre accès au terminal est ${d.recent ? 'désormais' : 'depuis'} <strong style="color:${TOK.rouge};">suspendu</strong>.</p>
     ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Pour reprendre le suivi des marchés en temps réel (news, calendrier économique, force des devises, analyses institutionnelles), renouvelez votre abonnement en un clic :</p>
     ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
@@ -537,7 +585,7 @@ function buildExpiredFollowup({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Le terminal a continué sans vous cette semaine</p>
+    ${_H1}Le terminal a continué sans vous cette semaine</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre abonnement a expiré il y a une semaine${end ? ` (le <strong style="color:#fff;">${end}</strong>)` : ''} et votre accès est toujours suspendu. Pendant ce temps, le desk a continué de tourner : news en temps réel, calendrier, biais hebdomadaires, recherche bancaire.</p>
     <p style="margin:0 0 14px;">Si c'est un oubli, tout se réactive en un clic : votre compte, vos réglages et votre journal sont intacts :</p>
@@ -556,23 +604,23 @@ async function sendExpiredFollowup(d) { const m = buildExpiredFollowup(d); retur
 const _WINBACK = {
   1:  { titre: 'Un mois déjà : le desk a continué d\'avancer',
         intro: 'il y a un mois, votre accès à DataTradingPro s\'est arrêté. En un mois, le terminal a déjà bougé :',
-        nouveautes: ['📰 Le fil de news s\'est encore affiné (priorisation, décryptages IA)', '🏦 La recherche bancaire s\'est enrichie (Goldman Sachs, HSBC, ING, MUFG…)', '📅 La Semaine à Venir affiche désormais les événements concrets de chaque journée'] },
+        nouveautes: ['📰 Le fil s\'est enrichi : impact marché décrypté sur les statistiques majeures + graphe de réaction à la minute quand le marché a bougé', '🏦 Chaque publication porte désormais sa lecture banque centrale (ton mesuré, propos datés, prochaine réunion pricée)', '🧩 Six nouveaux widgets d\'analyse dans Mon Desk (Courbe des taux US, Corrélations entre paires, Volatilité par heure…)'] },
   3:  { titre: 'Ça fait 3 mois que vous nous avez quittés',
         intro: 'trois mois ont passé depuis la fin de votre accès, et le terminal d\'aujourd\'hui n\'est plus celui que vous avez connu :',
-        nouveautes: ['🧩 Mon Desk : composez votre propre écran en widgets (grille libre, layouts sauvegardés)', '🧭 Radar de Biais recalculé en continu sur les données publiées', '🏦 Recherche bancaire : ~20 institutions réunies, résumées par l\'IA', '💻 L\'application desktop Windows/macOS est sortie'] },
+        nouveautes: ['🧩 Mon Desk : une quarantaine de widgets à composer, chaque carte affiche son verdict et la fraîcheur de sa donnée', '🧭 Radar de Biais recalculé en continu sur les données publiées', '🏦 Recherche bancaire : ~20 institutions réunies, résumées par l\'IA', '💻 L\'application desktop Windows/macOS se met à jour toute seule, en silence'] },
   6:  { titre: '6 mois : le terminal n\'est plus le même',
         intro: 'six mois que votre accès s\'est arrêté. Depuis, DataTradingPro a changé de dimension :',
-        nouveautes: ['🧩 Mon Desk personnalisable en widgets + application desktop', '🧭 Biais et force des devises en temps réel, ancrés sur les vraies publications', '🏦 Recherche institutionnelle complète avec analyses IA', '📮 Des synthèses quotidiennes et hebdomadaires rédigées par le desk'] },
+        nouveautes: ['🧩 Mon Desk : une quarantaine de widgets avec verdict sur chaque carte + application desktop', '🧭 Biais et force des devises en temps réel, ancrés sur les vraies publications', '🏦 Recherche institutionnelle complète avec analyses IA', '📮 Des synthèses quotidiennes et hebdomadaires rédigées par le desk'] },
   12: { titre: 'Un an déjà : venez revoir ce que DataTradingPro est devenu',
         intro: 'cela fait un an que nous ne vous avons pas vu. En un an, le terminal a été repensé de fond en comble :',
-        nouveautes: ['🖥️ Un desk complet : news temps réel, calendrier, biais, force des devises, COT, saisonnalité', '🧩 Mon Desk en widgets + application desktop native', '🏦 La recherche des grandes banques, résumée et exploitable en un clic', '🤖 Un copilote IA macro qui répond avec le contexte du moment'] },
+        nouveautes: ['🖥️ Un desk complet : news temps réel, calendrier, biais, force des devises, COT, saisonnalité', '🧩 Mon Desk : une quarantaine de widgets, chacun avec sa ligne de verdict + application desktop native', '🏦 La recherche des grandes banques, résumée et exploitable en un clic', '🤖 Un copilote IA macro qui répond avec le contexte du moment'] },
 };
 function buildWinback({ name, months }) {
   const m = _WINBACK[months] || _WINBACK[3];
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const feats = m.nouveautes.map(n => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;line-height:1.6;">${n}</td></tr>`).join('');
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">${m.titre}</p>
+    ${_H1}${m.titre}</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">${prenom}, ${m.intro}</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
@@ -600,17 +648,12 @@ function buildTemoignage({ name, review, angle } = {}) {
     ? _esc(String(angle).trim())
     : 'C\'est exactement pour ça que le terminal existe : réunir sur un seul écran ce qu\'un trader macro passait sa journée à chercher sur dix sources.';
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Ce qu'un membre retient de DataTradingPro</p>
+    ${_H1}Ce qu'un membre retient de DataTradingPro</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Derrière DataTradingPro, il y a <strong style="color:#fff;">JustOneTrader</strong> : un trader qui construisait son propre outil de suivi macro, et qui a fini par en faire un terminal complet, news en temps réel, calendrier, biais des devises, recherche des grandes banques. Le desk évolue chaque semaine, guidé par ce que les membres en font vraiment.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f3c344;border-radius:10px;margin:18px 0;">
-      <tr><td style="padding:16px 18px;">
-        <div style="color:#f3c344;font-size:14px;letter-spacing:2px;margin-bottom:8px;">${etoiles}</div>
+    ${_encart(`<div style="color:${TOK.or};font-size:14px;letter-spacing:2px;margin-bottom:8px;">${etoiles}</div>
         <div style="color:#e2e8f0;font-size:15px;line-height:1.65;font-style:italic;">« ${quote} »</div>
-        <div style="color:#8a9097;font-size:12.5px;margin-top:10px;"> : membre DataTradingPro, avis vérifié Whop</div>
-      </td></tr>
-    </table>
+        <div style="color:${TOK.grisDoux};font-size:12.5px;margin-top:10px;"> : membre DataTradingPro, avis vérifié Whop</div>`, true)}
     <p style="margin:0 0 14px;">${lien}</p>
     ${_button('Découvrir le terminal', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
@@ -625,9 +668,9 @@ async function sendTemoignage(d) { d = d || {}; const m = buildTemoignage(d); if
 function buildForgotNoSub({ name }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Réinitialisation impossible : abonnement inactif</p>
+    ${_H1}Réinitialisation impossible : abonnement inactif</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Vous venez de demander la réinitialisation de votre mot de passe DataTradingPro. Or votre <strong style="color:#fff;">abonnement n'est pas actif</strong> : votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
+    <p style="margin:0 0 14px;">Vous venez de demander la réinitialisation de votre mot de passe DataTradingPro. Or votre <strong style="color:#fff;">abonnement n'est pas actif</strong> : votre accès au terminal est actuellement <strong style="color:${TOK.rouge};">suspendu</strong>.</p>
     <p style="margin:0 0 14px;">Pour des raisons de sécurité, nous ne réinitialisons le mot de passe que pour les comptes disposant d'un <strong style="color:#fff;">abonnement actif</strong>. Dès que le vôtre sera réactivé, vous pourrez de nouveau vous connecter (et réinitialiser votre mot de passe si besoin).</p>
     ${_button('Réactiver mon abonnement', WHOP_RENEW_URL)}
     ${_spamNote()}
@@ -641,9 +684,9 @@ function buildReactivated({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre accès est réactivé ✅</p>
+    ${_H1}Votre accès est réactivé ✅</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Bonne nouvelle : votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> est de nouveau <strong style="color:#34d399;">actif</strong>. Vous avez à nouveau accès au flux de news en temps réel, au calendrier économique et aux analyses.${end ? ` Votre accès est valable jusqu'au <strong style="color:#fff;">${end}</strong>.` : ''}</p>
+    <p style="margin:0 0 14px;">Bonne nouvelle : votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> est de nouveau <strong style="color:${TOK.vert};">actif</strong>. Vous avez à nouveau accès au flux de news en temps réel, au calendrier économique et aux analyses.${end ? ` Votre accès est valable jusqu'au <strong style="color:#fff;">${end}</strong>.` : ''}</p>
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bons trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -656,9 +699,9 @@ function buildRenewed({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Abonnement renouvelé ✅</p>
+    ${_H1}Abonnement renouvelé ✅</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Merci ! Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> a bien été <strong style="color:#34d399;">renouvelé</strong>${end ? ` jusqu'au <strong style="color:#fff;">${end}</strong>` : ''}. Votre accès au terminal continue sans interruption.</p>
+    <p style="margin:0 0 14px;">Merci ! Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> a bien été <strong style="color:${TOK.vert};">renouvelé</strong>${end ? ` jusqu'au <strong style="color:#fff;">${end}</strong>` : ''}. Votre accès au terminal continue sans interruption.</p>
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bons trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -671,9 +714,9 @@ function buildGestureMonth({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">1 mois offert 🎁</p>
+    ${_H1}1 mois offert 🎁</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous vous offrons <strong style="color:#34d399;">1 mois supplémentaire</strong> sur votre abonnement DataTradingPro, c'est notre geste commercial.</p>
+    <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous vous offrons <strong style="color:${TOK.vert};">1 mois supplémentaire</strong> sur votre abonnement DataTradingPro, c'est notre geste commercial.</p>
     ${end ? `<p style="margin:0 0 14px;">Votre accès est désormais valable jusqu'au <strong style="color:#fff;">${end}</strong>.</p>` : ''}
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
@@ -686,13 +729,13 @@ async function sendGestureMonth(d) { const m = buildGestureMonth(d); return _sen
 function buildLaunchLive({ name } = {}) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:20px;font-weight:800;">C'est de nouveau en ligne 🚀</p>
+    ${_H1}C'est de nouveau en ligne 🚀</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Bonne nouvelle : <strong style="color:#fff;">DataTradingPro est de nouveau en ligne</strong>, avec une <strong style="color:#fff;">interface entièrement repensée</strong>.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🎨 <strong style="color:#fff;">Nouvelle identité visuelle</strong> : design premium, plus lisible, pensé pour le trading.</td></tr>
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🇫🇷 <strong style="color:#fff;">100% en français</strong> : chaque widget, chaque libellé.</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">⚡ <strong style="color:#fff;">Terminal plus clair</strong> : Smart Bias, calendrier, news priorisée, force des devises, COT, Week Ahead, taux & Copilote Macro IA.</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">⚡ <strong style="color:#fff;">Terminal plus clair</strong> : biais du marché, calendrier, fil de news priorisé, force des devises, COT, Semaine à Venir, taux & Copilote Macro IA.</td></tr>
     </table>
     <p style="margin:0 0 14px;">Vos <strong style="color:#fff;">identifiants restent les mêmes</strong> : connectez-vous, tout se charge en temps réel.</p>
     ${_button('Accéder à mon terminal →', APP_URL)}
@@ -706,11 +749,11 @@ async function sendLaunchLive(d) { const m = buildLaunchLive(d || {}); return _s
 function buildPasswordReset({ to, name, password }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Réinitialisation de votre mot de passe</p>
+    ${_H1}Réinitialisation de votre mot de passe</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre mot de passe DataTradingPro a été réinitialisé. Voici votre nouveau mot de passe :</p>
     ${_credBox([['Email', to], ['Nouveau mot de passe', password || '-']])}
-    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Pour votre sécurité, pensez à le modifier depuis votre profil après connexion. Si vous n'êtes pas à l'origine de cette demande, contactez-nous immédiatement.</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#9aa3b2;">Pour votre sécurité, pensez à le modifier depuis votre profil après connexion. Si vous n'êtes pas à l'origine de cette demande, contactez-nous immédiatement.</p>
     ${_button('Me connecter', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">L'équipe DataTradingPro</p>`;
@@ -726,19 +769,19 @@ function buildTrialUpsell({ name, expiresAt }) {
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : null;
   const d = _delai(expiresAt);
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre essai gratuit est terminé ⏳</p>
+    ${_H1}Votre essai gratuit est terminé ⏳</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro ${d.recent ? 'vient de prendre fin' : `a pris fin ${d.quand}`}${end ? ` (échéance du <strong style="color:#f3c344;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
     ${_noteRetard(d)}
     <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">retrouver votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, passez dès maintenant à l'<strong style="color:#fff;">abonnement mensuel</strong>, sans engagement et résiliable à tout moment :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, sans délai</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Calendrier économique et résultats live</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Analyses institutionnelles &amp; Rapports de banques</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ FX Weekly Recap &amp; FX Daily Recap</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, avec la lecture banque centrale sur chaque publication</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Calendrier économique, résultats live et graphe de réaction à la minute</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Recherche des grandes banques &amp; Récap Quotidien / Récap Hebdo</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Mon Desk : une quarantaine de widgets, verdict et fraîcheur affichés sur chaque carte</td></tr>
     </table>
     ${_button('Activer mon abonnement mensuel', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Abonnement mensuel sans engagement : votre accès est réactivé immédiatement après l'inscription.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Abonnement mensuel sans engagement : votre accès est réactivé immédiatement après l'inscription.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Votre essai DataTradingPro est terminé : réactivez votre accès', html: _layout('Fin d\'essai', body) };
@@ -751,38 +794,33 @@ async function sendTrialUpsell(d) { const m = buildTrialUpsell(d); return _send(
 function _buildReengagement(name, days) {
   const prenom = _esc((name || '').split(' ')[0] || 'trader');
   const d = days || 7;
-  // Encart "Pour démarrer en 5 minutes" (bordure orange, à notre sauce)
-  const startBox = `
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f3c344;border-radius:10px;margin:20px 0;">
-      <tr><td style="padding:16px 18px;">
-        <div style="color:#f3c344;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
+  // Encart "Pour démarrer en 5 minutes" (liseré or, à notre sauce)
+  const startBox = _encart(`
+        <div style="color:${TOK.or};font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
         <div style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:10px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</div>
         <div style="color:#e2e8f0;font-size:14px;line-height:1.9;">
-          → <strong style="color:#fff;">Recherche bancaire</strong> <span style="color:#94a3b8;">(Goldman Sachs, HSBC, ING, MUFG…)</span><br>
-          → <strong style="color:#fff;">Calendrier économique</strong> <span style="color:#94a3b8;">(résultats live + détail au clic)</span><br>
-          → <strong style="color:#fff;">Force des devises · COT · DMX</strong> <span style="color:#94a3b8;">(qui mène, qui décroche)</span>
+          → <strong style="color:#fff;">Recherche bancaire</strong> <span style="color:${TOK.gris};">(Goldman Sachs, HSBC, ING, MUFG…)</span><br>
+          → <strong style="color:#fff;">Calendrier économique</strong> <span style="color:${TOK.gris};">(résultats live + lecture banque centrale au clic)</span><br>
+          → <strong style="color:#fff;">Force des devises · COT · Sentiment des particuliers</strong> <span style="color:${TOK.gris};">(qui mène, qui décroche)</span>
         </div>
-        <div style="color:#8a9097;font-size:12.5px;font-style:italic;margin-top:12px;">Tu auras compris ce que t'apporte DataTradingPro en moins de temps qu'un café. ☕</div>
-      </td></tr>
-    </table>`;
+        <div style="color:${TOK.grisDoux};font-size:12.5px;font-style:italic;margin-top:12px;">Tu auras compris ce que t'apporte DataTradingPro en moins de temps qu'un café. ☕</div>`, true);
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:20px;font-weight:800;">Hey ${prenom},</p>
+    ${_H1}Hey ${prenom},</p>
     <p style="margin:0 0 14px;">Il y a ${d} jours, tu as activé ton accès à <strong style="color:#fff;">DataTradingPro</strong>. Depuis, je ne t'ai pas vu revenir.</p>
-    <p style="margin:0 0 8px;color:#94a3b8;">C'est peut-être que&nbsp;:</p>
+    <p style="margin:0 0 8px;color:#9aa3b2;">C'est peut-être que&nbsp;:</p>
     <ul style="margin:0 0 6px;padding-left:18px;color:#cbd5e1;font-size:14px;line-height:1.8;">
-      <li>Tu n'as pas eu le temps d'explorer <span style="color:#94a3b8;">(le terminal est dense, c'est vrai)</span></li>
+      <li>Tu n'as pas eu le temps d'explorer <span style="color:#9aa3b2;">(le terminal est dense, c'est vrai)</span></li>
       <li>Tu ne sais pas par où commencer</li>
       <li>Quelque chose ne t'a pas plu : dans ce cas, <strong style="color:#fff;">réponds-moi</strong>, je lis tout</li>
     </ul>
     ${startBox}
     ${_button('Revenir sur le terminal →', APP_URL)}
-    <p style="margin:18px 0 10px;color:#94a3b8;font-size:13px;">Et tout le reste t'attend aussi&nbsp;:</p>
+    <p style="margin:18px 0 10px;color:#9aa3b2;font-size:13px;">Et tout le reste t'attend aussi&nbsp;:</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📊 <strong style="color:#fff;">FX List</strong> : vue d'ensemble Forex (force, biais, momentum 1M/3M/12M)</td></tr>
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">⚡ <strong style="color:#fff;">Live Squawk</strong> : les news qui bougent les marchés, en direct</td></tr>
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📝 <strong style="color:#fff;">Session Recaps &amp; Weekly</strong> : le marché résumé, à ta place</td></tr>
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🌡️ <strong style="color:#fff;">Sentiment de risque</strong> live + sentiment retail contrarien</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📊 <strong style="color:#fff;">Liste FX</strong> : la vue d'ensemble du Forex (force, biais, momentum 1M/3M/12M)</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">⚡ <strong style="color:#fff;">Le fil d'actualité</strong> : les news qui bougent les marchés, avec leur impact décrypté en direct</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📝 <strong style="color:#fff;">Récap Quotidien &amp; Récap Hebdo</strong> : le marché résumé, à ta place</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🧩 <strong style="color:#fff;">Mon Desk</strong> : une quarantaine de widgets, chaque carte affiche son verdict</td></tr>
     </table>
     ${_spamNote()}
     <p style="margin:14px 0 0;font-size:13px;">On se revoit sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -799,27 +837,25 @@ function buildAnnouncementV2({ name } = {}) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const feats = [
     ['📰', 'News priorisée', "le flux filtré : que l'important, classé par impact, résumé et expliqué par l'IA en un clic."],
-    ['🧭', 'Smart Bias', 'le biais directionnel des 8 grandes devises, recalculé chaque semaine sur les fondamentaux.'],
+    ['🧭', 'Biais du marché', 'le biais directionnel des 8 grandes devises, recalculé en continu sur les fondamentaux publiés.'],
     ['⚡', 'Force des devises en temps réel', "qui mène, qui décroche, d'un coup d'œil."],
-    ['📅', 'Calendrier macro', 'les publications qui bougent les marchés : consensus, précédent et résultat dès la sortie.'],
+    ['📅', 'Calendrier macro', 'les publications qui bougent les marchés : consensus, précédent et résultat dès la sortie, avec la lecture banque centrale.'],
     ['🤖', 'Assistant IA macro', "posez votre question en français, l'IA répond avec le contexte marché du moment."],
     ['🏦', 'Rapports de banques', 'Goldman, ING, MUFG, Danske… la recherche institutionnelle réunie, lisible en PDF.'],
   ].map(([ico, t, d]) =>
     `<tr><td style="padding:7px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">${ico} <strong style="color:#fff;">${t}</strong> : ${d}</td></tr>`
   ).join('');
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:20px;font-weight:800;">C'est officiel : la v2 est finalisée 🚀</p>
+    ${_H1}C'est officiel : la v2 est finalisée 🚀</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Ça y est. Après des mois de développement et d'écoute, <strong style="color:#fff;">la version 2 de DataTradingPro est officiellement finalisée.</strong></p>
     <p style="margin:0 0 14px;">Ce n'est plus une promesse : c'est le terminal le plus abouti qu'on ait livré. Tout ce qu'un trader macro attend, réuni et <strong style="color:#fff;">connecté sur un seul écran</strong> :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
-    <p style="margin:0 0 14px;color:#94a3b8;font-size:13px;">+ Live Squawk, jauge Risk Sentiment, saisonnalité, taux des banques centrales, journal de trading…</p>
+    <p style="margin:0 0 14px;color:#9aa3b2;font-size:13px;">+ Mon Desk (une quarantaine de widgets à composer), Sentiment de Risque, saisonnalité, taux des banques centrales, journal de trading…</p>
     <p style="margin:14px 0 4px;color:#fff;font-size:15px;font-weight:700;">Arrêtez de deviner les mouvements. Commencez à les comprendre.</p>
     ${_button('Rejoindre DataTradingPro →', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.3);border-radius:10px;margin:6px 0 4px;">
-      <tr><td style="padding:12px 15px;color:#f3d9b0;font-size:13.5px;line-height:1.6;">⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins : <strong style="color:#fff;">rejoignez le lancement maintenant.</strong></td></tr>
-    </table>
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
+    ${_goldBox(`⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins : <strong style="color:#fff;">rejoignez le lancement maintenant.</strong>`)}
     ${_spamNote()}
     <p style="margin:14px 0 0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>
     <p style="margin:14px 0 0;font-size:11px;color:#6b7280;">Vous recevez cet email en tant que membre DataTradingPro. <a href="mailto:${SUPPORT_EMAIL}?subject=Desabonnement" style="color:#6b7280;text-decoration:underline;">Se désabonner</a>.</p>`;
@@ -872,34 +908,10 @@ function trackClickUrl(campaign, email, target) {
 // TEXTE (wordmark) avec repli SOLIDE #f3c344 (Outlook ignore background-clip -> texte or plein, jamais
 // invisible) + en bandeau haut (bgcolor #f3c344 de repli). Rendu premium, hierarchie du desk.
 function _campaignLayout(title, bodyHtml, unsub) {
-  return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">
-<title>${_esc(title)}</title>
-<style>@media (max-width:480px){ .dtp-pad{padding:20px 16px !important;} .dtp-wrap{padding:24px 8px !important;} }</style></head>
-<body style="margin:0;padding:0;background:#0d0e11;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="dtp-wrap" style="background:#0d0e11;padding:30px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#16171b;border:1px solid #232429;border-radius:10px;overflow:hidden;">
-        <tr><td bgcolor="#f3c344" height="3" style="height:3px;line-height:3px;font-size:0;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);mso-line-height-rule:exactly;">&nbsp;</td></tr>
-        <tr><td style="padding:24px 34px 16px;border-bottom:1px solid #232429;">
-          <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#f3c344;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">DataTradingPro</div>
-          <div style="font-size:11px;font-weight:600;color:#9a9aa4;margin-top:6px;letter-spacing:.09em;text-transform:uppercase;">Terminal macro &amp; forex</div>
-        </td></tr>
-        <tr><td class="dtp-pad" style="padding:26px 34px;color:#c8ccd4;font-size:15px;line-height:1.66;">
-          ${bodyHtml}
-        </td></tr>
-        <tr><td style="padding:18px 34px;border-top:1px solid #232429;color:#6f6f79;font-size:12px;line-height:1.6;">
-          Besoin d'aide&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;text-decoration:none;">${SUPPORT_EMAIL}</a>
-        </td></tr>
-      </table>
-      <div style="color:#565660;font-size:11px;margin-top:14px;line-height:1.7;max-width:600px;">
-        Vous recevez cet email en tant que membre de l'&eacute;cosyst&egrave;me DataTradingPro (JustOneTrader).<br>
-        <a href="${unsub}" style="color:#8b93a1;text-decoration:underline;">Se d&eacute;sabonner en un clic</a>
-      </div>
-    </td></tr>
-  </table>
-</body></html>`;
+  return _shell(title, bodyHtml,
+    `Besoin d'aide&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:${TOK.or};text-decoration:none;">${SUPPORT_EMAIL}</a>`,
+    `Vous recevez cet email en tant que membre de l'&eacute;cosyst&egrave;me DataTradingPro (JustOneTrader).<br>
+        <a href="${unsub}" style="color:${TOK.grisDoux};text-decoration:underline;">Se d&eacute;sabonner en un clic</a>`);
 }
 function _campaignBtn(label, url) {
   // CTA = OR PLEIN (comme les boutons du desk : solide #f3c344, texte quasi-noir, coins ~desk, PAS de degrade).
@@ -950,7 +962,7 @@ function _agendaTable(events) {
   const dots = imp => { const on = imp === 'High' ? 3 : (imp === 'Medium' ? 2 : 1); const col = imp === 'High' ? '#ff3d00' : '#ffb300'; let s = ''; for (let i = 0; i < 3; i++) s += `<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${i < on ? col : '#3a3a42'};margin-right:2px;"></span>`; return s; };
   let out = '', lastDay = null;
   for (const e of rows) {
-    if (e.dayLabel && e.dayLabel !== lastDay) { lastDay = e.dayLabel; out += `<tr><td colspan="4" style="padding:8px 10px 4px;background:#101012;color:#9aa3b2;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${_esc(e.dayLabel)}</td></tr>`; }
+    if (e.dayLabel && e.dayLabel !== lastDay) { lastDay = e.dayLabel; out += `<tr><td colspan="4" style="padding:8px 10px 4px;background:#101014;color:#9aa3b2;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${_esc(e.dayLabel)}</td></tr>`; }
     const vals = []; if (e.forecast) vals.push('prév. <span style="color:#cbd5e1;">' + _esc(e.forecast) + '</span>'); if (e.previous) vals.push('préc. ' + _esc(e.previous));
     out += `<tr>
       <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#f3c344;font-weight:700;font-size:12px;white-space:nowrap;vertical-align:top;">${_esc(e.time || '')}<div style="color:#8b93a1;font-weight:400;font-size:11px;margin-top:1px;">${_esc(e.ccy || '')}&nbsp;${dots(e.impact)}</div></td>
@@ -1042,24 +1054,20 @@ function buildAnnouncementDesktop({ name, email, campaign } = {}) {
   const dlIntel = trackClickUrl(campaign, email, `${APP_URL}/downloads/DataTradingPro-macOS-Intel.dmg?v=111`);
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">L'application DataTradingPro pour <span style="color:#f3c344;">Windows</span> et <span style="color:#f3c344;">macOS</span> est officiellement finalis&eacute;e. 🖥️</p>
+    ${_H1}L'application DataTradingPro pour <span style="color:#f3c344;">Windows</span> et <span style="color:#f3c344;">macOS</span> est officiellement finalis&eacute;e. 🖥️</p>
     <p style="margin:0 0 14px;">Le terminal complet, dans une <strong style="color:#fff;">v&eacute;ritable application de bureau</strong>&nbsp;: plus d'onglet perdu au milieu du navigateur, votre desk s'ouvre en un clic et reste &agrave; sa place, comme un vrai poste de trading.</p>
     <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="text-decoration:none;"><img src="${LANDING_URL}/assets/images/annonce-app-desktop.jpg" width="532" alt="Le terminal DataTradingPro en application de bureau" style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;"></a>
     <ul style="margin:0 0 18px;padding-left:20px;color:#cbd5e1;">
       <li style="margin:6px 0;">🪟 <strong style="color:#fff;">Fen&ecirc;tre native &eacute;pur&eacute;e</strong>&nbsp;: la barre de titre s'int&egrave;gre au desk, rien ne d&eacute;passe.</li>
-      <li style="margin:6px 0;">🔄 <strong style="color:#fff;">Mises &agrave; jour automatiques</strong>&nbsp;: l'application se met &agrave; jour toute seule &agrave; l'ouverture, vous avez toujours la derni&egrave;re version.</li>
+      <li style="margin:6px 0;">🔄 <strong style="color:#fff;">Mises &agrave; jour automatiques</strong>&nbsp;: l'application se met &agrave; jour toute seule, en silence, vous avez toujours la derni&egrave;re version.</li>
       <li style="margin:6px 0;">🔐 <strong style="color:#fff;">Session persistante</strong>&nbsp;: connect&eacute; une fois, connect&eacute; pour de bon.</li>
       <li style="margin:6px 0;">🖥️ <strong style="color:#fff;">Multi-&eacute;crans</strong>&nbsp;: placez le desk sur l'&eacute;cran de votre choix, il s'y sent chez lui.</li>
     </ul>
     ${_campaignBtn('Télécharger pour Windows', dlWin)}
     ${_campaignBtnGhost('Télécharger pour macOS', dlMac)}
     <p style="margin:0 0 16px;font-size:12.5px;color:#8b93a1;">Mac Intel (avant 2020)&nbsp;? <a href="${dlIntel}" style="color:#f3c344;text-decoration:underline;">Version Intel ici</a>. Premier lancement sur Mac&nbsp;: clic droit sur l'application &rarr; &laquo;&nbsp;Ouvrir&nbsp;&raquo;.<br>Vous avez d&eacute;j&agrave; l'application&nbsp;? Rien &agrave; faire&nbsp;: elle vous proposera la mise &agrave; jour toute seule.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
-      <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
-        <span style="color:#f3c344;font-weight:700;letter-spacing:.05em;font-size:11px;text-transform:uppercase;">Et ce n'est que le d&eacute;but</span><br>
-        Place maintenant au <strong style="color:#fff;">syst&egrave;me de widgets</strong>, puis &agrave; <strong style="color:#fff;">l'application mobile</strong> pour iOS (App&nbsp;Store) et Android (Google&nbsp;Play)&nbsp;: les alertes du desk <strong style="color:#fff;">en temps r&eacute;el sur votre t&eacute;l&eacute;phone</strong>, et m&ecirc;me sur Apple&nbsp;Watch. ⌚
-      </td></tr>
-    </table>
+    ${_goldBox(`<span style="color:${TOK.or};font-weight:700;letter-spacing:.05em;font-size:11px;text-transform:uppercase;">Et ce n'est que le d&eacute;but</span><br>
+        Le <strong style="color:#fff;">syst&egrave;me de widgets Mon Desk</strong> est depuis en ligne. Place maintenant &agrave; <strong style="color:#fff;">l'application mobile</strong> pour iOS (App&nbsp;Store) et Android (Google&nbsp;Play)&nbsp;: les alertes du desk <strong style="color:#fff;">en temps r&eacute;el sur votre t&eacute;l&eacute;phone</strong>, et m&ecirc;me sur Apple&nbsp;Watch. ⌚`)}
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite sur le desk,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
@@ -1092,10 +1100,10 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
   const body = `
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Deux nouveaut&eacute;s en ligne&nbsp;: l'accueil Vue d'ensemble, et un desk que vous montez vous-m&ecirc;me.</div>
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">Vous montez d&eacute;sormais <span style="color:#f3c344;">votre propre &eacute;cran de travail</span>.</p>
+    ${_H1}Vous montez d&eacute;sormais <span style="color:#f3c344;">votre propre &eacute;cran de travail</span>.</p>
     <p style="margin:0 0 20px;">Deux nouveaut&eacute;s viennent d'&ecirc;tre mises en ligne&nbsp;: l'accueil <strong style="color:#fff;">Vue d'ensemble</strong>, qui vous situe d&egrave;s la connexion, et <strong style="color:#fff;">Mon Desk</strong>, qui vous laisse composer votre grille.</p>
 
-    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">L'accueil&nbsp;: vue d'ensemble</p>
+    ${_secTitle("L'accueil&nbsp;: vue d'ensemble")}
     <p style="margin:0 0 10px;">&Agrave; la connexion, un &eacute;cran de prise de poste remplace la page dense. En un coup d'&oelig;il&nbsp;:</p>
     <ul style="margin:0 0 14px;padding-left:20px;color:#cbd5e1;">
       <li style="margin:5px 0;">les places de march&eacute; ouvertes et celles qui vont l'&ecirc;tre, sur une carte du monde anim&eacute;e&nbsp;;</li>
@@ -1110,24 +1118,20 @@ function buildAnnonceDesk({ name, email, campaign } = {}) {
     <!-- ORDRE (demande user 06/08) : « Une disposition par usage » passe AVANT « Mon Desk ». On
          annonce donc le bénéfice : plusieurs écrans selon ce qu'on suit : puis le moyen, la grille
          qu'on compose. Entrée par l'usage plutôt que par l'outil. -->
-    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Une disposition par usage</p>
+    ${_secTitle('Une disposition par usage')}
     <p style="margin:0 0 14px;">Vous enregistrez <strong style="color:#fff;">plusieurs dispositions</strong> et vous basculez de l'une &agrave; l'autre&nbsp;: une pour le forex, une pour la crypto, une pour les indices. Ou simplement une pour l'analyse technique, une pour la fondamentale.</p>
     ${_img(imgDis, 'Le choix d une disposition dans Mon Desk')}
 
-    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Mon Desk</p>
+    ${_secTitle('Mon Desk')}
     <p style="margin:0 0 12px;">Chacune de ces dispositions, c'est vous qui la montez. Le desk n'est plus une grille impos&eacute;e&nbsp;: <strong style="color:#fff;">vous la composez bloc par bloc</strong>.</p>
     <!-- On NE LISTE PAS les modules (demande user 06/08 : « ne devoile pas tout, tisse la
-         curiosite »). L enumeration des douze widgets epuisait le sujet des le mail ; une quinzaine
-         annoncee donne l ordre de grandeur et laisse la decouverte au produit. Le chiffre est exact :
-         9 modules d analyse de marche + 7 outils au catalogue. -->
-    <p style="margin:0 0 14px;">Une <strong style="color:#fff;">quinzaine de modules</strong> &agrave; assembler. Vous y retrouverez ceux que vous ouvrez tous les jours, et sans doute quelques-uns que vous n'aviez jamais eu l'occasion de regarder.</p>
+         curiosite »). L enumeration epuisait le sujet des le mail ; un ordre de grandeur laisse la
+         decouverte au produit. Chiffre realigne le 23/08 sur le CATALOG reel de widgets.js :
+         une quarantaine d entrees aujourd hui (verifier a chaque reprise du template). -->
+    <p style="margin:0 0 14px;">Une <strong style="color:#fff;">quarantaine de modules</strong> &agrave; assembler. Vous y retrouverez ceux que vous ouvrez tous les jours, et sans doute quelques-uns que vous n'aviez jamais eu l'occasion de regarder.</p>
     ${_img(imgDsk, 'Les modules disponibles dans Mon Desk')}
     <p style="margin:0 0 14px;">Chaque bloc se d&eacute;place, se redimensionne et se r&egrave;gle&nbsp;: p&eacute;riode d'un graphique, devises affich&eacute;es, places retenues sur l'horloge. Vous gardez ce que vous consultez, vous &eacute;cartez le reste.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
-      <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
-        Rien n'est stock&eacute; dans le navigateur&nbsp;: tout tient <strong style="color:#fff;">sur votre compte</strong>. Votre desk vous suit d'un ordinateur &agrave; l'autre, sur l'application de bureau comme sur t&eacute;l&eacute;phone.
-      </td></tr>
-    </table>
+    ${_goldBox(`Rien n'est stock&eacute; dans le navigateur&nbsp;: tout tient <strong style="color:#fff;">sur votre compte</strong>. Votre desk vous suit d'un ordinateur &agrave; l'autre, sur l'application de bureau comme sur t&eacute;l&eacute;phone.`)}
     <p style="margin:0 0 14px;">La disposition de d&eacute;part reprend l'ensemble de vos onglets habituels. Rien &agrave; reconstruire&nbsp;: vous ajustez quand vous le souhaitez, &agrave; votre rythme.</p>
 
     <p style="margin:0 0 16px;">Les deux nouveaut&eacute;s sont actives sur votre compte. Une connexion suffit.</p>
@@ -1163,7 +1167,7 @@ function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
   const ouvrir = trackClickUrl(campaign, email, APP_URL + '/');
 
   const fam = (titre, texte) => `
-    <p style="margin:16px 0 6px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">${titre}</p>
+    ${_secTitle(titre)}
     <p style="margin:0 0 8px;">${texte}</p>`;
 
   /* ← LA SEULE LIGNE A BASCULER. `ouverts` a vrai quand les widgets sont ouverts a tous. */
@@ -1174,24 +1178,24 @@ function buildAnnonceWidgets({ name, email, campaign, ouverts } = {}) {
   const body = `
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Quatorze widgets de plus dans Mon Desk&nbsp;: cotations, amplitude, macro et outils.</div>
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">Quatorze widgets de plus pour <span style="color:#f3c344;">composer votre desk</span>.</p>
+    ${_H1}Quatorze widgets de plus pour <span style="color:#f3c344;">composer votre desk</span>.</p>
     <p style="margin:0 0 6px;">La biblioth&egrave;que de Mon Desk s&rsquo;&eacute;largit. ${dispo}</p>
 
-    ${fam('Cotations et march&eacute;', 'Un <strong style="color:#fff;">bandeau de cotations</strong> d&eacute;filant, une <strong style="color:#fff;">matrice des taux crois&eacute;s</strong> qui donne les 28 croisements des huit majeures d&rsquo;un seul balayage, une <strong style="color:#fff;">chaleur de s&eacute;ance</strong> qui les colore selon la variation du jour, et une <strong style="color:#fff;">liste de suivi</strong> o&ugrave; vous choisissez vos paires.')}
+    ${fam('Cotations et march&eacute;', 'Un <strong style="color:#fff;">bandeau de cotations</strong> d&eacute;filant, une <strong style="color:#fff;">matrice de taux crois&eacute;s</strong> qui donne les 28 croisements des huit majeures d&rsquo;un seul balayage, une <strong style="color:#fff;">carte de chaleur FX</strong> qui les colore selon la variation du jour, et une <strong style="color:#fff;">liste de suivi</strong> o&ugrave; vous choisissez vos paires.')}
 
     ${fam('Amplitude et volatilit&eacute;', 'De combien une paire bouge en moyenne par s&eacute;ance, ce qu&rsquo;elle parcourt pendant Tokyo, Londres et New York, la part des s&eacute;ances qui atteignent un seuil donn&eacute;, la forme r&eacute;elle de ses journ&eacute;es, son &eacute;cart-type, et ses points hauts et bas avec la position du cours entre les deux.')}
 
-    ${fam('Macro', 'Un <strong style="color:#fff;">compte &agrave; rebours</strong> sur le prochain chiffre attendu, qui bascule sur le r&eacute;sultat d&egrave;s sa publication. La <strong style="color:#fff;">s&eacute;rie d&rsquo;un indicateur</strong> sur ses derni&egrave;res parutions. Et la <strong style="color:#fff;">courbe saisonni&egrave;re</strong>, mois par mois sur cinq ans.')}
+    ${fam('Macro', 'Un <strong style="color:#fff;">compte &agrave; rebours</strong> sur le prochain chiffre attendu, qui bascule sur le r&eacute;sultat d&egrave;s sa publication. L&rsquo;<strong style="color:#fff;">historique d&rsquo;un indicateur</strong> sur ses derni&egrave;res parutions. Et le <strong style="color:#fff;">rendement moyen par mois</strong>, sur cinq ans.')}
 
     ${fam('Outils', 'Un <strong style="color:#fff;">bloc-notes</strong> qui vous suit d&rsquo;un appareil &agrave; l&rsquo;autre, avec verrou de lecture seule pour vos r&egrave;gles de risque.')}
 
-    <p style="margin:18px 0 8px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#f3c344;">Ce qu&rsquo;ils n&rsquo;affichent pas</p>
+    ${_secTitle('Ce qu&rsquo;ils n&rsquo;affichent pas')}
     <p style="margin:0 0 8px;">Chaque widget a &eacute;t&eacute; construit sur une r&egrave;gle simple&nbsp;: ne jamais montrer une donn&eacute;e que la source ne fournit pas. Quand une information manque, la carte le dit au lieu de combler le vide. Quand une moyenne porte sur quatre ann&eacute;es et non cinq, elle l&rsquo;&eacute;crit. Quand une s&eacute;ance n&rsquo;est pas termin&eacute;e, les cartes qui mesurent une amplitude ou une variation l&rsquo;excluent du calcul, et le disent.</p>
     <p style="margin:0 0 18px;">Trois widgets envisag&eacute;s ont d&rsquo;ailleurs &eacute;t&eacute; abandonn&eacute;s pour cette raison&nbsp;: la donn&eacute;e n&rsquo;existait pas, ou pas de mani&egrave;re fiable.</p>
 
     ${_campaignBtn('Ouvrir mon desk', ouvrir)}
 
-    <p style="margin:0 0 4px;font-size:12px;color:#8a8f99;">Chaque carte se r&egrave;gle&nbsp;: paire, unit&eacute;, profondeur d&rsquo;historique, seuils. Vos dispositions sont conserv&eacute;es par compte.</p>
+    <p style="margin:0 0 4px;font-size:12px;color:#8b93a1;">Chaque carte se r&egrave;gle&nbsp;: paire, unit&eacute;, profondeur d&rsquo;historique, seuils. Vos dispositions sont conserv&eacute;es par compte.</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;border:0;">`;
 
   /* _campaignLayout et NON _layout : _layout est le gabarit TRANSACTIONNEL (pas de mention legale,
@@ -1263,8 +1267,9 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // tires des insights REELS du rapport -> puces or, memes donnees que l'onglet Analystes.
   // REFONTE 28/07 (« simple, épuré, lisible, pro ») : UNE seule grammaire de section (filet or +
   // label capitales) remplace les 7 phrases d'intro grises qui se ressemblaient toutes. Moins de
-  // blocs, moins de lignes par bloc, un rythme de lecture constant.
-  const _sec = t => `<p style="margin:26px 0 10px;padding-left:9px;border-left:2px solid #f3c344;color:#f3c344;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;">${t}</p>`;
+  // blocs, moins de lignes par bloc, un rythme de lecture constant. (23/08 : la grammaire est
+  // devenue _secTitle, partagée par TOUS les mails à sections.)
+  const _sec = _secTitle;
   const keyPts = insights.slice(lead === insights[0] ? 1 : 0, (lead === insights[0] ? 1 : 0) + 3);
   const insightsHtml = keyPts.length
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${keyPts.map(p => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;line-height:1.6;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 230)}</td></tr>`).join('')}</table>`
@@ -1517,7 +1522,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     .map(x => x.r);
   const pastTableHtml = _pastRows.length ? `
     <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">
-    <tr style="background:#101012;">${_wdTh('d')}${_wdTh('c')}${_wdTh('e')}${_wdTh('a')}${_wdTh('r')}</tr>
+    <tr style="background:#101014;">${_wdTh('d')}${_wdTh('c')}${_wdTh('e')}${_wdTh('a')}${_wdTh('r')}</tr>
     ${_pastRows.map(({ e, day }) => `<tr>
       <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11px;white-space:nowrap;">${_esc(day)}</td>
       <td style="padding:7px 10px;border-top:1px solid #1f1f24;white-space:nowrap;">${_wdFlag(e.ccy)}</td>
@@ -1726,7 +1731,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 6);
   if (!secs.length) return '';
   const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">L'essentiel du rapport quotidien du desk, sans entrer dans le détail&nbsp;:</p>`;
-  const head = `<div style="padding:13px 16px;border-bottom:1px solid #26262b;">
+  const head = `<div style="padding:13px 16px;border-bottom:1px solid #232429;">
       <div style="color:#f3c344;font-weight:800;font-size:13.5px;letter-spacing:.01em;">${_esc(reportTitle || 'Point Marché : le rapport du jour')}</div>
       ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:3px;">${_esc(dateLabel)}</div>` : ''}
     </div>`;
@@ -1741,7 +1746,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
       // Couleur du RÉEL (demande user) : vert si valeur positive, rouge si négative (charte DTP risk-on/off),
       // blanc si nul / non chiffré (ex. « · », « 19.1B » reste vert car >0). Signe = 1er nombre + parenthèses compta.
       const _actColor = v => { const s = String(v == null ? '' : v).trim(); const n = parseFloat(s.replace(/[^0-9.\-]/g, '')); if (!s || s === '·' || isNaN(n) || n === 0) return '#ffffff'; return (n < 0 || /^\s*[-(]/.test(s)) ? '#ef4444' : '#22c55e'; };
-      const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #26262b;">${label}</td>`;
+      const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #232429;">${label}</td>`;
       const rows = s.data.slice(0, 8).map(r => `<tr>
           <td style="padding:7px 5px;border-top:1px solid #1f1f24;white-space:nowrap;font-size:11.5px;">${_flag(r.ccy)}</td>
           <td style="padding:7px 5px;color:#e6e6ea;font-size:12.5px;line-height:1.4;border-top:1px solid #1f1f24;">${_esc(r.release || '')}</td>
@@ -1749,7 +1754,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
           <td align="right" style="padding:7px 5px;color:#9aa3b2;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.expected || '·')}</td>
           <td align="right" style="padding:7px 5px;color:#7b828f;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.previous || '·')}</td>
         </tr>`).join('');
-      return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #26262b;border-radius:8px;border-collapse:separate;">
+      return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #232429;border-radius:8px;border-collapse:separate;">
           <tr>${_th('Devise')}${_th('Publication')}${_th('Réel', true)}${_th('Att.', true)}${_th('Préc.', true)}</tr>
           ${rows}
         </table>` : '';
@@ -1760,7 +1765,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   }).join('');
   if (!blocks) return '';
   return `${intro}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #232429;border-radius:10px;">
       <tr><td>${head}</td></tr>
       <tr><td style="padding:0 16px 14px;">${blocks}</td></tr>
     </table>
@@ -1801,7 +1806,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
 
   const conceptHtml = `
     <div style="margin:20px 0 8px;">
-      <div style="display:inline-block;color:#0a0a0c;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
+      <div style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
       <div style="color:#ffffff;font-weight:800;font-size:18px;line-height:1.3;margin:10px 0 2px;letter-spacing:-.01em;">${_esc(c.title)}</div>
     </div>
     ${c.paras.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}`;
@@ -1833,7 +1838,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
       const dove = `la banque centrale est perçue comme plus accommodante : la devise concernée a tendance à s'affaiblir et les actifs sensibles aux taux respirent`;
       const above = _inv ? dove : hawk;
       const below = _inv ? hawk : dove;
-      const _scCard = (arrow, t, txt) => `<div style="border:1px solid #232429;border-left:3px solid rgba(227,178,58,.55);border-radius:6px;padding:12px 14px;margin:0 0 10px;background:#131418;">`
+      const _scCard = (arrow, t, txt) => `<div style="border:1px solid #232429;border-left:3px solid rgba(243,195,68,.55);border-radius:6px;padding:12px 14px;margin:0 0 10px;background:#131418;">`
         + `<div style="color:#fff;font-weight:700;font-size:13.5px;margin-bottom:4px;">${arrow} ${t}</div>`
         + `<div style="color:#aab2c0;font-size:13px;line-height:1.55;">${txt}.</div></div>`;
       appliedHtml += `<div style="margin:16px 0 4px;color:#f3c344;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">Les deux scénarios à connaître</div>`
@@ -1846,7 +1851,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
   const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
     const rows = fam.items.slice(0, 3).map(it => `<tr><td style="padding:9px 0 3px;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(it.k)}</span><div style="color:#aab2c0;font-size:12.5px;line-height:1.45;margin-top:2px;">${_esc(it.d)}</div><div style="color:#f3c344;font-size:11.5px;font-weight:600;margin-top:1px;">&rarr; ${_esc(it.a)}</div></td></tr>`).join('');
-    return `<div style="margin:18px 0 4px;"><span style="display:inline-block;color:#0a0a0c;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:6px;">${_esc(fam.name)}</span></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
+    return `<div style="margin:18px 0 4px;"><span style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:6px;">${_esc(fam.name)}</span></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
   }).join('') : '';
 
   const body = `
@@ -2435,11 +2440,8 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
     ${_mid}
     ${_mindsetParas(_pars.slice(_coupe))}
     ${_mindsetPratique(pick.pratique)}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 6px;"><tr>
-      <td style="padding:15px 18px;background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.3);border-radius:8px;">
-        <div style="color:#f3c344;font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;">La question à te poser</div>
-        <div style="color:#ffffff;font-size:15.5px;font-style:italic;line-height:1.55;">${_esc(pick.closing)}</div>
-      </td></tr></table>
+    ${_goldBox(`<div style="color:${TOK.or};font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;">La question à te poser</div>
+        <div style="color:${TOK.blanc};font-size:15.5px;font-style:italic;line-height:1.55;">${_esc(pick.closing)}</div>`)}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
@@ -2502,7 +2504,7 @@ function buildCampaignInvitation({ name, email, campaign, variant, isMember } = 
       <td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><strong style="color:#fff;">${b[0]}</strong>${b[1]}</td>
     </tr>`).join('');
   const body = `
-    <div style="display:inline-block;color:#0a0a0c;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${v.eyebrow}</div>
+    <div style="display:inline-block;color:#0d0e11;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${v.eyebrow}</div>
     <p style="margin:16px 0 6px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 14px;">${v.lead}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:2px 0 4px;">${benefitsHtml}</table>
@@ -2727,24 +2729,24 @@ function buildAdminExpiryReminder({ clients }) {
     const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
     const when = end.toLocaleDateString('fr-FR');
     const state = days < 0
-      ? `<span style="color:#fb7185;font-weight:700;">EXPIRÉ depuis ${-days}j</span>`
-      : `<span style="color:#f59e0b;font-weight:700;">expire dans ${days}j</span>`;
+      ? `<span style="color:${TOK.rouge};font-weight:700;">EXPIRÉ depuis ${-days}j</span>`
+      : `<span style="color:${TOK.ambre};font-weight:700;">expire dans ${days}j</span>`;
     return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#fff;font-size:13px;">${_esc(c.name || '-')}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#94a3b8;font-size:13px;font-family:monospace;">${_esc(c.email)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#94a3b8;font-size:13px;">${when}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #26262b;font-size:12px;">${state}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #232429;color:#fff;font-size:13px;">${_esc(c.name || '-')}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #232429;color:#9aa3b2;font-size:13px;font-family:monospace;">${_esc(c.email)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #232429;color:#9aa3b2;font-size:13px;">${when}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #232429;font-size:12px;">${state}</td>
     </tr>`;
   }).join('');
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">⏰ Abonnements à vérifier</p>
+    ${_H1}⏰ Abonnements à vérifier</p>
     <p style="margin:0 0 14px;">Voici les clients dont l'abonnement <strong style="color:#fff;">expire bientôt ou vient d'expirer</strong>. Pense à les renouveler (paiement Whop) dans l'admin.</p>
-    <p style="margin:0 0 8px;color:#94a3b8;font-size:12px;">⚠️ Délai de grâce : ces clients gardent l'accès <strong style="color:#fff;">48h après expiration</strong>. Au-delà, leur connexion sera bloquée automatiquement.</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;margin:14px 0;border-collapse:collapse;">
-      <tr><th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">Nom</th>
-          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">Email</th>
-          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">Échéance</th>
-          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">État</th></tr>
+    <p style="margin:0 0 8px;color:#9aa3b2;font-size:12px;">⚠️ Délai de grâce : ces clients gardent l'accès <strong style="color:#fff;">48h après expiration</strong>. Au-delà, leur connexion sera bloquée automatiquement.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #232429;border-radius:10px;margin:14px 0;border-collapse:collapse;">
+      <tr><th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #232429;">Nom</th>
+          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #232429;">Email</th>
+          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #232429;">Échéance</th>
+          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #232429;">État</th></tr>
       ${rows}
     </table>
     ${_button('Ouvrir le panel admin', APP_URL + '/admin')}
@@ -2762,10 +2764,10 @@ function buildAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNew }) 
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : 'illimité';
   const kind = isNew ? 'Nouveau client DTP' : 'Renouvellement DTP';
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">✅ ${_esc(kind)}</p>
+    ${_H1}✅ ${_esc(kind)}</p>
     <p style="margin:0 0 14px;">Un paiement Whop <strong style="color:#fff;">JOT DTP</strong> a été traité automatiquement :</p>
     ${_credBox([['Client', clientName || clientEmail], ['Email', clientEmail], ["Accès jusqu'au", end], ['Action', isNew ? 'Compte créé' : 'Abonnement renouvelé']])}
-    <p style="margin:0;font-size:13px;color:#94a3b8;">Le compte a été ${isNew ? 'créé' : 'mis à jour'} et le client a été notifié par email. Aucune action de ta part.</p>`;
+    <p style="margin:0;font-size:13px;color:#9aa3b2;">Le compte a été ${isNew ? 'créé' : 'mis à jour'} et le client a été notifié par email. Aucune action de ta part.</p>`;
   return { subject: `DTP : ${kind} : ${clientEmail}`, html: _layout('Notification DTP', body) };
 }
 async function sendAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNew, to }) {
@@ -2809,7 +2811,7 @@ function buildAutoRenewOff({ name, expiresAt }) {
     : restants === 1 ? 'demain'
     : `dans ${restants} jours`;
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre renouvellement automatique est désactivé</p>
+    ${_H1}Votre renouvellement automatique est désactivé</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre abonnement DataTradingPro arrive à échéance <strong style="color:#fff;">${quand}</strong>${fin ? ` (le ${fin})` : ''}. Le renouvellement automatique étant désactivé, il <strong style="color:#fff;">prendra fin à cette date</strong> et ne sera pas reconduit.</p>
     <p style="margin:0 0 10px;">Concrètement, voici ce qui s'arrête à l'échéance :</p>
@@ -2821,8 +2823,8 @@ function buildAutoRenewOff({ name, expiresAt }) {
     </table>
     <p style="margin:0 0 14px;">Vos données ne sont pas supprimées à l'échéance : elles vous attendent si vous revenez. Mais l'accès au terminal, lui, se ferme.</p>
     ${_button('Réactiver le renouvellement automatique', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Sans engagement : le renouvellement se coupe à nouveau quand vous le souhaitez, depuis votre espace Whop.</p>
-    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;"><strong style="color:#cbd5e1;">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> : votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Sans engagement : le renouvellement se coupe à nouveau quand vous le souhaitez, depuis votre espace Whop.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;"><strong style="color:#cbd5e1;">Si cette désactivation est volontaire, vous n'avez rien à faire</strong> : votre accès reste entier jusqu'${fin ? 'au ' + fin : "à l'échéance"}.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À bientôt sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'Votre abonnement DataTradingPro ne sera pas renouvelé', html: _layout('Renouvellement automatique désactivé', body) };
@@ -2867,8 +2869,8 @@ function renderEmailGallery(catalog, status) {
     <span style="width:7px;height:7px;border-radius:50%;background:${on ? '#22c55e' : '#52525b'};"></span>${_esc(label)}</span>`;
   const cards = cat.map(e => {
     const audColor = e.audience === 'Admin' ? '#f3c344' : '#3f9280';
-    return `<section style="background:#141417;border:1px solid #26262b;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
-      <div style="padding:14px 16px;border-bottom:1px solid #26262b;">
+    return `<section style="background:#16171b;border:1px solid #232429;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
+      <div style="padding:14px 16px;border-bottom:1px solid #232429;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
           <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0a0a0c;background:${audColor};padding:2px 8px;border-radius:4px;">${_esc(e.audience)}</span>
           <h2 style="margin:0;font-size:15px;font-weight:700;color:#fff;">${_esc(e.label)}</h2>
@@ -2888,7 +2890,7 @@ function renderEmailGallery(catalog, status) {
   .hd h1{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.02em;}
   .hd h1 .o{color:#f3c344;}
   .hd .sub{color:#8a8a90;font-size:13px;margin-bottom:14px;}
-  .panel{background:#141417;border:1px solid #26262b;border-radius:12px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;}
+  .panel{background:#16171b;border:1px solid #232429;border-radius:12px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;}
   .panel .lbl{font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
   .panel .from{font-size:12.5px;color:#cbd5e1;font-family:monospace;}
   .grid{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:18px;}
@@ -2915,7 +2917,7 @@ function buildReferralCredited({ name, count, untilNext }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const restant = `${untilNext} parrainage${untilNext > 1 ? 's' : ''}`;
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Nouveau filleul confirmé 🎉</p>
+    ${_H1}Nouveau filleul confirmé 🎉</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom}, un nouvel abonné vient de rejoindre <strong style="color:#fff;">DataTradingPro</strong> grâce à votre lien de parrainage. Merci !</p>
     ${_credBox([['Filleuls confirmés', String(count)], ['Avant 1 mois offert', restant]])}
     <p style="margin:0 0 14px;">Plus que <strong style="color:#f3c344;">${restant}</strong> et nous créditons <strong style="color:#fff;">1 mois d'accès offert</strong> sur votre compte.</p>
@@ -2931,7 +2933,7 @@ function buildReferralReward({ name, count, newExpiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '';
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">🎁 1 mois offert débloqué !</p>
+    ${_H1}🎁 1 mois offert débloqué !</p>
     <p style="margin:0 0 14px;">Bravo ${prenom} : vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#f3c344;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
     ${_credBox([['Récompense', "1 mois d'accès offert"], ['Accès prolongé jusqu\'au', end]])}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès au terminal. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
@@ -2946,7 +2948,7 @@ async function sendReferralReward(d) { const m = buildReferralReward(d); return 
 function buildAdminReferralReward({ refEmail, refName, count, newExpiresAt }) {
   const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '';
   const body = `
-    <p style="margin:0 0 12px;color:#ffffff;font-size:17px;font-weight:700;">Mois offert crédité (parrainage)</p>
+    ${_H1}Mois offert crédité (parrainage)</p>
     <p style="margin:0 0 10px;">Un membre a atteint un palier de parrainage. <strong>1 mois d'accès DTP</strong> lui a été crédité automatiquement.</p>
     ${_credBox([['Membre', refName || refEmail], ['Email', refEmail], ['Parrainages', String(count)], ['Accès prolongé au', end]])}
     <p style="margin:0;font-size:13px;color:#9aa3b2;">Pour offrir aussi le mois côté <strong>facturation Whop</strong>, appliquez-le manuellement dans le tableau de bord Whop (le crédit ci-dessus ne touche que l'accès DTP, pas la facturation).</p>`;
@@ -2959,14 +2961,12 @@ function buildReferredWelcome({ name, referrerName }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const par = referrerName ? _esc(referrerName) : 'votre parrain';
   const body = `
-    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue 🤝 : et à vous de jouer</p>
+    ${_H1}Bienvenue 🤝 : et à vous de jouer</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom}, vous avez rejoint <strong style="color:#fff;">DataTradingPro</strong> grâce à ${par}. Vous pouvez maintenant en profiter à votre tour avec notre programme de parrainage.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.10);border:1px solid rgba(227,178,58,0.4);border-radius:12px;margin:18px 0;">
-      <tr><td style="padding:18px 20px;text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:#f3c344;letter-spacing:-.01em;">3 inscrits&nbsp;=&nbsp;1 mois offert</div>
-        <div style="font-size:13px;color:#f3d9b0;margin-top:6px;">Et ça se cumule : chaque palier de 3 filleuls ajoute un mois d'accès.</div>
-      </td></tr>
-    </table>
+    ${_goldBox(`<div style="text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:${TOK.or};letter-spacing:-.01em;">3 inscrits&nbsp;=&nbsp;1 mois offert</div>
+        <div style="font-size:13px;margin-top:6px;">Et ça se cumule : chaque palier de 3 filleuls ajoute un mois d'accès.</div>
+      </div>`)}
     <p style="margin:0 0 14px;">Partagez votre lien personnel : à chaque <strong style="color:#fff;">3ᵉ</strong> abonné venu grâce à vous, nous créditons <strong style="color:#f3c344;">1 mois d'accès offert</strong> sur votre compte. Votre lien se trouve dans <strong style="color:#fff;">Profil&nbsp;▸&nbsp;Parrainages</strong>.</p>
     ${_button('Voir mon lien de parrainage', APP_URL)}
     ${_spamNote()}

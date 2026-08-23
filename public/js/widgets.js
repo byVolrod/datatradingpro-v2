@@ -5520,7 +5520,7 @@
     },
 
     {
-      id: 'frequence-amplitude', name: 'Fréquence d\'amplitude', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
+      id: 'frequence-amplitude', name: 'Probabilité de mouvement', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,   // renommage 23/08 (le nom doit dire ce qu'on voit) — l'ancre du lot initial avait raté l'apostrophe échappée, attrapé par l'agent mails
       desc: 'La part des séances où la paire a parcouru au moins X pips.',
       aide: "<p>Pour un seuil en pips, la part des séances passées qui l'ont atteint : la courbe descend palier par palier, le trait fin marque votre seuil, le trait or le parcours d'aujourd'hui. La ligne du bas donne, parmi les séances arrivées là où on en est, la part qui a fini au-delà du seuil.</p><p>C'est une <strong>fréquence observée</strong>, jamais une probabilité de toucher un objectif : la bougie quotidienne ne dit pas dans quel ordre le haut et le bas ont été touchés. Un objectif que la paire n'atteint qu'une séance sur cinq demande d'être justifié par autre chose que l'habitude.</p>",
       src: "Bougies quotidiennes réelles, relues toutes les 5 minutes ; la journée en cours est exclue de l'échantillon, l'amplitude est brute (aucun coût de transaction) et le pip est une convention de place.",
