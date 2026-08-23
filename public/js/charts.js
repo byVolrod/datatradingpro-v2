@@ -952,13 +952,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // le graphique clair se retrouverait sans aucune reference. Ardoise en clair, blanc en sombre.
   zeroRange.get('grid').setAll({
     visible: true, forceHidden: false,
-    // ⚠️ `strokeDasharray: []` EXPLICITE. Le thème global du fichier pose `strokeDasharray: [2,4]`
-    // sur TOUTE règle « Grid » (voir en tête). Le zéro héritait donc du pointillé, alors que le
-    // commentaire et l'annonce le décrivaient comme un trait plein. Tant que le quadrillage
-    // existait, un pointillé de plus ne se remarquait pas ; c'est maintenant la seule horizontale,
-    // et un trait plein est ce qui la distingue de ce qu'on vient d'enlever.
-    strokeDasharray: [],
-    stroke: am5.color(_deskLight() ? 0x334155 : 0xffffff), strokeWidth: 1, strokeOpacity: 0.45,
+    // POINTILLÉ LÉGER (23/08, demande user : « réduit la lisibilité de la droite horizontale 0,
+    // met en pointillé légèrement ») : le trait plein blanc pesait plus que les courbes qu'il
+    // sert de repère. Tirets 4/4 + opacité descendue : le zéro reste trouvable, il ne barre plus
+    // le graphique. (L'historique du trait plein vs le pointillé [2,4] du thème global reste vrai :
+    // on choisit ICI un pointillé PROPRE, distinct de l'ancien quadrillage.)
+    strokeDasharray: [4, 4],
+    stroke: am5.color(_deskLight() ? 0x334155 : 0xffffff), strokeWidth: 1, strokeOpacity: 0.22,
   });
   zeroRange.get('label').set('visible', false);
 
