@@ -19470,6 +19470,25 @@ html[data-theme="light"] .wdg-verdict .est-neutre { color: #8a6a12; }
   .wdg-maj-txt, .wdg-maj-surf, .wdg-jauge > span { transition: none; }
 }
 
+/* ═══ CALENDRIER MOBILE RESSERRÉ (23/08, demande user : « on dirait qu'il est gros, rends-le
+   épuré, propre, aligné »). Mesuré avant : cartes de 50px, heure 14px, intitulé 14,5px, padding
+   11/12 — des tailles de LECTURE D'ARTICLE, pas de terminal. On redescend à la densité du desk
+   (12/12,5px, padding 8/10) : ~20 % plus compact, mêmes informations, alignements inchangés.
+   Rejoué ICI avec les sélecteurs exacts du bloc carte (même spécificité, ordre source gagnant). */
+@media (max-width: 560px) {
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row { padding: 8px 10px; row-gap: 1px; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-time { font-size: 12px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-curr { font-size: 11.5px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-event { font-size: 12.5px !important; margin: 2px 0 3px; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp,
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp > span,
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-imp .ci-dot-off { font-size: 11px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val { font-size: 11.5px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val::before { font-size: 10.5px; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep > td { font-size: 11.5px !important; }
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag img { width: 13px; height: 13px; }
+}
+
 /* ÉCLAIRAGES IA : JAMAIS de carte coupée (23/08, capture user : badge « NEUTRE » tronqué au bord).
    Les cartes à largeur FIXE laissaient dépasser une fraction de la 3e — badge coupé en plein
    milieu. Elles se dimensionnent désormais pour qu'un nombre ENTIER tienne (3 → 2 → 1 selon la
