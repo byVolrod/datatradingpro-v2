@@ -1550,11 +1550,37 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     (Array.isArray(w.days) ? w.days : []).forEach(d => (Array.isArray(d && d.events) ? d.events : [])
       .forEach(e => { if (e && String(e.impact || '').toUpperCase() === 'HIGH') parJours.push(Object.assign({ _jour: _md(d.day) }, e)); }));
     if (parJours.length) return parJours;
+    /* ⚠️ `calendar.past` n'est PAS une liste d'événements mais une liste de GROUPES DE JOURS
+       {dayLabel, events} (server _buildRecapCalendar). Filtrer les groupes sur `impact` ne
+       matchait donc JAMAIS : le repli rendait toujours [] et la rubrique disparaissait en
+       silence. On aplatit en événements avant de filtrer, en portant le jour du groupe. */
     const cal = (w.calendar && Array.isArray(w.calendar.past)) ? w.calendar.past : [];
-    return cal.filter(e => e && /high|fort/i.test(String(e.impact || e.importance || '')));
+    const plats = [];
+    cal.forEach(g => {
+      if (g && Array.isArray(g.events)) g.events.forEach(e => { if (e) plats.push(Object.assign({ _jour: _md(g.dayLabel) }, e)); });
+      else if (g) plats.push(g);
+    });
+    return plats.filter(e => /high|fort/i.test(String(e.impact || e.importance || '')));
   })();
-  S('Temps forts de la semaine écoulée', _fortsBruts.length
-    ? _fortsBruts.slice(0, 9).map(e => {
+  /* CLASSEMENT PAR IMPORTANCE AVANT LA COUPE À NEUF — table de rang du desk (_gewKeyRank,
+     app.js 9248). Le mail gardait les neuf PREMIÈRES dans l'ordre reçu, chronologique : dès
+     qu'une semaine porte plus de neuf publications à fort impact, il jetait la décision BoC, le
+     CPI ou le PPI de fin de semaine au profit des sondages de confiance du lundi. Le desk classe
+     PUIS coupe. À importance égale, l'ordre chronologique reçu est conservé. */
+  const _rangFort = t => {
+    const s = String(t || '').toLowerCase();
+    if (/rate decision|interest rate|rate statement|monetary policy report|\bfomc\b|cash rate|\bocr\b|bank rate|official rate|refi|deposit rate/.test(s)) return 6;
+    if (/\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/.test(s)) return 5;
+    if (/\bgdp\b|gross domestic|growth rate/.test(s)) return 4;
+    if (/payroll|non[-\s]?farm|\bnfp\b|unemployment|jobless|employment change|\bjobs\b|earnings|wage/.test(s)) return 3;
+    if (/retail sales|\bpmi\b|\bism\b|industrial production|trade balance|balance of trade|durable goods|imports|exports/.test(s)) return 2;
+    return 1;
+  };
+  const _forts = _fortsBruts.map((e, i) => ({ e, i }))
+    .sort((a, b) => (_rangFort(b.e.title) - _rangFort(a.e.title)) || (a.i - b.i))
+    .map(x => x.e);
+  S('Temps forts de la semaine écoulée', _forts.length
+    ? _forts.slice(0, 9).map(e => {
       const qui = _md(e.ccy) || _md(e.country), jour = _md(e._jour) || _md(e.date);
       const chiffres = [e.actual ? `Réel <strong style="color:${TOK.blanc};">${_esc(_md(e.actual))}</strong>` : '',
         e.forecast ? `Consensus <strong style="color:#e3e3e6;">${_esc(_md(e.forecast))}</strong>` : '',
@@ -1582,8 +1608,13 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     + (periode ? `<p style="margin:-8px 0 10px;color:${TOK.grisDoux};font-size:12px;">${_esc(periode)}</p>` : '')
     + (titreRap ? `<p style="margin:0 0 14px;color:#e6e6ea;font-size:14.5px;font-weight:600;line-height:1.5;">${_esc(titreRap)}</p>` : '');
 
-  // Le lead, en paragraphes, SANS troncature (seul texte déjà non tronqué du mail : il le reste).
-  P.push(_paraHtml(lead, '#e6e6ea', '14px'));
+  /* ⚠️ DÉFAUT MESURÉ (24/08) : le lead était empilé dans `P` comme une CHAÎNE BRUTE, alors que
+     l'assemblage final ne sait lire que des objets {t, h} (voir _ORDRE_DESK plus bas). Une chaîne
+     n'a pas de `.t` : elle échappait à l'ordre du desk, puis le repli de fin lisait `x.h` sur une
+     chaîne — `undefined`, que join('') efface. L'INTRODUCTION DU RAPPORT — le lead v42 bâti sur
+     les récaps quotidiens de la semaine, la première chose que le desk montre — ne partait donc
+     JAMAIS dans le mail, sans la moindre erreur. Elle entre désormais comme les autres sections. */
+  if (lead) P.push({ t: 'Ouverture', h: _paraHtml(lead, '#e6e6ea', '14px') });
 
   // ── ÉCLAIRAGES : les idées du desk sur la semaine, TOUTES (le mail n'en montrait que 3, et
   //    les coupait à 230 caractères APRÈS échappement, ce qui pouvait trancher une entité HTML
@@ -1632,7 +1663,11 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // La SEULE condition est de ressembler à un code devise (3 lettres majuscules) : une clé
   // technique glissée dans l'objet (`_meta`) ne doit pas devenir un bloc devise fantôme.
   const _ORDRE = ['USD', 'EUR', 'JPY', 'GBP', 'CHF', 'AUD', 'CAD', 'NZD'];
-  const _estDevise = c => /^[A-Z]{3}$/.test(String(c)) && curSrc[c] && typeof curSrc[c] === 'object' && !Array.isArray(curSrc[c]);
+  // RÉTRO-COMPAT DU DESK (app.js 9409) : une devise stockée en TEXTE BRUT garde son bloc, son
+  // texte servant d'analyse. Le mail l'écartait — la devise disparaissait ENTIÈREMENT du mail
+  // quand le desk l'affiche. Mord sur les rapports archivés et sur le cache durable.
+  const _estDevise = c => /^[A-Z]{3}$/.test(String(c)) && curSrc[c]
+    && (typeof curSrc[c] === 'string' ? !!String(curSrc[c]).trim() : (typeof curSrc[c] === 'object' && !Array.isArray(curSrc[c])));
   const codes = _ORDRE.filter(_estDevise)
     .concat(Object.keys(curSrc).filter(c => _ORDRE.indexOf(c) < 0 && _estDevise(c)));
   // SÉMANTIQUE de la charte : hawkish = resserrement = vert · dovish = assouplissement = rouge.
@@ -1705,13 +1740,20 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
      d'erreur, elle rend une chaîne vide et la section disparaît en silence. On accepte les trois
      noms rencontrés selon les générations de rapports, et on retombe sur le pavé `highlights`
      quand la synthèse structurée manque, exactement comme le desk. */
-  const _syntheseSrc = [w.synthese, w.macroThemes, w.macro].find(x => Array.isArray(x) && x.length) || [];
+  /* LE TITRE SUIT LA SOURCE. `synthese` (GEW) et `macro` (Weekly Market Recap) ne coexistent
+     jamais : le mail titrait « Synthèse de la semaine » dans les DEUX cas, donc il publiait les
+     « Points Macro Clés » du Récap sous un intitulé emprunté à l'autre rapport. Le desk nomme
+     chaque chose par son nom ; on fait pareil. */
+  const _syntheseCands = [w.synthese, w.macroThemes, w.macro];
+  const _syntheseIdx = _syntheseCands.findIndex(x => Array.isArray(x) && x.length);
+  const _syntheseSrc = _syntheseIdx >= 0 ? _syntheseCands[_syntheseIdx] : [];
+  const _titreSynthese = _syntheseIdx === 2 ? 'Points macro clés' : 'Synthèse de la semaine';
   const macroHtml = _syntheseSrc
     .map(m => ({ h: _md(m && m.heading), b: (Array.isArray(m && m.bullets) ? m.bullets : []).map(_md).filter(Boolean), d: _md(m && m.detail) }))
     .filter(x => x.h && (x.b.length || x.d))
     .filter(x => !(gt.length && /g[ée]opolit/i.test(x.h)))
     .map(x => _ssTitre(x.h) + x.b.map(b => _puceOr(_esc(b))).join('') + (x.d ? _paraHtml(x.d) : '')).join('');
-  S('Synthèse de la semaine', macroHtml || _paraHtml(_md(w.highlights)));
+  S(_titreSynthese, macroHtml || _paraHtml(_md(w.highlights)));
 
   // ── LE CALENDRIER DE LA SEMAINE : PUBLIÉ, PUIS À VENIR ───────────────────────────────────
   // TOUT ce que le rapport porte, sans sélection ni plafond. Ce qui a été retiré ici, et
@@ -1731,7 +1773,19 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // classement par grande famille et la grille de priorité ont donc disparu avec le plafond :
   // ils n'existaient que pour choisir QUI aurait les 12 places.
   const _cal = (w.calendar && typeof w.calendar === 'object' && !Array.isArray(w.calendar)) ? w.calendar : {};
-  S('Calendrier économique', _tabCalSemaine(_cal.past));
+  /* DOUBLE SOURCE, comme « Temps forts ». `calendar` n'existe QUE sur le Weekly Market Recap ;
+     un GEW porte son calendrier dans `days[]` — et le GEW PEUT alimenter ce mail (le Récap est
+     évincé de allNews en moins d'une journée alors que le GEW est horodaté samedi 16 h : dans
+     cette fenêtre _freshWeekly renvoie le GEW). Sans ce repli la rubrique disparaissait en
+     silence sur un GEW, quand le desk y affiche le calendrier complet jour par jour. Les formes
+     diffèrent — {day, date, events[{currency}]} côté GEW, {dayLabel, events[{ccy}]} attendu par
+     la table — on convertit. */
+  const _calPast = (Array.isArray(_cal.past) && _cal.past.length) ? _cal.past
+    : (Array.isArray(w.days) ? w.days : []).map(d => ({
+      dayLabel: [_md(d && d.day), _md(d && d.date)].filter(Boolean).join(' '),
+      events: (Array.isArray(d && d.events) ? d.events : []).map(e => Object.assign({}, e, { ccy: (e && (e.ccy || e.currency)) || '' })),
+    })).filter(g => g.events.length);
+  S('Calendrier économique', _tabCalSemaine(_calPast));
   // `upcoming` (le calendrier de la semaine qui vient) est produit et stocké AVEC le rapport
   // (server 20569) et n'était lu NULLE PART : le mail livrait le pendant passé et gardait
   // celui-ci pour lui. Même grammaire de table, sans colonne « réel » remplie : ce sont des
@@ -1759,7 +1813,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // La géopolitique est exclue des moteurs : le fil géo est déjà raconté plus haut.
   const _geoDrv = /^(?:(?:risques?|tensions?)\s+g[ée]opolit|g[ée]opolit|conflit|sanctions?|guerre(?!\s+commercial))/i;
   const curHtml = codes.map(c => {
-    const cd = curSrc[c] || {};
+    const cd = (curSrc[c] && typeof curSrc[c] === 'object' && !Array.isArray(curSrc[c])) ? curSrc[c] : { analysis: _md(curSrc[c]) || '' };
     // v44 : `rubriquesVides` déclare ce qui n'a rien donné. Quand le champ existe, les QUATRE
     // rubriques restent affichées, une devise sans publication recevant la phrase sobre du
     // desk : le lecteur ne doit jamais confondre « rien n'est sorti » et « on n'a pas regardé ».
@@ -1829,9 +1883,15 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       ? `<div style="color:${TOK.grisPied};font-size:12.5px;margin:8px 0 3px;">Aucune publication cette semaine&nbsp;: ${_esc(vides.map(r => r.titre.toLowerCase()).join(', '))}.</div>`
       : rubs.map(r => r.html ? _ssTitre(r.titre) + r.html : (r.vide ? _ssTitre(r.titre) + vide : '')).join('');
     // Moteurs : TOUS les thèmes du rapport, en lignes intitulées (le mail n'en gardait que 3).
+    /* RÉTRO-COMPAT + `why` FACULTATIF, comme le desk (app.js 9512-9517). Le mail exigeait name
+       ET why, et ne connaissait que le format {name, why} : il jetait donc en silence (a) tous
+       les moteurs des rapports antérieurs à la v34, au format {heading, bullets}, et (b) tout
+       moteur au libellé renseigné mais sans « pourquoi » — que le serveur produit et que le desk
+       affiche. Dans les deux cas la rubrique Moteurs disparaissait sans un mot. */
     const drv = (Array.isArray(cd.drivers) ? cd.drivers : [])
-      .filter(d => d && _md(d.name) && _md(d.why) && !_geoDrv.test(String(d.name)))
-      .map(d => _ligne(_md(d.name), _esc(_md(d.why)))).join('');
+      .map(d => d && { n: _md(d.name) || _md(d.heading), w: _md(d.why) || (Array.isArray(d.bullets) ? d.bullets.map(_md).filter(Boolean).join(' ') : '') || _md(d.detail) })
+      .filter(d => d && d.n && !_geoDrv.test(String(d.n)))
+      .map(d => _ligne(d.n, _esc(d.w))).join('');
     // Deux lignes de clôture, comme dans le rapport.
     const wa = (Array.isArray(cd.weekAhead) ? cd.weekAhead : []).map(_md).filter(Boolean);
     const sav = (wa.length || _md(cd.conclusion))
@@ -1859,8 +1919,15 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
      empilées dans l'ordre où le code les calculait, qui n'était pas celui du rapport.
      Toute section non prévue par cette liste reste rendue, à la fin : mieux vaut un ordre
      imparfait qu'une rubrique qui disparaîtrait en silence. */
-  const _ORDRE_DESK = ["L'essentiel", 'Temps forts de la semaine écoulée', 'Synthèse de la semaine',
-    'Banques centrales', 'Calendrier économique', 'À surveiller', 'Géopolitique', '_image', 'La semaine devise par devise'];
+  /* MISE À PLAT 24/08 (2e passe) : l'ordre précédent fusionnait les DEUX branches du desk, qui
+     s'excluent (isGew). Sur le Weekly Market Recap — le rapport réellement envoyé — le desk ouvre
+     sur l'intro puis enchaîne GÉOPOLITIQUE (récit + Chronologie rapide) et LA SEMAINE DEVISE PAR
+     DEVISE ; « L'essentiel » et « Temps forts » n'existent que sur le GEW. La Géopolitique se
+     retrouvait donc en 7e position, enterrée derrière quatre rubriques, alors qu'elle OUVRE le
+     rapport — et d'autant plus bas que Gmail replie la fin d'un mail long.
+     Cet ordre unique sert correctement les deux rapports : chaque rubrique absente est sautée. */
+  const _ORDRE_DESK = ['Ouverture', "L'essentiel", 'Temps forts de la semaine écoulée', 'Géopolitique',
+    _titreSynthese, 'Banques centrales', 'Calendrier économique', 'À surveiller', '_image', 'La semaine devise par devise'];
   const _vus = new Set();
   const corpsRapport = _ORDRE_DESK.map(t => { const e = P.find(x => x && x.t === t); if (!e) return ''; _vus.add(t); return e.h; }).join('')
     + P.filter(x => x && !_vus.has(x.t)).map(x => x.h).join('');
