@@ -16662,8 +16662,14 @@ html[data-theme="light"] .news-tags .tag:not([class*="tag--"]){
 /* ═══ Panneau ALERTES — lisibilité (10/08) : corps plus grands, contrastes relevés, respiration ═══ */
 .np-item { padding: 13px 16px; gap: 11px; }
 .np-item-headline { font-size: 12.5px; line-height: 1.45; color: #f2f4f7; margin-bottom: 4px; }
-.np-item-desc { font-size: 11px; color: #8a93a0; line-height: 1.5; margin-bottom: 6px; }
-.np-item-time { font-size: 10.5px; color: #5c6470; }
+/* ⚠️ CE BLOC EST CELUI QUI S'APPLIQUE. Trois blocs visent ces deux classes (ici, 15124 et 9152) :
+   seul le DERNIER gagne. Corriger le premier ne change rien à l'écran — vérifié au banc de rendu
+   le 25/08 avant de trouver celui-ci. Toute retouche de lisibilité se fait ICI.
+   LISIBILITÉ (25/08, demande user), mesurée sur le fond du volet (#0f0f0f) : l'heure ressortait à
+   3,23:1 quand le seuil d'un petit texte est 4,5:1 — elle se devinait plus qu'elle ne se lisait.
+   La description, à 6,2:1, passait déjà ; elle gagne un cran pour rester au-dessus de l'heure. */
+.np-item-desc { font-size: 11px; color: #9aa3b0; line-height: 1.5; margin-bottom: 6px; }   /* 7,6:1 */
+.np-item-time { font-size: 11px; color: #8b93a0; letter-spacing: .01em; }                  /* 6,2:1 */
 .np-origin { font-size: 9.5px; }
 
 /* Barre d'onglets ALERTES : les SIX onglets (DTP compris) visibles d'un coup à l'ouverture —
