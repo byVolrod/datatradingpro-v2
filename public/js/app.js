@@ -3188,12 +3188,24 @@ function buildNewsItem(item) {
          openPanel ; rouvrir le panneau relit la même fermeture, donc le MÊME texte anglais. La
          bascule en français n'arrivait qu'au rendu suivant du fil, c'est-à-dire à l'arrivée d'une
          news, PANNEAU POTENTIELLEMENT ROUVERT : le défaut était repoussé d'un cycle, pas supprimé.
-         On redemande donc un rendu du fil TOUT DE SUITE, pendant que ce panneau est fermé : l'item
-         est rebâti sur sa version française alors que personne ne le lit. C'est rare (il faut
-         qu'une pré-traduction soit arrivée pile pendant une lecture), donc le coût est nul. */
+         On REBÂTIT donc CE nœud-ci tout de suite, pendant que son panneau est fermé : l'item repart
+         sur sa version française alors que personne ne le lit. C'est rare (il faut qu'une
+         pré-traduction arrive pile pendant une lecture), donc le coût est nul.
+         ⚠️ UN NŒUD, PAS TOUT LE FIL. Deux raisons mesurées : un `renderNews()` global toucherait
+         aussi les autres panneaux ouverts, et surtout le fil est rendu EN DEUX EXEMPLAIRES (le
+         panneau classique et le widget « Fil d'actualité », qui a son propre rendu protégé par une
+         signature d'identifiants : rien ne changeant d'id, il ne se serait pas rafraîchi). Remplacer
+         le nœud sur lequel le lecteur vient de cliquer marche dans les deux cas. */
       if (item && item._descFrEnAttente) {
         item._descFr = item._descFrEnAttente; delete item._descFrEnAttente;
-        requestAnimationFrame(() => renderNews());
+        const _vieux = expandEl.closest ? expandEl.closest('.news-item') : null;
+        requestAnimationFrame(() => {
+          try {
+            if (_vieux && _vieux.isConnected && typeof window.buildNewsItem === 'function') {
+              _vieux.replaceWith(window.buildNewsItem(item));
+            }
+          } catch (e) {}
+        });
       }
       [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl, marcheTagEl].forEach(t => t && t.classList.remove('tag--active'));
       if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
