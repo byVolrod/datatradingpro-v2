@@ -44,6 +44,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 3   # les installeurs sont publies sur le VPS : l artefact ne sert qu au transfert
           name: installer-${{ matrix.os }}
           path: |
             desktop/dist/*.exe
