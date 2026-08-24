@@ -1404,8 +1404,16 @@ async function sendAnnouncementDesktop(d) {
 
 // Cellule de table : le style est identique partout, il vit à UN endroit.
 const _TDC = `padding:6px;border-top:1px solid ${TOK.filet2};`;
-// Séparateur de jour (pleine largeur, or, capitales) : la ligne-titre du calendrier du desk.
-const _trJour = (j, cols) => `<tr><td colspan="${cols}" style="padding:9px 6px 4px;color:${TOK.or};font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-top:1px solid ${TOK.filet};">${_esc(j)}</td></tr>`;
+/* Séparateur de jour = LE BANDEAU DU DESK, au pixel (25/08). Il s'écrivait en or, tout en
+   capitales, sur fond transparent : même date, autre casse et autre couleur que `.cal-day-sep`
+   (style.css 7495), qui est une BANDE SOMBRE OPAQUE #1b1d23 à texte clair #f1f5f9, filets noirs
+   au-dessus et en dessous. Le collant (`position:sticky`) est le seul attribut qu'un courrier ne
+   peut pas rendre : l'apparence au repos, elle, se reproduit intégralement.
+   La CASSE se fait en JS et non en CSS : le desk écrit « Mardi 25 août » puis laisse
+   `text-transform:capitalize` afficher « Mardi 25 Août ». Le moteur Word d'Outlook ne rend pas
+   capitalize : on capitalise donc la chaîne elle-même pour obtenir le MÊME texte partout. */
+const _capMots = s => String(s == null ? '' : s).replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toLocaleUpperCase('fr-FR'));
+const _trJour = (j, cols) => `<tr><td colspan="${cols}" bgcolor="#1b1d23" style="background:#1b1d23;color:#f1f5f9;font-size:11px;font-weight:700;letter-spacing:.03em;padding:6px 14px 5px;border-top:1px solid #050505;border-bottom:1px solid #050505;">${_esc(_capMots(j))}</td></tr>`;
 // PREMIÈRE CELLULE d'une ligne de calendrier : heure au-dessus, drapeau + code devise dessous.
 // Deux colonnes fusionnées en une (grammaire de `_tabPublications`) : sur 390 px, quatre
 // colonnes nowrap volaient la largeur au libellé de l'événement, qui est l'information.
@@ -1425,11 +1433,41 @@ const _tdVals = (reelHtml, refs) => `<td align="right" style="${_TDC}color:${TOK
 //   · sans consensus → blanc, on ne déduit jamais un signal du précédent.
 // Le mail rendait les deux derniers cas de la MÊME couleur : le miroir était incomplet d'un état.
 const _INV_RX = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts|foreclosure|bankruptc|delinquen/i;
-function _actCol(a, f, title) {
-  const x = parseFloat(String(_num(a)).replace(',', '.')), y = parseFloat(String(_num(f)).replace(',', '.'));
-  if (isNaN(x) || isNaN(y)) return '#e6e6ea';
-  if (x === y) return TOK.ambre;
-  return (_INV_RX.test(String(title || '')) ? x < y : x > y) ? TOK.vert : TOK.rouge;
+/* LES TROIS COULEURS SONT CELLES DU DESK, pas celles de la charte « risque » (25/08).
+   Le mail peignait ses écarts en TOK.vert #22c55e / TOK.rouge #ef4444, qui sont les couleurs
+   risk-on / risk-off des mails, et le CONFORME AU CONSENSUS en ambre. Or les colonnes de chiffres
+   du desk lisent `.cv-pos` / `.cv-neg` / `.cv-neu`, c'est-à-dire les jetons `--st-pos` #22e06a,
+   `--st-neg` #ff3b3b et `--st-flat` #e8eaed (style.css 125-127) : deux verts et deux rouges
+   différents pour la MÊME donnée selon l'écran, et surtout une QUATRIÈME couleur là où
+   l'arbitrage user du 12/08 en impose trois (« blanc = neutre, vert positif, rouge négatif,
+   juste ces 3 ») : `.cv-neu` a été repassé au blanc côté desk, le commentaire du mail affirmait
+   un miroir que la feuille de style démentait depuis. Un chiffre sorti pile au consensus est
+   donc BLANC ici aussi. */
+const _CV = { pos: '#22e06a', neg: '#ff3b3b', flat: '#e8eaed' };
+/* Miroir strict de `deviationClass` (public/js/charts.js) : chaîne VIDE quand la donnée n'est pas
+   comparable, exactement comme la classe vide du desk. Les deux surfaces qui l'emploient n'en
+   font pas la même chose, et c'est le desk qui le veut ainsi : dans « Données publiées » un réel
+   sans prévision reste dans l'encre de la ligne (#c8ccd4), dans le calendrier il passe par
+   `.cv-actual` et vaut donc le blanc `--st-flat`. */
+function _cvCol(a, f, title) {
+  const sa = _num(a), sf = _num(f);
+  if (!sa || !sf) return '';
+  const x = parseFloat(String(sa).replace(',', '.')), y = parseFloat(String(sf).replace(',', '.'));
+  if (isNaN(x) || isNaN(y)) return '';
+  if (x === y) return _CV.flat;
+  return (_INV_RX.test(String(title || '')) ? x < y : x > y) ? _CV.pos : _CV.neg;
+}
+function _actCol(a, f, title) { return _cvCol(a, f, title) || _CV.flat; }
+/* PRÉ-MÉLANGE d'une couleur avec son fond. Le desk pose beaucoup d'accents en `rgba()` (le liseré
+   or des cartes à .6, le fond de la Synthèse à .06, les points d'impact inactifs à `opacity:.2`).
+   Le moteur Word d'Outlook ne connaît ni `rgba` ni `opacity` : une bordure rgba y tombe en noir et
+   un point estompé y redevient plein. On calcule donc le résultat À PLAT, ce qui donne au pixel la
+   même couleur que le navigateur affiche, partout, sans propriété exotique. */
+function _melange(hex, a, fond) {
+  const trio = s => [1, 3, 5].map(i => parseInt(String(s).substr(i, 2), 16));
+  const [r, g, b] = trio(hex), [R, G, B] = trio(fond);
+  const m = (x, y) => Math.round(x * a + y * (1 - a)).toString(16).padStart(2, '0');
+  return '#' + m(r, R) + m(g, G) + m(b, B);
 }
 
 // Table de calendrier d'une SEMAINE (rubriques « Chiffres publiés » et « À surveiller » du
@@ -1774,8 +1812,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // son intro, à sa géopolitique ou à son seul calendrier : six entrées minimales testées, la
   // phrase tombait à chaque fois). On ne promet que ce qui est réellement dans le corps.
   const cloture = curHtml
-    ? "Vous venez de lire le Récap Hebdo du desk dans son intégralité, devise par devise. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Radar de Biais, mis à jour en direct."
-    : "Vous venez de lire le Récap Hebdo du desk, tel qu'il a été publié. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Radar de Biais, mis à jour en direct.";
+    ? "Vous venez de lire le Récap Hebdo du desk dans son intégralité, devise par devise. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct."
+    : "Vous venez de lire le Récap Hebdo du desk, tel qu'il a été publié. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct.";
 
   // BOUTON EN TÊTE, pas en pied. Ce mail porte un rapport entier : sur une semaine chargée
   // (huit devises, calendrier complet, image du widget), il dépasse le seuil à partir duquel
@@ -1982,18 +2020,161 @@ function _bankNotesBlock(notes) {
 //  et jusqu'ici lu NULLE PART : tout ce que `sections` n'avait pas recopié était perdu
 //  avant même d'arriver au mail.
 //  ORDRE DU DESK (public/js/app.js, _renderFXDailyRecap), repris tel quel :
-//    Éclairages · Synthèse · Géopolitique (+ points clés) · Banques centrales · Macro ·
-//    Les séances (+ données publiées) · Par pays · À surveiller.
-//  INTITULÉS EN DEUX MOTS (doctrine 24/08 : « simple, évident, intuitif ») : « Analyse par
-//  session » est devenu « Les séances », « Données du jour » « Par pays », « Biais du desk »
-//  « Biais ». Le contenu n'a pas bougé d'une ligne, seul l'intitulé se lit d'un coup d'œil.
+//    Synthèse · Géopolitique (+ points clés à retenir) · Banques centrales · Macro ·
+//    Données du jour (rétro-compat) · Analyse par session (+ données publiées) · À surveiller.
+//  ⚠️ LES INTITULÉS SONT CEUX DU DESK, MOT POUR MOT (25/08, demande user « il faut que ce soit
+//  tout pareil »). Ils avaient été raccourcis le 24/08 au nom d'une doctrine « deux mots » :
+//  « Analyse par session » écrit « Les séances », « Données du jour » « Par pays », « Points
+//  clés à retenir » « Points clés ». Le lecteur voyait donc, dans un mail qui annonce le récap
+//  du desk, des rubriques qui ne portent pas le nom qu'elles portent sur le desk. La demande
+//  d'identité l'emporte : les intitulés d'origine sont rétablis.
 //  ⚠️ `watch` et `corporate` valent [] EN DUR depuis le 24/08 (server.js 11315 / 11334) :
 //     ne JAMAIS les rendre. `comments` et `notableCommentsHtml` ne sont plus rendus par le
 //     desk depuis le 11/08 : le mail est le miroir du desk, il ne les rend pas non plus.
 // ══════════════════════════════════════════════════════════════════════════════
 
+/* ══ BRIQUES DU RÉCAP QUOTIDIEN, CALQUÉES SUR LE DESK (25/08, demande user « il faut que ce soit
+   tout pareil ») ══
+   Chaque fonction ci-dessous est le miroir d'une classe de `public/css/style.css`, valeur par
+   valeur. Elles ne servent QUE le Récap Quotidien : les briques génériques des mails
+   (`_ssTitre`, `_puceOr`, `_secTitle`) restent en place pour les autres gabarits, qui ne
+   copient pas le desk et n'ont aucune raison de bouger. */
+
+// Miroir de `_ccyWho` (app.js 8964) : on nomme la DEVISE, jamais le pays, sauf pour l'euro
+// quand un pays PRÉCIS a publié (« EUR · Allemagne » dit lequel des dix-neuf, « EUR » seul non).
+function _ccyWhoMail(ccy, pays) {
+  const c = String(ccy == null ? '' : ccy).trim().toUpperCase();
+  const p = _md(pays);
+  if (!c) return p;
+  if (c === 'EUR' && p && !/^zone\s*euro$/i.test(p)) return 'EUR · ' + p;
+  return c;
+}
+// Miroir de `_wrInline` (app.js 8973) : le **gras** du rapport devient un vrai <strong> BLANC
+// semi-gras (`.wr-bullet strong`, style.css 5486), les entités pré-échappées sont décodées
+// (« S&amp;P » redevient « S&P ») et toute astérisque résiduelle disparaît. `_md`, lui, rasait
+// les astérisques SANS les convertir : la mise en valeur voulue par le rapport était perdue en
+// silence, la puce sortait tout en gris.
+function _wrInlineMail(t) {
+  let s = (typeof t === 'string' ? t : '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ');
+  s = s.replace(/^\s*\*\*\s*sous-th[eè]me\s*:?\s*\*\*\s*:?\s*/i, '').replace(/^\s*sous-th[eè]me\s*:\s*/i, '');
+  return _esc(s).replace(/\*\*(.+?)\*\*/g, '<strong style="color:#ffffff;font-weight:600;">$1</strong>').replace(/\*+/g, '');
+}
+/* Paragraphes du rapport, calés sur `.wr-p` : la DERNIÈRE marge est remise à zéro comme le fait
+   `.fxdr-exec .wr-p:last-child` (style.css 6118). Sans cela l'encadré or de la Synthèse se
+   refermait douze pixels sous son texte, alors que sur le desk il se ferme au ras. */
+function _parasDesk(txt, col, size, mb) {
+  const bl = _paraBlocs(txt);
+  return bl.map((p, i) => `<p style="margin:0 0 ${i === bl.length - 1 ? '0' : (mb || '9px')};font-size:${size || '13px'};line-height:1.7;color:${col || '#e3e3e6'};">${_wrInlineMail(p)}</p>`).join('');
+}
+/* Puces de lecture = `.wr-bullet` (style.css 5484) : point or à x=0, texte à x=14, 13 px, encre
+   #c9d1d9, interligne 1.7, 10 px sous chaque puce. Rendu en TABLE à deux cellules et non en
+   `text-indent` négatif : le desk pose son point en `::before` ABSOLU, donc le texte commence
+   toujours au même x quelle que soit la largeur du glyphe. Une cellule de 14 px donne exactement
+   la même colonne, et elle tient dans Outlook, qui rend mal les retraits négatifs.
+   `gras` = la variante « Points clés à retenir », dont les puces sont semi-grasses
+   (`.fxdr-keypts .wr-bullet`, style.css 18677). */
+function _pucesDesk(items, gras) {
+  const l = (Array.isArray(items) ? items : []).filter(Boolean);
+  if (!l.length) return '';
+  const tds = 'padding:0 0 10px;font-size:13px;line-height:1.7;';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 4px;">`
+    + l.map(h => `<tr><td width="14" valign="top" style="width:14px;${tds}color:${TOK.or};">&bull;</td>`
+      + `<td valign="top" style="${tds}color:#c9d1d9;${gras ? 'font-weight:600;' : ''}">${h}</td></tr>`).join('')
+    + `</table>`;
+}
+/* Sous-titre INTERNE = `.fxdr-grp-title` (style.css 6148) : 10 px, capitales, gris #7d7d86,
+   interlettrage .06em. C'est le SEUL second niveau du rapport : il coiffe « Points clés à
+   retenir », « Données publiées » et les familles d'indicateurs. Le générique `_ssTitre` des
+   mails (11 px, presque blanc) en faisait un titre plus fort que sur le desk.
+   `filet` = la variante « Points clés à retenir » (`.fxdr-keypts-t`, style.css 18676) : filet fin
+   au-dessus et marge haute réduite à 8 px. Le filet du desk est un blanc à 5,5 % : mélangé au
+   fond, il devient une valeur pleine que tous les clients rendent. */
+function _grpTitre(t, filet) {
+  const bord = filet ? `margin:8px 0 7px;padding-top:7px;border-top:1px solid ${_melange('#ffffff', .055, TOK.panneau)};` : 'margin:13px 0 7px;';
+  return `<div style="${bord}color:#7d7d86;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${_esc(t)}</div>`;
+}
+/* Carte de séance / de pays = `.fxdr-card` (style.css 6134) : bordure fine, liseré or à gauche,
+   coins 4 px, 14/16 px de marge intérieure.
+   ⚠️ LE FOND, ET POURQUOI IL N'EST PAS COPIÉ TEL QUEL. Le desk peint sa carte en `--bg2` #16171b
+   POSÉE SUR la page `--bg` #0d0e11 : c'est l'écart entre les deux qui détache la carte. Or le
+   panneau du mail vaut DÉJÀ #16171b (TOK.panneau) : recopier la valeur donnerait un fond
+   strictement identique au sien, donc une carte sans relief, l'inverse de ce que le desk montre.
+   La carte prend donc le cran suivant de la MÊME échelle, l'encart du mail #101014, et retrouve
+   exactement le détachement d'origine. */
+const _carteDesk = inner => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;background:${TOK.encart};border:1px solid #1f1f24;border-left:3px solid ${_melange(TOK.or, .6, TOK.panneau)};border-radius:4px;">
+  <tr><td style="padding:14px 16px;">${inner}</td></tr></table>`;
+/* Empilement des cartes. `.fxdr-grid` est une grille CSS (deux colonnes sur un écran large,
+   gouttière de 12 px) : ni `grid` ni `flex` n'existent en courrier. L'empilement vertical est
+   l'équivalent EXACT du desk sous 720 px, gouttière comprise, posée ici en rangée d'espacement. */
+const _grilleDesk = cartes => cartes.filter(Boolean).map((c, i) =>
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">`
+  + (i ? `<tr><td height="12" style="height:12px;line-height:12px;font-size:0;">&nbsp;</td></tr>` : '')
+  + `<tr><td>${c}</td></tr></table>`).join('');
+/* En-tête de carte = `.fxdr-region-head` : nom de séance (14 px, 700, #f3f3f5) puis, s'il existe,
+   UNE pastille portant toute la chaîne de codes (« JPY · AUD · NZD · CNY »), pas une par devise.
+   Rendu en table à trois cellules : la troisième, élastique, pousse le couple à gauche comme le
+   fait `justify-content` par défaut d'un flex. */
+function _teteCarte(nom, code) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 8px;"><tr>`
+    + `<td valign="middle" style="font-size:14px;font-weight:700;color:#f3f3f5;line-height:1.3;">${_esc(nom)}</td>`
+    + (code ? `<td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>`
+      + `<td valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr>`
+      + `<td bgcolor="#1a1a1f" style="background:#1a1a1f;border:1px solid ${TOK.filet};border-radius:4px;padding:1.5px 6px;font-size:10px;color:#a2a2aa;white-space:nowrap;line-height:1.4;">${_esc(code)}</td>`
+      + `</tr></table></td>` : '')
+    + `</tr></table>`;
+}
+/* « Données publiées » = les LIGNES `.fxdr-data` du desk (app.js 10021), et non un tableau.
+   Le mail en faisait une table à quatre colonnes COIFFÉE D'UN EN-TÊTE que le desk n'affiche
+   jamais, tandis que « À surveiller », qui en a un sur le desk, n'en avait pas : le rapport
+   était exactement inversé. Chaque donnée redevient donc une ligne de lecture continue :
+   badge d'heure or, devise et libellé en gras, deux points, le réel coloré, puis « attendu » et
+   « préc. » ÉCRITS EN TOUTES LETTRES (le mail abrégeait en « att. »), puis la lecture derrière
+   sa flèche. Ce que le courrier ne peut pas porter, et qui n'est pas de l'information : le clic
+   qui déroule le Décryptage, son chevron et l'état de survol. */
+function _lignesDonnees(rows) {
+  const l = (Array.isArray(rows) ? rows : []).filter(r => r && r.label);
+  if (!l.length) return '';
+  const badge = `display:inline-block;min-width:38px;font-size:10.5px;font-weight:700;color:${TOK.or};background:${_melange(TOK.or, .12, TOK.encart)};border:1px solid ${_melange(TOK.or, .28, TOK.encart)};border-radius:3px;padding:0 4px;margin-right:4px;letter-spacing:.02em;text-align:center;`;
+  return l.map(d => {
+    const titre = _md(d.label || d.title);
+    const cls = _cvCol(d.actual, d.forecast, titre);
+    const heure = _num(d.t), reel = _num(d.actual), att = _num(d.forecast), pre = _num(d.previous);
+    const qui = _ccyWhoMail(d.ccy, d.country);
+    // Miroir du desk jusque dans les manques : un réel absent laisse un gras VIDE (aucun tiret de
+    // remplacement à cet endroit), et un « attendu » ou un « préc. » absent fait disparaître le
+    // morceau ENTIER, séparateur compris. Rien n'est inventé pour combler.
+    const nums = [`<b style="${cls ? `color:${cls};` : ''}">${_esc(reel)}</b>`,
+      att ? 'attendu ' + _esc(att) : '', pre ? 'préc. ' + _esc(pre) : ''].filter(Boolean).join(' &middot; ');
+    const lean = _md(d.lean);
+    return `<div style="padding:5px 9px;margin:3px 0;color:#c8ccd4;font-size:12.5px;line-height:1.5;">`
+      + (heure ? `<span style="${badge}">${_esc(heure)}</span> ` : '')
+      + `<strong>${qui ? _esc(qui) + ' &middot; ' : ''}${_esc(titre)}</strong> : ${nums}`
+      + (lean ? ` <span style="color:${cls || '#9aa4b2'};">&rarr; ${_esc(lean)}</span>` : '')
+      + `</div>`;
+  }).join('');
+}
+/* Ligne d'indicateur du bloc « Données du jour » = `.wr-bullet.wr-cat` (app.js 9995) : une PUCE,
+   pas une ligne de tableau. Le libellé est en blanc semi-gras, le réel aussi (`.wr-cat b`,
+   style.css 5459) sauf quand l'écart au consensus le colore, et la lecture ferme la puce derrière
+   sa flèche, en gris #9aa4b2 (`.wr-cat-impact`) ou dans la couleur de l'écart. */
+function _puceCat(p) {
+  const titre = _md(p.label || p.title);
+  const cls = _cvCol(p.actual, p.forecast, titre);
+  const att = _num(p.forecast), pre = _num(p.previous);
+  const nums = [`<b style="color:${cls || '#ffffff'};font-weight:600;">${_esc(_num(p.actual))}</b>`,
+    att ? 'attendu ' + _esc(att) : '', pre ? 'préc. ' + _esc(pre) : ''].filter(Boolean).join(' &middot; ');
+  const lean = _md(p.lean);
+  return `<strong style="color:#ffffff;font-weight:600;">${_esc(titre)}</strong> : ${nums}`
+    + (lean ? ` <span style="color:${cls || '#9aa4b2'};">&rarr; ${_esc(lean)}</span>` : '');
+}
+
 // Tableau SOBRE de publications (4 colonnes MAXIMUM, contrainte mobile) : heure + devise,
 // libellé (+ pays et lecture), réel, attendu/précédent.
+// ⚠️ RÉSERVÉ AU CHEMIN DE REPLI `_recapQuotidienSections` (rapports en cache d'avant le 24/08,
+// et Point Marché `kind:'dtpd'`), qui n'a ni heure de sortie ni structure de séance à mirer.
+// Le Récap Quotidien complet, lui, passe désormais par `_lignesDonnees`, calqué sur le desk.
 // Le RÉEL reste en BLANC : le colorer supposerait de connaître la polarité de chaque
 // indicateur (un chômage plus BAS est une BONNE surprise). La lecture honnête, c'est le
 // `lean` que le rapport a déjà calculé, écrit en toutes lettres sous le libellé.
@@ -2001,72 +2182,116 @@ function _tabPublications(rows, entete1) {
   const l = (Array.isArray(rows) ? rows : []).filter(r => r && r.label);
   if (!l.length) return '';
   const th = (t, right) => `<td${right ? ' align="right"' : ''} style="padding:5px 6px;color:#8b93a1;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid ${TOK.filet};">${t}</td>`;
-  /* COMPACITÉ DES LIGNES (24/08, demande user : « c'est pour gagner de l'espace »). Mesuré sur les
-     27 lignes du rapport réel : chaque ligne pesait 50 px alors que son texte tenait sur une seule.
-     La hauteur venait de la COLONNE DE GAUCHE, qui empilait l'heure puis la devise. Trois économies :
-     heure et devise CÔTE À CÔTE, « att. » et « préc. » sur une seule ligne au lieu de deux, et le
-     sens de la surprise à la suite du libellé plutôt qu'en dessous. Aucune information retirée.
-     ⚠️ Ne PAS écrire de commentaire HTML dans le gabarit ci-dessous : il serait répété à chaque
-     ligne et gonflerait le mail de plusieurs kilo-octets (mesuré : +9 Ko pour quatre lignes). */
   const corps = l.map(r => {
     // _num, pas la véracité JS : un réel « 0 » est une VALEUR, un champ absent est vide.
     const heure = _num(r.t), dev = _num(r.ccy), reel = _num(r.actual), att = _num(r.forecast), pre = _num(r.previous);
-    /* LE PAYS NE SE DIT QUE S'IL AJOUTE QUELQUE CHOSE (24/08, demande user : « au lieu de dire
-       royaume-uni etc. met la devise direct »). La colonne de gauche porte déjà le drapeau et le
-       code de la devise : écrire « Royaume-Uni » sous une ligne marquée GBP répète l'information.
-       On efface donc le pays quand c'est CELUI DE LA DEVISE, et on le garde quand il désigne un
-       pays PRÉCIS de la zone euro : « Allemagne » sous une ligne EUR dit lequel des dix-neuf a
-       publié, ce que le code EUR seul ne dit pas. La table reprend celle du serveur (_FXR_CTRY_FR). */
-    const _PAYS_DE_LA_DEVISE = { USD: 'états-unis', EUR: 'zone euro', GBP: 'royaume-uni', JPY: 'japon', CHF: 'suisse', CAD: 'canada', AUD: 'australie', NZD: 'nouvelle-zélande', CNY: 'chine' };
-    const _paysBrut = _md(r.country), lean = _md(r.lean);
-    const _norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-    const pays = (_paysBrut && _norm(_paysBrut) === _norm(_PAYS_DE_LA_DEVISE[String(_num(r.ccy) || '').toUpperCase()] || '')) ? '' : _paysBrut;
+    const pays = _md(r.country), lean = _md(r.lean);
     return `<tr>
-      <td style="padding:5px 6px;border-top:1px solid ${TOK.filet2};white-space:nowrap;vertical-align:top;">
-        ${heure ? `<span style="color:${TOK.or};font-weight:700;font-size:11.5px;">${_esc(heure)}</span>` : ''}
-        ${dev ? `<span style="font-size:11px;${heure ? 'margin-left:6px;' : ''}">${_ccyFlag(dev)}</span>` : ''}
+      <td style="padding:7px 6px;border-top:1px solid ${TOK.filet2};white-space:nowrap;vertical-align:top;">
+        ${heure ? `<div style="color:${TOK.or};font-weight:700;font-size:11.5px;">${_esc(heure)}</div>` : ''}
+        ${dev ? `<div style="font-size:11px;${heure ? 'margin-top:2px;' : ''}">${_ccyFlag(dev)}</div>` : ''}
       </td>
-      <td style="padding:5px 6px;border-top:1px solid ${TOK.filet2};color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(r.label))}${(pays || lean) ? ` <span style="color:${TOK.grisDoux};font-size:11px;">${_esc(pays)}${(pays && lean) ? ' · ' : ''}${_esc(lean)}</span>` : ''}</td>
-      <td align="right" style="padding:5px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.blanc};font-weight:700;font-size:12.5px;white-space:nowrap;vertical-align:top;">${reel ? _esc(reel) : '·'}</td>
-      <td align="right" style="padding:5px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.gris};font-size:11px;white-space:nowrap;vertical-align:top;">${att ? 'att. ' + _esc(att) : ''}${(att && pre) ? ' &middot; ' : ''}${pre ? 'préc. ' + _esc(pre) : ''}${(!att && !pre) ? '·' : ''}</td>
+      <td style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(r.label))}${(pays || lean) ? `<div style="color:${TOK.grisDoux};font-size:11px;margin-top:2px;">${_esc(pays)}${(pays && lean) ? ' · ' : ''}${_esc(lean)}</div>` : ''}</td>
+      <td align="right" style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.blanc};font-weight:700;font-size:12.5px;white-space:nowrap;vertical-align:top;">${reel ? _esc(reel) : '·'}</td>
+      <td align="right" style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.gris};font-size:11px;white-space:nowrap;vertical-align:top;">${att ? 'att. ' + _esc(att) : ''}${(att && pre) ? '<br>' : ''}${pre ? 'préc. ' + _esc(pre) : ''}${(!att && !pre) ? '·' : ''}</td>
     </tr>`;
   }).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0 10px;">
     <tr>${th(entete1 || 'Heure')}${th('Publication')}${th('Réel', true)}${th('Att. / préc.', true)}</tr>${corps}</table>`;
 }
 
-// « À surveiller » = LE CALENDRIER DÉROULÉ (le rapport a supprimé les puces narratives le
-// 24/08 : elles paraphrasaient le tableau juste en dessous). Lignes séparatrices de jour,
-// comme sur le desk. Rendu en HTML et non en image : un lecteur qui bloque les images garde
-// ses dates, ses devises et son consensus.
+/* POINTS D'IMPACT ●●● = `calImpDots` (charts.js 3919) : les trois points sont TOUJOURS dessinés,
+   les inactifs estompés. La colonne manquait ENTIÈREMENT au mail (mesure : zéro occurrence du
+   caractère ● dans tout le HTML), alors que le desk la remplit sur chaque ligne et que les deux
+   événements du rapport du 21/08 sont en importance haute. Elle tient sans peine dans 600 px :
+   son absence perdait le niveau d'importance, qui est la première chose qu'on lit d'un agenda.
+   `opacity` n'existant pas chez Outlook, les points éteints sont pré-mélangés au fond. */
+function _impPoints(imp, fond) {
+  const l = String(imp || '').toLowerCase();
+  const enveloppe = (col, dedans) => `<span style="color:${col};font-size:10px;letter-spacing:2.5px;white-space:nowrap;">${dedans}</span>`;
+  if (l === 'high') return enveloppe('#ef4444', '&#9679;&#9679;&#9679;');
+  if (l === 'medium') return enveloppe('#ffb300', `&#9679;&#9679;<span style="color:${_melange('#ffb300', .2, fond)};">&#9679;</span>`);
+  // Tout le reste, VIDE COMPRIS, tombe en « low » : c'est déjà le repli du desk.
+  return enveloppe('#4ade80', `&#9679;<span style="color:${_melange('#4ade80', .2, fond)};">&#9679;&#9679;</span>`);
+}
+
+/* « À surveiller » = LE CALENDRIER DU DESK, déroulé (app.js 10058). Le rapport a supprimé ses
+   puces narratives le 24/08 : la rubrique EST le tableau.
+   ══ CE QUI CHANGE LE 25/08 (demande user « tout pareil ») ══
+   1. RANGÉE D'EN-TÊTE. Le desk nomme ses dix colonnes ; le mail n'en nommait aucune, et le
+      lecteur voyait « prév. 87.2 / préc. 86.6 » sans savoir que Réel, Haut et Bas existaient.
+   2. COLONNE D'IMPACT, purement et simplement absente jusqu'ici.
+   3. VALEUR MANQUANTE = TIRET, comme `.cv-empty` (app.js 10063). Le mail effaçait la référence
+      absente : les cinq colonnes du desk n'étaient plus reconnaissables. Un rendez-vous sans
+      aucun chiffre (des minutes de banque centrale) affiche donc cinq tirets, exactement comme
+      sur le desk, au lieu d'un point médian solitaire.
+   4. RÉFÉRENCES ÉCRITES EN TOUTES LETTRES : « Haut », « Prévision », « Bas », « Précédent »,
+      c'est-à-dire les intitulés de colonnes du desk, à la place des « prév. » et « bas » abrégés.
+   5. MÉTRIQUE DES LIGNES (`.fxdr-callike .cal-row td`, style.css 6182) : 8/11 px de marge
+      intérieure, filet bas #131316, dernière ligne sans filet. Et la HIÉRARCHIE du desk, qui
+      était inversée : l'heure y est un repère discret (gris moyen, 11 px, graisse 500) et c'est
+      le LIBELLÉ qui domine (blanc, 12 px, semi-gras). Le mail faisait de l'heure l'élément le
+      plus fort de la ligne.
+   6. CADRE de la rubrique (`.fxdr-callike`) : le tableau coulait à même le fond.
+   Ce qui ne peut pas suivre, et pourquoi : les CINQ colonnes de valeurs restent empilées dans
+   une seule cellule (à 390 px, sept colonnes de chiffres écrasent le libellé de l'événement,
+   et le défilement horizontal du desk n'existe pas en courrier) ; le clic qui déroule le
+   Décryptage, son chevron, son infobulle et l'en-tête collant disparaissent, faute de JS et de
+   `position:sticky`. Aucune information n'est perdue dans l'opération. */
 function _tabAgendaFXR(rows) {
   const l = (Array.isArray(rows) ? rows : []).filter(r => r && r.event);
   if (!l.length) return '';
   const _fmt = (ts, opts) => { try { return new Intl.DateTimeFormat('fr-FR', Object.assign({ timeZone: 'Europe/Paris' }, opts)).format(new Date(ts)); } catch (e) { return ''; } };
   // Tri défensif : les lignes sans horodatage passent en fin plutôt que de casser la chronologie.
   const tri = l.slice().sort((a, b) => (a.ts ? a.ts : 8.64e15) - (b.ts ? b.ts : 8.64e15));
-  let out = '', jourVu = '';
-  for (const e of tri) {
+  const FOND = TOK.encart;                                     // fond du cadre, sert aux mélanges
+  const VIDE = '<span style="color:#6b7280;">-</span>';        // `.cv-empty` du desk
+  // En-tête : `.cal-table thead th` (style.css 7388) : 11 px, semi-gras, capitales, gris --text2
+  // sur le fond d'en-tête --head-bg, filet bas --border. Le collant en moins, rien d'autre.
+  const TH = (t, droite) => `<td align="${droite ? 'right' : 'left'}" bgcolor="#101012" style="background:#101012;color:#9a9aa4;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;line-height:14px;padding:8px 11px 7px;border-bottom:1px solid ${TOK.filet};white-space:nowrap;">${t}</td>`;
+  let out = '';
+  let jourVu = '';
+  tri.forEach((e, i) => {
     // Une ligne SANS horodatage ne doit pas hériter du dernier séparateur de jour : elle
     // serait annoncée à une date que la donnée ne dit pas. Elle a son propre intertitre.
     const j = e.ts ? _fmt(e.ts, { weekday: 'long', day: 'numeric', month: 'long' }) : 'Date à confirmer';
-    if (j && j !== jourVu) { jourVu = j; out += _trJour(j, 3); }
-    const heure = e.ts ? _fmt(e.ts, { hour: '2-digit', minute: '2-digit' }) : '';
-    // CINQ valeurs, comme le calendrier du desk : réel · HAUT · prévision · BAS · précédent
-    // (app.js 9563, colonnes `cth-val--haut` et `cth-val--bas`). Le mail n'en lisait que trois :
-    // la fourchette haute et la fourchette basse disparaissaient sur CHAQUE ligne, alors
-    // qu'elles sont réellement remplies (server 4380 : _calApplyRanges les pose sur tout
-    // événement doté d'une prévision). Empilées dans la colonne de droite plutôt qu'en deux
-    // colonnes de plus : à 390 px de large, sept colonnes écrasent le libellé de l'événement.
+    if (j && j !== jourVu) { jourVu = j; out += _trJour(j, 4); }
+    const heure = e.ts ? _fmt(e.ts, { hour: '2-digit', minute: '2-digit' }) : '-';
     const reel = _num(e.actual), haut = _num(e.high), att = _num(e.forecast), bas = _num(e.low), pre = _num(e.previous);
-    const refs = [haut ? 'haut ' + _esc(haut) : '', att ? 'prév. ' + _esc(att) : '',
-      bas ? 'bas ' + _esc(bas) : '', pre ? 'préc. ' + _esc(pre) : ''].filter(Boolean).join('<br>');
-    out += `<tr>${_tdQuand(heure, e.ccy)}`
-      + `<td style="${_TDC}color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(e.event))}</td>`
-      + _tdVals(reel ? `<b style="color:${_actCol(e.actual, e.forecast, e.event)};font-size:12px;">${_esc(reel)}</b>` : '', refs)
-      + `</tr>`;
-  }
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:2px 0 6px;">${out}</table>`;
+    // ÉCLAIR ⚡ du desk (`calActualCell`, charts.js 3957) : le réel est sorti SOUS l'estimation
+    // basse. SVG en ligne, sans fichier ni dépendance, dans la couleur du résultat. Les clients
+    // qui l'ignorent (Gmail retire la balise) gardent le chiffre, sa couleur et la ligne « Bas »
+    // juste en dessous : le repère se perd, l'information non.
+    const _f = v => parseFloat(String(v).replace(',', '.'));
+    const eclair = (reel && bas && !isNaN(_f(reel)) && !isNaN(_f(bas)) && _f(reel) < _f(bas))
+      ? '<svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg>' : '';
+    // Les quatre références portent les INTITULÉS DE COLONNES du desk, dans son ordre exact.
+    // Attention au croisement à ne pas inverser : « Haut » lit e.high, « Bas » lit e.low.
+    const ref = (lbl, v) => `<span style="color:#9a9aa4;">${lbl}</span> ${v ? `<span style="color:#e8e8ea;">${_esc(v)}</span>` : VIDE}`;
+    const refs = [ref('Haut', haut), ref('Prévision', att), ref('Bas', bas), ref('Précédent', pre)].join('<br>');
+    const finDeTable = (i === tri.length - 1);
+    const TD = `padding:8px 11px;${finDeTable ? '' : `border-bottom:1px solid #131316;`}vertical-align:top;`;
+    out += `<tr>`
+      + `<td style="${TD}white-space:nowrap;">`
+        + `<div style="color:#9a9aa4;font-size:11px;font-weight:500;letter-spacing:.02em;">${_esc(heure)}</div>`
+        + (e.ccy ? `<div style="font-size:11px;margin-top:3px;">${_ccyFlag(e.ccy)}</div>` : '')
+      + `</td>`
+      + `<td align="center" style="${TD}white-space:nowrap;">${_impPoints(e.importance, FOND)}</td>`
+      + `<td style="${TD}color:#ffffff;font-size:12px;font-weight:600;line-height:1.35;padding-right:16px;">${_esc(_md(e.event))}</td>`
+      + `<td align="right" style="${TD}font-size:11px;line-height:1.55;white-space:nowrap;">`
+        + `<b style="color:${_actCol(e.actual, e.forecast, e.event)};">${reel ? eclair + _esc(reel) : VIDE}</b><br>${refs}`
+      + `</td></tr>`;
+  });
+  /* Cadre `.fxdr-callike` (style.css 6179). Le desk le peint en `var(--bg2)` #16171b sur sa page
+     #0d0e11 ; le panneau du mail vaut DÉJÀ #16171b, où ce filet serait invisible. Il prend donc
+     le cran voisin de la même échelle, #1f1f24, celui que le desk emploie juste à côté pour
+     `.fxdr-tablewrap` et pour la bordure de ses cartes : même discrétion, réellement visible. */
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border:1px solid #1f1f24;border-radius:6px;margin:2px 0 6px;">
+    <tr><td bgcolor="${FOND}" style="background:${FOND};padding:0;border-radius:6px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>${TH('Heure &middot; Devise')}${TH('Imp.')}${TH('Événement')}${TH('Réel', true)}</tr>${out}
+      </table>
+    </td></tr></table>`;
 }
 
 // LE RAPPORT ENTIER, rubrique par rubrique. Chaque section ne s'écrit QUE si elle a de la
@@ -2078,25 +2303,52 @@ function _tabAgendaFXR(rows) {
    pas. Rendu en TABLE et non en flex : le moteur de rendu d'Outlook ignore flex, la barre et le filet
    se seraient effondrés. Deux rangées plutôt qu'un `border-left` sur la cellule entière : sinon la
    barre or descendrait jusqu'au filet et formerait un L, là où le desk pose un court repère de 13 px. */
-function _secRapport(t) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:26px 0 12px;border-collapse:collapse;">
-    <tr><td style="padding:0 0 7px 9px;border-left:3px solid ${TOK.or};color:${TOK.or};font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1.15;">${t}</td></tr>
-    <tr><td style="height:1px;line-height:1px;font-size:0;background:${TOK.filet};">&nbsp;</td></tr>
+/* ⚠️ MÉTRIQUE RELEVÉE AU JETON PRÈS (25/08). Trois écarts silencieux avec `.fxdr-section` :
+   la graisse était 800 là où le desk pose `--fw-bold` = 700, les marges 26/12 au lieu de 28/13,
+   et surtout le `border-left` faisait descendre la barre or sur TOUTE la hauteur de la cellule,
+   filet compris, quand le desk pose un repère DÉTACHÉ de 3 x 13 px suivi de 8 px de gouttière.
+   La barre vit donc dans sa propre cellule, à hauteur fixe : un `::before` ne s'écrit pas en
+   courrier, une cellule de 13 px de haut donne exactement le même trait.
+   `premier` = `.fxdr-section:first-child` (style.css 6112) : la Synthèse démarre à 4 px du haut,
+   collée au bandeau de date, au lieu de flotter à 28 px. */
+function _secRapport(t, premier) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:${premier ? '4px' : '28px'} 0 13px;border-collapse:collapse;">
+    <tr>
+      <td width="3" valign="middle" style="width:3px;padding:0 0 7px;"><table role="presentation" cellpadding="0" cellspacing="0" width="3" style="width:3px;border-collapse:collapse;"><tr><td width="3" height="13" bgcolor="${TOK.or}" style="width:3px;height:13px;line-height:13px;font-size:0;background:${TOK.or};border-radius:2px;mso-line-height-rule:exactly;">&nbsp;</td></tr></table></td>
+      <td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>
+      <td valign="middle" style="padding:0 0 7px;color:${TOK.or};font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;line-height:1.15;">${_esc(t)}</td>
+    </tr>
+    <tr><td colspan="3" style="height:1px;line-height:1px;font-size:0;background:${TOK.filet};">&nbsp;</td></tr>
   </table>`;
 }
 /* Bloc de SYNTHÈSE, relevé sur .fxdr-exec : liseré or à gauche, fond or très dilué, coins arrondis
    à droite seulement. C'est le SEUL bloc encadré du rapport, exactement comme sur le desk : la
-   synthèse est le texte de tête, tout le reste coule en puces. */
+   synthèse est le texte de tête, tout le reste coule en puces.
+   ⚠️ L'OR DU LISERÉ ET DU FOND EST CELUI DU MAIL (25/08). Ils étaient écrits en dur en
+   rgba(227,178,58,…), c'est-à-dire l'or DU DESK, pendant que l'intertitre juste au-dessus
+   emploie TOK.or #f3c344 : deux ors différents se touchaient dans le même bloc. Le desk garde
+   #e3b23a, le mail garde #f3c344 (choix user du 11/07 : en messagerie, le #e3b23a vire à
+   l'orange), et les deux dérivés se recalculent donc à partir de TOK.or, aux opacités du desk.
+   Elles sont PRÉ-MÉLANGÉES au panneau : `rgba` n'existe pas dans le moteur Word d'Outlook, où
+   un liseré rgba tombe en noir. */
 function _blocSynthese(inner) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 4px;border-collapse:separate;">
-    <tr><td style="border-left:2px solid rgba(227,178,58,.55);background:rgba(227,178,58,.06);border-radius:0 8px 8px 0;padding:13px 16px;">${inner}</td></tr>
+    <tr><td bgcolor="${_melange(TOK.or, .06, TOK.panneau)}" style="border-left:2px solid ${_melange(TOK.or, .55, TOK.panneau)};background:${_melange(TOK.or, .06, TOK.panneau)};border-radius:0 8px 8px 0;padding:13px 16px;">${inner}</td></tr>
   </table>`;
 }
 function _recapQuotidienFull(fx) {
   if (!fx || typeof fx !== 'object') return '';
   const P = [];
-  const S = (titre, contenu) => { if (contenu && String(contenu).trim()) P.push(_secRapport(titre) + contenu); };
-  const puces = v => (Array.isArray(v) ? v : []).map(x => _md(typeof x === 'string' ? x : (x && x.text))).filter(Boolean).map(t => _puceOr(_esc(t))).join('');
+  // `P.length === 0` reproduit `.fxdr-section:first-child` : seule la toute première rubrique
+  // rendue se colle au haut du corps.
+  const S = (titre, contenu) => { if (contenu && String(contenu).trim()) P.push(_secRapport(titre, P.length === 0) + contenu); };
+  /* Puces de rubrique. Deux corrections de fond par rapport à `_puceOr` (25/08) :
+     la métrique redevient celle de `.wr-bullet` (13 px, encre #c9d1d9, point or de graisse
+     NORMALE, texte calé à 14 px), et le texte passe par `_wrInlineMail` au lieu de `_md`, donc
+     le **gras** du rapport ressort en blanc semi-gras au lieu d'être rasé en silence. */
+  const puces = (v, gras) => _pucesDesk((Array.isArray(v) ? v : [])
+    .map(x => (typeof x === 'string' ? x : (x && typeof x.text === 'string' ? x.text : '')))
+    .filter(t => t && t.trim()).map(_wrInlineMail), gras);
 
   /* ÉCLAIRAGES RETIRÉS (24/08, demande user : « enlève tout ceci »). Le bloc ouvrait le mail sur
      dix puces qui, pour l'essentiel, redisaient ce que les rubriques développent ensuite avec leurs
@@ -2110,12 +2362,15 @@ function _recapQuotidienFull(fx) {
   //    ⚠️ On ne garde que les CHAÎNES avant de recoller : un `summary` arrivé en objet passait
   //    le `filter(Boolean)`, et le `join` le transformait en la chaîne « [object Object] »,
   //    déjà du texte quand `_md` la recevait. Le filtrage de type doit précéder le join.
-  const _synth = _paraHtml([fx.intro, fx.summary].filter(x => typeof x === 'string' && x.trim()).join('\n\n'), '#e3e3e6', '13.5px');
+  //    La taille redescend à 13 px et la dernière marge tombe à zéro : `.fxdr-exec .wr-p`.
+  const _synth = _parasDesk([fx.intro, fx.summary].filter(x => typeof x === 'string' && x.trim()).join('\n\n'), '#e3e3e6', '13px');
   S('Synthèse', _synth ? _blocSynthese(_synth) : '');
 
   // 3) GÉOPOLITIQUE (+ ses POINTS CLÉS, sous-titre INTERNE à la rubrique côté desk).
-  const geo = puces(fx.geopolitics), geoPts = puces(fx.geoKeyPoints);
-  S('Géopolitique', geo + (geoPts ? _ssTitre('Points clés') + geoPts : ''));
+  //    L'intitulé complet du desk est rétabli : « Points clés à retenir », et non « Points clés ».
+  //    Ses puces sont SEMI-GRASSES (`.fxdr-keypts .wr-bullet`) et son titre porte un filet.
+  const geo = puces(fx.geopolitics), geoPts = puces(fx.geoKeyPoints, true);
+  S('Géopolitique', geo + (geoPts ? _grpTitre('Points clés à retenir', true) + geoPts : ''));
 
   // 4) BANQUES CENTRALES : champ `cb` (v19) : décisions, minutes, discours, opérations du
   //    Trésor vivent ICI et nulle part ailleurs. Absent des rapports v18 : la section saute.
@@ -2124,9 +2379,9 @@ function _recapQuotidienFull(fx) {
   // 5) MACRO : les AUTRES moteurs (données, flux, commerce, budgets). C'est le cœur du rapport.
   S('Macro', puces(fx.macro));
 
-  // 6) ANALYSE PAR SESSION + les données publiées RATTACHÉES à chaque séance. Le rattachement
-  //    se fait par TEST SUR LE NOM de la région (comme app.js 9484), jamais par index : l'IA
-  //    peut réordonner ses cartes, l'index mentirait en silence.
+  // LECTURE DES SÉANCES, commune aux deux blocs qui suivent (elles décident lequel s'affiche).
+  // Le rattachement des données à une carte se fait par TEST SUR LE NOM de la région (comme
+  // app.js 10019), jamais par index : l'IA peut réordonner ses cartes, l'index mentirait en silence.
   const sess = (fx.dataBySession && typeof fx.dataBySession === 'object' && !Array.isArray(fx.dataBySession)) ? fx.dataBySession : {};
   // RATTACHEMENT ÉLARGI : le nom de la carte est écrit par l'IA, qui ne dit pas toujours
   // « Séance Asie ». Sur « Séance Tokyo », le test échouait, la carte sortait sans chiffres et
@@ -2136,21 +2391,58 @@ function _recapQuotidienFull(fx) {
   const clef = n => /asie|asia|tokyo|sydney|wellington|shanghai|hong.?kong|singapour/i.test(n) ? 'asia'
     : (/londres|london|europe|europ[ée]|francfort|frankfurt|zurich|z[üu]rich/i.test(n) ? 'london'
     : (/new.?york|wall.?street|am[ée]ric|[ée]tats.?unis|\bus\b/i.test(n) ? 'ny' : ''));
+  /* 6) DONNÉES DU JOUR (par pays) : RÉTRO-COMPAT STRICTE, exactement comme le desk (app.js 9985) :
+        rendue SEULEMENT si aucune des trois séances ne porte de données, c'est-à-dire pour les
+        rapports antérieurs à la v11. Sinon ce seraient LES MÊMES publications deux fois.
+        ⚠️ ELLE PASSE AVANT LES SÉANCES (25/08). Le desk écrit ce bloc AVANT `w.regions` ; le mail
+        l'écrivait après, tout en affirmant en commentaire reprendre « l'ORDRE DU DESK tel quel ».
+        Les deux blocs s'excluant, l'écart ne se voyait pas aujourd'hui, mais il serait sorti au
+        grand jour au premier rapport d'archive envoyé.
+        ⚠️ LA GARDE EST CELLE DU DESK, sur les trois clés attendues et non sur toutes : sinon une
+        clé inattendue (« europe ») suffisait à faire disparaître du mail un bloc que le desk, lui,
+        aurait affiché. */
+  const aSession = ['asia', 'london', 'ny'].some(k => Array.isArray(sess[k]) && sess[k].length);
+  if (!aSession) {
+    /* GROUPÉ PAR DEVISE, ET LA FAMILLE REDEVIENT UN SOUS-TITRE (25/08). Le mail groupait par PAYS
+       (« Nouvelle-Zélande ») là où le desk titre par devise (`_ccyWho` : « NZD », et « EUR ·
+       Allemagne » pour l'euro), et il rangeait le nom de la FAMILLE dans le champ pays de la
+       ligne : « Croissance » s'affichait à l'endroit exact où les autres lignes affichent un
+       pays, donc une famille se lisait comme un pays. Les douze sous-titres de famille du desk
+       (COMMERCE, CROISSANCE, INFLATION...) étaient perdus au passage. */
+    const cartes = (Array.isArray(fx.dataByCountry) ? fx.dataByCountry : [])
+      .filter(g => g && g.country && Array.isArray(g.families) && g.families.length)
+      .map(g => {
+        const corps = g.families.filter(f => f && Array.isArray(f.items) && f.items.length)
+          .map(f => _grpTitre(_md(f.name)) + _pucesDesk(f.items.filter(p => p && p.label).map(_puceCat))).join('');
+        return corps ? _carteDesk(_teteCarte(_ccyWhoMail(g.ccy, g.country), '') + corps) : '';
+      });
+    S('Données du jour', _grilleDesk(cartes));
+  }
+
+  // 7) ANALYSE PAR SESSION : l'intitulé du desk est rétabli (il avait été raccourci en « Les
+  //    séances »), et chaque séance redevient une CARTE bordée à liseré or, comme sur le desk,
+  //    au lieu de trois blocs qui coulaient les uns dans les autres sans séparation visuelle.
   const vus = {};
-  let sessHtml = '';
+  const cartesSess = [];
   for (const r of (Array.isArray(fx.regions) ? fx.regions : [])) {
     if (!r || !r.name) continue;
     const k = clef(String(r.name)); if (k) vus[k] = 1;
     const pubs = (k && Array.isArray(sess[k])) ? sess[k] : [];
-    const code = _md(r.code);
     // Sous-groupes : interdits par le prompt depuis la v16, donc vides en pratique. On les
-    // rend quand même pour les rapports archivés qui en portent.
-    const grp = (Array.isArray(r.groups) ? r.groups : []).map(g => (g && g.title ? _ssTitre(g.title) : '')
-      + (Array.isArray(g && g.items) ? g.items.filter(i => i && (i.heading || i.text))
-        .map(i => i.heading ? _ligne(_md(i.heading), _esc(_md(i.text))) : _puce(_esc(_md(i.text)))).join('') : '')).join('');
-    sessHtml += `<div style="margin:14px 0 2px;"><span style="color:${TOK.blanc};font-weight:700;font-size:13.5px;">${_esc(_md(r.name))}</span>${code ? ` <span style="color:${TOK.grisDoux};font-size:11.5px;">${_esc(code)}</span>` : ''}</div>`
-      + _paraHtml(r.summary) + grp
-      + (pubs.length ? _ssTitre('Données publiées') + _tabPublications(pubs) : '');
+    // rend quand même pour les rapports archivés qui en portent (`.fxdr-sub` du desk :
+    // liseré or de 2 px, intitulé #dcdce0, texte #a6a6ad).
+    const grp = (Array.isArray(r.groups) ? r.groups : []).map(g => (g && g.title ? _grpTitre(_md(g.title)) : '')
+      + (Array.isArray(g && g.items) ? g.items.filter(i => i && (i.heading || i.text)).map(i =>
+        `<div style="border-left:2px solid ${_melange(TOK.or, .6, TOK.encart)};padding:1px 0 1px 11px;margin:0 0 9px;">`
+        + (i.heading ? `<div style="font-size:12px;font-weight:600;color:#dcdce0;margin:0 0 2px;">${_wrInlineMail(i.heading)}</div>` : '')
+        + (i.text ? `<div style="font-size:12px;color:#a6a6ad;line-height:1.6;">${_wrInlineMail(i.text)}</div>` : '')
+        + `</div>`).join('') : '')).join('');
+    // Le résumé est UN bloc (`.fxdr-card-text`), pas une suite de paragraphes : 12 px, #b6b6bd.
+    const resume = (typeof r.summary === 'string' && r.summary.trim())
+      ? `<div style="font-size:12px;color:#b6b6bd;line-height:1.65;">${_wrInlineMail(r.summary)}</div>` : '';
+    // « Données publiées » ferme TOUJOURS la carte, comme sur le desk.
+    cartesSess.push(_carteDesk(_teteCarte(_md(r.name), _md(r.code)) + resume + grp
+      + (pubs.length ? _grpTitre('Données publiées') + _lignesDonnees(pubs) : '')));
   }
   // Séance sans carte de région : ses chiffres seraient perdus en silence. On les publie
   // sous leur propre intitulé plutôt que de les jeter.
@@ -2162,28 +2454,9 @@ function _recapQuotidienFull(fx) {
   for (const k of Object.keys(sess)) {
     if (vus[k] || !Array.isArray(sess[k]) || !sess[k].length) continue;
     const nomK = NOMS[k] || (_md(k).charAt(0).toUpperCase() + _md(k).slice(1));   // clé inconnue : son nom, capitalisé, rien d'inventé
-    sessHtml += `<div style="margin:14px 0 2px;"><span style="color:${TOK.blanc};font-weight:700;font-size:13.5px;">${_esc(nomK)}</span></div>`
-      + _ssTitre('Données publiées') + _tabPublications(sess[k]);
+    cartesSess.push(_carteDesk(_teteCarte(nomK, '') + _grpTitre('Données publiées') + _lignesDonnees(sess[k])));
   }
-  S('Les séances', sessHtml);
-
-  // 7) DONNÉES DU JOUR (par pays) : RÉTRO-COMPAT STRICTE, exactement comme le desk (app.js
-  //    9463) : rendue SEULEMENT si aucune séance ne porte de données, c'est-à-dire pour les
-  //    rapports antérieurs à la v11. Sinon ce seraient LES MÊMES publications deux fois.
-  const aSession = Object.keys(sess).some(k => Array.isArray(sess[k]) && sess[k].length);
-  if (!aSession) {
-    let hp = '';
-    for (const c of (Array.isArray(fx.dataByCountry) ? fx.dataByCountry : [])) {
-      if (!c || !Array.isArray(c.families)) continue;
-      const rows = [];
-      for (const f of c.families) for (const it of (Array.isArray(f && f.items) ? f.items : [])) {
-        if (it && it.label) rows.push({ ccy: c.ccy, country: f.name, label: it.label, actual: it.actual, forecast: it.forecast, previous: it.previous, lean: it.lean });
-      }
-      if (!rows.length) continue;
-      hp += `<div style="margin:14px 0 2px;color:${TOK.blanc};font-weight:700;font-size:13px;">${_esc(_md(c.country || c.ccy))}</div>` + _tabPublications(rows, 'Devise');
-    }
-    S('Par pays', hp);
-  }
+  S('Analyse par session', _grilleDesk(cartesSess));
 
   // 8) À SURVEILLER : dernière rubrique du rapport, le calendrier des prochains jours.
   S('À surveiller', _tabAgendaFXR(fx.lookahead));
@@ -3100,12 +3373,13 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // quand le corps se réduisait à une phrase de synthèse, à l'image et au bouton. On ne
   // promet le rapport entier que lorsqu'il est réellement là.
   const clotureJ = corpsRapport
-    /* CLÔTURE (24/08) : l'ancienne phrase énumérait des outils sur un ton de fiche produit et
-       nommait le « Smart Bias », étiquette INTERNE anglaise : le desk affiche « Radar de Biais ».
-       On dit ce que le lecteur vient de recevoir, puis ce que le terminal y ajoute et que le
-       courrier ne peut pas porter : le direct. */
-    ? "Le rapport du jour, entier. Le direct, lui, est sur le terminal."
-    : "Le desk publie ce rapport chaque jour. Le direct est sur le terminal.";
+    /* CLÔTURE (24/08, demande user : « c est bien mais on peut encore améliorer, pour donner
+       envie »). La phrase ne vante rien et ne promet aucun gain : elle nomme la SEULE chose qu un
+       courrier ne peut pas contenir, le direct. Le rapport que le lecteur vient de finir est déjà
+       daté, et le terminal, lui, a continué : c est ce décalage qui donne envie d ouvrir, pas un
+       argument de vente. Deux phrases courtes, la seconde enchaînant sur le bouton juste en dessous. */
+    ? "Voilà la séance, en entier. Le marché, lui, n'a pas attendu : le calendrier, la force des devises et le Radar de Biais ont déjà bougé depuis."
+    : "Le desk publie ce rapport chaque jour. Entre deux éditions, le terminal, lui, ne s'arrête pas.";
 
   // BOUTON EN TÊTE (même raison que le Récap Hebdo) : le mail porte un rapport entier, donc
   // il peut dépasser le seuil de repliement de Gmail. Un lien d'action placé après le rapport
