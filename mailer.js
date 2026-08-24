@@ -3156,16 +3156,14 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
   // PERSONNE et propre au sujet (`cta` du concept) : « Je veux… » se clique mieux qu'« En savoir
   // plus », parce qu'il prolonge la phrase que le lecteur vient de lire.
   const _pars = Array.isArray(pick.paras) ? pick.paras : [];
-  const _coupe = _pars.length >= 6 ? Math.ceil(_pars.length * 0.55) : _pars.length;
-  const _midLbl = pick.cta || (isMember ? 'Ouvrir mon desk' : 'Voir le desk en direct');
-  const _mid = _coupe < _pars.length
-    ? `<div style="margin:18px 0 20px;">${_campaignCta(isMember, campaign, email, _midLbl).btn}</div>`
-    : '';
+  /* UN SEUL BOUTON, ET IL VIENT APRÈS (24/08, demande user : « tu mets 2 boutons c'est pas bon, il
+     en faut 1 seul et à la fin, après avoir partagé la valeur »). Un bouton était posé AU MILIEU du
+     texte, coupant la réflexion en deux : on demandait au lecteur de partir vers le desk avant même
+     de lui avoir donné ce pour quoi il ouvrait le mail. Le seul bouton restant est celui de la fin,
+     juste après la question à se poser, qui est le point d'orgue du texte. */
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#9aa3b2;">${hello}</p>
-    ${_mindsetParas(_pars.slice(0, _coupe))}
-    ${_mid}
-    ${_mindsetParas(_pars.slice(_coupe))}
+    ${_mindsetParas(_pars)}
     ${_mindsetPratique(pick.pratique)}
     ${_goldBox(`<div style="color:${TOK.or};font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;">La question à te poser</div>
         <div style="color:${TOK.blanc};font-size:15.5px;font-style:italic;line-height:1.55;">${_esc(pick.closing)}</div>`)}
