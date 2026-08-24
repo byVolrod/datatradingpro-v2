@@ -2001,6 +2001,13 @@ function _tabPublications(rows, entete1) {
   const l = (Array.isArray(rows) ? rows : []).filter(r => r && r.label);
   if (!l.length) return '';
   const th = (t, right) => `<td${right ? ' align="right"' : ''} style="padding:5px 6px;color:#8b93a1;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid ${TOK.filet};">${t}</td>`;
+  /* COMPACITÉ DES LIGNES (24/08, demande user : « c'est pour gagner de l'espace »). Mesuré sur les
+     27 lignes du rapport réel : chaque ligne pesait 50 px alors que son texte tenait sur une seule.
+     La hauteur venait de la COLONNE DE GAUCHE, qui empilait l'heure puis la devise. Trois économies :
+     heure et devise CÔTE À CÔTE, « att. » et « préc. » sur une seule ligne au lieu de deux, et le
+     sens de la surprise à la suite du libellé plutôt qu'en dessous. Aucune information retirée.
+     ⚠️ Ne PAS écrire de commentaire HTML dans le gabarit ci-dessous : il serait répété à chaque
+     ligne et gonflerait le mail de plusieurs kilo-octets (mesuré : +9 Ko pour quatre lignes). */
   const corps = l.map(r => {
     // _num, pas la véracité JS : un réel « 0 » est une VALEUR, un champ absent est vide.
     const heure = _num(r.t), dev = _num(r.ccy), reel = _num(r.actual), att = _num(r.forecast), pre = _num(r.previous);
@@ -2015,13 +2022,13 @@ function _tabPublications(rows, entete1) {
     const _norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
     const pays = (_paysBrut && _norm(_paysBrut) === _norm(_PAYS_DE_LA_DEVISE[String(_num(r.ccy) || '').toUpperCase()] || '')) ? '' : _paysBrut;
     return `<tr>
-      <td style="padding:7px 6px;border-top:1px solid ${TOK.filet2};white-space:nowrap;vertical-align:top;">
-        ${heure ? `<div style="color:${TOK.or};font-weight:700;font-size:11.5px;">${_esc(heure)}</div>` : ''}
-        ${dev ? `<div style="font-size:11px;${heure ? 'margin-top:2px;' : ''}">${_ccyFlag(dev)}</div>` : ''}
+      <td style="padding:5px 6px;border-top:1px solid ${TOK.filet2};white-space:nowrap;vertical-align:top;">
+        ${heure ? `<span style="color:${TOK.or};font-weight:700;font-size:11.5px;">${_esc(heure)}</span>` : ''}
+        ${dev ? `<span style="font-size:11px;${heure ? 'margin-left:6px;' : ''}">${_ccyFlag(dev)}</span>` : ''}
       </td>
-      <td style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(r.label))}${(pays || lean) ? `<div style="color:${TOK.grisDoux};font-size:11px;margin-top:2px;">${_esc(pays)}${(pays && lean) ? ' · ' : ''}${_esc(lean)}</div>` : ''}</td>
-      <td align="right" style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.blanc};font-weight:700;font-size:12.5px;white-space:nowrap;vertical-align:top;">${reel ? _esc(reel) : '·'}</td>
-      <td align="right" style="padding:7px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.gris};font-size:11px;white-space:nowrap;vertical-align:top;">${att ? 'att. ' + _esc(att) : ''}${(att && pre) ? '<br>' : ''}${pre ? 'préc. ' + _esc(pre) : ''}${(!att && !pre) ? '·' : ''}</td>
+      <td style="padding:5px 6px;border-top:1px solid ${TOK.filet2};color:#e6e6ea;font-size:12.5px;line-height:1.45;">${_esc(_md(r.label))}${(pays || lean) ? ` <span style="color:${TOK.grisDoux};font-size:11px;">${_esc(pays)}${(pays && lean) ? ' · ' : ''}${_esc(lean)}</span>` : ''}</td>
+      <td align="right" style="padding:5px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.blanc};font-weight:700;font-size:12.5px;white-space:nowrap;vertical-align:top;">${reel ? _esc(reel) : '·'}</td>
+      <td align="right" style="padding:5px 6px;border-top:1px solid ${TOK.filet2};color:${TOK.gris};font-size:11px;white-space:nowrap;vertical-align:top;">${att ? 'att. ' + _esc(att) : ''}${(att && pre) ? ' &middot; ' : ''}${pre ? 'préc. ' + _esc(pre) : ''}${(!att && !pre) ? '·' : ''}</td>
     </tr>`;
   }).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0 10px;">
@@ -3097,8 +3104,8 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
        nommait le « Smart Bias », étiquette INTERNE anglaise : le desk affiche « Radar de Biais ».
        On dit ce que le lecteur vient de recevoir, puis ce que le terminal y ajoute et que le
        courrier ne peut pas porter : le direct. */
-    ? "Voilà le rapport du jour, entier, tel que le desk l'a publié. Ce qu'un mail ne peut pas vous donner, c'est le direct : sur le terminal, ce rapport se lit à côté du calendrier économique, de la force des devises et du Radar de Biais, qui bougent avec le marché."
-    : "Le desk publie ce rapport chaque jour. Sur le terminal, il se lit à côté du calendrier économique, de la force des devises et du Radar de Biais, qui bougent avec le marché.";
+    ? "Le rapport du jour, entier. Le direct, lui, est sur le terminal."
+    : "Le desk publie ce rapport chaque jour. Le direct est sur le terminal.";
 
   // BOUTON EN TÊTE (même raison que le Récap Hebdo) : le mail porte un rapport entier, donc
   // il peut dépasser le seuil de repliement de Gmail. Un lien d'action placé après le rapport
