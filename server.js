@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260824-propos-explication', ts: Date.UTC(2026, 7, 25, 14, 0), title: 'Les news de propos vous disent enfin de quoi il retourne', desc: 'Quand une personnalite politique ou un banquier central s exprime, le fil regroupe ses phrases sur une seule carte, et l onglet Info se contentait de les traduire. Vous lisiez la citation sans savoir de quel dossier elle relevait, ni pourquoi un desk le suit. Desormais, sous les propos, une courte note du desk dit de quel dossier il s agit et, quand il y en a vraiment un, par quel canal ce dossier touche les marches : energie, commerce, prime de risque, politique monetaire. Beaucoup de declarations n ont aucun canal de marche : dans ce cas la note se limite au sujet, en une phrase, plutot que d en inventer un. Les propos, eux, ne bougent pas d un mot, la note s ajoute en dessous. Elle est preparee a l avance : elle est deja la quand vous ouvrez, elle n arrive jamais par-dessus ce que vous etes en train de lire. Trois garde-fous : le desk ne prete jamais une fonction ni un titre a quelqu un qu il ne connait pas avec certitude, il ne dit jamais dans quel sens un marche va aller ni quoi faire de votre argent, et il ne se contente jamais de reformuler la phrase que vous venez de lire. Quand il n a rien de sur a dire, il se tait et vous voyez la citation seule, comme avant.' },
   { id: 'dtpu-20260824-mail-recap-seul', ts: Date.UTC(2026, 7, 25, 13, 0), title: 'Le mail du mercredi ne fait plus que vous donner le Recap Quotidien', desc: 'Il portait encore une accroche sur le climat de risque, l image de la force des devises, une ligne de biais et un bouton pose avant le contenu. Tout cela a disparu : vous ouvrez le mail et vous tombez directement sur le rapport du jour, dans l ordre exact du desk, la synthese en tete puis geopolitique, banques centrales, macro, les trois seances avec leurs chiffres publies et enfin les rendez-vous a surveiller. Un seul bouton subsiste, en pied, pour ouvrir le desk. Et l envoi ATTEND desormais la publication du recap : tant qu il n est pas sorti, le mail ne part pas et repasse au cycle suivant, au lieu d expedier celui de la veille.' },
   { id: 'dtpu-20260824-radar-colonne-biais', ts: Date.UTC(2026, 7, 25, 12, 0), title: 'Radar de Biais : la colonne Biais ne se coupe plus en plein mot', desc: 'Sur le Radar de Biais, la derniere colonne payait la largeur du tableau : « Legerement haussier » s affichait « Legere... » et il fallait faire defiler pour lire le biais, c est-a-dire la conclusion. Mesure : le tableau reclamait 940 pixels pour se montrer en entier, et debordait de 278 pixels sur un panneau de 640. Trois economies sans retirer la moindre information : le libelle de biais a le droit de passer a la ligne, les intitules de colonne cessent d etre insecables (« POLITIQUE MONETAIRE » imposait 132 pixels a une colonne qui n en demande que 80), et les gouttieres passent de 12 a 9 pixels. Le tableau tient desormais des 760 pixels. Sur un panneau plus etroit encore, il defile toujours, mais plus rien n est tronque en silence.' },
   { id: 'dtpu-20260824-textes-qui-changent', ts: Date.UTC(2026, 7, 25, 11, 0), title: 'Fini le resume qui change tout seul pendant que vous le lisez', desc: 'En ouvrant Info sur une news, vous voyiez d abord la depeche d origine, puis le texte etait REMPLACE quelques secondes plus tard par la lecture du desk. Vous commenciez une phrase et elle se derobait. Desormais, quand la lecture du desk est deja prete elle s affiche directement ; sinon c est un voile de chargement qui occupe la place, a la hauteur exacte du texte a venir, et le texte definitif se pose dessus. Rien ne bouge plus sous vos yeux et la page ne saute pas. Si la lecture du desk tarde ou echoue, la depeche d origine prend le relais, et une reponse qui arriverait en retard ne vient plus ecraser ce que vous etes en train de lire. La regle vaut pour TOUS les panneaux du fil, pas seulement Info.' },
@@ -5666,6 +5667,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       // ce chiffre, la decision de poursuivre ou d arreter se prendrait a l impression.
       descFr: _descFrStats(),
       impacts: _impactStats(),   // « Impact marché » sur les stats du fil : généré/tenté/plafond du jour
+      propos: _proposStats(),    // explication des news de propos : généré/tenté/plafond du jour
     };
     const health = {
       gemini: _telHealthScore(providers.gemini.keys, providers.gemini.coolingKeys, providers.gemini.breakersOpen, providers.gemini.callsToday, providers.gemini.err429Today),
@@ -10203,6 +10205,22 @@ const _RECAP_DRIVER_EXCLUDE_RX = /g[ée]opolit|[ée]nergie|positionn|\bflux\b/i;
 //    d'un CPI (mois de référence confronté à la tendance ACTUELLE du pétrole — le CPI de juin, publié mi-juillet
 //    alors que le pétrole avait déjà rebondi, se lisait faux) ; (b) COMPOSITION de l'emploi sur l'axe TEMPS PLEIN /
 //    TEMPS PARTIEL (enquête ménages), axe DISTINCT du saisonnier vs durable déjà présent. ──
+/* ── RÈGLE « NOMS PROPRES », EXTRAITE POUR ÊTRE PARTAGÉE (24/08) ───────────────────────────────
+   Elle était noyée dans _MENTOR_RULES. Elle en sort pour être injectée VERBATIM dans un prompt qui
+   n'a que faire des six autres : l'explication des news de PROPOS (_enrichProposCtx, plus bas).
+   POURQUOI EXTRAIRE PLUTÔT QUE TOUT DONNER. Les six autres règles portent toutes sur la même
+   opération : lire un CHIFFRE face à la posture d'une banque centrale. Un propos politique n'a ni
+   chiffre publié, ni consensus, ni réunion à repricer. Injectées, elles se lisent comme une
+   COMMANDE de produire une lecture macro que rien n'alimente, et un modèle à qui l'on ordonne de
+   confronter la donnée au pricing alors qu'il n'a ni l'un ni l'autre COMBLE LE VIDE. Le projet a
+   déjà payé ce mécanisme (« DXY +0,14 % » affiché alors que rien n'avait été mesuré).
+   POURQUOI CELLE-CI, EN REVANCHE, EST INDISPENSABLE. Le défaut signalé par l'utilisateur est
+   précisément une personne citée sans qu'on sache qui elle est, et la pente naturelle du modèle
+   est de lui inventer un prénom, un titre ou une fonction. C'est l'incident « Hammack » à
+   l'échelle de tout le fil géopolitique.
+   POURQUOI UNE CONSTANTE ET PAS UNE COPIE : une reformulation diluerait la règle, et deux copies
+   divergeraient au premier call mentor qui la fait évoluer. _MENTOR_RULES l'interpole ci-dessous. */
+const _MENTOR_NOMS = `- NOMS PROPRES : RÈGLE ABSOLUE : reprends un nom de personne EXACTEMENT tel qu'il apparaît dans les données fournies. N'AJOUTE JAMAIS un prénom, un titre ou une fonction qui n'y figure pas (constaté : « Hammack » complété en « Christopher Hammack », qui n'existe pas). Dans le doute, écris le seul patronyme. Même règle pour les intitulés d'institutions et les noms d'entreprises : jamais de complément inventé.`;
 const _MENTOR_RULES = `RÈGLES D'ANALYSE DE DESK (applique-les quand le sujet s'y prête, sans les réciter) :
 - DONNÉE vs POSTURE DE LA BANQUE CENTRALE (règle CENTRALE, call mentor 23/08) : l'impact d'une publication dépend de la POSTURE (stance) de sa banque centrale, jamais du seul écart au consensus. Un chiffre chaud face à une banque DOVISH assumée bouge peu : le marché sait qu'elle ne réagira pas (exemple canonique : CPI UK au-dessus des attentes SANS réaction du GBP, BoE dovish). Symétriquement, un écart modeste face à une banque à l'affût peut peser lourd. Quand la posture et/ou le pricing de la prochaine réunion sont fournis dans le contexte, CONFRONTE systématiquement la donnée à cette posture et dis si elle la CONFIRME ou la DÉFIE, et si le marché a des raisons de repricer ou non.
 - CPI / inflation : confronte le chiffre au consensus ET au pricing de taux du marché → signale tout MISPRICING (marché mal positionné avant/après la donnée) plutôt que de commenter le chiffre isolément.
@@ -10211,7 +10229,7 @@ const _MENTOR_RULES = `RÈGLES D'ANALYSE DE DESK (applique-les quand le sujet s'
 - PMI : pour les ÉTATS-UNIS (USD), privilégie les PMI SERVICES (et Flash PMI Services) plutôt que les PMI Manufacturing / Flash Manufacturing, l'économie américaine est tirée par les services. Un FLASH PMI anticipe le PMI final → traite le Flash comme le signal principal et le final comme confirmation.
 - Emploi (Employment Change, NFP, taux d'emploi) : quand le contexte fourni le permet, qualifie la COMPOSITION des créations, emplois saisonniers/temporaires vs postes durables (CDI, contrats permanents) : une hausse tirée par le saisonnier vaut moins qu'une création durable.
 - Emploi, SECOND axe de composition (TEMPS PLEIN vs TEMPS PARTIEL) : quand le contexte fourni le permet, lis la RÉPARTITION de l'enquête ménages : des pertes de postes à temps plein compensées par du temps partiel masquent une dégradation du marché du travail derrière un NFP en apparence bon. Axe DISTINCT du saisonnier vs durable (un poste permanent peut être à temps partiel) : les deux se regardent séparément.
-- NOMS PROPRES : RÈGLE ABSOLUE : reprends un nom de personne EXACTEMENT tel qu'il apparaît dans les données fournies. N'AJOUTE JAMAIS un prénom, un titre ou une fonction qui n'y figure pas (constaté : « Hammack » complété en « Christopher Hammack », qui n'existe pas). Dans le doute, écris le seul patronyme. Même règle pour les intitulés d'institutions et les noms d'entreprises : jamais de complément inventé.`;
+${_MENTOR_NOMS}`;
 function _recapCcyPrompt(ccy, ccyCtx, gSummary, deskBias) {
   const name = _RECAP_CCY_NAME[ccy] || ccy;
   const frame = _RECAP_CCY_FRAME[ccy] || '';
@@ -17068,8 +17086,59 @@ function _isInfoQuoteNews(headline) {
 // d'ÉVÉNEMENT (choix, nomination, démission, remplacement…), OU forme « new/next/incoming + poste »,
 // OU crise gouvernementale (chute, élections anticipées, motion de censure) → événement devise MAJEUR.
 const _POL_FINANCE_RX = /\b(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary|finance ministry)\b.{0,80}\b(?:choice|picks?|appoint\w*|nam(?:e|ed|es|ing)|nomin\w*|resign\w*|quit\w*|replac\w*|sack\w*|oust\w*|steps? down|candidate|succeed\w*)\b|\b(?:new|next|incoming)\s+(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary|prime minister|president)\b|\b(?:government (?:collapse|falls)|snap elections?|no.?confidence vote|vote of no.?confidence)\b|\b(?:prime minister|president|premier)\b.{0,80}\b(?:resign\w*|steps? down|succeed\w*|successor|sworn in|takes? o(?:ffice|ver)|wins? (?:the )?(?:leadership|election)\w*|oust\w*|replaced)\b|\b(?:backs?|endorses?)\s+\S+(?:\s+\S+)?\s+as\s+(?:successor|(?:next|new)\s+(?:prime minister|president|chancellor))\b|\bwins?\s+(?:labour|tory|conservative|party)\s+leadership\b/i;
+/* ═══ NEWS DE « PROPOS » : LE SERVEUR APPREND À LES RECONNAÎTRE (24/08) ════════════════════════
+   DÉFAUT SIGNALÉ PAR L'UTILISATEUR, capture à l'appui : sur une carte de propos (« Trump: Iran is
+   completely collapsing », badge « +1 propos »), l'onglet Info n'affiche QUE la citation traduite
+   et l'attribution sèche d'un second propos. Ni qui parle, ni dans quel cadre, ni ce que ça change.
+   CAUSE RACINE MESURÉE : savoir qu'un titre est une CITATION vivait uniquement dans le CLIENT
+   (public/js/app.js : CB_SPEAKER_RX, POL_SPEAKER_RX, isSpeakerQuote, getSpeakerKey). Le serveur
+   n'avait qu'un flag VOISIN et différent, `_infoQuote`, qui exige 40 caractères plus une formule de
+   rant ou de la vantardise à la 1re personne. Le titre ci-dessus fait 36 caractères et n'est ni
+   l'un ni l'autre : il n'a JAMAIS été vu par le moindre pipeline serveur. Ces news sont donc les
+   seules du fil à n'avoir aucune explication, jamais, quelle que soit leur importance.
+   CE QU'ON POSE ICI : la TRANSPOSITION FIDÈLE des motifs du client (mêmes noms, mêmes bornes).
+   Les recopier plutôt que les réinventer est ce qui garantit que le serveur enrichit EXACTEMENT ce
+   que le client regroupe : deux jeux de règles qui dérivent produiraient une explication accrochée
+   à une carte qui ne l'affiche pas. Coût : de la regex à l'ingestion, zéro appel IA.
+   ⚠️ Le cadratin (U+2014) est sous veto dans ce dépôt et n'est JAMAIS écrit en clair, pas même
+   dans un commentaire : ci-dessous il n'apparaît que par sa séquence d'échappement, et ailleurs
+   par String.fromCharCode. Il faut bien le RECONNAÎTRE dans les titres source, qui en sont pleins,
+   sans jamais le taper : l'échappement tient les deux. */
+const _PROP_CB_RX = /\b(?:fed(?:eral reserve)?|fomc|ecb|boe|boj|boc|rba|snb|rbnz|riksbank|norges\s+bank|bank\s+of\s+(?:england|japan|canada|australia)|swiss\s+national|reserve\s+bank|powell|lagarde|bailey|ueda|macklem|bullock|jordan|mann|dhingra|pill|haskel|breeden|taylor|ramsden|waller|jefferson|cook|kugler|bowman|schmid|daly|kashkari|williams|bostic|barkin|collins|logan|hammack|goolsbee|musalem|harker|villeroy|de\s?guindos|nagel|schnabel|lane|rehn|knot|centeno|simkus|panetta|vasle|kazaks|vujcic|holzmann|stournaras|elderson|cipollone)\b/i;
+const _PROP_POL_RX = /\b(trump|vance|bessent|rubio|lutnick|hassett|greer|navarro|miran|waltz|witkoff|leavitt|yellen|musk|reeves|lammy|kato|ishiba|takaichi|zelenskyy?|putin|lavrov|netanyahu|macron|merz|starmer|meloni|von\s+der\s+leyen|sefcovic|dombrovskis)\b/i;
+// Séparateur ou verbe de parole dans les 60 premiers caractères, et le titre ne se termine PAS par
+// « Speaks » (ce dernier cas est une ANNONCE de prise de parole, pas encore un propos).
+const _PROP_SEP_RX = /^.{4,60}\s*(?:[-:\u2014]|says?\s|notes?\s|adds?\s|warns?\s|signals?\s|reiterates?\s|expects?\s|sees?\s|stresses?\s|confirms?\s)\s*\S/i;
+const _PROP_ANNONCE_RX = /\b(?:speaks?|speaking|testimony|press\s+(?:conference|briefing))\s*$/i;
+function _estPropos(headline) {
+  const h = String(headline || '');
+  if (!_PROP_CB_RX.test(h) && !_PROP_POL_RX.test(h)) return false;
+  return _PROP_SEP_RX.test(h) && !_PROP_ANNONCE_RX.test(h);
+}
+// Clé d'orateur = le PATRONYME en minuscules (jamais une devise ni une institution) : c'est ce qui
+// rassemble « Trump: … » et « Trump says … » dans la même prise de parole. Copie de getSpeakerKey.
+function _proposCle(headline) {
+  const h = String(headline || '');
+  const m1 = h.match(/(?:fed(?:eral\s+reserve)?|fomc|ecb|boe|boj|boc|rba|snb|rbnz|bank\s+of\s+\w+|riksbank)'?s?\s+([A-Z][a-zé\-]+)/i);
+  if (m1) return m1[1].toLowerCase();
+  const m2 = h.match(/\b(powell|lagarde|bailey|ueda|macklem|bullock|jordan|mann|dhingra|pill|haskel|breeden|taylor|ramsden|waller|jefferson|cook|kugler|bowman|schmid|daly|kashkari|williams|bostic|barkin|collins|logan|hammack|goolsbee|musalem|harker|villeroy|nagel|schnabel|lane|rehn|knot|centeno|simkus|panetta|vasle|kazaks|vujcic|holzmann|stournaras|elderson|cipollone)\b/i);
+  if (m2) return m2[1].toLowerCase();
+  const m3 = h.match(_PROP_POL_RX);
+  return m3 ? m3[1].toLowerCase() : null;
+}
 function upgradeItemPriority(item) {
   const h = item.headline || '';
+  /* Flag « news de PROPOS » posé À L'INGESTION (regex, aucun coût IA). C'est lui qui ouvre la porte
+     du cycle d'explication `_enrichProposCtx`.
+     ⚠️ CE FLAG N'EST PAS CE QUI TIENT LA PORTÉE « POUR L'AVENIR », et un commentaire antérieur le
+     prétendait à tort (corrigé le 24/08). MESURE : `upgradeItemPriority` est appliqué à TOUT
+     l'historique persisté au démarrage (`allNews.map(upgradeItemPriority)`, jusqu'à 2000 items sur
+     21 jours) → `_propos` EST bel et bien reposé sur le passé à chaque boot.
+     CE QUI TIENT RÉELLEMENT LA PORTÉE est UNE SEULE LIGNE, la garde de fraîcheur de 6 h dans
+     `_enrichProposCtx` : au-delà, un item n'est jamais candidat. Quiconque déplacerait ou
+     assouplirait cette garde ROUVRIRAIT le passé (des centaines d'appels IA d'un coup) : c'est là
+     qu'il faut regarder, pas ici. */
+  if (h && !item._briefing && item.source !== 'DTP' && _estPropos(h)) item._propos = true;
   // Flag « propos hors marché » posé À L'INGESTION (regex, aucun coût IA) → le tag « Contexte » + le repli
   // de titre sont instantanés ; l'IA (_enrichInfoTitles) remplit ensuite `_infoTitle` (titre explicatif).
   if (h && !item._briefing && item.source !== 'DTP' && _isInfoQuoteNews(h)) item._infoQuote = true;
@@ -17624,6 +17693,441 @@ ${h.slice(0, 240)}${postureCtx}`;
   } finally { _impBusy = false; }
 }
 
+/* ═══ EXPLICATION DES NEWS DE « PROPOS » (24/08, demande user : « on comprend pas trop la news, il
+   n'y a pas d'explication claire ») ════════════════════════════════════════════════════════════
+   CE QUE VOYAIT LE LECTEUR : une carte « Trump: Iran is completely collapsing » avec un badge
+   « +1 propos ». En ouvrant Info, deux lignes et rien d'autre : une attribution sèche et la
+   traduction littérale du titre. Il ne sait ni qui parle, ni dans quel cadre, ni ce que ça change.
+   POURQUOI C'ÉTAIT STRUCTUREL, ET PAS UN OUBLI. Le panneau d'une grappe de propos n'affiche pas une
+   dépêche mais une LISTE DE TITRES (app.js, branche `hasGrouped`), et le client exclut ces cartes
+   du résumé Info (`_improvable` : `!hasGrouped && !isSpeaker`). Cette exclusion est JUSTE et on la
+   garde : elle protège la liste des propos, qu'un résumé remplacerait. Mais elle ne disait rien sur
+   le fait qu'il faille EXPLIQUER À CÔTÉ. C'est ce trou-là qu'on comble.
+   POURQUOI PAS /api/news-info : (a) sa garde d'entrée refuse tout corps de moins de 30 caractères
+   et une citation FinancialJuice est un TITRE NU (le scraper ne pose `description` que si un champ
+   de corps existe et diffère du titre, ce que le flux WS ne fournit pas) ; (b) c'est un chemin AU
+   CLIC, or la doctrine du projet interdit de générer quand le lecteur ouvre, et depuis le 24/08 le
+   panneau affiche un squelette : une génération à l'ouverture le ferait tourner plusieurs secondes.
+   D'où un CYCLE DE FOND qui pose un CHAMP sur l'item, exactement comme `_impact` et `_descFr` : le
+   texte fait partie du contenu du panneau AVANT la première ouverture, donc il s'affiche EN UNE
+   FOIS sous la citation, et rien ne se dérobe sous les yeux du lecteur (règle du 24/08).
+
+   TROIS CHOIX QUI MÉRITENT LEUR LIGNE :
+   1. UNE SEULE EXPLICATION PAR PRISE DE PAROLE, portée par la citation la PLUS ANCIENNE. Le
+      regroupement « +N propos » est calculé DANS LE CLIENT, au rendu, sur la tranche visible : le
+      serveur ne peut pas raisonner sur la grappe. Mais il peut reconnaître son POINT DE DÉPART :
+      une citation sans aînée du même orateur dans les 30 min (même fenêtre que le client). Enrichir
+      celle-là, et elle seule, donne (a) une dépense bornée même sur une conférence de presse de 45
+      minutes qui débite quinze titres, (b) un ancrage STABLE : la carte porteuse d'une grappe change
+      dès qu'un propos plus récent arrive, la plus ancienne, elle, ne bouge pas.
+   2. ON ATTEND QUE LA PRISE DE PAROLE SE TAISE (PROPOS_REPOS_MS). Générer 60 s après le premier
+      titre reviendrait à expliquer une intervention dont on n'a lu qu'une phrase. On laisse donc
+      passer quelques minutes de silence : la matière est alors complète. Le prix assumé est que
+      l'explication n'existe pas dans les toutes premières minutes ; le panneau montre alors la
+      citation seule, ce qui est exactement son affichage d'aujourd'hui (dégradation honnête).
+   3. LA MATIÈRE, ET RIEN D'AUTRE : les titres de la prise de parole et la catégorie du fil. Le desk
+      ne possède AUCUNE base de personnes (vérifié : « Ghalibaf » n'apparaît nulle part dans le
+      dépôt), donc le prompt a l'ordre explicite de SE TAIRE sur l'identité qu'il ne connaît pas
+      plutôt que de la broder, et reçoit la règle NOMS PROPRES verbatim (_MENTOR_NOMS).
+
+   GARDE-FOUS repris de `_enrichImpacts`, qui est le précédent le plus proche : verrou de réentrance,
+   plafond journalier PROPRE (jamais partagé, sinon on affame les analyses), cache durable qui
+   mémorise MÊME LE VIDE (une prise de parole que l'IA ne sait pas lire n'est jamais retentée en
+   boucle), compteur exposé au moniteur IA admin, broadcast ciblé. `important: true` est
+   OBLIGATOIRE sur aiSmart('news') : sans lui, refus budget EN SILENCE. `claudeOverBudget: false`
+   en revanche est le bon réglage ici : une explication de contexte est du confort de lecture, pas
+   un contenu irremplaçable (même choix que les tags et la pré-traduction). */
+const PROPOS_PAR_CYCLE = 2;
+const PROPOS_MAX_JOUR = (function () {
+  const v = parseInt(process.env.PROPOS_MAX_JOUR, 10);
+  return Number.isFinite(v) ? v : 70;   // 0 désactive la tâche sans redéploiement
+})();
+const PROPOS_FENETRE_MS = 30 * 60 * 1000;        // écart max entre deux propos d'une même grappe (copie du client)
+const PROPOS_PORTEE_MS  = 3 * 60 * 60 * 1000;    // durée max d'UNE intervention (copie du client)
+const PROPOS_REPOS_MS   = 5 * 60 * 1000;         // silence exigé avant de considérer la prise de parole terminée
+/* PANNE DE TOUTE LA CASCADE IA : on se tait 15 min au lieu de repartir au cycle suivant.
+   POURQUOI CETTE LIGNE EXISTE (défaut mesuré) : quand `aiSmart` LÈVE, l'exécution saute au catch,
+   donc `_proposCache.set(ck, '')` n'est PAS atteint et l'item est retenté au cycle suivant. C'est le
+   bon choix pour un incident passager, mais pendant une panne longue le compteur de succès reste à
+   zéro : le plafond ne se déclenchait JAMAIS et le cycle repartait à 2 tentatives/minute, soit
+   jusqu'à 2880 traversées de cascade par jour de panne. Deux verrous répondent maintenant : ce
+   refroidissement, et le plafond qui compte désormais les TENTATIVES (voir plus bas). */
+const PROPOS_PANNE_MS   = 15 * 60 * 1000;
+const _CADRATIN = String.fromCharCode(0x2014);   // jamais écrit en clair : veto du dépôt
+let _proposJour = '', _proposCount = 0, _proposEssais = 0, _proposBusy = false, _proposPanneJusqu = 0;
+const _proposCache = new Map();
+function _proposStats() {
+  return { jour: _proposJour, generes: _proposCount, tentes: _proposEssais, plafond: PROPOS_MAX_JOUR };
+}
+/* ══ FILTRE THÉMATIQUE, EN AMONT DE L'APPEL ═══════════════════════════════════════════════════════
+   DÉFAUT MESURÉ : `_estPropos` ne teste QU'UN NOM connu plus un séparateur. « Musk: The Cybertruck
+   is the best product we have ever built », « Trump: The fake news media is totally failing »,
+   « Putin says the World Cup was a great success », « Netanyahu: We will always remember the victims
+   of this tragedy » sont TOUS classés PROPOS. Envoyés tels quels à un prompt qui demande par quel
+   canal le sujet touche les marchés, ils fabriquent une pertinence qui n'existe pas : c'est
+   exactement le mécanisme déjà payé par le projet (« DXY +0,14 % » affiché sans rien avoir mesuré).
+   IDIOME MAISON REPRIS À LA LETTRE (isGlobalNewsNoise, l. ~16932) : un motif hors-sujet NE DÉCIDE
+   JAMAIS SEUL, il est toujours rattrapé par `isFinanciallyRelevant`. « Netanyahu: We honour the
+   victims of the Iran strike » contient « Iran » et repasse donc en candidat légitime.
+   Ce filtre coûte une regex et ÉVITE un appel : c'est aussi le poste d'économie le moins cher. */
+const _PROPOS_HORS_MARCHE_RX = new RegExp([
+  // Sport (le desk le bannit déjà ailleurs sans condition, ici on reste sur le rattrapage maison)
+  /\bworld\s+cup\b/, /\bolympics?\b/, /\bsuper\s+bowl\b/, /\b(?:football|soccer|basketball|baseball|tennis)\b/,
+  /\bgolf\s+(?:tournament|course)\b/, /\bchampionship\b/, /\bgold\s+medal\b/,
+  // Presse, médias, spectacle
+  /\bfake\s+news\b/, /\bmainstream\s+media\b/, /\blamestream\b/,
+  /\bmedia\s+(?:is|are)\s+(?:totally\s+)?(?:failing|dying|corrupt|fake)\b/,
+  /\btv\s+(?:show|ratings)\b/, /\breality\s+show\b/, /\bpodcast\b/, /\b(?:movie|film\s+festival|concert|album)\b/,
+  // Produit / entreprise grand public (« the best product we have ever built »)
+  /\bcybertruck\b/, /\biphone\b/, /\b(?:best|greatest|finest)\s+product\b/, /\bvideo\s+game\b/,
+  // Hommages, deuils, félicitations, vœux
+  /\bvictims?\s+of\b/, /\btragedy\b/, /\bcondolences\b/, /\bmourn(?:s|ed|ing)?\b/, /\bfunerals?\b/,
+  /\btribute\s+to\b/, /\bremember\s+the\b/, /\bthoughts\s+and\s+prayers\b/,
+  /\bcongratulat\w+/, /\bhappy\s+(?:birthday|holidays?|new\s+year|easter)\b/, /\bmerry\s+christmas\b/,
+  /\bgreat\s+success\b/, /\broyal\s+wedding\b/,
+].map(r => r.source).join('|'), 'i');
+/* ══ VETO DÉTERMINISTE : LE PROMPT NE SUFFIT JAMAIS ═══════════════════════════════════════════════
+   DÉFAUT MESURÉ, et le plus grave du lot : le nettoyage ne faisait que de la TYPOGRAPHIE (fences,
+   balises, espaces, puces, guillemets, plancher, plafond). Zéro filtre de CONTENU. Banc adversarial
+   sur la vraie fonction : 0 rejet sur 8 sorties incitatives, dont « Achetez le pétrole et vendez les
+   actions européennes », « Signal d'achat sur le pétrole, objectif de prix 95 dollars »,
+   « Positionnez-vous maintenant sur l'or, c'est une opportunité de gain rare ». Le prompt interdit
+   tout cela, mais RIEN ne le vérifiait : la règle produit « informatif uniquement » ne tenait que
+   sur la bonne volonté du modèle.
+   POURQUOI ÉTENDRE ET NON COPIER `_DECRYPT_VETO_RX` (l. ~21024). Mesuré : il rattrape 3 des 8 cas et
+   épargne bien le témoin sain, donc son socle est repris tel quel (bloc a). Mais il NE COUVRE PAS le
+   PRONOSTIC DE DIRECTION (« le baril va monter », « le dollar devrait baisser ») ni la PROMESSE DE
+   GAIN, tous deux explicitement interdits par le prompt : d'où les blocs b et c.
+   BLOC d, ET SA LIMITE ASSUMÉE. Le veto Mindset (l. ~21260) bannit tout actif et toute paire ; ici on
+   ne peut pas aller aussi loin sans vider la fonctionnalité de son sens, puisque NOMMER LE CANAL
+   (énergie, actions européennes, taux) EST le travail demandé. La ligne retenue : on interdit ce qui
+   ne sert qu'à désigner un trade, c'est-à-dire les PAIRES et TICKERS, les pips, et la construction
+   « à suivre / à surveiller sur X ». Les CLASSES d'actifs restent permises, et c'est délibéré.
+   Un rejet ne dégrade rien pour le lecteur : la citation reste seule, son affichage d'avant. */
+const _PROPOS_VETO_RX = new RegExp([
+  // ── (a) ORDRE DE POSITION : socle repris de _DECRYPT_VETO_RX pour que les deux ne divergent pas
+  /\b(?:prene[zs]|prendre|prends|prenons|ouvre[zr]?|ouvrir|coupe[zr]?|couper|solde[zr]?|solder)\s+(?:une?\s+|la\s+|sa\s+|ta\s+|votre\s+|des\s+)?positions?\b/,
+  /\bpositionn(?:e|es|ez|er|ons)[\s-]*(?:vous|toi)\b/,
+  /(?:^|[.!?]\s+)(?:ach[èe]te[zs]?|vende[zs]|vends|profite[zr]?)\b/,
+  /\b(?:achetez|vendez)\b/,
+  /\b(?:il\s+faut|on\s+doit|vous\s+devez|mieux\s+vaut|il\s+est\s+(?:temps|conseill[ée]|recommand[ée]|pr[ée]f[ée]rable)|le\s+moment\s+(?:est\s+venu|d[e'’]))\s+(?:d[e'’]\s*)?(?:acheter|vendre|entrer|sortir|se\s+positionner|prendre)\b/,
+  /* CONJUGAISONS (banc de la session principale, 24/08) : la liste ne portait que les formes de 3e
+     personne du singulier. « Nous CONSEILLONS de vendre le dollar » passait donc entre les mailles,
+     alors que « il conseille de vendre » était rejeté. On couvre les radicaux et leurs terminaisons.
+     L'apostrophe est rendue facultative : un modèle qui écrit « d acheter » sans apostrophe ne doit
+     pas contourner le veto pour un caractère manquant. */
+  /* RÈGLE DE PROXIMITÉ plutôt qu'énumération de tournures (banc de la session principale, 24/08).
+     La version précédente listait « conseille de vendre » et ratait « nous CONSEILLONS de vendre »,
+     puis, une fois les conjugaisons ajoutées, « on recommande AUX LECTEURS de vendre ». Chaque
+     tournure appelait une rustine. On cherche donc un verbe de recommandation SUIVI, dans la MÊME
+     phrase et à moins de 40 caractères, d'un verbe d'opération : la syntaxe intercalée n'a plus
+     d'importance. `[^.!?]` borne à la phrase, sinon deux idées voisines se contamineraient.
+     Faux positifs écartés par construction : sans verbe d'opération, « recommande la prudence » ou
+     « recommande une réforme du marché du travail » passent, et c'est voulu. */
+  /\b(?:conseill|recommand|sugg[èe]r|pr[ée]conis|invit)\w*\b[^.!?]{0,40}\b(?:acheter|vendre|shorter|se\s+positionner|entrer\s+(?:sur|en\s+position)|prendre\s+(?:une?\s+)?position)\b/,
+  /\bsignal\s+d[e'’]\s*achat\b/, /\bsignal\s+de\s+vente\b/,
+  /\bobjectif\s+de\s+(?:prix|cours)\b/, /\bprise\s+de\s+b[ée]n[ée]fices?\b/, /\bstop[\s-]?loss\b/,
+  /\bpoint\s+d[e'’]\s*entr[ée]e\b/, /\bentr(?:e[zr]?|[ée]e)\s+(?:en\s+)?(?:long|short|achat|vente)\b/,
+  /\b(?:aller|passer|se\s+mettre)\s+(?:en\s+)?(?:long|short)\b/,
+  // ── (b) PRONOSTIC DE DIRECTION (absent de _DECRYPT_VETO_RX, pourtant interdit par le prompt).
+  //        « ferait monter » / « pourrait faire monter » sont ÉPARGNÉS À DESSEIN : ce sont des
+  //        descriptions de mécanisme, pas des annonces, et c'est précisément ce qu'on demande.
+  /\b(?:va|vont|devrait|devraient|ira|iront|risque\s+de|risquent\s+de|finira\s+par|finiront\s+par)\s+(?:probablement\s+|sans\s+doute\s+|encore\s+|donc\s+|bient[ôo]t\s+|forc[ée]ment\s+)?(?:monter|grimper|bondir|progresser|remonter|augmenter|s[e'’]\s*envoler|s[e'’]\s*appr[ée]cier|baisser|chuter|plonger|reculer|d[ée]crocher|s[e'’]\s*effondrer|redescendre|se\s+d[ée]pr[ée]cier)\b/,
+  /\b(?:on|nous|je)\s+(?:attend|attendons|anticipe|anticipons|table|tablons|pr[ée]voit|pr[ée]vois|pr[ée]voyons)\s+(?:donc\s+)?(?:sur\s+)?(?:une?\s+)?(?:hausse|baisse|repli|rebond|chute|envol[ée]e|correction)\b/,
+  /\b(?:hausse|baisse|repli|rebond|correction)\s+(?:attendue?|pr[ée]vue?|assur[ée]e?|garantie|in[ée]vitable)\b/,
+  // ── (c) PROMESSE DE GAIN
+  /\b(?:opportunit[ée]s?|occasion)\s+(?:de\s+gain|rare|unique|en\s+or|[àa]\s+saisir|d[e'’]\s*achat|de\s+vente)\b/,
+  /\b(?:gains?|profits?|plus-values?|rendements?)\b[^.!?]{0,26}\b(?:assur[ée]s?|garantis?|faciles?|rapides?|rares?)\b/,
+  /\bargent\s+facile\b/, /\bgagner\s+de\s+l[e'’]\s*argent\b/, /\bfaire\s+fortune\b/,
+  // ── (d) INSTRUMENT / PAIRE À SURVEILLER (voir la limite assumée expliquée ci-dessus)
+  /\b[àa]\s+(?:suivre|surveiller|jouer|trader)\s+(?:de\s+pr[èe]s\s+)?sur\b/,
+  /\b(?:eur|gbp|usd|aud|nzd|cad|chf|jpy)\s*\/\s*(?:eur|gbp|usd|aud|nzd|cad|chf|jpy)\b/,
+  /\b(?:xau|xag|wti|btc|eth)\b/, /\b\d+\s?pips?\b/,
+].map(r => r.source).join('|'), 'i');
+/* REFUS RÉDIGÉ EN PHRASE : le filtre d'origine ne reconnaissait que trois amorces (`^rien`, `^je ne`,
+   `^impossible`). Banc : 3 refus sur 8 les franchissaient et se seraient affichés au lecteur sous le
+   libellé « Contexte DTP », c'est-à-dire un aveu d'impuissance présenté comme une note d'analyse.
+   ANCRAGE SUR LE MÉTA-DISCOURS, PAS SUR LA NÉGATION : une vraie explication ne parle JAMAIS des
+   « titres » ni de ce qu'elle peut ou ne peut pas faire. C'est ce qui rend ces motifs sûrs. */
+const _PROPOS_REFUS_RX = new RegExp([
+  /^\s*rien\b/, /^\s*(?:je\s+ne|impossible|d[ée]sol[ée])\b/,
+  /\b(?:ces\s+|les\s+|des\s+)?titres?\s+(?:fournis?\s+|ci-dessous\s+|donn[ée]s?\s+)?ne\s+(?:permettent|contiennent|donnent|fournissent|suffisent|apportent)\b/,
+  /\bne\s+(?:permettent|donnent|fournissent)\s+pas\s+(?:de\s+|assez\s+de\s+)?mati[èe]re\b/,
+  /\bsans\s+(?:inventer|extrapoler|sp[ée]culer|broder)\b/,
+  /\bje\s+ne\s+(?:peux|dispose|suis\s+pas\s+en\s+mesure)\b/,
+  /\bpas\s+assez\s+d[e'’]\s*[ée]l[ée]ments\b/,
+  /\baucun\s+[ée]l[ée]ment\s+(?:exploitable|suffisant)\b/,
+].map(r => r.source).join('|'), 'i');
+/* ══ PARAPHRASE DU TITRE : LA VIOLATION LA PLUS DIRECTE DE « ZÉRO DÉFORMATION » ═══════════════════
+   Le prompt l'interdit deux fois, aucun contrôle ne l'appliquait. Mesuré : « Donald Trump affirme que
+   l'Iran est en train de s'effondrer complètement, selon ses propres termes tenus publiquement. »
+   traversait le nettoyage sans une modification. La note RÉPÉTAIT l'affirmation du locuteur au lieu
+   de l'éclairer, et la posait sous un libellé DTP, donc au compte du desk.
+   MÉTHODE, ET POURQUOI ELLE MARCHE MALGRÉ LE CHANGEMENT DE LANGUE (titres anglais, note française) :
+   on ne compare pas des phrases, on compte combien des mots PORTEURS du titre se retrouvent dans la
+   note. Ce qui survit à la traduction, ce sont justement les noms propres et les cognats latins
+   (Trump, Iran, completely/complètement) : c'est la signature d'une paraphrase, pas d'une explication.
+   DEUX SEUILS, ET LE SECOND EST LE PLUS IMPORTANT : au moins 3 mots retrouvés (sans quoi un titre
+   pauvre en mots porteurs déclencherait sur le seul nom de l'orateur, que toute note légitime cite)
+   ET 70 % du titre couvert. Sur l'exemple : 3 mots sur 4, soit 0,75 → rejet. Sur une explication
+   honnête du même titre (« conflit, canal énergie, détroit d'Ormuz »), 1 mot sur 4 → passe. */
+const _PROPOS_MOTS_VIDES = new Set(['dans', 'pour', 'avec', 'cette', 'cet', 'ces', 'les', 'des', 'une', 'sur', 'par', 'que', 'qui', 'sont', 'est', 'sera', 'leur', 'leurs', 'plus', 'moins', 'mais', 'donc', 'ainsi', 'selon', 'entre', 'the', 'and', 'that', 'this', 'with', 'from', 'have', 'has', 'been', 'will', 'says', 'said', 'their', 'they', 'over', 'into', 'after', 'about', 'than', 'more', 'most', 'such', 'also', 'were', 'was', 'not', 'but', 'its', 'his', 'her', 'would', 'could', 'should']);
+function _proposMotsCles(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')   // accents retirés : « complètement » doit pouvoir répondre à « completely »
+    .replace(/[^a-z0-9]+/g, ' ').split(' ')
+    .filter(w => w.length >= 4 && !_PROPOS_MOTS_VIDES.has(w));
+}
+function _proposParaphrase(txt, titres) {
+  const note = _proposMotsCles(txt);
+  if (!note.length) return false;
+  for (const h of (titres || [])) {
+    const mots = [...new Set(_proposMotsCles(h))];
+    if (mots.length < 3) continue;                       // titre trop pauvre : le test n'aurait aucun sens
+    let n = 0;
+    for (const m of mots) {
+      const vu = note.some(w => w === m
+        || (w.length >= 5 && m.length >= 5 && (w.startsWith(m.slice(0, 5)) || m.startsWith(w.slice(0, 5)))));
+      if (vu) n++;
+    }
+    if (n >= 3 && n / mots.length >= 0.7) return true;
+  }
+  return false;
+}
+/* ══ CLÉ DE CACHE : SUR LE CONTENU, PLUS SUR L'IDENTIFIANT ════════════════════════════════════════
+   DÉFAUT MESURÉ (poste de dépense évitable numéro un) : la clé valait `'proposfr1:' + item.id`, une
+   identité pure. Quatre propos Trump/Iran quasi identiques répartis dans la journée, espacés de plus
+   de 30 min, forment quatre grappes distinctes et déclenchaient QUATRE appels pour quatre
+   explications quasi identiques : le scénario « fil géopolitique vivant », c'est-à-dire le cas
+   NORMAL. Le dépôt connaît pourtant la convention inverse (`_aiChatKey` = md5 du contenu).
+   DEUX NIVEAUX, PARCE QU'UN SEUL NE SUFFIT PAS :
+   1. SIGNATURE EXACTE (durable, Supabase) = orateur + ensemble trié des mots porteurs de la grappe.
+      Elle survit aux redémarrages et absorbe les reposts à l'identique et les remises en ordre.
+   2. VOISINAGE (mémoire, borné) = même orateur, recouvrement de Jaccard >= 0,6 sur les mots porteurs.
+      C'est lui qui attrape le « quasi » de « quasi identiques », qu'un hachage ne peut pas voir. */
+function _proposSignature(cle, titres) {
+  const mots = [...new Set((titres || []).flatMap(h => _proposMotsCles(h)))].sort().join(' ');
+  return 'proposfr2:' + require('crypto').createHash('md5').update(String(cle || '') + '|' + mots).digest('hex').slice(0, 22);
+}
+const _proposIndex = [];   // [{ cle, mots:Set, txt }] borné : sert la reprise « grappe voisine »
+function _proposIndexer(cle, mots, txt) {
+  if (!txt) return;
+  _proposIndex.push({ cle, mots: new Set(mots), txt });
+  if (_proposIndex.length > 200) _proposIndex.shift();
+}
+function _proposVoisine(cle, mots) {
+  if (!cle || !mots.length) return '';
+  const a = new Set(mots);
+  for (let i = _proposIndex.length - 1; i >= 0; i--) {
+    const e = _proposIndex[i];
+    if (e.cle !== cle) continue;
+    let inter = 0;
+    for (const m of a) if (e.mots.has(m)) inter++;
+    const union = a.size + e.mots.size - inter;
+    if (union > 0 && inter / union >= 0.6) return e.txt;
+  }
+  return '';
+}
+// Toute la prise de parole, à partir de `depart` : on remonte le fil tant que l'écart entre deux
+// propos consécutifs reste sous la fenêtre, borné par la portée. Même chaîne glissante que le client.
+function _proposGrappe(depart, cle, tous) {
+  const t0 = depart.timestamp || 0;
+  const memes = tous
+    .filter(x => x.cle === cle && x.ts >= t0 && x.ts <= t0 + PROPOS_PORTEE_MS)
+    .sort((a, b) => a.ts - b.ts);
+  const chaine = [];
+  let dernier = t0;
+  for (const x of memes) {
+    if (x.ts - dernier > PROPOS_FENETRE_MS) break;
+    chaine.push(x); dernier = x.ts;
+  }
+  return chaine;
+}
+// Cet item a-t-il une AÎNÉE dans sa propre grappe ? Si oui, il n'est pas le point de départ : c'est
+// l'aînée qui porte l'explication. Départage par identifiant à horodatage égal, sinon deux propos
+// tombés à la même seconde se croiraient tous deux au départ et paieraient deux générations.
+function _proposAAine(item, cle, tous) {
+  const t0 = item.timestamp || 0, id = String(item.id);
+  return tous.some(x => x.cle === cle && x.it !== item
+    && ((x.ts < t0 && t0 - x.ts <= PROPOS_FENETRE_MS) || (x.ts === t0 && String(x.it.id) < id)));
+}
+function _proposCtxPrompt(item, titres) {
+  const liste = titres.map((h, i) => (i + 1) + '. ' + String(h || '').slice(0, 220)).join('\n');
+  const pluriel = titres.length > 1;
+  /* ⚠️ LA STRUCTURE DE CE PROMPT A ÉTÉ REFAITE (24/08) APRÈS UNE MESURE GÊNANTE. La version d'origine
+     posait DEUX questions OBLIGATOIRES, dont « par quel CANAL le sujet touche les marchés », suivies
+     d'un MENU (énergie, commerce, prime de risque...). Un menu fermé invite à choisir une case : sur
+     un propos qui ne touche aucun marché, le modèle nomme un canal pour remplir la place. La seule
+     issue offerte était binaire (répondre RIEN), condition trop haute pour qu'on la choisisse après
+     avoir reçu deux ordres. C'est le mécanisme que le projet a déjà payé (« DXY +0,14 % » affiché
+     sans rien avoir mesuré). La seconde question est donc devenue CONDITIONNELLE et l'absence de
+     canal est nommée comme une réponse NORMALE, pas comme un échec.
+     MÊME LOGIQUE POUR LA LONGUEUR : « 160 à 260 caractères » posait un PLANCHER, et un plancher sur
+     une matière mince est une commande de remplissage. Il ne reste qu'un PLAFOND. */
+  return `Tu es éditeur d'un terminal financier professionnel FRANÇAIS. Ci-dessous, ${pluriel ? "les titres bruts d'UNE MÊME prise de parole" : "le titre brut d'un propos"}, tels que le fil les a reçus. Le lecteur les voit déjà, mot pour mot, juste au-dessus de ton texte : tu ne les reformules pas, tu les ÉCLAIRES.
+QUESTION 1, TOUJOURS : DE QUOI il est question. Quel dossier, quel épisode, quel cadre.
+QUESTION 2, SEULEMENT SI LA RÉPONSE EXISTE VRAIMENT : par quel CANAL ce sujet touche les marchés (énergie, commerce, prime de risque, politique monétaire, budget, approvisionnement...).
+⚠️ BEAUCOUP DE PROPOS N'ONT AUCUN CANAL DE MARCHÉ : un commentaire sur un produit, sur la presse, sur le sport, un hommage, des félicitations, une déclaration de principe. Dans ce cas tu t'ARRÊTES après la question 1, en une seule phrase, et c'est une réponse PARFAITEMENT valable. Ne nomme JAMAIS un canal pour remplir la place : la liste ci-dessus est un rappel de ce qui existe, pas un menu où il faudrait choisir.
+LONGUEUR : 260 caractères AU MAXIMUM. Aucun minimum. Une phrase juste vaut mieux que deux phrases dont la seconde est comblée.
+INTERDITS ABSOLUS (un seul non respecté rend la sortie inutilisable) :
+- n'invente NI fonction, NI titre, NI nationalité, NI institution, NI prénom pour une personne citée : si tu ne sais pas qui elle est AVEC CERTITUDE, n'en parle pas du tout et explique seulement le SUJET ;
+- n'ajoute AUCUN fait, AUCUN chiffre, AUCUNE date qui ne figure pas dans les titres ci-dessous ;
+- ne pronostique AUCUNE direction de marché, n'annonce jamais qu'un actif va monter ou baisser, ne conseille AUCUNE position, ne promets aucun gain : tu décris un mécanisme, jamais une décision ;
+- ne prête à la personne citée AUCUNE intention, AUCUNE motivation, AUCUN calcul (« cherche à faire pression sur… », « veut rassurer les marchés… ») : une intention est un fait, et personne ne l'a établi ;
+- ne désigne AUCUNE paire de devises, AUCUN ticker, AUCUN actif « à suivre » ou « à surveiller » : tu expliques un sujet, tu ne dresses pas une liste de choses à regarder ;
+- ne reprends NI le ton, NI les superlatifs, NI le jugement de l'auteur, et ne présente jamais ses propos comme un fait établi ;
+- ne recopie pas et ne traduis pas les titres : ils sont déjà affichés.
+Si les titres ne permettent RIEN d'utile sans inventer, réponds EXACTEMENT : RIEN (ce seul mot, sans phrase d'excuse et sans expliquer pourquoi).
+N'utilise jamais le tiret cadratin. Pas de puces, pas de guillemets, pas d'intertitre : un seul paragraphe.
+${_MENTOR_NOMS}
+=== CATÉGORIE DU FIL ===
+${String(item.category || 'non précisée')}
+=== TITRES (seule matière autorisée) ===
+${liste}
+Explication :`;
+}
+/* Le nettoyage est devenu un CONTRÔLE, pas seulement une toilette typographique. Ordre voulu : on
+   assainit d'abord (sinon un veto se ferait contourner par une balise ou une puce), on écarte les
+   refus, PUIS on applique les vetos de contenu. Chaque rejet renvoie '' : l'appelant met '' en cache
+   et le lecteur retrouve exactement l'affichage d'avant, la citation seule. */
+function _proposCtxNettoie(s, titres) {
+  let t = String(s == null ? '' : s).replace(/```[a-z]*/gi, ' ').replace(/```/g, ' ')
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/^(?:explication|contexte|réponse|reponse)\s*:\s*/i, '');
+  t = t.replace(/^[-•*•\d.)\s]+/, '').replace(/^["«“”'`]+/, '').replace(/["»“”'`]+$/, '').trim();
+  if (_PROPOS_REFUS_RX.test(t)) return '';                                    // le modèle a préféré se taire : on le respecte, et on n'affiche pas son aveu
+  t = t.split(_CADRATIN).join(', ');                                          // cadratin sous veto : remplacé, jamais affiché
+  if (_PROPOS_VETO_RX.test(t)) {                                              // incitation / pronostic / promesse de gain : REJET, le prompt ne suffit jamais
+    console.warn('[Propos] veto informatif déclenché, note écartée : « ' + t.slice(0, 90) + ' »');
+    return '';
+  }
+  if (_proposParaphrase(t, titres)) {                                         // la note répète le titre au lieu de l'éclairer (zéro déformation)
+    console.warn('[Propos] paraphrase du titre détectée, note écartée : « ' + t.slice(0, 90) + ' »');
+    return '';
+  }
+  /* Plancher ABAISSÉ de 60 à 45 caractères, en cohérence avec la suppression du plancher du prompt :
+     une réponse courte et honnête (« Le sujet est un commentaire sur la presse, sans canal de
+     marché. ») ne doit pas être jetée pour sa brièveté, sinon on rétablit par le code la commande de
+     remplissage qu'on vient de retirer du prompt. 45 reste au-dessus du seuil d'affichage client
+     (> 40), donc rien de ce qui passe ici ne peut être servi puis ignoré à l'écran. */
+  if (t.length < 45) return '';
+  if (t.length > 400) {                                                       // trop long : on coupe à la dernière phrase entière
+    const bout = t.slice(0, 400);
+    const p = Math.max(bout.lastIndexOf('. '), bout.lastIndexOf('! '), bout.lastIndexOf('? '));
+    t = p > 120 ? bout.slice(0, p + 1) : bout.trim() + '.';
+  }
+  return t;
+}
+async function _enrichProposCtx() {
+  if (_proposBusy) return;
+  if (PROPOS_MAX_JOUR <= 0) return;                                           // tâche désactivée par env
+  if (Date.now() < _proposPanneJusqu) return;                                 // cascade IA tombée : on ne retente pas 2 fois par minute (voir PROPOS_PANNE_MS)
+  const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  if (!hasAI) return;
+  _proposBusy = true;
+  try {
+    const jour = _aiDay();
+    if (_proposJour !== jour) { _proposJour = jour; _proposCount = 0; _proposEssais = 0; }
+    let perCycle = PROPOS_PAR_CYCLE;
+    try { if ((typeof ai.shouldThrottle === 'function' && ai.shouldThrottle()) || _aiUsersIdle()) perCycle = 1; } catch {}
+    // UNE seule passe de regex sur le fil : la clé d'orateur est calculée ici, pas dans les boucles
+    // internes (sinon on la recalculerait pour chaque candidat sur mille items, à chaque cycle).
+    const tous = [];
+    for (const it of allNews) {
+      if (!it || !it._propos) continue;
+      tous.push({ it, ts: it.timestamp || 0, cle: _proposCle(it.headline) });
+    }
+    if (!tous.length) return;
+    const maintenant = Date.now();
+    for (const item of allNews) {
+      if (!item || !item._propos || item._proposCtx) continue;                 // pas concerné / déjà fait
+      if (item._briefing || item.source === 'DTP' || item._infoQuote) continue; // contenus qui ont déjà leur propre traitement
+      /* ⚠️ LA GARDE DE 6 h, C'EST ELLE QUI TIENT LA PORTÉE « POUR L'AVENIR » DEMANDÉE PAR LE USER.
+         Le flag `_propos`, lui, est reposé sur TOUT l'historique à chaque démarrage (cf.
+         upgradeItemPriority). Assouplir ou déplacer cette ligne rouvrirait donc le passé d'un coup,
+         soit des centaines d'appels IA sur des news que personne ne relira. */
+      if (maintenant - (item.timestamp || 0) > 6 * 60 * 60 * 1000) continue;
+      const cle = _proposCle(item.headline);
+      if (!cle) continue;
+      if (_proposAAine(item, cle, tous)) continue;                             // ce n'est pas le début de la prise de parole
+      const grappe = _proposGrappe(item, cle, tous);
+      /* ARRIVÉE HORS ORDRE, MESURÉE : `_proposAAine` ne regarde QUE le passé déjà ingéré. Si le
+         propos cadet est poussé en direct par le WebSocket et enrichi après ses 5 min de repos, puis
+         que l'AÎNÉ de la même grappe remonte ensuite par le backfill history de FinancialJuice
+         (une simple reconnexion WS suffit), l'aîné se croit à son tour départ de grappe : deux
+         appels pour UNE prise de parole, et deux explications sur la même grappe. On vérifie donc
+         qu'aucun membre ne porte déjà la note. Le client cherche de toute façon dans TOUTE la grappe,
+         la plus ancienne d'abord : la note du cadet reste affichée, rien n'est perdu. */
+      if (grappe.some(x => x.it && x.it._proposCtx)) continue;
+      const dernierTs = grappe.length ? grappe[grappe.length - 1].ts : (item.timestamp || 0);
+      if (maintenant - dernierTs < PROPOS_REPOS_MS) continue;                  // la personne parle encore : la matière n'est pas complète
+      const titres = (grappe.length ? grappe.map(x => x.it.headline) : [item.headline]).slice(0, 12);
+      const txtGrappe = titres.join(' • ');
+      // Filtre thématique AVANT toute dépense : un propos sans aucun rapport avec les marchés ne doit
+      // pas partir vers un prompt qui parle de canaux de marché (voir _PROPOS_HORS_MARCHE_RX).
+      if (_PROPOS_HORS_MARCHE_RX.test(txtGrappe) && !isFinanciallyRelevant(txtGrappe)) continue;
+      const mots = [...new Set(_proposMotsCles(txtGrappe))];
+      const ck = _proposSignature(cle, titres);
+      // 1) cache mémoire chaud (signature de contenu : un repost à l'identique ne repaie rien)
+      if (_proposCache.has(ck)) {
+        const t = _proposCache.get(ck);
+        if (typeof t === 'string' && t.length > 40) { item._proposCtx = t; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      // 2) cache durable (Supabase) : aucune requête IA
+      let cached = null; try { cached = await auth.aiCacheGet(ck); } catch {}
+      if (typeof cached === 'string') {
+        _proposCache.set(ck, cached);
+        if (cached.length > 40) { item._proposCtx = cached; _proposIndexer(cle, mots, cached); try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      // 2 bis) GRAPPE VOISINE du MÊME orateur sur le MÊME sujet (Jaccard >= 0,6) : on réutilise sa
+      // note au lieu d'en repayer une quasi identique. C'est le cas NORMAL d'un fil géopolitique
+      // vivant (quatre propos Trump/Iran dans la journée = quatre grappes, une seule explication).
+      const voisine = _proposVoisine(cle, mots);
+      if (voisine) {
+        _proposCache.set(ck, voisine);
+        auth.aiCacheSet(ck, voisine).catch(() => {});
+        item._proposCtx = voisine; item._proposAt = Date.now();
+        try { saveHistory(); } catch {}
+        try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {}
+        console.log(`[Propos] « ${String(item.headline || '').slice(0, 60)} » → note d'une grappe voisine réutilisée (0 appel IA)`);
+        continue;
+      }
+      /* 3) génération IA. ⚠️ LE PLAFOND COMPTE LES TENTATIVES, PAS LES SUCCÈS, et c'est une
+         DIFFÉRENCE ASSUMÉE avec `_enrichImpacts` dont tout le reste est repris. Défaut mesuré sur la
+         version d'origine : `_proposCount` n'était incrémenté qu'en cas de succès, or le prompt
+         invite explicitement à répondre RIEN et le nettoyage écarte plusieurs familles de sorties.
+         Sur un orateur inconnu du desk (le cas Ghalibaf de la capture), le refus est une issue
+         PROBABLE. « 70 » n'était donc pas un plafond de DÉPENSE : atteindre 70 succès avec 40 % de
+         refus demandait ~117 appels réels. Compter les tentatives rend le chiffre honnête, et le
+         moniteur admin affiche les deux (générées ET tentées) pour que l'écart reste lisible. */
+      if (perCycle <= 0 || _proposEssais >= PROPOS_MAX_JOUR) break;
+      perCycle--; _proposEssais++;
+      try {
+        const out = await aiSmart('news', _proposCtxPrompt(item, titres), 200, { important: true, claudeOverBudget: false });   // RÈGLE : aiSmart('news') EXIGE important:true (sinon refus budget silencieux)
+        const txt = _proposCtxNettoie(out, titres);
+        _proposCache.set(ck, txt || '');                                       // cache MÊME VIDE : pas de retente en boucle
+        if (_proposCache.size > 1000) _proposCache.delete(_proposCache.keys().next().value);
+        auth.aiCacheSet(ck, txt || '').catch(() => {});
+        if (txt && txt.length > 40) {
+          item._proposCtx = txt; item._proposAt = Date.now(); _proposCount++;
+          _proposIndexer(cle, mots, txt);
+          try { saveHistory(); } catch {}
+          try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {}
+          console.log(`[Propos] « ${String(item.headline || '').slice(0, 60)} » (${titres.length} propos) → contexte posé (${_proposCount} générées / ${_proposEssais} tentées sur ${PROPOS_MAX_JOUR})`);
+        }
+      } catch {
+        /* Toute la cascade IA est tombée. On MÉMORISE RIEN (l'item redeviendra candidat, c'est le bon
+           choix pour un incident passager) mais on se tait un quart d'heure, sans quoi le cycle
+           repartirait à 2 tentatives par minute pendant toute la panne. */
+        _proposPanneJusqu = Date.now() + PROPOS_PANNE_MS;
+        console.warn('[Propos] cascade IA indisponible : pause de ' + Math.round(PROPOS_PANNE_MS / 60000) + ' min (la citation reste seule, comme avant)');
+        break;
+      }
+    }
+  } finally { _proposBusy = false; }
+}
+
 async function _enrichAnalyses() {
   if (_aiAnaBusy) return;
   // Purge des analyses au schéma périmé (≠ v5) → régénérées ci-dessous, TOUTES en FRANÇAIS (cache anafr2).
@@ -17843,6 +18347,9 @@ async function refreshNews() {
   _enrichDescriptionsFr().catch(() => {});
   // « Impact marché » sur les statistiques tier-1 du fil (2/cycle, plafond journalier propre, cache durable).
   _enrichImpacts().catch(() => {});
+  // Explication des news de PROPOS (citations politiques/banque centrale) : 2/cycle, plafond propre,
+  // cache durable. Préchauffée en fond, jamais au clic : le panneau doit se peindre en une fois.
+  _enrichProposCtx().catch(() => {});
   // Affinage des TAGS (moins urgent) : reste throttle 1 cycle sur 3 pour lisser le RPM. Tag heuristique deja affiche.
   globalThis._newsAiTick = (globalThis._newsAiTick || 0) + 1;
   if (globalThis._newsAiTick % 3 === 0) _smartTagNews().catch(() => {});

@@ -1526,6 +1526,28 @@
         + `<div class="aim-fc-row"><span>Requêtes économisées</span><b>${(c.coalesced || 0)} coalescées · ${(c.coolskip || 0)} évitées (panne)</b></div>`
         + (c.usersIdle ? `<div class="aim-fc-row"><span>Activité</span><b style="color:#ffb300">personne connecté : fond au ralenti</b></div>` : '');
     })() : '';
+    /* EXPLICATIONS DE PROPOS : généré / tenté / plafond du jour.
+       Exigé par la règle du desk (toute évolution de plafond IA doit être VISIBLE ici). Cette ligne
+       est le SEUL ajout de ce fichier : les compteurs voisins (pré-traduction FR, Impact marché)
+       sont une dette ancienne, hors du sujet traité, et n'ont rien à faire dans ce travail.
+       ⚠️ DEUX PIÈGES D'AFFICHAGE ÉVITÉS ICI, tous deux mesurés :
+       1. UNE TÂCHE ÉTEINTE NE DOIT PAS S'AFFICHER EN VERT. PROPOS_MAX_JOUR=0 est le mécanisme de
+          coupure sans redéploiement ; une garde en `plafond == null` ne filtre pas 0, et un calcul
+          de couleur en `cap && …` retombe sur le vert. L'administrateur aurait lu « 0 / 0 » en vert,
+          c'est-à-dire une fonctionnalité arrêtée présentée comme saine. On l'annonce en gris.
+       2. LA COULEUR SUIT LES TENTATIVES, PAS LES SUCCÈS. Côté serveur c'est le nombre de TENTATIVES
+          qui est plafonné (un refus coûte un appel réel) : colorer sur les succès afficherait du
+          vert alors que le budget du jour est déjà consommé. Les deux chiffres restent lisibles. */
+    const fondRows = (() => {
+      const s = (d.providers || {}).propos;
+      if (!s || s.plafond == null) return '';
+      const cap = s.plafond | 0, faits = s.generes || 0, essais = s.tentes || 0;
+      const corps = cap <= 0
+        ? `<b style="color:#6b7280">désactivée (plafond 0)</b>`
+        : `<b style="color:${essais >= cap ? '#ef4444' : (essais >= cap * 0.8 ? '#ffb300' : '#22c55e')}">${faits}<span style="color:#6b7280"> générées · ${essais} / ${cap} tentées</span></b>`;
+      return `<div class="aim-sec-title">Enrichissements de fond (jour)</div>`
+        + `<div class="aim-fc-row"><span>Explications de propos</span>${corps}</div>`;
+    })();
     document.getElementById('aim-forecast').innerHTML =
       `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
       + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + ' h') : '-'}</b></div>`
@@ -1533,6 +1555,7 @@
       + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '-'}</b></div>`
       + `<div class="aim-fc-row"><span>Pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
       + cacheRows
+      + fondRows
       + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh;
   }
   function aimRenderInfra(d) {
