@@ -9713,8 +9713,9 @@ function _dessinerReaction(hote, candles, t0, paire) {
   // news fraîche est un mensonge, et promettre des minutes qui n'arriveront pas en est un autre.
   // On les sépare en comparant l'ÂGE DE LA NEWS au RETARD OBSERVÉ du flux : tant que la
   // publication tombe dans la tranche que le flux n'a pas encore livrée, c'est (a).
-  // Dans les deux cas le repère se pose sur la dernière cotation connue, et on écrit laquelle :
-  // sans cette phrase il se lirait comme une réaction qui n'a pas eu lieu.
+  // Dans les deux cas le repère se pose sur la dernière cotation connue. Seul (b) l'écrit encore :
+  // sans cette phrase il se lirait comme une réaction qui n'a pas eu lieu, alors qu'aucune cotation
+  // n'arrivera avant la réouverture. En (a) elles arrivent — bandeau retiré le 24/08.
   const _dernier = data[data.length - 1];
   if (tSec > _dernier.time + 120) {
     bougie = _dernier;
@@ -9727,14 +9728,20 @@ function _dessinerReaction(hote, candles, t0, paire) {
     // les deux sans cette garde faisait annoncer « les cotations arrivent » sur une news ancienne
     // publiée marché fermé — une promesse que rien ne tiendrait. Défaut trouvé au banc, pas à l'œil.
     const _fenetreVaJusquAMaintenant = (tSec + 2 * 3600) >= _maintenant;
-    const note = document.createElement('div');
-    note.className = 'nrx-ferme';
-    note.textContent = (_fenetreVaJusquAMaintenant && _age < _retard + 300)
-      ? 'Les cotations qui suivent cette publication ne sont pas encore arrivées : le flux est différé d’une dizaine de minutes. Le repère marque la dernière cotation connue, à '
-        + hPar(_dernier.time) + '. Le graphique se complète tout seul, laissez-le ouvert.'
-      : 'Marché fermé au moment de cette publication : le repère marque la dernière cotation d’avant la fermeture, à '
+    // ⚠️ LE CAS (a) N'ÉCRIT PLUS RIEN (demande user 24/08). Le bandeau « les cotations qui suivent
+    // ne sont pas encore arrivées » se posait sur CHAQUE publication fraîche — c'est-à-dire presque
+    // toujours, le flux étant différé par construction — et recouvrait le bas du graphique. Le repère
+    // posé sur la dernière cotation connue se suffit. On GARDE le calcul qui sépare (a) de (b) : c'est
+    // lui qui empêche d'annoncer « marché fermé » sur une news fraîche.
+    // Le cas (b) garde sa phrase : là, aucune cotation n'arrivera avant la réouverture, et sans elle
+    // le repère se lirait comme une réaction qui n'a pas eu lieu.
+    if (!(_fenetreVaJusquAMaintenant && _age < _retard + 300)) {
+      const note = document.createElement('div');
+      note.className = 'nrx-ferme';
+      note.textContent = 'Marché fermé au moment de cette publication : le repère marque la dernière cotation d’avant la fermeture, à '
         + hPar(_dernier.time) + '. La réaction se lira à la réouverture.';
-    hote.appendChild(note);
+      hote.appendChild(note);
+    }
   }
   chart.timeScale().setVisibleRange({ from: data[0].time, to: data[data.length - 1].time });
   // Le cercle est posé en COORDONNÉES ÉCRAN, recalculées à chaque déplacement ou zoom : c'est ce
