@@ -2545,6 +2545,13 @@ function _recapQuotidienFull(fx) {
      PRÉCÉDENCE : inflation d'abord (« Average Hourly Earnings » contient « Earnings » mais mesure
      un salaire ; « GDP Price Index » est un prix, pas une croissance), puis emploi, puis
      croissance. Le premier motif qui répond gagne.
+     DEUX FAMILLES AJOUTÉES LE 25/08, hors tableau du PDF (« + à toi de classer »), après que le
+     user a vu le rendu : « Énergie & matières premières » et « Marchés & devises ». Le tableau de
+     référence couvre les PUBLICATIONS ÉCONOMIQUES, mais les moteurs d'une journée sont souvent le
+     pétrole, l'or ou l'indice dollar. Sans ces deux familles ils restaient SANS intitulé, collés
+     sous « Banques centrales » — et se lisaient comme des propos de banque centrale, ce qu'ils ne
+     sont pas. Elles viennent APRÈS les familles économiques : un « CPI » reste de l'inflation même
+     s'il parle du prix du pétrole.
      BILINGUE, ET CE N'EST PAS DU CONFORT : les LIBELLÉS DU CALENDRIER arrivent en anglais (« Retail
      Sales MoM »), mais les NEWS de la section Macro sont rédigées en français (« les ventes au
      détail américaines progressent de 0,6 % »). Une table anglaise seule classait les chiffres et
@@ -2555,9 +2562,11 @@ function _recapQuotidienFull(fx) {
     ['Croissance économique', /ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
     ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
     ['Commerce', /balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
+    ['Énergie & matières premières', /p[ée]trole|\bbrut\b|\bwti\b|\bbrent\b|baril|raffinerie|\bopep\b|\bopec\b|gaz naturel|\bgnl\b|\bspr\b|r[ée]serve strat[ée]gique|\bor\b|once d.or|\bxau\b|argent m[ée]tal|cuivre|mati[èe]res? premi[èe]res?|stocks de (?:p[ée]trole|brut)|crude|gold|oil inventor/i],
+    ['Marchés & devises', /indice du dollar|\bdxy\b|dollar am[ée]ricain|\beuro\b|\byen\b|livre sterling|franc suisse|rendement|bons du tr[ée]sor|obligations?|\bbund\b|\bgilt\b|actions|bourse|indices? boursiers?|\bs&p\b|nasdaq|wall street|volatilit[ée]|\bvix\b|march[ée]s? (?:actions|obligataires?)/i],
   ];
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Énergie & matières premières', 'Marchés & devises', 'Autres'];
 
   /* ── MACRO : LES NEWS PORTENT LEUR CATÉGORIE — MÊME BLOC QUE LE DESK (app.js). « Autres moteurs »
      disparaît comme intitulé ; chaque news passe dans la MÊME table que les chiffres, une catégorie
