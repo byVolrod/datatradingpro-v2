@@ -10008,23 +10008,59 @@ function _renderFXDailyRecap(item) {
      moteur macro parmi les autres, elle se lit avec eux.
      Les deux groupes ne prennent un sous-titre QUE s'ils coexistent : seul, un groupe n'a rien à
      distinguer et la section garde le rendu qu'elle avait. */
+  /* ══ TABLE DE CLASSEMENT DES PUBLICATIONS DU JOUR ═══════════════════════════════════════════
+     Reprise du tableau de référence fourni par le user (« Learning Economics News ») : chaque
+     indicateur y a SA catégorie, ce n'est pas une devinette.
+       Inflation           CPI · Core CPI · PCE · Core PCE · PPI
+       Emploi              NFP · Unemployment Rate · Average Hourly Earnings · ADP · JOLTS
+       Croissance          GDP · Retail Sales · ISM Manufacturing PMI · ISM Services PMI
+       Politique monétaire FOMC Rate Decision
+     ÉTENDUE aux équivalents hors États-Unis (« + à toi de classer ») : le tableau est écrit pour
+     le calendrier américain, or le desk suit huit devises. Un CPI britannique, un IPCH de la zone
+     euro ou un Tankan japonais relèvent des mêmes familles — les nommer ici évite qu'ils tombent
+     dans « Autres » faute d'être écrits à l'américaine.
+     PRÉCÉDENCE : inflation d'abord (« Average Hourly Earnings » contient « Earnings » mais mesure
+     un salaire, et « GDP Price Index » est un prix, pas une croissance), puis emploi, puis
+     croissance. Le premier motif qui répond gagne.
+     BILINGUE, ET CE N'EST PAS DU CONFORT : les LIBELLÉS DU CALENDRIER arrivent en anglais (« Retail
+     Sales MoM »), mais les NEWS de la section Macro sont rédigées en français (« les ventes au
+     détail américaines progressent de 0,6 % »). Une table anglaise seule classait les chiffres et
+     laissait passer les news — défaut mesuré au banc le 25/08. */
+  const _FAM_JOUR = [
+    ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|prix a la consommation|import prices|export prices|wholesale price|trimmed mean|deflator/i],
+    ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
+    ['Croissance économique', /ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
+    ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
+    ['Commerce', /balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
+  ];
+  const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
+  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+
+  /* ── MACRO : LES NEWS DU JOUR PORTENT LEUR CATÉGORIE (25/08, demande user : « au lieu de mettre
+     autre, mets ce que je t'ai dit ; s'il y a une news d'une catégorie on l'ajoute avec la
+     catégorie, puis si y'a rien on met rien »).
+     « Autres moteurs » disparaît comme intitulé. Chaque news est passée dans la MÊME table que les
+     chiffres (_famJour) : celles qui ont une catégorie se rangent dessous, une catégorie sans news
+     ne s'écrit pas.
+     ⚠️ CE QUI NE RENTRE DANS AUCUNE FAMILLE N'EST PAS JETÉ. Les moteurs d'une journée sont souvent
+     des mouvements de marché ou d'énergie — « l'or au-dessus de 4 650 $ », « la raffinerie de Perm
+     à l'arrêt », « l'indice dollar sous 99,00 » — qui ne sont ni de l'inflation, ni de la
+     croissance, ni de l'emploi. Ces puces restent sous Macro SANS intitulé, comme le contenu propre
+     de la section : on retire le mot « Autres », pas les informations. */
   const _cbPts = (Array.isArray(w.cb) ? w.cb : []).filter(Boolean);
   const _macroPts = (Array.isArray(w.macro) ? w.macro : []).filter(Boolean);
   if (_cbPts.length || _macroPts.length) {
-    const _duo = _cbPts.length && _macroPts.length;
     body += _sec('Macro');
-    if (_cbPts.length) {
-      if (_duo) body += '<div class="fxdr-grp-title">Banques centrales</div>';
-      body += '<div class="fxdr-bullets">';
-      _cbPts.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-      body += '</div>';
-    }
-    if (_macroPts.length) {
-      if (_duo) body += '<div class="fxdr-grp-title">Autres moteurs</div>';
-      body += '<div class="fxdr-bullets">';
-      _macroPts.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-      body += '</div>';
-    }
+    const _puces = l => { body += '<div class="fxdr-bullets">'; l.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; };
+    if (_cbPts.length) { body += '<div class="fxdr-grp-title">Banques centrales</div>'; _puces(_cbPts); }
+    const _macroFam = new Map();
+    _macroPts.forEach(t => { const fam = _famJour(t); if (!_macroFam.has(fam)) _macroFam.set(fam, []); _macroFam.get(fam).push(t); });
+    _ORDRE_FAM.filter(fam => fam !== 'Autres').forEach(fam => {
+      const l = _macroFam.get(fam);
+      if (l && l.length) { body += `<div class="fxdr-grp-title">${_wrEsc(fam)}</div>`; _puces(l); }
+    });
+    const _sansFam = _macroFam.get('Autres') || [];
+    if (_sansFam.length) _puces(_sansFam);
   }
 
   // ── « Titres principaux » RETIRÉ (demande user 11/08) : les 3 événements qui ont compté sont déjà
@@ -10088,29 +10124,6 @@ function _renderFXDailyRecap(item) {
      Les séances gardent leur analyse, elles ne portent plus la liste des chiffres : la même donnée
      ne se lit pas dans deux ordres différents.
      La ligne reste CLIQUABLE (_fxrToggleData → Décryptage), comme sous les séances. */
-  /* ══ TABLE DE CLASSEMENT DES PUBLICATIONS DU JOUR ═══════════════════════════════════════════
-     Reprise du tableau de référence fourni par le user (« Learning Economics News ») : chaque
-     indicateur y a SA catégorie, ce n'est pas une devinette.
-       Inflation           CPI · Core CPI · PCE · Core PCE · PPI
-       Emploi              NFP · Unemployment Rate · Average Hourly Earnings · ADP · JOLTS
-       Croissance          GDP · Retail Sales · ISM Manufacturing PMI · ISM Services PMI
-       Politique monétaire FOMC Rate Decision
-     ÉTENDUE aux équivalents hors États-Unis (« + à toi de classer ») : le tableau est écrit pour
-     le calendrier américain, or le desk suit huit devises. Un CPI britannique, un IPCH de la zone
-     euro ou un Tankan japonais relèvent des mêmes familles — les nommer ici évite qu'ils tombent
-     dans « Autres » faute d'être écrits à l'américaine.
-     PRÉCÉDENCE : inflation d'abord (« Average Hourly Earnings » contient « Earnings » mais mesure
-     un salaire, et « GDP Price Index » est un prix, pas une croissance), puis emploi, puis
-     croissance. Le premier motif qui répond gagne. */
-  const _FAM_JOUR = [
-    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|prix a la consommation|import prices|export prices|wholesale price|trimmed mean|deflator/i],
-    ['Emploi', /\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
-    ['Croissance économique', /\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
-    ['Politique monétaire', /rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
-    ['Commerce', /trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
-  ];
-  const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
   if (_hasSess) {
     const _parFam = new Map();
     Object.keys(w.dataBySession || {}).forEach(k => (Array.isArray(w.dataBySession[k]) ? w.dataBySession[k] : [])

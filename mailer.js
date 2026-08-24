@@ -2538,31 +2538,44 @@ function _recapQuotidienFull(fx) {
      moteur macro parmi les autres, elle se lit avec eux.
      Les deux groupes ne prennent un sous-titre QUE s'ils coexistent : seul, un groupe n'a rien à
      distinguer et la section garde le rendu qu'elle avait. */
-  const _cbP = puces(fx.cb), _macroP = puces(fx.macro);
-  const _duoMacro = !!(_cbP && _macroP);
-  S('Macro', (_cbP ? (_duoMacro ? _grpTitre('Banques centrales') : '') + _cbP : '')
-    + (_macroP ? (_duoMacro ? _grpTitre('Autres moteurs') : '') + _macroP : ''));
-
-  /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user). Duplication
-     assumée du desk : le mail doit montrer le même rapport, donc il porte le même bloc et la même
-     table de classement. Le bloc était au-dessus de Macro ; il passe en dessous, l'ordre de lecture
-     allant du récit vers les chiffres qui l'étayent. */
   /* ══ TABLE DE CLASSEMENT — LA MÊME QUE LE DESK (app.js, _FAM_JOUR) ══════════════════════════
      Reprise du tableau de référence fourni par le user (« Learning Economics News ») : chaque
      indicateur y a SA catégorie. Étendue aux équivalents hors États-Unis, le tableau étant écrit
      pour le calendrier américain quand le desk suit huit devises.
      PRÉCÉDENCE : inflation d'abord (« Average Hourly Earnings » contient « Earnings » mais mesure
      un salaire ; « GDP Price Index » est un prix, pas une croissance), puis emploi, puis
-     croissance. Le premier motif qui répond gagne. */
+     croissance. Le premier motif qui répond gagne.
+     BILINGUE, ET CE N'EST PAS DU CONFORT : les LIBELLÉS DU CALENDRIER arrivent en anglais (« Retail
+     Sales MoM »), mais les NEWS de la section Macro sont rédigées en français (« les ventes au
+     détail américaines progressent de 0,6 % »). Une table anglaise seule classait les chiffres et
+     laissait passer les news — défaut mesuré au banc le 25/08. */
   const _FAM_JOUR = [
-    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|prix a la consommation|import prices|export prices|wholesale price|trimmed mean|deflator/i],
-    ['Emploi', /\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
-    ['Croissance économique', /\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
-    ['Politique monétaire', /rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
-    ['Commerce', /trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
+    ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|prix a la consommation|import prices|export prices|wholesale price|trimmed mean|deflator/i],
+    ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
+    ['Croissance économique', /ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
+    ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
+    ['Commerce', /balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
   ];
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
   const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+
+  /* ── MACRO : LES NEWS PORTENT LEUR CATÉGORIE — MÊME BLOC QUE LE DESK (app.js). « Autres moteurs »
+     disparaît comme intitulé ; chaque news passe dans la MÊME table que les chiffres, une catégorie
+     sans news ne s'écrit pas, et ce qui ne rentre dans aucune famille reste sous Macro SANS
+     intitulé plutôt que d'être jeté. */
+  const _cbP = puces(fx.cb);
+  const _macroL = (Array.isArray(fx.macro) ? fx.macro : []).filter(x => _md(typeof x === 'string' ? x : (x && x.text)));
+  const _macroFam = new Map();
+  _macroL.forEach(t => { const fam = _famJour(typeof t === 'string' ? t : (t && t.text)); if (!_macroFam.has(fam)) _macroFam.set(fam, []); _macroFam.get(fam).push(t); });
+  const _macroHtml = _ORDRE_FAM.filter(fam => fam !== 'Autres')
+    .map(fam => { const l = _macroFam.get(fam); return (l && l.length) ? _grpTitre(fam) + puces(l) : ''; }).join('')
+    + puces(_macroFam.get('Autres') || []);
+  S('Macro', (_cbP ? _grpTitre('Banques centrales') + _cbP : '') + _macroHtml);
+
+  /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user). Duplication
+     assumée du desk : le mail doit montrer le même rapport, donc il porte le même bloc et la même
+     table de classement. Le bloc était au-dessus de Macro ; il passe en dessous, l'ordre de lecture
+     allant du récit vers les chiffres qui l'étayent. */
   {
     const src = (fx.dataBySession && typeof fx.dataBySession === 'object' && !Array.isArray(fx.dataBySession)) ? fx.dataBySession : {};
     const parFam = new Map();
