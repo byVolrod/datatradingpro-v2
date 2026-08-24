@@ -1774,8 +1774,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // son intro, à sa géopolitique ou à son seul calendrier : six entrées minimales testées, la
   // phrase tombait à chaque fois). On ne promet que ce qui est réellement dans le corps.
   const cloture = curHtml
-    ? "Vous venez de lire le Récap Hebdo du desk dans son intégralité, devise par devise. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct."
-    : "Vous venez de lire le Récap Hebdo du desk, tel qu'il a été publié. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct.";
+    ? "Vous venez de lire le Récap Hebdo du desk dans son intégralité, devise par devise. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Radar de Biais, mis à jour en direct."
+    : "Vous venez de lire le Récap Hebdo du desk, tel qu'il a été publié. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Radar de Biais, mis à jour en direct.";
 
   // BOUTON EN TÊTE, pas en pied. Ce mail porte un rapport entier : sur une semaine chargée
   // (huit devises, calendrier complet, image du widget), il dépasse le seuil à partir duquel
@@ -2004,7 +2004,16 @@ function _tabPublications(rows, entete1) {
   const corps = l.map(r => {
     // _num, pas la véracité JS : un réel « 0 » est une VALEUR, un champ absent est vide.
     const heure = _num(r.t), dev = _num(r.ccy), reel = _num(r.actual), att = _num(r.forecast), pre = _num(r.previous);
-    const pays = _md(r.country), lean = _md(r.lean);
+    /* LE PAYS NE SE DIT QUE S'IL AJOUTE QUELQUE CHOSE (24/08, demande user : « au lieu de dire
+       royaume-uni etc. met la devise direct »). La colonne de gauche porte déjà le drapeau et le
+       code de la devise : écrire « Royaume-Uni » sous une ligne marquée GBP répète l'information.
+       On efface donc le pays quand c'est CELUI DE LA DEVISE, et on le garde quand il désigne un
+       pays PRÉCIS de la zone euro : « Allemagne » sous une ligne EUR dit lequel des dix-neuf a
+       publié, ce que le code EUR seul ne dit pas. La table reprend celle du serveur (_FXR_CTRY_FR). */
+    const _PAYS_DE_LA_DEVISE = { USD: 'états-unis', EUR: 'zone euro', GBP: 'royaume-uni', JPY: 'japon', CHF: 'suisse', CAD: 'canada', AUD: 'australie', NZD: 'nouvelle-zélande', CNY: 'chine' };
+    const _paysBrut = _md(r.country), lean = _md(r.lean);
+    const _norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const pays = (_paysBrut && _norm(_paysBrut) === _norm(_PAYS_DE_LA_DEVISE[String(_num(r.ccy) || '').toUpperCase()] || '')) ? '' : _paysBrut;
     return `<tr>
       <td style="padding:7px 6px;border-top:1px solid ${TOK.filet2};white-space:nowrap;vertical-align:top;">
         ${heure ? `<div style="color:${TOK.or};font-weight:700;font-size:11.5px;">${_esc(heure)}</div>` : ''}
@@ -3084,8 +3093,12 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // quand le corps se réduisait à une phrase de synthèse, à l'image et au bouton. On ne
   // promet le rapport entier que lorsqu'il est réellement là.
   const clotureJ = corpsRapport
-    ? "Vous venez de lire le Récap Quotidien du desk dans son intégralité. Sur le desk, il s'accompagne du calendrier économique en direct, de la force des devises et du Smart Bias."
-    : "Le desk publie ce récap chaque jour, avec le calendrier économique en direct, la force des devises et le Smart Bias.";
+    /* CLÔTURE (24/08) : l'ancienne phrase énumérait des outils sur un ton de fiche produit et
+       nommait le « Smart Bias », étiquette INTERNE anglaise : le desk affiche « Radar de Biais ».
+       On dit ce que le lecteur vient de recevoir, puis ce que le terminal y ajoute et que le
+       courrier ne peut pas porter : le direct. */
+    ? "Voilà le rapport du jour, entier, tel que le desk l'a publié. Ce qu'un mail ne peut pas vous donner, c'est le direct : sur le terminal, ce rapport se lit à côté du calendrier économique, de la force des devises et du Radar de Biais, qui bougent avec le marché."
+    : "Le desk publie ce rapport chaque jour. Sur le terminal, il se lit à côté du calendrier économique, de la force des devises et du Radar de Biais, qui bougent avec le marché.";
 
   // BOUTON EN TÊTE (même raison que le Récap Hebdo) : le mail porte un rapport entier, donc
   // il peut dépasser le seuil de repliement de Gmail. Un lien d'action placé après le rapport
