@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260824-mail-recap-seul', ts: Date.UTC(2026, 7, 25, 13, 0), title: 'Le mail du mercredi ne fait plus que vous donner le Recap Quotidien', desc: 'Il portait encore une accroche sur le climat de risque, l image de la force des devises, une ligne de biais et un bouton pose avant le contenu. Tout cela a disparu : vous ouvrez le mail et vous tombez directement sur le rapport du jour, dans l ordre exact du desk, la synthese en tete puis geopolitique, banques centrales, macro, les trois seances avec leurs chiffres publies et enfin les rendez-vous a surveiller. Un seul bouton subsiste, en pied, pour ouvrir le desk. Et l envoi ATTEND desormais la publication du recap : tant qu il n est pas sorti, le mail ne part pas et repasse au cycle suivant, au lieu d expedier celui de la veille.' },
   { id: 'dtpu-20260824-radar-colonne-biais', ts: Date.UTC(2026, 7, 25, 12, 0), title: 'Radar de Biais : la colonne Biais ne se coupe plus en plein mot', desc: 'Sur le Radar de Biais, la derniere colonne payait la largeur du tableau : « Legerement haussier » s affichait « Legere... » et il fallait faire defiler pour lire le biais, c est-a-dire la conclusion. Mesure : le tableau reclamait 940 pixels pour se montrer en entier, et debordait de 278 pixels sur un panneau de 640. Trois economies sans retirer la moindre information : le libelle de biais a le droit de passer a la ligne, les intitules de colonne cessent d etre insecables (« POLITIQUE MONETAIRE » imposait 132 pixels a une colonne qui n en demande que 80), et les gouttieres passent de 12 a 9 pixels. Le tableau tient desormais des 760 pixels. Sur un panneau plus etroit encore, il defile toujours, mais plus rien n est tronque en silence.' },
   { id: 'dtpu-20260824-textes-qui-changent', ts: Date.UTC(2026, 7, 25, 11, 0), title: 'Fini le resume qui change tout seul pendant que vous le lisez', desc: 'En ouvrant Info sur une news, vous voyiez d abord la depeche d origine, puis le texte etait REMPLACE quelques secondes plus tard par la lecture du desk. Vous commenciez une phrase et elle se derobait. Desormais, quand la lecture du desk est deja prete elle s affiche directement ; sinon c est un voile de chargement qui occupe la place, a la hauteur exacte du texte a venir, et le texte definitif se pose dessus. Rien ne bouge plus sous vos yeux et la page ne saute pas. Si la lecture du desk tarde ou echoue, la depeche d origine prend le relais, et une reponse qui arriverait en retard ne vient plus ecraser ce que vous etes en train de lire. La regle vaut pour TOUS les panneaux du fil, pas seulement Info.' },
   { id: 'dtpu-20260824-axe-dates-risque', ts: Date.UTC(2026, 7, 25, 10, 0), title: 'Sentiment du risque : les dates sous le graphique redeviennent lisibles', desc: 'Sur la bande d historique du sentiment, l axe des dates s affichait en 9 pixels gris tres pale. Mesure du contraste sur le fond du desk : 3,99 pour 1, en dessous meme du minimum de 4,5 recommande pour du petit texte, et plus faible que tous les autres axes du terminal. Les dates passent en 11 pixels, plus claires et en gras leger, avec des reperes verticaux un peu moins fantomatiques : 9,11 pour 1 en theme sombre et 7,56 en theme clair, les deux au-dessus du seuil le plus exigeant. C est exactement le reglage deja retenu pour le profil de risque de la semaine.' },
@@ -20611,7 +20612,7 @@ function _freshDaily() {
           if (first) pts.push(String(first).trim());
           if (pts.length >= 4) break;
         }
-        return _noDashDeep({ kind: 'dtpd', title: it._dtpd.title || '', summary: it._dtpd.summary, insights: pts, sections: Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [], dateLabel: it._dtpd.dateLabel || '' });
+        return _noDashDeep({ kind: 'dtpd', ts: it.timestamp || 0, title: it._dtpd.title || '', summary: it._dtpd.summary, insights: pts, sections: Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [], dateLabel: it._dtpd.dateLabel || '' });
       }
       // Recap Quotidien (FX Recap) : UNIQUEMENT la version REDIGEE (IA). Le repli mecanique (_ai:false,
       // « Moteurs cles du jour : ... ; Force des devises (intraday) : USD -0.07%... ») est illisible en mail.
@@ -20683,7 +20684,7 @@ function _freshDaily() {
         // rapport COMPLET tel que le desk le publie, sans coupe ni tri. Le mail n'en est plus un
         // aperçu, il EST le récap. `sections` reste au-dessus pour les rendus qui s'y appuient
         // déjà : aucune régression, une source de plus.
-        return _noDashDeep({ kind: 'fxr', title: _titreFR, summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '', hasComments: false, full: fx });
+        return _noDashDeep({ kind: 'fxr', ts: it.timestamp || 0, title: _titreFR, summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '', hasComments: false, full: fx });
       }
     }
   } catch {}
@@ -21488,7 +21489,16 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
       }
       return false;
     }
-    if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec(); return true; } return false; }
+    /* ON ATTEND LA SORTIE DU RÉCAP (24/08, demande user : « il faudra attendre la sortie du récap »).
+       Ce mail EST le Récap Quotidien : l'envoyer avant sa publication enverrait celui de la VEILLE,
+       car `_freshDaily` renvoie simplement le plus récent, sans regarder sa date. On exige donc que
+       le rapport couvre le jour EN COURS (heure de Paris, comme tout le reste du desk). Sinon on
+       renvoie false SANS marquer l'étape faite : le pilotage repassera au tic suivant et partira dès
+       que le récap sera sorti, à l'heure où il sort. */
+    if (stepDef.tpl === 'pointmarche') {
+      if (!_recapDuJourPret(context)) { console.log('[Campagne] Récap Quotidien pas encore publié → envoi reporté au prochain tic'); return false; }
+      const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec(); return true; } return false;
+    }
     if (stepDef.tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); if (rr) { rec(); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
     if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { rec(); return true; } return false; }
     if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec(); return true; } return false; }
@@ -21515,6 +21525,20 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
 let _dripRunning = false;
 // Jour calendaire Paris d'un timestamp (YYYY-MM-DD) — sert à l'espacement « pas 2 mails le même JOUR ».
 const _pDayParis = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
+/* LE RÉCAP DU JOUR EST-IL SORTI ? (24/08) Le mail « Votre Récap Quotidien » EST le rapport : tant
+   qu'il n'est pas publié, il n'y a rien à envoyer. `_freshDaily` renvoie simplement le plus récent
+   SANS regarder sa date : partir sans ce contrôle enverrait le rapport de la VEILLE, ce que le
+   lecteur verrait tout de suite. Le rapport est horodaté sur le JOUR QU'IL COUVRE (23:45 heure de
+   Paris, voir le commentaire du FX Recap), donc comparer son jour de Paris à celui d'aujourd'hui
+   répond exactement à la question. Aucune donnée, aucun horodatage : on considère qu'il n'est pas
+   prêt et on repassera, plutôt que d'envoyer quelque chose d'ancien. */
+function _recapDuJourPret(context) {
+  try {
+    const d = context && context.daily;
+    if (!d || !d.ts) return false;
+    return _pDayParis(d.ts) === _pDayParis(Date.now());
+  } catch (e) { return false; }
+}
 async function _dripTick() {
   if (!_dripState.active || _dripRunning) return;
   _dripRunning = true;

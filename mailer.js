@@ -3046,13 +3046,10 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // L'UNIQUE image du mail : le vrai widget du desk, Force des Devises sur LA JOURNÉE (le
   // récap parle du jour, pas de la semaine). Elle porte ce que le texte ne peut pas dire :
   // la trajectoire relative des huit devises, heure par heure.
-  const strengthWidget = _widgetImg('strength', 'La force des devises', null, 'today');
+  /* (Widget Force des Devises RETIRE le 24/08 : le mail est le rapport, rien d autre.) */
 
   // Le biais du desk, s'il est fourni : une ligne, valeurs réelles, aucune recommandation.
-  const _b = bias.filter(b => b && b.ccy && _md(b.label));
-  const biasHtml = _b.length
-    ? _secTitle('Biais') + _puce(_b.map(b => `<span style="color:#cbd5e1;font-weight:700;">${_esc(String(b.ccy).toUpperCase())}</span> <span style="color:${_biasCol(b.label)};font-weight:600;">${_esc(_md(b.label))}</span>`).join(' &nbsp;·&nbsp; '))
-    : '';
+  /* (Ligne « Biais » RETIREE le 24/08 : elle ne fait pas partie du Recap Quotidien du desk.) */
 
   // PROMESSE HONNÊTE (défaut mesuré) : la phrase affirmait « dans son intégralité » même
   // quand le corps se réduisait à une phrase de synthèse, à l'image et au bouton. On ne
@@ -3065,17 +3062,23 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // il peut dépasser le seuil de repliement de Gmail. Un lien d'action placé après le rapport
   // tomberait dans la zone repliée. On ne coupe pas le rapport pour tenir : on place le lien
   // là où il survit et la note de fin prévient du repliement.
-  const corpsMail = `${movesHtml}${corpsRapport}${biasHtml}`;
+  const corpsMail = `${movesHtml}${corpsRapport}`;   // le mail EST le rapport : plus de biais ni de widget a compter
+  /* ══ LE MAIL EST LE RAPPORT (24/08, demande user : « enlève tout et met le récap quotidien qu'on
+     reçoit sur le desk pour leur offrir ceci ») ══
+     Tout ce qui n'est pas le récap est parti : l'accroche éditoriale sur le climat de risque, l'image
+     Force des Devises, la ligne de biais du desk, et le bouton qui s'intercalait AVANT le contenu.
+     Le lecteur ouvre le mail et tombe directement sur le rapport, dans l'ordre du desk. Ne subsistent
+     autour que le strict nécessaire : la salutation, le titre daté du rapport, puis en pied une seule
+     invitation à ouvrir le desk, la signature, et le pixel de suivi.
+     ⚠️ Ne PAS réintroduire un widget ici : une image en tête repousse le rapport sous la ligne de
+     flottaison, et l'ensemble frôle déjà le seuil de repliement de Gmail. */
   const body = `
     <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
     ${entete}
-    <p style="margin:0 0 6px;">${lead}</p>
     ${movesHtml}
-    <div style="margin:12px 0 4px;">${cta.btn}</div>
-    ${strengthWidget}
     ${corpsRapport}
-    ${biasHtml}
     <p style="margin:24px 0 12px;font-size:13.5px;line-height:1.6;color:#cbd5e1;">${clotureJ}</p>
+    <div style="margin:4px 0 4px;">${cta.btn}</div>
     ${_noteLongue(corpsMail)}
     <p style="margin:16px 0 4px;">Bonne séance,</p>
     <p style="margin:0 0 16px;color:${TOK.gris};">L'équipe DataTradingPro</p>
