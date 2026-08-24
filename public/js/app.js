@@ -10000,43 +10000,6 @@ function _renderFXDailyRecap(item) {
      depuis l'onglet Analystes. `node -c` ne l'attrape pas, il ne contrôle que la syntaxe. */
   const _hasSess = w.dataBySession && ['asia', 'london', 'ny'].some(k => Array.isArray(w.dataBySession[k]) && w.dataBySession[k].length);
 
-  /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE (24/08, demande user) ───────────────────────
-     « Croissance économique · Emploi · Inflation » : la grammaire du Récap Hebdo, appliquée aux
-     publications du jour. Ces chiffres étaient listés sous CHAQUE séance ; ils quittent les cartes
-     de séance pour se ranger ICI, une seule fois. Les séances gardent leur analyse — la même
-     donnée ne se lit plus dans deux ordres différents.
-     Classement DÉTERMINISTE, mêmes motifs que le serveur (_fxrDataByCountry, famOf) : rien n'est
-     confié à l'IA, et la précédence est identique (inflation, puis emploi, puis croissance).
-     « Commerce » et « Autres » ferment la liste : sans elles, une publication hors des trois
-     familles nommées disparaîtrait EN SILENCE — le défaut qu'on passe la journée à corriger.
-     La ligne reste CLIQUABLE (_fxrToggleData → Décryptage), exactement comme sous les séances. */
-  const _FXR_FAM = [
-    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/i],
-    ['Emploi', /employment|unemployment|payroll|claims|jobless|\badp\b|jolts/i],
-    ['Croissance économique', /\bgdp\b|gross domestic|growth|\bpmi\b|\bism\b|industrial|retail sales|production|confidence|sentiment|durable goods|orders/i],
-    ['Commerce', /trade balance|balance of trade|current account|exports|imports/i],
-  ];
-  const _famDe = t => (_FXR_FAM.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  if (_hasSess) {
-    const _parFam = new Map();
-    Object.keys(w.dataBySession || {}).forEach(k => (Array.isArray(w.dataBySession[k]) ? w.dataBySession[k] : [])
-      .forEach(d => { if (!d || !d.label) return; const f = _famDe(d.label); if (!_parFam.has(f)) _parFam.set(f, []); _parFam.get(f).push(d); }));
-    const _atrF = v => _wrEsc(String(v == null ? '' : v)).replace(/"/g, '&quot;');
-    ['Croissance économique', 'Emploi', 'Inflation', 'Commerce', 'Autres'].forEach(fam => {
-      const l = (_parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      if (!l.length) return;
-      body += _sec(fam) + '<div class="fxdr-bullets">';
-      l.forEach(d => {
-        const nums = [`<b class="${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
-        const _w = _ccyWho(d.ccy, d.country);
-        const who = _w ? `${_wrEsc(_w)} · ` : '';
-        const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact ${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">→ ${_wrEsc(d.lean)}</span>` : ''}`;
-        body += `<div class="fxdr-data" role="button" tabindex="0" onclick="_fxrToggleData(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleData(this);}" data-title="${_atrF(d.label)}" data-ccy="${_atrF(d.ccy)}" data-actual="${_atrF(d.actual)}" data-forecast="${_atrF(d.forecast)}" data-previous="${_atrF(d.previous)}" data-ts="${d.ts || 0}"><div class="fxdr-data-row"><span class="fxdr-data-txt">${txt}</span><span class="fxdr-data-chev">\u203a</span></div><div class="fxdr-data-detail" hidden></div></div>`;
-      });
-      body += '</div>';
-    });
-  }
-
   /* « BANQUES CENTRALES » EST UN SOUS-GROUPE DE MACRO (25/08, demande user : « banque centrale
      doit être dans macro pour les 2 »). Elle avait sa propre section depuis la v19, qui séparait
      `cb` (institution : fait → interprétation → réaction chiffrée) de `macro` (les AUTRES moteurs :
@@ -10115,6 +10078,57 @@ function _renderFXDailyRecap(item) {
       body += `</div>`;
     });
     body += '</div>';
+  }
+
+
+  /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user : « ensuite en
+     bas inflation, croissance économique et emploi concernant les news du jour qui sont sorties »).
+     Le bloc était au-dessus de Macro ; il passe en dessous, l'ordre de lecture allant du récit
+     (géopolitique, moteurs macro) vers les chiffres qui l'étayent.
+     Les séances gardent leur analyse, elles ne portent plus la liste des chiffres : la même donnée
+     ne se lit pas dans deux ordres différents.
+     La ligne reste CLIQUABLE (_fxrToggleData → Décryptage), comme sous les séances. */
+  /* ══ TABLE DE CLASSEMENT DES PUBLICATIONS DU JOUR ═══════════════════════════════════════════
+     Reprise du tableau de référence fourni par le user (« Learning Economics News ») : chaque
+     indicateur y a SA catégorie, ce n'est pas une devinette.
+       Inflation           CPI · Core CPI · PCE · Core PCE · PPI
+       Emploi              NFP · Unemployment Rate · Average Hourly Earnings · ADP · JOLTS
+       Croissance          GDP · Retail Sales · ISM Manufacturing PMI · ISM Services PMI
+       Politique monétaire FOMC Rate Decision
+     ÉTENDUE aux équivalents hors États-Unis (« + à toi de classer ») : le tableau est écrit pour
+     le calendrier américain, or le desk suit huit devises. Un CPI britannique, un IPCH de la zone
+     euro ou un Tankan japonais relèvent des mêmes familles — les nommer ici évite qu'ils tombent
+     dans « Autres » faute d'être écrits à l'américaine.
+     PRÉCÉDENCE : inflation d'abord (« Average Hourly Earnings » contient « Earnings » mais mesure
+     un salaire, et « GDP Price Index » est un prix, pas une croissance), puis emploi, puis
+     croissance. Le premier motif qui répond gagne. */
+  const _FAM_JOUR = [
+    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|prix a la consommation|import prices|export prices|wholesale price|trimmed mean|deflator/i],
+    ['Emploi', /\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
+    ['Croissance économique', /\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
+    ['Politique monétaire', /rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
+    ['Commerce', /trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
+  ];
+  const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
+  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+  if (_hasSess) {
+    const _parFam = new Map();
+    Object.keys(w.dataBySession || {}).forEach(k => (Array.isArray(w.dataBySession[k]) ? w.dataBySession[k] : [])
+      .forEach(d => { if (!d || !d.label) return; const f = _famJour(d.label); if (!_parFam.has(f)) _parFam.set(f, []); _parFam.get(f).push(d); }));
+    const _atrF = v => _wrEsc(String(v == null ? '' : v)).replace(/"/g, '&quot;');
+    _ORDRE_FAM.forEach(fam => {
+      const l = (_parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      if (!l.length) return;
+      body += _sec(fam) + '<div class="fxdr-bullets">';
+      l.forEach(d => {
+        const nums = [`<b class="${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
+        const _w = _ccyWho(d.ccy, d.country);
+        const who = _w ? `${_wrEsc(_w)} · ` : '';
+        const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact ${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">→ ${_wrEsc(d.lean)}</span>` : ''}`;
+        body += `<div class="fxdr-data" role="button" tabindex="0" onclick="_fxrToggleData(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleData(this);}" data-title="${_atrF(d.label)}" data-ccy="${_atrF(d.ccy)}" data-actual="${_atrF(d.actual)}" data-forecast="${_atrF(d.forecast)}" data-previous="${_atrF(d.previous)}" data-ts="${d.ts || 0}"><div class="fxdr-data-row"><span class="fxdr-data-txt">${txt}</span><span class="fxdr-data-chev">\u203a</span></div><div class="fxdr-data-detail" hidden></div></div>`;
+      });
+      body += '</div>';
+    });
   }
 
   // ── « Focus banques centrales » et « Données économiques clés » RETIRÉS (demande user 11/08 :

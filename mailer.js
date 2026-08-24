@@ -2530,35 +2530,6 @@ function _recapQuotidienFull(fx) {
   //    Trésor vivent ICI et nulle part ailleurs. Absent des rapports v18 : la section saute.
 
   // 5) MACRO : les AUTRES moteurs (données, flux, commerce, budgets). C'est le cœur du rapport.
-  /* LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE (24/08, demande user) — même bloc que le desk
-     (app.js, _FXR_FAM). « Croissance économique · Emploi · Inflation », la grammaire du Récap
-     Hebdo appliquée aux publications du jour. Ils fermaient chaque carte de séance ; ils se
-     rangent désormais ici, UNE SEULE FOIS, et les séances gardent leur analyse seule.
-     Motifs de classement identiques à ceux du serveur (famOf) : déterministe, jamais l'IA.
-     « Commerce » et « Autres » ferment la liste — sans elles une publication hors des trois
-     familles nommées disparaîtrait en silence. */
-  const _FAM_MAIL = [
-    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/i],
-    ['Emploi', /employment|unemployment|payroll|claims|jobless|\badp\b|jolts/i],
-    ['Croissance économique', /\bgdp\b|gross domestic|growth|\bpmi\b|\bism\b|industrial|retail sales|production|confidence|sentiment|durable goods|orders/i],
-    ['Commerce', /trade balance|balance of trade|current account|exports|imports/i],
-  ];
-  const _famMail = t => (_FAM_MAIL.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  {
-    const src = (fx.dataBySession && typeof fx.dataBySession === 'object' && !Array.isArray(fx.dataBySession)) ? fx.dataBySession : {};
-    const parFam = new Map();
-    Object.keys(src).forEach(k => (Array.isArray(src[k]) ? src[k] : []).forEach(d => {
-      if (!d || !_md(d.label)) return;
-      const f = _famMail(d.label);
-      if (!parFam.has(f)) parFam.set(f, []);
-      parFam.get(f).push(d);
-    }));
-    ['Croissance économique', 'Emploi', 'Inflation', 'Commerce', 'Autres'].forEach(fam => {
-      const l = (parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      if (l.length) S(fam, _lignesDonnees(l));
-    });
-  }
-
   /* « BANQUES CENTRALES » EST UN SOUS-GROUPE DE MACRO (25/08, demande user : « banque centrale
      doit être dans macro pour les 2 »). Elle avait sa propre section depuis la v19, qui séparait
      `cb` (institution : fait → interprétation → réaction chiffrée) de `macro` (les AUTRES moteurs :
@@ -2571,6 +2542,41 @@ function _recapQuotidienFull(fx) {
   const _duoMacro = !!(_cbP && _macroP);
   S('Macro', (_cbP ? (_duoMacro ? _grpTitre('Banques centrales') : '') + _cbP : '')
     + (_macroP ? (_duoMacro ? _grpTitre('Autres moteurs') : '') + _macroP : ''));
+
+  /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user). Duplication
+     assumée du desk : le mail doit montrer le même rapport, donc il porte le même bloc et la même
+     table de classement. Le bloc était au-dessus de Macro ; il passe en dessous, l'ordre de lecture
+     allant du récit vers les chiffres qui l'étayent. */
+  /* ══ TABLE DE CLASSEMENT — LA MÊME QUE LE DESK (app.js, _FAM_JOUR) ══════════════════════════
+     Reprise du tableau de référence fourni par le user (« Learning Economics News ») : chaque
+     indicateur y a SA catégorie. Étendue aux équivalents hors États-Unis, le tableau étant écrit
+     pour le calendrier américain quand le desk suit huit devises.
+     PRÉCÉDENCE : inflation d'abord (« Average Hourly Earnings » contient « Earnings » mais mesure
+     un salaire ; « GDP Price Index » est un prix, pas une croissance), puis emploi, puis
+     croissance. Le premier motif qui répond gagne. */
+  const _FAM_JOUR = [
+    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|prix a la consommation|import prices|export prices|wholesale price|trimmed mean|deflator/i],
+    ['Emploi', /\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
+    ['Croissance économique', /\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
+    ['Politique monétaire', /rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
+    ['Commerce', /trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
+  ];
+  const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
+  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+  {
+    const src = (fx.dataBySession && typeof fx.dataBySession === 'object' && !Array.isArray(fx.dataBySession)) ? fx.dataBySession : {};
+    const parFam = new Map();
+    Object.keys(src).forEach(k => (Array.isArray(src[k]) ? src[k] : []).forEach(d => {
+      if (!d || !_md(d.label)) return;
+      const f = _famJour(d.label);
+      if (!parFam.has(f)) parFam.set(f, []);
+      parFam.get(f).push(d);
+    }));
+    _ORDRE_FAM.forEach(fam => {
+      const l = (parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      if (l.length) S(fam, _lignesDonnees(l));
+    });
+  }
 
   // LECTURE DES SÉANCES, commune aux deux blocs qui suivent (elles décident lequel s'affiche).
   // Le rattachement des données à une carte se fait par TEST SUR LE NOM de la région (comme
