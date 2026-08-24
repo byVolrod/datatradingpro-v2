@@ -2509,6 +2509,35 @@ function _recapQuotidienFull(fx) {
   S('Banques centrales', puces(fx.cb));
 
   // 5) MACRO : les AUTRES moteurs (données, flux, commerce, budgets). C'est le cœur du rapport.
+  /* LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE (24/08, demande user) — même bloc que le desk
+     (app.js, _FXR_FAM). « Croissance économique · Emploi · Inflation », la grammaire du Récap
+     Hebdo appliquée aux publications du jour. Ils fermaient chaque carte de séance ; ils se
+     rangent désormais ici, UNE SEULE FOIS, et les séances gardent leur analyse seule.
+     Motifs de classement identiques à ceux du serveur (famOf) : déterministe, jamais l'IA.
+     « Commerce » et « Autres » ferment la liste — sans elles une publication hors des trois
+     familles nommées disparaîtrait en silence. */
+  const _FAM_MAIL = [
+    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/i],
+    ['Emploi', /employment|unemployment|payroll|claims|jobless|\badp\b|jolts/i],
+    ['Croissance économique', /\bgdp\b|gross domestic|growth|\bpmi\b|\bism\b|industrial|retail sales|production|confidence|sentiment|durable goods|orders/i],
+    ['Commerce', /trade balance|balance of trade|current account|exports|imports/i],
+  ];
+  const _famMail = t => (_FAM_MAIL.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
+  {
+    const src = (fx.dataBySession && typeof fx.dataBySession === 'object' && !Array.isArray(fx.dataBySession)) ? fx.dataBySession : {};
+    const parFam = new Map();
+    Object.keys(src).forEach(k => (Array.isArray(src[k]) ? src[k] : []).forEach(d => {
+      if (!d || !_md(d.label)) return;
+      const f = _famMail(d.label);
+      if (!parFam.has(f)) parFam.set(f, []);
+      parFam.get(f).push(d);
+    }));
+    ['Croissance économique', 'Emploi', 'Inflation', 'Commerce', 'Autres'].forEach(fam => {
+      const l = (parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      if (l.length) S(fam, _lignesDonnees(l));
+    });
+  }
+
   S('Macro', puces(fx.macro));
 
   // LECTURE DES SÉANCES, commune aux deux blocs qui suivent (elles décident lequel s'affiche).
@@ -2520,9 +2549,8 @@ function _recapQuotidienFull(fx) {
   // les chiffres ressortaient plus bas sous un second intitulé « Séance Asie » : le lecteur
   // voyait deux fois la même séance. On reconnaît donc aussi les places financières et les
   // continents que le rapport emploie réellement.
-  const clef = n => /asie|asia|tokyo|sydney|wellington|shanghai|hong.?kong|singapour/i.test(n) ? 'asia'
-    : (/londres|london|europe|europ[ée]|francfort|frankfurt|zurich|z[üu]rich/i.test(n) ? 'london'
-    : (/new.?york|wall.?street|am[ée]ric|[ée]tats.?unis|\bus\b/i.test(n) ? 'ny' : ''));
+  /* `clef` (rattachement d'un nom de séance à une clé) RETIRÉE avec la boucle de rattrapage :
+     plus aucun appelant depuis que les chiffres se rangent par famille. */
   /* 6) DONNÉES DU JOUR (par pays) : RÉTRO-COMPAT STRICTE, exactement comme le desk (app.js 9985) :
         rendue SEULEMENT si aucune des trois séances ne porte de données, c'est-à-dire pour les
         rapports antérieurs à la v11. Sinon ce seraient LES MÊMES publications deux fois.
@@ -2554,12 +2582,9 @@ function _recapQuotidienFull(fx) {
   // 7) ANALYSE PAR SESSION : l'intitulé du desk est rétabli (il avait été raccourci en « Les
   //    séances »), et chaque séance redevient une CARTE bordée à liseré or, comme sur le desk,
   //    au lieu de trois blocs qui coulaient les uns dans les autres sans séparation visuelle.
-  const vus = {};
   const cartesSess = [];
   for (const r of (Array.isArray(fx.regions) ? fx.regions : [])) {
     if (!r || !r.name) continue;
-    const k = clef(String(r.name)); if (k) vus[k] = 1;
-    const pubs = (k && Array.isArray(sess[k])) ? sess[k] : [];
     // Sous-groupes : interdits par le prompt depuis la v16, donc vides en pratique. On les
     // rend quand même pour les rapports archivés qui en portent (`.fxdr-sub` du desk :
     // liseré or de 2 px, intitulé #dcdce0, texte #a6a6ad).
@@ -2572,22 +2597,18 @@ function _recapQuotidienFull(fx) {
     // Le résumé est UN bloc (`.fxdr-card-text`), pas une suite de paragraphes : 12 px, #b6b6bd.
     const resume = (typeof r.summary === 'string' && r.summary.trim())
       ? `<div style="font-size:12px;color:#b6b6bd;line-height:1.65;">${_wrInlineMail(r.summary)}</div>` : '';
-    // « Données publiées » ferme TOUJOURS la carte, comme sur le desk.
-    cartesSess.push(_carteDesk(_teteCarte(_md(r.name), _md(r.code)) + resume + grp
-      + (pubs.length ? _grpTitre('Données publiées') + _lignesDonnees(pubs) : '')));
+    // « Données publiées » NE FERME PLUS LA CARTE (24/08) : les chiffres du jour sont rangés par
+    // famille plus haut, une seule fois. La séance garde ce qui lui est propre : son analyse.
+    // ⚠️ UNE CARTE VIDE NE S'ÉCRIT PAS. Tant que « Données publiées » fermait la carte, elle avait
+    // toujours du contenu ; depuis que les chiffres sont rangés par famille, une séance sans
+    // analyse ne porterait plus qu'un titre dans un cadre. Même règle que les blocs devise.
+    if (resume || grp) cartesSess.push(_carteDesk(_teteCarte(_md(r.name), _md(r.code)) + resume + grp));
   }
-  // Séance sans carte de région : ses chiffres seraient perdus en silence. On les publie
-  // sous leur propre intitulé plutôt que de les jeter.
-  // ⚠️ On boucle sur TOUTES les clés de `dataBySession`, pas sur les trois attendues. Le filet
-  // ne couvrait que asia/london/ny : une clé `europe` (ou toute autre que l'IA inventerait)
-  // voyait ses publications disparaître sans la moindre trace, alors que le commentaire
-  // ci-dessus promettait précisément de ne pas les jeter. Une clé inconnue garde son nom.
-  const NOMS = { asia: 'Séance Asie', london: 'Séance Londres', ny: 'Séance New York' };
-  for (const k of Object.keys(sess)) {
-    if (vus[k] || !Array.isArray(sess[k]) || !sess[k].length) continue;
-    const nomK = NOMS[k] || (_md(k).charAt(0).toUpperCase() + _md(k).slice(1));   // clé inconnue : son nom, capitalisé, rien d'inventé
-    cartesSess.push(_carteDesk(_teteCarte(nomK, '') + _grpTitre('Données publiées') + _lignesDonnees(sess[k])));
-  }
+  /* BOUCLE DE RATTRAPAGE RETIRÉE (24/08). Elle existait pour qu'une séance sans carte de région
+     ne perde pas ses chiffres en silence — et elle fabriquait, ce faisant, des cartes que le desk
+     n'affiche jamais (il ne rend « Analyse par session » que depuis `regions`). Sa raison d'être
+     tombe : le bloc PAR FAMILLE plus haut balaie TOUTES les clés de `dataBySession`, connues ou
+     non, donc aucune publication ne peut plus être perdue, quel que soit le nom de séance. */
   S('Analyse par session', _grilleDesk(cartesSess));
 
   // 8) À SURVEILLER : dernière rubrique du rapport, le calendrier des prochains jours.

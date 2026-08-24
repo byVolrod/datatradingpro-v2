@@ -9975,6 +9975,43 @@ function _renderFXDailyRecap(item) {
   }
 
   // ── Macro (v19) : les AUTRES moteurs (données, flux, commerce) : fait + chiffre → effet ──
+  /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE (24/08, demande user) ───────────────────────
+     « Croissance économique · Emploi · Inflation » : la grammaire du Récap Hebdo, appliquée aux
+     publications du jour. Ces chiffres étaient listés sous CHAQUE séance ; ils quittent les cartes
+     de séance pour se ranger ICI, une seule fois. Les séances gardent leur analyse — la même
+     donnée ne se lit plus dans deux ordres différents.
+     Classement DÉTERMINISTE, mêmes motifs que le serveur (_fxrDataByCountry, famOf) : rien n'est
+     confié à l'IA, et la précédence est identique (inflation, puis emploi, puis croissance).
+     « Commerce » et « Autres » ferment la liste : sans elles, une publication hors des trois
+     familles nommées disparaîtrait EN SILENCE — le défaut qu'on passe la journée à corriger.
+     La ligne reste CLIQUABLE (_fxrToggleData → Décryptage), exactement comme sous les séances. */
+  const _FXR_FAM = [
+    ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/i],
+    ['Emploi', /employment|unemployment|payroll|claims|jobless|\badp\b|jolts/i],
+    ['Croissance économique', /\bgdp\b|gross domestic|growth|\bpmi\b|\bism\b|industrial|retail sales|production|confidence|sentiment|durable goods|orders/i],
+    ['Commerce', /trade balance|balance of trade|current account|exports|imports/i],
+  ];
+  const _famDe = t => (_FXR_FAM.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
+  if (_hasSess) {
+    const _parFam = new Map();
+    Object.keys(w.dataBySession || {}).forEach(k => (Array.isArray(w.dataBySession[k]) ? w.dataBySession[k] : [])
+      .forEach(d => { if (!d || !d.label) return; const f = _famDe(d.label); if (!_parFam.has(f)) _parFam.set(f, []); _parFam.get(f).push(d); }));
+    const _atrF = v => _wrEsc(String(v == null ? '' : v)).replace(/"/g, '&quot;');
+    ['Croissance économique', 'Emploi', 'Inflation', 'Commerce', 'Autres'].forEach(fam => {
+      const l = (_parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      if (!l.length) return;
+      body += _sec(fam) + '<div class="fxdr-bullets">';
+      l.forEach(d => {
+        const nums = [`<b class="${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
+        const _w = _ccyWho(d.ccy, d.country);
+        const who = _w ? `${_wrEsc(_w)} · ` : '';
+        const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact ${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">→ ${_wrEsc(d.lean)}</span>` : ''}`;
+        body += `<div class="fxdr-data" role="button" tabindex="0" onclick="_fxrToggleData(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleData(this);}" data-title="${_atrF(d.label)}" data-ccy="${_atrF(d.ccy)}" data-actual="${_atrF(d.actual)}" data-forecast="${_atrF(d.forecast)}" data-previous="${_atrF(d.previous)}" data-ts="${d.ts || 0}"><div class="fxdr-data-row"><span class="fxdr-data-txt">${txt}</span><span class="fxdr-data-chev">\u203a</span></div><div class="fxdr-data-detail" hidden></div></div>`;
+      });
+      body += '</div>';
+    });
+  }
+
   if ((w.macro || []).length) {
     body += _sec('Macro') + '<div class="fxdr-bullets">';
     w.macro.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
@@ -10013,6 +10050,10 @@ function _renderFXDailyRecap(item) {
   if ((w.regions || []).length) {
     body += _sec('Analyse par session') + '<div class="fxdr-grid">';
     w.regions.forEach(r => {
+      // ⚠️ UNE CARTE VIDE NE S'ÉCRIT PAS (24/08). Tant que « Données publiées » fermait la carte,
+      // elle avait toujours du contenu ; depuis que les chiffres sont rangés par famille, une
+      // séance sans résumé ni sous-groupe ne porterait plus qu'un titre dans un cadre.
+      if (!r || (!r.summary && !(r.groups || []).length)) return;
       body += `<div class="fxdr-card fxdr-region">`;
       body += `<div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(r.name || '')}</span>${r.code ? `<span class="fxdr-ccy">${_wrEsc(r.code)}</span>` : ''}</div>`;
       if (r.summary) body += `<div class="fxdr-card-text">${_wrInline(r.summary)}</div>`;
@@ -10022,21 +10063,10 @@ function _renderFXDailyRecap(item) {
           body += `<div class="fxdr-sub"><div class="fxdr-sub-h">${_wrInline(it.heading || '')}</div>${it.text ? `<div class="fxdr-sub-t">${_wrInline(it.text)}</div>` : ''}</div>`;
         });
       });
-      // Données publiées PENDANT cette session (déterministe, HEURE de sortie + réel/attendu/préc.) — demande user « à quel moment »
-      const _sk = /asie|asia/i.test(r.name || '') ? 'asia' : /londres|london/i.test(r.name || '') ? 'london' : /new.?york/i.test(r.name || '') ? 'ny' : '';
-      const _sd = (_hasSess && _sk && Array.isArray(w.dataBySession[_sk])) ? w.dataBySession[_sk] : [];
-      if (_sd.length) {
-        body += `<div class="fxdr-grp-title">Données publiées</div>`;
-        const _atr = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
-        _sd.forEach(d => {
-          const nums = [`<b class="${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
-          const _w = _ccyWho(d.ccy, d.country);
-          const who = _w ? `${_wrEsc(_w)} · ` : '';
-          const txt = `${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact ${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">→ ${_wrEsc(d.lean)}</span>` : ''}`;
-          // Cliquable → déroulé « Décryptage » (même système que le calendrier, via _fxrToggleData → _calValueBlockHtml)
-          body += `<div class="fxdr-data" role="button" tabindex="0" onclick="_fxrToggleData(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleData(this);}" data-title="${_atr(d.label)}" data-ccy="${_atr(d.ccy)}" data-actual="${_atr(d.actual)}" data-forecast="${_atr(d.forecast)}" data-previous="${_atr(d.previous)}" data-ts="${d.ts || 0}"><div class="fxdr-data-row"><span class="fxdr-data-txt">${txt}</span><span class="fxdr-data-chev">›</span></div><div class="fxdr-data-detail" hidden></div></div>`;
-        });
-      }
+      // « Données publiées » NE FERME PLUS LA CARTE (24/08, demande user) : les chiffres du jour
+      // sont désormais rangés PAR FAMILLE plus haut (Croissance économique · Emploi · Inflation),
+      // une seule fois. Les laisser aussi ici ferait lire la même donnée dans deux ordres.
+      // La séance garde ce qui lui est propre : son analyse.
       body += `</div>`;
     });
     body += '</div>';
