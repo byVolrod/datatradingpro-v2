@@ -10022,13 +10022,6 @@ function _renderFXDailyRecap(item) {
      PRÉCÉDENCE : inflation d'abord (« Average Hourly Earnings » contient « Earnings » mais mesure
      un salaire, et « GDP Price Index » est un prix, pas une croissance), puis emploi, puis
      croissance. Le premier motif qui répond gagne.
-     DEUX FAMILLES AJOUTÉES LE 25/08, hors tableau du PDF (« + à toi de classer »), après que le
-     user a vu le rendu : « Énergie & matières premières » et « Marchés & devises ». Le tableau de
-     référence couvre les PUBLICATIONS ÉCONOMIQUES, mais les moteurs d'une journée sont souvent le
-     pétrole, l'or ou l'indice dollar. Sans ces deux familles ils restaient SANS intitulé, collés
-     sous « Banques centrales » — et se lisaient comme des propos de banque centrale, ce qu'ils ne
-     sont pas. Elles viennent APRÈS les familles économiques : un « CPI » reste de l'inflation même
-     s'il parle du prix du pétrole.
      BILINGUE, ET CE N'EST PAS DU CONFORT : les LIBELLÉS DU CALENDRIER arrivent en anglais (« Retail
      Sales MoM »), mais les NEWS de la section Macro sont rédigées en français (« les ventes au
      détail américaines progressent de 0,6 % »). Une table anglaise seule classait les chiffres et
@@ -10039,92 +10032,36 @@ function _renderFXDailyRecap(item) {
     ['Croissance économique', /ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
     ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
     ['Commerce', /balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
-    ['Énergie & matières premières', /p[ée]trole|\bbrut\b|\bwti\b|\bbrent\b|baril|raffinerie|\bopep\b|\bopec\b|gaz naturel|\bgnl\b|\bspr\b|r[ée]serve strat[ée]gique|\bor\b|once d.or|\bxau\b|argent m[ée]tal|cuivre|mati[èe]res? premi[èe]res?|stocks de (?:p[ée]trole|brut)|crude|gold|oil inventor/i],
-    ['Marchés & devises', /indice du dollar|\bdxy\b|dollar am[ée]ricain|\beuro\b|\byen\b|livre sterling|franc suisse|rendement|bons du tr[ée]sor|obligations?|\bbund\b|\bgilt\b|actions|bourse|indices? boursiers?|\bs&p\b|nasdaq|wall street|volatilit[ée]|\bvix\b|march[ée]s? (?:actions|obligataires?)/i],
   ];
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Énergie & matières premières', 'Marchés & devises', 'Autres'];
+  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
 
-  /* ── MACRO : LES NEWS DU JOUR PORTENT LEUR CATÉGORIE (25/08, demande user : « au lieu de mettre
-     autre, mets ce que je t'ai dit ; s'il y a une news d'une catégorie on l'ajoute avec la
-     catégorie, puis si y'a rien on met rien »).
-     « Autres moteurs » disparaît comme intitulé. Chaque news est passée dans la MÊME table que les
-     chiffres (_famJour) : celles qui ont une catégorie se rangent dessous, une catégorie sans news
-     ne s'écrit pas.
-     ⚠️ CE QUI NE RENTRE DANS AUCUNE FAMILLE N'EST PAS JETÉ. Les moteurs d'une journée sont souvent
-     des mouvements de marché ou d'énergie — « l'or au-dessus de 4 650 $ », « la raffinerie de Perm
-     à l'arrêt », « l'indice dollar sous 99,00 » — qui ne sont ni de l'inflation, ni de la
-     croissance, ni de l'emploi. Ces puces restent sous Macro SANS intitulé, comme le contenu propre
-     de la section : on retire le mot « Autres », pas les informations. */
+  /* ── MACRO : STRICTEMENT LES TROIS SECTIONS DEMANDÉES (25/08, arbitrage user).
+     Seules « Inflation », « Croissance économique » et « Emploi » ont un intitulé sous Macro : ce
+     sont les trois que le user a nommées. Une section sans actualité ce jour-là ne s'écrit pas.
+     J'avais ajouté « Énergie & matières premières » et « Marchés & devises » pour loger les
+     mouvements de marché ; le user les a écartées. Elles sont retirées de la table.
+     ⚠️ CE QUI NE RENTRE DANS AUCUNE DES TROIS N'EST PAS JETÉ, et se rend EN PREMIER, juste sous le
+     titre MACRO — avant « Banques centrales » et avant les trois familles. C'est le seul détail qui
+     s'écarte de la maquette validée, et il est délibéré : rendues APRÈS un groupe intitulé, ces
+     puces se lisaient comme la suite de ce groupe (le user a vu « l'or à 4 650 $ » annoncé sous
+     « Banques centrales »). Placées en tête, elles se lisent comme le corps de la section. */
   const _cbPts = (Array.isArray(w.cb) ? w.cb : []).filter(Boolean);
   const _macroPts = (Array.isArray(w.macro) ? w.macro : []).filter(Boolean);
   if (_cbPts.length || _macroPts.length) {
+    const _SECTIONS_NEWS = ['Inflation', 'Croissance économique', 'Emploi'];
+    const _macroFam = new Map();
+    _macroPts.forEach(t => { const fam = _famJour(t); _macroFam.set(fam, (_macroFam.get(fam) || []).concat([t])); });
+    const _sansFam = _macroPts.filter(t => _SECTIONS_NEWS.indexOf(_famJour(t)) < 0);
     body += _sec('Macro');
     const _puces = l => { body += '<div class="fxdr-bullets">'; l.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; };
+    if (_sansFam.length) _puces(_sansFam);
     if (_cbPts.length) { body += '<div class="fxdr-grp-title">Banques centrales</div>'; _puces(_cbPts); }
-    const _macroFam = new Map();
-    _macroPts.forEach(t => { const fam = _famJour(t); if (!_macroFam.has(fam)) _macroFam.set(fam, []); _macroFam.get(fam).push(t); });
-    _ORDRE_FAM.filter(fam => fam !== 'Autres').forEach(fam => {
+    _SECTIONS_NEWS.forEach(fam => {
       const l = _macroFam.get(fam);
       if (l && l.length) { body += `<div class="fxdr-grp-title">${_wrEsc(fam)}</div>`; _puces(l); }
     });
-    const _sansFam = _macroFam.get('Autres') || [];
-    if (_sansFam.length) _puces(_sansFam);
   }
-
-  // ── « Titres principaux » RETIRÉ (demande user 11/08) : les 3 événements qui ont compté sont déjà
-  //    racontés — avec leur mécanisme et leur effet devise — dans Géopolitique et Macro. La carte de
-  //    titre ne faisait que les répéter en plus court. Retiré du rendu ET du prompt (historique compris).
-
-  // ── DONNÉES DU JOUR par pays (v9, déterministe — façon référence : « Allemagne : Inflation » → puces
-  //    réel/attendu/précédent → lecture). MÊME grammaire de puces que le Récap Hebdo (cohérence structurelle). ──
-  // « Données du jour » est désormais RATTACHÉE À CHAQUE SESSION (voir Analyse par session, avec l'heure de
-  // sortie). On ne garde ce bloc autonome par pays QUE pour les anciens rapports SANS dataBySession (rétro-compat).
-  const _dbc = (!_hasSess && Array.isArray(w.dataByCountry)) ? w.dataByCountry.filter(g => g && g.country && (g.families || []).length) : [];
-  if (_dbc.length) {
-    body += _sec('Données du jour') + '<div class="fxdr-grid">';
-    _dbc.forEach(g => {
-      // En-tête = DEVISE (le pastillage ccy à droite devenait redondant → retiré)
-      body += `<div class="fxdr-card fxdr-dbc"><div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(_ccyWho(g.ccy, g.country))}</span></div>`;
-      (g.families || []).forEach(f => {
-        if (!f || !(f.items || []).length) return;
-        body += `<div class="fxdr-grp-title">${_wrEsc(f.name || '')}</div>`;
-        f.items.forEach(p => {
-          const nums = [`<b class="${_dataCls(p.actual, p.forecast, p.label || p.title || '')}">${_wrEsc(p.actual)}</b>`, p.forecast ? `attendu ${_wrEsc(p.forecast)}` : '', p.previous ? `préc. ${_wrEsc(p.previous)}` : ''].filter(Boolean).join(' · ');
-          body += `<div class="wr-bullet wr-cat"><strong>${_wrEsc(p.label)}</strong> : ${nums}${p.lean ? ` <span class="wr-cat-impact ${_dataCls(p.actual, p.forecast, p.label || p.title || '')}">→ ${_wrEsc(p.lean)}</span>` : ''}</div>`;
-        });
-      });
-      body += `</div>`;
-    });
-    body += '</div>';
-  }
-
-  // ── Analyse par session (Asie · Londres · New York — cartes + sous-sections groupées) ──
-  if ((w.regions || []).length) {
-    body += _sec('Analyse par session') + '<div class="fxdr-grid">';
-    w.regions.forEach(r => {
-      // ⚠️ UNE CARTE VIDE NE S'ÉCRIT PAS (24/08). Tant que « Données publiées » fermait la carte,
-      // elle avait toujours du contenu ; depuis que les chiffres sont rangés par famille, une
-      // séance sans résumé ni sous-groupe ne porterait plus qu'un titre dans un cadre.
-      if (!r || (!r.summary && !(r.groups || []).length)) return;
-      body += `<div class="fxdr-card fxdr-region">`;
-      body += `<div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(r.name || '')}</span>${r.code ? `<span class="fxdr-ccy">${_wrEsc(r.code)}</span>` : ''}</div>`;
-      if (r.summary) body += `<div class="fxdr-card-text">${_wrInline(r.summary)}</div>`;
-      (r.groups || []).forEach(g => {
-        body += `<div class="fxdr-grp-title">${_wrEsc(g.title || '')}</div>`;
-        (g.items || []).forEach(it => {
-          body += `<div class="fxdr-sub"><div class="fxdr-sub-h">${_wrInline(it.heading || '')}</div>${it.text ? `<div class="fxdr-sub-t">${_wrInline(it.text)}</div>` : ''}</div>`;
-        });
-      });
-      // « Données publiées » NE FERME PLUS LA CARTE (24/08, demande user) : les chiffres du jour
-      // sont désormais rangés PAR FAMILLE plus haut (Croissance économique · Emploi · Inflation),
-      // une seule fois. Les laisser aussi ici ferait lire la même donnée dans deux ordres.
-      // La séance garde ce qui lui est propre : son analyse.
-      body += `</div>`;
-    });
-    body += '</div>';
-  }
-
 
   /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user : « ensuite en
      bas inflation, croissance économique et emploi concernant les news du jour qui sont sorties »).
