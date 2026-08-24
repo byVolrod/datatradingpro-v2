@@ -1540,59 +1540,13 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
         <td style="padding:3px 0;color:#e3e3e6;font-size:13.5px;line-height:1.6;">${_esc(p)}</td></tr>`).join('')
     + `</table>` : '');
 
-  /* « TEMPS FORTS DE LA SEMAINE ÉCOULÉE » (24/08) : les publications à FORT impact de la semaine,
-     avec leurs chiffres. Le desk les prend dans `days[].events` ; le mail ne recevait que
-     `calendar.past`, on accepte donc les DEUX sources, la première qui répond. Neuf au maximum,
-     comme le desk, et le tri suit l'ordre déjà fourni : réordonner sans la table de rang du desk
-     produirait un classement DIFFÉRENT de celui que le lecteur connaît. */
-  const _fortsBruts = (() => {
-    const parJours = [];
-    (Array.isArray(w.days) ? w.days : []).forEach(d => (Array.isArray(d && d.events) ? d.events : [])
-      .forEach(e => { if (e && String(e.impact || '').toUpperCase() === 'HIGH') parJours.push(Object.assign({ _jour: _md(d.day) }, e)); }));
-    if (parJours.length) return parJours;
-    /* ⚠️ `calendar.past` n'est PAS une liste d'événements mais une liste de GROUPES DE JOURS
-       {dayLabel, events} (server _buildRecapCalendar). Filtrer les groupes sur `impact` ne
-       matchait donc JAMAIS : le repli rendait toujours [] et la rubrique disparaissait en
-       silence. On aplatit en événements avant de filtrer, en portant le jour du groupe. */
-    const cal = (w.calendar && Array.isArray(w.calendar.past)) ? w.calendar.past : [];
-    const plats = [];
-    cal.forEach(g => {
-      if (g && Array.isArray(g.events)) g.events.forEach(e => { if (e) plats.push(Object.assign({ _jour: _md(g.dayLabel) }, e)); });
-      else if (g) plats.push(g);
-    });
-    return plats.filter(e => /high|fort/i.test(String(e.impact || e.importance || '')));
-  })();
-  /* CLASSEMENT PAR IMPORTANCE AVANT LA COUPE À NEUF — table de rang du desk (_gewKeyRank,
-     app.js 9248). Le mail gardait les neuf PREMIÈRES dans l'ordre reçu, chronologique : dès
-     qu'une semaine porte plus de neuf publications à fort impact, il jetait la décision BoC, le
-     CPI ou le PPI de fin de semaine au profit des sondages de confiance du lundi. Le desk classe
-     PUIS coupe. À importance égale, l'ordre chronologique reçu est conservé. */
-  const _rangFort = t => {
-    const s = String(t || '').toLowerCase();
-    if (/rate decision|interest rate|rate statement|monetary policy report|\bfomc\b|cash rate|\bocr\b|bank rate|official rate|refi|deposit rate/.test(s)) return 6;
-    if (/\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/.test(s)) return 5;
-    if (/\bgdp\b|gross domestic|growth rate/.test(s)) return 4;
-    if (/payroll|non[-\s]?farm|\bnfp\b|unemployment|jobless|employment change|\bjobs\b|earnings|wage/.test(s)) return 3;
-    if (/retail sales|\bpmi\b|\bism\b|industrial production|trade balance|balance of trade|durable goods|imports|exports/.test(s)) return 2;
-    return 1;
-  };
-  const _forts = _fortsBruts.map((e, i) => ({ e, i }))
-    .sort((a, b) => (_rangFort(b.e.title) - _rangFort(a.e.title)) || (a.i - b.i))
-    .map(x => x.e);
-  S('Temps forts de la semaine écoulée', _forts.length
-    ? _forts.slice(0, 9).map(e => {
-      const qui = _md(e.ccy) || _md(e.country), jour = _md(e._jour) || _md(e.date);
-      const chiffres = [e.actual ? `Réel <strong style="color:${TOK.blanc};">${_esc(_md(e.actual))}</strong>` : '',
-        e.forecast ? `Consensus <strong style="color:#e3e3e6;">${_esc(_md(e.forecast))}</strong>` : '',
-        e.previous ? `Précédent <strong style="color:#e3e3e6;">${_esc(_md(e.previous))}</strong>` : ''].filter(Boolean).join(' &middot; ');
-      return `<p style="margin:0 0 9px;color:#cbd5e1;font-size:13px;line-height:1.55;">`
-        + (jour ? `<span style="color:${TOK.grisDoux};font-size:11px;">${_esc(jour)}</span><br>` : '')
-        + (qui ? `<strong style="color:${TOK.blanc};">${_esc(qui)}</strong> ` : '')
-        + _esc(_md(e.title || e.event || ''))
-        + (chiffres ? `<br><span style="color:#aab2c0;font-size:12px;">${chiffres}</span>` : '')
-        + `</p>`;
-    }).join('')
-    : '');
+  /* « TEMPS FORTS DE LA SEMAINE ÉCOULÉE » RETIRÉE (24/08, demande user sur pièce). Deux raisons
+     convergentes. (1) Sur le Weekly Market Recap — le rapport réellement envoyé — la rubrique
+     rendait les MÊMES publications que « Calendrier économique » juste en dessous : la même
+     donnée deux fois, mesuré à l'écran (Inflation Rate MoM passait de 4 à 6 occurrences dans le
+     mail). (2) Le desk ne l'affiche PAS sur ce rapport : c'est une rubrique du Global Economic
+     Weekly, et le calendrier du mail couvre déjà la matière sur les deux types de rapport depuis
+     que sa double source est en place. Rien n'est perdu, un doublon disparaît. */
 
   // OUVERTURE (v43) : le rapport ouvre sur `intro` (le lead bâti sur les récaps quotidiens de
   // la semaine), pas sur `summary`. Le desk n'écrit JAMAIS les deux : `summary` n'est que le
@@ -1926,7 +1880,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
      retrouvait donc en 7e position, enterrée derrière quatre rubriques, alors qu'elle OUVRE le
      rapport — et d'autant plus bas que Gmail replie la fin d'un mail long.
      Cet ordre unique sert correctement les deux rapports : chaque rubrique absente est sautée. */
-  const _ORDRE_DESK = ['Ouverture', "L'essentiel", 'Temps forts de la semaine écoulée', 'Géopolitique',
+  const _ORDRE_DESK = ['Ouverture', "L'essentiel", 'Géopolitique',
     _titreSynthese, 'Banques centrales', 'Calendrier économique', 'À surveiller', '_image', 'La semaine devise par devise'];
   const _vus = new Set();
   const corpsRapport = _ORDRE_DESK.map(t => { const e = P.find(x => x && x.t === t); if (!e) return ''; _vus.add(t); return e.h; }).join('')
@@ -1941,20 +1895,21 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ? "Vous venez de lire le Récap Hebdo du desk dans son intégralité, devise par devise. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct."
     : "Vous venez de lire le Récap Hebdo du desk, tel qu'il a été publié. Sur le desk, il s'accompagne du calendrier économique, de la force des devises et du Smart Bias, mis à jour en direct.";
 
-  // BOUTON EN TÊTE, pas en pied. Ce mail porte un rapport entier : sur une semaine chargée
-  // (huit devises, calendrier complet, image du widget), il dépasse le seuil à partir duquel
-  // Gmail replie la fin du message derrière « Message tronqué ». Un bouton placé APRÈS le
-  // rapport tombe alors dans la zone repliée, et le lecteur n'a plus de chemin vers le desk.
-  // On ne coupe rien du rapport pour tenir sous le seuil (c'est la demande : le rapport
-  // ENTIER) : on met le seul lien d'action là où il survit, et la note de fin prévient
-  // honnêtement du repliement. La désinscription, elle, voyage aussi dans l'en-tête
-  // List-Unsubscribe (posé par _sendOvhSmtp), donc elle reste atteignable en un clic.
+  /* BOUTON EN PIED (24/08, demande user) : il vient APRÈS le récap, sous la phrase de clôture —
+     on lit le rapport, puis on nous propose d'ouvrir le desk. Le mail ne s'ouvre plus sur un
+     appel à l'action posé avant toute valeur.
+     ⚠️ CONTREPARTIE ASSUMÉE, mesurée en juillet : sur une semaine chargée (huit devises,
+     calendrier complet, image du widget) ce mail dépasse le seuil au-delà duquel Gmail replie la
+     fin derrière « Message tronqué ». Le bouton peut donc tomber dans la zone repliée. Deux
+     garde-fous limitent la casse : _noteLongue prévient honnêtement du repliement juste en
+     dessous, et la désinscription voyage dans l'en-tête List-Unsubscribe (posé par _sendOvhSmtp),
+     donc elle reste atteignable en un clic quoi qu'il arrive. */
   const body = `
     <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
     ${entete}
-    <div style="margin:2px 0 10px;">${_campaignBtn('Ouvrir le desk', trackClickUrl(campaign, email, LANDING_URL))}</div>
     ${corpsRapport}
     <p style="margin:26px 0 12px;font-size:13.5px;line-height:1.6;color:#cbd5e1;">${cloture}</p>
+    <div style="margin:0 0 14px;">${_campaignBtn('Ouvrir le desk', trackClickUrl(campaign, email, LANDING_URL))}</div>
     ${_noteLongue(corpsRapport)}
     <p style="margin:18px 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:${TOK.gris};">L'équipe DataTradingPro</p>
