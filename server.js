@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260824-mail-bon-rapport', ts: Date.UTC(2026, 7, 25, 15, 0), title: 'Le mail « Votre Recap Quotidien » porte bien le Recap Quotidien', desc: 'Le desk publie deux rapports dans la journee : le « Point Marche · Ouverture US », juste avant la seance americaine, et le Recap Quotidien, qui clot la journee. Le mail prenait simplement le plus recent des deux : en journee, c etait donc l Ouverture US qui partait sous le titre « Votre Recap Quotidien », avec une organisation qui ne ressemblait pas a celle du rapport annonce. Le mail exige desormais LE Recap Quotidien, et sa structure : synthese, geopolitique et points cles, banques centrales, macro, les trois seances avec leurs chiffres publies, puis les rendez-vous a surveiller. La planification suit la meme regle : tant que le Recap Quotidien du jour n est pas publie, le mail ne part pas et repasse au cycle suivant. La sortie de l Ouverture US ne declenche plus rien.' },
   { id: 'dtpu-20260824-propos-explication', ts: Date.UTC(2026, 7, 25, 14, 0), title: 'Les news de propos vous disent enfin de quoi il retourne', desc: 'Quand une personnalite politique ou un banquier central s exprime, le fil regroupe ses phrases sur une seule carte, et l onglet Info se contentait de les traduire. Vous lisiez la citation sans savoir de quel dossier elle relevait, ni pourquoi un desk le suit. Desormais, sous les propos, une courte note du desk dit de quel dossier il s agit et, quand il y en a vraiment un, par quel canal ce dossier touche les marches : energie, commerce, prime de risque, politique monetaire. Beaucoup de declarations n ont aucun canal de marche : dans ce cas la note se limite au sujet, en une phrase, plutot que d en inventer un. Les propos, eux, ne bougent pas d un mot, la note s ajoute en dessous. Elle est preparee a l avance : elle est deja la quand vous ouvrez, elle n arrive jamais par-dessus ce que vous etes en train de lire. Trois garde-fous : le desk ne prete jamais une fonction ni un titre a quelqu un qu il ne connait pas avec certitude, il ne dit jamais dans quel sens un marche va aller ni quoi faire de votre argent, et il ne se contente jamais de reformuler la phrase que vous venez de lire. Quand il n a rien de sur a dire, il se tait et vous voyez la citation seule, comme avant.' },
   { id: 'dtpu-20260824-mail-recap-seul', ts: Date.UTC(2026, 7, 25, 13, 0), title: 'Le mail du mercredi ne fait plus que vous donner le Recap Quotidien', desc: 'Il portait encore une accroche sur le climat de risque, l image de la force des devises, une ligne de biais et un bouton pose avant le contenu. Tout cela a disparu : vous ouvrez le mail et vous tombez directement sur le rapport du jour, dans l ordre exact du desk, la synthese en tete puis geopolitique, banques centrales, macro, les trois seances avec leurs chiffres publies et enfin les rendez-vous a surveiller. Un seul bouton subsiste, en pied, pour ouvrir le desk. Et l envoi ATTEND desormais la publication du recap : tant qu il n est pas sorti, le mail ne part pas et repasse au cycle suivant, au lieu d expedier celui de la veille.' },
   { id: 'dtpu-20260824-radar-colonne-biais', ts: Date.UTC(2026, 7, 25, 12, 0), title: 'Radar de Biais : la colonne Biais ne se coupe plus en plein mot', desc: 'Sur le Radar de Biais, la derniere colonne payait la largeur du tableau : « Legerement haussier » s affichait « Legere... » et il fallait faire defiler pour lire le biais, c est-a-dire la conclusion. Mesure : le tableau reclamait 940 pixels pour se montrer en entier, et debordait de 278 pixels sur un panneau de 640. Trois economies sans retirer la moindre information : le libelle de biais a le droit de passer a la ligne, les intitules de colonne cessent d etre insecables (« POLITIQUE MONETAIRE » imposait 132 pixels a une colonne qui n en demande que 80), et les gouttieres passent de 12 a 9 pixels. Le tableau tient desormais des 760 pixels. Sur un panneau plus etroit encore, il defile toujours, mais plus rien n est tronque en silence.' },
@@ -21105,11 +21106,19 @@ function _deskBias() {
   } catch { return []; }
 }
 // Rapport QUOTIDIEN le plus frais (DTP Daily « Point Marché » ou FX Daily Recap) -> {summary, insights}.
-function _freshDaily() {
+/* `fxrSeulement` (24/08) : ne renvoyer QUE le Récap Quotidien (rapport `_fxr`), jamais le
+   « Point Marché · Ouverture US » (rapport `_dtpd`). Les deux sont des rapports du jour, mais ce
+   sont deux publications DIFFÉRENTES, de structures différentes : le premier ouvre sur une synthèse
+   puis déroule Géopolitique, Banques centrales, Macro, les trois séances et « À surveiller » ; le
+   second est un point d'avant-ouverture américaine, bâti sur des sections et des points clés.
+   Le mail intitulé « Votre Récap Quotidien » doit porter le PREMIER. Sans ce filtre, `_freshDaily`
+   renvoie simplement le plus récent des deux : en journée c'est l'Ouverture US, et le mail partait
+   avec le mauvais rapport sous le bon titre (constaté par l'utilisateur sur l'aperçu du 24/08). */
+function _freshDaily(fxrSeulement) {
   try {
-    const items = (allNews || []).filter(i => i && (i._dtpd || i._fxr)).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const items = (allNews || []).filter(i => i && (fxrSeulement ? i._fxr : (i._dtpd || i._fxr))).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     for (const it of items) {
-      if (it._dtpd && it._dtpd.summary) {
+      if (!fxrSeulement && it._dtpd && it._dtpd.summary) {
         // Points cles = 1re puce de chacune des 1res sections (hors tableaux data) -> resume diversifie de la seance.
         const pts = [];
         for (const s of (Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [])) {
@@ -21244,7 +21253,7 @@ async function _deskContext() {
   } catch {}
   let risk = null;
   if (_riskData && typeof _riskData.pct === 'number') { const p = _riskData.pct; risk = { pct: p, label: p >= 15 ? 'Risk-on (appétit pour le risque)' : p <= -15 ? 'Risk-off (aversion au risque)' : 'Neutre' }; }
-  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), featured: _calFeatured(upcoming), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), weekAhead: _weekAhead, bankNotes: _bankNotes(4) };
+  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), featured: _calFeatured(upcoming), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), dailyRecap: _freshDaily(true), weekAhead: _weekAhead, bankNotes: _bankNotes(4) };
 }
 // Anti-redondance Decryptage : historique durable des concepts couverts (KV campaign:decrypt-history).
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
@@ -22041,7 +22050,10 @@ const _pDayParis = ts => { try { return new Date(ts).toLocaleDateString('en-CA',
    prêt et on repassera, plutôt que d'envoyer quelque chose d'ancien. */
 function _recapDuJourPret(context) {
   try {
-    const d = context && context.daily;
+    /* On exige LE Récap Quotidien (`dailyRecap`, rapport _fxr), pas n'importe quel rapport du jour :
+       le « Point Marché · Ouverture US » sort en journée et prendrait sa place, si bien que le mail
+       partirait avec un autre rapport sous le titre « Votre Récap Quotidien ». */
+    const d = context && context.dailyRecap;
     if (!d || !d.ts) return false;
     return _pDayParis(d.ts) === _pDayParis(Date.now());
   } catch (e) { return false; }

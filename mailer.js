@@ -2968,7 +2968,13 @@ async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignI
 function buildCampaignPointMarche({ name, email, campaign, context, isMember } = {}) {
   campaign = campaign || 'point-hebdo';
   const ctx = context || {};
-  const daily = ctx.daily || null;         // { kind, title, dateLabel, summary, insights[], sections[], full }
+  /* `dailyRecap` d'abord (24/08) : c'est LE Récap Quotidien, le rapport `_fxr` avec sa structure
+     propre (synthèse, géopolitique, banques centrales, macro, les trois séances, à surveiller).
+     `daily` peut porter le « Point Marché · Ouverture US », un AUTRE rapport, bâti sur des sections
+     et des points clés : le mail affichait donc une structure qui ne ressemblait pas au Récap
+     Quotidien du desk, sous un titre qui l'annonçait. Repli sur `daily` pour les appels anciens
+     (aperçu admin, tests) qui ne fournissent pas encore le champ. */
+  const daily = ctx.dailyRecap || ctx.daily || null;   // { kind, ts, title, dateLabel, summary, insights[], sections[], full }
   const weekly = ctx.weekly || null;
   const bias = Array.isArray(ctx.bias) ? ctx.bias : [];   // [{ ccy, label, signal }]
   const risk = ctx.risk || null;           // { label, description }
