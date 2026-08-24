@@ -28,7 +28,11 @@ function dtpLoader(label, opts) {
   const sm = opts && opts.small ? ' dtp-loader--sm' : '';
   const txt = String(label == null ? 'Chargement…' : label)
     .replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-  return `<div class="dtp-loader${sm}"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">${txt}</div></div>`;
+  // `aria-busy` (24/08) : le loader annonce un ETAT D'ATTENTE, pas un contenu. Sans ce marqueur,
+  // rien ne le distingue d'un texte lisible : un lecteur d'écran le lit comme du contenu, et le banc
+  // qui vérifie « aucun texte ne se dérobe » comptait « Chargement du graphique… » comme un vrai
+  // texte, puis son remplacement comme une dérobade. Le squelette de texte porte déjà ce marqueur.
+  return `<div class="dtp-loader${sm}" aria-busy="true"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">${txt}</div></div>`;
 }
 window.dtpLoader = dtpLoader;
 
@@ -661,8 +665,38 @@ let loadingMore       = false;
 let _wsInitReceived   = false; // true once server sends its first 'initial' message
 const _analysisCache  = new Map(); // item.id → bullets[]
 const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style DTP, mémoire session)
+/* ══ INFO : UN ITEM, UN SEUL TEXTE POUR TOUTE LA SESSION (24/08) ═══════════════════════════════
+   DÉFAUT CORRIGÉ, mot pour mot celui de l'utilisateur : « quand j'ouvre le tag info ça me propose
+   1 résumé puis après il change ». Ses deux captures montrent LA MÊME dépêche XAG/USD, à quelques
+   secondes d'écart, avec DEUX textes finis différents.
+   MESURE : rien ne bougeait sous ses yeux pendant une ouverture donnée. Ce qui changeait, c'est le
+   RÉSULTAT D'UNE OUVERTURE À L'AUTRE. /api/news-info n'est pas préchauffé (il est généré AU CLIC,
+   ce que la doctrine du projet interdit) : selon qu'il répond avant ou après le repli de 3 s, la
+   même dépêche s'affiche tantôt en résumé IA, tantôt en dépêche brute. Le lecteur, lui, ne voit
+   qu'une chose : le texte a changé tout seul.
+   RÈGLE POSÉE : la PREMIÈRE chose réellement montrée au lecteur fait foi pour la session.
+     • le résumé IA est arrivé à temps → il est mis en cache et servi à toutes les ouvertures ;
+     • on a rendu la main à la dépêche → la dépêche devient le mot de la fin, et une réponse
+       tardive ne peut plus la remplacer NI à l'écran, NI à la prochaine ouverture.
+   Le prix assumé : sur un item replié une fois, on renonce au résumé IA de la session. C'est le
+   bon échange — la dépêche est du français FINI (pré-traduit en tâche de fond depuis le 21/08),
+   donc le lecteur ne perd aucune information, il gagne un texte stable. */
+const _infoDepeche    = new Set();  // id → la DÉPÊCHE a été montrée : c'est le texte de cet item, définitivement
+/* Instant de la PREMIÈRE attente d'un item. Le délai de repli doit courir depuis cette date, pas
+   depuis le rendu courant : le fil se re-rend à CHAQUE news reçue, et un compte à rebours reparti
+   de zéro à chaque fois n'arrive jamais à son terme sur un fil vivant — le panneau rejouait alors
+   son squelette indéfiniment (défaut mesuré : le texte lu disparaissait ~330 ms par news reçue). */
+const _infoDepuis     = new Map();  // id → Date.now() de la 1re attente
+/* DÉLAI D'ATTENTE, justifié : sur cache serveur touché, /api/news-info répond en un aller-retour
+   HTTP (lecture d'une Map en mémoire, aucune I/O) ; sur cache manqué il traverse la cascade IA,
+   dont le seul premier fournisseur a un abandon à 30 s. Faire patienter le lecteur 30 s devant un
+   squelette serait pire que la dépêche, qui est déjà du français fini. À 3 s on rend la main :
+   c'est plus que le cas nominal (cache touché) et moins que le seuil où l'attente devient une
+   panne perçue. La génération, elle, continue côté serveur et remplit le cache pour la suite. */
+const _INFO_ATTENTE_MS = 3000;
 // Verdict « cet article n'a AUCUN contenu extractible », confirmé par /api/article. Mémorisé pour la
 // session : sans lui, chaque re-rendu du fil (à chaque arrivée de news) rejouait loader → message.
+// ⚠️ N'Y ENTRE QU'UN VERDICT SUR LE CONTENU, JAMAIS UNE PANNE (voir le contrôle de `r.ok` plus bas).
 const _infoVide       = new Set();
 const _INFO_VIDE_HTML = '<div class="iq-note">Résumé indisponible : cette dépêche n\'a pas de corps de texte exploitable. Le bouton Info a été retiré de cette actualité.</div>';
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
@@ -2601,6 +2635,12 @@ function _mouvementPaire(candles, t0, pair) {
 // le premier passage traverse la cascade. 6 s est le plafond retenu : au-delà, le lecteur regarde
 // un squelette qui ne tient pas sa promesse, et mieux vaut le lui dire. La génération, elle,
 // continue côté serveur et remplira le cache pour la prochaine ouverture.
+// ⚠️ CE QUE LE MESSAGE DE REPLI DOIT DIRE. Au-delà du délai, `_reactCache` PEUT être alimenté par
+// la réponse en retard (l'affectation précède le verrou, exprès) : l'explication sera donc là à la
+// réouverture. Écrire « indisponible pour le moment » revenait à annoncer une panne alors que la
+// donnée arrivait — et le lecteur qui rouvrait voyait un texte apparaître là où on lui avait dit
+// qu'il n'y en avait pas. D'où « pas encore prête : rouvrez ce panneau dans un instant », qui
+// décrit l'état réel sans rien promettre que la cascade ne puisse tenir.
 const _RX_ATTENTE_MS = 6000;
 function _reactionExplain(item, moves, ok) {
   // ⚠️ `ok` DOIT être appelé exactement UNE fois, quoi qu'il arrive (24/08). Avant, le `.catch`
@@ -3113,6 +3153,23 @@ function buildNewsItem(item) {
 
   function openPanel(tab) {
     if (!expandEl) return;
+    /* ══ LE VERROU D'ÉCRITURE APPARTIENT AU PANNEAU, PAS À L'OUVERTURE (24/08) ═══════════════════
+       PIÈGE MESURÉ (« ouvrir, refermer dans la seconde, rouvrir 3 s plus tard, réponse à 5 s ») :
+       le verrou anti-dérobement vivait dans la FERMETURE de openPanel, donc il RENAISSAIT à chaque
+       ouverture. Deux ouvertures qui se chevauchent avaient DEUX verrous indépendants écrivant dans
+       LE MÊME élément. Séquence constatée 3 fois sur 3 : squelette, puis le RÉSUMÉ IA de la 1re
+       ouverture (sa requête, toujours en vol, passait toutes les gardes de la 2e), puis 1,3 s plus
+       tard la DÉPÊCHE BRUTE posée PAR-DESSUS par le minuteur de la 2e, dont le verrou était resté
+       libre. Le minuteur de la 1re ouverture, lui, était sorti par la garde « mauvais onglet » SANS
+       ARMER son verrou : c'est là que la fuite s'ouvrait.
+       Le panneau est UNIQUE : son verrou doit l'être aussi. Deux champs portés par l'élément :
+         • `_dtpOuverture` = numéro d'ouverture, incrémenté ICI (donc aussi à la FERMETURE, qui
+           passe par openPanel) → périme d'un coup TOUT ce que les ouvertures passées ont en vol ;
+         • `_dtpPose`      = « le contenu définitif de CETTE ouverture est déjà écrit ».
+       Comparaison instructive : `_reactionExplain` ne fuyait pas parce qu'il pose son verrou AVANT
+       d'appeler son rappel. Ici la garde précédait le verrou, d'où l'asymétrie. */
+    expandEl._dtpOuverture = (expandEl._dtpOuverture || 0) + 1;
+    expandEl._dtpPose = false;
     // La pleine largeur est RESERVEE au panneau du graphique : les panneaux de TEXTE gardent leur
     // alignement sous le titre, qui est ce qui rend le fil lisible en diagonale. On la retire donc
     // a chaque ouverture, et seul le panneau « marche » la remet.
@@ -3124,11 +3181,20 @@ function buildNewsItem(item) {
       expandEl.classList.remove('visible');
       activeTab = null;
       if (item && item.id != null) delete _openNewsPanels[item.id];   // fermé par l'utilisateur → on n'y revient plus
-      // Le panneau est refermé : plus personne ne lit ce texte, la traduction mise en réserve
-      // pendant la lecture (voir le patch `_descFr` du message WebSocket) peut être promue. Elle
-      // s'appliquera au prochain rendu, donc à la prochaine ouverture, sans jamais avoir bougé
-      // sous les yeux du lecteur.
-      if (item && item._descFrEnAttente) { item._descFr = item._descFrEnAttente; delete item._descFrEnAttente; }
+      /* Le panneau est refermé : plus personne ne lit ce texte, la traduction mise en réserve
+         pendant la lecture (voir le patch `_descFr` du message WebSocket) peut être promue.
+         ⚠️ PROMOUVOIR NE SUFFIT PAS, ET LE COMMENTAIRE D'ORIGINE SE TROMPAIT (« elle s'appliquera
+         à la prochaine ouverture »). MESURE : `rawDesc` est calculé dans buildNewsItem, PAS dans
+         openPanel ; rouvrir le panneau relit la même fermeture, donc le MÊME texte anglais. La
+         bascule en français n'arrivait qu'au rendu suivant du fil, c'est-à-dire à l'arrivée d'une
+         news, PANNEAU POTENTIELLEMENT ROUVERT : le défaut était repoussé d'un cycle, pas supprimé.
+         On redemande donc un rendu du fil TOUT DE SUITE, pendant que ce panneau est fermé : l'item
+         est rebâti sur sa version française alors que personne ne le lit. C'est rare (il faut
+         qu'une pré-traduction soit arrivée pile pendant une lecture), donc le coût est nul. */
+      if (item && item._descFrEnAttente) {
+        item._descFr = item._descFrEnAttente; delete item._descFrEnAttente;
+        requestAnimationFrame(() => renderNews());
+      }
       [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl, marcheTagEl].forEach(t => t && t.classList.remove('tag--active'));
       if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
       return;
@@ -3297,7 +3363,12 @@ function buildNewsItem(item) {
     // était « amélioré » en 6 puces IA, exactement le défaut du 20/08 sur la Synthèse des Marchés,
     // qui n'avait pas couvert ce cas-là.
     const _dtpRedige = !!(item._marketWrap || item._eventAnalysis || item._dtpd || item._fxr || item._weekly || item._marketUpdate);
-    const _improvable = !isPrimer && !hasGrouped && !isSpeaker && !_dtpRedige && rawDesc.length >= 30;
+    // ⚠️ `!_infoDepeche.has(item.id)` : cet item a DÉJÀ montré sa dépêche au lecteur, donc il n'y a
+    // plus rien à « améliorer » — ni ici, ni dans la grille du panneau « Marché » qui lit le même
+    // `_infoFinal`. C'est ce seul terme qui rend le texte de l'item identique d'une ouverture à
+    // l'autre, et qui supprime au passage le squelette rejoué à chaque news reçue.
+    const _improvable = !isPrimer && !hasGrouped && !isSpeaker && !_dtpRedige && rawDesc.length >= 30
+                     && !_infoDepeche.has(item.id);
     const _resumeCache = (_improvable && _infoCache.has(item.id)) ? (_infoCache.get(item.id) || []) : null;
     const _infoFinal = (_resumeCache && _resumeCache.length) ? _renderInfoBullets(_resumeCache) : infoBody;
 
@@ -3308,8 +3379,13 @@ function buildNewsItem(item) {
       if (reactionTagEl) reactionTagEl.classList.add('tag--active');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
 
+      // Même verrou d'ouverture que l'onglet Info : ce qu'une ouverture précédente a encore en vol
+      // ne doit pas se poser dans le panneau courant. `_reactionExplain` arme déjà son propre verrou
+      // AVANT d'appeler son rappel (il ne fuyait donc pas), mais `_reactionMoves` réécrit tout le
+      // panneau : sans ce numéro d'ouverture, une réponse en retard le repeindrait par-dessus.
+      const _monTourRx = expandEl._dtpOuverture;
       _reactionMoves(item, _rxMoves => {
-        if (activeTab !== 'reaction') return;
+        if (activeTab !== 'reaction' || expandEl._dtpOuverture !== _monTourRx) return;
         if (!_rxMoves.length) {
           /* AUCUN MOUVEMENT MESURABLE (23/08, demande user : « j'ai cliqué et le tag a disparu »).
              L'ancien comportement supprimait le tag et basculait sur Info SANS UN MOT : pour le
@@ -3317,7 +3393,8 @@ function buildNewsItem(item) {
              dans le panneau, puis on retire le tag — il ne promettra plus rien — sans forcer la
              bascule : le lecteur lit l'explication et choisit lui-même la suite. */
           if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
-          expandEl.innerHTML = '<div class="iq-note">Aucun mouvement de marché mesurable autour de cette publication — rien à montrer ici, le bouton Réaction a été retiré de cette actualité.</div>';
+          // (Cadratin proscrit sur le desk : la phrase est coupée par une virgule.)
+          expandEl.innerHTML = '<div class="iq-note">Aucun mouvement de marché mesurable autour de cette publication, rien à montrer ici : le bouton Réaction a été retiré de cette actualité.</div>';
           expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
           return;
         } else {
@@ -3342,7 +3419,7 @@ function buildNewsItem(item) {
             if (!el || activeTab !== 'reaction') return;
             // ÉTAT TERMINAL OBLIGATOIRE (GARDE 9) : un squelette posé doit se conclure. Sans rien à
             // dire, on le dit : un squelette qui tourne indéfiniment promet un texte qui ne vient pas.
-            if (!arr.length) { el.innerHTML = '<div class="iq-note">Explication du mouvement indisponible pour le moment.</div>'; if (window.DTP_translate) window.DTP_translate(el); return; }
+            if (!arr.length) { el.innerHTML = '<div class="iq-note">Explication du mouvement pas encore prête : rouvrez ce panneau dans un instant.</div>'; if (window.DTP_translate) window.DTP_translate(el); return; }
             el.innerHTML = _renderInfoBullets(arr);
             if (window.DTP_translate) window.DTP_translate(el);   // libellés produit AVANT peinture (mode EN)
             _dtpTranslateQuotes(el);
@@ -3353,7 +3430,7 @@ function buildNewsItem(item) {
           // Erreur API → même règle que « aucun mouvement » : on EXPLIQUE puis on retire le tag,
           // jamais de disparition muette sous le clic (23/08).
           if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
-          expandEl.innerHTML = '<div class="iq-note">Données de marché momentanément indisponibles pour cette publication — le bouton Réaction a été retiré de cette actualité.</div>';
+          expandEl.innerHTML = '<div class="iq-note">Données de marché momentanément indisponibles pour cette publication : le bouton Réaction a été retiré de cette actualité.</div>';
           expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       // ⚠️ LA PAIRE DE CETTE NEWS-CI, PAS CELLE QU'ON A CLIQUÉE AILLEURS. On passait
       // « _pairActive || item._pair » : _pairActive est une variable GLOBALE, renseignée seulement
@@ -3472,7 +3549,7 @@ function buildNewsItem(item) {
         _reactionExplain(item, moves, arr => {
           const x = slot.querySelector('.rxg-x');
           if (!x || !x.isConnected) return;
-          if (!arr.length) { x.innerHTML = '<div class="iq-note">Explication du mouvement indisponible pour le moment.</div>'; if (window.DTP_translate) window.DTP_translate(x); return; }
+          if (!arr.length) { x.innerHTML = '<div class="iq-note">Explication du mouvement pas encore prête : rouvrez ce panneau dans un instant.</div>'; if (window.DTP_translate) window.DTP_translate(x); return; }
           x.innerHTML = _renderInfoBullets(arr);
           if (window.DTP_translate) window.DTP_translate(x);
           _dtpTranslateQuotes(x);
@@ -3617,7 +3694,15 @@ function buildNewsItem(item) {
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       fetch(`/api/article?url=${encodeURIComponent(item.url)}&headline=${encodeURIComponent(item.headline || '')}`)
-        .then(r => r.json())
+        /* ⚠️ CONTRÔLE DE `r.ok` INDISPENSABLE, PIÈGE MESURÉ (24/08). Sans lui, un HTTP 500 qui porte
+           un corps JSON (cas courant : le serveur répond `{ error: … }` en 500) traversait le
+           `.then` sans bruit ; `data.points` valait `undefined`, le code tombait dans la branche
+           « pas de contenu », affichait « cette dépêche n'a pas de corps de texte exploitable »,
+           MÉMORISAIT ce verdict dans `_infoVide` et RETIRAIT le bouton Info pour toute la session.
+           Une panne serveur de trois secondes supprimait donc définitivement une rubrique, avec un
+           message qui affirmait une chose fausse. Une panne n'est pas un verdict sur le contenu :
+           on la renvoie au `.catch`, qui dit la vérité et ne mémorise rien. */
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(data => {
           if (activeTab !== 'info' || !expandEl.isConnected || !expandEl.classList.contains('visible')) return;
           if (data.points && data.points.length > 0) {
@@ -3663,15 +3748,33 @@ function buildNewsItem(item) {
        vaut `item._descFr || item.description` et `_descFr` est du français FINI, pré-traduit en
        tâche de fond. On retirait donc au lecteur un texte achevé qu'il avait commencé à lire.
        CE QU'ON FAIT MAINTENANT, dans cet ordre de préférence :
-         1. résumé DÉJÀ en cache de session → il est écrit DIRECTEMENT, aucun état intermédiaire ;
+         1. décision DÉJÀ prise pour cet item (résumé en cache, ou dépêche servie une fois) → elle
+            est réécrite DIRECTEMENT, à l'identique, sans le moindre état intermédiaire ;
          2. sinon → SQUELETTE (la dépêche sert de gabarit de hauteur, masquée) puis texte définitif ;
-         3. échec ou attente trop longue → repli sur la dépêche, et la réponse tardive n'écrase plus
-            rien : elle alimente `_infoCache`, donc la PROCHAINE ouverture sera instantanée ET finale.
+         3. échec ou attente épuisée → repli sur la dépêche, QUI DEVIENT LA DÉCISION DE L'ITEM : la
+            réponse tardive n'écrase plus rien, ni à l'écran, ni à l'ouverture suivante.
        ⚠️ Le fond du problème reste côté serveur (le résumé Info est le SEUL des cinq contenus IA de
        la news à n'avoir aucun cycle de préchauffage : il est généré AU CLIC, ce que la doctrine du
        projet interdit). Tant qu'il n'est pas préchauffé, l'affichage doit au moins cesser de se
        dérober : c'est ce que fait ce bloc. */
-    const _attendResume = _improvable && !_resumeCache;
+
+    /* ── COMBIEN DE TEMPS RESTE-T-IL À ATTENDRE ? (et non : « repartons pour 3 s ») ──────────────
+       PIÈGE MESURÉ : le fil se re-rend à CHAQUE message WebSocket, l'item est reconstruit et
+       `_openNewsPanels` rouvre le panneau. Un compte à rebours local repartait donc de zéro à
+       chaque news reçue : sur un fil vivant il n'atteignait jamais son terme, le squelette se
+       rejouait sans fin et le texte lu disparaissait ~330 ms par dépêche entrante. On ancre donc
+       l'attente sur l'item (`_infoDepuis`), pas sur le rendu. Quand le budget est épuisé, on ne
+       pose MÊME PAS de squelette : la dépêche est écrite tout de suite, et elle est définitive. */
+    let _resteAttente = _INFO_ATTENTE_MS;
+    if (_improvable && !_resumeCache) {
+      const _t0Info = _infoDepuis.get(item.id);
+      if (_t0Info == null) _infoDepuis.set(item.id, Date.now());
+      else _resteAttente = Math.max(0, _INFO_ATTENTE_MS - (Date.now() - _t0Info));
+      // Budget épuisé sans résumé : la dépêche EST la réponse, on la fige pour la session avant
+      // même de peindre (donc `_infoFinal`, déjà égal à la dépêche ici, ne bougera plus jamais).
+      if (_resteAttente <= 0) _infoDepeche.add(item.id);
+    }
+    const _attendResume = _improvable && !_resumeCache && _resteAttente > 0;
 
     expandEl.innerHTML = _attendResume ? _dtpSkelTexte(infoBody) : _infoFinal;
     expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
@@ -3709,15 +3812,24 @@ function buildNewsItem(item) {
     }
 
     // ── ATTENTE DU RÉSUMÉ IA : une seule écriture, la première arrivée ──────────────────────────
-    // `_pose` est le verrou anti-dérobement : le premier contenu DÉFINITIF posé (résumé, ou repli
-    // sur la dépêche au bout du délai) est le dernier. Une réponse en retard ne peut plus écraser
-    // ce que le lecteur a sous les yeux : c'est très exactement le défaut qu'on corrige.
-    let _pose = false;
-    const _poserInfo = html => {
+    // Le verrou anti-dérobement est porté par le PANNEAU (`expandEl._dtpPose`, remis à zéro en tête
+    // de openPanel) et non par cette fermeture-ci : le premier contenu DÉFINITIF posé (résumé, ou
+    // repli sur la dépêche) est le dernier, quelle que soit l'ouverture qui l'a demandé.
+    // `_monTour` fige le numéro d'ouverture : tout ce que les ouvertures PRÉCÉDENTES ont encore en
+    // vol devient muet ici, au lieu d'écrire par-dessus le panneau courant (voir openPanel).
+    const _monTour = expandEl._dtpOuverture;
+    const _poserInfo = (html, quoi) => {
+      // GARDE 0, LE VERROU : ouverture périmée, ou contenu définitif déjà écrit pour celle-ci.
+      // ⚠️ Il passe AVANT les gardes de contexte, et il est ARMÉ AVANT toute écriture : c'est
+      // l'ordre inverse qui laissait fuir un minuteur sorti par « mauvais onglet » sans s'armer.
+      if (expandEl._dtpOuverture !== _monTour || expandEl._dtpPose) return;
       // GARDES 1/2/3 : bon onglet, panneau encore attaché, panneau encore DÉPLIÉ. Les trois sont
       // nécessaires : `isConnected` ne dit pas si le panneau a été replié entre-temps.
-      if (_pose || activeTab !== 'info' || !expandEl.isConnected || !expandEl.classList.contains('visible')) return;
-      _pose = true;
+      if (activeTab !== 'info' || !expandEl.isConnected || !expandEl.classList.contains('visible')) return;
+      expandEl._dtpPose = true;
+      // La dépêche n'est mémorisée comme décision de l'item QUE si elle est RÉELLEMENT montrée :
+      // un repli avorté (panneau refermé entre-temps) n'engage rien, le lecteur n'a rien vu.
+      if (quoi === 'depeche') _infoDepeche.add(item.id);
       expandEl.innerHTML = html;
       // ⚠️ DTP_translate SYNCHRONE. En mode EN, l'observateur de mutations d'i18n.js traduit une
       // frame plus tard : le libellé français serait peint puis remplacé par l'anglais. L'appel
@@ -3726,31 +3838,33 @@ function buildNewsItem(item) {
       if (!item._dtpd && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
       _ecoFill(expandEl);   // GARDE 4 : innerHTML réécrit → on re-pose le Décryptage sous les puces
     };
-    // DÉLAI D'ATTENTE, justifié : sur cache serveur touché, /api/news-info répond en un aller-retour
-    // HTTP (lecture d'une Map en mémoire, aucune I/O) ; sur cache manqué il traverse la cascade IA,
-    // dont le seul premier fournisseur a un abandon à 30 s. Faire patienter le lecteur 30 s devant un
-    // squelette serait pire que la dépêche, qui est déjà du français fini. À 3 s on rend la main :
-    // c'est plus que le cas nominal (cache touché) et moins que le seuil où l'attente devient une
-    // panne perçue. La génération, elle, continue côté serveur et remplit le cache pour la suite.
-    const _INFO_ATTENTE_MS = 3000;
     // Le repli ne peut JAMAIS être vide : un squelette qui s'efface sur du blanc serait la version
     // muette du même défaut. `infoBody` peut sortir vide (toutes les puces écartées par les filtres
     // de bruit), on garde donc une phrase de secours.
     const _repliInfo = infoBody || '<div class="iq-note">Résumé indisponible pour cette dépêche.</div>';
-    const _minuteurInfo = setTimeout(() => _poserInfo(_repliInfo), _INFO_ATTENTE_MS);
+    // Le minuteur porte le RESTE du budget de l'item, pas 3 s neuves (voir `_resteAttente`).
+    const _minuteurInfo = setTimeout(() => _poserInfo(_repliInfo, 'depeche'), _resteAttente);
     fetch('/api/news-info', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: item.id, headline: item.headline, category: item.category, description: item.description, important: !!(isRed || item.priority === 'high' || item.urgent) }),
     })
-      .then(r => r.json())
+      // Même précaution que /api/article : un 500 porteur d'un corps JSON ne doit pas être lu comme
+      // un « pas de résumé pour cette dépêche ». Il part au `.catch`, qui replie sur la dépêche.
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const b = data.bullets || [];
-        if (b.length) _infoCache.set(item.id, b);   // on ne mémorise QUE le succès : un échec (IA en panne) réessaie à la prochaine ouverture au lieu de figer l'anglais pour la session
+        /* ⚠️ CACHE ALIMENTÉ SEULEMENT SI LA DÉCISION N'EST PAS DÉJÀ PRISE. Avant, cette réponse
+           tardive remplissait `_infoCache` quoi qu'il arrive : le lecteur avait vu la dépêche à
+           l'ouverture 1 et retrouvait un RÉSUMÉ IA à l'ouverture 2, quelques secondes plus tard.
+           C'est très exactement ce que montrent les deux captures de l'utilisateur. On ne mémorise
+           donc que ce qui peut encore devenir le texte de l'item — et jamais un échec (IA en
+           panne), qui doit pouvoir réessayer plutôt que de figer un vide pour la session. */
+        if (b.length && !_infoDepeche.has(item.id)) _infoCache.set(item.id, b);
         clearTimeout(_minuteurInfo);
-        _poserInfo(b.length ? _renderInfoBullets(b) : _repliInfo);
+        _poserInfo(b.length ? _renderInfoBullets(b) : _repliInfo, b.length ? 'resume' : 'depeche');
       })
-      .catch(() => { clearTimeout(_minuteurInfo); _poserInfo(_repliInfo); });
+      .catch(() => { clearTimeout(_minuteurInfo); _poserInfo(_repliInfo, 'depeche'); });
   }
 
   // Tags row
@@ -4228,7 +4342,13 @@ function buildNewsItem(item) {
     const _t  = _openNewsPanels[item.id];
     const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'impact' && hasImpact) || (_t === 'marche' && (marcheTagEl || _pairActive)) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
     if (_ok) requestAnimationFrame(() => openPanel(_t));
-    else delete _openNewsPanels[item.id];                    // l'onglet n'existe plus → on nettoie
+    else {
+      delete _openNewsPanels[item.id];                       // l'onglet n'existe plus → on nettoie
+      // FUITE CORRIGÉE (24/08) : ce chemin ferme le panneau sans passer par openPanel, donc la
+      // traduction mise en réserve pendant la lecture restait coincée dans `_descFrEnAttente` et
+      // n'était jamais promue. La news gardait sa description source pour toute la session.
+      if (item._descFrEnAttente) { item._descFr = item._descFrEnAttente; delete item._descFrEnAttente; }
+    }
   }
 
   // ── Background reaction check ──
@@ -7672,7 +7792,15 @@ function _brEnsureInsights(item, brIns, tagsEl, preHtml) {
        bibliothèque analyste : rien ne bouge, la rangée s'enrichit. */
     if (tagsEl) {
       const _dejaLa = new Set([...tagsEl.querySelectorAll('.br-rtag')].map(e => e.textContent.trim()));
-      const _plus = _brTags({ ...item, description: t.slice(0, 4000) }).filter(x => !_dejaLa.has(String(x).trim()));
+      // ⚠️ LE PLAFOND DE 6 EST CELUI DE _brTags (`slice(0, 6)`, « jamais une rangée interminable »).
+      // L'union le CONTOURNAIT : 5 étiquettes à l'ouverture + 4 révélées par le texte intégral = 9
+      // dans la rangée (mesuré). Rien ne casse (la barre défile en overflow-x) mais la règle produit
+      // était enfreinte. On ne prend donc que ce qui tient sous le plafond, en gardant l'ordre de
+      // pertinence de _brTags : les plus parlantes d'abord.
+      const _place = Math.max(0, 6 - _dejaLa.size);
+      const _plus = _brTags({ ...item, description: t.slice(0, 4000) })
+        .filter(x => !_dejaLa.has(String(x).trim()))
+        .slice(0, _place);
       if (_plus.length) tagsEl.insertAdjacentHTML('beforeend', _plus.map(x => `<span class="br-rtag">${x}</span>`).join(''));
     }
     return true;
