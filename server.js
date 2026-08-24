@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260826-semaine-rendez-vous-majeurs', ts: Date.UTC(2026, 7, 26, 14, 0), title: 'Semaine a Venir : Jackson Hole et les grands rendez-vous ne sont plus oublies', desc: 'La Semaine a Venir ne retenait que les publications classees a impact eleve ou moyen par le calendrier. Ce filtre convient aux CHIFFRES, pas aux RENDEZ-VOUS : un symposium, une audition au Congres ou une conference de presse n a ni consensus ni precedent a afficher, donc les fournisseurs les classent souvent en impact faible. Jackson Hole, qui deplace le dollar a lui seul, etait donc absent de votre agenda. C est corrige : les symposiums de banquiers centraux, les gouverneurs des huit banques nommement, les minutes, les conferences de presse, les rapports de politique monetaire, les auditions, le secretaire au Tresor americain, l OPEP et les sommets G7 et G20 entrent desormais quel que soit leur classement. Et ils entrent a leur vraie mesure : Jackson Hole ou un discours du president de la Fed pesent comme une decision de taux dans le profil de risque de la semaine. Le repechage reste cible : les publications mineures ne remontent pas pour autant.' },
   { id: 'dtpu-20260826-macro-classement-affine', ts: Date.UTC(2026, 7, 26, 13, 0), title: 'Macro : deux familles d actualites qui passaient au travers sont reconnues', desc: 'Correction du classement des actualites du jour. Les indices d activite — comme l Indice d activite nationale de la Fed de Chicago — n etaient reconnus par aucune rubrique et se retrouvaient dans la liste sans titre, alors qu ils mesurent exactement la meme chose qu un PMI : ils rejoignent CROISSANCE ECONOMIQUE. Les sujets de politique commerciale — guerre commerciale, tarifs, droits de douane, retorsion — sont eux aussi reconnus desormais. Rappel de lecture : sous MACRO, la liste sans titre en tete regroupe ce qui ne releve d aucune de vos trois rubriques, essentiellement les mouvements de matieres premieres et de devises. Elle est en tete, et non a la suite, pour qu on ne la prenne pas pour la suite des Banques centrales.' },
   { id: 'dtpu-20260826-alertes-lisibilite', ts: Date.UTC(2026, 7, 26, 12, 0), title: 'Alertes : les descriptions et les heures se lisent enfin sans effort', desc: 'Dans le panneau ALERTES, l heure de chaque alerte — « il y a 13 min » — etait affichee dans un gris si sombre qu elle se devinait plus qu elle ne se lisait : mesure sur le fond du panneau, son contraste tombait a 3,2 pour 1 quand le seuil de lisibilite d un petit texte est de 4,5. Elle passe a 6,2 pour 1 et gagne un demi-point de taille. Les descriptions, deja correctes, gagnent un cran pour rester au-dessus de l heure : le titre reste le plus lisible, puis la description, puis l heure. C est le plancher qui remonte, pas la hierarchie qui s ecrase.' },
   { id: 'dtpu-20260825-macro-trois-rubriques', ts: Date.UTC(2026, 7, 26, 11, 0), title: 'Macro : vos trois rubriques, et rien d autre', desc: 'Precision sur le classement des actualites du jour. Trois rubriques seulement portent un intitule sous MACRO : INFLATION, CROISSANCE ECONOMIQUE et EMPLOI, aux cotes des BANQUES CENTRALES. Une rubrique sans actualite ce jour-la ne s affiche pas du tout. Les mouvements de marche et d energie — le petrole, l or, l indice dollar, le yen — ne relevent d aucune des trois : ils restent affiches, en tete de la section et sans intitule, pour que rien ne se perde et qu on ne les prenne pas pour des propos de banque centrale. Meme presentation sur le desk et dans le mail.' },
@@ -14667,8 +14668,27 @@ function _waTrim(s, max) {
 // « Employment Change », « Average Hourly Earnings ».
 // Tout le reste = rang 0 → le tri reste STABLE → l'ordre chronologique existant est INTÉGRALEMENT
 // conservé (aucun autre événement ne bouge). Pour promouvoir un autre rendez-vous : une ligne de plus.
+/* ÉVÉNEMENTS MAJEURS QUE LE CALENDRIER SOUS-COTE (25/08, demande user : « pourquoi on n'a pas le
+   Jackson Hole, c'est important comme annonce »). Le filtre High/Medium suffit pour les
+   PUBLICATIONS CHIFFRÉES, pas pour les RENDEZ-VOUS : un symposium, une audition au Congrès ou une
+   conférence de presse n'a ni consensus ni précédent à afficher, donc les fournisseurs de calendrier
+   les classent souvent Low — et Jackson Hole, qui déplace le dollar à lui seul, disparaissait de la
+   Semaine à Venir. « Jackson Hole » n'existait nulle part dans le code.
+   Repêchage CIBLÉ, pas une réouverture du robinet Low : symposiums, les gouverneurs des huit banques
+   PAR LEUR NOM, minutes, conférences de presse, rapports de politique monétaire, auditions, OPEP et
+   sommets. */
+const _WA_VITAL_RX = /jackson hole|symposium|sintra|central bank forum|(?:fed\s+)?chair\s+(?:powell|speech)|\bpowell\b|\blagarde\b|\bueda\b|\bbailey\b|\bmacklem\b|\bbullock\b|\bschlegel\b|treasury secretary|secr[ée]taire au tr[ée]sor|testimony|humphrey[-\s]?hawkins|press conference|conf[ée]rence de presse|meeting minutes|monetary policy (?:report|statement|summary)|financial stability report|\bopec\b|\bopep\b|\bg7\b|\bg20\b/i;
+/* POIDS. `_waMajor` rend le poids du PREMIER motif qui répond : le plus lourd d'abord. Un poids ≥ 5
+   vaut « point d'orgue » et pèse comme une décision de taux dans le profil de risque de la semaine —
+   c'est exactement ce qu'est Jackson Hole pour une semaine d'août. */
 const _WA_MAJOR = [
   [/\bnon[-\s]?farm\s+payrolls?\b|\bnonfarm\s+payrolls?\b|\bnon[-\s]?farm\s+employment\s+change\b|\bnfp\b/i, 5],   // NFP — LE rendez-vous mensuel du dollar (1er vendredi)
+  [/jackson hole|symposium|sintra|central bank forum/i, 5],                              // le discours qui redéfinit la trajectoire d'une banque
+  [/\bpowell\b|(?:fed\s+)?chair\s+speech|testimony|humphrey[-\s]?hawkins/i, 4],        // le président de la Fed, où qu'il parle
+  [/\blagarde\b|\bueda\b|\bbailey\b|\bmacklem\b|\bbullock\b|\bschlegel\b/i, 3],   // les sept autres gouverneurs
+  [/meeting minutes|monetary policy (?:report|statement|summary)|press conference/i, 3], // le débat DERRIÈRE la décision
+  [/treasury secretary|secr[ée]taire au tr[ée]sor/i, 3],                                  // le Trésor US parle taux, dette et sanctions
+  [/\bopec\b|\bopep\b|\bg7\b|\bg20\b/i, 3],                                          // ce qui fait bouger le pétrole et le risque
 ];
 const _waMajor = e => { const t = String((e && e.title) || ''); for (const [rx, r] of _WA_MAJOR) if (rx.test(t)) return r; return 0; };
 async function generateWeekAhead(force = false, genEditorial = false, opts = {}) {
@@ -14701,7 +14721,22 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
     try { cal = await _buildTVCalendar(); } catch {}
   }
   if (!Array.isArray(cal) || !cal.length) cal = allCalendar || [];
-  const up = cal.filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd && (e.impact === 'High' || e.impact === 'Medium'));
+    /* REPÊCHAGE (voir _WA_VITAL_RX) : un rendez-vous majeur entre même classé Low. Et comme le
+       calendrier le SOUS-COTE, on relève son impact à High POUR CE RENDU — sinon Jackson Hole
+       s'afficherait « impact faible » et ne pèserait qu'un point dans le profil de risque.
+       Object.assign : on rend une COPIE, le calendrier partagé avec les autres vues n'est pas touché. */
+    const up = cal.filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd
+        && (e.impact === 'High' || e.impact === 'Medium' || _WA_VITAL_RX.test(e.title || '')))
+      .map(e => {
+        /* UN RENDEZ-VOUS REPÊCHÉ NE S'AFFICHE JAMAIS « FAIBLE ». Le calendrier le sous-cote par
+           construction : poids ≥ 4 (symposium, président de la Fed) → High, poids 3 (les autres
+           gouverneurs, minutes, OPEP, Trésor) → au moins Medium. Sans cela un discours de Lagarde
+           entrait dans la liste avec un badge d'impact faible, ce qui contredit son repêchage. */
+        const w = _WA_VITAL_RX.test(e.title || '') ? _waMajor(e) : 0;
+        if (e.impact === 'High' || !w) return e;
+        if (w >= 4) return Object.assign({}, e, { impact: 'High' });
+        return e.impact === 'Medium' ? e : Object.assign({}, e, { impact: 'Medium' });
+      });
   const byDay = {};
   up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(e); });
   // SEMAINE OUVRÉE SEULEMENT (demande user 03/08 « ne met pas le week-end ») : un dimanche à CPI
