@@ -2055,10 +2055,31 @@ function _tabAgendaFXR(rows) {
 
 // LE RAPPORT ENTIER, rubrique par rubrique. Chaque section ne s'écrit QUE si elle a de la
 // matière : jamais d'intertitre orphelin, jamais de « non disponible » (zéro invention).
+/* ══ LES RUBRIQUES DU RAPPORT REPRENNENT L'APPARENCE DU DESK (24/08, demande user : « comme ceci »,
+   capture du rapport à l'appui) ══
+   Relevé sur .fxdr-section (style.css) : barre or de 3 px à gauche, intitulé or 12 px en capitales
+   espacées, et surtout un FILET FIN sous toute la ligne, que l'intertitre générique des mails n'avait
+   pas. Rendu en TABLE et non en flex : le moteur de rendu d'Outlook ignore flex, la barre et le filet
+   se seraient effondrés. Deux rangées plutôt qu'un `border-left` sur la cellule entière : sinon la
+   barre or descendrait jusqu'au filet et formerait un L, là où le desk pose un court repère de 13 px. */
+function _secRapport(t) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:26px 0 12px;border-collapse:collapse;">
+    <tr><td style="padding:0 0 7px 9px;border-left:3px solid ${TOK.or};color:${TOK.or};font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1.15;">${t}</td></tr>
+    <tr><td style="height:1px;line-height:1px;font-size:0;background:${TOK.filet};">&nbsp;</td></tr>
+  </table>`;
+}
+/* Bloc de SYNTHÈSE, relevé sur .fxdr-exec : liseré or à gauche, fond or très dilué, coins arrondis
+   à droite seulement. C'est le SEUL bloc encadré du rapport, exactement comme sur le desk : la
+   synthèse est le texte de tête, tout le reste coule en puces. */
+function _blocSynthese(inner) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 4px;border-collapse:separate;">
+    <tr><td style="border-left:2px solid rgba(227,178,58,.55);background:rgba(227,178,58,.06);border-radius:0 8px 8px 0;padding:13px 16px;">${inner}</td></tr>
+  </table>`;
+}
 function _recapQuotidienFull(fx) {
   if (!fx || typeof fx !== 'object') return '';
   const P = [];
-  const S = (titre, contenu) => { if (contenu && String(contenu).trim()) P.push(_secTitle(titre) + contenu); };
+  const S = (titre, contenu) => { if (contenu && String(contenu).trim()) P.push(_secRapport(titre) + contenu); };
   const puces = v => (Array.isArray(v) ? v : []).map(x => _md(typeof x === 'string' ? x : (x && x.text))).filter(Boolean).map(t => _puceOr(_esc(t))).join('');
 
   // 1) ÉCLAIRAGES : le carrousel du haut du rapport : les idées du desk, puis les paires et
@@ -2076,7 +2097,8 @@ function _recapQuotidienFull(fx) {
   //    ⚠️ On ne garde que les CHAÎNES avant de recoller : un `summary` arrivé en objet passait
   //    le `filter(Boolean)`, et le `join` le transformait en la chaîne « [object Object] »,
   //    déjà du texte quand `_md` la recevait. Le filtrage de type doit précéder le join.
-  S('Synthèse', _paraHtml([fx.intro, fx.summary].filter(x => typeof x === 'string' && x.trim()).join('\n\n'), '#e6e6ea', '14px'));
+  const _synth = _paraHtml([fx.intro, fx.summary].filter(x => typeof x === 'string' && x.trim()).join('\n\n'), '#e3e3e6', '13.5px');
+  S('Synthèse', _synth ? _blocSynthese(_synth) : '');
 
   // 3) GÉOPOLITIQUE (+ ses POINTS CLÉS, sous-titre INTERNE à la rubrique côté desk).
   const geo = puces(fx.geopolitics), geoPts = puces(fx.geoKeyPoints);
