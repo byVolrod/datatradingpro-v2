@@ -2502,7 +2502,28 @@ function _recapQuotidienFull(fx) {
         retiré (app.js, 24/08) : il distillait en 3-5 lignes les puces géopolitiques qui le
         précèdent immédiatement — le lecteur relisait la même journée deux fois de suite.
         Le mail suit le desk, sans quoi les deux surfaces ne montreraient plus le même rapport. */
-  S('Géopolitique', puces(fx.geopolitics));
+  /* GÉOPOLITIQUE : LES CINQ POINTS QUI COMPTENT (24/08, demande user : « tu en as trop mis »).
+     Le prompt demande une note de renseignement EXHAUSTIVE — 6 à 14 puces, plafonnées à 14 côté
+     serveur — et tant que « Points clés à retenir » distillait la section, cette longueur passait.
+     Cette rubrique ayant été retirée le même jour, la liste brute restait seule : un mur.
+     CLASSEMENT DÉTERMINISTE, avec le signal que le modèle produit lui-même : le prompt réserve la
+     flèche « → effet marché » aux développements dont les données MONTRENT l'effet, donc elle pèse
+     le plus lourd ; viennent ensuite le fait chiffré, puis le vocabulaire des développements
+     majeurs. On garde les cinq meilleurs, PUIS on rétablit l'ordre d'origine : la note se lit dans
+     sa séquence, on n'en réordonne pas le récit.
+     RENDU SEULEMENT : le serveur produit et stocke toujours les 14 puces (server.js 11344 et 21168 s'en servent). Rien à régénérer, retour possible. */
+  const _geoPoids = t => {
+    const s = String(t == null ? '' : t);
+    return (/→|->/.test(s) ? 4 : 0)
+      + (/\d/.test(s) ? 2 : 0)
+      + (/sanction|frappe|missile|cessez[- ]le[- ]feu|embargo|guerre|tarif|droits? de douane|repr[ée]saille|blocus|d[ée]troit|opep|nucl[ée]aire|attaque|incursion|accord/i.test(s) ? 2 : 0);
+  };
+  const _geo5 = l => (Array.isArray(l) ? l : []).map((t, i) => ({ t, i }))
+    .sort((a, b) => (_geoPoids(b.t) - _geoPoids(a.t)) || (a.i - b.i))
+    .slice(0, 5)
+    .sort((a, b) => a.i - b.i)
+    .map(x => x.t);
+  S('Géopolitique', puces(_geo5(fx.geopolitics)));
 
   // 4) BANQUES CENTRALES : champ `cb` (v19) : décisions, minutes, discours, opérations du
   //    Trésor vivent ICI et nulle part ailleurs. Absent des rapports v18 : la section saute.
