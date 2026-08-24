@@ -9975,6 +9975,13 @@ function _renderFXDailyRecap(item) {
   }
 
   // ── Macro (v19) : les AUTRES moteurs (données, flux, commerce) : fait + chiffre → effet ──
+  /* ⚠️ `_hasSess` EST DÉCLARÉE ICI, ET PAS PLUS BAS. Elle vivait sous le bloc « Données du jour »
+     par pays ; le bloc par famille ajouté le 24/08 la lit AVANT — un `const` lu avant sa
+     déclaration lève « Cannot access before initialization » (zone morte temporelle), et cette
+     exception faisait échouer TOUT le rendu du Récap Quotidien : le rapport ne s'ouvrait plus
+     depuis l'onglet Analystes. `node -c` ne l'attrape pas, il ne contrôle que la syntaxe. */
+  const _hasSess = w.dataBySession && ['asia', 'london', 'ny'].some(k => Array.isArray(w.dataBySession[k]) && w.dataBySession[k].length);
+
   /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE (24/08, demande user) ───────────────────────
      « Croissance économique · Emploi · Inflation » : la grammaire du Récap Hebdo, appliquée aux
      publications du jour. Ces chiffres étaient listés sous CHAQUE séance ; ils quittent les cartes
@@ -10026,7 +10033,6 @@ function _renderFXDailyRecap(item) {
   //    réel/attendu/précédent → lecture). MÊME grammaire de puces que le Récap Hebdo (cohérence structurelle). ──
   // « Données du jour » est désormais RATTACHÉE À CHAQUE SESSION (voir Analyse par session, avec l'heure de
   // sortie). On ne garde ce bloc autonome par pays QUE pour les anciens rapports SANS dataBySession (rétro-compat).
-  const _hasSess = w.dataBySession && ['asia', 'london', 'ny'].some(k => Array.isArray(w.dataBySession[k]) && w.dataBySession[k].length);
   const _dbc = (!_hasSess && Array.isArray(w.dataByCountry)) ? w.dataByCountry.filter(g => g && g.country && (g.families || []).length) : [];
   if (_dbc.length) {
     body += _sec('Données du jour') + '<div class="fxdr-grid">';
