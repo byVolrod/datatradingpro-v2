@@ -2082,15 +2082,12 @@ function _recapQuotidienFull(fx) {
   const S = (titre, contenu) => { if (contenu && String(contenu).trim()) P.push(_secRapport(titre) + contenu); };
   const puces = v => (Array.isArray(v) ? v : []).map(x => _md(typeof x === 'string' ? x : (x && x.text))).filter(Boolean).map(t => _puceOr(_esc(t))).join('');
 
-  // 1) ÉCLAIRAGES : le carrousel du haut du rapport : les idées du desk, puis les paires et
-  //    ce que le desk en dit. SANS badge de direction : le desk affiche ACHAT/VENTE dans son
-  //    carrousel, un mail poussé dans une boîte n'énonce jamais une position à prendre (règle
-  //    produit, informatif uniquement). La phrase factuelle, elle, passe en entier.
-  const paires = (Array.isArray(fx.pairs) ? fx.pairs : []).filter(p => p && _md(p.pair)).map(p => {
-    const txt = _md(p.text);
-    return _puceOr(`<span style="color:${TOK.blanc};font-weight:700;">${_esc(_md(p.pair))}</span>${txt ? ' : ' + _esc(txt) : ''}`);
-  }).join('');
-  S('Éclairages', puces(fx.insights) + paires);
+  /* ÉCLAIRAGES RETIRÉS (24/08, demande user : « enlève tout ceci »). Le bloc ouvrait le mail sur
+     dix puces qui, pour l'essentiel, redisaient ce que les rubriques développent ensuite avec leurs
+     chiffres : la ligne EUR/USD annonçait « l'euro maintient ses gains sur des PMI résilients »
+     quand la rubrique Macro donne le PMI, sa valeur et l'attendu. Le lecteur lisait deux fois la
+     même séance, la version vague d'abord. Le rapport s'ouvre désormais sur sa Synthèse.
+     Le carrousel d'Éclairages garde toute sa place SUR LE DESK, où il se survole d'un coup d'œil. */
 
   // 2) SYNTHÈSE : `intro` est vide EN DUR depuis la v16 (fusionnée dans `summary`) mais on
   //    garde la concaténation du desk : les rapports v14 archivés la portent encore.
@@ -3060,17 +3057,14 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // réel débarrassé de son préfixe (le desk écrit « Récap Quotidien: Le dollar recule… » :
   // répéter le préfixe sous le H1 ferait bégayer le mail).
   const dateLbl = _md(daily && daily.dateLabel);
-  /* Le titre du rapport est repris tel quel du serveur, où il s'appelle encore « FX Daily Recap: … »
-     en interne : le desk applique sa table de préfixes FR à l'AFFICHAGE seulement. On retirait bien
-     le préfixe français, mais l'anglais passait au travers dès que `full` était présent, c'est-à-dire
-     dans le cas normal. Constaté sur le rapport réel du 21/08 : le mail titrait « FX Daily Recap: Le
-     dollar recule… » sous un en-tête pourtant intitulé « Votre Récap Quotidien ». On retire donc
-     l'étiquette du rapport dans LES DEUX langues, quelle que soit la source du titre. */
-  const titreRap = _md((full && full.title) || (daily && daily.title))
-    .replace(/^(FX\s+Daily\s+Recap|DTP\s+Daily|Daily\s+Recap|R[ée]cap\s+Quotidien)\s*[:\-]?\s*/i, '');
+  /* TITRE DU RAPPORT RETIRÉ SOUS L'EN-TÊTE (24/08, demande user : « enlève tout ceci »). Le desk
+     titre son rapport « Le dollar recule sur l'atténuation des anticipations de hausse de la Fed… »,
+     ce qui est la PREMIÈRE PHRASE de la Synthèse, à deux mots près : le mail annonçait donc la même
+     chose deux fois de suite, à trois lignes d'intervalle. L'en-tête garde le nom du mail et la date
+     du rapport ; le rapport parle ensuite de lui-même, en commençant par sa Synthèse.
+     L'objet du mail, lui, reste inchangé : c'est une autre surface, lue ailleurs. */
   const entete = `${_H1}Votre Récap Quotidien</p>`
-    + (dateLbl ? `<p style="margin:-8px 0 10px;color:${TOK.grisDoux};font-size:12px;">${_esc(dateLbl)}</p>` : '')
-    + (titreRap ? `<p style="margin:0 0 14px;color:#e6e6ea;font-size:14.5px;font-weight:600;line-height:1.5;">${_esc(titreRap)}</p>` : '');
+    + (dateLbl ? `<p style="margin:-8px 0 14px;color:${TOK.grisDoux};font-size:12px;">${_esc(dateLbl)}</p>` : '');
 
   // La synthèse ne s'écrit ici QUE si la rubrique « Synthèse » ne l'a pas déjà écrite. Le test
   // portait avant sur la présence d'un CORPS : dès que le repli `sections` produisait quelque
