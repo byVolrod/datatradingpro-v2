@@ -3330,7 +3330,10 @@ function buildNewsItem(item) {
           if (x && arr.length) { x.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(x); }
         });
       }, null, _paire);   // la paire ouverte fait partie du crible de pertinence
-      const _echec = m => { const h = document.getElementById(_gid); if (h) h.innerHTML = '<div class="iq-note">' + m + '</div>'; };
+      // Le cadre du graphique mesure 320 px en dur : quand il n'y a rien à tracer, il laissait un
+      // grand rectangle noir vide sous la phrase d'explication (capture user 24/08). La classe
+      // « vide » le fait retomber sur la hauteur de son texte : une ligne, et le fil reprend.
+      const _echec = m => { const h = document.getElementById(_gid); if (h) { h.classList.add('nrx-lwc--vide'); h.innerHTML = '<div class="iq-note">' + m + '</div>'; } };
       _chargerLwc(() => {
         // Entre le clic et le chargement de la bibliothèque, l'utilisateur a pu changer d'onglet
         // ou replier la news : sans ces gardes on dessinerait dans un conteneur détaché.
@@ -9174,7 +9177,9 @@ function _dessinerReaction(hote, candles, t0, paire) {
   const data = candles.slice().sort((a, b) => a.t - b.t)
     .map(c => ({ time: Math.floor(c.t / 1000), open: c.o, high: c.h, low: c.l, close: c.c }))
     .filter(d => (vus.has(d.time) ? false : (vus.add(d.time), true)));
-  if (!data.length) { hote.innerHTML = '<div class="iq-note">Réaction indisponible pour cette publication.</div>'; return; }
+  // Même règle que _echec : sans bougie, le cadre de 320 px doit se replier sur son texte.
+  if (!data.length) { hote.classList.add('nrx-lwc--vide'); hote.innerHTML = '<div class="iq-note">Réaction indisponible pour cette publication.</div>'; return; }
+  hote.classList.remove('nrx-lwc--vide');   // un rattrapage qui trouve enfin des bougies rend sa hauteur au cadre
   serie.setData(data);
   const tSec = Math.floor(t0 / 1000);
   // La bougie qui CONTIENT la publication : la dernière dont l'horodatage lui est antérieur.

@@ -18568,6 +18568,12 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
    le repère de publication positionnable par-dessus. */
 .nrx-lwc { position: relative; width: 100%; height: 320px; border: 1px solid var(--hud-line, var(--border));
   border-radius: 3px; overflow: hidden; background: var(--bg-3, #0f0f12); }
+/* RIEN À TRACER (24/08) : la hauteur de 320 px est faite pour des bougies. Quand la réaction est
+   indisponible, le cadre gardait sa taille et laissait un grand rectangle vide sous la phrase.
+   Il se replie donc sur son texte, et la marge basse de .iq-note est neutralisée pour que le
+   cadre serre la ligne au lieu de flotter. */
+.nrx-lwc.nrx-lwc--vide { height: auto; min-height: 0; padding: 10px 12px; }
+.nrx-lwc.nrx-lwc--vide .iq-note { margin: 0; }
 /* Bandeau « marché fermé » : posé DANS le graphique, en bas, quand la publication tombe pendant
    la coupure quotidienne du contrat ou le week-end. Sans lui, le repère se poserait sur la
    dernière cotation d'avant la fermeture et se lirait comme une réaction qui n'a pas eu lieu. */
