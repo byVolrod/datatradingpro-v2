@@ -3220,6 +3220,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Cellules multi-tags : conteneur flex → alignement vertical régulier (1 ou 2 tags), fini le décalage (demande user) */
 .mt-cell-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .mt-cell-tags .mt-tag { margin: 0; }
+/* ── TOUT VOIR SANS FAIRE DÉFILER (24/08, demande user : « colonne biais on voit pas tout ») ──
+   MESURE : le tableau réclamait 940 px pour se montrer en entier. En dessous, c'est la DERNIÈRE
+   colonne, BIAIS, qui payait : 278 px de débordement à 640 px de large, et les huit valeurs coupées
+   en plein mot (« Légèr… », « Baissi… »). Trois économies, aucune information retirée :
+     1. le libellé de biais a le droit de passer à la ligne (« Légèrement haussier » tient sur deux
+        lignes au lieu d'exiger 135 px) ; la règle existait déjà, mais seulement en mobile ;
+     2. les intitulés de colonne cessent d'être insécables : « POLITIQUE MONÉTAIRE » imposait 132 px
+        à une colonne dont le contenu n'en demande que 80 ;
+     3. les gouttières passent de 12 à 9 px, soit 54 px récupérés sur les neuf colonnes.
+   Le conteneur garde son overflow:auto : sur un panneau vraiment étroit, on défile encore, mais
+   plus rien n'est tronqué en silence. */
+.macro-table .mt-bias-cell .mt-tag { white-space: normal; }
+.macro-table th { white-space: normal; }
+.macro-table th, .macro-table td { padding-left: 9px; padding-right: 9px; }
 /* ── Colonne TAUX DIRECTEUR (21/08) ───────────────────────────────────────────────────────────
    Le niveau de taux de chaque banque, juste avant le biais. Le fond vert s'intensifie avec le
    taux : le classement des devises se lit sans lire les chiffres, et l'œil trouve d'abord les
