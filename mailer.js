@@ -2155,6 +2155,23 @@ function _lignesDonnees(rows) {
       + `</div>`;
   }).join('');
 }
+/* ÉTIQUETTES DU RAPPORT = la rangée `.arlib-rtag` du lecteur (app.js 9910, style.css 5280) :
+   « Fed », « BoJ », « PMI », « Géopolitique Moyen-Orient »... Le mail n'en portait aucune. Elles
+   ne répètent rien : ce sont les thèmes de la journée, lus d'un coup d'oeil avant le texte, et
+   elles font partie du rapport (`_fxr.tags`), pas du décor du lecteur. Même traitement qu'au
+   desk : on éclate sur les virgules et points-virgules, on écarte les étiquettes de service
+   (`_ARLIB_TAG_HIDE`) et on met la première lettre en capitale.
+   Ne pas confondre avec le TITRE du rapport, retiré le 24/08 parce qu'il redisait mot pour mot
+   la première phrase de la Synthèse : une étiquette ne redit aucune phrase. */
+const _TAGS_MUETS = new Set(['fx flows', 'flux fx', 'energy & power', 'énergie', 'energie', 'global news', 'actualités mondiales', 'actualites mondiales']);
+function _tagsRapport(tags) {
+  const l = (Array.isArray(tags) ? tags : []).flatMap(t => String(t == null ? '' : t).split(/\s*[,;]\s*/))
+    .map(s => s.trim()).filter(s => s && !_TAGS_MUETS.has(s.toLowerCase()))
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1));
+  if (!l.length) return '';
+  return `<p style="margin:0 0 14px;line-height:2;">` + l.map(t =>
+    `<span style="display:inline-block;font-size:11px;font-weight:500;color:#a3a3a3;background:#141416;border:1px solid #262626;border-radius:4px;padding:2px 10px;margin:0 6px 0 0;white-space:nowrap;">${_esc(t)}</span>`).join('') + `</p>`;
+}
 /* Ligne d'indicateur du bloc « Données du jour » = `.wr-bullet.wr-cat` (app.js 9995) : une PUCE,
    pas une ligne de tableau. Le libellé est en blanc semi-gras, le réel aussi (`.wr-cat b`,
    style.css 5459) sauf quand l'écart au consensus le colore, et la lecture ferme la puce derrière
@@ -3350,8 +3367,11 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
      chose deux fois de suite, à trois lignes d'intervalle. L'en-tête garde le nom du mail et la date
      du rapport ; le rapport parle ensuite de lui-même, en commençant par sa Synthèse.
      L'objet du mail, lui, reste inchangé : c'est une autre surface, lue ailleurs. */
+  // Les ÉTIQUETTES du rapport suivent la date, exactement comme sur le desk (le lecteur les
+  // affiche sous le titre daté). Elles n'existent que sur le rendu `full`.
   const entete = `${_H1}Votre Récap Quotidien</p>`
-    + (dateLbl ? `<p style="margin:-8px 0 14px;color:${TOK.grisDoux};font-size:12px;">${_esc(dateLbl)}</p>` : '');
+    + (dateLbl ? `<p style="margin:-8px 0 ${full && (full.tags || []).length ? '10px' : '14px'};color:${TOK.grisDoux};font-size:12px;">${_esc(dateLbl)}</p>` : '')
+    + (full ? _tagsRapport(full.tags) : '');
 
   // La synthèse ne s'écrit ici QUE si la rubrique « Synthèse » ne l'a pas déjà écrite. Le test
   // portait avant sur la présence d'un CORPS : dès que le repli `sections` produisait quelque
