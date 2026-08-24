@@ -1554,6 +1554,23 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const insights = (Array.isArray(w.insights) ? w.insights : []).map(t => _md(typeof t === 'string' ? t : (t && t.text))).filter(Boolean);
   const lead = _md(w.intro) || _md(w.summary) || insights[0] || '';
 
+  /* ══ LE MAIL BRANCHE COMME LE DESK (24/08, 3e passe user : « le récap hebdo du template n'est
+     pas celui du desk ») ═══════════════════════════════════════════════════════════════════════
+     Relevé sur _renderWeeklyRecap, branche par branche — le desk ne rend QUE :
+       · GEW (w.gew)            → L'essentiel · Temps forts · Synthèse de la semaine · Calendrier
+       · Weekly Market Recap    → Géopolitique (+ Chronologie rapide) · La semaine devise par devise
+     Le mail en empilait NEUF, dont six que le desk n'affiche sur AUCUNE des deux branches :
+     « Points macro clés » (les thèmes Cross-Asset / Commerce & Tarifs / Techno que le user cite —
+     retirés du desk le 11/08 parce qu'ils répétaient les blocs devise), « Banques centrales »
+     (retirée le 11/08, sa matière vit dans la rubrique de CHAQUE devise), « Calendrier économique »
+     et « À surveiller » (le premier vit dans le GEW, le second n'a jamais eu de rendu desk :
+     _wrCalSection est du code mort) et l'image « Force des devises » (retirée le 11/08, chaque
+     devise garde SA courbe).
+     Le mail ne montre donc plus que ce que le rapport montre. ⚠️ Ceci revient sur l'annonce client
+     du 24/08 qui promettait « les banques centrales avec leurs propos datés, les thèmes macro » :
+     arbitrage assumé par le user, le rapport prime sur la promesse. */
+  const _isGew = !!w.gew;
+
   // ── EN-TÊTE : le nom du mail, la semaine couverte, le titre réel du rapport ───────────────
   // Le mail ne disait même pas QUELLE semaine il couvrait (weekRange / weekEnding jamais lus).
   const periode = _md(w.weekRange) || (_num(w.weekEnding) ? 'semaine au ' + _md(w.weekEnding) : '');
@@ -1608,7 +1625,6 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   //    RÉPARTITION VOLONTAIRE, pour ne rien dire deux fois : les PROPOS datés (quotes) sont
   //    rendus dans le bloc de LEUR devise (cd.cbBullets en vient). Ils ne reviennent ici que
   //    pour une banque dont la devise n'a PAS de bloc : sinon ils seraient perdus en silence.
-  const cbList = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && _md(c.bank));
   // `!Array.isArray` : typeof [] vaut 'object', donc un tableau passait et Object.keys rendait
   // '0','1', et le mail affichait des blocs devise intitulés « 0 » et « 1 » en or 17px.
   const curSrc = (w.currencies && typeof w.currencies === 'object' && !Array.isArray(w.currencies)) ? w.currencies : {};
@@ -1630,48 +1646,15 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // Probabilités : le serveur les produit déjà en POURCENTAGES 0-100 à deux décimales
   // (server.js 16159 et 16225). On arrondit à l'entier, on n'invente aucune conversion.
   const _pc = v => (typeof v === 'number' && isFinite(v)) ? Math.round(v) + ' %' : '';
-  const cbHtml = cbList.map(c => {
-    const ton = _md(c.bias5 || c.stance);
-    const est = (c.source && c.source !== 'market') ? ` <span style="color:#7b828f;font-size:9px;font-weight:700;">est.</span>` : '';
-    const tete = `<div style="margin:14px 0 3px;"><span style="color:${TOK.or};font-weight:800;font-size:13.5px;">${_esc(_md(c.bank))}</span>${ton ? ` <span style="color:${_tonCol(ton)};font-weight:700;font-size:12px;">${_esc(ton)}</span>` : ''}${est}</div>`;
-    const det = [];
-    const taux = _num(c.rate);
-    if (taux) det.push(_ligne('Taux directeur', _esc(taux)));
-    if (_md(c.decision)) det.push(_ligne('Décision', _esc(_md(c.decision))));
-    if (_md(c.changed)) det.push(_ligne('Ce qui a changé', _esc(_md(c.changed))));
-    if (_md(c.guidance)) det.push(_ligne('Orientation', _esc(_md(c.guidance))));
-    const fac = Array.isArray(c.factors) ? c.factors.map(_md).filter(Boolean).join(' · ') : _md(c.factors);
-    if (fac) det.push(_ligne('Facteurs', _esc(fac)));
-    if (_md(c.fxImpact)) det.push(_ligne('Effet devise', _esc(_md(c.fxImpact))));
-    const sc = (c.scenario && typeof c.scenario === 'object') ? c.scenario : null;
-    const probs = sc ? [_pc(sc.hold) ? 'statu quo ' + _pc(sc.hold) : '', _pc(sc.hike) ? 'hausse ' + _pc(sc.hike) : '', _pc(sc.cut) ? 'baisse ' + _pc(sc.cut) : ''].filter(Boolean).join(' · ') : '';
-    const reunion = _md(c.next) ? _dateFR(c.next) + ((typeof c.nextDays === 'number' && isFinite(c.nextDays)) ? ` (dans ${c.nextDays} j)` : '') : '';
-    if (probs || reunion) det.push(_ligne('Prochaine réunion', _esc([reunion, probs].filter(Boolean).join(' · '))));
-    const narr = _md(c.narrative) ? _paraHtml(c.narrative) : '';
-    // RÉPARTITION DES PROPOS, sans rien perdre ni rien dire deux fois :
-    //  · banque ORPHELINE (sa devise n'a pas de bloc) → citation ET interprétation, c'est le
-    //    seul endroit où elles peuvent être lues. `q.analysis` n'était lu nulle part : jeté.
-    //  · banque RATTACHÉE → son bloc devise porte déjà `cd.cbBullets`, dont le texte vaut
-    //    `analysis || quote` (server.js 10984). Quand une analyse existe, la CITATION VERBATIM
-    //    du banquier central ne figurait alors NULLE PART dans le mail : on l'écrit ici, seule.
-    //    Sans analyse, cbBullets porte déjà la citation : on n'écrit rien, ce serait un doublon.
-    const orphelin = !(c.code && codes.indexOf(String(c.code).toUpperCase()) >= 0);
-    const props = (Array.isArray(c.quotes) ? c.quotes : []).map(q => {
-      if (!q) return '';
-      const attr = [_md(q.speaker), _md(q.date)].filter(Boolean).join(', ');
-      const cit = _md(q.quote), ana = _md(q.analysis);
-      const corps = orphelin
-        ? [cit ? '« ' + _esc(cit) + ' »' : '', ana ? _esc(ana) : ''].filter(Boolean).join(' → ')
-        : ((ana && cit) ? '« ' + _esc(cit) + ' »' : '');
-      if (!corps) return '';
-      return _puce(`${attr ? `<span style="color:#cbd5e1;font-weight:600;">${_esc(attr)}</span> : ` : ''}${corps}`);
-    }).filter(Boolean).join('');
-    // GARDE RÉPARÉE : les deux branches valaient `tete`, donc elle ne filtrait jamais rien et
-    // une banque réduite à son nom sortait en or avec RIEN dessous. On garde l'entête tant
-    // qu'elle porte une information (posture), sinon le bloc ne s'écrit pas du tout.
-    return (det.length || narr || props) ? tete + narr + det.join('') + props : (ton ? tete : '');
-  }).join('');
-  S('Banques centrales', cbHtml);
+  /* BLOC « Banques centrales » RETIRÉ (24/08). Il n'a plus d'appelant depuis que la section suit
+     le desk, qui ne la rend sur aucune de ses deux branches. Sa matière n'est pas perdue : les
+     PROPOS datés sont rendus dans le bloc de LEUR devise (cd.cbBullets). Seuls les propos d'une
+     banque dont la devise n'a PAS de bloc ne sont plus rendus — le desk ne les rend pas non plus,
+     c'est la conséquence assumée du miroir strict.
+     Retiré et pas seulement débranché : il construisait le HTML de chaque banque À CHAQUE ENVOI
+     pour un résultat jeté, sur un conteneur borné à 512 Mo. */
+  // « Banques centrales » : RETIRÉE. Le desk ne la rend sur aucune des deux branches — sa matière
+  // vit dans la rubrique Banque centrale de CHAQUE devise, où le mail la rend déjà.
 
   // ── THÈMES MACRO ─────────────────────────────────────────────────────────────────────────
   // ⚠️ Le 14/08, cette section avait été RETIRÉE du mail : sa taxonomie (« Performance
@@ -1707,7 +1690,9 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     .filter(x => x.h && (x.b.length || x.d))
     .filter(x => !(gt.length && /g[ée]opolit/i.test(x.h)))
     .map(x => _ssTitre(x.h) + x.b.map(b => _puceOr(_esc(b))).join('') + (x.d ? _paraHtml(x.d) : '')).join('');
-  S(_titreSynthese, macroHtml || _paraHtml(_md(w.highlights)));
+  // GEW UNIQUEMENT. Sur un Weekly Market Recap la source serait `w.macro`, c'est-à-dire les
+  // « Points Macro Clés » que le desk a retirés : les rendre ferait diverger les deux surfaces.
+  if (_isGew) S(_titreSynthese, macroHtml || _paraHtml(_md(w.highlights)));
 
   // ── LE CALENDRIER DE LA SEMAINE : PUBLIÉ, PUIS À VENIR ───────────────────────────────────
   // TOUT ce que le rapport porte, sans sélection ni plafond. Ce qui a été retiré ici, et
@@ -1739,12 +1724,16 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       dayLabel: [_md(d && d.day), _md(d && d.date)].filter(Boolean).join(' '),
       events: (Array.isArray(d && d.events) ? d.events : []).map(e => Object.assign({}, e, { ccy: (e && (e.ccy || e.currency)) || '' })),
     })).filter(g => g.events.length);
-  S('Calendrier économique', _tabCalSemaine(_calPast));
+  // GEW UNIQUEMENT, comme le desk : le calendrier a été retiré du Weekly Market Recap (il vit
+  // dans le Global Economic Weekly, app.js 9397).
+  if (_isGew) S('Calendrier économique', _tabCalSemaine(_calPast));
   // `upcoming` (le calendrier de la semaine qui vient) est produit et stocké AVEC le rapport
   // (server 20569) et n'était lu NULLE PART : le mail livrait le pendant passé et gardait
   // celui-ci pour lui. Même grammaire de table, sans colonne « réel » remplie : ce sont des
   // rendez-vous, pas des résultats.
-  S('À surveiller', _tabCalSemaine(_cal.upcoming));
+  // « À surveiller » : RETIRÉE. Elle n'a JAMAIS eu de rendu desk — _wrCalSection, seule fonction
+  // qui lise cal.upcoming, n'a aucun appelant. Le mail publiait une rubrique que le rapport
+  // n'a jamais portée.
 
   // ── LA SEMAINE DEVISE PAR DEVISE : TOUTES les devises publiées, TOUTES leurs rubriques,
   //    dans l'ordre exact du desk : entête (code + biais + accroche) · résumé exécutif ·
@@ -1862,7 +1851,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
 
   // L'UNIQUE image : la Force des Devises sur LA SEMAINE, juste avant les blocs devise
   // (elle porte ce que le texte ne peut pas dire : la trajectoire relative des huit).
-  if (curHtml) P.push({ t: '_image', h: _widgetImg('strength', 'La force des devises sur la semaine', null, 'week') });
+  // Image « Force des devises » : RETIRÉE, comme sur le desk le 11/08 — chaque devise porte SA
+  // courbe dans son propre bloc, la vue d'ensemble faisait doublon.
   S('La semaine devise par devise', curHtml);
 
   // Rien de rendu du tout = pas de mail (règle « pas de données → pas de mail »).
@@ -1880,8 +1870,10 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
      retrouvait donc en 7e position, enterrée derrière quatre rubriques, alors qu'elle OUVRE le
      rapport — et d'autant plus bas que Gmail replie la fin d'un mail long.
      Cet ordre unique sert correctement les deux rapports : chaque rubrique absente est sautée. */
+  // Les deux branches réunies : sur un rapport donné, la moitié est naturellement absente et
+  // se saute. GEW → L'essentiel, Synthèse, Calendrier. Recap → Géopolitique, devise par devise.
   const _ORDRE_DESK = ['Ouverture', "L'essentiel", 'Géopolitique',
-    _titreSynthese, 'Banques centrales', 'Calendrier économique', 'À surveiller', '_image', 'La semaine devise par devise'];
+    _titreSynthese, 'Calendrier économique', 'La semaine devise par devise'];
   const _vus = new Set();
   const corpsRapport = _ORDRE_DESK.map(t => { const e = P.find(x => x && x.t === t); if (!e) return ''; _vus.add(t); return e.h; }).join('')
     + P.filter(x => x && !_vus.has(x.t)).map(x => x.h).join('');
@@ -2399,8 +2391,16 @@ function _tabAgendaFXR(rows) {
       ? '<svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg>' : '';
     // Les quatre références portent les INTITULÉS DE COLONNES du desk, dans son ordre exact.
     // Attention au croisement à ne pas inverser : « Haut » lit e.high, « Bas » lit e.low.
-    const ref = (lbl, v) => `<span style="color:#9a9aa4;">${lbl}</span> ${v ? `<span style="color:#e8e8ea;">${_esc(v)}</span>` : VIDE}`;
-    const refs = [ref('Haut', haut), ref('Prévision', att), ref('Bas', bas), ref('Précédent', pre)].join('<br>');
+    /* ⚠️ LES QUATRE RÉFÉRENCES TIENNENT SUR UNE LIGNE (24/08, demande user : « mets le même que
+       le récap quotidien du desk, dans le template il y en a beaucoup »). Elles étaient empilées
+       en `<br>`, donc CHAQUE rendez-vous occupait CINQ lignes : sur une journée chargée la
+       rubrique devenait un mur. Le desk en fait des COLONNES de tableau, une ligne par événement ;
+       un mail ne peut pas tenir dix colonnes sur mobile, mais il peut les mettre bout à bout.
+       Et une référence VIDE ne s'écrit plus : en colonne, le tiret garde l'alignement ; en ligne,
+       « Haut - » n'est que du bruit. Quand les quatre manquent, la cellule reste vide. */
+    const ref = (lbl, v) => v ? `<span style="color:#9a9aa4;">${lbl}</span> <span style="color:#e8e8ea;">${_esc(v)}</span>` : '';
+    const refs = [ref('Haut', haut), ref('Prévision', att), ref('Bas', bas), ref('Précédent', pre)]
+      .filter(Boolean).join(' <span style="color:#3a3a42;">&middot;</span> ');
     const finDeTable = (i === tri.length - 1);
     const TD = `padding:8px 11px;${finDeTable ? '' : `border-bottom:1px solid #131316;`}vertical-align:top;`;
     out += `<tr>`
