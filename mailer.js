@@ -2245,9 +2245,43 @@ function _lignesDonnees(rows) {
    Ne pas confondre avec le TITRE du rapport, retiré le 24/08 parce qu'il redisait mot pour mot
    la première phrase de la Synthèse : une étiquette ne redit aucune phrase. */
 const _TAGS_MUETS = new Set(['fx flows', 'flux fx', 'energy & power', 'énergie', 'energie', 'global news', 'actualités mondiales', 'actualites mondiales']);
+/* ÉTIQUETTES COURTES (24/08, demande user sur pièce). L'IA écrit les thèmes en toutes lettres —
+   « Rachat de bons du Trésor américain », « Ventes au détail néo-zélandaises », « Sanctions
+   américaines contre l'Iran » — et sept étiquettes prenaient TROIS LIGNES sous la date. Or une
+   étiquette se SCANNE, elle ne se lit pas : trois lignes de thèmes avant le texte, c'est un
+   paragraphe de plus, pas un repère.
+   Raccourci par RÈGLES DÉTERMINISTES, jamais par troncature : couper « Politique monétai… »
+   serait pire que long. Trois passes dans cet ordre — gentilé → code court, tournure longue →
+   forme courte, puis retrait des mots de liaison devenus inutiles. Une étiquette déjà courte
+   ressort intacte, et si les règles la vidaient on garde l'originale : mieux vaut une étiquette
+   longue qu'une étiquette fausse. */
+const _TAG_GENTILE = [
+  [/\b[ée]tats[-\s]unis\b/gi, 'US'], [/\bam[ée]ricain(?:e|s|es)?\b/gi, 'US'],
+  [/\bbritanniques?\b/gi, 'UK'], [/\bn[ée]o[-\s]?z[ée]landais(?:e|es)?\b/gi, 'NZ'],
+  [/\bcanadien(?:ne|s|nes)?\b/gi, 'Canada'], [/\baustralien(?:ne|s|nes)?\b/gi, 'Australie'],
+  [/\bjaponais(?:e|es)?\b/gi, 'Japon'], [/\bchinois(?:e|es)?\b/gi, 'Chine'],
+  [/\beurop[ée]en(?:ne|s|nes)?\b/gi, 'Europe'], [/\ballemand(?:e|s|es)?\b/gi, 'Allemagne'],
+  [/\bfran[çc]ais(?:e|es)?\b/gi, 'France'], [/\bsuisses?\b/gi, 'Suisse'],
+];
+const _TAG_COURT = [
+  [/\bpolitique mon[ée]taire\b/gi, 'Politique'], [/\bbons du tr[ée]sor\b/gi, 'Trésor'],
+  [/\bventes au d[ée]tail\b/gi, 'Ventes détail'], [/\bguerre commerciale\b/gi, 'Commerce'],
+  [/\bmarch[ée] du travail\b/gi, 'Emploi'], [/\btaux d['’]int[ée]r[êe]t\b/gi, 'Taux'],
+  [/^prix (?:du|de la|des|de l['’])\s*/i, ''],
+  [/\s+(?:contre|envers|vis-à-vis de)\s+/gi, ' '],
+  [/\s+(?:de la|de l['’]|des|du|de|aux|au|à la)\s+/gi, ' '],
+  [/\bl['’]/gi, ''],
+];
+function _tagCourt(s) {
+  let t = s;
+  [_TAG_GENTILE, _TAG_COURT].forEach(regles => regles.forEach(([rx, par]) => { t = t.replace(rx, par); }));
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  return t.length >= 2 ? t : s;   // une règle qui vide l'étiquette n'a pas lieu de s'appliquer
+}
 function _tagsRapport(tags) {
   const l = (Array.isArray(tags) ? tags : []).flatMap(t => String(t == null ? '' : t).split(/\s*[,;]\s*/))
     .map(s => s.trim()).filter(s => s && !_TAGS_MUETS.has(s.toLowerCase()))
+    .map(_tagCourt)
     .map(s => s.charAt(0).toUpperCase() + s.slice(1));
   if (!l.length) return '';
   return `<p style="margin:0 0 14px;line-height:2;">` + l.map(t =>
@@ -2464,11 +2498,11 @@ function _recapQuotidienFull(fx) {
   const _synth = _parasDesk([fx.intro, fx.summary].filter(x => typeof x === 'string' && x.trim()).join('\n\n'), '#e3e3e6', '13px');
   S('Synthèse', _synth ? _blocSynthese(_synth) : '');
 
-  // 3) GÉOPOLITIQUE (+ ses POINTS CLÉS, sous-titre INTERNE à la rubrique côté desk).
-  //    L'intitulé complet du desk est rétabli : « Points clés à retenir », et non « Points clés ».
-  //    Ses puces sont SEMI-GRASSES (`.fxdr-keypts .wr-bullet`) et son titre porte un filet.
-  const geo = puces(fx.geopolitics), geoPts = puces(fx.geoKeyPoints, true);
-  S('Géopolitique', geo + (geoPts ? _grpTitre('Points clés à retenir', true) + geoPts : ''));
+  /* 3) GÉOPOLITIQUE. Le sous-titre « Points clés à retenir » suit le desk, où il vient d'être
+        retiré (app.js, 24/08) : il distillait en 3-5 lignes les puces géopolitiques qui le
+        précèdent immédiatement — le lecteur relisait la même journée deux fois de suite.
+        Le mail suit le desk, sans quoi les deux surfaces ne montreraient plus le même rapport. */
+  S('Géopolitique', puces(fx.geopolitics));
 
   // 4) BANQUES CENTRALES : champ `cb` (v19) : décisions, minutes, discours, opérations du
   //    Trésor vivent ICI et nulle part ailleurs. Absent des rapports v18 : la section saute.
@@ -3450,8 +3484,17 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
      L'objet du mail, lui, reste inchangé : c'est une autre surface, lue ailleurs. */
   // Les ÉTIQUETTES du rapport suivent la date, exactement comme sur le desk (le lecteur les
   // affiche sous le titre daté). Elles n'existent que sur le rendu `full`.
-  const entete = `${_H1}Votre Récap Quotidien</p>`
-    + (dateLbl ? `<p style="margin:-8px 0 ${full && (full.tags || []).length ? '10px' : '14px'};color:${TOK.grisDoux};font-size:12px;">${_esc(dateLbl)}</p>` : '')
+  /* LA DATE ENTRE DANS LE TITRE (24/08, demande user). Le mail ouvrait sur « Votre Récap
+     Quotidien » seul, puis rejetait la date sur une ligne grise en dessous : un intitulé nu, qui
+     ne disait pas DE QUAND il parlait avant la ligne suivante. Fondus, ils font un titre daté qui
+     se lit d'un trait — et le mail gagne une ligne avant le contenu.
+     Le NOM DU PRODUIT est conservé intact : c'est celui annoncé aux clients (entrée DTP du 24/08),
+     il porte la reconnaissance du mail. La date le suit en gris, plus légère, pour que le nom
+     domine toujours ; sa capitale initiale tombe puisqu'elle n'ouvre plus la phrase. */
+  const _dateTitre = dateLbl ? dateLbl.charAt(0).toLowerCase() + dateLbl.slice(1) : '';
+  const entete = `${_H1}Votre Récap Quotidien`
+    + (_dateTitre ? `<span style="font-weight:500;font-size:15px;color:${TOK.grisDoux};letter-spacing:0;"> — ${_esc(_dateTitre)}</span>` : '')
+    + `</p>`
     + (full ? _tagsRapport(full.tags) : '');
 
   // La synthèse ne s'écrit ici QUE si la rubrique « Synthèse » ne l'a pas déjà écrite. Le test

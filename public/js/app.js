@@ -9953,18 +9953,18 @@ function _renderFXDailyRecap(item) {
   const _lead = [w.intro, w.summary].filter(Boolean).join('\n\n');
   if (_lead) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(_lead)}</div>`;
 
-  // ── Géopolitique (v19, structure du mentor) : note de renseignement exhaustive, puis la
-  //    DISTILLATION « Points clés à retenir ». Les anciens rapports (sans geoKeyPoints) gardent
-  //    leurs puces seules : rien ne casse. ──
+  /* ── Géopolitique (v19, structure du mentor) : note de renseignement exhaustive. ──
+     « POINTS CLÉS À RETENIR » RETIRÉ DU RENDU (24/08, demande user). La rubrique distillait en
+     3-5 lignes la section géopolitique qui la précède immédiatement : le lecteur venait de lire
+     les mêmes développements, en plus détaillés, deux centimètres au-dessus. Même décision que
+     pour « Points Macro Clés » de l'hebdo le 11/08, et pour la même raison — une section qui
+     redit ce qui vient d'être dit allonge le rapport sans rien y ajouter.
+     ⚠️ Rendu SEULEMENT : le serveur produit toujours `geoKeyPoints` (FXR_VER 19), et
+     server.js 21168 continue de s'en servir comme source. Rien à régénérer, retour possible. */
   if ((w.geopolitics || []).length) {
     body += _sec('Géopolitique') + '<div class="fxdr-bullets">';
     w.geopolitics.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
     body += '</div>';
-    if ((w.geoKeyPoints || []).length) {
-      body += '<div class="fxdr-grp-title fxdr-keypts-t">Points clés à retenir</div><div class="fxdr-bullets fxdr-keypts">';
-      w.geoKeyPoints.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-      body += '</div>';
-    }
   }
 
   // ── Banques centrales (v19) : institution : fait → interprétation → réaction chiffrée. ──
