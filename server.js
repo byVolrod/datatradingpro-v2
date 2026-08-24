@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260826-semaine-figee', ts: Date.UTC(2026, 7, 26, 15, 0), title: 'Semaine a Venir : un agenda stable, publie une fois pour la semaine', desc: 'La Semaine a Venir se reconstruisait toutes les 40 minutes, soit environ vingt-cinq fois par jour. Un agenda de semaine ne change pas d une heure a l autre : il est desormais publie UNE FOIS, le samedi, et reste stable jusqu au week-end suivant. Concretement, ce que vous consultez lundi est exactement ce que vous retrouverez vendredi — l ordre des jours, les libelles, le profil de risque ne bougent plus sous vos yeux. Consequence a connaitre : un rendez-vous ajoute au calendrier en cours de semaine n apparaitra qu au week-end suivant.' },
   { id: 'dtpu-20260826-semaine-rendez-vous-majeurs', ts: Date.UTC(2026, 7, 26, 14, 0), title: 'Semaine a Venir : Jackson Hole et les grands rendez-vous ne sont plus oublies', desc: 'La Semaine a Venir ne retenait que les publications classees a impact eleve ou moyen par le calendrier. Ce filtre convient aux CHIFFRES, pas aux RENDEZ-VOUS : un symposium, une audition au Congres ou une conference de presse n a ni consensus ni precedent a afficher, donc les fournisseurs les classent souvent en impact faible. Jackson Hole, qui deplace le dollar a lui seul, etait donc absent de votre agenda. C est corrige : les symposiums de banquiers centraux, les gouverneurs des huit banques nommement, les minutes, les conferences de presse, les rapports de politique monetaire, les auditions, le secretaire au Tresor americain, l OPEP et les sommets G7 et G20 entrent desormais quel que soit leur classement. Et ils entrent a leur vraie mesure : Jackson Hole ou un discours du president de la Fed pesent comme une decision de taux dans le profil de risque de la semaine. Le repechage reste cible : les publications mineures ne remontent pas pour autant.' },
   { id: 'dtpu-20260826-macro-classement-affine', ts: Date.UTC(2026, 7, 26, 13, 0), title: 'Macro : deux familles d actualites qui passaient au travers sont reconnues', desc: 'Correction du classement des actualites du jour. Les indices d activite — comme l Indice d activite nationale de la Fed de Chicago — n etaient reconnus par aucune rubrique et se retrouvaient dans la liste sans titre, alors qu ils mesurent exactement la meme chose qu un PMI : ils rejoignent CROISSANCE ECONOMIQUE. Les sujets de politique commerciale — guerre commerciale, tarifs, droits de douane, retorsion — sont eux aussi reconnus desormais. Rappel de lecture : sous MACRO, la liste sans titre en tete regroupe ce qui ne releve d aucune de vos trois rubriques, essentiellement les mouvements de matieres premieres et de devises. Elle est en tete, et non a la suite, pour qu on ne la prenne pas pour la suite des Banques centrales.' },
   { id: 'dtpu-20260826-alertes-lisibilite', ts: Date.UTC(2026, 7, 26, 12, 0), title: 'Alertes : les descriptions et les heures se lisent enfin sans effort', desc: 'Dans le panneau ALERTES, l heure de chaque alerte — « il y a 13 min » — etait affichee dans un gris si sombre qu elle se devinait plus qu elle ne se lisait : mesure sur le fond du panneau, son contraste tombait a 3,2 pour 1 quand le seuil de lisibilite d un petit texte est de 4,5. Elle passe a 6,2 pour 1 et gagne un demi-point de taille. Les descriptions, deja correctes, gagnent un cran pour rester au-dessus de l heure : le titre reste le plus lisible, puis la description, puis l heure. C est le plancher qui remonte, pas la hierarchie qui s ecrase.' },
@@ -14697,8 +14698,6 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
   // (_buildTVCalendarRange, la même source que les flèches ‹ › de l'onglet Calendrier). Lecture seule :
   // on NE touche PAS au cache _weekAhead/fichier/KV/news, et on ne GÉNÈRE pas d'éditorial IA (cache seul).
   const archive = !!(opts && opts.monday);
-  const FRESH = 40 * 60 * 1000;   // contenu rafraîchi ~40 min → prévisions/actuals quasi temps réel (la semaine affichée reste la semaine en cours)
-  if (!archive && !force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < FRESH) return _weekAhead;
   const now = Date.now();
   let monday;
   if (archive) { monday = opts.monday; }
@@ -14708,6 +14707,14 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
     const _toMon = (_dow === 0) ? 1 : (_dow === 6) ? 2 : (1 - _dow); // jours jusqu'au lundi cible
     monday = Date.UTC(_d.getUTCFullYear(), _d.getUTCMonth(), _d.getUTCDate() + _toMon, 0, 0, 0);
   }
+  /* FRAÎCHEUR MESURÉE EN SEMAINE COUVERTE, PLUS EN MINUTES (25/08, demande user). Le cache tenait
+     40 minutes : l'agenda se reconstruisait en boucle pour un contenu qui, par nature, ne bouge pas
+     de la semaine. Tant que le LUNDI CIBLE est le même, on rend le cache tel quel. Ce lundi bascule
+     le SAMEDI (voir _toMon juste au-dessus) : la régénération tombe donc une fois, le week-end.
+     Le contrôle vient APRÈS le calcul du lundi — il en dépend, il ne peut pas le précéder.
+     Un cache d'avant ce changement n'a pas de champ `monday` : la comparaison échoue une fois, il
+     se régénère, et se répare de lui-même. */
+  if (!archive && !force && _weekAhead && _weekAhead.v === WA_VER && _weekAhead.monday === monday) return _weekAhead;
   const weekEnd = monday + 7 * 24 * 60 * 60 * 1000;
   const _WA_EMPTY = { generatedAt: now, v: WA_VER, week: '', days: [], archive: true };   // réponse vide d'une semaine d'archive
   // Données calendrier FIABLES : MÊME source que l'onglet Calendar — TradingView (noms + prévisions + actuals natifs, temps réel). Repli ForexFactory si indispo.
@@ -14881,7 +14888,7 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
   // v20 : l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué — il écrasait titre et résumé avec du
   // texte qui pouvait inventer des événements absents du calendrier (« Fed : décision de taux » un
   // jeudi sans FOMC, constaté par l'utilisateur). Les cartes sont désormais 100 % calendrier.
-  _weekAhead = { generatedAt: Date.now(), v: WA_VER, week, days, editorialAI: days.filter(d => d.headline && d.summary).length };   // editorialAI = nb de jours rédigés par l'IA (diagnostic)
+  _weekAhead = { generatedAt: Date.now(), v: WA_VER, monday, week, days, editorialAI: days.filter(d => d.headline && d.summary).length };   // editorialAI = nb de jours rédigés par l'IA (diagnostic)
   try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
   auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
   console.log(`[WeekAhead] OK : ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
@@ -15127,8 +15134,15 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
     const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000) || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length;
     if (stale) generateWeekAhead(true, true).catch(() => {});   // démarrage : data + éditorial IA si manquant
   }, 90 * 1000);   // 90s : encore après le bias
-  // Rafraîchissement TEMPS RÉEL du Week Ahead : régénère toutes les ~40 min (calendrier TradingView frais : prévisions/actuals).
-  setInterval(() => { if (ai.backoffActive && ai.backoffActive()) return; if (!_waGenerating) { _waGenerating = true; generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; }); } }, 40 * 60 * 1000);
+    /* INTERVALLE DE 40 MIN RETIRÉ (25/08, demande user : « elle doit se régénérer uniquement 1× le
+       week-end, comme c'est pour la semaine »). Il régénérait l'agenda ~25 fois par jour, en `force`
+       — donc en court-circuitant le cache — au motif d'avoir « prévisions/actuals frais ». Or ce
+       rendu n'affiche JAMAIS d'actual (vérifié : seuls `forecast` et `previous` y sont lus), et un
+       agenda de semaine ne change pas d'heure en heure.
+       La génération hebdomadaire du SAMEDI 02h00 Paris (runAll ci-dessus) suffit et existait déjà :
+       c'est elle, et elle seule, qui produit désormais la Semaine à Venir. Restent deux filets qui
+       ne régénèrent QUE sur défaut, jamais périodiquement : la reprise au démarrage et
+       l'auto-réparation horaire (absente / version périmée). */
   // AUTO-RÉPARATION horaire : si le bias OU le Week Ahead n'a pas pu se générer (quota Gemini épuisé / Claude
   // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
   // ⚠️ backoffActive : pendant une panne IA TOTALE, ces retries s'espacent (10 min → 6 h) au lieu
