@@ -2528,7 +2528,6 @@ function _recapQuotidienFull(fx) {
 
   // 4) BANQUES CENTRALES : champ `cb` (v19) : décisions, minutes, discours, opérations du
   //    Trésor vivent ICI et nulle part ailleurs. Absent des rapports v18 : la section saute.
-  S('Banques centrales', puces(fx.cb));
 
   // 5) MACRO : les AUTRES moteurs (données, flux, commerce, budgets). C'est le cœur du rapport.
   /* LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE (24/08, demande user) — même bloc que le desk
@@ -2560,7 +2559,18 @@ function _recapQuotidienFull(fx) {
     });
   }
 
-  S('Macro', puces(fx.macro));
+  /* « BANQUES CENTRALES » EST UN SOUS-GROUPE DE MACRO (25/08, demande user : « banque centrale
+     doit être dans macro pour les 2 »). Elle avait sa propre section depuis la v19, qui séparait
+     `cb` (institution : fait → interprétation → réaction chiffrée) de `macro` (les AUTRES moteurs :
+     données, flux, commerce). La séparation reste vraie DANS LES DONNÉES — on ne fusionne pas les
+     deux champs — mais elle n'a plus de titre de section à elle : la posture des banques est un
+     moteur macro parmi les autres, elle se lit avec eux.
+     Les deux groupes ne prennent un sous-titre QUE s'ils coexistent : seul, un groupe n'a rien à
+     distinguer et la section garde le rendu qu'elle avait. */
+  const _cbP = puces(fx.cb), _macroP = puces(fx.macro);
+  const _duoMacro = !!(_cbP && _macroP);
+  S('Macro', (_cbP ? (_duoMacro ? _grpTitre('Banques centrales') : '') + _cbP : '')
+    + (_macroP ? (_duoMacro ? _grpTitre('Autres moteurs') : '') + _macroP : ''));
 
   // LECTURE DES SÉANCES, commune aux deux blocs qui suivent (elles décident lequel s'affiche).
   // Le rattachement des données à une carte se fait par TEST SUR LE NOM de la région (comme

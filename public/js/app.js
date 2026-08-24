@@ -9991,12 +9991,6 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
-  // ── Banques centrales (v19) : institution : fait → interprétation → réaction chiffrée. ──
-  if ((w.cb || []).length) {
-    body += _sec('Banques centrales') + '<div class="fxdr-bullets">';
-    w.cb.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-    body += '</div>';
-  }
 
   // ── Macro (v19) : les AUTRES moteurs (données, flux, commerce) : fait + chiffre → effet ──
   /* ⚠️ `_hasSess` EST DÉCLARÉE ICI, ET PAS PLUS BAS. Elle vivait sous le bloc « Données du jour »
@@ -10043,10 +10037,31 @@ function _renderFXDailyRecap(item) {
     });
   }
 
-  if ((w.macro || []).length) {
-    body += _sec('Macro') + '<div class="fxdr-bullets">';
-    w.macro.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-    body += '</div>';
+  /* « BANQUES CENTRALES » EST UN SOUS-GROUPE DE MACRO (25/08, demande user : « banque centrale
+     doit être dans macro pour les 2 »). Elle avait sa propre section depuis la v19, qui séparait
+     `cb` (institution : fait → interprétation → réaction chiffrée) de `macro` (les AUTRES moteurs :
+     données, flux, commerce). La séparation reste vraie DANS LES DONNÉES — on ne fusionne pas les
+     deux champs — mais elle n'a plus de titre de section à elle : la posture des banques est un
+     moteur macro parmi les autres, elle se lit avec eux.
+     Les deux groupes ne prennent un sous-titre QUE s'ils coexistent : seul, un groupe n'a rien à
+     distinguer et la section garde le rendu qu'elle avait. */
+  const _cbPts = (Array.isArray(w.cb) ? w.cb : []).filter(Boolean);
+  const _macroPts = (Array.isArray(w.macro) ? w.macro : []).filter(Boolean);
+  if (_cbPts.length || _macroPts.length) {
+    const _duo = _cbPts.length && _macroPts.length;
+    body += _sec('Macro');
+    if (_cbPts.length) {
+      if (_duo) body += '<div class="fxdr-grp-title">Banques centrales</div>';
+      body += '<div class="fxdr-bullets">';
+      _cbPts.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+      body += '</div>';
+    }
+    if (_macroPts.length) {
+      if (_duo) body += '<div class="fxdr-grp-title">Autres moteurs</div>';
+      body += '<div class="fxdr-bullets">';
+      _macroPts.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+      body += '</div>';
+    }
   }
 
   // ── « Titres principaux » RETIRÉ (demande user 11/08) : les 3 événements qui ont compté sont déjà
