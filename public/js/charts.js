@@ -2099,9 +2099,16 @@ function buildRiskHistoryChart(containerId, data) {
   chart.zoomOutButton.set('forceHidden', true);
 
   // Axe X : DateAxis quotidien
-  const xRenderer = am5xy.AxisRendererX.new(root, { minGridDistance: 50 });
-  xRenderer.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9 });
-  xRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.18, strokeDasharray: [2, 4] });
+  /* LISIBILITÉ DES DATES (24/08, demande user « améliore la lisibilité et visibilité »). Ces libellés
+     étaient en 9 px gris #6b7280, soit un contraste de 3,99 pour 1 sur le fond du desk : EN DESSOUS
+     même du minimum de 4,5 pour du petit texte, et un cran plus faible que le reste du terminal (le
+     thème pose déjà 10 px sur _deskChartAxisTxt, à 6,01). On applique la recette déjà validée le
+     26/07 sur le profil de risque hebdo : plus clair, un cran plus grand, gras léger.
+     Mesuré après correctif : 9,11 pour 1 en sombre, 7,56 en clair, les deux au-dessus du seuil de 7.
+     Le ton est théma-conscient : #aab3bf s'effacerait sur le panneau blanc du thème clair. */
+  const xRenderer = am5xy.AxisRendererX.new(root, { minGridDistance: 58 });   // 50 -> 58 : des libellés plus grands ont besoin de respirer, sinon amCharts en escamote un sur deux
+  xRenderer.labels.template.setAll({ fill: am5.color(_deskLight() ? 0x4b5563 : 0xaab3bf), fontSize: 11, fontWeight: '600' });
+  xRenderer.grid.template.setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: 0.26, strokeDasharray: [2, 4] });   // repères verticaux un peu moins fantomatiques, sans devenir du bruit
   const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
     baseInterval: { timeUnit: 'day', count: 1 }, extraMin: 0.01, extraMax: 0.01, maxDeviation: 0.05, renderer: xRenderer,
   }));
