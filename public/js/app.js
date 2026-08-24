@@ -89,16 +89,74 @@ function _dtpFlash(el, dir) {
 }
 window._dtpDataIn = _dtpDataIn; window._dtpFlash = _dtpFlash;
 
+// ═══ SQUELETTES DE TEXTE : la brique qui remplace « texte provisoire puis autre texte » ════════
+// Règle du desk depuis le 24/08 : un texte LISIBLE ne peut plus être remplacé par un autre texte
+// lisible. Quand le contenu définitif n'est pas encore là, on n'affiche pas un contenu de
+// remplacement : on affiche une ATTENTE. Deux formes, selon ce qu'on a sous la main.
+//
+// _dtpSkelTexte(html) : on POSSÈDE déjà un texte de repli (la dépêche, une analyse) mais il n'est
+//   pas le mot de la fin. On le garde dans le DOM comme GABARIT DE HAUTEUR et on le masque (CSS
+//   .dtp-skel-txt). Avantage décisif sur un squelette « à N lignes » deviné : la hauteur est celle
+//   du vrai texte, donc le passage au contenu final ne fait pas sauter la page.
+// _dtpSkelLignes(n) : le conteneur est VIDE et on n'a aucun gabarit (case Réaction). Barres
+//   .wdg-skel-l (déjà theme-aware + reduced-motion) aux largeurs irrégulières, pour que ça
+//   ressemble à de la prose et pas à un tableau.
+function _dtpSkelLignes(n, cls) {
+  const L = [86, 74, 92, 68, 81, 63];   // largeurs irrégulières : de la prose, pas un tableau
+  let s = '';
+  for (let i = 0; i < (n || 3); i++) s += '<span class="wdg-skel-l" style="width:' + L[i % L.length] + '%"></span>';
+  return '<div class="wdg-skel dtp-skel-inline' + (cls ? ' ' + cls : '') + '" aria-busy="true">' + s + '</div>';
+}
+function _dtpSkelTexte(html) {
+  const h = String(html || '').trim();
+  if (!h) return _dtpSkelLignes(3);            // aucun gabarit disponible → barres génériques
+  return '<div class="dtp-skel-txt" aria-busy="true">' + h + '</div>';
+}
+window._dtpSkelLignes = _dtpSkelLignes; window._dtpSkelTexte = _dtpSkelTexte;
+
 // ═══ Traduction FR des contenus SOURCE affichés en puces (.article-points) : citations speaker,
-// propos Fed/BCE agrégés, puces d'article scrapées : ce qui échappait aux résumés IA. Affichage
-// INSTANTANÉ en source, puis remplacement par le FR dès qu'il arrive (cache serveur par texte +
-// cache client de session → jamais 2 fois la même requête ; repli silencieux = on garde la source). ═══
+// propos Fed/BCE agrégés, puces d'article scrapées : ce qui échappait aux résumés IA. ═══
+//
+// ⚠️ RÉÉCRIT LE 24/08 (défaut signalé par l'utilisateur, « ça me propose 1 résumé puis après il
+// change »). L'ancienne mécanique était assumée en commentaire : « affichage INSTANTANÉ en source,
+// puis remplacement par le FR dès qu'il arrive ». C'est exactement le défaut : le lecteur avait
+// commencé à lire l'anglais et le texte se dérobait sous ses yeux, parfois DEUX FOIS, puisque
+// applyCache() était rappelé après CHAQUE lot de 12 lignes.
+//
+// NOUVELLE MÉCANIQUE, en trois temps :
+//   1. Ce qui est DÉJÀ dans le cache de session est posé SYNCHRONEMENT, dans le même tick que le
+//      innerHTML de l'appelant → le navigateur ne peint jamais la version source. Réouverture
+//      d'une même news = français d'emblée, aucun état intermédiaire.
+//   2. Ce qui part en traduction est MASQUÉ (.dtp-tr-wait) dans ce même tick : le lecteur voit un
+//      squelette à la place, pas un texte qu'il va perdre. Le texte source RESTE dans le DOM (il
+//      tient la hauteur) et redevient simplement visible si la traduction n'arrive pas.
+//   3. VERROU : dès qu'une ligne est révélée (traduite OU repliée sur la source), elle est FIGÉE.
+//      Une réponse tardive alimente le cache de session (elle servira au prochain rendu), mais
+//      ne touche PLUS le texte que le lecteur a sous les yeux.
 const _trClient = new Map();   // texte source → FR (cache session)
+// DÉLAI D'ATTENTE, justifié : /api/translate répond en un aller-retour quand le texte est déjà en
+// cache serveur (cas dominant : le cache est indexé PAR TEXTE, et les mêmes propos reviennent), mais
+// un texte inconnu traverse la cascade IA dont le seul PREMIER fournisseur a un abandon à 30 s
+// (ai.js). Laisser trois lignes en squelette 30 s serait pire que d'afficher la source. À 2,5 s on
+// révèle la source et on fige : au-delà, l'attente coûte plus au lecteur que l'anglais.
+const _TR_ATTENTE_MS = 2500;
 async function _dtpTranslateQuotes(container, sel) {
   if (!container) return;
   const lis = [...container.querySelectorAll(sel || '.article-points li, .art-pt')];
   if (!lis.length) return;
-  const applyCache = () => lis.forEach(li => { const t = li.textContent.trim(); if (_trClient.has(t)) li.textContent = _trClient.get(t); });
+  // Texte SOURCE de la ligne : mémorisé dans le dataset au masquage, car après traduction le
+  // textContent porte le français et ne retrouverait plus sa propre entrée de cache.
+  const _src = li => (li.dataset.trSrc != null ? li.dataset.trSrc : li.textContent.trim());
+  // _reveler ne REÉCRIT PAS le texte : il retire seulement le masque. Une ligne non traduite
+  // retrouve donc son HTML d'origine intact (le gras de _reportLead, notamment) ; la réécrire en
+  // textContent, comme le faisait le repli naïf, l'aurait aplatie.
+  const _reveler = li => { li.classList.remove('dtp-tr-wait'); li.removeAttribute('aria-busy'); li.dataset.trFige = '1'; };
+  const _traduire = (li, fr) => { li.textContent = fr; _reveler(li); };
+  const applyCache = () => lis.forEach(li => {
+    if (li.dataset.trFige === '1') return;               // ligne DÉFINITIVE : plus personne n'y touche
+    const t = _src(li);
+    if (_trClient.has(t)) _traduire(li, _trClient.get(t));
+  });
   applyCache();
   // On n'envoie à la traduction QUE ce qui ressemble à de l'ANGLAIS. Détecter le français
   // (accents, mots-outils) laissait passer des titres sans accent comme « Croissance et inflation ».
@@ -134,8 +192,23 @@ async function _dtpTranslateQuotes(container, sel) {
     if (nEn !== nFr) return nEn > nFr;
     return m.length >= 4 && m.filter(w => w.length >= 4).length >= 2;  // égalité → la prose part
   };
-  const pending = [...new Set(lis.map(li => li.textContent.trim()).filter(t => t.length >= 2 && !_trClient.has(t) && _aTraduire(t)))];
+  const pending = [...new Set(lis.filter(li => li.dataset.trFige !== '1').map(_src)
+    .filter(t => t.length >= 2 && !_trClient.has(t) && _aTraduire(t)))];
   if (!pending.length) return;
+  // ── MASQUAGE, dans le MÊME TICK que le innerHTML de l'appelant ──────────────────────────────
+  // Tout ce qui précède est SYNCHRONE (le premier `await` est plus bas) : le navigateur n'a donc
+  // aucune occasion de peindre la version source. Le lecteur voit directement un squelette.
+  const _aEnvoyer = new Set(pending);
+  const enAttente = lis.filter(li => li.dataset.trFige !== '1' && _aEnvoyer.has(_src(li)));
+  enAttente.forEach(li => {
+    li.dataset.trSrc = _src(li);
+    li.classList.add('dtp-tr-wait');
+    li.setAttribute('aria-busy', 'true');
+  });
+  // REPLI : au-delà du délai, la source redevient visible et la ligne est figée. Passer du
+  // squelette au repli reste « squelette → texte » : rien ne se dérobe.
+  const _repli = () => enAttente.forEach(li => { if (li.dataset.trFige !== '1') _reveler(li); });
+  const _minuteur = setTimeout(_repli, _TR_ATTENTE_MS);
   // ENVOI PAR LOTS. Le serveur ne traduit que 16 textes par requête (garde-fou budget IA) et
   // IGNORE le reste sans rien signaler : une fiche de 30 propos ressortait donc à moitié en
   // anglais — moitié FR, moitié EN, sans la moindre erreur visible. On découpe ici, et on
@@ -156,6 +229,8 @@ async function _dtpTranslateQuotes(container, sel) {
     }
   };
   await Promise.all([travailleur(), travailleur(), travailleur()]);
+  clearTimeout(_minuteur);
+  _repli();   // ce que le serveur n'a pas renvoyé revient à la source, UNE fois, et se fige
 }
 window._dtpTranslateQuotes = _dtpTranslateQuotes;
 
@@ -586,6 +661,10 @@ let loadingMore       = false;
 let _wsInitReceived   = false; // true once server sends its first 'initial' message
 const _analysisCache  = new Map(); // item.id → bullets[]
 const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style DTP, mémoire session)
+// Verdict « cet article n'a AUCUN contenu extractible », confirmé par /api/article. Mémorisé pour la
+// session : sans lui, chaque re-rendu du fil (à chaque arrivée de news) rejouait loader → message.
+const _infoVide       = new Set();
+const _INFO_VIDE_HTML = '<div class="iq-note">Résumé indisponible : cette dépêche n\'a pas de corps de texte exploitable. Le bouton Info a été retiré de cette actualité.</div>';
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
 let   _snapCache      = null;      // dernier Market Snapshot (prix réels) : partagé entre rapports
 // Rend des puces Info/Analyse : texte propre, SANS gras ni balises (on retire HTML <…> et markdown **…**)
@@ -904,7 +983,17 @@ function handleMessage(msg) {
       if (!ex) continue;
       if (Array.isArray(inc.analyse) && inc.analyse.length && !(Array.isArray(ex.analyse) && ex.analyse.length)) { ex.analyse = inc.analyse; _patched = true; }
       if (typeof inc._impact === 'string' && inc._impact.length > 40 && !ex._impact) { ex._impact = inc._impact; _patched = true; }
-      if (typeof inc._descFr === 'string' && inc._descFr && !ex._descFr) { ex._descFr = inc._descFr; _patched = true; }
+      /* ⚠️ TRADUCTION EN RÉSERVE TANT QUE LE PANNEAU EST OUVERT (24/08). `_descFr` arrive APRÈS la
+         dépêche (pré-traduction de fond) et devient la source de `rawDesc` au re-rendu. Si le
+         lecteur avait justement ce panneau ouvert, le texte source qu'il lisait basculait en
+         français sous ses yeux, sans qu'il ait cliqué sur quoi que ce soit, puisque le fil se
+         re-rend à chaque message WebSocket. On garde donc la version FR de côté et on ne la promeut
+         qu'à la fermeture du panneau : elle sera là à la prochaine ouverture, d'emblée et sans
+         bascule. Panneau fermé = personne ne lit = on applique tout de suite. */
+      if (typeof inc._descFr === 'string' && inc._descFr && !ex._descFr) {
+        if (_openNewsPanels[ex.id]) { ex._descFrEnAttente = inc._descFr; }
+        else { ex._descFr = inc._descFr; _patched = true; }
+      }
       // Horodatages VRAIS des lectures (« Analyse à 8h12 » = l'heure de l'analyse, pas de la news).
       if (inc._anaAt && !ex._anaAt) ex._anaAt = inc._anaAt;
       if (inc._impAt && !ex._impAt) ex._impAt = inc._impAt;
@@ -2506,8 +2595,22 @@ function _mouvementPaire(candles, t0, pair) {
 }
 // Explication du mouvement, mise en cache : zéro requête à la réouverture, et le panneau comme la
 // grille profitent du même cache — ouvrir l'un puis l'autre ne redemande rien.
+// DÉLAI D'ATTENTE de l'explication de réaction, justifié : contrairement à la traduction (cache
+// serveur indexé PAR TEXTE, donc très souvent touché), cette explication est une VRAIE génération
+// IA par publication. Elle a son cache serveur (cache_reaction.json) et son cache de session, mais
+// le premier passage traverse la cascade. 6 s est le plafond retenu : au-delà, le lecteur regarde
+// un squelette qui ne tient pas sa promesse, et mieux vaut le lui dire. La génération, elle,
+// continue côté serveur et remplira le cache pour la prochaine ouverture.
+const _RX_ATTENTE_MS = 6000;
 function _reactionExplain(item, moves, ok) {
-  if (_reactCache.has(item.id)) { ok(_reactCache.get(item.id)); return; }
+  // ⚠️ `ok` DOIT être appelé exactement UNE fois, quoi qu'il arrive (24/08). Avant, le `.catch`
+  // final n'appelait rien : le conteneur restait dans l'état où on l'avait laissé, vide hier, et
+  // désormais en squelette, donc un squelette qui tourne pour toujours. Un état d'attente qui ne se
+  // conclut pas est la même faute que le texte qui se dérobe : le panneau ment au lecteur.
+  let _rendu = false;
+  const _une = b => { if (_rendu) return; _rendu = true; ok(b); };
+  if (_reactCache.has(item.id)) { _une(_reactCache.get(item.id)); return; }
+  const _minuteurRx = setTimeout(() => _une([]), _RX_ATTENTE_MS);
   // ⚠️ NE PLUS PRÉFIXER DE SIGNE : movePct PORTE DÉJÀ le sien (« -0.28% »), et ce préfixe
   // fabriquait « AUD/USD --0.28% ». Toutes les explications de réaction produites jusqu'ici l'ont
   // été depuis ce chiffre malformé, à charge pour le modèle de deviner ce que vaut un double signe.
@@ -2549,9 +2652,12 @@ function _reactionExplain(item, moves, ok) {
     .then(d => {
       const b = (d && Array.isArray(d.bullets) && d.bullets.length) ? d.bullets : ((d && d.text) ? [d.text] : []);
       if (b.length) _reactCache.set(item.id, b);   // succès uniquement : un échec réessaie plus tard
-      ok(b);
+      // Le cache est alimenté AVANT le verrou : même arrivée après le délai, la réponse sert la
+      // prochaine ouverture, elle ne remplace simplement plus ce qui est déjà affiché.
+      clearTimeout(_minuteurRx);
+      _une(b);
     })
-    .catch(() => {});
+    .catch(() => { clearTimeout(_minuteurRx); _une([]); });
 }
 function _moveRelevant(label, hay) {
   const re = _MOVE_KEYS[String(label || '').toLowerCase().trim()];
@@ -3018,6 +3124,11 @@ function buildNewsItem(item) {
       expandEl.classList.remove('visible');
       activeTab = null;
       if (item && item.id != null) delete _openNewsPanels[item.id];   // fermé par l'utilisateur → on n'y revient plus
+      // Le panneau est refermé : plus personne ne lit ce texte, la traduction mise en réserve
+      // pendant la lecture (voir le patch `_descFr` du message WebSocket) peut être promue. Elle
+      // s'appliquera au prochain rendu, donc à la prochaine ouverture, sans jamais avoir bougé
+      // sous les yeux du lecteur.
+      if (item && item._descFrEnAttente) { item._descFr = item._descFrEnAttente; delete item._descFrEnAttente; }
       [infoTagEl, analysisTagEl, reactionTagEl, impactTagEl, marcheTagEl].forEach(t => t && t.classList.remove('tag--active'));
       if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
       return;
@@ -3173,6 +3284,23 @@ function buildNewsItem(item) {
       return _renderInfoBullets(bullets);
     })();
 
+    // ── QUEL TEXTE EST LE MOT DE LA FIN POUR LA RUBRIQUE « INFO » ? ──────────────────────────
+    // ⚠️ CALCULÉ ICI, EN AMONT DE TOUS LES ONGLETS (déplacé le 24/08 depuis la fin de openPanel).
+    // Deux raisons, toutes deux mesurées :
+    //  1. l'onglet Info doit savoir AVANT d'écrire quoi que ce soit s'il va être remplacé : c'est
+    //     la seule façon d'afficher un squelette plutôt qu'un texte qui se dérobera ;
+    //  2. la grille du panneau « Marché » (_rxgHtml, plus bas) affichait la DÉPÊCHE BRUTE dans son
+    //     bloc Info pendant que le tag Info, lui, montrait le résumé IA. Deux surfaces, deux textes
+    //     pour la même rubrique : pour le lecteur qui passe de l'une à l'autre, le texte a changé.
+    //     Les deux lisent désormais la même source de vérité.
+    // ⚠️ item._marketUpdate REJOINT LA LISTE (24/08) : un rapport Convera complet, avec ses images,
+    // était « amélioré » en 6 puces IA, exactement le défaut du 20/08 sur la Synthèse des Marchés,
+    // qui n'avait pas couvert ce cas-là.
+    const _dtpRedige = !!(item._marketWrap || item._eventAnalysis || item._dtpd || item._fxr || item._weekly || item._marketUpdate);
+    const _improvable = !isPrimer && !hasGrouped && !isSpeaker && !_dtpRedige && rawDesc.length >= 30;
+    const _resumeCache = (_improvable && _infoCache.has(item.id)) ? (_infoCache.get(item.id) || []) : null;
+    const _infoFinal = (_resumeCache && _resumeCache.length) ? _renderInfoBullets(_resumeCache) : infoBody;
+
     if (tab === 'reaction') {
       const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       expandEl.innerHTML = dtpLoader('Chargement des données de marché…', { small: true });
@@ -3201,14 +3329,23 @@ function buildNewsItem(item) {
             // phrase dit en toutes lettres. La référence ne garde que la phrase : elle se lit d'un
             // trait, là où un tableau oblige à recomposer mentalement ce qu'il raconte. Les chiffres
             // restent, à leur place : dans la phrase.
-            + `<div class="rx-explain" id="rx-explain-${item.id}"></div>`
+            // La case naissait VIDE et se remplissait plus tard : sous la ligne « Réaction à HH:MM »,
+            // le lecteur voyait un cadre vide sans savoir qu'il attendait quelque chose. Elle naît
+            // désormais en SQUELETTE : l'attente est annoncée, et le texte qui arrive ne remplace
+            // qu'un squelette, jamais un texte lisible (24/08).
+            + `<div class="rx-explain" id="rx-explain-${item.id}">${_dtpSkelLignes(2)}</div>`
             + `</div>`;
 
           // Explication du mouvement : une puce par idée, mise en cache et partagée avec la grille.
           _reactionExplain(item, _rxMoves, arr => {
-            if (!arr.length) return;
             const el = document.getElementById(`rx-explain-${item.id}`);
-            if (el && activeTab === 'reaction') { el.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(el); }
+            if (!el || activeTab !== 'reaction') return;
+            // ÉTAT TERMINAL OBLIGATOIRE (GARDE 9) : un squelette posé doit se conclure. Sans rien à
+            // dire, on le dit : un squelette qui tourne indéfiniment promet un texte qui ne vient pas.
+            if (!arr.length) { el.innerHTML = '<div class="iq-note">Explication du mouvement indisponible pour le moment.</div>'; if (window.DTP_translate) window.DTP_translate(el); return; }
+            el.innerHTML = _renderInfoBullets(arr);
+            if (window.DTP_translate) window.DTP_translate(el);   // libellés produit AVANT peinture (mode EN)
+            _dtpTranslateQuotes(el);
           });
         }
       }, () => {
@@ -3241,9 +3378,10 @@ function buildNewsItem(item) {
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       Promise.resolve(typeof dtpEventInsightHtml === 'function' ? dtpEventInsightHtml(item) : '')
         .then(html => {
-          if (activeTab !== 'eco' || !expandEl.isConnected) return;
+          if (activeTab !== 'eco' || !expandEl.isConnected || !expandEl.classList.contains('visible')) return;
           expandEl.innerHTML = html || '<ul class="article-points article-points--clean"><li>Décryptage indisponible pour cet événement.</li></ul>';
-          if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl, '.cal-kb-quote');   // propos BC (titres du fil, EN) → FR en place
+          if (window.DTP_translate) window.DTP_translate(expandEl);   // libellés produit AVANT peinture (mode EN : sinon l'observateur i18n traduit une frame trop tard)
+          if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl, '.cal-kb-quote');   // propos BC (titres du fil, EN) → FR sous squelette
         })
         .catch(() => {});
       return;
@@ -3262,7 +3400,12 @@ function buildNewsItem(item) {
       : '');
     const _rxgHtml = gid => {
       const anaTs = item._anaAt || item.timestamp;
-      const bInfo = hasInfo ? _rxgBloc('info', isInfoQuote ? 'Contexte' : 'Info', '', infoBody) : '';
+      // _infoFinal, pas infoBody : le bloc Info de la grille montrait la DÉPÊCHE BRUTE pendant que
+      // le tag Info montrait le résumé IA de la même rubrique. Le lecteur qui passait d'un tag à
+      // l'autre voyait le texte changer, même défaut, simplement étalé sur deux surfaces. On ne
+      // lance PAS de requête ici (un panneau de graphique ne doit pas déclencher une génération IA
+      // supplémentaire) : on affiche le résumé s'il est déjà connu, la dépêche sinon.
+      const bInfo = hasInfo ? _rxgBloc('info', isInfoQuote ? 'Contexte' : 'Info', '', _infoFinal) : '';
       const bAna = hasNotes ? _rxgBloc('analyse', 'Analyse', _rxgHeure(anaTs), _renderInfoBullets(item.analyse || [])) : '';
       const bImp = hasImpact ? _rxgBloc('impact', 'Impact marché', _rxgHeure(anaTs),
         _renderInfoBullets(String(item._impact || '').split('\n').filter(Boolean))) : '';
@@ -3324,10 +3467,15 @@ function buildNewsItem(item) {
         // ⚠️ UNE PHRASE, PAS UN TABLEAU DE PRIX (demande user, référence à l'appui). La liste des
         // instruments redisait en tableau ce que la phrase dit en toutes lettres, et un tableau
         // oblige à recomposer mentalement ce qu'il raconte. Les chiffres restent dans la phrase.
-        slot.innerHTML = _rxgBloc('reaction', 'Réaction', _rxgHeure(Date.now()), '<div class="rxg-x"></div>');
+        // Même correction que le panneau Réaction (24/08) : la case naît en SQUELETTE, pas vide.
+        slot.innerHTML = _rxgBloc('reaction', 'Réaction', _rxgHeure(Date.now()), '<div class="rxg-x">' + _dtpSkelLignes(2) + '</div>');
         _reactionExplain(item, moves, arr => {
           const x = slot.querySelector('.rxg-x');
-          if (x && arr.length) { x.innerHTML = _renderInfoBullets(arr); _dtpTranslateQuotes(x); }
+          if (!x || !x.isConnected) return;
+          if (!arr.length) { x.innerHTML = '<div class="iq-note">Explication du mouvement indisponible pour le moment.</div>'; if (window.DTP_translate) window.DTP_translate(x); return; }
+          x.innerHTML = _renderInfoBullets(arr);
+          if (window.DTP_translate) window.DTP_translate(x);
+          _dtpTranslateQuotes(x);
         });
       }, null, _paire);   // la paire ouverte fait partie du crible de pertinence
       // Le cadre du graphique mesure 320 px en dur : quand il n'y a rien à tracer, il laissait un
@@ -3455,6 +3603,15 @@ function buildNewsItem(item) {
 
     // Info tab : if no inline description but has a ForexFactory article URL, fetch real content
     if (tab === 'info' && rawDesc.length <= 30 && hasArticleUrl) {
+      // VERDICT DÉJÀ CONNU (session) : l'API avait confirmé qu'il n'y a rien à extraire. On le dit
+      // TOUT DE SUITE, sans loader ni requête : le contenu final est disponible, donc on l'écrit
+      // directement (règle 1). Sans ce cache, chaque re-rendu du fil rejouait loader puis message.
+      if (_infoVide.has(item.id)) {
+        expandEl.innerHTML = _INFO_VIDE_HTML;
+        expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
+        if (infoTagEl) { infoTagEl.remove(); infoTagEl = null; }
+        return;
+      }
       expandEl.innerHTML = dtpLoader('Chargement du résumé…', { small: true });
       expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
@@ -3462,95 +3619,138 @@ function buildNewsItem(item) {
       fetch(`/api/article?url=${encodeURIComponent(item.url)}&headline=${encodeURIComponent(item.headline || '')}`)
         .then(r => r.json())
         .then(data => {
-          if (activeTab !== 'info') return;
+          if (activeTab !== 'info' || !expandEl.isConnected || !expandEl.classList.contains('visible')) return;
           if (data.points && data.points.length > 0) {
             // Image illustrative (si l'article en a une) : propre, arrondie ; se retire d'elle-même si cassée.
             const _img = (data.image && /^https?:\/\//.test(data.image))
               ? `<div class="article-img-wrap"><img class="article-img" src="${data.image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.article-img-wrap').remove()"></div>`
               : '';
             expandEl.innerHTML = `${_img}<ul class="article-points">${data.points.map(p => `<li>${p}</li>`).join('')}</ul>`;
+            if (window.DTP_translate) window.DTP_translate(expandEl);               // libellés produit AVANT peinture (mode EN)
             if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);   // puces d'article scrapées (souvent EN) → FR
             _ecoFill(expandEl);   // Décryptage DTP sous les puces (plus de pill dédiée)
           } else {
-            // API confirmed no content → remove Info tag entirely
+            /* ÉTAT TERMINAL EXPLICITE (24/08, même règle que Réaction le 23/08). L'ancien
+               comportement refermait le panneau et retirait le tag SANS UN MOT : le lecteur avait
+               cliqué, vu un loader, et tout disparaissait sous son clic. C'est la même famille de
+               défaut que le texte qui se dérobe : un état d'attente doit toujours se conclure par
+               un contenu, une phrase, ou un retrait EXPLIQUÉ. On garde le panneau ouvert, on dit
+               pourquoi, puis on retire le tag pour qu'il ne promette plus rien. */
+            _infoVide.add(item.id);   // verdict mémorisé : la prochaine ouverture est immédiate et identique
             if (infoTagEl) { infoTagEl.remove(); infoTagEl = null; }
-            activeTab = null;
-            expandEl.classList.remove('visible');
-            if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
+            expandEl.innerHTML = _INFO_VIDE_HTML;
+            if (window.DTP_translate) window.DTP_translate(expandEl);
           }
         })
         .catch(() => {
-          if (activeTab !== 'info') return;
-          // Network error : close panel silently, keep the tag
-          activeTab = null;
-          expandEl.classList.remove('visible');
-          if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
+          if (activeTab !== 'info' || !expandEl.isConnected || !expandEl.classList.contains('visible')) return;
+          // Panne réseau : on NE mémorise PAS (ce n'est pas un verdict sur le contenu) et on ne
+          // referme plus en silence : le tag reste, il pourra réussir au prochain clic.
+          expandEl.innerHTML = '<div class="iq-note">Résumé momentanément indisponible : la source ne répond pas. Réessayez dans un instant.</div>';
+          if (window.DTP_translate) window.DTP_translate(expandEl);
         });
       return;
     }
 
-    // Affichage immédiat (description brute) : instantané
-    expandEl.innerHTML = infoBody;
+    /* ══ ONGLET INFO : LE TEXTE AFFICHÉ ICI NE SERA PLUS REMPLACÉ (24/08) ═══════════════════════
+       DÉFAUT CORRIGÉ, mot pour mot celui de l'utilisateur : « quand j'ouvre le tag info ça me
+       propose 1 résumé puis après il change ». Preuve : deux captures d'une même dépêche XAG/USD,
+       à quelques secondes d'écart, avec DEUX textes finis différents.
+       CE QUI SE PASSAIT : on écrivait la dépêche (`expandEl.innerHTML = infoBody`), puis
+       /api/news-info revenait et ÉCRASAIT tout par son résumé IA. Le commentaire d'alors l'assumait
+       (« on la remplace par le résumé FR dès qu'il arrive ») au motif que le premier texte n'était
+       que de l'anglais en attendant. Cette justification est PÉRIMÉE depuis le 21/08 : `rawDesc`
+       vaut `item._descFr || item.description` et `_descFr` est du français FINI, pré-traduit en
+       tâche de fond. On retirait donc au lecteur un texte achevé qu'il avait commencé à lire.
+       CE QU'ON FAIT MAINTENANT, dans cet ordre de préférence :
+         1. résumé DÉJÀ en cache de session → il est écrit DIRECTEMENT, aucun état intermédiaire ;
+         2. sinon → SQUELETTE (la dépêche sert de gabarit de hauteur, masquée) puis texte définitif ;
+         3. échec ou attente trop longue → repli sur la dépêche, et la réponse tardive n'écrase plus
+            rien : elle alimente `_infoCache`, donc la PROCHAINE ouverture sera instantanée ET finale.
+       ⚠️ Le fond du problème reste côté serveur (le résumé Info est le SEUL des cinq contenus IA de
+       la news à n'avoir aucun cycle de préchauffage : il est généré AU CLIC, ce que la doctrine du
+       projet interdit). Tant qu'il n'est pas préchauffé, l'affichage doit au moins cesser de se
+       dérober : c'est ce que fait ce bloc. */
+    const _attendResume = _improvable && !_resumeCache;
+
+    expandEl.innerHTML = _attendResume ? _dtpSkelTexte(infoBody) : _infoFinal;
     expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
-    _ecoFill(expandEl);   // Décryptage DTP sous les puces (plus de pill dédiée dans le fil)
-    // Contenu SOURCE anglais qui échappe aux résumés IA (citations speaker, propos agrégés, puces de la
-    // description scrapée des news standard) → traduction FR en place (instantané en source puis remplacé).
-    // Les contenus DÉJÀ produits en FR (rapports DTP, market wrap, analyses d'événement) ne repassent pas par l'IA.
-    // La garde d'origine sautait la traduction pour _eventAnalysis / _marketWrap / primer, au motif
-    // qu'ils seraient DÉJÀ en français. C'est faux quand leurs puces reprennent la dépêche source :
-    // les minutes de la Fed s'affichaient intégralement en anglais. On ne garde que _dtpd (nos propres
-    // rapports, rédigés FR de bout en bout) ; pour tout le reste, le détecteur de français ci-dessus
-    // fait le tri ligne par ligne — donc aucun surcoût sur un contenu déjà traduit.
-    if (!item._dtpd && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
     if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
     if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
 
-    // Rapports DTP (opening news / snapshot) → on insère la table SNAPSHOT (prix réels)
-    if (isPrimer && /opening|snapshot|daily|wrap|recap|prep/i.test(item.headline || '')) {
-      const slot = document.getElementById(`rsnap-${item.id}`);
-      if (slot) {
-        if (_snapCache) { slot.innerHTML = _renderSnapshot(_snapCache); }
-        fetch('/api/market-snapshot').then(r => r.json()).then(d => {
-          _snapCache = d;
-          const s = document.getElementById(`rsnap-${item.id}`);
-          if (s && activeTab === 'info') s.innerHTML = _renderSnapshot(d);
-        }).catch(() => {});
+    if (!_attendResume) {
+      // Rien n'est en attente : ce qui est à l'écran EST le texte définitif. On accroche donc tout
+      // de suite ce qui dépend du innerHTML (GARDE 4 : Décryptage ; GARDE 5 : traduction).
+      _ecoFill(expandEl);   // Décryptage DTP sous les puces (plus de pill dédiée dans le fil)
+      // Contenu SOURCE anglais qui échappe aux résumés IA (citations speaker, propos agrégés, puces de la
+      // description scrapée) → traduction FR EN PLACE, désormais sous squelette et non plus en écrasant
+      // un texte déjà lisible (voir _dtpTranslateQuotes).
+      // La garde d'origine sautait la traduction pour _eventAnalysis / _marketWrap / primer, au motif
+      // qu'ils seraient DÉJÀ en français. C'est faux quand leurs puces reprennent la dépêche source :
+      // les minutes de la Fed s'affichaient intégralement en anglais. On ne garde que _dtpd (nos propres
+      // rapports, rédigés FR de bout en bout) ; pour tout le reste, le détecteur de français fait le
+      // tri ligne par ligne, donc aucun surcoût sur un contenu déjà traduit.
+      if (!item._dtpd && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
+
+      // Rapports DTP (opening news / snapshot) → on insère la table SNAPSHOT (prix réels).
+      // LEGITIME-LIVE : ce sont des COTATIONS, pas un texte qu'on lit. Le rafraîchissement reste.
+      if (isPrimer && /opening|snapshot|daily|wrap|recap|prep/i.test(item.headline || '')) {
+        const slot = document.getElementById(`rsnap-${item.id}`);
+        if (slot) {
+          if (_snapCache) { slot.innerHTML = _renderSnapshot(_snapCache); }
+          fetch('/api/market-snapshot').then(r => r.json()).then(d => {
+            _snapCache = d;
+            const s = document.getElementById(`rsnap-${item.id}`);
+            if (s && activeTab === 'info') s.innerHTML = _renderSnapshot(d);
+          }).catch(() => {});
+        }
       }
+      return;
     }
 
-    // Amélioration Gemini (style DTP), mise en cache → aucune requête aux ouvertures suivantes
-    // ⚠️ NE JAMAIS résumer NOS PROPRES RAPPORTS (20/08, bug user : la Synthèse des Marchés
-    // s'affichait complète puis était REMPLACÉE quelques secondes après par 6 puces IA).
-    // L'amélioration Gemini existe pour condenser les dépêches BRUTES scrapées ; nos rapports
-    // (_marketWrap, analyses d'événement, dailys, récaps) sont déjà rédigés, structurés et en
-    // français : les « améliorer » détruisait les sections ANNONCES/ACTIONS/DEVISES.
-    const _dtpRedige = !!(item._marketWrap || item._eventAnalysis || item._dtpd || item._fxr || item._weekly);
-    const _improvable = !isPrimer && !hasGrouped && !isSpeaker && !_dtpRedige && rawDesc.length >= 30;
-    if (_improvable) {
-      if (_infoCache.has(item.id)) {
-        const b = _infoCache.get(item.id);
-        if (b && b.length) { expandEl.innerHTML = _renderInfoBullets(b); _dtpTranslateQuotes(expandEl); _ecoFill(expandEl); }   // innerHTML remplacé → on re-pose le Décryptage
-      } else {
-        // La dépêche brute (langue source) est affichée immédiatement (infoBody) ; on la remplace par le
-        // résumé FR dès qu'il arrive (le serveur répond désormais en FRANÇAIS pour toutes les news).
-        fetch('/api/news-info', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id, headline: item.headline, category: item.category, description: item.description, important: !!(isRed || item.priority === 'high' || item.urgent) }),
-        })
-          .then(r => r.json())
-          .then(data => {
-            const b = data.bullets || [];
-            if (b.length) _infoCache.set(item.id, b);   // on ne mémorise QUE le succès : un échec (IA en panne) réessaie à la prochaine ouverture au lieu de figer l'anglais pour la session
-            if (b.length && activeTab === 'info' && expandEl.classList.contains('visible')) {
-              expandEl.innerHTML = _renderInfoBullets(b);
-              _dtpTranslateQuotes(expandEl);   // puces en langue source → FR
-              _ecoFill(expandEl);   // le résumé IA écrase innerHTML → on re-pose le Décryptage sous les puces
-            }
-          })
-          .catch(() => {});
-      }
-    }
+    // ── ATTENTE DU RÉSUMÉ IA : une seule écriture, la première arrivée ──────────────────────────
+    // `_pose` est le verrou anti-dérobement : le premier contenu DÉFINITIF posé (résumé, ou repli
+    // sur la dépêche au bout du délai) est le dernier. Une réponse en retard ne peut plus écraser
+    // ce que le lecteur a sous les yeux : c'est très exactement le défaut qu'on corrige.
+    let _pose = false;
+    const _poserInfo = html => {
+      // GARDES 1/2/3 : bon onglet, panneau encore attaché, panneau encore DÉPLIÉ. Les trois sont
+      // nécessaires : `isConnected` ne dit pas si le panneau a été replié entre-temps.
+      if (_pose || activeTab !== 'info' || !expandEl.isConnected || !expandEl.classList.contains('visible')) return;
+      _pose = true;
+      expandEl.innerHTML = html;
+      // ⚠️ DTP_translate SYNCHRONE. En mode EN, l'observateur de mutations d'i18n.js traduit une
+      // frame plus tard : le libellé français serait peint puis remplacé par l'anglais. L'appel
+      // direct le fait avant la peinture (même précaution qu'aux ouvertures synchrones).
+      if (window.DTP_translate) window.DTP_translate(expandEl);
+      if (!item._dtpd && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
+      _ecoFill(expandEl);   // GARDE 4 : innerHTML réécrit → on re-pose le Décryptage sous les puces
+    };
+    // DÉLAI D'ATTENTE, justifié : sur cache serveur touché, /api/news-info répond en un aller-retour
+    // HTTP (lecture d'une Map en mémoire, aucune I/O) ; sur cache manqué il traverse la cascade IA,
+    // dont le seul premier fournisseur a un abandon à 30 s. Faire patienter le lecteur 30 s devant un
+    // squelette serait pire que la dépêche, qui est déjà du français fini. À 3 s on rend la main :
+    // c'est plus que le cas nominal (cache touché) et moins que le seuil où l'attente devient une
+    // panne perçue. La génération, elle, continue côté serveur et remplit le cache pour la suite.
+    const _INFO_ATTENTE_MS = 3000;
+    // Le repli ne peut JAMAIS être vide : un squelette qui s'efface sur du blanc serait la version
+    // muette du même défaut. `infoBody` peut sortir vide (toutes les puces écartées par les filtres
+    // de bruit), on garde donc une phrase de secours.
+    const _repliInfo = infoBody || '<div class="iq-note">Résumé indisponible pour cette dépêche.</div>';
+    const _minuteurInfo = setTimeout(() => _poserInfo(_repliInfo), _INFO_ATTENTE_MS);
+    fetch('/api/news-info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, headline: item.headline, category: item.category, description: item.description, important: !!(isRed || item.priority === 'high' || item.urgent) }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        const b = data.bullets || [];
+        if (b.length) _infoCache.set(item.id, b);   // on ne mémorise QUE le succès : un échec (IA en panne) réessaie à la prochaine ouverture au lieu de figer l'anglais pour la session
+        clearTimeout(_minuteurInfo);
+        _poserInfo(b.length ? _renderInfoBullets(b) : _repliInfo);
+      })
+      .catch(() => { clearTimeout(_minuteurInfo); _poserInfo(_repliInfo); });
   }
 
   // Tags row
@@ -5294,8 +5494,15 @@ window._waToggle = _waToggle;
 
 // ── Semaine à Venir (desk) : panneaux droite = VRAIS DOUBLONS (miroir live) des onglets News (#news-list) et Calendar (#cal-table-wrap) ──
 // On clone le HTML rendu des onglets réels → look + contenu STRICTEMENT identiques (classes CSS globales).
-function _waSyncNews(){ const src=document.getElementById('news-list'), dst=document.getElementById('wa-news-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.indexOf('empty-state')<0) dst.innerHTML=h; }
-function _waSyncCal(scroll){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.trim()) dst.innerHTML=h; const dr=document.getElementById('cal-daterange'), meta=document.getElementById('wa-cal-range'); if(dr&&meta) meta.textContent=(dr.textContent||'').trim();
+// ⚠️ GARDE D'IDENTITÉ (24/08) : ces deux miroirs réécrivaient leur cible à chaque passage, même
+// quand le clone était RIGOUREUSEMENT le même. Un tableau lisible était donc repeint pour rien,
+// et le calendrier l'était DEUX FOIS par chargement (cascade 60 ms puis 700 ms ci-dessous). On ne
+// touche au DOM que si le contenu a réellement changé.
+function _waSyncNews(){ const src=document.getElementById('news-list'), dst=document.getElementById('wa-news-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.indexOf('empty-state')<0 && h!==dst.innerHTML) dst.innerHTML=h; }
+// `siVide` : le passage précoce (60 ms) ne sert qu'à remplir un miroir ENCORE VIDE. S'il est déjà
+// peuplé, écrire l'ancien tableau puis le neuf 640 ms plus tard ferait changer un tableau lisible
+// sous les yeux du lecteur : le défaut qu'on corrige, en version tableau.
+function _waSyncCal(scroll, siVide){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; if(siVide && dst.innerHTML.trim()) return; const h=src.innerHTML; if(h && h.trim() && h!==dst.innerHTML) dst.innerHTML=h; const dr=document.getElementById('cal-daterange'), meta=document.getElementById('wa-cal-range'); if(dr&&meta) meta.textContent=(dr.textContent||'').trim();
   // Auto-scroll sur l'événement EN COURS (.cal-row--next), repli sur le dernier passé. Uniquement à
   // l'ouverture (scroll=true) : PAS au refresh 60s, pour ne pas ramener l'utilisateur de force.
   if(scroll){ var row=dst.querySelector('.cal-row--next'); if(!row){ var p=dst.querySelectorAll('.cal-row--past'); row=p.length?p[p.length-1]:null; } if(row){ var cr=dst.getBoundingClientRect(), rr=row.getBoundingClientRect(); dst.scrollTop += (rr.top-cr.top) - dst.clientHeight/2 + rr.height/2; } }
@@ -5304,7 +5511,8 @@ window._waSyncNews=_waSyncNews; window._waSyncCal=_waSyncCal;
 function _waLoadPanels(scroll){
   _waSyncNews();   // News : doublon instantané (l'onglet News est déjà tenu à jour en direct par renderNews + WebSocket)
   try { if (typeof buildCalendar === 'function') { const r = buildCalendar(); if (r && typeof r.then === 'function') r.then(()=>_waSyncCal(scroll)).catch(()=>{}); } } catch {}
-  setTimeout(()=>_waSyncCal(scroll), 60); setTimeout(()=>_waSyncCal(scroll), 700);   // clone après le rendu de la table calendrier
+  setTimeout(()=>_waSyncCal(scroll, true), 60);   // ne remplit qu'un miroir VIDE (jamais de tableau remplacé)
+  setTimeout(()=>_waSyncCal(scroll), 700);        // passe de référence, une fois la table calendrier rendue
 }
 window._waLoadPanels=_waLoadPanels;
 // Tant que la vue Semaine à Venir est ouverte : on rafraîchit le doublon calendrier (le ticker News, lui, est déjà live).
@@ -7456,7 +7664,17 @@ function _brEnsureInsights(item, brIns, tagsEl, preHtml) {
     const t = String(src || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     if (t.length <= 80) return false;
     _loadAIInsights({ id: item.id, headline: item.title, description: t }, brIns);
-    if (tagsEl) tagsEl.innerHTML = _brTags({ ...item, description: t.slice(0, 4000) }).map(x => `<span class="br-rtag">${x}</span>`).join('');
+    /* UNION, JAMAIS REMPLACEMENT (24/08). `tagsEl.innerHTML = …` RECALCULAIT toute la rangée depuis
+       le texte du rapport : les étiquettes posées à l'ouverture changeaient, se réordonnaient ou
+       disparaissaient sous les yeux du lecteur, jusqu'à très tard (le loader étagé annonce lui-même
+       des attentes de 6, 18 et 40 s sur les sources lentes type MUFG). On n'AJOUTE désormais que ce
+       que le texte complet révèle en plus, exactement comme _arlibEnrichTags le fait déjà pour la
+       bibliothèque analyste : rien ne bouge, la rangée s'enrichit. */
+    if (tagsEl) {
+      const _dejaLa = new Set([...tagsEl.querySelectorAll('.br-rtag')].map(e => e.textContent.trim()));
+      const _plus = _brTags({ ...item, description: t.slice(0, 4000) }).filter(x => !_dejaLa.has(String(x).trim()));
+      if (_plus.length) tagsEl.insertAdjacentHTML('beforeend', _plus.map(x => `<span class="br-rtag">${x}</span>`).join(''));
+    }
     return true;
   };
   if (render(item.fullContent) || render(preHtml)) return;   // contenu déjà en main

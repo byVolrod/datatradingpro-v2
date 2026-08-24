@@ -19896,3 +19896,81 @@ html[data-theme="light"] .wdg-ps-v.est-bas { color: #c73000; }
   .wdg-ps .wdg-verdict, .wdg-ps-pied { display: none; }
 }
 @container dtpw (max-height: 190px) { .wdg-vh-ech { display: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   ANTI-DÉROBEMENT : un texte lisible n'est JAMAIS remplacé par un autre texte lisible (24/08)
+   ═══════════════════════════════════════════════════════════════════════════════════════════════
+   DÉFAUT MESURÉ (captures user, tag Info d'une dépêche XAG/USD) : le panneau affichait la dépêche
+   traduite, le lecteur commençait à la lire, et le résumé IA de /api/news-info l'ÉCRASAIT deux à
+   quinze secondes plus tard. Deux textes FINIS se succédaient : celui qu'on lisait se dérobait.
+   Même mécanique ailleurs : _dtpTranslateQuotes affichait la source (anglais) puis la remplaçait
+   par le français en place, sur les puces Info/Analyse/Impact, les propos de banque centrale, les
+   aperçus du volet ALERTES et les citations des rapports.
+
+   RÈGLE POSÉE : soit on écrit DIRECTEMENT le texte définitif (déjà en cache), soit on écrit un
+   SQUELETTE qui annonce l'attente. Le lecteur voit « ça charge » puis le texte définitif.
+
+   POURQUOI GARDER LE TEXTE SOURCE DANS LE DOM SOUS LE SQUELETTE : il TIENT LA HAUTEUR. Un
+   squelette d'une ligne suivi de quatre lignes de texte ferait sauter la page, autre façon de
+   déranger la lecture, explicitement écartée. Le texte est donc rendu invisible (color
+   transparent, y compris ses enfants et ses pseudo-éléments), pas retiré.
+
+   AUCUN CLIGNOTEMENT (règle dure du desk) : le shimmer est un GLISSEMENT de background-position,
+   ni l'opacité ni la couleur du texte ne bougent. On réutilise la keyframe `wdgSkel` déjà en
+   service pour les squelettes de widgets, sa surcharge thème clair et sa garde reduced-motion. */
+
+/* ── 1. Ligne EN ATTENTE DE TRADUCTION (posée par _dtpTranslateQuotes) ─────────────────────── */
+.dtp-tr-wait {
+  color: transparent !important;
+  background-image: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.04) 75%);
+  background-size: 220% 100%;
+  animation: wdgSkel 1.25s var(--ease, ease) infinite;
+  border-radius: 3px;
+  user-select: none;
+}
+/* Les enfants (strong, em) et les pseudo-éléments portent leurs PROPRES couleurs (les guillemets
+   « » de .cal-kb-quote, par exemple) : sans ces trois règles ils resteraient lisibles au-dessus
+   du squelette, ce qui trahirait le texte source qu'on cherche justement à ne pas montrer. */
+.dtp-tr-wait *,
+.dtp-tr-wait::before,
+.dtp-tr-wait::after { color: transparent !important; }
+
+/* ── 2. BLOC entier en attente : le contenu sert de GABARIT DE HAUTEUR, masqué ─────────────── */
+.dtp-skel-txt { color: transparent !important; user-select: none; pointer-events: none; }
+.dtp-skel-txt *,
+.dtp-skel-txt *::before,
+.dtp-skel-txt *::after { color: transparent !important; }
+.dtp-skel-txt li,
+.dtp-skel-txt p,
+.dtp-skel-txt .iq-note,
+.dtp-skel-txt .art-pt,
+.dtp-skel-txt .cal-kb-quote {
+  background-image: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.04) 75%);
+  background-size: 220% 100%;
+  animation: wdgSkel 1.25s var(--ease, ease) infinite;
+  border-radius: 3px;
+}
+
+/* ── 3. Squelette AUTONOME (conteneur vide qui attend son texte : Réaction, grille Marché) ──
+   Réutilise .wdg-skel-l (theme-aware + reduced-motion déjà câblés) ; seul le calage change, pour
+   retomber sur le retrait gauche de .article-points--clean (22 px) et son interligne aéré. */
+.dtp-skel-inline { padding: 6px 22px 6px 22px; gap: 10px; }
+.dtp-skel-inline .wdg-skel-l { height: 10px; }
+.rxg-c .dtp-skel-inline { padding: 2px 0; gap: 8px; }
+
+/* Thème clair : mêmes valeurs que .wdg-skel-l (rgba NOIR), sinon les barres seraient des
+   rectangles quasi invisibles sur papier blanc. Piège déjà payé par .dtp-skel, resté sombre. */
+html[data-theme="light"] .dtp-tr-wait,
+html[data-theme="light"] .dtp-skel-txt li,
+html[data-theme="light"] .dtp-skel-txt p,
+html[data-theme="light"] .dtp-skel-txt .iq-note,
+html[data-theme="light"] .dtp-skel-txt .art-pt,
+html[data-theme="light"] .dtp-skel-txt .cal-kb-quote {
+  background-image: linear-gradient(90deg, rgba(0,0,0,.05) 25%, rgba(0,0,0,.09) 50%, rgba(0,0,0,.05) 75%);
+  background-size: 220% 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dtp-tr-wait,
+  .dtp-skel-txt li, .dtp-skel-txt p, .dtp-skel-txt .iq-note,
+  .dtp-skel-txt .art-pt, .dtp-skel-txt .cal-kb-quote { animation: none; }
+}
