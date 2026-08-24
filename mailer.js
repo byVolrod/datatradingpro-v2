@@ -3032,7 +3032,14 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // réel débarrassé de son préfixe (le desk écrit « Récap Quotidien: Le dollar recule… » :
   // répéter le préfixe sous le H1 ferait bégayer le mail).
   const dateLbl = _md(daily && daily.dateLabel);
-  const titreRap = _md((full && full.title) || (daily && daily.title)).replace(/^R[ée]cap Quotidien\s*[:\-]?\s*/i, '');
+  /* Le titre du rapport est repris tel quel du serveur, où il s'appelle encore « FX Daily Recap: … »
+     en interne : le desk applique sa table de préfixes FR à l'AFFICHAGE seulement. On retirait bien
+     le préfixe français, mais l'anglais passait au travers dès que `full` était présent, c'est-à-dire
+     dans le cas normal. Constaté sur le rapport réel du 21/08 : le mail titrait « FX Daily Recap: Le
+     dollar recule… » sous un en-tête pourtant intitulé « Votre Récap Quotidien ». On retire donc
+     l'étiquette du rapport dans LES DEUX langues, quelle que soit la source du titre. */
+  const titreRap = _md((full && full.title) || (daily && daily.title))
+    .replace(/^(FX\s+Daily\s+Recap|DTP\s+Daily|Daily\s+Recap|R[ée]cap\s+Quotidien)\s*[:\-]?\s*/i, '');
   const entete = `${_H1}Votre Récap Quotidien</p>`
     + (dateLbl ? `<p style="margin:-8px 0 10px;color:${TOK.grisDoux};font-size:12px;">${_esc(dateLbl)}</p>` : '')
     + (titreRap ? `<p style="margin:0 0 14px;color:#e6e6ea;font-size:14.5px;font-weight:600;line-height:1.5;">${_esc(titreRap)}</p>` : '');
