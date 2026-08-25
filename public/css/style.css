@@ -7593,16 +7593,21 @@ html[data-theme="light"] .cal-day-sep td {
   padding-right: 16px;
 }
 
-/* Time : l'heure est un REPÈRE, le libellé de l'événement porte l'information. Au même blanc et
-   presque à la même taille, l'oeil n'avait aucune raison de lire l'événement d'abord (1 px d'écart,
-   même graisse, même couleur, mesuré au banc). Gris moyen + graisse medium : l'heure se trouve
-   quand on la cherche, l'événement domine quand on balaie. L'événement EN COURS garde son heure
-   or/gras (.cal-row--next, plus bas) : le repère fort reste là où il compte. */
+/* Time : EN BLANC (26/08, demande utilisateur capture à l'appui « met les heures en blancs »).
+   L'heure était en gris moyen (var(--text2)) par un arbitrage antérieur : elle est un REPÈRE, le
+   libellé de l'événement porte l'information, et au même blanc l'oeil n'avait aucune raison de lire
+   l'événement d'abord. La hiérarchie ne repose donc plus sur la couleur mais sur ce qui la portait
+   déjà : la POLICE (chiffres monospacés contre texte proportionnel), la TAILLE (11 px contre 12,5)
+   et la GRAISSE (medium contre semi-bold du libellé). Une colonne de chiffres alignés se balaie de
+   toute façon comme une colonne, pas comme du texte.
+   L'événement EN COURS garde son heure OR et grasse (.cal-row--next, plus bas) : ce repère-là doit
+   se distinguer des autres, et il le peut encore puisque les autres ne sont plus grises mais
+   blanches — l'or reste le seul accent de la colonne. */
 .cal-row td.cth-time {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: var(--fw-medium);
-  color: var(--text2);
+  color: #ffffff;
   position: relative;
   letter-spacing: 0.02em;
 }
@@ -7666,7 +7671,11 @@ html[data-theme="light"] .cal-day-sep td {
 .cal-row--next td { border-top: 1px solid rgba(227,178,58,0.5); border-bottom: 1px solid rgba(227,178,58,0.5); }
 .cal-row--next td.cth-time { color: var(--orange) !important; font-weight: var(--fw-bold); }
 .cal-row--next:hover { background: var(--row-hover); }
-.cal-row--past td.cth-time { color: var(--text3); }   /* passé un cran plus éteint que l'à-venir (--text2) ; avant, le passé (#cfcfd3) était PLUS clair que sa propre donnée */
+/* Le PASSÉ reste en retrait, mais en BLANC ÉTEINT et non plus en gris teinté : « met les heures en
+   blancs » vaut pour toute la colonne, y compris les publications déjà tombées. Le retrait se joue
+   désormais sur l'opacité seule — même teinte que les autres heures, simplement moins présente —
+   là où var(--text3) introduisait une nuance bleutée différente du reste de la colonne. */
+.cal-row--past td.cth-time { color: rgba(255, 255, 255, 0.5); }
 /* Devise TOUJOURS blanche (look pro) — l'impact est déjà indiqué par les points colorés de la colonne IMP. */
 .cal-row--high td.cth-curr { color: #ffffff; font-weight: var(--fw-bold); }
 .cal-row--med  td.cth-curr { color: #ffffff; }
