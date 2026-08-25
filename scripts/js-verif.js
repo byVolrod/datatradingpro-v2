@@ -212,6 +212,10 @@ if (process.argv.includes('--install')) {
   cur = cur.replace(/^\s*exec\s+(node\s)/m, '$1');
   const ligne = 'node "$(git rev-parse --show-toplevel)/scripts/js-verif.js" || exit 1';
   if (!cur.includes('js-verif.js')) cur = cur.replace(/\s*$/, '\n') + ligne + '\n';
+  // Le contrôle du desk suit : il s'abstient sans navigateur, il ne bloquera donc jamais un poste
+  // qui n'en a pas — mais là où il y en a un, il voit ce que l'analyse statique ne peut pas voir.
+  const ligneDesk = 'node "$(git rev-parse --show-toplevel)/scripts/desk-verif.js" || exit 1';
+  if (!cur.includes('desk-verif.js')) cur = cur.replace(/\s*$/, '\n') + ligneDesk + '\n';
   // Chaque contrôle doit pouvoir refuser le commit : sans `|| exit 1`, un échec passe inaperçu.
   cur = cur.replace(/^(node .*dtp-updates-verif\.js)\s*$/m, '$1 || exit 1');
   fs.writeFileSync(hook, cur, { mode: 0o755 });
