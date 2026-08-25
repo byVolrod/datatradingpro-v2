@@ -121,14 +121,21 @@ function pct(p) {
 /* PHOTO DE SÉANCE : une seule ligne, les actifs qui ont réellement bougé en tête. Un actif sans
    donnée est OMIS, jamais rendu avec un tiret : une ligne vide dans un récap chiffré fait douter de
    toutes les autres. */
+/* UN RENDEMENT NE SE CLASSE PAS AVEC LES AUTRES. Trier tout le monde sur la variation en
+   pourcentage mettait le dix ans US en tête avec « +2,10 % » (4,10 → 4,19) devant un Nasdaq à
+   −0,94 % : neuf points de base ne sont pas un plus gros mouvement qu'un pour cent d'indice, les
+   deux grandeurs ne se comparent tout simplement pas. Les taux sont donc rendus À PART, en fin de
+   ligne, comme contexte — et ils ne concourent pas au « plus fort mouvement ». */
+function _estTaux(p) { return !!(p && p.bp); }
 function lignePerf(perfs, mini) {
   const seuil = mini == null ? 0.05 : mini;
   const util = (perfs || []).filter(p => p && Number.isFinite(p.pct));
   if (!util.length) return '';
-  const tri = util.slice().sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
-  const bouge = tri.filter(p => Math.abs(p.pct) >= seuil);
-  const gardes = (bouge.length ? bouge : tri).slice(0, 6);
-  return gardes.map(p => `${p.label} ${p.bp && Number.isFinite(p.delta) ? bps(p.delta) : pct(p.pct)}`).join(' · ');
+  const marches = util.filter(p => !_estTaux(p)).sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+  const taux = util.filter(_estTaux);
+  const bouge = marches.filter(p => Math.abs(p.pct) >= seuil);
+  const gardes = (bouge.length ? bouge : marches).slice(0, 5).concat(taux);
+  return gardes.map(p => `${p.label} ${_estTaux(p) && Number.isFinite(p.delta) ? bps(p.delta) : pct(p.pct)}`).join(' · ');
 }
 /* LIGNE MACRO : l'heure, la devise, l'intitulé, le réel, l'attendu, l'écart. Rien d'autre —
    l'interprétation appartient à la rubrique d'analyse, pas au constat. */
@@ -146,7 +153,9 @@ function ligneMacro(ev, heure) {
 /* SYNTHÈSE DE SÉANCE : une phrase de tête, déduite des chiffres. Elle ne qualifie que ce qui est
    mesuré — combien de publications, combien ont surpris, et le mouvement le plus marqué. */
 function synthese(nomSeance, perfs, macros) {
-  const util = (perfs || []).filter(p => p && Number.isFinite(p.pct));
+  // Le « plus fort mouvement » se cherche parmi les marchés comparables entre eux : un taux, mesuré
+  // en points de base, n'entre pas dans ce classement (voir lignePerf).
+  const util = (perfs || []).filter(p => p && Number.isFinite(p.pct) && !_estTaux(p));
   const fort = util.slice().sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))[0];
   const surprises = (macros || []).map(m => ecart(m)).filter(e => e && !e.sansConsensus && e.sens !== 'conforme');
   const bouts = [];

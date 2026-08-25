@@ -68,6 +68,15 @@ v('inchangé', S.bps(0) === 'inchangé');
 const lp = S.lignePerf([{ label: '10 ans US', pct: 2.1, delta: 0.09, bp: true }, { label: 'S&P 500', pct: -0.62 }]);
 v('la ligne mélange correctement pb et %', /10 ans US \+9 pb/.test(lp) && /S&P 500 −0,62 %/.test(lp), lp);
 
+// Un taux ne concourt pas avec un indice : neuf points de base ne sont pas « plus gros » qu'un
+// pour cent de Nasdaq, les deux grandeurs ne se comparent pas.
+const avecTaux = [{ label: '10 ans US', pct: 2.1, delta: 0.09, bp: true }, { label: 'Nasdaq', pct: -0.94 }, { label: 'S&P 500', pct: -0.62 }];
+v('le taux ne prend pas la tête de la ligne', /^Nasdaq/.test(S.lignePerf(avecTaux)), S.lignePerf(avecTaux));
+v('il est rendu en fin de ligne, en points de base', /10 ans US \+9 pb$/.test(S.lignePerf(avecTaux)), S.lignePerf(avecTaux));
+const syT = S.synthese('New York', avecTaux, []);
+v('la synthèse ne désigne pas un taux comme plus fort mouvement', /Nasdaq −0,94 %/.test(syT), syT);
+v('…et n\'écrit jamais un taux en pourcentage', !/10 ans US \+2/.test(syT), syT);
+
 console.log('\n── 5. Aucune ligne vide, jamais ──');
 v('un rendez-vous sans chiffre est OMIS', S.ligneMacro({ currency: 'USD', title: 'Fed Chair Powell Speaks' }, '16h') === '');
 v('un actif sans donnée est OMIS', S.lignePerf([{ label: 'DAX', pct: null }, { label: 'Or', pct: 0.31 }]) === 'Or +0,31 %');
