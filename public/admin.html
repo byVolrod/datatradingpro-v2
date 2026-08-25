@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg935" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg937" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -255,8 +255,18 @@
            de compte. Sa place est en TÊTE de l'onglet : c'est l'identité du support, elle se règle
            une fois et se voit tout de suite — coincée dans l'en-tête du bloc Messages, personne ne
            la trouvait. -->
-      <div class="panel-card">
-        <div class="panel-head"><h2>Photo du support</h2></div>
+      <!-- REPLIABLE, ET FERMEE PAR DEFAUT (28/08, demande utilisateur : « il faut que je puisse le
+           derouler ou fermer, pour pas que ca prenne toute la place »). C'est un reglage qu'on pose
+           une fois : ouvert en permanence, il repoussait les conversations — la raison d'etre de
+           l'onglet — sous la ligne de flottaison. Ferme, il ne coute qu'une ligne. -->
+      <div class="panel-card ad-fold is-closed" id="ad-supav-card">
+        <div class="panel-head panel-head--fold" onclick="adSupAvToggle()" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();adSupAvToggle();}">
+          <h2>Photo du support</h2>
+          <span class="ph-spacer"></span>
+          <span class="ad-fold-etat" id="ad-supav-etat">Repliée</span>
+          <span class="ad-fold-chev">›</span>
+        </div>
         <div class="panel-body">
           <div class="ad-supav-wrap">
             <span class="ad-supav" id="ad-supav">DTP</span>
@@ -780,6 +790,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260825bbg935"></script>
+<script src="/js/admin.js?v=20260825bbg937"></script>
 </body>
 </html>

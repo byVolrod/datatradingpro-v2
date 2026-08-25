@@ -2528,6 +2528,14 @@
    ⚠️ RECADRAGE VERS LE HAUT : sur une photo de bureau, le visage est dans le tiers supérieur. Un
    carré centré coupe la tête et cadre le torse — exactement le défaut déjà corrigé sur les avatars
    de compte. On remonte donc la fenêtre à proportion de l'élongation de l'image. */
+/* Repli de la carte. L'etat n'est PAS persiste : c'est un reglage qu'on pose une fois, et le
+   rouvrir ferme au chargement suivant est le bon defaut — pas une preference a memoriser. */
+function adSupAvToggle() {
+  var c = document.getElementById('ad-supav-card'); if (!c) return;
+  var ferme = c.classList.toggle('is-closed');
+  var e = document.getElementById('ad-supav-etat'); if (e) e.textContent = ferme ? 'Repliée' : 'Ouverte';
+  if (ferme) adCropAnnuler();   // on ne laisse pas un recadrage en cours dans un tiroir ferme
+}
 function adSupAvPick() { var f = document.getElementById('ad-supav-file'); if (f) { f.value = ''; f.click(); } }
 function _adSupAvRender(dataUrl) {
   var e = document.getElementById('ad-supav'); if (!e) return;
@@ -2623,7 +2631,11 @@ function adSupAvChange(ev) {
   var file = ev.target.files && ev.target.files[0];
   if (!file) return;
   var reader = new FileReader();
-  reader.onload = function (e) { _cropOuvrir(e.target.result); };
+  reader.onload = function (e) {
+    var c = document.getElementById('ad-supav-card');
+    if (c && c.classList.contains('is-closed')) adSupAvToggle();   // le recadreur a besoin d'etre visible pour se mesurer
+    _cropOuvrir(e.target.result);
+  };
   reader.onerror = function () { showToast('Lecture du fichier impossible.', 'err'); };
   reader.readAsDataURL(file);
 }

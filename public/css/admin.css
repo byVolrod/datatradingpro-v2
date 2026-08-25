@@ -176,6 +176,16 @@ code, pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consola
 .ad-supav-btn:hover { color: #e3b23a; border-color: rgba(227, 178, 58, .5); }
 .ad-supav-btn--del:hover { color: #ef4444; border-color: rgba(239, 68, 68, .5); }
 
+/* ── Carte repliable ─────────────────────────────────────────────────────────────────────────────
+   Un réglage qu'on pose une fois n'a pas à occuper la page en permanence. Fermée, la carte ne coûte
+   qu'une ligne ; l'en-tête entier est cliquable, et répond aussi au clavier. */
+.ad-fold .panel-head--fold { cursor: pointer; user-select: none; }
+.ad-fold .panel-head--fold:hover h2 { color: #e3b23a; }
+.ad-fold-etat { font-size: var(--fs-meta, 11px); color: var(--text3, #8a8f98); }
+.ad-fold-chev { color: var(--text3, #8a8f98); font-size: 15px; line-height: 1; transform: rotate(90deg); transition: transform .18s ease; }
+.ad-fold.is-closed .ad-fold-chev { transform: rotate(0deg); }
+.ad-fold.is-closed .panel-body { display: none; }
+
 /* ── Recadrage de la photo du support ───────────────────────────────────────────────────────────
    La scène EST la fenêtre du client, agrandie : ce qui tient dans le cercle est ce qui sera
    enregistré. Rien à deviner, rien à vérifier après coup. */

@@ -733,7 +733,7 @@ v('le repli couvre les neuf mêmes devises que les fenêtres',
 // (4) LES CHIFFRES. Point décimal d'un côté, virgule de l'autre.
 v('le Quotidien écrit ses valeurs en français (par pays)', /actual: _SEA\.frNombre\(e\.actual\), forecast: _SEA\.frNombre\(e\.forecast\), previous: _SEA\.frNombre\(e\.previous\), lean: leanOf\(e\)/.test(SRV));
 v('… et par séance', /actual: _SEA\.frNombre\(e\.actual\), forecast: _SEA\.frNombre\(e\.forecast\), previous: _SEA\.frNombre\(e\.previous\), lean: _fxrLean\(e\)/.test(SRV));
-v('la version du Quotidien a été bumpée (régénération)', /const FXR_VER = 2[4-9];/.test(SRV));
+v('la version du Quotidien a été bumpée (régénération)', /const FXR_VER = 2[5-9];/.test(SRV));
 
 console.log('\n── 7h. Le Quotidien LIT-IL les récaps de séance ? ──');
 /* « donc les récap session le quotidien prend bien en compte c'est ça ? » (26/08). Vérifié : NON.
@@ -752,7 +752,7 @@ v('les récaps de séance portent bien ce _reportType', /if \(_SEA\.FENETRES\[re
 v('un récap de séance reçoit 900 caractères, pas 320', /const cap = _estRecapSeance\(i\) \? 900 : 320;/.test(SRV));
 v('le bloc envoyé au modèle a été élargi en conséquence', /wrapLines\.join[\s\S]{0,12}slice\(0, 4200\)/.test(SRV));
 v('le repli déterministe s\'en sert aussi', /const intro = \(wrapItems && wrapItems\.length\)/.test(SRV));
-v('la version du Quotidien a été bumpée', /const FXR_VER = 24;/.test(SRV));
+v('la version du Quotidien a été bumpée', /const FXR_VER = 2[5-9];/.test(SRV));
 /* Le bloc TITRES continue d'écarter les rapports internes — c'est voulu : un récap de séance n'est
    pas une dépêche, il a SA place dans le bloc dédié. Sans cette exclusion il serait compté deux fois. */
 v('le bloc TITRES écarte toujours les rapports internes', /&& !i\._briefing && !i\._marketWrap && !i\._fxr && !i\._weekly && !_isPrimerNews\(i\)\)/.test(SRV));

@@ -10292,6 +10292,18 @@ function _renderFXDailyRecap(item) {
     // `cb` entre EN TÊTE de la Politique monétaire : la décision d'abord, son écho macro ensuite.
     _macroFam.set('Politique monétaire', _cbPts.concat(_macroFam.get('Politique monétaire') || []));
     const _sansFam = _macroPts.filter(t => _SECTIONS_NEWS.indexOf(_famJour(t)) < 0);
+    /* AUTRES ÉLÉMENTS NOTABLES (28/08, en comparant au Récap Quotidien du mentor) : les faits réels
+       de la journée qui ne sont NI le dossier géopolitique NI de la macro — une mesure commerciale
+       annoncée par un pays, un projet d'infrastructure d'État, une rencontre politique programmée.
+       Le mentor leur donne une rubrique à part ; chez nous ils étaient écrasés dans la géopolitique,
+       où ils n'ont rien à faire, ou perdus. La rubrique se pose ENTRE Géopolitique et Macro : c'est
+       leur place de lecture — après le dossier du jour, avant les chiffres. */
+    const _autres = (Array.isArray(w.autres) ? w.autres : []).filter(Boolean);
+    if (_autres.length) {
+      body += _sec('Autres éléments notables') + '<div class="fxdr-bullets">';
+      _autres.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+      body += '</div>';
+    }
     body += _sec('Macro');
     const _puces = l => { body += '<div class="fxdr-bullets">'; l.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; };
     if (_sansFam.length) _puces(_sansFam);
