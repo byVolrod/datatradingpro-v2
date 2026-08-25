@@ -20090,3 +20090,31 @@ html[data-theme="light"] .dtp-skel-txt .cal-kb-quote {
   #sqwk-btn.topbar-icon--active::after,
   #ai-btn.topbar-icon--active::after { bottom: 2px; }
 }
+
+/* ═══ CALCULATRICE SUR TÉLÉPHONE : TOUT VISIBLE SANS DÉFILER (25/08, demande user : « la
+   calculatrice doit afficher toutes les informations sans avoir besoin de scroll vers le bas »).
+   Mesuré avant : en colonne unique, 7 champs empilés + 3 rangées de préréglages + héros + 4-5
+   cartes ≈ 870px de contenu pour ~760px d'écran utile — les résultats, la raison d'être de la
+   page, naissaient sous le pli. Le FORMULAIRE passe en 2 colonnes (Devise|Solde, Risque|Stop,
+   Spread|Commission, Paire pleine largeur) : ce sont des champs courts, la moitié de leur
+   largeur leur suffit. Les résultats se resserrent d'un cran (héros 26px, cartes 15px) et le
+   bouton Copier rejoint le coin du héros au lieu d'occuper sa propre ligne. Les préréglages
+   descendent à 26px de haut : c'est le plancher tactile une fois le zoom global appliqué, on ne
+   descend pas plus bas. Le défilement du conteneur RESTE en secours (paysage, très petit écran) :
+   compacter n'autorise jamais à couper. */
+@media (max-width: 560px) {
+  .calc-wrap { padding: 8px 10px; }
+  .calc-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 8px; padding: 6px 2px 8px; }
+  .calc-field:has(> #calc-pair) { grid-column: 1 / -1; }
+  .calc-field input, .calc-field select, .calc-field .dtpsel-btn { height: 30px; }
+  .calc-presets { margin-top: 4px; gap: 4px; }
+  .calc-preset { min-height: 26px; font-size: 10.5px; padding: 0 4px; }
+  .calc-results { padding: 2px 2px 8px; gap: 6px; }
+  .calc-card { padding: 8px 10px; gap: 2px; }
+  .calc-card .calc-v { font-size: 15px; }
+  .calc-card .calc-sub { font-size: 9.5px; }
+  .calc-card--hero { position: relative; padding: 9px 12px; }
+  .calc-card--hero .calc-v { font-size: 26px; }
+  .calc-copy { position: absolute; top: 8px; right: 10px; margin-top: 0; }
+  .calc-grid { gap: 6px; }
+}
