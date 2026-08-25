@@ -114,6 +114,11 @@ v('il ignore une séance qui n\'a pas commencé', /now < b\.debutTs\) continue;/
 v('il ne republie pas un récap qui n\'existe pas', /if \(!publie\) continue;/.test(src));
 v('il attend la première mesure de performance', /\}, 90000\);/.test(src));
 v('une seule fois par démarrage', /_seanceRattrapFait = true;/.test(src));
+// Un récap refait à partir d'une fenêtre vidée serait plus MAIGRE que celui qu'il remplace : il
+// gagnerait trois rubriques chiffrées et perdrait son récit. On compte la matière avant de toucher.
+v('il compte la matière encore disponible avant de refaire', /const matiere = allNews\.filter/.test(src));
+v('il ne remplace pas un récap par un plus pauvre', /if \(matiere < Math\.max\(5, avant\)\)/.test(src));
+v('et il le dit au lieu de le taire', /rattrapage NON fait \(matière insuffisante/.test(src));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

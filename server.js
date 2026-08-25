@@ -9848,19 +9848,35 @@ let _seanceRattrapFait = false;
 async function _rattraperSeancesDuJour() {
   if (_seanceRattrapFait) return; _seanceRattrapFait = true;
   const now = Date.now(), jour = _jourParis(now);
-  const gen = { 'Asia Session Recap': generateAsiaRecap, 'London Session Recap': generateLondonRecap, 'US Session Recap': generateUSRecap };
-  const faits = [];
-  for (const [type, fn] of Object.entries(gen)) {
+  // `h` = la profondeur de fenêtre du rapport (cutoffHours), identique à celle du planificateur.
+  const gen = {
+    'Asia Session Recap':   { fn: generateAsiaRecap,   h: 10 },
+    'London Session Recap': { fn: generateLondonRecap, h: 9  },
+    'US Session Recap':     { fn: generateUSRecap,     h: 10 },
+  };
+  const faits = [], sautes = [];
+  for (const [type, g] of Object.entries(gen)) {
     try {
       const b = _bornesSeance(type, now);
       if (!b || now < b.debutTs) continue;                                  // séance pas encore commencée
       const publie = allNews.find(i => i && i._briefing && i._reportType === type && _jourParis(i.timestamp) === jour);
       if (!publie) continue;                                                // rien publié aujourd'hui : le planificateur s'en chargera
       if (publie._seanceVer === SEANCE_VER) continue;                       // déjà au bon format
-      await fn(true, 0, Math.min(now, b.finTs));                            // force = remplace le récap du jour
+      /* ON NE REMPLACE JAMAIS UN RÉCAP PAR UN PLUS PAUVRE. Le fil garde 2000 dépêches — largement de
+         quoi couvrir une séance — mais un jour très chargé peut avoir fait sortir de la fenêtre les
+         dépêches à partir desquelles le récap du matin a été écrit. Le refaire produirait alors un
+         rapport plus MAIGRE qu'avant, gagnant trois rubriques chiffrées et perdant son récit. On
+         compte donc la matière disponible AVANT : si elle a fondu, on ne touche à rien et on le dit.
+         Sans marqueur de version posé, le rattrapage retentera au prochain démarrage. */
+      const finW = Math.min(now, b.finTs), debutW = finW - g.h * 3600000;
+      const matiere = allNews.filter(i => i && !i._briefing && i.timestamp > debutW && i.timestamp <= finW).length;
+      const avant = String(publie.description || '').split('\n').filter(Boolean).length;
+      if (matiere < Math.max(5, avant)) { sautes.push(`${type} (${matiere} dépêche(s) encore en fenêtre pour ${avant} puce(s))`); continue; }
+      await g.fn(true, 0, finW);                                            // force = remplace le récap du jour
       faits.push(type);
     } catch (e) { console.warn('[Séance] rattrapage ' + type + ' :', e && e.message); }
   }
+  if (sautes.length) console.warn(`[Séance] rattrapage NON fait (matière insuffisante, on garde l'existant) : ${sautes.join(' · ')}`);
   console.log(faits.length
     ? `[Séance] rattrapage : ${faits.length} récap(s) du jour refait(s) au format v${SEANCE_VER} — ${faits.join(', ')}`
     : `[Séance] rattrapage : aucun récap du jour à refaire (format v${SEANCE_VER} déjà en place)`);
