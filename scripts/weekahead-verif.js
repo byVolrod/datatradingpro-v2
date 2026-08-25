@@ -98,6 +98,57 @@ const tj = W.titreJour(jeudi, 'jeudi');
 console.log('  titre  : ' + tj);
 verif('décision BCE → titre unique, non dilué', tj === 'Décision de la BCE', tj);
 
+console.log('\n── 7b. VOCABULAIRE FOREXFACTORY (notre calendrier sert ses noms, pas ceux du flux) ──');
+// La Semaine à Venir lit desormais « notre calendrier », c est-a-dire des lignes RENOMMEES en
+// ForexFactory. Si les regles de themes ne connaissaient que le vocabulaire du fournisseur, la
+// normalisation aurait tout casse : « Federal Funds Rate » ne ressemble pas a « rate decision ».
+const FF = [
+  [{ currency: 'USD', ctry: 'US', title: 'Federal Funds Rate' }, 'Décision de la Fed'],
+  [{ currency: 'GBP', ctry: 'GB', title: 'Official Bank Rate' }, 'Décision de la BoE'],
+  [{ currency: 'EUR', ctry: 'EU', title: 'Main Refinancing Rate' }, 'Décision de la BCE'],
+  [{ currency: 'JPY', ctry: 'JP', title: 'BOJ Policy Rate' }, 'Décision de la BoJ'],
+  [{ currency: 'CAD', ctry: 'CA', title: 'Overnight Rate' }, 'Décision de la BoC'],
+  [{ currency: 'CHF', ctry: 'CH', title: 'SNB Policy Rate' }, 'Décision de la BNS'],
+  [{ currency: 'NZD', ctry: 'NZ', title: 'Official Cash Rate' }, 'Décision de la RBNZ'],
+  [{ currency: 'AUD', ctry: 'AU', title: 'Cash Rate' }, 'Décision de la RBA'],
+  [{ currency: 'USD', ctry: 'US', title: 'FOMC Statement' }, 'Décision de la Fed'],
+  [{ currency: 'USD', ctry: 'US', title: 'Non-Farm Employment Change' }, 'NFP américain'],
+  [{ currency: 'USD', ctry: 'US', title: 'Unemployment Claims' }, 'Emploi américain'],
+  [{ currency: 'USD', ctry: 'US', title: 'Prelim GDP q/q' }, 'PIB américain'],
+  [{ currency: 'USD', ctry: 'US', title: 'Core PCE Price Index m/m' }, 'Inflation PCE américaine'],
+  [{ currency: 'EUR', ctry: 'DE', title: 'German Prelim CPI m/m' }, 'CPI allemand'],
+  [{ currency: 'USD', ctry: 'US', title: 'Core Retail Sales m/m' }, 'Ventes au détail américaines'],
+  [{ currency: 'USD', ctry: 'US', title: 'ISM Manufacturing PMI' }, 'PMI américain'],
+];
+FF.forEach(([e, attendu]) => {
+  const th = W.themeJour(e);
+  verif(`« ${e.title} » → ${attendu}`, th && th.lbl === attendu, th ? th.lbl : '(aucun thème)');
+});
+
+console.log('\n── 7c. Les DEUX noms sont lus : renommer ne doit rien effacer ──');
+// Piege majeur du passage aux noms ForexFactory : il nomme la revision annuelle comme le rapport
+// mensuel. Sans lecture du nom d origine, la normalisation REINTRODUISAIT le bug du 28 aout.
+const revFF = { currency: 'USD', ctry: 'US', title: 'Non-Farm Employment Change', _tvTitle: 'Non Farm Payrolls Annual Revision Prel' };
+const thRev = W.themeJour(revFF);
+verif('révision reconnue même sous le nom ForexFactory du rapport mensuel',
+  thRev && thRev.lbl === 'Révision annuelle du NFP', thRev && thRev.lbl);
+verif('sa glose avertit toujours que c\'est une correction', /correction/i.test(W.gloseEv(revFF)), W.gloseEv(revFF));
+const jh = { currency: 'USD', ctry: 'US', title: 'Fed Chair Powell Speaks', _tvTitle: 'Fed Chair Powell Speech at Jackson Hole' };
+verif('Jackson Hole survit au renommage ForexFactory', (W.themeJour(jh) || {}).lbl === 'Jackson Hole', (W.themeJour(jh) || {}).lbl);
+verif('et garde la glose la plus précise des deux noms',
+  /rendez-vous annuel des banquiers/.test(W.gloseEv(jh)), W.gloseEv(jh));
+verif('l\'affichage ne montre QUE le nom ForexFactory', W.nomEv(jh) === 'USD Fed Chair Powell Speaks', W.nomEv(jh));
+
+console.log('\n── 7d. Le libellé ne contredit plus sa propre glose ──');
+const gdpRev = { currency: 'USD', ctry: 'US', title: 'Revised GDP q/q', _tvTitle: 'GDP Growth Rate QoQ 2nd Est' };
+verif('une révision de PIB le dit dans son libellé', (W.themeJour(gdpRev) || {}).lbl === 'PIB américain (révision)', (W.themeJour(gdpRev) || {}).lbl);
+verif('« French Prelim CPI » ne se voit pas accoler « (France) »',
+  W.intituleAffiche({ currency: 'EUR', ctry: 'FR', title: 'French Prelim CPI m/m' }) === 'French Prelim CPI m/m');
+verif('un intitulé muet sur le pays, lui, est complété',
+  W.intituleAffiche({ currency: 'EUR', ctry: 'DE', title: 'Ifo Business Climate' }) === 'Ifo Business Climate (Allemagne)');
+verif('l\'agrégat de la zone euro reste sans mention de pays',
+  W.intituleAffiche({ currency: 'EUR', ctry: 'EU', title: 'Inflation Rate YoY Flash' }) === 'Inflation Rate YoY Flash');
+
 console.log('\n── 8. Poids éditorial : une révision ne pèse pas comme la publication ──');
 verif('NFP mensuel = point d\'orgue (≥ 5)', W.poidsMajeur({ title: 'Non Farm Payrolls' }) >= 5);
 verif('révision annuelle du NFP ramenée au rang 1', W.poidsMajeur({ title: 'Non Farm Payrolls Annual Revision Prel' }) === 1);
@@ -113,6 +164,9 @@ verif('le filtre du calendrier repêche les vitaux (Jackson Hole, discours, minu
   /_CAL_VITAL_RX/.test(filtre), filtre.slice(0, 150));
 verif('la Semaine à Venir range les événements au jour civil de PARIS',
   /_jourParis\(e\.timestamp\)/.test(src));
+verif('la Semaine à Venir passe par _calFfNames (noms ForexFactory)', /const up = _calFfNames\(upBrut\)/.test(src));
+verif('« À surveiller » des récaps passe aussi par _calFfNames', /const propre = _calFfNames\(dans\)/.test(src));
+verif('le nom ForexFactory de la décision de taux dépend de la BANQUE', /_FF_TAUX\s*=\s*\{/.test(src));
 verif('l\'identité d\'un événement inclut son PAYS (deux pays zone euro, même intitulé)',
   (src.match(/id: 'tv-' \+ Buffer\.from\(e\.title \+ '\|' \+ e\.currency \+ '\|' \+ \(e\.country/g) || []).length === 2);
 

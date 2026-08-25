@@ -995,6 +995,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260825-agenda-meme-calendrier', ts: Date.UTC(2026, 7, 25, 16, 30), title: 'Semaine a Venir et Calendrier parlent enfin le meme langage', desc: 'Les rendez-vous de la Semaine a Venir portent desormais exactement les memes noms que dans votre onglet Calendrier. Jusqu ici l agenda servait les intitules bruts de notre fournisseur de donnees pendant que le calendrier affichait ceux de ForexFactory, notre reference : le meme evenement apparaissait sous deux noms selon l endroit ou vous le lisiez. La rubrique A surveiller des recaps de seance suit la meme regle. Au passage, la decision de taux porte le nom que chaque banque lui donne — Federal Funds Rate pour la Fed, Official Bank Rate pour la Banque d Angleterre — au lieu d un libelle unique qui donnait le nom de la Banque d Angleterre a toutes les banques centrales. Et deux pays de la zone euro qui publient le meme indicateur a la meme heure ne se remplacent plus l un l autre dans la liste.' },
   { id: 'dtpu-20260825-semaine-titres-honnetes', ts: Date.UTC(2026, 7, 25, 15, 0), title: 'Semaine a Venir : le titre d une journee ne peut plus annoncer un rendez-vous absent', desc: 'Le titre de chaque carte de la Semaine a Venir se calcule desormais A PARTIR de la liste affichee juste en dessous, et de rien d autre : il lui est impossible d annoncer un evenement qui n est pas au programme. Trois corrections derriere ce garde-fou. Une REVISION n est plus confondue avec la publication d origine : une revision annuelle des creations d emplois corrige des chiffres deja connus, elle porte maintenant son propre nom et ne prend plus la place du rapport mensuel. Le PAYS est enfin lu : l inflation de fin de mois est publiee par la France, l Espagne ou l Allemagne, elle s annonce donc ainsi, et le mot zone euro est reserve au chiffre de la zone. Enfin un rendez-vous majeur — decision de taux, Jackson Hole, rapport emploi americain — tient le titre seul au lieu d etre dilue par un second theme. Un controle automatique rejoue le cas signale a chaque modification.' },
   { id: 'dtpu-20260825-semaine-descriptions-claires', ts: Date.UTC(2026, 7, 25, 14, 0), title: 'Semaine a Venir : chaque chiffre est desormais explique en francais clair', desc: 'Les descriptions des cartes se lisent sans connaitre le jargon. Chaque publication est suivie de ce qu elle mesure, en une formule courte : l inflation que la Fed regarde en priorite, les commandes de machines qui donnent le thermometre de l investissement des entreprises, le barometre des directeurs d achat ou la barre des 50 separe croissance et contraction. Vient ensuite ce que le chiffre change concretement pour la devise, et seulement apres le reste du programme. La phrase qui explique l enjeu porte maintenant sur l evenement reellement mis en avant : une journee consacree a l inflation et aux depenses des menages ne se conclut plus sur une remarque a propos du produit interieur brut. Les intitules restent dans leur langue d origine pour se retrouver dans le calendrier.' },
   { id: 'dtpu-20260825-calendrier-journee-paris', ts: Date.UTC(2026, 7, 25, 13, 30), title: 'Calendrier : une journee commence et finit a Paris, et les grands rendez-vous ne manquent plus', desc: 'Trois corrections sur le calendrier economique. Les evenements sont ranges au jour civil de Paris et non plus a l heure de Greenwich : une publication asiatique de une heure du matin s affichait la veille, et un chiffre du lundi matin en Asie disparaissait meme completement de la semaine. Les rendez-vous sans chiffre attendu — symposium de Jackson Hole, discours de gouverneur, comptes rendus de comite, reunions de l OPEP — sont desormais repeches et affiches : notre fournisseur les classe en importance faible faute de consensus a comparer, ils etaient donc ecartes alors qu ils deplacent le marche a eux seuls. Enfin deux pays de la zone euro qui publient le meme indicateur au meme moment ne se remplacent plus l un l autre dans la liste.' },
@@ -4117,12 +4118,22 @@ const _FF_TITLE_RULES = [
   [/^api\s+crude\s+oil\s+stock\s+change/i,       'API Weekly Statistical Bulletin'],
   [/^eia\s+crude\s+oil\s+stocks?\s+change/i,     'Crude Oil Inventories'],
   [/^mba\s+30[- ]year\s+mortgage\s+rate/i,       'MBA Mortgage Applications'],
-  [/^interest\s+rate\s+decision/i,               'Official Bank Rate'],
+  // (la décision de taux est traitée à part : son nom ForexFactory dépend de la BANQUE, cf. _FF_TAUX)
   [/^industrial\s+production\s+mom/i,            'Industrial Production m/m'],
   [/^balance\s+of\s+trade|^trade\s+balance/i,    'Trade Balance'],
 ];
-function _ffTitleStatic(t) {
+/* DÉCISION DE TAUX : ForexFactory ne dit pas « Interest Rate Decision », il nomme le TAUX de chaque
+   banque. Une règle unique renvoyait « Official Bank Rate » — le nom de la BoE — pour tout le monde,
+   Fed comprise. Le nom dépend donc de la devise, pas seulement du titre. */
+const _FF_TAUX = {
+  USD: 'Federal Funds Rate', GBP: 'Official Bank Rate', EUR: 'Main Refinancing Rate',
+  JPY: 'BOJ Policy Rate', AUD: 'Cash Rate', NZD: 'Official Cash Rate',
+  CAD: 'Overnight Rate', CHF: 'SNB Policy Rate', CNY: 'Loan Prime Rate', CNH: 'Loan Prime Rate',
+};
+const _FF_TAUX_RX = /^(?:[a-z]{2,5}\s+)?interest\s+rate\s+decision|^rate\s+decision|^(?:[a-z]{2,5}\s+)?interest\s+rate\s+announcement/i;
+function _ffTitleStatic(t, ccy) {
   const s = String(t || '').trim();
+  if (_FF_TAUX_RX.test(s)) return _FF_TAUX[String(ccy || '').toUpperCase()] || null;
   for (const [re, ff] of _FF_TITLE_RULES) if (re.test(s)) return ff;
   return null;
 }
@@ -4158,7 +4169,7 @@ function _ffDisplayTitle(ev) {
       if (best && bestOv >= 2) return best.title;                    // 2 mots-clés communs = même indicateur
     }
   } catch {}
-  return _ffTitleStatic(ev.title) || ev.title;
+  return _ffTitleStatic(ev.title, ev.currency) || ev.title;
 }
 /* ── NIVEAUX D'INDICE : à retirer quand le TAUX correspondant sort en même temps ──────────────────
    Constaté le 12/08 sur le CPI américain (deux lignes « CPI » à 14h30, capture user) : TradingView
@@ -4205,7 +4216,7 @@ function _calDropHomonyms(items) {
     + (e.forecast ? 2 : 0) + (e.actual ? 1 : 0);
   items.forEach((e, i) => {
     if (!e || !e.title || _CAL_SPEECH_RX.test(e.title)) return;
-    const k = e.currency + '|' + e.timestamp + '|' + String(e.title).trim().toLowerCase();
+    const k = e.currency + '|' + (e.ctry || e.country || '') + '|' + e.timestamp + '|' + String(e.title).trim().toLowerCase();   // le PAYS compte : l'IPC espagnol et l'italien de la même heure ne sont pas un doublon
     const p = best.get(k);
     if (p === undefined || score(e) > score(items[p])) best.set(k, i);
   });
@@ -9838,13 +9849,17 @@ function _aSurveillerSeanceSuivante(reportType) {
     const h = _heureParis(ts);
     return h >= S.debut && h < S.fin;                     // et dans sa fenêtre horaire
   });
+  // Mêmes NOMS que l'onglet Calendrier : la rubrique lisait le flux brut du fournisseur, elle passe
+  // par _calFfNames comme tout ce qu'on affiche (noms ForexFactory, niveaux et homonymes retirés).
+  // Appliqué au sous-ensemble déjà filtré : quelques dizaines de lignes, pas tout le calendrier.
+  const propre = _calFfNames(dans);
   // Les FORTS impacts d'abord (ce sont eux qui déplacent une séance), les moyens complètent.
   const tri = l => l.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-  const forts = tri(dans.filter(e => /high/i.test(e.impact || '')));
-  const moyens = tri(dans.filter(e => !/high/i.test(e.impact || '')));
+  const forts = tri(propre.filter(e => /high/i.test(e.impact || '')));
+  const moyens = tri(propre.filter(e => !/high/i.test(e.impact || '')));
   const lignes = forts.concat(moyens).slice(0, 5).map(e => {
     const att = e.forecast ? ` (attendu ${e.forecast}${e.previous ? `, préc. ${e.previous}` : ''})` : (e.previous ? ` (préc. ${e.previous})` : '');
-    return `${e.time} ${e.currency} · ${String(e.title || '').slice(0, 90)}${att}`;
+    return `${e.time} ${e.currency} · ${_WA.intituleAffiche(e).slice(0, 90)}${att}`;
   });
   return { nom: S.nom, lignes };
 }
@@ -14823,7 +14838,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v24-calendrier-honnete';   // v24 (25/08, signalement du mentor relayé par l'utilisateur : « dans vendredi 28 août tu as mis CPI américain, il est pour le 4 septembre ») — LE TITRE D'UNE CARTE NE PEUT PLUS NOMMER UN RENDEZ-VOUS ABSENT DE LA JOURNÉE. La carte du 28/08 titrait « NFP américain + CPI zone euro » pour une journée qui portait Jackson Hole, une « Non Farm Payrolls Annual Revision Prel » et une confiance des ménages japonaise : titre et liste ne parlaient pas des mêmes rendez-vous. TROIS causes racines, toutes dans le mapping de thèmes, désormais isolé et testé dans walabels.js. (1) RÉVISION CONFONDUE AVEC LA PUBLICATION : la regex NFP capturait « Annual Revision » — une CORRECTION de créations d'emplois déjà publiées — et lui donnait le rang du rapport mensuel (et le poids 5 de _waMajor, qui la remontait en tête de journée et gonflait le profil de risque de la semaine). Elle vaut 1, porte son propre libellé « Révision annuelle du NFP » et sa glose le dit en toutes lettres. (2) ÉTIQUETTE DE PAYS FAUSSE : tout ce que le calendrier classe EUR devenait « zone euro », alors que l'IPC flash de fin de mois est publié PAR PAYS (France, Espagne, Allemagne) et que l'agrégat de la zone sort un autre jour. Le pays d'origine voyageait pourtant jusqu'ici dans `ctry` sans être lu → « CPI français », « CPI espagnol », « CPI zone euro » seulement quand c'est vraiment l'agrégat. Le bandeau de news hebdo suit la même règle. (3) AUCUN LIEN STRUCTUREL entre le titre et la liste affichée : ils se calculaient à partir de deux expressions différentes. La liste affichée se calcule maintenant EN PREMIER et c'est ELLE, la même référence d'objets, qui est passée au titre et à la description ; walabels rejette tout thème dont l'événement source n'y est pas. Un rendez-vous de rang ≥ 8 (décision de taux, Jackson Hole, NFP, Powell) tient le titre SEUL au lieu d'être dilué par un second thème. DESCRIPTIONS RÉÉCRITES (demande user le même jour : « + parlant et plus simple à comprendre ») : trois phrases — le rendez-vous du jour avec son heure, sa GLOSE en français clair (« l'inflation que la Fed regarde en priorité », « les commandes de machines : le thermomètre de l'investissement ») et ses chiffres ; ce que ça change, calé sur CET événement et plus sur un thème pioché ailleurs dans la journée (une liste PCE/dépenses des ménages se concluait sur le PIB) ; puis le reste du programme, glosé lui aussi. Les intitulés restent en VO, règle produit — c'est la glose qui traduit. L'ordre est calculé : le mail du dimanche ne reprend que trois phrases, le « pourquoi » devait passer avant la liste. Toujours 100 % déterministe, aucune IA rebranchée. Le scénario du 28 août est rejoué à l'identique par `node scripts/weekahead-verif.js`. bump = régén boot.   // v23 (23/08, demande user « améliore les descriptions ») : phrase « pourquoi ça compte » SPÉCIFIQUE à la famille du jour (NFP/CPI/PIB/PMI/minutes…) — les cartes cessent de répéter la même clause ; toujours 100 % déterministe (pas d'IA rebranchée). bump = régén boot.   // v22 (10/08, demande user) : titres de JOUR en français thématique accordé (« Décision de la RBA », « CPI américain », « PIB britannique + PPI américain », « Ventes au détail américaines ») — 2 thèmes max joints par « + », repli ancien format si aucun thème reconnu. bump = régén boot.   // v21 (06/08, demande user) : le NFP (« Non Farm Payrolls », 1er vendredi du mois) remonte en TÊTE du jour — reconnaissance déterministe `_waMajor` en 2e critère de tri + poids « point d'orgue » (+4) dans le profil de risque. Il était évincé du titre par le `slice(0, 3)` sur un calendrier trié PAR HEURE (14h30 Paris = trop tard). bump = régén au boot.   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
+const WA_VER = 'v25-notre-calendrier';   // v25 (25/08, precision de l'utilisateur : « notre calendrier est base sur le calendrier ForexFactory et Semaine a Venir sur notre calendrier ») — LA SEMAINE A VENIR LIT ENFIN NOTRE CALENDRIER. C'etait l'architecture voulue et le code n'en tenait que la moitie : generateWeekAhead appelait _buildTVCalendar() et servait le flux BRUT du fournisseur, sans jamais passer par _calFfNames, la couche qui donne a chaque ligne son NOM FOREXFACTORY (apparie sur le flux FF a moins de 90 min et 2 mots-cles communs, sinon table de renommage), retire les niveaux d'indice doublonnes et les homonymes. Le desk et l'agenda affichaient donc deux vocabulaires pour les memes rendez-vous — d'ou « Non Farm Payrolls Annual Revision Prel » dans une carte, un intitule que ForexFactory n'emploie pas. Meme correction sur la rubrique « A surveiller » des recaps de seance. NORMALISER SANS RIEN PERDRE : le filtre de fenetre et le repechage des vitaux travaillent sur le titre D'ORIGINE (« Jackson Hole » n'existe que la, ForexFactory dit « Fed Chair Powell Speaks »), le rendu sur le nom ForexFactory, et walabels reconnait le theme en lisant LES DEUX. Sans cette double lecture le renommage aurait efface Jackson Hole et, bien pire, rendu la revision annuelle du NFP indistinguable du rapport mensuel puisque ForexFactory les nomme pareil : le bug du 28 aout, reintroduit par sa propre correction. TROIS DEFAUTS TROUVES EN REMONTANT LA CHAINE. (1) Le renommage de la decision de taux etait une regle UNIQUE rendant « Official Bank Rate » — le nom de la BoE — pour toutes les banques, Fed comprise ; le nom depend de la devise (_FF_TAUX). (2) Le desamorcage des homonymes ignorait le PAYS : deux pays de la zone euro publiant le meme intitule a la meme seconde se supprimaient l'un l'autre. (3) walabels ne connaissait que le vocabulaire du fournisseur : « Federal Funds Rate », « Non-Farm Employment Change », « Unemployment Claims », « Prelim GDP q/q » n'etaient reconnus par aucune regle — la normalisation les aurait tous fait retomber en titres bruts. 16 intitules ForexFactory reels sont desormais rejoues par le controle. Deux finitions : une revision porte la mention « (revision) » dans son libelle (le titre disait « PIB americain » pendant que sa glose expliquait qu'il s'agit d'une correction), et le pays n'est plus accole a un intitule qui le nomme deja (« French Prelim CPI m/m », pas « French Prelim CPI m/m (France) »). bump = regen boot.   // v24 (25/08, signalement du mentor relayé par l'utilisateur : « dans vendredi 28 août tu as mis CPI américain, il est pour le 4 septembre ») — LE TITRE D'UNE CARTE NE PEUT PLUS NOMMER UN RENDEZ-VOUS ABSENT DE LA JOURNÉE. La carte du 28/08 titrait « NFP américain + CPI zone euro » pour une journée qui portait Jackson Hole, une « Non Farm Payrolls Annual Revision Prel » et une confiance des ménages japonaise : titre et liste ne parlaient pas des mêmes rendez-vous. TROIS causes racines, toutes dans le mapping de thèmes, désormais isolé et testé dans walabels.js. (1) RÉVISION CONFONDUE AVEC LA PUBLICATION : la regex NFP capturait « Annual Revision » — une CORRECTION de créations d'emplois déjà publiées — et lui donnait le rang du rapport mensuel (et le poids 5 de _waMajor, qui la remontait en tête de journée et gonflait le profil de risque de la semaine). Elle vaut 1, porte son propre libellé « Révision annuelle du NFP » et sa glose le dit en toutes lettres. (2) ÉTIQUETTE DE PAYS FAUSSE : tout ce que le calendrier classe EUR devenait « zone euro », alors que l'IPC flash de fin de mois est publié PAR PAYS (France, Espagne, Allemagne) et que l'agrégat de la zone sort un autre jour. Le pays d'origine voyageait pourtant jusqu'ici dans `ctry` sans être lu → « CPI français », « CPI espagnol », « CPI zone euro » seulement quand c'est vraiment l'agrégat. Le bandeau de news hebdo suit la même règle. (3) AUCUN LIEN STRUCTUREL entre le titre et la liste affichée : ils se calculaient à partir de deux expressions différentes. La liste affichée se calcule maintenant EN PREMIER et c'est ELLE, la même référence d'objets, qui est passée au titre et à la description ; walabels rejette tout thème dont l'événement source n'y est pas. Un rendez-vous de rang ≥ 8 (décision de taux, Jackson Hole, NFP, Powell) tient le titre SEUL au lieu d'être dilué par un second thème. DESCRIPTIONS RÉÉCRITES (demande user le même jour : « + parlant et plus simple à comprendre ») : trois phrases — le rendez-vous du jour avec son heure, sa GLOSE en français clair (« l'inflation que la Fed regarde en priorité », « les commandes de machines : le thermomètre de l'investissement ») et ses chiffres ; ce que ça change, calé sur CET événement et plus sur un thème pioché ailleurs dans la journée (une liste PCE/dépenses des ménages se concluait sur le PIB) ; puis le reste du programme, glosé lui aussi. Les intitulés restent en VO, règle produit — c'est la glose qui traduit. L'ordre est calculé : le mail du dimanche ne reprend que trois phrases, le « pourquoi » devait passer avant la liste. Toujours 100 % déterministe, aucune IA rebranchée. Le scénario du 28 août est rejoué à l'identique par `node scripts/weekahead-verif.js`. bump = régén boot.   // v23 (23/08, demande user « améliore les descriptions ») : phrase « pourquoi ça compte » SPÉCIFIQUE à la famille du jour (NFP/CPI/PIB/PMI/minutes…) — les cartes cessent de répéter la même clause ; toujours 100 % déterministe (pas d'IA rebranchée). bump = régén boot.   // v22 (10/08, demande user) : titres de JOUR en français thématique accordé (« Décision de la RBA », « CPI américain », « PIB britannique + PPI américain », « Ventes au détail américaines ») — 2 thèmes max joints par « + », repli ancien format si aucun thème reconnu. bump = régén boot.   // v21 (06/08, demande user) : le NFP (« Non Farm Payrolls », 1er vendredi du mois) remonte en TÊTE du jour — reconnaissance déterministe `_waMajor` en 2e critère de tri + poids « point d'orgue » (+4) dans le profil de risque. Il était évincé du titre par le `slice(0, 3)` sur un calendrier trié PAR HEURE (14h30 Paris = trop tard). bump = régén au boot.   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
 let _weekAhead = null;
 try { _weekAhead = _noDashDeep(JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8'))); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = _noDashDeep(d); }).catch(() => {}); } catch {}
@@ -14902,22 +14917,36 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
     try { cal = await _buildTVCalendar(); } catch {}
   }
   if (!Array.isArray(cal) || !cal.length) cal = allCalendar || [];
-    /* REPÊCHAGE (voir _WA_VITAL_RX) : un rendez-vous majeur entre même classé Low. Et comme le
-       calendrier le SOUS-COTE, on relève son impact à High POUR CE RENDU — sinon Jackson Hole
-       s'afficherait « impact faible » et ne pèserait qu'un point dans le profil de risque.
-       Object.assign : on rend une COPIE, le calendrier partagé avec les autres vues n'est pas touché. */
-    const up = cal.filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd
-        && (e.impact === 'High' || e.impact === 'Medium' || _WA_VITAL_RX.test(e.title || '')))
-      .map(e => {
-        /* UN RENDEZ-VOUS REPÊCHÉ NE S'AFFICHE JAMAIS « FAIBLE ». Le calendrier le sous-cote par
-           construction : poids ≥ 4 (symposium, président de la Fed) → High, poids 3 (les autres
-           gouverneurs, minutes, OPEP, Trésor) → au moins Medium. Sans cela un discours de Lagarde
-           entrait dans la liste avec un badge d'impact faible, ce qui contredit son repêchage. */
-        const w = _WA_VITAL_RX.test(e.title || '') ? _waMajor(e) : 0;
-        if (e.impact === 'High' || !w) return e;
-        if (w >= 4) return Object.assign({}, e, { impact: 'High' });
-        return e.impact === 'Medium' ? e : Object.assign({}, e, { impact: 'Medium' });
-      });
+  /* REPÊCHAGE (voir _WA_VITAL_RX) : un rendez-vous majeur entre même classé Low. Et comme le
+     calendrier le SOUS-COTE, on relève son impact à High POUR CE RENDU — sinon Jackson Hole
+     s'afficherait « impact faible » et ne pèserait qu'un point dans le profil de risque.
+     Object.assign : on rend une COPIE, le calendrier partagé avec les autres vues n'est pas touché. */
+  const upBrut = cal.filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd
+      && (e.impact === 'High' || e.impact === 'Medium' || _WA_VITAL_RX.test(e.title || '')))
+    .map(e => {
+      /* UN RENDEZ-VOUS REPÊCHÉ NE S'AFFICHE JAMAIS « FAIBLE ». Le calendrier le sous-cote par
+         construction : poids ≥ 4 (symposium, président de la Fed) → High, poids 3 (les autres
+         gouverneurs, minutes, OPEP, Trésor) → au moins Medium. Sans cela un discours de Lagarde
+         entrait dans la liste avec un badge d'impact faible, ce qui contredit son repêchage. */
+      const w = _WA_VITAL_RX.test(e.title || '') ? _waMajor(e) : 0;
+      if (e.impact === 'High' || !w) return e;
+      if (w >= 4) return Object.assign({}, e, { impact: 'High' });
+      return e.impact === 'Medium' ? e : Object.assign({}, e, { impact: 'Medium' });
+    });
+  /* « NOTRE CALENDRIER » — LA MÊME LISTE QUE L'ONGLET CALENDRIER (25/08, précision de l'utilisateur :
+     « notre calendrier est basé sur le calendrier ForexFactory et Semaine à Venir sur notre
+     calendrier »). C'est l'architecture voulue, et le code n'en tenait que la moitié : la Semaine à
+     Venir servait le flux BRUT du fournisseur, sans jamais passer par _calFfNames — la couche qui
+     donne à chaque ligne son NOM FOREXFACTORY, retire les niveaux d'indice doublonnés et les
+     homonymes. D'où « Non Farm Payrolls Annual Revision Prel » dans une carte : un intitulé du
+     fournisseur, que ForexFactory n'emploie pas. Le desk et l'agenda affichaient deux vocabulaires
+     différents pour les mêmes rendez-vous.
+     On normalise APRÈS la fenêtre et APRÈS le repêchage : le filtre et le repêchage travaillent sur
+     le titre d'origine (« Jackson Hole » n'existe que là, ForexFactory dit « Fed Chair Powell
+     Speaks »), le rendu travaille sur le nom ForexFactory. walabels lit les DEUX pour reconnaître le
+     thème — sans quoi normaliser aurait fait disparaître Jackson Hole, et surtout aurait rendu la
+     révision annuelle du NFP indistinguable du rapport mensuel : le bug d'origine, réintroduit. */
+  const up = _calFfNames(upBrut);
   /* JOUR CIVIL À PARIS, plus jamais le jour UTC (correctif 25/08, contrôle du calendrier demandé par
      l'utilisateur). La clé de regroupement était `toISOString()`, donc l'heure de GREENWICH : en été
      Paris a deux heures d'avance, si bien que TOUTE publication asiatique de 00h00 à 02h00 heure de

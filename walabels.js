@@ -47,6 +47,14 @@ const ADJ_PAYS = {
   AT: ['autrichien', 'autrichienne', 'autrichiennes', 'autrichiens'],
   FI: ['finlandais', 'finlandaise', 'finlandaises', 'finlandais'],
 };
+/* ForexFactory préfixe déjà le pays dans ses intitulés européens (« German Prelim CPI m/m »,
+   « Spanish Flash CPI y/y ») : y accoler « (Allemagne) » ferait doublon. On ne complète que si
+   l'intitulé ne dit pas déjà de qui il parle. */
+const PAYS_DEJA_DIT = {
+  DE: /\bgerman/i, FR: /\bfrench/i, ES: /\bspanish/i, IT: /\bitalian/i, NL: /\bdutch|netherlands/i,
+  PT: /\bportuguese/i, GR: /\bgreek/i, IE: /\birish/i, BE: /\bbelgian/i, AT: /\baustrian/i,
+  FI: /\bfinnish/i, EU: /\beuro(?:pean|zone)?\b/i,
+};
 const CCY2PAYS = { USD: 'US', EUR: 'EU', GBP: 'GB', JPY: 'JP', AUD: 'AU', NZD: 'NZ', CAD: 'CA', CHF: 'CH', CNY: 'CN', CNH: 'CN' };
 /* Nom COURT du pays, pour les bandeaux où l'adjectif est trop long (« inflation France » plutôt que
    « CPI français »). Même principe que ADJ_PAYS : le pays d'origine prime sur la devise. */
@@ -84,7 +92,7 @@ const GLOSES = [
   [/meeting minutes|monetary policy meeting accounts/i, "le compte rendu du dernier comité : le détail du débat derrière la décision"],
   [/press conference|conf[ée]rence de presse/i, "la conférence de presse qui suit la décision : c'est le ton qui fait bouger le marché"],
   [/monetary policy (?:report|statement|summary)/i, "le rapport dans lequel la banque centrale expose sa feuille de route"],
-  [/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility/i, "la banque centrale annonce son taux directeur"],
+  [/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i, "la banque centrale annonce son taux directeur"],
   [/non[-\s]?farm|nonfarm|\bnfp\b/i, "les créations d'emplois du mois aux États-Unis, le chiffre le plus suivi du dollar"],
   [/core pce/i, "l'inflation que la Fed regarde en priorité"],
   [/\bpce\b/i, "la mesure d'inflation privilégiée par la Fed"],
@@ -96,7 +104,7 @@ const GLOSES = [
   [/\bppi\b|producer price/i, "les prix payés par les entreprises : l'inflation de demain"],
   [/\bgdp\b|gross domestic/i, "la richesse produite par le pays sur la période"],
   [/unemployment rate/i, "la part de la population active qui cherche un emploi"],
-  [/jobless claims|initial claims|continuing claims/i, "les nouvelles inscriptions au chômage de la semaine"],
+  [/jobless claims|initial claims|continuing claims|unemployment claims/i, "les nouvelles inscriptions au chômage de la semaine"],
   [/employment change|payrolls|\bjobs\b/i, "le nombre d'emplois créés ou détruits sur la période"],
   [/hourly earnings|average earnings|wage growth|labou?r cost/i, "la hausse des salaires, qui nourrit l'inflation de demain"],
   [/\bism\b/i, "l'enquête de référence auprès des entreprises américaines : au-dessus de 50, l'activité progresse"],
@@ -111,6 +119,36 @@ const GLOSES = [
   [/retail inventories|business inventories/i, "les stocks des entreprises, un signal avancé sur la production à venir"],
   [/\bspeech\b|\bspeaks\b|testimony|humphrey[-\s]?hawkins/i, "un discours de banquier central : c'est le ton employé qui compte"],
 ];
+/* LES DEUX NOMS D'UN MÊME ÉVÉNEMENT. Le calendrier du desk affiche le nom ForexFactory (c'est notre
+   référence), mais il conserve le nom d'origine du fournisseur dans `_tvTitle`. Les deux portent de
+   l'information : ForexFactory dit « Fed Chair Powell Speaks » là où l'autre dit « Fed Chair Powell
+   Speech at Jackson Hole » — sans lire les deux, on perd « Jackson Hole », que l'utilisateur a
+   explicitement demandé de voir. La RECONNAISSANCE lit donc les deux ; l'AFFICHAGE, lui, ne montre
+   que le nom ForexFactory. */
+function titresDe(e) {
+  const a = String((e && e.title) || '').trim();
+  const b = String((e && e._tvTitle) || '').trim();
+  return (b && b.toLowerCase() !== a.toLowerCase()) ? a + ' · ' + b : a;
+}
+/* Entre les deux noms, on garde la glose la PLUS SPÉCIFIQUE (GLOSES est ordonné du plus précis au
+   plus général) : « Fed Chair Powell Speaks » donne « un discours de banquier central », son nom
+   d'origine donne « le rendez-vous annuel des banquiers centraux » — c'est celle-là qui informe. */
+function gloseEv(e) {
+  const a = _gloseRang(e && e.title), b = _gloseRang(e && e._tvTitle);
+  if (a[0] && b[0]) return a[1] <= b[1] ? a[0] : b[0];
+  return a[0] || b[0] || '';
+}
+function _gloseRang(titre) {
+  const t = String(titre || '');
+  if (!t) return ['', 1e9];
+  if (REVISION_RX.test(t)) {
+    return [/non[-\s]?farm|nonfarm|\bnfp\b/i.test(t)
+      ? "une correction annuelle des créations d'emplois DÉJÀ publiées, pas le rapport mensuel"
+      : "une correction de chiffres déjà publiés", -1];
+  }
+  for (let i = 0; i < GLOSES.length; i++) if (GLOSES[i][0].test(t)) return [GLOSES[i][1], i];
+  return ['', 1e9];
+}
 function gloseFr(titre) {
   const t = String(titre || '');
   if (!t) return '';
@@ -150,18 +188,21 @@ function poidsMajeur(e) {
    la description. Un thème porte TOUJOURS `src`, l'événement du calendrier dont il est issu — c'est
    ce lien qui garantit qu'aucun titre ne peut nommer un rendez-vous absent de la carte. */
 function themeJour(e) {
-  const raw = String((e && e.title) || '');
+  const raw = titresDe(e);
   if (!raw) return null;
   const t = ' ' + raw.toLowerCase() + ' ';
   const c = String((e && e.currency) || '').toUpperCase();
   const rev = REVISION_RX.test(raw);
   const est2 = SECONDE_EST_RX.test(raw);
   const adj = g => adjectif(e, g);
-  const out = (lbl, rang) => ({ lbl, rang: rev ? 1 : (est2 ? Math.max(1.5, rang - 3) : rang), src: e });
+  /* Une révision garde le thème de l'indicateur (c'est bien du PIB), mais le libellé le DIT : sans
+     cette mention, la carte titrait « PIB américain » pendant que sa glose expliquait qu'il s'agit
+     d'une correction de chiffres déjà publiés — la contradiction que l'on vient de corriger. */
+  const out = (lbl, rang) => ({ lbl: rev ? lbl + ' (révision)' : lbl, rang: rev ? 1 : (est2 ? Math.max(1.5, rang - 3) : rang), src: e });
 
   if (/jackson hole/.test(t)) return out('Jackson Hole', 9.5);
   if (/symposium|sintra|central bank forum/.test(t)) return out('Symposium des banquiers centraux', 9.4);
-  if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility/.test(t)) {
+  if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/.test(t)) {
     const b = BANQUE[c]; return b ? out('Décision de la ' + b, 9) : null;
   }
   if (/meeting minutes|monetary policy meeting accounts/.test(t)) { const b = BANQUE[c]; return b ? out('Minutes de la ' + b, 6.5) : null; }
@@ -182,7 +223,7 @@ function themeJour(e) {
   if (/durable goods|factory orders/.test(t)) return out('Commandes de biens durables' + adj(2), 3.6);
   if (/personal spending|consumer spending/.test(t)) return out('Dépenses des ménages' + adj(3), 3.5);
   if (/industrial production|manufacturing production/.test(t)) return out('Production industrielle' + adj(1), 2.6);
-  if (/unemployment|jobless|employment change|labou?r market|\bjobs\b|hourly earnings|average earnings/.test(t)) return out('Emploi' + adj(0), 3);
+  if (/unemployment|jobless|employment change|labou?r market|\bjobs\b|hourly earnings|average earnings|unemployment claims/.test(t)) return out('Emploi' + adj(0), 3);
   if (/trade balance|balance of trade/.test(t)) return out('Balance commerciale' + adj(1), 2);
   if (/\bpmi\b|purchasing managers|\bism\b/.test(t)) return out('PMI' + adj(0), 2);
   if (/business climate|\bifo\b|business confidence|\bzew\b|tankan/.test(t)) return out('Moral des entreprises' + adj(2), 2);
@@ -225,21 +266,19 @@ function heureParis(e) {
    affichait deux lignes rigoureusement identiques. L'agrégat de la zone (EU) reste sans mention. */
 function nomEv(e) {
   const base = ((((e && e.currency) ? e.currency + ' ' : '') + String((e && e.title) || '').replace(/\s*\([^)]*\)\s*/g, ' ')).replace(/\s+/g, ' ').trim());
+  return _avecPays(base, e);
+}
+function _avecPays(texte, e) {
   const pays = paysDe(e);
-  if (base && pays && pays !== 'EU' && String((e && e.currency) || '').toUpperCase() === 'EUR') {
-    const court = PAYS_COURT[pays];
-    if (court) return `${base} (${court})`;
-  }
-  return base;
+  if (!texte || !pays || pays === 'EU') return texte;
+  if (String((e && e.currency) || '').toUpperCase() !== 'EUR') return texte;
+  const deja = PAYS_DEJA_DIT[pays];
+  if (deja && deja.test(String((e && e.title) || ''))) return texte;   // « German Prelim CPI » se suffit
+  const court = PAYS_COURT[pays];
+  return court ? `${texte} (${court})` : texte;
 }
 function intituleAffiche(e) {
-  const t = String((e && e.title) || '').replace(/\s+/g, ' ').trim();
-  const pays = paysDe(e);
-  if (t && pays && pays !== 'EU' && String((e && e.currency) || '').toUpperCase() === 'EUR') {
-    const court = PAYS_COURT[pays];
-    if (court) return `${t} (${court})`;
-  }
-  return t;
+  return _avecPays(String((e && e.title) || '').replace(/\s+/g, ' ').trim(), e);
 }
 function chiffresEv(e) {
   if (!e) return '';
@@ -303,7 +342,7 @@ function descriptionJour(events, dowFr, opts) {
   const dev = (opts && opts.devise) || (lead && lead.currency) || devs[0] || 'le marché';
   const phrases = [];
 
-  const h = heureParis(lead), g = gloseFr(lead.title);
+  const h = heureParis(lead), g = gloseEv(lead);
   phrases.push(`${_cap(dow) || 'Au programme'}${h ? `, ${h}` : ''} : ${nomEv(lead)}${g ? `, ${g}` : ''}${chiffresEv(lead)}.`);
 
   const enj = enjeuFr(ths[0], dev);
@@ -312,7 +351,7 @@ function descriptionJour(events, dowFr, opts) {
   const autres = evs.filter(e => e !== lead).slice(0, 3);
   if (autres.length) {
     phrases.push(`Également au programme : ` + autres.map(e => {
-      const gg = gloseFr(e.title);
+      const gg = gloseEv(e);
       return `${nomEv(e)}${gg ? `, ${gg}` : ''}`;
     }).join(' ; ') + '.');
   } else if (!enj) {
@@ -329,7 +368,7 @@ function jourParis(ts) {
 }
 
 module.exports = {
-  ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
+  GLOSES, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
   paysDe, paysCourt, adjectif, gloseFr, MAJEURS, poidsMajeur, themeJour, themesDuJour,
-  heureParis, nomEv, intituleAffiche, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
+  titresDe, gloseEv, heureParis, nomEv, intituleAffiche, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
 };
