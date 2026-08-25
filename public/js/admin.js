@@ -1083,11 +1083,19 @@
       h += '<span class="fb-txt">Coche <b>exactement 2</b> comptes de la même personne pour les fusionner.</span>'
          + '<button class="btn" onclick="fusionVider()">Tout décocher</button>';
     } else if (!_fusionDir) {
+      /* LE CHOIX DOIT SE LIRE SANS DEVINER (28/08, retour user « j'ai pas compris lequel garder ») :
+         le bouton portait le NOM quand il existait — donc « Garder Mathis » face a « Garder
+         m648fb4tgk@... », deux libelles de nature differente entre lesquels on ne pouvait pas
+         choisir. L'ADRESSE est l'identite unique du compte : c'est elle qui est affichee, toujours,
+         le nom venant seulement en complement. Et on dit ce qui arrive a l'autre. */
       const [a, b] = infos;
-      h += '<span class="fb-txt">Quel compte <b>garder</b> ?</span>'
-         + '<button class="btn" onclick="fusionSens(\'' + encodeURIComponent(b.email) + '\',\'' + encodeURIComponent(a.email) + '\')">Garder ' + _escH(a.nom || a.email) + '</button>'
-         + '<button class="btn" onclick="fusionSens(\'' + encodeURIComponent(a.email) + '\',\'' + encodeURIComponent(b.email) + '\')">Garder ' + _escH(b.nom || b.email) + '</button>'
-         + '<button class="btn" onclick="fusionVider()">Annuler</button>';
+      const lbl = c => 'Garder ' + _escH(c.email) + (c.nom ? ' <span style="opacity:.6">(' + _escH(c.nom) + ')</span>' : ' <span style="opacity:.6">(sans nom)</span>');
+      h += '<span class="fb-txt">Sur quel compte <b>tout regrouper</b> ?</span>'
+         + '<button class="btn" onclick="fusionSens(\'' + encodeURIComponent(b.email) + '\',\'' + encodeURIComponent(a.email) + '\')">' + lbl(a) + '</button>'
+         + '<button class="btn" onclick="fusionSens(\'' + encodeURIComponent(a.email) + '\',\'' + encodeURIComponent(b.email) + '\')">' + lbl(b) + '</button>'
+         + '<button class="btn" onclick="fusionVider()">Annuler</button>'
+         + '<div class="fusion-apercu"><div class="fa-l"><span>Le compte choisi</span><span>garde l\'accès, reçoit l\'échéance la plus lointaine et les identifiants</span></div>'
+         + '<div class="fa-l"><span>L\'autre compte</span><span>est suspendu, et son adresse reste rattachée au compte gardé</span></div></div>';
     } else {
       h += '<span class="fb-txt">' + _escH(msg || '') + '</span>'
          + '<button class="btn btn-primary" onclick="fusionConfirmer()">Confirmer la fusion</button>'

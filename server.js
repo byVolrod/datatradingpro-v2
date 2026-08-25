@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260828-temoignage-varie', ts: Date.UTC(2026, 7, 28, 12, 0), title: 'Temoignage mensuel : cinq presentations differentes, et tous vos avis mis a contribution', desc: 'Le courriel mensuel de temoignage partait chaque mois avec le MEME objet, la MEME accroche et le MEME avis — celui le mieux note, choisi en premier a chaque fois. Autrement dit, douze fois par an rigoureusement le meme message. Deux changements : il existe desormais CINQ presentations distinctes, avec chacune son objet, son accroche et son bouton, servies a tour de role — jamais deux fois la meme de suite. Et les avis tournent eux aussi : on cite en priorite ceux qui ne l ont jamais ete, avant de revenir aux plus anciens. Le titre de l avis, quand il y en a un, est desormais affiche. Le rendez-vous passe du premier lundi au PREMIER MARDI du mois, comme les autres contenus. La parole des membres, elle, n est jamais reecrite : seule sa presentation change.' },
   { id: 'dtpu-20260828-fusion-selection', ts: Date.UTC(2026, 7, 28, 9, 0), title: 'Reunir deux comptes se fait en les cochant dans la liste', desc: 'La reunion de deux fiches d une meme personne se pilote desormais depuis la liste des comptes elle-meme : on coche les deux lignes, on choisit laquelle garder, et un apercu complet s affiche AVANT toute ecriture — operation, echeance retenue, sort du compte absorbe. Rien n est modifie tant que la fusion n est pas confirmee. A la confirmation, l acces deja paye est integralement conserve (c est toujours l echeance la plus lointaine qui est gardee), le compte absorbe est suspendu et non supprime, et le resultat des envois de courriel s affiche ligne par ligne, succes comme echec.' },
   { id: 'dtpu-20260827-nom-du-compte', ts: Date.UTC(2026, 7, 27, 22, 0), title: 'Votre compte porte enfin votre nom', desc: 'Les comptes ouverts automatiquement apres un paiement naissaient SANS NOM. La plateforme de paiement nous transmettait bien votre nom, nous ne le lisions simplement jamais — au point qu un client etait introuvable dans nos outils en cherchant son nom, alors que son compte existait bel et bien. C est corrige : votre nom est repris a l ouverture du compte, et votre pseudo sert de repli si aucun nom n est disponible. Les comptes deja ouverts sans nom recuperent le leur automatiquement au premier renouvellement — mais uniquement s il est vide : un nom corrige a la main n est jamais ecrase.' },
   { id: 'dtpu-20260827-fusion-panneau', ts: Date.UTC(2026, 7, 27, 20, 0), title: 'Reunir deux comptes d une meme personne, depuis le panneau', desc: 'Une meme personne pouvait se retrouver avec deux fiches — le plus souvent une adresse anonyme creee par un paiement Apple Pay et sa vraie adresse. Les reunir demandait une intervention technique ; c est desormais un bouton dans le panneau Campagne, avec une SIMULATION obligatoire avant toute ecriture : vous voyez exactement ce qui va se passer avant de confirmer. A l execution, l acces deja paye est integralement conserve — c est toujours l echeance la plus lointaine qui est gardee — le compte absorbe est suspendu et non supprime, un mot de passe neuf est genere, et le courriel d acces part sur LES DEUX adresses pour qu au moins un des deux arrive. L ancienne adresse reste rattachee au compte : un renouvellement paye dessus prolonge le bon acces au lieu d en creer un troisieme.' },
@@ -22101,7 +22102,7 @@ const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 
 const DRIP_MINDSET = { id: 'mindset',      label: 'Mindset',               tpl: 'mindset',     wd: 4, hour: 8 };
 const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl: 'recap',       wd: 6, hour: 10 };
 const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook',     wd: 0, hour: 10 };
-const DRIP_TEMOIGN = { id: 'temoignage',   label: 'Témoignage membre',     tpl: 'temoignage',  wd: 4, hour: 18 };
+const DRIP_TEMOIGN = { id: 'temoignage',   label: 'Témoignage membre',     tpl: 'temoignage',  wd: 2, hour: 18 };   // 1er MARDI du mois (18h-21h)
 const DRIP_INVIT   = { id: 'invitation',   label: 'Invitation',            tpl: 'invitation',  wd: 0, hour: 17 };
 // Conservé pour l'affichage admin (une entrée par jour « historique ») — la logique d'envoi n'en dépend plus.
 const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 6: DRIP_RECAP };
@@ -22226,11 +22227,31 @@ async function _dripSeed(email) {
 function _dripNormalize(st) { if (st && st.introduced === undefined) return { introduced: (st.step || 0) >= 1, loopWeek: st.recurWeek || null, lastAt: st.lastAt || 0, enrolledAt: st.enrolledAt || Date.now() }; return st; }
 // Charge l'avis Whop du TÉMOIGNAGE + son angle IA (mêmes règles que l'aperçu admin) : meilleur avis
 // récent exploitable, angle mis en cache 30 j par avis → un seul appel IA pour toute la campagne.
+/* ROTATION DES AVIS ET DES GABARITS (28/08, demande user : « recupere tous les avis et fais des
+   templates differents pour pas que ca se ressemble »). AVANT : `reviews[0]`, donc TOUJOURS le
+   meme avis — le mieux note — mois apres mois, dans un gabarit unique. Deux memoires courtes en
+   KV corrigent ca : les avis deja cites et les gabarits deja servis. On sert d'abord ce qui n'a
+   jamais servi, puis on recycle le plus ancien. Meme logique que Mindset, et meme garantie : on
+   ne cite jamais deux fois de suite le meme membre sous la meme accroche. */
+const _TEM_VUS_K = 'temoignage:avis-vus', _TEM_VAR_K = 'temoignage:gabarits-vus', _TEM_TTL = 366 * 86400000;
+async function _temListe(cle) { try { const v = await auth.aiCacheGet(cle, _TEM_TTL); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+async function _temMarquer(cle, val, garde) {
+  if (!val) return;
+  try { const l = (await _temListe(cle)).filter(x => x !== val); l.push(val); await auth.aiCacheSet(cle, l.slice(-garde)); } catch (e) {}
+}
 async function _temoignagePayload() {
   try {
     const reviews = await whop.listReviews();
-    const review = (reviews || [])[0];
+    if (!reviews || !reviews.length) return null;
+    // Avis jamais cite d'abord (les avis restent tries meilleurs en tete par whop.listReviews) ;
+    // si tous l'ont deja ete, on repart du plus anciennement cite.
+    const vus = await _temListe(_TEM_VUS_K);
+    const neufs = reviews.filter(v => !vus.includes(v.id));
+    const review = neufs.length ? neufs[0] : (reviews.find(v => v.id === vus[0]) || reviews[0]);
     if (!review) return null;
+    // Gabarit : on ecarte ceux deja servis (garde = nombre de variantes - 1 pour toujours en laisser un neuf)
+    const varVus = await _temListe(_TEM_VAR_K);
+    const varianteKey = (mailer.pickTemoignVariante ? mailer.pickTemoignVariante(varVus) : null);
     let angle = '';
     const ck = 'temoignage:angle:v2:' + review.id;
     try { angle = (await auth.aiCacheGet(ck, 30 * 86400000)) || ''; } catch (e) {}
@@ -22242,7 +22263,7 @@ async function _temoignagePayload() {
         if (angle && angle.length > 40) { try { await auth.aiCacheSet(ck, angle); } catch (e) {} }
       } catch (e) { angle = ''; }                          // IA indisponible → repli neutre du gabarit
     }
-    return { review, angle };
+    return { review, angle, varianteKey: (varianteKey && varianteKey.key) || undefined };
   } catch (e) { return null; }
 }
 // Envoi d'un contenu (data-driven, adapte membre/non-membre). Renvoie true si parti.
@@ -22298,8 +22319,17 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
       if (isMember) return true;                          // membre : rien à envoyer, mais la semaine est « faite » pour lui
       const t = await _temoignagePayload();
       if (!t) return false;                               // aucun avis exploitable → on repassera au prochain tick
-      const p = await mailer.sendTemoignage({ to: email, name: r.name || '', review: t.review, angle: t.angle });
-      if (p) { rec(); return true; }
+      const p = await mailer.sendTemoignage({ to: email, name: r.name || '', review: t.review, angle: t.angle, varianteKey: t.varianteKey });
+      if (p) {
+        rec();
+        /* On memorise APRES un envoi reussi, et jamais en mode test : sinon un simple apercu
+           consommerait un avis et un gabarit pour la vraie campagne. */
+        if (!isTest) {
+          try { await _temMarquer(_TEM_VUS_K, t.review && t.review.id, 24); } catch (e) {}
+          try { await _temMarquer(_TEM_VAR_K, (p && p.varianteKey) || t.varianteKey, Math.max(1, (mailer.TEMOIGN_VARIANTES || []).length - 1)); } catch (e) {}
+        }
+        return true;
+      }
       return false;
     }
     // INVITATION (28/07) : entre dans la rotation (fini le calendrier mensuel séparé). Non-abonnés only.
@@ -22343,14 +22373,15 @@ async function _dripTick() {
     //    n'a aucun contenu naturel), fenêtre 18h→21h. Exception ASSUMÉE au verrou « 1 mail/semaine »
     //    (c'est le « en + » demandé) — on GARDE : jamais 2 mails le même jour calendaire à un contact,
     //    dédup 1×/mois par contact, intro d'abord, mode TEST respecté. Retiré de la rotation hebdo.
-    // Le 1er lundi reste le rythme automatique ; une DATE PROGRAMMÉE depuis le panel ouvre la fenêtre
+    // Le 1er MARDI est le rythme automatique ; une DATE PROGRAMMÉE depuis le panel ouvre la fenêtre
     // ce jour-là quel que soit le jour de la semaine (demande user : « programme un témoignage la
     // semaine prochaine »). La dédup mensuelle par contact reste en vigueur dans les deux cas : une
     // date programmée n'a jamais pu envoyer deux témoignages au même contact dans le mois.
     const _plan = await _campPlanGet().catch(() => ({ temoignage: '' }));
     const _pDateNow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const _temProg = !!(_plan && _plan.temoignage && _plan.temoignage === _pDateNow);
-    if ((wd === 1 || _temProg) && pp.hour >= (_STEP_MINHOUR.temoignage || 18) && pp.hour < (_STEP_MAXHOUR.temoignage || 21)) {
+    // 1er MARDI du mois (28/08, demande user ; c'etait le 1er lundi) — `wd` : 0 = dimanche, 2 = mardi.
+    if ((wd === 2 || _temProg) && pp.hour >= (_STEP_MINHOUR.temoignage || 18) && pp.hour < (_STEP_MAXHOUR.temoignage || 21)) {
       try {
         const _pDate = _pDateNow;
         if (_temProg || parseInt(_pDate.slice(8, 10), 10) <= 7) {

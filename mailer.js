@@ -640,29 +640,81 @@ async function sendWinback(d) { const m = buildWinback(d); return _send(d.to, m.
 //    Raconte JustOneTrader + le développement du terminal, appuyé par un VRAI avis Whop.
 //    `angle` (optionnel, IA) : 2-3 phrases adaptées AU commentaire pour que le récit colle à ce
 //    que le membre a réellement dit ; sinon repli neutre.
-function buildTemoignage({ name, review, angle } = {}) {
+/* ══ TÉMOIGNAGE : CINQ GABARITS, PAS UN SEUL (28/08, demande user) ═══════════════════════════════
+   AVANT : un gabarit unique, le MÊME objet et la MÊME accroche chaque mois — et côté serveur
+   `reviews[0]`, donc le MÊME avis à chaque envoi. Un abonné non-membre recevait douze fois par an
+   rigoureusement le même e-mail. Le seul élément variable était l'angle IA, invisible sous une
+   accroche identique.
+   MÊME PATRON QUE MINDSET (`MINDSET_CONCEPTS` / `pickMindsetConcept`) : une liste de variantes
+   portant chacune sa clé, et un choix qui ÉCARTE d'abord celles déjà servies. Chaque variante
+   change ce qui se voit : l'objet, l'accroche, la façon d'amener la citation et la phrase de
+   clôture. La citation, elle, reste la parole du membre — on ne la réécrit jamais. */
+const TEMOIGN_VARIANTES = [
+  { key: 'retient',
+    subject: "Ce qu'un membre retient de DataTradingPro",
+    titre: "Ce qu'un membre retient de DataTradingPro",
+    intro: "Derrière DataTradingPro, il y a <strong style=\"color:#fff;\">JustOneTrader</strong> : un trader qui construisait son propre outil de suivi macro, et qui a fini par en faire un terminal complet. News en temps réel, calendrier, biais des devises, recherche des grandes banques. Le desk évolue chaque semaine, guidé par ce que les membres en font vraiment.",
+    avant: "", cta: 'Découvrir le terminal',
+    defaut: "C'est exactement pour ça que le terminal existe : réunir sur un seul écran ce qu'un trader macro passait sa journée à chercher sur dix sources." },
+  { key: 'dix-sources',
+    subject: "Dix onglets ouverts, ou un seul écran",
+    titre: "Dix onglets, ou un seul écran",
+    intro: "Un trader macro passe l'essentiel de sa préparation à rassembler : le calendrier ici, les news là, les notes de banques ailleurs, et le biais de chaque devise reconstitué de tête. DataTradingPro réunit tout ça au même endroit, mis à jour en continu.",
+    avant: "Un membre le résume mieux que nous :", cta: 'Voir le desk en entier',
+    defaut: "Le temps gagné sur la collecte, c'est du temps rendu à la décision." },
+  { key: 'pourquoi-restent',
+    subject: "Pourquoi les membres restent",
+    titre: "Pourquoi les membres restent",
+    intro: "On peut décrire un produit longtemps. Ce qui compte vraiment, c'est ce qu'en disent celles et ceux qui l'ouvrent tous les matins avant la séance.",
+    avant: "Cet avis, vérifié par Whop, est arrivé tel quel :", cta: 'Essayer le terminal',
+    defaut: "Ce qui revient le plus souvent : ne plus avoir à chercher l'information avant de pouvoir l'utiliser." },
+  { key: 'note-cinq',
+    subject: "Cinq étoiles, et la raison derrière",
+    titre: "La note, et la raison derrière",
+    intro: "Une note seule ne dit pas grand-chose. Ce qui l'accompagne, en revanche, dit précisément à quoi sert le desk au quotidien.",
+    avant: "", cta: 'Rejoindre le desk',
+    defaut: "Une note se donne en une seconde ; ce qui la motive se lit en une phrase." },
+  { key: 'objection',
+    subject: "« Encore un outil de plus ? »",
+    titre: "« Encore un outil de plus ? »",
+    intro: "C'est la question la plus légitime qu'on nous pose, et on la comprend : personne n'a besoin d'un abonnement supplémentaire. La vraie question n'est pas d'ajouter un outil, c'est d'en retirer neuf.",
+    avant: "Un membre y a répondu à sa façon :", cta: 'Voir ce que ça remplace',
+    defaut: "Le desk ne s'ajoute pas à votre routine : il en remplace la partie la plus fastidieuse." },
+];
+/* Choix de la variante : d'abord celles JAMAIS servies, puis on recycle la plus ancienne. Copie
+   fidèle de la logique de `pickMindsetConcept` — même comportement, mêmes surprises en moins. */
+function pickTemoignVariante(recentKeys) {
+  recentKeys = Array.isArray(recentKeys) ? recentKeys : [];
+  const fresh = TEMOIGN_VARIANTES.filter(v => !recentKeys.includes(v.key));
+  const pool = fresh.length ? fresh : TEMOIGN_VARIANTES;
+  return pool[0] || TEMOIGN_VARIANTES[0];
+}
+function buildTemoignage({ name, review, angle, varianteKey, recentKeys } = {}) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const r = review || {};
+  const V = (varianteKey && TEMOIGN_VARIANTES.find(v => v.key === varianteKey)) || pickTemoignVariante(recentKeys);
   const stars = Math.max(1, Math.min(5, Number(r.stars) || 5));
   const quote = _esc(String(r.description || '').trim()).replace(/\n+/g, '<br>');
   const etoiles = '★'.repeat(stars) + '☆'.repeat(5 - stars);
-  const lien = angle && String(angle).trim()
-    ? _esc(String(angle).trim())
-    : 'C\'est exactement pour ça que le terminal existe : réunir sur un seul écran ce qu\'un trader macro passait sa journée à chercher sur dix sources.';
+  const lien = angle && String(angle).trim() ? _esc(String(angle).trim()) : V.defaut;
+  // Le titre de l'avis, quand il existe, donne un 2e élément variable propre à CET avis.
+  const titreAvis = _esc(String(r.title || '').trim());
   const body = `
-    ${_H1}Ce qu'un membre retient de DataTradingPro</p>
+    ${_H1}${_esc(V.titre)}</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Derrière DataTradingPro, il y a <strong style="color:#fff;">JustOneTrader</strong> : un trader qui construisait son propre outil de suivi macro, et qui a fini par en faire un terminal complet, news en temps réel, calendrier, biais des devises, recherche des grandes banques. Le desk évolue chaque semaine, guidé par ce que les membres en font vraiment.</p>
+    <p style="margin:0 0 14px;">${V.intro}</p>
+    ${V.avant ? `<p style="margin:0 0 14px;">${_esc(V.avant)}</p>` : ''}
     ${_encart(`<div style="color:${TOK.or};font-size:14px;letter-spacing:2px;margin-bottom:8px;">${etoiles}</div>
+        ${titreAvis ? `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:6px;">${titreAvis}</div>` : ''}
         <div style="color:#e2e8f0;font-size:15px;line-height:1.65;font-style:italic;">« ${quote} »</div>
-        <div style="color:${TOK.grisDoux};font-size:12.5px;margin-top:10px;"> : membre DataTradingPro, avis vérifié Whop</div>`, true)}
+        <div style="color:${TOK.grisDoux};font-size:12.5px;margin-top:10px;">Membre DataTradingPro · avis vérifié Whop</div>`, true)}
     <p style="margin:0 0 14px;">${lien}</p>
-    ${_button('Découvrir le terminal', WHOP_RENEW_URL)}
+    ${_button(V.cta, WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
     <p style="margin:0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'Ce qu\'un membre retient de DataTradingPro', html: _layout('Témoignage', body) };
+  return { subject: V.subject, html: _layout('Témoignage', body), varianteKey: V.key };
 }
-async function sendTemoignage(d) { d = d || {}; const m = buildTemoignage(d); if (!m) return false; return _send(d.to, m.subject, m.html); }
+async function sendTemoignage(d) { d = d || {}; const m = buildTemoignage(d); if (!m) return false; const ok = await _send(d.to, m.subject, m.html); return ok ? { ok: true, varianteKey: m.varianteKey } : false; }
 
 // ── « Mot de passe oublié » demandé par un compte SANS abonnement actif (suspendu/expiré) ─────
 //    SÉCURITÉ : on NE réinitialise PAS le mot de passe (réservé aux comptes actifs). On explique
@@ -4034,7 +4086,7 @@ module.exports = {
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildExpired, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildAutoRenewOff, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
-  buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage,
+  buildExpiredFollowup, sendExpiredFollowup, buildWinback, sendWinback, buildTemoignage, sendTemoignage, TEMOIGN_VARIANTES, pickTemoignVariante,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   listMindsetConcepts,
   buildAnnonceWidgets, sendAnnonceWidgets,
