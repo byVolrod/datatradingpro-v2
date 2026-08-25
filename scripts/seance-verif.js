@@ -160,7 +160,7 @@ const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 's
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
 v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v19:'/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v20:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -609,12 +609,44 @@ v('et aucune rubrique n\'est inventée', !/<strong>À surveiller<\/strong>/.test
 const _SRVA = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
 v('la rubrique n\'est posée que sur un récap DU JOUR', /_jourParis\(ts\) !== _jourParis\(t\)\) return \{ nom: '', lignes: \[\] \};/.test(_SRVA));
 v('elle réutilise la fabrique des récaps déterministes', /return _aSurveillerSeanceSuivante\(type\);/.test(_SRVA));
-v('le serveur la passe au rendu', /_WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\)\)/.test(_SRVA));
-v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v19:'/.test(_SRVA));
+v('le serveur la passe au rendu', /_WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
+v('la version de segmentation a été bumpée (À surveiller)', /const SW_SEG_VER  = 'v2[0-9]:'/.test(_SRVA));
+
+console.log('\n── 7e-septies. LA SYNTHÈSE OUVRE LE RAPPORT ──');
+/* « fais une synthèse de la session comme on a dans le récap quotidien » (26/08, capture : le
+   rapport s'ouvrait sur les puces narratives du modèle, sans qu'une seule ligne dise ce que la
+   séance avait FAIT). Deux lignes, les mêmes que les récaps déterministes, entièrement calculées. */
+const SYN = ['Séance Londres : 6 publications sur la séance, dont 3 hors consensus · plus fort mouvement : DAX −1,13 %.',
+  '**Photo de séance** — DAX −1,13 % · Brent +0,87 % · EUR/USD +0,42 %'];
+const AV = [{ section: 'LEAD', items: ['Les rumeurs d\'un accord Iran-US ont pesé sur l\'**USD**.'] },
+  { section: 'Macro', items: ['**CPI** allemand : 0,4% (vs 0,1% attendu) → surprise haussière.'] }];
+const hy = W.html(AV, [], null, SYN).html;
+v('la rubrique « Synthèse » existe', /<strong>Synthèse<\/strong>/.test(hy), hy.slice(0, 120));
+v('elle est la PREMIÈRE du rapport', hy.indexOf('<strong>Synthèse') === 0, hy.slice(0, 80));
+v('… donc avant le LEAD', hy.indexOf('<strong>Synthèse') < hy.indexOf('<strong>LEAD'));
+v('elle porte la mesure de la séance', /6 publications sur la séance, dont 3 hors consensus/.test(hy));
+v('et la photo des marchés', /\*\*Photo de séance\*\*/.test(hy));
+v('le LEAD est conservé tel quel', /<strong>LEAD<\/strong><ul><li>Les rumeurs/.test(hy));
+v('la Macro reste à sa place', hy.indexOf('<strong>Macro') > hy.indexOf('<strong>LEAD'));
+// Sans mesure, le rapport est EXACTEMENT celui d'avant : pas de rubrique vide, pas de ligne inventée.
+const sansSyn = W.html(AV, [], null, []).html;
+v('sans mesure, aucune rubrique n\'est ajoutée', !/<strong>Synthèse<\/strong>/.test(sansSyn));
+v('et le rapport est inchangé', sansSyn.indexOf('<strong>LEAD') === 0, sansSyn.slice(0, 60));
+// Si le modèle a déjà produit une « Synthèse », nos lignes s'y ajoutent EN TÊTE, sans doublon de rubrique.
+const dejaSyn = W.html([{ section: 'Synthèse', items: ['Le récit du modèle.'] }, AV[0]], [], null, SYN).html;
+v('une « Synthèse » existante n\'est pas dupliquée', (dejaSyn.match(/<strong>Synthèse<\/strong>/g) || []).length === 1);
+v('nos lignes mesurées y passent en premier', dejaSyn.indexOf('6 publications') < dejaSyn.indexOf('Le récit du modèle'));
+// Côté serveur : calculée, jamais demandée au modèle, et seulement sur un récap DU JOUR.
+v('le serveur la calcule depuis le desk', /const out = \[_SEA\.synthese\(b\.nom, perfs, macros\)\];/.test(_SRVA));
+v('la photo de séance vient de la même fabrique', /const lp = _SEA\.lignePerf\(perfs\);/.test(_SRVA));
+v('rien n\'est produit sans mesure', /if \(!perfs\.length && !macros\.length\) return \[\];/.test(_SRVA));
+v('… ni sur un récap d\'un autre jour', /_jourParis\(ts\) !== _jourParis\(t\)\) return \[\];/.test(_SRVA));
+v('elle est passée au rendu', /_aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
+v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v20:'/.test(_SRVA));
 
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-v('le serveur rend via le module pur', /const r = _WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\)\);/.test(srv3));
+v('le serveur rend via le module pur', /const r = _WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\);/.test(srv3));
 v('le récap est passé au segmenteur (préchauffage)', /_segmentWrapAI\(points, \{ noClaude: true \}, item\)/.test(srv3));
 v('… à la re-segmentation du jour', /_segmentWrapAI\(points, \{\}, w\)/.test(srv3));
 v('… et à l\'ouverture du rapport', /_segmentWrapAI\(points, \{\}, cached\)/.test(srv3));

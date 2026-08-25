@@ -107,6 +107,19 @@ function completerSurveiller(items, surv) {
   return tete.concat(lignes.map(String), (items || []).map(String));
 }
 
+/* LA SYNTHÈSE OUVRE LE RAPPORT (26/08 : « fais une synthèse de la session comme on a dans le récap
+   quotidien »). Elle se pose EN PREMIER, avant même le LEAD : le lecteur reçoit d'abord ce que la
+   séance a fait — mesuré — puis le récit. C'est l'ordre du Récap Quotidien, et celui des récaps
+   déterministes du desk. Elle porte son intitulé, comme là-bas ; le LEAD, lui, reste sans titre. */
+function poserSynthese(arr, synth) {
+  const out = (arr || []).slice();
+  if (!(synth || []).length) return out;
+  const i = out.findIndex(x => x && /^synth[èe]se$/i.test(String(x.section || '').trim()));
+  if (i >= 0) { out[i] = { section: out[i].section, items: synth.concat(out[i].items || []) }; return out; }
+  out.unshift({ section: 'Synthèse', items: synth.slice() });
+  return out;
+}
+
 /* MACRO RANGÉE PAR FAMILLE, COMME LE RÉCAP QUOTIDIEN (26/08, retour utilisateur, capture à l'appui :
    « dans macro je vois pas les news sorties dans leur catégorie comme quotidien »). Le classement est
    DÉTERMINISTE et fait avec la MÊME table que le Quotidien (_SEA.famille) : on ne demande pas à l'IA
@@ -119,8 +132,8 @@ function completerSurveiller(items, surv) {
    quatre rubriques du Radar sans titre — repris du Quotidien, où ces lignes voisinent toujours avec
    des groupes intitulés — laissait une puce nue quand elles étaient les SEULES de la rubrique.
    Toute famille présente porte donc son intitulé, même seule, y compris Commerce et Autres. */
-function html(arr, macroCal, surv) {
-  const sections = poserSurveiller(poserMacro(arr, macroCal), surv);
+function html(arr, macroCal, surv, synth) {
+  const sections = poserSynthese(poserSurveiller(poserMacro(arr, macroCal), surv), synth);
   let out = '', ajouts = 0;
   for (const sec of sections) {
     if (!sec || !sec.section || !Array.isArray(sec.items)) continue;
@@ -147,4 +160,4 @@ function html(arr, macroCal, surv) {
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, sansSource, heureParis, esc };
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, poserSynthese, sansSource, heureParis, esc };
