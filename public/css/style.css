@@ -6009,18 +6009,11 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
   padding-bottom: 16px;
   border-bottom: 1px solid var(--bg2);
 }
-.arlib-rsection {
-  font-size: 12px;
-  font-weight: var(--fw-bold);
-  color: #e3b23a;                 /* rubrique / sous-titre en orange (titres orange) */
-  font-family: var(--font-ui);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  margin-top: 24px;
-  margin-bottom: 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
-}
+/* Titre de rubrique d'un rapport de séance : la RÈGLE est plus bas, PARTAGÉE MOT POUR MOT avec
+   `.fxdr-section` du Récap Quotidien (26/08, demande utilisateur : « idem pour les titres des
+   parties, genre pareil » / « pour que les rapports se ressemblent »). Deux blocs séparés auraient
+   dérivé au premier ajustement — ils dérivaient déjà : le Quotidien portait un liseré or devant son
+   titre, pas celui-ci. Un seul jeu de déclarations, deux sélecteurs. */
 .arlib-rbullet {
   display: flex;
   gap: 10px;
@@ -6131,20 +6124,34 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
 
 /* ═══════════ FX DAILY RECAP — rapport analyste du jour (structure la référence) ═══════════ */
 .fxdr { display: flex; flex-direction: column; }
-.fxdr-section {
+/* TITRE DE RUBRIQUE — LA MÊME RÈGLE POUR LES DEUX RAPPORTS (26/08). `.arlib-rsection` est le titre
+   de rubrique du lecteur de rapports (récaps de séance), `.fxdr-section` celui du Récap Quotidien.
+   Ils avaient chacun leur bloc et avaient déjà divergé : le liseré or vertical n'existait que d'un
+   côté, et les marges différaient de quelques pixels. Un seul jeu de déclarations, deux sélecteurs :
+   ils ne peuvent plus dériver. */
+.fxdr-section,
+.arlib-rsection {
   display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-ui);
   font-size: 12px; font-weight: var(--fw-bold); color: #e3b23a;
   letter-spacing: .05em; text-transform: uppercase;
   margin: 28px 0 13px; padding-bottom: 7px; border-bottom: 1px solid var(--border);
 }
-.fxdr-section::before { content: ''; width: 3px; height: 13px; background: #e3b23a; border-radius: 2px; flex: 0 0 auto; }
-.fxdr-section:first-child { margin-top: 4px; }
-.fxdr-exec {
+.fxdr-section::before,
+.arlib-rsection::before { content: ''; width: 3px; height: 13px; background: #e3b23a; border-radius: 2px; flex: 0 0 auto; }
+.fxdr-section:first-child,
+.arlib-rsection:first-child { margin-top: 4px; }
+/* ENCADRÉ DE SYNTHÈSE — même règle, mêmes deux rapports. Le Quotidien ouvre sur un encadré à liseré
+   or ; le récap de séance servait la même synthèse en puces nues. */
+.fxdr-exec,
+.arlib-rexec {
   border-left: 2px solid rgba(227,178,58,.55); background: rgba(227,178,58,.06);
   border-radius: 0 8px 8px 0; padding: 13px 16px;
 }
-.fxdr-exec .wr-p { font-size: 13px; color: #e3e3e6; line-height: 1.7; margin: 0 0 9px; }
-.fxdr-exec .wr-p:last-child { margin: 0; }
+.fxdr-exec .wr-p,
+.arlib-rexec .wr-p { font-size: 13px; color: #e3e3e6; line-height: 1.7; margin: 0 0 9px; font-family: var(--font-ui); }
+.fxdr-exec .wr-p:last-child,
+.arlib-rexec .wr-p:last-child { margin: 0; }
 /* v14 : intro d'ouverture du FX Daily (résumé des récaps de séance) — lead sobre sans encadré (l'encadré or reste à la Synthèse) */
 .fxdr-intro { border-left: 0; background: transparent; border-radius: 0; padding: 2px 0 0; margin: 0 0 6px; }
 .fxdr-intro .wr-p { font-size: 13.5px; color: #f0f0f2; }

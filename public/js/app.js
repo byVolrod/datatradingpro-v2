@@ -10614,6 +10614,18 @@ function renderArlibReader(item) {
       });
     };
 
+    /* TITRE DE RUBRIQUE — UN SEUL POINT DE POSE (26/08, demande utilisateur : « idem pour les titres
+       des parties, genre pareil », « pour que les rapports se ressemblent »).
+       Il était écrit à QUATRE endroits, chacun précédé d'un `<hr class="arlib-rdivider">`. Or le
+       titre porte DÉJÀ sa propre bordure basse : le filet en faisait un second trait, que le Récap
+       Quotidien n'a pas. Le filet part donc — la bordure suffit, comme là-bas — et le titre courant
+       est mémorisé, ce dont la SYNTHÈSE a besoin pour se rendre en encadré plutôt qu'en puces. */
+    let _rubrique = '';
+    const _poserRubrique = (t) => {
+      _rubrique = String(t || '').trim().toUpperCase();
+      html += `<div class="arlib-rsection">${_rubrique}</div>`;
+    };
+
     const walk = (el) => {
       // Ignore les nœuds COMMENTAIRE (8) et INSTRUCTION (7) : une déclaration <?xml …?>
       // injectée via innerHTML devient un commentaire dont le texte "?xml version…" fuyait
@@ -10631,7 +10643,7 @@ function renderArlibReader(item) {
       if (/^h[1-6]$/.test(tag)) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur → ignoré
-        if (t) { html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`; }
+        if (t) _poserRubrique(t);
       } else if (tag === 'p') {
         const text = el.textContent.trim();
         if (!text || _isSrcLine(text)) return;
@@ -10640,13 +10652,13 @@ function renderArlibReader(item) {
         if (_skipAuthor(text, _isColonHead)) return;         // bio / nom d'auteur → ignoré
         if (_isColonHead) {
           if (_isNoiseHead(text)) return;   // intertitre générique parasite (« Four points: ») → ignoré
-          html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${text.slice(0,-1).toUpperCase()}</div>`;
+          _poserRubrique(text.slice(0, -1));
           return;
         }
         // Titre de sous-article embarqué (<p> entièrement en GRAS, court, sans ponctuation finale) → SECTION MAJUSCULES
         const _onlyBold = el.children.length === 1 && /^(strong|b)$/i.test(el.children[0].tagName || '') && el.children[0].textContent.trim() === text;
         if (_onlyBold && text.length <= 90 && !/[.!?]$/.test(text)) {
-          html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${text.toUpperCase()}</div>`;
+          _poserRubrique(text);
           return;
         }
         const t = fixLinks(el.innerHTML.trim());
@@ -10665,6 +10677,16 @@ function renderArlibReader(item) {
         } else {
           _emitBullets(_emphasize(text), text);              // li long multi-phrases → découpé en puces (jamais de pavé)
         }
+      } else if (tag === 'ul' && /^SYNTH[ÈE]SE$/.test(_rubrique)) {
+        /* LA SYNTHÈSE EST UN ENCADRÉ, PAS UNE LISTE (26/08, capture du Récap Quotidien à l'appui :
+           « une synthèse comme ça, faut la même identité visuelle »). Le Quotidien rend la sienne
+           dans un bloc à liseré or ; le récap de séance servait les mêmes phrases en puces nues.
+           On prend la liste ENTIÈRE d'un coup — une puce à la fois donnerait un encadré par ligne. */
+        const ps = Array.from(el.children)
+          .filter(c => (c.tagName || '').toLowerCase() === 'li')
+          .map(c => (c.textContent || '').trim()).filter(Boolean)
+          .map(t => `<p class="wr-p">${_emphasize(t)}</p>`).join('');
+        if (ps) { html += `<div class="arlib-rexec">${ps}</div>`; bulletCount++; }
       } else if (tag === 'blockquote') {
         const t = el.textContent.trim();
         if (t) html += `<div class="arlib-rbullet-sub"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`;
@@ -10680,10 +10702,10 @@ function renderArlibReader(item) {
       } else if ((tag === 'strong' || tag === 'b') && !el.closest('p, li')) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré
-        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon pro) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les Éclairages desk
+        if (/^lead$/i.test(t)) { _rubrique = ''; return; }   // « LEAD » = bloc synthèse/intro (façon pro) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les Éclairages desk
         // ≥2 (et non >3) : « FX », « US », « UK », « EU », « USD »… sont des EN-TÊTES légitimes de 2-3 car.
         // Le seuil >3 faisait DISPARAÎTRE le titre « FX » (2 car) → ses puces se collaient à la rubrique précédente.
-        if (t.length >= 2) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
+        if (t.length >= 2) _poserRubrique(t);
         else Array.from(el.childNodes).forEach(walk);
       } else {
         Array.from(el.childNodes).forEach(walk);
@@ -10797,7 +10819,8 @@ function renderArlibReader(item) {
           <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
           <div class="arlib-doc-meta">${dateStr} · ${bullets[0]}</div>
         </div>`;
-      let inSection = false;
+      // (Le filet entre rubriques est parti avec l'alignement sur le Récap Quotidien : le titre porte
+      //  DÉJÀ sa bordure basse, le filet en faisait un second trait que le Quotidien n'a pas.)
       for (let i = 1; i < bullets.length; i++) {
         const line  = bullets[i];
         const isSub = /^↳/.test(line);
@@ -10812,10 +10835,8 @@ function renderArlibReader(item) {
 
         if (sec) {
           // Section header + first bullet on same line
-          if (inSection) html += `<hr class="arlib-rdivider">`;
           html += `<div class="arlib-rsection">${sec[1].trim()}</div>`;
           html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${sec[2]}</span></div>`;
-          inSection = true;
         } else if (isSub) {
           html += `<div class="arlib-rbullet-sub"><span class="arlib-rbullet-dot"></span><span>${clean}</span></div>`;
         } else {

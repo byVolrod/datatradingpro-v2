@@ -253,6 +253,65 @@ function phaseLogique() {
       /if \(_dejaEnMemoire\) _loadPersistedWeekly\(\)\.catch\(\(\) => \{\}\);\s*\n\s*else await _loadPersistedWeekly\(\);/.test(SRV));
     verif('elle attend encore quand la mémoire est vide (sinon régénération inutile)', /else await _loadPersistedWeekly\(\);/.test(SRV));
 
+    /* ── LES DEUX RAPPORTS SE RESSEMBLENT-ILS VRAIMENT ? ───────────────────────────────────────
+       « Une synthèse comme ça, faut la même identité visuelle » / « pour que les rapports se
+       ressemblent » / « idem pour les titres des parties ». Une règle CSS partagée par deux
+       sélecteurs le garantit sur le papier ; on le vérifie ici DANS LE NAVIGATEUR, en comparant les
+       styles CALCULÉS — c'est le seul niveau où une surcharge oubliée ailleurs dans la feuille se
+       verrait. */
+    const st = await page.evaluate(() => {
+      const box = document.createElement('div');
+      box.innerHTML = '<div class="fxdr"><div class="fxdr-section">A</div><div class="fxdr-exec"><p class="wr-p">x</p></div></div>'
+        + '<div class="arlib-rbody"><div class="arlib-rsection">A</div><div class="arlib-rexec"><p class="wr-p">x</p></div></div>';
+      document.body.appendChild(box);
+      const cs = (sel, pseudo) => {
+        const e = box.querySelector(sel); if (!e) return null;
+        const c = getComputedStyle(e, pseudo || null), o = {};
+        ['display', 'color', 'fontSize', 'fontWeight', 'letterSpacing', 'textTransform', 'marginTop',
+         'marginBottom', 'paddingBottom', 'borderBottomWidth', 'borderBottomColor', 'gap',
+         'backgroundColor', 'borderLeftWidth', 'borderLeftColor', 'borderRadius', 'padding',
+         'width', 'height', 'content', 'lineHeight', 'fontFamily'].forEach(k => { o[k] = c[k]; });
+        return o;
+      };
+      const r = {
+        titreQ: cs('.fxdr-section'), titreS: cs('.arlib-rsection'),
+        barreQ: cs('.fxdr-section', '::before'), barreS: cs('.arlib-rsection', '::before'),
+        boxQ: cs('.fxdr-exec'), boxS: cs('.arlib-rexec'),
+        paraQ: cs('.fxdr-exec .wr-p'), paraS: cs('.arlib-rexec .wr-p'),
+      };
+      box.remove();
+      return r;
+    });
+    const memeStyle = (a, b, cles) => a && b && cles.every(k => a[k] === b[k]);
+    const diff = (a, b, cles) => (a && b) ? cles.filter(k => a[k] !== b[k]).map(k => k + ': ' + a[k] + ' ≠ ' + b[k]).join(' | ') : '(élément absent)';
+    const CT = ['display', 'color', 'fontSize', 'fontWeight', 'letterSpacing', 'textTransform', 'marginTop', 'marginBottom', 'paddingBottom', 'borderBottomWidth', 'borderBottomColor', 'gap', 'fontFamily'];
+    const CB = ['width', 'height', 'backgroundColor', 'borderRadius'];
+    const CE = ['backgroundColor', 'borderLeftWidth', 'borderLeftColor', 'borderRadius', 'padding'];
+    const CP = ['fontSize', 'color', 'lineHeight', 'fontFamily'];
+    console.log('\n── Identité visuelle : Récap Quotidien ↔ récap de séance ──');
+    verif('le titre de rubrique a le MÊME style calculé', memeStyle(st.titreQ, st.titreS, CT), diff(st.titreQ, st.titreS, CT));
+    // Le desk applique une échelle globale : 3 px déclarés rendent 2,986 px calculés. On mesure donc
+    // à l'arrondi près, pas au pixel littéral — sinon le contrôle échouerait sur une page correcte.
+    const px = v => Math.round(parseFloat(v || '0'));
+    verif('le liseré or existe des deux côtés', st.barreS && px(st.barreS.width) === 3 && px(st.barreS.height) === 13,
+      st.barreS ? st.barreS.width + '×' + st.barreS.height : '(aucun)');
+    verif('… et il est identique', memeStyle(st.barreQ, st.barreS, CB), diff(st.barreQ, st.barreS, CB));
+    verif('l\'encadré de synthèse a le MÊME style calculé', memeStyle(st.boxQ, st.boxS, CE), diff(st.boxQ, st.boxS, CE));
+    verif('son texte aussi', memeStyle(st.paraQ, st.paraS, CP), diff(st.paraQ, st.paraS, CP));
+    verif('le titre de rubrique est bien or', st.titreS && st.titreS.color === 'rgb(227, 178, 58)', st.titreS && st.titreS.color);
+    verif('l\'encadré porte le liseré or', st.boxS && /227, 178, 58/.test(st.boxS.borderLeftColor), st.boxS && st.boxS.borderLeftColor);
+    // Plus de double trait : le titre porte sa bordure, il n'est plus précédé d'un filet.
+    const APP2 = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+    /* Le titre de rubrique du LECTEUR DE RAPPORTS était écrit à quatre endroits ; il passe désormais
+       par un point de pose unique, qui mémorise la rubrique courante (ce dont la Synthèse a besoin
+       pour se rendre en encadré). Les deux autres occurrences de la classe sont ailleurs et
+       assumées : l'autre rendu de rapport (puces « Rubrique: … ») et l'encadré « Niveaux clés ». */
+    verif('le lecteur de rapports pose son titre en UN point', /const _poserRubrique = \(t\) => \{/.test(APP2) && (APP2.match(/_poserRubrique\(/g) || []).length === 4,
+      (APP2.match(/_poserRubrique\(/g) || []).length + ' appel(s)');
+    verif('plus de filet collé au titre', !/arlib-rdivider"><div class="arlib-rsection"/.test(APP2));
+    verif('la SYNTHÈSE se rend en encadré, pas en puces', /tag === 'ul' && \/\^SYNTH\[ÈE\]SE\$\/\.test\(_rubrique\)/.test(APP2));
+    verif('la règle CSS est partagée, pas dupliquée', /\.fxdr-section,\s*\n\.arlib-rsection \{/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
+
     /* « CHARGER PLUS » DÉROULE LA JOURNÉE ENTIÈRE (demande user 25/08).
        L'assertion porte sur l'INVARIANT, mesuré avec les propres fonctions du fil : après le clic,
        tout ce que le fil retient pour la journée affichée doit être visible. Compter des lignes
