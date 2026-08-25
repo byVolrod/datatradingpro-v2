@@ -47,6 +47,45 @@ const ACTIFS = {
   ],
 };
 
+/* FAMILLES — LES MÊMES QUE LE RÉCAP QUOTIDIEN (26/08, retour utilisateur : « dans macro je vois pas
+   les news sorties dans leur catégorie comme quotidien »). Le Quotidien range ses chiffres par
+   famille — Inflation, Croissance économique, Emploi, Politique monétaire, Commerce — et le récap de
+   séance sortait une liste plate. Deux rapports qui se lisent à la suite le même jour doivent ranger
+   pareil, sinon le lecteur se réoriente à chaque fois.
+   ⚠️ LES NOMS ET L'ORDRE SONT CEUX DE `_ORDRE_FAM` (public/js/app.js, mailer.js) et doivent le
+   rester. La table est dupliquée et c'est STRUCTUREL, pas un oubli : le Quotidien classe des puces
+   françaises rédigées par l'IA, côté navigateur et côté mail ; ici on classe des intitulés de
+   calendrier, en anglais, côté serveur. Le projet n'a pas d'étape de build, un module Node ne peut
+   donc pas être partagé avec app.js. Ce qui compte pour le lecteur — les noms et l'ordre — est
+   identique ; si on renomme une famille, il faut la renommer aux TROIS endroits. */
+const ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+const FAM_RX = [
+  ['Politique monétaire', /rate decision|interest rate decision|\bfomc\b|rate statement|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|cash rate|loan prime rate|monetary policy|meeting minutes|press conference|economic projections|\bboe\b|\becb\b|\bboj\b|\brba\b|\brbnz\b|\bboc\b|\bsnb\b|\bpboc\b|speaks|speech/i],
+  ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|inflation|consumer price|producer price|price index|deflator|wage growth|hourly earnings|average earnings/i],
+  ['Emploi', /\bnfp\b|non[-\s]?farm|payroll|employment|unemployment|jobless|claimant|\bjolts\b|job openings|labou?r/i],
+  ['Croissance économique', /\bgdp\b|gross domestic|\bpmi\b|\bism\b|industrial production|manufacturing|services|retail sales|personal spending|household spending|durable goods|factory orders|confidence|sentiment|climate|\bifo\b|\bzew\b|tankan|activity index|housing|building permits|home sales|construction/i],
+  ['Commerce', /trade balance|balance of trade|exports?|imports?|current account|tariff|customs/i],
+];
+/* L'ordre de la table n'est PAS l'ordre d'affichage : « Politique monétaire » est testée en premier
+   parce qu'un « ECB Press Conference » contient « conference » et serait sinon happé par une autre
+   règle. L'affichage, lui, suit ORDRE_FAM. */
+function famille(titre) {
+  const t = String(titre || '');
+  const m = FAM_RX.find(([, rx]) => rx.test(t));
+  return m ? m[0] : 'Autres';
+}
+// Range des lignes déjà rédigées par famille, dans l'ordre d'affichage. Une famille vide ne sort pas.
+function parFamille(entrees) {
+  const par = new Map();
+  for (const e of (entrees || [])) {
+    if (!e || !e.ligne) continue;
+    const f = famille(e.titre);
+    if (!par.has(f)) par.set(f, []);
+    par.get(f).push(e.ligne);
+  }
+  return ORDRE_FAM.filter(f => (par.get(f) || []).length).map(f => ({ famille: f, lignes: par.get(f) }));
+}
+
 // ── Nombres du calendrier ───────────────────────────────────────────────────────────────────────
 /* Le calendrier rend des chaînes formatées : « 2.3% », « 104K », « -8.0M », « 3.2B », « 53.9 ».
    Pour mesurer un écart il faut les ramener à un nombre COMPARABLE — et ne comparer que ce qui est
@@ -167,4 +206,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, synthese, INVERSES };

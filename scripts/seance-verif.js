@@ -100,6 +100,36 @@ v('Londres suit le DAX et le FTSE', S.ACTIFS['London Session Recap'].some(a => a
 v('New York suit le 10 ans, en points de base', (S.ACTIFS['US Session Recap'].find(a => a.sym === '^TNX') || {}).bp === true);
 v('chaque séance a ses devises', Object.values(S.FENETRES).every(f => Array.isArray(f.dev) && f.dev.length));
 
+console.log('\n── 7b. Les chiffres sont ranges par famille, comme le Récap Quotidien ──');
+const FAM = [
+  ['German Prelim CPI m/m', 'Inflation'], ['Core PCE Price Index m/m', 'Inflation'],
+  ['Average Hourly Earnings m/m', 'Inflation'],
+  ['Claimant Count Change', 'Emploi'], ['Unemployment Claims', 'Emploi'], ['Non-Farm Employment Change', 'Emploi'],
+  ['Prelim GDP q/q', 'Croissance économique'], ['Ifo Business Climate', 'Croissance économique'],
+  ['ISM Manufacturing PMI', 'Croissance économique'], ['CB Consumer Confidence', 'Croissance économique'],
+  ['Federal Funds Rate', 'Politique monétaire'], ['ECB Press Conference', 'Politique monétaire'],
+  ['FOMC Meeting Minutes', 'Politique monétaire'], ['Fed Chair Powell Speaks', 'Politique monétaire'],
+  ['Trade Balance', 'Commerce'], ['Crude Oil Inventories', 'Autres'],
+];
+FAM.forEach(([t, att]) => v(`« ${t} » → ${att}`, S.famille(t) === att, S.famille(t)));
+// Les noms ET l'ordre sont ceux du Recap Quotidien (_ORDRE_FAM) : deux rapports lus a la suite le
+// meme jour doivent ranger pareil, sinon le lecteur se reoriente a chaque fois.
+v('mêmes familles, même ordre que le Quotidien',
+  S.ORDRE_FAM.join('|') === 'Inflation|Croissance économique|Emploi|Politique monétaire|Commerce|Autres', S.ORDRE_FAM.join('|'));
+const g = S.parFamille([
+  { titre: 'Claimant Count Change', ligne: 'A' }, { titre: 'German Prelim CPI m/m', ligne: 'B' },
+  { titre: 'Prelim GDP q/q', ligne: 'C' }, { titre: 'Ifo Business Climate', ligne: 'D' },
+]);
+v('l\'affichage suit l\'ordre du Quotidien', g.map(x => x.famille).join('|') === 'Inflation|Croissance économique|Emploi', g.map(x => x.famille).join('|'));
+v('les lignes d\'une même famille restent groupées', (g.find(x => x.famille === 'Croissance économique') || {}).lignes.join('') === 'CD');
+v('une famille sans chiffre ne s\'écrit pas', !g.some(x => x.famille === 'Commerce'));
+v('une entrée sans ligne est ignorée', S.parFamille([{ titre: 'CPI', ligne: '' }]).length === 0);
+v('aucune entrée → aucun groupe', S.parFamille([]).length === 0);
+// Le regroupement est bien branche dans le recap, et il remplace la liste plate.
+const srv = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+v('le récap groupe par famille', /const groupes = _SEA\.parFamille\(entrees\);/.test(srv));
+v('la liste plate « Chiffres de la séance » a disparu', !/'Chiffres de la séance'/.test(srv));
+
 console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
 /* Le format de séance porte une version, et les récaps déjà publiés sous une version périmée se
    refont AU DÉMARRAGE. Sans ce mécanisme, une amélioration ne touchait que les récaps à venir et il

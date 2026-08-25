@@ -996,6 +996,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260826-seance-familles', ts: Date.UTC(2026, 7, 26, 14, 0), title: 'Recaps de seance : les chiffres ranges par famille, comme le Recap Quotidien', desc: 'Les publications d une seance ne sortent plus en liste plate : elles sont rangees par famille — Inflation, Croissance economique, Emploi, Politique monetaire, Commerce — exactement comme dans le Recap Quotidien, avec les memes noms et le meme ordre. Les deux rapports se lisent souvent a la suite le meme jour : ranger pareil evite d avoir a se reorienter en passant de l un a l autre. Une famille sans publication ce jour-la ne s affiche pas.' },
   { id: 'dtpu-20260826-seance-maj-auto', ts: Date.UTC(2026, 7, 26, 12, 0), title: 'Les recaps de seance du jour se mettent a jour tout seuls', desc: 'Quand nous ameliorons la forme d un recap de seance, les recaps DEJA publies de la journee se refont desormais automatiquement au format le plus recent. Auparavant seuls les recaps suivants en profitaient : celui que vous aviez sous les yeux restait dans son ancienne forme jusqu au lendemain. Le desk verifie au demarrage, refait ce qui doit l etre, et attend d avoir mesure les marches avant de le faire — un recap refait trop tot sortirait sans sa photo de seance, ce qui serait pire que de ne rien changer. Une seance qui n a pas encore commence n est evidemment pas touchee.' },
   { id: 'dtpu-20260826-seance-chiffree', ts: Date.UTC(2026, 7, 26, 10, 0), title: 'Recaps de seance : la seance est desormais chiffree, pas seulement racontee', desc: 'Chaque recap de seance s ouvre maintenant sur des mesures. Une synthese qui dit combien de publications sont tombees et combien ont surpris. Une photo de seance : la performance reelle des marches de CETTE seance sur SA fenetre horaire — le DAX et le FTSE pour Londres, le Nikkei et le Hang Seng pour l Asie, le S&P et le rendement dix ans pour New York. Puis les chiffres eux-memes, avec le resultat, le consensus et l ecart. Les rendements sont exprimes en points de base, comme sur un desk, et un indicateur ou la hausse est une mauvaise nouvelle — chomage, inscriptions, stocks — est lu dans le bon sens. Rien n est invente : une donnee absente est omise plutot que remplie d un tiret, et sans donnees le recap reste exactement celui d avant.' },
   { id: 'dtpu-20260826-charger-journee', ts: Date.UTC(2026, 7, 26, 9, 0), title: 'Charger plus deroule maintenant la journee entiere', desc: 'Le bouton Charger plus, en bas du fil d actualite, avancait par lots de cent : sur une journee chargee il fallait cliquer cinq ou six fois pour la parcourir. Un clic deroule desormais TOUTE la journee affichee, d un coup, et vous la lisez en scrollant. Le clic suivant deroule la journee precedente. Le bouton annonce ce qu il va faire : il indique Voir toute la journee tant qu il reste des actualites du jour, puis nomme la journee qu il chargera ensuite. Aucun doublon possible : une actualite deja recue n est jamais rajoutee.' },
@@ -9832,8 +9833,11 @@ function _pousserASurveiller(bullets, reportType) {
    rapports déjà publiés sous l'ancien format se refont AU DÉMARRAGE. Sans ça, une amélioration ne
    touchait que les récaps à venir — ceux du jour restaient dans leur ancienne forme, et il fallait
    appeler trois routes à la main pour les rattraper. Ce n'est pas « publier », c'est déléguer.
-   v1 (26/08) : arrivée des rubriques chiffrées (synthèse, photo de séance, chiffres de la séance). */
-const SEANCE_VER = 1;
+   v1 (26/08) : arrivée des rubriques chiffrées (synthèse, photo de séance, chiffres de la séance).
+   v2 (26/08) : les chiffres sont RANGÉS PAR FAMILLE, comme le Récap Quotidien — Inflation,
+                Croissance économique, Emploi, Politique monétaire, Commerce. Bump = les récaps du
+                jour déjà refaits en v1 se refont en v2. */
+const SEANCE_VER = 2;
 
 /* RATTRAPAGE AU DÉMARRAGE. Au boot, on regarde les récaps de séance DU JOUR : ceux qui portent une
    version de format périmée (ou aucune) sont refaits. Trois précautions, chacune pour une raison
@@ -10005,11 +10009,18 @@ function _poserBlocDesk(bullets, reportType) {
   const lp = _SEA.lignePerf(perfs);
   if (lp) { _pushBullets(bullets, 'Photo de séance', [{ headline: lp }], 1); n++; }
   if (macros.length) {
-    const lignes = macros.map(e => {
+    /* RANGÉS PAR FAMILLE, COMME LE RÉCAP QUOTIDIEN (26/08, retour utilisateur : « dans macro je vois
+       pas les news sorties dans leur catégorie comme quotidien »). Le Quotidien range Inflation,
+       Croissance économique, Emploi, Politique monétaire, Commerce ; le récap de séance sortait une
+       liste plate. Les deux se lisent à la suite le même jour : ils doivent ranger pareil.
+       Une famille sans chiffre ne s'écrit pas — un intitulé de rubrique vide vaut moins que rien. */
+    const entrees = macros.map(e => {
       const h = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).replace(':', 'h') : '';
-      return _SEA.ligneMacro({ currency: e.currency, ctry: e.ctry, title: _WA.intituleAffiche(e), actual: e.actual, forecast: e.forecast, previous: e.previous }, h);
-    }).filter(Boolean);
-    if (lignes.length) { _pushBullets(bullets, 'Chiffres de la séance', lignes.map(t => ({ headline: t })), 8); n++; }
+      const titre = _WA.intituleAffiche(e);
+      return { titre, ligne: _SEA.ligneMacro({ currency: e.currency, ctry: e.ctry, title: titre, actual: e.actual, forecast: e.forecast, previous: e.previous }, h) };
+    }).filter(x => x.ligne);
+    const groupes = _SEA.parFamille(entrees);
+    groupes.forEach(g => { _pushBullets(bullets, g.famille, g.lignes.map(t => ({ headline: t })), 6); n++; });
   }
   return n;
 }
