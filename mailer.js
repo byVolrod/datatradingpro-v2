@@ -710,7 +710,6 @@ function buildTemoignage({ name, review, angle, varianteKey, recentKeys } = {}) 
         <div style="color:${TOK.grisDoux};font-size:12.5px;margin-top:10px;">Membre DataTradingPro · avis vérifié Whop</div>`, true)}
     <p style="margin:0 0 14px;">${lien}</p>
     ${_button(V.cta, WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
     <p style="margin:0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: V.subject, html: _layout('Témoignage', body), varianteKey: V.key };
 }
