@@ -17140,8 +17140,19 @@ html[data-theme="light"] .news-grp-cpt {
    par rapport au corps, plus par rapport a chaque piste. C est ce qui permet de voir d un coup
    quelles seances se chevauchent maintenant. overflow-y en visible : un defilement rognerait le
    trait et son etiquette (les paliers de taille garantissent que les 4 places tiennent). */
+/* ⚠️ UN CONTENU QUI NE TIENT PAS DOIT RESTER ATTEIGNABLE (26/08, demande user : « on voit pas toutes
+   les informations du widget monde »). `.wdg-frise` est en `overflow: hidden` et son corps était en
+   `overflow: visible` : dès que la hauteur manque — panneau court, téléphone, zone redimensionnée —
+   les dernières places étaient COUPÉES SANS TRACE. Ni barre de défilement, ni indice, ni moyen d'y
+   accéder. Sur quatre places (Sydney, Tokyo, Londres, New York), en perdre trois vide le widget de
+   sa raison d'être, et rien ne le signale au lecteur.
+   Le contenu, lui, n'est PAS trop gros : mesuré sur le CSS, quatre lignes tiennent en ~241 px pour
+   340 px déclarés. C'est donc bien le conteneur qui se retrouve trop court selon la mise en page,
+   pas le widget qui déborde par nature.
+   Les paliers de densité (est-moyen, est-compact, est-minus, est-mini) resserrent déjà le rendu
+   quand la place manque : ce défilement n'intervient qu'APRÈS eux, en dernier recours. */
 .wdg-frise-corps { position: relative; flex: 1 1 auto; min-height: 0; display: flex;
-  flex-direction: column; justify-content: flex-start; gap: 15px; overflow: visible; }
+  flex-direction: column; justify-content: flex-start; gap: 15px; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; scrollbar-width: thin; }
 
 .wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
