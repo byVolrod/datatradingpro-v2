@@ -833,6 +833,9 @@ function init() {
     const cs = lsGet('dtp_sw', DAY); if (cs && cs.length && !_sessionWraps.length) _sessionWraps = cs;
     const cb = lsGet('dtp_br', DAY); if (cb && cb.length && !_brArticles.length)  _brArticles  = cb;
     const cf = lsGet('dtp_fx', DAY); if (cf && cf.length && !_fxDaily.length)      _fxDaily     = cf;
+    // Les hebdo manquaient à l'appel : la source la PLUS LENTE (Supabase) était la seule sans repli
+    // instantané, donc la seule à laisser un vide à l'écran le temps du réseau.
+    const cw = lsGet('dtp_wk', DAY); if (cw && cw.length && !_weeklyReports.length) _weeklyReports = cw;
   } catch {}
 
   // ── HTTP pre-fetch: show cached news immediately, before WS connects ──
@@ -5609,35 +5612,44 @@ function initAnalystTab() {
   }
 }
 
+/* CHARGEMENT DE L'ONGLET ANALYSTES — AFFICHER D'ABORD, COMPLÉTER ENSUITE (26/08, capture :
+   « le chargement est long »).
+   Les quatre sources étaient attendues ENSEMBLE : `Promise.allSettled(...).finally(render)`. La
+   liste restait donc sur son chargeur tant que la PLUS LENTE n'avait pas répondu — /api/weekly-reports,
+   qui attendait un aller-retour Supabase avant d'écrire quoi que ce soit. Les trois autres routes
+   répondent depuis leur cache en quelques millisecondes, et le cache local a DÉJÀ hydraté
+   `_sessionWraps` / `_brArticles` / `_fxDaily` / `_weeklyReports` au démarrage : il y avait quelque
+   chose à montrer tout de suite, et on montrait un spinner.
+   On rend donc AVANT tout appel réseau, puis chaque source rafraîchit dès SON arrivée. Le rendu
+   passe par `_renderArlibSoon` (coalescé ~450 ms) : les trois réponses rapides tombent dans la même
+   fenêtre et ne produisent qu'un seul re-rendu — le clignotement « les rapports apparaissent un par
+   un », corrigé le 23/07, ne revient pas par cette porte. */
 function loadAnalystView() {
-  // Charger les session wraps InvestingLive ET les articles ING Think en parallèle
-  Promise.allSettled([
-    fetch('/api/session-wraps').then(r => r.json()),
-    fetch('/api/bank-research').then(r => r.json()),
-    fetch('/api/weekly-reports').then(r => r.json()),
-    fetch('/api/fx-daily').then(r => r.json()),
-  ]).then(([swResult, brResult, wkResult, fxResult]) => {
-    // On ne remplace QUE si le serveur renvoie des données NON VIDES → jamais d'écrasement
-    // du cache hydraté par une réponse vide (cold-start). + persistance localStorage.
-    if (swResult.status === 'fulfilled' && Array.isArray(swResult.value) && swResult.value.length) {
-      _sessionWraps = swResult.value.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
-      lsSet('dtp_sw', _sessionWraps.slice(0, 80));
-    }
-    if (brResult.status === 'fulfilled' && Array.isArray(brResult.value) && brResult.value.length) {
-      _brArticles = brResult.value;
-      lsSet('dtp_br', _brArticles.slice(0, 60));
-    }
-    if (fxResult.status === 'fulfilled' && Array.isArray(fxResult.value) && fxResult.value.length) {
-      _fxDaily = fxResult.value.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
-      lsSet('dtp_fx', _fxDaily.slice(0, 40));
-    }
-    if (wkResult.status === 'fulfilled') {
-      if (Array.isArray(wkResult.value?.items)) _weeklyReports = wkResult.value.items;
-      _weeklyGenerating = !!wkResult.value?.generating;
-      // Si le serveur génère le recap en tâche de fond, on re-vérifie quelques fois
-      if (_weeklyGenerating) _scheduleWeeklyRetry();
-    }
-  }).finally(() => renderArlibList());
+  renderArlibList();                                   // ce qu'on a déjà en mémoire, sans attendre le réseau
+  // On ne remplace QUE si le serveur renvoie des données NON VIDES → jamais d'écrasement du cache
+  // hydraté par une réponse vide (cold-start). + persistance localStorage.
+  const _lire = (url, fn) => fetch(url).then(r => r.json()).then(v => { fn(v); _renderArlibSoon(); }).catch(() => {});
+  _lire('/api/session-wraps', v => {
+    if (!Array.isArray(v) || !v.length) return;
+    _sessionWraps = v.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
+    lsSet('dtp_sw', _sessionWraps.slice(0, 80));
+  });
+  _lire('/api/bank-research', v => {
+    if (!Array.isArray(v) || !v.length) return;
+    _brArticles = v;
+    lsSet('dtp_br', _brArticles.slice(0, 60));
+  });
+  _lire('/api/fx-daily', v => {
+    if (!Array.isArray(v) || !v.length) return;
+    _fxDaily = v.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
+    lsSet('dtp_fx', _fxDaily.slice(0, 40));
+  });
+  _lire('/api/weekly-reports', v => {
+    if (Array.isArray(v?.items) && v.items.length) { _weeklyReports = v.items; lsSet('dtp_wk', _weeklyReports.slice(0, 60)); }
+    _weeklyGenerating = !!v?.generating;
+    // Si le serveur génère le recap en tâche de fond, on re-vérifie quelques fois
+    if (_weeklyGenerating) _scheduleWeeklyRetry();
+  });
 }
 
 // ═══════════════════ ONGLET BIAS : Radar de Biais (matrice) ═══════════════════

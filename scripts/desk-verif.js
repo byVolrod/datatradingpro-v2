@@ -96,6 +96,12 @@ const NB_J0 = TOUT.filter(i => i.timestamp > J1 + 6 * 3600000).length;   // tout
 const NEWS = TOUT.slice(0, 100);                                          // le 1er lot, comme /api/news
 const UTIL = { id: 'u1', email: 'verif@dtp', name: 'Verif', role: 'admin', plan: 'pro', active: true, expiry: null };
 
+/* Récaps de séance servis à l'onglet ANALYSTES : de quoi remplir la liste tout de suite. */
+const WRAPS = Array.from({ length: 6 }, (_, k) => ({
+  id: 'sw' + k, title: 'Asia-Pacific market moving news wrap ' + (k + 1), headline: 'Asia-Pacific market moving news wrap ' + (k + 1),
+  url: 'https://investinglive.com/news/wrap-' + k + '/', timestamp: J0 - k * 3600000,
+  session: 'Asia-Pacific', description: '', _source: 'investinglive',
+}));
 function serveur() {
   return http.createServer((req, res) => {
     const u = req.url.split('?')[0];
@@ -110,6 +116,14 @@ function serveur() {
         // plus ancien. On le reproduit tel quel, doublons de frontière compris.
         return j({ items: TOUT.filter(i => i.timestamp < before).slice(0, limit), total: TOUT.length });
       }
+      /* ONGLET ANALYSTES : trois sources rapides, UNE LENTE. C'est la forme réelle du problème du
+         26/08 (« le chargement est long ») — /api/weekly-reports attendait Supabase pendant que les
+         trois autres répondaient depuis leur cache, et le desk attendait les quatre. On reproduit
+         donc la lenteur ici, exprès : sans elle, le contrôle passerait même avec le défaut. */
+      if (u === '/api/session-wraps') return j(WRAPS);
+      if (u === '/api/bank-research') return j([]);
+      if (u === '/api/fx-daily')      return j([]);
+      if (u === '/api/weekly-reports') return setTimeout(() => j({ items: [], generating: false }), 3000);
       // `loggedIn` est LE champ que lisent toutes les gardes d'authentification (index.html + app.js) :
       // sans lui la page part sur /login et le contrôle mesure une page vide en croyant tester le desk.
       return j({ items: [], total: 0, ok: true, loggedIn: true, authenticated: true, user: UTIL, ...UTIL });
@@ -194,6 +208,50 @@ function phaseLogique() {
     // Une analyse du desk et une dépêche urgente : deux lignes rouges attendues.
     verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2');
     verif('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
+
+    /* ── ONGLET ANALYSTES : LA LISTE NE DOIT PAS ATTENDRE LA SOURCE LA PLUS LENTE ──────────────
+       Le 26/08, l'onglet restait sur « Chargement des rapports… » plusieurs secondes : les quatre
+       sources étaient attendues ENSEMBLE et /api/weekly-reports attendait lui-même Supabase. Ici la
+       route lente met 3 s exprès. On ouvre l'onglet, on regarde 700 ms plus tard : la liste doit
+       DÉJÀ être remplie par les trois sources rapides. Un contrôle qui attendrait la fin passerait
+       même avec le défaut — c'est le délai court qui fait la preuve. */
+    const t0 = Date.now();
+    await page.evaluate(() => window.activateView && window.activateView('analyst'));
+    await new Promise(r => setTimeout(r, 700));
+    const a = await page.evaluate(() => {
+      const l = document.getElementById('arlib-list');
+      return {
+        chargeur: !!(l && l.querySelector('.dtp-loader')),
+        lignes: l ? l.querySelectorAll('.arl-row:not(.arl-skel-row)').length : -1,
+        pied: (document.getElementById('arlib-foot') || {}).textContent || '',
+      };
+    });
+    const dt = Date.now() - t0;
+    console.log('\n── Onglet ANALYSTES, source lente bouchonnée à 3 s ──');
+    verif('le chargeur a disparu bien avant la source lente', !a.chargeur, 'chargeur encore affiché après ' + dt + ' ms');
+    verif('des rapports sont déjà listés', a.lignes >= 5, a.lignes + ' ligne(s) après ' + dt + ' ms');
+    verif('le compteur est renseigné', /\d+ sur \d+/.test(a.pied), a.pied || '(vide)');
+    verif('mesuré AVANT la réponse lente', dt < 2500, dt + ' ms');
+    // Et quand la source lente répond enfin, rien ne casse ni ne disparaît.
+    await new Promise(r => setTimeout(r, 3000));
+    const b = await page.evaluate(() => {
+      const l = document.getElementById('arlib-list');
+      return { lignes: l ? l.querySelectorAll('.arl-row:not(.arl-skel-row)').length : -1, chargeur: !!(l && l.querySelector('.dtp-loader')) };
+    });
+    verif('la liste tient après la réponse lente', !b.chargeur && b.lignes >= a.lignes, b.lignes + ' ligne(s) (avant : ' + a.lignes + ')');
+    verif('toujours aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
+
+    /* Les deux moitiés de la correction, relues dans le code : le client n'attend plus les quatre
+       sources ensemble, et la route lente n'attend plus Supabase quand elle a de quoi répondre. */
+    const APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+    const SRV = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+    verif('le client rend AVANT tout appel réseau', /function loadAnalystView\(\) \{\s*\n\s*renderArlibList\(\);/.test(APP));
+    verif('plus d\'attente groupée des quatre sources', !/Promise\.allSettled\(\[\s*\n\s*fetch\('\/api\/session-wraps'\)/.test(APP));
+    verif('chaque source rafraîchit dès son arrivée', /_lire\(url, fn\)|const _lire = \(url, fn\)/.test(APP));
+    verif('les rapports hebdo ont enfin un cache local', /lsGet\('dtp_wk', DAY\)/.test(APP) && /lsSet\('dtp_wk'/.test(APP));
+    verif('la route hebdo ne bloque plus sur Supabase quand elle a de quoi répondre',
+      /if \(_dejaEnMemoire\) _loadPersistedWeekly\(\)\.catch\(\(\) => \{\}\);\s*\n\s*else await _loadPersistedWeekly\(\);/.test(SRV));
+    verif('elle attend encore quand la mémoire est vide (sinon régénération inutile)', /else await _loadPersistedWeekly\(\);/.test(SRV));
 
     /* « CHARGER PLUS » DÉROULE LA JOURNÉE ENTIÈRE (demande user 25/08).
        L'assertion porte sur l'INVARIANT, mesuré avec les propres fonctions du fil : après le clic,

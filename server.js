@@ -997,6 +997,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260827-analystes-rapide', ts: Date.UTC(2026, 7, 27, 10, 0), title: 'L onglet Analystes s ouvre immediatement', desc: 'L onglet Analystes restait plusieurs secondes sur Chargement des rapports avant d afficher quoi que ce soit. Deux causes, corrigees ensemble. Le desk attendait ses quatre sources ENSEMBLE avant de dessiner la liste : il suffisait que l une soit lente pour que tout attende, alors que les trois autres avaient deja repondu et que le cache de votre navigateur avait de quoi remplir la page des la premiere milliseconde. La liste s affiche desormais tout de suite avec ce qui est deja connu, puis chaque source la complete des son arrivee. Et la source lente, celle des rapports hebdomadaires et quotidiens, attendait systematiquement un aller-retour avec le stockage distant avant de repondre — elle ne le fait plus que lorsqu elle n a reellement rien a servir. Les rapports hebdomadaires sont en outre gardes en cache local comme les autres : ils etaient les seuls a n avoir aucun repli instantane.' },
   { id: 'dtpu-20260827-heures-calendrier', ts: Date.UTC(2026, 7, 27, 8, 0), title: 'Calendrier : les heures passent en blanc', desc: 'La colonne des heures du calendrier s affichait dans un gris legerement bleute, volontairement en retrait pour que l intitule de l evenement se lise en premier. Elle passe en blanc, comme demande. La hierarchie de lecture ne disparait pas pour autant : elle tenait deja a la police a chasse fixe, a la taille et a la graisse, et une colonne de chiffres alignes se balaie de toute facon comme une colonne. L heure de l evenement en cours reste en or et en gras — c est desormais le seul accent de la colonne, donc il ressort davantage. Les publications deja tombees gardent leur retrait, mais en blanc attenue plutot qu en gris teinte : toute la colonne est de la meme teinte. Le mode clair n est pas concerne.' },
   { id: 'dtpu-20260827-quotidien-lit-seances', ts: Date.UTC(2026, 7, 27, 6, 0), title: 'Le Recap Quotidien lit enfin les recaps de seance de la journee', desc: 'Le Recap Quotidien devait ouvrir sur le fil de la journee seance apres seance, en reprenant les recaps Asie, Londres et New York. Il ne les voyait pas : le filtre qui les cherchait reposait sur un marqueur interne que seul un autre rapport porte, si bien que l introduction se construisait sur cette seule synthese et que les trois recaps de seance etaient ecartes du rapport comme du reste de son corpus. Ils y entrent maintenant, avec la place qu ils meritent : leur resume porte la synthese de seance, la photo des marches sur la fenetre horaire et les publications rangees par famille, et il etait coupe a trois cents caracteres quand il en avait besoin de neuf cents. Le fil de la journee du Recap Quotidien s appuie donc desormais sur ce que le desk a reellement publie pendant la journee.' },
   { id: 'dtpu-20260827-coherence-quotidien', ts: Date.UTC(2026, 7, 27, 4, 0), title: 'Le Recap Quotidien et les recaps de seance disent enfin la meme chose', desc: 'Les deux rapports lisent le meme calendrier, mais quatre details les faisaient diverger. Les noms : le Recap Quotidien servait les intitules bruts du fournisseur, quand l onglet Calendrier, la Semaine a Venir et les recaps de seance affichent tous le nom ForexFactory — un meme chiffre pouvait donc porter deux noms selon le rapport ouvert. Le classement par famille : la partie Donnees du jour utilisait sa propre liste de quatre categories, sans Politique monetaire, si bien qu une decision de taux ou les minutes du FOMC tombaient dans Autres, et la categorie s appelait Croissance ici et Croissance economique deux blocs plus bas. Le rattachement a une seance : il se faisait sur la seule devise, alors que les recaps de seance travaillent sur des plages horaires — une publication de la zone euro sortie a 22h se lisait sous Londres sans apparaitre dans aucun recap de seance. Et les chiffres : point decimal anglais d un cote, virgule francaise de l autre. Les quatre sont alignes, y compris dans l e-mail Point Marche.' },
@@ -5222,18 +5223,27 @@ async function _maybeBackfillRecapCs() {
 // Filet proactif au boot : recharge les rapports persistés puis backfill (≈50 s après le démarrage).
 setTimeout(() => { _loadPersistedWeekly(true).then(() => { _gewRedateCurrent(); return _maybeBackfillRecapCs(); }).catch(() => {}); }, 50000);
 app.get('/api/weekly-reports', async (_req, res) => {
-  // Recharge d'abord les rapports persistés (Supabase/fichier) → évite toute régénération inutile
-  // et fait apparaître un rapport fraîchement injecté dans le store (throttle interne 30s).
-  await _loadPersistedWeekly();
+  /* ON N'ATTEND SUPABASE QUE QUAND ON N'A RIEN À SERVIR (26/08, capture : « le chargement est long »).
+     Cette route attendait SYSTÉMATIQUEMENT `_loadPersistedWeekly()`, c'est-à-dire un aller-retour
+     Supabase, avant de répondre — pendant que les trois autres routes de l'onglet répondent depuis
+     leur cache en quelques millisecondes et rafraîchissent APRÈS. Le desk attendant les quatre,
+     l'onglet entier restait sur son chargeur au rythme de la plus lente.
+     La raison de l'attente reste valable dans UN cas : mémoire vide (démarrage à froid), où répondre
+     tout de suite dirait « aucun rapport » et déclencherait une régénération que le stockage aurait
+     évitée. On garde donc l'attente là, et seulement là ; sinon le rechargement part en tâche de
+     fond et son résultat sera visible à l'ouverture suivante — le client, lui, a déjà de quoi
+     afficher. */
+  const _WK_TYPES = ['Weekly Market Recap', 'Global Economic Weekly', 'FX Daily Recap', 'DTP Daily'];
+  const _dejaEnMemoire = allNews.some(i => i && _WK_TYPES.indexOf(i._reportType) >= 0);
+  if (_dejaEnMemoire) _loadPersistedWeekly().catch(() => {});
+  else await _loadPersistedWeekly();
   _gewRedateCurrent();   // GEW daté au week-end de publication (corrige l'existant sans le régénérer)
 
   // 3 MOIS d historique (demande user 05/08). Le plafond de 40 jours ecretait les rapports que le
   // stockage conservait pourtant : la limite etait ici, pas dans la generation.
   const cutoff = Date.now() - 95 * 24 * 60 * 60 * 1000;
-  const items = allNews.filter(i =>
-    (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly' || i._reportType === 'FX Daily Recap' || i._reportType === 'DTP Daily') &&
-    i.timestamp > cutoff
-  ).sort((a, b) => b.timestamp - a.timestamp);
+  const items = allNews.filter(i => _WK_TYPES.indexOf(i._reportType) >= 0 && i.timestamp > cutoff)
+    .sort((a, b) => b.timestamp - a.timestamp);
 
   // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe POUR LA SEMAINE COURANTE (timestamp =
   // samedi le plus récent). Sinon (absent, ancien format, OU recap d'une semaine RÉVOLUE) → régénération
