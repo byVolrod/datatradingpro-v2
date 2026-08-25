@@ -6071,6 +6071,19 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
   background: #2e2e2e;
   margin-top: 7px;
 }
+/* Sous-titre de rubrique dans un rapport (famille macro : Inflation, Emploi…). Un cran SOUS
+   `.arlib-rsection` (titre or, capitales) : même graisse capitale mais plus petit et gris, comme
+   `.fxdr-grp-title` du Récap Quotidien — les deux rapports se lisent à la suite, ils rangent pareil
+   et doivent en avoir l'air. */
+.arlib-rsubsection {
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #7d7d86;
+  margin: 14px 0 6px;
+}
+.arlib-rsubsection:first-child { margin-top: 6px; }
 .arlib-rdivider {
   border: none;
   border-top: 1px solid #161616;

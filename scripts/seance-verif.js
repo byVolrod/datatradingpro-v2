@@ -103,7 +103,9 @@ v('chaque séance a ses devises', Object.values(S.FENETRES).every(f => Array.isA
 console.log('\n── 7b. Les chiffres sont ranges par famille, comme le Récap Quotidien ──');
 const FAM = [
   ['German Prelim CPI m/m', 'Inflation'], ['Core PCE Price Index m/m', 'Inflation'],
-  ['Average Hourly Earnings m/m', 'Inflation'],
+  // Les salaires vont dans EMPLOI, pas dans Inflation : c'est le classement du Récap Quotidien
+  // (ils font partie du rapport emploi), et c'est lui qui fait foi.
+  ['Average Hourly Earnings m/m', 'Emploi'],
   ['Claimant Count Change', 'Emploi'], ['Unemployment Claims', 'Emploi'], ['Non-Farm Employment Change', 'Emploi'],
   ['Prelim GDP q/q', 'Croissance économique'], ['Ifo Business Climate', 'Croissance économique'],
   ['ISM Manufacturing PMI', 'Croissance économique'], ['CB Consumer Confidence', 'Croissance économique'],
@@ -129,6 +131,35 @@ v('aucune entrée → aucun groupe', S.parFamille([]).length === 0);
 const srv = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
 v('le récap groupe par famille', /const groupes = _SEA\.parFamille\(entrees\);/.test(srv));
 v('la liste plate « Chiffres de la séance » a disparu', !/'Chiffres de la séance'/.test(srv));
+
+console.log('\n── 7c. La rubrique MACRO du rapport REELLEMENT lu ──');
+/* Le recap de seance que l utilisateur lit est le wrap SEGMENTE PAR L IA (sections Geopolitique ·
+   Macro · Analyse de seance · A surveiller), pas les puces deterministes. Sa rubrique Macro sortait
+   en liste plate. On la range, avec la MEME table que le Quotidien, et on le range NOUS : l IA ecrit,
+   le code classe -- elle ne peut donc ni inventer une famille ni en oublier une. */
+const MACRO = [
+  '**Ifo Business Climate** Allemagne août : 88,8 (vs 87,2 att.) → surprise haussière.',
+  '**Confiance des consommateurs** France août : 86 (vs 87 att.) → léger recul.',
+  '**PIB** Allemagne T2 final : +0,3% t/t → révision à la hausse.',
+  'La **BoJ** laisse son taux directeur inchangé → yen stable.',
+  'Les **inscriptions au chômage** américaines reculent à 230K.',
+  "L'**inflation** allemande accélère à 2,3% → pression sur la BCE.",
+];
+const gm = S.parFamille(MACRO.map(i => ({ titre: i, ligne: i })));
+v('la Macro est bien decoupee en familles', gm.length >= 4, gm.map(x => x.famille).join(' | '));
+v('elle suit l ordre du Quotidien', gm.map(x => x.famille).join('|') === 'Inflation|Croissance économique|Emploi|Politique monétaire', gm.map(x => x.famille).join('|'));
+v('aucune puce ne tombe en « Autres »', !gm.some(x => x.famille === 'Autres'), gm.map(x => x.famille).join('|'));
+v('les trois indicateurs de croissance sont ensemble', (gm.find(x => x.famille === 'Croissance économique') || { lignes: [] }).lignes.length === 3);
+// Les banques centrales appartiennent a Macro dans le Quotidien : elles doivent y etre ici aussi.
+[['La Fed maintient ses taux, ton hawkish', 'Politique monétaire'], ['Federal Funds Rate', 'Politique monétaire'],
+ ['ECB Press Conference', 'Politique monétaire'], ['Claimant Count Change', 'Emploi']]
+  .forEach(([t, att]) => v(`« ${t.slice(0, 34)} » → ${att}`, S.famille(t) === att, S.famille(t)));
+// Un chiffre d inflation cite AVEC une banque centrale reste de l inflation : c est le chiffre le sujet.
+v('inflation citee avec une banque centrale reste Inflation', S.famille("l'inflation pousse la BCE à temporiser") === 'Inflation');
+const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+v('le rapport segmente groupe sa Macro', /if \(\/\^macro\$\/i\.test\(String\(sec\.section\)/.test(srv2));
+v('un groupe unique ne recoit pas de sous-titre', /if \(groupes\.length > 1\)/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v13:'/.test(srv2));
 
 console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
 /* Le format de séance porte une version, et les récaps déjà publiés sous une version périmée se

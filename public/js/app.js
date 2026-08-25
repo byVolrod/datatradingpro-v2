@@ -1413,7 +1413,11 @@ function getFilteredItems() {
     if (!_hlNoisePass(item, _h)) return false;
     // Seul check dépendant de la DESCRIPTION (regroupable → peut changer) → gardé EN DIRECT :
     //   ex. « Thursday FX Option Expiries » : en-tête sans analyse/description.
-    if (/options?\s+expir/i.test(_h) && (item.description || '').replace(/<[^>]*>/g, '').trim().length < 40) return false;
+    /* ÉCHÉANCES D'OPTIONS FX : écartées SANS CONDITION (26/08, demande utilisateur). La règle
+       exigeait auparavant une description de moins de 40 caractères — dès que le fournisseur en
+       mettait une un peu longue, « Wednesday FX Option Expiries » repassait dans le fil. Le serveur
+       ne les stocke plus ; cette ligne couvre les clients qui ont encore l'ancien lot en cache. */
+    if (/\b(?:fx|forex|currency)\s+option\s+expir|options?\s+expiries\b|expiries?\s+for\s+\w+day/i.test(_h)) return false;
     // ── Levier 2 : mode Essentiel (hors recherche) : ne garder que la macro/FX qui compte ──
     if (newsEssentialMode && !searchQuery && !_isEssentialItem(item)) return false;
 
@@ -10100,9 +10104,9 @@ function _renderFXDailyRecap(item) {
      laissait passer les news — défaut mesuré au banc le 25/08. */
   const _FAM_JOUR = [
     ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|import prices|export prices|wholesale price|trimmed mean|deflator/i],
-    ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
+    ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
     ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
-    ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
+    ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative/i],
     ['Commerce', /guerre commerciale|trade war|tarifs?\b|droits? de douane|surtaxes?|r[ée]torsion|quotas?|embargo commercial|balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
   ];
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
@@ -10564,6 +10568,13 @@ function renderArlibReader(item) {
         if (t) html += `<div class="arlib-rbullet-sub"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`;
       } else if (tag === 'hr') {
         html += `<hr class="arlib-rdivider">`;
+      } else if ((tag === 'em' || tag === 'i') && !el.closest('p, li')) {
+        /* SOUS-TITRE DE RUBRIQUE (26/08) : la rubrique Macro d'un récap de séance est rangée par
+           famille, comme le Récap Quotidien. Le serveur émet la famille en <em> hors puce ; il
+           n'existait aucun niveau entre le titre de rubrique et la puce, d'où ce cran. */
+        const t = el.textContent.trim();
+        if (t.length >= 2) html += `<div class="arlib-rsubsection">${_wrEsc(t)}</div>`;
+        else Array.from(el.childNodes).forEach(walk);
       } else if ((tag === 'strong' || tag === 'b') && !el.closest('p, li')) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré

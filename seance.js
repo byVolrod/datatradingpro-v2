@@ -60,15 +60,19 @@ const ACTIFS = {
    identique ; si on renomme une famille, il faut la renommer aux TROIS endroits. */
 const ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
 const FAM_RX = [
-  ['Politique monétaire', /rate decision|interest rate decision|\bfomc\b|rate statement|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|cash rate|loan prime rate|monetary policy|meeting minutes|press conference|economic projections|\bboe\b|\becb\b|\bboj\b|\brba\b|\brbnz\b|\bboc\b|\bsnb\b|\bpboc\b|speaks|speech/i],
-  ['Inflation', /\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|inflation|consumer price|producer price|price index|deflator|wage growth|hourly earnings|average earnings/i],
-  ['Emploi', /\bnfp\b|non[-\s]?farm|payroll|employment|unemployment|jobless|claimant|\bjolts\b|job openings|labou?r/i],
-  ['Croissance économique', /\bgdp\b|gross domestic|\bpmi\b|\bism\b|industrial production|manufacturing|services|retail sales|personal spending|household spending|durable goods|factory orders|confidence|sentiment|climate|\bifo\b|\bzew\b|tankan|activity index|housing|building permits|home sales|construction/i],
-  ['Commerce', /trade balance|balance of trade|exports?|imports?|current account|tariff|customs/i],
+  ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|import prices|export prices|wholesale price|trimmed mean|deflator/i],
+  ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
+  ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
+  ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative/i],
+  ['Commerce', /guerre commerciale|trade war|tarifs?\b|droits? de douane|surtaxes?|r[ée]torsion|quotas?|embargo commercial|balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
 ];
-/* L'ordre de la table n'est PAS l'ordre d'affichage : « Politique monétaire » est testée en premier
-   parce qu'un « ECB Press Conference » contient « conference » et serait sinon happé par une autre
-   règle. L'affichage, lui, suit ORDRE_FAM. */
+/* TABLE REPRISE VERBATIM du Récap Quotidien (`_FAM_JOUR`, public/js/app.js) : c'est la seule façon
+   de garantir qu'un même chiffre tombe dans la même famille dans les deux rapports. Elle est
+   BILINGUE parce que les deux entrées le sont — un intitulé de calendrier arrive en anglais
+   (« Retail Sales MoM »), une puce de récap est rédigée en français (« les ventes au détail
+   américaines progressent de 0,6 % »).
+   L'ordre de la table est un ordre de TEST (la première règle qui répond gagne), pas l'ordre
+   d'affichage : celui-ci suit ORDRE_FAM. */
 function famille(titre) {
   const t = String(titre || '');
   const m = FAM_RX.find(([, rx]) => rx.test(t));

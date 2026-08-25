@@ -996,6 +996,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260826-macro-familles-seance', ts: Date.UTC(2026, 7, 26, 16, 0), title: 'Recap de seance : la rubrique Macro rangee par famille, comme le Recap Quotidien', desc: 'Dans le recap de seance, la rubrique Macro alignait toutes les publications a la suite. Elles sont desormais rangees par famille — Inflation, Croissance economique, Emploi, Politique monetaire, Commerce — avec les memes noms et le meme ordre que dans le Recap Quotidien, que beaucoup lisent juste avant ou juste apres. Le classement est fait par nos regles, pas laisse a l appreciation de la redaction automatique : une meme publication tombe dans la meme famille dans les deux rapports. Les decisions et propos de banques centrales rejoignent la Politique monetaire, et une famille sans publication du jour ne s affiche pas.' },
+  { id: 'dtpu-20260826-expiries-retirees', ts: Date.UTC(2026, 7, 26, 15, 0), title: 'Les echeances d options de change disparaissent du fil', desc: 'Les depeches du type Wednesday FX Option Expiries revenaient chaque jour sans chiffre ni consequence lisible. Elles sont desormais ecartees a la source : elles ne sont plus recuperees du tout, et celles deja presentes ont ete retirees du fil. Un filtre existait deja mais il ne s appliquait que si la depeche etait tres courte, si bien qu il suffisait d un texte un peu plus long pour la voir repasser.' },
   { id: 'dtpu-20260826-seance-familles', ts: Date.UTC(2026, 7, 26, 14, 0), title: 'Recaps de seance : les chiffres ranges par famille, comme le Recap Quotidien', desc: 'Les publications d une seance ne sortent plus en liste plate : elles sont rangees par famille — Inflation, Croissance economique, Emploi, Politique monetaire, Commerce — exactement comme dans le Recap Quotidien, avec les memes noms et le meme ordre. Les deux rapports se lisent souvent a la suite le meme jour : ranger pareil evite d avoir a se reorienter en passant de l un a l autre. Une famille sans publication ce jour-la ne s affiche pas.' },
   { id: 'dtpu-20260826-seance-maj-auto', ts: Date.UTC(2026, 7, 26, 12, 0), title: 'Les recaps de seance du jour se mettent a jour tout seuls', desc: 'Quand nous ameliorons la forme d un recap de seance, les recaps DEJA publies de la journee se refont desormais automatiquement au format le plus recent. Auparavant seuls les recaps suivants en profitaient : celui que vous aviez sous les yeux restait dans son ancienne forme jusqu au lendemain. Le desk verifie au demarrage, refait ce qui doit l etre, et attend d avoir mesure les marches avant de le faire — un recap refait trop tot sortirait sans sa photo de seance, ce qui serait pire que de ne rien changer. Une seance qui n a pas encore commence n est evidemment pas touchee.' },
   { id: 'dtpu-20260826-seance-chiffree', ts: Date.UTC(2026, 7, 26, 10, 0), title: 'Recaps de seance : la seance est desormais chiffree, pas seulement racontee', desc: 'Chaque recap de seance s ouvre maintenant sur des mesures. Une synthese qui dit combien de publications sont tombees et combien ont surpris. Une photo de seance : la performance reelle des marches de CETTE seance sur SA fenetre horaire — le DAX et le FTSE pour Londres, le Nikkei et le Hang Seng pour l Asie, le S&P et le rendement dix ans pour New York. Puis les chiffres eux-memes, avec le resultat, le consensus et l ecart. Les rendements sont exprimes en points de base, comme sur un desk, et un indicateur ou la hausse est une mauvaise nouvelle — chomage, inscriptions, stocks — est lu dans le bon sens. Rien n est invente : une donnee absente est omise plutot que remplie d un tiret, et sans donnees le recap reste exactement celui d avant.' },
@@ -6225,7 +6227,7 @@ function _aiMonthProjection() {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v12:';   // bump → régénère (v12 : rubriques du RÉCAP QUOTIDIEN, en français : « Géopolitique · Macro · Analyse de séance · À surveiller » à la place de « CENTRAL BANKS & DATA / FX / ON WATCH ». Sans ce bump, les rapports déjà segmentés gardaient les anciens titres anglais en cache ; v11 : règle PMI corrigée — priorité Services UNIQUEMENT pour l'US/USD ; v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
+const SW_SEG_VER  = 'v13:';   // bump → régénère (v13 (26/08, retour user capture à l'appui « dans macro je vois pas les news sorties dans leur catégorie comme quotidien ») : la rubrique MACRO est RANGÉE PAR FAMILLE — Inflation, Croissance économique, Emploi, Politique monétaire, Commerce — comme le Récap Quotidien, avec la MÊME table de classement (_SEA.famille, reprise verbatim de `_FAM_JOUR`). Le classement est fait PAR NOUS sur ce que l'IA a écrit, pas demandé à l'IA : elle ne peut donc ni inventer une famille ni en oublier. Le HTML segmenté étant CACHÉ, sans ce bump les rapports déjà segmentés gardaient leur liste plate. ; v12 : rubriques du RÉCAP QUOTIDIEN, en français : « Géopolitique · Macro · Analyse de séance · À surveiller » à la place de « CENTRAL BANKS & DATA / FX / ON WATCH ». Sans ce bump, les rapports déjà segmentés gardaient les anciens titres anglais en cache ; v11 : règle PMI corrigée — priorité Services UNIQUEMENT pour l'US/USD ; v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -6408,6 +6410,23 @@ ${points.map(p => '- ' + p).join('\n')}`;
   let html = '';
   for (const sec of arr) {
     if (!sec || !sec.section || !Array.isArray(sec.items) || !sec.items.length) continue;
+    /* MACRO RANGÉE PAR FAMILLE, COMME LE RÉCAP QUOTIDIEN (26/08, retour utilisateur, capture à
+       l'appui : « dans macro je vois pas les news sorties dans leur catégorie comme quotidien »).
+       C'est ICI que se lit le récap de séance — le rapport segmenté par l'IA, pas les puces
+       déterministes. Sa rubrique Macro sortait en liste plate pendant que le Quotidien range par
+       Inflation · Croissance économique · Emploi · Politique monétaire · Commerce.
+       Le classement est DÉTERMINISTE et fait avec la MÊME table que le Quotidien (_SEA.famille,
+       reprise de `_FAM_JOUR`) : on ne demande pas à l'IA de ranger, on range nous-mêmes ce qu'elle a
+       écrit. Elle ne peut donc pas inventer une famille, ni en oublier une.
+       Une seule famille remplie → aucun sous-titre : intituler un groupe unique n'apprend rien. */
+    if (/^macro$/i.test(String(sec.section).trim())) {
+      const groupes = _SEA.parFamille(sec.items.map(i => ({ titre: String(i), ligne: String(i) })));
+      if (groupes.length > 1) {
+        html += `<strong>${esc(sec.section)}</strong>`;
+        for (const g of groupes) html += `<em>${esc(g.famille)}</em><ul>${g.lignes.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+        continue;
+      }
+    }
     html += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
   }
   if (html.length > 50) { console.log(`[SW seg] OK -> ${arr.length} sections (wrap structure par IA)`); return html; }
@@ -9837,6 +9856,23 @@ function _pousserASurveiller(bullets, reportType) {
    v2 (26/08) : les chiffres sont RANGÉS PAR FAMILLE, comme le Récap Quotidien — Inflation,
                 Croissance économique, Emploi, Politique monétaire, Commerce. Bump = les récaps du
                 jour déjà refaits en v1 se refont en v2. */
+/* PURGE DES ÉCHÉANCES D'OPTIONS DÉJÀ STOCKÉES. Le filtre ci-dessus empêche les prochaines d'entrer,
+   il ne retire pas celles qui sont déjà dans le fil : sans cette purge, l'utilisateur continuerait à
+   les voir jusqu'à ce qu'elles sortent d'elles-mêmes de la fenêtre. */
+const _OPTION_EXPIRIES_RX = /\b(?:fx|forex|currency)\s+option\s+expir|option\s+expiries\b|expiries?\s+for\s+\w+day/i;
+setTimeout(() => {
+  try {
+    const avant = allNews.length;
+    allNews = allNews.filter(i => !(i && !i._briefing && _OPTION_EXPIRIES_RX.test(String(i.headline || ''))));
+    const retires = avant - allNews.length;
+    if (retires > 0) {
+      saveHistory();
+      try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch {}
+      console.log(`[Fil] ${retires} échéance(s) d'options FX retirée(s) du fil (sans valeur, demande utilisateur).`);
+    }
+  } catch (e) { console.warn('[Fil] purge options :', e && e.message); }
+}, 45000);
+
 const SEANCE_VER = 2;
 
 /* RATTRAPAGE AU DÉMARRAGE. Au boot, on regarde les récaps de séance DU JOUR : ceux qui portent une
@@ -17508,6 +17544,15 @@ function isGlobalNewsNoise(headline) {
   // (celui-ci porte Actual/Forecast/Previous + chiffres). On GARDE ceux qui ont des chiffres/une réaction, on drop la coquille.
   if (/\b(?:pmi|cpi|ppi|gdp|ism|nfp|non-?farm|payrolls?|jobless|unemployment|retail sales|trade balance|industrial production|durable goods|factory orders|housing starts|building permits)\b.*\breport\.?\s*$/i.test(h)
       && !/\b(?:actual|forecast|previous|consensus|beats?|miss(?:es|ed)?|rose|fell|jump\w*|drop\w*|rise\w*|climb\w*|surge\w*|slump\w*)\b|\d+\.\d/i.test(h)) return true;
+  /* ÉCHÉANCES D'OPTIONS FX (26/08, demande utilisateur, capture à l'appui : « enlève ce type de news
+     car elle sert à rien »). « Wednesday FX Option Expiries » revient chaque jour, sans chiffre et
+     sans conséquence lisible. Le fil en avait déjà un filtre CÔTÉ CLIENT, mais conditionné à une
+     description de moins de 40 caractères : dès que le fournisseur en mettait une un peu longue, la
+     dépêche repassait. On la coupe donc À LA SOURCE, sans condition — elle n'est plus stockée du
+     tout, ce qui libère aussi de la place dans le fil (2000 entrées, mémoire comptée).
+     ⚠️ PAS de garde `isFinanciallyRelevant` ici, et c'est délibéré : ces titres SONT financièrement
+     pertinents au sens du détecteur (« FX », « option »), la garde les repêcherait tous. */
+  if (/\b(?:fx|forex|currency)\s+option\s+expir|option\s+expiries\b|expiries?\s+for\s+\w+day/i.test(h)) return true;
   if (TABLOID_SOURCES.test(h))  return true;
   // GOSSIP : désormais GARDÉ par la pertinence financière (comme OFFTOPIC/HumanInterest/SoftNews) — le
   // filtre inconditionnel jetait les TRANSITIONS DE POUVOIR market-movers (« X wins Labour leadership
