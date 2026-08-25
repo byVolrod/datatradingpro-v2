@@ -9845,7 +9845,21 @@ html[data-theme="light"] .cal-day-sep td {
 .chat-panel.open { transform: translateX(0); }
 .chat-header { display:flex; align-items:center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border); flex-shrink:0; background:#16171d; }   /* header un peu plus clair → l'avatar ressort */
 .chat-support-av { width:42px; height:42px; border-radius:50%; background:#e7e9ee; color:var(--bg); font-weight:var(--fw-bold); font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; box-shadow:0 0 0 2px rgba(255,255,255,.30); }   /* fond clair + anneau clair pour bien voir la photo */
-.chat-support-av img, .chat-av img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+/* CADRAGE DE LA PHOTO SUPPORT SUR LE VISAGE (26/08, demande utilisateur : « centre bien la bulle
+   sur la personne »). La photo du desk est un plan LARGE : bureau, écrans, logo mural. Un simple
+   `object-fit: cover` dans une pastille de 26 px centre au milieu du cadre — donc sur le torse, avec
+   la tête coupée en haut. Et comme l'image est plus large que haute, `object-position` seul ne peut
+   rien y faire : le recadrage de `cover` est HORIZONTAL, l'axe vertical est déjà entier.
+   On serre donc autour du visage : `transform-origin` le désigne, `scale` s'y approche. Les deux
+   valeurs sont des variables — un remplacement de photo se recadre en changeant deux nombres, à un
+   seul endroit, sans toucher au JS.
+   Une photo DÉJÀ CARRÉE et cadrée sur le visage (le mieux) se contente de `--sup-av-zoom: 1`. */
+.chat-support-av, .chat-av { --sup-av-zoom: 2.15; --sup-av-x: 56%; --sup-av-y: 27%; }
+.chat-support-av img, .chat-av img {
+  width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;
+  transform: scale(var(--sup-av-zoom));
+  transform-origin: var(--sup-av-x) var(--sup-av-y);
+}
 .chat-support-av.has-photo { background:#e7e9ee; }   /* fond clair derrière la photo support */
 .chat-av.has-photo { background:#1a1c22; }
 .chat-head-text { flex:1; min-width:0; }

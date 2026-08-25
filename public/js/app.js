@@ -10693,6 +10693,20 @@ function renderArlibReader(item) {
         } else {
           _emitBullets(_emphasize(text), text);              // li long multi-phrases → découpé en puces (jamais de pavé)
         }
+      } else if (tag === 'aside' && el.classList.contains('dtp-cal')) {
+        /* LE CALENDRIER DU DESK, DANS LE RAPPORT (26/08 : « met une partie du calendrier éco du desk
+           direct »). Le serveur ne peut pas construire ce tableau : il a besoin des briques du
+           navigateur — drapeaux ronds, points d'impact, cellule de réel colorée. Il dépose donc les
+           ÉVÉNEMENTS dans une balise inerte, et on appelle ici LA MÊME fabrique que le Récap
+           Quotidien. Les deux rapports rendent donc, au pixel près, le même calendrier.
+           Données JSON malformées → aucun tableau, et le rapport continue : une rubrique sans
+           calendrier vaut mieux qu'un rapport qui s'arrête. */
+        let evs = null;
+        try { evs = JSON.parse(el.getAttribute('data-evs') || '[]'); } catch (e) { evs = null; }
+        if (Array.isArray(evs) && evs.length && typeof _rapportCalTable === 'function') {
+          const t = _rapportCalTable(evs);
+          if (t) { html += t; bulletCount++; }
+        }
       } else if (tag === 'ul' && /^SYNTH[ÈE]SE$/.test(_rubrique)) {
         /* LA SYNTHÈSE EST UN ENCADRÉ, PAS UNE LISTE (26/08, capture du Récap Quotidien à l'appui :
            « une synthèse comme ça, faut la même identité visuelle »). Le Quotidien rend la sienne
@@ -11793,8 +11807,18 @@ function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(
 const CHAT_SUPPORT_NAME  = 'Équipe de support';
 const CHAT_SUPPORT_SUB   = 'Répond généralement en quelques minutes';
 const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la photo ne charge pas)
-// Photo support (portrait pro/institutionnel). Modifiable : remplace l'URL par la tienne.
-const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=240&h=240&fit=crop&crop=faces&auto=format&q=88';
+/* PHOTO DU SUPPORT — FICHIER DTP, SERVI PAR NOUS (26/08, demande utilisateur : « remplace l'image
+   du desk par celle-ci ; quand les gens communiquent avec le desk ce sera cette nouvelle image, ça
+   mettra à jour pour tous les users »).
+   Elle pointait sur UNSPLASH : une photo de banque d'images, chargée depuis un serveur tiers à
+   chaque ouverture du chat. Trois problèmes d'un coup — ce n'est pas le desk, l'affichage dépend
+   d'un service qu'on ne maîtrise pas, et c'est exactement le cas de figure tranché le 21/08 pour
+   l'avatar du Copilote Macro (« le PNG téléchargé chez un tiers a été supprimé »).
+   Le fichier vit désormais dans nos assets : le remplacer met à jour TOUS les clients d'un coup,
+   sans rien redéployer d'autre. Le jeton `?v=` doit être incrémenté à chaque remplacement — sinon
+   les navigateurs qui ont l'ancienne en cache la garderaient (assets servis en cache 30 jours).
+   Si le fichier manque, l'`onerror` retombe proprement sur les initiales : jamais d'image cassée. */
+const CHAT_SUPPORT_PHOTO = '/assets/images/support-dtp.jpg?v=1';
 // Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
 function _chatSupportAvatarHtml(){
   if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);

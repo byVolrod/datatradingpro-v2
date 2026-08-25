@@ -106,6 +106,21 @@ function completerSurveiller(items, surv) {
   const tete = surv.nom ? [`**Séance de ${surv.nom}** — le calendrier :`] : [];
   return tete.concat(lignes.map(String), (items || []).map(String));
 }
+/* LE VRAI TABLEAU DU CALENDRIER, PAS DES PHRASES (26/08 : « met une partie du calendrier éco du desk
+   direct »). Le Récap Quotidien rend déjà ses échéances sous la forme du calendrier du desk —
+   séparateurs de jours, heure, drapeau, points d'impact, cellules de valeurs, ligne cliquable vers
+   le Décryptage. Le récap de séance servait les mêmes rendez-vous en texte.
+   On ne construit PAS ce tableau ici : le HTML a besoin des briques du navigateur (drapeaux,
+   points d'impact, cellule de réel colorée). On dépose donc les ÉVÉNEMENTS, et le lecteur appelle la
+   même fabrique que le Quotidien. Une balise inerte porte les données : elle ne rend rien par
+   elle-même, donc un lecteur qui ne la connaîtrait pas n'affiche simplement pas de tableau — jamais
+   du JSON en clair. */
+function calSurveiller(surv) {
+  const evs = (surv && surv.evs) || [];
+  if (!evs.length) return '';
+  const json = JSON.stringify(evs).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
+  return `<aside class="dtp-cal" data-evs='${json}'></aside>`;
+}
 
 /* LA SYNTHÈSE OUVRE LE RAPPORT (26/08 : « fais une synthèse de la session comme on a dans le récap
    quotidien »). Elle se pose EN PREMIER, avant même le LEAD : le lecteur reçoit d'abord ce que la
@@ -147,9 +162,16 @@ function html(arr, macroCal, surv, synth) {
       continue;
     }
     if (estSurv(sec)) {
-      const l = completerSurveiller(sec.items.map(sansSource), surv);
-      if (!l.length) continue;
-      out += `<strong>${esc(sec.section)}</strong><ul>${l.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      /* Le TABLEAU d'abord — les échéances datées et chiffrées —, puis les fils ouverts que la
+         rédaction a relevés : une échéance passe avant une attente vague. Les phrases du calendrier
+         ne sont écrites QUE si le tableau n'a pas pu l'être (vieux lecteur, aucune donnée brute) :
+         sinon le lecteur lirait deux fois les mêmes rendez-vous. */
+      const tbl = calSurveiller(surv);
+      const l = tbl ? (sec.items || []).map(sansSource) : completerSurveiller(sec.items.map(sansSource), surv);
+      if (!tbl && !l.length) continue;
+      out += `<strong>${esc(sec.section)}</strong>`;
+      if (tbl) out += `<em>Séance de ${esc((surv && surv.nom) || '')}</em>` + tbl;
+      if (l.length) out += `<ul>${l.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
       continue;
     }
     if (!sec.items.length) continue;   // une rubrique vide s'efface — Macro et « À surveiller » sont traitées ci-dessus
@@ -160,4 +182,4 @@ function html(arr, macroCal, surv, synth) {
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, poserSynthese, sansSource, heureParis, esc };
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, calSurveiller, poserSynthese, sansSource, heureParis, esc };

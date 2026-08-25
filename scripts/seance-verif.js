@@ -160,7 +160,7 @@ const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 's
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
 v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v20:'/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v21:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -588,13 +588,25 @@ const SURV = { nom: 'New York', lignes: [
 ] };
 const AVEC = [{ section: 'LEAD', items: ['Séance calme.'] },
   { section: 'À surveiller', items: ['La réaction du marché aux rumeurs.', 'Les prochaines déclarations de la **Fed**.'] }];
+/* LE VRAI TABLEAU DU CALENDRIER (26/08, « met une partie du calendrier éco du desk direct »). Le
+   serveur ne peut pas le construire — il lui faut les drapeaux, les points d'impact et la cellule de
+   réel colorée, qui vivent dans le navigateur. Il DÉPOSE donc les événements ; le lecteur appelle la
+   même fabrique que le Récap Quotidien. */
+SURV.evs = [
+  { ts: JOUR + 14 * H, ccy: 'USD', event: 'Core PCE Price Index m/m', importance: 'High', actual: '', forecast: '0.2%', previous: '0.1%' },
+  { ts: JOUR + 15 * H, ccy: 'USD', event: 'Chicago PMI', importance: 'Medium', actual: '', forecast: '47.1', previous: '47.6' },
+];
 const hs = W.html(AVEC, [], SURV).html;
-v('le calendrier apparaît dans « À surveiller »', /Core PCE Price Index/.test(hs) && /Chicago PMI/.test(hs), hs.slice(0, 160));
-v('la séance visée est nommée', /<li>\*\*Séance de New York\*\* — le calendrier :<\/li>/.test(hs), hs.slice(hs.indexOf('surveiller'), hs.indexOf('surveiller') + 120));
-v('les échéances datées passent AVANT les fils ouverts', hs.indexOf('Core PCE') < hs.indexOf('rumeurs'));
+v('les événements sont déposés pour le lecteur', /<aside class="dtp-cal" data-evs='\[/.test(hs), hs.slice(hs.indexOf('<aside'), hs.indexOf('<aside') + 90));
+v('… avec leurs champs bruts', /"event":"Core PCE Price Index m\/m"/.test(hs) && /"forecast":"0.2%"/.test(hs));
+v('la séance visée est nommée', /<em>Séance de New York<\/em>/.test(hs), hs.slice(hs.indexOf('surveiller'), hs.indexOf('surveiller') + 120));
+v('le calendrier passe AVANT les fils ouverts', hs.indexOf('<aside') < hs.indexOf('rumeurs'));
 v('les puces de l\'IA sont conservées', /rumeurs/.test(hs) && /déclarations de la \*\*Fed\*\*/.test(hs));
-// 1 puce de LEAD + l'intitulé de séance + 2 échéances du calendrier + 2 puces de l'IA.
-v('aucune puce perdue', (hs.match(/<li>/g) || []).length === 6, String((hs.match(/<li>/g) || []).length));
+v('les phrases du calendrier ne DOUBLENT pas le tableau', !/14h30 USD/.test(hs), hs);
+v('l\'apostrophe du JSON est échappée (attribut en quotes simples)', !/data-evs='[^']*'[^>]*'/.test(hs));
+// Sans données brutes (vieux rapport, calendrier muet) → repli sur les phrases, rien ne se perd.
+const replis = W.html(AVEC, [], { nom: 'New York', lignes: SURV.lignes, evs: [] }).html;
+v('sans données brutes, les phrases reviennent', /14h30 USD/.test(replis) && !/<aside/.test(replis));
 // Rubrique absente de l'article : elle est CRÉÉE, et en dernier — le rapport se termine dessus.
 const sansRub = W.html([{ section: 'LEAD', items: ['x'] }, { section: 'Macro', items: ['**CPI** : 0,4%'] }], [], SURV).html;
 v('une rubrique absente est créée', /<strong>À surveiller<\/strong>/.test(sansRub));
@@ -607,10 +619,10 @@ v('et aucune rubrique n\'est inventée', !/<strong>À surveiller<\/strong>/.test
    jour du récap. Relire hier un rapport qui annonce les publications d'aujourd'hui serait pire que
    pas de rubrique du tout. */
 const _SRVA = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-v('la rubrique n\'est posée que sur un récap DU JOUR', /_jourParis\(ts\) !== _jourParis\(t\)\) return \{ nom: '', lignes: \[\] \};/.test(_SRVA));
+v('la rubrique n\'est posée que sur un récap DU JOUR', /_jourParis\(ts\) !== _jourParis\(t\)\) return \{ nom: '', lignes: \[\], evs: \[\] \};/.test(_SRVA));
 v('elle réutilise la fabrique des récaps déterministes', /return _aSurveillerSeanceSuivante\(type\);/.test(_SRVA));
 v('le serveur la passe au rendu', /_WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
-v('la version de segmentation a été bumpée (À surveiller)', /const SW_SEG_VER  = 'v2[0-9]:'/.test(_SRVA));
+v('la version de segmentation a été bumpée (À surveiller)', /const SW_SEG_VER  = 'v2[1-9]:'/.test(_SRVA));
 
 console.log('\n── 7e-septies. LA SYNTHÈSE OUVRE LE RAPPORT ──');
 /* « fais une synthèse de la session comme on a dans le récap quotidien » (26/08, capture : le
@@ -642,7 +654,7 @@ v('la photo de séance vient de la même fabrique', /const lp = _SEA\.lignePerf\
 v('rien n\'est produit sans mesure', /if \(!perfs\.length && !macros\.length\) return \[\];/.test(_SRVA));
 v('… ni sur un récap d\'un autre jour', /_jourParis\(ts\) !== _jourParis\(t\)\) return \[\];/.test(_SRVA));
 v('elle est passée au rendu', /_aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
-v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v20:'/.test(_SRVA));
+v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v21:'/.test(_SRVA));
 
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
