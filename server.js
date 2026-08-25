@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260827-nom-du-compte', ts: Date.UTC(2026, 7, 27, 22, 0), title: 'Votre compte porte enfin votre nom', desc: 'Les comptes ouverts automatiquement apres un paiement naissaient SANS NOM. La plateforme de paiement nous transmettait bien votre nom, nous ne le lisions simplement jamais — au point qu un client etait introuvable dans nos outils en cherchant son nom, alors que son compte existait bel et bien. C est corrige : votre nom est repris a l ouverture du compte, et votre pseudo sert de repli si aucun nom n est disponible. Les comptes deja ouverts sans nom recuperent le leur automatiquement au premier renouvellement — mais uniquement s il est vide : un nom corrige a la main n est jamais ecrase.' },
   { id: 'dtpu-20260827-fusion-panneau', ts: Date.UTC(2026, 7, 27, 20, 0), title: 'Reunir deux comptes d une meme personne, depuis le panneau', desc: 'Une meme personne pouvait se retrouver avec deux fiches — le plus souvent une adresse anonyme creee par un paiement Apple Pay et sa vraie adresse. Les reunir demandait une intervention technique ; c est desormais un bouton dans le panneau Campagne, avec une SIMULATION obligatoire avant toute ecriture : vous voyez exactement ce qui va se passer avant de confirmer. A l execution, l acces deja paye est integralement conserve — c est toujours l echeance la plus lointaine qui est gardee — le compte absorbe est suspendu et non supprime, un mot de passe neuf est genere, et le courriel d acces part sur LES DEUX adresses pour qu au moins un des deux arrive. L ancienne adresse reste rattachee au compte : un renouvellement paye dessus prolonge le bon acces au lieu d en creer un troisieme.' },
   { id: 'dtpu-20260827-compte-recolle', ts: Date.UTC(2026, 7, 27, 18, 0), title: 'Un acces cree sur une adresse masquee peut etre recolle a votre vraie adresse', desc: 'Suite du correctif precedent. Quand un abonnement paye par Apple Pay avec « Masquer mon adresse » avait deja ouvert un acces sur l adresse relais anonyme, le compte existait bien mais restait introuvable sous la vraie adresse, et le courriel d acces partait vers une boite relais qu Apple ne relaie pas toujours. Nous pouvons desormais recoller ce compte a la vraie adresse en une operation : l acces deja paye est conserve integralement — c est toujours l echeance la plus lointaine qui est gardee, jamais la plus courte — un mot de passe neuf est genere et le courriel d acces part enfin dans la bonne boite. Si deux comptes existaient pour la meme personne, ils sont reunis en un seul. L ancienne adresse reste rattachee : un renouvellement paye sous celle-ci prolonge le bon compte au lieu d en creer un troisieme.' },
   { id: 'dtpu-20260827-abonnement-jamais-perdu', ts: Date.UTC(2026, 7, 27, 14, 0), title: 'Un abonnement paye ne peut plus passer inapercu chez nous', desc: 'Nous avons trouve et corrige une panne silencieuse : dans certains cas, un abonnement bel et bien paye n ouvrait aucun acces de notre cote, sans le moindre signal d erreur. La cause : notre lecture des abonnements cherchait l adresse e-mail a un seul endroit precis du message recu. Quand la plateforme de paiement la place ailleurs — ce qui arrive notamment avec Apple Pay et l option « Masquer mon adresse » — l abonnement devenait invisible pour nous, y compris pour le controle de securite qui passe toutes les dix minutes et qui existe justement pour rattraper ce genre d oubli. Les deux echouaient au meme endroit. L adresse est desormais recherchee partout ou elle peut se trouver, et nous retenons aussi le nom d utilisateur comme seconde identite : meme si l adresse est masquee ou changee, votre abonnement reste rattache a votre compte. Un renouvellement paye sous l une ou l autre de vos identites prolonge le meme acces, sans jamais creer de second compte.' },
@@ -2853,7 +2854,13 @@ async function _whopRenewOrCreate(mem) {
     if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
     const wasInactive = !existing.active;
     if (!mem.expiresAt) console.warn(`[Whop] adhésion SANS échéance → compte passé ILLIMITÉ (${mem.email}) : vérifier que c'est voulu (audit 28/07)`);
-    await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
+    /* RATTRAPAGE DU NOM (27/08) : les comptes crees avant ce correctif portent un nom VIDE. On le
+       remplit au premier passage Whop — mais UNIQUEMENT s il est vide : un nom saisi a la main dans
+       le panneau est un choix de l admin, Whop n a pas a l ecraser a chaque renouvellement. */
+    const _majExist = { active: true, expiresAt: mem.expiresAt };
+    const _nomWhop = String((mem && mem.name) || '').trim();
+    if (_nomWhop && !String(existing.name || '').trim()) { _majExist.name = _nomWhop; console.log(`[Whop] nom rattrape depuis Whop → ${existing.email} : ${_nomWhop}`); }
+    await auth.updateUser(existing.id, _majExist);
     // CADENCE = LA RÉALITÉ GAGNE TOUJOURS : ce que le client PREND (période de facturation Whop)
     // écrase tout réglage manuel de l'admin. Admin avait mis « annuel » mais le client renouvelle en
     // mensuel → la colonne PLAN passe Mensuel au renouvellement (et inversement). Corrige aussi les
@@ -2901,15 +2908,16 @@ async function _whopRenewOrCreate(mem) {
     const dedupKey = `whop-welcome:${_deskEmail}`;
     if (await auth.emailLogHas(dedupKey)) console.log(`[Whop] ${_deskEmail} : bienvenue déjà envoyée par le passé, mais AUCUN compte n'existe → on le recrée et on renvoie l'accès.`);
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
-    const wu = await auth.createUser({ email: _deskEmail, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
+    const _nom = String((mem && mem.name) || '').trim();   // nom Whop (demande user) — '' si Whop n en donne pas d exploitable
+    const wu = await auth.createUser({ email: _deskEmail, password: pwd, name: _nom, role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
     // ENVOI FIABLE D'ABORD (await + alerte admin si échec), marqueur SEULEMENT si l'email est VRAIMENT
     // parti. AVANT (bug des 17 clients du 22/06) : le marqueur était posé AVANT un envoi fire-and-forget
     // à erreur avalée → si OVH hoquetait, compte créé mais bienvenue jamais envoyée ET jamais retentée.
     // Désormais : échec → pas de marqueur → le filet _welcomeAutoHeal ré-enverra au prochain cycle.
-    const _wr = await _sendWelcomeReliable({ to: _deskEmail, name: '', password: pwd, expiresAt: mem.expiresAt });
+    const _wr = await _sendWelcomeReliable({ to: _deskEmail, name: _nom, password: pwd, expiresAt: mem.expiresAt });
     _sendWelcomeChat(wu && wu.id);
     if (_wr && _wr.sent) { await auth.emailLogAdd(dedupKey); try { await auth.emailLogAdd('welcomeok:' + _deskEmail); } catch {} }   // welcomeok: = envoi CONFIRMÉ (protège du re-envoi par le filet)
-    mailer.sendAdminRenewalNotice({ clientEmail: _deskEmail, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
+    mailer.sendAdminRenewalNotice({ clientEmail: _deskEmail, clientName: _nom, expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
     console.log(`[Whop] Compte créé: ${_deskEmail}` + (_deskEmail !== _aliasNorm(mem.email) ? ` (alias Whop ${mem.email})` : '') + (_wr && _wr.sent ? ` (bienvenue ✅ ${_wr.provider})` : ' (bienvenue ❌ : sera relancée par le filet)'));
     // Parrainage via lien d'affiliation Whop (?a=<username>) : l'adhésion porte l'username du
     // parrain → on crédite le filleul ICI, sans dépendre du cookie landing. Verrou referredby

@@ -30,6 +30,24 @@ function _memEmail(m) {
   for (const c of cands) { const v = String(c == null ? '' : c).toLowerCase().trim(); if (v && v.includes('@')) return v; }
   return '';
 }
+/* NOM AFFICHE (27/08, demande user : « son compte doit porter son nom Whop »). Les comptes crees
+   par Whop naissaient avec `name: ''` — Whop transmet bien un nom, on ne le lisait simplement
+   jamais. Consequence concrete : le client etait introuvable dans le panneau en cherchant son nom.
+   Ordre : vrai nom d abord, pseudo en repli (mieux vaut « mathis7771 » que rien).
+   ⚠️ FILTRE OBLIGATOIRE, et ce n est pas de la coquetterie : `auth.createUser` REFUSE (throw) un nom
+   uniquement numerique ou symbolique. Laisser passer un tel nom ferait echouer la creation du
+   compte — soit exactement la panne silencieuse qu on vient de corriger, reintroduite par la porte
+   d a cote. On renvoie donc '' plutot qu une valeur qui ferait lever. */
+function _memName(m) {
+  const cands = [m && m.name, m && m.user && typeof m.user === 'object' && m.user.name,
+                 m && m.member && typeof m.member === 'object' && m.member.name,
+                 m && m.username, m && m.user && typeof m.user === 'object' && m.user.username];
+  for (const c of cands) {
+    const v = String(c == null ? '' : c).trim().replace(/^@/, '');
+    if (v && !/^[\d\s.\-_/\\]+$/.test(v)) return v.slice(0, 80);
+  }
+  return '';
+}
 function _memUsername(m) {
   const cands = [m && m.username, m && m.user_username,
                  m && m.user && typeof m.user === 'object' && m.user.username,
@@ -55,6 +73,7 @@ function _normalize(m) {
   return {
     email:     _em,
     username:  _un,   // 2e identité, stable même quand Apple masque l'adresse
+    name:      _memName(m),   // nom affiché : Whop le transmet, on ne le lisait jamais
     valid:     m.valid === true || m.status === 'completed' || m.status === 'active',
     expiresAt: endTs ? new Date(endTs * 1000).toISOString() : null,
     // Période de facturation RÉELLE (ms) → sert à déduire la cadence prise par le client (mensuel/annuel)
