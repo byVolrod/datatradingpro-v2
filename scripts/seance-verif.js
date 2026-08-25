@@ -158,9 +158,9 @@ v('les trois indicateurs de croissance sont ensemble', (gm.find(x => x.famille =
 v('inflation citee avec une banque centrale reste Inflation', S.famille("l'inflation pousse la BCE à temporiser") === 'Inflation');
 const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
-v('le rapport segmente groupe sa Macro', /const \{ sansTitre, groupes \} = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
+v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v16:'/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v17:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -215,6 +215,47 @@ v('les stocks pétroliers restent en « Autres »', S.famille('Crude Oil Invento
 v('les élargissements n\'ont pas mangé l\'inflation', S.famille('Core PCE Price Index m/m') === 'Inflation' && S.famille('CPI m/m') === 'Inflation');
 v('ni l\'emploi', S.famille('Employment Level') === 'Emploi' && S.famille('Claimant Count Change') === 'Emploi');
 v('ni le commerce', S.famille('Trade Balance') === 'Commerce' && S.famille('Current Account') === 'Commerce');
+
+console.log('\n── 7c-quater. LE CORPUS : ce qui reste dans « Autres » est compté ──');
+/* « vérifie bien que tout est bien fait » (26/08). Une famille se juge sur du VOLUME, pas sur trois
+   exemples choisis : on fait passer un corpus d'intitulés réels du calendrier et on compte ce qui
+   tombe dans le fourre-tout. Le seuil est une ALARME, pas une décoration — la première mesure
+   donnait 21 sur 74, et chaque ligne en « Autres » est une ligne que le lecteur voit sous un titre
+   qui ne lui apprend rien. */
+const CORPUS = [
+  'CPI m/m', 'Core CPI y/y', 'PPI m/m', 'HICP Flash Estimate y/y', 'Core PCE Price Index m/m', 'Import Prices m/m', 'Trimmed Mean CPI q/q',
+  'GDP q/q', 'Retail Sales m/m', 'Industrial Production m/m', 'Manufacturing PMI', 'ISM Services PMI', 'Flash Services PMI', 'Chicago PMI',
+  'Ifo Business Climate', 'ZEW Economic Sentiment', 'CB Consumer Confidence', 'Prelim UoM Consumer Sentiment', 'Sentix Investor Confidence',
+  'GfK Consumer Climate', 'Economic Sentiment Indicator', 'Leading Index m/m', 'Tertiary Industry Activity m/m', 'Capacity Utilization Rate',
+  'Durable Goods Orders m/m', 'Factory Orders m/m', 'Business Inventories m/m', 'Retail Inventories m/m', 'Wholesale Inventories m/m',
+  'Personal Spending m/m', 'Consumer Credit m/m', 'Vehicle Sales', 'Construction Output m/m', 'Corporate Profits q/q', 'Productivity q/q',
+  'Building Permits', 'Housing Starts', 'New Home Sales', 'Existing Home Sales', 'Pending Home Sales m/m', 'HPI m/m', 'Nationwide HPI m/m',
+  'Building Approvals m/m', 'Mortgage Approvals', 'Wholesale Sales m/m', 'Manufacturing Sales m/m', 'BRC Retail Sales Monitor y/y',
+  'Richmond Manufacturing Index', 'Philly Fed Manufacturing Index', 'Empire State Manufacturing Index', 'Tankan Manufacturing Index',
+  'Non-Farm Employment Change', 'Unemployment Rate', 'Unemployment Claims', 'Claimant Count Change', 'Average Hourly Earnings m/m',
+  'ADP Non-Farm Employment Change', 'JOLTS Job Openings', 'Employment Change q/q', 'Employment Level', 'Unit Labor Costs q/q',
+  'Federal Funds Rate', 'Main Refinancing Rate', 'Official Bank Rate', 'Overnight Rate', 'Monetary Policy Statement', 'FOMC Statement',
+  'ECB Press Conference', 'MPC Official Bank Rate Votes', 'FOMC Meeting Minutes', 'Fed Chair Powell Speaks', 'M3 Money Supply y/y',
+  'Private Loans y/y', 'Private Sector Credit m/m', 'Net Lending to Individuals m/m',
+  'Trade Balance', 'Goods Trade Balance', 'Current Account', 'Exports m/m', 'Imports m/m', 'Foreign Securities Purchases',
+  'Crude Oil Inventories', 'Natural Gas Storage', 'Federal Budget Balance', 'BOJ Core CPI y/y',
+];
+const auFourreTout = CORPUS.filter(x => S.famille(x) === 'Autres');
+v(`au plus 5 % du corpus en « Autres » (${auFourreTout.length}/${CORPUS.length})`,
+  auFourreTout.length <= Math.ceil(CORPUS.length * 0.05), auFourreTout.join(' · '));
+/* Ces trois-là RESTENT en « Autres », et c'est la bonne réponse : un stock d'énergie et un solde
+   budgétaire ne sont ni de l'inflation, ni de la croissance, ni de l'emploi, ni de la politique
+   monétaire, ni du commerce. Les forcer quelque part serait un rangement faux. */
+['Crude Oil Inventories', 'Natural Gas Storage', 'Federal Budget Balance']
+  .forEach(x => v(`« ${x} » reste honnêtement en « Autres »`, S.famille(x) === 'Autres', S.famille(x)));
+v('chaque famille du corpus est représentée',
+  new Set(CORPUS.map(S.famille)).size === 6, [...new Set(CORPUS.map(S.famille))].join('|'));
+/* LA LIGNE DE LA CAPTURE, telle qu'elle a été écrite par l'IA. « wholesale trade » ne répondait à
+   aucun motif : la seule puce de la rubrique sortait donc sans catégorie. */
+v('« Canada July flash wholesale trade » est de la croissance',
+  S.famille('Canada July flash wholesale trade : **-0.6%** → **contraction** inattendue du commerce de gros.') === 'Croissance économique');
+v('la confiance DU consommateur répond comme celle DES consommateurs',
+  S.famille('La confiance du consommateur américaine chute à 94,1.') === 'Croissance économique');
 
 console.log('\n── 7d. La MACRO est COMPLÉTÉE par notre calendrier ──');
 /* « check les news sorties durant la session, classe les dans leur catégories de la partie macro »
@@ -361,8 +402,18 @@ const QUOT = [{ section: 'Macro', items: [
   '**Emploi** : les inscriptions au chômage reculent à 230K.',
 ]}];
 const q = W.html(QUOT, []).html;
-v('l\'ordre suit les rubriques du Radar de Biais', S.ORDRE_FAM_MACRO.join('|') === 'Politique monétaire|Inflation|Croissance économique|Emploi', S.ORDRE_FAM_MACRO.join('|'));
-v('le commerce se rend en premier, SANS titre', /<strong>Macro<\/strong><ul><li>Canada/.test(q), q.slice(0, 130));
+v('l\'ordre ouvre sur les rubriques du Radar de Biais', S.ORDRE_FAM_MACRO.slice(0, 4).join('|') === 'Politique monétaire|Inflation|Croissance économique|Emploi', S.ORDRE_FAM_MACRO.join('|'));
+/* AUCUNE LIGNE SANS CATÉGORIE (26/08, 2e retour : « ici il manque une catégorie »). Commerce et
+   Autres se rendaient d'abord et SANS titre — repris du Quotidien, où ces lignes voisinent toujours
+   avec des groupes intitulés. Ici la rubrique peut n'avoir QU'ELLES : une séance dont la seule
+   publication est « Canada wholesale trade » sortait une puce nue, sans une catégorie à l'écran. */
+v('Commerce et Autres ferment la marche, INTITULÉS', S.ORDRE_FAM_MACRO.slice(4).join('|') === 'Commerce|Autres', S.ORDRE_FAM_MACRO.join('|'));
+v('le commerce porte son titre', /<em>Commerce<\/em><ul><li>Canada/.test(q), q.slice(q.indexOf('<em>Commerce'), q.indexOf('<em>Commerce') + 90));
+v('une rubrique qui n\'a QU\'une ligne hors des quatre reste catégorisée',
+  /<strong>Macro<\/strong><em>Croissance économique<\/em><ul><li>Canada July flash wholesale trade/.test(W.html([{ section: 'Macro', items: ['Canada July flash wholesale trade : **-0.6%** → **contraction** inattendue du commerce de gros.'] }], []).html));
+v('… et une ligne vraiment inclassable sort sous « Autres », pas nue',
+  /<strong>Macro<\/strong><em>Autres<\/em><ul><li>Le \*\*Bitcoin\*\*/.test(W.html([{ section: 'Macro', items: ['Le **Bitcoin** franchit les 120 000 dollars.'] }], []).html));
+v('aucune puce ne sort jamais hors d\'un groupe intitulé', !/<strong>Macro<\/strong><ul>/.test(q) && !/<\/ul><li>/.test(q));
 v('puis « Politique monétaire »', q.indexOf('<em>Politique monétaire</em>') > 0 && q.indexOf('<em>Politique monétaire</em>') < q.indexOf('<em>Croissance économique</em>'));
 v('un banquier central qui parle y figure', /<em>Politique monétaire<\/em><ul><li>\*\*Fed\*\* \(Collins\)/.test(q), q.slice(q.indexOf('<em>Politique monétaire'), q.indexOf('<em>Politique monétaire') + 120));
 v('le Trésor américain aussi', /US Treasury/.test(q.slice(q.indexOf('<em>Politique monétaire'), q.indexOf('<em>Croissance'))));

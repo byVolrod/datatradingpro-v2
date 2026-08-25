@@ -70,10 +70,10 @@ const FAM_RX = [
      l'inflation : la banque n'y est pas le sujet. */
   ['Politique monétaire', /^\s*\*{0,2}(?:fed|fomc|bce|ecb|boj|boe|boc|rba|rbnz|snb|bns|pboc|riksbank|norges bank|banque centrale|central bank|us treasury|tr[ée]sor(?: am[ée]ricain)?)\*{0,2}\s*(?:\([^)]{0,60}\))?\s*:/i],
   ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|import prices|export prices|wholesale price|trimmed mean|deflator/i],
-  ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
-  ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|retail trade|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|industrial orders|(?:machine tool|machinery|core machinery) orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|consumer climate|\btankan\b|\bifo\b|\bzew\b|\bsentix\b|\bgfk\b|investor confidence|economic sentiment|business climate|business survey|climat des affaires|leading index|leading indicator|indicateur avanc[ée]|housing starts|building permits|home sales|house price|\bhpi\b|prix des logements|construction (?:output|spending|\bpmi\b)|(?:business|retail|wholesale) inventories|stocks des (?:entreprises|grossistes)|personal (?:spending|income)|consumer spending|d[ée]penses des m[ée]nages|revenus? des m[ée]nages|consumer credit|cr[ée]dit [àa] la consommation|tertiary industry|vehicle sales|car registrations|immatriculations|(?:philly|philadelphia|dallas|richmond|kansas city|\bkc\b|empire state|new york|\bny\b) fed (?:manufacturing|services|business|composite|index)|empire state manufacturing|richmond (?:manufacturing|services)/i],
-  ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative|money supply|masse mon[ée]taire|private loans|pr[êe]ts au secteur priv[ée]|bank lending|cr[ée]dit bancaire/i],
-  ['Commerce', /guerre commerciale|trade war|tarifs?\b|droits? de douane|surtaxes?|r[ée]torsion|quotas?|embargo commercial|balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
+  ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|labou?r costs?|co[ûu]ts? salariaux|co[ûu]t du travail|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
+  ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance d(?:es|u) (?:consommateurs?|m[ée]nages?|entreprises?)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|retail trade|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|industrial orders|(?:machine tool|machinery|core machinery) orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|consumer climate|\btankan\b|\bifo\b|\bzew\b|\bsentix\b|\bgfk\b|investor confidence|economic sentiment|business climate|business survey|climat des affaires|leading index|leading indicator|indicateur avanc[ée]|housing starts|building permits|home sales|house price|\bhpi\b|prix des logements|construction (?:output|spending|\bpmi\b)|wholesale (?:trade|sales)|commerce de gros|ventes en gros|manufacturing sales|building approvals|mortgage approvals|logements? neufs?|ventes de logements|corporate profits|b[ée]n[ée]fices des entreprises|productivity|productivit[ée]|(?:business|retail|wholesale) inventories|stocks des (?:entreprises|grossistes)|personal (?:spending|income)|consumer spending|d[ée]penses des m[ée]nages|revenus? des m[ée]nages|consumer credit|cr[ée]dit [àa] la consommation|tertiary industry|vehicle sales|car registrations|immatriculations|(?:philly|philadelphia|dallas|richmond|kansas city|\bkc\b|empire state|new york|\bny\b) fed (?:manufacturing|services|business|composite|index)|empire state manufacturing|richmond (?:manufacturing|services)/i],
+  ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative|money supply|private sector credit|cr[ée]dit au secteur priv[ée]|net lending|mortgage lending|masse mon[ée]taire|private loans|pr[êe]ts au secteur priv[ée]|bank lending|cr[ée]dit bancaire/i],
+  ['Commerce', /guerre commerciale|trade war|tarifs?\b|droits? de douane|surtaxes?|r[ée]torsion|quotas?|embargo commercial|balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|securities purchases|capital flows|flux de capitaux|investissements? [ée]tranger|exports|imports|balance commerciale/i],
 ];
 /* TABLE REPRISE VERBATIM du Récap Quotidien (`_FAM_JOUR`, public/js/app.js) : c'est la seule façon
    de garantir qu'un même chiffre tombe dans la même famille dans les deux rapports. Elle est
@@ -87,16 +87,17 @@ function famille(titre) {
   const m = FAM_RX.find(([, rx]) => rx.test(t));
   return m ? m[0] : 'Autres';
 }
-/* L'ORDRE DES FAMILLES DANS LA RUBRIQUE MACRO — CELUI DU RÉCAP QUOTIDIEN, QUI EST CELUI DU RADAR
-   DE BIAIS (`_SECTIONS_NEWS`, public/js/app.js). Ce n'est pas ORDRE_FAM : le Quotidien range ses
-   CHIFFRES du jour dans l'ordre Inflation → Croissance → Emploi → Politique monétaire, mais sa
-   rubrique MACRO suit les quatre rubriques du Radar, politique monétaire en tête — la décision
-   d'abord, son écho macro ensuite. Le récap de séance a la même rubrique : il suit le même ordre.
-   CE QUI N'ENTRE DANS AUCUNE DES QUATRE (Commerce, Autres) SE REND EN PREMIER ET SANS TITRE. C'est
-   une leçon déjà payée dans le Quotidien : rendues APRÈS un groupe intitulé, ces lignes se lisent
-   comme la suite de ce groupe — le user avait vu « l'or à 4 650 $ » annoncé sous « Banques
-   centrales ». Placées en tête, elles se lisent comme le corps de la rubrique. */
-const ORDRE_FAM_MACRO = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi'];
+/* L'ORDRE DES FAMILLES DANS LA RUBRIQUE MACRO — celui du Récap Quotidien, qui est celui du RADAR
+   DE BIAIS (`_SECTIONS_NEWS`, public/js/app.js) : politique monétaire en tête — la décision
+   d'abord, son écho macro ensuite. Ce n'est pas ORDRE_FAM, qui range les CHIFFRES du jour.
+   PUIS COMMERCE ET AUTRES, INTITULÉS COMME LES QUATRE AUTRES. Le Quotidien, lui, rend ce qui
+   n'entre dans aucune des quatre EN PREMIER ET SANS TITRE — parce que là-bas ces lignes voisinent
+   toujours avec des groupes intitulés. Ici la rubrique peut n'avoir QU'ELLES : une séance dont la
+   seule publication est « Canada wholesale trade » sortait alors une puce nue, sans une seule
+   catégorie à l'écran (26/08, capture : « ici il manque une catégorie »). Tout groupe porte donc
+   son intitulé — et la leçon d'origine (une ligne non intitulée placée après un groupe se lit comme
+   la suite de ce groupe) tombe d'elle-même, puisqu'il n'existe plus de ligne non intitulée. */
+const ORDRE_FAM_MACRO = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi', 'Commerce', 'Autres'];
 /* CHAQUE FAMILLE PRÉSENTE PORTE SON TITRE, MÊME SEULE (26/08, retour utilisateur captures à
    l'appui : « il manque la classification comme la 2è image »). La rubrique sortait en liste plate
    dès que toutes ses lignes tombaient dans la même famille — trois indicateurs de croissance, et
@@ -111,9 +112,12 @@ function parFamilleMacro(entrees) {
     if (!par.has(f)) par.set(f, []);
     par.get(f).push(e.ligne);
   }
-  const sansTitre = [];
-  for (const [f, l] of par) if (ORDRE_FAM_MACRO.indexOf(f) < 0) sansTitre.push(...l);
-  return { sansTitre, groupes: ORDRE_FAM_MACRO.filter(f => (par.get(f) || []).length).map(f => ({ famille: f, lignes: par.get(f) })) };
+  /* Filet : une famille qui n'est pas dans la liste d'affichage ne doit pas DISPARAÎTRE. Elle ne
+     peut venir que d'un renommage de la table — et perdre des lignes en silence serait le pire des
+     deux maux. Elle est versée dans « Autres », qui, lui, est toujours affiché. */
+  const connues = new Set(ORDRE_FAM_MACRO);
+  for (const [f, l] of par) if (!connues.has(f)) { par.set('Autres', (par.get('Autres') || []).concat(l)); par.delete(f); }
+  return ORDRE_FAM_MACRO.filter(f => (par.get(f) || []).length).map(f => ({ famille: f, lignes: par.get(f) }));
 }
 
 // Range des lignes déjà rédigées par famille, dans l'ordre d'affichage. Une famille vide ne sort pas.

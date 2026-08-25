@@ -62,12 +62,13 @@ function poserMacro(arr, macroCal) {
    DÉTERMINISTE et fait avec la MÊME table que le Quotidien (_SEA.famille) : on ne demande pas à l'IA
    de ranger, on range nous-mêmes ce qu'elle a écrit — elle ne peut donc ni inventer une famille ni
    en oublier une.
-   MÊME GRAMMAIRE QUE LE QUOTIDIEN, À LA LIGNE PRÈS (26/08, second retour, deux captures côte à
-   côte : « il manque la classification comme la 2è image »). Ce qui n'entre dans aucune des quatre
-   rubriques du Radar se rend d'abord et SANS titre ; puis chaque famille présente porte son
-   intitulé — MÊME SEULE. Mon arbitrage précédent (« intituler un groupe unique n'apprend rien »)
-   effaçait TOUTE la classification les jours où la séance était homogène : trois indicateurs de
-   croissance, et la rubrique retombait en liste plate. C'est exactement ce qu'il a vu. */
+   AUCUNE LIGNE SANS CATÉGORIE, AUCUN GROUPE SANS INTITULÉ (26/08, deux retours successifs, captures
+   à l'appui : « il manque la classification comme la 2è image », puis « ici il manque une
+   catégorie »). Deux arbitrages à moi tombaient l'un après l'autre : « intituler un groupe unique
+   n'apprend rien » effaçait la classification les jours homogènes ; et rendre ce qui sort des
+   quatre rubriques du Radar sans titre — repris du Quotidien, où ces lignes voisinent toujours avec
+   des groupes intitulés — laissait une puce nue quand elles étaient les SEULES de la rubrique.
+   Toute famille présente porte donc son intitulé, même seule, y compris Commerce et Autres. */
 function html(arr, macroCal) {
   const sections = poserMacro(arr, macroCal);
   let out = '', ajouts = 0;
@@ -77,9 +78,8 @@ function html(arr, macroCal) {
       const r = completerMacro(sec.items, macroCal);
       ajouts += r.ajouts;
       if (!r.entrees.length) continue;
-      const { sansTitre, groupes } = _SEA.parFamilleMacro(r.entrees);
+      const groupes = _SEA.parFamilleMacro(r.entrees);
       out += `<strong>${esc(sec.section)}</strong>`;
-      if (sansTitre.length) out += `<ul>${sansTitre.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
       for (const g of groupes) out += `<em>${esc(g.famille)}</em><ul>${g.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
       continue;
     }
