@@ -19,6 +19,7 @@ const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/r
 const { fetchDanskeResearch } = require('./scrapers/danske-research');   // Danske — API publique interceptée (Puppeteer), PDF natifs (published_url)
 const { fetchTEAll } = require('./scrapers/tradingeconomics');   // TradingEconomics — fondamentaux réels par pays (Smart Bias « Fundamental Data » fiable)
 const { fetchTVCalendar, fetchTVCalendarFull, fetchTVCalendarRange } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare) + plage historique navigable
+const _WA = require('./walabels');   // titres, gloses FR et descriptions des cartes « Semaine à Venir » (pur + testé : scripts/weekahead-verif.js)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
@@ -994,6 +995,9 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260825-semaine-titres-honnetes', ts: Date.UTC(2026, 7, 25, 15, 0), title: 'Semaine a Venir : le titre d une journee ne peut plus annoncer un rendez-vous absent', desc: 'Le titre de chaque carte de la Semaine a Venir se calcule desormais A PARTIR de la liste affichee juste en dessous, et de rien d autre : il lui est impossible d annoncer un evenement qui n est pas au programme. Trois corrections derriere ce garde-fou. Une REVISION n est plus confondue avec la publication d origine : une revision annuelle des creations d emplois corrige des chiffres deja connus, elle porte maintenant son propre nom et ne prend plus la place du rapport mensuel. Le PAYS est enfin lu : l inflation de fin de mois est publiee par la France, l Espagne ou l Allemagne, elle s annonce donc ainsi, et le mot zone euro est reserve au chiffre de la zone. Enfin un rendez-vous majeur — decision de taux, Jackson Hole, rapport emploi americain — tient le titre seul au lieu d etre dilue par un second theme. Un controle automatique rejoue le cas signale a chaque modification.' },
+  { id: 'dtpu-20260825-semaine-descriptions-claires', ts: Date.UTC(2026, 7, 25, 14, 0), title: 'Semaine a Venir : chaque chiffre est desormais explique en francais clair', desc: 'Les descriptions des cartes se lisent sans connaitre le jargon. Chaque publication est suivie de ce qu elle mesure, en une formule courte : l inflation que la Fed regarde en priorite, les commandes de machines qui donnent le thermometre de l investissement des entreprises, le barometre des directeurs d achat ou la barre des 50 separe croissance et contraction. Vient ensuite ce que le chiffre change concretement pour la devise, et seulement apres le reste du programme. La phrase qui explique l enjeu porte maintenant sur l evenement reellement mis en avant : une journee consacree a l inflation et aux depenses des menages ne se conclut plus sur une remarque a propos du produit interieur brut. Les intitules restent dans leur langue d origine pour se retrouver dans le calendrier.' },
+  { id: 'dtpu-20260825-calendrier-journee-paris', ts: Date.UTC(2026, 7, 25, 13, 30), title: 'Calendrier : une journee commence et finit a Paris, et les grands rendez-vous ne manquent plus', desc: 'Trois corrections sur le calendrier economique. Les evenements sont ranges au jour civil de Paris et non plus a l heure de Greenwich : une publication asiatique de une heure du matin s affichait la veille, et un chiffre du lundi matin en Asie disparaissait meme completement de la semaine. Les rendez-vous sans chiffre attendu — symposium de Jackson Hole, discours de gouverneur, comptes rendus de comite, reunions de l OPEP — sont desormais repeches et affiches : notre fournisseur les classe en importance faible faute de consensus a comparer, ils etaient donc ecartes alors qu ils deplacent le marche a eux seuls. Enfin deux pays de la zone euro qui publient le meme indicateur au meme moment ne se remplacent plus l un l autre dans la liste.' },
   { id: 'dtpu-20260830-seance-a-surveiller', ts: Date.UTC(2026, 7, 30, 20, 0), title: 'Recaps de seance : A surveiller annonce desormais la seance suivante', desc: 'La rubrique A surveiller des recaps de seance ne disposait d aucune source d evenements a venir : elle se remplissait donc en extrapolant les actualites du jour, au point d annoncer une publication qui n existait pas. Elle lit maintenant le calendrier economique et vous donne les rendez-vous de la SEANCE SUIVANTE, avec leur heure exacte, la devise concernee et le consensus attendu. Le recap de la seance asiatique annonce ce qui attend Londres ; celui de Londres annonce New York ; celui de New York annonce l Asie du lendemain. Seuls passent les evenements ENCORE A VENIR au moment de la publication, filtres sur les devises de la seance concernee — un rendez-vous britannique de fin d apres-midi n est pas presente comme un evenement new-yorkais. Et si le calendrier ne porte rien, la rubrique ne s affiche pas : mieux vaut une rubrique absente qu une echeance inventee.' },
   { id: 'dtpu-20260830-seance-meme-grammaire', ts: Date.UTC(2026, 7, 30, 16, 0), title: 'Recaps de seance : les memes rubriques que le Recap Quotidien', desc: 'Les recaps de seance — Asie-Pacifique, Londres, New York — declinaient leurs propres rubriques : une section Banques centrales autonome, une section Marches, et aucune synthese. Le Recap Quotidien, lui, ouvre sur une synthese, traite les banques centrales A L INTERIEUR de Macro et nomme sa lecture de marche Analyse par session. Comme les deux rapports se lisent a la suite dans la meme journee, il fallait se reorienter a chaque fois. Les recaps de seance adoptent desormais exactement les memes parties, dans le meme ordre : Synthese, Geopolitique, Macro — organisee en Politique monetaire, Inflation, Croissance economique et Emploi, les quatre memes rubriques que le Radar de Biais — puis Analyse de seance et A surveiller. Chaque banque garde sa propre puce, avec sa decision ou le ton de son intervenant. Seule la grammaire devient commune : le contenu reste propre a chaque seance.' },
   { id: 'dtpu-20260830-recap-clarte', ts: Date.UTC(2026, 7, 30, 12, 0), title: 'Recap Quotidien : chaque banque sa puce, et les chiffres du jour reunis sous un seul titre', desc: 'Trois corrections de lecture. Une puce pouvait encore melanger deux banques centrales — « ECB et BoJ : les chemins divergents... » — alors que la regle une banque par puce existait deja : elle ne couvrait pas la rubrique qui alimente Politique monetaire. Chaque banque a desormais sa puce partout, avec sa decision (hausse, baisse ou maintien et le niveau atteint) ou l intervenant, sa fonction et le ton de son discours ; un ecart entre deux banques se raconte depuis chacune, du point de vue de sa devise. Ensuite, les chiffres publies du jour etaient ranges dans des sections portant les MEMES noms que les sous-rubriques de Macro : Croissance economique apparaissait a deux niveaux dans le meme rapport, sans rien pour distinguer les actualites des chiffres. Ils sont maintenant reunis sous un seul titre, Chiffres du jour, avec les familles en sous-titres. Enfin, dans les recaps de seance, la rubrique A surveiller pouvait annoncer une publication qui n existait pas — un CPI americain « demain » un jour ou aucun n etait au calendrier : elle ne peut plus ecrire une echeance absente du flux, ni recopier un fait deja raconte ailleurs.' },
@@ -4329,14 +4333,26 @@ function _overlayActuals(events) {
 }
 // ── Calendrier construit DIRECTEMENT depuis TradingView (events + actual/forecast/previous +
 // importance natifs → aucun matching, colonne ACTUAL exacte en temps réel + anciennes données). ──
+/* RENDEZ-VOUS VITAUX QUE LE CALENDRIER CLASSE « LOW » (correctif 25/08, contrôle du calendrier
+   demandé par l'utilisateur). Le fournisseur note l'importance à partir du CONSENSUS : un symposium,
+   un discours de gouverneur, une audition ou une réunion de l'OPEP n'ont ni prévision ni précédent à
+   afficher, donc ils tombent en Low — et disparaissaient du desk. Jackson Hole, qui déplace le dollar
+   à lui seul, n'était nulle part dans le calendrier.
+   Un repêchage EXISTAIT plus bas (_WA_VITAL_RX, posé pour la Semaine à Venir)… mais il s'appliquait
+   APRÈS ce filtre High/Medium, donc sur une liste dont ces événements avaient DÉJÀ été retirés : du
+   code mort depuis son écriture. Le repêchage se fait maintenant à la source, ici, une seule fois,
+   pour tous les consommateurs (onglet Calendrier, Semaine à Venir, « À surveiller » des récaps).
+   Regex volontairement ÉTROITE — on comble un trou, on ne rouvre pas le robinet Low. Ces événements
+   gardent leur impact Low dans le calendrier : c'est la Semaine à Venir qui le relève pour son rendu. */
+const _CAL_VITAL_RX = /jackson hole|symposium|sintra|central bank forum|(?:fed\s+)?chair\s+(?:powell|speech)|\bpowell\b|\blagarde\b|\bueda\b|\bbailey\b|\bmacklem\b|\bbullock\b|\bschlegel\b|treasury secretary|secr[ée]taire au tr[ée]sor|testimony|humphrey[-\s]?hawkins|press conference|conf[ée]rence de presse|meeting minutes|monetary policy (?:report|statement|summary)|financial stability report|\bopec\b|\bopep\b|\bg7\b|\bg20\b/i;
 let _tvCalCache = { ts: 0, items: [] };
 async function _buildTVCalendar(force) {
   if (!force && Date.now() - _tvCalCache.ts < 4 * 60 * 1000 && _tvCalCache.items.length) return _tvCalCache.items;
   let evs = null;
   try { evs = await fetchTVCalendarFull(force); } catch {}
   if (!Array.isArray(evs) || !evs.length) return _tvCalCache.items;   // échec → on garde le dernier bon snapshot
-  const items = evs.filter(e => e.impact === 'High' || e.impact === 'Medium').map(e => ({   // focus événements tradables
-    id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),
+  const items = evs.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_VITAL_RX.test(e.title || '')).map(e => ({   // événements tradables + rendez-vous vitaux sous-cotés (cf. _CAL_VITAL_RX)
+    id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + (e.country || '') + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),   // le PAYS fait partie de l'identité : DE et FR publient le MÊME intitulé le MÊME jour sous la devise EUR
     timestamp: e.ts,
     time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
     currency: e.currency, impact: e.impact, title: e.title,
@@ -4376,12 +4392,12 @@ async function _buildTVCalendarRange(backMonths) {
   let chunks = [];
   try { chunks = await Promise.all(bounds.map(([s, e]) => fetchTVCalendarRange(new Date(s).toISOString(), new Date(e).toISOString()).catch(() => []))); } catch {}
   const seen = new Map();
-  for (const arr of chunks) for (const ev of (arr || [])) { const k = ev.ts + '|' + ev.currency + '|' + ev.title; if (!seen.has(k)) seen.set(k, ev); }
+  for (const arr of chunks) for (const ev of (arr || [])) { const k = ev.ts + '|' + ev.currency + '|' + (ev.country || '') + '|' + ev.title; if (!seen.has(k)) seen.set(k, ev); }   // sans le PAYS, l'IPC espagnol et l'italien publiés à la même heure se dédupliquaient l'un l'autre
   // Fenêtre HONNÊTE : les tranches de grille débordent [startMs, endMs] → on reclippe exactement sur la plage demandée.
   const raw = [...seen.values()].filter(e => e.ts >= startMs && e.ts <= endMs);
   if (!raw.length) return (hit && hit.items) || [];
-  const items = raw.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_LOW_VITAL_RX.test(e.title || '')).map(e => ({
-    id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),
+  const items = raw.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_LOW_VITAL_RX.test(e.title || '') || _CAL_VITAL_RX.test(e.title || '')).map(e => ({
+    id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + (e.country || '') + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),   // le PAYS fait partie de l'identité : DE et FR publient le MÊME intitulé le MÊME jour sous la devise EUR
     timestamp: e.ts,
     time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
     currency: e.currency, impact: e.impact, title: e.title,
@@ -9807,7 +9823,7 @@ const _SEANCE_SUIVANTE = {
   'US Session Recap':     { nom: 'Asie',     debut: 0,  fin: 9,  demain: true,  dev: ['JPY', 'AUD', 'NZD', 'CNY'] },
 };
 function _heureParis(ts) { return new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getHours(); }
-function _jourParis(ts) { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); }
+function _jourParis(ts) { return _WA.jourParis(ts); }   // une seule implémentation, testée (scripts/weekahead-verif.js)
 function _aSurveillerSeanceSuivante(reportType) {
   const S = _SEANCE_SUIVANTE[reportType];
   if (!S) return { nom: '', lignes: [] };
@@ -14807,7 +14823,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v23-pourquoi';   // v23 (23/08, demande user « améliore les descriptions ») : phrase « pourquoi ça compte » SPÉCIFIQUE à la famille du jour (NFP/CPI/PIB/PMI/minutes…) — les cartes cessent de répéter la même clause ; toujours 100 % déterministe (pas d'IA rebranchée). bump = régén boot.   // v22 (10/08, demande user) : titres de JOUR en français thématique accordé (« Décision de la RBA », « CPI américain », « PIB britannique + PPI américain », « Ventes au détail américaines ») — 2 thèmes max joints par « + », repli ancien format si aucun thème reconnu. bump = régén boot.   // v21 (06/08, demande user) : le NFP (« Non Farm Payrolls », 1er vendredi du mois) remonte en TÊTE du jour — reconnaissance déterministe `_waMajor` en 2e critère de tri + poids « point d'orgue » (+4) dans le profil de risque. Il était évincé du titre par le `slice(0, 3)` sur un calendrier trié PAR HEURE (14h30 Paris = trop tard). bump = régén au boot.   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
+const WA_VER = 'v24-calendrier-honnete';   // v24 (25/08, signalement du mentor relayé par l'utilisateur : « dans vendredi 28 août tu as mis CPI américain, il est pour le 4 septembre ») — LE TITRE D'UNE CARTE NE PEUT PLUS NOMMER UN RENDEZ-VOUS ABSENT DE LA JOURNÉE. La carte du 28/08 titrait « NFP américain + CPI zone euro » pour une journée qui portait Jackson Hole, une « Non Farm Payrolls Annual Revision Prel » et une confiance des ménages japonaise : titre et liste ne parlaient pas des mêmes rendez-vous. TROIS causes racines, toutes dans le mapping de thèmes, désormais isolé et testé dans walabels.js. (1) RÉVISION CONFONDUE AVEC LA PUBLICATION : la regex NFP capturait « Annual Revision » — une CORRECTION de créations d'emplois déjà publiées — et lui donnait le rang du rapport mensuel (et le poids 5 de _waMajor, qui la remontait en tête de journée et gonflait le profil de risque de la semaine). Elle vaut 1, porte son propre libellé « Révision annuelle du NFP » et sa glose le dit en toutes lettres. (2) ÉTIQUETTE DE PAYS FAUSSE : tout ce que le calendrier classe EUR devenait « zone euro », alors que l'IPC flash de fin de mois est publié PAR PAYS (France, Espagne, Allemagne) et que l'agrégat de la zone sort un autre jour. Le pays d'origine voyageait pourtant jusqu'ici dans `ctry` sans être lu → « CPI français », « CPI espagnol », « CPI zone euro » seulement quand c'est vraiment l'agrégat. Le bandeau de news hebdo suit la même règle. (3) AUCUN LIEN STRUCTUREL entre le titre et la liste affichée : ils se calculaient à partir de deux expressions différentes. La liste affichée se calcule maintenant EN PREMIER et c'est ELLE, la même référence d'objets, qui est passée au titre et à la description ; walabels rejette tout thème dont l'événement source n'y est pas. Un rendez-vous de rang ≥ 8 (décision de taux, Jackson Hole, NFP, Powell) tient le titre SEUL au lieu d'être dilué par un second thème. DESCRIPTIONS RÉÉCRITES (demande user le même jour : « + parlant et plus simple à comprendre ») : trois phrases — le rendez-vous du jour avec son heure, sa GLOSE en français clair (« l'inflation que la Fed regarde en priorité », « les commandes de machines : le thermomètre de l'investissement ») et ses chiffres ; ce que ça change, calé sur CET événement et plus sur un thème pioché ailleurs dans la journée (une liste PCE/dépenses des ménages se concluait sur le PIB) ; puis le reste du programme, glosé lui aussi. Les intitulés restent en VO, règle produit — c'est la glose qui traduit. L'ordre est calculé : le mail du dimanche ne reprend que trois phrases, le « pourquoi » devait passer avant la liste. Toujours 100 % déterministe, aucune IA rebranchée. Le scénario du 28 août est rejoué à l'identique par `node scripts/weekahead-verif.js`. bump = régén boot.   // v23 (23/08, demande user « améliore les descriptions ») : phrase « pourquoi ça compte » SPÉCIFIQUE à la famille du jour (NFP/CPI/PIB/PMI/minutes…) — les cartes cessent de répéter la même clause ; toujours 100 % déterministe (pas d'IA rebranchée). bump = régén boot.   // v22 (10/08, demande user) : titres de JOUR en français thématique accordé (« Décision de la RBA », « CPI américain », « PIB britannique + PPI américain », « Ventes au détail américaines ») — 2 thèmes max joints par « + », repli ancien format si aucun thème reconnu. bump = régén boot.   // v21 (06/08, demande user) : le NFP (« Non Farm Payrolls », 1er vendredi du mois) remonte en TÊTE du jour — reconnaissance déterministe `_waMajor` en 2e critère de tri + poids « point d'orgue » (+4) dans le profil de risque. Il était évincé du titre par le `slice(0, 3)` sur un calendrier trié PAR HEURE (14h30 Paris = trop tard). bump = régén au boot.   // v20 (03/08, demande user) : 100 % DÉTERMINISTE et COHÉRENT avec le calendrier — l'éditorial IA (_waApplyEditorial) n'est PLUS appliqué : il inventait des événements (« Fed : décision de taux » un jeudi sans FOMC au calendrier). Titres = les VRAIS événements du jour (CCY + nom, tel quel comme dans l'onglet Calendrier, jamais traduit) ; descriptions = 2 phrases factuelles (programme + prév./préc., et décision de taux SEULEMENT si l'événement existe ce jour-là) ; SEMAINE OUVRÉE seulement (le week-end n'apparaît plus). bump = régén boot. v18 : PROFIL DE RISQUE relatif (l'ancienne formule ×9 saturait à 100 → courbe plate) + hiN/medN par jour
 let _weekAhead = null;
 try { _weekAhead = _noDashDeep(JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8'))); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = _noDashDeep(d); }).catch(() => {}); } catch {}
@@ -14844,20 +14860,12 @@ function _waTrim(s, max) {
    Repêchage CIBLÉ, pas une réouverture du robinet Low : symposiums, les gouverneurs des huit banques
    PAR LEUR NOM, minutes, conférences de presse, rapports de politique monétaire, auditions, OPEP et
    sommets. */
-const _WA_VITAL_RX = /jackson hole|symposium|sintra|central bank forum|(?:fed\s+)?chair\s+(?:powell|speech)|\bpowell\b|\blagarde\b|\bueda\b|\bbailey\b|\bmacklem\b|\bbullock\b|\bschlegel\b|treasury secretary|secr[ée]taire au tr[ée]sor|testimony|humphrey[-\s]?hawkins|press conference|conf[ée]rence de presse|meeting minutes|monetary policy (?:report|statement|summary)|financial stability report|\bopec\b|\bopep\b|\bg7\b|\bg20\b/i;
-/* POIDS. `_waMajor` rend le poids du PREMIER motif qui répond : le plus lourd d'abord. Un poids ≥ 5
-   vaut « point d'orgue » et pèse comme une décision de taux dans le profil de risque de la semaine —
-   c'est exactement ce qu'est Jackson Hole pour une semaine d'août. */
-const _WA_MAJOR = [
-  [/\bnon[-\s]?farm\s+payrolls?\b|\bnonfarm\s+payrolls?\b|\bnon[-\s]?farm\s+employment\s+change\b|\bnfp\b/i, 5],   // NFP — LE rendez-vous mensuel du dollar (1er vendredi)
-  [/jackson hole|symposium|sintra|central bank forum/i, 5],                              // le discours qui redéfinit la trajectoire d'une banque
-  [/\bpowell\b|(?:fed\s+)?chair\s+speech|testimony|humphrey[-\s]?hawkins/i, 4],        // le président de la Fed, où qu'il parle
-  [/\blagarde\b|\bueda\b|\bbailey\b|\bmacklem\b|\bbullock\b|\bschlegel\b/i, 3],   // les sept autres gouverneurs
-  [/meeting minutes|monetary policy (?:report|statement|summary)|press conference/i, 3], // le débat DERRIÈRE la décision
-  [/treasury secretary|secr[ée]taire au tr[ée]sor/i, 3],                                  // le Trésor US parle taux, dette et sanctions
-  [/\bopec\b|\bopep\b|\bg7\b|\bg20\b/i, 3],                                          // ce qui fait bouger le pétrole et le risque
-];
-const _waMajor = e => { const t = String((e && e.title) || ''); for (const [rx, r] of _WA_MAJOR) if (rx.test(t)) return r; return 0; };
+const _WA_VITAL_RX = _CAL_VITAL_RX;   // MÊME liste que le calendrier (définie près de _buildTVCalendar) : une seule source.
+/* POIDS ÉDITORIAL d'un rendez-vous. Un poids ≥ 5 vaut « point d'orgue » et pèse comme une décision
+   de taux dans le profil de risque de la semaine — c'est ce qu'est Jackson Hole une semaine d'août.
+   Le barème vit dans walabels.js (pur, rejoué par scripts/weekahead-verif.js) : c'est LÀ qu'une
+   révision annuelle est ramenée au rang qu'elle mérite, et pas dans deux copies à resynchroniser. */
+const _waMajor = _WA.poidsMajeur;
 async function generateWeekAhead(force = false, genEditorial = false, opts = {}) {
   // MODE ARCHIVE (demande user 27/07 « pouvoir voir les semaines passées, comme le calendrier ») : opts.monday
   // = lundi d'une semaine ANTÉRIEURE → on reconstruit son agenda depuis l'HISTORIQUE du calendrier
@@ -14910,28 +14918,24 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
         if (w >= 4) return Object.assign({}, e, { impact: 'High' });
         return e.impact === 'Medium' ? e : Object.assign({}, e, { impact: 'Medium' });
       });
+  /* JOUR CIVIL À PARIS, plus jamais le jour UTC (correctif 25/08, contrôle du calendrier demandé par
+     l'utilisateur). La clé de regroupement était `toISOString()`, donc l'heure de GREENWICH : en été
+     Paris a deux heures d'avance, si bien que TOUTE publication asiatique de 00h00 à 02h00 heure de
+     Paris était rangée LA VEILLE. Deux conséquences mesurées : une confiance des ménages japonaise
+     de 01h00 le vendredi s'affichait sur la carte du jeudi (avec « 01:00 » comme heure, puisque
+     l'heure, elle, était déjà convertie à Paris — la carte se contredisait toute seule) ; et pire,
+     un chiffre du lundi matin asiatique tombait un DIMANCHE en UTC, donc était purement supprimé par
+     le filtre « semaine ouvrée » juste en dessous. Le lecteur est à Paris : la journée est parisienne. */
   const byDay = {};
-  up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(e); });
+  up.forEach(e => { const k = _jourParis(e.timestamp); (byDay[k] = byDay[k] || []).push(e); });
   // SEMAINE OUVRÉE SEULEMENT (demande user 03/08 « ne met pas le week-end ») : un dimanche à CPI
   // chinois s'invitait dans la timeline — le week-end n'est pas une séance, il n'apparaît plus.
   const keys = Object.keys(byDay).sort()
     .filter(k => { const dw = new Date(k + 'T12:00:00Z').getUTCDay(); return dw >= 1 && dw <= 5; })
     .slice(0, 7);
   if (!keys.length) { if (archive) return _WA_EMPTY; console.warn('[WeekAhead] calendrier vide → on garde l\'existant'); return _weekAhead; }
-  // ── 100% DATA-DRIVEN (calendrier du terminal, AUCUN appel IA) → fiable + zéro consommation ──
-  const _theme = t => { t = (t || '').toLowerCase();
-    if (/\bcpi\b|inflation|hicp|\bppi\b|\bpce\b|price index/.test(t)) return 'Inflation';
-    if (/payroll|\bnfp\b|employ|jobless|unemploy|labou?r|\bjobs\b/.test(t)) return 'Labour Market';
-    if (/\bgdp\b|growth/.test(t)) return 'Growth';
-    if (/\bpmi\b|\bism\b|manufacturing|services|industrial/.test(t)) return 'Activity (PMI)';
-    if (/rate decision|monetary policy|central bank|fomc|\becb\b|\bboe\b|\bboj\b|\brba\b|\bsnb\b|\bboc\b|interest rate|rate statement/.test(t)) return 'Central Banks';
-    if (/retail|sales|consumer|spending|confidence/.test(t)) return 'Consumer';
-    if (/trade|export|import|current account/.test(t)) return 'Trade';
-    return null; };
-  // Accroche éditoriale FR (épuré) — déterministe, 0 IA.
-  const THEME_FR = { 'Inflation': "l'inflation", 'Labour Market': "l'emploi", 'Growth': 'la croissance', 'Activity (PMI)': "l'activité (PMI)", 'Central Banks': 'les banques centrales', 'Consumer': 'la consommation', 'Trade': 'le commerce extérieur' };
+  // ── 100 % DATA-DRIVEN (calendrier du terminal, AUCUN appel IA) → fiable + zéro consommation ──
   const DAY_FR = { Monday: 'lundi', Tuesday: 'mardi', Wednesday: 'mercredi', Thursday: 'jeudi', Friday: 'vendredi', Saturday: 'samedi', Sunday: 'dimanche' };
-  const _cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   // PROFIL DE RISQUE « PARLANT » (demande user 26/07) : l'ancienne formule ×9 SATURAIT à 100 dès ~4
   // événements High (semaine chargée → tous les jours à 100 → courbe PLATE). Nouveau : score BRUT
@@ -14956,91 +14960,42 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
     const hiEvs = evs.filter(e => e.impact === 'High');
     const risk = _riskOf(k);
     const ccys = [...new Set([...hiEvs, ...evs].map(e => e.currency).filter(Boolean))].slice(0, 4);
-    const themes = [...new Set(evs.map(e => _theme(e.title || '')).filter(Boolean))].slice(0, 2);
     const dowEn = d.toLocaleDateString('en-US', { weekday: 'long' });
     const dowFr = DAY_FR[dowEn] || dowEn;   // lundi, mardi…
     // 100 % DÉTERMINISTE et COHÉRENT AVEC LE CALENDRIER (demande user 03/08 : « faut qu'on sache les
-    // news dans le titre directement » + « cohérent avec le calendrier économique ») :
-    //  · TITRE = les vrais événements du jour (CCY + nom TEL QUEL, comme dans l'onglet Calendrier —
-    //    les intitulés d'événements ne sont jamais traduits, règle produit) ;
-    //  · DESCRIPTION = 2 phrases factuelles : le programme avec prév./préc., puis la décision de taux
-    //    SEULEMENT si l'événement existe réellement ce jour-là. Rien d'autre — l'éditorial IA qui
-    //    habillait ces cartes inventait des événements (« Fed : décision de taux » sans FOMC).
-    const base = (hiEvs.length ? hiEvs : evs).slice(0, 10);
-    const _evNom = e => (((e.currency ? e.currency + ' ' : '') + String(e.title || '').replace(/\s*\([^)]*\)\s*/g, ' ')).replace(/\s+/g, ' ').trim());
-    // v22 — TITRES DE JOUR EN FRANÇAIS THÉMATIQUE (demande user 10/08 : « Décision de la RBA »,
-    // « CPI américain », « PIB britannique + PPI américain », « Ventes au détail américaines ») :
-    // le thème + l'adjectif de pays ACCORDÉ, 2 thèmes max joints par « + ». Ce sont des titres de
-    // THÈME maison (pas des intitulés d'événements, qui eux restent en VO dans la liste détaillée).
-    // Repli : l'ancien titre « CCY + intitulé » si aucun thème reconnu.
-    const _WA_BANQUE = { USD: 'Fed', EUR: 'BCE', GBP: 'BoE', JPY: 'BoJ', AUD: 'RBA', NZD: 'RBNZ', CAD: 'BoC', CHF: 'BNS', CNY: 'PBoC', CNH: 'PBoC' };
-    // [masculin sing., féminin sing., féminin plur.] — EUR = suffixe « zone euro » invariable.
-    const _WA_ADJ2 = { USD: ['américain', 'américaine', 'américaines'], GBP: ['britannique', 'britannique', 'britanniques'], JPY: ['japonais', 'japonaise', 'japonaises'], AUD: ['australien', 'australienne', 'australiennes'], NZD: ['néo-zélandais', 'néo-zélandaise', 'néo-zélandaises'], CAD: ['canadien', 'canadienne', 'canadiennes'], CHF: ['suisse', 'suisse', 'suisses'], CNY: ['chinois', 'chinoise', 'chinoises'], CNH: ['chinois', 'chinoise', 'chinoises'], EUR: ['zone euro', 'zone euro', 'zone euro'] };
-    const _waThemeJour = e => {
-      const t = ' ' + String(e.title || '').toLowerCase() + ' ', c = String(e.currency || '').toUpperCase(), a = _WA_ADJ2[c];
-      const adj = (g) => a ? ' ' + a[g] : '';
-      if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing|deposit facility/.test(t)) { const b = _WA_BANQUE[c]; return b ? { lbl: 'Décision de la ' + b, rang: 9 } : null; }
-      if (/payroll|nonfarm|\bnfp\b/.test(t)) return { lbl: 'NFP américain', rang: 8 };
-      if (/inflation|\bcpi\b|\bhicp\b|consumer price/.test(t)) return { lbl: 'CPI' + adj(0), rang: 7 };
-      if (/\bgdp\b|gross domestic/.test(t)) return { lbl: 'PIB' + adj(0), rang: 6 };
-      if (/\bppi\b|producer price/.test(t)) return { lbl: 'PPI' + adj(0), rang: 5 };
-      if (/retail sales/.test(t)) return { lbl: 'Ventes au détail' + adj(2), rang: 4 };
-      if (/unemployment|jobless|employment change|labou?r market|\bjobs\b|hourly earnings/.test(t)) return { lbl: 'Emploi' + adj(0), rang: 3 };
-      if (/trade balance|balance of trade/.test(t)) return { lbl: 'Balance commerciale' + adj(1), rang: 2 };
-      if (/\bpmi\b|purchasing managers|\bism\b/.test(t)) return { lbl: 'PMI' + adj(0), rang: 2 };
-      return null;
-    };
-    const _thJour = [];
-    base.forEach(e => { const th = _waThemeJour(e); if (th && !_thJour.some(x => x.lbl === th.lbl)) _thJour.push(th); });
-    _thJour.sort((x, y) => y.rang - x.rang);
-    // Le jour du NFP, « Emploi américain » est redondant (le NFP EST l'emploi US) → on l'absorbe.
-    if (_thJour.some(x => x.lbl === 'NFP américain')) { const i = _thJour.findIndex(x => x.lbl === 'Emploi américain'); if (i >= 0) _thJour.splice(i, 1); }
-    const title = _thJour.length ? _thJour.slice(0, 2).map(x => x.lbl).join(' + ')
-      : (base.slice(0, 3).map(_evNom).filter(Boolean).join(' · ') || `Séance calme ${dowFr}`);
-    const _cb = base.find(e => /rate decision|interest rate decision|monetary policy|rate statement|deposit facility|refinancing/i.test(e.title || ''));
-    const _ccysFr = [...new Set(base.map(e => e.currency).filter(Boolean))].slice(0, 5);
-    const _dTop = base.slice(0, 3).map(e => _evNom(e)
-      + (e.forecast ? ` (prév. ${e.forecast}${e.previous ? `, préc. ${e.previous}` : ''})` : (e.previous ? ` (préc. ${e.previous})` : '')));
-    /* DESCRIPTIONS ENRICHIES v23 (23/08, demande user : « améliore les descriptions » — la clause
-       « Tout écart face au consensus… » se répétait sur chaque carte). Toujours 100 % DÉTERMINISTE
-       (l'IA de la v19 inventait des événements, débranchée en v20 : on ne la rebranche pas) : on
-       AJOUTE une phrase « pourquoi ça compte », spécifique à la FAMILLE du jour — c'est elle qui
-       différencie vraiment les cartes — et la clause de clôture varie selon le contexte. Le mail
-       du dimanche ne prend que les 2 premières phrases : programme + pourquoi, le meilleur part. */
-    const _waPourquoi = () => {
-      const th = (_thJour[0] && _thJour[0].lbl) || '';
-      const cc0 = _ccysFr[0] || 'la devise';
-      if (/^Décision de la /.test(th)) return '';   // la clause décision (plus bas) dit déjà tout
-      if (/^NFP/.test(th)) return `Le rapport emploi est le juge de paix mensuel du USD : créations de postes, salaires et taux de chômage y recalibrent d'un coup les anticipations de la Fed.`;
-      if (/^CPI/.test(th)) return `L'inflation est LA variable des banques centrales : une surprise sur ce chiffre repricera directement la trajectoire de taux, et donc ${cc0}.`;
-      if (/^PIB/.test(th)) return `Le PIB donne la température générale de l'économie : un écart marqué déplace le curseur croissance/récession et le ton des banquiers centraux.`;
-      if (/^PPI/.test(th)) return `Les prix producteurs annoncent l'inflation de demain : ce qui entre en usine finit dans le panier du consommateur quelques mois plus tard.`;
-      if (/^Ventes au détail/.test(th)) return `La consommation fait tourner l'économie : ces ventes disent si le ménage suit encore, ou si la demande cale.`;
-      if (/^Emploi/.test(th)) return `Le marché du travail nourrit salaires et consommation : c'est lui qui décide si la banque centrale peut se permettre d'attendre.`;
-      if (/^PMI/.test(th)) return `Les PMI sont l'indicateur AVANCÉ de référence : les directeurs d'achat voient le retournement avant les chiffres officiels — la barre des 50 sépare expansion et contraction.`;
-      if (/^Balance commerciale/.test(th)) return `La balance commerciale pèse mécaniquement sur la devise : exporter plus, c'est acheter ${cc0} pour régler les factures.`;
-      if (/minutes|meeting/i.test((base[0] && base[0].title) || '')) return `Les minutes révèlent le débat DERRIÈRE la décision : un comité plus divisé ou plus ferme qu'annoncé suffit à faire bouger les taux courts.`;
-      return '';
-    };
-    const _dp = [];
-    if (_dTop.length) _dp.push(`Au programme ${dowFr} : ${_dTop.join(' ; ')}.`);
-    const _pq = _waPourquoi();
-    if (_pq) _dp.push(_pq);
-    if (_cb) _dp.push(`La décision de taux ${_cb.currency} est le point d'orgue : la décision et le communiqué guideront le ${_cb.currency} et les taux courts.`);
-    else if (hiEvs.length && _pq) _dp.push(`À surveiller sur ${_ccysFr.slice(0, 3).join(', ') || 'le FX'} dès la publication.`);
-    else if (hiEvs.length) _dp.push(`Tout écart face au consensus fera réagir ${_ccysFr.slice(0, 3).join(', ') || 'le FX'} dès la publication.`);
-    else _dp.push(`Séance sans catalyseur majeur : le ton viendra du flux d'actualité et des banques centrales.`);
-    const description = _dp.join(' ') || 'Données économiques du jour.';
-    // Liste DÉTAILLÉE d'événements (façon DTP) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
-    const events = base.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(e => ({
+    // news dans le titre directement » + « cohérent avec le calendrier économique »). Zéro IA : elle
+    // inventait des événements (« Fed : décision de taux » un jeudi sans FOMC), débranchée en v20.
+    // Les INTITULÉS d'événements restent en VO dans la liste (règle produit, comme l'onglet
+    // Calendrier) ; c'est la GLOSE française de walabels qui les rend lisibles dans la description.
+    /* v24 (25/08) — TITRE ET DESCRIPTION DÉRIVÉS DE LA LISTE AFFICHÉE, POINT.
+       Signalement du mentor : la carte du vendredi 28 août titrait « NFP américain + CPI zone euro »
+       pour une journée qui portait Jackson Hole, une RÉVISION annuelle du NFP et une confiance des
+       ménages japonaise. Le lecteur voyait donc, dans la même carte, un titre et une liste qui ne
+       parlaient pas des mêmes rendez-vous — le pire défaut possible sur un agenda.
+       Deux causes racines, corrigées dans walabels.js : (1) la regex NFP confondait le RAPPORT
+       MENSUEL et sa RÉVISION ANNUELLE ; (2) tout ce que le calendrier classe EUR était étiqueté
+       « zone euro », alors que l'IPC flash de fin de mois est publié PAR PAYS (France, Espagne,
+       Allemagne) — le pays d'origine voyageait pourtant jusqu'ici dans `ctry`, sans être lu.
+       La garantie structurelle est ici : on calcule D'ABORD la liste affichée, et c'est CETTE liste,
+       la même référence d'objets, qui est passée au titre et à la description. Il n'existe aucun
+       autre chemin, et walabels rejette tout thème dont l'événement source n'est pas dedans.
+       Rejoué à l'identique par `node scripts/weekahead-verif.js`. */
+    const _affiches = (hiEvs.length ? hiEvs : evs).slice(0, 10).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const title = _WA.titreJour(_affiches, dowFr);
+    const description = _WA.descriptionJour(_affiches, dowFr);
+    // Liste DÉTAILLÉE d'événements (façon DTP) : heure Paris · devise · intitulé · prév./préc. · impact.
+    const events = _affiches.map(e => ({
       time: e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '',
-      ccy: e.currency || '', title: (e.title || '').slice(0, 90),
+      // L'intitulé porte le PAYS quand la devise ne suffit pas : la France et l'Espagne publient le
+      // même « Inflation Rate YoY Prel » le même matin, tous deux classés EUR — la carte affichait
+      // deux lignes strictement identiques, impossibles à distinguer.
+      ccy: e.currency || '', ctry: e.ctry || '', title: _WA.intituleAffiche(e).slice(0, 90),
       forecast: e.forecast || '', previous: e.previous || '',
       impact: e.impact === 'High' ? 'HIGH' : 'MED',
     }));
     return {
       dow: dowEn, date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
-      title: _noDash(title).slice(0, 170), description: _waTrim(description, 1200), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+      title: _noDash(title).slice(0, 170), description: _waTrim(_noDash(description), 1200), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
       hiN: hiEvs.length, medN: evs.length - hiEvs.length,   // compteurs RÉELS du jour (l'infobulle du profil de risque les affiche ; `events` est plafonné à 10 → ne pas compter dessus)
     };
   });
@@ -15066,7 +15021,9 @@ async function generateWeekAhead(force = false, genEditorial = false, opts = {})
 //    + calendrier par jour + éditorial. Clé par semaine → jamais de doublon (les MAJ 40 min n'en créent pas).
 let _waNewsKey = null, _waNewsEdAI = -1;
 const _WA_ABBR = { Monday: 'MON', Tuesday: 'TUE', Wednesday: 'WED', Thursday: 'THU', Friday: 'FRI', Saturday: 'SAT', Sunday: 'SUN' };
-const _WA_CCY_ADJ = { USD: 'US', EUR: 'zone euro', GBP: 'UK', JPY: 'Japon', AUD: 'Australie', NZD: 'NZ', CAD: 'Canada', CHF: 'Suisse', CNY: 'Chine', CNH: 'Chine' };
+// Étiquette de pays du bandeau : le PAYS D'ORIGINE prime sur la devise — un IPC français classé EUR
+// s'annonçait « inflation zone euro », alors que l'agrégat de la zone sort un autre jour (25/08).
+const _waCcyAdj = e => _WA.paysCourt({ currency: e && e.ccy, ctry: e && e.ctry });
 // Réduit un titre d'événement à un THÈME court (façon pro) → [libellé, estBanqueCentrale]. null = pas un thème clé.
 function _waTheme(title) {
   const t = ' ' + String(title || '').toLowerCase() + ' ';
@@ -15081,7 +15038,7 @@ function _waTheme(title) {
   if (/\bpboc\b|people'?s bank of china/.test(t)) return ['PBoC', true];
   if (/inflation|\bcpi\b|\bhicp\b/.test(t)) return ['inflation', false];
   if (/\bppi\b|producer price/.test(t)) return ['PPI', false];
-  if (/payroll|nonfarm|\bnfp\b/.test(t)) return ['NFP', false];
+  if (/payroll|nonfarm|\bnfp\b/.test(t)) return _WA.REVISION_RX.test(t) ? ['révision du NFP', false] : ['NFP', false];
   if (/unemployment|jobless|\bjobs\b|employment change|labou?r market/.test(t)) return ['emploi', false];
   if (/retail sales/.test(t)) return ['ventes au détail', false];
   if (/\bgdp\b|gross domestic/.test(t)) return ['PIB', false];
@@ -15105,7 +15062,7 @@ function _waPublishNews(weekKey) {
     if (clean && !hiAny.some(x => x.toLowerCase() === clean.toLowerCase())) hiAny.push(clean);
     const th = _waTheme(e.title); if (!th) continue;
     const [name, isBank] = th;
-    const adj = _WA_CCY_ADJ[String(e.ccy || '').toUpperCase()];
+    const adj = _waCcyAdj(e);
     // Ordre FRANÇAIS : le qualificatif APRÈS le thème (« inflation US », « PIB UK ») ; le NFP se
     // suffit (toujours US) — pas de « NFP US » redondant.
     const label = isBank ? name : (name === 'NFP' ? name : (name + (adj ? ' ' + adj : '')));

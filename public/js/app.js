@@ -6672,20 +6672,26 @@ function _sbRenderRiskEvents(curr) {
   if (!host) return;
   const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // JOUR CIVIL À PARIS (correctif 25/08). La clé de regroupement était l'heure de GREENWICH pendant
+  // que l'étiquette du jour venait de l'heure du NAVIGATEUR : les deux pouvaient se contredire, et
+  // une publication asiatique du matin (01h à Paris) se rangeait la veille, sous le mauvais nom de
+  // jour. Les heures affichées sont déjà en heure de Paris : la journée l'est maintenant aussi.
+  const jourParis = ts => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
+  const nomJour = k => DAYS[new Date(k + 'T12:00:00Z').getUTCDay()];
   _sbLoadCal().then(() => {
     if (_sbActiveCur !== curr) return;   // l'utilisateur a changé de devise entre-temps
     const now = Date.now();
     const evs = (_sbCalEv || [])
       .filter(e => e && e.currency === curr && (e.impact === 'High' || e.impact === 'Medium')
         && e.timestamp >= now - 12 * 3600000 && e.timestamp <= now + 8 * 86400000
-        && ![0, 6].includes(new Date(e.timestamp).getDay())   // SEMAINE uniquement : pas de samedi/dimanche (marché fermé)
+        && ![0, 6].includes(new Date(jourParis(e.timestamp) + 'T12:00:00Z').getUTCDay())   // SEMAINE uniquement : pas de samedi/dimanche (marché fermé)
         && !/holiday|bank holiday/i.test(e.title || ''))
       .sort((a, b) => a.timestamp - b.timestamp);
     if (!evs.length) { host.innerHTML = ''; return; }
     const byDay = new Map();
     evs.forEach(e => {
-      const dt = new Date(e.timestamp), k = dt.toISOString().slice(0, 10);
-      if (!byDay.has(k)) byDay.set(k, { day: DAYS[dt.getDay()], titles: [] });
+      const k = jourParis(e.timestamp);
+      if (!byDay.has(k)) byDay.set(k, { day: nomJour(k), titles: [] });
       const g = byDay.get(k), t = String(e.title || '').replace(/\s+/g, ' ').trim();
       if (t && g.titles.length < 4 && !g.titles.includes(t)) g.titles.push(t);
     });
