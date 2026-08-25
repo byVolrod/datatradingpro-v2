@@ -351,6 +351,38 @@ function bornes(reportType, now, finRef) {
     nom: F.nom, dev: F.dev,
   };
 }
+/* À QUELLE SÉANCE APPARTIENT UNE PUBLICATION ? UNE SEULE RÈGLE, PARTAGÉE (26/08, question de
+   l'utilisateur : « le récap quotidien reprend bien ce que les récaps de séance sortent comme
+   datas, c'est bien cohérent ? »). Elle ne l'était pas : le Récap Quotidien rangeait par DEVISE
+   seule (`_FXR_SESSION_OF`), les récaps de séance par FENÊTRE HORAIRE. Un chiffre EUR publié à 22h
+   se lisait donc sous « Londres » dans l'un et n'existait dans aucun récap de séance.
+   L'HEURE tranche d'abord — c'est ce que le mot « séance » veut dire — et la DEVISE départage les
+   fenêtres qui se chevauchent (Londres 8h–18h et New York 14h–23h se recouvrent de quatre heures).
+   Hors de toute fenêtre, on retombe sur la devise : mieux vaut ranger un EUR de 22h sous Londres
+   que le perdre. Le repli reproduit exactement l'ancien comportement du Quotidien — la règle ne
+   retire donc rien, elle ne fait qu'ACCORDER les deux rapports là où l'heure tranche. */
+const SEANCE_DEV = {
+  JPY: 'Asia Session Recap', AUD: 'Asia Session Recap', NZD: 'Asia Session Recap', CNY: 'Asia Session Recap',
+  EUR: 'London Session Recap', GBP: 'London Session Recap', CHF: 'London Session Recap',
+  USD: 'US Session Recap', CAD: 'US Session Recap',
+};
+function heureParisNum(ts) {
+  return Number(new Date(ts).toLocaleString('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hour12: false }).slice(0, 2));
+}
+function seanceDe(ev) {
+  const ccy = String((ev && ev.currency) || '').toUpperCase();
+  const ts = (ev && ev.timestamp) || 0;
+  if (ts) {
+    const h = heureParisNum(ts);
+    if (Number.isFinite(h)) {
+      for (const type of Object.keys(FENETRES)) {
+        const F = FENETRES[type];
+        if (h >= F.debut && h < F.fin && F.dev.indexOf(ccy) >= 0) return type;
+      }
+    }
+  }
+  return SEANCE_DEV[ccy] || null;
+}
 /* La fenêtre d'un récap de séance PUBLIÉ : celle de sa séance, le jour de sa publication. La fin
    reste plafonnée à maintenant — un récap du jour ne peut pas annoncer des chiffres pas encore
    tombés. Rend null si l'article n'est pas un récap de séance (« Global », ouverture, hebdo…). */
@@ -470,4 +502,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, frNombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, SEANCE_DEV, heureParisNum, seanceDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, frNombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };

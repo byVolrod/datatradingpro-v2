@@ -548,6 +548,64 @@ v('elle ne publie rien et n\'appelle aucune IA', !/wrap-macro-apercu[\s\S]{0,260
 v('on ne segmente pas un récap de séance calendrier vide', /if \(_SEA\.sessionDe\(item\) && !_calPret\(\)\) return false;/.test(srv3));
 v('une seule implémentation des bornes', /const _bornesSeance = \(reportType, now, finRef\) => _SEA\.bornes/.test(srv3));
 
+console.log('\n── 7g. COHÉRENCE Récap Quotidien ↔ récaps de séance ──');
+/* « le récap quotidien reprend bien ce que les récap de sessions sortent comme datas, genre c'est
+   bien cohérent ? » (26/08). Vérifié : la source est la même (_tvCalCache), mais QUATRE choses
+   divergeaient. Chacune est rejouée ici — un contrôle, pas une promesse. */
+const SRV = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+
+// (1) LES NOMS. Le Quotidien servait le flux BRUT ; tout le reste passe par _calFfNames.
+v('le Quotidien passe ses chiffres par _calFfNames', /dataPropre = _calFfNames\(dataRows\)/.test(SRV));
+v('… et c'.concat("'est CE jeu nettoyé qui alimente les deux blocs"), /_fxrDataByCountry\(dataPropre\)/.test(SRV) && /_fxrDataBySession\(dataPropre\)/.test(SRV));
+v('les récaps de séance y passent aussi', /_calFfNames\(_SEA\.filtreFenetre\(items, b\)\)/.test(SRV));
+
+// (2) LE CLASSEMENT. Le Quotidien avait sa propre table de quatre familles.
+v('le Quotidien classe avec la table partagée', /const famOf = t => _SEA\.famille\(t\);/.test(SRV));
+v('plus aucune table privée de familles dans le Quotidien', !/const GROW = \/gdp\|gross domestic/.test(SRV));
+v('ses familles sortent dans l\'ordre du desk', /_SEA\.ORDRE_FAM\.filter\(n => \(g\.families\.get\(n\) \|\| \[\]\)\.length\)/.test(SRV));
+/* La mesure qui a motivé la correction : 9 divergences sur 14 intitulés entre l'ancienne table
+   privée et la table partagée. On rejoue l'ancienne ici pour que le contrôle DÉMONTRE l'écart au
+   lieu de l'affirmer — et pour qu'un retour en arrière se voie. */
+const ANCIEN = (() => {
+  const INFL = /cpi|inflation|ppi|producer price|\bpce\b|price index|earnings|wage/i;
+  const EMPL = /employment|unemployment|payroll|claims|jobless|\badp\b|jolts/i;
+  const GROW = /gdp|gross domestic|retail|\bpmi\b|\bism\b|confidence|sentiment|production|housing|building|durable|factory/i;
+  const TRAD = /trade balance|balance of trade|current account|exports|imports/i;
+  return t => INFL.test(t) ? 'Inflation' : EMPL.test(t) ? 'Emploi' : GROW.test(t) ? 'Croissance' : TRAD.test(t) ? 'Commerce' : 'Autres';
+})();
+const ECARTS = ['Federal Funds Rate', 'ECB Press Conference', 'FOMC Meeting Minutes', 'M3 Money Supply y/y',
+  'Ifo Business Climate', 'Wholesale Sales m/m', 'Existing Home Sales', 'Philly Fed Manufacturing Index',
+  'Average Hourly Earnings m/m'];
+ECARTS.forEach(x => v(`« ${x} » : l'ancienne table disait « ${ANCIEN(x)} », la partagée dit « ${S.famille(x)} »`,
+  ANCIEN(x) !== S.famille(x) && S.famille(x) !== 'Autres', S.famille(x)));
+v('« Croissance » tout court n\'existe dans aucune des deux vues', S.ORDRE_FAM.indexOf('Croissance') < 0 && S.ORDRE_FAM.indexOf('Croissance économique') >= 0);
+
+// (3) L'AFFECTATION À UNE SÉANCE. Par devise seule ici, par fenêtre horaire là-bas.
+v('le Quotidien range avec la règle partagée', /const sess = _FXR_SEANCE_CLE\[_SEA\.seanceDe\(e\)\];/.test(SRV));
+v('l\'ancienne table par devise seule a disparu', !/const _FXR_SESSION_OF = /.test(SRV));
+const H2 = 3600000, JP = Date.parse('2026-08-26T00:00:00Z');   // Paris = UTC+2 en été
+const par = (c, h) => S.seanceDe({ currency: c, timestamp: JP + (h - 2) * H2 });
+[['JPY', 1, 'Asia Session Recap'], ['AUD', 2, 'Asia Session Recap'], ['CNY', 3, 'Asia Session Recap'],
+ ['EUR', 8, 'London Session Recap'], ['GBP', 10, 'London Session Recap'], ['CHF', 16, 'London Session Recap'],
+ ['USD', 15, 'US Session Recap'], ['CAD', 19, 'US Session Recap'], ['USD', 22, 'US Session Recap']]
+  .forEach(([c, h, att]) => v(`${c} à ${h}h Paris → ${att.replace(' Session Recap', '')}`, par(c, h) === att, String(par(c, h))));
+/* Les fenêtres se chevauchent de quatre heures : à 15h, Londres ET New York sont ouvertes. C'est la
+   DEVISE qui départage — sans elle, un chiffre américain de 15h partirait à Londres. */
+v('à 15h, l\'EUR va à Londres et l\'USD à New York', par('EUR', 15) === 'London Session Recap' && par('USD', 15) === 'US Session Recap');
+/* Hors de toute fenêtre, la devise sert de repli : c'est EXACTEMENT l'ancien comportement du
+   Quotidien, donc la nouvelle règle n'a rien pu lui faire perdre. */
+v('un EUR de 22h retombe sur Londres au lieu d\'être perdu', par('EUR', 22) === 'London Session Recap');
+v('un USD de 8h retombe sur New York', par('USD', 8) === 'US Session Recap');
+v('une devise hors des neuf majeures reste ignorée', par('SEK', 10) === null);
+v('le repli couvre les neuf mêmes devises que les fenêtres',
+  Object.keys(S.SEANCE_DEV).sort().join(',') === [...new Set(Object.values(S.FENETRES).flatMap(f => f.dev))].sort().join(','),
+  Object.keys(S.SEANCE_DEV).sort().join(','));
+
+// (4) LES CHIFFRES. Point décimal d'un côté, virgule de l'autre.
+v('le Quotidien écrit ses valeurs en français (par pays)', /actual: _SEA\.frNombre\(e\.actual\), forecast: _SEA\.frNombre\(e\.forecast\), previous: _SEA\.frNombre\(e\.previous\), lean: leanOf\(e\)/.test(SRV));
+v('… et par séance', /actual: _SEA\.frNombre\(e\.actual\), forecast: _SEA\.frNombre\(e\.forecast\), previous: _SEA\.frNombre\(e\.previous\), lean: _fxrLean\(e\)/.test(SRV));
+v('la version du Quotidien a été bumpée (régénération)', /const FXR_VER = 23;/.test(SRV));
+
 console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
 /* Le format de séance porte une version, et les récaps déjà publiés sous une version périmée se
    refont AU DÉMARRAGE. Sans ce mécanisme, une amélioration ne touchait que les récaps à venir et il
