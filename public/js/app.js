@@ -10291,7 +10291,26 @@ function _renderFXDailyRecap(item) {
     _macroPts.forEach(t => { const fam = _famJour(t); _macroFam.set(fam, (_macroFam.get(fam) || []).concat([t])); });
     // `cb` entre EN TÊTE de la Politique monétaire : la décision d'abord, son écho macro ensuite.
     _macroFam.set('Politique monétaire', _cbPts.concat(_macroFam.get('Politique monétaire') || []));
-    const _sansFam = _macroPts.filter(t => _SECTIONS_NEWS.indexOf(_famJour(t)) < 0);
+    /* AUCUNE PUCE SANS SOUS-TITRE (28/08, capture à l'appui : « il manque une souspartie ici
+       corrige » — la rubrique MACRO ouvrait sur « Tarifs canadiens : … » et « Prix du pétrole
+       (Brent) : … », deux puces nues, avant le premier intitulé de famille).
+       C'était un arbitrage à moi, et le MÊME que le user avait déjà tranché le 26/08 sur le récap de
+       séance (« ici il manque une catégorie ») : ce qui ne rentre dans aucune des quatre rubriques du
+       Radar se rendait EN TÊTE et SANS titre, pour ne pas se lire comme la suite du groupe précédent.
+       Placé en tête, le problème changeait simplement de côté : le lecteur voyait deux puces qui ne
+       disaient pas de quoi elles parlaient. Commerce et Autres sont des familles comme les autres et
+       portent désormais leur intitulé, à leur place, EN FIN de rubrique — les quatre du Radar
+       d'abord, puisque ce sont elles qui font la lecture d'une devise.
+       L'ordre est celui du récap de séance (_SEA.ORDRE_FAM_MACRO) : les deux rapports se lisent à la
+       suite, ils ne peuvent pas ranger la même chose dans deux ordres différents. */
+    const _ORDRE_MACRO = _SECTIONS_NEWS.concat(['Commerce', 'Autres']);
+    // Filet : une famille absente de l'ordre d'affichage ne DISPARAÎT pas, elle rejoint « Autres ».
+    // Elle ne peut venir que d'un renommage de _FAM_JOUR, et perdre des puces en silence serait pire.
+    Array.from(_macroFam.keys()).forEach(f => {
+      if (_ORDRE_MACRO.indexOf(f) >= 0) return;
+      _macroFam.set('Autres', (_macroFam.get('Autres') || []).concat(_macroFam.get(f) || []));
+      _macroFam.delete(f);
+    });
     /* AUTRES ÉLÉMENTS NOTABLES (28/08, en comparant au Récap Quotidien du mentor) : les faits réels
        de la journée qui ne sont NI le dossier géopolitique NI de la macro — une mesure commerciale
        annoncée par un pays, un projet d'infrastructure d'État, une rencontre politique programmée.
@@ -10306,8 +10325,7 @@ function _renderFXDailyRecap(item) {
     }
     body += _sec('Macro');
     const _puces = l => { body += '<div class="fxdr-bullets">'; l.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; };
-    if (_sansFam.length) _puces(_sansFam);
-    _SECTIONS_NEWS.forEach(fam => {
+    _ORDRE_MACRO.forEach(fam => {
       const l = _macroFam.get(fam);
       if (l && l.length) { body += `<div class="fxdr-grp-title">${_wrEsc(fam)}</div>`; _puces(l); }
     });

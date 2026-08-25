@@ -160,7 +160,7 @@ const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 's
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
 v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v21:'/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v2[2-9]:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -168,9 +168,23 @@ console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par
    l'endroit où on le lit — et personne ne s'en aperçoit. On compare donc les trois LIGNE À LIGNE.
    Cette garde manquait ; elle est posée le 26/08, en même temps que l'élargissement de la table. */
 const fs2 = require('fs'), pa2 = require('path');
+/* ⚠️ ON BORNE L'EXTRACTION À LA TABLE DES FAMILLES MACRO (28/08). Le motif balayait le fichier
+   ENTIER : le jour où seance.js a reçu la table des CLASSES D'ACTIFS (ACTIF_RX, pour « Analyse de
+   séance »), son entrée `['Commerce', /tarifs?…/i]` — même forme, autre table — s'est ajoutée à la
+   récolte, et la comparaison ligne à ligne a décalé d'un cran : 7 lignes ici, 6 ailleurs. Le
+   contrôle criait au désaccord alors que les trois tables étaient identiques.
+   On découpe donc à partir du nom de la table dans chaque fichier, jusqu'à sa fermeture. */
+const TABLE_FAM = { 'seance.js': 'FAM_RX', 'public/js/app.js': '_FAM_JOUR', 'mailer.js': null };
 const lignesFam = f => {
   const src = fs2.readFileSync(pa2.join(__dirname, '..', f), 'utf8');
-  return (src.match(/\['(?:Inflation|Emploi|Croissance économique|Politique monétaire|Commerce)', \/.*?\/i\]/g) || []);
+  const nom = TABLE_FAM[f];
+  let zone = src;
+  if (nom) {
+    const d = src.indexOf('const ' + nom + ' = [');
+    const fin = d >= 0 ? src.indexOf('\n];', d) : -1;
+    if (d >= 0 && fin > d) zone = src.slice(d, fin);
+  }
+  return (zone.match(/\['(?:Inflation|Emploi|Croissance économique|Politique monétaire|Commerce)', \/.*?\/i\]/g) || []);
 };
 const tSea = lignesFam('seance.js'), tApp = lignesFam('public/js/app.js'), tMail = lignesFam('mailer.js');
 v('la table est bien retrouvée dans les trois fichiers', tSea.length === 6 && tApp.length === 6 && tMail.length === 6, `${tSea.length}/${tApp.length}/${tMail.length}`);
@@ -635,26 +649,92 @@ const AV = [{ section: 'LEAD', items: ['Les rumeurs d\'un accord Iran-US ont pes
 const hy = W.html(AV, [], null, SYN).html;
 v('la rubrique « Synthèse » existe', /<strong>Synthèse<\/strong>/.test(hy), hy.slice(0, 120));
 v('elle est la PREMIÈRE du rapport', hy.indexOf('<strong>Synthèse') === 0, hy.slice(0, 80));
-v('… donc avant le LEAD', hy.indexOf('<strong>Synthèse') < hy.indexOf('<strong>LEAD'));
 v('elle porte la mesure de la séance', /6 publications sur la séance, dont 3 hors consensus/.test(hy));
 v('et la photo des marchés', /\*\*Photo de séance\*\*/.test(hy));
-v('le LEAD est conservé tel quel', /<strong>LEAD<\/strong><ul><li>Les rumeurs/.test(hy));
-v('la Macro reste à sa place', hy.indexOf('<strong>Macro') > hy.indexOf('<strong>LEAD'));
-// Sans mesure, le rapport est EXACTEMENT celui d'avant : pas de rubrique vide, pas de ligne inventée.
+v('la Macro reste à sa place', hy.indexOf('<strong>Macro') > hy.indexOf('<strong>Synthèse'));
+
+/* ── LE RÉCIT D'ABORD, LES MESURES ENSUITE (28/08, capture du Récap Quotidien à l'appui : « il
+   manque ce type de synthèse dans les récap session »). Ce que le user montrait n'était pas le bloc
+   chiffré mais le PARAGRAPHE NARRATIF du Quotidien. Le « LEAD » du prompt disait la même chose, mais
+   se rendait SANS titre — donc en texte nu, là où le Quotidien encadre le sien d'un liseré doré.
+   Il devient la « Synthèse » : même contenu, même encadré, même identité que l'autre rapport. */
+v('le LEAD devient la Synthèse', !/<strong>LEAD<\/strong>/.test(hy), hy.slice(0, 90));
+v('le récit du modèle y est conservé', /Les rumeurs d'un accord Iran-US/.test(hy));
+v('… et il passe AVANT nos lignes mesurées', hy.indexOf('Les rumeurs') < hy.indexOf('6 publications'), hy.slice(0, 200));
+v('le tout dans UNE seule rubrique', (hy.match(/<strong>Synthèse<\/strong>/g) || []).length === 1);
+// Sans mesure, le récit reste — et il reste encadré : c'est ce qui manquait.
 const sansSyn = W.html(AV, [], null, []).html;
-v('sans mesure, aucune rubrique n\'est ajoutée', !/<strong>Synthèse<\/strong>/.test(sansSyn));
-v('et le rapport est inchangé', sansSyn.indexOf('<strong>LEAD') === 0, sansSyn.slice(0, 60));
-// Si le modèle a déjà produit une « Synthèse », nos lignes s'y ajoutent EN TÊTE, sans doublon de rubrique.
-const dejaSyn = W.html([{ section: 'Synthèse', items: ['Le récit du modèle.'] }, AV[0]], [], null, SYN).html;
+v('sans mesure, la Synthèse existe quand même', sansSyn.indexOf('<strong>Synthèse') === 0, sansSyn.slice(0, 60));
+v('… et ne porte que le récit', /<strong>Synthèse<\/strong><ul><li>Les rumeurs[^<]*<\/li><\/ul>/.test(sansSyn), sansSyn.slice(0, 160));
+// Aucun récit ET aucune mesure : rien n'est inventé, pas de rubrique vide.
+const rien = W.html([{ section: 'Macro', items: ['**CPI** : 0,4%'] }], [], null, []).html;
+v('sans récit ni mesure, aucune rubrique n\'est ajoutée', !/<strong>Synthèse<\/strong>/.test(rien), rien.slice(0, 80));
+// Le modèle nomme déjà la rubrique « Synthèse » (nouveau prompt) : même résultat, sans doublon.
+const dejaSyn = W.html([{ section: 'Synthèse', items: ['Le récit du modèle.'] }, AV[1]], [], null, SYN).html;
 v('une « Synthèse » existante n\'est pas dupliquée', (dejaSyn.match(/<strong>Synthèse<\/strong>/g) || []).length === 1);
-v('nos lignes mesurées y passent en premier', dejaSyn.indexOf('6 publications') < dejaSyn.indexOf('Le récit du modèle'));
+v('le récit du modèle passe en premier', dejaSyn.indexOf('Le récit du modèle') < dejaSyn.indexOf('6 publications'), dejaSyn.slice(0, 200));
 // Côté serveur : calculée, jamais demandée au modèle, et seulement sur un récap DU JOUR.
 v('le serveur la calcule depuis le desk', /const out = \[_SEA\.synthese\(b\.nom, perfs, macros\)\];/.test(_SRVA));
 v('la photo de séance vient de la même fabrique', /const lp = _SEA\.lignePerf\(perfs\);/.test(_SRVA));
 v('rien n\'est produit sans mesure', /if \(!perfs\.length && !macros\.length\) return \[\];/.test(_SRVA));
 v('… ni sur un récap d\'un autre jour', /_jourParis\(ts\) !== _jourParis\(t\)\) return \[\];/.test(_SRVA));
 v('elle est passée au rendu', /_aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
-v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v21:'/.test(_SRVA));
+/* ET POUR LES FUTURS RAPPORTS (28/08, « et vérifie pour les futurs que ce sera bien prit en
+   compte ») : c'est le PROMPT qui décide de ce que le modèle produira demain. On contrôle donc la
+   consigne elle-même, pas seulement le rendu d'un cas de test. */
+v('le prompt réclame une rubrique « Synthèse »', /1\. "Synthèse" \(obligatoire, EN PREMIER\)/.test(_SRVA));
+v('… un paragraphe narratif, pas des puces', /UN SEUL paragraphe NARRATIF de 2 à 4 phrases — pas de puces/.test(_SRVA));
+v('… et l\'exemple JSON porte le même nom', /"section":"Synthèse"/.test(_SRVA));
+v('le mot « LEAD » a disparu de la consigne', !/\bLEAD \(obligatoire/.test(_SRVA));
+v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v2[3-9]:'/.test(_SRVA));
+
+console.log('\n── 7e-octies. « ANALYSE DE SÉANCE » RANGÉE PAR CLASSE D\'ACTIF ──');
+/* « classe bien par catégories ici pour que ce soit propre » (28/08, capture : DXY, NZD, CHF, le
+   Canada, les matières premières, les obligations et les actions dans une seule liste). */
+[['**DXY** : a baissé en fin de séance suite aux rumeurs d\'accord Iran-US.', 'Devises'],
+ ['**NZD** : surperforme la séance, sans driver macro identifié.', 'Devises'],
+ ['**EUR/USD** : remonte à 1,1720 après les chiffres allemands.', 'Devises'],
+ ['**Obligations** : les rendements des Treasuries US à 10 ans baissent de 8,1 pb.', 'Obligations'],
+ ['**Matières premières** : le pétrole WTI recule de 4,25 $ ; l\'or progresse de 14 $.', 'Matières premières'],
+ ['**Brent** : recule de 2% à 68 dollars le baril.', 'Matières premières'],
+ ['**Actions** : le S&P 500 est en hausse de 0,3%.', 'Actions'],
+ ['**Bitcoin** : franchit les 120 000 dollars.', 'Crypto'],
+ ['**Canada** : annonce des contre-tarifs couvrant environ 20 milliards de dollars.', 'Commerce'],
+ ['Le marché reste attentiste avant la publication de demain.', 'Autres'],
+].forEach(([l, att]) => v(`« ${l.slice(0, 46)}… » → ${att}`, S.familleActif(l) === att, S.familleActif(l)));
+/* ⚠️ LE SUJET PRIME SUR LA MENTION. Une devise apparaît partout, ne serait-ce que comme UNITÉ :
+   « 20 milliards de dollars » ne fait pas une ligne devises. Les Devises sont donc testées EN
+   DERNIER dans le repli sur le texte entier — mesuré, ce cas partait en Devises. */
+v('les Devises sont testées en dernier', S.ORDRE_ACTIFS.indexOf('Devises') === 0, 'ordre d\'AFFICHAGE (Devises en tête) — l\'ordre de TEST est interne');
+v('une unité monétaire ne fait pas une ligne devises', S.familleActif('**Canada** : contre-tarifs de 20 milliards de dollars') === 'Commerce');
+/* « or » est aussi une conjonction en français : le motif nu envoyait n'importe quelle phrase en
+   matières premières. Il exige désormais son article. */
+v('« Or, le marché… » n\'est pas une matière première', S.familleActif('Or, le marché reste attentiste.') === 'Autres', S.familleActif('Or, le marché reste attentiste.'));
+v('« l\'or progresse » en est une', S.familleActif('L\'or progresse de 14 $ sur la séance.') === 'Matières premières');
+// Le sujet de la puce se lit dans son intitulé en gras — c'est le seul endroit qui le désigne.
+v('le sujet se lit dans le gras d\'ouverture', S.sujetPuce('**Matières premières** : le pétrole…') === 'Matières premières');
+v('une puce sans gras n\'a pas de sujet déclaré', S.sujetPuce('Le marché attend demain.') === '');
+// Une puce qui répète son propre titre perd son préfixe : deux fois le même mot sur deux lignes.
+v('le préfixe redondant saute', S.sansPrefixeFamille('**Obligations** : les rendements baissent.', 'Obligations') === 'Les rendements baissent.',
+  S.sansPrefixeFamille('**Obligations** : les rendements baissent.', 'Obligations'));
+v('… et seulement lui', S.sansPrefixeFamille('**DXY** : a baissé.', 'Devises') === '**DXY** : a baissé.');
+v('l\'accent ne fait pas obstacle', S.sansPrefixeFamille('**Matieres premieres** : le brut recule.', 'Matières premières') === 'Le brut recule.');
+// Rendu complet : sous-titres présents, ordre d'affichage respecté, aucune ligne perdue.
+const ANA = [{ section: 'Analyse de séance', items: [
+  '**DXY** : a baissé en fin de séance.', '**NZD** : surperforme.',
+  '**Obligations** : les rendements baissent de 8,1 pb.',
+  '**Actions** : le S&P 500 gagne 0,3%.', '**Canada** : contre-tarifs annoncés.'] }];
+const ha = W.html(ANA, [], null, null).html;
+v('la rubrique est découpée en classes', (ha.match(/<em>/g) || []).length === 4, String((ha.match(/<em>/g) || []).length));
+v('les Devises ouvrent la rubrique', /<strong>Analyse de séance<\/strong><em>Devises<\/em>/.test(ha), ha.slice(0, 90));
+v('l\'ordre d\'affichage est respecté',
+  ['Devises', 'Obligations', 'Actions', 'Commerce'].every((f, i, t2) => i === 0 || ha.indexOf('<em>' + t2[i - 1] + '</em>') < ha.indexOf('<em>' + f + '</em>')), ha);
+v('aucune ligne perdue', (ha.match(/<li>/g) || []).length === 5, String((ha.match(/<li>/g) || []).length));
+// Une seule classe → pas de sous-titre : « Devises » au-dessus de trois lignes de devises n'apprend rien.
+const uneSeule = W.html([{ section: 'Analyse de séance', items: ['**DXY** : recule.', '**EUR** : monte.'] }], [], null, null).html;
+v('une classe unique ne prend pas de sous-titre', !/<em>/.test(uneSeule), uneSeule);
+const _SRVB = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v2[2-9]:'/.test(_SRVB));
 
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');

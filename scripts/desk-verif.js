@@ -323,7 +323,11 @@ function phaseLogique() {
       const J = Date.now() + 3600000;
       const fx = {
         title: 'FX Daily Recap', dateLabel: 'mercredi 26 août', summary: 'Séance sans direction.',
-        geopolitics: [], geoKeyPoints: [], cb: [], macro: ['**CPI** allemand : 0,4%'],
+        geopolitics: [], geoKeyPoints: [], cb: [], macro: [
+          'Tarifs canadiens : la ministre du Commerce annonce des tarifs de 50% sur des biens américains → pression sur le **CAD**.',
+          'Prix du pétrole (Brent) : recul de -3,0% à 87,78 $ le baril → affaiblit les devises exportatrices.',
+          '**CPI** allemand : 0,4%',
+        ],
         regions: [], pairs: [], headlines: [], insights: [], fils: ['Médiation en cours → à suivre.'],
         lookahead: [
           { ts: J, ccy: 'USD', event: 'Core PCE Price Index m/m', importance: 'High', actual: '', forecast: '0.2%', previous: '0.1%' },
@@ -348,6 +352,22 @@ function phaseLogique() {
         colonnes: (h.match(/<th class="cth/g) || []).length,
         haut: /cth-val--haut/.test(h) || /cth-val--bas/.test(h),
         fils: /Médiation en cours/.test(h),
+        macro: (() => {
+          /* LA RUBRIQUE MACRO, DÉCOUPÉE À LA SECTION SUIVANTE. Ce qu'on mesure : AUCUNE puce ne doit
+             précéder le premier sous-titre de famille (28/08, capture à l'appui : « il manque une
+             souspartie ici corrige » — la rubrique ouvrait sur deux puces nues, « Tarifs canadiens »
+             et « Prix du pétrole »). */
+          const d = h.indexOf('<div class="fxdr-section">Macro</div>');
+          if (d < 0) return { absent: true };
+          const suite = h.indexOf('<div class="fxdr-section">', d + 10);
+          const z = h.slice(d, suite < 0 ? h.length : suite);
+          const t1 = z.indexOf('fxdr-grp-title'), p1 = z.indexOf('wr-bullet');
+          return {
+            titres: (z.match(/<div class="fxdr-grp-title">([^<]*)<\/div>/g) || []).map(x => x.replace(/<[^>]+>/g, '')),
+            puces: (z.match(/class="wr-bullet"/g) || []).length,
+            puceAvantTitre: p1 >= 0 && (t1 < 0 || p1 < t1),
+          };
+        })(),
       };
     });
     console.log('\n── Récap Quotidien : la rubrique « À surveiller » se rend ──');
@@ -361,6 +381,26 @@ function phaseLogique() {
       verif('les colonnes HAUT et BAS ont disparu', !q.haut);
       verif('il reste huit colonnes', q.colonnes === 8, q.colonnes + ' colonne(s)');
       verif('les fils ouverts sont rendus avant le tableau', q.fils);
+      /* ── MACRO : AUCUNE PUCE SANS SOUS-TITRE (28/08, « il manque une souspartie ici corrige ») ──
+         Ce qui ne rentre pas dans les quatre rubriques du Radar — une mesure commerciale, un prix du
+         brut — se rendait EN TÊTE et SANS intitulé. C'était mon arbitrage (rendues APRÈS un groupe
+         titré, ces puces se lisaient comme sa suite) et c'est le MÊME que le user avait déjà tranché
+         le 26/08 sur le récap de séance. Commerce et Autres sont des familles comme les autres.
+         Le contrôle est fait sur un RENDU RÉEL : le classement est écrit en dur dans une fonction de
+         500 lignes, aucune lecture de source ne dirait ce que le lecteur voit. */
+      const m = q.macro || {};
+      if (m.absent) {
+        verif('la rubrique Macro se rend', false, 'section absente du rendu');
+      } else {
+        verif('Macro : aucune puce avant le premier sous-titre', !m.puceAvantTitre, (m.titres || []).join(' · '));
+        verif('Macro : toutes les puces sont rendues', m.puces === 3, m.puces + ' puce(s)');
+        verif('Macro : « Commerce » porte son intitulé', (m.titres || []).indexOf('Commerce') >= 0, (m.titres || []).join(' · '));
+        verif('Macro : « Autres » aussi', (m.titres || []).indexOf('Autres') >= 0, (m.titres || []).join(' · '));
+        verif('Macro : les rubriques du Radar passent en premier',
+          (m.titres || []).indexOf('Inflation') < (m.titres || []).indexOf('Commerce'), (m.titres || []).join(' · '));
+        verif('Macro : « Autres » ferme la rubrique',
+          (m.titres || []).indexOf('Autres') === (m.titres || []).length - 1, (m.titres || []).join(' · '));
+      }
     }
 
     /* « CHARGER PLUS » DÉROULE LA JOURNÉE ENTIÈRE (demande user 25/08).

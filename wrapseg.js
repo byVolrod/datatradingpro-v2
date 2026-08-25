@@ -78,9 +78,12 @@ function poserMacro(arr, macroCal) {
   if (!(macroCal || []).length || out.some(estMacro)) return out;
   // Géopolitique D'ABORD : `findIndex` sur une alternative rendait le LEAD, toujours en tête, et
   // plaçait la Macro AVANT la Géopolitique — l'ordre des rubriques du Récap Quotidien est fixe.
+  // Le repli couvre les DEUX noms de la rubrique d'ouverture : « Synthèse » aujourd'hui, « LEAD »
+  // dans les rapports déjà en cache. Sans le second, une Macro créée de toutes pièces se serait
+  // glissée AVANT la synthèse sur ces rapports-là.
   const ou = t => out.findIndex(x => x && t.test(String(x.section || '').trim()));
   let i = ou(/^g[ée]opolitique$/i);
-  if (i < 0) i = ou(/^lead$/i);
+  if (i < 0) i = ou(/^(?:synth[èe]se|lead)$/i);
   out.splice(i < 0 ? out.length : i + 1, 0, { section: 'Macro', items: [] });
   return out;
 }
@@ -123,15 +126,31 @@ function calSurveiller(surv) {
 }
 
 /* LA SYNTHÈSE OUVRE LE RAPPORT (26/08 : « fais une synthèse de la session comme on a dans le récap
-   quotidien »). Elle se pose EN PREMIER, avant même le LEAD : le lecteur reçoit d'abord ce que la
-   séance a fait — mesuré — puis le récit. C'est l'ordre du Récap Quotidien, et celui des récaps
-   déterministes du desk. Elle porte son intitulé, comme là-bas ; le LEAD, lui, reste sans titre. */
+   quotidien »). Elle se pose EN PREMIER : le lecteur reçoit d'abord ce que la séance a fait, puis le
+   récit. C'est l'ordre du Récap Quotidien, et celui des récaps déterministes du desk.
+
+   LE RÉCIT D'ABORD, LES MESURES ENSUITE (28/08, capture du Récap Quotidien à l'appui : « il manque
+   ce type de synthèse dans les récap session »). Ce que le user montrait n'était pas mon bloc
+   chiffré — c'était le PARAGRAPHE NARRATIF du Quotidien : « Un accord de cessez-le-feu entre les
+   États-Unis et l'Iran a fait chuter le pétrole et les rendements obligataires… ». Le récap de
+   séance ouvrait, lui, sur « Séance de Londres : 7 publications, 3 hors consensus » — un décompte,
+   pas une lecture. Les deux ont leur place, dans cet ordre : le paragraphe donne le sens, les deux
+   lignes mesurées l'étayent. Le paragraphe vient du modèle (rubrique « Synthèse » du prompt), les
+   lignes sont calculées.
+
+   ⚠️ « LEAD » EST LA MÊME CHOSE SOUS UN AUTRE NOM, ET IL DEVIENT LA SYNTHÈSE. Le prompt réclamait
+   jusqu'ici un « LEAD » rendu SANS titre : ses puces se collaient en tête du rapport, en texte nu,
+   là où le Quotidien encadre les siennes d'un liseré doré. Le prompt demande désormais « Synthèse » ;
+   la reprise du LEAD reste ici pour les rapports déjà en cache et pour un modèle qui retomberait sur
+   l'ancien nom — dans les deux cas le lecteur voit le même encadré, jamais une entrée en matière nue. */
+const _estSynth = x => x && /^(?:synth[èe]se|lead)$/i.test(String(x.section || '').trim());
 function poserSynthese(arr, synth) {
   const out = (arr || []).slice();
-  if (!(synth || []).length) return out;
-  const i = out.findIndex(x => x && /^synth[èe]se$/i.test(String(x.section || '').trim()));
-  if (i >= 0) { out[i] = { section: out[i].section, items: synth.concat(out[i].items || []) }; return out; }
-  out.unshift({ section: 'Synthèse', items: synth.slice() });
+  const mes = (synth || []).slice();
+  const i = out.findIndex(_estSynth);
+  if (i >= 0) { out[i] = { section: 'Synthèse', items: (out[i].items || []).concat(mes) }; return out; }
+  if (!mes.length) return out;
+  out.unshift({ section: 'Synthèse', items: mes });
   return out;
 }
 
@@ -172,6 +191,21 @@ function html(arr, macroCal, surv, synth) {
       out += `<strong>${esc(sec.section)}</strong>`;
       if (tbl) out += `<em>Séance de ${esc((surv && surv.nom) || '')}</em>` + tbl;
       if (l.length) out += `<ul>${l.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      continue;
+    }
+    /* « ANALYSE DE SÉANCE » RANGÉE PAR CLASSE D'ACTIF (28/08 : « classe bien par catégories ici pour
+       que ce soit propre »). La rubrique alignait DXY, NZD, CHF, le Canada, les matières premières,
+       les obligations et les actions dans une seule liste : sept sujets sans rapport à la suite.
+       Même mécanique que la Macro — Devises · Obligations · Matières premières · Actions · Crypto ·
+       Commerce · Autres —, et même principe : c'est NOUS qui rangeons ce que le modèle a écrit.
+       Une seule classe présente → aucun sous-titre : la rubrique EST déjà cette classe. C'est la
+       différence avec la Macro, où l'intitulé porte l'information même seul (« Inflation » dit ce
+       que le chiffre mesure) ; ici « Devises » au-dessus de trois lignes de devises ne dit rien. */
+    if (/^analyse de s[ée]ance$/i.test(String(sec.section).trim()) && sec.items.length) {
+      const g = _SEA.parFamilleActif(sec.items.map(sansSource));
+      out += `<strong>${esc(sec.section)}</strong>`;
+      if (g.length > 1) for (const f of g) out += `<em>${esc(f.famille)}</em><ul>${f.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
+      else out += `<ul>${sec.items.map(i => `<li>${esc(sansSource(i))}</li>`).join('')}</ul>`;
       continue;
     }
     if (!sec.items.length) continue;   // une rubrique vide s'efface — Macro et « À surveiller » sont traitées ci-dessus

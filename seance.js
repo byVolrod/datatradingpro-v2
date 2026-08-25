@@ -87,6 +87,75 @@ function famille(titre) {
   const m = FAM_RX.find(([, rx]) => rx.test(t));
   return m ? m[0] : 'Autres';
 }
+/* ── CLASSES D'ACTIFS, POUR « ANALYSE DE SÉANCE » (28/08, demande utilisateur : « classe bien par
+   catégories ici pour que ce soit propre »). La rubrique alignait DXY, NZD, CHF, le Canada, les
+   matières premières, les obligations et les actions dans une seule liste : sept sujets sans
+   rapport à la suite, qu'il fallait trier à l'œil. Elle se range désormais comme la Macro — mêmes
+   sous-titres, même mécanique, même principe : le classement est FAIT PAR NOUS sur ce que le modèle
+   a écrit, jamais demandé au modèle.
+   ⚠️ LE SUJET DE LA PUCE PRIME SUR CE QU'ELLE MENTIONNE. « **DXY** : a baissé suite aux rumeurs
+   d'accord Iran-US » parle du DOLLAR, pas de géopolitique ni de pétrole. On lit donc d'abord
+   l'intitulé en gras qui ouvre la puce — c'est le sujet, le prompt l'impose — et on ne retombe sur
+   le texte entier que si la puce n'en porte pas. Sans cette priorité, une ligne devises citant le
+   brut partait en matières premières. */
+const ORDRE_ACTIFS = ['Devises', 'Obligations', 'Matières premières', 'Actions', 'Crypto', 'Commerce', 'Autres'];
+/* L'ORDRE DE CE TABLEAU EST UN ORDRE DE SPÉCIFICITÉ, PAS D'AFFICHAGE (celui-ci suit ORDRE_ACTIFS).
+   Il compte pour le repli sur le texte entier : une puce cite une devise à tout bout de champ, ne
+   serait-ce que comme UNITÉ (« 20 milliards de dollars »), alors que « contre-tarifs » ou
+   « Treasuries » n'apparaissent que quand c'est le sujet. Les Devises passent donc EN DERNIER.
+   Mesuré : « **Canada** : annonce des contre-tarifs couvrant 20 milliards de dollars » partait en
+   Devises sur le mot « dollars ».
+   ⚠️ « or » EXIGE SON ARTICLE. En français « or » est aussi une conjonction (« or, le marché… ») :
+   le motif nu envoyait n'importe quelle phrase en matières premières. */
+const ACTIF_RX = [
+  ['Commerce', /tarifs?\b|droits? de douane|contre[- ]tarifs?|surtaxes?|r[ée]torsion|guerre commerciale|embargo|quotas?|balance commerciale|exportations|importations/i],
+  ['Crypto', /crypto|bitcoin|\bbtc\b|ethereum|\beth\b|stablecoin/i],
+  ['Obligations', /obligation|rendement|treasur|\bbund\b|\bjgb\b|\bgilt\b|\boat\b|points? de base|\bbps\b|courbe des taux|dette souveraine|adjudication/i],
+  ['Matières premières', /mati[èe]res? premi[èe]res|p[ée]trole|\bwti\b|\bbrent\b|(?:l|d)['’]or\b|\bgold\b|cuivre|\bgaz\b|\bopep\b|\bopec\b|baril|m[ée]taux|palladium|platine|soja/i],
+  ['Actions', /actions?\b|indices?\b|\bs&p\b|\bsp500\b|nasdaq|dow jones|\bdax\b|\bcac\b|nikkei|hang seng|\bftse\b|euro stoxx|bourse|equit/i],
+  ['Devises', /\bdxy\b|\busd\b|\beur\b|\bjpy\b|\bgbp\b|\baud\b|\bnzd\b|\bcad\b|\bchf\b|\bcny\b|\bsek\b|\bnok\b|\bmxn\b|dollar|euro|yen|livre sterling|franc suisse|devise|paire|forex|eur\/usd|usd\/jpy|gbp\/usd/i],
+];
+/* Le sujet de la puce : l'intitulé en gras qui l'ouvre (« **Matières premières** : … »). Le prompt
+   l'impose pour cette rubrique, donc il est là neuf fois sur dix — et c'est le seul endroit du texte
+   dont on sait qu'il désigne le sujet et non un élément de contexte. */
+function sujetPuce(t) {
+  const m = /^\s*\*\*([^*]{1,40})\*\*/.exec(String(t || ''));
+  return m ? m[1] : '';
+}
+function familleActif(t) {
+  const sujet = sujetPuce(t);
+  if (sujet) { const m = ACTIF_RX.find(([, rx]) => rx.test(sujet)); if (m) return m[0]; }
+  const m2 = ACTIF_RX.find(([, rx]) => rx.test(String(t || '')));
+  return m2 ? m2[0] : 'Autres';
+}
+/* Même grammaire que la Macro : toute famille présente porte son intitulé, même seule. Une rubrique
+   qui prétend classer et laisse des lignes nues ne classe pas — leçon déjà payée deux fois. */
+/* QUAND LA PUCE REPÈTE SON PROPRE TITRE, LE PRÉFIXE SAUTE. Sous un sous-titre « Obligations », une
+   puce qui ouvre sur « **Obligations** : les rendements… » dit deux fois la même chose sur deux
+   lignes consécutives. On retire l'intitulé et la phrase reprend en majuscule. On ne touche RIEN
+   d'autre : « **DXY** : … » sous « Devises » garde son préfixe, parce que DXY n'est pas « Devises »
+   — c'est l'information la plus utile de la ligne. */
+const _sansAccent = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+function sansPrefixeFamille(ligne, famille) {
+  const l = String(ligne || '');
+  const s = sujetPuce(l);
+  if (!s || _sansAccent(s) !== _sansAccent(famille)) return l;
+  const r = l.replace(/^\s*\*\*[^*]{1,40}\*\*\s*[:：]?\s*/, '');
+  if (!r) return l;
+  return /^[a-zà-ÿ]/.test(r) ? r.charAt(0).toUpperCase() + r.slice(1) : r;
+}
+function parFamilleActif(lignes) {
+  const par = new Map();
+  for (const l of (lignes || [])) {
+    if (!l) continue;
+    const f = familleActif(l);
+    if (!par.has(f)) par.set(f, []);
+    par.get(f).push(l);
+  }
+  return ORDRE_ACTIFS.filter(f => (par.get(f) || []).length)
+    .map(f => ({ famille: f, lignes: par.get(f).map(l => sansPrefixeFamille(l, f)) }));
+}
+
 /* L'ORDRE DES FAMILLES DANS LA RUBRIQUE MACRO — celui du Récap Quotidien, qui est celui du RADAR
    DE BIAIS (`_SECTIONS_NEWS`, public/js/app.js) : politique monétaire en tête — la décision
    d'abord, son écho macro ensuite. Ce n'est pas ORDRE_FAM, qui range les CHIFFRES du jour.
@@ -502,4 +571,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, SEANCE_DEV, heureParisNum, seanceDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, frNombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, ORDRE_ACTIFS, sujetPuce, familleActif, sansPrefixeFamille, parFamilleActif, SEANCE_DEV, heureParisNum, seanceDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, frNombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
