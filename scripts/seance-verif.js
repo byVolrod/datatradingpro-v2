@@ -100,5 +100,20 @@ v('Londres suit le DAX et le FTSE', S.ACTIFS['London Session Recap'].some(a => a
 v('New York suit le 10 ans, en points de base', (S.ACTIFS['US Session Recap'].find(a => a.sym === '^TNX') || {}).bp === true);
 v('chaque séance a ses devises', Object.values(S.FENETRES).every(f => Array.isArray(f.dev) && f.dev.length));
 
+console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
+/* Le format de séance porte une version, et les récaps déjà publiés sous une version périmée se
+   refont AU DÉMARRAGE. Sans ce mécanisme, une amélioration ne touchait que les récaps à venir et il
+   fallait appeler trois routes à la main — ce n'est pas publier, c'est déléguer. */
+const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+v('le format de séance porte une version', /const SEANCE_VER = \d+;/.test(src));
+v('elle est posée sur les récaps de séance, et sur eux seuls',
+  /if \(_SEA\.FENETRES\[reportType\]\) item\._seanceVer = SEANCE_VER;/.test(src));
+v('un rattrapage tourne au démarrage', /_rattraperSeancesDuJour\(\)/.test(src));
+v('il ne refait QUE les récaps au format périmé', /publie\._seanceVer === SEANCE_VER\) continue;/.test(src));
+v('il ignore une séance qui n\'a pas commencé', /now < b\.debutTs\) continue;/.test(src));
+v('il ne republie pas un récap qui n\'existe pas', /if \(!publie\) continue;/.test(src));
+v('il attend la première mesure de performance', /\}, 90000\);/.test(src));
+v('une seule fois par démarrage', /_seanceRattrapFait = true;/.test(src));
+
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

@@ -996,6 +996,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260826-seance-maj-auto', ts: Date.UTC(2026, 7, 26, 12, 0), title: 'Les recaps de seance du jour se mettent a jour tout seuls', desc: 'Quand nous ameliorons la forme d un recap de seance, les recaps DEJA publies de la journee se refont desormais automatiquement au format le plus recent. Auparavant seuls les recaps suivants en profitaient : celui que vous aviez sous les yeux restait dans son ancienne forme jusqu au lendemain. Le desk verifie au demarrage, refait ce qui doit l etre, et attend d avoir mesure les marches avant de le faire — un recap refait trop tot sortirait sans sa photo de seance, ce qui serait pire que de ne rien changer. Une seance qui n a pas encore commence n est evidemment pas touchee.' },
   { id: 'dtpu-20260826-seance-chiffree', ts: Date.UTC(2026, 7, 26, 10, 0), title: 'Recaps de seance : la seance est desormais chiffree, pas seulement racontee', desc: 'Chaque recap de seance s ouvre maintenant sur des mesures. Une synthese qui dit combien de publications sont tombees et combien ont surpris. Une photo de seance : la performance reelle des marches de CETTE seance sur SA fenetre horaire — le DAX et le FTSE pour Londres, le Nikkei et le Hang Seng pour l Asie, le S&P et le rendement dix ans pour New York. Puis les chiffres eux-memes, avec le resultat, le consensus et l ecart. Les rendements sont exprimes en points de base, comme sur un desk, et un indicateur ou la hausse est une mauvaise nouvelle — chomage, inscriptions, stocks — est lu dans le bon sens. Rien n est invente : une donnee absente est omise plutot que remplie d un tiret, et sans donnees le recap reste exactement celui d avant.' },
   { id: 'dtpu-20260826-charger-journee', ts: Date.UTC(2026, 7, 26, 9, 0), title: 'Charger plus deroule maintenant la journee entiere', desc: 'Le bouton Charger plus, en bas du fil d actualite, avancait par lots de cent : sur une journee chargee il fallait cliquer cinq ou six fois pour la parcourir. Un clic deroule desormais TOUTE la journee affichee, d un coup, et vous la lisez en scrollant. Le clic suivant deroule la journee precedente. Le bouton annonce ce qu il va faire : il indique Voir toute la journee tant qu il reste des actualites du jour, puis nomme la journee qu il chargera ensuite. Aucun doublon possible : une actualite deja recue n est jamais rajoutee.' },
   { id: 'dtpu-20260826-fil-repare', ts: Date.UTC(2026, 7, 26, 0, 30), title: 'Fil d actualite : incident corrige, et un controle pose pour qu il ne revienne pas', desc: 'Le fil d actualite est reste vide pendant un moment ce soir : une seule ligne de code retiree la veille en cassait l affichage de chaque actualite. C est repare. Nous avons surtout ajoute un controle automatique qui refuse ce type de modification avant qu elle parte en ligne : il verifie que chaque nom utilise dans le code existe reellement, ce que la verification precedente ne savait pas faire — elle ne regardait que la grammaire, pas le sens. Le defaut qui a cause l incident est rejoue a chaque fois pour s assurer que le controle le voit toujours.' },
@@ -9478,6 +9479,9 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
     _briefing:   true,
     _reportType: reportType,
   };
+  // Version du FORMAT de séance, posée uniquement sur les trois récaps de séance. C'est elle qui
+  // permet au desk de reconnaître, au démarrage, un récap publié sous un format périmé.
+  if (_SEA.FENETRES[reportType]) item._seanceVer = SEANCE_VER;
 
   allNews = _capNews([item, ...allNews]);
   saveHistory();
@@ -9823,6 +9827,46 @@ function _pousserASurveiller(bullets, reportType) {
   if (!lignes.length) return;
   _pushBullets(bullets, `À surveiller — séance de ${nom}`, lignes.map(t => ({ headline: t })), 5);
 }
+
+/* VERSION DU FORMAT DE SÉANCE. Même convention que WA_VER, FXR_VER ou BIAS_VER : on bump, et les
+   rapports déjà publiés sous l'ancien format se refont AU DÉMARRAGE. Sans ça, une amélioration ne
+   touchait que les récaps à venir — ceux du jour restaient dans leur ancienne forme, et il fallait
+   appeler trois routes à la main pour les rattraper. Ce n'est pas « publier », c'est déléguer.
+   v1 (26/08) : arrivée des rubriques chiffrées (synthèse, photo de séance, chiffres de la séance). */
+const SEANCE_VER = 1;
+
+/* RATTRAPAGE AU DÉMARRAGE. Au boot, on regarde les récaps de séance DU JOUR : ceux qui portent une
+   version de format périmée (ou aucune) sont refaits. Trois précautions, chacune pour une raison
+   vécue aujourd'hui :
+     · on attend que la PREMIÈRE MESURE de performance soit passée (elle tourne à 40 s) — refaire un
+       récap avant elle produirait un rapport sans sa photo de séance, c'est-à-dire pire qu'avant ;
+     · on ne refait QUE les séances dont la fenêtre a commencé — rien à raconter sur une séance qui
+       n'a pas eu lieu ;
+     · une seule fois par démarrage, et le récap refait porte la nouvelle version : deux redémarrages
+       de suite ne le republient pas deux fois. */
+let _seanceRattrapFait = false;
+async function _rattraperSeancesDuJour() {
+  if (_seanceRattrapFait) return; _seanceRattrapFait = true;
+  const now = Date.now(), jour = _jourParis(now);
+  const gen = { 'Asia Session Recap': generateAsiaRecap, 'London Session Recap': generateLondonRecap, 'US Session Recap': generateUSRecap };
+  const faits = [];
+  for (const [type, fn] of Object.entries(gen)) {
+    try {
+      const b = _bornesSeance(type, now);
+      if (!b || now < b.debutTs) continue;                                  // séance pas encore commencée
+      const publie = allNews.find(i => i && i._briefing && i._reportType === type && _jourParis(i.timestamp) === jour);
+      if (!publie) continue;                                                // rien publié aujourd'hui : le planificateur s'en chargera
+      if (publie._seanceVer === SEANCE_VER) continue;                       // déjà au bon format
+      await fn(true, 0, Math.min(now, b.finTs));                            // force = remplace le récap du jour
+      faits.push(type);
+    } catch (e) { console.warn('[Séance] rattrapage ' + type + ' :', e && e.message); }
+  }
+  console.log(faits.length
+    ? `[Séance] rattrapage : ${faits.length} récap(s) du jour refait(s) au format v${SEANCE_VER} — ${faits.join(', ')}`
+    : `[Séance] rattrapage : aucun récap du jour à refaire (format v${SEANCE_VER} déjà en place)`);
+}
+// 90 s : après la première mesure de performance (40 s) et le premier remplissage du calendrier.
+setTimeout(() => { _rattraperSeancesDuJour().catch(() => {}); }, 90000);
 
 /* ══ RÉCAP DE SÉANCE FABRIQUÉ PAR LE DESK (26/08, décision utilisateur) ═══════════════════════════
    « On crée les nôtres en meilleure qualité avec des vraies données réelles qu'on peut récupérer de
