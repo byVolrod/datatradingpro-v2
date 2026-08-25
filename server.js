@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260827-fusion-panneau', ts: Date.UTC(2026, 7, 27, 20, 0), title: 'Reunir deux comptes d une meme personne, depuis le panneau', desc: 'Une meme personne pouvait se retrouver avec deux fiches — le plus souvent une adresse anonyme creee par un paiement Apple Pay et sa vraie adresse. Les reunir demandait une intervention technique ; c est desormais un bouton dans le panneau Campagne, avec une SIMULATION obligatoire avant toute ecriture : vous voyez exactement ce qui va se passer avant de confirmer. A l execution, l acces deja paye est integralement conserve — c est toujours l echeance la plus lointaine qui est gardee — le compte absorbe est suspendu et non supprime, un mot de passe neuf est genere, et le courriel d acces part sur LES DEUX adresses pour qu au moins un des deux arrive. L ancienne adresse reste rattachee au compte : un renouvellement paye dessus prolonge le bon acces au lieu d en creer un troisieme.' },
   { id: 'dtpu-20260827-compte-recolle', ts: Date.UTC(2026, 7, 27, 18, 0), title: 'Un acces cree sur une adresse masquee peut etre recolle a votre vraie adresse', desc: 'Suite du correctif precedent. Quand un abonnement paye par Apple Pay avec « Masquer mon adresse » avait deja ouvert un acces sur l adresse relais anonyme, le compte existait bien mais restait introuvable sous la vraie adresse, et le courriel d acces partait vers une boite relais qu Apple ne relaie pas toujours. Nous pouvons desormais recoller ce compte a la vraie adresse en une operation : l acces deja paye est conserve integralement — c est toujours l echeance la plus lointaine qui est gardee, jamais la plus courte — un mot de passe neuf est genere et le courriel d acces part enfin dans la bonne boite. Si deux comptes existaient pour la meme personne, ils sont reunis en un seul. L ancienne adresse reste rattachee : un renouvellement paye sous celle-ci prolonge le bon compte au lieu d en creer un troisieme.' },
   { id: 'dtpu-20260827-abonnement-jamais-perdu', ts: Date.UTC(2026, 7, 27, 14, 0), title: 'Un abonnement paye ne peut plus passer inapercu chez nous', desc: 'Nous avons trouve et corrige une panne silencieuse : dans certains cas, un abonnement bel et bien paye n ouvrait aucun acces de notre cote, sans le moindre signal d erreur. La cause : notre lecture des abonnements cherchait l adresse e-mail a un seul endroit precis du message recu. Quand la plateforme de paiement la place ailleurs — ce qui arrive notamment avec Apple Pay et l option « Masquer mon adresse » — l abonnement devenait invisible pour nous, y compris pour le controle de securite qui passe toutes les dix minutes et qui existe justement pour rattraper ce genre d oubli. Les deux echouaient au meme endroit. L adresse est desormais recherchee partout ou elle peut se trouver, et nous retenons aussi le nom d utilisateur comme seconde identite : meme si l adresse est masquee ou changee, votre abonnement reste rattache a votre compte. Un renouvellement paye sous l une ou l autre de vos identites prolonge le meme acces, sans jamais creer de second compte.' },
   { id: 'dtpu-20260827-apple-pay-acces', ts: Date.UTC(2026, 7, 27, 10, 0), title: 'Payer avec Apple Pay et « Masquer mon adresse » ne prive plus de son acces', desc: 'Quand un abonnement est regle par Apple Pay avec l option « Masquer mon adresse », Apple ne transmet pas la vraie adresse e-mail mais une adresse relais anonyme. Le desk creait donc le compte sur cette adresse relais : le client etait introuvable dans nos outils sous son vrai e-mail, et son mail d acces partait vers une boite relais qu Apple ne relaie pas toujours. Une table de correspondance rattache desormais l adresse relais a la vraie adresse : le compte est cree au bon endroit, le mail d acces arrive dans la vraie boite, et un renouvellement paye sous l une ou l autre des deux adresses prolonge bien le meme compte, sans jamais en creer un second. Rien ne change pour les abonnements payes par carte.' },
@@ -18829,7 +18830,7 @@ app.post('/api/admin/merge-users', requireAdmin, async (req, res) => {
       apres: { echeance: gardee || 'illimite', nom: nom || '(vide)', plan, actif: true },
       absorbeDevient: supprimer ? 'SUPPRIME' : 'suspendu + marque expire',
       alias: `${de} => ${vers}`,
-      accesEnvoyes: acces ? `mot de passe regenere + e-mail d acces envoye a ${vers}` : 'NON (ajouter acces=1 pour envoyer les identifiants)',
+      accesEnvoyes: acces ? `mot de passe regenere + e-mail d acces envoye a ${vers} ET a ${de}` : 'NON (ajouter acces=1 pour envoyer les identifiants)',
     };
     if (!appliquer) return res.json({ ok: true, dryRun: true, apercu, note: "Rien n a ete ecrit. Renvoyer avec appliquer=1 pour executer." });
 
@@ -18851,14 +18852,24 @@ app.post('/api/admin/merge-users', requireAdmin, async (req, res) => {
     // ENVOI DES ACCES (demande user : « envoi les acces sur cette boite mail aussi »). Envoi FIABLE
     // (await + alerte admin si echec) et marqueur welcomeok: SEULEMENT si l e-mail est vraiment
     // parti — sinon le filet d onboarding le rattrapera, exactement comme a une creation Whop.
-    let mail = { sent: false, skipped: true };
+    /* ENVOI AUX DEUX ADRESSES (demande user : « envoie le mail d acces aux 2 »). Le compte est UN
+       SEUL, donc c est le MEME mot de passe qui part deux fois — ce n est pas deux comptes, c est
+       deux chemins vers la meme boite. Raison d etre : l adresse relais Apple n est pas toujours
+       relayee (le domaine expediteur doit etre declare chez Apple), et l adresse reelle, elle, n a
+       jamais rien recu. Envoyer aux deux garantit qu au moins un des deux arrive.
+       Le marqueur welcomeok: n est pose que sur l adresse DU COMPTE, et seulement si SON envoi a
+       reussi : c est elle que le filet d onboarding surveille. L envoi vers l ancienne adresse est
+       un doublon de courtoisie, son echec ne doit rien marquer ni rien bloquer. */
+    let mail = { sent: false, skipped: true }, mailAncienne = { sent: false, skipped: true };
     if (acces || migration) {
       mail = await _sendWelcomeReliable({ to: vers, name: nom, password: pwd, expiresAt: gardee });
       if (mail && mail.sent) { try { await auth.emailLogAdd('welcomeok:' + vers); await auth.emailLogAdd('welcome:' + vers); } catch (e) {} }
       try { _sendWelcomeChat(uVers && uVers.id); } catch (e) {}
+      // Doublon vers l ancienne adresse — jamais si elle vient d etre supprimee du systeme.
+      if (!supprimer) { try { mailAncienne = await _sendWelcomeReliable({ to: de, name: nom, password: pwd, expiresAt: gardee }); } catch (e) { mailAncienne = { sent: false, error: e.message }; } }
     }
     console.log(`[${migration ? 'Migration' : 'Fusion'}] ${de} -> ${vers} : echeance ${gardee || 'illimite'}, absorbe ${supprimer ? 'supprime' : 'suspendu'}, alias pose, acces ${mail.sent ? 'envoyes' : (mail.skipped ? 'non demandes' : 'ECHEC (filet prendra le relais)')}`);
-    res.json({ ok: true, dryRun: false, apercu, mail });
+    res.json({ ok: true, dryRun: false, apercu, mail, mailAncienne });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 

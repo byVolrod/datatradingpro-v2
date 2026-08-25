@@ -1046,6 +1046,40 @@
         : '<div class="empty-state">Aucun accès offert exempté.</div>';
     } catch {}
   }
+  // ── FUSION / MIGRATION DE DEUX COMPTES ──────────────────────────────────────
+  // Le serveur choisit seul entre FUSION (les deux existent) et MIGRATION (la cible est a creer).
+  // On simule TOUJOURS avant d'ecrire : `appliquer` n'est envoye qu'au second bouton.
+  function _fusionMsg(t){ const e = document.getElementById('fusion-etat'); if (e) e.textContent = t || ''; }
+  async function _fusionAppel(appliquer){
+    const de = (document.getElementById('fusion-from').value || '').trim();
+    const vers = (document.getElementById('fusion-to').value || '').trim();
+    const box = document.getElementById('fusion-apercu');
+    if (!de || !vers) { _fusionMsg('Renseigne les deux adresses.'); return; }
+    _fusionMsg(appliquer ? 'Fusion en cours…' : 'Simulation…');
+    try {
+      const body = { from: de, to: vers, acces: 1 };
+      if (appliquer) body.appliquer = 1;
+      const d = await fetch('/api/admin/merge-users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body) }).then(r => r.json());
+      if (!d.ok) { _fusionMsg('❌ ' + (d.error || 'échec')); box.innerHTML = ''; return; }
+      const a = d.apercu || {};
+      const ligne = (k, v) => '<div class="camp-bl-row"><span class="camp-bl-em">' + _escH(k) + '</span><span>' + _escH(String(v)) + '</span></div>';
+      box.innerHTML = ligne('Opération', a.operation || '')
+        + ligne('Compte conservé', (a.garde && a.garde.email) || '')
+        + ligne('Compte absorbé', (a.absorbe && a.absorbe.email) || '')
+        + ligne('Échéance retenue', (a.apres && a.apres.echeance) || '')
+        + ligne('Nom retenu', (a.apres && a.apres.nom) || '')
+        + ligne('L\'absorbé devient', a.absorbeDevient || '')
+        + ligne('Alias posé', a.alias || '')
+        + (d.dryRun ? '' : ligne('Mail → compte conservé', d.mail && d.mail.sent ? '✅ envoyé (' + (d.mail.provider || '') + ')' : '❌ non envoyé — le filet d\'onboarding reprendra')
+                         + ligne('Mail → ancienne adresse', d.mailAncienne && d.mailAncienne.sent ? '✅ envoyé' : '— non envoyé'));
+      _fusionMsg(d.dryRun ? '🔎 Simulation — rien n\'a été écrit. Clique « Fusionner » pour exécuter.' : '✅ Fusion effectuée.');
+      if (!d.dryRun && typeof loadUsers === 'function') { try { loadUsers(); } catch (e) {} }
+    } catch (e) { _fusionMsg('❌ Erreur réseau.'); }
+  }
+  async function fusionSimuler(){ return _fusionAppel(false); }
+  async function fusionAppliquer(){ return _fusionAppel(true); }
+
   async function giftAdd(){
     const inp = document.getElementById('camp-gift-input'); const v = (inp.value || '').trim(); if (!v) return;
     _campMsg('Exemption de ' + v + '…');

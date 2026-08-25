@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg898" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg899" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -411,6 +411,26 @@
           </div>
         </div>
         <div class="panel-card">
+          <!-- FUSION / MIGRATION DE COMPTES (27/08) : une meme personne peut se retrouver avec deux
+               fiches — typiquement une adresse relais Apple (paiement « Masquer mon adresse ») et sa
+               vraie adresse. Simuler d'abord : rien n'est ecrit tant qu'on n'a pas confirme. -->
+          <div class="panel-head"><h2>Fusionner deux comptes</h2><span class="ph-spacer"></span><span class="fin-sub" id="fusion-etat"></span></div>
+          <div class="panel-body">
+            <div class="camp-extra">
+              <input id="fusion-from" placeholder="Adresse à absorber (ex. …@privaterelay.appleid.com)"/>
+            </div>
+            <div class="camp-extra">
+              <input id="fusion-to" placeholder="Adresse à conserver (le vrai e-mail du client)"/>
+            </div>
+            <div class="camp-extra">
+              <button class="btn" onclick="fusionSimuler()">Simuler</button>
+              <button class="btn btn-primary" onclick="fusionAppliquer()">Fusionner et envoyer les accès</button>
+            </div>
+            <div id="fusion-apercu" class="camp-bl-list"></div>
+            <p class="camp-note"><strong>Simule toujours d'abord.</strong> À l'exécution : l'échéance la <strong>plus lointaine</strong> est conservée (jamais raccourcir un accès payé), le compte absorbé est <strong>suspendu</strong> (pas supprimé), un mot de passe neuf est généré et le mail d'accès part sur <strong>les deux adresses</strong>. L'ancienne adresse reste rattachée : un renouvellement payé dessus prolonge le bon compte.</p>
+          </div>
+        </div>
+        <div class="panel-card">
           <div class="panel-head"><h2>Accès offerts</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-gift-count"></span></div>
           <div class="panel-body">
             <div class="camp-extra">
@@ -737,6 +757,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260825bbg898"></script>
+<script src="/js/admin.js?v=20260825bbg899"></script>
 </body>
 </html>
