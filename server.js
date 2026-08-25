@@ -995,6 +995,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260825-analyse-rouge-2', ts: Date.UTC(2026, 7, 25, 23, 30), title: 'Les analyses du desk s affichent en rouge, comme les autres news majeures', desc: 'Une analyse publiee par le desk juste apres une publication majeure — ADP, NFP, inflation, decision de taux — s affichait en ligne ordinaire au lieu du rouge reserve aux news importantes. La couleur se decidait a deux endroits differents dans le code, et les deux avaient fini par diverger. Il n y en a plus qu un seul, partage par le fil et par le bandeau d alerte : ce qui est rouge dans l un l est dans l autre. Et une analyse du desk est desormais rouge par definition, parce qu elle n existe que lorsqu un chiffre de premier rang vient de tomber.' },
+  { id: 'dtpu-20260825-marquants-retires', ts: Date.UTC(2026, 7, 25, 23, 0), title: 'La section Commentaires marquants disparait des recaps de seance', desc: 'Le bloc Commentaires marquants, qui listait cinq actualites du jour tout en bas du lecteur de recap de seance, est retire. Il faisait doublon avec le fil d actualite, ou ces memes news sont deja lisibles avec leur analyse et leur graphique. Retire pour de bon, avec sa fabrique : c etait une generation automatique quotidienne, qui liberait autant de ressources pour les rapports que vous lisez vraiment.' },
   { id: 'dtpu-20260825-agenda-sigles', ts: Date.UTC(2026, 7, 25, 22, 30), title: 'Semaine a Venir : les titres reprennent les termes du calendrier', desc: 'Le titre de chaque journee affiche desormais le rendez-vous tel que vous le cherchez dans le calendrier : Core PCE USD, CPI USD, PPI USD, GDP USD, Fed, BoE, RBA Minutes, Ifo, Jackson Hole. Les libelles thematiques francais expliquaient au mauvais endroit — « Moral des entreprises allemandes » ne se retrouve dans aucun calendrier, alors qu Ifo se reconnait tout de suite. L explication en francais clair n a pas disparu : elle est dans la description, juste en dessous, ou elle a sa place. Deux precisions utiles : une publication nationale de la zone euro porte son pays plutot que la devise, CPI FR et CPI DE plutot que CPI EUR qui laisse croire au chiffre de toute la zone ; et une revision de chiffres deja publies est marquee comme telle.' },
   { id: 'dtpu-20260825-analyse-en-rouge', ts: Date.UTC(2026, 7, 25, 22, 0), title: 'Les analyses du desk ressortent en rouge dans le fil, comme les autres news importantes', desc: 'Une analyse publiee par le desk apres une publication majeure — ADP, NFP, inflation, decision de taux — s affichait parfois en ligne ordinaire au lieu du rouge reserve aux news importantes. La cause : le fil regroupe les rafales de commentaires economiques pour ne pas vous noyer, et ce regroupement ramassait aussi les analyses du desk, qui perdaient leur couleur en y entrant. Une news marquee importante garde maintenant sa propre ligne, et sa couleur avec. Les depeches de routine, elles, continuent d etre regroupees.' },
   { id: 'dtpu-20260825-agenda-noms-appris', ts: Date.UTC(2026, 7, 25, 21, 30), title: 'Semaine a Venir : plus aucun rendez-vous n affiche son intitule anglais', desc: 'Nos regles couvrent les rendez-vous habituels du calendrier, mais un fournisseur en publie des centaines : il arrivait qu un indicateur rare sorte avec son nom d origine en anglais dans le titre de la carte. Ces cas-la sont maintenant nommes automatiquement, en francais, avec le pays correctement accorde. La methode est volontairement etroite : le systeme choisit une categorie dans une liste fixe de dix-huit — inflation, emploi, consommation, immobilier, energie, politique monetaire… — et c est notre code qui ecrit le libelle. Il lui est donc impossible d annoncer un rendez-vous qui n existe pas, ce qui etait la raison pour laquelle nous avions retire toute redaction automatique de ces cartes. Chaque nom appris est retenu une fois pour toutes.' },
@@ -6554,87 +6556,12 @@ const _rubriqueDe = (t, estEntete) => {
   return _CAT_RUBRIQUE[_catHeadline(s)] || 'Analyse de séance';
 };
 
-// ── Section « Commentaires marquants » (notable comments) — partagée FX Daily Recap + session wraps ───────
-// ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
-// (Supabase). Renvoie le HTML des items (.nc-item). Repli (IA indispo) = titres bruts → la section ne
-// disparaît jamais s'il y a des news. ZÉRO invention (prompt + dépêches réelles du jour seulement).
-const NC_VER = 8;   // v8 : anti-phrase-coupée — mots orphelins avant « → » retirés (« …de deux ans à → » du 28/07) + coupe au DERNIER MOT ENTIER avec … (fini le slice dur 230 en plein chiffre). v7 : bloc banques. v6 : chaque côté de « → » SUBSTANTIEL — <fait> nomme le sujet + son chiffre (pas « 89,31$ » nu), <impact> = conséquence marché DIRECTIONNELLE sur un actif (pas un label « cours du pétrole »). v5 blindait la flèche mais le free-tier restait trop laconique. v5 : flèche « → » BLINDÉE (deux côtés obligatoires + garde-fou anti-pendouillant, cause de « c'est vide »). v4 : titre ≤12 mots + phrase ≤25 mots. v3 trop générique ; v2/v1 verbeux
-const _NC_RX = /\b(hormu?z|oil|crude|brent|wti|opep|opec|gold|s&p|nasdaq|dow|nikkei|stoxx|dax|\bcac\b|earnings?|micron|nvidia|fed|fomc|powell|ecb|bce|lagarde|boe|boj|snb|boc|rba|tariff|tarif|sanction|\bwar\b|guerre|missile|ceasefire|iran|israel|china|chine|russia|russie|treasur|yield|rendement|inflation|\bcpi\b|\bnfp\b|\bgdp\b|\bpib\b|recession|récession)\b/i;
-function _ncEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-async function _generateNotableComments(dayKey) {
-  if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return '';
-  try { const c = await auth.aiCacheGet('nc:' + NC_VER + ':' + dayKey); if (typeof c === 'string' && c) return c; } catch {}
-  const _dayOf = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
-  const pool = (Array.isArray(allNews) ? allNews : []).filter(i => i && i.timestamp && _dayOf(i.timestamp) === dayKey
-    && !i._briefing && !i._marketWrap && !i._fxr && !i._weekly && !i._dtpd
-    && (_isImportantNews(i.headline, i.category, i.priority) || _NC_RX.test(i.headline || ''))).sort((a, b) => b.timestamp - a.timestamp);
-  const seen = new Set(), uniq = [];
-  for (const n of pool) { const k = String(n.headline || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 38); if (!k || seen.has(k)) continue; seen.add(k); uniq.push(n); if (uniq.length >= 6) break; }
-  if (!uniq.length) return '';
-  let items = null;
-  try {
-    if (aiAllowed('analyst', { priority: 'user' })) {
-      _aiReset();
-      const ctx = uniq.map(n => '- ' + _stripMd(n.headline || '') + (n.description ? ' - ' + _stripMd(String(n.description)).replace(/\s+/g, ' ').slice(0, 340) : '')).join('\n');
-      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 12 mots), ET une ligne « point » au FORMAT « <fait> → <impact> » (≤ 28 mots au total, les DEUX côtés OBLIGATOIRES et non vides).
-- <fait> = une proposition CLAIRE qui NOMME le sujet ET donne son chiffre/niveau exact (ex. « Le brut WTI recule à 89,31 $ », PAS « 89,31 $ » seul ; « L'inflation japonaise accélère à 3,1 % », PAS « inflation japonaise » seul).
-- <impact> = la conséquence marché DIRECTIONNELLE et concrète sur un actif précis (devise, taux, indice, or, pétrole), ex. « soutient le CAD, pèse sur les compagnies aériennes » ou « renforce les paris de hausse BoJ, yen en hausse ». JAMAIS un simple label (« cours du pétrole », « tensions ») ni une paraphrase vague.
-INTERDIT ABSOLU : terminer par « → » sans impact ; un côté réduit à un seul mot creux. Reprends les chiffres RÉELS des dépêches, n'en invente AUCUN.
-Exemples : «GBP/USD +0,20 % vendredi → la livre efface ses pertes hebdomadaires sur des ventes au détail solides» ; «Le Brent tient au-dessus de 100 $ → soutient les pétrolières européennes, pression sur les transporteurs».
-Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","point":"<fait nommé + chiffre> → <conséquence marché directionnelle>"}]}
-
-ACTUALITÉS DU JOUR :
-${ctx}`;
-      const text = await ai.generateText(prompt, 2000);
-      aiNote('analyst');
-      const m = text.match(/\{[\s\S]*\}/);
-      items = m ? (JSON.parse(m[0]).items || null) : null;
-    }
-  } catch (e) { console.warn('[Notable]', e && e.message); }
-  let html = '';
-  if (Array.isArray(items) && items.length) {
-    html = items.filter(it => it && it.headline).slice(0, 6).map(it => {
-      const h = _ncEsc(_stripMd(String(it.headline)).slice(0, 150));
-      // UNE seule phrase de synthèse, droit à l'essentiel (repli : 1er paragraphe des anciennes générations « paragraphs »)
-      const raw = it.point != null ? it.point : (Array.isArray(it.paragraphs) ? (it.paragraphs[0] || '') : (it.paragraphs || ''));
-      let point = _stripMd(String(raw)).replace(/\s+/g, ' ').trim();
-      // GARDE-FOU « c'est vide » : si le modèle termine par une flèche sans impact derrière, on la retire
-      // (jamais de « → » pendouillant à l'écran). Une flèche AVEC impact des deux côtés est conservée telle quelle.
-      point = point.replace(/\s*[→➔➜⟶]+[\s.…·:;,\-]*$/u, '').trim();
-      // (28/07) ANTI-PHRASE-COUPÉE : (a) un mot-outil orphelin juste avant la flèche (« …de deux ans à → »)
-      // est retiré — le modèle a oublié le chiffre, mieux vaut une phrase propre qu'un « à » pendu ;
-      // (b) la coupe de longueur tombe sur le DERNIER MOT ENTIER + « … », jamais en plein chiffre.
-      point = point.replace(/\s+(?:à|a|de|d'|du|des|en|au|aux|vers|contre|sur|pour|le|la|les|un|une)\s*(→)/giu, ' $1');
-      if (point.length > 230) { const cut = point.slice(0, 230); point = cut.slice(0, Math.max(cut.lastIndexOf(' '), 180)).trim() + '…'; }
-      const p = point ? '<p>' + _ncEsc(point) + '</p>' : '';
-      return '<div class="nc-item"><div class="nc-h">' + h + '</div>' + p + '</div>';
-    }).join('');
-  }
-  if (!html) return uniq.slice(0, 5).map(n => '<div class="nc-item"><div class="nc-h">' + _ncEsc(_stripMd(n.headline || '').slice(0, 150)) + '</div></div>').join('');   // repli non caché
-  // ── « Ce qu'en disent les banques » (demande user 28/07) : quelques notes de l'onglet Institution,
-  // choisies pour leur PERTINENCE vis-à-vis des ANNONCES À VENIR (thèmes/devises du Week Ahead).
-  // Attribution seule (banque + titre + ancienneté) — cf. règle anti-plagiat. Jamais plus de 3.
-  try {
-    const notes = _bankNotes(10);
-    if (notes.length) {
-      // mots-clés des événements de la semaine (titres + banques centrales des jours à venir)
-      const kws = new Set(['fed', 'fomc', 'ecb', 'bce', 'boj', 'boe', 'boc', 'rba', 'rbnz', 'snb', 'cpi', 'inflation', 'gdp', 'pib', 'pmi', 'nfp', 'payroll', 'rate', 'taux']);
-      try { (( _weekAhead && _weekAhead.days) || []).forEach(d => (d.events || []).forEach(e => String(e.title || '').toLowerCase().split(/[^a-z]+/).forEach(w => { if (w.length >= 3) kws.add(w); }))); } catch {}
-      const score = t => { let s = 0; String(t).toLowerCase().split(/[^a-z]+/).forEach(w => { if (kws.has(w)) s++; }); return s; };
-      const top = notes.map(x => ({ ...x, s: score(x.title) })).sort((a, b) => b.s - a.s).slice(0, 3);
-      if (top.length) html += '<div class="nc-item nc-item--banks"><div class="nc-h">Ce qu\'en disent les banques</div><p>'
-        + top.map(x => '<strong>' + _ncEsc(x.institution) + '</strong>' + _ncEsc(x.title) + ' <span style="opacity:.6">(' + _ncEsc(x.ago) + ')</span>').join('<br>')
-        + '</p></div>';
-    }
-  } catch (e) {}
-  auth.aiCacheSet('nc:' + NC_VER + ':' + dayKey, html).catch(() => {});
-  return html;
-}
-app.get('/api/notable-comments', async (req, res) => {
-  const day = String(req.query.day || '').slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return res.json({ html: '' });
-  try { res.json({ html: (await _generateNotableComments(day)) || '' }); } catch { res.json({ html: '' }); }
-});
+/* Section « Commentaires marquants » RETIRÉE le 25/08 (demande utilisateur, capture à l'appui).
+   Elle listait cinq actualités du jour avec un commentaire, tout en bas du lecteur de récap de
+   séance. Retirée AVEC sa fabrique (_generateNotableComments, NC_VER, /api/notable-comments) et non
+   seulement masquée à l'affichage : c'était une génération IA par jour, cachée en KV — la garder
+   inerte aurait consommé du quota pour du contenu que plus personne ne voit. Le champ
+   `fxr.notableCommentsHtml` disparaît aussi : le mail ne le rendait déjà plus, le desk non plus. */
 
 app.get('/api/session-wrap-content', async (req, res) => {
   const { url } = req.query;
@@ -11815,7 +11742,6 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     // « À surveiller » narratif : repli déterministe si l'IA ne l'a pas rempli (le tableau reste la source des dates).
     // (Repli déterministe de `watch` RETIRÉ le 24/08 : il recopiait le calendrier en puces, c'est-à-dire
     //  exactement le doublon que la rubrique « À surveiller » vient de supprimer. Le tableau reste seul.)
-    try { fxr.notableCommentsHtml = await _generateNotableComments(dayKey); } catch {}   // section « Commentaires marquants »
 
     // HORODATAGE STABLE = le JOUR COUVERT (jamais l'instant de génération — c'était le bug « il sort à
     // 11h30 »). Heure du TRI = 23:45 : dans l'onglet Analystes (du plus récent au plus ancien), le Récap

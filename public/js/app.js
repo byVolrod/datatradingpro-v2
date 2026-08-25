@@ -1142,15 +1142,34 @@ const _BREAKING_RX = /\b(?:attack|airstrike|missile|troops|invasion|war|escalat|
 // News "importante" = même critère que la surbrillance rouge du flux :
 // priorité haute, urgente (FJ), ou donnée à fort impact.
 let _flashedNewsId = null;   // id de la news actuellement annoncée dans le bandeau LIVE (jamais masquée du feed)
+/* UNE SEULE DÉFINITION DU ROUGE (25/08, capture user : « ANALYSE ADP US » servie en ligne ordinaire
+   alors qu'elle porte priority:'high'). La couleur se décidait à DEUX endroits — ici pour la
+   bannière LIVE, et par un calcul recopié dans le rendu de la ligne — qui pouvaient diverger sans
+   que rien ne le signale. Ils partagent desormais cette fonction : ce qui est rouge dans le fil est
+   rouge dans la bannière, par construction. */
+function _estNewsRouge(item) {
+  if (!item) return false;
+  // A) Breaking : dépêche FinancialJuice marquée urgente à la source.
+  const isFJ = item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-');
+  if (isFJ && item.urgent === true) return true;
+  // B) Donnée macro de premier rang (PMI, CPI, NFP…) ou impact déclaré fort.
+  const imp = String(item.impact || item.importance || '').toLowerCase();
+  if (item._highImpact === true || imp === 'high' || imp === 'critical') return true;
+  // C) Toute news marquée prioritaire.
+  if (item.priority === 'high') return true;
+  /* D) UNE ANALYSE DU DESK EST UNE NEWS MAJEURE, PAR DÉFINITION. Elle n'existe que parce qu'une
+     publication de premier rang vient de tomber (ADP, NFP, inflation, décision de taux) : c'est le
+     commentaire que le desk publie DESSUS. Le critère porte sur ce qu'est l'item, plus sur un champ
+     de priorité qui pouvait manquer selon le chemin par lequel il arrive dans le fil. */
+  if (item._eventAnalysis === true) return true;
+  return false;
+}
 function _isImportantNews(item) {
   if (!item) return false;
-  const impactStr = String(item.impact || '').toLowerCase();
   // Résultat d'événement du calendrier (valeur "Actual:" publiée) → toujours notifié dans le bandeau
   const isCalResult = item._calendarResult === true || item.isCalendar === true
       || /\bactual\s*:/i.test(item.description || '');
-  return item.priority === 'high' || item.urgent === true
-      || item._highImpact === true || impactStr === 'high' || impactStr === 'critical'
-      || isCalResult;
+  return _estNewsRouge(item) || item.urgent === true || isCalResult;
 }
 
 function _flashBreakingNews(item) {
@@ -2229,7 +2248,7 @@ function collapseEconGroups(items) {
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     if (!it || it.category !== 'Economic Commentary') continue;
-    if (it._eventAnalysis || _isImportantNews(it)) continue;
+    if (_isImportantNews(it)) continue;
     econIdxs.push(i);
   }
 
@@ -3086,15 +3105,9 @@ function buildNewsItem(item) {
   const isSpeaker  = isSpeakerOpener(item);
   const hasGrouped = Array.isArray(item._groupedQuotes) && item._groupedQuotes.length > 0;
   const speakerKey = (isSpeaker || hasGrouped) ? getSpeakerKey(item.headline) : null;
-  // ── ROUGE VIF : deux cas seulement, sinon fond sombre par défaut ─────────────
-  // A) Breaking : news FinancialJuice marquée urgente par FJ (flag brut item.urgent)
-  // B) Data macro High Impact : donnée tier-1 réelle (PMI/CPI/NFP…) ou impact='high'
-  const isFJ            = item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-');
-  const isFJUrgent      = isFJ && item.urgent === true;                          // Option A
-  const impactStr       = String(item.impact || item.importance || '').toLowerCase();
-  const isHighImpactData = item._highImpact === true || impactStr === 'high' || impactStr === 'critical'; // Option B
-  // C) Toute news prioritaire (rond rouge "!") → même fond/hover rouge léger
-  const isRed           = isFJUrgent || isHighImpactData || item.priority === 'high';
+  // ROUGE : la définition vit dans _estNewsRouge, partagée avec la bannière LIVE (voir son
+  // commentaire). Elle était recopiée ici, et les deux copies avaient fini par diverger.
+  const isRed           = _estNewsRouge(item);
   // State Highlight : une news urgente (urgent/isUrgent) OU rouge → fond bordeaux ultra-sombre + icône "!"
   const isAlert         = isRed || isUrgent;
   const baseClass       = isRed ? ' news-item--breaking' : '';
@@ -9915,10 +9928,6 @@ setTimeout(() => {
     .catch(() => { try { _dtpZoomApply(localStorage.getItem('dtp_zoom')); } catch (e) { _dtpZoomApply(DTP_ZOOM_DEFAUT); } });
 }, 800);
 
-// Chaque « → » des Commentaires marquants passe À LA LIGNE (demande user 28/07). Appliqué au RENDU
-// (fxdr + session wraps) pour couvrir aussi le HTML déjà en cache serveur ; les flèches ne vivent
-// que dans le texte des items, jamais dans les balises.
-function _ncArrowBreaks(html) { return String(html || '').replace(/\s+(→|➔|➜)\s+/g, '<br>$1 '); }
 
 function _renderFXDailyRecap(item) {
   const w = item._fxr || {};
@@ -10564,12 +10573,6 @@ function renderArlibReader(item) {
         if (!content) return;
         if (data.html && data.html.length > 80) {
           content.innerHTML = _parseHtmlToArlib(data.html, _header);
-          try {   // section « Commentaires marquants » du jour (notable comments), tout en bas du session wrap
-            const _ncDay = new Date(item.timestamp).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
-            fetch('/api/notable-comments?day=' + _ncDay).then(r => r.json()).then(nc => {
-              if (nc && nc.html && content && content.isConnected) content.innerHTML += `<div class="arlib-notable"><div class="arlib-notable-h">Commentaires marquants</div><div class="fxdr-notable">${_ncArrowBreaks(nc.html)}</div></div>`;
-            }).catch(() => {});
-          } catch {}
         } else {
           const desc = item.description || '';
           content.innerHTML = desc.length > 20
