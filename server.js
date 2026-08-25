@@ -1029,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260828-dates-rapports', ts: Date.UTC(2026, 7, 28, 22, 0), title: 'Les rapports affiches n.d. vont chercher leur date dans trois endroits de plus', desc: 'Certaines banques ne datent pas les publications de leur liste. Le desk allait alors chercher la date sur la page du rapport, et quand elle n y figurait pas non plus, la colonne Date affichait n.d. — definitivement : plus rien ne reexaminait la question. Trois lectures sont ajoutees. La date ecrite dans l adresse du document, quand elle y est : elle y est mise par l editeur, elle ne bouge plus, et la lire ne coute aucune requete. La date imprimee EN TETE du document lui-meme, lue au moment ou vous ouvrez le rapport, sur le texte deja extrait — une note institutionnelle porte presque toujours sa date sous son titre, en anglais comme en francais. Et la date affichee sur une page dont la source n est pas encore etudiee, acceptee uniquement si toute la page s accorde sur une seule date : plusieurs dates a l ecran, ce sont les vignettes des publications liees, et le desk s abstient plutot que d en choisir une au hasard. La regle de fond ne change pas — mieux vaut n.d. qu une date inventee — mais elle ne s applique plus qu apres avoir vraiment cherche. Toutes les publications actuellement sans date sont reexaminees automatiquement, et le journal du desk nomme desormais les institutions qui restent muettes.' },
   { id: 'dtpu-20260828-synthese-recit', ts: Date.UTC(2026, 7, 28, 21, 0), title: 'Les recaps de seance s ouvrent sur le meme paragraphe de synthese que le Recap Quotidien', desc: 'Un recap de seance commencait par une accroche en puces, en texte nu, puis par le decompte des publications de la seance. Le Recap Quotidien, lui, ouvre sur un vrai paragraphe : le dossier qui a domine la journee, ce que les banques centrales et les chiffres ont dit, quelles devises en sortent gagnantes ou perdantes, et le lien de cause a effet entre les deux. Les recaps de seance ouvrent desormais sur ce meme paragraphe, dans le meme encadre a lisere dore. Les deux lignes chiffrees — nombre de publications, sorties hors consensus, mouvement le plus marque, photo de seance — restent, mais derriere le recit : elles l etayent au lieu de le remplacer. Les rapports de la journee sont regeneres pour en beneficier immediatement.' },
   { id: 'dtpu-20260828-macro-souspartie', ts: Date.UTC(2026, 7, 28, 20, 0), title: 'Recap Quotidien : plus une seule ligne de la rubrique Macro sans sa categorie', desc: 'La rubrique Macro du Recap Quotidien s ouvrait parfois sur deux ou trois puces posees sans intitule — une mesure commerciale, un prix du brut — avant le premier sous-titre. Ce sont les sujets qui ne relevent d aucune des quatre categories du Radar de Biais : ils n avaient pas de titre a eux et arrivaient donc nus. Ils ont desormais le leur, Commerce et Autres, en fin de rubrique, apres Politique monetaire, Inflation, Croissance economique et Emploi. Chaque ligne de la rubrique dit maintenant de quoi elle parle, exactement comme dans les recaps de seance. Un controle automatique ouvre le rapport dans un vrai navigateur avant chaque livraison et refuse une puce posee avant son sous-titre.' },
   { id: 'dtpu-20260828-recap-autres', ts: Date.UTC(2026, 7, 28, 18, 0), title: 'Recap Quotidien : une rubrique Autres elements notables, et le conditionnel pour ce qui '+ 'n est pas confirme', desc: 'Deux ameliorations du Recap Quotidien, tirees d une comparaison ligne a ligne avec un recap de reference. D abord une nouvelle rubrique, Autres elements notables, entre Geopolitique et Macro : les faits reels de la journee qui ne relevent ni du dossier geopolitique ni des chiffres — une mesure commerciale annoncee par un pays, un projet d infrastructure d Etat, une rencontre politique programmee. Ils etaient jusqu ici ecrases dans la geopolitique, ou ils n avaient rien a faire, ou purement perdus. Ensuite, une regle d ecriture : ce qui est rapporte sans etre confirme s ecrit desormais au conditionnel — aurait transmis, poursuivrait, envisageraient — et ce qui est etabli a l indicatif. Un fait rapporte ecrit a l indicatif devient un fait acquis, et cette confusion-la est invisible a la lecture. Quand deux sources se contredisent, les deux sont ecrites et la divergence remonte dans les points cles. Le mail Point Marche suit les memes rubriques.' },
@@ -7715,7 +7716,17 @@ const _BR_DATES_RETRY = 7 * 864e5;       // une source muette n'est resondée qu
 // en sortaient et restaient sans date alors que l'endpoint unitaire les connaît).
 // v3 : rattrapage des items que plus aucun scraper ne revoit, reconnus par _brDateSuspecte, plus les
 // dates manquantes de MUFG et SEB désormais marquées à l'ingestion.
-const _BR_DATES_VER = 3;
+/* ⚠️ CE NUMÉRO REJUGE LES ÉCHECS PASSÉS, ET C'EST TOUT SON INTÉRÊT. Une publication pour laquelle
+   aucune date n'a été trouvée est mémorisée comme telle et n'est plus réexaminée avant la fenêtre de
+   réessai — sinon on redemanderait chaque jour une page qui n'a jamais rien à dire. Le revers : une
+   publication figée à « n.d. » le reste, même après qu'on a appris à lire une date ailleurs.
+   Le numéro EST la méthode : le changer déclare que la question a changé, et tout ce qui avait
+   échoué repasse au tour suivant.
+   v4 (28/08, « ici on a pas de date corrige fixe ») : trois lecteurs de plus — la date écrite dans
+   l'adresse (`dateURL`), celle imprimée en tête du document (`dateEnTete`, lue à l'ouverture du
+   rapport), et la date visible d'une page inconnue quand toute la page s'accorde dessus
+   (`dateVisibleUnique`). */
+const _BR_DATES_VER = 4;
 // Plafond de pages sondées par rafraîchissement. 120 vide le retard d'un seul tour (mesuré en prod :
 // 96 publications à dater après la bascule) ; ensuite le régime de croisière est de quelques unités,
 // puisque chaque date résolue est mémorisée et n'est plus jamais redemandée. Quatre requêtes de front.
@@ -7796,7 +7807,49 @@ async function _brResoudreDates(items) {
   console.log('[PubDate] ' + resolues + '/' + lot.length + ' date(s) de publication retrouvée(s) à la source' +
     (muettes ? ', ' + muettes + ' source(s) sans date publiée' : '') +
     (aFaire.length > lot.length ? ' (' + (aFaire.length - lot.length) + ' en attente du prochain tour)' : ''));
+  /* CE QUI RESTE NON DATÉ, NOMMÉ PAR INSTITUTION (28/08, « vérifie bien pr les futurs rapports
+     d'avoir la date »). Un compteur global ne dit rien : c'est la CONCENTRATION sur une banque qui
+     trahit un lecteur à écrire, et sans cette ligne elle n'apparaît nulle part — un rapport « n.d. »
+     ne se voit qu'à l'écran, un par un. */
+  const restants = items.filter(i => i && i.dateInconnue);
+  if (restants.length) {
+    const parInst = {};
+    restants.forEach(i => { const k = i.institution || i._source || '?'; parInst[k] = (parInst[k] || 0) + 1; });
+    console.log('[PubDate] ' + restants.length + ' publication(s) encore sans date : ' +
+      Object.entries(parInst).sort((a, b) => b[1] - a[1]).map(([k, n]) => k + ' ×' + n).join(' · '));
+  }
   return resolues;
+}
+
+/* LA DATE IMPRIMÉE DANS LE DOCUMENT LUI-MÊME (28/08, capture à l'appui : « ici on a pas de date
+   corrige fixe et vérifie bien pr les futurs rapports d'avoir la date » — un rapport listé « n.d. »).
+
+   `_brResoudreDates` va chercher la date sur la PAGE de la publication. Certaines banques n'en
+   publient nulle part : ni dans leur liste, ni en métadonnée, ni à l'écran. Le desk assume alors le
+   « n.d. » plutôt que d'inventer, et la publication reste non datée POUR TOUJOURS — plus rien ne la
+   réexamine.
+
+   Il reste pourtant une source qu'on n'avait jamais lue : LE DOCUMENT. Une note institutionnelle
+   porte presque toujours sa date sous son titre, et le desk en extrait déjà le texte intégral quand
+   un client l'ouvre. On la lit donc là, au passage, sans une requête de plus.
+
+   La date part dans la mémoire durable des dates (`_brDates`) : c'est elle qui fait foi au prochain
+   rafraîchissement, sinon le scraper remettrait `dateInconnue` et on relirait le même document
+   chaque jour pour la même date. */
+function _brDaterAuContenu(url, html) {
+  try {
+    if (!url || typeof html !== 'string' || html.length < 200) return;
+    const it = (_brCache || []).find(i => i && i.url === url);
+    if (!it || !it.dateInconnue) return;
+    const t = _PUBDATE.dateEnTete(_PUBDATE.texteDe(html));
+    if (!t) return;
+    it.timestamp = t;
+    delete it.dateInconnue;
+    console.log('[PubDate] date lue dans le document : ' + new Date(t).toISOString().slice(0, 10) + ' — ' + String(it.title || url).slice(0, 70));
+    _brDatesCharger()
+      .then(mem => { mem[url] = { d: t, a: Date.now(), v: _BR_DATES_VER }; return _brDatesSauver(); })
+      .catch(() => {});
+  } catch (e) { /* dater un rapport ne doit jamais empêcher de le lire */ }
 }
 
 async function _fetchBankResearch(full = false) {
@@ -8228,6 +8281,12 @@ async function _thinInsightsText(url, pdfUrl, printUrl) {
 
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
+  /* UN SEUL POINT D'ACCROCHE POUR DATER (28/08). La route a huit sorties `res.json` selon la source,
+     le format et l'état du cache ; une date récupérée sur sept d'entre elles se serait perdue sur la
+     huitième, et c'est exactement le genre d'oubli qu'on ne voit jamais. On enveloppe donc l'unique
+     sortie commune : tout ce qui part d'ici passe par la lecture de date, et rien d'autre ne change. */
+  const _jsonBrut = res.json.bind(res);
+  res.json = (o) => { try { if (o) _brDaterAuContenu(url, o.html); } catch (e) {} return _jsonBrut(o); };
   // PDF natif (KBC/Goldman/Syz/BlackRock…) : pas de texte HTML → on extrait le TEXTE du PDF pour les AI
   // Insights (le PDF lui-même reste affiché via /api/pdf-proxy). Hôtes limités aux sources PDF (PDF_PROXY_HOSTS).
   if (url && /\.pdf(?:[?#]|$)/i.test(url)) {

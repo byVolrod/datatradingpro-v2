@@ -27,6 +27,20 @@
 
 const MOIS_EN = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 const MOIS_RX = 'January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec';
+/* Les mois FRANÇAIS, pour les notes rédigées en français (Natixis, SocGen, KBC…). Sans eux,
+   « 25 août 2026 » imprimé en tête d'un document ne se lit pas, et la publication reste « n.d. ».
+   « juillet » AVANT « juin », « mars » AVANT « mai » : l'alternance rend la PREMIÈRE qui répond. */
+const MOIS_FR = { jan: 0, fév: 1, fev: 1, mar: 2, avr: 3, mai: 4, jui: 5, jul: 6, aoû: 7, aou: 7, sep: 8, oct: 9, nov: 10, déc: 11, dec: 11 };
+const MOIS_FR_RX = 'janvier|février|fevrier|mars|avril|juillet|juin|août|aout|septembre|octobre|novembre|décembre|decembre|mai';
+function moisFr(mot) {
+  const m = String(mot || '').toLowerCase();
+  if (/^juil/.test(m)) return 6;      // juillet, avant « juin » (les trois premières lettres se confondent)
+  if (/^juin/.test(m)) return 5;
+  if (/^mai$/.test(m)) return 4;
+  if (/^mars/.test(m)) return 2;
+  const v = MOIS_FR[m.slice(0, 3)];
+  return v == null ? null : v;
+}
 const MIN_TS = Date.UTC(2015, 0, 1);
 
 /** Date de publication plausible : passée, postérieure à 2015, jamais dans le futur. */
@@ -143,6 +157,120 @@ function dateVisible(html, cheerio) {
     if (m) { const t = lire(m); if (t) return t; }
   }
   return null;
+}
+
+/**
+ * LA DATE ÉCRITE DANS L'ADRESSE (28/08, capture à l'appui : « ici on a pas de date corrige fixe et
+ * vérifie bien pr les futurs rapports d'avoir la date »).
+ *
+ * C'est la piste la moins chère et la plus sûre : une date placée dans une URL y est mise PAR
+ * L'ÉDITEUR, et elle ne bouge plus. Elle ne coûte aucune requête, elle vaut donc d'être tentée avant
+ * d'aller chercher la page — et de nouveau en dernier recours quand la page n'a rien dit.
+ *
+ * ⚠️ ON N'ACCEPTE QU'UNE DATE COMPLÈTE, ou un mois entier explicitement nommé. Un simple « 2026 »
+ * traînant dans un slug ne dit pas quel jour, et le 1er janvier serait une date inventée.
+ */
+function dateURL(url) {
+  const u = String(url || '');
+  let m;
+  // /2026/08/25/ · 2026-08-25 · 2026_08_25
+  if ((m = u.match(/(?:^|[^\d])(20\d\d)[-/_.](\d{1,2})[-/_.](\d{1,2})(?![\d])/))) {
+    const t = Date.UTC(+m[1], +m[2] - 1, +m[3], 12); if (plausible(t)) return t;
+  }
+  // 20260825 (huit chiffres collés, très courant dans les noms de PDF)
+  if ((m = u.match(/(?:^|[^\d])(20\d\d)(\d{2})(\d{2})(?![\d])/))) {
+    const t = Date.UTC(+m[1], +m[2] - 1, +m[3], 12); if (plausible(t) && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31) return t;
+  }
+  // 25-august-2026 · 25_aug_2026
+  if ((m = u.match(new RegExp('(?:^|[^a-z0-9])([0-3]?\\d)[-_]?(' + MOIS_RX + ')[a-z]*[-_](20\\d\\d)(?![0-9])', 'i')))) {
+    const mo = MOIS_EN[m[2].slice(0, 3).toLowerCase()];
+    const t = mo == null ? null : Date.UTC(+m[3], mo, +m[1], 12); if (plausible(t)) return t;
+  }
+  // august-25-2026 · aug-25-2026
+  if ((m = u.match(new RegExp('(?:^|[^a-z0-9])(' + MOIS_RX + ')[a-z]*[-_]([0-3]?\\d)[-_](20\\d\\d)(?![0-9])', 'i')))) {
+    const mo = MOIS_EN[m[1].slice(0, 3).toLowerCase()];
+    const t = mo == null ? null : Date.UTC(+m[3], mo, +m[2], 12); if (plausible(t)) return t;
+  }
+  // Mensuel nommé : august-2026 → le 1er. Le jour n'existe pas dans la publication elle-même.
+  if ((m = u.match(new RegExp('(?:^|[^a-z0-9])(' + MOIS_RX + ')[a-z]*[-_](20\\d\\d)(?![0-9])', 'i')))) {
+    const mo = MOIS_EN[m[1].slice(0, 3).toLowerCase()];
+    const t = mo == null ? null : Date.UTC(+m[2], mo, 1, 12); if (plausible(t)) return t;
+  }
+  return null;
+}
+
+/* Une ligne dont le contenu ENTIER est une date — anglais ou français, avec ou sans étiquette. */
+const _ETIQ = /^(?:published(?:\s+on)?|publication\s+date|date\s+of\s+publication|date|publié\s+le|paru\s+le|le)\s*[:\-–]?\s*/i;
+const _LIGNE_DATE = new RegExp('^(?:([0-3]?\\d)(?:er)?\\s+(' + MOIS_FR_RX + ')\\s+(20\\d\\d)'
+  + '|([0-3]?\\d)\\s+(' + MOIS_RX + ')\\.?,?\\s+(20\\d\\d)'
+  + '|(' + MOIS_RX + ')\\.?\\s+([0-3]?\\d),?\\s+(20\\d\\d)'
+  + '|([0-3]?\\d)[-/.]([0-1]?\\d)[-/.](20\\d\\d)'
+  + '|(20\\d\\d)-([0-1]\\d)-([0-3]\\d))$', 'i');
+function _ligneDate(ligne) {
+  const t0 = String(ligne || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim().replace(/[.,;]$/, '');
+  const t = t0.replace(_ETIQ, '').trim();
+  if (!t || t.length > 32) return null;
+  const m = _LIGNE_DATE.exec(t);
+  if (!m) return null;
+  if (m[1]) { const mo = moisFr(m[2]); return mo == null ? null : (x => plausible(x) ? x : null)(Date.UTC(+m[3], mo, +m[1], 12)); }
+  if (m[4]) return parseDate(m[4] + ' ' + m[5] + ' ' + m[6]);
+  if (m[7]) return parseDate(m[7] + ' ' + m[8] + ', ' + m[9]);
+  if (m[10]) return parseDate(m[10] + '/' + m[11] + '/' + m[12]);
+  if (m[13]) return parseDate(m[13] + '-' + m[14] + '-' + m[15]);
+  return null;
+}
+
+/**
+ * LA DATE IMPRIMÉE EN TÊTE DU DOCUMENT (28/08, même demande).
+ *
+ * Quand ni la liste, ni les métadonnées, ni la page ne datent une publication, il reste le document
+ * lui-même : une note institutionnelle porte presque toujours sa date sous son titre. On la lit sur
+ * le TEXTE déjà extrait pour le lecteur — aucune requête de plus.
+ *
+ * ⚠️ SEULEMENT DANS L'EN-TÊTE, ET SEULEMENT UNE LIGNE ENTIÈRE. Plus loin dans le corps, une date en
+ * ligne propre est une date de RÉUNION, de publication de chiffre ou d'échéance (« 18 septembre
+ * 2026 » sous un titre « Prochaine réunion »), pas la date du document. On s'arrête donc aux
+ * premières lignes, et on n'accepte jamais une date citée à l'intérieur d'une phrase.
+ */
+const _ENTETE_LIGNES = 25;
+function dateEnTete(texte) {
+  const lignes = String(texte || '').split('\n').map(l => l.trim()).filter(Boolean).slice(0, _ENTETE_LIGNES);
+  for (const l of lignes) { const t = _ligneDate(l); if (t) return t; }
+  return null;
+}
+
+/**
+ * La date visible d'une page INCONNUE, acceptée seulement si elle est SANS AMBIGUÏTÉ.
+ *
+ * `dateVisible` est réservée aux sources dont on a mesuré la page (HSBC, MUFG). Sur une source
+ * quelconque, le même relevé ramasserait aussi les vignettes « publications liées », chacune datée :
+ * on ne saurait pas laquelle est celle de l'article. La règle est donc binaire — si tous les nœuds
+ * datés de la page portent LA MÊME date, c'est celle de l'article ; s'il y en a plusieurs, on
+ * s'abstient. Une date fausse serait pire que pas de date : c'est le défaut qu'on corrige.
+ */
+function dateVisibleUnique(html, cheerio) {
+  const vues = new Set();
+  const RX = new RegExp('^(?:([0-3]?\\d)\\s+(' + MOIS_RX + ')\\.?\\s+(20\\d\\d)'
+                      + '|(' + MOIS_RX + ')\\.?\\s+([0-3]?\\d),?\\s+(20\\d\\d))$');
+  const lire = m => (m[1] ? parseDate(m[1] + ' ' + m[2] + ' ' + m[3]) : parseDate(m[4] + ' ' + m[5] + ', ' + m[6]));
+  const propre = t => String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (cheerio) {
+    let $; try { $ = cheerio.load(html); } catch { $ = null; }
+    if ($) {
+      $('script,style,noscript').remove();
+      $('p,div,span,time,h2,h3,h4,li,td').each((_, el) => {
+        const m = propre($(el).text()).match(RX);
+        if (!m) return;
+        const t = lire(m);
+        if (t) vues.add(t);
+      });
+    }
+  }
+  if (!vues.size) for (const ligne of texteDe(html).split('\n')) {
+    const m = propre(ligne).match(RX);
+    if (m) { const t = lire(m); if (t) vues.add(t); }
+  }
+  return vues.size === 1 ? [...vues][0] : null;
 }
 
 /** Date affichée par un sélecteur donné (premier nœud non vide qui parse). */
@@ -284,8 +412,15 @@ async function resoudreDate(item, deps, lots) {
       const t = Date.UTC(2000 + +m[2], MOIS_EN[m[1].slice(0, 3).toLowerCase()], 1, 12);
       if (plausible(t)) return t;
     }
-    return null;   // on ne télécharge pas un PDF entier pour une date
+    return dateURL(url);   // on ne télécharge pas un PDF entier pour une date : reste l'adresse
   }
+
+  /* L'ADRESSE D'ABORD, PARCE QU'ELLE NE COÛTE RIEN (28/08). Une date écrite dans une URL y est mise
+     par l'éditeur : elle est aussi fiable qu'une métadonnée, et elle évite la requête. Seule réserve,
+     et elle est réelle : un slug ment parfois (mesuré à 3 % chez MUFG, où la carte de la liste fait
+     foi). On ne l'interroge donc en tête QUE pour les sources dont la page a déjà été mesurée SANS
+     stratégie propre — les autres gardent leur chaîne, et l'adresse leur sert de dernier recours. */
+  if (!STRATEGIES[source]) { const tu = dateURL(url); if (tu) return tu; }
 
   let html;
   try {
@@ -299,12 +434,15 @@ async function resoudreDate(item, deps, lots) {
 
   const strat = STRATEGIES[source];
   const t = strat ? strat(html, cheerio) : null;
-  // Chaîne générique pour toute source non listée : métadonnées SEULEMENT.
-  // `dateVisible` n'est PAS ici volontairement : lire la première date du corps marche pour HSBC,
-  // dont la page n'en contient qu'une, mais sur une source inconnue elle attraperait aussi bien une
-  // date CITÉE dans le texte (« depuis le 15 mars 2026… »). Une date fausse serait pire que pas de
-  // date : c'est exactement le défaut qu'on est en train de corriger.
-  return t || dateJsonLd(html) || dateMeta(html);
+  /* Chaîne générique pour toute source non listée : métadonnées d'abord.
+     `dateVisible` n'est PAS ici volontairement : lire la première date du corps marche pour HSBC,
+     dont la page n'en contient qu'une, mais sur une source inconnue elle attraperait aussi bien une
+     date CITÉE dans le texte (« depuis le 15 mars 2026… »). Une date fausse serait pire que pas de
+     date : c'est exactement le défaut qu'on est en train de corriger.
+     `dateVisibleUnique`, elle, tranche ce cas : elle n'accepte que si TOUTE la page s'accorde sur une
+     seule date. Plusieurs dates (les vignettes « publications liées ») → elle s'abstient.
+     Et l'adresse ferme la marche : elle vaut mieux qu'un « n.d. » définitif. */
+  return t || dateJsonLd(html) || dateMeta(html) || dateVisibleUnique(html, cheerio) || dateURL(url);
 }
 
 /** Les lots d'API à récupérer une seule fois par rafraîchissement, si des items les concernent. */
@@ -317,6 +455,7 @@ async function prechargerLots(sources, deps) {
 }
 
 module.exports = {
-  parseDate, plausible, texteDe, dateJsonLd, dateMeta, dateVisible, dateSelecteur,
+  parseDate, plausible, texteDe, dateJsonLd, dateMeta, dateVisible, dateVisibleUnique, dateSelecteur,
+  dateURL, dateEnTete, moisFr,
   resoudreDate, prechargerLots, lotNordea, lotNatixis, cleNordea, normTitre, dateNordeaUnitaire,
 };

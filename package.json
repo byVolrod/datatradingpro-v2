@@ -10,7 +10,7 @@
     "start": "node --max-old-space-size=320 server.js",
     "dev": "nodemon server.js",
     "keepalive": "node -r dotenv/config scripts/supabase-keepalive.js",
-    "check": "node scripts/js-verif.js && node scripts/desk-verif.js && node scripts/weekahead-verif.js && node scripts/seance-verif.js && node scripts/onglets-verif.js && node scripts/crop-verif.js && node scripts/campaign-selftest.js"
+    "check": "node scripts/js-verif.js && node scripts/desk-verif.js && node scripts/weekahead-verif.js && node scripts/seance-verif.js && node scripts/pubdate-verif.js && node scripts/onglets-verif.js && node scripts/crop-verif.js && node scripts/campaign-selftest.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
