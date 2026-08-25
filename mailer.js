@@ -1803,9 +1803,15 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       const k = (sp + '|' + dt + '|' + tx).toLowerCase(); if (vus.has(k)) return ''; vus.add(k);
       return _puce(`${sp ? `<span style="color:#cbd5e1;font-weight:600;">${_esc(sp)}</span>` : ''}${dt ? ` <span style="color:#6b7280;">(${_esc(dt)})</span>` : ''}${(sp || dt) && tx ? ' → ' : ''}${_esc(tx)}`);
     }).filter(Boolean).join('');
+    /* LA DÉCISION D'ABORD (25/08, demande user) — même lecture que le desk : `decision` est produit
+       par banque depuis toujours mais n'avait plus aucun lecteur rendu. Apparié sur le code devise,
+       donc l'édition déjà publiée en bénéficie sans régénération. */
+    const _cbBanque = (Array.isArray(w.centralBanks) ? w.centralBanks : []).find(b => b && b.code === c);
+    const _cbDec = _cbBanque ? _md(_cbBanque.decision) : '';
+    const cbDecL = _cbDec ? _ligne('Décision', _esc(_cbDec)) : '';
     const cbTxt = _md(cd.monetaryPolicy) ? _puce(_esc(_md(cd.monetaryPolicy))) : '';
     const pri = _md(cd.pricing) ? _ligne('Pricing', _esc(_md(cd.pricing))) : '';
-    const cbL = cbTxt + cbB + pri;
+    const cbL = cbDecL + cbTxt + cbB + pri;
     const titreCB = 'Banque centrale' + (_md(cd.cbStance) ? ' · ' + _md(cd.cbStance) : '');
     // LES QUATRE RUBRIQUES, dans l'ordre du desk. Quand les QUATRE sont vides, la phrase
     // « Aucune publication cette semaine. » s'écrivait quatre fois sous quatre intertitres :

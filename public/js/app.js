@@ -9481,6 +9481,15 @@ function _renderWeeklyRecap(item) {
           // et le desk comme l'e-mail portent désormais le même. Le nom de la banque n'est pas perdu :
           // il vit dans la posture et dans les propos attribués, juste en dessous.
           body += `<div class="wr-macro-heading">Banque centrale${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
+          /* LA DÉCISION D'ABORD (25/08, demande user : « s'il y a eu une hausse, une baisse ou un
+             maintien faut le mettre »). Le serveur produit `decision` par banque depuis toujours
+             (hausse / baisse / maintien + la phrase clé du communiqué), mais son SEUL lecteur était
+             _wrCbSection — une fonction sans appelant. La décision de taux de la semaine n'était donc
+             affichée NULLE PART. On la lit ici à la source (`w.centralBanks`, apparié sur le code
+             devise) : l'édition DÉJÀ publiée en bénéficie, sans régénération. */
+          const _cbBanque = (Array.isArray(w.centralBanks) ? w.centralBanks : []).find(b => b && b.code === c);
+          const _cbDecision = _cbBanque && String(_cbBanque.decision || '').trim();
+          if (_cbDecision) body += `<div class="wr-bullet"><strong>Décision :</strong> ${_wrInline(_cbDecision)}</div>`;
           if (cd.monetaryPolicy) body += `<div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
           // UN INTERVENANT = UNE PUCE (correctif 11/08) : le même officiel revenait deux fois de suite
           // (« Musalem … / Musalem … » constaté en prod), ce qu'aucune note de desk ne ferait.
