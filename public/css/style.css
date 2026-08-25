@@ -12187,7 +12187,16 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
    courte, le badge de lecture (APPÉTIT / FORTE AVERSION…) se posait SUR l'arc de la jauge et le
    débordait des deux côtés — mesuré : 15,7 px de l'arc passaient derrière le badge, et le badge était
    41 % plus large que la jauge entière. Le corps de carte défile (overflow auto) au lieu d'écraser. */
-.wdg-riskwrap { height: 100%; min-height: 280px; }
+/* ⚠️ 280 -> 240 (29/08, capture user « on doit voir l integralite du texte en bas, les mois »).
+   Le plancher de 280px venait de l onglet RISQUE du desk. Additionne au plancher de la bande
+   d historique, il donnait un minimum de panneau que les cartes courtes ne pouvaient pas tenir :
+   le panneau depassait, le corps defilait, et le bas de l histogramme — l axe des mois — passait
+   sous le pli. VERIFIE au banc avec le VRAI amCharts (bundle npm) : les etiquettes de l axe sont
+   TOUJOURS a l interieur de leur canevas, a ~2px du bas, de 103 a 170px de bande. Le graphique ne
+   deborde donc pas : c est bien la place qui manque au panneau.
+   240 laisse intacte la scene de la jauge (`.risk-gauge-stage`, plancher 190px) et le bandeau
+   (~40px) : l arc et le badge ne bougent pas d un pixel, on ne retire que le mou. */
+.wdg-riskwrap { height: 100%; min-height: 240px; }
 .wdg-riskwrap .risk-gauge-stage { min-height: 190px; }
 .wdg-riskgauge { position: absolute; inset: 0; }   /* même rôle que #risk-gauge-div (jauge du desk) */
 
