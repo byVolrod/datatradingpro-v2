@@ -2516,3 +2516,77 @@
   // Tri au clic sur les en-têtes de colonnes
   document.querySelectorAll('.users-table th.sortable').forEach(th =>
     th.addEventListener('click', () => sortBy(th.dataset.sort)));
+
+/* ── PHOTO DU SUPPORT (26/08) ───────────────────────────────────────────────────────────────────
+   Celle que voient TOUS les clients à côté de chaque message du support. Elle était une constante
+   du code : la changer imposait de modifier un fichier, redéployer, et vider le cache de chaque
+   navigateur. Elle se dépose désormais ici, et s'applique dans la minute.
+   LE TRAVAIL D'IMAGE EST FAIT DANS LE NAVIGATEUR, comme pour les avatars de compte : recadrage
+   CARRÉ, downscale en plusieurs demi-passes (une réduction directe de 3000 px à 256 px crénelle
+   fortement), puis JPEG progressif jusqu'à passer sous la limite du serveur. On envoie donc toujours
+   un fichier petit et au bon format, quelle que soit la photo d'origine.
+   ⚠️ RECADRAGE VERS LE HAUT : sur une photo de bureau, le visage est dans le tiers supérieur. Un
+   carré centré coupe la tête et cadre le torse — exactement le défaut déjà corrigé sur les avatars
+   de compte. On remonte donc la fenêtre à proportion de l'élongation de l'image. */
+function adSupAvPick() { var f = document.getElementById('ad-supav-file'); if (f) { f.value = ''; f.click(); } }
+function _adSupAvRender(dataUrl) {
+  var e = document.getElementById('ad-supav'); if (!e) return;
+  e.innerHTML = dataUrl ? '<img src="' + dataUrl + '" alt="Support">' : 'DTP';
+  e.classList.toggle('has-photo', !!dataUrl);
+}
+function adSupAvLoad() {
+  fetch('/api/support-avatar', { cache: 'no-store' }).then(function (r) { return r.json(); })
+    .then(function (d) { _adSupAvRender(d && d.avatar); }).catch(function () {});
+}
+function _adSupAvEnvoi(dataUrl) {
+  return fetch('/api/admin/support-avatar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: dataUrl }),
+  }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j.ok, err: j.error }; }); });
+}
+function adSupAvDelete() {
+  _adSupAvEnvoi(null).then(function (r) {
+    if (!r.ok) return showToast('Retrait impossible : ' + (r.err || 'erreur'), 'err');
+    _adSupAvRender(null);
+    showToast('✓ Photo retirée : les clients revoient les initiales DTP.');
+  }).catch(function () { showToast('Retrait impossible.', 'err'); });
+}
+function adSupAvChange(ev) {
+  var file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var img = new Image();
+    img.onload = function () {
+      // Fenêtre carrée, remontée vers le visage sur une photo plus haute que large.
+      var w = img.width, h = img.height, c = Math.min(w, h);
+      var sx = (w - c) / 2, sy = (h - c) / 2;
+      if (h > w) sy = Math.max(0, sy * (1 - 0.75 * Math.min(1, (h - w) / w)));
+      function encode(taille, q) {
+        var cur = document.createElement('canvas'); cur.width = c; cur.height = c;
+        var cx = cur.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+        cx.drawImage(img, sx, sy, c, c, 0, 0, c, c);
+        var cote = c;
+        while (cote > taille * 2) {                       // demi-passes : jamais plus de moitié à la fois
+          var n = document.createElement('canvas'); n.width = n.height = Math.round(cote / 2);
+          var nx = n.getContext('2d'); nx.imageSmoothingEnabled = true; nx.imageSmoothingQuality = 'high';
+          nx.drawImage(cur, 0, 0, n.width, n.height); cur = n; cote = n.width;
+        }
+        var f = document.createElement('canvas'); f.width = f.height = taille;
+        var fx = f.getContext('2d'); fx.imageSmoothingEnabled = true; fx.imageSmoothingQuality = 'high';
+        fx.drawImage(cur, 0, 0, taille, taille);
+        return f.toDataURL('image/jpeg', q);
+      }
+      var url = '', essais = [[256, 0.9], [256, 0.8], [192, 0.8], [160, 0.72], [128, 0.7]];
+      for (var i = 0; i < essais.length; i++) { url = encode(essais[i][0], essais[i][1]); if (url.length < 180000) break; }
+      _adSupAvEnvoi(url).then(function (r) {
+        if (!r.ok) return showToast('Envoi impossible : ' + (r.err || 'erreur'), 'err');
+        _adSupAvRender(url);
+        showToast('✓ Photo du support mise à jour : visible par tous les clients.');
+      }).catch(function () { showToast('Envoi impossible.', 'err'); });
+    };
+    img.onerror = function () { showToast('Image illisible.', 'err'); };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+try { document.addEventListener('DOMContentLoaded', adSupAvLoad); } catch (e) {}

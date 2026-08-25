@@ -1029,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260828-support-photo-texte', ts: Date.UTC(2026, 7, 28, 9, 0), title: 'Le support a son visage, et un message d accueil qui va droit au but', desc: 'La photo affichee a cote des messages du support se change desormais depuis le panneau d administration, en deux clics : elle s applique a tous les clients dans la minute, sans mise a jour de la plateforme ni cache a vider. Elle etait jusqu ici figee dans le code, et pointait meme sur une banque d images exterieure. Le recadrage carre et la compression sont faits au moment de l envoi, avec une fenetre remontee vers le visage — sur une photo de bureau, un cadrage centre coupe la tete. Et le message d accueil envoye aux nouveaux clients passe de cinq paragraphes a quatre lignes : l acces est ouvert, trois portes d entree concretes, et la phrase qui compte vraiment — ecrivez ici. L inventaire de neuf fonctionnalites d une traite ne se lisait pas.' },
   { id: 'dtpu-20260827-surveiller-tableau', ts: Date.UTC(2026, 7, 27, 21, 0), title: 'A surveiller affiche le vrai calendrier du desk', desc: 'Dans les recaps de seance, la rubrique A surveiller listait les prochains rendez-vous sous forme de phrases. Elle affiche desormais LE calendrier lui-meme, celui du desk : separateurs de journees, heure de Paris, drapeau, points d impact, prevision et precedent — et chaque ligne s ouvre d un clic sur son Decryptage DTP, exactement comme dans l onglet Calendrier et dans le Recap Quotidien. Les deux rapports utilisent maintenant la meme fabrique de tableau : ils ne peuvent plus diverger. Les fils encore ouverts releves par la redaction restent affiches sous le tableau. Au passage, les colonnes Haut et Bas ont ete retirees des tableaux de rapport : elles portent une fourchette d estimations que notre fournisseur ne remplit pas pour les rendez-vous a venir, et affichaient donc deux colonnes de tirets qui volaient de la place a l intitule.' },
   { id: 'dtpu-20260827-avatar-support', ts: Date.UTC(2026, 7, 27, 22, 0), title: 'Le support prend le visage de l equipe DTP', desc: 'La photo affichee a cote des messages du support etait une image de banque d images, chargee depuis un site tiers a chaque ouverture de la conversation. Elle est remplacee par la photo de l equipe DTP, hebergee par nos soins : elle s affiche pour tous les clients, et la remplacer plus tard mettra tout le monde a jour d un coup. Le cadrage se fait sur le visage et non au centre de l image, pour que la pastille ronde montre bien la personne. Si la photo ne peut pas etre chargee, les initiales DTP s affichent comme avant.' },
   { id: 'dtpu-20260827-mdp-oublie', ts: Date.UTC(2026, 7, 27, 19, 0), title: 'Mot de passe oublie : plus aucun risque de rester bloque dehors', desc: 'Un defaut vient d etre corrige sur la reinitialisation du mot de passe. L ancien fonctionnement changeait le mot de passe en base PUIS tentait d envoyer l e-mail — et si cet envoi echouait, rien ne le signalait : l ancien mot de passe etait deja detruit et le nouveau n arrivait jamais. L ordre est desormais inverse. L e-mail part d abord ; le mot de passe n est remplace que si l envoi a bien ete accepte. Un envoi qui echoue ne coute donc plus rien : le compte n a pas bouge, l ancien mot de passe fonctionne toujours, et la demande peut etre refaite immediatement — la temporisation de deux minutes est levee dans ce cas au lieu d ignorer les nouvelles demandes en silence. Le message affiche apres la demande a aussi ete raccourci de moitie.' },
@@ -1473,6 +1474,44 @@ app.get('/api/profile-avatar', async (req, res) => {
     res.json({ avatar: (a && /^data:image\//.test(a)) ? a : null, deleted });
   } catch { res.json({ avatar: null }); }
 });
+/* ── PHOTO DU SUPPORT, POSÉE DEPUIS L'ADMIN (26/08) ────────────────────────────────────────────
+   Elle était une CONSTANTE dans le code : la changer voulait dire modifier un fichier, redéployer,
+   et vider le cache de chaque navigateur. Elle vit désormais au même endroit que les avatars des
+   comptes — le KV — mais sous une clé GLOBALE : l'admin la dépose une fois, tous les clients la
+   voient. Aucun déploiement, aucune purge de cache à demander.
+   Même contrat que /api/profile-avatar (data URL raster, jamais de SVG, taille bornée) : cette
+   image s'affiche chez tous les clients, la règle ne peut pas être plus laxiste.
+   Un cache mémoire évite un aller-retour KV à chaque ouverture de conversation ; il est vidé à
+   l'écriture, donc la nouvelle photo part immédiatement. */
+const _SUPAV_KEY = 'supportav:global';
+let _supAvCache = { ts: 0, val: undefined };
+app.get('/api/support-avatar', async (_req, res) => {
+  res.set('Cache-Control', 'no-store');   // même raison que /api/profile-avatar : une réponse figée « pas de photo » ne doit jamais se cacher
+  try {
+    if (_supAvCache.val === undefined || Date.now() - _supAvCache.ts > 5 * 60 * 1000) {
+      const v = await auth.aiCacheGet(_SUPAV_KEY, 8640000000000);
+      _supAvCache = { ts: Date.now(), val: (v && typeof v.avatar === 'string') ? v.avatar : null };
+    }
+    res.json({ avatar: _supAvCache.val });
+  } catch { res.json({ avatar: null }); }
+});
+app.post('/api/admin/support-avatar', requireSameOrigin, requireAdmin, async (req, res) => {
+  try {
+    const a = req.body && req.body.avatar;
+    if (a === null || a === '') {
+      await auth.aiCacheSet(_SUPAV_KEY, { avatar: null });
+      _supAvCache = { ts: Date.now(), val: null };
+      return res.json({ ok: true, avatar: null });
+    }
+    if (typeof a !== 'string' || !/^data:image\/(png|jpe?g|webp);base64,/.test(a)) return res.status(400).json({ ok: false, error: 'format image invalide (JPEG, PNG ou WebP)' });
+    if (a.length > _AV_MAX) return res.status(413).json({ ok: false, error: 'image trop lourde (recadrez/compressez)' });
+    await auth.aiCacheSet(_SUPAV_KEY, { avatar: a });
+    _supAvCache = { ts: Date.now(), val: a };
+    console.log('[Support] photo du support mise à jour → visible par tous les clients');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 app.post('/api/profile-avatar', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
   try {
@@ -2299,12 +2338,16 @@ function computeExpiry({ duration, expiresAt, startDate }) {
 // Message d'accueil envoyé automatiquement par le support à chaque NOUVEAU client (dans le chat).
 // Message STATIQUE (demande user 25/07) : présentation des fonctionnalités (dont les widgets) + invitation à
 // explorer/personnaliser son espace, SANS référence à la session en cours ni au recap « qui arrive ».
+/* RACCOURCI (26/08, demande utilisateur : « améliore le message du support, il est très long je
+   trouve, et rends-le mieux »). Il faisait cinq paragraphes et énumérait NEUF fonctionnalités d'une
+   traite — une liste qu'on ne lit pas, et qui repousse la seule phrase qui compte vraiment : « écris
+   ici ». Il tient maintenant en quatre lignes courtes : l'accès est ouvert, trois portes d'entrée
+   concrètes (et non un inventaire), la porte du support, la signature. Ce que le message perd en
+   exhaustivité, le desk le montre tout seul dès la première minute. */
 function welcomeChat() {
-  return "Bonjour et bienvenue sur DataTradingPro 👋\n\n"
-    + "Je suis là pour t'accompagner. Ton accès est activé : tu peux dès maintenant profiter de toutes les fonctionnalités de la plateforme, notamment le flux de news en temps réel, le calendrier économique, la force des devises, le radar de biais, les notes d'analystes, les analyses institutionnelles ainsi que l'ensemble des widgets disponibles.\n\n"
-    + "Prends le temps d'explorer la plateforme et de personnaliser ton espace de travail selon tes besoins.\n\n"
-    + "Une question ou besoin d'un coup de main ? Écris-moi directement ici, je te répondrai avec plaisir.\n\n"
-    + "Bons trades ! 📈\n\n"
+  return "Bienvenue sur DataTradingPro 👋\n\n"
+    + "Ton accès est ouvert. Pour commencer : le fil de news en temps réel, le calendrier économique, et Mon Desk pour composer ton espace.\n\n"
+    + "Une question ? Écris-moi ici, je réponds.\n\n"
     + "L'équipe DataTradingPro";
 }
 function _sendWelcomeChat(userId) {

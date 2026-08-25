@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg931" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg932" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -251,6 +251,17 @@
       <div class="panel-card">
         <div class="panel-head">
           <h2>Messages <span class="ph-count">(<span id="ad-chat-count">-</span>)</span></h2>
+          <span class="ph-spacer"></span>
+          <!-- PHOTO DU SUPPORT : celle que voient TOUS les clients à côté de chaque message. Elle
+               vivait en dur dans le code (donc : modifier un fichier, redéployer, vider les caches).
+               Ici elle se dépose en deux clics et s'applique dans la minute. Le recadrage carré et la
+               compression sont faits DANS le navigateur, comme pour les avatars de compte. -->
+          <span class="ad-supav-wrap" title="Photo affichée aux clients à côté des messages du support">
+            <span class="ad-supav" id="ad-supav">DTP</span>
+            <button class="ad-supav-btn" onclick="adSupAvPick()">Changer la photo</button>
+            <button class="ad-supav-btn ad-supav-btn--del" onclick="adSupAvDelete()">Retirer</button>
+            <input type="file" id="ad-supav-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="adSupAvChange(event)">
+          </span>
         </div>
         <div class="panel-body">
           <div class="ad-chat">
@@ -742,6 +753,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260825bbg931"></script>
+<script src="/js/admin.js?v=20260825bbg932"></script>
 </body>
 </html>

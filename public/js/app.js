@@ -11819,10 +11819,29 @@ const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la
    les navigateurs qui ont l'ancienne en cache la garderaient (assets servis en cache 30 jours).
    Si le fichier manque, l'`onerror` retombe proprement sur les initiales : jamais d'image cassée. */
 const CHAT_SUPPORT_PHOTO = '/assets/images/support-dtp.jpg?v=1';
+/* …ET UNE PHOTO POSÉE DEPUIS L'ADMIN, QUI PREND LE DESSUS (26/08). Le fichier ci-dessus suppose un
+   redéploiement ; celle-ci se dépose depuis le panneau et s'applique à TOUS les clients dans la
+   minute. Ordre de priorité : photo admin → fichier de la marque → initiales. On lit d'abord le
+   cache local (affichage instantané, sans attendre le réseau), puis on rafraîchit. */
+let _supAvatar = null;
+try { const _c = localStorage.getItem('dtp_supav'); if (_c && /^data:image\//.test(_c)) _supAvatar = _c; } catch (e) {}
+function _chatChargerAvatarSupport() {
+  fetch('/api/support-avatar', { cache: 'no-store' }).then(r => r.json()).then(d => {
+    const a = (d && typeof d.avatar === 'string' && /^data:image\//.test(d.avatar)) ? d.avatar : null;
+    if (a === _supAvatar) return;                       // inchangé → aucun re-rendu
+    _supAvatar = a;
+    try { if (a) localStorage.setItem('dtp_supav', a); else localStorage.removeItem('dtp_supav'); } catch (e) {}
+    // La photo a changé : on rafraîchit ce qui est déjà à l'écran (en-tête + bulles).
+    const h = document.getElementById('chat-head-av');
+    if (h) { h.classList.add('has-photo'); h.innerHTML = _chatSupportAvatarHtml(); }
+    document.querySelectorAll('.chat-row--them .chat-av').forEach(function (e) { e.classList.add('has-photo'); e.innerHTML = _chatSupportAvatarHtml(); });
+  }).catch(function () {});
+}
 // Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
 function _chatSupportAvatarHtml(){
-  if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);
-  return `<img src="${CHAT_SUPPORT_PHOTO}" alt="Support" referrerpolicy="no-referrer" `
+  const src = _supAvatar || CHAT_SUPPORT_PHOTO;
+  if (!src) return _chatEsc(CHAT_SUPPORT_AV);
+  return `<img src="${src}" alt="Support" referrerpolicy="no-referrer" `
        + `onerror="this.parentNode&&this.parentNode.classList.remove('has-photo');this.outerHTML='${CHAT_SUPPORT_AV}';">`;
 }
 
@@ -11831,6 +11850,7 @@ function _chatClientHead(){
   const n=document.getElementById('chat-head-name'); if(n) n.textContent=CHAT_SUPPORT_NAME;
   const s=document.getElementById('chat-head-sub');  if(s) s.innerHTML='<span class="chat-presence"></span>'+_chatEsc(CHAT_SUPPORT_SUB);
   const av=document.getElementById('chat-head-av');  if(av){ av.classList.add('has-photo'); av.innerHTML=_chatSupportAvatarHtml(); }
+  _chatChargerAvatarSupport();   // la photo posée depuis l'admin arrive ici, sans redéploiement
   document.getElementById('chat-back')?.classList.add('hidden');
   document.querySelector('.chat-input-bar')?.classList.remove('hidden');
   document.querySelector('.chat-hint')?.classList.remove('hidden');
