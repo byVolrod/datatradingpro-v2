@@ -1417,6 +1417,9 @@
           + (quand ? '<span class="camp-plan-when">' + quand + '</span>' : '')
           + _envInfo
           + (w.force ? '<span class="camp-plan-badge">forcé</span><span class="camp-plan-auto">rotation : ' + w.auto + '</span>' : '')
+          // Le temoignage s AJOUTE a la rotation (1 fois par mois) : il n a pas de ligne a lui, on
+          // l affiche donc sur la semaine qui le porte, pour qu il cesse d etre invisible.
+          + (w.temoignageLe ? '<span class="camp-plan-tem">+ Témoignage membre <em>mardi 18h</em></span>' : '')
           + '</div>'
           + '<select class="camp-plan-input" data-wk="' + w.cle + '" onchange="campPlanForcer(this.value, this.dataset.wk)">'
           + '<option value="">Auto (rotation)</option>' + opts + '</select>'

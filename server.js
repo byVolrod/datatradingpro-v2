@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260828-temoignage-au-programme', ts: Date.UTC(2026, 7, 28, 23, 0), title: 'Le temoignage mensuel apparait dans le programme des envois', desc: 'Le temoignage ne fait pas partie de la rotation hebdomadaire : il s ajoute, une fois par mois. Il n avait donc aucune ligne dans le programme des envois, ce qui laissait croire qu il n etait pas programme alors qu il part tout seul. Il s affiche desormais sur la semaine qui le porte, avec son jour et son heure. Le rendez-vous est aussi corrige partout : premier MARDI du mois, et non plus premier lundi comme l indiquait encore la note du panneau.' },
   { id: 'dtpu-20260828-force-devises-entiere', ts: Date.UTC(2026, 7, 28, 21, 0), title: 'Force des Devises : les courbes s affichent en entier sur ecran moyen', desc: 'Sur les ecrans de taille intermediaire — petite tablette, telephone en paysage, fenetre reduite — le bas du graphique Force des Devises etait coupe : l axe des dates disparaissait et plusieurs etiquettes de devises (NZD, JPY, CHF, CAD, AUD) passaient sous le pli, sans aucun signe que quelque chose manquait. La carte recevait une taille minimale bien inferieure a celle exigee par le graphique qu elle contient. Les deux sont desormais accordees : la carte reserve la hauteur qu il faut, et les courbes s affichent entieres avec leur axe et toutes leurs etiquettes. Rien ne change sur grand ecran.' },
   { id: 'dtpu-20260828-risque-histo-entier', ts: Date.UTC(2026, 7, 28, 19, 0), title: 'Sentiment de Risque : l historique reste entier dans une carte courte', desc: 'Dans le widget Sentiment de Risque, la bande d historique quotidien avait une hauteur FIGEE face a une jauge qui, elle, refusait de se resserrer. Des que la carte manquait de hauteur, c est le bas de l historique qui disparaissait : les barres negatives coupees en plein milieu, l axe des dates et le titre passes sous le pli, sans que rien ne le signale. La bande se resserre desormais quand la place manque, jusqu a rester lisible, et ne cede la main qu apres la jauge. Quand la carte est assez haute, rien ne change : la bande garde exactement sa taille d avant, au pixel pres.' },
   { id: 'dtpu-20260828-jamais-de-relance-apres-fusion', ts: Date.UTC(2026, 7, 28, 17, 0), title: 'Apres la reunion de deux comptes, plus aucune relance de paiement sur l ancienne adresse', desc: 'Quand deux fiches d une meme personne sont reunies, l ancienne adresse est desactivee et datee dans le passe. Or notre controle des abonnements echus balaie les deux derniers jours sans distinguer les comptes desactives : l ancienne adresse pouvait donc recevoir un courriel « votre abonnement a expire » dans les heures suivant la reunion. Pour un membre actif, qui venait de payer, et a cause d une operation faite pour lui. Une adresse absorbee est desormais reconnue comme telle partout ou une relance de paiement peut partir, et en est exclue definitivement. La correction est retroactive : les reunions deja effectuees sont couvertes, sans rien avoir a refaire.' },
@@ -20420,8 +20421,22 @@ app.get('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (_req
       const lundi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + a * 7, 12));
       const _jr = step ? _stepWd(step) : 0;
       const _env = step ? _envoiDe(cle, _jr) : null;
+      /* LE TEMOIGNAGE APPARAIT DANS LE PROGRAMME (28/08, constat user « t as pas ajoute temoignage
+         la-dedans »). Il ne fait PAS partie de la rotation hebdomadaire — il s ajoute, une fois par
+         mois — donc il n avait aucune ligne : l ecran laissait croire qu il n etait pas programme,
+         alors qu il part bel et bien tout seul. On calcule ici le 1er MARDI du mois et on l attache
+         a la semaine qui le contient. Une date programmee a la main reste affichee a part. */
+      const _mardi1 = (() => {
+        const j = new Date(Date.UTC(lundi.getUTCFullYear(), lundi.getUTCMonth(), lundi.getUTCDate(), 12));
+        for (let k = 0; k < 7; k++) {                                   // parcourt la semaine
+          const c = new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth(), j.getUTCDate() + k, 12));
+          if (c.getUTCDay() === 2 && c.getUTCDate() <= 7) return c.toISOString().slice(0, 10);   // mardi ET dans les 7 premiers jours = 1er mardi
+        }
+        return '';
+      })();
       semaines.push({
         cle, debut: lundi.toISOString().slice(0, 10),
+        temoignageLe: _mardi1,                                 // '' si le 1er mardi n est pas dans cette semaine
         contenuId: step ? step.id : '', contenu: step ? step.label : '',
         jour: _jr, heure: step ? (step.hour || 0) : 0,
         force: !!forceId, auto: (_WEEK_ROTATION[_rotIdxForWeek(a)] || {}).label || '',

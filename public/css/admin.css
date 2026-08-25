@@ -1061,3 +1061,10 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .fusion-apercu .fa-l { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; padding: 3px 0; }
 .fusion-apercu .fa-l span:first-child { color: var(--text3, #8a8f98); }
 .fusion-apercu .fa-l span:last-child { color: var(--text, #e6e8ec); font-family: var(--font-mono, monospace); text-align: right; }
+
+/* Temoignage mensuel dans le programme des envois : il s AJOUTE a la rotation, il n a donc pas de
+   ligne a lui — on le pose sur la semaine qui le porte, en retrait pour qu on ne le confonde pas
+   avec le contenu hebdomadaire. */
+.camp-plan-tem { display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; padding: 1px 8px;
+  font-size: 11px; color: #e3b23a; background: rgba(227,178,58,.10); border: 1px solid rgba(227,178,58,.30); border-radius: 999px; }
+.camp-plan-tem em { font-style: normal; color: var(--text3, #8a8f98); }
