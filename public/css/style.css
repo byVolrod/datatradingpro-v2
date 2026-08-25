@@ -18833,7 +18833,6 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
   .topbar-icon--ai .ai-spark-txt { display: none; }   /* l'icône IA mesurait le double des autres */
 }
 @media (max-width: 400px) {
-  .topbar-sentiment { display: none; }
   /* ⚠️ PLUS DE DEPLIAGE EN SURIMPRESSION SOUS 400 px. Ce comportement avait ete concu quand la
      recherche etait une icone de 34 px : au focus, elle sortait de la barre pour couvrir toute la
      largeur. Depuis que la barre passe sur deux rangees (voir plus bas), elle occupe DEJA toute
@@ -20083,6 +20082,12 @@ html[data-theme="light"] .dtp-skel-txt .cal-kb-quote {
     overscroll-behavior-x: contain;      /* balayer la rangée ne déclenche pas le geste « retour » du navigateur */
   }
   .topbar-right::-webkit-scrollbar { display: none; height: 0; }
+  /* Pilule RISK ON/OFF retirée de la topbar mobile (25/08, demande user : « enlève l'icône
+     riskon riskoff à côté de la barre de recherche pour gagner en espace »). Elle n'était déjà
+     masquée que sous 400px — un téléphone de 402pt la gardait, tronquée, entre la recherche et
+     les icônes. La règle monte à 768 et REMPLACE celle du bloc ≤400 (retirée, pas doublée).
+     L'info risque reste à un geste : onglet RISQUE et widget Sentiment de Risque. */
+  .topbar-sentiment { display: none; }
   /* Trait vert « volet ouvert » (l.9761 : bottom:-11px, calé pour la barre desktop) : il serait
      rogné par le conteneur défilant → ramené DANS l'icône, toujours sous le glyphe. */
   #chat-btn.topbar-icon--active::after,
