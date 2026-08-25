@@ -15910,7 +15910,7 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      devenaient illisibles. */
   .home-zone-body:has(.wdg-fx-chart) { min-height: 520px; }
   .wdg-card:has(.wdg-fx-chart) { min-height: 520px; }
-  .wdg-fx-chart { min-height: 380px; padding-right: 6px; }
+  .wdg-fx-chart { min-height: 240px; padding-right: 6px; }   /* meme filet qu a 860 : retrecir plutot que deborder */
 
   /* ── 3 · CALENDRIER : des CARTES, plus un tableau ─────────────────────────────────────────────
      Dix colonnes ne rentrent pas dans 390px — les y forcer donnait des intitulés tronqués et du
@@ -16085,8 +16085,20 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   /* Les hôtes de graphiques gardent leur propre plancher : c'est le seul filet qui les empêche de
      s'effondrer si la zone venait à perdre sa hauteur. Il existait sous 560 px seulement, laissant
      561-860 px sans protection — un téléphone en paysage, une petite tablette. */
-  .wdg-fx-chart { min-height: 380px; }
-  .wdg-lfmap    { min-height: 260px; }
+  /* ⚠️ 380 -> 240 (29/08, le user : « rien n a change, on peut pas lire les courbes »). Le plancher
+     de 380px est ce qui FAIT deborder : quand la carte reste courte pour une raison quelconque —
+     feuille en cache, disposition enregistree, carte redimensionnee a la main — le graphique refuse
+     de descendre sous 380 et son bas sort du cadre. Il est alors CLIPPE par `.wdg-card`
+     (`overflow: hidden`) : la ligne de zero, l axe des dates et la moitie des devises passent hors
+     champ SANS barre de defilement ni le moindre signe. Sur la capture TW, l axe affichait 40 et 20
+     et le cadre coupait vers 20 : JPY, CHF, CAD et NZD, tous sous cette valeur, etaient simplement
+     invisibles — d ou « on ne voit pas les courbes ».
+     Le plancher de la CARTE (520px, juste en dessous) reste la vraie reponse : quand il s applique,
+     le graphique recoit ~436px et rien ne change. 240 n est que le FILET : si la carte est courte
+     malgre tout, le graphique RETRECIT au lieu de deborder. Un graphique plus petit se lit ; un
+     graphique coupe en deux, non. */
+  .wdg-fx-chart { min-height: 240px; }
+  .wdg-lfmap    { min-height: 200px; }
 
   /* ⚠️ ET LE PLANCHER DE LA CARTE QUI VA AVEC (28/08, capture user « on voit pas les courbes en
      entierete »). Poser un minimum de 380px sur le GRAPHIQUE sans en poser un sur la CARTE, c est
