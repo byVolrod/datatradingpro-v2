@@ -62,8 +62,8 @@ const ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique m
 const FAM_RX = [
   ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|import prices|export prices|wholesale price|trimmed mean|deflator/i],
   ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
-  ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
-  ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative/i],
+  ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|retail trade|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|industrial orders|(?:machine tool|machinery|core machinery) orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|consumer climate|\btankan\b|\bifo\b|\bzew\b|\bsentix\b|\bgfk\b|investor confidence|economic sentiment|business climate|business survey|climat des affaires|leading index|leading indicator|indicateur avanc[ée]|housing starts|building permits|home sales|house price|\bhpi\b|prix des logements|construction (?:output|spending|\bpmi\b)|(?:business|retail|wholesale) inventories|stocks des (?:entreprises|grossistes)|personal (?:spending|income)|consumer spending|d[ée]penses des m[ée]nages|revenus? des m[ée]nages|consumer credit|cr[ée]dit [àa] la consommation|tertiary industry|vehicle sales|car registrations|immatriculations|(?:philly|philadelphia|dallas|richmond|kansas city|\bkc\b|empire state|new york|\bny\b) fed (?:manufacturing|services|business|composite|index)|empire state manufacturing|richmond (?:manufacturing|services)/i],
+  ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative|money supply|masse mon[ée]taire|private loans|pr[êe]ts au secteur priv[ée]|bank lending|cr[ée]dit bancaire/i],
   ['Commerce', /guerre commerciale|trade war|tarifs?\b|droits? de douane|surtaxes?|r[ée]torsion|quotas?|embargo commercial|balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|exports|imports|balance commerciale/i],
 ];
 /* TABLE REPRISE VERBATIM du Récap Quotidien (`_FAM_JOUR`, public/js/app.js) : c'est la seule façon
@@ -160,6 +160,181 @@ function pct(p) {
   return (r > 0 ? '+' : '−') + String(Math.abs(r).toFixed(2)).replace('.', ',') + ' %';
 }
 
+/* CORRESPONDANCE SÉANCE ↔ RAPPORT. Les wraps portent la région (« Asia-Pacific », « European »,
+   « Americas »), nos fenêtres portent le nom du rapport. Une seule table, pour ne pas avoir à
+   deviner de part et d'autre. */
+const TYPE_PAR_SESSION = { 'Asia-Pacific': 'Asia Session Recap', 'European': 'London Session Recap', 'Americas': 'US Session Recap' };
+
+/* DÉJÀ DIT ? — LE VERROU CONTRE LE DOUBLON.
+   On verse dans Macro les publications du calendrier de la séance, mais le texte du wrap en cite
+   déjà une partie : « Ifo Business Climate Allemagne août : 88,8 (vs 87,2 att.) ». Ajouter notre
+   ligne par-dessus donnerait le même chiffre deux fois, ce qui est pire que de l'omettre — un
+   rapport qui se répète perd la confiance qu'il vient de gagner en étant précis.
+   Deux signaux, du plus fort au plus faible :
+     · LA VALEUR PUBLIÉE. Si « 88,8 » (ou « 88.8 ») figure déjà dans une puce, c'est la même
+       publication. C'est le signal décisif : deux indicateurs différents partagent rarement leur
+       chiffre au dixième près dans la même séance.
+     · LES MOTS DISTINCTIFS du nom. « Ifo », « ZEW », « Tankan », « JOLTS » suffisent seuls ; les
+       mots communs (« index », « rate », « change », « prelim ») ne comptent pas. À défaut d'un
+       mot distinctif, il en faut DEUX en commun — sinon « Retail Sales » et « Home Sales » se
+       confondraient sur le seul mot « sales ».
+   En cas de doute on considère que c'est déjà dit : mieux vaut une publication manquante qu'une
+   publication en double. */
+const _MOTS_COMMUNS = new Set(['index','rate','rates','change','prelim','final','flash','adv','est','estimate','core','monthly','annual','yoy','mom','qoq','y','m','q','the','and','of','de','du','des','la','le','les','sa','indicator','data','report']);
+const _DISTINCTIFS = /\b(ifo|zew|tankan|jolts|nahb|gfk|sentix|redbook|nfp|adp|ism|pce|hicp|cpi|ppi|pib|gdp|pmi|dxy|jgb|opec)\b/i;
+/* LE CALENDRIER EST EN ANGLAIS, LES PUCES SONT EN FRANÇAIS. « French Consumer Confidence » et
+   « Confiance des consommateurs France » désignent la même publication sans partager un seul mot :
+   une comparaison monolingue les prenait pour deux choses différentes et servait le chiffre en
+   double. On ramène donc les deux langues à un vocabulaire commun avant de comparer. La table ne
+   couvre que les indicateurs et les pays qui reviennent — un terme absent ne casse rien, il rend
+   seulement la détection plus prudente, ce qui est le bon côté pour se tromper. */
+const _FR_EN = [
+  [/confiance des (?:consommateurs|m[ée]nages)/g, 'consumer confidence'],
+  [/confiance des (?:entreprises|chefs d.entreprise|patrons)/g, 'business confidence'],
+  [/moral des (?:m[ée]nages|consommateurs)/g, 'consumer confidence'],
+  [/ventes au d[ée]tail/g, 'retail sales'],
+  [/prix [àa] la consommation|indice des prix/g, 'cpi'],
+  [/prix (?:[àa] la )?production/g, 'ppi'],
+  [/production industrielle/g, 'industrial production'],
+  [/balance commerciale/g, 'trade balance'],
+  [/taux de ch[oô]mage|ch[oô]mage/g, 'unemployment'],
+  [/inscriptions? au ch[oô]mage|demandes d.allocation/g, 'jobless claims'],
+  [/cr[ée]ations? d.emplois?/g, 'employment change'],
+  [/march[ée] du travail/g, 'labour'],
+  [/mises en chantier/g, 'housing starts'],
+  [/permis de construire/g, 'building permits'],
+  [/commandes de biens durables/g, 'durable goods'],
+  [/d[ée]penses des m[ée]nages/g, 'personal spending'],
+  [/taux directeur|d[ée]cision de taux/g, 'policy rate'],
+  [/salaires?|r[ée]mun[ée]rations?/g, 'earnings'],
+  [/\bpib\b/g, 'gdp'],
+  [/\ballemagne\b|\ballemand\w*/g, 'german'],
+  [/\bfrance\b|\bfran[cç]ais\w*/g, 'french'],
+  [/\bespagne\b|\bespagnol\w*/g, 'spanish'],
+  [/\bitalie\b|\bitalien\w*/g, 'italian'],
+  [/\broyaume[- ]uni\b|\bbritannique\w*/g, 'british'],
+  [/\b[ée]tats[- ]unis\b|\bam[ée]ricain\w*/g, 'us'],
+  [/\bjapon\b|\bjaponais\w*/g, 'japan'],
+  [/\bzone euro\b/g, 'euro'],
+];
+function _normalise(t) {
+  let s = String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  for (const [rx, en] of _FR_EN) s = s.replace(rx, ' ' + en + ' ');
+  return s;
+}
+function _motsUtiles(t) {
+  return _normalise(t).split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !_MOTS_COMMUNS.has(w));
+}
+/* LE PAYS TRANCHE, ET IL TRANCHE AVANT TOUT LE RESTE. « US Consumer Confidence » et « Confiance
+   des consommateurs en France » partagent DEUX mots utiles (« consumer », « confidence ») : la
+   comparaison lexicale seule les confondait et faisait disparaître la publication américaine du
+   Macro — exactement le trou que cette section vient boucher. Deux publications qui portent des
+   pays DIFFÉRENTS ne sont jamais la même, quels que soient les mots partagés. Le pays se lit
+   d'abord dans l'intitulé (« German », « French »…), à défaut dans la devise du calendrier —
+   ForexFactory nomme « CB Consumer Confidence » sans dire « US », la devise le dit pour lui.
+   Une puce SANS pays reste comparable à tout : la plupart des puces n'en nomment pas. */
+const _PAYS_RX = /\b(german(?:y)?|french|france|spanish|spain|italian|italy|british|britain|uk|usa|us|american|japan(?:ese)?|chin(?:a|ese)|canad(?:a|ian)|austral(?:ia|ian)|swiss|switzerland|euro(?:zone)?)\b/g;
+const _PAYS_CANON = {
+  german: 'de', germany: 'de', french: 'fr', france: 'fr', spanish: 'es', spain: 'es',
+  italian: 'it', italy: 'it', british: 'gb', britain: 'gb', uk: 'gb',
+  us: 'us', usa: 'us', american: 'us', japan: 'jp', japanese: 'jp',
+  china: 'cn', chinese: 'cn', canada: 'ca', canadian: 'ca', australia: 'au', australian: 'au',
+  swiss: 'ch', switzerland: 'ch', euro: 'ez', eurozone: 'ez',
+};
+/* La devise ne vaut le pays que si elle n'en désigne qu'un. L'EUR en désigne CINQ : un « Ifo
+   Business Climate » sans « German » dans son intitulé reste une publication allemande, et une puce
+   qui parle de l'Allemagne doit pouvoir la couvrir. On rend donc pour l'EUR l'ensemble de la zone —
+   la prudence va ici dans le bon sens : l'ambiguïté vient de ce que le titre ne dit pas le pays. */
+const _PAYS_DEV = { USD: ['us'], EUR: ['ez', 'de', 'fr', 'es', 'it'], GBP: ['gb'], JPY: ['jp'], CHF: ['ch'], CAD: ['ca'], AUD: ['au'], NZD: ['nz'], CNY: ['cn'] };
+function _paysDe(t) {
+  const out = new Set();
+  for (const m of _normalise(t).match(_PAYS_RX) || []) { const c = _PAYS_CANON[m]; if (c) out.add(c); }
+  return out;
+}
+function _nombresDe(t) {
+  return (String(t || '').match(/-?\d+[.,]?\d*/g) || []).map(x => x.replace(',', '.'));
+}
+function dejaDit(ev, puces) {
+  let lignes = (puces || []).map(p => String(p || ''));
+  if (!lignes.length) return false;
+  const nom = String((ev && ev.title) || '');
+  // Le pays d'abord : on ne compare plus qu'aux puces qui PEUVENT parler du même pays.
+  const paysEv = _paysDe(nom);
+  if (!paysEv.size) for (const c of _PAYS_DEV[String((ev && ev.currency) || '').toUpperCase()] || []) paysEv.add(c);
+  if (paysEv.size) {
+    lignes = lignes.filter(l => {
+      const p = _paysDe(l);
+      if (!p.size) return true;
+      for (const c of p) if (paysEv.has(c)) return true;
+      return false;
+    });
+    if (!lignes.length) return false;
+  }
+  const val = String((ev && ev.actual) || '').trim();
+  if (val) {
+    const n = _nombresDe(val)[0];
+    // Un chiffre trop court (« 2 », « 86 ») se retrouve par hasard : on n'y voit un signal qu'à
+    // partir de trois caractères significatifs, ou s'il porte une décimale.
+    if (n && (n.length >= 4 || n.indexOf('.') > 0)) {
+      const cherche = [n, n.replace('.', ',')];
+      if (lignes.some(l => cherche.some(c => l.includes(c)))) return true;
+    }
+  }
+  const dist = (nom.match(_DISTINCTIFS) || [])[0];
+  if (dist && lignes.some(l => new RegExp('\\b' + dist + '\\b', 'i').test(l))) return true;
+  const mots = _motsUtiles(nom);
+  if (mots.length < 2) return false;
+  return lignes.some(l => { const ml = _motsUtiles(l); return mots.filter(w => ml.includes(w)).length >= 2; });
+}
+
+// ── Fenêtre d'une séance ────────────────────────────────────────────────────────────────────────
+/* Le jour civil se lit À PARIS, jamais en UTC : une séance asiatique qui commence à 00h00 Paris est
+   déjà la veille à Londres, et un décalage d'un jour vide la fenêtre en silence. */
+function jourParis(ts) { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); }
+function offsetParis(ts) {
+  const d = new Date(ts);
+  return new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Paris' })) - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' }));
+}
+/* `now` DONNE LE JOUR de la séance, `finRef` PLAFONNE sa fin. Les deux se confondent pour la séance
+   en cours (on ne raconte pas l'avenir), mais pas pour un récap DÉJÀ PUBLIÉ : sa fenêtre est celle
+   de SON jour, close en entier, même relue le lendemain. */
+function bornes(reportType, now, finRef) {
+  const F = FENETRES[reportType];
+  if (!F) return null;
+  const [Y, M, D] = jourParis(now).split('-').map(Number);
+  const off = offsetParis(now);
+  return {
+    debutTs: Date.UTC(Y, M - 1, D, F.debut, 0, 0) - off,
+    finTs: Math.min(finRef == null ? now : finRef, Date.UTC(Y, M - 1, D, F.fin, 0, 0) - off),
+    nom: F.nom, dev: F.dev,
+  };
+}
+/* La fenêtre d'un récap de séance PUBLIÉ : celle de sa séance, le jour de sa publication. La fin
+   reste plafonnée à maintenant — un récap du jour ne peut pas annoncer des chiffres pas encore
+   tombés. Rend null si l'article n'est pas un récap de séance (« Global », ouverture, hebdo…). */
+function bornesPourWrap(item, now) {
+  const type = TYPE_PAR_SESSION[String((item && item.session) || '')];
+  const ts = (item && item.timestamp) || 0;
+  if (!type || !ts) return null;
+  return bornes(type, ts, now == null ? Date.now() : now);
+}
+/* LES PUBLICATIONS DE LA FENÊTRE : tombées dedans, sur les devises de la séance, et RÉSULTAT CONNU.
+   Sans `actual` il n'y a rien à raconter — c'est un rendez-vous à venir, pas un fait de séance.
+   Les fortes d'abord, puis l'ordre chronologique : on lit un récap par ordre d'importance. */
+function filtreFenetre(items, b) {
+  if (!b || b.finTs <= b.debutTs) return [];
+  return (items || []).filter(e => {
+    const ts = (e && e.timestamp) || 0;
+    if (ts < b.debutTs || ts > b.finTs) return false;
+    if (b.dev.indexOf(String((e && e.currency) || '').toUpperCase()) < 0) return false;
+    return !!(e && e.actual && String(e.actual).trim());
+  });
+}
+function trierMacro(evs) {
+  const fort = e => /high/i.test((e && e.impact) || '') ? 1 : 0;
+  return (evs || []).slice().sort((x, y) => (fort(y) - fort(x)) || ((x.timestamp || 0) - (y.timestamp || 0)));
+}
+
 // ── Lignes du rapport ───────────────────────────────────────────────────────────────────────────
 /* PHOTO DE SÉANCE : une seule ligne, les actifs qui ont réellement bougé en tête. Un actif sans
    donnée est OMIS, jamais rendu avec un tiret : une ligne vide dans un récap chiffré fait douter de
@@ -193,6 +368,20 @@ function ligneMacro(ev, heure) {
   return `${tete} : ${e.actual} contre ${e.forecast} attendu${et ? ` (${et})` : ''}${e.previous ? `, préc. ${e.previous}` : ''}`;
 }
 
+/* LA MÊME LIGNE, AU STYLE DE LA NOTE DE DESK : devise et indicateur en gras Markdown, comme les
+   puces que l'IA écrit juste à côté. Une ligne au style différent se repère au premier coup d'œil
+   et donne l'impression d'un morceau rapporté d'ailleurs ; ici tout sort du même desk. */
+function ligneMacroMd(ev, heure) {
+  const l = ligneMacro(ev, heure);
+  if (!l) return '';
+  const dev = String((ev && ev.currency) || '');
+  const nom = String((ev && ev.title) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  let s = l;
+  if (dev) s = s.replace(dev + ' \u00b7 ', '**' + dev + '** \u00b7 ');
+  if (nom) s = s.replace(nom + ' :', '**' + nom + '** :');
+  return s;
+}
+
 /* SYNTHÈSE DE SÉANCE : une phrase de tête, déduite des chiffres. Elle ne qualifie que ce qui est
    mesuré — combien de publications, combien ont surpris, et le mouvement le plus marqué. */
 function synthese(nomSeance, perfs, macros) {
@@ -210,4 +399,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };

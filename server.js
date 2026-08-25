@@ -19,8 +19,9 @@ const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/r
 const { fetchDanskeResearch } = require('./scrapers/danske-research');   // Danske — API publique interceptée (Puppeteer), PDF natifs (published_url)
 const { fetchTEAll } = require('./scrapers/tradingeconomics');   // TradingEconomics — fondamentaux réels par pays (Smart Bias « Fundamental Data » fiable)
 const { fetchTVCalendar, fetchTVCalendarFull, fetchTVCalendarRange } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare) + plage historique navigable
-const _WA = require('./walabels');
-const _SEA = require('./seance');   // récap de séance fabriqué par le desk (pur + testé : scripts/seance-verif.js)   // titres, gloses FR et descriptions des cartes « Semaine à Venir » (pur + testé : scripts/weekahead-verif.js)
+const _WA = require('./walabels');    // titres, gloses FR et descriptions des cartes « Semaine à Venir » (pur + testé : scripts/weekahead-verif.js)
+const _SEA = require('./seance');     // récap de séance fabriqué par le desk : fenêtres, écarts, familles (pur + testé : scripts/seance-verif.js)
+const _WSEG = require('./wrapseg');   // mise en page du rapport de séance segmenté : rubriques, Macro complétée par notre calendrier (pur + testé)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
@@ -996,6 +997,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260826-familles-elargies', ts: Date.UTC(2026, 7, 26, 19, 0), title: 'Le rangement par famille couvre desormais presque tout le calendrier', desc: 'La table qui range les publications par famille — Inflation, Croissance economique, Emploi, Politique monetaire, Commerce — avait ete ecrite pour la dizaine d indicateurs que citent les recaps. En y faisant passer tout le calendrier, un intitule sur quatre tombait dans Autres : ventes de logements anciens, stocks des entreprises, depenses et revenus des menages, enquetes Sentix, GfK, ESI, indicateurs avances, immatriculations, masse monetaire. Ils sont maintenant ranges. Un defaut est corrige au passage : les enquetes regionales de la Fed — Philly Fed, Dallas Fed, Empire State, Richmond — etaient classees en Politique monetaire a cause du seul mot Fed, alors que ce sont des enquetes d activite. Elles rejoignent la Croissance economique, sans emporter les discours et decisions des banquiers centraux, qui restent a leur place. Le changement vaut pour le Recap Quotidien, les recaps de seance et l e-mail hebdomadaire, qui partagent la meme table.' },
+  { id: 'dtpu-20260826-macro-calendrier-seance', ts: Date.UTC(2026, 7, 26, 18, 0), title: 'Recap de seance : la rubrique Macro reprend TOUTES les publications de la seance', desc: 'La rubrique Macro d un recap de seance ne reprenait que les chiffres cites dans le recap d origine : une publication tombee pendant la seance mais passee sous silence n apparaissait nulle part. Elle est desormais completee par notre propre calendrier economique, sur la fenetre horaire exacte de la seance et sur ses devises — Asie, Londres et New York, les trois recaps du jour. Chaque publication ajoutee arrive chiffree, au meme format que les autres : heure de Paris, resultat, consensus, ecart et precedent, sous le nom exact du calendrier. Elle se range dans sa famille, avec le reste. Rien n est repete : une publication deja racontee dans le recap n est pas reecrite en dessous, et le pays fait partie de la comparaison — la confiance des menages americaine et la francaise ne sont plus confondues. Et si un recap ne parlait d aucune donnee alors que la seance en comptait, la rubrique Macro est creee pour les accueillir.' },
   { id: 'dtpu-20260826-macro-familles-seance', ts: Date.UTC(2026, 7, 26, 16, 0), title: 'Recap de seance : la rubrique Macro rangee par famille, comme le Recap Quotidien', desc: 'Dans le recap de seance, la rubrique Macro alignait toutes les publications a la suite. Elles sont desormais rangees par famille — Inflation, Croissance economique, Emploi, Politique monetaire, Commerce — avec les memes noms et le meme ordre que dans le Recap Quotidien, que beaucoup lisent juste avant ou juste apres. Le classement est fait par nos regles, pas laisse a l appreciation de la redaction automatique : une meme publication tombe dans la meme famille dans les deux rapports. Les decisions et propos de banques centrales rejoignent la Politique monetaire, et une famille sans publication du jour ne s affiche pas.' },
   { id: 'dtpu-20260826-expiries-retirees', ts: Date.UTC(2026, 7, 26, 15, 0), title: 'Les echeances d options de change disparaissent du fil', desc: 'Les depeches du type Wednesday FX Option Expiries revenaient chaque jour sans chiffre ni consequence lisible. Elles sont desormais ecartees a la source : elles ne sont plus recuperees du tout, et celles deja presentes ont ete retirees du fil. Un filtre existait deja mais il ne s appliquait que si la depeche etait tres courte, si bien qu il suffisait d un texte un peu plus long pour la voir repasser.' },
   { id: 'dtpu-20260826-seance-familles', ts: Date.UTC(2026, 7, 26, 14, 0), title: 'Recaps de seance : les chiffres ranges par famille, comme le Recap Quotidien', desc: 'Les publications d une seance ne sortent plus en liste plate : elles sont rangees par famille — Inflation, Croissance economique, Emploi, Politique monetaire, Commerce — exactement comme dans le Recap Quotidien, avec les memes noms et le meme ordre. Les deux rapports se lisent souvent a la suite le meme jour : ranger pareil evite d avoir a se reorienter en passant de l un a l autre. Une famille sans publication ce jour-la ne s affiche pas.' },
@@ -6227,7 +6230,7 @@ function _aiMonthProjection() {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v13:';   // bump → régénère (v13 (26/08, retour user capture à l'appui « dans macro je vois pas les news sorties dans leur catégorie comme quotidien ») : la rubrique MACRO est RANGÉE PAR FAMILLE — Inflation, Croissance économique, Emploi, Politique monétaire, Commerce — comme le Récap Quotidien, avec la MÊME table de classement (_SEA.famille, reprise verbatim de `_FAM_JOUR`). Le classement est fait PAR NOUS sur ce que l'IA a écrit, pas demandé à l'IA : elle ne peut donc ni inventer une famille ni en oublier. Le HTML segmenté étant CACHÉ, sans ce bump les rapports déjà segmentés gardaient leur liste plate. ; v12 : rubriques du RÉCAP QUOTIDIEN, en français : « Géopolitique · Macro · Analyse de séance · À surveiller » à la place de « CENTRAL BANKS & DATA / FX / ON WATCH ». Sans ce bump, les rapports déjà segmentés gardaient les anciens titres anglais en cache ; v11 : règle PMI corrigée — priorité Services UNIQUEMENT pour l'US/USD ; v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
+const SW_SEG_VER  = 'v14:';   // bump → régénère (v14 (26/08, demande user « check les news sorties durant la session, classe les dans leur catégories de la partie macro » + « fais pareil pr les autres sessions récap du jour ») : la rubrique MACRO n'est plus limitée à ce que l'auteur du wrap a retenu — NOTRE CALENDRIER (_tvCalCache, mêmes noms que l'onglet Calendrier) la COMPLÈTE avec toutes les publications tombées pendant la fenêtre de la séance, sur ses devises, chiffrées au format du desk et rangées dans la même famille. Anti-doublon _SEA.dejaDit (chiffre publié, sigle distinctif, mots communs — et le PAYS tranche : « US Consumer Confidence » n'est pas la confiance des ménages française). Vaut pour les TROIS récaps du jour, la fenêtre étant celle du jour du récap. Le HTML segmenté étant CACHÉ, sans ce bump les rapports déjà segmentés gardaient leur Macro amputée. ; v13 (26/08, retour user capture à l'appui « dans macro je vois pas les news sorties dans leur catégorie comme quotidien ») : la rubrique MACRO est RANGÉE PAR FAMILLE — Inflation, Croissance économique, Emploi, Politique monétaire, Commerce — comme le Récap Quotidien, avec la MÊME table de classement (_SEA.famille, reprise verbatim de `_FAM_JOUR`). Le classement est fait PAR NOUS sur ce que l'IA a écrit, pas demandé à l'IA : elle ne peut donc ni inventer une famille ni en oublier. Le HTML segmenté étant CACHÉ, sans ce bump les rapports déjà segmentés gardaient leur liste plate. ; v12 : rubriques du RÉCAP QUOTIDIEN, en français : « Géopolitique · Macro · Analyse de séance · À surveiller » à la place de « CENTRAL BANKS & DATA / FX / ON WATCH ». Sans ce bump, les rapports déjà segmentés gardaient les anciens titres anglais en cache ; v11 : règle PMI corrigée — priorité Services UNIQUEMENT pour l'US/USD ; v10 : RÈGLES DE DESK mentor injectées — _MENTOR_RULES : mispricing CPI, MPS = texte→titres liés, PMI Services > Manufacturing sauf US, emploi saisonnier vs durable ; v9 : NOTE DE DESK façon FX Daily Recap — flèches d'impact →, gras Markdown ** ** sur devises/BC/indicateurs, format data strict « réel (vs att., préc.) → conséquence », dossier géopolitique + CENTRAL BANKS & DATA + ON WATCH) ; v8 : écarte puces sans valeur ; v7 : section FX détaillée par devise
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -6312,13 +6315,19 @@ async function _prewarmWrapSeg(item) {
   // Déjà dans le cache DURABLE Supabase ? → hydrate la mémoire, AUCUNE régénération (survit aux redéploys = grosse économie de quota Gemini).
   try { const dur = await auth.aiCacheGet('swseg:' + SW_SEG_VER + url); if (typeof dur === 'string' && dur.length > 50) { _swSegCache.set(SW_SEG_VER + url, dur); return false; } } catch {}
   if (!aiAllowed('analyst', { priority: 'background' })) return false;                     // respecte l'enveloppe budget Gemini
+  /* LE CALENDRIER D'ABORD. Le préchauffage tourne au boot ; s'il segmente un récap de séance avant
+     que _tvCalCache ne soit chargé, la rubrique Macro sort sans les publications de la séance — et
+     ce rapport-là est MIS EN CACHE tel quel, donc amputé jusqu'au prochain bump de version. On
+     laisse simplement passer le tour : le préchauffage repasse, et _resegmentTodayWraps (95 s après
+     le boot) rattrape les récaps du jour. */
+  if (_SEA.TYPE_PAR_SESSION[String(item.session || '')] && !_calPret()) return false;
   try {
     let points = null;
     const _srcItem = item._raw || item.content;   // l'article d'origine, jamais une sortie IA anterieure
     if (_srcItem && _srcItem.length > 100) points = _extractWrapPoints(_cleanWrapHtml(_srcItem));
     if (!points || points.length < 3) { const data = await _fetchILContentHttp(url); if (data && data.points && data.points.length >= 3) points = data.points; }
     if (!points || points.length < 3) return false;
-    const seg = await _segmentWrapAI(points, { noClaude: true });            // PRÉCHAUFFAGE de fond → JAMAIS de crédits Claude (fallback = on retentera)
+    const seg = await _segmentWrapAI(points, { noClaude: true }, item);      // PRÉCHAUFFAGE de fond → JAMAIS de crédits Claude (fallback = on retentera)
     if (seg) { aiNote('analyst'); _swSegCache.set(SW_SEG_VER + url, seg); _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, seg).catch(() => {}); return true; }   // compté APRÈS succès + durable
     _swSegCache.set(SW_SEG_VER + url, { f: Date.now() });                    // échec → marqueur daté (retry 6h), plus de null permanent ni de débit
   } catch (e) { console.warn('[SW prewarm]', e.message); _swSegCache.set(SW_SEG_VER + url, { f: Date.now() }); }
@@ -6376,7 +6385,7 @@ async function _prewarmBrSegs() {
 }
 
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
-async function _segmentWrapAI(points, _opts = {}) {
+async function _segmentWrapAI(points, _opts = {}, item = null) {
   const prompt = `Tu es un analyste d'un desk macro (hedge fund). Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de SÉANCE de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu. Transforme-les en une NOTE DE DESK ultra-condensée, factuelle et directe, façon DataTradingPro (ton d'analyste institutionnel).
 
 STYLE (impératif) :
@@ -6405,31 +6414,12 @@ ${points.map(p => '- ' + p).join('\n')}`;
   const text = await ai.generateText(prompt, 2800, _opts);   // _opts.noClaude=true depuis le préchauffage (pas de crédits payants en fond)
   const m = text.match(/\[[\s\S]*\]/);
   if (!m) return null;
-  const arr = JSON.parse(m[0]);
-  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  let html = '';
-  for (const sec of arr) {
-    if (!sec || !sec.section || !Array.isArray(sec.items) || !sec.items.length) continue;
-    /* MACRO RANGÉE PAR FAMILLE, COMME LE RÉCAP QUOTIDIEN (26/08, retour utilisateur, capture à
-       l'appui : « dans macro je vois pas les news sorties dans leur catégorie comme quotidien »).
-       C'est ICI que se lit le récap de séance — le rapport segmenté par l'IA, pas les puces
-       déterministes. Sa rubrique Macro sortait en liste plate pendant que le Quotidien range par
-       Inflation · Croissance économique · Emploi · Politique monétaire · Commerce.
-       Le classement est DÉTERMINISTE et fait avec la MÊME table que le Quotidien (_SEA.famille,
-       reprise de `_FAM_JOUR`) : on ne demande pas à l'IA de ranger, on range nous-mêmes ce qu'elle a
-       écrit. Elle ne peut donc pas inventer une famille, ni en oublier une.
-       Une seule famille remplie → aucun sous-titre : intituler un groupe unique n'apprend rien. */
-    if (/^macro$/i.test(String(sec.section).trim())) {
-      const groupes = _SEA.parFamille(sec.items.map(i => ({ titre: String(i), ligne: String(i) })));
-      if (groupes.length > 1) {
-        html += `<strong>${esc(sec.section)}</strong>`;
-        for (const g of groupes) html += `<em>${esc(g.famille)}</em><ul>${g.lignes.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
-        continue;
-      }
-    }
-    html += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
-  }
-  if (html.length > 50) { console.log(`[SW seg] OK -> ${arr.length} sections (wrap structure par IA)`); return html; }
+  /* LA MISE EN PAGE EST DANS UN MODULE PUR (wrapseg.js) — rubriques, complétion par notre calendrier,
+     anti-doublon, classement par famille, HTML. C'est le rendu que l'utilisateur lit vraiment : il
+     s'éprouve donc en test (scripts/seance-verif.js) et non plus seulement en production. */
+  const r = _WSEG.html(JSON.parse(m[0]), _macroCalendrierPourWrap(item));
+  if (r.ajouts) console.log(`[SW seg] Macro complétée par notre calendrier : +${r.ajouts} publication(s)`);
+  if (r.html.length > 50) { console.log(`[SW seg] OK -> ${r.sections} sections (wrap structure par IA)`); return r.html; }
   return null;
 }
 
@@ -6449,7 +6439,7 @@ async function _resegmentTodayWraps(force = false) {
         let points = (_srcW && _srcW.length > 100) ? _extractWrapPoints(_cleanWrapHtml(_srcW)) : null;
         if (!points || points.length < 3) { const d = await _fetchILContentHttp(w.url); if (d && d.points) points = d.points; }
         if (points && points.length >= 3) {
-          const s = await _segmentWrapAI(points);
+          const s = await _segmentWrapAI(points, {}, w);
           if (s) { _swSegCache.set(SW_SEG_VER + w.url, s); _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + w.url, s).catch(() => {}); seg = s; regen++; }
         }
       } catch (e) { console.warn('[Wraps today]', (w.url || '').slice(-40), e.message); }
@@ -6623,7 +6613,7 @@ app.get('/api/session-wrap-content', async (req, res) => {
     if (seg === undefined && aiAllowed('analyst', { priority: 'user' })) {   // tier user : à l'ouverture, jamais freiné par les heures calmes
       seg = await _aiInflight('swseg:' + SW_SEG_VER + url, async () => {     // coalescing : ouvertures simultanées → 1 seule génération
         let s;
-        try { s = await _segmentWrapAI(points); aiNote('analyst'); }
+        try { s = await _segmentWrapAI(points, {}, cached); aiNote('analyst'); }
         catch (e) { console.warn('[SW seg AI]', e.message); s = null; }
         _swSegCache.set(SW_SEG_VER + url, s || { f: Date.now() });           // échec → marqueur daté (retry 6 h), plus de null permanent
         if (s) { _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, s).catch(() => {}); }   // persiste (disque + Supabase durable)
@@ -9940,39 +9930,36 @@ setTimeout(() => { _rattraperSeancesDuJour().catch(() => {}); }, 90000);
    LECTURE SYNCHRONE : les builders ne sont pas async (voir generateDailyBriefing). La performance
    est donc préparée en tâche de fond dans `_perfSeance` et lue telle quelle, exactement comme
    `_aSurveillerSeanceSuivante` lit `_tvCalCache`. */
-function _offsetParis(ts) {
-  const d = new Date(ts);
-  return new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Paris' })) - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' }));
-}
+const _offsetParis = ts => _SEA.offsetParis(ts);   // une seule implémentation, testée (scripts/seance-verif.js)
 // Bornes de la séance, en horodatages : du début de sa fenêtre à sa fin (ou à maintenant si elle court).
-function _bornesSeance(reportType, now) {
-  const F = _SEA.FENETRES[reportType];
-  if (!F) return null;
-  const [Y, M, D] = _jourParis(now).split('-').map(Number);
-  const off = _offsetParis(now);
-  return {
-    debutTs: Date.UTC(Y, M - 1, D, F.debut, 0, 0) - off,
-    finTs: Math.min(now, Date.UTC(Y, M - 1, D, F.fin, 0, 0) - off),
-    nom: F.nom, dev: F.dev,
-  };
-}
+/* Les bornes vivent dans le module PUR (seance.js) : c'est là qu'elles s'éprouvent — jour civil de
+   Paris, heure d'été, fin plafonnée. Le serveur ne fait plus que les appeler. */
+const _bornesSeance = (reportType, now, finRef) => _SEA.bornes(reportType, now, finRef);
 /* PUBLICATIONS DE LA SÉANCE : celles qui sont TOMBÉES pendant sa fenêtre, sur SES devises, et qui
    ont un résultat. Sans `actual` il n'y a rien à raconter — c'est un rendez-vous à venir, pas un
    fait de séance. Source : le calendrier déjà en mémoire, donc aucune invention possible. */
-function _macroDeLaSeance(reportType) {
-  const b = _bornesSeance(reportType, Date.now());
-  if (!b) return [];
+function _macroFenetre(b, max) {
   const items = (_tvCalCache && Array.isArray(_tvCalCache.items)) ? _tvCalCache.items : [];
-  const dans = items.filter(e => {
-    const ts = (e && e.timestamp) || 0;
-    if (ts < b.debutTs || ts > b.finTs) return false;
-    if (b.dev.indexOf(String(e.currency || '').toUpperCase()) < 0) return false;
-    return !!(e.actual && String(e.actual).trim());
-  });
-  // Mêmes noms que l'onglet Calendrier (voir _calFfNames), et les forts d'abord.
-  const propre = _calFfNames(dans);
-  const fort = e => /high/i.test(e.impact || '') ? 1 : 0;
-  return propre.sort((x, y) => (fort(y) - fort(x)) || (x.timestamp - y.timestamp)).slice(0, 8);
+  // Sélection et tri : module pur. Noms d'affichage : les MÊMES que l'onglet Calendrier (_calFfNames).
+  return _SEA.trierMacro(_calFfNames(_SEA.filtreFenetre(items, b))).slice(0, max || 8);
+}
+function _macroDeLaSeance(reportType) {
+  return _macroFenetre(_bornesSeance(reportType, Date.now()), 8);
+}
+// Le calendrier est-il chargé ? Tant qu'il ne l'est pas, un rapport segmenté serait incomplet ET
+// mis en cache tel quel — mieux vaut attendre le tour suivant (voir _prewarmWrapSeg).
+function _calPret() { return !!(_tvCalCache && Array.isArray(_tvCalCache.items) && _tvCalCache.items.length); }
+/* LES PUBLICATIONS DE LA SÉANCE, LUES DANS NOTRE CALENDRIER (26/08, demande utilisateur : « check
+   les news sorties durant la session, classe les dans leur catégories de la partie macro »).
+   Le récap InvestingLive ne raconte que ce que SON auteur a retenu ; notre calendrier, lui, sait
+   TOUT ce qui est tombé pendant la fenêtre, sur les devises de la séance. On complète donc la
+   rubrique Macro du rapport avec ce qui manque — jamais avec ce qui est déjà dit (_SEA.dejaDit).
+   La fenêtre est celle du JOUR DU RÉCAP, close en entier : le wrap est souvent écrit avant la fin
+   de la séance, mais la rubrique s'intitule « les news sorties durant la session », pas « avant que
+   l'auteur ne publie ». Source unique : _tvCalCache — donc les mêmes noms que l'onglet Calendrier,
+   et aucune invention possible. */
+function _macroCalendrierPourWrap(item, now) {
+  return _macroFenetre(_SEA.bornesPourWrap(item, now), 12);
 }
 /* PERFORMANCE DES ACTIFS SUR LA FENÊTRE — préparée en tâche de fond. Le rafraîchissement ne porte
    que sur la séance EN COURS ou tout juste close : rafraîchir les trois en permanence coûterait
@@ -10100,6 +10087,49 @@ app.get('/api/admin/seance-apercu', requireAdmin, (_req, res) => {
     seanceCourante: _seanceCourante(now) || '(aucune)',
     recapQuotidien: (() => { try { const r = allNews.find(i => i && i._fxr); return r ? { titre: r.headline, publieA: new Date(r.timestamp).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }) } : '(pas encore publié)'; } catch { return '(indisponible)'; } })(),
   };
+  res.json(sortie);
+});
+/* COMPARER LE RAPPORT AU CALENDRIER ÉCO DU JOUR (26/08, demande utilisateur : « et compare au
+   calendrier éco de ce jour »). Pour CHACUN des récaps de séance du jour, la route met face à face :
+   ce que le rapport publié raconte déjà dans sa rubrique Macro, et TOUT ce que notre calendrier a
+   enregistré pendant la fenêtre de cette séance. Chaque publication est marquée « déjà dit » ou
+   « ajoutée », avec sa famille et la ligne exacte qui sera écrite. Aucune génération, aucun appel
+   IA, aucune écriture : c'est un contrôle, pas une publication. */
+app.get('/api/admin/wrap-macro-apercu', requireAdmin, (_req, res) => {
+  const now = Date.now(), jour = _jourParis(now);
+  const hp = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  const sortie = { genereA: new Date(now).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }), version: SW_SEG_VER, jour, recaps: [], calendrierEnMemoire: ((_tvCalCache && _tvCalCache.items) || []).length };
+  const duJour = (_swCache || []).filter(w => w && w.url && _SEA.TYPE_PAR_SESSION[String(w.session || '')] && _jourParis(w.timestamp) === jour);
+  for (const w of duJour) {
+    const seg = _swSegCache.get(SW_SEG_VER + w.url);
+    // La rubrique Macro du rapport DÉJÀ SEGMENTÉ : de <strong>Macro</strong> à la rubrique suivante.
+    let puces = [];
+    if (typeof seg === 'string') {
+      const bloc = (seg.split(/<strong>/i).find(x => /^macro<\/strong>/i.test(x)) || '');
+      puces = (bloc.match(/<li>([\s\S]*?)<\/li>/gi) || []).map(li => li.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim());
+    }
+    const b = _SEA.bornesPourWrap(w, now);
+    const cal = _macroCalendrierPourWrap(w, now);
+    sortie.recaps.push({
+      titre: _arlStdTitle(w), session: w.session, url: w.url,
+      publieA: hp(w.timestamp),
+      fenetre: b ? `${hp(b.debutTs)} → ${hp(b.finTs)} (${b.dev.join(', ')})` : '',
+      rapportSegmente: typeof seg === 'string' ? 'oui' : (seg ? 'échec récent' : 'pas encore'),
+      macroDuRapport: puces,
+      calendrierDeLaSeance: cal.map(e => {
+        const titre = _WA.intituleAffiche(e);
+        const deja = _SEA.dejaDit(e, puces);
+        return {
+          h: hp(e.timestamp), ccy: e.currency, titre, impact: e.impact,
+          reel: e.actual, attendu: e.forecast || '', prec: e.previous || '',
+          famille: _SEA.famille(titre),
+          etat: puces.length ? (deja ? 'déjà dit' : 'AJOUTÉE') : '(rapport pas encore segmenté)',
+          ligne: deja ? '' : _SEA.ligneMacroMd({ currency: e.currency, ctry: e.ctry, title: titre, actual: e.actual, forecast: e.forecast, previous: e.previous }, _WSEG.heureParis(e.timestamp)),
+        };
+      }),
+    });
+  }
+  if (!sortie.recaps.length) sortie.note = 'Aucun récap de séance en mémoire pour aujourd\'hui.';
   res.json(sortie);
 });
 function buildAsiaRecap({ dateStr, s, reportType }) {
