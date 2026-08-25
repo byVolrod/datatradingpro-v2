@@ -187,7 +187,17 @@
                 }).join('');
             var _picker = '<details class="wdg-tabic"><summary class="wdg-tabic-cur" title="Icone de l onglet">' + (_cur || '<span class="wdg-tabic-ph">+</span>') + '</summary>'
               + '<div class="wdg-tabic-grid">' + _grid + '</div></details>';
-            return '<div class="wdg-set-row wdg-set-tabrow">'
+            /* POIGNÉE DE DÉPLACEMENT — même idiome ⠿ que le gestionnaire de desks (_wireMgr) :
+               glisser-déposer, et ↑ ↓ au clavier quand la poignée a le focus (une liste de sept
+               onglets se réordonne plus vite à la flèche qu'à la souris). Une seule ligne → aucune
+               poignée : il n'y a rien à déplacer. */
+            var _grip = tl.length > 1
+              ? '<button type="button" class="wdg-set-tabgrip" draggable="true" data-j="' + j + '"'
+                + ' title="Glisser pour déplacer · ↑ ↓ au clavier" aria-label="Déplacer l\'onglet"'
+                + ' onkeydown="if(event.key===\'ArrowUp\'||event.key===\'ArrowDown\'){event.preventDefault();event.stopPropagation();DTPWidgets.moveTab(' + idx + ',' + j + ',' + j + '+(event.key===\'ArrowUp\'?-1:1));}">\u283f</button>'
+              : '';
+            return '<div class="wdg-set-row wdg-set-tabrow" data-j="' + j + '">'
+              + _grip
               + _picker
               + '<div class="wdg-set-tabcol">'
               +   '<input class="wdg-set-tabin" maxlength="18" value="' + esc(lb[j] || defLbl) + '"'
@@ -261,7 +271,46 @@
   function _syncPanel(i) {
     var l = activeLayout(); if (!l || !l.items[i]) return;
     var pop = document.getElementById(HOST_ID + '-s' + i), w = byId(l.items[i].w);
-    if (pop && w) pop.innerHTML = _setPanelHtml(i, w, l.items[i]);
+    if (pop && w) { pop.innerHTML = _setPanelHtml(i, w, l.items[i]); _wireTabsDnD(pop, i); }
+  }
+  /* GLISSER-DÉPOSER DES ONGLETS — même idiome que _wireMgr (poignée ⠿, repères .wdg-drop-before /
+     .wdg-drop-after). Délégation sur le VOLET, pas sur la liste : le volet survit aux re-rendus
+     (innerHTML), la liste non — un écouteur posé sur la liste serait perdu au premier déplacement,
+     et le deuxième glissement ne ferait plus rien. D'où aussi le drapeau, qui évite d'empiler un
+     écouteur par re-rendu. */
+  function _wireTabsDnD(pop, i) {
+    if (!pop || pop._tabsWired) return; pop._tabsWired = true;
+    var from = null;
+    var clear = function () {
+      var l2 = pop.querySelectorAll('.wdg-drop-before,.wdg-drop-after');
+      for (var z = 0; z < l2.length; z++) l2[z].classList.remove('wdg-drop-before', 'wdg-drop-after');
+    };
+    pop.addEventListener('dragstart', function (e) {
+      var grip = e.target.closest && e.target.closest('.wdg-set-tabgrip');
+      if (!grip) return;                                   // un autre glissement du volet : on ne s'en mêle pas
+      from = +grip.getAttribute('data-j');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(from)); } catch (_) {}
+    });
+    pop.addEventListener('dragover', function (e) {
+      if (from == null) return; e.preventDefault();
+      var row = e.target.closest && e.target.closest('.wdg-set-tabrow'); clear();
+      if (!row || +row.getAttribute('data-j') === from) return;
+      var r = row.getBoundingClientRect();
+      row.classList.add((e.clientY - r.top) > r.height / 2 ? 'wdg-drop-after' : 'wdg-drop-before');
+    });
+    pop.addEventListener('drop', function (e) {
+      if (from == null) return; e.preventDefault();
+      var row = e.target.closest && e.target.closest('.wdg-set-tabrow');
+      if (row) {
+        var to = +row.getAttribute('data-j'), r = row.getBoundingClientRect();
+        var cible = (e.clientY - r.top) > r.height / 2 ? to + 1 : to;
+        // Retirer la ligne avant de la réinsérer décale d'un cran tout ce qui la suivait.
+        if (from < cible) cible--;
+        API.moveTab(i, from, cible);
+      }
+      from = null; clear();
+    });
+    pop.addEventListener('dragend', function () { from = null; clear(); });
   }
   // `setter` (04/08) : « setOpt » par défaut (réglages de la CARTE) — « setTabOpt » pour les
   // réglages du SOUS-WIDGET affiché dans un panneau à onglets, qui a désormais les siens.
@@ -375,6 +424,48 @@
   // existants gardent EXACTEMENT leur signature d'avant, aucune régression possible sur ce chemin.
   function _argC(c) { return (c == null ? '' : ',' + (c | 0)); }
   function _gridOf(it, j) { return (Array.isArray(it.tabGrid) && it.tabGrid[j]) || ''; }
+  /* DÉPLACER UN ONGLET (26/08, demande user « met un truc pour déplacer les onglets »).
+     ⚠️ SIX STRUCTURES SONT INDEXÉES POSITIONNELLEMENT, sans clé stable : `tabs`, `tabLabels`,
+     `tabIcons`, `tabGrid`, les clés de `tabCfg` (« 3 » ou « 3-1 ») et `_tabAct`. En déplacer une
+     sans les autres fait glisser le NOM, l'ICÔNE, la DISPOSITION ou les RÉGLAGES sur l'onglet
+     voisin — le même piège que `removeTab` a déjà eu à corriger une fois.
+     On ne bricole donc pas index par index : on construit LA permutation une seule fois et on
+     réindexe tout avec elle. Une structure oubliée se voit alors immédiatement, ici, au lieu de se
+     manifester trois onglets plus loin chez le client. */
+  function _reordonnerOnglets(it, from, to) {
+    if (!it || !Array.isArray(it.tabs)) return false;
+    var n = it.tabs.length;
+    from = from | 0; to = Math.max(0, Math.min(n - 1, to | 0));
+    if (from < 0 || from >= n || from === to) return false;
+    var ordre = []; for (var q = 0; q < n; q++) ordre.push(q);
+    ordre.splice(to, 0, ordre.splice(from, 1)[0]);          // ordre[nouveau] = ancien
+    var vers = {};                                          // ancien → nouveau
+    ordre.forEach(function (o, nv) { vers[o] = nv; });
+    var reidx = function (arr, def) {
+      var out = []; for (var z = 0; z < n; z++) { var v = arr[ordre[z]]; out.push(v === undefined ? def : v); }
+      return out;
+    };
+    it.tabs = reidx(it.tabs, 'vide');
+    if (Array.isArray(it.tabLabels)) it.tabLabels = reidx(it.tabLabels, '');
+    if (Array.isArray(it.tabIcons))  it.tabIcons  = reidx(it.tabIcons, '');
+    if (Array.isArray(it.tabGrid))   it.tabGrid   = reidx(it.tabGrid, '');
+    if (it.tabCfg) {
+      var tc = {};
+      Object.keys(it.tabCfg).forEach(function (k) {
+        var m = /^(\d{1,2})(-\d{1,2})?$/.exec(k);
+        if (!m) { tc[k] = it.tabCfg[k]; return; }            // clé inconnue : conservée telle quelle
+        var o = parseInt(m[1], 10);
+        if (!(o in vers)) return;
+        tc[vers[o] + (m[2] || '')] = it.tabCfg[k];
+      });
+      it.tabCfg = tc;
+    }
+    // L'ONGLET AFFICHÉ SUIT SON CONTENU. Garder l'index brut ferait sauter l'affichage sur le
+    // voisin à chaque déplacement : on regarde un onglet, pas une position.
+    var act = it._tabAct | 0;
+    if (act in vers) it._tabAct = vers[act];
+    return true;
+  }
   function _estGrille(it, j) { return (Array.isArray(it.tabs) && it.tabs[j] === 'grille') && !!_gridParse(_gridOf(it, j)); }
   function _tabCells(it, j) { var g = _gridParse(_gridOf(it, j)); return g ? g.ids : []; }
   // Écrit disposition ET sentinel DANS LE MÊME save : jamais l'un sans l'autre, sinon un onglet
@@ -8793,6 +8884,10 @@ function _spansAffiches(lay) {
     var willOpen = target && target.hidden;
     host.querySelectorAll('.wdg-pop').forEach(function (p) { p.hidden = true; });   // un seul ouvert à la fois
     if (target) target.hidden = !willOpen;
+    /* `renderGrid` reconstruit le HTML des cartes : le volet de réglages est un ÉLÉMENT NEUF à
+       chaque rendu, jamais celui qu'on avait câblé. On câble donc à l'ouverture — le drapeau posé
+       sur l'élément rend l'appel gratuit quand c'est le même. */
+    if (willOpen && kind === 's' && target) _wireTabsDnD(target, idx);
   }
   function _closePops() {
     var host = document.getElementById(HOST_ID); if (!host) return;
@@ -9018,6 +9113,24 @@ function _spansAffiches(lay) {
       // décale aucun index, les onclick bakés restent donc valides pendant ce battement.
       setTimeout(function () { _syncPanel(i); }, 0);
     },
+    /* DÉPLACER UN ONGLET — appelé par la poignée (glisser-déposer ET flèches ↑ ↓).
+       « que ça se mette à jour dans le panneau à onglet quand on déplace » : les DEUX surfaces sont
+       rafraîchies — le volet de réglages (_syncPanel) ET la barre d'onglets de la carte
+       (API.refresh). Sans le second, la liste se réordonnait dans les réglages et la carte gardait
+       son ancien ordre jusqu'au prochain rendu : deux vérités à l'écran en même temps. */
+    moveTab: function (i, from, to) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i];
+      if (!_reordonnerOnglets(it, from, to)) return;        // hors bornes ou sur place : rien, et surtout aucun re-rendu
+      var nv = Math.max(0, Math.min(it.tabs.length - 1, to | 0));
+      save(); _syncPanel(i); API.refresh(i);
+      /* LE FOCUS SUIT LA POIGNÉE. Le volet est reconstruit par innerHTML : sans cette ligne, la
+         poignée que l'utilisateur tenait au clavier disparaît avec l'ancien DOM et la flèche
+         suivante ne va nulle part — il faudrait re-cliquer entre chaque cran. */
+      var pop = document.getElementById(HOST_ID + '-s' + i);
+      var g = pop && pop.querySelector('.wdg-set-tabgrip[data-j="' + nv + '"]');
+      if (g) try { g.focus({ preventScroll: true }); } catch (_) { g.focus(); }
+    },
     removeTab: function (i, j) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i]; if (!Array.isArray(it.tabs) || j >= it.tabs.length) return;
@@ -9028,10 +9141,16 @@ function _spansAffiches(lay) {
       // SNAPSHOT PROFOND DES QUATRE CHAMPS. `it.tabs.slice()` seul ne suffisait plus : l'annulation
       // rendait l'onglet mais pas sa disposition ni ses réglages.
       var snap = JSON.parse(JSON.stringify({
-        tabs: it.tabs, tabLabels: it.tabLabels || null, tabGrid: it.tabGrid || null, tabCfg: it.tabCfg || null,
+        tabs: it.tabs, tabLabels: it.tabLabels || null, tabIcons: it.tabIcons || null,
+        tabGrid: it.tabGrid || null, tabCfg: it.tabCfg || null,
       }));
       it.tabs.splice(j, 1);
       if (Array.isArray(it.tabLabels)) it.tabLabels.splice(j, 1);
+      /* ⚠️ `tabIcons` MANQUAIT (relevé le 26/08 en écrivant le déplacement d'onglets, qui a obligé à
+         recenser toutes les structures positionnelles). Retirer le 2e onglet décalait donc l'icône
+         de tous les suivants d'un cran, en silence : chaque onglet héritait de l'icône de son
+         voisin. Ni le snapshot d'annulation ni le splice ne le voyaient. */
+      if (Array.isArray(it.tabIcons)) it.tabIcons.splice(j, 1);
       // ⚠️ tabGrid ET tabCfg sont indexés POSITIONNELLEMENT, sans clé stable : un splice non
       // synchronisé fait glisser la disposition et les réglages sur l'onglet VOISIN. Le décalage de
       // tabCfg existait déjà avant les onglets composites — il est corrigé ici, une fois.
@@ -9062,6 +9181,7 @@ function _spansAffiches(lay) {
         if (!present) return;
         itRef.tabs = snap.tabs.slice();
         if (snap.tabLabels) itRef.tabLabels = snap.tabLabels.slice(); else delete itRef.tabLabels;
+        if (snap.tabIcons) itRef.tabIcons = snap.tabIcons.slice(); else delete itRef.tabIcons;
         if (snap.tabGrid) itRef.tabGrid = snap.tabGrid.slice(); else delete itRef.tabGrid;
         if (snap.tabCfg) itRef.tabCfg = JSON.parse(JSON.stringify(snap.tabCfg)); else delete itRef.tabCfg;
         save();

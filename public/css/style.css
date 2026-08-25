@@ -12618,6 +12618,21 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 .wdg-mgr-row.wdg-drop-before { box-shadow: 0 -2px 0 0 var(--orange); }
 .wdg-mgr-row.wdg-drop-after  { box-shadow: 0 2px 0 0 var(--orange); }
 
+/* ── Réordonner les ONGLETS d'un panneau (même poignée ⠿, dans les Réglages de la carte) ──
+   Le repère de dépôt reprend le trait or de _wireMgr : deux listes qui se réordonnent pareil
+   doivent en avoir l'air. La poignée reste visible en permanence (et pas au seul survol) : dans un
+   volet dense, une affordance qui n'apparaît qu'au survol ne se découvre pas. */
+.wdg-set-tabgrip {
+  flex: 0 0 auto; background: none; border: none; color: var(--w-t15, #6a6a72); cursor: grab;
+  font-size: 13px; padding: 2px 1px; line-height: 1; margin-top: 5px; touch-action: none;
+  border-radius: 3px;
+}
+.wdg-set-tabgrip:hover { color: var(--orange); }
+.wdg-set-tabgrip:active { cursor: grabbing; }
+.wdg-set-tabgrip:focus-visible { outline: none; color: var(--orange); box-shadow: 0 0 0 1px rgba(227, 178, 58, .55); }
+.wdg-set-tabrow.wdg-drop-before { box-shadow: 0 -2px 0 0 var(--orange); }
+.wdg-set-tabrow.wdg-drop-after  { box-shadow: 0 2px 0 0 var(--orange); }
+
 /* Aperçu de carte : largeur FIXE (rangée homogène) + transition douce de densité de la grille */
 .wdg-lib-card--prev .wdg-lib-prev { flex: 0 0 112px; height: 54px; }
 .wdg-grid { transition: gap .25s ease, padding .25s ease; }
