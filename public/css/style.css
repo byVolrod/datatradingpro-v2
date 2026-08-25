@@ -11588,7 +11588,10 @@ html[data-theme="light"] {
   /* L'EXCEPTION pour les widgets dits « courts » est retirée : c'est précisément elle qui laissait
      l'Horloge mondiale en mince bande vide (capture user). Plancher plus bas qu'ailleurs, mais
      utilisable. */
-  .wdg-card:has(.wdg-clockwrap), .wdg-card:has(.risk-gauge-stage) { min-height: 320px; }
+  /* :not(.wdg-card--tabs) (25/08, audit) : via :has() DESCENDANT, cette exception attrapait aussi
+     le PANNEAU À ONGLETS dès que son onglet RISQUE était monté, et son 0,2,0 battait le plancher
+     460px des cartes (spécificité 0,1,0) → la carte à onglets tombait à 320px sur téléphone. */
+  .wdg-card:not(.wdg-card--tabs):has(.wdg-clockwrap), .wdg-card:not(.wdg-card--tabs):has(.risk-gauge-stage) { min-height: 320px; }
 }
 /* Plein écran : la carte recouvre toute la zone de travail (overlay), les autres sont figées derrière. */
 .wdg-grid.wdg-fs-mode { overflow: hidden; }
@@ -12248,7 +12251,18 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
    étroite, mais TOUJOURS pleine largeur (les pistes vides sont supprimées, les items s'étirent). */
 .wdg-clocks-bar {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 0; padding: 0; background: var(--bg1); height: 100%; align-content: stretch;
+  /* ⚠️ height:100% + align-content:stretch VERROUILLAIENT la grille à la hauteur du wrap : dès que
+     auto-fit replie en ≥2 rangées (carte étroite, ou plus de 5 places choisies), chaque rangée
+     recevait une FRACTION du wrap (~61px mesurés pour ~120px de contenu) et .clock-item
+     { overflow:hidden } coupait GMT, ville, pays, météo — et le défilement du wrap (overflow-y:
+     auto, jamais engagé : contenu = contenant) ne pouvait pas secourir. Le bloc ≤768 corrigeait
+     ce cas depuis le 23/08 ; au-dessus de 768px il subsistait (REPRODUIT au banc : carte 300px,
+     3 rangées, vent de la dernière ville inatteignable). Recette : hauteur de CONTENU avec
+     plancher 136px par rangée (la cellule entière) et min-height:100% — quand tout tient, 1fr
+     étire les rangées comme avant, à l'identique ; quand ça ne tient plus, la grille dépasse et
+     le wrap défile enfin. Le bloc mobile ≤768, plus spécifique, reste maître sous 768px. */
+  gap: 0; padding: 0; background: var(--bg1); height: auto; min-height: 100%; align-content: stretch;
+  grid-auto-rows: minmax(136px, 1fr);
 }
 .wdg-clocks-bar .clock-item {
   flex: none; min-width: 0; background: transparent;
@@ -12475,7 +12489,11 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 .wdg-set-tabdel:hover { color: #ef4444; border-color: rgba(239, 68, 68, .5); }
 .wdgt-add { flex: 0 0 auto; background: none; border: none; color: #8a7440; cursor: pointer; font-size: 14px; padding: 0 10px; }
 .wdgt-add:hover { color: var(--orange); }
-.wdgt-body { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+/* ⚠️ overflow-y:auto, PAS hidden (25/08, audit 38 widgets : un sous-widget à minima durs —
+   jauge de risque 450px, grille du baromètre 240px… — était CLIPPÉ dans l'onglet sans aucun
+   moyen d'accès : mesuré 158px inatteignables pour l'onglet RISQUE dans une carte de 360).
+   Même doctrine que le .wdg-body des cartes simples, qui défile depuis toujours. */
+.wdgt-body { flex: 1 1 auto; min-height: 0; position: relative; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 .wdgt-body > * { flex: 1 1 auto; min-height: 0; }
 
 /* ── Force des Devises : DOUBLE panneau TD | TW (miroir de l'onglet › FORCE du desk) ── */
@@ -16257,11 +16275,11 @@ body.dtp-premium .view-panel > .panel > .panel-header {
 .wdgt-grid[data-d="2l"] { grid-template-rows: 1fr 1fr; }
 .wdgt-grid[data-d="3c"] { grid-template-columns: 1fr 1fr 1fr; }
 .wdgt-grid[data-d="4"]  { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-/* `.wdgt-body` est en overflow:hidden : ce qui déborde est CLIPPÉ, jamais scrollable. Chaque cellule
-   doit donc refaire son propre plancher, sinon les hauteurs minimales en dur de certains widgets
-   (grille de jauges, colonne de graphe banques) crèvent la carte au lieu de s'y adapter. */
+/* `.wdgt-body` défile désormais (25/08) — mais chaque cellule d'un panneau composite garde SON
+   défilement propre : les hauteurs minimales en dur de certains widgets (grille de jauges,
+   colonne de graphe banques) restent atteignables cellule par cellule, sans crever la carte. */
 .wdgt-cell {
-  min-width: 0; min-height: 0; overflow: hidden;
+  min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column;
   background: var(--card-bg, #0c0c0e);
 }
