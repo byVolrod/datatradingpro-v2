@@ -15442,6 +15442,23 @@ body.theme-light .cot-cell--na .cot-badge { background: var(--bg3); color: var(-
   .wdg-cal-bar { flex-wrap: wrap; row-gap: 5px; }
   .wdg-cal-unites { margin-left: 0; }
   .wdg-cal-unites .wdg-cal-u { padding: 2px 6px; font-size: 9.5px; }
+  /* ── LA DATE À DROITE DE « FAIBLE » (25/08, capture user : « place bien la date à droite de
+     Faible pour gagner une ligne »). La navigation ‹ date › occupait sa PROPRE ligne sous les
+     filtres d'impact : à ~420px de conteneur, filtres (~250px, padding 4/10) + nav (~190px :
+     flèches tactiles 36px du bloc mobile + étiquette min-width 92) dépassaient le budget et la
+     nav basculait. On resserre JUSTE assez pour que les deux tiennent côte à côte : pastilles
+     4/8, étiquette sans plancher de largeur (min-width 0 — le libellé « 24 – 28 août » se
+     suffit), gouttières 3px. Les flèches GARDENT leurs 36px : c'est la cible tactile, on ne
+     marchande pas dessus. margin-left:auto cale la nav au bord droit de la rangée des filtres ;
+     la recherche prend seule la 2e ligne (order 3 — son flex 1 1 auto de la l.11829 la laissait
+     sinon remonter à côté de la nav). Si le conteneur est vraiment trop étroit (zoom fort,
+     écran mini), la nav repasse dessous : repli par retour à la ligne, jamais par coupe. */
+  .wdg-cal-bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .wdg-cal-bar .cal-impact-filter { gap: 3px; }
+  .wdg-cal-bar .cal-imp-btn { padding: 4px 8px; }
+  .wdg-cal-bar .wdg-cal-nav { margin-left: auto; gap: 3px; }
+  .wdg-cal-bar .wdg-cal-per { min-width: 0; padding: 2px 6px; }
+  .wdg-cal-bar .cal-search-wrap { order: 3; flex: 1 1 100%; max-width: none; }
 }
 
 /* ── ALERTES : deux types ajoutés à la taxonomie (04/08). « Institutions » quitte la teinte des
