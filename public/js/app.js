@@ -1574,7 +1574,8 @@ function renderNews(hasNew = false) {
   if (hasMore) {
     const btn = document.createElement('button');
     btn.className = 'load-more-btn';
-    btn.textContent = loadingMore ? 'Chargement…' : 'Charger plus';
+    // MÊME fonction que loadMore pour choisir la cible : le libellé ne peut pas mentir sur l'action.
+    btn.textContent = loadingMore ? 'Chargement…' : _libelleChargerPlus(_cibleChargerPlus(filtered, effLimit));
     btn.disabled = loadingMore;
     btn.onclick = loadMore;
     fragment.appendChild(btn);
@@ -1641,37 +1642,71 @@ async function _completerJourCourant() {
   } catch (e) {} finally { _jourCompletEnCours = false; }
 }
 
+/* ── « CHARGER PLUS » = LA JOURNÉE ENTIÈRE (25/08, demande utilisateur) ──────────────────────────
+   Le bouton avançait par lots de CENT. Sur une journée chargée il fallait cliquer cinq ou six fois
+   pour la parcourir, et chaque clic ramenait l'utilisateur dans un lot arbitraire au milieu de rien.
+   Un clic déroule maintenant TOUTE la journée en cours ; le clic suivant, toute la journée
+   précédente. On lit ensuite en SCROLLANT, ce qui est la demande.
+   ⚠️ Cela REMPLACE la règle « cent puis le bouton tous les cent » (21/08) : c'est la même personne
+   qui l'avait demandée et qui demande aujourd'hui l'inverse, après l'avoir vécue.
+   La CIBLE est calculée par _cibleChargerPlus, et cette fonction sert AUSSI à écrire le libellé du
+   bouton : le bouton ne peut donc pas annoncer autre chose que ce qu'il fera — c'est exactement la
+   divergence entre deux copies d'une même règle qui a coûté la journée d'hier. */
+const _jourParis = ts => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
+const _jourVeille = j => { const d = new Date(j + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
+const _LM_HOPS = 12;        // au plus 12 lots de 100 par clic : une journée, même un jour de FOMC
+const _LM_MAX  = 1500;      // plafond dur d'éléments en mémoire (annoncé en console, jamais silencieux)
+/* Journée que le prochain clic doit dérouler : celle de la frontière du lot affiché si elle n'est
+   pas entièrement montrée, sinon la précédente. Rend aussi de quoi libeller le bouton. */
+function _cibleChargerPlus(filtered, eff) {
+  if (!filtered.length) return null;
+  const frontiere = _jourParis(filtered[Math.max(0, eff - 1)].timestamp);
+  const caches = filtered.slice(eff);
+  if (caches.some(it => it && _jourParis(it.timestamp) === frontiere)) return { jour: frontiere, memeJour: true };
+  const suivant = caches.find(it => it && _jourParis(it.timestamp) < frontiere);
+  return { jour: suivant ? _jourParis(suivant.timestamp) : _jourVeille(frontiere), memeJour: false };
+}
+function _libelleChargerPlus(cible) {
+  if (!cible) return 'Charger plus';
+  if (cible.memeJour) return 'Voir toute la journée';
+  const d = new Date(cible.jour + 'T12:00:00Z');
+  return 'Charger ' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+}
 async function loadMore() {
   if (loadingMore) return;
+  let filtered = getFilteredItems();
+  if (!filtered.length) return;
+  const eff = Math.min(displayLimit, filtered.length);
+  const cible = _cibleChargerPlus(filtered, eff);
+  if (!cible) return;
 
-  const filtered = getFilteredItems();
-  if (filtered.length > displayLimit) {
-    // Le lot suivant est DÉJÀ en mémoire : on le révèle, sans requête.
-    displayLimit += 100;
-    renderNews();
-    return;
-  }
-
-  // Need to fetch older items from server — on enchaîne les lots (max 4/clic) jusqu'à ce que la JOURNÉE
-  // à la nouvelle frontière soit COMPLÈTE côté client : le bouton retombe toujours pile avant la journée
-  // suivante, même les jours à très fort volume (>100 news, ex. FOMC/CPI).
   loadingMore = true;
   renderNews();
-
   try {
-    for (let hop = 0; hop < 10; hop++) {
-      const oldestTs = allItems.length > 0 ? Math.min(...allItems.map(i => i.timestamp)) : Date.now();
-      const r    = await fetch(`/api/news/history?before=${oldestTs}&limit=100`);
+    /* On ramène l'historique jusqu'à DÉPASSER la journée visée : tant qu'aucun élément en mémoire
+       n'est plus ancien qu'elle, c'est qu'on n'en a pas encore vu la fin. La sonde porte sur
+       `allItems` (ce qu'on a vraiment reçu) et non sur la liste filtrée, qui peut être vide de
+       cette journée-là à cause d'un filtre de catégorie sans que l'historique soit épuisé. */
+    for (let hop = 0; hop < _LM_HOPS; hop++) {
+      if (allItems.some(i => i && i.timestamp && _jourParis(i.timestamp) < cible.jour)) break;   // journée complète
+      if (allItems.length >= _LM_MAX) { console.warn(`[Fil] plafond de ${_LM_MAX} éléments atteint : la journée ${cible.jour} n'est pas déroulée jusqu'au bout.`); break; }
+      const oldestTs = Math.min(...allItems.map(i => i.timestamp));
+      const r = await fetch(`/api/news/history?before=${oldestTs}&limit=100`);
       const data = await r.json();
       if (data.total) serverTotal = data.total;
-      const existingIds = new Set(allItems.map(i => i.id));
-      const fresh = (data.items || []).filter(i => !existingIds.has(i.id));
-      if (!fresh.length) { serverTotal = allItems.length; break; }   // historique épuisé → plus de bouton
-      allItems = [...allItems, ...fresh].sort((a, b) => b.timestamp - a.timestamp);
-      if (getFilteredItems().length >= displayLimit + 100) break;   // le lot suivant est complet
+      // ZÉRO DOUBLON : on ne garde que des identifiants jamais vus. Le serveur peut renvoyer un
+      // élément déjà en mémoire (même horodatage à la frontière d'un lot).
+      const vus = new Set(allItems.map(i => i && i.id));
+      const frais = (data.items || []).filter(i => i && i.id && !vus.has(i.id));
+      if (!frais.length) { serverTotal = allItems.length; break; }   // historique épuisé → le bouton disparaît
+      allItems = [...allItems, ...frais].sort((a, b) => b.timestamp - a.timestamp);
     }
-    displayLimit += 100;
-  } catch {}
+  } catch (e) { console.warn('[Fil] chargement de la journée :', e && e.message); }
+
+  // On montre TOUT jusqu'à la fin de la journée visée (elle incluse).
+  filtered = getFilteredItems();
+  const fin = filtered.findIndex(it => it && _jourParis(it.timestamp) < cible.jour);
+  displayLimit = fin >= 0 ? fin : filtered.length;
 
   loadingMore = false;
   renderNews();
@@ -6702,7 +6737,7 @@ function _sbRenderRiskEvents(curr) {
   // que l'étiquette du jour venait de l'heure du NAVIGATEUR : les deux pouvaient se contredire, et
   // une publication asiatique du matin (01h à Paris) se rangeait la veille, sous le mauvais nom de
   // jour. Les heures affichées sont déjà en heure de Paris : la journée l'est maintenant aussi.
-  const jourParis = ts => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
+  const jourParis = _jourParis;   // une seule définition (voir le bloc « Charger plus »)
   const nomJour = k => DAYS[new Date(k + 'T12:00:00Z').getUTCDay()];
   _sbLoadCal().then(() => {
     if (_sbActiveCur !== curr) return;   // l'utilisateur a changé de devise entre-temps
