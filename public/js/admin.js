@@ -1046,39 +1046,106 @@
         : '<div class="empty-state">Aucun accès offert exempté.</div>';
     } catch {}
   }
-  // ── FUSION / MIGRATION DE DEUX COMPTES ──────────────────────────────────────
-  // Le serveur choisit seul entre FUSION (les deux existent) et MIGRATION (la cible est a creer).
-  // On simule TOUJOURS avant d'ecrire : `appliquer` n'est envoye qu'au second bouton.
-  function _fusionMsg(t){ const e = document.getElementById('fusion-etat'); if (e) e.textContent = t || ''; }
-  async function _fusionAppel(appliquer){
-    const de = (document.getElementById('fusion-from').value || '').trim();
-    const vers = (document.getElementById('fusion-to').value || '').trim();
-    const box = document.getElementById('fusion-apercu');
-    if (!de || !vers) { _fusionMsg('Renseigne les deux adresses.'); return; }
-    _fusionMsg(appliquer ? 'Fusion en cours…' : 'Simulation…');
-    try {
-      const body = { from: de, to: vers, acces: 1 };
-      if (appliquer) body.appliquer = 1;
-      const d = await fetch('/api/admin/merge-users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body) }).then(r => r.json());
-      if (!d.ok) { _fusionMsg('❌ ' + (d.error || 'échec')); box.innerHTML = ''; return; }
-      const a = d.apercu || {};
-      const ligne = (k, v) => '<div class="camp-bl-row"><span class="camp-bl-em">' + _escH(k) + '</span><span>' + _escH(String(v)) + '</span></div>';
-      box.innerHTML = ligne('Opération', a.operation || '')
-        + ligne('Compte conservé', (a.garde && a.garde.email) || '')
-        + ligne('Compte absorbé', (a.absorbe && a.absorbe.email) || '')
-        + ligne('Échéance retenue', (a.apres && a.apres.echeance) || '')
-        + ligne('Nom retenu', (a.apres && a.apres.nom) || '')
-        + ligne('L\'absorbé devient', a.absorbeDevient || '')
-        + ligne('Alias posé', a.alias || '')
-        + (d.dryRun ? '' : ligne('Mail → compte conservé', d.mail && d.mail.sent ? '✅ envoyé (' + (d.mail.provider || '') + ')' : '❌ non envoyé — le filet d\'onboarding reprendra')
-                         + ligne('Mail → ancienne adresse', d.mailAncienne && d.mailAncienne.sent ? '✅ envoyé' : '— non envoyé'));
-      _fusionMsg(d.dryRun ? '🔎 Simulation — rien n\'a été écrit. Clique « Fusionner » pour exécuter.' : '✅ Fusion effectuée.');
-      if (!d.dryRun && typeof loadUsers === 'function') { try { loadUsers(); } catch (e) {} }
-    } catch (e) { _fusionMsg('❌ Erreur réseau.'); }
+  /* ══ FUSION DE DEUX COMPTES, PAR SELECTION DANS LE TABLEAU ═════════════════════════════════
+     Une meme personne peut avoir deux fiches (typiquement une adresse relais Apple creee par un
+     paiement « Masquer mon adresse », et sa vraie adresse). On coche les deux lignes, on choisit
+     laquelle GARDER, on SIMULE, puis on confirme. Rien n est ecrit avant la confirmation.
+     La selection est gardee par ADRESSE et non par index de ligne : le tableau se re-rend a chaque
+     tri, filtre ou changement de page, et une selection par position sauterait sur un autre compte. */
+  const _fusionSel = new Set();
+  let _fusionDir = null;   // { de, vers } une fois le sens choisi
+  function fusionCoche(el){
+    const em = String(el.dataset.email || '').toLowerCase();
+    if (!em) return;
+    if (el.checked) _fusionSel.add(em); else _fusionSel.delete(em);
+    _fusionDir = null;
+    fusionBarre();
   }
-  async function fusionSimuler(){ return _fusionAppel(false); }
-  async function fusionAppliquer(){ return _fusionAppel(true); }
+  function _fusionInfos(){
+    // On relit les LIGNES affichees pour retrouver le nom ; une adresse cochee puis filtree hors
+    // page reste selectionnee (l adresse suffit au serveur), on affiche alors l adresse seule.
+    return [..._fusionSel].map(em => {
+      const ck = document.querySelector('.u-ck[data-email="' + em.replace(/"/g, '\\"') + '"]');
+      return { email: em, nom: (ck && ck.dataset.nom) || '' };
+    });
+  }
+  function _fbLigne(k, v){ return '<div class="fa-l"><span>' + _escH(k) + '</span><span>' + _escH(String(v == null ? '' : v)) + '</span></div>'; }
+  function fusionBarre(msg, apercuHtml){
+    const bar = document.getElementById('fusion-bar'); if (!bar) return;
+    const n = _fusionSel.size;
+    if (!n) { bar.hidden = true; bar.innerHTML = ''; return; }
+    bar.hidden = false;
+    const infos = _fusionInfos();
+    const et = c => '<b>' + _escH(c.nom || c.email) + '</b>';
+    let h = '<span class="fb-txt">' + n + ' compte' + (n > 1 ? 's' : '') + ' sélectionné' + (n > 1 ? 's' : '') + ' : '
+          + infos.map(et).join(' · ') + '</span><span class="fb-sp"></span>';
+    if (n !== 2) {
+      h += '<span class="fb-txt">Coche <b>exactement 2</b> comptes de la même personne pour les fusionner.</span>'
+         + '<button class="btn" onclick="fusionVider()">Tout décocher</button>';
+    } else if (!_fusionDir) {
+      const [a, b] = infos;
+      h += '<span class="fb-txt">Quel compte <b>garder</b> ?</span>'
+         + '<button class="btn" onclick="fusionSens(\'' + encodeURIComponent(b.email) + '\',\'' + encodeURIComponent(a.email) + '\')">Garder ' + _escH(a.nom || a.email) + '</button>'
+         + '<button class="btn" onclick="fusionSens(\'' + encodeURIComponent(a.email) + '\',\'' + encodeURIComponent(b.email) + '\')">Garder ' + _escH(b.nom || b.email) + '</button>'
+         + '<button class="btn" onclick="fusionVider()">Annuler</button>';
+    } else {
+      h += '<span class="fb-txt">' + _escH(msg || '') + '</span>'
+         + '<button class="btn btn-primary" onclick="fusionConfirmer()">Confirmer la fusion</button>'
+         + '<button class="btn" onclick="fusionVider()">Annuler</button>';
+    }
+    if (apercuHtml) h += '<div class="fusion-apercu">' + apercuHtml + '</div>';
+    bar.innerHTML = h;
+  }
+  function fusionVider(){
+    _fusionSel.clear(); _fusionDir = null;
+    document.querySelectorAll('.u-ck:checked').forEach(c => { c.checked = false; });
+    fusionBarre();
+  }
+  async function _fusionAppel(appliquer){
+    if (!_fusionDir) return;
+    const body = { from: _fusionDir.de, to: _fusionDir.vers, acces: 1 };
+    if (appliquer) body.appliquer = 1;
+    const d = await fetch('/api/admin/merge-users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body) }).then(r => r.json());
+    return d;
+  }
+  // Choix du sens → SIMULATION immédiate (le serveur n'écrit rien tant qu'appliquer n'est pas envoyé).
+  async function fusionSens(de, vers){
+    _fusionDir = { de: decodeURIComponent(de), vers: decodeURIComponent(vers) };
+    fusionBarre('Simulation…');
+    try {
+      const d = await _fusionAppel(false);
+      if (!d || !d.ok) { _fusionDir = null; fusionBarre(); alert('Fusion impossible : ' + ((d && d.error) || 'échec')); return; }
+      const a = d.apercu || {};
+      fusionBarre('Simulation — rien n\'a encore été écrit.',
+        _fbLigne('Opération', a.operation || '')
+        + _fbLigne('Compte conservé', (a.garde && a.garde.email) || '')
+        + _fbLigne('Compte absorbé', (a.absorbe && a.absorbe.email) || '')
+        + _fbLigne('Échéance retenue', (a.apres && a.apres.echeance) || '')
+        + _fbLigne('Nom retenu', (a.apres && a.apres.nom) || '')
+        + _fbLigne('L\'absorbé devient', a.absorbeDevient || '')
+        + _fbLigne('Alias posé', a.alias || '')
+        + _fbLigne('Accès', a.accesEnvoyes || ''));
+    } catch (e) { _fusionDir = null; fusionBarre(); alert('Erreur réseau.'); }
+  }
+  async function fusionConfirmer(){
+    if (!_fusionDir) return;
+    fusionBarre('Fusion en cours…');
+    try {
+      const d = await _fusionAppel(true);
+      if (!d || !d.ok) { fusionBarre('Échec.'); alert('Fusion impossible : ' + ((d && d.error) || 'échec')); return; }
+      const a = d.apercu || {};
+      const res = _fbLigne('Compte conservé', (a.garde && a.garde.email) || '')
+        + _fbLigne('Échéance', (a.apres && a.apres.echeance) || '')
+        + _fbLigne('Mail → compte conservé', d.mail && d.mail.sent ? '✅ envoyé' : '❌ non envoyé (le filet reprendra)')
+        + _fbLigne('Mail → ancienne adresse', d.mailAncienne && d.mailAncienne.sent ? '✅ envoyé' : '— non envoyé');
+      _fusionSel.clear(); _fusionDir = null;
+      fusionBarre();
+      const bar = document.getElementById('fusion-bar');
+      if (bar) { bar.hidden = false; bar.innerHTML = '<span class="fb-txt">✅ <b>Fusion effectuée.</b></span><span class="fb-sp"></span><button class="btn" onclick="fusionVider()">Fermer</button><div class="fusion-apercu">' + res + '</div>'; }
+      if (typeof loadUsers === 'function') { try { await loadUsers(); } catch (e) {} }
+    } catch (e) { fusionBarre('Échec.'); alert('Erreur réseau.'); }
+  }
 
   async function giftAdd(){
     const inp = document.getElementById('camp-gift-input'); const v = (inp.value || '').trim(); if (!v) return;
@@ -2011,7 +2078,7 @@
     });
 
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun utilisateur ne correspond aux filtres.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Aucun utilisateur ne correspond aux filtres.</td></tr>';
       document.getElementById('pagination').innerHTML = '';
       return;
     }
@@ -2041,6 +2108,7 @@
       `<button class="btn-ic${danger ? ' btn-ic--danger' : ''}" title="${label}" aria-label="${label}" onclick="${onclick}">${IC[icon]}</button>`;
     tbody.innerHTML = pageUsers.map(u => `
       <tr data-id="${u.id}">
+        <td class="u-ck-col"><input type="checkbox" class="u-ck" data-email="${_escH(u.email)}" data-nom="${_escH(u.name || '')}" onchange="fusionCoche(this)"${_fusionSel.has(String(u.email).toLowerCase()) ? ' checked' : ''}></td>
         <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${_escH(u.name || '-')}</span></div></td><!-- (XSS) nom/e-mail TOUJOURS échappés : modifiables par le client via son profil -->
         <td class="email">${_escH(u.email)}</td>
         <td><span class="badge badge-client">${cycleLabel(u)}</span></td>
