@@ -1054,6 +1054,13 @@
      tri, filtre ou changement de page, et une selection par position sauterait sur un autre compte. */
   const _fusionSel = new Set();
   let _fusionDir = null;   // { de, vers } une fois le sens choisi
+  /* Renvoyer les identifiants : DECOCHE par defaut (28/08, demande user « il a deja recu les mails,
+     faut juste fusionner pour pas envoyer de doublon »). Decoche, on ne touche PAS au mot de passe
+     du compte conserve : celui que le client possede deja continue de fonctionner. Sur une
+     MIGRATION le compte est cree, donc son mot de passe n existe nulle part : le serveur envoie
+     alors les acces quoi qu il arrive, et la case n y change rien. */
+  let _fusionAcces = false;
+  function fusionAccesToggle(el){ _fusionAcces = !!(el && el.checked); if (_fusionDir) fusionSens(encodeURIComponent(_fusionDir.de), encodeURIComponent(_fusionDir.vers)); }
   function fusionCoche(el){
     const em = String(el.dataset.email || '').toLowerCase();
     if (!em) return;
@@ -1098,6 +1105,9 @@
          + '<div class="fa-l"><span>L\'autre compte</span><span>est suspendu, et son adresse reste rattachée au compte gardé</span></div></div>';
     } else {
       h += '<span class="fb-txt">' + _escH(msg || '') + '</span>'
+         + '<label class="fb-txt" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">'
+         + '<input type="checkbox" style="accent-color:#e3b23a;width:14px;height:14px;cursor:pointer;"'
+         + (_fusionAcces ? ' checked' : '') + ' onchange="fusionAccesToggle(this)"> Renvoyer les identifiants</label>'
          + '<button class="btn btn-primary" onclick="fusionConfirmer()">Confirmer la fusion</button>'
          + '<button class="btn" onclick="fusionVider()">Annuler</button>';
     }
@@ -1111,7 +1121,7 @@
   }
   async function _fusionAppel(appliquer){
     if (!_fusionDir) return;
-    const body = { from: _fusionDir.de, to: _fusionDir.vers, acces: 1 };
+    const body = { from: _fusionDir.de, to: _fusionDir.vers, acces: _fusionAcces ? 1 : 0 };
     if (appliquer) body.appliquer = 1;
     const d = await fetch('/api/admin/merge-users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body) }).then(r => r.json());
@@ -1145,8 +1155,10 @@
       const a = d.apercu || {};
       const res = _fbLigne('Compte conservé', (a.garde && a.garde.email) || '')
         + _fbLigne('Échéance', (a.apres && a.apres.echeance) || '')
-        + _fbLigne('Mail → compte conservé', d.mail && d.mail.sent ? '✅ envoyé' : '❌ non envoyé (le filet reprendra)')
-        + _fbLigne('Mail → ancienne adresse', d.mailAncienne && d.mailAncienne.sent ? '✅ envoyé' : '— non envoyé');
+        + ((d.mail && d.mail.skipped)
+            ? _fbLigne('Identifiants', 'aucun envoi — le mot de passe existant reste valable')
+            : _fbLigne('Mail → compte conservé', d.mail && d.mail.sent ? '✅ envoyé' : '❌ non envoyé (le filet reprendra)')
+              + _fbLigne('Mail → ancienne adresse', d.mailAncienne && d.mailAncienne.sent ? '✅ envoyé' : '— non envoyé'));
       _fusionSel.clear(); _fusionDir = null;
       fusionBarre();
       const bar = document.getElementById('fusion-bar');
