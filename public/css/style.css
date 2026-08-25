@@ -14512,7 +14512,8 @@ body.home-mode .view-panel { visibility: hidden; }
   .news-arrow-col { margin-left: auto; min-height: 16px; }
   .news-content { flex: 1 1 100%; min-width: 100%; order: 10; padding-left: 2px; }
   .news-headline { margin-bottom: 3px; }
-  .news-tags { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; padding-bottom: 2px; }
+    /* Même correction pour la copie non-widget (#news-list) : deux fils, une seule règle de lecture. */
+    .news-tags { display: flex; flex-wrap: wrap; overflow: visible; gap: 4px; padding-bottom: 0; }
   .news-tags::-webkit-scrollbar { display: none; }
   /* L'entrée glissée (translateY) des items frais se capturait en rafale sur mobile → texte
      fantôme superposé (constat des 3 captures). Sur mobile, seul le halo or reste. */
@@ -14614,7 +14615,14 @@ body.home-mode .view-panel { visibility: hidden; }
   .wdg-news .news-arrow-col { margin-left: auto; min-height: 16px; }
   .wdg-news .news-content { flex: 1 1 100%; min-width: 100%; order: 10; padding-left: 2px; }
   .wdg-news .news-headline { margin-bottom: 3px; }
-  .wdg-news .news-tags { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; padding-bottom: 2px; }
+  /* ⚠️ C'EST CETTE RÈGLE QUE LE LECTEUR SUBIT, PAS LES `wrap` PLUS BAS. Le fil visible est la COPIE
+     `.news-list.wdg-news` du widget « Fil d'actualité » (app.js 2457, le code le dit lui-même) : ce
+     sélecteur à DEUX classes l'emporte en spécificité sur les `.news-tags { flex-wrap: wrap }` qui
+     suivent, quel que soit leur ordre. Il tenait les étiquettes sur UNE ligne à défilement — donc la
+     dernière était coupée au bord de l'écran (capture user 26/08 : « Info » et le chevron tronqués).
+     Sur téléphone, une étiquette qu'il faut aller chercher d'un geste n'est pas lue. Elles reviennent
+     à la ligne : tout se voit d'un coup d'œil, au prix d'une ou deux lignes de plus. */
+  .wdg-news .news-tags { display: flex; flex-wrap: wrap; overflow: visible; gap: 4px; padding-bottom: 0; }
   .wdg-news .news-tags::-webkit-scrollbar { display: none; }
   .wdg-news .news-item--new { animation: flash-new 1.5s ease-out; }
 }
@@ -15825,7 +15833,14 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
   .news-content       { grid-area: titre;  min-width: 0; padding: 0; }
   .news-headline      { white-space: normal; overflow: visible; display: block;
                         -webkit-line-clamp: unset; -webkit-box-orient: unset; }
-  .news-tags          { grid-area: tags; margin-top: 6px; flex-wrap: wrap; overflow: visible; }
+    /* `min-width: 0` : un élément de GRILLE refuse par défaut de rétrécir sous la largeur minimale de
+       son contenu (min-width: auto). Sans lui, une étiquette large impose sa taille à toute la zone,
+       qui peut alors dépasser l'écran et se faire rogner par l'ancêtre — la coupure au bord droit.
+       Ses voisins de grille (.news-content) l'ont déjà ; celle-ci ne l'avait pas.
+       ⚠️ CANDIDAT RAISONNÉ, NON MESURÉ : contrairement au reste de ce commit, je n'ai pas pu le
+       reproduire au banc (la carte du fil est une grille dont je n'ai pas su répliquer la structure
+       exacte). Sans effet si ce n'était pas la cause ; à retirer si le défaut persiste. */
+    .news-tags          { grid-area: tags; margin-top: 6px; flex-wrap: wrap; overflow: visible; min-width: 0; }
   .news-item .news-description { grid-area: tags; }
 
   /* ── 2 · FORCE DES DEVISES : de la hauteur, et de l'air à droite ──────────────────────────────
