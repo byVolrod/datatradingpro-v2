@@ -16078,6 +16078,21 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      561-860 px sans protection — un téléphone en paysage, une petite tablette. */
   .wdg-fx-chart { min-height: 380px; }
   .wdg-lfmap    { min-height: 260px; }
+
+  /* ⚠️ ET LE PLANCHER DE LA CARTE QUI VA AVEC (28/08, capture user « on voit pas les courbes en
+     entierete »). Poser un minimum de 380px sur le GRAPHIQUE sans en poser un sur la CARTE, c est
+     exactement le piege que le bloc ci-dessus documente : on fait grossir le contenu dans un cadre
+     qui, lui, ne grossit pas. Et il ne peut pas grossir tout seul — `.wdg-body { min-height: 0 }`
+     l autorise explicitement a s ecraser, donc le contenu ne pousse jamais la carte.
+     La protection existait DEJA a 560px (`.wdg-card:has(.wdg-fx-chart)`, plus haut) ; la bande
+     561-860 en etait privee alors que c est elle qui porte le plancher du graphique. Mesure a
+     603px avant correctif : graphique coupe de 66px (165px sur une fenetre de 700) — l axe des
+     dates et les etiquettes NZD/JPY/CHF/CAD/AUD passaient sous le pli. Au-dela de 900px, aucun
+     plancher ne s applique au graphique et rien n etait coupe : le trou etait bien ici.
+     La grille defile a ces largeurs (`overflow-y: auto`, rangees `auto`) : une carte plus haute ne
+     coute donc rien a la mise en page. */
+  .wdg-card:has(.wdg-fx-chart) { min-height: 520px; }
+  .wdg-card:has(.wdg-lfmap)    { min-height: 380px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
