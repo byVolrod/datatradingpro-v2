@@ -23,6 +23,34 @@ function heureParis(ts) {
   return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).replace(':', 'h');
 }
 
+/* « enlève le terme source met directement » (26/08, capture : « Sources BCE : les décideurs sont
+   prêts à augmenter les taux en septembre → … »). Un desk NOMME sa source, il ne l'annonce pas :
+   « **BCE** : … » dit la même chose en deux mots de moins, et c'est le style de toutes les autres
+   puces. La règle est DÉTERMINISTE — la consigne est aussi dans le prompt, mais on ne compte pas
+   sur la mémoire du modèle pour une règle de style : on corrige à la sortie.
+   ELLE N'AGIT QUE SUR UN VRAI « Sources X : … » : il faut le deux-points, et ce qui le précède doit
+   ressembler à un NOM D'INSTITUTION (majuscule initiale, trois mots au plus). Sans cette preuve,
+   « Sources d'énergie renouvelables en hausse » perdrait son sujet, et « Source proche de la BCE :
+   … » perdrait la BCE — le mot y porte l'information, il n'est pas un tic de rédaction. */
+const _SRC_GRAS = /^\s*\*\*\s*[Ss]ources?\s*\*\*\s*/;              // « **Sources** … »
+const _SRC_NU   = /^\s*[Ss]ources?\s*/;                            // « Sources … »
+// Un nom d'institution : un mot capitalisé, puis jusqu'à trois mots capitalisés OU de liaison
+// (« Banque de France », « Bank of England »). Le premier mot DOIT porter la majuscule — c'est ce
+// qui distingue « Sources BCE : … » de « Source proche de la BCE : … », où le mot porte l'info.
+const _SRC_INST = /^(\*{0,2}[A-ZÀ-Þ][\wÀ-ÿ&.'’-]*(?:\s+(?:[A-ZÀ-Þ][\wÀ-ÿ&.'’-]*|de|du|des|la|le|les|of|and|et|d['’])){0,3}\*{0,2})?\s*[:：]\s+/;
+function sansSource(t) {
+  const s = String(t == null ? '' : t);
+  const tete = _SRC_GRAS.exec(s) || _SRC_NU.exec(s);
+  if (!tete) return s;
+  const reste = s.slice(tete[0].length);
+  const m = _SRC_INST.exec(reste);
+  if (!m) return s;                             // pas un « Sources X : … » → on ne touche à rien
+  const r = reste.slice(m[0].length);
+  if (!r) return s;                             // rien derrière : mieux vaut la puce telle quelle
+  if (m[1]) return m[1] + ' : ' + r;            // l'institution reste, et devient le sujet de la puce
+  return /^[a-zà-ÿ]/.test(r) ? r.charAt(0).toUpperCase() + r.slice(1) : r;
+}
+
 /* CE QUE NOTRE CALENDRIER AJOUTE À LA RUBRIQUE MACRO (26/08 : « check les news sorties durant la
    session, classe les dans leur catégories de la partie macro »). L'IA ne peut restituer que ce que
    l'article contenait ; notre calendrier, lui, sait ce qui est RÉELLEMENT tombé pendant la fenêtre
@@ -30,7 +58,7 @@ function heureParis(ts) {
    ligne vient d'une publication du calendrier AVEC son résultat. Ce qui est déjà raconté par l'IA
    n'est jamais répété (_SEA.dejaDit). */
 function completerMacro(items, macroCal) {
-  const entrees = (items || []).map(i => ({ titre: String(i), ligne: String(i) }));
+  const entrees = (items || []).map(i => ({ titre: sansSource(i), ligne: sansSource(i) }));
   let ajouts = 0;
   for (const e of (macroCal || [])) {
     if (_SEA.dejaDit(e, items || [])) continue;
@@ -75,7 +103,7 @@ function html(arr, macroCal) {
   for (const sec of sections) {
     if (!sec || !sec.section || !Array.isArray(sec.items)) continue;
     if (estMacro(sec)) {
-      const r = completerMacro(sec.items, macroCal);
+      const r = completerMacro(sec.items.map(sansSource), macroCal);
       ajouts += r.ajouts;
       if (!r.entrees.length) continue;
       const groupes = _SEA.parFamilleMacro(r.entrees);
@@ -84,9 +112,11 @@ function html(arr, macroCal) {
       continue;
     }
     if (!sec.items.length) continue;   // une rubrique vide s'efface — sauf la Macro, traitée ci-dessus
-    out += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+    // Le style vaut pour TOUTES les rubriques, pas seulement la Macro : le tic vient du modèle, pas
+    // d'une section en particulier.
+    out += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(sansSource(i))}</li>`).join('')}</ul>`;
   }
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, heureParis, esc };
+module.exports = { html, poserMacro, completerMacro, sansSource, heureParis, esc };

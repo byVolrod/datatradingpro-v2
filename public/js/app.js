@@ -2958,8 +2958,13 @@ function _emphasize(text) {
   return String(text || '')
     // Gras Markdown ** ** venant du prompt (devises, banques centrales, indicateurs : **USD**, **Fed**, **CPI m/m**…) → <strong>
     .replace(/\*\*([^*]{1,80}?)\*\*/g, '<strong>$1</strong>')
-    // Nombres (55.1, +0.4%, 250K, 1.2bln…)
-    .replace(/(?<![\w>])([+\-]?\d[\d.,]*\s?(?:%|K|M|bln|bn|mln|bps|pts)?)/g, '<strong>$1</strong>')
+    /* Nombres (55.1, +0.4%, 250K, 1.2bln…). LE MOTIF S'ARRÊTE AU BORD DU MOT (26/08, capture
+       utilisateur) : sans la sentinelle de fin, « 14h15 » sortait en « <strong>14</strong>h15 »
+       — l'heure coupée en deux, moitié grasse moitié pas — et « +0,3 pt » en
+       « <strong>+0,3 </strong>pt », le gras s'arrêtant sur une espace avant son unité. On exige
+       donc qu'aucune lettre ne suive le nombre ET SON UNITÉ ; « pt » rejoint la liste des unités,
+       où il manquait à côté de « pts ». */
+    .replace(/(?<![\w>])([+\-]?\d[\d.,]*(?:\s?(?:%|K|M|bln|bn|mln|bps|pts?))?)(?![\wÀ-ÿ])/g, '<strong>$1</strong>')
     // Verdicts clés
     .replace(/\b(beat|beats|miss|misses|above|below|in-line|in line|stronger|weaker|slowdown|acceleration|rebound|contraction|expansion|highest|lowest|record)\b/gi, '<strong>$1</strong>');
 }

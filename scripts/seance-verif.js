@@ -160,7 +160,7 @@ const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 's
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
 v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v17:'/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v18:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -314,7 +314,7 @@ v('sans puces, rien n\'est déjà dit', S.dejaDit(CAL[0], []) === false);
 const ajouts = dansLdn.filter(e => !S.dejaDit(e, PUCES));
 v('une seule publication manquait', ajouts.length === 1 && ajouts[0].title === 'German Prelim CPI m/m', ajouts.map(e => e.title).join(','));
 const lmd = S.ligneMacroMd(ajouts[0], '14h00');
-v('la ligne ajoutée est chiffrée', /0\.1%/.test(lmd) && /conforme aux attentes/.test(lmd), lmd);
+v('la ligne ajoutée est chiffrée, en français', /0,1%/.test(lmd) && !/0\.1%/.test(lmd) && /conforme aux attentes/.test(lmd), lmd);
 v('elle porte l\'heure de Paris', /^14h00 /.test(lmd), lmd);
 v('devise et indicateur en gras, comme les puces de l\'IA', /\*\*EUR\*\*/.test(lmd) && /\*\*German Prelim CPI m\/m\*\*/.test(lmd), lmd);
 v('une publication sans résultat ne produit aucune ligne', S.ligneMacroMd({ currency: 'EUR', title: 'ECB Lane Speaks' }, '11h00') === '');
@@ -346,7 +346,7 @@ const SECTIONS = [
 const rendu = W.html(SECTIONS, dansLdn);
 v('la publication manquante apparaît dans le rendu', /German Prelim CPI m\/m/.test(rendu.html), rendu.html.slice(0, 200));
 v('le rendu le compte', rendu.ajouts === 1, String(rendu.ajouts));
-v('elle est chiffrée dans le rendu', /0\.1%, conforme aux attentes/.test(rendu.html));
+v('elle est chiffrée dans le rendu, en français', /0,1%, conforme aux attentes/.test(rendu.html));
 v('elle porte son heure de Paris', /14h00 \*\*EUR\*\*/.test(rendu.html), (rendu.html.match(/\d\dh\d\d \*\*EUR\*\*/) || [])[0]);
 const nbIfo = (rendu.html.match(/Ifo/g) || []).length;
 v('l\'Ifo déjà raconté n\'est PAS répété', nbIfo === 1, nbIfo + ' occurrence(s)');
@@ -467,6 +467,65 @@ const VIDE = [{ section: 'LEAD', items: ['Séance sans direction.'] }, { section
 });
 // Le récap dont la séance ne se lit nulle part garde son rapport, sans complétion — jamais d'erreur.
 v('un article hors séance ne casse rien', W.html(VIDE, S.trierMacro(S.filtreFenetre(CAL3, S.bornesPourWrap({ session: 'Global', headline: 'Weekly outlook' }, JOUR)))).html.indexOf('<strong>Macro') < 0);
+
+console.log('\n── 7e-quater. LE STYLE DES PUCES ──');
+/* « enlève le terme source met directement » (26/08). Un desk NOMME sa source, il ne l'annonce pas.
+   La règle est déterministe : on ne compte pas sur la mémoire du modèle pour une règle de style. */
+[['Sources **BCE** : les décideurs sont prêts à augmenter les taux en septembre → ton hawkish confirmé.',
+  '**BCE** : les décideurs sont prêts à augmenter les taux en septembre → ton hawkish confirmé.'],
+ ['Sources BCE : les décideurs sont prêts.', 'BCE : les décideurs sont prêts.'],
+ ['**Sources** : la BCE prête à agir dès septembre.', 'La BCE prête à agir dès septembre.'],
+ ['Sources : selon Reuters, la **Fed** temporise.', 'Selon Reuters, la **Fed** temporise.'],
+ ['Source **Banque de France** : le crédit ralentit.', '**Banque de France** : le crédit ralentit.'],
+ ['Sources Bank of England : la livre monte.', 'Bank of England : la livre monte.'],
+ // CE QUI NE DOIT PAS BOUGER : le mot y porte l'information, ou n'est pas un préfixe du tout.
+ ['Source proche de la BCE : les taux resteront hauts.', 'Source proche de la BCE : les taux resteront hauts.'],
+ ["Sources d'énergie renouvelables en hausse de 12% → pression sur le gaz.", "Sources d'énergie renouvelables en hausse de 12% → pression sur le gaz."],
+ ['**CPI** US +0,4% m/m → **USD** se renforce.', '**CPI** US +0,4% m/m → **USD** se renforce.'],
+ ['Selon des sources, la **Fed** hésite.', 'Selon des sources, la **Fed** hésite.'],
+ ['Sources', 'Sources'], ['', ''],
+].forEach(([a, att]) => v(`« ${a.slice(0, 44) || '(vide)'} »`, W.sansSource(a) === att, W.sansSource(a)));
+v('la règle s\'applique à TOUTES les rubriques, pas qu\'à la Macro',
+  /<strong>Géopolitique<\/strong><ul><li>\*\*BCE\*\* : /.test(W.html([{ section: 'Géopolitique', items: ['Sources **BCE** : la réunion est avancée.'] }], []).html));
+v('… y compris dans la Macro', /<li>\*\*BCE\*\* : la réunion/.test(W.html([{ section: 'Macro', items: ['Sources **BCE** : la réunion est avancée.'] }], []).html));
+v('elle est aussi demandée au modèle', /N'ANNONCE JAMAIS TA SOURCE, NOMME-LA/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8')));
+
+/* « corrige ce bug de gras » (26/08, capture) : la valeur du calendrier « 11.75K », posée au milieu
+   de puces qui écrivent « 0,6% ». On ne change QUE le séparateur, jamais le chiffre. */
+[['11.75K', '11,75K'], ['-0.6%', '-0,6%'], ['0.4%', '0,4%'], ['652K', '652K'], ['2.4', '2,4'],
+ ['1,234.5', '1,234.5'],       // séparateur de milliers anglo-saxon : le convertir donnerait « 1,234,5 »
+ ['3,2%', '3,2%'], ['', ''], ['5.53M', '5,53M']]
+  .forEach(([a, att]) => v(`« ${a || '(vide)'} » → « ${att || '(vide)'} »`, S.frNombre(a) === att, S.frNombre(a)));
+v('la ligne du calendrier sort en français',
+  S.ligneMacroMd({ currency: 'USD', title: 'ADP Non-Farm Employment Change', actual: '11.75K' }, '14h15')
+    === '14h15 **USD** · **ADP Non-Farm Employment Change** : 11,75K',
+  S.ligneMacroMd({ currency: 'USD', title: 'ADP Non-Farm Employment Change', actual: '11.75K' }, '14h15'));
+
+console.log('\n── 7e-quinquies. LA MISE EN GRAS, TELLE QUE LE NAVIGATEUR LA REND ──');
+/* Le VRAI `_emphasize` de public/js/app.js — pas une copie : c'est lui qui transforme la puce en
+   HTML dans le lecteur de rapports. La capture montrait « 14h15 » coupé en deux, moitié grasse
+   moitié maigre, et « +0,3 pt » dont le gras s'arrêtait sur une espace avant son unité. */
+const APP = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/js/app.js'), 'utf8');
+const dE = APP.indexOf('function _emphasize(text) {');
+const fE = dE < 0 ? -1 : APP.indexOf('\n}\n', dE);
+v('_emphasize est extractible de app.js', dE >= 0 && fE > dE);
+if (dE >= 0) {
+  const emp = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
+  v('une heure n\'est PAS coupée en deux', emp('14h15 USD') === '14h15 USD', emp('14h15 USD'));
+  v('… ni « 9h30 »', emp('9h30 début de séance') === '9h30 début de séance', emp('9h30 début de séance'));
+  v('un écart garde son unité DANS le gras', emp('(+0,3 pt)') === '(<strong>+0,3 pt</strong>)', emp('(+0,3 pt)'));
+  v('le gras ne finit jamais sur une espace', !/ <\/strong>/.test(emp('14h00 **EUR** · **CPI** : 0,4% contre 0,1% attendu (+0,3 pt), préc. 0,3%')),
+    emp('14h00 **EUR** · **CPI** : 0,4% contre 0,1% attendu (+0,3 pt), préc. 0,3%'));
+  // Ce que la mise en gras doit CONTINUER de faire.
+  v('un pourcentage reste mis en gras', emp('0,4%') === '<strong>0,4%</strong>', emp('0,4%'));
+  v('un millier aussi', emp('652K') === '<strong>652K</strong>', emp('652K'));
+  v('le gras du modèle est respecté', emp('**USD**') === '<strong>USD</strong>');
+  v('un trimestre n\'est pas coupé', emp('T2 2026') === 'T2 <strong>2026</strong>', emp('T2 2026'));
+  v('la ligne entière du calendrier rend juste',
+    emp('14h15 **USD** · **ADP Non-Farm Employment Change** : 11,75K')
+      === '14h15 <strong>USD</strong> · <strong>ADP Non-Farm Employment Change</strong> : <strong>11,75K</strong>',
+    emp('14h15 **USD** · **ADP Non-Farm Employment Change** : 11,75K'));
+}
 
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');

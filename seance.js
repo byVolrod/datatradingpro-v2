@@ -417,15 +417,26 @@ function lignePerf(perfs, mini) {
 }
 /* LIGNE MACRO : l'heure, la devise, l'intitulé, le réel, l'attendu, l'écart. Rien d'autre —
    l'interprétation appartient à la rubrique d'analyse, pas au constat. */
+/* LES VALEURS ARRIVENT DU CALENDRIER AU FORMAT ANGLO-SAXON : « 11.75K », « -0.6% ». Dans un rapport
+   français, posées au milieu de puces qui écrivent « 0,6% », elles se voient (26/08, capture). On ne
+   change QUE le séparateur décimal — jamais le chiffre, jamais l'unité.
+   Une valeur qui contient DÉJÀ une virgule n'est pas touchée : elle est soit française, soit un
+   séparateur de milliers anglo-saxon (« 1,234.5 »), et dans ce second cas la convertir donnerait
+   « 1,234,5 » — un nombre qui ne veut plus rien dire. Ne rien faire est la bonne réponse. */
+function frNombre(v) {
+  const s = String(v == null ? '' : v);
+  return s.indexOf(',') >= 0 ? s : s.replace(/(\d)\.(\d)/g, '$1,$2');
+}
 function ligneMacro(ev, heure) {
   const e = ecart(ev);
   if (!e) return '';
   const nom = String((ev && ev.title) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   const tete = `${heure ? heure + ' ' : ''}${ev.currency || ''} · ${nom}`.trim();
-  if (e.sansConsensus) return `${tete} : ${e.actual}${e.previous ? ` (préc. ${e.previous})` : ''}`;
-  if (e.sens === 'conforme') return `${tete} : ${e.actual}, conforme aux attentes${e.previous ? ` (préc. ${e.previous})` : ''}`;
+  const A = frNombre(e.actual), F = frNombre(e.forecast), P = frNombre(e.previous);
+  if (e.sansConsensus) return `${tete} : ${A}${P ? ` (préc. ${P})` : ''}`;
+  if (e.sens === 'conforme') return `${tete} : ${A}, conforme aux attentes${P ? ` (préc. ${P})` : ''}`;
   const et = ecartTexte(e);
-  return `${tete} : ${e.actual} contre ${e.forecast} attendu${et ? ` (${et})` : ''}${e.previous ? `, préc. ${e.previous}` : ''}`;
+  return `${tete} : ${A} contre ${F} attendu${et ? ` (${et})` : ''}${P ? `, préc. ${P}` : ''}`;
 }
 
 /* LA MÊME LIGNE, AU STYLE DE LA NOTE DE DESK : devise et indicateur en gras Markdown, comme les
@@ -459,4 +470,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, frNombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
