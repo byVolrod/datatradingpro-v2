@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260830-seance-a-surveiller', ts: Date.UTC(2026, 7, 30, 20, 0), title: 'Recaps de seance : A surveiller annonce desormais la seance suivante', desc: 'La rubrique A surveiller des recaps de seance ne disposait d aucune source d evenements a venir : elle se remplissait donc en extrapolant les actualites du jour, au point d annoncer une publication qui n existait pas. Elle lit maintenant le calendrier economique et vous donne les rendez-vous de la SEANCE SUIVANTE, avec leur heure exacte, la devise concernee et le consensus attendu. Le recap de la seance asiatique annonce ce qui attend Londres ; celui de Londres annonce New York ; celui de New York annonce l Asie du lendemain. Seuls passent les evenements ENCORE A VENIR au moment de la publication, filtres sur les devises de la seance concernee — un rendez-vous britannique de fin d apres-midi n est pas presente comme un evenement new-yorkais. Et si le calendrier ne porte rien, la rubrique ne s affiche pas : mieux vaut une rubrique absente qu une echeance inventee.' },
   { id: 'dtpu-20260830-seance-meme-grammaire', ts: Date.UTC(2026, 7, 30, 16, 0), title: 'Recaps de seance : les memes rubriques que le Recap Quotidien', desc: 'Les recaps de seance — Asie-Pacifique, Londres, New York — declinaient leurs propres rubriques : une section Banques centrales autonome, une section Marches, et aucune synthese. Le Recap Quotidien, lui, ouvre sur une synthese, traite les banques centrales A L INTERIEUR de Macro et nomme sa lecture de marche Analyse par session. Comme les deux rapports se lisent a la suite dans la meme journee, il fallait se reorienter a chaque fois. Les recaps de seance adoptent desormais exactement les memes parties, dans le meme ordre : Synthese, Geopolitique, Macro — organisee en Politique monetaire, Inflation, Croissance economique et Emploi, les quatre memes rubriques que le Radar de Biais — puis Analyse de seance et A surveiller. Chaque banque garde sa propre puce, avec sa decision ou le ton de son intervenant. Seule la grammaire devient commune : le contenu reste propre a chaque seance.' },
   { id: 'dtpu-20260830-recap-clarte', ts: Date.UTC(2026, 7, 30, 12, 0), title: 'Recap Quotidien : chaque banque sa puce, et les chiffres du jour reunis sous un seul titre', desc: 'Trois corrections de lecture. Une puce pouvait encore melanger deux banques centrales — « ECB et BoJ : les chemins divergents... » — alors que la regle une banque par puce existait deja : elle ne couvrait pas la rubrique qui alimente Politique monetaire. Chaque banque a desormais sa puce partout, avec sa decision (hausse, baisse ou maintien et le niveau atteint) ou l intervenant, sa fonction et le ton de son discours ; un ecart entre deux banques se raconte depuis chacune, du point de vue de sa devise. Ensuite, les chiffres publies du jour etaient ranges dans des sections portant les MEMES noms que les sous-rubriques de Macro : Croissance economique apparaissait a deux niveaux dans le meme rapport, sans rien pour distinguer les actualites des chiffres. Ils sont maintenant reunis sous un seul titre, Chiffres du jour, avec les familles en sous-titres. Enfin, dans les recaps de seance, la rubrique A surveiller pouvait annoncer une publication qui n existait pas — un CPI americain « demain » un jour ou aucun n etait au calendrier : elle ne peut plus ecrire une echeance absente du flux, ni recopier un fait deja raconte ailleurs.' },
   { id: 'dtpu-20260830-temoignage-mention-retiree', ts: Date.UTC(2026, 7, 30, 9, 0), title: 'Temoignage : la mention commerciale sous le bouton disparait', desc: 'Le courriel de temoignage se terminait par une ligne de reassurance commerciale sous le bouton — acces immediat, sans engagement, resiliable en un clic. Elle est retiree des cinq presentations : dans un courriel dont tout l interet est de laisser parler un membre, cette phrase de vendeur cassait le ton juste apres sa citation. Le bouton, la citation et la signature ne bougent pas.' },
@@ -9781,12 +9782,71 @@ function buildAsiaOpening({ dateStr, s, reportType }) {
 //     premières de la séance écoulée, comme je l'avais fait le 14/08, lui donnait le même nom que
 //     dans le quotidien mais PAS le même sens, ce qui est pire qu'une rubrique absente. La
 //     segmentation IA, elle, la crée quand le texte évoque de vraies échéances.
+/* ══ « À SURVEILLER » = LA SÉANCE SUIVANTE (30/08, demande user) ═════════════════════════════════
+   « si c'est Asie alors à surveiller pour la séance de Londres, si c'est Londres pour New York ».
+   C'est la réponse au défaut qui a produit « CPI US demain » un jour où aucun CPI n'était au
+   calendrier : la rubrique n'inventait pas par malice, elle n'avait AUCUNE source d'événements
+   futurs (le commentaire de buildAsiaRecap le disait déjà, et concluait — à raison — qu'il valait
+   mieux l'omettre). On lui en donne une, et elle devient la plus utile du rapport : ce qui attend
+   le lecteur à la séance d'après, avec l'heure exacte.
+   SOURCE : `_tvCalCache.items`, le calendrier TradingView déjà en mémoire (rafraîchi toutes les
+   4 min par les autres appelants) — lu en SYNCHRONE, donc aucun de ces builders n'a besoin de
+   devenir async. Aucune invention possible : si le calendrier ne porte rien, la rubrique ne
+   s'écrit pas.
+   ⚠️ STRICTEMENT À VENIR : on ne garde que les événements dont l'heure est POSTÉRIEURE à l'instant
+   de publication. Un récap de Londres publié à 17h30 ne peut donc pas annoncer une publication
+   américaine de 14h30 comme « à surveiller » — elle est déjà tombée. */
+/* ⚠️ DEVISES *ET* FENÊTRE HORAIRE, PAS L'HEURE SEULE — défaut attrapé au banc : les séances se
+   CHEVAUCHENT (Londres 8h-18h, New York 14h-23h), si bien qu'un « BoE Bailey » de 16h30 se
+   retrouvait annoncé comme un événement de la séance de New York. L'heure dit QUAND, elle ne dit
+   pas DE QUELLE séance relève la publication ; c'est la devise qui le dit. Les deux critères
+   ensemble donnent ce qu'un opérateur entend vraiment par « les rendez-vous de la séance d'après ». */
+const _SEANCE_SUIVANTE = {
+  'Asia Session Recap':   { nom: 'Londres',  debut: 8,  fin: 18, demain: false, dev: ['EUR', 'GBP', 'CHF'] },
+  'London Session Recap': { nom: 'New York', debut: 14, fin: 23, demain: false, dev: ['USD', 'CAD'] },
+  'US Session Recap':     { nom: 'Asie',     debut: 0,  fin: 9,  demain: true,  dev: ['JPY', 'AUD', 'NZD', 'CNY'] },
+};
+function _heureParis(ts) { return new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getHours(); }
+function _jourParis(ts) { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); }
+function _aSurveillerSeanceSuivante(reportType) {
+  const S = _SEANCE_SUIVANTE[reportType];
+  if (!S) return { nom: '', lignes: [] };
+  const now = Date.now();
+  const jourCible = S.demain ? _jourParis(now + 86400000) : _jourParis(now);
+  const items = (_tvCalCache && Array.isArray(_tvCalCache.items)) ? _tvCalCache.items : [];
+  const dans = items.filter(e => {
+    const ts = e && e.timestamp || 0;
+    if (ts <= now) return false;                          // déjà publié → ce n'est plus « à surveiller »
+    if (_jourParis(ts) !== jourCible) return false;       // pas la journée visée
+    if (S.dev.indexOf(String(e.currency || '').toUpperCase()) < 0) return false;   // devise de CETTE séance
+    const h = _heureParis(ts);
+    return h >= S.debut && h < S.fin;                     // et dans sa fenêtre horaire
+  });
+  // Les FORTS impacts d'abord (ce sont eux qui déplacent une séance), les moyens complètent.
+  const tri = l => l.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const forts = tri(dans.filter(e => /high/i.test(e.impact || '')));
+  const moyens = tri(dans.filter(e => !/high/i.test(e.impact || '')));
+  const lignes = forts.concat(moyens).slice(0, 5).map(e => {
+    const att = e.forecast ? ` (attendu ${e.forecast}${e.previous ? `, préc. ${e.previous}` : ''})` : (e.previous ? ` (préc. ${e.previous})` : '');
+    return `${e.time} ${e.currency} · ${String(e.title || '').slice(0, 90)}${att}`;
+  });
+  return { nom: S.nom, lignes };
+}
+/* Pose la rubrique sur un récap de séance — omise si le calendrier n'a rien : une rubrique vide
+   vaut mieux qu'une échéance inventée, c'est la leçon de « CPI US demain ». */
+function _pousserASurveiller(bullets, reportType) {
+  const { nom, lignes } = _aSurveillerSeanceSuivante(reportType);
+  if (!lignes.length) return;
+  _pushBullets(bullets, `À surveiller — séance de ${nom}`, lignes.map(t => ({ headline: t })), 5);
+}
+
 function buildAsiaRecap({ dateStr, s, reportType }) {
   const bullets = [];
   bullets.push(`Récap séance Asie : ${s.all.length} éléments suivis · ${dateStr}`);
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
   _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.asian, ...s.nrg, ...s.trade], 4);
+  _pousserASurveiller(bullets, reportType);
   return { subtitle: _briefingSubtitle(reportType, s, ['BoJ', 'RBA', 'RBNZ', 'PBoC']), bullets, tags: _briefingTags(s, ['Asia Recap', 'JPY', 'AUD']) };
 }
 
@@ -9796,6 +9856,7 @@ function buildLondonRecap({ dateStr, s, reportType }) {
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
   _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.nrg, ...s.trade], 4);
+  _pousserASurveiller(bullets, reportType);
   return { subtitle: _briefingSubtitle(reportType, s, ['BoE', 'ECB']), bullets, tags: _briefingTags(s, ['London Recap', 'EUR', 'GBP']) };
 }
 
@@ -9805,6 +9866,7 @@ function buildUSRecap({ dateStr, s, reportType }) {
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
   _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.nrg, ...s.trade], 4);
+  _pousserASurveiller(bullets, reportType);
   return { subtitle: _briefingSubtitle(reportType, s, ['Fed', 'FOMC']), bullets, tags: _briefingTags(s, ['US Recap', 'USD']) };
 }
 
