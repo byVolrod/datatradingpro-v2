@@ -2556,7 +2556,7 @@ function _recapQuotidienFull(fx) {
      détail américaines progressent de 0,6 % »). Une table anglaise seule classait les chiffres et
      laissait passer les news — défaut mesuré au banc le 25/08. */
   const _FAM_JOUR = [
-    ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|prix a la consommation|import prices|export prices|wholesale price|trimmed mean|deflator/i],
+    ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|import prices|export prices|wholesale price|trimmed mean|deflator/i],
     ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire/i],
     ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|\btankan\b|\bifo\b|\bzew\b|housing starts|building permits|new home sales|construction output/i],
     ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate/i],
@@ -2565,9 +2565,9 @@ function _recapQuotidienFull(fx) {
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
   const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
 
-  /* ── MACRO : STRICTEMENT LES TROIS SECTIONS DEMANDÉES (25/08) — MÊME BLOC QUE LE DESK (app.js).
-     Seules « Inflation », « Croissance économique » et « Emploi » ont un intitulé sous Macro : ce
-     sont les trois que le user a nommées. Une section sans actualité ce jour-là ne s'écrit pas.
+  /* ── MACRO : STRICTEMENT LES SECTIONS DEMANDÉES (25/08) — MÊME BLOC QUE LE DESK (app.js).
+     D'abord trois, puis QUATRE le même jour (« il y a 4 catégories pas 3, les 4 de l'onglet
+     biais ») : la liste qui fait foi est _SECTIONS_NEWS ci-dessous (les 4 rubriques du Radar). Une section sans actualité ce jour-là ne s'écrit pas.
      J'avais ajouté « Énergie & matières premières » et « Marchés & devises » pour loger les
      mouvements de marché ; le user les a écartées. Elles sont retirées de la table.
      ⚠️ CE QUI NE RENTRE DANS AUCUNE DES TROIS N'EST PAS JETÉ, et se rend EN PREMIER, juste sous le
