@@ -19539,9 +19539,23 @@ html[data-theme="light"] .wdg-verdict .est-neutre { color: #8a6a12; }
    graphe a besoin de PLUS de hauteur, pas moins — chaque graphe reçoit un PLANCHER et le panneau
    DÉFILE entre eux (l'overflow-y:auto du panneau est posé par l'audit du 22/08). */
 @media (max-width: 768px) {
-  .right-tab-panel .strength-main-chart { min-height: 380px; flex: 0 0 auto; }
+  .right-tab-panel .strength-main-chart { min-height: 380px; flex: 1 0 auto; }
   .right-tab-panel .rsh-chart { min-height: 150px; flex: 0 0 auto; }
   .right-tab-panel .risk-widget-container { min-height: 330px; flex: 0 0 auto; }
+  /* ⚠️ CES PLANCHERS ÉTAIENT NEUTRALISÉS SUR L'ONGLET FORCE (25/08, capture user : les deux
+     courbes TD et TW coupées en bas, badge AUD tronqué — REPRODUIT au banc à 603px : panneau
+     578/578 qui ne défile pas, 111px du graphe TW inatteignables). La chaîne au-dessus des
+     graphes les annulait : `.strength-charts-row { flex:1 (basis 0) ; overflow:hidden }` fait
+     EXACTEMENT la hauteur du panneau — jamais celle de son contenu — donc le scrollHeight du
+     panneau n'augmente jamais ; et chaque `.strength-pane { flex:1 1 50% ; overflow:hidden }`
+     partage cette rangée figée (~257px) et CLIPPE son graphe de 380px. Un plancher sous un
+     clippeur à hauteur imposée est une règle morte.
+     Le remède est à l'étage de la RANGÉE : flex-basis auto → elle prend la hauteur de son
+     CONTENU (2 × ~410px), le panneau (overflow-y:auto, règle [8]) défile entre les deux graphes.
+     Les panes ne rétrécissent plus sous leur contenu (flex-shrink 0) et le graphe grandit avec
+     eux (flex-grow 1 ci-dessus) quand la place déborde au lieu de laisser un vide. */
+  .right-tab-panel .strength-charts-row { flex: 1 0 auto; }   /* shrink 0 OBLIGATOIRE : son `min-height:0` (l.6444) l'autorisait sinon à se recomprimer sous son contenu, re-neutralisant tout */
+  .right-tab-panel .strength-pane { flex: 1 0 auto; }
 }
 
 /* ═══ CALCULATRICE : LISIBILITÉ SUR GRAND ÉCRAN (23/08, capture user : cartes étirées sur toute
@@ -20023,4 +20037,39 @@ html[data-theme="light"] .dtp-skel-txt .cal-kb-quote {
   .dtp-tr-wait,
   .dtp-skel-txt li, .dtp-skel-txt p, .dtp-skel-txt .iq-note,
   .dtp-skel-txt .art-pt, .dtp-skel-txt .cal-kb-quote { animation: none; }
+}
+
+/* ── GARDE-FOU TOPBAR (25/08, demande user : « on ne voit pas tous les icônes boutons en haut ») ──
+   Même motif que le clipping silencieux des widgets, transposé sur l'axe X : .topbar-right est
+   INCOMPRESSIBLE (flex:0 0 auto l.3887, chaque enfant flex:0 0 auto l.3888/3897) et
+   html,body{overflow-x:hidden} (l.3833) coupe le débordement SANS barre de défilement → sous
+   ~261px utiles (≤400, rangée repliée), ~273px (401-480), ~366px (481-768), l'avatar puis la
+   bulle sortent de l'écran, inatteignables. Ces seuils se franchissent sans écran exotique :
+   split-screen Android, écran externe de pliable (280px), insets d'encoche en paysage — et
+   surtout le ZOOM PERSONNEL PAR COMPTE (html{zoom}) qui réduit la largeur de MISE EN PAGE sans
+   changer les media queries : un téléphone de 560px avec zoom perso tombe sous le seuil de la
+   branche 481-768. C'est pourquoi le banc à zoom 1 (430-700px) ne reproduisait pas la capture.
+   Remède défensif : la zone d'icônes CÈDE (flex:0 1 auto + min-width:0) au lieu de déborder, et
+   DÉFILE horizontalement au doigt (barre masquée). Ses enfants gardent flex:0 0 auto → les
+   icônes ne s'écrasent jamais ; quand tout tient, un conteneur overflow-x:auto sans débordement
+   ne change RIEN à l'apparence. */
+@media (max-width: 768px) {
+  .topbar-center { flex-shrink: 500; }   /* le centre continue de céder AVANT la zone d'icônes (comportement actuel conservé) */
+  .topbar-right {
+    flex: 0 1 auto;
+    min-width: 0;
+    align-self: stretch;                 /* pleine hauteur de barre → pastilles et halo notifPing gardent leur respiration */
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;      /* balayer la rangée ne déclenche pas le geste « retour » du navigateur */
+  }
+  .topbar-right::-webkit-scrollbar { display: none; height: 0; }
+  /* Trait vert « volet ouvert » (l.9761 : bottom:-11px, calé pour la barre desktop) : il serait
+     rogné par le conteneur défilant → ramené DANS l'icône, toujours sous le glyphe. */
+  #chat-btn.topbar-icon--active::after,
+  #np-bell-btn.np-bell--active::after,
+  #sqwk-btn.topbar-icon--active::after,
+  #ai-btn.topbar-icon--active::after { bottom: 2px; }
 }

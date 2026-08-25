@@ -3200,7 +3200,12 @@
       },
     },
     {
-      id: 'risque-jauge', name: 'Sentiment de Risque', tag: 'RISQUE', cat: 'Risque', h: 300,
+      /* h 460 (25/08, capture user « on ne voit pas toutes les informations ») : la carte déclare ses
+         propres minima CSS — jauge .wdg-riskwrap 280px + bande .rsh-chart 170px = 450px incompressibles —
+         mais naissait à 300px : chaque nouvel emplacement ouvrait avec un tiers du contenu sous le pli.
+         Le corps défile (mesuré au banc : scrollHeight 458 pour 171 visibles), rien n’était perdu,
+         mais un widget qui défile dès sa pose est un widget mal dimensionné. */
+      id: 'risque-jauge', name: 'Sentiment de Risque', tag: 'RISQUE', cat: 'Risque', h: 460,
       desc: "L'appétit / l'aversion du marché en direct (risk-on / risk-off).",
       // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de buildRiskGauge (charts.js) — mêmes classes
       // (.risk-ticker / .risk-gauge-stage / .risk-readout), même arc am5radar (dégradé 7 stops), même
