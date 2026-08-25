@@ -312,6 +312,57 @@ function phaseLogique() {
     verif('la SYNTHÈSE se rend en encadré, pas en puces', /tag === 'ul' && \/\^SYNTH\[ÈE\]SE\$\/\.test\(_rubrique\)/.test(APP2));
     verif('la règle CSS est partagée, pas dupliquée', /\.fxdr-section,\s*\n\.arlib-rsection \{/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
 
+    /* ── LE RÉCAP QUOTIDIEN S'AFFICHE-T-IL ? ───────────────────────────────────────────────────
+       AUCUN contrôle n'ouvrait ce rapport. Le 26/08, une extraction de fonction y a emporté trois
+       lignes de l'appelant : `body` n'existait plus dans la fonction d'accueil, et le rapport
+       levait une ReferenceError DÈS QU'IL AVAIT DES ÉCHÉANCES. `node -c` ne voit rien (syntaxe
+       valide) et js-verif non plus (`body` est bien déclaré ailleurs dans le fichier). Seul un
+       rendu réel le voit — d'où ce contrôle : on rend le rapport avec un jeu d'essai et on regarde
+       s'il produit son tableau, sans exception. */
+    const q = await page.evaluate(() => {
+      const J = Date.now() + 3600000;
+      const fx = {
+        title: 'FX Daily Recap', dateLabel: 'mercredi 26 août', summary: 'Séance sans direction.',
+        geopolitics: [], geoKeyPoints: [], cb: [], macro: ['**CPI** allemand : 0,4%'],
+        regions: [], pairs: [], headlines: [], insights: [], fils: ['Médiation en cours → à suivre.'],
+        lookahead: [
+          { ts: J, ccy: 'USD', event: 'Core PCE Price Index m/m', importance: 'High', actual: '', forecast: '0.2%', previous: '0.1%' },
+          { ts: J + 7200000, ccy: 'EUR', event: 'GfK Consumer Confidence', importance: 'Medium', actual: '', forecast: '', previous: '-29.6' },
+        ],
+      };
+      /* `_renderFXDailyRecap` écrit dans #arlib-rcontent, qui existe déjà dans la page du desk : on
+         lui emprunte le conteneur le temps du contrôle, puis on rétablit son contenu. */
+      const hote = document.getElementById('arlib-rcontent');
+      if (!hote || typeof _renderFXDailyRecap !== 'function') return { absent: true };
+      const avant = hote.innerHTML;
+      let err = '';
+      try { _renderFXDailyRecap({ _fxr: fx, headline: 'FX Daily Recap', timestamp: Date.now() }); }
+      catch (e) { err = e.message; }
+      const h = hote.innerHTML;
+      hote.innerHTML = avant;
+      return {
+        err, rendu: h.length,
+        section: /À surveiller/.test(h),
+        table: /class="cal-table"/.test(h),
+        lignes: (h.match(/class="cal-row fxdr-cal-clic"/g) || []).length,
+        colonnes: (h.match(/<th class="cth/g) || []).length,
+        haut: /cth-val--haut/.test(h) || /cth-val--bas/.test(h),
+        fils: /Médiation en cours/.test(h),
+      };
+    });
+    console.log('\n── Récap Quotidien : la rubrique « À surveiller » se rend ──');
+    if (q.absent) {
+      console.log('  · fonction de rendu non exposée globalement → contrôle abstenu.');
+    } else {
+      verif('le rapport se rend sans exception', !q.err, q.err);
+      verif('la rubrique « À surveiller » est là', q.section);
+      verif('elle contient le VRAI tableau du calendrier', q.table);
+      verif('une ligne par échéance', q.lignes === 2, q.lignes + ' ligne(s)');
+      verif('les colonnes HAUT et BAS ont disparu', !q.haut);
+      verif('il reste huit colonnes', q.colonnes === 8, q.colonnes + ' colonne(s)');
+      verif('les fils ouverts sont rendus avant le tableau', q.fils);
+    }
+
     /* « CHARGER PLUS » DÉROULE LA JOURNÉE ENTIÈRE (demande user 25/08).
        L'assertion porte sur l'INVARIANT, mesuré avec les propres fonctions du fil : après le clic,
        tout ce que le fil retient pour la journée affichée doit être visible. Compter des lignes

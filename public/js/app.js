@@ -9176,27 +9176,6 @@ function _rapportCalTable(evs) {
         + `<td class="cth-val cth-val--reel">${_va(e)}</td><td class="cth-val cth-val--prev">${_vf(e.forecast)}</td><td class="cth-val cth-val--prec">${_vp(e.previous)}</td></tr>`
         + `<tr class="fxdr-cal-detail" hidden><td colspan="8"></td></tr>`;
     });
-    // PUCES NARRATIVES RETIRÉES (demande user 24/08 : « supprime ceci et déroule les news du
-    // calendrier »). Elles paraphrasaient le tableau juste en dessous : « Minutes de la RBA (mardi
-    // 25 août) → à surveiller pour des indications sur la politique monétaire » ne dit rien que la
-    // ligne de calendrier ne dise déjà, avec en plus l'heure, la devise, l'impact et les chiffres
-    // attendus. La rubrique est désormais le CALENDRIER lui-même, déroulé, chaque ligne s'ouvrant
-    // sur son Décryptage d'un clic.
-    body += _sec('À surveiller');
-    /* LES FILS OUVERTS AVANT LE CALENDRIER (28/08, le user fournit le récap de son mentor comme
-       cible). Le tableau ci-dessous dit tout des PUBLICATIONS — heure, devise, impact, attentes
-       chiffrées. Il ne peut rien dire, en revanche, d'une sanction annoncée pour la fin de semaine,
-       d'une médiation en cours ou d'une annonce de tarifs : ces échéances-là n'existent dans aucun
-       calendrier, et ce sont souvent elles qui font la séance suivante.
-       ⚠️ Ce n'est PAS le retour de l'ancien champ « watch », retiré en v17 : lui paraphrasait le
-       tableau. Le prompt de `fils` interdit explicitement de reprendre une ligne du calendrier —
-       c'est la condition pour que cette rubrique ajoute quelque chose au lieu de répéter. */
-    const _fils = (Array.isArray(w.fils) ? w.fils : []).filter(Boolean);
-    if (_fils.length) {
-      body += '<div class="fxdr-bullets">';
-      _fils.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-      body += '</div>';
-    }
     if (!rows) return '';
     return `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
       + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
@@ -10379,7 +10358,27 @@ function _renderFXDailyRecap(item) {
   //    économique ») : séparateurs de jours, heure, drapeau rond + devise, points d'impact ●●●.
   //    Réutilise les briques RÉELLES du calendrier (CAL_FLAG / calImpDots / cal-day-sep, charts.js).
   //    Anciens rapports (sans ts/ccy) : ligne sans heure/drapeau, rien ne casse.
-  body += _rapportCalTable(w.lookahead);
+  /* PUCES NARRATIVES RETIRÉES (demande user 24/08 : « supprime ceci et déroule les news du
+     calendrier »). Elles paraphrasaient le tableau juste en dessous. La rubrique EST le calendrier,
+     déroulé, chaque ligne s'ouvrant sur son Décryptage d'un clic. */
+  const _calHtml = _rapportCalTable(w.lookahead);
+  const _fils = (Array.isArray(w.fils) ? w.fils : []).filter(Boolean);
+  if (_calHtml || _fils.length) {
+    body += _sec('À surveiller');
+    /* LES FILS OUVERTS AVANT LE CALENDRIER (28/08, le user fournit le récap de son mentor comme
+       cible). Le tableau dit tout des PUBLICATIONS — heure, devise, impact, attentes chiffrées. Il
+       ne peut rien dire, en revanche, d'une sanction annoncée pour la fin de semaine, d'une
+       médiation en cours ou d'une annonce de tarifs : ces échéances-là n'existent dans aucun
+       calendrier, et ce sont souvent elles qui font la séance suivante.
+       ⚠️ Ce n'est PAS le retour de l'ancien champ « watch », retiré en v17 : lui paraphrasait le
+       tableau. Le prompt de `fils` interdit explicitement de reprendre une ligne du calendrier. */
+    if (_fils.length) {
+      body += '<div class="fxdr-bullets">';
+      _fils.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+      body += '</div>';
+    }
+    body += _calHtml;
+  }
 
   // ── « Commentaires des banques » RETIRÉ (demande user 11/08, après l'avoir vu en vrai) : la liste de
   //    titres de recherche (« Danske Bank, Sweden: Inflation forecast… ») et les avis de maisons ne
