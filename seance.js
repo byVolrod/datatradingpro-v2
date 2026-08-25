@@ -350,8 +350,26 @@ function bornes(reportType, now, finRef) {
 /* La fenêtre d'un récap de séance PUBLIÉ : celle de sa séance, le jour de sa publication. La fin
    reste plafonnée à maintenant — un récap du jour ne peut pas annoncer des chiffres pas encore
    tombés. Rend null si l'article n'est pas un récap de séance (« Global », ouverture, hebdo…). */
+/* QUELLE SÉANCE RACONTE CE RÉCAP ? Le champ `session` est renseigné à l'ingestion en cherchant
+   « americas » / « europe » / « asia-pacific » DANS LE TITRE de la dépêche — et retombe sur
+   « Global » quand le titre ne les nomme pas. Un récap de séance étiqueté « Global » n'a alors
+   aucune fenêtre horaire, donc aucune publication du calendrier : c'est précisément ce qui fait
+   qu'un récap reçoit la complétion et le suivant non, sans rien qui les distingue à l'écran.
+   On relit donc l'intitulé affiché et l'URL quand le champ ne dit rien — mêmes motifs et même ordre
+   que `_arlWrapSessionPrefix` (server.js), qui nomme déjà « Récap Séance Asie-Pacifique » à partir
+   des mêmes chaînes : les deux doivent voir la même séance, sinon le titre annonce une séance et le
+   contenu en chiffre une autre. */
+function sessionDe(item) {
+  const direct = TYPE_PAR_SESSION[String((item && item.session) || '')];
+  if (direct) return direct;
+  const s = `${(item && item.session) || ''} ${(item && item.headline) || ''} ${(item && item.title) || ''} ${(item && item.url) || ''}`;
+  if (/asia|pacific|asie/i.test(s)) return 'Asia Session Recap';
+  if (/europe|london|londres/i.test(s)) return 'London Session Recap';
+  if (/americ|new york|north america|\bus\b|wall/i.test(s)) return 'US Session Recap';
+  return null;
+}
 function bornesPourWrap(item, now) {
-  const type = TYPE_PAR_SESSION[String((item && item.session) || '')];
+  const type = sessionDe(item);
   const ts = (item && item.timestamp) || 0;
   if (!type || !ts) return null;
   return bornes(type, ts, now == null ? Date.now() : now);
@@ -437,4 +455,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };

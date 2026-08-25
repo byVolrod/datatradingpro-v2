@@ -37,7 +37,12 @@ const RACINE = path.join(__dirname, '..');
    Chaque PAGE forme sa propre portée globale (index.html et admin.html ne chargent pas la même
    chose) ; un fichier chargé par plusieurs pages n'est fautif que s'il l'est dans toutes. */
 const PAGES = ['public/index.html', 'public/admin.html', 'public/login.html', 'public/week-ahead.html'];
-const SERVEUR = ['server.js', 'walabels.js', 'mailer.js', 'whop.js', 'ai.js', 'auth.js', 'emailWidget.js', 'campaignPreflight.js'];
+/* PORTÉE SERVEUR : les modules de l'application ET les scripts de contrôle. Les scripts ont failli
+   ne pas y être — « ce ne sont que des outils ». Le 26/08 un contrôle tout neuf référençait `J` là
+   où la constante s'appelait `JOUR` : syntaxe parfaite, `node -c` muet, et le script mourait au
+   lancement. Un outil de vérification qui ne se vérifie pas lui-même ne protège rien. */
+const SERVEUR = ['server.js', 'walabels.js', 'seance.js', 'wrapseg.js', 'mailer.js', 'whop.js', 'ai.js', 'auth.js', 'emailWidget.js', 'campaignPreflight.js']
+  .concat(fs.readdirSync(path.join(RACINE, 'scripts')).filter(f => f.endsWith('.js')).map(f => 'scripts/' + f));
 const VENDOR_RX = /vendor\/|\.min\.js$/;   // bibliothèques tierces : elles fournissent des noms, on ne les juge pas
 
 /* Globales admises. Volontairement LARGE : le but est d'attraper une déclaration disparue, pas de
@@ -102,6 +107,16 @@ function analyser(src, fichier) {
       case 'Property': if (!node.computed && !node.shorthand) exclus.add(node.key); break;
       case 'MethodDefinition': case 'PropertyDefinition': if (!node.computed) exclus.add(node.key); break;
       case 'UnaryExpression': if (node.operator === 'typeof' && node.argument.type === 'Identifier') exclus.add(node.argument); break;
+      /* CE QUI PART DANS LE NAVIGATEUR NE SE JUGE PAS AVEC LA PORTÉE DE NODE. `page.evaluate(fn)`
+         SÉRIALISE `fn` et l'exécute DANS LA PAGE : ses noms libres (`displayLimit`,
+         `getFilteredItems`…) viennent de public/js, pas d'ici. Les compter comme fantômes ferait
+         échouer desk-verif sur son propre code — et un contrôle qui se trompe finit désactivé. */
+      case 'CallExpression':
+        if (node.callee.type === 'MemberExpression' && !node.callee.computed
+            && /^(evaluate|evaluateHandle|evaluateOnNewDocument|\$eval|\$\$eval|addInitScript)$/.test(node.callee.property.name || '')) {
+          for (const a of node.arguments) if (/FunctionExpression$/.test(a.type)) walk.full(a, n => { if (n.type === 'Identifier') exclus.add(n); });
+        }
+        break;
       case 'LabeledStatement': exclus.add(node.label); break;
       case 'BreakStatement': case 'ContinueStatement': if (node.label) exclus.add(node.label); break;
     }

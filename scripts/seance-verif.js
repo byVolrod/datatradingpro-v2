@@ -160,7 +160,7 @@ const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 's
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
 v('le rapport segmente groupe sa Macro', /const \{ sansTitre, groupes \} = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v15:'/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v16:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -375,6 +375,48 @@ v('« BOJ Core CPI y/y » reste un chiffre d\'inflation', S.famille('BOJ Core CP
 v('« Fed Chair Powell Speaks » reste en Politique monétaire', S.famille('Fed Chair Powell Speaks') === 'Politique monétaire');
 v('« Canada (Ministre du Commerce…) » reste du Commerce', S.famille('Canada (Ministre du Commerce LeBlanc): tarifs de rétorsion') === 'Commerce');
 
+console.log('\n── 7e-ter. LES TROIS RÉCAPS DU JOUR, PAS SEULEMENT UN ──');
+/* « Met aussi pour les autres récap sessions » (26/08, capture du Récap Séance Asie-Pacifique).
+   Le champ `session` est rempli à l'ingestion en cherchant « americas » / « europe » /
+   « asia-pacific » DANS LE TITRE de la dépêche, et retombe sur « Global » quand le titre ne les
+   nomme pas. Un récap « Global » n'a aucune fenêtre horaire : il ne recevait AUCUNE publication du
+   calendrier, pendant que son voisin les recevait — rien à l'écran ne distinguait les deux cas. */
+[[{ session: 'Asia-Pacific' }, 'Asia Session Recap'],
+ [{ session: 'European' }, 'London Session Recap'],
+ [{ session: 'Americas' }, 'US Session Recap'],
+ [{ session: 'Global', headline: 'Récap Séance Asie-Pacifique: Bitcoin s\'envole, or en chute' }, 'Asia Session Recap'],
+ [{ session: 'Global', title: 'Europe session wrap: euro steady before the CPI' }, 'London Session Recap'],
+ [{ session: 'Global', url: 'https://investinglive.com/news/investinglive-americas-fx-news-wrap-26-aug/' }, 'US Session Recap'],
+ [{ session: '', headline: 'London session recap: GBP firms' }, 'London Session Recap'],
+ [{ session: 'Global', headline: 'Weekly market outlook' }, null],
+ [{}, null]].forEach(([i, att]) => v(`séance de « ${(i.session || '') + ' ' + (i.headline || i.title || i.url || '')}`.slice(0, 52) + ' »', S.sessionDe(i) === att, String(S.sessionDe(i))));
+
+/* CHAQUE SÉANCE LIT SA FENÊTRE, ET LES TROIS RENDENT PAREIL. Le classement ne dépend pas de la
+   séance — mais la complétion, si : c'est la fenêtre qui change. On rejoue donc le rendu COMPLET
+   pour les trois, sur le même calendrier, et on vérifie que chacune récupère SES publications. */
+const CAL3 = [
+  { timestamp: JOUR + 1 * H, currency: 'JPY', title: 'BOJ Core CPI y/y',            actual: '2.4%', forecast: '2.3%', previous: '2.3%', impact: 'Medium' },
+  { timestamp: JOUR + 2 * H, currency: 'AUD', title: 'CPI y/y',                     actual: '2.8%', forecast: '2.9%', previous: '2.7%', impact: 'High' },
+  { timestamp: JOUR + 8 * H, currency: 'EUR', title: 'German Ifo Business Climate', actual: '88.6', forecast: '88.0', previous: '88.2', impact: 'Medium' },
+  { timestamp: JOUR + 12* H, currency: 'GBP', title: 'BOE Gov Bailey Speaks',       actual: '',     forecast: '',     previous: '',     impact: 'High' },
+  { timestamp: JOUR + 18* H, currency: 'USD', title: 'CB Consumer Confidence',      actual: '94.1', forecast: '96.5', previous: '98.7', impact: 'High' },
+  { timestamp: JOUR + 19* H, currency: 'CAD', title: 'Trade Balance',               actual: '1.2B', forecast: '0.8B', previous: '0.5B', impact: 'Medium' },
+];
+const VIDE = [{ section: 'LEAD', items: ['Séance sans direction.'] }, { section: 'Analyse de séance', items: ['**DXY** stable.'] }];
+[['Asia-Pacific', ['BOJ Core CPI y/y', 'CPI y/y'], 'German Ifo'],
+ ['European',     ['German Ifo Business Climate'], 'CB Consumer Confidence'],
+ ['Americas',     ['CB Consumer Confidence', 'Trade Balance'], 'BOJ Core CPI']].forEach(([sess, attendus, absent]) => {
+  const bs = S.bornesPourWrap({ session: sess, timestamp: JOUR + 12 * H }, JOUR + 23 * H);
+  const evs = S.trierMacro(S.filtreFenetre(CAL3, bs));
+  const h = W.html(VIDE, evs).html;
+  v(`« ${sess} » : la Macro est créée et titrée`, /<strong>Macro<\/strong>/.test(h) && /<em>/.test(h), h.slice(0, 90));
+  attendus.forEach(a => v(`« ${sess} » reprend « ${a} »`, h.includes(a), h.slice(h.indexOf('<strong>Macro'), h.indexOf('<strong>Macro') + 200)));
+  v(`« ${sess} » ne prend pas « ${absent} » (hors fenêtre)`, !h.includes(absent));
+  v(`« ${sess} » écarte le rendez-vous sans résultat`, !/Bailey/.test(h));
+});
+// Le récap dont la séance ne se lit nulle part garde son rapport, sans complétion — jamais d'erreur.
+v('un article hors séance ne casse rien', W.html(VIDE, S.trierMacro(S.filtreFenetre(CAL3, S.bornesPourWrap({ session: 'Global', headline: 'Weekly outlook' }, JOUR)))).html.indexOf('<strong>Macro') < 0);
+
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
 v('le serveur rend via le module pur', /const r = _WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\)\);/.test(srv3));
@@ -382,16 +424,18 @@ v('le récap est passé au segmenteur (préchauffage)', /_segmentWrapAI\(points,
 v('… à la re-segmentation du jour', /_segmentWrapAI\(points, \{\}, w\)/.test(srv3));
 v('… et à l\'ouverture du rapport', /_segmentWrapAI\(points, \{\}, cached\)/.test(srv3));
 v('la complétion est tracée dans les logs', /Macro complétée par notre calendrier/.test(srv3));
+v('le préchauffage reconnaît la séance par le même chemin', /if \(_SEA\.sessionDe\(item\) && !_calPret\(\)\) return false;/.test(srv3));
+v('la route de comparaison couvre les récaps mal étiquetés', /_SEA\.sessionDe\(w\) && _jourParis\(w\.timestamp\) === jour/.test(srv3));
 /* « et compare au calendrier éco de ce jour » : une route admin met face à face, pour CHAQUE récap
    du jour, la Macro du rapport publié et tout ce que le calendrier a enregistré sur la fenêtre. */
 v('une route compare le rapport au calendrier du jour', /app\.get\('\/api\/admin\/wrap-macro-apercu', requireAdmin/.test(srv3));
-v('elle couvre les trois séances du jour', /_SEA\.TYPE_PAR_SESSION\[String\(w\.session \|\| ''\)\] && _jourParis\(w\.timestamp\) === jour/.test(srv3));
+v('elle couvre les trois séances du jour', /_SEA\.sessionDe\(w\) && _jourParis\(w\.timestamp\) === jour/.test(srv3));
 v('elle relit la Macro du rapport RÉELLEMENT publié', /seg\.split\(\/<strong>\/i\)\.find/.test(srv3));
 v('elle marque chaque publication « déjà dit » ou « AJOUTÉE »', /deja \? 'déjà dit' : 'AJOUTÉE'/.test(srv3));
 v('elle ne publie rien et n\'appelle aucune IA', !/wrap-macro-apercu[\s\S]{0,2600}?(generateText|aiNote\()/.test(srv3));
 /* Le préchauffage tourne au boot. S'il segmente un récap avant que le calendrier ne soit chargé, la
    Macro part amputée — ET EN CACHE. On saute le tour plutôt que de figer un rapport incomplet. */
-v('on ne segmente pas un récap de séance calendrier vide', /if \(_SEA\.TYPE_PAR_SESSION\[String\(item\.session \|\| ''\)\] && !_calPret\(\)\) return false;/.test(srv3));
+v('on ne segmente pas un récap de séance calendrier vide', /if \(_SEA\.sessionDe\(item\) && !_calPret\(\)\) return false;/.test(srv3));
 v('une seule implémentation des bornes', /const _bornesSeance = \(reportType, now, finRef\) => _SEA\.bornes/.test(srv3));
 
 console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
