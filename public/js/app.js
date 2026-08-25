@@ -1147,14 +1147,18 @@ let _flashedNewsId = null;   // id de la news actuellement annoncée dans le ban
    bannière LIVE, et par un calcul recopié dans le rendu de la ligne — qui pouvaient diverger sans
    que rien ne le signale. Ils partagent desormais cette fonction : ce qui est rouge dans le fil est
    rouge dans la bannière, par construction. */
+function _estDonneeFortImpact(item) {
+  if (!item) return false;
+  const imp = String(item.impact || item.importance || '').toLowerCase();
+  return item._highImpact === true || imp === 'high' || imp === 'critical';
+}
 function _estNewsRouge(item) {
   if (!item) return false;
   // A) Breaking : dépêche FinancialJuice marquée urgente à la source.
   const isFJ = item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-');
   if (isFJ && item.urgent === true) return true;
   // B) Donnée macro de premier rang (PMI, CPI, NFP…) ou impact déclaré fort.
-  const imp = String(item.impact || item.importance || '').toLowerCase();
-  if (item._highImpact === true || imp === 'high' || imp === 'critical') return true;
+  if (_estDonneeFortImpact(item)) return true;
   // C) Toute news marquée prioritaire.
   if (item.priority === 'high') return true;
   /* D) UNE ANALYSE DU DESK EST UNE NEWS MAJEURE, PAR DÉFINITION. Elle n'existe que parce qu'une
@@ -3171,7 +3175,7 @@ function buildNewsItem(item) {
   // hasArticleUrl: used only inside openPanel to fetch deeper content when description is short
   const hasArticleUrl = !!(item.url && item.url.startsWith('https://'));
   // Résumé auto pour données High Impact sans corps de texte (PMI/CPI/NFP…)
-  const autoSummary = isHighImpactData ? _dataReleaseBullets(item) : [];
+  const autoSummary = _estDonneeFortImpact(item) ? _dataReleaseBullets(item) : [];
   // News « propos/citation » hors marché : titre reframé + tag « Contexte » + citation gardée au déplié.
   const isInfoQuote = !!(item && item._infoQuote);
   /* Explication de la prise de parole, préchauffée côté serveur. Cherchée dans TOUTE la grappe (ou
