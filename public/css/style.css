@@ -13384,8 +13384,25 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
 
 /* ── SENTIMENT DE RISQUE (widget) : jauge + bande d'historique, comme l'onglet RISQUE du desk. ── */
 .wdg-riskpanel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.wdg-riskpanel .wdg-riskwrap { flex: 1 1 auto; }
-.wdg-riskpanel .rsh-chart { flex: 0 0 170px; min-height: 150px; }
+/* ⚠️ BASE ZERO SUR LA JAUGE, ET C EST TOUT LE CORRECTIF (28/08). Elle etait `flex: 1 1 auto` avec
+   `height: 100%` : sa base valait donc la hauteur ENTIERE du panneau, et l histogramme partait
+   perdant dans le partage — quelle que soit la place, le surplus allait a la jauge, et le manque
+   etait paye par la bande. `1 1 0` inverse l ordre : l histogramme prend ses 170px, la jauge REMPLIT
+   ce qui reste. Et quand ce reste tombe sous son plancher de 280px, c est alors seulement que la
+   bande cede, jusqu a 104px. Compression SEQUENTIELLE, obtenue sans requete de conteneur. */
+.wdg-riskpanel .wdg-riskwrap { flex: 1 1 0; }
+/* ⚠️ L HISTOGRAMME DOIT CEDER AVANT LE DEFILEMENT (28/08, capture user « on voit pas tout le bas »).
+   Il etait `flex: 0 0 170px` — RIGIDE — face a une jauge plancher a 280px : 450px incompressibles.
+   Mesure au banc : sous ~490px de carte, la bande debordait de 28 a 108px. Atteignable en faisant
+   defiler le corps, certes, mais faire defiler un widget pour voir SON PROPRE graphique n est pas
+   une lecture, c est un pis-aller — et l axe des dates comme le titre « Sentiment (%) » passaient
+   sous le pli sans que rien ne le signale.
+   `1 1 170px` : la bande garde 170px quand la place existe (rendu identique a avant, verifie au
+   banc a 620, 560 et 500px) et se resserre jusqu a 104px quand elle manque — a cette hauteur les
+   barres, la ligne de zero et l axe restent lisibles, c est le plancher utile mesure. Le plancher
+   incompressible du panneau tombe ainsi de 450 a 384px. Le defilement du corps reste en dernier
+   recours sous cette valeur : on comprime d abord, on ne coupe jamais. */
+.wdg-riskpanel .rsh-chart { flex: 0 1 170px; min-height: 104px; }
 
 /* ── WIDGETS « VUE DU DESK » (adoption du vrai panneau) : l'hôte donne au panneau la place entière
    de la carte ; les panneaux (.view-panel) portent déjà flex:1 + leurs propres scrolls internes. */
