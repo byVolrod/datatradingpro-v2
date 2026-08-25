@@ -2662,10 +2662,17 @@ function _recapQuotidienFull(fx) {
       if (!parFam.has(f)) parFam.set(f, []);
       parFam.get(f).push(d);
     }));
-    _ORDRE_FAM.forEach(fam => {
-      const l = (parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      if (l.length) S(fam, _lignesDonnees(l));
-    });
+    /* MIROIR DU DESK (30/08) : UNE section « Chiffres du jour », les familles en SOUS-TITRES.
+       Chaque famille avait sa propre rubrique de plein droit, alors que les mêmes noms servent
+       déjà de sous-rubriques sous MACRO : « Croissance économique » apparaissait à deux niveaux
+       dans le même courriel, sans rien pour distinguer les NEWS des CHIFFRES PUBLIÉS. */
+    const _fams = _ORDRE_FAM.filter(f => (parFam.get(f) || []).length);
+    if (_fams.length) {
+      S('Chiffres du jour', _fams.map(fam => {
+        const l = (parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        return _grpTitre(fam) + _lignesDonnees(l);
+      }).join(''));
+    }
   }
 
   // LECTURE DES SÉANCES, commune aux deux blocs qui suivent (elles décident lequel s'affiche).

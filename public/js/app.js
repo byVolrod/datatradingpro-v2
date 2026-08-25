@@ -10094,10 +10094,20 @@ function _renderFXDailyRecap(item) {
     Object.keys(w.dataBySession || {}).forEach(k => (Array.isArray(w.dataBySession[k]) ? w.dataBySession[k] : [])
       .forEach(d => { if (!d || !d.label) return; const f = _famJour(d.label); if (!_parFam.has(f)) _parFam.set(f, []); _parFam.get(f).push(d); }));
     const _atrF = v => _wrEsc(String(v == null ? '' : v)).replace(/"/g, '&quot;');
-    _ORDRE_FAM.forEach(fam => {
+    /* ⚠️ UNE SEULE SECTION, DES SOUS-TITRES DEDANS (30/08, le user : « pourquoi il y a une partie
+       Croissance économique alors qu'il y a déjà la sous-partie dans Macro, j'ai pas compris »).
+       Il avait raison, et c'était un défaut de conception de ma part : les familles étaient rendues
+       en SECTIONS de plein droit (`_sec`, filet + barre orange) alors que les MÊMES noms —
+       Croissance économique, Inflation, Emploi, Politique monétaire — servent déjà de sous-rubriques
+       sous MACRO. Le lecteur voyait donc « Croissance économique » à deux niveaux différents dans le
+       même rapport, sans rien pour distinguer les NEWS (dans Macro) des CHIFFRES PUBLIÉS (ici).
+       Les chiffres tiennent désormais dans UNE section « Chiffres du jour », et les familles y sont
+       des sous-titres — exactement la grammaire de Macro. Un niveau de titre = un niveau de sens. */
+    const _famsPleines = _ORDRE_FAM.filter(f => (_parFam.get(f) || []).length);
+    if (_famsPleines.length) body += _sec('Chiffres du jour');
+    _famsPleines.forEach(fam => {
       const l = (_parFam.get(fam) || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      if (!l.length) return;
-      body += _sec(fam) + '<div class="fxdr-bullets">';
+      body += `<div class="fxdr-grp-title">${_wrEsc(fam)}</div><div class="fxdr-bullets">`;
       l.forEach(d => {
         const nums = [`<b class="${_dataCls(d.actual, d.forecast, d.label || d.title || '')}">${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
         const _w = _ccyWho(d.ccy, d.country);
