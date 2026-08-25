@@ -61,8 +61,13 @@ function poserMacro(arr, macroCal) {
    « dans macro je vois pas les news sorties dans leur catégorie comme quotidien »). Le classement est
    DÉTERMINISTE et fait avec la MÊME table que le Quotidien (_SEA.famille) : on ne demande pas à l'IA
    de ranger, on range nous-mêmes ce qu'elle a écrit — elle ne peut donc ni inventer une famille ni
-   en oublier une. Une seule famille remplie → aucun sous-titre : intituler un groupe unique
-   n'apprend rien. */
+   en oublier une.
+   MÊME GRAMMAIRE QUE LE QUOTIDIEN, À LA LIGNE PRÈS (26/08, second retour, deux captures côte à
+   côte : « il manque la classification comme la 2è image »). Ce qui n'entre dans aucune des quatre
+   rubriques du Radar se rend d'abord et SANS titre ; puis chaque famille présente porte son
+   intitulé — MÊME SEULE. Mon arbitrage précédent (« intituler un groupe unique n'apprend rien »)
+   effaçait TOUTE la classification les jours où la séance était homogène : trois indicateurs de
+   croissance, et la rubrique retombait en liste plate. C'est exactement ce qu'il a vu. */
 function html(arr, macroCal) {
   const sections = poserMacro(arr, macroCal);
   let out = '', ajouts = 0;
@@ -72,10 +77,10 @@ function html(arr, macroCal) {
       const r = completerMacro(sec.items, macroCal);
       ajouts += r.ajouts;
       if (!r.entrees.length) continue;
-      const groupes = _SEA.parFamille(r.entrees);
+      const { sansTitre, groupes } = _SEA.parFamilleMacro(r.entrees);
       out += `<strong>${esc(sec.section)}</strong>`;
-      if (groupes.length > 1) for (const g of groupes) out += `<em>${esc(g.famille)}</em><ul>${g.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
-      else out += `<ul>${r.entrees.map(e => `<li>${esc(e.ligne)}</li>`).join('')}</ul>`;
+      if (sansTitre.length) out += `<ul>${sansTitre.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
+      for (const g of groupes) out += `<em>${esc(g.famille)}</em><ul>${g.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
       continue;
     }
     if (!sec.items.length) continue;   // une rubrique vide s'efface — sauf la Macro, traitée ci-dessus

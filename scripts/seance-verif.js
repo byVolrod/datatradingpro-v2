@@ -158,9 +158,9 @@ v('les trois indicateurs de croissance sont ensemble', (gm.find(x => x.famille =
 v('inflation citee avec une banque centrale reste Inflation', S.famille("l'inflation pousse la BCE à temporiser") === 'Inflation');
 const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
-v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamille\(r\.entrees\);/.test(wsg));
-v('un groupe unique ne recoit pas de sous-titre', /if \(groupes\.length > 1\)/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v14:'/.test(srv2));
+v('le rapport segmente groupe sa Macro', /const \{ sansTitre, groupes \} = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
+v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v15:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -173,7 +173,8 @@ const lignesFam = f => {
   return (src.match(/\['(?:Inflation|Emploi|Croissance économique|Politique monétaire|Commerce)', \/.*?\/i\]/g) || []);
 };
 const tSea = lignesFam('seance.js'), tApp = lignesFam('public/js/app.js'), tMail = lignesFam('mailer.js');
-v('la table est bien retrouvée dans les trois fichiers', tSea.length === 5 && tApp.length === 5 && tMail.length === 5, `${tSea.length}/${tApp.length}/${tMail.length}`);
+v('la table est bien retrouvée dans les trois fichiers', tSea.length === 6 && tApp.length === 6 && tMail.length === 6, `${tSea.length}/${tApp.length}/${tMail.length}`);
+v('la règle « banquier central qui parle » est testée EN PREMIER', /^\['Politique monétaire', \/\^/.test(tSea[0]), tSea[0] && tSea[0].slice(0, 60));
 tSea.forEach((l, i) => {
   const fam = (l.match(/^\['([^']+)'/) || [])[1];
   v(`« ${fam} » identique dans le desk`, l === tApp[i], 'seance.js ≠ app.js');
@@ -318,9 +319,8 @@ v('le HTML est échappé', W.html([{ section: 'Macro', items: ['<script>x</scrip
 // Sans calendrier, le rapport est EXACTEMENT celui d'avant : la complétion n'abîme rien.
 const sansCal = W.html(SECTIONS, []);
 v('sans calendrier, le rendu est inchangé', sansCal.ajouts === 0 && !/German Prelim CPI/.test(sansCal.html));
-// Les trois puces tombent dans la MÊME famille : un groupe unique ne prend pas de sous-titre. C'est
-// le CPI venu du calendrier qui ouvre « Inflation » — la complétion crée le découpage, elle ne le simule pas.
-v('une famille unique ne prend pas de sous-titre', !/<strong>Macro<\/strong><em>/.test(sansCal.html));
+// Les trois puces tombent dans la MÊME famille — et elle porte quand même son titre.
+v('une famille unique porte quand même son titre', /<strong>Macro<\/strong><em>Croissance économique<\/em>/.test(sansCal.html), sansCal.html.slice(0, 110));
 v('c\'est la publication ajoutée qui ouvre « Inflation »', /<em>Inflation<\/em>/.test(rendu.html) && !/<em>Inflation<\/em>/.test(sansCal.html));
 
 // L'article ne parlait d'aucune donnée : la rubrique Macro doit NAÎTRE du calendrier.
@@ -333,6 +333,47 @@ v('sans Géopolitique, elle suit le LEAD', (() => { const h = W.html([SECTIONS[0
 // Aucune donnée nulle part → aucune rubrique Macro inventée.
 v('pas de calendrier et pas de Macro → aucune rubrique vide', !/<strong>Macro<\/strong>/.test(W.html(sansMacro, []).html));
 v('une rubrique sans contenu ne s\'écrit pas', !/Vide/.test(W.html([{ section: 'Vide', items: [] }, SECTIONS[0]], []).html));
+
+console.log('\n── 7e-bis. LA CLASSIFICATION EST TOUJOURS VISIBLE (capture du 26/08) ──');
+/* LE DÉFAUT, TEL QU'IL A ÉTÉ VU. Trois puces — Ifo, confiance des ménages France, PIB final
+   Allemagne — toutes « Croissance économique » : une seule famille, donc aucun sous-titre, donc une
+   liste plate. À côté, le Récap Quotidien titrait ses familles. « il manque la classification comme
+   la 2è image ». Le cas exact est rejoué ici pour qu'il ne puisse pas revenir. */
+const CAPTURE = [{ section: 'Macro', items: [
+  '**Ifo** Allemagne août : 88.8 (vs 87.2 att.) → surprise haussière, suggérant une résilience de l\'activité économique allemande.',
+  '**Confiance des consommateurs** France août : 86 (vs 87 att.) → légère déception, indicateur de consommation en baisse.',
+  '**PIB** final Allemagne T2 : +0.3% t/t (vs +0.2% t/t prélim.) → révision à la hausse confirmant une croissance modeste.',
+]}];
+const cap = W.html(CAPTURE, []).html;
+v('la rubrique n\'est plus une liste plate', /<em>/.test(cap), cap.slice(0, 120));
+v('elle est titrée « Croissance économique »', /<strong>Macro<\/strong><em>Croissance économique<\/em>/.test(cap), cap.slice(0, 120));
+v('les trois puces sont dessous, aucune perdue', (cap.match(/<li>/g) || []).length === 3);
+
+/* LA GRAMMAIRE DU RÉCAP QUOTIDIEN, À LA LIGNE PRÈS (2e capture). Ce qui n'entre dans aucune des
+   quatre rubriques du Radar se rend EN PREMIER ET SANS TITRE — sinon ces lignes se lisent comme la
+   suite du groupe précédent (leçon déjà payée dans le Quotidien : « l'or à 4 650 $ » annoncé sous
+   « Banques centrales »). Puis politique monétaire, inflation, croissance, emploi. */
+const QUOT = [{ section: 'Macro', items: [
+  'Canada (Ministre du Commerce LeBlanc): tarifs de rétorsion aujourd\'hui → pression sur le **CAD**.',
+  '**Fed** (Collins) : la désinflation est l\'issue la plus probable → confirme la posture de la Fed.',
+  'US Treasury (Bessent): les dirigeants iraniens ressentent la pression économique.',
+  'Climat des affaires **Ifo** allemand: 88,8 (att. 87,2) → dépassement des attentes.',
+  '**Emploi** : les inscriptions au chômage reculent à 230K.',
+]}];
+const q = W.html(QUOT, []).html;
+v('l\'ordre suit les rubriques du Radar de Biais', S.ORDRE_FAM_MACRO.join('|') === 'Politique monétaire|Inflation|Croissance économique|Emploi', S.ORDRE_FAM_MACRO.join('|'));
+v('le commerce se rend en premier, SANS titre', /<strong>Macro<\/strong><ul><li>Canada/.test(q), q.slice(0, 130));
+v('puis « Politique monétaire »', q.indexOf('<em>Politique monétaire</em>') > 0 && q.indexOf('<em>Politique monétaire</em>') < q.indexOf('<em>Croissance économique</em>'));
+v('un banquier central qui parle y figure', /<em>Politique monétaire<\/em><ul><li>\*\*Fed\*\* \(Collins\)/.test(q), q.slice(q.indexOf('<em>Politique monétaire'), q.indexOf('<em>Politique monétaire') + 120));
+v('le Trésor américain aussi', /US Treasury/.test(q.slice(q.indexOf('<em>Politique monétaire'), q.indexOf('<em>Croissance'))));
+v('« Croissance économique » avant « Emploi »', q.indexOf('<em>Croissance économique</em>') < q.indexOf('<em>Emploi</em>'));
+v('aucune ligne perdue', (q.match(/<li>/g) || []).length === 5, String((q.match(/<li>/g) || []).length));
+/* Le pendant du garde-fou : une inflation qui CITE une banque centrale en CONSÉQUENCE reste de
+   l'inflation — la banque n'y est pas le sujet. La règle est ancrée en début de ligne exprès. */
+v('une inflation qui cite une banque reste Inflation', S.famille("L'inflation allemande accélère à 2,3% → pression sur la BCE") === 'Inflation');
+v('« BOJ Core CPI y/y » reste un chiffre d\'inflation', S.famille('BOJ Core CPI y/y') === 'Inflation', S.famille('BOJ Core CPI y/y'));
+v('« Fed Chair Powell Speaks » reste en Politique monétaire', S.famille('Fed Chair Powell Speaks') === 'Politique monétaire');
+v('« Canada (Ministre du Commerce…) » reste du Commerce', S.famille('Canada (Ministre du Commerce LeBlanc): tarifs de rétorsion') === 'Commerce');
 
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');

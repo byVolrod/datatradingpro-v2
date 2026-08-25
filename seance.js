@@ -60,6 +60,15 @@ const ACTIFS = {
    identique ; si on renomme une famille, il faut la renommer aux TROIS endroits. */
 const ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
 const FAM_RX = [
+  /* UN BANQUIER CENTRAL QUI PARLE RELÈVE DE LA POLITIQUE MONÉTAIRE, MÊME S'IL PARLE D'INFLATION
+     (26/08, capture du Récap Quotidien à l'appui : « Fed (Collins) : la désinflation est l'issue la
+     plus probable » y figure sous POLITIQUE MONÉTAIRE). Dans le Quotidien c'est le champ `cb` qui
+     l'y place ; un récap de séance n'a pas ce champ, seulement du texte — d'où cette règle, testée
+     EN PREMIER. Elle est ANCRÉE en début de ligne ET exige un marqueur de prise de parole
+     (« (Nom) : » ou « : »), sinon « BOJ Core CPI y/y », qui est un chiffre d'INFLATION, basculerait
+     ici. Une inflation qui CITE une banque en conséquence (« … → pression sur la BCE ») reste de
+     l'inflation : la banque n'y est pas le sujet. */
+  ['Politique monétaire', /^\s*\*{0,2}(?:fed|fomc|bce|ecb|boj|boe|boc|rba|rbnz|snb|bns|pboc|riksbank|norges bank|banque centrale|central bank|us treasury|tr[ée]sor(?: am[ée]ricain)?)\*{0,2}\s*(?:\([^)]{0,60}\))?\s*:/i],
   ['Inflation', /prix a la consommation|prix à la consommation|indice des prix|d[ée]sinflation|ench[ée]rit|\bcpi\b|\bppi\b|\bpce\b|\bhicp\b|\bipch\b|\brpi\b|inflation|consumer price|producer price|price index|import prices|export prices|wholesale price|trimmed mean|deflator/i],
   ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
   ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance des (?:consommateurs|m[ée]nages|entreprises)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|retail trade|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|industrial orders|(?:machine tool|machinery|core machinery) orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|consumer climate|\btankan\b|\bifo\b|\bzew\b|\bsentix\b|\bgfk\b|investor confidence|economic sentiment|business climate|business survey|climat des affaires|leading index|leading indicator|indicateur avanc[ée]|housing starts|building permits|home sales|house price|\bhpi\b|prix des logements|construction (?:output|spending|\bpmi\b)|(?:business|retail|wholesale) inventories|stocks des (?:entreprises|grossistes)|personal (?:spending|income)|consumer spending|d[ée]penses des m[ée]nages|revenus? des m[ée]nages|consumer credit|cr[ée]dit [àa] la consommation|tertiary industry|vehicle sales|car registrations|immatriculations|(?:philly|philadelphia|dallas|richmond|kansas city|\bkc\b|empire state|new york|\bny\b) fed (?:manufacturing|services|business|composite|index)|empire state manufacturing|richmond (?:manufacturing|services)/i],
@@ -78,6 +87,35 @@ function famille(titre) {
   const m = FAM_RX.find(([, rx]) => rx.test(t));
   return m ? m[0] : 'Autres';
 }
+/* L'ORDRE DES FAMILLES DANS LA RUBRIQUE MACRO — CELUI DU RÉCAP QUOTIDIEN, QUI EST CELUI DU RADAR
+   DE BIAIS (`_SECTIONS_NEWS`, public/js/app.js). Ce n'est pas ORDRE_FAM : le Quotidien range ses
+   CHIFFRES du jour dans l'ordre Inflation → Croissance → Emploi → Politique monétaire, mais sa
+   rubrique MACRO suit les quatre rubriques du Radar, politique monétaire en tête — la décision
+   d'abord, son écho macro ensuite. Le récap de séance a la même rubrique : il suit le même ordre.
+   CE QUI N'ENTRE DANS AUCUNE DES QUATRE (Commerce, Autres) SE REND EN PREMIER ET SANS TITRE. C'est
+   une leçon déjà payée dans le Quotidien : rendues APRÈS un groupe intitulé, ces lignes se lisent
+   comme la suite de ce groupe — le user avait vu « l'or à 4 650 $ » annoncé sous « Banques
+   centrales ». Placées en tête, elles se lisent comme le corps de la rubrique. */
+const ORDRE_FAM_MACRO = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi'];
+/* CHAQUE FAMILLE PRÉSENTE PORTE SON TITRE, MÊME SEULE (26/08, retour utilisateur captures à
+   l'appui : « il manque la classification comme la 2è image »). La rubrique sortait en liste plate
+   dès que toutes ses lignes tombaient dans la même famille — trois indicateurs de croissance, et
+   plus un seul intitulé. Le Récap Quotidien, lui, titre toujours : « intituler un groupe unique
+   n'apprend rien » était mon arbitrage, pas le sien, et il rendait la classification invisible
+   précisément les jours où la séance était homogène. */
+function parFamilleMacro(entrees) {
+  const par = new Map();
+  for (const e of (entrees || [])) {
+    if (!e || !e.ligne) continue;
+    const f = famille(e.titre);
+    if (!par.has(f)) par.set(f, []);
+    par.get(f).push(e.ligne);
+  }
+  const sansTitre = [];
+  for (const [f, l] of par) if (ORDRE_FAM_MACRO.indexOf(f) < 0) sansTitre.push(...l);
+  return { sansTitre, groupes: ORDRE_FAM_MACRO.filter(f => (par.get(f) || []).length).map(f => ({ famille: f, lignes: par.get(f) })) };
+}
+
 // Range des lignes déjà rédigées par famille, dans l'ordre d'affichage. Une famille vide ne sort pas.
 function parFamille(entrees) {
   const par = new Map();
@@ -399,4 +437,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
