@@ -604,7 +604,29 @@ v('le repli couvre les neuf mêmes devises que les fenêtres',
 // (4) LES CHIFFRES. Point décimal d'un côté, virgule de l'autre.
 v('le Quotidien écrit ses valeurs en français (par pays)', /actual: _SEA\.frNombre\(e\.actual\), forecast: _SEA\.frNombre\(e\.forecast\), previous: _SEA\.frNombre\(e\.previous\), lean: leanOf\(e\)/.test(SRV));
 v('… et par séance', /actual: _SEA\.frNombre\(e\.actual\), forecast: _SEA\.frNombre\(e\.forecast\), previous: _SEA\.frNombre\(e\.previous\), lean: _fxrLean\(e\)/.test(SRV));
-v('la version du Quotidien a été bumpée (régénération)', /const FXR_VER = 23;/.test(SRV));
+v('la version du Quotidien a été bumpée (régénération)', /const FXR_VER = 2[4-9];/.test(SRV));
+
+console.log('\n── 7h. Le Quotidien LIT-IL les récaps de séance ? ──');
+/* « donc les récap session le quotidien prend bien en compte c'est ça ? » (26/08). Vérifié : NON.
+   Le bloc « récaps de séance du jour », posé le 11/08 sur une demande explicite, ne testait que le
+   drapeau `_marketWrap` — porté par UN SEUL rapport, la « DTP Synthèse des Marchés ». Les récaps
+   Asie / Londres / New York portent `_briefing` + `_reportType` : ils n'entraient ni là, ni dans le
+   bloc TITRES, qui écarte explicitement `_briefing`. Le « & co » du commentaire n'existait pas. */
+v('un récap de séance est reconnu', /const _estRecapSeance = i => !!\(i && i\._briefing && _SEA\.FENETRES\[i\._reportType\]\);/.test(SRV));
+v('… et entre dans le bloc qui nourrit l\'intro', /\(i\._marketWrap \|\| _estRecapSeance\(i\)\)/.test(SRV));
+v('la reconnaissance se fait sur les MÊMES clés que les fenêtres de séance',
+  ['Asia Session Recap', 'London Session Recap', 'US Session Recap'].every(k => !!S.FENETRES[k]),
+  Object.keys(S.FENETRES).join(' | '));
+v('les récaps de séance portent bien ce _reportType', /if \(_SEA\.FENETRES\[reportType\]\) item\._seanceVer = SEANCE_VER;/.test(SRV));
+/* Leur description porte le bloc chiffré du desk. La couper à 320 caractères — le plafond commun —
+   décapitait précisément la matière qu'on venait chercher. */
+v('un récap de séance reçoit 900 caractères, pas 320', /const cap = _estRecapSeance\(i\) \? 900 : 320;/.test(SRV));
+v('le bloc envoyé au modèle a été élargi en conséquence', /wrapLines\.join[\s\S]{0,12}slice\(0, 4200\)/.test(SRV));
+v('le repli déterministe s\'en sert aussi', /const intro = \(wrapItems && wrapItems\.length\)/.test(SRV));
+v('la version du Quotidien a été bumpée', /const FXR_VER = 24;/.test(SRV));
+/* Le bloc TITRES continue d'écarter les rapports internes — c'est voulu : un récap de séance n'est
+   pas une dépêche, il a SA place dans le bloc dédié. Sans cette exclusion il serait compté deux fois. */
+v('le bloc TITRES écarte toujours les rapports internes', /&& !i\._briefing && !i\._marketWrap && !i\._fxr && !i\._weekly && !_isPrimerNews\(i\)\)/.test(SRV));
 
 console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
 /* Le format de séance porte une version, et les récaps déjà publiés sous une version périmée se
