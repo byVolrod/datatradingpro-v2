@@ -2957,17 +2957,93 @@ function _assetBadgePrefix(text) {
 }
 
 // ── Met en gras les chiffres et mots-clés de verdict d'une puce ──────────────
+/* ── VERDICT COLORÉ SUR LE CHIFFRE PUBLIÉ (26/08, demande utilisateur : « met des couleurs de datas
+   sorti vert positif, rouge négatif, neutre attendu maintien ; augmentation des taux vert, baisse
+   taux rouge et maintien neutre »). Charte DTP : vert #00e676, rouge #ff3d00, neutre #ffb300.
+   DÉTERMINISTE, ET SUR DEUX AXES SEULEMENT — l'écart au chiffre de référence, et le sens d'une
+   décision de taux. On ne demande RIEN au modèle : on lit ce qu'il a écrit et on compare les
+   nombres nous-mêmes. Une puce qui ne porte ni comparaison ni verdict reste blanche : mieux vaut
+   pas de couleur qu'une couleur fausse.
+   ⚠️ LES INDICATEURS INVERSÉS. Pour le chômage, les inscriptions, les stocks ou un déficit,
+   « au-dessus du consensus » est une MAUVAISE nouvelle : un chômage en hausse affiché en vert
+   serait le contresens classique du récap automatique. La liste est la MÊME que celle du serveur
+   (_SEA.INVERSES) — leur identité est contrôlée par scripts/seance-verif.js. */
+var _VD_INVERSES = /unemployment|jobless|claimant|claims|inventories|stocks? change|deficit|ch[oô]mage|inscriptions|demandes d.allocation|stocks|d[ée]ficit/i;
+var _VD_MULT = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
+// Un nombre du desk : signe, décimale à la virgule OU au point, unité collée ou espacée.
+var _VD_NUM = "[+\\-−]?\\d+(?:[.,]\\d+)?\\s?(?:%|K|M|B|T|bn|bln|mln|bps|pts?)?";
+function _vdNombre(t) {
+  var m = /^([+\-−]?)(\d+(?:[.,]\d+)?)\s?([KMBT])?/.exec(String(t || '').trim());
+  if (!m) return null;
+  var n = parseFloat(m[2].replace(',', '.'));
+  if (!isFinite(n)) return null;
+  return (m[1] === '-' || m[1] === '−' ? -1 : 1) * n * (m[3] ? _VD_MULT[m[3].toUpperCase()] : 1);
+}
+/* « 89,4 (vs 90,2 attendu) », « +2,1% a/a (vs +1,7% attendu) », « 0,4% contre 0,1% attendu »,
+   « +4 (vs +5 précédent) » : le réel, puis sa référence, puis le mot qui dit CE QU'EST la référence.
+   Sans ce dernier mot on ne colore pas — deux nombres côte à côte ne sont pas une comparaison. */
+var _VD_CMP = new RegExp('(' + _VD_NUM + ')[^0-9(]{0,18}\\(?\\s*(?:vs\\.?|contre|face [àa])\\s*(' + _VD_NUM
+  + ')\\s*(?:attendus?|att\\.|estim[ée]s?|pr[ée]vus?|consensus|exp\\.?|pr[ée]c[ée]dents?|pr[ée]c\\.|pr[ée]lim\\.?)', 'i');
+// À défaut de comparaison chiffrée : le verdict que la puce énonce en toutes lettres.
+var _VD_POS = /surprise haussi[èe]re|au-dessus des attentes|sup[ée]rieure?s? aux (?:attentes|pr[ée]visions)|meilleure?s? que (?:pr[ée]vu|attendu)|d[ée]passe(?:nt)? les (?:attentes|pr[ée]visions)/i;
+var _VD_NEG = /surprise baissi[èe]re|en dessous des attentes|inf[ée]rieure?s? aux (?:attentes|pr[ée]visions)|en de[çc]a des (?:attentes|pr[ée]visions)|moins bonne?s? que (?:pr[ée]vu|attendu)|d[ée]ception|d[ée]cevante?s?/i;
+var _VD_NEU = /conforme aux attentes|conform[ée]ment aux attentes|en ligne avec (?:les attentes|le consensus)|sans surprise/i;
+// Décisions et intentions de taux : le sens est explicite, aucune inversion à appliquer.
+var _VD_TX = [
+  ['pos', /(?:hausse|rel[èe]vement|remont[ée]e|augmentation)\s+(?:de\s+|des\s+|du\s+)?taux|rel[èe]ve(?:nt)?\s+(?:ses\s+|le\s+|son\s+)?taux|augmenter\s+(?:les\s+|ses\s+)?taux|resserrement mon[ée]taire/gi],
+  ['neg', /(?:baisse|r[ée]duction|abaissement)\s+(?:de\s+|des\s+|du\s+)?taux|abaisse(?:nt)?\s+(?:ses\s+|le\s+|son\s+)?taux|baisser\s+(?:les\s+|ses\s+)?taux|assouplissement mon[ée]taire/gi],
+  ['neu', /taux inchang[ée]s?|maintien\s+(?:de\s+|des\s+|du\s+)?(?:son\s+|ses\s+|le\s+)?taux|maintient\s+(?:ses\s+|le\s+|son\s+)?taux|statu quo/gi],
+];
+var _VD_CLS = { pos: 'dtp-val-pos', neg: 'dtp-val-neg', neu: 'dtp-val-neu' };
+function _verdictColore(s) {
+  var out = String(s == null ? '' : s);
+  // 1) COMPARAISON CHIFFRÉE — le signal le plus sûr : on recalcule l'écart, on n'interprète rien.
+  var m = _VD_CMP.exec(out);
+  if (m) {
+    var a = _vdNombre(m[1]), f = _vdNombre(m[2]);
+    if (a !== null && f !== null) {
+      var seuil = Math.max(Math.abs(f) * 0.005, 1e-9);
+      var d = a - f, inv = _VD_INVERSES.test(out);
+      var k = Math.abs(d) <= seuil ? 'neu' : ((d > 0) !== inv ? 'pos' : 'neg');
+      out = out.slice(0, m.index) + '<strong class="' + _VD_CLS[k] + '">' + m[1] + '</strong>' + out.slice(m.index + m[1].length);
+    }
+  } else {
+    // 2) VERDICT ÉNONCÉ : on colore le premier chiffre de la donnée (celui qui suit son intitulé).
+    var k2 = _VD_POS.test(out) ? 'pos' : _VD_NEG.test(out) ? 'neg' : _VD_NEU.test(out) ? 'neu' : '';
+    if (k2) {
+      var apres = out.lastIndexOf(' : ');
+      var deb = apres >= 0 ? apres + 3 : 0;
+      var mn = new RegExp(_VD_NUM).exec(out.slice(deb));
+      if (mn && !/^\d{1,2}h\d{2}$/.test(mn[0])) {
+        var i0 = deb + mn.index;
+        out = out.slice(0, i0) + '<strong class="' + _VD_CLS[k2] + '">' + mn[0] + '</strong>' + out.slice(i0 + mn[0].length);
+      }
+    }
+  }
+  // 3) SENS D'UNE DÉCISION DE TAUX — hausse verte, baisse rouge, maintien neutre.
+  for (var t = 0; t < _VD_TX.length; t++) {
+    out = out.replace(_VD_TX[t][1], function (mm) { return '<span class="' + _VD_CLS[_VD_TX[t][0]] + '">' + mm + '</span>'; });
+  }
+  return out;
+}
 function _emphasize(text) {
   return String(text || '')
     // Gras Markdown ** ** venant du prompt (devises, banques centrales, indicateurs : **USD**, **Fed**, **CPI m/m**…) → <strong>
     .replace(/\*\*([^*]{1,80}?)\*\*/g, '<strong>$1</strong>')
+    /* VERDICT COLORÉ, AVANT la mise en gras générale des chiffres : le réel reçoit sa couleur ET son
+       gras d'un coup, et la passe suivante le saute d'elle-même : son motif refuse un nombre précédé
+       d'un « > » — donc tout ce qui est déjà balisé — MAIS AUSSI d'un signe ou d'un séparateur
+       décimal. Sans cette seconde condition, bloquée sur le « + » de « <span …>+2,1% », la passe
+       repartait un caractère plus loin et mettait « 2,1% » en gras À L'INTÉRIEUR de la valeur déjà
+       balisée : deux <strong> imbriqués. Défaut trouvé par le contrôle, pas en production. */
+    .replace(/^[\s\S]*$/, _verdictColore)
     /* Nombres (55.1, +0.4%, 250K, 1.2bln…). LE MOTIF S'ARRÊTE AU BORD DU MOT (26/08, capture
        utilisateur) : sans la sentinelle de fin, « 14h15 » sortait en « <strong>14</strong>h15 »
        — l'heure coupée en deux, moitié grasse moitié pas — et « +0,3 pt » en
        « <strong>+0,3 </strong>pt », le gras s'arrêtant sur une espace avant son unité. On exige
        donc qu'aucune lettre ne suive le nombre ET SON UNITÉ ; « pt » rejoint la liste des unités,
        où il manquait à côté de « pts ». */
-    .replace(/(?<![\w>])([+\-]?\d[\d.,]*(?:\s?(?:%|K|M|bln|bn|mln|bps|pts?))?)(?![\wÀ-ÿ])/g, '<strong>$1</strong>')
+    .replace(/(?<![\w>+\-.,])([+\-]?\d[\d.,]*(?:\s?(?:%|K|M|bln|bn|mln|bps|pts?))?)(?![\wÀ-ÿ])/g, '<strong>$1</strong>')
     // Verdicts clés
     .replace(/\b(beat|beats|miss|misses|above|below|in-line|in line|stronger|weaker|slowdown|acceleration|rebound|contraction|expansion|highest|lowest|record)\b/gi, '<strong>$1</strong>');
 }

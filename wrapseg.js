@@ -85,6 +85,28 @@ function poserMacro(arr, macroCal) {
   return out;
 }
 
+/* « À SURVEILLER » PORTE LE CALENDRIER DE LA SÉANCE SUIVANTE (26/08 : « met le calendrier des
+   prochaines news de la prochaine session »). L'IA n'y met que ce que l'article laissait deviner —
+   « la réaction continue du marché aux rumeurs », « les prochaines déclarations de la Fed » : du
+   prospectif sans heure ni chiffre, donc inactionnable. Le calendrier, lui, sait ce qui tombe et
+   quand. Ses lignes viennent EN TÊTE de la rubrique : une échéance datée passe avant un fil ouvert.
+   La rubrique est CRÉÉE si elle manque, et en DERNIER — c'est sa place canonique, le rapport doit
+   se terminer dessus. */
+const estSurv = sec => /^[àa] surveiller$/i.test(String((sec && sec.section) || '').trim());
+function poserSurveiller(arr, surv) {
+  const out = (arr || []).slice();
+  if (!surv || !(surv.lignes || []).length || out.some(estSurv)) return out;
+  out.push({ section: 'À surveiller', items: [] });
+  return out;
+}
+function completerSurveiller(items, surv) {
+  const lignes = (surv && surv.lignes) || [];
+  if (!lignes.length) return (items || []).map(String);
+  // Un intitulé de séance en tête : le lecteur sait de QUELLE fenêtre on parle sans avoir à deviner.
+  const tete = surv.nom ? [`**Séance de ${surv.nom}** — le calendrier :`] : [];
+  return tete.concat(lignes.map(String), (items || []).map(String));
+}
+
 /* MACRO RANGÉE PAR FAMILLE, COMME LE RÉCAP QUOTIDIEN (26/08, retour utilisateur, capture à l'appui :
    « dans macro je vois pas les news sorties dans leur catégorie comme quotidien »). Le classement est
    DÉTERMINISTE et fait avec la MÊME table que le Quotidien (_SEA.famille) : on ne demande pas à l'IA
@@ -97,8 +119,8 @@ function poserMacro(arr, macroCal) {
    quatre rubriques du Radar sans titre — repris du Quotidien, où ces lignes voisinent toujours avec
    des groupes intitulés — laissait une puce nue quand elles étaient les SEULES de la rubrique.
    Toute famille présente porte donc son intitulé, même seule, y compris Commerce et Autres. */
-function html(arr, macroCal) {
-  const sections = poserMacro(arr, macroCal);
+function html(arr, macroCal, surv) {
+  const sections = poserSurveiller(poserMacro(arr, macroCal), surv);
   let out = '', ajouts = 0;
   for (const sec of sections) {
     if (!sec || !sec.section || !Array.isArray(sec.items)) continue;
@@ -111,7 +133,13 @@ function html(arr, macroCal) {
       for (const g of groupes) out += `<em>${esc(g.famille)}</em><ul>${g.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
       continue;
     }
-    if (!sec.items.length) continue;   // une rubrique vide s'efface — sauf la Macro, traitée ci-dessus
+    if (estSurv(sec)) {
+      const l = completerSurveiller(sec.items.map(sansSource), surv);
+      if (!l.length) continue;
+      out += `<strong>${esc(sec.section)}</strong><ul>${l.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      continue;
+    }
+    if (!sec.items.length) continue;   // une rubrique vide s'efface — Macro et « À surveiller » sont traitées ci-dessus
     // Le style vaut pour TOUTES les rubriques, pas seulement la Macro : le tic vient du modèle, pas
     // d'une section en particulier.
     out += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(sansSource(i))}</li>`).join('')}</ul>`;
@@ -119,4 +147,4 @@ function html(arr, macroCal) {
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, sansSource, heureParis, esc };
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, sansSource, heureParis, esc };

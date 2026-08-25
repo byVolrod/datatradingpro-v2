@@ -6084,6 +6084,22 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
   margin: 14px 0 6px;
 }
 .arlib-rsubsection:first-child { margin-top: 6px; }
+
+/* ── VERDICT D'UNE DONNÉE PUBLIÉE (26/08, demande utilisateur) ──────────────────────────────────
+   Charte DTP, tokens sémantiques immuables : au-dessus du chiffre de référence = vert émeraude,
+   en dessous = rouge d'alerte, conforme = jaune-orange doré. Mêmes trois couleurs qu'ailleurs sur
+   le desk (badges ACHAT / VENTE / NEUTRE, matrice de biais) : un trader n'a pas deux grammaires de
+   couleur à apprendre. Une hausse de taux est verte, une baisse rouge, un maintien neutre.
+   Le gras vient de la mise en forme normale des chiffres : la couleur s'y ajoute, elle ne la
+   remplace pas — une donnée reste lisible même pour qui distingue mal le vert du rouge. */
+.dtp-val-pos { color: #00e676; }
+.dtp-val-neg { color: #ff3d00; }
+.dtp-val-neu { color: #ffb300; }
+/* Mode clair : les mêmes teintes, assombries pour rester lisibles sur fond blanc (le vert vif et
+   l'ambre y passent sous le seuil de contraste). */
+html[data-theme="light"] .dtp-val-pos, body.theme-light .dtp-val-pos { color: #047857; }
+html[data-theme="light"] .dtp-val-neg, body.theme-light .dtp-val-neg { color: #c2410c; }
+html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a16207; }
 .arlib-rdivider {
   border: none;
   border-top: 1px solid #161616;

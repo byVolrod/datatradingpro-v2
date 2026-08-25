@@ -160,7 +160,7 @@ const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 's
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
 v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v18:'/.test(srv2));
+v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v19:'/.test(srv2));
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -506,8 +506,10 @@ console.log('\n── 7e-quinquies. LA MISE EN GRAS, TELLE QUE LE NAVIGATEUR LA 
    HTML dans le lecteur de rapports. La capture montrait « 14h15 » coupé en deux, moitié grasse
    moitié maigre, et « +0,3 pt » dont le gras s'arrêtait sur une espace avant son unité. */
 const APP = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/js/app.js'), 'utf8');
-const dE = APP.indexOf('function _emphasize(text) {');
-const fE = dE < 0 ? -1 : APP.indexOf('\n}\n', dE);
+/* On extrait le bloc ENTIER — le verdict coloré ET la mise en gras : `_emphasize` appelle
+   `_verdictColore`, les séparer rendait une fonction qui lève à l'appel. */
+const dE = APP.indexOf('/* ── VERDICT COLORÉ SUR LE CHIFFRE PUBLIÉ');
+const fE = dE < 0 ? -1 : APP.indexOf('\n}\n', APP.indexOf('function _emphasize(text) {'));
 v('_emphasize est extractible de app.js', dE >= 0 && fE > dE);
 if (dE >= 0) {
   const emp = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
@@ -527,9 +529,92 @@ if (dE >= 0) {
     emp('14h15 **USD** · **ADP Non-Farm Employment Change** : 11,75K'));
 }
 
+console.log('\n── 7e-quinquies-bis. LE VERDICT COLORÉ SUR LA DONNÉE PUBLIÉE ──');
+/* « met des couleurs de datas sorti vert positif, rouge négatif, neutre attendu maintien ;
+   augmentation des taux vert, baisse taux rouge et maintien neutre » (26/08).
+   Charte DTP : vert #00e676, rouge #ff3d00, neutre #ffb300. DÉTERMINISTE : on relit ce que le modèle
+   a écrit et on recompare les nombres nous-mêmes — rien n'est demandé à l'IA. */
+if (dE >= 0) {
+  const emp2 = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
+  const cls = l => ((emp2(l).match(/dtp-val-(pos|neg|neu)/g) || [])[0] || '').replace('dtp-val-', '') || '—';
+  [['**CaseShiller** : +2,1% a/a (vs +1,7% attendu) → surprise haussière.', 'pos'],
+   ['**Conference Board** : 89,4 (vs 90,2 attendu) → inférieure aux attentes.', 'neg'],
+   ['**Richmond Fed** : +4 (vs +5 précédent) → léger ralentissement.', 'neg'],
+   ['**New home sales** : 0,607M (vs 0,620M estimé) → en deçà des prévisions.', 'neg'],
+   ['14h00 **EUR** · **German Prelim CPI m/m** : 0,4% contre 0,1% attendu (+0,3 pt), préc. 0,3%', 'pos'],
+   ['**PMI** : 53,9, conforme aux attentes.', 'neu'],
+   ['14h15 **USD** · **ADP Non-Farm Employment Change** : 11,75K', '—'],
+   ['**Fed** Collins : l\'inflation reste trop élevée.', '—'],
+  ].forEach(([l, att]) => v(`« ${l.slice(0, 46)}… » → ${att}`, cls(l) === att, cls(l)));
+  /* ⚠️ LES INDICATEURS INVERSÉS — le contresens classique du récap automatique. Un chômage AU-DESSUS
+     du consensus est une MAUVAISE nouvelle : le peindre en vert serait une faute de sens. */
+  [['**Unemployment Claims** : 240K (vs 230K attendu).', 'neg'],
+   ['**Unemployment Claims** : 220K (vs 230K attendu).', 'pos'],
+   ['**Taux de chômage** : 4,3% (vs 4,1% attendu).', 'neg'],
+   ['**Crude Oil Inventories** : 3,2M (vs 1,1M attendu).', 'neg'],
+  ].forEach(([l, att]) => v(`inversé : « ${l.slice(0, 40)}… » → ${att}`, cls(l) === att, cls(l)));
+  // Décisions et intentions de taux : hausse verte, baisse rouge, maintien neutre.
+  [['La **BCE** est prête à augmenter les taux en septembre.', 'pos'],
+   ['La **Fed** procède à une baisse de taux de 25 pb.', 'neg'],
+   ['La **BoJ** laisse son taux directeur inchangé → statu quo.', 'neu'],
+   ['La **BoE** maintient ses taux à 4,00%.', 'neu'],
+  ].forEach(([l, att]) => v(`taux : « ${l.slice(0, 42)}… » → ${att}`, cls(l) === att, cls(l)));
+  // La couleur s'AJOUTE au gras, elle ne le remplace pas : lisible même sans distinguer les teintes.
+  v('la valeur colorée reste en gras', /<strong class="dtp-val-pos">\+2,1%<\/strong>/.test(emp2('**X** : +2,1% (vs +1,7% attendu)')), emp2('**X** : +2,1% (vs +1,7% attendu)'));
+  v('la valeur n\'est pas mise en gras DEUX fois', !/<strong[^>]*><strong/.test(emp2('**X** : +2,1% (vs +1,7% attendu)')));
+  v('la référence garde sa mise en forme normale', /<strong>\+1,7%<\/strong>/.test(emp2('**X** : +2,1% (vs +1,7% attendu)')));
+  v('une heure n\'est jamais prise pour une donnée', !/dtp-val/.test(emp2('14h15 **USD** · **ADP** : 11,75K')));
+  v('les trois classes existent en CSS', ['dtp-val-pos', 'dtp-val-neg', 'dtp-val-neu']
+    .every(c => new RegExp('\\.' + c + ' \\{').test(fs2.readFileSync(pa2.join(__dirname, '..', 'public/css/style.css'), 'utf8'))));
+  const CSS = fs2.readFileSync(pa2.join(__dirname, '..', 'public/css/style.css'), 'utf8');
+  v('elles portent les couleurs de la charte', /\.dtp-val-pos \{ color: #00e676; \}/.test(CSS) && /\.dtp-val-neg \{ color: #ff3d00; \}/.test(CSS) && /\.dtp-val-neu \{ color: #ffb300; \}/.test(CSS));
+  v('et une déclinaison lisible en mode clair', /html\[data-theme="light"\] \.dtp-val-pos/.test(CSS));
+}
+/* LA LISTE DES INDICATEURS INVERSÉS EST LA MÊME DES DEUX CÔTÉS. Le serveur l'utilise pour écrire le
+   verdict, le navigateur pour le colorer : si elles divergent, un chiffre est annoncé « surprise
+   haussière » dans le texte et peint en rouge à côté. */
+v('la liste des indicateurs inversés est identique serveur ↔ navigateur',
+  (APP.match(/var _VD_INVERSES = \/([^\n]+?)\/i;/) || [])[1] ===
+  (fs2.readFileSync(pa2.join(__dirname, '..', 'seance.js'), 'utf8').match(/const INVERSES = \/([^\n]+?)\/i;/) || [])[1] + '|ch[oô]mage|inscriptions|demandes d.allocation|stocks|d[ée]ficit',
+  (APP.match(/var _VD_INVERSES = \/([^\n]+?)\/i;/) || [])[1]);
+
+console.log('\n── 7e-sexies. « À surveiller » porte le CALENDRIER de la séance suivante ──');
+/* « met le calendrier des prochaines news de la prochaine session » (26/08, capture : la rubrique ne
+   portait que « la réaction continue du marché aux rumeurs » et « les prochaines déclarations de la
+   Fed » — du prospectif sans heure ni chiffre, donc inactionnable). */
+const SURV = { nom: 'New York', lignes: [
+  '14h30 USD · Core PCE Price Index m/m (attendu 0.2%, préc. 0.3%)',
+  '15h45 USD · Chicago PMI (attendu 47.1, préc. 47.6)',
+] };
+const AVEC = [{ section: 'LEAD', items: ['Séance calme.'] },
+  { section: 'À surveiller', items: ['La réaction du marché aux rumeurs.', 'Les prochaines déclarations de la **Fed**.'] }];
+const hs = W.html(AVEC, [], SURV).html;
+v('le calendrier apparaît dans « À surveiller »', /Core PCE Price Index/.test(hs) && /Chicago PMI/.test(hs), hs.slice(0, 160));
+v('la séance visée est nommée', /<li>\*\*Séance de New York\*\* — le calendrier :<\/li>/.test(hs), hs.slice(hs.indexOf('surveiller'), hs.indexOf('surveiller') + 120));
+v('les échéances datées passent AVANT les fils ouverts', hs.indexOf('Core PCE') < hs.indexOf('rumeurs'));
+v('les puces de l\'IA sont conservées', /rumeurs/.test(hs) && /déclarations de la \*\*Fed\*\*/.test(hs));
+// 1 puce de LEAD + l'intitulé de séance + 2 échéances du calendrier + 2 puces de l'IA.
+v('aucune puce perdue', (hs.match(/<li>/g) || []).length === 6, String((hs.match(/<li>/g) || []).length));
+// Rubrique absente de l'article : elle est CRÉÉE, et en dernier — le rapport se termine dessus.
+const sansRub = W.html([{ section: 'LEAD', items: ['x'] }, { section: 'Macro', items: ['**CPI** : 0,4%'] }], [], SURV).html;
+v('une rubrique absente est créée', /<strong>À surveiller<\/strong>/.test(sansRub));
+v('… et placée en DERNIER', sansRub.indexOf('<strong>À surveiller') > sansRub.indexOf('<strong>Macro'), sansRub);
+// Sans calendrier : le rapport est EXACTEMENT celui d'avant.
+const sansCal2 = W.html(AVEC, [], { nom: '', lignes: [] }).html;
+v('sans calendrier, la rubrique est inchangée', !/Séance de/.test(sansCal2) && (sansCal2.match(/<li>/g) || []).length === 3);
+v('et aucune rubrique n\'est inventée', !/<strong>À surveiller<\/strong>/.test(W.html([{ section: 'LEAD', items: ['x'] }], [], { nom: '', lignes: [] }).html));
+/* Le rapport est CACHÉ : une échéance « à venir » calculée depuis « maintenant » n'a de sens que le
+   jour du récap. Relire hier un rapport qui annonce les publications d'aujourd'hui serait pire que
+   pas de rubrique du tout. */
+const _SRVA = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+v('la rubrique n\'est posée que sur un récap DU JOUR', /_jourParis\(ts\) !== _jourParis\(t\)\) return \{ nom: '', lignes: \[\] \};/.test(_SRVA));
+v('elle réutilise la fabrique des récaps déterministes', /return _aSurveillerSeanceSuivante\(type\);/.test(_SRVA));
+v('le serveur la passe au rendu', /_WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\)\)/.test(_SRVA));
+v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v19:'/.test(_SRVA));
+
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-v('le serveur rend via le module pur', /const r = _WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\)\);/.test(srv3));
+v('le serveur rend via le module pur', /const r = _WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\)\);/.test(srv3));
 v('le récap est passé au segmenteur (préchauffage)', /_segmentWrapAI\(points, \{ noClaude: true \}, item\)/.test(srv3));
 v('… à la re-segmentation du jour', /_segmentWrapAI\(points, \{\}, w\)/.test(srv3));
 v('… et à l\'ouverture du rapport', /_segmentWrapAI\(points, \{\}, cached\)/.test(srv3));
