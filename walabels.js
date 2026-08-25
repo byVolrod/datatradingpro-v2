@@ -117,6 +117,8 @@ const GLOSES = [
   [/industrial production|manufacturing production/i, "ce que produisent réellement les usines"],
   [/crude oil inventories|\bopec\b|\bopep\b/i, "l'offre de pétrole, qui se répercute ensuite sur l'inflation"],
   [/retail inventories|business inventories/i, "les stocks des entreprises, un signal avancé sur la production à venir"],
+  [/treasury secretary|secr[ée]taire au tr[ée]sor/i, "le patron du Trésor américain : il parle dette, émissions et sanctions"],
+  [/national activity index|chicago fed/i, "un indice large de l'activité américaine, agrégé sur des dizaines de séries"],
   [/\bspeech\b|\bspeaks\b|testimony|humphrey[-\s]?hawkins/i, "un discours de banquier central : c'est le ton employé qui compte"],
 ];
 /* LES DEUX NOMS D'UN MÊME ÉVÉNEMENT. Le calendrier du desk affiche le nom ForexFactory (c'est notre
@@ -206,6 +208,7 @@ function themeJour(e) {
     const b = BANQUE[c]; return b ? out('Décision de la ' + b, 9) : null;
   }
   if (/meeting minutes|monetary policy meeting accounts/.test(t)) { const b = BANQUE[c]; return b ? out('Minutes de la ' + b, 6.5) : null; }
+  if (/treasury secretary|secr[ée]taire au tr[ée]sor/.test(t)) return out('Discours du Trésor américain', 5);
   if (/\bpowell\b|(?:fed\s+)?chair\s+speech/.test(t)) return out('Discours de Powell', 8.2);
   if (/\blagarde\b/.test(t)) return out('Discours de Lagarde', 6.8);
   if (/\bueda\b|\bbailey\b|\bmacklem\b|\bbullock\b|\bschlegel\b/.test(t)) { const b = BANQUE[c]; return out('Discours du gouverneur' + (b ? ' de la ' + b : ''), 6.6); }
@@ -229,6 +232,7 @@ function themeJour(e) {
   if (/business climate|\bifo\b|business confidence|\bzew\b|tankan/.test(t)) return out('Moral des entreprises' + adj(2), 2);
   if (/building permits|housing starts|home sales|house price|mortgage/.test(t)) return out('Immobilier' + adj(0), 1.9);
   if (/crude oil inventories/.test(t)) return out('Stocks de pétrole' + adj(3), 1.7);
+  if (/national activity index|chicago fed/.test(t)) return out('Indice d\'activité' + adj(0), 1.6);
   if (/consumer confidence|consumer sentiment|consumer climate/.test(t)) return out('Confiance des ménages' + adj(3), 1.8);
   return null;
 }
@@ -243,7 +247,11 @@ function themesDuJour(events) {
     if (ths.some(x => x.lbl === th.lbl)) continue;
     ths.push(th);
   }
-  ths.sort((a, b) => b.rang - a.rang);
+  /* L'IMPACT DU CALENDRIER PASSE AVANT L'IMPORTANCE INTRINSÈQUE. `rang` dit ce que vaut un type
+     d'indicateur en général ; l'impact dit ce que vaut CETTE publication-là. Depuis que les moyens
+     ne sont plus masqués, un IPC national moyen pouvait coiffer le rendez-vous fort de la journée. */
+  const _fort = e => /high/i.test(String((e && e.impact) || '')) ? 1 : 0;
+  ths.sort((a, b) => (_fort(b.src) - _fort(a.src)) || (b.rang - a.rang));
   // Le jour du NFP, « Emploi américain » est redondant (le NFP EST l'emploi US) → on l'absorbe.
   if (ths.some(x => x.lbl === 'NFP américain')) {
     const i = ths.findIndex(x => x.lbl === 'Emploi américain');
@@ -289,13 +297,54 @@ function chiffresEv(e) {
 /* TITRE DU JOUR. Un rendez-vous de rang ≥ 8 (décision de taux, Jackson Hole, NFP, Powell) EST
    l'histoire du jour : il tient le titre SEUL — coller un second thème derrière ne fait que diluer.
    En dessous, deux thèmes au plus, joints par « + ». Repli : les intitulés bruts, comme avant. */
-function titreJour(events, dowFr) {
+/* RENDEZ-VOUS QUI S'ÉTALENT (25/08, capture user : jeudi et vendredi sortaient « Jackson Hole » avec
+   la MÊME description, mot pour mot). Un symposium dure trois jours, une réunion du G20 deux : la
+   carte doit dire OÙ on en est, et ne pas resservir le même argument. `suite` est calculé par
+   l'appelant, qui seul voit toute la semaine — voir la double passe dans generateWeekAhead. */
+const _ORDINAL = { 2: 'Deuxième', 3: 'Troisième', 4: 'Quatrième', 5: 'Cinquième' };
+const _NOMBRE = { 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq' };
+function _suiteMarque(suite) {
+  if (!suite || suite.jour < 2) return '';
+  return suite.jour >= suite.total ? 'dernier jour' : 'jour ' + suite.jour;
+}
+function _suiteTexte(suite) {
+  if (!suite || suite.jour < 2) return '';
+  return suite.jour >= suite.total
+    ? `Dernière journée de ${suite.lbl}`
+    : `${_ORDINAL[suite.jour] || 'Journée ' + suite.jour} journée de ${suite.lbl}`;
+}
+function _suiteEnjeu(suite) {
+  if (!suite || suite.jour < 2) return '';
+  return suite.jour >= suite.total
+    ? `C'est le bilan de ces ${_NOMBRE[suite.total] || suite.total} jours que le marché retiendra.`
+    : `Le cadrage s'est dit la veille : ce sont les interventions du jour qui peuvent encore corriger la trajectoire annoncée.`;
+}
+const _PERIODE_RX = /\s*\b(?:m\/m|y\/y|q\/q|mom|yoy|qoq|s\.a\.?|prel(?:im)?|flash|final|adv|2nd\s+est|3rd\s+est|indicator)\b\s*/gi;
+function _titreCourt(t, max) {
+  let s = String(t || '').replace(_PERIODE_RX, ' ').replace(/\s+/g, ' ').trim();
+  const n = max || 34;
+  if (s.length <= n) return s;
+  const coupe = s.slice(0, n).lastIndexOf(' ');
+  return (coupe > 12 ? s.slice(0, coupe) : s.slice(0, n)).trim();
+}
+function titreJour(events, dowFr, opts) {
   const ths = themesDuJour(events);
+  const suite = opts && opts.suite;
   if (ths.length) {
+    if (suite && suite.jour >= 2) {
+      // Ce qui est NEUF passe devant ; le rendez-vous en cours suit, avec son rang de journée.
+      const autre = ths.find(x => x.lbl !== suite.lbl);
+      const marque = _suiteMarque(suite);
+      return autre ? `${autre.lbl} + ${suite.lbl} (${marque})` : `${suite.lbl} · ${marque}`;
+    }
     const gardes = ths[0].rang >= 8 ? [ths[0]] : ths.slice(0, 2);
     return gardes.map(x => x.lbl).join(' + ');
   }
-  const bruts = (events || []).slice(0, 3).map(nomEv).filter(Boolean);
+  /* REPLI COMPACT (25/08, demande user « raccourcis les titres au mieux »). Quand aucun thème n'est
+     reconnu on retombe sur les intitulés — mais débarrassés de leur ferraille de période (m/m, y/y,
+     Prel, Flash…), à deux au plus, chacun coupé sur un mot entier. « USD Chicago Fed National
+     Activity Index · USD Treasury Secretary Bessent Speech » tenait sur deux lignes de carte. */
+  const bruts = (events || []).slice(0, 2).map(e => _titreCourt(nomEv(e))).filter(Boolean);
   return bruts.length ? bruts.join(' · ') : `Séance calme ${dowFr || ''}`.trim();
 }
 
@@ -308,6 +357,8 @@ function enjeuFr(theme, dev) {
   if (/^Jackson Hole|^Symposium/.test(l)) return `C'est le rendez-vous où les banques centrales annoncent la couleur pour les mois qui viennent : une phrase sur le rythme des baisses de taux suffit à faire bouger ${d} et les marchés actions.`;
   if (/^Décision de la /.test(l)) return `L'essentiel n'est pas le taux annoncé, qui est déjà anticipé, mais le communiqué : s'il laisse entendre que d'autres mouvements suivront, ${d} réagit tout de suite.`;
   if (/^Minutes de la /.test(l)) return `Les minutes racontent le débat qui a eu lieu autour de la table : un comité plus divisé, ou plus ferme, qu'on ne le croyait, et le marché révise sa trajectoire de taux.`;
+  if (/^Discours du Trésor/.test(l)) return `Ce n'est pas la Fed : ses annonces passent d'abord par le marché obligataire, et un calendrier d'emprunts plus lourd que prévu fait monter les rendements avant de tirer ${d}.`;
+  if (/^Indice d'activité/.test(l)) return `Cet indice agrège des dizaines de séries en un seul chiffre : au-dessus de zéro l'économie tourne au-dessus de sa tendance, en dessous elle ralentit.`;
   if (/^Discours/.test(l)) return `Un discours de banquier central se lit au ton : plus ferme sur l'inflation, ${d} monte ; plus conciliant, elle recule.`;
   if (/^NFP/.test(l)) return `C'est le juge de paix mensuel du dollar : plus d'emplois créés que prévu et le marché repousse les baisses de taux, ce qui fait monter ${d} ; moins, et c'est l'inverse.`;
   if (/^Révision annuelle du NFP/.test(l)) return `Attention à ne pas le confondre avec le rapport mensuel : cette révision corrige des créations d'emplois déjà connues. Elle compte surtout si la correction est massive.`;
@@ -337,24 +388,37 @@ function descriptionJour(events, dowFr, opts) {
   const dow = dowFr || '';
   if (!evs.length) return `Séance sans rendez-vous au calendrier : le ton viendra du flux d'actualité et des banques centrales.`;
   const ths = themesDuJour(evs);
-  const lead = (ths[0] && ths[0].src) || evs[0];
+  const suite = opts && opts.suite;
+  const enSuite = !!(suite && suite.jour >= 2);
+  // Sur une journée de suite, on mène avec ce qui est NEUF : sans cela la carte du lendemain
+  // reproduisait la veille à la virgule près.
+  const neuf = enSuite ? ths.find(x => x.lbl !== suite.lbl) : null;
+  const tete = neuf || ths[0];
+  const lead = (tete && tete.src) || evs[0];
   const devs = [...new Set(evs.map(e => e.currency).filter(Boolean))];
   const dev = (opts && opts.devise) || (lead && lead.currency) || devs[0] || 'le marché';
   const phrases = [];
 
   const h = heureParis(lead), g = gloseEv(lead);
-  phrases.push(`${_cap(dow) || 'Au programme'}${h ? `, ${h}` : ''} : ${nomEv(lead)}${g ? `, ${g}` : ''}${chiffresEv(lead)}.`);
+  if (enSuite && !neuf) {
+    // La journée n'a que le rendez-vous en cours : on l'annonce par son rang, sans le renommer.
+    phrases.push(`${_suiteTexte(suite)}${h ? `, à ${h}` : ''}${g ? `, ${g}` : ''}${chiffresEv(lead)}.`);
+    phrases.push(_suiteEnjeu(suite));
+  } else {
+    phrases.push(`${_cap(dow) || 'Au programme'}${h ? `, ${h}` : ''} : ${nomEv(lead)}${g ? `, ${g}` : ''}${chiffresEv(lead)}.`);
+    const enj = enjeuFr(tete, dev);
+    if (enj) phrases.push(enj);
+    if (enSuite) { const q = _suiteEnjeu(suite); phrases.push(`${_suiteTexte(suite)} : ${q.charAt(0).toLowerCase() + q.slice(1)}`); }
+  }
 
-  const enj = enjeuFr(ths[0], dev);
-  if (enj) phrases.push(enj);
-
-  const autres = evs.filter(e => e !== lead).slice(0, 3);
+  const _srcSuite = enSuite ? (ths.find(x => x.lbl === suite.lbl) || {}).src : null;
+  const autres = evs.filter(e => e !== lead && e !== _srcSuite).slice(0, 3);
   if (autres.length) {
     phrases.push(`Également au programme : ` + autres.map(e => {
       const gg = gloseEv(e);
       return `${nomEv(e)}${gg ? `, ${gg}` : ''}`;
     }).join(' ; ') + '.');
-  } else if (!enj) {
+  } else if (phrases.length < 2) {
     phrases.push(`Tout écart avec la prévision se verra immédiatement sur ${devs.slice(0, 3).join(', ') || 'le FX'}.`);
   }
   return phrases.join(' ');

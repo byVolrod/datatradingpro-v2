@@ -170,5 +170,69 @@ verif('le nom ForexFactory de la décision de taux dépend de la BANQUE', /_FF_T
 verif('l\'identité d\'un événement inclut son PAYS (deux pays zone euro, même intitulé)',
   (src.match(/id: 'tv-' \+ Buffer\.from\(e\.title \+ '\|' \+ e\.currency \+ '\|' \+ \(e\.country/g) || []).length === 2);
 
+console.log('\n── 10. Rendez-vous qui s\'étalent : deux journées ne se ressemblent plus ──');
+const JH = j => ({ currency: 'USD', ctry: 'US', title: 'Jackson Hole Symposium', impact: 'High', timestamp: J(26 + j, 0, 0) });
+const d1 = W.descriptionJour([JH(1)], 'jeudi', { suite: { lbl: 'Jackson Hole', jour: 1, total: 3 } });
+const d2 = W.descriptionJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 2, total: 3 } });
+const d3 = W.descriptionJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } });
+console.log('  j2 : ' + d2);
+verif('le titre du 2e jour le dit', W.titreJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 2, total: 3 } }) === 'Jackson Hole · jour 2');
+verif('le dernier jour est nommé comme tel', W.titreJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } }) === 'Jackson Hole · dernier jour');
+verif('les trois descriptions sont DIFFÉRENTES', d1 !== d2 && d2 !== d3 && d1 !== d3);
+verif('le 2e jour annonce « Deuxième journée »', /Deuxième journée de Jackson Hole/.test(d2), d2.slice(0, 60));
+verif('le dernier jour parle de bilan', /bilan de ces trois jours/.test(d3), d3.slice(0, 70));
+// Un jour de suite qui porte AUSSI du neuf mène avec le neuf, pas avec la redite.
+const mixte = [JH(3), { currency: 'USD', ctry: 'US', title: 'Non-Farm Employment Change', impact: 'High', forecast: '165K', previous: '142K', timestamp: J(29, 12, 30) }];
+const tMix = W.titreJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } });
+const dMix = W.descriptionJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } });
+verif('ce qui est neuf passe devant dans le titre', /^NFP américain \+ Jackson Hole \(dernier jour\)$/.test(tMix), tMix);
+verif('la description mène sur le neuf', /^Vendredi, 14h30 : USD Non-Farm Employment Change/.test(dMix), dMix.slice(0, 60));
+verif('le symposium n\'est pas relisté après avoir été nommé', (dMix.match(/Jackson Hole/g) || []).length === 1, dMix);
+verif('pas de majuscule parasite après les deux-points', !/ : [A-ZÀ-Þ]/.test(dMix.replace(/ : USD| : EUR| : GBP| : JPY/g, '')), dMix);
+
+// La phrase d\'enjeu ne doit pas re-servir la glose : le lecteur lisait deux fois la même chose.
+const tres = [{ currency: 'USD', ctry: 'US', title: 'Treasury Secretary Bessent Speech', impact: 'Medium', timestamp: J(24, 15, 0) }];
+const dTres = W.descriptionJour(tres, 'lundi');
+const glTres = W.gloseEv(tres[0]);
+verif('l\'enjeu ne recopie pas la glose', dTres.split(glTres).length === 2, dTres);
+
+console.log('\n── 11. Semaine ouvrée : lundi → vendredi, rien d\'autre ──');
+// Le lundi SUIVANT s'invitait au bout de la semaine : la fenêtre était en horodatages UTC pendant
+// que le rangement passait au jour de Paris. On énumère desormais les cinq jours visés.
+const lundi = Date.UTC(2026, 7, 24);
+const semaine = []; for (let i = 0; i < 5; i++) semaine.push(new Date(lundi + i * 86400000 + 12 * 3600000).toISOString().slice(0, 10));
+verif('la semaine du 24 août = 24 → 28', semaine.join(',') === '2026-08-24,2026-08-25,2026-08-26,2026-08-27,2026-08-28', semaine.join(','));
+verif('le lundi suivant n\'en fait pas partie', !semaine.includes('2026-08-31'));
+// JPY Retail Sales à 01h50 heure de Paris le lundi 31 = dimanche 30 à 23h50 UTC : AVANT monday+7j,
+// donc admis par l'ancienne borne. Le jour de Paris, lui, le range bien au 31.
+verif('la publication asiatique du lundi suivant est bien datée du 31',
+  W.jourParis(Date.UTC(2026, 7, 30, 23, 50)) === '2026-08-31');
+verif('…et se trouve donc hors de la semaine', !semaine.includes(W.jourParis(Date.UTC(2026, 7, 30, 23, 50))));
+verif('la sélection se fait sur le jour de Paris, pas sur un horodatage',
+  /SEMAINE\.has\(_jourParis\(e\.timestamp\)\)/.test(src));
+verif('les jours retenus viennent de la liste des cinq', /const keys = JOURS_SEMAINE\.filter/.test(src));
+
+console.log('\n── 12. Un seul fort ne vide plus la carte de ses moyens ──');
+verif('la carte prend les dix premiers de la journée, forts en tête',
+  /const _affiches = evs\.slice\(0, 10\)/.test(src));
+const journee = [
+  { currency: 'USD', ctry: 'US', title: 'Jackson Hole Symposium', impact: 'High', timestamp: J(27, 0, 0) },
+  { currency: 'USD', ctry: 'US', title: 'Unemployment Claims', impact: 'Medium', forecast: '230K', previous: '235K', timestamp: J(27, 12, 30) },
+];
+verif('un moyen reste cité quand un fort est présent', /Unemployment Claims/.test(W.descriptionJour(journee, 'jeudi')));
+
+console.log('\n── 13. Titres de repli COURTS ──');
+const repli = W.titreJour([
+  { currency: 'USD', ctry: 'US', title: 'Wholesale Inventories MoM Adv', impact: 'Medium' },
+  { currency: 'JPY', ctry: 'JP', title: 'Coincident Index Final', impact: 'Medium' },
+  { currency: 'EUR', ctry: 'EU', title: 'Construction Output YoY', impact: 'Medium' },
+], 'mardi');
+console.log('  repli : ' + repli);
+verif('la ferraille de période est retirée (MoM, Final, Adv…)', !/\b(MoM|YoY|Final|Adv|Prel)\b/.test(repli), repli);
+verif('deux intitulés au plus', repli.split(' · ').length <= 2, repli);
+verif('le repli tient en une ligne de carte', repli.length <= 80, repli.length + ' caractères');
+verif('« Treasury Secretary » a enfin un thème',
+  (W.themeJour({ currency: 'USD', ctry: 'US', title: 'Treasury Secretary Bessent Speech' }) || {}).lbl === 'Discours du Trésor américain');
+
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);
