@@ -97,7 +97,7 @@ const jeudi = [
 ];
 const tj = W.titreJour(jeudi, 'jeudi');
 console.log('  titre  : ' + tj);
-verif('décision BCE → titre unique, non dilué', tj === 'Décision de la BCE', tj);
+verif('décision BCE → titre unique, non dilué', tj === 'BCE', tj);
 
 console.log('\n── 7b. VOCABULAIRE FOREXFACTORY (notre calendrier sert ses noms, pas ceux du flux) ──');
 // La Semaine à Venir lit desormais « notre calendrier », c est-a-dire des lignes RENOMMEES en
@@ -150,6 +150,47 @@ verif('un intitulé muet sur le pays, lui, est complété',
 verif('l\'agrégat de la zone euro reste sans mention de pays',
   W.intituleAffiche({ currency: 'EUR', ctry: 'EU', title: 'Inflation Rate YoY Flash' }) === 'Inflation Rate YoY Flash');
 
+console.log('\n── 7e. TITRES = LES TERMES DU CALENDRIER, courts (demande user 25/08) ──');
+// « Moral des entreprises allemandes » ne dit rien à un lecteur de calendrier : il cherche « Ifo ».
+// Le titre SITUE avec le terme du calendrier, la description EXPLIQUE en français.
+const SG = [
+  [{ currency: 'USD', ctry: 'US', title: 'Core PCE Price Index m/m' }, 'Core PCE USD'],
+  [{ currency: 'USD', ctry: 'US', title: 'CPI m/m' }, 'CPI USD'],
+  [{ currency: 'USD', ctry: 'US', title: 'PPI m/m' }, 'PPI USD'],
+  [{ currency: 'USD', ctry: 'US', title: 'Prelim GDP q/q' }, 'GDP USD'],
+  [{ currency: 'USD', ctry: 'US', title: 'Non-Farm Employment Change' }, 'NFP'],
+  [{ currency: 'USD', ctry: 'US', title: 'Non Farm Payrolls Annual Revision Prel' }, 'NFP (rév.)'],
+  [{ currency: 'USD', ctry: 'US', title: 'Federal Funds Rate' }, 'Fed'],
+  [{ currency: 'GBP', ctry: 'GB', title: 'Official Bank Rate' }, 'BoE'],
+  [{ currency: 'JPY', ctry: 'JP', title: 'BOJ Policy Rate' }, 'BoJ'],
+  [{ currency: 'AUD', ctry: 'AU', title: 'RBA Meeting Minutes' }, 'RBA Minutes'],
+  [{ currency: 'EUR', ctry: 'DE', title: 'German Ifo Business Climate' }, 'Ifo'],
+  [{ currency: 'EUR', ctry: 'FR', title: 'French Prelim CPI m/m' }, 'CPI FR'],
+  [{ currency: 'EUR', ctry: 'EU', title: 'Core CPI Flash Estimate y/y' }, 'Core CPI EUR'],
+  [{ currency: 'USD', ctry: 'US', title: 'Jackson Hole Symposium' }, 'Jackson Hole'],
+  [{ currency: 'USD', ctry: 'US', title: 'Fed Chair Powell Speech at Jackson Hole' }, 'Jackson Hole'],
+  [{ currency: 'USD', ctry: 'US', title: 'Treasury Secretary Bessent Speech' }, 'Treasury'],
+  [{ currency: 'USD', ctry: 'US', title: 'ISM Manufacturing PMI' }, 'ISM Manufacturing'],
+  [{ currency: 'USD', ctry: 'US', title: 'Unemployment Claims' }, 'Jobless Claims USD'],
+  [{ currency: 'USD', ctry: 'US', title: 'Durable Goods Orders m/m' }, 'Durable Goods USD'],
+  [{ currency: 'GBP', ctry: 'GB', title: 'Retail Sales m/m' }, 'Retail Sales GBP'],
+];
+SG.forEach(([e, attendu]) => verif(`« ${e.title} » → ${attendu}`, W.sigleEv(e) === attendu, W.sigleEv(e)));
+verif('un intitulé inconnu garde son nom de calendrier, nettoyé',
+  W.sigleEv({ currency: 'USD', ctry: 'US', title: 'Wholesale Trade Sales m/m' }) === 'Wholesale Trade Sales USD',
+  W.sigleEv({ currency: 'USD', ctry: 'US', title: 'Wholesale Trade Sales m/m' }));
+verif('le pays prime sur la devise pour une publication nationale de la zone euro',
+  W.codeEv({ currency: 'EUR', ctry: 'ES', title: 'x' }) === 'ES');
+verif('l\'agrégat de la zone garde EUR', W.codeEv({ currency: 'EUR', ctry: 'EU', title: 'x' }) === 'EUR');
+// Le titre reste court : c'est tout l'objet de la demande.
+[[['Core PCE Price Index m/m', 'Durable Goods Orders m/m'], 'USD'], [['CPI m/m', 'Retail Sales m/m'], 'GBP']].forEach(([ts, c]) => {
+  const t = W.titreJour(ts.map(x => ({ currency: c, ctry: c === 'USD' ? 'US' : 'GB', title: x, impact: 'High' })), 'lundi');
+  verif(`« ${t} » tient en une ligne`, t.length <= 44, t.length + ' caractères');
+});
+// Le français n'a pas disparu : il a changé de place.
+const dJ = W.descriptionJour([{ currency: 'EUR', ctry: 'DE', title: 'German Ifo Business Climate', impact: 'Medium', forecast: '88.5', previous: '88.6', timestamp: J(25, 8, 0) }], 'mardi');
+verif('la description, elle, explique toujours en français', /moral des chefs d\'entreprise/.test(dJ), dJ);
+
 console.log('\n── 8. Poids éditorial : une révision ne pèse pas comme la publication ──');
 verif('NFP mensuel = point d\'orgue (≥ 5)', W.poidsMajeur({ title: 'Non Farm Payrolls' }) >= 5);
 verif('révision annuelle du NFP ramenée au rang 1', W.poidsMajeur({ title: 'Non Farm Payrolls Annual Revision Prel' }) === 1);
@@ -173,20 +214,20 @@ verif('l\'identité d\'un événement inclut son PAYS (deux pays zone euro, mêm
 
 console.log('\n── 10. Rendez-vous qui s\'étalent : deux journées ne se ressemblent plus ──');
 const JH = j => ({ currency: 'USD', ctry: 'US', title: 'Jackson Hole Symposium', impact: 'High', timestamp: J(26 + j, 0, 0) });
-const d1 = W.descriptionJour([JH(1)], 'jeudi', { suite: { lbl: 'Jackson Hole', jour: 1, total: 3 } });
-const d2 = W.descriptionJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 2, total: 3 } });
-const d3 = W.descriptionJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } });
+const d1 = W.descriptionJour([JH(1)], 'jeudi', { suite: { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 1, total: 3 } });
+const d2 = W.descriptionJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 2, total: 3 } });
+const d3 = W.descriptionJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 3, total: 3, fin: true } });
 console.log('  j2 : ' + d2);
-verif('le titre du 2e jour le dit', W.titreJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 2, total: 3 } }) === 'Jackson Hole · jour 2');
-verif('le dernier jour est nommé comme tel', W.titreJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } }) === 'Jackson Hole · dernier jour');
+verif('le titre du 2e jour le dit', W.titreJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 2, total: 3 } }) === 'Jackson Hole · jour 2');
+verif('le dernier jour est nommé comme tel', W.titreJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 3, total: 3, fin: true } }) === 'Jackson Hole · dernier jour');
 verif('les trois descriptions sont DIFFÉRENTES', d1 !== d2 && d2 !== d3 && d1 !== d3);
 verif('le 2e jour annonce sa deuxième journée', /^Jackson Hole, deuxième journée/.test(d2), d2.slice(0, 60));
 verif('le dernier jour parle de bilan', /bilan de ces trois jours/.test(d3), d3.slice(0, 70));
 // Un jour de suite qui porte AUSSI du neuf mène avec le neuf, pas avec la redite.
 const mixte = [JH(3), { currency: 'USD', ctry: 'US', title: 'Non-Farm Employment Change', impact: 'High', forecast: '165K', previous: '142K', timestamp: J(29, 12, 30) }];
-const tMix = W.titreJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } });
-const dMix = W.descriptionJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } });
-verif('ce qui est neuf passe devant dans le titre', /^NFP américain \+ Jackson Hole \(dernier jour\)$/.test(tMix), tMix);
+const tMix = W.titreJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 3, total: 3, fin: true } });
+const dMix = W.descriptionJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 3, total: 3, fin: true } });
+verif('ce qui est neuf passe devant dans le titre', /^NFP \+ Jackson Hole \(dernier jour\)$/.test(tMix), tMix);
 verif('la description mène sur le neuf', /^Vendredi, 14h30 : USD Non-Farm Employment Change/.test(dMix), dMix.slice(0, 60));
 verif('le symposium n\'est pas relisté après avoir été nommé', (dMix.match(/Jackson Hole/g) || []).length === 1, dMix);
 verif('pas de majuscule parasite après les deux-points', !/ : [A-ZÀ-Þ]/.test(dMix.replace(/ : USD| : EUR| : GBP| : JPY/g, '')), dMix);
@@ -199,7 +240,7 @@ verif('l\'enjeu ne recopie pas la glose', dTres.split(glTres).length === 2, dTre
 
 // « Dernier jour » n\'est dit que si la fin est CONSTATÉE : un symposium qui court au-delà du
 // vendredi ne montre que deux journées chez nous, l\'annoncer « dernière » serait faux.
-const finInconnue = { lbl: 'Jackson Hole', jour: 2, total: 2 };            // pas de `fin`
+const finInconnue = { lbl: 'Jackson Hole', sigle: 'Jackson Hole', jour: 2, total: 2 };   // pas de `fin`
 verif('sans preuve de fin, on numérote au lieu d\'annoncer la dernière',
   W.titreJour([JH(2)], 'vendredi', { suite: finInconnue }) === 'Jackson Hole · jour 2',
   W.titreJour([JH(2)], 'vendredi', { suite: finInconnue }));
@@ -209,12 +250,12 @@ verif('…et la description ne parle pas de bilan',
 verif('la tournure évite l\'article qui sortait faux (« de Sommet du G20 »)',
   /^Sommet du G20, dernière journée/.test(W.descriptionJour(
     [{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(25, 8, 0) }],
-    'mardi', { suite: { lbl: 'Sommet du G20', jour: 2, total: 2, fin: true } })),
-  W.descriptionJour([{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(25, 8, 0) }], 'mardi', { suite: { lbl: 'Sommet du G20', jour: 2, total: 2, fin: true } }));
+    'mardi', { suite: { lbl: 'Sommet du G20', sigle: 'G20', jour: 2, total: 2, fin: true } })),
+  W.descriptionJour([{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(25, 8, 0) }], 'mardi', { suite: { lbl: 'Sommet du G20', sigle: 'G20', jour: 2, total: 2, fin: true } }));
 verif('une journée de suite ne redonne pas la glose de la veille',
   !/sommet de chefs d\'État/.test(W.descriptionJour(
     [{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(25, 8, 0) }],
-    'mardi', { suite: { lbl: 'Sommet du G20', jour: 2, total: 2, fin: true } })));
+    'mardi', { suite: { lbl: 'Sommet du G20', sigle: 'G20', jour: 2, total: 2, fin: true } })));
 verif('un rendez-vous sans consensus ne promet pas d\'« écart avec la prévision »',
   !/écart avec la prévision/.test(W.descriptionJour(
     [{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(24, 8, 0) }], 'lundi')),
@@ -263,7 +304,7 @@ const repli = W.titreJour([
 ], 'mardi');
 console.log('  repli : ' + repli);
 verif('la ferraille de période est retirée (MoM, Final, Adv…)', !/\b(MoM|YoY|Final|Adv|Prel)\b/.test(repli), repli);
-verif('deux intitulés au plus', repli.split(' · ').length <= 2, repli);
+verif('deux intitulés au plus', repli.split(' + ').length <= 2, repli);
 verif('le repli tient en une ligne de carte', repli.length <= 80, repli.length + ' caractères');
 verif('« Treasury Secretary » a enfin un thème',
   (W.themeJour({ currency: 'USD', ctry: 'US', title: 'Treasury Secretary Bessent Speech' }) || {}).lbl === 'Discours du Trésor américain');
@@ -346,7 +387,7 @@ console.log('\n── 16. Le classement IA éprouvé DE BOUT EN BOUT, avec une I
       verif('réponse correcte : les deux inconnus sont classés', evs[0]._fam === 'consommation' && evs[1]._fam === 'consommation', JSON.stringify(evs.map(e => e._fam)));
       verif('l\'événement déjà reconnu par une règle est laissé tranquille', !evs[2]._fam);
       verif('un seul appel IA pour tout le lot', b.appels() === 1, String(b.appels()));
-      verif('le titre du jour devient français', W.titreJour(evs.slice(0, 2), 'mardi') === 'Consommation américaine', W.titreJour(evs.slice(0, 2), 'mardi'));
+      verif('le titre reprend les termes du calendrier', W.titreJour(evs.slice(0, 2), 'mardi') === 'Wholesale Trade Sales USD + Redbook USD', W.titreJour(evs.slice(0, 2), 'mardi'));
     })); }
   { const b = bac('{"1":"decision_de_taux_fed","2":"Inflation US"}'); const evs = EV();
     files.push(b.api._waClasserInconnus(evs).then(() => {

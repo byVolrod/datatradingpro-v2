@@ -199,6 +199,120 @@ function poidsMajeur(e) {
   return r;
 }
 
+/* SIGLES DE CALENDRIER — CE QUI S'AFFICHE DANS LE TITRE D'UNE CARTE (25/08, demande utilisateur :
+   « mets les termes du calendrier, là on comprend pas “moral” etc., faut que ce soit simple et
+   court, genre CPI USD, PPI USD »). Un titre de journée doit se lire d'un coup d'œil et se retrouver
+   dans le calendrier : ce sont donc les SIGLES du calendrier, pas des libellés thématiques français.
+   « Moral des entreprises allemandes » devient « Ifo », « Inflation PCE américaine » devient
+   « Core PCE USD ».
+   Le français n'a pas disparu, il a changé de place : le titre SITUE (terme du calendrier), la
+   description EXPLIQUE (glose en français clair). C'était le vrai probleme — les deux disaient la
+   même chose avec des mots différents, et le titre était le mauvais endroit pour expliquer.
+   Le code de devise est accolé, sauf quand le sigle porte déjà son identité (une banque centrale,
+   un nom propre, une enquête propre à un pays : « Fed », « Powell », « Ifo », « ISM Manufacturing »).
+   Ordre = du plus SPÉCIFIQUE au plus général, la première règle qui répond gagne. */
+const SIGLES = [
+  [/jackson hole/i, 'Jackson Hole', true],
+  [/symposium|sintra|central bank forum/i, 'Symposium', true],
+  [/core pce/i, 'Core PCE'],
+  [/\bpce\b/i, 'PCE'],
+  [/core (?:cpi|inflation rate|consumer price|hicp)/i, 'Core CPI'],
+  [/\bcpi\b|inflation rate|\bhicp\b|consumer price/i, 'CPI'],
+  [/core ppi/i, 'Core PPI'],
+  [/\bppi\b|producer price/i, 'PPI'],
+  [/\bgdp\b|gross domestic/i, 'GDP'],
+  [/\badp\b/i, 'ADP', true],
+  [/non[-\s]?farm|nonfarm|\bnfp\b/i, 'NFP', true],
+  [/unemployment claims|jobless claims|initial claims|continuing claims/i, 'Jobless Claims'],
+  [/claimant count/i, 'Claimant Count'],
+  [/unemployment (?:rate|change)/i, 'Unemployment'],
+  [/employment change/i, 'Employment'],
+  [/job openings|\bjolts\b/i, 'JOLTS', true],
+  [/hourly earnings|average earnings|wage|labou?r cost/i, 'Wages'],
+  [/core retail sales/i, 'Core Retail Sales'],
+  [/retail sales/i, 'Retail Sales'],
+  [/personal spending|consumer spending/i, 'Personal Spending'],
+  [/household spending/i, 'Household Spending'],
+  [/durable goods|factory orders/i, 'Durable Goods'],
+  [/ism manufacturing/i, 'ISM Manufacturing', true],
+  [/ism (?:services|non[-\s]?manufacturing)/i, 'ISM Services', true],
+  [/manufacturing pmi/i, 'PMI Manufacturing'],
+  [/services pmi/i, 'PMI Services'],
+  [/composite pmi|\bpmi\b|purchasing managers/i, 'PMI'],
+  [/\bifo\b/i, 'Ifo', true],
+  [/\bzew\b/i, 'ZEW', true],
+  [/tankan/i, 'Tankan', true],
+  [/consumer sentiment|\buom\b|michigan/i, 'UoM Sentiment', true],
+  [/consumer confidence|consumer climate|\bgfk\b/i, 'Consumer Confidence'],
+  [/business confidence|business climate/i, 'Business Climate'],
+  [/trade balance|balance of trade/i, 'Trade Balance'],
+  [/current account/i, 'Current Account'],
+  [/building permits/i, 'Building Permits'],
+  [/housing starts/i, 'Housing Starts'],
+  [/home sales/i, 'Home Sales'],
+  [/housing market index|\bnahb\b/i, 'NAHB', true],
+  [/house price|mortgage/i, 'Housing'],
+  [/industrial production|manufacturing production/i, 'Industrial Production'],
+  [/crude oil inventories/i, 'Crude Oil', true],
+  [/natural gas storage/i, 'Natural Gas', true],
+  [/\bopec\b|\bopep\b|\bjmmc\b/i, 'OPEC', true],
+  [/\bg20\b/i, 'G20', true],
+  [/\bg7\b/i, 'G7', true],
+  [/treasury secretary|secr[ée]taire au tr[ée]sor/i, 'Treasury', true],
+  [/national activity index|chicago fed/i, 'Chicago Fed', true],
+  [/empire state/i, 'Empire State', true],
+  [/philly fed/i, 'Philly Fed', true],
+  [/richmond fed|dallas fed|kansas city fed/i, 'Fed Survey', true],
+  [/consumer credit/i, 'Consumer Credit'],
+  [/budget balance|federal budget/i, 'Budget Balance'],
+  [/bond auction|note auction|bill auction|\bgilt\b|\bbund\b|jgb auction/i, 'Auction'],
+  [/bank holiday/i, 'Jour férié'],
+];
+/* Code accolé au sigle : la DEVISE en général, mais le PAYS pour une publication nationale de la
+   zone euro — « CPI FR » et « CPI DE » sont plus courts ET plus precis que « CPI EUR », qui laisse
+   croire à l'agrégat de la zone (c'est l'erreur d'origine du 28 août, en version compacte). */
+function codeEv(e) {
+  const ccy = String((e && e.currency) || '').toUpperCase();
+  const pays = paysDe(e);
+  if (ccy === 'EUR' && pays && pays !== 'EU') return pays;
+  return ccy;
+}
+/* Sigle affichable d'un événement. Une RÉVISION porte sa mention : c'est le défaut d'origine
+   (« Non Farm Payrolls Annual Revision » annoncée comme le rapport mensuel) sous sa forme courte. */
+function sigleEv(e) {
+  const t = titresDe(e);
+  if (!t) return '';
+  const c = String((e && e.currency) || '').toUpperCase();
+  const rev = REVISION_RX.test(t);
+  const code = codeEv(e);
+  let sigle = null, propre = false;
+  /* LE LIEU AVANT LA PERSONNE. « Fed Chair Powell Speech at Jackson Hole » rendait « Powell » parce
+     que le nom propre était testé en premier : or ce qui compte ce jour-là, c'est le symposium, pas
+     l'orateur — c'est aussi ce que dit le thème. Le lieu passe donc devant. */
+  if (/jackson hole/i.test(t)) { sigle = 'Jackson Hole'; propre = true; }
+  else if (/symposium|sintra|central bank forum/i.test(t)) { sigle = 'Symposium'; propre = true; }
+  // Banques centrales : le nom de la banque porte déjà le pays et se lit plus vite que « Federal Funds Rate ».
+  const b = BANQUE[c];
+  if (!sigle && b) {
+    if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i.test(t)) { sigle = b; propre = true; }
+    else if (/meeting minutes|monetary policy meeting accounts/i.test(t)) { sigle = b + ' Minutes'; propre = true; }
+    else if (/press conference|conf[ée]rence de presse/i.test(t)) { sigle = b + ' Conf.'; propre = true; }
+    else if (/economic projections|dot plot|staff projections/i.test(t)) { sigle = b + ' Projections'; propre = true; }
+  }
+  if (!sigle && /\bpowell\b/i.test(t)) { sigle = 'Powell'; propre = true; }
+  if (!sigle && /\blagarde\b/i.test(t)) { sigle = 'Lagarde'; propre = true; }
+  if (!sigle && /\bueda\b/i.test(t)) { sigle = 'Ueda'; propre = true; }
+  if (!sigle && /\bbailey\b/i.test(t)) { sigle = 'Bailey'; propre = true; }
+  if (!sigle && /\bmacklem\b/i.test(t)) { sigle = 'Macklem'; propre = true; }
+  if (!sigle && /\bbullock\b/i.test(t)) { sigle = 'Bullock'; propre = true; }
+  if (!sigle && /\bschlegel\b/i.test(t)) { sigle = 'Schlegel'; propre = true; }
+  if (!sigle) for (const [rx, sg, seul] of SIGLES) if (rx.test(t)) { sigle = sg; propre = !!seul; break; }
+  // Aucun sigle connu : l'intitulé du calendrier lui-même, nettoyé de sa ferraille de période.
+  if (!sigle) { sigle = _titreCourt(String((e && e.title) || ''), 26); propre = false; }
+  const out = (propre || !code) ? sigle : `${sigle} ${code}`;
+  return rev ? `${out} (rév.)` : out;
+}
+
 /* VOCABULAIRE FERMÉ DE FAMILLES (25/08, demande utilisateur : « renomme les titres avec l'IA pour les
    raccourcir »). Les règles ci-dessous couvrent les 88 intitulés courants du calendrier, mais un
    fournisseur en publie des centaines : le jour où l'un d'eux n'est reconnu par aucune règle, la
@@ -390,8 +504,8 @@ function _suiteTexte(suite) {
 function _suiteEnjeu(suite) {
   if (!suite || suite.jour < 2) return '';
   return suite.fin
-    ? `C'est le bilan de ces ${_NOMBRE[suite.total] || suite.total} jours que le marché retiendra.`
-    : `Le cadrage s'est dit la veille : ce sont les interventions du jour qui peuvent encore corriger la trajectoire annoncée.`;
+    ? `c'est le bilan de ces ${_NOMBRE[suite.total] || suite.total} jours que le marché retiendra.`
+    : `le cadrage s'est dit la veille, ce sont les interventions du jour qui peuvent encore corriger la trajectoire annoncée.`;
 }
 const _PERIODE_RX = /\s*\b(?:m\/m|y\/y|q\/q|mom|yoy|qoq|s\.a\.?|prel(?:im)?|flash|final|adv|2nd\s+est|3rd\s+est|indicator)\b\s*/gi;
 function _titreCourt(t, max) {
@@ -404,34 +518,37 @@ function _titreCourt(t, max) {
 // Libellé court d'un événement, quand aucun thème ne le reconnaît (repli de la détection de suite).
 function libelleCourt(e) { return _titreCourt(intituleAffiche(e), 40); }
 function titreJour(events, dowFr, opts) {
-  const ths = themesDuJour(events);
+  const evs = (events || []).filter(Boolean);
+  if (!evs.length) return `Séance calme ${dowFr || ''}`.trim();
   const suite = opts && opts.suite;
-  /* Le contrôle de suite passe AVANT celui des thèmes : un rendez-vous qui s'étale peut très bien
-     n'être reconnu par aucune règle (une réunion technique, un sommet inhabituel). L'appelant lui a
-     alors donné un libellé court ; sans ce passage en tête, les deux journées ressortaient avec le
-     MÊME intitulé brut — la répétition qu'on cherche précisément à supprimer. */
+  const ths = themesDuJour(evs);
+  /* ORDRE DE PRIORITÉ : les événements porteurs d'un thème d'abord (déjà triés impact puis
+     importance par themesDuJour), le reste ensuite. Le RENDU, lui, est le sigle du calendrier. */
+  const ordre = ths.map(t => t.src).concat(evs.filter(e => !ths.some(t => t.src === e)));
+  const vus = new Set();
+  const sigles = [];
+  for (const e of ordre) { const sg = sigleEv(e); if (sg && !vus.has(sg)) { vus.add(sg); sigles.push({ sg, e }); } }
+  if (!sigles.length) return `Séance calme ${dowFr || ''}`.trim();
   if (suite && suite.jour >= 2) {
-    const autre = ths.find(x => x.lbl !== suite.lbl);      // ce qui est NEUF passe devant
     const marque = _suiteMarque(suite);
-    return autre ? `${autre.lbl} + ${suite.lbl} (${marque})` : `${suite.lbl} · ${marque}`;
+    const autre = sigles.find(x => x.sg !== suite.sigle);
+    return autre ? `${autre.sg} + ${suite.sigle} (${marque})` : `${suite.sigle} · ${marque}`;
   }
-  if (suite && !ths.length) return suite.lbl;              // 1re journée d'un rendez-vous sans thème
-  if (ths.length) {
-    const gardes = ths[0].rang >= 8 ? [ths[0]] : ths.slice(0, 2);
-    return gardes.map(x => x.lbl).join(' + ');
-  }
-  /* REPLI COMPACT (25/08, demande user « raccourcis les titres au mieux »). Quand aucun thème n'est
-     reconnu on retombe sur les intitulés — mais débarrassés de leur ferraille de période (m/m, y/y,
-     Prel, Flash…), à deux au plus, chacun coupé sur un mot entier. « USD Chicago Fed National
-     Activity Index · USD Treasury Secretary Bessent Speech » tenait sur deux lignes de carte. */
-  const bruts = (events || []).slice(0, 2).map(e => _titreCourt(nomEv(e))).filter(Boolean);
-  return bruts.length ? bruts.join(' · ') : `Séance calme ${dowFr || ''}`.trim();
+  // Un rendez-vous de rang ≥ 8 (décision de taux, Jackson Hole, NFP, Powell) tient le titre SEUL :
+  // c'est l'histoire du jour, un second sigle ne fait que la diluer.
+  const seul = ths.length && ths[0].rang >= 8 && sigles[0].e === ths[0].src;
+  return (seul ? sigles.slice(0, 1) : sigles.slice(0, 2)).map(x => x.sg).join(' + ');
 }
 // Le titre a-t-il dû retomber sur les intitulés bruts ? C'est le SEUL cas où l'on sollicite l'IA.
+/* Le titre a-t-il dû retomber sur un intitulé brut du calendrier ? C'est le SEUL cas où l'on
+   sollicite l'IA — et depuis que le titre affiche des SIGLES, « en repli » ne veut plus dire
+   « sans thème » mais « sans sigle connu » : un intitulé rare sort alors tel quel. */
 function titreEstRepli(events, opts) {
+  const evs = (events || []).filter(Boolean);
+  if (!evs.length) return false;
   const suite = opts && opts.suite;
   if (suite) return false;
-  return !themesDuJour(events).length;
+  return !evs.some(e => { const t = titresDe(e); return SIGLES.some(([rx]) => rx.test(t)) || !!themeJour(e); });
 }
 
 /* ENJEU — « et alors ? », en français de tous les jours. Il est calé sur l'événement RÉELLEMENT mis
@@ -499,12 +616,12 @@ function descriptionJour(events, dowFr, opts) {
   if (enSuite && !neuf) {
     // La journée n'a que le rendez-vous en cours : on l'annonce par son rang, sans le renommer.
     phrases.push(`${_suiteTexte(suite)}${h ? `, à ${h}` : ''}${chiffresEv(lead)}.`);
-    phrases.push(_suiteEnjeu(suite));
+    { const q = _suiteEnjeu(suite); phrases.push(q.charAt(0).toUpperCase() + q.slice(1)); }
   } else {
     phrases.push(`${_cap(dow) || 'Au programme'}${h ? `, ${h}` : ''} : ${nomEv(lead)}${g ? `, ${g}` : ''}${chiffresEv(lead)}.`);
     const enj = enjeuFr(tete, dev);
     if (enj) phrases.push(enj);
-    if (enSuite) { const q = _suiteEnjeu(suite); phrases.push(`${_suiteTexte(suite)} : ${q.charAt(0).toLowerCase() + q.slice(1)}`); }
+    if (enSuite) phrases.push(`${_suiteTexte(suite)} : ${_suiteEnjeu(suite)}`);
   }
 
   const _srcSuite = enSuite ? (ths.find(x => x.lbl === suite.lbl) || {}).src : null;
@@ -532,7 +649,7 @@ function jourParis(ts) {
 }
 
 module.exports = {
-  GLOSES, FAMILLES, FAMILLES_CLES, familleValide, themeDeFamille, titreEstRepli, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
+  GLOSES, SIGLES, sigleEv, codeEv, FAMILLES, FAMILLES_CLES, familleValide, themeDeFamille, titreEstRepli, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
   paysDe, paysCourt, adjectif, gloseFr, MAJEURS, poidsMajeur, themeJour, themesDuJour,
   titresDe, gloseEv, heureParis, nomEv, intituleAffiche, libelleCourt, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
 };

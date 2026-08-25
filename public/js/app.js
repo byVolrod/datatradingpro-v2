@@ -2218,10 +2218,19 @@ function collapseEconGroups(items) {
   const WINDOW_MS = 3 * 60 * 1000;
   const MIN_GROUP = 3;
 
-  // Collect indices of all EC items (items are newest-first)
+  /* UNE NEWS IMPORTANTE N'EST JAMAIS NOYÉE DANS UN GROUPE (25/08, capture user : « ANALYSE ADP US »
+     s'affichait en ligne ordinaire au lieu du rouge). Le regroupement des commentaires économiques
+     existe pour absorber les rafales de dépêches de routine — mais il ramassait AUSSI les analyses
+     du desk, qui portent pourtant `priority: 'high'`. Or `buildEconGroup` construit sa ligne sans la
+     classe `news-item--breaking` ni l'icône d'alerte : une news marquée importante perdait sa couleur
+     par le simple fait d'être tombée dans la même fenêtre de trois minutes que deux dépêches.
+     Une news importante garde donc SA ligne, et sa couleur avec. */
   const econIdxs = [];
   for (let i = 0; i < items.length; i++) {
-    if (items[i].category === 'Economic Commentary') econIdxs.push(i);
+    const it = items[i];
+    if (!it || it.category !== 'Economic Commentary') continue;
+    if (it._eventAnalysis || _isImportantNews(it)) continue;
+    econIdxs.push(i);
   }
 
   // Group EC items by time window, skipping non-EC items in between
