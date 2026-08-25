@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260827-apple-pay-acces', ts: Date.UTC(2026, 7, 27, 10, 0), title: 'Payer avec Apple Pay et « Masquer mon adresse » ne prive plus de son acces', desc: 'Quand un abonnement est regle par Apple Pay avec l option « Masquer mon adresse », Apple ne transmet pas la vraie adresse e-mail mais une adresse relais anonyme. Le desk creait donc le compte sur cette adresse relais : le client etait introuvable dans nos outils sous son vrai e-mail, et son mail d acces partait vers une boite relais qu Apple ne relaie pas toujours. Une table de correspondance rattache desormais l adresse relais a la vraie adresse : le compte est cree au bon endroit, le mail d acces arrive dans la vraie boite, et un renouvellement paye sous l une ou l autre des deux adresses prolonge bien le meme compte, sans jamais en creer un second. Rien ne change pour les abonnements payes par carte.' },
   { id: 'dtpu-20260827-onglets-horloge-atteignables', ts: Date.UTC(2026, 7, 27, 0, 0), title: 'Panneau a onglets et Horloge mondiale : plus rien d inatteignable', desc: 'L audit systematique des 38 widgets de la bibliotheque — un examen par widget, mesures a l appui — a trouve deux recoins ou du contenu pouvait etre coupe sans aucun moyen d y acceder. Dans le PANNEAU A ONGLETS d abord : un widget embarque exigeant plus de hauteur que l onglet n en offre — la jauge de risque et son historique, par exemple — etait ampute en silence, sans barre de defilement (mesure : un tiers du contenu perdu). L onglet defile desormais, comme les cartes simples l ont toujours fait, et sur telephone le panneau retrouve sa pleine hauteur qu une regle lui volait. L HORLOGE MONDIALE ensuite : dans une carte etroite, les villes se repliaient sur plusieurs rangees ecrasees — meteo, vent et pays coupes au bas de chaque cellule. Chaque rangee garde maintenant sa hauteur entiere et la carte defile s il le faut. Quand tout tient, rien ne change, au pixel pres.' },
   { id: 'dtpu-20260826-topbar-pilule-risque', ts: Date.UTC(2026, 7, 26, 23, 0), title: 'Mobile : la pilule RISK ON / RISK OFF quitte la barre du haut', desc: 'Sur telephone, la pilule d etat de risque — RISK ON, RISK OFF, NEUTRE — se glissait entre la barre de recherche et les icones, ou elle finissait souvent tronquee faute de place. Elle disparait de la barre du haut sur mobile : la rangee respire et la recherche garde ses aises. L information, elle, ne disparait pas : le climat de risque reste a un geste, dans l onglet RISQUE et le widget Sentiment de Risque. Sur ordinateur, rien ne change.' },
   { id: 'dtpu-20260826-calculatrice-un-ecran', ts: Date.UTC(2026, 7, 26, 22, 0), title: 'Calculatrice : tout tient sur un ecran de telephone, resultat compris', desc: 'Sur mobile, la calculatrice de taille de position empilait ses sept champs sur toute la hauteur : le resultat — la raison d etre de la page — naissait sous le pli et il fallait defiler pour le voir. Le formulaire passe en deux colonnes (Devise et Solde cote a cote, Risque et Stop-loss, Spread et Commission, la Paire en pleine largeur), les cartes de resultat se resserrent d un cran et le bouton Copier rejoint le coin de la taille de position. Resultat : saisie ET resultat visibles ensemble, sans defiler, la taille se met a jour sous vos yeux pendant que vous tapez. Sur les tres petits ecrans, le defilement reste disponible en secours — rien n est jamais coupe.' },
@@ -1910,11 +1911,16 @@ app.get('/api/admin/overview', requireAdmin, (_req, res) => {
 //    à partir des prix connus (mensuel/annuel) et de la durée d'accès de chaque abonné.
 const PRICE_MONTHLY = parseFloat(process.env.PRICE_MONTHLY) || 24.99;
 const PRICE_ANNUAL  = parseFloat(process.env.PRICE_ANNUAL)  || 239.99;
-app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
+/* `?force=1` (26/08) : `whop.revenueStats()` garde ses chiffres 10 MINUTES en cache. Un paiement
+   encaissé à l'instant n'apparaît donc pas tout de suite — et rien ne le dit, ce qui se lit comme
+   « le paiement n'est pas arrivé » alors qu'il est bien là. Le rafraîchissement forcé permet de
+   vérifier immédiatement, sans attendre l'expiration du cache. Le défaut reste le cache : on ne
+   rappelle pas l'API Whop à chaque ouverture du tableau de bord. */
+app.get('/api/admin/finance', requireAdmin, async (req, res) => {
   try {
-    const users = await auth.getAllUsers();
+    const users = await auth.getAllUsers({ fresh: req.query.force === '1' });
     let _revenuWhop = null;
-    try { _revenuWhop = await whop.revenueStats(); } catch (e) { console.warn('[Finance] revenu Whop indisponible :', e.message); }
+    try { _revenuWhop = await whop.revenueStats({ force: req.query.force === '1' }); } catch (e) { console.warn('[Finance] revenu Whop indisponible :', e.message); }
     const now = Date.now(), DAY = 86400000;
     const monthKey = ts => { const d = new Date(ts); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
     const curMonth = monthKey(now);
@@ -2774,11 +2780,56 @@ app.put('/api/auth/me/password', _gardeSession, async (req, res) => {
   }
 });
 
+/* ══ ALIAS E-MAIL WHOP → DESK (26/08) ═══════════════════════════════════════════════════════════
+   CAUSE RACINE, constatée sur un vrai client : payer par Apple Pay avec « Masquer mon adresse »
+   fait arriver chez Whop une adresse RELAIS `xxxx@privaterelay.appleid.com`, jamais l'adresse
+   réelle. Le desk crée alors le compte SUR LE RELAIS : introuvable quand on cherche le client par
+   son vrai e-mail, et le mail d'accès part vers une boîte relais qu'Apple peut refuser de relayer
+   (le domaine expéditeur doit être déclaré chez Apple). Ce n'est pas un cas isolé : Apple Pay est
+   un moyen de paiement courant, donc ça se reproduira.
+
+   CE QUE FAIT L'ALIAS, ET SURTOUT CE QU'IL NE FAIT PAS. Il traduit une adresse WHOP en adresse
+   DESK — et UNIQUEMENT du côté desk : recherche du compte, création, envoi des e-mails, audience
+   de campagne. Les appels à l'API Whop gardent l'adresse BRUTE (`mem.email`), parce que Whop ne
+   connaît QUE le relais : résoudre avant `getMembershipByEmail` reviendrait à demander à Whop une
+   adresse qu'il n'a jamais vue → « aucune adhésion valide » → suspension du compte qu'on vient
+   d'ouvrir. C'est précisément le piège que cette séparation évite, et la raison pour laquelle la
+   résolution n'est PAS posée dans whop.js.
+
+   Déclaré ICI, AVANT tous ses usages : sur ce projet, une constante lue avant sa déclaration a
+   déjà coûté une panne (« Cannot access before initialization »), et `node -c` ne l'attrape pas.
+   Même mécanique que les accès offerts : un seed en dur dans le code + un KV modifiable à chaud. */
+const _ALIAS_SEED = {
+  // Mathis Gobert : adhésion « JOT - DTP 🏦 » payée par Apple Pay → Whop ne porte que le relais.
+  'm648fb4tgk@privaterelay.appleid.com': 'mathisgobert103@gmail.com',
+};
+const _aliasMap = new Map(Object.entries(_ALIAS_SEED));
+const _ALIAS_KEY = 'whopalias', _ALIAS_TTL = 366 * 86400000;
+function _aliasNorm(e) { return String(e == null ? '' : e).toLowerCase().trim(); }
+/* Adresse à utiliser CÔTÉ DESK pour une adresse venue de Whop. Sans alias → l'adresse elle-même,
+   normalisée : le comportement d'avant, à l'identique, pour tous les clients sans alias. */
+function _emailDesk(e) { const n = _aliasNorm(e); return _aliasMap.get(n) || n; }
+async function _aliasLoad() {
+  try {
+    const kv = await auth.aiCacheGet(_ALIAS_KEY, _ALIAS_TTL);
+    if (kv && typeof kv === 'object' && !Array.isArray(kv)) {
+      for (const [k, v] of Object.entries(kv)) { const a = _aliasNorm(k), b = _aliasNorm(v); if (a && b && a !== b) _aliasMap.set(a, b); }
+    }
+  } catch (e) {}
+  // le seed reste toujours présent → on réécrit si le KV en manquait
+  try { await auth.aiCacheSet(_ALIAS_KEY, Object.fromEntries(_aliasMap)); } catch (e) {}
+  console.log(`[Alias Whop] ${_aliasMap.size} correspondance(s) e-mail Whop → desk`);
+}
+setTimeout(() => { _aliasLoad().catch(() => {}); }, 25000);   // après amorçage Supabase, comme les accès offerts
+
 // ─── Whop : webhook d'auto-renouvellement / création de compte ───────────────
 async function _whopRenewOrCreate(mem) {
-  if (auth.isEmailBlacklisted(mem.email)) { console.log('[Whop] Email sur liste noire, ignoré →', mem.email); return; }
+  /* `_deskEmail` = l'adresse du COMPTE ; `mem.email` reste l'adresse WHOP (ne jamais confondre :
+     seule la seconde est connue de l'API Whop). Sans alias, les deux sont identiques. */
+  const _deskEmail = _emailDesk(mem.email);
+  if (auth.isEmailBlacklisted(mem.email) || auth.isEmailBlacklisted(_deskEmail)) { console.log('[Whop] Email sur liste noire, ignoré →', mem.email); return; }
   const users = await auth.getAllUsers();
-  const existing = users.find(u => (u.email || '').toLowerCase() === mem.email);
+  const existing = users.find(u => (u.email || '').toLowerCase() === _deskEmail);
   if (existing) {
     if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
     const wasInactive = !existing.active;
@@ -2828,19 +2879,19 @@ async function _whopRenewOrCreate(mem) {
        déjà corrigé en juin. La création et l'envoi vont donc ensemble.
        Le marqueur reste écrit après un envoi réussi : il sert au filet _welcomeAutoHeal et à
        l'écran de rattrapage admin. */
-    const dedupKey = `whop-welcome:${mem.email}`;
-    if (await auth.emailLogHas(dedupKey)) console.log(`[Whop] ${mem.email} : bienvenue déjà envoyée par le passé, mais AUCUN compte n'existe → on le recrée et on renvoie l'accès.`);
+    const dedupKey = `whop-welcome:${_deskEmail}`;
+    if (await auth.emailLogHas(dedupKey)) console.log(`[Whop] ${_deskEmail} : bienvenue déjà envoyée par le passé, mais AUCUN compte n'existe → on le recrée et on renvoie l'accès.`);
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
-    const wu = await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
+    const wu = await auth.createUser({ email: _deskEmail, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
     // ENVOI FIABLE D'ABORD (await + alerte admin si échec), marqueur SEULEMENT si l'email est VRAIMENT
     // parti. AVANT (bug des 17 clients du 22/06) : le marqueur était posé AVANT un envoi fire-and-forget
     // à erreur avalée → si OVH hoquetait, compte créé mais bienvenue jamais envoyée ET jamais retentée.
     // Désormais : échec → pas de marqueur → le filet _welcomeAutoHeal ré-enverra au prochain cycle.
-    const _wr = await _sendWelcomeReliable({ to: mem.email, name: '', password: pwd, expiresAt: mem.expiresAt });
+    const _wr = await _sendWelcomeReliable({ to: _deskEmail, name: '', password: pwd, expiresAt: mem.expiresAt });
     _sendWelcomeChat(wu && wu.id);
-    if (_wr && _wr.sent) { await auth.emailLogAdd(dedupKey); try { await auth.emailLogAdd('welcomeok:' + mem.email); } catch {} }   // welcomeok: = envoi CONFIRMÉ (protège du re-envoi par le filet)
-    mailer.sendAdminRenewalNotice({ clientEmail: mem.email, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
-    console.log(`[Whop] Compte créé: ${mem.email}` + (_wr && _wr.sent ? ` (bienvenue ✅ ${_wr.provider})` : ' (bienvenue ❌ : sera relancée par le filet)'));
+    if (_wr && _wr.sent) { await auth.emailLogAdd(dedupKey); try { await auth.emailLogAdd('welcomeok:' + _deskEmail); } catch {} }   // welcomeok: = envoi CONFIRMÉ (protège du re-envoi par le filet)
+    mailer.sendAdminRenewalNotice({ clientEmail: _deskEmail, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
+    console.log(`[Whop] Compte créé: ${_deskEmail}` + (_deskEmail !== _aliasNorm(mem.email) ? ` (alias Whop ${mem.email})` : '') + (_wr && _wr.sent ? ` (bienvenue ✅ ${_wr.provider})` : ' (bienvenue ❌ : sera relancée par le filet)'));
     // Parrainage via lien d'affiliation Whop (?a=<username>) : l'adhésion porte l'username du
     // parrain → on crédite le filleul ICI, sans dépendre du cookie landing. Verrou referredby
     // = un filleul ne compte qu'une fois (même s'il repasse ensuite par la landing).
@@ -2863,7 +2914,7 @@ async function _whopRenewOrCreate(mem) {
 // ne rien faire est un choix valable). Garde-fous identiques au circuit d'expiration.
 async function _whopAutoRenewOff(email, mem) {
   try {
-    const em = String(email || '').toLowerCase().trim();
+    const em = _emailDesk(email);   // alias Whop → desk (cf. bloc ALIAS) ; sans alias, l'adresse elle-même
     if (!em) return;
     // L'échéance doit être DANS LE FUTUR : le mail annonce « arrive à échéance dans X jours ».
     const fin = mem && mem.periodEnd ? Number(mem.periodEnd) : 0;
@@ -2887,7 +2938,8 @@ async function _whopAutoRenewOff(email, mem) {
 }
 async function _whopSuspend(email) {
   const users = await auth.getAllUsers();
-  const u = users.find(x => (x.email || '').toLowerCase() === email);
+  const _de = _emailDesk(email);   // alias Whop → desk (cf. bloc ALIAS)
+  const u = users.find(x => (x.email || '').toLowerCase() === _de);
   if (u && u.role !== 'admin' && u.active) {
     // (Audit 28/07) Un accès OFFERT (liste giftaccess ou type Amis) ne se suspend pas et ne reçoit
     // JAMAIS « renouvellement échoué » sur un event Whop : son accès ne dépend pas d'un paiement.
@@ -3010,7 +3062,7 @@ async function _whopReconcile() {
   let fixed = 0, created = 0;
   for (const mem of members) {
     if (!mem || !mem.email || !mem.valid) continue;
-    const u = byEmail.get(String(mem.email).toLowerCase());
+    const u = byEmail.get(_emailDesk(mem.email));   // alias Whop → desk : sans ça un compte aliasé passerait pour manquant et serait recréé en DOUBLE
     const whopExp = mem.expiresAt ? new Date(mem.expiresAt).getTime() : Number.MAX_SAFE_INTEGER;   // pas d'échéance = illimité
     try {
       if (!u) { await _whopRenewOrCreate(mem); created++; }                                          // compte manquant (création ratée) → créé
@@ -3048,7 +3100,7 @@ async function _whopGhostSweep() {
   const mems = await whop.listAllMemberships();
   if (!mems.length) return;
   const byEmail = new Map();
-  for (const m of mems) { const l = byEmail.get(m.email) || []; l.push(m); byEmail.set(m.email, l); }
+  for (const m of mems) { const _de = _emailDesk(m.email); const l = byEmail.get(_de) || []; l.push(m); byEmail.set(_de, l); }
   const pays = await whop.listPayments();
   const paidByMem = new Map();                                   // memId → dernier paiement ENCAISSÉ
   for (const p of pays) if (p.status === 'paid' && p.ts > (paidByMem.get(p.membership) || 0)) paidByMem.set(p.membership, p.ts);
@@ -18706,6 +18758,30 @@ setTimeout(() => { _giftLoad().catch(() => {}); }, 25000);   // après amorçage
 app.get('/api/admin/gift-access', requireSameOrigin, requireAdmin, async (req, res) => {
   res.json({ ok: true, emails: [..._giftSet].sort(), seed: _GIFT_SEED });
 });
+/* ALIAS WHOP → DESK : consultation et édition à chaud (le seed du code reste toujours présent).
+   Sert quand un client paie via Apple Pay « Masquer mon adresse » : on rattache l'adresse relais
+   à sa vraie adresse pour que le compte, les e-mails et la campagne partent au bon endroit. */
+app.get('/api/admin/whop-alias', requireSameOrigin, requireAdmin, async (req, res) => {
+  res.json({ ok: true, alias: Object.fromEntries([..._aliasMap].sort((a, b) => a[0].localeCompare(b[0]))), seed: _ALIAS_SEED });
+});
+app.post('/api/admin/whop-alias', requireAdmin, async (req, res) => {
+  try {
+    const de = _aliasNorm(req.body && req.body.from), vers = _aliasNorm(req.body && req.body.to);
+    const action = String((req.body && req.body.action) || 'add');
+    if (!de || !/.+@.+\..+/.test(de)) return res.status(400).json({ ok: false, error: 'adresse Whop invalide' });
+    if (action === 'remove') {
+      if (Object.prototype.hasOwnProperty.call(_ALIAS_SEED, de)) return res.status(400).json({ ok: false, error: 'alias protégé par le code (seed) : à retirer dans server.js' });
+      _aliasMap.delete(de);
+    } else {
+      if (!vers || !/.+@.+\..+/.test(vers)) return res.status(400).json({ ok: false, error: 'adresse desk invalide' });
+      if (de === vers) return res.status(400).json({ ok: false, error: 'les deux adresses sont identiques' });
+      _aliasMap.set(de, vers);
+    }
+    await auth.aiCacheSet(_ALIAS_KEY, Object.fromEntries(_aliasMap));
+    console.log(`[Alias Whop] ${action === 'remove' ? 'retiré' : 'ajouté'} → ${de}${action === 'remove' ? '' : ' ⇒ ' + vers}`);
+    res.json({ ok: true, alias: Object.fromEntries(_aliasMap) });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
 app.post('/api/admin/gift-access', requireAdmin, async (req, res) => {
   try {
     const email = _giftNorm(req.body && req.body.email);
@@ -20093,7 +20169,7 @@ async function _campaignAudience(opts = {}) {
   try {
     if (whop.configured()) {
       const mem = await whop.listAllMemberEmails();
-      for (const m of (mem || [])) { whopSeen++; const c = _add(m.email, m.name, 'whop'); if (c) for (const s of (m.statuses || [])) c.whopStatuses.add(String(s).toLowerCase()); }
+      for (const m of (mem || [])) { whopSeen++; const c = _add(_emailDesk(m.email), m.name, 'whop'); if (c) for (const s of (m.statuses || [])) c.whopStatuses.add(String(s).toLowerCase()); }
     }
   } catch (e) { console.error('[Campaign audience] Whop:', e.message); }
   // 3) E-mails ajoutés À LA MAIN (contacts hors API Whop : export « Contacts », ajouts admin) — durable KV
