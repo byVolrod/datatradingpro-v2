@@ -2570,15 +2570,25 @@ function _recapQuotidienFull(fx) {
      puces se lisaient comme la suite de ce groupe (le user a vu « l'or à 4 650 $ » annoncé sous
      « Banques centrales »). Placées en tête, elles se lisent comme le corps de la section. */
   const _cbP = puces(fx.cb);
-  const _SECTIONS_NEWS = ['Inflation', 'Croissance économique', 'Emploi'];
+  /* LES QUATRE RUBRIQUES SONT CELLES DU RADAR DE BIAIS (25/08, précision user : « les 4 de
+     l'onglet biais »). Le Radar range chaque devise en Politique monétaire · Inflation ·
+     Croissance économique · Emploi ; le Récap Quotidien reprend exactement ces quatre-là, dans
+     cet ordre et avec les mêmes mots. Deux surfaces du même desk ne peuvent pas nommer
+     différemment la même chose — c'est la cohérence Radar ↔ Récap déjà posée côté serveur.
+     « BANQUES CENTRALES » DISPARAÎT COMME INTITULÉ : le champ `cb` EST de la politique monétaire.
+     Il rejoint la rubrique du Radar, en tête, plutôt que d'ouvrir une rubrique parallèle qui
+     disait la même chose sous un autre nom. Au passage, une actualité macro sur les taux tombait
+     jusqu'ici dans la liste sans intitulé faute de rubrique où aller : elle a la sienne. */
+  const _SECTIONS_NEWS = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi'];
   const _txtDe = t => (typeof t === 'string' ? t : (t && t.text)) || '';
   const _macroL = (Array.isArray(fx.macro) ? fx.macro : []).filter(t => _md(_txtDe(t)));
   const _sansFam = _macroL.filter(t => _SECTIONS_NEWS.indexOf(_famJour(_txtDe(t))) < 0);
   const _macroHtml = puces(_sansFam)
-    + (_cbP ? _grpTitre('Banques centrales') + _cbP : '')
     + _SECTIONS_NEWS.map(fam => {
+      // `cb` entre EN TÊTE de la Politique monétaire : la décision d'abord, son écho macro ensuite.
       const l = _macroL.filter(t => _famJour(_txtDe(t)) === fam);
-      return l.length ? _grpTitre(fam) + puces(l) : '';
+      const html = (fam === 'Politique monétaire' ? (_cbP || '') : '') + puces(l);
+      return html ? _grpTitre(fam) + html : '';
     }).join('');
   S('Macro', _macroHtml);
 
