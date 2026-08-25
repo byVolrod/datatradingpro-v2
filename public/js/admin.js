@@ -2550,43 +2550,143 @@ function adSupAvDelete() {
     showToast('✓ Photo retirée : les clients revoient les initiales DTP.');
   }).catch(function () { showToast('Retrait impossible.', 'err'); });
 }
+/* ── RECADRAGE MANUEL, PARCE QUE DEVINER NE MARCHE PAS (28/08) ──────────────────────────────────
+   Le premier jet recadrait au centre, avec une remontée proportionnelle sur les photos verticales.
+   Sur une photo de bureau — plan large, sujet décentré, tête dans le tiers haut — ça tombe sur le
+   torse : « on voit mal, centre bien la photo ». Et l'automatiser vraiment n'est pas fiable ici :
+   la détection de visage du navigateur n'existe pas partout, et une heuristique de luminosité se
+   ferait piéger par le logo doré du mur, aussi lumineux que la peau.
+   On montre donc le RÉSULTAT EXACT et on laisse placer : la fenêtre ronde est celle du client, à
+   l'échelle. Ce qui est dans le cercle est ce qui sera enregistré — rien à deviner, rien à vérifier
+   après coup.
+   ÉTAT : `k` = échelle appliquée à l'image, `x`/`y` = coin haut-gauche de l'image dans la scène.
+   L'image COUVRE toujours la scène (bornes ci-dessous) : aucun trou blanc possible dans le cercle. */
+var _crop = null;   // { img, S, kMin, k, x, y }
+function _cropBorner() {
+  if (!_crop) return;
+  var dw = _crop.img.naturalWidth * _crop.k, dh = _crop.img.naturalHeight * _crop.k;
+  _crop.x = Math.min(0, Math.max(_crop.S - dw, _crop.x));
+  _crop.y = Math.min(0, Math.max(_crop.S - dh, _crop.y));
+}
+function _cropRendre() {
+  if (!_crop) return;
+  _cropBorner();
+  var e = document.getElementById('ad-crop-img'); if (!e) return;
+  e.style.width = (_crop.img.naturalWidth * _crop.k) + 'px';
+  e.style.height = (_crop.img.naturalHeight * _crop.k) + 'px';
+  e.style.left = _crop.x + 'px';
+  e.style.top = _crop.y + 'px';
+  // Aperçu à la taille RÉELLE d'un avatar de conversation : la même fenêtre, réduite.
+  var m = document.getElementById('ad-crop-mini');
+  if (m) {
+    var r = 34 / _crop.S;
+    m.style.backgroundImage = 'url(' + _crop.img.src + ')';
+    m.style.backgroundSize = (_crop.img.naturalWidth * _crop.k * r) + 'px ' + (_crop.img.naturalHeight * _crop.k * r) + 'px';
+    m.style.backgroundPosition = (_crop.x * r) + 'px ' + (_crop.y * r) + 'px';
+  }
+}
+function adCropZoom(v) {
+  if (!_crop) return;
+  var S = _crop.S, av = _crop.k;
+  _crop.k = _crop.kMin * (parseFloat(v) / 100);
+  // On zoome sur le CENTRE de la fenêtre, pas sur le coin : sinon le sujet fuit dès qu'on approche.
+  var f = _crop.k / av;
+  _crop.x = S / 2 - (S / 2 - _crop.x) * f;
+  _crop.y = S / 2 - (S / 2 - _crop.y) * f;
+  _cropRendre();
+}
+function adCropAnnuler() {
+  _crop = null;
+  var c = document.getElementById('ad-crop'); if (c) c.hidden = true;
+  var f = document.getElementById('ad-supav-file'); if (f) f.value = '';
+}
+function _cropOuvrir(src) {
+  var img = new Image();
+  img.onload = function () {
+    var stage = document.getElementById('ad-crop-stage');
+    var S = (stage && stage.clientWidth) || 240;
+    var kMin = S / Math.min(img.naturalWidth, img.naturalHeight);   // « cover » : l'image remplit toujours le cercle
+    _crop = { img: img, S: S, kMin: kMin, k: kMin, x: 0, y: 0 };
+    // Point de départ : centré horizontalement, remonté vers le tiers haut — là où se trouve une
+    // tête neuf fois sur dix. C'est une AMORCE, pas une décision : le curseur fait le reste.
+    _crop.x = (S - img.naturalWidth * kMin) / 2;
+    _crop.y = (S - img.naturalHeight * kMin) * 0.28;
+    var e = document.getElementById('ad-crop-img'); if (e) e.src = src;
+    var z = document.getElementById('ad-crop-zoom'); if (z) z.value = 100;
+    var c = document.getElementById('ad-crop'); if (c) c.hidden = false;
+    _cropRendre();
+  };
+  img.onerror = function () { showToast('Image illisible.', 'err'); };
+  img.src = src;
+}
 function adSupAvChange(ev) {
   var file = ev.target.files && ev.target.files[0];
   if (!file) return;
   var reader = new FileReader();
-  reader.onload = function (e) {
-    var img = new Image();
-    img.onload = function () {
-      // Fenêtre carrée, remontée vers le visage sur une photo plus haute que large.
-      var w = img.width, h = img.height, c = Math.min(w, h);
-      var sx = (w - c) / 2, sy = (h - c) / 2;
-      if (h > w) sy = Math.max(0, sy * (1 - 0.75 * Math.min(1, (h - w) / w)));
-      function encode(taille, q) {
-        var cur = document.createElement('canvas'); cur.width = c; cur.height = c;
-        var cx = cur.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
-        cx.drawImage(img, sx, sy, c, c, 0, 0, c, c);
-        var cote = c;
-        while (cote > taille * 2) {                       // demi-passes : jamais plus de moitié à la fois
-          var n = document.createElement('canvas'); n.width = n.height = Math.round(cote / 2);
-          var nx = n.getContext('2d'); nx.imageSmoothingEnabled = true; nx.imageSmoothingQuality = 'high';
-          nx.drawImage(cur, 0, 0, n.width, n.height); cur = n; cote = n.width;
-        }
-        var f = document.createElement('canvas'); f.width = f.height = taille;
-        var fx = f.getContext('2d'); fx.imageSmoothingEnabled = true; fx.imageSmoothingQuality = 'high';
-        fx.drawImage(cur, 0, 0, taille, taille);
-        return f.toDataURL('image/jpeg', q);
-      }
-      var url = '', essais = [[256, 0.9], [256, 0.8], [192, 0.8], [160, 0.72], [128, 0.7]];
-      for (var i = 0; i < essais.length; i++) { url = encode(essais[i][0], essais[i][1]); if (url.length < 180000) break; }
-      _adSupAvEnvoi(url).then(function (r) {
-        if (!r.ok) return showToast('Envoi impossible : ' + (r.err || 'erreur'), 'err');
-        _adSupAvRender(url);
-        showToast('✓ Photo du support mise à jour : visible par tous les clients.');
-      }).catch(function () { showToast('Envoi impossible.', 'err'); });
-    };
-    img.onerror = function () { showToast('Image illisible.', 'err'); };
-    img.src = e.target.result;
-  };
+  reader.onload = function (e) { _cropOuvrir(e.target.result); };
+  reader.onerror = function () { showToast('Lecture du fichier impossible.', 'err'); };
   reader.readAsDataURL(file);
 }
+/* Enregistrement : on redessine EXACTEMENT la fenêtre visible. La réduction se fait en demi-passes
+   (une réduction directe de 3000 px à 256 px crénelle fortement), puis JPEG progressif jusqu'à
+   passer sous la limite du serveur — quelle que soit la photo d'origine, on envoie petit et propre. */
+function adCropValider() {
+  if (!_crop) return;
+  var src = _crop.img, S = _crop.S, k = _crop.k;
+  var sx = -_crop.x / k, sy = -_crop.y / k, sc = S / k;          // fenêtre, en pixels de l'image d'origine
+  function encode(taille, q) {
+    var cur = document.createElement('canvas'); cur.width = cur.height = Math.round(sc);
+    var cx = cur.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+    cx.drawImage(src, sx, sy, sc, sc, 0, 0, cur.width, cur.height);
+    var cote = cur.width;
+    while (cote > taille * 2) {
+      var n = document.createElement('canvas'); n.width = n.height = Math.round(cote / 2);
+      var nx = n.getContext('2d'); nx.imageSmoothingEnabled = true; nx.imageSmoothingQuality = 'high';
+      nx.drawImage(cur, 0, 0, n.width, n.height); cur = n; cote = n.width;
+    }
+    var f = document.createElement('canvas'); f.width = f.height = taille;
+    var fx = f.getContext('2d'); fx.imageSmoothingEnabled = true; fx.imageSmoothingQuality = 'high';
+    fx.drawImage(cur, 0, 0, taille, taille);
+    return f.toDataURL('image/jpeg', q);
+  }
+  var url = '', essais = [[256, 0.9], [256, 0.8], [192, 0.8], [160, 0.72], [128, 0.7]];
+  for (var i = 0; i < essais.length; i++) { url = encode(essais[i][0], essais[i][1]); if (url.length < 180000) break; }
+  _adSupAvEnvoi(url).then(function (r) {
+    if (!r.ok) return showToast('Envoi impossible : ' + (r.err || 'erreur'), 'err');
+    _adSupAvRender(url);
+    adCropAnnuler();
+    showToast('✓ Photo du support mise à jour : visible par tous les clients.');
+  }).catch(function () { showToast('Envoi impossible.', 'err'); });
+}
+/* Déplacement à la souris et au doigt, molette pour zoomer. Écouteurs posés UNE fois sur la scène,
+   qui est statique : la rouvrir n'en empile pas. */
+(function () {
+  function poser() {
+    var st = document.getElementById('ad-crop-stage');
+    if (!st || st._wired) return; st._wired = true;
+    var d = null;
+    var pos = function (ev) { var t = (ev.touches && ev.touches[0]) || ev; return { x: t.clientX, y: t.clientY }; };
+    var start = function (ev) { if (!_crop) return; var p = pos(ev); d = { px: p.x, py: p.y, x: _crop.x, y: _crop.y }; ev.preventDefault(); };
+    var move = function (ev) {
+      if (!d || !_crop) return;
+      var p = pos(ev);
+      _crop.x = d.x + (p.x - d.px); _crop.y = d.y + (p.y - d.py);
+      _cropRendre(); ev.preventDefault();
+    };
+    var end = function () { d = null; };
+    st.addEventListener('mousedown', start);
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', end);
+    st.addEventListener('touchstart', start, { passive: false });
+    st.addEventListener('touchmove', move, { passive: false });
+    st.addEventListener('touchend', end);
+    st.addEventListener('wheel', function (ev) {
+      if (!_crop) return;
+      var z = document.getElementById('ad-crop-zoom'); if (!z) return;
+      z.value = Math.min(400, Math.max(100, parseFloat(z.value) + (ev.deltaY < 0 ? 8 : -8)));
+      adCropZoom(z.value); ev.preventDefault();
+    }, { passive: false });
+  }
+  try { document.addEventListener('DOMContentLoaded', poser); } catch (e) {}
+})();
 try { document.addEventListener('DOMContentLoaded', adSupAvLoad); } catch (e) {}

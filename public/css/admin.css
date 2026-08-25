@@ -175,6 +175,30 @@ code, pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consola
 }
 .ad-supav-btn:hover { color: #e3b23a; border-color: rgba(227, 178, 58, .5); }
 .ad-supav-btn--del:hover { color: #ef4444; border-color: rgba(239, 68, 68, .5); }
+
+/* ── Recadrage de la photo du support ───────────────────────────────────────────────────────────
+   La scène EST la fenêtre du client, agrandie : ce qui tient dans le cercle est ce qui sera
+   enregistré. Rien à deviner, rien à vérifier après coup. */
+.ad-crop { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border, #2a2c33); }
+.ad-crop-stage {
+  width: 240px; height: 240px; flex: 0 0 auto; position: relative; overflow: hidden;
+  border-radius: 50%; background: #0e0f13; cursor: grab; touch-action: none;
+  box-shadow: 0 0 0 2px rgba(227, 178, 58, .45), 0 0 0 9px rgba(0, 0, 0, .35);
+}
+.ad-crop-stage:active { cursor: grabbing; }
+.ad-crop-stage img { position: absolute; max-width: none; user-select: none; -webkit-user-drag: none; }
+.ad-crop-side { flex: 1 1 260px; min-width: 0; }
+.ad-crop-t { font-size: var(--fs-body, 13px); color: var(--text); }
+.ad-crop-s { font-size: var(--fs-meta, 11px); color: var(--text3, #8a8f98); margin-top: 3px; }
+.ad-crop-range { width: 100%; max-width: 300px; margin: 14px 0 10px; accent-color: #e3b23a; }
+/* L'aperçu à la taille RÉELLE : 34 px, celle de l'avatar dans une conversation. C'est là que se voit
+   un cadrage trop large — un visage qui « passe » dans un cercle de 240 px peut disparaître ici. */
+.ad-crop-mini { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.ad-crop-mini-c { width: 34px; height: 34px; border-radius: 50%; background: #0e0f13 no-repeat; box-shadow: 0 0 0 2px rgba(255, 255, 255, .18); flex: 0 0 auto; }
+.ad-crop-mini-l { font-size: var(--fs-meta, 11px); color: var(--text3, #8a8f98); }
+.ad-crop-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.ad-crop-ok { color: #e3b23a; border-color: rgba(227, 178, 58, .5); }
+.ad-crop-ok:hover { background: rgba(227, 178, 58, .10); }
 .panel-body { padding: var(--sp-3); }
 .fin-sub { font-size: var(--fs-meta); color: var(--text3); }
 

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg933" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260825bbg935" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -267,6 +267,22 @@
             <button class="ad-supav-btn" onclick="adSupAvPick()">Changer la photo</button>
             <button class="ad-supav-btn ad-supav-btn--del" onclick="adSupAvDelete()">Retirer</button>
             <input type="file" id="ad-supav-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="adSupAvChange(event)">
+          </div>
+          <!-- RECADRAGE : deviner où est le visage n'est pas fiable (sur une photo de bureau, le
+               logo mural est aussi lumineux que la peau). On montre donc le résultat EXACT et on
+               laisse déplacer et zoomer. La fenêtre ronde est celle du client, à l'échelle. -->
+          <div class="ad-crop" id="ad-crop" hidden>
+            <div class="ad-crop-stage" id="ad-crop-stage"><img id="ad-crop-img" alt="" draggable="false"></div>
+            <div class="ad-crop-side">
+              <div class="ad-crop-t">Placez le visage dans le cercle</div>
+              <div class="ad-crop-s">Faites glisser l'image · molette ou curseur pour zoomer</div>
+              <input type="range" id="ad-crop-zoom" class="ad-crop-range" min="100" max="400" value="100" oninput="adCropZoom(this.value)">
+              <div class="ad-crop-mini"><span class="ad-crop-mini-c" id="ad-crop-mini"></span><span class="ad-crop-mini-l">Aperçu réel</span></div>
+              <div class="ad-crop-btns">
+                <button class="ad-supav-btn ad-crop-ok" onclick="adCropValider()">Utiliser cette photo</button>
+                <button class="ad-supav-btn" onclick="adCropAnnuler()">Annuler</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -764,6 +780,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260825bbg933"></script>
+<script src="/js/admin.js?v=20260825bbg935"></script>
 </body>
 </html>
