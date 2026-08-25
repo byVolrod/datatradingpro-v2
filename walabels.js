@@ -199,6 +199,49 @@ function poidsMajeur(e) {
   return r;
 }
 
+/* VOCABULAIRE FERMÉ DE FAMILLES (25/08, demande utilisateur : « renomme les titres avec l'IA pour les
+   raccourcir »). Les règles ci-dessous couvrent les 88 intitulés courants du calendrier, mais un
+   fournisseur en publie des centaines : le jour où l'un d'eux n'est reconnu par aucune règle, la
+   carte retombe sur son intitulé anglais. C'est là, et SEULEMENT là, que l'IA intervient — et pas
+   pour ÉCRIRE un titre : pour CHOISIR une famille dans cette liste. Elle ne rend qu'une clé.
+   Le libellé français, l'adjectif de pays et son accord sont ensuite construits ICI, par du code.
+   Une IA qui ne peut rendre qu'une clé d'une liste fermée ne peut pas inventer un rendez-vous —
+   c'est la seule forme sous laquelle elle a sa place dans ces cartes, après la v20 où elle annonçait
+   des décisions de taux qui n'existaient pas. Clé inconnue ou absente → repli déterministe. */
+const FAMILLES = {
+  politique_monetaire: { lbl: 'Politique monétaire', g: 1, rang: 7,   quoi: 'décision de taux, communiqué, minutes ou rapport de politique monétaire' },
+  discours:            { lbl: 'Discours',            g: 0, rang: 5,   quoi: 'intervention publique d\'un responsable (banque centrale, Trésor, ministre)' },
+  sommet:              { lbl: 'Sommet',              g: 0, rang: 5,   quoi: 'sommet, réunion internationale, OPEP, G7, G20' },
+  inflation:           { lbl: 'Inflation',           g: 1, rang: 7,   quoi: 'prix à la consommation, prix à la production, déflateurs' },
+  croissance:          { lbl: 'Croissance',          g: 1, rang: 6,   quoi: 'PIB et agrégats de croissance' },
+  emploi:              { lbl: 'Emploi',              g: 0, rang: 3,   quoi: 'chômage, créations de postes, inscriptions, postes vacants' },
+  salaires:            { lbl: 'Salaires',            g: 3, rang: 3,   quoi: 'rémunérations, coût du travail' },
+  consommation:        { lbl: 'Consommation',        g: 1, rang: 3.4, quoi: 'ventes au détail, dépenses des ménages' },
+  activite:            { lbl: 'Activité',            g: 1, rang: 2.2, quoi: 'enquêtes PMI, ISM, indices d\'activité composites' },
+  industrie:           { lbl: 'Production industrielle', g: 1, rang: 2.6, quoi: 'production des usines, commandes industrielles, stocks' },
+  immobilier:          { lbl: 'Immobilier',          g: 0, rang: 1.9, quoi: 'logement, permis, mises en chantier, prêts immobiliers' },
+  commerce:            { lbl: 'Commerce extérieur',  g: 0, rang: 2,   quoi: 'balance commerciale, exportations, importations, compte courant' },
+  confiance:           { lbl: 'Confiance',           g: 1, rang: 1.8, quoi: 'moral des ménages ou des entreprises' },
+  credit:              { lbl: 'Crédit',              g: 0, rang: 1.5, quoi: 'crédit, masse monétaire, prêts bancaires' },
+  budget:              { lbl: 'Solde budgétaire',    g: 0, rang: 1.5, quoi: 'finances publiques, déficit, dette' },
+  energie:             { lbl: 'Énergie',             g: 1, rang: 1.7, quoi: 'stocks de pétrole ou de gaz, production énergétique' },
+  adjudication:        { lbl: 'Adjudication obligataire', g: 1, rang: 1.2, quoi: 'émission de dette souveraine, adjudication' },
+  ferie:               { lbl: 'Jour férié',          g: 0, rang: 0.5, quoi: 'jour férié, marché fermé' },
+};
+const FAMILLES_CLES = Object.keys(FAMILLES);
+/* LE VERROU. Toute réponse de l'IA passe par ici : ce qui n'est pas EXACTEMENT une clé de la liste
+   est rejeté, sans repêchage ni correction approximative. C'est cette fonction, et elle seule, qui
+   rend l'invention impossible — elle est donc éprouvée directement par le contrôle. */
+function familleValide(v) {
+  return (typeof v === 'string' && Object.prototype.hasOwnProperty.call(FAMILLES, v)) ? v : null;
+}
+// Libellé d'une famille pour un événement donné : le pays et l'accord sont posés par le code.
+function themeDeFamille(e, cle) {
+  const f = FAMILLES[cle];
+  if (!f) return null;
+  return { lbl: f.lbl + adjectif(e, f.g), rang: f.rang, src: e };
+}
+
 /* THÈMES DE JOUR. `rang` = poids éditorial ; il décide du titre ET de l'événement mis en avant dans
    la description. Un thème porte TOUJOURS `src`, l'événement du calendrier dont il est issu — c'est
    ce lien qui garantit qu'aucun titre ne peut nommer un rendez-vous absent de la carte. */
@@ -258,6 +301,9 @@ function themeJour(e) {
   if (/bond auction|note auction|bill auction|\bgilt\b|\bbund\b|jgb auction/.test(t)) return out('Adjudication obligataire' + adj(1), 1.2);
   if (/bank holiday/.test(t)) return out('Jour férié' + adj(0), 0.5);
   if (/consumer confidence|consumer sentiment|consumer climate/.test(t)) return out('Confiance des ménages' + adj(3), 1.8);
+  // DERNIER RECOURS : la famille posée sur l'événement par l'appelant (classement IA à vocabulaire
+  // fermé, voir FAMILLES). Elle n'est consultée qu'ici, après TOUTES les règles déterministes.
+  if (e && e._fam) { const th = themeDeFamille(e, e._fam); if (th) return rev ? { lbl: th.lbl + ' (révision)', rang: 1, src: e } : th; }
   return null;
 }
 
@@ -381,6 +427,12 @@ function titreJour(events, dowFr, opts) {
   const bruts = (events || []).slice(0, 2).map(e => _titreCourt(nomEv(e))).filter(Boolean);
   return bruts.length ? bruts.join(' · ') : `Séance calme ${dowFr || ''}`.trim();
 }
+// Le titre a-t-il dû retomber sur les intitulés bruts ? C'est le SEUL cas où l'on sollicite l'IA.
+function titreEstRepli(events, opts) {
+  const suite = opts && opts.suite;
+  if (suite) return false;
+  return !themesDuJour(events).length;
+}
 
 /* ENJEU — « et alors ? », en français de tous les jours. Il est calé sur l'événement RÉELLEMENT mis
    en avant (le `src` du thème de tête), plus sur un thème pioché ailleurs dans la journée : c'est ce
@@ -480,7 +532,7 @@ function jourParis(ts) {
 }
 
 module.exports = {
-  GLOSES, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
+  GLOSES, FAMILLES, FAMILLES_CLES, familleValide, themeDeFamille, titreEstRepli, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
   paysDe, paysCourt, adjectif, gloseFr, MAJEURS, poidsMajeur, themeJour, themesDuJour,
   titresDe, gloseEv, heureParis, nomEv, intituleAffiche, libelleCourt, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
 };

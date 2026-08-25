@@ -19,6 +19,7 @@ function verif(nom, cond, detail) {
   else { ko++; console.log('  ✗ ' + nom + (detail ? '\n      → ' + detail : '')); }
 }
 const J = (d, h, m) => Date.UTC(2026, 7, d, h, m);   // août 2026, heure UTC
+let _attente = Promise.resolve();   // contrôles asynchrones (section 16) attendus avant le bilan
 
 console.log('\n── 1. Vendredi 28 août 2026 : le cas signalé par le mentor ──');
 const vendredi = [
@@ -277,5 +278,105 @@ verif('le lundi cible n\'est calculé qu\'à UN endroit',
   (src.match(/const _toMon = \(_dow === 0\)/g) || []).length === 1);
 verif('la navigation en archive utilise la même ancre', /_target = _waLundiCible\(Date\.now\(\)\)/.test(src));
 
-console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
-process.exit(ko ? 1 : 0);
+console.log('\n── 15. Classement IA : vocabulaire FERMÉ, invention impossible ──');
+// L'IA ne rédige aucun titre : elle rend une CLÉ. Tout ce qui n'est pas exactement une clé connue
+// est rejeté. C'est la seule chose qui la rende admissible dans ces cartes après la v20.
+verif('une clé connue passe', W.familleValide('inflation') === 'inflation');
+[['Décision de taux de la Fed', 'du texte libre'], ['inflation US', 'une clé enjolivée'],
+ ['INFLATION', 'une casse différente'], ['taux', 'un mot isolé'], ['toString', 'une propriété héritée'],
+ ['constructor', 'un piège de prototype']].forEach(([v, quoi]) =>
+  verif(`${quoi} est rejeté (« ${v} »)`, W.familleValide(v) === null, String(W.familleValide(v))));
+[null, undefined, 42, {}, [], true].forEach(v =>
+  verif(`une réponse de type ${Object.prototype.toString.call(v)} est rejetée`, W.familleValide(v) === null));
+verif('les 18 familles sont toutes valides', W.FAMILLES_CLES.every(k => W.familleValide(k) === k));
+
+console.log('\n── 15b. Le libellé français est construit par le CODE, pas par l\'IA ──');
+const parFam = (ccy, ctry, fam) => (W.themeDeFamille({ currency: ccy, ctry, title: 'X' }, fam) || {}).lbl;
+verif('accord féminin', parFam('USD', 'US', 'inflation') === 'Inflation américaine', parFam('USD', 'US', 'inflation'));
+verif('accord masculin', parFam('USD', 'US', 'emploi') === 'Emploi américain', parFam('USD', 'US', 'emploi'));
+verif('masculin pluriel', parFam('JPY', 'JP', 'salaires') === 'Salaires japonais', parFam('JPY', 'JP', 'salaires'));
+verif('pays d\'origine de la zone euro', parFam('EUR', 'DE', 'activite') === 'Activité allemande', parFam('EUR', 'DE', 'activite'));
+verif('agrégat de la zone euro', parFam('EUR', 'EU', 'croissance') === 'Croissance zone euro', parFam('EUR', 'EU', 'croissance'));
+verif('une famille inconnue ne produit aucun libellé', W.themeDeFamille({ currency: 'USD', title: 'X' }, 'n_importe_quoi') === null);
+
+console.log('\n── 15c. L\'IA n\'est sollicitée QUE sur ce qui échappe aux règles ──');
+const connu = { currency: 'USD', ctry: 'US', title: 'Core PCE Price Index m/m', impact: 'High' };
+const inconnu = { currency: 'USD', ctry: 'US', title: 'Wholesale Trade Sales m/m', impact: 'Medium' };
+verif('un intitulé reconnu n\'a pas besoin de classement', !!W.themeJour(connu));
+verif('un intitulé inconnu tombe en repli sans classement', W.titreEstRepli([inconnu]));
+inconnu._fam = 'consommation';
+verif('classé, il porte un nom français', (W.themeJour(inconnu) || {}).lbl === 'Consommation américaine', (W.themeJour(inconnu) || {}).lbl);
+verif('…et ne tombe plus en repli', !W.titreEstRepli([inconnu]));
+const faux = { currency: 'USD', ctry: 'US', title: 'Wholesale Trade Sales m/m', _fam: 'famille_inventee' };
+verif('une famille hors liste posée sur l\'événement reste sans effet', W.themeJour(faux) === null);
+verif('la famille n\'est consultée qu\'APRÈS toutes les règles',
+  (W.themeJour({ currency: 'USD', ctry: 'US', title: 'Federal Funds Rate', _fam: 'ferie' }) || {}).lbl === 'Décision de la Fed');
+verif('le classement est gardé en cache persistant', /_WA_FAM_KEY = 'watheme:familles'/.test(src));
+verif('un intitulé non classable est mémorisé, pas redemandé', /_waFam\.set\(k, cle\); _waFamDirty = true;/.test(src));
+verif('le classement est sous quota', /aiAllowed\('analyst', \{ priority: 'background' \}\)/.test(src));
+verif('sans IA, l\'agenda sort quand même', /catch \(e\) \{ console\.warn\('\[WeekAhead\] classement:'/.test(src));
+
+console.log('\n── 16. Le classement IA éprouvé DE BOUT EN BOUT, avec une IA simulée ──');
+/* On n'éprouve pas une copie du code : on extrait le VRAI bloc de server.js et on l'exécute avec
+   des doublures (cache, IA, quota). C'est la seule façon de vérifier ce qui se passe quand l'IA
+   répond de travers — ce qu'aucun test de fonction pure ne montre. */
+(function classementBoutEnBout() {
+  const i = src.indexOf("const _WA_FAM_KEY = 'watheme:familles'");
+  const j = src.indexOf('setTimeout(() => { _waFamLoad()', i);
+  if (i < 0 || j < 0) { verif('le bloc de classement est extractible', false, 'introuvable dans server.js'); return; }
+  const code = src.slice(i, j) + '\nreturn { _waClasserInconnus, _waFamLoad };';
+  const bac = (reponseIA, opts) => {
+    const o = opts || {}; let appels = 0; const logs = [];
+    const api = new Function('auth', 'ai', 'aiAllowed', 'aiNote', '_WA', 'console', code)(
+      { aiCacheGet: async () => (o.cache || {}), aiCacheSet: async () => {} },
+      { generateText: async () => { appels++; return reponseIA; } },
+      () => o.quota !== false, () => {}, W,
+      { log: m => logs.push(String(m)), warn: m => logs.push('WARN ' + m) });
+    return { api, logs, appels: () => appels };
+  };
+  const EV = () => ([
+    { currency: 'USD', ctry: 'US', title: 'Wholesale Trade Sales m/m', impact: 'Medium' },
+    { currency: 'USD', ctry: 'US', title: 'Redbook y/y', impact: 'Medium' },
+    { currency: 'USD', ctry: 'US', title: 'Core PCE Price Index m/m', impact: 'High' },
+  ]);
+  // Les contrôles asynchrones sont chaînés, puis attendus avant le bilan (voir _attente).
+  const files = [];
+  { const b = bac('{"1":"consommation","2":"consommation"}'); const evs = EV();
+    files.push(b.api._waClasserInconnus(evs).then(() => {
+      verif('réponse correcte : les deux inconnus sont classés', evs[0]._fam === 'consommation' && evs[1]._fam === 'consommation', JSON.stringify(evs.map(e => e._fam)));
+      verif('l\'événement déjà reconnu par une règle est laissé tranquille', !evs[2]._fam);
+      verif('un seul appel IA pour tout le lot', b.appels() === 1, String(b.appels()));
+      verif('le titre du jour devient français', W.titreJour(evs.slice(0, 2), 'mardi') === 'Consommation américaine', W.titreJour(evs.slice(0, 2), 'mardi'));
+    })); }
+  { const b = bac('{"1":"decision_de_taux_fed","2":"Inflation US"}'); const evs = EV();
+    files.push(b.api._waClasserInconnus(evs).then(() => {
+      verif('clés INVENTÉES par l\'IA : rien n\'est posé', !evs[0]._fam && !evs[1]._fam, JSON.stringify(evs.map(e => e._fam)));
+      verif('…le repli déterministe reprend la main', W.titreEstRepli(evs.slice(0, 2)));
+      verif('…et le rejet est journalisé', b.logs.some(l => /hors liste/.test(l)), b.logs.join(' | '));
+    })); }
+  { const b = bac('Je pense que ce sont des ventes de gros.'); const evs = EV();
+    files.push(b.api._waClasserInconnus(evs).then(() => verif('réponse en prose : aucune exception, rien de posé', !evs[0]._fam))); }
+  { const b = bac('{"1":"consommation",,}'); const evs = EV();
+    files.push(b.api._waClasserInconnus(evs).then(() => verif('JSON malformé : aucune exception', !evs[0]._fam))); }
+  { const b = bac('{"1":"consommation"}', { quota: false }); const evs = EV();
+    files.push(b.api._waClasserInconnus(evs).then(() => {
+      verif('quota épuisé : aucun appel IA', b.appels() === 0);
+      verif('…et le repli est annoncé', b.logs.some(l => /quota IA indisponible/.test(l)), b.logs.join(' | '));
+    })); }
+  { const b = bac('{"1":"budget"}', { cache: { 'wholesale trade sales m/m': 'consommation', 'redbook y/y': 'consommation' } }); const evs = EV();
+    files.push(b.api._waFamLoad().then(() => b.api._waClasserInconnus(evs)).then(() => {
+      verif('déjà en cache : les familles en viennent', evs[0]._fam === 'consommation' && evs[1]._fam === 'consommation');
+      verif('…et aucun appel IA n\'est fait', b.appels() === 0, String(b.appels()));
+    })); }
+  { const b = bac('{"1":null,"2":null}'); const evs = EV(); const evs2 = EV();
+    files.push(b.api._waClasserInconnus(evs).then(() => b.api._waClasserInconnus(evs2)).then(() => {
+      verif('intitulé non classable : rien n\'est posé', !evs[0]._fam);
+      verif('…et il n\'est pas redemandé au tour suivant', b.appels() === 1, b.appels() + ' appel(s)');
+    })); }
+  _attente = Promise.all(files);
+})();
+
+_attente.then(() => {
+  console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
+  process.exit(ko ? 1 : 0);
+});
