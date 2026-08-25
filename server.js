@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260827-abonnement-jamais-perdu', ts: Date.UTC(2026, 7, 27, 14, 0), title: 'Un abonnement paye ne peut plus passer inapercu chez nous', desc: 'Nous avons trouve et corrige une panne silencieuse : dans certains cas, un abonnement bel et bien paye n ouvrait aucun acces de notre cote, sans le moindre signal d erreur. La cause : notre lecture des abonnements cherchait l adresse e-mail a un seul endroit precis du message recu. Quand la plateforme de paiement la place ailleurs — ce qui arrive notamment avec Apple Pay et l option « Masquer mon adresse » — l abonnement devenait invisible pour nous, y compris pour le controle de securite qui passe toutes les dix minutes et qui existe justement pour rattraper ce genre d oubli. Les deux echouaient au meme endroit. L adresse est desormais recherchee partout ou elle peut se trouver, et nous retenons aussi le nom d utilisateur comme seconde identite : meme si l adresse est masquee ou changee, votre abonnement reste rattache a votre compte. Un renouvellement paye sous l une ou l autre de vos identites prolonge le meme acces, sans jamais creer de second compte.' },
   { id: 'dtpu-20260827-apple-pay-acces', ts: Date.UTC(2026, 7, 27, 10, 0), title: 'Payer avec Apple Pay et « Masquer mon adresse » ne prive plus de son acces', desc: 'Quand un abonnement est regle par Apple Pay avec l option « Masquer mon adresse », Apple ne transmet pas la vraie adresse e-mail mais une adresse relais anonyme. Le desk creait donc le compte sur cette adresse relais : le client etait introuvable dans nos outils sous son vrai e-mail, et son mail d acces partait vers une boite relais qu Apple ne relaie pas toujours. Une table de correspondance rattache desormais l adresse relais a la vraie adresse : le compte est cree au bon endroit, le mail d acces arrive dans la vraie boite, et un renouvellement paye sous l une ou l autre des deux adresses prolonge bien le meme compte, sans jamais en creer un second. Rien ne change pour les abonnements payes par carte.' },
   { id: 'dtpu-20260827-onglets-horloge-atteignables', ts: Date.UTC(2026, 7, 27, 0, 0), title: 'Panneau a onglets et Horloge mondiale : plus rien d inatteignable', desc: 'L audit systematique des 38 widgets de la bibliotheque — un examen par widget, mesures a l appui — a trouve deux recoins ou du contenu pouvait etre coupe sans aucun moyen d y acceder. Dans le PANNEAU A ONGLETS d abord : un widget embarque exigeant plus de hauteur que l onglet n en offre — la jauge de risque et son historique, par exemple — etait ampute en silence, sans barre de defilement (mesure : un tiers du contenu perdu). L onglet defile desormais, comme les cartes simples l ont toujours fait, et sur telephone le panneau retrouve sa pleine hauteur qu une regle lui volait. L HORLOGE MONDIALE ensuite : dans une carte etroite, les villes se repliaient sur plusieurs rangees ecrasees — meteo, vent et pays coupes au bas de chaque cellule. Chaque rangee garde maintenant sa hauteur entiere et la carte defile s il le faut. Quand tout tient, rien ne change, au pixel pres.' },
   { id: 'dtpu-20260826-topbar-pilule-risque', ts: Date.UTC(2026, 7, 26, 23, 0), title: 'Mobile : la pilule RISK ON / RISK OFF quitte la barre du haut', desc: 'Sur telephone, la pilule d etat de risque — RISK ON, RISK OFF, NEUTRE — se glissait entre la barre de recherche et les icones, ou elle finissait souvent tronquee faute de place. Elle disparait de la barre du haut sur mobile : la rangee respire et la recherche garde ses aises. L information, elle, ne disparait pas : le climat de risque reste a un geste, dans l onglet RISQUE et le widget Sentiment de Risque. Sur ordinateur, rien ne change.' },
@@ -2801,7 +2802,10 @@ app.put('/api/auth/me/password', _gardeSession, async (req, res) => {
    Même mécanique que les accès offerts : un seed en dur dans le code + un KV modifiable à chaud. */
 const _ALIAS_SEED = {
   // Mathis Gobert : adhésion « JOT - DTP 🏦 » payée par Apple Pay → Whop ne porte que le relais.
+  // DEUX clés pour la MÊME personne : son adresse relais ET son nom d'utilisateur Whop. Un
+  // renouvellement porté par l'une OU l'autre identité prolonge donc le même compte desk.
   'm648fb4tgk@privaterelay.appleid.com': 'mathisgobert103@gmail.com',
+  'mathis7771': 'mathisgobert103@gmail.com',
 };
 const _aliasMap = new Map(Object.entries(_ALIAS_SEED));
 const _ALIAS_KEY = 'whopalias', _ALIAS_TTL = 366 * 86400000;
@@ -2809,6 +2813,18 @@ function _aliasNorm(e) { return String(e == null ? '' : e).toLowerCase().trim();
 /* Adresse à utiliser CÔTÉ DESK pour une adresse venue de Whop. Sans alias → l'adresse elle-même,
    normalisée : le comportement d'avant, à l'identique, pour tous les clients sans alias. */
 function _emailDesk(e) { const n = _aliasNorm(e); return _aliasMap.get(n) || n; }
+/* Résolution depuis une ADHÉSION : l'adresse d'abord, puis le NOM D'UTILISATEUR. Apple peut masquer
+   l'adresse — et même la faire tourner — mais le pseudo Whop, lui, ne bouge pas : c'est la seule
+   identité sur laquelle on puisse compter dans ce cas. Sans alias, on retombe exactement sur
+   l'adresse Whop, donc le comportement d'avant, à l'identique. */
+function _emailDeskMem(mem) {
+  if (!mem) return '';
+  const _parMail = _aliasMap.get(_aliasNorm(mem.email));
+  if (_parMail) return _parMail;
+  const _un = _aliasNorm(mem.username).replace(/^@/, '');
+  if (_un) { const _parUser = _aliasMap.get(_un); if (_parUser) return _parUser; }
+  return _aliasNorm(mem.email);
+}
 async function _aliasLoad() {
   try {
     const kv = await auth.aiCacheGet(_ALIAS_KEY, _ALIAS_TTL);
@@ -2826,7 +2842,8 @@ setTimeout(() => { _aliasLoad().catch(() => {}); }, 25000);   // après amorçag
 async function _whopRenewOrCreate(mem) {
   /* `_deskEmail` = l'adresse du COMPTE ; `mem.email` reste l'adresse WHOP (ne jamais confondre :
      seule la seconde est connue de l'API Whop). Sans alias, les deux sont identiques. */
-  const _deskEmail = _emailDesk(mem.email);
+  const _deskEmail = _emailDeskMem(mem);
+  if (!_deskEmail) { console.warn('[Whop] adhésion sans identité exploitable (ni adresse ni pseudo) → ignorée'); return; }
   if (auth.isEmailBlacklisted(mem.email) || auth.isEmailBlacklisted(_deskEmail)) { console.log('[Whop] Email sur liste noire, ignoré →', mem.email); return; }
   const users = await auth.getAllUsers();
   const existing = users.find(u => (u.email || '').toLowerCase() === _deskEmail);
@@ -3062,7 +3079,7 @@ async function _whopReconcile() {
   let fixed = 0, created = 0;
   for (const mem of members) {
     if (!mem || !mem.email || !mem.valid) continue;
-    const u = byEmail.get(_emailDesk(mem.email));   // alias Whop → desk : sans ça un compte aliasé passerait pour manquant et serait recréé en DOUBLE
+    const u = byEmail.get(_emailDeskMem(mem));   // alias Whop → desk : sans ça un compte aliasé passerait pour manquant et serait recréé en DOUBLE
     const whopExp = mem.expiresAt ? new Date(mem.expiresAt).getTime() : Number.MAX_SAFE_INTEGER;   // pas d'échéance = illimité
     try {
       if (!u) { await _whopRenewOrCreate(mem); created++; }                                          // compte manquant (création ratée) → créé
@@ -3100,7 +3117,7 @@ async function _whopGhostSweep() {
   const mems = await whop.listAllMemberships();
   if (!mems.length) return;
   const byEmail = new Map();
-  for (const m of mems) { const _de = _emailDesk(m.email); const l = byEmail.get(_de) || []; l.push(m); byEmail.set(_de, l); }
+  for (const m of mems) { const _de = _emailDeskMem(m); if (!_de) continue; const l = byEmail.get(_de) || []; l.push(m); byEmail.set(_de, l); }
   const pays = await whop.listPayments();
   const paidByMem = new Map();                                   // memId → dernier paiement ENCAISSÉ
   for (const p of pays) if (p.status === 'paid' && p.ts > (paidByMem.get(p.membership) || 0)) paidByMem.set(p.membership, p.ts);
@@ -18758,6 +18775,66 @@ setTimeout(() => { _giftLoad().catch(() => {}); }, 25000);   // après amorçage
 app.get('/api/admin/gift-access', requireSameOrigin, requireAdmin, async (req, res) => {
   res.json({ ok: true, emails: [..._giftSet].sort(), seed: _GIFT_SEED });
 });
+/* ══ FUSION DE DEUX COMPTES (27/08) ═════════════════════════════════════════════════════════════
+   Le cas qui l'a rendue nécessaire : un même client s'est retrouvé avec DEUX fiches — une créée à
+   la main sur sa vraie adresse, une créée par Whop sur son adresse relais Apple. L'alias empêche
+   désormais que ça se reproduise, mais il ne répare pas les doublons DÉJÀ créés.
+
+   RÈGLES, volontairement conservatrices :
+   · l'échéance retenue est TOUJOURS LA PLUS LOINGTAINE des deux (jamais raccourcir un accès payé ;
+     `null` = illimité et gagne sur tout) ;
+   · le compte gardé reste ACTIF si l'un des deux l'était ;
+   · le nom retenu est le premier NON VIDE (Whop crée les comptes sans nom) ;
+   · l'absorbé est SUSPENDU et marqué expiré, PAS supprimé par défaut — une fusion se relit, une
+     suppression ne se rejoue pas. `?supprimer=1` pour l'effacer vraiment, une fois vérifié.
+   · `dryRun` par DÉFAUT : on affiche ce qui SERAIT fait. Il faut `appliquer=1` pour écrire.
+   · on refuse de fusionner un compte admin, et de fusionner un compte avec lui-même.
+   L'alias e-mail est posé au passage (adresse absorbée → adresse gardée), pour qu'un renouvellement
+   Whop portant l'ancienne adresse retombe sur le compte gardé au lieu d'en recréer un troisième. */
+app.post('/api/admin/merge-users', requireAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const de = _aliasNorm(b.from), vers = _aliasNorm(b.to);
+    const appliquer = String(b.appliquer || req.query.appliquer || '') === '1';
+    const supprimer = String(b.supprimer || req.query.supprimer || '') === '1';
+    if (!de || !vers) return res.status(400).json({ ok: false, error: 'from et to requis' });
+    if (de === vers) return res.status(400).json({ ok: false, error: 'les deux adresses sont identiques' });
+    const users = await auth.getAllUsers({ fresh: true });
+    const uDe = users.find(u => (u.email || '').toLowerCase() === de);
+    const uVers = users.find(u => (u.email || '').toLowerCase() === vers);
+    if (!uDe) return res.status(404).json({ ok: false, error: `aucun compte pour ${de}` });
+    if (!uVers) return res.status(404).json({ ok: false, error: `aucun compte pour ${vers}` });
+    if (uDe.role === 'admin' || uVers.role === 'admin') return res.status(400).json({ ok: false, error: 'fusion refusée : compte admin' });
+    // Échéance : `null` = illimité → gagne sur toute date. Sinon la plus lointaine.
+    const _t = u => (u.expires_at ? new Date(u.expires_at).getTime() : Infinity);
+    const illimite = !uDe.expires_at || !uVers.expires_at;
+    const gardee = illimite ? null : new Date(Math.max(_t(uDe), _t(uVers))).toISOString();
+    const champs = {
+      active: true,
+      expiresAt: gardee,
+      name: String(uVers.name || '').trim() || String(uDe.name || '').trim() || '',
+    };
+    const plan = ['professionnel', 'amis', 'essai'].includes(String(uVers.plan || '')) ? uVers.plan : (uDe.plan || 'professionnel');
+    if (plan) champs.plan = plan;
+    const apercu = {
+      garde: { email: vers, id: uVers.id, avant: { actif: uVers.active !== false, echeance: uVers.expires_at || 'illimité', nom: uVers.name || '(vide)', plan: uVers.plan || '' } },
+      absorbe: { email: de, id: uDe.id, avant: { actif: uDe.active !== false, echeance: uDe.expires_at || 'illimité', nom: uDe.name || '(vide)', plan: uDe.plan || '' } },
+      apres: { echeance: gardee || 'illimité', nom: champs.name || '(vide)', plan: champs.plan || '', actif: true },
+      absorbeDevient: supprimer ? 'SUPPRIMÉ' : 'suspendu + marqué expiré',
+      alias: `${de} ⇒ ${vers}`,
+    };
+    if (!appliquer) return res.json({ ok: true, dryRun: true, apercu, note: 'Rien n\'a été écrit. Renvoyer avec appliquer=1 pour exécuter.' });
+    await auth.updateUser(uVers.id, champs);
+    if (supprimer) await auth.deleteUser(uDe.id);
+    else await auth.updateUser(uDe.id, { active: false, expiresAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString() });
+    _forceLogout.add(String(uDe.id));            // l'absorbé est éjecté du desk s'il y était connecté
+    _aliasMap.set(de, vers);
+    try { await auth.aiCacheSet(_ALIAS_KEY, Object.fromEntries(_aliasMap)); } catch (e) {}
+    console.log(`[Fusion] ${de} → ${vers} : échéance ${gardee || 'illimité'}, absorbé ${supprimer ? 'supprimé' : 'suspendu'}, alias posé`);
+    res.json({ ok: true, dryRun: false, apercu });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 /* ALIAS WHOP → DESK : consultation et édition à chaud (le seed du code reste toujours présent).
    Sert quand un client paie via Apple Pay « Masquer mon adresse » : on rattache l'adresse relais
    à sa vraie adresse pour que le compte, les e-mails et la campagne partent au bon endroit. */
@@ -20169,7 +20246,7 @@ async function _campaignAudience(opts = {}) {
   try {
     if (whop.configured()) {
       const mem = await whop.listAllMemberEmails();
-      for (const m of (mem || [])) { whopSeen++; const c = _add(_emailDesk(m.email), m.name, 'whop'); if (c) for (const s of (m.statuses || [])) c.whopStatuses.add(String(s).toLowerCase()); }
+      for (const m of (mem || [])) { whopSeen++; const c = _add(_emailDeskMem(m), m.name, 'whop'); if (c) for (const s of (m.statuses || [])) c.whopStatuses.add(String(s).toLowerCase()); }
     }
   } catch (e) { console.error('[Campaign audience] Whop:', e.message); }
   // 3) E-mails ajoutés À LA MAIN (contacts hors API Whop : export « Contacts », ajouts admin) — durable KV

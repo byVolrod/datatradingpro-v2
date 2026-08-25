@@ -10,10 +10,41 @@ const BASE = 'https://api.whop.com/api/v2';
 
 function _auth() { return { Authorization: `Bearer ${WHOP_API_KEY}`, 'Content-Type': 'application/json' }; }
 
-// Normalise un membership Whop → { email, valid, expiresAt }
+/* ⚠️ E-MAIL ET NOM D'UTILISATEUR : LUS DÉFENSIVEMENT (27/08) ═══════════════════════════════════
+   CAUSE RACINE d'une panne silencieuse constatée sur un vrai client : le paiement était bien
+   encaissé chez Whop, et RIEN ne se déclenchait côté desk. `_normalize` ne lisait l'adresse QUE
+   dans `m.email` et renvoyait `null` si ce champ manquait — alors que le PRODUIT, lui, est déjà lu
+   à trois endroits par prudence (`product`, `product_id`, `plan.product`) et que le code
+   d'affiliation, dix lignes plus bas, prouve que le payload porte un objet `m.user`.
+   Un `null` ici n'est pas un détail : il rend l'adhésion invisible à TOUTE la chaîne d'un coup —
+   `getMembership` (autorité du webhook, qui abandonne alors sur « webhook sans membership
+   exploitable ») ET `listValidMemberships` (donc la réconciliation des 10 min, le filet censé
+   rattraper précisément ce cas). Les deux chemins tombaient ensemble, sur la même ligne.
+   On applique donc à l'adresse la prudence déjà appliquée au produit. Et on remonte le NOM
+   D'UTILISATEUR (`@mathis7771`) : c'est une seconde identité stable, qui survit à une adresse
+   masquée par Apple. */
+function _memEmail(m) {
+  const cands = [m && m.email, m && m.user_email, m && m.member_email,
+                 m && m.user && typeof m.user === 'object' && m.user.email,
+                 m && m.member && typeof m.member === 'object' && m.member.email];
+  for (const c of cands) { const v = String(c == null ? '' : c).toLowerCase().trim(); if (v && v.includes('@')) return v; }
+  return '';
+}
+function _memUsername(m) {
+  const cands = [m && m.username, m && m.user_username,
+                 m && m.user && typeof m.user === 'object' && m.user.username,
+                 m && m.member && typeof m.member === 'object' && m.member.username];
+  for (const c of cands) { const v = String(c == null ? '' : c).toLowerCase().trim().replace(/^@/, ''); if (v) return v; }
+  return '';
+}
+
+// Normalise un membership Whop → { email, username, valid, expiresAt }
 // Renvoie null si ce n'est PAS le produit DTP (on ignore les autres offres Whop).
 function _normalize(m) {
-  if (!m || !m.email) return null;
+  if (!m) return null;
+  const _em = _memEmail(m), _un = _memUsername(m);
+  // Sans AUCUNE identité exploitable (ni adresse ni nom d'utilisateur), on ne peut rien rattacher.
+  if (!_em && !_un) return null;
   // ⚠️ LE PRODUIT SE PRÉSENTE SOUS PLUSIEURS NOMS selon l'endpoint (product, product_id, plan.product) :
   // ne lire que `m.product` laissait passer pour du DTP toute adhésion dont le payload nomme le champ
   // autrement — c'est ainsi qu'un inscrit à la NEWSLETTER (produit Whop gratuit) a reçu un compte desk
@@ -22,7 +53,8 @@ function _normalize(m) {
   if (prod && prod !== DTP_PRODUCT) return null;                 // ← uniquement le produit DTP
   const endTs = m.renewal_period_end || m.expires_at || null;   // timestamps unix (secondes)
   return {
-    email:     String(m.email).toLowerCase().trim(),
+    email:     _em,
+    username:  _un,   // 2e identité, stable même quand Apple masque l'adresse
     valid:     m.valid === true || m.status === 'completed' || m.status === 'active',
     expiresAt: endTs ? new Date(endTs * 1000).toISOString() : null,
     // Période de facturation RÉELLE (ms) → sert à déduire la cadence prise par le client (mensuel/annuel)
@@ -62,8 +94,13 @@ async function getMembershipByEmail(email) {
       const r = await fetch(`${BASE}/memberships?valid=true&per=50&page=${page}&product_id=${DTP_PRODUCT}`, { headers: _auth() });
       if (!r.ok) return null;
       const j = await r.json();
+      /* ⚠️ Le test produit était `m.product === DTP_PRODUCT`, STRICT, alors que la requête filtre
+         déjà sur product_id ET que `_normalize` lit le produit à trois endroits : une adhésion dont
+         le payload nomme le champ autrement ne matchait JAMAIS ici. Même prudence que partout
+         ailleurs (on n'écarte que si le produit est présent ET différent), et l'adresse se lit par
+         `_memEmail` — c'est ce qui rendait invisible un client à adresse masquée. */
       const match = (Array.isArray(j) ? j : (j.data || [])).find(m =>
-        String(m.email || '').toLowerCase().trim() === target && m.product === DTP_PRODUCT);
+        _memEmail(m) === target && !(m.product && m.product !== DTP_PRODUCT));
       if (match) return _normalize(match);
       const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
     } while (page <= totalPages && page <= 20);
@@ -183,8 +220,9 @@ async function _pageEmailsInto(byEmail, subpath) {
     for (const m of data) {
       const em = String((m.email || (m.user && m.user.email) || '')).toLowerCase().trim();
       if (!em) continue;
-      const cur = byEmail.get(em) || { email: em, name: '', statuses: new Set() };
+      const cur = byEmail.get(em) || { email: em, name: '', username: '', statuses: new Set() };
       cur.statuses.add(m.status || 'member');   // /members sans statut d'abonnement → 'member'
+      if (!cur.username) cur.username = _memUsername(m);   // 2e identité → l'alias peut résoudre par pseudo
       if (!cur.name) { const nm = m.name || (m.user && (m.user.name || m.user.username)) || m.username || ''; if (nm) cur.name = String(nm).trim(); }
       byEmail.set(em, cur);
     }
