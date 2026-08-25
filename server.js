@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260828-jamais-de-relance-apres-fusion', ts: Date.UTC(2026, 7, 28, 17, 0), title: 'Apres la reunion de deux comptes, plus aucune relance de paiement sur l ancienne adresse', desc: 'Quand deux fiches d une meme personne sont reunies, l ancienne adresse est desactivee et datee dans le passe. Or notre controle des abonnements echus balaie les deux derniers jours sans distinguer les comptes desactives : l ancienne adresse pouvait donc recevoir un courriel « votre abonnement a expire » dans les heures suivant la reunion. Pour un membre actif, qui venait de payer, et a cause d une operation faite pour lui. Une adresse absorbee est desormais reconnue comme telle partout ou une relance de paiement peut partir, et en est exclue definitivement. La correction est retroactive : les reunions deja effectuees sont couvertes, sans rien avoir a refaire.' },
   { id: 'dtpu-20260828-fusion-sans-doublon', ts: Date.UTC(2026, 7, 28, 15, 0), title: 'Reunir deux comptes sans renvoyer d identifiants en double', desc: 'Quand on reunit deux fiches d une meme personne, le renvoi des identifiants devient une case a cocher, DECOCHEE par defaut. Si le client a deja recu ses acces, la fusion se fait sans lui reexpedier un courriel inutile, et le mot de passe qu il possede deja continue de fonctionner puisqu on n y touche pas. La case reste disponible pour les cas ou les identifiants n ont jamais ete recus. Une exception, automatique : lorsque le compte de destination doit etre cree de toutes pieces, son mot de passe n existe nulle part — les acces partent alors quoi qu il arrive.' },
   { id: 'dtpu-20260828-temoignage-varie', ts: Date.UTC(2026, 7, 28, 12, 0), title: 'Temoignage mensuel : cinq presentations differentes, et tous vos avis mis a contribution', desc: 'Le courriel mensuel de temoignage partait chaque mois avec le MEME objet, la MEME accroche et le MEME avis — celui le mieux note, choisi en premier a chaque fois. Autrement dit, douze fois par an rigoureusement le meme message. Deux changements : il existe desormais CINQ presentations distinctes, avec chacune son objet, son accroche et son bouton, servies a tour de role — jamais deux fois la meme de suite. Et les avis tournent eux aussi : on cite en priorite ceux qui ne l ont jamais ete, avant de revenir aux plus anciens. Le titre de l avis, quand il y en a un, est desormais affiche. Le rendez-vous passe du premier lundi au PREMIER MARDI du mois, comme les autres contenus. La parole des membres, elle, n est jamais reecrite : seule sa presentation change.' },
   { id: 'dtpu-20260828-fusion-selection', ts: Date.UTC(2026, 7, 28, 9, 0), title: 'Reunir deux comptes se fait en les cochant dans la liste', desc: 'La reunion de deux fiches d une meme personne se pilote desormais depuis la liste des comptes elle-meme : on coche les deux lignes, on choisit laquelle garder, et un apercu complet s affiche AVANT toute ecriture — operation, echeance retenue, sort du compte absorbe. Rien n est modifie tant que la fusion n est pas confirmee. A la confirmation, l acces deja paye est integralement conserve (c est toujours l echeance la plus lointaine qui est gardee), le compte absorbe est suspendu et non supprime, et le resultat des envois de courriel s affiche ligne par ligne, succes comme echec.' },
@@ -18774,7 +18775,19 @@ const _GIFT_SEED = ['nouchi.benaini@gmail.com', 'anismessaoud05@gmail.com'];
 const _giftSet = new Set(_GIFT_SEED);
 const _GIFT_KEY = 'giftaccess', _GIFT_TTL = 366 * 86400000;
 function _giftNorm(e) { return String(e || '').toLowerCase().trim(); }
-function _isGift(email) { return _giftSet.has(_giftNorm(email)); }
+/* ⚠️ UNE ADRESSE ABSORBEE NE SE RELANCE JAMAIS (28/08). Etre CLE de la table d alias signifie, par
+   definition, « ancienne adresse de quelqu un dont le vrai compte vit ailleurs » : son compte est
+   suspendu et date dans le passe, donc il tombe pile dans la fenetre de 48 h de
+   `_checkExpiredSubscriptions` — qui, lui, ne filtre pas les comptes suspendus. Sans cette ligne, un
+   membre ACTIF qui vient de payer recevrait « votre abonnement a expire » a son ancienne adresse,
+   relayee par Apple vers sa vraie boite. A cause d une fusion faite POUR lui.
+   Pose ICI plutot que sur chacune des neuf gardes de relance : `_isGift` EST deja le point de
+   passage unique de toutes ces gardes (« jamais de relance de paiement »), et le sens y est le
+   meme. Aucun effet sur le chiffre d affaires : le MRR ne consulte que `_isFriend`.
+   Retroactif : l alias etant en base ET dans le seed du code, les fusions DEJA faites sont couvertes
+   des le deploiement, sans rien avoir a rejouer. */
+function _estAdresseAbsorbee(email) { try { return _aliasMap.has(_giftNorm(email)); } catch (e) { return false; } }
+function _isGift(email) { return _giftSet.has(_giftNorm(email)) || _estAdresseAbsorbee(email); }
 async function _giftLoad() {
   try {
     const v = await auth.aiCacheGet(_GIFT_KEY, _GIFT_TTL);
@@ -18861,7 +18874,26 @@ app.post('/api/admin/merge-users', requireAdmin, async (req, res) => {
       if (acces) { try { await auth.changePassword(uVers.id, pwd); } catch (e) { return res.status(500).json({ ok: false, error: 'mot de passe non change : ' + e.message }); } }
     }
     if (supprimer) await auth.deleteUser(uDe.id);
-    else await auth.updateUser(uDe.id, { active: false, expiresAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString() });
+    else {
+      /* ⚠️ LE COMPTE ABSORBE NE DOIT RECEVOIR AUCUNE RELANCE DE PAIEMENT (28/08, defaut trouve juste
+         apres la premiere vraie fusion). On le marque expire a -36 h — or `_checkExpiredSubscriptions`
+         balaie une fenetre de 48 h et NE FILTRE PAS les comptes suspendus : le mail « votre abonnement
+         a expire » serait donc parti a l adresse absorbee, qu Apple relaie vers la VRAIE boite du
+         client. Autrement dit : un membre actif, qui vient de payer, recevrait dans les heures
+         suivantes un courriel lui annoncant la fin de son abonnement. A cause d une fusion faite
+         POUR lui.
+         On pose donc a l avance les deux marqueurs anti-doublon que ce balayage consulte, dans les
+         DEUX graphies d echeance (Supabase ecrit « +00:00 », le miroir « .000Z » — le fichier
+         documente deja ce piege pour _expiredMailSeen). Le mail est ainsi considere comme deja
+         envoye, et ne partira jamais. */
+      const _expAbsorbe = new Date(Date.now() - 36 * 3600 * 1000).toISOString();
+      await auth.updateUser(uDe.id, { active: false, expiresAt: _expAbsorbe });
+      for (const _v of [_expAbsorbe, _expAbsorbe.replace('.000Z', '+00:00')]) {
+        try { await auth.emailLogAdd(`expired:${uDe.id}:${_v}`); } catch (e) {}
+        try { await auth.emailLogAdd(`rfail:${uDe.id}:${_v}`); } catch (e) {}
+      }
+      console.log(`[Fusion] relances de paiement neutralisees sur le compte absorbe ${de}`);
+    }
     _forceLogout.add(String(uDe.id));            // l absorbe est ejecte du desk s il y etait connecte
     _aliasMap.set(de, vers);
     try { await auth.aiCacheSet(_ALIAS_KEY, Object.fromEntries(_aliasMap)); } catch (e) {}
