@@ -19645,6 +19645,23 @@ html[data-theme="light"] .wdg-verdict .est-neutre { color: #8a6a12; }
   .right-tab-panel .strength-pane { flex: 1 0 auto; }
 }
 
+/* ⚠️ LE MÊME REMÈDE SUR TOUTE LA PLAGE D'EMPILEMENT (29/08, capture user « toujours pareil » —
+   fenêtre entre 769 et 1380px). Les volets TD/TW s'empilent dès 1380px (l.6460) mais le remède
+   ci-dessus s'arrêtait à 768px : entre les deux, la rangée `.strength-charts-row { flex:1 (basis
+   0) ; overflow:hidden }` fait exactement la hauteur du panneau, chaque volet en prend la moitié
+   (~430px), et le volet TW est CLIPPÉ sous ~20,00 — la ligne de zéro, l'axe des dates et les
+   devises basses (JPY, CHF, CAD, NZD) hors champ, sans défilement. Exactement le défaut corrigé
+   sur téléphone, dans la bande où personne n'était allé vérifier. Mêmes règles, borne alignée sur
+   celle de l'empilement ; au-delà de 1380px (volets côte à côte) rien ne change. Les autres
+   onglets du panneau gardent leurs rangées en basis 0 : ils remplissent exactement le panneau,
+   le défilement ne s'engage pour eux que si leur contenu dépasse — c'est-à-dire jamais. */
+@media (min-width: 769px) and (max-width: 1380px) {
+  .right-tab-panel { overflow-y: auto; }
+  .right-tab-panel .strength-main-chart { min-height: 380px; flex: 1 0 auto; }
+  .right-tab-panel .strength-charts-row { flex: 1 0 auto; }
+  .right-tab-panel .strength-pane { flex: 1 0 auto; }
+}
+
 /* ═══ CALCULATRICE : LISIBILITÉ SUR GRAND ÉCRAN (23/08, capture user : cartes étirées sur toute
    la largeur, texte perdu dedans, bas de page vide). Le contenu se BORNE (720px de résultats) et
    se centre dans l'espace restant ; les chiffres GROSSISSENT (16→19px, héros 30→38px) : l'œil
