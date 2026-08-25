@@ -10166,6 +10166,20 @@ function _renderFXDailyRecap(item) {
     // attendus. La rubrique est désormais le CALENDRIER lui-même, déroulé, chaque ligne s'ouvrant
     // sur son Décryptage d'un clic.
     body += _sec('À surveiller');
+    /* LES FILS OUVERTS AVANT LE CALENDRIER (28/08, le user fournit le récap de son mentor comme
+       cible). Le tableau ci-dessous dit tout des PUBLICATIONS — heure, devise, impact, attentes
+       chiffrées. Il ne peut rien dire, en revanche, d'une sanction annoncée pour la fin de semaine,
+       d'une médiation en cours ou d'une annonce de tarifs : ces échéances-là n'existent dans aucun
+       calendrier, et ce sont souvent elles qui font la séance suivante.
+       ⚠️ Ce n'est PAS le retour de l'ancien champ « watch », retiré en v17 : lui paraphrasait le
+       tableau. Le prompt de `fils` interdit explicitement de reprendre une ligne du calendrier —
+       c'est la condition pour que cette rubrique ajoute quelque chose au lieu de répéter. */
+    const _fils = (Array.isArray(w.fils) ? w.fils : []).filter(Boolean);
+    if (_fils.length) {
+      body += '<div class="fxdr-bullets">';
+      _fils.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+      body += '</div>';
+    }
     if (rows) body += `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
       + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
       + '<th class="cth-val cth-val--reel">Réel</th><th class="cth-val cth-val--haut">Haut</th><th class="cth-val cth-val--prev">Prévision</th><th class="cth-val cth-val--bas">Bas</th><th class="cth-val cth-val--prec">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';

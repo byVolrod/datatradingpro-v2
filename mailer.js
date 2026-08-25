@@ -2741,7 +2741,12 @@ function _recapQuotidienFull(fx) {
   S('Analyse par session', _grilleDesk(cartesSess));
 
   // 8) À SURVEILLER : dernière rubrique du rapport, le calendrier des prochains jours.
-  S('À surveiller', _tabAgendaFXR(fx.lookahead));
+  /* LES FILS OUVERTS, AVANT LE TABLEAU (28/08) — miroir exact du desk. Le tableau dit tout des
+     PUBLICATIONS ; il ne peut rien dire d'une sanction annoncée pour la fin de semaine ou d'une
+     médiation en cours, et ce sont souvent elles qui font la séance suivante. Rendus dans la MÊME
+     rubrique, au-dessus, pour que les deux surfaces se lisent pareil. */
+  const _filsL = (Array.isArray(fx.fils) ? fx.fils : []).map(x => _md(typeof x === 'string' ? x : (x && x.text))).filter(Boolean);
+  S('À surveiller', (_filsL.length ? puces(_filsL) : '') + _tabAgendaFXR(fx.lookahead));
 
   return P.join('');
 }
