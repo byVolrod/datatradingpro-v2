@@ -98,7 +98,8 @@ v('… et c\'est bien elle qui fait foi au rafraîchissement', /if \(su && su\.d
 /* La route a HUIT sorties `res.json` : une date récupérée sur sept d'entre elles se perdrait sur la
    huitième. On compte les sorties, et on vérifie qu'elles passent toutes par le même point. */
 const _rt = SRV.slice(SRV.indexOf("app.get('/api/bank-research-content'"), SRV.indexOf("app.get('/api/bank-research-content'") + 30000);
-v('l\'accroche enveloppe l\'unique sortie commune', /const _jsonBrut = res\.json\.bind\(res\);\n  res\.json = \(o\) => \{ try \{ if \(o\) _brDaterAuContenu\(url, o\.html\); \} catch \(e\) \{\} return _jsonBrut\(o\); \};/.test(SRV));
+v('l\'accroche enveloppe l\'unique sortie commune',
+  /const _jsonBrut = res\.json\.bind\(res\);/.test(SRV) && /if \(o\) _brDaterAuContenu\(url, o\.html\);/.test(SRV) && /return _jsonBrut\(o\);/.test(SRV));
 v('… et la route a bien plusieurs sorties à couvrir', (_rt.match(/res\.json\(\{/g) || []).length >= 5, String((_rt.match(/res\.json\(\{/g) || []).length) + ' sortie(s)');
 
 const APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');

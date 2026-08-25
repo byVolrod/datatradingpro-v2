@@ -1029,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260828-rapports-sans-liens', ts: Date.UTC(2026, 7, 28, 23, 0), title: 'Les rapports d institution ne renvoient plus vers l exterieur', desc: 'Au milieu du corps de certains rapports subsistaient des renvois vers le document d origine — Please click here to read the PDF version, une adresse ecrite en clair, un lien sur un nom de domaine. Le desk retirait deja les formules connues, une par une, mais une liste de formules ne couvre jamais la banque suivante ni la prochaine refonte d une page. La regle est desormais une propriete, pas une formule : dans le corps d un rapport d institution, il ne reste aucune adresse. Un lien devient son propre texte — la phrase reste lisible, le chemin disparait — et un lien dont le texte EST l adresse s efface entierement, comme les adresses ecrites en clair ; le paragraphe que le retrait a vide part avec elles. Le nettoyage s applique a la lecture, donc il vaut aussi pour tous les rapports deja en ligne, sans rien avoir a regenerer. Les recaps de seance, eux, gardent leurs liens : la liste des sources d un recap est une fonction du produit.' },
   { id: 'dtpu-20260828-dates-rapports', ts: Date.UTC(2026, 7, 28, 22, 0), title: 'Les rapports affiches n.d. vont chercher leur date dans trois endroits de plus', desc: 'Certaines banques ne datent pas les publications de leur liste. Le desk allait alors chercher la date sur la page du rapport, et quand elle n y figurait pas non plus, la colonne Date affichait n.d. — definitivement : plus rien ne reexaminait la question. Trois lectures sont ajoutees. La date ecrite dans l adresse du document, quand elle y est : elle y est mise par l editeur, elle ne bouge plus, et la lire ne coute aucune requete. La date imprimee EN TETE du document lui-meme, lue au moment ou vous ouvrez le rapport, sur le texte deja extrait — une note institutionnelle porte presque toujours sa date sous son titre, en anglais comme en francais. Et la date affichee sur une page dont la source n est pas encore etudiee, acceptee uniquement si toute la page s accorde sur une seule date : plusieurs dates a l ecran, ce sont les vignettes des publications liees, et le desk s abstient plutot que d en choisir une au hasard. La regle de fond ne change pas — mieux vaut n.d. qu une date inventee — mais elle ne s applique plus qu apres avoir vraiment cherche. Toutes les publications actuellement sans date sont reexaminees automatiquement, et le journal du desk nomme desormais les institutions qui restent muettes.' },
   { id: 'dtpu-20260828-synthese-recit', ts: Date.UTC(2026, 7, 28, 21, 0), title: 'Les recaps de seance s ouvrent sur le meme paragraphe de synthese que le Recap Quotidien', desc: 'Un recap de seance commencait par une accroche en puces, en texte nu, puis par le decompte des publications de la seance. Le Recap Quotidien, lui, ouvre sur un vrai paragraphe : le dossier qui a domine la journee, ce que les banques centrales et les chiffres ont dit, quelles devises en sortent gagnantes ou perdantes, et le lien de cause a effet entre les deux. Les recaps de seance ouvrent desormais sur ce meme paragraphe, dans le meme encadre a lisere dore. Les deux lignes chiffrees — nombre de publications, sorties hors consensus, mouvement le plus marque, photo de seance — restent, mais derriere le recit : elles l etayent au lieu de le remplacer. Les rapports de la journee sont regeneres pour en beneficier immediatement.' },
   { id: 'dtpu-20260828-macro-souspartie', ts: Date.UTC(2026, 7, 28, 20, 0), title: 'Recap Quotidien : plus une seule ligne de la rubrique Macro sans sa categorie', desc: 'La rubrique Macro du Recap Quotidien s ouvrait parfois sur deux ou trois puces posees sans intitule — une mesure commerciale, un prix du brut — avant le premier sous-titre. Ce sont les sujets qui ne relevent d aucune des quatre categories du Radar de Biais : ils n avaient pas de titre a eux et arrivaient donc nus. Ils ont desormais le leur, Commerce et Autres, en fin de rubrique, apres Politique monetaire, Inflation, Croissance economique et Emploi. Chaque ligne de la rubrique dit maintenant de quoi elle parle, exactement comme dans les recaps de seance. Un controle automatique ouvre le rapport dans un vrai navigateur avant chaque livraison et refuse une puce posee avant son sous-titre.' },
@@ -8101,6 +8102,39 @@ app.get('/api/fx-daily', (_req, res) => {
 });
 
 // Retire les lignes d'attribution de source/auteur de tout HTML de rapport (aucune source affichée)
+/* AUCUN CHEMIN DE RETOUR VERS LA SOURCE (28/08 : « enlève les sources des rapports institutions faut
+   que personne n'arrivent à les trouver typiquement ici tu vois fais un check de tous les rapports du
+   mois et enlève toutes traces et vérifie pour les futurs qui arriveront ». La capture montrait, au
+   milieu du corps d'un rapport, « Please click here to read the PDF version », le « here » en lien).
+
+   `_stripSource` traite les FORMULES connues, une par une : « written by … at forexlive.com »,
+   « download the PDF version », « The post … appeared first on … ». C'est utile et ça reste, mais
+   c'est une liste — et une liste de formules ne couvre jamais la banque suivante, ni la prochaine
+   refonte de la page d'une banque déjà listée. Le retour utilisateur porte justement sur les FUTURS.
+
+   La règle ici n'est donc pas une formule mais une propriété : DANS LE CORPS D'UN RAPPORT
+   D'INSTITUTION, IL NE RESTE AUCUNE ADRESSE. Un lien devient son propre texte — la phrase reste
+   lisible, le chemin disparaît — et un lien dont le texte EST l'adresse s'efface entièrement, comme
+   les adresses écrites en clair. Ce qui vidait un paragraphe s'en va avec lui.
+
+   ⚠️ RÉSERVÉE AUX RAPPORTS D'INSTITUTION. Les récaps InvestingLive, eux, gardent leurs liens : le
+   lecteur en tire la liste des sources d'un rapport, qui est une fonction du produit. La demande
+   nomme « les rapports institutions » ; on n'élargit pas au-delà. */
+const _ADRESSE_NUE = /\bhttps?:\/\/[^\s<>"')\]]+|(?<![\w@.])www\.[\w-]+(?:\.[\w-]+)+(?:\/[^\s<>"')\]]*)?/gi;
+function _stripLiens(html) {
+  return String(html || '')
+    .replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (_m, txt) => {
+      const nu = String(txt).replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').trim();
+      // Le lien EST l'adresse (« https://… », « www.kbc.be ») : il n'y a pas de phrase à sauver.
+      if (!nu || /^(?:https?:\/\/|www\.)/i.test(nu) || /^[\w-]+(?:\.[\w-]+)+$/.test(nu)) return '';
+      return txt;
+    })
+    .replace(_ADRESSE_NUE, '')
+    // Un paragraphe ou une puce que le retrait a vidés ne doivent pas laisser une ligne blanche.
+    .replace(/<(p|li|h[1-6])[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi, '')
+    .trim();
+}
+
 function _stripSource(html) {
   return _stripXmlNoise(html || '')
     // paragraphes entiers d'attribution (auteur, "by X", domaine source)
@@ -8281,12 +8315,23 @@ async function _thinInsightsText(url, pdfUrl, printUrl) {
 
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
-  /* UN SEUL POINT D'ACCROCHE POUR DATER (28/08). La route a huit sorties `res.json` selon la source,
-     le format et l'état du cache ; une date récupérée sur sept d'entre elles se serait perdue sur la
-     huitième, et c'est exactement le genre d'oubli qu'on ne voit jamais. On enveloppe donc l'unique
-     sortie commune : tout ce qui part d'ici passe par la lecture de date, et rien d'autre ne change. */
+  /* UN SEUL POINT D'ACCROCHE (28/08). La route a NEUF sorties `res.json` selon la source, le format
+     et l'état du cache. Deux choses doivent valoir sur TOUTES, et deux oublis se sont déjà glissés
+     dans le lot — le texte des PDF natifs et le repli sur la description RSS partaient sans passer
+     par `_stripSource`. On enveloppe donc l'unique sortie commune :
+
+       · le nettoyage des traces de source, garanti pour toute sortie présente ET FUTURE (les appels
+         explicites à `_stripSource` restent au point de production : ils disent l'intention, et la
+         fonction est idempotente) ;
+       · la lecture de la date imprimée dans le document, qui se serait perdue sur la sortie oubliée. */
   const _jsonBrut = res.json.bind(res);
-  res.json = (o) => { try { if (o) _brDaterAuContenu(url, o.html); } catch (e) {} return _jsonBrut(o); };
+  res.json = (o) => {
+    try {
+      if (o && typeof o.html === 'string' && o.html) o.html = _stripSource(_stripLiens(o.html));
+      if (o) _brDaterAuContenu(url, o.html);
+    } catch (e) { /* nettoyer un rapport ne doit jamais empêcher de le lire */ }
+    return _jsonBrut(o);
+  };
   // PDF natif (KBC/Goldman/Syz/BlackRock…) : pas de texte HTML → on extrait le TEXTE du PDF pour les AI
   // Insights (le PDF lui-même reste affiché via /api/pdf-proxy). Hôtes limités aux sources PDF (PDF_PROXY_HOSTS).
   if (url && /\.pdf(?:[?#]|$)/i.test(url)) {
