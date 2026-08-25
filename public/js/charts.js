@@ -1091,7 +1091,18 @@ function buildStrengthChart(containerId, data, opts = {}) {
     // plateau extrême, le cadre s'étend jusqu'à elle et la compression disparaît — c'est précisément
     // le cas où l'utilisateur veut la LIRE. Quand elle est revenue vers le paquet en fin de période,
     // le cadrage compresse comme avant et seule son excursion médiane sort du cadre.
-    var fins = infos.map(function (i) { return i.fin; });
+    /* ⚠️ REVIREMENT ASSUMÉ (29/08, demande user « le TW pas ajusté, corrige tout » — il tranche
+       l'arbitrage qu'on lui a soumis). Le 11/08, `fins` couvrait TOUTES les devises pour que la
+       fuyarde qui TERMINE à son extrême reste lisible : conséquence, le cadre s'étendait jusqu'à
+       elle et la compression disparaissait — sur le TW réel, l'USD finissant à ~+35 rendait les
+       SEPT autres courbes illisibles, tassées sur le fond du cadre. C'était le pari « l'utilisateur
+       veut lire la fuyarde » ; la pratique a montré l'inverse : il veut lire le PAQUET.
+       `fins` ne couvre donc plus que les devises DU PAQUET (`dedans`) — le constat du 11/08 reste
+       honoré : les fins du paquet ne sont jamais coupées. La fuyarde, elle, SORT du cadre en fin de
+       période comme elle en sortait déjà au milieu : son BADGE reste visible (declutter le borne au
+       bord avec son filet de rappel), sa valeur exacte reste dans l'infobulle, et le double-clic
+       sur la gouttière droite rend toujours le cadrage plein. */
+    var fins = dedans.map(function (i) { return i.fin; });
     var marge = (hi - lo) * 0.06;
     var finLo = Math.min.apply(null, fins), finHi = Math.max.apply(null, fins);
     return { min: Math.min(lo - marge, finLo - marge * 0.5), max: Math.max(hi + marge, finHi + marge * 0.5) };
