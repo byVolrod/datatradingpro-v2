@@ -174,17 +174,17 @@ console.log('\n── 10. Rendez-vous qui s\'étalent : deux journées ne se res
 const JH = j => ({ currency: 'USD', ctry: 'US', title: 'Jackson Hole Symposium', impact: 'High', timestamp: J(26 + j, 0, 0) });
 const d1 = W.descriptionJour([JH(1)], 'jeudi', { suite: { lbl: 'Jackson Hole', jour: 1, total: 3 } });
 const d2 = W.descriptionJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 2, total: 3 } });
-const d3 = W.descriptionJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } });
+const d3 = W.descriptionJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } });
 console.log('  j2 : ' + d2);
 verif('le titre du 2e jour le dit', W.titreJour([JH(2)], 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 2, total: 3 } }) === 'Jackson Hole · jour 2');
-verif('le dernier jour est nommé comme tel', W.titreJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } }) === 'Jackson Hole · dernier jour');
+verif('le dernier jour est nommé comme tel', W.titreJour([JH(3)], 'samedi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } }) === 'Jackson Hole · dernier jour');
 verif('les trois descriptions sont DIFFÉRENTES', d1 !== d2 && d2 !== d3 && d1 !== d3);
-verif('le 2e jour annonce « Deuxième journée »', /Deuxième journée de Jackson Hole/.test(d2), d2.slice(0, 60));
+verif('le 2e jour annonce sa deuxième journée', /^Jackson Hole, deuxième journée/.test(d2), d2.slice(0, 60));
 verif('le dernier jour parle de bilan', /bilan de ces trois jours/.test(d3), d3.slice(0, 70));
 // Un jour de suite qui porte AUSSI du neuf mène avec le neuf, pas avec la redite.
 const mixte = [JH(3), { currency: 'USD', ctry: 'US', title: 'Non-Farm Employment Change', impact: 'High', forecast: '165K', previous: '142K', timestamp: J(29, 12, 30) }];
-const tMix = W.titreJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } });
-const dMix = W.descriptionJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3 } });
+const tMix = W.titreJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } });
+const dMix = W.descriptionJour(mixte, 'vendredi', { suite: { lbl: 'Jackson Hole', jour: 3, total: 3, fin: true } });
 verif('ce qui est neuf passe devant dans le titre', /^NFP américain \+ Jackson Hole \(dernier jour\)$/.test(tMix), tMix);
 verif('la description mène sur le neuf', /^Vendredi, 14h30 : USD Non-Farm Employment Change/.test(dMix), dMix.slice(0, 60));
 verif('le symposium n\'est pas relisté après avoir été nommé', (dMix.match(/Jackson Hole/g) || []).length === 1, dMix);
@@ -195,6 +195,39 @@ const tres = [{ currency: 'USD', ctry: 'US', title: 'Treasury Secretary Bessent 
 const dTres = W.descriptionJour(tres, 'lundi');
 const glTres = W.gloseEv(tres[0]);
 verif('l\'enjeu ne recopie pas la glose', dTres.split(glTres).length === 2, dTres);
+
+// « Dernier jour » n\'est dit que si la fin est CONSTATÉE : un symposium qui court au-delà du
+// vendredi ne montre que deux journées chez nous, l\'annoncer « dernière » serait faux.
+const finInconnue = { lbl: 'Jackson Hole', jour: 2, total: 2 };            // pas de `fin`
+verif('sans preuve de fin, on numérote au lieu d\'annoncer la dernière',
+  W.titreJour([JH(2)], 'vendredi', { suite: finInconnue }) === 'Jackson Hole · jour 2',
+  W.titreJour([JH(2)], 'vendredi', { suite: finInconnue }));
+verif('…et la description ne parle pas de bilan',
+  !/bilan/.test(W.descriptionJour([JH(2)], 'vendredi', { suite: finInconnue })));
+
+verif('la tournure évite l\'article qui sortait faux (« de Sommet du G20 »)',
+  /^Sommet du G20, dernière journée/.test(W.descriptionJour(
+    [{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(25, 8, 0) }],
+    'mardi', { suite: { lbl: 'Sommet du G20', jour: 2, total: 2, fin: true } })),
+  W.descriptionJour([{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(25, 8, 0) }], 'mardi', { suite: { lbl: 'Sommet du G20', jour: 2, total: 2, fin: true } }));
+verif('une journée de suite ne redonne pas la glose de la veille',
+  !/sommet de chefs d\'État/.test(W.descriptionJour(
+    [{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(25, 8, 0) }],
+    'mardi', { suite: { lbl: 'Sommet du G20', jour: 2, total: 2, fin: true } })));
+verif('un rendez-vous sans consensus ne promet pas d\'« écart avec la prévision »',
+  !/écart avec la prévision/.test(W.descriptionJour(
+    [{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(24, 8, 0) }], 'lundi')),
+  W.descriptionJour([{ currency: 'USD', ctry: 'US', title: 'G20 Meetings', impact: 'Medium', timestamp: J(24, 8, 0) }], 'lundi'));
+
+console.log('\n── 10b. Une suite se repère sur l\'ÉVÉNEMENT, pas sur le thème ──');
+// Deux publications d\'emploi différentes dans la semaine donnent le même thème sans rien continuer.
+verif('le repérage porte sur devise + intitulé', /const _cleEv = e => String\(e\.currency/.test(src));
+verif('les journées doivent être CONSÉCUTIVES', /idx\.every\(\(v, k\) => k === 0 \|\| v === idx\[k - 1\] \+ 1\)/.test(src));
+verif('« dernier jour » exige que la fin soit visible dans la semaine', /const finVisible = idx\[idx\.length - 1\] < _prep\.length - 1/.test(src));
+
+console.log('\n── 10c. L\'impact d\'un rendez-vous repêché est relevé À LA SOURCE ──');
+verif('le relèvement vit dans le calendrier, pas dans une seule vue', /function _calVitalLift\(e\)/.test(src));
+verif('appliqué à la fenêtre courante ET à l\'historique', (src.match(/\.map\(_calVitalLift\)/g) || []).length >= 2);
 
 console.log('\n── 11. Semaine ouvrée : lundi → vendredi, rien d\'autre ──');
 // Le lundi SUIVANT s'invitait au bout de la semaine : la fenêtre était en horodatages UTC pendant
@@ -233,6 +266,16 @@ verif('deux intitulés au plus', repli.split(' · ').length <= 2, repli);
 verif('le repli tient en une ligne de carte', repli.length <= 80, repli.length + ' caractères');
 verif('« Treasury Secretary » a enfin un thème',
   (W.themeJour({ currency: 'USD', ctry: 'US', title: 'Treasury Secretary Bessent Speech' }) || {}).lbl === 'Discours du Trésor américain');
+
+console.log('\n── 14. Le contrôle de fraîcheur ne contredit plus le cache ──');
+// L\'agenda se disait « une génération par semaine couverte » pendant que la route exigeait une
+// régénération toutes les 40 minutes, en forçant — donc en court-circuitant ce cache.
+verif('la régénération se déclenche sur la SEMAINE, pas sur des minutes',
+  /_weekAhead\.monday !== _waLundiCible\(Date\.now\(\)\)/.test(src));
+verif('plus de seuil à 40 minutes', !/> 40 \* 60 \* 1000/.test(src));
+verif('le lundi cible n\'est calculé qu\'à UN endroit',
+  (src.match(/const _toMon = \(_dow === 0\)/g) || []).length === 1);
+verif('la navigation en archive utilise la même ancre', /_target = _waLundiCible\(Date\.now\(\)\)/.test(src));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

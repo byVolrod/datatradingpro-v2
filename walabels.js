@@ -91,6 +91,10 @@ const GLOSES = [
   [/symposium|sintra|central bank forum/i, "le grand forum où les banquiers centraux exposent leur cap"],
   [/meeting minutes|monetary policy meeting accounts/i, "le compte rendu du dernier comité : le détail du débat derrière la décision"],
   [/press conference|conf[ée]rence de presse/i, "la conférence de presse qui suit la décision : c'est le ton qui fait bouger le marché"],
+  [/economic projections|dot plot|staff projections/i, "les projections chiffrées du comité : c'est là qu'on lit le rythme de baisses de taux qu'il envisage"],
+  [/\bg7\b|\bg20\b|\bsummit\b|sommet/i, "un sommet de chefs d'État : commerce, sanctions et énergie s'y décident"],
+  [/\bopec\b|\bopep\b|\bjmmc\b/i, "l'OPEP fixe les quotas de production : c'est le prix du baril qui s'y joue"],
+  [/bank holiday/i, "marché fermé : les volumes sont réduits, et de petits ordres suffisent à exagérer les mouvements"],
   [/monetary policy (?:report|statement|summary)/i, "le rapport dans lequel la banque centrale expose sa feuille de route"],
   [/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i, "la banque centrale annonce son taux directeur"],
   [/non[-\s]?farm|nonfarm|\bnfp\b/i, "les créations d'emplois du mois aux États-Unis, le chiffre le plus suivi du dollar"],
@@ -104,6 +108,8 @@ const GLOSES = [
   [/\bppi\b|producer price/i, "les prix payés par les entreprises : l'inflation de demain"],
   [/\bgdp\b|gross domestic/i, "la richesse produite par le pays sur la période"],
   [/unemployment rate/i, "la part de la population active qui cherche un emploi"],
+  [/job openings|\bjolts\b/i, "les postes vacants : quand les entreprises recrutent moins, la pression sur les salaires retombe"],
+  [/claimant count/i, "le nombre de personnes qui demandent une allocation chômage sur le mois"],
   [/jobless claims|initial claims|continuing claims|unemployment claims/i, "les nouvelles inscriptions au chômage de la semaine"],
   [/employment change|payrolls|\bjobs\b/i, "le nombre d'emplois créés ou détruits sur la période"],
   [/hourly earnings|average earnings|wage growth|labou?r cost/i, "la hausse des salaires, qui nourrit l'inflation de demain"],
@@ -116,6 +122,13 @@ const GLOSES = [
   [/building permits|housing starts|home sales|house price/i, "l'immobilier, le secteur le plus sensible au niveau des taux"],
   [/industrial production|manufacturing production/i, "ce que produisent réellement les usines"],
   [/crude oil inventories|\bopec\b|\bopep\b/i, "l'offre de pétrole, qui se répercute ensuite sur l'inflation"],
+  [/empire state|philly fed|richmond fed|dallas fed|kansas city fed/i, "une enquête régionale auprès des industriels : elle sort avant l'indice national et l'annonce"],
+  [/natural gas storage/i, "les stocks de gaz : ils commandent la facture énergétique, donc une part de l'inflation"],
+  [/budget balance|federal budget/i, "l'écart entre ce que l'État encaisse et ce qu'il dépense : un déficit qui se creuse pèse sur les taux longs"],
+  [/consumer credit/i, "ce que les ménages empruntent : un crédit qui s'emballe soutient la consommation, un crédit qui cale l'annonce en berne"],
+  [/bond auction|note auction|bill auction|\bgilt\b|\bbund\b|jgb auction/i, "l'État emprunte : la demande à cette vente dit à quel taux le marché accepte de le financer"],
+  [/housing market index|\bnahb\b/i, "le moral des constructeurs de maisons, très sensible au niveau des taux"],
+  [/household spending/i, "ce que les ménages dépensent réellement, mois après mois"],
   [/retail inventories|business inventories/i, "les stocks des entreprises, un signal avancé sur la production à venir"],
   [/treasury secretary|secr[ée]taire au tr[ée]sor/i, "le patron du Trésor américain : il parle dette, émissions et sanctions"],
   [/national activity index|chicago fed/i, "un indice large de l'activité américaine, agrégé sur des dizaines de séries"],
@@ -207,7 +220,12 @@ function themeJour(e) {
   if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/.test(t)) {
     const b = BANQUE[c]; return b ? out('Décision de la ' + b, 9) : null;
   }
+  if (/press conference|conf[ée]rence de presse/.test(t)) { const b = BANQUE[c]; return b ? out('Conférence de presse de la ' + b, 6.6) : null; }
+  if (/economic projections|dot plot|staff projections/.test(t)) { const b = BANQUE[c]; return b ? out('Projections de la ' + b, 6.4) : null; }
   if (/meeting minutes|monetary policy meeting accounts/.test(t)) { const b = BANQUE[c]; return b ? out('Minutes de la ' + b, 6.5) : null; }
+  if (/\bopec\b|\bopep\b|\bjmmc\b/.test(t)) return out('Réunion de l\'OPEP', 5.2);
+  if (/\bg20\b/.test(t)) return out('Sommet du G20', 5.1);
+  if (/\bg7\b/.test(t)) return out('Sommet du G7', 5.1);
   if (/treasury secretary|secr[ée]taire au tr[ée]sor/.test(t)) return out('Discours du Trésor américain', 5);
   if (/\bpowell\b|(?:fed\s+)?chair\s+speech/.test(t)) return out('Discours de Powell', 8.2);
   if (/\blagarde\b/.test(t)) return out('Discours de Lagarde', 6.8);
@@ -224,15 +242,21 @@ function themeJour(e) {
   if (/\bppi\b|producer price/.test(t)) return out('PPI' + adj(0), 5);
   if (/retail sales/.test(t)) return out('Ventes au détail' + adj(2), 4);
   if (/durable goods|factory orders/.test(t)) return out('Commandes de biens durables' + adj(2), 3.6);
-  if (/personal spending|consumer spending/.test(t)) return out('Dépenses des ménages' + adj(3), 3.5);
+  if (/personal spending|consumer spending|household spending/.test(t)) return out('Dépenses des ménages' + adj(3), 3.5);
   if (/industrial production|manufacturing production/.test(t)) return out('Production industrielle' + adj(1), 2.6);
-  if (/unemployment|jobless|employment change|labou?r market|\bjobs\b|hourly earnings|average earnings|unemployment claims/.test(t)) return out('Emploi' + adj(0), 3);
+  if (/unemployment|jobless|employment change|labou?r market|\bjobs\b|hourly earnings|average earnings|unemployment claims|job openings|\bjolts\b|claimant count/.test(t)) return out('Emploi' + adj(0), 3);
   if (/trade balance|balance of trade/.test(t)) return out('Balance commerciale' + adj(1), 2);
   if (/\bpmi\b|purchasing managers|\bism\b/.test(t)) return out('PMI' + adj(0), 2);
   if (/business climate|\bifo\b|business confidence|\bzew\b|tankan/.test(t)) return out('Moral des entreprises' + adj(2), 2);
-  if (/building permits|housing starts|home sales|house price|mortgage/.test(t)) return out('Immobilier' + adj(0), 1.9);
+  if (/building permits|housing starts|home sales|house price|mortgage|housing market index|\bnahb\b/.test(t)) return out('Immobilier' + adj(0), 1.9);
   if (/crude oil inventories/.test(t)) return out('Stocks de pétrole' + adj(3), 1.7);
   if (/national activity index|chicago fed/.test(t)) return out('Indice d\'activité' + adj(0), 1.6);
+  if (/empire state|philly fed|richmond fed|dallas fed|kansas city fed/.test(t)) return out('Enquête manufacturière' + adj(1), 2.1);
+  if (/budget balance|federal budget/.test(t)) return out('Solde budgétaire' + adj(0), 1.5);
+  if (/consumer credit/.test(t)) return out('Crédit à la consommation' + adj(0), 1.5);
+  if (/natural gas storage/.test(t)) return out('Stocks de gaz' + adj(3), 1.4);
+  if (/bond auction|note auction|bill auction|\bgilt\b|\bbund\b|jgb auction/.test(t)) return out('Adjudication obligataire' + adj(1), 1.2);
+  if (/bank holiday/.test(t)) return out('Jour férié' + adj(0), 0.5);
   if (/consumer confidence|consumer sentiment|consumer climate/.test(t)) return out('Confiance des ménages' + adj(3), 1.8);
   return null;
 }
@@ -300,22 +324,26 @@ function chiffresEv(e) {
 /* RENDEZ-VOUS QUI S'ÉTALENT (25/08, capture user : jeudi et vendredi sortaient « Jackson Hole » avec
    la MÊME description, mot pour mot). Un symposium dure trois jours, une réunion du G20 deux : la
    carte doit dire OÙ on en est, et ne pas resservir le même argument. `suite` est calculé par
-   l'appelant, qui seul voit toute la semaine — voir la double passe dans generateWeekAhead. */
+   l'appelant, qui seul voit toute la semaine — voir la double passe dans generateWeekAhead.
+   `fin` n'est vrai que si l'appelant a PU CONSTATER la fin (l'événement s'arrête avant le dernier
+   jour de la fenêtre) : sans cette preuve on numérote, on n'annonce pas une dernière journée. */
 const _ORDINAL = { 2: 'Deuxième', 3: 'Troisième', 4: 'Quatrième', 5: 'Cinquième' };
 const _NOMBRE = { 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq' };
 function _suiteMarque(suite) {
   if (!suite || suite.jour < 2) return '';
-  return suite.jour >= suite.total ? 'dernier jour' : 'jour ' + suite.jour;
+  return suite.fin ? 'dernier jour' : 'jour ' + suite.jour;
 }
+/* Le libellé en tête, la journée derrière : « Sommet du G20, dernière journée ». La tournure inverse
+   («  Dernière journée de … ») exige un article qui dépend du libellé — du sommet, de la réunion,
+   rien devant « Jackson Hole » — et sortait donc faux une fois sur deux. */
 function _suiteTexte(suite) {
   if (!suite || suite.jour < 2) return '';
-  return suite.jour >= suite.total
-    ? `Dernière journée de ${suite.lbl}`
-    : `${_ORDINAL[suite.jour] || 'Journée ' + suite.jour} journée de ${suite.lbl}`;
+  const j = suite.fin ? 'dernière journée' : (_ORDINAL[suite.jour] ? _ORDINAL[suite.jour].toLowerCase() + ' journée' : 'journée ' + suite.jour);
+  return `${suite.lbl}, ${j}`;
 }
 function _suiteEnjeu(suite) {
   if (!suite || suite.jour < 2) return '';
-  return suite.jour >= suite.total
+  return suite.fin
     ? `C'est le bilan de ces ${_NOMBRE[suite.total] || suite.total} jours que le marché retiendra.`
     : `Le cadrage s'est dit la veille : ce sont les interventions du jour qui peuvent encore corriger la trajectoire annoncée.`;
 }
@@ -327,16 +355,22 @@ function _titreCourt(t, max) {
   const coupe = s.slice(0, n).lastIndexOf(' ');
   return (coupe > 12 ? s.slice(0, coupe) : s.slice(0, n)).trim();
 }
+// Libellé court d'un événement, quand aucun thème ne le reconnaît (repli de la détection de suite).
+function libelleCourt(e) { return _titreCourt(intituleAffiche(e), 40); }
 function titreJour(events, dowFr, opts) {
   const ths = themesDuJour(events);
   const suite = opts && opts.suite;
+  /* Le contrôle de suite passe AVANT celui des thèmes : un rendez-vous qui s'étale peut très bien
+     n'être reconnu par aucune règle (une réunion technique, un sommet inhabituel). L'appelant lui a
+     alors donné un libellé court ; sans ce passage en tête, les deux journées ressortaient avec le
+     MÊME intitulé brut — la répétition qu'on cherche précisément à supprimer. */
+  if (suite && suite.jour >= 2) {
+    const autre = ths.find(x => x.lbl !== suite.lbl);      // ce qui est NEUF passe devant
+    const marque = _suiteMarque(suite);
+    return autre ? `${autre.lbl} + ${suite.lbl} (${marque})` : `${suite.lbl} · ${marque}`;
+  }
+  if (suite && !ths.length) return suite.lbl;              // 1re journée d'un rendez-vous sans thème
   if (ths.length) {
-    if (suite && suite.jour >= 2) {
-      // Ce qui est NEUF passe devant ; le rendez-vous en cours suit, avec son rang de journée.
-      const autre = ths.find(x => x.lbl !== suite.lbl);
-      const marque = _suiteMarque(suite);
-      return autre ? `${autre.lbl} + ${suite.lbl} (${marque})` : `${suite.lbl} · ${marque}`;
-    }
     const gardes = ths[0].rang >= 8 ? [ths[0]] : ths.slice(0, 2);
     return gardes.map(x => x.lbl).join(' + ');
   }
@@ -356,6 +390,16 @@ function enjeuFr(theme, dev) {
   const d = dev || 'la devise';
   if (/^Jackson Hole|^Symposium/.test(l)) return `C'est le rendez-vous où les banques centrales annoncent la couleur pour les mois qui viennent : une phrase sur le rythme des baisses de taux suffit à faire bouger ${d} et les marchés actions.`;
   if (/^Décision de la /.test(l)) return `L'essentiel n'est pas le taux annoncé, qui est déjà anticipé, mais le communiqué : s'il laisse entendre que d'autres mouvements suivront, ${d} réagit tout de suite.`;
+  if (/^Conférence de presse de la /.test(l)) return `La décision est déjà connue à ce moment-là : c'est la conférence qui la commente, et c'est souvent elle qui fait bouger ${d}, pas le taux lui-même.`;
+  if (/^Projections de la /.test(l)) return `Les projections chiffrent ce que le comité envisage pour les mois à venir : un seul cran déplacé, et le marché révise toute sa trajectoire de taux.`;
+  if (/^Réunion de l'OPEP/.test(l)) return `L'OPEP décide combien de barils arrivent sur le marché : le prix du pétrole qui en sort se retrouve dans l'inflation quelques semaines plus tard.`;
+  if (/^Sommet du G/.test(l)) return `Un sommet ne publie pas de chiffre, mais ce qui s'y décide — droits de douane, sanctions, énergie — se lit ensuite sur les devises pendant des semaines.`;
+  if (/^Enquête manufacturière/.test(l)) return `Ces enquêtes régionales sortent avant l'indice national : elles donnent le sens du vent quelques jours à l'avance.`;
+  if (/^Solde budgétaire/.test(l)) return `Un déficit qui se creuse oblige l'État à emprunter davantage : les taux longs montent, et la devise en subit le contrecoup.`;
+  if (/^Crédit à la consommation/.test(l)) return `Le crédit dit si les ménages peuvent encore dépenser : quand il se contracte, la consommation cale quelques mois plus tard.`;
+  if (/^Stocks de gaz/.test(l)) return `Des stocks bas en entrée d'hiver font grimper la facture énergétique, et l'inflation avec.`;
+  if (/^Adjudication obligataire/.test(l)) return `Une vente mal couverte signale que le marché exige plus cher pour financer l'État : les taux montent, ${d} suit.`;
+  if (/^Jour férié/.test(l)) return `Marché fermé sur cette place : les volumes se réduisent, et de petits ordres suffisent à exagérer les mouvements.`;
   if (/^Minutes de la /.test(l)) return `Les minutes racontent le débat qui a eu lieu autour de la table : un comité plus divisé, ou plus ferme, qu'on ne le croyait, et le marché révise sa trajectoire de taux.`;
   if (/^Discours du Trésor/.test(l)) return `Ce n'est pas la Fed : ses annonces passent d'abord par le marché obligataire, et un calendrier d'emprunts plus lourd que prévu fait monter les rendements avant de tirer ${d}.`;
   if (/^Indice d'activité/.test(l)) return `Cet indice agrège des dizaines de séries en un seul chiffre : au-dessus de zéro l'économie tourne au-dessus de sa tendance, en dessous elle ralentit.`;
@@ -402,7 +446,7 @@ function descriptionJour(events, dowFr, opts) {
   const h = heureParis(lead), g = gloseEv(lead);
   if (enSuite && !neuf) {
     // La journée n'a que le rendez-vous en cours : on l'annonce par son rang, sans le renommer.
-    phrases.push(`${_suiteTexte(suite)}${h ? `, à ${h}` : ''}${g ? `, ${g}` : ''}${chiffresEv(lead)}.`);
+    phrases.push(`${_suiteTexte(suite)}${h ? `, à ${h}` : ''}${chiffresEv(lead)}.`);
     phrases.push(_suiteEnjeu(suite));
   } else {
     phrases.push(`${_cap(dow) || 'Au programme'}${h ? `, ${h}` : ''} : ${nomEv(lead)}${g ? `, ${g}` : ''}${chiffresEv(lead)}.`);
@@ -419,7 +463,11 @@ function descriptionJour(events, dowFr, opts) {
       return `${nomEv(e)}${gg ? `, ${gg}` : ''}`;
     }).join(' ; ') + '.');
   } else if (phrases.length < 2) {
-    phrases.push(`Tout écart avec la prévision se verra immédiatement sur ${devs.slice(0, 3).join(', ') || 'le FX'}.`);
+    // Un symposium, un sommet ou une adjudication n'ont PAS de consensus : leur promettre un « écart
+    // avec la prévision » était une phrase creuse posée sur une journée sans le moindre chiffre.
+    phrases.push(evs.some(e => e.forecast)
+      ? `Tout écart avec la prévision se verra immédiatement sur ${devs.slice(0, 3).join(', ') || 'le FX'}.`
+      : `Aucun consensus chiffré sur ces rendez-vous : c'est leur contenu, et le ton employé, qui feront la réaction.`);
   }
   return phrases.join(' ');
 }
@@ -434,5 +482,5 @@ function jourParis(ts) {
 module.exports = {
   GLOSES, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
   paysDe, paysCourt, adjectif, gloseFr, MAJEURS, poidsMajeur, themeJour, themesDuJour,
-  titresDe, gloseEv, heureParis, nomEv, intituleAffiche, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
+  titresDe, gloseEv, heureParis, nomEv, intituleAffiche, libelleCourt, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
 };
