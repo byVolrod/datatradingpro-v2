@@ -145,10 +145,10 @@ code, pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consola
   position: relative; font-family: var(--tight); font-size: var(--fs-title); font-weight: var(--fw-semibold);
   text-transform: uppercase; letter-spacing: var(--ls-caps); color: var(--text);
 }
-.panel-head h2::before {
-  content: ''; display: inline-block; width: 2px; height: 10px; background: var(--orange);
-  margin-right: var(--sp-2); vertical-align: -1px; border-radius: 1px;
-}
+/* LISERÉ ORANGE RETIRÉ (28/08, demande utilisateur capture à l'appui : « enlève ce trait orange à
+   côté des titres des widgets/bloc »). Chaque carte du panneau en portait un : sur une page qui en
+   empile une douzaine, l'accent se répétait au point de ne plus rien accentuer. Les titres restent
+   en capitales espacées — c'est ce qui les distingue, pas un trait. */
 .panel-head .ph-ic { display: none; }           /* le desk n'utilise ni icône ni emoji dans les titres */
 .panel-head .ph-count { color: var(--text3); font-weight: var(--fw-medium); }
 .panel-head .ph-spacer { flex: 1; }
@@ -156,17 +156,22 @@ code, pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consola
 /* ── Photo du support (en-tête du panneau Messages) ──────────────────────────────────────────────
    Celle que voient TOUS les clients à côté de chaque message du support. L'aperçu est rond et de la
    taille réelle d'un avatar de conversation : ce qu'on voit ici est ce que le client verra. */
-.ad-supav-wrap { display: flex; align-items: center; gap: 8px; }
+/* La carte se lit en une ligne : l'aperçu tel que le client le verra, ce que ça change, les deux
+   actions. Sur écran étroit le texte passe à la ligne et les boutons restent groupés. */
+.ad-supav-wrap { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ad-supav-txt { flex: 1 1 240px; min-width: 0; }
+.ad-supav-t { font-size: var(--fs-body, 13px); color: var(--text); }
+.ad-supav-s { font-size: var(--fs-meta, 11px); color: var(--text3, #8a8f98); margin-top: 3px; }
 .ad-supav {
-  width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
-  background: #e7e9ee; color: #14161b; font-size: 10px; font-weight: 700;
+  width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+  background: #e7e9ee; color: #14161b; font-size: 13px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, .18);
 }
 .ad-supav img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ad-supav-btn {
   background: none; border: 1px solid var(--border, #2a2c33); color: var(--text2, #b4b8bf);
-  font-size: 11px; padding: 4px 9px; border-radius: 4px; cursor: pointer;
+  font-size: 12px; padding: 7px 13px; border-radius: 4px; cursor: pointer; flex: 0 0 auto;
 }
 .ad-supav-btn:hover { color: #e3b23a; border-color: rgba(227, 178, 58, .5); }
 .ad-supav-btn--del:hover { color: #ef4444; border-color: rgba(239, 68, 68, .5); }
@@ -1082,7 +1087,13 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 
 /* Temoignage mensuel dans le programme des envois : il s AJOUTE a la rotation, il n a donc pas de
    ligne a lui — on le pose sur la semaine qui le porte, en retrait pour qu on ne le confonde pas
-   avec le contenu hebdomadaire. */
-.camp-plan-tem { display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; padding: 1px 8px;
+   avec le contenu hebdomadaire.
+   ⚠️ RENOMME (28/08, capture utilisateur). Cette pastille s appelait `.camp-plan-tem` — EXACTEMENT
+   le nom du bloc de formulaire « Témoignage membre, date programmée » plus haut dans cette feuille.
+   Deux elements sans aucun rapport partageaient donc une classe, et comme cette regle-ci vient
+   APRES, c est elle qui gagnait : le formulaire heritait de `inline-flex`, d une marge gauche, d un
+   fond ambre et d un `border-radius: 999px`. Resultat a l ecran : une capsule doree qui debordait de
+   la carte et avalait le champ de date. Un nom par element. */
+.camp-plan-temoin { display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; padding: 1px 8px;
   font-size: 11px; color: #e3b23a; background: rgba(227,178,58,.10); border: 1px solid rgba(227,178,58,.30); border-radius: 999px; }
-.camp-plan-tem em { font-style: normal; color: var(--text3, #8a8f98); }
+.camp-plan-temoin em { font-style: normal; color: var(--text3, #8a8f98); }
