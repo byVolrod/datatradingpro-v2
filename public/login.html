@@ -280,7 +280,7 @@
       .lp-dl-v { font-size: 12px; }
     }
   </style>
-  <script src="/js/noinspect.js?v=20260825bbg928"></script>
+  <script src="/js/noinspect.js?v=20260825bbg929"></script>
 </head>
 <body>
 
@@ -475,7 +475,8 @@
       email:'Adresse e-mail', emailPh:'votre@email.com', password:'Mot de passe',
       pwToggle:'Afficher/masquer', pastePw:'Coller le mot de passe', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
       signin:'Se connecter', signingIn:'Connexion…', langLabel:'Langue :', dlFor:'Télécharger pour',
-      loginContact:'Une question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contactez-nous</a>',
+      loginContact:'Une question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contactez-nous</a>',
+
       dlIntel:'Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a>',
       dlMacTitle:'Premier lancement sur macOS',
       dlMac1:'Si «&nbsp;Apple n\'a pas pu confirmer…&nbsp;» s\'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).',
@@ -485,14 +486,15 @@
       errCreds:'Email ou mot de passe incorrect', errConn:'Erreur de connexion : réessayez',
       subExpired:'Abonnement expiré', renew:'Renouveler mon abonnement',
       forgotNoEmail:'Entrez d’abord votre adresse e-mail ci-dessus, puis recliquez sur « Mot de passe oublié ».',
-      forgotSent:'Demande envoyée. Si un compte actif existe pour cet e-mail, un nouveau mot de passe vient d’être envoyé. Si votre abonnement n’est plus actif, vous recevez à la place un e-mail expliquant comment le réactiver. (Pensez à vérifier vos spams.)'
+      forgotSent:'Demande envoyée. Si un compte existe pour cet e-mail, vous recevez votre nouveau mot de passe — ou la marche à suivre si l’abonnement n’est plus actif. Pensez à vos spams.'
     },
     en: {
       title:'Welcome back.', subtitle:'Sign in to your macro & forex terminal.',
       email:'Email address', emailPh:'you@email.com', password:'Password',
       pwToggle:'Show / hide', pastePw:'Paste password', remember:'Stay signed in', forgot:'Forgot password?',
       signin:'Sign in', signingIn:'Signing in…', langLabel:'Language:', dlFor:'Download for',
-      loginContact:'A question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contact us</a>',
+      loginContact:'A question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contact us</a>',
+
       dlIntel:'Mac Intel (before 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Download the Intel version</a>',
       dlMacTitle:'First launch on macOS',
       dlMac1:'If “Apple could not verify…” appears, click <b>Done</b> (not “Move to Trash”).',
@@ -502,7 +504,7 @@
       errCreds:'Incorrect email or password', errConn:'Connection error : please try again',
       subExpired:'Subscription expired', renew:'Renew my subscription',
       forgotNoEmail:'Enter your email address above first, then click “Forgot password” again.',
-      forgotSent:'Request sent. If an active account exists for this email, a new password has just been sent. If your subscription is no longer active, you’ll receive an email explaining how to reactivate it instead. (Check your spam folder too.)'
+      forgotSent:'Request sent. If an account exists for this email, you’ll get your new password — or how to reactivate it if the subscription has lapsed. Check your spam folder.'
     }
   };
   function lpDetect(){ try { return localStorage.getItem('dtp_lang') || (navigator.language || 'fr').slice(0,2); } catch(e){ return 'fr'; } }

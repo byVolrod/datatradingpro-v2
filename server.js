@@ -836,13 +836,45 @@ app.post('/api/auth/forgot-password', (req, res) => {
         const _GRACE = 24 * 60 * 60 * 1000;   // même tolérance que la connexion (renouvellement en cours)
         const _active = _staff || (u.active !== false && (!_expMs || _expMs + _GRACE >= Date.now()));
         if (_active) {
+          /* ⚠️ ON ENVOIE D'ABORD, ON CHANGE LE MOT DE PASSE ENSUITE (26/08, incident client : « j'ai
+             reset mon mdp, je l'ai pas reçu »). L'ordre était inverse — `changePassword` PUIS un
+             envoi en « fire-and-forget » — et surtout `_send` ne LÈVE PAS quand tous les
+             fournisseurs échouent : il rend `false`. Le `.catch(() => {})` ne pouvait donc jamais se
+             déclencher, la valeur de retour était jetée, et le journal écrivait « Mot de passe
+             réinitialisé » quoi qu'il arrive. Résultat : l'ancien mot de passe était détruit, le
+             nouveau n'arrivait jamais, et le client se retrouvait ENFERMÉ DEHORS — sans trace autre
+             que la ligne d'échec du mailer, à laquelle rien ne renvoyait.
+             Dans ce sens-ci, un envoi qui échoue ne coûte RIEN : le compte n'a pas bougé, l'ancien
+             mot de passe fonctionne toujours, et l'utilisateur peut réessayer tout de suite. Le
+             risque symétrique — envoi réussi puis écriture qui échoue — laisse l'utilisateur avec un
+             mot de passe qui ne marche pas MAIS son ancien intact : il n'est jamais enfermé dehors. */
           const temp = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
-          await auth.changePassword(u.id, temp);
-          mailer.sendPasswordReset({ to: u.email, name: u.name, password: temp }).catch(() => {});
-          console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email}`);
+          const envoye = await mailer.sendPasswordReset({ to: u.email, name: u.name, password: temp }).catch(e => {
+            console.error(`[Auth] forgot : envoi impossible → ${u.email} :`, e.message);
+            return false;
+          });
+          if (!envoye) {
+            // Rien n'a été touché. On libère le verrou : sans ça l'utilisateur réessaie et sa demande
+            // est ignorée en silence pendant deux minutes, pour un e-mail qui n'est jamais parti.
+            _recentForgot.delete(email);
+            console.error(`[Auth] ❌ forgot ABANDONNÉ → ${u.email} : aucun fournisseur n'a accepté l'e-mail, MOT DE PASSE INCHANGÉ (le client peut toujours se connecter avec l'ancien).`);
+            return;
+          }
+          try {
+            await auth.changePassword(u.id, temp);
+            console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email} (e-mail parti via ${envoye})`);
+          } catch (e) {
+            _recentForgot.delete(email);
+            console.error(`[Auth] ⚠️ forgot : e-mail PARTI mais écriture du mot de passe ÉCHOUÉE → ${u.email} :`, e.message,
+              '— le client doit utiliser son ANCIEN mot de passe et refaire une demande.');
+          }
         } else {
-          mailer.sendForgotNoSub({ to: u.email, name: u.name }).catch(() => {});
-          console.log(`[Auth] forgot REFUSÉ (abonnement inactif) → ${u.email} : e-mail de réactivation envoyé`);
+          const envoye = await mailer.sendForgotNoSub({ to: u.email, name: u.name }).catch(e => {
+            console.error(`[Auth] forgot (inactif) : envoi impossible → ${u.email} :`, e.message);
+            return false;
+          });
+          if (!envoye) _recentForgot.delete(email);
+          console.log(`[Auth] forgot REFUSÉ (abonnement inactif) → ${u.email} : e-mail de réactivation ${envoye ? 'envoyé via ' + envoye : 'NON PARTI'}`);
         }
       } else {
         _recentForgot.delete(email);   // email inexistant → on libère le verrou (aucun reset effectué)
@@ -997,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260827-mdp-oublie', ts: Date.UTC(2026, 7, 27, 19, 0), title: 'Mot de passe oublie : plus aucun risque de rester bloque dehors', desc: 'Un defaut vient d etre corrige sur la reinitialisation du mot de passe. L ancien fonctionnement changeait le mot de passe en base PUIS tentait d envoyer l e-mail — et si cet envoi echouait, rien ne le signalait : l ancien mot de passe etait deja detruit et le nouveau n arrivait jamais. L ordre est desormais inverse. L e-mail part d abord ; le mot de passe n est remplace que si l envoi a bien ete accepte. Un envoi qui echoue ne coute donc plus rien : le compte n a pas bouge, l ancien mot de passe fonctionne toujours, et la demande peut etre refaite immediatement — la temporisation de deux minutes est levee dans ce cas au lieu d ignorer les nouvelles demandes en silence. Le message affiche apres la demande a aussi ete raccourci de moitie.' },
   { id: 'dtpu-20260827-identite-rapports', ts: Date.UTC(2026, 7, 27, 17, 0), title: 'Les recaps de seance adoptent l identite visuelle du Recap Quotidien', desc: 'Les deux rapports se lisent souvent a la suite : ils se presentent desormais pareil. La synthese d un recap de seance s affiche dans le meme encadre a lisere dore que celle du Recap Quotidien, au lieu d une simple liste a puces. Les titres de rubrique — Synthese, Geopolitique, Macro, Analyse de seance, A surveiller — portent le meme petit lisere dore vertical, la meme taille et les memes marges. Et le filet horizontal qui doublait la bordure sous chaque titre a ete retire : il n existait pas dans le Recap Quotidien et faisait deux traits la ou il en faut un. Ces reglages ne sont plus ecrits deux fois dans la feuille de style mais une seule, partagee par les deux rapports : ils ne peuvent plus diverger a la prochaine retouche.' },
   { id: 'dtpu-20260827-synthese-seance', ts: Date.UTC(2026, 7, 27, 15, 0), title: 'Chaque recap de seance s ouvre sur une synthese chiffree', desc: 'Le recap de seance commencait directement par le recit : les rumeurs ont pese sur le dollar, les sources de la banque centrale indiquent... Aucune ligne ne disait ce que la seance avait FAIT. Il s ouvre desormais sur une Synthese, comme le Recap Quotidien : combien de publications sont tombees pendant la seance, combien sont sorties hors consensus, et quel a ete le mouvement le plus marque. Juste en dessous, la photo de seance donne la performance reelle des marches de cette seance sur sa fenetre horaire. Les deux lignes sont calculees a partir de nos propres mesures, jamais redigees automatiquement, et elles n apparaissent que si le desk a effectivement mesure quelque chose : sans donnees, le rapport reste exactement celui d avant.' },
   { id: 'dtpu-20260827-datas-couleurs', ts: Date.UTC(2026, 7, 27, 12, 0), title: 'Les chiffres publies prennent la couleur de leur verdict', desc: 'Dans les recaps, une donnee sortie AU-DESSUS de son consensus s affiche desormais en vert, EN DESSOUS en rouge, et CONFORME aux attentes en jaune-orange — les trois memes couleurs que les badges ACHAT VENTE NEUTRE et la matrice de biais, pour n avoir qu une seule grammaire de couleur a lire. Une hausse de taux est verte, une baisse rouge, un maintien neutre. Le calcul est fait par nos regles a partir des chiffres ecrits dans la puce, jamais laisse a l appreciation de la redaction automatique. Les indicateurs INVERSES sont traites comme il se doit : pour le chomage, les inscriptions, les stocks ou un deficit, un chiffre au-dessus du consensus est une mauvaise nouvelle et sort donc en rouge. Une puce qui ne porte ni comparaison ni verdict reste blanche : mieux vaut pas de couleur qu une couleur fausse. La couleur s ajoute au gras, elle ne le remplace pas.' },

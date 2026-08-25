@@ -9132,6 +9132,77 @@ function _ccyWho(ccy, pays){
   if (ccy === 'EUR' && pays && !/^zone\s*euro$/i.test(pays)) return 'EUR · ' + pays;
   return ccy;
 }
+/* LE CALENDRIER D'UN RAPPORT — UNE SEULE FABRIQUE (26/08, demande utilisateur : « met une partie du
+   calendrier éco du desk direct »). Le Récap Quotidien rendait déjà sa rubrique « À surveiller » sous
+   la forme du VRAI calendrier — séparateurs de jours, heure, drapeau rond, points d'impact, cellules
+   de valeurs — pendant que le récap de séance servait les mêmes échéances en puces de texte. La
+   construction est donc sortie du Quotidien pour devenir commune : les deux rapports appellent la
+   MÊME fonction, avec les MÊMES briques du calendrier (CAL_FLAG / calImpDots / calActualCell).
+   Ligne cliquable → Décryptage DTP, comme dans l'onglet Calendrier. */
+function _rapportCalTable(evs) {
+  if (!(evs || []).length) return '';
+  {
+    const _flag = c => (typeof CAL_FLAG === 'function' && c) ? CAL_FLAG(c) : '';
+    const _dots = i => (typeof calImpDots === 'function') ? calImpDots(i) : _wrEsc(i || '');
+    // Cellules de VALEURS identiques au calendrier (réel coloré vs prévision via calActualCell ;
+    // high/prévision en cv-forecast, low/précédent en cv-prev ; vide = tiret cv-empty).
+    const _vf = v => v ? `<span class="cv-forecast">${_wrEsc(v)}</span>` : '<span class="cv-empty">-</span>';
+    const _vp = v => v ? `<span class="cv-prev">${_wrEsc(v)}</span>` : '<span class="cv-empty">-</span>';
+    const _va = e => (typeof calActualCell === 'function') ? calActualCell(e.actual || '', e.forecast || '', e.low || '', e.event || '') : _vf(e.actual);
+    let rows = '', lastDay = null;
+    (evs || []).forEach(e => {
+      const d = e.ts ? new Date(e.ts) : null;
+      const dayLbl = d ? d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
+      if (dayLbl && dayLbl !== lastDay) {
+        lastDay = dayLbl;
+        rows += `<tr class="cal-day-sep"><td colspan="8">${_wrEsc(dayLbl.charAt(0).toUpperCase() + dayLbl.slice(1))}</td></tr>`;
+      }
+      const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '-';
+      // Mention « · Banque centrale » RETIRÉE (demande user 11/08 : « comme le vrai calendrier ») — et
+      // elle était FAUSSE : la catégorie est déduite du titre TradingView d'origine, où « Inflation
+      // RATE YoY » déclenchait le mot-clé « rate ». Un CPI s'affichait donc en événement de banque
+      // centrale. Le calendrier, lui, n'annote rien : le nom de l'indicateur se suffit.
+      const catBc = '';
+      // Ligne CLIQUABLE → Décryptage DTP (même base pédagogique que l'onglet Calendrier), déplié juste en dessous.
+      const _a = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
+      rows += `<tr class="cal-row fxdr-cal-clic" role="button" tabindex="0" onclick="_fxrToggleCalRow(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleCalRow(this);}" title="Voir le décryptage"`
+        + ` data-title="${_a(e.event)}" data-ccy="${_a(e.ccy)}" data-actual="${_a(e.actual)}" data-forecast="${_a(e.forecast)}" data-previous="${_a(e.previous)}" data-ts="${e.ts || 0}">`
+        + `<td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '-')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}<span class="fxdr-cal-chev">›</span></td>`
+        /* COLONNES « HAUT » ET « BAS » RETIRÉES (26/08, demande utilisateur capture à l'appui :
+           « enlève ici haut et bas les colonnes »). Elles portent la fourchette d'estimations, que
+           notre fournisseur ne remplit PAS pour les rendez-vous à venir : deux colonnes de tirets
+           sur toute la hauteur du tableau, qui volaient de la largeur à l'intitulé de l'événement.
+           Le desk les masque déjà sur écran étroit ; ici elles ne servaient jamais. */
+        + `<td class="cth-val cth-val--reel">${_va(e)}</td><td class="cth-val cth-val--prev">${_vf(e.forecast)}</td><td class="cth-val cth-val--prec">${_vp(e.previous)}</td></tr>`
+        + `<tr class="fxdr-cal-detail" hidden><td colspan="8"></td></tr>`;
+    });
+    // PUCES NARRATIVES RETIRÉES (demande user 24/08 : « supprime ceci et déroule les news du
+    // calendrier »). Elles paraphrasaient le tableau juste en dessous : « Minutes de la RBA (mardi
+    // 25 août) → à surveiller pour des indications sur la politique monétaire » ne dit rien que la
+    // ligne de calendrier ne dise déjà, avec en plus l'heure, la devise, l'impact et les chiffres
+    // attendus. La rubrique est désormais le CALENDRIER lui-même, déroulé, chaque ligne s'ouvrant
+    // sur son Décryptage d'un clic.
+    body += _sec('À surveiller');
+    /* LES FILS OUVERTS AVANT LE CALENDRIER (28/08, le user fournit le récap de son mentor comme
+       cible). Le tableau ci-dessous dit tout des PUBLICATIONS — heure, devise, impact, attentes
+       chiffrées. Il ne peut rien dire, en revanche, d'une sanction annoncée pour la fin de semaine,
+       d'une médiation en cours ou d'une annonce de tarifs : ces échéances-là n'existent dans aucun
+       calendrier, et ce sont souvent elles qui font la séance suivante.
+       ⚠️ Ce n'est PAS le retour de l'ancien champ « watch », retiré en v17 : lui paraphrasait le
+       tableau. Le prompt de `fils` interdit explicitement de reprendre une ligne du calendrier —
+       c'est la condition pour que cette rubrique ajoute quelque chose au lieu de répéter. */
+    const _fils = (Array.isArray(w.fils) ? w.fils : []).filter(Boolean);
+    if (_fils.length) {
+      body += '<div class="fxdr-bullets">';
+      _fils.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
+      body += '</div>';
+    }
+    if (!rows) return '';
+    return `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
+      + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
+      + '<th class="cth-val cth-val--reel">Réel</th><th class="cth-val cth-val--prev">Prévision</th><th class="cth-val cth-val--prec">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  }
+}
 // **gras** → <strong> (jamais d'astérisques brutes), PUIS on retire tout astérisque résiduel
 // (marqueur non apparié d'un ancien rapport en cache) → plus aucun ** ne peut apparaître.
 function _wrInline(t){
@@ -10308,61 +10379,7 @@ function _renderFXDailyRecap(item) {
   //    économique ») : séparateurs de jours, heure, drapeau rond + devise, points d'impact ●●●.
   //    Réutilise les briques RÉELLES du calendrier (CAL_FLAG / calImpDots / cal-day-sep, charts.js).
   //    Anciens rapports (sans ts/ccy) : ligne sans heure/drapeau, rien ne casse.
-  if ((w.lookahead || []).length) {   // la rubrique EST le calendrier : sans ligne, pas de rubrique
-    const _flag = c => (typeof CAL_FLAG === 'function' && c) ? CAL_FLAG(c) : '';
-    const _dots = i => (typeof calImpDots === 'function') ? calImpDots(i) : _wrEsc(i || '');
-    // Cellules de VALEURS identiques au calendrier (réel coloré vs prévision via calActualCell ;
-    // high/prévision en cv-forecast, low/précédent en cv-prev ; vide = tiret cv-empty).
-    const _vf = v => v ? `<span class="cv-forecast">${_wrEsc(v)}</span>` : '<span class="cv-empty">-</span>';
-    const _vp = v => v ? `<span class="cv-prev">${_wrEsc(v)}</span>` : '<span class="cv-empty">-</span>';
-    const _va = e => (typeof calActualCell === 'function') ? calActualCell(e.actual || '', e.forecast || '', e.low || '', e.event || '') : _vf(e.actual);
-    let rows = '', lastDay = null;
-    (w.lookahead || []).forEach(e => {
-      const d = e.ts ? new Date(e.ts) : null;
-      const dayLbl = d ? d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
-      if (dayLbl && dayLbl !== lastDay) {
-        lastDay = dayLbl;
-        rows += `<tr class="cal-day-sep"><td colspan="10">${_wrEsc(dayLbl.charAt(0).toUpperCase() + dayLbl.slice(1))}</td></tr>`;
-      }
-      const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '-';
-      // Mention « · Banque centrale » RETIRÉE (demande user 11/08 : « comme le vrai calendrier ») — et
-      // elle était FAUSSE : la catégorie est déduite du titre TradingView d'origine, où « Inflation
-      // RATE YoY » déclenchait le mot-clé « rate ». Un CPI s'affichait donc en événement de banque
-      // centrale. Le calendrier, lui, n'annote rien : le nom de l'indicateur se suffit.
-      const catBc = '';
-      // Ligne CLIQUABLE → Décryptage DTP (même base pédagogique que l'onglet Calendrier), déplié juste en dessous.
-      const _a = s => _wrEsc(String(s == null ? '' : s)).replace(/"/g, '&quot;');
-      rows += `<tr class="cal-row fxdr-cal-clic" role="button" tabindex="0" onclick="_fxrToggleCalRow(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxrToggleCalRow(this);}" title="Voir le décryptage"`
-        + ` data-title="${_a(e.event)}" data-ccy="${_a(e.ccy)}" data-actual="${_a(e.actual)}" data-forecast="${_a(e.forecast)}" data-previous="${_a(e.previous)}" data-ts="${e.ts || 0}">`
-        + `<td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '-')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}<span class="fxdr-cal-chev">›</span></td>`
-        + `<td class="cth-val cth-val--reel">${_va(e)}</td><td class="cth-val cth-val--haut">${_vf(e.high)}</td><td class="cth-val cth-val--prev">${_vf(e.forecast)}</td><td class="cth-val cth-val--bas">${_vp(e.low)}</td><td class="cth-val cth-val--prec">${_vp(e.previous)}</td></tr>`
-        + `<tr class="fxdr-cal-detail" hidden><td colspan="10"></td></tr>`;
-    });
-    // PUCES NARRATIVES RETIRÉES (demande user 24/08 : « supprime ceci et déroule les news du
-    // calendrier »). Elles paraphrasaient le tableau juste en dessous : « Minutes de la RBA (mardi
-    // 25 août) → à surveiller pour des indications sur la politique monétaire » ne dit rien que la
-    // ligne de calendrier ne dise déjà, avec en plus l'heure, la devise, l'impact et les chiffres
-    // attendus. La rubrique est désormais le CALENDRIER lui-même, déroulé, chaque ligne s'ouvrant
-    // sur son Décryptage d'un clic.
-    body += _sec('À surveiller');
-    /* LES FILS OUVERTS AVANT LE CALENDRIER (28/08, le user fournit le récap de son mentor comme
-       cible). Le tableau ci-dessous dit tout des PUBLICATIONS — heure, devise, impact, attentes
-       chiffrées. Il ne peut rien dire, en revanche, d'une sanction annoncée pour la fin de semaine,
-       d'une médiation en cours ou d'une annonce de tarifs : ces échéances-là n'existent dans aucun
-       calendrier, et ce sont souvent elles qui font la séance suivante.
-       ⚠️ Ce n'est PAS le retour de l'ancien champ « watch », retiré en v17 : lui paraphrasait le
-       tableau. Le prompt de `fils` interdit explicitement de reprendre une ligne du calendrier —
-       c'est la condition pour que cette rubrique ajoute quelque chose au lieu de répéter. */
-    const _fils = (Array.isArray(w.fils) ? w.fils : []).filter(Boolean);
-    if (_fils.length) {
-      body += '<div class="fxdr-bullets">';
-      _fils.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-      body += '</div>';
-    }
-    if (rows) body += `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
-      + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
-      + '<th class="cth-val cth-val--reel">Réel</th><th class="cth-val cth-val--haut">Haut</th><th class="cth-val cth-val--prev">Prévision</th><th class="cth-val cth-val--bas">Bas</th><th class="cth-val cth-val--prec">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
-  }
+  body += _rapportCalTable(w.lookahead);
 
   // ── « Commentaires des banques » RETIRÉ (demande user 11/08, après l'avoir vu en vrai) : la liste de
   //    titres de recherche (« Danske Bank, Sweden: Inflation forecast… ») et les avis de maisons ne
