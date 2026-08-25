@@ -994,6 +994,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260827-compte-recolle', ts: Date.UTC(2026, 7, 27, 18, 0), title: 'Un acces cree sur une adresse masquee peut etre recolle a votre vraie adresse', desc: 'Suite du correctif precedent. Quand un abonnement paye par Apple Pay avec « Masquer mon adresse » avait deja ouvert un acces sur l adresse relais anonyme, le compte existait bien mais restait introuvable sous la vraie adresse, et le courriel d acces partait vers une boite relais qu Apple ne relaie pas toujours. Nous pouvons desormais recoller ce compte a la vraie adresse en une operation : l acces deja paye est conserve integralement — c est toujours l echeance la plus lointaine qui est gardee, jamais la plus courte — un mot de passe neuf est genere et le courriel d acces part enfin dans la bonne boite. Si deux comptes existaient pour la meme personne, ils sont reunis en un seul. L ancienne adresse reste rattachee : un renouvellement paye sous celle-ci prolonge le bon compte au lieu d en creer un troisieme.' },
   { id: 'dtpu-20260827-abonnement-jamais-perdu', ts: Date.UTC(2026, 7, 27, 14, 0), title: 'Un abonnement paye ne peut plus passer inapercu chez nous', desc: 'Nous avons trouve et corrige une panne silencieuse : dans certains cas, un abonnement bel et bien paye n ouvrait aucun acces de notre cote, sans le moindre signal d erreur. La cause : notre lecture des abonnements cherchait l adresse e-mail a un seul endroit precis du message recu. Quand la plateforme de paiement la place ailleurs — ce qui arrive notamment avec Apple Pay et l option « Masquer mon adresse » — l abonnement devenait invisible pour nous, y compris pour le controle de securite qui passe toutes les dix minutes et qui existe justement pour rattraper ce genre d oubli. Les deux echouaient au meme endroit. L adresse est desormais recherchee partout ou elle peut se trouver, et nous retenons aussi le nom d utilisateur comme seconde identite : meme si l adresse est masquee ou changee, votre abonnement reste rattache a votre compte. Un renouvellement paye sous l une ou l autre de vos identites prolonge le meme acces, sans jamais creer de second compte.' },
   { id: 'dtpu-20260827-apple-pay-acces', ts: Date.UTC(2026, 7, 27, 10, 0), title: 'Payer avec Apple Pay et « Masquer mon adresse » ne prive plus de son acces', desc: 'Quand un abonnement est regle par Apple Pay avec l option « Masquer mon adresse », Apple ne transmet pas la vraie adresse e-mail mais une adresse relais anonyme. Le desk creait donc le compte sur cette adresse relais : le client etait introuvable dans nos outils sous son vrai e-mail, et son mail d acces partait vers une boite relais qu Apple ne relaie pas toujours. Une table de correspondance rattache desormais l adresse relais a la vraie adresse : le compte est cree au bon endroit, le mail d acces arrive dans la vraie boite, et un renouvellement paye sous l une ou l autre des deux adresses prolonge bien le meme compte, sans jamais en creer un second. Rien ne change pour les abonnements payes par carte.' },
   { id: 'dtpu-20260827-onglets-horloge-atteignables', ts: Date.UTC(2026, 7, 27, 0, 0), title: 'Panneau a onglets et Horloge mondiale : plus rien d inatteignable', desc: 'L audit systematique des 38 widgets de la bibliotheque — un examen par widget, mesures a l appui — a trouve deux recoins ou du contenu pouvait etre coupe sans aucun moyen d y acceder. Dans le PANNEAU A ONGLETS d abord : un widget embarque exigeant plus de hauteur que l onglet n en offre — la jauge de risque et son historique, par exemple — etait ampute en silence, sans barre de defilement (mesure : un tiers du contenu perdu). L onglet defile desormais, comme les cartes simples l ont toujours fait, et sur telephone le panneau retrouve sa pleine hauteur qu une regle lui volait. L HORLOGE MONDIALE ensuite : dans une carte etroite, les villes se repliaient sur plusieurs rangees ecrasees — meteo, vent et pays coupes au bas de chaque cellule. Chaque rangee garde maintenant sa hauteur entiere et la carte defile s il le faut. Quand tout tient, rien ne change, au pixel pres.' },
@@ -18797,41 +18798,67 @@ app.post('/api/admin/merge-users', requireAdmin, async (req, res) => {
     const de = _aliasNorm(b.from), vers = _aliasNorm(b.to);
     const appliquer = String(b.appliquer || req.query.appliquer || '') === '1';
     const supprimer = String(b.supprimer || req.query.supprimer || '') === '1';
+    const acces = String(b.acces || req.query.acces || '') === '1';
     if (!de || !vers) return res.status(400).json({ ok: false, error: 'from et to requis' });
     if (de === vers) return res.status(400).json({ ok: false, error: 'les deux adresses sont identiques' });
+    if (!/.+@.+\..+/.test(vers)) return res.status(400).json({ ok: false, error: 'adresse de destination invalide' });
     const users = await auth.getAllUsers({ fresh: true });
     const uDe = users.find(u => (u.email || '').toLowerCase() === de);
-    const uVers = users.find(u => (u.email || '').toLowerCase() === vers);
+    let uVers = users.find(u => (u.email || '').toLowerCase() === vers);
     if (!uDe) return res.status(404).json({ ok: false, error: `aucun compte pour ${de}` });
-    if (!uVers) return res.status(404).json({ ok: false, error: `aucun compte pour ${vers}` });
-    if (uDe.role === 'admin' || uVers.role === 'admin') return res.status(400).json({ ok: false, error: 'fusion refusée : compte admin' });
-    // Échéance : `null` = illimité → gagne sur toute date. Sinon la plus lointaine.
+    if (uDe.role === 'admin' || (uVers && uVers.role === 'admin')) return res.status(400).json({ ok: false, error: 'operation refusee : compte admin' });
+
+    /* DEUX CAS, ET C EST LA DIFFERENCE QUI COMPTE.
+       · FUSION  : les deux comptes existent -> on garde `to`, on absorbe `from`.
+       · MIGRATION : `to` N EXISTE PAS. C est le cas reel du client paye par Apple Pay : son unique
+         compte vit sur l adresse relais et il n a jamais recu ses acces. On ne peut PAS renommer le
+         compte en place — `auth.updateUser` n accepte pas le champ e-mail, et le forcer laisserait
+         une entree perimee dans l index du miroir (indexe par adresse). On CREE donc le compte a la
+         bonne adresse, puis on absorbe l ancien : meme resultat, aucun contournement de la couche. */
+    const migration = !uVers;
     const _t = u => (u.expires_at ? new Date(u.expires_at).getTime() : Infinity);
-    const illimite = !uDe.expires_at || !uVers.expires_at;
-    const gardee = illimite ? null : new Date(Math.max(_t(uDe), _t(uVers))).toISOString();
-    const champs = {
-      active: true,
-      expiresAt: gardee,
-      name: String(uVers.name || '').trim() || String(uDe.name || '').trim() || '',
-    };
-    const plan = ['professionnel', 'amis', 'essai'].includes(String(uVers.plan || '')) ? uVers.plan : (uDe.plan || 'professionnel');
-    if (plan) champs.plan = plan;
+    const illimite = !uDe.expires_at || (uVers && !uVers.expires_at);
+    const gardee = illimite ? null : new Date(Math.max(_t(uDe), uVers ? _t(uVers) : 0)).toISOString();
+    const nom = String((uVers && uVers.name) || '').trim() || String(uDe.name || '').trim() || '';
+    const plan = (uVers && ['professionnel', 'amis', 'essai'].includes(String(uVers.plan || ''))) ? uVers.plan : (uDe.plan || 'professionnel');
+
     const apercu = {
-      garde: { email: vers, id: uVers.id, avant: { actif: uVers.active !== false, echeance: uVers.expires_at || 'illimité', nom: uVers.name || '(vide)', plan: uVers.plan || '' } },
-      absorbe: { email: de, id: uDe.id, avant: { actif: uDe.active !== false, echeance: uDe.expires_at || 'illimité', nom: uDe.name || '(vide)', plan: uDe.plan || '' } },
-      apres: { echeance: gardee || 'illimité', nom: champs.name || '(vide)', plan: champs.plan || '', actif: true },
-      absorbeDevient: supprimer ? 'SUPPRIMÉ' : 'suspendu + marqué expiré',
-      alias: `${de} ⇒ ${vers}`,
+      operation: migration ? 'MIGRATION (le compte de destination sera CREE)' : 'FUSION (les deux comptes existent)',
+      garde: { email: vers, id: (uVers && uVers.id) || '(a creer)' },
+      absorbe: { email: de, id: uDe.id, actif: uDe.active !== false, echeance: uDe.expires_at || 'illimite', nom: uDe.name || '(vide)', plan: uDe.plan || '' },
+      apres: { echeance: gardee || 'illimite', nom: nom || '(vide)', plan, actif: true },
+      absorbeDevient: supprimer ? 'SUPPRIME' : 'suspendu + marque expire',
+      alias: `${de} => ${vers}`,
+      accesEnvoyes: acces ? `mot de passe regenere + e-mail d acces envoye a ${vers}` : 'NON (ajouter acces=1 pour envoyer les identifiants)',
     };
-    if (!appliquer) return res.json({ ok: true, dryRun: true, apercu, note: 'Rien n\'a été écrit. Renvoyer avec appliquer=1 pour exécuter.' });
-    await auth.updateUser(uVers.id, champs);
+    if (!appliquer) return res.json({ ok: true, dryRun: true, apercu, note: "Rien n a ete ecrit. Renvoyer avec appliquer=1 pour executer." });
+
+    // Mot de passe frais : le client n a jamais pu se connecter (ses acces sont partis dans une
+    // boite relais). On ne peut pas relire l ancien (hash bcrypt), donc on en pose un neuf.
+    const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
+    if (migration) {
+      uVers = await auth.createUser({ email: vers, password: pwd, name: nom, role: 'client', plan, expiresAt: gardee });
+    } else {
+      await auth.updateUser(uVers.id, { active: true, expiresAt: gardee, name: nom, plan });
+      if (acces) { try { await auth.changePassword(uVers.id, pwd); } catch (e) { return res.status(500).json({ ok: false, error: 'mot de passe non change : ' + e.message }); } }
+    }
     if (supprimer) await auth.deleteUser(uDe.id);
     else await auth.updateUser(uDe.id, { active: false, expiresAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString() });
-    _forceLogout.add(String(uDe.id));            // l'absorbé est éjecté du desk s'il y était connecté
+    _forceLogout.add(String(uDe.id));            // l absorbe est ejecte du desk s il y etait connecte
     _aliasMap.set(de, vers);
     try { await auth.aiCacheSet(_ALIAS_KEY, Object.fromEntries(_aliasMap)); } catch (e) {}
-    console.log(`[Fusion] ${de} → ${vers} : échéance ${gardee || 'illimité'}, absorbé ${supprimer ? 'supprimé' : 'suspendu'}, alias posé`);
-    res.json({ ok: true, dryRun: false, apercu });
+
+    // ENVOI DES ACCES (demande user : « envoi les acces sur cette boite mail aussi »). Envoi FIABLE
+    // (await + alerte admin si echec) et marqueur welcomeok: SEULEMENT si l e-mail est vraiment
+    // parti — sinon le filet d onboarding le rattrapera, exactement comme a une creation Whop.
+    let mail = { sent: false, skipped: true };
+    if (acces || migration) {
+      mail = await _sendWelcomeReliable({ to: vers, name: nom, password: pwd, expiresAt: gardee });
+      if (mail && mail.sent) { try { await auth.emailLogAdd('welcomeok:' + vers); await auth.emailLogAdd('welcome:' + vers); } catch (e) {} }
+      try { _sendWelcomeChat(uVers && uVers.id); } catch (e) {}
+    }
+    console.log(`[${migration ? 'Migration' : 'Fusion'}] ${de} -> ${vers} : echeance ${gardee || 'illimite'}, absorbe ${supprimer ? 'supprime' : 'suspendu'}, alias pose, acces ${mail.sent ? 'envoyes' : (mail.skipped ? 'non demandes' : 'ECHEC (filet prendra le relais)')}`);
+    res.json({ ok: true, dryRun: false, apercu, mail });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
