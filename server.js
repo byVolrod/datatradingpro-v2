@@ -19,7 +19,8 @@ const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/r
 const { fetchDanskeResearch } = require('./scrapers/danske-research');   // Danske — API publique interceptée (Puppeteer), PDF natifs (published_url)
 const { fetchTEAll } = require('./scrapers/tradingeconomics');   // TradingEconomics — fondamentaux réels par pays (Smart Bias « Fundamental Data » fiable)
 const { fetchTVCalendar, fetchTVCalendarFull, fetchTVCalendarRange } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare) + plage historique navigable
-const _WA = require('./walabels');   // titres, gloses FR et descriptions des cartes « Semaine à Venir » (pur + testé : scripts/weekahead-verif.js)
+const _WA = require('./walabels');
+const _SEA = require('./seance');   // récap de séance fabriqué par le desk (pur + testé : scripts/seance-verif.js)   // titres, gloses FR et descriptions des cartes « Semaine à Venir » (pur + testé : scripts/weekahead-verif.js)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
@@ -995,6 +996,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260826-seance-chiffree', ts: Date.UTC(2026, 7, 26, 10, 0), title: 'Recaps de seance : la seance est desormais chiffree, pas seulement racontee', desc: 'Chaque recap de seance s ouvre maintenant sur des mesures. Une synthese qui dit combien de publications sont tombees et combien ont surpris. Une photo de seance : la performance reelle des marches de CETTE seance sur SA fenetre horaire — le DAX et le FTSE pour Londres, le Nikkei et le Hang Seng pour l Asie, le S&P et le rendement dix ans pour New York. Puis les chiffres eux-memes, avec le resultat, le consensus et l ecart. Les rendements sont exprimes en points de base, comme sur un desk, et un indicateur ou la hausse est une mauvaise nouvelle — chomage, inscriptions, stocks — est lu dans le bon sens. Rien n est invente : une donnee absente est omise plutot que remplie d un tiret, et sans donnees le recap reste exactement celui d avant.' },
   { id: 'dtpu-20260826-charger-journee', ts: Date.UTC(2026, 7, 26, 9, 0), title: 'Charger plus deroule maintenant la journee entiere', desc: 'Le bouton Charger plus, en bas du fil d actualite, avancait par lots de cent : sur une journee chargee il fallait cliquer cinq ou six fois pour la parcourir. Un clic deroule desormais TOUTE la journee affichee, d un coup, et vous la lisez en scrollant. Le clic suivant deroule la journee precedente. Le bouton annonce ce qu il va faire : il indique Voir toute la journee tant qu il reste des actualites du jour, puis nomme la journee qu il chargera ensuite. Aucun doublon possible : une actualite deja recue n est jamais rajoutee.' },
   { id: 'dtpu-20260826-fil-repare', ts: Date.UTC(2026, 7, 26, 0, 30), title: 'Fil d actualite : incident corrige, et un controle pose pour qu il ne revienne pas', desc: 'Le fil d actualite est reste vide pendant un moment ce soir : une seule ligne de code retiree la veille en cassait l affichage de chaque actualite. C est repare. Nous avons surtout ajoute un controle automatique qui refuse ce type de modification avant qu elle parte en ligne : il verifie que chaque nom utilise dans le code existe reellement, ce que la verification precedente ne savait pas faire — elle ne regardait que la grammaire, pas le sens. Le defaut qui a cause l incident est rejoue a chaque fois pour s assurer que le controle le voit toujours.' },
   { id: 'dtpu-20260825-analyse-rouge-2', ts: Date.UTC(2026, 7, 25, 23, 30), title: 'Les analyses du desk s affichent en rouge, comme les autres news majeures', desc: 'Une analyse publiee par le desk juste apres une publication majeure — ADP, NFP, inflation, decision de taux — s affichait en ligne ordinaire au lieu du rouge reserve aux news importantes. La couleur se decidait a deux endroits differents dans le code, et les deux avaient fini par diverger. Il n y en a plus qu un seul, partage par le fil et par le bandeau d alerte : ce qui est rouge dans l un l est dans l autre. Et une analyse du desk est desormais rouge par definition, parce qu elle n existe que lorsqu un chiffre de premier rang vient de tomber.' },
@@ -9822,9 +9824,181 @@ function _pousserASurveiller(bullets, reportType) {
   _pushBullets(bullets, `À surveiller — séance de ${nom}`, lignes.map(t => ({ headline: t })), 5);
 }
 
+/* ══ RÉCAP DE SÉANCE FABRIQUÉ PAR LE DESK (26/08, décision utilisateur) ═══════════════════════════
+   « On crée les nôtres en meilleure qualité avec des vraies données réelles qu'on peut récupérer de
+   notre desk. » Les récaps de séance montaient leurs puces à partir des TITRES du fil, rangés par
+   catégorie : une liste. Le desk possède mieux — le calendrier avec réel/attendu, la performance
+   mesurée des actifs sur la fenêtre de la séance, le Radar de Biais, les notes institutionnelles.
+   Ce bloc ajoute DEUX rubriques chiffrées EN TÊTE, avant les rubriques existantes :
+     · une SYNTHÈSE déduite des chiffres (combien de publications, combien hors consensus, le plus
+       fort mouvement) ;
+     · la PHOTO DE SÉANCE (performance des actifs de CETTE séance sur SA fenêtre horaire) ;
+     · les PUBLICATIONS de la séance avec réel, attendu et écart.
+   TOUT EST OMIS SI LA DONNÉE MANQUE. Pas de tiret, pas de « n/d » : dans un rapport chiffré, une
+   ligne vide fait douter de toutes les autres. Sans données, le récap est exactement celui
+   d'aujourd'hui — le repli n'est pas un mode dégradé, c'est l'état actuel.
+   LECTURE SYNCHRONE : les builders ne sont pas async (voir generateDailyBriefing). La performance
+   est donc préparée en tâche de fond dans `_perfSeance` et lue telle quelle, exactement comme
+   `_aSurveillerSeanceSuivante` lit `_tvCalCache`. */
+function _offsetParis(ts) {
+  const d = new Date(ts);
+  return new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Paris' })) - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' }));
+}
+// Bornes de la séance, en horodatages : du début de sa fenêtre à sa fin (ou à maintenant si elle court).
+function _bornesSeance(reportType, now) {
+  const F = _SEA.FENETRES[reportType];
+  if (!F) return null;
+  const [Y, M, D] = _jourParis(now).split('-').map(Number);
+  const off = _offsetParis(now);
+  return {
+    debutTs: Date.UTC(Y, M - 1, D, F.debut, 0, 0) - off,
+    finTs: Math.min(now, Date.UTC(Y, M - 1, D, F.fin, 0, 0) - off),
+    nom: F.nom, dev: F.dev,
+  };
+}
+/* PUBLICATIONS DE LA SÉANCE : celles qui sont TOMBÉES pendant sa fenêtre, sur SES devises, et qui
+   ont un résultat. Sans `actual` il n'y a rien à raconter — c'est un rendez-vous à venir, pas un
+   fait de séance. Source : le calendrier déjà en mémoire, donc aucune invention possible. */
+function _macroDeLaSeance(reportType) {
+  const b = _bornesSeance(reportType, Date.now());
+  if (!b) return [];
+  const items = (_tvCalCache && Array.isArray(_tvCalCache.items)) ? _tvCalCache.items : [];
+  const dans = items.filter(e => {
+    const ts = (e && e.timestamp) || 0;
+    if (ts < b.debutTs || ts > b.finTs) return false;
+    if (b.dev.indexOf(String(e.currency || '').toUpperCase()) < 0) return false;
+    return !!(e.actual && String(e.actual).trim());
+  });
+  // Mêmes noms que l'onglet Calendrier (voir _calFfNames), et les forts d'abord.
+  const propre = _calFfNames(dans);
+  const fort = e => /high/i.test(e.impact || '') ? 1 : 0;
+  return propre.sort((x, y) => (fort(y) - fort(x)) || (x.timestamp - y.timestamp)).slice(0, 8);
+}
+/* PERFORMANCE DES ACTIFS SUR LA FENÊTRE — préparée en tâche de fond. Le rafraîchissement ne porte
+   que sur la séance EN COURS ou tout juste close : rafraîchir les trois en permanence coûterait
+   dix-huit requêtes par tour pour deux séances que personne ne regarde. */
+let _perfSeance = { ts: 0, par: {} };
+async function _perfFenetre(sym, debutTs, finTs) {
+  const { raw } = await _yfChart(sym, '5m', '1d');
+  const r = raw && raw.chart && raw.chart.result && raw.chart.result[0];
+  const ts = (r && r.timestamp) || [];
+  const cl = (r && r.indicators && r.indicators.quote && r.indicators.quote[0] && r.indicators.quote[0].close) || [];
+  let ouv = null, fer = null;
+  for (let i = 0; i < ts.length; i++) {
+    const t = ts[i] * 1000, c = cl[i];
+    if (c == null || t < debutTs || t > finTs) continue;
+    if (ouv === null) ouv = c;
+    fer = c;
+  }
+  if (ouv == null || fer == null || !ouv) return null;
+  return { pct: (fer / ouv - 1) * 100, delta: fer - ouv, ouv, fer };
+}
+function _seanceCourante(now) {
+  // La séance pertinente : celle dont la fenêtre couvre l'instant, sinon la plus récemment close.
+  let choix = null;
+  for (const type of Object.keys(_SEA.FENETRES)) {
+    const b = _bornesSeance(type, now);
+    if (!b) continue;
+    if (now >= b.debutTs && now <= b.finTs) return type;                       // en cours
+    if (now > b.finTs && now - b.finTs < 3 * 3600000) choix = choix || type;   // close depuis < 3 h
+  }
+  return choix;
+}
+let _perfBusy = false;
+async function _majPerfSeance() {
+  if (_perfBusy) return; _perfBusy = true;
+  try {
+    const now = Date.now(), type = _seanceCourante(now);
+    if (!type) return;
+    const b = _bornesSeance(type, now);
+    const actifs = _SEA.ACTIFS[type] || [];
+    const out = [];
+    for (const a of actifs) {
+      try {
+        const p = await _perfFenetre(a.sym, b.debutTs, b.finTs);
+        if (p) out.push({ label: a.label, sym: a.sym, bp: !!a.bp, pct: p.pct, delta: p.delta });
+      } catch {}
+    }
+    if (out.length) { _perfSeance.par[type] = { ts: Date.now(), jour: _jourParis(now), actifs: out }; _perfSeance.ts = Date.now(); }
+    console.log(`[Séance] performance ${type} : ${out.length}/${actifs.length} actif(s) mesuré(s)`);
+  } catch (e) { console.warn('[Séance] performance :', e && e.message); }
+  finally { _perfBusy = false; }
+}
+setInterval(() => { _majPerfSeance().catch(() => {}); }, 10 * 60 * 1000);
+setTimeout(() => { _majPerfSeance().catch(() => {}); }, 40000);
+// Performance mesurée de CETTE séance, du jour, ou rien. Une photo de la veille serait un mensonge.
+function _perfDuJour(reportType) {
+  const p = _perfSeance.par[reportType];
+  if (!p || p.jour !== _jourParis(Date.now())) return [];
+  return p.actifs || [];
+}
+/* Pose les rubriques chiffrées en tête du récap. Rend le nombre de rubriques ajoutées (0 = le desk
+   n'avait aucune donnée : le rapport est alors exactement celui d'avant). */
+function _poserBlocDesk(bullets, reportType) {
+  const b = _bornesSeance(reportType, Date.now());
+  if (!b) return 0;
+  const perfs = _perfDuJour(reportType);
+  const macros = _macroDeLaSeance(reportType);
+  if (!perfs.length && !macros.length) return 0;
+  let n = 0;
+  bullets.push(_SEA.synthese(b.nom, perfs, macros)); n++;
+  const lp = _SEA.lignePerf(perfs);
+  if (lp) { _pushBullets(bullets, 'Photo de séance', [{ headline: lp }], 1); n++; }
+  if (macros.length) {
+    const lignes = macros.map(e => {
+      const h = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).replace(':', 'h') : '';
+      return _SEA.ligneMacro({ currency: e.currency, ctry: e.ctry, title: _WA.intituleAffiche(e), actual: e.actual, forecast: e.forecast, previous: e.previous }, h);
+    }).filter(Boolean);
+    if (lignes.length) { _pushBullets(bullets, 'Chiffres de la séance', lignes.map(t => ({ headline: t })), 8); n++; }
+  }
+  return n;
+}
+/* APERÇU ADMIN — LE RÉCAP DE SÉANCE AVANT PUBLICATION (26/08).
+   L'utilisateur veut voir le rendu sur les VRAIES données du jour et valider avant que quoi que ce
+   soit parte aux clients. Cette route construit les trois récaps À BLANC — aucune publication,
+   aucune écriture dans le fil, aucun appel IA — et les rend à côté des chiffres du Récap Quotidien
+   pour comparaison. Tant qu'elle n'est pas validée, le bloc chiffré ne coûte rien à personne. */
+app.get('/api/admin/seance-apercu', requireAdmin, (_req, res) => {
+  const now = Date.now();
+  const sortie = { genereA: new Date(now).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }), seances: [], calendrierDuJour: [], diagnostic: {} };
+  for (const type of Object.keys(_SEA.FENETRES)) {
+    const b = _bornesSeance(type, now);
+    const perfs = _perfDuJour(type);
+    const macros = _macroDeLaSeance(type);
+    const bullets = [];
+    const rubriques = _poserBlocDesk(bullets, type);
+    sortie.seances.push({
+      type, nom: b && b.nom,
+      fenetre: b ? `${new Date(b.debutTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })} → ${new Date(b.finTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })}` : '',
+      rubriquesChiffrees: rubriques,
+      actifsMesures: perfs.length, publicationsTrouvees: macros.length,
+      bullets,
+      aSurveiller: _aSurveillerSeanceSuivante(type),
+    });
+  }
+  // Le calendrier du jour, tel que les DEUX rapports le lisent : c'est la source commune, donc le
+  // point de comparaison. Si un chiffre diffère entre les deux rapports, il vient d'ici ou de nulle part.
+  try {
+    const [Y, M, D] = _jourParis(now).split('-').map(Number), off = _offsetParis(now);
+    const j0 = Date.UTC(Y, M - 1, D, 0, 0, 0) - off;
+    sortie.calendrierDuJour = ((_tvCalCache && _tvCalCache.items) || [])
+      .filter(e => e && e.timestamp >= j0 && e.timestamp <= now && e.actual)
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .slice(0, 40)
+      .map(e => ({ h: new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }), ccy: e.currency, titre: _WA.intituleAffiche(e), reel: e.actual, attendu: e.forecast || '', prec: e.previous || '', impact: e.impact }));
+  } catch (e) { sortie.calendrierDuJour = []; }
+  sortie.diagnostic = {
+    calendrierEnMemoire: ((_tvCalCache && _tvCalCache.items) || []).length,
+    performanceMesuree: Object.fromEntries(Object.entries(_perfSeance.par).map(([k, v]) => [k, { jour: v.jour, actifs: (v.actifs || []).length, mesureA: new Date(v.ts).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris' }) }])),
+    seanceCourante: _seanceCourante(now) || '(aucune)',
+    recapQuotidien: (() => { try { const r = allNews.find(i => i && i._fxr); return r ? { titre: r.headline, publieA: new Date(r.timestamp).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }) } : '(pas encore publié)'; } catch { return '(indisponible)'; } })(),
+  };
+  res.json(sortie);
+});
 function buildAsiaRecap({ dateStr, s, reportType }) {
   const bullets = [];
   bullets.push(`Récap séance Asie : ${s.all.length} éléments suivis · ${dateStr}`);
+  _poserBlocDesk(bullets, reportType);   // synthèse + photo de séance + chiffres (omis si le desk n'a rien)
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
   _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.asian, ...s.nrg, ...s.trade], 4);
@@ -9835,6 +10009,7 @@ function buildAsiaRecap({ dateStr, s, reportType }) {
 function buildLondonRecap({ dateStr, s, reportType }) {
   const bullets = [];
   bullets.push(`Récap séance Londres : ${s.all.length} éléments suivis · ${dateStr}`);
+  _poserBlocDesk(bullets, reportType);   // synthèse + photo de séance + chiffres (omis si le desk n'a rien)
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
   _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.nrg, ...s.trade], 4);
@@ -9845,6 +10020,7 @@ function buildLondonRecap({ dateStr, s, reportType }) {
 function buildUSRecap({ dateStr, s, reportType }) {
   const bullets = [];
   bullets.push(`Récap séance New York : ${s.all.length} éléments suivis · ${dateStr}`);
+  _poserBlocDesk(bullets, reportType);   // synthèse + photo de séance + chiffres (omis si le desk n'a rien)
   _pushBullets(bullets, 'Géopolitique', s.geo, 3);
   _pushBullets(bullets, 'Macro', [...s.cb, ...(s.hdata.length ? s.hdata : s.data)], 4);
   _pushBullets(bullets, 'Analyse de séance', [...s.fx, ...s.nrg, ...s.trade], 4);
