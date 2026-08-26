@@ -140,13 +140,38 @@ async function getAffiliateInfo(email) {
       const r = await fetch(`${BASE}/memberships?valid=true&per=50&page=${page}&product_id=${DTP_PRODUCT}`, { headers: _auth() });
       if (!r.ok) break;
       const j = await r.json();
-      m = (j.data || []).find(x => String(x.email || '').toLowerCase().trim() === target);
+      // `_memEmail` et non `x.email` : c'est exactement la lecture naïve qui avait rendu invisible
+      // un vrai client à adresse masquée le 27/08 (cf. le bandeau en tête de fichier). Le même
+      // défaut ici ne fait pas tomber l'abonnement, mais il prive le membre de son lien d'affilié.
+      m = (j.data || []).find(x => _memEmail(x) === target);
       if (m) break;
       const pg = j && j.pagination;
       totalPages = (pg && (pg.total_page || pg.total_pages)) || 1;
       page++;
     } while (page <= totalPages && page <= 6);
   if (totalPages > 6) console.warn('[Whop] pagination TRONQUÉE (cap 6 pages, ' + totalPages + ' annoncées) — jeu de données incomplet');
+    /* ══ REPLI : N'IMPORTE QUELLE ADHÉSION DE L'ESPACE SUFFIT (02/09) ══════════════════════════════
+       La recherche ci-dessus est filtrée sur le produit DTP. Conséquence mesurée à l'audit : un
+       compte AMI, OFFERT ou créé à la main — qui n'a donc aucune adhésion payante DTP — ne pouvait
+       JAMAIS obtenir de lien d'affiliation, quoi qu'il fasse. Et le panneau lui demandait pourtant
+       de « rejoindre le Whop », ce qui ne changeait rien : rejoindre l'offre GRATUITE crée une
+       adhésion à un AUTRE produit, invisible pour la requête filtrée.
+       Or le lien d'affiliation Whop n'a pas besoin d'une adhésion au produit vendu : il a besoin
+       d'un NOM D'UTILISATEUR Whop, qu'une adhésion gratuite fournit aussi bien. On refait donc un
+       tour sans filtre produit. C'est ce qui rend vraie la promesse affichée au client. */
+    if (!m) {
+      let page2 = 1, tp2 = 1;
+      do {
+        const r2 = await fetch(`${BASE}/memberships?valid=true&per=50&page=${page2}`, { headers: _auth() });
+        if (!r2.ok) break;
+        const j2 = await r2.json();
+        m = ((Array.isArray(j2) ? j2 : j2.data) || []).find(x => _memEmail(x) === target);
+        if (m) break;
+        const pg2 = j2 && j2.pagination;
+        tp2 = (pg2 && (pg2.total_page || pg2.total_pages)) || 1;
+        page2++;
+      } while (page2 <= tp2 && page2 <= 6);
+    }
     if (!m) return null;
     const pageUrl = m.affiliate_page_url ? String(m.affiliate_page_url) : null;
     let username = (m.username && String(m.username)) ||

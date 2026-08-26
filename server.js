@@ -1029,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260903-parrainage-retour', ts: Date.UTC(2026, 8, 3, 9, 0), title: 'Parrainage : le lien d affiliation arrive meme sans abonnement payant, et un mot de retour pour qui se reabonne', desc: 'PARRAINAGE — AUDIT ET CORRECTIF. Le panneau Parrainages n affiche un lien que si Whop connait le client : on demande a Whop l adhesion portant l adresse du compte, on en tire le nom d utilisateur, et le lien d affiliation se construit avec. L audit a trouve un defaut : cette recherche etait filtree sur le PRODUIT payant. Un compte AMI, OFFERT ou cree a la main n a pas d adhesion payante — il ne pouvait donc JAMAIS obtenir de lien, quoi qu il fasse. Et le panneau lui demandait pourtant de rejoindre le Whop, ce qui ne changeait rien : rejoindre l offre gratuite cree une adhesion a un AUTRE produit, invisible pour une requete filtree. La promesse affichee etait fausse pour ces comptes. Le serveur cherche desormais l adhesion dans TOUT l espace JustOneTrader quand le produit payant ne donne rien. REPONSE PRECISE A LA QUESTION POSEE : quel Whop faut-il rejoindre ? PEU IMPORTE, et c est maintenant ecrit noir sur blanc dans le panneau — l OFFRE GRATUITE SUFFIT. Le lien d affiliation ne demande pas d etre abonne au produit vendu, il demande un compte Whop rattache a l espace. Un bouton J AI REJOINT — VERIFIER a ete ajoute : le lien apparaissait jusqu ici au prochain rechargement de page, sans que rien ne le dise. Une adresse masquee par Apple est egalement reconnue, comme elle l est deja pour l abonnement lui-meme. Ce qui NE CHANGE PAS, et c est volontaire : sans compte Whop, aucun lien n est fabrique. Un lien interne ne verse aucune commission ; mieux vaut afficher les deux etapes d inscription qu un lien qui ne paiera jamais. UN MOT DE RETOUR POUR QUI SE REABONNE. Une reprise d abonnement ne produisait aucun message dans le chat : le client rouvrait le desk sur son message de bienvenue d inscription, un texte qui lui explique ce qu il sait deja. Il recoit maintenant un mot de retour, et ce mot n est pas le meme au deuxieme qu au premier — le choix se fait sur un compteur de reprises, jamais au hasard, sinon deux reprises tireraient le meme texte une fois sur quatre. Il part sur les DEUX chemins de reactivation, le webhook Whop et le panneau d administration. Un renouvellement mensuel de routine, lui, ne declenche rien : ecrire tous les mois a quelqu un qui n a rien demande, ce n est pas de l attention, c est du bruit.' },
   { id: 'dtpu-20260902-trait-horloge', ts: Date.UTC(2026, 8, 2, 23, 0), title: 'Le trait dore devant les titres de blocs est retire, et l Horloge mondiale montre enfin tout', desc: 'Deux corrections signalees capture a l appui. LE TRAIT DORE DEVANT LES TITRES DE BLOCS DISPARAIT — POUR LA SECONDE FOIS. Il avait ete retire sur demande le 19 aout. Une regle d extinction avait bien ete posee, mais elle ne visait pas les titres des cartes du desk ; et surtout un bloc de finition ecrit deux jours plus tard l a REDESSINE pour toutes les familles de titres, plus bas dans la feuille de style. Le trait est donc revenu partout, y compris la ou il n avait jamais ete demande. Cette fois la declaration est SUPPRIMEE et non eteinte par-dessus : une extinction empilee se fait rallumer par le prochain bloc de finition, une declaration absente non. Un controle mesure desormais la position du texte dans son titre : un repere de deux pixels suivi de sa marge decalerait le texte de dix pixels, et cela se verrait immediatement. L HORLOGE MONDIALE MONTRE TOUT CE QU ELLE AFFICHE. Troisieme signalement du meme defaut, et la cause etait une contradiction interne : le widget a deux dispositifs d adaptation poses a des dates differentes. Des requetes de conteneur compactent le contenu quand la carte devient basse ; un plancher de rangee, ajoute plus tard, garantissait qu une grille repliee n ecrase pas ses cellules. Le plancher ne connaissait pas les paliers : sur une carte basse le contenu se compactait pendant que la rangee restait bloquee a 136 pixels. Mesure au banc : jusqu a 72 pixels de contenu hors cadre, donc le pays, la meteo et le vent de chaque place inatteignables autrement qu en defilant. Le plancher suit maintenant la hauteur du cadre quand les places tiennent sur une seule rangee — rien ne depasse — et reprend ses 136 pixels quand la grille se replie, ou le defilement reste le dernier recours voulu. Deux paliers de compaction manquaient entre les existants : ils sont ajoutes, et la degradation est graduee — d abord la typo, puis le vent, puis la meteo, puis la date ; l heure et la ville ne cedent jamais. Enfin, sur le modele par defaut, l horloge prend une rangee de plus (prise sur le panneau a onglets qui en a vingt-deux) : elle s affiche entiere, sans rien compacter, pour tout le monde.' },
   { id: 'dtpu-20260902-paire-recherche', ts: Date.UTC(2026, 8, 2, 21, 0), title: 'Le selecteur de paire du graphique se cherche : recherche, classes d actif et drapeaux', desc: 'Le widget Graphique laisse choisir parmi trente-cinq symboles : les vingt-huit croisements des majeures, quatre indices, trois matieres premieres. Ils arrivaient dans une liste deroulante d un seul tenant, sans regroupement ni recherche — trouver CAD/CHF s y faisait a l oeil, ligne par ligne, et rien ne distinguait un indice d une paire. Le menu reprend desormais ce que montre la reference fournie. UN CHAMP DE RECHERCHE, qui prend le focus des l ouverture : trois lettres suffisent. Il ignore accents et majuscules. DES PUCES DE CLASSE D ACTIF — Forex, Indices, Matieres premieres — qui se combinent a la recherche au lieu de l annuler. ET UN DRAPEAU PAR DEVISE : une paire porte les deux drapeaux de ses devises, legerement chevauches comme sur le bandeau d accueil ; un indice ou une matiere premiere n en porte aucun, il n a pas de pays. Au clavier : Entree prend la premiere entree encore visible — apres trois lettres il n en reste souvent qu une, exiger un clic serait absurde — et Echap referme sans rien choisir. UNE PRECISION SUR CE CORRECTIF. Un champ de recherche avait deja ete pose la veille sur les longues listes du panneau de reglages. Il ne couvrait pas celui-ci : la paire du graphique n est pas rendue par le panneau mais par la barre du widget, une surface differente. L ecart a ete releve a l audit et comble ici, avec son propre banc de controle pour qu il ne se rouvre pas.' },
   { id: 'dtpu-20260902-donnees-autres', ts: Date.UTC(2026, 8, 2, 18, 0), title: 'Une neuvieme rubrique de donnees : les publications des pays hors des huit ont enfin leur place', desc: 'Le desk classe les sorties de calendrier dans huit rubriques pays : Donnees US, EU, UK, Suisse, Japon, Canada, Australie, Chine. Une publication venue d ailleurs — Suede, Norvege, Bresil, Mexique, Inde — n avait aucune rubrique et tombait en Actualites mondiales. C etait le dernier trou du correctif du 31 aout : depuis, une sortie de calendrier se reconnait a sa FORME et non a son vocabulaire, mais un garde-fou laissait repartir au fourre-tout toute ligne dont le pays n etait pas nommable. Le raisonnement tenait pour le PAYS — on ne le devine pas — mais pas pour la NATURE : que Swedish CPI Actual 2.1% Forecast 2.0% soit une publication est etabli par la signature elle-meme. L envoyer en Actualites mondiales etait une erreur de classement, pas une prudence. Une neuvieme rubrique est donc ajoutee : Donnees autres pays. POURQUOI AJOUTER PLUTOT QUE FUSIONNER. L autre solution etait de remplacer les huit rubriques pays par une seule Calendrier economique. Elle bouchait le trou elle aussi, mais au prix du filtrage par pays — couper Donnees Chine en gardant Donnees US, ce que des clients font. Ajouter une rubrique ne change le sens d aucun reglage deja enregistre. Elle arrive ACTIVE pour tout le monde, y compris sur les comptes existants : la preference est stockee en negatif cote serveur, et un rattrapage a ete pose pour le cache local, qui garde lui la liste des rubriques actives et aurait lu l absence de la neuvieme comme un choix de l utilisateur. Enfin, elle ne devient pas le nouveau fourre-tout : elle est posee APRES le test de signature, donc une depeche sans chiffre n y tombe jamais.' },
@@ -2384,6 +2385,53 @@ function _sendWelcomeChat(userId) {
   auth.chatInsert({ user_id: userId, sender: 'support', text: welcomeChat() }).catch(() => {});
 }
 
+/* ══ LE MOT DE RETOUR — ET IL CHANGE À CHAQUE REPRISE ═══════════════════════════════════════════
+   02/09, demande utilisateur : « quand un user reprend un abonnement le message doit être différent
+   à chaque fois ». Jusqu'ici, une reprise d'abonnement ne produisait AUCUN message dans le chat :
+   seul un e-mail partait. Le client rouvrait donc le desk sur la conversation d'avant, dont le
+   dernier message était le « Bienvenue » de sa première inscription — un texte qui lui explique ce
+   qu'il sait déjà, et qui sonne faux à quelqu'un qui revient.
+   Il reçoit maintenant un mot de RETOUR, et ce mot n'est pas le même au deuxième qu'au premier. Le
+   choix se fait sur un COMPTEUR de reprises, jamais au hasard : deux reprises tireraient sinon le
+   même texte une fois sur quatre, ce qui est précisément ce qu'on cherche à éviter. Le compteur vit
+   en KV (`retours:<userId>`), comme les préférences du desk.
+   Le mot est envoyé sur une RÉACTIVATION (compte inactif qui redevient actif), pas sur un
+   renouvellement mensuel de routine : écrire tous les mois à quelqu'un qui n'a rien demandé, ce
+   n'est pas de l'attention, c'est du bruit. */
+const RETOUR_CHAT = [
+  "Content de te revoir 👋\n\n"
+  + "Ton accès est réactivé, tout est là où tu l'avais laissé — Mon Desk a gardé tes blocs.\n\n"
+  + "Une question sur ce qui a changé depuis ? Écris-moi ici.\n\n"
+  + "L'équipe DataTradingPro",
+
+  "Te revoilà 👋\n\n"
+  + "L'accès est rouvert. Le fil, le calendrier et tes analyses reprennent immédiatement.\n\n"
+  + "Si tu veux un point sur les nouveautés arrivées entre-temps, demande-moi : l'onglet DTP des alertes les liste aussi.\n\n"
+  + "L'équipe DataTradingPro",
+
+  "Bon retour parmi nous 👋\n\n"
+  + "C'est reparti : ton desk, tes réglages et tes recherches récentes sont intacts.\n\n"
+  + "Besoin d'un coup de main pour recomposer ton espace ? Je suis là.\n\n"
+  + "L'équipe DataTradingPro",
+
+  "Ravi de te retrouver 👋\n\n"
+  + "Accès rouvert, rien à reconfigurer. Si un widget te manque, la bibliothèque est dans Mon Desk.\n\n"
+  + "Écris-moi ici pour n'importe quoi.\n\n"
+  + "L'équipe DataTradingPro",
+];
+function retourChat(n) {
+  const i = Math.max(1, parseInt(n, 10) || 1) - 1;
+  return RETOUR_CHAT[i % RETOUR_CHAT.length];
+}
+async function _sendRetourChat(userId) {
+  if (!userId) return;
+  let n = 0;
+  try { n = Number(await auth.aiCacheGet('retours:' + userId, 8640000000000)) || 0; } catch {}
+  n += 1;
+  try { await auth.aiCacheSet('retours:' + userId, n); } catch {}
+  try { await auth.chatInsert({ user_id: userId, sender: 'support', text: retourChat(n) }); } catch {}
+}
+
 // Envoi de bienvenue FIABLE + VISIBLE : on AWAIT, on LOGGE clairement le résultat, et on REMONTE
 // le statut à l'appelant (fini le `.catch(()=>{})` muet — un mail raté ne disparaît plus en silence).
 // La résilience d'envoi est déjà assurée par la cascade de fournisseurs côté mailer (OVH → Gmail API
@@ -2475,9 +2523,11 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
         .then(u => { if (u?.email && u.role === 'client' && !_isGift(u.email) && !_isFriend(u)) mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
         .catch(() => {});
     } else if (activeReq === true && before && !before.active) {
-      // Réactivé (était SUSPENDU → actif) → email de réactivation
+      // Réactivé (était SUSPENDU → actif) → email de réactivation + mot de retour dans le chat.
+      // Le chat suit l'e-mail sur les DEUX chemins de réactivation (Whop et panneau admin) : un
+      // client réactivé à la main a exactement le même besoin que celui qui repasse par Whop.
       auth.getUserById(id)
-        .then(u => { if (u?.email && u.role === 'client') mailer.sendReactivated({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
+        .then(u => { if (u?.email && u.role === 'client') { mailer.sendReactivated({ to: u.email, name: u.name, expiresAt: u.expires_at }); _sendRetourChat(u.id).catch(() => {}); } })
         .catch(() => {});
     } else if (_extended) {
       // Prolongation/renouvellement MANUEL d'un compte déjà actif (y compris expiré-mais-actif) →
@@ -3045,7 +3095,8 @@ async function _whopRenewOrCreate(mem) {
     const dedupKey = `whop-renew:${existing.id}:${mem.expiresAt || 'unlimited'}`;
     if (await auth.emailLogHas(dedupKey)) { console.log(`[Whop] Renouvellement déjà notifié (anti-doublon) → ${mem.email}`); return; }
     await auth.emailLogAdd(dedupKey);
-    if (wasInactive) mailer.sendReactivated({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
+    // Réactivation : e-mail ET mot de retour dans le chat, différent à chaque reprise (cf. RETOUR_CHAT).
+    if (wasInactive) { mailer.sendReactivated({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {}); _sendRetourChat(existing.id).catch(() => {}); }
     else             mailer.sendRenewed({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
     mailer.sendAdminRenewalNotice({ clientEmail: existing.email, clientName: existing.name, expiresAt: mem.expiresAt, isNew: false }).catch(() => {});
     console.log(`[Whop] Renouvelé: ${mem.email} → ${mem.expiresAt || 'illimité'}`);
