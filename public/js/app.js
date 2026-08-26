@@ -11607,15 +11607,37 @@ function npPush(items, opts) {
   // Web Push notification (only for high priority items) : JAMAIS de son OS : on force silent:true
   // (le carillon interne est la SEULE source de son), et on ne crée RIEN si le son est coupé.
   const muted = (typeof _npGlobalMute === 'function' && _npGlobalMute());
+  /* ⚠️ CORRECTIF 04/09 — LE FIL SE FIGEAIT SUR ANDROID, EXACTEMENT QUAND UNE NEWS IMPORTANTE TOMBAIT.
+     `new Notification(...)` LÈVE sur Chrome Android : le navigateur y impose
+     `ServiceWorkerRegistration.showNotification()` et refuse le constructeur direct
+     (« Illegal constructor »). L'appel n'était protégé par aucun try/catch, et il se trouve à
+     l'AVANT-DERNIÈRE ligne de npPush : l'exception remontait donc jusqu'à l'appelant, qui n'appelait
+     plus `renderNews()` ni `_setNotifBadge()` — le fil restait sur son état précédent.
+     Le détail qui rendait la panne indétectable : ce chemin ne s'exécute QUE si le lot contient un
+     élément prioritaire ou urgent. Sur un lot ordinaire, tout marchait. Un client Android avec les
+     notifications autorisées voyait donc son fil se figer précisément sur la dépêche qu'il attendait
+     — et jamais les autres. C'est le genre de symptôme qu'on ne reproduit pas au bureau.
+     Deux corrections, pas une : on passe par le service worker quand il y en a un (le seul chemin
+     qu'Android accepte), et surtout ON N'INTERROMPT JAMAIS LE FIL pour une notification système.
+     Le carillon interne et le panneau, eux, ne dépendent de rien de tout ça. */
   if (_npPush && !muted && 'Notification' in window && Notification.permission === 'granted') {
     const hi = items.find(i => i.priority === 'high' || i.urgent);
     if (hi) {
-      new Notification('DataTradingPro', {
+      const opts = {
         body:   hi.headline,
         icon:   '/favicon.png',
         tag:    'dtp-' + hi.id,
         silent: true,   // pas de son OS : seul le carillon interne (respectant Muet) sonne
-      });
+      };
+      try {
+        const sw = navigator.serviceWorker && navigator.serviceWorker.ready;
+        if (sw && sw.then) sw.then(function (reg) { try { reg.showNotification('DataTradingPro', opts); } catch (e) {} }).catch(function () {});
+        else new Notification('DataTradingPro', opts);
+      } catch (e) {
+        // Constructeur refusé (Android), permission révoquée entre-temps, quota du navigateur :
+        // aucune de ces raisons ne justifie de priver le lecteur de sa news.
+        try { console.warn('[Notif] notification système impossible :', e && e.message); } catch (e2) {}
+      }
     }
   }
   return newOnes;

@@ -7995,12 +7995,54 @@
        au moment où le pointeur entre dans la carte — c'est le seul instant qui compte, et il est
        toujours à jour, contrairement à une classe posée au rendu qu'un contenu chargé plus tard
        rendrait fausse. */
+    /* ⚠️ REPRISE 04/09, capture user : « mon curseur est sur le truc du scroller et ça affiche pas le
+       scroller mais le truc pour élargir le bloc ». Le correctif du 31/08 était bon dans son
+       principe et FAUX dans sa mesure : il ne regardait QUE `.wdg-body`. Or le desk empile une
+       douzaine de conteneurs défilants À L'INTÉRIEUR du corps — .wdg-cal-wrap, .wdg-jr-list,
+       .wdg-biaswrap, .wdg-taux, .dmx-table-wrap… Dans un panneau à onglets, ce n'est jamais le corps
+       qui défile, c'est le contenu de l'onglet. La condition tombait donc à faux, la classe n'était
+       pas posée, et la poignée reprenait toute la bande de la barre. Le défaut n'avait pas disparu :
+       il s'était réduit aux widgets simples, ceux sur lesquels on l'avait éprouvé.
+       DEUX CORRECTIONS. On cherche le débordement PARTOUT dans le corps, pas seulement sur lui. Et
+       on exige que la barre PRENNE DE LA PLACE (`offsetWidth > clientWidth`) : un contenu qui
+       déborde sans barre visible n'a rien à protéger, et décaler la poignée pour lui l'éloignerait
+       du bord sans raison — c'est cette précision-là qui manquait.
+       Le balayage est borné dans le temps : `pointerover` remonte à chaque élément survolé, et
+       relire la géométrie de tout un widget à chaque pixel serait ruineux. On recalcule au
+       changement de carte, ou après un quart de seconde — assez pour suivre un changement d'onglet,
+       assez peu pour ne rien coûter. */
+    var _bCarte = null, _bAt = 0;
+    /* ⚠️ ET SURTOUT PAS DE TEST « LA BARRE PREND-ELLE DES PIXELS ? ». Écrit d'abord avec
+       `offsetWidth > clientWidth` — la façon classique de savoir si une barre occupe de la place —
+       le correctif s'est révélé MUET au banc : dans le Chromium mesuré, la barre est en
+       SURIMPRESSION et les deux largeurs sont égales alors que l'élément défile pour de bon. La
+       condition aurait donc désactivé tout le correctif sur ces navigateurs, sans que rien ne le
+       signale, exactement comme le défaut qu'on répare. Un raffinement qui dépend d'un détail de
+       rendu variable n'est pas une précision, c'est une loterie.
+       Ce qui reste vrai partout : l'élément défile, et son bord droit est sous la poignée. Décaler
+       la poignée quand la barre est en surimpression ne coûte rien — elle est invisible tant qu'on
+       ne survole pas la carte. */
+    function _barreAuBord(el, bord) {
+      if (!el || el.scrollHeight <= el.clientHeight + 1) return false;
+      var r = el.getBoundingClientRect();
+      return r.width > 20 && (bord - r.right) <= 12;            // son bord droit est bien sous la poignée
+    }
+    function _carteDefile(card) {
+      var body = card.querySelector('.wdg-body');
+      if (!body) return false;
+      var bord = card.getBoundingClientRect().right;
+      if (_barreAuBord(body, bord)) return true;
+      var els = body.querySelectorAll('*');
+      for (var i = 0; i < els.length; i++) if (_barreAuBord(els[i], bord)) return true;
+      return false;
+    }
     host.addEventListener('pointerover', function (e) {
       var card = e.target && e.target.closest && e.target.closest('.wdg-card');
       if (!card) return;
-      var body = card.querySelector('.wdg-body');
-      var defile = !!body && body.scrollHeight > body.clientHeight + 1;
-      card.classList.toggle('wdg-card--barre', defile);
+      var now = (window.performance && performance.now) ? performance.now() : Date.now();
+      if (card === _bCarte && (now - _bAt) < 250) return;
+      _bCarte = card; _bAt = now;
+      card.classList.toggle('wdg-card--barre', _carteDefile(card));
     });
     // — Redimensionnement LIBRE : poignée de COIN (largeur+hauteur) OU poignée de BORD DROIT (largeur seule),
     //   avec SNAP sur la grille et aperçu live. Le GAP est lu DYNAMIQUEMENT (getComputedStyle) car la densité

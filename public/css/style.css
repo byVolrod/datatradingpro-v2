@@ -13174,6 +13174,21 @@ html[data-theme="light"] a { color: #b8860b; }
 .wdg-card--tabs > .wdg-head .wdg-actions { background: var(--head-bg); border-radius: 3px; padding: 0 2px; opacity: 0; transition: opacity .14s var(--ease); }
 .wdg-card--tabs:hover > .wdg-head .wdg-actions, .wdg-card--tabs > .wdg-head .wdg-actions:focus-within { opacity: 1; }
 .wdg-card--tabs .wdgt-bar { padding-left: 26px; }
+/* ⚠️ LE TRAIT DORÉ PASSAIT DERRIÈRE LES COMMANDES (04/09, capture user : « on dirait que c'est un
+   bug, on voit le trait doré qui passer à travers »). Deux causes qui se cumulent, et aucune ne se
+   voit en lisant une règle isolée :
+     · sur une carte à onglets, l'en-tête est posé EN SURIMPRESSION de la barre d'onglets
+       (`position: absolute`), et rien ne réservait la place des commandes : l'onglet actif pouvait
+       donc s'étendre jusque sous elles, son liseré avec ;
+     · la plaque de fond des commandes ne fait que la hauteur des icônes, centrée. Le liseré vit,
+       lui, sur les 2 derniers pixels du bas — précisément la bande que la plaque ne couvre pas.
+       Il ressortait donc DE PART ET D'AUTRE des icônes, ce qui se lit comme un trait qui les
+       traverse.
+   On corrige les deux : la barre réserve la largeur des commandes à TOUTES les tailles d'écran (la
+   règle n'existait que pour le tactile), et la plaque prend toute la hauteur de l'en-tête, si bien
+   qu'un onglet qu'on ferait défiler sous elle disparaît proprement derrière au lieu d'en dépasser. */
+.wdg-card--tabs .wdgt-bar { padding-right: 96px; }
+.wdg-card--tabs > .wdg-head .wdg-actions { align-self: stretch; display: flex; align-items: center; }
 /* Champ de renommage inline (double-clic sur un onglet) */
 .wdgt-edit { width: 92px; background: var(--bg); border: 1px solid rgba(227, 178, 58, .55); border-radius: 3px; color: var(--text); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; padding: 2px 5px; margin: 0 2px; text-transform: none; letter-spacing: normal; }
 .wdgt-edit:focus { outline: none; box-shadow: var(--focus-ring); }
@@ -19144,6 +19159,48 @@ html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; bor
 .wdg-frise-bloc.est-ouvert::before { opacity: .85; }
 .wdg-frise-bloc { border: 1px solid var(--frise-ton, #3a3f4b); box-sizing: border-box; }
 .wdg-frise-bloc.est-ouvert { box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b); }
+/* ══ LA SÉANCE EN COURS S'ALLUME (04/09, demande user) ════════════════════════════════════════════
+   « Quand une session est en cours, augmente l'éclairage sur la session, comme si c'était dynamique,
+   ça s'allumait légèrement plus que les autres, en mode propre premium. »
+   L'état ouvert ne se disait jusqu'ici que par de la MATIÈRE : un aplat un peu plus dense (.85
+   contre .42). C'est juste, et c'est plat — sur une frise où quatre plages se suivent, la différence
+   se compare, elle ne saute pas aux yeux.
+   Trois couches, et aucune n'emprunte le vert ni le rouge : la charte les réserve aux signaux de
+   marché, et une plage de séance n'en est pas un. Tout est tiré de `--frise-ton`, la couleur propre
+   à la place — c'est elle qui identifie Sydney de Tokyo d'une ligne à l'autre, l'allumer ne doit pas
+   la remplacer.
+     · un dégradé de lumière rasante en haut du bloc, qui lui donne du volume ;
+     · un halo extérieur de sa propre couleur, qui le décolle de la piste ;
+     · un souffle très lent (3,4 s) sur le halo SEUL. C'est le « comme si c'était dynamique » : la
+       matière ne bouge pas, l'horaire écrit dedans ne clignote pas, seule la lumière respire.
+   ⚠️ `color-mix` est déclaré APRÈS une ombre en couleur pleine : un navigateur qui ne le comprend
+   pas garde la première déclaration et voit un halo, un peu plus dur, au lieu de n'en voir aucun.
+   ⚠️ Et le souffle s'arrête pour qui a demandé moins d'animations : une frise qui pulse en
+   permanence dans le coin de l'œil est exactement ce que ce réglage existe pour éteindre. */
+.wdg-frise-bloc.est-ouvert::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .17), rgba(255, 255, 255, 0) 58%), var(--frise-ton, #3a3f4b);
+}
+.wdg-frise-bloc.est-ouvert {
+  box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b), 0 0 11px -3px var(--frise-ton, #3a3f4b);
+  box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b),
+              0 0 12px -3px color-mix(in srgb, var(--frise-ton, #3a3f4b) 72%, transparent);
+  animation: friseSouffle 3.4s ease-in-out infinite;
+}
+@keyframes friseSouffle {
+  0%, 100% { box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b),
+                         0 0 8px -4px color-mix(in srgb, var(--frise-ton, #3a3f4b) 55%, transparent); }
+  50%      { box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b),
+                         0 0 17px -2px color-mix(in srgb, var(--frise-ton, #3a3f4b) 90%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .wdg-frise-bloc.est-ouvert { animation: none; } }
+/* En clair, un halo se voit moins et une lumière rasante blanche délave la couleur : on garde le
+   volume, on rend le halo plus serré, et on baisse la lumière du haut. */
+html[data-theme="light"] .wdg-frise-bloc.est-ouvert::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 60%), var(--frise-ton, #3a3f4b);
+}
+html[data-theme="light"] .wdg-frise-bloc.est-ouvert {
+  box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b), 0 0 7px -3px var(--frise-ton, #3a3f4b);
+}
 .wdg-frise-bloc b { color: var(--txt-1, #e6e8eb); text-shadow: 0 1px 3px rgba(0, 0, 0, .75); }
 html[data-theme="light"] .wdg-frise-bloc b { color: #17181d; text-shadow: 0 1px 2px rgba(255, 255, 255, .8); }
 .wdg-frise-bloc b { position: relative; z-index: 1; }

@@ -209,6 +209,41 @@ function phaseLogique() {
     verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2');
     verif('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
 
+    /* ── ANDROID : UNE NOTIFICATION SYSTÈME QUI ÉCHOUE NE FIGE PAS LE FIL (04/09) ────────────────
+       Chrome sur Android REFUSE `new Notification(...)` — il impose
+       `ServiceWorkerRegistration.showNotification()` et lève « Illegal constructor ». L'appel
+       n'était protégé par aucun try/catch et se trouvait à l'avant-dernière ligne de `npPush` :
+       l'exception remontait jusqu'à l'appelant, qui n'appelait donc plus `renderNews()`. Le fil
+       restait sur son état précédent.
+       ⚠️ ET LA PANNE ÉTAIT INDÉTECTABLE AU BUREAU, pour deux raisons qui se cumulent : ce chemin ne
+       s'exécute QUE si le lot contient un élément prioritaire ou urgent, et le constructeur ne lève
+       QUE sur Android. Sur un desktop, avec un lot ordinaire, tout marche. Le client Android voyait
+       son fil se figer précisément sur la dépêche qu'il attendait — et jamais sur les autres.
+       On reproduit donc les DEUX conditions à la fois : constructeur qui lève, élément urgent. */
+    const andro = await page.evaluate(() => {
+      const out = { avant: document.querySelectorAll('.news-item').length, jete: null, retour: null, apres: null };
+      const vrai = window.Notification;
+      try {
+        // Le constructeur d'Android, à l'identique : il lève, toujours.
+        function NotifAndroid() { throw new TypeError("Failed to construct 'Notification': Illegal constructor."); }
+        NotifAndroid.permission = 'granted';
+        NotifAndroid.requestPermission = () => Promise.resolve('granted');
+        window.Notification = NotifAndroid;
+        const urgent = [{ id: 'and-' + Date.now(), headline: 'Test Android', timestamp: Date.now(),
+          priority: 'high', urgent: true, source: 'Test', category: 'Global News' }];
+        try { out.retour = npPush(urgent); out.jete = false; }
+        catch (e) { out.jete = true; out.err = String(e && e.message); }
+      } finally { window.Notification = vrai; }
+      out.apres = document.querySelectorAll('.news-item').length;
+      return out;
+    });
+    verif('un constructeur de notification qui LÈVE ne fait pas remonter d\'exception',
+      andro.jete === false, andro.err || 'npPush a laissé passer l\'exception');
+    verif('… npPush rend bien sa valeur de retour (l\'appelant continue son travail)',
+      typeof andro.retour === 'number', String(andro.retour));
+    verif('… et le fil n\'a pas perdu ses lignes au passage',
+      andro.apres >= andro.avant, andro.avant + ' → ' + andro.apres);
+
     /* ── LA FRISE DES SESSIONS : L'ÉTAT SE LIT AU BOUT DE LA LIGNE ─────────────────────────────
        01/09, référence fournie. Le badge était collé au nom, en petit texte gris : sur quatre
        places, l'œil devait le chercher à quatre abscisses différentes, les noms n'ayant pas la même
@@ -390,10 +425,64 @@ function phaseLogique() {
     verif('une carte qui ne défile pas garde sa poignée au bord',
       Math.abs(bar.ap.c2.hDroite - bar.ap.c2.carteDroite) < 1.5,
       'poignée à ' + bar.ap.c2.hDroite.toFixed(1) + ', bord de carte à ' + bar.ap.c2.carteDroite.toFixed(1));
-    // La classe n'est pas décorative : c'est widgets.js qui la pose, sur la mesure du débordement.
+    /* ── LA DÉTECTION ELLE-MÊME, ÉPROUVÉE SUR LE VRAI CODE ──────────────────────────────────────
+       ⚠️ CE CONTRÔLE A DÛ ÊTRE RÉÉCRIT (04/09) et la raison mérite d'être gardée : il exigeait la
+       PRÉSENCE LITTÉRALE de `body.scrollHeight > body.clientHeight + 1`. Il est donc passé au rouge
+       le jour où cette ligne a été REMPLACÉE PAR MIEUX — un banc qui accuse le code parce qu'il
+       s'améliore pousse à ne plus l'améliorer. On éprouve désormais la PROPRIÉTÉ, sur la vraie
+       fonction découpée dans widgets.js.
+       Et la propriété est plus large qu'on ne l'avait écrite : capture user du 04/09, « mon curseur
+       est sur le truc du scroller et ça affiche pas le scroller mais le truc pour élargir ». La
+       détection ne regardait QUE `.wdg-body`. Or le desk empile une douzaine de conteneurs
+       défilants À L'INTÉRIEUR du corps, et dans un panneau à onglets ce n'est jamais le corps qui
+       défile. Le défaut n'avait pas disparu en août : il s'était réduit aux widgets simples, ceux
+       sur lesquels on l'avait éprouvé. */
     const WID2 = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
-    verif('la classe est posée sur le VRAI débordement du corps',
-      /body\.scrollHeight > body\.clientHeight \+ 1/.test(WID2) && /classList\.toggle\('wdg-card--barre', defile\)/.test(WID2));
+    const SRC_DET = (() => {
+      const d = WID2.indexOf('    function _barreAuBord(el, bord) {');
+      if (d < 0) return null;
+      const f = WID2.indexOf('\n    }\n', WID2.indexOf('function _carteDefile(card) {', d));
+      return f < 0 ? null : WID2.slice(d, f + 6);
+    })();
+    verif('la détection de barre est extractible de widgets.js', !!SRC_DET);
+    if (SRC_DET) {
+      const det = await page.evaluate((src) => {
+        const box = document.createElement('div');
+        box.style.cssText = 'position:fixed;left:0;top:0;width:520px;height:320px;';
+        /* Quatre cartes, quatre situations réelles. La troisième est celle qui manquait : le
+           conteneur défilant est IMBRIQUÉ, comme dans un panneau à onglets. */
+        box.innerHTML = ''
+          + '<section class="wdg-card" id="d1" style="width:240px;height:120px"><div class="wdg-body" style="height:100px;overflow:auto"><div style="height:900px"></div></div></section>'
+          + '<section class="wdg-card" id="d2" style="width:240px;height:120px"><div class="wdg-body" style="height:100px;overflow:auto"><div style="height:10px"></div></div></section>'
+          + '<section class="wdg-card" id="d3" style="width:240px;height:120px"><div class="wdg-body" style="height:100px;overflow:hidden">'
+          +   '<div class="onglet" style="height:100px;overflow-y:auto"><div style="height:900px"></div></div></div></section>'
+          /* Un défilant qui n'est PAS au bord droit : sa barre ne passe pas sous la poignée, donc
+             la décaler l'éloignerait du bord sans rien protéger. C'est la précision qui compte —
+             et non « la barre prend-elle des pixels », qui dépend du navigateur (mesuré : dans ce
+             Chromium la barre est en surimpression et n'en prend aucun). */
+          + '<section class="wdg-card" id="d4" style="width:240px;height:120px"><div class="wdg-body" style="height:100px;overflow:hidden">'
+          +   '<div style="height:100px;width:60px;overflow-y:auto"><div style="height:900px"></div></div></div></section>';
+        document.body.appendChild(box);
+        // eslint-disable-next-line no-eval
+        const F = eval('(function(){' + src + '\nreturn _carteDefile;})()');
+        const r = {
+          corps:    F(document.getElementById('d1')),
+          rien:     F(document.getElementById('d2')),
+          imbrique: F(document.getElementById('d3')),
+          sansBarre: F(document.getElementById('d4')),
+        };
+        box.remove();
+        return r;
+      }, SRC_DET);
+      verif('un corps qui défile est détecté', det.corps === true);
+      verif('une carte sans débordement ne l\'est pas', det.rien === false);
+      verif('UN DÉFILEMENT IMBRIQUÉ est détecté (le cas du panneau à onglets)', det.imbrique === true,
+        'c\'est le défaut du 04/09 : la détection ne voyait que .wdg-body');
+      /* PRÉCISION : déborder ne suffit pas, il faut que la barre PRENNE DES PIXELS. Sinon on
+         décalerait la poignée loin du bord pour protéger une bande qui n'existe pas. */
+      verif('… mais un défilant LOIN du bord droit, non', det.sansBarre === false,
+        'la poignée s\'éloignerait du bord sans rien à protéger');
+    }
 
     /* ── L'ANALYSE D'UN CHIFFRE PORTE-T-ELLE LE TAG DE SON INDICATEUR ? ────────────────────────
        31/08 : « il manque le tag comme ceci », capture d'une ligne de calendrier portant son tag
