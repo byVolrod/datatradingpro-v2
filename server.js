@@ -3603,6 +3603,38 @@ app.get('/api/referrals', async (req, res) => {
       : (aff && aff.username) ? REF_WHOP_BASE + '?a=' + encodeURIComponent(aff.username)
       : (isOwner && REF_OWNER_AFF) ? REF_WHOP_AFF_BASE + '?a=' + encodeURIComponent(REF_OWNER_AFF)
       : null;
+    /* ── LE MAILLON QUI PEUT CASSER SANS BRUIT (04/09, audit avant lancement) ────────────────────
+       Deux choses distinctes sont en jeu, et une seule se voit à l'écran :
+         · LA COMMISSION est versée par Whop, qui suit le clic sur le lien. Elle ne dépend de rien
+           chez nous : dès que le lien est affiché, elle fonctionne.
+         · LE COMPTEUR DE FILLEULS — donc « 1 mois offert tous les 3 » — dépend, lui, de NOTRE index
+           `whopaff:<username> → userId`. Le webhook Whop nous donne le nom d'utilisateur du parrain
+           à l'inscription d'un filleul ; sans cet index, on ne sait pas à qui l'attribuer.
+       Or l'index n'est écrit que si un NOM D'UTILISATEUR a pu être résolu. Whop peut très bien
+       renvoyer l'adresse canonique du parrain SANS nom exploitable : le panneau afficherait alors un
+       lien parfaitement fonctionnel pour la commission, et le compteur resterait à zéro pour
+       toujours — sans le moindre message, ni pour le client, ni pour l'admin. C'est exactement le
+       genre de panne qu'on découvre le jour où quelqu'un réclame son mois offert.
+       On ne peut pas la réparer ici (le nom d'utilisateur, c'est Whop qui le détient), mais on peut
+       refuser qu'elle soit silencieuse : on la journalise et on alerte l'admin UNE fois par compte. */
+    if (link && !(aff && aff.username) && !isOwner) {
+      const _cle = 'refnouser:' + String(uid);
+      auth.aiCacheGet(_cle, KV_FOREVER).catch(() => null).then(async (vu) => {
+        if (vu) return;
+        await auth.aiCacheSet(_cle, Date.now()).catch(() => {});
+        const _u = await auth.getUserById(uid).catch(() => null);
+        console.warn('[Referral] ⚠ lien servi SANS nom d\'utilisateur Whop → les filleuls de ce compte ne seront PAS comptés :', (_u && _u.email) || uid);
+        try {
+          const _em = String((_u && _u.email) || uid).replace(/[<>&"']/g, '');
+          mailer.sendAdminAlert({
+            subject: 'Parrainage : un lien sans nom d\'utilisateur Whop',
+            html: '<p>Le compte <strong>' + _em + '</strong> voit bien son lien de parrainage, et Whop lui versera ses commissions normalement.</p>'
+              + '<p>En revanche son <strong>nom d\'utilisateur Whop</strong> n\'a pas pu être résolu : l\'index qui sert à lui attribuer ses filleuls n\'existe donc pas, et son compteur restera à zéro. Le « 1 mois offert tous les 3 filleuls » ne se déclenchera jamais pour lui.</p>'
+              + '<p>À vérifier côté Whop : ce membre a-t-il bien un <em>username</em> sur son compte&nbsp;?</p>',
+          }).catch(() => {});
+        } catch (e) {}
+      });
+    }
     res.json({
       ok: true, code: rec.code, link, whopAffiliate: hasWhop,
       needsWhop: !hasWhop, whopJoinUrl: REF_WHOP_JOIN,
@@ -24220,6 +24252,18 @@ const _MAILLOG_TYPES = [
   [/^winback1m:/, 'Jalon 1 mois'], [/^winback3m:/, 'Jalon 3 mois'], [/^winback6m:/, 'Jalon 6 mois'],
   [/^winback12m:/, 'Jalon 1 an'], [/^reengage/, 'Réengagement'], [/^unsub:/, 'Désinscription'],
 ];
+/* ── CE JOURNAL NE LISTE QUE DES MAILS RÉELLEMENT PARTIS ──────────────────────────────────────────
+   ⚠️ 04/09, capture user : « c'est quoi ceci ? » — deux lignes « AUTRE », à l'heure du déploiement,
+   vers les deux adresses qui ne doivent JAMAIS être contactées. Rien n'était parti : c'étaient les
+   marqueurs `unsubseed:` posés le même jour par le correctif du seed. Mais le journal s'appelle
+   « Journal des envois » et les affichait comme des lignes d'envoi de type inconnu — donc il
+   annonçait exactement le contraire de ce qui s'était produit, sur les deux adresses où c'était le
+   plus grave. Un tableau qui range ce qu'il ne connaît pas dans « Autre » AU LIEU de l'écarter finit
+   toujours par raconter une histoire fausse.
+   Le journal sert AUSSI de garde anti-doublon et d'index d'état : toutes ses clés ne sont pas des
+   envois. Celles-ci n'en sont pas et sont écartées à la source. */
+const _MAILLOG_NON_ENVOIS = [/^unsubseed:/, /^unsubself:/];
+function _estEnvoi(key) { return !_MAILLOG_NON_ENVOIS.some(rx => rx.test(key)); }
 function _mailLogType(key) {
   const m = key.match(/^drip:day:[^:]*-(\d):/);
   if (m) return _DRIP_DAY_LBL[+m[1]] || 'Contenu du jour';
@@ -24236,6 +24280,7 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
     const typesVus = new Set();
     const rows = [];
     for (const [key, at] of Object.entries(all)) {
+      if (!_estEnvoi(key)) continue;              // marqueur d'état interne : ce n'est pas un envoi
       const type = _mailLogType(key);
       typesVus.add(type);
       if (ft && type !== ft) continue;

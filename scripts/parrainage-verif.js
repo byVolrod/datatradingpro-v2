@@ -369,6 +369,136 @@ async function interroge(email) {
   v('la fin d\'une diffusion relit l\'état et redessine la barre',
     /if \(!st\.running\) \{[\s\S]{0,300}_bcCharger\(/.test(ADM), 'il faudrait recharger le panneau à la main');
 
+  /* ══ 15. LA CHAÎNE COMPLÈTE, DU LIEN AU MOIS OFFERT ════════════════════════════════════════════
+     04/09, demande utilisateur avant lancement : « il faut être sûr que ça va marcher avec le lien
+     d'affiliation et que ça va se créer, le bon lien et tout […] faut surtout pas qu'on se trompe
+     une fois lancé ».
+
+     CE QUE LES BLOCS 1 À 5 NE COUVRAIENT PAS. Ils éprouvent la RÉSOLUTION du lien : à qui Whop
+     répond, et quel lien on affiche. Ils s'arrêtent là. Or le parrainage a DEUX moitiés, et la
+     seconde n'était éprouvée nulle part :
+       · LA COMMISSION est versée par Whop, qui suit le clic. Elle ne dépend d'aucun code à nous.
+       · LE COMPTEUR DE FILLEULS, donc « 1 mois offert tous les 3 », dépend d'un index à NOUS :
+         `whopaff:<username> → userId`. Le webhook Whop nous donne le nom d'utilisateur du parrain
+         à l'inscription d'un filleul ; sans cet index, personne n'est crédité.
+     Ces deux moitiés peuvent diverger SANS AUCUN SIGNAL : un lien affiché, une commission versée,
+     et un compteur qui reste à zéro pour toujours. C'est la panne qu'on découvre le jour où un
+     client réclame son mois offert. On déroule donc la chaîne entière, avec le VRAI code découpé
+     dans server.js, un Whop bouchonné et un KV en mémoire. */
+  console.log('\n── 15. Chaîne complète : lien → index → webhook → compteur → mois offert ──');
+  const SRC_AFF  = decouper(SRV, 'async function _refWhopAffiliate(uid) {', '\n}');
+  const SRC_CRED = decouper(SRV, 'async function _refCreditFilleul(refUserId, fillUser) {', '\n}');
+  const SRC_ATTR = (() => {                       // le bloc d'attribution du webhook, inline
+    const d = SRV.indexOf('      const aff = mem.affiliateUsername && String(mem.affiliateUsername).toLowerCase();');
+    const f = SRV.indexOf("console.error('[Referral] attribution Whop:'", d);
+    return (d < 0 || f < 0) ? null : SRV.slice(d, SRV.lastIndexOf('}', f));
+  })();
+  v('la résolution du lien est extractible', !!SRC_AFF);
+  v('le crédit d\'un filleul aussi', !!SRC_CRED);
+  v('… et le bloc d\'attribution du webhook Whop aussi', !!SRC_ATTR);
+
+  if (SRC_AFF && SRC_CRED && SRC_ATTR) {
+    const KV_FOREVER = 8640000000000;
+    const REF_TARGET = 3, REF_BONUS_DAYS = 30;
+    let kv, users, mails, whopRep;
+    const auth = {
+      aiCacheGet: async k => (k in kv ? kv[k] : null),
+      aiCacheSet: async (k, v2) => { kv[k] = v2; },
+      getUserById: async id => users[String(id)] || null,
+      updateUser: async (id, f) => { Object.assign(users[String(id)], { expires_at: f.expiresAt }); },
+    };
+    const whop = { getAffiliateInfo: async () => whopRep };
+    const mailer = {
+      sendReferralReward: async d => { mails.push(['reward', d.to, d.count]); return true; },
+      sendAdminReferralReward: async () => true,
+      sendReferralCredited: async d => { mails.push(['credited', d.to, d.count, d.untilNext]); return true; },
+    };
+    // eslint-disable-next-line no-eval
+    const F = eval('(function(auth, whop, mailer, KV_FOREVER, REF_TARGET, REF_BONUS_DAYS) {\n'
+      + SRC_AFF + '\n' + SRC_CRED + '\n'
+      + 'async function _refGetRecord(id) { let r = await auth.aiCacheGet("referral:" + id); if (!r) r = { code: "DTP-TEST", count: 0, referrals: [], rewards: 0, bonusDays: 0 }; return r; }\n'
+      + 'async function _refSaveRecord(id, r) { await auth.aiCacheSet("referral:" + id, r); }\n'
+      + 'function _refMaskEmail(e) { return String(e || "").replace(/(.{2}).*(@.*)/, "$1****$2"); }\n'
+      + 'function _refAddDaysISO(b, d) { return new Date((b ? new Date(b).getTime() : Date.now()) + d * 864e5).toISOString(); }\n'
+      + 'async function attribuer(mem, wu) {\n' + SRC_ATTR + '\n}\n'
+      + 'return { _refWhopAffiliate, _refCreditFilleul, attribuer };\n})');
+
+    const neuf = () => {
+      kv = {}; mails = [];
+      users = { 'u-parrain': { id: 'u-parrain', email: 'parrain@exemple.fr', name: 'Parrain', role: 'client', expires_at: '2026-10-01T00:00:00.000Z' } };
+      for (let i = 1; i <= 4; i++) users['u-f' + i] = { id: 'u-f' + i, email: 'f' + i + '@exemple.fr', role: 'client' };
+    };
+    const M = F(auth, whop, mailer, KV_FOREVER, REF_TARGET, REF_BONUS_DAYS);
+
+    // ── CAS NOMINAL : Whop répond avec son lien canonique, qui porte ?a=<username> ──
+    neuf();
+    whopRep = { pageUrl: 'https://whop.com/justonetrader-actions-7/?a=parrainpseudo', username: 'parrainpseudo' };
+    const aff1 = await M._refWhopAffiliate('u-parrain');
+    v('le lien servi est CELUI DE WHOP, jamais reconstruit à la main',
+      aff1 && aff1.pageUrl === whopRep.pageUrl, 'un lien reconstruit peut ne pas être celui que Whop suit');
+    v('… et l\'index d\'attribution est écrit AU MOMENT où le lien est servi',
+      kv['whopaff:parrainpseudo'] === 'u-parrain',
+      'sans lui, aucun filleul ne peut être rattaché — et rien ne le signalerait');
+    v('… il survit à tout : les clés de parrainage ne sont JAMAIS purgées',
+      !['swseg:', 'brseg:', 'ins:', 'swt2:', 'ana:', 'tag:', 'aichat:', 'hist:'].some(p => 'whopaff:'.startsWith(p)),
+      'une purge du cache IA emporterait l\'index');
+    // Second appel : on ne redemande pas Whop (le lien doit être stable et instantané).
+    whopRep = null;
+    const aff2 = await M._refWhopAffiliate('u-parrain');
+    v('le lien est mémorisé : Whop n\'est pas réinterrogé à chaque ouverture',
+      aff2 && aff2.pageUrl === aff1.pageUrl, 'une panne Whop ferait disparaître le lien du panneau');
+
+    // ── LE FILLEUL S'INSCRIT : le webhook porte le nom d'utilisateur du parrain ──
+    let r1 = await M.attribuer({ affiliateUsername: 'PARRAINPSEUDO', email: 'f1@exemple.fr' }, users['u-f1']);
+    v('un filleul venu du lien est rattaché à son parrain',
+      kv['referredby:u-f1'] === 'u-parrain', 'le webhook n\'a pas trouvé le parrain');
+    v('… même si Whop renvoie le nom en MAJUSCULES (il le fait)',
+      kv['referredby:u-f1'] === 'u-parrain', 'la casse casserait l\'attribution une fois sur deux');
+    v('… et le compteur du parrain monte à 1', (kv['referral:u-parrain'] || {}).count === 1);
+    v('… avec un mail qui dit combien il en reste', mails.some(m => m[0] === 'credited' && m[3] === 2));
+    v('l\'adresse du filleul est masquée dans l\'historique du parrain',
+      ((kv['referral:u-parrain'] || {}).referrals || []).every(x => x.email.includes('****')),
+      'le parrain verrait l\'adresse complète de ses filleuls');
+
+    // ── LE MÊME FILLEUL REPASSE : il ne doit pas compter deux fois ──
+    await M.attribuer({ affiliateUsername: 'parrainpseudo', email: 'f1@exemple.fr' }, users['u-f1']);
+    v('le même filleul ne compte JAMAIS deux fois', (kv['referral:u-parrain'] || {}).count === 1,
+      'un renouvellement gonflerait le compteur');
+
+    // ── AUTO-PARRAINAGE ──
+    kv['whopaff:solo'] = 'u-f2';
+    await M.attribuer({ affiliateUsername: 'solo', email: 'f2@exemple.fr' }, users['u-f2']);
+    v('on ne peut pas se parrainer soi-même', !kv['referredby:u-f2']);
+
+    // ── LE TROISIÈME FILLEUL DÉCLENCHE LE MOIS OFFERT ──
+    await M.attribuer({ affiliateUsername: 'parrainpseudo', email: 'f3@exemple.fr' }, users['u-f3']);
+    const avant = users['u-parrain'].expires_at;
+    await M.attribuer({ affiliateUsername: 'parrainpseudo', email: 'f4@exemple.fr' }, users['u-f4']);
+    const rec = kv['referral:u-parrain'] || {};
+    v('au 3e filleul, la récompense se déclenche', rec.count === 3 && rec.rewards === 1, JSON.stringify({ count: rec.count, rewards: rec.rewards }));
+    v('… l\'échéance du parrain est repoussée de 30 jours',
+      Math.round((new Date(users['u-parrain'].expires_at) - new Date(avant)) / 864e5) === 30,
+      'de ' + avant + ' à ' + users['u-parrain'].expires_at);
+    v('… il est prévenu par mail', mails.some(m => m[0] === 'reward' && m[2] === 3));
+    v('… et le bonus est mémorisé pour être rejoué au renouvellement Whop',
+      kv['refbonus:u-parrain'] === 30, 'le mois offert serait perdu au prochain paiement');
+
+    // ── LE PIÈGE : un lien servi SANS nom d'utilisateur résolvable ──
+    neuf();
+    whopRep = { pageUrl: 'https://whop.com/justonetrader-actions-7/', username: null };   // aucun ?a=
+    const affKO = await M._refWhopAffiliate('u-parrain');
+    v('LE PIÈGE : Whop peut renvoyer une adresse SANS nom d\'utilisateur',
+      !!affKO && !affKO.username, 'cas impossible à provoquer → contrôle vide');
+    v('… l\'index n\'est alors PAS écrit (la commission marcherait, pas le compteur)',
+      !kv['whopaff:'] && Object.keys(kv).filter(k => k.indexOf('whopaff:') === 0).length === 0);
+    await M.attribuer({ affiliateUsername: 'parrainpseudo', email: 'f1@exemple.fr' }, users['u-f1']);
+    v('… et le filleul n\'est effectivement rattaché à personne', !kv['referredby:u-f1'],
+      'c\'est bien la panne silencieuse qu\'on redoute');
+    v('CE CAS NE PEUT PLUS ÊTRE SILENCIEUX : le serveur alerte l\'admin, une fois par compte',
+      /refnouser:/.test(SRV) && /sendAdminAlert\(\{[\s\S]{0,200}nom d\\?'utilisateur Whop/.test(SRV),
+      'sans alerte, le compteur resterait à zéro sans que personne ne le sache');
+  }
+
   console.log('');
   if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }
   console.log('✓ TOUT PASSE — ' + ok + ' contrôle(s) OK\n');
