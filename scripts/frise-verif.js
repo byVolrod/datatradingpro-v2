@@ -144,6 +144,8 @@ function extraireFrise() {
           pistes: pistes.map(p => Math.round(p.getBoundingClientRect().height)),
           largeurs: pistes.map(p => Math.round(p.getBoundingClientRect().width)),
           scrollable: corps ? corps.scrollHeight > corps.clientHeight + 1 : false,
+          cache: corps ? Math.max(0, corps.scrollHeight - corps.clientHeight) : 0,
+          barre: corps ? getComputedStyle(corps).overflowY : '',
           palier: frise ? frise.className.replace('wdg-frise', '').trim() : '',
           horsCadre: lignes.filter(l => l.getBoundingClientRect().bottom > rb.bottom + 1).length,
         });
@@ -203,10 +205,18 @@ function extraireFrise() {
     /* Le garde-fou du 26/08 : sur une carte basse, les lignes ne s'écrasent PAS jusqu'à
        l'illisible — elles gardent une hauteur minimale et le corps devient défilable. */
     v('sur une carte basse, les pistes gardent une hauteur lisible',
-      (par(260).pistes[0] || 0) >= 7, '260→' + par(260).pistes[0] + 'px (palier « ' + par(260).palier + ' »)');
-    v('… et ce qui ne tient pas reste atteignable (défilement, jamais de coupe muette)',
-      !par(260).scrollable || par(260).horsCadre === 0,
-      'scrollable=' + par(260).scrollable + ' horsCadre=' + par(260).horsCadre);
+      (par(260).pistes[0] || 0) >= 10, '260→' + par(260).pistes[0] + 'px (palier « ' + par(260).palier + ' »)');
+    /* ⚠️ LA RÈGLE A CHANGÉ LE 03/09, ET CE CONTRÔLE AVEC ELLE. Le 26/08 avait posé un défilement de
+       dernier recours : ce qui ne tenait pas restait atteignable. L'utilisateur tranche autrement —
+       « enlève la barre de scroll, faut que ça s'affiche entièrement ». On n'éprouve donc plus que
+       le défilement rattrape la coupe, mais qu'il N'Y A RIEN à rattraper : à toute hauteur, le
+       contenu tient dans le corps. C'est plus exigeant, pas moins : une compaction insuffisante se
+       traduirait maintenant par une perte SILENCIEUSE, et c'est exactement ce que ce contrôle
+       interdit. */
+    v('aucune barre de défilement n\'est proposée', mesures.every(m => m.barre === 'hidden'),
+      JSON.stringify([...new Set(mesures.map(m => m.barre))]));
+    v('… et il n\'y a rien à faire défiler : tout tient, à toute hauteur',
+      mesures.every(m => m.cache <= 1), mesures.map(m => m.H + ':' + m.cache + 'px cachés').join(' '));
 
     console.log('\n── 4. La largeur suit aussi ──');
     /* La demande dit « 100 % de la largeur ET de la hauteur ». La piste porte les blocs positionnés

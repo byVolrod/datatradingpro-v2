@@ -17552,15 +17552,21 @@ html[data-theme="light"] .news-grp-cpt {
    quand la place manque : ce défilement n'intervient qu'APRÈS eux, en dernier recours. */
 .wdg-frise-corps { position: relative; flex: 1 1 auto; min-height: 0; display: flex;
   flex-direction: column; justify-content: flex-start; gap: 10px; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; scrollbar-width: thin;
-  /* ══ LA TRAME DES 3 H PASSE DU RAIL AU CORPS (01/09, capture user : « améliore la lisibilité ») ══
-     Chaque piste portait sa propre trame verticale. Résultat : quatre grilles indépendantes qui
-     s'arrêtaient au bord de chaque rail, et rien ne reliait 15 h de Londres à 15 h de New York —
-     alors que LIRE UN CHEVAUCHEMENT est la raison d'être de ce widget. La trame devient une seule
-     colonnade continue, posée sur le corps, qui traverse les quatre places de haut en bas.
-     La bande basse est RÉSERVÉE à l'étiquette de l'heure courante : sans elle, la pastille dorée se
-     posait PAR-DESSUS la dernière plage (capture : « 16:55 » à cheval sur New York). */
-  padding-bottom: 16px;
-  background-image: repeating-linear-gradient(to right, var(--hud-line) 0 1px, transparent 1px 12.5%); }
+  /* ══ PAS DE COLONNADE ICI (03/09, arbitrage utilisateur, deux références à l'appui) ═════════════
+     Une trame de colonnes avait été posée la veille pour relier 15 h de Londres à 15 h de New York.
+     L'utilisateur tranche : la grille est la signature de FORCE DES DEVISES, pas de cette frise —
+     sa référence pour les sessions ne montre que les intitulés d'heures en tête et des rails nus.
+     La décision se lit d'elle-même : deux widgets côte à côte, deux grammaires distinctes ; un
+     quadrillage partout ne signale plus rien nulle part. L'axe des heures et le trait de l'instant
+     suffisent à situer une plage.
+     La bande basse reste RÉSERVÉE à l'étiquette de l'heure courante : sans elle, la pastille dorée
+     se posait PAR-DESSUS la dernière plage (capture du 01/09 : « 16:55 » à cheval sur New York).
+     ⚠️ ET PLUS DE BARRE DE DÉFILEMENT (même arbitrage) : « faut que ça s'affiche entièrement ». Le
+     défilement de dernier recours posé le 26/08 est donc remplacé par une compaction qui va
+     jusqu'au bout — les lignes peuvent se resserrer sous la hauteur de leur contenu, et les paliers
+     ci-dessous retirent d'abord ce qui s'explique (note de pied, résumé d'en-tête, axe) avant de
+     toucher aux places elles-mêmes. Rien à faire défiler, donc rien à rater. */
+  padding-bottom: 16px; overflow-y: hidden; }
 
 .wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0;
   /* ══ LES LIGNES SE PARTAGENT LA HAUTEUR (01/09, demande user : « aucun espace vide inutile ») ══
@@ -17579,8 +17585,13 @@ html[data-theme="light"] .news-grp-cpt {
      de hauteur après elle doit se répartir au-dessus ET au-dessous, pas s'accumuler sous la
      dernière place. Centré, l'espace libre devient un rythme vertical régulier ; aligné en haut, il
      redevenait le vide que la demande du 01/09 visait. */
-  justify-content: center; }
-.wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
+  justify-content: center;
+  /* ⚠️ `min-height: 0` EST INDISPENSABLE DEPUIS QU'IL N'Y A PLUS DE DÉFILEMENT. Le minimum
+     automatique d'un élément flex l'empêche de descendre sous la hauteur de son contenu : les
+     quatre lignes auraient donc débordé d'un corps qui ne se défile plus, c'est-à-dire disparu
+     sans laisser de trace. Avec lui, elles se partagent ce qu'il y a, quoi qu'il arrive. */
+  min-height: 0; overflow: hidden; }
+.wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; flex: 0 0 auto; }
 .wdg-frise-place { display: flex; align-items: center; gap: 6px; color: var(--txt-2, #9aa1ac);
   font-size: 13px; font-weight: 600; letter-spacing: .01em; flex: 0 0 auto; }
 .wdg-frise-place i { width: 5px; height: 5px; border-radius: 50%; background: #3a3f4b; flex: 0 0 auto; }
@@ -17598,10 +17609,11 @@ html[data-theme="light"] .news-grp-cpt {
 /* La piste couvre 24 h ; les blocs sont positionnés en pourcentage par le JS.
    Trame toutes les 3 h : assez pour situer un bloc, assez peu pour ne pas faire grille. */
 .wdg-frise-piste { position: relative; height: 18px; border-radius: 3px; overflow: hidden;
-  /* Rail TRANSPARENT : c'est la colonnade du corps qui le traverse, au lieu d'une trame recopiée
-     dans chaque rail. Un fond opaque la masquerait — et rendrait au passage les quatre rails aussi
-     visibles que les plages qu'ils portent, alors que seule la PLAGE est l'information. */
-  background: transparent; border: 1px solid var(--hud-line);
+  /* Rail À PEINE TEINTÉ : la colonnade ayant été retirée (03/09), il faut de nouveau quelque chose
+     pour dire jusqu'où va la journée — mais très peu. La référence fournie montre exactement ça :
+     un rail sourd, et la PLAGE seule qui porte la couleur. Un fond marqué remettrait les quatre
+     rails au même niveau de présence que l'information qu'ils encadrent. */
+  background: rgba(255, 255, 255, .022); border: 1px solid var(--hud-line);
   /* La hauteur déclarée n'est plus qu'une BASE : la piste prend l'espace libre de sa ligne, et les
      paliers plus bas ne changent donc que ce point de départ, jamais le comportement.
      ══ LE PLAFOND, ET POURQUOI IL A FALLU DEUX ESSAIS ══════════════════════════════════════════
@@ -17615,7 +17627,14 @@ html[data-theme="light"] .news-grp-cpt {
      Le surplus se répartit alors moitié au-dessus, moitié au-dessous de chaque piste : la carte est
      occupée d'un bord à l'autre, sans dalle et sans vide accumulé en bas. Remplir n'est pas
      gonfler — c'est ce que les deux premiers essais avaient chacun manqué d'un côté. */
-  flex: 1 1 auto; min-height: 7px; max-height: 48px; }
+  /* ══ PLANCHER RELEVÉ À 12 px (03/09, capture user : « on voit pas assez bien ») ═══════════════
+     7 px suffisaient à ne pas disparaître ; ils ne suffisaient pas à se LIRE. Sur une carte
+     écrasée, les quatre plages devenaient des filets de la hauteur d'un trait, et l'horaire écrit
+     dedans se retrouvait à cheval sur ses propres bordures. Une plage qu'on distingue à peine ne
+     dit plus ni sa durée ni son chevauchement — c'est-à-dire plus rien de ce pour quoi elle
+     existe. En dessous de ce plancher, mieux vaut que la frise déborde et se défile (le recours
+     prévu depuis le 26/08) qu'elle rende quatre traits illisibles. */
+  flex: 1 1 auto; min-height: 12px; max-height: 48px; }
 /* La barre porte son horaire : a cote, l oeil devait faire l aller-retour entre un texte a droite
    et un bloc a gauche pour savoir ce qu il regardait. */
 .wdg-frise-bloc { position: absolute; top: 0; bottom: 0; background: var(--frise-ton, #3a3f4b);
@@ -17629,7 +17648,12 @@ html[data-theme="light"] .news-grp-cpt {
 .wdg-frise-now { position: absolute; top: 0; bottom: 13px; width: 0; border-left: 1px dashed #e3b23a;
   pointer-events: none; z-index: 2; }
 /* L etiquette porte l heure du lecteur : sans elle il faudrait la deduire de l axe. */
-.wdg-frise-nowlbl { position: absolute; bottom: -2px; transform: translateX(-50%); z-index: 3;
+/* ⚠️ `bottom: 0` ET NON `-2px` (03/09). Le dépassement de deux pixels ne se voyait pas tant que le
+   corps débordait librement ; depuis qu'il est en `overflow: hidden` — plus de barre de défilement,
+   décision utilisateur — ces deux pixels étaient ROGNÉS sur le bas de la pastille dorée. Mesuré au
+   banc : deux pixels cachés à TOUTES les hauteurs de carte, ce qui trahissait l'origine (une
+   constante, donc pas un défaut de compaction). */
+.wdg-frise-nowlbl { position: absolute; bottom: 0; transform: translateX(-50%); z-index: 3;
   padding: 1px 5px; border-radius: 3px; background: #e3b23a; color: #0c0c0e;
   font-size: 9.5px; font-weight: 700; line-height: 1.35; font-variant-numeric: tabular-nums;
   pointer-events: none; white-space: nowrap; }
@@ -17645,14 +17669,14 @@ html[data-theme="light"] .news-grp-cpt {
 /* Palier 1 : on resserre l interligne et on affine la piste. */
 .wdg-frise.est-moyen { gap: 6px; padding: 8px 12px 6px; }
 .wdg-frise.est-moyen .wdg-frise-corps { gap: 8px; }
-.wdg-frise.est-moyen .wdg-frise-piste { height: 14px; }
+.wdg-frise.est-moyen .wdg-frise-piste { height: 20px; }
 .wdg-frise.est-moyen .wdg-frise-place { font-size: 12px; }
 
 /* Palier 2 : la typo descend, la piste s affine encore. */
 .wdg-frise.est-compact { gap: 4px; padding: 7px 10px 5px; }
 .wdg-frise.est-compact .wdg-frise-corps { gap: 5px; }
 .wdg-frise.est-compact .wdg-frise-ligne { gap: 2px; }
-.wdg-frise.est-compact .wdg-frise-piste { height: 11px; }
+.wdg-frise.est-compact .wdg-frise-piste { height: 16px; }
 .wdg-frise.est-compact .wdg-frise-place { font-size: 11px; }
 .wdg-frise.est-compact .wdg-frise-tete,
 .wdg-frise.est-compact .wdg-frise-reste,
@@ -17663,8 +17687,16 @@ html[data-theme="light"] .news-grp-cpt {
    Les blocs restent positionnes en pourcentage de 0-24 h : la frise garde son sens sans lui. */
 .wdg-frise.est-minus { gap: 3px; padding: 6px 9px 4px; }
 .wdg-frise.est-minus .wdg-frise-axe { display: none; }
+/* La note de pied cède AVANT les places (03/09). Sur une carte écrasée elle mangeait deux lignes de
+   texte — assez pour que la quatrième place passe sous le bord — pour expliquer un chevauchement
+   qu'on ne voit plus faute de place. Elle explique la frise ; les places SONT la frise. */
+.wdg-frise.est-minus .wdg-frise-note { display: none; }
+/* Et l'en-tête « X ouvertes » cède juste après, pour la même raison : chaque ligne porte déjà son
+   badge OUVERT/FERMÉ au bout, l'en-tête n'en est qu'un résumé. Vingt-trois pixels rendus aux
+   places — de quoi faire tenir la quatrième au lieu de la couper. */
+.wdg-frise.est-minus .wdg-frise-head { display: none; }
 .wdg-frise.est-minus .wdg-frise-corps { gap: 3px; }
-.wdg-frise.est-minus .wdg-frise-piste { height: 9px; }
+.wdg-frise.est-minus .wdg-frise-piste { height: 14px; }
 .wdg-frise.est-minus .wdg-frise-reste { display: none; }
 .wdg-frise.est-minus .wdg-frise-place { font-size: 10.5px; }
 
@@ -17674,7 +17706,7 @@ html[data-theme="light"] .news-grp-cpt {
 .wdg-frise.est-mini .wdg-frise-head { display: none; }
 .wdg-frise.est-mini .wdg-frise-corps { gap: 2px; }
 .wdg-frise.est-mini .wdg-frise-ligne { gap: 1px; }
-.wdg-frise.est-mini .wdg-frise-piste { height: 7px; }
+.wdg-frise.est-mini .wdg-frise-piste { height: 12px; }
 .wdg-frise.est-mini .wdg-frise-place { font-size: 10px; }
 .wdg-frise.est-mini .wdg-frise-badge { font-size: 8.5px; padding: 0 4px; }
 
@@ -19093,14 +19125,20 @@ html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; bor
    l'information qu'on vient chercher, et la colonnade des 3 h reste lisible à travers la plage.
    La séance OUVERTE garde plus de matière que les fermées : c'est le seul contraste qui dise
    l'état sans emprunter le vert ni le rouge, réservés par la charte aux signaux de marché. */
-.wdg-frise-bloc::before { opacity: .26; }
-.wdg-frise-bloc.est-ouvert::before { opacity: .55; }
+/* ⚠️ REMPLISSAGE REMONTÉ (03/09, même capture). Allégée à .26/.55 la veille pour que des plages
+   ÉPAISSES cessent d'écraser la carte, la matière devenait trop peu de chose dès que la plage
+   s'amincit : à 12 px de haut, un aplat à 26 % se lit comme un simple contour. On remonte donc à
+   .42/.85 — assez pour que la plage se voie d'un coup d'œil à toutes les épaisseurs, et le contour
+   de la couleur de la place garde les bornes nettes. */
+.wdg-frise-bloc::before { opacity: .42; }
+.wdg-frise-bloc.est-ouvert::before { opacity: .85; }
 .wdg-frise-bloc { border: 1px solid var(--frise-ton, #3a3f4b); box-sizing: border-box; }
 .wdg-frise-bloc.est-ouvert { box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b); }
 .wdg-frise-bloc b { color: var(--txt-1, #e6e8eb); text-shadow: 0 1px 3px rgba(0, 0, 0, .75); }
 html[data-theme="light"] .wdg-frise-bloc b { color: #17181d; text-shadow: 0 1px 2px rgba(255, 255, 255, .8); }
 .wdg-frise-bloc b { position: relative; z-index: 1; }
 html[data-theme="light"] .wdg-frise-bloc::before { opacity: .5; }
+html[data-theme="light"] .wdg-frise-piste { background: rgba(0, 0, 0, .025); }
 html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #00783d; }
 
 /* ═══ GRAPHIQUE DE RÉACTION d'une news (20/08) : courbe 15 min + instant de publication marqué ════ */
