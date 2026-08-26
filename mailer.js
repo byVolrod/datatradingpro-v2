@@ -4299,6 +4299,16 @@ async function sendReferredWelcome(d) { const m = buildReferredWelcome(d); retur
    ⚠️ LA MÊME ADRESSE DES DEUX CÔTÉS EST MISE EN AVANT, PAS EN NOTE DE BAS. C'est la seule cause
    d'échec du parcours : Whop et le desk se reconnaissent par l'e-mail, et un parrain qui s'inscrit
    sur Whop avec une autre adresse ne verra jamais son lien apparaître. */
+/* ── LE MAIL A L'UNITE, ALIGNE SUR CELUI DE CAMPAGNE (04/09) ──────────────────────────────────────
+   Deux points l'avaient laisse en arriere quand le gabarit de campagne a ete repris :
+     · son bouton deposait le lecteur sur la racine du desk, en lui demandant d'aller chercher
+       lui-meme Profil puis Parrainages — un clic gagne, un parcours perdu. Il ouvre desormais la
+       section, par le meme lien profond que la campagne ;
+     · il n'avait pas l'apercu du panneau.
+   ⚠️ ET L'APERCU N'APPARAIT QUE DANS UNE DES DEUX FORMES, VOLONTAIREMENT. Quand on connait le lien
+   du destinataire, le mail le porte EN CLAIR : poser juste en dessous une image du meme champ
+   rempli de x ferait douter de celui du dessus. L'apercu ne sert que quand le lien n'est pas encore
+   connu — la, il montre l'ecran ou le lecteur va le trouver. */
 function buildReferralInvite({ name, lien, joinUrl } = {}) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
   const rejoindre = _esc(joinUrl || 'https://whop.com/justonetrader/');
@@ -4307,7 +4317,8 @@ function buildReferralInvite({ name, lien, joinUrl } = {}) {
     ? `${_secTitle('Votre lien de parrainage')}
        ${_encart(`<p style="margin:0 0 8px;font-size:12px;color:#9aa3b2;">Copiez-le et partagez-le&nbsp;: chaque abonnement passé par ce lien vous est attribué à vie.</p>
          <p style="margin:0;word-break:break-all;"><a href="${_esc(lien)}" style="color:${TOK.or};text-decoration:none;font-weight:700;">${_esc(lien)}</a></p>`, true)}`
-    : `${_secTitle('Obtenir votre lien — 2 minutes')}
+    : `${_apercuParrainages()}
+       ${_secTitle('Obtenir votre lien — 2 minutes')}
        ${_encart(`<p style="margin:0 0 10px;"><strong style="color:${TOK.blanc};">1.</strong> Sur le desk, ouvrez <strong style="color:${TOK.blanc};">Profil&nbsp;▸&nbsp;Parrainages</strong>. Si votre lien s'y trouve déjà, c'est terminé.</p>
          <p style="margin:0 0 10px;"><strong style="color:${TOK.blanc};">2.</strong> Sinon, créez votre compte <a href="${rejoindre}" style="color:${TOK.or};text-decoration:none;">Whop</a> (gratuit) et rejoignez l'espace <strong style="color:${TOK.blanc};">JustOneTrader</strong>&nbsp;: <strong style="color:${TOK.or};">l'offre gratuite suffit</strong>, vous n'avez rien à payer.</p>
          <p style="margin:0;">Revenez ensuite sur <strong style="color:${TOK.blanc};">Parrainages</strong> et cliquez sur «&nbsp;J'ai rejoint — vérifier&nbsp;»&nbsp;: votre lien apparaît.</p>`, true)}`;
@@ -4321,7 +4332,7 @@ function buildReferralInvite({ name, lien, joinUrl } = {}) {
     ${bloclien}
     ${_encart(`<p style="margin:0;font-size:13px;color:#e6e6ea;"><strong style="color:${TOK.or};">Important&nbsp;:</strong> utilisez sur Whop <strong style="color:${TOK.blanc};">la même adresse e-mail</strong> que celle de votre compte DataTradingPro. C'est par elle que les deux se reconnaissent&nbsp;— avec une autre adresse, votre lien ne s'affichera jamais.</p>`)}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Vos commissions sont suivies et versées <strong style="color:#e6e6ea;">directement par Whop</strong>&nbsp;; vous les retrouvez dans votre espace Whop. Votre compteur de filleuls, lui, s'affiche en direct dans votre panneau Parrainages.</p>
-    ${_button(aLeLien ? 'Ouvrir mes parrainages' : 'Obtenir mon lien', APP_URL)}
+    ${_button(aLeLien ? 'Ouvrir mes parrainages' : 'Obtenir mon lien', APP_URL + '/?parrainage=1')}
     <p style="margin:0;font-size:13px;">Merci de faire grandir le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return { subject: 'DataTradingPro : 15% à vie sur chaque abonné que vous amenez', html: _layout('Parrainage', body, { repondable: true }) };
 }

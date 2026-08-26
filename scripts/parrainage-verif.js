@@ -291,6 +291,27 @@ async function interroge(email) {
     V.every(x => !/\d(?:&nbsp;|&#160;|\s)%/.test(x.html.replace(/<[^>]+>/g, ''))),
     'une espace subsiste avant un %');
 
+  console.log('\n── 10 ter. Le mail à l\'unité est aligné sur celui de campagne ──');
+  const U0 = mailer.buildReferralInvite({ name: 'Muhammet Taleb' });
+  const U1 = mailer.buildReferralInvite({ name: 'Muhammet Taleb', lien: 'https://whop.com/justonetrader-actions-7/?a=monpseudo' });
+  v('les deux formes se construisent', !!(U0 && U0.html) && !!(U1 && U1.html));
+  v('leurs boutons ouvrent la SECTION, pas la racine du desk',
+    /parrainage=1/.test(U0.html) && /parrainage=1/.test(U1.html),
+    'le lecteur atterrirait sur le desk sans savoir où cliquer');
+  /* L'APERÇU NE DOIT PAS APPARAÎTRE DANS LES DEUX FORMES. Quand le mail porte le vrai lien, poser
+     juste en dessous une image du même champ rempli de x ferait douter de celui du dessus. */
+  v('l\'aperçu du panneau accompagne la forme SANS lien', /Total filleuls/.test(U0.html));
+  v('… et disparaît quand le mail porte le VRAI lien', !/Total filleuls/.test(U1.html),
+    'deux champs contradictoires dans le même mail');
+  v('… lequel y figure bien en clair', /a=monpseudo/.test(U1.html));
+  v('le pourcentage s\'y écrit aussi sans espace',
+    !/\d(?:&nbsp;|&#160;|\s)%/.test(U0.html.replace(/<[^>]+>/g, '')) && !/\d(?:&nbsp;|&#160;|\s)%/.test(U1.html.replace(/<[^>]+>/g, '')));
+  v('aucun gabarit non résolu dans les deux formes',
+    !/\$\{|undefined|\[object/.test(U0.html) && !/\$\{|undefined|\[object/.test(U1.html));
+  /* Ce mail-là est TRANSACTIONNEL : envoyé à une personne, il se répond. Il ne porte donc ni pixel
+     de suivi ni lien de désinscription — et c'est la différence assumée avec la campagne. */
+  v('mail à l\'unité : répondable, sans pixel de suivi', !/\/api\/track\/open/.test(U0.html));
+
   console.log('\n── 11. Le bouton mène quelque part (promesse du mail ↔ code du desk) ──');
   /* Le classique : un CTA qui pointe vers un paramètre que personne n'a implémenté. Le mail part,
      le client clique, il atterrit sur le desk sans savoir quoi faire. On vérifie les DEUX bouts. */
