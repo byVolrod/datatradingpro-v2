@@ -469,10 +469,25 @@
       } else {
         // Longue liste (la paire du DMX en a 39) : DEUX COLONNES (18/08, demande user), sinon le
         // panneau se scrolle sans fin. Les listes courtes gardent la rangee en pastilles.
-        ctl = '<span class="wdg-set-chips' + (o.choix.length > 10 ? ' wdg-set-chips--long' : '') + '">' + o.choix.map(function (c) {
-          return '<button class="wdg-set-chip' + (c[0] === cur ? ' on' : '') + '"'
-            + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\'' + AC + ')">' + esc(c[1]) + '</button>';
-        }).join('') + '</span>';
+        /* ══ UNE LISTE LONGUE SE CHERCHE, ELLE NE SE PARCOURT PAS (01/09, référence fournie) ══════
+           La référence ouvre son panneau de réglages sur un champ « Search symbol… ». Chez nous, le
+           sélecteur de paire du graphique compte QUARANTE-DEUX entrées : deux colonnes de pastilles
+           qu'il faut balayer à l'œil pour trouver « CAD/CHF ». Un champ de recherche règle cela en
+           une frappe, et il ne coûte rien aux listes courtes — il n'apparaît qu'au-delà de quatorze
+           entrées, seuil au-dessus duquel le balayage cesse d'être immédiat.
+           Le filtre est posé sur le CONTENEUR et non sur une variable : le panneau est reconstruit
+           en chaîne à chaque ouverture, un état gardé ailleurs serait perdu au premier re-rendu. */
+        var _rech = (o.choix.length > 14)
+          ? '<input class="wdg-set-rech" type="search" spellcheck="false" placeholder="Rechercher…"'
+            + ' aria-label="Rechercher dans ' + esc(o.lbl) + '" oninput="DTPWidgets.filtrerChoix(this)">'
+          : '';
+        ctl = '<span class="wdg-set-chipbox">' + _rech
+          + '<span class="wdg-set-chips' + (o.choix.length > 10 ? ' wdg-set-chips--long' : '') + '">' + o.choix.map(function (c) {
+              return '<button class="wdg-set-chip' + (c[0] === cur ? ' on' : '') + '"'
+                + ' onclick="DTPWidgets.' + S + '(' + idx + ',\'' + o.k + '\',\'' + esc(String(c[0])) + '\'' + AC + ')">' + esc(c[1]) + '</button>';
+            }).join('') + '</span>'
+          + (_rech ? '<span class="wdg-set-vide" hidden>Aucune entrée ne correspond.</span>' : '')
+          + '</span>';
       }
       return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + esc(o.lbl) + '</span>' + ctl + '</div>';
     }).join('');
@@ -9263,6 +9278,26 @@ function _spansAffiches(lay) {
     // serveur ne valide que la FORME de it.cfg et n'accepte pas de tableau (cf. _wdgClean).
     // `setter` permet de viser la carte ('setOpt') ou l'onglet affiché ('setTabOpt') — c'est le
     // panneau de réglages qui le transmet, comme pour les sections du fil.
+    /* Filtre les pastilles d'une liste longue (champ « Rechercher… » posé par _optsHtml au-delà de
+       quatorze entrées). L'état vit dans le DOM et nulle part ailleurs : le panneau de réglages est
+       reconstruit en chaîne à chaque ouverture, une variable de module serait remise à zéro au
+       premier re-rendu. La comparaison est SANS ACCENTS ni casse — « zurich » doit trouver
+       « Zürich », sinon le champ punit exactement la frappe rapide qu'il vient promettre. */
+    filtrerChoix: function (input) {
+      function _plat(t) {
+        return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      }
+      var q = _plat(input.value).trim();
+      var boite = input.parentNode; if (!boite) return;
+      var n = 0;
+      Array.prototype.forEach.call(boite.querySelectorAll('.wdg-set-chip'), function (b) {
+        var ok = !q || _plat(b.textContent).indexOf(q) >= 0;
+        b.hidden = !ok;
+        if (ok) n++;
+      });
+      var vide = boite.querySelector('.wdg-set-vide');
+      if (vide) vide.hidden = !!n;
+    },
     toggleMulti: function (i, k, val, setter, c) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i];

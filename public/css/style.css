@@ -17397,7 +17397,19 @@ html[data-theme="light"] .news-grp-cpt {
 .wdg-frise-corps { position: relative; flex: 1 1 auto; min-height: 0; display: flex;
   flex-direction: column; justify-content: flex-start; gap: 15px; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; scrollbar-width: thin; }
 
-.wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  /* ══ LES LIGNES SE PARTAGENT LA HAUTEUR (01/09, demande user : « aucun espace vide inutile ») ══
+     La carte est redimensionnable ; la frise, elle, se dessinait à taille fixe et laissait la
+     moitié basse VIDE dès qu'on l'agrandissait. `flex: 1 1 auto` répartit l'espace libre entre les
+     quatre places, à parts égales.
+     ⚠️ `auto` et pas `0` : la base reste la hauteur du CONTENU, et le minimum automatique d'un
+     élément flex l'empêche de descendre en dessous. C'est ce qui garde le défilement de dernier
+     recours du 26/08 : quand la carte est trop basse, les lignes ne s'écrasent pas jusqu'à
+     l'illisible — elles débordent et `.wdg-frise-corps` se scrolle, comme prévu.
+     ⚠️ Et l'espace va DANS la ligne, pas entre les lignes : `space-evenly` sur le corps avait été
+     essayé le 18/08 et retiré — il éloignait le nom de sa propre piste de plusieurs dizaines de
+     pixels et on ne lisait plus quel bloc appartenait à qui. Ici le nom reste collé à sa piste. */
+  flex: 1 1 auto; }
 .wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
 .wdg-frise-place { display: flex; align-items: center; gap: 6px; color: var(--txt-2, #9aa1ac);
   font-size: 13px; font-weight: 600; letter-spacing: .01em; flex: 0 0 auto; }
@@ -17417,7 +17429,15 @@ html[data-theme="light"] .news-grp-cpt {
    Trame toutes les 3 h : assez pour situer un bloc, assez peu pour ne pas faire grille. */
 .wdg-frise-piste { position: relative; height: 18px; border-radius: 3px; overflow: hidden;
   background: var(--bg-3, #0f0f12); border: 1px solid var(--hud-line);
-  background-image: repeating-linear-gradient(to right, var(--hud-line) 0 1px, transparent 1px 12.5%); }
+  background-image: repeating-linear-gradient(to right, var(--hud-line) 0 1px, transparent 1px 12.5%);
+  /* La hauteur déclarée n'est plus qu'une BASE : la piste prend l'espace libre de sa ligne, et les
+     paliers plus bas ne changent donc que ce point de départ, jamais le comportement.
+     ⚠️ PAS DE PLAFOND, ET C'EST MESURÉ. Un `max-height: 60px` avait été posé d'abord, par crainte de
+     dalles sur une carte très haute. Résultat au banc : sur une carte de 900 px, les plages
+     s'arrêtaient à 60 px et 91 px de vide se rouvraient sous la dernière place — exactement le
+     défaut que la demande visait. Le vide déplacé reste du vide. La frise est un diagramme de
+     Gantt : une plage épaisse y est normale, et c'est elle qui porte son horaire écrit dedans. */
+  flex: 1 1 auto; min-height: 7px; }
 /* La barre porte son horaire : a cote, l oeil devait faire l aller-retour entre un texte a droite
    et un bloc a gauche pour savoir ce qu il regardait. */
 .wdg-frise-bloc { position: absolute; top: 0; bottom: 0; background: var(--frise-ton, #3a3f4b);
@@ -17861,6 +17881,23 @@ html[data-theme="light"] .news-grp-cpt {
    du DMX se scrollait sans fin en une colonne). Les listes courtes gardent leurs pastilles en ligne. */
 .wdg-set-chips--long { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .wdg-set-chips--long .wdg-set-chip { width: 100%; text-align: center; justify-content: center; }
+
+/* Champ « Rechercher… » des listes longues (01/09, référence fournie : le panneau de réglages du
+   graphique s'ouvre sur une recherche de symbole). Il coiffe les pastilles et n'existe qu'au-delà de
+   quatorze entrées — cf. _optsHtml. La boîte prend la place du bloc de pastilles dans la rangée :
+   elle doit donc porter le `min-width: 0` sans quoi une grille de 42 puces pousse le libellé dehors. */
+.wdg-set-chipbox { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.wdg-set-rech {
+  width: 100%; box-sizing: border-box; padding: 5px 9px;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; color: var(--text, #e6e8eb);
+  background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: 5px;
+  outline: none; transition: border-color .12s;
+}
+.wdg-set-rech::placeholder { color: var(--text4, #6b7280); }
+.wdg-set-rech:focus { border-color: rgba(227, 178, 58, .55); }
+.wdg-set-rech::-webkit-search-cancel-button { filter: grayscale(1) opacity(.6); cursor: pointer; }
+.wdg-set-vide { font-size: 10.5px; color: var(--text4, #6b7280); padding: 2px 1px; }
+.wdg-set-vide[hidden] { display: none; }
 
 /* Sous-valeur du pied de donut (pourcentage sous le volume, façon référence COT). */
 .wdg-dmx1-sous { font-size: 10px; color: var(--txt-3, #6b7280); font-variant-numeric: tabular-nums; }
