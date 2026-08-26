@@ -346,13 +346,16 @@
        recurrente, il laisse croire qu'un clic brule l'unique occasion de l'envoyer. */
     if (t.broadcast) {
       var _bc = _bcEtat(t.broadcast);
-      /* Un bouton qui disparait sans un mot se lit comme un bug. On remplace donc le bouton par la
-         raison de son absence : la date de l'envoi et le nombre de destinataires servis. */
+      /* RIEN A LA PLACE DU BOUTON (04/09, demande user : « tu peux le faire disparaitre maintenant,
+         vu que c'est dans la boucle programmee »). J'avais mis un bandeau « deja parti le … » en
+         me disant qu'un bouton qui s'efface sans un mot se lit comme une panne. C'etait vrai le
+         temps de le decouvrir ; ca ne l'est plus une fois la campagne partie et la cadence en
+         route. Et l'explication n'a pas disparu pour autant : la fiche du template porte, en
+         permanence, « Part tout seul tous les 6 mois, le lundi 11h-14h ». C'est la qu'elle a sa
+         place — dans la description du contenu, pas en bandeau de succes qui survit a l'evenement
+         qu'il annonce. */
       if (_bc && _bc.envoye) {
-        acts.push('<span class="camp-plan-sent">✓ déjà parti'
-          + (_bc.at ? ' le ' + new Date(_bc.at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '')
-          + ' · ' + _bc.n + ' destinataire' + (_bc.n > 1 ? 's' : '')
-          + (t.when === 'Tous les 6 mois' ? ' · la suite part toute seule' : '') + '</span>');
+        /* rien : la fiche dit deja que ce contenu part tout seul */
       } else {
         acts.push('<button class="camp-btn" onclick="oneshotOpen(\'' + t.broadcast + '\')">' + (t.broadcastLabel || 'Envoi unique à toute la liste…') + '</button>');
       }
@@ -2118,6 +2121,39 @@
   }
   // Badge de statut EFFECTIF — avant, la colonne affichait « Actif » (le flag technique u.active)
   // à côté d'un abonnement « Expiré » : contradictoire à l'écran. On montre l'état réel du compte.
+  /* « POURQUOI JE LES VOIS PAS CES COMPTES ? » (04/09). Parce que ce tableau ne liste QUE des
+     comptes du desk, et que les désabonnés d'une campagne viennent en majorité de Whop : ils n'ont
+     jamais eu de compte, donc aucun filtre ne peut les y faire apparaître. Le mode blanc d'un envoi,
+     lui, travaille sur l'AUDIENCE (comptes + contacts Whop + ajouts manuels) : les deux écrans ne
+     comptent pas la même population, et rien ne le disait. Le chiffre est demandé au serveur, pas
+     déduit ici : lui seul connaît les adresses sans compte. */
+  let _noteMailN = null;
+  function _noteMail() {
+    const el = document.getElementById('u-note-mail'); if (!el) return;
+    if (_fMail !== 'unsub') { el.hidden = true; return; }
+    const rendre = () => {
+      if (_noteMailN == null) { el.hidden = true; return; }
+      if (_noteMailN.mesure === false) {
+        el.hidden = false;
+        el.innerHTML = '⚠️ Le journal des envois n\'a pas pu être lu en entier : cette liste est peut-être incomplète.';
+        return;
+      }
+      if (!_noteMailN.sansCompte) { el.hidden = true; return; }
+      el.hidden = false;
+      el.innerHTML = '<strong>' + _noteMailN.sansCompte + ' autre' + (_noteMailN.sansCompte > 1 ? 's' : '') + ' adresse'
+        + (_noteMailN.sansCompte > 1 ? 's' : '') + ' désabonnée' + (_noteMailN.sansCompte > 1 ? 's' : '')
+        + '</strong> n\'a' + (_noteMailN.sansCompte > 1 ? '' : '') + ' pas de compte sur le desk — contacts Whop ou ajouts manuels. '
+        + 'Ce tableau ne liste que des comptes, ils ne peuvent donc pas y apparaître. '
+        + 'Vous les retrouvez tous dans <strong>Campagne › Désinscrits</strong>.';
+    };
+    if (_noteMailN != null) return rendre();
+    fetch('/api/admin/unsub-list').then(r => r.json()).then(d => {
+      _noteMailN = (d && d.ok) ? { sansCompte: d.sansCompte || 0, total: d.total || 0, mesure: d.complet !== false }
+                               : { sansCompte: 0, total: 0, mesure: false };
+      rendre();
+    }).catch(() => { _noteMailN = { sansCompte: 0, total: 0, mesure: false }; rendre(); });
+  }
+
   function statusBadge(u) {
     const st = subState(u);
     /* « AFFICHER » AUTANT QUE « FILTRER » (04/09, demande user). Un filtre ne répond qu'à la question
@@ -2315,6 +2351,7 @@
       </tr>`).join('');
 
     renderPagination(users.length, totalPages, start, pageUsers.length);
+    _noteMail();
   }
 
   function renderPagination(total, totalPages, start, shown) {

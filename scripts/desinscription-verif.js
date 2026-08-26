@@ -41,6 +41,19 @@ const SRV  = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
 const ADM  = fs.readFileSync(path.join(RACINE, 'public/js/admin.js'), 'utf8');
 const ADH  = fs.readFileSync(path.join(RACINE, 'public/admin.html'), 'utf8');
 
+/* EXTRAIRE UNE ROUTE PAR SES BORNES, JAMAIS PAR UNE DISTANCE EN CARACTERES.
+   ⚠️ Ecrit d'abord en `/unsub-list[\s\S]{0,2600}.../`, ce banc est devenu ROUGE en ajoutant un
+   commentaire dans la route : la distance etait passee de 2 400 a 3 079 caracteres. Un controle qui
+   casse quand on documente le code pousse a ne pas le documenter — et le jour ou il rougit, on
+   elargit la fenetre sans lire, ce qui finit par lui faire accepter du code d'une AUTRE route. On
+   borne donc sur la fermeture reelle du gestionnaire. */
+function route(src, entete) {
+  const d = src.indexOf(entete);
+  if (d < 0) return '';
+  const f = src.indexOf('\n});', d);
+  return f < 0 ? src.slice(d) : src.slice(d, f + 4);
+}
+
 let ok = 0, ko = 0;
 const v = (t, c, d) => { if (c) { ok++; console.log('  ✓ ' + t); } else { ko++; console.log('  ✗ ' + t + (d ? '\n      → ' + d : '')); } };
 
@@ -113,11 +126,58 @@ v('le panneau distingue les deux à l\'écran', /camp-un-tag--self/.test(ADM) &&
 v('… et demande confirmation avant de réabonner quelqu\'un qui s\'était désinscrit lui-même',
   /if \(parLui\)[\s\S]{0,400}dataset\.armed/.test(ADM), 'un clic unique repasserait le consentement sans un mot');
 
+console.log('\n── 4 bis. LE JOURNAL EST LU LÀ OÙ IL EST DURABLE, PAS SUR LE DISQUE ──');
+/* ⚠️ DÉFAUT TROUVÉ EN PRODUCTION (04/09, capture user) : le mode blanc d'une campagne listait trois
+   « desabonne » que l'écran des désinscrits ne montrait pas. Les deux lisent le même journal, mais
+   pas au même endroit. `_emailFile` est le backstop écrit sur DISQUE — et le disque de Render est
+   ÉPHÉMÈRE : à chaque redéploiement, à chaque réveil après mise en veille, il repart VIDE, et ne se
+   remplit ensuite que des écritures nouvelles. Supabase garde tout, et la synchronisation ne va que
+   dans un sens : fichier → table, jamais l'inverse.
+   Résultat : `emailLogAll()` renvoie un fragment, souvent vide le lendemain d'un déploiement. Un
+   écran bâti dessus affiche « aucun désinscrit » et laisse conclure que toute la base reçoit les
+   mails. C'est la pire forme d'erreur : rassurante. */
+const DUR = (() => {
+  const d = AUTH.indexOf('async function emailLogAllDurable(maxAgeMs) {');
+  if (d < 0) return null;
+  const f = AUTH.indexOf('\n}', d);
+  return f < 0 ? null : AUTH.slice(d, f + 2);
+})();
+v('une lecture DURABLE du journal existe', !!DUR);
+if (DUR) {
+  v('… elle interroge la table, pas seulement le fichier', /from\(EMAILLOG_TABLE\)\.select\('key,sent_at'\)/.test(DUR));
+  v('… elle pagine (le journal dépasse largement une page)', /\.range\(d, d \+ PAS - 1\)/.test(DUR));
+  v('… elle FUSIONNE avec le fichier local au lieu de le remplacer',
+    /Object\.assign\(\{\}, _emailFile\)/.test(DUR), 'les écritures récentes non encore poussées seraient perdues');
+  v('… et elle DIT si la mesure a réussi', /complet = true/.test(DUR) && /complet = false|let complet = false/.test(DUR),
+    'sans ce drapeau, un écran ne peut pas distinguer « personne » de « je n\'ai pas pu lire »');
+}
+/* Les trois écrans qui affirment quelque chose sur des envois passés doivent tous y passer. */
+v('la liste des désinscrits lit le journal durable',
+  /auth\.emailLogAllDurable\(\)/.test(route(SRV, "app.get('/api/admin/unsub-list'")));
+v('… l\'état des diffusions aussi (sinon le bouton d\'envoi réapparaît après un redéploiement)',
+  /auth\.emailLogAllDurable\(\)/.test(route(SRV, "app.get('/api/admin/campaign-broadcasts'")));
+v('… et le journal des envois lui-même', /auth\.emailLogAllDurable\(\)/.test(route(SRV, "app.get('/api/admin/email-log'")));
+v('l\'état des diffusions REFUSE de répondre sur une mesure incomplète',
+  /!_dur\.complet\) return res\.status\(503\)/.test(route(SRV, "app.get('/api/admin/campaign-broadcasts'")),
+  'il cacherait un bouton sur un envoi qui n\'a peut-être jamais eu lieu');
+
+console.log('\n── 4 ter. Le tableau des comptes dit POURQUOI il ne montre pas tout ──');
+/* « Pourquoi je les vois pas ces comptes ? » — parce que ce tableau ne liste QUE des comptes du
+   desk, et que les désabonnés d'une campagne viennent en majorité de Whop : ils n'ont jamais eu de
+   compte. Les deux écrans ne comptent pas la même population, et rien ne le disait. */
+v('le tableau porte une note d\'explication', /id="u-note-mail"/.test(ADH));
+v('… affichée UNIQUEMENT sur le filtre « Désabonnés »', /_fMail !== 'unsub'[\s\S]{0,60}hidden = true/.test(ADM));
+v('… elle chiffre les adresses sans compte au lieu de rester vague',
+  /sansCompte: d\.sansCompte \|\| 0/.test(ADM));
+v('… et elle renvoie là où on les trouve', /Campagne › Désinscrits/.test(ADM));
+v('… une mesure incomplète est signalée, pas maquillée en zéro',
+  /mesure === false[\s\S]{0,220}incomplète/.test(ADM));
+
 console.log('\n── 5. Les désinscrits ont enfin une liste (« ne sont pas dedans ») ──');
 v('la route de liste existe', /app\.get\('\/api\/admin\/unsub-list'/.test(SRV));
 v('… elle sait ajouter ET retirer', /action === 'add'/.test(SRV) && /action === 'remove'/.test(SRV));
 v('… elle valide la forme de l\'adresse avant toute écriture',
-  /unsub-list[\s\S]{0,900}_valide = e =>/.test(SRV), 'une chaîne arbitraire finirait en clé du journal');
+  /_valide = e =>/.test(route(SRV, "app.get('/api/admin/unsub-list'")), 'une chaîne arbitraire finirait en clé du journal');
 v('… elle compte les adresses SANS COMPTE (celles qu\'aucun écran n\'atteignait)',
   /sansCompte: list\.filter/.test(SRV));
 v('… et elle indexe les comptes par adresse NORMALISÉE',
@@ -125,7 +185,7 @@ v('… et elle indexe les comptes par adresse NORMALISÉE',
 /* DIRECTION SÛRE : journal illisible → on le DIT. Une liste vide se lirait « personne n'est
    désinscrit », et on lancerait une campagne en croyant que toute la base la recevra. */
 v('journal illisible → « mesure indisponible », jamais une liste vide',
-  /unsub-list[\s\S]{0,2600}mesure: 'indisponible'/.test(SRV));
+  /mesure: 'indisponible'/.test(route(SRV, "app.get('/api/admin/unsub-list'")));
 v('… et le panneau le répercute au lieu d\'afficher « aucun désinscrit »',
   /mesure indisponible/.test(ADM));
 v('la carte est dans le panneau, à côté de la liste noire',

@@ -1062,6 +1062,7 @@ module.exports = {
   emailLogDel,
   estUnsubPermanent,
   emailLogAll,
+  emailLogAllDurable,
   aiCacheGet,
   aiCacheSet,
   aiCacheDel,
@@ -1253,6 +1254,45 @@ async function emailLogDel(key) {
    désinscription. */
 function estUnsubPermanent(email) {
   return _PERMANENT_UNSUB_SEED.includes(String(email || '').toLowerCase().trim());
+}
+
+/* ── JOURNAL COMPLET **DURABLE** (04/09) ──────────────────────────────────────────────────────────
+   ⚠️ DÉFAUT TROUVÉ EN PRODUCTION, capture user à l'appui : le mode blanc d'une campagne listait
+   trois « desabonne » que l'écran des désinscrits ne montrait pas. Les deux lisent pourtant le même
+   journal — mais PAS AU MÊME ENDROIT.
+   `_emailFile` est le backstop écrit sur DISQUE. Or le disque de Render est ÉPHÉMÈRE : à chaque
+   redéploiement, et à chaque réveil après mise en veille, il repart VIDE. Il ne se remplit ensuite
+   que des écritures nouvelles. La table Supabase, elle, garde tout — et `_emailEnsureDb` ne fait
+   que pousser le fichier VERS elle, jamais l'inverse.
+   Conséquence : `emailLogAll()` ne renvoie qu'un fragment, souvent vide le lendemain d'un déploiement.
+   Le mode blanc, lui, passe par `emailLogHasMany`, qui interroge Supabase clé par clé — d'où l'écart.
+   Cette lecture-ci va chercher la table entière, la fusionne avec le fichier, et DIT si elle a
+   réussi. `complet: false` n'est pas un détail d'implémentation : un écran qui affiche « aucun
+   désinscrit » alors que la mesure a échoué ferait conclure que toute la base reçoit les mails. */
+let _emailAllCache = null, _emailAllAt = 0;
+async function emailLogAllDurable(maxAgeMs) {
+  const frais = Number.isFinite(maxAgeMs) ? maxAgeMs : 30000;
+  if (_emailAllCache && Date.now() - _emailAllAt < frais) return _emailAllCache;
+  const all = Object.assign({}, _emailFile);
+  let complet = false, source = 'fichier';
+  await _emailEnsureDb();
+  if (_emailDb) {
+    try {
+      const PAS = 1000;
+      for (let d = 0; ; d += PAS) {
+        const { data, error } = await supabase.from(EMAILLOG_TABLE).select('key,sent_at').range(d, d + PAS - 1);
+        if (error) throw new Error(error.message);
+        for (const r of (data || [])) if (!Object.prototype.hasOwnProperty.call(all, r.key)) all[r.key] = r.sent_at;
+        if (!data || data.length < PAS) break;
+      }
+      complet = true; source = 'supabase+fichier';
+    } catch (e) {
+      console.warn('[EmailLog] lecture complète impossible :', e.message);
+    }
+  }
+  _emailAllCache = { all, complet, source, n: Object.keys(all).length };
+  _emailAllAt = Date.now();
+  return _emailAllCache;
 }
 
 // Journal COMPLET { clé → date d'envoi ISO } pour l'écran « Journal des envois » du panel admin.

@@ -21578,18 +21578,31 @@ const _CAMP_BROADCAST_PFX = {
 };
 app.get('/api/admin/campaign-broadcasts', requireSameOrigin, requireAdmin, async (_req, res) => {
   try {
-    const jrn = auth.emailLogAll() || {};
+    /* MEME PIEGE : sur le fichier local seul, un redeploiement ferait « oublier » qu'une campagne
+       est partie, et le bouton « lancer a toute la liste » reapparaitrait sur un envoi deja fait. */
+    const _dur = await auth.emailLogAllDurable();
+    if (!_dur || !_dur.complet) return res.status(503).json({ ok: false, mesure: 'indisponible',
+      error: 'Journal des envois incomplet (' + ((_dur && _dur.source) || '?') + ') : impossible d\'affirmer qu\'une campagne est partie.' });
+    const jrn = _dur.all || {};
     const cles = Object.keys(jrn);
     const etats = {};
     for (const tpl of Object.keys(_CAMP_BROADCAST_PFX)) {
+      /* ⚠️ ON COMPTE DES PERSONNES, PAS DES CLES (04/09, capture user : « 328 destinataires » pour
+         171 cibles). Le parrainage ecrit DEUX marqueurs par destinataire — le sien et celui, croise,
+         de la boucle semestrielle — donc compter les cles doublait le chiffre. Un ecran qui annonce
+         deux fois la taille de la base est pire qu'un ecran muet : il fait croire a un envoi qui a
+         debordé. On deduplique sur l'ADRESSE, qui est la fin de la cle. */
       const pfx = _CAMP_BROADCAST_PFX[tpl];
-      let n = 0, at = null;
+      const vus = new Set();
+      let at = null;
       for (const k of cles) {
-        if (!pfx.some(p => k.indexOf(p) === 0)) continue;
-        n++;
+        const p = pfx.find(x => k.indexOf(x) === 0);
+        if (!p) continue;
+        vus.add(k.slice(p.length));
         const t = Date.parse(jrn[k]) || 0;
         if (t && (!at || t > at)) at = t;                 // le DERNIER servi date l'envoi
       }
+      const n = vus.size;
       etats[tpl] = { envoye: n > 0, n, at: at ? new Date(at).toISOString() : null };
     }
     res.json({ ok: true, etats });
@@ -21712,7 +21725,13 @@ app.get('/api/admin/unsub-list', requireSameOrigin, requireAdmin, async (req, re
       await auth.emailLogDel('unsub:' + em);
       return res.json({ ok: true, email: em, unsub: !!(await auth.emailLogHas('unsub:' + em)) });
     }
-    const jrn = auth.emailLogAll() || {};
+    /* LECTURE DURABLE, PAS LE FICHIER LOCAL. Le disque de Render est ephemere : `emailLogAll()`
+       repart VIDE a chaque redeploiement et ne se remplit que des ecritures suivantes. Cette liste
+       aurait donc affiche « aucun desinscrit » le lendemain d'un deploiement, pendant que le mode
+       blanc d'une campagne — qui interroge Supabase — en listait plusieurs. C'est exactement l'ecart
+       constate en production le 04/09. */
+    const _dur = await auth.emailLogAllDurable();
+    const jrn = (_dur && _dur.all) || {};
     /* Un compte peut porter une adresse a la casse differente : on indexe par adresse normalisee,
        sinon un contact apparaitrait « sans compte » alors qu'il en a un. */
     const comptes = {};
@@ -21733,7 +21752,8 @@ app.get('/api/admin/unsub-list', requireSameOrigin, requireAdmin, async (req, re
       });
     }
     list.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
-    res.json({ ok: true, total: list.length, sansCompte: list.filter(x => !x.compte).length, list });
+    res.json({ ok: true, total: list.length, sansCompte: list.filter(x => !x.compte).length,
+      complet: !!(_dur && _dur.complet), source: (_dur && _dur.source) || 'fichier', list });
   } catch (e) {
     /* Journal illisible : on le DIT. Renvoyer une liste vide se lirait « personne n'est
        desinscrit », et l'admin conclurait que tout le monde recoit bien les mails. */
@@ -24272,7 +24292,8 @@ function _mailLogType(key) {
 }
 app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
   try {
-    const all = auth.emailLogAll();
+    const _dur = await auth.emailLogAllDurable();
+    const all = (_dur && _dur.all) || auth.emailLogAll();
     const users = await auth.getAllUsers().catch(() => []);
     const byId = new Map(users.map(u => [String(u.id), u.email]));
     const q = String(req.query.q || '').toLowerCase().trim();
@@ -24293,7 +24314,8 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
       rows.push({ ts, at, type, dest: dest || '(compte supprimé)', key });
     }
     rows.sort((a, b) => b.ts - a.ts);
-    res.json({ ok: true, total: rows.length, rows: rows.slice(0, 400), types: [...typesVus].sort() });
+    res.json({ ok: true, total: rows.length, rows: rows.slice(0, 400), types: [...typesVus].sort(),
+      complet: !!(_dur && _dur.complet), source: (_dur && _dur.source) || 'fichier' });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 

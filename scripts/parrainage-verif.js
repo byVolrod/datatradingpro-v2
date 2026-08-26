@@ -418,9 +418,14 @@ async function interroge(email) {
      bout d\'un quart d\'heure, et au réveil le compteur repart à zéro — le bouton serait revenu tout
      seul le lendemain matin, sur une campagne déjà partie. C\'est le journal des envois, persisté,
      qui fait foi : la même source que l\'anti-doublon lui-même. */
-  v('l\'état des diffusions se lit dans le JOURNAL des envois, pas en mémoire',
-    /campaign-broadcasts[\s\S]{0,700}auth\.emailLogAll\(\)/.test(SRV) && !/campaign-broadcasts[\s\S]{0,700}_campaignStats/.test(SRV),
-    '_campaignStats ne survit pas à la mise en veille de Render');
+  /* Borne sur la ROUTE, pas sur une distance en caracteres, et sur la FAMILLE de lectures durables
+     plutot que sur un nom exact : ce controle est devenu rouge le jour ou la lecture est passee de
+     `emailLogAll()` a `emailLogAllDurable()` — un progres, pas une regression. Ce qui compte n'est
+     pas le nom de la fonction, c'est que la source soit le journal et jamais un compteur en memoire. */
+  const _R_BC = (() => { const d = SRV.indexOf("app.get('/api/admin/campaign-broadcasts'"); if (d < 0) return ''; const f = SRV.indexOf('\n});', d); return f < 0 ? SRV.slice(d) : SRV.slice(d, f + 4); })();
+  v('l\'\u00e9tat des diffusions se lit dans le JOURNAL des envois, pas en m\u00e9moire',
+    /auth\.emailLogAll(Durable)?\(/.test(_R_BC) && !/_campaignStats/.test(_R_BC),
+    '_campaignStats ne survit pas \u00e0 la mise en veille de Render');
   v('le parrainage compte SES DEUX chemins d\'envoi (sinon l\'automatique ne masque rien)',
     /'parrainage':\s*\['campaign:parrainage-', 'drip:parrain:'\]/.test(SRV));
   v('… et son préfixe couvre tous les mois (l\'id de campagne porte le mois)',
@@ -430,11 +435,26 @@ async function interroge(email) {
      jamais parti, non. */
   v('journal illisible → le serveur répond « mesure indisponible », il ne ment pas',
     /campaign-broadcasts[\s\S]{0,1400}mesure: 'indisponible'/.test(SRV));
+  /* Encore une distance en caracteres, encore rouge sur du code correct : le commentaire ajoute
+     entre les deux lignes avait pousse le `if` au-dela de la fenetre. On eprouve la PROPRIETE — la
+     branche qui affiche le bouton est celle du `else`, donc un etat inconnu (null) y tombe — sans
+     exiger que les deux lignes restent voisines. */
   v('… et côté panel, un état inconnu GARDE le bouton',
-    /_bcEtat\(t\.broadcast\)[\s\S]{0,400}if \(_bc && _bc\.envoye\)/.test(ADM),
+    /if \(_bc && _bc\.envoye\)/.test(ADM) && /\} else \{\s*\n\s*acts\.push\('<button class="camp-btn" onclick="oneshotOpen/.test(ADM),
     'un état null doit tomber dans la branche « bouton visible »');
-  v('quand le bouton disparaît, sa place dit POURQUOI (date + destinataires)',
-    /✓ déjà parti/.test(ADM), 'un bouton qui disparaît sans un mot se lit comme un bug');
+  /* ⚠️ LE COMPTE EST EN PERSONNES, PAS EN CLES. Constate en production le 04/09 : « 328
+     destinataires » pour 171 cibles. Le parrainage ecrit DEUX marqueurs par destinataire — le sien
+     et celui, croise, de la boucle semestrielle — et le compteur additionnait les cles. Un ecran qui
+     annonce deux fois la taille de la base fait croire a un envoi qui a deborde. */
+  v('l\'état d\'une diffusion compte des PERSONNES, pas des marqueurs',
+    /const vus = new Set\(\);/.test(SRV) && /vus\.add\(k\.slice\(p\.length\)\)/.test(SRV) && /const n = vus\.size;/.test(SRV),
+    'le parrainage écrit deux clés par destinataire : compter les clés double le chiffre');
+  /* Une fois la campagne partie et la cadence en route, la place du bouton reste VIDE : l'explication
+     vit dans la description du template (« Part tout seul tous les 6 mois »), pas dans un bandeau de
+     succès qui survivrait des mois à l'événement qu'il annonce. */
+  v('la place du bouton reste vide une fois la campagne partie', !/✓ déjà parti/.test(ADM));
+  v('… et la fiche du template dit, elle, que ce contenu part tout seul',
+    /Part tout seul tous les 6 mois/.test(ADM), 'plus rien n\'expliquerait l\'absence de bouton');
   v('la fin d\'une diffusion relit l\'état et redessine la barre',
     /if \(!st\.running\) \{[\s\S]{0,300}_bcCharger\(/.test(ADM), 'il faudrait recharger le panneau à la main');
 
@@ -566,6 +586,131 @@ async function interroge(email) {
     v('CE CAS NE PEUT PLUS ÊTRE SILENCIEUX : le serveur alerte l\'admin, une fois par compte',
       /refnouser:/.test(SRV) && /sendAdminAlert\(\{[\s\S]{0,200}nom d\\?'utilisateur Whop/.test(SRV),
       'sans alerte, le compteur resterait à zéro sans que personne ne le sache');
+  }
+
+  /* ══ 16. L'ENVOI EN COURS PEUT-IL DOUBLONNER ? ═════════════════════════════════════════════════
+     04/09, diffusion lancée en production, demande utilisateur : « vérifie pour pas avoir d'erreur
+     ou de doublon ». On déroule la boucle d'envoi RÉELLE, découpée dans server.js, contre un
+     journal en mémoire — et on la relance, on la coupe en plein milieu, on la fait tourner deux
+     fois en parallèle. Trois façons distinctes de fabriquer un doublon ; aucune ne doit passer. */
+  console.log('\n── 16. La boucle d\'envoi, relancée, coupée, doublée ──');
+  const BOUCLE = (() => {
+    const d = SRV.indexOf('    for (const r of recipients) {\n      const email = r.email;\n      const marker =');
+    if (d < 0) return null;
+    const f = SRV.indexOf('\n    }\n', d);
+    return f < 0 ? null : SRV.slice(d, f + 6);
+  })();
+  v('la boucle d\'envoi est extractible de server.js', !!BOUCLE);
+  if (BOUCLE) {
+    const faire = () => {
+      const jrn = {};                                   // journal DURABLE simulé
+      const recus = [];                                 // chaque envoi réellement effectué
+      const auth2 = {
+        emailLogHas: async k => Object.prototype.hasOwnProperty.call(jrn, k),
+        emailLogAdd: async k => { jrn[k] = new Date().toISOString(); },
+      };
+      return { jrn, recus, auth2 };
+    };
+    const lancer = async (ctx, recipients, bId, opts) => {
+      const o = opts || {};
+      const _campaignSend = { sent: 0, skipped: 0, unsub: 0, failed: 0 };
+      const force = false, throttle = 0;
+      const _bParrainMk = 'drip:parrain:2026-08:';
+      const auth = ctx.auth2;
+      const bSend = async (email) => { if (o.couperApres && ctx.recus.length >= o.couperApres) throw new Error('COUPE'); ctx.recus.push(email); return 'ovh'; };
+      const _recordSent = () => {};
+      try {
+        // eslint-disable-next-line no-eval
+        await eval('(async () => {\n' + BOUCLE + '\n})()');
+      } catch (e) { if (e.message !== 'COUPE') throw e; }
+      return _campaignSend;
+    };
+
+    const DEST = ['a@x.fr', 'b@x.fr', 'c@x.fr', 'd@x.fr', 'e@x.fr'].map(email => ({ email, name: '' }));
+    const ID = 'parrainage-2026-08';
+
+    // 1. Un passage nominal.
+    let ctx = faire();
+    let r1 = await lancer(ctx, DEST, ID);
+    v('un premier passage sert chaque destinataire une fois',
+      r1.sent === 5 && new Set(ctx.recus).size === 5, JSON.stringify(r1));
+
+    // 2. RELANCE COMPLÈTE — le geste qu'on fait quand on doute que l'envoi soit parti.
+    const avant = ctx.recus.length;
+    let r2 = await lancer(ctx, DEST, ID);
+    v('RELANCER l\'envoi entier n\'écrit AUCUN nouveau mail',
+      ctx.recus.length === avant && r2.sent === 0 && r2.skipped === 5, JSON.stringify(r2));
+
+    // 3. COUPURE EN PLEIN MILIEU (redéploiement Render, veille, onglet fermé) puis reprise.
+    ctx = faire();
+    await lancer(ctx, DEST, ID, { couperApres: 2 });
+    v('une diffusion coupée à mi-parcours a bien servi 2 personnes', ctx.recus.length === 2, ctx.recus.join(','));
+    const r3 = await lancer(ctx, DEST, ID);
+    v('… la reprise sert les 3 restants, et SEULEMENT eux',
+      ctx.recus.length === 5 && new Set(ctx.recus).size === 5 && r3.sent === 3 && r3.skipped === 2, JSON.stringify(r3));
+
+    /* 4. DEUX CLICS SIMULTANES. ⚠️ CE CONTROLE A D'ABORD ETE ECRIT FAUX, et le dire vaut mieux que
+       le corriger en silence : lancer deux fois la BOUCLE en parallele sert evidemment tout le
+       monde deux fois — le marqueur s'ecrit APRES le retour du fournisseur, donc les deux passages
+       lisent « pas encore servi » avant que l'un des deux n'ait logue. Ce n'est pas la boucle qui
+       protege de ca, et lui demander de le faire mesurait une propriete qu'elle n'a pas.
+       Ce qui protege, c'est le VERROU pris par la route AVANT toute attente — et la POSITION de ce
+       verrou est tout le correctif du 20/08 : teste apres `_campaignAudience` (qui interroge la base
+       ET l'API Whop, donc plusieurs secondes), deux clics dans cette fenetre voyaient tous les deux
+       « rien en cours ». C'est donc le verrou, et sa place, qu'on eprouve. */
+    /* ⚠️ ET PAS UNE FENETRE DE N CARACTERES : ecrite a 9 000, elle s'arretait 1 300 caracteres avant
+       le verrou (la branche de test qui la precede est longue), et les TROIS controles sortaient
+       rouges sur un code parfaitement correct. Un banc qui accuse le code a tort est pire qu'un banc
+       absent : on finit par elargir la fenetre sans lire, jusqu'a lui faire avaler une autre route.
+       On borne sur la fermeture reelle du gestionnaire. */
+    const _R_SEND = (() => {
+      const d2 = SRV.indexOf("app.get('/api/admin/campaign-send'");
+      if (d2 < 0) return '';
+      const f2 = SRV.indexOf('\n});', d2);
+      return f2 < 0 ? SRV.slice(d2) : SRV.slice(d2, f2 + 4);
+    })();
+    v('un second lancement simultane est refuse net (409)',
+      /if \(_campaignSend\.running\) return res\.status\(409\)/.test(_R_SEND),
+      'deux clics lanceraient deux diffusions');
+    v('… et le verrou est pris AVANT l\'appel a l\'audience, pas apres (correctif du 20/08)',
+      _R_SEND.indexOf('_campaignSend = { running: true') >= 0
+        && _R_SEND.indexOf('_campaignSend = { running: true') < _R_SEND.indexOf('await _campaignAudience'),
+      'plusieurs secondes de fenetre pendant lesquelles deux clics passent tous les deux');
+    v('… et il est relache sur chaque sortie anticipee (sinon plus aucun envoi ne repart)',
+      /_relacher = \(\) => \{ if \(send\)/.test(_R_SEND) && (_R_SEND.match(/_relacher\(\)/g) || []).length >= 2);
+
+    // 5. UN DÉSABONNÉ N'EST JAMAIS SERVI, même s'il est dans l'audience.
+    ctx = faire();
+    ctx.jrn['unsub:c@x.fr'] = new Date().toISOString();
+    const r5 = await lancer(ctx, DEST, ID);
+    v('un désabonné de l\'audience est sauté, et compté comme tel',
+      !ctx.recus.includes('c@x.fr') && r5.unsub === 1 && r5.sent === 4, JSON.stringify(r5));
+
+    // 6. LE MARQUEUR CROISÉ : servi par la boucle semestrielle, il ne repasse pas par l'envoi manuel.
+    ctx = faire();
+    ctx.jrn['drip:parrain:2026-08:d@x.fr'] = new Date().toISOString();
+    const r6 = await lancer(ctx, DEST, ID);
+    v('quelqu\'un déjà servi par le PROGRAMME n\'est pas resservi à la main',
+      !ctx.recus.includes('d@x.fr') && r6.sent === 4, JSON.stringify(r6));
+
+    // 7. Le marqueur n'est écrit QUE si le fournisseur a répondu.
+    ctx = faire();
+    const auth3 = ctx.auth2;
+    let n = 0;
+    const ctx2 = { jrn: ctx.jrn, recus: ctx.recus, auth2: auth3 };
+    const lancerEchec = async () => {
+      const _campaignSend = { sent: 0, skipped: 0, unsub: 0, failed: 0 };
+      const force = false, throttle = 0, _bParrainMk = 'drip:parrain:2026-08:';
+      const auth = auth3, recipients = DEST, bId = ID;
+      const bSend = async (email) => { n++; return n <= 2 ? 'ovh' : null; };   // le 3e échoue
+      const _recordSent = () => {};
+      // eslint-disable-next-line no-eval
+      await eval('(async () => {\n' + BOUCLE + '\n})()');
+      return _campaignSend;
+    };
+    const r7 = await lancerEchec();
+    v('un envoi qui ÉCHOUE ne pose pas de marqueur (il sera réessayé, pas perdu)',
+      r7.failed === 3 && !ctx.jrn['campaign:' + ID + ':c@x.fr'], JSON.stringify(r7));
   }
 
   console.log('');
