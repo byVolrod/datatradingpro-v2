@@ -152,7 +152,9 @@ v('le snapshot les emporte', /tabIcons: it\.tabIcons \|\| null,/.test(SRC));
    l'autre — sur le VRAI câblage extrait de widgets.js. Ce qu'elle mesure ne peut plus être vrai
    « en théorie » : si le doigt ne déplace rien, elle le dit.
    Sans navigateur disponible, elle s'abstient — elle ne rend jamais un poste inutilisable. */
-const D2 = SRC.indexOf('  function _glisserPourReordonner(hote, selPoignee, selLigne, attr, deplacer) {');
+// Repéré par son NOM, pas par sa signature : ajouter un paramètre à la mécanique commune ne doit
+// pas faire échouer le contrôle qui l'éprouve (arrivé le 29/08 avec l'option d'appui long).
+const D2 = SRC.indexOf('  function _glisserPourReordonner(');
 const D3 = SRC.indexOf('  function _wireTabsDnD(pop, i) {');
 const bloc = (d) => { const f = SRC.indexOf('\n  }\n', d); return SRC.slice(d, f + 4); };
 const CABLAGE = (D2 < 0 || D3 < 0) ? '' : bloc(D2) + '\n' + bloc(D3);

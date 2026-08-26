@@ -70,8 +70,9 @@ function phaseSource() {
   /* Le réordonnancement : une mécanique commune au pointeur, et plus aucun `draggable` sur les
      poignées. `draggable` ne sert pas qu'à rien au doigt — il VOLE le geste au pointeur sur les
      autres appareils, Chrome cessant d'émettre `pointermove` dès qu'un drag natif démarre. */
-  v('les listes se réordonnent par une mécanique commune au pointeur', /function _glisserPourReordonner\(hote, selPoignee, selLigne, attr, deplacer\)/.test(WID));
-  v('… employée par les onglets ET par les desks', (WID.match(/_glisserPourReordonner\(/g) || []).length >= 3,
+  // Repérée par son NOM : lui ajouter un paramètre ne doit pas faire échouer le contrôle.
+  v('les listes se réordonnent par une mécanique commune au pointeur', /function _glisserPourReordonner\(/.test(WID));
+  v('… employée par les onglets, les desks ET les cartes', (WID.match(/_glisserPourReordonner\(/g) || []).length >= 4,
     String((WID.match(/_glisserPourReordonner\(/g) || []).length) + ' emploi(s)');
   v('aucune poignée de réordonnancement n\'est en glisser natif',
     !/wdg-set-tabgrip" draggable/.test(WID) && !/wdg-mgr-grip" draggable/.test(WID));
@@ -200,6 +201,65 @@ const SONDE_STYLE = () => {
       v('l\'appui long puis le glissement déplacent l\'onglet, au doigt', /^BANQUES,/.test(ordre), ordre);
       await p2.close();
     }
+    console.log('\n── 4. Un vrai doigt deplace une carte du desk — et le desk defile toujours ──');
+    /* LE CAS LE PLUS COUTEUX, et le moins visible : sous 560 px la grille passe a UNE colonne, donc
+       l'ordre des cartes EST toute la disposition. Il n'existe aucun repli — le panneau de reglages
+       n'a ni « monter » ni « descendre », et la poignee a ete retiree le 04/08. Sur telephone, on ne
+       pouvait pas rearranger son desk du tout.
+       Ce qu'on eprouve ici est le COUPLE, parce que c'est lui qui est delicat : l'en-tete sert a
+       DEUX choses — faire defiler le desk, et saisir la carte. Un glissement franc doit defiler ; un
+       appui insistant puis un glissement doit deplacer. Les deux sont mesures. */
+    const WID = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
+    const dg = WID.indexOf('  function _glisserPourReordonner(');
+    if (dg < 0) { v('la mécanique de déplacement est extractible', false, 'introuvable'); }
+    else {
+      const fg = WID.indexOf('\n  }\n', dg);
+      const p3 = await nav.newPage();
+      await p3.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+      await p3.setContent('<style>body{margin:0}#g{height:2400px}'
+        + '.wdg-card{height:300px;border:1px solid #333;margin:8px}'
+        + '.wdg-head{height:40px;background:#181820}</style>'
+        + '<div id="g">' + [0, 1, 2, 3].map(i => '<div class="wdg-card" data-idx="' + i + '"><header class="wdg-head">carte ' + i + '</header></div>').join('') + '</div>');
+      await p3.evaluate((src) => {
+        window.__ordres = [];
+        const host = document.getElementById('g');
+        const _reorderBefore = (from, to) => window.__ordres.push([from, to]);
+        eval(src + '\n_glisserPourReordonner(host, ".wdg-head", ".wdg-card", "data-idx", _reorderBefore,'
+          + ' { appuiLong: 450, exclus: "button, input", refuse: c => c.classList.contains("wdg-card--locked") });');
+      }, WID.slice(dg, fg + 4));
+      const pos = await p3.evaluate(() => {
+        const h = document.querySelectorAll('.wdg-head');
+        const a = h[2].getBoundingClientRect(), c = h[0].getBoundingClientRect();
+        return { x: a.x + a.width / 2, y: a.y + a.height / 2, cy: c.y + 6 };
+      });
+      // (a) GLISSEMENT FRANC, sans insister : ce doit etre un DEFILEMENT, pas un deplacement.
+      await p3.touchscreen.touchStart(pos.x, pos.y);
+      for (let k = 1; k <= 10; k++) await p3.touchscreen.touchMove(pos.x, pos.y - 12 * k);
+      await p3.touchscreen.touchEnd();
+      await new Promise(r => setTimeout(r, 150));
+      let o = await p3.evaluate(() => window.__ordres.slice());
+      v('un glissement franc sur l\'en-tête ne déplace pas la carte (c\'est un défilement)', o.length === 0, JSON.stringify(o));
+      // (b) APPUI INSISTANT puis glissement : la carte doit se deplacer.
+      await p3.evaluate(() => { window.__ordres.length = 0; window.scrollTo(0, 0); });
+      const p2b = await p3.evaluate(() => {
+        const h = document.querySelectorAll('.wdg-head');
+        const a = h[2].getBoundingClientRect(), c = h[0].getBoundingClientRect();
+        return { x: a.x + a.width / 2, y: a.y + a.height / 2, cy: c.y + 6 };
+      });
+      await p3.touchscreen.touchStart(p2b.x, p2b.y);
+      await new Promise(r => setTimeout(r, 700));
+      for (let k = 1; k <= 12; k++) await p3.touchscreen.touchMove(p2b.x, p2b.y + (p2b.cy - p2b.y) * k / 12);
+      await p3.touchscreen.touchEnd();
+      await new Promise(r => setTimeout(r, 150));
+      o = await p3.evaluate(() => window.__ordres.slice());
+      v('un appui insistant puis un glissement déplace la carte, au doigt', o.length === 1 && o[0][0] === 2, JSON.stringify(o));
+      v('aucune marque ne reste sur la carte après le dépôt',
+        (await p3.evaluate(() => document.querySelectorAll('.wdg-reord-src,.wdg-drop-before,.wdg-drop-after').length)) === 0);
+      await p3.close();
+    }
+    // Le glisser natif ne doit plus etre promis nulle part sur ces surfaces.
+    v('l\'en-tête de carte n\'est plus en glisser natif', !/<header class="wdg-head" draggable=/.test(WID));
+    v('la barre d\'onglets non plus', !/bar\.setAttribute\('draggable', 'true'\)/.test(WID));
   } catch (e) {
     v('les phases navigateur s\'exécutent', false, e.message);
   } finally {

@@ -11779,6 +11779,10 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
 .wdg-grip:active { cursor: grabbing; }
 .wdg-grip svg { display: block; }
 .wdg-card.wdg-dragging { opacity: .45; border-color: var(--orange); }
+/* La carte saisie porte la marque commune aux listes réordonnables (`.wdg-reord-src`) depuis que le
+   déplacement passe par le pointeur : au doigt, il n'y a plus de fantôme dessiné par le navigateur,
+   c'est la seule chose qui dise ce qu'on tient — et la carte est sous le pouce. */
+.wdg-card.wdg-reord-src { opacity: .45; border-color: var(--orange); }
 .wdg-card.wdg-drop-before { box-shadow: -3px 0 0 0 var(--orange); }
 .wdg-card.wdg-drop-after  { box-shadow:  3px 0 0 0 var(--orange); }
 .wdg-resize {

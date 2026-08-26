@@ -301,9 +301,15 @@
          poignee, d'ou les fleches ↑ ↓ au clavier), il ne devient un glissement qu'en bougeant.
      On ne cherche PAS la ligne visee dans `e.target` : avec la capture, la cible reste la poignee.
      C'est `elementFromPoint` qui dit ce qu'il y a sous le doigt. */
-  function _glisserPourReordonner(hote, selPoignee, selLigne, attr, deplacer) {
+  function _glisserPourReordonner(hote, selPoignee, selLigne, attr, deplacer, opts) {
     if (!hote || hote._reordWired) return; hote._reordWired = true;
-    var from = null, src = null, actif = false, y0 = 0;
+    opts = opts || {};
+    /* ARMEMENT PAR APPUI LONG (option). Sur une POIGNÉE dédiée, partir au 4e pixel est le bon
+       comportement : on ne pose pas le doigt sur un ⠿ par hasard. Sur une zone qui sert AUSSI à
+       autre chose — l'en-tête d'une carte, qu'on touche pour faire défiler le desk — partir au
+       mouvement rendrait le défilement impossible. On attend donc que le doigt insiste. */
+    var HOLD = opts.appuiLong | 0;
+    var from = null, src = null, actif = false, y0 = 0, minuteur = null, exclus = opts.exclus || null;
     var clear = function () {
       var l2 = hote.querySelectorAll('.wdg-drop-before,.wdg-drop-after,.wdg-reord-src');
       for (var z = 0; z < l2.length; z++) l2[z].classList.remove('wdg-drop-before', 'wdg-drop-after', 'wdg-reord-src');
@@ -312,19 +318,33 @@
       var el = document.elementFromPoint(x, y);
       return (el && el.closest) ? el.closest(selLigne) : null;
     };
+    var desarmer = function () { if (minuteur) { clearTimeout(minuteur); minuteur = null; } };
     hote.addEventListener('pointerdown', function (e) {
       if (e.button != null && e.button > 0) return;                 // clic droit / molette : pas un déplacement
       var g = e.target.closest && e.target.closest(selPoignee);
+      if (g && exclus && e.target.closest(exclus)) g = null;        // un bouton DANS la zone de prise garde son geste
       var l = g && g.closest(selLigne);
+      if (l && opts.refuse && opts.refuse(l)) l = null;             // carte verrouillée, ligne unique…
       if (!l) return;
       from = +l.getAttribute(attr); src = l; actif = false; y0 = e.clientY;
       // La capture est posée sur la POIGNÉE : les `pointermove` suivants lui sont livrés, et
       // remontent donc jusqu'à cet hôte délégué même quand le doigt a quitté la ligne d'origine.
       try { g.setPointerCapture(e.pointerId); } catch (_) {}
+      if (HOLD) {
+        desarmer();
+        minuteur = setTimeout(function () {
+          minuteur = null;
+          if (from == null) return;
+          actif = true;
+          if (src) src.classList.add('wdg-reord-src');
+        }, HOLD);
+      }
     });
     hote.addEventListener('pointermove', function (e) {
       if (from == null) return;
       if (!actif) {
+        // Armement par appui long : bouger AVANT la fin du délai annule — c'est un défilement.
+        if (HOLD) { if (Math.abs(e.clientY - y0) > 10) { desarmer(); from = null; src = null; } return; }
         if (Math.abs(e.clientY - y0) < 4) return;                   // encore un appui, pas un glissement
         actif = true;
         if (src) src.classList.add('wdg-reord-src');                // on voit CE QU'ON déplace — indispensable au doigt
@@ -338,6 +358,7 @@
       row.classList.add((e.clientY - r.top) > r.height / 2 ? 'wdg-drop-after' : 'wdg-drop-before');
     });
     var fin = function (e) {
+      desarmer();
       if (from == null) return;
       if (actif) {
         var row = ligneSous(e.clientX, e.clientY);
@@ -352,7 +373,13 @@
       from = null; src = null; actif = false; clear();
     };
     hote.addEventListener('pointerup', fin);
-    hote.addEventListener('pointercancel', function () { from = null; src = null; actif = false; clear(); });
+    hote.addEventListener('pointercancel', function () { desarmer(); from = null; src = null; actif = false; clear(); });
+    /* ⚠️ AU DOIGT, `preventDefault()` SUR `pointermove` NE RETIENT RIEN. Les événements de pointeur
+       issus du tactile sont émis APRÈS que le geste a été attribué au défilement : les annuler là
+       n'annule plus rien. Seul un `touchmove` NON PASSIF peut encore le refuser — et on ne le refuse
+       QUE pendant un déplacement armé, sinon le desk ne défilerait plus du tout. C'est ce couple qui
+       permet à une zone de servir aux deux : on fait défiler en glissant, on déplace en insistant. */
+    if (HOLD) hote.addEventListener('touchmove', function (e) { if (actif) e.preventDefault(); }, { passive: false });
     // Un glissement HTML5 qui partirait malgré tout (image, texte sélectionné) volerait le geste au
     // pointeur : Chrome cesse d'émettre `pointermove` dès qu'un drag natif démarre.
     hote.addEventListener('dragstart', function (e) {
@@ -7172,7 +7199,8 @@
         var subCleans = [];
         function _libereSous() { subCleans.splice(0).forEach(function (f) { try { f(); } catch (e) {} }); }
         var bar = document.createElement('div'); bar.className = 'wdgt-bar';
-        bar.setAttribute('draggable', 'true');   // saisie de la carte depuis l'espace vide de la barre (cf. _wireGrid)
+        // Plus de `draggable` : le glisser natif n'existe pas au doigt et il vole le geste au
+        // pointeur ailleurs. La saisie depuis l'espace vide de la barre passe par _wireGrid.
         // Retire TOUT engrenage de sous-widget encore présent (dans la carte ou dans une vue
         // adoptée qui vit temporairement ici) — évite l'empilement ET évite qu'un engrenage
         // reparte avec la vue quand elle regagne le desk.
@@ -7649,42 +7677,30 @@
   }
   function _wireGrid(host) {
     if (!host || host._wdgWired) return; host._wdgWired = true;
-    var dragIdx = null, rz = null;
-    var clearHints = function () { host.querySelectorAll('.wdg-drop-before,.wdg-drop-after').forEach(function (c) { c.classList.remove('wdg-drop-before', 'wdg-drop-after'); }); };
-    // — Glisser-déposer (réordonner) —
-    host.addEventListener('dragstart', function (e) {
-      // DÉPLACEMENT SANS POIGNÉE (04/08, demande user « ça doit se faire sans avoir besoin de
-      // l'icône ») : on saisit l'EN-TÊTE de la carte (sa zone neutre — pas les boutons, pas les
-      // onglets, qui gardent leurs propres gestes). La poignée ⠿ est supprimée : un pointeur
-      // « grab » sur l'en-tête suffit à l'annoncer.
-      // Zones de saisie : l'en-tête de la carte OU, pour un panneau à onglets (dont l'en-tête est
-      // un calque non cliquable), l'espace vide de sa barre d'onglets.
-      var tete = e.target.closest && e.target.closest('.wdg-head, .wdgt-bar');
-      var card = tete && !e.target.closest('.wdg-ico, .wdgt-tab, .wdgt-add, button, input')
-        ? tete.closest('.wdg-card') : null;
-      if (card && card.classList.contains('wdg-card--locked')) card = null;        // carte verrouillée → pas de déplacement
-      if (!card) { if (e.preventDefault) e.preventDefault(); return; }
-      dragIdx = +card.getAttribute('data-idx');
-      card.classList.add('wdg-dragging');
-      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(dragIdx)); e.dataTransfer.setDragImage(card, 24, 18); } catch (_) {}
+    var rz = null;
+    /* ══ DÉPLACER UNE CARTE — AU DOIGT AUSSI (29/08) ═══════════════════════════════════════════════
+       DÉPLACEMENT SANS POIGNÉE (04/08, demande user « ça doit se faire sans avoir besoin de
+       l'icône ») : on saisit l'EN-TÊTE de la carte — sa zone neutre, pas les boutons, pas les
+       onglets, qui gardent leurs propres gestes. Ou, pour un panneau à onglets dont l'en-tête est un
+       calque non cliquable, l'espace vide de sa barre d'onglets.
+
+       Ça reposait sur le glisser-déposer HTML5, qui n'existe pas au toucher. Mesuré : doigt posé sur
+       l'en-tête puis glissé de 260 px → pointerdown, pointermove, pointercancel, AUCUN dragstart,
+       aucun déplacement, et la page a défilé de 136 px à la place.
+       ⚠️ ET C'EST SOUS 560 px QUE ÇA COMPTE LE PLUS : la grille y passe à UNE colonne, donc l'ordre
+       des cartes EST toute la disposition. Il n'existait aucun repli — le panneau de réglages offre
+       Actualiser / Remplacer / Dupliquer / Plein écran / Verrouiller, ni « monter » ni « descendre »,
+       et la poignée ⠿ a été retirée le 04/08. Sur téléphone, on ne pouvait donc pas réarranger son
+       desk du tout.
+
+       APPUI LONG, et pas un glissement immédiat : l'en-tête est aussi ce qu'on touche pour faire
+       défiler le desk. On attend 450 ms d'insistance, et pendant le déplacement seulement, un
+       `touchmove` non passif refuse le défilement. Le reste du temps, le desk défile normalement. */
+    _glisserPourReordonner(host, '.wdg-head, .wdgt-bar', '.wdg-card', 'data-idx', _reorderBefore, {
+      appuiLong: 450,
+      exclus: '.wdg-ico, .wdgt-tab, .wdgt-add, button, input',
+      refuse: function (card) { return card.classList.contains('wdg-card--locked'); },
     });
-    host.addEventListener('dragover', function (e) {
-      if (dragIdx == null) return; e.preventDefault();
-      var card = e.target.closest && e.target.closest('.wdg-card'); clearHints();
-      if (!card || +card.getAttribute('data-idx') === dragIdx) return;
-      var r = card.getBoundingClientRect();
-      card.classList.add((e.clientY - r.top) > r.height / 2 ? 'wdg-drop-after' : 'wdg-drop-before');
-    });
-    host.addEventListener('drop', function (e) {
-      if (dragIdx == null) return; e.preventDefault();
-      var card = e.target.closest && e.target.closest('.wdg-card');
-      if (card) {
-        var to = +card.getAttribute('data-idx'), r = card.getBoundingClientRect();
-        _reorderBefore(dragIdx, (e.clientY - r.top) > r.height / 2 ? to + 1 : to);
-      }
-      dragIdx = null; clearHints();
-    });
-    host.addEventListener('dragend', function () { dragIdx = null; clearHints(); host.querySelectorAll('.wdg-dragging').forEach(function (c) { c.classList.remove('wdg-dragging'); }); });
     // — Redimensionnement LIBRE : poignée de COIN (largeur+hauteur) OU poignée de BORD DROIT (largeur seule),
     //   avec SNAP sur la grille et aperçu live. Le GAP est lu DYNAMIQUEMENT (getComputedStyle) car la densité
     //   « collés/espacés » le fait varier — un gap codé en dur ferait dériver le snap.
@@ -7869,7 +7885,9 @@
       // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
       // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
       return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + (w.id === 'onglets' ? ' wdg-card--tabs' : '') + '" data-idx="' + idx + '" style="--gw:' + (_lgs[idx] || it.gw) + ';--gh:' + it.gh + ';">'
-        + '<header class="wdg-head" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer">'
+        // `draggable` retiré : tout le déplacement passe par le pointeur (cf. _wireGrid). Le
+        // verrouillage est refusé à la source, dans `refuse`, plutôt que par l'attribut.
+        + '<header class="wdg-head" title="' + (locked ? 'Carte verrouillée' : 'Maintenir pour déplacer') + '">'
         // (poignée ⠿ RETIRÉE 04/08 : l'en-tête entier est la zone de saisie — cf. _wireGrid)
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
         // BANDEAU (21/08, demande user) : Réglages · REMPLACER · Fermer. « Remplacer » remonte des
