@@ -5071,6 +5071,17 @@ function dtpKbPourTitre(headline) {
   const h = String(headline || '');
   return CAL_KB.find(k => k.rx.test(h)) || null;
 }
+/* LA MÊME FICHE, RETROUVÉE PAR SON NOM (31/08). La reconnaissance ci-dessus lit l'ANGLAIS du
+   calendrier (« gross domestic », « core pce ») : elle ne peut rien faire d'un titre français comme
+   « ANALYSE PIB US : … ». Quand le desk sait déjà de quel indicateur il parle — c'est le cas d'une
+   analyse d'événement, qui est produite POUR un indicateur précis — il le nomme, et on va chercher
+   sa fiche directement. On rend un objet minimal plutôt que rien si la fiche manque : le tag doit
+   pouvoir s'afficher même sans définition à mettre en infobulle. */
+function dtpKbParNom(nom) {
+  const n = String(nom || '').trim();
+  if (!n) return null;
+  return CAL_KB.find(k => k.name === n) || { name: n };
+}
 async function dtpEventInsightHtml(item) {
   return _calValueBlockHtml({ title: item.headline, currency: _dtpNewsCcy(item.headline, item.currency), actual: item.actual, forecast: item.forecast, timestamp: item.timestamp });
 }

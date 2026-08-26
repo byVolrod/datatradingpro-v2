@@ -209,6 +209,62 @@ function phaseLogique() {
     verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2');
     verif('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
 
+    /* ── L'ANALYSE D'UN CHIFFRE PORTE-T-ELLE LE TAG DE SON INDICATEUR ? ────────────────────────
+       31/08 : « il manque le tag comme ceci », capture d'une ligne de calendrier portant son tag
+       « drapeau + PCE ». L'ANALYSE du même chiffre ne l'avait pas — les rapports maison étaient
+       exclus en bloc du tag d'indicateur, ce qui est juste pour un récap et faux pour une analyse
+       d'événement, dont le sujet EST un indicateur.
+       On construit une VRAIE ligne avec `buildNewsItem` (la fabrique du fil, exposée par app.js) et
+       on lit les tags rendus. Deux formes sont éprouvées, parce qu'elles empruntent deux chemins :
+       l'analyse (le desk NOMME l'indicateur) et la donnée brute (la table le reconnaît au titre). */
+    const tg = await page.evaluate(() => {
+      const lire = it => {
+        const el = window.buildNewsItem(it);
+        const tags = [...el.querySelectorAll('.news-tags .tag')].map(t => ({
+          txt: (t.textContent || '').trim(), cls: t.className,
+          drapeau: !!t.querySelector('.tag-flag'), src: (t.querySelector('.tag-flag') || {}).getAttribute
+            ? t.querySelector('.tag-flag').getAttribute('src') : '', titre: t.getAttribute('title') || '',
+        }));
+        return tags;
+      };
+      return {
+        analyse: lire({ id: 'x1', headline: 'ANALYSE PCE US : Inflation PCE américaine supérieure aux attentes en juillet',
+          description: 'Texte.', category: 'Economic Commentary', tags: ['Inflation', 'PCE', 'USD'], timestamp: Date.now(),
+          priority: 'high', _eventAnalysis: true, _reportType: 'PCE Analysis', _pair: 'EUR/USD', _indic: 'PCE', _ccy: 'USD' }),
+        pib: lire({ id: 'x2', headline: 'ANALYSE PIB US : PIB US révisé à 1.5%, déflateur au-dessus des attentes',
+          description: 'Texte.', category: 'Economic Commentary', tags: ['GDP', 'Growth', 'USD'], timestamp: Date.now(),
+          priority: 'high', _eventAnalysis: true, _reportType: 'GDP Analysis', _pair: 'EUR/USD', _indic: 'PIB', _ccy: 'USD' }),
+        brute: lire({ id: 'x3', headline: 'US Core PCE Price Index MoM Actual 0.2% (Forecast 0.2%, Previous 0.1%)',
+          description: '', category: 'Economic Commentary', tags: ['Inflation', 'USD'], timestamp: Date.now(), priority: 'high' }),
+        recap: lire({ id: 'x4', headline: 'Récap de séance — Londres', description: 'Texte.', category: 'Market Analysis',
+          tags: ['FX'], timestamp: Date.now(), priority: 'normal', _reportType: 'Session Wrap' }),
+        // La définition ATTENDUE, lue dans la fiche elle-même : le contrôle compare deux valeurs de
+        // la page, il ne re-décrit pas l'indicateur dans le banc (une copie finirait par diverger).
+        defPce: (typeof dtpKbParNom === 'function' && (dtpKbParNom('PCE') || {}).what) || '',
+      };
+    });
+    const _indicDe = l => (l || []).find(t => /tag--indic/.test(t.cls));
+    console.log('\n── L\'analyse d\'un chiffre porte le tag de son indicateur ──');
+    const iA = _indicDe(tg.analyse);
+    verif('l\'analyse PCE porte le tag « PCE »', !!iA && iA.txt === 'PCE', JSON.stringify(tg.analyse.map(t => t.txt)));
+    verif('… avec le drapeau de la devise de L\'ÉVÉNEMENT (US, pas la zone euro)',
+      !!iA && iA.drapeau && /\/us\.png$/.test(iA.src), iA && iA.src);
+    /* La définition vient de la fiche du calendrier : le survol explique l'indicateur, exactement
+       comme sur la ligne de donnée brute. Sans elle, le tag ne serait qu'une étiquette de plus. */
+    verif('… et la définition de la fiche en infobulle', !!iA && !!tg.defPce && iA.titre === tg.defPce,
+      'infobulle « ' + (iA && iA.titre) + ' » · fiche « ' + tg.defPce + ' »');
+    /* PIB est le cas qui prouve que le nom vient du SERVEUR : la table de reconnaissance lit
+       « gdp | gross domestic », elle ne trouve rien dans un titre français. */
+    const iP = _indicDe(tg.pib);
+    verif('l\'analyse PIB le porte aussi, alors que le titre est en français',
+      !!iP && iP.txt === 'PIB', JSON.stringify(tg.pib.map(t => t.txt)));
+    verif('le tag n\'est pas répété en double', (tg.analyse.filter(t => t.txt === 'PCE').length) === 1,
+      JSON.stringify(tg.analyse.map(t => t.txt)));
+    // La donnée brute garde le sien : on n'a rien cassé du chemin d'origine.
+    verif('la ligne de donnée brute garde son tag', !!_indicDe(tg.brute), JSON.stringify(tg.brute.map(t => t.txt)));
+    // Et un récap maison n'en gagne pas : son sujet n'est pas un indicateur.
+    verif('un récap de séance n\'en gagne pas', !_indicDe(tg.recap), JSON.stringify(tg.recap.map(t => t.txt)));
+
     /* ── ONGLET ANALYSTES : LA LISTE NE DOIT PAS ATTENDRE LA SOURCE LA PLUS LENTE ──────────────
        Le 26/08, l'onglet restait sur « Chargement des rapports… » plusieurs secondes : les quatre
        sources étaient attendues ENSEMBLE et /api/weekly-reports attendait lui-même Supabase. Ici la

@@ -4581,12 +4581,29 @@ function buildNewsItem(item) {
      une chronique — un titre sans « Actual/vs/Forecast » ne passe pas), et jamais sur les
      rapports maison (leur titre dit déjà tout). */
   (function () {
-    if (item._reportType || item._dtpd || item._eventAnalysis || item._briefing || item._marketWrap) return;
+    /* ⚠️ L'ANALYSE D'UN CHIFFRE PORTE L'INDICATEUR, ELLE AUSSI (31/08 : « il manque le tag comme
+       ceci », capture d'une ligne de calendrier avec son tag « drapeau + PCE »). Les rapports maison
+       étaient exclus en bloc, au motif que « leur titre dit déjà tout » — vrai d'un récap, faux
+       d'une analyse d'événement, dont le sujet EST un indicateur. Le lecteur voyait donc le tag sur
+       la donnée brute, et plus rien sur le texte qui l'explique.
+       Deux verrous tombent pour elle, et pour elle seule :
+         · l'exclusion des rapports maison, quand le desk a NOMMÉ l'indicateur (`_indic`) ;
+         · la signature de publication (« Actual … Forecast … »), qu'un titre d'analyse n'a jamais —
+           mais une analyse d'événement n'est ni un récit ni une annonce à venir, c'est-à-dire
+           exactement ce que cette signature servait à écarter.
+       Le nom vient du SERVEUR : le titre est en français, la table de reconnaissance lit l'anglais
+       du calendrier. Deviner ici, c'était ne rien trouver. */
+    const _nomIndic = item._indic || null;
+    if (!_nomIndic && (item._reportType || item._dtpd || item._eventAnalysis || item._briefing || item._marketWrap)) return;
     const hl0 = String(item.headline || '');
-    if (!_SIG_PUBLICATION.test(hl0)) return;
-    const kb = (typeof dtpKbPourTitre === 'function') ? dtpKbPourTitre(hl0) : null;
+    if (!_nomIndic && !_SIG_PUBLICATION.test(hl0)) return;
+    const kb = _nomIndic
+      ? ((typeof dtpKbParNom === 'function') ? dtpKbParNom(_nomIndic) : { name: _nomIndic })
+      : ((typeof dtpKbPourTitre === 'function') ? dtpKbPourTitre(hl0) : null);
     if (!kb || !kb.name) return;
-    const devIndic = _devPrevue || (function () { try { return _deviseDeLaNews(); } catch (e) { return null; } })();
+    // La devise de l'ÉVÉNEMENT quand le desk la donne : la paire exposée d'un chiffre américain est
+    // EUR/USD, en déduire le drapeau donnerait celui de la zone euro.
+    const devIndic = item._ccy || _devPrevue || (function () { try { return _deviseDeLaNews(); } catch (e) { return null; } })();
     const iso = devIndic ? _SBR_ISO[devIndic] : null;
     const ti = document.createElement('span');
     ti.className = 'tag tag--indic';
