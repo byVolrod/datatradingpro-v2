@@ -4724,14 +4724,15 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .br-article-body a:hover { text-decoration: underline; }
 .br-article-body strong, .br-article-body b { color: var(--text); }
 .br-article-body blockquote { border-left: 3px solid var(--border3); padding-left: 14px; color: var(--text2); margin: 12px 0; }
-.br-ext-link { color: var(--orange); font-size: 12px; text-decoration: none; }
-.br-ext-link:hover { text-decoration: underline; }
 
 /* Carte « rapport protégé non intégrable » (remplace l'iframe vide des sites qui bloquent le framing) */
 .br-ext-card { display: flex; flex-direction: column; align-items: flex-start; gap: 13px; background: var(--bg2); border: 1px solid var(--border2); border-left: 3px solid var(--orange); border-radius: 4px; padding: 20px 22px; margin-top: 10px; }
 .br-ext-card-ic { font-size: 24px; line-height: 1; }
 .br-ext-card-txt { font-size: 13px; line-height: 1.6; color: var(--text2); }
-.br-ext-card-btn { display: inline-block; background: var(--orange); color: #1a1205; font-weight: var(--fw-bold); font-size: 12px; padding: 9px 17px; border-radius: 4px; text-decoration: none; }
+/* Ce bouton etait un <a> vers le site de la banque ; il est devenu un <button> qui REPREND
+   l'affichage sur place (30/08 : aucun rapport d'institution ne ramene a sa source). Un <button>
+   n'herite ni de la police ni du curseur, et arrive avec une bordure : on les repose. */
+.br-ext-card-btn { display: inline-block; background: var(--orange); color: #1a1205; font-weight: var(--fw-bold); font-size: 12px; font-family: inherit; padding: 9px 17px; border: none; border-radius: 4px; text-decoration: none; cursor: pointer; }
 .br-ext-card-btn:hover { filter: brightness(1.08); }
 .ai-ins-empty { padding: 14px 16px; font-size: 12px; line-height: 1.55; color: var(--text2); }
 
@@ -9683,26 +9684,10 @@ html[data-theme="light"] .cal-day-sep td {
   border: 1px solid var(--border);
 }
 
-/* Footer */
-.br-doc-footer {
-  margin-top: 40px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  text-align: right;
-}
-.br-ext-link-btn {
-  display: inline-block;
-  margin-top: 16px;
-  padding: 10px 20px;
-  background: var(--orange);
-  color: #fff;
-  border-radius: 4px;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  font-weight: var(--fw-semibold);
-  text-decoration: none;
-}
-.br-ext-link-btn:hover { background: var(--orange-dim); }
+/* Le pied de page d'un rapport d'institution et son bouton de sortie n'existaient que pour porter
+   « Lire l'original → » vers le site de la banque (retire le 30/08). Plus aucun element ne les
+   porte : on ne garde pas une regle qui ne peut plus s'appliquer, elle ferait croire au prochain
+   lecteur qu'un pied de page existe encore. */
 
 /* Placeholder — affiché quand aucun article n'est sélectionné */
 .br-placeholder {

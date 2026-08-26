@@ -8142,9 +8142,17 @@ async function _brEmbedPdf(item, endpointUrl) {
   content.innerHTML = `<iframe class="br-pdf-frame" src="${blobUrl}#toolbar=0&navpanes=0&zoom=100" title="${ttl}"></iframe>`;
   return true;
 }
-// Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
+// Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + reprise de l'affichage
 // (jamais un cadre vide ni un message technique). Les Éclairages desk restent affichés au-dessus, façon pro.
-function _brShowExternalCard(item) {
+/* ⚠️ CETTE CARTE PORTAIT LE CHEMIN LE PLUS DIRECT VERS LA SOURCE (30/08). C'était un bouton du
+   PRODUIT, pas une trace oubliée dans un rapport : un bouton d'ouverture du rapport, en or plein,
+   vers le site de la banque. La demande est sans ambiguïté — aucun rapport d'institution ne doit
+   ramener à sa source — et un bouton que nous dessinons nous-mêmes ne fait pas exception.
+   ⚠️ ET IL SERVAIT À QUELQUE CHOSE : c'était la seule reprise possible quand notre chaîne
+   d'affichage échoue. On ne laisse donc pas un cul-de-sac — la carte propose de RÉESSAYER
+   l'affichage (`reessayer` = la même fonction avec les mêmes arguments), et rappelle que les
+   Éclairages, au-dessus, donnent la substance du rapport. */
+function _brShowExternalCard(item, reessayer) {
   const content = document.getElementById('br-rcontent'); if (!content) return;
   content.classList.remove('br-rcontent--pdf');
   const _inst = _instBadge(item);
@@ -8152,7 +8160,6 @@ function _brShowExternalCard(item) {
   const headerHtml = `<div class="br-ing-header">${_instLogoHtml(_inst)}<div class="br-ing-tagline">${tagline}</div></div><div class="br-ing-divider"></div>`;
   const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
   const preview = (item.description || '').trim();
-  const safe = (item.url || '').replace(/"/g, '&quot;');
   const typeLbl = _inst === 'DTP' ? 'Research' : _inst;
   content.innerHTML = `<div class="br-document">${headerHtml}
       <div class="br-ing-meta"><span class="br-ing-type">${typeLbl}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
@@ -8160,9 +8167,10 @@ function _brShowExternalCard(item) {
       ${preview ? `<div class="br-ing-lead">${preview}</div>` : ''}
       <div class="br-ext-card">
         <div class="br-ext-card-ic">📄</div>
-        <div class="br-ext-card-txt">Ce rapport n'a pas pu être affiché en PDF ici. Ouvrez-le sur le site de <strong>${typeLbl}</strong> pour le consulter en entier.</div>
-        <a class="br-ext-card-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir le rapport original ↗</a>
+        <div class="br-ext-card-txt">Ce rapport n'a pas pu être affiché. Les Éclairages ci-dessus en donnent la substance.</div>
+        ${reessayer ? '<button type="button" class="br-ext-card-btn" id="br-ext-retry">Réessayer l\'affichage</button>' : ''}
       </div></div>`;
+  if (reessayer) { const b = document.getElementById('br-ext-retry'); if (b) b.onclick = () => reessayer(); }
 }
 // Loader à ÉTAPES pour le reader Institution : si l'attente s'étire (téléchargement source lent type
 // MUFG 20-55 s, 1er rendu d'un gros rapport), le libellé évolue au lieu de laisser un spinner muet —
@@ -8186,7 +8194,7 @@ async function _brShowNativePdf(item, pdfUrl) {
   if (raw && await _brEmbedPdf(item, _brPdfProxy(raw))) return;                                       // 1) PDF natif
   const orig = item.url || '';
   if (orig && await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(orig))) return;     // 2) rendu serveur
-  _brShowExternalCard(item);                                                                          // 3) repli propre
+  _brShowExternalCard(item, () => _brShowNativePdf(item, pdfUrl));                                     // 3) repli propre, avec reprise
 }
 
 // Rapport SANS PDF natif (MUFG, Lloyds, Natixis…) : rendu serveur (Puppeteer), BRUT plein cadre. 1er affichage =
@@ -8197,7 +8205,7 @@ async function _brShowRenderedPdf(item, renderUrl) {
   content.classList.remove('br-rcontent--pdf');
   _brStagedLoader(content, 'Préparation du PDF…');
   if (renderUrl && await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(renderUrl))) return;
-  _brShowExternalCard(item);
+  _brShowExternalCard(item, () => _brShowRenderedPdf(item, renderUrl));
 }
 
 // Garantit les Éclairages desk (+ tags) à CHAQUE ouverture de rapport Institution, quel que soit le mode
@@ -8308,7 +8316,6 @@ function renderBrReader(item) {
         <div class="br-ing-meta"><span class="br-ing-type">${_inst === 'DTP' ? 'Research' : _inst}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
         <div class="br-doc-title">${item.title}</div>
         <div class="br-doc-body">${item.fullContent}</div>
-        <div class="br-doc-footer"><a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">Lire l'original →</a></div>
       </div>`;
     _brFinalizeReader(item, brIns);
     return;
@@ -8342,7 +8349,6 @@ function renderBrReader(item) {
       const _tagline = _inst === 'ING' ? 'THINK economic and financial analysis'
         : _inst === 'DTP' ? 'Institutional research' : _inst + ' Research';
       const headerHtml = `<div class="br-ing-header">${_instLogoHtml(_inst)}<div class="br-ing-tagline">${_tagline}</div></div><div class="br-ing-divider"></div>`;
-      const origLabel = isIngDoc ? 'Lire l\'original sur ING Think →' : 'Lire l\'original →';
       let _noEmbed = false;   // true = site protégé non extractible → carte propre, pas d'iframe vide
       if (data.html && data.html.length > 100) {
         const subtitle    = data.subtitle || item.description || '';
@@ -8370,18 +8376,14 @@ function renderBrReader(item) {
             <!-- ── Corps de l'article ── -->
             <div class="br-doc-body${data.source === 'ai' ? ' br-structured' : ''}">${data.html}</div>
 
-            <div class="br-doc-footer">
-              <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">${origLabel}</a>
-            </div>
           </div>`;
       } else {
         // Extraction impossible (site protégé / anti-bot / login). On N'EMBARQUE PAS l'URL d'origine
         // en iframe : ces sites envoient X-Frame-Options / frame-ancestors → l'iframe reste un CADRE
         // VIDE (« ça ne s'affiche pas »). On affiche une carte PROPRE : en-tête + titre + aperçu +
-        // bouton « Ouvrir le rapport original ». (Les Éclairages desk, panneau dédié, résument le rapport.)
+        // carte PROPRE, sans sortie vers la source. (Les Éclairages desk, panneau dédié, résument le rapport.)
         _noEmbed = true;
         const preview = (item.description || '').trim();
-        const safe = (item.url || '').replace(/"/g, '&quot;');
         const typeLbl = _inst === 'DTP' ? 'Research' : _inst;
         content.innerHTML = `
           <div class="br-document">
@@ -8391,8 +8393,7 @@ function renderBrReader(item) {
             ${preview ? `<div class="br-ing-lead">${preview}</div>` : ''}
             <div class="br-ext-card">
               <div class="br-ext-card-ic">🔒</div>
-              <div class="br-ext-card-txt">Le texte intégral de ce rapport est hébergé par <strong>${typeLbl}</strong> et ne peut pas être intégré ici (le site en interdit l'affichage). Ouvrez le rapport original pour le lire en entier.</div>
-              <a class="br-ext-card-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir le rapport original ↗</a>
+              <div class="br-ext-card-txt">Le texte intégral de ce rapport ne peut pas être affiché ici. Les Éclairages ci-dessus en donnent la substance.</div>
             </div>
           </div>`;
       }
@@ -8406,7 +8407,6 @@ function renderBrReader(item) {
           <div class="br-doc-title">${item.title}</div>
           ${dateStr ? `<div class="br-doc-date">${dateStr}</div>` : ''}
           ${preview ? `<div class="br-doc-body">${preview.split(/\n{2,}/).map(p => `<p>${p}</p>`).join('')}</div>` : ''}
-          <div class="br-doc-footer"><a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">Lire l'original →</a></div>
         </div>`;
       _brFinalizeReader(item, brIns);
     });
@@ -8454,7 +8454,6 @@ function _brPdfFilename(label, title) {
   const slug = (title || 'rapport').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'rapport';
   return `${label || 'DTP'}-${slug}.pdf`;
 }
-function _brShortUrl(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } }
 
 // Construit le document PDF (A4) avec les primitives jsPDF : en-tête banque + logo, titre,
 // sous-titre, sections (titre + puces), pied de page paginé. Pas de html2canvas (net + léger).
@@ -8526,7 +8525,10 @@ async function _brBuildPdf(doc) {
     pdf.setPage(i);
     pdf.setDrawColor(226, 226, 230); pdf.setLineWidth(0.2); pdf.line(M, PH - 12, PW - M, PH - 12);
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(150, 150, 156);
-    pdf.text(doc.sourceUrl ? ('Source : ' + _brShortUrl(doc.sourceUrl) + ' · DataTradingPro') : 'DataTradingPro', M, PH - 8);
+    /* Ce pied de page imprimait « Source : <domaine> · DataTradingPro » sur CHAQUE page du PDF que
+       nous fabriquons — et ce PDF, le client le télécharge. C'était le chemin le plus durable vers
+       la source de tous : il survivait au document, hors du desk. Il ne reste que notre nom. */
+    pdf.text('DataTradingPro', M, PH - 8);
     pdf.text(i + ' / ' + n, PW - M, PH - 8, { align: 'right' });
   }
   return pdf;
@@ -8578,7 +8580,6 @@ async function _brRenderAsPdf(item) {
       country: (docEl.querySelector('.br-ing-country')?.textContent || '').trim(),
       subtitle: (docEl.querySelector('.br-ing-lead')?.textContent || '').trim(),
       sections: _brExtractSections(docEl.querySelector('.br-doc-body')),
-      sourceUrl: item.url || '',
     };
     if (!data.sections.length && data.subtitle) data.sections = [{ heading: '', blocks: [{ type: 'p', text: data.subtitle }] }];
     if (!data.sections.length) return;   // rien de structuré → on garde le HTML (ex. aperçu vide)

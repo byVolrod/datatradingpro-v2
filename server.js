@@ -1029,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260830-institutions-sans-source', ts: Date.UTC(2026, 7, 30, 21, 0), title: 'Plus aucun chemin vers la source dans les rapports d institution', desc: 'Retour client, capture a l appui : en tete d un rapport KBC, la ligne Please click here to read the PDF version, le here en bleu souligne. Le nettoyage pose le 28/08 etait pourtant bien en place — mais il nettoyait le TEXTE des rapports, celui que le desk affiche quand il reconstruit l article. Or des qu une banque fournit un PDF, ou des que sa page peut etre rendue en PDF, le lecteur n affiche PAS ce texte : il affiche le document. Le nettoyage etait au bon endroit pour la mauvaise moitie du produit, et c est la moitie que vous avez sous les yeux. Le rendu d une page en PDF passe desormais par le meme principe que le texte : aucune adresse n y subsiste. Les phrases de renvoi vers le document d origine sont retirees — cliquez ici, version PDF, telecharger, lire le rapport complet, et les lignes de desabonnement des lettres d information. Tous les liens perdent leur adresse ET leur apparence de lien : la phrase reste lisible, le chemin disparait, et il ne reste pas un bleu souligne qui ne mene nulle part. Les adresses ecrites en clair dans le texte, typiquement en pied de page, partent aussi. Deux garde-fous : un paragraphe qui contient une image, un tableau ou un graphique n est jamais retire, et seuls les blocs COURTS qui portent une adresse sont consideres comme des renvois — un vrai paragraphe de rapport est plus long et ne porte presque jamais de lien. Tous les rapports deja rendus sont regeneres : le correctif vaut immediatement, y compris sur ce que vous avez deja ouvert. LE PLUS DIRECT DE CES CHEMINS N ETAIT PAS UNE TRACE OUBLIEE, C ETAIENT NOS PROPRES BOUTONS. Un pied de page Lire l original renvoyait au site de la banque sous chaque rapport reconstruit. Un bouton Ouvrir le rapport original, en or plein, s affichait des que notre chaine d affichage echouait. Et le PDF que le desk fabrique lui-meme imprimait Source suivi du domaine de la banque en pied de CHAQUE page — celui-la survivait au desk, dans un fichier telecharge, indefiniment. Les trois sont retires. Une precision honnete sur ce qui change en echange : ce bouton servait a quelque chose, c etait la seule reprise possible quand un rapport ne s affiche pas. La carte propose desormais de REESSAYER l affichage sur place, et rappelle que les Eclairages, juste au-dessus, donnent la substance du rapport. Le controle automatique qui surveille tout ceci a ete etendu : il ouvre maintenant une page dans un vrai navigateur, y execute le vrai nettoyage, relit le PDF produit, et verifie qu aucun bouton de sortie ne subsiste dans le lecteur.' },
   { id: 'dtpu-20260830-pictos-au-doigt', ts: Date.UTC(2026, 7, 30, 17, 0), title: 'Les pictogrammes du desk disent enfin ce qu ils veulent dire sur telephone, et le graphique de Reaction retrouve ses cotations', desc: 'Trois correctifs sortis du meme audit tactile. D ABORD LES PICTOGRAMMES MUETS. Plusieurs symboles du desk portent TOUTE leur explication dans une infobulle qui ne s affiche qu au survol de la souris : la double fleche de divergence du Radar de Biais, qui signale qu une banque centrale est structurellement dans un sens quand le marche price l inverse pour la prochaine reunion ; l eclair du calendrier, qui dit qu un chiffre est sorti SOUS l estimation basse ; le Neutre par defaut d un sous-indicateur, celui qui distingue un vrai Neutre d une ABSENCE de publication ; et la ligne d un sous-indicateur, dont l infobulle portait la seule trace du chiffre qui fonde son badge — l intitule de l evenement, le realise et l attendu, dont rien n est affiche. Ni iPhone ni Android n affichent ce genre d infobulle : sur telephone le symbole restait, son sens disparaissait, et il n existait nulle part ailleurs dans l ecran. Un appui sur le symbole ouvre desormais la meme phrase dans une petite bulle, qui se referme au second appui, au defilement, ou d elle-meme. Elle se place sous le symbole, bascule au-dessus quand on est en bas de l ecran, reste entierement visible pres d un bord, et sa pointe vise toujours le symbole concerne. Ces symboles sont minuscules — l eclair fait neuf pixels de large : leur zone sensible est legerement elargie au doigt sans que le dessin bouge. Sur ordinateur, rien ne change : l infobulle du navigateur fait deja le travail. ENSUITE UN SOUS-TITRE ROGNE. Dans une actualite depliee sur telephone, le sous-titre d une rubrique se decalait vers la gauche pour se detacher des puces — un decalage taille pour un grand ecran, ou il puise dans une large marge. Sur telephone cette marge n existe plus, et le sous-titre sortait du cadre : on lisait npact marche, le I mange par le bord. Le decalage est desormais borne a la place reellement disponible. Sur grand ecran il ne bouge pas d un pixel. ENFIN LE GRAPHIQUE DE REACTION. Le panneau Reaction d une publication affichait parfois Reaction indisponible, les cotations a la minute ne couvrent plus l heure de cette publication — sur un chiffre de la matinee, soit quelques heures, la ou ce message est cense signaler une publication trop ancienne. Le desk verifiait que la serie recue contenait ASSEZ de bougies, pas qu elle couvrait bien l heure demandee : notre fournisseur pouvait rendre une seance entiere, des centaines de bougies, qui commencait APRES cette heure-la. Le compte etait largement atteint, le rattrapage prevu n etait donc jamais tente, et le lecteur voyait un message d indisponibilite alors que la donnee existait a une requete de la. Le desk mesure desormais la COUVERTURE — une bougie avant, une bougie apres — et ne va rechercher une plage plus large que lorsque cela sert vraiment.' },
   { id: 'dtpu-20260830-poignees-defilement', ts: Date.UTC(2026, 7, 30, 14, 0), title: 'Faire defiler la liste des onglets ne deplace plus un onglet par accident', desc: 'Correctif d un defaut introduit ce matin en rendant le reordonnancement possible au doigt, et trouve par un audit tactile. Les poignees de deplacement forment une colonne presque continue sur le bord GAUCHE du volet des reglages : 37 pixels de large sur les trois quarts de la hauteur de la liste, avec a peine douze pixels libres entre deux. Un pouce qui descend ce bord pour faire DEFILER la liste ne peut pas la manquer — et le glissement partait immediatement : la liste ne bougeait pas d un pixel et un onglet changeait de place. Le geste le plus banal cassait l ordre des onglets. Sur ecran tactile, il faut desormais MAINTENIR la poignee une demi-seconde avant qu elle se saisisse : la liste defile normalement, et seul un appui qui insiste souleve la ligne. A la souris rien ne change, le glissement reste immediat — on ne pose pas un curseur sur une poignee par hasard. La meme correction s applique a la liste des desks, qui a la meme colonne de poignees. Deuxieme correctif du meme audit : lacher un onglet AU-DESSUS de la liste, sur le titre du volet, ne faisait rien du tout. Or c est exactement le geste de quelqu un qui veut remonter un onglet tout en haut : il y a 128 pixels sans aucune ligne au-dessus de la premiere, et le deplacement etait abandonne sans le moindre signe. Lacher au-dessus place maintenant l onglet en premier, lacher en dessous le place en dernier. Et comme relacher hors de la liste etait jusqu ici la seule facon de renoncer a un deplacement commence, la touche Echap le fait desormais.' },
   { id: 'dtpu-20260830-commandes-visibles', ts: Date.UTC(2026, 7, 30, 11, 0), title: 'Des commandes qui n apparaissaient jamais sur telephone sont enfin visibles', desc: 'Plusieurs boutons du desk ne se montrent qu au survol de la souris : ils restent invisibles au repos et apparaissent quand le curseur passe dessus. C est confortable sur ordinateur, ca garde les listes calmes. Sur telephone il n y a pas de survol, et ces commandes produisaient deux defauts opposes — les deux serieux. Certaines etaient INATTEIGNABLES : le bouton qui ouvre la fiche detaillee d un trade dans le Journal — notes, captures d ecran, tous les champs — etait rendu invisible ET traversant, si bien que la fiche entiere etait inaccessible depuis un telephone. D autres etaient INVISIBLES MAIS ACTIVES, ce qui est pire qu une fonction manquante : la croix Supprimer ce trade repondait au doigt sans qu on puisse la voir. Une suppression qu on ne pouvait pas anticiper. Cinq commandes sont concernees et deviennent visibles en permanence sur ecran tactile, a une intensite qui les montre sans les faire crier : ouvrir la fiche d un trade, supprimer un trade, selectionner des lignes, retirer une capture d ecran d une fiche, et le menu d un message dans la messagerie — sans lui, on ne pouvait ni corriger ni retirer ce qu on venait d envoyer depuis un telephone. Sur ordinateur, rien ne change : les listes gardent leur calme. Un controle automatique mesure desormais, sur un ecran tactile simule, que plus aucune commande n est invisible sous le doigt — ni inatteignable, ni piegeuse.' },
@@ -5530,7 +5531,7 @@ function _brRenderUrlFor(u, printUrl) {
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-const _RENDER_VER = 'r8';   // bump → invalide TOUS les PDF rendus en cache (r8 : fix « rendu minuscule » — images/tables larges bornées à la largeur de page ; r7 : MUFG rend l'ARTICLE complet, plus la PrintPage teaser)
+const _RENDER_VER = 'r9';   // bump → invalide TOUS les PDF rendus en cache (r9 : aucun lien ni adresse dans un rapport rendu ; r8 : fix « rendu minuscule » — images/tables larges bornées à la largeur de page ; r7 : MUFG rend l'ARTICLE complet, plus la PrintPage teaser)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 // PDF natifs téléchargés (MUFG /media, ING downloads…) STOCKÉS sur disque → re-servis directement dans DTP,
 // sans re-télécharger à chaque ouverture (robuste si la source rate-limite). TTL : retirés après 30 j (boot).
@@ -5682,6 +5683,73 @@ async function _renderPdfInner(url) {
         }
       } catch (e) {}
     } catch (e) {} }).catch(() => {});
+    /* ══ AUCUN CHEMIN DE RETOUR VERS LA SOURCE — DANS LE PDF RENDU AUSSI (30/08) ═══════════════════
+       Capture : « Please click here to read the PDF version », le « here » en lien bleu, en tete d'un
+       KBC Sunrise. Le corps des rapports etait pourtant deja nettoye le 28/08 — mais `_stripLiens`
+       nettoie le champ `html` de /api/bank-research-content, QUE LE LECTEUR N'AFFICHE PAS des qu'un
+       `pdfUrl` ou un `renderUrl` existe : il embarque le PDF. Le nettoyage etait au bon endroit pour
+       la mauvaise moitie du produit, et c'est la moitie que le client a sous les yeux.
+       ⚠️ MESURE AVANT D'ECRIRE : contrairement a ce qu'on suppose, `page.pdf()` de ce Chromium
+       (141) n'emet AUCUNE annotation de lien — verifie sur les trois jeux d'options, `tagged`
+       compris : ni `/URI`, ni `/Annots`, ni l'adresse en clair dans le fichier. La fuite etait donc
+       VISUELLE, pas cliquable. Elle n'en etait pas moins une fuite : la phrase nomme le document et
+       son emplacement, ce qui suffit pour le retrouver. Le retrait du `href` reste la bonne prise —
+       c'est lui qui emporte le style de lien, c'est lui que lit la feuille d'impression d'un site
+       quand elle imprime l'adresse en toutes lettres, et c'est lui qui deviendrait une annotation
+       le jour ou Chrome en emettrait.
+       Trois retraits, dans cet ordre :
+         1. LES PHRASES DE RENVOI, reconnues a DEUX conditions simultanees — un bloc COURT (<= 180
+            caracteres) ET qui porte une adresse ou un lien. Un vrai paragraphe de rapport est plus
+            long et ne porte presque jamais de lien : la double condition evite d'avaler du corps.
+            On epargne en plus tout bloc contenant une image, un tableau ou un graphique.
+         2. L'ATTRIBUT `href` DE TOUS LES LIENS, avec le style de lien : un bleu souligne qui ne
+            mene nulle part est un piege, pas une correction. Le texte, lui, reste.
+         3. LES ADRESSES ECRITES EN CLAIR dans le texte (pieds de page « www.kbc.be », URLs nues). */
+    await page.evaluate(() => { try {
+      const RENVOI = /(?:click|klik|cliquez)[^.]{0,20}\b(?:here|hier|ici)\b|\b(?:pdf|printable|print)\s+version\b|\bversion\s+(?:pdf|imprimable)\b|\b(?:download|t[ée]l[ée]charger)\b|\bread\s+(?:the\s+|this\s+)?(?:full|original|complete)\b|\b(?:read|continue reading)\s+more\b|\blire\s+(?:la\s+suite|l['’]original|le\s+rapport)\b|\bview\s+(?:this|the)\s+[\w-]+\s+online\b|\b(?:un)?subscribe\b|\bse\s+d[ée]sabonner\b/i;
+      const ADRESSE = /\bhttps?:\/\/[^\s<>"')\]]+|(?<![\w@.])www\.[\w-]+(?:\.[\w-]+)+(?:\/[^\s<>"')\]]*)?/gi;
+      const ADRESSE_T = new RegExp(ADRESSE.source, 'i');   // sans `g` : `.test()` sans etat cache
+
+      // 1. Les phrases de renvoi.
+      document.querySelectorAll('p,li,td,div,h1,h2,h3,h4,h5,h6,span,figcaption').forEach(el => {
+        try {
+          if (!el.isConnected) return;
+          const t = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+          if (!t || t.length > 180 || !RENVOI.test(t)) return;
+          if (!el.querySelector('a[href]') && !ADRESSE_T.test(t)) return;
+          if (el.querySelector('img,svg,canvas,table,iframe')) return;   // jamais un bloc qui porte du contenu
+          el.remove();
+        } catch (e) {}
+      });
+
+      // 2. Les liens : plus d'annotation, plus de style de lien.
+      document.querySelectorAll('a[href],area[href]').forEach(a => {
+        try {
+          a.removeAttribute('href'); a.removeAttribute('target'); a.removeAttribute('ping'); a.removeAttribute('download');
+          a.style.setProperty('color', 'inherit', 'important');
+          a.style.setProperty('text-decoration', 'none', 'important');
+        } catch (e) {}
+      });
+
+      // 3. Les adresses nues restees dans le texte.
+      try {
+        const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+        const cibles = [];
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          const p = n.parentNode && n.parentNode.nodeName;
+          if (p === 'SCRIPT' || p === 'STYLE' || p === 'NOSCRIPT') continue;
+          if (n.nodeValue && n.nodeValue.indexOf('.') >= 0) cibles.push(n);
+        }
+        // `replace` avec un motif global remet `lastIndex` a zero de lui-meme : aucun etat a gerer,
+        // contrairement a `.test()` — piege classique d'une expression rationnelle partagee.
+        cibles.forEach(n => { const v = n.nodeValue.replace(ADRESSE, ''); if (v !== n.nodeValue) n.nodeValue = v.replace(/[ \t]{2,}/g, ' '); });
+      } catch (e) {}
+    } catch (e) {} }).catch(() => {});
+    /* Beaucoup de sites impriment l'adresse d'un lien EN TOUTES LETTRES a l'impression
+       (`@media print { a[href]::after { content: " (" attr(href) ")" } }`). Le `href` retire, il ne
+       resterait que les parentheses vides — et sur un site qui n'aurait pas ete pris par le retrait,
+       ce serait le chemin complet, en clair, ajoute par la feuille d'impression elle-meme. */
+    try { await page.addStyleTag({ content: 'a::after,a::before{content:""!important}' }); } catch {}
     // ── FIX « rendu minuscule » (MUFG « JPY Monthly » & co) : un TABLEAU de prévisions livré en IMAGE
     //    large (1920px naturel → ~1764px affiché) DÉBORDE l'A4 (794px) 2,2× → écrasé/clippé = illisible.
     //    On borne TOUT contenu large (images de tableaux, tables HTML, SVG/charts, iframes) à la largeur
