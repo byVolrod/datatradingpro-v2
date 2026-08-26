@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260826bbg973" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260826bbg974" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -469,6 +469,21 @@
             <p class="camp-note">Bloqué partout (connexion, création, campagne) + session éjectée. « Retirer » réautorise.</p>
           </div>
         </div>
+        <!-- DÉSINSCRITS — la seconde exclusion, qui n'avait aucun écran (04/09). La liste noire coupe
+             la CONNEXION ; la désinscription coupe les MAILS. Deux mécanismes, deux effets, et un
+             seul se voyait : les désinscrits n'étaient atteignables que ligne par ligne dans le
+             tableau des comptes, donc pas du tout pour une adresse sans compte. -->
+        <div class="panel-card">
+          <div class="panel-head"><h2>Désinscrits</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-un-count"></span></div>
+          <div class="panel-body">
+            <div class="camp-extra">
+              <input id="camp-un-input" placeholder="E-mail à désinscrire…" onkeydown="if(event.key==='Enter')unsubAdd()"/>
+              <button class="btn" onclick="unsubAdd()">Désinscrire</button>
+            </div>
+            <div id="camp-un-list" class="camp-bl-list"></div>
+            <p class="camp-note">Exclu des <strong>campagnes</strong> uniquement&nbsp;: les e-mails de compte (accès, sécurité) continuent de partir, et la connexion au terminal n'est pas touchée — c'est la Liste noire qui la coupe. « Réabonner » remet le contact dans les envois. Quand la personne s'est désinscrite <strong>elle-même</strong>, le bouton demande confirmation&nbsp;: la réabonner lui repasse un consentement qu'elle avait retiré.</p>
+          </div>
+        </div>
         <div class="panel-card">
           <div class="panel-head"><h2>Accès offerts</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-gift-count"></span></div>
           <div class="panel-body">
@@ -796,6 +811,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260826bbg973"></script>
+<script src="/js/admin.js?v=20260826bbg974"></script>
 </body>
 </html>

@@ -642,6 +642,7 @@
     if (_vue('pilotage')) { loadDashboard(); loadMaster(); loadCampErrors(); loadSequence(); loadPlan(); }
     if (_vue('audience')) {
       loadBlacklist();
+      loadUnsubs();
       loadGiftAccess();
       var _rp = document.getElementById('camp-recip-panel');
       if (_rp && _rp.style.display !== 'none') renderRecipients();
@@ -1032,6 +1033,74 @@
       loadCampaign();   // recharge déjà la liste noire
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
+  /* ── DÉSINSCRITS (04/09, demande user : « les blacklist ne sont pas dedans ») ───────────────────
+     Il y avait deux mécanismes d'exclusion et un seul écran. La liste noire du login avait le sien ;
+     les désinscrits e-mail n'étaient atteignables que ligne par ligne dans le tableau des comptes,
+     donc pas du tout pour une adresse SANS compte — tous les contacts Whop et les ajouts manuels.
+     Ils étaient exclus des envois sans figurer nulle part. */
+  async function loadUnsubs(){
+    const box = document.getElementById('camp-un-list'); if (!box) return;
+    try {
+      const d = await fetch('/api/admin/unsub-list').then(function(r){ return r.json(); });
+      const cnt = document.getElementById('camp-un-count');
+      if (!d || !d.ok) {
+        /* Mesure indisponible : on le DIT. Une liste vide se lirait « personne n'est désinscrit »,
+           et on en conclurait que toute la base reçoit les mails. */
+        if (cnt) cnt.textContent = 'mesure indisponible';
+        box.innerHTML = '<div class="empty-state">Journal des envois illisible : la liste ne peut pas être affichée. Ne lancez pas d\'envoi avant que cette mesure revienne.</div>';
+        return;
+      }
+      const list = d.list || [];
+      if (cnt) cnt.textContent = list.length + ' désinscrit' + (list.length > 1 ? 's' : '')
+        + (d.sansCompte ? ' · ' + d.sansCompte + ' sans compte' : '');
+      box.innerHTML = list.length ? list.map(function(u){
+        /* L'ORIGINE change la portée du bouton, donc elle est écrite à côté. Réabonner quelqu'un que
+           l'admin avait désinscrit corrige une erreur ; réabonner quelqu'un qui a CLIQUÉ le lien de
+           désinscription lui repasse un consentement qu'il a retiré. On ne bloque pas — c'est la
+           décision de l'exploitant — mais on ne le laisse pas cliquer à l'aveugle. */
+        var org = u.parLui ? '<span class="camp-un-tag camp-un-tag--self">s\'est désinscrit lui-même</span>'
+                : u.seed  ? '<span class="camp-un-tag">désinscription d\'origine</span>'
+                          : '<span class="camp-un-tag">désinscrit par l\'admin</span>';
+        var qui = u.compte ? _escH(u.nom || '') : '<span class="camp-un-tag">sans compte</span>';
+        return '<div class="camp-bl-row"><span class="camp-bl-em">' + _escH(u.email) + '</span>'
+          + '<span class="camp-un-meta">' + qui + ' ' + org + '</span>'
+          + '<button class="camp-bl-x" onclick="unsubRemove(\'' + encodeURIComponent(u.email) + '\',' + (u.parLui ? 'true' : 'false') + ')">réabonner</button></div>';
+      }).join('') : '<div class="empty-state">Aucun désinscrit.</div>';
+    } catch (e) {
+      if (box) box.innerHTML = '<div class="empty-state">Liste indisponible.</div>';
+    }
+  }
+  async function unsubAdd(){
+    const inp = document.getElementById('camp-un-input'); const v = (inp.value || '').trim(); if (!v) return;
+    _campMsg('Désinscription…');
+    try {
+      const d = await fetch('/api/admin/unsub-list?action=add&emails=' + encodeURIComponent(v)).then(function(r){ return r.json(); });
+      _campMsg(d && d.ok ? ('✅ ' + d.added + ' désinscrit(s)' + (d.ignores ? ', ' + d.ignores + ' adresse(s) ignorée(s)' : '')) : ('❌ ' + ((d && d.error) || 'échec')));
+      inp.value = ''; loadUnsubs();
+    } catch (e) { _campMsg('❌ Erreur réseau.'); }
+  }
+  window.unsubRemove = async function (encEmail, parLui) {
+    const email = decodeURIComponent(encEmail);
+    // Confirmation EN LIGNE (le cahier des charges interdit les dialogues natifs), et seulement
+    // quand elle se justifie : un désabonnement demandé par la personne elle-même.
+    if (parLui) {
+      const row = document.querySelector('#camp-un-list .camp-bl-row button[onclick*="' + encEmail + '"]');
+      if (row && !row.dataset.armed) {
+        row.dataset.armed = '1';
+        row.textContent = 'il s\'était désinscrit — confirmer ?';
+        setTimeout(function(){ if (row) { row.dataset.armed = ''; row.textContent = 'réabonner'; } }, 6000);
+        return;
+      }
+    }
+    _campMsg('Réabonnement de ' + email + '…');
+    try {
+      const d = await fetch('/api/admin/unsub-list?action=remove&email=' + encodeURIComponent(email)).then(function(r){ return r.json(); });
+      _campMsg(d && d.ok && !d.unsub ? ('✅ ' + email + ' est réabonné') : ('❌ ' + ((d && d.error) || 'échec')));
+      loadUnsubs();
+    } catch (e) { _campMsg('❌ Erreur réseau.'); }
+  };
+  window.unsubAdd = unsubAdd;
+
   // ── Journal des envois : chaque mail réellement parti (source = anti-doublon durable) ──
   async function loadMailLog(){
     const tb = document.getElementById('maillog-tbody'); if (!tb) return;
@@ -2216,9 +2285,15 @@
           ${u.role !== 'admin' ? icBtn(u.active ? 'pause' : 'play', u.active ? 'Suspendre' : 'Réactiver', `toggleSuspend('${esc(String(u.id))}',${u.active})`)
             + icBtn('kick', 'Déconnecter du desk', `forceDisconnect('${esc(String(u.id))}')`)
             + icBtn(u.unsub ? 'mailoff' : 'mail',
-                u.unsubFige ? 'Désinscrit définitivement (non réversible)'
-                            : (u.unsub ? 'Réabonner à la newsletter' : 'Désinscrire de la newsletter'),
-                u.unsubFige ? '' : `toggleNewsletter('${esc(String(u.id))}',${!!u.unsub})`)
+                /* PLUS DE BOUTON MORT (04/09, demande user : « je dois pouvoir désinscrire et
+                   réinscrire moi-même »). Il était privé de son onclick pour les désinscrits du
+                   seed, et il avait raison de l'être tant que le seed se réappliquait à chaque
+                   démarrage : le panneau aurait annoncé « réabonné » et le redémarrage suivant
+                   l'aurait défait sans un mot. Le seed ne s'applique plus qu'une fois, donc un
+                   réabonnement TIENT, donc le bouton bascule dans les deux sens, toujours. */
+                (u.unsub ? 'Réabonner à la newsletter' : 'Désinscrire de la newsletter')
+                  + (u.unsubFige ? ' (désinscription d\'origine)' : ''),
+                `toggleNewsletter('${esc(String(u.id))}',${!!u.unsub})`)
             + icBtn('ban', u.blackliste ? 'Débloquer l accès au terminal' : 'Bloquer l accès au terminal',
                 `toggleBlacklist('${esc(String(u.id))}',${!!u.blackliste})`, !u.blackliste) : ''}
           ${icBtn('del', 'Supprimer', `deleteUser('${esc(String(u.id))}')`, true)}

@@ -730,6 +730,16 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .camp-recip-em, .camp-bl-em { color: var(--text2); overflow: hidden; text-overflow: ellipsis; }
 .camp-recip-src { margin-left: auto; color: var(--text4); font-size: var(--fs-micro); }
 .camp-bl-row .camp-bl-x { margin-left: auto; }
+/* DESINSCRITS — l'origine de la desinscription se lit AVANT le clic (04/09). Reabonner quelqu'un
+   que l'admin avait desinscrit corrige une erreur ; reabonner quelqu'un qui a clique le lien lui
+   repasse un consentement retire. Les deux cas ne peuvent pas se ressembler a l'ecran : celui qui
+   engage l'exploitant porte l'ambre d'attention de la charte, l'autre reste gris. */
+.camp-un-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  color: var(--text4); font-size: var(--fs-micro); }
+.camp-un-tag { display: inline-block; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--border); color: var(--text3); font-size: var(--fs-micro); }
+.camp-un-tag--self { border-color: rgba(255, 179, 0, .45); color: #ffb300; background: rgba(255, 179, 0, .08); }
+.camp-bl-row .camp-un-meta + .camp-bl-x { margin-left: var(--sp-2); }
 .camp-recip-list, .camp-bl-list { flex-direction: column; gap: 0; }
 .camp-btn--armed { background: rgba(231, 76, 60, .14); border-color: rgba(231, 76, 60, .55); color: #f0857a; }
 /* Sélecteur de campagne des statistiques : « Total » (vue consolidée) est détaché du reste par un

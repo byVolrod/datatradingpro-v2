@@ -1243,8 +1243,14 @@ async function emailLogDel(key) {
     }
   } catch {}
 }
-// Un désinscrit PERMANENT ne se réabonne pas : le seed le rétablirait au prochain démarrage, et
-// surtout c'est une contrainte assumée. On le dit à l'appelant au lieu de laisser croire au succès.
+/* CE CONTACT FAIT-IL PARTIE DU SEED D'ORIGINE ? (renseigne l'écran admin ; ne bloque plus rien)
+   ⚠️ 04/09, demande user : « je dois pouvoir désinscrire et réinscrire moi-même ». Cette fonction
+   servait à INTERDIRE le réabonnement, et elle avait raison de le faire tant que le seed se
+   réappliquait à chaque démarrage : le panneau aurait annoncé un succès que le redémarrage suivant
+   aurait démenti, sans un mot. C'est le SEED qu'on a corrigé (il ne s'applique plus qu'une fois,
+   voir `_ensurePermanentUnsub`), pas l'écran : maintenant qu'un réabonnement TIENT, il n'y a plus
+   aucune raison de le refuser. La fonction ne sert donc plus qu'à afficher d'où vient la
+   désinscription. */
 function estUnsubPermanent(email) {
   return _PERMANENT_UNSUB_SEED.includes(String(email || '').toLowerCase().trim());
 }
@@ -1261,10 +1267,27 @@ function emailLogAll() { return Object.assign({}, _emailFile); }
 // via emailLogHas). Seed VERSIONNÉ dans le code → s'auto-répare au boot même après perte totale
 // d'infra (volume ET Supabase). Idempotent : ne réécrit pas si le marqueur existe déjà.
 const _PERMANENT_UNSUB_SEED = ['darcos2012@gmail.com', 'robbyone31@gmail.com'];
+/* LE SEED S'APPLIQUE UNE FOIS, PAS À CHAQUE DÉMARRAGE (04/09).
+   Il se réappliquait sans condition toutes les vingt secondes après le boot. Conséquence, jamais
+   écrite nulle part mais bien réelle : un réabonnement fait depuis le panneau tenait jusqu'au
+   prochain redémarrage de Render — c'est-à-dire au plus quinze minutes d'inactivité — puis
+   disparaissait en silence. L'admin voyait « ✓ réabonné », et le lendemain le contact était de
+   nouveau désinscrit sans que rien ne l'explique.
+   On pose donc un marqueur d'application PAR ADRESSE. Le seed garde son rôle d'origine — rétablir
+   l'intention après une perte TOTALE d'infrastructure, volume et Supabase compris — mais il ne
+   repasse plus par-dessus une décision prise après lui. Le marqueur vit dans le même journal
+   durable que le reste, donc il survit exactement aussi bien que ce qu'il protège.
+   ⚠️ `unsubseed:` n'est PAS un préfixe « unsub: » : emailLogDel refuse tout ce qui n'est pas
+   « unsub: », donc ce marqueur ne peut pas être effacé par le bouton de réabonnement. C'est
+   précisément ce qu'on veut — sinon le seed se réappliquerait au démarrage suivant. */
 async function _ensurePermanentUnsub() {
   for (const e of _PERMANENT_UNSUB_SEED) {
     const em = String(e || '').toLowerCase().trim(); if (!em) continue;
-    try { if (!(await emailLogHas('unsub:' + em))) { await emailLogAdd('unsub:' + em); console.log('[Unsub seed] rétabli →', em); } } catch {}
+    try {
+      if (await emailLogHas('unsubseed:' + em)) continue;              // deja applique une fois
+      await emailLogAdd('unsubseed:' + em);
+      if (!(await emailLogHas('unsub:' + em))) { await emailLogAdd('unsub:' + em); console.log('[Unsub seed] appliqué (une seule fois) →', em); }
+    } catch {}
   }
 }
 setTimeout(() => { _ensurePermanentUnsub().catch(() => {}); }, 20 * 1000);   // après amorçage Supabase

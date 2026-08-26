@@ -2599,9 +2599,11 @@ app.post('/api/admin/users/:id/newsletter', requireSameOrigin, requireAdmin, asy
     const em = String(u.email).toLowerCase().trim();
     const veutInscrire = !!(req.body && req.body.inscrit === true);
     if (veutInscrire) {
-      // Un desinscrit PERMANENT ne se reabonne pas : le seed le retablirait au demarrage suivant.
-      // On le dit, plutot que d annoncer un succes que le prochain redemarrage dementira.
-      if (auth.estUnsubPermanent(em)) return res.status(409).json({ error: 'Desinscription permanente : ce contact ne peut pas etre reabonne.' });
+      /* PLUS DE REFUS (04/09, demande user : « je dois pouvoir desinscrire et reinscrire moi-meme »).
+         Le refus etait justifie tant que le seed se reappliquait a CHAQUE demarrage : le panneau
+         aurait annonce un succes que le redemarrage suivant aurait defait en silence. C'est le seed
+         qui a ete corrige — il ne s'applique plus qu'une fois — donc un reabonnement TIENT, et il
+         n'y a plus rien a refuser. */
       await auth.emailLogDel('unsub:' + em);
     } else {
       await auth.emailLogAdd('unsub:' + em);
@@ -21648,6 +21650,65 @@ app.get('/api/admin/blacklist', requireSameOrigin, requireAdmin, (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+/* ── LES DESINSCRITS, EN LISTE (04/09, demande user : « les blacklist ne sont pas dedans ») ───────
+   Il existait DEUX mecanismes d'exclusion, et un seul se voyait. La liste noire du login a son
+   ecran, avec son champ d'ajout et son bouton « retirer ». Les desinscrits e-mail, eux, n'avaient
+   AUCUNE liste : on ne pouvait les atteindre qu'un par un, depuis la ligne de leur compte dans le
+   tableau des utilisateurs — donc pas du tout pour une adresse SANS compte, ce qui est le cas de
+   tous les contacts venus de Whop ou ajoutes a la main. Ils etaient exclus des envois sans figurer
+   nulle part : invisibles et intouchables.
+   Cette route les liste, en dit l'ORIGINE, et permet d'en ajouter comme d'en retirer — memes gestes
+   que la liste noire, au meme endroit.
+   ⚠️ `emailLogDel` refuse par construction toute cle hors « unsub: » : c'est ce qui empeche ce
+   bouton de retirer un marqueur d'anti-doublon et de faire REPARTIR une campagne entiere. On ne
+   contourne pas ce garde-fou, on s'appuie dessus. */
+app.get('/api/admin/unsub-list', requireSameOrigin, requireAdmin, async (req, res) => {
+  const _norm = e => String(e || '').toLowerCase().trim();
+  const _valide = e => /^[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,255}\.[a-z]{2,24}$/.test(e);
+  try {
+    const action = String(req.query.action || '');
+    if (action === 'add') {
+      const bruts = String(req.query.emails || '').split(/[\s,;]+/).map(_norm).filter(Boolean);
+      const bons = [...new Set(bruts.filter(_valide))];
+      if (!bons.length) return res.status(400).json({ ok: false, error: 'aucune adresse valide' });
+      for (const em of bons) await auth.emailLogAdd('unsub:' + em);
+      return res.json({ ok: true, added: bons.length, ignores: bruts.length - bons.length });
+    }
+    if (action === 'remove') {
+      const em = _norm(req.query.email);
+      if (!em || !_valide(em)) return res.status(400).json({ ok: false, error: 'adresse invalide' });
+      await auth.emailLogDel('unsub:' + em);
+      return res.json({ ok: true, email: em, unsub: !!(await auth.emailLogHas('unsub:' + em)) });
+    }
+    const jrn = auth.emailLogAll() || {};
+    /* Un compte peut porter une adresse a la casse differente : on indexe par adresse normalisee,
+       sinon un contact apparaitrait « sans compte » alors qu'il en a un. */
+    const comptes = {};
+    try { for (const u of (await auth.getAllUsers())) { const e = _norm(u.email); if (e) comptes[e] = { id: String(u.id), name: u.name || '' }; } } catch (e) {}
+    const list = [];
+    for (const k of Object.keys(jrn)) {
+      if (k.indexOf('unsub:') !== 0) continue;
+      const em = k.slice(6);
+      if (!em) continue;
+      const c = comptes[em] || null;
+      list.push({
+        email: em,
+        at: jrn[k] || null,
+        // ORIGINE : la seule information qui change la portee du bouton « reabonner ».
+        parLui: !!jrn['unsubself:' + em],                       // a clique le lien de desinscription
+        seed: (() => { try { return auth.estUnsubPermanent(em); } catch (e) { return false; } })(),
+        compte: c ? c.id : null, nom: c ? c.name : '',
+      });
+    }
+    list.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+    res.json({ ok: true, total: list.length, sansCompte: list.filter(x => !x.compte).length, list });
+  } catch (e) {
+    /* Journal illisible : on le DIT. Renvoyer une liste vide se lirait « personne n'est
+       desinscrit », et l'admin conclurait que tout le monde recoit bien les mails. */
+    res.status(503).json({ ok: false, mesure: 'indisponible', error: e.message });
+  }
+});
+
 // ─── Desinscription (opt-out) — PUBLIC (lien dans les mails de campagne) ────────
 // Jeton HMAC verifie (mailer.unsubToken) → on ne peut pas desabonner un tiers en devinant l'URL.
 // Marque unsub:<email> dans email_log (DURABLE Supabase + fichier) → la campagne saute cet email.
@@ -21701,6 +21762,14 @@ app.get('/api/unsubscribe', async (req, res) => {
     console.warn('[Unsub] adresse inconnue de DTP, aucune écriture →', email);
   } else {
     try { await auth.emailLogAdd('unsub:' + email); } catch (e) { console.error('[Unsub]', e.message); }
+    /* ON TRACE QUE C'EST LE CONTACT LUI-MEME QUI S'EST DESINSCRIT (04/09). L'admin peut desormais
+       reabonner depuis le panneau ; sans cette trace, l'ecran ne pourrait pas distinguer les deux
+       cas, qui n'ont pourtant rien a voir. Reabonner quelqu'un que l'ADMIN avait desinscrit corrige
+       une erreur ; reabonner quelqu'un qui a CLIQUE le lien de desinscription lui repasse un
+       consentement qu'il a explicitement retire. Le panneau ne bloque pas — c'est une decision de
+       l'exploitant — mais il le dit avant le clic. Le marqueur n'est jamais efface : il raconte ce
+       qui s'est passe, pas l'etat courant. */
+    try { await auth.emailLogAdd('unsubself:' + email); } catch (e) {}
     _recordUnsub(email);
     console.log('[Unsub] desinscription →', email);
   }

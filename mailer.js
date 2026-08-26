@@ -3676,7 +3676,16 @@ const PARRAIN_VARIANTES = _PARRAIN_VARIANTS.map(v => ({ key: v.key, subject: v.s
    styles en ligne, comme le reste des mails de la maison — sinon il s'effondrerait en une colonne
    de texte nu chez une partie des lecteurs, precisement ceux qu'on veut convaincre. */
 function _apercuParrainages() {
-  const lien = 'https://whop.com/justonetrader-actions-7/?a=xxxxxxx';
+  /* ⚠️ AUCUN SLUG D'ESPACE EN DUR, ET C'EST UNE CORRECTION (04/09, question user : « pourquoi
+     c'est actions-7 ? »). J'avais recopie l'adresse vue sur SA capture. Or ce chemin ne vient pas
+     de nous : c'est `affiliate_page_url`, l'adresse CANONIQUE que Whop renvoie pour un membre
+     donne — le « -7 » est un discriminant fabrique par Whop, pas un choix DTP. Elle n'est donc pas
+     la meme pour tout le monde : le code connait deja trois formes (`jot-dtp`, `justonetrader`, et
+     celle-la). Reproduire celle d'UN compte dans un mail envoye a TOUTE la liste montrerait a
+     chaque lecteur une adresse qui n'est pas la sienne. On masque donc le chemin autant que le
+     pseudo : l'apercu montre la FORME du lien, ce qui est vrai pour tout le monde, et le vrai lien
+     s'affiche dans le panneau, ou il est lu chez Whop a chaque ouverture. */
+  const lien = 'https://whop.com/…/?a=xxxxxxx';
   const tuile = (val, lbl, couleur) => `<td width="50%" style="padding:0 4px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:8px;">
         <tr><td align="center" style="padding:12px 8px;">
