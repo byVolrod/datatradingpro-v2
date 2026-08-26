@@ -289,6 +289,24 @@ const SONDE = () => {
    appelle le mécanisme là où le produit l'appelle — l'événement de la légende — et on lit l'opacité
    RÉELLE des huit tracés. Ce qu'on vérifie est le résultat visible, pas qu'une fonction a été
    appelée. */
+/* LA GRILLE DE FOND, LUE DANS L'OBJET RENDU (31/08 : « ajoute aussi la même grille en fond des
+   courbes »). Elle existait à 0,2 d'opacité : présente dans le code, invisible à l'écran. Une
+   grille sert à SITUER — à quelle heure, à quel niveau — et une grille qu'on ne voit pas ne situe
+   rien. On interroge donc les DEUX axes du vrai graphique : opacité effective, et surtout MÊME
+   style des deux côtés (la verticale était figée en gris sombre pendant que l'horizontale suivait
+   le thème : sur le thème clair, un quadrillage à moitié peint). */
+const SONDE_GRILLE = () => {
+  try {
+    const root = (window.am5 && am5.registry && am5.registry.rootElements || []).find(r => r && r.dom && r.dom.id === 'g');
+    const chart = root && root.container.children.values.find(c => c.className === 'XYChart');
+    if (!chart) return null;
+    const lire = ax => { const g = ax.get('renderer').grid.template;
+      return { op: +g.get('strokeOpacity'), w: +(g.get('strokeWidth') || 1),
+        tirets: JSON.stringify(g.get('strokeDasharray') || []), col: String(g.get('stroke')) }; };
+    return { x: lire(chart.xAxes.getIndex(0)), y: lire(chart.yAxes.getIndex(0)) };
+  } catch (e) { return null; }
+};
+
 const SONDE_OPACITES = () => {
   try {
     const root = (window.am5 && am5.registry && am5.registry.rootElements || []).find(r => r && r.dom && r.dom.id === 'g');
@@ -357,7 +375,7 @@ const CAS = [
   { nom: 'mode paire (EUR + AUD)',                 w: 600,  h: 300, p: 'fuyarde', o: { onlyCurrencies: ['EUR', 'AUD'] } },
 ];
 
-module.exports = { JEUX, CAS, SONDE, SONDE_OPACITES, SONDE_POS_LEGENDE, SONDE_POS_TRACE, serveur, trouverNavigateur, PORT, _regimes, _bornesPaquetReel };
+module.exports = { JEUX, CAS, SONDE, SONDE_GRILLE, SONDE_OPACITES, SONDE_POS_LEGENDE, SONDE_POS_TRACE, serveur, trouverNavigateur, PORT, _regimes, _bornesPaquetReel };
 
 if (require.main === module) {
   (async () => {
@@ -382,7 +400,8 @@ if (require.main === module) {
         const r = await page.evaluate(SONDE);
         r.survol = null;
         if (c.survol) {
-          const pl = await page.evaluate(SONDE_POS_LEGENDE, 2);
+          r.grille = await page.evaluate(SONDE_GRILLE);
+        const pl = await page.evaluate(SONDE_POS_LEGENDE, 2);
           const pt = await page.evaluate(SONDE_POS_TRACE);
           if (pl && pt) {
             const avant = await page.evaluate(SONDE_OPACITES);
@@ -476,6 +495,19 @@ function controler(mesures) {
        à aucun moment. */
     v('l\'axe des heures garde au moins trois repères', (m.nEtiqX || 0) >= 3, m.nEtiqX + ' repère(s)');
 
+    if (r.grille) {
+      console.log('    — la grille de fond —');
+      const g = r.grille;
+      /* Le seuil : 0,2 était la valeur d'avant, invisible. On exige nettement plus, sans monter au
+         point où la grille passerait devant les courbes. */
+      v('la grille verticale se voit', g.x.op >= 0.35, 'opacité ' + g.x.op);
+      v('la grille horizontale aussi', g.y.op >= 0.35, 'opacité ' + g.y.op);
+      /* LE CONTRÔLE QUI COMPTE : le MÊME style des deux côtés. C'est lui qui attrape la moitié de
+         quadrillage — une grille figée en sombre face à une grille qui suit le thème. */
+      v('les deux axes portent le MÊME style de grille',
+        g.x.op === g.y.op && g.x.col === g.y.col && g.x.tirets === g.y.tirets && g.x.w === g.y.w,
+        JSON.stringify(g));
+    }
     if (r.survol) {
       console.log('    — le survol ne cache rien —');
       const sv = r.survol;

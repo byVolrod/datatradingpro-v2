@@ -20498,3 +20498,45 @@ body.theme-light .dtp-aide-bulle::after { background: #ffffff; border-color: #da
   .cv-bolt::before   { content: ''; position: absolute; inset: -7px -6px; }
   .mt-diverg::before { content: ''; position: absolute; inset: -6px -5px; }
 }
+
+/* ═══ TABLE DES PROBABILITÉS (01/09) — ce que le marché price pour CHAQUE réunion à venir ═══════
+   Trois étages, du général au détail, parce que c'est l'ordre dans lequel on lit ce tableau : les
+   repères de la prochaine réunion, la répartition de ses trois issues, puis la trajectoire complète.
+   Couleurs de la charte, sans exception : hausse = vert émeraude, baisse = rouge d'alerte,
+   maintien = jaune-orange doré. Ce sont les mêmes trois encres que les badges ACHAT/VENTE/NEUTRE et
+   la matrice de biais — un lecteur n'a pas deux grammaires de couleur à apprendre. */
+.wpb { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; padding: 8px 10px 4px; overflow: auto; }
+.wpb-tete { display: flex; flex-wrap: wrap; gap: 1px; background: var(--hud-line, #1a1a1e); border: 1px solid var(--hud-line, #1a1a1e); border-radius: 4px; overflow: hidden; }
+.wpb-kpi { flex: 1 1 108px; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; background: var(--bg2); }
+.wpb-kpi > span { font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .05em; text-transform: uppercase; color: #7d7d86; }
+.wpb-kpi > b { font-size: 12.5px; font-weight: var(--fw-semibold); color: var(--text); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* La barre de répartition : les trois issues bout à bout, à l'échelle. Une part sous 4 % ne porte
+   pas son chiffre — il déborderait sur la voisine et on lirait le mauvais nombre. */
+.wpb-bar { display: flex; height: 22px; border-radius: 3px; overflow: hidden; background: var(--bg2); flex: 0 0 auto; }
+.wpb-part { display: flex; align-items: center; justify-content: center; min-width: 0; transition: width .2s ease; }
+.wpb-part > b { font-size: 10.5px; font-weight: var(--fw-bold); color: #0b0b0d; letter-spacing: .02em; }
+.wpb-part.wpb-hausse   { background: #00e676; }
+.wpb-part.wpb-baisse   { background: #ff3d00; }
+.wpb-part.wpb-maintien { background: #ffb300; }
+.wpb-tw { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.wpb-t { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.wpb-t th { position: sticky; top: 0; z-index: 1; background: var(--head-bg, var(--bg2)); text-align: right; padding: 6px 8px;
+  font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .05em; text-transform: uppercase; color: #7d7d86;
+  border-bottom: 1px solid var(--hud-line, var(--border)); white-space: nowrap; }
+.wpb-t th:first-child, .wpb-t th:nth-child(2) { text-align: left; }
+.wpb-t td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--hud-line, #131316); color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wpb-t tbody tr:last-child td { border-bottom: none; }
+.wpb-t tbody tr:hover td { background: var(--row-hover); }
+.wpb-t .wpb-d { text-align: left; color: var(--text); font-weight: var(--fw-semibold); }
+.wpb-t .wpb-j { text-align: left; color: #7d7d86; }
+/* L'issue DOMINANTE ressort : sur sept colonnes de chiffres, l'œil doit la trouver sans les
+   comparer une à une. Les autres restent lisibles — on hiérarchise, on n'efface pas. */
+.wpb-n { color: #8a8a92; }
+.wpb-n--fort { color: var(--text); font-weight: var(--fw-bold); }
+.wpb-bps, .wpb-cas { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .02em; }
+.wpb-bps.wpb-hausse,   .wpb-cas.wpb-hausse   { color: #00e676; background: rgba(0,230,118,.12); }
+.wpb-bps.wpb-baisse,   .wpb-cas.wpb-baisse   { color: #ff3d00; background: rgba(255,61,0,.12); }
+.wpb-bps.wpb-maintien, .wpb-cas.wpb-maintien { color: #ffb300; background: rgba(255,179,0,.12); }
+b.wpb-hausse { color: #00e676; } b.wpb-baisse { color: #ff3d00; } b.wpb-maintien { color: #ffb300; }
+html[data-theme="light"] .wpb-part > b { color: #ffffff; }
+html[data-theme="light"] .wpb-n { color: #6b7280; }

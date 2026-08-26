@@ -938,7 +938,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
        étroits ; au-delà, amCharts écarte le libellé au lieu de le rogner. */
     minPosition: 0.035, maxPosition: 0.985,
   });
-  xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeDasharray: [2, 4] });   // grille TRÈS discrète GRIS (jamais "trait noir"), derrière les courbes
+  /* ══ LA GRILLE DE FOND SE VOIT (31/08 : « ajoute aussi la même grille en fond des courbes ») ═════
+     Elle existait, à 0,2 d'opacité : présente dans le code, invisible à l'écran. Sur huit courbes qui
+     se croisent, une grille sert à SITUER — à quelle heure, à quel niveau — et une grille qu'on ne
+     voit pas ne situe rien. Elle passe à 0,42 : lisible d'un coup d'œil, toujours derrière le tracé.
+     ⚠️ ET LES DEUX AXES PARTAGENT ENFIN LE MÊME STYLE. La grille verticale était figée en gris
+     sombre, la grille horizontale, elle, s'adaptait déjà au thème : sur le thème CLAIR, l'une
+     s'effaçait et l'autre non — un quadrillage à moitié peint, ce qui est pire que pas de
+     quadrillage. Une seule valeur pour les deux, calculée au même endroit. */
+  const _csGrille = { stroke: am5.color(_deskLight() ? 0xd0d4da : 0x2b2b31), strokeOpacity: _deskLight() ? 0.5 : 0.42, strokeWidth: 1, strokeDasharray: [2, 4] };
+  xAxis.get('renderer').grid.template.setAll(_csGrille);
   // Un filet sépare l'axe du tracé : sans lui les heures flottent sous les courbes et on ne sait
   // plus si un libellé appartient à l'axe ou au graphique.
   xAxis.get('renderer').setAll({ stroke: am5.color(_deskLight() ? 0xd8dce2 : 0x26262c), strokeOpacity: 1, strokeWidth: 1 });
@@ -984,7 +993,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
      fond discrete. On la remet NEUTRE et tres legere, au MEME style que la grille verticale (X) :
      un quadrillage uniforme derriere les courbes. Ce ne sont PAS les lignes colorees par devise que
      vous aviez fait retirer, celles-la restent supprimees ; c est un simple fond gris pointille. */
-  yAxisRenderer.grid.template.setAll({ visible: true, stroke: am5.color(_deskLight() ? 0xd0d4da : 0x2b2b31), strokeOpacity: _deskLight() ? 0.5 : 0.2, strokeWidth: 1, strokeDasharray: [2, 4] });
+  yAxisRenderer.grid.template.setAll(Object.assign({ visible: true }, _csGrille));   // MÊME style que la verticale : un quadrillage uniforme, pas deux demi-grilles
 
   const yAxis = chart.yAxes.push(
     // extraMin/Max = marge HAUT/BAS (~7%) → la devise la plus forte/faible (ex. USD au sommet) et son
