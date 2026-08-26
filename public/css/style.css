@@ -11146,7 +11146,9 @@ html[data-theme="light"] { --tab-on: #17181d; }
 .inst-tab--active::after, .jr-tab--active::after, .np-tab--active::after, .expand-tab.expand-tab--active::after, .tf-btn--active::after, .ct-btn--active::after, .cot-tf-btn--active::after, .ind-btn--active::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--orange); border-radius: 2px 2px 0 0; }
 
 /* === (2) Noms de widgets UNIFORMES (meme taille/police, MAJUSCULES) SANS tick dore a gauche === */
-.sym-ptitle::before,.panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before,.cot-header-label::before,.dmx-header-title::before{display:none !important;}
+/* Extinction du repère doré d'avant-titre (19/08, demande user). `.wdg-title` y a été AJOUTÉ le
+   02/09 : il manquait, et c'est par là que le trait est revenu sur les cartes du desk. */
+.sym-ptitle::before,.panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before,.cot-header-label::before,.dmx-header-title::before,.wdg-title::before{display:none !important;}
 /* TITRES DE VUES — SOURCE DE VÉRITÉ UNIQUE (demande user 27/07 « cohérence et homogénéité, met partout
    pareil ») : TOUS les titres de vues du nav du haut partagent CETTE règle → Inter Tight, MAJUSCULES,
    11.5px, semibold, 0.08em. Ajoutés aux classes historiques : .cal-title/.fxl-title (déjà conformes, mis
@@ -12405,10 +12407,35 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
   .clock-mid-row { margin-bottom: 2px; gap: 0; }
   .clock-country-row, .clock-sub-row { font-size: 9px; }
 }
+/* ⚠️ PALIER INTERMÉDIAIRE (02/09) — il manquait, et c'est par ce trou que le contenu débordait.
+   Entre « compact » (≤132) et « sans météo » (≤96) il y avait un vide de 36 px : à ~108 px de
+   cadre, le contenu compacté mesurait encore ~118 px. Mesuré au banc : 10 px hors cadre, donc le
+   vent et le pays de chaque place inatteignables sans défiler. Ici la SECONDE sous-ligne (jour/nuit
+   + vent) cède seule : c'est la moins chère des deux, la météo du dessus reste. */
+@container dtphorloge (max-height: 112px) {
+  .clock-sub-row + .clock-sub-row { display: none; }
+  .clock-time { font-size: 15px; }
+}
 @container dtphorloge (max-height: 96px) {
   /* Très bas : la météo cède — l'heure, le fuseau et la ville priment. */
   .clock-sub-row { display: none; }
   .clock-time { font-size: 15px; }
+}
+/* Dernier palier : à ce point la carte n'est plus qu'une bande. On garde l'HEURE et la VILLE —
+   c'est ce pour quoi on ouvre une horloge — et la date du haut cède à son tour. */
+@container dtphorloge (max-height: 76px) {
+  .clock-top-row { display: none; }
+  .clock-item { padding: 3px 10px; }
+  .clock-time { font-size: 14px; margin: 0 0 1px; }
+  .clock-mid-row { margin-bottom: 0; }
+}
+/* Plancher absolu : à moins de 56 px de cadre il ne reste la place que pour DEUX informations. On
+   garde l'heure et la ville — le fuseau se déduit de la ville, l'inverse est faux. En dessous, on
+   ne compacte plus : ce serait rendre illisible ce qui doit rester lu. */
+@container dtphorloge (max-height: 56px) {
+  .clock-gmt { display: none; }
+  .clock-item { padding: 2px 10px; }
+  .clock-time { font-size: 13px; margin: 0; line-height: 1.15; }
 }
 /* IDENTIQUE AU DESK (demande user 26/07 « le widget doit remplir comme cette image ») : grille de colonnes
    ÉGALES qui occupe TOUTE la largeur et TOUTE la hauteur de la carte, villes collées et séparées par un
@@ -12428,7 +12455,19 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
      étire les rangées comme avant, à l'identique ; quand ça ne tient plus, la grille dépasse et
      le wrap défile enfin. Le bloc mobile ≤768, plus spécifique, reste maître sous 768px. */
   gap: 0; padding: 0; background: var(--bg1); height: auto; min-height: 100%; align-content: stretch;
-  grid-auto-rows: minmax(136px, 1fr);
+  /* ⚠️ LE PLANCHER NE DOIT JAMAIS DÉPASSER LE CADRE (02/09, 3e signalement du même défaut : « on
+     voit même pas toutes les informations de l'horloge mondiale »). Le widget a DEUX dispositifs
+     d'adaptation, posés à des dates différentes, et ils se contredisaient : les requêtes de
+     conteneur compactaient le contenu quand la carte devient basse, pendant que ce plancher restait
+     bloqué à 136 px. Mesuré au banc sur une seule rangée de cinq places : cadre 88 px, rangée
+     136 px — 38 px de contenu hors cadre, et le bas des horloges (pays, météo, vent) inatteignable
+     autrement qu'en défilant.
+     `min(136px, 100cqh)` réconcilie les deux : sur UNE rangée, le plancher s'aligne exactement sur
+     la hauteur du cadre, donc rien ne dépasse et les paliers font leur travail ; sur PLUSIEURS
+     rangées, il reprend ses 136 px et la grille déborde — c'est le défilement de dernier recours,
+     celui qui a toujours été voulu. L'unité `cqh` est disponible ici parce que `.wdg-clockwrap` est
+     déclaré `container-type: size`. */
+  grid-auto-rows: minmax(min(136px, 100cqh), 1fr);
 }
 .wdg-clocks-bar .clock-item {
   flex: none; min-width: 0; background: transparent;
@@ -19778,12 +19817,15 @@ html[data-theme="light"] .wdg-tabic-grid { background: #fff; }
   background-image: linear-gradient(180deg, rgba(255,255,255,.025), transparent 62%);
   position: relative;
 }
-/* Repère doré vertical avant le titre : présent, discret ; c'est la marque du desk sans un aplat. */
-.panel-title::before, .chart-header-title::before, .wdg-title::before {
-  content: ''; display: inline-block; width: 2px; height: 11px;
-  background: linear-gradient(180deg, #e3b23a, #b8860b);
-  border-radius: 1px; margin-right: 8px; vertical-align: -1px; opacity: .9;
-}
+/* ⚠️ LE REPÈRE DORÉ AVANT LE TITRE A ÉTÉ RETIRÉ — ET IL AVAIT DÉJÀ ÉTÉ RETIRÉ UNE FOIS (02/09).
+   Demande utilisateur du 19/08 : « enlève ce trait orange à côté des titres des widgets/bloc ». Une
+   règle d'extinction avait bien été posée (cf. `.sym-ptitle::before…` plus haut) — mais elle ne
+   listait PAS `.wdg-title`, et surtout ce bloc-ci, écrit deux jours plus tard pour la « finition
+   épurée », l'a REDESSINÉ pour les trois familles de titres, en aval dans la feuille. Le trait est
+   donc réapparu partout, y compris là où il n'avait jamais été demandé.
+   Leçon retenue en dur : on ne l'éteint pas une troisième fois par-dessus, on SUPPRIME la
+   déclaration. Une extinction empilée se fait rallumer par le prochain bloc de finition ; une
+   déclaration absente, non. Le contrôle `desk-verif` mesure désormais le pixel devant le titre. */
 /* Un cheveu doré affleure le bas du bandeau, sous le filet : présence, pas décoration. */
 .panel-header::after, .chart-header::after, .wdg-head::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
@@ -19797,9 +19839,6 @@ html[data-theme="light"] .wdg-tabic-grid { background: #fff; }
 html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, html[data-theme="light"] .wdg-head {
   background-image: linear-gradient(180deg, rgba(0,0,0,.03), transparent 62%);
 }
-html[data-theme="light"] .panel-title::before,
-html[data-theme="light"] .chart-header-title::before,
-html[data-theme="light"] .wdg-title::before { background: linear-gradient(180deg, #b8860b, #8a6a12); }
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════════════
    HARMONISATION DIMENSIONNELLE — DESIGN SYSTEM (22/08, demande user : « donner l'impression d'un

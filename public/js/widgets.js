@@ -7810,8 +7810,14 @@
       { w: 'onglets', gw: 6, gh: 26,
         tabs: ['fil-news', 'calendrier-jour', 'vue-fxlist', 'vue-institution', 'vue-analyst', 'vue-bias', 'vue-weekahead', 'vue-taux', 'vue-bank'],
         tabLabels: ['ACTUS', 'CALENDRIER', 'LISTE FX', 'INSTITUTIONS', 'ANALYSTES', 'BIAIS', 'SEMAINE À VENIR', 'TAUX', 'BANQUES'] },
-      { w: 'horloge', gw: 6, gh: 4 },
-      { w: 'onglets', gw: 6, gh: 22, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
+      /* 5 rangées et non 4 (02/09, capture user : « on voit même pas toutes les informations de
+         l'horloge mondiale »). Une cellule d'horloge porte cinq lignes — date, heure, fuseau+ville,
+         pays+météo, jour/nuit+vent. Sur 4 rangées de grille, la carte tombait juste sous ce qu'il
+         faut : le contenu passait en mode compact et la météo cédait, sur le modèle par DÉFAUT,
+         c'est-à-dire pour tout le monde. Une rangée de plus, prise sur le panneau à onglets qui en
+         a vingt-deux, et l'horloge s'affiche entière sans rien compacter. Le total reste 26. */
+      { w: 'horloge', gw: 6, gh: 5 },
+      { w: 'onglets', gw: 6, gh: 21, tabs: ['sessions', 'risque-jauge', 'force-devises', 'barometre', 'cot-inst', 'dmx-retail', 'saison'] },
     ];
   }
   function defaultCfg() {
