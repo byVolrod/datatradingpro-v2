@@ -312,6 +312,54 @@ async function interroge(email) {
      de suivi ni lien de désinscription — et c'est la différence assumée avec la campagne. */
   v('mail à l\'unité : répondable, sans pixel de suivi', !/\/api\/track\/open/.test(U0.html));
 
+  /* ── AUCUNE ADRESSE NUE DANS LES MAILS (04/09, capture user) ────────────────────────────────────
+     Gmail et Apple Mail DÉTECTENT les adresses écrites en texte et les transforment d'autorité en
+     liens, à leurs couleurs. Notre champ d'illustration se retrouvait souligné, cliquable, et un
+     clic emmenait à la racine de whop.com — l'adresse de personne. La parade n'est pas de désactiver
+     la détection (chaque client a la sienne, aucune ne couvre tout le monde) mais de la DEVANCER :
+     un client ne re-détecte pas ce qui est déjà dans une balise de lien.
+     ⚠️ ET CE CONTRÔLE SE FAIT DANS UN VRAI DOM, PAS À L'EXPRESSION RÉGULIÈRE. Retirer les balises
+     d'une chaîne puis y chercher une adresse ne prouve rien : le texte d'un lien SURVIT au retrait
+     des balises, donc le test passerait au vert avec ou sans correctif. On demande donc au
+     navigateur, nœud de texte par nœud de texte, s'il a un ancêtre <a>. */
+  const _nues = await (async () => {
+    let pp2; try { pp2 = require('puppeteer-core'); } catch { return null; }
+    const exe = (() => {
+      const c = [process.env.CHROME_PATH, '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+      for (const b of ['/opt/pw-browsers', process.env.PLAYWRIGHT_BROWSERS_PATH].filter(Boolean)) {
+        try { for (const d of fs.readdirSync(b)) for (const r of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) c.push(path.join(b, d, r)); } catch {}
+      }
+      return c.find(x => x && fs.existsSync(x)) || null;
+    })();
+    if (!exe) return null;
+    const nav = await pp2.launch({ executablePath: exe, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const out = [];
+    try {
+      const tous = V.concat([mailer.buildReferralInvite({ name: 'X' }), mailer.buildReferralInvite({ name: 'X', lien: 'https://whop.com/espace/?a=pseudo' })]);
+      for (let i = 0; i < tous.length; i++) {
+        const pg = await nav.newPage();
+        await pg.setContent(tous[i].html, { waitUntil: 'domcontentloaded' });
+        const nues = await pg.evaluate(() => {
+          const res = [];
+          const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          let n;
+          while ((n = w.nextNode())) {
+            if (!/https?:\/\/\S/.test(n.nodeValue || '')) continue;
+            if (!n.parentElement || !n.parentElement.closest('a')) res.push((n.nodeValue || '').trim().slice(0, 60));
+          }
+          return res;
+        });
+        if (nues.length) out.push('mail ' + (i + 1) + ' : ' + nues.join(' / '));
+        await pg.close();
+      }
+    } finally { await nav.close(); }
+    return out;
+  })();
+  console.log('\n── 10 quater. Aucune adresse nue (le client mail la transformerait en lien) ──');
+  if (_nues === null) console.log('  · aucun Chromium → abstention sur ce point.');
+  else v('aucune adresse écrite hors d\'une balise de lien, dans AUCUN des mails',
+    _nues.length === 0, _nues.join(' | '));
+
   console.log('\n── 11. Le bouton mène quelque part (promesse du mail ↔ code du desk) ──');
   /* Le classique : un CTA qui pointe vers un paramètre que personne n'a implémenté. Le mail part,
      le client clique, il atterrit sur le desk sans savoir quoi faire. On vérifie les DEUX bouts. */

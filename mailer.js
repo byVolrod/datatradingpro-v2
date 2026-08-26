@@ -3686,6 +3686,14 @@ function _apercuParrainages() {
      pseudo : l'apercu montre la FORME du lien, ce qui est vrai pour tout le monde, et le vrai lien
      s'affiche dans le panneau, ou il est lu chez Whop a chaque ouverture. */
   const lien = 'https://whop.com/…/?a=xxxxxxx';
+  /* ⚠️ L'ADRESSE ILLUSTRATIVE EST ENVELOPPEE DANS UN LIEN, ET C'EST LA SEULE FACON DE TENIR (04/09,
+     capture user). Gmail et Apple Mail DETECTENT les adresses ecrites en texte et les transforment
+     d'autorite en liens : notre champ d'illustration se retrouvait souligne et cliquable, aux
+     couleurs du client mail, et un clic emmenait a la racine de whop.com — une adresse qui n'est
+     celle de personne. On ne peut pas desactiver cette detection de maniere fiable (chaque client a
+     sa propre parade, et aucune ne couvre tout le monde), mais on peut la DEVANCER : un client ne
+     re-detecte pas ce qui est deja dans une balise de lien. Le texte garde donc l'apparence d'un
+     champ, et le clic, lui, mene la ou le lecteur veut aller — son propre panneau Parrainages. */
   const tuile = (val, lbl, couleur) => `<td width="50%" style="padding:0 4px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:8px;">
         <tr><td align="center" style="padding:12px 8px;">
@@ -3702,7 +3710,7 @@ function _apercuParrainages() {
       <p style="margin:0 0 6px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${TOK.grisDoux};">Votre lien de parrainage</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;">
         <tr>
-          <td style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:6px;padding:9px 11px;font-size:12px;color:${TOK.gris};font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">${_esc(lien)}</td>
+          <td style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:6px;padding:9px 11px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;"><a href="${_esc(APP_URL)}/?parrainage=1" style="color:${TOK.gris};text-decoration:none;">${_esc(lien)}</a></td>
           <td width="72" style="padding-left:8px;">
             <div style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:6px;padding:9px 0;text-align:center;font-size:12px;font-weight:700;color:#e6e6ea;">Copier</div>
           </td>
