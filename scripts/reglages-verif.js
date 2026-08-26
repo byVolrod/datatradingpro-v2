@@ -51,10 +51,12 @@ function decouper(src, entete, fin) {
 
   const WID = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
   const OPTS = decouper(WID, '  function _optsHtml(idx, w, it, setter, cell) {', '\n  }\n');
+  const CTX = decouper(WID, '  function _ctxHead(w, it) {', '\n  }\n');
   const FILTRE = decouper(WID, '    filtrerChoix: function (input) {', '\n    },\n');
   v('_optsHtml est extractible de widgets.js', !!OPTS);
+  v('_ctxHead est extractible de widgets.js', !!CTX);
   v('filtrerChoix est extractible de widgets.js', !!FILTRE, 'la méthode publique est absente de l\'objet DTPWidgets');
-  if (!OPTS || !FILTRE) { console.log('\n  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n'); process.exit(1); }
+  if (!OPTS || !FILTRE || !CTX) { console.log('\n  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n'); process.exit(1); }
 
   /* LE NOM APPELÉ PAR L'ATTRIBUT EST-IL CELUI QUI EXISTE ? Contrôle statique, mais c'est LE point de
      rupture de ce mécanisme : la chaîne et la méthode ne se voient pas l'une l'autre. */
@@ -143,6 +145,37 @@ function decouper(src, entete, fin) {
       JSON.stringify(res.rien));
     v('vider le champ rend toutes les entrées', res.reset.visibles.length === res.avant && !res.reset.vide,
       res.reset.visibles.length + '/' + res.avant);
+
+    console.log('\n── 3. Le contexte affiché dans l\'en-tête de la carte ──');
+    /* Deux cartes du même widget côte à côte portaient le même titre : c'est le seul motif de ce
+       badge. On éprouve donc qu'il DISTINGUE — deux réglages différents, deux textes différents —
+       et qu'il reste court, sans quoi il mangerait l'en-tête au lieu de l'informer. */
+    const ctx = await page.evaluate((srcCtx) => {
+      window.opt = (it, w, k) => (it && it.cfg && it.cfg[k] !== undefined ? it.cfg[k] : (w.opts.find(o => o.k === k) || {}).def);
+      eval(srcCtx);                                         // eslint-disable-line no-eval
+      const W = { opts: [
+        { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EURUSD', choix: [['EURUSD', 'EUR/USD'], ['GBPJPY', 'GBP/JPY']] },
+        { k: 'ut', lbl: 'Unité', type: 'choix', def: '1h', choix: [['1h', '1 heure'], ['4h', '4 heures']] },
+        { k: 'vue', lbl: 'Vue', type: 'choix', def: 'a', choix: [['a', 'Troisième choix jamais affiché']] },
+        { k: 'grille', lbl: 'Grille', type: 'bascule', def: true },
+        { k: 'n', lbl: 'Lignes', type: 'nombre', def: 10, min: 1, max: 20 },
+      ] };
+      const LONG = { opts: [{ k: 'x', lbl: 'X', type: 'choix', def: 'a',
+        choix: [['a', 'Un libellé démesurément long qui ne tiendrait jamais dans un en-tête de carte']] }] };
+      const NU = { opts: [{ k: 'b', lbl: 'B', type: 'bascule', def: true }] };
+      // eslint-disable-next-line no-undef
+      return { defaut: _ctxHead(W, { cfg: {} }), autre: _ctxHead(W, { cfg: { paire: 'GBPJPY', ut: '4h' } }),
+        // eslint-disable-next-line no-undef
+        long: _ctxHead(LONG, { cfg: {} }), nu: _ctxHead(NU, { cfg: {} }), vide: _ctxHead({}, {}) };
+    }, CTX);
+    v('le badge nomme les réglages courants', ctx.defaut === 'EUR/USD · 1 heure', JSON.stringify(ctx.defaut));
+    v('deux cartes réglées différemment portent des badges différents',
+      ctx.autre === 'GBP/JPY · 4 heures' && ctx.autre !== ctx.defaut, JSON.stringify(ctx.autre));
+    v('il s\'arrête à DEUX réglages (un en-tête n\'est pas un panneau)', !/jamais affiché/.test(ctx.defaut), ctx.defaut);
+    v('bascules et nombres sont ignorés (ils ne disent pas de quoi parle la carte)',
+      ctx.nu === '', JSON.stringify(ctx.nu));
+    v('un libellé démesuré est tronqué', ctx.long.length <= 34 && /…$/.test(ctx.long), ctx.long + ' (' + ctx.long.length + ')');
+    v('un widget sans réglage ne porte pas de badge vide', ctx.vide === '', JSON.stringify(ctx.vide));
   } catch (e) {
     ko++; console.log('  ✗ banc interrompu\n      → ' + e.message);
   } finally {

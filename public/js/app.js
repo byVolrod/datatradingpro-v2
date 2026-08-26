@@ -11633,6 +11633,41 @@ function _notifyNewReports(items, kind) {
 }
 
 // ── Render list ───────────────────────────────────────────────
+/* ══ UNE PUBLICATION SE LIT EN TROIS CHIFFRES, PAS EN UNE PHRASE (01/09, référence fournie) ══════
+   La référence affiche les alertes de calendrier avec un petit tableau ACTUAL / FORECAST / PREVIOUS
+   sous le titre. Chez nous la même alerte servait sa description brute — « Actual: 207K Forecast:
+   215K Previous: 219K » — en gris 10 px sur deux lignes tronquées. Trois chiffres qu'on ne peut
+   comparer qu'en les cherchant dans une phrase, alors que la seule question posée est : au-dessus ou
+   en dessous du consensus ?
+   ⚠️ LA COULEUR VIENT DE `deviationClass`, LA FONCTION DU CALENDRIER — jamais d'une règle réécrite
+   ici. C'est elle qui sait que pour le chômage un chiffre PLUS BAS est favorable, et que « pile au
+   consensus » est un troisième état (neutre) et non une absence de couleur. Deux règles de couleur
+   pour la même donnée finiraient par se contredire, et le volet dirait alors l'inverse du calendrier
+   sur le même chiffre.
+   Renvoie '' dès qu'il manque le réel : sans lui il n'y a rien à comparer, et la description
+   d'origine reste le meilleur rendu. */
+const _NP_NUM = '(-?\\d[\\d.,]*\\s*(?:%|bps|pts?|[KMB])?)';
+function _npABC(item) {
+  const t = String((item && item.description) || '') + ' ' + String((item && item.headline) || '');
+  const pr = (rx) => { const m = t.match(new RegExp(rx, 'i')); return m ? m[1].replace(/\s+/g, '') : ''; };
+  const actual   = pr('\\bactual\\s*[:\\s]\\s*' + _NP_NUM);
+  if (!actual) return '';
+  const forecast = pr('(?:forecast|expected|exp\\.?|consensus|cons\\.?|est\\.?)\\s*[:\\s]\\s*' + _NP_NUM);
+  const previous = pr('(?:previous|prev\\.?|prior)\\s*[:\\s]\\s*' + _NP_NUM);
+  if (!forecast && !previous) return '';          // un chiffre seul n'est pas un tableau
+  const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const reel = (typeof calActualCell === 'function')
+    ? calActualCell(actual, forecast, '', item.headline || '')
+    : '<span class="cv-actual">' + esc(actual) + '</span>';
+  const cell = (lbl, val, cls) => '<span class="np-abc-c"><i>' + lbl + '</i>'
+    + (val ? '<b class="' + cls + '">' + esc(val) + '</b>' : '<b class="cv-empty">-</b>') + '</span>';
+  return '<div class="np-abc">'
+    + '<span class="np-abc-c"><i>RÉEL</i><b>' + reel + '</b></span>'
+    + cell('PRÉVU', forecast, 'cv-forecast')
+    + cell('PRÉCÉDENT', previous, 'cv-prev')
+    + '</div>';
+}
+
 function _npRenderList() {
   const list  = _npEl('np-list');
   const empty = _npEl('np-empty');
@@ -11695,16 +11730,21 @@ function _npRenderList() {
     // classement. Le classement corrigé, le badge redevient une information.
     const badge = `<span class="np-origin np-origin--${org.cls}">${org.label}</span>`;
 
+    /* Le tableau de chiffres REMPLACE la description au lieu de s'y ajouter : la description d'une
+       alerte de calendrier n'est QUE ces trois chiffres écrits en phrase. Les afficher deux fois
+       serait exactement la redondance signalée par l'utilisateur sur les analyses. */
+    const abc = _npABC(item);
     el.innerHTML = `
       <div class="np-icon ${iconClass}"></div>
       <div class="np-item-body">
         <div class="np-item-headline">${_npEsc(item.headline)}</div>
-        ${desc ? `<div class="np-item-desc">${desc}</div>` : ''}
+        ${abc || (desc ? `<div class="np-item-desc">${desc}</div>` : '')}
         <div class="np-item-meta">
           ${badge}
           <span class="np-item-time">${ago}</span>
         </div>
-      </div>`;
+      </div>
+      ${item._new ? '<span class="np-unread" aria-label="Non lue" title="Non lue"></span>' : ''}`;
 
     el.onclick = () => {
       // On ne FERME que si le clic mène quelque part : fermer sur un item absent du fil (Nouveauté

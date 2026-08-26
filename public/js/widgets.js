@@ -492,6 +492,30 @@
       return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + esc(o.lbl) + '</span>' + ctl + '</div>';
     }).join('');
   }
+  /* ══ LE TITRE D'UNE CARTE DIT SUR QUOI ELLE PORTE (01/09, référence fournie) ═══════════════════
+     La référence écrit « Technical Charts | [EUR/AUD] », « Economic Event Calendar | [14/06/2026 -
+     20/06/2026 | Vertical] » : le nom du panneau, puis SON CONTEXTE entre crochets. Chez nous
+     l'en-tête ne disait que « GRAPHIQUE ». Sur un desk qui accepte le MÊME widget plusieurs fois —
+     deux graphiques, deux tables de probabilités, deux horloges — deux cartes voisines portaient
+     donc exactement le même titre, et il fallait ouvrir les réglages de chacune pour savoir
+     laquelle montrait quoi. C'est le seul motif de ce badge : distinguer deux cartes du même nom.
+     On ne prend que les réglages de type « choix » et au plus DEUX : ce sont eux qui identifient
+     (la paire, l'unité de temps, la banque, l'affichage). Une bascule oui/non ou un nombre de
+     lignes ne dit pas de quoi parle la carte, et allongerait un en-tête qui doit rester court. */
+  function _ctxHead(w, it) {
+    var l = (w && w.opts) || [], out = [];
+    for (var i = 0; i < l.length && out.length < 2; i++) {
+      var o = l[i];
+      if (!o || o.type !== 'choix' || o.cache || !o.choix || !o.choix.length) continue;
+      var cur = opt(it, w, o.k);
+      for (var j = 0; j < o.choix.length; j++) {
+        if (String(o.choix[j][0]) === String(cur)) { if (o.choix[j][1]) out.push(String(o.choix[j][1])); break; }
+      }
+    }
+    var t = out.join(' · ');
+    return t.length > 34 ? t.slice(0, 33) + '…' : t;
+  }
+
   // Config PROPRE à un onglet (index) d'un panneau à onglets — stockée dans it.tabCfg (whitelistée
   // serveur). Renvoie un pseudo-item {w, cfg} : le sous-widget lit ses réglages par opt() comme
   // n'importe quelle carte, sans savoir qu'il vit dans un onglet.
@@ -8061,6 +8085,7 @@
         + '<header class="wdg-head" title="' + (locked ? 'Carte verrouillée' : 'Maintenir pour déplacer') + '">'
         // (poignée ⠿ RETIRÉE 04/08 : l'en-tête entier est la zone de saisie — cf. _wireGrid)
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
+        +   (function (c) { return c ? '<span class="wdg-ctx" title="' + esc(c) + '">' + esc(c) + '</span>' : ''; })(_ctxHead(w, it))
         // BANDEAU (21/08, demande user) : Réglages · REMPLACER · Fermer. « Remplacer » remonte des
         // réglages vers l'en-tête : changer le widget d'un emplacement est le geste le plus courant
         // de la personnalisation, il ne devait pas coûter deux clics et l'ouverture d'un panneau.

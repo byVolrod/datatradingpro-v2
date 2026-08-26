@@ -9185,6 +9185,50 @@ html[data-theme="light"] .cal-day-sep td {
 }
 .np-item:hover { background: rgba(255,255,255,0.03); }
 .np-item:last-child { border-bottom: none; }
+/* ══ UNE ALERTE NON LUE SE VOIT SANS ÊTRE LUE (01/09, référence fournie) ═══════════════════════
+   Le seul signe de non-lu était la teinte de la pastille de gravité, à gauche, de 22 px — invisible
+   dans une liste de trente lignes. La référence marque la ligne elle-même : un liseré à gauche et un
+   POINT en haut à droite, à l'endroit où l'œil arrive en fin de titre.
+   Le point est ROUGE dans la référence ; il est OR chez nous, et c'est la charte qui tranche : le
+   rouge dit le baissier et l'alerte, pas « pas encore ouvert ». L'or est la couleur d'attention du
+   desk, et il reste distinct des états de marché. La ligne est en `position: relative` pour le
+   porter — sans quoi le point se poserait par rapport au volet et flotterait n'importe où. */
+.np-item { position: relative; }
+.np-item--unread { background: rgba(227, 178, 58, .035); box-shadow: inset 2px 0 0 rgba(227, 178, 58, .45); }
+.np-item--unread:hover { background: rgba(227, 178, 58, .06); }
+.np-unread {
+  position: absolute; top: 13px; right: 13px; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--orange, #e3b23a); box-shadow: 0 0 5px rgba(227, 178, 58, .5); pointer-events: none;
+}
+.np-item-headline { padding-right: 12px; }        /* le titre ne passe jamais sous le point */
+
+/* ══ LES TROIS CHIFFRES D'UNE PUBLICATION, EN CELLULES (01/09, référence fournie) ══════════════
+   Réel / Prévu / Précédent côte à côte, chacun sous son intitulé. La question posée par une alerte
+   de calendrier — au-dessus ou en dessous du consensus ? — se lit alors sans lire de phrase.
+   `minmax(0, 1fr)` et non `1fr` : une valeur longue (« 1818.0 ») élargirait sinon sa colonne et
+   décalerait les trois cellules d'une ligne à l'autre, ce qui interdit la comparaison verticale
+   entre deux alertes — précisément l'usage de cette liste. */
+.np-abc {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 5px 0 6px;
+}
+.np-abc-c {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  padding: 4px 6px; border: 1px solid var(--hud-line, rgba(255, 255, 255, .07)); border-radius: 4px;
+  background: rgba(255, 255, 255, .02);
+}
+.np-abc-c i {
+  font-style: normal; font-size: 8px; font-weight: 700; letter-spacing: .07em;
+  color: var(--text4, #5b616b); text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.np-abc-c b {
+  font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text2, #c9cdd4);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.np-abc-c .cv-forecast, .np-abc-c .cv-prev { color: var(--text3, #8a8f98); }
+html[data-theme="light"] .np-item--unread { background: rgba(184, 134, 11, .06); box-shadow: inset 2px 0 0 rgba(184, 134, 11, .5); }
+html[data-theme="light"] .np-unread { background: var(--orange-dim, #b8860b); }
+html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .np-item.np-item--unread .np-icon { color: #e8e8e8; }
 
 /* Left icon */
@@ -11693,6 +11737,24 @@ html[data-theme="light"] {
   text-transform: uppercase; letter-spacing: var(--ls-caps, .08em); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }   /* en-tête façon panneaux du desk (Inter Tight capitales) — plus de serif dans le module widgets (cohérence police desk) */
 .wdg-actions { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+/* ══ CONTEXTE DE LA CARTE, À CÔTÉ DE SON TITRE (01/09, référence fournie) ══════════════════════
+   « GRAPHIQUE [EUR/USD · 1 h] ». En or, parce que c'est la seule couleur de marque du desk et que
+   ce badge doit se distinguer du titre sans le concurrencer : capitales grises pour le nom, or
+   minuscule pour le contexte.
+   ⚠️ C'est le badge qui se tronque en premier, jamais le titre : `flex: 0 1 auto` sur les deux, mais
+   le titre garde la priorité par son ordre. Sur une carte trop étroite le contexte disparaît en
+   ellipse et l'en-tête reste lisible — l'inverse aurait rendu deux cartes voisines indistinguables,
+   ce que ce badge existe précisément pour éviter. `margin-right: auto` colle le badge au titre :
+   sans lui, `justify-content: space-between` l'enverrait flotter au MILIEU de l'en-tête. */
+.wdg-ctx {
+  flex: 0 1 auto; min-width: 0; margin-right: auto;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600;
+  letter-spacing: .02em; color: var(--orange, #e3b23a);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wdg-ctx::before { content: "["; opacity: .6; margin-right: 1px; }
+.wdg-ctx::after { content: "]"; opacity: .6; margin-left: 1px; }
+html[data-theme="light"] .wdg-ctx { color: var(--orange-dim, #b8860b); }
 .wdg-ico {
   width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
   background: transparent; border: 0; border-radius: 3px; cursor: pointer;
@@ -11770,7 +11832,7 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
 /* ── AGENCEMENT SMART (demande user : déplacer / agencer / redimensionner) ────────────────────────
    Poignée de DÉPLACEMENT (⠿) à gauche de l'en-tête → glisser-déposer pour réordonner ; indicateur de
    dépôt doré ; poignée de REDIMENSIONNEMENT en bas → glisser pour ajuster la hauteur. Identité DTP. */
-.wdg-title { flex: 1 1 auto; min-width: 0; }
+.wdg-title { flex: 0 1 auto; min-width: 0; }
 .wdg-grip {
   flex: 0 0 auto; width: 18px; height: 20px; display: flex; align-items: center; justify-content: center;
   margin: -2px 4px -2px -3px; padding: 0; background: transparent; border: 0; border-radius: 3px;
