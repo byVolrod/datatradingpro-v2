@@ -59,3 +59,9 @@ cptest/
 cptest2/
 gtest/
 *test/dest*/
+
+# Bancs de mesure jetables ecrits a la racine par les agents d audit : ils ne sont pas
+# du produit, et un `git add -A` les emporterait sans qu on le voie (arrive le 29/08 :
+# six fichiers .tactile-audit*.js partis en production).
+/.tactile-audit*.js
+/.audit-*.js
