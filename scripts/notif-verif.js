@@ -51,12 +51,15 @@ function decouper(src, entete, fin) {
   const APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
   const CHA = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
   const NUM = decouper(APP, "const _NP_NUM = ", '\n');
+  /* L'extraction et le rendu sont deux fonctions depuis le 03/09 (les mêmes chiffres servent aussi
+     aux publications groupées du fil) : on emporte les deux, sinon `_npABC` lève à la 1re ligne. */
+  const VALS = decouper(APP, 'function _npABCVals(item) {', '\n}\n');
   const ABC = decouper(APP, 'function _npABC(item) {', '\n}\n');
   const DEV = decouper(CHA, 'const CAL_INVERTED_RX = ', '\nwindow.deviationClass = deviationClass;');
   const CEL = decouper(CHA, 'function calActualCell(actual, forecast, low, title) {', '\n}\n');
-  v('_npABC est extractible de app.js', !!ABC && !!NUM);
+  v('_npABC et son extracteur de valeurs sont extractibles d\'app.js', !!ABC && !!NUM && !!VALS);
   v('deviationClass et calActualCell sont extractibles de charts.js', !!DEV && !!CEL);
-  if (!ABC || !NUM || !DEV || !CEL) { console.log('\n  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n'); process.exit(1); }
+  if (!ABC || !NUM || !DEV || !CEL || !VALS) { console.log('\n  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n'); process.exit(1); }
 
   const srv = http.createServer((rq, rs) => {
     const u = rq.url.split('?')[0];
@@ -85,12 +88,12 @@ function decouper(src, entete, fin) {
        On relit donc la couleur CALCULÉE, celle que l'œil reçoit. */
     await page.goto('http://localhost:' + PORT + '/banc', { waitUntil: 'networkidle0' });
 
-    const res = await page.evaluate((sNum, sAbc, sDev, sCel) => {
+    const res = await page.evaluate((sNum, sAbc, sDev, sCel, sVals) => {
       /* ⚠️ UN SEUL eval POUR LES QUATRE MORCEAUX. Séparés, les `const` (_NP_NUM, CAL_INVERTED_RX)
          restent liés au bloc de LEUR eval et sont invisibles depuis le suivant : `_npABC` levait
          alors « _NP_NUM is not defined ». Groupés, les fonctions déclarées remontent bien dans la
          portée globale tout en fermant sur leurs constantes. */
-      eval(sNum + '\n' + sDev + '\n' + sCel + '\n' + sAbc);   // eslint-disable-line no-eval
+      eval(sNum + '\n' + sDev + '\n' + sCel + '\n' + sVals + '\n' + sAbc);   // eslint-disable-line no-eval
       const cases = {
         // Format réel du fil : la description du calendrier écrit les trois valeurs en clair.
         claims:  { headline: 'US Initial Jobless Claims', description: 'Actual: 207K Forecast: 215K Previous: 219K' },
@@ -122,7 +125,7 @@ function decouper(src, entete, fin) {
       };
       return { brut: out, claims: lire(out.claims), pmi: lire(out.pmi), pile: lire(out.pile),
         sous: lire(out.sous), neg: lire(out.neg) };
-    }, NUM, ABC, DEV, CEL);
+    }, NUM, ABC, DEV, CEL, VALS);
 
     console.log('\n── 1. Chaque chiffre dans SA case ──');
     v('aucune exception à l\'exécution', erreurs.length === 0, erreurs.slice(0, 2).join(' | '));

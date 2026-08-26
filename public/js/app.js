@@ -1533,6 +1533,94 @@ function getFilteredItems() {
 // ── Speaker quote grouping ────────────────────────────────────────────────────
 // When 2+ items from the same speaker arrive within 30 min with no opener,
 // collapse them into a single card with all quotes inside the Info panel.
+/* ══ UNE PUBLICATION, UNE LIGNE (03/09, demande utilisateur, capture à l'appui) ═════════════════
+   À 14 h 30, une seule publication américaine produisait SEPT lignes dans le fil — PIB, déflateur
+   du PIB, PIB QoQ, PCE core prelim, PCE core annuel, PCE core mensuel, PCE annuel — chacune avec
+   ses quatre boutons. Sept lignes, vingt-huit panneaux, UN SEUL événement. Le lecteur qui descend
+   son fil croit voir sept nouvelles ; il en voit une, répétée.
+
+   LE CRITÈRE DE REGROUPEMENT EST UNE PROPRIÉTÉ, PAS UNE LISTE D'INDICATEURS. Ces lignes portent la
+   signature d'une publication (« Actual … Forecast/Previous », le même test que le classeur du
+   31/08) et tombent à la MÊME MINUTE, sur le MÊME pays. C'est exactement ce que le lecteur voit —
+   « sept lignes à 14:30 » — et ça ne vieillit pas d'une publication à l'autre, contrairement à une
+   table d'indicateurs qui serait toujours en retard de la prochaine.
+   ⚠️ La minute et non « quelques minutes » : deux publications espacées de trois minutes sont deux
+   événements, et les fondre effacerait l'ordre d'arrivée — or c'est lui qui dit quel chiffre a fait
+   bouger le marché.
+
+   LA LIGNE CHEF DE FILE GARDE TOUT : son titre, ses boutons, son analyse. Les autres se replient
+   dedans en puces chiffrées. Rien n'est perdu — les valeurs restent lisibles sur la ligne — et le
+   fil cesse de répéter sept fois le même horaire.
+   Le pays vient de la RUBRIQUE (« Données US »), posée par le classeur serveur : la déduire une
+   seconde fois du titre créerait deux vérités pour la même dépêche. */
+function _pubCle(item) {
+  if (!item || !/ Data$/.test(String(item.category || ''))) return null;   // rubrique de publication
+  if (!_npABCVals(item)) return null;                                       // et signature de publication
+  const min = Math.floor((item.timestamp || 0) / 60000);
+  if (!min) return null;
+  return item.category + '|' + min;
+}
+/* Le NOM de l'indicateur, sans le pays ni la queue chiffrée : « US Core PCE Price Index YoY Actual
+   3.3% (Forecast…) » → « Core PCE Price Index YoY ». C'est ce qui distingue les puces entre elles ;
+   répéter « US » et « Actual » sur chacune n'apprendrait rien. */
+function _pubNom(item) {
+  return String((item && item.headline) || '')
+    .replace(/^\s*(?:US|U\.S\.|USA|UK|U\.K\.|EU|EZ|Euro ?zone|Euro ?area|German(?:y)?|French|France|Italian|Italy|Spanish|Spain|Japan(?:ese)?|Canad(?:a|ian)|Austral(?:ia|ian)|Chin(?:a|ese)|Swiss|Switzerland)\s+/i, '')
+    .replace(/\s*\bactual\b[\s\S]*$/i, '')
+    .replace(/\s*[-–—:]\s*$/, '')
+    .trim();
+}
+function _grouperPublications(items) {
+  const paquets = new Map();
+  for (const it of items) {
+    const k = _pubCle(it);
+    if (!k) continue;
+    if (!paquets.has(k)) paquets.set(k, []);
+    paquets.get(k).push(it);
+  }
+  const suivis = new Map();      // id du chef de file → publications repliées
+  const absorbes = new Set();
+  for (const lot of paquets.values()) {
+    if (lot.length < 2) continue;
+    // Chef de file : la publication de PREMIER RANG s'il y en a une (c'est elle qu'on commente),
+    // sinon la première de la liste — qui est déjà la plus récente, le fil étant trié.
+    const chef = lot.find(x => x.priority === 'high') || lot[0];
+    const autres = lot.filter(x => x !== chef);
+    suivis.set(chef.id, autres);
+    autres.forEach(x => absorbes.add(x.id));
+  }
+  if (!suivis.size) return items;
+  return items
+    .filter(i => !absorbes.has(i.id))
+    .map(i => { const g = suivis.get(i.id); return g ? { ...i, _groupedPubs: g } : i; });
+}
+try { window.grouperPublications = _grouperPublications; } catch {}   // partagé : widget Actus
+/* Les publications repliées, en PUCES CHIFFRÉES sous le titre — pas dans un panneau à déplier.
+   Le lecteur d'un fil ne déplie pas : il balaie. Une valeur qu'il faut ouvrir pour lire est une
+   valeur perdue, et on aurait juste remplacé sept lignes par un tiroir. Chaque puce porte le nom de
+   l'indicateur et son réel, coloré par `deviationClass` — la même encre que le calendrier, jamais
+   une seconde règle. */
+function _pubPucesEl(liste) {
+  const box = document.createElement('div');
+  box.className = 'news-pubs';
+  (liste || []).forEach(p => {
+    const v = _npABCVals(p);
+    if (!v) return;
+    const el = document.createElement('span');
+    el.className = 'news-pub';
+    const nom = document.createElement('i');
+    nom.textContent = _pubNom(p);
+    const val = document.createElement('b');
+    val.textContent = v.actual;
+    val.className = (typeof deviationClass === 'function') ? deviationClass(v.actual, v.forecast, p.headline || '') : '';
+    // Le consensus en infobulle : il explique la couleur sans allonger la puce.
+    if (v.forecast) el.title = _pubNom(p) + ' — réel ' + v.actual + ', attendu ' + v.forecast + (v.previous ? ', précédent ' + v.previous : '');
+    el.appendChild(nom); el.appendChild(val);
+    box.appendChild(el);
+  });
+  return box;
+}
+
 function _groupSpeakerQuotes(items) {
   const WINDOW   = 30 * 60 * 1000; // écart max entre deux citations d'une même grappe
   const MAX_SPAN = 3 * 60 * 60 * 1000;   // durée max d'UNE intervention (au-delà : nouvelle carte)
@@ -1643,7 +1731,10 @@ function renderNews(hasNew = false) {
   const effLimit = Math.min(displayLimit, filtered.length);
   // La liste locale doit contenir de quoi remplir le lot : sinon on complète par l'historique.
   if (filtered.length < displayLimit) _completerJourCourant();
-  const visible = _groupSpeakerQuotes(filtered.slice(0, effLimit));
+  // Les deux regroupements s'enchaînent : les propos d'un intervenant d'abord (grappes de citations),
+  // les publications d'une même minute ensuite. Ils ne se marchent pas dessus — un propos n'a jamais
+  // la signature « Actual … Forecast », et une publication n'a pas d'intervenant.
+  const visible = _grouperPublications(_groupSpeakerQuotes(filtered.slice(0, effLimit)));
 
   // Group by date, sorted most-recent date first, items within each group newest first
   const groups = new Map();
@@ -3477,7 +3568,16 @@ function buildNewsItem(item) {
     cpt.textContent = '+' + item._groupedQuotes.length + ' propos';
     headline.appendChild(cpt);
   }
+  // Même geste pour une publication groupée : la ligne annonce ce qu'elle contient.
+  const hasPubs = Array.isArray(item._groupedPubs) && item._groupedPubs.length > 0;
+  if (hasPubs) {
+    const cpt = document.createElement('span');
+    cpt.className = 'news-grp-cpt';
+    cpt.textContent = '+' + item._groupedPubs.length + ' publication' + (item._groupedPubs.length > 1 ? 's' : '');
+    headline.appendChild(cpt);
+  }
   content.appendChild(headline);
+  if (hasPubs) content.appendChild(_pubPucesEl(item._groupedPubs));
 
   el.appendChild(content);
 
@@ -11662,14 +11762,24 @@ function _notifyNewReports(items, kind) {
    Renvoie '' dès qu'il manque le réel : sans lui il n'y a rien à comparer, et la description
    d'origine reste le meilleur rendu. */
 const _NP_NUM = '(-?\\d[\\d.,]*\\s*(?:%|bps|pts?|[KMB])?)';
-function _npABC(item) {
+/* L'EXTRACTION EST SÉPARÉE DU RENDU (03/09) : les trois chiffres servent maintenant à DEUX
+   endroits — le tableau du volet Alertes, et les puces d'une publication groupée dans le fil. Un
+   second analyseur écrit à côté finirait par diverger du premier sur un format de nombre, et deux
+   surfaces afficheraient alors des valeurs différentes pour la même dépêche. */
+function _npABCVals(item) {
   const t = String((item && item.description) || '') + ' ' + String((item && item.headline) || '');
   const pr = (rx) => { const m = t.match(new RegExp(rx, 'i')); return m ? m[1].replace(/\s+/g, '') : ''; };
   const actual   = pr('\\bactual\\s*[:\\s]\\s*' + _NP_NUM);
-  if (!actual) return '';
+  if (!actual) return null;
   const forecast = pr('(?:forecast|expected|exp\\.?|consensus|cons\\.?|est\\.?)\\s*[:\\s]\\s*' + _NP_NUM);
   const previous = pr('(?:previous|prev\\.?|prior)\\s*[:\\s]\\s*' + _NP_NUM);
-  if (!forecast && !previous) return '';          // un chiffre seul n'est pas un tableau
+  if (!forecast && !previous) return null;        // un chiffre seul n'est pas un tableau
+  return { actual, forecast, previous };
+}
+function _npABC(item) {
+  const v = _npABCVals(item);
+  if (!v) return '';
+  const actual = v.actual, forecast = v.forecast, previous = v.previous;
   const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const reel = (typeof calActualCell === 'function')
     ? calActualCell(actual, forecast, '', item.headline || '')

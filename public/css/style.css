@@ -17425,6 +17425,26 @@ html[data-theme="light"] .news-grp-cpt {
   border-color: rgba(0, 0, 0, .18); background: rgba(0, 0, 0, .05); color: var(--text2, #565c64);
 }
 
+/* ══ PUBLICATIONS GROUPÉES : LES CHIFFRES SOUS LE TITRE (03/09) ════════════════════════════════
+   Sept lignes pour une seule publication devenaient une ligne — encore fallait-il que les valeurs
+   des six autres restent LISIBLES SANS OUVRIR QUOI QUE CE SOIT, sinon on aurait remplacé une
+   répétition par un tiroir. Chaque puce porte le nom de l'indicateur et son réel ; la couleur du
+   réel vient de `deviationClass`, comme partout ailleurs sur le desk.
+   Les puces s'enroulent (`flex-wrap`) : sur une carte étroite elles passent à la ligne au lieu de
+   pousser une barre de défilement horizontale dans un fil qui se lit verticalement. */
+.news-pubs { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0 2px; }
+.news-pub {
+  display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%;
+  padding: 2px 7px; border: 1px solid var(--hud-line, var(--border)); border-radius: 4px;
+  background: rgba(255, 255, 255, .02);
+}
+.news-pub i {
+  font-style: normal; font-size: 10px; color: var(--text3, #8a8f98);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
+}
+.news-pub b { font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text2, #c9cdd4); white-space: nowrap; }
+html[data-theme="light"] .news-pub { background: rgba(0, 0, 0, .02); }
+
 /* Sélecteur d unité de temps du graphique Banques (13/08) : même grammaire que les autres sélecteurs
    du desk — discret au repos, or quand actif, jamais un gros bouton. */
 .bank-tf { display: inline-flex; gap: 2px; margin-left: auto; }
