@@ -300,12 +300,29 @@
   function _campTplRender(){
     const g = document.getElementById('camp-tpl-grid'); if (!g || g.dataset.done) return;
     g.dataset.done = '1';
+    _bcCharger(function(){ try { if (window._cprevType) tplSelect(window._cprevType); } catch (e) {} });
     g.innerHTML = _CAMP_TPLS.map(function(t){
       return '<button type="button" class="tpl-item" data-tpl="' + t.prev + '" onclick="tplSelect(\'' + t.prev + '\')">'
         + '<span class="tpl-item-name">' + t.name + '</span>'
         + '<span class="tpl-when' + (t.oneshot ? ' tpl-when--oneshot' : '') + '">' + t.when + '</span></button>';
     }).join('');
   }
+  /* ETAT DURABLE DES DIFFUSIONS. Le bouton « lancer a toute la liste » ne doit pas survivre a son
+     envoi (04/09, demande user). On lit le journal des envois, pas un compteur en memoire : Render
+     endort le service et un compteur en memoire ferait reapparaitre le bouton au reveil, sur une
+     campagne deja partie.
+     ⚠️ TANT QUE LA MESURE N'EST PAS REVENUE, LE BOUTON RESTE. `null` (pas encore charge, ou journal
+     illisible) n'est PAS « deja envoye » : masquer sur une mesure absente cacherait un envoi qui
+     n'a jamais eu lieu. Un bouton de trop se voit ; un mail jamais parti, non. */
+  var _campBroadcasts = null;
+  function _bcCharger(apres){
+    fetch('/api/admin/campaign-broadcasts').then(function(r){ return r.json(); }).then(function(d){
+      if (d && d.ok && d.etats) _campBroadcasts = d.etats;
+      if (typeof apres === 'function') apres();
+    }).catch(function(){ if (typeof apres === 'function') apres(); });
+  }
+  function _bcEtat(tpl){ return (_campBroadcasts && _campBroadcasts[tpl]) || null; }
+
   function tplSelect(prev){
     var t = _CAMP_TPLS.find(function(x){ return x.prev === prev; }); if (!t) return;
     var d = document.getElementById('cprev-desc'); if (d) d.textContent = t.desc || '';
@@ -327,7 +344,19 @@
     /* Le libelle dit ce que fait le bouton POUR CE TEMPLATE. « Envoi unique » est juste pour une
        annonce, faux pour le parrainage, qui revient tous les six mois : lu sur une campagne
        recurrente, il laisse croire qu'un clic brule l'unique occasion de l'envoyer. */
-    if (t.broadcast) acts.push('<button class="camp-btn" onclick="oneshotOpen(\'' + t.broadcast + '\')">' + (t.broadcastLabel || 'Envoi unique à toute la liste…') + '</button>');
+    if (t.broadcast) {
+      var _bc = _bcEtat(t.broadcast);
+      /* Un bouton qui disparait sans un mot se lit comme un bug. On remplace donc le bouton par la
+         raison de son absence : la date de l'envoi et le nombre de destinataires servis. */
+      if (_bc && _bc.envoye) {
+        acts.push('<span class="camp-plan-sent">✓ déjà parti'
+          + (_bc.at ? ' le ' + new Date(_bc.at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '')
+          + ' · ' + _bc.n + ' destinataire' + (_bc.n > 1 ? 's' : '')
+          + (t.when === 'Tous les 6 mois' ? ' · la suite part toute seule' : '') + '</span>');
+      } else {
+        acts.push('<button class="camp-btn" onclick="oneshotOpen(\'' + t.broadcast + '\')">' + (t.broadcastLabel || 'Envoi unique à toute la liste…') + '</button>');
+      }
+    }
     var a = document.getElementById('cprev-actions'); if (a) a.innerHTML = acts.join('');
     if (t.mindset) _msFill();
     if (t.variants) campPreviewInvit(0);
@@ -410,7 +439,12 @@
             s.textContent = 'Envoyés : ' + (st.sent || 0) + ' · Déjà servis : ' + (st.skipped || 0)
               + ' · Désabonnés : ' + (st.unsub || 0) + ' · Échecs : ' + (st.failed || 0)
               + (st.running ? ' · en cours…' : ' · terminé.');
-            if (!st.running) clearInterval(t);
+            if (!st.running) {
+              clearInterval(t);
+              // La diffusion est finie : on relit le journal et on redessine la barre d'actions,
+              // pour que le bouton s'efface sans avoir a recharger le panneau.
+              _bcCharger(function(){ try { if (window._cprevType) tplSelect(window._cprevType); } catch (e) {} });
+            }
           }).catch(function(){});
         }, 2500);
       })

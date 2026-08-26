@@ -268,6 +268,29 @@ async function interroge(email) {
       !/border-radius:6px;margin-bottom:14px/.test(x.html), 'le bandeau doré est revenu');
   });
 
+  console.log('\n── 10 bis. L\'aperçu du panneau, dans le mail ──');
+  /* Le mail montre l\'écran d\'arrivée au lieu de le décrire. Deux choses s\'y jouent, et une seule
+     saute aux yeux : que l\'aperçu soit là, et que le PSEUDO Y SOIT MASQUÉ. Un lien réel reproduit
+     dans un envoi de masse ferait créditer chaque inscription recopiée à une seule personne. */
+  V.forEach((x, i) => {
+    v('variante ' + (i + 1) + ' : l\'aperçu du panneau Parrainages est là',
+      /Votre lien de parrainage/i.test(x.html) && /Total filleuls/.test(x.html));
+  });
+  const aParams = V.flatMap(x => x.html.match(/\?a=[^"'\s<&]*/g) || []);
+  v('aucun pseudo d\'affiliation réel n\'est reproduit dans les mails',
+    aParams.length > 0 && aParams.every(a => /^\?a=x+$/.test(a)),
+    'trouvé : ' + aParams.join(', '));
+  /* OUTLOOK REND AVEC LE MOTEUR DE WORD : ni `display:flex`, ni SVG en ligne. Un aperçu bâti en
+     flexbox s\'effondrerait en colonne de texte nu chez une partie des lecteurs — et personne ne le
+     verrait, puisque le mail s\'affiche parfaitement partout ailleurs. */
+  v('l\'aperçu est bâti en tables : aucun display:flex dans le mail',
+    V.every(x => !/display:\s*flex/.test(x.html)));
+  v('… et aucune SVG en ligne', V.every(x => !/<svg/i.test(x.html)));
+  /* « Enlève l\'espace avant le % » (04/09) : le desk écrit « 15% », le mail doit l\'écrire pareil. */
+  v('le pourcentage s\'écrit comme dans le desk, sans espace avant le signe',
+    V.every(x => !/\d(?:&nbsp;|&#160;|\s)%/.test(x.html.replace(/<[^>]+>/g, ''))),
+    'une espace subsiste avant un %');
+
   console.log('\n── 11. Le bouton mène quelque part (promesse du mail ↔ code du desk) ──');
   /* Le classique : un CTA qui pointe vers un paramètre que personne n'a implémenté. Le mail part,
      le client clique, il atterrit sur le desk sans savoir quoi faire. On vérifie les DEUX bouts. */
@@ -320,6 +343,31 @@ async function interroge(email) {
   const GAL = fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8');
   v('les 4 variantes sont relisibles dans la galerie d\'aperçu des e-mails',
     (GAL.match(/key: 'parrainCamp\d'/g) || []).length === 4, 'la galerie n\'en porte pas quatre');
+
+  console.log('\n── 14. Un bouton d\'envoi ne survit pas à son envoi ──');
+  /* ⚠️ LA MESURE DOIT ÊTRE DURABLE. `_campaignStats` vit en mémoire : Render endort le service au
+     bout d\'un quart d\'heure, et au réveil le compteur repart à zéro — le bouton serait revenu tout
+     seul le lendemain matin, sur une campagne déjà partie. C\'est le journal des envois, persisté,
+     qui fait foi : la même source que l\'anti-doublon lui-même. */
+  v('l\'état des diffusions se lit dans le JOURNAL des envois, pas en mémoire',
+    /campaign-broadcasts[\s\S]{0,700}auth\.emailLogAll\(\)/.test(SRV) && !/campaign-broadcasts[\s\S]{0,700}_campaignStats/.test(SRV),
+    '_campaignStats ne survit pas à la mise en veille de Render');
+  v('le parrainage compte SES DEUX chemins d\'envoi (sinon l\'automatique ne masque rien)',
+    /'parrainage':\s*\['campaign:parrainage-', 'drip:parrain:'\]/.test(SRV));
+  v('… et son préfixe couvre tous les mois (l\'id de campagne porte le mois)',
+    /'campaign:parrainage-'/.test(SRV) && !/'campaign:parrainage-v1:'/.test(SRV));
+  /* DIRECTION SÛRE. Journal illisible ou pas encore chargé → le bouton RESTE. Masquer sur une
+     mesure absente cacherait un envoi qui n\'a jamais eu lieu : un bouton de trop se voit, un mail
+     jamais parti, non. */
+  v('journal illisible → le serveur répond « mesure indisponible », il ne ment pas',
+    /campaign-broadcasts[\s\S]{0,1400}mesure: 'indisponible'/.test(SRV));
+  v('… et côté panel, un état inconnu GARDE le bouton',
+    /_bcEtat\(t\.broadcast\)[\s\S]{0,400}if \(_bc && _bc\.envoye\)/.test(ADM),
+    'un état null doit tomber dans la branche « bouton visible »');
+  v('quand le bouton disparaît, sa place dit POURQUOI (date + destinataires)',
+    /✓ déjà parti/.test(ADM), 'un bouton qui disparaît sans un mot se lit comme un bug');
+  v('la fin d\'une diffusion relit l\'état et redessine la barre',
+    /if \(!st\.running\) \{[\s\S]{0,300}_bcCharger\(/.test(ADM), 'il faudrait recharger le panneau à la main');
 
   console.log('');
   if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }

@@ -21517,6 +21517,56 @@ app.post('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (req
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+/* ── UN BOUTON D'ENVOI NE SURVIT PAS A SON ENVOI (04/09, demande user : « tout ceux qui sont deja
+   programme enleve le bouton d'envoi pour garder ca clean, et quand je declenche l'envoi d'un mail
+   le bouton doit disparaitre du coup ») ──────────────────────────────────────────────────────────
+   Un bouton « lancer a toute la liste » qui reste en place apres coup n'est pas seulement du
+   desordre : c'est une invitation a recliquer. L'anti-doublon protege les clients — il sauterait
+   chaque contact deja servi — mais il ne protege pas l'admin de la seconde d'angoisse entre le clic
+   et le decompte. Le bouton disparait donc une fois l'envoi fait.
+
+   ⚠️ LA PREUVE DOIT ETRE DURABLE, ET `_campaignStats` NE L'EST PAS. Ce compteur vit en memoire :
+   Render endort le service au bout d'un quart d'heure d'inactivite, et au reveil il repart a zero —
+   le bouton serait revenu tout seul le lendemain matin, sur une campagne deja partie. On lit donc
+   le JOURNAL DES ENVOIS, qui est persiste : un marqueur y existe par destinataire servi, et il
+   survit a tout. Meme source de verite que l'anti-doublon lui-meme, ce qui garantit que le bouton
+   dit exactement ce que l'envoi ferait.
+
+   Le parrainage porte DEUX prefixes parce qu'il a deux chemins d'envoi — la boucle semestrielle et
+   le lancement a la main — et que son id de campagne porte le mois. Les compter tous les deux est
+   ce qui fait que le bouton disparait aussi quand c'est l'AUTOMATIQUE qui a envoye : « deja
+   programme » est justement le cas ou l'admin n'a plus rien a faire. */
+const _CAMP_BROADCAST_PFX = {
+  'parrainage':            ['campaign:parrainage-', 'drip:parrain:'],
+  'bibliotheque-widgets':  ['campaign:bibliotheque-widgets-v1:'],
+  'desk-widgets':          ['campaign:desk-widgets-v1:'],
+  'app-desktop':           ['campaign:app-desktop-v1:'],
+};
+app.get('/api/admin/campaign-broadcasts', requireSameOrigin, requireAdmin, async (_req, res) => {
+  try {
+    const jrn = auth.emailLogAll() || {};
+    const cles = Object.keys(jrn);
+    const etats = {};
+    for (const tpl of Object.keys(_CAMP_BROADCAST_PFX)) {
+      const pfx = _CAMP_BROADCAST_PFX[tpl];
+      let n = 0, at = null;
+      for (const k of cles) {
+        if (!pfx.some(p => k.indexOf(p) === 0)) continue;
+        n++;
+        const t = Date.parse(jrn[k]) || 0;
+        if (t && (!at || t > at)) at = t;                 // le DERNIER servi date l'envoi
+      }
+      etats[tpl] = { envoye: n > 0, n, at: at ? new Date(at).toISOString() : null };
+    }
+    res.json({ ok: true, etats });
+  } catch (e) {
+    /* Journal illisible : on repond explicitement « mesure indisponible » et le panel GARDE le
+       bouton. Masquer sur une mesure absente cacherait un envoi qui n'a jamais eu lieu — c'est la
+       direction dangereuse. Un bouton de trop se voit ; un envoi jamais parti, non. */
+    res.status(503).json({ ok: false, mesure: 'indisponible', error: e.message });
+  }
+});
+
 // E-mails ajoutés À LA MAIN à l'audience (contacts hors API Whop : export « Contacts », leads, ajouts admin).
 // Stockés durablement (KV ai_cache `campaign:extra-emails`). ?action=add&emails=a@x.com,b@y.com (séparateurs
 // espace/virgule/point-virgule/retour ligne) · ?action=remove&email=a@x.com · sans action → liste. N'envoie RIEN.

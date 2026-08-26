@@ -3581,18 +3581,23 @@ async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignI
 // lien qu'il ne porte pas. La campagne renvoie donc vers le panneau Parrainages du desk (lien
 // profond `?parrainage=1`, qui ouvre le volet directement sur la section), lequel affiche TOUJOURS
 // le lien à jour. Le lien nominatif reste porté par buildReferralInvite, l'envoi à l'unité.
+/* « 15% », PAS « 15 % » (04/09, capture user : « enleve l'espace avant le %, ca fait IA »). La
+   typographie francaise demande une espace insecable avant le signe pourcent ; le desk, lui, ecrit
+   « 15% » depuis toujours — l'en-tete du panneau Parrainages dit « Gagnez 15% recurrent ». Entre la
+   regle et la coherence du produit, c'est le produit qui gagne : un client qui lit « 15% » dans le
+   desk et « 15 % » dans le mail voit deux mains differentes. */
 const _PARRAIN_VARIANTS = [
   { key: 'revenu',
-    subject: '15 % à vie sur chaque abonné que vous amenez',
+    subject: '15% à vie sur chaque abonné que vous amenez',
     h1: 'Votre lien vous rapporte, tous les mois',
     lead: "Le parrainage DataTradingPro est ouvert à tous les membres. Vous partagez votre lien, et chaque personne qui s'abonne grâce à vous vous verse une commission — pas une fois, tous les mois, tant qu'elle reste abonnée.",
     secTitle: 'Ce que vous touchez',
     points: [
-      ['15 % à vie', " : la commission tombe à chaque échéance de votre filleul, pas seulement à son inscription."],
+      ['15% à vie', " : la commission tombe à chaque échéance de votre filleul, pas seulement à son inscription."],
       ['1 mois offert tous les 3 filleuls', " : en plus de la commission, un mois d'accès s'ajoute à votre abonnement."],
       ['Rien à avancer', " : aucun minimum, aucun palier à atteindre, aucune carte à renseigner."],
     ],
-    boxTitre: 'La différence entre 15 % et 15 % à vie',
+    boxTitre: 'La différence entre 15% et 15% à vie',
     box: "Une prime unique vous paie une fois. Une commission récurrente vous paie chaque mois où votre filleul reste. Trois filleuls fidèles valent plus, sur un an, que quinze inscriptions qui ne durent pas.",
     ctaLead: "Votre lien vous attend dans le desk, section Parrainages de votre profil.",
     ctaLabel: 'Ouvrir mes parrainages', signoff: 'Merci de faire grandir le desk,' },
@@ -3604,7 +3609,7 @@ const _PARRAIN_VARIANTS = [
     secTitle: 'Comment le calcul tourne',
     points: [
       ['3 filleuls = 1 mois offert', " : ajouté à votre abonnement, sans rien demander."],
-      ['Puis 15 % chaque mois', " : sur chacun d'eux, aussi longtemps qu'ils restent abonnés."],
+      ['Puis 15% chaque mois', " : sur chacun d'eux, aussi longtemps qu'ils restent abonnés."],
       ['Et cela continue', " : les trois suivants remettent un mois, la commission s'empile."],
     ],
     boxTitre: 'Ce que cela change',
@@ -3620,7 +3625,7 @@ const _PARRAIN_VARIANTS = [
     points: [
       ['La recommandation est tracée', " : toute inscription passée par votre lien vous est attribuée, à vie."],
       ['Aucun discours à tenir', " : vous partagez un lien, le desk fait la démonstration."],
-      ['15 % récurrents', " : sur chaque abonnement, chaque mois, plus un mois offert tous les 3 filleuls."],
+      ['15% récurrents', " : sur chaque abonnement, chaque mois, plus un mois offert tous les 3 filleuls."],
     ],
     boxTitre: 'Où le mettre',
     box: "Une bio Instagram ou X, la description d'une vidéo, un message épinglé de groupe, une signature de mail : partout où l'on vous demande déjà ce que vous utilisez. Un lien posé une fois travaille pendant des mois.",
@@ -3633,7 +3638,7 @@ const _PARRAIN_VARIANTS = [
     lead: "Message court. Chaque compte DataTradingPro dispose d'un lien de parrainage. Beaucoup n'ont jamais été ouverts une seule fois — ce mail est là pour ceux-là.",
     secTitle: 'Trois choses à savoir, et rien de plus',
     points: [
-      ['La commission est de 15 %, à vie', " : elle revient chaque mois où votre filleul reste abonné."],
+      ['La commission est de 15%, à vie', " : elle revient chaque mois où votre filleul reste abonné."],
       ['Trois filleuls valent un mois offert', " : ajouté automatiquement à votre abonnement."],
       ["L'offre gratuite Whop suffit", " : parrainer ne demande pas d'être abonné au produit payant."],
     ],
@@ -3654,6 +3659,52 @@ function parrainVariantKey(variant) {
   return _PARRAIN_VARIANTS[i].key;
 }
 const PARRAIN_VARIANTES = _PARRAIN_VARIANTS.map(v => ({ key: v.key, subject: v.subject, h1: v.h1 }));
+/* APERCU DU PANNEAU PARRAINAGES, DANS LE MAIL (04/09, capture user : « affiche cette section dans
+   le template, au lieu de justo tu mets x »). Le mail disait « votre lien vous attend dans la
+   section Parrainages » — une instruction, pas une image. Montrer l'ecran d'arrivee fait deux
+   choses qu'aucune phrase ne fait : le lecteur RECONNAIT la section quand il y arrive, et il voit
+   que le lien existe deja, tout pret, au lieu de l'imaginer comme une demarche a faire.
+
+   ⚠️ LE NOM D'UTILISATEUR EST MASQUE, ET C'EST LE POINT. Le lien reel se termine par le pseudo Whop
+   du parrain : reproduire celui de l'admin dans un mail envoye a toute la liste ferait credit de
+   CHAQUE inscription a une seule personne, si un lecteur recopiait ce qu'il voit. On affiche donc
+   des x. La page de l'espace, elle, reste vraie : elle est publique, et c'est ce qui rend l'apercu
+   credible.
+
+   ⚠️ ET AUCUNE SVG, AUCUN FLEXBOX. Le moteur de rendu d'Outlook est celui de Word : il ignore
+   `display:flex` et n'affiche pas les SVG en ligne. Cet apercu est donc bati en TABLES avec des
+   styles en ligne, comme le reste des mails de la maison — sinon il s'effondrerait en une colonne
+   de texte nu chez une partie des lecteurs, precisement ceux qu'on veut convaincre. */
+function _apercuParrainages() {
+  const lien = 'https://whop.com/justonetrader-actions-7/?a=xxxxxxx';
+  const tuile = (val, lbl, couleur) => `<td width="50%" style="padding:0 4px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:8px;">
+        <tr><td align="center" style="padding:12px 8px;">
+          <div style="font-size:20px;font-weight:800;color:${couleur};line-height:1.2;">${val}</div>
+          <div style="font-size:11px;color:${TOK.grisDoux};margin-top:3px;">${lbl}</div>
+        </td></tr></table></td>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${TOK.panneau};border:1px solid ${TOK.filet};border-radius:10px;margin:18px 0;">
+    <tr><td style="padding:12px 16px;border-bottom:1px solid ${TOK.filet};">
+      <span style="color:${TOK.or};font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;">Parrainages</span>
+      <span style="color:${TOK.grisPied};font-size:11px;"> &nbsp;·&nbsp; dans votre profil</span>
+    </td></tr>
+    <tr><td style="padding:14px 16px 16px;">
+      <p style="margin:0 0 12px;font-size:13.5px;line-height:1.55;color:#e6e6ea;">Gagnez <strong style="color:${TOK.vert};">15% récurrent</strong> sur chaque parrainage <strong style="color:${TOK.or};">+ 1 mois offert tous les 3 inscrits</strong>.</p>
+      <p style="margin:0 0 6px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${TOK.grisDoux};">Votre lien de parrainage</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;">
+        <tr>
+          <td style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:6px;padding:9px 11px;font-size:12px;color:${TOK.gris};font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">${_esc(lien)}</td>
+          <td width="72" style="padding-left:8px;">
+            <div style="background:${TOK.encart};border:1px solid ${TOK.filet};border-radius:6px;padding:9px 0;text-align:center;font-size:12px;font-weight:700;color:#e6e6ea;">Copier</div>
+          </td>
+        </tr>
+      </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        ${tuile('0', 'Total filleuls', '#e6e6ea')}
+        ${tuile('15%', 'Commission à vie', TOK.vert)}
+      </tr></table>
+    </td></tr></table>`;
+}
 function buildCampaignReferral({ name, email, campaign, variant } = {}) {
   campaign = campaign || 'parrainage';
   const n = _PARRAIN_VARIANTS.length;
@@ -3679,6 +3730,7 @@ function buildCampaignReferral({ name, email, campaign, variant } = {}) {
     ${_secTitle(_esc(v.secTitle))}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:2px 0 4px;">${pointsHtml}</table>
     ${_goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${_esc(v.boxTitre)}</div><div>${_esc(v.box)}</div>`)}
+    ${_apercuParrainages()}
     <p style="margin:0 0 4px;"><strong style="color:#fff;">${_esc(v.ctaLead)}</strong></p>
     <div style="margin:14px 0 4px;">${_campaignBtn(v.ctaLabel, cta)}</div>
     <p style="margin:18px 0 4px;">${_esc(v.signoff)}</p>
@@ -4251,10 +4303,10 @@ function buildReferralInvite({ name, lien, joinUrl } = {}) {
          <p style="margin:0 0 10px;"><strong style="color:${TOK.blanc};">2.</strong> Sinon, créez votre compte <a href="${rejoindre}" style="color:${TOK.or};text-decoration:none;">Whop</a> (gratuit) et rejoignez l'espace <strong style="color:${TOK.blanc};">JustOneTrader</strong>&nbsp;: <strong style="color:${TOK.or};">l'offre gratuite suffit</strong>, vous n'avez rien à payer.</p>
          <p style="margin:0;">Revenez ensuite sur <strong style="color:${TOK.blanc};">Parrainages</strong> et cliquez sur «&nbsp;J'ai rejoint — vérifier&nbsp;»&nbsp;: votre lien apparaît.</p>`, true)}`;
   const body = `
-    ${_H1}15&nbsp;% à vie sur chaque abonné que vous amenez</p>
+    ${_H1}15% à vie sur chaque abonné que vous amenez</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom}, le <strong style="color:#fff;">parrainage DataTradingPro</strong> est ouvert. Vous partagez votre lien, et chaque personne qui s'abonne grâce à vous vous rapporte&nbsp;— tous les mois, tant qu'elle reste.</p>
     ${_goldBox(`<div style="text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:${TOK.or};letter-spacing:-.01em;">15&nbsp;%&nbsp;à vie&nbsp;·&nbsp;3 inscrits&nbsp;=&nbsp;1 mois offert</div>
+        <div style="font-size:22px;font-weight:800;color:${TOK.or};letter-spacing:-.01em;">15%&nbsp;à vie&nbsp;·&nbsp;3 inscrits&nbsp;=&nbsp;1 mois offert</div>
         <div style="font-size:13px;margin-top:6px;">La commission est récurrente, pas une prime unique. Et tous les 3 filleuls, nous ajoutons un mois d'accès à votre abonnement.</div>
       </div>`)}
     ${bloclien}
@@ -4262,7 +4314,7 @@ function buildReferralInvite({ name, lien, joinUrl } = {}) {
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Vos commissions sont suivies et versées <strong style="color:#e6e6ea;">directement par Whop</strong>&nbsp;; vous les retrouvez dans votre espace Whop. Votre compteur de filleuls, lui, s'affiche en direct dans votre panneau Parrainages.</p>
     ${_button(aLeLien ? 'Ouvrir mes parrainages' : 'Obtenir mon lien', APP_URL)}
     <p style="margin:0;font-size:13px;">Merci de faire grandir le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro : 15 % à vie sur chaque abonné que vous amenez', html: _layout('Parrainage', body, { repondable: true }) };
+  return { subject: 'DataTradingPro : 15% à vie sur chaque abonné que vous amenez', html: _layout('Parrainage', body, { repondable: true }) };
 }
 async function sendReferralInvite(d) { const m = buildReferralInvite(d); return _send(d.to, m.subject, m.html); }
 
