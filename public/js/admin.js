@@ -278,7 +278,7 @@
     { prev:'weekly',      test:null,          name:'Récap hebdo',          when:'Samedi',     desc:'Rétrospective de la semaine, devise par devise (rendu dispo après génération du récap).' },
     { prev:'outlook',     test:'outlook',     name:'Semaine à venir',      when:'Dimanche',   desc:'L\'agenda éco trié par le desk pour la semaine qui s\'ouvre.' },
     { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) : aperçu par variante.', variants:true },
-    { prev:'parrainage',  test:'parrainage',  broadcast:'parrainage', broadcastLabel:'Lancer maintenant à toute la liste…', broadcastTitre:'Envoi du parrainage', name:'Parrainage',   when:'Tous les 6 mois', desc:'Le programme d\'affiliation annoncé à toute la liste : 15 % à vie, 1 mois offert tous les 3 filleuls. Part tous les 6 mois, le lundi 11h-14h, le compte à rebours repartant du dernier envoi. Quatre angles se succèdent dans l\'ordre — un client ne relit le même mail qu\'au bout de deux ans. Les quatre boutons ci-dessous les montrent ; sans clic, c\'est celui du PROCHAIN envoi qui s\'affiche.', variantesTpl:['1 · Revenu', '2 · Remboursé', '3 · Vous le faites déjà', '4 · Rappel'] },
+    { prev:'parrainage',  test:'parrainage',  broadcast:'parrainage', broadcastLabel:'Lancer maintenant à toute la liste…', broadcastTitre:'Envoi du parrainage', name:'Parrainage',   when:'Tous les 6 mois', desc:'Le programme d\'affiliation annoncé à toute la liste : 15 % à vie, 1 mois offert tous les 3 filleuls. Part tout seul tous les 6 mois, le lundi 11h-14h, le compte à rebours repartant du dernier envoi. Quatre angles se succèdent dans l\'ordre — un client ne relit le même mail qu\'au bout de deux ans. L\'aperçu ci-contre montre CELUI QUI PART AU PROCHAIN ENVOI ; les quatre se relisent dans la galerie d\'aperçu des e-mails.' },
     { prev:'app-desktop', test:'app-desktop', name:'Annonce app desktop',  when:'One-shot',   oneshot:true, desc:'Annonce de l\'application Windows/macOS (campagne app-desktop-v1).' },
     { prev:'desk-widgets', test:'desk-widgets', name:'Annonce accueil & Mon Desk', when:'One-shot', oneshot:true, desc:'Les deux nouveautés : l\'écran d\'accueil « Vue d\'ensemble », et Mon Desk : widgets composables, plusieurs dispositions, enregistrées par compte (campagne desk-widgets-v1).' },
     { prev:'bibliotheque-widgets', test:'bibliotheque-widgets', broadcast:'bibliotheque-widgets', name:'Annonce bibliothèque de widgets', when:'One-shot', oneshot:true, desc:'Quatorze widgets de plus dans Mon Desk : cotations, amplitude et volatilité, macro, outils. Envoi UNIQUE à toute la liste, hors rotation hebdomadaire (campagne bibliotheque-widgets-v1). Par défaut le mail annonce une arrivée progressive : les 14 widgets sont encore en rodage interne.' },
@@ -313,13 +313,6 @@
     if (t.variants) acts = ['<button class="camp-btn" onclick="campPreviewInvit(0)">Pro</button>',
                             '<button class="camp-btn" onclick="campPreviewInvit(1)">Conviviale</button>',
                             '<button class="camp-btn" onclick="campPreviewInvit(2)">Perf.</button>'];
-    /* VARIANTES GENERIQUES. `campPreviewInvit` fige `_cprevType` sur 'invitation' : reutilise telle
-       quelle pour le parrainage, elle aurait affiche le mail d'INVITATION sous les boutons du
-       parrainage — le pire des defauts d'apercu, celui qui montre un mail pour un autre sans rien
-       signaler. On passe donc le template en argument. */
-    if (t.variantesTpl) acts = t.variantesTpl.map(function (lb, i) {
-      return '<button class="camp-btn" onclick="campPreviewVariante(\'' + t.prev + '\',' + i + ')">' + lb + '</button>';
-    });
     if (t.winback) acts = ['<button class="camp-btn" onclick="campPreviewWinback(1)">1 mois</button>',
                            '<button class="camp-btn" onclick="campPreviewWinback(3)">3 mois</button>',
                            '<button class="camp-btn" onclick="campPreviewWinback(6)">6 mois</button>',
@@ -338,9 +331,6 @@
     var a = document.getElementById('cprev-actions'); if (a) a.innerHTML = acts.join('');
     if (t.mindset) _msFill();
     if (t.variants) campPreviewInvit(0);
-    // Sans clic, on montre la variante du PROCHAIN envoi (le serveur la deduit du compteur), pas la
-    // premiere de la liste : le panel doit repondre « qu'est-ce qui part », pas « qu'est-ce qui existe ».
-    else if (t.variantesTpl) { window._cprevType = t.prev; window._cprevVariant = null; window._cprevRetryCount = 0; _cprevLoad(); _cprevMark(); _cprevArm(); }
     else if (t.winback) campPreviewWinback(3);
     else { window._cprevConcept = null; campPreview(t.prev); }
   }
@@ -1335,12 +1325,6 @@
     window._cprevRetryCount = 0;
     _cprevLoad(); _cprevMark(); _cprevArm();
   }
-  // Aperçu d'une variante pour un template qui en porte plusieurs (parrainage : 0..3).
-  function campPreviewVariante(tpl, v){
-    window._cprevType = tpl; window._cprevVariant = v;
-    window._cprevRetryCount = 0;
-    _cprevLoad(); _cprevMark(); _cprevArm();
-  }
   // ── Séquence automatique (drip) ──
   let _campDrip = null;
   let _dripArmUntil = 0;
@@ -1443,8 +1427,6 @@
               ? '✓ dernier envoi ' + new Date(par.dernierAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' · ' + par.envois + ' envoi' + (par.envois > 1 ? 's' : '') + ' au total'
               : 'jamais envoyé') + '</span>'
           + '</div></div>';
-        const pd = document.getElementById('camp-plan-par-date');
-        if (pd) pd.value = par.programmee || '';
       }
       const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
       body.innerHTML = '<div class="camp-plan-list">' + (d.semaines || []).map(function (w, i) {
@@ -1507,26 +1489,6 @@
       _planMsg(annuler ? 'Témoignage déprogrammé.' : 'Témoignage programmé le ' + date + ' (18h-21h).');
       loadPlan();
     } catch (e) { _planMsg('échec réseau', true); }
-  };
-  /* DATE PROGRAMMEE DU PARRAINAGE. « Auto » ne deprogramme pas seulement : il rend le contenu a la
-     cadence des six mois, calculee depuis le dernier envoi — d'ou le libelle du bouton, qui dit ce
-     que fait le clic et non ce qu'il annule. */
-  window.campPlanParrainage = async function (annuler) {
-    const el = document.getElementById('camp-plan-par-date');
-    const date = annuler ? '' : ((el && el.value) || '');
-    const msg = document.getElementById('camp-plan-par-msg');
-    const _m = function (t, ko) { if (!msg) return; msg.textContent = t; msg.className = 'camp-msg' + (ko ? ' camp-msg--ko' : ' camp-msg--ok'); setTimeout(function () { if (msg) msg.textContent = ''; }, 6000); };
-    if (!annuler && !date) { _m('choisis une date', true); return; }
-    try {
-      const r = await fetch('/api/admin/campaign-plan', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parrainage: date }),
-      }).then(function (x) { return x.json(); });
-      if (!r || !r.ok) { _m((r && r.error) || 'échec', true); return; }
-      if (annuler && el) el.value = '';
-      _m(annuler ? 'Parrainage rendu à la cadence de 6 mois.' : 'Parrainage programmé le ' + date + ' (11h-14h).');
-      loadPlan();
-    } catch (e) { _m('échec réseau', true); }
   };
   // ── Sequence / supervision hebdo ──
   async function loadSequence(){

@@ -261,6 +261,13 @@ async function interroge(email) {
   v('le suivi d\'ouverture est posé', /\/api\/track\/open\?/.test(V[0].html));
   v('le bouton passe par le suivi de clic', /\/api\/track\/click\?/.test(V[0].html));
 
+  /* PAS DE BADGE EN TETE (04/09, capture user). Il redisait en capitales ce que le titre dit en
+     clair juste dessous, et posait un aplat dore pleine largeur avant la phrase qui porte l'offre. */
+  V.forEach((x, i) => {
+    v('variante ' + (i + 1) + ' : aucun badge en capitales au-dessus du titre',
+      !/border-radius:6px;margin-bottom:14px/.test(x.html), 'le bandeau doré est revenu');
+  });
+
   console.log('\n── 11. Le bouton mène quelque part (promesse du mail ↔ code du desk) ──');
   /* Le classique : un CTA qui pointe vers un paramètre que personne n'a implémenté. Le mail part,
      le client clique, il atterrit sur le desk sans savoir quoi faire. On vérifie les DEUX bouts. */
@@ -294,12 +301,25 @@ async function interroge(email) {
   const ADH = fs.readFileSync(path.join(RACINE, 'public/admin.html'), 'utf8');
   v('le panel a sa carte dédiée (aucune ligne de semaine ne peut la porter)', /camp-plan-parrain/.test(ADM) && /camp-plan-parrain/.test(ADH));
   v('… il affiche l\'objet réel de la variante à venir', /par\.variantes \|\| \[\]\)\.find/.test(ADM));
-  v('… et une date peut être forcée depuis l\'écran', /campPlanParrainage/.test(ADM) && /camp-plan-par-date/.test(ADH));
-  v('le template est relisible variante par variante avant tout envoi',
-    /variantesTpl:/.test(ADM) && /campPreviewVariante/.test(ADM));
-  v('… et l\'aperçu montre le PARRAINAGE, pas l\'invitation (piège du réemploi)',
-    /function campPreviewVariante\(tpl, v\)\{[\s\S]{0,120}_cprevType = tpl/.test(ADM),
-    'campPreviewInvit fige le type sur « invitation »');
+  /* LA FICHE DU TEMPLATE RESSEMBLE AUX AUTRES (04/09, capture user : « enleve ces boutons fait comme
+     les autres »). Elle portait quatre boutons de variantes, qui débordaient sur trois lignes et ne
+     ressemblaient à aucune autre fiche. Les quatre variantes se relisent là où c'est leur place —
+     la galerie d'aperçu des e-mails, qui en porte une carte chacune. La fiche, elle, garde ce que
+     toutes les autres ont : un aperçu, un test, un lancement. */
+  v('la fiche n\'a plus de boutons de variantes (elle est comme les autres)',
+    !/variantesTpl/.test(ADM) && !/campPreviewVariante/.test(ADM), 'les boutons de variantes sont revenus');
+  v('… et plus de commande de programmation manuelle', !/campPlanParrainage/.test(ADM) && !/camp-plan-par-date/.test(ADH));
+  v('elle garde le test sur la boîte admin et le lancement, comme les autres',
+    /prev:'parrainage'[^}]*test:'parrainage'/.test(ADM) && /prev:'parrainage'[^}]*broadcast:'parrainage'/.test(ADM));
+  /* L'aperçu par défaut doit montrer CE QUI PART, pas le premier de la liste : le serveur déduit la
+     variante du compteur d'envois quand aucune n'est demandée. Sans ce repli, la fiche montrerait
+     éternellement l'angle n°1 pendant que les clients recevraient le n°3. */
+  v('l\'aperçu sans variante montre celle du PROCHAIN envoi',
+    /type === 'parrainage'[\s\S]{0,320}: \(await _parrainGet\(\)\)\.n;/.test(SRV),
+    'le repli calendaire s\'appliquerait : la fiche mentirait sur ce qui part');
+  const GAL = fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8');
+  v('les 4 variantes sont relisibles dans la galerie d\'aperçu des e-mails',
+    (GAL.match(/key: 'parrainCamp\d'/g) || []).length === 4, 'la galerie n\'en porte pas quatre');
 
   console.log('');
   if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }

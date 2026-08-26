@@ -3582,7 +3582,7 @@ async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignI
 // profond `?parrainage=1`, qui ouvre le volet directement sur la section), lequel affiche TOUJOURS
 // le lien à jour. Le lien nominatif reste porté par buildReferralInvite, l'envoi à l'unité.
 const _PARRAIN_VARIANTS = [
-  { key: 'revenu', eyebrow: 'PROGRAMME DE PARRAINAGE',
+  { key: 'revenu',
     subject: '15 % à vie sur chaque abonné que vous amenez',
     h1: 'Votre lien vous rapporte, tous les mois',
     lead: "Le parrainage DataTradingPro est ouvert à tous les membres. Vous partagez votre lien, et chaque personne qui s'abonne grâce à vous vous verse une commission — pas une fois, tous les mois, tant qu'elle reste abonnée.",
@@ -3597,7 +3597,7 @@ const _PARRAIN_VARIANTS = [
     ctaLead: "Votre lien vous attend dans le desk, section Parrainages de votre profil.",
     ctaLabel: 'Ouvrir mes parrainages', signoff: 'Merci de faire grandir le desk,' },
 
-  { key: 'rembourse', eyebrow: 'VOTRE ABONNEMENT PEUT SE PAYER SEUL',
+  { key: 'rembourse',
     subject: 'Trois personnes, et votre abonnement est remboursé',
     h1: 'Le desk que vous payez peut se payer tout seul',
     lead: "Vous ouvrez le desk chaque matin. Trois autres personnes le feront sur votre recommandation, et votre abonnement cesse d'être une dépense : entre la commission récurrente et le mois offert, il commence à se financer lui-même.",
@@ -3612,7 +3612,7 @@ const _PARRAIN_VARIANTS = [
     ctaLead: "Le lien à partager se trouve dans votre profil.",
     ctaLabel: 'Voir mon compteur', signoff: 'À bientôt sur le desk,' },
 
-  { key: 'deja', eyebrow: 'VOUS LE FAITES DÉJÀ',
+  { key: 'deja',
     subject: 'Vous recommandez le desk. Autant que cela vous rapporte.',
     h1: 'Vous en parlez déjà. Sans lien, cela ne compte pas.',
     lead: "Un trader qui vous demande où vous lisez la macro, une capture du desk envoyée dans un groupe, un nom lâché en discussion : ces recommandations existent déjà. Elles partent simplement sans votre lien, donc sans rien pour vous.",
@@ -3627,7 +3627,7 @@ const _PARRAIN_VARIANTS = [
     ctaLead: "Récupérez votre lien dans la section Parrainages du desk.",
     ctaLabel: 'Récupérer mon lien', signoff: 'Bien à vous,' },
 
-  { key: 'dormant', eyebrow: 'RAPPEL',
+  { key: 'dormant',
     subject: 'Votre lien de parrainage existe. Il ne sert peut-être à rien.',
     h1: 'Un lien inutilisé ne coûte rien. Il ne rapporte rien non plus.',
     lead: "Message court. Chaque compte DataTradingPro dispose d'un lien de parrainage. Beaucoup n'ont jamais été ouverts une seule fois — ce mail est là pour ceux-là.",
@@ -3666,8 +3666,13 @@ function buildCampaignReferral({ name, email, campaign, variant } = {}) {
       <td style="padding:5px 10px 5px 0;vertical-align:top;width:12px;"><span style="color:${TOK.or};font-weight:700;">&rarr;</span></td>
       <td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><strong style="color:#fff;">${_esc(p[0])}</strong>${_esc(p[1])}</td>
     </tr>`).join('');
+  /* PAS DE BADGE AU-DESSUS DU TITRE (04/09, capture user : « enleve ce badge du template »). Il
+     redisait en capitales ce que le titre dit en clair juste dessous, et il posait un aplat dore
+     pleine largeur en tete de mail — la premiere chose lue etait une etiquette, pas la phrase qui
+     porte l'offre. Le titre ouvre desormais le mail. Le champ `eyebrow` a ete RETIRE des variantes
+     et non simplement laisse de cote : une donnee que plus rien ne rend finit toujours par etre
+     re-affichee par quelqu'un qui la trouve inutilisee. */
   const body = `
-    <div style="display:inline-block;color:#0d0e11;background:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;margin-bottom:14px;">${_esc(v.eyebrow)}</div>
     ${_H1}${_esc(v.h1)}</p>
     <p style="margin:0 0 6px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 4px;">${_esc(v.lead)}</p>
