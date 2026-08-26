@@ -130,6 +130,41 @@ v('re-câblé à chaque ouverture (la carte est reconstruite)', /if \(willOpen &
 v('le décalage d\'un cran est corrigé au dépôt', /if \(from < cible\) cible--;/.test(SRC));
 v('les repères de dépôt reprennent ceux du gestionnaire de desks', /\.wdg-set-tabrow\.wdg-drop-before/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
 
+console.log('\n── 6bis. L\'ONGLET PORTE LE NOM DU WIDGET, PAS SON SIGLE ──');
+/* 03/09, capture : un onglet « MONDE » au-dessus d'un panneau intitulé « SESSIONS DE MARCHÉ ». Le
+   libellé par défaut retombait sur `w.tag` — un code court fait pour les VIGNETTES de disposition —
+   avant `w.name`.
+   CE QUI REND LE DÉFAUT SÉRIEUX N'EST PAS LA DIVERGENCE, C'EST LA COLLISION : plusieurs widgets
+   PARTAGENT un tag. Cinq portent « VOLATILITÉ », trois « FX », deux « TAUX ». Deux onglets voisins
+   pouvaient donc s'appeler pareil — un onglet qui ne dit pas ce qu'il ouvre n'est plus un onglet.
+   On mesure les deux : le libellé suit le nom, et deux widgets à tag commun se distinguent. */
+{
+  const nom = id => { const k = SRC.indexOf("id: '" + id + "'"); if (k < 0) return null;
+    const m = /name: (?:'([^']+)'|"([^"]+)")/.exec(SRC.slice(k, k + 400)); return m ? (m[1] || m[2]) : null; };
+  const tag = id => { const k = SRC.indexOf("id: '" + id + "'"); if (k < 0) return null;
+    const m = /tag: '([^']*)'/.exec(SRC.slice(k, k + 200)); return m ? m[1] : ''; };
+  v('le catalogue porte bien des sigles qui diffèrent du nom (sinon ce contrôle serait vide)',
+    tag('sessions') === 'MONDE' && nom('sessions') === 'Sessions de marché',
+    'tag=' + tag('sessions') + ' nom=' + nom('sessions'));
+  /* Le repli est lu dans la SOURCE : c'est un défaut de choix de champ, pas de calcul — il n'y a
+     pas de fonction à extraire, seulement une expression, et c'est elle qu'on éprouve. */
+  const replis = SRC.match(/\.tag \|\| \w+\.name/g) || [];
+  v('aucun libellé d\'onglet ne retombe plus sur le sigle', replis.length === 0,
+    replis.length + ' repli(s) « tag || name » subsistant(s)');
+  const parNom = ['var defLbl = estGrille', 'var lbl = labels[i] ||', 'var def0 = w0 ?', 'var def = w2 ?'];
+  v('les QUATRE points qui nomment un onglet lisent le nom du widget',
+    parNom.every(m => { const k = SRC.indexOf(m); return k > 0 && /\bw\d?\.name\b/.test(SRC.slice(k, k + 160)); }),
+    parNom.filter(m => { const k = SRC.indexOf(m); return !(k > 0 && /\bw\d?\.name\b/.test(SRC.slice(k, k + 160))); }).join(' | '));
+  /* La collision, sur des widgets réels du catalogue. */
+  const memesTag = ['vol-horaire', 'amplitude-seance', 'stats-volatilite'];
+  v('trois widgets au tag « VOLATILITÉ » portent bien trois NOMS distincts',
+    new Set(memesTag.map(nom)).size === 3 && new Set(memesTag.map(tag)).size === 1,
+    memesTag.map(i => tag(i) + '→' + nom(i)).join(' | '));
+  /* Le sigle garde sa place là où il a un sens : la vignette de disposition, trop petite pour un nom. */
+  v('… mais le sigle reste employé par la vignette de disposition',
+    /_ABBR\[it && it\.w\] \|\| \(def && def\.tag\)/.test(SRC));
+}
+
 console.log('\n── 7. Le défaut voisin, corrigé au passage ──');
 /* `removeTab` réindexait tabs, tabLabels, tabGrid et tabCfg — mais PAS tabIcons. Retirer le 2e
    onglet décalait donc l'icône de tous les suivants d'un cran, sans erreur ni trace. */

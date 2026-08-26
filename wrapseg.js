@@ -38,8 +38,44 @@ const _SRC_NU   = /^\s*[Ss]ources?\s*/;                            // « Sources
 // (« Banque de France », « Bank of England »). Le premier mot DOIT porter la majuscule — c'est ce
 // qui distingue « Sources BCE : … » de « Source proche de la BCE : … », où le mot porte l'info.
 const _SRC_INST = /^(\*{0,2}[A-ZÀ-Þ][\wÀ-ÿ&.'’-]*(?:\s+(?:[A-ZÀ-Þ][\wÀ-ÿ&.'’-]*|de|du|des|la|le|les|of|and|et|d['’])){0,3}\*{0,2})?\s*[:：]\s+/;
+/* ══ AUCUNE SOURCE DANS LE CORPS D'UNE PUCE (03/09, capture : « BoJ : la Banque du Japon devrait
+   relever son taux à 1,25 % en septembre · Sondage Reuters → renforcement du yen ») ═══════════════
+   Demande : « dans les récaps de l'onglet analystes ne met pas les sources d'où ça provient ». Même
+   intention que le 30/08 sur les rapports d'institution — le lecteur paie une lecture, pas un
+   annuaire de dépêches, et une attribution au milieu d'une phrase lui apprend seulement où aller
+   lire ailleurs.
+   La règle du 26/08 (`sansSource`) ne voyait que le « Sources X : … » EN TÊTE de puce. Celle-ci
+   agit dans le CORPS, et seulement sur une vraie ATTRIBUTION : il faut un séparateur (« · », tiret,
+   parenthèse) ou un mot d'attribution (selon, d'après, sondage…) devant le nom du média.
+   ⚠️ UN MÉDIA SUJET DE LA PHRASE N'EST JAMAIS RETIRÉ. « Reuters rapporte que… » perdrait son sujet
+   et la phrase deviendrait bancale : on ne retire que ce qui est grammaticalement détachable. C'est
+   la même prudence que pour « Source proche de la BCE », où le mot porte l'information. */
+const _MEDIAS = '(?:Reuters|RTRS|Bloomberg|BBG|Nikkei(?: Asia)?|Kyodo|Jiji|Yonhap|MNI|Dow Jones|WSJ|Wall Street Journal|FT|Financial Times|CNBC|BBC|AFP|AP|Xinhua|TASS|Interfax|Politico|Axios|Semafor|Handelsblatt|Econostream|LSEG|S&P Global|MarketWatch|Investing\\.com|FXStreet|Forex ?Live|SCMP|Caixin|Global Times|Anadolu|Sky News|The Telegraph|Telegraph|The Guardian|Guardian|Barron\'?s|Il Sole(?: 24 Ore)?|Expansi[óo]n|Cinco D[íi]as)';
+const _ATTRIB = '(?:sondage|enqu[êe]te|[ée]tude|rapport|source|sources|selon|d[\'’]apr[èe]s|via)';
+function sansMedia(t) {
+  let s = String(t == null ? '' : t);
+  // 1) Segment détaché par un séparateur : « … · Sondage Reuters → … », « … — Reuters, … ».
+  s = s.replace(new RegExp('\\s*[·|•]\\s*(?:' + _ATTRIB + '\\s+)?' + _MEDIAS + '\\b\\.?', 'gi'), '');
+  s = s.replace(new RegExp('\\s*[–—]\\s*(?:' + _ATTRIB + '\\s+)?' + _MEDIAS + '\\b\\.?(?=\\s*(?:[→·|•]|$))', 'gi'), '');
+  // 2) Entre parenthèses : « … (Reuters) », « … (selon Bloomberg) ».
+  s = s.replace(new RegExp('\\s*\\(\\s*(?:' + _ATTRIB + '\\s+)?' + _MEDIAS + '\\s*\\)', 'gi'), '');
+  // 3) Attribution en toutes lettres : « …, selon Reuters », « d\'après Bloomberg ».
+  s = s.replace(new RegExp('[,;]?\\s*\\b(?:selon|d[\'’]apr[èe]s)\\s+' + _MEDIAS + '\\b[,;]?', 'gi'), '');
+  // Recollage : deux séparateurs devenus voisins, un séparateur en fin, un espace avant la ponctuation.
+  return s.replace(/\s*([·|•])\s*\1/g, ' $1 ')
+    .replace(/\s*[·|•–—]\s*(?=(?:→|$))/g, ' ')
+    .replace(/\s*[·|•]\s*$/, '')
+    /* ⚠️ SEULS LE POINT ET LA VIRGULE PERDENT L'ESPACE QUI LES PRÉCÈDE. En français, le deux-points,
+       le point-virgule, le point d'exclamation et celui d'interrogation en PRENNENT un : recoller
+       « BoJ : » en « BoJ: » sur toutes les puces du rapport aurait été une faute de typographie
+       introduite par un correctif de source. */
+    .replace(/\s+([.,])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function sansSource(t) {
-  const s = String(t == null ? '' : t);
+  const s = sansMedia(t);
   const tete = _SRC_GRAS.exec(s) || _SRC_NU.exec(s);
   if (!tete) return s;
   const reste = s.slice(tete[0].length);
@@ -250,4 +286,4 @@ function html(arr, macroCal, surv, synth) {
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, heureParis, esc };
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, sansMedia, heureParis, esc };

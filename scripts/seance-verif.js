@@ -489,7 +489,10 @@ console.log('\n── 7e-quater. LE STYLE DES PUCES ──');
   '**BCE** : les décideurs sont prêts à augmenter les taux en septembre → ton hawkish confirmé.'],
  ['Sources BCE : les décideurs sont prêts.', 'BCE : les décideurs sont prêts.'],
  ['**Sources** : la BCE prête à agir dès septembre.', 'La BCE prête à agir dès septembre.'],
- ['Sources : selon Reuters, la **Fed** temporise.', 'Selon Reuters, la **Fed** temporise.'],
+ /* ⚠️ ATTENDU CHANGÉ LE 03/09 : « selon Reuters » disparaît aussi. La règle du 26/08 ne retirait que
+    l'annonce en tête ; celle d'aujourd'hui retire l'ATTRIBUTION dans le corps (demande : « ne met pas
+    les sources d'où ça provient »). La puce garde son fait, elle perd l'adresse où aller le relire. */
+ ['Sources : selon Reuters, la **Fed** temporise.', 'La **Fed** temporise.'],
  ['Source **Banque de France** : le crédit ralentit.', '**Banque de France** : le crédit ralentit.'],
  ['Sources Bank of England : la livre monte.', 'Bank of England : la livre monte.'],
  // CE QUI NE DOIT PAS BOUGER : le mot y porte l'information, ou n'est pas un préfixe du tout.
@@ -503,6 +506,31 @@ v('la règle s\'applique à TOUTES les rubriques, pas qu\'à la Macro',
   /<strong>Géopolitique<\/strong><ul><li>\*\*BCE\*\* : /.test(W.html([{ section: 'Géopolitique', items: ['Sources **BCE** : la réunion est avancée.'] }], []).html));
 v('… y compris dans la Macro', /<li>\*\*BCE\*\* : la réunion/.test(W.html([{ section: 'Macro', items: ['Sources **BCE** : la réunion est avancée.'] }], []).html));
 v('elle est aussi demandée au modèle', /N'ANNONCE JAMAIS TA SOURCE, NOMME-LA/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8')));
+
+console.log('\n── 7e-quinquies. AUCUNE ATTRIBUTION À UN MÉDIA DANS LE CORPS D\'UNE PUCE ──');
+/* 03/09, capture : « BoJ : la Banque du Japon devrait relever son taux à 1,25 % en septembre ·
+   Sondage Reuters → renforcement du yen ». Le lecteur paie une lecture, pas un annuaire de
+   dépêches. La règle du 26/08 ne voyait que le « Sources X : … » EN TÊTE ; celle-ci agit dans le
+   CORPS de la phrase. */
+[['BoJ : la Banque du Japon devrait relever son taux à 1,25 % en septembre · Sondage Reuters → renforcement du yen.',
+  'BoJ : la Banque du Japon devrait relever son taux à 1,25 % en septembre → renforcement du yen.'],
+ ['BCE : les décideurs sont prêts à agir (Reuters) → euro soutenu.', 'BCE : les décideurs sont prêts à agir → euro soutenu.'],
+ ['Fed : Powell reste prudent, selon Bloomberg → dollar stable.', 'Fed : Powell reste prudent → dollar stable.'],
+ ['Chine : relance budgétaire à l\'étude (selon le Nikkei) → yuan ferme.', 'Chine : relance budgétaire à l\'étude (selon le Nikkei) → yuan ferme.'],
+ ['Pétrole : l\'OPEP maintient ses quotas — Reuters → brut ferme.', 'Pétrole : l\'OPEP maintient ses quotas → brut ferme.'],
+ // ⚠️ CE QUI NE DOIT PAS BOUGER. Un média SUJET de la phrase n'est pas une attribution : le retirer
+ // laisserait un verbe sans sujet. Et l'espace français avant le deux-points doit survivre au
+ // recollage — le recoller en « BoJ: » serait une faute de typo introduite par un correctif.
+ ['Reuters rapporte que la BoJ hésite encore → yen volatil.', 'Reuters rapporte que la BoJ hésite encore → yen volatil.'],
+ ['**CPI** US +0,4% m/m (vs +0,3% att.) → **USD** se renforce.', '**CPI** US +0,4% m/m (vs +0,3% att.) → **USD** se renforce.'],
+ ['BoJ : taux inchangé → yen faible.', 'BoJ : taux inchangé → yen faible.'],
+].forEach(([a, att]) => v(`« ${a.slice(0, 48)} »`, W.sansSource(a) === att, W.sansSource(a)));
+v('la règle vaut pour toutes les rubriques du rapport',
+  !/Sondage Reuters/.test(W.html([{ section: 'Géopolitique', items: ['BoJ : hausse en vue · Sondage Reuters → yen ferme.'] }], []).html));
+v('elle est aussi demandée au modèle',
+  /N'ATTRIBUE JAMAIS UNE INFORMATION À UN MÉDIA/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8')));
+v('… et le cache des rapports déjà segmentés est invalidé (sinon rien ne change à l\'écran)',
+  /SW_SEG_VER  = 'v25:'/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8')));
 
 /* « corrige ce bug de gras » (26/08, capture) : la valeur du calendrier « 11.75K », posée au milieu
    de puces qui écrivent « 0,6% ». On ne change QUE le séparateur, jamais le chiffre. */

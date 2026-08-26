@@ -176,7 +176,14 @@
             var nCell = estGrille ? _tabCells(it, j).filter(function (x) { return x !== 'vide'; }).length : 0;
             var nomW = estGrille ? ('Onglet composite · ' + nCell + ' widget' + (nCell > 1 ? 's' : ''))
               : (estVide ? 'Onglet vide : aucun widget' : w2.name);
-            var defLbl = estGrille ? 'GRILLE' : (estVide ? 'Vide' : (w2.tag || w2.name));
+/* ⚠️ L'ONGLET PORTE LE NOM DU WIDGET, PAS SON SIGLE (03/09, capture : un onglet « MONDE » au-dessus
+   d'un panneau intitulé « SESSIONS DE MARCHÉ »). Le libellé par défaut retombait sur `w.tag` — un
+   code court de vignette — avant `w.name`. Mesuré sur le catalogue : 27 widgets sur 41 ont un tag
+   qui diffère de leur nom, et plusieurs le PARTAGENT (cinq widgets étiquetés « VOLATILITÉ », trois
+   « FX », deux « TAUX »). Deux onglets voisins pouvaient donc porter le même libellé, ce qui retire
+   à l'onglet sa seule fonction : dire ce qu'il ouvre. Le sigle garde sa place là où il a un sens —
+   la vignette de disposition (_thumbLbl) et la fiche d'aide. */
+            var defLbl = estGrille ? 'GRILLE' : (estVide ? 'Vide' : w2.name);
             var _cur = _tabIconSvg(ic[j]);
             /* SELECTEUR D ICONE (21/08). <details> natif : le resume est l icone courante, le contenu
                la grille de choix. Aucun etat JS a gerer, aucune fuite, ferme au clic exterieur par le
@@ -7665,7 +7672,7 @@
             var estG = _estGrille(it, i);
             var w = !estG && id !== 'vide' && id !== 'grille' && byId(id);
             // Un onglet composite n'a pas UN widget : son libellé par défaut dit ce qu'il est.
-            var lbl = labels[i] || (w ? (w.tag || w.name) : (estG ? 'GRILLE' : 'Vide'));
+            var lbl = labels[i] || (w ? w.name : (estG ? 'GRILLE' : 'Vide'));
             var ttl = w ? (w.name + ' : double-clic pour renommer')
               : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) : double-clic pour renommer')
                       : 'Onglet vide : choisis sa disposition dans le corps');
@@ -7683,7 +7690,7 @@
           if (!w0 && tabs[i] !== 'vide' && !estG0) return;
           // Un onglet vide se renomme aussi, et un onglet composite encore plus : c'est le seul moyen
           // de nommer un regroupement (« Macro », « Séance US »…).
-          var def0 = w0 ? (w0.tag || w0.name) : (estG0 ? 'GRILLE' : 'Vide');
+          var def0 = w0 ? w0.name : (estG0 ? 'GRILLE' : 'Vide');
           var nm = t.querySelector('.wdgt-nm'); if (!nm) return;
           var inp = document.createElement('input');
           inp.className = 'wdgt-edit'; inp.maxLength = 18; inp.value = labels[i] || def0;
@@ -9498,7 +9505,7 @@ function _spansAffiches(lay) {
       var v2 = String(v || '').trim().slice(0, 18);
       // Nom par défaut : tag du widget — « Vide » pour un onglet sans widget, « GRILLE » pour un
       // onglet composite. Sans ce dernier cas, saisir « GRILLE » serait pris pour un nom personnalisé.
-      var def = w2 ? (w2.tag || w2.name) : (_estGrille(it, j) ? 'GRILLE' : 'Vide');
+      var def = w2 ? w2.name : (_estGrille(it, j) ? 'GRILLE' : 'Vide');
       var suiv = (v2 && v2 !== def) ? v2 : '';   // vide ou nom d'origine → pas de libellé perso
       // SANS CHANGEMENT → ON NE RE-REND RIEN. Cliquer le × d'une ligne dont le champ a le focus
       // déclenche blur → change → re-rendu du volet : le bouton visé serait remplacé sous la souris
