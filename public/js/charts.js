@@ -3998,6 +3998,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     nav.addEventListener('pointerup', end);
     nav.addEventListener('pointercancel', end);
+    /* ⚠️ AU DOIGT, `preventDefault()` SUR `pointermove` NE SUFFIT PAS (29/08, mesuré). L'appui long
+       arme bien l'onglet — la classe `nav-item--dragging` est posée — puis le navigateur reprend le
+       geste au premier glissement et l'onglet ne bouge plus : les événements de pointeur issus du
+       tactile sont émis APRÈS que le geste a été attribué au défilement, et les annuler là n'annule
+       rien. Seul un `touchmove` NON PASSIF peut encore le refuser.
+       Et on ne le refuse QUE pendant un déplacement armé : `touch-action: none` sur les onglets
+       marcherait aussi, mais il empêcherait la barre de défiler horizontalement — or elle en a
+       besoin, elle porte neuf onglets sur un écran de téléphone. */
+    nav.addEventListener('touchmove', e => { if (active) e.preventDefault(); }, { passive: false });
     // Le clic qui suit immédiatement un déplacement ne doit PAS changer d'onglet.
     nav.addEventListener('click', e => { if (window._navDragEndedAt && Date.now() - window._navDragEndedAt < 300) { e.stopPropagation(); e.preventDefault(); window._navDragEndedAt = 0; } }, true);
   })();

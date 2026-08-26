@@ -12634,17 +12634,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
     dragging = false;
     resizer.classList.remove('dragging');
     document.body.classList.remove('is-resizing');
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', stop);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', stop);
+    window.removeEventListener('pointercancel', stop);
   };
-  resizer.addEventListener('mousedown', e => {
+  /* ⚠️ ÉVÉNEMENTS DE POINTEUR, PAS DE SOURIS (29/08). La barre était écoutée en `mousedown` /
+     `mousemove` : sur une tablette tactile de plus de 1024 px — le seul cas où elle s'affiche — la
+     barre est bien là, visible, et AUCUN doigt ne la déplace. Mesuré à 1366×1024 : glissement réel
+     de 180 px, `--sidebar-w` reste vide. Les événements de pointeur couvrent la souris, le doigt et
+     le stylet d'un seul jeu d'écouteurs.
+     `setPointerCapture` remplace l'écoute sur `window` pour le suivi : le geste reste attaché à la
+     barre même quand le doigt la quitte — ce qui arrive au premier pixel, une barre faisant 1 px. */
+  resizer.addEventListener('pointerdown', e => {
     if (!isDesktop()) return;                              // drag off sur mobile/tablette
     e.preventDefault();
     dragging = true;
+    try { resizer.setPointerCapture(e.pointerId); } catch (_) {}
     resizer.classList.add('dragging');
     document.body.classList.add('is-resizing');
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', stop);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
   });
   // Repli sur mobile → on rend la main au CSS (largeur par défaut, pas de persistance)
   window.addEventListener('resize', () => { if (!isDesktop()) layout.style.removeProperty('--sidebar-w'); });
@@ -12674,16 +12684,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (!dragging) return;
     dragging = false;
     document.body.classList.remove('is-resizing-v');
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', stop);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', stop);
+    window.removeEventListener('pointercancel', stop);
   };
-  resizer.addEventListener('mousedown', e => {
+  // Même correctif que la barre verticale : cette barre-ci lisait déjà `e.touches` dans `onMove`,
+  // mais aucun écouteur tactile ne l'appelait jamais — la branche était morte depuis toujours.
+  resizer.addEventListener('pointerdown', e => {
     if (!isDesktop()) return;
     e.preventDefault();
     dragging = true;
+    try { resizer.setPointerCapture(e.pointerId); } catch (_) {}
     document.body.classList.add('is-resizing-v');
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', stop);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
   });
   window.addEventListener('resize', () => { if (!isDesktop()) { clocks.style.flex = ''; clocks.style.maxHeight = ''; clocks.style.height = ''; } });
 })();
@@ -13092,7 +13107,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const span = cols.length + 2;   // colonne de sélection (gauche) + colonnes + colonne actions (droite)
     const head = '<thead><tr>'
       + '<th class="jr-th-sel"><span class="jr-selall' + (allOn ? ' jr-rowsel--on' : '') + '" title="Tout sélectionner"></span></th>'
-      + cols.map(c => '<th class="jr-th" draggable="true" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
+      /* ⚠️ ON NE PROMET PAS UN GESTE QUI N'ABOUTIT PAS (29/08). Le réordonnancement des colonnes
+         repose sur le glisser-déposer HTML5, qui n'existe pas au toucher : mesuré au doigt, la
+         séquence s'arrête sur un `pointercancel` et `_jrMoveCol` n'est jamais appelé. Un `draggable`
+         posé là fait croire à un geste qui ne peut pas marcher — et il coûte en plus, sur certains
+         navigateurs tactiles, une sélection de texte parasite au premier appui long.
+         Le repli existe déjà et il est complet : le menu ▾ de chaque en-tête déplace la colonne. On
+         retire donc l'attribut au doigt et on dit où aller dans l'infobulle. */
+      + cols.map(c => '<th class="jr-th"' + (_jrGrossier() ? '' : ' draggable="true"') + ' data-k="' + _esc(c.k) + '"'
+          + ' title="' + (_jrGrossier() ? 'Déplacer cette colonne : menu ▾' : 'Glisser pour déplacer · menu ▾ pour les options') + '"'
+          + ' style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
     if (!L.length && _hasAny) {   // FILTRE sans résultat (des trades existent) → message dédié, PAS le prompt d'import
       tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + span + '">'
         + '<div class="jr-empty-wrap"><div class="jr-empty-title">Aucun trade ne correspond au filtre</div>'
@@ -13143,6 +13167,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const ids = (_jrList || []).map(x => x.id), allOn = ids.length && ids.every(i => _jrSel.has(i));
     const sa = document.querySelector('#jr-grid .jr-selall'); if (sa) sa.classList.toggle('jr-rowsel--on', !!allOn);
     _jrUpdateSelBar();
+  }
+  // Pointeur grossier = un doigt : `matchMedia` est relu à chaque rendu, donc un écran hybride
+  // (tablette avec clavier détachable) suit le mode courant sans rechargement.
+  function _jrGrossier() {
+    try { return window.matchMedia && window.matchMedia('(pointer: coarse)').matches; } catch (e) { return false; }
   }
   function _jrUpdateSelBar() {
     let bar = document.getElementById('jr-selbar');

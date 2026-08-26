@@ -992,6 +992,10 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
   position: relative;
   z-index: 30;
   align-self: stretch;
+  /* Sans cela, le navigateur prend le glissement pour un défilement et cesse d'émettre
+     `pointermove` dès le deuxième pixel : la barre serait visible et immobile au doigt. Elle ne
+     s'affiche qu'au-delà de 1024 px, donc sur tablette tactile — le seul cas où ça se voit. */
+  touch-action: none;
 }
 .layout-resizer::before {     /* AU REPOS : trait neutre discret (pas d'orange) */
   content: '';
@@ -1077,6 +1081,7 @@ body.is-resizing iframe { pointer-events: none; }
   position: relative;
   z-index: 30;
   overflow: visible;
+  touch-action: none;   /* même raison que .layout-resizer : au doigt, sinon le geste part en défilement */
 }
 .clocks-resizer::before {     /* zone grabbable de 8px, AU-DESSUS de la frontière → n'ajoute pas d'espace */
   content: '';
@@ -12723,15 +12728,18 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
    la souris — on élargit la ZONE DE PRISE sans grossir le caractère, avec une marge négative pour
    que la ligne ne s'écarte pas d'autant. */
 @media (pointer: coarse) {
+  /* 44 px RÉELS, donc 49 déclarés : le zoom de page de 90 % mange un dixième de toute cible
+     pensée en pixels CSS. La marge négative garde la ligne compacte — seule la zone de toucher
+     grandit, le caractère ⠿ ne bouge pas. */
   .wdg-set-tabgrip, .wdg-mgr-grip {
-    padding: 12px 10px; margin: -9px -8px; margin-top: -4px;
+    padding: 14px 16px; margin: -11px -14px; margin-top: -6px;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
   /* LA LIGNE AUSSI. La poignée ne peut pas être plus haute que ce qui l'entoure : mesurée à 33 px
      dans une ligne de 27, elle débordait déjà. Une ligne de 40 px donne au doigt une prise franche
      et ecarte les deux boutons voisins — la poignée et la croix de suppression étaient à 4 px l'une
      de l'autre, ce qui suffit pour supprimer un onglet en croyant le déplacer. */
-  .wdg-set-tabrow { min-height: 40px; }
+  .wdg-set-tabrow { min-height: 49px; }
   .wdg-set-tabdel, .wdg-set-tabrow .wdg-tabic-cur {
     min-width: 34px; min-height: 34px; display: inline-flex; align-items: center; justify-content: center;
   }
@@ -19143,13 +19151,30 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
   .bank-table td.bank-exp::after { content: ''; position: absolute; inset: -3px -9px; }
 }
 
-/* ── 5. POIGNÉES DE REDIMENSIONNEMENT : PLUS DE BANDE MORTE AU DOIGT ───────────────────────
-   `touch-action: none` posé sur des poignées qui n'ont AUCUN gestionnaire tactile crée une
-   bande où le défilement de la page ne marche plus — sans que rien ne l'explique. Sur le bord
-   droit du desk, c'est toute la hauteur de l'écran qui devenait inerte.
-   Sur pointeur grossier, ces poignées n'ont pas d'usage : on leur rend le défilement. */
-@media (hover: none), (pointer: coarse) {
-  .wdg-resize, .wdg-resize-e { touch-action: auto; }
+/* ── 5. POIGNÉES DE REDIMENSIONNEMENT AU DOIGT ─────────────────────────────────────────────
+   CE BLOC DISAIT LE CONTRAIRE, ET SUR UNE PRÉMISSE FAUSSE (corrigé le 29/08). Il rendait
+   `touch-action: auto` aux deux poignées « puisqu'elles n'ont AUCUN gestionnaire tactile ».
+   Elles en ont un : `pointerdown` (widgets.js, redimensionnement des cartes), et un
+   `pointerdown` se déclenche au doigt comme à la souris. En leur rendant `touch-action: auto`,
+   le navigateur reprenait le geste dès le deuxième pixel — mesuré au doigt : pointerdown, deux
+   pointermove, puis pointercancel, jamais de pointerup, et la carte ne bougeait pas d'un pixel.
+   Le redimensionnement était donc SUPPRIMÉ au doigt par la règle censée le libérer.
+
+   LA GÊNE QUI AVAIT MOTIVÉ CE BLOC ÉTAIT RÉELLE, mais elle venait d'ailleurs : la poignée de
+   bord droit court sur TOUTE la hauteur de la carte (`top: 34px; bottom: 22px`), soit une bande
+   mesurée à 16 × 498 px sur un écran de 390 — une colonne où le défilement ne répondait plus,
+   du haut au bas de chaque carte. Ce n'est pas `touch-action` qu'il fallait retirer, c'est la
+   bande qu'il fallait raccourcir. Elle devient un SEGMENT centré : le geste revient, et les
+   trois quarts de la hauteur redeviennent défilables. */
+@media (pointer: coarse) {
+  .wdg-resize-e {
+    top: 50%; bottom: auto; height: 49px; width: 26px; transform: translateY(-50%);
+  }
+  /* 49 px déclarés = 44 px réels : le desk applique un zoom de page de 90 %, une cible pensée en
+     pixels déclarés arrive donc 10 % plus petite sous le pouce. La poignée de coin reste modeste :
+     agrandie à 49 px elle deviendrait un mangeur de taps invisible dans le coin de chaque carte,
+     par-dessus le contenu. */
+  .wdg-resize { width: 36px; height: 36px; }
 }
 
 /* ── 6. IPHONE À ENCOCHE : RESPECTER LA ZONE SÛRE ──────────────────────────────────────────

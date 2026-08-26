@@ -7699,8 +7699,19 @@
       // Hauteur de ligne MESUREE sur la carte elle-meme : depuis que les lignes s'etirent pour remplir
       // l'ecran (grid-auto-rows: minmax(0,1fr)), elle n'est plus egale a ROW_PX — un pas fige a 26px
       // ferait grandir le widget beaucoup trop vite. Repli sur ROW_PX si la mesure est aberrante.
-      var rowUnit = (card.offsetHeight + gapR) / Math.max(1, it.gh);
-      if (!isFinite(rowUnit) || rowUnit < 4) rowUnit = ROW_PX + gapR;
+      /* ⚠️ LA CARTE SE MESURE DANS LE MÊME ESPACE QUE LE GESTE (29/08). `offsetWidth` et
+         `offsetHeight` rendent des pixels CSS NON ZOOMÉS, alors que `e.clientX` / `e.clientY`
+         arrivent en pixels d'ÉCRAN. Or le desk applique un zoom de page de 90 % : la carte mesurait
+         429 par `offsetWidth` pour 386 à l'écran — rapport 0,900, exactement le zoom. Le pas de la
+         grille était donc surestimé de 11 %, et le bord de la carte suivait le curseur — ou le
+         doigt — avec ce retard-là : on tirait de dix colonnes pour en gagner neuf.
+         `getBoundingClientRect()` mesure à l'écran, comme les événements. Les gouttières, lues en
+         `getComputedStyle`, sont elles aussi en pixels déclarés : elles passent par le même facteur. */
+      var _zoom = (card.offsetWidth > 0) ? (card.getBoundingClientRect().width / card.offsetWidth) : 1;
+      if (!isFinite(_zoom) || _zoom <= 0.2) _zoom = 1;
+      gapC *= _zoom; gapR *= _zoom;
+      var rowUnit = (card.getBoundingClientRect().height + gapR) / Math.max(1, it.gh);
+      if (!isFinite(rowUnit) || rowUnit < 4) rowUnit = (ROW_PX + gapR) * _zoom;
       // ON PART DE CE QUI EST AFFICHE, pas de ce qui est enregistre. Une carte etiree par le moteur
       // d'extension n'a pas la meme largeur a l'ecran que dans la disposition : repartir de la valeur
       // enregistree la faisait sauter des le premier pixel, et divisait la largeur reelle par le
@@ -7755,7 +7766,7 @@
              // du bas de la colonne gauche deplacait le 3e bloc de droite). Cette frontiere-la se
              // regle depuis la carte du DESSUS, qui a bien une voisine a qui ceder.
              bandeBas: bandeBas, moinsBas: bandeBas.length ? (it.gh - 3) : 0, plusBas: bandeBas.length ? Math.max(0, cedeBas) : 0,
-             d0: d0, noeuds: noeuds, gapR: gapR, rowUnit: rowUnit, colUnit: (card.offsetWidth + gapC) / Math.max(1, d0) };
+             d0: d0, noeuds: noeuds, gapR: gapR, rowUnit: rowUnit, colUnit: (card.getBoundingClientRect().width + gapC) / Math.max(1, d0) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
     });
