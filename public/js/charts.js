@@ -1365,9 +1365,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
   }
 
   // ── Légende cliquable (en haut) : clic sur une devise = masquer / réafficher sa courbe ──
-  let _legende = null;
   if (!_focus) {
-    const legend = _legende = chart.children.unshift(am5.Legend.new(root, {
+    const legend = chart.children.unshift(am5.Legend.new(root, {
       centerX: am5.percent(0), x: am5.percent(0),
       marginTop: 0, marginBottom: 6, paddingLeft: 0, paddingTop: 0,
     }));
@@ -1392,40 +1391,19 @@ function buildStrengthChart(containerId, data, opts = {}) {
     legend.data.setAll(chart.series.values);
   }
 
-  /* ══ SUIVRE UNE COURBE DU REGARD (29/08, demande utilisateur : « je ne vois pas a vu d'oeil toutes
-     les courbes ») ═══════════════════════════════════════════════════════════════════════════════
-     Huit courbes qui se croisent trente fois ne se démêlent pas par la couleur seule : à l'endroit
-     précis d'un croisement, aucune palette ne dit laquelle passe devant. Il manquait le geste qui
-     répond à la question — DÉSIGNER une devise et voir sa courbe seule.
-     Deux entrées, celles où la main est déjà : la légende du haut, et le tracé lui-même (le curseur
-     accroche déjà la courbe la plus proche pour son point d'ancrage — on se sert de CE choix, celui
-     que l'utilisateur vise réellement).
-     Les autres courbes ne DISPARAISSENT pas, elles s'effacent : le contexte reste lisible, c'est ce
-     qui distingue une mise en avant d'un filtre. Une devise masquée par la légende reste masquée, et
-     le mode « focus » (une seule devise, les autres grisées) n'est pas touché — il fait déjà ce
-     travail, en permanence. */
-  let _enAvant = null;
-  function mettreEnAvant(ccy) {
-    if (ccy === _enAvant) return;                                  // rien à repeindre : le survol émet en rafale
-    _enAvant = ccy;
-    seriesArr.forEach(sr => {
-      try {
-        const n = sr.get('name');
-        if (_focus && n !== _focus) return;                        // mode focus : ces courbes sont déjà éteintes
-        if (_hiddenCcy.has(n)) return;                             // masquée à la légende : on ne la rallume pas
-        const vise = !ccy || n === ccy;
-        sr.strokes.template.setAll({ strokeOpacity: vise ? 1 : 0.14, strokeWidth: (ccy && vise) ? _sw + 0.6 : _sw });
-      } catch (e) {}
-    });
-    try { if (container) container.classList.toggle('cs-survol', !!ccy); } catch (e) {}
-    Object.keys(labelMap).forEach(c => {
-      try {
-        const el = labelMap[c].range.get('label')?.getPrivate('htmlElement');
-        const b = el && (el.classList.contains('cs-badge') ? el : el.querySelector('.cs-badge'));
-        if (b) b.classList.toggle('cs-badge--vise', !!ccy && c === ccy);
-      } catch (e) {}
-    });
-  }
+  /* ══ LE SURVOL NE MET PLUS AUCUNE COURBE EN AVANT (30/08) ══════════════════════════════════════
+     Ajouté la veille : survoler une devise (légende ou tracé) la gardait pleine et estompait les
+     sept autres à 14 % d'opacité. L'intention était de démêler huit courbes qui se croisent — le
+     résultat, capture à l'appui : « quand je glisse mon curseur sur une courbe ça cache les autres,
+     enlève ça ». Et c'est juste : dans ce panneau, on ne suit pas UNE devise, on compare les huit ;
+     le curseur se promène en permanence sur le tracé, donc l'effacement se déclenchait tout le
+     temps, sans être demandé. Une mise en avant permanente n'est plus une mise en avant, c'est un
+     graphique qui clignote.
+     Le mode « focus » (une seule devise, les autres grisées) reste : lui, on le DEMANDE. Le
+     croisillon et son point d'ancrage coloré restent aussi — ils désignent sans rien effacer.
+     ⚠️ Ne pas le remettre « en plus discret » : le contrôle de force-verif éprouve maintenant
+     l'INVERSE — les huit courbes gardent leur opacité pleine, souris posée sur la légende comme
+     sur le tracé. */
 
   // Croisillon : ligne verticale pointillés gris clair, suit la souris + dots magnétiques
   // snapToSeriesBy 'y!' → le tooltip suit la courbe la PLUS PROCHE du curseur (celle réellement
@@ -1448,57 +1426,6 @@ function buildStrengthChart(containerId, data, opts = {}) {
       tt.setAll({ paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 });
     }
   });
-
-  /* ⚠️ LE SURVOL EST ÉCOUTÉ SUR LE DOM, PAS SUR LES OBJETS AMCHARTS. Les gabarits d'événements
-     (`plotContainer.events.on('pointermove')`, `legend.itemContainers.template.events.on(…)`) ne se
-     déclenchent pas ici — mesuré : pointeur réel posé sur une entrée de légende, aucun appel. Le
-     conteneur, lui, est un vrai élément du document : il reçoit les événements du navigateur, quelle
-     que soit la version de la bibliothèque. On y écoute une fois, et on décide de la cible d'après
-     la GÉOMÉTRIE : dans la légende, l'entrée sous le pointeur ; dans le tracé, la courbe que le
-     curseur a déjà accrochée pour son point d'ancrage (`snapToSeriesBy: 'y!'`) — c'est celle que
-     l'utilisateur vise, on lit le choix d'amCharts au lieu de le refaire. */
-  try {
-    if (container) {
-      const _boite = (sp) => {
-        try {
-          const cv = container.querySelector('canvas'); if (!cv) return null;
-          const cr = cv.getBoundingClientRect();
-          const ech = root.container.height() ? cr.height / root.container.height() : 1;
-          const g = sp.toGlobal({ x: 0, y: 0 });
-          return { x: cr.x + g.x * ech, y: cr.y + g.y * ech, w: sp.width() * ech, h: sp.height() * ech };
-        } catch (e) { return null; }
-      };
-      const _viseSous = (px, py) => {
-        if (_legende) {                                            // 1) une entrée de légende ?
-          let hit = null;
-          _legende.itemContainers.each((it) => {
-            if (hit) return;
-            const b = _boite(it);
-            if (b && px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
-              const dc = it.dataItem && it.dataItem.dataContext;
-              if (dc && dc.get) hit = dc.get('name');
-            }
-          });
-          if (hit) return hit;
-        }
-        const bp = _boite(chart.plotContainer);                    // 2) le tracé ?
-        if (bp && px >= bp.x && px <= bp.x + bp.w && py >= bp.y && py <= bp.y + bp.h) {
-          for (const sr of seriesArr) {
-            const tt = sr.get('tooltip');
-            if (tt && !tt.isHidden()) return sr.get('name');
-          }
-        }
-        return null;
-      };
-      let _svRaf = 0, _svX = 0, _svY = 0;
-      container.addEventListener('pointermove', (e) => {
-        _svX = e.clientX; _svY = e.clientY;
-        if (_svRaf) return;
-        _svRaf = requestAnimationFrame(() => { _svRaf = 0; try { mettreEnAvant(_viseSous(_svX, _svY)); } catch (err) {} });
-      });
-      container.addEventListener('pointerleave', () => mettreEnAvant(null));
-    }
-  } catch (e) {}
 
   // ── Fenêtre initiale sur la FIN de série → on glisse vers la gauche pour remonter le temps.
   // Curseur NORMAL (défaut) et non « main/grab » (demande utilisateur) ; le pan au glisser reste actif.

@@ -297,10 +297,15 @@ const SONDE_OPACITES = () => {
     return chart.series.values.map(s => ({ ccy: s.get('name'), o: +(s.strokes.template.get('strokeOpacity')) }));
   } catch (e) { return null; }
 };
-/* OÙ CLIQUER : la légende est dessinée dans le canvas, elle n'a pas de boîte DOM. On demande à
-   amCharts la position de l'entrée visée, on la ramène en coordonnées de page, et on y déplace un
-   VRAI pointeur. Éprouver le mécanisme en appelant la fonction interne prouverait qu'une fonction
-   marche ; éprouver le vrai chemin prouve que le survol marche. */
+/* OÙ POSER LA SOURIS. La légende est dessinée dans le canvas, elle n'a pas de boîte DOM : on
+   demande à amCharts la position de l'entrée visée et on la ramène en coordonnées de page, pour y
+   déplacer un VRAI pointeur.
+   ⚠️ CE QUE CETTE SONDE ÉPROUVE A CHANGÉ DE SIGNE LE 30/08. Elle servait à prouver que le survol
+   mettait une courbe en avant ; elle prouve maintenant qu'il n'en met AUCUNE. « Quand je glisse mon
+   curseur sur une courbe ça cache les autres, enlève ça » — dans ce panneau on compare les huit
+   devises, et le curseur se promène en permanence sur le tracé : l'effacement se déclenchait donc
+   tout le temps, sans être demandé. La sonde reste, retournée : c'est elle qui empêchera de le
+   remettre par inadvertance. */
 const SONDE_POS_LEGENDE = (i) => {
   try {
     const root = (window.am5 && am5.registry && am5.registry.rootElements || []).find(r => r && r.dom && r.dom.id === 'g');
@@ -313,6 +318,22 @@ const SONDE_POS_LEGENDE = (i) => {
     const ech = cr.height / root.container.height();
     const g = item.toGlobal({ x: item.width() / 2, y: item.height() / 2 });
     return { ccy: s.get('name'), x: cr.x + g.x * ech, y: cr.y + g.y * ech };
+  } catch (e) { return null; }
+};
+
+/* LE TRACÉ, et pas seulement la légende : c'est là que le curseur se promène (« quand je GLISSE mon
+   curseur sur une courbe »). On vise le milieu du tracé, à la hauteur de la courbe la plus centrale
+   — l'endroit exact où le curseur accrochait une série et estompait les sept autres. */
+const SONDE_POS_TRACE = () => {
+  try {
+    const root = (window.am5 && am5.registry && am5.registry.rootElements || []).find(r => r && r.dom && r.dom.id === 'g');
+    const chart = root && root.container.children.values.find(c => c.className === 'XYChart');
+    if (!chart) return null;
+    const cv = document.querySelector('#g canvas'); const cr = cv.getBoundingClientRect();
+    const ech = cr.height / root.container.height();
+    const pc = chart.plotContainer;
+    const g = pc.toGlobal({ x: pc.width() / 2, y: pc.height() / 2 });
+    return { x: cr.x + g.x * ech, y: cr.y + g.y * ech };
   } catch (e) { return null; }
 };
 
@@ -336,7 +357,7 @@ const CAS = [
   { nom: 'mode paire (EUR + AUD)',                 w: 600,  h: 300, p: 'fuyarde', o: { onlyCurrencies: ['EUR', 'AUD'] } },
 ];
 
-module.exports = { JEUX, CAS, SONDE, SONDE_OPACITES, SONDE_POS_LEGENDE, serveur, trouverNavigateur, PORT, _regimes, _bornesPaquetReel };
+module.exports = { JEUX, CAS, SONDE, SONDE_OPACITES, SONDE_POS_LEGENDE, SONDE_POS_TRACE, serveur, trouverNavigateur, PORT, _regimes, _bornesPaquetReel };
 
 if (require.main === module) {
   (async () => {
@@ -361,15 +382,21 @@ if (require.main === module) {
         const r = await page.evaluate(SONDE);
         r.survol = null;
         if (c.survol) {
-          const pos = await page.evaluate(SONDE_POS_LEGENDE, 2);
-          if (pos) {
+          const pl = await page.evaluate(SONDE_POS_LEGENDE, 2);
+          const pt = await page.evaluate(SONDE_POS_TRACE);
+          if (pl && pt) {
             const avant = await page.evaluate(SONDE_OPACITES);
-            await page.mouse.move(pos.x, pos.y); await new Promise(z => setTimeout(z, 250));
-            const pendant = await page.evaluate(SONDE_OPACITES);
+            await page.mouse.move(pl.x, pl.y); await new Promise(z => setTimeout(z, 250));
+            const surLegende = await page.evaluate(SONDE_OPACITES);
+            // Un GLISSEMENT sur le tracé, pas un saut : c'est le geste décrit par l'utilisateur, et
+            // c'est lui qui faisait accrocher une série au curseur.
+            for (let k = 0; k <= 8; k++) { await page.mouse.move(pt.x - 60 + k * 15, pt.y); }
+            await new Promise(z => setTimeout(z, 250));
+            const surTrace = await page.evaluate(SONDE_OPACITES);
             await page.mouse.move(2, 2); await new Promise(z => setTimeout(z, 250));
             const apres = await page.evaluate(SONDE_OPACITES);
-            r.survol = { dispo: true, ccy: pos.ccy, avant, pendant, apres };
-          } else r.survol = { dispo: false, err: 'entrée de légende introuvable' };
+            r.survol = { dispo: true, ccy: pl.ccy, avant, surLegende, surTrace, apres };
+          } else r.survol = { dispo: false, err: 'légende ou tracé introuvable' };
         }
         mesures.push({ cas: c, r });
         await page.close();
@@ -450,18 +477,18 @@ function controler(mesures) {
     v('l\'axe des heures garde au moins trois repères', (m.nEtiqX || 0) >= 3, m.nEtiqX + ' repère(s)');
 
     if (r.survol) {
-      console.log('    — survol de la légende —');
+      console.log('    — le survol ne cache rien —');
       const sv = r.survol;
-      if (!sv.dispo) { v('le survol met une courbe en avant', false, sv.err || 'mécanisme introuvable'); }
+      if (!sv.dispo) { v('la sonde de survol trouve la légende et le tracé', false, sv.err || 'mécanisme introuvable'); }
       else {
-        const vise = sv.pendant.find(x => x.ccy === sv.ccy);
-        const autres = sv.pendant.filter(x => x.ccy !== sv.ccy);
-        v('avant survol, les huit courbes sont pleines', sv.avant.every(x => x.o >= 0.9), JSON.stringify(sv.avant));
-        v('la devise visée reste pleine', vise && vise.o >= 0.9, JSON.stringify(vise));
-        /* Elles s'effacent, elles ne DISPARAISSENT pas : garder le contexte est ce qui distingue une
-           mise en avant d'un filtre. */
-        v('les sept autres s\'effacent sans disparaître', autres.every(x => x.o > 0.05 && x.o < 0.3), JSON.stringify(autres.map(x => x.ccy + ':' + x.o)));
-        v('quitter la légende rend le graphe entier', sv.apres.every(x => x.o >= 0.9), JSON.stringify(sv.apres));
+        const pleines = (l) => l.every(x => x.o >= 0.9);
+        const dit = (l) => JSON.stringify(l.map(x => x.ccy + ':' + x.o));
+        v('au repos, les huit courbes sont pleines', pleines(sv.avant), dit(sv.avant));
+        /* Les deux entrées qui déclenchaient l'effacement. Le tracé est la décisive : c'est le geste
+           de la capture, et c'est celui qui se produisait en permanence. */
+        v('souris posée sur la légende, les huit restent pleines', pleines(sv.surLegende), dit(sv.surLegende));
+        v('curseur glissé sur une courbe, les huit restent pleines', pleines(sv.surTrace), dit(sv.surTrace));
+        v('… et rien ne traîne après le départ de la souris', pleines(sv.apres), dit(sv.apres));
       }
     }
   }
