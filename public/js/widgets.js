@@ -308,15 +308,37 @@
        comportement : on ne pose pas le doigt sur un ⠿ par hasard. Sur une zone qui sert AUSSI à
        autre chose — l'en-tête d'une carte, qu'on touche pour faire défiler le desk — partir au
        mouvement rendrait le défilement impossible. On attend donc que le doigt insiste. */
+    /* ⚠️ L'APPUI LONG NE VAUT QUE POUR LE DOIGT. À la souris, on ne pose pas le curseur sur une
+       poignée par hasard : y imposer une demi-seconde d'attente serait une régression pure — et
+       c'était bien une régression, le glisser natif partait immédiatement. `pointerType` tranche
+       geste par geste : le même code sert les deux entrées sans les confondre. */
     var HOLD = opts.appuiLong | 0;
     var from = null, src = null, actif = false, y0 = 0, minuteur = null, exclus = opts.exclus || null;
+    var attente = 0;                                              // délai retenu POUR CE GESTE (0 = immédiat)
     var clear = function () {
       var l2 = hote.querySelectorAll('.wdg-drop-before,.wdg-drop-after,.wdg-reord-src');
       for (var z = 0; z < l2.length; z++) l2[z].classList.remove('wdg-drop-before', 'wdg-drop-after', 'wdg-reord-src');
     };
+    /* ⚠️ LÂCHER AU-DESSUS DE LA LISTE VEUT DIRE « EN PREMIER » (29/08, mesuré au doigt sur le desk
+       réel). Le volet de réglages laisse 128 px sans aucune ligne au-dessus de la première — le
+       titre, la barre d'en-tête. Un doigt qui remonte le dernier onglet « tout en haut » y arrive
+       naturellement, et `elementFromPoint` n'y trouve rien : on abandonnait sans rien dire. Le
+       geste avait l'air d'échouer alors qu'il avait été compris.
+       On borne donc aux extrêmes plutôt que de renoncer — mais SEULEMENT sur demande (`bornes`) et
+       SEULEMENT verticalement, hors de la liste : dans une grille de cartes à deux dimensions,
+       « la première » ne veut rien dire, et la gouttière entre deux cartes n'est pas un « dehors ».
+       Le renoncement, lui, ne disparaît pas : il passe sur Échap, câblé plus bas. */
     var ligneSous = function (x, y) {
       var el = document.elementFromPoint(x, y);
-      return (el && el.closest) ? el.closest(selLigne) : null;
+      var l = (el && el.closest) ? el.closest(selLigne) : null;
+      if (l || !opts.bornes) return l;
+      var toutes = hote.querySelectorAll(selLigne);
+      if (!toutes.length) return null;
+      var r1 = toutes[0].getBoundingClientRect(), rN = toutes[toutes.length - 1].getBoundingClientRect();
+      if (x < Math.min(r1.left, rN.left) - 24 || x > Math.max(r1.right, rN.right) + 24) return null;   // à côté, pas au-dessus
+      if (y < r1.top) return toutes[0];
+      if (y > rN.bottom) return toutes[toutes.length - 1];
+      return null;                                                // entre deux lignes : rien à forcer
     };
     var desarmer = function () { if (minuteur) { clearTimeout(minuteur); minuteur = null; } };
     hote.addEventListener('pointerdown', function (e) {
@@ -330,21 +352,22 @@
       // La capture est posée sur la POIGNÉE : les `pointermove` suivants lui sont livrés, et
       // remontent donc jusqu'à cet hôte délégué même quand le doigt a quitté la ligne d'origine.
       try { g.setPointerCapture(e.pointerId); } catch (_) {}
-      if (HOLD) {
+      attente = (HOLD && e.pointerType !== 'mouse') ? HOLD : 0;
+      if (attente) {
         desarmer();
         minuteur = setTimeout(function () {
           minuteur = null;
           if (from == null) return;
           actif = true;
           if (src) src.classList.add('wdg-reord-src');
-        }, HOLD);
+        }, attente);
       }
     });
     hote.addEventListener('pointermove', function (e) {
       if (from == null) return;
       if (!actif) {
         // Armement par appui long : bouger AVANT la fin du délai annule — c'est un défilement.
-        if (HOLD) { if (Math.abs(e.clientY - y0) > 10) { desarmer(); from = null; src = null; } return; }
+        if (attente) { if (Math.abs(e.clientY - y0) > 10) { desarmer(); from = null; src = null; } return; }
         if (Math.abs(e.clientY - y0) < 4) return;                   // encore un appui, pas un glissement
         actif = true;
         if (src) src.classList.add('wdg-reord-src');                // on voit CE QU'ON déplace — indispensable au doigt
@@ -364,7 +387,11 @@
         var row = ligneSous(e.clientX, e.clientY);
         if (row) {
           var to = +row.getAttribute(attr), r = row.getBoundingClientRect();
-          var cible = (e.clientY - r.top) > r.height / 2 ? to + 1 : to;
+          // Au-dessus de la liste → AVANT la première ; en dessous → APRÈS la dernière. Entre les
+          // deux, c'est la moitié de la ligne visée qui décide, comme toujours.
+          var cible = (e.clientY < r.top) ? to
+                    : (e.clientY > r.bottom) ? to + 1
+                    : ((e.clientY - r.top) > r.height / 2 ? to + 1 : to);
           // Retirer la ligne avant de la réinsérer décale d'un cran tout ce qui la suivait.
           if (from < cible) cible--;
           if (cible !== from && cible >= 0) deplacer(from, cible);
@@ -372,6 +399,14 @@
       }
       from = null; src = null; actif = false; clear();
     };
+    /* ÉCHAP ANNULE. Relâcher hors de la liste ÉTAIT le seul moyen de renoncer à un déplacement
+       commencé ; en bornant aux extrêmes, on le supprime. On le remet là où il se trouve toujours. */
+    var annuler = function (ev) {
+      if (from == null || (ev && ev.key !== 'Escape')) return;
+      desarmer(); from = null; src = null; actif = false; clear();
+      if (ev) ev.stopPropagation();
+    };
+    document.addEventListener('keydown', annuler);
     hote.addEventListener('pointerup', fin);
     hote.addEventListener('pointercancel', function () { desarmer(); from = null; src = null; actif = false; clear(); });
     /* ⚠️ AU DOIGT, `preventDefault()` SUR `pointermove` NE RETIENT RIEN. Les événements de pointeur
@@ -391,10 +426,16 @@
      re-rendus (innerHTML), la liste non — un écouteur posé sur la liste serait perdu au premier
      déplacement, et le deuxième glissement ne ferait plus rien. D'où aussi le drapeau, qui évite
      d'empiler un écouteur par re-rendu. */
+  /* `appuiLong` AU DOIGT, et ce n'est pas du confort. Les poignées forment une colonne quasi
+     continue sur le bord GAUCHE du volet — mesurée à 37 px de large sur 77 % de la hauteur de la
+     liste, avec 12 px libres entre deux. Un pouce qui descend ce bord pour FAIRE DÉFILER ne peut
+     pas la manquer : mesuré, un glissement de 160 px depuis une poignée ne défilait pas d'un pixel
+     et RÉORDONNAIT un onglet. Le geste le plus banal cassait la liste.
+     `bornes` : lâcher au-dessus de la liste place en premier, au lieu d'abandonner en silence. */
   function _wireTabsDnD(pop, i) {
     _glisserPourReordonner(pop, '.wdg-set-tabgrip', '.wdg-set-tabrow', 'data-j', function (from, to) {
       API.moveTab(i, from, to);
-    });
+    }, { appuiLong: 450, bornes: true });
   }
   // `setter` (04/08) : « setOpt » par défaut (réglages de la CARTE) — « setTabOpt » pour les
   // réglages du SOUS-WIDGET affiché dans un panneau à onglets, qui a désormais les siens.
@@ -10169,7 +10210,7 @@ function _spansAffiches(lay) {
       cible = Math.max(0, Math.min(c.layouts.length, cible));
       c.layouts.splice(cible, 0, moved);
       save(); renderBar(); renderManager();
-    });
+    }, { appuiLong: 450, bornes: true });   // même colonne de poignées, même piège au pouce
   }
 
   /* ── AMORÇAGE ──────────────────────────────────────────────────────────────────────────────────

@@ -12697,7 +12697,14 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 /* ── Réordonner les layouts (poignée ⠿ du gestionnaire) ── */
 .wdg-mgr-grip {
   flex: 0 0 auto; background: none; border: none; color: var(--w-t15); cursor: grab;
-  font-size: 13px; padding: 2px 2px; line-height: 1; touch-action: none;
+  font-size: 13px; padding: 2px 2px; line-height: 1;
+  /* ⚠️ `pan-y`, PAS `none` (29/08). `none` interdit au navigateur de défiler DÈS le premier pixel,
+     y compris avant qu'un déplacement soit engagé — et les poignées forment une colonne quasi
+     continue sur le bord gauche du volet : un pouce qui descend ce bord pour faire défiler la liste
+     réordonnait un onglet à la place. Le défilement reste donc permis tant que rien n'est armé ;
+     une fois l'appui long tenu, c'est un `touchmove` non passif qui le refuse (voir
+     `_glisserPourReordonner`). C'est la seule construction qui laisse la zone servir aux deux. */
+  touch-action: pan-y;
 }
 .wdg-mgr-grip:hover { color: var(--orange); }
 .wdg-mgr-grip:active { cursor: grabbing; }
@@ -12710,7 +12717,8 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
    volet dense, une affordance qui n'apparaît qu'au survol ne se découvre pas. */
 .wdg-set-tabgrip {
   flex: 0 0 auto; background: none; border: none; color: var(--w-t15, #6a6a72); cursor: grab;
-  font-size: 13px; padding: 2px 1px; line-height: 1; margin-top: 5px; touch-action: none;
+  font-size: 13px; padding: 2px 1px; line-height: 1; margin-top: 5px;
+  touch-action: pan-y;   /* même raison que .wdg-mgr-grip : le pouce doit pouvoir défiler ici */
   border-radius: 3px;
 }
 .wdg-set-tabgrip:hover { color: var(--orange); }

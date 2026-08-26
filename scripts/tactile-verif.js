@@ -157,12 +157,30 @@ const SONDE_STYLE = () => {
     v('la ligne d\'onglet a la hauteur d\'un doigt', m.ligneOnglet && m.ligneOnglet.h >= 38, m.ligneOnglet && m.ligneOnglet.h + ' px');
 
     console.log('\n  · `touch-action`, calculé après toute la cascade :');
-    [['poignéeOnglet', 'la poignée d\'onglet'], ['poignéeDesk', 'la poignée de desk'],
-     ['coinCarte', 'le coin d\'une carte'], ['bordCarte', 'le bord droit d\'une carte'],
-     ['barreDesk', 'la barre de séparation du desk']].forEach(([k, quoi]) => {
+    /* ⚠️ DEUX RÉPONSES JUSTES, PAS UNE. `none` convient à une poignée qu'on ne touche que pour
+       déplacer — le coin d'une carte, une barre de séparation : on ne pose pas le doigt dessus par
+       hasard, et le geste doit partir au premier pixel.
+       Il est FAUX sur une zone qui sert AUSSI à autre chose. Les poignées de réordonnancement
+       forment une colonne quasi continue sur le bord gauche du volet (37 px de large sur 77 % de la
+       hauteur) : avec `none`, un pouce qui descend ce bord pour FAIRE DÉFILER réordonnait un onglet.
+       Elles sont donc en `pan-y` — le défilement reste permis tant que rien n'est armé — et c'est
+       l'appui long, puis un `touchmove` non passif, qui refuse le défilement une fois le déplacement
+       engagé. Le contrôle exige donc l'un OU l'autre, jamais `auto`, et vérifie que `pan-y`
+       s'accompagne bien de l'armement par appui long. */
+    const WIDs = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
+    const armeParAppui = /appuiLong: 450, bornes: true/.test(WIDs);
+    [['poignéeOnglet', 'la poignée d\'onglet', true], ['poignéeDesk', 'la poignée de desk', true],
+     ['coinCarte', 'le coin d\'une carte', false], ['bordCarte', 'le bord droit d\'une carte', false],
+     ['barreDesk', 'la barre de séparation du desk', false]].forEach(([k, quoi, partagee]) => {
       const o = m[k];
       if (!o) { v(quoi + ' existe', false, 'introuvable'); return; }
-      v(quoi + ' refuse le défilement pendant le geste', o.ta === 'none', 'touch-action: ' + o.ta);
+      if (partagee) {
+        v(quoi + ' laisse défiler tant que rien n\'est armé', o.ta === 'pan-y' || o.ta === 'none', 'touch-action: ' + o.ta);
+        v('… et si elle laisse défiler, elle arme par appui long', o.ta !== 'pan-y' || armeParAppui,
+          '`pan-y` sans appui long : le déplacement partirait au premier pixel ET le défilement resterait permis');
+      } else {
+        v(quoi + ' refuse le défilement pendant le geste', o.ta === 'none', 'touch-action: ' + o.ta);
+      }
     });
     /* ⚠️ ET LA CONTREPARTIE, QUI EST LE VRAI ARBITRAGE. `touch-action: none` sur une bande PLEINE
        HAUTEUR fabrique une colonne où la page ne défile plus — mesurée à 16 × 498 px sur le bord

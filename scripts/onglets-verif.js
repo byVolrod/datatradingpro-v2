@@ -230,10 +230,16 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
       const c = L[vers].getBoundingClientRect();
       return { gx: g.x + g.width / 2, gy: g.y + g.height / 2, cy: c.y + c.height * (bas ? 0.8 : 0.2) };
     }, de, vers, bas);
-    const glisser = async (page, tactile, b, pas) => {
+    /* ⚠️ AU DOIGT, ON MAINTIENT AVANT DE GLISSER — et ce n'est pas une commodité de test, c'est le
+       geste réel. Les poignées forment une colonne quasi continue sur le bord gauche du volet
+       (37 px de large sur 77 % de la hauteur de la liste) : sans appui long, un pouce qui descend ce
+       bord pour FAIRE DÉFILER réordonnait un onglet à la place. Le glissement immédiat reste celui
+       de la souris, où l'on ne pose pas le curseur sur une poignée par hasard. */
+    const glisser = async (page, tactile, b, pas, tenir) => {
       const N = pas == null ? 14 : pas;
       if (tactile) {
         await page.touchscreen.touchStart(b.gx, b.gy);
+        if (tenir !== 0) await new Promise(r => setTimeout(r, tenir == null ? 700 : tenir));
         for (let k = 1; k <= N; k++) await page.touchscreen.touchMove(b.gx, b.gy + (b.cy - b.gy) * k / N);
         await page.touchscreen.touchEnd();
       } else {
@@ -273,6 +279,29 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
       await glisser(page, tactile, { gx: b0.gx, gy: b0.gy, cy: b0.gy + 2 }, 2);
       r = await lire(page);
       v('un simple appui ne déplace rien, ' + quoi, r.appels.length === 0, JSON.stringify(r.appels));
+
+      /* LE GESTE QUI CASSAIT TOUT : descendre le pouce sur la colonne des poignées pour faire
+         DÉFILER la liste. Sans appui long, il réordonnait. Il ne doit plus rien déplacer. */
+      if (tactile) {
+        await page.evaluate(() => { window.__appels.length = 0; });
+        await glisser(page, true, await cibles(page, 3, 0, false), 14, 0);
+        r = await lire(page);
+        v('un glissement franc sur une poignée ne déplace rien (c\'est un défilement)', r.appels.length === 0, JSON.stringify(r.appels));
+      }
+
+      /* LÂCHER AU-DESSUS DE LA LISTE VEUT DIRE « EN PREMIER ». Le volet laisse 128 px sans aucune
+         ligne au-dessus de la première : un doigt qui remonte le dernier onglet « tout en haut » y
+         arrive naturellement, et on abandonnait sans rien dire. */
+      await page.evaluate(() => { window.__appels.length = 0; });
+      const bh = await page.evaluate(() => {
+        const L = document.querySelectorAll('.wdg-set-tabrow');
+        const g = L[6].querySelector('.wdg-set-tabgrip').getBoundingClientRect();
+        const p = L[0].getBoundingClientRect();
+        return { gx: g.x + g.width / 2, gy: g.y + g.height / 2, cy: Math.max(2, p.y - 30) };
+      });
+      await glisser(page, tactile, bh);
+      r = await lire(page);
+      v('lâcher au-dessus de la liste place l\'onglet en premier, ' + quoi, JSON.stringify(r.appels) === '[[7,6,0]]', JSON.stringify(r.appels));
 
       // Un glissement qui ne part PAS d'une poignée ne doit rien déclencher.
       await page.evaluate(() => { window.__appels.length = 0; });
