@@ -18838,12 +18838,29 @@ html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; bor
 .wdg-frise-tete { gap: 10px; }
 .wdg-frise-place { flex: 0 0 76px; order: 1; }
 .wdg-frise-heures { order: 2; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
-.wdg-frise-badge { order: 3; flex: 0 0 auto; border: 0; background: transparent; padding: 0;
-  font-size: 9px; font-weight: 700; letter-spacing: .09em; color: var(--txt-3, #6b7280); }
-.wdg-frise-ligne.est-ouvert .wdg-frise-badge { border: 0; background: transparent; color: #00e676; }
-.wdg-frise-reste { order: 4; text-align: right; }
-/* Piste plus fine, segments nets : gris neutre fermé, couleur de place à l'ouvert. */
-.wdg-frise-piste { height: 12px; border-radius: 2px; }
+/* ══ L'ÉTAT SE LIT AU BOUT DE LA LIGNE (01/09, référence fournie) ═══════════════════════════════
+   Le badge était collé au nom, en petit texte gris. Sur quatre places, l'œil devait le chercher à
+   quatre abscisses différentes — le nom n'a pas la même longueur d'une ligne à l'autre. Il passe
+   AU BOUT, à droite, où il forme une colonne : quatre états se lisent alors d'un seul balayage
+   vertical. C'est ce que fait la référence, et c'est la seule raison de le déplacer.
+   Il redevient une PASTILLE ENCADRÉE, comme les autres états du desk.
+   ⚠️ MAIS « FERMÉ » RESTE NEUTRE, ET C'EST DÉLIBÉRÉ. La référence l'affiche en rouge ; la charte du
+   projet réserve le rouge au baissier et à l'alerte, et un marché fermé n'est ni l'un ni l'autre —
+   c'est la décision prise le 20/08, en propres termes : « fermé n'est pas une alerte ». On prend le
+   placement de la référence, pas sa couleur. Ouvert garde le vert : lui EST un état actif. */
+.wdg-frise-badge { order: 4; margin-left: auto; flex: 0 0 auto;
+  font-size: 9px; font-weight: 700; letter-spacing: .09em; padding: 2px 7px; border-radius: 3px;
+  border: 1px solid var(--hud-line, #2a2a31); background: transparent; color: var(--txt-3, #6b7280); }
+.wdg-frise-ligne.est-ouvert .wdg-frise-badge { border-color: rgba(0, 230, 118, .45); background: rgba(0, 230, 118, .07); color: #00e676; }
+.wdg-frise-reste { order: 3; text-align: right; }
+/* ══ LA PISTE PREND DE LA HAUTEUR (01/09) ═══════════════════════════════════════════════════════
+   12 px : une réglette. La référence donne aux plages une vraie épaisseur, et ce n'est pas
+   décoratif — c'est ce qui laisse l'horaire s'écrire DEDANS lisiblement au lieu de flotter sur un
+   filet, et ce qui rend le chevauchement Londres–New York visible d'un coup d'œil. Les paliers
+   étroits (carte basse, mobile) gardent leurs hauteurs réduites, définis plus bas. */
+.wdg-frise-piste { height: 24px; border-radius: 4px; }
+.wdg-frise-bloc, .wdg-frise-bloc::before { border-radius: 4px; }
+.wdg-frise-bloc b { font-size: 10.5px; font-weight: 700; }
 /* CHAQUE PLACE GARDE SA COULEUR, ouverte ou fermee (21/08, reference fournie) : c est elle qui
    identifie la seance d une ligne a l autre. Auparavant les fermees viraient toutes au meme gris,
    et la frise perdait sa lecture d ensemble. Seule l INTENSITE distingue ouvert de ferme — l etat

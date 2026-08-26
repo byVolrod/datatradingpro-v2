@@ -209,6 +209,62 @@ function phaseLogique() {
     verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2');
     verif('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
 
+    /* ── LA FRISE DES SESSIONS : L'ÉTAT SE LIT AU BOUT DE LA LIGNE ─────────────────────────────
+       01/09, référence fournie. Le badge était collé au nom, en petit texte gris : sur quatre
+       places, l'œil devait le chercher à quatre abscisses différentes, les noms n'ayant pas la même
+       longueur. Il passe au bout, à droite, où il forme une COLONNE — quatre états se lisent d'un
+       seul balayage vertical.
+       ⚠️ ET LE CONTRÔLE VÉRIFIE AUSSI CE QU'ON N'A PAS FAIT : la référence affiche « CLOSED » en
+       ROUGE. La charte du projet réserve le rouge au baissier et à l'alerte ; un marché fermé n'est
+       ni l'un ni l'autre — c'est la décision du 20/08, « fermé n'est pas une alerte ». On a pris le
+       placement de la référence, pas sa couleur, et ce contrôle empêche qu'on l'oublie. */
+    const fr = await page.evaluate(() => {
+      const l = (nom, ouvert) => '<div class="wdg-frise-ligne' + (ouvert ? ' est-ouvert' : '') + '">'
+        + '<div class="wdg-frise-tete"><span class="wdg-frise-place"><i></i>' + nom + '</span>'
+        + '<span class="wdg-frise-reste">ouvre dans 2 h</span>'
+        + '<span class="wdg-frise-badge">' + (ouvert ? 'OUVERT' : 'FERMÉ') + '</span></div>'
+        + '<div class="wdg-frise-piste"><span class="wdg-frise-bloc' + (ouvert ? ' est-ouvert' : '')
+        + '" style="left:20%;width:40%;--frise-ton:#e3b23a"><b>09:00 - 18:00</b></span></div></div>';
+      const box = document.createElement('div');
+      box.style.width = '760px';
+      box.innerHTML = '<div class="wdg-frise">' + l('Sydney', false) + l('Londres', true) + '</div>';
+      document.body.appendChild(box);
+      const q = s => box.querySelector(s);
+      const r = e => e.getBoundingClientRect();
+      const tete = r(q('.wdg-frise-tete'));
+      const out = {
+        badgeFerme: { x: r(q('.wdg-frise-ligne:not(.est-ouvert) .wdg-frise-badge')).right, cs: getComputedStyle(q('.wdg-frise-ligne:not(.est-ouvert) .wdg-frise-badge')) },
+        badgeOuvert: getComputedStyle(q('.est-ouvert .wdg-frise-badge')),
+        teteDroite: tete.right,
+        resteDroite: r(q('.wdg-frise-reste')).right,
+        piste: r(q('.wdg-frise-piste')).height,
+        z: document.body.offsetWidth ? (document.body.getBoundingClientRect().width / document.body.offsetWidth) : 1,
+      };
+      const res = { badgeFermeDroite: out.badgeFerme.x, teteDroite: out.teteDroite, resteDroite: out.resteDroite,
+        piste: out.piste, z: out.z,
+        fermeCouleur: out.badgeFerme.cs.color, fermeBordure: out.badgeFerme.cs.borderTopColor,
+        ouvertCouleur: out.badgeOuvert.color, ouvertBordure: out.badgeOuvert.borderTopColor };
+      box.remove();
+      return res;
+    });
+    console.log('\n── Frise des sessions : l\'état se lit au bout de la ligne ──');
+    verif('le badge d\'état est le DERNIER élément de la ligne', fr.badgeFermeDroite > fr.resteDroite,
+      'badge à ' + fr.badgeFermeDroite.toFixed(0) + ', temps restant à ' + fr.resteDroite.toFixed(0));
+    verif('… et calé sur le bord droit', Math.abs(fr.badgeFermeDroite - fr.teteDroite) < 2,
+      'écart au bord : ' + (fr.teteDroite - fr.badgeFermeDroite).toFixed(1) + ' px');
+    /* La piste : 12 px, c'était une réglette. La hauteur n'est pas décorative — c'est elle qui laisse
+       l'horaire s'écrire DEDANS lisiblement, et qui rend le chevauchement visible d'un coup d'œil. */
+    verif('la piste a une vraie épaisseur', fr.piste / (fr.z || 1) >= 20,
+      Math.round(fr.piste / (fr.z || 1)) + ' px déclarés (12 avant)');
+    /* LA CHARTE, ÉPROUVÉE : « OUVERT » est vert, « FERMÉ » est NEUTRE — pas rouge, malgré la
+       référence. Le rouge est réservé au baissier et à l'alerte. */
+    const _rouge = c => { const m = String(c).match(/(\d+),\s*(\d+),\s*(\d+)/); return m && +m[1] > 140 && +m[1] - +m[3] > 60; };
+    verif('« OUVERT » est vert', /0,\s*230,\s*118/.test(fr.ouvertCouleur), fr.ouvertCouleur);
+    verif('« FERMÉ » reste NEUTRE (le rouge est réservé au baissier)',
+      !_rouge(fr.fermeCouleur) && !_rouge(fr.fermeBordure), fr.fermeCouleur + ' / ' + fr.fermeBordure);
+    verif('… mais il porte bien un cadre, comme les autres états du desk',
+      parseFloat(fr.fermeBordure) !== 0 && fr.fermeBordure !== 'rgba(0, 0, 0, 0)', fr.fermeBordure);
+
     /* ── CHAQUE TAG SON RÔLE : INFO NE DÉROULE PLUS LE RAPPORT ENTIER ──────────────────────────
        31/08 : « le tag info pourquoi il est aussi long ? chaque tag a son rôle tu vois ». Capture :
        le panneau Info d'une ANALYSE PCE déroulait SIX sections, pendant que les boutons Analyse et
