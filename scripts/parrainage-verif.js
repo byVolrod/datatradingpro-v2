@@ -385,6 +385,48 @@ async function interroge(email) {
     /bId\s*=\s*bTpl === 'parrainage'/.test(SRV) && /bBuild = \(\) => bTpl === 'parrainage'/.test(SRV) && /bSend = \(email, nm\) => bTpl === 'parrainage'/.test(SRV),
     'un gabarit absent d\'une des trois enverrait le mail INTRO à toute la liste');
 
+  console.log('\n── 10 quinquies. LE TAUX N\'A PLUS QU\'UNE SOURCE ──');
+  /* ⚠️ LE DÉFAUT QUI A COÛTÉ LE PLUS CHER DE LA JOURNÉE, et il ne se voyait dans aucun écran.
+     Le taux de commission est le seul chiffre du produit qui vit À LA FOIS chez Whop et dans notre
+     texte. Il avait donc deux valeurs : Whop payait 30 %, nos mails promettaient 15 %. Personne n'a
+     été trompé — l'écart était en faveur du client — mais c'est l'inverse qui aurait pu arriver, et
+     164 personnes venaient de lire la promesse. Écrit en dur à vingt-six endroits, un chiffre ne se
+     vérifie jamais : il se contredit.
+     Ce banc éprouve la propriété qui l'empêche : TOUTES les surfaces disent la même chose, et elles
+     le disent parce qu'elles lisent la même variable — pas parce qu'on a bien recopié. */
+  const _tauxDe = (html) => [...new Set((html.replace(/<[^>]+>/g, ' ').match(/\d{1,3}\s?%/g) || []).map(x => x.replace(/\s/g, '')))];
+  const _surfaces = [
+    ['campagne 1/4', V[0].html], ['campagne 2/4', V[1].html], ['campagne 3/4', V[2].html], ['campagne 4/4', V[3].html],
+    ['à l\'unité sans lien', U0.html], ['à l\'unité avec lien', U1.html],
+  ];
+  const _tous = _surfaces.map(([nom, h]) => ({ nom, taux: _tauxDe(h).filter(t => t !== '0%') }));
+  v('chaque mail annonce UN taux, et un seul', _tous.every(x => x.taux.length === 1),
+    _tous.map(x => x.nom + ': ' + x.taux.join('/')).join(' | '));
+  v('… et les six mails annoncent LE MÊME', new Set(_tous.map(x => x.taux[0])).size === 1,
+    _tous.map(x => x.nom + '=' + x.taux[0]).join(' '));
+  const SRVJ = SRV, MJ = fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8');
+  v('mailer et serveur lisent la MÊME variable d\'environnement',
+    /REF_RATE\s*=\s*parseInt\(process\.env\.REFERRAL_RATE \|\| '15', 10\)/.test(MJ)
+      && /REF_RATE\s*=\s*parseInt\(process\.env\.REFERRAL_RATE \|\| '15', 10\)/.test(SRVJ));
+  v('… et le panneau du desk le reçoit par l\'API au lieu de le porter en dur',
+    /rate: REF_RATE/.test(SRVJ) && /pd-ref-rate/.test(IDX) && /el\.textContent = d\.rate \+ '%'/.test(IDX));
+  /* MUTATION VÉRIFIÉE ICI MÊME : on rend les mails avec un autre taux et on exige qu'ils suivent
+     TOUS. Sans cela, le contrôle ci-dessus ne prouverait que la cohérence d'un copier-coller. */
+  const _avant = process.env.REFERRAL_RATE;
+  try {
+    delete require.cache[require.resolve(path.join(RACINE, 'mailer.js'))];
+    process.env.REFERRAL_RATE = '22';
+    const m2 = require(path.join(RACINE, 'mailer.js'));
+    const h2 = [m2.buildCampaignReferral({ name: 'X', email: 'a@b.c', variant: 0 }).html,
+                m2.buildReferralInvite({ name: 'X' }).html];
+    const t2 = h2.map(h => _tauxDe(h).filter(t => t !== '0%'));
+    v('changer REFERRAL_RATE change TOUS les mails d\'un coup',
+      t2.every(t => t.length === 1 && t[0] === '22%'), JSON.stringify(t2));
+  } finally {
+    if (_avant === undefined) delete process.env.REFERRAL_RATE; else process.env.REFERRAL_RATE = _avant;
+    delete require.cache[require.resolve(path.join(RACINE, 'mailer.js'))];
+  }
+
   console.log('\n── 11 bis. Le webhook n\'est pas cru sur parole pour l\'affilié ──');
   /* 04/09, capture user : le webhook Whop est en API **v1**, alors que notre client parle v2. La
      question qui saute aux yeux — « le payload v1 porte-t-il bien affiliate_username ? » — n'a en

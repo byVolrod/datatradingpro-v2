@@ -30,7 +30,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260826bbg982" />
+  <link rel="stylesheet" href="/css/style.css?v=20260826bbg984" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +83,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260826bbg982"></script>
+  <script defer src="/js/noinspect.js?v=20260826bbg984"></script>
 </head>
 <body>
 
@@ -953,16 +953,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260826bbg982"></script>
-<script defer src="/js/app.js?v=20260826bbg982"></script>
-<script defer src="/js/charts.js?v=20260826bbg982"></script>
-<script defer src="/js/sessionmap.js?v=20260826bbg982"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260826bbg984"></script>
+<script defer src="/js/app.js?v=20260826bbg984"></script>
+<script defer src="/js/charts.js?v=20260826bbg984"></script>
+<script defer src="/js/sessionmap.js?v=20260826bbg984"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260826bbg982"></script>
-<script defer src="/js/home.js?v=20260826bbg982"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260826bbg982"></script>
-<script defer src="/js/i18n.js?v=20260826bbg982"></script>
+<script defer src="/js/widgets.js?v=20260826bbg984"></script>
+<script defer src="/js/home.js?v=20260826bbg984"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260826bbg984"></script>
+<script defer src="/js/i18n.js?v=20260826bbg984"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1235,8 +1235,8 @@
       </button>
       <div class="pd-section-content">
         <div class="pd-section-inner" id="pd-ref-inner">
-          <h3 class="pd-ref-headline">Gagnez <span style="color:#22c55e">15% récurrent</span> sur chaque parrainage <span style="color:#e3b23a">+ 1 mois offert tous les 3 inscrits</span>.</h3>
-          <p class="pd-ref-desc">Partagez votre lien&nbsp;: vous touchez <strong>15% à vie</strong> sur chaque abonné via Whop, et nous vous offrons <strong>1 mois d'accès</strong> dès 3 filleuls.</p>
+          <h3 class="pd-ref-headline">Gagnez <span style="color:#22c55e"><span class="pd-ref-rate">15%</span> récurrent</span> sur chaque parrainage <span style="color:#e3b23a">+ 1 mois offert tous les 3 inscrits</span>.</h3>
+          <p class="pd-ref-desc">Partagez votre lien&nbsp;: vous touchez <strong><span class="pd-ref-rate">15%</span> à vie</strong> sur chaque abonné via Whop, et nous vous offrons <strong>1 mois d'accès</strong> dès 3 filleuls.</p>
           <label class="pd-label" id="pd-ref-linklabel">Votre lien de parrainage</label>
           <div class="pd-ref-linkrow" id="pd-ref-linkrow">
             <input class="pd-input" id="pd-ref-link" readonly value="Chargement…" onclick="this.select()">
@@ -1244,9 +1244,9 @@
           </div>
           <div class="pd-ref-stats">
             <div class="pd-ref-stat"><b id="pd-ref-count">0</b><span>Total filleuls</span></div>
-            <div class="pd-ref-stat pd-ref-stat--earn"><b id="pd-ref-earn">15%</b><span>Commission à vie</span></div>
+            <div class="pd-ref-stat pd-ref-stat--earn"><b id="pd-ref-earn" class="pd-ref-rate">15%</b><span>Commission à vie</span></div>
           </div>
-          <p class="pd-ref-note" style="font-size:12px;color:var(--text3);margin:8px 0 0;line-height:1.5;">Vos commissions&nbsp;<strong style="color:#22c55e">15%</strong> sont suivies et versées directement par Whop&nbsp;: retrouvez vos gains dans votre espace <a href="https://whop.com/dashboard/" target="_blank" rel="noopener" style="color:var(--gold,#e3b23a)">Whop</a>.</p>
+          <p class="pd-ref-note" style="font-size:12px;color:var(--text3);margin:8px 0 0;line-height:1.5;">Vos commissions&nbsp;<strong style="color:#22c55e"><span class="pd-ref-rate">15%</span></strong> sont suivies et versées directement par Whop&nbsp;: retrouvez vos gains dans votre espace <a href="https://whop.com/dashboard/" target="_blank" rel="noopener" style="color:var(--gold,#e3b23a)">Whop</a>.</p>
           <label class="pd-label">Historique des récompenses</label>
           <div id="pd-ref-history" class="pd-ref-history pd-ref-history--card">
             <div class="pd-ref-empty"><svg class="pd-ref-gift" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C9 3 12 5 12 8c0-3 3-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg><div class="pd-ref-empty-t">Aucun filleul pour le moment</div><div class="pd-ref-empty-s">Partagez votre lien pour commencer à gagner.</div></div>
@@ -1696,7 +1696,7 @@
              et plus seulement sur le produit payant (cf. whop.js), sans quoi cette phrase serait
              un mensonge pour les comptes amis et offerts. */
           row.innerHTML = '<div class="pd-ref-needwhop">'
-            + '<p class="pd-ref-needwhop-txt">Pour obtenir votre lien de parrainage et toucher <strong>15% à vie</strong> sur chaque abonné, deux étapes&nbsp;:</p>'
+            + '<p class="pd-ref-needwhop-txt">Pour obtenir votre lien de parrainage et toucher <strong><span class=\'pd-ref-rate\'>15%</span> à vie</strong> sur chaque abonné, deux étapes&nbsp;:</p>'
             + '<ol class="pd-ref-steps"><li>Créez un compte <strong>Whop</strong> (gratuit).</li>'
             + '<li>Rejoignez l\'espace <strong>JustOneTrader</strong> sur Whop. <strong>L\'offre gratuite suffit</strong> — inutile de payer quoi que ce soit pour parrainer.</li></ol>'
             + '<a class="pd-btn pd-ref-join" href="' + j + '" target="_blank" rel="noopener">Rejoindre le Whop de JustOneTrader</a>'
@@ -1706,6 +1706,12 @@
       } else if ($('pd-ref-link')) {
         $('pd-ref-link').value = d.link || '';
       }
+      /* LE TAUX VIENT DU SERVEUR (04/09). Il etait ecrit en dur a cinq endroits de ce panneau et a
+         vingt et un autres dans les mails : trois sources pour un seul chiffre, dont une chez Whop.
+         Elles avaient deja diverge — Whop payait 30 %, tout le reste annonçait 15 %. Le HTML garde
+         « 15% » comme valeur de repli le temps que la reponse arrive, mais c'est le serveur qui
+         tranche, et lui-meme lit REFERRAL_RATE. */
+      if (d.rate) { try { document.querySelectorAll('.pd-ref-rate').forEach(function (el) { el.textContent = d.rate + '%'; }); } catch (e) {} }
       if ($('pd-ref-count'))      $('pd-ref-count').textContent = d.count;
       // pd-ref-earn reste « 15% » (commission fixe) : les gains reels sont suivis/verses par Whop, non synces ici.
       const h = $('pd-ref-history');
