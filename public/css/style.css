@@ -19886,7 +19886,44 @@ html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, 
   --ico-svg:      15px;   /* glyphe SVG dans un bouton-icône (repos desktop) */
   --ico-svg-tap:  16px;   /* glyphe sur tactile — aligné sur .topbar-icon svg (16px) */
   --tab-fs:       11px;   /* taille de police UNIQUE des onglets de panneau (.wdgt-tab) */
+  /* Hauteur canonique d'un contrôle de VOLET — bouton ou champ de saisie (03/09). Même démarche que
+     le bouton-icône ci-dessus, sur la famille qui restait : mesurée sur le desk réel, la colonne de
+     droite alignait trois boutons de 33, 34 et 36,6 px DANS LE MÊME PANNEAU, et trois champs de
+     28,4, 31,2 et 35,1 px d'un volet à l'autre. Aucune de ces valeurs n'avait été choisie : elles
+     tombaient d'un padding et d'une interligne écrits à des dates différentes. */
+  --ctl-h:        34px;
 }
+
+/* ── Volets (profil, parrainage, IA, support) : boutons et champs sur UNE hauteur ────────────────
+   La largeur, elle, reste libre : un bouton principal a le droit d'être plus large que son voisin
+   secondaire, c'est une hiérarchie. Deux hauteurs différentes ne sont pas une hiérarchie, c'est un
+   défaut d'alignement — et c'est précisément ce que montre la référence de terminal fournie, où
+   toute la colonne de droite tient sur une seule grille verticale. */
+.pd-btn, .pd-ref-join, .pd-ref-recheck {
+  box-sizing: border-box; min-height: var(--ctl-h);
+  display: inline-flex; align-items: center; justify-content: center;
+  padding-top: 0; padding-bottom: 0;
+}
+.pd-btn { width: 100%; }                      /* le bouton principal reste pleine largeur */
+.pd-input, .ai-input, .chat-input {
+  box-sizing: border-box; min-height: var(--ctl-h); line-height: 1.35;
+}
+/* Les deux zones de saisie des volets sont des `textarea` qui GRANDISSENT à la frappe : leur
+   hauteur au repos est donc dictée par leur padding, pas par `min-height`. 7 px la ramène sous la
+   hauteur canonique, qui reprend alors la main — sans quoi le champ du chat et celui de l'IA
+   restaient à deux hauteurs différentes malgré le token. */
+.ai-input, .chat-input { padding-top: 7px; padding-bottom: 7px; }
+/* Même raison pour le champ simple : 8 px le portaient à 34,2 px, soit deux dixièmes au-dessus de
+   ses voisins — invisible seul, mais c'est ce genre d'écart qui empêche une colonne de contrôles de
+   se lire comme une grille. */
+.pd-input { padding-top: 7px; padding-bottom: 7px; }
+/* La rangée « lien + Copier » : le champ y garde sa marge basse de 12 px, la rangée fait donc 12 px
+   de plus que son contenu, et le bouton — étiré par `align-items: stretch` — héritait de 42 px pour
+   34 px de champ. Deux commandes côte à côte qui ne font pas la même hauteur : c'est exactement le
+   défaut d'alignement que la référence de terminal ne commet jamais. */
+.pd-ref-linkrow { align-items: center; }
+.pd-ref-linkrow .pd-input { margin-bottom: 0; }
+.pd-ref-linkrow .pd-ref-copy { margin-top: 0; }
 
 /* ── Cluster de commandes d'en-tête : un carré unique partout ─────────────────────────────────── */
 .wdg-ico, .wdg-step {
