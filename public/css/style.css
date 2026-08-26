@@ -20379,3 +20379,35 @@ html[data-theme="light"] .dtp-skel-txt .cal-kb-quote {
   .calc-copy { position: absolute; top: 8px; right: 10px; margin-top: 0; }
   .calc-grid { gap: 6px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   UN DOIGT NE SURVOLE PAS (29/08, audit tactile)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Plusieurs commandes du desk ne se révèlent qu'au survol : `opacity: 0` au repos, remontée à 1
+   par un `:hover`. C'est un bon idiome à la souris — il garde les listes calmes. Sur un écran
+   tactile, il produit deux défauts opposés, et les DEUX sont graves :
+
+     · avec `pointer-events: none`, la commande est INATTEIGNABLE. Mesuré : le bouton qui ouvre le
+       détail d'un trade (notes, captures, tous les champs) rendait 42×15 px à opacité zéro et le
+       tap le traversait — la fiche entière était inaccessible depuis un téléphone ;
+     · avec `pointer-events: auto`, la commande est INVISIBLE MAIS ACTIVE. Ce n'est pas une
+       fonction manquante, c'est un piège : mesuré, la croix « Supprimer ce trade » se déclenche
+       sous un doigt qui ne peut pas la voir. Une suppression qu'on ne peut pas anticiper.
+
+   `hover: none` désigne exactement les appareils concernés — un doigt, pas une souris. Ces
+   commandes y sont rendues visibles en permanence, à une opacité qui les montre sans les faire
+   crier, et les listes gardent leur calme partout ailleurs. Rien ne change au bureau.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (hover: none) {
+  /* Journal — ouvrir la fiche d'un trade. C'était la seule porte d'entrée. */
+  .jrd-open { opacity: .85; pointer-events: auto; }
+  /* Journal — supprimer une ligne, et sélectionner des lignes. La croix était le piège décrit
+     ci-dessus : active et invisible. */
+  .jr-rowdel { opacity: .8; }
+  .jr-c-sel .jr-rowsel { opacity: .55; }
+  /* Journal — retirer une capture d'écran d'une fiche. */
+  .jrd-img-del { opacity: .9; }
+  /* Messagerie — le menu d'un message (modifier / supprimer) : sans lui, on ne peut ni corriger
+     ni retirer ce qu'on vient d'envoyer depuis un téléphone. */
+  .chat-menu-btn { opacity: .75; }
+}

@@ -172,7 +172,54 @@ const SONDE_STYLE = () => {
       m.bordCarte && m.bordCarte.h + ' px de haut : une colonne inerte sur toute la carte');
     await page.close();
 
-    console.log('\n── 3. Un vrai doigt réordonne la barre d\'onglets ──');
+    console.log('\n── 3. Aucune commande invisible sous le doigt ──');
+    /* ══ UN DOIGT NE SURVOLE PAS ═══════════════════════════════════════════════════════════════
+       Plusieurs commandes ne se révèlent qu'au survol : `opacity: 0` au repos, remontée par un
+       `:hover`. Bon idiome à la souris — il garde les listes calmes. Au doigt, il produit deux
+       défauts opposés, et les deux comptent :
+         · `pointer-events: none` → la commande est INATTEIGNABLE (le bouton d'ouverture d'une
+           fiche de trade rendait 42×15 px à opacité zéro, et le tap le traversait) ;
+         · `pointer-events: auto` → elle est INVISIBLE MAIS ACTIVE. Ce n'est pas une fonction
+           manquante, c'est un piège : la croix « Supprimer ce trade » se déclenchait sous un
+           doigt qui ne pouvait pas la voir.
+       On émule `hover: none` — ce que le navigateur d'un téléphone annonce — et on mesure
+       l'opacité CALCULÉE de chaque commande, après toute la cascade. */
+    const pv = await nav.newPage();
+    await pv.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+    /* `page.emulateMediaFeatures` ne connaît pas `hover` dans cette version de puppeteer : on passe
+       par le protocole du navigateur, qui l'accepte. C'est ce que le navigateur d'un téléphone
+       annonce de lui-même — et c'est la seule façon d'éprouver une règle écrite pour lui. */
+    const cdp = await pv.target().createCDPSession();
+    await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'hover', value: 'none' }, { name: 'pointer', value: 'coarse' }] });
+    await pv.setContent('<html data-theme="dark"><head><link rel="stylesheet" href="http://localhost:' + PORT + '/css/style.css"></head><body>'
+      + '<table class="jr-grid"><tbody><tr>'
+      +   '<td class="jr-c-sel"><span class="jr-rowsel"></span></td>'
+      +   '<td style="position:relative"><button class="jrd-open">ouvrir</button><button class="jr-rowdel">x</button></td>'
+      + '</tr></tbody></table>'
+      + '<div class="jrd-imgblock jrd-imgblock--filled" style="position:relative"><button class="jrd-img-del">x</button></div>'
+      + '<div class="chat-row"><button class="chat-menu-btn">…</button></div>'
+      + '</body></html>', { waitUntil: 'networkidle0' });
+    const cmd = await pv.evaluate(() => {
+      const noms = [['.jrd-open', 'ouvrir la fiche d\'un trade'], ['.jr-rowdel', 'supprimer un trade'],
+        ['.jr-c-sel .jr-rowsel', 'sélectionner des lignes'], ['.jrd-img-del', 'retirer une capture'],
+        ['.chat-menu-btn', 'le menu d\'un message']];
+      return noms.map(([sel, quoi]) => {
+        const el = document.querySelector(sel);
+        if (!el) return { quoi, absent: true };
+        const cs = getComputedStyle(el), b = el.getBoundingClientRect();
+        return { quoi, op: +cs.opacity, pe: cs.pointerEvents, w: Math.round(b.width), h: Math.round(b.height) };
+      });
+    });
+    cmd.forEach(c => {
+      if (c.absent) { v(c.quoi + ' existe dans la maquette', false); return; }
+      /* Le seuil est bas exprès : on ne juge pas l'esthétique, on refuse l'invisible. Une commande
+         à 0,15 se devine ; à 0, elle n'existe pas — ou pire, elle piège. */
+      v('« ' + c.quoi + ' » se voit au doigt', c.op >= 0.3, 'opacité calculée ' + c.op + ' · pointer-events ' + c.pe);
+      if (c.op < 0.1 && c.pe !== 'none') v('… et ne piège pas (invisible mais cliquable)', false, 'opacité ' + c.op + ' avec pointer-events ' + c.pe);
+    });
+    await pv.close();
+
+    console.log('\n── 4. Un vrai doigt réordonne la barre d\'onglets ──');
     /* Le seul réordonnancement à appui long. Il s'armait bien — la classe était posée — puis le
        navigateur confisquait le geste et l'onglet ne bougeait plus. On l'éprouve au doigt. */
     const CHA = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
@@ -201,7 +248,7 @@ const SONDE_STYLE = () => {
       v('l\'appui long puis le glissement déplacent l\'onglet, au doigt', /^BANQUES,/.test(ordre), ordre);
       await p2.close();
     }
-    console.log('\n── 4. Un vrai doigt deplace une carte du desk — et le desk defile toujours ──');
+    console.log('\n── 5. Un vrai doigt deplace une carte du desk — et le desk defile toujours ──');
     /* LE CAS LE PLUS COUTEUX, et le moins visible : sous 560 px la grille passe a UNE colonne, donc
        l'ordre des cartes EST toute la disposition. Il n'existe aucun repli — le panneau de reglages
        n'a ni « monter » ni « descendre », et la poignee a ete retiree le 04/08. Sur telephone, on ne
