@@ -2856,91 +2856,11 @@
         return null;
       },
     },
-    {
-      /* ══ TABLE DES PROBABILITÉS (01/09, demande utilisateur : « vérifie si on a le widget
-         probabilitétable, sinon ajoute-le ») ═══════════════════════════════════════════════════
-         VÉRIFIÉ AVANT D'ÉCRIRE : le desk ne l'avait pas. « Taux directeurs » et « Prochaine réunion
-         BC » ne montrent que la PROCHAINE échéance ; toute la trajectoire — ce que le marché price
-         pour les huit réunions à venir — n'était visible nulle part.
-         ⚠️ ET LA DONNÉE EXISTAIT DÉJÀ : `/api/rates` renvoie, par banque, `meetings[]` avec pour
-         chacune la date, le nombre de jours, les trois probabilités, le delta implicite en points de
-         base et le scénario de base. Aucune source nouvelle, aucune requête de plus — c'est
-         exactement le tableau de la référence, colonne pour colonne.
-         Ce que la référence montre en DEUX formes, et pourquoi on n'en rend qu'une : sa seconde
-         image est une MATRICE (niveaux de taux en lignes × réunions en colonnes), qui demande la
-         distribution complète par niveau. Notre fournisseur ne la donne pas. On rend donc la forme
-         qu'on peut honorer entièrement plutôt qu'une matrice à trous. */
-      id: 'proba-reunions', name: 'Table des probabilités', tag: 'TAUX', cat: 'Macro', h: 340,
-      maj: 5 * 60 * 1000,   // le pricing bouge à l'heure, pas à la seconde
-      desc: 'Ce que le marché price pour CHAQUE réunion à venir d\'une banque centrale : baisse, maintien, hausse.',
-      aide: "<p>Chaque ligne est une réunion à venir de la banque choisie, avec ce que le marché price aujourd'hui : probabilité d'une <strong>baisse</strong>, d'un <strong>maintien</strong>, d'une <strong>hausse</strong>, et le mouvement implicite en points de base.</p><p>Ces chiffres ne disent pas ce qui VA arriver : ils disent ce qui est <strong>déjà dans les prix</strong>. Une hausse pricée à 95 % ne fera pas bouger la devise le jour venu — c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p><p>La barre du haut détaille la <strong>prochaine</strong> réunion, celle qui pèse sur la séance ; le tableau montre la TRAJECTOIRE, c'est-à-dire à partir de quand le marché cesse de croire au statu quo.</p>",
-      src: "Pricing de marché des réunions à venir, agrégé par le desk et relu toutes les 5 minutes ; la donnée source bouge à l'heure, pas à la seconde.",
-      watch: "La première ligne où le maintien passe sous 50 % : c'est la réunion à partir de laquelle le marché price un mouvement, et souvent le vrai moteur de la devise bien avant la réunion elle-même.",
-      opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'USD',
-        // Mêmes noms complets que les deux autres sélecteurs de banque : trois listes dans le même
-        // desk ne peuvent pas nommer les mêmes banques de trois façons.
-        choix: [['USD', 'Réserve fédérale (Fed)'], ['EUR', 'Banque centrale européenne (BCE)'], ['GBP', 'Banque d\'Angleterre (BoE)'], ['JPY', 'Banque du Japon (BoJ)'], ['CHF', 'Banque nationale suisse (BNS)'], ['CAD', 'Banque du Canada (BoC)'], ['AUD', 'Banque de réserve d\'Australie (RBA)'], ['NZD', 'Banque de réserve de Nouvelle-Zélande (RBNZ)']] }],
-      mount: function (host, it) {
-        var W = this;
-        skel(host);
-        var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
-        var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-        var fmtD = function (iso) { try { var p = String(iso).split('-'); return parseInt(p[2], 10) + ' ' + MOIS[parseInt(p[1], 10) - 1] + ' ' + p[0].slice(2); } catch (e) { return esc(iso); } };
-        // Virgule décimale : le desk écrit « 0,2 % », pas « 0.2% » (règle du projet).
-        var pc = function (v) { return (v == null || isNaN(v)) ? '–' : String((Math.round(v * 100) / 100).toFixed(2)).replace('.', ',') + ' %'; };
-        var bps = function (v) { if (v == null || isNaN(v)) return '–'; var n = Math.round(v * 100) / 100; return (n > 0 ? '+' : '') + String(n.toFixed(2)).replace('.', ',') + ' bps'; };
-        var SCE = { Hike: ['hausse', 'Hausse'], Cut: ['baisse', 'Baisse'], Hold: ['maintien', 'Maintien'] };
-        fetch('/api/rates').then(function (r) { return r.json(); }).then(function (d) {
-          if (!host.isConnected) return;
-          var code = opt(it, W, 'banque') || 'USD';
-          var b = ((d && d.banks) || []).filter(function (x) { return x && x.code === code; })[0];
-          if (!b) return fallback(host, 'Pricing indisponible pour cette banque.');
-          var ms = (b.meetings || []).slice(0, 10);
-          if (!ms.length) return fallback(host, 'Aucune réunion à venir connue pour cette banque.');
-          var n0 = ms[0];
-          // Le scénario de base de la PROCHAINE réunion, et sa probabilité : c'est ce qui pèse sur la séance.
-          var cands = [['Hold', n0.hold], ['Hike', n0.hike], ['Cut', n0.cut]].filter(function (x) { return x[1] != null; });
-          cands.sort(function (a, c) { return (c[1] || 0) - (a[1] || 0); });
-          var base = cands[0] ? cands[0][0] : 'Hold';
-          var sc = SCE[base] || SCE.Hold;
-          // La barre de distribution : les trois issues bout à bout, chacune à sa largeur. Une part
-          // sous 4 % ne porte pas son libellé — il sortirait de sa case et se lirait sur la voisine.
-          var parts = [['baisse', 'Baisse', n0.cut], ['maintien', 'Maintien', n0.hold], ['hausse', 'Hausse', n0.hike]]
-            .filter(function (p) { return (p[2] || 0) > 0.05; })
-            .map(function (p) {
-              return '<span class="wpb-part wpb-' + p[0] + '" style="width:' + (p[2] || 0) + '%" title="' + p[1] + ' ' + pc(p[2]) + '">'
-                + ((p[2] || 0) >= 4 ? '<b>' + Math.round(p[2]) + '%</b>' : '') + '</span>';
-            }).join('');
-          var rows = ms.map(function (m) {
-            var c2 = [['Hold', m.hold], ['Hike', m.hike], ['Cut', m.cut]].filter(function (x) { return x[1] != null; });
-            c2.sort(function (a, c) { return (c[1] || 0) - (a[1] || 0); });
-            var bs = SCE[c2[0] ? c2[0][0] : 'Hold'] || SCE.Hold;
-            var dcl = (m.impliedBps > 0.05) ? 'hausse' : (m.impliedBps < -0.05 ? 'baisse' : 'maintien');
-            // La colonne la plus probable est mise en avant : sur sept colonnes de chiffres, l'œil
-            // doit trouver l'issue dominante sans les comparer une à une.
-            var fort = function (cle, v) { return '<span class="wpb-n' + (c2[0] && c2[0][0] === cle ? ' wpb-n--fort' : '') + '">' + pc(v) + '</span>'; };
-            return '<tr><td class="wpb-d">' + fmtD(m.date) + '</td>'
-              + '<td class="wpb-j">' + (m.days != null ? m.days + ' j' : '–') + '</td>'
-              + '<td>' + fort('Cut', m.cut) + '</td><td>' + fort('Hold', m.hold) + '</td><td>' + fort('Hike', m.hike) + '</td>'
-              + '<td><span class="wpb-bps wpb-' + dcl + '">' + bps(m.impliedBps) + '</span></td>'
-              + '<td><span class="wpb-cas wpb-' + bs[0] + '">' + bs[1] + '</span></td></tr>';
-          }).join('');
-          host.innerHTML = '<div class="wpb custom-scrollbar">'
-            + '<div class="wpb-tete">'
-            +   '<div class="wpb-kpi"><span>Banque</span><b>' + flag(code) + ' ' + esc(b.bank || code) + '</b></div>'
-            +   '<div class="wpb-kpi"><span>Taux actuel</span><b>' + (b.rate != null ? esc(String(b.rate).replace('.', ',')) + ' %' : '–') + '</b></div>'
-            +   '<div class="wpb-kpi"><span>Prochaine réunion</span><b>' + fmtD(n0.date) + (n0.days != null ? ' · ' + (n0.days <= 0 ? 'auj.' : n0.days + ' j') : '') + '</b></div>'
-            +   '<div class="wpb-kpi"><span>Scénario de base</span><b class="wpb-' + sc[0] + '">' + sc[1] + ' ' + (cands[0] ? Math.round(cands[0][1]) + ' %' : '') + '</b></div>'
-            +   '<div class="wpb-kpi"><span>Δ implicite</span><b class="wpb-' + ((n0.impliedBps > 0.05) ? 'hausse' : (n0.impliedBps < -0.05 ? 'baisse' : 'maintien')) + '">' + bps(n0.impliedBps) + '</b></div>'
-            + '</div>'
-            + '<div class="wpb-bar" role="img" aria-label="Répartition des scénarios de la prochaine réunion">' + parts + '</div>'
-            + '<div class="wpb-tw"><table class="wpb-t"><thead><tr>'
-            +   '<th>Réunion</th><th>Jours</th><th>Baisse</th><th>Maintien</th><th>Hausse</th><th>Δ implicite</th><th>Scénario</th>'
-            + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
-        }).catch(function () { fallback(host, 'Pricing indisponible.'); });
-        return null;
-      },
-    },
+    /* (« Table des probabilités » RETIRÉE du catalogue le 04/09, demande user — même traitement que
+    //  « Classement des Devises » le 23/07 : les dispositions déjà enregistrées qui la contiennent
+    //  sont ignorées proprement par renderGrid (byId() → null → carte sautée). On ne touche PAS aux
+    //  configurations des clients : réécrire leurs dispositions pour retirer une carte serait une
+    //  écriture de masse sur des données qu'ils n'ont pas demandé à modifier, et irréversible. */
     {
       /* COURBE DES TAUX US (23/08). La route /api/us-yields sert les 4 échéances du Trésor
          (3 mois, 5 ans, 10 ans, 30 ans) cotées en % DIRECT, plus 90 jours de clôtures par

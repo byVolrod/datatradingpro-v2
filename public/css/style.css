@@ -5418,7 +5418,14 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
    plus comme huit cartes fermées. Pas de cadre, pas de fond, pas de curseur « cliquable » : le code
    de la devise fait titre, le contenu suit, la devise suivante est séparée par un filet fin. ── */
 .wr-ccy-block--flow { border:0; border-radius:0; background:transparent; margin:0; padding:22px 0 4px; border-top:1px solid var(--hud-line,var(--border)); }
-.wr-ccy-block--flow:first-of-type { border-top:0; padding-top:8px; }
+/* ⚠️ `:first-of-type` NE MARCHAIT PAS, ET LE DÉFAUT SE VOYAIT (04/09, capture user : « il y a 2
+   traits en dessous de DEVISE »). Ce pseudo-sélecteur désigne le premier élément DE SON TYPE parmi
+   ses frères — le premier `div`. Or le premier div de ce conteneur est le TITRE de rubrique, pas le
+   premier bloc devise : la règle ne s'appliquait donc à personne, le bloc gardait son filet
+   supérieur, et il venait doubler celui du titre juste au-dessus.
+   Le piège est classique et silencieux : `:first-of-type` se lit comme « le premier de cette
+   classe », ce qu'il n'est pas. On vise l'adjacence réelle, qui est ce qu'on veut dire. */
+.wr-ccy-sectitle + .wr-ccy-block--flow { border-top:0; padding-top:8px; }
 .wr-ccy-head--flow { padding:0 0 8px; cursor:default; background:transparent !important; align-items:baseline; }
 .wr-ccy-head--flow .wr-ccy-code { font-size:19px; font-weight:var(--fw-bold); letter-spacing:.5px; }
 .wr-ccy-head--flow .wr-ccy-thesis { white-space:normal; overflow:visible; text-overflow:clip; }
@@ -6145,18 +6152,30 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
    Ils avaient chacun leur bloc et avaient déjà divergé : le liseré or vertical n'existait que d'un
    côté, et les marges différaient de quelques pixels. Un seul jeu de déclarations, deux sélecteurs :
    ils ne peuvent plus dériver. */
+/* ⚠️ ALIGNÉS SUR LE RÉCAP HEBDO, ET SANS TRAIT À GAUCHE (04/09, demande user : « pour les autres
+   récaps, sessions et quotidien, les titres doivent ressembler à celui-ci, sans avoir de trait à
+   gauche du titre »). La référence est donc `.wr-section-title`, le titre de rubrique du Hebdo :
+   même corps, même graisse, même interlettrage, même filet bas. Le liseré vertical de 3 px n'existait
+   que sur ces deux rapports-ci — il faisait de la même information deux objets différents selon le
+   rapport ouvert, alors que c'est le MÊME desk qui parle.
+   Les valeurs sont recopiées plutôt que factorisées avec `.wr-section-title` : celui-ci porte déjà
+   trois surcharges ailleurs (en-tête Currency Strength, mobile) qu'un sélecteur commun aurait
+   étendues à ces deux rapports sans qu'on l'ait voulu. Le banc mesure les styles CALCULÉS des trois
+   et exige qu'ils coïncident : c'est lui qui les empêche de dériver, pas la factorisation. */
 .fxdr-section,
 .arlib-rsection {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--font-ui);
-  font-size: 12px; font-weight: var(--fw-bold); color: #e3b23a;
-  letter-spacing: .05em; text-transform: uppercase;
-  margin: 28px 0 13px; padding-bottom: 7px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: var(--fw-semibold); color: #e3b23a;
+  letter-spacing: .09em; text-transform: uppercase;
+  margin: 26px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
 }
-.fxdr-section::before,
-.arlib-rsection::before { content: ''; width: 3px; height: 13px; background: #e3b23a; border-radius: 2px; flex: 0 0 auto; }
+/* Le PREMIER titre d'un rapport ne pousse pas 26 px de vide au-dessus de lui. Le Hebdo rejoint la
+   règle (04/09) : les trois rapports doivent se comporter pareil dans ce cas aussi, sinon
+   l'alignement qu'on vient de faire ne tient que pour les titres du milieu. */
 .fxdr-section:first-child,
-.arlib-rsection:first-child { margin-top: 4px; }
+.arlib-rsection:first-child,
+.wr-section-title:first-child { margin-top: 4px; }
 /* ENCADRÉ DE SYNTHÈSE — même règle, mêmes deux rapports. Le Quotidien ouvre sur un encadré à liseré
    or ; le récap de séance servait la même synthèse en puces nues. */
 .fxdr-exec,
@@ -11870,8 +11889,14 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
 .wdg-card:hover .wdg-resize::after, .wdg-resize:hover::after { border-color: var(--orange); }
 .wdg-card.wdg-card--locked .wdg-resize { display: none; }
 /* Poignée de BORD DROIT : élargir/rétrécir au curseur (largeur seule), snap sur les colonnes */
+/* ⚠️ ZONE DE PRISE ÉLARGIE (04/09, capture user : « c'est difficile d'attraper pour élargir »).
+   Elle faisait 9 px — et depuis qu'elle se décale de 8 px pour libérer la barre de défilement, ces
+   9 px sont coincés entre le contenu et la barre : une cible de la largeur d'un curseur, qu'il faut
+   viser. On l'élargit à 14 px VERS L'INTÉRIEUR, et c'est le sens qui compte : le repère visuel est
+   posé en `right: 2px` À L'INTÉRIEUR de la poignée, donc élargir déplace le bord GAUCHE et laisse le
+   repère exactement où l'œil l'a appris. La cible grandit, rien ne bouge à l'écran. */
 .wdg-resize-e {
-  position: absolute; top: 34px; bottom: 22px; right: 0; width: 9px; z-index: 6;
+  position: absolute; top: 34px; bottom: 22px; right: 0; width: 14px; z-index: 6;
   cursor: ew-resize; touch-action: none;
 }
 /* ⚠️ ELLE OCCUPAIT EXACTEMENT LA BARRE DE DÉFILEMENT (31/08 : « j'ai du mal à bien choper le
@@ -12161,7 +12186,12 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 }
 .wdg-lib-card:hover { border-color: rgba(227,178,58,.55); background: var(--w-s3); }
 .wdg-lib-cat { font-size: 8.5px; font-weight: 700; letter-spacing: .8px; color: var(--orange); text-transform: uppercase; }
-.wdg-lib-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: 700; color: var(--text, var(--w-t1)); }   /* police du DESK (cohérence) */
+/* ⚠️ PLUS DE GRAS (04/09, demande user : « enlève le gras de ces descriptions de widgets, ça
+   permettra de mieux lire »). Dans une galerie où CHAQUE carte porte un nom, tout mettre en gras
+   revient à ne rien mettre en avant : la graisse ne hiérarchise plus, elle épaissit — et sur deux
+   lignes, un nom long comme « Calendrier économique » devient un pavé. Le nom garde l'encre pleine,
+   qui suffit à le distinguer de la description en dessous. */
+.wdg-lib-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: var(--fw-medium, 500); color: var(--text, var(--w-t1)); }   /* police du DESK (cohérence) */
 .wdg-lib-desc { font-size: 11px; color: var(--text2, var(--w-t6)); line-height: 1.5; }
 .wdg-lib-used { font-size: 9.5px; color: var(--w-t8); font-style: italic; flex: 0 0 auto; }
 

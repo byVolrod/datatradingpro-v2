@@ -9786,8 +9786,32 @@ function _renderWeeklyRecap(item) {
         body += `<div class="wr-bullet"><strong>${_wrEsc(j.jour)} :</strong> ${pts}</div>`;
       });
     }
-    // (« Points Macro Clés », section « Banques Centrales » autonome et vue d'ensemble « Force des
-    //  Devises » RETIRÉES du rendu — voir la note de refonte en tête de ce bloc.)
+    /* ══ LA MACRO REVIENT, ENTRE LA GÉOPOLITIQUE ET LES DEVISES (04/09, demande user : « il manque
+       la partie macro avant la partie devises ») ══════════════════════════════════════════════════
+       Elle avait été retirée du rendu le 11/08 au motif qu'elle répétait les blocs devises. Le motif
+       était réel pour CERTAINS thèmes — Cross-Asset, Techno — et faux pour le reste : la semaine
+       macro d'ensemble (inflation, croissance, banques centrales vues de haut, commerce) ne se
+       reconstitue pas en lisant huit blocs devises l'un après l'autre, elle se lit d'un coup ou pas
+       du tout. Le rapport passait donc de la géopolitique aux devises sans jamais dire ce qu'avait
+       fait l'économie.
+       ⚠️ LE THÈME GÉOPOLITIQUE EST EXCLU, et pas seulement par identité d'objet : quand une
+       chronologie existe, `_geoTheme` vaut null et le thème géo reste dans `w.macro`. Le filtrer sur
+       la seule référence le laisserait donc réapparaître ici, juste sous la section qui vient de le
+       raconter. On filtre sur l'intitulé, qui est ce qui se voit. Le serveur, lui, n'a jamais cessé
+       de produire ces champs : c'est un changement de RENDU, donc les rapports déjà archivés y
+       gagnent aussi. */
+    const _macroReste = (w.macro || []).filter(sec => sec && sec.heading
+      && !/g[ée]opolit/i.test(String(sec.heading))
+      && Array.isArray(sec.bullets) && sec.bullets.length);
+    if (_macroReste.length) {
+      body += `<div class="wr-section-title">Macro</div>`;
+      _macroReste.forEach(sec => {
+        body += `<div class="wr-macro-heading">${_wrEsc(sec.heading)}</div>`;
+        (sec.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+      });
+    }
+    // (Section « Banques Centrales » autonome et vue d'ensemble « Force des Devises » RETIRÉES du
+    //  rendu — voir la note de refonte en tête de ce bloc.)
     // Calendrier économique RETIRÉ du Weekly Market Recap (demande user) : il vit dans le Global Economic Weekly.
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {

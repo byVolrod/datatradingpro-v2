@@ -592,8 +592,16 @@ function phaseLogique() {
        verrait. */
     const st = await page.evaluate(() => {
       const box = document.createElement('div');
-      box.innerHTML = '<div class="fxdr"><div class="fxdr-section">A</div><div class="fxdr-exec"><p class="wr-p">x</p></div></div>'
-        + '<div class="arlib-rbody"><div class="arlib-rsection">A</div><div class="arlib-rexec"><p class="wr-p">x</p></div></div>';
+      /* Le Récap HEBDO entre dans la comparaison (04/09) : c'est LUI la référence désormais, et une
+         référence qu'on ne mesure pas est une référence qu'on cesse de suivre. */
+      /* ⚠️ UN FRÈRE AVANT CHAQUE TITRE, ET CE N'EST PAS DÉCORATIF. Sans lui, chaque titre est le
+         PREMIER ENFANT de son conteneur et déclenche la règle `:first-child` qui rabote la marge
+         haute du premier titre d'un rapport. On comparait donc trois cas particuliers en croyant
+         mesurer le cas général — et le contrôle est effectivement sorti rouge sur `marginTop`, pour
+         une différence qui n'existe pas dans un vrai rapport. */
+      box.innerHTML = '<div class="fxdr"><p>.</p><div class="fxdr-section">A</div><div class="fxdr-exec"><p class="wr-p">x</p></div></div>'
+        + '<div class="arlib-rbody"><p>.</p><div class="arlib-rsection">A</div><div class="arlib-rexec"><p class="wr-p">x</p></div></div>'
+        + '<div class="wr-body"><p>.</p><div class="wr-section-title">A</div></div>';
       document.body.appendChild(box);
       const cs = (sel, pseudo) => {
         const e = box.querySelector(sel); if (!e) return null;
@@ -605,7 +613,7 @@ function phaseLogique() {
         return o;
       };
       const r = {
-        titreQ: cs('.fxdr-section'), titreS: cs('.arlib-rsection'),
+        titreQ: cs('.fxdr-section'), titreS: cs('.arlib-rsection'), titreH: cs('.wr-section-title'),
         barreQ: cs('.fxdr-section', '::before'), barreS: cs('.arlib-rsection', '::before'),
         boxQ: cs('.fxdr-exec'), boxS: cs('.arlib-rexec'),
         paraQ: cs('.fxdr-exec .wr-p'), paraS: cs('.arlib-rexec .wr-p'),
@@ -619,14 +627,70 @@ function phaseLogique() {
     const CB = ['width', 'height', 'backgroundColor', 'borderRadius'];
     const CE = ['backgroundColor', 'borderLeftWidth', 'borderLeftColor', 'borderRadius', 'padding'];
     const CP = ['fontSize', 'color', 'lineHeight', 'fontFamily'];
+    /* ── RÉCAP HEBDO : LE DOUBLE TRAIT SOUS « LA SEMAINE DEVISE PAR DEVISE » ────────────────────
+       04/09, capture user. Le premier bloc devise portait un filet supérieur qui venait doubler
+       celui du titre. La règle censée l'annuler visait `:first-of-type` — le premier élément DE SON
+       TYPE parmi ses frères, c'est-à-dire le premier `div`, qui est le TITRE. Elle ne s'appliquait
+       donc à personne. Le piège se lit « le premier de cette classe », ce qu'il n'est pas.
+       On mesure le filet PEINT, pas la présence d'une règle : c'est le seul niveau où un sélecteur
+       qui ne matche rien se voit. */
+    const dbl = await page.evaluate(() => {
+      const box = document.createElement('div');
+      box.innerHTML = '<div class="wr-body">'
+        + '<div class="wr-section-title wr-ccy-sectitle">T</div>'
+        + '<div class="wr-ccy-block wr-ccy-block--flow" id="b1">USD</div>'
+        + '<div class="wr-ccy-block wr-ccy-block--flow" id="b2">EUR</div></div>';
+      document.body.appendChild(box);
+      const w = id => getComputedStyle(document.getElementById(id)).borderTopWidth;
+      const r = { premier: w('b1'), second: w('b2') };
+      box.remove(); return r;
+    });
+    console.log('\n── Récap Hebdo : un seul trait sous le titre des devises ──');
+    verif('le PREMIER bloc devise n\'ajoute pas son filet sous le titre',
+      Math.round(parseFloat(dbl.premier || '0')) === 0, 'filet de ' + dbl.premier);
+    /* Et les suivants le gardent : c'est lui qui sépare les devises entre elles. Sans ce contrôle,
+       supprimer le filet PARTOUT passerait aussi pour un correctif. */
+    verif('… mais les suivants gardent le leur (il sépare les devises)',
+      Math.round(parseFloat(dbl.second || '0')) >= 1, 'filet de ' + dbl.second);
+
+    /* ── LA MACRO EST DE RETOUR, ET À SA PLACE ───────────────────────────────────────────────────
+       04/09 : « il manque la partie macro avant la partie devises ». L'ordre est l'information —
+       une section macro rendue APRÈS les devises ne servirait à rien. On lit donc les positions
+       réelles des trois titres dans le code de rendu. */
+    const APP3 = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+    const posGeo = APP3.indexOf('<div class="wr-section-title">Géopolitique</div>');
+    const posMac = APP3.indexOf('<div class="wr-section-title">Macro</div>');
+    const posDev = APP3.indexOf('<div class="wr-section-title wr-ccy-sectitle">La semaine devise par devise</div>');
+    verif('la section Macro existe dans le Récap Hebdo', posMac > 0);
+    verif('… elle est rendue APRÈS la géopolitique et AVANT les devises',
+      posGeo > 0 && posMac > posGeo && posDev > posMac,
+      'géo@' + posGeo + ' macro@' + posMac + ' devises@' + posDev);
+    /* ⚠️ ET LE THÈME GÉOPOLITIQUE NE DOIT PAS Y REVENIR. Quand une chronologie existe, `_geoTheme`
+       vaut null et le thème géo RESTE dans `w.macro` : le filtrer sur la seule référence d'objet le
+       ferait réapparaître ici, juste sous la section qui vient de le raconter. */
+    verif('… en excluant le thème géopolitique par son INTITULÉ, pas par identité d\'objet',
+      /_macroReste = \(w\.macro \|\| \[\]\)\.filter\(sec => sec && sec\.heading[\s\S]{0,140}g\[ée\]opolit/.test(APP3),
+      'le thème géo réapparaîtrait sous la section qui vient de le raconter');
+
     console.log('\n── Identité visuelle : Récap Quotidien ↔ récap de séance ──');
     verif('le titre de rubrique a le MÊME style calculé', memeStyle(st.titreQ, st.titreS, CT), diff(st.titreQ, st.titreS, CT));
     // Le desk applique une échelle globale : 3 px déclarés rendent 2,986 px calculés. On mesure donc
     // à l'arrondi près, pas au pixel littéral — sinon le contrôle échouerait sur une page correcte.
     const px = v => Math.round(parseFloat(v || '0'));
-    verif('le liseré or existe des deux côtés', st.barreS && px(st.barreS.width) === 3 && px(st.barreS.height) === 13,
-      st.barreS ? st.barreS.width + '×' + st.barreS.height : '(aucun)');
-    verif('… et il est identique', memeStyle(st.barreQ, st.barreS, CB), diff(st.barreQ, st.barreS, CB));
+    /* ⚠️ LE LISERÉ VERTICAL A DISPARU, ET C'EST DEMANDÉ (04/09 : « les titres doivent ressembler à
+       celui-ci sans avoir de trait à gauche du titre »). Ce banc exigeait sa PRÉSENCE, et à 3×13 px
+       exactement — il aurait donc bloqué le retrait qu'on vient de faire. On inverse la contrainte :
+       aucun des deux rapports ne porte plus de barre, et le contrôle le vérifie sur le pseudo-élément
+       lui-même, pas sur l'absence de règle dans la feuille. */
+    const sansBarre = b => !b || b.content === 'none' || px(b.width) === 0;
+    verif('aucun titre ne porte plus de liseré vertical à gauche',
+      sansBarre(st.barreQ) && sansBarre(st.barreS),
+      'Quotidien : ' + (st.barreQ && st.barreQ.width) + ' · Séance : ' + (st.barreS && st.barreS.width));
+    /* ET LES TROIS RAPPORTS PARLENT LA MÊME LANGUE. Le Hebdo est la référence : si le Quotidien et
+       la séance s'en écartent, c'est le même desk qui se contredit d'un rapport à l'autre. */
+    verif('… et le titre s\'aligne sur celui du Récap Hebdo, qui est la référence',
+      memeStyle(st.titreS, st.titreH, ['color', 'fontSize', 'fontWeight', 'letterSpacing', 'textTransform', 'marginTop', 'marginBottom', 'paddingBottom', 'borderBottomWidth']),
+      diff(st.titreS, st.titreH, ['color', 'fontSize', 'fontWeight', 'letterSpacing', 'textTransform', 'marginTop', 'marginBottom', 'paddingBottom', 'borderBottomWidth']));
     verif('l\'encadré de synthèse a le MÊME style calculé', memeStyle(st.boxQ, st.boxS, CE), diff(st.boxQ, st.boxS, CE));
     verif('son texte aussi', memeStyle(st.paraQ, st.paraS, CP), diff(st.paraQ, st.paraS, CP));
     verif('le titre de rubrique est bien or', st.titreS && st.titreS.color === 'rgb(227, 178, 58)', st.titreS && st.titreS.color);
