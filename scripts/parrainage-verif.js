@@ -125,6 +125,182 @@ async function interroge(email) {
   v('le lien de jonction est configurable par l\'environnement',
     /REFERRAL_WHOP_JOIN/.test(SRV), 'REFERRAL_WHOP_JOIN introuvable');
 
+  /* ══ 6. LA CAMPAGNE SEMESTRIELLE (04/09) ═══════════════════════════════════════════════════════
+     Demande utilisateur : « programme tous les 6 mois tu envoi un mail pour dire ça puis à chaque
+     fois de différente façon pour pas que ça soit des mails identiques ».
+
+     CE QUE CE BLOC ÉPROUVE, ET POURQUOI LA LECTURE DU CODE N'AURAIT PAS SUFFI. Une cadence est un
+     CALCUL de dates, avec deux pièges classiques qu'aucune relecture ne rattrape : le 31 mars plus
+     six mois n'existe pas (il n'y a pas de 31 septembre), et « le lundi » n'est une propriété du
+     résultat que si on la vérifie sur des dates de départ variées. On extrait donc la VRAIE
+     fonction de server.js — jamais une copie, qui vieillirait dans l'imagination du relecteur — et
+     on éprouve les propriétés sur une année entière de dates de départ.
+
+     ET SURTOUT LE CONTRÔLE QUE PERSONNE N'ÉCRIRAIT SPONTANÉMENT : le JOUR d'envoi. Le desk
+     s'interdit d'écrire deux fois le même jour au même contact. Poser le parrainage un jour déjà
+     occupé par un contenu hebdomadaire ne planterait rien — le mail serait SILENCIEUSEMENT sauté,
+     contact par contact, et le semestre passerait sans que rien ne le signale. C'est exactement le
+     genre de panne qu'on découvre six mois trop tard. */
+  console.log('\n── 6. La cadence semestrielle : « tous les 6 mois », vraiment ? ──');
+  const PROCH = decouper(SRV, 'function _parrainProchain(lastAt) {', '\n}');
+  const JOUR  = decouper(SRV, 'function _parrainJour(ms) {', '\n}');
+  v('le calcul d\'échéance est extractible de server.js', !!PROCH && !!JOUR);
+  if (PROCH && JOUR) {
+    // eslint-disable-next-line no-eval
+    /* ⚠️ Deux DÉCLARATIONS de fonction ne forment pas une expression : les envelopper dans des
+       parenthèses lève « Unexpected token 'function' ». On les évalue comme des instructions, et on
+       renvoie la liaison par l'expression FINALE de l'eval. */
+    /* ⚠️ Et le nom local NE PEUT PAS être `_parrainProchain` : une déclaration de fonction
+       évaluée par eval remonte dans la portée appelante, où elle percuterait le `const` du
+       même nom — « Identifier has already been declared », à l'exécution seulement. */
+    const prochain = eval(JOUR + '\n' + PROCH + '\n(_parrainProchain)');
+    const wd = iso => new Date(iso + 'T12:00:00Z').getUTCDay();
+
+    v('jamais envoyé → l\'échéance est AUJOURD\'HUI (le premier mail n\'attend pas 6 mois)',
+      prochain(0) === new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()));
+
+    /* PROPRIÉTÉ, pas valeur : sur 366 dates de départ consécutives, l'échéance tombe TOUJOURS un
+       lundi et TOUJOURS entre 6 et 6 mois + 6 jours plus tard. Un test sur trois dates choisies à
+       la main passerait avec un calcul faux une fois sur sept. */
+    let tousLundis = true, borneOk = true, pireEcart = 0;
+    const base = Date.UTC(2026, 0, 1, 12);
+    for (let k = 0; k < 366; k++) {
+      const dep = base + k * 864e5;
+      const r = prochain(dep);
+      if (wd(r) !== 1) { tousLundis = false; break; }
+      const j = Math.round((new Date(r + 'T12:00:00Z') - dep) / 864e5);
+      if (j < 178 || j > 190) { borneOk = false; break; }        // ~6 mois, plus l'avance au lundi
+      pireEcart = Math.max(pireEcart, j);
+    }
+    v('sur 366 dates de départ, l\'échéance tombe TOUJOURS un lundi', tousLundis, 'un départ produit un autre jour');
+    v('… et toujours à ~6 mois (jamais 3, jamais 12)', borneOk, 'écart hors de [178, 190] jours');
+
+    /* FIN DE MOIS. Le 31 mars plus six mois n'existe pas : sans borne, la date roule sur le 1er
+       octobre. La borne doit donc ramener au 30 septembre.
+       ⚠️ ET LE CONTRÔLE ÉVIDENT NE PROUVE RIEN. Exiger « le résultat reste en septembre » est faux :
+       le résultat est ensuite AVANCÉ AU LUNDI SUIVANT, et le lundi qui suit le 30 septembre 2026
+       tombe le 5 octobre. Pire, ce départ-là ne distingue même pas les deux calculs — borné (30/09,
+       mercredi) et non borné (01/10, jeudi) avancent tous les deux au 5 octobre. On éprouve donc
+       la borne sur les départs où les deux calculs DIVERGENT vraiment : ceux qui visent février,
+       dont le débordement fait trois jours. 30 et 31 août 2026 → 28 février 2027 (dimanche) → lundi
+       1er mars. Sans la borne : 2 et 3 mars, donc lundi 8 mars. Une semaine d'écart, visible. */
+    const fev31 = prochain(Date.UTC(2026, 7, 31, 12));
+    v('le 31 août + 6 mois est borné au 28 février (et non roulé sur mars)',
+      fev31 === '2027-03-01', 'obtenu ' + fev31 + ' (8 mars = borne absente)');
+    const fev30 = prochain(Date.UTC(2026, 7, 30, 12));
+    v('… le 30 août aussi', fev30 === '2027-03-01', 'obtenu ' + fev30);
+  }
+
+  console.log('\n── 7. Le jour choisi n\'est occupé par AUCUN contenu hebdomadaire ──');
+  /* Le contrôle décisif, et le moins évident : un contenu posé un jour déjà pris serait mangé en
+     silence par le garde-fou « jamais deux mails le même jour calendaire au même contact ». */
+  /* On lit la LIGNE de declaration de l'etape, pas un bloc delimite par accolades : `[^}]*` s'arrete
+     a la premiere accolade fermante venue, y compris celle d'un objet imbrique — le piege deja
+     rencontre le 26/08 avec `catch(() => {})`. Une etape tient sur une ligne : on la prend entiere. */
+  const _wdDe = id => {
+    const l = SRV.split('\n').find(x => /^const DRIP_[A-Z]+\s*=/.test(x) && x.includes("id: '" + id + "'"));
+    if (!l) return null;
+    const w = l.match(/wd:\s*(\d)/);
+    return w ? +w[1] : null;
+  };
+  const jourPar = _wdDe('parrainage');
+  v('le parrainage porte bien un jour d\'envoi', jourPar !== null);
+  const occupes = ['outlook', 'decryptage', 'point-marche', 'mindset', 'recap-hebdo', 'invitation', 'temoignage']
+    .map(id => ({ id, wd: _wdDe(id) })).filter(x => x.wd !== null);
+  v('… et les jours des 7 autres contenus sont lisibles', occupes.length >= 6, occupes.length + ' lus');
+  const collision = occupes.filter(x => x.wd === jourPar);
+  v('le jour du parrainage n\'est occupé par AUCUN autre contenu',
+    collision.length === 0, 'collision avec : ' + collision.map(x => x.id).join(', '));
+  v('sa fenêtre horaire est déclarée (min ET max)',
+    /_STEP_MINHOUR\s*=\s*\{[^}]*parrainage:/.test(SRV) && /_STEP_MAXHOUR\s*=\s*\{[^}]*parrainage:/.test(SRV));
+
+  console.log('\n── 8. « À chaque fois de différente façon » : les 4 angles ──');
+  const mailer = require(path.join(RACINE, 'mailer.js'));
+  const V = [0, 1, 2, 3].map(i => mailer.buildCampaignReferral({ name: 'Muhammet Taleb', email: 'client@exemple.fr', campaign: 'parrainage-banc', variant: i }));
+  v('les quatre variantes se construisent', V.every(x => x && x.html && x.subject));
+
+  /* MUTATION : quatre variantes qui se ressemblent trop sont le défaut que le user veut éviter.
+     On compare les OBJETS et les CORPS, deux à deux. Un copier-coller mal renommé tombe ici. */
+  const objets = V.map(x => x.subject);
+  v('les 4 objets sont tous DIFFÉRENTS', new Set(objets).size === 4, objets.join(' | '));
+  const corps = V.map(x => x.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  v('… et les 4 corps aussi', new Set(corps).size === 4);
+  /* Différents ne suffit pas : deux textes qui ne diffèrent que par trois mots sont « différents »
+     et se lisent pourtant comme le même mail. On exige une divergence RÉELLE, mesurée sur le
+     vocabulaire : moins de 70 % de mots communs entre deux variantes quelconques. */
+  const mots = c => new Set(c.toLowerCase().match(/[a-zà-ÿ]{4,}/g) || []);
+  let pireRecouvrement = 0, paire = '';
+  for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+    const a = mots(corps[i]), b = mots(corps[j]);
+    const comm = [...a].filter(x => b.has(x)).length;
+    const r = comm / Math.min(a.size, b.size);
+    if (r > pireRecouvrement) { pireRecouvrement = r; paire = i + '/' + j; }
+  }
+  v('deux variantes ne partagent jamais plus de 70 % de leur vocabulaire',
+    pireRecouvrement < 0.7, 'paire ' + paire + ' : ' + Math.round(pireRecouvrement * 100) + '% de mots communs');
+
+  console.log('\n── 9. Ce que CHAQUE variante doit dire, quel que soit son angle ──');
+  /* L'angle change, l'offre non. Une variante qui oublierait le taux ou la récurrence enverrait un
+     mail joli et inexploitable — le lecteur ne saurait pas ce qu'on lui propose. */
+  const cle = ['15', 'vie|récurrent', '3 filleuls|trois filleuls|mois offert'];
+  V.forEach((x, i) => {
+    const t = x.html.replace(/<[^>]+>/g, ' ');
+    v('variante ' + (i + 1) + ' (' + x.variant + ') : le taux, la récurrence et le mois offert y sont',
+      cle.every(rx => new RegExp(rx, 'i').test(t)), 'manque : ' + cle.filter(rx => !new RegExp(rx, 'i').test(t)).join(', '));
+  });
+  V.forEach((x, i) => {
+    v('variante ' + (i + 1) + ' : aucun gabarit non résolu, aucun « undefined »',
+      !/\$\{|undefined|\[object/.test(x.html));
+  });
+
+  console.log('\n── 10. C\'est un mail de CAMPAGNE : il en a les obligations ──');
+  V.forEach((x, i) => {
+    v('variante ' + (i + 1) + ' : lien de désabonnement présent',
+      /\/api\/unsubscribe\?/.test(x.html), 'un envoi de masse sans désinscription n\'est pas envoyable');
+  });
+  v('le suivi d\'ouverture est posé', /\/api\/track\/open\?/.test(V[0].html));
+  v('le bouton passe par le suivi de clic', /\/api\/track\/click\?/.test(V[0].html));
+
+  console.log('\n── 11. Le bouton mène quelque part (promesse du mail ↔ code du desk) ──');
+  /* Le classique : un CTA qui pointe vers un paramètre que personne n'a implémenté. Le mail part,
+     le client clique, il atterrit sur le desk sans savoir quoi faire. On vérifie les DEUX bouts. */
+  v('le mail pointe vers le lien profond ?parrainage=1',
+    /parrainage%3D1|parrainage=1/.test(V[0].html), 'CTA sans lien profond');
+  v('… et le desk sait l\'ouvrir', /parrainage'\)\s*===\s*'1'/.test(IDX), 'le desk ignore ce paramètre');
+  v('… en visant la section par son LIBELLÉ, pas par sa position',
+    /textContent\.trim\(\)\s*===\s*'Parrainages'/.test(IDX), 'ciblage par index : se décale au moindre réordonnancement');
+
+  console.log('\n── 12. La mécanique d\'envoi ne peut pas se saborder ──');
+  v('la variante du lot est FIGÉE avant le premier envoi',
+    /_bParrainVar\s*==\s*null\)\s*\{\s*try\s*\{\s*_bParrainVar\s*=\s*\(await _parrainGet\(\)\)\.n/.test(SRV),
+    'sans cela le repli calendaire s\'applique et le panel annonce une autre variante que celle qui part');
+  v('l\'id de campagne porte le MOIS (sinon envoyable une seule fois, à jamais)',
+    /bTpl === 'parrainage' \? 'parrainage-' \+ _bParrainKey/.test(SRV), 'id constant = anti-doublon définitif');
+  v('les deux chemins d\'envoi (programme et manuel) se voient l\'un l\'autre',
+    /_bParrainMk\s*&&\s*!force/.test(SRV) && /drip:parrain:/.test(SRV), 'marqueur croisé absent : doublon possible');
+  v('un envoi lancé à la main repousse bien l\'échéance de 6 mois',
+    /bTpl === 'parrainage' && _campaignSend\.sent > 0/.test(SRV), 'sinon le programme repart 8 jours plus tard');
+  v('le compteur n\'avance QUE si un mail est réellement parti',
+    /_campaignSend\.sent > 0/.test(SRV));
+  v('le gabarit est câblé dans les TROIS expressions du broadcast (piège du 20/08)',
+    /bId\s*=\s*bTpl === 'parrainage'/.test(SRV) && /bBuild = \(\) => bTpl === 'parrainage'/.test(SRV) && /bSend = \(email, nm\) => bTpl === 'parrainage'/.test(SRV),
+    'un gabarit absent d\'une des trois enverrait le mail INTRO à toute la liste');
+
+  console.log('\n── 13. Le panel dit QUAND, et il dit QUOI ──');
+  v('l\'API du programme expose la date du prochain parrainage', /parrainage: \{\s*\n?\s*date:/.test(SRV));
+  v('… la variante qui partira', /variante: mailer\.parrainVariantKey/.test(SRV));
+  v('… et l\'historique (dernier envoi, nombre d\'envois)', /dernierAt:/.test(SRV) && /envois: _pst\.n/.test(SRV));
+  const ADM = fs.readFileSync(path.join(RACINE, 'public/js/admin.js'), 'utf8');
+  const ADH = fs.readFileSync(path.join(RACINE, 'public/admin.html'), 'utf8');
+  v('le panel a sa carte dédiée (aucune ligne de semaine ne peut la porter)', /camp-plan-parrain/.test(ADM) && /camp-plan-parrain/.test(ADH));
+  v('… il affiche l\'objet réel de la variante à venir', /par\.variantes \|\| \[\]\)\.find/.test(ADM));
+  v('… et une date peut être forcée depuis l\'écran', /campPlanParrainage/.test(ADM) && /camp-plan-par-date/.test(ADH));
+  v('le template est relisible variante par variante avant tout envoi',
+    /variantesTpl:/.test(ADM) && /campPreviewVariante/.test(ADM));
+  v('… et l\'aperçu montre le PARRAINAGE, pas l\'invitation (piège du réemploi)',
+    /function campPreviewVariante\(tpl, v\)\{[\s\S]{0,120}_cprevType = tpl/.test(ADM),
+    'campPreviewInvit fige le type sur « invitation »');
+
   console.log('');
   if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }
   console.log('✓ TOUT PASSE — ' + ok + ' contrôle(s) OK\n');

@@ -1029,6 +1029,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260904-parrainage-semestriel', ts: Date.UTC(2026, 8, 4, 14, 0), title: 'Le parrainage vous est rappele deux fois par an, et jamais avec le meme mail', desc: 'Le programme de parrainage existait, mais rien n allait le dire a ceux qui ne descendent jamais dans Profil puis Parrainages. Un mail part desormais tous les six mois pour le rappeler : quinze pour cent a vie sur chaque abonne que vous amenez, une commission qui revient chaque mois et non une prime unique, et un mois d acces ajoute tous les trois filleuls. Le compte a rebours repart du dernier envoi, pas d une date du calendrier : deux mails ne peuvent pas se retrouver dans le meme trimestre. Et le texte CHANGE a chaque fois. Pas une reformulation : quatre angles differents, qui se succedent dans l ordre. Le premier parle du revenu, le deuxieme de l abonnement qui finit par se payer seul, le troisieme des recommandations que vous faites deja gratuitement, le quatrieme est un rappel court pour les liens jamais ouverts. A deux envois par an, il faut donc deux ans avant de relire le meme. Le bouton du mail ne vous depose plus sur le desk en vous laissant chercher : il ouvre directement la section Parrainages, ou votre lien s affiche a jour. Un point de detail qui n en est pas un : le mail est le meme pour tout le monde, abonne ou non, parce que parrainer ne demande pas d etre abonne au produit payant.' },
+  { id: 'dtpu-20260904-frise-note-lisible', ts: Date.UTC(2026, 8, 4, 12, 0), title: 'Sessions de marche : la note du bas etait ecrite, elle n etait pas lisible', desc: 'La ligne qui explique le chevauchement des seances et le suivi de l heure d ete se lisait mal, et la mesure sur le desk reel dit pourquoi. Le gris employe donnait un contraste de 1,98 pour 1 sur le fond de la carte, quand le minimum admis pour un texte de cette taille est de 4,5. Et les 9,5 pixels de la feuille de style tombaient a 8,55 pixels reellement peints, le desk s affichant a 90 pour cent. Deux defauts qui se multiplient : un gris tres sombre a une taille tres petite ne se lit pas, il se devine. La note passe a 6,92 pour 1 de contraste et gagne un cinquieme en taille, avec un filet qui la detache de la frise pour qu elle se lise comme une legende et non comme une ligne de donnee oubliee. Le banc de la frise mesure desormais les deux valeurs a chaque passage.' },
   { id: 'dtpu-20260904-parrainage-mail', ts: Date.UTC(2026, 8, 4, 10, 0), title: 'Parrainage : un e-mail pret a envoyer, qui porte votre lien quand on le connait', desc: 'Le programme de parrainage existait sur le desk, mais rien ne le disait a ceux qui ne sont jamais alles dans Profil. Un e-mail d invitation rejoint donc la serie : quinze pour cent a vie sur chaque abonne que vous amenez, une commission recurrente et non une prime unique, et un mois d acces ajoute tous les trois filleuls. Il existe en deux formes, et c est la seule difference entre les deux. Quand votre lien d affiliation est deja connu, le mail le porte, en clair, pret a copier. Quand il ne l est pas, le mail donne les deux etapes pour l obtenir en deux minutes — ouvrir Profil puis Parrainages, ou sinon creer un compte Whop et rejoindre l espace JustOneTrader, ou l offre gratuite suffit. Un encadre insiste sur le seul point ou la chaine peut casser : utiliser sur Whop la MEME adresse e-mail que celle du compte DataTradingPro, sans quoi les deux ne se reconnaissent pas et le lien ne s affiche jamais. Le mail dit aussi qui paie quoi : les commissions sont suivies et versees par Whop, dans votre espace Whop ; le compteur de filleuls, lui, s affiche en direct dans le panneau Parrainages. Il est repondable, et il figure dans la galerie d apercu des e-mails avec ses deux variantes.' },
   { id: 'dtpu-20260903-onglets-sources', ts: Date.UTC(2026, 8, 4, 8, 0), title: 'Un onglet porte le nom de son widget, et les recaps d analystes ne citent plus leurs sources', desc: 'Deux corrections signalees capture a l appui. UN ONGLET PORTE LE NOM DE SON WIDGET. Un onglet intitule MONDE s ouvrait sur un panneau intitule SESSIONS DE MARCHE. Le libelle par defaut d un onglet retombait sur le SIGLE du widget — un code court concu pour les vignettes de disposition, ou un nom entier ne tiendrait pas — avant son nom. Sur les quarante et un widgets du catalogue, vingt-sept ont un sigle different de leur nom, et plusieurs le PARTAGENT : cinq portent VOLATILITE, trois FX, deux TAUX. Deux onglets voisins pouvaient donc s appeler pareil, ce qui retire a un onglet sa seule fonction : dire ce qu il ouvre. Le nom du widget est desormais le libelle par defaut, partout et pour tout le monde — un onglet renomme a la main garde evidemment son nom. Le sigle reste employe la ou il a un sens, sur la vignette de disposition et la fiche d aide. LES RECAPS DE SEANCE NE CITENT PLUS LEURS SOURCES. Une puce se terminait par : en septembre, point median, Sondage Reuters, fleche, renforcement du yen. Le lecteur paie une lecture, pas un annuaire de depeches, et une attribution au milieu d une phrase ne lui apprend qu ou aller lire ailleurs. Toute attribution a un media est retiree du corps des puces — apres un separateur, entre parentheses, ou en toutes lettres avec selon et d apres. Une precision : un media SUJET de la phrase reste en place. Reuters rapporte que la BoJ hesite garde son sujet, sans quoi la phrase deviendrait bancale. C est la meme prudence que pour source proche de la BCE, ou le mot porte l information. La regle est appliquee au rendu, donc les rapports deja publies en beneficient aussi.' },
   { id: 'dtpu-20260903-frise-epaisseur', ts: Date.UTC(2026, 8, 3, 23, 30), title: 'Sessions de marche : plages plus epaisses, plus de quadrillage, et tout tient sans barre de defilement', desc: 'Trois retours utilisateur, captures a l appui, sur le meme widget. LES PLAGES SE VOIENT. Sur une carte ecrasee, elles devenaient des filets de la hauteur d un trait et l horaire ecrit dedans passait a cheval sur ses propres bordures. Une plage qu on distingue a peine ne dit plus ni sa duree ni son chevauchement, c est-a-dire plus rien de ce pour quoi elle existe. La hauteur minimale passe de 7 a 12 pixels, chaque palier de densite est releve d autant, et le remplissage remonte : allege la veille pour que des plages epaisses cessent d ecraser la carte, il devenait trop pale des qu une plage s amincit. PLUS DE QUADRILLAGE. Une trame de colonnes avait ete posee la veille pour relier 15 h de Londres a 15 h de New York. Arbitrage de l utilisateur : la grille est la signature de FORCE DES DEVISES, pas de cette frise, dont la reference ne montre que les intitules d heures en tete et des rails nus. Deux widgets cote a cote, deux grammaires : un quadrillage partout ne signale plus rien nulle part. Les rails restent a peine teintes, pour dire jusqu ou va la journee sans concurrencer la plage qu ils encadrent. ET TOUT S AFFICHE, SANS BARRE DE DEFILEMENT. Le defilement de dernier recours pose le 26 aout est remplace par une compaction qui va jusqu au bout : sur une carte tres basse, la note de pied puis le resume d en-tete cedent AVANT les places — la note explique la frise, l en-tete la resume, les places SONT la frise, et chaque ligne porte deja son badge ouvert ou ferme au bout. Verifie a sept hauteurs de carte : les quatre places tiennent entierement, rien n est cache.' },
@@ -21450,9 +21452,30 @@ app.get('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (_req
     // Index de la PROCHAINE échéance réelle : la première semaine dont l'envoi n'est pas parti.
     // C'est elle que le panel doit mettre en avant, et non la semaine calendaire.
     const prochainIdx = Math.max(0, semaines.findIndex(s => !s.envoye));
+    /* LE PARRAINAGE APPARAIT DANS LE PROGRAMME (04/09, demande user « ajoute dans la programmation
+       pilotage du panel admin pr que je sache quand ca part »). Il ne suit ni la rotation
+       hebdomadaire ni le calendrier mensuel : sa date se DEDUIT du dernier envoi. Sans cette
+       ligne, l'ecran laisserait croire qu'aucun mail de parrainage n'est programme alors qu'il
+       part bel et bien tout seul — exactement le defaut qu'avait le temoignage avant le 28/08.
+       On renvoie donc les quatre faits qui permettent de le piloter : quand part le prochain,
+       QUELLE variante partira (elles tournent), quand est parti le dernier, et combien d'envois
+       ont deja eu lieu. */
+    const _pst = await _parrainGet();
+    const _parrainDu = plan.parrainage || _parrainProchain(_pst.lastAt);
     res.json({
       ok: true, semaines, prochainIdx, temoignage: plan.temoignage || '',
-      contenus: _WEEK_ROTATION.concat([DRIP_TEMOIGN]).map(s => ({ id: s.id, label: s.label })),
+      parrainage: {
+        date: _parrainDu,                                       // 'AAAA-MM-JJ' : le prochain envoi
+        programmee: plan.parrainage || '',                       // date forcee depuis le panel ('' = cadence auto)
+        heure: (_STEP_MINHOUR.parrainage || 11) + 'h-' + (_STEP_MAXHOUR.parrainage || 14) + 'h',
+        variante: mailer.parrainVariantKey(_pst.n),              // celle du PROCHAIN envoi
+        varianteNum: (_pst.n % (mailer.PARRAIN_VARIANTES || []).length) + 1,
+        variantes: (mailer.PARRAIN_VARIANTES || []).map(v => ({ key: v.key, subject: v.subject })),
+        envois: _pst.n,                                          // nombre d'envois deja lances
+        dernierAt: _pst.lastAt ? new Date(_pst.lastAt).toISOString() : null,
+        cadence: 'tous les 6 mois, le lundi',
+      },
+      contenus: _WEEK_ROTATION.concat([DRIP_TEMOIGN, DRIP_PARRAIN]).map(s => ({ id: s.id, label: s.label })),
       testMode: !!_dripState.testMode,
     });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
@@ -21463,6 +21486,7 @@ app.post('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (req
     const plan = await _campPlanGet();
     const forces = Object.assign({}, plan.forces || {});
     let temoignage = plan.temoignage || '';
+    let parrainage = plan.parrainage || '';
     if (typeof b.semaine === 'string' && /^\d{4}-W\d{2}$/.test(b.semaine)) {
       const id = String(b.contenu || '');
       if (!id) delete forces[b.semaine];                                  // '' = on rend la semaine à la rotation
@@ -21475,7 +21499,18 @@ app.post('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (req
       else if (/^\d{4}-\d{2}-\d{2}$/.test(t)) temoignage = t;
       else return res.status(400).json({ ok: false, error: 'date attendue au format AAAA-MM-JJ' });
     }
-    _campPlan = { forces, temoignage }; _campPlanAt = Date.now();
+    /* DATE PROGRAMMEE DU PARRAINAGE : elle OUVRE la fenetre ce jour-la quel que soit le jour de la
+       semaine, et court-circuite le delai de six mois — c'est une decision explicite de l'admin.
+       Le garde-fou qui reste, lui, ne bouge pas : un contact deja servi dans le mois n'est jamais
+       reservi (cle `drip:parrain:<AAAA-MM>:<email>`). Programmer une date ne peut donc pas
+       fabriquer un doublon chez un client. */
+    if (typeof b.parrainage === 'string') {
+      const t = b.parrainage.trim();
+      if (!t) parrainage = '';
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(t)) parrainage = t;
+      else return res.status(400).json({ ok: false, error: 'date attendue au format AAAA-MM-JJ' });
+    }
+    _campPlan = { forces, temoignage, parrainage }; _campPlanAt = Date.now();
     await auth.aiCacheSet('camp:plan', _campPlan);
     console.log('[Drip] programme mis à jour :', JSON.stringify(_campPlan));
     res.json({ ok: true, plan: _campPlan });
@@ -23162,12 +23197,21 @@ const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl:
 const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook',     wd: 0, hour: 10 };
 const DRIP_TEMOIGN = { id: 'temoignage',   label: 'Témoignage membre',     tpl: 'temoignage',  wd: 2, hour: 18 };   // 1er MARDI du mois (18h-21h)
 const DRIP_INVIT   = { id: 'invitation',   label: 'Invitation',            tpl: 'invitation',  wd: 0, hour: 17 };
+/* PARRAINAGE SEMESTRIEL (04/09, demande user « programme tous les 6 mois tu envoi un mail pour dire
+   ca »). Hors rotation hebdomadaire, comme le temoignage : il s'AJOUTE, deux fois par an.
+   ⚠️ LE JOUR N'EST PAS DECORATIF. Il est pose au LUNDI, seul jour (avec le vendredi) qu'aucun
+   contenu hebdomadaire n'occupe : dimanche = Semaine a venir + Invitation, mardi = Comprendre +
+   Temoignage, mercredi = Point marche, jeudi = Mindset, samedi = Recap Hebdo. Un contenu pose un
+   jour deja pris ne planterait pas — il serait SILENCIEUSEMENT saute, contact par contact, par le
+   garde-fou « jamais deux mails le meme jour calendaire », et le semestre passerait sans mail sans
+   que rien ne le signale. */
+const DRIP_PARRAIN = { id: 'parrainage',  label: 'Parrainage (semestriel)', tpl: 'parrainage', wd: 1, hour: 11 };
 // Conservé pour l'affichage admin (une entrée par jour « historique ») — la logique d'envoi n'en dépend plus.
 const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 6: DRIP_RECAP };
 // Heure d'envoi par contenu (Paris) : Récap & Semaine à venir à 10h ; Comprendre & Mindset dès 8h ; Point marché
 // FENÊTRE 19h→22h (attend le FX Daily Recap de 19h, base du mail — demande user). Max par défaut = 19h.
-const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 19, mindset: 8, recap: 10, temoignage: 18, invitation: 17 };
-const _STEP_MAXHOUR = { pointmarche: 22, temoignage: 21, invitation: 20 };
+const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 19, mindset: 8, recap: 10, temoignage: 18, invitation: 17, parrainage: 11 };
+const _STEP_MAXHOUR = { pointmarche: 22, temoignage: 21, invitation: 20, parrainage: 14 };
 // ── INDEX DE ROTATION ANCRÉ (correctif 10/08/2026) ───────────────────────────────────────────────
 // La rotation dérivait de la semaine ISO « absolue » (isoWeek % longueur). Deux défauts prouvés :
 //   1. changer la LONGUEUR du tableau re-mélange tout le mapping : le passage 7→6 contenus du 10/08
@@ -23216,13 +23260,57 @@ const _WEEK_ROTATION = [DRIP_OUTLOOK, DRIP_DECRYPT, DRIP_POINT, DRIP_MINDSET, DR
        date n'autorise jamais deux témoignages au même contact dans le mois.
    Le plan est LU à chaque tic (cache 60 s) : une modification depuis le panel s'applique sans
    redémarrage. */
-let _campPlan = { forces: {}, temoignage: '' }, _campPlanAt = 0;
+/* ── CADENCE SEMESTRIELLE DU PARRAINAGE (04/09) ───────────────────────────────────────────────────
+   « Tous les 6 mois » se calcule DEPUIS LE DERNIER ENVOI, pas depuis un mois du calendrier. La
+   difference n'est pas theorique : ancrer sur janvier et juillet aurait fait tomber le deuxieme
+   envoi quatre mois apres le premier si celui-ci part en septembre, et personne ne s'en serait
+   apercu avant de lire deux mails de parrainage dans le meme trimestre.
+   Etat durable (KV `camp:parrain`) :
+     · `n`       — nombre d'envois DEJA lances. Il choisit la variante : envoi n°1 → variante 0,
+                   n°2 → variante 1… Rotation STRICTE, jamais tiree au sort (demande user : « a
+                   chaque fois de differente facon pour pas que ca soit des mails identiques »).
+     · `lastKey` — 'AAAA-MM' de l'envoi en cours. Un broadcast s'etale sur PLUSIEURS tics (40
+                   contacts par tic) : sans cette cle, chaque tic compterait pour un envoi et la
+                   variante changerait EN COURS DE ROUTE, une moitie de la base recevant un mail et
+                   l'autre un autre. La cle fige la variante pour toute la duree du lot.
+     · `lastAt`  — horodatage du dernier mail parti, base du calcul des 6 mois. */
+let _parrainSt = null, _parrainStAt = 0;
+async function _parrainGet() {
+  if (_parrainSt && Date.now() - _parrainStAt < 60000) return _parrainSt;
+  try {
+    const v = await auth.aiCacheGet('camp:parrain', 800 * 86400000);
+    const o = (v && typeof v === 'object') ? v : (v ? JSON.parse(String(v)) : null);
+    _parrainSt = { n: (o && +o.n) || 0, lastKey: String((o && o.lastKey) || ''), lastAt: (o && +o.lastAt) || 0 };
+  } catch { _parrainSt = _parrainSt || { n: 0, lastKey: '', lastAt: 0 }; }
+  _parrainStAt = Date.now();
+  return _parrainSt;
+}
+async function _parrainSet(st) { _parrainSt = st; _parrainStAt = Date.now(); try { await auth.aiCacheSet('camp:parrain', st); } catch {} }
+// Jour calendaire de Paris ('AAAA-MM-JJ') pour un instant donne — le desk raisonne en heure de Paris.
+function _parrainJour(ms) {
+  try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(ms == null ? Date.now() : ms)); }
+  catch { return new Date(ms == null ? Date.now() : ms).toISOString().slice(0, 10); }
+}
+/* PROCHAINE ECHEANCE : dernier envoi + 6 mois de CALENDRIER (pas 182 jours : « le 12 mars » se
+   comprend, « 182 jours apres le 12 septembre » ne se verifie pas d'un coup d'oeil), puis avancee
+   jusqu'au LUNDI suivant, jour de la fenetre. Jamais envoye → l'echeance est aujourd'hui. */
+function _parrainProchain(lastAt) {
+  if (!lastAt) return _parrainJour(Date.now());
+  const d = new Date(_parrainJour(lastAt) + 'T12:00:00Z');
+  const c = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 6, 1, 12));
+  // Fin de mois : le 31 mars + 6 mois n'existe pas en septembre → on borne au dernier jour du mois.
+  const dernier = new Date(Date.UTC(c.getUTCFullYear(), c.getUTCMonth() + 1, 0, 12)).getUTCDate();
+  const cible = new Date(Date.UTC(c.getUTCFullYear(), c.getUTCMonth(), Math.min(d.getUTCDate(), dernier), 12));
+  const versLundi = (1 - cible.getUTCDay() + 7) % 7;                 // 0 = deja lundi
+  return new Date(cible.getTime() + versLundi * 864e5).toISOString().slice(0, 10);
+}
+let _campPlan = { forces: {}, temoignage: '', parrainage: '' }, _campPlanAt = 0;
 async function _campPlanGet() {
   if (Date.now() - _campPlanAt < 60000) return _campPlan;
   try {
     const v = await auth.aiCacheGet('camp:plan', 400 * 86400000);
     const o = (v && typeof v === 'object') ? v : (v ? JSON.parse(String(v)) : null);
-    if (o) _campPlan = { forces: (o.forces && typeof o.forces === 'object') ? o.forces : {}, temoignage: String(o.temoignage || '') };
+    if (o) _campPlan = { forces: (o.forces && typeof o.forces === 'object') ? o.forces : {}, temoignage: String(o.temoignage || ''), parrainage: String(o.parrainage || '') };
   } catch {}
   _campPlanAt = Date.now();
   return _campPlan;
@@ -23240,7 +23328,7 @@ function _campWeekKey(ahead) {
     return jeudi.getUTCFullYear() + '-W' + String(sem).padStart(2, '0');
   } catch { return ''; }
 }
-const _CAMP_BY_ID = () => { const m = {}; for (const s of _WEEK_ROTATION) m[s.id] = s; m[DRIP_TEMOIGN.id] = DRIP_TEMOIGN; return m; };
+const _CAMP_BY_ID = () => { const m = {}; for (const s of _WEEK_ROTATION) m[s.id] = s; m[DRIP_TEMOIGN.id] = DRIP_TEMOIGN; m[DRIP_PARRAIN.id] = DRIP_PARRAIN; return m; };
 // Contenu réellement prévu pour une semaine : le forçage du panel s'il existe, sinon la rotation.
 function _rotStepForWeekAhead(ahead) {
   const cle = _campWeekKey(ahead || 0);
@@ -23390,6 +23478,17 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
       }
       return false;
     }
+    /* PARRAINAGE (04/09) : semestriel, hors rotation. Il s'adresse a TOUT LE MONDE, membre ou non,
+       et c'est voulu : le programme d'affiliation Whop ne demande pas d'etre abonne au produit
+       payant — l'offre gratuite suffit, comme l'audit du 03/09 l'a etabli. Filtrer sur les membres
+       priverait de lien exactement les comptes AMI, OFFERT et gratuits, qui sont souvent les mieux
+       places pour recommander. La VARIANTE est imposee par l'appelant (compteur d'envois), jamais
+       choisie ici : deux appels dans le meme lot doivent produire le meme mail. */
+    if (stepDef.tpl === 'parrainage') {
+      const rr = await mailer.sendCampaignReferral({ to: email, name: r.name || '', campaign, variant: stepDef.variant });
+      if (rr) { rec(); return true; }
+      return false;
+    }
     // INVITATION (28/07) : entre dans la rotation (fini le calendrier mensuel séparé). Non-abonnés only.
     if (stepDef.tpl === 'invitation') {
       if (isMember) return true;
@@ -23475,6 +23574,63 @@ async function _dripTick() {
         }
       } catch (e) { console.warn('[Drip] témoignage mensuel :', e.message); }
     }
+    /* ── PARRAINAGE SEMESTRIEL (04/09, demande user) ────────────────────────────────────────────
+       Meme forme que le témoignage mensuel — un contenu qui s'AJOUTE à la rotation — mais sur une
+       cadence de six mois comptée DEPUIS LE DERNIER ENVOI, et avec une variante qui tourne
+       strictement à chaque envoi (« à chaque fois de différente façon »).
+       Quatre garde-fous, tous conservés : intro d'abord, jamais deux mails le même jour calendaire
+       au même contact, un seul mail de parrainage par contact et par mois, mode TEST respecté. */
+    try {
+      const _pj = _parrainJour(Date.now());
+      const _parProg = !!(_plan && _plan.parrainage && _plan.parrainage === _pj);
+      const _pst = await _parrainGet();
+      const _du = _parrainProchain(_pst.lastAt);                      // 'AAAA-MM-JJ'
+      // Fenêtre : le LUNDI (wd 1) de l'échéance ou après, 11h→14h ; une date programmée ouvre le
+      // jour dit, quel que soit le jour de la semaine, et court-circuite l'attente des six mois.
+      const _dansFenetre = pp.hour >= (_STEP_MINHOUR.parrainage || 11) && pp.hour < (_STEP_MAXHOUR.parrainage || 14);
+      if (_dansFenetre && (_parProg || (wd === 1 && _pj >= _du))) {
+        const pKey = _pj.slice(0, 7);                                 // 'AAAA-MM' = clé du lot
+        /* Le lot s'ouvre ICI, et une seule fois : si la clé du mois n'est pas celle du dernier lot,
+           on incrémente le compteur d'envois et on le persiste AVANT d'écrire le premier mail.
+           L'ordre compte — incrémenter après l'envoi ferait repartir le tic suivant sur un nouveau
+           lot, donc sur la variante suivante, au milieu de la même diffusion. */
+        let vIdx;
+        if (_pst.lastKey !== pKey) { vIdx = _pst.n; await _parrainSet({ n: _pst.n + 1, lastKey: pKey, lastAt: _pst.lastAt }); }
+        else vIdx = Math.max(0, _pst.n - 1);
+        const stepP = Object.assign({}, DRIP_PARRAIN, { variant: vIdx });
+        if (_dripState.testMode) {
+          const _tk = 'drip:parrain-test:' + pKey + ':' + _CAMP_TEST_TO;
+          if (!(await auth.emailLogHas(_tk).catch(() => false))) {
+            if (await _dripSend(stepP, { email: _CAMP_TEST_TO, name: '', segment: 'active' }, null, 'parrain-test-' + pKey, true)) { try { await auth.emailLogAdd(_tk); } catch {} console.log('[Drip TEST] parrainage semestriel (variante ' + mailer.parrainVariantKey(vIdx) + ') → ' + _CAMP_TEST_TO); }
+          }
+        } else {
+          let audP = null; try { audP = await _campaignAudience({ checkUnsub: false }); } catch {}
+          if (audP) {
+            const CAPp = Math.max(1, parseInt(process.env.DRIP_TICK_CAP || '40', 10));
+            const thrP = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
+            let sentP = 0;
+            for (const r of audP.recipients) {
+              if (sentP >= CAPp) break;
+              const email = r.email;
+              try { if (await auth.emailLogHas('unsub:' + email)) continue; } catch {}
+              const pk = 'drip:parrain:' + pKey + ':' + email;
+              try { if (await auth.emailLogHas(pk)) continue; } catch {}
+              let stP = _dripNormalize(_dripState.contacts[email]); if (!stP) stP = await _dripSeed(email);
+              _dripState.contacts[email] = stP;
+              if (!stP.introduced) continue;   // l'intro d'abord — le parrainage attendra le prochain tic
+              if (stP.lastAt && ((Date.now() - stP.lastAt) < 6 * 3600e3 || _pDayParis(stP.lastAt) === _pDayParis(Date.now()))) continue;
+              if (await _dripSend(stepP, r, null, 'parrain-' + pKey)) { try { await auth.emailLogAdd(pk); } catch {} stP.lastAt = Date.now(); sentP++; if (thrP) await new Promise(x => setTimeout(x, thrP)); }
+            }
+            if (sentP) {
+              _saveDrip();
+              const _cur = await _parrainGet();
+              await _parrainSet({ n: _cur.n, lastKey: pKey, lastAt: Date.now() });   // repart les 6 mois
+              console.log('[Drip] parrainage semestriel (' + pKey + ', variante ' + mailer.parrainVariantKey(vIdx) + ') : ' + sentP + ' mail(s)');
+            }
+          }
+        }
+      }
+    } catch (e) { console.warn('[Drip] parrainage semestriel :', e.message); }
     // ROTATION 6 CONTENUS — 1 SEUL mail/semaine. On part du contenu DE LA SEMAINE (rotation) et on
     // vérifie que c'est SON jour : deux contenus peuvent partager un weekday (jeu. 8h/18h,
     // dim. 10h/17h) sans se marcher dessus, puisqu'ils ne tombent jamais la même semaine ISO.
@@ -23793,6 +23949,11 @@ app.get('/api/admin/campaign-preview', requireAdminOrInternal, async (req, res) 
     } else if (type === 'invitation') {
       const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined;   // ?variant=0|1|2 pour voir les 3, sinon rotation du mois
       m = mailer.buildCampaignInvitation({ name: s.name, email: s.email, campaign: 'invitation-preview', variant, isMember });
+    } else if (type === 'parrainage') {
+      // ?variant=0..3 pour relire les quatre angles ; sans variante, celle du PROCHAIN envoi reel
+      // (compteur d'envois), et non un repli calendaire : l'apercu doit montrer ce qui va partir.
+      const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : (await _parrainGet()).n;
+      m = mailer.buildCampaignReferral({ name: s.name, email: s.email, campaign: 'parrainage-preview', variant });
     } else if (type === 'app-desktop') {
       m = mailer.buildAnnouncementDesktop({ name: s.name, email: s.email, campaign: 'app-desktop-preview' });
     } else if (type === 'desk-widgets') {
@@ -24040,6 +24201,8 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
       else if (tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
       else if (tpl === 'invitation') { const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined; const r = await mailer.sendCampaignInvitation({ to, name: '', campaign: 'invitation-test', variant }); provider = r ? (r.provider || r) : null; }
+      // Parrainage semestriel : ?variant=0..3 pour relire une variante precise, sinon celle du PROCHAIN envoi.
+      else if (tpl === 'parrainage') { const _pv = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : (await _parrainGet()).n; const r = await mailer.sendCampaignReferral({ to, name: '', campaign: 'parrainage-test', variant: _pv }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'app-desktop') { const r = await mailer.sendAnnouncementDesktop({ to, name: '', campaign: 'app-desktop-test' }); provider = r ? (r.provider || r) : null; }
       // Annonce de la bibliotheque elargie.  reste a FAUX tant que les widgets sont en
       // rodage interne : le mail annonce alors leur arrivee progressive, pas leur disponibilite.
@@ -24047,7 +24210,7 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
       else if (tpl === 'desk-widgets') { const r = await mailer.sendAnnonceDesk({ to, name: '', campaign: 'desk-widgets-test' }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }
-    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : tpl === 'app-desktop' ? ' (Annonce app desktop, stats separees)' : tpl === 'desk-widgets' ? ' (Annonce accueil et Mon Desk, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
+    const tplNote = tpl === 'parrainage' ? ' (Parrainage semestriel, variante ' + mailer.parrainVariantKey((req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined) + ', stats separees)' : tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : tpl === 'app-desktop' ? ' (Annonce app desktop, stats separees)' : tpl === 'desk-widgets' ? ' (Annonce accueil et Mon Desk, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
     return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
       note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' : AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }
@@ -24060,10 +24223,23 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
      donc sur le repli, c'est-a-dire qu'il envoyait le mail INTRO a toute la liste, ET sous les
      marqueurs campaign:intro-v1:<email>. Deux degats en un : le mauvais mail chez le client, et
      l'anti-doublon d'une AUTRE campagne brule (l'intro n'aurait plus jamais pu partir). */
-  const bId  = bTpl === 'app-desktop' ? 'app-desktop-v1'
+  /* ⚠️ LE PARRAINAGE EST LA SEULE CAMPAGNE QUI DOIT REPARTIR. Toutes les autres sont des annonces
+     uniques : leur id est constant, et le marqueur `campaign:<id>:<email>` interdit a jamais un
+     second envoi au meme contact — c'est precisement ce qu'on veut d'une annonce. Le parrainage,
+     lui, revient tous les six mois : un id constant l'aurait rendu envoyable UNE FOIS, puis
+     silencieusement ignore pour toujours, chaque contact etant deja marque. Son id porte donc le
+     MOIS du lot. L'anti-doublon devient « une fois par contact et par mois », ce qui est la regle
+     voulue, et c'est LA MEME cle que celle qu'ecrit la boucle semestrielle (`drip:parrain:` etant
+     verifie en plus ci-dessous) : declencher un envoi a la main le mois ou l'automatique est deja
+     passe ne peut pas produire de doublon. */
+  const _bParrainKey = _parrainJour(Date.now()).slice(0, 7);            // 'AAAA-MM'
+  const bId  = bTpl === 'parrainage' ? 'parrainage-' + _bParrainKey
+    : bTpl === 'app-desktop' ? 'app-desktop-v1'
     : bTpl === 'desk-widgets' ? 'desk-widgets-v1'
     : bTpl === 'bibliotheque-widgets' ? 'bibliotheque-widgets-v1'
     : CAMPAIGN_ID;
+  // Variante du lot : imposee par ?variant=, sinon celle du prochain envoi (compteur KV).
+  let _bParrainVar = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : null;
   /* Les 14 widgets annonces portent tous staff: true dans le catalogue : hors admin et support ils
      s'affichent « Bientot » et ne sont pas ajoutables. Le drapeau ouverts DOIT rester faux tant qu'ils
      ne sont pas ouverts a tous, sinon le mail annonce une disponibilite que le compte n'a pas. La
@@ -24072,20 +24248,30 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
   // Les 14 widgets sont OUVERTS A TOUS depuis le 20/08 (fin du rodage) : le defaut du mail est
   // donc « disponibles des maintenant ». ?ouverts=0 garde l ancienne variante « progressive ».
   const bOuverts = req.query.ouverts !== '0';
-  const bBuild = () => bTpl === 'app-desktop'
+  const bBuild = () => bTpl === 'parrainage'
+    ? mailer.buildCampaignReferral({ name: '', email: 'apercu@datatradingpro.com', campaign: bId, variant: _bParrainVar == null ? undefined : _bParrainVar })
+    : bTpl === 'app-desktop'
     ? mailer.buildAnnouncementDesktop({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
     : bTpl === 'desk-widgets'
     ? mailer.buildAnnonceDesk({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
     : bTpl === 'bibliotheque-widgets'
     ? mailer.buildAnnonceWidgets({ name: '', email: 'apercu@datatradingpro.com', campaign: bId, ouverts: bOuverts })
     : mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: bId });
-  const bSend = (email, nm) => bTpl === 'app-desktop'
+  const bSend = (email, nm) => bTpl === 'parrainage'
+    ? mailer.sendCampaignReferral({ to: email, name: nm, campaign: bId, variant: _bParrainVar == null ? undefined : _bParrainVar })
+    : bTpl === 'app-desktop'
     ? mailer.sendAnnouncementDesktop({ to: email, name: nm, campaign: bId })
     : bTpl === 'desk-widgets'
     ? mailer.sendAnnonceDesk({ to: email, name: nm, campaign: bId })
     : bTpl === 'bibliotheque-widgets'
     ? mailer.sendAnnonceWidgets({ to: email, name: nm, campaign: bId, ouverts: bOuverts })
     : mailer.sendCampaignIntro({ to: email, name: nm, campaign: bId });
+
+  /* La variante du lot est FIGEE ICI, une fois, avant le premier envoi. Sans cela le repli de
+     buildCampaignReferral s'appliquerait — un index deduit du SEMESTRE CALENDAIRE, qui n'est pas le
+     compteur d'envois : le panel annoncerait une variante et les clients en recevraient une autre.
+     Un seul point de verite, le compteur KV, lu ici comme il est lu par /api/admin/campaign-plan. */
+  if (bTpl === 'parrainage' && _bParrainVar == null) { try { _bParrainVar = (await _parrainGet()).n; } catch { _bParrainVar = 0; } }
 
   /* ⚠️ VERROU ATOMIQUE (20/08). Il etait teste APRES l'attente de _campaignAudience, qui interroge
      la base des comptes ET l'API Whop : plusieurs secondes. Deux clics dans cette fenetre voyaient
@@ -24150,20 +24336,41 @@ app.get('/api/admin/campaign-send', requireSameOrigin, requireAdminOrInternal, a
   _campaignSend.eligible = recipients.length; _campaignSend.startedAt = Date.now();
   res.json({ started: true, campaign: bId, eligible: recipients.length, note: 'Envoi lance en arriere-plan. Suivi : ?status=1.' });
   const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
+  /* MARQUEUR CROISE AVEC LA BOUCLE SEMESTRIELLE (parrainage uniquement). Les deux chemins peuvent
+     servir le meme contact le meme mois — l'automatique un lundi a 11h, l'admin a la main le
+     lendemain. Ils ecrivent des cles differentes (`campaign:parrainage-AAAA-MM:` ici,
+     `drip:parrain:AAAA-MM:` la-bas), donc aucun des deux ne verrait le passage de l'autre. On lit
+     donc AUSSI la cle de l'autre chemin avant d'envoyer : un contact deja servi ce mois-ci est
+     saute, quel que soit le chemin qui l'a servi. */
+  const _bParrainMk = bTpl === 'parrainage' ? ('drip:parrain:' + _bParrainKey + ':') : null;
   (async () => {
     for (const r of recipients) {
       const email = r.email;
       const marker = 'campaign:' + bId + ':' + email;
       try { if (await auth.emailLogHas('unsub:' + email)) { _campaignSend.unsub++; continue; } } catch {}
       if (!force) { try { if (await auth.emailLogHas(marker)) { _campaignSend.skipped++; continue; } } catch {} }
+      if (_bParrainMk && !force) { try { if (await auth.emailLogHas(_bParrainMk + email)) { _campaignSend.skipped++; continue; } } catch {} }
       try {
         const provider = await bSend(email, r.name || '');
-        if (provider) { _campaignSend.sent++; _recordSent(bId, email); try { await auth.emailLogAdd(marker); } catch {} }
+        if (provider) { _campaignSend.sent++; _recordSent(bId, email); try { await auth.emailLogAdd(marker); } catch {} if (_bParrainMk) { try { await auth.emailLogAdd(_bParrainMk + email); } catch {} } }
         else _campaignSend.failed++;
       } catch { _campaignSend.failed++; }
       if (throttle) await new Promise(rr => setTimeout(rr, throttle));
     }
     _campaignSend.running = false; _campaignSend.finishedAt = Date.now();
+    /* UN ENVOI A LA MAIN COMPTE COMME UN ENVOI. Sans cette mise a jour, declencher le premier mail
+       depuis le panel n'aurait rien ancre : la boucle semestrielle, voyant lastAt vide, serait
+       repartie des le lundi suivant avec la MEME variante — deux fois le meme mail a huit jours
+       d'intervalle. On repousse donc l'echeance de six mois et on avance la variante, exactement
+       comme le fait la boucle. Le compteur n'avance que si au moins un mail est reellement parti. */
+    if (bTpl === 'parrainage' && _campaignSend.sent > 0) {
+      try {
+        const _cur = await _parrainGet();
+        if (_cur.lastKey !== _bParrainKey) await _parrainSet({ n: _cur.n + 1, lastKey: _bParrainKey, lastAt: Date.now() });
+        else await _parrainSet({ n: _cur.n, lastKey: _bParrainKey, lastAt: Date.now() });
+        console.log('[Campagne ' + bId + '] parrainage : prochaine echeance ' + _parrainProchain(Date.now()));
+      } catch (e) { console.warn('[Campagne] compteur parrainage :', e.message); }
+    }
     if (_dripEtaitActif) { _dripState.active = true; try { _saveDrip(true); } catch {} console.log('[Campagne ' + bId + '] drip REACTIVE apres diffusion'); }
     console.log(`[Campagne ${bId}] envoyes=${_campaignSend.sent} deja=${_campaignSend.skipped} desab=${_campaignSend.unsub} echecs=${_campaignSend.failed} / ${recipients.length} cible(s)`);
   })().catch(e => { _campaignSend.running = false; _campaignSend.finishedAt = Date.now(); if (_dripEtaitActif) { _dripState.active = true; try { _saveDrip(true); } catch {} } console.error('[Campagne] erreur:', e.message); });

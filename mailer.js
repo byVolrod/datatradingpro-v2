@@ -3565,6 +3565,131 @@ function buildCampaignInvitation({ name, email, campaign, variant, isMember } = 
 }
 async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignInvitation({ name: d.name, email: d.email || d.to, campaign: d.campaign || 'invitation', variant: d.variant, isMember: d.isMember }); if (!m) return false; const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, variant: m.variant } : false; }
 
+// ── PARRAINAGE (campagne SEMESTRIELLE) ────────────────────────────────────────────────────
+// 04/09, demande user : « programme tous les 6 mois tu envoi un mail pour dire ça puis à chaque
+// fois de différente façon pour pas que ça soit des mails identiques ». Deux exigences, et la
+// seconde est la difficile : un rappel qui revient tous les six mois avec le MÊME texte se lit
+// comme un mail automatique et finit en désabonnement. On ne reformule donc pas — on change
+// D'ANGLE. Les quatre variantes ci-dessous ne disent pas la même chose autrement : elles
+// s'adressent à quatre raisons différentes de parrainer (le revenu, l'abonnement remboursé, la
+// recommandation qu'on fait déjà gratuitement, le lien qu'on n'a jamais activé). À raison de deux
+// envois par an, la première répétition tombe dans DEUX ANS.
+//
+// ⚠️ AUCUN LIEN PERSONNEL DANS LA CAMPAGNE, ET C'EST VOLONTAIRE. Résoudre le lien d'affiliation
+// Whop de chaque destinataire demanderait un appel API PAR CONTACT au moment du broadcast : lent,
+// faillible, et vide pour tout contact pas encore inscrit sur Whop — le mail promettrait alors un
+// lien qu'il ne porte pas. La campagne renvoie donc vers le panneau Parrainages du desk (lien
+// profond `?parrainage=1`, qui ouvre le volet directement sur la section), lequel affiche TOUJOURS
+// le lien à jour. Le lien nominatif reste porté par buildReferralInvite, l'envoi à l'unité.
+const _PARRAIN_VARIANTS = [
+  { key: 'revenu', eyebrow: 'PROGRAMME DE PARRAINAGE',
+    subject: '15 % à vie sur chaque abonné que vous amenez',
+    h1: 'Votre lien vous rapporte, tous les mois',
+    lead: "Le parrainage DataTradingPro est ouvert à tous les membres. Vous partagez votre lien, et chaque personne qui s'abonne grâce à vous vous verse une commission — pas une fois, tous les mois, tant qu'elle reste abonnée.",
+    secTitle: 'Ce que vous touchez',
+    points: [
+      ['15 % à vie', " : la commission tombe à chaque échéance de votre filleul, pas seulement à son inscription."],
+      ['1 mois offert tous les 3 filleuls', " : en plus de la commission, un mois d'accès s'ajoute à votre abonnement."],
+      ['Rien à avancer', " : aucun minimum, aucun palier à atteindre, aucune carte à renseigner."],
+    ],
+    boxTitre: 'La différence entre 15 % et 15 % à vie',
+    box: "Une prime unique vous paie une fois. Une commission récurrente vous paie chaque mois où votre filleul reste. Trois filleuls fidèles valent plus, sur un an, que quinze inscriptions qui ne durent pas.",
+    ctaLead: "Votre lien vous attend dans le desk, section Parrainages de votre profil.",
+    ctaLabel: 'Ouvrir mes parrainages', signoff: 'Merci de faire grandir le desk,' },
+
+  { key: 'rembourse', eyebrow: 'VOTRE ABONNEMENT PEUT SE PAYER SEUL',
+    subject: 'Trois personnes, et votre abonnement est remboursé',
+    h1: 'Le desk que vous payez peut se payer tout seul',
+    lead: "Vous ouvrez le desk chaque matin. Trois autres personnes le feront sur votre recommandation, et votre abonnement cesse d'être une dépense : entre la commission récurrente et le mois offert, il commence à se financer lui-même.",
+    secTitle: 'Comment le calcul tourne',
+    points: [
+      ['3 filleuls = 1 mois offert', " : ajouté à votre abonnement, sans rien demander."],
+      ['Puis 15 % chaque mois', " : sur chacun d'eux, aussi longtemps qu'ils restent abonnés."],
+      ['Et cela continue', " : les trois suivants remettent un mois, la commission s'empile."],
+    ],
+    boxTitre: 'Ce que cela change',
+    box: "Un parrainage n'est pas un geste ponctuel : c'est une ligne qui revient. Le compteur de vos filleuls s'affiche en direct dans votre panneau Parrainages, et vos commissions sont versées par Whop, dans votre espace.",
+    ctaLead: "Le lien à partager se trouve dans votre profil.",
+    ctaLabel: 'Voir mon compteur', signoff: 'À bientôt sur le desk,' },
+
+  { key: 'deja', eyebrow: 'VOUS LE FAITES DÉJÀ',
+    subject: 'Vous recommandez le desk. Autant que cela vous rapporte.',
+    h1: 'Vous en parlez déjà. Sans lien, cela ne compte pas.',
+    lead: "Un trader qui vous demande où vous lisez la macro, une capture du desk envoyée dans un groupe, un nom lâché en discussion : ces recommandations existent déjà. Elles partent simplement sans votre lien, donc sans rien pour vous.",
+    secTitle: 'Ce que le lien change, concrètement',
+    points: [
+      ['La recommandation est tracée', " : toute inscription passée par votre lien vous est attribuée, à vie."],
+      ['Aucun discours à tenir', " : vous partagez un lien, le desk fait la démonstration."],
+      ['15 % récurrents', " : sur chaque abonnement, chaque mois, plus un mois offert tous les 3 filleuls."],
+    ],
+    boxTitre: 'Où le mettre',
+    box: "Une bio Instagram ou X, la description d'une vidéo, un message épinglé de groupe, une signature de mail : partout où l'on vous demande déjà ce que vous utilisez. Un lien posé une fois travaille pendant des mois.",
+    ctaLead: "Récupérez votre lien dans la section Parrainages du desk.",
+    ctaLabel: 'Récupérer mon lien', signoff: 'Bien à vous,' },
+
+  { key: 'dormant', eyebrow: 'RAPPEL',
+    subject: 'Votre lien de parrainage existe. Il ne sert peut-être à rien.',
+    h1: 'Un lien inutilisé ne coûte rien. Il ne rapporte rien non plus.',
+    lead: "Message court. Chaque compte DataTradingPro dispose d'un lien de parrainage. Beaucoup n'ont jamais été ouverts une seule fois — ce mail est là pour ceux-là.",
+    secTitle: 'Trois choses à savoir, et rien de plus',
+    points: [
+      ['La commission est de 15 %, à vie', " : elle revient chaque mois où votre filleul reste abonné."],
+      ['Trois filleuls valent un mois offert', " : ajouté automatiquement à votre abonnement."],
+      ["L'offre gratuite Whop suffit", " : parrainer ne demande pas d'être abonné au produit payant."],
+    ],
+    boxTitre: 'Le seul point qui bloque',
+    box: "Votre compte Whop doit porter la MÊME adresse e-mail que votre compte DataTradingPro. C'est par elle que les deux se reconnaissent : avec une autre adresse, votre lien ne s'affichera jamais, quoi que vous fassiez d'autre.",
+    ctaLead: "Deux minutes suffisent pour vérifier.",
+    ctaLabel: 'Vérifier mon lien', signoff: 'Merci de votre lecture,' },
+];
+// Rotation STRICTE : l'index vient du serveur (compteur d'envois en KV), jamais du hasard. Un tirage
+// aléatoire sur quatre variantes redonne la même une fois sur quatre — soit, à deux envois par an,
+// une répétition attendue tous les deux ans en moyenne, exactement ce que le user ne veut pas. Le
+// repli sur le semestre calendaire ne sert qu'à l'aperçu admin, où aucun compteur n'existe.
+function _parrainVariantIndex() { const d = new Date(); return (d.getFullYear() * 2 + (d.getMonth() >= 6 ? 1 : 0)) % _PARRAIN_VARIANTS.length; }
+// Clé de la variante qui partirait pour un index donné — le panel admin l'affiche AVANT l'envoi.
+function parrainVariantKey(variant) {
+  const n = _PARRAIN_VARIANTS.length;
+  const i = Number.isInteger(variant) ? ((variant % n) + n) % n : _parrainVariantIndex();
+  return _PARRAIN_VARIANTS[i].key;
+}
+const PARRAIN_VARIANTES = _PARRAIN_VARIANTS.map(v => ({ key: v.key, subject: v.subject, h1: v.h1 }));
+function buildCampaignReferral({ name, email, campaign, variant } = {}) {
+  campaign = campaign || 'parrainage';
+  const n = _PARRAIN_VARIANTS.length;
+  const v = _PARRAIN_VARIANTS[Number.isInteger(variant) ? ((variant % n) + n) % n : _parrainVariantIndex()];
+  const prenom = (name || '').split(' ')[0] || '';
+  const hello = prenom ? `Bonjour ${_esc(prenom)},` : 'Bonjour,';
+  const unsub = unsubUrl(email || '');
+  const cta = trackClickUrl(campaign, email, APP_URL + '/?parrainage=1');
+  const pointsHtml = v.points.map(p => `<tr>
+      <td style="padding:5px 10px 5px 0;vertical-align:top;width:12px;"><span style="color:${TOK.or};font-weight:700;">&rarr;</span></td>
+      <td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><strong style="color:#fff;">${_esc(p[0])}</strong>${_esc(p[1])}</td>
+    </tr>`).join('');
+  const body = `
+    <div style="display:inline-block;color:#0d0e11;background:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;margin-bottom:14px;">${_esc(v.eyebrow)}</div>
+    ${_H1}${_esc(v.h1)}</p>
+    <p style="margin:0 0 6px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 4px;">${_esc(v.lead)}</p>
+    ${_secTitle(_esc(v.secTitle))}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:2px 0 4px;">${pointsHtml}</table>
+    ${_goldBox(`<div style="color:${TOK.or};font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${_esc(v.boxTitre)}</div><div>${_esc(v.box)}</div>`)}
+    <p style="margin:0 0 4px;"><strong style="color:#fff;">${_esc(v.ctaLead)}</strong></p>
+    <div style="margin:14px 0 4px;">${_campaignBtn(v.ctaLabel, cta)}</div>
+    <p style="margin:18px 0 4px;">${_esc(v.signoff)}</p>
+    <p style="margin:0 0 16px;color:${TOK.gris};">L'équipe DataTradingPro</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  return { subject: v.subject, html: _campaignLayout('Parrainage', body, unsub), variant: v.key };
+}
+async function sendCampaignReferral(d) {
+  d = d || {};
+  const m = buildCampaignReferral({ name: d.name, email: d.email || d.to, campaign: d.campaign || 'parrainage', variant: d.variant });
+  if (!m) return false;
+  const prov = await _send(d.to, m.subject, m.html);
+  return prov ? { provider: prov, variant: m.variant } : false;
+}
+
 // ── VOTRE RÉCAP QUOTIDIEN (ex « Point marché », S3) ───────────────────────────────────────
 // REFONTE 24/08, demande user : « on offre le récap du jour du desk dans le template pour
 // offrir cette valeur ». Le mail ne teasait plus rien : il DONNE le rapport quotidien entier,
@@ -3971,8 +4096,12 @@ function getEmailCatalog() {
     { key: 'campaignIntro', audience: 'Client + Whop', label: 'Campagne : intro hebdo',       trigger: 'Broadcast campagne (admin) → clients DTP + Whop', ...buildCampaignIntro({ name: s.name, email: s.to }) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
     { key: 'adminRenewal',  audience: 'Admin',  label: 'Notif paiement / nouveau client',  trigger: 'Paiement Whop traité (→ toi)',                ...buildAdminRenewalNotice({ clientEmail: s.to, clientName: s.name, expiresAt: s.expiresAt, isNew: true }) },
-    { key: 'referralInvite',   audience: 'Client', label: 'Parrainage : invitation (campagne)', trigger: 'Annonce du programme à toute la base', ...buildReferralInvite({ name: s.name }) },
+    { key: 'referralInvite',   audience: 'Client', label: 'Parrainage : invitation (à l\'unité)', trigger: 'Envoi manuel à une personne — mail répondable, sans suivi', ...buildReferralInvite({ name: s.name }) },
     { key: 'referralInviteLien', audience: 'Client', label: 'Parrainage : invitation (lien connu)', trigger: 'Idem, quand le lien Whop est déjà résolu', ...buildReferralInvite({ name: s.name, lien: 'https://whop.com/jot-dtp/?a=votrepseudo' }) },
+    { key: 'parrainCamp1', audience: 'Client + Whop', label: 'Parrainage semestriel : variante 1/4 — revenu', trigger: 'Tous les 6 mois → toute la base (rotation, envoi 1)', ...buildCampaignReferral({ name: s.name, email: s.to, campaign: 'parrainage-apercu', variant: 0 }) },
+    { key: 'parrainCamp2', audience: 'Client + Whop', label: 'Parrainage semestriel : variante 2/4 — rembourse', trigger: 'Tous les 6 mois → toute la base (rotation, envoi 2)', ...buildCampaignReferral({ name: s.name, email: s.to, campaign: 'parrainage-apercu', variant: 1 }) },
+    { key: 'parrainCamp3', audience: 'Client + Whop', label: 'Parrainage semestriel : variante 3/4 — deja', trigger: 'Tous les 6 mois → toute la base (rotation, envoi 3)', ...buildCampaignReferral({ name: s.name, email: s.to, campaign: 'parrainage-apercu', variant: 2 }) },
+    { key: 'parrainCamp4', audience: 'Client + Whop', label: 'Parrainage semestriel : variante 4/4 — dormant', trigger: 'Tous les 6 mois → toute la base (rotation, envoi 4)', ...buildCampaignReferral({ name: s.name, email: s.to, campaign: 'parrainage-apercu', variant: 3 }) },
     { key: 'referredWelcome',  audience: 'Client', label: 'Parrainage : bienvenue filleul',  trigger: 'Un filleul s\'inscrit via un parrain',          ...buildReferredWelcome({ name: s.name, referrerName: 'Alex' }) },
     { key: 'referralCredited', audience: 'Client', label: 'Parrainage : filleul confirmé', trigger: 'Un filleul s\'abonne via votre lien',          ...buildReferralCredited({ name: s.name, count: 1, untilNext: 2 }) },
     { key: 'referralReward',   audience: 'Client', label: 'Parrainage : mois offert',       trigger: '3 parrainages atteints → 1 mois offert',      ...buildReferralReward({ name: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
@@ -4147,6 +4276,7 @@ module.exports = {
   sendTrialUpsell, sendAutoRenewOff, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
   sendReferralInvite, buildReferralInvite,
+  sendCampaignReferral, buildCampaignReferral, PARRAIN_VARIANTES, parrainVariantKey,
   sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset, sendCampaignOutlook, sendCampaignInvitation,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,

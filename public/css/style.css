@@ -17524,8 +17524,18 @@ html[data-theme="light"] .news-grp-cpt {
 
 /* Axe des heures : aligné sur la piste, donc mêmes bornes et mêmes extrémités. */
 /* Note de bas de bloc : elle explique ce que veut dire un chevauchement, information qui ne se
-   devine pas et qui est le principal interet de cette frise. */
-.wdg-frise-note { flex: 0 0 auto; font-size: 9.5px; line-height: 1.35; color: var(--text4, #4b5563); }
+   devine pas et qui est le principal interet de cette frise.
+
+   ⚠️ 04/09, capture user (« on voit pas tres bien le texte en bas ») : elle etait ECRITE mais pas
+   LISIBLE. Mesure sur le desk reel, avant correctif : --text4 vaut #444444 en sombre, soit un
+   contraste de 1,98:1 sur le fond de carte — moins de la MOITIE du minimum de 4,5:1 exige pour un
+   texte de cette taille — et 9,5px de feuille de style tombent a 8,55px peints, le zoom du desk
+   valant .9. Deux defauts qui se multiplient : un gris tres sombre a une taille tres petite ne se
+   lit pas, il se devine. La note passe donc a --text2 (6,9:1) et a une taille qui reste
+   secondaire mais franchement lisible, avec un filet qui la detache de la frise pour qu'elle se
+   lise comme une legende et non comme une ligne de donnee oubliee. */
+.wdg-frise-note { flex: 0 0 auto; font-size: 11.5px; line-height: 1.4; color: var(--text2, #9a9aa4);
+  border-top: 1px solid var(--hud-line); padding-top: 6px; }
 .wdg-frise-axe { flex: 0 0 auto; display: flex; justify-content: space-between; font-size: 10px;
   color: var(--txt-3, #6b7280); letter-spacing: .02em; padding-bottom: 1px;
   border-bottom: 1px solid var(--hud-line); }
