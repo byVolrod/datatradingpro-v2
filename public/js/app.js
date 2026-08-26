@@ -740,6 +740,89 @@ function _majPhrase(s) {
   return String(s || '').replace(/^([\s"'«»“”‘’(\[\-–—•]*(?:\*\*)?[\s"'«“‘(\[]*)(\p{Ll})/u,
     (m, pre, ch) => pre + ch.toLocaleUpperCase('fr-FR'));
 }
+/* ══ UN DOIGT NE SURVOLE PAS, ET UN `title` NE S'AFFICHE JAMAIS AU TOUCHER (29/08, audit tactile) ══
+   Trois pictogrammes du desk portent TOUTE leur explication dans un attribut `title=` : le « ⇄ » de
+   divergence entre le structurel et ce que price le marché, l'éclair du calendrier (« sorti sous
+   l'estimation basse »), et le Neutre par défaut du Radar — celui qui distingue un vrai Neutre d'une
+   ABSENCE de publication. Ni iOS ni Android n'affichent d'infobulle : sur téléphone le glyphe reste,
+   son sens disparaît, et il n'existe nulle part ailleurs.
+   On double donc le `title` d'un `data-aide` — même phrase — et on l'ouvre au TAP. Le `title` reste
+   la bulle native du bureau : rien n'y change. Un seul écouteur délégué pour tout le desk ; une
+   seule bulle ouverte à la fois ; et `stopPropagation`, sans quoi taper l'éclair d'une ligne de
+   calendrier ouvrirait AUSSI le Décryptage de cette ligne. */
+(function _aideAuTap() {
+  var MARGE = 8;            // respiration minimale contre les bords de l'écran
+  var ECART = 7;            // distance glyphe → bulle
+  var DUREE = 6000;         // fermeture d'office : le calendrier se rafraîchit tout seul et
+                            // détacherait le glyphe sous la bulle, qui resterait suspendue
+  var ouvert = null, bulle = null, minuteur = 0;
+
+  var fermer = function () {
+    if (minuteur) { clearTimeout(minuteur); minuteur = 0; }
+    if (ouvert) { ouvert.classList.remove('dtp-aide-on'); ouvert = null; }
+    if (bulle && bulle.parentNode) bulle.parentNode.removeChild(bulle);
+    bulle = null;
+  };
+  // `hover: none` désigne exactement les appareils sans survol. Relu à chaque tap : une tablette
+  // avec clavier détachable change de mode sans recharger la page.
+  var tactile = function () { try { return window.matchMedia && window.matchMedia('(hover: none)').matches; } catch (e) { return false; } };
+
+  /* `html { zoom: var(--dtp-zoom) }` — et ce zoom est RÉGLABLE PAR COMPTE (Apparence, .7 à 1.2).
+     getBoundingClientRect() et innerWidth rendent des pixels ÉCRAN, alors que le `left` qu'on écrit
+     sur un enfant de <body> est RE-multiplié par ce même zoom. Sans division la bulle dérive
+     proportionnellement à sa distance au coin haut-gauche : rien de visible à gauche de l'écran,
+     un décalage franc à droite — exactement le genre de bug qu'on ne voit pas sur sa propre machine. */
+  var facteurZoom = function () {
+    var b = document.body;
+    var f = (b && b.offsetWidth > 0) ? (b.getBoundingClientRect().width / b.offsetWidth) : 1;
+    return (isFinite(f) && f > 0.2) ? f : 1;
+  };
+
+  /* La bulle est posée SUR <body>, jamais en ::after du glyphe : ses deux hôtes vivent dans des
+     panneaux à `overflow: auto` (.cal-table-wrap, .sbs-left). Un pseudo-élément y serait rogné dès
+     que le glyphe approche le bas de sa liste — c'est-à-dire précisément sur les dernières lignes,
+     celles qu'on consulte le plus. `position: fixed` sur un enfant de <body> n'a lui aucun ancêtre
+     rogneur (ni `filter`, qui referait un bloc conteneur — .cv-bolt en porte un). */
+  var poser = function (el) {
+    var txt = (el.getAttribute('data-aide') || '').trim();
+    if (!txt) return false;
+    bulle = document.createElement('div');
+    bulle.className = 'dtp-aide-bulle';
+    bulle.textContent = txt;
+    document.body.appendChild(bulle);
+
+    var z = facteurZoom();
+    var r = el.getBoundingClientRect();
+    var vw = window.innerWidth / z, vh = window.innerHeight / z;
+    var gx = r.left / z, gy = r.top / z, gw = r.width / z, gh = r.height / z;
+    var bw = bulle.offsetWidth, bh = bulle.offsetHeight;   // offset* = px CSS non zoomés
+
+    var l = Math.max(MARGE, Math.min(gx + gw / 2 - bw / 2, vw - bw - MARGE));
+    var enBas = (gy + gh + ECART + bh) <= (vh - MARGE);    // sinon on bascule AU-DESSUS du glyphe
+    var t = Math.max(MARGE, Math.min(enBas ? (gy + gh + ECART) : (gy - ECART - bh), vh - bh - MARGE));
+
+    bulle.classList.add(enBas ? 'dtp-aide-bulle--bas' : 'dtp-aide-bulle--haut');
+    // La flèche vise le GLYPHE, pas le centre de la bulle : recadrée contre un bord, la bulle se
+    // décale et les deux ne coïncident plus — une flèche qui pointe à côté désigne le mauvais mot.
+    bulle.style.setProperty('--aide-fleche', Math.max(9, Math.min(gx + gw / 2 - l, bw - 9)) + 'px');
+    bulle.style.left = l + 'px';
+    bulle.style.top = t + 'px';
+    minuteur = setTimeout(fermer, DUREE);
+    return true;
+  };
+
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest && e.target.closest('[data-aide]');
+    if (!el || !tactile()) { fermer(); return; }
+    e.stopPropagation();
+    if (ouvert === el) { fermer(); return; }   // deuxième tap sur le même glyphe = on referme
+    fermer();
+    if (poser(el)) { ouvert = el; el.classList.add('dtp-aide-on'); }
+  }, true);   // en CAPTURE : on prend le tap avant que la ligne qui porte le glyphe ne l'ouvre
+  document.addEventListener('scroll', fermer, true);
+  window.addEventListener('resize', fermer);
+})();
+
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // coupe toute attribution de source ("via NYT", "- Reuters", "(Mehr News)") en fin de puce
@@ -6375,7 +6458,10 @@ function _sbRenderMacroTable(cur, macro) {
     const _hz = mp.horizons || {};
     const _sensFr = d => d === 'Up' ? 'un resserrement' : d === 'Down' ? 'un assouplissement' : 'un maintien';
     const divTag = _hz.divergence
-      ? '<span class="mt-diverg" title="Structurellement ' + _sensFr(_hz.lt) + ', mais le marché price ' + _sensFr(_hz.ct) + ' pour la prochaine réunion : lecture en tension, surveiller le retournement.">⇄</span>'
+      // `data-aide` DOUBLE le `title` (29/08) : le `title` reste la bulle native du bureau, `data-aide`
+      // est la même phrase rendue au TAP sur écran tactile, où aucun `title` ne s'affiche jamais.
+      ? (function (_t) { return '<span class="mt-diverg" title="' + _t + '" data-aide="' + _t + '">⇄</span>'; })(
+          'Structurellement ' + _sensFr(_hz.lt) + ', mais le marché price ' + _sensFr(_hz.ct) + ' pour la prochaine réunion : lecture en tension, surveiller le retournement.')
       : '';
     const monCell = divTag + (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : '');
     const infCell = (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : '');
@@ -6935,7 +7021,9 @@ function _sbFundStance(actual, forecast) {
   return a > f + thr ? 'Bullish' : a < f - thr ? 'Bearish' : 'Neutral';   // beat = haussier (surprise de donnée)
 }
 function _sbRenderFundChildren(box, cur) {
-  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Le guillemet est échappé lui aussi : ces valeurs partent dans des ATTRIBUTS (`title`, `data-aide`),
+  // où un guillemet dans un intitulé d'événement refermerait l'attribut au milieu de la phrase.
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // Source PRIORITAIRE : les 8 sous-indicateurs calculés par le SERVEUR (parent = enfants garanti, même
   // méthodo pro). Repli sur le calcul local depuis le calendrier si le serveur ne les fournit pas.
   const _fr = ((_biasView || _biasData) && (((_biasView || _biasData).rows) || []).find(r => r.key === 'fundamental'));
@@ -6951,8 +7039,11 @@ function _sbRenderFundChildren(box, cur) {
     const ev = evs.filter(e => sub.re.test(e.title || '')).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
     const stance = ev ? _sbFundStance(ev.actual, ev.forecast) : null;
     // Pas de publication récente → Neutral par défaut (convention du terminal : pas de donnée = Neutral, jamais de case vide)
-    if (!stance) return `<div class="sbs-row sbs-row--child" title="Pas de publication récente : Neutre par défaut"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls('Neutral')}">${BIAS_FR['Neutral']}</span></div>`;
-    return `<div class="sbs-row sbs-row--child" title="${esc(ev.title)} : ${esc(ev.actual)} vs ${esc(ev.forecast)}"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(BIAS_FR[stance] || stance)}</span></div>`;
+    if (!stance) return `<div class="sbs-row sbs-row--child" title="Pas de publication récente : Neutre par défaut" data-aide="Pas de publication récente : Neutre par défaut"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls('Neutral')}">${BIAS_FR['Neutral']}</span></div>`;
+    // Ce `title` porte la SEULE trace de l'événement qui fonde le badge (intitulé, réalisé, attendu) :
+    // rien de tout cela n'est affiché. Doublé en `data-aide` pour rester lisible au doigt.
+    const _det = `${esc(ev.title)} : ${esc(ev.actual)} vs ${esc(ev.forecast)}`;
+    return `<div class="sbs-row sbs-row--child" title="${_det}" data-aide="${_det}"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(BIAS_FR[stance] || stance)}</span></div>`;
   }).join('');
 }
 function _sbToggleAcc(key) {

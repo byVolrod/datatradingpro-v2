@@ -1677,7 +1677,17 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .article-points--clean li:last-child { margin-bottom: 0; }
 .article-points--clean li::marker { color: rgba(232,234,237,0.6); }
 /* Sous-titre dans une description Info (ex. « Four points: ») — libellé, pas une puce */
-.article-points--clean li.ip-head { list-style: none; margin-left: -18px; margin-top: 9px; margin-bottom: 3px; font-size: 12px; font-weight: var(--fw-bold); letter-spacing: .01em; color: #f0f0f2; }
+/* ⚠️ LE DÉPORT NE PEUT PAS DÉPASSER LA PLACE QU'IL Y A À GAUCHE (29/08, capture : on lisait
+   « npact marché : », le I mangé par le bord de la carte).
+   Ce sous-titre se déporte de 18 px vers la gauche pour se détacher des puces. Dans une description
+   ouverte, la liste n'a AUCUN retrait à elle (`.news-description.visible .article-points` la met à
+   zéro, et cette règle gagne la cascade) : la place disponible est donc le padding du PANNEAU,
+   c'est-à-dire `--news-desc-bleed`. Sur grand écran il vaut ~248 px — la somme des colonnes de la
+   ligne d'actualité — et 18 px n'y posent aucun problème. Sous 640 px, la carte se réorganise et le
+   bleed retombe à la simple marge de carte : 12 px, 10 px sur les écrans les plus étroits. Le
+   sous-titre sortait alors de 6 à 8 px hors du cadre, et sa première lettre était rognée.
+   On borne donc le déport à ce qui existe, moins deux pixels pour qu'il ne colle pas au bord. */
+.article-points--clean li.ip-head { list-style: none; margin-left: calc(-1 * max(0px, min(18px, var(--news-desc-bleed, 20px) - 2px))); margin-top: 9px; margin-bottom: 3px; font-size: 12px; font-weight: var(--fw-bold); letter-spacing: .01em; color: #f0f0f2; }
 .article-points--clean li.ip-head::marker { content: ""; }
 /* Mots-clés / chiffres importants en gras clair */
 .article-points--clean li strong {
@@ -20418,4 +20428,58 @@ html[data-theme="light"] .dtp-skel-txt .cal-kb-quote {
   /* Messagerie — le menu d'un message (modifier / supprimer) : sans lui, on ne peut ni corriger
      ni retirer ce qu'on vient d'envoyer depuis un téléphone. */
   .chat-menu-btn { opacity: .75; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   UNE INFOBULLE QU'UN DOIGT PEUT OUVRIR (29/08, suite de l'audit tactile)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Trois pictogrammes du desk ne disent ce qu'ils veulent dire QUE dans un `title=` : le « ⇄ » de
+   divergence banque/marché, l'éclair du calendrier (« sorti sous l'estimation basse »), et le
+   Neutre par défaut du Radar — celui qui distingue un vrai Neutre d'une ABSENCE de publication.
+   Ni iOS ni Android n'affichent jamais de `title`. Sur téléphone, le glyphe restait, son sens
+   disparaissait, et il n'existe nulle part ailleurs dans l'écran.
+   La bulle est posée sur <body> en `position: fixed` par `_aideAuTap` (app.js), et pas en
+   pseudo-élément du glyphe : ses deux hôtes vivent dans des panneaux à `overflow: auto`
+   (.cal-table-wrap, .sbs-left), qui rogneraient la bulle des dernières lignes — celles qu'on
+   consulte le plus. Le style reste celui des infobulles du desk (.meter-tooltip, .season-cfg-btn).
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+.dtp-aide-bulle {
+  position: fixed; z-index: 9999;
+  max-width: min(268px, calc(var(--vpw, 100vw) - 24px));
+  padding: 7px 10px;
+  background: #1b1b1f; color: var(--text, #e8e8ea);
+  border: 1px solid #2a2a31; border-radius: 4px;
+  font-family: var(--font-ui); font-size: 12.5px; font-weight: var(--fw-medium); line-height: 1.35;
+  box-shadow: 0 8px 22px rgba(0,0,0,.55);
+  pointer-events: none;   /* le tap SUIVANT doit atteindre ce qu'il vise ; la bulle ne s'interpose pas */
+}
+/* Flèche : un carré tourné à 45°, dont le fond opaque masque le trait de bordure de la bulle sous
+   lui. `--aide-fleche` est écrit par app.js et vise le GLYPHE — une bulle recadrée contre un bord
+   d'écran n'est plus centrée sur lui, et une flèche qui pointe à côté désigne le mauvais mot. */
+.dtp-aide-bulle::after {
+  content: ''; position: absolute; left: var(--aide-fleche, 50%);
+  width: 8px; height: 8px; margin-left: -4px; transform: rotate(45deg);
+  background: #1b1b1f;
+}
+.dtp-aide-bulle--bas::after  { top: -4px;    border-top: 1px solid #2a2a31; border-left: 1px solid #2a2a31; }
+.dtp-aide-bulle--haut::after { bottom: -4px; border-bottom: 1px solid #2a2a31; border-right: 1px solid #2a2a31; }
+body.theme-light .dtp-aide-bulle { background: #ffffff; color: #2a2214; border-color: #dad3c0; box-shadow: 0 8px 22px rgba(60,45,15,.18); }
+body.theme-light .dtp-aide-bulle::after { background: #ffffff; border-color: #dad3c0; }
+
+/* Le glyphe armé se signale : sans retour visuel, un tap qui ouvre une bulle hors du champ de
+   vision (recadrée en haut de l'écran) passerait pour un tap perdu. */
+[data-aide].dtp-aide-on { background: rgba(227,178,58,.16); border-radius: 3px; }
+
+/* ── LA CIBLE DU DOIGT ──────────────────────────────────────────────────────────────────────
+   L'éclair mesure 9 × 13 px, le « ⇄ » 16 × 17 : sous le pouce, ce sont des cibles que l'on rate
+   plus souvent qu'on ne les touche. On les élargit par un ::before transparent — la surface
+   sensible grandit, le dessin ne bouge pas d'un pixel.
+   Volontairement MODESTE, et non les 44 px de la règle Apple : ces deux glyphes sont posés SUR
+   des lignes qui font autre chose (le Décryptage d'un événement du calendrier, l'accordéon d'une
+   banque). Chaque pixel gagné ici est un pixel pris à la ligne. Uniquement sous `hover: none` :
+   au bureau la souris vise juste, et le `title` natif fait déjà le travail. */
+@media (hover: none) {
+  .cv-bolt, .mt-diverg { position: relative; }
+  .cv-bolt::before   { content: ''; position: absolute; inset: -7px -6px; }
+  .mt-diverg::before { content: ''; position: absolute; inset: -6px -5px; }
 }

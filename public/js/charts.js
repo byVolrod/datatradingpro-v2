@@ -4367,7 +4367,8 @@ function calActualCell(actual, forecast, low, title) {
     const a = parseFloat(String(actual).replace(',', '.'));
     const l = parseFloat(String(low).replace(',', '.'));
     if (!isNaN(a) && !isNaN(l) && a < l) {
-      bolt = '<span class="cv-bolt" title="Sorti sous l\'estimation basse (LOW)"><svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg></span>';
+      // `data-aide` double le `title` : au doigt, aucune infobulle native ne s'affiche (cf. _aideAuTap).
+      bolt = '<span class="cv-bolt" title="Sorti sous l\'estimation basse (LOW)" data-aide="Sorti sous l\'estimation basse (LOW)"><svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg></span>';
     }
   }
   return `<span class="cv-actual ${deviationClass(actual, forecast, title)}">${bolt}${actual}</span>`;

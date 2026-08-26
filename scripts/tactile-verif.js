@@ -266,65 +266,136 @@ const SONDE_STYLE = () => {
       v('l\'appui long puis le glissement déplacent l\'onglet, au doigt', /^BANQUES,/.test(ordre), ordre);
       await p2.close();
     }
-    console.log('\n── 5. Un vrai doigt deplace une carte du desk — et le desk defile toujours ──');
-    /* LE CAS LE PLUS COUTEUX, et le moins visible : sous 560 px la grille passe a UNE colonne, donc
-       l'ordre des cartes EST toute la disposition. Il n'existe aucun repli — le panneau de reglages
-       n'a ni « monter » ni « descendre », et la poignee a ete retiree le 04/08. Sur telephone, on ne
-       pouvait pas rearranger son desk du tout.
-       Ce qu'on eprouve ici est le COUPLE, parce que c'est lui qui est delicat : l'en-tete sert a
-       DEUX choses — faire defiler le desk, et saisir la carte. Un glissement franc doit defiler ; un
-       appui insistant puis un glissement doit deplacer. Les deux sont mesures. */
-    const WID = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
-    const dg = WID.indexOf('  function _glisserPourReordonner(');
-    if (dg < 0) { v('la mécanique de déplacement est extractible', false, 'introuvable'); }
+    console.log('\n── 5. Un vrai doigt ouvre l\'explication des pictogrammes ──');
+    /* Trois glyphes du desk portent TOUT leur sens dans un `title=` — le « ⇄ » de divergence, l'éclair
+       du calendrier, le Neutre par défaut du Radar. Aucun téléphone n'affiche un `title` : le dessin
+       restait, le sens disparaissait. On éprouve ici la bulle de remplacement AU DOIGT, avec la VRAIE
+       feuille de style (donc son zoom de page de 90 %) et le VRAI code d'app.js — pas une copie. */
+    const APP2 = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+    const da = APP2.indexOf('(function _aideAuTap() {');
+    const fa = da < 0 ? -1 : APP2.indexOf('\n})();', da);
+    if (da < 0 || fa < 0) { v('_aideAuTap est extractible d\'app.js', false, 'introuvable'); }
     else {
-      const fg = WID.indexOf('\n  }\n', dg);
-      const p3 = await nav.newPage();
-      await p3.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
-      await p3.setContent('<style>body{margin:0}#g{height:2400px}'
-        + '.wdg-card{height:300px;border:1px solid #333;margin:8px}'
-        + '.wdg-head{height:40px;background:#181820}</style>'
-        + '<div id="g">' + [0, 1, 2, 3].map(i => '<div class="wdg-card" data-idx="' + i + '"><header class="wdg-head">carte ' + i + '</header></div>').join('') + '</div>');
-      await p3.evaluate((src) => {
-        window.__ordres = [];
-        const host = document.getElementById('g');
-        const _reorderBefore = (from, to) => window.__ordres.push([from, to]);
-        eval(src + '\n_glisserPourReordonner(host, ".wdg-head", ".wdg-card", "data-idx", _reorderBefore,'
-          + ' { appuiLong: 450, exclus: "button, input", refuse: c => c.classList.contains("wdg-card--locked") });');
-      }, WID.slice(dg, fg + 4));
-      const pos = await p3.evaluate(() => {
-        const h = document.querySelectorAll('.wdg-head');
-        const a = h[2].getBoundingClientRect(), c = h[0].getBoundingClientRect();
-        return { x: a.x + a.width / 2, y: a.y + a.height / 2, cy: c.y + 6 };
-      });
-      // (a) GLISSEMENT FRANC, sans insister : ce doit etre un DEFILEMENT, pas un deplacement.
-      await p3.touchscreen.touchStart(pos.x, pos.y);
-      for (let k = 1; k <= 10; k++) await p3.touchscreen.touchMove(pos.x, pos.y - 12 * k);
-      await p3.touchscreen.touchEnd();
-      await new Promise(r => setTimeout(r, 150));
-      let o = await p3.evaluate(() => window.__ordres.slice());
-      v('un glissement franc sur l\'en-tête ne déplace pas la carte (c\'est un défilement)', o.length === 0, JSON.stringify(o));
-      // (b) APPUI INSISTANT puis glissement : la carte doit se deplacer.
-      await p3.evaluate(() => { window.__ordres.length = 0; window.scrollTo(0, 0); });
-      const p2b = await p3.evaluate(() => {
-        const h = document.querySelectorAll('.wdg-head');
-        const a = h[2].getBoundingClientRect(), c = h[0].getBoundingClientRect();
-        return { x: a.x + a.width / 2, y: a.y + a.height / 2, cy: c.y + 6 };
-      });
-      await p3.touchscreen.touchStart(p2b.x, p2b.y);
-      await new Promise(r => setTimeout(r, 700));
-      for (let k = 1; k <= 12; k++) await p3.touchscreen.touchMove(p2b.x, p2b.y + (p2b.cy - p2b.y) * k / 12);
-      await p3.touchscreen.touchEnd();
-      await new Promise(r => setTimeout(r, 150));
-      o = await p3.evaluate(() => window.__ordres.slice());
-      v('un appui insistant puis un glissement déplace la carte, au doigt', o.length === 1 && o[0][0] === 2, JSON.stringify(o));
-      v('aucune marque ne reste sur la carte après le dépôt',
-        (await p3.evaluate(() => document.querySelectorAll('.wdg-reord-src,.wdg-drop-before,.wdg-drop-after').length)) === 0);
-      await p3.close();
+      const SRC_AIDE = APP2.slice(da, fa) + '\n})();';
+      const LONG = 'Sorti sous l\'estimation basse (LOW)';
+      /* Le glyphe du bas est enfermé dans un panneau à `overflow: auto`, comme .cal-table-wrap et
+         .sbs-left : c'est CE cas qui condamnait le pseudo-élément — rogné pile sur les dernières
+         lignes de la liste, celles qu'on consulte le plus. */
+      const monter = async (features, bureau) => {
+        const p = await nav.newPage();
+        await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+        const c = await p.target().createCDPSession();
+        await c.send('Emulation.setEmulatedMedia', { features });
+        await p.setContent('<html data-theme="dark"><head><meta name="viewport" content="width=device-width, initial-scale=1">'
+          + '<link rel="stylesheet" href="http://localhost:' + PORT + '/css/style.css">'
+          + '<style>body{margin:0;background:#0c0c0e}#zone{position:absolute;left:0;right:0;top:120px;height:400px;overflow:auto}'
+          + '#bloc{height:1400px;position:relative}</style></head><body>'
+          + '<div style="position:absolute;left:250px;top:40px"><span class="mt-diverg" id="g-court" data-aide="Divergence">⇄</span></div>'
+          + '<div style="position:absolute;left:352px;top:80px"><span class="cv-bolt" id="g-bord" data-aide="' + LONG + '">\u26a1</span></div>'
+          + '<div style="position:absolute;left:40px;top:900px"><span class="cv-bolt" id="g-fond" data-aide="' + LONG + '">\u26a1</span></div>'
+          + '<div id="zone"><div id="bloc"><div id="rang" style="position:absolute;left:40px;top:1370px">'
+          + '<span class="cv-bolt" id="g-bas" data-aide="' + LONG + '">\u26a1</span> 1,4 %</div></div></div>'
+          + '</body></html>', { waitUntil: 'networkidle0' });
+        await p.evaluate((s, bur) => {
+          window.__ligne = 0;
+          document.getElementById('rang').addEventListener('click', () => { window.__ligne++; });
+          if (bur) {   // un écran qui survole : `hover: none` ne s'y vérifie jamais
+            const vrai = window.matchMedia.bind(window);
+            window.matchMedia = (q) => (/hover:\s*none/.test(q) ? { matches: false } : vrai(q));
+          }
+          eval(s);
+        }, SRC_AIDE, !!bureau);
+        return p;
+      };
+      const taper = async (p, sel, dx, dy) => {
+        const pt = await p.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect();
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2, gauche: r.x }; }, sel);
+        await p.touchscreen.tap((dx === 'gauche' ? pt.gauche - 3 : pt.x + (dx || 0)), pt.y + (dy || 0));
+        await new Promise(r => setTimeout(r, 130));
+      };
+      const lire = (p, sel) => p.evaluate((s) => {
+        const b = document.querySelector('.dtp-aide-bulle');
+        if (!b) return null;
+        const r = b.getBoundingClientRect(), g = document.querySelector(s).getBoundingClientRect();
+        const z = document.getElementById('zone').getBoundingClientRect();
+        // Zoom de page réel : `--aide-fleche` est écrit en px NON zoomés, il faut le reconvertir
+        // avant de le comparer à une abscisse d'écran.
+        const zm = document.body.offsetWidth ? (document.body.getBoundingClientRect().width / document.body.offsetWidth) : 1;
+        return { txt: b.textContent, sousBody: b.parentElement === document.body,
+          x: r.x, y: r.y, w: r.width, h: r.height, cx: r.x + r.width / 2,
+          gcx: g.x + g.width / 2, gy: g.y, gh: g.height, zoneBas: z.bottom,
+          vw: window.innerWidth, vh: window.innerHeight, zm: zm,
+          fleche: r.x + (parseFloat(getComputedStyle(b).getPropertyValue('--aide-fleche')) || 0) * zm,
+          haut: b.classList.contains('dtp-aide-bulle--haut'), ligne: window.__ligne };
+      }, sel);
+
+      const pt = await monter([{ name: 'hover', value: 'none' }, { name: 'pointer', value: 'coarse' }]);
+
+      /* (a) LE CAS DÉCISIF, ET IL EST INVISIBLE À L'ŒIL NU EN HAUT À GAUCHE. La feuille pose
+         `html { zoom: .9 }`, réglable par compte : un `left` écrit sans repasser en pixels non
+         zoomés dérive de 10 % de l'abscisse — rien à gauche de l'écran, 34 px à droite. */
+      await taper(pt, '#g-court');
+      let b = await lire(pt, '#g-court');
+      v('un tap sur le glyphe ouvre la bulle', !!b && b.txt === 'Divergence', JSON.stringify(b));
+      if (b) {
+        v('… posée sur <body> (aucun panneau ne peut la rogner)', b.sousBody);
+        v('… centrée sur le glyphe malgré le zoom de page', Math.abs(b.cx - b.gcx) <= 3,
+          'centre bulle ' + Math.round(b.cx) + ' px · centre glyphe ' + Math.round(b.gcx) + ' px (zoom ' + b.zm.toFixed(2) + ')');
+        v('… et posée SOUS lui', !b.haut && b.y >= b.gy + b.gh - 1);
+        v('… sans que la ligne qui la porte ne s\'ouvre', b.ligne === 0, 'clics sur la ligne : ' + b.ligne);
+      }
+
+      // (b) UN DEUXIÈME TAP REFERME — sinon la bulle reste en travers de l'écran.
+      await taper(pt, '#g-court');
+      v('un deuxième tap sur le même glyphe referme', (await lire(pt, '#g-court')) === null);
+
+      // (c) LE BORD DROIT : une bulle de 268 px ancrée à 352 px sur un écran de 390.
+      await taper(pt, '#g-bord');
+      b = await lire(pt, '#g-bord');
+      v('près du bord, la bulle reste entièrement à l\'écran', !!b && b.x >= 0 && b.x + b.w <= b.vw + 0.5,
+        b ? 'x ' + Math.round(b.x) + ' → ' + Math.round(b.x + b.w) + ' sur ' + b.vw : 'aucune bulle');
+      // Recadrée contre un bord, la bulle n'est plus centrée sur le glyphe : une flèche restée au
+      // milieu désignerait le mauvais mot.
+      if (b) v('… et sa flèche vise toujours le glyphe', Math.abs(b.fleche - b.gcx) <= 6,
+        'flèche à ' + Math.round(b.fleche) + ' px · glyphe à ' + Math.round(b.gcx) + ' px');
+
+      // (d) LA CIBLE DU DOIGT : l'éclair fait 9 px de large. On tape 3 px À CÔTÉ, hors du dessin.
+      await taper(pt, '#g-bord');   // referme
+      await taper(pt, '#g-bord', 'gauche');
+      v('un tap juste à côté du glyphe l\'atteint quand même (cible élargie)', (await lire(pt, '#g-bord')) !== null);
+
+      /* (e) LE FOND D'UN PANNEAU DÉFILANT — le cas qui rognait un pseudo-élément. La bulle doit
+         DÉBORDER du panneau (c'est la preuve qu'elle lui échappe) sans sortir de l'écran. */
+      await taper(pt, '#g-bord');
+      await pt.evaluate(() => { document.getElementById('zone').scrollTop = 1400; });
+      await new Promise(r => setTimeout(r, 80));
+      await taper(pt, '#g-bas');
+      b = await lire(pt, '#g-bas');
+      v('au fond d\'un panneau défilant, la bulle s\'affiche en entier', !!b && b.y >= 0 && b.y + b.h <= b.vh + 0.5,
+        b ? 'y ' + Math.round(b.y) + ' → ' + Math.round(b.y + b.h) + ' sur ' + b.vh : 'aucune bulle');
+      v('… en débordant du panneau, ce qu\'un pseudo-élément ne pouvait pas faire', !!b && b.y + b.h > b.zoneBas + 1,
+        b ? 'bas de bulle ' + Math.round(b.y + b.h) + ' · bas du panneau ' + Math.round(b.zoneBas) : '');
+
+      // (f) EN BAS DE L'ÉCRAN : faute de place dessous, la bulle bascule AU-DESSUS du glyphe.
+      await taper(pt, '#g-bas');
+      await taper(pt, '#g-fond');
+      b = await lire(pt, '#g-fond');
+      v('collée au bas de l\'écran, la bulle bascule au-dessus du glyphe', !!b && b.haut && b.y + b.h <= b.gy + 1,
+        b ? (b.haut ? 'au-dessus' : 'en dessous') + ' · bas ' + Math.round(b.y + b.h) + ' · glyphe ' + Math.round(b.gy) : 'aucune bulle');
+      await pt.close();
+
+      /* (g) AU BUREAU, RIEN NE CHANGE : le `title` natif reste seul maître, et surtout le tap ne
+         doit pas confisquer le clic de la ligne. ⚠️ Ce Chromium REFUSE d'émuler `hover: hover` —
+         mesuré : avec la feature poussée par le protocole, `matchMedia('(hover: none)')` reste
+         vrai (un navigateur sans tête n'a pas de souris à annoncer). On éprouve donc la GARDE
+         elle-même, en faisant répondre `matchMedia` comme le ferait un vrai écran de bureau. */
+      const ps = await monter([{ name: 'hover', value: 'none' }, { name: 'pointer', value: 'coarse' }], true);
+      await taper(ps, '#g-court');
+      v('sur un écran qui survole, le tap n\'ouvre aucune bulle (le `title` suffit)',
+        await ps.evaluate(() => !document.querySelector('.dtp-aide-bulle')));
+      v('… et le clic revient bien à la ligne qui porte le glyphe', (await ps.evaluate(() => window.__ligne)) === 0);
+      await ps.close();
     }
-    // Le glisser natif ne doit plus etre promis nulle part sur ces surfaces.
-    v('l\'en-tête de carte n\'est plus en glisser natif', !/<header class="wdg-head" draggable=/.test(WID));
-    v('la barre d\'onglets non plus', !/bar\.setAttribute\('draggable', 'true'\)/.test(WID));
   } catch (e) {
     v('les phases navigateur s\'exécutent', false, e.message);
   } finally {
