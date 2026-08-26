@@ -385,6 +385,35 @@ async function interroge(email) {
     /bId\s*=\s*bTpl === 'parrainage'/.test(SRV) && /bBuild = \(\) => bTpl === 'parrainage'/.test(SRV) && /bSend = \(email, nm\) => bTpl === 'parrainage'/.test(SRV),
     'un gabarit absent d\'une des trois enverrait le mail INTRO à toute la liste');
 
+  console.log('\n── 11 bis. Le webhook n\'est pas cru sur parole pour l\'affilié ──');
+  /* 04/09, capture user : le webhook Whop est en API **v1**, alors que notre client parle v2. La
+     question qui saute aux yeux — « le payload v1 porte-t-il bien affiliate_username ? » — n'a en
+     fait aucune importance, et c'est un choix du code qu'il faut protéger : le gestionnaire ne lit
+     PAS l'affilié dans le payload. Il en tire l'identifiant d'adhésion, puis RELIT l'adhésion sur
+     l'API v2, qui fait autorité. Un parrainage ne dépend donc ni de la version du webhook, ni de la
+     bonne foi de ce qui arrive sur la route.
+     ⚠️ C'est exactement le genre de détour qu'un jour quelqu'un « optimise » en lisant directement
+     le payload — un appel réseau de moins, et l'attribution devient dépendante d'un format qu'on ne
+     maîtrise pas, et forgeable par quiconque connaît l'URL. */
+  const R_WH = (() => { const d = SRV.indexOf("app.post('/api/whop/webhook'"); if (d < 0) return ''; const f = SRV.indexOf('\n});', d); return f < 0 ? SRV.slice(d) : SRV.slice(d, f + 4); })();
+  v('le gestionnaire du webhook est lisible', !!R_WH);
+  if (R_WH) {
+    v('il RELIT l\'adhésion sur l\'API plutôt que de croire le payload',
+      /whop\.getMembership\(memId\)/.test(R_WH) || /whop\.getMembershipByEmail\(data\.email\)/.test(R_WH));
+    v('… et il ne lit JAMAIS l\'affilié directement dans le payload',
+      !/data\.affiliate|body\.affiliate/.test(R_WH),
+      'l\'attribution deviendrait dépendante du format du webhook, et forgeable');
+    v('… il abandonne proprement si l\'adhésion n\'est pas retrouvée',
+      /if \(!mem \|\| !mem\.email\)/.test(R_WH), 'il travaillerait sur un objet vide');
+  }
+  /* Et c'est bien le mappeur de l'API qui expose l'affilié, par ses deux formes possibles. */
+  const WH2 = fs.readFileSync(path.join(RACINE, 'whop.js'), 'utf8');
+  v('le mappeur de l\'API expose l\'affilié de l\'adhésion',
+    /affiliateUsername: m\.affiliate_username \|\| \(m\.affiliate && m\.affiliate\.username\)/.test(WH2));
+  v('… et la lecture par identifiant passe par ce mappeur',
+    /async function getMembership\(id\)[\s\S]{0,320}_normalize\(await r\.json\(\)\)/.test(WH2),
+    'un chemin qui court-circuiterait le mappeur perdrait l\'affilié en silence');
+
   console.log('\n── 12 bis. Le diagnostic : le SERVEUR vérifie ce que je ne peux pas atteindre ──');
   /* « Vérifie toi-même » (04/09). Impossible d'ici : la clé Whop ne vit que dans les variables
      d'environnement de Render, et le webhook est ENTRANT — Whop nous appelle, ce qui ne donne aucun
