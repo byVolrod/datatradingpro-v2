@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260826bbg981" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260826bbg982" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -486,6 +486,22 @@
             <p class="camp-note">Bloqué partout (connexion, création, campagne) + session éjectée. « Retirer » réautorise.</p>
           </div>
         </div>
+        <!-- DIAGNOSTIC DU PARRAINAGE (04/09). « Vérifie toi-même » : je ne peux pas — la clé Whop
+             ne vit que dans les variables d'environnement de Render, et le webhook est ENTRANT
+             (Whop nous appelle, ce qui ne donne aucun accès à Whop). Le serveur, lui, a la clé.
+             Cet écran lui fait faire la vérification et dit OÙ la chaîne casserait, sur un compte
+             réel, contre le vrai Whop. -->
+        <div class="panel-card">
+          <div class="panel-head"><h2>Diagnostic parrainage</h2><span class="ph-spacer"></span><span class="fin-sub" id="par-diag-sub"></span></div>
+          <div class="panel-body">
+            <div class="camp-extra">
+              <input id="par-diag-input" placeholder="E-mail d'un client à vérifier…" onkeydown="if(event.key==='Enter')parDiag()"/>
+              <button class="btn" onclick="parDiag()">Vérifier</button>
+            </div>
+            <div id="par-diag-body"></div>
+            <p class="camp-note">Déroule la chaîne réelle sur ce compte&nbsp;: adhésion Whop, nom d'utilisateur, lien affiché, index d'attribution, recherche inverse, compteur. <strong>Aucune écriture</strong>&nbsp;: on regarde, on ne répare rien. Le <strong>taux</strong> de commission et son caractère <strong>récurrent</strong> se règlent dans le tableau de bord Whop et ne sont exposés par aucune API&nbsp;: ce diagnostic vérifie la mécanique, pas le montant.</p>
+          </div>
+        </div>
         <!-- DÉSINSCRITS — la seconde exclusion, qui n'avait aucun écran (04/09). La liste noire coupe
              la CONNEXION ; la désinscription coupe les MAILS. Deux mécanismes, deux effets, et un
              seul se voyait : les désinscrits n'étaient atteignables que ligne par ligne dans le
@@ -828,6 +844,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260826bbg981"></script>
+<script src="/js/admin.js?v=20260826bbg982"></script>
 </body>
 </html>

@@ -1036,6 +1036,32 @@
       loadCampaign();   // recharge déjà la liste noire
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
+  /* ── DIAGNOSTIC PARRAINAGE (04/09) ─────────────────────────────────────────────────────────────
+     Chaque étape porte son propre verdict, et une étape « attention » n'est PAS une étape « ko » :
+     un index d'attribution absent n'empêche plus rien depuis la recherche inverse, alors qu'une
+     adhésion Whop introuvable, elle, bloque tout. Les confondre ferait courir après des faux
+     problèmes et manquer les vrais. */
+  window.parDiag = async function () {
+    const inp = document.getElementById('par-diag-input');
+    const box = document.getElementById('par-diag-body');
+    const sub = document.getElementById('par-diag-sub');
+    const em = ((inp && inp.value) || '').trim();
+    if (!em) { if (sub) sub.textContent = 'entre une adresse'; return; }
+    if (sub) sub.textContent = 'vérification chez Whop…';
+    if (box) box.innerHTML = '<div class="skel" style="height:80px"></div>';
+    try {
+      const d = await fetch('/api/admin/parrainage-diag?email=' + encodeURIComponent(em)).then(r => r.json());
+      if (!d || !d.ok) { if (sub) sub.textContent = ''; if (box) box.innerHTML = '<div class="empty-state">' + _escH((d && d.error) || 'échec') + '</div>'; return; }
+      const ic = { ok: '✓', attention: '!', ko: '✗' };
+      if (sub) sub.innerHTML = '<span class="par-diag-v par-diag-v--' + d.verdict + '">' + _escH(d.resume) + '</span>';
+      if (box) box.innerHTML = '<div class="camp-bl-list">' + (d.etapes || []).map(function (e) {
+        return '<div class="camp-bl-row"><span class="par-diag-p par-diag-p--' + e.etat + '">' + ic[e.etat] + '</span>'
+          + '<span class="camp-bl-em">' + _escH(e.titre) + '</span>'
+          + '<span class="camp-un-meta">' + _escH(e.detail) + '</span></div>';
+      }).join('') + '</div>';
+    } catch (e) { if (sub) sub.textContent = ''; if (box) box.innerHTML = '<div class="empty-state">Erreur réseau.</div>'; }
+  };
+
   /* ── DÉSINSCRITS (04/09, demande user : « les blacklist ne sont pas dedans ») ───────────────────
      Il y avait deux mécanismes d'exclusion et un seul écran. La liste noire du login avait le sien ;
      les désinscrits e-mail n'étaient atteignables que ligne par ligne dans le tableau des comptes,

@@ -21790,6 +21790,82 @@ app.get('/api/admin/unsub-list', requireSameOrigin, requireAdmin, async (req, re
   }
 });
 
+/* ── DIAGNOSTIC DU PARRAINAGE, COMPTE PAR COMPTE (04/09) ──────────────────────────────────────────
+   Demande utilisateur : « verifie toi-meme ». Je ne peux pas : la cle Whop ne vit que dans les
+   variables d'environnement de Render, et le webhook est ENTRANT — Whop nous appelle, ce qui ne
+   donne aucun acces a Whop. Le SERVEUR, lui, a la cle. Cette route lui fait faire la verification
+   et rend le resultat lisible, etape par etape.
+   Elle ne se contente pas de dire « ca marche » : elle deroule la chaine reelle sur un compte reel
+   et dit OU elle casserait. C'est le seul moyen de repondre a « est-ce que ca va marcher » autrement
+   que par une opinion. AUCUNE ECRITURE : on regarde, on ne repare rien — un diagnostic qui modifie
+   ce qu'il mesure ne se relit pas deux fois de la meme facon. */
+app.get('/api/admin/parrainage-diag', requireSameOrigin, requireAdmin, async (req, res) => {
+  const em = String(req.query.email || '').toLowerCase().trim();
+  if (!em) return res.status(400).json({ ok: false, error: 'adresse attendue' });
+  const etapes = [];
+  const pas = (titre, etat, detail) => etapes.push({ titre, etat, detail: detail || '' });
+  try {
+    // 1. Le compte existe-t-il sur le desk ?
+    const tous = await auth.getAllUsers().catch(() => []);
+    const u = tous.find(x => String(x.email || '').toLowerCase().trim() === em);
+    pas('Compte sur le desk', u ? 'ok' : 'ko',
+      u ? (u.name || '(sans nom)') + ' · ' + u.role : 'Aucun compte a cette adresse. Un contact Whop sans compte peut toucher la commission, mais son compteur de filleuls n\'existe pas.');
+
+    // 2. Whop connait-il ce membre, et sous quel pseudo ?
+    let aff = null, erreurWhop = null;
+    try { aff = await whop.getAffiliateInfo(em); } catch (e) { erreurWhop = e.message; }
+    if (erreurWhop) pas('Whop repond', 'ko', erreurWhop);
+    else pas('Whop connait ce membre', aff ? 'ok' : 'ko',
+      aff ? 'adhesion trouvee' : 'Aucune adhesion a cette adresse dans l\'espace. Le client doit creer un compte Whop avec LA MEME adresse (l\'offre gratuite suffit).');
+
+    // 3. Le pseudo, qui est la cle de toute l'attribution.
+    const pseudo = aff && aff.username ? String(aff.username).toLowerCase() : null;
+    pas('Nom d\'utilisateur Whop', pseudo ? 'ok' : (aff ? 'attention' : 'ko'),
+      pseudo ? pseudo : (aff ? 'Whop ne renvoie pas de pseudo exploitable. La commission tombera, mais l\'attribution passera par la recherche inverse.' : '—'));
+
+    // 4. Le lien reellement servi au client.
+    const lien = (aff && aff.pageUrl) ? aff.pageUrl
+      : (pseudo ? REF_WHOP_BASE + '?a=' + encodeURIComponent(pseudo) : null);
+    pas('Lien affiche dans le panneau', lien ? 'ok' : 'ko', lien || 'aucun lien ne serait affiche');
+
+    // 5. L'index d'attribution : c'est lui qui fait monter le compteur.
+    let idx = null;
+    if (pseudo) { try { idx = await auth.aiCacheGet('whopaff:' + pseudo, KV_FOREVER); } catch (e) {} }
+    const idxBon = !!(idx && u && String(idx) === String(u.id));
+    pas('Index d\'attribution', idx ? (idxBon ? 'ok' : 'attention') : 'attention',
+      !idx ? 'Pas encore ecrit. Ce n\'est plus bloquant : le webhook retrouve le parrain par recherche inverse et ecrit l\'index a ce moment-la.'
+           : (idxBon ? 'pointe bien sur ce compte' : 'pointe sur un AUTRE compte (' + idx + ')'));
+
+    // 6. La recherche inverse, eprouvee contre le VRAI Whop.
+    if (pseudo) {
+      let inv = null, errInv = null;
+      try { inv = await whop.findEmailByUsername(pseudo); } catch (e) { errInv = e.message; }
+      const bonne = inv && String(inv.email || '').toLowerCase().trim() === em;
+      pas('Recherche inverse (pseudo → compte)', bonne ? 'ok' : 'attention',
+        errInv ? errInv : (inv ? ('renvoie ' + inv.email + (bonne ? '' : ' — ce n\'est PAS l\'adresse de depart')) : 'Whop ne retrouve pas ce pseudo. Un filleul ne pourrait etre attribue que si l\'index existe deja.'));
+    }
+
+    // 7. L'etat du compteur, tel que le client le voit.
+    if (u) {
+      let rec = null;
+      try { rec = await auth.aiCacheGet('referral:' + u.id, KV_FOREVER); } catch (e) {}
+      const n = (rec && rec.count) || 0;
+      pas('Compteur de filleuls', 'ok', n + ' filleul(s) · ' + ((rec && rec.rewards) || 0) + ' mois offert(s) · prochain a ' + (REF_TARGET - (n % REF_TARGET)) + ' filleul(s)');
+    }
+
+    const ko = etapes.filter(e => e.etat === 'ko').length;
+    const att = etapes.filter(e => e.etat === 'attention').length;
+    res.json({
+      ok: true, email: em, etapes,
+      verdict: ko ? 'ko' : (att ? 'attention' : 'ok'),
+      resume: ko ? 'Ce compte ne peut PAS parrainer en l\'etat.'
+        : att ? 'Ce compte peut parrainer ; un point merite un oeil.'
+        : 'Ce compte peut parrainer, et ses filleuls seront comptes.',
+      note: 'Le TAUX de commission (15 %) et son caractere RECURRENT sont regles dans le tableau de bord Whop, pas ici : aucune API ne les expose. Ce diagnostic verifie la chaine technique, pas le montant.',
+    });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message, etapes }); }
+});
+
 // ─── Desinscription (opt-out) — PUBLIC (lien dans les mails de campagne) ────────
 // Jeton HMAC verifie (mailer.unsubToken) → on ne peut pas desabonner un tiers en devinant l'URL.
 // Marque unsub:<email> dans email_log (DURABLE Supabase + fichier) → la campagne saute cet email.

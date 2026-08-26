@@ -757,6 +757,17 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
   border: 1px solid var(--border); color: var(--text3); font-size: var(--fs-micro); }
 .camp-un-tag--self { border-color: rgba(255, 179, 0, .45); color: #ffb300; background: rgba(255, 179, 0, .08); }
 .camp-bl-row .camp-un-meta + .camp-bl-x { margin-left: var(--sp-2); }
+/* DIAGNOSTIC PARRAINAGE — trois verdicts, trois couleurs de la charte, et « attention » n'est pas
+   « ko » : un index d'attribution absent n'empeche plus rien, une adhesion Whop introuvable bloque
+   tout. Les peindre pareil ferait courir apres des faux problemes. */
+.par-diag-p { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 4px; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: var(--fw-bold); font-size: 11px; }
+.par-diag-p--ok        { background: rgba(0, 230, 118, .12);  color: var(--green); }
+.par-diag-p--attention { background: rgba(255, 179, 0, .12);  color: var(--neutral); }
+.par-diag-p--ko        { background: rgba(231, 76, 60, .12);  color: var(--red); }
+.par-diag-v { font-weight: var(--fw-semibold); }
+.par-diag-v--ok { color: var(--green); } .par-diag-v--attention { color: var(--neutral); } .par-diag-v--ko { color: var(--red); }
+.camp-bl-row .par-diag-p + .camp-bl-em { margin-left: 8px; }
 .camp-recip-list, .camp-bl-list { flex-direction: column; gap: 0; }
 .camp-btn--armed { background: rgba(231, 76, 60, .14); border-color: rgba(231, 76, 60, .55); color: #f0857a; }
 /* Sélecteur de campagne des statistiques : « Total » (vue consolidée) est détaché du reste par un

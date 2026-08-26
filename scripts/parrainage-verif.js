@@ -385,6 +385,36 @@ async function interroge(email) {
     /bId\s*=\s*bTpl === 'parrainage'/.test(SRV) && /bBuild = \(\) => bTpl === 'parrainage'/.test(SRV) && /bSend = \(email, nm\) => bTpl === 'parrainage'/.test(SRV),
     'un gabarit absent d\'une des trois enverrait le mail INTRO à toute la liste');
 
+  console.log('\n── 12 bis. Le diagnostic : le SERVEUR vérifie ce que je ne peux pas atteindre ──');
+  /* « Vérifie toi-même » (04/09). Impossible d'ici : la clé Whop ne vit que dans les variables
+     d'environnement de Render, et le webhook est ENTRANT — Whop nous appelle, ce qui ne donne aucun
+     accès à Whop. Le serveur, lui, a la clé. Cette route lui fait dérouler la chaîne sur un compte
+     réel et dit OÙ elle casserait. */
+  const R_DIAG = (() => { const d = SRV.indexOf("app.get('/api/admin/parrainage-diag'"); if (d < 0) return ''; const f = SRV.indexOf('\n});', d); return f < 0 ? SRV.slice(d) : SRV.slice(d, f + 4); })();
+  v('la route de diagnostic existe', !!R_DIAG);
+  if (R_DIAG) {
+    v('… elle interroge le VRAI Whop, pas un cache', /whop\.getAffiliateInfo\(em\)/.test(R_DIAG));
+    v('… elle éprouve aussi la recherche inverse contre le vrai Whop', /whop\.findEmailByUsername\(pseudo\)/.test(R_DIAG));
+    v('… elle lit l\'index d\'attribution ET le compteur', /aiCacheGet\('whopaff:'/.test(R_DIAG) && /aiCacheGet\('referral:'/.test(R_DIAG));
+    /* ⚠️ UN DIAGNOSTIC N'ÉCRIT RIEN. Réparer ce qu'on mesure — écrire l'index au passage, par
+       exemple — donnerait un écran qui ne dit jamais deux fois la même chose : vert au second
+       passage parce qu'il s'est réparé lui-même au premier, sans qu'on sache ce qui n'allait pas. */
+    v('AUCUNE écriture : un diagnostic qui répare ne se relit pas deux fois pareil',
+      !/aiCacheSet|emailLogAdd|updateUser|aiCacheDel/.test(R_DIAG), 'il modifierait ce qu\'il mesure');
+    /* Trois verdicts distincts, parce qu'ils n'appellent pas les mêmes gestes : un index absent
+       n'empêche plus rien depuis la recherche inverse, une adhésion Whop introuvable bloque tout. */
+    v('« attention » et « ko » ne sont pas confondus',
+      /verdict: ko \? 'ko' : \(att \? 'attention' : 'ok'\)/.test(R_DIAG),
+      'on courrait après de faux problèmes et on manquerait les vrais');
+    v('… et il dit franchement ce qu\'il NE vérifie pas (le taux se règle chez Whop)',
+      /aucune API ne les expose/.test(R_DIAG), 'un diagnostic vert ferait croire le taux vérifié');
+    /* ADM/ADH sont declares plus bas (section 13) : les lire ici tomberait dans leur zone morte
+       temporelle — une erreur d'execution, pas un rouge. On relit les fichiers localement. */
+    const _adm = fs.readFileSync(path.join(RACINE, 'public/js/admin.js'), 'utf8');
+    const _adh = fs.readFileSync(path.join(RACINE, 'public/admin.html'), 'utf8');
+    v('l\'écran existe dans le panneau', /id="par-diag-body"/.test(_adh) && /window\.parDiag/.test(_adm));
+  }
+
   console.log('\n── 13. Le panel dit QUAND, et il dit QUOI ──');
   v('l\'API du programme expose la date du prochain parrainage', /parrainage: \{\s*\n?\s*date:/.test(SRV));
   v('… la variante qui partira', /variante: mailer\.parrainVariantKey/.test(SRV));
