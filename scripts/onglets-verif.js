@@ -109,14 +109,23 @@ console.log('\n── 5. Les réglages inconnus sont conservés, pas jetés ─�
 console.log('\n── 6. Le geste est branché des DEUX côtés ──');
 /* « que ça se mette à jour dans le panneau à onglet quand on déplace » : le volet de réglages ET la
    barre d'onglets de la carte. Sans le second, deux vérités s'affichent en même temps. */
-v('une poignée est posée sur chaque ligne', /class="wdg-set-tabgrip" draggable="true" data-j="/.test(SRC));
+v('une poignée est posée sur chaque ligne', /class="wdg-set-tabgrip" data-j="/.test(SRC));
 v('elle est absente quand il n\'y a qu\'un onglet', /var _grip = tl\.length > 1/.test(SRC));
 v('les flèches ↑ ↓ déplacent au clavier', /event\.key===\\'ArrowUp\\'\|\|event\.key===\\'ArrowDown\\'/.test(SRC));
 v('le volet est re-rendu', /moveTab: function[\s\S]{0,700}?_syncPanel\(i\);/.test(SRC));
 v('LA CARTE aussi (la barre d\'onglets suit)', /moveTab: function[\s\S]{0,700}?API\.refresh\(i\);/.test(SRC));
 v('le focus reste sur la poignée déplacée', /moveTab: function[\s\S]{0,1200}?wdg-set-tabgrip\[data-j="/.test(SRC));
-v('le glisser-déposer est câblé sur le VOLET, pas sur la liste', /function _wireTabsDnD\(pop, i\)[\s\S]{0,400}?pop\.addEventListener\('dragstart'/.test(SRC));
-v('câblé une seule fois par volet', /if \(!pop \|\| pop\._tabsWired\) return; pop\._tabsWired = true;/.test(SRC));
+v('le déplacement est câblé sur le VOLET, pas sur la liste', /function _wireTabsDnD\(pop, i\) \{\s*_glisserPourReordonner\(pop, /.test(SRC));
+// Le drapeau vit désormais dans la mécanique commune, qui sert AUSSI le gestionnaire de desks : un
+// écouteur empilé par re-rendu déplacerait l'onglet deux fois d'un seul geste.
+v('câblé une seule fois par hôte', /if \(!hote \|\| hote\._reordWired\) return; hote\._reordWired = true;/.test(SRC));
+/* Les trois pièces sans lesquelles le doigt ne fonctionne pas — chacune a coûté une panne :
+   la capture (le doigt quitte la poignée dès le premier pixel), le seuil (un appui n'est pas un
+   glissement), et la lecture de ce qu'il y a SOUS le doigt (avec la capture, `e.target` reste la
+   poignée, quelle que soit la ligne visée). */
+v('le geste est capturé sur la poignée', /g\.setPointerCapture\(e\.pointerId\)/.test(SRC));
+v('un seuil distingue l\'appui du glissement', /Math\.abs\(e\.clientY - y0\) < 4/.test(SRC));
+v('la ligne visée est lue sous le pointeur', /document\.elementFromPoint\(x, y\)/.test(SRC));
 v('re-câblé à chaque ouverture (la carte est reconstruite)', /if \(willOpen && kind === 's' && target\) _wireTabsDnD\(target, idx\);/.test(SRC));
 v('le décalage d\'un cran est corrigé au dépôt', /if \(from < cible\) cible--;/.test(SRC));
 v('les repères de dépôt reprennent ceux du gestionnaire de desks', /\.wdg-set-tabrow\.wdg-drop-before/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
@@ -128,23 +137,49 @@ v('retirer un onglet retire AUSSI son icône', /if \(Array\.isArray\(it\.tabIcon
 v('l\'annulation restaure les icônes', /if \(snap\.tabIcons\) itRef\.tabIcons = snap\.tabIcons\.slice\(\); else delete itRef\.tabIcons;/.test(SRC));
 v('le snapshot les emporte', /tabIcons: it\.tabIcons \|\| null,/.test(SRC));
 
-/* ── PHASE NAVIGATEUR : LE GLISSER-DÉPOSER, POUR DE VRAI ────────────────────────────────────────
-   Tout ce qui précède prouve le CALCUL. Rien n'y prouve que le geste arrive jusqu'à lui : un
-   écouteur posé au mauvais endroit, un `closest` qui ne remonte pas, un `preventDefault` oublié sur
-   `dragover` (sans lui, Chrome N'ÉMET JAMAIS `drop` — la panne classique du glisser-déposer HTML5,
-   et parfaitement invisible en lecture de code). On extrait donc le VRAI `_wireTabsDnD`, on le pose
-   sur un volet reconstitué dans un Chromium, et on glisse.
-   Sans navigateur disponible, la phase s'abstient — elle ne rend jamais un poste inutilisable. */
-const D2 = SRC.indexOf('  function _wireTabsDnD(pop, i) {');
-const F2 = D2 < 0 ? -1 : SRC.indexOf('\n  }\n', D2);
-if (D2 < 0) { v('_wireTabsDnD est extractible', false, 'introuvable dans widgets.js'); }
+/* ── PHASE NAVIGATEUR : LE GESTE, AU DOIGT ET À LA SOURIS ───────────────────────────────────────
+   Tout ce qui précède prouve le CALCUL. Rien n'y prouve que le geste arrive jusqu'à lui.
 
-const CABLAGE = D2 < 0 ? '' : SRC.slice(D2, F2 + 4);
-const LIGNES = SRC.match(/return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \+ '">'/) ? true : false;
+   ⚠️ ET LA VERSION PRÉCÉDENTE DE CETTE PHASE NE LE PROUVAIT PAS NON PLUS. Elle ouvrait bien un vrai
+   Chromium, mais elle FABRIQUAIT les événements : `new DragEvent('dragstart', …)` puis
+   `dispatchEvent`. Un événement fabriqué arrive toujours — que le navigateur l'émette ou non. Elle
+   validait donc le câblage tout en restant aveugle à la seule chose qui comptait : sur un écran
+   TACTILE, un doigt posé sur un élément `draggable` ne produit JAMAIS `dragstart`, et le
+   réordonnancement des onglets était mort sur téléphone. Mesuré : zéro déplacement au doigt, un à
+   la souris, pour exactement le même geste.
+
+   Cette phase conduit donc de VRAIES entrées — `page.touchscreen` d'un côté, `page.mouse` de
+   l'autre — sur le VRAI câblage extrait de widgets.js. Ce qu'elle mesure ne peut plus être vrai
+   « en théorie » : si le doigt ne déplace rien, elle le dit.
+   Sans navigateur disponible, elle s'abstient — elle ne rend jamais un poste inutilisable. */
+const D2 = SRC.indexOf('  function _glisserPourReordonner(hote, selPoignee, selLigne, attr, deplacer) {');
+const D3 = SRC.indexOf('  function _wireTabsDnD(pop, i) {');
+const bloc = (d) => { const f = SRC.indexOf('\n  }\n', d); return SRC.slice(d, f + 4); };
+const CABLAGE = (D2 < 0 || D3 < 0) ? '' : bloc(D2) + '\n' + bloc(D3);
+const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \+ '">/.test(SRC);
 
 (async () => {
-  console.log('\n── 8. Le glisser-déposer dans un vrai Chromium ──');
+  console.log('\n── 8. Le geste, dans un vrai Chromium : au doigt ET à la souris ──');
   v('la ligne d\'onglet porte son index', LIGNES);
+  v('la mécanique de déplacement est extractible', !!CABLAGE, 'fonctions introuvables dans widgets.js');
+  /* ⚠️ LA POIGNÉE NE DOIT PLUS ÊTRE `draggable`. Le glisser-déposer natif n'existe pas au doigt, et
+     sur les autres appareils il VOLE le geste au pointeur : dès qu'un drag natif démarre, Chrome
+     cesse d'émettre `pointermove`. Les deux mécanismes ne peuvent pas cohabiter sur le même objet. */
+  v('la poignée d\'onglet n\'est plus en glisser natif', !/class="wdg-set-tabgrip" draggable="true"/.test(SRC),
+    'un `draggable` sur la poignée vole le geste au pointeur');
+  /* LE SÉLECTEUR DU CODE DOIT NOMMER LA CLASSE QUE LE RENDU ÉMET. Défaut trouvé le 29/08 : le
+     gestionnaire de desks cherchait `.wdg-mgr-row` quand le rendu produit `.wdg-mgr-card` — la
+     classe avait été renommée sans que le glisser suive, et cette liste ne se réordonnait plus DU
+     TOUT, ni au doigt ni à la souris. Invisible à la lecture : deux noms plausibles, dans deux
+     fichiers. On vérifie donc que les deux listes se réordonnent sur une classe RÉELLEMENT rendue. */
+  [['.wdg-set-tabrow', 'wdg-set-row wdg-set-tabrow', 'des onglets'],
+   ['.wdg-mgr-card', 'wdg-mgr-card', 'des desks']].forEach(([sel, rendu, quoi]) => {
+    const cite = SRC.indexOf("'" + sel + "'") >= 0;
+    const emis = SRC.indexOf('class="' + rendu) >= 0 || SRC.indexOf("class=\"" + rendu) >= 0;
+    v('le déplacement ' + quoi + ' vise une classe réellement rendue', cite && emis,
+      'cité: ' + cite + ' · rendu: ' + emis);
+  });
+
   let puppeteer;
   try { puppeteer = require('puppeteer-core'); }
   catch { console.log('  · puppeteer-core absent → phase navigateur abstenue.'); return fin(); }
@@ -157,59 +192,99 @@ const LIGNES = SRC.match(/return '<div class="wdg-set-row wdg-set-tabrow" data-j
     return c.find(x => x && fs.existsSync(x)) || null;
   })();
   if (!bin) { console.log('  · aucun Chromium trouvé → phase navigateur abstenue.'); return fin(); }
+  if (!CABLAGE) return fin();
 
   let nav;
   try {
     nav = await puppeteer.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    const page = await nav.newPage();
-    await page.setContent('<div id="pop" class="wdg-pop"></div>');
-    const r = await page.evaluate((cablage, n) => {
-      var appels = [];
-      // Le volet, tel que le rend _setPanelHtml : des lignes .wdg-set-tabrow[data-j] avec leur poignée.
-      var pop = document.getElementById('pop');
-      var h = '';
-      for (var j = 0; j < n; j++) {
-        h += '<div class="wdg-set-row wdg-set-tabrow" data-j="' + j + '" style="height:30px">'
-          + '<button class="wdg-set-tabgrip" draggable="true" data-j="' + j + '">x</button>'
-          + '<input value="onglet ' + j + '"></div>';
-      }
-      pop.innerHTML = h;
-      var API = { moveTab: function (i, from, to) { appels.push([i, from, to]); } };
-      var HOST_ID = 'nimporte';
-      eval(cablage + '; _wireTabsDnD(pop, 7);');
-      var lignes = pop.querySelectorAll('.wdg-set-tabrow');
-      var glisser = function (de, vers, bas) {
-        var dt = new DataTransfer();
-        lignes[de].querySelector('.wdg-set-tabgrip')
-          .dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
-        var b = lignes[vers].getBoundingClientRect();
-        var y = b.top + (bas ? b.height * 0.8 : b.height * 0.2);
-        var ov = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientY: y });
-        lignes[vers].dispatchEvent(ov);
-        var repere = lignes[vers].className;
-        var accepte = ov.defaultPrevented;      // sans preventDefault, Chrome n'émettra jamais `drop`
-        lignes[vers].dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientY: y }));
-        lignes[vers].dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
-        return { repere: repere, accepte: accepte };
-      };
-      var bas = glisser(0, 3, true);            // moitié BASSE de la 4e ligne → après elle
-      var haut = glisser(5, 2, false);          // moitié HAUTE de la 3e ligne → avant elle
-      // Un glissement qui ne part PAS d'une poignée ne doit rien déclencher.
-      var dt2 = new DataTransfer();
-      lignes[1].querySelector('input').dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt2 }));
-      lignes[4].dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt2, clientY: 0 }));
-      return { appels: appels, bas: bas, haut: haut, restes: pop.querySelectorAll('.wdg-drop-before,.wdg-drop-after').length };
-    }, CABLAGE, 7);
 
-    v('le survol accepte le dépôt (preventDefault sur dragover)', r.bas.accepte && r.haut.accepte,
-      'sans lui Chrome n\'émet jamais `drop`');
-    v('un repère de dépôt s\'affiche sous la ligne visée', /wdg-drop-after/.test(r.bas.repere), r.bas.repere);
-    v('…et au-dessus quand on vise le haut de la ligne', /wdg-drop-before/.test(r.haut.repere), r.haut.repere);
-    v('deux glissements → deux déplacements', r.appels.length === 2, JSON.stringify(r.appels));
-    v('déposer sous la 4e ligne place l\'onglet en 4e position', JSON.stringify(r.appels[0]) === '[7,0,3]', JSON.stringify(r.appels[0]));
-    v('déposer au-dessus de la 3e ligne l\'y place', JSON.stringify(r.appels[1]) === '[7,5,2]', JSON.stringify(r.appels[1]));
-    v('glisser hors d\'une poignée ne déplace rien', r.appels.length === 2);
-    v('aucun repère ne reste affiché après le dépôt', r.restes === 0, String(r.restes));
+    /* Le volet, tel que `_setPanelHtml` le rend : des lignes .wdg-set-tabrow[data-j] avec leur
+       poignée. Les hauteurs sont posées ici pour que les cibles soient calculables. */
+    const poser = async (tactile) => {
+      const page = await nav.newPage();
+      await page.setViewport({ width: 390, height: 844, isMobile: tactile, hasTouch: tactile, deviceScaleFactor: tactile ? 3 : 1 });
+      await page.setContent('<style>body{margin:0}.wdg-set-tabrow{height:44px;display:flex;align-items:center}'
+        + '.wdg-set-tabgrip{width:32px;height:32px;touch-action:none}</style><div id="pop"></div>');
+      await page.evaluate((cablage, n) => {
+        window.__appels = [];
+        const pop = document.getElementById('pop');
+        let h = '';
+        for (let j = 0; j < n; j++) {
+          h += '<div class="wdg-set-row wdg-set-tabrow" data-j="' + j + '">'
+            + '<button type="button" class="wdg-set-tabgrip" data-j="' + j + '">x</button>'
+            + '<input value="onglet ' + j + '"></div>';
+        }
+        pop.innerHTML = h;
+        const API = { moveTab: (i, from, to) => window.__appels.push([i, from, to]) };
+        eval(cablage + '; _wireTabsDnD(pop, 7);');
+      }, CABLAGE, 7);
+      return page;
+    };
+    // Cible : le centre de la poignée de la ligne `de`, et un point dans la ligne `vers`
+    // (moitié haute ou basse, ce qui décide du côté du dépôt).
+    const cibles = (page, de, vers, bas) => page.evaluate((de, vers, bas) => {
+      const L = document.querySelectorAll('.wdg-set-tabrow');
+      const g = L[de].querySelector('.wdg-set-tabgrip').getBoundingClientRect();
+      const c = L[vers].getBoundingClientRect();
+      return { gx: g.x + g.width / 2, gy: g.y + g.height / 2, cy: c.y + c.height * (bas ? 0.8 : 0.2) };
+    }, de, vers, bas);
+    const glisser = async (page, tactile, b, pas) => {
+      const N = pas == null ? 14 : pas;
+      if (tactile) {
+        await page.touchscreen.touchStart(b.gx, b.gy);
+        for (let k = 1; k <= N; k++) await page.touchscreen.touchMove(b.gx, b.gy + (b.cy - b.gy) * k / N);
+        await page.touchscreen.touchEnd();
+      } else {
+        await page.mouse.move(b.gx, b.gy); await page.mouse.down();
+        for (let k = 1; k <= N; k++) await page.mouse.move(b.gx, b.gy + (b.cy - b.gy) * k / N);
+        await page.mouse.up();
+      }
+      await new Promise(r => setTimeout(r, 120));
+    };
+    const lire = (page) => page.evaluate(() => ({
+      appels: window.__appels.slice(),
+      restes: document.querySelectorAll('.wdg-drop-before,.wdg-drop-after,.wdg-reord-src').length,
+    }));
+
+    for (const tactile of [true, false]) {
+      const quoi = tactile ? 'au doigt' : 'à la souris';
+      console.log('  · ' + (tactile ? 'écran tactile 390×844' : 'souris'));
+      const page = await poser(tactile);
+
+      // LE GESTE DE LA DEMANDE : remonter le DERNIER onglet (« MONDE ») vers le haut de la liste.
+      await glisser(page, tactile, await cibles(page, 6, 1, false));
+      let r = await lire(page);
+      v('remonter le dernier onglet vers le haut, ' + quoi, JSON.stringify(r.appels) === '[[7,6,1]]', JSON.stringify(r.appels));
+      v('aucun repère ne reste affiché après le dépôt, ' + quoi, r.restes === 0, String(r.restes));
+
+      // Vers le BAS, et sur la moitié basse d'une ligne → il se place APRÈS elle.
+      await page.evaluate(() => { window.__appels.length = 0; });
+      await glisser(page, tactile, await cibles(page, 0, 3, true));
+      r = await lire(page);
+      v('descendre un onglet sous la 4e ligne, ' + quoi, JSON.stringify(r.appels) === '[[7,0,3]]', JSON.stringify(r.appels));
+
+      /* UN APPUI N'EST PAS UN GLISSEMENT. Sans seuil, poser le doigt sur la poignée déplacerait
+         l'onglet au moindre tremblement — et le simple appui doit rester disponible : c'est lui qui
+         donne le focus à la poignée, donc les flèches ↑ ↓ au clavier. */
+      await page.evaluate(() => { window.__appels.length = 0; });
+      const b0 = await cibles(page, 4, 4, false);
+      await glisser(page, tactile, { gx: b0.gx, gy: b0.gy, cy: b0.gy + 2 }, 2);
+      r = await lire(page);
+      v('un simple appui ne déplace rien, ' + quoi, r.appels.length === 0, JSON.stringify(r.appels));
+
+      // Un glissement qui ne part PAS d'une poignée ne doit rien déclencher.
+      await page.evaluate(() => { window.__appels.length = 0; });
+      const bi = await page.evaluate(() => {
+        const L = document.querySelectorAll('.wdg-set-tabrow');
+        const i = L[1].querySelector('input').getBoundingClientRect();
+        const c = L[5].getBoundingClientRect();
+        return { gx: i.x + i.width / 2, gy: i.y + i.height / 2, cy: c.y + c.height / 2 };
+      });
+      await glisser(page, tactile, bi);
+      r = await lire(page);
+      v('glisser hors d\'une poignée ne déplace rien, ' + quoi, r.appels.length === 0, JSON.stringify(r.appels));
+      await page.close();
+    }
   } catch (e) {
     v('la phase navigateur s\'exécute', false, e.message);
   } finally { if (nav) try { await nav.close(); } catch {} }

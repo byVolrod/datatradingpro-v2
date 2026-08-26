@@ -192,7 +192,9 @@
                onglets se réordonne plus vite à la flèche qu'à la souris). Une seule ligne → aucune
                poignée : il n'y a rien à déplacer. */
             var _grip = tl.length > 1
-              ? '<button type="button" class="wdg-set-tabgrip" draggable="true" data-j="' + j + '"'
+              // Pas de `draggable` : le glisser-déposer natif n'existe pas au doigt ET il vole le
+              // geste au pointeur sur les autres appareils. Tout passe par `_glisserPourReordonner`.
+              ? '<button type="button" class="wdg-set-tabgrip" data-j="' + j + '"'
                 + ' title="Glisser pour déplacer · ↑ ↓ au clavier" aria-label="Déplacer l\'onglet"'
                 + ' onkeydown="if(event.key===\'ArrowUp\'||event.key===\'ArrowDown\'){event.preventDefault();event.stopPropagation();DTPWidgets.moveTab(' + idx + ',' + j + ',' + j + '+(event.key===\'ArrowUp\'?-1:1));}">\u283f</button>'
               : '';
@@ -273,44 +275,99 @@
     var pop = document.getElementById(HOST_ID + '-s' + i), w = byId(l.items[i].w);
     if (pop && w) { pop.innerHTML = _setPanelHtml(i, w, l.items[i]); _wireTabsDnD(pop, i); }
   }
-  /* GLISSER-DÉPOSER DES ONGLETS — même idiome que _wireMgr (poignée ⠿, repères .wdg-drop-before /
-     .wdg-drop-after). Délégation sur le VOLET, pas sur la liste : le volet survit aux re-rendus
-     (innerHTML), la liste non — un écouteur posé sur la liste serait perdu au premier déplacement,
-     et le deuxième glissement ne ferait plus rien. D'où aussi le drapeau, qui évite d'empiler un
-     écouteur par re-rendu. */
-  function _wireTabsDnD(pop, i) {
-    if (!pop || pop._tabsWired) return; pop._tabsWired = true;
-    var from = null;
+  /* ══ RÉORDONNER UNE LISTE AU POINTEUR — LA SOURIS ET LE DOIGT (29/08) ═══════════════════════════
+     Demande utilisateur, capture a l'appui : « Je n'arrive pas a deplacer l'onglet monde vers le
+     haut sur mobile ».
+
+     La liste se reordonnait par GLISSER-DEPOSER HTML5 (draggable="true" + dragstart/dragover/drop).
+     Ce mecanisme N'EXISTE PAS AU TOUCHER : sur iOS comme sur Android, un doigt pose sur un element
+     draggable ne produit JAMAIS dragstart. Le geste n'atteignait donc jamais le code de
+     reordonnancement, qui etait par ailleurs juste. Mesure au doigt dans un Chromium tactile :
+     zero deplacement, contre un a la souris pour le meme geste.
+
+     ⚠️ ET LE CONTROLE NE POUVAIT PAS LE VOIR. `scripts/onglets-verif.js` ouvrait bien un vrai
+     navigateur, mais il FABRIQUAIT les evenements (`new DragEvent('dragstart')` + `dispatchEvent`).
+     Un evenement fabrique arrive toujours, que le navigateur l'emette ou non au doigt : le controle
+     prouvait le cablage, jamais le geste. Il conduit desormais un VRAI doigt.
+
+     Les evenements POINTEUR couvrent les deux entrees d'un seul jeu d'ecouteurs — c'est deja
+     l'idiome du desk pour le zoom vertical des graphiques (`_attachYAxisDragZoom`, charts.js). Trois
+     details font toute la difference, et chacun a sa raison :
+       · `touch-action: none` sur la poignee (deja pose en CSS) : sans lui, le navigateur prend le
+         geste pour un defilement et cesse d'emettre `pointermove` des le premier pixel ;
+       · `setPointerCapture` : le doigt qui sort de la poignee — ce qui arrive au premier pixel,
+         puisqu'on la quitte pour viser une autre ligne — garde le geste ;
+       · un seuil de 4 px avant d'activer : un simple appui reste un appui (il donne le focus a la
+         poignee, d'ou les fleches ↑ ↓ au clavier), il ne devient un glissement qu'en bougeant.
+     On ne cherche PAS la ligne visee dans `e.target` : avec la capture, la cible reste la poignee.
+     C'est `elementFromPoint` qui dit ce qu'il y a sous le doigt. */
+  function _glisserPourReordonner(hote, selPoignee, selLigne, attr, deplacer) {
+    if (!hote || hote._reordWired) return; hote._reordWired = true;
+    var from = null, src = null, actif = false, y0 = 0;
     var clear = function () {
-      var l2 = pop.querySelectorAll('.wdg-drop-before,.wdg-drop-after');
-      for (var z = 0; z < l2.length; z++) l2[z].classList.remove('wdg-drop-before', 'wdg-drop-after');
+      var l2 = hote.querySelectorAll('.wdg-drop-before,.wdg-drop-after,.wdg-reord-src');
+      for (var z = 0; z < l2.length; z++) l2[z].classList.remove('wdg-drop-before', 'wdg-drop-after', 'wdg-reord-src');
     };
-    pop.addEventListener('dragstart', function (e) {
-      var grip = e.target.closest && e.target.closest('.wdg-set-tabgrip');
-      if (!grip) return;                                   // un autre glissement du volet : on ne s'en mêle pas
-      from = +grip.getAttribute('data-j');
-      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(from)); } catch (_) {}
+    var ligneSous = function (x, y) {
+      var el = document.elementFromPoint(x, y);
+      return (el && el.closest) ? el.closest(selLigne) : null;
+    };
+    hote.addEventListener('pointerdown', function (e) {
+      if (e.button != null && e.button > 0) return;                 // clic droit / molette : pas un déplacement
+      var g = e.target.closest && e.target.closest(selPoignee);
+      var l = g && g.closest(selLigne);
+      if (!l) return;
+      from = +l.getAttribute(attr); src = l; actif = false; y0 = e.clientY;
+      // La capture est posée sur la POIGNÉE : les `pointermove` suivants lui sont livrés, et
+      // remontent donc jusqu'à cet hôte délégué même quand le doigt a quitté la ligne d'origine.
+      try { g.setPointerCapture(e.pointerId); } catch (_) {}
     });
-    pop.addEventListener('dragover', function (e) {
-      if (from == null) return; e.preventDefault();
-      var row = e.target.closest && e.target.closest('.wdg-set-tabrow'); clear();
-      if (!row || +row.getAttribute('data-j') === from) return;
+    hote.addEventListener('pointermove', function (e) {
+      if (from == null) return;
+      if (!actif) {
+        if (Math.abs(e.clientY - y0) < 4) return;                   // encore un appui, pas un glissement
+        actif = true;
+        if (src) src.classList.add('wdg-reord-src');                // on voit CE QU'ON déplace — indispensable au doigt
+      }
+      e.preventDefault();
+      var row = ligneSous(e.clientX, e.clientY);
+      clear();
+      if (src) src.classList.add('wdg-reord-src');
+      if (!row || +row.getAttribute(attr) === from) return;
       var r = row.getBoundingClientRect();
       row.classList.add((e.clientY - r.top) > r.height / 2 ? 'wdg-drop-after' : 'wdg-drop-before');
     });
-    pop.addEventListener('drop', function (e) {
-      if (from == null) return; e.preventDefault();
-      var row = e.target.closest && e.target.closest('.wdg-set-tabrow');
-      if (row) {
-        var to = +row.getAttribute('data-j'), r = row.getBoundingClientRect();
-        var cible = (e.clientY - r.top) > r.height / 2 ? to + 1 : to;
-        // Retirer la ligne avant de la réinsérer décale d'un cran tout ce qui la suivait.
-        if (from < cible) cible--;
-        API.moveTab(i, from, cible);
+    var fin = function (e) {
+      if (from == null) return;
+      if (actif) {
+        var row = ligneSous(e.clientX, e.clientY);
+        if (row) {
+          var to = +row.getAttribute(attr), r = row.getBoundingClientRect();
+          var cible = (e.clientY - r.top) > r.height / 2 ? to + 1 : to;
+          // Retirer la ligne avant de la réinsérer décale d'un cran tout ce qui la suivait.
+          if (from < cible) cible--;
+          if (cible !== from && cible >= 0) deplacer(from, cible);
+        }
       }
-      from = null; clear();
+      from = null; src = null; actif = false; clear();
+    };
+    hote.addEventListener('pointerup', fin);
+    hote.addEventListener('pointercancel', function () { from = null; src = null; actif = false; clear(); });
+    // Un glissement HTML5 qui partirait malgré tout (image, texte sélectionné) volerait le geste au
+    // pointeur : Chrome cesse d'émettre `pointermove` dès qu'un drag natif démarre.
+    hote.addEventListener('dragstart', function (e) {
+      if (from != null && e.preventDefault) e.preventDefault();
     });
-    pop.addEventListener('dragend', function () { from = null; clear(); });
+  }
+
+  /* Réordonner les ONGLETS. Délégation sur le VOLET, pas sur la liste : le volet survit aux
+     re-rendus (innerHTML), la liste non — un écouteur posé sur la liste serait perdu au premier
+     déplacement, et le deuxième glissement ne ferait plus rien. D'où aussi le drapeau, qui évite
+     d'empiler un écouteur par re-rendu. */
+  function _wireTabsDnD(pop, i) {
+    _glisserPourReordonner(pop, '.wdg-set-tabgrip', '.wdg-set-tabrow', 'data-j', function (from, to) {
+      API.moveTab(i, from, to);
+    });
   }
   // `setter` (04/08) : « setOpt » par défaut (réglages de la CARTE) — « setTabOpt » pour les
   // réglages du SOUS-WIDGET affiché dans un panneau à onglets, qui a désormais les siens.
@@ -10067,41 +10124,23 @@ function _spansAffiches(lay) {
 
   // RÉORDONNER SES LAYOUTS au glisser-déposer (poignée ⠿ des lignes du gestionnaire, façon terminal pro).
   // Délégation sur #wdg-mgr-list (statique) → câblé UNE fois ; l'ordre des onglets de la barre suit.
+  /* ⚠️ CETTE LISTE NE SE RÉORDONNAIT PLUS DU TOUT — NI AU DOIGT, NI À LA SOURIS (trouvé le 29/08 en
+     auditant le tactile). Le code cherchait `.wdg-mgr-row` ; le rendu produit `.wdg-mgr-card`
+     (widgets.js l.8229). La classe a été renommée un jour et les trois `closest` du glisser sont
+     restés sur l'ancien nom : `closest('.wdg-mgr-row')` rendait toujours `null`, donc `dragstart`
+     sortait immédiatement et rien ne bougeait jamais. Aucun contrôle ne couvrait cette liste, et le
+     défaut est invisible à la lecture — deux sélecteurs plausibles, dans deux fichiers différents.
+     `.wdg-mgr-row` ne subsiste plus que dans la feuille de style, où il habille encore autre chose.
+     La mécanique est celle des onglets : un seul jeu d'écouteurs pour la souris ET le doigt. */
   function _wireMgr() {
     var list = document.getElementById('wdg-mgr-list');
-    if (!list || list._wdgWired) return; list._wdgWired = true;
-    var from = null;
-    var clear = function () { list.querySelectorAll('.wdg-drop-before,.wdg-drop-after').forEach(function (r) { r.classList.remove('wdg-drop-before', 'wdg-drop-after'); }); };
-    list.addEventListener('dragstart', function (e) {
-      var grip = e.target.closest && e.target.closest('.wdg-mgr-grip');
-      var row = grip && grip.closest('.wdg-mgr-row');
-      if (!row) { if (e.preventDefault) e.preventDefault(); return; }
-      from = +row.getAttribute('data-i');
-      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(from)); } catch (_) {}
+    _glisserPourReordonner(list, '.wdg-mgr-grip', '.wdg-mgr-card', 'data-i', function (from, cible) {
+      var c = STATE.cfg;
+      var moved = c.layouts.splice(from, 1)[0];
+      cible = Math.max(0, Math.min(c.layouts.length, cible));
+      c.layouts.splice(cible, 0, moved);
+      save(); renderBar(); renderManager();
     });
-    list.addEventListener('dragover', function (e) {
-      if (from == null) return; e.preventDefault();
-      var row = e.target.closest && e.target.closest('.wdg-mgr-row'); clear();
-      if (!row || +row.getAttribute('data-i') === from) return;
-      var r = row.getBoundingClientRect();
-      row.classList.add((e.clientY - r.top) > r.height / 2 ? 'wdg-drop-after' : 'wdg-drop-before');
-    });
-    list.addEventListener('drop', function (e) {
-      if (from == null) return; e.preventDefault();
-      var row = e.target.closest && e.target.closest('.wdg-mgr-row');
-      if (row) {
-        var to = +row.getAttribute('data-i'), r = row.getBoundingClientRect();
-        var before = (e.clientY - r.top) > r.height / 2 ? to + 1 : to;
-        var c = STATE.cfg;
-        var moved = c.layouts.splice(from, 1)[0];
-        if (from < before) before--;
-        before = Math.max(0, Math.min(c.layouts.length, before));
-        c.layouts.splice(before, 0, moved);
-        save(); renderBar(); renderManager();
-      }
-      from = null; clear();
-    });
-    list.addEventListener('dragend', function () { from = null; clear(); });
   }
 
   /* ── AMORÇAGE ──────────────────────────────────────────────────────────────────────────────────

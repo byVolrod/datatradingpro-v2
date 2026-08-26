@@ -12709,6 +12709,26 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 .wdg-set-tabgrip:focus-visible { outline: none; color: var(--orange); box-shadow: 0 0 0 1px rgba(227, 178, 58, .55); }
 .wdg-set-tabrow.wdg-drop-before { box-shadow: 0 -2px 0 0 var(--orange); }
 .wdg-set-tabrow.wdg-drop-after  { box-shadow: 0 2px 0 0 var(--orange); }
+/* Le repère de dépôt vaut aussi pour les cartes du gestionnaire de desks : le sélecteur du code
+   était resté sur `.wdg-mgr-row`, un nom que le rendu n'émet plus (cf. `_wireMgr`). */
+.wdg-mgr-card.wdg-drop-before { box-shadow: 0 -2px 0 0 var(--orange); }
+.wdg-mgr-card.wdg-drop-after  { box-shadow: 0 2px 0 0 var(--orange); }
+/* CE QU'ON DÉPLACE SE VOIT. À la souris, le navigateur dessinait lui-même le fantôme du glisser
+   HTML5 ; au pointeur, personne ne le fait — sans cette marque, on ne sait plus quelle ligne on
+   tient, et c'est au doigt que ça manque le plus (la ligne est sous le pouce). */
+.wdg-reord-src { opacity: .5; }
+
+/* ── LA POIGNÉE, AU DOIGT ──────────────────────────────────────────────────────────────────────
+   Mesurée à 15×17 px : c'est une cible qu'on rate. `pointer: coarse` vise le doigt sans toucher à
+   la souris — on élargit la ZONE DE PRISE sans grossir le caractère, avec une marge négative pour
+   que la ligne ne s'écarte pas d'autant. */
+@media (pointer: coarse) {
+  .wdg-set-tabgrip, .wdg-mgr-grip {
+    padding: 12px 10px; margin: -9px -8px; margin-top: -4px;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+}
+.wdg-set-tabgrip, .wdg-mgr-grip { -webkit-user-select: none; user-select: none; }
 
 /* Aperçu de carte : largeur FIXE (rangée homogène) + transition douce de densité de la grille */
 .wdg-lib-card--prev .wdg-lib-prev { flex: 0 0 112px; height: 54px; }
