@@ -12727,6 +12727,14 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
     padding: 12px 10px; margin: -9px -8px; margin-top: -4px;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
+  /* LA LIGNE AUSSI. La poignée ne peut pas être plus haute que ce qui l'entoure : mesurée à 33 px
+     dans une ligne de 27, elle débordait déjà. Une ligne de 40 px donne au doigt une prise franche
+     et ecarte les deux boutons voisins — la poignée et la croix de suppression étaient à 4 px l'une
+     de l'autre, ce qui suffit pour supprimer un onglet en croyant le déplacer. */
+  .wdg-set-tabrow { min-height: 40px; }
+  .wdg-set-tabdel, .wdg-set-tabrow .wdg-tabic-cur {
+    min-width: 34px; min-height: 34px; display: inline-flex; align-items: center; justify-content: center;
+  }
 }
 .wdg-set-tabgrip, .wdg-mgr-grip { -webkit-user-select: none; user-select: none; }
 
