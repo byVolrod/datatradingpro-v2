@@ -10002,6 +10002,14 @@ function _dessinerReaction(hote, candles, t0, paire) {
     upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
     wickUpColor: '#22c55e', wickDownColor: '#ef4444',
     priceFormat: { type: 'price', precision: _or ? 2 : _yen ? 3 : 5, minMove: _or ? 0.01 : _yen ? 0.001 : 0.00001 },
+    /* ⚠️ LA LIGNE DE « DERNIER PRIX » DE LA BIBLIOTHÈQUE N'A AUCUN SENS ICI, ET ELLE EST ROUGE.
+       Par défaut, une série de bougies trace un trait horizontal pointillé au cours de la dernière
+       barre, avec une étiquette sur l'axe, dans la COULEUR DE CETTE BARRE. Sur un graphique de
+       réaction, cette « dernière barre » est la fin d'une fenêtre de deux heures autour d'une
+       publication passée : ce prix ne veut rien dire. Et quand elle est baissière, le trait est
+       rouge — la même couleur que notre repère, sur toute la largeur. Deux rouges qui ne disent pas
+       la même chose, dont un qui ne dit rien. Le rouge est réservé au repère de publication. */
+    lastValueVisible: false, priceLineVisible: false,
   });
   // La bibliothèque exige des SECONDES, triées et sans doublon : un horodatage répété la fait
   // lever une exception et le panneau resterait vide.
@@ -10061,20 +10069,42 @@ function _dessinerReaction(hote, candles, t0, paire) {
   chart.timeScale().setVisibleRange({ from: data[0].time, to: data[data.length - 1].time });
   // Le cercle est posé en COORDONNÉES ÉCRAN, recalculées à chaque déplacement ou zoom : c'est ce
   // que l'embarqué TradingView ne permet pas, son cadre étant d'origine étrangère.
+  /* ══ LE CERCLE SE MET À LA TAILLE DE LA BOUGIE (31/08) ════════════════════════════════════════
+     Capture : « le cercle trop petit par rapport à la bougie ». Il mesurait 46 px, FIXES. Or la
+     bougie de publication est justement celle qui décroche — c'est tout l'objet du panneau : sur la
+     capture elle fait le triple. Le repère se retrouvait DEDANS, comme une pastille posée au hasard
+     sur une barre, au lieu de la désigner.
+     Le diamètre suit donc l'amplitude haut/bas de la bougie, avec de l'air autour : la barre tient
+     dans le cercle, elle ne le remplit pas. Deux bornes l'encadrent — un plancher, sans quoi une
+     bougie plate n'aurait plus de repère du tout, et un plafond en fraction de la hauteur du cadre,
+     sans quoi une mèche démesurée ferait un cercle plus grand que le graphique. */
   const rond = cible.querySelector('.nrx-rond');
+  const AIR = 1.5;      // le cercle vaut une fois et demie la bougie : elle respire dedans
+  const D_MIN = 46;     // l'ancienne taille : une bougie courte garde exactement le repère d'avant
+  const PART_MAX = .62; // au-delà, le repère cesse de désigner et devient le sujet du graphique
   const placer = () => {
-    let x = null, y = null;
-    try { x = chart.timeScale().timeToCoordinate(bougie.time); y = serie.priceToCoordinate((bougie.high + bougie.low) / 2); } catch (e) {}
+    let x = null, yH = null, yB = null, yC = null;
+    try {
+      x = chart.timeScale().timeToCoordinate(bougie.time);
+      yH = serie.priceToCoordinate(bougie.high);
+      yB = serie.priceToCoordinate(bougie.low);
+      yC = serie.priceToCoordinate((bougie.high + bougie.low) / 2);
+    } catch (e) {}
     // ⚠️ La bibliothèque renvoie une coordonnée MÊME quand l'instant est sorti du champ visible :
     // une valeur négative ou au-delà de la largeur. Sans cette borne, le repère restait posé hors
     // cadre — invisible seulement parce que le conteneur rogne, donc un faux qui ne se voit pas.
     // Mesuré à x = -211 px après rétrécissement du conteneur. La borne le fait aussi disparaître
     // proprement quand on fait défiler le graphique loin de la publication.
-    const larg = hote.clientWidth;
-    if (x == null || y == null || x < 0 || x > larg || y < 0 || y > hote.clientHeight) { cible.style.display = 'none'; return; }
+    const larg = hote.clientWidth, haut = hote.clientHeight;
+    if (x == null || yC == null || x < 0 || x > larg || yC < 0 || yC > haut) { cible.style.display = 'none'; return; }
+    let D = D_MIN;
+    if (yH != null && yB != null) D = Math.max(D_MIN, Math.min(Math.abs(yB - yH) * AIR, haut * PART_MAX));
     cible.style.display = 'block';
     cible.style.left = x + 'px';
-    rond.style.top = y + 'px';
+    rond.style.width = D + 'px';
+    rond.style.height = D + 'px';
+    rond.style.margin = (-D / 2) + 'px 0 0 ' + (-D / 2) + 'px';
+    rond.style.top = yC + 'px';
   };
   // ⚠️ Après un changement de largeur, la bibliothèque ne recalcule son échelle de temps qu'à la
   // frame suivante : appeler placer() dans la foulée lit des coordonnées PÉRIMÉES. D'où le report

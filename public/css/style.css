@@ -18875,14 +18875,29 @@ html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #
    bloquerait le déplacement du graphique juste à l'endroit le plus intéressant. */
 .nrx-cible { position: absolute; top: 0; bottom: 0; left: 0; width: 0; z-index: 3;
   pointer-events: none; display: none; }
-/* Le trait s'arrête au-dessus de l'axe des heures : le traverser brouillerait les graduations. */
-.nrx-vline { position: absolute; top: 0; bottom: 24px; left: 0; width: 0;
-  border-left: 1px dashed rgba(239, 68, 68, .75); }
+/* ⚠️ UN `border: 1px dashed` NE DONNE PAS UN TRAIT TIRETÉ (31/08 : « le trait rouge est pas bien »).
+   Chrome dimensionne les tirets sur l'ÉPAISSEUR de la bordure : à 1 px, on obtient des tirets d'un
+   pixel séparés d'un pixel — un pointillé grésillant, pas un trait. Un dégradé répété donne le
+   motif qu'on veut, au pixel près : 4 px de trait, 5 px de vide.
+   ET LE TRAIT N'EST PLUS ROUGE. Le rouge est la couleur du REPÈRE : deux rouges dans le même cadre,
+   dont un qui court sur toute la hauteur, se disputent l'œil au lieu de désigner. Le trait redevient
+   ce qu'il est — un guide neutre qui dit « c'est ici » — et le cercle garde l'accent.
+   Il s'arrête au-dessus de l'axe des heures : le traverser brouillerait les graduations. */
+/* La largeur est déclarée à 2 px et non à 1 : le desk applique `zoom: .9`, donc 2 px déclarés font
+   1,8 px réels — un trait fin et net. À 1 px déclaré il ne resterait que 0,9 px réel, étalé par
+   l'antialiasing sur deux colonnes à demi-teinte : le trait perdrait la moitié de son contraste
+   sans rien gagner en finesse. Relu au banc dans les pixels PEINTS : la colonne rend (124,126,133)
+   là où un tiret tombe, la couleur du fond dans les intervalles. */
+.nrx-vline { position: absolute; top: 0; bottom: 24px; left: 0; width: 2px; margin-left: -1px;
+  background: repeating-linear-gradient(to bottom, rgba(214, 219, 228, .55) 0 5px, transparent 5px 10px); }
+/* Le diamètre est écrit par `placer()` : il suit l'amplitude de la bougie. Les valeurs ci-dessous
+   sont la forme de repli si le script n'a pas encore mesuré (première frame). */
 .nrx-rond { position: absolute; left: 0; width: 46px; height: 46px; margin: -23px 0 0 -23px;
-  border-radius: 50%; background: rgba(239, 68, 68, .14); border: 1px solid rgba(239, 68, 68, .6);
-  box-shadow: 0 0 0 1px rgba(239, 68, 68, .12); }
-html[data-theme="light"] .nrx-vline { border-left-color: rgba(199, 48, 0, .7); }
-html[data-theme="light"] .nrx-rond { background: rgba(199, 48, 0, .1); border-color: rgba(199, 48, 0, .5); }
+  /* Le fond reste TRÈS léger : c'est la bougie qu'on vient lire, le repère ne doit pas la teinter.
+     Mesuré au banc à .10 avec un halo interne : les bougies du cercle viraient au rouge sombre. */
+  border-radius: 50%; background: rgba(239, 68, 68, .055); border: 1px solid rgba(239, 68, 68, .5); }
+html[data-theme="light"] .nrx-vline { background: repeating-linear-gradient(to bottom, rgba(90, 99, 112, .62) 0 5px, transparent 5px 10px); }
+html[data-theme="light"] .nrx-rond { background: rgba(199, 48, 0, .07); border-color: rgba(199, 48, 0, .40); }
 
 /* ── LES QUATRE LECTURES SOUS LE GRAPHIQUE ─────────────────────────────────────────────────────
    Deux colonnes sur écran large, une seule dès qu'on manque de place : un bloc de texte à moins
