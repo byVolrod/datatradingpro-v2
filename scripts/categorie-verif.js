@@ -87,10 +87,26 @@ console.log('\n── 2. Ce qui NE doit PAS basculer ──');
   const c = detectCategory(h);
   v('une décision de taux reste dans sa banque (' + attendu + ')', c === attendu, 'rendu : ' + c);
 });
-/* Un pays qu'on ne sait pas nommer laisse la ligne continuer son chemin : mieux vaut le fourre-tout
-   qu'une mauvaise rubrique. C'est la règle qui empêche cette détection de devenir un aspirateur. */
-const _inconnu = detectCategory('Brazil Retail Sales YoY Actual 2.1% (Forecast 1.8%, Previous 1.4%)');
-v('un pays hors des huit ne prend PAS une rubrique au hasard', !/^(?:US|UK|EU|Swiss|Japanese|Canadian|Australian|Chinese) Data$/.test(_inconnu), 'rendu : ' + _inconnu);
+/* Un pays qu'on ne sait pas nommer ne prend JAMAIS la rubrique d'un autre : c'est la règle qui
+   empêche cette détection de devenir un aspirateur. Mais il ne repart plus non plus dans le
+   fourre-tout (02/09) : la SIGNATURE prouve qu'on a affaire à une publication, seul le pays est
+   inconnu. Suède, Norvège, Brésil, Mexique, Inde tombent donc dans la 9e rubrique. */
+[
+  'Brazil Retail Sales YoY Actual 2.1% (Forecast 1.8%, Previous 1.4%)',
+  'Swedish CPI YoY Actual 2.1% (Forecast 2.0%, Previous 2.3%)',
+  'Norway Unemployment Rate Actual 3.9% (Forecast 4.0%, Previous 4.0%)',
+  'India Industrial Production Actual 5.2% (Forecast 4.8%, Previous 4.1%)',
+].forEach(h => {
+  const c = detectCategory(h);
+  v('« ' + h.slice(0, 30) + '… » → Données (autres pays)', c === 'Other Data', 'rendu : ' + c);
+  v('… et surtout PAS la rubrique d\'un autre pays',
+    !/^(?:US|UK|EU|Swiss|Japanese|Canadian|Australian|Chinese) Data$/.test(c), 'rendu : ' + c);
+});
+/* ⚠️ ET LA 9e RUBRIQUE NE DOIT PAS DEVENIR LE NOUVEAU FOURRE-TOUT. Elle est posée APRÈS le test de
+   signature : sans lui, tout ce qui n'a pas de pays reconnu y tomberait, y compris les dépêches. */
+v('une dépêche sans chiffre ne tombe PAS dans la 9e rubrique',
+  detectCategory('Sweden central bank governor speaks in Stockholm') !== 'Other Data',
+  'rendu : ' + detectCategory('Sweden central bank governor speaks in Stockholm'));
 /* Et une dépêche RÉDACTIONNELLE n'a pas cette signature : c'est tout l'intérêt du test de forme. */
 [
   'Euro surges as traders ignore soft German data',

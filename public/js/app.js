@@ -575,7 +575,7 @@ const INTERNAL_CATS = [
   'Energy & Power', 'Metals', 'Crypto', 'Fixed Income',
   'Global News', 'Asian News', 'Trade', 'DTP Update', 'Ags & Softs',
   'EU Data', 'US Data', 'UK Data', 'Swiss Data', 'Japanese Data',
-  'Canadian Data', 'Australian Data', 'Chinese Data',
+  'Canadian Data', 'Australian Data', 'Chinese Data', 'Other Data',
 ];
 
 // Settings panel structure: displayed sections with label → category mapping
@@ -616,6 +616,7 @@ const SETTINGS_PANEL = {
     { label: 'Canadian Data',   cat: 'Canadian Data'   },
     { label: 'Australian Data', cat: 'Australian Data' },
     { label: 'Chinese Data',    cat: 'Chinese Data'    },
+    { label: 'Other Data',      cat: 'Other Data'      },
   ],
 };
 
@@ -644,6 +645,9 @@ const CAT_FR = {
   'Canadian Data':       'Données Canada',
   'Australian Data':     'Données Australie',
   'Chinese Data':        'Données Chine',
+  // 9e rubrique de données (02/09) : les publications des pays hors des huit (Suède, Norvège,
+  // Brésil, Mexique, Inde…), qui tombaient en « Actualités mondiales » faute de rubrique.
+  'Other Data':          'Données (autres pays)',
 };
 function catFr(cat) { return CAT_FR[cat] || cat || ''; }
 
@@ -5182,6 +5186,17 @@ function loadSettings() {
       }
       // Migration one-shot : "Commentaire économique" désactivé par défaut (demande). On le retire UNE
       // fois des préférences sauvegardées (flag pt_ec_off_v1), puis on respecte le choix si l'utilisateur le réactive.
+      /* MIGRATION ONE-SHOT — LA 9e RUBRIQUE DE DONNÉES ARRIVE ACTIVE (02/09). Côté serveur, la
+         préférence est stockée en NÉGATIF (liste des catégories coupées) : une rubrique neuve y est
+         donc active d'office. `localStorage`, lui, garde la liste des catégories ACTIVES — une
+         rubrique qui n'existait pas au moment de l'enregistrement en est forcément absente, et
+         serait lue comme « coupée par l'utilisateur ». Sans ce rattrapage, tous les comptes
+         existants auraient démarré avec « Données (autres pays) » éteinte, sans l'avoir demandé,
+         et n'auraient rien vu des publications qu'elle vient précisément récupérer. */
+      if (!localStorage.getItem('pt_otherdata_v1')) {
+        if (!parsedSet.has('Other Data')) valid.push('Other Data');
+        try { localStorage.setItem('pt_otherdata_v1', '1'); } catch {}
+      }
       if (!localStorage.getItem('pt_ec_off_v1')) {
         const _eci = valid.indexOf('Economic Commentary');
         if (_eci >= 0) valid.splice(_eci, 1);
