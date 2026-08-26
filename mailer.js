@@ -3971,6 +3971,8 @@ function getEmailCatalog() {
     { key: 'campaignIntro', audience: 'Client + Whop', label: 'Campagne : intro hebdo',       trigger: 'Broadcast campagne (admin) → clients DTP + Whop', ...buildCampaignIntro({ name: s.name, email: s.to }) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
     { key: 'adminRenewal',  audience: 'Admin',  label: 'Notif paiement / nouveau client',  trigger: 'Paiement Whop traité (→ toi)',                ...buildAdminRenewalNotice({ clientEmail: s.to, clientName: s.name, expiresAt: s.expiresAt, isNew: true }) },
+    { key: 'referralInvite',   audience: 'Client', label: 'Parrainage : invitation (campagne)', trigger: 'Annonce du programme à toute la base', ...buildReferralInvite({ name: s.name }) },
+    { key: 'referralInviteLien', audience: 'Client', label: 'Parrainage : invitation (lien connu)', trigger: 'Idem, quand le lien Whop est déjà résolu', ...buildReferralInvite({ name: s.name, lien: 'https://whop.com/jot-dtp/?a=votrepseudo' }) },
     { key: 'referredWelcome',  audience: 'Client', label: 'Parrainage : bienvenue filleul',  trigger: 'Un filleul s\'inscrit via un parrain',          ...buildReferredWelcome({ name: s.name, referrerName: 'Alex' }) },
     { key: 'referralCredited', audience: 'Client', label: 'Parrainage : filleul confirmé', trigger: 'Un filleul s\'abonne via votre lien',          ...buildReferralCredited({ name: s.name, count: 1, untilNext: 2 }) },
     { key: 'referralReward',   audience: 'Client', label: 'Parrainage : mois offert',       trigger: '3 parrainages atteints → 1 mois offert',      ...buildReferralReward({ name: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
@@ -4090,6 +4092,46 @@ function buildReferredWelcome({ name, referrerName }) {
 }
 async function sendReferredWelcome(d) { const m = buildReferredWelcome(d); return _send(d.to, m.subject, m.html); }
 
+// ── 13) Parrainage : L'INVITATION (→ tous les clients) ───────────────────────
+/* Les trois e-mails de parrainage ci-dessus réagissent tous à un ÉVÉNEMENT : un filleul confirmé, un
+   palier atteint, une inscription via un parrain. Aucun ne DIT au client que le programme existe —
+   il ne pouvait le découvrir qu'en ouvrant le panneau Parrainages de lui-même. Celui-ci est
+   l'annonce : il s'envoie en campagne, une fois, à la base entière.
+   DEUX FORMES, SELON CE QU'ON SAIT DU DESTINATAIRE. Si son lien d'affiliation Whop est déjà
+   résolvable (`lien` fourni), l'e-mail le PORTE : rien à faire, il copie et partage. Sinon il donne
+   les deux étapes pour l'obtenir. Envoyer les étapes à quelqu'un qui a déjà son lien serait lui
+   faire refaire un travail déjà fait — et c'est le genre de détail qui fait fermer un e-mail.
+   ⚠️ LA MÊME ADRESSE DES DEUX CÔTÉS EST MISE EN AVANT, PAS EN NOTE DE BAS. C'est la seule cause
+   d'échec du parcours : Whop et le desk se reconnaissent par l'e-mail, et un parrain qui s'inscrit
+   sur Whop avec une autre adresse ne verra jamais son lien apparaître. */
+function buildReferralInvite({ name, lien, joinUrl } = {}) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
+  const rejoindre = _esc(joinUrl || 'https://whop.com/justonetrader/');
+  const aLeLien = !!(lien && String(lien).trim());
+  const bloclien = aLeLien
+    ? `${_secTitle('Votre lien de parrainage')}
+       ${_encart(`<p style="margin:0 0 8px;font-size:12px;color:#9aa3b2;">Copiez-le et partagez-le&nbsp;: chaque abonnement passé par ce lien vous est attribué à vie.</p>
+         <p style="margin:0;word-break:break-all;"><a href="${_esc(lien)}" style="color:${TOK.or};text-decoration:none;font-weight:700;">${_esc(lien)}</a></p>`, true)}`
+    : `${_secTitle('Obtenir votre lien — 2 minutes')}
+       ${_encart(`<p style="margin:0 0 10px;"><strong style="color:${TOK.blanc};">1.</strong> Sur le desk, ouvrez <strong style="color:${TOK.blanc};">Profil&nbsp;▸&nbsp;Parrainages</strong>. Si votre lien s'y trouve déjà, c'est terminé.</p>
+         <p style="margin:0 0 10px;"><strong style="color:${TOK.blanc};">2.</strong> Sinon, créez votre compte <a href="${rejoindre}" style="color:${TOK.or};text-decoration:none;">Whop</a> (gratuit) et rejoignez l'espace <strong style="color:${TOK.blanc};">JustOneTrader</strong>&nbsp;: <strong style="color:${TOK.or};">l'offre gratuite suffit</strong>, vous n'avez rien à payer.</p>
+         <p style="margin:0;">Revenez ensuite sur <strong style="color:${TOK.blanc};">Parrainages</strong> et cliquez sur «&nbsp;J'ai rejoint — vérifier&nbsp;»&nbsp;: votre lien apparaît.</p>`, true)}`;
+  const body = `
+    ${_H1}15&nbsp;% à vie sur chaque abonné que vous amenez</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom}, le <strong style="color:#fff;">parrainage DataTradingPro</strong> est ouvert. Vous partagez votre lien, et chaque personne qui s'abonne grâce à vous vous rapporte&nbsp;— tous les mois, tant qu'elle reste.</p>
+    ${_goldBox(`<div style="text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:${TOK.or};letter-spacing:-.01em;">15&nbsp;%&nbsp;à vie&nbsp;·&nbsp;3 inscrits&nbsp;=&nbsp;1 mois offert</div>
+        <div style="font-size:13px;margin-top:6px;">La commission est récurrente, pas une prime unique. Et tous les 3 filleuls, nous ajoutons un mois d'accès à votre abonnement.</div>
+      </div>`)}
+    ${bloclien}
+    ${_encart(`<p style="margin:0;font-size:13px;color:#e6e6ea;"><strong style="color:${TOK.or};">Important&nbsp;:</strong> utilisez sur Whop <strong style="color:${TOK.blanc};">la même adresse e-mail</strong> que celle de votre compte DataTradingPro. C'est par elle que les deux se reconnaissent&nbsp;— avec une autre adresse, votre lien ne s'affichera jamais.</p>`)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Vos commissions sont suivies et versées <strong style="color:#e6e6ea;">directement par Whop</strong>&nbsp;; vous les retrouvez dans votre espace Whop. Votre compteur de filleuls, lui, s'affiche en direct dans votre panneau Parrainages.</p>
+    ${_button(aLeLien ? 'Ouvrir mes parrainages' : 'Obtenir mon lien', APP_URL)}
+    <p style="margin:0;font-size:13px;">Merci de faire grandir le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'DataTradingPro : 15 % à vie sur chaque abonné que vous amenez', html: _layout('Parrainage', body, { repondable: true }) };
+}
+async function sendReferralInvite(d) { const m = buildReferralInvite(d); return _send(d.to, m.subject, m.html); }
+
 // Alerte ADMIN — monitoring IA (provider en rouge / quota proche épuisement). L'anti-spam (cooldown)
 // est géré côté serveur ; ici on se contente d'envoyer via la chaîne habituelle (OVH→Gmail).
 async function sendAdminAlert({ subject, html, to } = {}) {
@@ -4104,6 +4146,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendAutoRenewOff, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
+  sendReferralInvite, buildReferralInvite,
   sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset, sendCampaignOutlook, sendCampaignInvitation,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
