@@ -17457,7 +17457,16 @@ html[data-theme="light"] .news-grp-cpt {
    Les paliers de densité (est-moyen, est-compact, est-minus, est-mini) resserrent déjà le rendu
    quand la place manque : ce défilement n'intervient qu'APRÈS eux, en dernier recours. */
 .wdg-frise-corps { position: relative; flex: 1 1 auto; min-height: 0; display: flex;
-  flex-direction: column; justify-content: flex-start; gap: 15px; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; scrollbar-width: thin; }
+  flex-direction: column; justify-content: flex-start; gap: 10px; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; scrollbar-width: thin;
+  /* ══ LA TRAME DES 3 H PASSE DU RAIL AU CORPS (01/09, capture user : « améliore la lisibilité ») ══
+     Chaque piste portait sa propre trame verticale. Résultat : quatre grilles indépendantes qui
+     s'arrêtaient au bord de chaque rail, et rien ne reliait 15 h de Londres à 15 h de New York —
+     alors que LIRE UN CHEVAUCHEMENT est la raison d'être de ce widget. La trame devient une seule
+     colonnade continue, posée sur le corps, qui traverse les quatre places de haut en bas.
+     La bande basse est RÉSERVÉE à l'étiquette de l'heure courante : sans elle, la pastille dorée se
+     posait PAR-DESSUS la dernière plage (capture : « 16:55 » à cheval sur New York). */
+  padding-bottom: 16px;
+  background-image: repeating-linear-gradient(to right, var(--hud-line) 0 1px, transparent 1px 12.5%); }
 
 .wdg-frise-ligne { display: flex; flex-direction: column; gap: 4px; min-width: 0;
   /* ══ LES LIGNES SE PARTAGENT LA HAUTEUR (01/09, demande user : « aucun espace vide inutile ») ══
@@ -17471,7 +17480,12 @@ html[data-theme="light"] .news-grp-cpt {
      ⚠️ Et l'espace va DANS la ligne, pas entre les lignes : `space-evenly` sur le corps avait été
      essayé le 18/08 et retiré — il éloignait le nom de sa propre piste de plusieurs dizaines de
      pixels et on ne lisait plus quel bloc appartenait à qui. Ici le nom reste collé à sa piste. */
-  flex: 1 1 auto; }
+  flex: 1 1 auto;
+  /* ⚠️ CONTENU CENTRÉ DANS LA LIGNE. La piste est désormais plafonnée (cf. plus bas) : ce qui reste
+     de hauteur après elle doit se répartir au-dessus ET au-dessous, pas s'accumuler sous la
+     dernière place. Centré, l'espace libre devient un rythme vertical régulier ; aligné en haut, il
+     redevenait le vide que la demande du 01/09 visait. */
+  justify-content: center; }
 .wdg-frise-tete { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
 .wdg-frise-place { display: flex; align-items: center; gap: 6px; color: var(--txt-2, #9aa1ac);
   font-size: 13px; font-weight: 600; letter-spacing: .01em; flex: 0 0 auto; }
@@ -17490,16 +17504,24 @@ html[data-theme="light"] .news-grp-cpt {
 /* La piste couvre 24 h ; les blocs sont positionnés en pourcentage par le JS.
    Trame toutes les 3 h : assez pour situer un bloc, assez peu pour ne pas faire grille. */
 .wdg-frise-piste { position: relative; height: 18px; border-radius: 3px; overflow: hidden;
-  background: var(--bg-3, #0f0f12); border: 1px solid var(--hud-line);
-  background-image: repeating-linear-gradient(to right, var(--hud-line) 0 1px, transparent 1px 12.5%);
+  /* Rail TRANSPARENT : c'est la colonnade du corps qui le traverse, au lieu d'une trame recopiée
+     dans chaque rail. Un fond opaque la masquerait — et rendrait au passage les quatre rails aussi
+     visibles que les plages qu'ils portent, alors que seule la PLAGE est l'information. */
+  background: transparent; border: 1px solid var(--hud-line);
   /* La hauteur déclarée n'est plus qu'une BASE : la piste prend l'espace libre de sa ligne, et les
      paliers plus bas ne changent donc que ce point de départ, jamais le comportement.
-     ⚠️ PAS DE PLAFOND, ET C'EST MESURÉ. Un `max-height: 60px` avait été posé d'abord, par crainte de
-     dalles sur une carte très haute. Résultat au banc : sur une carte de 900 px, les plages
-     s'arrêtaient à 60 px et 91 px de vide se rouvraient sous la dernière place — exactement le
-     défaut que la demande visait. Le vide déplacé reste du vide. La frise est un diagramme de
-     Gantt : une plage épaisse y est normale, et c'est elle qui porte son horaire écrit dedans. */
-  flex: 1 1 auto; min-height: 7px; }
+     ══ LE PLAFOND, ET POURQUOI IL A FALLU DEUX ESSAIS ══════════════════════════════════════════
+     1er essai : plafond à 60 px, lignes alignées EN HAUT. Le reste de l'espace s'accumulait sous la
+     dernière place — 91 px de vide mesurés sur une carte de 900 px : exactement le défaut que la
+     demande visait. Plafond retiré.
+     2e essai : aucun plafond. La carte se remplissait, mais les plages devenaient des DALLES de
+     85 px (capture user : « améliore la lisibilité ») — l'horaire flottait au milieu d'un
+     rectangle, et quatre rectangles pleins écrasaient tout le reste de la carte.
+     3e version, celle-ci : plafond à 40 px ET contenu CENTRÉ dans sa ligne (cf. .wdg-frise-ligne).
+     Le surplus se répartit alors moitié au-dessus, moitié au-dessous de chaque piste : la carte est
+     occupée d'un bord à l'autre, sans dalle et sans vide accumulé en bas. Remplir n'est pas
+     gonfler — c'est ce que les deux premiers essais avaient chacun manqué d'un côté. */
+  flex: 1 1 auto; min-height: 7px; max-height: 48px; }
 /* La barre porte son horaire : a cote, l oeil devait faire l aller-retour entre un texte a droite
    et un bloc a gauche pour savoir ce qu il regardait. */
 .wdg-frise-bloc { position: absolute; top: 0; bottom: 0; background: var(--frise-ton, #3a3f4b);
@@ -18970,6 +18992,19 @@ html[data-theme="light"] .date-header { background: #eceae5; color: #4a4f56; bor
 .wdg-frise-bloc::before { content: ""; position: absolute; inset: 0; border-radius: 2px;
   background: var(--frise-ton, #3a3f4b); opacity: .40; }
 .wdg-frise-bloc.est-ouvert::before { opacity: .92; }
+/* ══ UNE PLAGE EST UN INTERVALLE, PAS UN APLAT (01/09, capture user) ═══════════════════════════
+   Avec des pistes épaisses, un aplat de couleur pleine devient la chose la plus lourde de la carte
+   et écrase le reste. On baisse la matière et on ajoute un CONTOUR de la couleur de la place : les
+   BORNES — l'heure d'ouverture et celle de fermeture — redeviennent nettes, ce qui est justement
+   l'information qu'on vient chercher, et la colonnade des 3 h reste lisible à travers la plage.
+   La séance OUVERTE garde plus de matière que les fermées : c'est le seul contraste qui dise
+   l'état sans emprunter le vert ni le rouge, réservés par la charte aux signaux de marché. */
+.wdg-frise-bloc::before { opacity: .26; }
+.wdg-frise-bloc.est-ouvert::before { opacity: .55; }
+.wdg-frise-bloc { border: 1px solid var(--frise-ton, #3a3f4b); box-sizing: border-box; }
+.wdg-frise-bloc.est-ouvert { box-shadow: inset 0 0 0 1px var(--frise-ton, #3a3f4b); }
+.wdg-frise-bloc b { color: var(--txt-1, #e6e8eb); text-shadow: 0 1px 3px rgba(0, 0, 0, .75); }
+html[data-theme="light"] .wdg-frise-bloc b { color: #17181d; text-shadow: 0 1px 2px rgba(255, 255, 255, .8); }
 .wdg-frise-bloc b { position: relative; z-index: 1; }
 html[data-theme="light"] .wdg-frise-bloc::before { opacity: .5; }
 html[data-theme="light"] .wdg-frise-ligne.est-ouvert .wdg-frise-badge { color: #00783d; }

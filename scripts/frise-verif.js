@@ -133,6 +133,11 @@ function extraireFrise() {
           friseH: frise ? frise.getBoundingClientRect().height : 0,
           // Vide résiduel = du bas du dernier élément peint au bas de la zone disponible.
           vide: Math.round(rc.bottom - derniere.getBoundingClientRect().bottom),
+          // Écart VERTICAL entre deux pistes voisines : c'est le pas du rythme. Ce qui reste sous
+          // la dernière piste doit en être une fraction, jamais un multiple.
+          pas: pistes.length > 1
+            ? Math.round(pistes[1].getBoundingClientRect().top - pistes[0].getBoundingClientRect().bottom) : 0,
+          hautLigne1: Math.round((lignes[0] || corps).getBoundingClientRect().top - rc.top),
           // Débordement = ce que la frise dépasse de son hôte.
           deborde: Math.round(Math.max(0, (frise ? frise.getBoundingClientRect().bottom : 0) - rb.bottom)),
           lignes: lignes.length,
@@ -145,7 +150,7 @@ function extraireFrise() {
         if (typeof stop === 'function') stop();
       }
       return out;
-    }, SRC, [260, 340, 420, 560, 700, 900]);
+    }, SRC, [260, 300, 340, 420, 560, 700, 900]);
 
     const par = h => mesures.find(m => m.H === h) || {};
 
@@ -159,25 +164,33 @@ function extraireFrise() {
       mesures.every(m => Math.abs(m.friseH - m.hoteH) <= 1),
       mesures.map(m => m.H + ':' + Math.round(m.friseH) + '/' + Math.round(m.hoteH)).join(' '));
 
-    console.log('\n── 2. Plus de vide en bas quand la carte grandit ──');
-    /* LE CONTRÔLE DEMANDÉ. 24 px de tolérance = la marge basse déclarée de `.wdg-frise` (8 px) plus
-       l'arrondi des lignes ; au-delà, c'est du vide que l'œil voit. Avant correctif, la carte de
-       900 px mesurait plus de trois cents pixels de vide. */
+    console.log('\n── 2. L\'espace se répartit, il ne s\'accumule pas en bas ──');
+    /* LE CONTRÔLE DEMANDÉ, DANS SA FORME JUSTE — et il aura fallu trois versions du widget pour la
+       trouver. « Aucun espace vide inutile » ne veut PAS dire « zéro pixel sous la dernière
+       place » : cette lecture-là, prise au pied de la lettre, a donné des plages de 85 px de haut
+       (capture user suivante : « améliore la lisibilité »). Elle ne veut pas dire non plus « tout
+       aligné en haut », qui rouvre le vide sous la dernière place — 493 px mesurés avant correctif.
+       La propriété qui décrit ce que l'œil accepte est le RYTHME : ce qui reste sous la dernière
+       piste doit être une FRACTION de l'écart entre deux pistes, jamais un multiple. Un vide
+       accumulé se voit précisément parce qu'il rompt un pas régulier. */
     for (const H of [420, 560, 700, 900]) {
       const m = par(H);
-      v('carte de ' + H + ' px : le contenu descend jusqu\'en bas (' + m.vide + ' px de reste)',
-        m.vide <= 10, 'vide=' + m.vide + ' pistes=' + JSON.stringify(m.pistes));
+      v('carte de ' + H + ' px : le reste sous la dernière place (' + m.vide + ' px) tient dans le pas du rythme ('
+        + m.pas + ' px)', m.vide <= Math.max(12, m.pas / 2),
+        'vide=' + m.vide + ' pas=' + m.pas + ' pistes=' + JSON.stringify(m.pistes));
     }
-    /* Et il ne suffit pas de remplir : il faut que ce soit la PISTE qui grandisse. Une mise en page
-       qui remplirait en écartant les lignes séparerait le nom de sa propre plage horaire — c'est
-       précisément ce qui avait été retiré le 18/08. */
-    v('c\'est la piste qui absorbe l\'espace, pas l\'écart entre les lignes',
-      /* ⚠️ ON COMPARE 420 ET 900, PAS 340 ET 700. À 340 px de carte le palier « est-moyen » entre en
-         jeu et amincit la piste de lui-même : la comparaison serait alors verte grâce au PALIER,
-         même avec des lignes qui ne grandissent pas — mesuré exactement ainsi. Les deux hauteurs
-         retenues sont hors palier, la seule différence entre elles est donc la répartition. */
-      (par(900).pistes[0] || 0) > (par(420).pistes[0] || 0) + 6,
-      '420→' + par(420).pistes[0] + 'px, 900→' + par(900).pistes[0] + 'px');
+    /* Le haut aussi : une frise poussée vers le bas laisserait un vide sous l'axe des heures. */
+    v('la première place commence en haut du corps', mesures.every(m => m.hautLigne1 <= 26),
+      mesures.map(m => m.H + ':' + m.hautLigne1).join(' '));
+    /* Et il faut que ce soit la PISTE qui prenne l'espace, pas l'écart entre les lignes : une mise
+       en page qui écarterait les lignes séparerait le nom de sa propre plage — c'est ce qui avait
+       été retiré le 18/08. La piste grandit donc avec la carte, JUSQU'À son plafond de lisibilité,
+       qu'elle ne dépasse jamais (le 2e essai, sans plafond, montait à 85 px : une dalle). */
+    v('la piste grandit avec la carte',
+      (par(560).pistes[0] || 0) > (par(300).pistes[0] || 0) + 4,
+      '300→' + par(300).pistes[0] + 'px, 560→' + par(560).pistes[0] + 'px');
+    v('… et ne dépasse jamais le plafond de lisibilité',
+      mesures.every(m => (m.pistes[0] || 0) <= 48), mesures.map(m => m.H + ':' + m.pistes[0]).join(' '));
     v('les quatre pistes gardent la MÊME hauteur entre elles',
       mesures.every(m => new Set(m.pistes).size === 1),
       mesures.map(m => m.H + ':' + JSON.stringify(m.pistes)).join(' '));
