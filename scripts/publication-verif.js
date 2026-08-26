@@ -126,8 +126,10 @@ const ITEMS = [
       const chef = out.find(x => Array.isArray(x._groupedPubs) && x._groupedPubs.length);
       let puces = [];
       if (chef) {
+        // Le rendu réel passe la CHEF DE FILE en tête de ses propres puces : le banc doit emprunter
+        // exactement ce chemin, sinon il éprouverait un affichage qui n'existe nulle part.
         // eslint-disable-next-line no-undef
-        const el = _pubPucesEl(chef._groupedPubs);
+        const el = _pubPucesEl([chef].concat(chef._groupedPubs));
         document.getElementById('p').innerHTML = '';
         document.getElementById('p').appendChild(el);
         puces = [...el.querySelectorAll('.news-pub')].map(p => ({
@@ -183,7 +185,11 @@ const ITEMS = [
     console.log('\n── 4. Les valeurs restent lisibles SANS rien ouvrir ──');
     /* Sinon on aurait remplacé une répétition par un tiroir, ce qui ne règle rien : le lecteur d'un
        fil balaie, il ne déplie pas. */
-    v('les six publications repliées sont affichées en puces', res.puces.length === 6, res.puces.length + ' puce(s)');
+    v('les SEPT publications du lot sont affichées en puces, chef de file comprise',
+      res.puces.length === 7, res.puces.length + ' puce(s)');
+    /* La chef de file EN PREMIER : c'est elle que le titre nomme, sa valeur doit ouvrir la rangée. */
+    v('… et la chef de file ouvre la rangée', /Core PCE Price Index YoY/.test(res.puces[0].nom),
+      res.puces[0].nom);
     v('… toutes réellement peintes (hauteur non nulle)', res.puces.every(p => p.visible));
     v('le nom de la puce est débarrassé du pays et de la queue « Actual… »',
       res.puces.some(p => p.nom === 'Core PCE Price Index MoM'), JSON.stringify(res.puces.map(p => p.nom)));
@@ -200,6 +206,60 @@ const ITEMS = [
       pPile ? pPile.nom + ' → ' + pPile.teinte : 'puce introuvable');
     v('le consensus reste accessible en infobulle', res.puces.every(p => /attendu/.test(p.titre || '')),
       JSON.stringify(res.puces.map(p => p.titre).slice(0, 2)));
+    console.log('\n── 5. LE VRAI DESK, avec ce lot dans son fil ──');
+    /* ══ POURQUOI CETTE PHASE EXISTE EN PLUS DES QUATRE AUTRES ═══════════════════════════════════
+       Les contrôles ci-dessus éprouvent le regroupement et le rendu des puces EN ISOLATION. Ils
+       seraient tous verts si `buildNewsItem` n'appelait jamais l'un ni l'autre. On ouvre donc le
+       desk réel, on lui sert ce lot par son API, et on relit ce qui est PEINT — c'est le seul
+       niveau où « le fil ne répète plus » veut dire quelque chose. */
+    const UTIL = { id: 1, email: 'a@b.c', name: 'Test', role: 'client', active: true, plan: 'professionnel' };
+    const MIME2 = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.svg': 'image/svg+xml', '.png': 'image/png' };
+    const heure = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    const FLUX = ITEMS.map(i => ({ ...i, time: heure(i.timestamp), description: '', source: 'ForexFactory', tags: ['Data'] }));
+    const srv2 = http.createServer((rq, rs) => {
+      const u = rq.url.split('?')[0];
+      if (u === '/api/news') { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify({ items: FLUX, total: FLUX.length })); }
+      if (u.startsWith('/api/')) { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify({ items: [], total: 0, ok: true, loggedIn: true, authenticated: true, user: UTIL, ...UTIL })); }
+      const f = path.join(PUB, u === '/' ? 'index.html' : u.replace(/^\/+/, ''));
+      if (!f.startsWith(PUB) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { rs.writeHead(404); return rs.end('404'); }
+      rs.writeHead(200, { 'Content-Type': MIME2[path.extname(f)] || 'text/plain' });
+      fs.createReadStream(f).pipe(rs);
+    }).listen(PORT + 1);
+    try {
+      const p2 = await nav.newPage();
+      await p2.setViewport({ width: 1500, height: 950 });
+      const err2 = [];
+      p2.on('pageerror', e => err2.push(String(e.message)));
+      await p2.goto('http://localhost:' + (PORT + 1) + '/index.html', { waitUntil: 'networkidle2', timeout: 45000 });
+      await new Promise(r => setTimeout(r, 4500));
+      const d = await p2.evaluate(() => {
+        const lignes = [...document.querySelectorAll('.news-item')];
+        const chef = lignes.find(l => l.querySelector('.news-pub'));
+        return {
+          n: lignes.length,
+          erreurs: 0,
+          badge: chef ? (chef.querySelector('.news-grp-cpt') || {}).textContent : null,
+          titre: chef ? (chef.querySelector('.news-headline') || chef.querySelector('.news-content > div')).childNodes[0].textContent.trim() : null,
+          puces: chef ? chef.querySelectorAll('.news-pub').length : 0,
+          premiere: chef ? (chef.querySelector('.news-pub i') || {}).textContent : null,
+        };
+      });
+      v('le desk boote et rend son fil sans exception', err2.length === 0, err2.slice(0, 2).join(' | '));
+      /* QUATRE et non cinq, et l'écart est instructif : le regroupement rend cinq lignes (contrôle
+         de la section 1), mais « Commentaire économique » est COUPÉ par défaut dans les préférences
+         du desk — le récit « US GDP 2nd estimate… » n'atteint donc jamais l'écran. Écrire 5 ici
+         aurait été rouge pour une raison qui n'a rien à voir avec le regroupement. */
+      v('onze dépêches donnent QUATRE lignes à l\'écran (la 5e est coupée par le filtre par défaut)',
+        d.n === 4, d.n + ' ligne(s)');
+      v('la ligne meneuse annonce ce qu\'elle replie', d.badge === '+6 publications', String(d.badge));
+      v('les sept valeurs sont peintes sur cette ligne', d.puces === 7, d.puces + ' puce(s)');
+      /* Le titre perd sa queue chiffrée : sinon les trois mêmes chiffres seraient écrits DEUX FOIS
+         sur la même ligne — le titre et la première puce — soit la redondance qu'on supprime,
+         réintroduite à l'intérieur d'une seule ligne. Vu au rendu, pas en relecture. */
+      v('… et son titre ne répète plus les chiffres de sa première puce',
+        !!d.titre && !/\bactual\b/i.test(d.titre), String(d.titre));
+      v('… il nomme bien la publication', /Core PCE Price Index YoY/.test(String(d.titre)), String(d.titre));
+    } finally { try { srv2.close(); } catch {} }
   } catch (e) {
     ko++; console.log('  ✗ banc interrompu\n      → ' + e.message);
   } finally {

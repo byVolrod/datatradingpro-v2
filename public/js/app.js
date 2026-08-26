@@ -3570,6 +3570,16 @@ function buildNewsItem(item) {
   }
   // Même geste pour une publication groupée : la ligne annonce ce qu'elle contient.
   const hasPubs = Array.isArray(item._groupedPubs) && item._groupedPubs.length > 0;
+  /* ⚠️ ET SON TITRE PERD SA QUEUE CHIFFRÉE. Vu au rendu réel : « US Core PCE Price Index YoY Actual
+     3.3% (Forecast 3.3%, Previous 3.3%) » suivi, juste en dessous, d'une puce disant « Core PCE
+     Price Index YoY 3,3 % ». Les mêmes trois chiffres deux fois sur deux lignes — la redondance
+     qu'on venait précisément de supprimer, réintroduite à l'intérieur d'une seule ligne.
+     Le titre nomme donc la publication, les puces portent les chiffres. On ne touche PAS aux lignes
+     non groupées : là, la queue chiffrée est le seul endroit où la valeur est écrite. */
+  if (hasPubs) {
+    const _court = String(item.headline || '').replace(/\s*\bactual\b[\s\S]*$/i, '').replace(/\s*[-–—:,]\s*$/, '').trim();
+    if (_court.length > 6) headline.textContent = _court;
+  }
   if (hasPubs) {
     const cpt = document.createElement('span');
     cpt.className = 'news-grp-cpt';
@@ -3577,7 +3587,11 @@ function buildNewsItem(item) {
     headline.appendChild(cpt);
   }
   content.appendChild(headline);
-  if (hasPubs) content.appendChild(_pubPucesEl(item._groupedPubs));
+  /* ⚠️ LA CHEF DE FILE FIGURE DANS SES PROPRES PUCES, EN PREMIER. Sans elle, la rangée listait six
+     valeurs sur sept : celle de la ligne meneuse restait enfouie dans son titre brut (« US Core PCE
+     Price Index YoY Actual 3.3% (Forecast 3.3%, Previous 3.3%) »), et le lecteur qui balaie les
+     puces devait revenir lire une phrase pour la septième. Vu au rendu réel, pas en relecture. */
+  if (hasPubs) content.appendChild(_pubPucesEl([item].concat(item._groupedPubs)));
 
   el.appendChild(content);
 
