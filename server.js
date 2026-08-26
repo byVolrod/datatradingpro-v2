@@ -3144,7 +3144,36 @@ async function _whopRenewOrCreate(mem) {
     try {
       const aff = mem.affiliateUsername && String(mem.affiliateUsername).toLowerCase();
       if (aff && wu && wu.id) {
-        const refUid = await auth.aiCacheGet('whopaff:' + aff, 8640000000000).catch(() => null);
+        let refUid = await auth.aiCacheGet('whopaff:' + aff, 8640000000000).catch(() => null);
+        /* ── L'INDEX MANQUE ? ON DEMANDE A WHOP QUI EST CE PSEUDO (04/09) ──────────────────────────
+           L'index `whopaff:<pseudo> → compte` n'etait ecrit QU'AU MOMENT ou le parrain ouvrait son
+           panneau Parrainages. Deux situations le laissaient vide, et dans les deux la commission
+           Whop tombait normalement pendant que le compteur DTP restait a zero — donc « 1 mois offert
+           tous les 3 filleuls » ne se declenchait JAMAIS, sans un mot pour le client ni pour l'admin :
+             · Whop renvoie l'adresse canonique du parrain sans pseudo exploitable ;
+             · le parrain partage un lien recupere directement depuis son espace Whop, sans jamais
+               ouvrir le panneau du desk.
+           On ne depend plus de cet index : s'il manque, on fait le chemin inverse — pseudo → adresse
+           chez Whop, adresse → compte chez nous — et on ECRIT l'index au passage, pour que le filleul
+           suivant n'ait pas a repayer l'appel. L'alerte admin reste, mais elle devient le repli d'un
+           repli au lieu d'etre la seule chose qui se produise. */
+        if (!refUid) {
+          try {
+            const inv = await whop.findEmailByUsername(aff);
+            if (inv && inv.email) {
+              const emP = _emailDesk(inv.email) || String(inv.email).toLowerCase().trim();
+              const tous = await auth.getAllUsers();
+              const parrain = tous.find(x => String(x.email || '').toLowerCase().trim() === emP);
+              if (parrain && parrain.id) {
+                refUid = String(parrain.id);
+                await auth.aiCacheSet('whopaff:' + aff, refUid).catch(() => {});
+                console.log('[Referral] index reconstruit par recherche inverse : ' + aff + ' → ' + emP);
+              } else {
+                console.warn('[Referral] pseudo ' + aff + ' resolu en ' + emP + ', mais aucun compte desk a cette adresse');
+              }
+            }
+          } catch (e) { console.warn('[Referral] recherche inverse:', e.message); }
+        }
         const already = await auth.aiCacheGet('referredby:' + wu.id, 8640000000000).catch(() => null);
         if (refUid && String(refUid) !== String(wu.id) && !already) {
           await auth.aiCacheSet('referredby:' + wu.id, String(refUid)).catch(() => {});

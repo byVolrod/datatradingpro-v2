@@ -128,6 +128,50 @@ async function getMembershipByEmail(email) {
   } catch { return null; }
 }
 
+/* ── LA RECHERCHE INVERSE : UN PSEUDO → SON ADRESSE (04/09) ───────────────────────────────────────
+   `getAffiliateInfo` va de l'adresse vers le pseudo. Il manquait le chemin retour, et son absence
+   ouvrait une panne silencieuse : l'attribution d'un filleul repose sur un index `pseudo → compte`
+   qui n'est ecrit QUE lorsque le parrain ouvre son panneau Parrainages. Deux situations le laissent
+   vide, et dans les deux la commission Whop tombe normalement pendant que le compteur DTP reste a
+   zero — donc « 1 mois offert tous les 3 filleuls » ne se declenche jamais, sans un mot :
+     · Whop renvoie l'adresse canonique du parrain sans pseudo exploitable ;
+     · le parrain partage un lien recupere ailleurs (son espace Whop) sans jamais ouvrir le panneau.
+   Avec ce chemin retour, le webhook n'a plus besoin que l'index existe : il demande a Whop qui est
+   ce pseudo, retrouve le compte par l'adresse, et ecrit l'index au passage. */
+async function findEmailByUsername(username) {
+  if (!WHOP_API_KEY || !username) return null;
+  const cible = String(username).toLowerCase().trim();
+  if (!cible) return null;
+  // Meme lecture defensive du pseudo que getAffiliateInfo : direct, objet imbrique, puis le ?a= de
+  // l'adresse canonique. Un seul de ces trois chemins repond selon les comptes.
+  const nomDe = (m) => {
+    let u = (m.username && String(m.username))
+      || (m.user && typeof m.user === 'object' && m.user.username && String(m.user.username)) || null;
+    if (!u && m.affiliate_page_url) {
+      const mm = String(m.affiliate_page_url).match(/[?&]a=([^&#]+)/);
+      if (mm) { try { u = decodeURIComponent(mm[1]); } catch { u = mm[1]; } }
+    }
+    return u ? u.toLowerCase().trim() : null;
+  };
+  try {
+    let page = 1, tp = 1;
+    do {
+      // AUCUN filtre produit : le parrain peut n'avoir que l'offre gratuite (audit du 02/09).
+      const r = await fetch(`${BASE}/memberships?valid=true&per=50&page=${page}`, { headers: _auth() });
+      if (!r.ok) break;
+      const j = await r.json();
+      const arr = (Array.isArray(j) ? j : j.data) || [];
+      const m = arr.find(x => nomDe(x) === cible);
+      if (m) { const em = _memEmail(m); return em ? { email: em, username: cible } : null; }
+      const pg = j && j.pagination;
+      tp = (pg && (pg.total_page || pg.total_pages)) || 1;
+      page++;
+    } while (page <= tp && page <= 6);
+    if (tp > 6) console.warn('[Whop] recherche inverse TRONQUEE (cap 6 pages, ' + tp + ' annoncees) pour ' + cible);
+  } catch (e) { console.warn('[Whop] recherche inverse:', e.message); }
+  return null;
+}
+
 // Lien d'affiliation d'un MEMBRE (par email) → { pageUrl, username }.
 // pageUrl = affiliate_page_url CANONIQUE fourni par Whop (ex. https://whop.com/jot-dtp/?a=axelajt),
 // vérifié en production. Replis : username direct, objet user imbriqué, id user_xxx via v5.
@@ -443,4 +487,5 @@ async function revenueStats(opts) {
   return data;
 }
 
-module.exports = { productId: DTP_PRODUCT, getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, revenueStats, configured: () => !!WHOP_API_KEY };
+module.exports = {
+  findEmailByUsername, productId: DTP_PRODUCT, getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, revenueStats, configured: () => !!WHOP_API_KEY };

@@ -494,6 +494,7 @@ async function interroge(email) {
       aiCacheGet: async k => (k in kv ? kv[k] : null),
       aiCacheSet: async (k, v2) => { kv[k] = v2; },
       getUserById: async id => users[String(id)] || null,
+      getAllUsers: async () => Object.values(users),
       updateUser: async (id, f) => { Object.assign(users[String(id)], { expires_at: f.expiresAt }); },
     };
     const whop = { getAffiliateInfo: async () => whopRep };
@@ -503,7 +504,11 @@ async function interroge(email) {
       sendReferralCredited: async d => { mails.push(['credited', d.to, d.count, d.untilNext]); return true; },
     };
     // eslint-disable-next-line no-eval
+    /* `_emailDesk` traduit un alias Whop en adresse du desk. C'est une declaration de server.js,
+       hoistee, donc disponible en production — le banc doit la fournir, sinon il teste un
+       ReferenceError et non le comportement. Version fidele mais sans table d'alias : l'identite. */
     const F = eval('(function(auth, whop, mailer, KV_FOREVER, REF_TARGET, REF_BONUS_DAYS) {\n'
+      + 'function _emailDesk(e) { return String(e || "").toLowerCase().trim(); }\n'
       + SRC_AFF + '\n' + SRC_CRED + '\n'
       + 'async function _refGetRecord(id) { let r = await auth.aiCacheGet("referral:" + id); if (!r) r = { code: "DTP-TEST", count: 0, referrals: [], rewards: 0, bonusDays: 0 }; return r; }\n'
       + 'async function _refSaveRecord(id, r) { await auth.aiCacheSet("referral:" + id, r); }\n'
@@ -572,6 +577,33 @@ async function interroge(email) {
     v('… et le bonus est mémorisé pour être rejoué au renouvellement Whop',
       kv['refbonus:u-parrain'] === 30, 'le mois offert serait perdu au prochain paiement');
 
+    /* ── LA RECHERCHE INVERSE REFERME LE PIÈGE (04/09, demande user « règle ceci ») ────────────────
+       L'index `pseudo → compte` n'était écrit qu'au moment où le parrain ouvrait son panneau. Deux
+       situations le laissaient vide, et dans les deux la commission Whop tombait pendant que le
+       compteur restait à zéro : Whop renvoie l'adresse sans pseudo exploitable, ou le parrain
+       partage un lien récupéré directement dans son espace Whop sans jamais ouvrir le desk.
+       Le webhook ne dépend plus de l'index : s'il manque, il fait le chemin inverse. */
+    neuf();
+    delete kv['whopaff:parrainpseudo'];                       // l'index n'a JAMAIS été écrit
+    let inverseAppelee = 0;
+    whop.findEmailByUsername = async (u) => { inverseAppelee++; return u === 'parrainpseudo' ? { email: 'parrain@exemple.fr', username: u } : null; };
+    const MI = F(auth, whop, mailer, KV_FOREVER, REF_TARGET, REF_BONUS_DAYS);
+    await MI.attribuer({ affiliateUsername: 'PARRAINPSEUDO', email: 'f1@exemple.fr' }, users['u-f1']);
+    v('un filleul est rattaché MÊME SI le parrain n\'a jamais ouvert son panneau',
+      kv['referredby:u-f1'] === 'u-parrain', 'la recherche inverse n\'a pas rattrapé l\'index manquant');
+    v('… la recherche inverse a bien été appelée', inverseAppelee === 1, inverseAppelee + ' appel(s)');
+    v('… et l\'index est RECONSTRUIT au passage (le filleul suivant ne repaie pas l\'appel)',
+      kv['whopaff:parrainpseudo'] === 'u-parrain');
+    await MI.attribuer({ affiliateUsername: 'parrainpseudo', email: 'f3@exemple.fr' }, users['u-f3']);
+    v('… le filleul suivant passe par l\'index, sans rappeler Whop', inverseAppelee === 1, inverseAppelee + ' appel(s)');
+
+    // Un pseudo que Whop ne connaît pas : on n'invente pas de parrain.
+    neuf();
+    whop.findEmailByUsername = async () => null;
+    const MN = F(auth, whop, mailer, KV_FOREVER, REF_TARGET, REF_BONUS_DAYS);
+    await MN.attribuer({ affiliateUsername: 'inconnu', email: 'f1@exemple.fr' }, users['u-f1']);
+    v('un pseudo introuvable chez Whop ne fabrique aucun rattachement', !kv['referredby:u-f1']);
+
     // ── LE PIÈGE : un lien servi SANS nom d'utilisateur résolvable ──
     neuf();
     whopRep = { pageUrl: 'https://whop.com/justonetrader-actions-7/', username: null };   // aucun ?a=
@@ -583,6 +615,13 @@ async function interroge(email) {
     await M.attribuer({ affiliateUsername: 'parrainpseudo', email: 'f1@exemple.fr' }, users['u-f1']);
     v('… et le filleul n\'est effectivement rattaché à personne', !kv['referredby:u-f1'],
       'c\'est bien la panne silencieuse qu\'on redoute');
+    const WH = fs.readFileSync(path.join(RACINE, 'whop.js'), 'utf8');
+    v('la recherche inverse cherche SANS filtre produit (une offre gratuite suffit)',
+      /findEmailByUsername[\s\S]{0,1800}memberships\?valid=true&per=50&page=\$\{page\}`/.test(WH)
+        && !/findEmailByUsername[\s\S]{0,1800}product_id=/.test(WH),
+      'un parrain en offre gratuite resterait introuvable');
+    v('… elle lit le pseudo par les TROIS chemins, comme getAffiliateInfo',
+      /nomDe = \(m\)[\s\S]{0,420}affiliate_page_url/.test(WH));
     v('CE CAS NE PEUT PLUS ÊTRE SILENCIEUX : le serveur alerte l\'admin, une fois par compte',
       /refnouser:/.test(SRV) && /sendAdminAlert\(\{[\s\S]{0,200}nom d\\?'utilisateur Whop/.test(SRV),
       'sans alerte, le compteur resterait à zéro sans que personne ne le sache');
