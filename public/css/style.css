@@ -6175,6 +6175,15 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
 /* « À surveiller » : les puces expliquent, le tableau chiffre — un vrai blanc les sépare, sinon le
    calendrier semble collé à la dernière puce et on ne sait plus où finit le texte (retour user 11/08). */
 .fxdr-bullets + .fxdr-callike { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--hud-line, #1a1a1e); }
+/* ── ET DANS L'AUTRE SENS, POUR LE RÉCAP DE SÉANCE (30/08 : « c'est collé au calendrier ») ───────
+   Le Récap Quotidien met ses fils ouverts AVANT le tableau, d'où la règle ci-dessus. Le récap de
+   séance les met APRÈS — une échéance datée passe avant une attente vague — et rien ne les séparait :
+   la première puce démarrait sur la dernière ligne du calendrier, sans un pixel entre les deux.
+   Même respiration, même filet, dans les deux sens. La seconde règle est un filet : depuis le 30/08
+   les puces portent toujours leur intitulé « Autres », donc aucune ne suit le tableau directement —
+   mais un rapport plus ancien, ou une rubrique sans intitulé, ne doit pas revenir se coller. */
+.fxdr-callike + .arlib-rsubsection { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--hud-line, #1a1a1e); }
+.fxdr-callike + .arlib-rbullet    { margin-top: 16px; }
 /* Ligne « À surveiller » cliquable → Décryptage DTP (même geste que l'onglet Calendrier). */
 .fxdr-cal-clic { cursor: pointer; }
 .fxdr-cal-clic:hover { background: rgba(227,178,58,.05); }

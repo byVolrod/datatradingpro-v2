@@ -109,6 +109,37 @@ function completerSurveiller(items, surv) {
   const tete = surv.nom ? [`**Séance de ${surv.nom}** — le calendrier :`] : [];
   return tete.concat(lignes.map(String), (items || []).map(String));
 }
+/* CE QUI N'EST PAS DANS LE TABLEAU S'APPELLE « AUTRES », ET RIEN N'Y EST DIT DEUX FOIS (30/08,
+   capture à l'appui : « corrige ça c'est collé au calendrier, vérifie s'ils ne sont pas dans le
+   calendrier en dessous, et si c'est pas [le cas] alors mets Autres et tu les classes dedans »).
+   Sous le tableau, trois puces arrivaient NUES — résultats Nvidia, indicateur PCE de la Fed,
+   discours de Warsh — collées à la dernière ligne du calendrier, sans intitulé et sans respiration.
+   Deux défauts en un, et le second est le vrai : un lecteur ne sait pas si ces lignes commentent le
+   tableau ou parlent d'autre chose. C'est la même règle que la Macro et l'Analyse de séance, qui la
+   respectent déjà : AUCUNE PUCE SANS SON INTITULÉ.
+   Et avant de les intituler, on les DÉDOUBLONNE. Une puce qui redit un rendez-vous déjà listé
+   au-dessus n'est pas un « autre » sujet, c'est une répétition — c'est même le défaut que la
+   rubrique du Récap Quotidien a déjà connu (les puces narratives y paraphrasaient le tableau, elles
+   ont été retirées le 24/08). On réutilise `_SEA.dejaDit`, écrit pour exactement cette question et
+   déjà éprouvé : le pays tranche d'abord, puis un sigle distinctif (PCE, CPI, ISM…), puis deux mots
+   utiles en commun — le calendrier étant en anglais et les puces en français, la comparaison passe
+   par un vocabulaire commun.
+   ⚠️ CE QUI RESTE PEUT ÊTRE VIDE, et c'est un bon résultat : si tout ce que la rédaction a relevé
+   figure déjà au calendrier, la rubrique s'arrête sur le tableau. Mieux vaut pas d'« Autres » qu'un
+   « Autres » qui répète la ligne du dessus. */
+const _evPourDoublon = e => ({ title: (e && e.event) || '', currency: (e && e.ccy) || '', actual: '' });
+function autresSurveiller(items, surv) {
+  const evs = (surv && surv.evs) || [];
+  const out = [];
+  for (const brut of (items || [])) {
+    const t = sansSource(brut);
+    if (!t) continue;
+    if (evs.some(e => _SEA.dejaDit(_evPourDoublon(e), [t]))) continue;   // déjà dans le tableau
+    out.push(t);
+  }
+  return out;
+}
+
 /* LE VRAI TABLEAU DU CALENDRIER, PAS DES PHRASES (26/08 : « met une partie du calendrier éco du desk
    direct »). Le Récap Quotidien rend déjà ses échéances sous la forme du calendrier du desk —
    séparateurs de jours, heure, drapeau, points d'impact, cellules de valeurs, ligne cliquable vers
@@ -186,11 +217,14 @@ function html(arr, macroCal, surv, synth) {
          ne sont écrites QUE si le tableau n'a pas pu l'être (vieux lecteur, aucune donnée brute) :
          sinon le lecteur lirait deux fois les mêmes rendez-vous. */
       const tbl = calSurveiller(surv);
-      const l = tbl ? (sec.items || []).map(sansSource) : completerSurveiller(sec.items.map(sansSource), surv);
+      // Avec le tableau : on écarte les puces qu'il dit déjà, et ce qui reste passe sous « Autres ».
+      // Sans lui : rien à dédoublonner, et « Autres » n'aurait rien à distinguer — la rubrique reste
+      // exactement celle d'avant.
+      const l = tbl ? autresSurveiller(sec.items, surv) : completerSurveiller(sec.items.map(sansSource), surv);
       if (!tbl && !l.length) continue;
       out += `<strong>${esc(sec.section)}</strong>`;
       if (tbl) out += `<em>Séance de ${esc((surv && surv.nom) || '')}</em>` + tbl;
-      if (l.length) out += `<ul>${l.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      if (l.length) out += (tbl ? '<em>Autres</em>' : '') + `<ul>${l.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
       continue;
     }
     /* « ANALYSE DE SÉANCE » RANGÉE PAR CLASSE D'ACTIF (28/08 : « classe bien par catégories ici pour
@@ -216,4 +250,4 @@ function html(arr, macroCal, surv, synth) {
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, calSurveiller, poserSynthese, sansSource, heureParis, esc };
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, heureParis, esc };

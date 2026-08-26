@@ -312,6 +312,61 @@ function phaseLogique() {
     verif('la SYNTHÈSE se rend en encadré, pas en puces', /tag === 'ul' && \/\^SYNTH\[ÈE\]SE\$\/\.test\(_rubrique\)/.test(APP2));
     verif('la règle CSS est partagée, pas dupliquée', /\.fxdr-section,\s*\n\.arlib-rsection \{/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
 
+    /* ── « C'EST COLLÉ AU CALENDRIER » : ON MESURE L'ÉCART, EN PIXELS ──────────────────────────
+       30/08, capture : sous le tableau de « À surveiller », la première puce démarrait SUR la
+       dernière ligne du calendrier. `.arlib-rbullet` ne porte qu'une marge BASSE ; rien ne la
+       séparait donc de ce qui la précède. Une lecture de la feuille ne tranche pas — il faut
+       poser les deux éléments l'un sous l'autre et mesurer ce qu'il y a entre eux.
+       On mesure les DEUX formes : celle d'aujourd'hui (le tableau, l'intitulé « Autres », les
+       puces) et le filet posé pour l'autre (une puce qui suivrait le tableau directement, sur un
+       rapport plus ancien). */
+    const ec = await page.evaluate(() => {
+      const box = document.createElement('div');
+      box.style.width = '760px';
+      box.innerHTML =
+        '<div class="arlib-rbody" id="A">'
+        + '<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><tbody>'
+        + '<tr class="cal-row"><td class="cth-time">12:00</td><td class="cth-event">CBI Distributive Trades</td></tr>'
+        + '</tbody></table></div></div>'
+        + '<div class="arlib-rsubsection">Autres</div>'
+        + '<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>Résultats du T2 de Nvidia.</span></div>'
+        + '</div>'
+        + '<div class="arlib-rbody" id="B">'
+        + '<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><tbody>'
+        + '<tr class="cal-row"><td class="cth-time">12:00</td><td class="cth-event">CBI Distributive Trades</td></tr>'
+        + '</tbody></table></div></div>'
+        + '<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>Résultats du T2 de Nvidia.</span></div>'
+        + '</div>';
+      document.body.appendChild(box);
+      const bas = (id, sel) => document.querySelector('#' + id + ' ' + sel).getBoundingClientRect().bottom;
+      const haut = (id, sel) => document.querySelector('#' + id + ' ' + sel).getBoundingClientRect().top;
+      const r = {
+        // Le desk applique une échelle globale : on ramène en pixels DÉCLARÉS pour raisonner sur
+        // les valeurs de la feuille, sinon 20 px écrits rendent 18 px mesurés et le seuil ment.
+        z: document.body.offsetWidth ? (document.body.getBoundingClientRect().width / document.body.offsetWidth) : 1,
+        avecTitre: haut('A', '.arlib-rsubsection') - bas('A', '.fxdr-callike'),
+        titreAPuce: haut('A', '.arlib-rbullet') - bas('A', '.arlib-rsubsection'),
+        sansTitre: haut('B', '.arlib-rbullet') - bas('B', '.fxdr-callike'),
+        filet: getComputedStyle(document.querySelector('#A .arlib-rsubsection')).borderTopWidth,
+      };
+      box.remove();
+      return r;
+    });
+    const _dec = v => Math.round(v / (ec.z || 1));   // pixels déclarés
+    console.log('\n── « À surveiller » : les puces ne collent plus au calendrier ──');
+    /* Le seuil est à 18 et non à 14 : `.arlib-rsubsection` porte DÉJÀ 14 px de marge haute, un
+       contrôle à 14 serait donc vert sans la règle qu'il prétend éprouver. On mesure la respiration
+       RENFORCÉE posée sous le tableau (20 px), pas celle qu'un sous-titre a partout. */
+    verif('l\'intitulé « Autres » respire sous le tableau', _dec(ec.avecTitre) >= 18,
+      _dec(ec.avecTitre) + ' px déclarés entre le bas du tableau et l\'intitulé');
+    verif('… avec un filet qui sépare franchement les deux', parseFloat(ec.filet) > 0, 'bordure haute : ' + ec.filet);
+    verif('la puce suit son intitulé sans s\'en détacher', _dec(ec.titreAPuce) >= 0 && _dec(ec.titreAPuce) <= 12,
+      _dec(ec.titreAPuce) + ' px déclarés');
+    /* LE FILET, pour un rapport d'avant le 30/08 ou une rubrique sans intitulé : une puce ne doit
+       jamais revenir se coller au tableau. Mesuré avant correction : 0 px. */
+    verif('une puce qui suit le tableau directement garde un écart', _dec(ec.sansTitre) >= 12,
+      _dec(ec.sansTitre) + ' px déclarés (0 avant correction)');
+
     /* ── LE RÉCAP QUOTIDIEN S'AFFICHE-T-IL ? ───────────────────────────────────────────────────
        AUCUN contrôle n'ouvrait ce rapport. Le 26/08, une extraction de fonction y a emporté trois
        lignes de l'appelant : `body` n'existait plus dans la fonction d'accueil, et le rapport

@@ -638,6 +638,58 @@ v('elle réutilise la fabrique des récaps déterministes', /return _aSurveiller
 v('le serveur la passe au rendu', /_WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
 v('la version de segmentation a été bumpée (À surveiller)', /const SW_SEG_VER  = 'v2[1-9]:'/.test(_SRVA));
 
+console.log('\n── 7e-sexies-bis. Sous le tableau : « Autres », et rien qui s\'y répète ──');
+/* 30/08, capture : trois puces NUES collées à la dernière ligne du calendrier — résultats Nvidia,
+   indicateur PCE de la Fed, discours de Warsh. « Corrige ça c'est collé au calendrier, vérifie s'ils
+   ne sont pas dans le calendrier en dessous, et si c'est pas [le cas] alors mets Autres et tu les
+   classes dedans. » Deux règles, et la seconde est celle qui compte : un lecteur ne peut pas savoir
+   si ces lignes commentent le tableau ou parlent d'autre chose. */
+const SURV_A = { nom: 'New York', lignes: [], evs: [
+  { ts: JOUR + 12 * H, ccy: 'GBP', event: 'CBI Distributive Trades', importance: 'Medium', actual: '24', forecast: '', previous: '26' },
+  { ts: JOUR + 14 * H, ccy: 'USD', event: 'Core PCE Price Index m/m', importance: 'High', actual: '', forecast: '0.2%', previous: '0.1%' },
+] };
+const PUCES_A = [
+  'Résultats du T2 de **Nvidia** aujourd\'hui → impact potentiel sur le secteur technologique.',
+  'Publication de l\'indicateur d\'inflation privilégié de la **Fed** (PCE) → catalyseur majeur pour le pricing de la politique monétaire américaine.',
+  'Discours de **Warsh** à Jackson Hole dans deux jours → potentiels commentaires sur la politique monétaire.',
+];
+const hA = W.html([{ section: 'LEAD', items: ['Séance calme.'] }, { section: 'À surveiller', items: PUCES_A }], [], SURV_A).html;
+v('les puces restantes portent leur intitulé « Autres »', /<\/aside><em>Autres<\/em><ul>/.test(hA),
+  hA.slice(hA.indexOf('</aside>'), hA.indexOf('</aside>') + 120));
+/* LE DÉDOUBLONNAGE, SUR LE CAS EXACT DE LA CAPTURE. Le PCE est au tableau ; la puce qui l'annonce
+   n'est pas un « autre » sujet, c'est la ligne du dessus redite en français. `_SEA.dejaDit` la
+   reconnaît par son sigle distinctif, le pays ayant d'abord confirmé qu'on parle bien des deux
+   États-Unis. */
+/* ⚠️ ON S'ANCRE SUR LA FERMETURE DU TABLEAU, PAS SUR « <em>Autres » : mesuré à la mutation, un
+   `indexOf` qui ne trouve pas rend -1, et `slice(-1)` rend le DERNIER CARACTÈRE — ces deux
+   contrôles restaient verts en n'inspectant plus rien. Un ancrage qui disparaît avec le défaut
+   qu'il surveille n'est pas un ancrage. */
+const apresTbl = hA.slice(hA.indexOf('</aside>') + 8);
+v('la puce déjà au calendrier est écartée', /<li>/.test(apresTbl) && !/PCE/.test(apresTbl), apresTbl);
+v('… et les deux autres restent', /Nvidia/.test(apresTbl) && /Jackson Hole/.test(apresTbl), apresTbl);
+v('rien n\'est perdu en silence : le compte est de 2 sur 3', (apresTbl.match(/<li>/g) || []).length === 2, apresTbl);
+
+/* TOUT EST DÉJÀ AU TABLEAU → PAS D'« AUTRES » DU TOUT. Un intitulé vide, ou pire un « Autres » qui
+   répète la ligne du dessus, serait un défaut de plus, pas une correction. */
+const hVide = W.html([{ section: 'À surveiller', items: ['Le **PCE** américain, indicateur d\'inflation privilégié de la Fed.'] }], [], SURV_A).html;
+v('si tout est déjà au tableau, aucun « Autres » n\'apparaît', !/<em>Autres<\/em>/.test(hVide), hVide);
+v('… et le tableau, lui, reste', /<aside class="dtp-cal"/.test(hVide));
+
+/* SANS TABLEAU, RIEN NE CHANGE. « Autres » n'a de sens que par rapport à quelque chose : sans
+   calendrier au-dessus, il n'aurait rien à distinguer, et la rubrique doit rester celle d'avant. */
+const hSansTbl = W.html([{ section: 'À surveiller', items: PUCES_A }], [], { nom: 'New York', lignes: ['14h30 USD · Core PCE Price Index m/m'], evs: [] }).html;
+v('sans tableau, aucun intitulé « Autres »', !/<em>Autres<\/em>/.test(hSansTbl));
+v('… et les phrases du calendrier reviennent, comme avant', /14h30 USD/.test(hSansTbl));
+
+/* LA MÊME GRAMMAIRE QUE LES DEUX AUTRES RUBRIQUES. Macro et Analyse de séance rangent déjà sous des
+   intitulés ; c'était la seule des trois à laisser des puces nues. */
+v('l\'intitulé emprunte le même cran que Macro et Analyse de séance', /<em>Autres<\/em>/.test(hA) && /<em>Séance de New York<\/em>/.test(hA));
+v('le module expose la fonction, elle est éprouvable seule', typeof W.autresSurveiller === 'function');
+v('elle réutilise l\'anti-doublon de la Macro, pas une seconde règle',
+  /_SEA\.dejaDit\(_evPourDoublon\(e\), \[t\]\)/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8')));
+/* Le HTML segmenté est CACHÉ : sans bump, les rapports déjà rendus gardent leurs puces nues. */
+v('la version de segmentation a été bumpée (Autres)', /const SW_SEG_VER  = 'v(?:2[4-9]|[3-9]\d):'/.test(_SRVA));
+
 console.log('\n── 7e-septies. LA SYNTHÈSE OUVRE LE RAPPORT ──');
 /* « fais une synthèse de la session comme on a dans le récap quotidien » (26/08, capture : le
    rapport s'ouvrait sur les puces narratives du modèle, sans qu'une seule ligne dise ce que la
