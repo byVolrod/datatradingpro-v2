@@ -3584,7 +3584,10 @@ app.get('/api/referrals', async (req, res) => {
     const rec = await _refGetRecord(uid);
     await _refSaveRecord(uid, rec);
     const count = rec.count || 0;
-    // Lien Whop d'affiliation en priorité (tracking + versement des 10 % par Whop) ; repli landing.
+    // Lien Whop d'affiliation en priorité (tracking + versement de la commission par Whop) ; repli landing.
+    // ⚠️ LE TAUX N'EST PAS ICI. Il est réglé DANS Whop, côté programme d'affiliation : ce commentaire
+    // annonçait « 10 % » quand le panneau affiche « 15 % » — un chiffre en dur dans un commentaire finit
+    // toujours par mentir. Le panneau (index.html) est la seule vitrine du taux, Whop la seule autorité.
     // pageUrl = lien CANONIQUE renvoyé par Whop (affiliate_page_url) ; sinon on construit ?a=<username>.
     const aff = await _refWhopAffiliate(uid);
     const isOwner = req.session?.user?.role === 'admin';   // le propriétaire n'a pas de membership → son lien d'affilié = handle de l'espace
