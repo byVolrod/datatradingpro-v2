@@ -2674,7 +2674,12 @@
       // Réglage UTILE (04/08) : filtrer sur UNE banque — le trader suit souvent une seule courbe
       // de politique monétaire, et la carte devient lisible même étroite.
       opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'all',
-        choix: [['all', 'Toutes'], ['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'SNB'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ']] }],
+        /* LES BANQUES SONT NOMMÉES EN ENTIER (01/09, liste de référence fournie). Le sélecteur ne
+           portait que des sigles — « BoE », « SNB », « RBNZ » — qui supposent de les connaître déjà,
+           et « SNB » était même resté en anglais dans un desk qui parle français. Les noms complets
+           existent depuis toujours côté serveur (`CB[].full`) : on les reprend, sigle entre
+           parenthèses pour qui lit vite. Aucune donnée nouvelle. */
+        choix: [['all', 'Toutes']].concat([['USD', 'Réserve fédérale (Fed)'], ['EUR', 'Banque centrale européenne (BCE)'], ['GBP', 'Banque d\'Angleterre (BoE)'], ['JPY', 'Banque du Japon (BoJ)'], ['CHF', 'Banque nationale suisse (BNS)'], ['CAD', 'Banque du Canada (BoC)'], ['AUD', 'Banque de réserve d\'Australie (RBA)'], ['NZD', 'Banque de réserve de Nouvelle-Zélande (RBNZ)']]) }],
       mount: function (host, it) {
         var W = this;
         skel(host);
@@ -2733,7 +2738,9 @@
       src: "Pricing de marché des réunions à venir, agrégé par le desk et relu toutes les 5 minutes ; la donnée source bouge à l'heure, pas à la seconde.",
       watch: "La première ligne où le maintien passe sous 50 % : c'est la réunion à partir de laquelle le marché price un mouvement, et souvent le vrai moteur de la devise bien avant la réunion elle-même.",
       opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'USD',
-        choix: [['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'BNS'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ']] }],
+        // Mêmes noms complets que les deux autres sélecteurs de banque : trois listes dans le même
+        // desk ne peuvent pas nommer les mêmes banques de trois façons.
+        choix: [['USD', 'Réserve fédérale (Fed)'], ['EUR', 'Banque centrale européenne (BCE)'], ['GBP', 'Banque d\'Angleterre (BoE)'], ['JPY', 'Banque du Japon (BoJ)'], ['CHF', 'Banque nationale suisse (BNS)'], ['CAD', 'Banque du Canada (BoC)'], ['AUD', 'Banque de réserve d\'Australie (RBA)'], ['NZD', 'Banque de réserve de Nouvelle-Zélande (RBNZ)']] }],
       mount: function (host, it) {
         var W = this;
         skel(host);
@@ -2953,7 +2960,12 @@
       // Réglage UTILE (même motif que « Taux directeurs ») : suivre UNE banque : la carte devient
       // un compte à rebours dédié à la seule courbe de politique monétaire qu'on trade.
       opts: [{ k: 'banque', lbl: 'Banque', type: 'choix', def: 'all',
-        choix: [['all', 'Toutes'], ['USD', 'Fed'], ['EUR', 'BCE'], ['GBP', 'BoE'], ['JPY', 'BoJ'], ['CHF', 'SNB'], ['CAD', 'BoC'], ['AUD', 'RBA'], ['NZD', 'RBNZ']] }],
+        /* LES BANQUES SONT NOMMÉES EN ENTIER (01/09, liste de référence fournie). Le sélecteur ne
+           portait que des sigles — « BoE », « SNB », « RBNZ » — qui supposent de les connaître déjà,
+           et « SNB » était même resté en anglais dans un desk qui parle français. Les noms complets
+           existent depuis toujours côté serveur (`CB[].full`) : on les reprend, sigle entre
+           parenthèses pour qui lit vite. Aucune donnée nouvelle. */
+        choix: [['all', 'Toutes']].concat([['USD', 'Réserve fédérale (Fed)'], ['EUR', 'Banque centrale européenne (BCE)'], ['GBP', 'Banque d\'Angleterre (BoE)'], ['JPY', 'Banque du Japon (BoJ)'], ['CHF', 'Banque nationale suisse (BNS)'], ['CAD', 'Banque du Canada (BoC)'], ['AUD', 'Banque de réserve d\'Australie (RBA)'], ['NZD', 'Banque de réserve de Nouvelle-Zélande (RBNZ)']]) }],
       mount: function (host, it) {
         var W = this, vivant = true;
         /* Mémoire du verdict : le fondu ne se joue que sur un VRAI changement (banque de tête,
