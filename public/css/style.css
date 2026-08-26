@@ -7972,6 +7972,26 @@ html[data-theme="light"] .cal-day-sep td {
 .cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px 0 0 3px; }
 .cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; }
 .cs-badge-ccy:last-child { border-radius: 3px; }   /* pas de valeur (mode isolé) → pastille seule */
+/* CHEVRON « AU-DELÀ DU CADRE » (29/08, demande user : « je ne vois pas à vu d'œil toutes les courbes
+   informations de force de devises »). Quand le cadre se resserre sur le paquet, la devise laissée
+   dehors garde désormais sa pastille — ramenée au bord du cadre. Sans marque, le lecteur croirait
+   qu'elle finit PILE au bord ; le chevron dit « elle continue par là ». Discret volontairement : il
+   qualifie la pastille, il ne la remplace pas. */
+.cs-badge-hors { font-style: normal; font-size: 7px; line-height: 1; margin-right: 2px; opacity: .75; vertical-align: middle; }
+/* MODE COMPACT DE LA COLONNE DE PASTILLES. Posé par le graphique lui-même sur son conteneur, d'après
+   la hauteur MESURÉE du tracé — jamais par une `@media` de largeur de fenêtre : un panneau étroit sur
+   grand écran a exactement le même problème qu'un téléphone, et une media query de viewport ne le
+   voit pas. Sur une carte de 150 px, le tracé fait 105 px et huit pastilles de 15 px espacées de 17
+   en demandent 134 : aucun placement ne peut les y loger, il faut réduire l'objet. */
+.cs-dense .cs-badge-ccy, .cs-dense .cs-badge-val { font-size: 8px; padding: 1px 3px; }
+.cs-dense .cs-badge-hors { font-size: 6px; margin-right: 1px; }
+/* MISE EN AVANT AU SURVOL. La pastille de la devise visée reste franche, les sept autres s'effacent
+   — elles ne disparaissent pas : c'est la différence entre mettre en avant et filtrer, et c'est ce
+   qui permet de suivre une courbe sans perdre le contexte des autres. */
+.cs-survol .cs-badge { opacity: .38; transition: opacity .12s ease; }
+.cs-survol .cs-badge--vise { opacity: 1; }
+.cs-badge--vise .cs-badge-ccy { box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 3px currentColor; }
+.cs-badge--hors .cs-badge-ccy { box-shadow: inset 0 0 0 1px rgba(255,255,255,.55); }
 
 /* ═══════════════ METER — jauges à briques (égaliseur) ═══════════════ */
 .meter-grid {
@@ -17937,7 +17957,11 @@ html[data-theme="light"] .ai-head-title,
 html[data-theme="light"] .sqwk-title,
 html[data-theme="light"] .sqwk-toggle-state,
 html[data-theme="light"] .chat-support-av,
-html[data-theme="light"] .cs-badge-ccy { color: var(--text) !important; }
+/* ⚠️ RETIRÉE (29/08) : la couleur du texte d'une pastille se calcule désormais sur SON fond réel
+   (`_csTexteSur`, charts.js), pas sur le thème. Cette règle imposait du texte foncé en thème clair —
+   juste tant que les huit fonds y étaient clairs, faux depuis que le thème clair a sa palette FONCÉE
+   (sans laquelle les courbes sont invisibles sur blanc) : l'USD se retrouvait foncé sur foncé.
+   Un `!important` de feuille de style bat un style en ligne : la laisser aurait annulé le calcul. */
 
 html[data-theme="light"] .pd-section-label,
 html[data-theme="light"] .pd-ref-empty-t,

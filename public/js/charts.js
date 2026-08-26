@@ -487,6 +487,31 @@ const CS_COLORS = {
   CAD: 0xbe8bff,  // violet vif
   NZD: 0xff5cae,  // rose magenta vif
 };
+/* ══ LA MÊME PALETTE NE PEUT PAS SERVIR SUR BLANC (29/08) ═══════════════════════════════════════
+   Ces huit teintes sont réglées pour ressortir sur le fond sombre du desk, et elles y ressortent :
+   la plus faible tient 5,25 pour un seuil de 3. Sur le fond BLANC du thème clair, mesuré, SIX des
+   huit passent sous 3 — et l'USD, qui est un blanc cassé, tombe à 1,21 : sa courbe est littéralement
+   invisible. Le graphique promettait huit devises et en montrait deux ou trois.
+   On garde l'IDENTITÉ de chaque devise — même famille de teinte, donc le lecteur qui passe d'un
+   thème à l'autre reconnaît ses courbes — en descendant la luminosité de ce qu'il faut. Mesuré :
+   les huit tiennent entre 4,87 et 15,52 sur blanc, et la paire la plus proche (AUD/CAD, distance
+   Lab 34,4) est même MIEUX séparée que la paire la plus proche de la palette sombre (30,1). */
+const CS_COLORS_CLAIR = {
+  USD: 0x1f2430,  // ardoise très sombre : sur blanc, le « neutre » de la devise de base
+  EUR: 0xd92318,  // rouge profond
+  JPY: 0x0e7490,  // cyan foncé
+  GBP: 0x15803d,  // vert foncé
+  AUD: 0x2563eb,  // bleu roi
+  CHF: 0x9a6700,  // or foncé
+  CAD: 0x7c3aed,  // violet
+  NZD: 0xc2185b,  // magenta foncé
+};
+// La couleur d'une devise POUR LE THÈME COURANT. Un seul point de décision : les pastilles, les
+// courbes et les listes ne peuvent pas diverger.
+function _csCouleur(ccy) {
+  const t = _deskLight() ? CS_COLORS_CLAIR : CS_COLORS;
+  return t[ccy] || CS_COLORS[ccy] || 0x888888;
+}
 
 /* ══ RÉGLAGES D'AFFICHAGE MÉMORISÉS PAR COMPTE — MAGASIN GÉNÉRIQUE (12/08) ══════════════════════════
    Demande user : « chaque config ou affichage d'un widget que je configure doit être mémorisé pour
@@ -818,14 +843,34 @@ function _lighten(hexInt, amt) {
 // quelle courbe. On trace un filet de la couleur de la devise, de la pastille jusqu'à la hauteur
 // réelle du bout de courbe. `dy` est le décalage appliqué : positif = pastille poussée vers le BAS,
 // donc la courbe est au-dessus et le filet remonte.
-function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy) {
+/* `hors` : +1 si la courbe finit AU-DESSUS du cadre, -1 en dessous, 0 dans le cadre.
+   La pastille est alors ramenee au bord (cf. `ancrerBadges`) et porte un chevron : sans lui, le
+   lecteur croirait que la devise finit PILE au bord, ce qui serait un mensonge. Avec lui, il lit
+   « cette devise est au-dela », et sa valeur exacte reste dans la pastille (option « valeur ») et
+   dans l'infobulle. */
+/* LA COULEUR DU TEXTE SE DÉDUIT DU FOND DE LA PASTILLE, ELLE NE SE DÉCRÈTE PAS PAR THÈME (29/08).
+   La feuille de style imposait « texte clair en thème sombre, texte foncé en thème clair » — ce qui
+   marchait tant que les huit fonds de pastille étaient clairs. Le thème clair a désormais sa palette
+   FONCÉE (sans quoi les courbes sont invisibles sur blanc) : la règle par thème posait alors du
+   texte foncé sur un fond foncé, et l'USD, le plus sombre des huit, devenait illisible.
+   On calcule donc le contraste sur le fond RÉEL de chaque pastille. Une seule règle, valable dans
+   les deux thèmes et pour n'importe quelle couleur future. */
+function _csTexteSur(hex) {
+  const l = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const L = 0.2126 * l((hex >> 16) & 255) + 0.7152 * l((hex >> 8) & 255) + 0.0722 * l(hex & 255);
+  return L > 0.42 ? '#0c0c0e' : '#ffffff';
+}
+function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy, hors) {
   const d = Math.round(dy || 0);
   const filet = d
     ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"></i>`
     : '';
+  const _n = h => (typeof h === 'number') ? h : parseInt(String(h).replace('#', ''), 16);
+  const txtPlein = _csTexteSur(_n(fullHex)), txtClair = _csTexteSur(_n(lightHex));
   const val = (valStr == null || valStr === '') ? '' :
-    `<span class="cs-badge-val" style="background:${lightHex}">${valStr}</span>`;
-  return `<div class="cs-badge">${filet}<span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span>${val}</div>`;
+    `<span class="cs-badge-val" style="background:${lightHex};color:${txtClair}">${valStr}</span>`;
+  const chev = hors ? `<i class="cs-badge-hors">${hors > 0 ? '\u25b2' : '\u25bc'}</i>` : '';
+  return `<div class="cs-badge${hors ? ' cs-badge--hors' : ''}">${filet}<span class="cs-badge-ccy" style="background:${fullHex};color:${txtPlein}">${chev}${ccy}</span>${val}</div>`;
 }
 function buildStrengthChart(containerId, data, opts = {}) {
   // Reglage « Valeur sur les etiquettes » : le badge porte TOUJOURS le code ; la valeur est en option.
@@ -887,7 +932,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
     fill: am5.color(_deskLight() ? 0x4b5563 : 0x9aa3b2), fontSize: 11,
     fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
     fontWeight: '500',
-    minPosition: 0.012, maxPosition: 0.99,
+    /* Le premier libellé était coupé par le bord gauche — on lisait « 6:00 » pour « 16:00 ». Un
+       libellé est centré sur sa graduation : il faut donc laisser passer SA DEMI-LARGEUR, pas un
+       cheveu. 3,5 % de la largeur couvrent les 5 caractères de « 00:00 » jusqu'aux panneaux les plus
+       étroits ; au-delà, amCharts écarte le libellé au lieu de le rogner. */
+    minPosition: 0.035, maxPosition: 0.985,
   });
   xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeDasharray: [2, 4] });   // grille TRÈS discrète GRIS (jamais "trait noir"), derrière les courbes
   // Un filet sépare l'axe du tracé : sans lui les heures flottent sous les courbes et on ne sait
@@ -896,9 +945,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // Axe X façon DTP : la DATE pleine au changement de jour (ex. "05/06/2026" tout à gauche) + heures HH:mm ensuite.
   xAxis.set('dateFormats',             { minute: 'HH:mm', hour: 'HH:mm', day: 'dd/MM/yyyy', week: 'dd/MM', month: 'MMM yyyy' });
   xAxis.set('periodChangeDateFormats', { minute: 'HH:mm', hour: 'dd/MM/yyyy', day: 'dd/MM/yyyy', week: 'MMM', month: 'yyyy' });
+  /* ⚠️ IL MANQUAIT LE PAS DE 2 HEURES (29/08). La suite sautait de 1 h à 3 h : sur un panneau étroit,
+     le pas de 1 h ne tient plus et amCharts passe directement à 3 h — il ne reste alors que DEUX
+     heures lisibles sur toute la largeur, et on ne sait plus rattacher un mouvement à un moment.
+     Les pas de 2 h et 12 h comblent les deux trous de la suite. */
   xAxis.set('gridIntervals', [
-    { timeUnit: 'minute', count: 30 }, { timeUnit: 'hour', count: 1 }, { timeUnit: 'hour', count: 3 },
-    { timeUnit: 'hour', count: 6 }, { timeUnit: 'day', count: 1 }, { timeUnit: 'week', count: 1 }, { timeUnit: 'month', count: 1 },
+    { timeUnit: 'minute', count: 30 }, { timeUnit: 'hour', count: 1 }, { timeUnit: 'hour', count: 2 }, { timeUnit: 'hour', count: 3 },
+    { timeUnit: 'hour', count: 6 }, { timeUnit: 'hour', count: 12 }, { timeUnit: 'day', count: 1 }, { timeUnit: 'week', count: 1 }, { timeUnit: 'month', count: 1 },
   ]);
 
   // GOUTTIÈRE DROITE : graduations de l'axe Y ET étiquettes de devises, dans la MÊME colonne, toutes
@@ -1001,9 +1054,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // son niveau pendant un tiers de la semaine. Ses valeurs ne sont donc pas des points « extrêmes »
   // au sens statistique : le 98e centile les contient déjà. Ce n'est pas un pic qu'il faut sortir du
   // cadre, c'est une COURBE ENTIÈRE qui vit ailleurs que les autres.
-  // On mesure donc l'amplitude de CHAQUE devise, on prend la médiane de ces amplitudes, et on cadre
-  // sur celles qui restent dans une fourchette raisonnable autour d'elle. Les fuyardes sortent du
-  // cadre — sans qu'aucune de leurs valeurs ne soit touchée.
+  // On mesure donc, pour CHAQUE devise, DE COMBIEN ELLE POUSSE LE CADRE — c'est-à-dire sa distance
+  // au zéro, pas son amplitude : une devise qui reste plate à −18 pendant que les autres oscillent
+  // autour de ±4 est parfaitement calme, et elle étire pourtant le cadre de tout le monde. On prend
+  // la médiane de ces distances et on cadre sur celles qui restent dans une fourchette raisonnable
+  // autour d'elle. Les fuyardes sortent du cadre — sans qu'aucune de leurs valeurs ne soit touchée,
+  // et depuis le 29/08 sans perdre leur pastille : elle est ramenée au bord, chevron à l'appui.
   /* ══ QUEUE GELÉE : couper ce qui n'est pas de la donnée (06/08) ══════════════════════════════════
      Symptôme : les courbes filent en LIGNE DROITE jusqu'au bord droit, sur TOUTES les périodes.
      Ce n'est pas un défaut de rendu — les HUIT devises deviennent plates AU MÊME INSTANT, ce qu'aucune
@@ -1035,8 +1091,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
       var coupes = nMin - 1 - k;
       if (coupes < 3) return d;                                   // rien de significatif : on ne touche à rien
       if (k < nMin * 0.4) return d;                               // garde-fou : on ne rabote jamais l'essentiel
+      /* ⚠️ ON COUPE À UNE DATE, PAS À UN INDICE (29/08). Les huit séries n'ont pas toutes la même
+         longueur — une devise dont la source a démarré plus tard en a moins. Trancher toutes les
+         séries au même INDICE revenait alors à les couper à des INSTANTS différents : la devise la
+         plus courte perdait la fin de sa journée pendant que les autres gardaient la leur, et le
+         graphique superposait des courbes qui ne parlaient plus de la même fenêtre. L'indice `k` est
+         relevé sur la série la plus courte ; c'est sa DATE qui fait la coupe pour tout le monde. */
+      var ref = d.series[ccys.reduce(function (a, b) { return d.series[a].length <= d.series[b].length ? a : b; })];
+      var tCoupe = ref[Math.min(k, ref.length - 1)].t;
       var out = { currencies: d.currencies, series: {} };
-      Object.keys(d.series).forEach(function (c) { out.series[c] = (d.series[c] || []).slice(0, k + 1); });
+      Object.keys(d.series).forEach(function (c) { out.series[c] = (d.series[c] || []).filter(function (x) { return x.t <= tCoupe; }); });
       for (var p in d) if (!(p in out)) out[p] = d[p];
       return out;
     } catch (e) { return d; }
@@ -1060,7 +1124,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
     });
     if (infos.length < 4) return null;
     var exts = infos.map(function (i) { return i.ext; }).sort(function (a, b) { return a - b; });
-    var med = exts[Math.floor(exts.length / 2)];
+    /* ⚠️ VRAIE MÉDIANE, PAS LE RANG DU MILIEU ARRONDI EN HAUT (29/08). Sur huit devises,
+       `exts[Math.floor(8/2)]` rend le CINQUIÈME plus petit, pas la médiane. C'est sans conséquence
+       quand le champ est homogène — un demi-rang d'écart — mais dès que la moitié du champ décroche,
+       ce cinquième rang tombe DANS le groupe des fuyardes : la référence devient une fuyarde, le
+       seuil part à trois fois une fuyarde, plus personne ne le franchit, et la fonction conclut que
+       « personne ne s'échappe » au moment précis où quatre devises s'échappent. Le cadre restait
+       alors plein et les autres courbes écrasées au fond — c'est le TW de la capture. */
+    var med = exts.length % 2
+      ? exts[(exts.length - 1) / 2]
+      : (exts[exts.length / 2 - 1] + exts[exts.length / 2]) / 2;
     if (!(med > 0)) return null;
     /* SEUIL RELEVÉ À 3× (12/08, 2e signalement user « je ne vois pas bien la courbe JPY »).
        Mesuré sur la semaine réelle en production : médiane des amplitudes 0,4 ; le JPY à 0,9
@@ -1109,11 +1182,72 @@ function buildStrengthChart(containerId, data, opts = {}) {
   }
   var _dernieresDonnees = data;                                     // pour recadrer sans attendre le prochain rafraichissement
   var _cadreLibre = false;                                            // double-clic : retour au cadrage plein
+  /* ══ LE CADRE PLEIN EST UN CADRE, PAS UNE ABSENCE DE CADRE (29/08) ═══════════════════════════════
+     Quand `bornesPaquet` renonce — et elle renonce souvent : quatre devises qui decrochent, ou un
+     resserrement juge trop maigre — l'axe repassait en AUTO-ECHELLE PURE (`min: null, max: null`).
+     Or amCharts arrondit alors les bornes a des nombres ronds. Mesure sur un jeu qui s'etend de
+     -38 a +42 : le cadre sortait a [-100, +100]. Les huit courbes tenaient dans 40 % de la hauteur,
+     et les 60 % restants etaient du vide — pas de la donnee, du vide. C'est la moitie de la plainte
+     « je ne vois pas toutes les courbes », et elle ne coute RIEN a corriger : on pose nous-memes les
+     bornes sur l'etendue REELLE des series visibles, avec la marge de 7 % deja voulue.
+     Aucune valeur n'est touchee, aucune courbe ne sort du cadre : on retire seulement le vide. */
+  function bornesPleines(d) {
+    try {
+      var vis = (d.currencies || []).filter(function (c) { return !_hiddenCcy.has(c) && (!_only || _only.has(c)); });
+      if (!vis.length) vis = (d.currencies || []).filter(function (c) { return !_only || _only.has(c); });
+      var lo = Infinity, hi = -Infinity;
+      vis.forEach(function (c) {
+        (d.series[c] || []).forEach(function (x) {
+          if (x.v == null) return;
+          var v = x.v * scaleFactor;
+          if (v < lo) lo = v; if (v > hi) hi = v;
+        });
+      });
+      if (!isFinite(lo) || !isFinite(hi)) return null;
+      if (lo > 0) lo = 0; if (hi < 0) hi = 0;                         // le zero reste TOUJOURS dans le cadre
+      var m = (hi - lo) * 0.07 || 1;                                  // la meme marge que l'ancien extraMin/Max
+      return { min: lo - m, max: hi + m };
+    } catch (e) { return null; }
+  }
   function cadrerSurLePaquet(d) {
     try {
-      var b = _cadreLibre ? null : bornesPaquet(d, scaleFactor);
+      var b = (_cadreLibre ? null : bornesPaquet(d, scaleFactor)) || bornesPleines(d);
       if (b) yAxis.setAll({ min: b.min, max: b.max, strictMinMax: true });
       else   yAxis.setAll({ min: null, max: null, strictMinMax: false });
+      ancrerBadges();
+    } catch (e) {}
+  }
+  /* ══ AUCUNE DEVISE MUETTE (29/08, demande utilisateur capture a l'appui : « je ne vois pas a vu
+     d'oeil toutes les courbes informations de force de devises ») ══════════════════════════════════
+     Une pastille est le LABEL D'UNE PLAGE D'AXE, posee a la valeur de fin de courbe. Quand le cadre
+     se resserre sur le paquet et laisse une devise dehors, cette valeur tombe hors des bornes — et
+     amCharts ne rend tout simplement pas la plage. La devise perdait donc son NOM et sa VALEUR, pas
+     seulement sa courbe. Mesure : sept pastilles sur huit, l'etiquette manquante ayant pourtant
+     `visible: true`, `forceHidden: false` et son element HTML bien vivant.
+     Le commentaire du revirement du 29/08 affirmait « son BADGE reste visible (declutter le borne au
+     bord avec son filet de rappel) » : c'etait faux. `declutter` borne la POSITION EN PIXELS, ce qui
+     ne sert a rien puisque la plage est ecartee bien avant, au niveau de l'axe.
+     On pose donc la plage a une valeur BORNEE au cadre, en gardant la vraie valeur pour l'affichage,
+     et la pastille porte un chevron qui dit que la courbe est au-dela. C'est la seule facon d'avoir
+     les deux : un cadre serre sur le paquet, ET les huit devises nommees. */
+  function ancrerBadges() {
+    try {
+      var min = yAxis.get('min'); if (min == null) min = yAxis.getPrivate('min');
+      var max = yAxis.get('max'); if (max == null) max = yAxis.getPrivate('max');
+      Object.keys(labelMap).forEach(function (ccy) {
+        var o = labelMap[ccy];
+        if (!o || o.value == null) return;
+        var a = o.value, hors = 0;
+        if (min != null && max != null && max > min) {
+          var marge = (max - min) * 0.012;                            // un cheveu a l'interieur : au ras du bord, amCharts rogne
+          if (o.value > max) { a = max - marge; hors = 1; }
+          else if (o.value < min) { a = min + marge; hors = -1; }
+        }
+        if (a === o.ancre && hors === o.hors) return;
+        o.ancre = a; o.hors = hors;
+        try { o.range.set('value', a); } catch (e) {}
+        o.dy = null;                                                  // le chevron change -> le HTML sera refait par declutter
+      });
     } catch (e) {}
   }
 
@@ -1133,7 +1267,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
 
   for (const ccy of data.currencies) {
     const dim      = _focus && ccy !== _focus;            // courbe à estomper (devise non sélectionnée)
-    const hexColor = dim ? 0x5b6471 : (CS_COLORS[ccy] || 0x888888);
+    const hexColor = dim ? 0x5b6471 : _csCouleur(ccy);
     const hexStr   = '#' + hexColor.toString(16).padStart(6, '0');
     const color    = am5.color(hexColor);
     const pts      = (data.series[ccy] || [])
@@ -1206,7 +1340,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
 
     seriesArr.push(series);
     seriesMap[ccy] = series;
-    labelMap[ccy]  = { range, value: lastV, hexStr, hexColor, dy: 0 };   // dy = decalage impose par l anti-collision, longueur du filet de rappel
+    // `value` = la VRAIE fin de courbe (c'est elle qu'on affiche) ; `ancre` = la valeur a laquelle la
+    // plage est reellement posee, bornee au cadre (cf. `ancrerBadges`) ; `hors` = de quel cote elle
+    // deborde. dy = decalage impose par l'anti-collision, et longueur du filet de rappel.
+    labelMap[ccy]  = { range, value: lastV, ancre: lastV, hors: 0, hexStr, hexColor, dy: 0 };
     // (mail) valeur TD figee du jour A DROITE de la devise, directement dans le LABEL de legende (le nom) :
     // fiable sans curseur (contrairement a legendValueText). Le tooltip/badge continuent d'utiliser `ccy`.
     if (_legendVal) series.set('name', ccy + '   ' + lastV.toFixed(1).replace('.', ','));
@@ -1228,17 +1365,66 @@ function buildStrengthChart(containerId, data, opts = {}) {
   }
 
   // ── Légende cliquable (en haut) : clic sur une devise = masquer / réafficher sa courbe ──
+  let _legende = null;
   if (!_focus) {
-    const legend = chart.children.unshift(am5.Legend.new(root, {
+    const legend = _legende = chart.children.unshift(am5.Legend.new(root, {
       centerX: am5.percent(0), x: am5.percent(0),
       marginTop: 0, marginBottom: 6, paddingLeft: 0, paddingTop: 0,
     }));
-    legend.labels.template.setAll({ fill: am5.color(_deskChartTxt()), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 3, paddingRight: 0 });
+    /* ══ LA LEGENDE TIENT SUR UNE LIGNE (29/08) ══════════════════════════════════════════════════
+       Mesure sur une fenetre etroite (400 px, le cas de la capture) : la legende passait a DEUX
+       lignes — six devises, puis les deux dernieres seules en dessous. Elle prenait alors 28 px au
+       lieu de 14 sur un widget de 300, soit 7 % du trace, pour une information que les pastilles
+       portent deja au bout de chaque courbe.
+       On ne touche PAS a la taille du texte : 11 px est le plancher de lisibilite du desk, et une
+       legende cliquable est une CIBLE, pas une decoration. On reprend la place la ou elle ne coute
+       rien — le marqueur et les marges de chaque entree : 11 px de pastille et 4+4 de marge par
+       entree, huit fois, font 88 px de largeur pour zero information.
+       MESURE : 54,5 px par entree avant, 42,8 apres. La legende tient sur une ligne des 400 px de
+       large — la fenetre de la capture — au lieu de 440. Sous 380 px elle repasse a deux lignes et
+       c'est assume : en dessous, la seule facon de gagner serait de rogner le texte a 11 px, qui est
+       le plancher de lisibilite du desk, ou de supprimer une cible cliquable. */
+    legend.labels.template.setAll({ fill: am5.color(_deskChartTxt()), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 1, paddingRight: 0 });
     legend.valueLabels.template.set('forceHidden', true);                       // valeur non fiable sans curseur -> cote mail on la met dans le LABEL (nom, cf. loop)
-    legend.markers.template.setAll({ width: 11, height: 11 });
+    legend.markers.template.setAll({ width: 7, height: 7 });
     legend.markerRectangles.template.setAll({ cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 });
-    legend.itemContainers.template.setAll({ paddingTop: 1, paddingBottom: 1, paddingLeft: 4, paddingRight: 4 });
+    legend.itemContainers.template.setAll({ paddingTop: 1, paddingBottom: 1, paddingLeft: 1, paddingRight: 1 });
     legend.data.setAll(chart.series.values);
+  }
+
+  /* ══ SUIVRE UNE COURBE DU REGARD (29/08, demande utilisateur : « je ne vois pas a vu d'oeil toutes
+     les courbes ») ═══════════════════════════════════════════════════════════════════════════════
+     Huit courbes qui se croisent trente fois ne se démêlent pas par la couleur seule : à l'endroit
+     précis d'un croisement, aucune palette ne dit laquelle passe devant. Il manquait le geste qui
+     répond à la question — DÉSIGNER une devise et voir sa courbe seule.
+     Deux entrées, celles où la main est déjà : la légende du haut, et le tracé lui-même (le curseur
+     accroche déjà la courbe la plus proche pour son point d'ancrage — on se sert de CE choix, celui
+     que l'utilisateur vise réellement).
+     Les autres courbes ne DISPARAISSENT pas, elles s'effacent : le contexte reste lisible, c'est ce
+     qui distingue une mise en avant d'un filtre. Une devise masquée par la légende reste masquée, et
+     le mode « focus » (une seule devise, les autres grisées) n'est pas touché — il fait déjà ce
+     travail, en permanence. */
+  let _enAvant = null;
+  function mettreEnAvant(ccy) {
+    if (ccy === _enAvant) return;                                  // rien à repeindre : le survol émet en rafale
+    _enAvant = ccy;
+    seriesArr.forEach(sr => {
+      try {
+        const n = sr.get('name');
+        if (_focus && n !== _focus) return;                        // mode focus : ces courbes sont déjà éteintes
+        if (_hiddenCcy.has(n)) return;                             // masquée à la légende : on ne la rallume pas
+        const vise = !ccy || n === ccy;
+        sr.strokes.template.setAll({ strokeOpacity: vise ? 1 : 0.14, strokeWidth: (ccy && vise) ? _sw + 0.6 : _sw });
+      } catch (e) {}
+    });
+    try { if (container) container.classList.toggle('cs-survol', !!ccy); } catch (e) {}
+    Object.keys(labelMap).forEach(c => {
+      try {
+        const el = labelMap[c].range.get('label')?.getPrivate('htmlElement');
+        const b = el && (el.classList.contains('cs-badge') ? el : el.querySelector('.cs-badge'));
+        if (b) b.classList.toggle('cs-badge--vise', !!ccy && c === ccy);
+      } catch (e) {}
+    });
   }
 
   // Croisillon : ligne verticale pointillés gris clair, suit la souris + dots magnétiques
@@ -1263,6 +1449,57 @@ function buildStrengthChart(containerId, data, opts = {}) {
     }
   });
 
+  /* ⚠️ LE SURVOL EST ÉCOUTÉ SUR LE DOM, PAS SUR LES OBJETS AMCHARTS. Les gabarits d'événements
+     (`plotContainer.events.on('pointermove')`, `legend.itemContainers.template.events.on(…)`) ne se
+     déclenchent pas ici — mesuré : pointeur réel posé sur une entrée de légende, aucun appel. Le
+     conteneur, lui, est un vrai élément du document : il reçoit les événements du navigateur, quelle
+     que soit la version de la bibliothèque. On y écoute une fois, et on décide de la cible d'après
+     la GÉOMÉTRIE : dans la légende, l'entrée sous le pointeur ; dans le tracé, la courbe que le
+     curseur a déjà accrochée pour son point d'ancrage (`snapToSeriesBy: 'y!'`) — c'est celle que
+     l'utilisateur vise, on lit le choix d'amCharts au lieu de le refaire. */
+  try {
+    if (container) {
+      const _boite = (sp) => {
+        try {
+          const cv = container.querySelector('canvas'); if (!cv) return null;
+          const cr = cv.getBoundingClientRect();
+          const ech = root.container.height() ? cr.height / root.container.height() : 1;
+          const g = sp.toGlobal({ x: 0, y: 0 });
+          return { x: cr.x + g.x * ech, y: cr.y + g.y * ech, w: sp.width() * ech, h: sp.height() * ech };
+        } catch (e) { return null; }
+      };
+      const _viseSous = (px, py) => {
+        if (_legende) {                                            // 1) une entrée de légende ?
+          let hit = null;
+          _legende.itemContainers.each((it) => {
+            if (hit) return;
+            const b = _boite(it);
+            if (b && px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
+              const dc = it.dataItem && it.dataItem.dataContext;
+              if (dc && dc.get) hit = dc.get('name');
+            }
+          });
+          if (hit) return hit;
+        }
+        const bp = _boite(chart.plotContainer);                    // 2) le tracé ?
+        if (bp && px >= bp.x && px <= bp.x + bp.w && py >= bp.y && py <= bp.y + bp.h) {
+          for (const sr of seriesArr) {
+            const tt = sr.get('tooltip');
+            if (tt && !tt.isHidden()) return sr.get('name');
+          }
+        }
+        return null;
+      };
+      let _svRaf = 0, _svX = 0, _svY = 0;
+      container.addEventListener('pointermove', (e) => {
+        _svX = e.clientX; _svY = e.clientY;
+        if (_svRaf) return;
+        _svRaf = requestAnimationFrame(() => { _svRaf = 0; try { mettreEnAvant(_viseSous(_svX, _svY)); } catch (err) {} });
+      });
+      container.addEventListener('pointerleave', () => mettreEnAvant(null));
+    }
+  } catch (e) {}
+
   // ── Fenêtre initiale sur la FIN de série → on glisse vers la gauche pour remonter le temps.
   // Curseur NORMAL (défaut) et non « main/grab » (demande utilisateur) ; le pan au glisser reste actif.
   chart.plotContainer.set('cursorOverStyle', 'default');
@@ -1272,12 +1509,17 @@ function buildStrengthChart(containerId, data, opts = {}) {
   chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
 
   // ── Anti-collision des badges : écarte verticalement ceux trop proches ───────
+  let _dcRedo = 0, _dcApres = 0, _hbPlein = 0;        // garde-fous de boucle + hauteur nominale de pastille (hors mode compact)
+  const _gradCachees = new Set();                     // graduations masquées PAR NOUS (les seules qu'on rétablira)
   function declutter() {
     try {
       // ⚠️ CAUSE RACINE du bug « on ne voit qu'une étiquette » : l'axe est en AUTO-ÉCHELLE (min/max non
       // configurés) → yAxis.get('min')/get('max') renvoient NULL (la config, pas l'étendue calculée) et
       // declutter bailait TOUJOURS → aucun `dy` posé → les badges de devises aux valeurs PROCHES (ex. aujourd'hui
       // USD/GBP et NZD/CHF) se superposaient et se cachaient. L'étendue RÉELLE = getPrivate('min'/'max').
+      // Les bornes ont pu changer depuis le dernier cadrage (auto-echelle qui se stabilise, glisser
+      // du zoom Y) : on re-ancre AVANT de placer, sinon on placerait d'apres un cadre perime.
+      ancrerBadges();
       const min = yAxis.getPrivate('min') != null ? yAxis.getPrivate('min') : yAxis.get('min');
       const max = yAxis.getPrivate('max') != null ? yAxis.getPrivate('max') : yAxis.get('max');
       const h = chart.plotContainer.height();
@@ -1289,6 +1531,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       // Mesuré sur une séance serrée : l'écart maximal tombe de 29 px à 18 px, sans un seul
       // chevauchement. À 24 px, les huit pastilles finissaient en colonne loin de leurs courbes.
       const GAP_BASE = 17;
+      // (le plancher réel est recalculé plus bas sur la hauteur MESURÉE de la pastille)
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas.
       // Masquage = UNIQUEMENT _hiddenCcy (devises explicitement masquées via la légende, maintenu par les
       // événements hidden/shown/visible de la série). On N'utilise PLUS s.isHidden()/get('visible') ici : ces
@@ -1300,7 +1543,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
         try { o.range.get('label')?.set('forceHidden', !!hid); o.range.get('grid')?.set('forceHidden', !!hid); } catch {}
         return !hid;
       }).map(([ccy, o]) => {
-        const v = o.value != null ? o.value : 0;
+        // ⚠️ L'ANCRE, PAS LA VALEUR. `dy` est un decalage RELATIF au point ou amCharts a pose la
+        // plage ; depuis `ancrerBadges`, ce point est la valeur BORNEE au cadre. Calculer le
+        // decalage depuis la vraie valeur d'une devise hors cadre donnerait un `dy` de plusieurs
+        // centaines de pixels — la pastille repartirait exactement d'ou on vient de la ramener.
+        const v = o.ancre != null ? o.ancre : (o.value != null ? o.value : 0);
         // Bornage AVANT espacement (04/08, mobile) : une valeur pile au bord donnait un centre de
         // badge à 0 ou h → moitié coupée. On garde chaque point d'ancrage dans le cadre.
         const px = Math.max(8, Math.min(h - 8, (max - v) / (max - min) * h));
@@ -1319,12 +1566,70 @@ function buildStrengthChart(containerId, data, opts = {}) {
       // qui n'existait plus. Le plancher est rétabli à 12 px : sous 128 px de tracé (petit widget
       // Mon Desk, mobile en paysage), huit pastilles de 15 px ne tiennent PAS, et mieux vaut un
       // léger recouvrement qu'une colonne qui sort du cadre.
-      const GMAX = arr.length > 1 ? Math.max(12, (h - 16) / (arr.length - 1)) : GAP_BASE;
+      /* ══ LE PLANCHER DE L'ÉCART EST LA HAUTEUR RÉELLE DE LA PASTILLE (29/08) ═══════════════════
+         Il était codé en dur à 12 px pour une pastille qui en mesure 15 : sous ~170 px de tracé, les
+         huit pastilles se recouvraient TOUTES et la dernière sortait du widget (mesuré : 7
+         recouvrements et un écart de −3 px à 360×150). Un plancher inférieur à la hauteur de l'objet
+         qu'il espace ne peut pas espacer : il autorise le recouvrement par construction.
+         On mesure donc la pastille au lieu de la supposer — elle change de taille avec le réglage
+         « valeur », le thème et le mode compact ci-dessous. */
+      /* ⚠️ ON MESURE LA PASTILLE, PAS LA BOÎTE QU'AMCHARTS LUI FABRIQUE : le conteneur de l'étiquette
+         rend 19 px là où la pastille en fait 17 — deux pixels de trop, huit fois, et la colonne
+         déborde du tracé.
+         ⚠️ ET ON MESURE LES HUIT, PAS LA PREMIÈRE. `declutter` reconstruit le HTML des étiquettes
+         qu'il déplace ; mesurer une seule pastille tombe parfois sur une reconstruction en cours et
+         rend 0. Le pas se calait alors sur une hauteur trop petite et deux pastilles se recouvraient
+         — un défaut INTERMITTENT, celui qu'on ne reproduit qu'une fois sur deux. On prend la plus
+         haute des mesures valides, et à défaut la valeur nominale. */
+      let HB = 0;
+      try {
+        arr.forEach(x => {
+          const e = x.o.range.get('label')?.getPrivate('htmlElement');
+          const b = e && (e.classList.contains('cs-badge') ? e : e.querySelector('.cs-badge'));
+          const hh = b && b.offsetHeight;
+          if (hh > HB) HB = hh;
+        });
+      } catch (e) {}
+      if (!(HB > 4)) HB = 17;
+      /* ══ MODE COMPACT : QUAND HUIT PASTILLES NE TIENNENT PAS, ON LES RÉDUIT ═════════════════════
+         Sur une carte de 150 px, le tracé fait 105 px : huit pastilles de 15 px espacées de 17 en
+         demandent 134. Aucun placement ne peut les y loger — il faut réduire l'objet, pas le pousser.
+         La classe est posée sur le CONTENEUR d'après sa hauteur MESURÉE, jamais d'après la largeur de
+         la fenêtre : un panneau étroit sur grand écran a exactement le même problème qu'un téléphone,
+         et une `@media` de viewport ne le voit pas. */
+      try {
+        if (container) {
+          const estDense = container.classList.contains('cs-dense');
+          /* ⚠️ LA DÉCISION SE PREND SUR LA TAILLE NOMINALE, JAMAIS SUR LA TAILLE COURANTE. Sinon elle
+             se juge sur son propre effet et OSCILLE : à taille pleine « ça ne tient pas » → on passe
+             compact ; à taille compacte « ça tient » → on repasse plein ; etc. Le garde-fou de
+             boucle arrêtait le va-et-vient sur un état arbitraire — d'où un recouvrement une fois
+             sur deux, et un défaut qu'on ne reproduisait pas à volonté.
+             On mémorise donc la hauteur mesurée HORS mode compact et on ne juge plus que sur elle. */
+          if (!estDense && HB > 4) _hbPlein = HB;
+          const hbRef = _hbPlein || 17;
+          const dense = (arr.length - 1) * (hbRef + 2) + hbRef > h;
+          if (estDense !== dense) {
+            container.classList.toggle('cs-dense', dense);
+            if (_dcRedo < 3) { _dcRedo++; setTimeout(declutter, 30); return; }   // la pastille a changé de taille : on remesure
+          }
+        }
+      } catch (e) {}
+      _dcRedo = 0;
+      /* ⚠️ LE PAS NE PEUT PAS DÉPASSER LA PLACE. Un plancher pris comme un `Math.max` — c'était le
+         cas ici avec un 12 codé en dur, et ça l'est resté un instant avec `HB + 2` — impose un pas
+         que le tracé ne peut pas contenir : huit pastilles à 21 px dans 105 px de haut débordent de
+         47 px, et deux d'entre elles sortent du widget. Le pas est donc borné des DEUX côtés : ce
+         qu'il faut pour ne pas se recouvrir, et jamais plus que ce qui tient. */
+      const pasMin  = HB + 2;                                            // juste de quoi ne pas se recouvrir
+      const pasConf = HB + 8;                                            // un peu d'air quand la place existe
+      const pasDispo = arr.length > 1 ? (h - HB) / (arr.length - 1) : pasConf;
+      const GMAX = pasDispo;
       // ÉCART SELON LA TAILLE DU PAQUET (06/08) : deux étiquettes voisines restent COLLÉES à leurs
       // courbes (17 px = 2 px de garde, l'intention d'origine) ; un paquet de huit — le cas TW, où
       // toutes les courbes finissent au même niveau — passe à 23 px, sinon huit blocs colorés
       // séparés de 2 px se lisent comme un seul pavé. On n'écarte QUE là où c'est illisible.
-      const gapFor = k => Math.min(GMAX, k <= 2 ? GAP_BASE : GAP_BASE + Math.min(6, k - 2));
+      const gapFor = k => Math.min(GMAX, k <= 2 ? pasMin : Math.min(pasConf, pasMin + Math.min(6, k - 2)));
       // ── PLACEMENT PAR PAQUETS CENTRÉS (05/08, demande user : « les étiquettes doivent être bien
       //    alignées avec les courbes ») ────────────────────────────────────────────────────────
       // L'ancienne méthode poussait TOUJOURS vers le bas depuis la première étiquette, puis
@@ -1353,9 +1658,53 @@ function buildStrengthChart(containerId, data, opts = {}) {
       paquets.forEach(g => {
         // Bornage du PAQUET dans le cadre : aucune étiquette coupée en haut ni en bas.
         const GAP = gapFor(g.n);
-        const d = Math.max(8, Math.min(h - 8 - (g.n - 1) * GAP, haut(g)));
+        const d = Math.max(HB / 2, Math.min(h - HB / 2 - (g.n - 1) * GAP, haut(g)));
         for (let j = 0; j < g.n; j++) arr[idx++].px = d + j * GAP;
       });
+      /* ⚠️ BALAYAGE FINAL, ET IL N'EST PAS DÉCORATIF. Le bornage ci-dessus s'applique à CHAQUE paquet
+         indépendamment, APRÈS la boucle de fusion : un paquet remonté ou descendu pour tenir dans le
+         cadre peut donc entrer dans son voisin, et plus rien ne les refusionne. Mesuré à 1400×200 :
+         un recouvrement EUR/JPY de 12 px sur une pastille de 15 — l'EUR devenait illisible.
+         On repasse donc de proche en proche : descente qui écarte, puis remontée d'ensemble si la
+         pile déborde par le bas. Sur les cas où rien ne se heurte, ce balayage ne déplace RIEN. */
+      const GS = Math.min(GMAX, pasMin);
+      for (let k = 1; k < arr.length; k++) if (arr[k].px < arr[k - 1].px + GS) arr[k].px = arr[k - 1].px + GS;
+      const debord = arr.length ? (arr[arr.length - 1].px + HB / 2) - h : 0;
+      if (debord > 0) for (let k = arr.length - 1; k >= 0; k--) {
+        arr[k].px -= debord;
+        if (k > 0 && arr[k].px < arr[k - 1].px + GS) continue;     // on continue de remonter la pile
+        break;
+      }
+      if (arr.length && arr[0].px < HB / 2) { const d0 = HB / 2 - arr[0].px; arr.forEach(x => { x.px += d0; }); }
+      for (let k = 1; k < arr.length; k++) if (arr[k].px < arr[k - 1].px + GS) arr[k].px = arr[k - 1].px + GS;
+      /* ══ UNE PASTILLE MASQUE SA GRADUATION, ELLE NE LA TRANCHE PAS (29/08) ═══════════════════════
+         Pastilles et graduations chiffrées occupent la MÊME colonne, toutes deux ancrées à l'axe.
+         L'intention était que la pastille couvre la graduation qui tombe à sa hauteur — à cet
+         endroit, la devise est l'information utile. Mais elle ne la couvre qu'en PARTIE : mesuré,
+         80 à 93 % de la largeur du chiffre, et 1 à 15 px sur les 17 de sa hauteur. Résultat à
+         l'écran : un bandeau de chiffre qui dépasse par-dessous, qu'on ne lit pas et qui se lit
+         comme un défaut de rendu — c'est ce qu'on voit sur la capture de l'utilisateur, avec
+         « 20,00 » et « 0,00 » à moitié sortis de derrière les pastilles.
+         On masque donc franchement la graduation qu'une pastille recouvre. On ne touche QU'À CELLES
+         QU'ON A MASQUÉES : rétablir aveuglément `forceHidden` à false ferait réapparaître celles
+         qu'amCharts écarte pour ses propres raisons (bords de l'axe). */
+      try {
+        const bandes = arr.map(x => [x.px - HB / 2 - 1, x.px + HB / 2 + 1]);
+        yAxis.get('renderer').labels.each(l => {
+          if (!l || l.get('html')) return;                       // une pastille, pas une graduation
+          const y0 = l.y(), hh = l.height() || 0;
+          if (!isFinite(y0) || hh <= 0 || y0 < -500) return;
+          /* On prend la bande LA PLUS LARGE des deux conventions possibles (libellé posé par son
+             haut, ou centré sur sa valeur) : se tromper en masquant coûte une graduation dans une
+             colonne que les pastilles occupent déjà presque entièrement ; se tromper en gardant
+             laisse un chiffre coupé en deux, c'est-à-dire le défaut qu'on corrige. */
+          const couverte = bandes.some(b => y0 + hh > b[0] && y0 - hh / 2 < b[1]);
+          if (couverte) { _gradCachees.add(l); l.set('forceHidden', true); }
+          else if (_gradCachees.has(l)) { _gradCachees.delete(l); l.set('forceHidden', false); }
+        });
+      } catch (e) {}
+
+      let refait = false;
       arr.forEach(x => {
         const lbl = x.o.range?.get('label');
         const d = Math.round(x.px - x.basePx);
@@ -1365,15 +1714,24 @@ function buildStrengthChart(containerId, data, opts = {}) {
           // Le filet de rappel est dessiné DANS le badge : il faut donc reconstruire son HTML quand
           // le décalage change. On ne le fait que dans ce cas — declutter est rappelé à chaque
           // redimensionnement, et reconstruire huit étiquettes à chaque fois ferait clignoter.
+          // `dy` est mis a null par `ancrerBadges` quand le chevron change : la comparaison echoue
+          // alors forcement, et le HTML est refait. Sans cela, une devise qui vient de sortir du
+          // cadre garderait une pastille sans chevron, donc un mensonge.
           if (x.o.dy !== d) {
             x.o.dy = d;
             // ⚠️ La valeur DOIT être repassée : reconstruire le badge sans elle l'effacerait jusqu'à
-            // la prochaine mise à jour des données, soit jusqu'à 20 s d'étiquettes muettes.
+            // la prochaine mise à jour des données, soit jusqu'à 20 s d'étiquettes muettes. Et c'est
+            // la VRAIE valeur, jamais l'ancre : l'ancre sert a placer, pas a informer.
             const v = (x.o.value != null ? x.o.value : 0).toFixed(2).replace('.', ',');
-            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), _avecValeur ? v : '', d));
+            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), _avecValeur ? v : '', d, x.o.hors));
+            refait = true;
           }
         } catch {}
       });
+      /* Une étiquette dont le HTML vient d'être refait n'a pas encore sa taille définitive : on
+         repasse une fois pour vérifier le placement sur les vraies boîtes. Borné à deux reprises —
+         au-delà, c'est que la taille oscille, et boucler ne la stabiliserait pas. */
+      if (refait && _dcApres < 2) { _dcApres++; setTimeout(declutter, 40); } else if (!refait) _dcApres = 0;
     } catch {}
   }
   // declutter RÉSILIENT (corrige « on ne voit que l'étiquette USD ») : au build, le conteneur peut être à 0
@@ -1386,7 +1744,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
     let h = 0; try { h = chart.plotContainer.height(); } catch (e) {}
     if (!h || h < 24) { if (tries < 25) setTimeout(() => scheduleDeclutter(tries + 1), 200); return; }
     declutter();
-    setTimeout(declutter, 300);   // 2e passe une fois le layout stabilisé
+    setTimeout(declutter, 300);    // 2e passe une fois le layout stabilisé
+    /* 3e passe. L'axe Y REFABRIQUE ses graduations quand ses bornes changent — et elles changent
+       après coup : masquage de devises en mode « paire », recadrage sur le paquet, animation
+       d'apparition. Les graduations neuves ne connaissent pas le masquage posé sur les anciennes, et
+       un chiffre ressortait alors de derrière une pastille, une fois sur deux. */
+    setTimeout(declutter, 1200);
   }
   // ⚠️ Le cadrage est posé PLUS BAS, APRÈS le branchement du zoom au glisser — celui-ci réinitialise
   // l'axe au moment où il s'attache. Posé ici, il était calculé correctement puis EFFACÉ dans la
@@ -1399,11 +1762,30 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // et laissait les badges empilés.) Débounce en requestAnimationFrame (boundschanged peut se répéter en rafale).
   try {
     let _dcRaf = 0;
-    chart.plotContainer.events.on('boundschanged', () => {
+    const _relance = () => {
       if (_dcRaf) return;
-      _dcRaf = requestAnimationFrame(() => { _dcRaf = 0; declutter(); });
-    });
+      _dcRaf = requestAnimationFrame(() => { _dcRaf = 0; declutter(); _ajusterGrip(); });
+    };
+    chart.plotContainer.events.on('boundschanged', _relance);
+    /* ⚠️ ET QUAND L'AXE REFABRIQUE SES GRADUATIONS. Elles sont recréées dès que ses bornes changent —
+       recadrage sur le paquet, masquage d'une devise à la légende, mode « paire », fin d'animation.
+       Les graduations neuves ignorent le masquage posé sur les anciennes : un chiffre ressortait
+       alors de derrière une pastille, et pas toujours — ce qui est le pire des deux, un défaut qu'on
+       ne reproduit qu'une fois sur deux. `datavalidated` est émis exactement à ce moment-là. */
+    yAxis.events.on('datavalidated', _relance);
   } catch (e) {}
+  /* LA BANDE DE PRÉHENSION ÉPOUSE LA GOUTTIÈRE RÉELLE (29/08). Sa largeur était SUPPOSÉE — 50, 56,
+     70 ou 84 px selon le réglage et la largeur d'écran — alors que la gouttière mesure en vrai de 37
+     à 77 px selon le contenu des pastilles, le chevron et le thème. Trop large, la bande `ns-resize`
+     recouvre le tracé et mange le survol, le croisillon et le glisser ; trop étroite, le bord droit
+     ne répond plus au double-clic qui rend le cadrage plein. On la mesure. */
+  function _ajusterGrip() {
+    try {
+      const g = container && container.querySelector('.cs-yzoom-grip');
+      const w = Math.round(yAxis.width());
+      if (g && w > 10 && Math.abs(parseInt(g.style.width, 10) - w) > 1) g.style.width = w + 'px';
+    } catch (e) {}
+  }
 
   // ── Mise à jour EN PLACE (pas de reconstruction → aucun clignotement) ────────
   function update(newData) {
@@ -1429,9 +1811,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const lbl = labelMap[ccy];
       if (lbl && lbl.range) {
         lbl.value = lv;
-        try { lbl.range.set('value', lv); } catch {}
+        // ⚠️ ON NE POSE PLUS LA PLAGE SUR LA VALEUR BRUTE. `ancrerBadges` la borne au cadre juste
+        // apres ; poser d'abord la valeur brute ferait disparaitre la pastille d'une devise sortie
+        // du cadre, le temps d'une trame — un clignotement a chaque rafraichissement.
+        lbl.ancre = null;                                             // force `ancrerBadges` a reposer la plage
         // On repasse le dy courant : sans lui la mise a jour effacerait le filet de rappel jusqu au prochain declutter.
-        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), _avecValeur ? lv.toFixed(2).replace('.', ',') : '', lbl.dy)); } catch {}
+        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), _avecValeur ? lv.toFixed(2).replace('.', ',') : '', lbl.dy, lbl.hors)); } catch {}
         // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
         // d'après _hiddenCcy UNIQUEMENT (source de vérité des devises masquées via la légende). On n'utilise plus
         // s.isHidden()/get('visible') : transitoires (animation/course de layout) → ils force-cachaient à tort.
@@ -1439,6 +1824,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         else { try { lbl.range.get('label')?.setAll({ forceHidden: false, visible: true }); } catch {} }
       }
     }
+    ancrerBadges();              // les fins ont bouge : on reborne les plages sur le cadre courant
     setTimeout(declutter, 60);   // recalibrer l'anti-collision après mise à jour
   }
 
@@ -1607,7 +1993,7 @@ function buildStrengthSnapshot(containerId, data) {
 
   el.innerHTML = `<div class="cs-rank-list">${
     scores.map((s, i) => {
-      const hex    = '#' + (CS_COLORS[s.ccy] || 0x888888).toString(16).padStart(6, '0');
+      const hex    = '#' + _csCouleur(s.ccy).toString(16).padStart(6, '0');
       const barPct = (Math.abs(s.v) / maxAbs * 100).toFixed(1);
       const dir    = s.v >= 0 ? 'pos' : 'neg';
       const valStr = (s.v >= 0 ? '+' : '') + s.v.toFixed(2);
