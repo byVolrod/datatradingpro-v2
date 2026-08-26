@@ -127,8 +127,26 @@
   .cal-fbtn{font-size:11px;font-weight:600;color:var(--text2);background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:4px 11px;cursor:pointer;font-family:var(--ui)}
   .cal-fbtn.on{color:#1a1206;background:var(--orange);border-color:var(--orange)}
   .cal-day{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--text3);padding:9px 16px 5px;text-transform:uppercase;background:var(--bg2)}
-  .cal-row{display:grid;grid-template-columns:48px 30px 38px 30px minmax(0,1fr) 64px 64px 64px;gap:8px;align-items:center;padding:7px 16px;border-top:1px solid var(--line);font-size:12px}
-  .cal-row:hover{background:var(--bg2)}
+  /* ── L'EFFET DE LIGNE DU DESK, ICI AUSSI (31/08 : « fais bien ressortir l'effet du calendrier éco,
+     l'effet des lignes là où l'on a mis sur le desk »). Cette page est un fichier À PART, avec sa
+     propre feuille : elle n'avait jamais reçu la grammaire du calendrier du desk et se contentait
+     d'un survol plat. Trois crans, du plus discret au plus fort — et PAS un de plus : un tableau où
+     tout ressort est un tableau où rien ne ressort.
+       1. AU SURVOL, la ligne s'allume et prend un liseré or à gauche : on suit une ligne sur huit
+          colonnes sans perdre le fil, ce qui est tout le problème d'un calendrier dense.
+       2. LES FORTS IMPACTS portent un liseré rouge permanent : ce sont eux qui déplacent une séance,
+          l'œil doit les trouver sans lire la colonne des points.
+       3. LA PROCHAINE ÉCHÉANCE porte l'or du desk — filets haut et bas, heure en or et en gras.
+          C'est le repère « vous êtes ici » du calendrier, et il n'y en a qu'UN. */
+  .cal-row{position:relative;display:grid;grid-template-columns:48px 30px 38px 30px minmax(0,1fr) 64px 64px 64px;gap:8px;align-items:center;padding:7px 16px;border-top:1px solid var(--line);font-size:12px;transition:background .12s ease}
+  .cal-row::before{content:'';position:absolute;left:0;top:-1px;bottom:0;width:2px;background:transparent;transition:background .12s ease}
+  .cal-row:hover{background:var(--bg3,#16161a)}
+  .cal-row:hover::before{background:var(--orange)}
+  .cal-row--hi::before{background:rgba(239,68,68,.55)}
+  .cal-row--next{background:rgba(227,178,58,.07)}
+  .cal-row--next::before{background:var(--orange)}
+  .cal-row--next{border-top:1px solid rgba(227,178,58,.5);box-shadow:inset 0 -1px 0 rgba(227,178,58,.5)}
+  .cal-row--next .cal-time{color:var(--orange);font-weight:700}
   .cal-time{font-family:var(--mono);color:var(--text3);font-size:11px}
   .cal-flag img{width:18px;height:13px;border-radius:2px;object-fit:cover;display:block}
   .cal-ccy{font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text2)}
@@ -154,7 +172,7 @@
     .wap-title{display:none}
   }
 </style>
-<script src="/js/noinspect.js?v=20260826bbg950"></script>
+<script src="/js/noinspect.js?v=20260826bbg951"></script>
 </head>
 <body>
   <header class="wap-top">
@@ -291,12 +309,17 @@
     if(!list.length){host.innerHTML='<div class="empty">Aucun événement pour ce filtre.</div>';return;}
     var out='<div class="cal-th"><span>Heure</span><span></span><span>Dev.</span><span>Imp.</span><span>Événement</span><span>Actuel</span><span>Prév.</span><span>Préc.</span></div>';
     var lastDay='';
-    list.forEach(function(e){
+    // La PROCHAINE échéance : la première encore à venir. Une seule ligne la porte — un repère
+    // « vous êtes ici » qui se répéterait ne repérerait plus rien.
+    var maintenant=Date.now();
+    var iNext=-1;
+    for(var k=0;k<list.length;k++){ if((list[k].timestamp||0)>maintenant){ iNext=k; break; } }
+    list.forEach(function(e,i){
       var d=new Date(e.timestamp);
       var dayKey=d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
       if(dayKey!==lastDay){lastDay=dayKey;out+='<div class="cal-day">'+esc(dayKey)+'</div>';}
       var ic=impClass(e.impact);
-      out+='<div class="cal-row">'
+      out+='<div class="cal-row'+(ic==='high'?' cal-row--hi':'')+(i===iNext?' cal-row--next':'')+'">'
         +'<span class="cal-time">'+fmtTime(e.timestamp)+'</span>'
         +'<span class="cal-flag">'+flag(e.currency)+'</span>'
         +'<span class="cal-ccy">'+esc(e.currency||'')+'</span>'

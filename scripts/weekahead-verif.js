@@ -417,6 +417,46 @@ console.log('\n── 16. Le classement IA éprouvé DE BOUT EN BOUT, avec une I
   _attente = Promise.all(files);
 })();
 
+console.log('\n── La description du jour se lit seule, et la ligne du calendrier ressort ──');
+/* 31/08, capture d'un terminal concurrent à l'appui : « met ce type de description dans la semaine à
+   venir ». Ce qui était montré n'est pas la longueur — c'est la FORME. Leur texte SITUE la séance
+   (« la semaine s'ouvre sur le sommet du G7, où les dirigeants se retrouvent sur fond
+   d'incertitude… ») puis NOMME les publications au fil de la phrase. Le nôtre demandait « 2 à 3
+   phrases COURTES », « dense et concret » : on obtenait un télégramme correct mais qui ne se lit pas
+   seul — il fallait le calendrier à côté pour comprendre la journée.
+   ⚠️ LE TITRE, LUI, NE CHANGE PAS. Le user avait explicitement banni les formules d'ambiance (« en
+   tête d'affiche », « sous surveillance ») au profit des noms d'événements. La référence en porte
+   une — on ne revient pas dessus au prétexte qu'elle est dans l'image : la demande nomme la
+   DESCRIPTION. */
+const _P = src.slice(src.indexOf('(2) SUMMARY :'), src.indexOf('(2) SUMMARY :') + 1400);
+verif('la description est demandée en PARAGRAPHE SUIVI', /PARAGRAPHE SUIVI de 2 à 4 phrases/.test(_P), _P.slice(0, 90));
+verif('… qui se lit SANS le calendrier', /doit comprendre à quoi ressemble la journée/.test(_P));
+verif('… en nommant les publications au fil de la phrase', /NOMMER les publications au fil de la phrase/.test(_P));
+verif('… et jamais en énumération sèche', /jamais de liste à puces ni d'énumération sèche/.test(_P));
+verif('le titre garde sa règle : des noms d\'événements, pas des formules',
+  /INTERDIT : les formules génériques sans information/.test(src));
+/* Le texte du jour est CACHÉ à la semaine : sans changer la clé, l'édition en cours garderait ses
+   résumés en télégramme et le correctif ne se verrait qu'à la semaine suivante. */
+verif('la clé du cache éditorial a été bumpée', /weekahead:editorial10fr/.test(src) && !/weekahead:editorial9fr/.test(src));
+
+/* « Fais bien ressortir l'effet du calendrier éco, l'effet des lignes là où l'on a mis sur le desk. »
+   La page Semaine à Venir est un fichier À PART, avec sa propre feuille : elle n'avait jamais reçu la
+   grammaire du calendrier du desk et se contentait d'un survol plat.
+   ⚠️ CONTRÔLES DE SOURCE, ET C'EST DIT : ils vérifient que les trois crans SONT ÉCRITS et posés sur
+   les bonnes lignes, pas ce qui est peint. La page va chercher trois routes au chargement ; l'ouvrir
+   pour de vrai demanderait de les bouchonner — à faire, et à ne pas confondre avec ce qui est
+   mesuré ici. */
+const _WA = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/week-ahead.html'), 'utf8');
+verif('au survol, la ligne s\'allume et prend son liseré', /\.cal-row:hover\{background:var\(--bg3/.test(_WA) && /\.cal-row:hover::before\{background:var\(--orange\)\}/.test(_WA));
+verif('les forts impacts portent un liseré permanent', /\.cal-row--hi::before\{background:rgba\(239,68,68/.test(_WA));
+verif('la prochaine échéance porte l\'or du desk', /\.cal-row--next \.cal-time\{color:var\(--orange\);font-weight:700\}/.test(_WA));
+verif('… et son heure passe en or, comme sur le desk', /\.cal-row--next\{border-top:1px solid rgba\(227,178,58/.test(_WA));
+verif('le fort impact est posé sur la ligne', /ic==='high'\?' cal-row--hi':''/.test(_WA));
+/* UNE SEULE ligne porte le repère : un « vous êtes ici » qui se répète ne repère plus rien. La boucle
+   s'ARRÊTE au premier événement à venir — c'est le `break` qui garantit l'unicité, pas une intention. */
+verif('une seule ligne porte le repère « prochaine échéance »', /iNext=k; break;/.test(_WA) && /i===iNext\?' cal-row--next':''/.test(_WA));
+verif('… et il n\'est posé que sur un événement ENCORE À VENIR', /\(list\[k\]\.timestamp\|\|0\)>maintenant/.test(_WA));
+
 _attente.then(() => {
   console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
   process.exit(ko ? 1 : 0);
