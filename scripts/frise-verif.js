@@ -245,6 +245,72 @@ function extraireFrise() {
       large.every(l => l.piste >= l.dispo - 30), JSON.stringify(large));
     v('l\'axe des heures fait exactement la largeur de la piste (sinon les plages mentent)',
       large.every(l => Math.abs(l.axe - l.piste) <= 2), JSON.stringify(large));
+    console.log('\n── 5. LES HORAIRES SUIVENT LE FUSEAU DU LECTEUR ET L\'HEURE D\'ÉTÉ ──');
+    /* ══ QUESTION POSÉE PAR L'UTILISATEUR, RÉPONDUE PAR LA MESURE ══════════════════════════════════
+       « ça doit se mettre à jour en fonction du changement d'horaire et d'où est situé l'utilisateur,
+       tu peux confirmer ». Une affirmation ne vaut rien ici : le décalage est calculé à chaque
+       redessin, et une erreur de conversion afficherait des horaires FAUX sans rien casser d'autre.
+       On fixe donc l'instant ET le fuseau du navigateur, et on relit les horaires écrits dans les
+       plages. Deux dates (juillet / janvier) et deux villes de lecture (Paris / New York).
+       ⚠️ SYDNEY EST LE TÉMOIN. L'Europe et les États-Unis changent d'heure presque ensemble : lus
+       depuis Paris, Londres et New York affichent les mêmes horaires été comme hiver, et un test qui
+       ne regarderait qu'eux serait vert même si l'heure d'été était ignorée. L'hémisphère sud, lui,
+       bascule en sens inverse — c'est là que la preuve se fait. */
+    async function horaires(tz, iso) {
+      const p2 = await nav.newPage();
+      await p2.setViewport({ width: 1400, height: 700 });
+      await p2.emulateTimezone(tz);
+      await p2.goto('http://localhost:' + PORT + '/banc', { waitUntil: 'networkidle0' });
+      const r = await p2.evaluate(async (src, quand) => {
+        // Instant FIGÉ : sans lui, le banc mesurerait « maintenant », donc un résultat différent à
+        // chaque exécution — et une comparaison été/hiver n'aurait aucun sens.
+        const T = new Date(quand).getTime();
+        const _D = Date;
+        window.Date = function (...a) { return a.length ? new _D(...a) : new _D(T); };
+        window.Date.now = () => T;
+        window.Date.prototype = _D.prototype;
+        eval(src);                                        // eslint-disable-line no-eval
+        const h = document.getElementById('h');
+        h.innerHTML = '';
+        // eslint-disable-next-line no-undef
+        _monterFriseSeances(h);
+        await new Promise(r2 => setTimeout(r2, 120));
+        const out = {};
+        [...h.querySelectorAll('.wdg-frise-ligne')].forEach(l => {
+          const nom = (l.querySelector('.wdg-frise-place') || {}).textContent || '';
+          const b = l.querySelector('.wdg-frise-bloc b') || l.querySelector('.wdg-frise-heures');
+          out[nom.trim()] = b ? b.textContent.trim() : '';
+        });
+        return out;
+      }, SRC, iso);
+      await p2.close();
+      return r;
+    }
+    const pEte  = await horaires('Europe/Paris', '2026-07-15T12:00:00Z');
+    const pHiv  = await horaires('Europe/Paris', '2026-01-15T12:00:00Z');
+    const nyEte = await horaires('America/New_York', '2026-07-15T12:00:00Z');
+
+    v('lu depuis Paris en juillet, Londres ouvre à 09:00 (heure de Paris)',
+      /^09:00/.test(pEte['Londres'] || ''), JSON.stringify(pEte));
+    v('… et New York à 15:00', /^15:00/.test(pEte['New York'] || ''), pEte['New York']);
+    v('… et Tokyo à 02:00', /^02:00/.test(pEte['Tokyo'] || ''), pEte['Tokyo']);
+    /* LA PREUVE DE L'HEURE D'ÉTÉ : Sydney bascule en sens inverse de l'Europe. Même place, même
+       lecteur, deux saisons — deux horaires. Si le décalage était figé, ils seraient identiques. */
+    v('l\'heure d\'été est bien prise en compte : Sydney change entre juillet et janvier',
+      (pEte['Sydney'] || 'x') !== (pHiv['Sydney'] || 'y'),
+      'juillet ' + pEte['Sydney'] + ' | janvier ' + pHiv['Sydney']);
+    v('… avec la bonne valeur d\'été (Sydney 9h-17h AEST = 01:00-09:00 à Paris)',
+      /^01:00/.test(pEte['Sydney'] || ''), pEte['Sydney']);
+    v('… et la bonne valeur d\'hiver (Sydney en AEDT = 23:00-07:00 à Paris)',
+      /^23:00/.test(pHiv['Sydney'] || ''), pHiv['Sydney']);
+    /* LA PREUVE DU FUSEAU DU LECTEUR : même instant, deux villes de lecture, deux horaires. */
+    v('le fuseau du LECTEUR est bien celui qui s\'applique : Londres vue de New York',
+      (nyEte['Londres'] || 'x') !== (pEte['Londres'] || 'y'),
+      'Paris ' + pEte['Londres'] + ' | New York ' + nyEte['Londres']);
+    v('… à la bonne valeur (Londres 8h-17h BST = 03:00-12:00 à New York)',
+      /^03:00/.test(nyEte['Londres'] || ''), nyEte['Londres']);
+    v('… et New York y montre ses propres heures d\'ouverture (09:00-17:00)',
+      /^09:00/.test(nyEte['New York'] || ''), nyEte['New York']);
   } catch (e) {
     ko++; console.log('  ✗ banc interrompu\n      → ' + e.message);
   } finally {

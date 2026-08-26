@@ -201,6 +201,70 @@ function decouper(src, entete, fin) {
       trait.contenu === 'none' || trait.contenu === 'normal', 'content=' + trait.contenu + ' width=' + trait.largeur);
     v('… et le texte du titre commence bien au bord de sa boîte (aucun repère ne le décale)',
       trait.decalage <= 1, 'décalage mesuré : ' + trait.decalage + ' px');
+    console.log('\n── 6. CHAQUE PLACE À SON HEURE, HEURE D\'ÉTÉ COMPRISE ──');
+    /* Question posée par l'utilisateur : « ça doit se mettre à jour en fonction du changement
+       d'horaire et d'où est situé l'utilisateur, idem pour l'horloge mondiale, tu peux confirmer ».
+       On ne confirme pas de mémoire : on fige l'instant, on change le fuseau du navigateur, et on
+       relit ce qui est écrit.
+       LA PROPRIÉTÉ D'UNE HORLOGE MONDIALE EST L'INVERSE DE CELLE DE LA FRISE : la frise convertit
+       tout dans l'heure DU LECTEUR, l'horloge affiche l'heure PROPRE de chaque place. Londres doit
+       donc marquer la même heure qu'on la regarde de Paris ou de New York — et changer, elle, entre
+       l'été et l'hiver. */
+    async function lire(tz, iso) {
+      const p2 = await nav.newPage();
+      await p2.setViewport({ width: 1400, height: 700 });
+      await p2.emulateTimezone(tz);
+      await p2.goto('http://localhost:' + PORT + '/banc', { waitUntil: 'networkidle0' });
+      const r = await p2.evaluate(async (rend, off, open, quand) => {
+        const T = new Date(quand).getTime();
+        const _D = Date;
+        window.Date = function (...a) { return a.length ? new _D(...a) : new _D(T); };
+        window.Date.now = () => T;
+        window.Date.prototype = _D.prototype;
+        window._weatherCache = {}; window._clockWant = () => false; window.refreshWeather = () => {};
+        window.windArrow = () => ''; window.CLOCK_WIND_ICON = '';
+        window.CLOCKS = [
+          { code: 'LON', city: 'Londres', tz: 'Europe/London', country: 'UK' },
+          { code: 'NY', city: 'New York', tz: 'America/New_York', country: 'US' },
+          { code: 'TKY', city: 'Tokyo', tz: 'Asia/Tokyo', country: 'JP' },
+        ];
+        eval(off + '\n' + open + '\n' + rend);            // eslint-disable-line no-eval
+        // eslint-disable-next-line no-undef
+        renderClocks(document.querySelector('.wdg-clocks-bar'));
+        await new Promise(r2 => setTimeout(r2, 80));
+        const out = {};
+        [...document.querySelectorAll('.clock-item')].forEach(it => {
+          const code = (it.querySelector('.clock-code') || {}).textContent || '';
+          const t = (it.querySelector('.clock-time') || {}).textContent || '';
+          const g = (it.querySelector('.clock-gmt') || {}).textContent || '';
+          out[code.trim()] = { heure: t.replace(code, '').trim().slice(0, 5), gmt: g.trim() };
+        });
+        return out;
+      }, REND, OFF, OPEN, iso);
+      await p2.close();
+      return r;
+    }
+    const parisEte = await lire('Europe/Paris', '2026-07-15T12:00:00Z');
+    const nyEte    = await lire('America/New_York', '2026-07-15T12:00:00Z');
+    const parisHiv = await lire('Europe/Paris', '2026-01-15T12:00:00Z');
+
+    v('Londres marque 13:00 à 12:00 UTC en juillet (BST)', (parisEte.LON || {}).heure === '13:00',
+      JSON.stringify(parisEte.LON));
+    v('… et 12:00 en janvier (GMT) : l\'heure d\'été est bien suivie',
+      (parisHiv.LON || {}).heure === '12:00', JSON.stringify(parisHiv.LON));
+    v('… son décalage affiché change aussi (+1 l\'été, +0 l\'hiver)',
+      (parisEte.LON || {}).gmt !== (parisHiv.LON || {}).gmt,
+      'été ' + (parisEte.LON || {}).gmt + ' | hiver ' + (parisHiv.LON || {}).gmt);
+    /* Et l'heure d'une place ne dépend PAS d'où on la regarde : c'est ce qui distingue une horloge
+       mondiale d'une conversion. Si la lecture depuis New York changeait l'heure de Londres, la
+       carte afficherait deux fois le fuseau du lecteur au lieu de trois fuseaux. */
+    v('l\'heure de Londres est la même vue de Paris ou de New York',
+      (nyEte.LON || {}).heure === (parisEte.LON || {}).heure,
+      'Paris ' + (parisEte.LON || {}).heure + ' | New York ' + (nyEte.LON || {}).heure);
+    v('… et Tokyo affiche bien la sienne (21:00 à 12:00 UTC)',
+      (parisEte.TKY || {}).heure === '21:00', JSON.stringify(parisEte.TKY));
+    v('… et New York la sienne (08:00 en EDT)', (parisEte.NY || {}).heure === '08:00',
+      JSON.stringify(parisEte.NY));
   } catch (e) {
     ko++; console.log('  ✗ banc interrompu\n      → ' + e.message);
   } finally {
