@@ -13972,6 +13972,52 @@ html[data-theme="light"] .wdg-settings .wdg-set-chip.on { color: var(--orange-di
 .wdg-ddm-it:hover { background: var(--row-hover, rgba(255,255,255,.05)); color: var(--text); }
 .wdg-ddm-it.on { color: var(--orange, #e3b23a); }
 .wdg-ddm-ck { color: var(--orange, #e3b23a); font-size: 11px; }
+/* ══ MENU DE SÉLECTION, VERSION LISTE LONGUE (02/09, référence « Price Chart Settings ») ═══════
+   Le sélecteur de paire du graphique compte quarante-deux entrées. La référence les rend avec un
+   champ de recherche, des puces de classe d'actif et un drapeau par paire : c'est ce qui transforme
+   un déroulé qu'on parcourt en une liste qu'on interroge.
+   ⚠️ L'en-tête est COLLANT et non fixe : `.wdg-ddm` est lui-même la boîte à défilement (max-height +
+   overflow-y). Un en-tête posé en flux normal disparaîtrait dès la première molette, et on se
+   retrouverait à chercher le champ de recherche en remontant la liste. */
+.wdg-ddm-head {
+  position: sticky; top: -4px; z-index: 2; margin: -4px -4px 4px; padding: 6px 6px 5px;
+  display: flex; flex-direction: column; gap: 5px;
+  background: var(--pop-bg, #16171b); border-bottom: 1px solid var(--hud-line, var(--border));
+}
+.wdg-ddm-rech {
+  width: 100%; box-sizing: border-box; padding: 5px 8px;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; color: var(--text, #e6e8eb);
+  background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: 4px; outline: none;
+  transition: border-color .12s;
+}
+.wdg-ddm-rech::placeholder { color: var(--text4, #6b7280); }
+.wdg-ddm-rech:focus { border-color: rgba(227, 178, 58, .55); }
+.wdg-ddm-cls { display: flex; flex-wrap: wrap; gap: 4px; }
+.wdg-ddm-cl {
+  padding: 3px 8px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600;
+  color: var(--text3, #8a8f98); background: transparent;
+  border: 1px solid var(--hud-line, var(--border)); border-radius: var(--pill, 999px);
+  cursor: pointer; white-space: nowrap; transition: color .12s, border-color .12s, background .12s;
+}
+.wdg-ddm-cl:hover { color: var(--text); border-color: rgba(227, 178, 58, .45); }
+.wdg-ddm-cl.on { color: #0c0c0e; background: var(--orange, #e3b23a); border-color: var(--orange, #e3b23a); }
+html[data-theme="light"] .wdg-ddm-cl.on { color: #fff; }
+.wdg-ddm-lbl { display: flex; align-items: center; gap: 7px; min-width: 0; }
+/* Les deux drapeaux d'une paire se CHEVAUCHENT légèrement, comme le ticker d'accueil : deux
+   vignettes côte à côte prendraient la largeur d'un libellé pour dire la même chose. */
+.wdg-ddm-fl { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.wdg-ddm-fl .cal-flag-wrap { width: 13px; height: 13px; }
+.wdg-ddm-fl .cal-flag-wrap + .cal-flag-wrap { margin-left: -4px; }
+.wdg-ddm-fl .cal-flag-img { width: 13px; height: 13px; border-radius: 50%; object-fit: cover;
+  box-shadow: 0 0 0 1px var(--pop-bg, #16171b); }
+/* ⚠️ `.wdg-ddm-it` est en `display: flex` : sans cette règle, l'attribut `hidden` posé par le filtre
+   serait sans effet (une déclaration d'auteur bat la feuille du navigateur) et la recherche
+   n'aurait l'air de rien faire. */
+.wdg-ddm-it[hidden] { display: none; }
+.wdg-ddm-vide { padding: 9px 10px; font-size: 10.5px; color: var(--text4, #6b7280); }
+.wdg-ddm-vide[hidden] { display: none; }
+/* Une liste à drapeaux et à puces a besoin d'un peu plus de largeur que trois options de tri. */
+.wdg-ddm:has(.wdg-ddm-head) { min-width: 208px; max-height: 320px; }
 
 /* ── ACCUEIL v4 (03/08 « met comme ceci ») : ticker à drapeaux et segments teintés + cartes de desk
    VISUELLES (le plan 2D en visage, nom Fraunces par-dessus) + « Nouveau desk » dans l'en-tête. ── */

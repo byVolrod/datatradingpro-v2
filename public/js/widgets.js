@@ -644,14 +644,50 @@
     it.tabs[j] = 'vide';
     if (Array.isArray(it.tabGrid)) it.tabGrid[j] = '';
   }
-  /* ── MENU MAISON des <select> de widgets (.dmx-sort-select — tri DMX, paire Saisonnalité) : le
-     popup NATIF se place mal sous le zoom d'affichage (coordonnées non compensées par Chromium) et
-     la charte DTP proscrit les composants natifs. On intercepte l'ouverture et on affiche une liste
-     ancrée DANS LA CARTE — même espace de coordonnées que le contrôle, donc zoom-sûr par
-     construction. La sélection ré-émet un vrai `change` : les écouteurs existants ne bougent pas. */
+  /* ── MENU MAISON des <select> de widgets : le popup NATIF se place mal sous le zoom d'affichage
+     (coordonnées non compensées par Chromium) et la charte DTP proscrit les composants natifs. On
+     intercepte l'ouverture et on affiche une liste ancrée DANS LA CARTE — même espace de
+     coordonnées que le contrôle, donc zoom-sûr par construction. La sélection ré-émet un vrai
+     `change` : les écouteurs existants ne bougent pas.
+     ══ 02/09, RÉFÉRENCE FOURNIE (« Price Chart Settings ») ═══════════════════════════════════════
+     Le sélecteur de paire du GRAPHIQUE y est ajouté (`select.wdg-cdl-sym`), et le menu gagne ce que
+     montre la référence : un champ de recherche, des puces de classe d'actif, et un DRAPEAU par
+     paire. Ce sélecteur compte quarante-deux entrées — Forex, indices, matières premières — dans
+     une liste déroulante d'un seul tenant : trouver CAD/CHF s'y faisait à l'œil, ligne par ligne.
+     ⚠️ Le champ de recherche du panneau de réglages (`filtrerChoix`, 01/09) ne pouvait PAS servir
+     ici : la paire du graphique est déclarée `cache: true`, elle n'est donc pas rendue par le
+     panneau mais par la barre du widget. Deux surfaces distinctes, deux mises en œuvre — c'est le
+     défaut relevé à l'audit du 02/09. */
+  var _DDM_SEL = 'select.dmx-sort-select, select.wdg-cdl-sym';
+  /* Classe d'actif déduite du LIBELLÉ, pas d'une table à tenir à jour : une paire de devises
+     s'écrit « XXX/YYY », le reste est nommé. Une table serait en retard du jour où l'on ajoute un
+     symbole — le même piège que la liste de mots-clés du classeur de news (31/08). */
+  function _ddmClasse(v) {
+    if (/^[A-Z]{3}\/[A-Z]{3}$/.test(v)) return 'fx';
+    if (/gold|silver|oil|or\b|argent|p[ée]trole|brent|wti|copper|cuivre|gaz/i.test(v)) return 'mp';
+    return 'idx';
+  }
+  var _DDM_CLS = { fx: 'Forex', idx: 'Indices', mp: 'Matières premières' };
+  /* Pliage des accents et de la casse : « zurich » doit trouver « Zürich », sinon le champ punit
+     exactement la frappe rapide qu'il promet. */
+  function _ddmPlie(s) {
+    return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  function _ddmFiltre(menu) {
+    var q = _ddmPlie((menu.querySelector('.wdg-ddm-rech') || {}).value || '').trim();
+    var cl = menu.getAttribute('data-cl') || '';
+    var n = 0;
+    menu.querySelectorAll('.wdg-ddm-it').forEach(function (b) {
+      var ok = (!cl || b.getAttribute('data-cl') === cl)
+        && (!q || b.getAttribute('data-q').indexOf(q) >= 0);
+      b.hidden = !ok; if (ok) n++;
+    });
+    var vide = menu.querySelector('.wdg-ddm-vide');
+    if (vide) vide.hidden = !!n;
+  }
   document.addEventListener('mousedown', function (e) {
     var dejaOuvert = document.querySelector('.wdg-ddm');
-    var sel = e.target.closest && e.target.closest('select.dmx-sort-select');
+    var sel = e.target.closest && e.target.closest(_DDM_SEL);
     if (!sel) { if (dejaOuvert && !(e.target.closest && e.target.closest('.wdg-ddm'))) dejaOuvert.remove(); return; }
     e.preventDefault();
     if (dejaOuvert) { dejaOuvert.remove(); return; }
@@ -659,10 +695,34 @@
     if (!carte) return;
     var menu = document.createElement('div');
     menu.className = 'wdg-ddm';
-    menu.innerHTML = Array.prototype.map.call(sel.options, function (o) {
-      return '<button type="button" class="wdg-ddm-it' + (o.selected ? ' on' : '') + '" data-v="' + esc(o.value) + '">'
-        + '<span>' + esc(o.textContent) + '</span>' + (o.selected ? '<span class="wdg-ddm-ck">✓</span>' : '') + '</button>';
-    }).join('');
+    var opts = Array.prototype.slice.call(sel.options);
+    var drap = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
+    var classes = {};
+    opts.forEach(function (o) { classes[_ddmClasse(o.value)] = 1; });
+    // Le champ et les puces n'apparaissent qu'où ils servent : au-dessus de quatorze entrées pour
+    // la recherche, et seulement si la liste couvre PLUSIEURS classes pour les puces. Trois options
+    // de tri sous un champ de recherche seraient du bruit.
+    var _long = opts.length > 14;
+    var _cls = Object.keys(classes);
+    var tete = '';
+    if (_long) {
+      tete += '<input class="wdg-ddm-rech" type="search" spellcheck="false" placeholder="Rechercher…" aria-label="Rechercher dans la liste">';
+      if (_cls.length > 1) {
+        tete += '<div class="wdg-ddm-cls"><button type="button" class="wdg-ddm-cl on" data-cl="">Tout</button>'
+          + ['fx', 'idx', 'mp'].filter(function (c) { return classes[c]; }).map(function (c) {
+              return '<button type="button" class="wdg-ddm-cl" data-cl="' + c + '">' + _DDM_CLS[c] + '</button>';
+            }).join('') + '</div>';
+      }
+      tete = '<div class="wdg-ddm-head">' + tete + '</div>';
+    }
+    menu.innerHTML = tete + opts.map(function (o) {
+      var v = String(o.value), cl = _ddmClasse(v), fl = '';
+      if (cl === 'fx') { var d = v.split('/'); fl = drap(d[0]) + drap(d[1]); }
+      return '<button type="button" class="wdg-ddm-it' + (o.selected ? ' on' : '') + '" data-v="' + esc(v) + '"'
+        + ' data-cl="' + cl + '" data-q="' + esc(_ddmPlie(v + ' ' + o.textContent)) + '">'
+        + '<span class="wdg-ddm-lbl">' + (fl ? '<span class="wdg-ddm-fl">' + fl + '</span>' : '')
+        + esc(o.textContent) + '</span>' + (o.selected ? '<span class="wdg-ddm-ck">✓</span>' : '') + '</button>';
+    }).join('') + (_long ? '<div class="wdg-ddm-vide" hidden>Aucune entrée ne correspond.</div>' : '');
     if (getComputedStyle(carte).position === 'static') carte.style.position = 'relative';
     // Coordonnées locales : différence de rects VISUELS ÷ zoom (les offsets absolus sont re-multipliés
     // par le zoom au rendu — même piège que le menu des recherches récentes).
@@ -671,12 +731,45 @@
     menu.style.top = Math.round((rs.bottom - rc.top) / z + 4) + 'px';
     menu.style.right = Math.round(Math.max(4, (rc.right - rs.right) / z)) + 'px';
     carte.appendChild(menu);
+    var champ = menu.querySelector('.wdg-ddm-rech');
+    // Focus SYNCHRONE : le mousedown d'ouverture a déjà été annulé (preventDefault), le navigateur
+    // ne posera donc pas le focus lui-même. Différé d'un tick, il l'était aussi pour le lecteur —
+    // qui voyait un champ de recherche et devait cliquer dedans pour s'en servir.
+    if (champ) { try { champ.focus(); } catch (e2) {} }
     menu.addEventListener('mousedown', function (ev) {
+      // ⚠️ Le preventDefault n'est PAS global. Posé sur tout le menu, il empêchait le champ de
+      // recherche de prendre le focus : on tapait dans le vide. Il ne sert qu'à garder le focus
+      // lors d'un clic sur une ENTRÉE ou une PUCE.
+      if (ev.target.closest('.wdg-ddm-rech')) { ev.stopPropagation(); return; }
       ev.preventDefault(); ev.stopPropagation();
+      var cl = ev.target.closest('.wdg-ddm-cl');
+      if (cl) {
+        menu.setAttribute('data-cl', cl.getAttribute('data-cl'));
+        menu.querySelectorAll('.wdg-ddm-cl').forEach(function (b) { b.classList.toggle('on', b === cl); });
+        _ddmFiltre(menu);
+        if (champ) { try { champ.focus(); } catch (e3) {} }
+        return;
+      }
       var it = ev.target.closest('.wdg-ddm-it'); if (!it) return;
       sel.value = it.getAttribute('data-v');
       try { sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e2) {}
       menu.remove();
+    });
+    menu.addEventListener('input', function (ev) {
+      if (ev.target.closest('.wdg-ddm-rech')) _ddmFiltre(menu);
+    });
+    menu.addEventListener('keydown', function (ev) {
+      ev.stopPropagation();
+      if (ev.key === 'Escape') { ev.preventDefault(); menu.remove(); return; }
+      // Entrée = prendre la PREMIÈRE entrée encore visible : après trois lettres il n'en reste
+      // souvent qu'une, et il serait absurde d'exiger un clic pour la choisir.
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        var prem = menu.querySelector('.wdg-ddm-it:not([hidden])'); if (!prem) return;
+        sel.value = prem.getAttribute('data-v');
+        try { sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e4) {}
+        menu.remove();
+      }
     });
   }, true);
   window.addEventListener('scroll', function () { var m = document.querySelector('.wdg-ddm'); if (m) m.remove(); }, true);
