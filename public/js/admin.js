@@ -2092,7 +2092,7 @@
 
   // ── Load users ──────────────────────────────────────────────────────────────
   let _allUsers = [];
-  let _fSearch = '', _fStatus = 'all', _fRole = 'all';
+  let _fSearch = '', _fStatus = 'all', _fRole = 'all', _fMail = 'all';
   let _page = 1, _perPage = 12, _sortKey = 'created', _sortDir = -1;   // tri défaut : inscription la + récente d'abord
 
   async function loadUsers() {
@@ -2120,10 +2120,18 @@
   // à côté d'un abonnement « Expiré » : contradictoire à l'écran. On montre l'état réel du compte.
   function statusBadge(u) {
     const st = subState(u);
-    if (st === 'suspended') return '<span class="badge badge-suspended">Suspendu</span>';
-    if (st === 'expired')   return '<span class="badge badge-expired">Expiré</span>';
-    if (st === 'soon')      return '<span class="badge badge-soon">Expire bientôt</span>';
-    return '<span class="badge badge-active">Actif</span>';
+    /* « AFFICHER » AUTANT QUE « FILTRER » (04/09, demande user). Un filtre ne répond qu'à la question
+       qu'on pense à poser ; il faut aussi voir l'état en parcourant la liste, sans rien filtrer.
+       L'icône enveloppe de la ligne changeait déjà de forme — un détail qui se repère quand on sait
+       où regarder, donc jamais. Ces deux états portent une conséquence trop lourde pour rester
+       implicites : ne plus recevoir les campagnes, ne plus pouvoir se connecter du tout. */
+    const marq = (u.blackliste ? '<span class="badge badge-black" title="Bloqué : connexion, création de compte et campagnes">Bloqué</span>' : '')
+      + (u.unsub ? '<span class="badge badge-unsub" title="Désabonné des campagnes. Les e-mails de compte (accès, sécurité) partent toujours.">Désabonné</span>' : '');
+    const base = st === 'suspended' ? '<span class="badge badge-suspended">Suspendu</span>'
+      : st === 'expired'   ? '<span class="badge badge-expired">Expiré</span>'
+      : st === 'soon'      ? '<span class="badge badge-soon">Expire bientôt</span>'
+      : '<span class="badge badge-active">Actif</span>';
+    return base + marq;
   }
   // Dernière connexion en RELATIF (la date exacte reste au survol) : « il y a 3 j » se lit
   // d'un coup d'œil, là où « 24/07/2026 23:51:51 » force à calculer de tête.
@@ -2218,6 +2226,12 @@
     if (_fSearch)            users = users.filter(u => ((u.name||'') + ' ' + (u.email||'')).toLowerCase().includes(_fSearch));
     if (_fStatus !== 'all')  users = users.filter(u => subState(u) === _fStatus);
     if (_fRole !== 'all')    users = users.filter(u => u.role === _fRole);
+    /* ÉTAT E-MAIL. `blackliste` n'est PAS un sous-cas de `unsub` : un compte bloqué ne peut plus se
+       connecter mais reste abonné aux campagnes tant qu'on ne l'a pas désinscrit, et l'inverse est
+       vrai aussi. Les trois filtres sont donc exclusifs, pas emboîtés. */
+    if (_fMail === 'unsub')      users = users.filter(u => !!u.unsub);
+    else if (_fMail === 'sub')   users = users.filter(u => !u.unsub);
+    else if (_fMail === 'black') users = users.filter(u => !!u.blackliste);
     users.sort((a, b) => {
       const va = _sortVal(a, _sortKey), vb = _sortVal(b, _sortKey);
       if (va < vb) return -1 * _sortDir;
@@ -2276,7 +2290,7 @@
         <td class="email">${_escH(u.email)}</td>
         <td><span class="badge badge-client">${cycleLabel(u)}</span></td>
         <td>${typeBadge(u)}</td>
-        <td>${statusBadge(u)}</td>
+        <td class="u-statut">${statusBadge(u)}</td>
         <td>${subInfo(u)}</td>
         <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px" title="${u.last_login ? esc(new Date(u.last_login).toLocaleString('fr-FR')) : ''}">${relTime(u.last_login)}</td>
         <td class="actions">
@@ -2658,6 +2672,7 @@
   document.getElementById('flt-search').addEventListener('input',  e => { _fSearch = e.target.value.trim().toLowerCase(); _page = 1; renderUserRows(); });
   document.getElementById('flt-status').addEventListener('change', e => { _fStatus = e.target.value; _page = 1; renderStats(); renderUserRows(); });
   document.getElementById('flt-role').addEventListener('change',   e => { _fRole   = e.target.value; _page = 1; renderStats(); renderUserRows(); });
+  document.getElementById('flt-mail').addEventListener('change',   e => { _fMail   = e.target.value; _page = 1; renderUserRows(); });
 
   // Tri au clic sur les en-têtes de colonnes
   document.querySelectorAll('.users-table th.sortable').forEach(th =>

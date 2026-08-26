@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260826bbg977" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260826bbg978" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -210,6 +210,17 @@
               <option value="client">Clients</option>
               <option value="support">Support</option>
               <option value="admin">Admins</option>
+            </select>
+            <!-- ÉTAT E-MAIL (04/09, demande user « que je puisse afficher ou filtrer les
+                 désabonnés »). Il ne se déduisait d'aucune colonne : seule l'icône enveloppe de la
+                 ligne changeait de forme, ce qui se repère quand on sait déjà où regarder — donc
+                 jamais. Trois états distincts, parce qu'ils ne se recouvrent pas : désabonné (ne
+                 reçoit plus les campagnes), abonné, et bloqué (ne peut plus se connecter du tout). -->
+            <select id="flt-mail">
+              <option value="all">Newsletter : tous</option>
+              <option value="unsub">Désabonnés</option>
+              <option value="sub">Abonnés</option>
+              <option value="black">Bloqués (liste noire)</option>
             </select>
           </div>
           <!-- FUSION (27/08, demande user « je dois pouvoir selectionner les comptes ») : la barre
@@ -811,6 +822,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260826bbg977"></script>
+<script src="/js/admin.js?v=20260826bbg978"></script>
 </body>
 </html>

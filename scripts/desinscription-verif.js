@@ -33,6 +33,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 const RACINE = path.join(__dirname, '..');
 const AUTH = fs.readFileSync(path.join(RACINE, 'auth.js'), 'utf8');
@@ -140,6 +141,160 @@ v('… il bascule dans les deux sens', /toggleNewsletter\('\$\{esc\(String\(u\.i
 v('… et il signale quand même l\'origine de la désinscription',
   /désinscription d\\?'origine/.test(ADM));
 
-console.log('');
-if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }
-console.log('✓ TOUT PASSE — ' + ok + ' contrôle(s) OK\n');
+/* ══ 7. LE PANNEAU OUVERT DANS UN VRAI CHROMIUM ═══════════════════════════════════════════════════
+   04/09, demande utilisateur : « ajoute dans le panel admin un truc pour que je puisse afficher ou
+   filtrer les désabonnés ».
+
+   POURQUOI UN NAVIGATEUR, ET PAS UNE LECTURE DE CODE. Un filtre est un RÉSULTAT : le sélecteur
+   existe, l'écouteur est posé, la ligne de filtrage est écrite — et le tableau affiche quand même
+   tout le monde, parce que la variable lue n'est pas celle qu'écrit l'écouteur, ou parce que le
+   rendu se fait avant que l'état ne change. Les trois morceaux se relisent parfaitement et le
+   résultat est faux. On ouvre donc le panneau, on choisit dans le menu, et ON COMPTE LES LIGNES.
+   Le contrôle décisif est le dernier : sans filtre, le tableau doit montrer TOUT LE MONDE. Un
+   filtre cassé qui ne montrerait jamais rien passerait les deux premiers. */
+(async () => {
+  console.log('\n── 7. Le panneau admin, ouvert : le filtre montre-t-il vraiment ce qu\'il annonce ? ──');
+  let pp; try { pp = require('puppeteer-core'); } catch { console.log('  · puppeteer-core absent → abstention.\n'); return fin(); }
+  const exe = (() => {
+    const c = [process.env.CHROME_PATH, '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+    for (const b of ['/opt/pw-browsers', process.env.PLAYWRIGHT_BROWSERS_PATH].filter(Boolean)) {
+      try { for (const d of fs.readdirSync(b)) for (const r of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) c.push(path.join(b, d, r)); } catch {}
+    }
+    return c.find(x => x && fs.existsSync(x)) || null;
+  })();
+  if (!exe) { console.log('  · aucun Chromium → abstention.\n'); return fin(); }
+
+  /* Cinq comptes qui couvrent les combinaisons qui comptent — dont les deux qu'un filtre naïf
+     range du mauvais côté : un compte À LA FOIS bloqué et désabonné, et un bloqué qui reste
+     abonné (bloquer coupe la connexion, pas la newsletter). */
+  /* ⚠️ DES DONNÉES RÉALISTES, PAS COMMODES. Écrit d'abord avec « a@x.fr » et des échéances toutes
+     lointaines, le contrôle de hauteur de rangée était VACANT : rien ne repliait jamais, donc il
+     restait vert même en retirant la règle qui l'empêche. Le repli se produit sur la combinaison
+     la plus longue de la colonne STATUT — « Expire bientôt » SUIVI de « Désabonné » — et seulement
+     quand les colonnes voisines occupent la largeur qu'elles occupent chez un vrai client. On
+     reproduit donc les deux : une échéance proche, et des adresses de la longueur qu'elles ont. */
+  const _dans = j => new Date(Date.now() + j * 864e5).toISOString();
+  const COMPTES = [
+    { id: '1', name: 'Marc Dubois',   email: 'marc.dubois@gmail.com',   role: 'client', active: true, plan: 'professionnel', expires_at: _dans(120), unsub: false, blackliste: false },
+    { id: '2', name: 'Julie Renard',  email: 'j.renard@outlook.fr',     role: 'client', active: true, plan: 'professionnel', expires_at: _dans(120), unsub: true,  blackliste: false },
+    { id: '3', name: 'Karim Benali',  email: 'k.benali@gmail.com',      role: 'client', active: true, plan: 'professionnel', expires_at: _dans(5),   unsub: true,  blackliste: false },
+    { id: '4', name: 'Paul Mercier',  email: 'paul.mercier@yahoo.fr',   role: 'client', active: true, plan: 'professionnel', expires_at: _dans(5),   unsub: true,  blackliste: true },
+    { id: '5', name: 'Sofia Lopez',   email: 'sofia.lopez@gmail.com',   role: 'client', active: true, plan: 'professionnel', expires_at: _dans(120), unsub: false, blackliste: true },
+  ];
+  const PUB = path.join(RACINE, 'public'), PORT = 4787;
+  const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.svg': 'image/svg+xml' };
+  const srv = http.createServer((rq, rs) => {
+    const u = rq.url.split('?')[0];
+    const json = o => { rs.writeHead(200, { 'Content-Type': 'application/json' }); rs.end(JSON.stringify(o)); };
+    if (u === '/api/auth/me')       return json({ loggedIn: true, user: { id: '0', role: 'admin', name: 'Admin', email: 'admin@x.fr' } });
+    if (u === '/api/admin/users')   return json(COMPTES);
+    if (u.indexOf('/api/') === 0)   return json({ ok: true });          // tout le reste : neutre
+    const f = path.join(PUB, (u === '/' || u === '/admin' ? '/admin.html' : u).replace(/^\/+/, ''));
+    if (!f.startsWith(PUB) || !fs.existsSync(f)) { rs.writeHead(404); return rs.end('404'); }
+    rs.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'text/plain' });
+    fs.createReadStream(f).pipe(rs);
+  }).listen(PORT);
+
+  let nav = null;
+  try {
+    nav = await pp.launch({ executablePath: exe, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await nav.newPage();
+    await page.setViewport({ width: 1500, height: 1000 });   // largeur d'un vrai écran admin
+    const errs = [];
+    page.on('pageerror', e => errs.push(String(e.message)));
+    await page.goto('http://localhost:' + PORT + '/admin.html', { waitUntil: 'networkidle0' });
+    await new Promise(r => setTimeout(r, 500));
+    /* ⚠️ ON OUVRE VRAIMENT L'ONGLET. Le tableau existe dans le DOM même quand son onglet est masqué :
+       les sélecteurs répondent, les filtres se testent — et toute MESURE de géométrie renvoie zéro,
+       parce qu'un élément en display:none n'a pas de boîte. Un banc qui se contente d'interroger le
+       DOM éprouve donc la moitié de ce qu'il croit, et la moitié qui manque est justement celle qui
+       tient la densité du tableau. */
+    await page.evaluate(() => { try { admTab('users'); } catch (e) {} });
+    await new Promise(r => setTimeout(r, 400));
+
+    /* ⚠️ La cellule du nom porte AUSSI les initiales de l'avatar : son texte est « BEBloque Et
+       Desabo », pas « Bloque Et Desabo ». Un `Array.includes` exact n'y trouve donc jamais rien —
+       et un contrôle « X n'est PAS dans la liste » écrit ainsi passe au VERT sans rien mesurer.
+       On compare par sous-chaîne, dans les deux sens. */
+    const noms = () => page.evaluate(() => [...document.querySelectorAll('#users-table tbody tr')]
+      .map(tr => (tr.querySelector('td:nth-child(2)') || {}).textContent || '').map(t => t.trim()).filter(Boolean));
+    const contient = (liste, nom) => liste.some(x => x.indexOf(nom) >= 0);
+    const choisir = async val => {
+      await page.select('#flt-mail', val);
+      await new Promise(r => setTimeout(r, 250));
+      return noms();
+    };
+
+    v('le panneau s\'ouvre sans exception', errs.length === 0, errs.slice(0, 2).join(' | '));
+    const tous = await noms();
+    v('le tableau affiche les 5 comptes du banc', tous.length === 5, tous.length + ' ligne(s) : ' + tous.join(', '));
+    v('le sélecteur d\'état e-mail existe', await page.$('#flt-mail') !== null);
+
+    const desabos = await choisir('unsub');
+    v('« Désabonnés » n\'affiche QUE les désabonnés', desabos.length === 3, desabos.join(', '));
+    v('… y compris celui qui est AUSSI bloqué', contient(desabos, 'Paul Mercier'), desabos.join(', '));
+    v('… et pas le bloqué resté abonné (bloquer coupe la connexion, pas la newsletter)',
+      !contient(desabos, 'Sofia Lopez'), desabos.join(', '));
+
+    const abos = await choisir('sub');
+    v('« Abonnés » donne exactement le complément',
+      abos.length === 2 && !abos.some(n => contient(desabos, n)) && contient(abos, 'Sofia Lopez'), abos.join(', '));
+
+    const noirs = await choisir('black');
+    v('« Bloqués » liste les deux comptes bloqués, désabonnés ou non', noirs.length === 2, noirs.join(', '));
+
+    /* LE CONTRÔLE QUI EMPÊCHE LES PRÉCÉDENTS D'ÊTRE VIDES : un filtre cassé qui n'afficherait
+       jamais rien passerait « n'affiche que les désabonnés » sans peine. Le retour à « tous » doit
+       ramener TOUT LE MONDE. */
+    const retour = await choisir('all');
+    v('le retour à « tous » ramène bien les 5 (sinon les contrôles ci-dessus ne prouvent rien)',
+      retour.length === 5, retour.join(', '));
+
+    // « AFFICHER » : l'état doit se lire SANS filtrer.
+    /* On compte des LIGNES, pas des pastilles : `.badge-active` apparaît aussi dans la colonne
+       d'abonnement, et un comptage global renvoyait 10 pour 5 comptes — un chiffre qui n'a aucun
+       sens et qui aurait fait rougir un contrôle pourtant juste. */
+    const pastilles = await page.evaluate(() => {
+      const trs = [...document.querySelectorAll('#users-table tbody tr')];
+      const n = sel => trs.filter(tr => tr.querySelector(sel)).length;
+      /* Le statut d'abonnement, quel qu'il soit : deux comptes du banc expirent bientôt, donc
+         compter les seuls « Actif » aurait mesuré le jeu de données et non la règle. Ce qu'on
+         vérifie, c'est que CHAQUE ligne porte encore UN statut — les pastilles d'état e-mail
+         s'ajoutent, elles ne remplacent pas. */
+      const statut = trs.filter(tr => tr.querySelector('.badge-active, .badge-soon, .badge-expired, .badge-suspended')).length;
+      return { desab: n('.badge-unsub'), bloq: n('.badge-black'), statut, lignes: trs.length };
+    });
+    v('sans filtrer, 3 lignes portent la pastille « Désabonné »', pastilles.desab === 3, JSON.stringify(pastilles));
+    v('… et 2 la pastille « Bloqué »', pastilles.bloq === 2, JSON.stringify(pastilles));
+    v('… chaque ligne garde SON statut d\'abonnement (les pastilles s\'ajoutent, ne remplacent pas)',
+      pastilles.statut === pastilles.lignes && pastilles.lignes === 5, JSON.stringify(pastilles));
+    /* ⚠️ ET LA RANGÉE NE DOIT PAS GROSSIR. Le précédent est dans la feuille de style : en laissant
+       les boutons d'action passer à la ligne, une rangée montait à 93 px et le tableau perdait sa
+       densité. Ajouter une pastille dans la colonne STATUT rejouait exactement ça. On MESURE donc
+       la hauteur peinte des rangées, et on exige que celle d'un compte à deux pastilles ne
+       dépasse pas celle d'un compte nu. */
+    const haut = await page.evaluate(() => {
+      const trs = [...document.querySelectorAll('#users-table tbody tr')];
+      const h = tr => Math.round(tr.getBoundingClientRect().height);
+      const nue = trs.find(tr => !tr.querySelector('.badge-unsub') && !tr.querySelector('.badge-black'));
+      const chargee = trs.find(tr => tr.querySelector('.badge-unsub') && tr.querySelector('.badge-black'));
+      return { nue: nue ? h(nue) : 0, chargee: chargee ? h(chargee) : 0, max: Math.max(...trs.map(h)) };
+    });
+    v('une ligne à deux pastilles ne dépasse pas une ligne nue (la densité tient)',
+      haut.chargee > 0 && haut.nue > 0 && haut.chargee <= haut.nue + 1, JSON.stringify(haut));
+    v('… et aucune rangée ne repart à 93 px comme au défaut de référence',
+      haut.max > 0 && haut.max < 70, JSON.stringify(haut));
+  } catch (e) {
+    v('le banc navigateur s\'exécute', false, e.message);
+  } finally {
+    if (nav) await nav.close();
+    srv.close();
+  }
+  fin();
+})();
+
+function fin() {
+  console.log('');
+  if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }
+  console.log('✓ TOUT PASSE — ' + ok + ' contrôle(s) OK\n');
+}

@@ -631,6 +631,23 @@ select { cursor: pointer; }
 .badge-suspended { background: rgba(231, 76, 60, .1);   border-color: rgba(231, 76, 60, .3);   color: var(--red); }
 .badge-admin     { background: rgba(52, 152, 219, .12); border-color: rgba(52, 152, 219, .32); color: var(--blue); }
 .badge-support   { background: rgba(255, 179, 0, .1);   border-color: rgba(255, 179, 0, .3);   color: var(--neutral); }
+/* ÉTAT E-MAIL D'UNE LIGNE (04/09). Ces deux pastilles s'AJOUTENT au statut d'abonnement, elles ne le
+   remplacent pas : un compte peut être actif ET désabonné, et c'est justement le cas qu'on veut
+   voir. Elles restent en retrait — ni vert ni rouge, qui appartiennent au statut lui-même — pour ne
+   pas voler la lecture principale de la colonne.
+   « Bloqué » porte quand même le rouge de la charte : couper la connexion n'est pas une nuance. */
+.badge-unsub     { background: rgba(255, 255, 255, .04); border-color: var(--border);           color: var(--text3); }
+.badge-black     { background: rgba(231, 76, 60, .1);    border-color: rgba(231, 76, 60, .3);   color: var(--red); }
+/* ⚠️ ET ELLES NE DOIVENT PAS FAIRE GROSSIR LA RANGÉE. Le précédent est écrit deux règles plus bas :
+   en laissant les boutons d'action passer à la ligne, une rangée montait à 93 px (mesuré au banc)
+   et le tableau perdait toute sa densité. Ajouter une pastille dans la colonne STATUT rejouait
+   exactement ça — « Expire bientôt » suivi de « Désabonné » repliait sur deux lignes. Même parade
+   que pour les actions : la cellule ne se replie pas, le conteneur défile déjà en X. Les pastilles
+   d'état e-mail sont aussi un cran plus compactes que celle du statut, qui reste la lecture
+   principale de la colonne. */
+.users-table tbody td.u-statut { white-space: nowrap; }
+.users-table tbody td.u-statut .badge-unsub,
+.users-table tbody td.u-statut .badge-black { margin-left: 5px; padding: 1px 6px; font-size: 10px; }
 /* Boutons d'action SUR UNE SEULE LIGNE : en les laissant passer à la ligne, une rangée montait à
    93px (mesuré au banc) et le tableau perdait toute sa densité. Le conteneur scrolle déjà en X. */
 .users-table tbody td:last-child { white-space: nowrap; }
