@@ -209,6 +209,136 @@ function phaseLogique() {
     verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2');
     verif('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
 
+    /* ── CHAQUE TAG SON RÔLE : INFO NE DÉROULE PLUS LE RAPPORT ENTIER ──────────────────────────
+       31/08 : « le tag info pourquoi il est aussi long ? chaque tag a son rôle tu vois ». Capture :
+       le panneau Info d'une ANALYSE PCE déroulait SIX sections, pendant que les boutons Analyse et
+       Impact marché en répétaient des morceaux. La référence tient en quatre encadrés courts.
+       On ouvre les panneaux pour de vrai — `openPanel` sur une vraie ligne — et on compte ce que
+       chacun contient. */
+    const rôles = await page.evaluate(async () => {
+      const DESC = [
+        "L'indice des prix PCE global américain a progressé de 3,7% en glissement annuel en juillet, dépassant le consensus de 3,6%.",
+        "Cette divergence a entraîné une réaction mitigée sur les marchés, le dollar s'appréciant face à l'euro.",
+        'Chiffres clés (vs attendu) :',
+        "- L'indice PCE global (YoY) a atteint 3,7%, supérieur aux 3,6% attendus.",
+        "- L'indice PCE de base (YoY) est resté stable à 3,3%.",
+        'Ce qui a surpris :',
+        '- Le PCE global mensuel à 0,2% a surpris à la hausse.',
+        'Réaction de marché :',
+        "- L'EUR/USD a reculé sous une légère pression.",
+        'Implications banque centrale :',
+        "- La lecture de base conforme a limité l'impact sur les anticipations de taux.",
+        'Impact marché :',
+        '- **Légèrement haussier pour le dollar américain.**',
+      ].join('\n');
+      const it = { id: 'eva1', headline: 'ANALYSE PCE US : PCE global au-dessus du consensus, cœur conforme',
+        description: DESC, category: 'Economic Commentary', tags: ['Inflation', 'PCE', 'USD'],
+        timestamp: Date.now(), priority: 'high', _eventAnalysis: true, _reportType: 'PCE Analysis',
+        _pair: 'EUR/USD', _indic: 'PCE', _ccy: 'USD',
+        _impact: 'Légèrement haussier pour le dollar américain.\nLa conformité du cœur limite le repricing.' };
+      const el = window.buildNewsItem(it);
+      document.body.appendChild(el);
+      const lire = () => {
+        const p = el.querySelector('.news-description');
+        return { txt: (p.textContent || '').replace(/\s+/g, ' ').trim(),
+          titres: [...p.querySelectorAll('.ip-head')].map(h => h.textContent.trim()) };
+      };
+      const boutons = [...el.querySelectorAll('.news-tags .tag')].map(t => t.textContent.trim());
+      // Le panneau Info : c'est le tag « Info » qui l'ouvre.
+      const clic = nom => { const b = [...el.querySelectorAll('.news-tags .tag')].find(t => t.textContent.trim() === nom); if (b) b.click(); };
+      clic('Info'); await new Promise(r => setTimeout(r, 60));
+      const info = lire();
+      clic('Analyse'); await new Promise(r => setTimeout(r, 60));
+      const ana = lire();
+      clic('Impact marché'); await new Promise(r => setTimeout(r, 60));
+      const imp = lire();
+      el.remove();
+      return { boutons, info, ana, imp };
+    });
+    console.log('\n── Chaque tag son rôle : Info ne déroule plus le rapport entier ──');
+    verif('les quatre boutons sont là', ['Info', 'Analyse', 'Impact marché'].every(b => rôles.boutons.includes(b)),
+      JSON.stringify(rôles.boutons));
+    /* LE CŒUR DE LA DEMANDE : Info porte l'accroche, donc AUCUN intertitre de section. Compter les
+       intertitres est le test juste — mesurer une longueur en caractères se réglerait au petit
+       bonheur, alors qu'un intertitre dans Info EST le défaut. */
+    verif('Info ne contient plus aucune section', rôles.info.titres.length === 0,
+      'sections trouvées : ' + JSON.stringify(rôles.info.titres));
+    verif('… mais bien l\'accroche', /PCE global américain a progressé de 3,7%/.test(rôles.info.txt), rôles.info.txt.slice(0, 90));
+    verif('… et rien du dossier', !/Ce qui a surpris|Implications banque centrale/.test(rôles.info.txt), rôles.info.txt.slice(0, 140));
+    /* RIEN N'EST PERDU : ce qu'Info ne porte plus se lit sous Analyse. Un correctif qui aurait
+       simplement tronqué le texte aurait passé le contrôle précédent et échoué celui-ci. */
+    verif('Analyse porte le dossier', rôles.ana.titres.length >= 3, JSON.stringify(rôles.ana.titres));
+    ['Chiffres clés (vs attendu)', 'Ce qui a surpris', 'Réaction de marché', 'Implications banque centrale']
+      .forEach(t => verif('… dont « ' + t + ' »', rôles.ana.titres.includes(t), JSON.stringify(rôles.ana.titres)));
+    /* … SAUF « Impact marché », qui a son propre bouton : l'y laisser aurait déplacé le doublon au
+       lieu de le retirer. */
+    verif('Analyse ne reprend PAS « Impact marché »', !rôles.ana.titres.includes('Impact marché'), JSON.stringify(rôles.ana.titres));
+    verif('… qui se lit bien sous son bouton', /haussier pour le dollar/.test(rôles.imp.txt), rôles.imp.txt.slice(0, 90));
+
+    /* ── LA POIGNÉE « ÉLARGIR » LAISSE-T-ELLE LA BARRE DE DÉFILEMENT TRANQUILLE ? ──────────────
+       31/08 : « j'ai du mal à bien choper le scroller, mon curseur est sur l'élargissement du bloc ».
+       ⚠️ CE QUE CE BANC PEUT ET NE PEUT PAS FAIRE, dit avant de le lire : ce Chromium sans tête
+       emploie des barres FLOTTANTES — largeur de mise en page nulle, absentes du test de survol,
+       et l'option qui les désactive n'y change rien (mesuré : `offsetWidth - clientWidth` = 0 dans
+       les deux cas). On ne peut donc PAS reproduire la barre du client ici. On mesure la GÉOMÉTRIE,
+       qui est la vraie question : la poignée empiète-t-elle sur les 8 px que la barre occupe ?
+       Les 8 px viennent de la feuille elle-même (`::-webkit-scrollbar { width: 8px }`), pas d'un
+       chiffre inventé pour le contrôle. */
+    const bar = await page.evaluate(() => {
+      const box = document.createElement('div');
+      box.innerHTML = '<div class="wdg-grid" style="height:300px">'
+        + '<section class="wdg-card" id="c1" style="--gw:6;--gh:12"><header class="wdg-head"><span>T</span></header>'
+        + '<div class="wdg-body" id="b1"><div style="height:2000px">long</div></div>'
+        + '<div class="wdg-resize-e"></div></section>'
+        + '<section class="wdg-card" id="c2" style="--gw:6;--gh:12"><header class="wdg-head"><span>T</span></header>'
+        + '<div class="wdg-body" id="b2"><div style="height:10px">court</div></div>'
+        + '<div class="wdg-resize-e"></div></section></div>';
+      document.body.appendChild(box);
+      const geo = id => {
+        const c = document.getElementById(id);
+        const h = c.querySelector('.wdg-resize-e').getBoundingClientRect();
+        const b = c.querySelector('.wdg-body').getBoundingClientRect();
+        return { hGauche: h.x, hDroite: h.x + h.width, bDroite: b.right, carteDroite: c.getBoundingClientRect().right };
+      };
+      const av = { c1: geo('c1'), c2: geo('c2') };
+      // La classe telle que widgets.js la pose quand le corps déborde.
+      document.getElementById('c1').classList.add('wdg-card--barre');
+      const ap = { c1: geo('c1'), c2: geo('c2') };
+      // La largeur de barre déclarée par la feuille — on ne l'invente pas.
+      const sb = (() => { for (const f of document.styleSheets) { try { for (const r of f.cssRules) {
+        if (r.selectorText === '::-webkit-scrollbar') return parseFloat(r.style.width) || 0; } } catch (e) {} } return 0; })();
+      // ⚠️ LES DEUX ESPACES. `getBoundingClientRect` rend des px ÉCRAN, la feuille déclare des px CSS,
+      // et le desk applique un zoom de page : comparer les deux directement se trompe de 10 % —
+      // c'est-à-dire, ici, de presque un pixel, soit exactement l'écart en litige.
+      const z = document.body.offsetWidth ? (document.body.getBoundingClientRect().width / document.body.offsetWidth) : 1;
+      box.remove();
+      return { av, ap, sb, z };
+    });
+    console.log('\n── La poignée « Élargir » laisse la barre de défilement tranquille ──');
+    verif('la feuille déclare bien une barre de 8 px', bar.sb === 8, 'largeur déclarée : ' + bar.sb);
+    const BANDE = bar.sb * (bar.z || 1);   // la bande de la barre, ramenée en pixels d'écran
+    /* AVANT : la poignée mord sur la bande de la barre — c'est le défaut, et on le mesure pour que le
+       contrôle dise ce qu'il corrige, pas seulement ce qu'il constate. */
+    const chevauche = g => g.hDroite > g.bDroite - BANDE + 0.5;
+    verif('sans la classe, elle recouvre bien la bande de la barre (c\'est le défaut)', chevauche(bar.av.c1),
+      'poignée jusqu\'à ' + bar.av.c1.hDroite.toFixed(1) + ', bande de barre à partir de ' + (bar.av.c1.bDroite - BANDE).toFixed(1));
+    verif('une carte qui DÉFILE libère la bande de la barre', !chevauche(bar.ap.c1),
+      'poignée jusqu\'à ' + bar.ap.c1.hDroite.toFixed(1) + ', bande de barre à partir de ' + (bar.ap.c1.bDroite - BANDE).toFixed(1));
+    /* Et elle ne fuit pas trop loin : une poignée réfugiée au milieu de la carte ne se trouverait
+       plus. Elle reste collée à la bande, juste à sa gauche. */
+    verif('… sans s\'éloigner du bord (elle reste contre la barre)',
+      bar.ap.c1.hDroite >= bar.ap.c1.bDroite - BANDE - 1.5,
+      'écart : ' + (bar.ap.c1.bDroite - BANDE - bar.ap.c1.hDroite).toFixed(1) + ' px');
+    /* UNE CARTE QUI NE DÉFILE PAS NE DOIT RIEN PERDRE : sa poignée reste au bord, là où la main la
+       cherche. C'est ce qui distingue ce correctif d'un décalage appliqué partout. */
+    verif('une carte qui ne défile pas garde sa poignée au bord',
+      Math.abs(bar.ap.c2.hDroite - bar.ap.c2.carteDroite) < 1.5,
+      'poignée à ' + bar.ap.c2.hDroite.toFixed(1) + ', bord de carte à ' + bar.ap.c2.carteDroite.toFixed(1));
+    // La classe n'est pas décorative : c'est widgets.js qui la pose, sur la mesure du débordement.
+    const WID2 = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
+    verif('la classe est posée sur le VRAI débordement du corps',
+      /body\.scrollHeight > body\.clientHeight \+ 1/.test(WID2) && /classList\.toggle\('wdg-card--barre', defile\)/.test(WID2));
+
     /* ── L'ANALYSE D'UN CHIFFRE PORTE-T-ELLE LE TAG DE SON INDICATEUR ? ────────────────────────
        31/08 : « il manque le tag comme ceci », capture d'une ligne de calendrier portant son tag
        « drapeau + PCE ». L'ANALYSE du même chiffre ne l'avait pas — les rapports maison étaient

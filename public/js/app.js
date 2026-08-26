@@ -837,7 +837,10 @@ function _renderInfoBullets(bullets) {
     // sous-titre : ligne courte finissant par ":" (ex. « Four points: ») → libellé, pas une puce
     if (noMd.length <= 44 && /\S.{1,42}:$/.test(noMd) && !/[.!?]/.test(noMd.slice(0, -1))) {
       if (_isNoiseHead(noMd)) return '';   // intertitre générique parasite (« Four points: ») → retiré
-      return `<li class="ip-head">${esc(stripSrc(noMd))}</li>`;
+      /* Le deux-points est ce qui FAIT reconnaître un intertitre, il n'a pas à être AFFICHÉ : un
+         titre de rubrique ne se ponctue pas, et la description d'une news le retirait déjà de son
+         côté (31/08 — deux rendus du même texte, deux résultats). */
+      return `<li class="ip-head">${esc(stripSrc(noMd).replace(/\s*:\s*$/, ''))}</li>`;
     }
     // garde le GRAS markdown **…** → <strong>
     const body = esc(stripSrc(it)).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -2706,6 +2709,33 @@ function _estRubrique(t) {
   if (s.split(/\s+/).length > 4) return false;      // un titre tient en 4 mots
   return !_OUVERTURE_PHRASE.test(s);                // commence comme une phrase => ce n'en est pas un
 }
+/* ══ CHAQUE TAG SON RÔLE : LA DÉCOUPE D'UNE ANALYSE D'ÉVÉNEMENT (31/08) ══════════════════════════
+   « Le tag info pourquoi il est aussi long ? Chaque tag a son rôle tu vois. » Capture à l'appui : le
+   panneau Info d'une ANALYSE PCE déroulait le rapport ENTIER — l'accroche, Chiffres clés, Ce qui a
+   surpris, Réaction de marché, Implications banque centrale, Impact marché. Six sections sous un
+   bouton qui en promet une, pendant que les boutons Analyse et Impact marché, juste à côté, en
+   répétaient des morceaux.
+   La référence fournie tient en quatre encadrés COURTS, et c'est la bonne grammaire : Info dit CE
+   QUI S'EST PASSÉ (le fait, trois lignes), Analyse dit CE QU'ON EN LIT, Impact marché dit CE QUE ÇA
+   CHANGE. Un lecteur qui ouvre Info veut le fait, pas le dossier.
+   On découpe donc le rapport une fois, ici, et chaque panneau prend sa part. Rien n'est perdu : ce
+   que l'accroche ne porte pas se retrouve sous Analyse, à l'exception d'« Impact marché » qui a son
+   propre bouton — sans quoi on aurait déplacé le doublon au lieu de le retirer.
+   ⚠️ DÉTERMINISTE, ET SUR LE TEXTE DÉJÀ PUBLIÉ : aucune régénération, aucune requête. Les analyses
+   déjà en cache se re-répartissent au premier affichage. */
+function _evaDecoupe(desc) {
+  const out = { lead: [], sections: [] };
+  let cur = null;
+  String(desc || '').split(/\n+/).map(l => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean).forEach(t => {
+    const estTitre = _isSectionHead(t) || (t.length <= 46 && /:$/.test(t) && !/[.!?]/.test(t.slice(0, -1)));
+    if (estTitre && _isNoiseHead(t)) { cur = null; return; }        // intertitre générique parasite
+    if (estTitre) { cur = { titre: t.replace(/\s*:\s*$/, ''), lignes: [] }; out.sections.push(cur); return; }
+    (cur ? cur.lignes : out.lead).push(t);
+  });
+  return out;
+}
+// « Impact marché » a son propre bouton : il ne doit pas revenir dans Analyse.
+const _EVA_SEC_IMPACT = /^impact\s+march[ée]$/i;
 function _isSectionHead(line) {
   const t = (line || '').trim();
   if (t.length < 2 || t.length > 42) return false;
@@ -3369,7 +3399,14 @@ function buildNewsItem(item) {
   // et attachée à la news (item.analyse). Sinon → juste Info (système intelligent : pas d'analyse
   // si la news ne le mérite pas / si le budget IA ne l'a pas produite). Plus de clic, plus de
   // « Analyse en cours… », plus de bouton qui disparaît.
-  const hasNotes  = !item._marketUpdate && Array.isArray(item.analyse) && item.analyse.length > 0;
+  /* ⚠️ SUR UNE ANALYSE D'ÉVÉNEMENT, LE BOUTON NE DÉPEND PLUS DU SEUL CHAMP `analyse` (31/08). Depuis
+     que le rapport a quitté Info pour venir ici, une analyse dont le serveur n'a pas produit de
+     champ `analyse` aurait un dossier à montrer et pas de bouton pour l'ouvrir. On regarde donc
+     aussi ce que la description contient réellement — au moins une section autre qu'« Impact
+     marché », qui a son propre bouton. */
+  const _evaDossier = item._eventAnalysis
+    ? _evaDecoupe(item.description).sections.some(sec => !_EVA_SEC_IMPACT.test(sec.titre)) : false;
+  const hasNotes  = !item._marketUpdate && ((Array.isArray(item.analyse) && item.analyse.length > 0) || _evaDossier);
   // « Impact marché » (EVA v9) vit en QUEUE de l'analyse : on l'élève en 4e bouton, comme Info /
   // Analyse / Réaction. Le bouton n'apparaît que si la section existe vraiment.
   // Détection par le champ STRUCTURÉ _impact (server.js, EVA v9) : la section « Impact marché »
@@ -3625,14 +3662,17 @@ function buildNewsItem(item) {
       //    sous-titres en GRAS (pas de titres orange/encadrés). Gère le nouveau format « Titre : »
       //    ET l'ancien format MAJUSCULES (analyses déjà publiées).
       if (item._eventAnalysis) {
+        /* INFO = L'ACCROCHE, ET RIEN D'AUTRE (31/08 : « le tag info pourquoi il est aussi long ? »).
+           Le panneau déroulait les six sections du rapport, alors que les boutons Analyse et Impact
+           marché, à côté, en portent déjà des morceaux. L'accroche est le paragraphe que le desk
+           écrit AVANT toute section : ce qui s'est passé, en deux à quatre phrases. C'est exactement
+           l'encadré « Info » de la référence.
+           Un vieux rapport sans accroche ne doit pas rendre un panneau vide : on retombe alors sur sa
+           première section, qui joue le même rôle. */
         const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const lines = String(item.description || '').split(/\n+/).map(l => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean);
-        const html = lines.map(t => {
-          const isHead = _isSectionHead(t) || (t.length <= 46 && /:$/.test(t) && !/[.!?]/.test(t.slice(0, -1)));
-          if (isHead && _isNoiseHead(t)) return '';   // intertitre générique parasite (« Four points: ») → retiré
-          if (isHead) return `<li class="ip-head">${esc(t.replace(/\s*:\s*$/, ''))}</li>`;
-          return `<li>${esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</li>`;
-        }).join('');
+        const d = _evaDecoupe(item.description);
+        const corps = d.lead.length ? d.lead : ((d.sections[0] || {}).lignes || []);
+        const html = corps.map(t => `<li>${esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</li>`).join('');
         return `<ul class="article-points article-points--clean">${html}</ul>`;
       }
       // ── DTP DAILY US OPENING NEWS : rapport structuré COMPLET déroulé dans le flux (sections : puces / paragraphes / données) ──
@@ -4070,7 +4110,23 @@ function buildNewsItem(item) {
       // Analyse PRÉ-CALCULÉE côté serveur, attachée à la news → affichage instantané, aucun fetch.
       // HEURE DE PRODUCTION (référence fournie : « Analysis At: 8:12 AM ») : le lecteur sait QUAND
       // le desk a écrit cette lecture, donc à quelle distance de la publication elle se situe.
-      expandEl.innerHTML = _nrxQuand('Analyse', item._anaAt || item.timestamp) + _renderInfoBullets(item.analyse || []);
+      /* ⚠️ SUR UNE ANALYSE D'ÉVÉNEMENT, C'EST ICI QUE VIT LE RAPPORT (31/08). Info ne garde plus que
+         l'accroche : les sections qu'elle déroulait — Chiffres clés, Ce qui a surpris, Réaction de
+         marché, Implications banque centrale — se lisent désormais sous CE bouton, qui est leur
+         place. « Impact marché » en est retiré : il a le sien, et l'y laisser aurait déplacé le
+         doublon au lieu de le retirer. Rien n'est perdu, tout change de porte. */
+      let _puces = item.analyse || [];
+      if (item._eventAnalysis) {
+        const d = _evaDecoupe(item.description);
+        const dossier = [];
+        d.sections.forEach(sec => {
+          if (_EVA_SEC_IMPACT.test(sec.titre)) return;
+          dossier.push(sec.titre + ' :');
+          sec.lignes.forEach(l => dossier.push(l));
+        });
+        if (dossier.length) _puces = dossier;
+      }
+      expandEl.innerHTML = _nrxQuand('Analyse', item._anaAt || item.timestamp) + _renderInfoBullets(_puces);
       _dtpTranslateQuotes(expandEl);   // puces en langue source → FR (la traduction ne partait jamais ici)
       expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.add('tag--active');

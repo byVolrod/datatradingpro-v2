@@ -7742,6 +7742,26 @@
       exclus: '.wdg-ico, .wdgt-tab, .wdgt-add, button, input',
       refuse: function (card) { return card.classList.contains('wdg-card--locked'); },
     });
+    /* ══ LA POIGNÉE NE MANGE PLUS LA BARRE DE DÉFILEMENT (31/08) ═══════════════════════════════
+       « Quand je glisse mon curseur sur le truc pour scroller j'ai du mal à bien le choper, mon
+       curseur est sur l'élargissement du bloc. » Mesuré : la poignée de bord droit occupe les 9 px
+       les plus à droite de la carte, et la barre de défilement de son corps occupe les 8 px les plus
+       à droite du même bord. Elles se recouvrent presque exactement, et la poignée gagne — elle a un
+       z-index et se pose PAR-DESSUS. On visait la barre, on attrapait « Élargir ».
+       ⚠️ ET ON NE PEUT PAS SORTIR LA POIGNÉE DE LA CARTE : `.wdg-card` est en `overflow: hidden`,
+       tout ce qui déborde est rogné — donc inatteignable. Vérifié avant d'essayer.
+       On la décale donc VERS L'INTÉRIEUR, mais seulement quand il y a une barre à protéger : une
+       carte qui ne défile pas garde sa poignée au bord, là où la main la cherche. L'état se mesure
+       au moment où le pointeur entre dans la carte — c'est le seul instant qui compte, et il est
+       toujours à jour, contrairement à une classe posée au rendu qu'un contenu chargé plus tard
+       rendrait fausse. */
+    host.addEventListener('pointerover', function (e) {
+      var card = e.target && e.target.closest && e.target.closest('.wdg-card');
+      if (!card) return;
+      var body = card.querySelector('.wdg-body');
+      var defile = !!body && body.scrollHeight > body.clientHeight + 1;
+      card.classList.toggle('wdg-card--barre', defile);
+    });
     // — Redimensionnement LIBRE : poignée de COIN (largeur+hauteur) OU poignée de BORD DROIT (largeur seule),
     //   avec SNAP sur la grille et aperçu live. Le GAP est lu DYNAMIQUEMENT (getComputedStyle) car la densité
     //   « collés/espacés » le fait varier — un gap codé en dur ferait dériver le snap.

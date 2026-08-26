@@ -11802,6 +11802,15 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
   position: absolute; top: 34px; bottom: 22px; right: 0; width: 9px; z-index: 6;
   cursor: ew-resize; touch-action: none;
 }
+/* ⚠️ ELLE OCCUPAIT EXACTEMENT LA BARRE DE DÉFILEMENT (31/08 : « j'ai du mal à bien choper le
+   scroller, mon curseur est sur l'élargissement du bloc »). Mesuré : la poignée tient les 9 px les
+   plus à droite de la carte, la barre du corps les 8 px les plus à droite du même bord. Elles se
+   recouvrent, et la poignée gagne — elle a un z-index et se pose par-dessus.
+   La sortir de la carte est IMPOSSIBLE : `.wdg-card` est en `overflow: hidden`, elle y serait rognée
+   donc inatteignable (vérifié avant d'essayer). On la décale vers l'INTÉRIEUR — mais seulement quand
+   il y a une barre à protéger : une carte qui ne défile pas garde sa poignée au bord, là où la main
+   la cherche. La classe est posée par widgets.js quand le pointeur entre dans la carte. */
+.wdg-card--barre .wdg-resize-e { right: 8px; }
 .wdg-resize-e::after {
   content: ''; position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
   width: 3px; height: 26px; border-radius: 2px; background: var(--w-f1);
