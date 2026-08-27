@@ -1,0 +1,125 @@
+name: Déployer le desk
+
+# ═══ POURQUOI CE WORKFLOW EXISTE ════════════════════════════════════════════════════════════════
+#
+#   Le desk se déploie par SSH depuis une machine qui détient ~/.ssh/dtp_deploy. Tant que cette
+#   machine est la vôtre et elle seule, déployer suppose d'être devant elle — et treize commits ont
+#   attendu une journée entière pour cette seule raison, dont la réparation de trente et une
+#   annonces fautives que les clients lisaient pendant ce temps.
+#
+#   Ce workflow ouvre une SECONDE porte : le bouton « Run workflow » de l'onglet Actions. Depuis un
+#   téléphone, depuis un autre poste, ou depuis un agent qui n'a pas vos clés.
+#
+# ⚠️ IL NE SE DÉCLENCHE PAS AU PUSH, ET C'EST DÉLIBÉRÉ.
+#   CLAUDE.md pose la règle en toutes lettres : « POUSSER NE DÉPLOIE PAS. Le VPS ne bouge que sur
+#   commande explicite. » Ajouter `on: push` ici retournerait cette règle en silence — un correctif
+#   à moitié fini, poussé pour le sauvegarder, partirait chez les clients. Le seul déclencheur est
+#   donc MANUEL. Un banc (scripts/deploiement-verif.js) refuse tout ajout de `push` ou de `schedule`.
+#
+# ⚠️ IL N'Y A QU'UNE IMPLÉMENTATION DU DÉPLOIEMENT, et ce n'est pas celle-ci.
+#   Ce fichier ne réécrit pas les étapes : il appelle `scripts/deploy.sh`, qui accepte déjà ses
+#   réglages par variables d'environnement. Recopier ici la séquence fetch → reset → build → up
+#   aurait créé deux vérités qui divergent au premier changement — le défaut que ce dépôt paie
+#   régulièrement. La ligne de commande et le bouton exécutent le MÊME code.
+#
+#   CE QU'IL FAUT POSER UNE FOIS (réglages du dépôt → Secrets and variables → Actions) :
+#     · secret DTP_SSH_KEY   — la clé PRIVÉE de déploiement, telle quelle, en-têtes compris.
+#     · variable DTP_KNOWN_HOSTS (recommandée) — la ligne known_hosts du VPS, obtenue par
+#       `ssh-keyscan -t ed25519 149.71.44.90`. Sans elle, la première connexion accepte l'empreinte
+#       sans la vérifier : ça marche, mais ça ne protège de rien.
+#     · variables DTP_HOST / DTP_DIR / DTP_URL — seulement si elles diffèrent des valeurs par
+#       défaut du script.
+#
+# ⚠️ SUR LA CLÉ ELLE-MÊME, une recommandation qui ne coûte qu'une ligne sur le VPS :
+#   restreignez-la à la seule commande de déploiement, dans ~/.ssh/authorized_keys :
+#     command="cd /opt/datatradingpro && git fetch origin main && git reset --hard origin/main
+#              && docker compose build datatradingpro && docker compose up -d datatradingpro",
+#     no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA...
+#   Une clé ainsi bridée ne peut RIEN faire d'autre, même volée. Le dépôt a déjà payé une clé
+#   compromise (voir CLAUDE.md) ; une clé root interactive déposée dans un secret serait le même
+#   pari, en plus gros. Note : avec `command=`, les deux lectures de version du script sortent
+#   « ? » — le déploiement se fait, seul l'affichage avant/après est aveugle.
+
+on:
+  workflow_dispatch:
+    inputs:
+      raison:
+        description: "Pourquoi ce déploiement (apparaît dans le journal)"
+        required: false
+        default: "déploiement manuel"
+
+permissions:
+  contents: read
+
+# Deux déploiements ne doivent JAMAIS se chevaucher : le second ferait un `git reset --hard`
+# pendant que le premier construit son image. `cancel-in-progress: false` — interrompre un
+# déploiement à mi-course est pire que d'attendre le suivant.
+concurrency:
+  group: deploy-desk
+  cancel-in-progress: false
+
+jobs:
+  deployer:
+    # Le miroir « backup » est un dépôt privé identique : sans ce garde-fou, il pourrait déployer
+    # lui aussi. Même protection que le keep-alive Supabase.
+    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Vérifier que la clé est posée
+        # Un secret absent produirait sinon un fichier vide et une erreur SSH obscure trente
+        # secondes plus tard. On le dit tout de suite, et on dit où le poser.
+        run: |
+          if [ -z "${{ secrets.DTP_SSH_KEY }}" ]; then
+            echo "::error::Le secret DTP_SSH_KEY n'est pas posé sur ce dépôt."
+            echo "Réglages → Secrets and variables → Actions → New repository secret"
+            echo "Nom : DTP_SSH_KEY — Valeur : la clé PRIVÉE de déploiement, en-têtes compris."
+            exit 1
+          fi
+
+      - name: Préparer la clé SSH
+        env:
+          CLE: ${{ secrets.DTP_SSH_KEY }}
+          HOTES_CONNUS: ${{ vars.DTP_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          # `printf %s` et non `echo` : une clé se termine par un saut de ligne que `echo -n`
+          # mangerait et qu'OpenSSH refuse ensuite (« invalid format »).
+          printf '%s\n' "$CLE" > ~/.ssh/dtp_deploy
+          chmod 600 ~/.ssh/dtp_deploy
+          if [ -n "$HOTES_CONNUS" ]; then
+            printf '%s\n' "$HOTES_CONNUS" > ~/.ssh/known_hosts
+            chmod 600 ~/.ssh/known_hosts
+            echo "Empreinte du VPS ÉPINGLÉE (variable DTP_KNOWN_HOSTS)."
+          else
+            echo "::warning::DTP_KNOWN_HOSTS n'est pas posée — la première connexion acceptera"
+            echo "l'empreinte sans la vérifier. Poser : ssh-keyscan -t ed25519 <hôte>"
+          fi
+
+      - name: Déployer
+        # ⚠️ ON APPELLE LE SCRIPT, ON NE LE RECOPIE PAS. `scripts/deploy.sh` porte la séquence
+        #    (fetch → reset → build → up), les garde-fous et l'attente de /healthz. Il lit ses
+        #    réglages dans l'environnement : c'est exactement la couture prévue pour ce cas.
+        env:
+          DTP_KEY: /home/runner/.ssh/dtp_deploy
+          DTP_HOST: ${{ vars.DTP_HOST }}
+          DTP_DIR: ${{ vars.DTP_DIR }}
+          DTP_URL: ${{ vars.DTP_URL }}
+        run: |
+          echo "Raison : ${{ inputs.raison }}"
+          # Une variable de dépôt non posée arrive comme chaîne VIDE, pas comme variable absente :
+          # `${DTP_HOST:-défaut}` du script ne se déclencherait donc jamais et l'hôte serait vide.
+          # On retire ici ce qui est vide, pour rendre au script ses valeurs par défaut.
+          for v in DTP_HOST DTP_DIR DTP_URL; do
+            eval "[ -n \"\${$v}\" ] || unset $v"
+          done
+          bash scripts/deploy.sh
+
+      - name: Effacer la clé
+        # `always()` : la clé disparaît même si le déploiement a échoué. Le runner est jetable,
+        # mais une étape suivante ajoutée un jour n'a aucune raison de la trouver là.
+        if: always()
+        run: rm -f ~/.ssh/dtp_deploy

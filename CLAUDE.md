@@ -26,6 +26,8 @@
     'cd /opt/datatradingpro && git fetch origin main && git reset --hard origin/main \
      && docker compose build datatradingpro && docker compose up -d datatradingpro'
   ```
+  **DEPUIS UN TÉLÉPHONE OU SANS LA CLÉ** : onglet **Actions** de GitHub → workflow **« Déployer le desk »** → **Run workflow**. Ce n'est PAS une seconde implémentation : le workflow pose la clé du secret `DTP_SSH_KEY` et **appelle `scripts/deploy.sh`** par ses surcharges d'environnement — un banc (`scripts/deploiement-verif.js`, câblé dans `npm run check`) refuse qu'on y recopie la séquence distante.
+  ⚠️ Il ne se déclenche **QU'À LA MAIN** — jamais au push, jamais sur horaire : la règle « pousser ne déploie pas » vaut aussi pour lui, et le banc exige que le bloc `on:` soit **exactement** `{ workflow_dispatch }` (pas seulement « sans push » : un `schedule` serait la même violation sous un autre nom). À poser une fois dans les réglages du dépôt : secret `DTP_SSH_KEY`, et variable `DTP_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 149.71.44.90`) pour épingler l'empreinte du VPS. **Recommandé** : brider la clé dans `authorized_keys` du VPS avec `command="…"` pour qu'elle ne puisse RIEN faire d'autre que déployer, même volée.
   ⚠️ **POURQUOI RECONSTRUIRE ET PAS SEULEMENT RÉCUPÉRER** (vérifié, pas supposé) : `docker-compose.yml`
   ne monte QUE `./data/*` — aucun volume de code source — et le `Dockerfile` fait `COPY . .` au moment
   du build. Un `git pull` sur le disque du VPS ne change donc RIEN à ce qui tourne dans le conteneur.

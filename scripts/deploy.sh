@@ -15,6 +15,15 @@
 #   USAGE :  npm run deploy      (ou : bash scripts/deploy.sh)
 #   Il faut la clé SSH ~/.ssh/dtp_deploy sur la machine qui lance le script.
 #
+#   SANS LA CLÉ SOUS LA MAIN — depuis un téléphone, un autre poste, ou un agent qui n'a pas vos
+#   secrets — le même déploiement se lance depuis l'onglet Actions de GitHub : workflow
+#   « Déployer le desk » → bouton « Run workflow ». Ce workflow N'EST PAS une seconde
+#   implémentation : il pose la clé du secret DTP_SSH_KEY dans un fichier et APPELLE CE SCRIPT,
+#   par les surcharges DTP_KEY / DTP_HOST / DTP_DIR / DTP_URL ci-dessous. Ce qui change ici change
+#   donc aux deux endroits, et un banc (scripts/deploiement-verif.js) refuse qu'on l'y recopie.
+#   ⚠️ Il ne se déclenche QU'À LA MAIN : jamais au push, jamais sur horaire. La règle « pousser ne
+#   déploie pas » vaut aussi pour lui, et le même banc la fait respecter.
+#
 set -euo pipefail
 
 HOTE="${DTP_HOST:-root@149.71.44.90}"
