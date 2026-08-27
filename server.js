@@ -669,6 +669,50 @@ app.get(['/login', '/login.html'], (req, res) => {
 });
 
 // extensions: ['html'] → /admin sert admin.html automatiquement (/login est traité juste au-dessus)
+/* ── PREUVE DE DOMAINE POUR L'APP ANDROID (Digital Asset Links) ─────────────────────────────────
+   Une TWA — l'app Play qui affiche le desk en plein écran — ne s'ouvre SANS barre d'adresse que si
+   Android trouve ici la preuve que le domaine et l'app appartiennent au même propriétaire. Sinon
+   l'app démarre avec une barre de navigateur en haut : elle n'est pas cassée, Android refuse
+   simplement de la reconnaître. C'est LA panne classique de ce chantier.
+
+   ⚠️ L'EMPREINTE VIT DANS UNE VARIABLE D'ENVIRONNEMENT, PAS DANS LE DÉPÔT. Ce n'est pas un secret
+   (elle est publique par nature — c'est le but de ce fichier), mais elle change selon la clé qui
+   signe réellement l'app, et un fichier figé dans `public/` serait recopié, oublié, et faux.
+
+   ⚠️ IL EN FAUT SOUVENT DEUX, ET C'EST LÀ QUE TOUT LE MONDE SE TROMPE. Avec Play App Signing —
+   activé par défaut —, Google RE-SIGNE l'app avec SA clé. L'empreinte qui compte est alors celle
+   de la « clé de signature de l'application » (Play Console → Configuration → Intégrité de
+   l'application), PAS celle de votre clé d'importation. Tant qu'on teste un APK signé localement,
+   c'est l'inverse. D'où une LISTE : `ANDROID_CERT_SHA256` accepte plusieurs empreintes séparées
+   par des virgules, et on les publie toutes. En publier une de trop ne coûte rien ; en oublier une
+   fait échouer la vérification sans le moindre message.
+
+   Format attendu : 32 octets en hexadécimal, séparés par « : » (AB:CD:…), tel que Play Console et
+   `keytool -list -v` les affichent. On normalise la casse et on refuse ce qui n'a pas la forme —
+   une empreinte tronquée publierait un fichier valide en apparence et jamais reconnu. */
+const TWA_PACKAGE = (process.env.ANDROID_PACKAGE_NAME || 'com.datatradingpro.app').trim();
+const _TWA_SHA_RX = /^[0-9A-F]{2}(:[0-9A-F]{2}){31}$/;
+function _twaEmpreintes() {
+  return String(process.env.ANDROID_CERT_SHA256 || '')
+    .split(',').map(x => x.trim().toUpperCase()).filter(x => _TWA_SHA_RX.test(x));
+}
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  const emp = _twaEmpreintes();
+  res.type('application/json');
+  /* AUCUNE EMPREINTE → on rend un tableau VIDE, jamais une erreur. Un 404 ou un 500 ici se lit
+     comme « ce domaine ne connaît pas Digital Asset Links » ; un tableau vide se lit comme « la
+     preuve n'est pas encore posée », ce qui est exactement l'état des lieux avant le premier build.
+     Le champ `_dtp` n'est lu par personne : il est là pour l'humain qui ouvre l'URL et se demande
+     pourquoi son app garde sa barre d'adresse. */
+  if (!emp.length) {
+    return res.json([{ _dtp: 'Aucune empreinte publiée : renseignez ANDROID_CERT_SHA256 (Play Console → Configuration → Intégrité de l\'application → clé de signature), puis redéployez.' }]);
+  }
+  res.json([{
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: { namespace: 'android_app', package_name: TWA_PACKAGE, sha256_cert_fingerprints: emp },
+  }]);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html'],
   // CSS/JS/images : cache navigateur 30 j (gros gain de perf — plus de re-téléchargement de chaque
@@ -1029,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260907-app-mobile', ts: Date.UTC(2026, 8, 7, 17, 0), title: 'L’app mobile DataTradingPro existe : une coquille native qui affiche le desk, prête pour les deux magasins', desc: 'Le desk devient une application, pour l’App Store et Google Play. Le choix de fond, d’abord, parce qu’il explique tout le reste : le desk n’est PAS réécrit. L’application l’affiche. POURQUOI. Le desk représente cinquante-six mille lignes de code d’interface et vingt et un mille lignes de mise en forme, dont rien ne s’exécute dans le langage des applications natives. Le réécrire aurait produit un second produit, à faire évoluer deux fois, pour toujours. CE QUE ÇA VOUS DONNE. Chaque mise à jour du desk est en ligne sur les deux applications INSTANTANÉMENT. Pas de nouvelle version à publier, pas de revue de magasin à attendre, pas de client resté sur une ancienne version. Ce que vous voyez le matin sur le site, vous l’avez le matin sur le téléphone. MAIS UNE APPLICATION DOIT ÊTRE PLUS QU’UN SITE EMBALLE, et Apple refuse celles qui n’en sont qu’un. Trois capacités que le web n’à pas sur téléphone ont donc été ajoutées, et elles ne sont pas décoratives : les notifications, pour qu’une alerte de marché arrive écran verrouillé ; le déverrouillage par empreinte ou reconnaissance faciale, la session gardée dans le coffre du système ; et un mode hors ligne qui affiche le dernier état connu au lieu d’un écran blanc. LA FRONTIÈRE EST GARDée. Tout ce qui n’est pas le desk s’ouvre dans le navigateur, jamais dans l’application : un paiement, un article, une page tierce. La vérification se fait sur le nom de domaine exact, pas sur le début de l’adresse — une adresse qui COMMENCE comme la notre mais appartient à quelqu un d’autre est rejetée, et c’est vérifie par un contrôle automatique. Les visuels sont produits à partir du logo vectoriel, jamais agrandis depuis une petite image. Il reste à compiler et à déposer sur les magasins.' },
   { id: 'dtpu-20260907-parrainage-existant', ts: Date.UTC(2026, 8, 7, 15, 0), title: 'Parrainage : le filleul qui avait déjà un compte est enfin rattaché à son parrain', desc: 'Audit complet de la chaîne de parrainage, demandé avant toute certification. Un défaut de fond en est sorti, et il touchait le cas le PLUS COURANT. L’ATTRIBUTION NE MARCHAIT QUE POUR LES COMPTES NEUFS. Quand Whop nous signale un abonnement, notre serveur se sépare en deux chemins : soit la personne a déjà un compte chez nous, soit il faut le créer. Le rattachement du filleul à son parrain ne vivait que dans le SECOND. Conséquence : quelqu’un qui avait déjà un compte — offre gratuite, essai, ancien abonnement expiré — et qui souscrivait ENSUITE par le lien d’un parrain n’était rattaché à personne. Whop versait bien la commission, elle ne dépend pas de nous ; mais notre compteur restait à zero, donc le mois offert tous les trois filleuls ne se déclenchait jamais pour ce filleul-la, et rien ne le signalait ni au parrain ni à l’administration. Sur un produit qui propose une offre gratuite, c’est le chemin normal, pas le cas rare. Le rattachement tourne désormais sur LES DEUX chemins. SANS CRÉDITER LE PASSE PAR ERREUR. Tous les renouvellements passent par ce même endroit, y compris ceux d’abonnés de deux ans souscrits jadis via un lien. Sans précaution, chacun aurait déclenché une récompense rétroactive — des mois d’accès offerts que personne n’avait gagnés cette fois-ci. Le rattachement ne vaut donc, sur ce second chemin, que pour une adhésion récente, et l’adhésion porte maintenant sa date de création pour qu’on puisse en juger. Un verrou garantissait déjà qu’un filleul ne compte qu’une seule fois, quel que soit le nombre de renouvellements. CE QUI A ÉTÉ VÉRIFIE AU PASSAGE, et qui va bien : les données de parrainage ne sont jamais effacées par le ménage automatique du cache — seules les entrées d’intelligence artificielle le sont. On ne peut pas se parrainer soi-même. Et le compteur, la récompense au troisième filleul, les jours ajoutés et les deux mails partent correctement.' },
   { id: 'dtpu-20260907-parrainage-audit', ts: Date.UTC(2026, 8, 7, 11, 0), title: 'Parrainage : un audit qui repond pour TOUS les comptes, plus un seul à la fois', desc: 'Question posée : est-ce que chacun a bien son lien d’affiliation, et est-ce que l’affiliation fonctionne vraiment quand on transmet son lien à un nouvel inscrit. Le panneau d’administration savait déjà repondre, mais POUR UNE ADRESSE À LA FOIS : pour savoir si tout le monde était servi, il fallait le rejouer compte par compte. Une nouvelle vue balaie désormais l’annuaire entier et ne rend que ce qui compte : qui à un lien, qui n’en à pas, et pourquoi — aucune adhésion Whop, membre Whop sans pseudo exploitable, ou Whop injoignable. DEUX CHOSES SONT RAPPORTéeS SÉPARÉMENT, ET C’EST LE POINT IMPORTANT. La COMMISSION est l’affaire de Whop : elle est suivie et versée par eux, à partir du lien partage, sans que notre serveur intervienne. Le COMPTEUR DE FILLEULS, lui — celui qui declenche un mois offert tous les trois filleuls — à besoin que nous sachions relier le pseudo du parrain à son compte. Les confondre ferait annoncer une perte d’argent là où il n’y en a aucune : un lien manquant n’enleve rien aux commissions déjà dues, il empeche seulement CE compte-la d’en partager un. La vue le dit noir sur blanc, et signale à part un index qui pointerait vers le mauvais compte. C’EST UN AUDIT, DONC IL N’ÉCRIT RIEN. Ni index, ni compteur, aucun appel à l’IA. Un contrôle qui repare en passant ne dit plus ce qu’il à trouve : il dit ce qu’il à laisse. Les appels sont espaces les uns après les autres plutôt que lances tous ensemble, et le balayage est plafonne — sur notre hébergement, interroger tout l’annuaire d’un bloc est exactement ce qui coupe le service au milieu du travail de quelqu’un d’autre. Si l’annuaire dépassé le plafond, c’est écrit.' },
   { id: 'dtpu-20260907-analyse-carte', ts: Date.UTC(2026, 8, 7, 9, 0), title: 'Le tag Analyse s’ouvre sur une synthèse lisible, et le détail passe derrière', desc: 'Retour client, capture de référence à l’appui. Sur une analyse d’événement - décision de banque centrale, inflation, emploi -, le bouton ANALYSE déroulait le rapport ENTIER : six intertitres, une quinzaine de lignes, avant même de savoir ce qui s’était passe. Il fallait tout lire pour trouver l’essentiel. IL S’OUVRE MAINTENANT SUR UNE CARTE. Une pastille, le mot Analyse, l’heure à laquelle le desk a écrit sa lecture, et un paragraphe de prose : ce qui a été decide, si c’était attendu, le ton employé, ce qui a changé depuis la fois précédente. C’est l’accroche que le desk rédigeait déjà avant chaque rapport - elle n’avait simplement jamais été montrée à cet endroit. RIEN N’EST PERDU. Les rubriques détaillées suivent la carte, sous leur propre intitulé. Vous lisez l’essentiel en quelques secondes, et le détail reste à portée de regard pour qui veut le fond. Un ancien rapport sans accroche garde exactement son affichage précédent : aucune analyse déjà publiée ne perd quoi que ce soit. ET LE BOUTON INFO NE RÉPÈTE PLUS LA MÊME CHOSE. Sur ces analyses, il montrait ce paragraphe, et l’Analyse montrait le reste : le même texte se lisait sur deux surfaces selon le bouton cliqué. Il disparaît donc de ces analyses-là, où il n’avait plus rien qui lui soit propre. Toutes les autres news gardent leur bouton Info intact. L’habillage reste celui du desk : bordure fine, coins doux, pastille OR. La forme vient de la référence, la couleur reste la notre.' },

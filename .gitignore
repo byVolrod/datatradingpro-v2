@@ -68,3 +68,4 @@ gtest/
 
 # ── Planche d'aperçu téléphone (image produite par scripts/mobile-apercu.js) ─────
 apercu-mobile*.png
+mobile/node_modules/
