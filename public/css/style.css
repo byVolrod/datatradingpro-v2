@@ -8731,27 +8731,54 @@ html[data-theme="light"] .cal-day-sep td {
 .pd-theme-btn:hover { color: #ccc; background: #222; }
 .pd-theme-btn.pd-active { border-color: #e3b23a; color: #e3b23a; background: rgba(227,178,58,0.07); }
 
-/* Candle color selector */
-.pd-candle-select-wrap {
-  position: relative;
-  margin-bottom: 12px;
+/* ── SOUS-TITRES DE BLOC DANS LE VOLET COMPTE (27/08, demande user « restructure bien ») ─────────
+   Le panneau Apparence était une LISTE PLATE : six réglages à la suite, sans hiérarchie, où la
+   couleur des bougies s'intercalait entre le zoom et les formats sans qu'on sache pourquoi. Deux
+   blocs nommés suffisent à rendre l'ordre lisible — ce qui touche à l'ŒIL (thème, zoom) d'un côté,
+   ce qui touche à l'ÉCRITURE des valeurs (nombres, dates, heures, repère de survol) de l'autre.
+   Le filet reprend le token de séparation du HUD : c'est la même grammaire que les en-têtes de
+   rapport, pas un ornement inventé pour ce panneau. */
+.pd-subhead {
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #7d7d86;
+  padding-top: 12px;
+  margin-bottom: 10px;
+  border-top: 1px solid var(--hud-line, #1a1a1f);
 }
-.pd-candle-preview {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  border-radius: 4px;
-  overflow: hidden;
-  width: 28px;
-  height: 14px;
-  flex-shrink: 0;
-  vertical-align: middle;
-}
-.pd-candle-preview span {
-  display: block;
-  width: 14px;
-  height: 14px;
-}
+/* Le PREMIER sous-titre ouvre la section : pas de filet au-dessus, il doublerait celui du volet. */
+.pd-section-inner > .pd-subhead:first-child { padding-top: 0; border-top: 0; }
+
+/* Gouttière verticale portée à 12 px, comme l'horizontale : les deux rangées de la grille des
+   formats respirent alors pareil dans les deux sens.
+   ⚠️ ET SURTOUT PAS DE `margin-bottom: 0` SUR `.pd-select` ICI — la première version de ce bloc
+   annulait une marge qui n'a jamais existé à l'écran : tous les `<select>` du desk sont remplacés
+   au chargement par un menu maison et le natif passe en `display: none !important` (.dtpsel-native).
+   Sa marge ne participe à aucune mise en page. La règle a été retirée après l'avoir cassée exprès
+   au banc : rien ne bougeait, ni avec, ni sans. */
+.pd-grid-2 { row-gap: 12px; }
+html[data-theme="light"] .pd-subhead { border-top-color: #e8eaef; }
+body.theme-light .pd-subhead { border-top-color: #e8eaef !important; }
+
+/* ── MODE CLAIR : LES COMMANDES DU PANNEAU SUIVENT ENFIN LE PAPIER (27/08) ──────────────────────
+   Vu en capturant le panneau restructuré dans les DEUX thèmes, ce qu'on n'avait jamais fait ici :
+   les boutons de thème, les pas de zoom et « Réinitialiser » portaient un fond écrit EN DUR
+   (#1a1a1a). Sur le panneau crème du mode clair, ils formaient trois pastilles noires — et le
+   comble : c'est le bouton « Mode Clair », une fois choisi, qui se retrouvait entouré de deux
+   chips sombres. Le menu déroulant d'un `select` avait le même défaut, ses options restant en
+   noir sur blanc.
+   On passe par les TOKENS plutôt que d'ajouter une surcharge par thème : une valeur en dur est
+   exactement ce qui a produit le défaut, en rajouter une deuxième le déplacerait au thème suivant. */
+.pd-theme-btn, .pd-zoom-btn, .pd-zoom-reset { background: var(--bg2); border-color: var(--border); }
+.pd-theme-btn:hover, .pd-zoom-btn:hover:not(:disabled) { background: var(--bg3); }
+/* (Les listes déroulantes n'avaient pas ce défaut : `.dtpsel-btn`, le menu maison qui remplace le
+   `<select>` natif, prend déjà ses couleurs aux tokens. Vérifié plutôt que supposé — deux règles
+   écrites ici pour « corriger » le `<select>` natif ne servaient à rien, il est en display:none.) */
+
+/* Le sélecteur de couleur de bougies (et ses styles) a été retiré le 27/08 : il n'était branché
+   sur rien, et les graphiques sont peints par TradingView et amCharts, qui ont leur propre palette. */
 
 /* ── Subscription section ── */
 .pd-plan-card {
@@ -18324,6 +18351,7 @@ html[data-theme="light"] .chat-support-av,
    Un `!important` de feuille de style bat un style en ligne : la laisser aurait annulé le calcul. */
 
 html[data-theme="light"] .pd-section-label,
+html[data-theme="light"] .pd-subhead,
 html[data-theme="light"] .pd-ref-empty-t,
 html[data-theme="light"] .pd-ref-desc,
 html[data-theme="light"] .sqwk-status,
