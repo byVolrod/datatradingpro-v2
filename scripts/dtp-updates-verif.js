@@ -161,5 +161,34 @@ function installer() {
   console.log('Il refusera désormais un commit visible par les clients sans entrée DTP_UPDATES.');
 }
 
+/* ── CONTRE-ÉPREUVE (--autotest, appelée par `npm run check`) ──────────────────────────────────
+   Un garde-fou qu'on n'a pas vu refuser quelque chose n'est pas un garde-fou : c'est une ligne de
+   code qu'on croit protectrice. On lui présente donc les DEUX cas, à chaque passage du contrôle :
+   une entrée réelle écrite sans accents (elle doit être refusée) et une entrée en français correct
+   (elle doit passer). Le jour où la table de détection dérive, ce contrôle-ci le dit. */
+function autotest() {
+  let ko = 0;
+  const v = (nom, cond, detail) => { if (cond) console.log('  ✓ ' + nom); else { ko++; console.log('  ✗ ' + nom + (detail ? '\n      → ' + detail : '')); } };
+  console.log('\n── Nouveautés DTP : le garde-fou de langue sait-il encore refuser ? ──');
+  const mauvaise = "+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Le Recap Hebdo retrouve sa partie Macro et les memes titres', "
+    + "desc: 'LA MACRO REVIENT A SA PLACE. Elle avait ete retiree du rendu en aout au motif qu elle repetait les blocs "
+    + "devises. Le motif etait vrai pour certains themes et faux pour le reste : la semaine macro d ensemble ne se "
+    + "reconstitue pas en lisant huit blocs devises l un apres l autre. Les rapports deja archives en profitent aussi.' },";
+  const bonne = "+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Le Récap Hebdo retrouve sa partie Macro, et les trois récaps portent les mêmes titres', "
+    + "desc: 'LA MACRO REVIENT À SA PLACE, entre la géopolitique et les devises. Elle avait été retirée du rendu en août "
+    + "au motif qu’elle répétait les blocs devises. Le motif était vrai pour certains thèmes et faux pour le reste : la "
+    + "semaine macro d’ensemble ne se reconstitue pas en lisant huit blocs devises l’un après l’autre.' },";
+  const dMauvais = defautsDeLangue(mauvaise);
+  const dBon = defautsDeLangue(bonne);
+  v('une annonce sans accents est REFUSÉE', dMauvais.length > 0);
+  v('… et le refus dit pourquoi (accents, apostrophes, mots)', dMauvais.length >= 3, dMauvais.join(' | '));
+  v('une annonce en français correct PASSE', dBon.length === 0, dBon.join(' | '));
+  // Un texte trop court (pas d'annonce dans le diff) ne doit jamais déclencher le refus.
+  v('un diff sans annonce ne déclenche rien', defautsDeLangue('+  const X = 1;').length === 0);
+  console.log(ko ? '\n✗ ' + ko + ' ÉCHEC(S)\n' : '\n✓ le garde-fou de langue tient.\n');
+  process.exit(ko ? 1 : 0);
+}
+
 if (process.argv.includes('--install')) installer();
+else if (process.argv.includes('--autotest')) autotest();
 else main();
