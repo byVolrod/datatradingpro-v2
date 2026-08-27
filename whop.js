@@ -88,6 +88,12 @@ function _normalize(m) {
     status:    m.status || null,
     // username de l'AFFILIÉ qui a parrainé CETTE adhésion (lien ?a=<username>) — pour créditer le parrain
     affiliateUsername: m.affiliate_username || (m.affiliate && m.affiliate.username) || null,
+    /* DATE DE CRÉATION DE L'ADHÉSION (27/08). `periodStart` ne sert à rien pour distinguer une
+       PREMIÈRE souscription d'un renouvellement de routine : chaque période repart à la date du
+       jour, dans les deux cas. Sans cette date, créditer un parrainage sur la branche « le compte
+       existe déjà » reviendrait à créditer, au prochain renouvellement, des adhésions vieilles de
+       deux ans souscrites via un lien — une bouffée de récompenses rétroactives. */
+    createdAt: m.created_at ? m.created_at * 1000 : null,
   };
 }
 

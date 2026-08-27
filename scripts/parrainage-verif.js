@@ -578,11 +578,11 @@ async function interroge(email) {
   console.log('\n── 15. Chaîne complète : lien → index → webhook → compteur → mois offert ──');
   const SRC_AFF  = decouper(SRV, 'async function _refWhopAffiliate(uid) {', '\n}');
   const SRC_CRED = decouper(SRV, 'async function _refCreditFilleul(refUserId, fillUser) {', '\n}');
-  const SRC_ATTR = (() => {                       // le bloc d'attribution du webhook, inline
-    const d = SRV.indexOf('      const aff = mem.affiliateUsername && String(mem.affiliateUsername).toLowerCase();');
-    const f = SRV.indexOf("console.error('[Referral] attribution Whop:'", d);
-    return (d < 0 || f < 0) ? null : SRV.slice(d, SRV.lastIndexOf('}', f));
-  })();
+  /* ⚠️ CE BANC EXTRAYAIT LE BLOC PAR SON INDENTATION (six espaces), parce qu'il vivait INLINE dans
+     la branche « compte créé » du webhook. Le 27/08 il est devenu une fonction — appelée depuis les
+     DEUX branches —, et cette extraction est tombée. C'est le banc qui l'a signalé, pas une
+     relecture : il pointe désormais la fonction elle-même, qui ne dépend plus d'une indentation. */
+  const SRC_ATTR = decouper(SRV, 'async function _refAttribuerDepuisWhop(mem, wu, opts) {', '\n}');
   v('la résolution du lien est extractible', !!SRC_AFF);
   v('le crédit d\'un filleul aussi', !!SRC_CRED);
   v('… et le bloc d\'attribution du webhook Whop aussi', !!SRC_ATTR);
@@ -615,7 +615,8 @@ async function interroge(email) {
       + 'async function _refSaveRecord(id, r) { await auth.aiCacheSet("referral:" + id, r); }\n'
       + 'function _refMaskEmail(e) { return String(e || "").replace(/(.{2}).*(@.*)/, "$1****$2"); }\n'
       + 'function _refAddDaysISO(b, d) { return new Date((b ? new Date(b).getTime() : Date.now()) + d * 864e5).toISOString(); }\n'
-      + 'async function attribuer(mem, wu) {\n' + SRC_ATTR + '\n}\n'
+      + SRC_ATTR + '\n'
+      + 'const attribuer = (mem, wu, opts) => _refAttribuerDepuisWhop(mem, wu, opts);\n'
       + 'return { _refWhopAffiliate, _refCreditFilleul, attribuer };\n})');
 
     const neuf = () => {
@@ -726,6 +727,66 @@ async function interroge(email) {
     v('CE CAS NE PEUT PLUS ÊTRE SILENCIEUX : le serveur alerte l\'admin, une fois par compte',
       /refnouser:/.test(SRV) && /sendAdminAlert\(\{[\s\S]{0,200}nom d\\?'utilisateur Whop/.test(SRV),
       'sans alerte, le compteur resterait à zéro sans que personne ne le sache');
+    /* ══ 15 bis. LE FILLEUL QUI AVAIT DÉJÀ UN COMPTE (27/08) ══════════════════════════════════
+       L'attribution ne tournait que sur la branche « compte créé » du webhook. Quelqu'un possédant
+       déjà un compte — offre gratuite, essai, abonnement expiré — et qui souscrivait ENSUITE par le
+       lien d'un parrain n'était rattaché à personne : Whop versait la commission, le compteur DTP
+       restait à zéro, et le mois offert ne tombait jamais. C'est le chemin le plus courant pour un
+       produit qui propose une offre gratuite. */
+    console.log('\n── 15 bis. Le filleul qui avait DÉJÀ un compte ──');
+    const J1 = 86400000;
+    const poser = () => {
+      kv = { 'whopaff:parrainpseudo': 'u-parrain' };
+      users = {
+        'u-parrain': { id: 'u-parrain', email: 'parrain@exemple.fr', role: 'client', expires_at: new Date(Date.now() + 10 * J1).toISOString() },
+        'u-ancien':  { id: 'u-ancien',  email: 'ancien@exemple.fr',  role: 'client', expires_at: null },
+      };
+      mails = []; whopRep = null;
+    };
+    const adh = (jours) => ({ email: 'ancien@exemple.fr', affiliateUsername: 'parrainpseudo', createdAt: Date.now() - jours * J1 });
+
+    poser();
+    await M.attribuer(adh(1), users['u-ancien'], { ageMaxJours: 45 });
+    v('un compte EXISTANT souscrivant par un lien est rattaché', kv['referredby:u-ancien'] === 'u-parrain', JSON.stringify(kv['referredby:u-ancien']));
+    v('… et le compteur du parrain avance', ((kv['referral:u-parrain'] || {}).count) === 1, JSON.stringify(kv['referral:u-parrain']));
+
+    /* IDEMPOTENCE : tous les renouvellements repassent ici. Sans le verrou, un abonné mensuel
+       ferait gagner un filleul par mois à son parrain, à vie. */
+    await M.attribuer(adh(1), users['u-ancien'], { ageMaxJours: 45 });
+    await M.attribuer(adh(1), users['u-ancien'], { ageMaxJours: 45 });
+    v('trois passages ne comptent qu\'UN filleul', ((kv['referral:u-parrain'] || {}).count) === 1, JSON.stringify(kv['referral:u-parrain']));
+
+    /* LA BORNE D'ÂGE : sans elle, le prochain renouvellement de chaque abonné souscrit jadis via un
+       lien déclencherait un crédit rétroactif — et par paquets, puisque tout passe ici. */
+    poser();
+    await M.attribuer(adh(400), users['u-ancien'], { ageMaxJours: 45 });
+    v('une adhésion ANCIENNE n\'est pas créditée rétroactivement', !kv['referredby:u-ancien'], JSON.stringify(kv['referredby:u-ancien']));
+    /* ⚠️ LA DATE MANQUANTE A DEUX FORMES, ET UNE SEULE EST DANGEREUSE. Avec `null`, l'arithmétique
+       suffit : `Date.now() - null` vaut Date.now(), soit ~20 000 jours, donc au-delà de la borne.
+       Avec `undefined`, elle donne NaN — et `NaN > 45` est FAUX : sans la garde explicite, la
+       fonction tombe dans l'attribution et crédite. Le premier jet de ce contrôle n'éprouvait que
+       `null` : retirer la garde ne le faisait pas rougir, il ne mesurait donc rien. Les deux formes
+       sont désormais posées, et c'est `undefined` qui tient la garde. */
+    poser();
+    await M.attribuer({ email: 'ancien@exemple.fr', affiliateUsername: 'parrainpseudo', createdAt: null }, users['u-ancien'], { ageMaxJours: 45 });
+    v('… ni une adhésion dont la date est nulle', !kv['referredby:u-ancien'], 'sans date, on s\'abstient plutôt que de créditer en masse');
+    poser();
+    await M.attribuer({ email: 'ancien@exemple.fr', affiliateUsername: 'parrainpseudo' }, users['u-ancien'], { ageMaxJours: 45 });
+    v('… ni une adhésion dont la date est ABSENTE (NaN passe entre les mailles du calcul)',
+      !kv['referredby:u-ancien'], 'c\'est ce cas-là, et lui seul, que la garde explicite retient');
+
+    /* LA BRANCHE « COMPTE NEUF » NE PORTE AUCUNE BORNE : le compte vient d'être créé, et lui
+       imposer un âge d'adhésion casserait le chemin qui marchait déjà. */
+    poser();
+    await M.attribuer(adh(400), users['u-ancien'], null);
+    v('sans borne, l\'âge n\'entre pas en compte (chemin du compte neuf)', kv['referredby:u-ancien'] === 'u-parrain');
+
+    /* ET L'AUTO-PARRAINAGE RESTE IMPOSSIBLE, quel que soit le chemin. */
+    poser();
+    kv['whopaff:parrainpseudo'] = 'u-parrain';
+    await M.attribuer({ email: 'parrain@exemple.fr', affiliateUsername: 'parrainpseudo', createdAt: Date.now() }, users['u-parrain'], { ageMaxJours: 45 });
+    v('on ne se parraine pas soi-même', !kv['referredby:u-parrain'] && !kv['referral:u-parrain']);
+
   }
 
   /* ══ 16. L'ENVOI EN COURS PEUT-IL DOUBLONNER ? ═════════════════════════════════════════════════

@@ -1029,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260907-parrainage-existant', ts: Date.UTC(2026, 8, 7, 15, 0), title: 'Parrainage : le filleul qui avait déjà un compte est enfin rattaché à son parrain', desc: 'Audit complet de la chaîne de parrainage, demandé avant toute certification. Un défaut de fond en est sorti, et il touchait le cas le PLUS COURANT. L’ATTRIBUTION NE MARCHAIT QUE POUR LES COMPTES NEUFS. Quand Whop nous signale un abonnement, notre serveur se sépare en deux chemins : soit la personne a déjà un compte chez nous, soit il faut le créer. Le rattachement du filleul à son parrain ne vivait que dans le SECOND. Conséquence : quelqu’un qui avait déjà un compte — offre gratuite, essai, ancien abonnement expiré — et qui souscrivait ENSUITE par le lien d’un parrain n’était rattaché à personne. Whop versait bien la commission, elle ne dépend pas de nous ; mais notre compteur restait à zero, donc le mois offert tous les trois filleuls ne se déclenchait jamais pour ce filleul-la, et rien ne le signalait ni au parrain ni à l’administration. Sur un produit qui propose une offre gratuite, c’est le chemin normal, pas le cas rare. Le rattachement tourne désormais sur LES DEUX chemins. SANS CRÉDITER LE PASSE PAR ERREUR. Tous les renouvellements passent par ce même endroit, y compris ceux d’abonnés de deux ans souscrits jadis via un lien. Sans précaution, chacun aurait déclenché une récompense rétroactive — des mois d’accès offerts que personne n’avait gagnés cette fois-ci. Le rattachement ne vaut donc, sur ce second chemin, que pour une adhésion récente, et l’adhésion porte maintenant sa date de création pour qu’on puisse en juger. Un verrou garantissait déjà qu’un filleul ne compte qu’une seule fois, quel que soit le nombre de renouvellements. CE QUI A ÉTÉ VÉRIFIE AU PASSAGE, et qui va bien : les données de parrainage ne sont jamais effacées par le ménage automatique du cache — seules les entrées d’intelligence artificielle le sont. On ne peut pas se parrainer soi-même. Et le compteur, la récompense au troisième filleul, les jours ajoutés et les deux mails partent correctement.' },
   { id: 'dtpu-20260907-parrainage-audit', ts: Date.UTC(2026, 8, 7, 11, 0), title: 'Parrainage : un audit qui repond pour TOUS les comptes, plus un seul à la fois', desc: 'Question posée : est-ce que chacun a bien son lien d’affiliation, et est-ce que l’affiliation fonctionne vraiment quand on transmet son lien à un nouvel inscrit. Le panneau d’administration savait déjà repondre, mais POUR UNE ADRESSE À LA FOIS : pour savoir si tout le monde était servi, il fallait le rejouer compte par compte. Une nouvelle vue balaie désormais l’annuaire entier et ne rend que ce qui compte : qui à un lien, qui n’en à pas, et pourquoi — aucune adhésion Whop, membre Whop sans pseudo exploitable, ou Whop injoignable. DEUX CHOSES SONT RAPPORTéeS SÉPARÉMENT, ET C’EST LE POINT IMPORTANT. La COMMISSION est l’affaire de Whop : elle est suivie et versée par eux, à partir du lien partage, sans que notre serveur intervienne. Le COMPTEUR DE FILLEULS, lui — celui qui declenche un mois offert tous les trois filleuls — à besoin que nous sachions relier le pseudo du parrain à son compte. Les confondre ferait annoncer une perte d’argent là où il n’y en a aucune : un lien manquant n’enleve rien aux commissions déjà dues, il empeche seulement CE compte-la d’en partager un. La vue le dit noir sur blanc, et signale à part un index qui pointerait vers le mauvais compte. C’EST UN AUDIT, DONC IL N’ÉCRIT RIEN. Ni index, ni compteur, aucun appel à l’IA. Un contrôle qui repare en passant ne dit plus ce qu’il à trouve : il dit ce qu’il à laisse. Les appels sont espaces les uns après les autres plutôt que lances tous ensemble, et le balayage est plafonne — sur notre hébergement, interroger tout l’annuaire d’un bloc est exactement ce qui coupe le service au milieu du travail de quelqu’un d’autre. Si l’annuaire dépassé le plafond, c’est écrit.' },
   { id: 'dtpu-20260907-analyse-carte', ts: Date.UTC(2026, 8, 7, 9, 0), title: 'Le tag Analyse s’ouvre sur une synthèse lisible, et le détail passe derrière', desc: 'Retour client, capture de référence à l’appui. Sur une analyse d’événement - décision de banque centrale, inflation, emploi -, le bouton ANALYSE déroulait le rapport ENTIER : six intertitres, une quinzaine de lignes, avant même de savoir ce qui s’était passe. Il fallait tout lire pour trouver l’essentiel. IL S’OUVRE MAINTENANT SUR UNE CARTE. Une pastille, le mot Analyse, l’heure à laquelle le desk a écrit sa lecture, et un paragraphe de prose : ce qui a été decide, si c’était attendu, le ton employé, ce qui a changé depuis la fois précédente. C’est l’accroche que le desk rédigeait déjà avant chaque rapport - elle n’avait simplement jamais été montrée à cet endroit. RIEN N’EST PERDU. Les rubriques détaillées suivent la carte, sous leur propre intitulé. Vous lisez l’essentiel en quelques secondes, et le détail reste à portée de regard pour qui veut le fond. Un ancien rapport sans accroche garde exactement son affichage précédent : aucune analyse déjà publiée ne perd quoi que ce soit. ET LE BOUTON INFO NE RÉPÈTE PLUS LA MÊME CHOSE. Sur ces analyses, il montrait ce paragraphe, et l’Analyse montrait le reste : le même texte se lisait sur deux surfaces selon le bouton cliqué. Il disparaît donc de ces analyses-là, où il n’avait plus rien qui lui soit propre. Toutes les autres news gardent leur bouton Info intact. L’habillage reste celui du desk : bordure fine, coins doux, pastille OR. La forme vient de la référence, la couleur reste la notre.' },
   { id: 'dtpu-20260906-discours-preserves', ts: Date.UTC(2026, 8, 6, 22, 0), title: 'Les discours et bulletins gardent ce qu’ils disent, et la phrase de tête ne compte plus un congrès comme un chiffre', desc: 'Correction de deux défauts que j’ai introduits ce matin même, en ouvrant les récaps de séance aux rendez-vous sans chiffre. Les deux ont été pris par un contrôle rejoué contre le calendrier réel, pas en relecture. LE PROPOS DES DISCOURS ÉTAIT EFFACÉ. Quand notre calendrier et la rédaction parlaient du même rendez-vous, le desk gardait NOTRE ligne - nom exact, heure exacte - et n’en retenait que la lecture, ce qui suit la fleche. C’est juste pour une publication chiffrée : le calendrier redit les nombres mieux que la rédaction. C’est destructeur pour un DISCOURS, où tout le contenu est AVANT la fleche. Un discours de la Banque du Japon annonçant une sortie graduelle et aucune hausse avant décembre se réduisait à une ligne de programme : l’heure, la devise, le titre. La séance portait ses rendez-vous et avait perdu ce qu’elle en disait. La règle tient maintenant en une phrase : le calendrier possède TOUJOURS l’identité - le nom et l’heure -, il ne possède les FAITS que lorsqu’il en a. Sans chiffre, c’est le corps de la ligne qui est conservé. LA PHRASE DE TÊTE ANNONCAIT DES CHIFFRES QUI N’EXISTAIENT PAS. Un jour où aucune donnée chiffrée n’est sortie en Asie, le récap s’ouvrait sur « 3 publications sur la séance, toutes conformes aux attentes ». Un congrès, un discours et un bulletin ne sont conformes à aucune attente : ils n’en ont pas. Les rendez-vous étaient comptes comme des publications, et faute de chiffre à comparer, la mention « toutes conformes » tombait toute seule. Les deux comptes sont désormais séparés, et le jugement de conformité ne porte que sur ce qui a réellement publié un chiffre. Cette phrase ouvre aussi les récaps qui ne passent pas par l’IA : elle était servie immédiatement. ET LA CONSIGNE DE RÉDACTION NE CONTIENT PLUS DE RAPPORT TOUT FAIT. La correction d’hier n’avait nettoyé que le squelette ; le corps des consignes gardait encore une ligne d’inflation américaine complète avec ses chiffres, et un paragraphe d’analyse entier sur un dossier géopolitique. De quoi recopier un rapport crédible sans aucune matière - c’est exactement ce qui s’était produit. Remplacés par des emplacements vides. La forme reste enseignée, les faits ne sont plus fournis. Tous les récaps de séance sont régénérés.' },
@@ -3071,6 +3072,79 @@ async function _aliasLoad() {
 }
 setTimeout(() => { _aliasLoad().catch(() => {}); }, 25000);   // après amorçage Supabase, comme les accès offerts
 
+/* ── L'ATTRIBUTION DU PARRAINAGE, POUR LES DEUX CHEMINS (27/08) ─────────────────────────────────
+   ⚠️ ELLE NE TOURNAIT QUE SUR LES COMPTES NEUFS. Le webhook Whop se sépare en deux branches — le
+   compte existe déjà, ou il est créé — et ce bloc vivait DANS LA SECONDE. Conséquence mesurée en
+   lisant le code : quelqu'un qui possédait déjà un compte (offre gratuite, essai, abonnement
+   expiré) et qui souscrivait ENSUITE par le lien d'un parrain n'était rattaché à personne. Whop
+   versait bien la commission — elle ne dépend pas de nous —, mais le compteur DTP restait à zéro,
+   donc « un mois offert tous les trois filleuls » ne se déclenchait jamais pour ce filleul-là, et
+   rien ne le signalait ni au parrain ni à l'admin.
+
+   Le verrou `referredby:` rend l'appel IDEMPOTENT : un filleul n'est rattaché qu'une fois, quel que
+   soit le nombre de renouvellements qui repassent ici ensuite.
+
+   ⚠️ ET SUR LA BRANCHE « LE COMPTE EXISTE », ON BORNE PAR L'ÂGE DE L'ADHÉSION. Sans cela, le
+   prochain renouvellement d'un abonné de deux ans souscrit jadis via un lien déclencherait un
+   crédit RÉTROACTIF — et par paquets, puisque tous les renouvellements passent ici. `periodStart`
+   ne peut pas servir à ça (chaque période repart au jour même) : d'où `createdAt`, ajouté à
+   l'adhésion normalisée pour cette raison précise. */
+async function _refAttribuerDepuisWhop(mem, wu, opts) {
+  const ageMax = opts && opts.ageMaxJours;
+  if (ageMax) {
+    const cree = mem && Number(mem.createdAt);
+    // Date inconnue → on s'abstient : mieux vaut un parrainage non crédité qu'un crédit rétroactif
+    // en masse, qui offre des mois d'accès que personne n'a gagnés cette fois-ci.
+    if (!Number.isFinite(cree) || !cree) return false;
+    if ((Date.now() - cree) / 86400000 > ageMax) return false;
+  }
+  // Parrainage via lien d'affiliation Whop (?a=<username>) : l'adhésion porte l'username du
+  // parrain → on crédite le filleul ICI, sans dépendre du cookie landing. Verrou referredby
+  // = un filleul ne compte qu'une fois (même s'il repasse ensuite par la landing).
+  try {
+    const aff = mem.affiliateUsername && String(mem.affiliateUsername).toLowerCase();
+    if (aff && wu && wu.id) {
+      let refUid = await auth.aiCacheGet('whopaff:' + aff, 8640000000000).catch(() => null);
+      /* ── L'INDEX MANQUE ? ON DEMANDE A WHOP QUI EST CE PSEUDO (04/09) ──────────────────────────
+         L'index `whopaff:<pseudo> → compte` n'etait ecrit QU'AU MOMENT ou le parrain ouvrait son
+         panneau Parrainages. Deux situations le laissaient vide, et dans les deux la commission
+         Whop tombait normalement pendant que le compteur DTP restait a zero — donc « 1 mois offert
+         tous les 3 filleuls » ne se declenchait JAMAIS, sans un mot pour le client ni pour l'admin :
+           · Whop renvoie l'adresse canonique du parrain sans pseudo exploitable ;
+           · le parrain partage un lien recupere directement depuis son espace Whop, sans jamais
+             ouvrir le panneau du desk.
+         On ne depend plus de cet index : s'il manque, on fait le chemin inverse — pseudo → adresse
+         chez Whop, adresse → compte chez nous — et on ECRIT l'index au passage, pour que le filleul
+         suivant n'ait pas a repayer l'appel. L'alerte admin reste, mais elle devient le repli d'un
+         repli au lieu d'etre la seule chose qui se produise. */
+      if (!refUid) {
+          try {
+          const inv = await whop.findEmailByUsername(aff);
+          if (inv && inv.email) {
+            const emP = _emailDesk(inv.email) || String(inv.email).toLowerCase().trim();
+            const tous = await auth.getAllUsers();
+            const parrain = tous.find(x => String(x.email || '').toLowerCase().trim() === emP);
+            if (parrain && parrain.id) {
+              refUid = String(parrain.id);
+              await auth.aiCacheSet('whopaff:' + aff, refUid).catch(() => {});
+              console.log('[Referral] index reconstruit par recherche inverse : ' + aff + ' → ' + emP);
+            } else {
+              console.warn('[Referral] pseudo ' + aff + ' resolu en ' + emP + ', mais aucun compte desk a cette adresse');
+            }
+          }
+        } catch (e) { console.warn('[Referral] recherche inverse:', e.message); }
+      }
+      const already = await auth.aiCacheGet('referredby:' + wu.id, 8640000000000).catch(() => null);
+      if (refUid && String(refUid) !== String(wu.id) && !already) {
+        await auth.aiCacheSet('referredby:' + wu.id, String(refUid)).catch(() => {});
+        await _refCreditFilleul(String(refUid), wu);
+        console.log(`[Referral] Filleul attribué via lien Whop: ${mem.email} → parrain ${refUid} (a=${aff})`);
+      }
+    }
+  } catch (e) { console.error('[Referral] attribution Whop:', e.message); }
+  return true;
+}
+
 // ─── Whop : webhook d'auto-renouvellement / création de compte ───────────────
 async function _whopRenewOrCreate(mem) {
   /* `_deskEmail` = l'adresse du COMPTE ; `mem.email` reste l'adresse WHOP (ne jamais confondre :
@@ -3110,6 +3184,18 @@ async function _whopRenewOrCreate(mem) {
         await auth.updateUser(existing.id, { expiresAt: _ext });
       }
     } catch (e) { console.error('[Referral] bonus reapply:', e.message); }
+    /* PARRAINAGE : LE FILLEUL QUI AVAIT DÉJÀ UN COMPTE (27/08). L'attribution ne tournait que sur
+       la branche « compte créé » : quelqu'un possédant déjà un compte — offre gratuite, essai,
+       abonnement expiré — et qui souscrivait ENSUITE par le lien d'un parrain n'était rattaché à
+       personne. Whop versait la commission, mais le compteur DTP restait à zéro et le mois offert
+       ne tombait jamais.
+       ⚠️ POSÉ AVANT le retour anticipé de l'anti-doublon, sans quoi un renouvellement déjà notifié
+       sauterait l'attribution. Et BORNÉ PAR L'ÂGE de l'adhésion : tous les renouvellements passent
+       ici, y compris ceux d'abonnés de deux ans souscrits jadis via un lien — sans cette borne,
+       chacun déclencherait un crédit rétroactif. Le verrou `referredby:` fait le reste : un filleul
+       n'est rattaché qu'une fois, quel que soit le nombre de renouvellements. */
+    try { await _refAttribuerDepuisWhop(mem, existing, { ageMaxJours: REF_MAX_AGE_DAYS }); }
+    catch (e) { console.error('[Referral] attribution (compte existant):', e.message); }
     // Anti-doublon DURABLE : Whop peut refire le MÊME renouvellement (retries du webhook, ou plusieurs
     // types d'events pour un seul paiement) → 1 SEUL email par (user, échéance). Clé = échéance, donc
     // un VRAI renouvellement (nouvelle date) ré-enverra bien un mail.
@@ -3150,50 +3236,10 @@ async function _whopRenewOrCreate(mem) {
     if (_wr && _wr.sent) { await auth.emailLogAdd(dedupKey); try { await auth.emailLogAdd('welcomeok:' + _deskEmail); } catch {} }   // welcomeok: = envoi CONFIRMÉ (protège du re-envoi par le filet)
     mailer.sendAdminRenewalNotice({ clientEmail: _deskEmail, clientName: _nom, expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
     console.log(`[Whop] Compte créé: ${_deskEmail}` + (_deskEmail !== _aliasNorm(mem.email) ? ` (alias Whop ${mem.email})` : '') + (_wr && _wr.sent ? ` (bienvenue ✅ ${_wr.provider})` : ' (bienvenue ❌ : sera relancée par le filet)'));
-    // Parrainage via lien d'affiliation Whop (?a=<username>) : l'adhésion porte l'username du
-    // parrain → on crédite le filleul ICI, sans dépendre du cookie landing. Verrou referredby
-    // = un filleul ne compte qu'une fois (même s'il repasse ensuite par la landing).
-    try {
-      const aff = mem.affiliateUsername && String(mem.affiliateUsername).toLowerCase();
-      if (aff && wu && wu.id) {
-        let refUid = await auth.aiCacheGet('whopaff:' + aff, 8640000000000).catch(() => null);
-        /* ── L'INDEX MANQUE ? ON DEMANDE A WHOP QUI EST CE PSEUDO (04/09) ──────────────────────────
-           L'index `whopaff:<pseudo> → compte` n'etait ecrit QU'AU MOMENT ou le parrain ouvrait son
-           panneau Parrainages. Deux situations le laissaient vide, et dans les deux la commission
-           Whop tombait normalement pendant que le compteur DTP restait a zero — donc « 1 mois offert
-           tous les 3 filleuls » ne se declenchait JAMAIS, sans un mot pour le client ni pour l'admin :
-             · Whop renvoie l'adresse canonique du parrain sans pseudo exploitable ;
-             · le parrain partage un lien recupere directement depuis son espace Whop, sans jamais
-               ouvrir le panneau du desk.
-           On ne depend plus de cet index : s'il manque, on fait le chemin inverse — pseudo → adresse
-           chez Whop, adresse → compte chez nous — et on ECRIT l'index au passage, pour que le filleul
-           suivant n'ait pas a repayer l'appel. L'alerte admin reste, mais elle devient le repli d'un
-           repli au lieu d'etre la seule chose qui se produise. */
-        if (!refUid) {
-          try {
-            const inv = await whop.findEmailByUsername(aff);
-            if (inv && inv.email) {
-              const emP = _emailDesk(inv.email) || String(inv.email).toLowerCase().trim();
-              const tous = await auth.getAllUsers();
-              const parrain = tous.find(x => String(x.email || '').toLowerCase().trim() === emP);
-              if (parrain && parrain.id) {
-                refUid = String(parrain.id);
-                await auth.aiCacheSet('whopaff:' + aff, refUid).catch(() => {});
-                console.log('[Referral] index reconstruit par recherche inverse : ' + aff + ' → ' + emP);
-              } else {
-                console.warn('[Referral] pseudo ' + aff + ' resolu en ' + emP + ', mais aucun compte desk a cette adresse');
-              }
-            }
-          } catch (e) { console.warn('[Referral] recherche inverse:', e.message); }
-        }
-        const already = await auth.aiCacheGet('referredby:' + wu.id, 8640000000000).catch(() => null);
-        if (refUid && String(refUid) !== String(wu.id) && !already) {
-          await auth.aiCacheSet('referredby:' + wu.id, String(refUid)).catch(() => {});
-          await _refCreditFilleul(String(refUid), wu);
-          console.log(`[Referral] Filleul attribué via lien Whop: ${mem.email} → parrain ${refUid} (a=${aff})`);
-        }
-      }
-    } catch (e) { console.error('[Referral] attribution Whop:', e.message); }
+    // Parrainage : l'attribution vit dans _refAttribuerDepuisWhop, appelée AUSSI depuis la branche
+    // « le compte existe déjà » — un filleul qui possédait un compte avant de souscrire n'était
+    // rattaché à personne. Aucune borne d'âge ici : ce compte vient d'être créé.
+    await _refAttribuerDepuisWhop(mem, wu, null);
   }
 }
 // « Renouvellement automatique désactivé » : le client a coupé la reconduction, son accès court
