@@ -17,14 +17,38 @@ qui la fait passer, ce sont les trois capacités natives présentes dans `App.js
 push, déverrouillage biométrique, mode hors-ligne. **Les retirer, c'est reprendre le refus.**
 `scripts/mobile-app-verif.js` les épingle.
 
+## Les notifications, de bout en bout
+
+**C'est branché.** L'interrupteur « Push » du panneau ALERTES demande l'autorisation à la coquille,
+le jeton part à `POST /api/push/token`, et le serveur pousse les publications **tier-1** (`_highImpact`)
+même écran verrouillé — `server.js`, `_pushEnvoyer`.
+
+Ce qui borne la dépense et le bruit, et qu'il ne faut pas défaire (`scripts/push-verif.js` l'épingle) :
+
+| Garde | Pourquoi |
+|---|---|
+| tier-1 uniquement | une notification qui réveille un téléphone la nuit n'a pas le coût d'une ligne de panneau |
+| un item poussé **une fois** | le cycle de news rediffuse un item à chaque enrichissement |
+| **6 / heure / compte** | FOMC + NFP + CPI dans la même matinée |
+| `notifcfg` respecté | même interrupteur que la cloche du desk, mêmes catégories coupées |
+| jeton `DeviceNotRegistered` retiré | sinon chaque envoi échoue, indéfiniment et en silence |
+| index `pushusers` | l'annuaire n'est **jamais** balayé à l'envoi (512 Mo de RAM) |
+
+⚠️ **Le canal Android `alertes` est nommé aux DEUX bouts** — `App.js` le crée, `server.js` l'envoie.
+Un désaccord ne lève aucune erreur : la notification arrive dans le canal par défaut et perd son
+importance HIGH. Le banc compare les deux fichiers.
+
+Reste à faire, quand l'app tournera : ouvrir la dépêche **exacte** au tap d'une notification (le
+serveur envoie déjà son `id` dans `data`, personne ne le lit encore).
+
 ## Ce que le desk peut demander à la coquille
 
 Trois ordres, par `postMessage`. Tout le reste est ignoré.
 
 ```js
-// Demander l'autorisation de notifier, puis recevoir le jeton
+// Notifications : le desk le fait déjà tout seul (voir ci-dessus). Le protocole brut :
 window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'dtp:push' }));
-window.addEventListener('dtp:pushtoken', e => console.log(e.detail));  // → à envoyer au serveur
+window.addEventListener('dtp:pushtoken', e => console.log(e.detail));
 
 // Activer / désactiver le verrou biométrique
 window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'dtp:verrou', actif: true }));

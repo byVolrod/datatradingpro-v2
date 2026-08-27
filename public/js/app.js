@@ -11398,6 +11398,11 @@ async function _npCfgLoad() {
       localStorage.setItem('np_cat_filters', JSON.stringify(_npCatFilters));
     } catch {}
     _npSyncUI();
+    /* RÉ-ENREGISTREMENT DU JETON À CHAQUE OUVERTURE, et ce n'est pas superflu : Expo fait tourner le
+       jeton (réinstallation, restauration de sauvegarde, mise à jour du système) et un jeton périmé
+       ne prévient pas — il échoue seulement, en silence, du côté du serveur. On ne le demande que
+       si le compte a DÉJÀ accepté : jamais de fenêtre système au démarrage à froid. */
+    if (_npEnabled && _npPush && _npCoquille()) _npPushCoquilleDemander();
   } catch {}
 }
 let _npCfgSaveT = null;
@@ -11572,9 +11577,56 @@ function _npStopVoice() {
   try { if (_npAudioCtx && _npAudioCtx.state === 'running') _npAudioCtx.suspend(); } catch {}
 }
 
-// ── Push toggle (Web Notifications API) ──────────────────────
+/* ══ NOTIFICATIONS DE L'APP MOBILE (09/09) ═══════════════════════════════════════════════════════
+   Dans l'app, `Notification` N'EXISTE PAS : l'API Web Notifications n'est pas implémentée par les
+   WebView Android ni iOS. `npTogglePush` ci-dessous tombait donc dans un `if` qui n'était jamais
+   vrai — l'utilisateur appuyait sur « Push », et il ne se passait RIEN. Pas d'erreur, pas de refus,
+   rien : l'interrupteur restait éteint sans dire pourquoi.
+   La coquille native (`mobile/App.js`) sait faire ce que la WebView ne sait pas. On lui parle par
+   `postMessage`, elle répond par un événement `dtp:pushtoken`, et le jeton part au serveur — qui
+   pousse les publications tier-1 même écran verrouillé (server.js, `_pushEnvoyer`).
+   ⚠️ ON NE DEMANDE PAS L'AUTORISATION AU DÉMARRAGE À FROID. Un refus système est DÉFINITIF (il faut
+   ensuite passer par les réglages du téléphone), et Apple recommande explicitement de demander en
+   contexte. On ne redemande donc au démarrage que si le compte a DÉJÀ le push activé — le premier
+   consentement, lui, passe par l'interrupteur du panneau d'alertes, où le lecteur sait ce qu'il
+   accepte. */
+const _npCoquille = () => !!(window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function');
+let _npJetonPose = '';
+function _npOrdreCoquille(msg) {
+  try { window.ReactNativeWebView.postMessage(JSON.stringify(msg)); return true; } catch (e) { return false; }
+}
+// Un seul écouteur pour toute la session : le jeton peut revenir plusieurs fois (Expo le fait
+// tourner), on ne le renvoie au serveur que s'il a CHANGÉ.
+if (typeof window !== 'undefined') {
+  window.addEventListener('dtp:pushtoken', e => {
+    const t = (e && typeof e.detail === 'string') ? e.detail.trim() : '';
+    if (!t || t === _npJetonPose) return;
+    _npJetonPose = t;
+    fetch('/api/push/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, plat: /android/i.test(navigator.userAgent || '') ? 'android' : 'ios' }),
+    }).then(() => {
+      // L'autorisation système est accordée : l'interrupteur le reflète, sinon il resterait éteint
+      // alors que le téléphone reçoit déjà les alertes.
+      if (!_npPush) { _npPush = true; try { localStorage.setItem('np_push', 'true'); } catch (x) {} _npCfgSave(); _npSyncUI(); }
+    }).catch(() => {});
+  });
+}
+function _npPushCoquilleDemander() { return _npOrdreCoquille({ type: 'dtp:push' }); }
+function _npPushCoquilleStop() {
+  const t = _npJetonPose;
+  _npJetonPose = '';
+  if (!t) return;
+  fetch('/api/push/stop', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: t }),
+  }).catch(() => {});
+}
+
+// ── Push toggle (API Web Notifications au navigateur, coquille native dans l'app) ──────────────
 function npTogglePush() {
   if (!_npPush) {
+    if (_npCoquille()) { _npPushCoquilleDemander(); return; }   // le jeton reçu allumera l'interrupteur
     // Request permission
     if ('Notification' in window) {
       Notification.requestPermission().then(p => {
@@ -11586,6 +11638,7 @@ function npTogglePush() {
     }
   } else {
     _npPush = false;
+    if (_npCoquille()) _npPushCoquilleStop();   // l'appareil se retire, plutôt que d'attendre une désinstallation
     localStorage.setItem('np_push', JSON.stringify(_npPush));
     _npCfgSave();
     _npSyncUI();

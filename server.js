@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260909-push-mobile', ts: Date.UTC(2026, 8, 9, 16, 0), title: 'App mobile : les alertes de marché arrivent enfin écran verrouillé', desc: 'LA MOITIÉ QUI MANQUAIT. L’application savait déjà demander l’autorisation de notifier et produire son identifiant d’appareil — mais PERSONNE ne le ramassait : ni le desk, ni le serveur. L’identifiant naissait et mourait dans l’application. Autrement dit : la capacité était annoncée, la chaîne n’existait pas. Elle existe maintenant de bout en bout. L’INTERRUPTEUR « PUSH » DU PANNEAU ALERTES NE FAISAIT RIEN DANS L’APPLICATION, et ne le disait pas. Le desk passait par l’interface de notification des navigateurs — qui n’existe tout simplement pas à l’intérieur d’une application mobile. On appuyait, il ne se passait rien : pas d’erreur, pas de refus, rien. Il parle désormais à la coquille native, qui, elle, sait faire. Au navigateur, rien ne change. CE QUI VOUS RÉVEILLE, ET CE QUI NE VOUS RÉVEILLE PAS. Seules les publications de premier rang partent : la donnée macro majeure avec son chiffre, la géopolitique de premier rang. Une notification qui réveille un téléphone la nuit n’a pas le même coût qu’une ligne de plus dans un panneau. Vos réglages sont respectés à l’identique : le même interrupteur que la cloche du desk, les mêmes catégories coupées dans le panneau Filtre. Six par heure au maximum — un matin de réunion de la Fed, d’emploi américain et d’inflation, on se tait plutôt que de vider votre batterie, et c’est aussi le meilleur moyen de ne pas se faire couper les notifications pour de bon. Une même publication ne vous réveille jamais deux fois, même quand le desk l’enrichit ensuite. ET ON NE VOUS DEMANDE PAS L’AUTORISATION AU LANCEMENT. Un refus, sur téléphone, est DÉFINITIF : il faut ensuite aller le retrouver dans les réglages du système. La demande passe donc par l’interrupteur du panneau d’alertes, là où vous savez ce que vous acceptez. Désactivé, l’appareil se retire immédiatement au lieu d’attendre une désinstallation ; réinstallé ailleurs, il se réenregistre tout seul à l’ouverture.' },
   { id: 'dtpu-20260909-propos-panneau', ts: Date.UTC(2026, 8, 9, 9, 0), title: 'Prise de parole : la note du desk est retirée, et les propos s’affichent enfin en français', desc: 'Le panneau qui s’ouvre sous le bouton Info quand un responsable prend la parole. Deux changements, tous deux demandés. LA NOTE DU DESK EST RETIRÉE. Sous la liste des propos, nous ajoutions une note de cadrage — « Contexte DTP : … ». Elle ÉTIQUETAIT le sujet au lieu de le dire : « Le dossier concerne les déclarations de X sur la persistance de l’inflation. Le sujet touche les marchés par la politique monétaire. » Deux phrases sous dix propos de la même intervention, et rien dedans que vous n’ayez déjà sous les yeux. Verdict : « ça je comprends pas, enlève ». Elle part. ET ELLE PART VRAIMENT. Le texte n’est pas simplement caché : la fabrication qui le produisait — un cycle d’intelligence artificielle tournant en fond, avec ses consignes, ses garde-fous, ses compteurs et sa mémoire — est supprimée en même temps. Laisser tourner une fabrication pour un texte que plus personne n’affiche aurait consommé du quota chaque minute sans que rien ne le signale. Le précédent du desk est clair : déplacer ce dont personne ne veut, ce n’est pas le retirer. LES PROPOS SONT TRADUITS. Ils restaient en anglais alors que la traduction était pourtant bien branchée sur eux : elle PERDAIT LA COURSE. Le panneau masque les lignes en attente puis, au bout de deux secondes et demie, renonce, affiche l’anglais et le FIGE ; la traduction qui revenait à quatre secondes était bien reçue, et jamais peinte. Elle est donc préparée EN FOND, avant que vous n’ouvriez le panneau : le français est là dès l’ouverture, sans attente et sans bascule sous vos yeux. NOUS N’AVONS PAS CHOISI D’ALLONGER LE DÉLAI D’ATTENTE : cela vous aurait fait patienter plus longtemps devant un écran gris pour recevoir, les jours de quota serré, exactement le même anglais. Si la préparation n’a pas eu lieu, l’affichage d’avant reste : rien n’est retiré, un chemin rapide est ajouté. La dépense est plafonnée, ne paie jamais deux fois le même propos ni un texte déjà français, ne remonte pas au-delà de six heures, et cède la place aux autres travaux du desk avant eux. Elle est mesurée dans le moniteur.' },
   { id: 'dtpu-20260908-synthese-hebdo', ts: Date.UTC(2026, 8, 8, 9, 0), title: 'La synthèse des rapports est réduite à l’essentiel, et les récaps hebdo s’affichent enfin sans attendre', desc: 'TROIS RETOURS DANS LA MÊME JOURNÉE, même sujet. L’encadre doré qui ouvre chaque rapport rendait trois choses de nature différente à la suite : le paragraphe qui raconte la séance, un décompte (« 2 publications, dont 1 hors consensus »), puis la liste des performances. Le Récap Quotidien, qui sert de référence, n’y met que le paragraphe. Le décompte et la photo de séance sont donc SUPPRIMÉS — pas déplacés ailleurs. Ils ne reviendront nulle part : un contrôle automatique le vérifie, parce que deplacer ce dont personne ne veut, ce n’est pas le retirer. ET PLUS DE GRAS DANS LA SYNTHÈSE. C’est de la prose. Un paragraphe où la Fed, la BCE et le dollar australien ressortent tous en gras se lit comme une liste de mots-clés, pas comme un récit — et le gras y perdait tout pouvoir de signaler, puisque tout le vocabulaire du desk y passait. Il reste partout ailleurs, où il distingue vraiment quelque chose. LES RÉCAPS HEBDO N’ATTENDENT PLUS. Signalement : « je les vois pas quand j’actualise, ils prennent du temps à charger ». Deux causes, toutes deux dans la mémoire locale du navigateur. La première : quand le serveur est en train de fabriquer le rapport, celui-ci n’arrive pas par la première lecture mais par les re-tentatives — et celles-ci ne rangeaient jamais le résultat. La réserve locale restait donc vide à chaque fois, et chaque rechargement de page repartait du réseau. La seconde : cette réserve se périmait en vingt-quatre heures, pour un rapport qui ne change QU’UNE FOIS PAR SEMAINE — passe un jour, elle était jetée alors que son contenu était encore le bon. Elle vit maintenant huit jours, et les deux chemins rangent au même endroit. LE RÉCAP HEBDO adopte aussi la mise en page du Quotidien : sa synthèse porte le même encadre doré, et ses sous-titres, qui sortaient en blanc et plus gros, sont ramenés au même rang que partout ailleurs. Les trois rapports se lisent à la suite : ils rangent pareil, ils doivent en avoir l’air.' },
   { id: 'dtpu-20260907-syntheses-epurees', ts: Date.UTC(2026, 8, 7, 19, 0), title: 'Les synthèses de rapports ne portent plus que la lecture, et le récap hebdo adopte la mise en page du quotidien', desc: 'Deux captures à l’appui. La SYNTHÈSE d’un récap de séance mélangeait trois choses de nature différente dans le même encadré doré : le paragraphe qui raconte la séance, un décompte (« 2 publications, dont 1 hors consensus »), puis la liste des performances. Le Récap Quotidien, lui, n’y met que le paragraphe — et c’est lui qui a raison. LE DECOMPTE DISPARAÎT. Il avait déjà été refuse une fois, avec le même mot : un décompte n’est pas une lecture. Il n’avait survécu que parce qu’on l’avait déplacé derrière le paragraphe au lieu de le retirer. LA PHOTO DE SÉANCE RESTE : c’est une donnée de marché, pas du remplissage. Elle prend simplement sa propre rubrique juste après la synthèse, au même rang que Géopolitique ou Macro, et elle y perd son préfixe puisque l’intitulé le porte déjà. Une synthèse sans paragraphe ne se remplit plus avec les performances : mieux vaut pas de synthèse qu’une synthèse qui n’en’est pas une. Tous les récaps de séance sont régénérés. LE RÉCAP HEBDO SE CALE SUR LE QUOTIDIEN. Il ouvrait sur du texte nu, sans intitulé ni encadré, là où les deux autres rapports encadrent leur synthèse d’un liseré doré. Il l’à maintenant, et c’est le MÊME élément, pas une troisième copie. Ses sous-titres et ses puces suivent aussi : mesuré dans un vrai navigateur avant correction, ses sous-titres sortaient en blanc et plus gros, au même rang visuel que ses titres de rubrique — c’est exactement ce qui faisait paraître le rapport chargé. Ils sont désormais petits et gris, comme partout ailleurs. Les trois rapports se lisent à la suite : ils rangent pareil, ils doivent en avoir l’air.' },
@@ -1477,6 +1478,197 @@ app.post('/api/notif-config', async (req, res) => {
     res.json({ ok: true });
   } catch { res.status(500).json({ ok: false }); }
 });
+
+/* ═══ NOTIFICATIONS PUSH VERS L'APP MOBILE (09/09) ═══════════════════════════════════════════════
+   CE QUI MANQUAIT, ET C'ÉTAIT LA MOITIÉ DU PRODUIT. La coquille native sait déjà demander
+   l'autorisation de notifier et produire un jeton Expo (`mobile/App.js`, ordre `dtp:push`) — mais
+   PERSONNE ne le ramassait : ni le desk, ni le serveur. Le jeton naissait et mourait dans la
+   WebView. Aucune alerte ne pouvait donc arriver écran verrouillé, alors que c'est la raison d'être
+   de l'app ET la capacité native sur laquelle repose son passage en revue Apple (règle 4.2 : une
+   app qui n'est qu'un site emballé est refusée). Le chemin est branché de bout en bout ici.
+
+   ⚠️ CE QUI DÉCLENCHE UN PUSH EST VOLONTAIREMENT PLUS ÉTROIT QUE LA CLOCHE DU DESK. Le panneau
+   d'alertes range cinq familles (dtp, institution, analyst, eco, news) ; une notification qui
+   réveille un téléphone la nuit n'a pas le même coût qu'une ligne de plus dans un panneau. Seul
+   `_highImpact` part — la donnée macro tier-1 AVEC son chiffre publié, la géopolitique tier-1 —,
+   c'est-à-dire le drapeau que le serveur pose déjà à l'ingestion (`upgradeItemPriority`). On NE
+   RECOPIE PAS `_npKind` côté serveur : une copie de la taxonomie client aurait divergé au premier
+   changement, et c'est la copie oubliée qui se met à mentir. On projette donc sur les DEUX seules
+   clés qu'un push peut porter (`eco` si la dépêche porte un chiffre, `news` sinon), et l'utilisateur
+   qui a coupé l'une d'elles dans son panneau Filtre ne la reçoit pas non plus sur son téléphone.
+
+   ⚠️ TROIS GARDE-FOUS, TOUS APPRIS AILLEURS DANS CE DÉPÔT :
+   1. UN ITEM N'EST POUSSÉ QU'UNE FOIS (`_pushDejaVus`). Le cycle de news rediffuse un item quand il
+      est enrichi (analyse, impact, traduction) : sans ce verrou, la même publication réveillerait le
+      téléphone trois fois dans l'heure. Ensemble borné, comme `_npReadIds` côté client.
+   2. PLAFOND PAR COMPTE ET PAR HEURE. Un jour de FOMC + NFP + CPI peut sortir six tier-1 en vingt
+      minutes. Au-delà du plafond on se TAIT plutôt que de vider la batterie de quelqu'un — et c'est
+      le meilleur moyen de ne pas se faire couper les notifications pour de bon.
+   3. UN JETON MORT EST RETIRÉ. Expo répond `DeviceNotRegistered` quand l'app est désinstallée : le
+      garder ferait échouer chaque envoi, indéfiniment et en silence.
+
+   ⚠️ AUCUNE ÉNUMÉRATION D'ANNUAIRE À L'ENVOI. Balayer `getAllUsers()` à chaque cycle de news pour
+   lire une clé KV par compte, c'est exactement ce qui coupe le service sur cet hébergement (512 Mo,
+   la leçon de l'audit de parrainage). Un INDEX unique (`pushusers`) liste les seuls comptes qui ont
+   réellement un appareil ; il est lu UNE fois, puis servi de mémoire. */
+const PUSH_IDX_KEY = 'pushusers';
+const PUSH_MAX_APPAREILS = 5;                    // par compte : téléphone + tablette + rechanges
+const PUSH_MAX_HEURE = 6;                        // notifications par compte et par heure
+const PUSH_LOT = 100;                            // Expo accepte 100 messages par requête
+const PUSH_TIMEOUT_MS = 8000;
+const PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const _PUSH_RX_JETON = /^Expo(?:nent)?PushToken\[[A-Za-z0-9._%+-]{1,128}\]$/;
+let _pushIdx = null;                             // Set<userId> — hydraté à la première utilisation
+const _pushDejaVus = new Set();                  // ids d'items déjà poussés (borné)
+const _pushHoraire = new Map();                  // userId → tableau d'horodatages (fenêtre glissante)
+let _pushBusy = false;
+
+async function _pushIndex() {
+  if (_pushIdx) return _pushIdx;
+  try {
+    const v = await auth.aiCacheGet(PUSH_IDX_KEY, 366 * 86400000);
+    _pushIdx = new Set(Array.isArray(v) ? v.map(String) : (v && Array.isArray(v.ids) ? v.ids.map(String) : []));
+  } catch { _pushIdx = new Set(); }
+  return _pushIdx;
+}
+async function _pushIndexAjouter(userId) {
+  const idx = await _pushIndex();
+  if (idx.has(String(userId))) return;
+  idx.add(String(userId));
+  try { await auth.aiCacheSet(PUSH_IDX_KEY, [...idx]); } catch {}
+}
+async function _pushIndexRetirer(userId) {
+  const idx = await _pushIndex();
+  if (!idx.delete(String(userId))) return;
+  try { await auth.aiCacheSet(PUSH_IDX_KEY, [...idx]); } catch {}
+}
+const _pushCle = uid => 'push:' + String(uid);
+async function _pushJetons(userId) {
+  try {
+    const v = await auth.aiCacheGet(_pushCle(userId), 366 * 86400000);
+    const arr = (v && Array.isArray(v.tokens)) ? v.tokens : [];
+    return arr.filter(j => j && _PUSH_RX_JETON.test(String(j.t || '')));
+  } catch { return []; }
+}
+async function _pushPoserJetons(userId, jetons) {
+  if (!jetons.length) { try { await auth.aiCacheSet(_pushCle(userId), { tokens: [] }); } catch {} return _pushIndexRetirer(userId); }
+  try { await auth.aiCacheSet(_pushCle(userId), { tokens: jetons.slice(-PUSH_MAX_APPAREILS) }); } catch {}
+  return _pushIndexAjouter(userId);
+}
+
+/* L'app enregistre son jeton à chaque ouverture : Expo le fait tourner (réinstallation, restauration
+   de sauvegarde, mise à jour du système), et un jeton périmé ne prévient pas — il échoue seulement. */
+app.post('/api/push/token', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  const t = String((req.body && req.body.token) || '').trim();
+  if (!_PUSH_RX_JETON.test(t)) return res.status(400).json({ ok: false, error: 'jeton invalide' });
+  const plat = ['ios', 'android'].includes(String(req.body && req.body.plat)) ? req.body.plat : 'inconnu';
+  try {
+    const jetons = (await _pushJetons(req.session.userId)).filter(j => j.t !== t);   // ré-enregistrement = remise à jour, pas doublon
+    jetons.push({ t, plat, at: Date.now() });
+    await _pushPoserJetons(req.session.userId, jetons);
+    res.json({ ok: true, appareils: Math.min(jetons.length, PUSH_MAX_APPAREILS) });
+  } catch (e) { res.status(500).json({ ok: false }); }
+});
+/* Déconnexion, ou refus de l'autorisation depuis les réglages du téléphone : l'appareil se retire
+   lui-même. Sans ce chemin, un jeton ne partirait QUE par l'échec `DeviceNotRegistered`, qui exige
+   une désinstallation complète. */
+app.post('/api/push/stop', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  const t = String((req.body && req.body.token) || '').trim();
+  try {
+    const restants = t ? (await _pushJetons(req.session.userId)).filter(j => j.t !== t) : [];
+    await _pushPoserJetons(req.session.userId, restants);
+    res.json({ ok: true });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
+// Ce que le push peut porter : deux clés seulement, projetées sur la taxonomie du panneau Filtre.
+const _pushClef = it => (/-?\d/.test(String((it && it.headline) || '')) ? 'eco' : 'news');
+function _pushTexte(it) {
+  const h = String((it && it.headline) || '').replace(/\s+/g, ' ').trim();
+  return { title: 'DataTradingPro', body: h.length > 178 ? h.slice(0, 177) + '…' : h };
+}
+// Fenêtre glissante d'une heure, purgée à la lecture : pas de minuteur, pas de croissance.
+function _pushSousPlafond(userId, combien) {
+  const cle = String(userId), maintenant = Date.now();
+  const vus = (_pushHoraire.get(cle) || []).filter(t => maintenant - t < 3600000);
+  /* ⚠️ CETTE SORTIE A L'AIR REDONDANTE AVEC LE `Math.min` CI-DESSOUS. ELLE NE L'EST PAS. Sans elle,
+     un compte au-delà du plafond donnerait `PUSH_MAX_HEURE - vus.length` NÉGATIF, donc un `place`
+     négatif — et l'appelant teste `if (!place) continue`, qui laisse passer un nombre négatif. Le
+     plafond serait franchi précisément dans le cas où il doit tenir. */
+  if (vus.length >= PUSH_MAX_HEURE) { _pushHoraire.set(cle, vus); return 0; }
+  const place = Math.min(combien, PUSH_MAX_HEURE - vus.length);
+  for (let i = 0; i < place; i++) vus.push(maintenant);
+  _pushHoraire.set(cle, vus);
+  return place;
+}
+async function _pushExpo(messages) {
+  const morts = new Set();
+  for (let i = 0; i < messages.length; i += PUSH_LOT) {
+    const lot = messages.slice(i, i + PUSH_LOT);
+    const ac = new AbortController();
+    const minuteur = setTimeout(() => ac.abort(), PUSH_TIMEOUT_MS);
+    try {
+      const r = await fetch(PUSH_URL, {
+        method: 'POST', signal: ac.signal,
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(lot),
+      });
+      const d = await r.json();
+      (d && Array.isArray(d.data) ? d.data : []).forEach((rep, k) => {
+        if (rep && rep.status === 'error' && rep.details && rep.details.error === 'DeviceNotRegistered') {
+          morts.add(lot[k] && lot[k].to);
+        }
+      });
+    } catch (e) { console.warn('[Push] envoi impossible :', e.message); }
+    finally { clearTimeout(minuteur); }
+  }
+  return morts;
+}
+async function _pushEnvoyer(items) {
+  if (_pushBusy) return;
+  const neufs = (items || []).filter(it => it && it._highImpact === true && !_pushDejaVus.has(it.id));
+  if (!neufs.length) return;
+  neufs.forEach(it => _pushDejaVus.add(it.id));
+  if (_pushDejaVus.size > 4000) { for (const id of _pushDejaVus) { _pushDejaVus.delete(id); if (_pushDejaVus.size <= 3000) break; } }
+  _pushBusy = true;
+  try {
+    const idx = await _pushIndex();
+    if (!idx.size) return;
+    const messages = [];
+    const parJeton = new Map();                                    // jeton → userId, pour retirer un appareil mort
+    for (const uid of idx) {
+      let cfg = null;
+      try { cfg = await auth.aiCacheGet('notifcfg:' + uid); } catch {}
+      if (cfg && (cfg.enabled === false || cfg.push === false)) continue;
+      const coupees = new Set(Array.isArray(cfg && cfg.catsOff) ? cfg.catsOff : []);
+      const pourLui = neufs.filter(it => !coupees.has(_pushClef(it)));
+      if (!pourLui.length) continue;
+      const place = _pushSousPlafond(uid, pourLui.length);
+      if (!place) continue;
+      const jetons = await _pushJetons(uid);
+      if (!jetons.length) { await _pushIndexRetirer(uid); continue; }
+      for (const it of pourLui.slice(0, place)) {
+        const { title, body } = _pushTexte(it);
+        for (const j of jetons) {
+          parJeton.set(j.t, uid);
+          messages.push({ to: j.t, title, body, sound: 'default', priority: 'high', channelId: 'alertes', data: { id: String(it.id) } });
+        }
+      }
+    }
+    if (!messages.length) return;
+    const morts = await _pushExpo(messages);
+    for (const jeton of morts) {
+      const uid = parJeton.get(jeton);
+      if (!uid) continue;
+      await _pushPoserJetons(uid, (await _pushJetons(uid)).filter(j => j.t !== jeton));
+      console.log('[Push] appareil désinstallé, jeton retiré du compte ' + uid);
+    }
+    console.log('[Push] ' + messages.length + ' notification(s) envoyée(s) pour ' + neufs.length + ' publication(s) tier-1');
+  } catch (e) { console.error('[Push]', e.message); }
+  finally { _pushBusy = false; }
+}
 
 // ── Badge « NEW » du journal de trading — annonce vue UNE SEULE FOIS par compte (KV durable, modèle
 //    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV = survit au blackout egress).
@@ -19412,6 +19604,9 @@ async function refreshNews() {
       broadcast({ type: 'news_update', items: added, total: allNews.length });
     }
   }
+  // Notification PUSH vers l'app mobile : uniquement le tier-1, hors du chemin de diffusion (un
+  // aller-retour vers Expo ne doit jamais retarder le fil des lecteurs connectés).
+  _pushEnvoyer(added).catch(() => {});
 
   // Analyse IA PRE-CALCULEE = la TRADUCTION FR affichee au depliage -> lancee a CHAQUE cycle (60s) pour que le
   // francais apparaisse VITE (bornee par AI_ANALYSE_DAILY_MAX + cooldowns providers + pression sante Phase 3).
