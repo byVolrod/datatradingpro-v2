@@ -37,12 +37,16 @@
        téléphone du client, indéfiniment.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'dtp-sw-v1';
+const VERSION = 'dtp-sw-20260827bbg992';
 const CACHE_COQUILLE = VERSION + '-coquille';
 
 /* La coquille minimale : de quoi afficher QUELQUE CHOSE de DTP sans réseau. Volontairement courte —
    un service worker qui pré-charge tout le desk à la première visite consommerait le forfait mobile
    du client avant qu'il n'ait rien demandé. Le reste se met en cache au fil de la navigation. */
+/* ⚠️ CES TROIS-LÀ N'ONT PAS DE JETON, et c'est assumé : ils sont pré-chargés à l'INSTALL, dans un
+   cache nommé d'après VERSION, et l'activation balaie toutes les versions précédentes. Leur
+   fraîcheur ne dépend donc pas d'un jeton d'URL mais du numéro de version du service worker —
+   que `scripts/bump-cache.js` incrémente désormais en même temps que celui des pages. */
 const PRECHARGE = ['/offline.html', '/favicon.png', '/icon-192.png'];
 
 self.addEventListener('install', (e) => {
@@ -64,11 +68,26 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Un actif versionné : styles, scripts, icônes. C'est le seul cas où mémoriser est sans risque.
+/* Un actif versionné : styles, scripts, icônes. C'est le seul cas où mémoriser est sans risque.
+
+   ⚠️ CORRECTIF 27/08 — LA RÈGLE ÉCRITE EN TÊTE DE CE FICHIER N'ÉTAIT PAS CELLE DU CODE, ET C'EST
+   TOUT LE PROBLÈME. L'en-tête dit « ON NE CACHE QUE CE QUI PORTE UN JETON DE VERSION » ; le test,
+   lui, ne regardait que l'EXTENSION du fichier. Deux mondes séparaient les deux :
+     · les scripts et styles du desk portent bien `?v=<jeton>`, aligné par `scripts/bump-cache.js` —
+       un nouveau jeton fait une nouvelle URL, donc un nouveau cache : aucun risque de péremption ;
+     · mais les logos de banques (`/assets/images/banks/*.png|svg`, injectés par le JS), le favicon
+       et les icônes d'application, eux, n'ont AUCUN jeton. Mis en cache par extension, ils y
+       restaient POUR TOUJOURS : remplacer un logo sur le serveur n'atteignait plus jamais un
+       client ayant ouvert le desk une fois, et aucun rechargement, même Ctrl+F5, n'y changeait
+       quoi que ce soit — un service worker répond avant le réseau.
+   La condition devient donc celle qui était annoncée : PAS DE JETON, PAS DE CACHE. Les actifs sans
+   jeton repassent par le réseau, où `express.static` les sert déjà avec son propre `max-age` — le
+   navigateur les garde, mais lui sait les revalider. */
 function estActifVersionne(url) {
   if (url.origin !== self.location.origin) return false;
   if (url.pathname.indexOf('/api/') === 0) return false;              // jamais de données
-  return /\.(css|js|png|svg|woff2?|ico)$/i.test(url.pathname);
+  if (!/\.(css|js|png|svg|woff2?|ico)$/i.test(url.pathname)) return false;
+  return /(^|&)v=[^&]+/.test(url.search.replace(/^\?/, ''));         // le jeton, ou rien
 }
 
 self.addEventListener('fetch', (e) => {

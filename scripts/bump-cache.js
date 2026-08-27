@@ -53,5 +53,21 @@ for (const f of fs.readdirSync(DOSSIER).filter(f => f.endsWith('.html'))) {
   if (n) { fs.writeFileSync(p, apres); fichiers++; refs += n; console.log('  ' + f.padEnd(18) + n + ' référence(s)'); }
   else console.log('  ' + f.padEnd(18) + 'déjà à jour');
 }
+/* ══ LE SERVICE WORKER FAIT PARTIE DU RITUEL, SINON IL LE CONTOURNE (27/08) ══════════════════════
+   Le cache-busting repose sur une idée simple : changer l'URL pour forcer le navigateur à
+   redemander. Un service worker, lui, répond AVANT le réseau — et son cache d'installation
+   (`/offline.html`, favicon, icônes) ne porte aucun jeton d'URL : il n'est balayé qu'au changement
+   de sa propre constante VERSION. Laisser cette constante à la main, c'est reproduire exactement
+   le défaut du 06/08 — le serveur livre le fichier neuf, le client garde l'ancien — mais d'un cran
+   plus bas, là où même un Ctrl+F5 ne peut rien, puisqu'il passe lui aussi par le service worker.
+   On bumpe donc VERSION avec le reste : une seule commande, un seul jeton, aucune pièce oubliée. */
+const SW = path.join(DOSSIER, 'sw.js');
+if (fs.existsSync(SW)) {
+  const avant = fs.readFileSync(SW, 'utf8');
+  const apres = avant.replace(/(const VERSION = ')[^']*(')/, (_, a, b) => a + 'dtp-sw-' + jeton + b);
+  if (apres !== avant) { fs.writeFileSync(SW, apres); console.log('  sw.js             VERSION → dtp-sw-' + jeton); }
+  else console.log('  sw.js             déjà à jour');
+}
+
 console.log('\nJeton : ' + jeton + '  —  ' + refs + ' référence(s) dans ' + fichiers + ' fichier(s).');
 if (!refs) console.log('Rien à faire : toutes les pages étaient déjà alignées.');

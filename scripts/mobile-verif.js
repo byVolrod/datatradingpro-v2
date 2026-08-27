@@ -33,6 +33,8 @@
  *
  * Sans Chromium, le banc S'ABSTIENT (code 0) : il ne rend jamais un poste inutilisable.
  */
+const fs = require('fs');
+const path = require('path');
 const { serveur, trouverNavigateur, UA_IOS, UA_AND } = require('./mobile-apercu.js');
 
 const PORT = 4816;
@@ -49,15 +51,70 @@ const APPAREILS = [
    style.css). On mesure donc des rectangles rendus, pas des déclarations. */
 const CIBLE_MIN = 32;
 
+/* ══ PHASE 0 : LE SERVICE WORKER, SANS NAVIGATEUR ═══════════════════════════════════════════════
+   Ces trois contrôles sont du calcul pur, et ils gardent le défaut le plus coûteux de toute la
+   couche mobile : un fichier mémorisé PAR ERREUR par un service worker n'est rattrapable par
+   AUCUN rechargement côté client — le service worker répond avant le réseau, Ctrl+F5 compris.
+   Le jour où ça arrive, on ne peut plus rien pour les clients déjà touchés. */
+function phaseServiceWorker() {
+  let ko = 0;
+  const v2 = (nom, cond, detail) => { if (cond) console.log('  ✓ ' + nom); else { ko++; console.log('  ✗ ' + nom + (detail ? '\n      → ' + detail : '')); } };
+  const RACINE = path.join(__dirname, '..');
+  const sw = fs.readFileSync(path.join(RACINE, 'public/sw.js'), 'utf8');
+
+  console.log('\n── Service worker : ce qu\'il a le droit de mémoriser ──');
+  /* On extrait la VRAIE fonction, pas une transcription : une copie dériverait sans prévenir, et
+     c'est précisément ce qui s'est produit — l'en-tête du fichier annonçait « pas de jeton, pas de
+     cache » pendant que le code, lui, décidait sur l'extension. */
+  const i = sw.indexOf('function estActifVersionne');
+  const j = sw.indexOf('self.addEventListener(\'fetch\'');
+  if (i < 0 || j < 0) { console.log('  ✗ estActifVersionne introuvable dans sw.js'); return 1; }
+  const API = new Function('self', sw.slice(i, j) + '\nreturn estActifVersionne;')({ location: { origin: 'https://desk.datatradingpro.com' } });
+  const u = (p) => new URL(p, 'https://desk.datatradingpro.com');
+
+  v2('un script versionné est mémorisé', API(u('/js/app.js?v=20260827bbg990')) === true);
+  v2('une feuille versionnée aussi', API(u('/css/style.css?v=20260827bbg990')) === true);
+  /* LE CAS QUI A MORDU : les logos de banques sont injectés par le JS, sans jeton. Mémorisés par
+     extension, ils l'étaient À VIE — remplacer un logo n'atteignait plus jamais un client. */
+  v2('un logo de banque SANS jeton n\'est PAS mémorisé', API(u('/assets/images/banks/HSBC.png')) === false,
+    'c\'est le défaut du 27/08 : mémorisé à vie, irrattrapable côté client');
+  v2('une image sans jeton non plus', API(u('/assets/images/macro-ai-spark.svg')) === false);
+  v2('aucune donnée d\'API n\'est mémorisable', API(u('/api/news?v=1')) === false);
+  v2('rien d\'un autre domaine', API(new URL('https://cdn.amcharts.com/lib/5/index.js?v=1')) === false);
+
+  /* LE JETON DU SERVICE WORKER DOIT SUIVRE CELUI DES PAGES. Son cache d'installation
+     (`/offline.html`, favicon, icônes) ne porte aucun jeton d'URL : il n'est balayé qu'au
+     changement de VERSION. Bumper les pages sans bumper VERSION reproduit le défaut du 06/08, un
+     cran plus bas — là où le client ne peut rien. */
+  const html = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8');
+  const jetonPage = (html.match(/(?:href|src)="\/(?:css|js)\/[^"?]+\?v=([^"]+)"/) || [])[1];
+  const jetonSw = (sw.match(/const VERSION = 'dtp-sw-([^']*)'/) || [])[1];
+  v2('le service worker porte le MÊME jeton que les pages', !!jetonPage && jetonSw === jetonPage,
+    'pages ' + jetonPage + ' · service worker ' + jetonSw);
+  const bump = fs.readFileSync(path.join(RACINE, 'scripts/bump-cache.js'), 'utf8');
+  v2('… et le rituel de bump s\'en charge tout seul', /const VERSION = '\)[^]*?dtp-sw-/.test(bump) || /sw\.js/.test(bump) && /VERSION/.test(bump));
+
+  /* Un service worker servi derrière une session ne s'installe jamais pour un visiteur déconnecté,
+     et `/.well-known/` est ce que Google exige pour prouver qu'un domaine et une app vont ensemble.
+     Les deux se règlent au même endroit : la liste des chemins publics du serveur. */
+  const srv = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+  const zonePublique = srv.slice(srv.indexOf('const _PUBLIC_PATHS'), srv.indexOf('// Jeton d\'appel INTERNE'));
+  v2('/sw.js est servi sans session', zonePublique.indexOf("'/sw.js'") > 0);
+  v2('/offline.html aussi', zonePublique.indexOf("'/offline.html'") > 0);
+  v2('/.well-known/ est ouvert (preuve de domaine pour Google Play)', zonePublique.indexOf("'/.well-known/'") > 0);
+  return ko;
+}
+
 (async () => {
+  const koSw = phaseServiceWorker();
   const bin = trouverNavigateur();
-  if (!bin) { console.log('\n[Mobile] aucun Chromium → banc abstenu (ce n\'est pas un échec).\n'); process.exit(0); }
+  if (!bin) { console.log('\n[Mobile] aucun Chromium → phase navigateur abstenue.\n'); process.exit(koSw ? 1 : 0); }
   let pp; try { pp = require('puppeteer-core'); }
-  catch { console.log('\n[Mobile] puppeteer-core absent → banc abstenu.\n'); process.exit(0); }
+  catch { console.log('\n[Mobile] puppeteer-core absent → phase navigateur abstenue.\n'); process.exit(koSw ? 1 : 0); }
 
   const srv = serveur();
   await new Promise((r) => srv.listen(PORT, r));
-  let ko = 0, nav;
+  let ko = koSw, nav;
   const v = (nom, cond, detail) => {
     if (cond) console.log('  ✓ ' + nom);
     else { ko++; console.log('  ✗ ' + nom + (detail ? '\n      → ' + detail : '')); }
