@@ -3504,11 +3504,30 @@ function buildNewsItem(item) {
   let _pairActive   = item._pair || null;
   let arrowEl       = null;  // chevron ∨ / ^ indicator
 
-  if (hasNotes || hasInfo || hasEco) {
+  /* ══ LE CONTENEUR DU PANNEAU APPARTIENT À TOUS LES BOUTONS, PAS À TROIS D'ENTRE EUX (27/08) ═══
+     CAPTURE CLIENT : une dépêche géopolitique tier-1 portait le seul bouton « Impact marché », et
+     le clic ne faisait RIEN. La condition ci-dessous listait `hasNotes || hasInfo || hasEco` —
+     `hasImpact` n'y était pas. Une news qui porte une lecture d'impact SANS description ni analyse
+     (le cas normal d'une géopolitique) recevait donc un bouton cliquable et AUCUN panneau derrière :
+     `openPanel` sortait aussitôt sur son `if (!expandEl) return;`, sans erreur, sans trace. Le
+     lecteur, lui, croit à une panne du desk.
+     ⚠️ ET LE DÉFAUT ÉTAIT DÉJÀ CONNU, réparé À UN SEUL ENDROIT : le bouton « Réaction », plus bas,
+     porte depuis longtemps un rattrapage local (« Create expandEl dynamically if the item had no
+     info/notes »). Un rattrapage par bouton ne protège que le bouton qui l'a écrit — le suivant
+     retombe dans le trou. La création passe donc par UNE fonction, que tous appellent : un bouton
+     ajouté demain ne peut plus oublier son panneau.
+     ⚠️ Élargir cette condition va ouvrir le panneau à des news qui n'en avaient pas : le chevron
+     apparaît, et son clic doit viser un onglet QUI EXISTE — d'où l'ajout d'« impact » à la chaîne
+     de repli juste en dessous. Sans lui, le chevron d'une géopolitique viserait « reaction », qui
+     n'est pas là, et on aurait déplacé le clic mort au lieu de le supprimer. */
+  function assurerPanneau() {
+    if (expandEl) return expandEl;
     expandEl = document.createElement('div');
     expandEl.className = 'news-description';
     content.appendChild(expandEl);
+    return expandEl;
   }
+  if (hasNotes || hasInfo || hasEco || hasImpact) assurerPanneau();
 
   // Arrow column : sits between category col and content col
   arrowEl = document.createElement('div');
@@ -3517,7 +3536,7 @@ function buildNewsItem(item) {
     arrowEl.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     // Défaut au dépliage : on PRÉFÈRE l'analyse FR pré-calculée (instantanée, aucun fetch) au résumé « Info »
     // (souvent la description SOURCE en anglais) → la description s'affiche instantanément EN FRANÇAIS.
-    const _togglePanel = e => { e.stopPropagation(); openPanel(hasNotes ? 'analysis' : hasInfo ? 'info' : hasEco ? 'eco' : 'reaction'); };
+    const _togglePanel = e => { e.stopPropagation(); openPanel(hasNotes ? 'analysis' : hasInfo ? 'info' : hasEco ? 'eco' : hasImpact ? 'impact' : 'reaction'); };
     arrowEl.onclick = _togglePanel;
     // Clic sur le TITRE de la news → déroule aussi (description / analyse / réaction)
     headline.classList.add('news-headline--clickable');
@@ -4878,11 +4897,10 @@ function buildNewsItem(item) {
         .then(data => {
           if (!data.moves || data.moves.length === 0) return;
           if (reactionTagEl) return; // already present
-          // Create expandEl dynamically if the item had no info/notes
+          /* Le panneau peut ne pas exister encore (news sans description ni analyse) : on le
+             réclame par la MÊME fonction que le reste du fil, et on lui donne son chevron. */
           if (!expandEl) {
-            expandEl = document.createElement('div');
-            expandEl.className = 'news-description';
-            content.appendChild(expandEl);
+            assurerPanneau();
             arrowEl.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
             arrowEl.onclick = e => { e.stopPropagation(); openPanel('reaction'); };
           }

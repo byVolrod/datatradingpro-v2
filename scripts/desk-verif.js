@@ -413,6 +413,87 @@ function phaseLogique() {
     verif('Analyse ne reprend PAS « Impact marché »', !rôles.ana.titres.includes('Impact marché'), JSON.stringify(rôles.ana.titres));
     verif('… qui se lit bien sous son bouton', /haussier pour le dollar/.test(rôles.imp.txt), rôles.imp.txt.slice(0, 90));
 
+    /* ── « IMPACT MARCHÉ » TOUT SEUL : LE BOUTON QUI N'OUVRAIT RIEN ────────────────────────────
+       27/08, capture client : une dépêche GÉOPOLITIQUE tier-1 (« Chinese executives may join Xi's
+       US trip… ») portait le seul bouton « Impact marché », et le clic ne faisait RIEN.
+       LA CAUSE, et elle tient en une condition : le conteneur du panneau n'était créé que si
+       l'item avait Info, Analyse ou Éco — `hasImpact` n'y figurait pas. Une news qui porte une
+       lecture d'impact SANS description ni analyse — exactement le cas d'une géopolitique — se
+       retrouvait donc avec un bouton cliquable et AUCUN panneau derrière ; `openPanel` sortait sur
+       son `if (!expandEl) return;` et le clic était avalé en silence. Aucune erreur en console,
+       rien à voir dans le fil : le défaut invisible par excellence.
+       ⚠️ LE CAS DE L'ESSAI PRÉCÉDENT NE POUVAIT PAS L'ATTRAPER : son item porte une description
+       complète, donc le conteneur existait pour une AUTRE raison et le panneau Impact fonctionnait.
+       C'est l'item DÉPOUILLÉ qui est le vrai cas — et c'est celui que les clients voient. */
+    const seul = await page.evaluate(async () => {
+      const it = { id: 'geo-seul',
+        headline: "Chinese executives may join Xi's US trip, as trade truce extension 'almost certain'",
+        description: '', category: 'Geopolitics', tags: [], timestamp: Date.now(),
+        priority: 'high', _highImpact: true,
+        _impact: 'Détente commerciale : le canal est la prime de risque, pas la politique monétaire.\nUne trêve prolongée soutient les actifs cycliques et allège la demande de refuge.\nBrent ↑ · Or ↓ · AUD/USD ↑' };
+      const el = window.buildNewsItem(it);
+      document.body.appendChild(el);
+      const boutons = [...el.querySelectorAll('.news-tags .tag')].map(t => t.textContent.trim());
+      const b = [...el.querySelectorAll('.news-tags .tag')].find(t => /Impact marché/.test(t.textContent));
+      let leve = null;
+      if (b) { try { b.click(); } catch (e) { leve = String(e && e.message || e); } }
+      await new Promise(r => setTimeout(r, 80));
+      const p = el.querySelector('.news-description');
+      const r = { boutons, leve,
+        panneauExiste: !!p,
+        visible: !!(p && p.classList.contains('visible')),
+        txt: p ? (p.textContent || '').replace(/\s+/g, ' ').trim() : '' };
+      /* ⚠️ LE CHEVRON EST UN SECOND CHEMIN, et il ne vise pas forcément le même onglet que le
+         bouton : il ouvre le PREMIER panneau disponible d'une chaîne de repli. Créer le conteneur
+         pour « Impact marché » fait apparaître ce chevron sur des news qui n'en avaient pas — s'il
+         visait un onglet absent, on aurait simplement DÉPLACÉ le clic mort. On l'éprouve donc à
+         part : on referme, puis on ouvre par le chevron seul. */
+      if (b) { b.click(); await new Promise(r2 => setTimeout(r2, 60)); }   // referme
+      const fleche = el.querySelector('.news-arrow-col');
+      if (fleche) { try { fleche.click(); } catch (e) { leve = leve || String(e && e.message || e); } }
+      await new Promise(r2 => setTimeout(r2, 80));
+      const p2 = el.querySelector('.news-description');
+      r.chevronExiste = !!fleche;
+      r.chevronOuvre = !!(p2 && p2.classList.contains('visible'));
+      r.chevronTxt = p2 ? (p2.textContent || '').replace(/\s+/g, ' ').trim() : '';
+      r.leve = leve;
+      el.remove();
+      return r;
+    });
+    console.log('\n── « Impact marché » seul sur une dépêche géopolitique ──');
+    verif('le bouton « Impact marché » est bien posé', seul.boutons.some(b => /Impact marché/.test(b)),
+      JSON.stringify(seul.boutons));
+    /* LE CONTRÔLE QUI COMPTE : le clic ouvre-t-il quelque chose ? Un bouton qui ne fait rien est
+       pire qu'un bouton absent — le lecteur croit à une panne du desk. */
+    verif('… et son clic OUVRE un panneau', seul.visible,
+      seul.panneauExiste ? 'le panneau existe mais reste fermé' : 'AUCUN panneau n\'a été créé pour cet item');
+    verif('… qui contient bien la lecture d\'impact', /prime de risque/.test(seul.txt), seul.txt.slice(0, 120));
+    verif('… et ses actifs exposés', /Brent/.test(seul.txt) && /Or/.test(seul.txt), seul.txt.slice(0, 160));
+    /* LE SECOND CHEMIN : le chevron. Il apparaît maintenant sur ces news — il doit donc mener
+       quelque part, et à la bonne chose. */
+    verif('le chevron est là lui aussi', seul.chevronExiste);
+    verif('… et il ouvre le panneau', seul.chevronOuvre,
+      'le chevron vise un onglet qui n\'existe pas sur cette news');
+    verif('… sur la lecture d\'impact, pas sur un onglet vide',
+      /prime de risque/.test(seul.chevronTxt), seul.chevronTxt.slice(0, 120));
+    verif('aucun des deux clics ne lève d\'exception', !seul.leve, seul.leve || '');
+    /* ⚠️ UNE SEULE FABRIQUE DE PANNEAU, ÉPROUVÉE SUR LA SOURCE. Le bouton « Réaction » portait un
+       rattrapage LOCAL (« Create expandEl dynamically… ») : c'est ce cloisonnement qui a laissé
+       « Impact marché » sans panneau pendant des semaines — un rattrapage par bouton ne protège
+       que le bouton qui l'a écrit. La création passe désormais par `assurerPanneau()`, et ce
+       contrôle refuse qu'on recrée un `document.createElement` de panneau à côté.
+       Il est LEXICAL et non joué dans le navigateur, et c'est assumé : éprouver le rattrapage de
+       Réaction au clic demanderait un jeu de bougies complet pour un chemin qui n'est pas celui du
+       défaut. Mieux vaut une garde honnête sur la source qu'une couverture qu'on n'a pas. */
+    const _APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+    verif('la fabrique de panneau existe et est unique',
+      (_APP.match(/function assurerPanneau\(\)/g) || []).length === 1);
+    const _fabriques = (_APP.match(/expandEl = document\.createElement\('div'\)/g) || []).length;
+    verif('… et personne ne fabrique un panneau à côté d\'elle', _fabriques === 1,
+      _fabriques + ' création(s) de panneau dans app.js — il ne doit y en avoir qu\'une, dans la fabrique');
+    verif('le rattrapage du bouton Réaction passe par la fabrique',
+      /if \(!expandEl\) \{\s*(?:\/\*[\s\S]*?\*\/\s*)?assurerPanneau\(\);/.test(_APP));
+
     /* ── LA POIGNÉE « ÉLARGIR » LAISSE-T-ELLE LA BARRE DE DÉFILEMENT TRANQUILLE ? ──────────────
        31/08 : « j'ai du mal à bien choper le scroller, mon curseur est sur l'élargissement du bloc ».
        ⚠️ CE QUE CE BANC PEUT ET NE PEUT PAS FAIRE, dit avant de le lire : ce Chromium sans tête
