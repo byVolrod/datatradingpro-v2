@@ -334,7 +334,10 @@ const EXPRESSIONS = [
   [/\ba travers\b/g, 'à travers'], [/\ba cause\b/g, 'à cause'], [/\ba peine\b/g, 'à peine'],
   [/\ba present\b/g, 'à présent'], [/\ba moitie\b/g, 'à moitié'], [/\ba droite\b/g, 'à droite'],
   [/\ba gauche\b/g, 'à gauche'], [/\ba cote\b/g, 'à côté'], [/\ba savoir\b/g, 'à savoir'],
-  [/\ba mesure\b/g, 'à mesure'], [/\ba defaut\b/g, 'à défaut'], [/\ba jamais\b/g, 'à jamais'],
+  [/\ba mesure\b/g, 'à mesure'], [/\ba defaut\b/g, 'à défaut'], /* ⚠️ PAS DE RÈGLE « a jamais » → « à jamais ». Elle y était, et elle mordait sur « n’a jamais » :
+     « un liseré que le Récap Hebdo n’a jamais eu » → « n’à jamais eu ».
+     Dans ce corpus, « n’a jamais » est courant et « à jamais » n’apparaît pas une seule fois. Une
+     règle dont tous les déclenchements observés sont des faux positifs n’est pas une règle. */
   [/\ba la fois\b/g, 'à la fois'], [/\ba la place\b/g, 'à la place'], [/\ba la main\b/g, 'à la main'],
   [/\ba la suite\b/g, 'à la suite'], [/\ba la fin\b/g, 'à la fin'], [/\ba la difference\b/g, 'à la différence'],
   [/\ba la hauteur\b/g, 'à la hauteur'], [/\ba la seconde\b/g, 'à la seconde'],
@@ -353,34 +356,31 @@ const EXPRESSIONS = [
 ];
 
 /* ── 2bis. « a » OU « à » : ON N'ACCENTUE QUE CE QU'ON PEUT PROUVER ─────────────────────────────
-   C'est le seul mot du lot où une erreur se voit vraiment : « le support a son visage » ne doit
-   pas devenir « à son visage ». On raisonne donc par ce qui ENTOURE le mot, et on s'abstient au
-   moindre doute — un accent manquant se pardonne, un contresens non.
-     · SUJET À GAUCHE (il, elle, on, qui, n’, y, ça…) → c'est le verbe avoir, on ne touche pas.
-     · PARTICIPE PASSÉ À DROITE → c'est un passé composé (« a été », « a corrigé »), on ne touche
-       pas. Le repérage marche parce que le texte vient d'être accentué : les participes en -é
-       portent désormais leur accent, ce qui les rend reconnaissables.
-     · sinon → préposition, donc « à ». */
-const SUJETS_AVOIR = new Set(['il', 'elle', 'on', 'qui', 'n’', 'y', 'ça', 'cela', 'ceci', 'ce',
-  'chacun', 'chacune', 'personne', 'quelqu’un', 'tout', 'rien', 'en', 'nous', 'vous', 'j’', 'l’on']);
-const PARTICIPES = new Set(['été', 'eu', 'pu', 'dû', 'fait', 'dit', 'mis', 'pris', 'su', 'vu',
-  'voulu', 'fallu', 'permis', 'perdu', 'connu', 'tenu', 'valu', 'écrit', 'ouvert', 'couvert',
-  'disparu', 'apparu', 'rendu', 'venu', 'revenu', 'reçu', 'vécu', 'paru', 'couru', 'cru', 'plu',
-  'lu', 'bu', 'fini', 'choisi', 'réussi', 'servi', 'senti', 'sorti', 'mis', 'assis', 'offert',
-  'DISPARU', 'CHANGÉ', 'PERMIS', 'RENDU']);
-function accentueA(t) {
-  return t.replace(/(^|[\s(«"'’])([aA])(\s+)([^\s]+)/g, (tout, av, lettre, esp, suiv) => {
-    const gauche = (t.slice(0, t.indexOf(tout)).match(/([\wàâäçéèêëîïôöùûü’]+)\s*$/) || [])[1];
-    if (gauche && SUJETS_AVOIR.has(gauche.toLowerCase())) return tout;
-    const s2 = suiv.toLowerCase().replace(/[^a-zàâäçéèêëîïôöùûü’]/g, '');
-    if (PARTICIPES.has(s2)) return tout;
-    if (/(é|ée|és|ées)$/.test(s2)) return tout;          // participe passé accentué → passé composé
-    // Dans un titre en capitales, « A » est plus souvent l'auxiliaire : on exige que le mot suivant
-    // ne ressemble pas à un participe (terminaisons en -U, -I, -S, -É).
-    if (lettre === 'A' && suiv === suiv.toUpperCase() && /[UI]$|É[ES]?$|[AEIOU]S$/.test(suiv.replace(/[^A-ZÀ-Ý]/g, ''))) return tout;
-    return av + (lettre === 'A' ? 'À' : 'à') + esp + suiv;
-  });
-}
+   ⚠️ RÉÉCRIT LE 27/08 APRÈS DÉGÂT AVÉRÉ — et le dégât mérite d'être raconté, parce qu'il dit
+   exactement pourquoi cette fonction est écrite à l'envers de toutes les autres.
+   La version précédente devinait par ce qui ENTOURE le mot, et RETOMBAIT SUR « à » quand elle ne
+   trouvait rien. Or ce qu'elle savait reconnaître à gauche, c'était une liste fermée de PRONOMS
+   (il, elle, on, qui…). Un SUJET NOM n'y figurait pas — et le français en est fait :
+       « le desk a de quoi comparer »   → « le desk à de quoi comparer »
+       « la seconde porte a donc… »     → « la seconde porte à donc… »
+       « la recherche a montré… »       → « la recherche à montré… »
+       « si l'envoi a bien été accepté »→ « si l'envoi à bien été accepté »
+   Pire, la négation lui échappait AUSSI : le mot capturé à gauche de « n’a » est « n », et la liste
+   portait « n’ » — avec l'apostrophe. Aucune des deux formes ne se rencontrait, donc « n’a » passait
+   systématiquement à « n’à », qui n'existe dans AUCUNE phrase française. TRENTE ET UN contresens
+   avaient été introduits dans les annonces clients, et livrés.
+   (Deuxième défaut, corrigé ici même : la position du mot se cherchait avec `t.indexOf(tout)`, soit
+   la PREMIÈRE occurrence du fragment dans tout le texte — pas celle qu'on est en train de traiter.
+   À partir du deuxième « a » d'une même description, le contexte examiné était celui d'une autre
+   phrase. Le décalage était invisible : il rendait le verdict aléatoire, pas absurde.)
+   LA RÈGLE EST DONC INVERSÉE, et c'est le principe que le fichier énonce partout ailleurs : un
+   accent manquant se pardonne, un contresens non. On n'accentue QUE sur PREUVE — les locutions
+   figées et « a » + infinitif, tous deux traités au-dessus dans EXPRESSIONS, où chaque cas est écrit
+   noir sur blanc. Hors de cette liste, ON NE TOUCHE PAS. Ajouter un cas ici, c'est ajouter une
+   ligne à EXPRESSIONS, donc l'écrire et pouvoir la relire — pas élargir une devinette.
+   Ce que ça coûte : quelques « a » qui auraient dû prendre l'accent restent nus. Ce que ça évite :
+   qu'une annonce lue par les clients dise le contraire de ce qu'elle veut dire. */
+function accentueA(t) { return t; }
 
 /* ── 3. APOSTROPHES ESCAMOTÉES ──────────────────────────────────────────────────────────────────
    « l un apres l autre » → « l’un après l’autre ». Une lettre d'élision isolée devant une voyelle

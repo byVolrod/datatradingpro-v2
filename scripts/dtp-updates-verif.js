@@ -76,6 +76,30 @@ const SANS_ACCENT = ['deja', 'apres', 'etait', 'etaient', 'etre', 'ete', 'tres',
   'recap', 'recaps', 'resume', 'resumes', 'seance', 'seances', 'geopolitique', 'reussi',
   'affichee', 'affiches', 'creee', 'cree', 'ameliore', 'amelioree', 'detail', 'details'];
 
+/* ── CONTRESENS « à » / « a » ────────────────────────────────────────────────────────────────────
+   ⚠️ POSÉ LE 27/08 APRÈS DÉGÂT AVÉRÉ, et il vise une faute d'une autre nature que les précédentes.
+   Les contrôles ci-dessus traquent des accents MANQUANTS — une négligence, qui se lit quand même.
+   Celui-ci traque un accent DE TROP au seul endroit où il retourne le sens : « a » est le verbe
+   avoir, « à » est une préposition. Confondre les deux ne rend pas la phrase moins soignée, il la
+   rend fausse — « le desk à de quoi comparer », « si l'envoi à bien été accepté ».
+   L'AUTEUR DU DÉGÂT ÉTAIT NOTRE PROPRE OUTIL : `scripts/dtp-updates-accents.js` retombait sur « à »
+   faute de preuve du contraire, et ne reconnaissait comme sujet qu'une liste fermée de pronoms —
+   donc jamais un sujet nom, jamais la négation. Trente et un contresens sont partis chez les
+   clients avant qu'on les voie. L'outil a été inversé (il n'accentue plus que sur preuve) ; ce
+   contrôle-ci est la ceinture : même si un outil ou une main recommence, le commit est refusé.
+   DEUX FORMES, toutes deux mécaniques — aucune heuristique, donc aucune accusation à tort :
+     · « n’à » n'existe dans AUCUNE phrase française. C'est toujours « n’a ».
+     · « à » suivi d'un participe passé est un passé composé : l'auxiliaire, donc « a ». */
+const CONTRESENS = [
+  /* ⚠️ PAS DE `\b` APRÈS « à ». `\b` se pose entre un caractère de mot et un autre qui n'en est
+     pas — or « à » N'EST PAS un caractère de mot pour le moteur JS. « n’à pas » n'aurait donc
+     jamais déclenché : la règle serait restée muette, exactement comme le défaut qu'elle traque.
+     Écrit d'abord ainsi, et pris sur le fait par le contrôle inverse ci-dessous. */
+  [/n’à(?![a-zA-ZÀ-ÿ])/g, '« n’à » — c’est le verbe avoir : écrire « n’a »'],
+  [/(^|[\s’])à (?:été|eu|pu|dû|fait|dit|mis|pris|su|vu|voulu|fallu|permis|perdu|connu|tenu|rendu|reçu|disparu|paru|vécu|lu|fini|choisi|servi|offert|ouvert|couvert|écrit|montré|trouvé|corrigé|changé|ajouté|retiré|donné|laissé|gagné|cessé|suffi|manqué|bougé|duré|touché|évité|posé|livré|repris|remis|déjà|bien|aussi|enfin|donc|toujours)\b/g,
+   '« à » suivi d’un participe ou d’un adverbe — c’est l’auxiliaire avoir : écrire « a »'],
+];
+
 // Le texte QUE LE CLIENT LIT dans les lignes ajoutées : ce qui suit `title:` et `desc:`, rien d'autre.
 function texteAnnonce(diff) {
   return diff.split('\n')
@@ -96,6 +120,10 @@ function defautsDeLangue(diff) {
   if (elis.length) d.push(`apostrophes escamotées : « ${elis.join(' », « ')} » isolés — écrire d’, l’, qu’ (apostrophe ’, U+2019).`);
   const mots = SANS_ACCENT.filter(m => new RegExp('\\b' + m + '\\b', 'i').test(t)).slice(0, 6);
   if (mots.length) d.push(`mots sans accent : ${mots.join(', ')}.`);
+  for (const [rx, dit] of CONTRESENS) {
+    const h = [...t.matchAll(rx)].map(m => m[0].trim()).slice(0, 4);
+    if (h.length) d.push(`CONTRESENS : ${dit} — vu : « ${h.join(' », « ')} ».`);
+  }
   return d;
 }
 // … et touche-t-il à autre chose que ce tableau ? (au moins une ligne ajoutée/retirée hors « dtpu- »)
@@ -185,6 +213,44 @@ function autotest() {
   v('une annonce en français correct PASSE', dBon.length === 0, dBon.join(' | '));
   // Un texte trop court (pas d'annonce dans le diff) ne doit jamais déclencher le refus.
   v('un diff sans annonce ne déclenche rien', defautsDeLangue('+  const X = 1;').length === 0);
+
+  /* ── LE CONTRESENS « à » / « a », DANS LES DEUX SENS ────────────────────────────────────────── */
+  const cMauvais = defautsDeLangue("+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Essai', "
+    + "desc: 'Le desk n’à pas de quoi comparer, et la seconde porte à donc sa garantie. La recherche à montré "
+    + "pourquoi : si l’envoi à bien été accepté, le message à aussi été raccourci de moitié depuis la journée "
+    + "précédente, et le récap hebdo n’à jamais eu son liseré doré devant chaque titre de rubrique.' },");
+  v('« n’à » est REFUSÉ', cMauvais.some(x => /n’à/.test(x)), cMauvais.join(' | '));
+  v('« à » + participe est REFUSÉ', cMauvais.some(x => /participe/.test(x)), cMauvais.join(' | '));
+  /* ⚠️ ET SURTOUT L'INVERSE : la MÊME phrase, écrite juste, doit passer. Sans ce contrôle, une règle
+     qui refuserait tout « à » du corpus passerait le test ci-dessus et bloquerait chaque commit. */
+  const cBon = defautsDeLangue("+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Essai', "
+    + "desc: 'Le desk n’a pas de quoi comparer, et la seconde porte a donc sa garantie. La recherche a montré "
+    + "pourquoi : si l’envoi a bien été accepté, le message a aussi été raccourci de moitié depuis la journée "
+    + "précédente, et le récap hebdo n’a jamais eu son liseré doré devant chaque titre de rubrique.' },");
+  v('… la même phrase écrite juste PASSE', cBon.length === 0, cBon.join(' | '));
+  /* Les vraies prépositions du corpus ne doivent pas être prises pour des auxiliaires. */
+  const cPrep = defautsDeLangue("+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Essai', "
+    + "desc: 'À partir de cette livraison, le panneau à onglets se déplie à l’écran de la même façon à Paris "
+    + "qu’à Londres, et la colonne passe à droite à l’ouverture comme à la fermeture de la séance du jour.' },");
+  v('… et une vraie préposition n’est pas accusée', cPrep.length === 0, cPrep.join(' | '));
+
+  /* ── LE CORPUS LIVRÉ, EN ENTIER ─────────────────────────────────────────────────────────────────
+     Le hook ne voit que le diff : il protège l'avenir, pas le passé. Or l'outil d'accents réécrit
+     server.js EN ENTIER à chaque passage — c'est ainsi qu'il a abîmé trente et une annonces déjà
+     livrées, sans qu'aucune ligne du diff ne soit « nouvelle ». On relit donc tout le tableau. */
+  const SRV = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const iD = SRV.indexOf('const DTP_UPDATES = [');
+  const corpus = iD < 0 ? '' : SRV.slice(iD, SRV.indexOf('\n];', iD));
+  v('le tableau DTP_UPDATES est lisible', corpus.length > 1000);
+  const fautes = [];
+  for (const [rx, dit] of CONTRESENS) {
+    for (const m of corpus.matchAll(rx)) {
+      const ctx = corpus.slice(Math.max(0, m.index - 45), m.index + 45).replace(/\s+/g, ' ');
+      fautes.push(dit.split(' —')[0] + ' → …' + ctx + '…');
+    }
+  }
+  v('aucun contresens « à »/« a » dans les ' + (corpus.match(/id: 'dtpu-/g) || []).length + ' annonces livrées',
+    fautes.length === 0, fautes.slice(0, 6).join('\n      → '));
   console.log(ko ? '\n✗ ' + ko + ' ÉCHEC(S)\n' : '\n✓ le garde-fou de langue tient.\n');
   process.exit(ko ? 1 : 0);
 }
