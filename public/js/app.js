@@ -1152,6 +1152,16 @@ function handleMessage(msg) {
         if (Object.keys(_openNewsPanels).length) { ex._hlFrEnAttente = inc._hlFr; }
         else { ex._hlFr = inc._hlFr; _proposPoses.add(String(ex.id)); }
       }
+      /* ⚠️ TITRE DU FIL PRÉ-TRADUIT : MÊME MISE EN RÉSERVE, ET LA RAISON EST ENCORE PLUS FORTE.
+         `_titreFr` arrive en cours de lecture et remplace le TITRE d'une ligne — c'est-à-dire le
+         texte le plus visible du desk. Le poser pendant qu'un panneau est ouvert ferait bouger le
+         fil sous les yeux du lecteur, exactement le défaut fermé le 24/08 pour les descriptions.
+         On met donc en réserve tant qu'un panneau quelconque est ouvert, et on promeut à la
+         fermeture du dernier. */
+      if (typeof inc._titreFr === 'string' && inc._titreFr && !ex._titreFr) {
+        if (Object.keys(_openNewsPanels).length) { ex._titreFrEnAttente = inc._titreFr; }
+        else { ex._titreFr = inc._titreFr; _patched = true; }
+      }
       // Horodatages VRAIS des lectures (« Analyse à 8h12 » = l'heure de l'analyse, pas de la news).
       if (inc._anaAt && !ex._anaAt) ex._anaAt = inc._anaAt;
       if (inc._impAt && !ex._impAt) ex._impAt = inc._impAt;
@@ -2670,6 +2680,10 @@ function _promouvoirProposEnAttente() {
   const ids = new Set();
   for (const it of allItems) {
     if (it && it._hlFrEnAttente) { it._hlFr = it._hlFrEnAttente; delete it._hlFrEnAttente; ids.add(String(it.id)); }
+    /* Le titre du fil suit le même chemin : mis en réserve pendant la lecture, promu à la
+       fermeture. Sans cette ligne, `_titreFrEnAttente` resterait coincé pour toujours — le défaut
+       exact que `_descFrEnAttente` avait connu. */
+    if (it && it._titreFrEnAttente) { it._titreFr = it._titreFrEnAttente; delete it._titreFrEnAttente; ids.add(String(it.id)); }
   }
   if (ids.size) _rafraichirCartesPropos(ids);
 }
@@ -2790,9 +2804,20 @@ function _dtpTitle(s) { return _mdStrip(String(s || '').replace(_NEWS_SRC_RE, ''
 // explicatif IA (item._infoTitle) s'il est prêt, sinon repli déterministe INSTANTANÉ. AFFICHAGE SEULEMENT —
 // item.headline n'est JAMAIS muté (veto 2026-07-03) ; la citation brute reste lisible dans le déplié.
 const _INFO_QUOTE_FALLBACK = 'Propos personnels, hors données de marché';
+/* ⚠️ LE TITRE PRÉFÈRE SA TRADUCTION (27/08, capture client : une géopolitique affichée en anglais
+   dans un desk français). `_titreFr` est posé par le cycle de fond du serveur ; tant qu'il n'est
+   pas arrivé, on affiche la source — jamais de ligne vide, jamais d'attente.
+   ⚠️ ET ON PASSE PAR `_dtpTitle` DANS LES DEUX CAS. Il retire le nom du média collé en fin de
+   titre et les marques de markdown : la traduction les recopie fidèlement, donc elle en a autant
+   besoin que l'original. Les servir sans ébarbage ferait réapparaître « … Bitcoin World » sur les
+   seules lignes traduites, et on chercherait pourquoi.
+   ⚠️ `_titreFr` N'EST PAS `_hlFr` : ce dernier porte un propos ÉBARBÉ de son locuteur, et le
+   servir ici ferait disparaître « BoE's Mann : » de la ligne du fil. Les deux champs ne se
+   croisent jamais — le serveur ne remplit que l'un des deux par item. */
 function _newsDisplayTitle(item) {
   if (item && item._infoQuote) return _dtpTitle(item._infoTitle) || _INFO_QUOTE_FALLBACK;
-  return _dtpTitle(item ? item.headline : '');
+  const fr = (item && typeof item._titreFr === 'string') ? item._titreFr.trim() : '';
+  return _dtpTitle(fr || (item ? item.headline : ''));
 }
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)

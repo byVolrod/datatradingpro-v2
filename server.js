@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-titres-francais', ts: Date.UTC(2026, 8, 10, 20, 0), title: 'Les titres du fil passent en français', desc: 'Signalé sur capture : une dépêche géopolitique s’affichait EN ANGLAIS dans le fil — « Chinese executives may join Xi’s US trip… » — au milieu d’un desk qui est en français partout ailleurs. LE MÉCANISME EXISTAIT, IL ÉTAIT SIMPLEMENT TROP ÉTROIT. Le desk prépare déjà ses traductions en tâche de fond, pour ne rien vous faire attendre à l’ouverture. Deux cycles tournaient : l’un traduit la DESCRIPTION d’une actualité — ce que vous lisez quand vous la dépliez — l’autre traduit les TITRES, mais uniquement ceux des prises de parole des responsables. Le titre d’une dépêche ordinaire n’était traduit NULLE PART. Résultat : du français dès que vous ouvriez une actualité, et de l’anglais tant que vous ne l’ouvriez pas — c’est-à-dire dans le fil, qui est précisément ce qu’on regarde le plus. LES TITRES DU FIL SONT DÉSORMAIS PRÉPARÉS EUX AUSSI. Le budget ne bouge pas d’un pouce : même plafond quotidien, même débit, même priorité de fond qui cède devant tout le reste, même cache. Un titre est court, un lot en coûte une fraction de ce que coûte le même nombre de descriptions. Ce qui change, c’est l’ORDRE : les actualités importantes passent en premier, comme pour les descriptions. Si le quota d’une journée s’épuise en route, ce sont les dépêches qui comptent qui auront été traduites, pas celles qui se trouvaient en tête de liste. TROIS PRÉCAUTIONS, parce qu’une traduction mal posée est pire qu’un texte en anglais. Les prises de parole gardent leur propre traitement : leur titre est débarrassé du nom du locuteur pour le panneau, et ce texte-là ne doit surtout pas remplacer la ligne du fil — sans quoi « BoE’s Mann : » disparaîtrait. Les rapports écrits par le desk sont écartés : ils sont déjà en français, les traduire reviendrait à payer pour les abîmer. Et une traduction qui ÉCHOUE n’est jamais enregistrée : notre outil renvoie le texte d’origine quand il n’a pas pu traduire, et le retenir figerait l’anglais pour toujours sur cette ligne, qui ne serait plus jamais retentée. ENFIN, RIEN NE BOUGE SOUS VOS YEUX. Une traduction qui arrive pendant que vous lisez une actualité ouverte est mise en réserve et n’est posée qu’à la fermeture du dernier panneau. Tant qu’elle n’est pas là, le titre d’origine reste affiché : jamais de ligne vide, jamais d’attente.' },
   { id: 'dtpu-20260910-impact-clic-mort', ts: Date.UTC(2026, 8, 10, 18, 0), title: 'Le bouton « Impact marché » qui ne s’ouvrait pas est réparé', desc: 'Signalé capture à l’appui : sur une dépêche géopolitique, le bouton « Impact marché » était bien là, et le clic ne faisait RIEN. Pas de message, pas d’erreur, pas de panneau — rien. Le défaut est reproduit, compris et corrigé. LA CAUSE TIENT EN UNE CONDITION. Le panneau qui se déplie sous une actualité — celui que partagent Info, Analyse, Réaction et Impact marché — n’était fabriqué que si l’actualité portait une description, une analyse ou une donnée économique. « Impact marché » ne figurait pas dans cette liste. Or une dépêche géopolitique porte souvent une lecture d’impact ET RIEN D’AUTRE : elle recevait donc un bouton parfaitement cliquable, et aucun panneau derrière pour l’accueillir. Le clic était avalé en silence. CE QUI REND CE DÉFAUT PARTICULIÈREMENT DÉSAGRÉABLE, c’est qu’il ne ressemble pas à une panne : rien ne clignote, rien ne s’affiche en rouge, la console reste muette. Le lecteur clique deux fois, trois fois, et finit par se dire que le desk ne marche pas. C’est exactement ce qu’un client a vécu. ET IL ÉTAIT DÉJÀ CONNU — RÉPARÉ À UN SEUL ENDROIT. Le bouton « Réaction » portait depuis longtemps son propre rattrapage pour ce même cas. Un rattrapage écrit dans un bouton ne protège que ce bouton : le suivant retombe dans le trou, et c’est précisément ce qui est arrivé. La fabrication du panneau passe désormais par UN seul point que tous les boutons appellent — un bouton ajouté demain ne pourra plus oublier son panneau. Un contrôle automatique refuse d’ailleurs qu’on en fabrique un ailleurs. LE CHEVRON AUSSI. Ouvrir le panneau à ces actualités fait apparaître le petit chevron à leur gauche : il vise maintenant la lecture d’impact. Sans cette précision, il aurait visé un onglet inexistant et on aurait simplement déplacé le clic mort au lieu de le supprimer. Les deux chemins — le bouton et le chevron — sont désormais éprouvés à chaque livraison, sur une dépêche géopolitique dépouillée, celle-là même de la capture.' },
   { id: 'dtpu-20260910-indices-matieres', ts: Date.UTC(2026, 8, 10, 16, 0), title: 'Le desk sort du forex : un nouveau widget « Indices & Matières »', desc: 'Retour d’un client, transmis tel quel : « rajoute les indices et plus de marché avant, que le forex c’est frustrant de ouf ». Vérification faite avant d’écrire la moindre ligne, et il avait raison au pied de la lettre : LES QUINZE WIDGETS des rubriques Marchés et Devises parlaient de change, et uniquement de change — Carte de chaleur FX, Taux croisés, Corrélations des sept majeures, Performance hebdo des huit devises. Le desk balayait l’intégralité du forex et rien d’autre. UN NOUVEAU WIDGET, dans la rubrique Marchés : quatre indices actions — DAX 40, S&P 500, FTSE 100, CAC 40 — et trois matières premières — Or, Argent, Pétrole WTI. Pour chacun, DEUX horizons côte à côte : la variation de sa dernière séance cotée, et celle de la semaine depuis lundi. Les deux ensemble, parce qu’une séance isolée est du bruit et qu’une semaine seule rate le retournement du jour. La barre reprend exactement la grammaire de Performance hebdo : axe au centre, vert à droite, rouge à gauche. Rien de nouveau à apprendre pour la lire. CES PLACES N’OUVRENT PAS AUX MÊMES HEURES, et la carte en tient compte : quand New York cote, Francfort et Paris sont fermés depuis des heures, et le week-end aucune ne cote. Chaque ligne se compare donc à SA propre clôture précédente, jamais à une heure d’horloge commune — une place fermée garde la variation de sa dernière séance, ce qui reste l’information juste. Prendre « la bougie d’aujourd’hui » aurait vidé la moitié de la carte selon l’heure à laquelle on la regarde. L’ÉCHELLE DES BARRES EST COMMUNE à toute la carte : le pétrole bouge structurellement plus qu’un indice, et c’est précisément ce que la carte doit montrer. Une barre normalisée ligne par ligne aurait donné sept barres pleines et n’aurait rien appris. CE QUE ÇA OUVRE COMME LECTURE : un dollar qui monte pendant que l’or monte AUSSI ne raconte pas la même histoire qu’un dollar qui monte pendant que l’or baisse. Le premier sent la fuite vers la qualité, le second le simple différentiel de taux. C’est exactement ce qui manquait au change lu seul. AUCUNE SOURCE NOUVELLE : ces sept instruments alimentaient déjà le sélecteur du widget Graphique, par la même route que les paires de devises. Il ne manquait pas de données, il manquait un endroit pour les lire ensemble. La semaine est calculée par le MÊME code que Performance hebdo, jamais par une seconde copie : les deux cartes ne peuvent pas afficher deux chiffres différents pour la même chose. Sur une carte étroite, c’est la colonne de la semaine qui s’efface — la moins urgente — et jamais le nom, la barre ou la variation du jour.' },
   { id: 'dtpu-20260910-poignee-elargir', ts: Date.UTC(2026, 8, 10, 14, 0), title: 'Élargir un widget : le repère se voit enfin là où le curseur le promet', desc: 'Retour d’un client, capture à l’appui : « regarde moi ce curseur n’est pas précis, je comprends pas ». Il avait raison, et voici ce qui se passait. Le bord droit d’un widget se tire pour l’élargir : en approchant le pointeur, il devient une double flèche. CETTE ZONE COURT SUR TOUTE LA HAUTEUR DE LA CARTE — trois cent six pixels mesurés sur une carte ordinaire. Le petit repère doré qui la signalait, lui, ne faisait que vingt-six pixels, ET IL ÉTAIT CENTRÉ. Autrement dit : huit et demi pour cent de ce qu’on pouvait attraper était dessiné, et cent quarante pixels restaient aveugles au-dessus comme en dessous. On survolait le bord, le curseur annonçait « redimensionner », et la seule marque visible s’allumait jusqu’à cent quarante pixels plus loin. Rien n’était cassé — c’est précisément ce qui rendait le défaut déroutant : le geste fonctionnait là où l’œil ne voyait rien, et l’œil fixait une marque qui n’était pas sous la main. LE REPÈRE ÉPOUSE DÉSORMAIS LA ZONE, exactement : ce que vous voyez est ce que vous pouvez prendre. Il se lit en deux temps, parce que les deux moments n’ont pas le même sens — quand votre souris entre dans la carte, un rail discret le long du bord dit que ce bord se tire ; quand vous arrivez dessus, c’est-à-dire au moment même où la double flèche apparaît, le rail passe en or plein sur toute sa hauteur, sous votre pointeur. L’intensité du rail discret n’a pas été choisie au jugé : quatre valeurs ont été peintes côte à côte pour retenir celle qui se voit sans dessiner une seconde bordure le long de chaque carte. Au repos, rien n’est peint : le desk reste aussi net qu’avant. Et un contrôle automatique mesure désormais ce recouvrement à chaque livraison, sur une carte haute et sur une carte basse — le repère ne pourra plus se désolidariser de sa zone sans que ça se voie.' },
@@ -19251,17 +19252,47 @@ async function _prechaufferProposFr() {
     const jour = _aiDay();
     if (_proposFrJour !== jour) { _proposFrJour = jour; _proposFrCount = 0; _proposFrEssais = 0; }
     if (PROPOS_FR_MAX_JOUR <= 0 || _proposFrCount >= PROPOS_FR_MAX_JOUR) return;   // plafond du jour atteint
+    /* ══ ÉLARGI AUX TITRES DU FIL (27/08) ═══════════════════════════════════════════════════════
+       CAPTURE CLIENT : une dépêche géopolitique affichée EN ANGLAIS dans le fil — « Chinese
+       executives may join Xi's US trip… ». Le desk est en français partout, et ce cycle de fond
+       traduisait déjà des titres… mais UNIQUEMENT ceux des propos (`if (!it._propos) continue`).
+       Un titre de dépêche ordinaire n'était traduit NULLE PART : ni ici, ni au dépliage (le cycle
+       voisin ne traduit que la DESCRIPTION). Le lecteur lisait donc du français dès qu'il ouvrait
+       une news, et de l'anglais tant qu'il ne l'ouvrait pas — c'est-à-dire dans le fil, qui est ce
+       qu'on regarde le plus.
+       ⚠️ DEUX CHAMPS, PAS UN. `_hlFr` porte le propos ÉBARBÉ de son locuteur (« BoE's Mann: » est
+       retiré) et le panneau Info le pose tel quel. Réutiliser ce champ pour un titre de fil ferait
+       deux sens dans une même clé, et surtout ferait DISPARAÎTRE le nom du locuteur de la ligne du
+       fil. Les titres ordinaires vont donc dans `_titreFr`, qui n'a qu'un sens.
+       ⚠️ ET SURTOUT PAS `_proposSansPrefixe` SUR UN TITRE ORDINAIRE. Il coupe tout ce qui précède
+       le premier « : », « - » ou « — » dans les 55 premiers caractères — ce qui est juste pour
+       « BoE's Mann: … » et désastreux pour « Trump-Xi call », qui deviendrait « Xi call ». Il reste
+       donc réservé aux propos.
+       LE BUDGET NE BOUGE PAS : même plafond quotidien, même débit par cycle, même priorité de fond
+       (coupée à 60 % du quota), même cache durable. Un titre est court : le lot coûte une fraction
+       de ce que coûte le même nombre de descriptions. Ce qui change est l'ORDRE — les news
+       importantes d'abord, comme le fait déjà la pré-traduction des descriptions : si la journée se
+       coupe en route, ce sont les dépêches qui comptent qui auront été traduites, pas celles qui se
+       trouvaient en tête de liste. */
     const cibles = [];
     const vus = new Set();
-    for (const it of allNews) {
-      if (!it || !it._propos || it._hlFr) continue;
-      if (maintenant - (it.timestamp || 0) > 6 * 60 * 60 * 1000) continue;   // le panneau ne montre que du récent
-      const t = _proposSansPrefixe(it.headline).replace(/\s+/g, ' ').trim();
+    const _ordre = [...allNews].sort((a, b) =>
+      (_isImportantNews((b || {}).headline, (b || {}).category, (b || {}).priority) ? 1 : 0)
+      - (_isImportantNews((a || {}).headline, (a || {}).category, (a || {}).priority) ? 1 : 0));
+    for (const it of _ordre) {
+      if (!it) continue;
+      const estPropos = !!it._propos;
+      if (estPropos ? it._hlFr : it._titreFr) continue;                      // déjà traduit
+      /* Les rapports du desk sont ÉCRITS en français : les traduire serait payer pour abîmer. */
+      if (!estPropos && (it._briefing || it._marketWrap || it._eventAnalysis || it._dtpd || it._infoQuote)) continue;
+      if (maintenant - (it.timestamp || 0) > 6 * 60 * 60 * 1000) continue;   // le fil ne montre que du récent
+      const t = (estPropos ? _proposSansPrefixe(it.headline) : String(it.headline || ''))
+        .replace(/\s+/g, ' ').trim();
       if (t.length < 12 || t.length > 400) continue;
       if (_looksFr(t)) continue;                                             // déjà français : rien à dépenser
-      if (vus.has(t)) continue;                                              // deux reposts du même propos = une seule ligne
+      if (vus.has(t)) continue;                                              // deux reposts du même titre = une seule ligne
       vus.add(t);
-      cibles.push({ it, t });
+      cibles.push({ it, t, estPropos });
       if (cibles.length >= Math.min(PROPOS_FR_PAR_CYCLE, PROPOS_FR_MAX_JOUR - _proposFrCount)) break;
     }
     if (!cibles.length) return;
@@ -19270,13 +19301,18 @@ async function _prechaufferProposFr() {
     let poses = 0;
     (translations || []).forEach((fr, i) => {
       const c = cibles[i];
-      if (c && fr && fr !== c.t) { c.it._hlFr = fr; poses++; }
+      /* `_traduireLot` REND LA SOURCE quand il échoue sur une ligne : la poser telle quelle
+         figerait l'anglais dans le champ et la ligne ne serait JAMAIS retentée. Même garde que
+         la pré-traduction des descriptions. */
+      if (!c || !fr || fr === c.t) return;
+      if (c.estPropos) c.it._hlFr = fr; else c.it._titreFr = fr;
+      poses++;
     });
     _proposFrCount += poses;
     if (poses) {
       try { saveHistory(); } catch (e) {}
-      try { broadcast({ type: 'news_update', items: cibles.filter(c => c.it._hlFr).map(c => c.it), total: allNews.length }); } catch (e) {}
-      console.log('[ProposFR] ' + poses + ' propos pré-traduit(s) — ' + _proposFrCount + '/' + PROPOS_FR_MAX_JOUR + ' aujourd\'hui');
+      try { broadcast({ type: 'news_update', items: cibles.filter(c => c.it._hlFr || c.it._titreFr).map(c => c.it), total: allNews.length }); } catch (e) {}
+      console.log('[TitresFR] ' + poses + ' titre(s) pré-traduit(s) — ' + _proposFrCount + '/' + PROPOS_FR_MAX_JOUR + ' aujourd\'hui');
     }
   } catch (e) { console.error('[ProposFR]', e.message); }
 }
