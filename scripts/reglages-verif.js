@@ -211,6 +211,33 @@ function decouper(src, entete, fin) {
     v('… après le rendu, pas avant', setGap.indexOf('renderGrid()') < setGap.indexOf('_syncDensity()'));
   }
 
+  /* ═══ LES NOMS DE WIDGETS RESTENT COURTS (09/09, demande user : « raccourci le nom des widgets
+     légèrement + ») ═══════════════════════════════════════════════════════════════════════════
+     Ils s'affichent dans les cartes de la bibliothèque et en tête de chaque widget posé : au-delà
+     d'une vingtaine de caractères ils passent sur deux lignes ou se font couper. Dix noms allaient
+     de 24 à 28 caractères (« Compte à rebours d'événement »).
+     ⚠️ ON ÉPINGLE LA PROPRIÉTÉ, PAS LA LISTE. Un contrôle qui vérifierait les dix noms corrigés
+     laisserait passer le ONZIÈME, ajouté demain. Celui-ci mesure TOUS les noms du catalogue, donc
+     il tient sans être réécrit. Le plafond est fixé au plus long qui reste, sans marge : ajouter
+     un nom plus long devient un choix explicite, pas un glissement. */
+  {
+    const WDG = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
+    const rx = /id:\s*'([a-z0-9-]+)',\s*name:\s*'((?:[^'\\\\]|\\\\.)*)'/g;
+    const noms = []; let m;
+    while ((m = rx.exec(WDG))) noms.push({ id: m[1], n: m[2].replace(/\\'/g, "'") });
+    v('le catalogue de widgets est lisible', noms.length >= 35, String(noms.length));
+    const PLAFOND = 23;
+    const longs = noms.filter(x => x.n.length > PLAFOND);
+    v('aucun nom de widget ne dépasse ' + PLAFOND + ' caractères', longs.length === 0,
+      longs.map(x => x.n.length + ' « ' + x.n + ' »').join(' · '));
+    /* Deux widgets qui portent le même nom sont indiscernables dans la bibliothèque : raccourcir
+       est précisément l'opération qui peut provoquer une collision. */
+    const vus = new Set(), doubles = [];
+    for (const x of noms) { if (vus.has(x.n)) doubles.push(x.n); vus.add(x.n); }
+    v('… et deux widgets ne portent jamais le même nom', doubles.length === 0, doubles.join(' · '));
+    v('… ni un nom vide', noms.every(x => x.n.trim().length >= 5), noms.filter(x => x.n.trim().length < 5).map(x => x.id).join(' · '));
+  }
+
   console.log('\n───────────────────────────────────────');
   console.log('  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n');
   process.exit(ko ? 1 : 0);

@@ -2373,7 +2373,7 @@
     // (« Classement des Devises » RETIRÉ du catalogue le 23/07, demande user — les configs qui le
     //  contiennent encore sont ignorées proprement par renderGrid : byId() → null → carte sautée.)
     {
-      id: 'risque-historique', name: 'Historique du Sentiment',
+      id: 'risque-historique', name: 'Historique du risque',
       maj: 5 * 60 * 1000, cat: 'Risque', h: 260,   // serie agregee, et surtout auto-reparation si le premier chargement echoue
       desc: "L'appétit pour le risque des dernières semaines.",
       aide: "<p>La même mesure d'appétit pour le risque que la jauge de sentiment, mais déroulée dans le temps : chaque point est la valeur d'une journée, au-dessus de zéro le risque est recherché, en dessous il est fui. La fenêtre se règle de 30 jours à un an.</p><p>L'historique donne le contexte que l'instantané ne peut pas donner : un risque-on de trois jours après un mois de risque-off n'a pas le même poids qu'un régime installé. C'est la <strong>durée</strong> d'un régime, plus que son niveau du jour, qui conditionne les corrélations.</p>",
@@ -3168,7 +3168,7 @@
          de positions, et c'est ce que dit le verdict — un constat d'exposition, jamais un
          conseil. Les 7 fetchs passent par le cache OHLC partagé (TTL 5 min) : les cartes qui
          suivent déjà ces paires ne coûtent aucune requête de plus. */
-      id: 'correlations', name: 'Corrélations entre paires', tag: 'CORRÉLATIONS', cat: 'Marchés', h: 320,
+      id: 'correlations', name: 'Corrélations', tag: 'CORRÉLATIONS', cat: 'Marchés', h: 320,
       desc: 'La corrélation sur 30 séances entre les 7 paires majeures, en matrice triangulaire.',
       aide: "<p>Chaque cellule mesure à quel point deux paires évoluent ensemble sur leurs 30 dernières séances communes : vert quand elles montent et baissent de concert, rouge quand l'une monte quand l'autre baisse, d'autant plus soutenu que le lien est fort (r × 100 dans la cellule). La corrélation porte sur les paires telles qu'elles cotent : USD/JPY qui monte, c'est le dollar qui monte face au yen.</p><p>La lecture de décision est le <strong>recouvrement d'exposition</strong> : deux positions dans le même sens sur un couple très corrélé font une seule exposition, pas deux ; sur un couple très anti-corrélé, elles se compensent en partie. Une corrélation dit ce qui s'est mesuré, jamais ce qui va durer.</p>",
       src: "Clôtures quotidiennes réelles des 7 paires contre dollar, relues toutes les 5 minutes ; rendements logarithmiques appariés par jour UTC, 30 dernières séances communes par couple et 20 minimum : en dessous, la cellule se tait.",
@@ -3487,7 +3487,7 @@
          verdict COT). Lundi sans bougie close : la carte dit « semaine à peine ouverte » plutôt
          que de maquiller la séance du jour en chiffre hebdo. Week-end : classement figé,
          étiqueté « semaine close ». */
-      id: 'perf-semaine', name: 'Performance de la semaine', tag: 'HEBDO', cat: 'Devises', h: 300,
+      id: 'perf-semaine', name: 'Performance hebdo', tag: 'HEBDO', cat: 'Devises', h: 300,
       desc: 'Qui gagne la semaine : les 8 devises classées par leur variation depuis lundi.',
       aide: "<p>Les huit devises majeures classées par leur variation depuis le lundi 00h UTC, calculée des sept paires contre dollar ; le dollar n'a pas de paire propre, sa ligne « calc. » est la moyenne inversée des sept. Barre verte vers la droite : la devise gagne sa semaine ; rouge vers la gauche : elle la perd.</p><p>La lecture hebdomadaire lisse le bruit des séances : une devise en tête sur un vrai écart raconte un <strong>flux</strong> (taux, macro, risque), pas un sursaut d'une heure. L'écart tête-queue de la ligne du bas dit si la semaine discrimine vraiment ou si tout se tient dans un mouchoir.</p>",
       src: "Bougies quotidiennes réelles des 7 paires contre dollar, relues toutes les 5 minutes ; la variation court du lundi 00h UTC au dernier cours connu, et l'agrégat USD n'est calculé que lorsque les 7 paires répondent.",
@@ -4258,7 +4258,7 @@
       },
     },
     {
-      id: 'distribution-variations', name: 'Histogramme des variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
+      id: 'distribution-variations', name: 'Variations quotidiennes', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
       desc: 'La forme réelle des séances : combien de journées à +0,3 %, combien à -1 %.',
       aide: "<p>L'histogramme des variations quotidiennes, de clôture à clôture : chaque barre compte les séances tombées dans sa classe, rouge sous zéro, vert au-dessus. Le repère or situe la séance en cours dans cette forme, et la ligne du bas la traduit en percentile.</p><p>C'est un <strong>étalon de normalité</strong> : savoir que l'essentiel des séances fait moins de ±0,5 % change la lecture d'un mouvement de 0,8 %. Un objectif posé dans la queue de distribution exige une séance rare ; un stop posé au cœur de la distribution sera touché par le bruit ordinaire.</p>",
       src: "Bougies quotidiennes réelles, relues toutes les 5 minutes ; la séance en cours est exclue du calcul (elle n'a pas de clôture) et les trous de série sont écartés puis comptés sur la carte.",
@@ -4402,7 +4402,7 @@
     },
 
     {
-      id: 'stats-volatilite', name: 'Statistiques de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 210,
+      id: 'stats-volatilite', name: 'Mesures de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 210,
       desc: 'L\'écart-type des variations, en séance et en semaine, avec l\'amplitude vraie moyenne.',
       aide: "<p>Deux colonnes, séance et semaine : l'écart-type des variations et l'<strong>amplitude vraie</strong> moyenne, c'est-à-dire le plus grand écart entre le haut, le bas et la clôture précédente, qui inclut les trous d'ouverture. La ligne de régime compare les 20 dernières séances à l'ensemble de l'échantillon.</p><p>Ces chiffres calibrent stop et objectif : un stop plus serré que l'amplitude vraie d'une séance ordinaire sera touché par le bruit. Le régime dit si les moyennes affichées décrivent le marché actuel, ou si elles le sous-estiment.</p>",
       src: "Bougies quotidiennes et hebdomadaires réelles, relues toutes les 5 minutes ; chaque colonne a son repli (si une série manque, l'autre reste affichée) et la période en cours est exclue des moyennes.",
@@ -4920,7 +4920,7 @@
       },
     },
     {
-      id: 'evenement-rebours', name: 'Compte à rebours d\'événement', tag: 'CALENDRIER', cat: 'Macro', h: 186,
+      id: 'evenement-rebours', name: 'Compte à rebours', tag: 'CALENDRIER', cat: 'Macro', h: 186,
       desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste, puis le réel contre le consensus.',
       aide: "<p>La prochaine publication macro, isolée : compte à rebours à la seconde, importance, prévision et précédent, puis, à l'heure dite, le chiffre réel confronté à la prévision ; la carte reste 20 minutes sur l'événement publié pour montrer ce verdict. Un « (révisé) » signale que le précédent a été corrigé au passage.</p><p>C'est la <strong>surprise</strong> qui déplace un marché, pas le niveau : la carte existe pour la minute où le réel tombe. Plusieurs publications à la même heure sont signalées (« +N autres ») : leurs effets peuvent se contrarier, ce qui rend la première réaction moins fiable.</p>",
       src: "Le calendrier économique du desk, relu toutes les 60 secondes (le décompte, lui, vit à la seconde) ; l'heure vient de l'horodatage universel de l'événement, jamais d'un fuseau figé.",
@@ -5180,7 +5180,7 @@
     },
 
     {
-      id: 'serie-indicateur', name: 'Historique d\'un indicateur',
+      id: 'serie-indicateur', name: 'Série d\'un indicateur',
       tag: 'MACRO', cat: 'Macro', h: 300,
       desc: 'Les dernières publications d\'un indicateur, en barres, avec la surprise contre la prévision.',
       aide: "<p>Les dernières publications d'un même indicateur, en barres : vert quand la valeur monte sur la précédente, rouge quand elle baisse, le liseré or marquant la plus récente. La ligne du bas résume la dynamique, et le pied annonce la prochaine publication avec sa prévision.</p><p>Une publication isolée se lit mal : deux ou trois points dans le même sens font une <strong>dynamique</strong>, et c'est elle que les banques centrales disent suivre. Attention au sens : une hausse n'est pas une bonne nouvelle en soi (chômage, inflation), le vert ne dit que la direction.</p>",
@@ -5544,7 +5544,7 @@
     },
 
     {
-      id: 'matrice-croisee', name: 'Matrice de taux croisés', tag: 'FX', cat: 'Marchés', h: 340,
+      id: 'matrice-croisee', name: 'Taux croisés', tag: 'FX', cat: 'Marchés', h: 340,
       desc: 'La grille des huit majeures : chaque croisement, son cours et sa variation du jour.',
       aide: "<p>La grille 8×8 des majeures : chaque case porte le cours et la variation de séance du croisement devise en ligne contre devise en colonne. La moitié non cotée est reconstruite par inversion exacte et signalée d'un point ; la ligne du bas nomme la devise qui mène et celle qui ferme la marche, en moyenne sur leurs sept croisements.</p><p>La lecture utile est <strong>transversale</strong> : balayer la ligne d'une devise dit si sa force est générale ou locale. Une devise en tête sur six ou sept croisements porte un mouvement de fond ; une case isolée raconte l'histoire d'une seule paire.</p>",
       src: "Cotations servies par le desk et relues toutes les 150 secondes ; les cases à point sont un calcul exact du croisement coté, jamais une cotation reçue.",
@@ -5777,7 +5777,7 @@
     },
 
     {
-      id: 'saison-courbe', name: 'Rendement moyen par mois',
+      id: 'saison-courbe', name: 'Rendement mensuel',
       maj: 30 * 60 * 1000, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,   // donnee historique : le rythme sert a se reparer
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
       aide: "<p>Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en courbe cumulée sur l'année ; le mois en cours est marqué en or et compté comme partiel. La régularité, en option, dit combien d'années observées ont fini chaque mois en hausse.</p><p>La saisonnalité est un <strong>vent de fond</strong>, pas un signal : cinq observations font une tendance fragile, et un mois « moyen à +0,8 % » obtenu par une seule année exceptionnelle ne vaut pas quatre années sur cinq. Elle sert à pondérer une idée, jamais à la créer.</p>",
@@ -5895,7 +5895,7 @@
     },
 
     {
-      id: 'frequence-amplitude', name: 'Probabilité de mouvement', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,   // renommage 23/08 (le nom doit dire ce qu'on voit) — l'ancre du lot initial avait raté l'apostrophe échappée, attrapé par l'agent mails
+      id: 'frequence-amplitude', name: 'Atteinte d\'un seuil', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,   // renommage 23/08 (le nom doit dire ce qu'on voit) — l'ancre du lot initial avait raté l'apostrophe échappée, attrapé par l'agent mails
       desc: 'La part des séances où la paire a parcouru au moins X pips.',
       aide: "<p>Pour un seuil en pips, la part des séances passées qui l'ont atteint : la courbe descend palier par palier, le trait fin marque votre seuil, le trait or le parcours d'aujourd'hui. La ligne du bas donne, parmi les séances arrivées là où on en est, la part qui a fini au-delà du seuil.</p><p>C'est une <strong>fréquence observée</strong>, jamais une probabilité de toucher un objectif : la bougie quotidienne ne dit pas dans quel ordre le haut et le bas ont été touchés. Un objectif que la paire n'atteint qu'une séance sur cinq demande d'être justifié par autre chose que l'habitude.</p>",
       src: "Bougies quotidiennes réelles, relues toutes les 5 minutes ; la journée en cours est exclue de l'échantillon, l'amplitude est brute (aucun coût de transaction) et le pip est une convention de place.",
@@ -6387,7 +6387,7 @@
       },
     },
     {
-      id: 'dmx-retail', name: 'Sentiment des particuliers', tag: 'DMX', cat: 'Risque', h: 340,
+      id: 'dmx-retail', name: 'Sentiment particuliers', tag: 'DMX', cat: 'Risque', h: 340,
       desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
       aide: "<p>Le positionnement long/short des particuliers sur toutes les paires servies, en barres, avec le choix de l'unité de temps et du tri. Chaque barre partage 100 % entre acheteurs et vendeurs : il n'y a ni volume ni direction du prix là-dedans, seulement la foule.</p><p>La lecture est <strong>contrarienne et comparative</strong> : les paires les plus déséquilibrées sont celles où la foule est la plus exposée à un débouclage forcé. Trier par pourcentage long ou short fait remonter ces extrêmes d'un geste.</p>",
       src: "Positionnement agrégé des particuliers, en pourcentages seuls, relu toutes les 60 secondes.",
@@ -6838,7 +6838,7 @@
       },
     },
     {
-      id: 'calculatrice', name: 'Calculatrice de position', cat: 'Outils', h: 280,
+      id: 'calculatrice', name: 'Calculatrice', cat: 'Outils', h: 280,
       desc: 'Taille de lot depuis capital, risque % et stop (pips).',
       aide: "<p>La taille de position qui respecte le risque défini, à partir du capital, du pourcentage risqué et de la distance au stop. Le résultat se recalcule à chaque frappe : il n'y a rien à valider.</p><p>Le calcul part du <strong>risque</strong>, jamais de la taille souhaitée. C'est ce qui rend deux trades comparables entre eux, quelle que soit la paire et quelle que soit la volatilité du moment.</p>",
       src: "Aucune donnée externe : un calcul local (capital × risque % ÷ stop × valeur du pip), refait à chaque frappe ; seules les valeurs de départ sont mémorisées dans les réglages.",
