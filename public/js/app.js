@@ -6670,7 +6670,13 @@ function _sbOpenDetail(curr, opts) {
   if (det) {
     const mo = det.monetary || {}, inf = det.inflation || {}, gr = det.growth || {}, em = det.employment || {};
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Politique monétaire</h4>`
-      + field('Stance actuelle', stanceTag(mo.stance))
+      /* ⚠️ « STANCE » EST DE L'ANGLAIS (09/09, retour user : « j'comprends pas le terme Stance »).
+         Le mot est courant dans les salles de marché anglophones, il ne l'est pas en français, et le
+         desk est en français partout. Le terme officiel est « orientation de la politique
+         monétaire » (celui de la Banque de France et de la BCE), et il s'accorde au FÉMININ — donc
+         avec les valeurs déjà affichées : Accommodante, Restrictive, Neutre. « Ton » aurait été plus
+         court mais masculin, et aurait obligé à réécrire les trois valeurs. */
+      + field('Orientation actuelle', stanceTag(mo.stance))
       + field('Prochain mouvement', dirTag(mo.nextMove))
       + field('Pricing marché', mo.pricing ? `<span class="mdet-txt">${esc(mo.pricing)}</span>` : na)
       + `</section>`;
@@ -6703,7 +6709,7 @@ function _sbOpenDetail(curr, opts) {
   } else {
     // Repli (cache < v36 sans detail) : les tags macro de base, en attendant la régén.
     const mp = macro.monetary || {}, inff = macro.inflation || {};
-    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Politique monétaire</h4>` + field('Stance', stanceTag(mp.stance)) + field('Prochain mouvement', dirTag(mp.dir)) + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Politique monétaire</h4>` + field('Orientation', stanceTag(mp.stance)) + field('Prochain mouvement', dirTag(mp.dir)) + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Inflation</h4>` + field('Niveau', lvlTag(inff.level)) + field('Tendance', trTag(inff.trend)) + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>` + field('Tendance', trendTag(macro.growth)) + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>` + field('Tendance', trendTag(macro.employment)) + `</section>`;
