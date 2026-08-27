@@ -482,13 +482,43 @@ function bornesPourWrap(item, now) {
 /* LES PUBLICATIONS DE LA FENÊTRE : tombées dedans, sur les devises de la séance, et RÉSULTAT CONNU.
    Sans `actual` il n'y a rien à raconter — c'est un rendez-vous à venir, pas un fait de séance.
    Les fortes d'abord, puis l'ordre chronologique : on lit un récap par ordre d'importance. */
+/* ══ UNE SÉANCE N'EST PAS QU'UNE SUITE DE CHIFFRES (27/08) ═════════════════════════════════════
+   Signalement du propriétaire, deux captures : « pk tu parles cpi us alors que y a rien eu dans le
+   macro de la session asia — il faut que les récaps session récupèrent les news de LEUR séance ».
+
+   LE DÉFAUT TENAIT EN UNE LIGNE, la dernière de ce filtre : `return !!(e && e.actual …)`. Seuls les
+   événements PORTANT UN CHIFFRE PUBLIÉ entraient. Or la fenêtre asiatique du 27/08 contenait
+   exactement ceci :
+       02h00 CNY  National People's Congress   — pas de chiffre
+       03h30 JPY  BoJ Himino Speech            — pas de chiffre
+       03h30 AUD  RBA Bulletin                 — pas de chiffre
+   Trois rendez-vous, zéro chiffre : la complétion n'ajoutait RIEN, et la rubrique Macro restait
+   seule avec les puces du modèle — ce jour-là, les exemples du prompt. Un récap d'Asie est
+   précisément fait de DISCOURS, de BULLETINS et de RÉUNIONS : le filtre écartait par construction
+   la matière même de la séance qu'il devait décrire.
+
+   ⚠️ CE QU'ON N'OUVRE PAS EN GRAND, ET C'EST LE POINT DÉLICAT. « Pas de chiffre » ne veut pas dire
+   « à faire entrer ». Une publication CHIFFRÉE dont le résultat n'est pas encore tombé porte, elle,
+   un CONSENSUS (`forecast`) : c'est un rendez-vous À VENIR, il appartient à « À surveiller », pas au
+   récit de ce qui s'est passé. Les 14h30 USD du 27/08 — Unemployment Claims attendu à 208K, réel
+   vide — seraient sinon entrés dans le récap de la séance de Londres comme des faits accomplis.
+   La règle est donc : un chiffre publié entre ; un rendez-vous SANS chiffre ET SANS consensus entre
+   aussi, à condition d'être d'impact fort ou moyen — c'est la signature d'un discours, d'un compte
+   rendu ou d'un bulletin ; tout le reste est écarté. */
+function estRendezVousSansChiffre(e) {
+  const reel = String((e && e.actual) || '').trim();
+  const cons = String((e && e.forecast) || '').trim();
+  if (reel || cons) return false;                       // chiffré : publié (reel) ou à venir (cons)
+  return /high|medium/i.test(String((e && e.impact) || ''));
+}
 function filtreFenetre(items, b) {
   if (!b || b.finTs <= b.debutTs) return [];
   return (items || []).filter(e => {
     const ts = (e && e.timestamp) || 0;
     if (ts < b.debutTs || ts > b.finTs) return false;
     if (b.dev.indexOf(String((e && e.currency) || '').toUpperCase()) < 0) return false;
-    return !!(e && e.actual && String(e.actual).trim());
+    if (e && e.actual && String(e.actual).trim()) return true;
+    return estRendezVousSansChiffre(e);
   });
 }
 function trierMacro(evs) {
@@ -530,9 +560,19 @@ function frNombre(v) {
 }
 function ligneMacro(ev, heure) {
   const e = ecart(ev);
-  if (!e) return '';
   const nom = String((ev && ev.title) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   const tete = `${heure ? heure + ' ' : ''}${ev.currency || ''} · ${nom}`.trim();
+  /* UN DISCOURS N'A NI RÉEL NI ATTENDU, et il n'en est pas moins l'événement de la séance. `ecart`
+     rend `null` faute de chiffre : sans cette branche, le rendez-vous passait le filtre de fenêtre
+     pour être perdu ici, une ligne plus loin. On le rend tel qu'il est — heure, devise, intitulé du
+     calendrier — sans lui inventer les colonnes qu'il n'a pas. */
+  /* ⚠️ LE RENDU NE REFAIT PAS LE TRI DU FILTRE. Première version : cette branche rappelait
+     `estRendezVousSansChiffre`, qui exige un impact fort ou moyen — or l'appelant construit son
+     objet sans le champ `impact`. Le rendez-vous passait donc le filtre de fenêtre pour être
+     silencieusement jeté ICI, une ligne plus loin : exactement le défaut qu'on venait de corriger,
+     déplacé d'un cran. Le tri appartient au filtre ; le rendu ne juge que ce qu'il sait rendre —
+     un intitulé, et aucun chiffre à afficher. */
+  if (!e) return nom && !String((ev && ev.forecast) || '').trim() ? tete : '';
   const A = frNombre(e.actual), F = frNombre(e.forecast), P = frNombre(e.previous);
   if (e.sansConsensus) return `${tete} : ${A}${P ? ` (préc. ${P})` : ''}`;
   if (e.sens === 'conforme') return `${tete} : ${A}, conforme aux attentes${P ? ` (préc. ${P})` : ''}`;
@@ -551,6 +591,8 @@ function ligneMacroMd(ev, heure) {
   let s = l;
   if (dev) s = s.replace(dev + ' \u00b7 ', '**' + dev + '** \u00b7 ');
   if (nom) s = s.replace(nom + ' :', '**' + nom + '** :');
+  // Ligne sans chiffre : elle se termine SUR l'intitulé, il n'y a pas de « : » derrière lui.
+  if (nom && s.indexOf('**' + nom + '**') < 0 && s.endsWith(nom)) s = s.slice(0, -nom.length) + '**' + nom + '**';
   return s;
 }
 
@@ -571,4 +613,4 @@ function synthese(nomSeance, perfs, macros) {
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
 }
 
-module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, sessionDe, ORDRE_ACTIFS, sujetPuce, familleActif, sansPrefixeFamille, parFamilleActif, SEANCE_DEV, heureParisNum, seanceDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, frNombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };
+module.exports = { FENETRES, ACTIFS, TYPE_PAR_SESSION, dejaDit, estRendezVousSansChiffre, sessionDe, ORDRE_ACTIFS, sujetPuce, familleActif, sansPrefixeFamille, parFamilleActif, SEANCE_DEV, heureParisNum, seanceDe, ORDRE_FAM_MACRO, parFamilleMacro, jourParis, offsetParis, bornes, bornesPourWrap, filtreFenetre, trierMacro, ORDRE_FAM, famille, parFamille, nombre, frNombre, ecart, ecartTexte, pct, bps, lignePerf, ligneMacro, ligneMacroMd, synthese, INVERSES };

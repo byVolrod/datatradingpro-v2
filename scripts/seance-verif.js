@@ -78,7 +78,16 @@ v('la synthèse ne désigne pas un taux comme plus fort mouvement', /Nasdaq −0
 v('…et n\'écrit jamais un taux en pourcentage', !/10 ans US \+2/.test(syT), syT);
 
 console.log('\n── 5. Aucune ligne vide, jamais ──');
-v('un rendez-vous sans chiffre est OMIS', S.ligneMacro({ currency: 'USD', title: 'Fed Chair Powell Speaks' }, '16h') === '');
+/* ⚠️ CETTE RÈGLE A CHANGÉ LE 27/08, à la demande du propriétaire : « il faut que les récaps
+   session récupèrent les news de LEUR séance ». Un discours de banque centrale n'a ni réel ni
+   attendu — et il est pourtant l'événement d'une séance asiatique. Il se rend donc désormais, mais
+   l'INTENTION de cette rubrique est intacte : jamais une ligne AVEC DES COLONNES VIDES. Le
+   rendez-vous sans chiffre s'arrête sur son intitulé, sans tiret ni « n/d ». */
+const _lPowell = S.ligneMacro({ currency: 'USD', title: 'Fed Chair Powell Speaks', impact: 'High' }, '16h');
+v('un rendez-vous sans chiffre porte son intitulé', _lPowell === '16h USD · Fed Chair Powell Speaks', _lPowell);
+v('… et AUCUNE colonne vide', !/[:\u2014\u2013-]\s*$/.test(_lPowell) && !/n\/d|N\/A|--/.test(_lPowell), _lPowell);
+v('… une publication à venir, elle, ne rend toujours rien',
+  S.ligneMacro({ currency: 'USD', title: 'Unemployment Claims', forecast: '208K' }, '14h30') === '');
 v('un actif sans donnée est OMIS', S.lignePerf([{ label: 'DAX', pct: null }, { label: 'Or', pct: 0.31 }]) === 'Or +0,31 %');
 v('aucun actif mesuré → aucune ligne', S.lignePerf([]) === '');
 v('« stable » plutôt qu\'un faux zéro signé', S.pct(0.001) === 'stable', S.pct(0.001));
@@ -299,8 +308,9 @@ const dansLdn = S.trierMacro(S.filtreFenetre(CAL, bw));
 v('seules les devises de la séance sont retenues', dansLdn.every(e => ['EUR', 'GBP', 'CHF'].includes(e.currency)), dansLdn.map(e => e.currency).join(','));
 v('le CPI japonais de 05h00 est hors séance Londres', !dansLdn.some(e => /BOJ/.test(e.title)));
 v('la confiance US de 22h00 est hors séance Londres', !dansLdn.some(e => /CB Consumer/.test(e.title)));
-v('un rendez-vous sans résultat n\'est pas une publication', !dansLdn.some(e => /Lane Speaks/.test(e.title)));
-v('les forts d\'abord, puis l\'heure', dansLdn.map(e => e.title).join(' > ') === 'Retail Sales m/m > German Prelim CPI m/m > French Consumer Confidence > German Ifo Business Climate', dansLdn.map(e => e.title).join(' > '));
+// Même bascule : le discours de la BCE EST une news de la séance de Londres, il y entre.
+v('un discours entre dans la fenêtre de sa séance', dansLdn.some(e => /Lane Speaks/.test(e.title)));
+v('les forts d\'abord, puis l\'heure', /^Retail Sales m\/m > German Prelim CPI m\/m > French Consumer Confidence > German Ifo Business Climate/.test(dansLdn.map(e => e.title).join(' > ')) && dansLdn.length === 5, dansLdn.map(e => e.title).join(' > '));
 
 // L'anti-doublon : ce que l'IA a déjà écrit ne se répète pas, ce qu'elle a omis s'ajoute.
 const PUCES = [
@@ -326,12 +336,14 @@ v('sans puces, rien n\'est déjà dit', S.dejaDit(CAL[0], []) === false);
 
 // Les lignes ajoutées portent le style du desk et se rangent avec les puces de l'IA.
 const ajouts = dansLdn.filter(e => !S.dejaDit(e, PUCES));
-v('une seule publication manquait', ajouts.length === 1 && ajouts[0].title === 'German Prelim CPI m/m', ajouts.map(e => e.title).join(','));
-const lmd = S.ligneMacroMd(ajouts[0], '14h00');
+v('deux rendez-vous manquaient', ajouts.length === 2 && ajouts.some(e => e.title === 'German Prelim CPI m/m') && ajouts.some(e => /Lane Speaks/.test(e.title)), ajouts.map(e => e.title).join(','));
+const _cpiManquant = ajouts.find(e => e.title === 'German Prelim CPI m/m');
+const lmd = S.ligneMacroMd(_cpiManquant, '14h00');
 v('la ligne ajoutée est chiffrée, en français', /0,1%/.test(lmd) && !/0\.1%/.test(lmd) && /conforme aux attentes/.test(lmd), lmd);
 v('elle porte l\'heure de Paris', /^14h00 /.test(lmd), lmd);
 v('devise et indicateur en gras, comme les puces de l\'IA', /\*\*EUR\*\*/.test(lmd) && /\*\*German Prelim CPI m\/m\*\*/.test(lmd), lmd);
-v('une publication sans résultat ne produit aucune ligne', S.ligneMacroMd({ currency: 'EUR', title: 'ECB Lane Speaks' }, '11h00') === '');
+v('un discours produit une ligne, sans chiffres', S.ligneMacroMd({ currency: 'EUR', title: 'ECB Lane Speaks' }, '11h00') === '11h00 **EUR** · **ECB Lane Speaks**',
+  S.ligneMacroMd({ currency: 'EUR', title: 'ECB Lane Speaks' }, '11h00'));
 const fusion = S.parFamille([...PUCES.map(i => ({ titre: i, ligne: i })), { titre: ajouts[0].title, ligne: lmd }]);
 v('la ligne ajoutée se range dans sa famille', (fusion.find(g => g.famille === 'Inflation') || { lignes: [] }).lignes.some(l => l === lmd), fusion.map(g => g.famille).join('|'));
 v('elle ne tombe pas en « Autres »', !fusion.some(g => g.famille === 'Autres' && g.lignes.includes(lmd)));
@@ -359,14 +371,25 @@ const SECTIONS = [
 ];
 const rendu = W.html(SECTIONS, dansLdn);
 v('la publication manquante apparaît dans le rendu', /German Prelim CPI m\/m/.test(rendu.html), rendu.html.slice(0, 200));
-v('le rendu le compte', rendu.ajouts === 1, String(rendu.ajouts));
+v('le rendu les compte', rendu.ajouts === 2, String(rendu.ajouts));
 v('elle est chiffrée dans le rendu, en français', /0,1%, conforme aux attentes/.test(rendu.html));
 v('elle porte son heure de Paris', /14h00 \*\*EUR\*\*/.test(rendu.html), (rendu.html.match(/\d\dh\d\d \*\*EUR\*\*/) || [])[0]);
 const nbIfo = (rendu.html.match(/Ifo/g) || []).length;
 v('l\'Ifo déjà raconté n\'est PAS répété', nbIfo === 1, nbIfo + ' occurrence(s)');
-v('la confiance française non plus', (rendu.html.match(/onfiance des consommateurs/g) || []).length === 1);
-v('les ventes au détail non plus', (rendu.html.match(/entes au détail/g) || []).length === 1);
-v('la Macro est découpée en familles', /<strong>Macro<\/strong><em>Inflation<\/em>/.test(rendu.html), rendu.html.slice(rendu.html.indexOf('<strong>Macro'), rendu.html.indexOf('<strong>Macro') + 120));
+/* ⚠️ L'INVERSION DU 27/08 : quand le modèle a déjà parlé d'une publication, c'est NOTRE ligne qui
+   est gardée — intitulé du calendrier, chiffres du calendrier — et de la sienne on ne retient que
+   la conséquence. La paraphrase française cède donc la place au nom que le lecteur retrouve dans
+   l'onglet Calendrier : « mets le nom de la news direct, genre RBA Bulletin ». */
+v('la paraphrase cède la place à l\'intitulé du calendrier',
+  !/onfiance des consommateurs/.test(rendu.html) && (rendu.html.match(/French Consumer Confidence/g) || []).length === 1,
+  rendu.html.slice(rendu.html.indexOf('<strong>Macro'), rendu.html.indexOf('<strong>Macro') + 300));
+v('… et une seule ligne par publication, jamais deux',
+  (rendu.html.match(/Retail Sales m\/m/g) || []).length === 1 && !/entes au détail/.test(rendu.html));
+// Le découpage tient ; l'ordre suit _ORDRE_FAM_MACRO, et la politique monétaire ouvre désormais la
+// rubrique puisque le discours y est entré.
+v('la Macro est découpée en familles',
+  /<strong>Macro<\/strong><em>/.test(rendu.html) && /<em>Inflation<\/em>/.test(rendu.html) && (rendu.html.match(/<em>/g) || []).length >= 2,
+  rendu.html.slice(rendu.html.indexOf('<strong>Macro'), rendu.html.indexOf('<strong>Macro') + 180));
 v('les autres rubriques restent intactes', /<strong>Géopolitique<\/strong><ul><li>Négociations/.test(rendu.html));
 v('l\'ordre des rubriques est conservé', rendu.html.indexOf('<strong>Géopolitique') < rendu.html.indexOf('<strong>Macro') && rendu.html.indexOf('<strong>Macro') < rendu.html.indexOf('<strong>Analyse de séance'));
 v('le HTML est échappé', W.html([{ section: 'Macro', items: ['<script>x</script>'] }], []).html.includes('&lt;script&gt;'));
@@ -382,7 +405,7 @@ v('c\'est la publication ajoutée qui ouvre « Inflation »', /<em>Inflation<\/e
 const sansMacro = [SECTIONS[0], SECTIONS[1], SECTIONS[3], SECTIONS[4]];
 const ne = W.html(sansMacro, dansLdn);
 v('une Macro absente naît du calendrier', /<strong>Macro<\/strong>/.test(ne.html));
-v('elle porte les quatre publications de la séance', ne.ajouts === 4, String(ne.ajouts));
+v('elle porte les cinq rendez-vous de la séance', ne.ajouts === 5, String(ne.ajouts));
 v('elle se place après Géopolitique, pas en fin de rapport', ne.html.indexOf('<strong>Macro') > ne.html.indexOf('<strong>Géopolitique') && ne.html.indexOf('<strong>Macro') < ne.html.indexOf('<strong>Analyse de séance'));
 v('sans Géopolitique, elle suit le LEAD', (() => { const h = W.html([SECTIONS[0], SECTIONS[3]], dansLdn).html; return h.indexOf('<strong>Macro') < h.indexOf('<strong>Analyse de séance'); })());
 // Aucune donnée nulle part → aucune rubrique Macro inventée.
@@ -477,7 +500,8 @@ const VIDE = [{ section: 'LEAD', items: ['Séance sans direction.'] }, { section
   v(`« ${sess} » : la Macro est créée et titrée`, /<strong>Macro<\/strong>/.test(h) && /<em>/.test(h), h.slice(0, 90));
   attendus.forEach(a => v(`« ${sess} » reprend « ${a} »`, h.includes(a), h.slice(h.indexOf('<strong>Macro'), h.indexOf('<strong>Macro') + 200)));
   v(`« ${sess} » ne prend pas « ${absent} » (hors fenêtre)`, !h.includes(absent));
-  v(`« ${sess} » écarte le rendez-vous sans résultat`, !/Bailey/.test(h));
+  // Le discours n'est plus écarté : il n'apparaît que dans la séance dont il relève.
+  v(`« ${sess} » place le rendez-vous sans résultat dans la bonne séance`, /Bailey/.test(h) === (sess === 'European'), h.slice(h.indexOf('<strong>Macro'), h.indexOf('<strong>Macro') + 240));
 });
 // Le récap dont la séance ne se lit nulle part garde son rapport, sans complétion — jamais d'erreur.
 v('un article hors séance ne casse rien', W.html(VIDE, S.trierMacro(S.filtreFenetre(CAL3, S.bornesPourWrap({ session: 'Global', headline: 'Weekly outlook' }, JOUR)))).html.indexOf('<strong>Macro') < 0);
@@ -1014,6 +1038,132 @@ v('une rubrique sans matière doit être OMISE, pas remplie d\'un exemple',
   /OMETS cette rubrique — ne la remplis jamais avec un exemple/.test(_SRVA));
 /* Le HTML segmenté est CACHÉ : sans bump, les récaps déjà produits gardent leur puce fausse. */
 v('la version de segmentation a été bumpée (cohérence du pricing)', /const SW_SEG_VER  = 'v2[6-9]:'/.test(_SRVA));
+
+console.log('\n── 10. Le verrou tient aussi quand la phrase change de mots, et quand le tableau manque ──');
+/* Seconde passe sur le signalement du 27/08. La v26 corrigeait la phrase EXACTE de la capture ;
+   quatre trous ont été mesurés autour d'elle, et chacun a sa ligne ici. */
+const _EC = W.pricingIncoherent;
+
+/* [1] HUIT REFORMULATIONS du même propos absurde, toutes publiées par la v26. Une assertion par
+   tournure : si une seule cesse d'être reconnue, on veut savoir LAQUELLE. */
+v('« en ligne de mire » est reconnu',        _EC('**CPI** US demain → **RBA** en ligne de mire') === true);
+v('« trajectoire de taux » aussi',           _EC('**CPI** US demain → pèse sur la trajectoire de taux de la **RBA**') === true);
+v('« attentes de baisse » aussi',            _EC('**CPI** US demain → oriente les attentes de baisse de la **RBA**') === true);
+v('« comité de politique monétaire » aussi', _EC('**CPI** US demain → le comité de politique monétaire de la **RBA** en tiendra compte') === true);
+v('« paris sur » aussi',                     _EC('**CPI** US demain → le marché revoit ses paris sur la **RBA**') === true);
+v('« taux directeur » aussi',                _EC('**NFP** US demain → la **BoJ** doit trancher son taux directeur') === true);
+/* ⚠️ CES DEUX CAS-LÀ ONT ÉTÉ REFAITS APRÈS LEUR ÉPREUVE. Première rédaction : les deux phrases
+   contenaient « catalyseur », donc le repli par mot d'attribution les attrapait de toute façon —
+   remettre la seule flèche typographique laissait les deux contrôles VERTS. Ils portaient un nom
+   qu'ils ne vérifiaient pas. Pour éprouver la table des flèches, il faut une phrase qui n'ait
+   AUCUN mot d'attribution : alors seule la flèche peut faire la césure. */
+v('la flèche ASCII « -> » est lue comme une flèche',
+  _EC('**CPI** US demain -> la **RBA** en tiendra compte à sa réunion') === true);
+v('« => » aussi', _EC('**NFP** US vendredi => réunion de la **BoJ** la semaine suivante') === true);
+v('… et sans aucune flèche, le mot d\'attribution fait la césure',
+  _EC('**CPI** US demain, catalyseur du pricing de la réunion de la **RBA**.') === true);
+
+/* [2] et [3] LES DEUX FAUX POSITIFS DE LA v26. Supprimer une lecture juste est un défaut, pas une
+   précaution : ces deux-là doivent être CONSERVÉES. */
+v('une concomitance n\'est pas une causalité (« AVANT sa réunion »)',
+  _EC('**PMI** chinois faibles → la **RBA** sous pression avant sa réunion') === false);
+v('un sujet porté par l\'AVAL justifie la puce',
+  _EC('**AUD** chute → le **CPI** US chaud repousse la décision de la **Fed**') === false);
+
+/* [4] LES CONSERVATIONS HISTORIQUES ne bougent pas. */
+v('Jackson Hole reste', _EC('Discours de Warsh à Jackson Hole → catalyseur du pricing de la réunion **Fed**') === false);
+v('Nvidia reste', _EC('Résultats **Nvidia** après clôture → volatilité sur les indices') === false);
+v('une simple mention reste', _EC('La **Fed** reste attentive à l\'inflation') === false);
+/* [5] LES APPARIEMENTS JUSTES tiennent. */
+v('CPI allemand → BCE', _EC('**CPI** allemand → réunion de la **BCE**') === false);
+v('CPI de Tokyo → BoJ', _EC('**CPI** de Tokyo → décision de la **BoJ**') === false);
+v('chiffres canadiens → BoC', _EC('Chiffres canadiens → décision de la **BoC**') === false);
+v('PMI européens → BCE', _EC('PMI européens → décision de la **BCE**') === false);
+
+/* [6] LES EMPLACEMENTS DU SQUELETTE, et eux seuls. */
+v('un emplacement entre chevrons est reconnu', W.estGabarit('**DXY** <mouvement → driver>') === true);
+v('… même noyé dans une phrase de rubrique', W.estGabarit('<un paragraphe de 2 à 4 phrases : le dossier qui a dominé>') === true);
+v('… et une puce laissée nue', W.estGabarit('…') === true);
+v('mais un chiffre entre chevrons reste', W.estGabarit('**EUR/USD** franchit 1,17 <plus haut de 2026> après le CPI') === false);
+v('… et une balise sans espace aussi (le contrôle d\'échappement reste vert)', W.estGabarit('<script>x</script>') === false);
+
+/* [7] LE TROU LE PLUS GRAVE : la branche SANS TABLEAU ne filtrait rien. Elle prend la main dès que
+   `surv.evs` est vide — récap pas du jour, week-end, calendrier pas encore chargé. */
+const SURV_SANS_TBL = { nom: 'Londres', lignes: ['08h00 EUR · GfK Consumer Confidence'], evs: [] };
+const FAUTIF = [{ section: 'LEAD', items: ['Séance.'] }, { section: 'À surveiller', items: [
+  'Discours de Warsh à Jackson Hole → catalyseur du pricing de la réunion **Fed**',
+  '**CPI** US demain → catalyseur du pricing de la réunion **RBA**',
+  '<un rendez-vous PROSPECTIF de cette séance → ce qu\'il peut déclencher>',
+] }];
+const hSans = W.html(FAUTIF, [], SURV_SANS_TBL).html;
+v('SANS tableau, la puce fausse est écartée aussi', !/RBA/.test(hSans), hSans.slice(hSans.indexOf('surveiller'), hSans.indexOf('surveiller') + 320));
+v('… et l\'emplacement du prompt aussi', !/rendez-vous PROSPECTIF/.test(hSans));
+v('… tandis que les phrases du calendrier sont toujours rendues', /08h00 EUR/.test(hSans));
+v('… et Jackson Hole toujours là', /Jackson Hole/.test(hSans));
+
+/* [8] LES EMPLACEMENTS DANS LES AUTRES RUBRIQUES — la Synthèse est le paragraphe d'ouverture. */
+const SQUELETTE = W.html([
+  { section: 'Synthèse', items: ['<un paragraphe de 2 à 4 phrases : le dossier qui a dominé la séance>'] },
+  { section: 'Géopolitique', items: ['<fait marquant → impact sur le sentiment de risque>'] },
+  { section: 'Analyse de séance', items: ['**DXY** <mouvement → driver>', '**EUR** recule de 0,3% sur des PMI mous'] },
+], [], { nom: '', lignes: [] }).html;
+v('un squelette recopié ne sort pas en Synthèse', !/paragraphe de 2 à 4 phrases/.test(SQUELETTE), SQUELETTE.slice(0, 260));
+v('… ni en Géopolitique', !/fait marquant/.test(SQUELETTE));
+v('… ni en Analyse de séance', !/mouvement → driver/.test(SQUELETTE));
+v('… mais la vraie puce de la rubrique reste', /PMI mous/.test(SQUELETTE));
+v('… et une rubrique vidée de ses emplacements s\'efface', !/Géopolitique<\/strong>/.test(SQUELETTE));
+
+/* [9] LA SÉANCE RÉCUPÈRE SES PROPRES NEWS — demande explicite du 27/08 : « il faut que les récaps
+   session récupèrent les news de LEUR séance ». La fenêtre asiatique du jour ne portait que des
+   rendez-vous SANS chiffre, et le filtre les écartait tous par construction. */
+const _H = h => Date.UTC(2026, 7, 27, h - 2, 0, 0);        // heure de Paris → UTC (été)
+const CAL_JOUR = [
+  { timestamp: _H(2),    currency: 'CNY', title: 'National People\'s Congress', impact: 'High',   actual: '', forecast: '', previous: '' },
+  { timestamp: _H(3.5),  currency: 'JPY', title: 'BoJ Himino Speech',           impact: 'Medium', actual: '', forecast: '', previous: '' },
+  { timestamp: _H(3.5),  currency: 'AUD', title: 'RBA Bulletin',                impact: 'Medium', actual: '', forecast: '', previous: '' },
+  { timestamp: _H(2),    currency: 'USD', title: 'Jackson Hole Symposium',      impact: 'High',   actual: '', forecast: '', previous: '' },
+  { timestamp: _H(8),    currency: 'EUR', title: 'GfK Consumer Confidence',     impact: 'High',   actual: '-26.6', forecast: '-29.6', previous: '-29.4' },
+  { timestamp: _H(14.5), currency: 'USD', title: 'Unemployment Claims',         impact: 'Medium', actual: '', forecast: '208K', previous: '206K' },
+];
+const asie = S.filtreFenetre(CAL_JOUR, { debutTs: _H(0), finTs: _H(9), dev: ['JPY', 'AUD', 'NZD', 'CNY'], nom: 'Asie' });
+v('un discours de banque centrale entre dans sa séance', asie.some(e => /Himino/.test(e.title)));
+v('un bulletin aussi', asie.some(e => /RBA Bulletin/.test(e.title)));
+v('un congrès aussi', asie.some(e => /Congress/.test(e.title)));
+v('… et rien d\'une autre devise', !asie.some(e => e.currency === 'USD'));
+/* LA GARDE QUI ÉVITE D'OUVRIR EN GRAND : une publication CHIFFRÉE pas encore tombée porte un
+   consensus. C'est un rendez-vous À VENIR — il appartient à « À surveiller », pas au récit. */
+const londres = S.filtreFenetre(CAL_JOUR, { debutTs: _H(8), finTs: _H(18), dev: ['EUR', 'GBP', 'CHF'], nom: 'Londres' });
+v('une publication chiffrée déjà tombée entre', londres.some(e => /GfK/.test(e.title)));
+v('… mais pas une publication à venir (consensus sans réel)', !londres.some(e => /Unemployment Claims/.test(e.title)));
+/* ET LA LIGNE SE REND, ce que la première version ratait : le rendez-vous passait le filtre pour
+   être jeté au rendu, qui rappelait le prédicat d'impact sur un objet construit sans `impact`. */
+v('le rendez-vous sans chiffre produit bien une ligne',
+  S.ligneMacroMd({ currency: 'AUD', title: 'RBA Bulletin', actual: '', forecast: '', previous: '' }, '03h30') === '03h30 **AUD** · **RBA Bulletin**');
+v('… et une publication chiffrée garde ses chiffres',
+  /contre .* attendu/.test(S.ligneMacroMd({ currency: 'EUR', title: 'GfK Consumer Confidence', actual: '-26.6', forecast: '-29.6', previous: '-29.4' }, '08h00')));
+
+/* [10] L'INTITULÉ VIENT DU CALENDRIER — demande du 27/08 : « au lieu de mettre dépenses des ménages
+   australiens, mets le nom de la news direct, genre RBA Bulletin ». */
+const rMacro = W.completerMacro(
+  ['Dépenses des ménages australiens : **+1,1%** m/m en juillet (vs **+0,4%** att., **+0,4%** préc.) → soutient une hausse de taux de la **RBA**'],
+  [{ timestamp: _H(3.5), currency: 'AUD', title: 'Household Spending m/m', impact: 'Medium', actual: '1.1%', forecast: '0.4%', previous: '0.4%' }]);
+const lMacro = rMacro.entrees.map(e => e.ligne).join(' || ');
+v('la puce porte l\'intitulé du calendrier', /Household Spending m\/m/.test(lMacro), lMacro);
+v('… et plus la paraphrase française', !/Dépenses des ménages/.test(lMacro));
+v('… les chiffres viennent du calendrier, pas du modèle', /1,1%.*contre.*0,4%/.test(lMacro));
+v('… et la lecture du modèle est conservée', /hausse de taux de la \*\*RBA\*\*/.test(lMacro));
+v('la reformulation est comptée', rMacro.reformules === 1, String(rMacro.reformules));
+/* LA GREFFE REPASSE PAR LE VERROU : sans quoi on recollerait une causalité fausse sur une ligne
+   irréprochable — la faute du 27/08, réintroduite par sa propre correction. */
+const rFausse = W.completerMacro(
+  ['**CPI** US : **+0,4%** m/m → catalyseur du pricing de la réunion **RBA**'],
+  [{ timestamp: _H(14.5), currency: 'USD', title: 'CPI m/m', impact: 'High', actual: '0.4%', forecast: '0.2%', previous: '0.1%' }]);
+v('une conséquence incohérente n\'est pas greffée', !/RBA/.test(rFausse.entrees.map(e => e.ligne).join(' ')),
+  rFausse.entrees.map(e => e.ligne).join(' '));
+v('… mais les faits, eux, restent', /CPI m\/m/.test(rFausse.entrees.map(e => e.ligne).join(' ')));
+
+v('la version de segmentation a été bumpée (seconde passe)', _swSegVer() >= 27, 'SW_SEG_VER = v' + _swSegVer());
+v('la consigne d\'ancrage temporel est au prompt', /INTERDIT ABSOLU d['’]écrire « demain »/.test(_PROMPT_SEG));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

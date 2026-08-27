@@ -93,16 +93,47 @@ function sansSource(t) {
    de la séance. On ajoute ce qui manque — chiffré, au format du desk. Rien n'est inventé : chaque
    ligne vient d'une publication du calendrier AVEC son résultat. Ce qui est déjà raconté par l'IA
    n'est jamais répété (_SEA.dejaDit). */
+/* ══ L'INTITULÉ VIENT DU CALENDRIER, LA LECTURE VIENT DU MODÈLE (27/08) ═══════════════════════════
+   Demande du propriétaire, capture à l'appui : « au lieu de mettre "Dépenses des ménages
+   australiens", mets le nom de la news direct, genre RBA Bulletin ». C'est la règle que le projet a
+   déjà tranchée pour Semaine à Venir (v29) : un intitulé thématique français explique au mauvais
+   endroit — « Moral des entreprises allemandes » ne se retrouve dans aucun calendrier, alors qu'Ifo
+   se reconnaît tout de suite. Le titre doit SITUER et se retrouver dans le calendrier ; la glose,
+   elle, a sa place dans la phrase.
+
+   CE QUI CHANGE ICI. Jusqu'ici, quand le modèle avait déjà parlé d'une publication, NOTRE ligne
+   était abandonnée au profit de la sienne. On fait l'inverse, et pour une raison plus forte que le
+   vocabulaire : notre ligne est TIRÉE DU CALENDRIER — intitulé exact, heure exacte, réel, attendu,
+   précédent — quand la sienne est une reformulation, qui peut se tromper de nom, de chiffre ou de
+   banque centrale. Les faits viennent donc de nous, et du modèle on ne garde que ce qu'il apporte
+   vraiment : la CONSÉQUENCE, ce qui suit la flèche.
+
+   ⚠️ ET LA CONSÉQUENCE GREFFÉE REPASSE PAR LE VERROU DE COHÉRENCE. Sans quoi on prendrait une ligne
+   irréprochable et on lui recollerait « → pricing de la réunion RBA » sur un chiffre américain :
+   la faute du 27/08, réintroduite par sa propre correction. Si la greffe ne tient pas, on garde les
+   faits, seuls — mieux vaut une ligne sans lecture qu'une lecture fausse. */
+const _APRES_FLECHE = (t) => { const i = String(t || '').indexOf('→'); return i < 0 ? '' : String(t).slice(i + 1).trim(); };
 function completerMacro(items, macroCal) {
-  const entrees = (items || []).map(i => ({ titre: sansSource(i), ligne: sansSource(i) }));
-  let ajouts = 0;
+  const brutes = (items || []).map(i => sansSource(i));
+  const entrees = brutes.map(i => ({ titre: i, ligne: i }));
+  let ajouts = 0, reformules = 0;
   for (const e of (macroCal || [])) {
-    if (_SEA.dejaDit(e, items || [])) continue;
     const titre = _WA.intituleAffiche(e);
-    const ligne = _SEA.ligneMacroMd({ currency: e.currency, ctry: e.ctry, title: titre, actual: e.actual, forecast: e.forecast, previous: e.previous }, heureParis(e.timestamp));
-    if (ligne) { entrees.push({ titre, ligne, _cal: true }); ajouts++; }
+    const ligne = _SEA.ligneMacroMd({ currency: e.currency, ctry: e.ctry, title: titre, actual: e.actual, forecast: e.forecast, previous: e.previous, impact: e.impact }, heureParis(e.timestamp));
+    if (!ligne) continue;
+    // Le modèle en a-t-il déjà parlé ? Alors c'est SA ligne qu'on remplace, à SA place.
+    const k = brutes.findIndex(t => _SEA.dejaDit(e, [t]));
+    if (k >= 0) {
+      const suite = _APRES_FLECHE(brutes[k]);
+      const compose = suite ? ligne + ' → ' + suite : ligne;
+      entrees[k] = { titre, ligne: pricingIncoherent(compose) ? ligne : compose, _cal: true };
+      reformules++;
+      continue;
+    }
+    entrees.push({ titre, ligne, _cal: true });
+    ajouts++;
   }
-  return { entrees, ajouts };
+  return { entrees, ajouts, reformules };
 }
 
 /* LA RUBRIQUE MACRO EXISTE DÈS QUE LE CALENDRIER A DES CHIFFRES. Si l'article ne parlait d'aucune
@@ -232,22 +263,83 @@ const _SUJETS_CCY = [
   [/\bCHF\b|suisses?\b/i, 'CHF'],
   [/\bCNY\b|chinoise?s?\b/i, 'CNY'],
 ];
-const _AFFIRME_UN_LIEN_RX = /r[ée]union|pricing|d[ée]cision|meeting/i;
+/* ⚠️ LA v26 N'A TENU QUE SUR LA PHRASE EXACTE DE LA CAPTURE (27/08, seconde passe). Le prédicat
+   exigeait littéralement « réunion | pricing | décision | meeting » ET la flèche typographique. Le
+   propos absurde survit à toutes ses reformulations, et huit d'entre elles ont été MESURÉES en
+   production simulée — publiées, toutes :
+       « **CPI** US demain → **RBA** en ligne de mire »
+       « … → pèse sur la trajectoire de taux de la **RBA** »
+       « … → oriente les attentes de baisse de la **RBA** »
+       « … → le comité de politique monétaire de la **RBA** en tiendra compte »
+       « … → le marché revoit ses paris sur la **RBA** »
+       « **NFP** US demain → la **BoJ** doit trancher son taux directeur »
+       « … -> catalyseur du pricing de la réunion **RBA** »        (flèche ASCII)
+       « **CPI** US demain, catalyseur du pricing de la réunion de la **RBA**. »   (sans flèche)
+   Un verrou qui ne connaît qu'une tournure n'est pas un verrou, c'est un filtre anti-doublon.
+   On raisonne donc sur ce que la phrase AFFIRME, et non sur les mots qu'elle emploie. */
+const _ATTRIBUTION_RX  = /catalyseur|d[ée]termin|conditionne|dicte|scelle|arbitre|pricing|repricing|paris\s+(?:sur|de|du)|attentes?\s+(?:de|d['’])|trajectoire\s+de\s+taux|en\s+ligne\s+de\s+mire|taux\s+directeur|d[ée]cision\s+de\s+taux|politique\s+mon[ée]taire/i;
+/* La mention nue d'une réunion vaut affirmation… SAUF quand elle n'est qu'une concomitance. « la
+   **RBA** sous pression AVANT sa réunion » situe dans le temps, elle n'affirme aucune causalité :
+   c'était un faux positif mesuré de la v26, et supprimer une lecture juste est un défaut. */
+const _REUNION_RX      = /r[ée]union|d[ée]cision|meeting|comit[ée]/i;
+const _CONCOMITANCE_RX = /\b(?:avant|[àa]\s+l['’]approche|en\s+amont|d['’]ici|veille\s+de|en\s+attendant)\b/i;
+const _FLECHE_RX       = /→|⇒|➔|->|=>/;
+
+/* La césure entre le SUJET et ce qu'on en AFFIRME. La flèche d'abord — c'est le style de la
+   maison ; à défaut, le mot d'attribution lui-même fait la coupure, car « **CPI** US demain,
+   catalyseur du pricing de la réunion **RBA** » dit exactement la même chose sans flèche. */
+function _coupe(t) {
+  const f = t.search(_FLECHE_RX);
+  if (f >= 0) return [t.slice(0, f), t.slice(f + 1)];
+  const a = t.search(_ATTRIBUTION_RX);
+  if (a > 0) return [t.slice(0, a), t.slice(a)];
+  return null;
+}
 function pricingIncoherent(txt) {
   const t = String(txt || '');
-  const i = t.indexOf('→');
-  if (i < 0) return false;                                   // sans flèche, pas d'affirmation isolable
-  const avant = t.slice(0, i), apres = t.slice(i + 1);
-  if (!_AFFIRME_UN_LIEN_RX.test(apres)) return false;        // mention ≠ affirmation de causalité
-  const bq = _BANQUES_CCY.find(([rx]) => rx.test(apres));
-  if (!bq) return false;
-  const su = _SUJETS_CCY.find(([rx]) => rx.test(avant));
-  if (!su) return false;                                     // sujet sans devise → on ne juge pas
-  return su[1] !== bq[1];
+  const p = _coupe(t);
+  if (!p) return false;
+  const [avant, apres] = p;
+  const bq = (_BANQUES_CCY.find(([rx]) => rx.test(apres)) || [])[1];
+  if (!bq) return false;                       // aucune banque nommée → rien à contredire
+  const affirme = _ATTRIBUTION_RX.test(apres) || (_REUNION_RX.test(apres) && !_CONCOMITANCE_RX.test(apres));
+  if (!affirme) return false;
+  /* GARDE CONTRE UN FAUX POSITIF MESURÉ : si l'AVAL porte son propre sujet, accordé à la banque, la
+     puce se justifie toute seule. « **AUD** chute → le **CPI** US chaud repousse la décision de la
+     **Fed** » est une lecture JUSTE — le sujet du lien est en aval, pas en amont ; ce qui est en
+     amont n'est que le mouvement observé. La v26 l'écartait. */
+  const suAval = (_SUJETS_CCY.find(([rx]) => rx.test(apres)) || [])[1];
+  if (suAval && suAval === bq) return false;
+  const su = (_SUJETS_CCY.find(([rx]) => rx.test(avant)) || [])[1];
+  if (!su) return false;                       // sujet sans devise (Jackson Hole, Nvidia) → on ne juge pas
+  return su !== bq;
 }
+
 /* Une puce ENTIÈREMENT entre chevrons est le gabarit du prompt recopié tel quel — jamais du texte
    rédigé. Le motif exige les chevrons aux DEUX bouts : « CPI <0,2% attendu » garde les siens. */
 const _EST_GABARIT_RX = /^\s*<[^<>]*>\s*$/;
+/* ⚠️ ET LES EMPLACEMENTS ATTEIGNAIENT LE LECTEUR AILLEURS QU'ICI. Le motif ci-dessus n'attrape
+   qu'une puce ENTIÈREMENT entre chevrons, et il ne tournait que dans « À surveiller ». Mesuré : un
+   squelette recopié rendait « <un paragraphe de 2 à 4 phrases : … > » dans la SYNTHÈSE — le
+   paragraphe d'ouverture, encadré du liseré doré — et « **DXY** <mouvement → driver> » dans
+   l'Analyse de séance.
+   Un groupe entre chevrons d'au moins TROIS mots et SANS chiffre est un emplacement, jamais du
+   texte rédigé. Les deux gardes comptent : « <0,2% attendu> » porte un chiffre et « <script> » n'a
+   pas d'espace — ni l'un ni l'autre n'est touché, le contrôle d'échappement du banc reste vert. */
+const _EMPLACEMENT_RX = /<[^<>\d]*\s[^<>\d]*\s[^<>\d]*>/;
+const _PUCE_VIDE_RX   = /^[\s…._·•\-]*$/;      // l'emplacement laissé nu : « … »
+const estGabarit = t => _EST_GABARIT_RX.test(t) || _EMPLACEMENT_RX.test(t) || _PUCE_VIDE_RX.test(t);
+
+/* ⚠️ LE VERROU NE TOURNAIT QUE SUR UNE BRANCHE SUR DEUX, et c'est le trou le plus grave de la v26.
+   Le rendu de « À surveiller » choisit : `tbl ? autresSurveiller(...) : completerSurveiller(...)`.
+   Or `completerSurveiller` ne filtre RIEN — et il prend la main dès que le tableau n'a pas pu être
+   construit : récap qui n'est pas du jour, week-end, calendrier pas encore chargé au démarrage.
+   Sonde du 27/08 sur cette branche : la puce « **CPI** US demain → … réunion **RBA** » ET
+   l'emplacement du prompt y étaient publiés tels quels. Le filtre de CONTENU sort donc de
+   `autresSurveiller` pour être posé AVANT le choix de branche. */
+function filtrerSurveiller(items) {
+  return (items || []).map(sansSource).filter(t => t && !estGabarit(t) && !pricingIncoherent(t));
+}
 
 const _evPourDoublon = e => ({ title: (e && e.event) || '', currency: (e && e.ccy) || '', actual: '' });
 function autresSurveiller(items, surv) {
@@ -256,7 +348,7 @@ function autresSurveiller(items, surv) {
   for (const brut of (items || [])) {
     const t = sansSource(brut);
     if (!t) continue;
-    if (_EST_GABARIT_RX.test(t)) continue;                              // gabarit du prompt recopié
+    if (estGabarit(t)) continue;                                        // gabarit du prompt recopié
     if (pricingIncoherent(t)) continue;                                 // affirmation fausse par construction
     if (evs.some(e => _SEA.dejaDit(_evPourDoublon(e), [t]))) continue;  // déjà dans le tableau
     out.push(t);
@@ -326,8 +418,14 @@ function html(arr, macroCal, surv, synth) {
   let out = '', ajouts = 0;
   for (const sec of sections) {
     if (!sec || !sec.section || !Array.isArray(sec.items)) continue;
+    /* LES EMPLACEMENTS DU SQUELETTE TOMBENT ICI, POUR TOUTES LES RUBRIQUES — et eux seuls. Le
+       verrou de cohérence, lui, RESTE confiné à « À surveiller » : l'étendre supprimerait les
+       lectures croisées que le prompt EXIGE ailleurs (« le mouvement ET SON DRIVER »), et deux
+       d'entre elles ont été mesurées comme faux positifs. Une rubrique vidée de ses emplacements
+       s'efface, comme toute rubrique vide. */
+    const items = (sec.items || []).map(sansSource).filter(t => t && !estGabarit(t));
     if (estMacro(sec)) {
-      const r = completerMacro(sec.items.map(sansSource), macroCal);
+      const r = completerMacro(items, macroCal);
       ajouts += r.ajouts;
       if (!r.entrees.length) continue;
       const groupes = _SEA.parFamilleMacro(r.entrees);
@@ -344,7 +442,8 @@ function html(arr, macroCal, surv, synth) {
       // Avec le tableau : on écarte les puces qu'il dit déjà, et ce qui reste passe sous « Autres ».
       // Sans lui : rien à dédoublonner, et « Autres » n'aurait rien à distinguer — la rubrique reste
       // exactement celle d'avant.
-      const l = tbl ? autresSurveiller(sec.items, surv) : completerSurveiller(sec.items.map(sansSource), surv);
+      const gardees = filtrerSurveiller(items);   // idempotent : autresSurveiller le réapplique sans effet
+      const l = tbl ? autresSurveiller(gardees, surv) : completerSurveiller(gardees, surv);
       if (!tbl && !l.length) continue;
       out += `<strong>${esc(sec.section)}</strong>`;
       if (tbl) out += `<em>Séance de ${esc((surv && surv.nom) || '')}</em>` + tbl;
@@ -359,19 +458,19 @@ function html(arr, macroCal, surv, synth) {
        Une seule classe présente → aucun sous-titre : la rubrique EST déjà cette classe. C'est la
        différence avec la Macro, où l'intitulé porte l'information même seul (« Inflation » dit ce
        que le chiffre mesure) ; ici « Devises » au-dessus de trois lignes de devises ne dit rien. */
-    if (/^analyse de s[ée]ance$/i.test(String(sec.section).trim()) && sec.items.length) {
-      const g = _SEA.parFamilleActif(sec.items.map(sansSource));
+    if (/^analyse de s[ée]ance$/i.test(String(sec.section).trim()) && items.length) {
+      const g = _SEA.parFamilleActif(items);
       out += `<strong>${esc(sec.section)}</strong>`;
       if (g.length > 1) for (const f of g) out += `<em>${esc(f.famille)}</em><ul>${f.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
-      else out += `<ul>${sec.items.map(i => `<li>${esc(sansSource(i))}</li>`).join('')}</ul>`;
+      else out += `<ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
       continue;
     }
-    if (!sec.items.length) continue;   // une rubrique vide s'efface — Macro et « À surveiller » sont traitées ci-dessus
+    if (!items.length) continue;   // une rubrique vide s'efface — Macro et « À surveiller » sont traitées ci-dessus
     // Le style vaut pour TOUTES les rubriques, pas seulement la Macro : le tic vient du modèle, pas
     // d'une section en particulier.
-    out += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(sansSource(i))}</li>`).join('')}</ul>`;
+    out += `<strong>${esc(sec.section)}</strong><ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
   }
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, sansMedia, heureParis, esc, pricingIncoherent };
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, sansMedia, heureParis, esc, pricingIncoherent, filtrerSurveiller, estGabarit };
