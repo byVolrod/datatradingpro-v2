@@ -12844,6 +12844,11 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
 /* Volet étroit : chaque bloc de réglages porte son intitulé, sinon deux rangées de boutons
    empilées se lisent comme une seule liste. */
 .wdg-lib-grp { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* L'espacement du desk, déplacé de la bibliothèque au gestionnaire de layouts (09/09) : il se pose
+   entre le sous-titre et la liste des dispositions, aligné sur elles, et séparé par le même filet
+   que le reste du panneau. Il ne s'étire pas : c'est un réglage, pas une rubrique. */
+.wdg-mgr-dens { align-items: flex-start; margin: 0 0 12px; padding: 0 0 12px;
+  border-bottom: 1px solid var(--hud-line, var(--border)); }
 .wdg-lib-lbl { font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
   color: var(--text3, var(--w-t9)); }
 .wdg-lib-chips .wdg-chip { padding: 4px 11px; font-size: 10.5px; }

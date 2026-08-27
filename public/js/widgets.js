@@ -9800,7 +9800,6 @@ function _spansAffiches(lay) {
       var d = document.getElementById('wdg-lib'); if (!d) return;
       d.classList.add('open'); _libQ = ''; _oublieCibles();
       var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
-      _syncDensity();                                           // le réglage d'espacement vit ICI (barre épurée)
       API.filterFam('');                                        // repart sur « Tous » (chips + rendu)
     },
     closeLib: function () {
@@ -10189,6 +10188,10 @@ function _spansAffiches(lay) {
       var d = document.getElementById('wdg-mgr'); if (!d) return;
       _wireMgr();                                                  // réordonner par ⠿ (câblé une fois)
       _delConfirm = null; d.classList.add('open'); renderManager();
+      /* L'ESPACEMENT SE RÈGLE ICI DEPUIS LE 09/09 : il a suivi le panneau, son état actif aussi.
+         Sans cet appel, les deux boutons s'ouvriraient sans qu'AUCUN ne soit allumé — le réglage
+         serait en place et paraîtrait non réglé. */
+      _syncDensity();
       // SAUVEGARDE PAR COMPTE (demande user « récupérable si un souci s'impose ») : affiche la date du
       // snapshot serveur + bouton Restaurer (réversible : la config courante devient la sauvegarde).
       var slot = document.getElementById('wdg-mgr-bak');
@@ -10260,6 +10263,11 @@ function _spansAffiches(lay) {
       var c = STATE.cfg; if (!c) return;
       c.gap = (m === 'tight' ? 'tight' : 'loose');
       save(); renderGrid();
+      /* ⚠️ ET ON RAFRAÎCHIT LE BOUTON. `setGap` re-rendait la grille sans toucher à son propre
+         contrôle : le panneau restant ouvert, on cliquait « Collés », le desk se resserrait, et
+         « Espacés » restait allumé. Invisible tant que le réglage vivait dans la bibliothèque, qui
+         se rouvrait sur `_syncDensity()` ; visible dès qu'on reste devant. */
+      _syncDensity();
     },
     dismissTip: function () {                           // astuce gestes : fermée une fois pour toutes (par compte)
       var c = STATE.cfg; if (!c) return;

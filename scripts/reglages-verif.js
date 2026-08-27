@@ -182,6 +182,35 @@ function decouper(src, entete, fin) {
     try { if (nav) await nav.close(); } catch {}
   }
 
+  /* ═══ L'ESPACEMENT DU DESK SE RÈGLE OÙ L'ON CHOISIT LA DISPOSITION (09/09) ══════════════════
+     Demande user : « ça tu dois le mettre quand on choisit la disposition du layout, et pas dans
+     la bibliothèque de widgets où l'on voit les widgets ». Le réglage décide de la respiration
+     ENTRE les widgets posés — une propriété de la DISPOSITION — et il vivait dans l'écran où l'on
+     choisit QUELS widgets ajouter, à côté des filtres par catégorie.
+     ⚠️ DÉPLACER LE BLOC NE SUFFIT PAS, et c'est tout l'objet de ces contrôles : son état actif est
+     posé par `_syncDensity()`, qui était appelé à l'ouverture de la BIBLIOTHÈQUE. Déplacer le HTML
+     sans déplacer cet appel aurait ouvert le panneau avec DEUX boutons éteints — le réglage en
+     place, et l'écran affirmant le contraire. */
+  {
+    const HTML = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8');
+    const WDG = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
+    const _bloc = (rx) => (rx.exec(HTML) || [''])[0];
+    const mgr = _bloc(/<div class="wdg-lib" id="wdg-mgr">[\s\S]*?\n    <\/div>/);
+    const lib = _bloc(/<div class="wdg-lib" id="wdg-lib">[\s\S]*?\n    <\/div>/);
+    v('le réglage d\'espacement est dans le gestionnaire de layouts', /id="wdg-density"/.test(mgr), mgr.slice(0, 120) || '(panneau introuvable)');
+    v('… et plus dans la bibliothèque de widgets', !/id="wdg-density"/.test(lib), (lib.match(/.{0,60}wdg-density.{0,20}/) || [''])[0]);
+    v('… il n\'existe qu\'à UN endroit (pas de copie oubliée)', (HTML.match(/id="wdg-density"/g) || []).length === 1);
+    /* L'état actif doit suivre le panneau, sinon le réglage s'ouvre sans être allumé. */
+    const openMgr = (/openManager: function \(\)[\s\S]{0,700}/.exec(WDG) || [''])[0];
+    const openLib = (/openLib: function \(\)[\s\S]{0,500}/.exec(WDG) || [''])[0];
+    v('l\'état actif est posé à l\'ouverture du gestionnaire', /_syncDensity\(\)/.test(openMgr), openMgr.slice(0, 160));
+    v('… et plus à celle de la bibliothèque (appel devenu inutile)', !/_syncDensity\(\)/.test(openLib));
+    /* Le panneau reste OUVERT pendant qu'on bascule : le bouton doit se rafraîchir tout seul. */
+    const setGap = (/setGap: function \(m\)[\s\S]{0,700}?\n    \},/.exec(WDG) || [''])[0];
+    v('basculer l\'espacement rafraîchit le bouton sans rouvrir', /_syncDensity\(\)/.test(setGap), setGap.slice(0, 200));
+    v('… après le rendu, pas avant', setGap.indexOf('renderGrid()') < setGap.indexOf('_syncDensity()'));
+  }
+
   console.log('\n───────────────────────────────────────');
   console.log('  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n');
   process.exit(ko ? 1 : 0);
