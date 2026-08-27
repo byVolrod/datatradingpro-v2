@@ -13,7 +13,21 @@ a{color:inherit;text-decoration:none}
 .doc-top-in{max-width:1080px;margin:0 auto;height:60px;display:flex;align-items:center;gap:14px;padding:0 clamp(16px,4vw,24px)}
 .doc-back{background:none;border:1px solid var(--line2);color:var(--text2);font:inherit;font-size:13.5px;padding:8px 14px;border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap}
 .doc-back:hover{border-color:var(--orange);color:var(--orange)}
-.doc-logo{font-weight:800;font-size:18px;letter-spacing:-.02em;color:var(--text);margin-right:auto}
+/* LA MARQUE, PAS SEULEMENT LE MOT (27/08). L'en-tête des 26 pages de documentation ne portait
+   que « DataTradingPro » en texte : le carré doré — celui du terminal, du favicon et de l'app —
+   n'apparaissait nulle part. Trois surfaces du produit, trois identités visuelles.
+   `flex-shrink:0` sur l'image : sans lui, un en-tête à l'étroit écrase le carré avant le texte,
+   et une marque déformée est pire qu'une marque absente. */
+.doc-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:18px;letter-spacing:-.02em;color:var(--text);margin-right:auto}
+/* ⚠️ LA MARQUE EST DESSINÉE, PAS CHARGÉE — et elle dit DTP, pas DT. Le favicon du terminal porte
+   « DT » ; la vitrine, elle, dessine « DTP » en CSS depuis toujours. Comme c'est la vitrine qui
+   sert de référence, la documentation reprend SA marque : mêmes lettres, même carré doré, aucune
+   requête réseau, et rien à re-rasteriser le jour où la teinte bouge.
+   Reste l'écart de fond, hors de portée d'ici : le favicon et l'icône de l'app mobile disent
+   encore « DT ». Les aligner demande de régénérer les deux, et l'icône est déjà dans un build. */
+.doc-mk{width:26px;height:26px;flex-shrink:0;border-radius:7px;display:grid;place-items:center;
+  background:linear-gradient(150deg,#f3d27a,#e0a81e);color:#1a1206;font-weight:900;font-size:9px;
+  letter-spacing:-.2px;line-height:1}
 .doc-logo b{color:var(--orange);font-weight:inherit}
 .doc-cta{background:var(--orange);color:#fff;font-weight:700;font-size:13.5px;padding:9px 16px;border-radius:8px;transition:.15s;white-space:nowrap}
 .doc-cta:hover{background:var(--orange2)}
