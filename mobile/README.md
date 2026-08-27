@@ -59,8 +59,16 @@ L'app doit prouver qu'elle et le domaine appartiennent au même propriétaire, s
 le desk **avec une barre d'adresse de navigateur**.
 
 1. `npx eas-cli credentials` → relever l'empreinte SHA-256.
-2. Sur Render : `ANDROID_CERT_SHA256 = AB:CD:…` (32 octets, séparés par `:`).
-3. Redéployer, puis vérifier `https://desk.datatradingpro.com/.well-known/assetlinks.json`.
+2. Sur le VPS, dans `/opt/datatradingpro/.env` : `ANDROID_CERT_SHA256=AB:CD:…` (32 octets, `:`).
+3. Redéployer, puis vérifier `https://desk.datatradingpro.com/.well-known/assetlinks.json` :
+
+```bash
+ssh -i ~/.ssh/dtp_deploy root@149.71.44.90 \
+  'cd /opt/datatradingpro && git fetch origin main && git reset --hard origin/main \
+   && docker compose build datatradingpro && docker compose up -d datatradingpro'
+```
+
+⚠️ **Pousser sur GitHub ne déploie rien** : le VPS ne bouge que sur cette commande.
 
 **Il en faut souvent DEUX.** Avec Play App Signing (activé par défaut), Google re-signe l'app avec
 sa propre clé : l'empreinte qui compte est alors celle de *Play Console → Configuration → Intégrité

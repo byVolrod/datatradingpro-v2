@@ -5,15 +5,21 @@
 ## Stack & contraintes (NE PAS proposer autre chose)
 - **Vanilla JS + CSS pur + Express** servi statiquement. **PAS de React/Tailwind/build.** L'utilisateur demande souvent « React + Tailwind » → toujours livrer **l'équivalent vanilla** (classes Tailwind traduites en CSS, SVG inline). Ne jamais introduire de framework.
 - **amCharts 5** pour les graphiques (dark + **or**, plus d'orange).
-- **Render free tier** : 512 Mo RAM, disque **éphémère**, veille ~15 min → anti-OOM/502 obligatoire (timeouts fetch, caps mémoire, verrous, **persistance Supabase `ai_cache`** pas disque).
+- **VPS Linux `149.71.44.90`, Docker Compose** (service `datatradingpro`) — **plus Render** (le `render.yaml` du dépôt est un vestige). Contraintes qui RESTENT : **512 Mo RAM** et disque **éphémère** → anti-OOM/502 obligatoire (timeouts fetch, caps mémoire, verrous, **persistance Supabase `ai_cache`** pas disque). Ce qui NE s'applique plus : la mise en veille au bout de 15 min — un VPS ne s'endort pas. Source : `RESTORE.md` § 0.
 - **Gemini free-tier** (quota dur) + repli **Claude multi-clés** (`ai.generateText`). Tout l'IA doit **cacher** (clé = hash) et idéalement **préchauffer en tâche de fond** (jamais générer quand l'utilisateur ouvre).
 - UI **100 % en français** — tous les libellés produit sont **traduits** (« Éclairages IA », « En ligne », onglets « Calendrier / Analystes / Biais / Banques », titres de rapports…). **Ne plus laisser de texte produit en anglais** (sauf valeurs logiques internes : `_reportType`, `BUY/SELL`, `data-view` → traduire uniquement à l'**affichage**).
 
 ## SÉCURITÉ (verbatim, ne jamais enfreindre)
-- Une clé Anthropic « sk-ant-api03-o1yqU_… » a été COMPROMISE → à roter. **Ne jamais stocker/committer de clés.** Les clés vivent UNIQUEMENT dans les env vars Render. `.env.render` est gitignored → **JAMAIS committer**.
+- Une clé Anthropic « sk-ant-api03-o1yqU_… » a été COMPROMISE → à roter. **Ne jamais stocker/committer de clés.** Les clés vivent UNIQUEMENT dans le **`.env` du VPS** (`/opt/datatradingpro/.env`), jamais dans le dépôt. `.env*` est gitignored → **JAMAIS committer**.
 
 ## Workflow (chaque changement)
-- **Commit + push à chaque fois** (Render redéploie depuis `main`). Messages FR, finir par `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+- **Commit + push à chaque fois**. Messages FR, finir par `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+- ⚠️ **POUSSER NE DÉPLOIE PAS.** Il n'y a plus d'auto-déploiement : le VPS ne bouge que sur commande explicite. Tant qu'elle n'est pas passée, le code est sur GitHub et le desk sert encore l'ancienne version — c'est la première chose à vérifier quand un correctif « ne marche pas ».
+  ```bash
+  ssh -i ~/.ssh/dtp_deploy root@149.71.44.90 \
+    'cd /opt/datatradingpro && git fetch origin main && git reset --hard origin/main \
+     && docker compose build datatradingpro && docker compose up -d datatradingpro'
+  ```
 - **BACKUP OBLIGATOIRE** : après CHAQUE `git push origin main`, faire AUSSI `git push backup main` (remote `backup` = `https://github.com/byVolrod/datatradingpro-v2-backup.git`, repo privé miroir). Le backup doit toujours rester à jour avec origin. (Si le remote `backup` manque sur une nouvelle machine : `git remote add backup https://github.com/byVolrod/datatradingpro-v2-backup.git`.)
 - **Cache-busting** : `node scripts/bump-cache.js` — et **plus** un bump manuel de `public/index.html`. Le script aligne TOUTES les pages (`index`, `admin`, `login`, `week-ahead`) sur un jeton unique. Rappeler **Ctrl+F5**.
   ⚠️ Ne bumper que `index.html` a laissé le **panneau admin 8 jours en retard** (06/08) : `express.static` sert les JS/CSS en `maxAge: 30d`, donc tant que l'URL ne change pas le navigateur ne redemande rien. Le serveur livrait le fichier neuf, l'admin voyait l'ancien — et on cherchait le bug dans le code livré.
