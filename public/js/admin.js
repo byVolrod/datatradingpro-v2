@@ -1523,11 +1523,20 @@
     try {
       const d = await fetch('/api/admin/campaign-plan').then(r => r.json());
       if (!d || !d.ok) { body.innerHTML = '<div class="camp-note">Programme indisponible.</div>'; return; }
+      /* ⚠️ « AUCUN TÉMOIGNAGE PROGRAMMÉ » ÉTAIT FAUX (09/09). Le témoignage part tout seul le 1er
+         mardi de chaque mois — les lignes du programme, juste en dessous, le montraient d'ailleurs.
+         Cette mention ne parlait en réalité que de la date FORCÉE À LA MAIN, et son absence se
+         lisait comme une absence d'envoi. Elle dit maintenant la cadence réelle et QUELLE des cinq
+         présentations partira, la rotation étant déjà en place côté serveur. */
       const sub = document.getElementById('camp-plan-sub');
-      if (sub) sub.textContent = (d.temoignage ? 'Témoignage programmé le ' + d.temoignage : 'Aucun témoignage programmé')
-        + (d.testMode ? ' · mode TEST' : '');
-      const tem = document.getElementById('camp-plan-tem-date');
-      if (tem && d.temoignage) tem.value = d.temoignage;
+      const _ti = d.temoignageInfo || null;
+      if (sub) {
+        const _varTxt = (_ti && _ti.total) ? ' · variante ' + _ti.varianteNum + '/' + _ti.total + (_ti.sujet ? ' « ' + _ti.sujet + ' »' : '') : '';
+        sub.textContent = (d.temoignage
+          ? 'Témoignage forcé le ' + d.temoignage
+          : 'Témoignage : ' + ((_ti && _ti.cadence) || '1er mardi du mois'))
+          + _varTxt + (d.testMode ? ' · mode TEST' : '');
+      }
       /* CARTE DU PARRAINAGE SEMESTRIEL (04/09). Elle repond a UNE question — « quand ca part » — et
          a une seconde que le user n'a pas eu a poser : QUOI part. Le mail change a chaque envoi,
          donc afficher la date sans dire quelle variante l'accompagne laisserait relire les quatre
@@ -1548,8 +1557,26 @@
            et il s'afficherait alors comme une barre oblique en clair chez l'admin. */
         const _htm = function (t) { const n = document.createElement('span'); n.textContent = String(t == null ? '' : t); return n.innerHTML; };
         const _retard = par.date && par.date <= new Date().toISOString().slice(0, 10);
-        boxPar.innerHTML = '<div class="camp-plan-row camp-plan-row--now">'
-          + '<div class="camp-plan-wk">' + (_retard ? 'À envoyer' : 'Prochain') + '<span>tous les 6 mois</span></div>'
+        /* ⚠️ « PROCHAIN » N'EST PAS UN SYNONYME DE « À VENIR » (09/09, constat user : « comme le
+           prochain envoi n'est pas le truc de parrainage, on peut enlever la bande qui dit que
+           c'est le prochain »). Cette ligne portait le libellé « Prochain » ET la mise en avant
+           dorée `--now` SANS CONDITION : le parrainage se présentait comme le prochain envoi alors
+           que sa date tombait dix-huit mois plus tard, juste au-dessus du vrai prochain envoi, lui
+           aussi doré. Deux « prochains » à l'écran, dont un faux.
+           La règle est maintenant celle que le mot signifie : premier DANS LE TEMPS. On compare à
+           l'échéance hebdomadaire réelle (`prochainIdx`), et à défaut de rang, la colonne dit
+           l'attente — c'est l'information utile quand ce n'est PAS pour tout de suite. */
+        const _semProch = (d.semaines && d.semaines[d.prochainIdx]) ? d.semaines[d.prochainIdx].debut : '';
+        const _estProchain = !!_retard || (!!par.date && !!_semProch && par.date <= _semProch);
+        const _attente = (function () {
+          if (!par.date) return '';
+          const j = Math.round((new Date(par.date + 'T12:00:00Z') - Date.now()) / 86400000);
+          if (j <= 31) return 'dans ' + Math.max(1, j) + ' j';
+          const m = Math.round(j / 30.4);
+          return 'dans ' + m + ' mois';
+        })();
+        boxPar.innerHTML = '<div class="camp-plan-row' + (_estProchain ? ' camp-plan-row--now' : '') + '">'
+          + '<div class="camp-plan-wk">' + (_retard ? 'À envoyer' : (_estProchain ? 'Prochain' : _attente)) + '<span>tous les 6 mois</span></div>'
           + '<div class="camp-plan-main"><strong>Parrainage</strong>'
           + '<span class="camp-plan-when">' + _jf(par.date) + (par.heure ? ' · ' + par.heure : '') + '</span>'
           + (par.programmee ? '<span class="camp-plan-badge">date forcée</span>' : '')
@@ -1571,6 +1598,15 @@
         // calculé côté serveur d'après le journal des envois). Le samedi après-midi, le panel
         // désignait encore comme à venir un Récap Hebdo parti le matin même.
         const _prochain = (typeof d.prochainIdx === 'number') ? d.prochainIdx : 0;
+        /* ⚠️ LA VARIANTE N'EST ANNONCÉE QUE SUR LE PROCHAIN TÉMOIGNAGE, et c'est délibéré. Le plan
+           couvre huit semaines, donc deux 1ers mardis : la rotation aura tourné entre les deux, et
+           répéter la même étiquette sur les deux lignes annoncerait deux fois un mail qui ne partira
+           qu'une. On ne dit donc que ce qu'on sait. */
+        const _temPrem = (d.semaines || []).findIndex(function (x) { return x.temoignageLe && !x.envoye; });
+        const _tinf = d.temoignageInfo || null;
+        const _temLbl = (i === _temPrem && _tinf && _tinf.total)
+          ? 'variante ' + _tinf.varianteNum + '/' + _tinf.total + (_tinf.sujet ? ' · ' + _tinf.sujet : '')
+          : '';
         const _lbl = w.envoye ? 'Envoyé'
           : (i === _prochain ? 'Prochain envoi'
             : (i === 0 ? 'Cette semaine' : (i === 1 ? 'Semaine prochaine' : 'dans ' + i + ' sem.')));
@@ -1588,7 +1624,8 @@
           + (w.force ? '<span class="camp-plan-badge">forcé</span><span class="camp-plan-auto">rotation : ' + w.auto + '</span>' : '')
           // Le temoignage s AJOUTE a la rotation (1 fois par mois) : il n a pas de ligne a lui, on
           // l affiche donc sur la semaine qui le porte, pour qu il cesse d etre invisible.
-          + (w.temoignageLe ? '<span class="camp-plan-temoin">+ Témoignage membre <em>mardi 18h</em></span>' : '')
+          + (w.temoignageLe ? '<span class="camp-plan-temoin">+ Témoignage membre <em>mardi 18h</em>'
+              + (_temLbl ? ' · ' + _temLbl : '') + '</span>' : '')
           + '</div>'
           + '<select class="camp-plan-input" data-wk="' + w.cle + '" onchange="campPlanForcer(this.value, this.dataset.wk)">'
           + '<option value="">Auto (rotation)</option>' + opts + '</select>'
@@ -1605,21 +1642,6 @@
       if (!r || !r.ok) { _planMsg((r && r.error) || 'échec', true); return; }
       _planMsg(contenu ? 'Semaine forcée.' : 'Semaine rendue à la rotation.');
       loadPlan(); if (typeof loadSequence === 'function') loadSequence();
-    } catch (e) { _planMsg('échec réseau', true); }
-  };
-  window.campPlanTemoignage = async function (annuler) {
-    const el = document.getElementById('camp-plan-tem-date');
-    const date = annuler ? '' : ((el && el.value) || '');
-    if (!annuler && !date) { _planMsg('choisis une date', true); return; }
-    try {
-      const r = await fetch('/api/admin/campaign-plan', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ temoignage: date }),
-      }).then(function (x) { return x.json(); });
-      if (!r || !r.ok) { _planMsg((r && r.error) || 'échec', true); return; }
-      if (annuler && el) el.value = '';
-      _planMsg(annuler ? 'Témoignage déprogrammé.' : 'Témoignage programmé le ' + date + ' (18h-21h).');
-      loadPlan();
     } catch (e) { _planMsg('échec réseau', true); }
   };
   // ── Sequence / supervision hebdo ──

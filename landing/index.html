@@ -651,7 +651,11 @@
      part de largeur, et le pied restait aussi étalé qu'avant — la moitié en blanc. Retirer des
      liens sans reprendre la grille n'aurait rien changé À L'ŒIL, qui est la demande.
      La colonne de marque garde son avance (1.4fr) : c'est elle qui porte le texte. */
-  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:30px;max-width:1000px}
+  /* ⚠️ ET IL FAUT LE CENTRER, sans quoi le resserrement se voit comme un DÉSÉQUILIBRE (capture
+     user). Mesuré dans Chromium à 1440 px AVANT correction : grille de 1000 px, 30 px de marge à
+     gauche et 410 px à droite — le pied se tenait tout à gauche d'une page vide sur son tiers
+     droit. La largeur maximale, seule, DÉPLACE le problème au lieu de le régler. */
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:30px;max-width:1000px;margin-inline:auto}
   .foot-brand .logo{margin-bottom:14px}
   .foot-brand p{color:var(--text3);font-size:13px;line-height:1.6;max-width:280px}
   .foot-soc{display:flex;gap:10px;margin-top:16px}

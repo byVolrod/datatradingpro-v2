@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260827bbg1007" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260827bbg1008" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -371,14 +371,17 @@
                  aucune des lignes de semaines ci-dessous ne peut le porter. Il lui faut sa carte. -->
             <div id="camp-plan-parrain"></div>
             <div id="camp-plan-body"><div class="skel" style="height:120px"></div></div>
-            <div class="camp-plan-tem">
-              <label for="camp-plan-tem-date">Témoignage membre, date programmée</label>
-              <input type="date" id="camp-plan-tem-date" class="camp-plan-input">
-              <button class="btn btn-ghost" onclick="campPlanTemoignage()">Programmer</button>
-              <button class="btn btn-ghost" onclick="campPlanTemoignage(true)">Annuler</button>
-              <span id="camp-plan-msg" class="camp-msg"></span>
-            </div>
-            <p class="camp-note">Forcer une semaine remplace son contenu <strong>pour cette semaine seulement</strong> ; « Auto » la rend à la rotation. Le témoignage part le 1<sup>er</sup> mardi du mois&nbsp;; une date programmée l'envoie ce jour-là en plus, sans jamais dépasser un témoignage par mois et par contact.</p>
+            <!-- ⚠️ LE PROGRAMMATEUR MANUEL DU TÉMOIGNAGE A ÉTÉ RETIRÉ (09/09, demande user : « enlève
+                 ça vu qu'on a ajouté dans le programme pilotage le template témoignage »). Il servait
+                 à forcer une date pour un envoi qui, depuis, PORTE SA PROPRE LIGNE dans le programme
+                 ci-dessus — avec son jour, son heure et la présentation qui partira. Un second
+                 réglage pour la même chose, à côté de l'écran qui la montre déjà, ne pouvait que
+                 semer le doute sur laquelle des deux fait foi.
+                 `#camp-plan-msg` RESTE : ce n'est pas le message du témoignage, c'est celui de TOUT
+                 le bloc — « Semaine forcée. », « Semaine rendue à la rotation. » l'utilisent aussi.
+                 Le champ `temoignage` de l'API survit, sans entrée dans le panneau. -->
+            <div class="camp-plan-tem"><span id="camp-plan-msg" class="camp-msg"></span></div>
+            <p class="camp-note">Forcer une semaine remplace son contenu <strong>pour cette semaine seulement</strong> ; « Auto » la rend à la rotation. Le témoignage s'ajoute le 1<sup>er</sup> mardi du mois, sans jamais dépasser un témoignage par mois et par contact.</p>
             <p class="camp-note">Le <strong>parrainage</strong> part <strong>tous les 6 mois</strong>, le lundi entre 11h et 14h, le compte à rebours repartant du dernier envoi. Son texte <strong>change à chaque fois</strong> : quatre angles se succèdent dans l'ordre, donc deux ans avant qu'un client relise le même mail. Il n'y a rien à régler&nbsp;: la cadence tourne seule. Pour un envoi immédiat, c'est «&nbsp;Lancer maintenant à toute la liste…&nbsp;» sous l'aperçu du template Parrainage — il repousse l'échéance de 6 mois et fait avancer la variante, exactement comme un envoi automatique. Jamais plus d'un mail de parrainage par mois et par contact, quel que soit le chemin emprunté.</p>
             <!-- DÉTAIL DE LA SÉQUENCE, REPLIÉ PAR DÉFAUT (13/08, « trop d informations ») : ces 7 lignes
                  redisent, contenu par contenu, ce que le programme ci-dessus montre semaine par semaine.
@@ -844,6 +847,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260827bbg1007"></script>
+<script src="/js/admin.js?v=20260827bbg1008"></script>
 </body>
 </html>
