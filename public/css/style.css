@@ -19403,6 +19403,32 @@ html[data-theme="light"] .rxg-b--impact  { color: #00783d; }
    l'autre, comme un seul symbole, et c'est le mot qui s'en détache. */
 .tag--pays .tag-flag:last-of-type { margin-right: 5px; }
 /* « Analyse à 8h12 » en tête d'un panneau : discret, il date la lecture sans voler le contenu. */
+/* ═══ CARTE D'ANALYSE (27/08, référence fournie : « le tag analyse doit ressembler à l'image 2 ») ══
+   Le tag ouvrait sur une pile de rubriques à puces — six intertitres, quinze lignes — alors que la
+   référence tient en UNE carte : une pastille, le libellé, l'heure, et un paragraphe de prose. La
+   forme est reprise, la couleur NON : la pastille bleue de la référence devient l'or DTP, seule
+   signature admise ici. Le détail n'est pas perdu, il passe DERRIÈRE la synthèse. */
+.ana-carte { border: 1px solid var(--border, #1c1c20); border-radius: var(--radius, 6px);
+  background: var(--bg2, #101014); padding: 10px 12px; margin: 2px 0 4px; }
+.ana-carte-t { display: flex; align-items: center; gap: 7px; margin-bottom: 6px;
+  font-size: 11.5px; font-weight: 700; color: var(--orange, #e3b23a); }
+/* La pastille : même diamètre que le texte de l'en-tête, jamais écrasée par le flex. */
+.ana-carte-t i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.ana-carte-t span { margin-left: auto; font-weight: 500; font-size: 10.5px;
+  color: var(--text3, #6b7280); letter-spacing: .02em; text-transform: none; }
+.ana-carte-c { font-size: 12.5px; line-height: 1.6; color: var(--text2, #b9bcc4); }
+.ana-carte-c p { margin: 0 0 7px; }
+.ana-carte-c p:last-child { margin-bottom: 0; }
+.ana-carte-c strong { color: var(--text, #e8e9ed); font-weight: 600; }
+/* LE DÉTAIL, derrière la synthèse : présent, mais qui ne se lit plus en premier. */
+.ana-detail { margin-top: 10px; }
+.ana-detail-t { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text3, #6b7280); padding: 2px 0 4px; }
+html[data-theme="light"] .ana-carte { background: #f7f7f9; border-color: #e3e3e8; }
+html[data-theme="light"] .ana-carte-t { color: #816521; }
+html[data-theme="light"] .ana-carte-c { color: #3f4149; }
+html[data-theme="light"] .ana-carte-c strong { color: #16171b; }
+
 .nrx-quand { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--text3, #6b7280); padding: 2px 0 6px; }
 /* Tag DEVISE cliquable d'une news importante : il ouvre le graphique du marché exposé. Encadré or

@@ -4141,7 +4141,13 @@ function buildNewsItem(item) {
          place. « Impact marché » en est retiré : il a le sien, et l'y laisser aurait déplacé le
          doublon au lieu de le retirer. Rien n'est perdu, tout change de porte. */
       let _puces = item.analyse || [];
+      const _anaTs = item._anaAt || item.timestamp;
       if (item._eventAnalysis) {
+        /* LA SYNTHÈSE D'ABORD, LE DOSSIER DERRIÈRE (27/08). Le panneau ouvrait sur les six rubriques
+           du rapport ; la référence fournie tient en un paragraphe. L'accroche du desk — « le
+           résultat, la surprise réelle, le ton, la réaction principale », déjà rédigée en prose par
+           le prompt — EST cette synthèse : elle n'avait simplement jamais été montrée ici.
+           Rien ne disparaît : les rubriques suivent la carte, sous leur propre intitulé. */
         const d = _evaDecoupe(item.description);
         const dossier = [];
         d.sections.forEach(sec => {
@@ -4149,9 +4155,25 @@ function buildNewsItem(item) {
           dossier.push(sec.titre + ' :');
           sec.lignes.forEach(l => dossier.push(l));
         });
-        if (dossier.length) _puces = dossier;
+        /* ⚠️ LA CARTE PORTE LA SYNTHÈSE, PAS L'ACCROCHE. L'accroche (`d.lead`) est le texte du tag
+           INFO depuis le 31/08 — une demande explicite (« le tag info pourquoi il est aussi
+           long ? »), éprouvée en navigateur réel par desk-verif. La reprendre ici remettrait le
+           même paragraphe sur deux boutons : le défaut d'alors, rouvert dans l'autre sens.
+           Le desk écrit donc deux textes distincts : le lead RACONTE ce qui s'est passé, la
+           synthèse (`_evaSynth`) le JUGE — attendu contre sorti, ton, trajectoire. */
+        const carte = _anaCarte('Analyse', _anaTs, _anaProse(item._evaSynth ? [item._evaSynth] : []));
+        /* Un vieux rapport sans accroche ne doit pas rendre une carte vide : sans elle, le dossier
+           reprend simplement sa place, précédé de son heure comme avant. */
+        expandEl.innerHTML = carte
+          ? carte + (dossier.length ? '<div class="ana-detail"><div class="ana-detail-t">Le détail</div>' + _renderInfoBullets(dossier) + '</div>' : '')
+          : _nrxQuand('Analyse', _anaTs) + _renderInfoBullets(dossier.length ? dossier : _puces);
+        _dtpTranslateQuotes(expandEl);
+        expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
+        if (analysisTagEl) analysisTagEl.classList.add('tag--active');
+        if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
+        return;
       }
-      expandEl.innerHTML = _nrxQuand('Analyse', item._anaAt || item.timestamp) + _renderInfoBullets(_puces);
+      expandEl.innerHTML = _nrxQuand('Analyse', _anaTs) + _renderInfoBullets(_puces);
       _dtpTranslateQuotes(expandEl);   // puces en langue source → FR (la traduction ne partait jamais ici)
       expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.add('tag--active');
@@ -10069,6 +10091,24 @@ window.addEventListener('resize', () => {
   }, 160);
 });
 
+/* LA CARTE D'ANALYSE (27/08, référence fournie). Le tag déroulait le rapport entier — six
+   rubriques, quinze puces — là où la référence tient en UNE carte : pastille, libellé, heure, puis
+   un paragraphe de prose. C'est la SYNTHÈSE qui s'y lit ; le détail suit, derrière.
+   ⚠️ La pastille est OR, pas bleue : on reprend la forme de la référence, jamais sa couleur. */
+function _anaCarte(libelle, ts, corpsHtml) {
+  if (!corpsHtml) return '';
+  let h = '';
+  if (ts) { try { h = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { h = ''; } }
+  return '<div class="ana-carte"><div class="ana-carte-t"><i></i>' + libelle
+    + (h ? '<span>à ' + h + '</span>' : '') + '</div><div class="ana-carte-c">' + corpsHtml + '</div></div>';
+}
+/* Des lignes de texte → des PARAGRAPHES. Le gras Markdown est conservé, tout le reste est échappé. */
+function _anaProse(lignes) {
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return (lignes || []).map(t => String(t).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .map(t => '<p>' + esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') + '</p>').join('');
+}
 function _nrxQuand(libelle, ts) {
   if (!ts) return '';
   let h = ''; try { h = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
