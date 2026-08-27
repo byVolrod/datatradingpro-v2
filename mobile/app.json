@@ -59,7 +59,10 @@
       ]
     ],
     "extra": {
-      "deskUrl": "https://desk.datatradingpro.com"
+      "deskUrl": "https://desk.datatradingpro.com",
+      "eas": {
+        "projectId": "e984ed4f-3e4c-45e7-875f-57665c3307ea"
+      }
     }
   }
 }

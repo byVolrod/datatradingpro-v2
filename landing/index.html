@@ -457,6 +457,23 @@
      sur la plus haute et laissait 477 px de vide sous son contenu (mesuré). Elles ont maintenant leur
      PROPRE rangée pleine largeur (.mods3), la colonne de droite retrouve ses 2 rangées, et la carte de
      gauche s'étire pour couvrir exactement ces deux rangées. */
+  /* ⚠️ SEPT MODULES ANNONCÉS, DIX ONGLETS DANS LE TERMINAL (27/08). Le Calendrier, la Liste FX, la
+     Semaine à Venir, les Taux et les Banques n'étaient nommés NULLE PART sur l'accueil — ni le
+     Journal de Trading, ni la Calculatrice de position. Un visiteur ne pouvait pas savoir que la
+     moitié du produit existe.
+     Ces cartes-ci sont VOLONTAIREMENT sans maquette : les sept premières en portent une, faite à la
+     main, et c'est ce qui pèse 180 Ko. En ajouter cinq doublerait la page pour un gain nul — ici
+     l'important est que le module EXISTE et où le lire. Même vocabulaire visuel, moins de bruit. */
+  .mods3{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px;margin-top:38px}
+  .mcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 17px;transition:transform var(--t-med),border-color var(--t-med)}
+  .mcard:hover{transform:translateY(-2px);border-color:var(--orange2)}
+  .mcard .lead{display:flex;align-items:center;gap:11px}
+  .mcard h3{font-size:15.5px;margin:0;font-family:var(--tight);letter-spacing:-.01em}
+  .mcard h3 a{color:var(--text)}
+  .mcard h3 a:hover{color:var(--orange)}
+  /* Pas de `white-space:nowrap` ici, contrairement à `.bcard .one` : ces phrases-ci décrivent au
+     lieu d'accrocher, elles ont le droit de tenir sur deux lignes plutôt que d'être tronquées. */
+  .mcard p{color:var(--text2);font-size:13px;line-height:1.55;margin:11px 0 0}
   .mods2{display:grid;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:18px;margin-top:54px;align-items:stretch}
   .mods2-r{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;gap:18px}
   /* grid-column:1/-1 — .mods3 est un enfant de .mods2 : sans ça elle se logerait dans la SEULE
@@ -629,7 +646,12 @@
 
   /* footer */
   footer{border-top:1px solid var(--line);background:var(--bg2);padding:54px 0 30px}
-  .foot-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr;gap:30px}
+  /* ⚠️ CINQ COLONNES DÉCLARÉES POUR TROIS BLOCS DE LIENS (27/08). En réduisant le pied de 35 liens
+     à 14, la grille est restée sur son ancien gabarit : les deux colonnes vides gardaient leur
+     part de largeur, et le pied restait aussi étalé qu'avant — la moitié en blanc. Retirer des
+     liens sans reprendre la grille n'aurait rien changé À L'ŒIL, qui est la demande.
+     La colonne de marque garde son avance (1.4fr) : c'est elle qui porte le texte. */
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:30px;max-width:1000px}
   .foot-brand .logo{margin-bottom:14px}
   .foot-brand p{color:var(--text3);font-size:13px;line-height:1.6;max-width:280px}
   .foot-soc{display:flex;gap:10px;margin-top:16px}
@@ -1728,6 +1750,24 @@
   </div>
 </section>
 
+<!-- LE RESTE DU TERMINAL — modules sans maquette (voir la note CSS de .mods3) -->
+<section class="blk" id="modules-suite" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-eye">Et aussi</div>
+    <h2 class="sec-t">Le reste du terminal.</h2>
+    <p class="sec-s">Cinq onglets et deux outils que les modules ci-dessus ne montrent pas, et qui font partie du même abonnement.</p>
+    <div class="mods3">
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-calendar-days"></i></div><h3><a href="/documentation/calendrier.html">Calendrier économique</a></h3></div><p>Chaque publication à son heure de Paris, avec le consensus, le précédent et le réel dès qu'il tombe.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-list"></i></div><h3>Liste FX</h3></div><p>Vos paires sous les yeux en permanence : cours, variation du jour, et le graphique en un clic.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-calendar-week"></i></div><h3>Semaine à Venir</h3></div><p>Ce qui attend le marché sur les sept prochains jours, trié par impact, avant que la semaine commence.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-percent"></i></div><h3>Taux directeurs</h3></div><p>Le taux de chaque banque centrale, et ce que le marché price déjà pour les prochaines réunions.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-building-columns"></i></div><h3><a href="/documentation/positions-banques.html">Banques</a></h3></div><p>Les transactions publiées par les grandes banques : entrée, objectif, stop, et leur statut.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-book"></i></div><h3>Journal de Trading</h3></div><p>Vos trades consignés, avec statistiques, courbe de performance et tableau de bord — importables depuis Notion ou un CSV.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-calculator"></i></div><h3>Calculatrice de position</h3></div><p>La taille à prendre pour le risque que vous acceptez, sans la calculer de tête.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-mobile-screen"></i></div><h3>Sur votre téléphone</h3></div><p>Le terminal s'installe depuis l'écran d'accueil et suit chaque mise à jour sans rien télécharger.</p></div>
+    </div>
+  </div>
+</section>
 <!-- METHODE / PROCESS -->
 <section class="blk" id="method" style="padding-top:20px">
   <div class="wrap">
@@ -1868,6 +1908,14 @@
 <!-- FOOTER -->
 <footer>
   <div class="wrap">
+    <!-- ⚠️ TRENTE-CINQ LIENS SUR CINQ COLONNES, RAMENÉS À DOUZE SUR TROIS (27/08, demande :
+         « réduit le footer, c'est trop large, y'a trop de liens, met que l'essentiel »).
+         Ce qui part n'est PAS perdu : les rubriques d'actualités restent sous /actualites, et les
+         vingt pages de documentation sous /documentation/, toutes deux gardées ici. Un pied de page
+         n'est pas un plan du site — c'est ce qu'on cherche quand on a fini de lire.
+         À SAVOIR quand même : ces liens servaient aussi le référencement, en distribuant l'autorité
+         de l'accueil vers les pages profondes. Elles restent atteignables en deux clics au lieu
+         d'un ; leur `sitemap.xml` continue de les déclarer. -->
     <div class="foot-grid">
       <div class="foot-brand">
         <a href="/" class="logo logo--markonly" aria-label="DataTradingPro"><span class="mk">DTP</span></a>
@@ -1876,19 +1924,15 @@
       </div>
       <div class="fcol">
         <h5>Le terminal</h5>
-        <a href="#modules-cles">Modules</a><a href="#tarifs">Tarifs</a><a href="#faq">FAQ</a><a href="/documentation/">Documentation</a><a href="https://desk.datatradingpro.com/">Se connecter</a>
-      </div>
-      <div class="fcol">
-        <h5>Actualités</h5>
-        <a href="/actualites">Toutes les actualités</a><a href="/actualites/banques-centrales">Banques centrales</a><a href="/actualites/forex">Forex</a><a href="/actualites/indices-boursiers">Indices boursiers</a><a href="/actualites/taux-obligations">Taux &amp; obligations</a><a href="/actualites/energie-matieres-premieres">Énergie &amp; matières premières</a><a href="/actualites/donnees-economiques">Données économiques</a><a href="/actualites/geopolitique">Géopolitique</a>
+        <a href="#modules-cles">Modules</a><a href="#tarifs">Tarifs</a><a href="#faq">FAQ</a><a href="https://desk.datatradingpro.com/">Se connecter</a>
       </div>
       <div class="fcol">
         <h5>Ressources</h5>
-        <a href="/documentation/terminal-macro-forex-francais.html">Pourquoi DataTradingPro</a><a href="/documentation/terminal-de-trading.html">Terminal de trading</a><a href="/documentation/meilleur-terminal-de-trading.html">Meilleur terminal</a><a href="/documentation/terminal-de-trading-gratuit.html">Terminal gratuit&nbsp;?</a><a href="/documentation/smart-bias.html">Smart Bias</a><a href="/documentation/news.html">News forex</a><a href="/documentation/calendrier.html">Calendrier économique</a><a href="/documentation/force-des-devises.html">Force des devises</a><a href="/documentation/positions-banques.html">Positions des banques</a>
+        <a href="/documentation/">Documentation</a><a href="/actualites">Actualités</a><a href="/documentation/glossaire-macro-forex.html">Glossaire macro &amp; forex</a><a href="mailto:contact@datatradingpro.com">Contact</a>
       </div>
       <div class="fcol">
-        <h5>En savoir plus</h5>
-        <a href="/documentation/comprendre-le-cot-cftc.html">Lire le COT / CFTC</a><a href="/documentation/rapports-banques-forex.html">Rapports de banques</a><a href="/documentation/glossaire-macro-forex.html">Glossaire macro &amp; forex</a><a href="/documentation/trader-les-news-forex.html">Trader les news forex</a><a href="/documentation/trader-le-nfp.html">Trader le NFP</a><a href="/documentation/sessions-horaires-forex.html">Sessions du forex</a><a href="/documentation/avertissement-risque.html">Avertissement de risque</a><a href="/documentation/conditions-generales.html">Conditions générales</a><a href="/documentation/mentions-legales.html">Mentions légales</a><a href="/documentation/politique-confidentialite.html">Confidentialité</a><a href="mailto:contact@datatradingpro.com">Contact</a>
+        <h5>Légal</h5>
+        <a href="/documentation/avertissement-risque.html">Avertissement de risque</a><a href="/documentation/conditions-generales.html">Conditions générales</a><a href="/documentation/politique-confidentialite.html">Confidentialité</a><a href="/documentation/mentions-legales.html">Mentions légales</a>
       </div>
     </div>
     <div class="risk">Avertissement : le trading comporte un risque de perte. DataTradingPro fournit de l'information et des outils d'analyse, pas du conseil en investissement, et n'exécute aucun ordre. Les performances passées ne préjugent pas des performances futures.</div>

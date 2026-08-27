@@ -66,6 +66,73 @@ v('la politique de confidentialité déclare le prestataire de paiement', /Whop/
 v('… et l\'hébergeur de la base de données', /Supabase/i.test(PC));
 v('les conditions générales nomment le prestataire de paiement', /Whop/.test(lireDoc('conditions-generales.html')));
 
+console.log('\n── 3 bis. La vitrine annonce tout le terminal ──');
+/* ⚠️ SEPT MODULES ANNONCÉS, DIX ONGLETS DANS LE PRODUIT (27/08). Le Calendrier, la Liste FX, la
+   Semaine à Venir, les Taux et les Banques n'étaient nommés NULLE PART sur l'accueil — ni le
+   Journal de Trading, ni la Calculatrice de position. Un visiteur ne pouvait pas savoir que la
+   moitié du produit existe. Ce contrôle lit les onglets DANS LE DESK et exige que chacun soit
+   nommé sur la vitrine : le jour où un onglet s'ajoute, c'est ici qu'on l'apprend. */
+const DESK = fs.readFileSync(path.join(RACINE, 'public', 'index.html'), 'utf8');
+/* ⚠️ LES ONGLETS PROPRES AU TÉLÉPHONE SONT EXCLUS. « MARCHÉS » porte `nav-item--mobile-only` : sur
+   ordinateur ses panneaux vivent dans la colonne de droite, et cet onglet n'existe que pour les
+   regrouper sur un petit écran. C'est de la navigation, pas un module — l'annoncer sur la vitrine
+   promettrait une fonctionnalité qui n'en est pas une. Le contrôle l'a signalé comme « absent » et
+   il avait raison de le voir ; c'est la LISTE qui devait être corrigée, pas la vitrine. */
+const ONGLETS = [...DESK.matchAll(/<a[^>]*class="([^"]*)"[^>]*data-view="([a-z-]+)">\s*›?\s*([^<]+)</g)]
+  .filter(m => !/mobile-only/.test(m[1]))
+  .map(m => ({ vue: m[2], nom: m[3].trim() }));
+v('les onglets du desk sont lisibles', ONGLETS.length >= 8, ONGLETS.length + ' onglet(s)');
+/* Le nom de l'onglet est en capitales dans le desk ; la vitrine l'écrit normalement. On compare
+   donc sans casse ni accents, et sur le mot le plus distinctif — « CALENDRIER » → « calendrier ». */
+const _norm = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+/* ⚠️ ON NE CHERCHE PAS DANS TOUTE LA PAGE, et la mutation l'a montré : renommer la carte « Semaine
+   à Venir » en autre chose laissait le contrôle VERT, parce que le mot « semaine » survit ailleurs
+   dans 180 Ko de HTML (« chaque semaine » sur la carte Radar de Biais). Un contrôle qui accepte
+   n'importe quelle occurrence ne mesure pas la couverture, il mesure le vocabulaire. On se limite
+   donc aux DEUX sections qui présentent les modules. */
+const SECTIONS = [/<section class="blk" id="modules-cles"[\s\S]*?<\/section>/, /<section class="blk" id="modules-suite"[\s\S]*?<\/section>/]
+  .map(rx => (rx.exec(IDX) || [''])[0]).join('\n');
+v('les deux sections de modules sont lisibles', SECTIONS.length > 2000, SECTIONS.length + ' caractères');
+/* ⚠️ ET ON NE REGARDE QUE LES TITRES DE MODULES, pas leur prose. Deuxième resserrement, deuxième
+   mutation : renommer la carte « Semaine à Venir » laissait encore le contrôle vert, parce que
+   « chaque semaine » figure dans la phrase de la carte Radar de Biais, à quelques lignes de là. Un
+   module est annoncé quand il porte un TITRE, pas quand son nom traîne dans une phrase voisine. */
+const TITRES = [...SECTIONS.matchAll(/<h3[^>]*>(?:<a[^>]*>)?([^<]{3,60})/g)].map(m => m[1].trim());
+v('les titres de modules sont lisibles', TITRES.length >= 12, TITRES.length + ' titre(s)');
+const idxN = _norm(TITRES.join(' | '));
+/* ⚠️ ET ON COMPARE SUR LE RADICAL, PAS SUR LE MOT ENTIER. L'onglet « INSTITUTIONS » est présenté
+   sous le titre « Recherche institutionnELLE » : chercher « institutions » n'y trouvait rien et
+   accusait un module pourtant bien annoncé. Sept lettres suffisent à distinguer ces onglets entre
+   eux (« calendr », « institu », « semaine »), et laissent passer les variations de forme. */
+const _radical = m => m.slice(0, 7);
+const absents = ONGLETS.filter(o => {
+  const mot = _norm(o.nom).split(/\s+/).filter(w => w.length > 3)[0];
+  return mot && idxN.indexOf(_radical(mot)) < 0;
+}).map(o => o.nom);
+v('chaque onglet du desk est nommé sur l\'accueil', !absents.length, 'absents : ' + absents.join(', '));
+v('la section « le reste du terminal » existe', /id="modules-suite"/.test(IDX));
+v('… avec ses cartes', (IDX.match(/class="mcard"/g) || []).length >= 6, (IDX.match(/class="mcard"/g) || []).length + ' carte(s)');
+/* Le Journal et la Calculatrice sont des OUTILS, pas des onglets : ils échappent au relevé
+   ci-dessus et méritent donc leur contrôle nommé. */
+v('… le Journal de Trading y figure', /Journal de Trading/.test(IDX));
+v('… et la Calculatrice de position', /Calculatrice de position/.test(IDX));
+
+console.log('\n── 3 ter. Aucune traduction morte ──');
+/* ⚠️ LE PIÈGE DU PROJET, ÉCRIT DANS CLAUDE.MD : le dictionnaire EN est clé par la CHAÎNE FRANÇAISE
+   EXACTE. Une phrase publiée sans son entrée reste en français au milieu d'une page anglaise, et
+   RIEN ne le signale. Mesuré à la pose de la section : sur ses huit titres, seul « Calendrier
+   économique » ressortait traduit — il existait déjà — et les sept autres restaient en français. */
+const I18N = fs.readFileSync(path.join(LAND, 'i18n.js'), 'utf8');
+const dico = new Set([...I18N.matchAll(/^\s*"((?:[^"\\]|\\.)*)":\s*"/gm)].map(m => m[1]));
+v('le dictionnaire EN est lisible', dico.size > 50, dico.size + ' entrée(s)');
+/* On prend les textes de la section neuve — titres et phrases — et on exige leur traduction. */
+const secN = (/<section class="blk" id="modules-suite"[\s\S]*?<\/section>/.exec(IDX) || [''])[0];
+const textes = [...secN.matchAll(/<(?:h2 class="sec-t"|p class="sec-s"|h3|p)[^>]*>([^<]{4,200})</g)]
+  .map(m => m[1].trim()).filter(t => !/^\s*$/.test(t));
+v('la section porte bien des textes à traduire', textes.length >= 8, textes.length);
+const orphelins = textes.filter(t => !dico.has(t));
+v('chaque texte de la section a sa traduction EN', !orphelins.length, orphelins.slice(0, 3).join(' | '));
+
 console.log('\n── 4. Rendu réel, dans un navigateur ──');
 (async () => {
   let pp = null;
@@ -115,6 +182,49 @@ console.log('\n── 4. Rendu réel, dans un navigateur ──');
       v('… verticalement centrée sur le nom', m.ecart !== null && m.ecart < 1, 'écart ' + m.ecart + ' px');
       v('l\'en-tête garde une hauteur de vraie barre', m.entete >= 48, m.entete + ' px');
       v('aucune erreur d\'exécution sur la page', !erreurs.length, erreurs.slice(0, 2).join(' | '));
+
+      /* ⚠️ LE PIED SE MESURE SUR L'ACCUEIL, PAS SUR UNE PAGE DE DOCUMENTATION. Le premier jet de ces
+         contrôles tournait sur `mentions-legales.html`, chargée juste au-dessus : les pages de doc
+         n'ont pas ce pied, `.foot-grid` y valait null, et le contrôle sortait rouge sur un pied
+         parfaitement correct. Le banc a signalé mon erreur de mesure, pas un défaut du site. */
+      await page.goto('http://localhost:4847/index.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      /* ── LE PIED DE PAGE : 35 LIENS SUR 5 COLONNES, RAMENÉS À 14 SUR 4 (27/08) ────────────────
+         ⚠️ LE PIÈGE ÉTAIT DANS LA GRILLE, PAS DANS LES LIENS. En les retirant sans reprendre
+         `grid-template-columns`, les deux colonnes devenues vides gardaient leur part de largeur :
+         le pied restait aussi étalé qu'avant, moitié en blanc. On MESURE donc la grille peinte, et
+         on exige qu'aucun bloc ne soit vide — un contrôle qui compterait les liens serait passé au
+         vert sur un pied toujours aussi large. */
+      const pied = await page.evaluate(() => {
+        const f = document.querySelector('footer .foot-grid');
+        if (!f) return null;
+        const cs = getComputedStyle(f);
+        return {
+          colonnes: cs.gridTemplateColumns.split(' ').filter(Boolean).length,
+          blocs: f.children.length,
+          vides: [...f.children].filter(c => !c.textContent.trim()).length,
+          liens: document.querySelectorAll('footer a').length,
+          largeur: +f.getBoundingClientRect().width.toFixed(0),
+          risque: !!document.querySelector('footer .risk'),
+        };
+      });
+      v('le pied de page est lisible', !!pied);
+      if (pied) {
+        v('… il tient sur quatre colonnes, pas cinq', pied.colonnes === 4, pied.colonnes + ' colonne(s)');
+        v('… autant de blocs que de colonnes (aucune colonne fantôme)', pied.blocs === pied.colonnes && pied.vides === 0,
+          pied.blocs + ' bloc(s), ' + pied.vides + ' vide(s)');
+        v('… et une quinzaine de liens, plus trente-cinq', pied.liens <= 16 && pied.liens >= 10, pied.liens + ' lien(s)');
+        v('… sa largeur est bornée', pied.largeur <= 1040, pied.largeur + ' px');
+        /* L'AVERTISSEMENT DE RISQUE NE SE COUPE PAS. Il n'est pas décoratif : un service qui publie
+           de l'analyse de marché doit dire qu'il ne conseille pas. « Réduire » ne le vise jamais. */
+        v('… l\'avertissement de risque est toujours là', pied.risque);
+      }
+      /* Et les quatre pages légales restent atteignables DEPUIS L'ACCUEIL : les enfouir dans la
+         documentation aurait été une façon discrète de les faire disparaître. */
+      for (const [nom, href] of [['avertissement de risque', 'avertissement-risque'], ['conditions générales', 'conditions-generales'],
+                                 ['confidentialité', 'politique-confidentialite'], ['mentions légales', 'mentions-legales']]) {
+        v('… le lien « ' + nom + ' » subsiste', new RegExp('documentation/' + href + '\\.html').test(IDX));
+      }
     } finally { await nav.close(); srv.close(); }
   }
   console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);

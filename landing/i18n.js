@@ -145,6 +145,30 @@
     "Terminal gratuit ?": "Free terminal?",
     "News forex": "Forex news",
     "Calendrier économique": "Economic calendar",
+    /* ── « Le reste du terminal » (27/08) ────────────────────────────────────────────────────────
+       ⚠️ AJOUTÉES EN MÊME TEMPS QUE LA SECTION, ET C'EST LA RÈGLE. Ce dictionnaire est clé par la
+       CHAÎNE FRANÇAISE EXACTE : une phrase publiée sans son entrée reste en français au milieu
+       d'une page anglaise, sans que rien ne le signale. Mesuré à la pose de la section : sur ses
+       huit titres, seul « Calendrier économique » ressortait traduit — parce qu'il existait déjà
+       ici — et les sept autres restaient en français. */
+    "Et aussi": "Also",
+    "Le reste du terminal.": "The rest of the terminal.",
+    "Cinq onglets et deux outils que les modules ci-dessus ne montrent pas, et qui font partie du même abonnement.": "Five tabs and two tools the modules above don't show, all part of the same subscription.",
+    "Chaque publication à son heure de Paris, avec le consensus, le précédent et le réel dès qu'il tombe.": "Every release at its Paris time, with consensus, previous and the actual as soon as it lands.",
+    "Liste FX": "FX list",
+    "Vos paires sous les yeux en permanence : cours, variation du jour, et le graphique en un clic.": "Your pairs always in view: price, daily change, and the chart one click away.",
+    "Semaine à Venir": "Week ahead",
+    "Ce qui attend le marché sur les sept prochains jours, trié par impact, avant que la semaine commence.": "What the market faces over the next seven days, sorted by impact, before the week starts.",
+    "Taux directeurs": "Policy rates",
+    "Le taux de chaque banque centrale, et ce que le marché price déjà pour les prochaines réunions.": "Each central bank's rate, and what the market already prices for the next meetings.",
+    "Banques": "Banks",
+    "Les transactions publiées par les grandes banques : entrée, objectif, stop, et leur statut.": "Trades published by the major banks: entry, target, stop, and their status.",
+    "Journal de Trading": "Trading journal",
+    "Vos trades consignés, avec statistiques, courbe de performance et tableau de bord — importables depuis Notion ou un CSV.": "Your trades logged, with statistics, equity curve and dashboard — importable from Notion or a CSV.",
+    "Calculatrice de position": "Position size calculator",
+    "La taille à prendre pour le risque que vous acceptez, sans la calculer de tête.": "The size to take for the risk you accept, without working it out in your head.",
+    "Sur votre téléphone": "On your phone",
+    "Le terminal s'installe depuis l'écran d'accueil et suit chaque mise à jour sans rien télécharger.": "The terminal installs from your home screen and follows every update with nothing to download.",
     "Positions des banques": "Bank positions",
     "En savoir plus": "Learn more",
     "Lire le COT / CFTC": "Reading the COT / CFTC",
