@@ -626,7 +626,17 @@ function phaseLogique() {
     verif('le client rend AVANT tout appel réseau', /function loadAnalystView\(\) \{\s*\n\s*renderArlibList\(\);/.test(APP));
     verif('plus d\'attente groupée des quatre sources', !/Promise\.allSettled\(\[\s*\n\s*fetch\('\/api\/session-wraps'\)/.test(APP));
     verif('chaque source rafraîchit dès son arrivée', /_lire\(url, fn\)|const _lire = \(url, fn\)/.test(APP));
-    verif('les rapports hebdo ont enfin un cache local', /lsGet\('dtp_wk', DAY\)/.test(APP) && /lsSet\('dtp_wk'/.test(APP));
+    /* ⚠️ CE CONTRÔLE ÉPINGLAIT LA DURÉE EXACTE (`DAY`) alors que son intention est « les hebdo ont un
+       repli local ». Il est donc passé au rouge le 27/08 quand cette durée est passée à huit jours —
+       un correctif, pas une régression. Intention et valeur sont désormais deux contrôles séparés :
+       le premier survit à un réglage, le second dit pourquoi ce réglage-là. */
+    verif('les rapports hebdo ont enfin un cache local', /lsGet\('dtp_wk',/.test(APP) && /lsSet\('dtp_wk'/.test(APP));
+    /* HUIT JOURS, pas un : un hebdo ne change QU'UNE FOIS PAR SEMAINE, et une péremption d'un jour
+       jetait un contenu encore valable — l'onglet repartait alors sur un vide le temps du réseau,
+       ce qui était précisément le défaut signalé. */
+    verif('… et il vit plus longtemps qu\'une journée', /lsGet\('dtp_wk', 8 \* DAY\)/.test(APP));
+    verif('… tandis que les sources QUOTIDIENNES gardent leur journée',
+      /lsGet\('dtp_sw', DAY\)/.test(APP) && /lsGet\('dtp_br', DAY\)/.test(APP));
     verif('la route hebdo ne bloque plus sur Supabase quand elle a de quoi répondre',
       /if \(_dejaEnMemoire\) _loadPersistedWeekly\(\)\.catch\(\(\) => \{\}\);\s*\n\s*else await _loadPersistedWeekly\(\);/.test(SRV));
     verif('elle attend encore quand la mémoire est vide (sinon régénération inutile)', /else await _loadPersistedWeekly\(\);/.test(SRV));

@@ -416,34 +416,28 @@ function calSurveiller(surv) {
    la reprise du LEAD reste ici pour les rapports déjà en cache et pour un modèle qui retomberait sur
    l'ancien nom — dans les deux cas le lecteur voit le même encadré, jamais une entrée en matière nue. */
 const _estSynth = x => x && /^(?:synth[èe]se|lead)$/i.test(String(x.section || '').trim());
-/* ⚠️ LA SYNTHÈSE NE PORTE QUE LA PROSE (27/08, référence fournie en capture : « la synthèse doit
-   ressembler à celle de l'image »). Les lignes MESURÉES y étaient CONCATÉNÉES, et l'encadré doré
-   rendait donc trois choses de nature différente à la suite : un paragraphe de lecture, un décompte
-   (« 2 publications, dont 1 hors consensus · 1 rendez-vous sans chiffre »), puis une liste de
-   performances. Le Récap Quotidien — la référence — n'y met que le paragraphe.
+/* ⚠️ LA SYNTHÈSE NE PORTE QUE LA PROSE, ET RIEN D'AUTRE (27/08, trois retours successifs, captures
+   à l'appui). L'encadré doré rendait trois choses de nature différente à la suite : le paragraphe de
+   lecture, un décompte (« 2 publications, dont 1 hors consensus »), puis une liste de performances.
+   Le Récap Quotidien — la référence — n'y met que le paragraphe.
 
-   Le décompte disparaît : il avait DÉJÀ été refusé une fois (« un décompte, pas une lecture »), et
-   il n'a survécu que parce qu'on l'avait déplacé derrière le paragraphe au lieu de le retirer.
-   La « Photo de séance », elle, est une DONNÉE DE MARCHÉ, pas du remplissage : elle n'est pas
-   supprimée, elle prend sa propre rubrique juste après — au même rang que Géopolitique ou Macro.
+   LES DEUX LIGNES MESURÉES SONT SUPPRIMÉES, pas déplacées. Le décompte avait déjà été refusé une
+   fois et n'avait survécu que parce qu'on l'avait poussé derrière le paragraphe ; la « Photo de
+   séance » a d'abord été sortie dans sa propre rubrique, puis retirée à son tour à la demande. Les
+   déplacer une troisième fois ne ferait que promener ce dont personne ne veut : `poserSynthese`
+   n'accepte donc plus AUCUNE ligne mesurée, et l'argument `synth` n'est gardé que pour ne pas
+   casser les appelants.
 
-   ⚠️ ET SANS PROSE, ON NE PROMEUT PAS LA MESURE EN SYNTHÈSE. Une rubrique « Synthèse » qui ne
-   contiendrait qu'une photo de performances serait exactement le défaut d'origine, repris par
-   l'autre bout. */
-const _EST_PHOTO = t => /^\*\*Photo de séance\*\*/.test(String(t || '').trim());
-function poserSynthese(arr, synth) {
+   ET PAS DE GRAS DANS LA SYNTHÈSE. C'est de la PROSE : un paragraphe où « **Fed** », « **BCE** » et
+   « **AUD** » ressortent en gras se lit comme une liste de mots-clés, pas comme un récit — et le
+   gras y perd tout pouvoir de signaler puisque tout le vocabulaire du desk y passe. Il reste
+   partout ailleurs, où il distingue vraiment quelque chose. */
+const _SANS_GRAS = t => String(t || '').replace(/\*\*([^*]+)\*\*/g, '$1');
+function poserSynthese(arr, synth) {   // `synth` : ignoré depuis la v30, voir ci-dessus
+  const i = (arr || []).findIndex(_estSynth);
+  if (i < 0) return (arr || []).slice();
   const out = (arr || []).slice();
-  /* La photo perd son préfixe : l'intitulé de rubrique le porte désormais, et une puce qui répète
-     son propre titre dit deux fois la même chose sur deux lignes consécutives — le défaut déjà
-     corrigé pour les familles de la Macro (`sansPrefixeFamille`). */
-  const mes = (synth || []).slice().filter(_EST_PHOTO)
-    .map(t => String(t).replace(/^\s*\*\*Photo de séance\*\*\s*[—–-]\s*/, '').trim())
-    .filter(Boolean);
-  const i = out.findIndex(_estSynth);
-  if (i >= 0) out[i] = { section: 'Synthèse', items: (out[i].items || []).slice() };
-  if (!mes.length) return out;
-  // Juste APRÈS la synthèse quand elle existe, en tête sinon — jamais fondue dedans.
-  out.splice(i >= 0 ? i + 1 : 0, 0, { section: 'Photo de séance', items: mes });
+  out[i] = { section: 'Synthèse', items: (out[i].items || []).map(_SANS_GRAS).filter(Boolean) };
   return out;
 }
 

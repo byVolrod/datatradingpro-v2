@@ -169,7 +169,13 @@ const srv2 = require('fs').readFileSync(require('path').join(__dirname, '..', 's
 const wsg = require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8');
 v('le rapport segmente groupe sa Macro', /const groupes = _SEA\.parFamilleMacro\(r\.entrees\);/.test(wsg));
 v('CHAQUE famille presente porte son titre, meme seule', !/groupes\.length > 1/.test(wsg));
-v('la version de segmentation a ete bumpee', /const SW_SEG_VER  = 'v2[2-9]:'/.test(srv2));
+/* ⚠️ ÉPINGLER LA VERSION PAR UNE REGEX EST UN PIÈGE. Ces contrôles portaient « v2[2-9] » : ils sont
+   tous passés au ROUGE au bump v29 → v30, non pas parce qu'une règle avait cédé, mais parce que le
+   motif ne savait pas compter au-delà de 29. Un banc qui rougit sur un bump légitime finit par être
+   ignoré — c'est exactement ce qu'on ne veut pas d'un banc. On compare donc des NOMBRES, via
+   `_swSegVer()`, et chacun garde le seuil qui a du sens pour LUI (la règle qu'il éprouve est entrée
+   à cette version-là). */
+v('la version de segmentation a ete bumpee', _swSegVer() >= 22, 'SW_SEG_VER = v' + _swSegVer());
 
 console.log('\n── 7c-bis. La table de classement, partagée MOT POUR MOT par les trois rapports ──');
 /* La même table vit dans seance.js (récaps de séance), public/js/app.js (Récap Quotidien du desk) et
@@ -692,8 +698,10 @@ v('et aucune rubrique n\'est inventée', !/<strong>À surveiller<\/strong>/.test
 const _SRVA = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
 v('la rubrique n\'est posée que sur un récap DU JOUR', /_jourParis\(ts\) !== _jourParis\(t\)\) return \{ nom: '', lignes: \[\], evs: \[\] \};/.test(_SRVA));
 v('elle réutilise la fabrique des récaps déterministes', /return _aSurveillerSeanceSuivante\(type\);/.test(_SRVA));
-v('le serveur la passe au rendu', /_WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
-v('la version de segmentation a été bumpée (À surveiller)', /const SW_SEG_VER  = 'v2[1-9]:'/.test(_SRVA));
+/* Le 4e argument est `null` depuis la v30 (plus aucune ligne mesurée dans la Synthèse) : on
+   épingle les trois qui portent encore quelque chose, pas celui qui a disparu. */
+v('le serveur la passe au rendu', /_WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\),/.test(_SRVA));
+v('la version de segmentation a été bumpée (À surveiller)', _swSegVer() >= 21, 'SW_SEG_VER = v' + _swSegVer());
 
 console.log('\n── 7e-sexies-bis. Sous le tableau : « Autres », et rien qui s\'y répète ──');
 /* 30/08, capture : trois puces NUES collées à la dernière ligne du calendrier — résultats Nvidia,
@@ -745,7 +753,7 @@ v('le module expose la fonction, elle est éprouvable seule', typeof W.autresSur
 v('elle réutilise l\'anti-doublon de la Macro, pas une seconde règle',
   /_SEA\.dejaDit\(_evPourDoublon\(e\), \[t\]\)/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'wrapseg.js'), 'utf8')));
 /* Le HTML segmenté est CACHÉ : sans bump, les rapports déjà rendus gardent leurs puces nues. */
-v('la version de segmentation a été bumpée (Autres)', /const SW_SEG_VER  = 'v(?:2[4-9]|[3-9]\d):'/.test(_SRVA));
+v('la version de segmentation a été bumpée (Autres)', _swSegVer() >= 24, 'SW_SEG_VER = v' + _swSegVer());
 
 console.log('\n── 7e-septies. LA SYNTHÈSE OUVRE LE RAPPORT ──');
 /* « fais une synthèse de la session comme on a dans le récap quotidien » (26/08, capture : le
@@ -763,9 +771,12 @@ v('elle est la PREMIÈRE du rapport', hy.indexOf('<strong>Synthèse') === 0, hy.
    prose, comme le Récap Quotidien qui sert de référence. L'intention d'origine est conservée mot
    pour mot : la photo des marchés ne doit pas DISPARAÎTRE. Elle change de rubrique, pas d'existence.
    Le DÉCOMPTE, lui, est bel et bien retiré — c'est la demande, et il avait déjà été refusé une fois. */
+/* ⚠️ CES CONTRÔLES ONT CHANGÉ DEUX FOIS EN UN JOUR, ET C'EST VOULU. v20/v23 : les lignes mesurées
+   vivaient DANS la synthèse. v29 : le décompte est retiré, la photo sort dans sa propre rubrique.
+   v30 : la photo est retirée à son tour, à la demande. L'intention finale est simple — l'encadré
+   ne porte QUE la prose, et rien de ce qui en sort ne doit resurgir ailleurs. */
 v('la mesure de la séance ne pollue plus la synthèse', !/6 publications sur la séance/.test(hy), hy.slice(0, 200));
-v('et la photo des marchés est toujours servie, sous sa rubrique',
-  /<strong>Photo de séance<\/strong>/.test(hy), hy.slice(0, 240));
+v('… et la photo des marchés n\'est plus servie du tout', !/Photo de séance/.test(hy), hy.slice(0, 240));
 v('la Macro reste à sa place', hy.indexOf('<strong>Macro') > hy.indexOf('<strong>Synthèse'));
 
 /* ── LE RÉCIT D'ABORD, LES MESURES ENSUITE (28/08, capture du Récap Quotidien à l'appui : « il
@@ -775,8 +786,8 @@ v('la Macro reste à sa place', hy.indexOf('<strong>Macro') > hy.indexOf('<stron
    Il devient la « Synthèse » : même contenu, même encadré, même identité que l'autre rapport. */
 v('le LEAD devient la Synthèse', !/<strong>LEAD<\/strong>/.test(hy), hy.slice(0, 90));
 v('le récit du modèle y est conservé', /Les rumeurs d'un accord Iran-US/.test(hy));
-/* L'ORDRE RESTE L'ORDRE : le récit d'abord, la mesure ensuite. Seul son contenant a changé. */
-v('… et il passe AVANT la photo', hy.indexOf('Les rumeurs') < hy.indexOf('Photo de séance'), hy.slice(0, 200));
+/* Le récit du modèle est désormais SEUL dans la rubrique : plus rien ne le suit là-dedans. */
+v('… et il est seul dans la synthèse', /<strong>Synthèse<\/strong><ul><li>[^<]*Les rumeurs[^<]*<\/li><\/ul>/.test(hy), hy.slice(0, 240));
 v('le tout dans UNE seule rubrique', (hy.match(/<strong>Synthèse<\/strong>/g) || []).length === 1);
 // Sans mesure, le récit reste — et il reste encadré : c'est ce qui manquait.
 const sansSyn = W.html(AV, [], null, []).html;
@@ -788,13 +799,13 @@ v('sans récit ni mesure, aucune rubrique n\'est ajoutée', !/<strong>Synthèse<
 // Le modèle nomme déjà la rubrique « Synthèse » (nouveau prompt) : même résultat, sans doublon.
 const dejaSyn = W.html([{ section: 'Synthèse', items: ['Le récit du modèle.'] }, AV[1]], [], null, SYN).html;
 v('une « Synthèse » existante n\'est pas dupliquée', (dejaSyn.match(/<strong>Synthèse<\/strong>/g) || []).length === 1);
-v('le récit du modèle passe en premier', dejaSyn.indexOf('Le récit du modèle') < dejaSyn.indexOf('Photo de séance'), dejaSyn.slice(0, 200));
+v('le récit du modèle est conservé, et seul', /<strong>Synthèse<\/strong><ul><li>Le récit du modèle\.<\/li><\/ul>/.test(dejaSyn), dejaSyn.slice(0, 240));
 // Côté serveur : calculée, jamais demandée au modèle, et seulement sur un récap DU JOUR.
 v('le serveur la calcule depuis le desk', /const out = \[_SEA\.synthese\(b\.nom, perfs, macros\)\];/.test(_SRVA));
 v('la photo de séance vient de la même fabrique', /const lp = _SEA\.lignePerf\(perfs\);/.test(_SRVA));
 v('rien n\'est produit sans mesure', /if \(!perfs\.length && !macros\.length\) return \[\];/.test(_SRVA));
 v('… ni sur un récap d\'un autre jour', /_jourParis\(ts\) !== _jourParis\(t\)\) return \[\];/.test(_SRVA));
-v('elle est passée au rendu', /_aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\)/.test(_SRVA));
+v('elle est passée au rendu', /_aSurveillerPourWrap\(item\),/.test(_SRVA));
 /* ET POUR LES FUTURS RAPPORTS (28/08, « et vérifie pour les futurs que ce sera bien prit en
    compte ») : c'est le PROMPT qui décide de ce que le modèle produira demain. On contrôle donc la
    consigne elle-même, pas seulement le rendu d'un cas de test. */
@@ -802,7 +813,7 @@ v('le prompt réclame une rubrique « Synthèse »', /1\. "Synthèse" \(obligato
 v('… un paragraphe narratif, pas des puces', /UN SEUL paragraphe NARRATIF de 2 à 4 phrases — pas de puces/.test(_SRVA));
 v('… et l\'exemple JSON porte le même nom', /"section":"Synthèse"/.test(_SRVA));
 v('le mot « LEAD » a disparu de la consigne', !/\bLEAD \(obligatoire/.test(_SRVA));
-v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v2[3-9]:'/.test(_SRVA));
+v('la version de segmentation a été bumpée', _swSegVer() >= 23, 'SW_SEG_VER = v' + _swSegVer());
 
 console.log('\n── 7e-octies. « ANALYSE DE SÉANCE » RANGÉE PAR CLASSE D\'ACTIF ──');
 /* « classe bien par catégories ici pour que ce soit propre » (28/08, capture : DXY, NZD, CHF, le
@@ -850,11 +861,11 @@ v('aucune ligne perdue', (ha.match(/<li>/g) || []).length === 5, String((ha.matc
 const uneSeule = W.html([{ section: 'Analyse de séance', items: ['**DXY** : recule.', '**EUR** : monte.'] }], [], null, null).html;
 v('une classe unique ne prend pas de sous-titre', !/<em>/.test(uneSeule), uneSeule);
 const _SRVB = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-v('la version de segmentation a été bumpée', /const SW_SEG_VER  = 'v2[2-9]:'/.test(_SRVB));
+v('la version de segmentation a été bumpée', _swSegVer() >= 22, 'SW_SEG_VER = v' + _swSegVer());
 
 console.log('\n── 7f. Le câblage côté serveur ──');
 const srv3 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-v('le serveur rend via le module pur', /const r = _WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\), _syntheseWrap\(item\)\);/.test(srv3));
+v('le serveur rend via le module pur', /const r = _WSEG\.html\(JSON\.parse\(m\[0\]\), _macroCalendrierPourWrap\(item\), _aSurveillerPourWrap\(item\),/.test(srv3));
 v('le récap est passé au segmenteur (préchauffage)', /_segmentWrapAI\(points, \{ noClaude: true \}, item\)/.test(srv3));
 v('… à la re-segmentation du jour', /_segmentWrapAI\(points, \{\}, w\)/.test(srv3));
 v('… et à l\'ouverture du rapport', /_segmentWrapAI\(points, \{\}, cached\)/.test(srv3));
@@ -1052,7 +1063,7 @@ v('… et la règle « une devise, sa banque » est dite au modèle',
 v('une rubrique sans matière doit être OMISE, pas remplie d\'un exemple',
   /OMETS cette rubrique — ne la remplis jamais avec un exemple/.test(_SRVA));
 /* Le HTML segmenté est CACHÉ : sans bump, les récaps déjà produits gardent leur puce fausse. */
-v('la version de segmentation a été bumpée (cohérence du pricing)', /const SW_SEG_VER  = 'v2[6-9]:'/.test(_SRVA));
+v('la version de segmentation a été bumpée (cohérence du pricing)', _swSegVer() >= 26, 'SW_SEG_VER = v' + _swSegVer());
 
 console.log('\n── 10. Le verrou tient aussi quand la phrase change de mots, et quand le tableau manque ──');
 /* Seconde passe sur le signalement du 27/08. La v26 corrigeait la phrase EXACTE de la capture ;
@@ -1418,42 +1429,56 @@ v('… et `_raw` reste écrit une seule fois', /if \(!cached\._raw\) cached\._ra
 v('la version de segmentation est repassée au bump', _swSegVer() >= 28, 'SW_SEG_VER = v' + _swSegVer());
 
 /* ══════════════════ [13] LA SYNTHÈSE NE PORTE QUE LA PROSE ══════════════════
-   27/08, référence fournie en capture. L'encadré doré rendait TROIS choses de nature différente à
-   la suite : le paragraphe de lecture, un décompte, puis une liste de performances. Le Récap
-   Quotidien — la référence — n'y met que le paragraphe. */
+   27/08, trois retours successifs, captures à l'appui. L'encadré doré rendait trois choses de
+   nature différente à la suite ; le Récap Quotidien, qui est la référence, n'y met que le
+   paragraphe. Décompte et photo de séance SUPPRIMÉS — pas déplacés : la photo avait d'abord été
+   sortie dans sa propre rubrique (v29), puis retirée à son tour (v30). */
 console.log('\n── 13. La synthèse, et rien qu\'elle ──');
-const _DECOMPTE = 'Séance Londres : 2 publications sur la séance, dont 1 hors consensus · 1 rendez-vous sans chiffre.';
-const _PHOTO    = '**Photo de séance** — Brent +1,45 % · DAX +0,15 %';
-const _hSyn = W.html([{ section: 'Synthèse', items: ['La séance a été dominée par l\'attente du discours.'] },
-                      { section: 'Géopolitique', items: ['Sanctions.'] }], [], null, [_DECOMPTE, _PHOTO]).html;
+const _MESURES = ['Séance Londres : 2 publications sur la séance, dont 1 hors consensus.',
+                  '**Photo de séance** — Brent +1,45 % · DAX +0,15 %'];
+const _hSyn = W.html([{ section: 'Synthèse', items: ['La séance a été dominée par le discours de la **Fed**, **Warsh**, à Jackson Hole.'] },
+                      { section: 'Géopolitique', items: ['**Sanctions** américaines.'] }], [], null, _MESURES).html;
 v('la synthèse garde sa prose', /<strong>Synthèse<\/strong><ul><li>La séance a été dominée/.test(_hSyn), _hSyn);
-v('… et le DÉCOMPTE en est retiré', !/publications sur la séance/.test(_hSyn), _hSyn);
-/* Le décompte ne doit resurgir NULLE PART : le retirer de la synthèse pour le reposer ailleurs
-   n'aurait fait que déplacer ce que l'utilisateur a refusé deux fois. */
-v('… et il ne reparaît dans aucune autre rubrique', !/hors consensus/.test(_hSyn), _hSyn);
-v('la photo de séance prend sa propre rubrique', /<strong>Photo de séance<\/strong>/.test(_hSyn), _hSyn);
-v('… juste APRÈS la synthèse, avant le reste',
-  _hSyn.indexOf('Photo de séance') > _hSyn.indexOf('<strong>Synthèse') && _hSyn.indexOf('Photo de séance') < _hSyn.indexOf('Géopolitique'), _hSyn);
-v('… et elle ne répète pas son propre intitulé', !/<li>\*\*Photo de séance\*\*/.test(_hSyn), _hSyn);
-v('… ses valeurs, elles, sont bien là', /Brent \+1,45 % · DAX \+0,15 %/.test(_hSyn), _hSyn);
-/* SANS PROSE, ON NE PROMEUT PAS LA MESURE EN SYNTHÈSE : une rubrique « Synthèse » qui ne
-   contiendrait qu'une photo de performances serait le défaut d'origine, repris par l'autre bout. */
-const _hSansProse = W.html([{ section: 'Géopolitique', items: ['x'] }], [], null, [_DECOMPTE, _PHOTO]).html;
-v('sans prose, la photo ne devient PAS la synthèse', !/<strong>Synthèse<\/strong>/.test(_hSansProse), _hSansProse);
-v('… elle reste sous son propre intitulé', /<strong>Photo de séance<\/strong>/.test(_hSansProse), _hSansProse);
-/* ET SANS PHOTO, aucune rubrique vide ne se pose. */
-const _hSansPhoto = W.html([{ section: 'Synthèse', items: ['Prose seule.'] }], [], null, [_DECOMPTE]).html;
-v('sans photo, aucune rubrique fantôme', !/Photo de séance/.test(_hSansPhoto), _hSansPhoto);
-v('… et la prose est intacte', /<strong>Synthèse<\/strong><ul><li>Prose seule\.<\/li><\/ul>/.test(_hSansPhoto), _hSansPhoto);
-v('la version de segmentation suit', _swSegVer() >= 29, 'SW_SEG_VER = v' + _swSegVer());
+v('… le DÉCOMPTE en est retiré', !/publications sur la séance/.test(_hSyn), _hSyn);
+v('… la PHOTO DE SÉANCE aussi', !/Photo de séance/.test(_hSyn), _hSyn);
+/* Ni l'un ni l'autre ne doit resurgir AILLEURS : les déplacer ne les retire pas. */
+v('… et ni l\'un ni l\'autre ne reparaît dans une autre rubrique',
+  !/hors consensus/.test(_hSyn) && !/Brent \+1,45/.test(_hSyn), _hSyn);
+/* PAS DE GRAS DANS LA SYNTHÈSE : c'est de la prose. Un paragraphe où tout le vocabulaire du desk
+   ressort se lit comme une liste de mots-clés, et le gras y perd tout pouvoir de signaler. */
+v('le gras est retiré de la synthèse', !/<li>La séance[^<]*\*\*/.test(_hSyn), _hSyn);
+v('… le texte, lui, est intact', /la \*?\*?Fed\*?\*?, \*?\*?Warsh\*?\*?, à Jackson Hole/.test(_hSyn.replace(/\*\*/g, '')) || /la Fed, Warsh, à Jackson Hole/.test(_hSyn), _hSyn);
+/* ⚠️ ET IL RESTE PARTOUT AILLEURS. Retirer le gras de TOUT le rapport passerait aussi ce contrôle
+   si on ne vérifiait que la synthèse — c'est le contre-essai qui donne son sens au précédent. */
+v('… mais les autres rubriques gardent le leur', /<li>\*\*Sanctions\*\* américaines\.<\/li>/.test(_hSyn), _hSyn);
+/* SANS PROSE, AUCUNE SYNTHÈSE N'EST FABRIQUÉE : la mesure ne peut plus y être promue par défaut. */
+const _hSansProse = W.html([{ section: 'Géopolitique', items: ['x'] }], [], null, _MESURES).html;
+v('sans prose, aucune rubrique Synthèse n\'apparaît', !/<strong>Synthèse<\/strong>/.test(_hSansProse), _hSansProse);
+v('… et aucune mesure ne se glisse ailleurs', !/Photo de séance|publications sur la séance/.test(_hSansProse), _hSansProse);
+v('la version de segmentation suit', _swSegVer() >= 30, 'SW_SEG_VER = v' + _swSegVer());
+/* Le serveur ne calcule plus la fenêtre de performances pour un résultat jeté. */
+v('le serveur ne calcule plus les lignes mesurées pour rien',
+  /_aSurveillerPourWrap\(item\), null\);/.test(_srv), 'le 4e argument doit être null');
 
-/* [13 bis] LE RÉCAP HEBDO REÇOIT LE MÊME ENCADRÉ (demande du même jour : « pour le récap hebdo de
-   même », puis « applique la structure du quotidien au hebdo »). Il ouvrait sur de la prose NUE. */
+/* [13 bis] LE RÉCAP HEBDO REÇOIT LE MÊME ENCADRÉ. */
 const _APP = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/js/app.js'), 'utf8');
 v('le hebdo pose un intitulé « Synthèse »', /<div class="wr-section-title">Synthèse<\/div>/.test(_APP));
-v('… et REUTILISE l\'encadré du Quotidien plutôt qu\'une troisième copie',
+v('… et RÉUTILISE l\'encadré du Quotidien plutôt qu\'une troisième copie',
   /wr-text wr-summary fxdr-exec/.test(_APP), 'trois copies de la même intention finissent par diverger');
 v('… en couvrant les deux champs (intro récente, summary ancien)', /const _wrIntro = w\.intro \|\| w\.summary;/.test(_APP));
+
+/* [13 ter] LES RÉCAPS HEBDO ARRIVENT VITE (27/08 : « je les vois pas quand j'actualise, ils
+   prennent du temps à charger »). Deux défauts, tous deux dans le repli local. */
+v('un SEUL endroit range les hebdo', /function _rangerHebdo\(d\) \{/.test(_APP));
+v('… et il écrit le cache', /lsSet\('dtp_wk', _weeklyReports\.slice\(0, 60\)\)/.test(_APP));
+/* ⚠️ LE DÉFAUT : les re-tentatives — le chemin qui sert QUAND LE SERVEUR GÉNÈRE, donc celui qui
+   compte — affectaient la variable sans jamais écrire le cache. Le repli restait vide à chaque
+   fois, et chaque rechargement repartait du réseau. */
+v('… les re-tentatives passent par LA MÊME fabrique', /fetch\('\/api\/weekly-reports'\)\.then\(r => r\.json\(\)\)\.then\(_rangerHebdo\)/.test(_APP));
+v('… la première lecture aussi', /_lire\('\/api\/weekly-reports', _rangerHebdo\)/.test(_APP));
+/* ⚠️ ET LA PÉREMPTION : un jour, pour un rapport qui ne change QU'UNE FOIS PAR SEMAINE. */
+v('le repli des hebdo vit plus d\'une journée', /lsGet\('dtp_wk', 8 \* DAY\)/.test(_APP), 'un hebdo ne se périme pas en 24 h');
+v('… les autres sources gardent leur journée', /lsGet\('dtp_sw', DAY\)/.test(_APP) && /lsGet\('dtp_br', DAY\)/.test(_APP));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

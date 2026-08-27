@@ -867,16 +867,28 @@ function _renderArlibSoon() {
   if (_arlibRenderT) return;
   _arlibRenderT = setTimeout(function () { _arlibRenderT = null; try { renderArlibList(); } catch (e) {} }, 450);
 }
+/* ⚠️ LE RETRY NE RANGEAIT RIEN (27/08, signalement : « les récaps hebdo je les vois pas quand
+   j'actualise, ils prennent du temps à charger »). Quand le serveur est en train de générer, les
+   hebdo n'arrivent PAS par la première lecture mais par ces re-tentatives — et celles-ci se
+   contentaient d'affecter `_weeklyReports` sans jamais écrire le cache local. Résultat : le repli
+   instantané restait vide À CHAQUE FOIS, et chaque rechargement de page repartait du réseau. Le
+   cache existait, il n'était simplement jamais rempli sur le chemin qui comptait.
+   Les deux chemins passent désormais par la MÊME fonction : ranger et afficher ne peuvent plus
+   diverger. */
+function _rangerHebdo(d) {
+  if (Array.isArray(d && d.items) && d.items.length) {
+    _weeklyReports = d.items;
+    lsSet('dtp_wk', _weeklyReports.slice(0, 60));
+  }
+  _weeklyGenerating = !!(d && d.generating);
+  _renderArlibSoon();
+  if (_weeklyGenerating) _scheduleWeeklyRetry();
+}
 function _scheduleWeeklyRetry() {
   if (_weeklyRetryCount >= 5) return;   // ~5 tentatives (génération IA peut prendre ~20-40s)
   _weeklyRetryCount++;
   setTimeout(() => {
-    fetch('/api/weekly-reports').then(r => r.json()).then(d => {
-      if (Array.isArray(d.items)) _weeklyReports = d.items;
-      _weeklyGenerating = !!d.generating;
-      _renderArlibSoon();
-      if (_weeklyGenerating) _scheduleWeeklyRetry();
-    }).catch(() => {});
+    fetch('/api/weekly-reports').then(r => r.json()).then(_rangerHebdo).catch(() => {});
   }, 12000);
 }
 let _brSearch    = '';
@@ -925,7 +937,13 @@ function init() {
     const cf = lsGet('dtp_fx', DAY); if (cf && cf.length && !_fxDaily.length)      _fxDaily     = cf;
     // Les hebdo manquaient à l'appel : la source la PLUS LENTE (Supabase) était la seule sans repli
     // instantané, donc la seule à laisser un vide à l'écran le temps du réseau.
-    const cw = lsGet('dtp_wk', DAY); if (cw && cw.length && !_weeklyReports.length) _weeklyReports = cw;
+    /* ⚠️ HUIT JOURS, PAS UN. Le repli des hebdo partageait la péremption d'un jour des trois autres
+       sources — pour un rapport qui ne change QU'UNE FOIS PAR SEMAINE. Passé 24 h, le cache était
+       donc jeté alors que son contenu était toujours le bon, et l'onglet repartait sur un vide le
+       temps du réseau : exactement le défaut signalé. Huit jours plutôt que sept, pour qu'il n'y ait
+       jamais de trou entre deux publications. Servir un hebdo d'une semaine ne coûte rien : la
+       lecture réseau, lancée dans la foulée, l'écrase dès qu'elle répond. */
+    const cw = lsGet('dtp_wk', 8 * DAY); if (cw && cw.length && !_weeklyReports.length) _weeklyReports = cw;
   } catch {}
 
   // ── HTTP pre-fetch: show cached news immediately, before WS connects ──
@@ -5934,12 +5952,8 @@ function loadAnalystView() {
     _fxDaily = v.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
     lsSet('dtp_fx', _fxDaily.slice(0, 40));
   });
-  _lire('/api/weekly-reports', v => {
-    if (Array.isArray(v?.items) && v.items.length) { _weeklyReports = v.items; lsSet('dtp_wk', _weeklyReports.slice(0, 60)); }
-    _weeklyGenerating = !!v?.generating;
-    // Si le serveur génère le recap en tâche de fond, on re-vérifie quelques fois
-    if (_weeklyGenerating) _scheduleWeeklyRetry();
-  });
+  // Même fabrique que les re-tentatives (cf. _rangerHebdo) : un seul endroit range et affiche.
+  _lire('/api/weekly-reports', _rangerHebdo);
 }
 
 // ═══════════════════ ONGLET BIAS : Radar de Biais (matrice) ═══════════════════
