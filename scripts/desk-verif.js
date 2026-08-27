@@ -55,17 +55,30 @@ function midiParis(joursEnArriere) {
   return d.getTime();
 }
 const J0 = midiParis(0), J1 = midiParis(1);
+/* ⚠️ LES RUBRIQUES DOIVENT ÊTRE CELLES DU PRODUIT, ET C'EST TOUT SAUF UN DÉTAIL (26/08).
+   Ce jeu d'essai portait « Forex », « Commodities », « Central Banks », « Equities » — les mots
+   qu'on emploie naturellement en parlant du desk, et AUCUN d'eux n'existe dans `INTERNAL_CATS`
+   (app.js). Or `getFilteredItems` écarte sans un mot toute dépêche dont la rubrique n'y figure
+   pas : 100 dépêches entraient, `getFilteredItems()` en rendait ZÉRO, et le panneau classique
+   `#news-list` restait sur son spinner pendant TOUT le contrôle.
+   Le banc restait vert quand même — les 25 lignes qu'il comptait venaient de la copie widget
+   `.news-list.wdg-news`, qui ne passe pas par ce filtre. Autrement dit : le contrôle central du
+   projet éprouvait un chemin sur deux, et la panne du 25/08 aurait pu se rejouer dans le panneau
+   classique sans que rien ne s'allume. Les rubriques ci-dessous sont donc les VRAIES.
+   ⚠️ `Economic Commentary` est la seule rubrique COUPÉE par défaut (migration one-shot) : l'employer
+   dans un jeu d'essai, c'est écrire des dépêches invisibles. */
+const CATS = ['Fed', 'US Data', 'FX Flows', 'Market Analysis', 'Geopolitical', 'Global News', 'EU Data', 'Energy & Power'];
 const CARACT = [
   { id: 'n1', headline: 'US ADP Employment Change beats forecast', description: 'Actual: 104K Forecast: 75K',
-    category: 'Economic Commentary', source: 'Reuters', time: '16:09', timestamp: J0, priority: 'normal', tags: ['USD'] },
+    category: 'US Data', source: 'Reuters', time: '16:09', timestamp: J0, priority: 'normal', tags: ['USD'] },
   { id: 'eva-adp-1', headline: 'ANALYSE ADP US : Emploi privé US ADP en hausse, marché équilibré', description: '<p>Le chiffre…</p>',
-    category: 'Economic Commentary', source: 'DTP Markets', time: '16:09', timestamp: J0 - 1000, priority: 'high',
+    category: 'US Data', source: 'DTP Markets', time: '16:09', timestamp: J0 - 1000, priority: 'high',
     _eventAnalysis: true, _reportType: 'ADP', _pair: 'EURUSD', tags: ['USD'] },
-  { id: 'fj-1', headline: 'BREAKING: Fed officials signal caution', description: '…', category: 'Central Banks',
+  { id: 'fj-1', headline: 'BREAKING: Fed officials signal caution', description: '…', category: 'Fed',
     source: 'FinancialJuice', time: '15:40', timestamp: J0 - 2000, urgent: true, priority: 'high', tags: ['USD'] },
-  { id: 'n2', headline: 'Euro steady ahead of German Ifo', description: '…', category: 'Forex', source: 'Reuters',
+  { id: 'n2', headline: 'Euro steady ahead of German Ifo', description: '…', category: 'EU Data', source: 'Reuters',
     time: '15:10', timestamp: J0 - 3000, priority: 'normal', tags: ['EUR'] },
-  { id: 'n3', headline: 'Oil edges higher on supply concerns', description: '…', category: 'Commodities', source: 'Reuters',
+  { id: 'n3', headline: 'Oil edges higher on supply concerns', description: '…', category: 'Energy & Power', source: 'Reuters',
     time: '14:55', timestamp: J0 - 4000, priority: 'normal', tags: ['OIL'] },
 ];
 /* Le fil DÉDOUBLONNE les titres quasi identiques (_newsKey) : un jeu d'essai fait de « dépêche
@@ -85,7 +98,7 @@ function depeche(prefixe, ts) {
   return { id: prefixe + '-' + i,
     headline: `${SUJ[i % SUJ.length]} ${VRB[(i / SUJ.length | 0) % VRB.length]} ${CTX[(i / (SUJ.length * VRB.length) | 0) % CTX.length]} (${i})`,
     description: 'Contexte de marche pour le controle automatique.',
-    category: ['Forex', 'Commodities', 'Central Banks', 'Equities'][i % 4],
+    category: CATS[i % CATS.length],
     source: ['Reuters', 'Bloomberg', 'MarketWatch'][i % 3],
     time: '12:00', timestamp: ts, priority: 'normal', tags: [['USD', 'EUR', 'GBP', 'JPY'][i % 4]] };
 }
@@ -162,6 +175,21 @@ function phaseLogique() {
   // Journée finie et RIEN d'autre en mémoire → on vise quand même la veille (elle sera cherchée au serveur).
   c = API._cibleChargerPlus([item(25, 18), item(25, 16)], 2);
   v('rien en mémoire au-delà → on vise quand même la veille', c && c.jour === '2026-08-24', JSON.stringify(c));
+  /* ── LE SAUT DE JOURNÉE (corrigé le 26/08) ────────────────────────────────────────────────────
+     Le cas exact du produit : le premier lot fait 100 éléments, la journée en compte davantage au
+     serveur. En mémoire, tout est montré et rien n'est caché — la seule chose qui distingue « la
+     journée est finie » de « je n'en ai reçu qu'un bout », c'est le RESTE AU SERVEUR. Sans lui, le
+     bouton annonçait la veille et déroulait deux journées d'un coup. */
+  const lot = [item(25, 18), item(25, 16), item(25, 14)];
+  c = API._cibleChargerPlus(lot, 3, true);
+  v('tout montré mais le serveur en a encore → on reste sur CETTE journée',
+    c && c.jour === '2026-08-25' && c.memeJour === true, JSON.stringify(c));
+  v('… et le bouton ne promet pas la veille', API._libelleChargerPlus(c) === 'Voir toute la journée', API._libelleChargerPlus(c));
+  c = API._cibleChargerPlus(lot, 3, false);
+  v('historique épuisé → on passe bien à la veille', c && c.jour === '2026-08-24' && c.memeJour === false, JSON.stringify(c));
+  // Le reste au serveur ne doit RIEN changer quand la mémoire tranche déjà : la veille est là.
+  c = API._cibleChargerPlus(complet, 2, true);
+  v('la veille déjà en mémoire l\'emporte sur le reste au serveur', c && c.jour === '2026-08-24', JSON.stringify(c));
   // La veille d'un 1er du mois est le dernier jour du mois précédent.
   v('le calcul de la veille passe les changements de mois', API._jourVeille('2026-09-01') === '2026-08-31', API._jourVeille('2026-09-01'));
   v('…et les changements d\'année', API._jourVeille('2027-01-01') === '2026-12-31', API._jourVeille('2027-01-01'));
@@ -191,22 +219,41 @@ function phaseLogique() {
     page.on('pageerror', e => fatales.push(e.message));
     await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'networkidle2', timeout: 45000 });
     await new Promise(r => setTimeout(r, 4000));
-    const d = await page.evaluate(() => ({
-      page: location.pathname,
-      liste: !!document.getElementById('news-list'),
-      lignes: document.querySelectorAll('.news-item').length,
-      rouges: document.querySelectorAll('.news-item--breaking').length,
-      enTetes: document.querySelectorAll('.date-header').length,
-      vide: document.querySelectorAll('.empty-state').length,
-    }));
+    /* ⚠️ ON COMPTE DANS UN PANNEAU, PLUS DANS TOUT LE DOCUMENT (26/08). Le fil est rendu DEUX
+       fois — le panneau classique `#news-list` et la copie du widget `.news-list.wdg-news`, qui
+       est celle que le lecteur voit en mode widget (le mode par défaut). Tant que le jeu d'essai
+       portait des rubriques hors vocabulaire, le panneau classique restait vide et un compte
+       global tombait juste par accident ; les rubriques corrigées, le même compte a doublé —
+       « 4 rouges au lieu de 2 », « 25 doublons » — sans qu'aucun défaut n'existe. Chaque nombre
+       est donc rapporté à SON panneau, et les deux sont éprouvés. */
+    const d = await page.evaluate(() => {
+      const cl = document.getElementById('news-list');
+      const wd = document.querySelector('.news-list.wdg-news');
+      const n = (r, sel) => (r ? r.querySelectorAll(sel).length : -1);
+      return {
+        page: location.pathname,
+        liste: !!cl,
+        lignes: n(cl, '.news-item'),
+        widget: n(wd, '.news-item'),
+        rouges: n(cl, '.news-item--breaking'),
+        rougesWidget: n(wd, '.news-item--breaking'),
+        enTetes: n(cl, '.date-header'),
+        vide: n(cl, '.empty-state'),
+      };
+    });
     console.log('\n── Desk ouvert dans Chromium, API bouchonnée ──');
     verif('la page reste sur le desk (pas de renvoi vers /login)', d.page === '/index.html', d.page);
     verif('le conteneur du fil existe', d.liste);
-    verif('le fil affiche des actualités', d.lignes >= 20, d.lignes + ' ligne(s) rendue(s)');
+    verif('le fil affiche des actualités', d.lignes >= 20, d.lignes + ' ligne(s) rendue(s) dans #news-list');
+    /* Le mode widget est le mode PAR DÉFAUT : cette copie-ci est celle qu'un client a sous les
+       yeux. Elle se remplit par son propre chemin — la vérifier à part, c'est éprouver les DEUX
+       rendus au lieu d'un seul, ce qui est précisément ce que ce banc a manqué jusqu'ici. */
+    verif('… et la copie du widget, celle que le lecteur voit, aussi', d.widget >= 20, d.widget + ' ligne(s) dans .wdg-news');
     verif('l\'en-tête de journée est là', d.enTetes >= 1, String(d.enTetes));
     verif('aucun message « aucun élément »', d.vide === 0);
     // Une analyse du desk et une dépêche urgente : deux lignes rouges attendues.
-    verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2');
+    verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2 dans #news-list');
+    verif('… dans la copie du widget aussi', d.rougesWidget === 2, d.rougesWidget + ' rouge(s) au lieu de 2 dans .wdg-news');
     verif('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
 
     /* ── ANDROID : UNE NOTIFICATION SYSTÈME QUI ÉCHOUE NE FIGE PAS LE FIL (04/09) ────────────────
@@ -863,14 +910,18 @@ function phaseLogique() {
       const jr = ts => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
       const f = (typeof getFilteredItems === 'function') ? getFilteredItems() : [];
       const jour = f.length ? jr(f[0].timestamp) : '';
-      const b = document.querySelector('.load-more-btn');
-      const ids = [...document.querySelectorAll('.news-item[data-id]')].map(e => e.dataset.id);
+      // Même règle qu'au-dessus : un seul panneau, sinon chaque ligne se compte deux fois.
+      const cl = document.getElementById('news-list');
+      const b = cl.querySelector('.load-more-btn') || document.querySelector('.load-more-btn');
+      const ids = [...cl.querySelectorAll('.news-item[data-id]')].map(e => e.dataset.id);
       return {
         jour,
         duJour: f.filter(i => jr(i.timestamp) === jour).length,
         montresDuJour: f.slice(0, displayLimit).filter(i => jr(i.timestamp) === jour).length,
         lignes: ids.length, uniques: new Set(ids).size,
-        enTetes: document.querySelectorAll('.date-header').length,
+        enTetes: cl.querySelectorAll('.date-header').length,
+        titresJours: [...cl.querySelectorAll('.date-header')].map(e => e.textContent.trim()),
+        parJour: (() => { const o = {}; for (const e of cl.querySelectorAll('.news-item[data-id]')) { const it = allItems.find(x => x.id === e.dataset.id); const k = it ? jr(it.timestamp) : '?'; o[k] = (o[k] || 0) + 1; } return o; })(),
         libelle: b ? b.textContent.trim() : '(aucun bouton)',
       };
     });
@@ -881,7 +932,9 @@ function phaseLogique() {
     const ap = await sonde();
     verif('le clic déroule des actualités supplémentaires', ap.lignes > av.lignes, av.lignes + ' → ' + ap.lignes + ' ligne(s)');
     verif('aucun doublon', ap.lignes === ap.uniques, (ap.lignes - ap.uniques) + ' doublon(s)');
-    verif('on ne déborde pas sur la journée précédente', ap.enTetes === 1, ap.enTetes + ' en-tête(s) de journée');
+    verif('on ne déborde pas sur la journée précédente', ap.enTetes === 1,
+      ap.enTetes + ' en-tête(s) : ' + JSON.stringify(ap.titresJours) + ' · lignes par journée ' + JSON.stringify(ap.parJour)
+      + ' · avant le clic ' + JSON.stringify(av.parJour) + ' · du jour ' + av.duJour + ', montrés ' + av.montresDuJour);
     verif('le bouton propose maintenant le jour précédent',
       /^Charger \p{L}+/u.test(ap.libelle) && !/toute la journée/i.test(ap.libelle), ap.libelle);
   } catch (e) {

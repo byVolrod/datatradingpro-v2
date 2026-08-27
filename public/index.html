@@ -11,6 +11,15 @@
   <!-- PWA : icône d'app installée (DT or) + couleur de thème : Chrome resynchronise l'icône depuis le manifest -->
   <link rel="manifest" href="/manifest.json?v=dtp11" />
   <meta name="theme-color" content="#0c0c0e" />
+  <!-- iOS n'a jamais lu le manifeste pour ces deux-la : sans elles, une DTP ajoutee a l'ecran
+       d'accueil d'un iPhone rouvre dans Safari, barre d'adresse comprise, au lieu de s'ouvrir en
+       plein ecran comme une application. -->
+  <!-- `mobile-web-app-capable` est la forme NORMALISÉE ; Chrome signale l'autre comme obsolète.
+       Les deux cohabitent : Safari ne connaît toujours que la variante `apple-`. -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="DataTradingPro" />
   <!-- THÈME (Sombre/Clair/Système) : appliqué AVANT le premier rendu depuis le cache local (anti-flash) ;
        la source de vérité par compte (KV thememode:<userId>) est relue au login par app.js. -->
   <script>(function(){try{var m=localStorage.getItem('dtp_theme')||'dark';var t=m==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):m;document.documentElement.dataset.theme=t;document.documentElement.dataset.thememode=m;
@@ -30,7 +39,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260826bbg989" />
+  <link rel="stylesheet" href="/css/style.css?v=20260827bbg990" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -83,7 +92,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260826bbg989"></script>
+  <script defer src="/js/noinspect.js?v=20260827bbg990"></script>
 </head>
 <body>
 
@@ -953,16 +962,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260826bbg989"></script>
-<script defer src="/js/app.js?v=20260826bbg989"></script>
-<script defer src="/js/charts.js?v=20260826bbg989"></script>
-<script defer src="/js/sessionmap.js?v=20260826bbg989"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260827bbg990"></script>
+<script defer src="/js/app.js?v=20260827bbg990"></script>
+<script defer src="/js/charts.js?v=20260827bbg990"></script>
+<script defer src="/js/sessionmap.js?v=20260827bbg990"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260826bbg989"></script>
-<script defer src="/js/home.js?v=20260826bbg989"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260826bbg989"></script>
-<script defer src="/js/i18n.js?v=20260826bbg989"></script>
+<script defer src="/js/widgets.js?v=20260827bbg990"></script>
+<script defer src="/js/home.js?v=20260827bbg990"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260827bbg990"></script>
+<script defer src="/js/i18n.js?v=20260827bbg990"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -2062,6 +2071,25 @@
     if (document.readyState === 'complete') setTimeout(hideBoot, 450);
     else window.addEventListener('load', function () { setTimeout(hideBoot, 450); });
   })();
+</script>
+<script>
+/* ── SERVICE WORKER (04/09) ─────────────────────────────────────────────────────────────────────
+   Enregistre APRÈS `load`, et ce n'est pas une précaution de style : l'enregistrement et le
+   pré-chargement de la coquille entrent en concurrence avec les premières requêtes du desk. Sur un
+   téléphone en 4G moyenne, le faire tôt retarde l'affichage du fil de plusieurs centaines de
+   millisecondes — on ralentirait le desk pour préparer son mode hors-ligne.
+   ⚠️ ET IL NE DOIT JAMAIS RIEN CASSER : un navigateur sans service worker, un contexte non sécurisé,
+   un refus de l'utilisateur — le desk marche exactement pareil sans lui. D'où le garde et le catch
+   silencieux : il ajoute l'installation, le hors-ligne et les notifications Android, il ne
+   conditionne rien. */
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      try { navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {}); } catch (e) {}
+    }, 1200);
+  });
+})();
 </script>
 </body>
 </html>

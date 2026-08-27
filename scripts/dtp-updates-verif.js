@@ -43,6 +43,61 @@ function diffDe(fichier, mode) {
 }
 // Le diff de server.js contient-il une NOUVELLE entrée DTP_UPDATES ? (ligne ajoutée « id: 'dtpu-… »)
 const aNouvelleAnnonce = d => /^\+.*id:\s*'dtpu-/m.test(d);
+
+/* ══ LE FRANÇAIS DE L'ANNONCE (26/08, demande utilisateur : « corrige ça dans les notifs c pas
+   professionnel du tout », puis « pr pas que ça se reproduise ») ══════════════════════════════
+   Le fil des Nouveautés est ce que les clients LISENT ; c'est la seule page du produit écrite à la
+   première personne. 212 des 355 entrées y étaient sans un seul accent — « la journee precedente
+   n a jamais ete affichee » — et deux des trois entrées encore dans la fenêtre de 7 jours étaient
+   dans ce cas. Ce n'est pas un détail de style : un texte sans accents ni apostrophes lu par un
+   client donne l'impression d'un produit bâclé, et il l'a dit ainsi.
+   POURQUOI ÇA ARRIVE, ET POURQUOI UN CONTRÔLE EST LE SEUL REMÈDE : la chaîne est délimitée par une
+   apostrophe droite, donc écrire « d'adresse » casse le fichier. La parade prise sur le moment a
+   été de retirer l'apostrophe (« d adresse ») puis, de fil en aiguille, les accents. La bonne
+   parade est l'apostrophe TYPOGRAPHIQUE ’ (U+2019), qui ne ferme aucune chaîne, se compose
+   normalement et est de surcroît la forme correcte en français.
+   TROIS CONTRÔLES, chacun choisi pour ne JAMAIS se déclencher sur du français correct :
+     1. la densité d'accents (un texte français d'annonce en porte largement plus d'un pour 80
+        caractères — le seuil est donc très bas et ne peut être franchi que par un texte
+        volontairement dépouillé) ;
+     2. les apostrophes escamotées : « d », « l », « n », « c », « qu » isolés entre deux espaces
+        n'existent dans aucune phrase française ;
+     3. une liste de graphies qui ne sont JAMAIS des mots français sans accent. Les mots qui
+        existent dans les deux formes (marche, cote, tache, mode…) en sont volontairement absents :
+        un contrôle qui accuse à tort finit par être contourné, et ne protège plus rien. */
+const ACCENTS_RX = /[àâäçéèêëîïôöùûüÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ]/g;
+const ELISION_RX = /(^|\s)(d|l|n|c|j|qu|s)\s(?=[a-zàâäéèêëîïôöùûüA-Z])/g;
+const SANS_ACCENT = ['deja', 'apres', 'etait', 'etaient', 'etre', 'ete', 'tres', 'meme', 'memes',
+  'derniere', 'dernieres', 'premiere', 'premieres', 'journee', 'journees', 'annee', 'annees',
+  'systeme', 'systemes', 'probleme', 'problemes', 'fenetre', 'fenetres', 'donnees', 'ecran',
+  'ecrans', 'element', 'elements', 'telephone', 'telephones', 'evenement', 'evenements',
+  'reglage', 'reglages', 'reference', 'references', 'verification', 'generation', 'creation',
+  'operation', 'operations', 'necessaire', 'interet', 'numero', 'precedent', 'precedente',
+  'recap', 'recaps', 'resume', 'resumes', 'seance', 'seances', 'geopolitique', 'reussi',
+  'affichee', 'affiches', 'creee', 'cree', 'ameliore', 'amelioree', 'detail', 'details'];
+
+// Le texte QUE LE CLIENT LIT dans les lignes ajoutées : ce qui suit `title:` et `desc:`, rien d'autre.
+function texteAnnonce(diff) {
+  return diff.split('\n')
+    .filter(l => /^\+.*id:\s*'dtpu-/.test(l))
+    .map(l => (l.match(/(?:title|desc):\s*'((?:[^'\\]|\\.)*)'/g) || []).join(' '))
+    .join(' ')
+    .replace(/^(?:title|desc):\s*'|'$/g, '');
+}
+function defautsDeLangue(diff) {
+  const t = texteAnnonce(diff);
+  if (t.length < 40) return [];                    // pas d'annonce lisible dans le diff → rien à dire
+  const d = [];
+  const accents = (t.match(ACCENTS_RX) || []).length;
+  if (accents < Math.max(5, Math.floor(t.length / 80))) {
+    d.push(`accents : ${accents} pour ${t.length} caractères — le texte est écrit sans accents.`);
+  }
+  const elis = [...t.matchAll(ELISION_RX)].map(m => m[2]).slice(0, 4);
+  if (elis.length) d.push(`apostrophes escamotées : « ${elis.join(' », « ')} » isolés — écrire d’, l’, qu’ (apostrophe ’, U+2019).`);
+  const mots = SANS_ACCENT.filter(m => new RegExp('\\b' + m + '\\b', 'i').test(t)).slice(0, 6);
+  if (mots.length) d.push(`mots sans accent : ${mots.join(', ')}.`);
+  return d;
+}
 // … et touche-t-il à autre chose que ce tableau ? (au moins une ligne ajoutée/retirée hors « dtpu- »)
 const toucheAutreChose = d => d.split('\n').some(l => /^[+-][^+-]/.test(l) && !/id:\s*'dtpu-/.test(l));
 
@@ -58,9 +113,21 @@ function main() {
   if (list.includes('server.js') && toucheAutreChose(dServer)) visibles.push('server.js');
 
   if (!visibles.length) process.exit(0);          // rien de visible → rien à annoncer
-  if (annonce) {                                   // annonce présente → on laisse passer
-    console.log('[Nouveautés DTP] ✓ une annonce accompagne ce commit.');
-    process.exit(0);
+  if (annonce) {
+    // Présente, oui — mais lisible ? Une annonce est un texte de produit, pas une ligne de log.
+    const maux = defautsDeLangue(dServer);
+    if (!maux.length) {
+      console.log('[Nouveautés DTP] ✓ une annonce accompagne ce commit.');
+      process.exit(0);
+    }
+    console.error('\n╭─ NOUVEAUTÉS DTP — L\'ANNONCE N\'EST PAS EN FRANÇAIS CORRECT ────────────────────');
+    maux.forEach(m => console.error('│ · ' + m));
+    console.error('│');
+    console.error('│ Ce texte s\'affiche tel quel dans l\'onglet DTP des ALERTES, chez les clients.');
+    console.error('│ L\'apostrophe DROITE fermerait la chaîne : utiliser l\'apostrophe ’ (U+2019),');
+    console.error('│ qui ne casse rien et qui est la forme correcte en français.');
+    console.error('╰─────────────────────────────────────────────────────────────────────────────\n');
+    process.exit(1);
   }
 
   const j = new Date();

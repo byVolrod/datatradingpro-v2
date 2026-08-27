@@ -20957,3 +20957,69 @@ body.theme-light .dtp-aide-bulle::after { background: #ffffff; border-color: #da
 b.wpb-hausse { color: #00e676; } b.wpb-baisse { color: #ff3d00; } b.wpb-maintien { color: #ffb300; }
 html[data-theme="light"] .wpb-part > b { color: #ffffff; }
 html[data-theme="light"] .wpb-n { color: #6b7280; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   TÉLÉPHONE — DEUX DÉFAUTS VUS SUR L'APERÇU (26/08, `node scripts/mobile-apercu.js`)
+   ═══════════════════════════════════════════════════════════════════════════════════════════════
+   L'aperçu ouvre le VRAI desk dans un Chromium configuré en téléphone. Sur la planche, deux
+   choses sautaient aux yeux et aucune ne se voyait au bureau, même fenêtre réduite.
+
+   ── [1] SOUS 400 px, LA 2e RANGÉE DE LA BARRE RECOUVRAIT LA RANGÉE D'ONGLETS ──────────────────
+   Mesuré sur iPhone 12 mini (375 pt) : la recherche de symbole descendait jusqu'à y = 91,7 alors
+   que la barre s'arrête à 75,6 et que la rangée d'onglets commence là — soit 16 px d'onglets
+   recouverts, « › ACTUS » à moitié caché derrière le champ.
+
+   LA CAUSE tient en une déclaration, et elle est ancienne : `.logo { height: 100% }`. Dans une
+   barre qui NE se replie PAS, 100 % vaut la hauteur d'une rangée et tout va bien. Depuis que la
+   barre passe sur DEUX rangées sous 400 px (`flex-wrap: wrap`), 100 % vaut la hauteur des DEUX :
+   le logo, à lui seul, gonfle la PREMIÈRE ligne flex à 84 px. La seconde s'ajoute par-dessous,
+   le total dépasse la hauteur fixée, et `align-content: center` centre le débordement — d'où une
+   rangée d'icônes qui remonte AU-DESSUS de la barre (top mesuré : −19 px) et une rangée d'outils
+   qui déborde EN DESSOUS, sur les onglets.
+   ⚠️ Le piège : `--topbar-h` valait bien 84 px, la barre mesurait bien 84 px. Rien n'était faux
+   dans les tokens — c'est le CONTENU qui dépassait de sa boîte, en silence. Un contrôle qui
+   compare `--topbar-h` à la hauteur de `.topbar` aurait été vert.
+   LE REMÈDE : dans ce régime, le logo prend la hauteur de SA rangée, pas celle de la barre.
+   Une seule source pour cette hauteur (`--tb-rangee1`), pour que 44 ne se retrouve pas recopié
+   à trois endroits qui divergeront.
+
+   ── [2] LA RANGÉE D'ONGLETS SE COUPE SANS RIEN DIRE ───────────────────────────────────────────
+   Elle défile déjà horizontalement (l. 3926) — mais la barre de défilement est masquée, et rien
+   à l'écran n'indique qu'il reste quelque chose à droite : sur les trois téléphones, le dernier
+   onglet lisible est tranché en plein mot (« ANALYS… ») et ressemble à un défaut d'affichage.
+   Mesuré : 916 px d'onglets pour 417 px visibles — plus de la MOITIÉ de la navigation est hors
+   champ, et « MARCHÉS », qui n'existe QUE sur mobile, commence à x = 744.
+   LE REMÈDE : un fondu au bord droit, en `position: sticky` DANS le conteneur défilant (donc
+   sans JS et sans se décaler au scroll), qui s'efface quand on atteint la fin. Il ne masque
+   rien : `pointer-events: none` et une largeur inférieure à un onglet.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 400px) {
+  :root { --tb-rangee1: 44px; }
+  /* Le logo épouse SA rangée. (Hors de ce régime, `height: 100%` reste juste et intact : il
+     absorbe le retrait d'encoche, ce qu'une hauteur fixe ne saurait faire.) */
+  .topbar .logo { height: var(--tb-rangee1); }
+  /* Filet de sécurité, pas un doublon : si un jour un enfant de la 1re rangée dépasse à son tour,
+     il cède au lieu de repousser la 2e rangée sur les onglets. */
+  .topbar-left { max-height: var(--tb-rangee1); }
+}
+
+/* Le fondu de fin de rangée. Scopé au tactile ET aux petites largeurs : sur un desk de bureau la
+   rangée tient entière, le pseudo-élément n'a alors aucune largeur à couvrir. */
+@media (hover: none), (pointer: coarse), (max-width: 768px) {
+  .navbar { position: relative; }
+  .navbar::after {
+    content: '';
+    position: sticky;
+    right: 0;
+    flex: 0 0 34px;
+    margin-left: -34px;           /* il se SUPERPOSE au dernier onglet, il ne pousse rien */
+    align-self: stretch;
+    pointer-events: none;
+    /* Le dégradé doit ATTEINDRE la couleur de fond avant le bord : s'il s'arrête en chemin, la
+       dernière lettre reste nette et le tout se lit comme une coupure, pas comme une suite. */
+    background: linear-gradient(90deg, rgba(0,0,0,0) 0%, var(--head-bg) 62%, var(--head-bg) 100%);
+    transition: opacity .18s ease;
+  }
+  /* Arrivé au bout, il n'y a plus rien à annoncer : le fondu s'efface (classe posée par app.js). */
+  .navbar.nav-au-bout::after { opacity: 0; }
+}

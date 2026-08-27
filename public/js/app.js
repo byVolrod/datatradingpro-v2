@@ -1672,7 +1672,7 @@ function renderNews(hasNew = false) {
     const btn = document.createElement('button');
     btn.className = 'load-more-btn';
     // MÊME fonction que loadMore pour choisir la cible : le libellé ne peut pas mentir sur l'action.
-    btn.textContent = loadingMore ? 'Chargement…' : _libelleChargerPlus(_cibleChargerPlus(filtered, effLimit));
+    btn.textContent = loadingMore ? 'Chargement…' : _libelleChargerPlus(_cibleChargerPlus(filtered, effLimit, _resteAuServeur()));
     btn.disabled = loadingMore;
     btn.onclick = loadMore;
     fragment.appendChild(btn);
@@ -1754,15 +1754,36 @@ const _jourVeille = j => { const d = new Date(j + 'T12:00:00Z'); d.setUTCDate(d.
 const _LM_HOPS = 12;        // au plus 12 lots de 100 par clic : une journée, même un jour de FOMC
 const _LM_MAX  = 1500;      // plafond dur d'éléments en mémoire (annoncé en console, jamais silencieux)
 /* Journée que le prochain clic doit dérouler : celle de la frontière du lot affiché si elle n'est
-   pas entièrement montrée, sinon la précédente. Rend aussi de quoi libeller le bouton. */
-function _cibleChargerPlus(filtered, eff) {
+   pas entièrement montrée, sinon la précédente. Rend aussi de quoi libeller le bouton.
+
+   ⚠️ `resteServeur` A ÉTÉ AJOUTÉ LE 26/08, ET IL CORRIGE UN SAUT DE JOURNÉE ENTIÈRE. Le raisonnement
+   d'origine ne regardait QUE la mémoire : « aucun élément caché de cette journée → la journée est
+   finie ». Or le premier lot fait exactement 100 éléments et une journée chargée en compte
+   davantage : le client affiche ses 100, n'en cache aucun, et conclut que la journée est terminée
+   alors qu'il n'en a vu que les deux tiers. Conséquences enchaînées, toutes visibles par le
+   lecteur :
+     · le bouton annonçait « Charger mardi 25 août » alors que le MERCREDI n'était pas fini —
+       l'étiquette mentait sur ce qu'elle allait faire ;
+     · le clic ramenait alors l'historique jusqu'à dépasser MARDI, donc la fin de mercredi ET tout
+       mardi d'un coup : 245 lignes d'un seul geste, à l'opposé de la règle des lots de 100 ;
+     · et la fin de la journée en cours n'était jamais présentée comme telle.
+   « Rien de caché en mémoire » ne veut pas dire « rien de plus au serveur ». Tant que l'historique
+   n'est pas épuisé, la journée de la frontière reste la cible. Le paramètre est optionnel : sans
+   lui, le comportement d'avant est conservé à l'identique. */
+function _cibleChargerPlus(filtered, eff, resteServeur) {
   if (!filtered.length) return null;
   const frontiere = _jourParis(filtered[Math.max(0, eff - 1)].timestamp);
   const caches = filtered.slice(eff);
   if (caches.some(it => it && _jourParis(it.timestamp) === frontiere)) return { jour: frontiere, memeJour: true };
+  // Rien de caché de cette journée EN MÉMOIRE, mais le serveur en a peut-être encore : on n'a pas
+  // le droit de la déclarer close.
+  if (resteServeur && !caches.length) return { jour: frontiere, memeJour: true };
   const suivant = caches.find(it => it && _jourParis(it.timestamp) < frontiere);
   return { jour: suivant ? _jourParis(suivant.timestamp) : _jourVeille(frontiere), memeJour: false };
 }
+// Une seule lecture de l'état « le serveur en a encore », pour que le bouton et le clic ne puissent
+// pas se contredire — c'est précisément ce qui produisait une étiquette mensongère.
+function _resteAuServeur() { return allItems.length < serverTotal; }
 function _libelleChargerPlus(cible) {
   if (!cible) return 'Charger plus';
   if (cible.memeJour) return 'Voir toute la journée';
@@ -1774,7 +1795,7 @@ async function loadMore() {
   let filtered = getFilteredItems();
   if (!filtered.length) return;
   const eff = Math.min(displayLimit, filtered.length);
-  const cible = _cibleChargerPlus(filtered, eff);
+  const cible = _cibleChargerPlus(filtered, eff, _resteAuServeur());
   if (!cible) return;
 
   loadingMore = true;
@@ -11655,7 +11676,16 @@ function npPush(items, opts) {
       };
       try {
         const sw = navigator.serviceWorker && navigator.serviceWorker.ready;
-        if (sw && sw.then) sw.then(function (reg) { try { reg.showNotification('DataTradingPro', opts); } catch (e) {} }).catch(function () {});
+        /* ⚠️ `showNotification` REND UNE PROMESSE, et elle REJETTE quand l'origine n'a pas la
+           permission — un `try/catch` ne voit RIEN d'un rejet, et le rejet non traité remonte en
+           erreur de page. Le desk se retrouvait donc avec une erreur d'exécution à chaque dépêche
+           importante sur un appareil où la permission n'est pas accordée : exactement la situation
+           par défaut, puisque personne n'accorde les notifications avant qu'on les lui demande.
+           On attrape donc les DEUX chemins : l'exception synchrone ET le rejet asynchrone. */
+        if (sw && sw.then) sw.then(function (reg) {
+          try { const p = reg.showNotification('DataTradingPro', opts); if (p && p.catch) p.catch(function () {}); }
+          catch (e) {}
+        }).catch(function () {});
         else new Notification('DataTradingPro', opts);
       } catch (e) {
         // Constructeur refusé (Android), permission révoquée entre-temps, quota du navigateur :
@@ -14714,4 +14744,37 @@ window._dtpJournalBadgeInit = function () {
       _cStatus(''); _calcCompute();
     }).catch(() => { _cStatus('Cours indisponibles'); const res = document.getElementById('calc-results'); if (res) res.innerHTML = '<div class="calc-empty">Impossible de charger les cours en direct.<button type="button" class="jr-btn" onclick="window.loadCalculatorView()">Réessayer</button></div>'; });
   };
+})();
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   RANGÉE D'ONGLETS : LE FONDU DE FIN S'EFFACE QUAND IL N'Y A PLUS RIEN À DIRE (26/08)
+   ------------------------------------------------------------------------------------------------
+   Le fondu lui-même est en CSS (fin de style.css) : un pseudo-élément `sticky` au bord droit du
+   conteneur défilant. Il ne lui manque qu'une chose, et le CSS ne sait pas la voir : à quel moment
+   la rangée est arrivée AU BOUT. Un fondu qui reste allumé sur le dernier onglet annonce une suite
+   qui n'existe pas — c'est le même mensonge que pas de fondu du tout, à l'envers.
+   Neuf lignes, aucun réglage à maintenir, et rien ne se déclenche quand la rangée tient entière.
+   ⚠️ `querySelectorAll` : « Mon Desk » porte AUSSI une `.navbar`. Une seule barre traitée aurait
+   laissé l'autre avec un fondu figé. */
+(function () {
+  const MARGE = 2;   // un pixel de sous-pixel ne doit pas faire clignoter le fondu
+  function auBout(barre) {
+    // Pas de débordement du tout → « au bout » par définition : le fondu ne s'allume jamais.
+    const bout = barre.scrollLeft + barre.clientWidth >= barre.scrollWidth - MARGE;
+    barre.classList.toggle('nav-au-bout', bout);
+  }
+  function poser() {
+    document.querySelectorAll('.navbar').forEach(function (barre) {
+      if (barre._dtpFondu) return;
+      barre._dtpFondu = true;
+      barre.addEventListener('scroll', function () { auBout(barre); }, { passive: true });
+      auBout(barre);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', poser);
+  else poser();
+  // La largeur change (rotation, clavier logiciel, redimensionnement) → le débordement aussi.
+  window.addEventListener('resize', function () {
+    document.querySelectorAll('.navbar').forEach(auBout);
+  }, { passive: true });
 })();

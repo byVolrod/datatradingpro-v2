@@ -65,3 +65,6 @@ gtest/
 # six fichiers .tactile-audit*.js partis en production).
 /.tactile-audit*.js
 /.audit-*.js
+
+# ── Planche d'aperçu téléphone (image produite par scripts/mobile-apercu.js) ─────
+apercu-mobile*.png
