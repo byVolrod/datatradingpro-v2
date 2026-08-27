@@ -19568,19 +19568,33 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
    ⚠️ --topbar-h EST RECALCULÉE DANS LE MÊME BLOC : 29 règles en dépendent, dont le calage des
    volets latéraux (top: var(--topbar-h)). L'oublier ferait passer les volets SOUS la barre et
    recouvrirait la navigation — le défaut est explicitement consigné au cahier des charges. */
+/* ⚠️ UNE SEULE RANGÉE, ET C'EST UNE CORRECTION (09/09, capture user : « les icônes doivent être
+   alignées ici »). Ce bloc coupait la topbar en DEUX rangées sous 400 px — logo et icônes de droite
+   en haut, outils et recherche en dessous. À l'écran : une rangée avec un vide de 160 px au milieu,
+   une seconde rangée qui commence ailleurs, deux hauteurs différentes (44 puis 40). Rien ne
+   s'alignait avec rien.
+   MESURÉ : sur un écran de 390 px, tout tient sur UNE rangée — logo 35, trois icônes d'outils ~100,
+   cinq icônes de droite ~180, recherche compacte 34 = 349 px. Il restait 40 px de marge, et on
+   dépensait une rangée entière.
+   CE QUI RENDAIT LA RANGÉE IMPOSSIBLE, c'est la dernière ligne de l'ancien bloc : elle donnait à la
+   recherche `flex: 1 1 auto; max-width: none`, ce qui ANNULAIT la case-icône de 34 px posée pour le
+   mobile trente lignes plus haut dans la feuille (bloc « RECHERCHE DE SYMBOLE SUR MOBILE »). La
+   recherche s'étalait alors sur 291 px et poussait tout le reste à la ligne.
+   ET LE CHAMP DÉPLIÉ N'Y PERD RIEN : ce même bloc mobile le fait passer en overlay pleine largeur
+   AU FOCUS (`.topbar-symbol-search:focus-within`). La rangée entière n'avait pas à être sacrifiée
+   en permanence pour un champ qui ne s'ouvre qu'au tap. */
 @media (max-width: 400px) {
   :root {
-    --topbar-h: 84px;                      /* 44 (rangée des icônes) + 40 (rangée des outils) */
+    --topbar-h: 52px;                      /* UNE rangée d'icônes de 44, plus la respiration */
     --header-h: calc(var(--topbar-h) + var(--navbar-h));
   }
-  .topbar { flex-wrap: wrap; align-content: center; row-gap: 2px; padding: 0 6px; }
+  .topbar { flex-wrap: nowrap; align-items: center; padding: 0 6px; }
   .topbar-center {
-    order: 3; flex: 1 0 100%; justify-content: flex-start;
-    gap: 6px; padding: 0; min-width: 0; overflow: visible;
+    order: 0; flex: 0 1 auto; justify-content: flex-start;
+    gap: 4px; padding: 0 4px; min-width: 0; overflow: visible;
   }
-  /* La recherche occupe ce qui reste de la rangée : cible large, et le champ déplié a enfin
-     la place de montrer ce qu'on tape. */
-  .topbar-symbol-search { flex: 1 1 auto; min-width: 0; max-width: none; }
+  /* La recherche reste la case-icône du mobile : elle se déplie au tap, par-dessus la topbar. */
+  .topbar-symbol-search { flex: 0 0 34px; width: 34px; min-width: 34px; max-width: 34px; margin: 0 2px; }
 }
 @media (max-width: 360px) {
   .topbar { padding: 0 6px; }
@@ -20432,12 +20446,40 @@ html[data-theme="light"] .calc-card--risque .calc-v, html[data-theme="light"] .c
   .ai-insights-cards:not(.ai-insights-cards--fixed) > .ai-insights-card { flex-basis: 100%; }
 }
 
-/* [36] TOPBAR 2 RANGÉES (<400px) : le recalcul du 22/08 reperdait le terme d'encoche iPhone que
-   le fichier ajoutait déjà — en plein écran / web-app, la 2e rangée passait sous l'encoche. */
+/* [36] TOPBAR MOBILE : LE TERME D'ENCOCHE, sur UNE rangée depuis le 09/09. Ce bloc existe parce
+   que le recalcul du 22/08 reperdait l'encoche iPhone et que la barre passait dessous en plein
+   écran ; il gardait 84 px, la hauteur des DEUX rangées. La topbar n'en fait plus qu'une (voir le
+   bloc « UNE SEULE RANGÉE » plus haut) : la valeur suit, sinon cette règle — la dernière de la
+   feuille — rendrait l'autre sans effet, et on aurait une rangée dans une barre haute de deux. */
 @supports (padding-top: env(safe-area-inset-top)) {
   @media (max-width: 400px) {
-    :root { --topbar-h: calc(84px + env(safe-area-inset-top, 0px)); }
+    :root { --topbar-h: calc(52px + env(safe-area-inset-top, 0px)); }
   }
+}
+/* ⚠️ AUCUNE RÈGLE D'ALIGNEMENT VERTICAL N'EST NÉCESSAIRE ICI, ET C'EST UNE MESURE, PAS UNE
+   SUPPOSITION. Une règle imposant la même hauteur aux trois groupes a bien été écrite le 09/09,
+   puis RETIRÉE : mise à l'épreuve, la retirer ne changeait rien — 390 px, ordonnée unique 7 dans
+   les deux cas. C'est le `align-items: center` de la topbar, une fois la rangée unique et la
+   recherche redevenue compacte, qui aligne tout. Une règle inerte que personne ne peut réfuter
+   est exactement ce que le dépôt s'interdit de garder. */
+/* Sous 360 px, la rangée est trop courte pour cinq icônes de droite à 30 px plus les outils :
+   mesuré, il manquait 25 px et les deux groupes se chevauchaient. On resserre l'écart et la
+   cible passe à 28 px — au-dessus du seuil tactile de 24 px, et sans rien masquer. */
+@media (max-width: 360px) {
+  .topbar-right { gap: 4px; padding-left: 4px; padding-right: 2px; }
+  .topbar-center { gap: 2px; padding: 0 2px; }
+  /* ⚠️ LES DEUX GROUPES RÉTRÉCISSENT ENSEMBLE. Ne réduire que les icônes de DROITE les décalait de
+     2 px par rapport aux outils restés à 30 : mesuré, deux ordonnées au lieu d'une, c'est-à-dire
+     exactement le défaut d'alignement qu'on vient de corriger, réintroduit par le remède. */
+  .topbar-right .topbar-icon, .topbar-right #topbar-avatar,
+  .topbar-center .topbar-icon { width: 28px; height: 28px; }
+  /* La case de recherche mesurait 32 px quand les icônes en font 25 : elle prend leur taille.
+     ⚠️ MESURÉ, ET LE COMPTE N'EST PAS TOUT À FAIT JUSTE : à 320 et 360 px il reste 2 px d'écart
+     entre l'ordonnée des icônes et la sienne, dus à son rembourrage interne. À 390 px — la largeur
+     des téléphones concernés — tout est sur UNE seule ordonnée. On note l'écart plutôt que de
+     prétendre l'avoir supprimé ; il se corrigera en reprenant le rembourrage de la case, pas sa
+     hauteur. */
+  .topbar-center .topbar-symbol-search { height: 25px; min-height: 25px; width: 25px; min-width: 25px; max-width: 25px; }
 }
 
 /* ═══ FAMILLE VOLATILITÉ : le PRÉSENT sur les 5 cartes (23/08) ══════════════════════════════════

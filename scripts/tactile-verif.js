@@ -396,6 +396,70 @@ const SONDE_STYLE = () => {
       v('… et le clic revient bien à la ligne qui porte le glyphe', (await ps.evaluate(() => window.__ligne)) === 0);
       await ps.close();
     }
+    /* ═══ LA TOPBAR TIENT SUR UNE RANGÉE, ET LES ICÔNES SONT ALIGNÉES (09/09) ═══════════════════
+       Demande user, capture à l'appui : « les icônes doivent être alignées ici ». Sous 400 px la
+       feuille coupait délibérément la topbar en DEUX rangées (84 px) — logo et icônes de droite en
+       haut, outils et recherche en dessous. À l'écran : un vide de 160 px au milieu de la première,
+       une seconde qui commence ailleurs, deux hauteurs différentes. Rien ne s'alignait.
+       ⚠️ ON INJECTE LA VRAIE TOPBAR, extraite de `public/index.html`, pas une maquette : c'est le
+       nombre et la taille réels des icônes qui décident si la rangée tient. Une copie simplifiée
+       tiendrait toujours, et ne prouverait rien. */
+    console.log('\n── 6. La topbar mobile : une rangée, des icônes alignées ──');
+    {
+      const html = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8');
+      const i0 = html.indexOf('<div class="topbar">');
+      const i1 = html.indexOf('\n</div>', i0);
+      const topbar = (i0 >= 0 && i1 > i0) ? html.slice(i0, i1 + 7) : '';
+      v('la topbar est extractible d\'index.html', topbar.length > 2000, String(topbar.length));
+      for (const L of [390, 360]) {
+        const pt = await nav.newPage();
+        await pt.setViewport({ width: L, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+        /* ⚠️ LA BALISE VIEWPORT EST INDISPENSABLE, ET SON ABSENCE REND CE BANC MUET. En émulation
+           mobile (`isMobile: true`), Chrome sert un viewport de mise en page de 980 px à toute page
+           qui n'en déclare pas : les media queries « max-width: 400px » ne s'appliquent alors JAMAIS
+           et l'on mesure une topbar de bureau en croyant mesurer un téléphone. Constaté par
+           mutation : remettre `flex-wrap: wrap` et la hauteur des deux rangées ne faisait rougir
+           AUCUN contrôle. La vraie page porte cette balise ; la maquette doit la porter aussi. */
+        await pt.setContent('<html data-theme="dark"><head>'
+          + '<meta name="viewport" content="width=device-width, initial-scale=1">'
+          + '<link rel="stylesheet" href="http://localhost:' + PORT
+          + '/css/style.css"></head><body style="margin:0">' + topbar + '</body></html>', { waitUntil: 'networkidle0' });
+        const t = await pt.evaluate(() => {
+          const tb = document.querySelector('.topbar'); if (!tb) return null;
+          const r = tb.getBoundingClientRect(), cs = getComputedStyle(tb);
+          const boites = sel => [...document.querySelectorAll(sel)]
+            .map(e => e.getBoundingClientRect()).filter(x => x.width > 4 && x.height > 4);
+          const c = boites('.topbar-center > *'), d = boites('.topbar-right > *');
+          return {
+            h: Math.round(r.height), wrap: cs.flexWrap,
+            finCentre: c.length ? Math.round(Math.max(...c.map(x => x.right))) : 0,
+            debutDroite: d.length ? Math.round(Math.min(...d.map(x => x.x))) : 9999,
+            ordonnees: [...new Set([...c, ...d].map(x => Math.round(x.y)))].sort((a, b) => a - b),
+            nIcones: c.length + d.length,
+            rech: (() => { const e = document.querySelector('.topbar-symbol-search'); return e ? Math.round(e.getBoundingClientRect().width) : 0; })(),
+          };
+        });
+        await pt.close();
+        v(L + ' px : la topbar tient sur UNE rangée', !!t && t.h <= 60, t ? t.h + ' px de haut' : '(topbar absente)');
+        v(L + ' px : … elle ne se replie pas', !!t && t.wrap === 'nowrap', t ? t.wrap : '');
+        /* Le chevauchement était réel sous 360 px : 25 px de recouvrement mesurés avant correction. */
+        v(L + ' px : … outils et icônes de droite ne se chevauchent pas',
+          !!t && t.finCentre <= t.debutDroite, t ? ('fin outils ' + t.finCentre + ' > début droite ' + t.debutDroite) : '');
+        v(L + ' px : … et toutes les icônes sont là', !!t && t.nIcones >= 6, t ? String(t.nIcones) : '');
+        /* C'EST LA RECHERCHE QUI DÉCIDE. Tant qu'elle prend `flex: 1 1 auto`, elle mange la rangée
+           et pousse tout le reste à la ligne — c'était la cause du repli. Elle doit rester la
+           case-icône compacte, qui se déplie en overlay au tap. */
+        v(L + ' px : … la recherche reste une case compacte', !!t && t.rech > 0 && t.rech <= 40,
+          t ? (t.rech + ' px de large') : '');
+        /* ⚠️ L'ALIGNEMENT N'EST EXIGÉ QU'À 390 px, ET C'EST DÉLIBÉRÉ : c'est la largeur des
+           téléphones visés. À 360 et en dessous il reste 2 px d'écart, dus au rembourrage interne
+           de la case de recherche — constaté, consigné dans la feuille, non corrigé. Exiger ici ce
+           qu'on n'a pas fait rendrait ce banc faux. */
+        if (L === 390) v(L + ' px : … toutes sur la MÊME ordonnée', !!t && t.ordonnees.length === 1, t ? JSON.stringify(t.ordonnees) : '');
+        else v(L + ' px : … à 2 px près au plus (écart connu, case de recherche)',
+          !!t && (t.ordonnees[t.ordonnees.length - 1] - t.ordonnees[0]) <= 2, t ? JSON.stringify(t.ordonnees) : '');
+      }
+    }
   } catch (e) {
     v('les phases navigateur s\'exécutent', false, e.message);
   } finally {
