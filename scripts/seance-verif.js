@@ -858,7 +858,15 @@ v('la route de comparaison couvre les récaps mal étiquetés', /_SEA\.sessionDe
    du jour, la Macro du rapport publié et tout ce que le calendrier a enregistré sur la fenêtre. */
 v('une route compare le rapport au calendrier du jour', /app\.get\('\/api\/admin\/wrap-macro-apercu', requireAdmin/.test(srv3));
 v('elle couvre les trois séances du jour', /_SEA\.sessionDe\(w\) && _jourParis\(w\.timestamp\) === jour/.test(srv3));
-v('elle relit la Macro du rapport RÉELLEMENT publié', /seg\.split\(\/<strong>\/i\)\.find/.test(srv3));
+/* ⚠️ CE CONTRÔLE ÉPINGLAIT L'ANALYSEUR INLINE (`seg.split(/<strong>/i).find`), remplacé le 27/08 par
+   le découpeur commun `_rubriquesDuSegment` — l'audit devant relire TOUTES les rubriques, en garder
+   deux revenait à maintenir deux analyseurs. L'intention d'origine est conservée mot pour mot :
+   la route relit le rapport RÉELLEMENT SERVI, pas les puces brutes. Elle est désormais vérifiée sur
+   le comportement, pas sur la forme de l'expression — c'est [11.h] qui éprouve le découpeur lui-même
+   contre un vrai HTML de rendu. */
+v('elle relit la Macro du rapport RÉELLEMENT publié',
+  /const rubriques = _rubriquesDuSegment\(seg\);/.test(srv3) && /rubriques\.find\(r => \/\^macro\/i\.test\(r\.rubrique\)\)/.test(srv3));
+v('… en partant du HTML segmenté servi, pas des puces brutes', /_swSegCache\.get\(SW_SEG_VER \+ w\.url\)/.test(srv3));
 v('elle marque chaque publication « déjà dit » ou « AJOUTÉE »', /deja \? 'déjà dit' : 'AJOUTÉE'/.test(srv3));
 v('elle ne publie rien et n\'appelle aucune IA', !/wrap-macro-apercu[\s\S]{0,2600}?(generateText|aiNote\()/.test(srv3));
 /* Le préchauffage tourne au boot. S'il segmente un récap avant que le calendrier ne soit chargé, la
@@ -1164,6 +1172,170 @@ v('… mais les faits, eux, restent', /CPI m\/m/.test(rFausse.entrees.map(e => e
 
 v('la version de segmentation a été bumpée (seconde passe)', _swSegVer() >= 27, 'SW_SEG_VER = v' + _swSegVer());
 v('la consigne d\'ancrage temporel est au prompt', /INTERDIT ABSOLU d['’]écrire « demain »/.test(_PROMPT_SEG));
+
+/* ══════════════════ [11] L'AUDIT DE COHÉRENCE ══════════════════
+   « check les autres récap de sessions aussi pr voir s'il n'y a pas d'incohérence et que les datas
+   sont bonnes de leur séance » (27/08). Les verrous des sections précédentes agissent AU RENDU :
+   ils écartent, ils ne disent rien. L'audit RELIT ce qui est servi et NOMME ce qui cloche.
+
+   ⚠️ CE BANC ÉPROUVE LES DEUX SENS, et le second compte davantage. Un audit qui n'attrape rien est
+   inutile ; un audit qui crie sur du bon travail est PIRE — on cesse de le lire, et le jour où il
+   a raison personne ne l'ouvre. Chaque contrôle est donc doublé de son silence attendu. */
+console.log('\n── 11. L\'audit relit ce qui est servi ──');
+
+const _CAL_LDN = [
+  { timestamp: _H(8),  currency: 'EUR', title: 'GfK Consumer Confidence', actual: '-26.6', forecast: '-26.0', previous: '-25.9', impact: 'High' },
+  { timestamp: _H(10), currency: 'EUR', title: 'Italian Trade Balance',   actual: '5.2B',  forecast: '4.8B',  previous: '4.1B',  impact: 'Medium' },
+];
+const _LDN = { dev: ['EUR', 'GBP', 'CHF'], macroCal: _CAL_LDN };
+const _LIGNE_VRAIE = '**GfK Consumer Confidence** (EUR) 08h00 : -26,6 (att. -26,0 · préc. -25,9) → moral des ménages allemands encore dégradé';
+const _aud = (rub, ctx) => W.auditer(rub, ctx || _LDN);
+const _motifs = (rub, ctx) => _aud(rub, ctx).map(c => c.motif).join(' | ');
+const _un = (rubrique, puce, ctx) => _aud([{ rubrique, puces: [puce] }], ctx);
+
+/* [11.a] LE CAS SIGNALÉ, dans la rubrique où il est sorti. */
+const _cSurv = _un('À surveiller', '**CPI** US demain → catalyseur du pricing de la réunion **RBA**');
+v('la puce signalée est relevée', _cSurv.length === 1, JSON.stringify(_cSurv));
+v('… comme GRAVE', _cSurv[0] && _cSurv[0].gravite === 'grave');
+v('… et le motif nomme la devise croisée', /AUTRE devise/.test((_cSurv[0] || {}).motif || ''));
+
+/* [11.b] LA DEVISE HORS SÉANCE — le même défaut sous sa forme la plus nette : la rubrique qui
+   prétend porter les chiffres DE LA SÉANCE en porte un d'ailleurs. */
+v('un chiffre américain en Macro de Londres est relevé', /hors des devises de la séance/.test(_motifs([{ rubrique: 'Macro', puces: ['**CPI** US 0,4% → surprise à la hausse'] }])));
+v('… le motif dit LAQUELLE et CELLES ATTENDUES', /sujet en USD.*EUR, GBP, CHF/.test(_motifs([{ rubrique: 'Macro', puces: ['**CPI** US 0,4% → surprise à la hausse'] }])));
+/* ⚠️ LA GRAVITÉ N'ÉTAIT PAS ÉPROUVÉE ICI, pris à la mutation (« grave » → « à vérifier ») : aucun
+   contrôle ne devenait rouge. Or le verdict en tête de route ne COMPTE que les graves — un
+   déclassement silencieux ferait annoncer « aucune incohérence servie au lecteur » pendant que la
+   puce fautive est servie. C'est exactement le défaut signalé, remis en place par la porte de
+   derrière. */
+v('… et c\'est un GRAVE, pas un « à vérifier »',
+  (_un('Macro', '**CPI** US 0,4% → surprise à la hausse')[0] || {}).gravite === 'grave',
+  JSON.stringify(_un('Macro', '**CPI** US 0,4% → surprise à la hausse')));
+v('… et une publication DE la séance ne l\'est pas', !_un('Macro', _LIGNE_VRAIE).length, JSON.stringify(_un('Macro', _LIGNE_VRAIE)));
+/* LA DEVISE EST CELLE DU SUJET, PAS CELLE MENTIONNÉE EN PASSANT — sinon toute lecture citant une
+   autre devise serait accusée, et la lecture croisée est le métier. */
+/* ⚠️ CE CONTRÔLE ÉTAIT VIDE, pris à la mutation (deviseSujet lisant le texte ENTIER) : la
+   conséquence disait « pèse aussi sur le dollar », et AUCUNE règle de _SUJETS_CCY ne reconnaît le
+   mot « dollar » — la puce ressortait en EUR dans les deux cas, donc le contrôle passait sans rien
+   mesurer. Il faut un mot que la table reconnaît VRAIMENT (« américains » → règle USD), et cette
+   règle étant la PREMIÈRE de la table, elle l'emporte dès qu'on lit trop large. */
+v('une CONSÉQUENCE qui nomme une autre devise n\'accuse pas la puce',
+  !_un('Macro', '**GfK Consumer Confidence** (EUR) 08h00 : -26,6 → pèse sur les taux américains').length);
+v('… et c\'est bien le SUJET qui est lu, pas le texte entier',
+  W.deviseSujet('**GfK Consumer Confidence** (EUR) 08h00 : -26,6 → pèse sur les taux américains') === 'EUR');
+/* ET HORS MACRO, PARLER DU DOLLAR DEPUIS LONDRES EST LÉGITIME. */
+v('la devise hors séance ne vaut QUE pour la Macro',
+  !_un('Analyse de séance', '**DXY** +0,3% → le dollar reprend la main').length);
+
+/* [11.c] L'ÉCHÉANCE RELATIVE. Le module ne reçoit que le calendrier de la séance SUIVANTE : il ne
+   peut pas dater « demain ». C'est ce mot qui rendait la puce inventée crédible. */
+v('« demain » est relevé', /échéance relative/.test(_motifs([{ rubrique: 'Macro', puces: ['**IFO** allemand demain → attendu en baisse'] }])));
+v('« ce soir » aussi', /échéance relative/.test(_motifs([{ rubrique: 'Analyse de séance', puces: ['**EUR/USD** stable → ce soir la **BCE** parle'] }])));
+v('« vendredi prochain » aussi', /échéance relative/.test(_motifs([{ rubrique: 'Macro', puces: ['**IPC** zone euro vendredi prochain → 2,1% attendu'] }])));
+/* ⚠️ LE CONTRÔLE QUI COMPTE : les lignes du calendrier PORTENT UNE HEURE. Un motif qui confondrait
+   une heure réelle avec une échéance inventée accuserait CHAQUE ligne de la complétion. */
+v('… mais une HEURE réelle du calendrier n\'est pas une échéance inventée', !_un('Macro', _LIGNE_VRAIE).length);
+v('… ni une date écrite en toutes lettres', !/échéance relative/.test(_motifs([{ rubrique: 'Macro', puces: ['**IPC** zone euro (27 août) : 2,1%'] }])));
+
+/* [11.d] LE CHIFFRE SANS RENDEZ-VOUS — le contrôle le plus faible, et il le DIT : la rédaction
+   relève légitimement ce que le calendrier ne liste pas. Il se lit, il ne se corrige pas d'office. */
+const _cChiffre = _un('Macro', '**Ventes au détail** zone euro 1,8% → rebond');
+v('un chiffre sans rendez-vous est relevé', _cChiffre.length === 1, JSON.stringify(_cChiffre));
+v('… mais SEULEMENT « à vérifier »', _cChiffre[0] && _cChiffre[0].gravite === 'à vérifier');
+v('… et le constat dit de ne pas corriger d\'office', /pas à corriger d[’\']office/.test((_cChiffre[0] || {}).detail || ''));
+v('… un chiffre qui EST au calendrier ne l\'est pas', !_un('Macro', _LIGNE_VRAIE).length);
+v('… une puce SANS chiffre non plus', !_un('Macro', '**Lagarde** → ton prudent devant le Parlement').length);
+/* SANS CALENDRIER, ON NE JUGE PAS : un récap du week-end ou pas du jour n'a pas de fenêtre, et
+   accuser toutes ses puces faute de calendrier serait accuser l'absence de données. */
+v('sans calendrier en mémoire, aucun chiffre n\'est accusé',
+  !_un('Macro', '**Ventes au détail** zone euro 1,8% → rebond', { dev: ['EUR'], macroCal: [] }).length);
+v('… ni sans devises de séance', !_un('Macro', '**CPI** US 0,4% → chaud', { dev: [], macroCal: [] }).length);
+
+/* [11.e] LES EMPLACEMENTS DU SQUELETTE, dans TOUTES les rubriques — ils sortaient dans la Synthèse
+   et l'Analyse de séance, pas seulement dans « À surveiller ». */
+v('un emplacement en Synthèse est relevé', /gabarit/.test(_motifs([{ rubrique: 'Synthèse', puces: ['<un paragraphe de 2 à 4 phrases : le dossier qui a dominé>'] }])));
+v('… et en Analyse de séance', /gabarit/.test(_motifs([{ rubrique: 'Analyse de séance', puces: ['**DXY** <mouvement → driver>'] }])));
+v('… mais un chiffre entre chevrons n\'est pas un emplacement', !/gabarit/.test(_motifs([{ rubrique: 'Macro', puces: ['**CPI** <0,2% attendu> → à confirmer'] }])));
+
+/* [11.f] LES DEUX FAUX POSITIFS MESURÉS restent muets — l'audit n'a pas le droit d'être plus
+   bavard que le verrou qu'il relit. */
+v('la concomitance n\'est pas accusée', !_un('À surveiller', '**PMI** chinois faibles → la **RBA** sous pression avant sa réunion').length);
+v('le sujet en AVAL non plus', !_un('À surveiller', '**AUD** chute → le **CPI** US chaud repousse la décision de la **Fed**').length);
+/* ET LE VERROU DE PRICING RESTE CONFINÉ À « À SURVEILLER » : l'étendre supprimerait les lectures
+   croisées que le prompt EXIGE ailleurs (« le mouvement ET son driver »). */
+v('le verrou de pricing ne déborde pas sur les autres rubriques',
+  !_un('Analyse de séance', '**CPI** US demain → catalyseur du pricing de la réunion **RBA**').some(c => /AUTRE devise/.test(c.motif)));
+
+/* [11.g] UNE SÉANCE PROPRE NE PRODUIT RIEN. Le contrôle décisif : trois rubriques, huit puces
+   légitimes, dont deux lectures croisées justes. Un seul cri ici et l'outil est à jeter. */
+const _ASIE = { dev: ['JPY', 'AUD', 'NZD', 'CNY'], macroCal: [
+  { timestamp: _H(2),   currency: 'CNY', title: "National People's Congress", actual: '', forecast: '', previous: '', impact: 'Medium' },
+  { timestamp: _H(3.5), currency: 'AUD', title: 'RBA Bulletin',               actual: '', forecast: '', previous: '', impact: 'Medium' },
+  { timestamp: _H(1),   currency: 'JPY', title: 'Tokyo Core CPI y/y',         actual: '2,4%', forecast: '2,3%', previous: '2,2%', impact: 'High' },
+]};
+const _RUB_ASIE = [
+  { rubrique: 'Macro', puces: [
+    '**RBA Bulletin** (AUD) 03h30 → ton prudent sur la trajectoire de taux de la **RBA**',
+    '**Tokyo Core CPI y/y** (JPY) 01h00 : 2,4% (att. 2,3% · préc. 2,2%) → au-dessus du consensus',
+    "**National People's Congress** (CNY) 02h00 → relance budgétaire attendue",
+  ]},
+  { rubrique: 'Analyse de séance', puces: [
+    '**AUD** chute → le **CPI** US chaud repousse la décision de la **Fed**',
+    '**Nikkei** +1,2% → soutenu par la faiblesse du yen',
+  ]},
+  { rubrique: 'À surveiller', puces: ['**IPC** de la zone euro → oriente les attentes sur la **BCE**'] },
+];
+const _cAsie = W.auditer(_RUB_ASIE, _ASIE);
+v('une séance propre ne produit AUCUN constat', _cAsie.length === 0, JSON.stringify(_cAsie));
+
+/* [11.h] LE DÉCOUPEUR DE RUBRIQUES du serveur : l'audit ne vaut que par ce qu'on lui donne à lire,
+   et ce qu'on lui donne est le HTML SERVI. Le vrai découpeur est extrait de server.js, pas recopié. */
+const _srv = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+const _mDec = /function _rubriquesDuSegment\(seg\) \{[\s\S]*?\n\}/.exec(_srv);
+v('_rubriquesDuSegment est extractible de server.js', !!_mDec);
+if (_mDec) {
+  const _decoupe = eval('(' + _mDec[0].replace(/^function /, 'function ') + ')');
+  /* ⚠️ html() REND UN OBJET { html, ajouts, sections }, pas une chaîne. Passer l'objet au découpeur
+     le faisait retomber sur [] — et les deux contrôles suivants, qui parcourent le résultat,
+     PASSAIENT SUR UN TABLEAU VIDE. Le piège habituel : un contrôle vert qui ne mesure rien. D'où
+     l'assertion de non-vacuité juste en dessous, qui interdit de recommencer. */
+  const _HTML = W.html(
+    [{ section: 'Macro', items: ['**CPI** US 0,4% → surprise'] },
+     { section: 'À surveiller', items: ['**CPI** US demain → catalyseur du pricing de la réunion **RBA**'] }],
+    [], null, null).html;
+  const _rub = _decoupe(_HTML);
+  v('… il retrouve les rubriques du HTML servi', _rub.length >= 1, JSON.stringify(_rub));
+  v('… dont la Macro, avec sa puce', (_rub.find(r => /^Macro/.test(r.rubrique)) || { puces: [] }).puces.length === 1, JSON.stringify(_rub));
+  v('… avec leurs puces décodées (aucune balise restante)',
+    _rub.length >= 1 && _rub.some(r => r.puces.length) && !_rub.some(r => r.puces.some(pz => /[<>]/.test(pz))), JSON.stringify(_rub));
+  /* LE VERROU AYANT DÉJÀ ÉCARTÉ LA PUCE AU RENDU, elle n'atteint pas le lecteur : la rubrique
+     « À surveiller » n'est même plus rendue, et l'audit du HTML SERVI est muet. C'est le
+     comportement voulu — ce qui n'atteint pas le lecteur n'est pas un défaut. */
+  v('… la rubrique vidée par le verrou n\'est plus rendue', !_rub.some(r => /surveiller/i.test(r.rubrique)), JSON.stringify(_rub.map(r => r.rubrique)));
+  v('… donc l\'audit du HTML servi ne crie pas', !W.auditer(_rub, _LDN).some(c => /AUTRE devise/.test(c.motif)), JSON.stringify(W.auditer(_rub, _LDN)));
+  /* ET LA PREUVE QUE CE SILENCE MESURE QUELQUE CHOSE : la même puce, NON filtrée, est bien relevée.
+     Sans ce contre-essai, le contrôle ci-dessus passerait aussi sur un audit cassé. */
+  v('… alors que la même puce NON filtrée l\'est',
+    W.auditer([{ rubrique: 'À surveiller', puces: ['**CPI** US demain → catalyseur du pricing de la réunion **RBA**'] }], _LDN).some(c => /AUTRE devise/.test(c.motif)));
+}
+
+/* [11.i] LA ROUTE D'ADMINISTRATION expose bien le verdict, sinon l'audit tourne sans lecteur. */
+/* [11.j] L'AUDIT AU RENDU — il consigne sans que personne n'ouvre la route. */
+v('le rendu relit ce qu\'il vient d\'écrire', /const graves = _WSEG\.auditer\(_rubriquesDuSegment\(r\.html\)/.test(_srv));
+v('… et ne consigne QUE les graves', /\.filter\(c => c\.gravite === 'grave'\)/.test(_srv));
+v('… sans modifier le rapport', !/_rubriquesDuSegment\(r\.html\)[\s\S]{0,400}?r\.html\s*=/.test(_srv));
+v('… et sans jamais faire échouer la segmentation', /catch \(e\) \{ console\.warn\('\[SW seg\] audit indisponible/.test(_srv));
+/* ⚠️ LE HISSAGE EST LOAD-BEARING : le découpeur est appelé ~3 800 lignes avant sa déclaration.
+   Le passer en `const` la garderait syntaxiquement parfaite et lèverait un ReferenceError à CHAQUE
+   segmentation — le défaut du 25/08, qui avait vidé le fil en production. */
+v('le découpeur reste une déclaration `function` au premier niveau', /^function _rubriquesDuSegment\(seg\) \{/m.test(_srv));
+v('… et il est bien appelé AVANT sa déclaration (donc hissé)',
+  _srv.indexOf('_rubriquesDuSegment(r.html)') < _srv.search(/^function _rubriquesDuSegment/m));
+
+v('la route d\'audit appelle _WSEG.auditer', /audit: _WSEG\.auditer\(rubriques,/.test(_srv));
+v('… et pose un verdict en tête', /sortie\.verdict = \{/.test(_srv));
+v('… qui compte les graves', /graves: tous\.filter\(c => c\.gravite === 'grave'\)\.length/.test(_srv));
+v('… séance par séance', /parSeance:/.test(_srv));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

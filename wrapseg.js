@@ -473,4 +473,93 @@ function html(arr, macroCal, surv, synth) {
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, sansMedia, heureParis, esc, pricingIncoherent, filtrerSurveiller, estGabarit };
+/* ─────────────────────── L'AUDIT DE COHÉRENCE ───────────────────────
+   « check les autres récap de sessions aussi pr voir s'il n'y a pas d'incohérence et que les datas
+   sont bonnes de leur séance » (27/08). Les verrous posés plus haut agissent AU RENDU : ils
+   écartent la puce fautive et le lecteur n'en sait rien. L'audit fait l'inverse — il RELIT ce qui
+   est effectivement servi et NOMME ce qui cloche, rubrique par rubrique, séance par séance.
+
+   Il tourne dans le SENS INVERSE de la complétion. `completerMacro` part du calendrier et cherche
+   dans le rapport ; l'audit part du RAPPORT et cherche dans le calendrier. C'est ce sens-là qui
+   voit une fabrication : « **CPI** US demain → … réunion **RBA** » ne manquait à aucun rendez-vous
+   du calendrier, il n'était RATTACHÉ à aucun — et l'anti-doublon, qui ne sait que comparer, ne
+   pouvait pas le voir.
+
+   ⚠️ PRÉCISION AVANT COUVERTURE. Un audit qui crie à tort est un audit qu'on cesse de lire, et le
+   jour où il a raison personne ne l'ouvre. Chaque contrôle ci-dessous a donc une raison d'être
+   DÉTERMINISTE, et deux d'entre eux sont volontairement bornés à la rubrique où ils ne peuvent pas
+   se tromper :
+     · le verrou de pricing reste dans « À surveiller » — ailleurs, la lecture croisée est EXIGÉE
+       par le prompt (« le mouvement ET son driver »), et deux faux positifs y ont été mesurés ;
+     · la devise hors séance ne vaut que pour la Macro — c'est la rubrique qui prétend porter les
+       chiffres DE LA SÉANCE ; ailleurs, parler du dollar depuis Tokyo est le métier. */
+
+const _JOUR_RELATIF_RX = /\b(?:demain|hier|apr[èe]s-demain|avant-hier|ce\s+soir|cette\s+nuit|la\s+semaine\s+prochaine|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+prochaine?\b|\b(?:demain|hier|apr[èe]s-demain|avant-hier|ce\s+soir|cette\s+nuit)\b/i;
+const _CHIFFRE_RX      = /\d[\d\s.,]*\s*(?:%|pts?\b|bps\b|[KMB]\b|milliards?|millions?)/i;
+
+/* La devise dont la puce PARLE — pas celle qu'elle mentionne en passant. On lit l'intitulé en gras
+   s'il porte une devise, sinon l'amont de la flèche, JAMAIS le texte entier : une conséquence qui
+   nomme l'euro ne fait pas d'une puce sur le yen une puce européenne. */
+function deviseSujet(txt) {
+  const t = String(txt || '');
+  const gras = (/^\s*\*\*([^*]{1,60})\*\*/.exec(t) || [])[1] || '';
+  if (gras) { const d = (_SUJETS_CCY.find(([rx]) => rx.test(gras)) || [])[1]; if (d) return d; }
+  const p = _coupe(t);
+  const amont = p ? p[0] : t;
+  return (_SUJETS_CCY.find(([rx]) => rx.test(amont)) || [])[1] || '';
+}
+
+/* Une puce est ANCRÉE quand le calendrier de la séance porte le rendez-vous dont elle parle.
+   `dejaDit` est l'anti-doublon déjà en service dans la complétion — le même juge des deux côtés,
+   pour qu'une puce jugée « déjà dite » à l'écriture ne soit pas jugée « inventée » à la relecture. */
+function ancree(puce, macroCal) {
+  return (macroCal || []).some(e => _SEA.dejaDit(e, [puce]));
+}
+
+const _RUB = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const estRubMacro = r => /^macro/.test(_RUB(r));
+const estRubSurv  = r => /surveiller/.test(_RUB(r));
+
+/* rubriques : [{ rubrique, puces:[…] }] — la forme rendue, pas la forme brute : on relit CE QUI EST
+   SERVI. ctx : { dev:[…devises de la séance], macroCal:[…rendez-vous de sa fenêtre] }. */
+function auditer(rubriques, ctx) {
+  const dev = ((ctx && ctx.dev) || []).map(d => String(d).toUpperCase());
+  const cal = (ctx && ctx.macroCal) || [];
+  const constats = [];
+  const pose = (rubrique, puce, motif, gravite, detail) => constats.push({ rubrique, puce, motif, gravite, detail: detail || '' });
+
+  for (const r of (rubriques || [])) {
+    const rubrique = String((r && r.rubrique) || '');
+    for (const brute of ((r && r.puces) || [])) {
+      const puce = String(brute || '').trim();
+      if (!puce) continue;
+
+      /* 1. L'EMPLACEMENT DU SQUELETTE. Écarté au rendu depuis la v27 ; s'il ressort ici, c'est un
+            rapport encore en cache sous une version antérieure — ou le filtre qui a régressé. */
+      if (estGabarit(puce)) { pose(rubrique, puce, 'gabarit du prompt recopié', 'grave', 'écarté au rendu depuis la v27 — un rapport plus ancien est encore servi depuis le cache'); continue; }
+
+      /* 2. LE PRICING CROISÉ, dans « À surveiller » et nulle part ailleurs (voir l'avertissement). */
+      if (estRubSurv(rubrique) && pricingIncoherent(puce)) { pose(rubrique, puce, 'un sujet price la banque centrale d’une AUTRE devise', 'grave'); continue; }
+
+      /* 3. L'ÉCHÉANCE RELATIVE. Le module ne reçoit que le calendrier de la séance suivante : il ne
+            PEUT pas vérifier « demain ». Le prompt l'interdit donc mot pour mot — et c'est ce mot
+            qui rendait la puce inventée crédible. */
+      if (_JOUR_RELATIF_RX.test(puce)) pose(rubrique, puce, 'échéance relative invérifiable', 'grave', 'ni le rapport ni le module ne peuvent dater « demain » : le prompt l’interdit depuis la v27');
+
+      if (!estRubMacro(rubrique)) continue;
+
+      /* 4. LA DEVISE HORS SÉANCE. Le défaut signalé, dans sa forme la plus nette : la rubrique qui
+            prétend porter les chiffres de la séance en porte un d'ailleurs. */
+      const d = deviseSujet(puce);
+      if (d && dev.length && dev.indexOf(d) < 0) { pose(rubrique, puce, `sujet en ${d}, hors des devises de la séance (${dev.join(', ')})`, 'grave'); continue; }
+
+      /* 5. LE CHIFFRE SANS RENDEZ-VOUS. Plus faible : la rédaction relève légitimement ce que le
+            calendrier ne liste pas (un sondage, une remarque de banquier central). Un CHIFFRE, lui,
+            vient d'une publication — et une publication de la séance est au calendrier. */
+      if (_CHIFFRE_RX.test(puce) && cal.length && !ancree(puce, cal)) pose(rubrique, puce, 'chiffre sans rendez-vous au calendrier de la séance', 'à vérifier', 'la rédaction relève parfois ce que le calendrier ne liste pas — à lire, pas à corriger d’office');
+    }
+  }
+  return constats;
+}
+
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, sansMedia, heureParis, esc, pricingIncoherent, filtrerSurveiller, estGabarit, deviseSujet, ancree, auditer };
