@@ -1321,6 +1321,47 @@
     out.sort(function (a, b) { return b.pct - a.pct; });
     return out;
   }
+  /* ═══ HORS FOREX : INDICES ET MATIÈRES PREMIÈRES (27/08) ═══════════════════════════════════════
+     RETOUR CLIENT, verbatim : « Rajoute les indices et plus de marché avant, que le forex c'est
+     frustrant de ouf ». Vérifié avant d'écrire une ligne, et il avait raison au pied de la lettre :
+     les QUINZE widgets des rubriques Marchés et Devises sont forex — Carte de chaleur FX, Taux
+     croisés, Corrélations des 7 majors, Performance hebdo des 8 devises… Le desk balaie
+     l'intégralité du change et rien d'autre.
+     ⚠️ ET LA DONNÉE EXISTAIT DÉJÀ. Le serveur sert de vraies bougies pour sept instruments hors
+     forex (`_CHART_SYM`), par la MÊME route que les paires — c'est ce qui alimente le sélecteur du
+     widget Graphique depuis le 18/08. Il ne manquait donc aucune source : il manquait un endroit
+     où les lire ensemble.
+     ⚠️ LES NOMS CI-DESSOUS SONT DES CLÉS, PAS DES LIBELLÉS. Ils doivent correspondre au caractère
+     près à `_CHART_SYM` dans server.js : une clé inconnue ne lève pas d'erreur, la route rend
+     `{ candles: [] }` et la ligne disparaît EN SILENCE. Un banc (scripts/actifs-verif.js) relit la
+     vraie table du serveur et refuse le moindre écart. Le libellé français, lui, vit dans `lib`. */
+  var _XA_INSTR = [
+    { grp: 'Indices',           nom: 'DAX',      lib: 'DAX 40',      lieu: 'Francfort' },
+    { grp: 'Indices',           nom: 'S&P 500',  lib: 'S&P 500',     lieu: 'New York' },
+    { grp: 'Indices',           nom: 'FTSE',     lib: 'FTSE 100',    lieu: 'Londres' },
+    { grp: 'Indices',           nom: 'CAC 40',   lib: 'CAC 40',      lieu: 'Paris' },
+    { grp: 'Matières premières', nom: 'Gold',    lib: 'Or',          lieu: 'COMEX' },
+    { grp: 'Matières premières', nom: 'Silver',  lib: 'Argent',      lieu: 'COMEX' },
+    { grp: 'Matières premières', nom: 'Oil WTI', lib: 'Pétrole WTI', lieu: 'NYMEX' },
+  ];
+  /* LA DERNIÈRE SÉANCE COTÉE, et pas « aujourd'hui » — la nuance est la raison d'être de cette
+     fonction. Ces places n'ouvrent pas aux mêmes heures : quand le S&P cote, Francfort et Paris
+     sont fermés depuis des heures ; le week-end, aucune ne cote. Comparer chaque instrument à SA
+     clôture précédente donne donc toujours une variation vraie — la séance en cours quand elle est
+     ouverte, la dernière close sinon. Prendre « la bougie d'aujourd'hui » aurait rendu une ligne
+     vide sur la moitié de la carte selon l'heure à laquelle on la regarde. */
+  function _xaSeance(c) {
+    var s = (c || []).filter(function (b) { return b && isFinite(b.c) && b.c > 0; });
+    if (s.length < 2) return null;
+    var fin = s[s.length - 1], avant = s[s.length - 2];
+    /* ⚠️ PAS DE SECONDE GARDE « avant.c > 0 » ICI. Elle y était, et le banc a montré qu'elle est
+       INATTEIGNABLE : le filtre ci-dessus exige déjà `b.c > 0`, donc `avant` ne peut pas valoir
+       zéro à ce point. Une garde qui ne peut jamais se déclencher n'est pas une ceinture, c'est du
+       bruit qui fait croire à une protection — et le contrôle qui la « vérifiait » passait au vert
+       grâce au filtre, pas grâce à elle. La division est protégée en AMONT, une seule fois. */
+    return { pct: (fin.c - avant.c) / avant.c * 100, close: fin.c, t: fin.t };
+  }
+
   /* ═══ fin calculs corrélations, heures, surprises, semaine ═══ */
 
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
@@ -3476,6 +3517,92 @@
         // 5 min, garde de visibilité : le calendrier serveur est lui-même en cache de quelques minutes.
         var iv = setInterval(function () { if (!document.hidden && host.isConnected) charger(); }, 5 * 60 * 1000);
         return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+      },
+    },
+    {
+      /* INDICES & MATIÈRES PREMIÈRES (27/08). La première carte du desk qui ne parle PAS de change
+         — retour client : « rajoute les indices et plus de marché, que le forex c'est frustrant ».
+         Sept instruments servis par la même route que les paires (`/api/bank-ohlc?sym=…`), donc
+         aucune source nouvelle et aucun coût nouveau : ils alimentent déjà le widget Graphique.
+         DEUX HORIZONS, ET C'EST VOULU : la dernière SÉANCE cotée (le mouvement du moment) et la
+         semaine depuis lundi (le flux). Une seule des deux se lit mal — une séance isolée est du
+         bruit, une semaine seule rate le retournement du jour.
+         La barre bidirectionnelle reprend EXACTEMENT la grammaire de Performance hebdo et du
+         différentiel de taux : axe au centre, vert à droite, rouge à gauche. Le desk n'a qu'une
+         façon de dessiner une variation ; en inventer une seconde pour cette carte obligerait le
+         lecteur à réapprendre à lire. */
+      id: 'indices-matieres', name: 'Indices & Matières', tag: 'HORS FX', cat: 'Marchés', h: 300,
+      desc: 'Les indices et les matières premières du desk : dernière séance et semaine, côte à côte.',
+      aide: "<p>Sept marchés hors change : quatre indices actions (DAX 40, S&amp;P 500, FTSE 100, CAC 40) et trois matières premières (Or, Argent, Pétrole WTI). Pour chacun, la variation de sa <strong>dernière séance cotée</strong> et celle de la <strong>semaine depuis lundi 00h UTC</strong>. Barre verte vers la droite : le marché monte ; rouge vers la gauche : il baisse.</p><p>Ces places n'ouvrent pas aux mêmes heures. Quand New York cote, Francfort et Paris sont fermés depuis des heures, et le week-end aucune ne cote : chaque ligne se compare donc à SA propre clôture précédente, jamais à une heure d'horloge commune. Une place fermée garde la variation de sa dernière séance, ce qui reste l'information juste.</p><p>La lecture croisée est ce qui manque au change seul : un dollar qui monte pendant que l'or monte AUSSI ne raconte pas la même histoire qu'un dollar qui monte pendant que l'or baisse. Le premier sent la fuite vers la qualité, le second le simple différentiel de taux.</p>",
+      src: "Bougies quotidiennes réelles, servies par la même route que les paires de devises et relues toutes les 5 minutes. La variation de séance compare la dernière clôture à la précédente ; la variation hebdomadaire court du lundi 00h UTC, avec le même calcul que Performance hebdo.",
+      watch: "La divergence entre les deux colonnes : un marché rouge sur la séance mais vert sur la semaine corrige, il ne retourne pas. Et l'or face aux indices — quand ils vont dans le même sens, c'est la liquidité qui parle ; quand ils s'opposent, c'est le risque.",
+      mount: function (host) {
+        var vivant = true, cache = {};
+        skel(host, 9);
+        function fmtP(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; }
+        function cls(v) { return v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : ''; }
+        function dessiner() {
+          Promise.all(_XA_INSTR.map(function (x) {
+            return _bougies(x.nom, 'D1', cache).catch(function () { return null; });
+          })).then(function (res) {
+            if (!vivant || !host.isConnected) return;
+            var lignes = [];
+            _XA_INSTR.forEach(function (x, i) {
+              var s = res[i] ? _xaSeance(res[i]) : null;
+              if (!s) return;                              // instrument muet : ligne absente, pas inventée
+              var sem = res[i] ? _psVarSemaine(res[i]) : null;
+              lignes.push({ x: x, pct: s.pct, close: s.close, t: s.t,
+                sem: (sem && sem.etat === 'ok') ? sem.pct : null });
+            });
+            if (!lignes.length) { fallback(host, 'Bougies indisponibles.'); return; }
+
+            /* L'ÉCHELLE DES BARRES EST COMMUNE À TOUTE LA CARTE, et c'est ce qui la rend lisible :
+               une barre par ligne normalisée sur elle-même donnerait sept barres pleines et
+               n'apprendrait rien. Le pétrole bouge structurellement plus qu'un indice — c'est
+               précisément ce que la carte doit MONTRER. */
+            var max = 0;
+            lignes.forEach(function (r) { if (Math.abs(r.pct) > max) max = Math.abs(r.pct); });
+            if (!(max > 0)) max = 1;
+
+            var h = '<div class="wdg-xa"><div class="wdg-xa-liste">';
+            var grpVu = null;
+            lignes.forEach(function (r) {
+              if (r.x.grp !== grpVu) {
+                grpVu = r.x.grp;
+                h += '<div class="wdg-xa-grp">' + esc(grpVu) + '</div>';
+              }
+              var w = Math.min(50, Math.abs(r.pct) / max * 50);
+              h += '<div class="wdg-xa-l" title="' + esc(r.x.lib + ' · ' + r.x.lieu) + '">'
+                + '<span class="wdg-xa-n"><b>' + esc(r.x.lib) + '</b></span>'
+                + '<span class="wdg-xa-piste"><u class="' + (r.pct >= 0 ? 'est-haut' : 'est-bas') + '"'
+                + ' style="' + (r.pct >= 0 ? 'left:50%' : 'right:50%') + ';width:' + w.toFixed(1) + '%"></u></span>'
+                + '<span class="wdg-xa-v ' + cls(r.pct) + '">' + fmtP(r.pct) + '</span>'
+                + '<span class="wdg-xa-s ' + cls(r.sem) + '">' + (r.sem == null ? '—' : fmtP(r.sem)) + '</span>'
+                + '</div>';
+            });
+            h += '</div>';
+
+            /* VERDICT : la tête et la queue de la SÉANCE, peintes par leur signe RÉEL — si tout
+               baisse, la « meneuse » n'est pas verte (même règle que la carte de chaleur). */
+            var tri = lignes.slice().sort(function (a, b) { return b.pct - a.pct; });
+            var t0 = tri[0], q0 = tri[tri.length - 1];
+            var vb = '<span class="' + cls(t0.pct) + '">' + esc(t0.x.lib) + '</span> mène la séance (' + fmtP(t0.pct) + ')'
+              + (tri.length > 1 ? ' · <span class="' + cls(q0.pct) + '">' + esc(q0.x.lib) + '</span> ferme la marche (' + fmtP(q0.pct) + ')' : '');
+            var vs = 'Écart tête-queue : ' + Math.abs(t0.pct - q0.pct).toFixed(2).replace('.', ',') + ' point.'
+              + (lignes.length < _XA_INSTR.length
+                ? ' ' + lignes.length + ' marchés sur ' + _XA_INSTR.length + ' : les autres n\'ont pas répondu.' : '');
+            var ts = 0;
+            _XA_INSTR.forEach(function (x) { var t = _bougiesMaj(x.nom + '|D1'); if (t > ts) ts = t; });
+            h += '<div class="wdg-verdict" data-etat="live"><b class="wdg-verdict-txt wdg-maj-txt">' + vb + '</b>'
+              + '<span class="wdg-verdict-sous">' + esc(vs) + '</span></div>'
+              + '<div class="wdg-xa-pied">Séance : dernière clôture cotée face à la précédente — ces places '
+              + 'n\'ouvrent pas aux mêmes heures. Semaine : depuis lundi 00h UTC. ' + _vieSpan(ts) + '</div></div>';
+            host.innerHTML = h;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
+        }
+        dessiner();
+        var stop = _rafraichirBougies(host, dessiner);
+        return function () { vivant = false; try { stop(); } catch (e) {} };
       },
     },
     {
