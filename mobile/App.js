@@ -90,6 +90,21 @@ export default function App() {
     } catch { setDeverrouille(true); }
   }, []);
 
+  /* CE QUE LA COQUILLE DIT AU DESK, ET POURQUOI ELLE DOIT LE DIRE. Le desk affiche l'interrupteur
+     du verrou : sans état venu d'ici il n'aurait que sa propre mémoire, qui ment dès que l'app est
+     réinstallée (SecureStore est vidé, pas le stockage de la WebView). La coquille est la seule à
+     connaître la vérité — et la seule à savoir si l'appareil a une empreinte enregistrée. */
+  const annoncerCoquille = useCallback((actif, capable) => {
+    web.current?.injectJavaScript(
+      `window.dispatchEvent(new CustomEvent('dtp:coquille',{detail:${JSON.stringify({ verrou: !!actif, bio: !!capable })}}));true;`);
+  }, []);
+  const etatVerrou = useCallback(async () => {
+    try {
+      const capable = (await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync());
+      annoncerCoquille((await SecureStore.getItemAsync(CLE_VERROU)) === '1', capable);
+    } catch { annoncerCoquille(false, false); }
+  }, [annoncerCoquille]);
+
   useEffect(() => {
     demanderVerrou();
     const sub = AppState.addEventListener('change', e => { if (e === 'active') demanderVerrou(); });
@@ -107,7 +122,17 @@ export default function App() {
         `window.dispatchEvent(new CustomEvent('dtp:pushtoken',{detail:${JSON.stringify(jeton)}}));true;`);
       return;
     }
-    if (m.type === 'dtp:verrou') { await SecureStore.setItemAsync(CLE_VERROU, m.actif ? '1' : '0'); return; }
+    /* ⚠️ ON RÉPOND. La version d'origine écrivait dans SecureStore et se taisait : le desk ne
+       pouvait donc pas savoir si le verrou avait réellement pris, ni si l'appareil en était même
+       capable — un téléphone sans empreinte enregistrée acceptait le réglage et ne verrouillait
+       jamais rien. On vérifie le matériel AVANT d'écrire, et on rend l'état VRAI. */
+    if (m.type === 'dtp:verrou') {
+      const capable = (await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync());
+      const actif = !!m.actif && capable;
+      await SecureStore.setItemAsync(CLE_VERROU, actif ? '1' : '0');
+      annoncerCoquille(actif, capable);
+      return;
+    }
     if (m.type === 'dtp:ouvrir' && typeof m.url === 'string' && /^https:\/\//.test(m.url)) { Linking.openURL(m.url); }
   }, []);
 
@@ -170,7 +195,7 @@ export default function App() {
           onShouldStartLoadWithRequest={filtrer}
           onNavigationStateChange={n => { peutReculer.current = !!n.canGoBack; }}
           onMessage={surMessage}
-          onLoadEnd={() => setPret(true)}
+          onLoadEnd={() => { setPret(true); etatVerrou(); }}
           renderError={() => (
             <View style={s.centre}>
               <Text style={s.titre}>Desk injoignable</Text>

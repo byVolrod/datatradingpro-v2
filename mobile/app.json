@@ -39,8 +39,7 @@
       },
       "permissions": [
         "NOTIFICATIONS"
-      ],
-      "edgeToEdgeEnabled": true
+      ]
     },
     "plugins": [
       "expo-secure-store",

@@ -22,9 +22,100 @@ for (const f of ['App.js', 'index.js', 'app.json', 'eas.json', 'package.json', '
 }
 const APP = lire('App.js'), CFG = json('app.json'), EAS = json('eas.json'), PKG = json('package.json');
 
+/* ═══ LA CONFIG EST-ELLE VALIDE POUR LE SDK RÉELLEMENT INSTALLÉ ? (09/09) ══════════════════════
+   DÉFAUT MESURÉ, sur un vrai build EAS : `expo doctor` a rougi sur
+     « Field: android - should NOT have additional property 'edgeToEdgeEnabled' ».
+   Ce n'est PAS bloquant — le build est allé au bout, l'archive a été produite — et c'est
+   exactement ce qui le rend dangereux : la propriété était SILENCIEUSEMENT IGNORÉE. On croyait
+   configurer le bord-à-bord Android, rien ne l'appliquait, et rien ne le disait avant la ligne
+   rouge d'un journal de compilation. (`edgeToEdgeEnabled` n'existe qu'à partir du SDK 53 ; ici on
+   est en 52, et l'affichage sous les barres système est de toute façon tenu par le
+   `SafeAreaView edges={['top','bottom']}` d'App.js — la clé n'avait jamais rien à faire là.)
+   ⚠️ ON NE RECOPIE PAS LA LISTE DES CLÉS VALIDES. Elle changerait à chaque montée de SDK, et une
+   copie périmée validerait une config fausse. On lit le schéma du SDK RÉELLEMENT INSTALLÉ :
+   `@expo/config-types`, qui accompagne `expo` dans node_modules. Absent (installation non faite) →
+   on s'ABSTIENT, on n'échoue pas : un banc qui rougit faute de dépendances est un banc qu'on cesse
+   de lire. */
+console.log('\n── 1 bis. La config est valide pour le SDK installé ──');
+(function () {
+  let dts = '';
+  try { dts = fs.readFileSync(path.join(M, 'node_modules/@expo/config-types/build/ExpoConfig.d.ts'), 'utf8'); } catch {}
+  if (!dts) { console.log('  · @expo/config-types absent (npm install non fait) → contrôle abstenu'); return; }
+  const clesDe = (nom) => {
+    const i = dts.indexOf('export interface ' + nom + ' {');
+    if (i < 0) return null;
+    const corps = dts.slice(i, dts.indexOf('\n}', i));
+    return new Set([...corps.matchAll(/^    ([A-Za-z_][A-Za-z0-9_]*)\??\s*:/gm)].map(m => m[1]));
+  };
+  for (const [bloc, iface] of [['android', 'Android'], ['ios', 'IOS']]) {
+    const connues = clesDe(iface);
+    v('le schéma « ' + iface + ' » du SDK est lisible', !!connues && connues.size > 5, connues ? String(connues.size) : 'introuvable');
+    if (!connues || !CFG || !CFG.expo || !CFG.expo[bloc]) continue;
+    const inconnues = Object.keys(CFG.expo[bloc]).filter(k => !connues.has(k));
+    v('aucune clé inconnue sous « ' + bloc + ' »', inconnues.length === 0,
+      'ignorée(s) en silence par Expo : ' + inconnues.join(', '));
+  }
+})();
+
+/* ═══ LES CAPACITÉS NATIVES SONT-ELLES ATTEIGNABLES ? (09/09) ══════════════════════════════════
+   ⚠️ LE DÉFAUT QUE CE BANC NE VOYAIT PAS, ET QUI EST ARRIVÉ DEUX FOIS. Les contrôles d'origine
+   vérifiaient que les capacités EXISTENT dans App.js — `expo-notifications` importé, l'ordre
+   `dtp:push` écouté, `dtp:verrou` écouté. Tout était vert. Et pourtant, en production :
+     · le jeton de notification était produit puis JETÉ — personne, ni le desk ni le serveur, ne
+       le ramassait ; aucune alerte ne pouvait arriver écran verrouillé ;
+     · l'ordre `dtp:verrou` n'était envoyé par AUCUNE ligne du desk — le verrou biométrique ne
+       pouvait être activé par personne.
+   Deux des trois capacités sur lesquelles repose le passage 4.2 étaient mortes, et le banc était
+   vert : il regardait UN SEUL BOUT du fil. Une capacité n'existe que si le desk peut l'atteindre et
+   la coquille répondre. On éprouve donc les DEUX bouts, et l'aller-retour. */
+console.log('\n── 1 ter. Les capacités natives sont ATTEIGNABLES depuis le desk ──');
+(function () {
+  const R = path.join(__dirname, '..');
+  const desk = ['public/js/app.js', 'public/index.html'].map(f => {
+    try { return fs.readFileSync(path.join(R, f), 'utf8'); } catch { return ''; }
+  }).join('\n');
+
+  // 1 · NOTIFICATIONS : le desk demande, la coquille rend le jeton, le desk le POSTE au serveur.
+  v('le desk demande le jeton à la coquille', /type: 'dtp:push'/.test(desk));
+  v('… la coquille répond à cet ordre', /m\.type === 'dtp:push'/.test(APP));
+  v('… et le desk ramasse la réponse', /addEventListener\('dtp:pushtoken'/.test(desk));
+  v('… pour l\'envoyer au serveur (sinon le jeton est jeté)', /'\/api\/push\/token'/.test(desk));
+
+  // 2 · VERROU BIOMÉTRIQUE : le desk envoie, la coquille répond son ÉTAT, le desk le peint.
+  v('le desk envoie l\'ordre de verrou', /type: 'dtp:verrou'/.test(desk));
+  v('… la coquille répond à cet ordre', /m\.type === 'dtp:verrou'/.test(APP));
+  /* La coquille est la seule à savoir si l'appareil a une empreinte enregistrée : sans cette
+     vérification, un téléphone qui n'en a pas accepterait le réglage et ne verrouillerait rien.
+     ⚠️ ON ISOLE LE HANDLER AVANT DE REGARDER DEDANS. Le premier jet cherchait `isEnrolledAsync`
+     dans TOUT App.js : l'appel existe aussi dans `demanderVerrou` et dans `etatVerrou`, donc le
+     contrôle restait vert même après avoir retiré la vérification de l'endroit qui compte. Éprouvé
+     par mutation : il ne rougissait pas. */
+  const handlerVerrou = (/if \(m\.type === 'dtp:verrou'\) \{[\s\S]*?\n    \}/.exec(APP) || [''])[0];
+  v('… en vérifiant d\'abord que l\'appareil en est capable',
+    /isEnrolledAsync\(\)/.test(handlerVerrou) && /hasHardwareAsync\(\)/.test(handlerVerrou),
+    handlerVerrou.slice(0, 200) || '(handler dtp:verrou introuvable)');
+  v('… puis en ANNONÇANT son état au desk', /dtp:coquille/.test(APP) && /annoncerCoquille/.test(APP));
+  v('… que le desk écoute', /addEventListener\('dtp:coquille'/.test(desk));
+  v('… et l\'interrupteur existe vraiment dans les réglages', /id="pd-bio-tog"/.test(desk) && /dtpVerrouBascule/.test(desk));
+  v('… masqué hors de l\'app (au navigateur il ne mènerait à rien)', /ligne\.hidden = !montrer/.test(desk));
+
+  // 3 · HORS LIGNE : rien à atteindre depuis le desk, la coquille agit seule.
+  v('le mode hors ligne est autonome dans la coquille', /NetInfo\.addEventListener/.test(APP) && /Hors ligne/.test(APP));
+})();
+
 console.log('\n── 2. Le JSX se parse (aucun outil de build ne le fera avant EAS) ──');
 let parser = null;
-try { parser = require('@babel/parser'); } catch { try { parser = require(path.join(__dirname, '..', 'node_modules', '@babel', 'parser')); } catch {} }
+/* ⚠️ TROIS CHEMINS, ET LE TROISIÈME EST CELUI QUI SERT. Le parseur n'est PAS une dépendance du
+   dépôt : il arrive par `expo`, donc il vit dans `mobile/node_modules`. Les deux premiers chemins
+   ne le trouvaient jamais et le contrôle s'ABSTENAIT — silencieusement, en affichant une ligne
+   grise que plus personne ne lisait. Un contrôle qui s'abstient toujours ne contrôle rien : c'est
+   le seul garde-fou qui voit une faute de JSX avant qu'EAS ne compile pendant cinq minutes. */
+for (const c of ['@babel/parser',
+                 path.join(__dirname, '..', 'node_modules', '@babel', 'parser'),
+                 path.join(M, 'node_modules', '@babel', 'parser')]) {
+  if (parser) break;
+  try { parser = require(c); } catch {}
+}
 if (!parser) console.log('  · @babel/parser absent → contrôle abstenu (pas un échec)');
 else for (const f of ['App.js', 'index.js']) {
   let e = null;

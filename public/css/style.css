@@ -8873,6 +8873,13 @@ body.theme-light .pd-subhead { border-top-color: #e8eaef !important; }
   transition: left 0.2s;
 }
 .pd-toggle.on .pd-toggle-thumb { left: 19px; }
+/* Ligne du verrou biométrique (panneau « Mot de passe et sécurité »), révélée par la coquille
+   mobile seulement. Même grammaire que le reste du panneau : pas de cadre neuf, un simple filet. */
+.pd-bio-row { display: flex; align-items: center; gap: 14px; padding: 10px 0 14px;
+  border-bottom: 1px solid var(--hud-line, var(--border)); margin-bottom: 14px; }
+.pd-bio-txt { min-width: 0; flex: 1 1 auto; }
+.pd-bio-t { font-size: 12.5px; color: var(--text); line-height: 1.4; }
+.pd-bio-h { font-size: 11px; color: var(--text3); line-height: 1.45; margin-top: 3px; }
 .pd-invoices-title {
   font-size: 12px;
   font-weight: var(--fw-semibold);

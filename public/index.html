@@ -39,7 +39,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260827bbg1006" />
+  <link rel="stylesheet" href="/css/style.css?v=20260827bbg1007" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -92,7 +92,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260827bbg1006"></script>
+  <script defer src="/js/noinspect.js?v=20260827bbg1007"></script>
 </head>
 <body>
 
@@ -962,16 +962,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260827bbg1006"></script>
-<script defer src="/js/app.js?v=20260827bbg1006"></script>
-<script defer src="/js/charts.js?v=20260827bbg1006"></script>
-<script defer src="/js/sessionmap.js?v=20260827bbg1006"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260827bbg1007"></script>
+<script defer src="/js/app.js?v=20260827bbg1007"></script>
+<script defer src="/js/charts.js?v=20260827bbg1007"></script>
+<script defer src="/js/sessionmap.js?v=20260827bbg1007"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260827bbg1006"></script>
-<script defer src="/js/home.js?v=20260827bbg1006"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260827bbg1006"></script>
-<script defer src="/js/i18n.js?v=20260827bbg1006"></script>
+<script defer src="/js/widgets.js?v=20260827bbg1007"></script>
+<script defer src="/js/home.js?v=20260827bbg1007"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260827bbg1007"></script>
+<script defer src="/js/i18n.js?v=20260827bbg1007"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1083,6 +1083,26 @@
       </button>
       <div class="pd-section-content">
         <div class="pd-section-inner">
+
+          <!-- ⚠️ VERROU BIOMÉTRIQUE — LE RÉGLAGE QUI N'EXISTAIT PAS (09/09). La coquille mobile sait
+               depuis le premier jour verrouiller l'app par empreinte ou reconnaissance faciale : elle
+               écoute l'ordre `dtp:verrou`. Or le desk ne l'envoyait JAMAIS — aucune ligne, nulle part.
+               Le verrou ne pouvait donc être activé par personne, et c'est la DEUXIÈME des trois
+               capacités natives sur lesquelles repose le passage en revue Apple (règle 4.2). Même
+               défaut, exactement, que le jeton de notification que personne ne ramassait.
+               La ligne est MASQUÉE hors de l'app : au navigateur, elle ne mènerait à rien. C'est la
+               coquille elle-même qui la révèle, en annonçant son état (`dtp:coquille`) — elle est la
+               seule à savoir si l'appareil a une empreinte enregistrée, et la seule à connaître la
+               vérité après une réinstallation, qui vide son coffre mais pas le stockage du desk. -->
+          <div class="pd-subhead" id="pd-bio-head" hidden>Déverrouillage de l'application</div>
+          <div class="pd-bio-row" id="pd-bio-row" hidden>
+            <div class="pd-bio-txt">
+              <div class="pd-bio-t">Empreinte ou reconnaissance faciale</div>
+              <div class="pd-bio-h" id="pd-bio-hint">Redemandé à chaque retour dans l'application.</div>
+            </div>
+            <div class="pd-toggle" id="pd-bio-tog" role="switch" aria-checked="false" tabindex="0"
+                 onclick="dtpVerrouBascule()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();dtpVerrouBascule();}"><div class="pd-toggle-thumb"></div></div>
+          </div>
 
           <label class="pd-label">Mot de passe actuel</label>
           <div class="pd-pw-wrap">

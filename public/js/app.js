@@ -11613,6 +11613,53 @@ if (typeof window !== 'undefined') {
   });
 }
 function _npPushCoquilleDemander() { return _npOrdreCoquille({ type: 'dtp:push' }); }
+
+/* ══ VERROU BIOMÉTRIQUE DE L'APP MOBILE (09/09) ═════════════════════════════════════════════════
+   La coquille écoutait `dtp:verrou` DEPUIS LE PREMIER JOUR, et le desk ne l'envoyait JAMAIS. Le
+   verrou ne pouvait donc être activé par personne : deuxième des trois capacités natives sur
+   lesquelles repose le passage en revue Apple (règle 4.2), morte exactement comme l'était le jeton
+   de notification. Un contrôle du banc l'épingle désormais dans les deux fichiers.
+   ⚠️ LA COQUILLE EST LA SOURCE DE VÉRITÉ, PAS NOUS. Elle seule sait (a) si l'appareil a une
+   empreinte enregistrée — un téléphone qui n'en a pas accepterait le réglage sans jamais rien
+   verrouiller — et (b) ce que contient son coffre après une réinstallation, qui vide SecureStore
+   mais pas le stockage de la WebView. On n'écrit donc aucun état local : on affiche celui qu'elle
+   annonce, et on le réaffiche à sa réponse. */
+let _bioDispo = false;
+function _bioEl(id) { try { return document.getElementById(id); } catch (e) { return null; } }
+function _bioRendre(actif, capable) {
+  _bioDispo = !!capable;
+  const tete = _bioEl('pd-bio-head'), ligne = _bioEl('pd-bio-row'), tog = _bioEl('pd-bio-tog'), aide = _bioEl('pd-bio-hint');
+  if (!ligne || !tog) return;
+  // Hors de l'app, la ligne reste cachée : au navigateur elle ne mènerait à rien.
+  const montrer = _npCoquille();
+  if (tete) tete.hidden = !montrer;
+  ligne.hidden = !montrer;
+  tog.classList.toggle('on', !!actif);
+  tog.setAttribute('aria-checked', actif ? 'true' : 'false');
+  /* APPAREIL SANS EMPREINTE ENREGISTRÉE : on ne cache pas la ligne, on DIT pourquoi elle ne peut
+     pas s'allumer. Cachée, le client la chercherait ; grisée sans explication, il la croirait
+     cassée. */
+  if (aide) {
+    aide.textContent = capable
+      ? 'Redemandé à chaque retour dans l\'application.'
+      : 'Aucune empreinte ni visage enregistré sur cet appareil : ajoutez-en un dans les réglages du téléphone.';
+  }
+  tog.style.opacity = capable ? '' : '0.45';
+  tog.style.cursor = capable ? '' : 'not-allowed';
+}
+function dtpVerrouBascule() {
+  const tog = _bioEl('pd-bio-tog');
+  if (!tog || !_npCoquille() || !_bioDispo) return;
+  // On n'allume RIEN ici : la coquille répond par `dtp:coquille`, et c'est sa réponse qui peint.
+  // Peindre d'abord afficherait un verrou actif sur un appareil qui vient de le refuser.
+  _npOrdreCoquille({ type: 'dtp:verrou', actif: !tog.classList.contains('on') });
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('dtp:coquille', e => {
+    const d = (e && e.detail) || {};
+    _bioRendre(!!d.verrou, !!d.bio);
+  });
+}
 function _npPushCoquilleStop() {
   const t = _npJetonPose;
   _npJetonPose = '';
