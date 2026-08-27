@@ -5379,6 +5379,12 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .wr-section-title {
   color:#e3b23a; font-size:11px; font-weight:var(--fw-semibold); text-transform:uppercase; letter-spacing:.09em;
   margin:26px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border);
+  /* ⚠️ PAS DE font-family ICI. Une déclaration y a été posée puis RETIRÉE le 27/08 : elle était
+     MORTE. La règle groupée de typographie, bien plus bas dans ce fichier, impose var(--tight) à
+     tous les titres du desk — .wr-section-title compris — et l'emporte par l'ordre. C'est la règle
+     de MARQUE (titres en Inter Tight). Le Récap Quotidien, lui, y ÉCHAPPE en forçant var(--font-ui)
+     sur .fxdr-section : c'est LUI qui dévie, pas le Hebdo. Aligner le Hebdo sur le Quotidien aurait
+     donc éloigné les deux de la charte. Écart laissé tel quel, sciemment. */
 }
 /* En-tête Currency Strength : titre à gauche + badge de la semaine couverte (figée) à droite */
 .wr-cs-head { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:26px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
@@ -5470,7 +5476,14 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .ai-ins-bias--sell    { color:#ef4444; background:rgba(239,68,68,.14);  border:1px solid rgba(239,68,68,.4); }
 .ai-ins-bias--neutral { color:#eab308; background:rgba(234,179,8,.14);  border:1px solid rgba(234,179,8,.4); }
 .ai-ins-pair-text { color:#c9d1d9; font-size:12px; line-height:1.5; }
-.wr-macro-heading { color: var(--text); font-size: var(--fs-h2); font-weight: var(--fw-semibold); font-family: var(--tight); letter-spacing: 0.06em; text-transform: uppercase; margin: 16px 0 8px; }
+/* ⚠️ LE HEBDO SE CALE SUR LE QUOTIDIEN (27/08, demande utilisateur : « j'aime bien la structure
+   design du rapport quotidien, applique-la au hebdo pour que ce soit épuré pareil »). Mesuré dans
+   un vrai navigateur AVANT correction : le sous-titre du Hebdo sortait en 13 px, graisse 600, BLANC
+   (rgb 236,238,242) — quand celui du Quotidien et celui des récaps de séance, déjà alignés entre
+   eux, font 10 px, graisse 700, GRIS (rgb 125,125,134). Le Hebdo criait donc ses sous-titres au
+   même rang que ses titres de rubrique : c'est exactement ce qui le faisait paraître chargé.
+   Les trois rapports se lisent à la suite ; ils rangent pareil et doivent en avoir l'air. */
+.wr-macro-heading { color: #7d7d86; font-size: 10px; font-weight: var(--fw-bold); font-family: var(--font-ui); letter-spacing: .06em; text-transform: uppercase; margin: 13px 0 7px; }
 /* v34 — Analyse par devise « note de desk » : badge Biais fondamental (sémantique DTP vert→rouge) dans le heading. */
 .wr-bias-badge { display:inline-block; margin-left:8px; padding:2px 9px; font-family:var(--tight); font-size:10px; font-weight:800; letter-spacing:.05em; border-radius:4px; vertical-align:middle; text-transform:uppercase; }
 .wr-bias--vbull { color:#00e676; background:rgba(0,230,118,.14); border:1px solid rgba(0,230,118,.42); }
@@ -5504,7 +5517,8 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 /* Ligne séparatrice entre les PARTIES des Points Macro Clés (Géopolitique / BC / Inflation & Croissance /
    Cross-Asset / Commerce & Tarifs / Techno…) : le bloc respire (demande user). Fine, très sombre (--hud-line). */
 .wr-sep { border-top: 1px solid var(--hud-line, var(--border)); margin: 24px 0 6px; }
-.wr-bullet { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0 0 10px; padding-left:14px; position:relative; }
+/* Même alignement : la puce du Quotidien fait 11,5 px et son texte est plus clair (mesuré). */
+.wr-bullet { color:#e8eaed; font-size:11.5px; line-height:1.55; margin:0 0 10px; padding-left:14px; position:relative; }
 .wr-bullet::before { content:"•"; color:#e3b23a; position:absolute; left:0; }
 .wr-bullet strong { color:#fff; font-weight:var(--fw-semibold); }
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }

@@ -9784,8 +9784,15 @@ function _renderWeeklyRecap(item) {
     // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Points Macro Clés + analyse par devise (rétrospectif) ──
     // v42 : l'INTRO (bâtie sur les récaps quotidiens de la semaine) REMPLACE le summary en tête — jamais
     // deux leads qui se répètent. Anciens rapports sans intro → summary comme avant (rétro-compat).
-    if (w.intro) body += `<div class="wr-text wr-summary">${_wrParas(w.intro)}</div>`;
-    else if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+    /* SYNTHÈSE : LE MÊME ENCADRÉ QUE LE QUOTIDIEN (27/08, demande utilisateur, deux captures — « la
+       synthèse doit ressembler à celle de l'image », puis « pour le récap hebdo de même »). Le Hebdo
+       ouvrait sur de la prose NUE : ni intitulé, ni liseré or, là où le Quotidien et les récaps de
+       séance encadrent la leur. Mesuré avant correction : liseré 0 px, fond transparent.
+       On réutilise la classe du Quotidien (`.fxdr-exec`) plutôt que d'en écrire une troisième —
+       trois copies de la même intention finissent toujours par diverger. */
+    const _wrIntro = w.intro || w.summary;
+    if (_wrIntro) body += `<div class="wr-section-title">Synthèse</div>`
+      + `<div class="wr-text wr-summary fxdr-exec">${_wrParas(_wrIntro)}</div>`;
     // TROIS ACTES (demande user « une logique Géopolitique / Macro / Biais ») : le rapport est balisé en
     // actes numérotés — 1·Géopolitique (chronologie ou thème géo), 2·Macro & Banques Centrales (Force +
     // Points Macro Clés + BC), 3·Biais par devise (analyse). Numérotation DYNAMIQUE : un acte sans

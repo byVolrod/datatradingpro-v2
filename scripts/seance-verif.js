@@ -758,8 +758,14 @@ const AV = [{ section: 'LEAD', items: ['Les rumeurs d\'un accord Iran-US ont pes
 const hy = W.html(AV, [], null, SYN).html;
 v('la rubrique « Synthèse » existe', /<strong>Synthèse<\/strong>/.test(hy), hy.slice(0, 120));
 v('elle est la PREMIÈRE du rapport', hy.indexOf('<strong>Synthèse') === 0, hy.slice(0, 80));
-v('elle porte la mesure de la séance', /6 publications sur la séance, dont 3 hors consensus/.test(hy));
-v('et la photo des marchés', /\*\*Photo de séance\*\*/.test(hy));
+/* ⚠️ CES DEUX CONTRÔLES ENCODAIENT LA RÈGLE D'AVANT (v20/v23) : les lignes mesurées vivaient DANS
+   la synthèse, derrière le paragraphe. La v29 les en sort — l'encadré doré ne rend plus que la
+   prose, comme le Récap Quotidien qui sert de référence. L'intention d'origine est conservée mot
+   pour mot : la photo des marchés ne doit pas DISPARAÎTRE. Elle change de rubrique, pas d'existence.
+   Le DÉCOMPTE, lui, est bel et bien retiré — c'est la demande, et il avait déjà été refusé une fois. */
+v('la mesure de la séance ne pollue plus la synthèse', !/6 publications sur la séance/.test(hy), hy.slice(0, 200));
+v('et la photo des marchés est toujours servie, sous sa rubrique',
+  /<strong>Photo de séance<\/strong>/.test(hy), hy.slice(0, 240));
 v('la Macro reste à sa place', hy.indexOf('<strong>Macro') > hy.indexOf('<strong>Synthèse'));
 
 /* ── LE RÉCIT D'ABORD, LES MESURES ENSUITE (28/08, capture du Récap Quotidien à l'appui : « il
@@ -769,7 +775,8 @@ v('la Macro reste à sa place', hy.indexOf('<strong>Macro') > hy.indexOf('<stron
    Il devient la « Synthèse » : même contenu, même encadré, même identité que l'autre rapport. */
 v('le LEAD devient la Synthèse', !/<strong>LEAD<\/strong>/.test(hy), hy.slice(0, 90));
 v('le récit du modèle y est conservé', /Les rumeurs d'un accord Iran-US/.test(hy));
-v('… et il passe AVANT nos lignes mesurées', hy.indexOf('Les rumeurs') < hy.indexOf('6 publications'), hy.slice(0, 200));
+/* L'ORDRE RESTE L'ORDRE : le récit d'abord, la mesure ensuite. Seul son contenant a changé. */
+v('… et il passe AVANT la photo', hy.indexOf('Les rumeurs') < hy.indexOf('Photo de séance'), hy.slice(0, 200));
 v('le tout dans UNE seule rubrique', (hy.match(/<strong>Synthèse<\/strong>/g) || []).length === 1);
 // Sans mesure, le récit reste — et il reste encadré : c'est ce qui manquait.
 const sansSyn = W.html(AV, [], null, []).html;
@@ -781,7 +788,7 @@ v('sans récit ni mesure, aucune rubrique n\'est ajoutée', !/<strong>Synthèse<
 // Le modèle nomme déjà la rubrique « Synthèse » (nouveau prompt) : même résultat, sans doublon.
 const dejaSyn = W.html([{ section: 'Synthèse', items: ['Le récit du modèle.'] }, AV[1]], [], null, SYN).html;
 v('une « Synthèse » existante n\'est pas dupliquée', (dejaSyn.match(/<strong>Synthèse<\/strong>/g) || []).length === 1);
-v('le récit du modèle passe en premier', dejaSyn.indexOf('Le récit du modèle') < dejaSyn.indexOf('6 publications'), dejaSyn.slice(0, 200));
+v('le récit du modèle passe en premier', dejaSyn.indexOf('Le récit du modèle') < dejaSyn.indexOf('Photo de séance'), dejaSyn.slice(0, 200));
 // Côté serveur : calculée, jamais demandée au modèle, et seulement sur un récap DU JOUR.
 v('le serveur la calcule depuis le desk', /const out = \[_SEA\.synthese\(b\.nom, perfs, macros\)\];/.test(_SRVA));
 v('la photo de séance vient de la même fabrique', /const lp = _SEA\.lignePerf\(perfs\);/.test(_SRVA));
@@ -1409,6 +1416,44 @@ v('… les trois chemins prennent la même source', (_srv.match(/_raw \|\| (?:it
 v('… et `_raw` reste écrit une seule fois', /if \(!cached\._raw\) cached\._raw = cached\.content; cached\.content = seg;/.test(_srv));
 
 v('la version de segmentation est repassée au bump', _swSegVer() >= 28, 'SW_SEG_VER = v' + _swSegVer());
+
+/* ══════════════════ [13] LA SYNTHÈSE NE PORTE QUE LA PROSE ══════════════════
+   27/08, référence fournie en capture. L'encadré doré rendait TROIS choses de nature différente à
+   la suite : le paragraphe de lecture, un décompte, puis une liste de performances. Le Récap
+   Quotidien — la référence — n'y met que le paragraphe. */
+console.log('\n── 13. La synthèse, et rien qu\'elle ──');
+const _DECOMPTE = 'Séance Londres : 2 publications sur la séance, dont 1 hors consensus · 1 rendez-vous sans chiffre.';
+const _PHOTO    = '**Photo de séance** — Brent +1,45 % · DAX +0,15 %';
+const _hSyn = W.html([{ section: 'Synthèse', items: ['La séance a été dominée par l\'attente du discours.'] },
+                      { section: 'Géopolitique', items: ['Sanctions.'] }], [], null, [_DECOMPTE, _PHOTO]).html;
+v('la synthèse garde sa prose', /<strong>Synthèse<\/strong><ul><li>La séance a été dominée/.test(_hSyn), _hSyn);
+v('… et le DÉCOMPTE en est retiré', !/publications sur la séance/.test(_hSyn), _hSyn);
+/* Le décompte ne doit resurgir NULLE PART : le retirer de la synthèse pour le reposer ailleurs
+   n'aurait fait que déplacer ce que l'utilisateur a refusé deux fois. */
+v('… et il ne reparaît dans aucune autre rubrique', !/hors consensus/.test(_hSyn), _hSyn);
+v('la photo de séance prend sa propre rubrique', /<strong>Photo de séance<\/strong>/.test(_hSyn), _hSyn);
+v('… juste APRÈS la synthèse, avant le reste',
+  _hSyn.indexOf('Photo de séance') > _hSyn.indexOf('<strong>Synthèse') && _hSyn.indexOf('Photo de séance') < _hSyn.indexOf('Géopolitique'), _hSyn);
+v('… et elle ne répète pas son propre intitulé', !/<li>\*\*Photo de séance\*\*/.test(_hSyn), _hSyn);
+v('… ses valeurs, elles, sont bien là', /Brent \+1,45 % · DAX \+0,15 %/.test(_hSyn), _hSyn);
+/* SANS PROSE, ON NE PROMEUT PAS LA MESURE EN SYNTHÈSE : une rubrique « Synthèse » qui ne
+   contiendrait qu'une photo de performances serait le défaut d'origine, repris par l'autre bout. */
+const _hSansProse = W.html([{ section: 'Géopolitique', items: ['x'] }], [], null, [_DECOMPTE, _PHOTO]).html;
+v('sans prose, la photo ne devient PAS la synthèse', !/<strong>Synthèse<\/strong>/.test(_hSansProse), _hSansProse);
+v('… elle reste sous son propre intitulé', /<strong>Photo de séance<\/strong>/.test(_hSansProse), _hSansProse);
+/* ET SANS PHOTO, aucune rubrique vide ne se pose. */
+const _hSansPhoto = W.html([{ section: 'Synthèse', items: ['Prose seule.'] }], [], null, [_DECOMPTE]).html;
+v('sans photo, aucune rubrique fantôme', !/Photo de séance/.test(_hSansPhoto), _hSansPhoto);
+v('… et la prose est intacte', /<strong>Synthèse<\/strong><ul><li>Prose seule\.<\/li><\/ul>/.test(_hSansPhoto), _hSansPhoto);
+v('la version de segmentation suit', _swSegVer() >= 29, 'SW_SEG_VER = v' + _swSegVer());
+
+/* [13 bis] LE RÉCAP HEBDO REÇOIT LE MÊME ENCADRÉ (demande du même jour : « pour le récap hebdo de
+   même », puis « applique la structure du quotidien au hebdo »). Il ouvrait sur de la prose NUE. */
+const _APP = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/js/app.js'), 'utf8');
+v('le hebdo pose un intitulé « Synthèse »', /<div class="wr-section-title">Synthèse<\/div>/.test(_APP));
+v('… et REUTILISE l\'encadré du Quotidien plutôt qu\'une troisième copie',
+  /wr-text wr-summary fxdr-exec/.test(_APP), 'trois copies de la même intention finissent par diverger');
+v('… en couvrant les deux champs (intro récente, summary ancien)', /const _wrIntro = w\.intro \|\| w\.summary;/.test(_APP));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

@@ -646,9 +646,9 @@ function phaseLogique() {
          haute du premier titre d'un rapport. On comparait donc trois cas particuliers en croyant
          mesurer le cas général — et le contrôle est effectivement sorti rouge sur `marginTop`, pour
          une différence qui n'existe pas dans un vrai rapport. */
-      box.innerHTML = '<div class="fxdr"><p>.</p><div class="fxdr-section">A</div><div class="fxdr-exec"><p class="wr-p">x</p></div></div>'
+      box.innerHTML = '<div class="fxdr"><p>.</p><div class="fxdr-section">A</div><div class="fxdr-grp-title">S</div><div class="fxdr-bullets"><ul class="article-points"><li>b</li></ul></div><div class="fxdr-exec"><p class="wr-p">x</p></div></div>'
         + '<div class="arlib-rbody"><p>.</p><div class="arlib-rsection">A</div><div class="arlib-rexec"><p class="wr-p">x</p></div></div>'
-        + '<div class="wr-body"><p>.</p><div class="wr-section-title">A</div></div>';
+        + '<div class="wr-body"><p>.</p><div class="wr-section-title">A</div><div class="wr-macro-heading">S</div><p class="wr-bullet">b</p><div class="wr-text wr-summary fxdr-exec"><p class="wr-p">x</p></div></div>';
       document.body.appendChild(box);
       const cs = (sel, pseudo) => {
         const e = box.querySelector(sel); if (!e) return null;
@@ -661,6 +661,12 @@ function phaseLogique() {
       };
       const r = {
         titreQ: cs('.fxdr-section'), titreS: cs('.arlib-rsection'), titreH: cs('.wr-section-title'),
+        /* LE HEBDO SE CALE SUR LE QUOTIDIEN (27/08). Mesuré AVANT correction : sous-titre du Hebdo
+           en 13 px / graisse 600 / BLANC, contre 10 px / 700 / GRIS chez les deux autres — il
+           criait ses sous-titres au rang de ses titres, et c'est ce qui le faisait paraître chargé. */
+        sousQ: cs('.fxdr-grp-title'), sousH: cs('.wr-macro-heading'),
+        puceQ: cs('.fxdr-bullets li'), puceH: cs('.wr-bullet'),
+        boxH: cs('.wr-body .fxdr-exec'),
         barreQ: cs('.fxdr-section', '::before'), barreS: cs('.arlib-rsection', '::before'),
         boxQ: cs('.fxdr-exec'), boxS: cs('.arlib-rexec'),
         paraQ: cs('.fxdr-exec .wr-p'), paraS: cs('.arlib-rexec .wr-p'),
@@ -739,6 +745,19 @@ function phaseLogique() {
       memeStyle(st.titreS, st.titreH, ['color', 'fontSize', 'fontWeight', 'letterSpacing', 'textTransform', 'marginTop', 'marginBottom', 'paddingBottom', 'borderBottomWidth']),
       diff(st.titreS, st.titreH, ['color', 'fontSize', 'fontWeight', 'letterSpacing', 'textTransform', 'marginTop', 'marginBottom', 'paddingBottom', 'borderBottomWidth']));
     verif('l\'encadré de synthèse a le MÊME style calculé', memeStyle(st.boxQ, st.boxS, CE), diff(st.boxQ, st.boxS, CE));
+    /* ── LE HEBDO REJOINT LE QUOTIDIEN (27/08, demande utilisateur : « j'aime bien la structure
+       design du rapport quotidien, applique-la au hebdo pour que ce soit épuré pareil »). Trois
+       écarts MESURÉS, trois contrôles. La fonte des titres, elle, reste volontairement différente :
+       le Hebdo suit la règle de marque (Inter Tight sur tous les titres du desk), c'est le
+       Quotidien qui y échappe — l'aligner aurait éloigné les deux de la charte. */
+    verif('le sous-titre du Hebdo a le MÊME style que celui du Quotidien',
+      memeStyle(st.sousQ, st.sousH, CT.filter(k => k !== 'fontFamily')), diff(st.sousQ, st.sousH, CT.filter(k => k !== 'fontFamily')));
+    verif('… et sa puce aussi', memeStyle(st.puceQ, st.puceH, ['fontSize', 'color', 'lineHeight']), diff(st.puceQ, st.puceH, ['fontSize', 'color', 'lineHeight']));
+    verif('… et sa synthèse porte le MÊME encadré doré', memeStyle(st.boxQ, st.boxH, CE), diff(st.boxQ, st.boxH, CE));
+    /* Le contrôle décisif : sans liseré, la synthèse du Hebdo redevient de la prose nue — l'état
+       d'avant, qu'aucune comparaison de couleurs seule n'aurait distingué d'un fond transparent. */
+    verif('… un liseré RÉELLEMENT peint, pas une classe posée',
+      parseFloat(st.boxH && st.boxH.borderLeftWidth || '0') > 0.5, 'liseré ' + (st.boxH && st.boxH.borderLeftWidth));
     verif('son texte aussi', memeStyle(st.paraQ, st.paraS, CP), diff(st.paraQ, st.paraS, CP));
     verif('le titre de rubrique est bien or', st.titreS && st.titreS.color === 'rgb(227, 178, 58)', st.titreS && st.titreS.color);
     verif('l\'encadré porte le liseré or', st.boxS && /227, 178, 58/.test(st.boxS.borderLeftColor), st.boxS && st.boxS.borderLeftColor);
