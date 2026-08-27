@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-impact-evenements', ts: Date.UTC(2026, 8, 10, 12, 0), title: 'Impact marché s’ouvre aux événements : décisions de banques centrales et géopolitique de premier rang', desc: 'Retour d’un client, transmis tel quel : « c’est un outil qui spot l’entièreté du forex c’est cool, mais les drivers sur marché ce n’est pas ça, et c’est dommage ». Il avait raison, et le défaut tenait à une seule condition. LA LECTURE « IMPACT MARCHÉ » N’ÉTAIT SERVIE QU’AUX STATISTIQUES CHIFFRÉES. Pour y avoir droit, une actualité devait porter dans son titre un chiffre ET son consensus — le format « 3,2 % contre 3,1 % attendu ». Autrement dit : une décision de taux, un compte rendu de banque centrale, une menace sur le détroit d’Ormuz, un embargo pétrolier — c’est-à-dire ce qui déplace réellement les marchés — n’en recevaient AUCUNE. Le desk savait lire la surprise d’un chiffre, pas l’événement qui fait le marché. UNE SECONDE PORTE S’OUVRE. Les décisions et communications des neuf grandes banques centrales, et la géopolitique de premier rang, reçoivent désormais leur lecture : le verdict, le canal par lequel l’événement atteint les marchés, et les actifs exposés avec leur direction. ET LA PREMIÈRE GARDE N’A PAS ÉTÉ SUPPRIMÉE POUR AUTANT — c’est le point important. L’exigence du consensus n’était pas une lubie : elle garantit que le desk a de quoi comparer et ne peut pas broder. La supprimer aurait rendu éligible n’importe quelle dépêche du fil, qui en compte plus de mille par jour. La seconde porte a donc sa propre garantie — un événement de premier rang, reconnu par les mêmes règles qui classent déjà les actualités en rouge — et surtout SA PROPRE CONSIGNE : elle dit au desk, en toutes lettres, qu’il n’a AUCUN chiffre, aucun consensus, aucune surprise à mesurer, et qu’il doit décrire le mécanisme à la place. Réclamer un écart à qui n’en a pas, c’est l’inviter à en inventer un. Un fait géopolitique est par ailleurs orienté vers l’énergie et les valeurs refuge plutôt que vers une paire de devises prise au hasard. Les plafonds de dépense, eux, ne bougent pas d’un pouce.' },
   { id: 'dtpu-20260910-orientation', ts: Date.UTC(2026, 8, 10, 10, 0), title: 'Politique monétaire : « Stance » devient « Orientation »', desc: 'Dans le panneau d’une devise, la ligne de politique monétaire s’intitulait « Stance actuelle ». Retour d’un lecteur : « j’comprends pas le terme Stance ». Il a raison — c’est de l’anglais. Le mot est courant dans les salles de marché anglophones, il ne l’est pas en français, et le terminal est en français partout ailleurs. Elle s’appelle désormais « Orientation actuelle », qui est le terme officiel employé par la Banque de France et par la BCE — « l’orientation de la politique monétaire ». Il a aussi l’avantage de s’accorder avec les valeurs déjà affichées : Accommodante, Restrictive, Neutre. « Ton » aurait été plus court, mais masculin : il aurait fallu réécrire les trois valeurs pour gagner deux lettres. La fiche détaillée d’une banque centrale suit le même changement, et les traductions anglaise, allemande et espagnole sont posées dans la foulée.' },
   { id: 'dtpu-20260910-topbar-mobile', ts: Date.UTC(2026, 8, 10, 8, 0), title: 'Sur téléphone, la barre du haut tient enfin sur une seule ligne', desc: 'Sous 400 pixels de large — c’est-à-dire sur la plupart des téléphones — la barre du haut se coupait en DEUX rangées : le logo et vos icônes personnelles en haut, les outils et la recherche en dessous. À l’écran, une première ligne avec un vide de cent soixante pixels au milieu, une seconde qui commençait ailleurs, et deux hauteurs différentes. Rien ne s’alignait avec rien, et la barre mangeait quatre-vingt-quatre pixels de hauteur sur un écran qui n’en a pas de trop. TOUT TIENT SUR UNE LIGNE, ET C’EST MESURÉ : sur un écran de 390 pixels, le logo, les trois outils, la recherche et les cinq icônes de droite occupent trois cent quarante-neuf pixels. Il en restait quarante de libres, et on dépensait une rangée entière. La barre passe de quatre-vingt-quatre à cinquante-deux pixels : trente-deux pixels rendus au terminal, sur chaque écran. CE QUI RENDAIT LA LIGNE IMPOSSIBLE : une règle d’affichage donnait à la recherche toute la largeur disponible, ce qui annulait la case compacte prévue pour le mobile. La recherche s’étalait sur près de trois cents pixels et poussait tout le reste à la ligne. Elle redevient une case-icône — et ne perd rien au passage, puisqu’elle se déplie déjà en pleine largeur au moment où vous la touchez. SUR LES ÉCRANS LES PLUS ÉTROITS, les outils et les icônes de droite se chevauchaient carrément — vingt-cinq pixels de recouvrement mesurés sous 360 pixels. Les deux groupes se resserrent ensemble, sans qu’aucune icône ne disparaisse ni ne passe sous le seuil de ce qu’un pouce peut viser. Un contrôle automatique ouvre désormais la VRAIE barre du haut dans un navigateur, à 390 et 360 pixels, et vérifie qu’elle tient sur une ligne, qu’elle ne se replie pas, que rien ne se chevauche, que la recherche reste compacte et que les icônes partagent la même ligne d’horizon.' },
   { id: 'dtpu-20260909-noms-widgets', ts: Date.UTC(2026, 8, 9, 23, 30), title: 'Les noms de widgets sont raccourcis : douze intitulés cessent de passer à la ligne', desc: 'Les noms s’affichent dans les cartes de la bibliothèque et en tête de chaque widget posé sur votre desk. Au-delà d’une vingtaine de caractères ils passaient sur deux lignes ou se faisaient couper — dix d’entre eux allaient de vingt-quatre à vingt-huit caractères. DOUZE INTITULÉS SONT RESSERRÉS, sans rien perdre de leur sens : « Compte à rebours d’événement » devient « Compte à rebours », « Corrélations entre paires » devient « Corrélations », « Calculatrice de position » devient « Calculatrice », « Performance de la semaine » devient « Performance hebdo », « Rendement moyen par mois » devient « Rendement mensuel », « Matrice de taux croisés » devient « Taux croisés ». Le plus long du catalogue passe de vingt-huit à vingt-trois caractères, et la moyenne de dix-neuf virgule sept à dix-sept virgule deux. DEUX NOMS EN PROFITENT POUR DEVENIR PLUS JUSTES : « Historique du Sentiment » devient « Historique du risque », qui dit ce qu’il montre et se lit en paire avec « Sentiment de Risque » ; « Probabilité de mouvement » devient « Atteinte d’un seuil », qui est exactement ce que la carte calcule. VOS DESKS NE BOUGENT PAS : les dispositions enregistrées désignent chaque widget par son identifiant, jamais par son nom. Rien à refaire, rien à replacer. Et un contrôle automatique mesure désormais TOUS les noms du catalogue à chaque livraison — pas seulement les douze corrigés : le treizième, ajouté plus tard, ne pourra pas rallonger la liste sans que ce soit un choix.' },
@@ -19040,6 +19041,10 @@ const AI_ANALYSE_DAILY_MAX = parseInt(process.env.AI_ANALYSE_DAILY_MAX, 10) || 9
 let _aiAnaDay = '', _aiAnaDayCount = 0, _aiAnaBusy = false;
 // Catégories = banque centrale (posées par detectCategory) → analyse enrichie dédiée (discours Powell/Lagarde...).
 const _CB_NEWS = new Set(['Fed', 'ECB', 'BoJ', 'BoE', 'BoC', 'RBA', 'SNB', 'RBNZ', 'PBOC']);
+/* La devise de chaque banque centrale du fil. Mêmes clés que `_CB_NEWS` ci-dessus — un banc
+   vérifie qu'aucune des deux ne prend de l'avance sur l'autre : une banque ajoutée à l'ensemble
+   sans sa devise passerait la porte « événement » puis perdrait sa paire exposée, en silence. */
+const _CB_CCY = { Fed: 'USD', ECB: 'EUR', BoJ: 'JPY', BoE: 'GBP', BoC: 'CAD', RBA: 'AUD', SNB: 'CHF', RBNZ: 'NZD', PBOC: 'CNY' };
 // Prompt d'analyse d'une news (puces FR). Variante BANQUE CENTRALE : ton hawkish/dovish + changement de
 // formulation + ce qu'elle surveille + implications + interprétation de marché (demande user). Sans invention.
 function _newsAnalysePrompt(item, desc, isCb) {
@@ -19325,10 +19330,31 @@ async function _enrichImpacts() {
       if (item._highImpact !== true) continue;                                   // tier-1 uniquement (NFP/CPI/PIB/retail…)
       if (Date.now() - (item.timestamp || 0) > 6 * 60 * 60 * 1000) continue;     // récentes seulement
       const h = String(item.headline || '');
-      // CHIFFRE PUBLIÉ exigé : un « réel » numérique dans le titre (l'annonce d'un chiffre À VENIR
-      // n'a pas d'impact à lire — elle n'a pas encore de surprise).
-      if (!/-?\d+(?:[.,]\d+)?\s*%?/.test(h)) continue;
-      if (!/\b(actual|vs\.?|exp(?:ected)?\.?|forecast|prev(?:ious)?\.?|est\.?)\b/i.test(h)) continue;
+      /* ═══ DEUX PORTES, ET LA SECONDE EST NOUVELLE (10/09) ══════════════════════════════════════
+         RETOUR CLIENT, verbatim : « c'est un outil qui spot l'entièreté du forex c'est cool mais
+         les drivers sur marché ce n'est pas ça et c'est dommage ».
+         Localisé, et c'était UNE ligne : « Impact marché » exigeait un marqueur de consensus dans le
+         titre (`vs`, `expected`, `forecast`…). Autrement dit, SEULE une statistique publiée au
+         format « X vs Y attendu » recevait une lecture d'impact. Une décision de taux, un compte
+         rendu de banque centrale, un blocage d'Hormuz, un embargo pétrolier — c'est-à-dire ce qui
+         DÉPLACE réellement les marchés — n'en recevaient aucune. Le desk savait lire la surprise
+         d'un chiffre, pas l'événement qui fait le marché.
+         ⚠️ ON N'A PAS SUPPRIMÉ LA GARDE, ON EN A OUVERT UNE SECONDE. Le marqueur de consensus n'est
+         pas une lubie : il GARANTIT que l'IA a de la matière (le publié face à l'attendu) et ne peut
+         pas broder. Le retirer d'un trait aurait rendu éligible n'importe quelle dépêche et rouvert
+         la fabrication que ce dépôt a déjà payée. La seconde porte a donc sa PROPRE garantie de
+         matière — un événement de premier rang, reconnu par les mêmes constantes que le reste du
+         serveur — et sa propre consigne, qui dit à l'IA qu'elle n'a AUCUN chiffre. */
+      // A · PUBLICATION CHIFFRÉE : un « réel » numérique ET son consensus (l'annonce d'un chiffre À
+      //     VENIR n'a pas d'impact à lire — elle n'a pas encore de surprise).
+      const _impChiffree = /-?\d+(?:[.,]\d+)?\s*%?/.test(h)
+        && /\b(actual|vs\.?|exp(?:ected)?\.?|forecast|prev(?:ious)?\.?|est\.?)\b/i.test(h);
+      // B · ÉVÉNEMENT SANS CHIFFRE : banque centrale (catégorie du fil) ou géopolitique de premier
+      //     rang (les MÊMES regex qui posent déjà `_highImpact` à l'ingestion — aucune taxonomie
+      //     nouvelle, donc rien qui puisse diverger d'elle).
+      const _impEvenement = !_impChiffree
+        && (_CB_NEWS.has(item.category) || GEO_TIER1_RE.test(h) || isGeoDeal(h));
+      if (!_impChiffree && !_impEvenement) continue;
       const ck = 'impfr1:' + item.id;
       // 1) cache mémoire chaud
       if (_impCache.has(ck)) {
@@ -19347,7 +19373,11 @@ async function _enrichImpacts() {
       if (perCycle <= 0 || _impCount >= IMPACT_MAX_JOUR) break;
       perCycle--; _impEssais++;
       try {
-        const ccy = _impCcyDuTitre(h);
+        /* La devise d'une STATISTIQUE se lit dans son titre (« US CPI… »). Celle d'un ÉVÉNEMENT de
+           banque centrale, non : « Fed's Hammack says… » ne porte aucun code. Elle est dans la
+           CATÉGORIE du fil, que l'ingestion a déjà posée. Sans cette table, la seconde porte
+           n'aurait ni paire exposée ni posture à confronter — le prompt tournerait à vide. */
+        const ccy = _impCcyDuTitre(h) || (_CB_CCY[item.category] || null);
         const paire = ccy ? (_EVA_PAIR[ccy] || null) : null;
         /* POSTURE BANQUE CENTRALE (23/08, call mentor : « la donnée se lit face à la stance —
            CPI UK chaud sans réaction du GBP, BoE dovish ») : la règle vit dans _MENTOR_RULES,
@@ -19360,10 +19390,25 @@ async function _enrichImpacts() {
           const bk = rp && rp.banks && rp.banks.find(b => b.code === ccy);
           if (bk) {
             const sc = bk.scenario || {};
-            postureCtx = `\n=== POSTURE BANQUE CENTRALE (${ccy}, pricing réel) ===\n${bk.bank || ccy} : prochaine réunion ${bk.next || 'inconnue'} · pricing : maintien ${Math.round(sc.hold || 0)}% / hausse ${Math.round(sc.hike || 0)}% / baisse ${Math.round(sc.cut || 0)}%${bk.stance ? ` · orientation ${bk.stance}` : ''}\nCONFRONTE le chiffre à CETTE posture (règle centrale) : dit-il quelque chose qui la CONFIRME ou la DÉFIE ? Un chiffre qui va contre une posture assumée doit être FORT pour faire repricer.`;
+            postureCtx = `\n=== POSTURE BANQUE CENTRALE (${ccy}, pricing réel) ===\n${bk.bank || ccy} : prochaine réunion ${bk.next || 'inconnue'} · pricing : maintien ${Math.round(sc.hold || 0)}% / hausse ${Math.round(sc.hike || 0)}% / baisse ${Math.round(sc.cut || 0)}%${bk.stance ? ` · orientation ${bk.stance}` : ''}\n${_impEvenement
+              ? 'CONFRONTE l\'événement à CETTE posture (règle centrale) : la CONFIRME-t-il, ou la DÉFIE-t-il ? Un événement qui va contre une posture assumée doit être FORT pour faire repricer. Ne parle d\'aucun chiffre : tu n\'en as pas.'
+              : 'CONFRONTE le chiffre à CETTE posture (règle centrale) : dit-il quelque chose qui la CONFIRME ou la DÉFIE ? Un chiffre qui va contre une posture assumée doit être FORT pour faire repricer.'}`;
           }
         } catch (e) {}
-        const prompt = `Tu es l'économiste en chef de "DataTradingPro". Une statistique macro vient de tomber. Tu ne disposes QUE de son TITRE (réel vs attendu vs précédent)${postureCtx ? ' et de la POSTURE de la banque centrale ci-dessous' : ''} : n'invente AUCUN chiffre, AUCUN mouvement de marché, AUCUNE réaction déjà observée — tu écris une lecture PROSPECTIVE (mécanique), pas un constat. EN FRANÇAIS, ton neutre et factuel, aucun conseil.
+        /* ⚠️ DEUX CONSIGNES, PARCE QUE LA MATIÈRE N'EST PAS LA MÊME. Servir la consigne « statistique »
+           à un événement sans chiffre, c'est demander une surprise face à un consensus qui n'existe
+           pas — et un modèle à qui l'on réclame un écart qu'il n'a pas L'INVENTE. C'est le mécanisme
+           exact que ce dépôt a déjà payé deux fois (le « DXY +0,14 % » affiché sans rien avoir
+           mesuré, la ligne CPI recopiée d'un exemple). La consigne « événement » dit donc en toutes
+           lettres qu'il n'y a AUCUN chiffre, et demande le MÉCANISME DE TRANSMISSION à la place. */
+        const prompt = _impEvenement ? `Tu es l'économiste en chef de "DataTradingPro". Un événement de marché vient de tomber : décision ou communication de banque centrale, ou fait géopolitique de premier rang. Tu ne disposes QUE de son TITRE${postureCtx ? ' et de la POSTURE de la banque centrale ci-dessous' : ''}.
+⚠️ IL N'Y A AUCUN CHIFFRE PUBLIÉ, AUCUN CONSENSUS, AUCUNE SURPRISE À MESURER. N'en invente pas : ni pourcentage, ni niveau, ni variation, ni réaction de marché déjà observée. Tu écris le MÉCANISME — par quel canal cet événement atteint les marchés, et quels actifs y sont exposés — pas un constat.
+Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
+{ "verdict": "<UNE phrase directe : ce que cet événement change, ou ne change pas>", "mecanisme": "<1 à 2 phrases : PAR QUEL CANAL il atteint les marchés (politique monétaire, prime de risque, approvisionnement, commerce, refuge). VERDICT ET MECANISME REUNIS : vise 200 à 280 caractères au total>", "actifs": [ { "nom": "<actif/paire, ex. ${paire || 'EUR/USD'}, Brent, Or, US10Y>", "fleche": "<↑ | ↓ | mixte>", "note": "<qualificatif court, optionnel>" } ] }
+🎯 RIGUEUR D'ANALYSTE : un événement ATTENDU et déjà intégré n'est pas un catalyseur → dis-le (« conforme aux attentes, peu de raison de repricer »). 1 à 3 actifs maximum, les plus directement exposés${paire ? ` (la paire la plus liquide côté ${ccy} est ${paire})` : ''}. Un fait géopolitique expose d'abord l'énergie et les refuges, pas une paire de devises au hasard.
+${_MENTOR_RULES}
+=== TITRE (seule matière autorisée${postureCtx ? ' avec la posture' : ''}) ===
+${h.slice(0, 240)}${postureCtx}` : `Tu es l'économiste en chef de "DataTradingPro". Une statistique macro vient de tomber. Tu ne disposes QUE de son TITRE (réel vs attendu vs précédent)${postureCtx ? ' et de la POSTURE de la banque centrale ci-dessous' : ''} : n'invente AUCUN chiffre, AUCUN mouvement de marché, AUCUNE réaction déjà observée — tu écris une lecture PROSPECTIVE (mécanique), pas un constat. EN FRANÇAIS, ton neutre et factuel, aucun conseil.
 Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 { "verdict": "<UNE phrase directe : le signal de cette publication (surprise réelle vs consensus, ou conforme)>", "mecanisme": "<1 à 2 phrases : POURQUOI ce chiffre change (ou ne change pas) le pricing de politique monétaire. VERDICT ET MECANISME REUNIS : vise 200 à 280 caractères au total, le MÊME budget que les trois autres lectures de la news, affichées à côté dans une grille>", "actifs": [ { "nom": "<actif/paire, ex. ${paire || 'EUR/USD'}, US10Y, Or>", "fleche": "<↑ | ↓ | mixte>", "note": "<qualificatif court, optionnel>" } ] }
 🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL : un chiffre CONFORME aux attentes N'EST PAS une surprise → verdict « conforme, peu de raison de repricer ». Ne présente comme surprise QUE l'écart RÉEL vs consensus. 1 à 3 actifs maximum, les plus directement exposés${paire ? ` (la paire la plus liquide côté ${ccy} est ${paire})` : ''}.
