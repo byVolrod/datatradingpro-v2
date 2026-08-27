@@ -425,7 +425,17 @@ function repare(txt) {
       }
     }
     if (!cible) return m;
-    const avant = ((t.slice(0, off).match(/([A-Za-zÀ-ÿ’]+)[\s’]*$/) || [])[1] || '').toLowerCase();
+    /* ⚠️ L'APOSTROPHE D'ÉLISION SE RETIRE AVANT LA COMPARAISON, et c'est tout sauf cosmétique.
+       La capture ci-dessus rend « s’ », pas « s » : le crochet contient l'apostrophe, et il est
+       gourmand. `PRONOMS` porte les pronoms SANS apostrophe — le commentaire d'à côté affirmait
+       même que la capture « les rend déjà sous cette forme ». C'était faux, et depuis toujours :
+       la garde ne s'est JAMAIS déclenchée sur un pronom élidé, c'est-à-dire sur le seul cas pour
+       lequel elle a été écrite. Résultat mesuré sur le corpus : « une réaction s’avere introuvable »
+       devenait « s’avéré introuvable » — la table ne connaît que le participe, et rien ne disait
+       qu'on avait affaire à un verbe conjugué. Même mécanique pour « qu’il se decale », « n’ »,
+       « l’ ». On retire donc l'apostrophe finale avant de consulter la liste. */
+    const avant = ((t.slice(0, off).match(/([A-Za-zÀ-ÿ’]+)[\s’]*$/) || [])[1] || '')
+      .toLowerCase().replace(/’$/, '');
     if (PRONOMS.has(avant) && /é$/.test(cible) && /e$/.test(bas)) cible = cible.slice(0, -1) + 'e';
     if (m === bas) return cible;                       // tout en minuscules
     if (m === m.toUpperCase()) return cible.toUpperCase();
@@ -500,6 +510,48 @@ if (process.argv.includes('--essai')) {
   console.log('  ' + top.map(([w, n]) => w + '·' + n).join(' '));
   const av = bloc.match(/desc:\s*'([^']{200,400})'/);
   if (av) { console.log('\nAvant : ' + av[1].slice(0, 220)); console.log('Après : ' + repare(av[1]).slice(0, 220)); }
+  process.exit(0);
+}
+/* ══ ÉCRITURE SUR DEMANDE SEULEMENT (27/08) ═══════════════════════════════════════════════════
+   Cet outil réécrivait server.js à chaque appel, sans rien demander. C'est ainsi qu'il a introduit,
+   sans que personne le voie, TROIS classes de fautes dans des annonces déjà livrées aux clients :
+     · 31 contresens « à » pour « a » (il retombait sur la préposition faute de preuve du contraire,
+       et ne reconnaissait comme sujet qu'une liste fermée de pronoms — jamais un sujet nom) ;
+     · « n'a » → « n'à », qui n'existe dans aucune phrase française, par une garde qui cherchait
+       « n’ » là où la capture rendait « n » ;
+     · « s'avere » → « s'avéré » (au lieu de « s'avère »), par la garde symétrique des pronoms
+       élidés — qui capturait « s’ » et comparait à « s », donc ne s'est JAMAIS déclenchée.
+   Les trois sont corrigées. Mais le compte est ce qu'il est : trois défauts d'affilée dans un outil
+   qui touche au TEXTE QUE LES CLIENTS LISENT, et qui écrivait en silence. Un quatrième existe
+   probablement — c'est la nature d'un correcteur heuristique — et le travail utile, lui, est fait :
+   zéro description sans accents.
+   L'OUTIL PROPOSE DONC, IL N'IMPOSE PLUS. Sans `--ecrire`, il montre ce qu'il changerait et sort
+   sans toucher au fichier. Le bénéfice restant est proche de zéro, le risque ne l'est pas ; entre
+   les deux, on choisit celui qui ne peut pas partir chez un client. */
+if (!process.argv.includes('--ecrire')) {
+  console.log(`\nLECTURE SEULE — ${nChaines} chaîne(s) SERAIENT modifiées, ~${nMots} mot(s) sur ${nEntrees} entrée(s).`);
+  if (nChaines) {
+    /* On MONTRE les changements, un par un : un outil qui a fabriqué des contresens ne mérite pas
+       qu'on le croie sur un total. Chaque ligne se relit en une seconde. */
+    const av = [...bloc.matchAll(/(?:title|desc):\s*'((?:[^'\\]|\\.)*)'/g)].map(m => m[1]);
+    let vus = 0;
+    for (const t0 of av) {
+      const t1 = repare(t0);
+      if (t1 === t0 || vus >= 20) continue;
+      for (let k = 0; k < Math.min(t0.length, t1.length); k++) {
+        if (t0[k] !== t1[k]) {
+          console.log('  «' + t0.slice(Math.max(0, k - 45), k + 25) + '»');
+          console.log('→ «' + t1.slice(Math.max(0, k - 45), k + 25) + '»\n');
+          break;
+        }
+      }
+      vus++;
+    }
+    console.log(`Relire ci-dessus, puis : node scripts/dtp-updates-accents.js --ecrire`);
+  } else {
+    console.log('Rien à changer.');
+  }
+  console.log(`  ${restant} description(s) sans aucun accent — vocabulaire hors table.`);
   process.exit(0);
 }
 fs.writeFileSync(SERVEUR, src.slice(0, i) + blocNeuf + src.slice(j + 3), 'utf8');

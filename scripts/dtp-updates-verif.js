@@ -94,9 +94,19 @@ const CONTRESENS = [
   /* ⚠️ PAS DE `\b` APRÈS « à ». `\b` se pose entre un caractère de mot et un autre qui n'en est
      pas — or « à » N'EST PAS un caractère de mot pour le moteur JS. « n’à pas » n'aurait donc
      jamais déclenché : la règle serait restée muette, exactement comme le défaut qu'elle traque.
-     Écrit d'abord ainsi, et pris sur le fait par le contrôle inverse ci-dessous. */
-  [/n’à(?![a-zA-ZÀ-ÿ])/g, '« n’à » — c’est le verbe avoir : écrire « n’a »'],
-  [/(^|[\s’])à (?:été|eu|pu|dû|fait|dit|mis|pris|su|vu|voulu|fallu|permis|perdu|connu|tenu|rendu|reçu|disparu|paru|vécu|lu|fini|choisi|servi|offert|ouvert|couvert|écrit|montré|trouvé|corrigé|changé|ajouté|retiré|donné|laissé|gagné|cessé|suffi|manqué|bougé|duré|touché|évité|posé|livré|repris|remis|déjà|bien|aussi|enfin|donc|toujours)\b/g,
+     Écrit d'abord ainsi, et pris sur le fait par le contrôle inverse ci-dessous.
+     ⚠️ ET LES DEUX APOSTROPHES, pas seulement la typographique. Le tableau porte les deux : les
+     entrées récentes emploient « ’ » (U+2019), les anciennes l'apostrophe droite échappée dans le
+     littéral JS (« n\'à »). La première passe de réparation ne connaissait que « ’ » et a laissé
+     TROIS contresens en place — trouvés en relisant le corpus à l'œil, pas par le contrôle, ce qui
+     est exactement ce qu'un contrôle est censé éviter.
+     ⚠️ ET LA BARRE D'ÉCHAPPEMENT COMPTE. La passe corpus lit server.js EN SOURCE, pas des chaînes
+     évaluées : une apostrophe droite y est écrite avec sa barre d'échappement devant, donc entre le
+     « n » et l'apostrophe il y a un CARACTÈRE de plus. La règle élargie aux deux apostrophes ratait
+     encore le cas — et la mutation l'a dit tout de suite, ce qui est précisément pourquoi on mute
+     avant de croire un contrôle sur parole. */
+  [/n\\?[’']à(?![a-zA-ZÀ-ÿ])/g, '« n’à » — c’est le verbe avoir : écrire « n’a »'],
+  [/(^|[\s’']|\\')à (?:été|eu|pu|dû|fait|dit|mis|pris|su|vu|voulu|fallu|permis|perdu|connu|tenu|rendu|reçu|disparu|paru|vécu|lu|fini|choisi|servi|offert|ouvert|couvert|écrit|montré|trouvé|corrigé|changé|ajouté|retiré|donné|laissé|gagné|cessé|suffi|manqué|bougé|duré|touché|évité|posé|livré|repris|remis|déjà|bien|aussi|enfin|donc|toujours)\b/g,
    '« à » suivi d’un participe ou d’un adverbe — c’est l’auxiliaire avoir : écrire « a »'],
 ];
 
@@ -228,6 +238,21 @@ function autotest() {
     + "pourquoi : si l’envoi a bien été accepté, le message a aussi été raccourci de moitié depuis la journée "
     + "précédente, et le récap hebdo n’a jamais eu son liseré doré devant chaque titre de rubrique.' },");
   v('… la même phrase écrite juste PASSE', cBon.length === 0, cBon.join(' | '));
+  /* ⚠️ LES DEUX ÉCRITURES DE L'APOSTROPHE, et la barre d'échappement avec. Les entrées récentes
+     emploient « ’ » (U+2019) ; les anciennes portent l'apostrophe droite, qui dans un littéral JS
+     s'écrit précédée d'une barre. Trois contresens sont restés en place parce que la première règle
+     ne connaissait que « ’ », et il a fallu relire le corpus à l'œil pour les voir — ce qu'un
+     contrôle est justement censé éviter. Les deux formes sont donc éprouvées ici, pour toujours. */
+  const cEchap = defautsDeLangue("+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Essai', "
+    + "desc: 'Le change au comptant n\\'à pas de volume centralisé, et le thème sombre n\\'à pas bouge "
+    + "d\\'un pixel depuis la livraison précédente du mois dernier, ce qui se voit sur chaque écran.' },");
+  v('« n’à » écrit avec l’apostrophe droite échappée est REFUSÉ aussi',
+    cEchap.some(x => /n’à/.test(x)), cEchap.join(' | '));
+  const cEchapBon = defautsDeLangue("+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Essai', "
+    + "desc: 'Le change au comptant n\\'a pas de volume centralisé, et le thème sombre n\\'a pas bougé "
+    + "d\\'un pixel depuis la livraison précédente du mois dernier, ce qui se voit sur chaque écran.' },");
+  v('… et la même phrase écrite juste PASSE', cEchapBon.length === 0, cEchapBon.join(' | '));
+
   /* Les vraies prépositions du corpus ne doivent pas être prises pour des auxiliaires. */
   const cPrep = defautsDeLangue("+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Essai', "
     + "desc: 'À partir de cette livraison, le panneau à onglets se déplie à l’écran de la même façon à Paris "
