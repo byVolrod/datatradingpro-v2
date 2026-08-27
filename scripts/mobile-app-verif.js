@@ -127,5 +127,59 @@ v('… et sans empreinte on rend un tableau vide, pas une erreur', /Aucune empre
 v('… l\'identifiant de paquet est celui de l\'app', /ANDROID_PACKAGE_NAME \|\| 'com\.datatradingpro\.app'/.test(SRV));
 v('/.well-known/ est servi sans session', SRV.indexOf("'/.well-known/'") > 0);
 
+console.log('\n── 10. Ce qui ferait échouer une compilation EAS ──');
+/* ⚠️ CES DEUX CONTRÔLES VALENT UNE COMPILATION RATÉE CHACUN. Une compilation EAS part en file
+   d'attente, prend un quart d'heure et consomme des minutes du forfait : elle est le pire endroit
+   où découvrir qu'un paquet manque ou qu'une version ne colle pas au SDK. Les deux défauts ont été
+   trouvés ICI, en compilant pour de vrai — `expo-asset` absent (Metro refusait de démarrer), puis
+   deux versions natives hors SDK que j'avais moi-même introduites en l'installant sans contrainte. */
+const MP = json('package.json');
+const nm = (f) => path.join(M, 'node_modules', f);
+
+/* Les dépendances que le code IMPORTE doivent être DÉCLARÉES : un import qui résout par hasard
+   depuis une dépendance transitive casse dès qu'elle change de version. */
+const imports = [...APP.matchAll(/^import[^'"]*['"]([^'".][^'"]*)['"]/gm)].map(m => m[1])
+  .map(x => x.startsWith('@') ? x.split('/').slice(0, 2).join('/') : x.split('/')[0]);
+const manquants = [...new Set(imports)].filter(x => !(MP && MP.dependencies && MP.dependencies[x]));
+v('tout ce qu\'App.js importe est déclaré en dépendance', !manquants.length, manquants.join(', '));
+/* `expo-asset` n'est importé par personne : c'est la configuration Metro d'Expo qui l'exige, et son
+   absence ne se voit qu'au démarrage du bundler. D'où un contrôle nommé. */
+v('expo-asset est déclaré (Metro refuse de démarrer sans lui)', !!(MP && MP.dependencies && MP.dependencies['expo-asset']));
+
+/* LES VERSIONS NATIVES doivent suivre le SDK : EAS compile du code natif, et un décalage y produit
+   une erreur de compilation, pas un avertissement. La table de référence est celle d'Expo lui-même
+   (`bundledNativeModules.json`), jamais une liste recopiée à la main qui se périmerait en silence. */
+if (!fs.existsSync(nm('expo'))) {
+  console.log('  · dépendances non installées → contrôle des versions abstenu (npm install dans mobile/)');
+} else {
+  let semver = null;
+  try { semver = require(nm('semver')); } catch { try { semver = require('semver'); } catch {} }
+  const tbl = (() => { try { return JSON.parse(fs.readFileSync(nm('expo/bundledNativeModules.json'), 'utf8')); } catch { return null; } })();
+  v('la table des versions du SDK est lisible', !!tbl);
+  if (tbl && semver) {
+    /* ⚠️ DEUX VERSIONS, ET C'EST LA DÉCLARÉE QUI DÉCIDE. Le premier jet de ce contrôle ne lisait que
+       la version INSTALLÉE dans node_modules — pris à la mutation : ramener react-native à 0.74.0
+       dans package.json ne le faisait pas rougir, puisque node_modules gardait la bonne. Or EAS
+       compile sur SES machines, où il lance `npm install` À PARTIR DE package.json : c'est la
+       PLAGE DÉCLARÉE qui détermine ce qui sera bâti. On éprouve donc les deux — la plage déclarée
+       doit tenir dans celle du SDK, et ce qui est installé ici doit s'y conformer aussi (sinon on
+       met au point contre autre chose que ce qui sera compilé). */
+    const ecartsDecl = [], ecartsInst = [];
+    for (const [n, attendu] of Object.entries(tbl)) {
+      const declare = MP.dependencies[n];
+      if (!declare) continue;
+      let tient = false;
+      try { tient = semver.subset ? semver.subset(declare, attendu) : semver.intersects(declare, attendu); }
+      catch { tient = true; }                      // plage exotique (lien local, git) → on ne juge pas
+      if (!tient) ecartsDecl.push(n + ' déclaré ' + declare + ' ≠ ' + attendu);
+      let inst = null;
+      try { inst = JSON.parse(fs.readFileSync(nm(n + '/package.json'), 'utf8')).version; } catch { continue; }
+      if (!semver.satisfies(inst, attendu)) ecartsInst.push(n + ' ' + inst + ' ≠ ' + attendu);
+    }
+    v('les versions DÉCLARÉES tiennent dans le SDK (c\'est ce qu\'EAS installera)', !ecartsDecl.length, ecartsDecl.join(' · '));
+    v('… et les versions INSTALLÉES ici aussi', !ecartsInst.length, ecartsInst.join(' · '));
+  }
+}
+
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

@@ -2,6 +2,7 @@
   "expo": {
     "name": "DataTradingPro",
     "slug": "datatradingpro",
+    "owner": "datatradingpro",
     "scheme": "dtp",
     "version": "1.0.0",
     "orientation": "default",
@@ -14,12 +15,16 @@
       "resizeMode": "contain",
       "backgroundColor": "#0c0c0e"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "bundleIdentifier": "com.datatradingpro.app",
       "buildNumber": "1",
       "supportsTablet": true,
-      "config": { "usesNonExemptEncryption": false },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Déverrouiller DataTradingPro sans ressaisir votre mot de passe.",
         "ITSAppUsesNonExemptEncryption": false
@@ -32,14 +37,29 @@
         "foregroundImage": "./icon-adaptive.png",
         "backgroundColor": "#0c0c0e"
       },
-      "permissions": ["NOTIFICATIONS"],
+      "permissions": [
+        "NOTIFICATIONS"
+      ],
       "edgeToEdgeEnabled": true
     },
     "plugins": [
       "expo-secure-store",
-      ["expo-local-authentication", { "faceIDPermission": "Déverrouiller DataTradingPro sans ressaisir votre mot de passe." }],
-      ["expo-notifications", { "icon": "./icon-adaptive.png", "color": "#e3b23a" }]
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Déverrouiller DataTradingPro sans ressaisir votre mot de passe."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./icon-adaptive.png",
+          "color": "#e3b23a"
+        }
+      ]
     ],
-    "extra": { "deskUrl": "https://desk.datatradingpro.com" }
+    "extra": {
+      "deskUrl": "https://desk.datatradingpro.com"
+    }
   }
 }
