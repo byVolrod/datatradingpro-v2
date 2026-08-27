@@ -1029,6 +1029,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260907-parrainage-audit', ts: Date.UTC(2026, 8, 7, 11, 0), title: 'Parrainage : un audit qui repond pour TOUS les comptes, plus un seul à la fois', desc: 'Question posée : est-ce que chacun a bien son lien d’affiliation, et est-ce que l’affiliation fonctionne vraiment quand on transmet son lien à un nouvel inscrit. Le panneau d’administration savait déjà repondre, mais POUR UNE ADRESSE À LA FOIS : pour savoir si tout le monde était servi, il fallait le rejouer compte par compte. Une nouvelle vue balaie désormais l’annuaire entier et ne rend que ce qui compte : qui à un lien, qui n’en à pas, et pourquoi — aucune adhésion Whop, membre Whop sans pseudo exploitable, ou Whop injoignable. DEUX CHOSES SONT RAPPORTéeS SÉPARÉMENT, ET C’EST LE POINT IMPORTANT. La COMMISSION est l’affaire de Whop : elle est suivie et versée par eux, à partir du lien partage, sans que notre serveur intervienne. Le COMPTEUR DE FILLEULS, lui — celui qui declenche un mois offert tous les trois filleuls — à besoin que nous sachions relier le pseudo du parrain à son compte. Les confondre ferait annoncer une perte d’argent là où il n’y en a aucune : un lien manquant n’enleve rien aux commissions déjà dues, il empeche seulement CE compte-la d’en partager un. La vue le dit noir sur blanc, et signale à part un index qui pointerait vers le mauvais compte. C’EST UN AUDIT, DONC IL N’ÉCRIT RIEN. Ni index, ni compteur, aucun appel à l’IA. Un contrôle qui repare en passant ne dit plus ce qu’il à trouve : il dit ce qu’il à laisse. Les appels sont espaces les uns après les autres plutôt que lances tous ensemble, et le balayage est plafonne — sur notre hébergement, interroger tout l’annuaire d’un bloc est exactement ce qui coupe le service au milieu du travail de quelqu’un d’autre. Si l’annuaire dépassé le plafond, c’est écrit.' },
   { id: 'dtpu-20260907-analyse-carte', ts: Date.UTC(2026, 8, 7, 9, 0), title: 'Le tag Analyse s’ouvre sur une synthèse lisible, et le détail passe derrière', desc: 'Retour client, capture de référence à l’appui. Sur une analyse d’événement - décision de banque centrale, inflation, emploi -, le bouton ANALYSE déroulait le rapport ENTIER : six intertitres, une quinzaine de lignes, avant même de savoir ce qui s’était passe. Il fallait tout lire pour trouver l’essentiel. IL S’OUVRE MAINTENANT SUR UNE CARTE. Une pastille, le mot Analyse, l’heure à laquelle le desk a écrit sa lecture, et un paragraphe de prose : ce qui a été decide, si c’était attendu, le ton employé, ce qui a changé depuis la fois précédente. C’est l’accroche que le desk rédigeait déjà avant chaque rapport - elle n’avait simplement jamais été montrée à cet endroit. RIEN N’EST PERDU. Les rubriques détaillées suivent la carte, sous leur propre intitulé. Vous lisez l’essentiel en quelques secondes, et le détail reste à portée de regard pour qui veut le fond. Un ancien rapport sans accroche garde exactement son affichage précédent : aucune analyse déjà publiée ne perd quoi que ce soit. ET LE BOUTON INFO NE RÉPÈTE PLUS LA MÊME CHOSE. Sur ces analyses, il montrait ce paragraphe, et l’Analyse montrait le reste : le même texte se lisait sur deux surfaces selon le bouton cliqué. Il disparaît donc de ces analyses-là, où il n’avait plus rien qui lui soit propre. Toutes les autres news gardent leur bouton Info intact. L’habillage reste celui du desk : bordure fine, coins doux, pastille OR. La forme vient de la référence, la couleur reste la notre.' },
   { id: 'dtpu-20260906-discours-preserves', ts: Date.UTC(2026, 8, 6, 22, 0), title: 'Les discours et bulletins gardent ce qu’ils disent, et la phrase de tête ne compte plus un congrès comme un chiffre', desc: 'Correction de deux défauts que j’ai introduits ce matin même, en ouvrant les récaps de séance aux rendez-vous sans chiffre. Les deux ont été pris par un contrôle rejoué contre le calendrier réel, pas en relecture. LE PROPOS DES DISCOURS ÉTAIT EFFACÉ. Quand notre calendrier et la rédaction parlaient du même rendez-vous, le desk gardait NOTRE ligne - nom exact, heure exacte - et n’en retenait que la lecture, ce qui suit la fleche. C’est juste pour une publication chiffrée : le calendrier redit les nombres mieux que la rédaction. C’est destructeur pour un DISCOURS, où tout le contenu est AVANT la fleche. Un discours de la Banque du Japon annonçant une sortie graduelle et aucune hausse avant décembre se réduisait à une ligne de programme : l’heure, la devise, le titre. La séance portait ses rendez-vous et avait perdu ce qu’elle en disait. La règle tient maintenant en une phrase : le calendrier possède TOUJOURS l’identité - le nom et l’heure -, il ne possède les FAITS que lorsqu’il en a. Sans chiffre, c’est le corps de la ligne qui est conservé. LA PHRASE DE TÊTE ANNONCAIT DES CHIFFRES QUI N’EXISTAIENT PAS. Un jour où aucune donnée chiffrée n’est sortie en Asie, le récap s’ouvrait sur « 3 publications sur la séance, toutes conformes aux attentes ». Un congrès, un discours et un bulletin ne sont conformes à aucune attente : ils n’en ont pas. Les rendez-vous étaient comptes comme des publications, et faute de chiffre à comparer, la mention « toutes conformes » tombait toute seule. Les deux comptes sont désormais séparés, et le jugement de conformité ne porte que sur ce qui a réellement publié un chiffre. Cette phrase ouvre aussi les récaps qui ne passent pas par l’IA : elle était servie immédiatement. ET LA CONSIGNE DE RÉDACTION NE CONTIENT PLUS DE RAPPORT TOUT FAIT. La correction d’hier n’avait nettoyé que le squelette ; le corps des consignes gardait encore une ligne d’inflation américaine complète avec ses chiffres, et un paragraphe d’analyse entier sur un dossier géopolitique. De quoi recopier un rapport crédible sans aucune matière - c’est exactement ce qui s’était produit. Remplacés par des emplacements vides. La forme reste enseignée, les faits ne sont plus fournis. Tous les récaps de séance sont régénérés.' },
   { id: 'dtpu-20260906-recap-relu', ts: Date.UTC(2026, 8, 6, 20, 0), title: 'Les récaps de séance sont relus automatiquement, et toute incohérence servie est nommée', desc: 'Suite du signalement sur le CPI américain. Les verrous posés la veille écartent la puce fautive AU MOMENT DU RENDU, mais sans rien dire : le jour où une nouvelle tournure passe entre les mailles - il y en a déjà eu deux vagues - plus rien ne le signale, et c’est un client qui le découvre, capture à l’appui. C’était le vrai problème : non pas qu’un défaut existe, mais que personne ne le voie avant vous. LE DESK SE RELIT MAINTENANT LUI-MÊME. À chaque récap fabriqué, le desk repasse sur ce qu’il vient d’écrire - toutes les rubriques, pas seulement la Macro - et consigne ce qui cloche. Le contrôle travaille dans le SENS INVERSE de la complétion : au lieu de partir du calendrier et de chercher dans le rapport, il part du RAPPORT et cherche dans le calendrier. C’est ce sens-là qui voit une invention - une ligne inventée ne MANQUE à aucun rendez-vous, elle n’est RATTACHÉE à aucun, et l’anti-doublon, qui ne sait que comparer, ne pouvait pas la voir. QUATRE CHOSES SONT RELUES. Un chiffre dont le pays n’est pas celui de la séance - un indice américain dans un récap de Londres. Une échéance que personne ne peut vérifier : le mot « demain », celui-là même qui rendait la ligne inventée crédible. Un enchaînement qui rattacherait un chiffre d’un pays à la banque centrale d’un autre. Et les fragments de gabarit de rédaction, qui sortaient aussi dans la synthèse d’ouverture et l’analyse de séance. PRÉCISION AVANT COUVERTURE. Un contrôle qui crie à tort est un contrôle qu’on cesse de lire, et le jour où il a raison personne ne l’ouvre. Chacun des quatre est donc borné à la rubrique où il ne peut pas se tromper, et chacun est éprouvé DANS LES DEUX SENS : qu’il attrape le défaut, et qu’il reste muet sur du bon travail. Une séance propre ne produit aucun signalement. ET VOUS POUVEZ LE CONSULTER. Le panneau d’administration met désormais un verdict en tête de la comparaison au calendrier : les trois séances du jour, ce qui est grave et ce qui est simplement à lire, séance par séance.' },
@@ -21885,6 +21886,70 @@ app.get('/api/admin/unsub-list', requireSameOrigin, requireAdmin, async (req, re
    et dit OU elle casserait. C'est le seul moyen de repondre a « est-ce que ca va marcher » autrement
    que par une opinion. AUCUNE ECRITURE : on regarde, on ne repare rien — un diagnostic qui modifie
    ce qu'il mesure ne se relit pas deux fois de la meme facon. */
+/* ── LE PARRAINAGE, SUR TOUS LES COMPTES D'UN COUP (27/08) ──────────────────────────────────────
+   « vérifie bien que chacun des utilisateurs avec whop ont bien leur lien d'affiliation ». Le
+   diagnostic voisin répond pour UNE adresse : pour savoir si TOUT LE MONDE est servi, il fallait le
+   rejouer compte par compte. Cette route balaie l'annuaire et ne rend que ce qui compte — qui a un
+   lien, qui n'en a pas, et POURQUOI.
+
+   ⚠️ ELLE APPELLE WHOP UNE FOIS PAR COMPTE. C'est un audit, pas une page qu'on rafraîchit : les
+   appels sont SÉRIALISÉS avec une petite pause, la liste est plafonnée, et rien n'est écrit. Sur
+   un free tier à 512 Mo, un balayage parallèle de tout l'annuaire est le genre de chose qui rend
+   un 502 au milieu du travail de quelqu'un d'autre.
+   ⚠️ AUCUNE ÉCRITURE : ni index d'attribution, ni compteur. Un audit qui répare en passant ne dit
+   plus ce qu'il a trouvé — il dit ce qu'il a laissé. */
+app.get('/api/admin/parrainage-audit', requireSameOrigin, requireAdmin, async (req, res) => {
+  const max = Math.min(parseInt(req.query.max || '200', 10) || 200, 500);
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+  const sortie = { genereA: new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }), comptes: [], verdict: null };
+  try {
+    const tous = (await auth.getAllUsers().catch(() => [])).filter(u => u && u.email);
+    sortie.annuaire = tous.length;
+    for (const u of tous.slice(0, max)) {
+      const em = String(u.email).toLowerCase().trim();
+      /* Le propriétaire n'a PAS d'adhésion Whop — son lien est le handle de l'espace. Même règle
+         qu'au panneau Parrainages (le rôle, pas l'adresse) : ici on lit le rôle du compte audité. */
+      const isOwner = String(u.role || '') === 'admin';
+      let aff = null, err = '';
+      try { aff = await whop.getAffiliateInfo(em); } catch (e) { err = e.message || 'appel Whop en échec'; }
+      const pseudo = aff && aff.username ? String(aff.username).toLowerCase() : null;
+      const lien = (aff && aff.pageUrl) ? aff.pageUrl
+        : pseudo ? REF_WHOP_BASE + '?a=' + encodeURIComponent(pseudo)
+        : (isOwner && REF_OWNER_AFF) ? REF_WHOP_AFF_BASE + '?a=' + encodeURIComponent(REF_OWNER_AFF) : null;
+      /* L'INDEX est ce qui fait vivre le COMPTEUR DTP. Son absence ne coûte AUCUNE commission —
+         Whop paie sur le `?a=`, sans nous — mais elle empêche « 1 mois offert tous les 3 filleuls »
+         de se déclencher. Les deux sont donc rapportés séparément : ils ne se remplacent pas. */
+      const idx = pseudo ? await auth.aiCacheGet('whopaff:' + pseudo, 8640000000000).catch(() => null) : null;
+      const rec = await auth.aiCacheGet('referral:' + u.id, KV_FOREVER).catch(() => null);
+      sortie.comptes.push({
+        email: em, role: u.role || '', proprietaire: isOwner || undefined,
+        lien: lien || null,
+        pseudo: pseudo || null,
+        etat: lien ? 'servi' : (err ? 'Whop injoignable' : (aff ? 'membre Whop SANS pseudo exploitable' : 'aucune adhésion Whop')),
+        commissionWhop: lien ? 'oui' : 'non',
+        compteurDTP: idx ? (String(idx) === String(u.id) ? 'oui' : 'INDEX POINTE AILLEURS') : (pseudo ? 'non (index absent)' : 'sans objet'),
+        filleuls: (rec && rec.count) || 0,
+        erreur: err || undefined,
+      });
+      await pause(120);                      // on ne martèle pas l'API de Whop
+    }
+    const c = sortie.comptes;
+    sortie.verdict = {
+      servis: c.filter(x => x.lien).length,
+      sansLien: c.filter(x => !x.lien).length,
+      sansAdhesion: c.filter(x => x.etat === 'aucune adhésion Whop').length,
+      membreSansPseudo: c.filter(x => x.etat.indexOf('SANS pseudo') >= 0).length,
+      whopInjoignable: c.filter(x => x.erreur).length,
+      compteurMuet: c.filter(x => x.lien && x.compteurDTP !== 'oui').length,
+      resume: !c.length ? 'annuaire vide'
+        : c.every(x => x.lien) ? 'tous les comptes ont leur lien'
+        : c.filter(x => !x.lien).length + ' compte(s) sans lien — voir « etat » de chacun',
+      note: 'Un lien absent ne fait perdre AUCUNE commission déjà due : Whop paie sur le ?a= du lien partagé. Ce qui manque, c\'est la possibilité pour CE compte d\'en partager un.',
+    };
+    if (tous.length > max) sortie.tronque = `annuaire de ${tous.length} comptes, ${max} audités (passer ?max=)`;
+  } catch (e) { sortie.erreur = e.message; }
+  res.json(sortie);
+});
 app.get('/api/admin/parrainage-diag', requireSameOrigin, requireAdmin, async (req, res) => {
   const em = String(req.query.email || '').toLowerCase().trim();
   if (!em) return res.status(400).json({ ok: false, error: 'adresse attendue' });

@@ -855,5 +855,33 @@ async function interroge(email) {
 
   console.log('');
   if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }
-  console.log('✓ TOUT PASSE — ' + ok + ' contrôle(s) OK\n');
+  /* ══ L'AUDIT DE TOUT L'ANNUAIRE (27/08) ══════════════════════════════════════════════════════
+   « vérifie bien que chacun des utilisateurs avec whop ont bien leur lien d'affiliation ». Le
+   diagnostic voisin répond pour UNE adresse ; celui-ci balaie l'annuaire. */
+console.log('\n── 17. L\'audit balaie tout l\'annuaire ──');
+const _SRVA = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+const _rte = (/app\.get\('\/api\/admin\/parrainage-audit'[\s\S]*?\n\}\);\n/.exec(_SRVA) || [''])[0];
+v('la route d\'audit existe', _rte.length > 400);
+v('… derrière requireAdmin ET requireSameOrigin', /parrainage-audit', requireSameOrigin, requireAdmin/.test(_rte));
+v('… elle parcourt tout l\'annuaire', /auth\.getAllUsers\(\)/.test(_rte));
+v('… en construisant le lien par les MÊMES trois chemins que le panneau',
+  /aff\.pageUrl/.test(_rte) && /REF_WHOP_BASE \+ '\?a='/.test(_rte) && /REF_OWNER_AFF/.test(_rte));
+/* ⚠️ LA COMMISSION ET LE COMPTEUR SONT DEUX CHOSES. Whop paie sur le `?a=` sans nous ; l'index
+   `whopaff:` ne sert qu'au compteur DTP (« 1 mois offert tous les 3 filleuls »). Les confondre
+   ferait annoncer une perte d'argent là où il n'y en a pas. */
+v('la commission et le compteur sont rapportés SÉPARÉMENT',
+  /commissionWhop:/.test(_rte) && /compteurDTP:/.test(_rte));
+v('… et un index qui pointe ailleurs est signalé', /INDEX POINTE AILLEURS/.test(_rte));
+v('… la note dit qu\'un lien absent ne perd aucune commission due', /ne fait perdre AUCUNE commission déjà due/.test(_rte));
+v('un verdict chiffré est posé en tête', /servis:/.test(_rte) && /sansLien:/.test(_rte));
+v('… il distingue les causes', /sansAdhesion:/.test(_rte) && /membreSansPseudo:/.test(_rte) && /whopInjoignable:/.test(_rte));
+/* ⚠️ UN AUDIT N'ÉCRIT RIEN. Réparer en passant, c'est ne plus pouvoir dire ce qu'on a trouvé. */
+v('l\'audit n\'écrit RIEN', !/aiCacheSet|emailLogAdd|getAllUsers\(\)[\s\S]{0,4000}?\bsave\b/.test(_rte), '');
+v('… et n\'appelle aucune IA', !/generateText|aiNote\(/.test(_rte));
+/* ⚠️ 512 Mo ET UNE API TIERCE : les appels sont sérialisés et plafonnés, jamais en parallèle. */
+v('les appels Whop sont sérialisés, pas parallélisés', /await pause\(/.test(_rte) && !/Promise\.all/.test(_rte));
+v('… et le balayage est plafonné', /Math\.min\(parseInt\(req\.query\.max/.test(_rte));
+v('… la troncature est DITE, jamais silencieuse', /sortie\.tronque = /.test(_rte));
+
+console.log('✓ TOUT PASSE — ' + ok + ' contrôle(s) OK\n');
 })();
