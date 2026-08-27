@@ -1140,22 +1140,21 @@ function handleMessage(msg) {
         if (_openNewsPanels[ex.id]) { ex._descFrEnAttente = inc._descFr; }
         else { ex._descFr = inc._descFr; _patched = true; }
       }
-      /* ⚠️ EXPLICATION DE PROPOS : MÊME MISE EN RÉSERVE QUE `_descFr`, MAIS SUR UN CRITÈRE PLUS
-         LARGE. Elle arrive elle aussi après coup (cycle de fond), et la faire apparaître sous les
-         yeux d'un lecteur en pleine lecture serait la version « par ajout » du défaut fermé le
-         24/08. On ne peut PAS se contenter de regarder `_openNewsPanels[ex.id]` : la carte d'une
-         grappe affiche l'explication de sa citation la PLUS ANCIENNE, qui est un item SECONDAIRE,
-         retiré du fil, et dont le panneau n'est donc JAMAIS ouvert. On met donc en réserve dès
+      /* ⚠️ PRÉ-TRADUCTION D'UN PROPOS : MÊME MISE EN RÉSERVE QUE `_descFr`, MAIS SUR UN CRITÈRE
+         PLUS LARGE. `_hlFr` arrive après coup (cycle de fond) et devient le texte des `<li>` au
+         re-rendu : le poser sous les yeux d'un lecteur en pleine lecture serait la version « par
+         ajout » du défaut fermé le 24/08. Et on ne peut PAS se contenter de regarder
+         `_openNewsPanels[ex.id]` : un propos listé dans le panneau d'une GRAPPE est un item
+         SECONDAIRE, retiré du fil, dont le panneau n'est JAMAIS ouvert. On met donc en réserve dès
          qu'un panneau quelconque est ouvert, et on promeut à la fermeture du dernier. Aucun
          panneau ouvert = personne ne lit = on applique tout de suite. */
-      if (typeof inc._proposCtx === 'string' && inc._proposCtx.length > 40 && !ex._proposCtx) {
-        if (Object.keys(_openNewsPanels).length) { ex._proposCtxEnAttente = inc._proposCtx; }
-        else { ex._proposCtx = inc._proposCtx; _proposPoses.add(String(ex.id)); }
+      if (typeof inc._hlFr === 'string' && inc._hlFr && !ex._hlFr) {
+        if (Object.keys(_openNewsPanels).length) { ex._hlFrEnAttente = inc._hlFr; }
+        else { ex._hlFr = inc._hlFr; _proposPoses.add(String(ex.id)); }
       }
       // Horodatages VRAIS des lectures (« Analyse à 8h12 » = l'heure de l'analyse, pas de la news).
       if (inc._anaAt && !ex._anaAt) ex._anaAt = inc._anaAt;
       if (inc._impAt && !ex._impAt) ex._impAt = inc._impAt;
-      if (inc._proposAt && !ex._proposAt) ex._proposAt = inc._proposAt;
     }
     /* ⚠️ POSE PAR NŒUD, PAS PAR `_patched`. Une explication appliquée tout de suite (aucun panneau
        ouvert) ne doit PAS attendre un `renderNews()` : celui-ci ne rebâtit que le fil classique, qui
@@ -2609,51 +2608,21 @@ function getSpeakerQuotes(speakerKey, refTs) {
 function stripSpeakerPrefix(headline) {
   return (headline || '').replace(/^[^:—-]{3,55}\s*[-:—]\s*/, '').trim() || headline;
 }
+/* LE TEXTE D'UN PROPOS DANS LE PANNEAU : le français PRÉ-TRADUIT s'il existe, sinon la source.
+   `_hlFr` est posé par le cycle de fond `_prechaufferProposFr` (server.js) sur le titre DÉJÀ ébarbé
+   de son préfixe d'orateur : le panneau s'ouvre donc en français d'emblée, sans requête et sans le
+   squelette de `_dtpTranslateQuotes` — dont le repli de 2,5 s figeait l'anglais avant que la
+   traduction ne revienne, si bien que ces lignes n'étaient JAMAIS traduites au premier dépli.
+   ⚠️ ON NE RÉ-ÉBARBE PAS `_hlFr`. `stripSpeakerPrefix` coupe au premier « : » ou « - », ce qu'une
+   phrase française contient couramment (« l'inflation reste élevée, mais - selon lui - … ») : la
+   ré-appliquer mangerait le début de la traduction. Le serveur a déjà coupé, sur l'anglais.
+   Champ absent → on retombe EXACTEMENT sur l'affichage d'avant : la source, que
+   `_dtpTranslateQuotes` tentera de traduire en place. Rien n'est retiré. */
+function _txtPropos(q) {
+  const fr = (q && typeof q._hlFr === 'string') ? q._hlFr.trim() : '';
+  return fr || stripSpeakerPrefix(q && q.headline);
+}
 
-/* ══ EXPLICATION D'UNE NEWS DE PROPOS (24/08, demande user : « on comprend pas trop la news, il n'y
-   a pas d'explication claire ») ══════════════════════════════════════════════════════════════════
-   Le serveur pose `_proposCtx` sur les citations, EN TÂCHE DE FOND (server.js, _enrichProposCtx) :
-   une à deux phrases neutres qui disent de quoi il est question et par quel canal le sujet touche
-   les marchés. Ici on ne fait que LE LIRE : aucune requête n'est déclenchée à l'ouverture, donc le
-   panneau se peint en une fois et rien ne se dérobe (règle du 24/08).
-   POURQUOI ON CHERCHE DANS TOUTE LA GRAPPE, ET LA PLUS ANCIENNE D'ABORD. Le serveur n'enrichit
-   qu'UNE citation par prise de parole, celle qui l'ouvre, pour deux raisons : la dépense reste
-   bornée quand une conférence de presse débite quinze titres, et surtout l'ancrage est STABLE. La
-   carte porteuse d'une grappe, elle, change dès qu'un propos plus récent arrive (le regroupement
-   client garde le premier item rencontré dans un fil trié du plus récent au plus ancien) : lire
-   `item._proposCtx` seul ferait donc apparaître puis disparaître l'explication au fil des arrivées.
-   La citation la plus ANCIENNE, elle, reste la plus ancienne. */
-function _ctxProposDe(item, voisines) {
-  if (!item) return '';
-  const lot = [item, ...(Array.isArray(voisines) ? voisines : [])]
-    .filter(Boolean)
-    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-  for (const q of lot) {
-    const t = (q && typeof q._proposCtx === 'string') ? q._proposCtx.trim() : '';
-    if (t.length > 40) return t;
-  }
-  return '';
-}
-/* Le bloc s'AJOUTE sous la citation, il ne la remplace ni ne la réécrit (règle du propriétaire :
-   « sans déformer les informations »). Grammaire maison : `.iq-note`, la note de cadrage déjà
-   utilisée par les news « propos hors marché ». Aucun cadre nouveau (« y a trop d'encadré ») ; le
-   modificateur `--apres` ne fait que retourner la marge, la note d'origine se posant AU-DESSUS de
-   son texte alors que celle-ci vient EN DESSOUS. Le libellé « Contexte DTP » dit au lecteur que
-   c'est le desk qui parle, et non la personne citée.
-   `apres` = quelque chose est affiché AU-DESSUS (la liste des propos) : la marge se retourne pour
-   coller la note à ce qu'elle éclaire. Quand la note est le contenu ENTIER du panneau (citation
-   isolée, dont le texte est déjà le titre de la carte), elle garde la marge d'origine, sinon elle
-   flotterait à 8 px du haut d'un panneau par ailleurs vide.
-   ⚠️ LE LIBELLÉ EST ISOLÉ DANS SON PROPRE ÉLÉMENT, et ce n'est pas de la décoration. Le moteur i18n
-   (i18n.js) traduit un nœud de texte par ÉGALITÉ EXACTE de la chaîne : concaténé au texte IA
-   variable, « Contexte DTP : » n'aurait JAMAIS pu recevoir de traduction, alors que la règle du
-   dépôt impose d'ajouter au dictionnaire les nouveaux textes statiques. Isolé, il devient une unité
-   traduisible, et l'entrée existe désormais dans i18n-dicts.js (en/de/es). */
-function _ctxProposHtml(txt, apres) {
-  if (!txt) return '';
-  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return '<div class="iq-note' + (apres ? ' iq-note--apres' : '') + '"><span class="iq-note-lbl">Contexte DTP :</span> ' + esc(txt) + '</div>';
-}
 /* ══ APPLIQUER UNE EXPLICATION SANS RE-RENDRE TOUT LE FIL ═════════════════════════════════════════
    ⚠️ PIÈGE DE RENDU, MESURÉ, ET LA PREMIÈRE VERSION EST TOMBÉE DEDANS : le fil est rendu EN DEUX
    EXEMPLAIRES. Le panneau classique `#news-list` mesure 0x0 en mode widget, qui est le mode par
@@ -2681,24 +2650,26 @@ function _rafraichirCartesPropos(ids) {
       || (Array.isArray(it._groupedQuotes) && it._groupedQuotes.some(q => q && ids.has(String(q.id))));
     if (!concerne) continue;
     /* L'item d'une carte de grappe est un INSTANTANÉ pris au rendu : le champ posé depuis, sur
-       l'item maître, n'y figure pas. Les citations groupées, elles, sont des RÉFÉRENCES vivantes
-       (c'est le cas normal, la note se pose sur la plus ancienne). On ne resynchronise donc que le
-       cas résiduel, celui où c'est la carte elle-même qui vient d'être enrichie. */
-    if (sien && !it._proposCtx) {
+       l'item maître, n'y figure pas. Les citations groupées, elles, sont des RÉFÉRENCES vivantes.
+       On ne resynchronise donc que le cas résiduel, celui où c'est la carte elle-même qui vient
+       d'être enrichie. */
+    if (sien && !it._hlFr) {
       try {
         const m = (window.getNewsMaster() || []).find(x => x && String(x.id) === String(it.id));
-        if (m && m._proposCtx) { it._proposCtx = m._proposCtx; it._proposAt = m._proposAt; }
+        if (m && m._hlFr) { it._hlFr = m._hlFr; }
       } catch (e) {}
     }
     try { n.replaceWith(window.buildNewsItem(it)); } catch (e) {}
   }
 }
-/* Promotion des explications MISES EN RÉSERVE pendant une lecture (voir le patch WebSocket).
-   Appelée quand le DERNIER panneau se referme : plus personne ne lit, on peut poser les notes. */
+/* Promotion des PRÉ-TRADUCTIONS mises en réserve pendant une lecture (voir le patch WebSocket).
+   Appelée quand le DERNIER panneau se referme : plus personne ne lit, on peut poser le français.
+   Sans elle, `_hlFrEnAttente` resterait coincé exactement comme `_descFrEnAttente` l'avait été, et
+   la traduction ne s'appliquerait qu'au prochain rechargement de la page. */
 function _promouvoirProposEnAttente() {
   const ids = new Set();
   for (const it of allItems) {
-    if (it && it._proposCtxEnAttente) { it._proposCtx = it._proposCtxEnAttente; delete it._proposCtxEnAttente; ids.add(String(it.id)); }
+    if (it && it._hlFrEnAttente) { it._hlFr = it._hlFrEnAttente; delete it._hlFrEnAttente; ids.add(String(it.id)); }
   }
   if (ids.size) _rafraichirCartesPropos(ids);
 }
@@ -3464,15 +3435,9 @@ function buildNewsItem(item) {
   const autoSummary = _estDonneeFortImpact(item) ? _dataReleaseBullets(item) : [];
   // News « propos/citation » hors marché : titre reframé + tag « Contexte » + citation gardée au déplié.
   const isInfoQuote = !!(item && item._infoQuote);
-  /* Explication de la prise de parole, préchauffée côté serveur. Cherchée dans TOUTE la grappe (ou
-     dans les citations rattachées à une ouverture), la plus ancienne d'abord : voir _ctxProposDe. */
-  const _proposCtx = _ctxProposDe(item, hasGrouped ? item._groupedQuotes : (isSpeaker ? speakerQuotesAtRender : null));
-  const _proposCtxHtml = _ctxProposHtml(_proposCtx, true);      // posée SOUS la liste des propos
-  const _proposCtxSeulHtml = _ctxProposHtml(_proposCtx, false); // seule dans le panneau (citation isolée)
   // Info tag shown ONLY when we already have real content to display
   const hasInfo   = rawDesc.length > 30
     || hasGrouped
-    || !!_proposCtx                                   // citation ISOLÉE (sans « +N propos ») : l'explication est à elle seule un contenu
     || autoSummary.length > 0
     || isInfoQuote                                    // la citation brute est toujours consultable au déplié
     || (isSpeaker && (rawDesc.length > 10 || speakerQuotesAtRender.length > 0));
@@ -3775,10 +3740,10 @@ function buildNewsItem(item) {
       if (hasGrouped) {
         const allGrouped = [item, ...item._groupedQuotes].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         const quotesHtml = allGrouped.map(q => {
-          const text = stripSpeakerPrefix(q.headline);
+          const text = _txtPropos(q);
           return `<li>${text}</li>`;
         }).join('');
-        return `<ul class="article-points">${quotesHtml}</ul>${_proposCtxHtml}`;
+        return `<ul class="article-points">${quotesHtml}</ul>`;
       }
 
       // ── SPEAKER OPENER: live quote aggregation ──
@@ -3795,12 +3760,12 @@ function buildNewsItem(item) {
 
         // Quotes as bullets
         const quotesHtml = quotes.map(q => {
-          const text = stripSpeakerPrefix(q.headline);
+          const text = _txtPropos(q);
           return `<li>${text}</li>`;
         }).join('');
         const quotesListHtml = quotes.length ? `<ul class="article-points">${quotesHtml}</ul>` : '';
 
-        return `${descHtml}${quotesListHtml}${_proposCtxHtml}`;
+        return `${descHtml}${quotesListHtml}`;
       }
 
       // ── Standard info → résumé COURT et propre (sans gras), 2-4 puces selon la longueur ──
@@ -3808,12 +3773,11 @@ function buildNewsItem(item) {
       let bullets = _toBullets(rawDesc, _max);
       // Fallback : donnée macro High Impact sans corps → résumé contextuel auto
       if (bullets.length === 0 && autoSummary.length > 0) bullets = autoSummary;
-      /* Citation ISOLÉE (pas de « +N propos ») : une dépêche de propos est un TITRE NU, donc il n'y
-         a aucune puce à produire et l'onglet Info n'existait tout simplement pas. L'explication est
-         alors le contenu ENTIER du panneau. Le titre, lui, reste affiché en clair sur la carte
-         juste au-dessus : la citation n'est ni masquée ni réécrite. */
-      if (bullets.length === 0) return _proposCtxSeulHtml;
-      return _renderInfoBullets(bullets) + _proposCtxHtml;
+      /* Citation ISOLÉE (pas de « +N propos ») : une dépêche de propos est un TITRE NU, il n'y a
+         donc aucune puce à produire et l'onglet Info n'a rien à montrer. Le titre, lui, reste
+         affiché en clair sur la carte juste au-dessus. */
+      if (bullets.length === 0) return '';
+      return _renderInfoBullets(bullets);
     })();
 
     // ── QUEL TEXTE EST LE MOT DE LA FIN POUR LA RUBRIQUE « INFO » ? ──────────────────────────
@@ -3842,18 +3806,12 @@ function buildNewsItem(item) {
        Elle serait de toute façon INOPÉRANTE : une citation FinancialJuice est un titre nu, sans
        corps de dépêche, et la route refuse tout `description` de moins de 30 caractères (elle
        renverrait un tableau vide, plus une requête gaspillée par carte).
-       L'explication de ces news passe donc par un chemin DÉDIÉ : le champ `_proposCtx`, préchauffé
-       en tâche de fond côté serveur et rendu plus haut SOUS la citation, à l'intérieur du même
-       innerHTML. Rien n'est demandé au clic, donc rien ne se dérobe.
-       ⚠️ ET LE RÉSUMÉ IA N'EST PAS SACRIFIÉ POUR AUTANT. Une première version excluait du résumé
-       tout item porteur de `_proposCtx`, de peur que `_renderInfoBullets` n'écrase le bloc
-       « Contexte DTP ». Mesuré sur « Lagarde: Wage growth is moderating faster than expected » : le
-       lecteur PERDAIT le résumé rédigé et retombait sur la dépêche brute. La bonne réponse n'était
-       pas d'exclure mais de CONCATÉNER : le résumé garde sa place, l'explication reste dessous. */
+       Ces news se lisent donc telles quelles, dans leur langue d'origine traduite EN PLACE
+       (`_hlFr`, préchauffé côté serveur) : rien n'est demandé au clic, donc rien ne se dérobe. */
     const _improvable = !isPrimer && !hasGrouped && !isSpeaker && !_dtpRedige
                      && rawDesc.length >= 30 && !_infoDepeche.has(item.id);
     const _resumeCache = (_improvable && _infoCache.has(item.id)) ? (_infoCache.get(item.id) || []) : null;
-    const _infoFinal = (_resumeCache && _resumeCache.length) ? (_renderInfoBullets(_resumeCache) + _proposCtxHtml) : infoBody;
+    const _infoFinal = (_resumeCache && _resumeCache.length) ? _renderInfoBullets(_resumeCache) : infoBody;
 
     if (tab === 'reaction') {
       const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -4383,10 +4341,7 @@ function buildNewsItem(item) {
            panne), qui doit pouvoir réessayer plutôt que de figer un vide pour la session. */
         if (b.length && !_infoDepeche.has(item.id)) _infoCache.set(item.id, b);
         clearTimeout(_minuteurInfo);
-        // `+ _proposCtxHtml` : le résumé IA remplace le CORPS du panneau, il ne doit pas emporter
-        // avec lui l'explication de propos préchauffée (elle est déjà dans `infoBody` et dans le
-        // squelette, la faire disparaître à l'arrivée du résumé serait un retrait sous les yeux).
-        _poserInfo(b.length ? (_renderInfoBullets(b) + _proposCtxHtml) : _repliInfo, b.length ? 'resume' : 'depeche');
+        _poserInfo(b.length ? _renderInfoBullets(b) : _repliInfo, b.length ? 'resume' : 'depeche');
       })
       .catch(() => { clearTimeout(_minuteurInfo); _poserInfo(_repliInfo, 'depeche'); });
   }
