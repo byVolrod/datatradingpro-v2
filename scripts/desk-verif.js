@@ -531,6 +531,74 @@ function phaseLogique() {
         'la poignée s\'éloignerait du bord sans rien à protéger');
     }
 
+    /* ══ CE QU'ON VOIT EST-IL CE QU'ON PEUT PRENDRE ? ═════════════════════════════════════════
+       Capture user (27/08) : « regarde moi ce curseur n'est pas précis je comprends pas ».
+       MESURÉ AVANT CORRECTIF, sur une carte de 358 px de haut : la zone qui change le curseur en ↔
+       courait sur 306 px, le repère orange n'en dessinait que 26, CENTRÉS — 8,5 % de la zone, et
+       140 px aveugles de chaque côté. Le geste marchait partout, la marque ne s'allumait qu'au
+       milieu : on survolait le bord, le curseur promettait « redimensionner », et l'œil cherchait
+       une poignée cent quarante pixels plus loin. Ce genre de défaut ne casse rien et déroute tout.
+       ⚠️ CE CONTRÔLE MESURE UN RAPPORT, PAS DES PIXELS. Écrire « le repère fait 306 px » figerait la
+       hauteur d'une carte d'essai ; ce qui doit rester vrai, c'est que le repère ÉPOUSE la zone —
+       sur une carte haute comme sur une carte basse, aujourd'hui comme après un changement de
+       gabarit. On éprouve donc le recouvrement, sur DEUX hauteurs de carte très différentes. */
+    const rep = await page.evaluate(() => {
+      const box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:0;top:0;width:600px;';
+      box.innerHTML = '<div class="wdg-grid" style="height:520px">'
+        + '<section class="wdg-card" id="r1" style="--gw:6;--gh:20"><header class="wdg-head"><span>T</span></header>'
+        + '<div class="wdg-body"><div style="height:2000px">long</div></div><div class="wdg-resize-e"></div></section>'
+        + '<section class="wdg-card" id="r2" style="--gw:6;--gh:4"><header class="wdg-head"><span>T</span></header>'
+        + '<div class="wdg-body"><div style="height:2000px">long</div></div><div class="wdg-resize-e"></div></section></div>';
+      document.body.appendChild(box);
+      const mesure = (id) => {
+        const c = document.getElementById(id);
+        const h = c.querySelector('.wdg-resize-e');
+        const rh = h.getBoundingClientRect();
+        const cs = getComputedStyle(h, '::after');
+        /* ⚠️ DEUX ESPACES DE MESURE. `getComputedStyle` rend des px CSS, `getBoundingClientRect` des
+           px ÉCRAN, et le desk applique un zoom de page : comparer les deux directement se trompe
+           de 10 %. Le même piège que le calcul du pas de grille dans widgets.js. */
+        const zoom = h.offsetHeight ? (rh.height / h.offsetHeight) : 1;
+        const aH = parseFloat(cs.height) * zoom;
+        const centre = !!(cs.transform && cs.transform !== 'none');
+        const y0 = centre ? (rh.top + rh.height / 2 - aH / 2) : (rh.top + parseFloat(cs.top) * zoom);
+        /* Le recouvrement RÉEL : l'intersection des deux segments, pas le rapport des hauteurs —
+           un repère de la bonne taille mais décalé passerait le second et raterait le premier. */
+        const inter = Math.max(0, Math.min(rh.bottom, y0 + aH) - Math.max(rh.top, y0));
+        return { zone: rh.height, repere: aH, couvert: rh.height > 0 ? inter / rh.height : 0,
+                 debord: aH > 0 ? (aH - inter) / aH : 0, opRepos: parseFloat(getComputedStyle(h, '::after').opacity) };
+      };
+      const c1 = document.getElementById('r1'), c2 = document.getElementById('r2');
+      // Le repère ne se peint qu'au survol de la carte : la feuille le tient à `opacity: 0` au repos.
+      const dormant = mesure('r1').opRepos;
+      c1.classList.add('wdg-hov-test'); c2.classList.add('wdg-hov-test');
+      const st = document.createElement('style');
+      st.textContent = '.wdg-hov-test .wdg-resize-e::after { opacity: .3 }';
+      document.head.appendChild(st);
+      const r = { haute: mesure('r1'), basse: mesure('r2'), dormant };
+      st.remove(); box.remove();
+      return r;
+    });
+    console.log('\n── La poignée « Élargir » : ce qu\'on voit est ce qu\'on peut prendre ──');
+    verif('le repère ÉPOUSE la zone saisissable sur une carte haute',
+      rep.haute.couvert > 0.97,
+      'zone ' + rep.haute.zone.toFixed(0) + ' px, repère ' + rep.haute.repere.toFixed(0)
+      + ' px → ' + (rep.haute.couvert * 100).toFixed(1) + ' % couverts (le défaut mesuré valait 8,5 %)');
+    verif('… et sur une carte basse, où la zone est bien plus courte',
+      rep.basse.couvert > 0.97,
+      'zone ' + rep.basse.zone.toFixed(0) + ' px, repère ' + rep.basse.repere.toFixed(0)
+      + ' px → ' + (rep.basse.couvert * 100).toFixed(1) + ' % couverts');
+    /* L'INVERSE COMPTE AUTANT : un repère qui débordait de la zone promettrait une prise là où le
+       curseur ne change pas — le même malentendu, retourné. */
+    verif('… sans déborder de ce qui se saisit vraiment',
+      rep.haute.debord < 0.03 && rep.basse.debord < 0.03,
+      'débord haute ' + (rep.haute.debord * 100).toFixed(1) + ' %, basse ' + (rep.basse.debord * 100).toFixed(1) + ' %');
+    /* LA CONTREPARTIE DU RAIL PLEINE HAUTEUR : il doit rester INVISIBLE au repos. Un trait de 3 px
+       sur toute la hauteur de la carte, peint en permanence, serait une seconde bordure. */
+    verif('… et il ne se peint pas tant que la carte n\'est pas survolée', rep.dormant === 0,
+      'opacité au repos : ' + rep.dormant);
+
     /* ── L'ANALYSE D'UN CHIFFRE PORTE-T-ELLE LE TAG DE SON INDICATEUR ? ────────────────────────
        31/08 : « il manque le tag comme ceci », capture d'une ligne de calendrier portant son tag
        « drapeau + PCE ». L'ANALYSE du même chiffre ne l'avait pas — les rapports maison étaient

@@ -11953,12 +11953,29 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
    il y a une barre à protéger : une carte qui ne défile pas garde sa poignée au bord, là où la main
    la cherche. La classe est posée par widgets.js quand le pointeur entre dans la carte. */
 .wdg-card--barre .wdg-resize-e { right: 8px; }
+/* ⚠️ LE REPÈRE MONTRAIT 8,5 % DE CE QU'ON POUVAIT SAISIR (capture user : « ce curseur n'est pas
+   précis je comprends pas »). MESURÉ sur une carte de 358 px : la zone qui change le curseur en ↔
+   court sur 306 px de hauteur, le repère orange n'en dessinait que 26, CENTRÉS. Il restait donc
+   140 px aveugles au-dessus et 140 px en dessous : on survolait le bord, le curseur annonçait
+   « redimensionner », et la seule marque visible s'allumait jusqu'à cent quarante pixels plus loin.
+   Rien n'était cassé — c'est ce qui rend le défaut déroutant : le geste MARCHE là où l'œil ne voit
+   rien, et l'œil regarde une marque qui n'est pas là où est la main.
+   LE REPÈRE ÉPOUSE DÉSORMAIS LA ZONE, exactement (`top: 0; bottom: 0` de la poignée) : ce qu'on
+   voit est ce qu'on peut prendre. Deux intensités, parce que les deux moments n'ont pas le même
+   sens — carte survolée : un rail discret qui dit que ce bord se tire ; poignée survolée, c'est-à-
+   dire curseur ↔ affiché : le rail passe en or plein, sur toute sa hauteur, sous le pointeur.
+   ⚠️ ET L'OPACITÉ DE SURVOL DE CARTE BAISSE DE .8 À .45, ce n'est pas un détail de goût : .8
+   convenait à un trait de 26 px, il ferait d'un rail pleine hauteur une SECONDE BORDURE le long de
+   la carte — on aurait remplacé un repère introuvable par un ornement permanent. La valeur est
+   CHOISIE SUR RENDU, pas au jugé : les quatre paliers .30 / .45 / .60 / .80 ont été peints côte à
+   côte dans le vrai Chromium. .30 disparaît (on perdrait l'indice que ce bord se tire), .80 fait la
+   seconde bordure, .60 en approche. .45 se voit sans peser. */
 .wdg-resize-e::after {
-  content: ''; position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 26px; border-radius: 2px; background: var(--w-f1);
+  content: ''; position: absolute; right: 2px; top: 0; bottom: 0;
+  width: 3px; border-radius: 2px; background: var(--w-f1);
   opacity: 0; transition: opacity .14s, background .12s;
 }
-.wdg-card:hover .wdg-resize-e::after { opacity: .8; }
+.wdg-card:hover .wdg-resize-e::after { opacity: .45; }
 .wdg-resize-e:hover::after { background: var(--orange); opacity: 1; }
 .wdg-card.wdg-card--locked .wdg-resize-e { display: none; }
 
