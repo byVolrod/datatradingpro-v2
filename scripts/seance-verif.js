@@ -1337,5 +1337,78 @@ v('… et pose un verdict en tête', /sortie\.verdict = \{/.test(_srv));
 v('… qui compte les graves', /graves: tous\.filter\(c => c\.gravite === 'grave'\)\.length/.test(_srv));
 v('… séance par séance', /parSeance:/.test(_srv));
 
+/* ══════════════════ [12] LES DEUX RÉGRESSIONS DE LA v27 ══════════════════
+   Ouvrir la fenêtre aux rendez-vous SANS CHIFFRE (v27, [9]) a cassé deux choses en aval, mesurées
+   le jour même. Aucune n'était visible en relecture : les deux sortent d'une exécution.
+   ⚠️ Le banc de [9] ne pouvait pas les voir — il vérifiait que le rendez-vous ENTRE, jamais ce
+   qu'il DEVIENT une fois entré, ni ce que la phrase de tête en DIT. */
+console.log('\n── 12. Ce qu\'un rendez-vous sans chiffre devient ──');
+
+/* [12.a] LE PROPOS D'UN DISCOURS SURVIT. Dans une puce sur un discours, TOUT le contenu est en
+   AMONT de la flèche : ne garder que l'aval revient à rendre une grille de programme. */
+const _DISC = { timestamp: _H(3.5), currency: 'JPY', title: 'BoJ Himino Speech', impact: 'Medium', actual: '', forecast: '', previous: '' };
+const _pDisc = '**BoJ (Himino)** : la sortie de la politique accommodante sera graduelle, pas de hausse avant décembre → **JPY** ferme';
+const _lDisc = W.completerMacro([_pDisc], [_DISC]).entrees.map(e => e.ligne).join(' || ');
+v('le propos du discours survit à la complétion', /sortie de la politique accommodante sera graduelle/.test(_lDisc), _lDisc);
+v('… et l\'échéance qu\'il donne aussi', /pas de hausse avant décembre/.test(_lDisc), _lDisc);
+v('… sous l\'intitulé EXACT du calendrier', /\*\*BoJ Himino Speech\*\*/.test(_lDisc), _lDisc);
+v('… et à son heure', /03h00/.test(_lDisc), _lDisc);
+v('… sans répéter l\'intitulé du modèle', !/\*\*BoJ \(Himino\)\*\*/.test(_lDisc), _lDisc);
+v('… et la conséquence reste au bout', /→ \*\*JPY\*\* ferme/.test(_lDisc), _lDisc);
+
+/* CE QUI NE DOIT PAS CHANGER : sur un CHIFFRE, le calendrier redit les faits mieux que le modèle,
+   et l'amont de la puce (sa reformulation des nombres) doit toujours disparaître. */
+const _lChif = W.completerMacro(
+  ['Dépenses des ménages australiens : **+1,1%** m/m (vs +0,4% att.) → soutient une hausse de la **RBA**'],
+  [{ timestamp: _H(3.5), currency: 'AUD', title: 'Household Spending m/m', impact: 'Medium', actual: '1.1%', forecast: '0.4%', previous: '0.4%' }]
+).entrees.map(e => e.ligne).join(' || ');
+v('sur un CHIFFRE, la paraphrase du modèle disparaît toujours', !/Dépenses des ménages/.test(_lChif), _lChif);
+v('… les chiffres restent ceux du calendrier', /1,1% contre 0,4% attendu/.test(_lChif), _lChif);
+v('… et seule la lecture du modèle est greffée', /→ soutient une hausse de la \*\*RBA\*\*/.test(_lChif), _lChif);
+
+/* [12.b] LA PHRASE DE TÊTE NE MENT PLUS. « 3 publications, toutes conformes aux attentes » un jour
+   où AUCUN chiffre n'a été publié : un congrès n'est conforme à aucune attente, il n'en a pas. */
+const _RDV = [
+  { timestamp: _H(2),   currency: 'CNY', title: "National People's Congress", impact: 'Medium', actual: '', forecast: '', previous: '' },
+  { timestamp: _H(3),   currency: 'JPY', title: 'BoJ Himino Speech',          impact: 'Medium', actual: '', forecast: '', previous: '' },
+  { timestamp: _H(3.5), currency: 'AUD', title: 'RBA Bulletin',               impact: 'Medium', actual: '', forecast: '', previous: '' },
+];
+const _CHIF = { timestamp: _H(1), currency: 'JPY', title: 'Tokyo Core CPI y/y', impact: 'High', actual: '2.4%', forecast: '2.3%', previous: '2.2%' };
+const _s0 = S.synthese('Asie', [], _RDV);
+v('trois rendez-vous sans chiffre ne sont pas « trois publications »', !/3 publications/.test(_s0), _s0);
+v('… et ne sont surtout pas « conformes aux attentes »', !/conformes aux attentes/.test(_s0), _s0);
+v('… ils sont comptés pour ce qu\'ils sont', /3 rendez-vous sans chiffre/.test(_s0), _s0);
+v('… et l\'absence de chiffre est dite', /aucune publication chiffrée/.test(_s0), _s0);
+const _s1 = S.synthese('Asie', [], _RDV.concat([_CHIF]));
+v('mêlés à un vrai chiffre, les deux comptes restent séparés', /1 publication sur la séance/.test(_s1) && /3 rendez-vous sans chiffre/.test(_s1), _s1);
+v('… et la conformité ne juge QUE le chiffre', /dont 1 hors consensus/.test(_s1), _s1);
+const _s2 = S.synthese('Asie', [], [_CHIF]);
+v('un chiffre seul se dit toujours comme avant', /1 publication sur la séance, dont 1 hors consensus/.test(_s2), _s2);
+v('… et sans rendez-vous, rien n\'est ajouté', !/rendez-vous/.test(_s2), _s2);
+v('une séance vide reste une séance vide', /sans publication majeure/.test(S.synthese('Asie', [], [])), S.synthese('Asie', [], []));
+
+/* [12.c] LE PROMPT NE PORTE PLUS DE RAPPORT TOUT FAIT. Le 6824f15 n'avait assaini que le squelette
+   JSON ; le CORPS des consignes gardait une ligne CPI américaine complète, chiffres compris, et un
+   paragraphe narratif entier sur l'Iran — de quoi recopier un rapport sans aucune matière. */
+v('aucune ligne de données chiffrée en exemple', !/\*\*CPI\*\* US \+0,4%/.test(_PROMPT_SEG));
+v('aucun paragraphe narratif recopiable', !/cessez-le-feu entre les \*\*États-Unis\*\*/.test(_PROMPT_SEG));
+v('aucun nom de dossier concret en exemple', !/ex\. « IRAN CONFLICT »/.test(_PROMPT_SEG));
+v('… mais la FORME de la flèche est toujours enseignée', /<indicateur>.*<réel>.*<attendu> att\./.test(_PROMPT_SEG));
+v('… et le ton attendu de la synthèse toujours décrit', /prose de desk/.test(_PROMPT_SEG));
+/* LA RÈGLE DES DÉCIMALES GARDE SON « 0,4% » : il y illustre une PONCTUATION, pas un fait. */
+v('la règle des décimales garde son exemple de ponctuation', /virgule décimale \(« 0,4% », jamais « 0\.4% »\)/.test(_PROMPT_SEG));
+
+/* [12.d] LA FABRICATION NE SE BLANCHIT PLUS AU BUMP. La route qui sert le lecteur ÉCRIT la sortie
+   du modèle dans `cached.content`. En repartant de `content` au tour suivant, elle redonnait au
+   modèle SA PROPRE SORTIE comme article source : une fabrication revenait comme matière et se
+   certifiait à chaque bump. Les deux autres chemins prenaient déjà `_raw || content` ; celui-ci,
+   le seul que le lecteur déclenche, était resté sur `content`. */
+v('la route lecteur repart de l\'article d\'origine', /const _src = cached\?\._raw \|\| cached\?\.content;/.test(_srv));
+v('… et plus jamais de content seul', !/rawHtml = _cleanWrapHtml\(cached\.content\);/.test(_srv));
+v('… les trois chemins prennent la même source', (_srv.match(/_raw \|\| (?:item|cached\?|_w)\.content/g) || []).length >= 2, (_srv.match(/_raw \|\| [a-zA-Z_?.]+content/g) || []).join(' · '));
+v('… et `_raw` reste écrit une seule fois', /if \(!cached\._raw\) cached\._raw = cached\.content; cached\.content = seg;/.test(_srv));
+
+v('la version de segmentation est repassée au bump', _swSegVer() >= 28, 'SW_SEG_VER = v' + _swSegVer());
+
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

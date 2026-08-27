@@ -112,7 +112,29 @@ function sansSource(t) {
    irréprochable et on lui recollerait « → pricing de la réunion RBA » sur un chiffre américain :
    la faute du 27/08, réintroduite par sa propre correction. Si la greffe ne tient pas, on garde les
    faits, seuls — mieux vaut une ligne sans lecture qu'une lecture fausse. */
+/* ⚠️ ET L'ARBITRAGE NE VAUT QUE SUR LES CHIFFRES (27/08, régression MESURÉE le jour même). Le
+   raisonnement ci-dessus est juste pour une PUBLICATION : le calendrier redit mieux les nombres que
+   le modèle. Il est DESTRUCTEUR pour un DISCOURS, un BULLETIN ou un CONGRÈS — c'est-à-dire pour
+   exactement ce que le correctif de la veille venait de faire entrer dans la fenêtre. Dans une puce
+   sur un discours, TOUT le contenu est EN AMONT de la flèche :
+
+       entrée  « **BoJ (Himino)** : la sortie de la politique accommodante sera graduelle,
+                 pas de hausse avant décembre → **JPY** ferme »
+       sortie  « 03h00 **JPY** · **BoJ Himino Speech** → **JPY** ferme »
+
+   Tout ce que Himino a DIT était effacé, et il ne restait qu'une grille de programme : le récap
+   portait ses rendez-vous et avait perdu ce qu'il en disait. La règle se dit donc en une phrase :
+   LE CALENDRIER POSSÈDE TOUJOURS L'IDENTITÉ — nom exact, heure exacte —, il ne possède les FAITS
+   que lorsqu'il en a. Quand il n'a pas de chiffre, les faits sont dans le corps de la puce, et
+   c'est le corps qu'on greffe, pas seulement l'aval de la flèche. */
 const _APRES_FLECHE = (t) => { const i = String(t || '').indexOf('→'); return i < 0 ? '' : String(t).slice(i + 1).trim(); };
+/* Le corps de la puce : son intitulé en gras retiré, et le séparateur qui le suivait avec lui. On
+   ne retire QUE le gras de tête — « **BoJ (Himino)** : la sortie… » donne « la sortie… », tandis
+   qu'une puce sans gras de tête est rendue telle quelle. */
+const _APRES_TITRE = (t) => String(t || '').replace(/^\s*\*\*[^*]{1,60}\*\*\s*[:·—–-]?\s*/, '').trim();
+/* Le calendrier a-t-il de quoi parler, ou seulement de quoi nommer ? `ligneMacroMd` ne rend des
+   colonnes de valeurs que s'il y a un chiffre ; on interroge donc l'événement, pas la ligne. */
+const _PORTE_UN_CHIFFRE = (e) => !!String((e && e.actual) || '').trim() || !!String((e && e.previous) || '').trim();
 function completerMacro(items, macroCal) {
   const brutes = (items || []).map(i => sansSource(i));
   const entrees = brutes.map(i => ({ titre: i, ligne: i }));
@@ -124,8 +146,11 @@ function completerMacro(items, macroCal) {
     // Le modèle en a-t-il déjà parlé ? Alors c'est SA ligne qu'on remplace, à SA place.
     const k = brutes.findIndex(t => _SEA.dejaDit(e, [t]));
     if (k >= 0) {
-      const suite = _APRES_FLECHE(brutes[k]);
-      const compose = suite ? ligne + ' → ' + suite : ligne;
+      /* CHIFFRÉ : le calendrier redit les faits mieux que le modèle, on ne garde que la lecture.
+         NON CHIFFRÉ : le calendrier n'a que le nom et l'heure, la matière est dans le corps. */
+      const chiffre = _PORTE_UN_CHIFFRE(e);
+      const suite = chiffre ? _APRES_FLECHE(brutes[k]) : _APRES_TITRE(brutes[k]);
+      const compose = !suite ? ligne : ligne + (chiffre ? ' → ' : ' : ') + suite;
       entrees[k] = { titre, ligne: pricingIncoherent(compose) ? ligne : compose, _cal: true };
       reformules++;
       continue;

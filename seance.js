@@ -597,17 +597,37 @@ function ligneMacroMd(ev, heure) {
 }
 
 /* SYNTHÈSE DE SÉANCE : une phrase de tête, déduite des chiffres. Elle ne qualifie que ce qui est
-   mesuré — combien de publications, combien ont surpris, et le mouvement le plus marqué. */
+   mesuré — combien de publications, combien ont surpris, et le mouvement le plus marqué.
+
+   ⚠️ UNE PUBLICATION N'EST PAS UN RENDEZ-VOUS (27/08, régression MESURÉE le jour même). En ouvrant
+   la fenêtre aux rendez-vous SANS CHIFFRE — discours, bulletins, congrès —, le correctif de la
+   veille a fait compter ceux-ci comme des publications. Mesuré sur la séance Asie du 27/08, où
+   AUCUN chiffre n'a été publié :
+
+       « Séance Asie : 3 publications sur la séance, toutes conformes aux attentes. »
+
+   Un congrès n'est conforme à aucune attente : il n'en a pas. `ecart()` rendant `null` faute
+   d'`actual`, aucun n'entrait dans les surprises, et le « toutes conformes » tombait tout seul —
+   une phrase fausse, produite par la branche par défaut. On sépare donc les deux dénombrements :
+   ce qui a publié un CHIFFRE d'un côté, ce qui a simplement EU LIEU de l'autre, et le jugement de
+   conformité ne porte QUE sur le premier.
+   ⚠️ Cette phrase alimente aussi les récaps DÉTERMINISTES (_poserBlocDesk), qui ne sont pas cachés
+   sous SW_SEG_VER : elle était servie immédiatement, sans qu'aucun bump ne puisse la rattraper. */
 function synthese(nomSeance, perfs, macros) {
   // Le « plus fort mouvement » se cherche parmi les marchés comparables entre eux : un taux, mesuré
   // en points de base, n'entre pas dans ce classement (voir lignePerf).
   const util = (perfs || []).filter(p => p && Number.isFinite(p.pct) && !_estTaux(p));
   const fort = util.slice().sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))[0];
-  const surprises = (macros || []).map(m => ecart(m)).filter(e => e && !e.sansConsensus && e.sens !== 'conforme');
+  const tous = macros || [];
+  const chiffrees = tous.filter(m => String((m && m.actual) || '').trim());
+  const rdv = tous.length - chiffrees.length;
+  const surprises = chiffrees.map(m => ecart(m)).filter(e => e && !e.sansConsensus && e.sens !== 'conforme');
   const bouts = [];
-  if (macros && macros.length) {
-    bouts.push(`${macros.length} publication${macros.length > 1 ? 's' : ''} sur la séance${surprises.length ? `, dont ${surprises.length} hors consensus` : ', toutes conformes aux attentes'}`);
+  if (chiffrees.length) {
+    bouts.push(`${chiffrees.length} publication${chiffrees.length > 1 ? 's' : ''} sur la séance${surprises.length ? `, dont ${surprises.length} hors consensus` : ', toutes conformes aux attentes'}`);
   }
+  // Les rendez-vous sans chiffre se comptent à part, et ne se jugent pas : ils n'ont pas d'attente.
+  if (rdv) bouts.push(`${rdv} rendez-vous sans chiffre${chiffrees.length ? '' : ', aucune publication chiffrée'}`);
   if (fort && Math.abs(fort.pct) >= 0.05) bouts.push(`plus fort mouvement : ${fort.label} ${pct(fort.pct)}`);
   if (!bouts.length) return `Séance ${nomSeance} sans publication majeure ni mouvement notable.`;
   return `Séance ${nomSeance} : ` + bouts.join(' · ') + '.';
