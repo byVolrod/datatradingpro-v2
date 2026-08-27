@@ -16,10 +16,19 @@
 - **Commit + push à chaque fois**. Messages FR, finir par `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 - ⚠️ **POUSSER NE DÉPLOIE PAS.** Il n'y a plus d'auto-déploiement : le VPS ne bouge que sur commande explicite. Tant qu'elle n'est pas passée, le code est sur GitHub et le desk sert encore l'ancienne version — c'est la première chose à vérifier quand un correctif « ne marche pas ».
   ```bash
+  npm run deploy      # = scripts/deploy.sh — équivalent de la commande ci-dessous, avec garde-fous
+  ```
+  Le script PRÉVIENT si des commits ne sont pas poussés (déployer enverrait alors la version de
+  GitHub, pas la vôtre), affiche la version avant/après, et attend que `/healthz` réponde avant de
+  conclure — sinon il sort le journal du conteneur. Commande brute équivalente :
+  ```bash
   ssh -i ~/.ssh/dtp_deploy root@149.71.44.90 \
     'cd /opt/datatradingpro && git fetch origin main && git reset --hard origin/main \
      && docker compose build datatradingpro && docker compose up -d datatradingpro'
   ```
+  ⚠️ **POURQUOI RECONSTRUIRE ET PAS SEULEMENT RÉCUPÉRER** (vérifié, pas supposé) : `docker-compose.yml`
+  ne monte QUE `./data/*` — aucun volume de code source — et le `Dockerfile` fait `COPY . .` au moment
+  du build. Un `git pull` sur le disque du VPS ne change donc RIEN à ce qui tourne dans le conteneur.
 - **BACKUP OBLIGATOIRE** : après CHAQUE `git push origin main`, faire AUSSI `git push backup main` (remote `backup` = `https://github.com/byVolrod/datatradingpro-v2-backup.git`, repo privé miroir). Le backup doit toujours rester à jour avec origin. (Si le remote `backup` manque sur une nouvelle machine : `git remote add backup https://github.com/byVolrod/datatradingpro-v2-backup.git`.)
 - **Cache-busting** : `node scripts/bump-cache.js` — et **plus** un bump manuel de `public/index.html`. Le script aligne TOUTES les pages (`index`, `admin`, `login`, `week-ahead`) sur un jeton unique. Rappeler **Ctrl+F5**.
   ⚠️ Ne bumper que `index.html` a laissé le **panneau admin 8 jours en retard** (06/08) : `express.static` sert les JS/CSS en `maxAge: 30d`, donc tant que l'URL ne change pas le navigateur ne redemande rien. Le serveur livrait le fichier neuf, l'admin voyait l'ancien — et on cherchait le bug dans le code livré.
