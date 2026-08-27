@@ -163,6 +163,92 @@ function completerSurveiller(items, surv) {
    ⚠️ CE QUI RESTE PEUT ÊTRE VIDE, et c'est un bon résultat : si tout ce que la rédaction a relevé
    figure déjà au calendrier, la rubrique s'arrête sur le tableau. Mieux vaut pas d'« Autres » qu'un
    « Autres » qui répète la ligne du dessus. */
+/* ══ « À SURVEILLER » NE PEUT PLUS AFFIRMER N'IMPORTE QUOI (27/08) ═══════════════════════════════
+   Signalement client, capture à l'appui : « y a un petit bug sur le CPI US, il kiffe s'incruster
+   partout ». Sous le calendrier d'une séance de LONDRES — trois publications de la zone euro —
+   figurait la puce :
+
+       « **CPI** US demain → catalyseur du pricing de la réunion **RBA** »
+
+   Un chiffre d'inflation AMÉRICAIN ne price pas une réunion de la banque centrale AUSTRALIENNE.
+   La puce est fausse par construction, et elle revenait d'un récap à l'autre.
+
+   DEUX CAUSES, ET IL FAUT LES DEUX POUR QUE ÇA S'ARRÊTE.
+   1. LE PROMPT SE FAISAIT RECOPIER. Son squelette JSON de réponse portait, en exemple, la puce
+      « **CPI** US demain → catalyseur du pricing de la réunion Fed ». Quand une séance ne donne
+      rien de prospectif, un modèle recopie ce qu'il a sous les yeux — en substituant parfois la
+      banque croisée dans la séance, d'où le RBA. Traité côté serveur : l'exemple ne porte plus de
+      faits, seulement une forme entre chevrons.
+   2. RIEN NE RELISAIT LA SORTIE. L'anti-doublon posé le 30/08 ne compare qu'au tableau ; aucun CPI
+      américain ne figurant au calendrier de Londres, la puce n'était pas un doublon — et passait.
+
+   CE QUE FAIT LE VERROU, ET CE QU'IL SE REFUSE À FAIRE. Il écarte une puce qui affirme qu'un sujet
+   d'une devise price la réunion d'une banque centrale d'une AUTRE devise. Il ne la RÉPARE pas en
+   corrigeant le nom de la banque, et c'est délibéré : quand la puce est une recopie d'exemple,
+   l'événement lui-même est inventé — lui remettre la bonne banque rendrait crédible une échéance
+   qui n'existe pas. Ici, le module ne reçoit que le calendrier de la séance SUIVANTE
+   (`surv.evs`) : il ne peut pas vérifier « demain ». On écarte donc ce qu'on sait faux plutôt que
+   d'affirmer ce qu'on ne peut pas vérifier. Le prix est assumé : on perd parfois la mention d'une
+   échéance réelle, et on ne publie jamais une causalité fausse — dans un produit payé pour sa
+   fiabilité, ce sens-là est le bon.
+
+   ⚠️ TROIS GARDES CONTRE LE FAUX POSITIF, car supprimer une puce légitime est un défaut, pas une
+   précaution — la note du 30/08 tient explicitement à ce que Jackson Hole et les résultats Nvidia
+   RESTENT :
+     · on n'agit que sur une puce qui porte une FLÈCHE, seule à séparer le sujet de son affirmation ;
+     · l'affirmation doit nommer une RÉUNION / un PRICING / une DÉCISION — pas n'importe quelle
+       mention de banque centrale (« la **Fed** reste attentive » n'affirme aucun lien de causalité) ;
+     · le SUJET doit porter lui-même une devise. « Discours de Warsh à Jackson Hole → catalyseur du
+       pricing de la réunion **Fed** » n'en nomme aucune : le verrou ne se prononce pas, la puce
+       reste. C'est exactement la puce voisine de la capture, et elle est juste. */
+const _BANQUES_CCY = [
+  [/\bfed\b|\bfomc\b|r[ée]serve f[ée]d[ée]rale/i, 'USD'],
+  [/\bbce\b|\becb\b|banque centrale europ[ée]enne/i, 'EUR'],
+  [/\bboe\b|bank of england|banque d['’]angleterre/i, 'GBP'],
+  [/\bboj\b|bank of japan|banque du japon/i, 'JPY'],
+  [/\bboc\b|bank of canada|banque du canada/i, 'CAD'],
+  [/\brba\b|reserve bank of australia|banque de r[ée]serve d['’]australie/i, 'AUD'],
+  [/\brbnz\b|reserve bank of new zealand|banque de r[ée]serve de nouvelle-z[ée]lande/i, 'NZD'],
+  [/\bbns\b|\bsnb\b|banque nationale suisse/i, 'CHF'],
+  [/\bpboc\b|banque populaire de chine/i, 'CNY'],
+];
+/* Le SUJET d'une puce, ramené à une devise. Volontairement resserré : un motif trop large ferait
+   écarter des puces justes, ce qui coûte plus cher que d'en laisser passer une fausse de temps en
+   temps. Les sigles d'indicateurs propres à un pays (NFP, ISM, PCE, Ifo, ZEW, Tankan) valent
+   identité — ils ne sont publiés nulle part ailleurs. */
+const _SUJETS_CCY = [
+  /* ⚠️ LE PLURIEL MASCULIN DES ADJECTIFS EN -IEN NE DOUBLE PAS LE N. « canadienne?s? » reconnaît
+     « canadienne » et « canadiennes », jamais « canadiens » — et c'est la forme la plus courante
+     dans une puce (« chiffres canadiens »). Le défaut a été pris au banc, pas en relecture :
+     « Chiffres canadiens → décision de la **RBNZ** » passait à travers le verrou. D'où
+     « (?:ne)?s? » pour toute cette famille : canadien, australien, européen, italien. */
+  [/\bUSD\b|\bUS\b|am[ée]ricaine?s?\b|[ée]tats-unis|\bNFP\b|\bISM\b|\bPCE\b|\bJOLTS\b/i, 'USD'],
+  [/\bEUR\b|zone euro|europ[ée]en(?:ne)?s?\b|allemande?s?\b|fran[çc]aise?s?\b|espagnole?s?\b|italien(?:ne)?s?\b|\bIfo\b|\bZEW\b/i, 'EUR'],
+  [/\bGBP\b|britanniques?\b|royaume-uni|\bUK\b/i, 'GBP'],
+  [/\bJPY\b|japonaise?s?\b|\bTankan\b/i, 'JPY'],
+  [/\bCAD\b|canadien(?:ne)?s?\b/i, 'CAD'],
+  [/\bAUD\b|australien(?:ne)?s?\b/i, 'AUD'],
+  [/\bNZD\b|n[ée]o-z[ée]landaise?s?\b/i, 'NZD'],
+  [/\bCHF\b|suisses?\b/i, 'CHF'],
+  [/\bCNY\b|chinoise?s?\b/i, 'CNY'],
+];
+const _AFFIRME_UN_LIEN_RX = /r[ée]union|pricing|d[ée]cision|meeting/i;
+function pricingIncoherent(txt) {
+  const t = String(txt || '');
+  const i = t.indexOf('→');
+  if (i < 0) return false;                                   // sans flèche, pas d'affirmation isolable
+  const avant = t.slice(0, i), apres = t.slice(i + 1);
+  if (!_AFFIRME_UN_LIEN_RX.test(apres)) return false;        // mention ≠ affirmation de causalité
+  const bq = _BANQUES_CCY.find(([rx]) => rx.test(apres));
+  if (!bq) return false;
+  const su = _SUJETS_CCY.find(([rx]) => rx.test(avant));
+  if (!su) return false;                                     // sujet sans devise → on ne juge pas
+  return su[1] !== bq[1];
+}
+/* Une puce ENTIÈREMENT entre chevrons est le gabarit du prompt recopié tel quel — jamais du texte
+   rédigé. Le motif exige les chevrons aux DEUX bouts : « CPI <0,2% attendu » garde les siens. */
+const _EST_GABARIT_RX = /^\s*<[^<>]*>\s*$/;
+
 const _evPourDoublon = e => ({ title: (e && e.event) || '', currency: (e && e.ccy) || '', actual: '' });
 function autresSurveiller(items, surv) {
   const evs = (surv && surv.evs) || [];
@@ -170,7 +256,9 @@ function autresSurveiller(items, surv) {
   for (const brut of (items || [])) {
     const t = sansSource(brut);
     if (!t) continue;
-    if (evs.some(e => _SEA.dejaDit(_evPourDoublon(e), [t]))) continue;   // déjà dans le tableau
+    if (_EST_GABARIT_RX.test(t)) continue;                              // gabarit du prompt recopié
+    if (pricingIncoherent(t)) continue;                                 // affirmation fausse par construction
+    if (evs.some(e => _SEA.dejaDit(_evPourDoublon(e), [t]))) continue;  // déjà dans le tableau
     out.push(t);
   }
   return out;
@@ -286,4 +374,4 @@ function html(arr, macroCal, surv, synth) {
   return { html: out, ajouts, sections: sections.length };
 }
 
-module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, sansMedia, heureParis, esc };
+module.exports = { html, poserMacro, completerMacro, poserSurveiller, completerSurveiller, autresSurveiller, calSurveiller, poserSynthese, sansSource, sansMedia, heureParis, esc, pricingIncoherent };

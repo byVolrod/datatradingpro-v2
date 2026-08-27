@@ -529,8 +529,13 @@ v('la règle vaut pour toutes les rubriques du rapport',
   !/Sondage Reuters/.test(W.html([{ section: 'Géopolitique', items: ['BoJ : hausse en vue · Sondage Reuters → yen ferme.'] }], []).html));
 v('elle est aussi demandée au modèle',
   /N'ATTRIBUE JAMAIS UNE INFORMATION À UN MÉDIA/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8')));
+/* ⚠️ « AU MOINS v25 », JAMAIS « EXACTEMENT v25 ». Ce contrôle épinglait le numéro à l'identique : il
+   rougissait donc au premier bump LÉGITIME suivant — le 27/08, en passant à v26 pour une tout autre
+   correction. Un contrôle qui punit une évolution correcte apprend à être ignoré, ce qui est pire
+   que pas de contrôle. Ce qu'il faut vérifier, c'est que la version n'a pas RECULÉ sous celle qui a
+   introduit la règle. */
 v('… et le cache des rapports déjà segmentés est invalidé (sinon rien ne change à l\'écran)',
-  /SW_SEG_VER  = 'v25:'/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8')));
+  _swSegVer() >= 25, 'SW_SEG_VER = v' + _swSegVer());
 
 /* « corrige ce bug de gras » (26/08, capture) : la valeur du calendrier « 11.75K », posée au milieu
    de puces qui écrivent « 0,6% ». On ne change QUE le séparateur, jamais le chiffre. */
@@ -936,6 +941,79 @@ v('une seule fois par démarrage', /_seanceRattrapFait = true;/.test(src));
 v('il compte la matière encore disponible avant de refaire', /const matiere = allNews\.filter/.test(src));
 v('il ne remplace pas un récap par un plus pauvre', /if \(matiere < Math\.max\(5, avant\)\)/.test(src));
 v('et il le dit au lieu de le taire', /rattrapage NON fait \(matière insuffisante/.test(src));
+
+function _swSegVer() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+  const m = src.match(/const SW_SEG_VER\s*=\s*'v(\d+):'/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+console.log('\n── 9. « À surveiller » ne peut plus affirmer qu\'un CPI US price la RBA ──');
+/* Signalement client du 27/08, capture à l'appui : « y a un petit bug sur le CPI US, il kiffe
+   s'incruster partout ». Sous le calendrier d'une séance de LONDRES — trois publications de la zone
+   euro — figurait « **CPI** US demain → catalyseur du pricing de la réunion **RBA** ». Deux causes :
+   le squelette JSON du prompt portait cette puce EN EXEMPLE (avec « Fed »), et rien ne relisait la
+   sortie — l'anti-doublon du 30/08 ne compare qu'au tableau, or aucun CPI américain n'y figurait.
+   Les contrôles ci-dessous tiennent les DEUX bouts : la fonction pure, puis le HTML réellement rendu. */
+const _PI = W.pricingIncoherent;
+v('la puce EXACTE de la capture est reconnue comme fausse',
+  _PI('**CPI** US demain → catalyseur du pricing de la réunion **RBA**') === true);
+v('… la même avec la BONNE banque ne l\'est pas',
+  _PI('**CPI** US demain → catalyseur du pricing de la réunion **Fed**') === false);
+/* LES TROIS FAUX POSITIFS QU'IL NE FAUT PAS COMMETTRE. La note du 30/08 tient explicitement à ce que
+   Jackson Hole et Nvidia RESTENT : supprimer une puce légitime est un défaut, pas une précaution. */
+v('un sujet SANS devise ne se fait pas juger (Jackson Hole)',
+  _PI('Discours de Warsh à Jackson Hole → catalyseur du pricing de la réunion **Fed**') === false);
+v('… ni un sujet hors macro (résultats Nvidia)',
+  _PI('Résultats **Nvidia** après clôture → volatilité sur les indices') === false);
+v('une simple MENTION de banque n\'est pas une affirmation de causalité',
+  _PI('La **Fed** reste attentive à l\'inflation') === false);
+v('une puce sans flèche n\'est jamais touchée',
+  _PI('**CPI** US demain, réunion **RBA** la semaine prochaine') === false);
+/* Le pluriel masculin des adjectifs en -ien ne double pas le n : « canadiens » ne s'écrit pas comme
+   « canadiennes ». Le défaut a été pris ICI, pas en relecture. */
+v('le pluriel masculin est reconnu (canadiens ≠ canadiennes)',
+  _PI('Chiffres canadiens → décision de la **RBNZ**') === true);
+v('… et le bon appariement reste',
+  _PI('Chiffres canadiens → décision de la **BoC**') === false);
+v('européens / BoJ est écarté', _PI('PMI européens → décision de la **BoJ**') === true);
+v('européens / BCE est gardé', _PI('PMI européens → décision de la **BCE**') === false);
+
+/* DE BOUT EN BOUT : ce qui compte n'est pas que la fonction dise « faux », c'est que la puce
+   n'atteigne PAS le HTML servi au lecteur — et que sa voisine légitime y soit encore. */
+const SURV_LDN = { nom: 'Londres', lignes: ['08h00 EUR · GfK Consumer Confidence'], evs: [
+  { ts: JOUR + 8 * H, ccy: 'EUR', event: 'GfK Consumer Confidence', importance: 'High', actual: '', forecast: '-29.6', previous: '-29.6' },
+] };
+const CAPTURE_CPI = [{ section: 'LEAD', items: ['Séance de Londres.'] }, { section: 'À surveiller', items: [
+  'Discours de Warsh à Jackson Hole → catalyseur du pricing de la réunion **Fed**',
+  '**CPI** US demain → catalyseur du pricing de la réunion **RBA**',
+  '<un rendez-vous PROSPECTIF de cette séance → ce qu\'il peut déclencher>',
+] }];
+const hCap = W.html(CAPTURE_CPI, [], SURV_LDN).html;
+v('la puce fausse n\'atteint pas le lecteur', !/RBA/.test(hCap), hCap.slice(hCap.indexOf('surveiller'), hCap.indexOf('surveiller') + 400));
+v('… mais Jackson Hole, elle, est bien rendue', /Jackson Hole/.test(hCap));
+v('un gabarit du prompt recopié est écarté', !/rendez-vous PROSPECTIF/.test(hCap));
+v('l\'intitulé « Autres » reste posé sur ce qui subsiste', /Autres/.test(hCap));
+
+/* LA CAUSE, PAS SEULEMENT LE SYMPTÔME : un exemple concret dans le squelette JSON se fait recopier
+   quand la séance ne donne rien de prospectif. On vérifie qu'il n'y est plus. */
+/* ⚠️ ON CHERCHE DANS LE PROMPT, PAS DANS LE FICHIER. Le commentaire qui documente le défaut cite
+   forcément la puce fautive — sans ce découpage, le contrôle accusait la note laissée à la place de
+   l'exemple. Un contrôle qui interdit d'expliquer une correction fait supprimer l'explication. */
+const _PROMPT_SEG = (() => {
+  const i = _SRVA.indexOf('async function _segmentWrapAI');
+  const j = _SRVA.indexOf('const text = await ai.generateText', i);
+  return i < 0 || j < 0 ? '' : _SRVA.slice(i, j);
+})();
+v('le corps du prompt a bien été isolé', _PROMPT_SEG.length > 2000, String(_PROMPT_SEG.length));
+v('le prompt ne porte plus la puce en exemple', !/CPI\*\* US demain → catalyseur/.test(_PROMPT_SEG));
+v('… il porte un emplacement à remplir', /un rendez-vous PROSPECTIF de cette séance/.test(_SRVA));
+v('… et la règle « une devise, sa banque » est dite au modèle',
+  /ne price QUE la banque centrale de SA PROPRE DEVISE/.test(_SRVA));
+v('une rubrique sans matière doit être OMISE, pas remplie d\'un exemple',
+  /OMETS cette rubrique — ne la remplis jamais avec un exemple/.test(_SRVA));
+/* Le HTML segmenté est CACHÉ : sans bump, les récaps déjà produits gardent leur puce fausse. */
+v('la version de segmentation a été bumpée (cohérence du pricing)', /const SW_SEG_VER  = 'v2[6-9]:'/.test(_SRVA));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);
