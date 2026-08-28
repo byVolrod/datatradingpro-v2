@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-bruit-nominations', ts: Date.UTC(2026, 9, 1, 11, 0), title: 'Les nominations d’état-major quittent le fil', desc: 'Signalé sur capture : une annonce de nomination à la Maison Blanche — secrétaire général, conseiller — occupait une ligne du fil, à la première personne et sans qu’on sache de qui elle était. Aucune portée sur une paire de devises. Ces lignes sont désormais écartées à l’arrivée. Les nominations qui COMPTENT restent, elles : présidence de la Fed, Trésor, gouverneur de banque centrale, ministre des Finances.' },
   { id: 'dtpu-20260910-audit-traductions', ts: Date.UTC(2026, 9, 1, 9, 0), title: 'Six traductions mortes réparées, dont le titre du fil', desc: 'Pour nos lecteurs en anglais, allemand et espagnol : six libellés étaient restés en français, dont « Fil d’actualité », le titre du panneau des actualités. Le desk était passé du tutoiement au vouvoiement sans que les dictionnaires suivent. C’est réparé, et un contrôle automatique empêche désormais qu’une traduction meure en silence.' },
   { id: 'dtpu-20260910-apercu-alertes', ts: Date.UTC(2026, 8, 10, 23, 0), title: 'Les alertes ne se coupent plus au milieu d’un mot', desc: 'Dans le panneau ALERTES, les aperçus s’arrêtaient net : « Pas de mess », « Vérification f ». Ils s’arrêtent désormais sur une phrase entière quand il y en a une, sinon sur le dernier mot complet, suivi de points de suspension. Une citation ouverte par la coupe est refermée.' },
   { id: 'dtpu-20260910-pourcent-colle', ts: Date.UTC(2026, 8, 10, 23, 30), title: 'Le pourcent est collé à son nombre', desc: 'L’espace qui séparait un nombre du signe pourcent disparaît : le chiffre et son unité se lisent désormais d’un bloc, partout sur le desk. C’est un écart assumé à la typographie française, qui veut cette espace. La règle vaut pour les chiffres calculés comme pour les textes rédigés par le desk.' },
@@ -18658,6 +18659,32 @@ const _BANK_TEASER_RE = /\s[–—-]\s*(?:MUFG|Nomura|TD\s*Securities|TDS|Goldma
 // "MAGA Warrior…", "Complete and Total Endorsement…" — souvent mal catégorisés "Energy" → pas une news.
 const _POLITICAL_SPAM_RE = /\b(?:america first\s+(?:patriot|champion|warrior|fighter|polic\w*)|maga\s+(?:warrior|champion|patriot|king|queen|fighter)|complete\s+and\s+total\s+endorsement|make\s+america\s+great\s+again|(?:great|total)\s+honou?r\s+to\s+(?:fully\s+)?endorse|tremendous\s+(?:champion|advocate))\b/i;
 
+/* ══ NOMINATION D'UN COLLABORATEUR : AUCUNE PORTÉE MACRO (28/08) ═══════════════════════════════
+   CAPTURE CLIENT : « Je suis ravi d'annoncer qu'à partir du 2 septembre, Ben Moss deviendra
+   assistant du président et secrétaire général de la Maison Blanche, remplaçant notre nouveau
+   conseiller juridique… ». Verdict de l'utilisateur, et il est juste sur les DEUX points : « on ne
+   sait pas de qui elle est, et on n'a quasi aucune valeur ou info ».
+     · DE QUI ? Le texte est à la PREMIÈRE PERSONNE et ne porte aucune attribution. Le desk sait
+       reframer un propos rapporté (« Trump: … » → tag Contexte) parce qu'un préfixe le désigne ;
+       ici il n'y en a pas. On ne peut pas inventer un locuteur.
+     · QUELLE VALEUR ? Un secrétaire général de la Maison Blanche ne déplace aucune paire de
+       devises. Sur un desk FX, cette ligne prend la place d'une qui compte.
+   ⚠️ MAIS TOUTES LES NOMINATIONS NE SE VALENT PAS, et c'est là que la règle doit être précise : la
+   présidence de la Fed, le Trésor, un gouverneur de banque centrale, un ministre des Finances SONT
+   des nouvelles de marché de premier ordre. Une règle qui écarterait « Trump names X as Fed Chair »
+   ferait bien plus de dégâts que le bruit qu'elle supprime. On exige donc les DEUX conditions —
+   formulation de nomination ET poste d'état-major — et on ÉPARGNE explicitement les postes qui
+   pricent. En cas de doute, la ligne reste : un faux négatif se voit, un faux positif se perd. */
+const _NOMINATION_RX = /\b(?:will\s+(?:become|be\s+(?:joining|serving)|serve\s+as)|has\s+been\s+(?:named|appointed|selected|promoted)|is\s+(?:being\s+)?(?:named|appointed|promoted)\s+(?:as|to)|(?:am|is)\s+(?:pleased|thrilled|honou?red|delighted|proud)\s+to\s+announce)\b/i;
+const _POSTE_ETAT_MAJOR_RX = /\b(?:assistant\s+to\s+the\s+president|staff\s+secretary|white\s+house\s+counsel|deputy\s+(?:chief\s+of\s+staff|press\s+secretary|counsel)|chief\s+of\s+staff|press\s+secretary|communications\s+director|social\s+media\s+director|body\s*man|scheduler|speechwriter|personnel\s+director|deputy\s+assistant)\b/i;
+/* Les postes qui, eux, déplacent les marchés : la règle ci-dessus ne doit JAMAIS les toucher. */
+const _POSTE_MARCHE_RX = /\b(?:fed(?:eral\s+reserve)?\s+(?:chair|governor|president|vice[-\s]?chair)|chair(?:man|woman)?\s+of\s+the\s+(?:fed|federal\s+reserve)|treasury\s+secretary|secretary\s+of\s+the\s+treasury|finance\s+minister|minister\s+of\s+finance|central\s+bank\s+(?:governor|chief|head|president)|(?:boj|ecb|boe|snb|rba|rbnz|boc|pboc)\s+(?:governor|president|chief|chair)|trade\s+representative|commerce\s+secretary|imf\s+(?:chief|managing\s+director)|world\s+bank\s+president|economic\s+adviser)\b/i;
+function _estNominationSansPortee(h) {
+  const t = String(h || '');
+  if (_POSTE_MARCHE_RX.test(t)) return false;          // un poste qui price : on garde, toujours
+  return _NOMINATION_RX.test(t) && _POSTE_ETAT_MAJOR_RX.test(t);
+}
+
 // Levier anti-bruit (mirror du front getFilteredItems) : actions single-stock (dividende/rachat)
 // + éditorial retail/clickbait + teaser de banque masqué par un suffixe horodaté accolé par la source.
 const _SINGLE_STOCK_RE = /\b(?:dividend\s+(?:increase|hike|raise|boost)|(?:increase|hike|raise|boost|declare|announce)s?\s+(?:a\s+|its\s+|quarterly\s+|semi-?annual\s+|annual\s+|special\s+)*dividend|(?:share|stock|equity)\s+(?:repurchase|buyback)|(?:repurchase|buyback)\s+program|stock\s+split|reauthoriz\w*\b[^.]{0,40}\b(?:repurchase|buyback))/i;
@@ -18679,6 +18706,7 @@ function isNoise(headline) {
   if (/^\s*currency strength chart\b/i.test(h))      return true;
   if (_BANK_TEASER_RE.test(h))                       return true;   // teaser de recherche de banque ("… – MUFG/Nomura/TD…") : pas une news
   if (_POLITICAL_SPAM_RE.test(h))                    return true;   // repost d'endorsement politique (America First/MAGA…) : pas une news
+  if (_estNominationSansPortee(h))                   return true;   // nomination d'état-major (secrétaire général, conseiller…) : aucune portée FX
   if (_SINGLE_STOCK_RE.test(h)) return true;                       // action d'une société (dividende/rachat) : pas macro/FX
   if (_CLICKBAIT_RE.test(h))    return true;                       // éditorial retail / clickbait
   const _hs = _stripTrailingMeta(h);
