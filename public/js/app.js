@@ -3209,6 +3209,61 @@ function _verdictColore(s) {
   }
   return out;
 }
+/* ══ LES DEVISES S'ÉCRIVENT PAR LEUR CODE (28/08, demande user) ═══════════════════════════════════
+   « Au lieu de "dollar américain" mets USD direct, on gagnera de l'espace ; pareil pour les autres,
+   genre le dollar néo-zélandais mets NZD. » Sur un desk, un code se lit d'un coup d'œil et une
+   synthèse tient en trois lignes au lieu de cinq.
+   ⚠️ LE POINT DÉLICAT EST L'ARTICLE, PAS LE NOM. Remplacer le seul nom donnerait « le USD s'est
+   renforcé » — faux en français. Chaque code porte donc sa forme d'article, selon qu'il commence
+   par un son de VOYELLE (USD, EUR, AUD → « l'USD », « de l'USD », « à l'USD ») ou de CONSONNE
+   (CAD, GBP, JPY, CHF, NZD → « le CAD », « du CAD », « au CAD »). NZD se prononce « enne-zède-dé »,
+   donc son de voyelle — mais l'usage des salles écrit « le NZD », et c'est l'usage qui tranche ici.
+   ⚠️ LE « DOLLAR » NU N'EST PAS TOUCHÉ. Sur un desk il désigne presque toujours l'USD, mais
+   « presque » ne suffit pas : entre un mot long et un code FAUX, le mot long gagne. Seuls les noms
+   qualifiés (« dollar canadien ») et les noms sans ambiguïté (euro, franc suisse, yen) sont
+   convertis. L'ordre du tableau compte : « dollar néo-zélandais » AVANT « dollar », « yen japonais »
+   avant « yen » — sinon le préfixe le plus court gagnerait et laisserait un résidu. */
+var _DEV_ELIDE = { USD: 1, EUR: 1, AUD: 1 };
+var _DEV_NOMS = [
+  ['dollar\\s+am[ée]ricain', 'USD'], ['dollar\\s+australien', 'AUD'],
+  ['dollar\\s+n[ée]o[-\\s]?z[ée]landais', 'NZD'], ['dollar\\s+canadien', 'CAD'],
+  ['livre\\s+sterling', 'GBP'], ['livre\\s+britannique', 'GBP'],
+  ['franc\\s+suisse', 'CHF'], ['yen\\s+japonais', 'JPY'],
+  ['couronne\\s+su[ée]doise', 'SEK'], ['couronne\\s+norv[ée]gienne', 'NOK'],
+  ['yuan(?:\\s+chinois)?', 'CNY'], ['renminbi', 'CNY'], ['peso\\s+mexicain', 'MXN'],
+  ['euro', 'EUR'], ['yen', 'JPY'],
+];
+var _DEV_ART = "(le|la|les|l['’]|du|de\\s+la|de\\s+l['’]|des|au|[àa]\\s+la|[àa]\\s+l['’]|aux)\\s*";
+/* ⚠️ LE `(\*{0,2})` N'EST PAS DÉCORATIF. Les deux formateurs appellent cette conversion AVANT de
+   transformer `**…**` en <strong> — donc sur un texte où l'IA a mis la devise en gras. Sans ce
+   groupe, « le **dollar américain** » ne voyait pas son article (l'astérisque s'intercale entre
+   « le » et le nom) et sortait « le **USD** ». On laisse donc passer les astérisques et on les
+   recopie telles quelles entre l'article corrigé et le code. */
+var _DEV_RX = _DEV_NOMS.map(function (d) {
+  return [new RegExp('(^|[^\\wÀ-ÿ])(?:' + _DEV_ART + ')?(\\*{0,2})(' + d[0] + ')(?![\\wÀ-ÿ])', 'gi'), d[1]];
+});
+function _devArticle(art, code) {
+  var el = !!_DEV_ELIDE[code];
+  var a = String(art || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!a) return '';
+  var maj = /^[A-ZÀ-Ý]/.test(String(art).trim());
+  var out;
+  if (/^(?:du|de la|de l)/.test(a)) out = el ? "de l'" : 'du ';
+  else if (/^(?:au|à la|à l|a la|a l)/.test(a)) out = el ? "à l'" : 'au ';
+  else if (/^(?:les|des|aux)$/.test(a)) out = el ? "l'" : 'le ';   // pluriel : une devise reste singulière
+  else out = el ? "l'" : 'le ';
+  return maj ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+}
+function _devisesEnCodes(t) {
+  var s = String(t == null ? '' : t);
+  for (var i = 0; i < _DEV_RX.length; i++) {
+    s = s.replace(_DEV_RX[i][0], function (m, av, art, gras, nom) {
+      return av + _devArticle(art, _DEV_RX[i][1]) + gras + _DEV_RX[i][1];
+    });
+  }
+  return s;
+}
+
 /* ⚠️ `sansCouleur` — LA SYNTHÈSE D'UN RÉCAP NE SE COLORIE PAS (28/08, demande rappelée par
    l'utilisateur : « dans les synthèses des récaps, mets pas de couleurs »).
    ET LE DÉFAUT ALLAIT PLUS LOIN QUE LE GOÛT. `_verdictColore` est fait pour une PUCE DE DONNÉE, de
@@ -3220,7 +3275,9 @@ function _verdictColore(s) {
    Les puces gardent leur couleur : c'est une demande d'août, et là elle a un sens. */
 function _emphasize(text, opts) {
   const _sansCouleur = !!(opts && opts.sansCouleur);
-  return String(text || '')
+  /* Les noms de devises deviennent des CODES avant tout balisage : le texte est encore nu, donc
+     aucune substitution ne peut tomber au milieu d'une balise. */
+  return _devisesEnCodes(text)
     // Gras Markdown ** ** venant du prompt (devises, banques centrales, indicateurs : **USD**, **Fed**, **CPI m/m**…) → <strong>
     .replace(/\*\*([^*]{1,80}?)\*\*/g, '<strong>$1</strong>')
     /* VERDICT COLORÉ, AVANT la mise en gras générale des chiffres : le réel reçoit sa couleur ET son
@@ -9472,6 +9529,7 @@ function _wrInline(t){
     .replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ');   // décode les entités pré-échappées → fini le « S&amp;P » brut affiché
   s = s.replace(/^\s*\*\*\s*sous-th[eè]me\s*:?\s*\*\*\s*:?\s*/i, '')
        .replace(/^\s*sous-th[eè]me\s*:\s*/i, '');   // retire le placeholder « Sous-thème : » laissé LITTÉRALEMENT par l'IA (bug) → puce nette
+  s = _devisesEnCodes(s);   // « le dollar américain » → « l'USD » (même règle que les récaps de séance)
   return _wrEsc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, '');
 }
 // Décryptage d'une donnée éco du FX Daily Recap = MÊME système que le calendrier (clic → déroulé), RÉUTILISE

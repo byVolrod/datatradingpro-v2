@@ -1530,5 +1530,67 @@ console.log('\n── La synthèse d\'un récap ne se colorie pas ──');
     'la fonction sait ne pas colorier, mais personne ne le lui demande');
 }
 
+
+/* ══ LES DEVISES S'ÉCRIVENT PAR LEUR CODE ══════════════════════════════════════════════════════
+   28/08 : « au lieu de "dollar américain" mets USD direct, on gagnera de l'espace ; pareil pour les
+   autres, genre le dollar néo-zélandais mets NZD ».
+   ⚠️ LE POINT DÉLICAT EST L'ARTICLE. Remplacer le seul nom donnerait « le USD s'est renforcé » —
+   faux en français. Chaque code porte donc sa forme d'article selon son premier SON : voyelle
+   (USD, EUR, AUD → « l'USD », « de l'USD », « à l'USD ») ou consonne (CAD, GBP, JPY, CHF, NZD →
+   « le CAD », « du CAD », « au CAD »).
+   ⚠️ ET LE « DOLLAR » NU RESTE INTACT : sur un desk il désigne presque toujours l'USD, mais
+   « presque » ne suffit pas — entre un mot long et un code FAUX, le mot long gagne. */
+console.log('\n── Les devises s\'écrivent par leur code ──');
+{
+  const dD = APP.indexOf('var _DEV_ELIDE =');
+  const fD = dD < 0 ? -1 : APP.indexOf('\n}\n', APP.indexOf('function _devisesEnCodes(t)'));
+  v('la conversion est extractible d\'app.js', dD >= 0 && fD > dD);
+  if (dD >= 0 && fD > dD) {
+    const D = new Function(APP.slice(dD, fD + 3) + '\nreturn _devisesEnCodes;')();
+    /* Le texte EXACT de la capture. */
+    const cap = "Le dollar américain s'est renforcé sur des données d'emploi et de stocks solides, "
+      + "tandis que le dollar canadien a été soutenu par un excédent inattendu du compte courant.";
+    v('la capture devient « L\'USD … le CAD »',
+      D(cap) === "L'USD s'est renforcé sur des données d'emploi et de stocks solides, tandis que le CAD a été soutenu par un excédent inattendu du compte courant.",
+      D(cap));
+    /* L'ÉLISION, DANS LES TROIS FORMES D'ARTICLE. C'est là que se joue la correction du français. */
+    v('« le dollar australien » → « l\'AUD »', D('Le dollar australien monte.') === "L'AUD monte.", D('Le dollar australien monte.'));
+    v('« du dollar américain » → « de l\'USD »', D('une hausse du dollar américain') === "une hausse de l'USD", D('une hausse du dollar américain'));
+    v('« au dollar australien » → « à l\'AUD »', D('face au dollar australien') === "face à l'AUD", D('face au dollar australien'));
+    /* … ET SON ABSENCE sur les codes à son de consonne : « le CAD », pas « l'CAD ». */
+    v('« le dollar canadien » → « le CAD »', D('Le dollar canadien recule.') === 'Le CAD recule.', D('Le dollar canadien recule.'));
+    v('« du yen japonais » → « du JPY »', D('la faiblesse du yen japonais') === 'la faiblesse du JPY', D('la faiblesse du yen japonais'));
+    v('« au franc suisse » → « au CHF »', D('face au franc suisse') === 'face au CHF', D('face au franc suisse'));
+    /* LA MAJUSCULE DE DÉBUT DE PHRASE SUIT. */
+    v('la majuscule de tête est conservée', /^L'USD/.test(D('Le dollar américain progresse.')), D('Le dollar américain progresse.'));
+    /* L'ORDRE DU TABLEAU : le nom LONG doit gagner, sinon il reste un résidu. */
+    v('« dollar néo-zélandais » n\'est pas coupé en « dollar » + reste',
+      D('Le dollar néo-zélandais monte.') === 'Le NZD monte.', D('Le dollar néo-zélandais monte.'));
+    v('« yen japonais » passe avant « yen »', D('Le yen japonais faiblit.') === 'Le JPY faiblit.', D('Le yen japonais faiblit.'));
+    /* ⚠️ CE QUI NE DOIT PAS BOUGER — la moitié qui compte. */
+    v('un « dollar » NU reste intact', D('le dollar reste stable') === 'le dollar reste stable', D('le dollar reste stable'));
+    v('« dollar index » reste intact', D('Le dollar index a progressé.') === 'Le dollar index a progressé.', D('Le dollar index a progressé.'));
+    /* ⚠️ LE MOT QUI COMMENCE PAR UN NOM DE DEVISE. « européen » contient « euro » : sans la
+       sentinelle de fin, la phrase la plus banale d'un récap sortait « les marchés EURpéens ». */
+    v('« européen » n\'est pas mordu par « euro »',
+      D('les marchés européens montent') === 'les marchés européens montent', D('les marchés européens montent'));
+    /* ⚠️ LA DEVISE EN GRAS — le cas RÉEL, pas théorique : les deux formateurs convertissent AVANT
+       de rendre `**…**`, donc la conversion voit les astérisques. Sans tolérance, l'article restait
+       en place devant le code et on lisait « le **USD** ». */
+    v('« le **dollar américain** » → « l\'**USD** »',
+      D('le **dollar américain** progresse') === "l'**USD** progresse", D('le **dollar américain** progresse'));
+    v('une devise en gras SANS article garde ses astérisques',
+      D('soutien du **yen japonais**') === 'soutien du **JPY**', D('soutien du **yen japonais**'));
+    v('une phrase ENTIÈRE en gras garde ses bornes',
+      D('**Le dollar américain se renforce.**') === "**L'USD se renforce.**", D('**Le dollar américain se renforce.**'));
+    v('un texte sans devise n\'est pas touché',
+      D('Les rendements à 10 ans grimpent.') === 'Les rendements à 10 ans grimpent.');
+    v('un texte vide ne casse rien', D('') === '' && D(null) === '');
+  }
+  /* LES DEUX FORMATEURS DE PROSE l'appliquent : les récaps de séance ET le Quotidien / Hebdo. */
+  v('les récaps de séance l\'appliquent', /return _devisesEnCodes\(text\)/.test(APP));
+  v('… et le Quotidien / Hebdo aussi', /s = _devisesEnCodes\(s\);/.test(APP));
+}
+
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);
