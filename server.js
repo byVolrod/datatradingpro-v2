@@ -11661,7 +11661,9 @@ function _recapDeTag(b) {
 const _GEO_DOWS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 /* Le filet lit des points de récaps de séance — et ceux-ci MÉLANGENT les langues : certains sont
    rédigés en français par le desk, d'autres reprennent un titre de fil, qui est en anglais et ne se
-   traduit jamais (veto user). Restreindre la SOURCE ne suffisait donc pas : la chronologie sortait
+   traduit jamais dans CE texte (le récap cite `headline`, la version d'origine — c'est l'AFFICHAGE
+   du fil qui passe en français depuis le 27/08, pas la matière des récaps). Restreindre la SOURCE
+   ne suffisait donc pas : la chronologie sortait
    « Mardi : Al Arabiya expects an announcement… » à côté de « Jeudi : Le pétrole WTI gagne 0,8 %… ».
    On teste donc la LANGUE de chaque ligne : un mot outil français ou une lettre accentuée suffit à
    reconnaître une phrase française ; à défaut, la ligne est écartée. Mieux vaut une chronologie plus
@@ -25109,7 +25111,12 @@ const _actuCacheMap = new Map();   // slug ('' = page principale) → { ts, html
 const _ACTU_TTL = 15 * 60 * 1000;
 function _actuEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 // Heuristique « ce texte est-il en francais ? » — pour ne PAS afficher de description ANGLAISE brute sur
-// une page qui promet une analyse en francais (le titre, lui, n'est jamais traduit : veto utilisateur).
+/* ⚠️ LE TITRE DES PAGES PUBLIQUES RESTE EN VERSION D'ORIGINE, et ce n'est plus le même choix que
+   sur le desk. Le veto du 03/07 valait pour les deux ; le 28/08 l'utilisateur a décidé de garder
+   la traduction des titres SUR LE DESK (champ `_titreFr`, affichage seulement). Ces pages-ci n'en
+   bénéficient pas : elles lisent `i.headline` et rien d'autre. Ce n'est pas un oubli — un titre de
+   page publique est du contenu INDEXÉ, le traduire change ce que les moteurs ont référencé, et
+   cette décision-là n'a pas été prise. Les deux surfaces divergent donc volontairement. */
 function _actuLooksFr(s) { s = String(s || ''); return /[àâçéèêëîïôùûüœ]/i.test(s) || (((s.match(/\b(le|la|les|des|une?|du|au|aux|est|sont|pour|avec|sur|dans|selon|après|hausse|baisse|marché|taux|semaine)\b/gi) || []).length) >= 2); }
 // Selection des items d'une rubrique — PARTAGEE entre le rendu de page, le sitemap et le calcul du lastmod.
 function _actuSelectItems(slug) {
@@ -25162,7 +25169,9 @@ function _buildActualitesHtml(slug = '', items = null, maxTs = null) {
       } else {
         const d = String(i.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         // corps affiché UNIQUEMENT s'il est en français (sinon titre + heure + source seuls : la page promet
-        // une analyse FR, pas des paragraphes anglais bruts). Le TITRE reste tel quel (jamais traduit, veto).
+        // une analyse FR, pas des paragraphes anglais bruts). Le TITRE reste en version d'origine :
+        // décision propre aux pages publiques (contenu indexé) — cf. la note sur `_actuLooksFr`.
+        // Le desk, lui, affiche `_titreFr` depuis le 28/08.
         if (d.length > 40 && _actuLooksFr(d)) bullets = '<p class="ac-desc">' + _actuEsc(d.slice(0, 320)) + '</p>';
       }
       feed += '<article class="ac-item" id="a' + (gi++) + '"><div class="ac-meta"><span class="ac-cat">' + _actuEsc(catFr) + '</span><time class="ac-time">' + _actuEsc(t) + '</time></div>'
