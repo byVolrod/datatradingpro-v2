@@ -586,7 +586,13 @@ const APP = require('fs').readFileSync(require('path').join(__dirname, '..', 'pu
 /* On extrait le bloc ENTIER — le verdict coloré ET la mise en gras : `_emphasize` appelle
    `_verdictColore`, les séparer rendait une fonction qui lève à l'appel. */
 const dE = APP.indexOf('/* ── VERDICT COLORÉ SUR LE CHIFFRE PUBLIÉ');
-const fE = dE < 0 ? -1 : APP.indexOf('\n}\n', APP.indexOf('function _emphasize(text) {'));
+/* ⚠️ L'ANCRE NE PORTE PLUS LA SIGNATURE COMPLÈTE (28/08). Elle cherchait
+   « function _emphasize(text) { » — au caractère près. Le jour où la fonction a reçu un second
+   paramètre (`opts`, pour ne pas colorier les synthèses), `indexOf` a rendu -1, la découpe est
+   partie du début du fichier et le banc a PLANTÉ sur « _emphasize is not defined » au lieu de
+   rougir. Une ancre qui épouse une signature casse au premier paramètre ajouté : on s'arrête au
+   nom de la fonction, qui, lui, est stable. */
+const fE = dE < 0 ? -1 : APP.indexOf('\n}\n', APP.indexOf('function _emphasize('));
 v('_emphasize est extractible de app.js', dE >= 0 && fE > dE);
 if (dE >= 0) {
   const emp = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
@@ -1479,6 +1485,50 @@ v('… la première lecture aussi', /_lire\('\/api\/weekly-reports', _rangerHebd
 /* ⚠️ ET LA PÉREMPTION : un jour, pour un rapport qui ne change QU'UNE FOIS PAR SEMAINE. */
 v('le repli des hebdo vit plus d\'une journée', /lsGet\('dtp_wk', 8 \* DAY\)/.test(_APP), 'un hebdo ne se périme pas en 24 h');
 v('… les autres sources gardent leur journée', /lsGet\('dtp_sw', DAY\)/.test(_APP) && /lsGet\('dtp_br', DAY\)/.test(_APP));
+
+
+/* ══ LA SYNTHÈSE D'UN RÉCAP NE SE COLORIE PAS ══════════════════════════════════════════════════
+   28/08, capture : dans la synthèse d'un récap de séance, « les rendements du Trésor américain à
+   10 ans » — le 10 de la MATURITÉ peint en rouge, comme s'il s'agissait d'un verdict de marché.
+   Rappel de l'utilisateur : « dans les synthèses des récaps, mets pas de couleurs ».
+   ⚠️ ET CE N'ÉTAIT PAS QU'UNE QUESTION DE GOÛT. `_verdictColore` est fait pour une PUCE DE DONNÉE
+   (« Indicateur : valeur vs attendu ») : faute de couple réel/consensus, il se rabat sur « le
+   premier nombre après le dernier " : " » et le peint selon le verdict énoncé dans la phrase. Sur
+   une puce, ce nombre EST la valeur publiée. Sur un PARAGRAPHE DE PROSE, c'est n'importe quel
+   chiffre — une maturité, une année, une heure.
+   ⚠️ ET LES PUCES, ELLES, GARDENT LEUR COULEUR : c'est une demande d'août, et là elle a un sens.
+   Un correctif qui aurait supprimé la couleur PARTOUT aurait passé le premier contrôle ci-dessous
+   et cassé une fonctionnalité voulue — d'où le second. */
+console.log('\n── La synthèse d\'un récap ne se colorie pas ──');
+{
+  /* On RÉUTILISE la découpe déjà faite plus haut (dE/fE) : en refaire une seconde, c'était deux
+     ancres à maintenir dans le même fichier — et c'est exactement ce qui vient de casser. */
+  v('le formateur est extractible d\'app.js', dE >= 0 && fE > dE);
+  if (dE >= 0 && fE > dE) {
+    const E = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
+    const couleurs = h => (String(h).match(/dtp-val-(?:pos|neg|neu)/g) || []);
+    /* Le texte EXACT de la capture — c'est lui qui doit cesser d'être colorié. */
+    const synth = "La séance a été marquée par un sentiment de risque positif, favorisant une légère baisse "
+      + "du dollar américain. Les données macroéconomiques américaines ont montré des signaux mitigés, avec des "
+      + "demandes d'allocations chômage inférieures aux attentes mais un déficit commercial plus important. "
+      + "Le marché obligataire a vu les rendements du Trésor américain à 10 ans légèrement augmenter.";
+    v('sans le drapeau, ce texte SERAIT colorié (c\'est le défaut)', couleurs(E(synth)).length > 0,
+      'le contrôle ne prouverait rien si la couleur n\'apparaissait pas ici');
+    v('… et avec « sansCouleur », plus AUCUNE couleur',
+      couleurs(E(synth, { sansCouleur: true })).length === 0, E(synth, { sansCouleur: true }).slice(0, 120));
+    /* Le gras reste : l'utilisateur n'a demandé que le retrait des COULEURS. */
+    v('… le chiffre garde son gras', /<strong>10<\/strong>/.test(E(synth, { sansCouleur: true })));
+    /* ⚠️ LE CONTRÔLE QUI EMPÊCHE DE TROP EN FAIRE : une puce de donnée garde sa couleur. */
+    v('une PUCE de donnée garde sa couleur',
+      couleurs(E('Taux de chômage au Japon : 2,4% en juillet, inférieur aux attentes (2,5%).')).length > 0,
+      'la couleur des puces est une demande d\'août — la supprimer serait une régression');
+  }
+  /* Et la branche SYNTHÈSE du rendu doit RÉELLEMENT passer le drapeau : sans cet appel, tout ce qui
+     précède reste vrai et l'écran reste colorié. */
+  v('la branche SYNTHÈSE passe bien le drapeau au rendu',
+    /_emphasize\(t, \{ sansCouleur: true \}\)/.test(APP),
+    'la fonction sait ne pas colorier, mais personne ne le lui demande');
+}
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

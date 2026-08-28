@@ -3209,7 +3209,17 @@ function _verdictColore(s) {
   }
   return out;
 }
-function _emphasize(text) {
+/* ⚠️ `sansCouleur` — LA SYNTHÈSE D'UN RÉCAP NE SE COLORIE PAS (28/08, demande rappelée par
+   l'utilisateur : « dans les synthèses des récaps, mets pas de couleurs »).
+   ET LE DÉFAUT ALLAIT PLUS LOIN QUE LE GOÛT. `_verdictColore` est fait pour une PUCE DE DONNÉE, de
+   la forme « Indicateur : valeur vs attendu » : quand aucun couple réel/consensus n'est trouvé, il
+   se rabat sur « le premier nombre après le dernier " : " » et le peint selon le verdict énoncé
+   dans la phrase. Sur une puce, ce nombre EST la valeur publiée. Sur un PARAGRAPHE DE PROSE, c'est
+   n'importe quel chiffre — capture utilisateur : « les rendements du Trésor américain à 10 ans »,
+   où le 10 de la MATURITÉ ressortait en rouge comme s'il s'agissait d'un verdict de marché.
+   Les puces gardent leur couleur : c'est une demande d'août, et là elle a un sens. */
+function _emphasize(text, opts) {
+  const _sansCouleur = !!(opts && opts.sansCouleur);
   return String(text || '')
     // Gras Markdown ** ** venant du prompt (devises, banques centrales, indicateurs : **USD**, **Fed**, **CPI m/m**…) → <strong>
     .replace(/\*\*([^*]{1,80}?)\*\*/g, '<strong>$1</strong>')
@@ -3219,7 +3229,7 @@ function _emphasize(text) {
        décimal. Sans cette seconde condition, bloquée sur le « + » de « <span …>+2,1% », la passe
        repartait un caractère plus loin et mettait « 2,1% » en gras À L'INTÉRIEUR de la valeur déjà
        balisée : deux <strong> imbriqués. Défaut trouvé par le contrôle, pas en production. */
-    .replace(/^[\s\S]*$/, _verdictColore)
+    .replace(/^[\s\S]*$/, _sansCouleur ? (m => m) : _verdictColore)
     /* Nombres (55.1, +0.4%, 250K, 1.2bln…). LE MOTIF S'ARRÊTE AU BORD DU MOT (26/08, capture
        utilisateur) : sans la sentinelle de fin, « 14h15 » sortait en « <strong>14</strong>h15 »
        — l'heure coupée en deux, moitié grasse moitié pas — et « +0,3 pt » en
@@ -11096,7 +11106,7 @@ function renderArlibReader(item) {
         const ps = Array.from(el.children)
           .filter(c => (c.tagName || '').toLowerCase() === 'li')
           .map(c => (c.textContent || '').trim()).filter(Boolean)
-          .map(t => `<p class="wr-p">${_emphasize(t)}</p>`).join('');
+          .map(t => `<p class="wr-p">${_emphasize(t, { sansCouleur: true })}</p>`).join('');
         if (ps) { html += `<div class="arlib-rexec">${ps}</div>`; bulletCount++; }
       } else if (tag === 'blockquote') {
         const t = el.textContent.trim();
