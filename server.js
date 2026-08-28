@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-audit-traductions', ts: Date.UTC(2026, 9, 1, 9, 0), title: 'Six traductions mortes réparées, dont le titre du fil', desc: 'Pour nos lecteurs en anglais, allemand et espagnol : six libellés étaient restés en français, dont « Fil d’actualité », le titre du panneau des actualités. Le desk était passé du tutoiement au vouvoiement sans que les dictionnaires suivent. C’est réparé, et un contrôle automatique empêche désormais qu’une traduction meure en silence.' },
   { id: 'dtpu-20260910-apercu-alertes', ts: Date.UTC(2026, 8, 10, 23, 0), title: 'Les alertes ne se coupent plus au milieu d’un mot', desc: 'Dans le panneau ALERTES, les aperçus s’arrêtaient net : « Pas de mess », « Vérification f ». Ils s’arrêtent désormais sur une phrase entière quand il y en a une, sinon sur le dernier mot complet, suivi de points de suspension. Une citation ouverte par la coupe est refermée.' },
   { id: 'dtpu-20260910-pourcent-colle', ts: Date.UTC(2026, 8, 10, 23, 30), title: 'Le pourcent est collé à son nombre', desc: 'L’espace qui séparait un nombre du signe pourcent disparaît : le chiffre et son unité se lisent désormais d’un bloc, partout sur le desk. C’est un écart assumé à la typographie française, qui veut cette espace. La règle vaut pour les chiffres calculés comme pour les textes rédigés par le desk.' },
   { id: 'dtpu-20260910-propos-bc-fr', ts: Date.UTC(2026, 8, 10, 22, 0), title: 'Les propos des banquiers centraux s’affichent enfin en français', desc: 'Signalé sur capture : dans la fiche d’une banque centrale, la rubrique DERNIERS PROPOS listait les déclarations en anglais. « No central bank would seek to adjust degree of financial accommodation by shocking markets » — au milieu d’un panneau en français. LA TRADUCTION ÉTAIT DÉJÀ BRANCHÉE, ELLE PERDAIT LA COURSE. La fiche demandait la traduction au moment où vous l’ouvriez : les lignes sont masquées, et si la réponse tarde de plus de deux secondes et demie, le desk renonce, révèle l’anglais et le FIGE. La traduction revenue ensuite était reçue et jetée en silence. C’est exactement le défaut déjà corrigé sur le panneau Info d’une actualité, et la réponse est la même : ne plus rien demander à l’ouverture, servir ce qui est déjà prêt. CES PROPOS SONT DÉJÀ TRADUITS EN TÂCHE DE FOND, bien avant que vous n’ouvriez la fiche — ils le sont pour le panneau Info depuis plusieurs jours. La fiche ne les recevait tout simplement pas : elle demandait la déclaration d’origine et rien d’autre. Elle reçoit maintenant les deux, et affiche le français dès la première milliseconde. Si un propos vient d’arriver et n’a pas encore été préparé, la traduction à la volée reste là en dernier recours : rien n’est perdu, on a simplement cessé de compter dessus. UN DÉTAIL QUI AURAIT COÛTÉ CHER. Le ton d’un discours — le badge HAWKISH, DOVISH ou NEUTRE, et la ligne de lecture qui l’accompagne — est reconnu par des mots-clés ANGLAIS dans la déclaration. Remplacer purement et simplement le texte par sa traduction aurait rendu ce badge muet : le panneau aurait gagné des propos lisibles et perdu sa lecture de posture. Le desk analyse donc la version d’origine et n’affiche que le français. Un contrôle automatique le vérifie dans les deux sens à chaque livraison — la version anglaise doit déclencher la détection, sa traduction ne doit pas. AU PASSAGE, UN COMMENTAIRE QUI MENTAIT. Le code portait encore, à cet endroit, la mention « propos jamais traduits » alors que leur traduction avait été demandée et branchée trois mois plus tôt. Un commentaire périmé a l’autorité du code sans en avoir la vérité : celui-ci a bien failli faire refuser une demande parfaitement légitime. Il est corrigé, et un contrôle interdit qu’il revienne.' },
@@ -6791,7 +6792,29 @@ try { if (ai && typeof ai.setLiveContext === 'function') ai.setLiveContext(_aiTe
 //      payants par défaut : il attend son tour (self-heal) avec son fallback local.
 //   3) Tout déversement Claude hors budget est compté à part (_aiNoteClaude) et
 //      borné par le cap CLAUDE_DAILY_MAX (persisté) → coût toujours fini et visible.
+/* ══ LE POURCENT SE COLLE À SON NOMBRE — À LA SOURCE (28/08) ═══════════════════════════════════
+   Demande utilisateur : « enlève l'espace entre le nombre et le %, ça fait IA ». Écart assumé à la
+   typographie française, qui veut une espace insécable ; sur un desk, un chiffre et son unité se
+   lisent d'un bloc.
+   ⚠️ POURQUOI ICI ET PAS SEULEMENT DANS LE CLIENT. Le desk normalise déjà à l'affichage (titres,
+   puces, aperçus d'alerte), mais le texte français du desk part AUSSI ailleurs : les e-mails
+   (Point Marché, récaps), les pages publiques /actu rendues côté serveur, et les cartes qui
+   affichent de la prose IA. Corriger à l'affichage du desk laissait donc l'espace dans tout ce qui
+   sort par une autre porte.
+   `aiSmart` et `_traduireLot` sont les DEUX passages obligés de tout texte français produit par le
+   desk — 26 générateurs pour le premier, toutes les traductions pour le second. On enveloppe donc
+   ces deux-là plutôt que de courir après chaque surface.
+   ⚠️ ON N'ÉCRIT PAS `String(t)` : ces fonctions rendent aussi `null` (échec) ou des objets. Les
+   convertir en chaîne transformerait une panne en texte « null » affiché au client. */
+const _PCT_ESPACE_RX = /(\d)[\u00a0\u202f ]+%/g;
+function _pctColle(t) { return (typeof t === 'string') ? t.replace(_PCT_ESPACE_RX, '$1%') : t; }
+
+/* Enveloppe : la fonction historique garde son nom et ses 26 appelants, la normalisation se pose
+   sur sa sortie. La renommer plutôt que de retoucher chacun de ses `return` évite d'en oublier un. */
 async function aiSmart(category, prompt, maxTokens, opts = {}) {
+  return _pctColle(await _aiSmartBrut(category, prompt, maxTokens, opts));
+}
+async function _aiSmartBrut(category, prompt, maxTokens, opts = {}) {
   // Bascule Claude hors-budget : réservée aux requêtes UTILISATEUR (sauf opt-in/out explicite).
   const claudeOverBudget = (opts.claudeOverBudget === true) || (opts.claudeOverBudget !== false && opts.priority === 'user');
   if (aiAllowed(category, opts)) {
@@ -9763,6 +9786,11 @@ function _trBudget(lignes) {
    mentir. Meme lecon que `requireAuth` qui recopiait la regle de session, corrige le matin meme.
    Renvoie { translations, fallback? } ; ne jette jamais. */
 async function _traduireLot(texts, opts = {}) {
+  const r = await _traduireLotBrut(texts, opts);
+  if (r && Array.isArray(r.translations)) r.translations = r.translations.map(_pctColle);
+  return r;
+}
+async function _traduireLotBrut(texts, opts = {}) {
   const _prio = opts.priority || 'user';
   const result = texts.map(t => _trCache.has(_trKey(t)) ? _trCache.get(_trKey(t)) : null);
   const missIdx = result.map((v, i) => (v == null ? i : -1)).filter(i => i >= 0);

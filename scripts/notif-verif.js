@@ -338,6 +338,27 @@ function decouper(src, entete, fin) {
     }
     v('aucun formateur ne remet l\'espace avant le %', fautifs.length === 0, fautifs.join(', '));
   }
+  /* ⚠️ ET LA RÈGLE VAUT AUSSI HORS DU DESK. Le texte français du desk part par trois autres portes :
+     les e-mails, les pages publiques /actu rendues côté serveur, et les cartes qui affichent de la
+     prose IA. Normaliser à l'affichage du desk les laissait toutes avec l'espace. `aiSmart` (26
+     générateurs) et `_traduireLot` (toutes les traductions) sont les deux passages obligés : on les
+     enveloppe, donc tout ce qui sort du desk est normalisé, quelle que soit la porte. */
+  {
+    const SRV3 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+    v('le serveur porte la règle lui aussi', /function _pctColle\(t\)/.test(SRV3));
+    v('… appliquée à TOUT texte produit par l\'IA', /return _pctColle\(await _aiSmartBrut\(/.test(SRV3));
+    v('… et à toutes les traductions', /r\.translations = r\.translations\.map\(_pctColle\)/.test(SRV3));
+    /* Ces fonctions rendent aussi `null` (échec) ou des objets : les convertir en chaîne
+       transformerait une panne en « null » affiché au client. */
+    const m3 = /function _pctColle\(t\) \{[^\n]*\}/.exec(SRV3);
+    if (m3) {
+      // eslint-disable-next-line no-eval
+      const C = eval('(function(){const _PCT_ESPACE_RX = /(\\d)[\\u00a0\\u202f ]+%/g;' + m3[0] + '\nreturn _pctColle;})()');
+      v('   un texte IA est normalisé', C('sort à 2,4 % contre 2,5 % attendu') === 'sort à 2,4% contre 2,5% attendu');
+      v('   un échec (null) reste un échec', C(null) === null);
+      v('   un objet n\'est pas aplati en chaîne', typeof C({ a: 1 }) === 'object');
+    }
+  }
 
   console.log('\n───────────────────────────────────────');
   console.log('  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n');

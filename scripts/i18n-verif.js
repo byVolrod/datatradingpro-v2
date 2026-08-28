@@ -72,4 +72,33 @@ if (mortes.length) {
   mortes.slice(0, montre).forEach(k => console.log('  · ' + JSON.stringify(k)));
   if (mortes.length > montre) console.log('  … et ' + (mortes.length - montre) + ' autres (relancer avec --all)');
 }
+
+/* ══ CLIQUET : LE NOMBRE D'ORPHELINES NE PEUT PLUS AUGMENTER (28/08) ═══════════════════════════
+   AUDIT DU JOUR : ce banc était le SEUL des 36 à n'être lancé par personne — ni `npm run check`,
+   ni le hook. CLAUDE.md demandait de le passer « après tout renommage de wording FR » : une
+   discipline manuelle, et le résultat se mesure — 21 clés orphelines accumulées, dont SIX
+   traductions réellement mortes (un anglophone lisait du français). Parmi elles le titre
+   « Fil d'actualité », affiché en haut du panneau des actualités.
+   POURQUOI UN CLIQUET ET PAS UN ZÉRO. Une partie des orphelines restantes sont des faux positifs
+   assumés : des chaînes construites à l'exécution (« Hebdomadaire », « Cassure ») que ce banc ne
+   peut pas voir. Exiger zéro obligerait à les blanchir une à une, et un banc qu'on blanchit est un
+   banc qu'on finit par ignorer. On fige donc le nombre CONNU : la dette d'hier ne bloque rien, une
+   dette de PLUS fait rougir. C'est le seul réglage qui rend ce contrôle exécutable aujourd'hui tout
+   en le rendant utile demain.
+   ⚠️ EN BAISSER LA VALEUR EST UNE BONNE NOUVELLE : quand une orpheline est traitée, descendre ce
+   plafond d'autant, sinon le cliquet ne cliquette plus. */
+const PLAFOND_ORPHELINES = 18;
+if (mortes.length > PLAFOND_ORPHELINES) {
+  console.log('\n✗ ' + mortes.length + ' orphelines pour un plafond de ' + PLAFOND_ORPHELINES + '.');
+  console.log('  Une traduction vient de mourir : un wording FR a changé sans que sa clé suive.');
+  console.log('  Re-cléer l\'entrée dans public/js/i18n-dicts.js (les trois langues), puis baisser');
+  console.log('  PLAFOND_ORPHELINES d\'autant dans ce fichier.');
+  process.exit(1);
+}
+if (mortes.length < PLAFOND_ORPHELINES) {
+  console.log('\n✓ ' + mortes.length + ' orphelines, sous le plafond de ' + PLAFOND_ORPHELINES
+    + ' — pensez à descendre PLAFOND_ORPHELINES à ' + mortes.length + '.');
+} else {
+  console.log('\n✓ ' + mortes.length + ' orphelines connues, aucune de plus.');
+}
 process.exit(0);
