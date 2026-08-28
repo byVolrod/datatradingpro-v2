@@ -248,6 +248,66 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
     !!majeure._titreFr && !banale._titreFr,
     'majeure = ' + JSON.stringify(majeure._titreFr) + ' / banale = ' + JSON.stringify(banale._titreFr));
 
+
+  /* ═══ 4. LES PROPOS DE LA FICHE BANQUE CENTRALE ═══════════════════════════════════════════════
+     27/08, capture : le panneau « BANQUE CENTRALE · BOJ » affichait ses DERNIERS PROPOS en anglais.
+     Le mécanisme était pourtant câblé — et sur demande explicite du 17/07 : la fiche appelle
+     `_dtpTranslateQuotes` pour traduire en place. Mais il PERD LA COURSE, exactement comme le
+     panneau Info avant lui : les lignes sont masquées, le repli renonce à 2,5 s, révèle l'anglais
+     ET LE FIGE (`trFige`) — la traduction qui revient ensuite est jetée en silence.
+     La réponse est la même que pour le panneau Info : SERVIR CE QUI EST DÉJÀ PRÊT. Ces propos sont
+     marqués `_propos` à l'ingestion, donc le cycle de fond leur a déjà posé `_hlFr`. La route les
+     rendait sans. Elle les rend maintenant avec.
+     ⚠️ ET LE PIÈGE QUI COMPTE : le ton (hawkish / dovish / neutre) se lit sur des regex ANGLAISES.
+     Remplacer la déclaration par sa traduction rendrait le badge muet — le panneau perdrait sa
+     lecture de posture pour gagner une lecture de propos. On analyse la VO, on affiche le FR. */
+  console.log('\n── 4. Les propos de la fiche banque centrale ──');
+  const CHARTS = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+  const ROUTE = (function () {
+    const d = SRV.indexOf("app.get('/api/cb-quotes'");
+    if (d < 0) return '';
+    const f = SRV.indexOf('\n});', d);
+    return f < 0 ? '' : SRV.slice(d, f + 4);
+  })();
+  v('la route des propos est extractible de server.js', !!ROUTE);
+  v('elle joint la traduction déjà préparée', /fr:\s*i\._hlFr/.test(ROUTE),
+    'sans elle, la fiche doit traduire en direct — et perd la course contre son propre repli');
+  v('… sans cesser de servir la VO', /h:\s*i\.headline/.test(ROUTE));
+
+  /* LE PIÈGE DU TON, ÉPROUVÉ SUR LES VRAIES REGEX : une déclaration traduite ne doit JAMAIS
+     atteindre l'analyseur, sinon le badge disparaît. */
+  const _rx = (nom) => { const m = new RegExp('const ' + nom + ' = (/.*/[a-z]*);').exec(CHARTS); return m ? m[1] : null; };
+  const rxDove = _rx('_CAL_DOVE_RX');
+  v('les regex de ton sont extractibles de charts.js', !!rxDove);
+  if (rxDove) {
+    // eslint-disable-next-line no-eval
+    const DOVE = eval(rxDove);
+    const vo = 'BoJ may pace up rate hike if financial conditions are too accommodative';
+    const fr = 'La BoJ pourrait accélérer la hausse des taux si les conditions financières sont trop accommodantes';
+    v('   la VO déclenche bien la détection de ton', DOVE.test(vo));
+    v('   … et sa traduction NE la déclenche PAS (le piège)', !DOVE.test(fr),
+      'si ce contrôle passe au vert dans les deux sens, le piège n\'est pas démontré');
+  }
+  /* LA CONSÉQUENCE, DANS LE CODE : l'analyse reçoit `statement` (la VO), le rendu peint `fr`. */
+  const DECOUPE = (CHARTS.match(/quotes = quotes\.map\(q => \{[^\n]*\n?[^\n]*\}\);/) || [''])[0]
+    || (CHARTS.match(/quotes = quotes\.map\(q => \{.*?\}\);/s) || [''])[0];
+  v('la découpe des propos est extractible', !!DECOUPE);
+  v('… le ton est calculé sur la VO', /_calToneOf\(\[p\.statement\]\)/.test(DECOUPE),
+    'le ton doit se lire sur la déclaration d\'origine, jamais sur sa traduction');
+  v('… et la traduction est portée à côté, pas à la place', /fr: q\.fr/.test(DECOUPE));
+  /* LE RENDU : le français d'abord, la VO en repli — jamais l'inverse, jamais rien. */
+  const RENDUS = CHARTS.match(/cal-kb-quote">\$\{_calEsc\([^)]*\)\}/g) || [];
+  v('les deux rendus de propos sont trouvés', RENDUS.length === 2, RENDUS.join(' | '));
+  v('… et tous deux préfèrent la traduction', RENDUS.every(r => /q\.fr \|\|/.test(r)), RENDUS.join(' | '));
+
+  /* ⚠️ LE COMMENTAIRE QUI M'A MENTI. `charts.js` portait encore « derniers propos (titres VO, jamais
+     traduits — veto) » alors que la traduction était demandée et câblée depuis le 17/07. Un
+     commentaire périmé ment avec l'autorité du code : il a failli faire refuser une demande
+     légitime de l'utilisateur. Ce contrôle interdit qu'il revienne. */
+  v('plus aucun « jamais traduit — veto » sur les propos de la fiche',
+    !/propos \(titres VO, jamais traduits/.test(CHARTS),
+    'le commentaire périmé est revenu — il contredit le comportement réel depuis le 17/07');
+
   console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert'));
   process.exit(ko ? 1 : 0);
 })();

@@ -4556,7 +4556,10 @@ function _calDetailBodyHtml(d, titre) {
 //     classique EN CONDITIONNEL pédagogique (jamais un conseil), ce que ça aide à anticiper + la
 //     PROCHAINE ÉCHÉANCE LIÉE réellement présente dans le calendrier chargé.
 //  2) BANQUE CENTRALE (discours/minutes/conférences/décisions) : ton récent du discours (mots-clés
-//     hawkish/dovish/neutre sur les titres du fil), derniers propos (titres VO, jamais traduits — veto),
+//     hawkish/dovish/neutre sur les titres du fil), derniers propos — TRADUITS EN FRANÇAIS depuis
+//     la demande du 17/07 (ce commentaire portait encore « VO, jamais traduits — veto » le 27/08,
+//     ce qui était faux depuis trois mois et a failli faire refuser une demande légitime : un
+//     commentaire périmé ment avec l'autorité du code),
 //     taux actuel + prochaine réunion + probabilités (payload /api/rates du desk).
 const CAL_KB = [
   { rx: /core\s+cpi|core\s+consumer\s+price|cpi\s+core/i, name: 'Core CPI', cat: 'Inflation', what: "Le prix des courses hors énergie et nourriture (l'inflation « de fond »).", anticipates: 'PCE, décisions de la banque centrale', nextRx: /\bpce\b|rate decision|fomc/i, hiUp: true },
@@ -4616,7 +4619,9 @@ function _calToneOf(texts) {
   if (hawk || dove || hold) return { key: 'hold', label: 'Neutre', sens: 'maintien / attentisme', color: '#9a9aa4' };
   return null;
 }
-// Découpe un propos rapporté « <Banque/Speaker>: <déclaration> » → attribution (VO) + déclaration (VO, jamais traduite).
+// Découpe un propos rapporté « <Banque/Speaker>: <déclaration> » → attribution (VO) + déclaration.
+// La déclaration rendue ici est la VO : c'est la matière d'ANALYSE (le ton se lit sur des regex
+// anglaises). Ce qui s'AFFICHE est sa traduction quand elle est prête — cf. le champ `fr`.
 function _calQuoteParts(h) {
   h = String(h || '').trim();
   const c = h.indexOf(':');
@@ -4825,7 +4830,7 @@ async function _calValueBlockHtml(ev) {
     try {
       const srv = await _calCbQuotesGet(ev.currency, speaker);
       if (srv && srv.quotes && srv.quotes.length) {
-        quotes = srv.quotes.map(q => ({ h: q.h, ts: q.ts || 0 }));
+        quotes = srv.quotes.map(q => ({ h: q.h, ts: q.ts || 0, fr: q.fr || '' }));
         if (spk && !srv.speaker) quotesLbl = _discoursAVenir ? 'Derniers propos de la banque' : 'Propos de la banque';   // repli banque (speaker sans propos propres)
       }
     } catch {}
@@ -4839,7 +4844,11 @@ async function _calValueBlockHtml(ev) {
     }
     // Découpe (attribution + déclaration VO) + classe chaque propos ; PRIORITÉ à ceux qui portent un SIGNAL
     // (hawkish/dovish/hold) — ce sont eux qui aident à interpréter la prochaine réunion — puis les plus récents.
-    quotes = quotes.map(q => { const p = _calQuoteParts(q.h); return { h: q.h, ts: q.ts, who: p.who, statement: p.statement, t: _calToneOf([p.statement]) }; });
+    /* ⚠️ DEUX TEXTES, DEUX USAGES, ET C'EST LE POINT DÉLICAT. `statement` reste la VO : c'est elle
+       que `_calToneOf` analyse, et ses regex (`_CAL_HAWK_RX`, `_CAL_DOVE_RX`, `_CAL_HOLD_RX`) sont
+       ANGLAISES. Y mettre la traduction rendrait le badge hawkish/dovish muet — le panneau perdrait
+       sa lecture de posture pour gagner une lecture de propos. `fr` ne sert QU'À PEINDRE. */
+    quotes = quotes.map(q => { const p = _calQuoteParts(q.h); return { h: q.h, ts: q.ts, fr: q.fr || '', who: p.who, statement: p.statement, t: _calToneOf([p.statement]) }; });
     // TON AVANT / APRÈS RÉUNION (demande user) : on partage les propos autour de l heure de
     // l evenement. Le calcul se fait sur la liste COMPLETE — le tronquer a 3 citations d abord
     // biaiserait le partage (les 3 retenues peuvent toutes etre du meme cote).
@@ -4892,7 +4901,9 @@ async function _calValueBlockHtml(ev) {
       const qhtml = quotes.map(q => {
         const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
         const dt = q.ts ? ' · ' + _calShortDateFr(q.ts) : '';
-        return `<div class="cal-kb-qline">${chip}<span class="cal-kb-quote">${_calEsc(q.statement || q.h)}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cb.bank)}${dt}</span></div>`;   // déclaration en VO (jamais traduite), attribution + date
+        /* La traduction PRÉCHAUFFÉE si elle est là (français instantané, aucune requête), sinon la
+           VO — que `_dtpTranslateQuotes` tentera encore de traduire en place, en dernier recours. */
+        return `<div class="cal-kb-qline">${chip}<span class="cal-kb-quote">${_calEsc(q.fr || q.statement || q.h)}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cb.bank)}${dt}</span></div>`;
       }).join('');
       rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${qhtml}</span></div>`);
     } else {
@@ -4973,7 +4984,7 @@ async function _calBcCompactHtml(ccy, tsPub) {
     if (cbD) {
       const bcRows = [];
       let q2 = [];
-      try { const srv2 = await _calCbQuotesGet(ccy, null); if (srv2 && srv2.quotes) q2 = srv2.quotes.map(q => ({ h: q.h, ts: q.ts || 0 })); } catch (e) {}
+      try { const srv2 = await _calCbQuotesGet(ccy, null); if (srv2 && srv2.quotes) q2 = srv2.quotes.map(q => ({ h: q.h, ts: q.ts || 0, fr: q.fr || '' })); } catch (e) {}
       /* REPLI FIL EN MÉMOIRE (23/08, constat user « on n'a pas eu le ton avec le discours ») :
          la fiche des réunions l'a toujours eu, le bloc compact ne l'avait pas — si l'endpoint
          des propos revenait vide, le ton disparaissait alors que les dépêches « BoE's
@@ -5018,7 +5029,7 @@ async function _calBcCompactHtml(ccy, tsPub) {
       if (_avant2.length && _apres2.length) _montres2 = [_tri2(_avant2.slice())[0], _tri2(_apres2.slice())[0]];
       else _montres2 = _tri2(q2.slice()).slice(0, 2);
       if (_montres2.length) {
-        const qh2 = _montres2.map(q => `<div class="cal-kb-qline"><span class="cal-kb-quote">${_calEsc(q.statement || '')}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cbD.bank)}${q.ts ? ' · ' + _calShortDateFr(q.ts) : ''}</span></div>`).join('');
+        const qh2 = _montres2.map(q => `<div class="cal-kb-qline"><span class="cal-kb-quote">${_calEsc(q.fr || q.statement || '')}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cbD.bank)}${q.ts ? ' · ' + _calShortDateFr(q.ts) : ''}</span></div>`).join('');
         bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Derniers propos</span><span class="cal-kb-val">${qh2}</span></div>`);
       }
       let bank2 = null; try { const r2 = await _calRatesGet(); bank2 = r2 && r2.banks && r2.banks.find(b => b.code === ccy); } catch (e) {}
