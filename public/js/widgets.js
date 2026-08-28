@@ -2846,7 +2846,7 @@
       id: 'taux-cb', name: 'Taux directeurs',
       maj: 5 * 60 * 1000, cat: 'Macro', h: 320,   // la source des probabilites bouge a l'heure, pas a la seconde
       desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
-      aide: "<p>Le taux directeur en vigueur pour chaque banque, avec ce que le marché price pour la prochaine réunion. La probabilité affichée ne dit pas ce qui va arriver : elle dit ce qui est <strong>déjà dans les prix</strong>.</p><p>C'est cette distinction qui rend la donnée exploitable. Une hausse annoncée et pricée à 90 % ne fera pas bouger la devise ; c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p>",
+      aide: "<p>Le taux directeur en vigueur pour chaque banque, avec ce que le marché price pour la prochaine réunion. La probabilité affichée ne dit pas ce qui va arriver : elle dit ce qui est <strong>déjà dans les prix</strong>.</p><p>C'est cette distinction qui rend la donnée exploitable. Une hausse annoncée et pricée à 90% ne fera pas bouger la devise ; c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p>",
       src: "Taux en vigueur et pricing de marché des prochaines réunions, agrégés par le desk et relus toutes les 5 minutes ; la donnée source bouge à l'heure, pas à la seconde.",
       watch: "Une probabilité qui se déplace nettement après un chiffre ou une prise de parole : le repricing d'une réunion est souvent le vrai moteur de la devise, bien avant la réunion elle-même.",
       // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
@@ -3054,7 +3054,7 @@
          recréerait le chrono et ferait cligner la liste ; le re-fetch 5 min est interne. */
       id: 'reunion-bc', name: 'Prochaine réunion BC', tag: 'RÉUNIONS', cat: 'Macro', h: 300,
       desc: 'Les huit banques centrales classées par réunion la plus proche : compte à rebours et scénario pricé.',
-      aide: "<p>Chaque banque centrale est classée par la date de sa <strong>prochaine réunion</strong>, avec un compte à rebours jusqu'au jour J et le scénario que le marché price le plus (maintien, hausse ou baisse, avec sa probabilité). La ligne du haut, marquée en or, est la prochaine décision toutes banques confondues.</p><p>La probabilité dit ce qui est <strong>déjà dans les prix</strong> : une décision conforme au scénario dominant fait peu bouger la devise, c'est la surprise qui la déplace. Un pricing partagé (aucune issue au-dessus de 60 %) signale une réunion à vrai risque de mouvement.</p>",
+      aide: "<p>Chaque banque centrale est classée par la date de sa <strong>prochaine réunion</strong>, avec un compte à rebours jusqu'au jour J et le scénario que le marché price le plus (maintien, hausse ou baisse, avec sa probabilité). La ligne du haut, marquée en or, est la prochaine décision toutes banques confondues.</p><p>La probabilité dit ce qui est <strong>déjà dans les prix</strong> : une décision conforme au scénario dominant fait peu bouger la devise, c'est la surprise qui la déplace. Un pricing partagé (aucune issue au-dessus de 60%) signale une réunion à vrai risque de mouvement.</p>",
       src: "Les mêmes taux et probabilités de marché que l'onglet TAUX du desk, relus toutes les 5 minutes ; la source donne le jour de chaque réunion, pas l'heure de la décision : le compte à rebours vise le jour J.",
       watch: "Les réunions à pricing partagé et les probabilités qui se déplacent dans les derniers jours : le repricing d'avant réunion fait souvent bouger la devise davantage que la décision elle-même.",
       // Réglage UTILE (même motif que « Taux directeurs ») : suivre UNE banque : la carte devient
@@ -3130,7 +3130,7 @@
               var partage = l.scn != null && l.scn.pct < 60;
               var scnH = l.scn
                 ? '<span class="wdg-rbc-scn ' + SCN[l.scn.type].cls + (partage ? ' est-partage' : '') + '"'
-                  + (partage ? ' title="Pricing partagé : aucune issue ne dépasse 60 %"' : '') + '>'
+                  + (partage ? ' title="Pricing partagé : aucune issue ne dépasse 60%"' : '') + '>'
                   + SCN[l.scn.type].t + ' ' + l.scn.pct + ' %</span>'
                 : '<span class="wdg-rbc-scn">-</span>';
               html += '<div class="wdg-rbc-l' + (i === iPrem ? ' est-present' : '') + '">'
@@ -3157,8 +3157,8 @@
               var parts = lignes.filter(function (l) { return l.scn != null && l.scn.pct < 60; })
                 .map(function (l) { return (l.b.bank || l.b.code) + ' (' + l.scn.pct + ' %)'; });
               vsT = (suiv ? 'Ensuite : ' + (suiv.b.bank || suiv.b.code) + ' le ' + fmtD(suiv.b.next) + '. ' : '')
-                + (parts.length ? 'Issue ouverte (dominant sous 60 %) : ' + parts.join(', ') + '.'
-                  : 'Aucune issue ouverte : chaque scénario dominant dépasse 60 %.');
+                + (parts.length ? 'Issue ouverte (dominant sous 60%) : ' + parts.join(', ') + '.'
+                  : 'Aucune issue ouverte : chaque scénario dominant dépasse 60%.');
               cle = pb.code + '|' + (ps ? ps.type + ps.pct : '') + '|' + (pb.next || '');
             } else {
               etatV = 'inconnu';
@@ -4386,8 +4386,8 @@
     },
     {
       id: 'distribution-variations', name: 'Variations quotidiennes', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
-      desc: 'La forme réelle des séances : combien de journées à +0,3 %, combien à -1 %.',
-      aide: "<p>L'histogramme des variations quotidiennes, de clôture à clôture : chaque barre compte les séances tombées dans sa classe, rouge sous zéro, vert au-dessus. Le repère or situe la séance en cours dans cette forme, et la ligne du bas la traduit en percentile.</p><p>C'est un <strong>étalon de normalité</strong> : savoir que l'essentiel des séances fait moins de ±0,5 % change la lecture d'un mouvement de 0,8 %. Un objectif posé dans la queue de distribution exige une séance rare ; un stop posé au cœur de la distribution sera touché par le bruit ordinaire.</p>",
+      desc: 'La forme réelle des séances : combien de journées à +0,3%, combien à -1%.',
+      aide: "<p>L'histogramme des variations quotidiennes, de clôture à clôture : chaque barre compte les séances tombées dans sa classe, rouge sous zéro, vert au-dessus. Le repère or situe la séance en cours dans cette forme, et la ligne du bas la traduit en percentile.</p><p>C'est un <strong>étalon de normalité</strong> : savoir que l'essentiel des séances fait moins de ±0,5% change la lecture d'un mouvement de 0,8%. Un objectif posé dans la queue de distribution exige une séance rare ; un stop posé au cœur de la distribution sera touché par le bruit ordinaire.</p>",
       src: "Bougies quotidiennes réelles, relues toutes les 5 minutes ; la séance en cours est exclue du calcul (elle n'a pas de clôture) et les trous de série sont écartés puis comptés sur la carte.",
       watch: "Le percentile du jour : au-delà de P90 ou sous P10, l'essentiel du mouvement type est déjà fait ; l'asymétrie de la forme dit aussi de quel côté la paire a l'habitude d'exagérer.",
       /* ⚠️ La derniere bougie est TOUJOURS retiree, sans test de date : la journee en cours n a
@@ -4398,7 +4398,7 @@
       opts: [
         { k: 'paire', lbl: 'Paire', type: 'choix', def: 'EUR/USD', choix: _fxChoix() },
         { k: 'pas', lbl: 'Largeur des classes', type: 'choix', def: '0.25',
-          choix: [['0.1', '0,1 %'], ['0.25', '0,25 %'], ['0.5', '0,5 %']] },
+          choix: [['0.1', '0,1%'], ['0.25', '0,25%'], ['0.5', '0,5%']] },
       ],
       mount: function (host, it) {
         var W = this, vivant = true, cache = {};
@@ -4743,7 +4743,7 @@
               if (Math.abs(Number(mobile.changePct)) < 0.15) {
                 vHtml = 'Séance atone : la plus mobile est <span class="est-present">' + esc(mobile.symbol) + '</span> ('
                   + fmtV(Number(mobile.changePct)) + ')';
-                vSous = 'Aucun croisement ne dépasse 0,15 % de variation.';
+                vSous = 'Aucun croisement ne dépasse 0,15% de variation.';
               } else {
                 teteSym = tete.symbol; queueSym = queue.symbol;
                 // Couleur par SIGNE réel : si tout baisse, la « meneuse » n'est pas peinte en vert.
@@ -5785,7 +5785,7 @@
               });
               if (Math.abs(mob.moy) < 0.10) {
                 vHtml = 'Séance étale : <span class="est-present">' + mob.dev + '</span> la plus mobile à ' + fmtM(mob.moy) + ' en moy.';
-                vSous = 'Aucune devise ne s\'écarte de ±0,10 % en moyenne sur ses croisements.';
+                vSous = 'Aucune devise ne s\'écarte de ±0,10% en moyenne sur ses croisements.';
               } else if (forte.dev !== faible.dev) {
                 teteDev = forte.dev; queueDev = faible.dev;
                 vHtml = '<span' + (forte.moy > 0 ? ' class="est-haut"' : forte.moy < 0 ? ' class="est-bas"' : '') + '>' + forte.dev + '</span>'
@@ -5907,7 +5907,7 @@
       id: 'saison-courbe', name: 'Rendement mensuel',
       maj: 30 * 60 * 1000, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,   // donnee historique : le rythme sert a se reparer
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
-      aide: "<p>Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en courbe cumulée sur l'année ; le mois en cours est marqué en or et compté comme partiel. La régularité, en option, dit combien d'années observées ont fini chaque mois en hausse.</p><p>La saisonnalité est un <strong>vent de fond</strong>, pas un signal : cinq observations font une tendance fragile, et un mois « moyen à +0,8 % » obtenu par une seule année exceptionnelle ne vaut pas quatre années sur cinq. Elle sert à pondérer une idée, jamais à la créer.</p>",
+      aide: "<p>Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en courbe cumulée sur l'année ; le mois en cours est marqué en or et compté comme partiel. La régularité, en option, dit combien d'années observées ont fini chaque mois en hausse.</p><p>La saisonnalité est un <strong>vent de fond</strong>, pas un signal : cinq observations font une tendance fragile, et un mois « moyen à +0,8% » obtenu par une seule année exceptionnelle ne vaut pas quatre années sur cinq. Elle sert à pondérer une idée, jamais à la créer.</p>",
       src: "Rendements mensuels calculés sur cinq ans de clôtures réelles, cachés 6 heures côté serveur ; l'horodatage affiché est celui de la donnée servie, pas de la lecture.",
       watch: "Les mois dont la moyenne et la régularité vont dans le même sens, et l'entrée dans l'un d'eux : c'est là que le vent de fond mérite d'être pesé face au calendrier réel.",
       /* Complement du widget « Saisonnalite » (table de chiffres) : celui-ci DESSINE la meme donnee.
@@ -6516,9 +6516,9 @@
     {
       id: 'dmx-retail', name: 'Sentiment particuliers', tag: 'DMX', cat: 'Risque', h: 340,
       desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
-      aide: "<p>Le positionnement long/short des particuliers sur toutes les paires servies, en barres, avec le choix de l'unité de temps et du tri. Chaque barre partage 100 % entre acheteurs et vendeurs : il n'y a ni volume ni direction du prix là-dedans, seulement la foule.</p><p>La lecture est <strong>contrarienne et comparative</strong> : les paires les plus déséquilibrées sont celles où la foule est la plus exposée à un débouclage forcé. Trier par pourcentage long ou short fait remonter ces extrêmes d'un geste.</p>",
+      aide: "<p>Le positionnement long/short des particuliers sur toutes les paires servies, en barres, avec le choix de l'unité de temps et du tri. Chaque barre partage 100% entre acheteurs et vendeurs : il n'y a ni volume ni direction du prix là-dedans, seulement la foule.</p><p>La lecture est <strong>contrarienne et comparative</strong> : les paires les plus déséquilibrées sont celles où la foule est la plus exposée à un débouclage forcé. Trier par pourcentage long ou short fait remonter ces extrêmes d'un geste.</p>",
       src: "Positionnement agrégé des particuliers, en pourcentages seuls, relu toutes les 60 secondes.",
-      watch: "Les paires au-delà de 65-70 % dans un camp, et celles dont le déséquilibre grandit pendant que le prix va dans l'autre sens : la foule y moyenne à contre-tendance.",
+      watch: "Les paires au-delà de 65-70% dans un camp, et celles dont le déséquilibre grandit pendant que le prix va dans l'autre sens : la foule y moyenne à contre-tendance.",
       // IDENTIQUE AU DESK (23/07) : réutilise buildDMXChart(force, {wrapId, period, sort}) de charts.js
       // → mêmes barres .dmx2-row, même en-tête (boutons TF 1D/4H/1H + tri) et même légende Long/Short.
       // Le widget gère SON intervalle 60 s (le _dmxTimer du desk reste gaté sur #rtab-dmx) → cleanup.

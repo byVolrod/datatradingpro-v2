@@ -4643,28 +4643,28 @@ function _calFlux(paires) {
 // Ce que surveille chaque banque : le MANDAT en une ligne, puis ses règles de décision en couples.
 // Les couples ne font que dérouler ce que la phrase disait déjà — rien n'a été ajouté.
 const _CAL_CB_WATCH = {
-  USD: { quoi: "L'inflation (PCE, cible 2 %) et le plein emploi : le double mandat.", flux: [
+  USD: { quoi: "L'inflation (PCE, cible 2%) et le plein emploi : le double mandat.", flux: [
     ['Inflation tenace', 'taux élevés plus longtemps'],
-    ['Inflation qui recolle à 2 % et emploi qui se tasse', 'arguments pour baisser'],
+    ['Inflation qui recolle à 2% et emploi qui se tasse', 'arguments pour baisser'],
   ] },
-  EUR: { quoi: "L'inflation de la zone euro (cible 2 %), les salaires et la croissance.", flux: [
+  EUR: { quoi: "L'inflation de la zone euro (cible 2%), les salaires et la croissance.", flux: [
     ['Inflation sous contrôle', 'porte ouverte aux baisses'],
     ['Salaires et services tenaces', 'statu quo'],
   ] },
-  GBP: { quoi: "L'inflation (cible 2 %), les salaires et les prix des services : les points durs du Royaume-Uni.", flux: [
+  GBP: { quoi: "L'inflation (cible 2%), les salaires et les prix des services : les points durs du Royaume-Uni.", flux: [
     ['Salaires et services encore élevés', 'la BoE freine les baisses'],
   ] },
   JPY: { quoi: "Une inflation DURABLE portée par les salaires (négociations de printemps) et le yen.", flux: [
     ['Salaires qui montent durablement', 'la condition pour continuer à remonter les taux'],
   ] },
-  CHF: { quoi: "L'inflation (fourchette 0-2 %) et la force du franc.", flux: [
+  CHF: { quoi: "L'inflation (fourchette 0-2%) et la force du franc.", flux: [
     ['Franc trop fort', 'la BNS peut intervenir sur le change'],
   ] },
   CAD: { quoi: "L'inflation sous-jacente (médiane/tronquée), l'emploi et l'immobilier.", flux: [
     ['Ménages très endettés', 'chaque hausse de taux pèse vite'],
   ] },
-  AUD: { quoi: "L'inflation trimestrielle (cible 2-3 %), l'emploi et la consommation des ménages.", flux: [] },
-  NZD: { quoi: "L'inflation (cible 1-3 %) et l'emploi : mandat double, politique souvent tranchée.", flux: [] },
+  AUD: { quoi: "L'inflation trimestrielle (cible 2-3%), l'emploi et la consommation des ménages.", flux: [] },
+  NZD: { quoi: "L'inflation (cible 1-3%) et l'emploi : mandat double, politique souvent tranchée.", flux: [] },
 };
 // « Lecture pour la réunion » (23/07) : croise le TON du discours et le SCÉNARIO pricé par le marché
 // (probabilités /api/rates) → phrase déterministe : hausse/baisse/maintien attendu + ce que ce ton

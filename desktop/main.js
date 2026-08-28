@@ -205,7 +205,7 @@ function buildMenu() {
     { label: 'Affichage', submenu: [
       { role: 'togglefullscreen', label: 'Plein écran' },        // F11 (Windows) / Ctrl+Cmd+F (macOS)
       { type: 'separator' },
-      { role: 'resetZoom', label: 'Zoom 100 %' },
+      { role: 'resetZoom', label: 'Zoom 100%' },
       { role: 'zoomIn',    label: 'Zoom +' },
       { role: 'zoomOut',   label: 'Zoom −' },
       { type: 'separator' },

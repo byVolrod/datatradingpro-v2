@@ -784,15 +784,15 @@ async function generateTextStream(prompt, maxTokens = 380, opts = {}, onChunk = 
     : d;
   const _emet = d => onChunk(_flux(d));
   if (GROQ_KEYS.length) {
-    try { const out = await _groqStream(prompt, maxTokens, _emet); _noteTotalOk(); return sansCadratin(out); }   // Groq = le + rapide → chat fluide
+    try { const out = await _groqStream(prompt, maxTokens, _emet); _noteTotalOk(); return typoDesk(out); }   // Groq = le + rapide → chat fluide
     catch (e) { console.warn('[AI stream] Groq: ' + String(e.message).slice(0, 90)); _aiStat('groqFail'); }
   }
   if (OPENROUTER_KEYS.length) {
-    try { const out = await _openrouterStream(prompt, maxTokens, _emet); _noteTotalOk(); return sansCadratin(out); }
+    try { const out = await _openrouterStream(prompt, maxTokens, _emet); _noteTotalOk(); return typoDesk(out); }
     catch (e) { console.warn('[AI stream] OpenRouter: ' + String(e.message).slice(0, 90)); _aiStat('openrouterFail'); }
   }
   if (!opts.noClaude && claudeUsable()) {
-    try { const out = await _anthropicStream(prompt, maxTokens, _emet); _noteTotalOk(); return sansCadratin(out); }
+    try { const out = await _anthropicStream(prompt, maxTokens, _emet); _noteTotalOk(); return typoDesk(out); }
     catch (e) { console.warn('[AI stream] Claude: ' + String(e.message).slice(0, 90)); }
   }
   throw new Error('streaming indisponible (repli bufferisé)');
@@ -817,6 +817,28 @@ async function generateTextStream(prompt, maxTokens = 380, opts = {}, onChunk = 
    REMPLACEMENT SELON LE SENS, jamais mécanique : un « - » partout aurait produit du mauvais
    français. Les deux-points ne sont posés qu'UNE fois par ligne (« A : B : C » est illisible),
    la virgule prend le relais ensuite. */
+/* ── LE POURCENT COLLE À SON NOMBRE, AU MÊME ENDROIT ET POUR LA MÊME RAISON ───────────────────
+   « enlève l'espace entre le chiffre et le %, ça fait IA » — demande répétée, et le mot « IA » du
+   client dit exactement d'où vient le défaut : la typographie française met une espace insécable
+   avant le signe pourcent, les modèles l'appliquent scrupuleusement, et le desk hérite d'un texte
+   qui SIGNALE la machine à chaque chiffre.
+   ⚠️ POURQUOI ICI PLUTÔT QUE CHEZ CHAQUE APPELANT. Le serveur normalisait déjà la sortie d'aiSmart
+   et des traductions : deux portes sur trois. Restaient le chat macro (streaming), les appels
+   Claude directs et tout ce qui passe par generateText sans passer par aiSmart. `generateText` est
+   le point commun à TOUS les fournisseurs — un seul filet vaut mieux que trois qu'on oublie.
+   INNOCUITÉ VIS-À-VIS DU JSON, même raisonnement que pour le cadratin : le signe pourcent n'est
+   jamais de la syntaxe JSON, et l'espace retirée est toujours à l'intérieur d'une chaîne. Aucun
+   caractère structurant n'est touché, le nettoyage peut donc précéder le JSON.parse.
+   Les trois espaces sont visées : normale, insécable, insécable fine — les modèles produisent les
+   trois selon le fournisseur. */
+function sansEspacePourcent(t) {
+  return (typeof t === 'string') ? t.replace(/(\d)[\u00a0\u202f ]+%/g, '$1%') : t;
+}
+
+/* La typographie du desk en UN appel : c'est cette fonction que la chaîne applique, pour qu'une
+   règle ajoutée demain n'ait pas à retrouver les cinq points de sortie un par un. */
+function typoDesk(t) { return sansEspacePourcent(sansCadratin(t)); }
+
 function sansCadratin(t) {
   if (typeof t !== 'string') return t;
   if (t.indexOf('—') < 0 && !/\\u2014/i.test(t)) return t;   // sortie courante : aucun coût
@@ -853,7 +875,7 @@ function sansCadratin(t) {
 
 async function generateText(prompt, maxTokens = 1500, opts = {}) {
   try {
-    const out = sansCadratin(await _generateTextInner(prompt, maxTokens, opts));
+    const out = typoDesk(await _generateTextInner(prompt, maxTokens, opts));
     _noteTotalOk();
     return out;
   } catch (e) {
@@ -952,7 +974,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
 // Génère via Claude UNIQUEMENT (ignore Gemini). Utile quand le budget Gemini soft
 // est épuisé mais qu'on veut quand même produire un vrai résultat IA via Claude.
 async function generateTextClaudeOnly(prompt, maxTokens = 1500) {
-  return sansCadratin(await _anthropic(prompt, maxTokens));   // même veto typographique que la voie commune
+  return typoDesk(await _anthropic(prompt, maxTokens));   // mêmes règles typographiques que la voie commune
 }
 
 function hasAnthropic() { return ANTHROPIC_KEYS.length > 0; }
@@ -1005,6 +1027,8 @@ module.exports = {
   generateTextStream,
   generateTextClaudeOnly,
   sansCadratin,     // exporté : sert aussi aux textes assemblés côté serveur (scrapers, agrégats)
+  sansEspacePourcent,
+  typoDesk,         // les deux règles d'un coup — à préférer pour tout texte français assemblé
   setQuotaPressure,
   pressure,
   shouldThrottle,

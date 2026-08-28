@@ -280,7 +280,11 @@ try { const _aiAv = new Image(); _aiAv.src = AI_AVATAR; } catch {}   // PRÉCHAR
 const AI_CHIP = `<img class="ai-chip-img" src="${AI_AVATAR}" alt="Copilote Macro" width="22" height="22" decoding="sync">`;
 function _aiTime() { try { return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
 function _aiEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function _aiMd(s) { return _aiEsc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); }
+/* ⚠️ `_sansEspacePct` ICI AUSSI, ET PAS SEULEMENT CÔTÉ SERVEUR. Le serveur normalise le texte
+   qu'il PRODUIT ; le chat, lui, affiche aussi ce qui sort du cache (réponses déjà générées,
+   avec leur espace). Et `_aiMd` est le rendu commun au bufferisé et au streaming : une seule
+   pose couvre les deux. */
+function _aiMd(s) { return _aiEsc(_sansEspacePct(s)).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); }
 // Markdown TOLÉRANT au streaming : masque une séquence ** non encore fermée (pas d'astérisques affichés ni de crash)
 function _aiMdStream(s) {
   let t = String(s || '');
@@ -2812,9 +2816,15 @@ function _sansSource(s) { return String(s == null ? '' : s).replace(_NEWS_SRC_RE
    ⚠️ ET C'EST ICI QUE ÇA SE JOUE, PAS SEULEMENT DANS LES FORMATEURS. Les 23 endroits qui collent
    « % » à un nombre calculé ont été corrigés à la source — mais l'essentiel du texte français du
    desk est ÉCRIT PAR L'IA (traductions, analyses, récaps), et un modèle qui rédige en français met
-   l'espace de lui-même. Le cas signalé venait de là. La règle vit donc dans les trois fonctions qui
-   normalisent DÉJÀ du texte avant affichage — titres, puces, aperçus d'alerte — plutôt que d'être
-   semée dans chaque rendu. Les trois espaces sont visées : normale, insécable, insécable fine. */
+   l'espace de lui-même. Le cas signalé venait de là. La règle vit donc dans les fonctions qui
+   normalisent DÉJÀ du texte avant affichage, plutôt que d'être semée dans chaque rendu. Les trois
+   espaces sont visées : normale, insécable, insécable fine.
+   ⚠️ SIX POINTS DE BRANCHEMENT, ET LES TROIS DERNIERS NE FONT PAS DOUBLON AVEC LE SERVEUR.
+   Titres (`_mdStrip`), puces, aperçus d'alerte ; puis le chat macro (`_aiMd`), les récaps de séance
+   (`_emphasize`) et le Quotidien / Hebdo (`_wrInline`). Le serveur normalise ce qu'il PRODUIT — le
+   desk, lui, affiche aussi ce qu'il a mis en CACHE, généré avant la règle et porteur de l'espace.
+   Le filet serveur ne peut pas atteindre ce texte-là ; celui-ci l'atteint à l'affichage.
+   Le banc de la règle : scripts/pourcent-verif.js. */
 function _sansEspacePct(s) { return String(s == null ? '' : s).replace(/(\d)[\u00a0\u202f ]+%/g, '$1%'); }
 
 function _mdStrip(s) {
@@ -3277,7 +3287,7 @@ function _emphasize(text, opts) {
   const _sansCouleur = !!(opts && opts.sansCouleur);
   /* Les noms de devises deviennent des CODES avant tout balisage : le texte est encore nu, donc
      aucune substitution ne peut tomber au milieu d'une balise. */
-  return _devisesEnCodes(text)
+  return _sansEspacePct(_devisesEnCodes(text))
     // Gras Markdown ** ** venant du prompt (devises, banques centrales, indicateurs : **USD**, **Fed**, **CPI m/m**…) → <strong>
     .replace(/\*\*([^*]{1,80}?)\*\*/g, '<strong>$1</strong>')
     /* VERDICT COLORÉ, AVANT la mise en gras générale des chiffres : le réel reçoit sa couleur ET son
@@ -9530,6 +9540,7 @@ function _wrInline(t){
   s = s.replace(/^\s*\*\*\s*sous-th[eè]me\s*:?\s*\*\*\s*:?\s*/i, '')
        .replace(/^\s*sous-th[eè]me\s*:\s*/i, '');   // retire le placeholder « Sous-thème : » laissé LITTÉRALEMENT par l'IA (bug) → puce nette
   s = _devisesEnCodes(s);   // « le dollar américain » → « l'USD » (même règle que les récaps de séance)
+  s = _sansEspacePct(s);   // « 2,4 % » → « 2,4% » : le cache porte encore l'espace, le serveur ne la produit plus
   return _wrEsc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, '');
 }
 // Décryptage d'une donnée éco du FX Daily Recap = MÊME système que le calendrier (clic → déroulé), RÉUTILISE

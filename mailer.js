@@ -2957,7 +2957,7 @@ const MINDSET_CONCEPTS = [
     "**Mais un stop qu'on déplace n'est plus un stop.** C'est un souhait.",
     "Le niveau que tu avais choisi disait quelque chose : à partir d'ici, ma lecture est fausse.",
     "En le reculant, tu ne protèges pas la position. Tu retardes le moment de l'admettre.",
-    "La perte que tu refuses de prendre à 1 % se prend rarement à 1 % plus tard.",
+    "La perte que tu refuses de prendre à 1% se prend rarement à 1% plus tard.",
   ], closing: "Ton dernier stop, tu l'as respecté : ou tu lui as laissé « un peu d'air » ?" },
 
   { key: 'objectif-chiffre', subject: "🎯 L'objectif mensuel qui fait forcer", cta: 'Je juge mon process, pas mon mois', paras: [

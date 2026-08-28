@@ -264,11 +264,14 @@ function bps(delta) {
   return (b > 0 ? '+' : '−') + Math.abs(b) + ' pb';
 }
 // Pourcentage de séance, à une décimale, signe explicite. Le zéro n'est ni positif ni négatif.
+// ⚠️ LE SIGNE POURCENT COLLE À SON NOMBRE (demande user) : « +0,31% », jamais « +0,31 % ».
+// C'est ici que la « Photo de séance » fabrique ses chiffres — la corriger à l'affichage
+// aurait laissé l'espace dans les e-mails, qui reprennent la même ligne.
 function pct(p) {
   if (p == null || !Number.isFinite(p)) return '';
   const r = Math.round(p * 100) / 100;
   if (Math.abs(r) < 0.005) return 'stable';
-  return (r > 0 ? '+' : '−') + String(Math.abs(r).toFixed(2)).replace('.', ',') + ' %';
+  return (r > 0 ? '+' : '−') + String(Math.abs(r).toFixed(2)).replace('.', ',') + '%';
 }
 
 /* CORRESPONDANCE SÉANCE ↔ RAPPORT. Les wraps portent la région (« Asia-Pacific », « European »,

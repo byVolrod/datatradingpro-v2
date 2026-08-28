@@ -123,15 +123,15 @@
 
   /* ---------- données simulées ---------- */
   var NEWS = [
-    ['HIGH','USD','CPI américain : 3,4 % a/a, conforme aux attentes'],
+    ['HIGH','USD','CPI américain : 3,4% a/a, conforme aux attentes'],
     ['MED','USD','Powell : approche dépendante des données, pas d\'urgence à baisser'],
     ['MED','EUR','Lagarde (BCE) : la désinflation se poursuit, prudence maintenue'],
     ['MED','GBP','La Banque d\'Angleterre maintient ses taux, ton prudent'],
     ['LOW','JPY','Le yen se renforce après la révision à la hausse du PIB'],
     ['MED','OIL','Le WTI recule sous 78 $ sur des craintes de demande'],
     ['LOW','XAU','L\'or se stabilise au-dessus de 2 010 $'],
-    ['HIGH','USD','Ventes au détail US au-dessus des prévisions (+0,6 %)'],
-    ['LOW','EUR','Production industrielle de la zone euro : −0,6 % m/m'],
+    ['HIGH','USD','Ventes au détail US au-dessus des prévisions (+0,6%)'],
+    ['LOW','EUR','Production industrielle de la zone euro : −0,6% m/m'],
     ['LOW','BTC','Le Bitcoin tient au-dessus de 66 000 $, flux ETF positifs'],
     ['MED','CAD','Emploi canadien meilleur qu\'attendu, le CAD se raffermit'],
     ['HIGH','EUR','PMI manufacturier de la zone euro repasse en expansion'],
@@ -150,7 +150,7 @@
   var BSYM = {vb:'++',b:'+',n:'•',be:'–',vbe:'––'};
   var STR = [['USD',3],['EUR',1],['GBP',2],['JPY',-3],['CHF',2],['AUD',-1],['CAD',-2],['NZD',-4]];
   var CAL = [
-    ['13:30','USD','HIGH','Indice des prix à la consommation','3,4 %'],
+    ['13:30','USD','HIGH','Indice des prix à la consommation','3,4%'],
     ['14:00','EUR','MED','Discours de Mme Lagarde (BCE)','—'],
     ['15:30','USD','MED','Stocks de pétrole brut (EIA)','-1,2M'],
     ['16:00','USD','HIGH','Discours de J. Powell (Fed)','—'],

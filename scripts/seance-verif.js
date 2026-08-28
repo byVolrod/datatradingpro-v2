@@ -66,7 +66,7 @@ v('+9 pb', S.bps(0.09) === '+9 pb', S.bps(0.09));
 v('−4 pb', S.bps(-0.045) === '−4 pb', S.bps(-0.045));
 v('inchangé', S.bps(0) === 'inchangé');
 const lp = S.lignePerf([{ label: '10 ans US', pct: 2.1, delta: 0.09, bp: true }, { label: 'S&P 500', pct: -0.62 }]);
-v('la ligne mélange correctement pb et %', /10 ans US \+9 pb/.test(lp) && /S&P 500 −0,62 %/.test(lp), lp);
+v('la ligne mélange correctement pb et %', /10 ans US \+9 pb/.test(lp) && /S&P 500 −0,62%/.test(lp), lp);
 
 // Un taux ne concourt pas avec un indice : neuf points de base ne sont pas « plus gros » qu'un
 // pour cent de Nasdaq, les deux grandeurs ne se comparent pas.
@@ -74,7 +74,7 @@ const avecTaux = [{ label: '10 ans US', pct: 2.1, delta: 0.09, bp: true }, { lab
 v('le taux ne prend pas la tête de la ligne', /^Nasdaq/.test(S.lignePerf(avecTaux)), S.lignePerf(avecTaux));
 v('il est rendu en fin de ligne, en points de base', /10 ans US \+9 pb$/.test(S.lignePerf(avecTaux)), S.lignePerf(avecTaux));
 const syT = S.synthese('New York', avecTaux, []);
-v('la synthèse ne désigne pas un taux comme plus fort mouvement', /Nasdaq −0,94 %/.test(syT), syT);
+v('la synthèse ne désigne pas un taux comme plus fort mouvement', /Nasdaq −0,94%/.test(syT), syT);
 v('…et n\'écrit jamais un taux en pourcentage', !/10 ans US \+2/.test(syT), syT);
 
 console.log('\n── 5. Aucune ligne vide, jamais ──');
@@ -88,7 +88,7 @@ v('un rendez-vous sans chiffre porte son intitulé', _lPowell === '16h USD · Fe
 v('… et AUCUNE colonne vide', !/[:\u2014\u2013-]\s*$/.test(_lPowell) && !/n\/d|N\/A|--/.test(_lPowell), _lPowell);
 v('… une publication à venir, elle, ne rend toujours rien',
   S.ligneMacro({ currency: 'USD', title: 'Unemployment Claims', forecast: '208K' }, '14h30') === '');
-v('un actif sans donnée est OMIS', S.lignePerf([{ label: 'DAX', pct: null }, { label: 'Or', pct: 0.31 }]) === 'Or +0,31 %');
+v('un actif sans donnée est OMIS', S.lignePerf([{ label: 'DAX', pct: null }, { label: 'Or', pct: 0.31 }]) === 'Or +0,31%');
 v('aucun actif mesuré → aucune ligne', S.lignePerf([]) === '');
 v('« stable » plutôt qu\'un faux zéro signé', S.pct(0.001) === 'stable', S.pct(0.001));
 
@@ -96,7 +96,7 @@ console.log('\n── 6. La synthèse ne dit que ce qui est mesuré ──');
 const sy = S.synthese('Londres', [{ label: 'DAX', pct: -1.13 }], [{ title: 'CPI', actual: '2.3%', forecast: '2.1%' }, { title: 'PMI', actual: '52', forecast: '52' }]);
 v('elle compte les publications', /2 publications/.test(sy), sy);
 v('elle compte les surprises', /1 hors consensus/.test(sy), sy);
-v('elle nomme le plus fort mouvement', /DAX −1,13 %/.test(sy), sy);
+v('elle nomme le plus fort mouvement', /DAX −1,13%/.test(sy), sy);
 const vide = S.synthese('Asie', [], []);
 v('séance vide → elle le dit, sans meubler', /sans publication majeure ni mouvement notable/.test(vide), vide);
 const conf = S.synthese('Asie', [], [{ title: 'CPI', actual: '2.1%', forecast: '2.1%' }]);
@@ -594,8 +594,20 @@ const dE = APP.indexOf('/* ── VERDICT COLORÉ SUR LE CHIFFRE PUBLIÉ');
    nom de la fonction, qui, lui, est stable. */
 const fE = dE < 0 ? -1 : APP.indexOf('\n}\n', APP.indexOf('function _emphasize('));
 v('_emphasize est extractible de app.js', dE >= 0 && fE > dE);
-if (dE >= 0) {
-  const emp = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
+/* ⚠️ UNE DÉPENDANCE QUI VIT EN DEHORS DE LA DÉCOUPE. `_emphasize` appelle aussi `_sansEspacePct`,
+   déclarée 400 lignes plus haut, hors du bloc extrait : sans elle le banc PLANTAIT (« _sansEspacePct
+   is not defined ») au lieu de rougir — le même symptôme que l'ancre cassée ci-dessus. On la
+   découpe par son propre repère, toujours le VRAI code, jamais une copie. */
+const _RX_PCT = /function _sansEspacePct\(s\) \{[^\n]*\}/.exec(APP);
+v('… ainsi que sa dépendance _sansEspacePct', !!_RX_PCT);
+/* ⚠️ UN SEUL BAC À SABLE, CONSTRUIT UNE FOIS. Trois sections éprouvent `_emphasize` et chacune
+   refaisait sa propre découpe : en ajouter une dépendance n'en réparait qu'UNE, les deux autres
+   plantaient. Le commit précédent avait déjà noté l'odeur (« deux ancres à maintenir dans le même
+   fichier ») ; elle a mordu au changement suivant. La source vit donc ici, et nulle part ailleurs. */
+const _SRC_EMP = (dE >= 0 && fE > dE && _RX_PCT) ? (_RX_PCT[0] + '\n' + APP.slice(dE, fE + 3)) : null;
+const _emphaser = () => new Function(_SRC_EMP + '\nreturn _emphasize;')();
+if (_SRC_EMP) {
+  const emp = _emphaser();
   v('une heure n\'est PAS coupée en deux', emp('14h15 USD') === '14h15 USD', emp('14h15 USD'));
   v('… ni « 9h30 »', emp('9h30 début de séance') === '9h30 début de séance', emp('9h30 début de séance'));
   v('un écart garde son unité DANS le gras', emp('(+0,3 pt)') === '(<strong>+0,3 pt</strong>)', emp('(+0,3 pt)'));
@@ -617,8 +629,8 @@ console.log('\n── 7e-quinquies-bis. LE VERDICT COLORÉ SUR LA DONNÉE PUBLI�
    augmentation des taux vert, baisse taux rouge et maintien neutre » (26/08).
    Charte DTP : vert #00e676, rouge #ff3d00, neutre #ffb300. DÉTERMINISTE : on relit ce que le modèle
    a écrit et on recompare les nombres nous-mêmes — rien n'est demandé à l'IA. */
-if (dE >= 0) {
-  const emp2 = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
+if (_SRC_EMP) {
+  const emp2 = _emphaser();
   const cls = l => ((emp2(l).match(/dtp-val-(pos|neg|neu)/g) || [])[0] || '').replace('dtp-val-', '') || '—';
   [['**CaseShiller** : +2,1% a/a (vs +1,7% attendu) → surprise haussière.', 'pos'],
    ['**Conference Board** : 89,4 (vs 90,2 attendu) → inférieure aux attentes.', 'neg'],
@@ -1505,7 +1517,7 @@ console.log('\n── La synthèse d\'un récap ne se colorie pas ──');
      ancres à maintenir dans le même fichier — et c'est exactement ce qui vient de casser. */
   v('le formateur est extractible d\'app.js', dE >= 0 && fE > dE);
   if (dE >= 0 && fE > dE) {
-    const E = new Function(APP.slice(dE, fE + 3) + '\nreturn _emphasize;')();
+    const E = _emphaser();
     const couleurs = h => (String(h).match(/dtp-val-(?:pos|neg|neu)/g) || []);
     /* Le texte EXACT de la capture — c'est lui qui doit cesser d'être colorié. */
     const synth = "La séance a été marquée par un sentiment de risque positif, favorisant une légère baisse "
@@ -1588,7 +1600,10 @@ console.log('\n── Les devises s\'écrivent par leur code ──');
     v('un texte vide ne casse rien', D('') === '' && D(null) === '');
   }
   /* LES DEUX FORMATEURS DE PROSE l'appliquent : les récaps de séance ET le Quotidien / Hebdo. */
-  v('les récaps de séance l\'appliquent', /return _devisesEnCodes\(text\)/.test(APP));
+  /* L'ancre laisse la place à d'autres passes sur le même retour (la normalisation du pourcent
+     s'y est ajoutée le jour même) : ce qui compte est que la conversion soit SUR le chemin de
+     retour, pas qu'elle y soit seule. */
+  v('les récaps de séance l\'appliquent', /return [^;]*_devisesEnCodes\(text\)/.test(APP));
   v('… et le Quotidien / Hebdo aussi', /s = _devisesEnCodes\(s\);/.test(APP));
 }
 

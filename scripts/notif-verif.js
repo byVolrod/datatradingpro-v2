@@ -290,75 +290,10 @@ function decouper(src, entete, fin) {
     v('une phrase d\'ouverture minuscule ne bride pas l\'aperçu', court.length > 60, court);
   }
 
-  /* ═══ 6. PAS D'ESPACE ENTRE LE NOMBRE ET LE POURCENT ════════════════════════════════════════
-     28/08 : « enlève l'espace entre le nombre et le %, ça fait IA : au lieu de 2,4 % mets 2,4% ».
-     C'est un choix ASSUMÉ contre la typographie française (qui veut une insécable) — c'est le desk
-     de l'utilisateur, et sur un desk un chiffre et son unité se lisent d'un bloc.
-     ⚠️ DEUX FRONTS, ET LE SECOND EST LE VRAI. Les formateurs qui collent « % » à un nombre calculé
-     ont été corrigés à la source (23 endroits). Mais l'essentiel du texte français du desk est
-     ÉCRIT PAR L'IA — traductions, analyses, récaps — et un modèle qui rédige en français met
-     l'espace de lui-même : le cas signalé venait de là. D'où une règle d'affichage, branchée dans
-     les trois fonctions qui normalisent DÉJÀ du texte avant rendu. */
-  console.log('\n── 6. Le pourcent est collé à son nombre ──');
-  const SRC_PCT = (() => {
-    const m = /function _sansEspacePct\(s\) \{[^\n]*\}/.exec(_APP);
-    return m ? m[0] : null;
-  })();
-  v('la règle est extractible d\'app.js', !!SRC_PCT);
-  if (SRC_PCT) {
-    // eslint-disable-next-line no-eval
-    const P = eval('(function(){' + SRC_PCT + '\nreturn _sansEspacePct;})()');
-    v('le cas signalé est corrigé',
-      P('Taux de chômage au Japon : 2,4 % en juillet, inférieur aux attentes (2,5 %).')
-        === 'Taux de chômage au Japon : 2,4% en juillet, inférieur aux attentes (2,5%).');
-    /* Les TROIS espaces : normale, insécable, insécable fine. Un modèle qui rédige en français
-       produit volontiers une insécable — invisible à l'œil dans le code, bien présente à l'écran. */
-    v('… l\'espace insécable aussi', P('12\u00a0%') === '12%');
-    v('… et l\'insécable FINE, celle que produit le français soigné', P('12\u202f%') === '12%');
-    v('… ainsi que les espaces multiples', P('12   %') === '12%');
-    /* CE QUI NE DOIT PAS BOUGER : un « % » qui ne suit pas un chiffre n'est pas une unité. */
-    v('un « % » isolé n\'est pas touché', P('Le signe % seul') === 'Le signe % seul');
-    v('… ni un pourcent précédé d\'un mot', P('cent % sûr') === 'cent % sûr');
-    v('un texte vide ne casse rien', P('') === '' && P(null) === '');
-  }
-  /* LES TROIS POINTS DE BRANCHEMENT : titres, puces, aperçus d'alerte. Chacun est une fonction qui
-     normalisait DÉJÀ du texte — la règle n'ajoute pas un quatrième endroit à retenir. */
-  v('la règle est branchée sur les titres (_mdStrip)', /function _mdStrip\(s\) \{\s*return _sansEspacePct\(s\)/.test(_APP));
-  v('… sur les puces (Info / Analyse / Impact)', /_sansEspacePct\(_decodeEntities\(b\)/.test(_APP));
-  v('… et sur les aperçus d\'alerte', /let t = _sansEspacePct\(s\)/.test(_APP));
-  /* AUCUN FORMATEUR NE DOIT REVENIR À L'ESPACE. Le contrôle porte sur TOUS les fichiers du client
-     et du serveur : c'est une règle de produit, pas une préférence de fichier. */
-  {
-    const fautifs = [];
-    for (const f of ['public/js/app.js', 'public/js/widgets.js', 'public/js/charts.js',
-                     'public/js/admin.js', 'public/js/home.js', 'server.js', 'mailer.js']) {
-      let src; try { src = fs.readFileSync(path.join(RACINE, f), 'utf8'); } catch { continue; }
-      const sansCom = src.replace(/^\s*(?:\/\/|\*|\/\*).*$/gm, '');
-      if (/' %'|" %"|\$\{[^{}]*\} %/.test(sansCom)) fautifs.push(f);
-    }
-    v('aucun formateur ne remet l\'espace avant le %', fautifs.length === 0, fautifs.join(', '));
-  }
-  /* ⚠️ ET LA RÈGLE VAUT AUSSI HORS DU DESK. Le texte français du desk part par trois autres portes :
-     les e-mails, les pages publiques /actu rendues côté serveur, et les cartes qui affichent de la
-     prose IA. Normaliser à l'affichage du desk les laissait toutes avec l'espace. `aiSmart` (26
-     générateurs) et `_traduireLot` (toutes les traductions) sont les deux passages obligés : on les
-     enveloppe, donc tout ce qui sort du desk est normalisé, quelle que soit la porte. */
-  {
-    const SRV3 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
-    v('le serveur porte la règle lui aussi', /function _pctColle\(t\)/.test(SRV3));
-    v('… appliquée à TOUT texte produit par l\'IA', /return _pctColle\(await _aiSmartBrut\(/.test(SRV3));
-    v('… et à toutes les traductions', /r\.translations = r\.translations\.map\(_pctColle\)/.test(SRV3));
-    /* Ces fonctions rendent aussi `null` (échec) ou des objets : les convertir en chaîne
-       transformerait une panne en « null » affiché au client. */
-    const m3 = /function _pctColle\(t\) \{[^\n]*\}/.exec(SRV3);
-    if (m3) {
-      // eslint-disable-next-line no-eval
-      const C = eval('(function(){const _PCT_ESPACE_RX = /(\\d)[\\u00a0\\u202f ]+%/g;' + m3[0] + '\nreturn _pctColle;})()');
-      v('   un texte IA est normalisé', C('sort à 2,4 % contre 2,5 % attendu') === 'sort à 2,4% contre 2,5% attendu');
-      v('   un échec (null) reste un échec', C(null) === null);
-      v('   un objet n\'est pas aplati en chaîne', typeof C({ a: 1 }) === 'object');
-    }
-  }
+  /* La règle « le pourcent colle à son nombre » vivait ici, en section 6. Elle a déménagé dans
+     scripts/pourcent-verif.js le 28/08 : de trois points de branchement elle est passée à six,
+     plus deux formateurs de calcul, la chaîne IA entière et un balayage de tout le dépôt. Une
+     règle de typographie produit n'est pas une affaire de notifications. */
 
   console.log('\n───────────────────────────────────────');
   console.log('  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n');
