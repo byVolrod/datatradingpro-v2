@@ -88,5 +88,59 @@ if (SRC) {
     'un titre mixte doit rester : le doute profite à la ligne');
 }
 
+
+/* ══ L'ATTRIBUTION DE SOURCE COLLÉE EN FIN DE TITRE ═══════════════════════════════════════════════
+   28/08, capture : « … plusieurs explosions dans la capitale syrienne - Tasnim News. » — demande :
+   « enlève les sources des news ».
+   ⚠️ CE QUI CLOCHAIT N'ÉTAIT PAS L'ABSENCE DE RÈGLE, MAIS SA FORME. Une liste de noms exacts
+   existait, et « Tasnim » y figurait — mais le titre porte « Tasnim News », et le nom doit consommer
+   TOUTE la fin de la ligne. Même trou pour « Mehr News Agency », « Kyodo News », « Anadolu
+   Agency » : trois noms déjà listés, trois variantes qui passaient. Une liste sera toujours en
+   retard d'un média.
+   On reconnaît donc une attribution à sa FORME — tiret, mots en Capitales, mot de presse en dernier.
+   ⚠️ ET LA MOITIÉ DES CONTRÔLES VÉRIFIE CE QUI DOIT RESTER INTACT : une règle qui mange la fin des
+   titres est bien pire que quelques attributions oubliées, et son dégât se voit sur CHAQUE ligne. */
+console.log('\n── L\'attribution de source en fin de titre ──');
+const APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+const SRC_SRC = (() => {
+  const d = APP.indexOf('const _NEWS_SRC_RE =');
+  const f = APP.indexOf('function _sansSource(s)');
+  return (d < 0 || f < 0) ? null : APP.slice(d, APP.indexOf('\n', f));
+})();
+v('les deux règles sont extractibles d\'app.js', !!SRC_SRC);
+v('… et elles servent aux TITRES', /_mdStrip\(_sansSource\(s\)/.test(APP));
+v('… comme aux PUCES', /stripSrc = t => _sansSource\(t\)/.test(APP));
+if (SRC_SRC) {
+  // eslint-disable-next-line no-eval
+  const N = eval('(function(){' + SRC_SRC + '\nreturn _sansSource;})()');
+  const nettoie = h => N(h) !== h;
+  /* CE QUI DOIT PARTIR — la capture d'abord, puis les variantes qui échappaient à la liste. */
+  [['la capture, mot pour mot', 'Des sources arabes ont signalé plusieurs explosions dans la capitale syrienne - Tasnim News.'],
+   ['« News Agency » en suffixe', 'Israeli strikes reported near Damascus - Mehr News Agency'],
+   ['« News » en suffixe', 'Oil prices climb on supply risk - Kyodo News'],
+   ['un nom de la liste, seul', 'Fed cuts rates by 25bp - Reuters'],
+   ['un quotidien à trois mots', 'Dollar firms into the close - The Wall Street Journal'],
+  ].forEach(([lbl, h]) => v('retirée : ' + lbl, nettoie(h), N(h)));
+  /* ⚠️ CE QUI DOIT RESTER — un titre amputé se voit sur chaque ligne du fil. */
+  [['un tiret dans un nom propre', 'Trump-Xi call on trade deal expected next week'],
+   ['un tiret de composition', 'US-China trade talks resume in Geneva'],
+   ['un dernier mot qui n\'est pas de la presse', 'ECB Lagarde - Press Conference'],
+   ['une suite de titre en Capitales', 'Oil surges - Brent tops $90 a barrel'],
+   ['une suite en minuscules', 'Fed holds - markets rally on the news'],
+   ['un titre vide', ''],
+  ].forEach(([lbl, h]) => v('intact : ' + lbl, !nettoie(h), N(h)));
+  /* La règle générique ne doit mordre QU'EN FIN DE LIGNE : une attribution au milieu d'un titre
+     fait partie de la phrase. */
+  v('une source au MILIEU du titre n\'est pas touchée',
+    !nettoie('Reuters reports that the ECB will hold rates steady this week'));
+  /* ⚠️ ET LE CAS QUI ÉPROUVE VRAIMENT L'ANCRE DE FIN DE LIGNE : un nom de média précédé d'un tiret
+     mais SUIVI de texte. Sans l'ancre, la règle emporterait le nom EN PLEIN MILIEU de la phrase et
+     recollerait les deux moitiés — « Explosions entendues said the strikes… ». Le contrôle
+     précédent ne le voyait pas : sans tiret, l'ancre n'a rien à ancrer. */
+  v('… même précédée d\'un tiret, si la phrase continue',
+    !nettoie('Explosions heard near the airport - Tasnim News said the strikes hit an airbase'),
+    N('Explosions heard near the airport - Tasnim News said the strikes hit an airbase'));
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

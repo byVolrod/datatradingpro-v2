@@ -830,7 +830,7 @@ function _majPhrase(s) {
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // coupe toute attribution de source ("via NYT", "- Reuters", "(Mehr News)") en fin de puce
-  const stripSrc = t => t.replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim();
+  const stripSrc = t => _sansSource(t).replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim();
   const items = (bullets || [])
     .map(b => _sansEspacePct(_decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()))
     .filter(Boolean)
@@ -2783,6 +2783,24 @@ function _reportLead(s) {
 // Remplace la marque DTP par DTP dans les titres de rapport
 // Suffixes de SOURCE à ne PAS afficher dans le flux temps réel (on coupe " - Source" en fin de titre)
 const _NEWS_SRC_RE = /\s*[-–—]\s*(?:Axios|Politico|Semafor|Punchbowl|Reuters|RTRS|Bloomberg|BBG|CNBC|CNN|BBC|NBC|ABC|CBS|MSNBC|Fox(?: News| Business)?|Newsmax|OANN|WSJ|Wall Street Journal|FT|Financial Times|NYT|New York Times|Washington Post|WaPo|Forbes|Barron'?s|MarketWatch|Dow Jones|Investing\.com|FXStreet|Forex ?Live|Zero ?Hedge|The Block|CoinDesk|AP|AFP|DPA|ANSA|EFE|PA Media|Xinhua|TASS|RIA(?: Novosti)?|Interfax|Sputnik|Mehr(?: News)?|IRNA|Fars(?: News)?|Tasnim|Press TV|Tehran Times|Al[\s-]?Jazeera|Al[\s-]?Arabiya|Sky News(?: Arabia)?|Anadolu|Trend|Nikkei|Kyodo|Jiji|Yonhap|SCMP|Global Times|Caixin|Times of Israel|Jerusalem Post|Haaretz|Ynet|The Guardian|Guardian|Telegraph|Independent|Economist|Truth Social|Twitter\/?X?|X \(Twitter\)|Telegram|Financial ?Juice|Newswires?|[a-z0-9][a-z0-9-]*\.(?:com|net|org|io))\.?\s*$/i;
+/* ⚠️ ET UNE SECONDE RÈGLE, GÉNÉRIQUE — parce qu'une LISTE DE NOMS sera toujours en retard d'un
+   média (28/08). Capture client : « … dans la capitale syrienne - Tasnim News. » L'agence Tasnim
+   EST dans la liste ci-dessus… mais sous le nom « Tasnim », et le titre porte « Tasnim News » : le
+   nom doit consommer TOUTE la fin de la ligne, donc rien ne correspondait. Le même trou vaut pour
+   « Mehr News Agency », « Kyodo News », « Anadolu Agency » — trois noms déjà listés, trois
+   variantes qui passaient.
+   On reconnaît donc une attribution à sa FORME plutôt qu'à son nom : un tiret, des mots en
+   Capitales, et un MOT DE PRESSE en dernier. « Tasnim News », « Global Times », « The Guardian
+   Media » partent ; « Trump-Xi call », « US-China trade talks », « ECB's Lagarde - Press
+   Conference » restent, parce que leur dernier mot n'est pas un mot de presse.
+   ⚠️ PAS DE DRAPEAU `i` SUR CELLE-CI, ET C'EST TOUT L'INTÉRÊT : c'est la MAJUSCULE qui distingue un
+   nom propre d'un fragment de phrase. En insensible à la casse, `[A-Z]` accepterait les minuscules
+   et la règle mangerait la fin de n'importe quel titre. */
+const _NEWS_SRC_GEN_RE = /\s*[-–—]\s*(?:The\s+)?[A-ZÀ-Ý][\w.&'’-]*(?:\s+(?:of|the|de|du|al|Al)?\s*[A-ZÀ-Ý][\w.&'’-]*){0,3}\s+(?:News(?:\s+Agency)?|Agency|Times|Post|Daily|Herald|Tribune|Gazette|Journal|Newswire|Wire|Media|TV|Radio|Network|Broadcasting)\.?\s*$/;
+/* Les deux règles s'appliquent l'une après l'autre : la liste attrape les noms qui ne portent aucun
+   mot de presse (Reuters, Bloomberg, Axios…), la forme attrape tout le reste. */
+function _sansSource(s) { return String(s == null ? '' : s).replace(_NEWS_SRC_RE, '').replace(_NEWS_SRC_GEN_RE, ''); }
+
 // Retire les marqueurs markdown bruts (**gras**, *ital*, `code`, __ __, ~~ ~~, # titres, [txt](url))
 // en GARDANT le texte : filet de sécurité pour les titres/textes rendus en TEXTE BRUT (textContent)
 // et les rapports DÉJÀ en cache avant le nettoyage côté serveur. Aucune astérisque ne doit s'afficher.
@@ -2812,7 +2830,7 @@ function _mdStrip(s) {
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
-function _dtpTitle(s) { return _mdStrip(String(s || '').replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim()); }
+function _dtpTitle(s) { return _mdStrip(_sansSource(s).replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim()); }
 // Titre AFFICHÉ d'une news « propos/citation » hors marché (item._infoQuote, posé côté serveur) : titre
 // explicatif IA (item._infoTitle) s'il est prêt, sinon repli déterministe INSTANTANÉ. AFFICHAGE SEULEMENT —
 // item.headline n'est JAMAIS muté (veto 2026-07-03) ; la citation brute reste lisible dans le déplié.
