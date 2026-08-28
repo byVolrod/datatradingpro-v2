@@ -19,6 +19,8 @@
  *   node scripts/onglets-verif.js
  */
 const fs = require('fs');
+const http = require('http');
+const PORT_DESK = 4794;   // phase 9 : le vrai desk servi en local
 const path = require('path');
 
 const RACINE = path.join(__dirname, '..');
@@ -354,6 +356,128 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
   } catch (e) {
     v('la phase navigateur s\'exécute', false, e.message);
   } finally { if (nav) try { await nav.close(); } catch {} }
+
+  /* ══ 9. LA RANGÉE D'ONGLETS SE PARCOURT VRAIMENT (29/08, capture user : « fixe le panneau à
+        onglet ») ═══════════════════════════════════════════════════════════════════════════════
+     ⚠️ ON MONTE LE VRAI DESK, PAS UNE MAQUETTE. Les trois défauts ne vivaient NI dans le balisage
+     NI dans une règle isolée, mais dans leur rencontre : une plaque de commandes de 144 px posée
+     en surimpression, une réserve de 96 px écrite en dur dans la feuille, et un desk affiché à 90 %
+     de zoom qui fait diverger pixels CSS et pixels d'écran. Une maquette aurait été verte.
+     Mesuré sur le modèle par DÉFAUT — celui que tout le monde reçoit : neuf onglets demandent
+     925 px, la carte en offre 434 sur un écran de 1600. Avant correction : six onglets hors champ,
+     deux sous les boutons (invisibles ET incliquables), aucun moyen de les atteindre à la souris. */
+  console.log('\n── 9. La rangée d\'onglets se parcourt vraiment (vrai desk) ──');
+  const PUB = path.join(__dirname, '..', 'public');
+  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.jpg': 'image/jpeg' };
+  const UTIL = { loggedIn: true, authenticated: true, email: 'banc@dtp.fr', plan: 'pro' };
+  let srv = null, nav2 = null;
+  try {
+    srv = http.createServer((rq, rs) => {
+      const u = rq.url.split('?')[0];
+      if (u.startsWith('/api/')) { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify({ items: [], total: 0, ok: true, user: UTIL, ...UTIL })); }
+      const f = path.join(PUB, u === '/' ? 'index.html' : u.replace(/^\/+/, ''));
+      if (!f.startsWith(PUB) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { rs.writeHead(404); return rs.end('404'); }
+      rs.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' });
+      fs.createReadStream(f).pipe(rs);
+    });
+    await new Promise(r => srv.listen(PORT_DESK, r));
+    nav2 = await puppeteer.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await nav2.newPage();
+    await page.setViewport({ width: 1600, height: 950 });
+    await page.goto('http://localhost:' + PORT_DESK + '/index.html', { waitUntil: 'networkidle2', timeout: 45000 });
+    await new Promise(r => setTimeout(r, 2500));
+    await page.evaluate(() => {
+      const vw = document.getElementById('view-widgets'); if (vw) vw.classList.remove('hidden');
+      document.querySelectorAll('.view-panel').forEach(p => { if (p.id !== 'view-widgets') p.classList.add('hidden'); });
+      window.DTPWidgets.open();
+    });
+    await page.waitForFunction(() => !!document.querySelector('#view-widgets .wdg-card--tabs .wdgt-tab'), { timeout: 20000 });
+    await new Promise(r => setTimeout(r, 1500));
+
+    /* Ce que le navigateur sait et que la lecture ignore : la partie VISIBLE d'un onglet. Hors de
+       la piste défilante il est rogné par `overflow`, mais son rect, lui, dit toujours sa taille
+       entière — juger sur le rect nu ferait crier le banc sur des onglets parfaitement cachés.
+       (Mon premier jet faisait exactement cette erreur.) */
+    const etat = () => page.evaluate(() => {
+      const carte = document.querySelector('#view-widgets .wdg-card--tabs');
+      const bar = carte.querySelector('.wdgt-bar');
+      const act = carte.querySelector(':scope > .wdg-head .wdg-actions');
+      const br = bar.getBoundingClientRect(), ar = act.getBoundingClientRect();
+      const tabs = [...bar.querySelectorAll('.wdgt-tab')];
+      const visible = t => { const r = t.getBoundingClientRect(); return { g: Math.max(r.left, br.left), d: Math.min(r.right, br.right), r }; };
+      return {
+        reserve: parseFloat(getComputedStyle(carte).getPropertyValue('--wdgt-cmd')) || 0,
+        plaqueCss: act.offsetWidth,
+        barFinit: br.right, plaqueDebute: ar.left,
+        sl: bar.scrollLeft, max: bar.scrollWidth - bar.clientWidth,
+        classes: bar.className,
+        sousCmd: tabs.filter(t => { const v = visible(t); return v.d > v.g + 0.5 && v.g < ar.right - 0.5 && v.d > ar.left + 0.5; }).map(t => t.textContent.trim()),
+        coupesG: tabs.filter(t => { const r = t.getBoundingClientRect(); return r.left < br.left - 1.5 && r.right > br.left + 1.5; }).map(t => t.textContent.trim()),
+        dernier: (() => { const t = tabs[tabs.length - 1], r = t.getBoundingClientRect(); return { nom: t.textContent.trim(), entier: r.left >= br.left - 1 && r.right <= br.right + 1 }; })(),
+      };
+    });
+    const roue = (n) => page.evaluate(async (k) => {
+      const bar = document.querySelector('#view-widgets .wdg-card--tabs .wdgt-bar');
+      for (let i = 0; i < Math.abs(k); i++) {
+        bar.dispatchEvent(new WheelEvent('wheel', { deltaY: k > 0 ? 120 : -120, bubbles: true, cancelable: true }));
+        await new Promise(r => setTimeout(r, 60));
+      }
+    }, n);
+
+    let e = await etat();
+    /* (1) LA RÉSERVE EST MESURÉE, ET DANS LES BONNES UNITÉS. Le desk tourne à 90 % de zoom : une
+       réserve lue au `getBoundingClientRect()` sortait 10 % trop courte, et deux onglets restaient
+       sous la plaque. Le contrôle compare donc à la largeur CSS de la plaque, pas à son rect. */
+    v('la réserve des commandes est publiée en --wdgt-cmd', e.reserve > 0, 'variable absente : la feuille retombe sur son repli');
+    v('… et elle couvre au moins la plaque RÉELLE', e.reserve >= e.plaqueCss,
+      'réserve ' + e.reserve + ' px pour une plaque de ' + e.plaqueCss + ' px (CSS)');
+    v('… si bien que la piste s\'arrête AVANT les commandes', e.barFinit <= e.plaqueDebute + 1,
+      'la barre finit à x=' + Math.round(e.barFinit) + ', la plaque commence à x=' + Math.round(e.plaqueDebute));
+    /* (2) AUCUN ONGLET SOUS LES BOUTONS — le défaut de la capture, celui qui rend un onglet
+       incliquable tout en le laissant deviner. */
+    v('aucun onglet visible ne passe sous les commandes', e.sousCmd.length === 0, e.sousCmd.join(', '));
+    /* (3) LE FONDU DIT OÙ L'ON EN EST. Au repos on est au début, et il reste de la rangée à droite. */
+    v('au repos, la rangée se dit AU DÉBUT', /wdgt-au-debut/.test(e.classes), e.classes);
+    v('… et pas encore au bout (neuf onglets ne tiennent pas)', !/wdgt-au-bout/.test(e.classes) && e.max > 0,
+      'classes ' + e.classes + ' · reste ' + e.max + ' px');
+
+    /* (4) LA MOLETTE PARCOURT, D'UN ONGLET À LA FOIS. Sans elle, un utilisateur à la souris
+       n'atteint PAS les onglets 4 à 9 : la barre n'a pas de glissière, et glisser dessus déplace
+       la carte. Et chaque arrêt tombe sur un bord d'onglet — la capture montrait « TUTIONS ». */
+    const bords = await page.evaluate(() => {
+      const bar = document.querySelector('#view-widgets .wdg-card--tabs .wdgt-bar');
+      const padL = parseFloat(getComputedStyle(bar).paddingLeft) || 0;
+      return [...bar.querySelectorAll('.wdgt-tab')].map(t => (t.offsetLeft <= padL + 1 ? 0 : t.offsetLeft));
+    });
+    await roue(1);
+    e = await etat();
+    v('un cran de molette fait avancer la rangée', e.sl > 6, 'scrollLeft ' + Math.round(e.sl));
+    v('… en s\'arrêtant sur un onglet entier', e.coupesG.length === 0, 'coupé en plein mot : ' + e.coupesG.join(', '));
+    /* ⚠️ UN CRAN = UN ONGLET, ET C'EST CE CONTRÔLE-LÀ QUI DISTINGUE VRAIMENT. Éprouvé à la
+       mutation : remplacer la visée d'un bord par un `scrollLeft += deltaY` laissait le banc VERT,
+       parce que le `scroll-snap` de la feuille rattrapait la position — les deux mécanismes se
+       recouvrent sur « pas de mot coupé ». Ils divergent sur l'AMPLEUR : une molette rapide fait
+       alors sauter quatre onglets d'un coup, et `proximity` reste un conseil que le navigateur suit
+       s'il veut. La visée explicite, elle, avance d'un onglet, sur tous les navigateurs. */
+    v('… et d\'UN SEUL onglet, pas de quatre', Math.abs(e.sl - bords[1]) <= 2,
+      'scrollLeft ' + Math.round(e.sl) + ' pour un bord attendu à ' + bords[1] + ' (bords : ' + bords.join(', ') + ')');
+    v('… et le fondu de gauche s\'allume', !/wdgt-au-debut/.test(e.classes), e.classes);
+    await roue(20);
+    e = await etat();
+    v('la molette atteint la fin de la rangée', e.sl >= e.max - 2, Math.round(e.sl) + '/' + e.max);
+    v('… le DERNIER onglet est alors entièrement lisible', e.dernier.entier, e.dernier.nom);
+    v('… et le fondu de droite s\'éteint', /wdgt-au-bout/.test(e.classes), e.classes);
+    await roue(-30);
+    e = await etat();
+    v('la molette revient au début', e.sl <= 6 && /wdgt-au-debut/.test(e.classes), 'scrollLeft ' + Math.round(e.sl) + ' · ' + e.classes);
+    v('… sans onglet coupé au retour', e.coupesG.length === 0, e.coupesG.join(', '));
+    await page.close();
+  } catch (e) {
+    v('la phase « vrai desk » s\'exécute', false, e.message);
+  } finally {
+    if (nav2) try { await nav2.close(); } catch {}
+    if (srv) try { srv.close(); } catch {}
+  }
   fin();
 })();
 

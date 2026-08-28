@@ -7727,6 +7727,9 @@
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w || estG ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
               + '<span class="wdgt-chv">›</span>' + (_ic ? '<span class="wdgt-tico">' + _ic + '</span>' : '') + '<span class="wdgt-nm">' + esc(lbl) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
+          // La rangée vient de changer de longueur : le fondu doit le savoir, sinon il annonce une
+          // suite qui n'existe plus (ou se tait alors qu'il en reste).
+          if (typeof bar._dtpBords === 'function') requestAnimationFrame(bar._dtpBords);
         }
         // RENOMMAGE INLINE (demande user 28/07, réparé 03/08) : le libellé devient un champ —
         // Entrée/blur valide, Échap annule, vide = retour au nom d'origine. Persisté (it.tabLabels).
@@ -7794,9 +7797,112 @@
           var _pi = _hostIdx(host); if (_pi != null) _syncPanel(_pi);
         });
         renderTabs(); mountSub();
+
+        /* ══ UNE BARRE D'ONGLETS QU'ON PEUT RÉELLEMENT PARCOURIR (29/08, capture user) ═══════════
+           Mesuré sur le modèle par DÉFAUT du desk, celui que tout le monde reçoit : neuf onglets
+           demandent 925 px, la carte en offre 434 sur un écran de 1600. Six onglets hors champ,
+           deux à trois cachés SOUS la plaque des commandes — et rien pour le dire : la barre a
+           `scrollbar-width: none`, glisser dessus DÉPLACE LA CARTE (c'est la zone de saisie), et
+           une molette ordinaire ne défile que verticalement. Un utilisateur à la souris ne pouvait
+           tout simplement PAS atteindre les onglets 4 à 9.
+           Trois manques, trois réponses, toutes fondées sur ce qui existe déjà dans le desk :
+             1. LA PLACE DES COMMANDES EST MESURÉE, PAS DEVINÉE. La feuille en réservait 96 px ; la
+                plaque en fait 144 (quatre icônes). D'où des onglets sous les boutons, invisibles et
+                surtout INCLIQUABLES. On lit la largeur réelle et on la publie en `--wdgt-cmd` :
+                une cinquième icône un jour, et la réserve suit toute seule.
+             2. LA MOLETTE FAIT DÉFILER LA BARRE, comme dans toute barre d'onglets. On ne prend le
+                geste que si la barre a vraiment de quoi défiler, et on laisse passer un geste
+                horizontal (pavé tactile) qui fonctionne déjà.
+             3. LE FONDU DE FIN DE RANGÉE, la grammaire de la navbar du desk (`nav-au-bout`),
+                reprise ici aux DEUX bords : à droite il annonce la suite, à gauche il dit qu'on a
+                laissé des onglets derrière soi. */
+        var _cmdObs = null;
+        (function _barreParcourable() {
+          var carte = host.closest ? host.closest('.wdg-card') : null;
+          // 1) La réserve des commandes, mesurée sur la plaque elle-même.
+          var mesureCmd = function () {
+            if (!carte) return;
+            var tete = carte.querySelector(':scope > .wdg-head');
+            var act = tete && tete.querySelector('.wdg-actions');
+            if (!act || !tete) return;
+            /* ⚠️ EN PIXELS CSS, PAS EN PIXELS D'ÉCRAN. Le desk s'affiche à 90 % de zoom par défaut :
+               `getBoundingClientRect()` rend des pixels ÉCRAN (déjà multipliés par 0,9), que `calc()`
+               relirait comme des pixels CSS — la réserve sortait 10 % trop courte et deux onglets
+               restaient sous la plaque. Mon premier jet faisait exactement cette erreur, et la
+               mesure au navigateur l'a montrée. `offsetWidth`/`offsetLeft` sont, eux, dans l'espace
+               CSS de l'élément : les mêmes unités que la feuille.
+               On mesure du bord DROIT de l'en-tête jusqu'au bord GAUCHE de la plaque : la marge que
+               l'en-tête garde à droite est ainsi comptée, sans avoir à la connaître.
+               `opacity: 0` au repos ne change pas la mise en page : tout ceci se lit même quand la
+               plaque est invisible. */
+            var w = tete.offsetWidth - act.offsetLeft;
+            if (w > 0 && w < tete.offsetWidth) carte.style.setProperty('--wdgt-cmd', (w + 6) + 'px');
+          };
+          mesureCmd();
+          requestAnimationFrame(mesureCmd);     // la plaque peut être posée juste après nous
+          try {
+            if (carte && typeof ResizeObserver === 'function') {
+              var act0 = carte.querySelector(':scope > .wdg-head .wdg-actions');
+              if (act0) { _cmdObs = new ResizeObserver(mesureCmd); _cmdObs.observe(act0); }
+            }
+          } catch (e) {}
+
+          /* 2) La molette parcourt la rangée, D'UN ONGLET À LA FOIS.
+             ⚠️ PAS `scrollLeft += deltaY`, et la mesure l'a prouvé : un décalage libre laisse la
+             rangée s'arrêter n'importe où, et la capture du client montrait justement « TUTIONS »
+             pour « INSTITUTIONS ». Le `scroll-snap` de la feuille rattrape un geste de pavé
+             tactile, mais pas un défilement posé par programme. On vise donc explicitement le bord
+             d'onglet suivant : la rangée s'arrête toujours sur un mot entier.
+             ⚠️ `offsetLeft`, PAS `getBoundingClientRect()`. Le desk est à 90 % de zoom : les rects
+             sont en pixels ÉCRAN, `scrollLeft` en pixels CSS. Les mélanger décale d'un dixième à
+             chaque cran — l'erreur que je venais de faire sur la réserve des commandes. */
+          var _bordSuivant = function (sens) {
+            var padL = parseFloat(getComputedStyle(bar).paddingLeft) || 0;
+            var max = bar.scrollWidth - bar.clientWidth, cur = bar.scrollLeft;
+            /* ⚠️ ON NE RETRANCHE PAS LE PADDING, et c'est la mesure qui l'a tranché : `offsetLeft`
+               et `scrollLeft` partent du MÊME bord. Le retrancher décalait chaque arrêt de 4 px et
+               laissait une lichette de l'onglet précédent visible à gauche — 3,8 px mesurés, soit
+               exactement le défaut qu'on venait corriger, en plus petit. Seul le premier onglet
+               fait exception : son bord vaut le padding, on vise 0 pour coller au début. */
+            var bords = [];
+            bar.querySelectorAll('.wdgt-tab, .wdgt-add').forEach(function (t) {
+              var x = t.offsetLeft;
+              bords.push(x <= padL + 1 ? 0 : Math.max(0, Math.min(max, x)));
+            });
+            bords.sort(function (a, b) { return a - b; });
+            if (sens > 0) {
+              for (var i = 0; i < bords.length; i++) if (bords[i] > cur + 1) return bords[i];
+              return max;
+            }
+            for (var j = bords.length - 1; j >= 0; j--) if (bords[j] < cur - 1) return bords[j];
+            return 0;
+          };
+          bar.addEventListener('wheel', function (e) {
+            var reste = bar.scrollWidth - bar.clientWidth;
+            if (reste <= 1) return;                                  // rien à parcourir : on rend le geste à la page
+            if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;     // geste déjà horizontal : il marche, on n'y touche pas
+            e.preventDefault();
+            bar.scrollLeft = _bordSuivant(e.deltaY > 0 ? 1 : -1);
+          }, { passive: false });
+
+          // 3) Le fondu aux deux bords — même règle que la navbar du desk.
+          var bords = function () {
+            var reste = bar.scrollWidth - bar.clientWidth;
+            /* Le seuil vaut le padding de la barre, pas 2 px : au tout début, la rangée se cale
+               sur le premier onglet et laisse ses 4 px de retrait derrière elle. Un fondu allumé
+               pour quatre pixels annoncerait une suite qui n'existe pas. */
+            bar.classList.toggle('wdgt-au-debut', bar.scrollLeft <= 6);
+            bar.classList.toggle('wdgt-au-bout', reste <= 2 || bar.scrollLeft >= reste - 2);
+          };
+          bar.addEventListener('scroll', bords, { passive: true });
+          bords(); requestAnimationFrame(bords);
+          bar._dtpBords = bords;                // renderTabs() le rappelle : la rangée a changé de longueur
+        })();
+
         return function () {
           _purgeSousGear();                     // l'engrenage ne repart pas avec une vue adoptée
           _libereSous();                        // TOUS les sous-widgets, pas seulement le dernier monté
+          try { if (_cmdObs) _cmdObs.disconnect(); } catch (e) {}
         };
       },
     },

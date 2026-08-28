@@ -13284,8 +13284,50 @@ html[data-theme="light"] a { color: #b8860b; }
    On corrige les deux : la barre réserve la largeur des commandes à TOUTES les tailles d'écran (la
    règle n'existait que pour le tactile), et la plaque prend toute la hauteur de l'en-tête, si bien
    qu'un onglet qu'on ferait défiler sous elle disparaît proprement derrière au lieu d'en dépasser. */
-.wdg-card--tabs .wdgt-bar { padding-right: 96px; }
+/* ⚠️ ET LA RÉSERVE NE SUFFISAIT PAS — NI EN TAILLE, NI EN PRINCIPE (29/08, capture user).
+   EN TAILLE : la plaque des commandes fait 144 px (quatre icônes), pas 96. EN PRINCIPE, et c'est
+   le vrai défaut : un `padding-right` sur une piste défilante ne protège que la FIN du parcours.
+   À `scrollLeft: 0`, les onglets 4 et 5 tombaient pile sous la plaque — invisibles, et surtout
+   INCLIQUABLES, puisqu'elle capte le pointeur. Mesuré sur le modèle par défaut, écran de 1600 :
+   deux onglets sous les boutons, six hors champ.
+   La piste s'ARRÊTE donc avant les commandes (`width`), au lieu de passer dessous. `--wdgt-cmd`
+   est publiée par widgets.js d'après la largeur RÉELLE de la plaque : une icône de plus un jour, et
+   la réserve suit. Le repli 148px vaut le temps d'une frame, avant la première mesure.
+   Aucun coût visuel : la barre n'a pas de fond propre (transparente, vérifié au navigateur), c'est
+   le fond de la carte qu'on voit des deux côtés. */
+.wdg-card--tabs .wdgt-bar {
+  padding-right: 0;
+  width: calc(100% - var(--wdgt-cmd, 148px));
+  /* Un onglet ne se coupe plus en plein mot : la capture montrait « TUTIONS » pour
+     « INSTITUTIONS ». `proximity` accompagne le geste sans le contrarier. */
+  scroll-snap-type: x proximity;
+}
+.wdg-card--tabs .wdgt-tab { scroll-snap-align: start; }
 .wdg-card--tabs > .wdg-head .wdg-actions { align-self: stretch; display: flex; align-items: center; }
+
+/* ── LE FONDU DE FIN DE RANGÉE, AUX DEUX BORDS ────────────────────────────────────────────────
+   Même grammaire que la navbar du desk (voir `.navbar::after`, fin de fichier) : un dégradé vers
+   la couleur de fond dit « ça continue ». Ici il est nécessaire à TOUTES les tailles, et pas
+   seulement au tactile : dans une carte, neuf onglets ne tiennent JAMAIS. Et il est posé aux deux
+   bords — à droite il annonce la suite, à gauche il dit qu'on a laissé des onglets derrière soi.
+   Les deux classes sont posées par widgets.js, qui seul sait où en est le défilement.
+   `pointer-events: none` : rien n'intercepte le clic d'un onglet à demi couvert. */
+.wdg-card--tabs .wdgt-bar { position: relative; }
+.wdg-card--tabs .wdgt-bar::before,
+.wdg-card--tabs .wdgt-bar::after {
+  content: ''; position: sticky; align-self: stretch; flex: 0 0 22px; pointer-events: none;
+  transition: opacity .18s ease; z-index: 2;
+}
+.wdg-card--tabs .wdgt-bar::before {
+  left: 0; margin-right: -22px; order: -1;
+  background: linear-gradient(270deg, rgba(0,0,0,0) 0%, var(--w-s2, #0d0e11) 70%, var(--w-s2, #0d0e11) 100%);
+}
+.wdg-card--tabs .wdgt-bar::after {
+  right: 0; margin-left: -22px;
+  background: linear-gradient(90deg, rgba(0,0,0,0) 0%, var(--w-s2, #0d0e11) 70%, var(--w-s2, #0d0e11) 100%);
+}
+.wdg-card--tabs .wdgt-bar.wdgt-au-debut::before { opacity: 0; }
+.wdg-card--tabs .wdgt-bar.wdgt-au-bout::after  { opacity: 0; }
 /* Champ de renommage inline (double-clic sur un onglet) */
 .wdgt-edit { width: 92px; background: var(--bg); border: 1px solid rgba(227, 178, 58, .55); border-radius: 3px; color: var(--text); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; padding: 2px 5px; margin: 0 2px; text-transform: none; letter-spacing: normal; }
 .wdgt-edit:focus { outline: none; box-shadow: var(--focus-ring); }
@@ -13754,7 +13796,8 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    supprimée partout depuis — le retrait passe par les Réglages de la carte, souris comme tactile.) */
 @media (hover: none) {
   .wdg-card--tabs > .wdg-head .wdg-actions { opacity: .75; }
-  .wdg-card--tabs .wdgt-bar { padding-right: 96px; }
+  /* (la réserve des commandes est désormais portée par `width: calc(100% - var(--wdgt-cmd))`,
+     à toutes les tailles — la règle tactile qui doublait le padding n'a plus d'objet.) */
 }
 
 /* ── FIL D'ACTUALITÉ (widget) : panneau du desk à l'identique — assemblage local uniquement, tout le
