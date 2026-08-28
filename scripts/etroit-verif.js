@@ -73,6 +73,32 @@ const MAQUETTE = (port) => '<html data-theme="dark"><head>'
   +     '<div class="news-arrow-col"></div>'
   +   '</div></div></body></html>';
 
+/* ══ LA DÉCORATION QUI OUVRE UNE BARRE DE DÉFILEMENT ═══════════════════════════════════════════
+   29/08, capture client : une barre de défilement HORIZONTALE sous la carte « Semaine à Venir » de
+   Mon Desk. « Ça sert à rien » — et c'était exact : défilée à fond, la zone gagnée était VIDE.
+   LA CAUSE N'ÉTAIT PAS DANS LE WIDGET. `body.dtp-premium .view-panel::after` est une aura d'or
+   décorative, un dégradé à 6 % d'opacité posé DERRIÈRE la vue (z-index négatif), large de 820px en
+   dur. Sur le desk plein écran elle ne se voit ni ne gêne. Dans une carte de 461px, elle porte la
+   zone défilable à 858px : Chrome affiche une barre vers 397 pixels de vide.
+   ⚠️ ET LE COMMENTAIRE DE LA FEUILLE AFFIRMAIT « COÛT NUL EN MISE EN PAGE : pseudo-éléments hors
+   flux ». C'est le piège exact : « hors flux » n'est pas « hors mise en page ». Un absolu ne pousse
+   plus ses voisins, mais il compte toujours dans la ZONE DÉFILABLE de son bloc conteneur. Aucune
+   relecture de code ne tranche ça — seule une mesure le fait, et c'est pour ça que ce contrôle
+   existe.
+   ⚠️ LA MOITIÉ QUI COMPTE : l'aura doit RESTER telle quelle là où elle se voit. Un correctif qui
+   l'aurait supprimée aurait réglé la barre en enlevant la décoration qu'on paie. On vérifie donc
+   les deux : plus de zone vide sur un panneau étroit, taille d'origine sur un panneau large. */
+const PANNEAU = (port, largeur) => '<html data-theme="dark"><head>'
+  + '<meta name="viewport" content="width=device-width, initial-scale=1">'
+  + '<link rel="stylesheet" href="http://localhost:' + port + '/css/style.css"></head>'
+  + '<body class="dtp-premium" style="margin:0">'
+  /* `overflow-y: auto` seul suffit à faire naître la barre horizontale : par la spécification CSS,
+     l'axe laissé en `visible` face à un axe non-visible se calcule en `auto`. C'est la situation
+     réelle du panneau Semaine à Venir sous 1024px. */
+  + '<div class="view-panel" id="p" style="width:' + largeur + 'px;height:300px;overflow-y:auto">'
+  +   '<div style="height:200px">contenu</div>'
+  + '</div></body></html>';
+
 (async () => {
   console.log('\n═══ ÉTROIT-VERIF — rien ne sort de sa carte ═══');
   let puppeteer;
@@ -125,6 +151,34 @@ const MAQUETTE = (port) => '<html data-theme="dark"><head>'
         'sous-titre ' + m.tete.toFixed(1) + ' px · puce ' + m.puce.toFixed(1) + ' px');
       if (L === 1400) v('… et le grand écran garde son déport de 18 px', m.marge === '-18px', 'marge calculée ' + m.marge);
     }
+    console.log('\n── L\'aura décorative n\'ouvre plus de zone vide ──');
+    for (const L of [420, 461, 640, 900]) {
+      await page.setViewport({ width: Math.max(L + 40, 380), height: 700 });
+      await page.setContent(PANNEAU(PORT, L), { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => getComputedStyle(document.body).getPropertyValue('--radius').trim() !== '', { timeout: 15000 });
+      const m = await page.evaluate(() => {
+        const el = document.getElementById('p');
+        const a = getComputedStyle(el, '::after');
+        return { cw: el.clientWidth, sw: el.scrollWidth, aura: a.width, posee: a.content === '""' };
+      });
+      /* ⚠️ L'AURA DOIT ÊTRE LÀ POUR QUE LA MESURE VEUILLE DIRE QUELQUE CHOSE. Sans ce contrôle, la
+         supprimer rendait le banc vert : plus de décoration, donc plus de débordement — on aurait
+         « corrigé » la barre en enlevant ce qu'elle décorait. */
+      v(L + ' px — l\'aura est bien posée', m.posee, 'aucun pseudo-élément ::after sur .view-panel');
+      v(L + ' px — aucune zone défilable vide à droite', m.sw <= m.cw + 1,
+        'panneau ' + m.cw + ' px · zone défilable ' + m.sw + ' px (soit ' + (m.sw - m.cw) + ' px de vide) · aura ' + m.aura);
+    }
+    /* ⚠️ ET L'AURA GARDE SA TAILLE LÀ OÙ ELLE SE VOIT. 820px est la valeur d'origine ; au-delà de
+       ~892px de panneau (820 / 0,92), le plafond reprend la main et rien ne change à l'écran. */
+    await page.setViewport({ width: 1500, height: 700 });
+    await page.setContent(PANNEAU(PORT, 1400), { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => getComputedStyle(document.body).getPropertyValue('--radius').trim() !== '', { timeout: 15000 });
+    const large = await page.evaluate(() => {
+      const el = document.getElementById('p');
+      return { cw: el.clientWidth, sw: el.scrollWidth, aura: getComputedStyle(el, '::after').width };
+    });
+    v('sur un panneau large, l\'aura garde ses 820 px', large.aura === '820px', 'aura mesurée ' + large.aura);
+    v('… sans ouvrir de zone vide pour autant', large.sw <= large.cw + 1, large.cw + ' → ' + large.sw);
     await page.close();
   } catch (e) {
     v('les mesures s\'exécutent', false, e.message);

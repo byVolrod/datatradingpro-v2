@@ -19877,8 +19877,15 @@ html[data-theme="light"] .wdg-ptab.on {
 
    ⚠️ TOUJOURS SOUS body.dtp-premium : un client ne peut hériter d'aucune de ces règles. Sans la
    validé en admin, puis ouvert a tout le monde. Cout nul en mise en page (voir plus bas).
-   ⚠️ COÛT NUL EN MISE EN PAGE : pseudo-éléments hors flux, pointer-events:none, une seule animation
-   lente, coupée si l'appareil demande la sobriété. Rien n'intercepte un geste, rien ne recalcule. */
+   ⚠️ « COÛT NUL EN MISE EN PAGE » ÉTAIT FAUX SUR UN POINT, ET LE CLIENT L'A VU (29/08, capture :
+   une barre de défilement horizontale sous la carte Semaine à Venir). « Hors flux » n'est pas
+   « hors mise en page » : un pseudo-élément en `position: absolute` ne participe plus au FLUX,
+   mais il compte toujours dans la ZONE DÉFILABLE de son bloc conteneur. L'aura ci-dessous était
+   figée à 820px de large : dans un panneau de 461px, elle poussait la zone défilable à 858px et
+   Chrome affichait une barre — vers 397 pixels de VIDE, puisque l'aura est un dégradé à 6 %
+   d'opacité derrière tout le reste. Elle est désormais bornée au panneau (voir sa règle).
+   Le reste du constat tient : pointer-events:none, une animation lente coupée en mode sobre, rien
+   n'intercepte un geste. Banc : scripts/etroit-verif.js. */
 
 /* La scène derrière chaque vue-panneau et le panneau droit — profondeur lue dans les gouttières. */
 body.dtp-premium .view-panel,
@@ -19891,10 +19898,18 @@ body.dtp-premium #panel-right::before {
     radial-gradient(120% 80% at 50% 38%, transparent 60%, rgba(0,0,0,.24)),
     repeating-linear-gradient(0deg, rgba(255,255,255,.010) 0 1px, transparent 1px 3px);
 }
-/* Une aura d'or par vue, décalée, très diluée — ressentie, pas vue. */
+/* Une aura d'or par vue, décalée, très diluée — ressentie, pas vue.
+   ⚠️ BORNÉE AU PANNEAU, ET C'EST LA CORRECTION DE LA BARRE FANTÔME. `right: 0` + `width: auto`
+   la font tenir dans le panneau ; `max-width: 820px` lui rend sa taille d'origine dès que le
+   panneau est assez large — c'est-à-dire partout où elle se voyait déjà. Sur un panneau étroit
+   (carte de Mon Desk, écran de téléphone) elle se contente de la place disponible au lieu d'ouvrir
+   une zone de défilement vide. Mesuré : panneau de 1188px → aura de 820px, inchangée ; panneau de
+   461px → 424px, et la zone défilable retombe de 858px à 461px.
+   `top: -160px` reste : un débordement vers le HAUT ou la GAUCHE n'est jamais défilable — seuls
+   les bords bas et droit agrandissent la zone. */
 body.dtp-premium .view-panel::after {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
-  top: -160px; left: 8%; width: 820px; height: 440px;
+  top: -160px; left: 8%; right: 0; width: auto; max-width: 820px; height: 440px;
   background: radial-gradient(closest-side, rgba(227,178,58,.06), transparent 72%);
   animation: homeAura 26s ease-in-out infinite alternate;
 }
