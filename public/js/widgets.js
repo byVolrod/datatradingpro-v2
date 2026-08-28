@@ -845,7 +845,7 @@
   var _MOIS_FR = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
   var _MOIS_PLEIN = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   // Signe TOUJOURS écrit : comparer « 0,62 % » à « 0,84 % » sans signe fait relire deux fois.
-  function _pctFR(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; }
+  function _pctFR(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%'; }
   /* « d'EUR/USD » mais « de GBP/JPY » — et « de USD » : l'usage FR du COT écrit « de USD »,
      jamais « d'USD », donc U reste hors élision (seule graphie qui couvre paires ET devises). */
   function _dElision(nom) { return (/^[AEIO]/.test(nom) ? 'd\'' : 'de ') + nom; }
@@ -2921,7 +2921,7 @@
         var prevCle = null;
         skel(host, 5);
 
-        function fmtPct(v) { return v.toFixed(2).replace('.', ',') + ' %'; }
+        function fmtPct(v) { return v.toFixed(2).replace('.', ',') + '%'; }
         function fmtPt(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ','); }
 
         function rendre(d) {
@@ -3539,7 +3539,7 @@
       mount: function (host) {
         var vivant = true, cache = {};
         skel(host, 9);
-        function fmtP(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; }
+        function fmtP(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%'; }
         function cls(v) { return v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : ''; }
         function dessiner() {
           Promise.all(_XA_INSTR.map(function (x) {
@@ -3623,7 +3623,7 @@
         var vivant = true, cache = {};
         var prevCle = null;
         skel(host, 8);
-        function fmtP(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; }
+        function fmtP(v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%'; }
         function dessiner() {
           Promise.all(_PS_PAIRES.map(function (p) {
             return _bougies(p, 'D1', cache).catch(function () { return null; });
@@ -4075,7 +4075,7 @@
                 cls: isFinite(v) ? (v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : '') : '',
                 // Une paire absente de la reponse n est pas une paire a zero : on l affiche vide.
                 prix: isFinite(last) ? last.toFixed(/JPY/.test(p.symbol) ? 3 : 5) : '--',
-                vTxt: isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %' : '--',
+                vTxt: isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%' : '--',
                 sig: (isFinite(last) ? last : '') + '|' + (isFinite(v) ? v : '') };
             });
 
@@ -4296,7 +4296,7 @@
                 ouverte: !!(jh && ouvrable && jh.h >= p.ouv && jh.h < p.fer) };
             });
             var max = Math.max.apply(null, lignes.map(function (l) { return l.moy || 0; })) || 1;
-            var fmtA = function (v) { return enPct ? v.toFixed(2).replace('.', ',') + ' %' : v.toFixed(0) + ' pips'; };
+            var fmtA = function (v) { return enPct ? v.toFixed(2).replace('.', ',') + '%' : v.toFixed(0) + ' pips'; };
             var h = '<div class="wdg-as"><div class="wdg-as-tete"><span class="wdg-as-sym">' + esc(sym) + '</span></div>';
             lignes.forEach(function (l, iP) {
               var w = l.moy ? Math.max(3, l.moy / max * 100) : 0;
@@ -4726,7 +4726,7 @@
                les dénominateurs « 6/7 » — contre-lecture). Ligne 1 : meneuse + lanterne + compte
                hausses/baisses. Ligne 2 : lecture DEVISE de la même donnée. Sous 0,15 % d'ampli-
                tude max, séance atone : nommer une meneuse à +0,08 % serait du bruit. */
-            var fmtV = function (v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; };
+            var fmtV = function (v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%'; };
             // ⚠️ Number(null) vaut 0 : sans la garde `!= null`, une variation ABSENTE entrerait
             // dans le verdict comme un zéro connu (piège attrapé au banc).
             var finies = t.filter(function (p) { return p.changePct != null && isFinite(Number(p.changePct)); });
@@ -5556,7 +5556,7 @@
         function chgTxt(x) {
           var y = !!x.yield;
           var v = x.chg == null ? NaN : Number(x.chg);
-          return (v > 0 ? '+' : '') + (isFinite(v) ? v.toFixed(2).replace('.', ',') : '--') + (y ? ' pt' : ' %');
+          return (v > 0 ? '+' : '') + (isFinite(v) ? v.toFixed(2).replace('.', ',') : '--') + (y ? ' pt' : '%');
         }
         function seg(x, avecVar, avecCours) {
           var v = x.chg == null ? NaN : Number(x.chg);
@@ -5774,7 +5774,7 @@
               });
               if (n >= 5) moyD.push({ dev: D, moy: s / n, n: n });
             });
-            var fmtM = function (v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %'; };
+            var fmtM = function (v) { return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%'; };
             var vHtml = '', vSous = '', teteDev = null, queueDev = null;
             if (moyD.length >= 2) {
               var forte = moyD[0], faible = moyD[0], mob = moyD[0];
@@ -6235,7 +6235,7 @@
         // La carte est redimensionnable : les etiquettes suivent la geometrie reelle de la zone.
         var _ro = null;
         try {
-          _ro = new ResizeObserver(function () { if (_pcts && zone.isConnected) _donutEtiquettes(zone, _pcts[0], _pcts[1], 'Vendeurs · ' + Math.round(_pcts[0]) + ' %', 'Acheteurs · ' + Math.round(_pcts[1]) + ' %'); });
+          _ro = new ResizeObserver(function () { if (_pcts && zone.isConnected) _donutEtiquettes(zone, _pcts[0], _pcts[1], 'Vendeurs · ' + Math.round(_pcts[0]) + '%', 'Acheteurs · ' + Math.round(_pcts[1]) + '%'); });
           _ro.observe(zone);
         } catch (e) {}
 
@@ -6296,12 +6296,12 @@
                     if (a2.hasAttribute('data-dec')) a2.style.strokeDashoffset = a2.getAttribute('data-dec');
                   });
                   svg.classList.add('est-charge');
-                  _donutEtiquettes(zone, court, lng, 'Vendeurs · ' + Math.round(court) + ' %', 'Acheteurs · ' + Math.round(lng) + ' %');
+                  _donutEtiquettes(zone, court, lng, 'Vendeurs · ' + Math.round(court) + '%', 'Acheteurs · ' + Math.round(lng) + '%');
                   zone.classList.add('est-charge');
                 }); });
               }
-              elS.textContent = court + ' %';
-              elL.textContent = lng + ' %';
+              elS.textContent = court + '%';
+              elL.textContent = lng + '%';
 
               /* ── VERDICT contrarien (tout l'intérêt du sentiment retail, jamais dit jusqu'ici).
                  Garde `== null` AVANT Number : la source peut rendre null et Number(null) vaut 0
@@ -6456,8 +6456,8 @@
               }
               elS.textContent = enK(row.shortPos);
               elL.textContent = enK(row.longPos);
-              sSh.textContent = pS.toFixed(1).replace('.', ',') + ' %';
-              sLg.textContent = pL.toFixed(1).replace('.', ',') + ' %';
+              sSh.textContent = pS.toFixed(1).replace('.', ',') + '%';
+              sLg.textContent = pL.toFixed(1).replace('.', ',') + '%';
               // Position nette : le verdict de la référence (sentiment coloré + net en contrats).
               // Le serveur renvoie Bullish/Bearish/Neutral (valeurs logiques) : on traduit a
               // l AFFICHAGE, comme partout dans le desk. Aucun texte produit en anglais.

@@ -832,7 +832,7 @@ function _renderInfoBullets(bullets) {
   // coupe toute attribution de source ("via NYT", "- Reuters", "(Mehr News)") en fin de puce
   const stripSrc = t => t.replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim();
   const items = (bullets || [])
-    .map(b => _decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
+    .map(b => _sansEspacePct(_decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()))
     .filter(Boolean)
     .filter(s => !_isJunkBullet(s))    // écarte les jetons parasites (/federalreserve, @handle, url nue…)
     .map(_majPhrase);                  // nouvelle ligne = nouvelle phrase = majuscule (voir _majPhrase)
@@ -2786,8 +2786,21 @@ const _NEWS_SRC_RE = /\s*[-–—]\s*(?:Axios|Politico|Semafor|Punchbowl|Reuters
 // Retire les marqueurs markdown bruts (**gras**, *ital*, `code`, __ __, ~~ ~~, # titres, [txt](url))
 // en GARDANT le texte : filet de sécurité pour les titres/textes rendus en TEXTE BRUT (textContent)
 // et les rapports DÉJÀ en cache avant le nettoyage côté serveur. Aucune astérisque ne doit s'afficher.
+/* ══ PAS D'ESPACE ENTRE LE NOMBRE ET LE POURCENT (28/08, demande user) ═══════════════════════════
+   « Enlève l'espace entre le nombre et le %, ça fait IA : au lieu de 2,4 % mets 2,4% ».
+   ⚠️ C'est un choix ASSUMÉ CONTRE la typographie française, qui veut une espace insécable avant le
+   signe. La raison est produit et elle se défend : sur un desk, un chiffre et son unité se lisent
+   d'un bloc, et l'espace fait « écrit par une machine » à l'œil de l'utilisateur. C'est son desk.
+   ⚠️ ET C'EST ICI QUE ÇA SE JOUE, PAS SEULEMENT DANS LES FORMATEURS. Les 23 endroits qui collent
+   « % » à un nombre calculé ont été corrigés à la source — mais l'essentiel du texte français du
+   desk est ÉCRIT PAR L'IA (traductions, analyses, récaps), et un modèle qui rédige en français met
+   l'espace de lui-même. Le cas signalé venait de là. La règle vit donc dans les trois fonctions qui
+   normalisent DÉJÀ du texte avant affichage — titres, puces, aperçus d'alerte — plutôt que d'être
+   semée dans chaque rendu. Les trois espaces sont visées : normale, insécable, insécable fine. */
+function _sansEspacePct(s) { return String(s == null ? '' : s).replace(/(\d)[\u00a0\u202f ]+%/g, '$1%'); }
+
 function _mdStrip(s) {
-  return String(s == null ? '' : s)
+  return _sansEspacePct(s)
     .replace(/`([^`]+)`/g, '$1')
     .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
     .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -3235,7 +3248,7 @@ function _dataReleaseBullets(item) {
     if (i < 0) return '';
     const suite = h.slice(i + brut.length, i + brut.length + 4);
     const m = suite.match(/^\s*(%|pts?\b|bps\b|[KMB]\b)/i);
-    return m ? (m[1] === '%' ? ' %' : ' ' + m[1]) : '';
+    return m ? (m[1] === '%' ? '%' : ' ' + m[1]) : '';
   };
   const UNITE = uniteApres(actM && actM[1]);
   const fmt = (brut, val) => {
@@ -6548,9 +6561,9 @@ function _sbTauxCell(c) {
   const f = _sbTauxMax > 0 ? Math.max(0, Math.min(1, r / _sbTauxMax)) : 0;
   // Sous 0,10 %, il n'y a pas de portage à signaler : la valeur passe en gris et perd son fond.
   // Peindre « 0,00 % » comme une donnée forte serait un contresens visuel.
-  if (r < 0.10) return `<span class="mt-taux-v mt-taux-v--nul">${r.toFixed(2).replace('.', ',')} %</span>`;
+  if (r < 0.10) return `<span class="mt-taux-v mt-taux-v--nul">${r.toFixed(2).replace('.', ',')}%</span>`;
   const a = (0.05 + f * 0.16).toFixed(3);   // jamais totalement transparent, jamais opaque
-  return `<span class="mt-taux-v" style="background:rgba(227,178,58,${a})">${r.toFixed(2).replace('.', ',')} %</span>`;
+  return `<span class="mt-taux-v" style="background:rgba(227,178,58,${a})">${r.toFixed(2).replace('.', ',')}%</span>`;
 }
 
 function _sbChargerTaux() {
@@ -11466,8 +11479,56 @@ function _npCfgSave() {
   }, 800);
 }
 // Retire toute attribution de source résiduelle de la description
+/* ══ APERÇU D'UNE ALERTE : ON COUPE SUR UNE PHRASE, JAMAIS EN PLEIN MOT (28/08) ═════════════════
+   CAPTURE CLIENT : l'onglet DTP du panneau ALERTES rendait « Pas de mess », « Vérification f »,
+   « j'comprends pas le t ». La cause était un `.slice(0, 140)` nu — une coupe au caractère près,
+   sans point de suspension, qui tombait au hasard au milieu d'un mot.
+   ⚠️ ET CE N'ÉTAIT PAS QU'UNE QUESTION DE FORME. Mesuré sur les 382 annonces : médiane de 587
+   caractères pour 140 affichés, 99 % au-delà de la fenêtre — 235 982 caractères écrits que le
+   panneau n'a jamais montrés. Une nouveauté DTP n'a NI clic NI déplié (« l'item EST l'information »,
+   dit le code) : cet aperçu est tout ce que le client lira jamais ici.
+   LA RÈGLE, DONC : on s'arrête à une FIN DE PHRASE quand il y en a une dans le budget — une phrase
+   entière est un résumé, une coupe au caractère n'est rien. À défaut, on recule au dernier mot
+   ENTIER et on pose « … », qui dit qu'il y a une suite. Mesuré sur le corpus : 73 % des annonces
+   finissent alors sur un vrai point.
+   ⚠️ LE TEXTE LONG N'EST PAS PERDU POUR AUTANT : `/api/updates-public` sert les six dernières
+   annonces EN ENTIER à la vitrine, qui a la place de les dérouler. Deux surfaces, deux besoins —
+   le desk veut court, la vitrine veut tout. */
+const _NP_APERCU_MAX = 180;
+function _npApercu(txt, max) {
+  const t = String(txt || '').replace(/\s+/g, ' ').trim();
+  /* ⚠️ UN PLANCHER SUR LE BUDGET, et il vient d'une vraie erreur : un banc appelait cette fonction
+     par `liste.map(_npApercu)` — or `map` passe l'INDEX en second argument, donc `max` recevait le
+     numéro de la ligne et la troisième annonce était coupée à trois caractères. Sous 40, aucun
+     aperçu n'a de sens : on retombe sur le budget normal plutôt que de rendre un moignon. */
+  const cap = (typeof max === 'number' && max >= 40) ? max : _NP_APERCU_MAX;
+  if (t.length <= cap) return t;
+  /* On avance de fin de phrase en fin de phrase TANT QU'ON TIENT dans le budget : une annonce qui
+     ouvre sur une phrase courte en garde donc deux, au lieu d'un aperçu inutilement avare. */
+  let coupe = 0;
+  const fin = /[.!?…](?:\s|$)/g;
+  let m;
+  while ((m = fin.exec(t))) { if (m.index + 1 > cap) break; coupe = m.index + 1; }
+  /* Une première phrase minuscule (« C'est corrigé. ») ferait un aperçu de quinze caractères alors
+     que la ligne peut en porter dix fois plus : sous 40 % du budget, on préfère la coupe au mot,
+     qui remplit la place disponible. */
+  let out;
+  if (coupe >= Math.floor(cap * 0.4)) {
+    out = t.slice(0, coupe).trim();
+  } else {
+    const mot = t.lastIndexOf(' ', cap);
+    out = t.slice(0, mot > 0 ? mot : cap).replace(/[\s,;:—–-]+$/, '') + '…';
+  }
+  /* Une CITATION ouverte que la coupe n'a pas refermée laisse un « pendant dans le vide — et ces
+     annonces citent constamment le retour d'un client. On rééquilibre : c'est de la ponctuation,
+     jamais du texte inventé. */
+  const ouv = (out.match(/«/g) || []).length, fer = (out.match(/»/g) || []).length;
+  if (ouv > fer) out += ' »';
+  return out;
+}
+
 function _npStripSrc(s, src) {
-  let t = String(s || '')
+  let t = _sansEspacePct(s)
     .replace(/<[^>]+>/g, ' ')                                  // tags HTML éventuels
     .replace(/\b(?:written|reported|posted)\s+by\s+[^.]*?(?:at\s+[\w.]+)?\.?/gi, '')
     .replace(/\s*(?:source|via)\s*:\s*[^|.\n]+/gi, '')
@@ -11988,7 +12049,7 @@ function _npRenderList() {
     // Échappement HTML : le titre venait du flux externe et partait BRUT dans innerHTML (XSS possible,
     // constat revue 10/08). L'aperçu passait déjà par _npStripSrc (tags retirés) — on borde les deux.
     const _npEsc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const desc = _npEsc(_npStripSrc(item.description, item.source).slice(0, 140));
+    const desc = _npEsc(_npApercu(_npStripSrc(item.description, item.source)));
     const org = _npKind(item);   // badge = même taxonomie que Filtre et onglets
     // Badge sur CHAQUE ligne (demande user : « il faut qu'on ait l'info si c'est une news, un
     // rapport analyste ou institution »). Je l'avais masqué pour le type « News » en le jugeant
@@ -12027,7 +12088,7 @@ function _npRenderList() {
     frag.appendChild(el);
   });
   list.appendChild(frag);
-  // Descriptions (aperçus 140 car.) = source anglaise → FR en place, même mécanique que les puces
+  // Descriptions (aperçus coupés à la phrase, cf. _npApercu) = source anglaise → FR en place, même mécanique que les puces
   // d'article (cache serveur par texte + cache session → coût quasi nul aux réouvertures).
   if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(list, '.np-item-desc');
 }

@@ -1705,7 +1705,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _dateFR = d => { const t = Date.parse(String(d || '') + (/^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? 'T00:00:00Z' : '')); if (!isFinite(t)) return _md(d); try { return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' }).format(new Date(t)); } catch (e) { return _md(d); } };
   // Probabilités : le serveur les produit déjà en POURCENTAGES 0-100 à deux décimales
   // (server.js 16159 et 16225). On arrondit à l'entier, on n'invente aucune conversion.
-  const _pc = v => (typeof v === 'number' && isFinite(v)) ? Math.round(v) + ' %' : '';
+  const _pc = v => (typeof v === 'number' && isFinite(v)) ? Math.round(v) + '%' : '';
   /* BLOC « Banques centrales » RETIRÉ (24/08). Il n'a plus d'appelant depuis que la section suit
      le desk, qui ne la rend sur aucune de ses deux branches. Sa matière n'est pas perdue : les
      PROPOS datés sont rendus dans le bloc de LEUR devise (cd.cbBullets). Seuls les propos d'une

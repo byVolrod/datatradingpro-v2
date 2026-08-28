@@ -723,7 +723,7 @@
     if (!cols.length) { box.innerHTML = '<div class="empty-state">Aucun envoi identifié à comparer pour l\'instant.</div>'; return; }
     // Lignes de KPI : [label, clé, format, sens (1 = plus haut est mieux, -1 = plus bas est mieux, 0 = neutre)]
     const F_INT = function (v) { return v == null ? '-' : String(v); };
-    const F_PCT = function (v) { return v == null ? '-' : (String(v).replace('.', ',') + ' %'); };
+    const F_PCT = function (v) { return v == null ? '-' : (String(v).replace('.', ',') + '%'); };
     const F_DATE = function (v) { return v ? _dt(v) : '-'; };
     const ROWS = [
       ['Envois', 'envois', F_INT, 0],

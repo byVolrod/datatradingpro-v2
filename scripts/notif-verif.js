@@ -197,6 +197,148 @@ function decouper(src, entete, fin) {
     try { srv.close(); } catch {}
   }
 
+  /* ═══ 5. L'APERÇU D'UNE ALERTE NE COUPE PLUS EN PLEIN MOT ═══════════════════════════════════
+     28/08, capture : l'onglet DTP rendait « Pas de mess », « Vérification f », « j'comprends pas
+     le t ». Un `.slice(0, 140)` nu, sans point de suspension, tombant au hasard dans un mot.
+     ⚠️ ET LA MESURE COMPTE AUTANT QUE LA FORME : sur les 382 annonces, médiane 587 caractères pour
+     140 affichés — 99 % au-delà de la fenêtre. Une nouveauté DTP n'a NI clic NI déplié (« l'item
+     EST l'information », dit le code) : cet aperçu est TOUT ce que le client lira ici. */
+  console.log('\n── 5. L\'aperçu d\'une alerte : coupé à la phrase, jamais au milieu d\'un mot ──');
+  const _APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+  const SRC_AP = (() => {
+    const d = _APP.indexOf('const _NP_APERCU_MAX =');
+    const f = _APP.indexOf('\nfunction _npStripSrc', d);
+    return (d < 0 || f < 0) ? null : _APP.slice(d, f);
+  })();
+  v('la fonction d\'aperçu est extractible d\'app.js', !!SRC_AP);
+  /* LE DÉFAUT, NOMMÉ : plus aucune coupe aveugle au caractère dans le rendu d'une alerte. */
+  v('plus de coupe aveugle dans le rendu d\'une alerte',
+    !/_npStripSrc\(item\.description, item\.source\)\.slice\(/.test(_APP),
+    'le `.slice()` nu est revenu — il coupe au milieu des mots');
+  if (SRC_AP) {
+    // eslint-disable-next-line no-eval
+    const F = eval('(function(){' + SRC_AP + '\nreturn _npApercu;})()');
+    const finitPropre = s => !s || /[.!?…»]$/.test(s);
+    /* Le cas EXACT de la capture : la première phrase tient, on s'arrête dessus. */
+    const long1 = 'Signalé capture à l\'appui : sur une dépêche géopolitique, le bouton « Impact marché » '
+      + 'était bien là, et le clic ne faisait RIEN. Pas de message, pas d\'erreur en console, pas de panneau — '
+      + 'rien du tout, et c\'est précisément ce qui rend ce défaut si déroutant pour qui le rencontre.';
+    const cap1 = F(long1);
+    /* Le texte d'essai DÉPASSE la fenêtre — sinon il reviendrait intact et le contrôle ne
+       prouverait rien (première écriture : il faisait 178 caractères pour une fenêtre de 180). */
+    v('le texte d\'essai déborde bien la fenêtre', long1.length > 180, long1.length + ' caractères');
+    v('une première phrase qui tient devient l\'aperçu ENTIER', /faisait RIEN\.$/.test(cap1), cap1);
+    v('… et il ne dépasse pas la fenêtre', cap1.length <= 180, cap1.length + ' caractères');
+    /* ⚠️ LE CŒUR : aucun aperçu ne doit finir en plein mot. On l'éprouve sur DU TEXTE RÉEL — les
+       382 annonces livrées — et pas sur trois phrases choisies pour passer. */
+    const SRV2 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+    /* ⚠️ ON BORNE LE TABLEAU AUX DEUX BOUTS. Écrit d'abord sans borne de fin, ce découpage aspirait
+       tout le reste de server.js et ramassait 6 `desc:` qui ne sont pas des annonces — le banc
+       accusait alors un code correct (« 128 aperçus trop longs »). Un banc qui lit trop large ment
+       aussi sûrement qu'un banc qui lit trop court. */
+    const _d0 = SRV2.indexOf('const DTP_UPDATES = [');
+    const bloc = SRV2.slice(_d0, SRV2.indexOf('\n];', _d0));
+    const rxD = /desc: '((?:[^'\\]|\\.)*)' \}/g;
+    let mm; const tous = [];
+    while ((mm = rxD.exec(bloc))) tous.push(mm[1].replace(/\\(.)/g, '$1'));
+    v('les annonces livrées sont lisibles', tous.length > 300, tous.length + ' trouvées');
+    /* ⚠️ `tous.map(F)` PASSE L'INDEX EN SECOND ARGUMENT, donc `max` recevait le numéro de l'entrée :
+       la 250e était coupée à 250 caractères, la 3e à 3. Le banc a accusé le code de produire
+       128 aperçus trop longs alors qu'il n'en produisait aucun. On appelle avec UN seul argument. */
+    const apercus = tous.map(t => F(t));
+    const sales = apercus.filter(a => !finitPropre(a));
+    v('AUCUNE des ' + tous.length + ' annonces ne finit sans ponctuation', sales.length === 0,
+      sales.slice(0, 3).map(x => '…' + x.slice(-40)).join(' | '));
+    /* ⚠️ LE CONTRÔLE CI-DESSUS NE SUFFIT PAS, et la mutation l'a prouvé : couper au caractère près
+       PUIS coller « … » le satisfait pleinement — on aurait « le clic ne faisait RI… », ponctué et
+       faux. Ce qu'il faut éprouver, c'est que le texte gardé s'arrête sur un MOT ENTIER : l'aperçu
+       privé de son ellipse doit être un préfixe du texte d'origine, et le caractère qui suit dans
+       l'original doit être un blanc (ou la ponctuation que la coupe a elle-même retirée). */
+    const finitSurMotEntier = (src, ap) => {
+      const a2 = ap.replace(/\s»$/, '');                     // la fermeture de citation ajoutée
+      const s2 = String(src).replace(/\s+/g, ' ').trim();
+      /* ⚠️ D'ABORD : L'APERÇU EST-IL UN PRÉFIXE EXACT ? Si oui, RIEN n'a été ajouté — c'est une
+         coupe à la phrase, donc par construction sur un mot entier. Ce test doit passer EN PREMIER :
+         écrit dans l'autre sens, il prenait l'ellipse que le TEXTE porte lui-même (« …US trip… »)
+         pour une ellipse ajoutée, et accusait un aperçu parfaitement correct. */
+      if (s2.startsWith(a2)) return true;
+      if (!/…$/.test(a2)) return false;                      // ni préfixe, ni ellipse : anormal
+      const sansEllipse = a2.slice(0, -1);
+      if (!s2.startsWith(sansEllipse)) return false;
+      const suiv = s2.charAt(sansEllipse.length);
+      return suiv === '' || /[\s,;:—–-]/.test(suiv);        // blanc, ou la ponctuation que la coupe retire
+    };
+    const coupes = tous.map((t, i) => [t, apercus[i]]).filter(([t, a2]) => !finitSurMotEntier(t, a2));
+    v('… et AUCUNE ne coupe au milieu d\'un mot', coupes.length === 0,
+      coupes.slice(0, 3).map(([, a2]) => '…' + a2.slice(-45)).join(' | '));
+    const trop = apercus.filter(a => a.length > 190);
+    v('… et aucune ne déborde la fenêtre', trop.length === 0, trop.length + ' au-delà de 190 car.');
+    const phrases = apercus.filter(a => /[.!?]»?$/.test(a)).length;
+    console.log('  · ' + Math.round(phrases / apercus.length * 100) + ' % finissent sur une phrase entière');
+    /* UNE CITATION OUVERTE DOIT ÊTRE REFERMÉE : ces annonces citent constamment un client, et un
+       « laissé pendant dans le vide se voit tout de suite. */
+    const dese = apercus.filter(a => (a.match(/«/g) || []).length > (a.match(/»/g) || []).length);
+    v('… et aucune ne laisse un guillemet ouvert', dese.length === 0,
+      dese.slice(0, 2).join(' | '));
+    /* CE QUI NE DOIT PAS CHANGER : un texte plus court que la fenêtre est rendu TEL QUEL, sans
+       ellipse ajoutée — promettre une suite qui n'existe pas est aussi faux que couper. */
+    v('un texte court passe intact', F('Corrigé.') === 'Corrigé.');
+    v('… et vide reste vide', F('') === '' && F(null) === '');
+    /* Une première phrase MINUSCULE ne doit pas produire un aperçu avare : on remplit la ligne. */
+    const court = F('C\'est fait. ' + 'Le desk affiche désormais la variation de séance et celle de la semaine côte à côte, '
+      + 'pour les indices comme pour les matières premières, avec la même grammaire de couleur.');
+    v('une phrase d\'ouverture minuscule ne bride pas l\'aperçu', court.length > 60, court);
+  }
+
+  /* ═══ 6. PAS D'ESPACE ENTRE LE NOMBRE ET LE POURCENT ════════════════════════════════════════
+     28/08 : « enlève l'espace entre le nombre et le %, ça fait IA : au lieu de 2,4 % mets 2,4% ».
+     C'est un choix ASSUMÉ contre la typographie française (qui veut une insécable) — c'est le desk
+     de l'utilisateur, et sur un desk un chiffre et son unité se lisent d'un bloc.
+     ⚠️ DEUX FRONTS, ET LE SECOND EST LE VRAI. Les formateurs qui collent « % » à un nombre calculé
+     ont été corrigés à la source (23 endroits). Mais l'essentiel du texte français du desk est
+     ÉCRIT PAR L'IA — traductions, analyses, récaps — et un modèle qui rédige en français met
+     l'espace de lui-même : le cas signalé venait de là. D'où une règle d'affichage, branchée dans
+     les trois fonctions qui normalisent DÉJÀ du texte avant rendu. */
+  console.log('\n── 6. Le pourcent est collé à son nombre ──');
+  const SRC_PCT = (() => {
+    const m = /function _sansEspacePct\(s\) \{[^\n]*\}/.exec(_APP);
+    return m ? m[0] : null;
+  })();
+  v('la règle est extractible d\'app.js', !!SRC_PCT);
+  if (SRC_PCT) {
+    // eslint-disable-next-line no-eval
+    const P = eval('(function(){' + SRC_PCT + '\nreturn _sansEspacePct;})()');
+    v('le cas signalé est corrigé',
+      P('Taux de chômage au Japon : 2,4 % en juillet, inférieur aux attentes (2,5 %).')
+        === 'Taux de chômage au Japon : 2,4% en juillet, inférieur aux attentes (2,5%).');
+    /* Les TROIS espaces : normale, insécable, insécable fine. Un modèle qui rédige en français
+       produit volontiers une insécable — invisible à l'œil dans le code, bien présente à l'écran. */
+    v('… l\'espace insécable aussi', P('12\u00a0%') === '12%');
+    v('… et l\'insécable FINE, celle que produit le français soigné', P('12\u202f%') === '12%');
+    v('… ainsi que les espaces multiples', P('12   %') === '12%');
+    /* CE QUI NE DOIT PAS BOUGER : un « % » qui ne suit pas un chiffre n'est pas une unité. */
+    v('un « % » isolé n\'est pas touché', P('Le signe % seul') === 'Le signe % seul');
+    v('… ni un pourcent précédé d\'un mot', P('cent % sûr') === 'cent % sûr');
+    v('un texte vide ne casse rien', P('') === '' && P(null) === '');
+  }
+  /* LES TROIS POINTS DE BRANCHEMENT : titres, puces, aperçus d'alerte. Chacun est une fonction qui
+     normalisait DÉJÀ du texte — la règle n'ajoute pas un quatrième endroit à retenir. */
+  v('la règle est branchée sur les titres (_mdStrip)', /function _mdStrip\(s\) \{\s*return _sansEspacePct\(s\)/.test(_APP));
+  v('… sur les puces (Info / Analyse / Impact)', /_sansEspacePct\(_decodeEntities\(b\)/.test(_APP));
+  v('… et sur les aperçus d\'alerte', /let t = _sansEspacePct\(s\)/.test(_APP));
+  /* AUCUN FORMATEUR NE DOIT REVENIR À L'ESPACE. Le contrôle porte sur TOUS les fichiers du client
+     et du serveur : c'est une règle de produit, pas une préférence de fichier. */
+  {
+    const fautifs = [];
+    for (const f of ['public/js/app.js', 'public/js/widgets.js', 'public/js/charts.js',
+                     'public/js/admin.js', 'public/js/home.js', 'server.js', 'mailer.js']) {
+      let src; try { src = fs.readFileSync(path.join(RACINE, f), 'utf8'); } catch { continue; }
+      const sansCom = src.replace(/^\s*(?:\/\/|\*|\/\*).*$/gm, '');
+      if (/' %'|" %"|\$\{[^{}]*\} %/.test(sansCom)) fautifs.push(f);
+    }
+    v('aucun formateur ne remet l\'espace avant le %', fautifs.length === 0, fautifs.join(', '));
+  }
+
   console.log('\n───────────────────────────────────────');
   console.log('  ' + ok + ' vert(s), ' + ko + ' rouge(s)\n');
   process.exit(ko ? 1 : 0);
