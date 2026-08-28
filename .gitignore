@@ -65,6 +65,17 @@ gtest/
 # six fichiers .tactile-audit*.js partis en production).
 /.tactile-audit*.js
 /.audit-*.js
+# ⚠️ ET LA MEME CHOSE AVEC UN SOULIGNE, parce que la regle ci-dessus ne couvrait QUE le point
+# initial (28/08 : deux `_audit-*-tmp.js` laisses a la racine par une sonde d audit, signales par
+# le controle de fin de tache). Un banc jetable s ecrit a la racine quand il ouvre un navigateur :
+# `puppeteer-core` ne se resout que depuis la, donc /tmp n est pas une option. La convention de
+# nommage a glisse du point au souligne au fil des sessions, et le garde-fou n a pas suivi — un
+# caractere d ecart entre « couvert » et « parti en production ». On couvre les deux graphies,
+# ancrees a la RACINE pour ne rien avaler dans les sous-dossiers.
+/_audit-*.js
+/_taux-*.js
+/_mesure-*.js
+/_*-tmp.js
 
 # ── Planche d'aperçu téléphone (image produite par scripts/mobile-apercu.js) ─────
 apercu-mobile*.png
