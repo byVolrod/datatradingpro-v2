@@ -295,10 +295,14 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
   v('… le ton est calculé sur la VO', /_calToneOf\(\[p\.statement\]\)/.test(DECOUPE),
     'le ton doit se lire sur la déclaration d\'origine, jamais sur sa traduction');
   v('… et la traduction est portée à côté, pas à la place', /fr: q\.fr/.test(DECOUPE));
-  /* LE RENDU : le français d'abord, la VO en repli — jamais l'inverse, jamais rien. */
+  /* LE RENDU : le français d'abord, la VO en repli — jamais l'inverse, jamais rien.
+     Le compte est un INVENTAIRE épinglé : un rendu de propos qui apparaît sans passer ici resterait
+     en VO sans que rien ne rougisse. Trois sites depuis le 29/08 — le générique de la fiche, le
+     bloc historique, et `_qRow` du mode « discours passé » (les propos APRÈS une prise de parole,
+     demande user). Un quatrième devra se déclarer ici ET préférer la traduction. */
   const RENDUS = CHARTS.match(/cal-kb-quote">\$\{_calEsc\([^)]*\)\}/g) || [];
-  v('les deux rendus de propos sont trouvés', RENDUS.length === 2, RENDUS.join(' | '));
-  v('… et tous deux préfèrent la traduction', RENDUS.every(r => /q\.fr \|\|/.test(r)), RENDUS.join(' | '));
+  v('les trois rendus de propos sont trouvés', RENDUS.length === 3, RENDUS.join(' | '));
+  v('… et tous préfèrent la traduction', RENDUS.every(r => /q\.fr \|\|/.test(r)), RENDUS.join(' | '));
 
   /* ⚠️ LE COMMENTAIRE QUI M'A MENTI. `charts.js` portait encore « derniers propos (titres VO, jamais
      traduits — veto) » alors que la traduction était demandée et câblée depuis le 17/07. Un

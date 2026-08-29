@@ -3681,30 +3681,18 @@ function buildNewsItem(item) {
   //    du user, et les onglets internes (tabsHtml) ne sont pas rendus → sans ça, le Décryptage serait
   //    inaccessible sur toute news ayant aussi « Info ». Slot séparé, re-rempli après CHAQUE rendu du
   //    panneau (le résumé IA remplace innerHTML de façon asynchrone et écraserait le bloc).
+  /* ⚠️ LE BLOC « BANQUE CENTRALE » A QUITTÉ LE PANNEAU DU FIL (29/08, demande user : « enlève la
+     partie banque centrale »). Il avait été ajouté le 23/08 sur un call mentor (posture BoE sous le
+     CPI UK) ; à l'usage, il alourdissait chaque donnée dépliée d'une section entière — propos,
+     tons, réunion — que la fiche du CALENDRIER porte déjà, elle, à sa place (décision user du
+     23/07 : le Décryptage complet est réservé au calendrier). La fonction reste : elle ne rend
+     plus rien, et les trois appelants (rendu initial + deux réécritures d'innerHTML) n'ont pas à
+     être démontés un par un — c'est le point unique qui décide. */
   async function _ecoFill(host) {
-    /* DEUX DÉCISIONS QUI COHABITENT. 23/07 : le Décryptage COMPLET reste réservé au calendrier
-       (hasEco=false, décision user : « pas pour les news »). 23/08 (call mentor) : mais une
-       PUBLICATION MAJEURE doit montrer la POSTURE de sa banque centrale — « CPI UK chaud sans
-       réaction du GBP : BoE dovish », et Bailey était invisible sous la news (constat user).
-       On ne ressuscite donc PAS le bloc pédagogique : SEUL le bloc Banque centrale compact
-       (ton mesuré, lecture par la posture, propos datés/attribués, réunion pricée) s'insère
-       en bas du panneau Info, et uniquement sur les publications majeures (fiche CAL_KB +
-       signature de publication chiffrée). */
-    if (!host || !host.isConnected) return;
-    try {
-      const hl0 = String(item.headline || '');
-      if (typeof dtpBcBlockHtml !== 'function' || typeof dtpKbPourTitre !== 'function') return;
-      if (!_SIG_PUBLICATION.test(hl0) || !dtpKbPourTitre(hl0)) return;   // publications majeures seulement
-      const ccy0 = (typeof _dtpNewsCcy === 'function') ? _dtpNewsCcy(hl0, item.currency) : '';
-      if (!ccy0) return;
-      const html = await dtpBcBlockHtml(ccy0, item.timestamp || 0);
-      if (!html || !host.isConnected || !host.classList.contains('visible')) return;
-      let slot = host.querySelector('.news-eco-slot');
-      if (!slot) { slot = document.createElement('div'); slot.className = 'news-eco-slot cal-kb'; host.appendChild(slot); }
-      slot.innerHTML = html;
-      if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(host, '.cal-kb-quote');   // propos BC → FR en place
-    } catch {}
+    const slot = host && host.querySelector && host.querySelector('.news-eco-slot');
+    if (slot) slot.remove();   // purge un bloc déjà rendu (panneau ouvert au moment de la mise à jour)
   }
+
 
   function openPanel(tab) {
     if (!expandEl) return;
@@ -4794,7 +4782,11 @@ function buildNewsItem(item) {
       ? _deviseDeLaNews() : null;
     return (d && _PAIR_DE_DEVISE[d]) ? d : null;
   })();
-  const _paysDejaDitParLaDevise = (tag) => !!_devPrevue && _DEV_PAYS[tag] === _devPrevue;
+  /* Étendu au CODE devise lui-même (29/08, capture user : « enlève le tag CAD vu que c'est
+     indiqué déjà ») : « USDCAD » porte déjà CAD dans son nom — un tag « CAD » à côté dit la même
+     chose une seconde fois. Même logique « un tag, une fonction » que pour les tags de pays. */
+  const _paysDejaDitParLaDevise = (tag) => !!_devPrevue && (_DEV_PAYS[tag] === _devPrevue
+    || (_PAIR_DE_DEVISE[_devPrevue] || '').split('/').indexOf(tag) >= 0);
 
   /* ── TAG INDICATEUR + DRAPEAU (22/08, demande user, maquette fournie) ───────────────────────
      Sur une PUBLICATION chiffrée (« Australian Unemployment Rate (Jul) 4.5% vs. Exp. 4.4% »), la
@@ -9960,7 +9952,9 @@ function _renderWeeklyRecap(item) {
       // FUSION 11/08 (demande user) : « Chronologie rapide » n'est plus une SECTION à part — le récit
       // et la chronologie racontaient la même semaine sous deux titres, l'un après l'autre. Un simple
       // libellé en ligne suffit à marquer le changement de registre (du récit à la séquence datée).
-      body += `<div class="wr-macro-heading">Chronologie rapide${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
+      // « Chronologie » tout court (29/08, demande user) : « rapide » qualifiait la forme, pas le
+      // contenu — trois lignes se voient, pas besoin de l'annoncer.
+      body += `<div class="wr-macro-heading">Chronologie${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
       _gt.jours.forEach(j => {
         const pts = (j.points || []).map(p => _wrInline(String(p).replace(/\s*[;.]\s*$/, ''))).filter(Boolean).join(' ; ');
         if (!pts) return;
@@ -9981,9 +9975,30 @@ function _renderWeeklyRecap(item) {
        raconter. On filtre sur l'intitulé, qui est ce qui se voit. Le serveur, lui, n'a jamais cessé
        de produire ces champs : c'est un changement de RENDU, donc les rapports déjà archivés y
        gagnent aussi. */
+    /* ⚠️ ORDRE ET PÉRIMÈTRE IMPOSÉS AU RENDU, PAS SEULEMENT AU PROMPT (29/08, demande user :
+       « classe d'abord banque centrale, inflation, croissance économique puis emploi, puis les
+       autres » + « enlève la partie performance cross-asset »). Le prompt du Hebdo produit
+       désormais ces en-têtes dans cet ordre, mais les rapports DÉJÀ ARCHIVÉS portent l'ancienne
+       grammaire (« Inflation & Croissance », « Performance Cross-Asset ») : filtrer et ordonner
+       ICI fait profiter les archives du même rangement — même parti que la Macro revenue au rendu.
+       Un en-tête inconnu passe en queue, jamais à la poubelle : le doute profite au contenu. */
+    const _WR_MACRO_RANG = [
+      [/banque centrale|politique mon[ée]taire/i, 0],
+      [/^inflation\b(?!.*croiss)/i, 1],
+      [/inflation.*croiss|croiss.*inflation/i, 1.5],   // l'ancien en-tête fusionné : entre les deux
+      [/croissance/i, 2],
+      [/emploi/i, 3],
+      [/commerce/i, 4],
+      [/technologie/i, 5],
+    ];
+    const _wrRang = h => { for (const [rx, r] of _WR_MACRO_RANG) if (rx.test(h)) return r; return 9; };
     const _macroReste = (w.macro || []).filter(sec => sec && sec.heading
       && !/g[ée]opolit/i.test(String(sec.heading))
-      && Array.isArray(sec.bullets) && sec.bullets.length);
+      && !/cross[\s-]*asset/i.test(String(sec.heading))
+      && Array.isArray(sec.bullets) && sec.bullets.length)
+      .map((sec, i) => ({ sec, i }))
+      .sort((a, b) => (_wrRang(String(a.sec.heading)) - _wrRang(String(b.sec.heading))) || (a.i - b.i))
+      .map(x => x.sec);
     if (_macroReste.length) {
       body += `<div class="wr-section-title">Macro</div>`;
       _macroReste.forEach(sec => {

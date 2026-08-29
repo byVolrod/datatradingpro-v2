@@ -881,8 +881,49 @@ function phaseLogique() {
        vaut null et le thème géo RESTE dans `w.macro` : le filtrer sur la seule référence d'objet le
        ferait réapparaître ici, juste sous la section qui vient de le raconter. */
     verif('… en excluant le thème géopolitique par son INTITULÉ, pas par identité d\'objet',
-      /_macroReste = \(w\.macro \|\| \[\]\)\.filter\(sec => sec && sec\.heading[\s\S]{0,140}g\[ée\]opolit/.test(APP3),
+      /_macroReste = \(w\.macro \|\| \[\]\)\.filter\(sec => sec && sec\.heading[\s\S]{0,540}g\[ée\]opolit/.test(APP3),
       'le thème géo réapparaîtrait sous la section qui vient de le raconter');
+    /* ══ LA MACRO DU HEBDO PREND LA GRAMMAIRE DES QUOTIDIENS (29/08, demande user) ═══════════════
+       « enlève Performance cross-asset » + « classe d'abord banque centrale, inflation, croissance
+       économique puis emploi, puis les autres ». Le prompt produit les nouveaux en-têtes, mais les
+       rapports ARCHIVÉS portent l'ancienne grammaire : c'est donc le RENDU qui ordonne et filtre,
+       et c'est lui qu'on éprouve — sur la vraie logique extraite, pas une copie. */
+    {
+      const dR = APP3.indexOf('const _WR_MACRO_RANG = [');
+      const fR = APP3.indexOf('.map(x => x.sec);', dR);
+      verif('le rangement macro du Hebdo est extractible', dR > 0 && fR > dR);
+      if (dR > 0 && fR > dR) {
+        const F = new Function('w', APP3.slice(dR, fR + 17) + '\nreturn _macroReste;');
+        const themes = F({ macro: [
+          { heading: 'Technologie & Innovation', bullets: ['x'] },
+          { heading: 'Performance Cross-Asset', bullets: ['x'] },
+          { heading: 'Emploi', bullets: ['x'] },
+          { heading: 'Inflation', bullets: ['x'] },
+          { heading: 'Géopolitique', bullets: ['x'] },
+          { heading: 'Un thème inconnu', bullets: ['x'] },
+          { heading: 'Banque centrale', bullets: ['x'] },
+          { heading: 'Croissance économique', bullets: ['x'] },
+          { heading: 'Commerce International & Tarifs', bullets: ['x'] },
+        ] }).map(t => t.heading);
+        verif('« Performance Cross-Asset » ne se rend plus (archives comprises)', !themes.includes('Performance Cross-Asset'), themes.join(' | '));
+        verif('l\'ordre est Banque centrale → Inflation → Croissance → Emploi → Commerce → Technologie',
+          themes.slice(0, 6).join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Commerce International & Tarifs|Technologie & Innovation',
+          themes.join(' | '));
+        verif('… et un en-tête inconnu passe en QUEUE, jamais à la poubelle', themes[themes.length - 1] === 'Un thème inconnu', themes.join(' | '));
+        const vieux = F({ macro: [
+          { heading: 'Commerce International & Tarifs', bullets: ['x'] },
+          { heading: 'Inflation & Croissance', bullets: ['x'] },
+        ] }).map(t => t.heading);
+        verif('l\'ancien en-tête fusionné des archives garde sa place avant Commerce',
+          vieux.join('|') === 'Inflation & Croissance|Commerce International & Tarifs', vieux.join(' | '));
+      }
+      /* Le prompt du serveur suit la même grammaire : plus de cross-asset, banque centrale en tête. */
+      const SRV4 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+      verif('le prompt du Hebdo produit les en-têtes des quotidiens',
+        /"Géopolitique", "Banque centrale", "Inflation", "Croissance économique", "Emploi", "Commerce International & Tarifs", "Technologie & Innovation"/.test(SRV4));
+      verif('… et ne commande plus de « Performance Cross-Asset »',
+        !/catégorisés[^\n]{0,400}Performance Cross-Asset/.test(SRV4));
+    }
 
     console.log('\n── Identité visuelle : Récap Quotidien ↔ récap de séance ──');
     verif('le titre de rubrique a le MÊME style calculé', memeStyle(st.titreQ, st.titreS, CT), diff(st.titreQ, st.titreS, CT));

@@ -5456,7 +5456,10 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .wr-gt-pt:last-child { margin-bottom: 0; }
 .wr-gt-pt::before { content: "→"; position: absolute; left: 0; color: #e3b23a; font-weight: 600; }
 .wr-gt-pt strong { color: #fff; font-weight: var(--fw-semibold, 600); }
-.wr-gt-topic { color: #9aa0aa; font-weight: 400; font-size: 14px; }
+/* Même taille que « CHRONOLOGIE » (29/08, capture user) : le sujet héritait d'un 14px d'un ancien
+   rendu en titre plein et dominait le libellé qu'il complète — inversion de hiérarchie. `1em` colle
+   au heading quel que soit son corps (10px desk, 12px imprimable). */
+.wr-gt-topic { color: #9aa0aa; font-weight: 400; font-size: 1em; }
 /* « État en fin de semaine » : PLUS de rectangle encadré (demande user « ça casse ») → sous-section homogène =
    simple filet fin en tête (comme le séparateur entre jours) + label calé sur le style des jours de la chronologie. */
 .wr-gt-end { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hud-line, var(--border)); }
@@ -7746,7 +7749,16 @@ html[data-theme="light"] .cal-day-sep td {
   position: relative;
   z-index: 1;
 }
-.cal-row--next td { border-top: 1px solid rgba(227,178,58,0.5); border-bottom: 1px solid rgba(227,178,58,0.5); }
+/* ⚠️ LE CADRE SE PEINT EN OMBRES INTERNES, PAS EN BORDURES (29/08, capture user : « on ne voit pas
+   les contours haut et côtés »). La table est en `border-collapse: collapse` : à largeur et style
+   égaux, c'est la bordure de la cellule du DESSUS qui gagne le conflit — le trait doré du haut
+   perdait donc TOUJOURS contre le séparateur sombre de la ligne précédente, et les côtés
+   n'existaient nulle part (aucun border-left/right posé ; l'`outline` sur un <tr> ne se peint pas
+   fiablement dans une table). Une ombre interne ne participe pas au collapse : elle se peint
+   toujours, sur les quatre bords. */
+.cal-row--next td { box-shadow: inset 0 1px 0 rgba(227,178,58,0.5), inset 0 -1px 0 rgba(227,178,58,0.5); }
+.cal-row--next td:first-child { box-shadow: inset 1px 0 0 rgba(227,178,58,0.5), inset 0 1px 0 rgba(227,178,58,0.5), inset 0 -1px 0 rgba(227,178,58,0.5); }
+.cal-row--next td:last-child { box-shadow: inset -1px 0 0 rgba(227,178,58,0.5), inset 0 1px 0 rgba(227,178,58,0.5), inset 0 -1px 0 rgba(227,178,58,0.5); }
 .cal-row--next td.cth-time { color: var(--orange) !important; font-weight: var(--fw-bold); }
 .cal-row--next:hover { background: var(--row-hover); }
 /* Le PASSÉ reste en retrait, mais en BLANC ÉTEINT et non plus en gris teinté : « met les heures en
@@ -20263,8 +20275,11 @@ html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, 
    qui garde son rôle « un graphique t'attend ». L'infobulle porte la définition de la fiche. */
 .tag--indic {
   color: var(--text);
-  background: var(--bg3, #16171b);
-  border: 1px solid var(--bg5, #232429);
+  /* MÊME FOND QUE LES TAGS ORDINAIRES (29/08, capture user : « le tag PIB doit avoir le même fond
+     que le tag CAD ») : sur une ligne importante (fond bordeaux), le fond quasi noir d'avant se
+     lisait comme une pastille rouge sombre, différente de tous ses voisins. */
+  background: var(--bg5);
+  border: 1px solid var(--border2);
   font-weight: var(--fw-semibold, 600);
 }
 .tag--indic .tag-flag { border-radius: 50%; width: 13px; height: 13px; object-fit: cover; }
@@ -20888,6 +20903,13 @@ html[data-theme="light"] .wdg-ps-v.est-bas { color: #c73000; }
    Pas de drapeau : le dépôt a déjà tranché (02/09) qu'un indice ou une matière première n'en porte
    aucun — il n'a pas de pays. */
 .wdg-xa { height: 100%; container-type: size; container-name: dtpw; display: flex; flex-direction: column; min-height: 0; padding-top: 6px; }
+/* ⚠️ UN SEUL DÉFILEMENT PAR CARTE (29/08, capture user : « pourquoi tu me mets 2 scrollers, garde
+   le noir enlève l'autre ») : la liste interne défile depuis sa création, mais le CORPS de la
+   carte (.wdg-body, overflow:auto) défilait AUSSI dès que le moindre élément s'ajoutait au-dessus
+   du widget (ligne de fraîcheur, note de repli) — deux barres côte à côte pour le même contenu.
+   Le corps qui héberge ce widget ne défile plus : c'est la liste, et elle seule, qui porte la
+   barre. */
+.wdg-body:has(> .wdg-xa) { overflow: hidden; }
 .wdg-xa-liste { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 12px; display: flex; flex-direction: column; justify-content: space-evenly; }
 /* Intertitre de famille : le même vocabulaire que les sous-titres du desk — capitales fines,
    très espacées, en retrait de ton. Il sépare sans peser, et surtout sans ligne de plus. */

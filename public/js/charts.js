@@ -881,6 +881,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // sont masquées d'emblée ET exclues de l'animation d'apparition (sinon `appear` les ré-affiche).
   const _only  = (Array.isArray(opts.onlyCurrencies) && opts.onlyCurrencies.length) ? new Set(opts.onlyCurrencies) : null;
   const _legendVal = !!opts.legendValues;      // (mail) affiche la valeur TD a DROITE de chaque devise dans la legende
+  /* ⚠️ UNE RECONSTRUCTION N'EST PAS UNE PREMIÈRE OUVERTURE (29/08, demande user : « il y a souvent
+     des rafraîchissements/actualisations, cache-moi ça »). Le shimmer premium et l'animation
+     d'apparition des huit courbes sont faits pour le PREMIER rendu ; rejoués à chaque
+     reconstruction (auto-rétablissement, retour d'onglet, période recalée par le compte), ils
+     transforment une simple remise à jour en rechargement SPECTACLE. `rebuild: true` peint
+     directement, sans rideau ni entrée en scène. */
+  const _rebuild = !!opts.rebuild;
   disposeRoot(containerId);
   const container = document.getElementById(containerId);
   if (container) container.innerHTML = '';
@@ -888,7 +895,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   root.setThemes([applyTerminalTheme(root)]);
   root._logo?.set('forceHidden', true);
   if (!_iso) _strengthRoot = root;   // l'onglet STRENGTH garde sa réf. ; le graphique du rapport est autonome
-  if (container) { try { window._dtpChartPremium && window._dtpChartPremium(container, 760); } catch (e) {} }   // chargement premium : overlay shimmer pendant appear(500,i*20) -> reveal fondu (build-only ; update() ne rebuild pas)
+  if (container && !_rebuild) { try { window._dtpChartPremium && window._dtpChartPremium(container, 760); } catch (e) {} }   // chargement premium : overlay shimmer pendant appear(500,i*20) -> reveal fondu (PREMIER rendu seulement)
 
   const chart = root.container.children.push(
     am5xy.XYChart.new(root, {
@@ -1442,7 +1449,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.08, 1); } catch (e) {} });   // on montre ~92 % de la session (vs 65 %) → bien plus de points/pixel = texture dense visible d'emblée (pan toujours dispo, donnée inchangée)
 
   // Apparition animée : SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
-  chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
+  if (!_rebuild) chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
 
   // ── Anti-collision des badges : écarte verticalement ceux trop proches ───────
   let _dcRedo = 0, _dcApres = 0, _hbPlein = 0;        // garde-fous de boucle + hauteur nominale de pastille (hors mode compact)
@@ -2013,6 +2020,7 @@ async function buildStrengthCharts() {
     const containerId = `chart-strength-${side}`;
     let activePeriod  = initialPeriod;
     let chartCtl      = null;   // { root, seriesMap, update }
+    let _dejaPeint    = false;  // premier rendu accompli → les reconstructions se font sans spectacle
 
     // silent=true → mise à jour en place (pas de reconstruction, pas de spinner)
     async function load(period, { force = false, silent = false } = {}) {
@@ -2030,7 +2038,10 @@ async function buildStrengthCharts() {
           chartCtl.update(data);            // ← prolonge la courbe sans clignoter
         } else {
           try { disposeRoot(containerId); } catch {}
-          chartCtl = buildStrengthChart(containerId, data);
+          // Reconstruction silencieuse dès qu'un premier rendu a eu lieu : changer de période ou
+          // se rétablir d'un blanc ne doit pas rejouer le rideau d'ouverture.
+          chartCtl = buildStrengthChart(containerId, data, { rebuild: _dejaPeint });
+          _dejaPeint = true;
         }
       } catch (e) {
         console.error('[Strength]', side, e.message);
@@ -4847,6 +4858,17 @@ async function _calValueBlockHtml(ev) {
     // l evenement est futur, « Propos recents » s il a deja eu lieu.
     const _quandEv = (ev && (ev.ts || ev.timestamp || (ev.date ? Date.parse(ev.date) : 0))) || 0;
     const _discoursAVenir = _quandEv > Date.now() + 60000;
+    /* ══ LE DISCOURS PASSÉ A SES PROPOS À LUI (29/08, demande user : « mets pendant ou après,
+       récupère son discours et mets à jour une fois qu'on l'a — comme on a le avant ») ═══════════
+       La fiche montrait « Derniers propos AVANT ce discours »… y compris une fois le discours
+       TENU : ce que l'intervenant venait de dire — la seule chose qui compte alors, celle qui
+       donne le ton pour la prochaine réunion — se noyait dans les propos d'avant, triés par
+       signal. Un discours passé partage désormais ses propos autour de son heure, exactement
+       comme la fiche d'une réunion le fait autour de la décision : « Ton du discours » +
+       citations du discours d'un côté, « avant » de l'autre. Rien à générer : les citations
+       arrivent par le fil (« Fed's Goolsbee: … ») et par /api/cb-quotes au fil de l'eau — la
+       fiche se met à jour d'elle-même à chaque ouverture. */
+    const _estDiscoursPasse = !_discoursAVenir && /\b(speech|speaks|testif)/i.test(title);
     let quotes = [], quotesLbl = _discoursAVenir ? 'Derniers propos avant ce discours' : 'Propos récents';
     try {
       const srv = await _calCbQuotesGet(ev.currency, speaker);
@@ -4877,6 +4899,7 @@ async function _calValueBlockHtml(ev) {
     const _tonAvant = _evTs ? _calToneOf(quotes.filter(q => (q.ts || 0) <  _evTs).map(q => q.statement || q.h)) : null;
     const _tonApres = _evTs ? _calToneOf(quotes.filter(q => (q.ts || 0) >= _evTs).map(q => q.statement || q.h)) : null;
     quotes.sort((a, b) => (b.t ? 1 : 0) - (a.t ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+    const _quotesTout = quotes.slice();   // le pool COMPLET : le mode « discours passé » partage dessus
     quotes = quotes.slice(0, 3);
     const tone = _calToneOf(quotes.map(q => q.statement || q.h));
     // RESULTAT EN PREMIER des qu il est publie : c est la seule chose qu on vient chercher ici.
@@ -4909,16 +4932,45 @@ async function _calValueBlockHtml(ev) {
     // ton, la phrase ce qu'il implique, et le pricing n'est rappelé que s'il n'apparaît nulle part
     // ailleurs. APRÈS la réunion, on repasse aux deux lignes ton avant / ton après : c'est leur
     // COMPARAISON qui informe, et la lecture prospective n'a plus d'objet.
-    const reading = _res ? '' : _calMeetReading(tone, _sc, { pricingAilleurs: !!(_aVenir && _probs), aDesPropos: quotes.length > 0 });
+    /* Un discours passé ne prend pas la lecture prospective générique : son bloc dédié (ci-dessous)
+       dit le ton RÉEL du discours, ce qui vaut mieux qu'une projection. */
+    const reading = (_res || _estDiscoursPasse) ? '' : _calMeetReading(tone, _sc, { pricingAilleurs: !!(_aVenir && _probs), aDesPropos: quotes.length > 0 });
     if (reading) {
       const _bd = tone ? `<span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ` : '';
       rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">${_bd}${reading}</span></div>`);
-    } else {
+    } else if (!_estDiscoursPasse) {
       if (_tonAvant) rows.push(_ligneTon('Ton · avant réunion', _tonAvant));
       if (_tonApres) rows.push(_ligneTon('Ton · après réunion', _tonApres));
       if (!_tonAvant && !_tonApres && tone) rows.push(_ligneTon('Ton récent', tone));
     }
-    if (quotes.length) {
+    /* Rangée de citations réutilisable (mêmes puces de signal que le bloc historique). */
+    const _qRow = (lbl, liste) => {
+      const qh = liste.map(q => {
+        const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';
+        const dt = q.ts ? ' · ' + _calShortDateFr(q.ts) : '';
+        return `<div class="cal-kb-qline">${chip}<span class="cal-kb-quote">${_calEsc(q.fr || q.statement || q.h)}</span><span class="cal-kb-qwho"> : ${_calEsc(q.who || cb.bank)}${dt}</span></div>`;
+      }).join('');
+      return `<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(lbl)}</span><span class="cal-kb-val">${qh}</span></div>`;
+    };
+    if (_estDiscoursPasse) {
+      /* Le partage se fait sur la liste NON tronquée : les 3 « meilleures » citations peuvent
+         toutes être d'avant, et le discours aurait disparu du tri. On repart donc du pool complet
+         (le .slice(0,3) plus haut ne s'applique qu'au chemin générique). */
+      const _tri = a => a.sort((x, y) => (y.t ? 1 : 0) - (x.t ? 1 : 0) || (y.ts || 0) - (x.ts || 0));
+      const _qPend = _tri(_quotesTout.filter(q => (q.ts || 0) >= _quandEv));
+      const _qAv = _tri(_quotesTout.filter(q => (q.ts || 0) < _quandEv));
+      if (_qPend.length) {
+        const tDisc = _calToneOf(_qPend.map(q => q.statement || q.h));
+        if (tDisc) rows.push(_ligneTon('Ton du discours', tDisc));
+        rows.push(_qRow('Propos du discours', _qPend.slice(0, 3)));
+        if (_qAv.length) rows.push(_qRow('Avant ce discours', _qAv.slice(0, 1)));
+      } else {
+        const tAv = _tonAvant || tone;
+        if (tAv) rows.push(_ligneTon('Ton · avant le discours', tAv));
+        if (_qAv.length) rows.push(_qRow('Derniers propos avant ce discours', _qAv.slice(0, 3)));
+        rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Propos du discours</span><span class="cal-kb-val cal-kb-muted">Pas encore relayés : la fiche se met à jour dès que le fil reçoit les premières citations (généralement dans l'heure qui suit la prise de parole).</span></div>`);
+      }
+    } else if (quotes.length) {
       const qhtml = quotes.map(q => {
         const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
         const dt = q.ts ? ' · ' + _calShortDateFr(q.ts) : '';
