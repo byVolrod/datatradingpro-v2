@@ -10380,6 +10380,11 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .rtc { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--panel-depth); display: flex; flex-direction: column; overflow: hidden; min-height: 0; transition: border-color var(--t-fast) ease; }
 .rtc:hover { border-color: rgba(227,178,58,0.20); }
 .rtc-head { display: flex; align-items: center; gap: 8px; min-height: 31px; padding: 0 10px; background: var(--head-bg); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+/* Badge de SOURCE sur la carte de taux (29/08, incident client) : « pricing marché » discret,
+   « estimation DTP » en ambre — l'œil doit accrocher l'exception, pas la règle. Charte : le
+   jaune-orange est la couleur du neutre/attention, jamais du baissier. */
+.rtc-src { margin-left: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: #6f7480; border: 1px solid #26262c; border-radius: 999px; padding: 1px 7px; white-space: nowrap; flex: 0 0 auto; }
+.rtc-src--est { color: #ffb300; border-color: rgba(255,179,0,.35); background: rgba(255,179,0,.07); }
 .rtc-flag { width: 17px; height: 17px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
 .rtc-bank { font-size: 12px; font-weight: var(--fw-bold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)

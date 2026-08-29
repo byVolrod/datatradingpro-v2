@@ -2847,7 +2847,7 @@
       maj: 5 * 60 * 1000, cat: 'Macro', h: 320,   // la source des probabilites bouge a l'heure, pas a la seconde
       desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
       aide: "<p>Le taux directeur en vigueur pour chaque banque, avec ce que le marché price pour la prochaine réunion. La probabilité affichée ne dit pas ce qui va arriver : elle dit ce qui est <strong>déjà dans les prix</strong>.</p><p>C'est cette distinction qui rend la donnée exploitable. Une hausse annoncée et pricée à 90% ne fera pas bouger la devise ; c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p>",
-      src: "Taux en vigueur et pricing de marché des prochaines réunions, agrégés par le desk et relus toutes les 5 minutes ; la donnée source bouge à l'heure, pas à la seconde.",
+      src: "Taux en vigueur et probabilités des prochaines réunions : pricing de marché quand la source le fournit, estimation DTP à défaut (signalée sur la carte de l'onglet TAUX). Agrégé par le desk et relu toutes les 5 minutes ; la donnée source bouge à l'heure, pas à la seconde.",
       watch: "Une probabilité qui se déplace nettement après un chiffre ou une prise de parole : le repricing d'une réunion est souvent le vrai moteur de la devise, bien avant la réunion elle-même.",
       // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
       // (Maintien/Hausse/Baisse) de la prochaine réunion + probabilité + date. HTML pur, cleanup null.
@@ -3169,7 +3169,7 @@
             var ts = d && d.asOf != null ? +d.asOf : 0;
             html += '<div class="wdg-verdict" data-etat="' + etatV + '"><b class="wdg-verdict-txt wdg-maj-txt">' + vbH + '</b>'
               + '<span class="wdg-verdict-sous">' + esc(vsT) + '</span></div>'
-              + '<div class="wdg-rbc-pied">Le rebours vise le JOUR de la réunion : la source donne la date, pas l\'heure de la décision. Probabilités de marché relues toutes les 5 min. ' + _vieSpan(ts) + '</div>'
+              + '<div class="wdg-rbc-pied">Le rebours vise le JOUR de la réunion : la source donne la date, pas l\'heure de la décision. Pricing de marché quand la source le fournit, estimation DTP à défaut (signalée sur l\'onglet TAUX). Relu toutes les 5 min. ' + _vieSpan(ts) + '</div>'
               + '</div>';
             host.innerHTML = html;
             if (prevCle != null && cle !== prevCle) _majFlash(host.querySelector('.wdg-verdict-txt'));

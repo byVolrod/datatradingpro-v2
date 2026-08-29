@@ -3697,9 +3697,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     // Header directionnel = PROCHAIN MOUVEMENT (champ `stance` = FedWatch/biais maison curé) → COHÉRENT avec le
     // « Prochain mouvement » du Radar de Biais (demande user « aligner TAUX sur la stance »). Repli sur `move` (ancien).
-    const _mvd = b.stance || b.move;
-    const mv = MVC[_mvd] || MVC.HOLD;
+    let _mvd = b.stance || b.move;
     const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
+    /* ⚠️ LA PROBABILITÉ AFFICHÉE EST CELLE DU MOUVEMENT AFFICHÉ (29/08, incident client MaTToKs).
+       Avant : l'étiquette venait de la stance (Radar de Biais) et « Probabilité » du scénario
+       DOMINANT de la prochaine réunion — deux moteurs différents sur la même ligne. Sur la RBNZ,
+       ça donnait « Hausse · 50,00% » où 50 % était la probabilité du MAINTIEN : la carte se
+       contredisait elle-même, et sa propre colonne « Scénario central » disait HOLD deux
+       centimètres plus bas. Désormais le couple est UNE grandeur : la probabilité que le
+       mouvement affiché se produise À LA PROCHAINE RÉUNION. Si ce mouvement n'y est pas pricé du
+       tout (0 %), l'en-tête bascule sur le scénario central de la réunion — un couple cohérent
+       plutôt qu'un « Hausse · 0,00% » qui se lirait comme une panne. */
+    let _prob = _mvd === 'HIKE' ? sc.hike : _mvd === 'CUT' ? sc.cut : sc.hold;
+    if (!(_prob > 0) && _mvd !== 'HOLD' && b.meetings && b.meetings[0]) {
+      _mvd = b.meetings[0].baseCase || 'HOLD';
+      _prob = _mvd === 'HIKE' ? sc.hike : _mvd === 'CUT' ? sc.cut : sc.hold;
+    }
+    const mv = MVC[_mvd] || MVC.HOLD;
     const mvSpk  = _mvd === 'HIKE' ? 'up' : (_mvd === 'CUT' ? 'down' : 'wavy');
     const expSpk = b.expBps > 0 ? 'up' : (b.expBps < 0 ? 'down' : 'wavy');
     const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
@@ -3719,10 +3733,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // (réglage « Banque » : une seule banque ou toutes). Sans effet sur l'onglet du desk.
     return '<div class="rtc" data-bank="' + (b.code || '') + '">'
       + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
-      + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span></div>'
+      + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span>'
+      /* La SOURCE, écrite sur la carte (29/08, incident client) : deux banques sur huit sortent du
+         modèle DTP faute de flux de marché, et RIEN ne le disait — un client a comparé notre
+         estimation à un pricing OIS réel en croyant comparer deux pricings. Le badge tranche. */
+      + (b.source && b.source !== 'market'
+          ? '<span class="rtc-src rtc-src--est" title="Pricing de marché indisponible pour cette banque chez notre fournisseur : scénario estimé par le desk (config vérifiée à la main + calendrier).">estimation DTP</span>'
+          : '<span class="rtc-src" title="Probabilités implicites de marché (OIS/futures), fournisseur rateprobability.">pricing marché</span>')
+      + '</div>'
       + '<div class="rtc-metrics">'
       + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
-      + '<div class="rtc-m"><span class="rtc-k">Probabilité</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + mspk('wavy') + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Probabilité</span><span class="rtc-v rtc-prob">' + pct(_prob) + '</span>' + mspk('wavy') + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Δ attendu</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Taux actuel</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
       + '<div class="rtc-m"><span class="rtc-k">Date de réunion</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
@@ -5037,7 +5058,7 @@ async function _calBcCompactHtml(ccy, tsPub) {
         const sc2 = bank2.scenario || {};
         const pv2 = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
         const pr2 = [pv2(sc2.hold) ? `maintien ${pv2(sc2.hold)}%` : '', pv2(sc2.cut) ? `baisse ${pv2(sc2.cut)}%` : '', pv2(sc2.hike) ? `hausse ${pv2(sc2.hike)}%` : ''].filter(Boolean).join(' · ');
-        bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank2.next))}${bank2.nextDays != null && bank2.nextDays > 0 ? ` (dans ${bank2.nextDays} j)` : ''}${pr2 ? `<div class="cal-kb-sub">${pr2}${bank2.source === 'market' ? ' · pricing de marché' : ''}</div>` : ''}</span></div>`);
+        bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank2.next))}${bank2.nextDays != null && bank2.nextDays > 0 ? ` (dans ${bank2.nextDays} j)` : ''}${pr2 ? `<div class="cal-kb-sub">${pr2}${bank2.source === 'market' ? ' · pricing de marché' : ' · estimation DTP'}</div>` : ''}</span></div>`);
       }
       if (bcRows.length) return `<div class="cal-detail-section">Banque centrale · ${_calEsc(cbD.bank)}</div>` + bcRows.join('');
     }

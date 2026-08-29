@@ -6829,7 +6829,10 @@ function _sbOpenDetail(curr, opts) {
          court mais masculin, et aurait obligé à réécrire les trois valeurs. */
       + field('Orientation actuelle', stanceTag(mo.stance))
       + field('Prochain mouvement', dirTag(mo.nextMove))
-      + field('Pricing marché', mo.pricing ? `<span class="mdet-txt">${esc(mo.pricing)}</span>` : na)
+      /* « Pricing » tout court : la ligne elle-même dit sa source (« pricing de marché » ou
+         « estimation DTP », posé par le serveur) — un libellé qui affirmait « marché » pour une
+         estimation maison est exactement ce qu'un client vient de nous reprocher. */
+      + field('Pricing', mo.pricing ? `<span class="mdet-txt">${esc(mo.pricing)}</span>` : na)
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Inflation</h4>`
       + field('Niveau', lvlTag(inf.level))

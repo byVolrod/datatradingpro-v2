@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260911-pricing-source', ts: Date.UTC(2026, 9, 2, 8, 0), title: 'Pricing de taux : chaque carte dit sa source, et la RBNZ retrouve ses vrais chiffres', desc: 'Un membre nous a signalé, preuves en main, que la carte RBNZ contredisait le marché — et il avait raison, merci à lui. Sur huit banques centrales, six affichent un vrai pricing de marché (probabilités implicites des instruments de taux) ; pour la RBNZ et la BNS, notre fournisseur ne le publie pas, et le desk affichait à la place une estimation interne SANS le dire. Pire : une mise à jour automatique avait inversé le sens de cette estimation et abaissé le taux affiché, si bien que la carte montrait une baisse probable là où le marché price une hausse. Quatre corrections. Chaque carte de l’onglet TAUX porte désormais sa source, écrite dessus : « pricing marché » ou « estimation DTP » — même chose dans le Radar de Biais et les récaps, qui ne disent plus « le marché price » quand c’est le modèle. L’estimation ne peut plus contredire la configuration vérifiée à la main sur les communiqués des banques. Un taux mis à jour automatiquement doit désormais coïncider avec une décision réelle du calendrier avant d’être affiché. Et la probabilité en tête de carte est celle du mouvement affiché — fini le « Hausse · 50% » où 50% était en réalité la probabilité du maintien.' },
   { id: 'dtpu-20260910-onglets-parcours', ts: Date.UTC(2026, 9, 1, 23, 0), title: 'La barre d’onglets de Mon Desk se parcourt enfin en entier', desc: 'Sur le modèle par défaut, le panneau à onglets en porte neuf — ACTUS, CALENDRIER, LISTE FX, INSTITUTIONS… — qui réclament deux fois la largeur de la carte. Six restaient hors champ, deux se cachaient sous les boutons de la carte (invisibles, et surtout impossibles à cliquer), et la rangée s’arrêtait en plein mot : on lisait « TUTIONS » à la place d’« INSTITUTIONS ». Trois changements : la place des boutons est désormais mesurée sur les boutons eux-mêmes, si bien qu’aucun onglet ne passe plus dessous ; la molette parcourt la rangée d’un onglet à la fois, en s’arrêtant toujours sur un nom entier ; et un dégradé, à gauche comme à droite, signale qu’il reste des onglets de ce côté. Tous les onglets sont donc atteignables à la souris, ce qui n’était pas le cas.' },
   { id: 'dtpu-20260910-barre-fantome', ts: Date.UTC(2026, 9, 1, 21, 0), title: 'La barre de défilement qui ne menait nulle part a disparu', desc: 'Signalé sur capture : sous la carte « Semaine à Venir » de Mon Desk, une barre de défilement horizontale ne servait à rien — tirée à fond, elle ne découvrait que du vide, et elle rognait au passage le bas de la carte. La cause ne venait pas du widget : un halo doré décoratif, posé derrière chaque vue pour lui donner de la profondeur, avait une largeur figée de 820 pixels. Sur le desk en plein écran il ne se voit ni ne gêne ; dans une carte de 460 pixels, il agrandissait la zone défilable de près de 400 pixels de vide. Le halo s’ajuste désormais à son panneau, et garde exactement sa taille d’avant partout où il se voit. La barre disparaît sur toutes les vues et à toutes les largeurs, sur ordinateur comme sur téléphone.' },
   { id: 'dtpu-20260910-pourcent-colle', ts: Date.UTC(2026, 9, 1, 19, 0), title: 'Le pourcent colle à son chiffre, sur le desk comme sur le site', desc: 'Vous nous l’aviez signalé : le desk glissait une espace entre le chiffre et son signe pourcent, là où vous voulez lire « 2,4% » d’un bloc. Cette espace vient de la typographie française, que les modèles appliquent à la lettre — d’où ce petit air de texte de machine à chaque chiffre. Elle disparaît partout d’un coup : aides des widgets, réglages de la calculatrice, récaps de séance, Quotidien et Hebdo, chat macro, e-mails, pages de documentation et démonstration du site. Et elle ne reviendra pas : tout texte écrit par l’IA passe désormais par un filtre commun à tous nos moteurs, et un contrôle relit l’ensemble du produit avant chaque livraison.' },
@@ -11666,12 +11667,19 @@ function _recapCcyPricingLine(ccy) {
     const b = (p && Array.isArray(p.banks) ? p.banks : []).find(x => x.code === ccy);
     if (!b || b.expBps == null) return '';
     const bps = Math.abs(+b.expBps || 0);
+    /* ⚠️ « LE MARCHÉ PRICE » NE S'ÉCRIT QUE SI C'EST VRAI (29/08, incident client). Cette phrase
+       partait telle quelle pour NZD et CHF, dont les chiffres sortent du MODÈLE MAISON — un client
+       a comparé au vrai pricing OIS et conclu, à raison, que « le marché » du desk était faux.
+       Quand la source est le modèle, la phrase le dit, et le lecteur sait quoi comparer à quoi. */
+    const marche = b.source === 'market';
+    const qui = marche ? 'le marché price' : 'le modèle DTP anticipe';
     // Sous ~5 bps net, le marché price un quasi statu quo → le formuler ainsi (« 1,8 bp de resserrement » est
     // illisible + paraît contredire un récit d'assouplissement alors que c'est ≈ 0).
     let phrase;
-    if (bps < 5) phrase = `le marché price un quasi statu quo d'ici fin d'année (≈ ${b.expBps > 0 ? '+' : b.expBps < 0 ? '−' : ''}${bps} bps net)`;
-    else phrase = `le marché price ${bps} bps ${b.expBps > 0 ? 'de resserrement' : "d'assouplissement"} d'ici fin d'année`;
-    return `PRICING MARCHÉ (source marché, probabilités de taux) : ${phrase} · prochaine réunion ${b.next || '?'}${b.nextDays != null ? ' (dans ' + b.nextDays + ' j)' : ''}.`;
+    if (bps < 5) phrase = `${qui} un quasi statu quo d'ici fin d'année (≈ ${b.expBps > 0 ? '+' : b.expBps < 0 ? '−' : ''}${bps} bps net)`;
+    else phrase = `${qui} ${bps} bps ${b.expBps > 0 ? 'de resserrement' : "d'assouplissement"} d'ici fin d'année`;
+    const tete = marche ? 'PRICING MARCHÉ (source marché, probabilités de taux)' : 'PRICING (ESTIMATION DTP - pricing de marché indisponible pour cette banque)';
+    return `${tete} : ${phrase} · prochaine réunion ${b.next || '?'}${b.nextDays != null ? ' (dans ' + b.nextDays + ' j)' : ''}.`;
   } catch (e) { return ''; }
 }
 // GARDE-FOU déterministe (demande user « le tag hawkish/dovish c uniquement pr les discours ») : on retire le
@@ -12397,7 +12405,7 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
         if (cb.stance) o.cbStance = String(cb.stance).slice(0, 32);
       }
       const pl = _recapCcyPricingLine(c);
-      if (pl) o.pricing = pl.replace(/^PRICING MARCHÉ[^:]*:\s*/i, '');
+      if (pl) o.pricing = pl.replace(/^PRICING(?:\s+MARCHÉ)?[^:]*:\s*/i, '');
       const mine = _prints.filter(e => e.currency === c);
       // v42 (structure façon référence) : « Emploi » séparé de « Croissance économique » — deux sous-blocs distincts.
       const _EMPL_RX = /employment|unemployment|payroll|claims|jobless|\badp\b|jolts/i;
@@ -14445,7 +14453,11 @@ function _sbPricingLine(rb) {
   if (sc.hike != null && sc.hike > 0) parts.push(`${Math.round(sc.hike)} % hausse`);
   const head = parts.length ? parts.join(' · ') : null;
   const tail = (rb.expBps != null) ? `Δ ${rb.expBps >= 0 ? '+' : ''}${rb.expBps} bps` : '';
-  return [head, tail].filter(Boolean).join(' - ') || null;
+  // La source s'écrit sur la ligne elle-même : le libellé du panneau dit « Pricing », c'est ici
+  // qu'on sait si c'est du marché ou l'estimation DTP.
+  const src = rb.source === 'market' ? ' · pricing de marché' : ' · estimation DTP';
+  const ligne = [head, tail].filter(Boolean).join(' - ');
+  return ligne ? ligne + src : null;
 }
 // CONFLUENCE de signaux {dir,n} pondérés (demande user : chaque colonne agrège ses sous-indicateurs, confirmés +
 // avancés) → 'up' / 'down' / 'flat'. specs = [[trendResult, poids], …]. Repli sur la stance du pilier si aucune série.
@@ -17581,7 +17593,7 @@ const CB = [
   { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:2.25, bias:'hold',             conv:0.60, step:25, floor:1.50, ceil:3.25 },   // 2,25 % (dépôt) depuis la hausse du 11/06/2026 — amorce alignée sur le taux réel
   { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:3.75, bias:'hold', lean:'cut', conv:0.55, step:25, floor:2.50, ceil:4.75 },
   { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:1.00, bias:'hike',             conv:0.60, step:25, floor:0.10, ceil:1.75 },   // 1,00 % depuis la hausse du 16/06/2026
-  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:0.00, bias:'hold',             conv:0.65, step:25, floor:-0.25, ceil:1.50 },
+  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:0.00, bias:'hold',             conv:0.65, step:25, floor:-0.25, ceil:1.50, ancre:'2026-08-11' },
   { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:2.25, bias:'hold', lean:'cut', conv:0.60, step:25, floor:1.50, ceil:3.50 },
   { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, bias:'hold', lean:'cut', conv:0.55, step:25, floor:3.35, ceil:4.85 },
   // ⚠️ NZD CORRIGÉ le 11/08/2026 (audit du Radar de Biais) — la configuration disait « 2,25 %, pause,
@@ -17591,7 +17603,7 @@ const CB = [
   // « Accommodante » pour la banque la plus restrictive du bloc. NZD et CHF n'ont AUCUN pricing de marché
   // (source payante) : pour ces deux-là, cette ligne EST la source de vérité — elle doit être re-vérifiée
   // à chaque changement de cycle, sans quoi elle se périme en silence.
-  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.50, bias:'hike',             conv:0.60, step:25, floor:1.75, ceil:3.50 },
+  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.50, bias:'hike',             conv:0.60, step:25, floor:1.75, ceil:3.50, ancre:'2026-08-11' },
 ];
 // Modèle maison : scénario d'une réunion (idx 0 = prochaine ; la conviction du biais croît avec l'horizon).
 function _rateScenario(b, idx) {
@@ -17617,7 +17629,7 @@ function _rateScenario(b, idx) {
 // État persistant : taux courant + dernière réunion traitée, par banque. Le taux ÉVOLUE
 // automatiquement à chaque réunion PASSÉE (selon le base case maison), borné par floor/ceil.
 const RATES_STATE_FILE = path.join(_CACHE_DIR, 'cache_rates_state.json');
-const RATES_VER = 'v3-2026-08-verified';   // bump → RÉ-ANCRE tous les taux sur la config vérifiée (efface toute dérive persistée Supabase/disque). v3 (11/08/2026) : NZD 2,25 → 2,50 % (hausse RBNZ du 08/07, source rbnz.govt.nz) + amorces EUR 2,25 et JPY 1,00 alignées sur les taux réels. SANS ce bump, la config corrigée resterait lettre morte : l'état persisté n'est ré-ancré QUE sur changement de version.
+const RATES_VER = 'v4-2026-08-29-corrobore';   // v4 : efface le 2,25 % NZD écrit par l'IA (écho de l'exemple du prompt _aiVerifyRates, signalé par un client) et ré-ancre sur la config vérifiée (NZD 2,50). Les taux IA sont désormais corroborés par le calendrier avant d'être crus.   // bump → RÉ-ANCRE tous les taux sur la config vérifiée (efface toute dérive persistée Supabase/disque). v3 (11/08/2026) : NZD 2,25 → 2,50 % (hausse RBNZ du 08/07, source rbnz.govt.nz) + amorces EUR 2,25 et JPY 1,00 alignées sur les taux réels. SANS ce bump, la config corrigée resterait lettre morte : l'état persisté n'est ré-ancré QUE sur changement de version.
 let _ratesState = null;
 function _initRatesState() {
   if (!_ratesState || !_ratesState.banks) _ratesState = { banks: {}, updatedAt: Date.now() };
@@ -17646,8 +17658,27 @@ function _effBias(b, rate) {
   return b.bias;
 }
 // Biais IA optionnel (cache hebdo) : écrase le biais/conviction config par banque si disponible. Repli config sinon.
+/* ⚠️ SAUF POUR LES LIGNES ANCRÉES (`ancre: 'AAAA-MM-JJ'`) — ET C'EST UN INCIDENT CLIENT, PAS UNE
+   PRÉCAUTION (28/08, signalement MaTToKs). NZD et CHF n'ont pas de pricing de marché chez notre
+   fournisseur : leur ligne CB, vérifiée À LA MAIN sur le communiqué de la banque, est la SEULE
+   source de vérité — le commentaire de la ligne NZD le dit en toutes lettres depuis le 11/08.
+   Le biais IA (estimé sur 22 titres d'actualité) l'a pourtant écrasée en silence : « hold 0,50 »
+   à la place de « hike 0,60 », et la carte RBNZ affichait 31 % de BAISSE pendant que le marché
+   réel priçait 93 % de HAUSSE. Un client l'a vu avant nous. Une ligne ancrée ne se fait donc
+   plus écraser ; en échange, elle DOIT vieillir bruyamment : au-delà de 60 jours, un rappel en
+   journal réclame sa re-vérification — c'est le marché qu'on veut, pas une config éternelle. */
 let _aiRatesBias = {};
+const _ANCRE_MAX_J = 60;
+let _ancreDernierRappel = 0;
 function _cbResolved(b) {
+  if (b.ancre) {
+    const age = (Date.now() - Date.parse(b.ancre + 'T00:00:00Z')) / 86400000;
+    if (age > _ANCRE_MAX_J && Date.now() - _ancreDernierRappel > 24 * 3600 * 1000) {
+      _ancreDernierRappel = Date.now();
+      console.warn(`[Taux] ancre ${b.code} vérifiée il y a ${Math.round(age)} j (> ${_ANCRE_MAX_J}) — re-vérifier bias/taux sur le site de la banque, puis mettre à jour CB + ancre`);
+    }
+    return b;   // la vérification humaine prime : l'IA ne touche pas à une ligne ancrée
+  }
   const a = _aiRatesBias[b.code];
   return (a && a.bias) ? { ...b, bias: a.bias, conv: (a.conv != null ? a.conv : b.conv) } : b;
 }
@@ -17756,18 +17787,23 @@ let _rpCache = { at: 0, banks: {} };
 let _rpRefreshing = false;
 const RP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json', 'Referer': 'https://rateprobability.com/' };
 try { auth.aiCacheGet('rates:rateprob').then(c => { if (c && c.banks && c.at) _rpCache = c; }).catch(() => {}); } catch {}
+/* La RAISON du dernier échec, par slug : un paywall et une panne réseau n'appellent pas la même
+   réponse (le premier se règle avec un abonnement ou une autre source, la seconde s'attend), et
+   jusqu'ici les deux disparaissaient dans le même `null` silencieux. */
+const _rpPanne = {};
 async function _rpFetchBank(slug) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 8000);
   try {
     const r = await fetch('https://rateprobability.com/api/' + slug + '/latest', { headers: RP_HEADERS, signal: ctrl.signal });
-    if (!r.ok) return null;
+    if (!r.ok) { _rpPanne[slug] = 'HTTP ' + r.status; return null; }
     const txt = await r.text();
-    if (txt.length > 250000) return null;                                       // garde-fou mémoire
+    if (txt.length > 250000) { _rpPanne[slug] = 'réponse trop grosse'; return null; }   // garde-fou mémoire
     const j = JSON.parse(txt);
-    if (!j || j.error || !j.today || !Array.isArray(j.today.rows)) return null;  // paywall "Pro" / format inattendu
+    if (!j || j.error || !j.today || !Array.isArray(j.today.rows)) { _rpPanne[slug] = j && j.error ? 'paywall/erreur fournisseur' : 'format inattendu'; return null; }
+    delete _rpPanne[slug];
     return j;
-  } catch { return null; } finally { clearTimeout(to); }
+  } catch (e) { _rpPanne[slug] = 'réseau/timeout'; return null; } finally { clearTimeout(to); }
 }
 // Biais DIRECTIONNEL d'en-tête (comme la page rateprobability) : signe de la TRAJECTOIRE de taux implicite
 // cumulée sur ~6,5 mois (réunions ≤ 200 j) vs taux courant — PAS la seule prochaine réunion. Seuil ±6 bps
@@ -17835,6 +17871,7 @@ async function _refreshRateProb(force = false) {
 setInterval(() => { _refreshRateProb().catch(() => {}); }, 90 * 1000);   // tick 90s ; le refetch RÉEL respecte le TTL adaptatif (3 min normal, 90s si réunion ≤2 j)
 setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
 
+const _maisonLog = {};
 function _buildRatesPayload() {
   try { _refreshRates(); } catch {}
   try { _refreshRateProb().catch(() => {}); } catch {}   // rafraîchit en tâche de fond si périmé (NON bloquant)
@@ -17852,6 +17889,14 @@ function _buildRatesPayload() {
       next: rp.next, nextDays: rp.nextDays, move: _rpDirMove(rp.meetings, rp.rate), stance, prob: rp.prob, expBps: rp.expBps,
       scenario: rp.scenario, meetings: rp.meetings, source: 'market',
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null };
+    // Repli maison : visible dans le journal (une fois par heure par banque), avec la raison côté
+    // fournisseur — un client a découvert AVANT NOUS que deux banques n'étaient pas du marché.
+    _maisonLog[b.code] = _maisonLog[b.code] || 0;
+    if (now - _maisonLog[b.code] > 3600e3) {
+      _maisonLog[b.code] = now;
+      const slug = (RP_MAP[b.code] || {}).slug;
+      console.warn(`[Taux] ${b.code} servi en ESTIMATION DTP (pas de pricing marché : ${_rpPanne[slug] || 'jamais reçu'})`);
+    }
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
     const rb = _cbResolved(b);
     const bb = { ...rb, bias: _effBias(rb, st.rate) };             // biais (IA si dispo) + arrêt au taux terminal
@@ -18124,11 +18169,19 @@ setTimeout(() => { _aiRefreshRatesBias().catch(() => {}); }, 20000);   // démar
 //    maison. Cache 3 j, planifié (jamais à l'ouverture utilisateur). Garde-fou : taux plausible (±3 pts
 //    de l'ancre vérifiée) → aucune hallucination ne peut casser l'affichage.
 let _aiVerifiedRates = {};
+/* Un taux « vérifié IA » n'est crédible que s'il coïncide (au demi-centième) avec un actual réel
+   du calendrier pour la devise. C'est un garde-fou MÉCANIQUE : il ne demande rien au modèle. */
+function _tauxCorrobore(actuals, v) {
+  if (!actuals || !actuals.size || !isFinite(v)) return false;
+  for (const a of actuals) if (Math.abs(a - v) < 0.005) return true;
+  return false;
+}
 function _applyVerifiedRates() {
   let changed = false;
   CB.forEach(b => {
     const v = _aiVerifiedRates[b.code], st = _ratesState.banks[b.code];
     if (v && st && typeof v.rate === 'number' && Math.abs(st.rate - v.rate) > 1e-9) {
+      console.log(`[RatesVerify IA] ${b.code} : taux persisté ${st.rate} → ${v.rate} (corroboré calendrier)`);
       st.rate = v.rate;   // taux RÉEL (ancré sur le calendrier) → écrase la dérive du modèle maison
       const past = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') < Date.now()).sort();
       if (past.length) st.lastMeeting = past[past.length - 1];   // la dernière réunion est déjà intégrée → pas de re-projection
@@ -18144,11 +18197,17 @@ async function _aiVerifyRates(force = false) {
     if (!force && cached && cached.at && Date.now() - cached.at < 3 * 86400000) return;   // frais → pas d'appel IA
   } catch {}
   const cutoff = Date.now() - 160 * 86400000;
-  const calLines = (Array.isArray(allCalendar) ? allCalendar : [])
+  const calEvts = (Array.isArray(allCalendar) ? allCalendar : [])
     .filter(e => e && e.actual && SB_CURRENCIES.includes(e.currency) && e.timestamp > cutoff
       && /interest rate|rate decision|rate statement|monetary policy|deposit facility|refinanc|cash rate|official cash|bank rate|policy rate|funds rate/i.test(e.title || ''))
-    .sort((a, b) => b.timestamp - a.timestamp).slice(0, 45)
-    .map(e => `${e.currency} | ${e.title} | actual ${e.actual} | ${new Date(e.timestamp).toISOString().slice(0, 10)}`);
+    .sort((a, b) => b.timestamp - a.timestamp).slice(0, 45);
+  const calLines = calEvts.map(e => `${e.currency} | ${e.title} | actual ${e.actual} | ${new Date(e.timestamp).toISOString().slice(0, 10)}`);
+  /* Les actuals RÉELS par devise : c'est contre EUX que toute réponse du modèle sera corroborée. */
+  const calActuals = {};
+  calEvts.forEach(e => {
+    const n = parseFloat(String(e.actual).replace(',', '.'));
+    if (isFinite(n)) (calActuals[e.currency] = calActuals[e.currency] || new Set()).add(n);
+  });
   const newsLines = (Array.isArray(allNews) ? allNews : [])
     .filter(n => n && n.timestamp > cutoff && /\b(fed|fomc|ecb|boe|boj|snb|boc|rba|rbnz)\b/i.test(n.headline || '') && /\b(rate|bps|basis point|hold|hike|cut|raise|lower|unchanged)\b/i.test(n.headline || ''))
     .slice(0, 25).map(n => '- ' + (n.headline || '').slice(0, 140));
@@ -18162,7 +18221,7 @@ ${calLines.join('\n') || '(none)'}
 NEWS:
 ${newsLines.join('\n') || '(none)'}
 
-Return ONLY strict JSON, a number or null per bank: {"USD":3.75,"EUR":2.0,"GBP":3.75,"JPY":0.75,"CHF":0.0,"CAD":2.25,"AUD":4.35,"NZD":2.25}. No text.`;
+Return ONLY strict JSON, a number or null per bank, e.g. {"USD":9.99,"EUR":null,"GBP":9.99,"JPY":null,"CHF":9.99,"CAD":null,"AUD":9.99,"NZD":null} (9.99 is a FORMAT placeholder, not a value - never echo it). No text.`;
   let txt;
   try { txt = await aiSmart('ratesbias', prompt, 400, { scheduled: true }); }
   catch (e) { console.log('[RatesVerify IA] indispo:', e.message); return; }
@@ -18172,7 +18231,15 @@ Return ONLY strict JSON, a number or null per bank: {"USD":3.75,"EUR":2.0,"GBP":
     const next = {};
     CB.forEach(b => {
       const v = obj[b.code];
-      if (typeof v === 'number' && isFinite(v) && v >= -1.5 && v <= 25 && Math.abs(v - b.rate) <= 3) next[b.code] = { rate: +(+v).toFixed(2), at: Date.now() };
+      /* ⚠️ CORROBORATION OBLIGATOIRE (29/08, incident client). L'ancien garde-fou (« ±3 points de
+         l'ancre ») a laissé passer un taux INVENTÉ : l'exemple de format du prompt portait
+         « "NZD":2.25 », le modèle l'a recopié, et 2,2500 % s'est affiché sur la carte RBNZ à la
+         place du 2,50 % vérifié à la main — pendant des semaines, jusqu'au signalement d'un
+         client. Un « taux vérifié par IA » n'est désormais accepté QUE s'il coïncide avec un
+         actual RÉEL d'une décision de taux du calendrier pour cette devise. Pas d'actual → null,
+         comme le prompt l'exige ; un écho d'exemple ne peut plus devenir un taux affiché. */
+      if (typeof v === 'number' && isFinite(v) && v >= -1.5 && v <= 25 && Math.abs(v - b.rate) <= 3
+          && _tauxCorrobore(calActuals[b.code], v)) next[b.code] = { rate: +(+v).toFixed(2), at: Date.now() };
     });
     if (Object.keys(next).length >= 3) {
       _aiVerifiedRates = next;
