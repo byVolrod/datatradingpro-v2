@@ -1074,6 +1074,43 @@ function phaseLogique() {
         && !/key: 'hawk', label: 'Hawkish'/.test(CH3) && !/key: 'dove', label: 'Dovish'/.test(CH3));
     }
 
+    /* ══ TROIS MOIS D'ARCHIVES DANS L'ONGLET ANALYSTES (29/08, demande user « tous les récaps
+       doivent rester 3 mois ») ═══════════════════════════════════════════════════════════════════
+       La rétention est une CHAÎNE : scrape (SW/BR_MAX_AGE) → mémoire (_capNews) → persistance
+       (_persistHistory, weeklyReportList) → route (cutoff 95 j, slice fx-daily) → client (cutoff
+       92 j). Le maillon le plus court décide de ce que le lecteur voit, et l'histoire du dépôt le
+       prouve : « le plafond de 40 jours écrêtait les rapports que le stockage conservait pourtant —
+       la limite était ici, pas dans la génération » (05/08) ; la liste ING coupait à 30 ce que le
+       cache garde 90 j. Chaque nombre est CAPTURÉ puis comparé en ≥ : resserrer un maillon rougit,
+       l'élargir passe. */
+    {
+      console.log('\n── Trois mois d\'archives dans l\'onglet ANALYSTES : la chaîne entière ──');
+      const SRV5 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+      const AUTH5 = fs.readFileSync(path.join(RACINE, 'auth.js'), 'utf8');
+      const nb = (src, rx) => { const m = src.match(rx); return m ? parseInt(m[1], 10) : -1; };
+      verif('les récaps de séance sont gardés 90 j au scrape (SW_MAX_AGE)',
+        nb(SRV5, /const SW_MAX_AGE\s*=\s*(\d+) \* 24/) >= 90, 'SW_MAX_AGE = ' + nb(SRV5, /const SW_MAX_AGE\s*=\s*(\d+) \* 24/) + ' j');
+      verif('les notes d\'institutions aussi (BR_MAX_AGE)',
+        nb(SRV5, /const BR_MAX_AGE\s*=\s*(\d+) \* 24/) >= 90, 'BR_MAX_AGE = ' + nb(SRV5, /const BR_MAX_AGE\s*=\s*(\d+) \* 24/) + ' j');
+      verif('la persistance Supabase suit (~92 j, HISTORY_KEEP_MS)',
+        nb(SRV5, /const HISTORY_KEEP_MS\s*=\s*(\d+) \* 24/) >= 90);
+      verif('… avec des plafonds d\'items qui tiennent 3 mois (900 institution / 450 wraps)',
+        /key === 'bank_research' \? 900 : 450/.test(SRV5));
+      verif('la mémoire protège les rapports du flux (300 places dédiées, jamais évincés par les news)',
+        nb(SRV5, /rapports\.slice\(0, (\d+)\)/) >= 300);
+      verif('la route hebdo/quotidiens sert 3 mois (cutoff 95 j)',
+        nb(SRV5, /const cutoff = Date\.now\(\) - (\d+) \* 24 \* 60 \* 60 \* 1000;\n  const items = allNews\.filter\(i => _WK_TYPES/) >= 95);
+      verif('le rechargement Supabase couvre 13 semaines d\'hebdos ET 3 mois pleins de quotidiens',
+        nb(AUTH5, /NB_HEBDO = complet \? (\d+) :/) >= 30 && nb(AUTH5, /NB_QUOTI = complet \? (\d+) :/) >= 190,
+        'NB_HEBDO=' + nb(AUTH5, /NB_HEBDO = complet \? (\d+) :/) + ', NB_QUOTI=' + nb(AUTH5, /NB_QUOTI = complet \? (\d+) :/) + ' (130 nécessaires + marge)');
+      verif('la liste FX Daily (ING) ne coupe plus à 6 semaines',
+        nb(SRV5, /FX Daily\\b[\s\S]{0,700}?\.slice\(0, (\d+)\)/) >= 70,
+        'slice = ' + nb(SRV5, /FX Daily\\b[\s\S]{0,700}?\.slice\(0, (\d+)\)/) + ' (70 ≈ 14 semaines de jours ouvrés)');
+      verif('et le client affiche la même fenêtre (92 j, aucun écrêtage de rendu)',
+        nb(APP3, /const cutoff = Date\.now\(\) - (\d+) \* 24 \* 60 \* 60 \* 1000/) >= 92
+        && !/items = items\.slice\(0, \d+\)/.test(APP3.slice(APP3.indexOf('function renderArlibList'), APP3.indexOf('function renderArlibList') + 3000)));
+    }
+
     console.log('\n── Identité visuelle : Récap Quotidien ↔ récap de séance ──');
     verif('le titre de rubrique a le MÊME style calculé', memeStyle(st.titreQ, st.titreS, CT), diff(st.titreQ, st.titreS, CT));
     // Le desk applique une échelle globale : 3 px déclarés rendent 2,986 px calculés. On mesure donc

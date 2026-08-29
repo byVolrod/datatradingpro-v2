@@ -1124,7 +1124,9 @@ async function weeklyReportSave(weekKey, report) {
 // précisément ce qui a déjà mis ce projet à terre une fois.
 async function weeklyReportList(complet = false) {
   const NB_HEBDO = complet ? 30 : 20;    // 13 semaines x 2 types (Weekly Recap + GEW), marge comprise
-  const NB_QUOTI = complet ? 140 : 14;   // ~65 jours ouvres x 2 types (FX Daily + DTP Daily)
+  const NB_QUOTI = complet ? 190 : 14;   // 3 mois PLEINS de quotidiens : ~65 jours ouvres x 2 types (FX Daily
+                                         // + DTP Daily) = 130, plus une vraie marge (versions en double avant
+                                         // _dedupRecaps, regen forcee un week-end) — 140 ne laissait que 10.
   await _weeklyEnsureDb();
   if (_weeklyDb) {
     // Les rapports HEBDO (Weekly Recap + GEW, clés "YYYY-Www" / "gew-...") étaient ÉVINCÉS de la fenêtre de reload

@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260913-archives-3-mois', ts: Date.UTC(2026, 9, 3, 14, 0), title: 'L’onglet Analystes garde trois mois d’archives, et c’est désormais garanti', desc: 'Vous nous l’avez demandé : tous les récaps de l’onglet Analystes doivent rester consultables pendant trois mois. Vérification faite de bout en bout, la promesse tenait déjà presque partout : récaps de séance, Récap Quotidien, Récap Hebdo, Global Economic Weekly et notes d’institutions sont conservés quatre-vingt-dix jours, redémarrages du serveur compris. Deux maillons, en revanche, coupaient plus court. La liste des notes « FX Daily » s’arrêtait à trente entrées, environ six semaines, alors que la réserve en garde bien trois mois : elle affiche désormais toute la fenêtre. Et la fenêtre de rechargement après un redémarrage était calculée trop juste pour trois mois pleins de rapports quotidiens : elle a pris de la marge. LE POINT IMPORTANT : la rétention est une chaîne (la collecte, la mémoire, la sauvegarde, le service, l’affichage) et c’est toujours le maillon le plus court qui décide de ce que vous voyez. Ce défaut-là a déjà mordu par le passé : un plafond oublié écrêtait des rapports que le stockage conservait pourtant. Un contrôle automatique mesure donc désormais CHAQUE maillon de la chaîne à chaque livraison : en resserrer un seul fait échouer la vérification, l’élargir passe. Trois mois, c’est trois mois.' },
   { id: 'dtpu-20260913-cibles-mortes', ts: Date.UTC(2026, 9, 3, 12, 0), title: 'Trois zones qui ignoraient le clic répondent enfin : la case de recherche, les champs, la croix', desc: 'Un audit complet du desk, mené dans un vrai navigateur en mesurant chaque clic, a relevé trois endroits où l’écran promettait plus que la souris n’obtenait. LA CASE « RECHERCHER DES SYMBOLES » de la barre du haut ne répondait que sur une mince bande médiane : un clic sur la loupe (le geste le plus naturel) ou près des bords ne posait pas le curseur, et rien ne signalait pourquoi. La zone de saisie épouse désormais toute la case, loupe comprise ; les cases de recherche du calendrier, des analystes et des institutions reçoivent la même correction. LES CHAMPS DE RECHERCHE des onglets INSTITUTIONS et ANALYSTES pouvaient se faire écraser par leurs propres filtres : sur un écran de portable, celui d’INSTITUTIONS tombait à zéro pixel (le cadre et la loupe restaient visibles, mais on ne pouvait ni cliquer ni taper) ; dans une carte étroite, celui d’ANALYSTES se réduisait à un moignon dont la zone de saisie débordait hors de la carte. Les filtres cèdent maintenant l’espace avant d’étouffer la recherche, qui garde toujours une taille utilisable ou descend sur sa propre ligne. ET LA CROIX « RETIRER » d’un sous-widget de panneau à onglets était recouverte à moitié par la zone invisible qui sert à élargir la carte : un clic au centre ne faisait rien, il fallait viser le bord gauche sans le savoir. Un bouton visible passe désormais toujours devant une zone de saisie invisible. Chacune des trois réparations est éprouvée à chaque livraison, au clic, dans un vrai navigateur.' },
   { id: 'dtpu-20260913-tout-francais', ts: Date.UTC(2026, 9, 3, 10, 0), title: 'La chasse aux derniers mots anglais : page publique, tags, menus et badges', desc: 'Le même audit a passé le desk au peigne fin sur la langue, et six restes d’anglais sont tombés d’un coup. LA PAGE PUBLIQUE « SEMAINE À VENIR » (celle que vous pouvez partager sans compte) affichait ses titres de panneaux, ses jours, ses mois, ses badges d’impact et ses boutons en anglais, alors que le desk rend exactement les mêmes cartes en français : elle parle désormais la même langue que le terminal, jusqu’au calendrier (« LUN 24 AOÛT, IMPACT ÉLEVÉ, Lire la suite »). LES TAGS D’UN RAPPORT ouvert dans l’onglet ANALYSTES restaient en anglais (« Geopolitical », « Oil ») quand le fil traduit les mêmes notions deux clics plus haut : ils sont maintenant traduits par la même table, et un tag inconnu reste tel quel plutôt que d’être mal traduit. LE MENU DE RECHERCHE DE SYMBOLE titrait « Recent Searches » et « Foreign Exchange » : il dit « Recherches récentes » et « Paires de devises », et chaque paire s’écrit par ses codes (EUR / USD), la règle que vous nous avez demandée. La colonne « Seasonal » de LISTE FX devient « Saisonnalité », comme partout ailleurs. Le bouton « Masquer Insights » du lecteur de rapport parlait anglais du bloc qu’il commande, « Éclairages desk » : il dit désormais « Masquer les éclairages ». Et le badge de ton d’une banque centrale dans le Décryptage du calendrier disait « Hawkish / Dovish » quand le Radar de Biais dit « Restrictive / Accommodante » pour la même banque : il dit maintenant « Restrictif / Accommodant ».' },
   { id: 'dtpu-20260913-typo-reglee', ts: Date.UTC(2026, 9, 3, 8, 0), title: 'Typographie : le pourcent colle à son chiffre partout, le tiret long disparaît pour de bon', desc: 'Deux règles que vous avez fixées, appliquées jusque dans les recoins que l’audit a débusqués. LE POURCENT D’ABORD : dix widgets de la bibliothèque (Différentiel de taux, Variations quotidiennes, Fréquence d’amplitude, Statistiques de volatilité et six autres) glissaient encore une espace entre le chiffre et son signe pourcent, quand tout le reste du desk les colle. La faute était invisible aux contrôles habituels : le chiffre n’existe qu’au moment de l’affichage, pas dans le texte du code. Les trente-neuf points d’écriture sont collés, et un contrôle automatique interdit désormais la forme elle-même, celle qui fabriquait l’espace à l’exécution. LE TIRET LONG ENSUITE : le caractère « cadratin », que vous avez banni du desk, vivait encore à deux endroits. Dans le panneau Parrainages, sur un libellé de bouton. Et surtout dans ce fil Nouveautés lui-même : plus de cent trente annonces déjà publiées en portaient, le chemin qui les sert étant le seul à ne pas appliquer le nettoyage. C’est corrigé à la sortie : toutes les annonces, y compris les anciennes, s’affichent désormais nettoyées, et une annonce neuve qui tenterait d’en glisser un est refusée avant même d’être publiée.' },
@@ -6291,7 +6292,7 @@ async function _fetchILContentHttp(url) {
   let out = '';
   if (headlines.length >= 2) {
     out += '<strong>Notable headlines</strong><ul>'
-         + headlines.slice(0, 70).map(t => `<li>${esc(t)}</li>`).join('')
+         + headlines.slice(0, 30).map(t => `<li>${esc(t)}</li>`).join('')
          + '</ul>';
   }
   // Paragraphes de synthèse : sous-titre en gras → rubrique orange + texte en puce
@@ -8467,7 +8468,7 @@ function _brDaterAuContenu(url, html) {
     if (!t) return;
     it.timestamp = t;
     delete it.dateInconnue;
-    console.log('[PubDate] date lue dans le document : ' + new Date(t).toISOString().slice(0, 10) + ' — ' + String(it.title || url).slice(0, 70));
+    console.log('[PubDate] date lue dans le document : ' + new Date(t).toISOString().slice(0, 10) + ' — ' + String(it.title || url).slice(0, 30));
     _brDatesCharger()
       .then(mem => { mem[url] = { d: t, a: Date.now(), v: _BR_DATES_VER }; return _brDatesSauver(); })
       .catch(() => {});
@@ -8715,7 +8716,10 @@ app.get('/api/fx-daily', (_req, res) => {
   const items = _brCache
     .filter(i => i._source === 'ing-think' && /^\s*FX Daily\b/i.test(i.title || ''))
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 30)
+    // 70 ≈ 14 semaines de jours ouvrés ING : ALIGNÉ sur les 3 mois du reste de l'onglet (demande
+    // user 29/08 « tous les récaps doivent rester 3 mois »). L'ancien 30 écrêtait à ~6 semaines ce
+    // que _brCache conserve pourtant 90 j. Léger : le corps se charge à la demande, pas ici.
+    .slice(0, 70)
     .map(i => ({ ...i, _reportType: 'FX Daily' }));
   items.forEach(_cleanItemMd);   // titres sans markdown brut, même pour un JS en cache
   res.json(items);
@@ -12202,7 +12206,7 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
       if (ai.backoffActive && ai.backoffActive()) break;   // panne IA en cours → on s'arrete (repli data-driven), on ne martele pas des providers morts
       try {
         const kw = _RECAP_CCY_KW[ccy];
-        let ccyLines = _allLines.filter(l => kw && kw.test(l)).slice(0, 70);
+        let ccyLines = _allLines.filter(l => kw && kw.test(l)).slice(0, 30);
         const _priceLine = _recapCcyPricingLine(ccy);   // pricing marché (bps + prochaine réunion) → puce « Pricing : »
         // Les MAJEURES (EUR/USD/JPY/GBP…) ne doivent JAMAIS être OMISES (bug user : « EUR absent du recap »). Si la
         // matière propre est maigre cette semaine, on ENRICHIT le contexte des puces macro + phrases du résumé global
@@ -12855,7 +12859,7 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
     const newsItems = allNews.filter(i => i && i.timestamp && inWin(i.timestamp)
       && !i._briefing && !i._marketWrap && !i._fxr && !i._weekly && !_isPrimerNews(i))
       .sort((a, b) => ((_impN(b) ? 1 : 0) - (_impN(a) ? 1 : 0)) || (b.timestamp - a.timestamp));
-    const newsLines = newsItems.slice(0, 70).map(i => {
+    const newsLines = newsItems.slice(0, 30).map(i => {
       const tag = i.country || i.currency || i.category || '';
       const h = String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
       return h.length > 6 ? `- ${_impN(i) ? '[MAJEUR] ' : ''}${tag ? '[' + tag + '] ' : ''}${h.slice(0, 220)}` : '';
@@ -16527,7 +16531,7 @@ function _waPublishNews(weekKey) {
   _waNewsKey = weekKey; _waNewsEdAI = edAI;
   try { saveHistory(); } catch {}
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: isNew }], total: allNews.length }); } catch {}
-  console.log(`[WeekAhead] news ${isNew ? 'publiée' : 'mise à jour'} (${weekKey}), ${highlights.slice(0, 70)}`);
+  console.log(`[WeekAhead] news ${isNew ? 'publiée' : 'mise à jour'} (${weekKey}), ${highlights.slice(0, 30)}`);
 }
 
 // Éditorial IA du Week Ahead (titre + résumé par jour, épuré) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
@@ -23100,7 +23104,7 @@ function _recapChiffresSemaine(cal) {
   const bullets = liste.map(e => {
     const ccy = String(e.ccy || e.currency || '').toUpperCase();
     const att = e.forecast ? ` (attendu ${String(e.forecast)}` + (e.previous ? `, préc. ${String(e.previous)})` : ')') : (e.previous ? ` (préc. ${String(e.previous)})` : '');
-    return `**${e._jour || ''}** · ${ccy} : ${String(e.title || '').slice(0, 70)} : **${String(e.actual)}**${att}`;
+    return `**${e._jour || ''}** · ${ccy} : ${String(e.title || '').slice(0, 30)} : **${String(e.actual)}**${att}`;
   });
   return { heading: 'Les chiffres qui ont marqué la semaine', bullets };
 }
