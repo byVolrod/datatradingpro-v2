@@ -457,6 +457,35 @@ verif('le fort impact est posé sur la ligne', /ic==='high'\?' cal-row--hi':''/.
 verif('une seule ligne porte le repère « prochaine échéance »', /iNext=k; break;/.test(_WA) && /i===iNext\?' cal-row--next':''/.test(_WA));
 verif('… et il n\'est posé que sur un événement ENCORE À VENIR', /\(list\[k\]\.timestamp\|\|0\)>maintenant/.test(_WA));
 
+console.log('\n── 17. LA PAGE PUBLIQUE PARLE FRANÇAIS (audit 28/08 : « MON 24 AUG · HIGH IMPACT · Read More ») ──');
+/* La page est la SEULE surface du produit accessible sans compte, déclarée lang=fr et indexée :
+   elle rendait le même panneau que le desk, en anglais. Deux familles de contrôles :
+   l'ossature ne porte plus un seul libellé anglais, et le rendu traduit par les MÊMES
+   dictionnaires que le desk — pas une copie qui dériverait en silence. */
+{
+  const fs17 = require('fs'), path17 = require('path');
+  const WAH = fs17.readFileSync(path17.join(__dirname, '..', 'public', 'week-ahead.html'), 'utf8');
+  const APPWA = fs17.readFileSync(path17.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
+  const restes = ['>Week Ahead<', 'WEEKLY RISK PROFILE', 'Realtime Headline Ticker', 'Economic Event Calendar',
+    'HIGH IMPACT', 'MEDIUM IMPACT', 'Read More', 'Show Less', '>All<', '>High<', '>Med<', '>Low<', '>Live<']
+    .filter(x => WAH.includes(x));
+  verif('plus un seul libellé anglais dans l\'ossature ni le rendu', restes.length === 0, 'restent : ' + restes.join(' · '));
+  verif('les badges d\'impact du panneau sont ceux du desk', WAH.includes("'IMPACT ÉLEVÉ'") && WAH.includes("'IMPACT MOYEN'"));
+  verif('le bouton de dépliage aussi', WAH.includes('Lire la suite ∨') && WAH.includes('Voir moins ∧'));
+  /* Le MIROIR, éprouvé sur les objets EUX-MÊMES : on extrait les deux paires de dictionnaires et on
+     les compare valeur à valeur — un « AOU » d'un côté et « AOÛT » de l'autre doit rougir ici. */
+  const dico = (src, nom) => { const m = src.match(new RegExp(nom + '\\s*=\\s*(\\{[^}]*\\})')); return m ? Function('return (' + m[1] + ')')() : null; };
+  const paires = [['_DOW_FR', dico(WAH, '_DOW_FR'), dico(APPWA, '_DOW_FR')], ['_MON_FR', dico(WAH, '_MON_FR'), dico(APPWA, '_MON_FR')]];
+  for (const [nom, pub, desk] of paires) {
+    verif('le dictionnaire ' + nom + ' de la page publique est le MIROIR exact de celui du desk',
+      !!pub && !!desk && JSON.stringify(pub) === JSON.stringify(desk),
+      'publique : ' + JSON.stringify(pub) + '\n        desk : ' + JSON.stringify(desk));
+  }
+  verif('et le rendu passe bien par ces dictionnaires (pas par un .toUpperCase brut)',
+    /esc\(_dowFr\(day\.dow\)\)/.test(WAH) && /esc\(_monFr\(day\.month\)\)/.test(WAH),
+    'le jour ou le mois repart en anglais dès que le serveur en envoie');
+}
+
 _attente.then(() => {
   console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
   process.exit(ko ? 1 : 0);

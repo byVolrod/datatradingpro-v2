@@ -936,21 +936,21 @@
     var ou = ' (' + esc(uniteLbl) + ') : lecture contrarienne ';
     if (lng >= 60) {
       return { etat: 'baissier',
-        txt: Math.round(lng) + ' % des particuliers sont <span class="est-haut">acheteurs</span> '
+        txt: Math.round(lng) + '% des particuliers sont <span class="est-haut">acheteurs</span> '
           + esc(_dElision(nomPaire)) + ou
           + (lng >= 75 ? '<span class="est-bas">baissière</span> marquée.' : 'plutôt <span class="est-bas">baissière</span>.'),
         sous: lng >= 75 ? 'La foule très chargée d\'un côté nourrit les mouvements inverses.' : '' };
     }
     if (lng <= 40) {
       return { etat: 'haussier',
-        txt: Math.round(court) + ' % des particuliers sont <span class="est-bas">vendeurs</span> '
+        txt: Math.round(court) + '% des particuliers sont <span class="est-bas">vendeurs</span> '
           + esc(_dElision(nomPaire)) + ou
           + (lng <= 25 ? '<span class="est-haut">haussière</span> marquée.' : 'plutôt <span class="est-haut">haussière</span>.'),
         sous: lng <= 25 ? 'La foule très chargée d\'un côté nourrit les mouvements inverses.' : '' };
     }
     return { etat: 'partage',
-      txt: 'Particuliers partagés sur ' + esc(nomPaire) + ' (' + Math.round(lng) + ' % / ' + Math.round(court)
-        + ' %) : pas de lecture contrarienne.',
+      txt: 'Particuliers partagés sur ' + esc(nomPaire) + ' (' + Math.round(lng) + '% / ' + Math.round(court)
+        + '%) : pas de lecture contrarienne.',
       sous: '' };
   }
 
@@ -969,7 +969,7 @@
     if (Math.abs(pL - 50) < 3) {
       return { etat: 'equilibre',
         txt: 'Les ' + esc(nomFonds) + ' sont <span class="est-neutre">à l\'équilibre</span> sur ' + esc(dev) + agr
-          + ' (' + pLr + ' % long, net ' + esc(netTxt) + ')' + dRap + ' : pas de conviction affichée.',
+          + ' (' + pLr + '% long, net ' + esc(netTxt) + ')' + dRap + ' : pas de conviction affichée.',
         sous: '' };
     }
     var sensH = net > 0;
@@ -978,7 +978,7 @@
       etat: sensH ? 'acheteur' : 'vendeur',
       txt: 'Les ' + esc(nomFonds) + ' sont ' + intens + ' <span class="' + (sensH ? 'est-haut' : 'est-bas') + '">'
         + (sensH ? 'acheteurs' : 'vendeurs') + ' nets</span> ' + esc(_dElision(dev)) + agr + ' : '
-        + pLr + ' % long, net ' + esc(netTxt) + ' contrats' + dRap + '.',
+        + pLr + '% long, net ' + esc(netTxt) + ' contrats' + dRap + '.',
       // Positionnement étiré = constat de saturation, pas une invitation à prendre l'inverse.
       sous: intens === 'très majoritairement' ? 'Positionnement étiré : le carburant pour prolonger le mouvement se raréfie.' : '',
     };
@@ -2827,7 +2827,7 @@
               var sens = l.ecart >= 0 ? 'right' : 'left';
               html += '<div class="wdg-td-l ' + cls + '">'
                 + '<span class="wdg-td-dev">' + _drapeauDev(l.code) + '<b>' + esc(l.code) + '</b></span>'
-                + '<span class="wdg-td-taux">' + l.rate.toFixed(2).replace('.', ',') + ' %</span>'
+                + '<span class="wdg-td-taux">' + l.rate.toFixed(2).replace('.', ',') + '%</span>'
                 + '<span class="wdg-td-piste"><i style="' + sens + ':50%;width:' + larg.toFixed(1) + '%"></i></span>'
                 + '<span class="wdg-td-ecart">' + (l.ecart >= 0 ? '+' : '') + l.ecart.toFixed(2).replace('.', ',') + '</span>'
                 + '<span class="wdg-td-lbl">' + lbl + '</span>'
@@ -3131,7 +3131,7 @@
               var scnH = l.scn
                 ? '<span class="wdg-rbc-scn ' + SCN[l.scn.type].cls + (partage ? ' est-partage' : '') + '"'
                   + (partage ? ' title="Pricing partagé : aucune issue ne dépasse 60%"' : '') + '>'
-                  + SCN[l.scn.type].t + ' ' + l.scn.pct + ' %</span>'
+                  + SCN[l.scn.type].t + ' ' + l.scn.pct + '%</span>'
                 : '<span class="wdg-rbc-scn">-</span>';
               html += '<div class="wdg-rbc-l' + (i === iPrem ? ' est-present' : '') + '">'
                 + '<span class="wdg-rbc-bq">' + _drapeauDev(b.code) + '<b>' + esc(b.bank || b.code) + '</b></span>'
@@ -3151,11 +3151,11 @@
               etatV = ps ? ps.type : 'inconnu';
               vbH = 'Prochaine décision : <span class="est-present">' + esc(pb.bank || pb.code) + '</span> '
                 + '<span class="wdg-rbc-vcpt" data-cible="' + prem.t + '">' + reboursV(prem.t) + '</span>'
-                + (ps ? ' : <span class="' + SCN[ps.type].cls + '">' + SCN[ps.type].vp + ' ' + ps.pct + ' %</span>' : '');
+                + (ps ? ' : <span class="' + SCN[ps.type].cls + '">' + SCN[ps.type].vp + ' ' + ps.pct + '%</span>' : '');
               var suiv = null;
               for (var k = iPrem + 1; k < lignes.length; k++) if (lignes[k].t != null) { suiv = lignes[k]; break; }
               var parts = lignes.filter(function (l) { return l.scn != null && l.scn.pct < 60; })
-                .map(function (l) { return (l.b.bank || l.b.code) + ' (' + l.scn.pct + ' %)'; });
+                .map(function (l) { return (l.b.bank || l.b.code) + ' (' + l.scn.pct + '%)'; });
               vsT = (suiv ? 'Ensuite : ' + (suiv.b.bank || suiv.b.code) + ' le ' + fmtD(suiv.b.next) + '. ' : '')
                 + (parts.length ? 'Issue ouverte (dominant sous 60%) : ' + parts.join(', ') + '.'
                   : 'Aucune issue ouverte : chaque scénario dominant dépasse 60%.');
@@ -4068,9 +4068,9 @@
               var pts = p.absent ? '' : sparkPts(p);
               // Le survol situe la séance dans la tendance : ret1M est déjà servi, rien à payer.
               var titre = [];
-              if (isFinite(v)) titre.push((v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' % séance');
+              if (isFinite(v)) titre.push((v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '% séance');
               var r1 = p.ret1M == null ? NaN : Number(p.ret1M);
-              if (isFinite(r1)) titre.push((r1 > 0 ? '+' : '') + r1.toFixed(1).replace('.', ',') + ' % sur 1 mois');
+              if (isFinite(r1)) titre.push((r1 > 0 ? '+' : '') + r1.toFixed(1).replace('.', ',') + '% sur 1 mois');
               return { p: p, pts: pts, titre: titre.join(' · '),
                 cls: isFinite(v) ? (v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : '') : '',
                 // Une paire absente de la reponse n est pas une paire a zero : on l affiche vide.
@@ -4096,8 +4096,8 @@
               var quali = moyAbs < 0.15 ? 'rien ne bouge encore' : moyAbs <= 0.40 ? 'activité ordinaire' : 'séance animée';
               var tv = Number(top.changePct);
               vHtml = '<span' + (tv > 0 ? ' class="est-haut"' : tv < 0 ? ' class="est-bas"' : '') + '>' + esc(top.symbol) + '</span>'
-                + ' mène : ' + (tv > 0 ? '+' : '') + tv.toFixed(2).replace('.', ',') + ' % · ' + quali;
-              if (connues.length > 1) vSous = 'Vos ' + connues.length + ' paires bougent de ' + moyAbs.toFixed(2).replace('.', ',') + ' % en moyenne.';
+                + ' mène : ' + (tv > 0 ? '+' : '') + tv.toFixed(2).replace('.', ',') + '% · ' + quali;
+              if (connues.length > 1) vSous = 'Vos ' + connues.length + ' paires bougent de ' + moyAbs.toFixed(2).replace('.', ',') + '% en moyenne.';
             }
 
             // /api/fxlist sert updatedAt en ISO (pas en ms) : Date.parse, repli sur l'heure du fetch.
@@ -4304,7 +4304,7 @@
               // Surcouche du jour sur la MÊME échelle que la moyenne : comparaison à l'œil.
               var wAuj = l.auj != null ? Math.min(100, Math.max(1, l.auj / max * 100)) : null;
               var nTxt;
-              if (ratio != null) nTxt = fmtA(l.auj) + ' aujourd\'hui &middot; ' + Math.round(ratio) + ' % de la moyenne &middot; ' + l.n + ' séance' + (l.n > 1 ? 's' : '');
+              if (ratio != null) nTxt = fmtA(l.auj) + ' aujourd\'hui &middot; ' + Math.round(ratio) + '% de la moyenne &middot; ' + l.n + ' séance' + (l.n > 1 ? 's' : '');
               else if (l.weekEnd) nTxt = 'Fermée le week-end &middot; ' + l.n + ' séance' + (l.n > 1 ? 's' : '');
               else if (l.pasEncore) nTxt = 'Pas encore ouverte aujourd\'hui &middot; ' + l.n + ' séance' + (l.n > 1 ? 's' : '');
               else nTxt = l.n + ' séance' + (l.n > 1 ? 's' : '');
@@ -4330,7 +4330,7 @@
               var u = ouvertes[0];
               var r1 = (u.auj != null && u.moy) ? u.auj / u.moy * 100 : null;
               if (r1 != null) {
-                vb = u.nom + ' en séance : ' + fmtA(u.auj) + ' parcourus, ' + Math.round(r1) + ' % de sa moyenne';
+                vb = u.nom + ' en séance : ' + fmtA(u.auj) + ' parcourus, ' + Math.round(r1) + '% de sa moyenne';
                 var t1 = ETAT_TXT[_ampEtat(r1)] || '';
                 vs = t1 ? t1.charAt(0).toUpperCase() + t1.slice(1) + '.' : '';
               } else {
@@ -4342,7 +4342,7 @@
               var ld = ouvertes[ouvertes.length - 1];
               var r2 = (ld.auj != null && ld.moy) ? ld.auj / ld.moy * 100 : null;
               vs = r2 != null
-                ? ld.nom + ' : ' + fmtA(ld.auj) + ', ' + Math.round(r2) + ' % de sa moyenne : ' + (ETAT_TXT[_ampEtat(r2)] || '') + '.'
+                ? ld.nom + ' : ' + fmtA(ld.auj) + ', ' + Math.round(r2) + '% de sa moyenne : ' + (ETAT_TXT[_ampEtat(r2)] || '') + '.'
                 : ld.nom + ' : première bougie horaire en attente.';
             } else {
               vb = 'Aucune place en séance';
@@ -4458,11 +4458,11 @@
               if (pctl >= 90 || pctl <= 10) { etat = 'queue'; vsT = 'Queue de distribution : l\'essentiel du mouvement type est déjà fait.'; }
               else if (pctl >= 75 || pctl <= 25) { etat = 'anime'; vsT = 'Séance plus mouvementée que d\'ordinaire.'; }
               else { etat = 'ordinaire'; vsT = 'Au cœur de la distribution : séance ordinaire' + (enCours ? ' à ce stade' : '') + '.'; }
-              var vTxt = '<span class="' + (vRef >= 0 ? 'est-haut' : 'est-bas') + '">' + (vRef >= 0 ? '+' : '') + vRef.toFixed(2).replace('.', ',') + ' %</span>';
+              var vTxt = '<span class="' + (vRef >= 0 ? 'est-haut' : 'est-bas') + '">' + (vRef >= 0 ? '+' : '') + vRef.toFixed(2).replace('.', ',') + '%</span>';
               var prefixe = enCours ? 'Aujourd\'hui : ' : 'Dernière séance close : ';
               if (etat === 'ordinaire') vbH = prefixe + vTxt + ' (P' + pctl + ')';
-              else if (pctl >= 50) vbH = prefixe + vTxt + ', au-dessus de ' + pctl + ' % des séances';
-              else vbH = prefixe + vTxt + ', plus bas que ' + (100 - pctl) + ' % des séances';
+              else if (pctl >= 50) vbH = prefixe + vTxt + ', au-dessus de ' + pctl + '% des séances';
+              else vbH = prefixe + vTxt + ', plus bas que ' + (100 - pctl) + '% des séances';
               if (enCours) {
                 /* Repère 2 px or SUR l'histogramme, sans recolorer une classe entière (ce serait
                    mentir sur l'historique). Position bornée aux limites du tracé : une séance
@@ -4506,18 +4506,18 @@
               })
               + (lxPct != null ? '<i class="wdg-di-auj" style="left:' + lxPct.toFixed(1) + '%"></i>' : '')
               + '</div>'
-              + '<div class="wdg-di-axe"><span>' + (etiq[0]).toFixed(1).replace('.', ',') + ' %</span>'
-              + '<span>0</span><span>+' + (etiq[etiq.length - 1] + pas).toFixed(1).replace('.', ',') + ' %</span></div>'
+              + '<div class="wdg-di-axe"><span>' + (etiq[0]).toFixed(1).replace('.', ',') + '%</span>'
+              + '<span>0</span><span>+' + (etiq[etiq.length - 1] + pas).toFixed(1).replace('.', ',') + '%</span></div>'
               + (vbH ? '<div class="wdg-verdict" data-etat="' + etat + '">'
                   + '<b class="wdg-verdict-txt wdg-maj-txt">' + vbH + '</b>'
                   + '<span class="wdg-verdict-sous">' + esc(vsT) + '</span></div>' : '')
               + '<div class="wdg-di-stats">'
-              + '<span><i>Séances en hausse</i><b>' + (hausse / n * 100).toFixed(0) + ' %</b></span>'
-              + '<span><i>Variation moyenne</i><b>' + (moy >= 0 ? '+' : '') + moy.toFixed(2).replace('.', ',') + ' %</b></span>'
+              + '<span><i>Séances en hausse</i><b>' + (hausse / n * 100).toFixed(0) + '%</b></span>'
+              + '<span><i>Variation moyenne</i><b>' + (moy >= 0 ? '+' : '') + moy.toFixed(2).replace('.', ',') + '%</b></span>'
               + '</div>'
               + '<div class="wdg-di-pied">Séance en cours exclue, elle n\'a pas de clôture. '
               + (v.rejetes > 0 ? v.rejetes + ' écart' + (v.rejetes > 1 ? 's' : '') + ' de dates écarté' + (v.rejetes > 1 ? 's' : '') + ' (trou dans la série). ' : '')
-              + 'Classes de ' + String(pas).replace('.', ',') + ' %, bornes incluses à gauche. '
+              + 'Classes de ' + String(pas).replace('.', ',') + '%, bornes incluses à gauche. '
               + _vieSpan(ts) + '</div></div>';
             prevSig = sig; prevV = vRef;
           }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Bougies indisponibles.'); });
@@ -4583,7 +4583,7 @@
           if (!st) return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
             + '<div class="wdg-vo-abs">indisponible</div></div>';
           return '<div class="wdg-vo-col"><div class="wdg-vo-t">' + esc(titre) + '</div>'
-            + '<div class="wdg-vo-l"><i>Écart-type</i><b>' + st.ec.toFixed(2).replace('.', ',') + ' %</b></div>'
+            + '<div class="wdg-vo-l"><i>Écart-type</i><b>' + st.ec.toFixed(2).replace('.', ',') + '%</b></div>'
             + '<div class="wdg-vo-l"><i>Amplitude vraie' + (mes === 'med' ? ' (médiane)' : '') + '</i><b>'
             + (st.trPips != null ? st.trPips.toFixed(0) + ' pips' : st.tr.toFixed(2)) + '</b></div>'
             + (presL || '')
@@ -4621,7 +4621,7 @@
               var pip = _pipTaille(sym);
               var val = pip ? (tr / pip).toFixed(0) + ' pips' : tr.toFixed(2);
               return '<div class="wdg-vo-l est-auj"><i>' + (enCours ? lblCours : lblClose) + '</i>'
-                + '<b class="wdg-maj-txt">' + val + ' &middot; ' + Math.round(tr / st.tr * 100) + ' %</b></div>';
+                + '<b class="wdg-maj-txt">' + val + ' &middot; ' + Math.round(tr / st.tr * 100) + '%</b></div>';
             }
             var presJ = r[0] ? presente(r[0], 'D1', j, 'Séance en cours', 'Dernière séance close') : '';
             var presS = r[1] ? presente(r[1], 'W1', sem, 'Semaine en cours', 'Dernière semaine close') : '';
@@ -4643,10 +4643,10 @@
               var reg = { retrait: 'Volatilité en retrait', norme: 'Volatilité dans sa norme', eleve: 'Volatilité élevée' }[etat];
               var delta = Math.round(Math.abs(ratio - 100));
               var sous = etat === 'norme'
-                ? 'Les 20 dernières séances bougent comme l\'habitude (' + Math.round(ratio) + ' %) : les moyennes affichées décrivent bien le marché actuel.'
+                ? 'Les 20 dernières séances bougent comme l\'habitude (' + Math.round(ratio) + '%) : les moyennes affichées décrivent bien le marché actuel.'
                 : etat === 'retrait'
-                  ? 'Les 20 dernières séances bougent ' + delta + ' % de moins que l\'habitude.'
-                  : 'Les 20 dernières séances bougent ' + delta + ' % de plus que l\'habitude : les moyennes affichées sous-estiment le présent.';
+                  ? 'Les 20 dernières séances bougent ' + delta + '% de moins que l\'habitude.'
+                  : 'Les 20 dernières séances bougent ' + delta + '% de plus que l\'habitude : les moyennes affichées sous-estiment le présent.';
               verdict = '<div class="wdg-verdict" data-etat="' + etat + '">'
                 + '<b class="wdg-verdict-txt' + (etat === 'eleve' ? ' est-present' : '') + '">' + reg + '</b>'
                 + '<span class="wdg-verdict-sous">' + sous + '</span></div>';
@@ -4792,7 +4792,7 @@
               var titre = [];
               if (connu) titre.push(fmtV(v) + ' séance');
               var r1 = p.ret1M == null ? NaN : Number(p.ret1M);
-              if (isFinite(r1)) titre.push((r1 > 0 ? '+' : '') + r1.toFixed(1).replace('.', ',') + ' % sur 1 mois');
+              if (isFinite(r1)) titre.push((r1 > 0 ? '+' : '') + r1.toFixed(1).replace('.', ',') + '% sur 1 mois');
               return { p: p, connu: connu, titre: titre.join(' · '),
                 fond: !connu ? 'transparent' : (v >= 0 ? 'rgba(0,230,118,' + (0.10 + a * 0.55).toFixed(2) + ')' : 'rgba(255,61,0,' + (0.10 + a * 0.55).toFixed(2) + ')'),
                 vTxt: connu ? fmtV(v) : '--',
@@ -4915,7 +4915,7 @@
               var vb, vs;
               if (enCours) {
                 var pctl = Math.round(tri.filter(function (v) { return v <= refAmp; }).length / tri.length * 100);
-                vb = 'Aujourd\'hui : ' + refAmp.toFixed(dec) + ' ' + unite + ', ' + Math.round(ratio) + ' % de la moyenne (P' + pctl + ')';
+                vb = 'Aujourd\'hui : ' + refAmp.toFixed(dec) + ' ' + unite + ', ' + Math.round(ratio) + '% de la moyenne (P' + pctl + ')';
                 vs = {
                   calme: 'Séance encore calme : marge habituelle restante ~' + Math.max(0, moy - refAmp).toFixed(dec) + ' ' + unite + '.',
                   norme: 'Séance dans la norme de la paire.',
@@ -4925,7 +4925,7 @@
               } else {
                 var quand = _dateBougie(derniere.t);
                 quand = quand ? quand.charAt(0).toUpperCase() + quand.slice(1) : 'Dernière séance';
-                vb = quand + ' : ' + refAmp.toFixed(dec) + ' ' + unite + ', ' + Math.round(ratio) + ' % de la moyenne';
+                vb = quand + ' : ' + refAmp.toFixed(dec) + ' ' + unite + ', ' + Math.round(ratio) + '% de la moyenne';
                 vs = 'Séance close ' + { calme: 'sous sa norme', norme: 'dans la norme', nourrie: 'au-dessus de sa norme', extreme: 'très au-dessus de sa norme' }[etat] + '.';
               }
               /* Jauge : piste 0-140 % de la moyenne, repère « moyenne » à 100/140 = 71,4 % de la
@@ -5798,7 +5798,7 @@
 
             var celluleV = function (c) {
               return isFinite(c.chg)
-                ? (c.chg > 0 ? '+' : '') + c.chg.toFixed(etroit ? 1 : 2).replace('.', ',') + '<i class="wdg-mx-u"> %</i>'
+                ? (c.chg > 0 ? '+' : '') + c.chg.toFixed(etroit ? 1 : 2).replace('.', ',') + '<i class="wdg-mx-u">%</i>'
                 : '--';
             };
             // /api/fxlist sert updatedAt en ISO (pas en ms) : Date.parse, repli sur l'heure du fetch.
@@ -6117,21 +6117,21 @@
                 if (aujM >= seuil) {
                   vEtat = 'atteint';
                   vb = 'Seuil de ' + seuil + ' pips atteint (' + Math.round(aujM) + ' parcourus)';
-                  vs = pct.toFixed(0) + ' % des séances y parviennent.';
+                  vs = pct.toFixed(0) + '% des séances y parviennent.';
                 } else {
                   vEtat = 'encours';
-                  vb = 'Aujourd\'hui : ' + Math.round(aujM) + ' pips sur ' + seuil + ' visés (' + Math.round(aujM / seuil * 100) + ' %)';
+                  vb = 'Aujourd\'hui : ' + Math.round(aujM) + ' pips sur ' + seuil + ' visés (' + Math.round(aujM / seuil * 100) + '%)';
                   var denom = mesures.filter(function (v) { return v >= aujM; }).length;
                   if (denom === 0) vs = 'Amplitude record : aucune séance close de l\'échantillon n\'est arrivée aussi loin.';
                   else if (denom < 20) vs = 'Seulement ' + denom + ' séances closes arrivées aussi loin : trop peu pour une fréquence fiable.';
-                  else vs = 'Parmi les ' + denom + ' séances arrivées à ' + Math.round(aujM) + ' pips, ' + Math.round(atteint / denom * 100) + ' % ont franchi les ' + seuil + '.';
+                  else vs = 'Parmi les ' + denom + ' séances arrivées à ' + Math.round(aujM) + ' pips, ' + Math.round(atteint / denom * 100) + '% ont franchi les ' + seuil + '.';
                 }
               } else if (mesures.length) {
                 // Week-end / férié : la dernière ligne est une séance CLOSE, on l'étiquette ainsi.
                 vEtat = 'clos';
                 var dernM = mesures[mesures.length - 1];
                 vb = 'Dernière séance close : ' + Math.round(dernM) + ' pips, seuil ' + (dernM >= seuil ? 'franchi' : 'non atteint');
-                vs = pct.toFixed(0) + ' % des séances ' + (dernM >= seuil ? 'y parviennent' : 'l\'atteignent') + '.';
+                vs = pct.toFixed(0) + '% des séances ' + (dernM >= seuil ? 'y parviennent' : 'l\'atteignent') + '.';
               }
 
               /* Repères posés en HTML PAR-DESSUS la courbe (les helpers SVG partagés restent
@@ -6149,11 +6149,11 @@
               host.innerHTML = '<div class="wdg-freq">'
                 + '<div class="wdg-freq-tete"><span class="wdg-freq-paire">' + esc(paire) + '</span>'
                 + '<span class="wdg-freq-mes">' + (mesure === 'exc' ? 'Excursion depuis l\'ouverture' : 'Amplitude haut-bas') + '</span></div>'
-                + '<div class="wdg-freq-gros"><b>' + pct.toFixed(0) + ' %</b>'
+                + '<div class="wdg-freq-gros"><b>' + pct.toFixed(0) + '%</b>'
                 + '<span>des séances ont parcouru au moins ' + seuil + ' pips</span></div>'
                 // Numerateur ET denominateur : un pourcentage seul ne dit pas sur quoi il porte.
                 + '<div class="wdg-freq-n">' + atteint + ' séances sur ' + n
-                + (pct2 != null ? '<span class="wdg-freq-c">' + cible + ' pips : ' + pct2.toFixed(0) + ' % (' + atteint2 + ')</span>' : '')
+                + (pct2 != null ? '<span class="wdg-freq-c">' + cible + ' pips : ' + pct2.toFixed(0) + '% (' + atteint2 + ')</span>' : '')
                 + '</div>'
                 + (vb ? '<div class="wdg-verdict" data-etat="' + vEtat + '">'
                     + '<b class="wdg-verdict-txt wdg-maj-txt">' + esc(vb) + '</b>'

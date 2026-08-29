@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Week Ahead : Agenda macro de la semaine | DataTradingPro</title>
+<title>Semaine à Venir : agenda macro de la semaine | DataTradingPro</title>
 <meta name="description" content="L'agenda macro de la semaine à venir : événements économiques à fort impact, news en temps réel et calendrier économique complet. Gratuit, par DataTradingPro.">
 <link rel="canonical" href="https://desk.datatradingpro.com/week-ahead">
-<meta property="og:title" content="Week Ahead : Agenda macro de la semaine | DataTradingPro">
+<meta property="og:title" content="Semaine à Venir : agenda macro de la semaine | DataTradingPro">
 <meta property="og:description" content="Événements à fort impact, news temps réel et calendrier économique de la semaine.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://desk.datatradingpro.com/week-ahead">
@@ -15,9 +15,9 @@
 <meta property="og:image" content="https://datatradingpro.com/assets/og-week-ahead.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Week Ahead : agenda macro de la semaine | DataTradingPro">
+<meta property="og:image:alt" content="Semaine à Venir : agenda macro de la semaine | DataTradingPro">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Week Ahead : Agenda macro de la semaine | DataTradingPro">
+<meta name="twitter:title" content="Semaine à Venir : agenda macro de la semaine | DataTradingPro">
 <meta name="twitter:description" content="Événements à fort impact, news temps réel et calendrier économique de la semaine.">
 <meta name="twitter:image" content="https://datatradingpro.com/assets/og-week-ahead.png">
 <meta name="robots" content="index,follow">
@@ -25,7 +25,7 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "Week Ahead : Agenda macro de la semaine",
+  "name": "Semaine à Venir : agenda macro de la semaine",
   "description": "L'agenda macro de la semaine à venir : événements économiques à fort impact, news en temps réel et calendrier économique.",
   "url": "https://desk.datatradingpro.com/week-ahead",
   "inLanguage": "fr-FR",
@@ -172,37 +172,37 @@
     .wap-title{display:none}
   }
 </style>
-<script src="/js/noinspect.js?v=20260829bbg1031"></script>
+<script src="/js/noinspect.js?v=20260829bbg1032"></script>
 </head>
 <body>
   <header class="wap-top">
     <a class="wap-logo" href="https://datatradingpro.com/">Data<b>TradingPro</b></a>
     <span class="wap-sep"></span>
-    <span class="wap-title">Week Ahead</span>
+    <span class="wap-title">Semaine à Venir</span>
     <span class="wap-spacer"></span>
-    <span class="wap-status">Live</span>
+    <span class="wap-status">En direct</span>
     <a class="wap-cta" href="https://desk.datatradingpro.com/">Accéder au terminal →</a>
   </header>
 
   <main class="wap-grid">
     <section class="wap-left">
-      <div class="wa-h"><h1>Week Ahead</h1><span class="wa-week" id="wa-week"></span></div>
-      <div class="wa-chartbox"><div class="wa-chart-label">WEEKLY RISK PROFILE</div><svg class="wa-spark" id="wa-spark" viewBox="0 0 300 46" preserveAspectRatio="none"></svg></div>
+      <div class="wa-h"><h1>Semaine à Venir</h1><span class="wa-week" id="wa-week"></span></div>
+      <div class="wa-chartbox"><div class="wa-chart-label">PROFIL DE RISQUE HEBDO</div><svg class="wa-spark" id="wa-spark" viewBox="0 0 300 46" preserveAspectRatio="none"></svg></div>
       <div class="wa-timeline" id="wa-timeline"><div class="loading">Chargement de la semaine…</div></div>
     </section>
 
     <section class="wap-right">
       <div class="panel">
-        <div class="panel-head"><h2>Realtime Headline Ticker</h2><span class="ph-live">Live</span></div>
+        <div class="panel-head"><h2>Fil d’actualité en direct</h2><span class="ph-live">En direct</span></div>
         <div class="panel-body" id="news-body"><div class="loading">Chargement des news…</div></div>
       </div>
       <div class="panel">
-        <div class="panel-head"><h2>Economic Event Calendar</h2><span class="ph-meta" id="cal-range"></span><span class="ph-live">Live</span></div>
+        <div class="panel-head"><h2>Calendrier économique</h2><span class="ph-meta" id="cal-range"></span><span class="ph-live">En direct</span></div>
         <div class="cal-filters" id="cal-filters">
-          <button class="cal-fbtn on" data-f="all">All</button>
-          <button class="cal-fbtn" data-f="High">High</button>
-          <button class="cal-fbtn" data-f="Medium">Med</button>
-          <button class="cal-fbtn" data-f="Low">Low</button>
+          <button class="cal-fbtn on" data-f="all">Tous</button>
+          <button class="cal-fbtn" data-f="High">Élevé</button>
+          <button class="cal-fbtn" data-f="Medium">Moyen</button>
+          <button class="cal-fbtn" data-f="Low">Faible</button>
         </div>
         <div class="panel-body" id="cal-body"><div class="loading">Chargement du calendrier…</div></div>
       </div>
@@ -226,7 +226,16 @@
     return {start:mon.getTime(),end:mon.getTime()+7*86400000};
   }
 
-  /* ── Week Ahead (gauche) ── */
+  /* ── Semaine à Venir (gauche) ── */
+  /* ⚠️ MÊMES TRADUCTIONS QUE LE DESK (audit 28/08 : la page publique rendait jours, mois, badges
+     d'impact et bouton de dépliage en anglais quand le desk rend « LUN 24 AOÛT · IMPACT ÉLEVÉ ·
+     Lire la suite » — même composant, même charge utile, deux langues). Le serveur envoie les
+     jours/mois en anglais et c'est L'AFFICHAGE qui traduit, comme partout : dictionnaires MIROIRS
+     de _DOW_FR/_MON_FR (app.js) — si l'un bouge, bouger l'autre, le banc compare les deux. */
+  var _DOW_FR={mon:'LUN',tue:'MAR',wed:'MER',thu:'JEU',fri:'VEN',sat:'SAM',sun:'DIM'};
+  var _MON_FR={jan:'JANV',feb:'FÉVR',mar:'MARS',apr:'AVR',may:'MAI',jun:'JUIN',jul:'JUIL',aug:'AOÛT',sep:'SEPT',oct:'OCT',nov:'NOV',dec:'DÉC'};
+  function _dowFr(v){var k=String(v||'').slice(0,3).toLowerCase();return _DOW_FR[k]||String(v||'').slice(0,3).toUpperCase();}
+  function _monFr(v){var k=String(v||'').slice(0,3).toLowerCase();return _MON_FR[k]||String(v||'').slice(0,3).toUpperCase();}
   function renderWA(d){
     document.getElementById('wa-week').textContent=d.week||'';
     var days=(d.days||[]);
@@ -237,13 +246,13 @@
       var ttl=day.headline||day.title||'Événements de la journée';
       var desc=day.summary||day.description||'';
       return '<div class="wa-day'+(isToday?' wa-day--today':'')+'">'
-        +'<div class="wa-node"><span class="wa-dow">'+esc((day.dow||'').slice(0,3).toUpperCase())+'</span>'
-        +'<span class="wa-date">'+esc(day.date||'')+'</span><span class="wa-month">'+esc((day.month||'').slice(0,3).toUpperCase())+'</span></div>'
+        +'<div class="wa-node"><span class="wa-dow">'+esc(_dowFr(day.dow))+'</span>'
+        +'<span class="wa-date">'+esc(day.date||'')+'</span><span class="wa-month">'+esc(_monFr(day.month))+'</span></div>'
         +'<div class="wa-card '+(hi?'wa-card--high':'wa-card--med')+'">'
           +'<div class="wa-card-head"><div class="wa-card-headl"><span class="wa-card-title">'+esc(ttl)+'</span></div>'
-          +'<span class="wa-impact wa-impact--'+(hi?'high':'medium')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>'+(hi?'HIGH IMPACT':'MEDIUM IMPACT')+'</span></div>'
+          +'<span class="wa-impact wa-impact--'+(hi?'high':'medium')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>'+(hi?'IMPACT ÉLEVÉ':'IMPACT MOYEN')+'</span></div>'
           +'<div class="wa-desc">'+esc(desc)+'</div>'
-          +'<button class="wa-more" type="button">Read More ∨</button>'
+          +'<button class="wa-more" type="button">Lire la suite ∨</button>'
         +'</div></div>';
     }).join('');
     var host=document.getElementById('wa-timeline');
@@ -251,7 +260,7 @@
     host.querySelectorAll('.wa-card').forEach(function(c){
       var body=c.querySelector('.wa-desc'),btn=c.querySelector('.wa-more');
       if(body&&btn&&body.scrollHeight<=body.clientHeight+4){btn.style.display='none';}
-      if(btn)btn.addEventListener('click',function(){var o=c.classList.toggle('wa-card--open');btn.textContent=o?'Show Less ∧':'Read More ∨';});
+      if(btn)btn.addEventListener('click',function(){var o=c.classList.toggle('wa-card--open');btn.textContent=o?'Voir moins ∧':'Lire la suite ∨';});
     });
     spark(days);
   }

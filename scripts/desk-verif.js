@@ -680,6 +680,115 @@ function phaseLogique() {
     verif('… et il ne se peint pas tant que la carte n\'est pas survolée', rep.dormant === 0,
       'opacité au repos : ' + rep.dormant);
 
+    /* ══ CIBLES MORTES (audit 28/08, trois défauts prouvés au clic dans Chromium) ═══════════════
+       1. Recherche de la topbar : l'input ne faisait que 12px sur les 34 de la case — la loupe et
+          les deux tiers du cadre ne posaient PAS le curseur.
+       2. Champs de recherche INSTITUTIONS / ANALYSTES : `flex: 1` (= base 0%) ne force jamais le
+          retour à la ligne — 0px mesurés en carte de 701px, 30px avec input débordant en 432px.
+       3. Bouton « Retirer » d'un sous-widget : la poignée Est (z-6) le recouvrait à 54% — clic au
+          centre mort. Chaque contrôle rejoue la MESURE du défaut, pas la présence d'une règle.
+       ⚠️ VIEWPORT DESKTOP OBLIGATOIRE : le zoom 90% du desk fait passer les 800px du banc SOUS le
+       seuil mobile de 768 — on testerait la case-icône REPLIÉE du mobile (input volontairement
+       invisible et non focusable au repos), pas la case desktop que l'audit a mesurée. */
+    await page.setViewport({ width: 1440, height: 900 });
+    await new Promise(res => setTimeout(res, 400));
+    const cibles = await page.evaluate(async () => {
+      const r = {};
+      // 1 — topbar : géométrie + vrai focus au clic relayé
+      const env = document.querySelector('.topbar-symbol-search');
+      const inp = document.getElementById('topbar-symbol-input');
+      if (env && inp) {
+        const re = env.getBoundingClientRect(), ri = inp.getBoundingClientRect();
+        r.topbar = { envH: re.height, inpH: ri.height, inpL: ri.width, loupe: null };
+        const loupe = env.querySelector('.search-icon');
+        if (loupe) {
+          /* Le bouchon du banc déclenche le bandeau LIVE, qui recouvre légitimement la case le
+             temps du flash : on l'écarte pour éprouver l'état NORMAL de la case, pas l'overlay. */
+          const flash = env.querySelector('.breaking-news-flash');
+          const avFlash = flash ? flash.style.display : '';
+          if (flash) flash.style.display = 'none';
+          /* ⚠️ PAS d'elementFromPoint ici : sous le zoom 90% du desk, il ne parle pas la même
+             unité que getBoundingClientRect (piège documenté du dépôt) et viserait à côté. On
+             éprouve le MÉCANISME lui-même : (1) la loupe est traversante — un clic dessus est
+             donc livré à l'enveloppe par le navigateur ; (2) ce mousedown-là pose le focus. */
+          const rl = loupe.getBoundingClientRect();
+          r.topbar.traversante = getComputedStyle(loupe).pointerEvents === 'none';
+          let prevente = null;
+          document.addEventListener('mousedown', e => { prevente = e.defaultPrevented; }, { once: true });
+          env.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true,
+            clientX: rl.left + rl.width / 2, clientY: rl.top + rl.height / 2 }));
+          await new Promise(res => setTimeout(res, 30));
+          r.topbar.relaisVu = prevente;   // true = notre relais a bien traité l'événement (preventDefault posé)
+          r.topbar.loupe = document.activeElement === inp;
+          try { inp.blur(); } catch {}
+          if (flash) flash.style.display = avFlash;
+        }
+      }
+      // 2 — toolbars clonées (DOM réel, feuille réelle) dans des boîtes aux largeurs de l'audit
+      const mesureToolbar = (sel, larg) => {
+        const src = document.querySelector(sel);
+        if (!src) return null;
+        const box = document.createElement('div');
+        box.style.cssText = 'position:fixed;left:0;top:0;width:' + larg + 'px;background:#000;';
+        box.appendChild(src.cloneNode(true));
+        document.body.appendChild(box);
+        const wrap = box.querySelector('.br-search-wrap, .arlib-search-wrap');
+        const input = box.querySelector('.br-search, .arlib-search');
+        const rw = wrap ? wrap.getBoundingClientRect() : null;
+        const ri = input ? input.getBoundingClientRect() : null;
+        const out = { wrap: rw ? rw.width : -1, input: ri ? ri.width : -1,
+                      deborde: (rw && ri) ? Math.max(0, ri.right - rw.right) : -1 };
+        box.remove();
+        return out;
+      };
+      r.brLarge = mesureToolbar('.br-toolbar', 701);
+      r.brEtroit = mesureToolbar('.br-toolbar', 432);
+      r.arlibEtroit = mesureToolbar('.arlib-toolbar', 432);
+      // 3 — la rangée de commandes d'un sous-widget face à la poignée, aux classes réelles
+      const fx = document.createElement('div');
+      // sous la topbar (fixe, au-dessus de tout en y=0) : elementFromPoint doit voir NOTRE fixture
+      fx.style.cssText = 'position:fixed;left:0;top:220px;width:300px;';
+      fx.innerHTML = '<section class="wdg-card wdg-card--barre" style="height:200px;position:relative">'
+        + '<div style="display:flex;justify-content:flex-end;padding-top:34px">'
+        + '<div class="wdg-subgear wdgt-subacts"><div class="wdg-ico" id="cx-ret" title="Retirer">×</div></div></div>'
+        + '<div class="wdg-resize-e"></div></section>';
+      document.body.appendChild(fx);
+      const btn = fx.querySelector('#cx-ret');
+      const rb = btn.getBoundingClientRect();
+      const auCentre = document.elementFromPoint(rb.left + rb.width / 2, rb.top + rb.height / 2);
+      const sousLeBouton = document.elementFromPoint(rb.left + rb.width / 2, rb.bottom + 50);
+      r.retirer = { centre: !!(auCentre && (auCentre === btn || btn.contains(auCentre) || auCentre.closest('.wdgt-subacts'))),
+                    centreQui: auCentre ? auCentre.className : '(rien)',
+                    poigneeVit: !!(sousLeBouton && sousLeBouton.classList.contains('wdg-resize-e')) };
+      fx.remove();
+      return r;
+    });
+    console.log('\n── Cibles mortes de l\'audit : la case, les champs, la croix ──');
+    verif('l\'input de la recherche topbar épouse la hauteur de sa case',
+      cibles.topbar && cibles.topbar.inpH >= cibles.topbar.envH * 0.8,
+      cibles.topbar ? cibles.topbar.inpH.toFixed(0) + ' px sur ' + cibles.topbar.envH.toFixed(0) + ' (le défaut : 12 sur 32)' : 'case introuvable');
+    verif('… et un clic sur la LOUPE pose le curseur dans le champ',
+      cibles.topbar && cibles.topbar.traversante === true && cibles.topbar.loupe === true,
+      cibles.topbar ? (cibles.topbar.traversante
+        ? 'le relais mousedown ne pose pas le focus (relais vu: ' + cibles.topbar.relaisVu + ', input ' + Math.round(cibles.topbar.inpL) + 'px)'
+        : 'la loupe intercepte le clic (pointer-events)') : 'case introuvable');
+    verif('INSTITUTIONS en carte de 701px : le champ de recherche est utilisable',
+      cibles.brLarge && cibles.brLarge.input >= 120,
+      cibles.brLarge ? cibles.brLarge.input.toFixed(0) + ' px (le défaut mesuré : 0)' : 'toolbar introuvable');
+    verif('… et en carte de 432px, il garde son plancher',
+      cibles.brEtroit && cibles.brEtroit.wrap >= 140,
+      cibles.brEtroit ? cibles.brEtroit.wrap.toFixed(0) + ' px' : 'toolbar introuvable');
+    verif('ANALYSTES en carte étroite : la zone de saisie ne se dessine plus HORS du champ',
+      cibles.arlibEtroit && cibles.arlibEtroit.deborde <= 1 && cibles.arlibEtroit.wrap >= 140,
+      cibles.arlibEtroit ? 'wrap ' + cibles.arlibEtroit.wrap.toFixed(0) + ' px, débord ' + cibles.arlibEtroit.deborde.toFixed(0) + ' px (le défaut : wrap 30, input 154)' : 'toolbar introuvable');
+    verif('le CENTRE du bouton « Retirer » touche le bouton, plus la poignée',
+      cibles.retirer.centre, 'elementFromPoint rend : ' + cibles.retirer.centreQui);
+    verif('… et la poignée reste vivante hors de la rangée de commandes',
+      cibles.retirer.poigneeVit, 'le z-index des commandes ne doit pas éteindre la poignée ailleurs');
+    // Retour au viewport historique du banc : les sections suivantes mesurent dans cet état-là.
+    await page.setViewport({ width: 800, height: 600 });
+    await new Promise(res => setTimeout(res, 400));
+
     /* ── L'ANALYSE D'UN CHIFFRE PORTE-T-ELLE LE TAG DE SON INDICATEUR ? ────────────────────────
        31/08 : « il manque le tag comme ceci », capture d'une ligne de calendrier portant son tag
        « drapeau + PCE ». L'ANALYSE du même chiffre ne l'avait pas — les rapports maison étaient
@@ -923,6 +1032,46 @@ function phaseLogique() {
         /"Géopolitique", "Banque centrale", "Inflation", "Croissance économique", "Emploi", "Commerce International & Tarifs", "Technologie & Innovation"/.test(SRV4));
       verif('… et ne commande plus de « Performance Cross-Asset »',
         !/catégorisés[^\n]{0,400}Performance Cross-Asset/.test(SRV4));
+    }
+
+    /* ══ LES RESTES ANGLAIS DU DESK (audit 28/08, angle « texte produit resté en anglais ») ═════
+       Quatre surfaces relevées au navigateur : les tags d'un rapport ouvert (« Geopolitical » à
+       deux clics du fil qui dit « Géopolitique »), les en-têtes du menu de recherche de symbole,
+       la colonne « Seasonal » de LISTE FX, le bouton « Masquer Insights » posé 40px au-dessus du
+       bloc qu'il nomme « Éclairages desk ». Le premier s'éprouve sur la VRAIE fonction extraite ;
+       les autres sur la source, où vivait le libellé fautif. */
+    {
+      console.log('\n── Le desk ne parle plus anglais : tags, menu symbole, colonnes, boutons ──');
+      const CH3 = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+      const dT = APP3.indexOf('const _ARLIB_TAG_FR');
+      const finT = 'return s.charAt(0).toUpperCase() + s.slice(1);\n}';
+      const fT = APP3.indexOf(finT, dT);
+      verif('le nettoyeur de tags du lecteur est extractible', dT > 0 && fT > dT);
+      if (dT > 0 && fT > dT) {
+        const FT = new Function('NEWS_TAG_FR', '_ARLIB_TAG_HIDE',
+          APP3.slice(dT, fT + finT.length) + '\nreturn _arlibTagClean;');
+        const clean = FT({ 'Geopolitical': 'Géopolitique', 'Equities': 'Actions' }, new Set(['report']));
+        verif('« Geopolitical » se rend « Géopolitique », comme dans le fil', clean('Geopolitical') === 'Géopolitique', clean('Geopolitical'));
+        verif('le vocabulaire propre aux rapports est traduit aussi (Oil → Pétrole)', clean('Oil') === 'Pétrole', clean('Oil'));
+        verif('… et un tag inconnu reste tel quel : le doute profite à la source', clean('Zorbl') === 'Zorbl', clean('Zorbl'));
+      }
+      verif('le menu symbole titre en français', !CH3.includes("' Recent Searches '") && !/['"]Recent Searches['"]/.test(CH3) && !/['"]Foreign Exchange['"]/.test(CH3),
+        'un en-tête anglais est revenu dans renderDd');
+      verif('… et nomme les devises par leur CODE (veto user 28/08), les métaux en français',
+        /CCY_NAME = \{ USD:'USD'/.test(CH3) && /XAU:'Or', XAG:'Argent'/.test(CH3));
+      verif('la colonne de LISTE FX dit « Saisonnalité »', /label: 'Saisonnalité'/.test(CH3) && !/label: 'Seasonal'/.test(CH3));
+      verif('le bouton du lecteur parle des « éclairages », plus des « Insights »',
+        !APP3.includes('Masquer Insights') && !APP3.includes('Afficher Insights') && APP3.includes('Masquer les éclairages'),
+        '« Insights » est revenu dans un libellé de bouton');
+      const DICTS = fs.readFileSync(path.join(RACINE, 'public/js/i18n-dicts.js'), 'utf8');
+      verif('… et les trois dictionnaires suivent le nouveau wording (pas de clé morte)',
+        DICTS.includes('"Masquer les éclairages"') && !DICTS.includes('"Masquer Insights"'));
+      /* Le badge de ton du Décryptage : « Restrictif / Accommodant », plus « Hawkish / Dovish » —
+         le Radar de Biais dit « Restrictive / Accommodante » pour la MÊME banque (audit 28/08).
+         Les clés internes 'hawk'/'dove' restent : seule l'étiquette affichée est en français. */
+      verif('le badge de ton du Décryptage parle français (Restrictif / Accommodant)',
+        /label: 'Restrictif'/.test(CH3) && /label: 'Accommodant'/.test(CH3)
+        && !/key: 'hawk', label: 'Hawkish'/.test(CH3) && !/key: 'dove', label: 'Dovish'/.test(CH3));
     }
 
     console.log('\n── Identité visuelle : Récap Quotidien ↔ récap de séance ──');

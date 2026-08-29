@@ -506,7 +506,16 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
   overflow: hidden;
   text-overflow: ellipsis;      /* placeholder/texte sur 1 SEULE ligne (tronque en … si trop etroit) */
   caret-color: transparent;     /* plus de curseur clignotant dans la case */
+  align-self: stretch;          /* ⚠️ l'input ÉPOUSE la hauteur de la case (34px) : sans lui il ne
+                                   faisait que 12px centrés — la loupe et les deux tiers du cadre
+                                   étaient MORTS au clic (audit 28/08, cartographié clic par clic) */
 }
+/* La loupe est décorative : le clic la traverse et va au champ (relayé par initSymbolSearch). */
+.topbar-symbol-search .search-icon { pointer-events: none; }
+.topbar-symbol-search { cursor: text; }
+/* Même défaut, plus discret, sur les cases de recherche des panneaux (calendrier, analystes,
+   instituts) : l'input ne couvrait que la moitié de la hauteur que le cadre promet. */
+.cal-search-input, .arlib-search, .br-search { align-self: stretch; }
 .topbar-symbol-search input:focus,
 .topbar-symbol-search input:focus-visible { outline: none; box-shadow: none; border: none; }
 /* Supprime le fond/cadre jaune d'autofill du navigateur (qui dessine un rectangle autour du texte) */
@@ -4791,6 +4800,7 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 }
 .arlib-search {
   flex: 1;
+  min-width: 0;   /* sans lui, l'input garde sa largeur intrinsèque (~154px) et se dessine HORS d'un wrap comprimé — mesuré débordant de la carte (audit 28/08) */
   background: none;
   border: none;
   outline: none;
@@ -4820,12 +4830,20 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .arlib-filter:hover { border-color: var(--border2); color: var(--text2); }
 .arlib-filter option { background: #111; }
 
-/* Barre d'outils façon pro : filtres compacts (largeurs fixes) à GAUCHE + recherche qui occupe le RESTE à droite, sur une ligne */
-.arlib-filters, .br-filters { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+/* Barre d'outils façon pro : filtres compacts à GAUCHE + recherche qui occupe le RESTE à droite.
+   ⚠️ LA RECHERCHE NE MEURT PLUS (audit 28/08, mesuré dans Chromium : 0 px sur INSTITUTIONS au desk
+   par défaut en 1280, 30 px sur ANALYSTES en carte étroite — champ visible, incliquable). La cause :
+   `flex: 1` = base 0% — un tel item ne force JAMAIS le passage à la ligne, il encaisse tout le
+   manque pendant que les filtres, incompressibles, gardent leurs largeurs pleines. Trois gardes :
+   une BASE réelle (sous ~220 px disponibles, la recherche descend seule en pleine largeur grâce au
+   wrap des toolbars), un PLANCHER lisible (150 px ≈ « Rechercher… » + la marge de frappe), et des
+   filtres COMPRESSIBLES jusqu'à leur propre plancher (ils rendent l'espace AVANT d'écraser le
+   champ ; sous pression leur libellé se coupe, ce qui vaut mieux qu'une recherche morte). */
+.arlib-filters, .br-filters { display: flex; gap: 8px; align-items: center; flex-shrink: 1; min-width: 0; }
 .arlib-filter, .br-filter { flex-shrink: 0; border-radius: 4px; }
-.arlib-search-wrap, .br-search-wrap { border-radius: 4px; flex: 1; min-width: 0; }
-#arlib-type { width: 160px; }  #arlib-cat   { width: 192px; }
-#br-type    { width: 160px; }  #br-source   { width: 192px; }  #br-inst { width: 256px; }
+.arlib-search-wrap, .br-search-wrap { border-radius: 4px; flex: 1 1 220px; min-width: 150px; }
+#arlib-type { width: auto; flex: 0 1 160px; min-width: 116px; }  #arlib-cat { width: auto; flex: 0 1 192px; min-width: 132px; }
+#br-type    { width: auto; flex: 0 1 160px; min-width: 116px; }  #br-source { width: auto; flex: 0 1 192px; min-width: 132px; }  #br-inst { width: auto; flex: 0 1 256px; min-width: 148px; }
 @media (max-width: 1024px) { .arlib-filters, .br-filters { flex-wrap: wrap; } }
 
 /* (Système de dropdown « ceq » RETIRÉ — doublon avec le système global `dtpsel`. Un seul design partout.) */
@@ -10630,8 +10648,11 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 /* Filtres Analyst/Institution : largeurs la référence portées sur le dropdown dtpsel + bouton pleine largeur */
 .arlib-filters .dtpsel, .br-filters .dtpsel { display:flex; }
 .arlib-filters .dtpsel-btn, .br-filters .dtpsel-btn { width:100%; }
-#arlib-type + .dtpsel { width:160px; }  #arlib-cat + .dtpsel { width:192px; }
-#br-type + .dtpsel { width:160px; }  #br-source + .dtpsel { width:192px; }  #br-inst + .dtpsel { width:256px; }
+/* Jumeaux dtpsel des filtres : MÊMES bases et MÊMES planchers que les selects natifs qu'ils
+   remplacent (voir la note « LA RECHERCHE NE MEURT PLUS ») — compressibles, jamais tyranniques. */
+#arlib-type + .dtpsel { width:auto; flex:0 1 160px; min-width:116px; }  #arlib-cat + .dtpsel { width:auto; flex:0 1 192px; min-width:132px; }
+#br-type + .dtpsel { width:auto; flex:0 1 160px; min-width:116px; }  #br-source + .dtpsel { width:auto; flex:0 1 192px; min-width:132px; }  #br-inst + .dtpsel { width:auto; flex:0 1 256px; min-width:148px; }
+.arlib-filters .dtpsel-btn, .br-filters .dtpsel-btn { overflow: hidden; }   /* libellé coupé net sous pression, pas de débordement */
 .dtpsel-item.sel::after{content:"\2713";position:absolute;right:9px;color:var(--orange,#e3b23a);font-weight:var(--fw-bold);font-size:11px}
 .dtpsel-flag{width:20px;height:13px;border-radius:2px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.14);flex-shrink:0;display:inline-flex}
 .dtpsel-flag svg{width:100%;height:100%;display:block}
@@ -15500,7 +15521,7 @@ body.home-mode .view-panel { visibility: hidden; }
 .wdgt-hasgear > .wdg-subgear { margin-left: auto; flex: 0 0 auto; }
 .wdg-subgear { width: 22px; height: 22px; opacity: .62; }
 .wdg-subgear:hover { opacity: 1; color: var(--orange, #e3b23a); background: rgba(227,178,58,.14); }
-.wdg-subgear--flot { position: absolute; top: 6px; right: 8px; z-index: 6; background: var(--bg); border-radius: 4px; }
+.wdg-subgear--flot { position: absolute; top: 6px; right: 8px; z-index: 7; background: var(--bg); border-radius: 4px; }   /* 7 : devant la poignée Est (z-6), même raison que .wdgt-subacts */
 .wdgt-mount { position: relative; }
 
 /* ── TIROIR DE RÉGLAGES : en-tête COLLÉ avec croix (04/08 « je ne peux pas fermer » — une
@@ -15574,7 +15595,12 @@ body.home-mode .view-panel { visibility: hidden; }
    « il manque la croix pour enlever le widget force des devises »). Le groupe porte encore
    .wdg-subgear pour rester la cible du balayage anti-empilement, d'où l'annulation du gabarit
    22×22 hérité du bouton unique. */
-.wdgt-subacts { width: auto !important; height: auto !important; display: flex; align-items: center; gap: 1px; opacity: 1 !important; background: none !important; }
+/* ⚠️ LES COMMANDES PASSENT DEVANT LA POIGNÉE (audit 28/08, prouvé en A/B au vrai clic souris) :
+   la poignée Est (14px, z-index 6, décalée de 8px vers l'intérieur quand la carte défile) mordait
+   sur 54% du bouton « Retirer » — clic au CENTRE de la croix = rien, sur 8 des 9 onglets du modèle
+   par défaut. Un bouton VISIBLE gagne toujours sur une zone de saisie invisible : z-index 7, dans
+   le même contexte d'empilement (la carte). La poignée garde tout le reste de sa hauteur. */
+.wdgt-subacts { width: auto !important; height: auto !important; display: flex; align-items: center; gap: 1px; opacity: 1 !important; background: none !important; position: relative; z-index: 7; }
 .wdgt-subacts > .wdg-ico { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 3px; }
 .wdgt-subacts > .wdg-ico:hover { color: var(--orange, #e3b23a); background: rgba(227, 178, 58, .14); }
 .wdgt-hasgear > .wdgt-subacts { margin-left: auto; flex: 0 0 auto; }

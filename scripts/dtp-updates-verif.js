@@ -134,6 +134,9 @@ function defautsDeLangue(diff) {
     const h = [...t.matchAll(rx)].map(m => m[0].trim()).slice(0, 4);
     if (h.length) d.push(`CONTRESENS : ${dit} — vu : « ${h.join(' », « ')} ».`);
   }
+  /* Cadratin : nettoyé AU SERVE depuis le 29/08 (audit : 131 annonces livrées en portaient), mais
+     une annonce NEUVE s'écrit propre — le filet de sortie est une ceinture, pas une invitation. */
+  if (t.includes('—')) d.push('cadratin « — » (veto 14/08, banni du contenu affiché) : préférer deux-points, virgule ou parenthèses.');
   return d;
 }
 // … et touche-t-il à autre chose que ce tableau ? (au moins une ligne ajoutée/retirée hors « dtpu- »)
@@ -276,6 +279,20 @@ function autotest() {
   }
   v('aucun contresens « à »/« a » dans les ' + (corpus.match(/id: 'dtpu-/g) || []).length + ' annonces livrées',
     fautes.length === 0, fautes.slice(0, 6).join('\n      → '));
+  /* ── LE VETO CADRATIN, CÔTÉ SORTIE ─────────────────────────────────────────────────────────────
+     131 annonces livrées portaient « — » : on ne réécrit pas l'histoire, on nettoie AU SERVE, par
+     la règle unique du desk (_noDash → ai.sansCadratin). Ces deux contrôles gardent le branchement :
+     retirer un seul des quatre appels remettrait les cadratins sous les yeux des clients. */
+  v('la route publique des annonces nettoie le cadratin au serve',
+    /updates-public[\s\S]{0,420}t: _noDash\(u\.title\), d: _noDash\(u\.desc\)/.test(SRV));
+  v('… et la route du desk aussi',
+    /dtp-updates[\s\S]{0,520}title: _noDash\(u\.title\), desc: _noDash\(u\.desc\)/.test(SRV));
+  /* Une annonce neuve, elle, s'écrit SANS cadratin (règle de defautsDeLangue) — preuve que la
+     règle mord, et qu'elle ne crie pas sur une annonce propre. */
+  const cTiret = defautsDeLangue("+  { id: 'dtpu-20260931-tiret', title: 'Un essai', desc: 'Une annonce déjà écrite avec le caractère banni — précisément celui-là — doit être retenue ici même, avant de partir chez les clients. Le garde-fou relit chaque phrase ajoutée et réclame des accents réguliers.' },");
+  v('le cadratin d’une annonce NEUVE est REFUSÉ', cTiret.some(x => /cadratin/.test(x)), cTiret.join(' | '));
+  v('la coquille « , , » ne vit plus dans le corpus livré', !corpus.includes(', ,'),
+    'une double virgule traîne dans une annonce (classe de coquille réparée le 29/08)');
   console.log(ko ? '\n✗ ' + ko + ' ÉCHEC(S)\n' : '\n✓ le garde-fou de langue tient.\n');
   process.exit(ko ? 1 : 0);
 }

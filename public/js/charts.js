@@ -4025,7 +4025,7 @@ const FXL_COLS = [
   { key: 'symbol',    label: 'Symbole',    sortable: true,  align: 'left',   type: 'sym'     },
   { key: 'sparkLast', label: 'Dernier prix', sortable: false, align: 'center', type: 'price'   },
   { key: 'changePct', label: 'Var. %',     sortable: true,  align: 'right',  type: 'change'  },
-  { key: 'seasonal',  label: 'Seasonal',   sortable: false, align: 'center', type: 'season'  },
+  { key: 'seasonal',  label: 'Saisonnalité', sortable: false, align: 'center', type: 'season'  },
   { key: 'dmx',       label: 'DMX',        sortable: true,  align: 'center', type: 'donut'   },
   { key: 'fund',      label: 'Fund.',      sortable: true,  align: 'center', type: 'badge'   },
   { key: 'research',  label: 'Recherche',  sortable: true,  align: 'center', type: 'badge'   },
@@ -4646,8 +4646,12 @@ function _calToneOf(texts) {
   // déjà hawkish=vert / dovish=rouge. Un même ton sortait donc bleu ici et rouge deux vues plus loin.
   // Lecture retenue, identique partout : hawkish = resserrement = SOUTIENT la devise -> vert ;
   // dovish = assouplissement -> rouge ; neutre = gris. (Valeurs de la charte : #22c55e / #ef4444.)
-  if (hawk > dove && hawk >= hold) return { key: 'hawk', label: 'Hawkish', sens: 'penche vers des taux plus hauts', color: '#22c55e' };
-  if (dove > hawk && dove >= hold) return { key: 'dove', label: 'Dovish', sens: 'penche vers des taux plus bas', color: '#ef4444' };
+  /* LIBELLÉS EN FRANÇAIS (audit 28/08) : le Décryptage disait « Dovish » quand le Radar de Biais dit
+     « Accommodante » pour la MÊME banque — c'est le même desk qui se contredit d'une vue à l'autre.
+     Accordé au masculin : le badge qualifie un TON (« ton restrictif »), le Radar une ORIENTATION.
+     Les clés internes ('hawk'/'dove') ne bougent pas — seule l'étiquette affichée est traduite. */
+  if (hawk > dove && hawk >= hold) return { key: 'hawk', label: 'Restrictif', sens: 'penche vers des taux plus hauts', color: '#22c55e' };
+  if (dove > hawk && dove >= hold) return { key: 'dove', label: 'Accommodant', sens: 'penche vers des taux plus bas', color: '#ef4444' };
   if (hawk || dove || hold) return { key: 'hold', label: 'Neutre', sens: 'maintien / attentisme', color: '#9a9aa4' };
   return null;
 }
@@ -5542,13 +5546,23 @@ window._retryCalendar = function() {
   const input = document.getElementById('topbar-symbol-input');
   const dd = document.getElementById('sym-dd');
   if (!input || !dd) return;
+  /* ⚠️ TOUTE LA CASE répond, loupe et marges comprises (audit 28/08 : seuls 12px sur 32 posaient
+     le curseur, un clic sur la loupe — l'affordance la plus évidente — ne faisait RIEN). L'input
+     s'étire désormais en CSS ; ici on relaie ce que l'input ne couvre pas : les 14px de padding
+     et la loupe (rendue traversante par pointer-events:none). L'overlay LIVE, lui, garde son rôle. */
+  const enveloppe = input.closest('.topbar-symbol-search');
+  if (enveloppe) enveloppe.addEventListener('mousedown', (e) => {
+    if (e.target === input || e.target.closest('.breaking-news-flash')) return;
+    e.preventDefault();               // sinon le mousedown sur la div vole le focus qu'on vient de poser
+    try { input.focus(); } catch {}
+  });
   // Portail : on déplace le dropdown dans <body> → il échappe à TOUT overflow:hidden / contexte d'empilement
   // d'un ancêtre (topbar, navbar…). Positionné en `fixed` sous l'input via positionDd().
   try { document.body.appendChild(dd); } catch {}
   const PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPCAD','GBPAUD','GBPNZD','AUDJPY','AUDCHF','AUDCAD','AUDNZD','NZDJPY','NZDCHF','NZDCAD','CADJPY','CADCHF','CHFJPY','XAUUSD','XAGUSD'];
   const MAJORS = ['USD','EUR','JPY','GBP','AUD','CHF','CAD','NZD'];
   const FLAG = { USD:'us', EUR:'eu', JPY:'jp', GBP:'gb', AUD:'au', CHF:'ch', CAD:'ca', NZD:'nz' };
-  const CCY_NAME = { USD:'US Dollar', EUR:'Euro', JPY:'Japanese Yen', GBP:'British Pound', AUD:'Australian Dollar', CHF:'Swiss Franc', CAD:'Canadian Dollar', NZD:'New Zealand Dollar', XAU:'Gold', XAG:'Silver' };
+  const CCY_NAME = { USD:'USD', EUR:'EUR', JPY:'JPY', GBP:'GBP', AUD:'AUD', CHF:'CHF', CAD:'CAD', NZD:'NZD', XAU:'Or', XAG:'Argent' };   // les devises s'écrivent par leur CODE (veto user 28/08) ; les métaux, en français
   // Mots-clés de filtrage news par devise = la devise + sa BANQUE CENTRALE (abréviations EN/FR + gouverneur).
   // → la news d'une paire capte aussi l'actualité des 2 banques (ex. EURAUD → BCE/ECB/Lagarde ET RBA).
   const NEWS_KW = {
@@ -5606,7 +5620,7 @@ window._retryCalendar = function() {
   const _DD_CLOCK = '<svg class="sym-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const _DD_HASH = '<span class="sym-dd-hash">#</span>';
 
-  // ── Dropdown d'autocomplétion : en-tête « # Foreign Exchange (N) » + double drapeau rond + nom complet ──
+  // ── Dropdown d'autocomplétion : en-tête « # Paires de devises (N) » + double drapeau rond + codes des deux jambes ──
   // Une ligne de paire : double drapeau rond + code + nom complet des 2 devises.
   function _ddRow(p) {
     const c1 = p.slice(0,3), c2 = p.slice(3);
@@ -5621,22 +5635,22 @@ window._retryCalendar = function() {
       + list.map(_ddRow).join('');
   }
   // Dropdown « intelligent » épuré :
-  //  • champ VIDE (clic/focus) → UNIQUEMENT « Recent Searches » (horloge) = 6 dernières paires ouvertes ;
+  //  • champ VIDE (clic/focus) → UNIQUEMENT « Recherches récentes » (horloge) = 6 dernières paires ouvertes ;
   //    s'il n'y a aucun historique → état vide « Aucune recherche récente » (JAMAIS les paires majeures).
-  //  • en SAISIE → « Recent Searches » filtrées + « Foreign Exchange » (paires qui matchent, préfixe d'abord).
+  //  • en SAISIE → « Recherches récentes » filtrées + « Paires de devises » (celles qui matchent, préfixe d'abord).
   function renderDd(q) {
     q = (q || '').toUpperCase().replace(/[^A-Z]/g, '');
     let html;
     if (!q) {
       const recents = _recent.slice(0, 6);
-      html = '<div class="sym-dd-head">' + _DD_CLOCK + ' Recent Searches <span class="sym-dd-count">(' + recents.length + ')</span></div>'
+      html = '<div class="sym-dd-head">' + _DD_CLOCK + ' Recherches récentes <span class="sym-dd-count">(' + recents.length + ')</span></div>'
         + (recents.length ? recents.map(_ddRow).join('') : '<div class="sym-dd-empty">Aucune recherche récente</div>');
     } else {
       const recents = _recent.slice(0, 6).filter(p => p.includes(q));
       const fx = PAIRS.filter(p => p.includes(q) && !recents.includes(p))
         .sort((a, b) => (a.startsWith(q) ? 0 : 1) - (b.startsWith(q) ? 0 : 1) || a.localeCompare(b))
         .slice(0, 10);
-      html = _ddSection(_DD_CLOCK, 'Recent Searches', recents) + _ddSection(_DD_HASH, 'Foreign Exchange', fx);
+      html = _ddSection(_DD_CLOCK, 'Recherches récentes', recents) + _ddSection(_DD_HASH, 'Paires de devises', fx);
       if (!html) html = '<div class="sym-dd-empty">Aucune paire</div>';
     }
     dd.innerHTML = html;

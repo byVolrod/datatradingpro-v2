@@ -8530,7 +8530,7 @@ function renderBrReader(item) {
     content.parentNode.insertBefore(brIns, content);
   }
   const brBtn = document.getElementById('br-insights-btn');
-  if (brBtn) { brBtn.style.display = ''; brBtn.innerHTML = `${_EYE_OFF} Masquer Insights`; brBtn.onclick = () => aiInsToggle(brBtn, 'br-ai-insights'); }
+  if (brBtn) { brBtn.style.display = ''; brBtn.innerHTML = `${_EYE_OFF} Masquer les éclairages`; brBtn.onclick = () => aiInsToggle(brBtn, 'br-ai-insights'); }
 
   // ── VRAI PDF de la banque, affiché BRUT (proxifié) : ZÉRO restructuration IA : rapport déjà en .pdf
   //    (BlackRock, Danske…) OU article ING Think (PDF dérivé de l'URL). Insights conservés au-dessus.
@@ -9183,9 +9183,25 @@ function arlibItemTags(item) {
 // « pétrole » → « Pétrole ») ; (2) on MASQUE certains tags jugés inutiles (« FX Flows », « Energy & Power »,
 // « Global News » + variantes FR). Retourne '' si le tag doit disparaître.
 const _ARLIB_TAG_HIDE = new Set(['fx flows', 'flux fx', 'energy & power', 'énergie', 'energie', 'global news', 'actualités mondiales', 'actualites mondiales']);
+/* ⚠️ LES TAGS DU LECTEUR PARLENT LA LANGUE DU FIL (audit 28/08 : le même client lisait
+   « Géopolitique » dans son fil et « Geopolitical » deux clics plus loin, sur la même notion —
+   le lecteur capitalisait sans passer par NEWS_TAG_FR). Table à CLÉ MINUSCULE : NEWS_TAG_FR
+   entière + le vocabulaire propre aux rapports (matières, métaux, régions). Un tag inconnu
+   reste tel quel, première lettre en capitale : le doute profite à la source. */
+const _ARLIB_TAG_FR = (() => {
+  const m = {};
+  for (const k in NEWS_TAG_FR) m[k.toLowerCase()] = NEWS_TAG_FR[k];
+  Object.assign(m, { oil: 'Pétrole', gold: 'Or', silver: 'Argent', commodities: 'Matières premières',
+    fx: 'Devises', forex: 'Devises', politics: 'Politique', trade: 'Commerce',
+    'central banks': 'Banques centrales', 'central bank': 'Banque centrale',
+    europe: 'Europe', china: 'Chine', japan: 'Japon', markets: 'Marchés' });
+  return m;
+})();
 function _arlibTagClean(t) {
   const s = String(t == null ? '' : t).trim();
   if (!s || _ARLIB_TAG_HIDE.has(s.toLowerCase())) return '';
+  const fr = _ARLIB_TAG_FR[s.toLowerCase()];
+  if (fr) return fr;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 // Tags du rapport OUVERT (liste complète) + rendu façon DTP : 6 pills max + "+N", puis
@@ -9449,7 +9465,7 @@ function aiInsToggle(btn, hostId) {
   if (!c) return;
   const willHide = c.style.display !== 'none';
   c.style.display = willHide ? 'none' : '';
-  btn.innerHTML = willHide ? `${_EYE} Afficher Insights` : `${_EYE_OFF} Masquer Insights`;
+  btn.innerHTML = willHide ? `${_EYE} Afficher les éclairages` : `${_EYE_OFF} Masquer les éclairages`;
 }
 
 // ═══════════ WEEKLY MARKET RECAP : rendu riche (copie DataTradingPro) ═══════════
@@ -9753,7 +9769,7 @@ function _renderWeeklyRecap(item) {
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
   // via .wr-doc-week : l'afficher aussi ici cassait la mise en page).
   if (titleEl) titleEl.textContent = _wrTitle;
-  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
+  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer les éclairages</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
   // La période (semaine) va dans le créneau date en haut-droite, comme tous les autres rapports →
   // on peut retirer le gros bloc titre du corps sans perdre l'info de période.
@@ -10580,7 +10596,7 @@ function _renderFXDailyRecap(item) {
   // passait par la traduction — le même rapport portait donc deux noms selon l'écran. On applique ici
   // la MÊME table de préfixes FR (_reportTitleToFR) : un seul nom partout, « Récap Quotidien ».
   if (titleEl) titleEl.textContent = _stripTitleDateLead(_reportTitleToFR(_mdStrip(w.title || 'FX Daily Recap'))) + (_fxrDate ? ' - ' + _fxrDate : '');
-  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
+  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer les éclairages</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
   if (_rdateEl) _rdateEl.textContent = '';
@@ -11022,9 +11038,9 @@ function renderArlibReader(item) {
     _loadAIInsights(item, insightsEl);
   }
 
-  // Bouton Masquer/Afficher Insights en haut du rapport (comme PT)
+  // Bouton Masquer/Afficher les éclairages en haut du rapport (comme PT — « Insights » disait en anglais ce que le bloc nomme « Éclairages desk », audit 28/08)
   const navRight = document.querySelector('#arlib-reader-view .arlib-rnav-right');
-  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
+  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer les éclairages</button><span class="arlib-dtp-badge">DTP</span>`;
 
   // Titre IDENTIQUE au nom du rapport dans la liste Analyst (préfixe + sujet/titre IA)
   const title = standardizeReportTitle(item);

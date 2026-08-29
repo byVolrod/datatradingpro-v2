@@ -206,6 +206,25 @@ console.log('\n── Le balayage du texte livré ──');
      sur la même ligne échapperait au balayage. */
   v('… et une URL ne fait pas écran au reste de la ligne',
     balayer('var u = "https://x.fr"; var t = "2,4 %";', false).length === 1);
+
+  /* ⚠️ L'ANGLE MORT DU BALAYAGE, TROUVÉ PAR L'AUDIT (28/08) : il lit le texte SOURCE, où le chiffre
+     n'existe pas encore — `l.rate.toFixed(2) + ' %'` s'affiche « 4,25 % » et le balayage n'y voit
+     RIEN, le nombre n'arrivant qu'à l'exécution. Dix widgets écrivaient ainsi (39 concaténations
+     mesurées dans un vrai Chromium). On interdit donc LA FORME elle-même : une chaîne concaténée
+     qui COMMENCE par « espace-pourcent » n'a qu'un seul sens — coller un % à la valeur d'avant.
+     La prose (« Risque % », « Variations en % ») ne commence jamais une chaîne ainsi. */
+  {
+    const rxColle = /\+\s*(['"`]) %/g;
+    const fautifs2 = [];
+    for (const f of ['public/js/widgets.js', 'public/js/app.js', 'public/js/charts.js', 'public/js/home.js']) {
+      let txt; try { txt = fs.readFileSync(path.join(RACINE, f), 'utf8'); } catch { continue; }
+      let m; while ((m = rxColle.exec(txt))) fautifs2.push(f + ':' + (txt.slice(0, m.index).split('\n').length));
+    }
+    v('aucune concaténation « + \' %\' » : le pourcent se colle aussi quand le chiffre n\'arrive qu\'à l\'exécution',
+      fautifs2.length === 0, fautifs2.slice(0, 6).join(' · ') + (fautifs2.length > 6 ? ' · … et ' + (fautifs2.length - 6) + ' autre(s)' : ''));
+    v('… et ce balayage-là voit aussi la faute qu\'on lui glisse',
+      (() => { let c = 0; 'x = v.toFixed(1) + \' %\';'.replace(rxColle, () => { c++; return ''; }); return c === 1; })());
+  }
 }
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
