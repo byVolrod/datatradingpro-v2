@@ -142,5 +142,69 @@ if (SRC_SRC) {
     N('Explosions heard near the airport - Tasnim News said the strikes hit an airbase'));
 }
 
+/* ══ LA STATISTIQUE D'UN PAYS QU'ON NE TRADE PAS ═══════════════════════════════════════════════
+   29/08, capture : « Chile Unemployment rate above expectations (9.4%) in July » en Commentaire
+   économique. Verdict utilisateur : « le Chili on ne trade pas ça ». Le desk couvre les devises de
+   son calendrier ; une statistique chilienne, turque ou suédoise y prend la place d'une ligne qui
+   compte.
+   ⚠️ LA MOITIÉ QUI COMPTE, encore : la règle exige (1) un pays POSITIVEMENT identifié hors marché,
+   ANCRÉ EN TÊTE, et (2) la FORME d'une publication chiffrée. La géopolitique de ces mêmes pays
+   (guerre, sanctions, céréales) doit RESTER — l'écarter ferait plus de dégâts que le bruit. */
+console.log('\n── La statistique d\'un pays hors marché ──');
+const SRC_HM = (() => {
+  const d = SRV.indexOf('const _PAYS_HORS_MARCHE_RX');
+  const f = SRV.indexOf('\n}', SRV.indexOf('function _estDonneeHorsMarche'));
+  return (d < 0 || f < 0) ? null : SRV.slice(d, f + 2);
+})();
+v('la règle est extractible de server.js', !!SRC_HM);
+v('… et branchée dans isNoise', /if \(_estDonneeHorsMarche\(h\)\) return true;/.test(SRV));
+if (SRC_HM) {
+  // eslint-disable-next-line no-eval
+  const H = eval('(function(){' + SRC_HM + '\nreturn _estDonneeHorsMarche;})()');
+  [['la capture, mot pour mot', 'Chile Unemployment rate above expectations (9.4%) in July: Actual (9.5%)'],
+   ['une inflation turque chiffrée', 'Turkey CPI rises to 62.1% in July'],
+   ['une donnée suédoise à signature calendrier', 'Sweden GDP Actual 0.4% (Forecast 0.3%)'],
+   ['une décision de taux russe', 'Russian central bank interest rate decision: cut to 16%'],
+  ].forEach(([lbl, h]) => v('écartée : ' + lbl, H(h) === true, h.slice(0, 70)));
+  [['la géopolitique du MÊME pays', 'Russia launches missile strike on Kyiv, oil jumps 2%'],
+   ['les céréales ukrainiennes (exports absents des indicateurs, exprès)', 'Ukraine grain exports fell 12% after strikes on Odesa ports'],
+   ['les réserves de change indiennes (pas un indicateur macro)', "India's forex reserves hit record $729 billion"],
+   ['une donnée AMÉRICAINE', 'US Core PCE Price Index MoM Actual 0.2% (Forecast 0.2%)'],
+   ['une donnée allemande (zone euro tradée)', 'German Prelim CPI m/m Actual 0.7%'],
+   ['un pays hors marché cité en MILIEU de phrase', 'Inflation worries mount in Chile'],
+   /* ⚠️ Ces deux-là ont été AJOUTÉS PAR LA MUTATION, pas par prudence : sans eux, retirer l'ancrage
+      de tête ou l'exigence de forme chiffrée laissait le banc VERT. Le premier a la FORME (indicateur
+      + %) mais le pays en milieu de phrase — seul l'ancrage le sauve. Le second a le PAYS en tête et
+      l'indicateur mais AUCUN chiffre : un commentaire, pas une publication — seule la forme le sauve. */
+   ['une hausse du cuivre qui CITE l\'inflation chilienne', 'Copper rallies as inflation in Chile hits 4.2%'],
+   ['un commentaire chilien SANS chiffre', 'Chile unemployment outlook worsens, economists say'],
+   ['la révision des payrolls US (sans pays en tête)', 'Prelim Benchmark Payrolls Revision Actual -79K (Forecast 183K, Previous -911K)'],
+   ['un titre vide', ''],
+  ].forEach(([lbl, h]) => v('gardée : ' + lbl, H(h) === false, h.slice(0, 70)));
+}
+
+/* ══ LE NFP SANS PAYS EN TÊTE EST QUAND MÊME UNE DONNÉE US, ET DU TIER-1 ══════════════════════
+   29/08, capture : « Prelim Benchmark Payrolls Revision Actual -79K » sorti en Commentaire
+   économique, sans rouge ni tags — le nom n'écrit pas « US », mais NFP, ISM, JOLTS n'existent
+   qu'aux États-Unis : LE NOM EST LE PAYS. */
+console.log('\n── L\'indicateur au nom américain sans préfixe pays ──');
+/* Le motif doit exister ET mener à « US Data » : une mutation l'envoyant ailleurs laissait le banc
+   vert tant qu'on ne vérifiait que sa présence. */
+v('le motif « nom américain » est dans le classeur ET mène à « US Data »',
+  SRV.includes("\\badp\\s+employment\\b)/, 'US Data'],"));
+{
+  const m = /const HIGH_IMPACT_RE = ([^\n]+);/.exec(SRV);
+  v('HIGH_IMPACT_RE est extractible', !!m);
+  if (m) {
+    // eslint-disable-next-line no-eval
+    const RE = eval(m[1]);
+    v('la révision des payrolls est du tier-1 (rouge)', RE.test('Prelim Benchmark Payrolls Revision Actual -79K (Forecast 183K, Previous -911K)'));
+    v('le NFP au PLURIEL matche enfin (frontière l|s : bug latent exposé le 29/08)',
+      RE.test('US Nonfarm Payrolls Actual 210K') && RE.test('Non Farm Payrolls Actual 150K'),
+      'le \\b final refusait « Payrolls » depuis toujours');
+    v('… sans embarquer un simple commentaire d\'emploi', !RE.test('Analysts discuss the labor market outlook'));
+  }
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

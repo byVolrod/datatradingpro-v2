@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260911-fil-perimetre', ts: Date.UTC(2026, 9, 2, 10, 0), title: 'Le fil reste sur les devises tradées, et le NFP retrouve son rang', desc: 'Deux corrections signalées par le desk. D’abord, une statistique d’un pays hors de nos devises — un taux de chômage chilien, une inflation turque — pouvait occuper une ligne du fil : ces publications sont désormais écartées à l’entrée. La règle est étroite exprès : elle exige un pays identifié en tête de titre ET la forme d’une publication chiffrée, si bien que la géopolitique de ces mêmes pays (une frappe, des sanctions, les céréales ukrainiennes) reste dans le fil — c’est la statistique qui part, jamais l’événement. Ensuite, la révision annuelle des payrolls américains est sortie en simple « commentaire économique », sans rouge ni tags : les indicateurs au nom proprement américain — NFP, ISM, JOLTS, ADP — sont maintenant reconnus comme données US même quand le titre n’écrit pas « US », et la révision des payrolls rejoint le premier rang, celui qui colore la ligne en rouge et ouvre l’analyse. Au passage, un défaut ancien : « Nonfarm Payrolls » au pluriel n’était jamais reconnu comme majeur — une frontière de mot refusait le « s » final.' },
   { id: 'dtpu-20260911-pricing-source', ts: Date.UTC(2026, 9, 2, 8, 0), title: 'Pricing de taux : chaque carte dit sa source, et la RBNZ retrouve ses vrais chiffres', desc: 'Un membre nous a signalé, preuves en main, que la carte RBNZ contredisait le marché — et il avait raison, merci à lui. Sur huit banques centrales, six affichent un vrai pricing de marché (probabilités implicites des instruments de taux) ; pour la RBNZ et la BNS, notre fournisseur ne le publie pas, et le desk affichait à la place une estimation interne SANS le dire. Pire : une mise à jour automatique avait inversé le sens de cette estimation et abaissé le taux affiché, si bien que la carte montrait une baisse probable là où le marché price une hausse. Quatre corrections. Chaque carte de l’onglet TAUX porte désormais sa source, écrite dessus : « pricing marché » ou « estimation DTP » — même chose dans le Radar de Biais et les récaps, qui ne disent plus « le marché price » quand c’est le modèle. L’estimation ne peut plus contredire la configuration vérifiée à la main sur les communiqués des banques. Un taux mis à jour automatiquement doit désormais coïncider avec une décision réelle du calendrier avant d’être affiché. Et la probabilité en tête de carte est celle du mouvement affiché — fini le « Hausse · 50% » où 50% était en réalité la probabilité du maintien.' },
   { id: 'dtpu-20260910-onglets-parcours', ts: Date.UTC(2026, 9, 1, 23, 0), title: 'La barre d’onglets de Mon Desk se parcourt enfin en entier', desc: 'Sur le modèle par défaut, le panneau à onglets en porte neuf — ACTUS, CALENDRIER, LISTE FX, INSTITUTIONS… — qui réclament deux fois la largeur de la carte. Six restaient hors champ, deux se cachaient sous les boutons de la carte (invisibles, et surtout impossibles à cliquer), et la rangée s’arrêtait en plein mot : on lisait « TUTIONS » à la place d’« INSTITUTIONS ». Trois changements : la place des boutons est désormais mesurée sur les boutons eux-mêmes, si bien qu’aucun onglet ne passe plus dessous ; la molette parcourt la rangée d’un onglet à la fois, en s’arrêtant toujours sur un nom entier ; et un dégradé, à gauche comme à droite, signale qu’il reste des onglets de ce côté. Tous les onglets sont donc atteignables à la souris, ce qui n’était pas le cas.' },
   { id: 'dtpu-20260910-barre-fantome', ts: Date.UTC(2026, 9, 1, 21, 0), title: 'La barre de défilement qui ne menait nulle part a disparu', desc: 'Signalé sur capture : sous la carte « Semaine à Venir » de Mon Desk, une barre de défilement horizontale ne servait à rien — tirée à fond, elle ne découvrait que du vide, et elle rognait au passage le bas de la carte. La cause ne venait pas du widget : un halo doré décoratif, posé derrière chaque vue pour lui donner de la profondeur, avait une largeur figée de 820 pixels. Sur le desk en plein écran il ne se voit ni ne gêne ; dans une carte de 460 pixels, il agrandissait la zone défilable de près de 400 pixels de vide. Le halo s’ajuste désormais à son panneau, et garde exactement sa taille d’avant partout où il se voit. La barre disparaît sur toutes les vues et à toutes les largeurs, sur ordinateur comme sur téléphone.' },
@@ -18473,7 +18474,15 @@ function detectCategory(text) {
       [/^(?:austral(?:ia|ian))\b/, 'Australian Data'],
       [/^(?:chin(?:a|ese))\b/, 'Chinese Data'],
       [/^(?:swiss|switzerland)\b/, 'Swiss Data'],
+      /* Les indicateurs au nom PROPREMENT AMÉRICAIN n'écrivent jamais leur pays : « Prelim
+         Benchmark Payrolls Revision Actual -79K » est resté en fourre-tout faute d'un « US » en
+         tête (29/08, capture user : le NFP sans tags ni rouge). NFP, ISM, JOLTS, ADP, Michigan,
+         Philly Fed n'existent qu'aux États-Unis — le nom EST le pays. Testés sur TOUT le titre,
+         pas seulement en tête. */
+      [/(?:payrolls?|nonfarm|non.?farm|\bnfp\b|jobless\s+claims|\bism\b|\bfomc\b|michigan\s+(?:consumer\s+)?sentiment|philly\s+fed|philadelphia\s+fed|\bjolts\b|\badp\s+employment\b)/, 'US Data'],
     ];
+    // L'ancrage vit dans CHAQUE regex : les motifs pays sont en ^, le motif « nom américain » teste
+    // tout le titre — la boucle, elle, ne présume rien.
     for (const [rx, cat] of _pays) if (rx.test(t)) return cat;
     /* ══ ET UNE PUBLICATION D'UN PAYS HORS DES HUIT A DÉSORMAIS SA RUBRIQUE (02/09) ═══════════════
        Le garde-fou d'origine laissait la ligne continuer son chemin : « mieux vaut le fourre-tout
@@ -18772,8 +18781,29 @@ const _SINGLE_STOCK_RE = /\b(?:dividend\s+(?:increase|hike|raise|boost)|(?:incre
 const _CLICKBAIT_RE = /(?:here'?s\s+(?:why|how|what|the\s+reason)|what\s+(?:it|this|that)\s+means\s+for\s+you|why\s+you\s+(?:should|shouldn'?t|might|need)|what\s+you\s+need\s+to\s+know|retail\s+(?:investors?|traders?)\s+(?:think|are\s|keep|love|hate|can'?t)|buying\s+(?:it\s+)?anyway|the\s+truth\s+about|you\s+won'?t\s+believe)/i;
 function _stripTrailingMeta(h) { return String(h || '').replace(/\s+\d{1,2}:\d{2}(?:\s+[A-Za-z0-9$]+){0,12}\s*$/i, '').trim(); }
 
+/* ══ UNE DONNÉE ÉCO D'UN PAYS QU'ON NE TRADE PAS N'EST PAS UNE NEWS DU DESK (29/08, capture
+   user : « Chile Unemployment rate above expectations (9.4%) in July » en Commentaire économique —
+   « le Chili on ne trade pas ça »). Le desk couvre les devises de son calendrier : USD, EUR (et ses
+   grands membres), GBP, JPY, CHF, CAD, AUD, NZD, CNY. Un taux de chômage chilien y prend la place
+   d'une ligne qui compte.
+   ⚠️ LE DOUTE PROFITE À LA LIGNE, deux fois. (1) On n'écarte que sur identification POSITIVE d'un
+   pays hors marché, ANCRÉ EN TÊTE de titre (les fils écrivent « Chile Unemployment… ») — un pays
+   inconnu ou cité en milieu de phrase laisse passer. (2) Il faut la FORME d'une publication chiffrée
+   (indicateur + consensus/actual, ou indicateur + pourcentage) : « Ukraine grain exports » ou une
+   news géopolitique russe ne matchent pas — la géopolitique de ces pays reste, seule leur
+   statistique macro part. Les exports/imports sont volontairement ABSENTS de la liste d'indicateurs
+   pour cette raison exacte. */
+const _PAYS_HORS_MARCHE_RX = /^(?:chile(?:an)?|turk(?:ey|ish)|india(?:n)?|brazil(?:ian)?|mexic(?:o|an)|south\s+africa(?:n)?|(?:south\s+)?korea(?:n)?|taiwan(?:ese)?|indonesia(?:n)?|philippines?|malaysia(?:n)?|thai(?:land)?|vietnam(?:ese)?|pol(?:and|ish)|hungar(?:y|ian)|czech|romania(?:n)?|argentin(?:a|e|ian)|colombia(?:n)?|peru(?:vian)?|egypt(?:ian)?|nigeria(?:n)?|kenya(?:n)?|pakistan(?:i)?|sri\s+lankan?|russia(?:n)?|ukrain(?:e|ian)|saudi(?:\s+arabian?)?|swed(?:en|ish)|norw(?:ay|egian)|dan(?:ish|emark)|denmark|iceland(?:ic)?|singapore(?:an)?|hong\s+kong)\b/i;
+const _INDIC_MACRO_RX = /\b(?:unemployment|jobless|inflation|cpi|ppi|gdp|pmi|retail\s+sales|industrial\s+(?:production|output)|trade\s+balance|current\s+account|consumer\s+confidence|rate\s+decision|interest\s+rate|payrolls?|manufacturing|housing\s+starts)\b/i;
+const _CONSENSUS_RX = /\bactual\b|above\s+expectations|below\s+expectations|vs\.?\s*(?:exp|forecast|consensus)|\bforecast\b|\bconsensus\b|\bprevious\b/i;
+function _estDonneeHorsMarche(h) {
+  if (!_PAYS_HORS_MARCHE_RX.test(h) || !_INDIC_MACRO_RX.test(h)) return false;
+  return _CONSENSUS_RX.test(h) || /\d[\d.,]*\s*%/.test(h);
+}
+
 function isNoise(headline) {
   const h = headline || '';
+  if (_estDonneeHorsMarche(h)) return true;   // stat macro d'un pays hors calendrier : on ne trade pas ça
   // Social-media reposts and failed-scrape stubs — never market-moving
   if (/^\[No Title\]/i.test(h))  return true;   // "[No Title] - Post from..."
   if (/^RT @/i.test(h))          return true;   // "RT @realDonaldTrump..."
@@ -18797,7 +18827,7 @@ function isNoise(headline) {
 
 // ─── High-impact economic data detector ──────────────────────────────────────
 // Matches actual data releases (not commentary) for tier-1 macro events
-const HIGH_IMPACT_RE = /\b(?:gdp\b.{0,60}(?:final|preliminary|flash|growth\s+rate|yoy|qoq|\bq[1-4]\b)|nonfarm\s+payroll|non.?farm\s+payroll|\bnfp\b|unemployment\s+rate\b|(?:core\s+)?cpi\b.{0,40}(?:final|preliminary|flash|actual|yoy|mom|m\/m|y\/y)|(?:core\s+)?pce\b.{0,40}(?:final|actual|yoy|mom)|consumer\s+price\s+index.{0,40}(?:final|actual|yoy|mom)|harmonized\s+index\s+of\s+consumer\s+prices|hicp\b.{0,30}(?:actual|yoy|mom)|inflation\s+rate\b.{0,60}(?:yoy|mom|y\/y|m\/m|prel|prelim|final|actual)|flash\s+(?:cpi|pmi|gdp)|pmi\s+(?:final|preliminary|flash).{0,30}actual|retail\s+sales\b.{0,30}(?:actual|yoy|mom|m\/m|\(apr|\(mar|\(feb|\(jan|\(may|\(jun)|import\s+prices?\b.{0,30}(?:actual|yoy|mom|above|below)|rate\s+decision\b|(?:fomc|ecb)\s+(?:rate|decision|statement|minutes))\b/i;
+const HIGH_IMPACT_RE = /\b(?:gdp\b.{0,60}(?:final|preliminary|flash|growth\s+rate|yoy|qoq|\bq[1-4]\b)|nonfarm\s+payrolls?|non.?farm\s+payrolls?|\bnfp\b|(?:benchmark\s+)?payrolls?\s+(?:annual\s+)?revision|benchmark\s+payrolls?|unemployment\s+rate\b|(?:core\s+)?cpi\b.{0,40}(?:final|preliminary|flash|actual|yoy|mom|m\/m|y\/y)|(?:core\s+)?pce\b.{0,40}(?:final|actual|yoy|mom)|consumer\s+price\s+index.{0,40}(?:final|actual|yoy|mom)|harmonized\s+index\s+of\s+consumer\s+prices|hicp\b.{0,30}(?:actual|yoy|mom)|inflation\s+rate\b.{0,60}(?:yoy|mom|y\/y|m\/m|prel|prelim|final|actual)|flash\s+(?:cpi|pmi|gdp)|pmi\s+(?:final|preliminary|flash).{0,30}actual|retail\s+sales\b.{0,30}(?:actual|yoy|mom|m\/m|\(apr|\(mar|\(feb|\(jan|\(may|\(jun)|import\s+prices?\b.{0,30}(?:actual|yoy|mom|above|below)|rate\s+decision\b|(?:fomc|ecb)\s+(?:rate|decision|statement|minutes))\b/i;
 
 // ─── Commentary / opinion detector — demotes false positives ─────────────────
 // Headlines that express support/approval/opinion of a policy rather than an action
