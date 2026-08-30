@@ -1312,7 +1312,25 @@ function phaseLogique() {
        cache garde 90 j. Chaque nombre est CAPTURÉ puis comparé en ≥ : resserrer un maillon rougit,
        l'élargir passe. */
     {
-      console.log('\n── Trois mois d\'archives dans l\'onglet ANALYSTES : la chaîne entière ──');
+      /* ── Bibliothèque de widgets : CHAQUE carte du catalogue porte une vignette (30/08, capture
+       user : « Indices & Matières » s'affichait sans aperçu — seule carte du catalogue dans ce
+       cas, WPREV ne portait pas sa clé et le repli WICO non plus). Compté à la SOURCE : ids du
+       catalogue vs clés de WPREV/WICO. ── */
+    {
+      const WJS = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
+      const idsW = [...WJS.matchAll(/^\s+id: '([a-z0-9-]+)', name: '/gm)].map(x => x[1]);
+      const cles = new Set();
+      for (const nomTable of ['var WPREV = {', 'var WICO = {']) {
+        const dT = WJS.indexOf(nomTable);
+        if (dT < 0) continue;
+        for (const x of WJS.slice(dT, WJS.indexOf('\n  };', dT)).matchAll(/'([a-z0-9-]+)':/g)) cles.add(x[1]);
+      }
+      const sansVig = idsW.filter(i => !cles.has(i));
+      verif('chaque carte du catalogue de widgets a sa vignette (plus jamais d\'aperçu vide)',
+        idsW.length > 30 && sansVig.length === 0, sansVig.join(', ') || idsW.length + ' ids lus');
+    }
+
+    console.log('\n── Trois mois d\'archives dans l\'onglet ANALYSTES : la chaîne entière ──');
       const SRV5 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
       const AUTH5 = fs.readFileSync(path.join(RACINE, 'auth.js'), 'utf8');
       const nb = (src, rx) => { const m = src.match(rx); return m ? parseInt(m[1], 10) : -1; };

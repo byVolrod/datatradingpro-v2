@@ -8934,6 +8934,23 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    // Indices & Matières : SEULE carte du catalogue sans vignette (30/08, capture user « il manque
+    // un aperçu ») — deux groupes étiquetés, barres bipolaires sur axe central, l'or en… or.
+    'indices-matieres': '<svg ' + _PV + '>'
+      + '<line x1="64" y1="12" x2="64" y2="30" stroke="#2a2a30"/>'
+      + '<line x1="64" y1="40" x2="64" y2="54" stroke="#2a2a30"/>'
+      + '<text x="8" y="9" font-size="5.5" font-weight="700" letter-spacing="1" fill="#6b7280">INDICES</text>'
+      + (function () { var v = [14, 8, -11], h = '';
+      for (var i = 0; i < 3; i++) { var y = 13 + i * 6.5, w = Math.abs(v[i]) * 2;
+        h += '<rect x="8" y="' + (y + 0.8) + '" width="18" height="2.6" rx="1.3" fill="#3a3d44" opacity=".85"/>'
+          + '<rect x="' + (v[i] >= 0 ? 64 : 64 - w) + '" y="' + y + '" width="' + w + '" height="4.2" rx="1" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".8"/>'; }
+      return h; })()
+      + '<text x="8" y="38" font-size="5.5" font-weight="700" letter-spacing="1" fill="#6b7280">MATIÈRES</text>'
+      + '<rect x="8" y="42.3" width="18" height="2.6" rx="1.3" fill="#3a3d44" opacity=".85"/>'
+      + '<rect x="64" y="41.5" width="27" height="4.2" rx="1" fill="#e3b23a" opacity=".85"/>'
+      + '<rect x="8" y="49.3" width="18" height="2.6" rx="1.3" fill="#3a3d44" opacity=".85"/>'
+      + '<rect x="45" y="48.5" width="19" height="4.2" rx="1" fill="#ff3d00" opacity=".8"/>'
+      + '</svg>',
     'taux-diff': '<svg ' + _PV + '><line x1="60" y1="8" x2="60" y2="48" stroke="#3a3f4b"/>' + (function () { var v = [22, 14, 6, -8, -18], h = ''; for (var i = 0; i < 5; i++) { var y = 11 + i * 8, w = Math.abs(v[i]) * 1.6; h += '<rect x="' + (v[i] >= 0 ? 60 : 60 - w) + '" y="' + y + '" width="' + w + '" height="5" rx="1" fill="' + (v[i] >= 0 ? '#00e676' : '#ff3d00') + '" opacity=".8"/>'; } return h; })() + '</svg>',
     'courbe-taux-us': '<svg ' + _PV + '>'
       + '<line x1="8" y1="46" x2="112" y2="46" stroke="#23232a"/>'

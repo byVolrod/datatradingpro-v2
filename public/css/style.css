@@ -21336,3 +21336,58 @@ html[data-theme="light"] .wpb-n { color: #6b7280; }
   /* Arrivé au bout, il n'y a plus rien à annoncer : le fondu s'efface (classe posée par app.js). */
   .navbar.nav-au-bout::after { opacity: 0; }
 }
+
+/* ═══ REFONTE VISUELLE DES NOUVEAUX WIDGETS (30/08, demande user : « améliore la lisibilité,
+   visibilité … refait une grosse refonte des nouveaux widgets, ne touche pas aux anciens ») ═════
+   Périmètre : les cartes du lot d'août (préfixes wdg-*) et la table Saisonnalité DU WIDGET
+   (.wdg-seawrap — la table du desk, plus ancienne, garde exactement son style). Trois gestes,
+   tous dans la charte DTP, posés en toute fin de feuille pour gagner la cascade :
+   1. le VERDICT prend l'encadré or du desk (liseré 2 px + voile dégradé), la même grammaire que
+      la synthèse des récaps — c'est la lecture principale, elle doit se voir ;
+   2. les CHIFFRES s'alignent (tabular-nums hérité à la racine des cartes) et les barres
+      bidirectionnelles gagnent une pointe dégradée, un halo doux et un axe central net ;
+   3. la HEATMAP Saisonnalité devient lisible sur toute intensité de fond : texte posé sur ombre,
+      flèches retirées (le signe et la couleur disent déjà le sens), colonne Moy. détachée à
+      l'or, cellules sans donnée hachurées (« pas encore coté » se voit), survol de ligne. */
+.wdg-xa, .wdg-seawrap, .wdg-mx, .wdg-am, .wdg-as, .wdg-freq, .wdg-di, .wdg-hm, .wdg-tl,
+.wdg-hb, .wdg-rb, .wdg-si, .wdg-ec, .wdg-cx, .wdg-dmx1, .wdg-dmxwrap, .wdg-cotwrap,
+.wdg-tick { font-variant-numeric: tabular-nums; }
+/* 1) Le verdict, encadré or — il flottait sur un simple filet haut, il porte l'identité du desk. */
+.wdg-verdict { border-top: none; margin: 5px 8px 7px; padding: 6px 10px 7px;
+  border-left: 2px solid rgba(227, 178, 58, .55); border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, rgba(227, 178, 58, .07), rgba(227, 178, 58, .015) 62%, transparent); }
+html[data-theme="light"] .wdg-verdict { border-left-color: rgba(129, 101, 33, .6);
+  background: linear-gradient(90deg, rgba(129, 101, 33, .07), transparent 62%); }
+.wdg-verdict-sous { margin-top: 2px; }
+/* Intitulés de groupe : le tiret or devant, façon rubriques du desk. */
+.wdg-xa-grp { display: flex; align-items: center; gap: 6px; color: var(--text3, #8a8a92); }
+.wdg-xa-grp::before { content: ''; flex: 0 0 auto; width: 10px; height: 1px;
+  background: var(--orange, #e3b23a); opacity: .6; }
+/* 2) Barres bidirectionnelles : piste un peu plus haute, axe net, pointe brillante, halo doux. */
+.wdg-xa-piste { height: 9px; background: var(--w-s3, rgba(255, 255, 255, .045)); }
+.wdg-xa-piste::before { background: rgba(255, 255, 255, .18); }
+.wdg-xa-piste u.est-haut { background: linear-gradient(90deg, rgba(0, 230, 118, .5), #00e676);
+  opacity: .92; box-shadow: 0 0 5px rgba(0, 230, 118, .28); }
+.wdg-xa-piste u.est-bas { background: linear-gradient(270deg, rgba(255, 61, 0, .5), #ff3d00);
+  opacity: .92; box-shadow: 0 0 5px rgba(255, 61, 0, .25); }
+.wdg-xa-l { padding: 3.5px 0; border-bottom: 1px solid rgba(255, 255, 255, .028); }
+.wdg-xa-l:hover { background: rgba(255, 255, 255, .025); }
+.wdg-xa-v { font-weight: 600; }
+html[data-theme="light"] .wdg-xa-l { border-bottom-color: rgba(0, 0, 0, .05); }
+html[data-theme="light"] .wdg-xa-l:hover { background: rgba(0, 0, 0, .03); }
+/* 3) Saisonnalité — WIDGET SEULEMENT (.wdg-seawrap) : la table du desk reste telle quelle. */
+.wdg-seawrap .season-td { font-size: 10.5px; font-weight: var(--fw-bold, 700); letter-spacing: .01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55); padding: 6px 2px;
+  border-bottom: 1px solid rgba(10, 10, 12, .5); border-right: 1px solid rgba(10, 10, 12, .4); }
+.wdg-seawrap .season-arrow { display: none; }
+.wdg-seawrap .season-th { font-size: 9.5px; color: #b6bcc6; letter-spacing: .12em; padding: 6px 2px; }
+.wdg-seawrap .season-th--avg, .wdg-seawrap .season-td--avg { border-left: 2px solid rgba(227, 178, 58, .45); }
+.wdg-seawrap .season-td--avg { font-size: 11px; }
+.wdg-seawrap .season-month { letter-spacing: .07em; text-transform: uppercase; font-size: 9.5px; }
+.wdg-seawrap .season-td--na { background: repeating-linear-gradient(45deg, transparent 0 5px,
+  rgba(255, 255, 255, .018) 5px 10px) var(--bg, #0c0c0e) !important; }
+.wdg-seawrap .season-table tbody tr:hover td { filter: brightness(1.18); }
+html[data-theme="light"] .wdg-seawrap .season-td { text-shadow: none;
+  border-bottom-color: rgba(0, 0, 0, .08); border-right-color: rgba(0, 0, 0, .06); }
+html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-linear-gradient(45deg,
+  transparent 0 5px, rgba(0, 0, 0, .03) 5px 10px) #faf8f2 !important; }
