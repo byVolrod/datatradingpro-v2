@@ -133,6 +133,18 @@ function serveur() {
          26/08 (« le chargement est long ») — /api/weekly-reports attendait Supabase pendant que les
          trois autres répondaient depuis leur cache, et le desk attendait les quatre. On reproduit
          donc la lenteur ici, exprès : sans elle, le contrôle passerait même avec le défaut. */
+      /* Vue CALENDRIER : de quoi rendre des lignes cliquables — le contrôle « pas de bande noire
+         à droite au déroulé » (30/08) ouvre la vraie vue et mesure la table contre son panneau. */
+      if (u === '/api/calendar-events') {
+        const evc = (h, ccy, title, imp, a, f, p) => ({ id: 'ce' + h, timestamp: Date.now() - 3600000 * h, currency: ccy, ctry: ccy.slice(0, 2), title, impact: imp, actual: a || '', forecast: f || '', previous: p || '', time: '14:30' });
+        const evts = [
+          evc(30, 'USD', 'Chicago Fed National Activity Index', 'Medium', '-0.08', '', '0.06'),
+          evc(20, 'AUD', 'RBA Meeting Minutes', 'High'),
+          evc(16, 'EUR', 'Ifo Business Climate', 'High', '88.8', '87.2', '86.7'),
+          evc(10, 'USD', 'CB Consumer Confidence', 'Medium', '89.4', '90.2', '90.2'),
+        ];
+        return j({ events: evts, items: evts });
+      }
       if (u === '/api/session-wraps') return j(WRAPS);
       if (u === '/api/bank-research') return j([]);
       if (u === '/api/fx-daily')      return j([]);
@@ -872,6 +884,40 @@ function phaseLogique() {
       };
     });
     const _indicDe = l => (l || []).find(t => /tag--indic/.test(t.cls));
+    /* ── CALENDRIER : le déroulé ne laisse JAMAIS de bande noire à droite (30/08, 2e capture
+       user : lignes arrêtées à ~1000 px dans un panneau de ~1180, déroulé pleine largeur — bande
+       noire à droite de toutes les lignes). On ouvre la VRAIE vue, on déroule, on MESURE : la
+       table épouse son panneau (gouttière d'ascenseur tolérée) et le déroulé ne dépasse pas. ── */
+    {
+      const calM = await page.evaluate(async () => {
+        const b = [...document.querySelectorAll('[data-view]')].find(x => /calendar/i.test(x.dataset.view || ''));
+        if (!b) return { absent: 'bouton de vue calendrier' };
+        b.click();
+        await new Promise(r => setTimeout(r, 1600));
+        const ligne = document.querySelector('#cal-table-wrap .cal-row--click');
+        if (ligne) { ligne.click(); await new Promise(r => setTimeout(r, 900)); }
+        const wrap = document.getElementById('cal-table-wrap');
+        const table = wrap && wrap.querySelector('table.cal-table');
+        const det = wrap && wrap.querySelector('.cal-detail-row');
+        const r = el => el ? Math.round(el.getBoundingClientRect().width) : null;
+        const mesures = { wrap: r(wrap), table: r(table), detail: r(det), lignes: wrap ? wrap.querySelectorAll('.cal-row--click').length : 0 };
+        const retour = [...document.querySelectorAll('[data-view]')].find(x => /news|actus/i.test(x.dataset.view || ''));
+        if (retour) { retour.click(); await new Promise(r2 => setTimeout(r2, 500)); }
+        return mesures;
+      });
+      console.log('\n── Calendrier : pas de bande noire à droite au déroulé ──');
+      if (calM.absent || !calM.lignes) {
+        console.log('  · vue calendrier non mesurable (' + JSON.stringify(calM) + ') → contrôle abstenu.');
+      } else {
+        verif('la table épouse son panneau (gouttière d\'ascenseur tolérée, ≤ 14px)',
+          calM.table != null && calM.wrap - calM.table <= 14, JSON.stringify(calM));
+        verif('le déroulé ouvert ne dépasse jamais la table', calM.detail != null && calM.detail <= calM.table + 1, JSON.stringify(calM));
+        verif('le plancher structurel est écrit (min-width: 100% sur la table, les 3 surfaces)',
+          /#cal-table-wrap \.cal-table, \.wdg-cal-wrap \.cal-table, #wa-cal-body \.cal-table \{ min-width: 100%; \}/
+            .test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
+      }
+    }
+
     /* ── Deux stabilités visuelles (30/08, captures user) : le calendrier ne bouge pas au
        déroulé d'une ligne, la Force ne clignote pas au retour d'onglet. ── */
     {

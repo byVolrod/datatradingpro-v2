@@ -21397,3 +21397,15 @@ html[data-theme="light"] .wdg-seawrap .season-td { text-shadow: none;
   border-bottom-color: rgba(0, 0, 0, .08); border-right-color: rgba(0, 0, 0, .06); }
 html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-linear-gradient(45deg,
   transparent 0 5px, rgba(0, 0, 0, .03) 5px 10px) #faf8f2 !important; }
+
+/* ═══ CALENDRIER : LA TABLE NE PEUT JAMAIS ÊTRE PLUS ÉTROITE QUE SON PANNEAU (30/08, capture user
+   « quand je déroule la news il y a un côté vide noir à droite ») ═══════════════════════════════
+   Sur la capture : lignes et en-têtes s'arrêtaient à ~1000 px dans un panneau de ~1180, pendant
+   que le déroulé, lui, courait sur toute la largeur — bande noire à droite de toutes les lignes.
+   Le rejeu local (Chromium, pleine largeur, semaine courante ET archive) rend la table pleine
+   largeur ; l'état fautif reste pourtant possible dès qu'une règle rend la table plus étroite que
+   son conteneur (table-layout figé sans étirement, somme de colonnes < panneau, build antérieur).
+   PLANCHER STRUCTUREL : min-width:100% — la table épouse AU MOINS son panneau, dans tous les
+   modes ; les règles mobiles de tenue à l'écran (min-width:0 !important, @media 480/560)
+   continuent de gagner chez elles, et rien n'empêche la table de DÉPASSER en carte étroite. */
+#cal-table-wrap .cal-table, .wdg-cal-wrap .cal-table, #wa-cal-body .cal-table { min-width: 100%; }
