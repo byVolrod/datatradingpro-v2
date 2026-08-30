@@ -9891,14 +9891,22 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
   font-family: 'Inter', sans-serif;
 }
 
-/* Zone de lecture — pleine largeur, scroll vertical */
+/* Zone de lecture — pleine largeur, scroll vertical.
+   30/08 (capture user, « quand on clique sur le pdf ça affiche comme ça ») : le fond BLANC était
+   posé EN PERMANENCE : pendant « Chargement du PDF… » toute la zone flashait en blanc, un rapport
+   court laissait un vide blanc sous lui, et l'ascenseur de la zone se peignait en CLAIR : la
+   « 2ᵉ barre de scroll » claire déjà signalée par l'utilisateur. Le blanc n'appartient qu'au
+   DOCUMENT (le papier) : il n'est posé que quand un article est affiché (:has) ; chargements,
+   PDF (canvas et iframe ont leur fond sombre propre) et états d'attente restent sur le fond du
+   desk, et l'ascenseur reste noir. */
 #br-rcontent {
-  background: #fff;      /* blanc puisque le document prend toute la place */
+  background: var(--bg);
   padding: 0;
   overflow-y: auto;
   flex: 1;
   min-width: 0;
 }
+#br-rcontent:has(.br-document) { background: #fff; }
 
 /* ═══════════════════════════════════════════════
    LIVE SQUAWK PANEL

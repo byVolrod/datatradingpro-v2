@@ -1053,6 +1053,35 @@ function phaseLogique() {
         && /\.wdg-dmxstats-table th \{\n  position: sticky; top: 0;/.test(CSS6));
     }
 
+    /* ── LECTEUR INSTITUTIONS : le blanc n'appartient qu'au DOCUMENT (30/08, capture user :
+       « quand on clique sur le pdf ça affiche comme ça » : zone entière blanche pendant
+       « Chargement du PDF… », ascenseur peint en clair). On éprouve la VRAIE règle dans le VRAI
+       navigateur : sans .br-document le fond est sombre (chargements, PDF, attentes), avec un
+       .br-document il redevient le papier blanc. ── */
+    {
+      const fondRc = await page.evaluate(() => {
+        const rc = document.getElementById('br-rcontent');
+        if (!rc) return { absent: true };
+        const avantHtml = rc.innerHTML;
+        rc.innerHTML = '';
+        const sans = getComputedStyle(rc).backgroundColor;
+        rc.innerHTML = '<div class="br-document"></div>';
+        const avec = getComputedStyle(rc).backgroundColor;
+        rc.innerHTML = avantHtml;
+        return { sans, avec };
+      });
+      console.log('\n── Lecteur Institutions : fond sombre en attente, papier blanc au document ──');
+      if (fondRc.absent) console.log('  · #br-rcontent absent → contrôle abstenu.');
+      else {
+        verif('sans document, la zone de lecture est SOMBRE (fini le flash blanc du chargement PDF)',
+          fondRc.sans !== 'rgb(255, 255, 255)', fondRc.sans);
+        verif('… et avec un document, le papier blanc revient (:has réel, pas une copie)',
+          fondRc.avec === 'rgb(255, 255, 255)', fondRc.avec);
+      }
+      verif('la règle du papier est écrite (:has(.br-document) → blanc, base sombre)',
+        /#br-rcontent:has\(\.br-document\) \{ background: #fff; \}/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
+    }
+
     /* ── Deux stabilités visuelles (30/08, captures user) : le calendrier ne bouge pas au
        déroulé d'une ligne, la Force ne clignote pas au retour d'onglet. ── */
     {
