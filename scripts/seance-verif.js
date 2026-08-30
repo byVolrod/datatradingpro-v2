@@ -120,20 +120,22 @@ const FAM = [
   ['ISM Manufacturing PMI', 'Croissance économique'], ['CB Consumer Confidence', 'Croissance économique'],
   ['Federal Funds Rate', 'Politique monétaire'], ['ECB Press Conference', 'Politique monétaire'],
   ['FOMC Meeting Minutes', 'Politique monétaire'], ['Fed Chair Powell Speaks', 'Politique monétaire'],
-  ['Trade Balance', 'Commerce'], ['Crude Oil Inventories', 'Autres'],
+  // « Trade Balance » va dans « Autres » DEPUIS LE RETRAIT de la famille « Commerce »
+  // (30/08, demande user) : c'est le rangement voulu, pas un échec de classement.
+  ['Trade Balance', 'Autres'], ['Crude Oil Inventories', 'Autres'],
 ];
 FAM.forEach(([t, att]) => v(`« ${t} » → ${att}`, S.famille(t) === att, S.famille(t)));
 // Les noms ET l'ordre sont ceux du Recap Quotidien (_ORDRE_FAM) : deux rapports lus a la suite le
 // meme jour doivent ranger pareil, sinon le lecteur se reoriente a chaque fois.
-v('mêmes familles, même ordre que le Quotidien',
-  S.ORDRE_FAM.join('|') === 'Inflation|Croissance économique|Emploi|Politique monétaire|Commerce|Autres', S.ORDRE_FAM.join('|'));
+v('mêmes familles, même ordre que le Quotidien (sans « Commerce », retiré le 30/08)',
+  S.ORDRE_FAM.join('|') === 'Inflation|Croissance économique|Emploi|Politique monétaire|Autres', S.ORDRE_FAM.join('|'));
 const g = S.parFamille([
   { titre: 'Claimant Count Change', ligne: 'A' }, { titre: 'German Prelim CPI m/m', ligne: 'B' },
   { titre: 'Prelim GDP q/q', ligne: 'C' }, { titre: 'Ifo Business Climate', ligne: 'D' },
 ]);
 v('l\'affichage suit l\'ordre du Quotidien', g.map(x => x.famille).join('|') === 'Inflation|Croissance économique|Emploi', g.map(x => x.famille).join('|'));
 v('les lignes d\'une même famille restent groupées', (g.find(x => x.famille === 'Croissance économique') || {}).lignes.join('') === 'CD');
-v('une famille sans chiffre ne s\'écrit pas', !g.some(x => x.famille === 'Commerce'));
+v('une famille sans chiffre ne s\'écrit pas', !g.some(x => x.famille === 'Politique monétaire'));
 v('une entrée sans ligne est ignorée', S.parFamille([{ titre: 'CPI', ligne: '' }]).length === 0);
 v('aucune entrée → aucun groupe', S.parFamille([]).length === 0);
 // Le regroupement est bien branche dans le recap, et il remplace la liste plate.
@@ -202,15 +204,17 @@ const lignesFam = f => {
   return (zone.match(/\['(?:Inflation|Emploi|Croissance économique|Politique monétaire|Commerce)', \/.*?\/i\]/g) || []);
 };
 const tSea = lignesFam('seance.js'), tApp = lignesFam('public/js/app.js'), tMail = lignesFam('mailer.js');
-v('la table est bien retrouvée dans les trois fichiers', tSea.length === 6 && tApp.length === 6 && tMail.length === 6, `${tSea.length}/${tApp.length}/${tMail.length}`);
+// 5 entrées depuis le retrait de « Commerce » (30/08) — l'alternation GARDE le mot exprès :
+// si l'entrée revenait dans une des trois tables, le compte casserait ici.
+v('la table est bien retrouvée dans les trois fichiers', tSea.length === 5 && tApp.length === 5 && tMail.length === 5, `${tSea.length}/${tApp.length}/${tMail.length}`);
 v('la règle « banquier central qui parle » est testée EN PREMIER', /^\['Politique monétaire', \/\^/.test(tSea[0]), tSea[0] && tSea[0].slice(0, 60));
 tSea.forEach((l, i) => {
   const fam = (l.match(/^\['([^']+)'/) || [])[1];
   v(`« ${fam} » identique dans le desk`, l === tApp[i], 'seance.js ≠ app.js');
   v(`« ${fam} » identique dans l'e-mail`, l === tMail[i], 'seance.js ≠ mailer.js');
 });
-v('l\'ordre d\'affichage est le même partout', /const _ORDRE_FAM = \['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'\]/.test(fs2.readFileSync(pa2.join(__dirname, '..', 'public/js/app.js'), 'utf8'))
-  && S.ORDRE_FAM.join('|') === "Inflation|Croissance économique|Emploi|Politique monétaire|Commerce|Autres");
+v('l\'ordre d\'affichage est le même partout', /const _ORDRE_FAM = \['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Autres'\]/.test(fs2.readFileSync(pa2.join(__dirname, '..', 'public/js/app.js'), 'utf8'))
+  && S.ORDRE_FAM.join('|') === "Inflation|Croissance économique|Emploi|Politique monétaire|Autres");
 
 console.log('\n── 7c-ter. Ce que le calendrier apporte, la table doit savoir le ranger ──');
 /* Les puces d'un récap parlent d'une dizaine d'indicateurs ; le CALENDRIER en publie des centaines.
@@ -243,7 +247,8 @@ RANGEMENTS.forEach(([t2, att]) => v(`« ${t2} » → ${att}`, S.famille(t2) === 
 v('les stocks pétroliers restent en « Autres »', S.famille('Crude Oil Inventories') === 'Autres');
 v('les élargissements n\'ont pas mangé l\'inflation', S.famille('Core PCE Price Index m/m') === 'Inflation' && S.famille('CPI m/m') === 'Inflation');
 v('ni l\'emploi', S.famille('Employment Level') === 'Emploi' && S.famille('Claimant Count Change') === 'Emploi');
-v('ni le commerce', S.famille('Trade Balance') === 'Commerce' && S.famille('Current Account') === 'Commerce');
+v('et le commerce rejoint « Autres » depuis le retrait de sa famille (30/08)',
+  S.famille('Trade Balance') === 'Autres' && S.famille('Current Account') === 'Autres');
 
 console.log('\n── 7c-quater. LE CORPUS : ce qui reste dans « Autres » est compté ──');
 /* « vérifie bien que tout est bien fait » (26/08). Une famille se juge sur du VOLUME, pas sur trois
@@ -269,16 +274,20 @@ const CORPUS = [
   'Trade Balance', 'Goods Trade Balance', 'Current Account', 'Exports m/m', 'Imports m/m', 'Foreign Securities Purchases',
   'Crude Oil Inventories', 'Natural Gas Storage', 'Federal Budget Balance', 'BOJ Core CPI y/y',
 ];
-const auFourreTout = CORPUS.filter(x => S.famille(x) === 'Autres');
-v(`au plus 5 % du corpus en « Autres » (${auFourreTout.length}/${CORPUS.length})`,
-  auFourreTout.length <= Math.ceil(CORPUS.length * 0.05), auFourreTout.join(' · '));
-/* Ces trois-là RESTENT en « Autres », et c'est la bonne réponse : un stock d'énergie et un solde
-   budgétaire ne sont ni de l'inflation, ni de la croissance, ni de l'emploi, ni de la politique
-   monétaire, ni du commerce. Les forcer quelque part serait un rangement faux. */
-['Crude Oil Inventories', 'Natural Gas Storage', 'Federal Budget Balance']
-  .forEach(x => v(`« ${x} » reste honnêtement en « Autres »`, S.famille(x) === 'Autres', S.famille(x)));
-v('chaque famille du corpus est représentée',
-  new Set(CORPUS.map(S.famille)).size === 6, [...new Set(CORPUS.map(S.famille))].join('|'));
+/* LES LIGNES DONT « AUTRES » EST LE FOYER VOULU ne comptent pas dans l'alarme : les stocks
+   d'énergie et le solde budgétaire depuis toujours, et les lignes COMMERCIALES depuis le retrait
+   de la famille « Commerce » (30/08, demande user) — chez elles par décision, pas par échec de
+   classement. L'alarme garde tout son mordant sur le reste : une vraie ligne mal classée fait
+   toujours rougir. */
+const AUTRES_VOULUS = new Set(['Crude Oil Inventories', 'Natural Gas Storage', 'Federal Budget Balance',
+  'Trade Balance', 'Goods Trade Balance', 'Current Account', 'Exports m/m', 'Imports m/m', 'Foreign Securities Purchases']);
+const auFourreTout = CORPUS.filter(x => S.famille(x) === 'Autres' && !AUTRES_VOULUS.has(x));
+v(`aucune ligne du corpus en « Autres » hors des foyers voulus (${auFourreTout.length}/${CORPUS.length})`,
+  auFourreTout.length === 0, auFourreTout.join(' · '));
+[...AUTRES_VOULUS]
+  .forEach(x => v(`« ${x} » est honnêtement en « Autres »`, S.famille(x) === 'Autres', S.famille(x)));
+v('chaque famille du corpus est représentée (5 depuis le retrait de « Commerce »)',
+  new Set(CORPUS.map(S.famille)).size === 5, [...new Set(CORPUS.map(S.famille))].join('|'));
 /* LA LIGNE DE LA CAPTURE, telle qu'elle a été écrite par l'IA. « wholesale trade » ne répondait à
    aucun motif : la seule puce de la rubrique sortait donc sans catégorie. */
 v('« Canada July flash wholesale trade » est de la croissance',
@@ -446,12 +455,14 @@ const QUOT = [{ section: 'Macro', items: [
 ]}];
 const q = W.html(QUOT, []).html;
 v('l\'ordre ouvre sur les rubriques du Radar de Biais', S.ORDRE_FAM_MACRO.slice(0, 4).join('|') === 'Politique monétaire|Inflation|Croissance économique|Emploi', S.ORDRE_FAM_MACRO.join('|'));
-/* AUCUNE LIGNE SANS CATÉGORIE (26/08, 2e retour : « ici il manque une catégorie »). Commerce et
-   Autres se rendaient d'abord et SANS titre — repris du Quotidien, où ces lignes voisinent toujours
-   avec des groupes intitulés. Ici la rubrique peut n'avoir QU'ELLES : une séance dont la seule
-   publication est « Canada wholesale trade » sortait une puce nue, sans une catégorie à l'écran. */
-v('Commerce et Autres ferment la marche, INTITULÉS', S.ORDRE_FAM_MACRO.slice(4).join('|') === 'Commerce|Autres', S.ORDRE_FAM_MACRO.join('|'));
-v('le commerce porte son titre', /<em>Commerce<\/em><ul><li>Canada/.test(q), q.slice(q.indexOf('<em>Commerce'), q.indexOf('<em>Commerce') + 90));
+/* AUCUNE LIGNE SANS CATÉGORIE (26/08, 2e retour : « ici il manque une catégorie »). Les lignes
+   hors des quatre familles du Radar se rendaient d'abord et SANS titre — repris du Quotidien, où
+   elles voisinent toujours avec des groupes intitulés. Ici la rubrique peut n'avoir QU'ELLES : une
+   séance dont la seule publication est « Canada wholesale trade » sortait une puce nue, sans une
+   catégorie à l'écran. (« Commerce » fermait la marche avec « Autres » jusqu'au retrait de la
+   famille, 30/08 : une mesure tarifaire vit désormais dans « Autres », toujours intitulée.) */
+v('« Autres » ferme la marche, INTITULÉ', S.ORDRE_FAM_MACRO.slice(4).join('|') === 'Autres', S.ORDRE_FAM_MACRO.join('|'));
+v('la mesure tarifaire vit sous le titre « Autres »', /<em>Autres<\/em><ul><li>Canada/.test(q), q.slice(q.indexOf('<em>Autres'), q.indexOf('<em>Autres') + 90));
 v('une rubrique qui n\'a QU\'une ligne hors des quatre reste catégorisée',
   /<strong>Macro<\/strong><em>Croissance économique<\/em><ul><li>Canada July flash wholesale trade/.test(W.html([{ section: 'Macro', items: ['Canada July flash wholesale trade : **-0.6%** → **contraction** inattendue du commerce de gros.'] }], []).html));
 v('… et une ligne vraiment inclassable sort sous « Autres », pas nue',
@@ -467,7 +478,8 @@ v('aucune ligne perdue', (q.match(/<li>/g) || []).length === 5, String((q.match(
 v('une inflation qui cite une banque reste Inflation', S.famille("L'inflation allemande accélère à 2,3% → pression sur la BCE") === 'Inflation');
 v('« BOJ Core CPI y/y » reste un chiffre d\'inflation', S.famille('BOJ Core CPI y/y') === 'Inflation', S.famille('BOJ Core CPI y/y'));
 v('« Fed Chair Powell Speaks » reste en Politique monétaire', S.famille('Fed Chair Powell Speaks') === 'Politique monétaire');
-v('« Canada (Ministre du Commerce…) » reste du Commerce', S.famille('Canada (Ministre du Commerce LeBlanc): tarifs de rétorsion') === 'Commerce');
+v('« Canada (Ministre du Commerce…) » rejoint « Autres », sans jamais passer banquier central',
+  S.famille('Canada (Ministre du Commerce LeBlanc): tarifs de rétorsion') === 'Autres');
 
 console.log('\n── 7e-ter. LES TROIS RÉCAPS DU JOUR, PAS SEULEMENT UN ──');
 /* « Met aussi pour les autres récap sessions » (26/08, capture du Récap Séance Asie-Pacifique).
@@ -844,14 +856,16 @@ console.log('\n── 7e-octies. « ANALYSE DE SÉANCE » RANGÉE PAR CLASSE D\'
  ['**Brent** : recule de 2% à 68 dollars le baril.', 'Matières premières'],
  ['**Actions** : le S&P 500 est en hausse de 0,3%.', 'Actions'],
  ['**Bitcoin** : franchit les 120 000 dollars.', 'Crypto'],
- ['**Canada** : annonce des contre-tarifs couvrant environ 20 milliards de dollars.', 'Commerce'],
+ // Depuis le retrait de la classe « Commerce » (30/08), une mesure tarifaire vit dans « Autres » —
+ // et SURTOUT pas en Devises : le motif commercial est gardé comme « Autres explicites » exprès.
+ ['**Canada** : annonce des contre-tarifs couvrant environ 20 milliards de dollars.', 'Autres'],
  ['Le marché reste attentiste avant la publication de demain.', 'Autres'],
 ].forEach(([l, att]) => v(`« ${l.slice(0, 46)}… » → ${att}`, S.familleActif(l) === att, S.familleActif(l)));
 /* ⚠️ LE SUJET PRIME SUR LA MENTION. Une devise apparaît partout, ne serait-ce que comme UNITÉ :
    « 20 milliards de dollars » ne fait pas une ligne devises. Les Devises sont donc testées EN
    DERNIER dans le repli sur le texte entier — mesuré, ce cas partait en Devises. */
 v('les Devises sont testées en dernier', S.ORDRE_ACTIFS.indexOf('Devises') === 0, 'ordre d\'AFFICHAGE (Devises en tête) — l\'ordre de TEST est interne');
-v('une unité monétaire ne fait pas une ligne devises', S.familleActif('**Canada** : contre-tarifs de 20 milliards de dollars') === 'Commerce');
+v('une unité monétaire ne fait pas une ligne devises', S.familleActif('**Canada** : contre-tarifs de 20 milliards de dollars') === 'Autres');
 /* « or » est aussi une conjonction en français : le motif nu envoyait n'importe quelle phrase en
    matières premières. Il exige désormais son article. */
 v('« Or, le marché… » n\'est pas une matière première', S.familleActif('Or, le marché reste attentiste.') === 'Autres', S.familleActif('Or, le marché reste attentiste.'));
@@ -873,7 +887,7 @@ const ha = W.html(ANA, [], null, null).html;
 v('la rubrique est découpée en classes', (ha.match(/<em>/g) || []).length === 4, String((ha.match(/<em>/g) || []).length));
 v('les Devises ouvrent la rubrique', /<strong>Analyse de séance<\/strong><em>Devises<\/em>/.test(ha), ha.slice(0, 90));
 v('l\'ordre d\'affichage est respecté',
-  ['Devises', 'Obligations', 'Actions', 'Commerce'].every((f, i, t2) => i === 0 || ha.indexOf('<em>' + t2[i - 1] + '</em>') < ha.indexOf('<em>' + f + '</em>')), ha);
+  ['Devises', 'Obligations', 'Actions', 'Autres'].every((f, i, t2) => i === 0 || ha.indexOf('<em>' + t2[i - 1] + '</em>') < ha.indexOf('<em>' + f + '</em>')), ha);
 v('aucune ligne perdue', (ha.match(/<li>/g) || []).length === 5, String((ha.match(/<li>/g) || []).length));
 // Une seule classe → pas de sous-titre : « Devises » au-dessus de trois lignes de devises n'apprend rien.
 const uneSeule = W.html([{ section: 'Analyse de séance', items: ['**DXY** : recule.', '**EUR** : monte.'] }], [], null, null).html;

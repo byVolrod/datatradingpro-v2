@@ -49,7 +49,7 @@ const ACTIFS = {
 
 /* FAMILLES — LES MÊMES QUE LE RÉCAP QUOTIDIEN (26/08, retour utilisateur : « dans macro je vois pas
    les news sorties dans leur catégorie comme quotidien »). Le Quotidien range ses chiffres par
-   famille — Inflation, Croissance économique, Emploi, Politique monétaire, Commerce — et le récap de
+   famille — Inflation, Croissance économique, Emploi, Politique monétaire — et le récap de
    séance sortait une liste plate. Deux rapports qui se lisent à la suite le même jour doivent ranger
    pareil, sinon le lecteur se réoriente à chaque fois.
    ⚠️ LES NOMS ET L'ORDRE SONT CEUX DE `_ORDRE_FAM` (public/js/app.js, mailer.js) et doivent le
@@ -57,8 +57,12 @@ const ACTIFS = {
    françaises rédigées par l'IA, côté navigateur et côté mail ; ici on classe des intitulés de
    calendrier, en anglais, côté serveur. Le projet n'a pas d'étape de build, un module Node ne peut
    donc pas être partagé avec app.js. Ce qui compte pour le lecteur — les noms et l'ordre — est
-   identique ; si on renomme une famille, il faut la renommer aux TROIS endroits. */
-const ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+   identique ; si on renomme une famille, il faut la renommer aux TROIS endroits.
+   ⚠️ LA FAMILLE « COMMERCE » EST RETIRÉE (30/08, demande user, dans la foulée du retrait de
+   « Commerce International & Tarifs » au Hebdo) : plus d'entrée dans les tables ni de libellé dans
+   les ordres — une balance commerciale ou une mesure tarifaire rejoint « Autres », qui porte son
+   intitulé. Le retrait vaut aux TROIS endroits, comme un renommage. */
+const ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Autres'];
 const FAM_RX = [
   /* UN BANQUIER CENTRAL QUI PARLE RELÈVE DE LA POLITIQUE MONÉTAIRE, MÊME S'IL PARLE D'INFLATION
      (26/08, capture du Récap Quotidien à l'appui : « Fed (Collins) : la désinflation est l'issue la
@@ -73,7 +77,6 @@ const FAM_RX = [
   ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|labou?r costs?|co[ûu]ts? salariaux|co[ûu]t du travail|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
   ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance d(?:es|u) (?:consommateurs?|m[ée]nages?|entreprises?)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|retail trade|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|industrial orders|(?:machine tool|machinery|core machinery) orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|consumer climate|\btankan\b|\bifo\b|\bzew\b|\bsentix\b|\bgfk\b|investor confidence|economic sentiment|business climate|business survey|climat des affaires|leading index|leading indicator|indicateur avanc[ée]|housing starts|building permits|home sales|house price|\bhpi\b|prix des logements|construction (?:output|spending|\bpmi\b)|wholesale (?:trade|sales)|commerce de gros|ventes en gros|manufacturing sales|building approvals|mortgage approvals|logements? neufs?|ventes de logements|corporate profits|b[ée]n[ée]fices des entreprises|productivity|productivit[ée]|(?:business|retail|wholesale) inventories|stocks des (?:entreprises|grossistes)|personal (?:spending|income)|consumer spending|d[ée]penses des m[ée]nages|revenus? des m[ée]nages|consumer credit|cr[ée]dit [àa] la consommation|tertiary industry|vehicle sales|car registrations|immatriculations|(?:philly|philadelphia|dallas|richmond|kansas city|\bkc\b|empire state|new york|\bny\b) fed (?:manufacturing|services|business|composite|index)|empire state manufacturing|richmond (?:manufacturing|services)/i],
   ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative|money supply|private sector credit|cr[ée]dit au secteur priv[ée]|net lending|mortgage lending|masse mon[ée]taire|private loans|pr[êe]ts au secteur priv[ée]|bank lending|cr[ée]dit bancaire/i],
-  ['Commerce', /guerre commerciale|trade war|tarifs?\b|droits? de douane|surtaxes?|r[ée]torsion|quotas?|embargo commercial|balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|securities purchases|capital flows|flux de capitaux|investissements? [ée]tranger|exports|imports|balance commerciale/i],
 ];
 /* TABLE REPRISE VERBATIM du Récap Quotidien (`_FAM_JOUR`, public/js/app.js) : c'est la seule façon
    de garantir qu'un même chiffre tombe dans la même famille dans les deux rapports. Elle est
@@ -98,17 +101,18 @@ function famille(titre) {
    l'intitulé en gras qui ouvre la puce — c'est le sujet, le prompt l'impose — et on ne retombe sur
    le texte entier que si la puce n'en porte pas. Sans cette priorité, une ligne devises citant le
    brut partait en matières premières. */
-const ORDRE_ACTIFS = ['Devises', 'Obligations', 'Matières premières', 'Actions', 'Crypto', 'Commerce', 'Autres'];
+const ORDRE_ACTIFS = ['Devises', 'Obligations', 'Matières premières', 'Actions', 'Crypto', 'Autres'];
 /* L'ORDRE DE CE TABLEAU EST UN ORDRE DE SPÉCIFICITÉ, PAS D'AFFICHAGE (celui-ci suit ORDRE_ACTIFS).
    Il compte pour le repli sur le texte entier : une puce cite une devise à tout bout de champ, ne
-   serait-ce que comme UNITÉ (« 20 milliards de dollars »), alors que « contre-tarifs » ou
-   « Treasuries » n'apparaissent que quand c'est le sujet. Les Devises passent donc EN DERNIER.
-   Mesuré : « **Canada** : annonce des contre-tarifs couvrant 20 milliards de dollars » partait en
-   Devises sur le mot « dollars ».
+   serait-ce que comme UNITÉ (« 20 milliards de dollars »), alors que « Treasuries » n'apparaît que
+   quand c'est le sujet. Les Devises passent donc EN DERNIER. Mesuré : « **Canada** : annonce des
+   contre-tarifs couvrant 20 milliards de dollars » partait en Devises sur le mot « dollars » —
+   d'où le motif « Autres explicites », testé en premier, qui retient les mesures commerciales dans
+   « Autres » depuis le retrait de la famille « Commerce » (30/08) au lieu de les laisser au repli.
    ⚠️ « or » EXIGE SON ARTICLE. En français « or » est aussi une conjonction (« or, le marché… ») :
    le motif nu envoyait n'importe quelle phrase en matières premières. */
 const ACTIF_RX = [
-  ['Commerce', /tarifs?\b|droits? de douane|contre[- ]tarifs?|surtaxes?|r[ée]torsion|guerre commerciale|embargo|quotas?|balance commerciale|exportations|importations/i],
+  ['Autres', /tarifs?\b|droits? de douane|contre[- ]tarifs?|surtaxes?|r[ée]torsion|guerre commerciale|embargo|quotas?|balance commerciale|exportations|importations/i],
   ['Crypto', /crypto|bitcoin|\bbtc\b|ethereum|\beth\b|stablecoin/i],
   ['Obligations', /obligation|rendement|treasur|\bbund\b|\bjgb\b|\bgilt\b|\boat\b|points? de base|\bbps\b|courbe des taux|dette souveraine|adjudication/i],
   ['Matières premières', /mati[èe]res? premi[èe]res|p[ée]trole|\bwti\b|\bbrent\b|(?:l|d)['’]or\b|\bgold\b|cuivre|\bgaz\b|\bopep\b|\bopec\b|baril|m[ée]taux|palladium|platine|soja/i],
@@ -166,7 +170,7 @@ function parFamilleActif(lignes) {
    catégorie à l'écran (26/08, capture : « ici il manque une catégorie »). Tout groupe porte donc
    son intitulé — et la leçon d'origine (une ligne non intitulée placée après un groupe se lit comme
    la suite de ce groupe) tombe d'elle-même, puisqu'il n'existe plus de ligne non intitulée. */
-const ORDRE_FAM_MACRO = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi', 'Commerce', 'Autres'];
+const ORDRE_FAM_MACRO = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi', 'Autres'];
 /* CHAQUE FAMILLE PRÉSENTE PORTE SON TITRE, MÊME SEULE (26/08, retour utilisateur captures à
    l'appui : « il manque la classification comme la 2è image »). La rubrique sortait en liste plate
    dès que toutes ses lignes tombaient dans la même famille — trois indicateurs de croissance, et

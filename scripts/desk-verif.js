@@ -1185,6 +1185,15 @@ function phaseLogique() {
         !/catégorisés[^\n]{0,400}Commerce International/.test(SRV4)
         && /PAS de thème « Commerce International & Tarifs »/.test(SRV4)
         && /guerre commerciale\/sanctions commerciales→Géopolitique/.test(SRV4));
+      /* « Commerce International » quitte aussi la Synthèse du Global Economic Weekly (30/08, même
+         demande, étendue par le user à tout le desk) : le prompt ne le commande plus, et les DEUX
+         rendus (desk + mail) filtrent l'en-tête pour que les GEW déjà archivés le perdent aussi. */
+      verif('le prompt du GEW ne commande plus « Commerce International »',
+        !/"Croissance & Emploi", "Commerce International"/.test(SRV4)
+        && /PAS de thème « Commerce International »/.test(SRV4));
+      verif('… et les deux rendus du GEW filtrent l\'en-tête (desk + mail), archives comprises',
+        /w\.synthese\.filter\(s => s && !\/commerce international\/i\.test\(String\(s\.heading \|\| ''\)\)\)/.test(APP3)
+        && /\.filter\(x => !\/commerce international\/i\.test\(x\.h\)\)/.test(fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8')));
     }
 
     /* ══ LES RESTES ANGLAIS DU DESK (audit 28/08, angle « texte produit resté en anglais ») ═════
@@ -1440,7 +1449,8 @@ function phaseLogique() {
          Ce qui ne rentre pas dans les quatre rubriques du Radar — une mesure commerciale, un prix du
          brut — se rendait EN TÊTE et SANS intitulé. C'était mon arbitrage (rendues APRÈS un groupe
          titré, ces puces se lisaient comme sa suite) et c'est le MÊME que le user avait déjà tranché
-         le 26/08 sur le récap de séance. Commerce et Autres sont des familles comme les autres.
+         le 26/08 sur le récap de séance. Depuis le 30/08 (demande user), la famille « Commerce »
+         est RETIRÉE : la mesure tarifaire vit dans « Autres », qui porte toujours son intitulé.
          Le contrôle est fait sur un RENDU RÉEL : le classement est écrit en dur dans une fonction de
          500 lignes, aucune lecture de source ne dirait ce que le lecteur voit. */
       const m = q.macro || {};
@@ -1449,10 +1459,12 @@ function phaseLogique() {
       } else {
         verif('Macro : aucune puce avant le premier sous-titre', !m.puceAvantTitre, (m.titres || []).join(' · '));
         verif('Macro : toutes les puces sont rendues', m.puces === 3, m.puces + ' puce(s)');
-        verif('Macro : « Commerce » porte son intitulé', (m.titres || []).indexOf('Commerce') >= 0, (m.titres || []).join(' · '));
-        verif('Macro : « Autres » aussi', (m.titres || []).indexOf('Autres') >= 0, (m.titres || []).join(' · '));
+        verif('Macro : plus aucun intitulé « Commerce » (famille retirée le 30/08)',
+          (m.titres || []).indexOf('Commerce') < 0, (m.titres || []).join(' · '));
+        verif('Macro : la mesure tarifaire vit sous « Autres », toujours intitulée',
+          (m.titres || []).indexOf('Autres') >= 0, (m.titres || []).join(' · '));
         verif('Macro : les rubriques du Radar passent en premier',
-          (m.titres || []).indexOf('Inflation') < (m.titres || []).indexOf('Commerce'), (m.titres || []).join(' · '));
+          (m.titres || []).indexOf('Inflation') < (m.titres || []).indexOf('Autres'), (m.titres || []).join(' · '));
         verif('Macro : « Autres » ferme la rubrique',
           (m.titres || []).indexOf('Autres') === (m.titres || []).length - 1, (m.titres || []).join(' · '));
       }

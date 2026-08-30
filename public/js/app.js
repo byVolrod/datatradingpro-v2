@@ -9854,11 +9854,13 @@ function _renderWeeklyRecap(item) {
       body += `</div>`;
     }
     // 1) SYNTHÈSE — style « Points Macro Clés » (demande user) : puces thématiques (Banques Centrales, Inflation
-    //    & Croissance, Croissance & Emploi, Commerce, Marchés) = sous-titres blancs (wr-macro-heading) + puces à
+    //    & Croissance, Croissance & Emploi, Marchés) = sous-titres blancs (wr-macro-heading) + puces à
     //    libellé gras (wr-bullet), COMME le Récap. Repli sur le pavé texte (highlights) si la synthèse structurée manque.
+    //    « Commerce International » est RETIRÉ (30/08, demande user) : filtré ici au rendu, comme au Hebdo,
+    //    pour que les GEW déjà archivés perdent le thème eux aussi ; le prompt ne le commande plus.
     if (Array.isArray(w.synthese) && w.synthese.length) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
-      w.synthese.forEach((s, si) => {
+      w.synthese.filter(s => s && !/commerce international/i.test(String(s.heading || ''))).forEach((s, si) => {
         body += (si ? `<div class="wr-sep"></div>` : '') + `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
         (s.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
       });
@@ -10786,10 +10788,13 @@ function _renderFXDailyRecap(item) {
     ['Emploi', /cr[ée]ations? d.emplois?|demandes d.allocation|inscriptions au ch[oô]mage|march[ée] du travail|\bnfp\b|non[-\s]?farm|payroll|unemployment|jobless|initial claims|continuing claims|\badp\b|\bjolts\b|job openings|employment|hourly earnings|wage|labou?r force|labou?r costs?|co[ûu]ts? salariaux|co[ûu]t du travail|participation rate|job cuts|ch[oô]mage|emploi|salaire|claimant count|claimant|effectifs|licenciements/i],
     ['Croissance économique', /indice d.activit[ée]|activity index|\bcfnai\b|activit[ée] [ée]conomique|indice manufacturier|indice des directeurs d.achat|ventes au d[ée]tail|production industrielle|commandes (?:de biens|industrielles|d.usine)|confiance d(?:es|u) (?:consommateurs?|m[ée]nages?|entreprises?)|activit[ée] manufacturi[èe]re|activit[ée] des services|mises en chantier|permis de construire|croissance [ée]conomique|\bgdp\b|gross domestic|\bpib\b|growth rate|retail sales|retail trade|\bism\b|\bpmi\b|industrial production|manufacturing production|factory orders|industrial orders|(?:machine tool|machinery|core machinery) orders|durable goods|capacity utilization|business confidence|consumer confidence|consumer sentiment|consumer climate|\btankan\b|\bifo\b|\bzew\b|\bsentix\b|\bgfk\b|investor confidence|economic sentiment|business climate|business survey|climat des affaires|leading index|leading indicator|indicateur avanc[ée]|housing starts|building permits|home sales|house price|\bhpi\b|prix des logements|construction (?:output|spending|\bpmi\b)|wholesale (?:trade|sales)|commerce de gros|ventes en gros|manufacturing sales|building approvals|mortgage approvals|logements? neufs?|ventes de logements|corporate profits|b[ée]n[ée]fices des entreprises|productivity|productivit[ée]|(?:business|retail|wholesale) inventories|stocks des (?:entreprises|grossistes)|personal (?:spending|income)|consumer spending|d[ée]penses des m[ée]nages|revenus? des m[ée]nages|consumer credit|cr[ée]dit [àa] la consommation|tertiary industry|vehicle sales|car registrations|immatriculations|(?:philly|philadelphia|dallas|richmond|kansas city|\bkc\b|empire state|new york|\bny\b) fed (?:manufacturing|services|business|composite|index)|empire state manufacturing|richmond (?:manufacturing|services)/i],
     ['Politique monétaire', /d[ée]cision de taux|taux directeur|politique mon[ée]taire|r[ée]union de politique|rate decision|interest rate decision|\bfomc\b|rate statement|monetary policy|cash rate|\bocr\b|bank rate|official rate|refi rate|deposit rate|policy rate|federal funds|official bank rate|refinancing rate|overnight rate|loan prime rate|press conference|conf[ée]rence de presse|economic projections|meeting minutes|minutes de la|comptes rendus?|\bfed\b|\bfomc\b|\bbce\b|\becb\b|\bboj\b|\bboe\b|\bboc\b|\brba\b|\brbnz\b|\bsnb\b|\bbns\b|\bpboc\b|banque centrale|central bank|taux inchang|maintien du taux|hausse de(?:s)? taux|baisse de(?:s)? taux|resserrement|assouplissement|hawkish|dovish|quantitative|money supply|private sector credit|cr[ée]dit au secteur priv[ée]|net lending|mortgage lending|masse mon[ée]taire|private loans|pr[êe]ts au secteur priv[ée]|bank lending|cr[ée]dit bancaire/i],
-    ['Commerce', /guerre commerciale|trade war|tarifs?\b|droits? de douane|surtaxes?|r[ée]torsion|quotas?|embargo commercial|balance commerciale|exportations|importations|d[ée]ficit commercial|trade balance|balance of trade|current account|securities purchases|capital flows|flux de capitaux|investissements? [ée]tranger|exports|imports|balance commerciale/i],
+    /* LA FAMILLE « COMMERCE » EST RETIRÉE (30/08, demande user, dans la foulée du retrait de
+       « Commerce International & Tarifs » au Hebdo) : une balance commerciale ou une mesure
+       tarifaire rejoint « Autres », qui porte son intitulé. Retrait aux TROIS endroits, comme un
+       renommage : ici, seance.js et mailer.js. */
   ];
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Commerce', 'Autres'];
+  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Autres'];
 
   /* ── MACRO : STRICTEMENT LES SECTIONS DEMANDÉES (25/08, arbitrage user — d'abord trois, puis
      QUATRE le même jour : « il y a 4 catégories pas 3, les 4 de l'onglet biais »). La liste qui
@@ -10825,12 +10830,13 @@ function _renderFXDailyRecap(item) {
        séance (« ici il manque une catégorie ») : ce qui ne rentre dans aucune des quatre rubriques du
        Radar se rendait EN TÊTE et SANS titre, pour ne pas se lire comme la suite du groupe précédent.
        Placé en tête, le problème changeait simplement de côté : le lecteur voyait deux puces qui ne
-       disaient pas de quoi elles parlaient. Commerce et Autres sont des familles comme les autres et
-       portent désormais leur intitulé, à leur place, EN FIN de rubrique — les quatre du Radar
-       d'abord, puisque ce sont elles qui font la lecture d'une devise.
+       disaient pas de quoi elles parlaient. « Autres » est une famille comme les autres et porte
+       son intitulé, à sa place, EN FIN de rubrique — les quatre du Radar d'abord, puisque ce sont
+       elles qui font la lecture d'une devise. (« Commerce » portait le sien au même titre jusqu'au
+       30/08 ; la famille est retirée sur demande user et ses puces vivent dans « Autres ».)
        L'ordre est celui du récap de séance (_SEA.ORDRE_FAM_MACRO) : les deux rapports se lisent à la
        suite, ils ne peuvent pas ranger la même chose dans deux ordres différents. */
-    const _ORDRE_MACRO = _SECTIONS_NEWS.concat(['Commerce', 'Autres']);
+    const _ORDRE_MACRO = _SECTIONS_NEWS.concat(['Autres']);
     // Filet : une famille absente de l'ordre d'affichage ne DISPARAÎT pas, elle rejoint « Autres ».
     // Elle ne peut venir que d'un renommage de _FAM_JOUR, et perdre des puces en silence serait pire.
     Array.from(_macroFam.keys()).forEach(f => {
