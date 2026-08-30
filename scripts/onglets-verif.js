@@ -416,11 +416,26 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
         dernier: (() => { const t = tabs[tabs.length - 1], r = t.getBoundingClientRect(); return { nom: t.textContent.trim(), entier: r.left >= br.left - 1 && r.right <= br.right + 1 }; })(),
       };
     });
+    /* ⚠️ CHAQUE CRAN ATTEND QUE LE DÉFILEMENT SE POSE, PAS 60 MS FIXES (30/08, première exécution
+       sur un runner GitHub : le retour de 30 crans laissait scrollLeft à 531 — sur une machine à
+       2 vCPU, l'animation `smooth` n'a pas fini quand le cran suivant part, et les crans partent
+       dans le vide. Vert ici, rouge là-bas : le banc mesurait la vitesse de la machine, pas le
+       desk). On modélise le vrai geste : un cran, la vue se pose, le cran suivant. « Posé » =
+       scrollLeft inchangé sur 3 relevés de 50 ms, avec un garde-fou de 5 s par cran. */
     const roue = (n) => page.evaluate(async (k) => {
       const bar = document.querySelector('#view-widgets .wdg-card--tabs .wdgt-bar');
+      const pose = async () => {
+        let prev = -1, calme = 0;
+        for (let g = 0; g < 100 && calme < 3; g++) {
+          await new Promise(r => setTimeout(r, 50));
+          const sl = bar.scrollLeft;
+          if (Math.abs(sl - prev) < 0.5) calme++; else calme = 0;
+          prev = sl;
+        }
+      };
       for (let i = 0; i < Math.abs(k); i++) {
         bar.dispatchEvent(new WheelEvent('wheel', { deltaY: k > 0 ? 120 : -120, bubbles: true, cancelable: true }));
-        await new Promise(r => setTimeout(r, 60));
+        await pose();
       }
     }, n);
 
