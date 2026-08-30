@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260915-biais-audite', ts: Date.UTC(2026, 8, 15, 12, 0), title: 'Radar de Biais : audit complet de la chaîne, un défaut fermé, une garde permanente', desc: 'Vous nous avez demandé de vérifier que les biais des devises collent bien aux données : audit complet effectué, de la publication du calendrier jusqu’au verdict affiché. LE CONSTAT D’ENSEMBLE EST BON : le verdict découle à 100% des cellules affichées (politique monétaire, inflation, croissance, emploi), toutes nourries par les publications réelles du calendrier ; le chômage est bien inversé partout (un chômage qui monte pèse sur la devise) ; le niveau d’inflation ne se compare qu’en glissement annuel, à la cible de SA banque centrale ; le différentiel de taux suit sa courbe graduée au millième près ; et le classement est relatif entre les huit devises, comme sur un vrai desk. UN DÉFAUT RÉEL A ÉTÉ TROUVÉ ET FERMÉ : la mémoire du « Prochain mouvement » (l’hystérésis qui évite qu’un pricing hésitant fasse clignoter la direction) ne vivait qu’en mémoire vive. Au pricing actuel de la Fed (57,6% de hausse), un serveur en marche affichait « Hausse » quand un serveur fraîchement redéployé affichait « Maintien » : même donnée, deux affichages, sur le Radar comme sur l’onglet TAUX. Cette mémoire est désormais rechargée au démarrage depuis le dernier état publié. ET LA CHAÎNE A SA GARDE PERMANENTE : cinquante-six contrôles automatiques rejouent désormais à chaque livraison la surprise d’une publication (négatifs compris), l’inversion du chômage à ses trois étages, les valeurs exactes du différentiel de taux, le classement relatif et le défaut du redéploiement, fermé.' },
   { id: 'dtpu-20260915-hebdo-toutes-puces', ts: Date.UTC(2026, 8, 15, 10, 0), title: 'Le prochain Récap Hebdo gardera toutes ses puces, rubrique par rubrique', desc: 'Une vérification de fond menée avant l’édition de samedi a mis au jour deux restes de l’ancienne fabrique du Récap Hebdo, hérités d’avant la séparation des catégories. Le premier supprimait la rubrique « Banque centrale » au moment d’écrire le rapport : elle était ensuite reconstituée à l’affichage depuis les données des banques, mais dans une version plus pauvre que celle rédigée pour l’occasion. Le second reclassait les rubriques fraîchement séparées avec les règles d’AVANT la séparation : Inflation, Croissance économique et Emploi se refusionnaient en un seul bloc, plafonné à six puces, alors que trois rubriques de deux à trois puces en font jusqu’à neuf. Des puces pouvaient donc disparaître du rapport enregistré, sans trace, et l’affichage ne peut pas ressusciter ce qui n’a jamais été écrit. Les deux mécanismes sont retirés : le rapport s’enregistre désormais tel que rédigé, rubriques séparées, rubrique Banque centrale comprise, chaque rubrique gardant jusqu’à six puces. Le scénario exact (trois rubriques de trois puces, neuf puces attendues à l’arrivée) est rejoué à chaque livraison par un contrôle automatique.' },
   { id: 'dtpu-20260915-commerce-partout', ts: Date.UTC(2026, 8, 15, 8, 0), title: 'Le retrait de la rubrique Commerce s’applique à tout le desk', desc: 'Dans la foulée du Récap Hebdo, la catégorie Commerce disparaît partout où elle rangeait encore : la rubrique Macro et les Chiffres du jour du Récap Quotidien, les récaps de séance (Macro et Analyse de séance) et la Synthèse du Global Economic Weekly (« Commerce International »). Une balance commerciale ou une mesure tarifaire rejoint « Autres », qui porte toujours son intitulé : rien ne se perd, rien ne sort sans catégorie. Un soin particulier a été apporté au classement : une puce comme « Canada : contre-tarifs de 20 milliards de dollars » aurait pu glisser dans la rubrique Devises sur le seul mot « dollars » ; elle est retenue dans « Autres » exprès. Les rapports déjà archivés suivent, le mail comme le desk, et plus de six cents contrôles automatiques rejouent le nouveau rangement à chaque livraison.' },
   { id: 'dtpu-20260914-commerce-retire', ts: Date.UTC(2026, 8, 14, 22, 0), title: 'Points Macro Clés : la rubrique Commerce International & Tarifs est retirée', desc: 'Vous nous l’avez demandé : la rubrique « Commerce International & Tarifs » disparaît des Points Macro Clés du Récap Hebdo. Le retrait est appliqué au moment d’afficher, comme pour « Performance Cross-Asset » avant elle : les rapports déjà archivés perdent donc la rubrique eux aussi, sans être réécrits. Les faits de commerce ne sont pas perdus pour autant : les prochains rapports rangent un bras de fer tarifaire entre États dans « Géopolitique », là où vivent les autres rapports de force, et une retombée chiffrée (exportations, PIB, prix) dans la rubrique de sa donnée. La grammaire macro du Hebdo se resserre donc à six familles : Géopolitique, Banque centrale, Inflation, Croissance économique, Emploi, Technologie & Innovation, dans cet ordre.' },
@@ -14022,7 +14023,9 @@ let _smartBias = null;
 try { _smartBias = JSON.parse(fs.readFileSync(SMART_BIAS_FILE, 'utf8')); } catch {}
 if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) _smartBias = SMART_BIAS_SEED;
 // Recharge le bias DURABLE (Supabase) s'il est plus frais que le disque/seed (le disque Render est éphémère).
-try { auth.aiCacheGet('smartbias:matrix').then(b => { if (b && Array.isArray(b.rows) && b.rows.length && b.generatedAt && (!_smartBias.generatedAt || b.generatedAt > _smartBias.generatedAt)) _smartBias = b; }).catch(() => {}); } catch {}
+// Le snapshot adopté ENSEMENCE AUSSI la mémoire d'hystérésis (_sbSeedStanceLast : codes encore vierges
+// seulement) — c'est le chemin du conteneur reconstruit, où le fichier disque n'existe plus.
+try { auth.aiCacheGet('smartbias:matrix').then(b => { if (b && Array.isArray(b.rows) && b.rows.length && b.generatedAt && (!_smartBias.generatedAt || b.generatedAt > _smartBias.generatedAt)) { _smartBias = b; _sbSeedStanceLast(b); } }).catch(() => {}); } catch {}
 // ── Versioning Smart Bias : historique des semaines (max 5), durable (fichier + Supabase) ──
 const SMART_BIAS_HIST_FILE = path.join(_CACHE_DIR, 'cache_smart_bias_history.json');
 // Clé de semaine du bias = la semaine À TRADER (N). Généré le samedi (Paris) à partir de la semaine
@@ -14549,6 +14552,29 @@ function _sbScenarioFor(code) {
 // rafraîchissement. On ENTRE dans une direction à 60 %, on n'en SORT qu'en dessous de 45 %.
 const _SB_HYST_IN = 60, _SB_HYST_OUT = 45;
 const _sbStanceLast = {};   // code → 'Up' | 'Down' | 'Hold' (dernière direction retenue)
+/* ⚠️ LA MÉMOIRE D'HYSTÉRÉSIS EST ENSEMENCÉE AU DÉMARRAGE (30/08, audit Biais — défaut rejoué par
+   sonde sur le pricing FedWatch réel du jour, hausse 57,6 % / baisse 0 %) : cette mémoire ne vivait
+   qu'en RAM. Un serveur en marche depuis des semaines affichait « Hausse » pour l'USD (le pricing
+   avait dépassé 60 % par le passé ; l'hystérésis retient la direction tant qu'elle reste ≥ 45 %),
+   quand un serveur fraîchement redéployé affichait « Maintien » (état neuf, prev = Hold,
+   57,6 < 60). MÊME donnée, DEUX affichages — sur le Radar ET l'onglet TAUX (_sbStanceMove) — et le
+   score monétaire passait de +1 à +0,5, assez pour déplacer un biais d'un cran relatif. La
+   direction affichée vit déjà dans le snapshot persisté (macroTable[c].monetary.dir, même
+   vocabulaire Up/Down/Hold) : on la recharge comme mémoire. Ne remplit que les codes encore
+   VIERGES — un état déjà écrit par la session courante (calcul live ou seed antérieur) est
+   toujours plus frais qu'un snapshot. Appelée après le chargement disque (ci-dessous, une fois ce
+   const initialisé — l'appeler depuis la zone de chargement lèverait une TDZ) et au chargement
+   Supabase (conteneur reconstruit, sans fichier disque). */
+function _sbSeedStanceLast(snap) {
+  try {
+    const mt = (snap && snap.macroTable) || {};
+    for (const c of Object.keys(mt)) {
+      const d = ((mt[c] || {}).monetary || {}).dir;
+      if ((d === 'Up' || d === 'Down' || d === 'Hold') && !(c in _sbStanceLast)) _sbStanceLast[c] = d;
+    }
+  } catch {}
+}
+_sbSeedStanceLast(_smartBias);   // le fichier disque est déjà chargé à ce point du module
 function _sbHystDir(code, hike, cut) {
   const prev = _sbStanceLast[code] || 'Hold';
   const h = +hike || 0, c = +cut || 0;
