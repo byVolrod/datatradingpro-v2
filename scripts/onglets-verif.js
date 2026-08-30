@@ -484,6 +484,31 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
     v('… et le fondu de droite s\'éteint', /wdgt-au-bout/.test(e.classes), e.classes);
     await roue(-30);
     e = await etat();
+    /* DIAGNOSTIC D'ENVIRONNEMENT (30/08) : sur le runner GitHub, le retour molette laisse
+       scrollLeft EXACTEMENT à sa butée, de façon déterministe, alors qu'il revient à 0 partout
+       ailleurs. Quand le retour échoue, on fait dire au navigateur fautif CE QU'IL VOIT :
+       version, géométrie, bords calculés par le vrai _bordSuivant, et deux sondes — un cran
+       arrière isolé (le gestionnaire est-il seulement entré ?) et une écriture directe de
+       scrollLeft (l'écriture est-elle obéie ?). Des lignes « · », pas des contrôles. */
+    if (e.sl > 6) {
+      const diag = await page.evaluate(async () => {
+        const bar = document.querySelector('#view-widgets .wdg-card--tabs .wdgt-bar');
+        const d = { ua: navigator.userAgent.match(/Chrom\S+/g), sw: bar.scrollWidth, cw: bar.clientWidth,
+                    sl0: bar.scrollLeft, snap: getComputedStyle(bar).scrollSnapType,
+                    beh: getComputedStyle(bar).scrollBehavior,
+                    bords: [...bar.querySelectorAll('.wdgt-tab, .wdgt-add')].map(t => t.offsetLeft) };
+        const ev = new WheelEvent('wheel', { deltaY: -120, bubbles: true, cancelable: true });
+        bar.dispatchEvent(ev);
+        d.prevented = ev.defaultPrevented;                     // le gestionnaire a couru et a pris le geste
+        await new Promise(r => setTimeout(r, 400));
+        d.slApresCran = bar.scrollLeft;
+        bar.scrollLeft = 0;                                    // l'écriture directe est-elle obéie ?
+        await new Promise(r => setTimeout(r, 400));
+        d.slApresEcriture = bar.scrollLeft;
+        return d;
+      });
+      console.log('  · diagnostic : ' + JSON.stringify(diag));
+    }
     v('la molette revient au début', e.sl <= 6 && /wdgt-au-debut/.test(e.classes), 'scrollLeft ' + Math.round(e.sl) + ' · ' + e.classes);
     v('… sans onglet coupé au retour', e.coupesG.length === 0, e.coupesG.join(', '));
     await page.close();
