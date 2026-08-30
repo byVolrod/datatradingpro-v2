@@ -277,6 +277,41 @@ function phaseLogique() {
     // Une analyse du desk et une dépêche urgente : deux lignes rouges attendues.
     verif('les news majeures ressortent en rouge', d.rouges === 2, d.rouges + ' rouge(s) au lieu de 2 dans #news-list');
     verif('… dans la copie du widget aussi', d.rougesWidget === 2, d.rougesWidget + ' rouge(s) au lieu de 2 dans .wdg-news');
+    /* ── LE DÉPLIÉ D'UNE NEWS ROUGE GARDE LE FOND DE SA LIGNE (30/08, demande user, référence à
+       l'appui : « le fond de la description de la news importante en rouge doit avoir la même
+       couleur ») : la vieille règle « la description repasse au gris #15161b » est levée : le
+       déplié est TRANSPARENT et laisse traverser le bordeaux de la ligne, au repos comme au
+       survol. On déplie une VRAIE ligne rouge du fil et on mesure les deux fonds calculés. ── */
+    {
+      const rg = await page.evaluate(async () => {
+        // Ligne rouge CONSTRUITE avec une description (les majeures du bouchon n'en ont pas
+        // toutes) : c'est buildNewsItem, la vraie fabrique du fil, qui rend et déplie.
+        const it = { id: 'rgx1', headline: 'US Treasury has reportedly informed banks that it may intervene in the Yen market',
+          description: 'US Treasury told banks that they should stand by for future actions.',
+          category: 'Global News', tags: ['USD'], timestamp: Date.now(), priority: 'high', urgent: true, _highImpact: true };
+        const ligne = window.buildNewsItem(it);
+        const nl = document.getElementById('news-list');
+        if (!nl || !ligne) return { absent: 'fabrique ou liste' };
+        nl.prepend(ligne);
+        (ligne.querySelector('.news-headline') || ligne).click();
+        await new Promise(r => setTimeout(r, 600));
+        const desc = ligne.querySelector('.news-description');
+        const f = e => getComputedStyle(e).backgroundColor;
+        const out = { ligne: f(ligne), desc: desc ? f(desc) : null, visible: !!(desc && desc.classList.contains('visible')) };
+        ligne.remove();   // on ne laisse pas la ligne synthétique aux contrôles suivants
+        return out;
+      });
+      if (rg.absent) console.log('  · déplié rouge non mesurable (' + rg.absent + ') → contrôle abstenu.');
+      else {
+        verif('le déplié d\'une news rouge est TRANSPARENT (le bordeaux de la ligne traverse)',
+          rg.visible && rg.desc === 'rgba(0, 0, 0, 0)', JSON.stringify(rg));
+        verif('… et la ligne dépliée garde son fond rouge (jamais le gris des news normales)',
+          /^rgb\(3[0-9], 2[0-9], 2[0-9]\)$/.test(rg.ligne || ''), rg.ligne);
+      }
+      verif('la règle transparente est écrite, hover compris (l\'ancienne boîte grise est levée)',
+        /\.news-item--breaking:hover \.news-description\.visible \{ background: transparent !important; \}/
+          .test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
+    }
     verif('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
 
     /* ── ANDROID : UNE NOTIFICATION SYSTÈME QUI ÉCHOUE NE FIGE PAS LE FIL (04/09) ────────────────
