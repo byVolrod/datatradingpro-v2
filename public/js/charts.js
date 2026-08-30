@@ -3769,7 +3769,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // hauteur restante depuis le retrait de la trajectoire implicite (04/08, jugée inutile) : ses
       // lignes se répartissent l'espace au lieu de laisser un vide en bas — même parti que la table
       // de saisonnalité, qui remplit son panneau de la même façon.
-      + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Date de réunion</th><th>Jour</th><th>Baisse (%)</th><th>Maintien (%)</th><th>Hausse (%)</th><th>Δ implicite (BPS)</th><th>Scénario central</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Date de réunion</th><th>Jours</th><th>Baisse (%)</th><th>Maintien (%)</th><th>Hausse (%)</th><th>Δ implicite (BPS)</th><th>Scénario central</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       + '</div>';
   }
 
