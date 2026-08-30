@@ -1194,6 +1194,52 @@ function phaseLogique() {
       verif('… et les deux rendus du GEW filtrent l\'en-tête (desk + mail), archives comprises',
         /w\.synthese\.filter\(s => s && !\/commerce international\/i\.test\(String\(s\.heading \|\| ''\)\)\)/.test(APP3)
         && /\.filter\(x => !\/commerce international\/i\.test\(x\.h\)\)/.test(fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8')));
+      /* ── LA GÉNÉRATION SUIT LA GRAMMAIRE v49 (30/08, défauts mesurés AVANT le 1er hebdo v48+) ──
+         Deux post-traitements d'avant la refonte mangeaient la sortie du prompt : le filtre v13
+         SUPPRIMAIT le thème « Banque centrale » commandé (la section dédiée qui justifiait la
+         dédup n'est plus rendue), et _orderMacroCanon re-fusionnait « Inflation », « Croissance
+         économique » et « Emploi » dans son canon « Inflation & Croissance » écrêté à 6 puces :
+         3 familles × 3 puces = 9, trois puces PERDUES en silence dans le rapport STOCKÉ, que
+         l'éclatement du rendu ne peut pas ressusciter. On extrait le bloc v49 RÉEL de server.js
+         et on rejoue ces chiffres exacts. */
+      const dG = SRV4.indexOf('GRAMMAIRE MACRO v49 À LA GÉNÉRATION (repère du banc : début)');
+      const fG = SRV4.indexOf('GRAMMAIRE MACRO v49 À LA GÉNÉRATION (repère du banc : fin)', dG + 10);
+      verif('le bloc de génération v49 est extractible', dG > 0 && fG > dG);
+      if (dG > 0 && fG > dG) {
+        const srcG = SRV4.slice(SRV4.indexOf('{', dG), SRV4.lastIndexOf('}', fG) + 1);
+        const FG = new Function('weekly', srcG + '\nreturn weekly.macro;');
+        const gOut = FG({ macro: [
+          { heading: 'Banque centrale', bullets: ['**Fed :** a maintenu son taux directeur (17 sept.).', '**BCE :** ton prudent.'] },
+          { heading: 'Politique monétaire', bullets: ['**BoE :** minutes partagées.'] },
+          { heading: 'Inflation', bullets: ['i1', 'i2', 'i3'] },
+          { heading: 'Croissance économique', bullets: ['c1', 'c2', 'c3'] },
+          { heading: 'Emploi', bullets: ['e1', 'e2', 'e3'] },
+          { heading: 'Géopolitique', bullets: ['g1'] },
+          { heading: '', bullets: ['x'] },
+          { heading: 'Technologie & Innovation', bullets: [] },
+        ] });
+        verif('les familles séparées du prompt SURVIVENT à la génération (aucune re-fusion)',
+          ['Inflation', 'Croissance économique', 'Emploi'].every(h => gOut.some(t => t.heading === h))
+          && !gOut.some(t => /inflation.*croiss|croiss.*inflation/i.test(t.heading)),
+          JSON.stringify(gOut.map(t => t.heading)));
+        verif('les 9 puces des trois familles sont TOUTES stockées (l\'écrêtage v21 en perdait 3)',
+          ['Inflation', 'Croissance économique', 'Emploi']
+            .reduce((n, h) => n + ((gOut.find(t => t.heading === h) || { bullets: [] }).bullets.length), 0) === 9,
+          JSON.stringify(gOut.map(t => t.heading + ':' + t.bullets.length)));
+        const gCb = gOut.find(t => t.heading === 'Banque centrale');
+        verif('le thème « Banque centrale » commandé par le prompt SURVIT (le filtre v13 le jetait)',
+          !!gCb, JSON.stringify(gOut.map(t => t.heading)));
+        verif('… et les variantes d\'en-tête CB fusionnent sous lui, sans perdre une puce',
+          !!gCb && gCb.bullets.length === 3 && gOut.filter(t => /banque|mon[ée]taire/i.test(t.heading)).length === 1,
+          gCb ? JSON.stringify(gCb.bullets) : 'thème absent');
+        verif('un thème vide ou sans en-tête ne se stocke pas',
+          gOut.every(t => t.heading && t.bullets.length), JSON.stringify(gOut.map(t => t.heading)));
+        const gCap = FG({ macro: [{ heading: 'Inflation', bullets: ['1', '2', '3', '4', '5', '6', '7', '8'] }] });
+        verif('le plafond reste PAR thème : 8 puces → 6', !!gCap[0] && gCap[0].bullets.length === 6,
+          String(gCap[0] && gCap[0].bullets.length));
+        verif('le code mort est vraiment mort : _orderMacroCanon et _MACRO_CANON ont quitté server.js',
+          !/function _orderMacroCanon\(/.test(SRV4) && !/const _MACRO_CANON = \[/.test(SRV4));
+      }
     }
 
     /* ══ LES RESTES ANGLAIS DU DESK (audit 28/08, angle « texte produit resté en anglais ») ═════
