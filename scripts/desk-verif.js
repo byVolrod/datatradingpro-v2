@@ -1065,8 +1065,8 @@ function phaseLogique() {
         verif('« Performance Cross-Asset » ne se rend plus (archives comprises)', !themes.includes('Performance Cross-Asset'), themes.join(' | '));
         verif('« Commerce International & Tarifs » non plus (retiré le 30/08 sur demande user)',
           !themes.some(h => /commerce/i.test(h)), themes.join(' | '));
-        verif('l\'ordre est Banque centrale → Inflation → Croissance → Emploi → Technologie',
-          themes.slice(0, 5).join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Technologie & Innovation',
+        verif('l\'ordre est Banque centrale → Inflation → Emploi → Croissance → Technologie (importance 30/08)',
+          themes.slice(0, 5).join('|') === 'Banque centrale|Inflation|Emploi|Croissance économique|Technologie & Innovation',
           themes.join(' | '));
         verif('… et un en-tête inconnu passe en QUEUE, jamais à la poubelle', themes[themes.length - 1] === 'Un thème inconnu', themes.join(' | '));
         /* ⚠️ L'EN-TÊTE FUSIONNÉ EST ÉCLATÉ, PLUS JAMAIS RENDU (30/08, 2e capture user : « je
@@ -1088,8 +1088,8 @@ function phaseLogique() {
         const vT = vieux.map(t => t.heading);
         verif('l\'en-tête fusionné des archives est ÉCLATÉ, plus jamais rendu',
           !vT.some(h => /inflation.*croiss|croiss.*inflation/i.test(h)), vT.join(' | '));
-        verif('… chaque puce rejoint SA famille des quotidiens, dans l\'ordre des quotidiens (Commerce filtré)',
-          vT.join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Autres chiffres de la semaine',
+        verif('… chaque puce rejoint SA famille des quotidiens, dans l\'ordre d\'importance (Commerce filtré)',
+          vT.join('|') === 'Banque centrale|Inflation|Emploi|Croissance économique|Autres chiffres de la semaine',
           vT.join(' | '));
         const vInfl = vieux.filter(s => s.heading === 'Inflation');
         verif('… la famille recréée FUSIONNE avec la native (une seule « Inflation », deux puces)',
@@ -1175,8 +1175,8 @@ function phaseLogique() {
       }
       /* Le prompt du serveur suit la même grammaire : plus de cross-asset, banque centrale en tête. */
       const SRV4 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
-      verif('le prompt du Hebdo produit les en-têtes des quotidiens',
-        /"Géopolitique", "Banque centrale", "Inflation", "Croissance économique", "Emploi", "Technologie & Innovation"/.test(SRV4));
+      verif('le prompt du Hebdo produit les en-têtes des quotidiens, Emploi avant Croissance',
+        /"Géopolitique", "Banque centrale", "Inflation", "Emploi", "Croissance économique", "Technologie & Innovation"/.test(SRV4));
       verif('… et ne commande plus de « Performance Cross-Asset »',
         !/catégorisés[^\n]{0,400}Performance Cross-Asset/.test(SRV4));
       /* L'absence se mesure PRÈS de l'ancre « catégorisés » (la liste du prompt), comme pour
@@ -1188,6 +1188,26 @@ function phaseLogique() {
       /* « Commerce International » quitte aussi la Synthèse du Global Economic Weekly (30/08, même
          demande, étendue par le user à tout le desk) : le prompt ne le commande plus, et les DEUX
          rendus (desk + mail) filtrent l'en-tête pour que les GEW déjà archivés le perdent aussi. */
+      /* ORDRE PAR IMPORTANCE dans le BLOC DEVISE (30/08, demande user « la plus importante à la
+         moins importante ») : Banque centrale, Inflation, Emploi, Croissance économique — mesuré
+         sur la SOURCE du rendu (l'ordre des rubriques y est écrit en dur), desk ET mail.
+         + « Biais / Scénario » devient « Biais » (les deux surfaces). */
+      const _ccyZone = APP3.slice(APP3.indexOf('ORDRE DES RUBRIQUES (30/08'), APP3.indexOf('fin .wr-ccy-body'));
+      const _pos = lbl => _ccyZone.indexOf(lbl);
+      verif('le bloc devise du Hebdo range Banque centrale → Inflation → Emploi → Croissance',
+        _pos('>Banque centrale') > -1 && _pos('>Banque centrale') < _pos('>Inflation<')
+        && _pos('>Inflation<') < _pos('>Emploi<') && _pos('>Emploi<') < _pos('Croissance économique'),
+        [_pos('>Banque centrale'), _pos('>Inflation<'), _pos('>Emploi<'), _pos('Croissance économique')].join(', '));
+      verif('… et clôt sur « Biais », plus jamais « Biais / Scénario »',
+        /<strong>Biais :<\/strong>/.test(_ccyZone) && !/Biais \/ Scénario :<\/strong>/.test(APP3));
+      const MAIL3 = fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8');
+      verif('le mail du Hebdo suit le même ordre de rubriques, et dit « Biais » lui aussi',
+        /\{ titre: titreCB[\s\S]{0,200}\{ titre: 'Inflation'[\s\S]{0,150}\{ titre: 'Emploi'[\s\S]{0,150}\{ titre: titreCroi/.test(MAIL3)
+        && /_ligne\('Biais',/.test(MAIL3) && !/_ligne\('Biais \/ Scénario'/.test(MAIL3));
+      verif('le prompt tient « Semaine à venir » et « Biais » à UNE phrase courte et concrète',
+        /"biasRationale": "<UNE phrase COURTE \(max ~18 mots\)/.test(SRV4)
+        && /"conclusion": "<UNE phrase COURTE \(max ~18 mots\)/.test(SRV4)
+        && /INTERDIT : « l'attention se portera sur »/.test(SRV4));
       verif('le prompt du GEW ne commande plus « Commerce International »',
         !/"Croissance & Emploi", "Commerce International"/.test(SRV4)
         && /PAS de thème « Commerce International »/.test(SRV4));

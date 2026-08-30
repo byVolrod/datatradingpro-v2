@@ -10004,11 +10004,13 @@ function _renderWeeklyRecap(item) {
        même traitement que « Performance Cross-Asset » : filtré au rendu, archives comprises, et le
        prompt ne le commande plus (les faits commerciaux rejoignent la Géopolitique, un bras de fer
        tarifaire entre États en relève ; leurs retombées chiffrées, le thème de la donnée). */
+    /* ORDRE 30/08 (demande user) : Emploi passe DEVANT Croissance économique — l'ordre d'importance
+       est Banque centrale, Inflation, Emploi, Croissance, partout dans les deux récaps. */
     const _WR_MACRO_RANG = [
       [/banque centrale|politique mon[ée]taire/i, 0],
       [/^inflation\b(?!.*croiss)/i, 1],
-      [/croissance/i, 2],
-      [/emploi/i, 3],
+      [/emploi/i, 2],
+      [/croissance/i, 3],
       [/technologie/i, 4],
     ];
     const _wrRang = h => { for (const [rx, r] of _WR_MACRO_RANG) if (rx.test(h)) return r; return 9; };
@@ -10132,13 +10134,16 @@ function _renderWeeklyRecap(item) {
           if (p.date) line += ` <span class="wr-print-date">(${_wrEsc(p.date)})</span>`;
           return `<div class="wr-bullet wr-cat">${line}</div>`;
         };
-        // ORDRE DES RUBRIQUES = celui de la référence du user (refonte 11/08) : Croissance économique,
-        // Emploi, Inflation, puis Politique monétaire (« Fed / Pricing »), moteurs, Semaine à venir,
-        // Biais / Scénario. On part des DONNÉES, on finit par la lecture.
-        // 1) Croissance économique / Emploi — prints de la semaine, déterministe. v42 : « Emploi » a sa
-        // propre rubrique (employmentPrints) ; anciens rapports sans ce champ → libellé groupé (rétro-compat).
+        /* ORDRE DES RUBRIQUES (30/08, demande user « met dans l'ordre la plus intelligente … la plus
+           importante à la moins importante ») : BANQUE CENTRALE, INFLATION, EMPLOI, CROISSANCE
+           ÉCONOMIQUE — le moteur n°1 d'une devise d'abord, puis les prix qu'il surveille, puis
+           l'emploi, la croissance en dernier. Remplace l'ordre « données d'abord » de la référence
+           du 11/08. Appliqué AU RENDU : les rapports déjà archivés se réordonnent aussi.
+           Puis moteurs, Semaine à venir, Biais. */
         const groPrints = Array.isArray(cd.growthPrints) ? cd.growthPrints : [];
         const empPrints = Array.isArray(cd.employmentPrints) ? cd.employmentPrints : [];
+        const infPrints = Array.isArray(cd.inflationPrints) ? cd.inflationPrints : [];
+        const cbBullets = Array.isArray(cd.cbBullets) ? cd.cbBullets : [];
         /* MÊME STRUCTURE POUR CHAQUE DEVISE (18/08, demande user). Une rubrique sans publication
            DISPARAISSAIT : le lecteur ne pouvait pas distinguer « rien n est sorti cette semaine » de
            « le desk a oublié de regarder ». Les rapports v44+ portent `rubriquesVides` ; pour eux les
@@ -10147,27 +10152,7 @@ function _renderWeeklyRecap(item) {
            rubrique inventée sur un rapport qui n a pas été produit pour ça. */
         const _rubOK = Array.isArray(cd.rubriquesVides);
         const _rien = '<div class="wr-text wr-rien">Aucune publication cette semaine.</div>';
-        if (groPrints.length || _rubOK) {
-          body += `<div class="wr-macro-heading">${(empPrints.length || _rubOK) ? 'Croissance économique' : 'Croissance &amp; Emploi'}</div>`;
-          if (groPrints.length) groPrints.forEach(p => { body += printRow(p); });
-          else body += _rien;
-        }
-        if (empPrints.length || _rubOK) {
-          body += `<div class="wr-macro-heading">Emploi</div>`;
-          if (empPrints.length) empPrints.forEach(p => { body += printRow(p); });
-          else body += _rien;
-        }
-        // 2) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
-        const infPrints = Array.isArray(cd.inflationPrints) ? cd.inflationPrints : [];
-        if (cd.inflation || infPrints.length || _rubOK) {
-          body += `<div class="wr-macro-heading">Inflation</div>`;
-          if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
-          infPrints.forEach(p => { body += printRow(p); });
-          if (!cd.inflation && !infPrints.length) body += _rien;
-        }
-        // 3) Politique monétaire (« Fed / Pricing » de la référence) — prose IA + 1 puce PAR INTERVENANT
-        //    + la ligne de pricing marché.
-        const cbBullets = Array.isArray(cd.cbBullets) ? cd.cbBullets : [];
+        // 1) Banque centrale — prose IA + décision de la semaine + 1 puce PAR INTERVENANT + pricing marché.
         if (cd.monetaryPolicy || cbBullets.length || cd.pricing || _rubOK) {
           // Rubrique nommée d'après LA banque de la devise (« Fed / Pricing », « BoE / Pricing »…),
           // comme dans la référence — « Politique monétaire » était le même intitulé pour les huit.
@@ -10200,7 +10185,27 @@ function _renderWeeklyRecap(item) {
           // Rubrique déclarée mais sans matière : on le dit, au lieu de laisser un intitulé nu.
           if (!cd.monetaryPolicy && !cbBullets.length && !cd.pricing) body += _rien;
         }
-        // 4) THÈMES DE LA SEMAINE — rendus comme dans la référence : des lignes intitulées
+        // 2) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
+        if (cd.inflation || infPrints.length || _rubOK) {
+          body += `<div class="wr-macro-heading">Inflation</div>`;
+          if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
+          infPrints.forEach(p => { body += printRow(p); });
+          if (!cd.inflation && !infPrints.length) body += _rien;
+        }
+        // 3) Emploi — prints de la semaine, déterministe (v42 : rubrique séparée de la croissance).
+        if (empPrints.length || _rubOK) {
+          body += `<div class="wr-macro-heading">Emploi</div>`;
+          if (empPrints.length) empPrints.forEach(p => { body += printRow(p); });
+          else body += _rien;
+        }
+        // 4) Croissance économique — en dernier des quatre ; anciens rapports sans employmentPrints
+        //    → libellé groupé « Croissance & Emploi » (rétro-compat).
+        if (groPrints.length || _rubOK) {
+          body += `<div class="wr-macro-heading">${(empPrints.length || _rubOK) ? 'Croissance économique' : 'Croissance &amp; Emploi'}</div>`;
+          if (groPrints.length) groPrints.forEach(p => { body += printRow(p); });
+          else body += _rien;
+        }
+        // 5) THÈMES DE LA SEMAINE — rendus comme dans la référence : des lignes intitulées
         //    (« Banque centrale : … », « Commerce : … », « Fiscal : … »), SANS titre de rubrique
         //    au-dessus. « Principaux moteurs » était un intitulé de plus pour trois lignes.
         //    ⚠️ PAS DE GÉOPOLITIQUE ICI (15/08, demande user : « on aborde déjà la partie géo avant
@@ -10222,15 +10227,16 @@ function _renderWeeklyRecap(item) {
         });
         // « Catalyseurs de la semaine » RETIRÉ (refonte 11/08) : chaque catalyseur figurait DÉJÀ, avec
         // son chiffre réel et sa lecture, dans les puces Croissance / Emploi / Inflation ci-dessus.
-        // 5) Semaine à venir : rendez-vous majeurs DATÉS (déterministe) + conclusion prospective.
-        // 5) et 6) « Semaine à venir » et « Biais / Scénario » : deux LIGNES INTITULÉES, pas deux
-        //    rubriques à titre — c'est ainsi qu'elles closent chaque devise dans la référence.
+        // 6) et 7) « Semaine à venir » et « Biais » : deux LIGNES INTITULÉES, pas deux rubriques à
+        //    titre — c'est ainsi qu'elles closent chaque devise dans la référence. « Biais / Scénario »
+        //    devient « Biais » (30/08, demande user « met juste biais ») ; le texte lui-même est tenu
+        //    à UNE phrase courte par le prompt (v50), les archives gardent leur texte d'époque.
         const wkAhead = Array.isArray(cd.weekAhead) ? cd.weekAhead : [];
         if (wkAhead.length || cd.conclusion) {
           const _prog = wkAhead.length ? `<span class="wr-drv-prog">${wkAhead.map(_wrEsc).join(' · ')}</span>` : '';
           body += `<div class="wr-text wr-drv"><strong>Semaine à venir :</strong> ${cd.conclusion ? _wrInline(cd.conclusion) : ''}${_prog ? (cd.conclusion ? '<br>' : '') + _prog : ''}</div>`;
         }
-        if (cd.biasRationale) body += `<div class="wr-text wr-drv"><strong>Biais / Scénario :</strong> ${_wrInline(cd.biasRationale)}</div>`;
+        if (cd.biasRationale) body += `<div class="wr-text wr-drv"><strong>Biais :</strong> ${_wrInline(cd.biasRationale)}</div>`;
         body += `</div>`;   // fin .wr-ccy-body
         body += `</div>`;   // fin .wr-ccy-block
       });
@@ -10794,7 +10800,9 @@ function _renderFXDailyRecap(item) {
        renommage : ici, seance.js et mailer.js. */
   ];
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Autres'];
+  /* ORDRE 30/08 (demande user « la plus importante à la moins importante ») : Politique monétaire,
+     Inflation, Emploi, Croissance économique — partout où ces familles s'affichent. */
+  const _ORDRE_FAM = ['Politique monétaire', 'Inflation', 'Emploi', 'Croissance économique', 'Autres'];
 
   /* ── MACRO : STRICTEMENT LES SECTIONS DEMANDÉES (25/08, arbitrage user — d'abord trois, puis
      QUATRE le même jour : « il y a 4 catégories pas 3, les 4 de l'onglet biais »). La liste qui
@@ -10818,7 +10826,7 @@ function _renderFXDailyRecap(item) {
        Il rejoint la rubrique du Radar, en tête, plutôt que d'ouvrir une rubrique parallèle qui
        disait la même chose sous un autre nom. Au passage, une actualité macro sur les taux tombait
        jusqu'ici dans la liste sans intitulé faute de rubrique où aller : elle a la sienne. */
-    const _SECTIONS_NEWS = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi'];
+    const _SECTIONS_NEWS = ['Politique monétaire', 'Inflation', 'Emploi', 'Croissance économique'];
     const _macroFam = new Map();
     _macroPts.forEach(t => { const fam = _famJour(t); _macroFam.set(fam, (_macroFam.get(fam) || []).concat([t])); });
     // `cb` entre EN TÊTE de la Politique monétaire : la décision d'abord, son écho macro ensuite.

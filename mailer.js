@@ -1890,15 +1890,17 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     // « Aucune publication cette semaine. » s'écrivait quatre fois sous quatre intertitres :
     // huit lignes de vide pour deux lignes utiles (mesuré sur NZD et CHF). Le même fait tient
     // en une ligne, qui nomme les rubriques regardées : rien n'est perdu, rien n'est empilé.
+    /* ORDRE 30/08 (demande user, MÊME ordre que le desk) : Banque centrale, Inflation, Emploi,
+       Croissance économique — de la plus importante à la moins importante pour la devise. */
     const rubs = [
-      { titre: titreCroi, html: croiL, vide: !croiL && declVide('croissance') },
-      { titre: 'Emploi', html: empL, vide: !empL && declVide('emploi') },
-      { titre: 'Inflation', html: infL, vide: !infL && declVide('inflation') },
       // La banque centrale se lit dans les deux sens : la matière réelle d'abord (le test
       // serveur, 11006, porte sur `cbQuotes`, un champ qui n'existe nulle part, donc
       // « banque » y est déclarée vide dès que `pricing` manque, propos ou pas), et la phrase
       // sobre seulement si le rapport a VRAIMENT déclaré cette rubrique vide.
       { titre: titreCB, html: cbL, vide: !cbL && declVide('banque') },
+      { titre: 'Inflation', html: infL, vide: !infL && declVide('inflation') },
+      { titre: 'Emploi', html: empL, vide: !empL && declVide('emploi') },
+      { titre: titreCroi, html: croiL, vide: !croiL && declVide('croissance') },
     ];
     const vides = rubs.filter(r => r.vide);
     const rubBloc = (!rubs.some(r => r.html) && vides.length === rubs.length)
@@ -1918,8 +1920,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     const wa = (Array.isArray(cd.weekAhead) ? cd.weekAhead : []).map(_md).filter(Boolean);
     const sav = (wa.length || _md(cd.conclusion))
       ? _ligne('Semaine à venir', `${_esc(_md(cd.conclusion))}${wa.length ? ` <span style="color:${TOK.grisDoux};">${_esc(wa.join(' · '))}</span>` : ''}`) : '';
-    const bsc = _md(cd.biasRationale) ? _ligne('Biais / Scénario', _esc(_md(cd.biasRationale))) : '';
-    // « Semaine à venir » et « Biais / Scénario » ne sont PAS des moteurs : rendus avec la
+    const bsc = _md(cd.biasRationale) ? _ligne('Biais', _esc(_md(cd.biasRationale))) : '';
+    // « Semaine à venir » et « Biais » ne sont PAS des moteurs : rendus avec la
     // même grammaire juste sous l'intertitre « Moteurs », ils étaient lus comme deux moteurs
     // de plus. Ils regardent devant, ils ont leur propre intertitre.
     const aVenir = (sav || bsc) ? _ssTitre('À venir') + sav + bsc : '';
@@ -2660,7 +2662,8 @@ function _recapQuotidienFull(fx) {
        et ici. */
   ];
   const _famJour = t => (_FAM_JOUR.find(([, rx]) => rx.test(String(t || ''))) || ['Autres'])[0];
-  const _ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Autres'];
+  // ORDRE 30/08 (demande user) : le même que le desk — Politique monétaire, Inflation, Emploi, Croissance.
+  const _ORDRE_FAM = ['Politique monétaire', 'Inflation', 'Emploi', 'Croissance économique', 'Autres'];
 
   /* ── MACRO : STRICTEMENT LES SECTIONS DEMANDÉES (25/08) — MÊME BLOC QUE LE DESK (app.js).
      D'abord trois, puis QUATRE le même jour (« il y a 4 catégories pas 3, les 4 de l'onglet
@@ -2682,7 +2685,7 @@ function _recapQuotidienFull(fx) {
      Il rejoint la rubrique du Radar, en tête, plutôt que d'ouvrir une rubrique parallèle qui
      disait la même chose sous un autre nom. Au passage, une actualité macro sur les taux tombait
      jusqu'ici dans la liste sans intitulé faute de rubrique où aller : elle a la sienne. */
-  const _SECTIONS_NEWS = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi'];
+  const _SECTIONS_NEWS = ['Politique monétaire', 'Inflation', 'Emploi', 'Croissance économique'];
   const _txtDe = t => (typeof t === 'string' ? t : (t && t.text)) || '';
   const _macroL = (Array.isArray(fx.macro) ? fx.macro : []).filter(t => _md(_txtDe(t)));
   const _sansFam = _macroL.filter(t => _SECTIONS_NEWS.indexOf(_famJour(_txtDe(t))) < 0);

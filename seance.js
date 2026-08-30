@@ -62,7 +62,9 @@ const ACTIFS = {
    « Commerce International & Tarifs » au Hebdo) : plus d'entrée dans les tables ni de libellé dans
    les ordres — une balance commerciale ou une mesure tarifaire rejoint « Autres », qui porte son
    intitulé. Le retrait vaut aux TROIS endroits, comme un renommage. */
-const ORDRE_FAM = ['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Autres'];
+/* ORDRE 30/08 (demande user « la plus importante à la moins importante ») : Politique monétaire,
+   Inflation, Emploi, Croissance économique — le même ordre aux trois endroits et dans la Macro. */
+const ORDRE_FAM = ['Politique monétaire', 'Inflation', 'Emploi', 'Croissance économique', 'Autres'];
 const FAM_RX = [
   /* UN BANQUIER CENTRAL QUI PARLE RELÈVE DE LA POLITIQUE MONÉTAIRE, MÊME S'IL PARLE D'INFLATION
      (26/08, capture du Récap Quotidien à l'appui : « Fed (Collins) : la désinflation est l'issue la
@@ -170,7 +172,7 @@ function parFamilleActif(lignes) {
    catégorie à l'écran (26/08, capture : « ici il manque une catégorie »). Tout groupe porte donc
    son intitulé — et la leçon d'origine (une ligne non intitulée placée après un groupe se lit comme
    la suite de ce groupe) tombe d'elle-même, puisqu'il n'existe plus de ligne non intitulée. */
-const ORDRE_FAM_MACRO = ['Politique monétaire', 'Inflation', 'Croissance économique', 'Emploi', 'Autres'];
+const ORDRE_FAM_MACRO = ['Politique monétaire', 'Inflation', 'Emploi', 'Croissance économique', 'Autres'];
 /* CHAQUE FAMILLE PRÉSENTE PORTE SON TITRE, MÊME SEULE (26/08, retour utilisateur captures à
    l'appui : « il manque la classification comme la 2è image »). La rubrique sortait en liste plate
    dès que toutes ses lignes tombaient dans la même famille — trois indicateurs de croissance, et

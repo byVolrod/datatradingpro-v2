@@ -127,13 +127,13 @@ const FAM = [
 FAM.forEach(([t, att]) => v(`« ${t} » → ${att}`, S.famille(t) === att, S.famille(t)));
 // Les noms ET l'ordre sont ceux du Recap Quotidien (_ORDRE_FAM) : deux rapports lus a la suite le
 // meme jour doivent ranger pareil, sinon le lecteur se reoriente a chaque fois.
-v('mêmes familles, même ordre que le Quotidien (sans « Commerce », retiré le 30/08)',
-  S.ORDRE_FAM.join('|') === 'Inflation|Croissance économique|Emploi|Politique monétaire|Autres', S.ORDRE_FAM.join('|'));
+v('mêmes familles, même ordre que le Quotidien (importance 30/08 : PM, Inflation, Emploi, Croissance)',
+  S.ORDRE_FAM.join('|') === 'Politique monétaire|Inflation|Emploi|Croissance économique|Autres', S.ORDRE_FAM.join('|'));
 const g = S.parFamille([
   { titre: 'Claimant Count Change', ligne: 'A' }, { titre: 'German Prelim CPI m/m', ligne: 'B' },
   { titre: 'Prelim GDP q/q', ligne: 'C' }, { titre: 'Ifo Business Climate', ligne: 'D' },
 ]);
-v('l\'affichage suit l\'ordre du Quotidien', g.map(x => x.famille).join('|') === 'Inflation|Croissance économique|Emploi', g.map(x => x.famille).join('|'));
+v('l\'affichage suit l\'ordre du Quotidien', g.map(x => x.famille).join('|') === 'Inflation|Emploi|Croissance économique', g.map(x => x.famille).join('|'));
 v('les lignes d\'une même famille restent groupées', (g.find(x => x.famille === 'Croissance économique') || {}).lignes.join('') === 'CD');
 v('une famille sans chiffre ne s\'écrit pas', !g.some(x => x.famille === 'Politique monétaire'));
 v('une entrée sans ligne est ignorée', S.parFamille([{ titre: 'CPI', ligne: '' }]).length === 0);
@@ -158,7 +158,7 @@ const MACRO = [
 ];
 const gm = S.parFamille(MACRO.map(i => ({ titre: i, ligne: i })));
 v('la Macro est bien decoupee en familles', gm.length >= 4, gm.map(x => x.famille).join(' | '));
-v('elle suit l ordre du Quotidien', gm.map(x => x.famille).join('|') === 'Inflation|Croissance économique|Emploi|Politique monétaire', gm.map(x => x.famille).join('|'));
+v('elle suit l ordre du Quotidien', gm.map(x => x.famille).join('|') === 'Politique monétaire|Inflation|Emploi|Croissance économique', gm.map(x => x.famille).join('|'));
 v('aucune puce ne tombe en « Autres »', !gm.some(x => x.famille === 'Autres'), gm.map(x => x.famille).join('|'));
 v('les trois indicateurs de croissance sont ensemble', (gm.find(x => x.famille === 'Croissance économique') || { lignes: [] }).lignes.length === 3);
 // Les banques centrales appartiennent a Macro dans le Quotidien : elles doivent y etre ici aussi.
@@ -213,8 +213,8 @@ tSea.forEach((l, i) => {
   v(`« ${fam} » identique dans le desk`, l === tApp[i], 'seance.js ≠ app.js');
   v(`« ${fam} » identique dans l'e-mail`, l === tMail[i], 'seance.js ≠ mailer.js');
 });
-v('l\'ordre d\'affichage est le même partout', /const _ORDRE_FAM = \['Inflation', 'Croissance économique', 'Emploi', 'Politique monétaire', 'Autres'\]/.test(fs2.readFileSync(pa2.join(__dirname, '..', 'public/js/app.js'), 'utf8'))
-  && S.ORDRE_FAM.join('|') === "Inflation|Croissance économique|Emploi|Politique monétaire|Autres");
+v('l\'ordre d\'affichage est le même partout', /const _ORDRE_FAM = \['Politique monétaire', 'Inflation', 'Emploi', 'Croissance économique', 'Autres'\]/.test(fs2.readFileSync(pa2.join(__dirname, '..', 'public/js/app.js'), 'utf8'))
+  && S.ORDRE_FAM.join('|') === "Politique monétaire|Inflation|Emploi|Croissance économique|Autres");
 
 console.log('\n── 7c-ter. Ce que le calendrier apporte, la table doit savoir le ranger ──');
 /* Les puces d'un récap parlent d'une dizaine d'indicateurs ; le CALENDRIER en publie des centaines.
@@ -454,7 +454,7 @@ const QUOT = [{ section: 'Macro', items: [
   '**Emploi** : les inscriptions au chômage reculent à 230K.',
 ]}];
 const q = W.html(QUOT, []).html;
-v('l\'ordre ouvre sur les rubriques du Radar de Biais', S.ORDRE_FAM_MACRO.slice(0, 4).join('|') === 'Politique monétaire|Inflation|Croissance économique|Emploi', S.ORDRE_FAM_MACRO.join('|'));
+v('l\'ordre ouvre sur les quatre familles, par importance (30/08 : PM, Inflation, Emploi, Croissance)', S.ORDRE_FAM_MACRO.slice(0, 4).join('|') === 'Politique monétaire|Inflation|Emploi|Croissance économique', S.ORDRE_FAM_MACRO.join('|'));
 /* AUCUNE LIGNE SANS CATÉGORIE (26/08, 2e retour : « ici il manque une catégorie »). Les lignes
    hors des quatre familles du Radar se rendaient d'abord et SANS titre — repris du Quotidien, où
    elles voisinent toujours avec des groupes intitulés. Ici la rubrique peut n'avoir QU'ELLES : une
@@ -471,7 +471,7 @@ v('aucune puce ne sort jamais hors d\'un groupe intitulé', !/<strong>Macro<\/st
 v('puis « Politique monétaire »', q.indexOf('<em>Politique monétaire</em>') > 0 && q.indexOf('<em>Politique monétaire</em>') < q.indexOf('<em>Croissance économique</em>'));
 v('un banquier central qui parle y figure', /<em>Politique monétaire<\/em><ul><li>\*\*Fed\*\* \(Collins\)/.test(q), q.slice(q.indexOf('<em>Politique monétaire'), q.indexOf('<em>Politique monétaire') + 120));
 v('le Trésor américain aussi', /US Treasury/.test(q.slice(q.indexOf('<em>Politique monétaire'), q.indexOf('<em>Croissance'))));
-v('« Croissance économique » avant « Emploi »', q.indexOf('<em>Croissance économique</em>') < q.indexOf('<em>Emploi</em>'));
+v('« Emploi » avant « Croissance économique » (importance 30/08)', q.indexOf('<em>Emploi</em>') < q.indexOf('<em>Croissance économique</em>'));
 v('aucune ligne perdue', (q.match(/<li>/g) || []).length === 5, String((q.match(/<li>/g) || []).length));
 /* Le pendant du garde-fou : une inflation qui CITE une banque centrale en CONSÉQUENCE reste de
    l'inflation — la banque n'y est pas le sujet. La règle est ancrée en début de ligne exprès. */

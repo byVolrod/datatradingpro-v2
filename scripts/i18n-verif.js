@@ -87,7 +87,7 @@ if (mortes.length) {
    en le rendant utile demain.
    ⚠️ EN BAISSER LA VALEUR EST UNE BONNE NOUVELLE : quand une orpheline est traitée, descendre ce
    plafond d'autant, sinon le cliquet ne cliquette plus. */
-const PLAFOND_ORPHELINES = 18;
+const PLAFOND_ORPHELINES = 18;   // (30/08 : le renommage « Biais / Scénario »→« Biais » a re-keyé la clé « : » et retiré la clé nue — qui était trouvée par sous-chaîne, donc PAS orpheline : le compte reste 18)
 if (mortes.length > PLAFOND_ORPHELINES) {
   console.log('\n✗ ' + mortes.length + ' orphelines pour un plafond de ' + PLAFOND_ORPHELINES + '.');
   console.log('  Une traduction vient de mourir : un wording FR a changé sans que sa clé suive.');
