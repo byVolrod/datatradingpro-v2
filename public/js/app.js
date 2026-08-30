@@ -3566,7 +3566,11 @@ function buildNewsItem(item) {
   const hasArticleUrl = !!(item.url && item.url.startsWith('https://'));
   // Résumé auto pour données High Impact sans corps de texte (PMI/CPI/NFP…)
   const autoSummary = _estDonneeFortImpact(item) ? _dataReleaseBullets(item) : [];
-  // News « propos/citation » hors marché : titre reframé + tag « Contexte » + citation gardée au déplié.
+  // News « propos/citation » hors marché : titre reframé + note explicative, citation gardée au déplié.
+  // ⚠️ Le TAG reste « Info » (30/08, demande user : « le tag contexte n'existe pas, il y a info,
+  // réaction ou impact marché … et analyse ») — le vocabulaire officiel des tags est FERMÉ :
+  // Info / Réaction / Analyse / Impact marché (+ Décryptage pour les données). L'ancien rhabillage
+  // « Contexte » inventait un cinquième tag ; seule la note .iq-note distingue désormais un propos.
   const isInfoQuote = !!(item && item._infoQuote);
   // Info tag shown ONLY when we already have real content to display
   const hasInfo   = rawDesc.length > 30
@@ -3771,7 +3775,7 @@ function buildNewsItem(item) {
 
     const tabsHtml = [
       hasNotes  && `<button class="expand-tab${tab === 'analysis' ? ' expand-tab--active' : ''}" data-tab="analysis"><span class="tag-icon">⊙</span> Analyse</button>`,
-      hasInfo   && `<button class="expand-tab${tab === 'info'     ? ' expand-tab--active' : ''}" data-tab="info"><span class="tag-icon">ⓘ</span> ${isInfoQuote ? 'Contexte' : 'Info'}</button>`,
+      hasInfo   && `<button class="expand-tab${tab === 'info'     ? ' expand-tab--active' : ''}" data-tab="info"><span class="tag-icon">ⓘ</span> Info</button>`,
       hasEco    && `<button class="expand-tab${tab === 'eco'      ? ' expand-tab--active' : ''}" data-tab="eco"><span class="tag-icon">ⓘ</span> Décryptage</button>`,
     ].filter(Boolean).join('');
 
@@ -4063,7 +4067,7 @@ function buildNewsItem(item) {
       // l'autre voyait le texte changer, même défaut, simplement étalé sur deux surfaces. On ne
       // lance PAS de requête ici (un panneau de graphique ne doit pas déclencher une génération IA
       // supplémentaire) : on affiche le résumé s'il est déjà connu, la dépêche sinon.
-      const bInfo = hasInfo ? _rxgBloc('info', isInfoQuote ? 'Contexte' : 'Info', '', _infoFinal) : '';
+      const bInfo = hasInfo ? _rxgBloc('info', 'Info', '', _infoFinal) : '';
       const bAna = hasNotes ? _rxgBloc('analyse', 'Analyse', _rxgHeure(anaTs), _renderInfoBullets(item.analyse || [])) : '';
       const bImp = hasImpact ? _rxgBloc('impact', 'Impact marché', _rxgHeure(anaTs),
         _renderInfoBullets(String(item._impact || '').split('\n').filter(Boolean))) : '';
@@ -4943,10 +4947,12 @@ function buildNewsItem(item) {
 
   if (hasInfo) {
     infoTagEl = document.createElement('span');
-    // News « propos/citation » → tag « Contexte » (informatif, hors marché) à la place du générique « Info ».
-    infoTagEl.className = 'tag ' + (isInfoQuote ? 'tag--contexte' : 'tag--info');
+    // Une news « propos/citation » porte le MÊME tag Info que les autres (30/08, demande user :
+    // le vocabulaire des tags est fermé — Info / Réaction / Analyse / Impact marché). L'ancien
+    // rhabillage « Contexte » est retiré ; la note .iq-note dans le panneau dit la nature du propos.
+    infoTagEl.className = 'tag tag--info';
     infoTagEl.style.cursor = 'pointer';
-    infoTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="3.5" r="0.75" fill="currentColor"/></svg> ' + (isInfoQuote ? 'Contexte' : 'Info');
+    infoTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="3.5" r="0.75" fill="currentColor"/></svg> Info';
     infoTagEl.onclick = e => { e.stopPropagation(); openPanel('info'); };
     tagsEl.appendChild(infoTagEl);
   }

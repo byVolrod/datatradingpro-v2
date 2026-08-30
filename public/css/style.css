@@ -1930,9 +1930,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    rempli et un arrondi de 4 px : elle se distinguait des trois autres par sa FORME alors que
    seule sa COULEUR doit la distinguer. */
 .tag--reaction { background: transparent; border-color: rgba(163,148,245,0.5); color: #a394f5; }
-/* Contexte = news « propos/citation » hors marché : gris-ardoise neutre (jamais une couleur de marché) */
-.tag--contexte { background: transparent; border: 1px solid var(--border2); color: var(--text2); }
-.tag--contexte:hover { color: var(--text); border-color: var(--border3); }
+/* .tag--contexte SUPPRIMÉE (30/08, demande user : « le tag contexte n'existe pas ») — une news
+   « propos/citation » porte le tag Info standard ; le vocabulaire des tags est fermé. */
 .tag-svg { flex-shrink: 0; }   /* icône SVG des tags Info/Analyse → hérite de la couleur (currentColor) */
 /* Phrase de repli dans un déplié (« Aucun mouvement de marché mesurable… », « Résumé
    indisponible… ») : une mention, pas un bloc. Douze emplois, tous des indisponibilités. */

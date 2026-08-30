@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-tag-info-propos', ts: Date.UTC(2026, 8, 16, 12, 0), title: 'Les tags du fil rentrent dans le rang : Info, Réaction, Analyse, Impact marché', desc: 'Vous l’avez relevé sur une news de propos rapportés : son bouton affichait « Contexte », un tag qui n’existe pas dans le vocabulaire du desk. Les tags du fil sont au nombre de quatre, et quatre seulement : Info, Réaction, Analyse et Impact marché (plus Décryptage, réservé aux données du calendrier). Une news qui reprend les propos d’un responsable porte donc désormais le tag Info, comme toutes les autres ; ce qui la distingue reste en place au bon endroit : le titre explicatif, la note « Propos personnels repris tels quels, sans portée directe sur les marchés » dans le panneau, et la citation d’origine lisible au déplié. Un contrôle automatique rend désormais une news de propos dans un vrai navigateur à chaque livraison et vérifie que son tag dit Info, et que « Contexte » ne revient jamais, ni en libellé ni en habillage.' },
   { id: 'dtpu-20260916-fil-sans-valeur', ts: Date.UTC(2026, 8, 16, 10, 0), title: 'Le fil refuse les communiqués promotionnels sans lecture marché', desc: 'Vous nous l’avez montré : une ligne « Comment la ligne directrice 12345 de la Chine réinvente les services aux citoyens » s’était glissée dans le fil, taguée Géopolitique. Ce genre de texte est de la communication d’action publique : un État y raconte comment son programme améliore la vie civique, sans un chiffre de marché, sans un actif, sans une décision. Le fil les refuse désormais à l’entrée, sur une règle volontairement étroite : il faut à la fois la forme du publireportage (« Comment… », « réinvente », « transforme »…) et le sujet civico-administratif (services aux citoyens, hotline, gouvernance…) pour qu’une ligne soit écartée, et tout titre qui parle réellement marché est épargné d’office : la géopolitique chinoise, les tarifs douaniers, une réforme à portée budgétaire restent. Les lignes de ce type déjà présentes dans le fil sont retirées au passage, et une batterie de contrôles automatiques rejoue à chaque livraison ce qui doit partir comme ce qui doit rester.' },
   { id: 'dtpu-20260916-stats-particuliers', ts: Date.UTC(2026, 8, 16, 8, 0), title: 'Nouveau widget : Statistiques DMX, la table complète du positionnement', desc: 'La bibliothèque de widgets accueille la table statistique du sentiment particuliers, avec sa vignette d’aperçu. Jusqu’ici le desk lisait ce positionnement en pourcentages : l’Aperçu DMX en barres, le widget par paire en anneau. La nouvelle table va au bout de la donnée : pour chaque paire, deux lignes (vendeurs et acheteurs) portent le pourcentage, le volume en lots, le nombre de positions, le prix moyen d’entrée du camp et son écart au prix actuel, en pips : vert quand le camp gagne, rouge quand il perd, et le pourcentage du camp majoritaire ressort à l’or. La lecture reste contrarienne : une foule majoritaire ET perdante devra racheter ses positions, et le tri « Foule la plus piégée » fait remonter ces paires d’un geste. Les métaux, sans cotation attachée, montrent leurs prix moyens mais laissent l’écart vide plutôt que d’inventer un chiffre.' },
   { id: 'dtpu-20260915-rebours-visible', ts: Date.UTC(2026, 8, 15, 22, 0), title: 'Compte à rebours : le chrono reste visible, même dans un panneau à onglets', desc: 'Votre capture montrait un Compte à rebours invisible dans un panneau à onglets : un grand vide, et la première ligne coupée au bord bas de la carte. La cause est un piège de géométrie : le corps de cette carte est centré verticalement, et quand sa boîte se croit plus haute que la carte réellement affichée (un contexte d’onglet ou une carte compressée peut tromper le calcul), le centre de la boîte tombe sous le bord : on ne voit que du vide. Le cas a été rejoué dans un vrai navigateur en doublant artificiellement la boîte, puis fermé par deux gardes : le centrage de toutes les cartes passe en centrage SÛR (centré quand ça tient, calé en haut dès que ça déborde : l’information d’abord), et la boîte du chrono est bornée à son hôte, en carte comme en onglet : elle ne peut plus dépasser. Les états de repli (« Aucune donnée », erreurs, onglets vides) profitent du même centrage sûr. Et l’attaque fait partie des contrôles de livraison : à chaque version, un navigateur monte le vrai widget, double sa boîte, et vérifie que le contenu reste dans la carte.' },
@@ -19000,8 +19001,8 @@ const _POLITICAL_SPAM_RE = /\b(?:america first\s+(?:patriot|champion|warrior|fig
    conseiller juridique… ». Verdict de l'utilisateur, et il est juste sur les DEUX points : « on ne
    sait pas de qui elle est, et on n'a quasi aucune valeur ou info ».
      · DE QUI ? Le texte est à la PREMIÈRE PERSONNE et ne porte aucune attribution. Le desk sait
-       reframer un propos rapporté (« Trump: … » → tag Contexte) parce qu'un préfixe le désigne ;
-       ici il n'y en a pas. On ne peut pas inventer un locuteur.
+       reframer un propos rapporté (« Trump: … » → titre explicatif + note propos sous le tag Info)
+       parce qu'un préfixe le désigne ; ici il n'y en a pas. On ne peut pas inventer un locuteur.
      · QUELLE VALEUR ? Un secrétaire général de la Maison Blanche ne déplace aucune paire de
        devises. Sur un desk FX, cette ligne prend la place d'une qui compte.
    ⚠️ MAIS TOUTES LES NOMINATIONS NE SE VALENT PAS, et c'est là que la règle doit être précise : la
@@ -19131,7 +19132,9 @@ const _FX_MOVE_RE = /\b(eur|usd|gbp|jpy|chf|aud|nzd|cad|euro|euros|dollar|greenb
 // de marché — ex. un post de figure politique repris tel quel comme titre, souvent mal catégorisé. On NE
 // TOUCHE JAMAIS au headline (veto 2026-07-03 : dedup/filtres/regroupement = regex EN dessus) : on pose un
 // flag `_infoQuote` → le client affiche un TITRE EXPLICATIF (IA `_infoTitle`, sinon repli déterministe) +
-// un tag « Contexte », la citation d'origine restant lisible dans le déplié. Détection HAUTE PRÉCISION
+// la note « Propos personnels… » sous le tag Info (le rhabillage « Contexte » est retiré le 30/08 :
+// le vocabulaire des tags est fermé — Info / Réaction / Analyse / Impact marché), la citation
+// d'origine restant lisible dans le déplié. Détection HAUTE PRÉCISION
 // (un faux positif = un vrai titre de news masqué) : 1re personne + marqueur perso/politique + AUCUN
 // vocabulaire marché (le garde `isFinanciallyRelevant` épargne toute vraie news, même citant quelqu'un).
 // Deux voies (batterie adversariale) pour rester HAUTE PRÉCISION sans rater les rants à la 3e personne :
@@ -19207,7 +19210,7 @@ function upgradeItemPriority(item) {
      assouplirait cette garde ROUVRIRAIT le passé (des centaines d'appels IA d'un coup) : c'est là
      qu'il faut regarder, pas ici. */
   if (h && !item._briefing && item.source !== 'DTP' && _estPropos(h)) item._propos = true;
-  // Flag « propos hors marché » posé À L'INGESTION (regex, aucun coût IA) → le tag « Contexte » + le repli
+  // Flag « propos hors marché » posé À L'INGESTION (regex, aucun coût IA) → la note propos + le repli
   // de titre sont instantanés ; l'IA (_enrichInfoTitles) remplit ensuite `_infoTitle` (titre explicatif).
   if (h && !item._briefing && item.source !== 'DTP' && _isInfoQuoteNews(h)) item._infoQuote = true;
 

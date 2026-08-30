@@ -887,6 +887,12 @@ function phaseLogique() {
           priority: 'high', _eventAnalysis: true, _reportType: 'GDP Analysis', _pair: 'EUR/USD', _indic: 'PIB', _ccy: 'USD' }),
         brute: lire({ id: 'x3', headline: 'US Core PCE Price Index MoM Actual 0.2% (Forecast 0.2%, Previous 0.1%)',
           description: '', category: 'Economic Commentary', tags: ['Inflation', 'USD'], timestamp: Date.now(), priority: 'high' }),
+        /* Une news « propos/citation » (_infoQuote) porte le tag Info STANDARD : le vocabulaire des
+           tags est fermé (30/08, demande user « le tag contexte n'existe pas ») — le rhabillage
+           « Contexte » ne doit jamais revenir, ni en libellé ni en classe. */
+        propos: lire({ id: 'x5', headline: 'Ford maintient une usine à Détroit suite à une annonce électorale',
+          description: 'Lorsque j\'ai annoncé ma candidature, Ford s\'apprêtait à fermer sa grande usine de Détroit.',
+          category: 'Geopolitical', tags: ['US'], timestamp: Date.now(), priority: 'normal', _infoQuote: true }),
         recap: lire({ id: 'x4', headline: 'Récap de séance — Londres', description: 'Texte.', category: 'Market Analysis',
           tags: ['FX'], timestamp: Date.now(), priority: 'normal', _reportType: 'Session Wrap' }),
         // La définition ATTENDUE, lue dans la fiche elle-même : le contrôle compare deux valeurs de
@@ -1080,6 +1086,17 @@ function phaseLogique() {
     verif('la ligne de donnée brute garde son tag', !!_indicDe(tg.brute), JSON.stringify(tg.brute.map(t => t.txt)));
     // Et un récap maison n'en gagne pas : son sujet n'est pas un indicateur.
     verif('un récap de séance n\'en gagne pas', !_indicDe(tg.recap), JSON.stringify(tg.recap.map(t => t.txt)));
+    /* Le vocabulaire des tags est FERMÉ (30/08) : une news « propos » porte le tag Info standard,
+       le rhabillage « Contexte » est retiré — libellé ET classe, dans la ligne comme dans le code. */
+    const _tagInfoPropos = (tg.propos || []).find(t => /tag--info/.test(t.cls));
+    verif('une news « propos » porte le tag Info, jamais « Contexte »',
+      !!_tagInfoPropos && /\bInfo\b/.test(_tagInfoPropos.txt)
+      && !(tg.propos || []).some(t => /Contexte/.test(t.txt) || /tag--contexte/.test(t.cls)),
+      JSON.stringify((tg.propos || []).map(t => t.txt)));
+    verif('… et le libellé « Contexte » a quitté le code du fil (app.js + feuille)',
+      !/(['"`>])Contexte</.test(fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8'))
+      && !/'Contexte'/.test(fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8'))
+      && !/\.tag--contexte\s*\{/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
 
     /* ── ONGLET ANALYSTES : LA LISTE NE DOIT PAS ATTENDRE LA SOURCE LA PLUS LENTE ──────────────
        Le 26/08, l'onglet restait sur « Chargement des rapports… » plusieurs secondes : les quatre
