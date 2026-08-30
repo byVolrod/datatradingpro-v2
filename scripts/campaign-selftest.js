@@ -177,6 +177,17 @@ async function attempt(email, week, providerUp, hang) {
       && !/_saveLastGood\(_wk\(type, period\), png\)/.test(EW));
     ok('la panne de rendu se CRIE dans le journal (fini le catch muet)', /_criePanne/.test(EW) && /en ÉCHEC/.test(EW));
   }
+  // ── Titres de rubrique SANS tiret (30/08, capture user « | GEOPOLITIQUE » : « enleve le trait
+  //    a gauche de tous les templates, comme dans le desk »). La cellule-tiret 3px de _secRapport
+  //    et le border-left de _secTitle ont disparu : titre or nu + filet, la grammaire du desk. ──
+  ok('Hebdo : plus de cellule-tiret or devant les titres de rubrique',
+    !/td width="3"/.test(wkC.html) && /text-transform:uppercase/.test(wkC.html));
+  const wkOut = M.buildCampaignOutlook({ name: '', email: 'a@b.com', campaign: 'st',
+    context: { upcoming: [{ title: 'CPI', impact: 'High' }], weekAhead: { week: '31-4 septembre',
+      days: [{ dow: 'Monday', title: 'CPI DE', impact: 'HIGH', description: 'Au programme lundi.' }] } }, isMember: false });
+  ok('Semaine a venir : les intertitres n\'ont plus de border-left',
+    !!wkOut && !/padding-left:9px;border-left/.test(wkOut.html) && /text-transform:uppercase/.test(wkOut.html));
+
   ok('le contexte campagne n\'embarque la Semaine a venir QUE si elle couvre le lundi cible',
     /_weekAhead\.monday === _waLundiCible\(now\)/.test(SRVD) && /weekAhead: _waFrais/.test(SRVD)
     && /generateWeekAhead\(true\)\.catch/.test(SRVD));

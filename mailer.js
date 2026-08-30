@@ -435,7 +435,9 @@ const TOK = {
 const _H1 = `<p style="margin:0 0 14px;font-size:19px;font-weight:800;color:${TOK.blanc};letter-spacing:-0.01em;">`;
 // Libellé de SECTION — filet or à gauche + capitales or (grammaire de bandeau du desk).
 function _secTitle(t) {
-  return `<p style="margin:22px 0 8px;padding-left:9px;border-left:2px solid ${TOK.or};color:${TOK.or};font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;">${t}</p>`;
+  // TIRET RETIRÉ (30/08, demande user « comme dans le desk ») : le desk a perdu le liseré vertical
+  // de ses titres de rubrique — le mail suit, titre or nu.
+  return `<p style="margin:22px 0 8px;color:${TOK.or};font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;">${t}</p>`;
 }
 // ENCADRÉ OR — la mise en avant de l'essentiel (astuce, annonce, question à retenir).
 function _goldBox(inner) {
@@ -2530,13 +2532,15 @@ function _tabAgendaFXR(rows) {
    `premier` = `.fxdr-section:first-child` (style.css 6112) : la Synthèse démarre à 4 px du haut,
    collée au bandeau de date, au lieu de flotter à 28 px. */
 function _secRapport(t, premier) {
+  /* TIRET RETIRÉ (30/08, capture user « | GÉOPOLITIQUE » : « enlève le trait à gauche de tous les
+     templates, comme dans le desk »). Le desk a perdu le liseré vertical de ses titres de rubrique ;
+     la cellule-tiret or de 3px et son espaceur disparaissent donc de TOUS les mails qui passent par
+     ici. Le titre or nu + le filet dessous restent : c'est exactement la grammaire du desk. */
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:${premier ? '4px' : '28px'} 0 13px;border-collapse:collapse;">
     <tr>
-      <td width="3" valign="middle" style="width:3px;padding:0 0 7px;"><table role="presentation" cellpadding="0" cellspacing="0" width="3" style="width:3px;border-collapse:collapse;"><tr><td width="3" height="13" bgcolor="${TOK.or}" style="width:3px;height:13px;line-height:13px;font-size:0;background:${TOK.or};border-radius:2px;mso-line-height-rule:exactly;">&nbsp;</td></tr></table></td>
-      <td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>
       <td valign="middle" style="padding:0 0 7px;color:${TOK.or};font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;line-height:1.15;">${_esc(t)}</td>
     </tr>
-    <tr><td colspan="3" style="height:1px;line-height:1px;font-size:0;background:${TOK.filet};">&nbsp;</td></tr>
+    <tr><td style="height:1px;line-height:1px;font-size:0;background:${TOK.filet};">&nbsp;</td></tr>
   </table>`;
 }
 /* Bloc de SYNTHÈSE, relevé sur .fxdr-exec : liseré or à gauche, fond or très dilué, coins arrondis

@@ -785,6 +785,39 @@ function phaseLogique() {
       cibles.retirer.centre, 'elementFromPoint rend : ' + cibles.retirer.centreQui);
     verif('… et la poignée reste vivante hors de la rangée de commandes',
       cibles.retirer.poigneeVit, 'le z-index des commandes ne doit pas éteindre la poignée ailleurs');
+
+    /* ── LE SPLITTER N'EST PLUS UN « SCROLLER DORÉ » (30/08, capture user) ─────────────────────
+       Au survol/glissement, la ligne pleine hauteur du redimensionneur passait à l'or : collée à
+       l'ascenseur sombre du panneau voisin, elle se lisait comme un SECOND ascenseur. On MESURE
+       les pixels calculés (pas les déclarations) : classe is-resizing posée pour de vrai, puis
+       lecture du ::before ; et la zone de préhension ::after doit faire ≥20px (la précision). */
+    console.log('\n── Le splitter : retour visuel neutre, prise élargie ──');
+    const splitter = await page.evaluate(() => {
+      const rz = document.querySelector('.layout-resizer');
+      if (!rz) return null;
+      document.body.classList.add('is-resizing');
+      const av = getComputedStyle(rz, '::before');
+      const actif = { bg: av.backgroundColor, w: parseFloat(av.width) || 0 };
+      document.body.classList.remove('is-resizing');
+      const ap = getComputedStyle(rz, '::after');
+      const gauche = Math.abs(parseFloat(ap.left) || 0), droite = Math.abs(parseFloat(ap.right) || 0);
+      const prise = (rz.getBoundingClientRect().width || 0) + gauche + droite;
+      return { actif, prise, gauche };
+    });
+    verif('en glissement, la ligne du splitter est NEUTRE (plus jamais or)',
+      !!splitter && !/227,\s*178|184,\s*134|243,\s*195/.test(splitter.actif.bg),
+      splitter ? 'peinte : ' + splitter.actif.bg + ' — l\'or à côté d\'un ascenseur fabrique le « 2e scroller »' : 'resizer introuvable');
+    verif('… et elle s\'épaissit pour se voir (≥2px)', !!splitter && splitter.actif.w >= 2,
+      splitter ? splitter.actif.w + 'px' : '');
+    verif('la zone de préhension fait au moins 20px (précision du curseur)',
+      !!splitter && splitter.prise >= 20, splitter ? splitter.prise.toFixed(0) + 'px (avant : 13)' : '');
+    verif('… sans déborder de plus de 4px sur le panneau gauche (sa scrollbar reste cliquable)',
+      !!splitter && splitter.gauche <= 4, splitter ? splitter.gauche + 'px à gauche' : '');
+    const _cssTexte = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
+    verif('plus aucun pouce d\'ascenseur doré au survol dans la feuille',
+      !/scrollbar-thumb:hover\{background:var\(--orange-dim/.test(_cssTexte),
+      'la règle globale du polish #2 redorait TOUS les ascenseurs survolés');
+
     // Retour au viewport historique du banc : les sections suivantes mesurent dans cet état-là.
     await page.setViewport({ width: 800, height: 600 });
     await new Promise(res => setTimeout(res, 400));

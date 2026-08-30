@@ -1014,13 +1014,17 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
   background: rgba(255,255,255,0.05);
   transition: background 0.12s;
 }
-/* L'orange (adouci) n'apparaît QU'au survol et pendant le glissement */
+/* ⚠️ PLUS D'OR SUR CETTE BARRE (30/08, capture user : « il y a 2 scrollers, enlève le doré »).
+   La ligne pleine hauteur passait à l'or au survol/glissement : collée à l'ascenseur sombre du
+   panneau voisin, elle se lisait comme un SECOND ascenseur doré. Le retour visuel reste (la ligne
+   s'éclaircit et s'épaissit légèrement : la précision se VOIT), mais en neutre : l'or est réservé
+   aux accents, jamais aux organes de défilement/redimensionnement. */
 .layout-resizer:hover::before,
-body.is-resizing .layout-resizer::before { background: rgba(227,178,58,0.72); }
+body.is-resizing .layout-resizer::before { background: rgba(255,255,255,0.28); width: 3px; }
 body.is-resizing { cursor: col-resize; user-select: none; }
-/* Bordure ACTIVE (orange adouci) autour du panneau redimensionné — uniquement pendant le glissement */
+/* Bordure ACTIVE autour du panneau redimensionné — uniquement pendant le glissement (neutre aussi) */
 body.is-resizing #panel-right {
-  outline: 1px solid rgba(227,178,58,0.8);
+  outline: 1px solid rgba(255,255,255,0.22);
   outline-offset: -1px;
 }
 body.is-resizing iframe { pointer-events: none; }
@@ -1050,9 +1054,11 @@ body.is-resizing iframe { pointer-events: none; }
   }
   /* Ligne 1px visible (orange au survol/drag) */
   .layout-resizer::before { left: 0; right: auto; transform: none; width: 1px; }
-  /* Zone de préhension DÉCALÉE vers la droite (côté panneau droit) → ne recouvre PLUS la scrollbar
-     du panneau gauche (qui reste cliquable). On garde la ligne + une large zone à droite pour attraper. */
-  .layout-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: -1px; right: -12px; cursor: col-resize; z-index: 31; }
+  /* Zone de préhension ÉLARGIE (30/08, demande user « améliore la précision du curseur ») :
+     ~21px au lieu de 13. Toujours asymétrique côté droit — le débord GAUCHE reste ≤4px pour ne
+     pas recouvrir la scrollbar du panneau gauche (le buffer de padding l'en décolle), la leçon
+     du décalage d'origine. */
+  .layout-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: -4px; right: -16px; cursor: col-resize; z-index: 31; }
   /* Anti-lag : pendant le glissement, les enfants ne captent plus la souris (ni hover ni sélection) */
   body.is-resizing .views-col,
   body.is-resizing .panel-right { pointer-events: none; }
@@ -11085,7 +11091,8 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 
 /* === Polish apparence #2 : finition globale + profondeur des panneaux === */
 ::selection{background:rgba(227,178,58,0.26);color:#ffffff;}
-::-webkit-scrollbar-thumb:hover{background:var(--orange-dim,#b8860b);}
+/* (30/08) Le survol DORÉ des pouces d'ascenseur est retiré : un ascenseur qui passe à l'or se lit
+   comme un organe doré de plus (capture user « 2 scrollers »). Le survol neutre de la base suffit. */
 .sym-panel{background:linear-gradient(180deg,#131419,#0e0f12);box-shadow:0 6px 18px -12px rgba(0,0,0,0.55);}
 
 /* === Habillage institutionnel 'Verre brosse + filet or' (signature A) - panneaux widgets === */
