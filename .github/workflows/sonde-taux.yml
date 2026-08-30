@@ -20,9 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Structure des payloads fed / rbnz / snb
+      - name: Structure des payloads (les 8 banques)
         run: |
-          for slug in fed rbnz snb; do
+          for slug in fed ecb boe boj boc rba rbnz snb; do
             echo "═══════════ $slug ═══════════"
             code=$(curl -sS -o /tmp/p.json -w '%{http_code}' \
               -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36' \
