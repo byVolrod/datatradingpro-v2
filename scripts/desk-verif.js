@@ -1063,8 +1063,10 @@ function phaseLogique() {
           { heading: 'Commerce International & Tarifs', bullets: ['x'] },
         ] }).map(t => t.heading);
         verif('« Performance Cross-Asset » ne se rend plus (archives comprises)', !themes.includes('Performance Cross-Asset'), themes.join(' | '));
-        verif('l\'ordre est Banque centrale → Inflation → Croissance → Emploi → Commerce → Technologie',
-          themes.slice(0, 6).join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Commerce International & Tarifs|Technologie & Innovation',
+        verif('« Commerce International & Tarifs » non plus (retiré le 30/08 sur demande user)',
+          !themes.some(h => /commerce/i.test(h)), themes.join(' | '));
+        verif('l\'ordre est Banque centrale → Inflation → Croissance → Emploi → Technologie',
+          themes.slice(0, 5).join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Technologie & Innovation',
           themes.join(' | '));
         verif('… et un en-tête inconnu passe en QUEUE, jamais à la poubelle', themes[themes.length - 1] === 'Un thème inconnu', themes.join(' | '));
         /* ⚠️ L'EN-TÊTE FUSIONNÉ EST ÉCLATÉ, PLUS JAMAIS RENDU (30/08, 2e capture user : « je
@@ -1086,8 +1088,8 @@ function phaseLogique() {
         const vT = vieux.map(t => t.heading);
         verif('l\'en-tête fusionné des archives est ÉCLATÉ, plus jamais rendu',
           !vT.some(h => /inflation.*croiss|croiss.*inflation/i.test(h)), vT.join(' | '));
-        verif('… chaque puce rejoint SA famille des quotidiens, dans l\'ordre des quotidiens',
-          vT.join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Commerce International & Tarifs|Autres chiffres de la semaine',
+        verif('… chaque puce rejoint SA famille des quotidiens, dans l\'ordre des quotidiens (Commerce filtré)',
+          vT.join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Autres chiffres de la semaine',
           vT.join(' | '));
         const vInfl = vieux.filter(s => s.heading === 'Inflation');
         verif('… la famille recréée FUSIONNE avec la native (une seule « Inflation », deux puces)',
@@ -1174,9 +1176,15 @@ function phaseLogique() {
       /* Le prompt du serveur suit la même grammaire : plus de cross-asset, banque centrale en tête. */
       const SRV4 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
       verif('le prompt du Hebdo produit les en-têtes des quotidiens',
-        /"Géopolitique", "Banque centrale", "Inflation", "Croissance économique", "Emploi", "Commerce International & Tarifs", "Technologie & Innovation"/.test(SRV4));
+        /"Géopolitique", "Banque centrale", "Inflation", "Croissance économique", "Emploi", "Technologie & Innovation"/.test(SRV4));
       verif('… et ne commande plus de « Performance Cross-Asset »',
         !/catégorisés[^\n]{0,400}Performance Cross-Asset/.test(SRV4));
+      /* L'absence se mesure PRÈS de l'ancre « catégorisés » (la liste du prompt), comme pour
+         Cross-Asset : l'historique RECAP_VER cite l'ancienne liste verbatim, et c'est légitime. */
+      verif('… ni de « Commerce International & Tarifs » : la liste l\'a perdu, l\'interdit est écrit, le commerce va à la Géopolitique',
+        !/catégorisés[^\n]{0,400}Commerce International/.test(SRV4)
+        && /PAS de thème « Commerce International & Tarifs »/.test(SRV4)
+        && /guerre commerciale\/sanctions commerciales→Géopolitique/.test(SRV4));
     }
 
     /* ══ LES RESTES ANGLAIS DU DESK (audit 28/08, angle « texte produit resté en anglais ») ═════

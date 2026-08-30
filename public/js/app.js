@@ -9997,14 +9997,17 @@ function _renderWeeklyRecap(item) {
        désormais ces en-têtes dans cet ordre, mais les rapports DÉJÀ ARCHIVÉS portent l'ancienne
        grammaire (« Inflation & Croissance », « Performance Cross-Asset ») : filtrer et ordonner
        ICI fait profiter les archives du même rangement — même parti que la Macro revenue au rendu.
-       Un en-tête inconnu passe en queue, jamais à la poubelle : le doute profite au contenu. */
+       Un en-tête inconnu passe en queue, jamais à la poubelle : le doute profite au contenu.
+       ⚠️ « COMMERCE INTERNATIONAL & TARIFS » EST RETIRÉ (30/08, demande user « enlève la catégorie »),
+       même traitement que « Performance Cross-Asset » : filtré au rendu, archives comprises, et le
+       prompt ne le commande plus (les faits commerciaux rejoignent la Géopolitique, un bras de fer
+       tarifaire entre États en relève ; leurs retombées chiffrées, le thème de la donnée). */
     const _WR_MACRO_RANG = [
       [/banque centrale|politique mon[ée]taire/i, 0],
       [/^inflation\b(?!.*croiss)/i, 1],
       [/croissance/i, 2],
       [/emploi/i, 3],
-      [/commerce/i, 4],
-      [/technologie/i, 5],
+      [/technologie/i, 4],
     ];
     const _wrRang = h => { for (const [rx, r] of _WR_MACRO_RANG) if (rx.test(h)) return r; return 9; };
     /* ⚠️ L'EN-TÊTE FUSIONNÉ DES ARCHIVES EST ÉCLATÉ, PUCE PAR PUCE (30/08, 2e capture user :
@@ -10045,6 +10048,7 @@ function _renderWeeklyRecap(item) {
       .filter(sec => sec && sec.heading
         && !/g[ée]opolit/i.test(String(sec.heading))
         && !/cross[\s-]*asset/i.test(String(sec.heading))
+        && !/commerce international|&\s*tarifs/i.test(String(sec.heading))
         && Array.isArray(sec.bullets) && sec.bullets.length)
       .forEach((sec, i) => {
         const k = String(sec.heading).trim().toLowerCase();
