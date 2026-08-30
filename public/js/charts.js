@@ -795,6 +795,7 @@ async function _stfCharger() {
 const STF_LABELS = { today: 'TD', week: 'TW', '8h': '8H', '1d': '1D', '7d': '7D', '1m': '1M' };
 
 let _strengthRoot  = null;
+let _strengthRelance = null;   // retour d'onglet FORCE : relance silencieuse des panneaux vivants (jamais de rideau)
 let _strengthTimer = null;
 let _meterTimer    = null;
 
@@ -1980,6 +1981,19 @@ async function buildStrengthCharts() {
   const wrap = document.getElementById('strength-charts-row');
   if (!wrap) return;
 
+  /* RETOUR SUR L'ONGLET SANS SPECTACLE (30/08, demande user « les forces des devises se rechargent
+     et on ne voit plus les courbes — faut pas que ça se voit que ça s'actualise ») : chaque retour
+     sur FORCE reconstruisait TOUT (dispose + loader + refetch) alors que les deux graphes étaient
+     encore VIVANTS — les courbes disparaissaient le temps du rechargement. Si chaque panneau porte
+     un canvas rendu, on ne détruit rien : on ré-arme seulement le rafraîchissement silencieux (les
+     minuteurs se coupent d'eux-mêmes quand l'onglet se ferme) et on met à jour EN PLACE. */
+  if (_strengthRelance && wrap.querySelector('.strength-pane')
+      && ['L', 'R'].every(s => { const cv = wrap.querySelector('#chart-strength-' + s + ' canvas'); return cv && cv.clientHeight > 40; })) {
+    _strengthRelance();
+    return;
+  }
+  _strengthRelance = null;
+
   // Nettoyage
   if (_strengthRoot) { try { _strengthRoot.dispose(); } catch {} _strengthRoot = null; }
   _strengthTimers.forEach(t => clearInterval(t)); _strengthTimers = [];
@@ -2095,21 +2109,33 @@ async function buildStrengthCharts() {
       else if (tries < 9) setTimeout(() => _selfHeal(tries + 1), 340);
     };
     setTimeout(() => _selfHeal(0), 340);
-    // Rafraîchissement rapide et fluide (20s) : uniquement quand l'onglet STRENGTH est visible
-    _strengthTimers.push(setInterval(() => {
-      const panel = document.getElementById('rtab-strength');
-      if (!panel || !panel.classList.contains('active')) { _strengthTimers.forEach(t => clearInterval(t)); _strengthTimers = []; return; }
-      const el = document.getElementById(containerId), cv = el && el.querySelector('canvas');
-      if (el && el.clientHeight > 40 && (!cv || cv.clientHeight < 40)) chartCtl = null;   // blanc détecté → forcer une reconstruction
-      load(activePeriod, { silent: true });
-    }, 20_000));
+    // Rafraîchissement rapide et fluide (20s) : uniquement quand l'onglet STRENGTH est visible.
+    // Extrait en arm() (30/08) : le minuteur se coupe tout seul à la fermeture de l'onglet — le
+    // RETOUR doit pouvoir le re-poser sans reconstruire le panneau (relance silencieuse).
+    let _tic = null;
+    const arm = () => {
+      if (_tic) { clearInterval(_tic); _strengthTimers = _strengthTimers.filter(t => t !== _tic); }
+      _tic = setInterval(() => {
+        const panel = document.getElementById('rtab-strength');
+        if (!panel || !panel.classList.contains('active')) { _strengthTimers.forEach(t => clearInterval(t)); _strengthTimers = []; _tic = null; return; }
+        const el = document.getElementById(containerId), cv = el && el.querySelector('canvas');
+        if (el && el.clientHeight > 40 && (!cv || cv.clientHeight < 40)) chartCtl = null;   // blanc détecté → forcer une reconstruction
+        load(activePeriod, { silent: true });
+      }, 20_000);
+      _strengthTimers.push(_tic);
+    };
+    arm();
+    return { arm, load: (o) => load(activePeriod, o) };
   }
 
   // Défauts d'origine (gauche = TD intraday, droite = TW hebdomadaire) UNIQUEMENT si le compte n'a
   // rien mémorisé : dès qu'un choix a été fait, c'est lui qui s'applique — au retour sur l'onglet,
   // après reconnexion, et depuis un autre appareil.
-  makePane('L', _pref0.L);
-  makePane('R', _pref0.R);
+  const _pL = makePane('L', _pref0.L);
+  const _pR = makePane('R', _pref0.R);
+  // Poignée du retour d'onglet : ré-arme les minuteurs et met à jour EN PLACE (silent) — un graphe
+  // vivant ne se reconstruit jamais, donc les courbes ne disparaissent plus à la ré-ouverture.
+  _strengthRelance = () => { [_pL, _pR].forEach(p => { p.arm(); p.load({ silent: true }); }); };
 }
 
 // ═══════════════════════════════════════════════

@@ -7366,6 +7366,12 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
   flex: 1;
   overflow-y: auto;
   overflow-x: auto;
+  /* GOUTTIÈRE STABLE (30/08, capture user : « quand je déroule une news ça se décale et ça fait
+     un trou sur la droite ») : dérouler le décryptage d'une ligne faisait APPARAÎTRE l'ascenseur
+     vertical — le tableau perdait 8 px d'un coup et tout glissait vers la gauche. La place de
+     l'ascenseur est désormais réservée en permanence : plus rien ne bouge à l'ouverture comme à
+     la fermeture. */
+  scrollbar-gutter: stable;
   background: #090909;
 }
 

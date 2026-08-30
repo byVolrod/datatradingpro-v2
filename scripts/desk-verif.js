@@ -872,6 +872,19 @@ function phaseLogique() {
       };
     });
     const _indicDe = l => (l || []).find(t => /tag--indic/.test(t.cls));
+    /* ── Deux stabilités visuelles (30/08, captures user) : le calendrier ne bouge pas au
+       déroulé d'une ligne, la Force ne clignote pas au retour d'onglet. ── */
+    {
+      const CSS4 = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      const CH4 = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+      verif('dérouler une ligne du calendrier ne décale plus la table (gouttière d\'ascenseur réservée)',
+        /\.cal-table-wrap \{[^}]*scrollbar-gutter: stable/.test(CSS4));
+      verif('revenir sur FORCE ne reconstruit pas des graphes vivants (relance silencieuse en place)',
+        /_strengthRelance\(\);\s*\n\s*return;/.test(CH4)
+        && /_strengthRelance = \(\) => \{ \[_pL, _pR\]/.test(CH4)
+        && /cv && cv\.clientHeight > 40/.test(CH4));
+    }
+
     console.log('\n── L\'analyse d\'un chiffre porte le tag de son indicateur ──');
     const iA = _indicDe(tg.analyse);
     verif('l\'analyse PCE porte le tag « PCE »', !!iA && iA.txt === 'PCE', JSON.stringify(tg.analyse.map(t => t.txt)));
