@@ -54,7 +54,7 @@ if (SRC_CB) {
   v('l\'ancre NZD porte les valeurs vérifiées sur rbnz.govt.nz (2,50 · hike)',
     nz && nz.rate === 2.50 && nz.bias === 'hike', nz && (nz.rate + ' · ' + nz.bias));
   const rnz = S._cbResolved(nz);
-  v('le biais IA ne renverse PLUS une banque ancrée', rnz.bias === 'hike' && rnz.conv === 0.60,
+  v('le biais IA ne renverse PLUS une banque ancrée', rnz.bias === 'hike' && rnz.conv === 0.93,
     'résolu : ' + rnz.bias + ' ' + rnz.conv + ' — l\'incident client, à l\'identique');
   /* … ET LA MOITIÉ QUI COMPTE : l'IA reste légitime sur une banque NON ancrée. */
   const eu = S.CB.find(b => b.code === 'EUR');
@@ -62,14 +62,29 @@ if (SRC_CB) {
   v('… mais s\'applique toujours à une banque non ancrée', reu.bias === 'cut' && reu.conv === 0.55,
     'résolu : ' + reu.bias + ' — l\'actualisation IA ne doit pas mourir, seulement respecter l\'ancre');
   /* La preuve arithmétique de l'incident, gardée comme régression : hold/0,50 fabrique EXACTEMENT
-     la carte du client (50/19/31, Δ −3), hike/0,60 fabrique l'inverse (hausse dominante, Δ +13,2). */
+     la carte fautive du client (50/19/31, Δ −3). Et depuis la CALIBRATION du 30/08 (« pour chaque
+     devise corrige »), l'ancre NZD porte le pricing RÉEL : hike/0,93 → 93 % de hausse (le marché
+     dit 93,3 %), Δ +22,9 — plus un 60 % générique. */
   const scH = S._rateScenario({ bias: 'hold', conv: 0.50, step: 25 }, 0);
-  const scK = S._rateScenario({ bias: 'hike', conv: 0.60, step: 25 }, 0);
+  const scK = S._rateScenario({ bias: 'hike', conv: 0.93, step: 25 }, 0);
   v('hold/0,50 reproduit la carte fautive (50/19/31, Δ −3)',
     Math.round(scH.hold * 100) === 50 && Math.round(scH.cut * 100) === 31 && +scH.impliedBps.toFixed(1) === -3,
     JSON.stringify(scH));
-  v('hike/0,60 (l\'ancre) donne une hausse dominante, Δ +13,2',
-    Math.round(scK.hike * 100) === 60 && +scK.impliedBps.toFixed(1) === 13.2, JSON.stringify(scK));
+  v('hike/0,93 (l\'ancre calibrée) donne 93 % de hausse, Δ +22,9 — le pricing réel du 28/08',
+    Math.round(scK.hike * 100) === 93 && +scK.impliedBps.toFixed(1) === 22.9, JSON.stringify(scK));
+  /* ── CALIBRATION DEVISE PAR DEVISE (30/08, sonde des 8 banques + données client) ─────────────
+     Les 8 taux étaient exacts ; les biais de JUIN étaient à contre-sens du marché sur 4 banques.
+     On épingle la réalité vérifiée : si quelqu'un remet « penchant baisse » sans nouvelle preuve,
+     ce banc rougit — et si le monde re-price un jour, c'est LUI qu'on mettra à jour, avec la
+     nouvelle sonde en pièce jointe. */
+  const scCH = S._rateScenario({ bias: 'hold', conv: 0.95, step: 25 }, 0);
+  v('CHF calibré : Maintien 95 % (le « No Change 99,5 % » du marché, au plafond du modèle)',
+    Math.round(scCH.hold * 100) === 95 && (S.CB.find(b => b.code === 'CHF') || {}).conv === 0.95, JSON.stringify(scCH));
+  v('les biais suivent le pricing réel de la sonde du 30/08 (hausse Fed/BCE/BoJ/RBA, maintien penché hausse BoE/BoC)',
+    ['USD', 'EUR', 'JPY', 'AUD'].every(c => (S.CB.find(b => b.code === c) || {}).bias === 'hike')
+    && ['GBP', 'CAD'].every(c => { const b = S.CB.find(x => x.code === c) || {}; return b.bias === 'hold' && b.lean === 'hike'; }),
+    'la config de juin disait « pause, penchant baisse » quand le marché price 58-90 % de hausse');
+  v('plus aucun lean \'cut\' hérité de juin dans la config', !S.CB.some(b => b.lean === 'cut'));
 }
 
 /* ══ 2. UN TAUX « VÉRIFIÉ PAR IA » DOIT ÊTRE CORROBORÉ PAR LE CALENDRIER ══════════════════════ */
