@@ -558,8 +558,11 @@ console.log('\n── 18. JOUR DE DÉCISION DE TAUX : la carte porte le pricing 
   }
   verif('… et la phrase est BRANCHÉE dans la carte (description du jour)',
     /_waPricingDecision\(_affiches, k\)/.test(src), 'écrite mais jamais appelée : la carte resterait muette');
-  verif('WA_VER bumpé (v30) : l\'édition courante régénère avec le pricing au prochain démarrage',
-    /const WA_VER = 'v30-/.test(src));
+  /* L'épingle suit la VERSION COURANTE (v31 deux-décisions ce jour) : elle garantit que le pricing
+     v30 n'a pas été perdu en route (sa note reste dans l'historique de WA_VER) ET que la version a
+     bien été bumpée au-delà : une v30 encore en tête signifierait un bump oublié. */
+  verif('WA_VER bumpé (≥ v31) : l\'édition courante régénère au prochain démarrage, pricing v30 gardé',
+    /const WA_VER = 'v3[1-9]|const WA_VER = 'v[4-9]\d/.test(src) && /v30 \(30\/08, suite de l'audit taux/.test(src));
 }
 
 _attente.then(() => {
