@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-fil-sans-valeur', ts: Date.UTC(2026, 8, 16, 10, 0), title: 'Le fil refuse les communiqués promotionnels sans lecture marché', desc: 'Vous nous l’avez montré : une ligne « Comment la ligne directrice 12345 de la Chine réinvente les services aux citoyens » s’était glissée dans le fil, taguée Géopolitique. Ce genre de texte est de la communication d’action publique : un État y raconte comment son programme améliore la vie civique, sans un chiffre de marché, sans un actif, sans une décision. Le fil les refuse désormais à l’entrée, sur une règle volontairement étroite : il faut à la fois la forme du publireportage (« Comment… », « réinvente », « transforme »…) et le sujet civico-administratif (services aux citoyens, hotline, gouvernance…) pour qu’une ligne soit écartée, et tout titre qui parle réellement marché est épargné d’office : la géopolitique chinoise, les tarifs douaniers, une réforme à portée budgétaire restent. Les lignes de ce type déjà présentes dans le fil sont retirées au passage, et une batterie de contrôles automatiques rejoue à chaque livraison ce qui doit partir comme ce qui doit rester.' },
   { id: 'dtpu-20260916-stats-particuliers', ts: Date.UTC(2026, 8, 16, 8, 0), title: 'Nouveau widget : Statistiques DMX, la table complète du positionnement', desc: 'La bibliothèque de widgets accueille la table statistique du sentiment particuliers, avec sa vignette d’aperçu. Jusqu’ici le desk lisait ce positionnement en pourcentages : l’Aperçu DMX en barres, le widget par paire en anneau. La nouvelle table va au bout de la donnée : pour chaque paire, deux lignes (vendeurs et acheteurs) portent le pourcentage, le volume en lots, le nombre de positions, le prix moyen d’entrée du camp et son écart au prix actuel, en pips : vert quand le camp gagne, rouge quand il perd, et le pourcentage du camp majoritaire ressort à l’or. La lecture reste contrarienne : une foule majoritaire ET perdante devra racheter ses positions, et le tri « Foule la plus piégée » fait remonter ces paires d’un geste. Les métaux, sans cotation attachée, montrent leurs prix moyens mais laissent l’écart vide plutôt que d’inventer un chiffre.' },
   { id: 'dtpu-20260915-rebours-visible', ts: Date.UTC(2026, 8, 15, 22, 0), title: 'Compte à rebours : le chrono reste visible, même dans un panneau à onglets', desc: 'Votre capture montrait un Compte à rebours invisible dans un panneau à onglets : un grand vide, et la première ligne coupée au bord bas de la carte. La cause est un piège de géométrie : le corps de cette carte est centré verticalement, et quand sa boîte se croit plus haute que la carte réellement affichée (un contexte d’onglet ou une carte compressée peut tromper le calcul), le centre de la boîte tombe sous le bord : on ne voit que du vide. Le cas a été rejoué dans un vrai navigateur en doublant artificiellement la boîte, puis fermé par deux gardes : le centrage de toutes les cartes passe en centrage SÛR (centré quand ça tient, calé en haut dès que ça déborde : l’information d’abord), et la boîte du chrono est bornée à son hôte, en carte comme en onglet : elle ne peut plus dépasser. Les états de repli (« Aucune donnée », erreurs, onglets vides) profitent du même centrage sûr. Et l’attaque fait partie des contrôles de livraison : à chaque version, un navigateur monte le vrai widget, double sa boîte, et vérifie que le contenu reste dans la carte.' },
   { id: 'dtpu-20260915-calendrier-pleine-largeur', ts: Date.UTC(2026, 8, 15, 20, 0), title: 'Calendrier : plus de bande noire à droite quand une ligne est déroulée', desc: 'Votre capture le montrait bien : dans un panneau large, les lignes du calendrier s’arrêtaient avant le bord droit pendant que le décryptage déroulé, lui, courait sur toute la largeur : une bande noire vide longeait toutes les lignes. Le cas a été rejoué dans un vrai navigateur, pleine largeur, semaine courante et semaine d’archive, ligne déroulée, largeurs mesurées au pixel. La table du calendrier porte désormais un plancher structurel : elle épouse AU MOINS son panneau, dans tous les modes d’affichage et sur les trois surfaces qui la rendent (la vue Calendrier, le widget de Mon Desk et la page Semaine à venir), sans rien changer au comportement des petits écrans, où la table garde sa tenue. Et ce n’est pas une promesse : à chaque livraison, un contrôle automatique ouvre la vraie vue dans un navigateur, déroule une ligne et mesure que la table touche son panneau et que le déroulé n’en déborde jamais.' },
@@ -10749,6 +10750,22 @@ setTimeout(() => {
   } catch (e) { console.warn('[Fil] purge options :', e && e.message); }
 }, 45000);
 
+/* PURGE DES EXPLAINERS CIVIQUES DÉJÀ STOCKÉS (30/08) — même logique que la purge d'options
+   ci-dessus : le filtre d'entrée (_estCommCivique, dans isNoise) empêche les prochains d'entrer,
+   cette passe retire ceux que le fil porte déjà (la « ligne directrice 12345 » de la capture). */
+setTimeout(() => {
+  try {
+    const avant = allNews.length;
+    allNews = allNews.filter(i => !(i && !i._briefing && _estCommCivique(String(i.headline || ''))));
+    const retires = avant - allNews.length;
+    if (retires > 0) {
+      saveHistory();
+      try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch {}
+      console.log(`[Fil] ${retires} explainer(s) civique(s) retiré(s) du fil (sans valeur marché, demande utilisateur).`);
+    }
+  } catch (e) { console.warn('[Fil] purge explainers civiques :', e && e.message); }
+}, 50000);
+
 const SEANCE_VER = 2;
 
 /* RATTRAPAGE AU DÉMARRAGE. Au boot, on regarde les récaps de séance DU JOUR : ceux qui portent une
@@ -19029,6 +19046,26 @@ function _estDonneeHorsMarche(h) {
   return _CONSENSUS_RX.test(h) || /\d[\d.,]*\s*%/.test(h);
 }
 
+/* ══ EXPLAINER PROMOTIONNEL D'ACTION PUBLIQUE : AUCUNE LECTURE MARCHÉ (30/08, capture user :
+   « COMMENT LA LIGNE DIRECTRICE 12345 DE LA CHINE RÉINVENTE LES SERVICES AUX CITOYENS » dans le
+   fil, taguée Géopolitique — « ce type de news si elle n'apporte rien aucune valeur … faut pas
+   laisser entrer »). La classe : un État ou une agence raconte comment son programme améliore la
+   vie civique (hotline 12345, services aux citoyens, gouvernance, revitalisation rurale, villes
+   intelligentes…). Aucun chiffre, aucun actif, aucune décision : du soft power rédactionnel qui
+   prend la place d'une ligne qui compte.
+   ⚠️ LE DOUTE PROFITE À LA LIGNE, comme pour les nominations : il faut LES DEUX conditions —
+   la FORME d'explainer promotionnel (« How … » ancré en tête, ou verbe de brochure : reinvents,
+   transforms, showcases, empowers…) ET le SUJET civico-administratif (citizen/public services,
+   hotline, governance, poverty alleviation…). Et isFinanciallyRelevant ÉPARGNE toujours en
+   dernier ressort : « How China's rate cuts transform lending » parle marché et reste. */
+const _FORME_EXPLAINER_RX = /^\s*(?:how|comment)\b|\b(?:reinvent(?:s|ing|ed)?|r[ée]invente|transform(?:s|ing|ed)?|revolutioni[sz]\w+|r[ée]volutionne|showcas(?:es|ing)|empower(?:s|ing)?|moderni[sz](?:es|ing)|celebrat(?:es|ing))\b/i;
+const _SUJET_CIVIQUE_RX = /\b(?:citizen|civic|public)\s+(?:services?|engagement|satisfaction|welfare|life)\b|\bservices?\s+aux\s+citoyens\b|\b(?:hotline|helpline)\b|\b12345\b|\bgovernance\b|\bgouvernance\b|\brural\s+(?:revitali[sz]ation|development)\b|\bpoverty\s+alleviation\b|\bsmart\s+cit(?:y|ies)\b|\bcivil\s+servants?\b|\bpeople'?s\s+livelihoods?\b|\bpublic\s+administration\b|\bgrassroots\b/i;
+function _estCommCivique(h) {
+  const t = String(h || '');
+  if (!_FORME_EXPLAINER_RX.test(t) || !_SUJET_CIVIQUE_RX.test(t)) return false;
+  return !isFinanciallyRelevant(t);
+}
+
 function isNoise(headline) {
   const h = headline || '';
   if (_estDonneeHorsMarche(h)) return true;   // stat macro d'un pays hors calendrier : on ne trade pas ça
@@ -19046,6 +19083,7 @@ function isNoise(headline) {
   if (_BANK_TEASER_RE.test(h))                       return true;   // teaser de recherche de banque ("… – MUFG/Nomura/TD…") : pas une news
   if (_POLITICAL_SPAM_RE.test(h))                    return true;   // repost d'endorsement politique (America First/MAGA…) : pas une news
   if (_estNominationSansPortee(h))                   return true;   // nomination d'état-major (secrétaire général, conseiller…) : aucune portée FX
+  if (_estCommCivique(h))                            return true;   // explainer promotionnel d'action publique (hotline 12345, services aux citoyens…) : soft power, pas une news
   if (_SINGLE_STOCK_RE.test(h)) return true;                       // action d'une société (dividende/rachat) : pas macro/FX
   if (_CLICKBAIT_RE.test(h))    return true;                       // éditorial retail / clickbait
   const _hs = _stripTrailingMeta(h);

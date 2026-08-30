@@ -183,6 +183,51 @@ if (SRC_HM) {
   ].forEach(([lbl, h]) => v('gardée : ' + lbl, H(h) === false, h.slice(0, 70)));
 }
 
+/* ══ L'EXPLAINER PROMOTIONNEL D'ACTION PUBLIQUE ═══════════════════════════════════════════════
+   30/08, capture : « COMMENT LA LIGNE DIRECTRICE 12345 DE LA CHINE RÉINVENTE LES SERVICES AUX
+   CITOYENS » dans le fil, taguée Géopolitique. Verdict utilisateur : « ce type de news si elle
+   n'apporte rien aucune valeur … faut pas laisser entrer ». La classe : un État raconte comment
+   son programme améliore la vie civique — soft power rédactionnel, aucun actif, aucune décision.
+   La règle exige LES DEUX — la FORME d'explainer promotionnel (« How … » ancré en tête, ou verbe
+   de brochure) ET le SUJET civico-administratif — et isFinanciallyRelevant épargne toujours en
+   dernier ressort.
+   ⚠️ LA MOITIÉ QUI COMPTE : la géopolitique chinoise, les tarifs, et tout titre qui parle marché
+   doivent RESTER — un explainer écarté à tort ne se voit jamais. */
+console.log('\n── L\'explainer promotionnel d\'action publique ──');
+const SRC_CC = (() => {
+  const d = SRV.indexOf('const _FORME_EXPLAINER_RX');
+  const f = SRV.indexOf('\n}', SRV.indexOf('function _estCommCivique'));
+  return (d < 0 || f < 0) ? null : SRV.slice(d, f + 2);
+})();
+// La règle s'appuie sur isFinanciallyRelevant : on extrait AUSSI le vrai détecteur, pas une copie.
+const SRC_FIN = (() => {
+  const d = SRV.indexOf('const FINANCIAL_KEYWORDS');
+  const f = SRV.indexOf('\n}', SRV.indexOf('function isFinanciallyRelevant'));
+  return (d < 0 || f < 0) ? null : SRV.slice(d, f + 2);
+})();
+v('la règle est extractible de server.js (et son détecteur financier avec elle)', !!SRC_CC && !!SRC_FIN);
+v('… branchée dans isNoise', /if \(_estCommCivique\(h\)\)\s+return true;/.test(SRV));
+v('… et la purge au boot retire ceux déjà stockés', /_estCommCivique\(String\(i\.headline \|\| ''\)\)/.test(SRV),
+  'le filtre d\'entrée seul laisserait la ligne de la capture dans le fil');
+if (SRC_CC && SRC_FIN) {
+  // eslint-disable-next-line no-eval
+  const C = eval('(function(){' + SRC_FIN + '\n' + SRC_CC + '\nreturn _estCommCivique;})()');
+  [['la capture, en version d\'origine (l\'ingestion travaille sur l\'anglais)',
+    "How China's 12345 guideline reinvents citizen services"],
+   ['la même, telle qu\'affichée en français (défensif)',
+    'Comment la ligne directrice 12345 de la Chine réinvente les services aux citoyens'],
+   ['une hotline municipale « transformée »', 'How the city hotline transforms public services for residents'],
+   ['une vitrine de gouvernance', 'Smart cities initiative showcases rural revitalization and grassroots governance'],
+  ].forEach(([lbl, h]) => v('écartée : ' + lbl, C(h) === true, h.slice(0, 80)));
+  [['un explainer qui parle MARCHÉ (épargne financière)', "How the PBoC's digital governance reinvents public services in banking"],
+   ['la géopolitique chinoise', 'China unveils new tariffs on EU goods in escalating trade war'],
+   ['la forme SEULE ne suffit pas', 'How Beijing plans to respond to new US tariffs'],
+   ['le sujet SEUL non plus', 'Government hotline flooded with complaints as public services strike spreads'],
+   ['une réforme sociale à portée budgétaire', 'France pension reform to cut budget deficit by 0.5% of GDP'],
+   ['un titre vide', ''],
+  ].forEach(([lbl, h]) => v('gardée : ' + lbl, C(h) === false, h.slice(0, 80)));
+}
+
 /* ══ LE NFP SANS PAYS EN TÊTE EST QUAND MÊME UNE DONNÉE US, ET DU TIER-1 ══════════════════════
    29/08, capture : « Prelim Benchmark Payrolls Revision Actual -79K » sorti en Commentaire
    économique, sans rouge ni tags — le nom n'écrit pas « US », mais NFP, ISM, JOLTS n'existent
