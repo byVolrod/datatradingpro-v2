@@ -7858,7 +7858,13 @@
              chaque cran — l'erreur que je venais de faire sur la réserve des commandes. */
           var _bordSuivant = function (sens) {
             var padL = parseFloat(getComputedStyle(bar).paddingLeft) || 0;
-            var max = bar.scrollWidth - bar.clientWidth, cur = bar.scrollLeft;
+            /* ⚠️ `cur` EST BORNÉ À `max`, ET LA COMPARAISON TOLÈRE 2 PX (30/08, attrapé par la
+               garde de déploiement sur Chrome 151) : sous le zoom 90 % du desk, les Chrome récents
+               rendent un scrollLeft FRACTIONNAIRE (531,11 à la butée) quand scrollWidth/clientWidth
+               restent entiers (max = 530). La recherche « < cur − 1 » trouvait alors le bord clampé
+               à 530 — un fantôme à 0,11 px — et y « allait » : la molette ne revenait PLUS JAMAIS
+               en arrière depuis la butée. Mesuré au diagnostic du banc, mouvement nul déterministe. */
+            var max = bar.scrollWidth - bar.clientWidth, cur = Math.min(bar.scrollLeft, max);
             /* ⚠️ ON NE RETRANCHE PAS LE PADDING, et c'est la mesure qui l'a tranché : `offsetLeft`
                et `scrollLeft` partent du MÊME bord. Le retrancher décalait chaque arrêt de 4 px et
                laissait une lichette de l'onglet précédent visible à gauche — 3,8 px mesurés, soit
@@ -7871,10 +7877,10 @@
             });
             bords.sort(function (a, b) { return a - b; });
             if (sens > 0) {
-              for (var i = 0; i < bords.length; i++) if (bords[i] > cur + 1) return bords[i];
+              for (var i = 0; i < bords.length; i++) if (bords[i] > cur + 2) return bords[i];
               return max;
             }
-            for (var j = bords.length - 1; j >= 0; j--) if (bords[j] < cur - 1) return bords[j];
+            for (var j = bords.length - 1; j >= 0; j--) if (bords[j] < cur - 2) return bords[j];
             return 0;
           };
           bar.addEventListener('wheel', function (e) {

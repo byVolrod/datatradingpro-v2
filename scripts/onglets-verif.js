@@ -201,6 +201,37 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
   console.log('\n── 8. Le geste, dans un vrai Chromium : au doigt ET à la souris ──');
   v('la ligne d\'onglet porte son index', LIGNES);
   v('la mécanique de déplacement est extractible', !!CABLAGE, 'fonctions introuvables dans widgets.js');
+
+  /* ══ LE BORD PRÉCÉDENT DEPUIS UNE BUTÉE FRACTIONNAIRE (30/08, attrapé par la garde de
+     déploiement sur Chrome 151) : sous le zoom 90 % du desk, les Chrome récents rendent un
+     scrollLeft FRACTIONNAIRE (531,11 à la butée) quand scrollWidth/clientWidth restent entiers
+     (max = 530). L'ancienne recherche « < cur − 1 » trouvait le bord clampé à 530 — un fantôme à
+     0,11 px — et la molette ne revenait PLUS JAMAIS en arrière. Épinglé ici sur la VRAIE fonction
+     extraite, avec les chiffres exacts du diagnostic : le contrôle vaut sur tout navigateur, même
+     celui qui ne fractionne pas. */
+  {
+    const dB = SRC.indexOf('var _bordSuivant = function (sens) {');
+    const fB = SRC.indexOf('\n          };', dB);
+    v('le calcul du bord visé est extractible', dB > 0 && fB > dB);
+    if (dB > 0 && fB > dB) {
+      const faireBar = (sl) => ({
+        scrollWidth: 794, clientWidth: 264, scrollLeft: sl,
+        querySelectorAll: () => [4, 71, 169, 244, 351, 445, 501, 626, 684, 766].map(x => ({ offsetLeft: x })),
+      });
+      const F = new Function('bar', 'getComputedStyle',
+        SRC.slice(dB, fB + 13) + '\nreturn _bordSuivant;');
+      const gcs = () => ({ paddingLeft: '4px' });
+      const arriere = F(faireBar(531.1111450195312), gcs)(-1);
+      v('depuis la butée FRACTIONNAIRE, la molette vise le vrai onglet précédent',
+        arriere === 501, 'visé : ' + arriere + ' (le fantôme clampé vaut 530, le vrai bord 501)');
+      const arriereEntier = F(faireBar(530), gcs)(-1);
+      v('… et depuis la butée entière, le même (aucune régression des Chrome plus vieux)',
+        arriereEntier === 501, 'visé : ' + arriereEntier);
+      const avant = F(faireBar(4.44444465637207), gcs)(1);
+      v('… et l\'aller depuis un début fractionnaire avance d\'un onglet, pas de zéro',
+        avant === 71, 'visé : ' + avant);
+    }
+  }
   /* ⚠️ LA POIGNÉE NE DOIT PLUS ÊTRE `draggable`. Le glisser-déposer natif n'existe pas au doigt, et
      sur les autres appareils il VOLE le geste au pointeur : dès qu'un drag natif démarre, Chrome
      cesse d'émettre `pointermove`. Les deux mécanismes ne peuvent pas cohabiter sur le même objet. */
