@@ -14,7 +14,10 @@
    EXACTEMENT la même zone de l'image. On extrait le vrai code d'admin.js et on l'exécute dans
    Chromium sur une image de test dont on connaît les couleurs par quadrant. */
 const fs = require('fs'), path = require('path');
-const RACINE = '/home/user/datatradingpro-v2';
+/* ⚠️ RELATIF AU SCRIPT, JAMAIS UN CHEMIN ABSOLU (30/08 : la garde de déploiement a planté sur le
+   runner GitHub — le chemin en dur désignait le conteneur d'une session de développement, qui
+   n'existe nulle part ailleurs). Même forme que tous les autres bancs du dépôt. */
+const RACINE = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(RACINE, 'public/js/admin.js'), 'utf8');
 let ko = 0, ok = 0;
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + d : '')); } };
