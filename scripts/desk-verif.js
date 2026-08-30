@@ -1096,6 +1096,55 @@ function phaseLogique() {
         verif('… et l\'inclassable finit dans « Autres chiffres de la semaine », jamais à la poubelle',
           vT[vT.length - 1] === 'Autres chiffres de la semaine' && vieux[vieux.length - 1].bullets.length === 1,
           vT[vT.length - 1]);
+        /* ⚠️ LES NOMS D'INDICATEURS ANGLAIS SE CLASSENT AUSSI (30/08, 3e capture user : sur le
+           Hebdo livré, « Unemployment Rate » (JPY et EUR), « Ifo Business Climate » et « Personal
+           Income MoM » échouaient TOUS dans « Autres chiffres de la semaine » — le calendrier
+           livre les noms d'indicateurs en anglais, et « unemployment » ne contient pas « emploi »).
+           Classement demandé par le user : Unemployment → Emploi ; Ifo et revenus des ménages →
+           Croissance ; et par cohérence wages/earnings → Inflation, comme « salaires ». Les puces
+           d'essai sont celles de la capture. */
+        const anglais = F({ macro: [{ heading: 'Inflation & Croissance', bullets: [
+          '**Vendredi 28 août · JPY :** Unemployment Rate : 2.4% (attendu 2.5%, préc. 2.5%).',
+          '**Jeudi 27 août · EUR :** Unemployment Rate : 6.2% (attendu 6.3%, préc. 6.3%).',
+          '**Mardi 25 août · EUR :** Ifo Business Climate : 88.8 (attendu 88.5, préc. 88.1).',
+          '**Mercredi 26 août · USD :** Personal Income MoM : 0.4% (attendu 0.3%, préc. 0.4%).',
+          '**USD :** Average Hourly Earnings : +0.3%, la pression salariale se maintient.',
+        ] }] });
+        const _fam = (h) => { const s = anglais.find(x => x.heading === h); return s ? s.bullets : []; };
+        verif('« Unemployment Rate » (JPY comme EUR) rejoint Emploi, comme demandé',
+          _fam('Emploi').length === 2 && _fam('Emploi').every(b => /Unemployment/.test(b)),
+          JSON.stringify(anglais.map(s => s.heading + ':' + s.bullets.length)));
+        verif('« Ifo Business Climate » et « Personal Income » rejoignent Croissance économique',
+          _fam('Croissance économique').length === 2
+          && _fam('Croissance économique').some(b => /Ifo/.test(b))
+          && _fam('Croissance économique').some(b => /Personal Income/.test(b)),
+          JSON.stringify(anglais.map(s => s.heading + ':' + s.bullets.length)));
+        verif('« Average Hourly Earnings » rejoint Inflation, comme « salaires »',
+          _fam('Inflation').length === 1 && /Earnings/.test(_fam('Inflation')[0] || ''),
+          JSON.stringify(anglais.map(s => s.heading)));
+        verif('… et plus AUCUNE des puces de la capture n\'échoue dans « Autres chiffres de la semaine »',
+          !anglais.some(s => s.heading === 'Autres chiffres de la semaine'),
+          JSON.stringify(anglais.map(s => s.heading)));
+        /* Mutation : on retire les mots-clés anglais de la copie extraite et les mêmes puces
+           doivent retomber dans « Autres chiffres de la semaine » — preuve que ce sont EUX qui
+           portent le classement, pas un hasard d'un autre mot de la puce. */
+        const _srcMut = APP3.slice(dR, fR)
+          .replace('|(?:un)?employment|jobless|labou?r', '')
+          .replace('|prices?|wages?|earnings', '')
+          .replace('|ifo|zew|tankan|business climate|confidence|sentiment|personal (?:income|spending)|durable|housing|homes?|permits?|orders', '');
+        /* On vérifie l'absence des FORMES REGEX (avec leurs pipes), pas des mots nus : le
+           commentaire du code cite « unemployment » et « Ifo Business Climate » en prose, et la
+           prose vit dans la même tranche extraite. */
+        verif('(mutation) la copie mutée a bien perdu les mots anglais des trois familles',
+          !_srcMut.includes('(?:un)?employment') && !_srcMut.includes('|earnings')
+          && !_srcMut.includes('|business climate|'));
+        const FM = new Function('w', _srcMut + '\nreturn _macroReste;');
+        const mut = FM({ macro: [{ heading: 'Inflation & Croissance', bullets: [
+          '**Vendredi 28 août · JPY :** Unemployment Rate : 2.4% (attendu 2.5%, préc. 2.5%).',
+        ] }] });
+        verif('(mutation) sans eux, « Unemployment Rate » retombe dans « Autres chiffres de la semaine »',
+          mut.length === 1 && mut[0].heading === 'Autres chiffres de la semaine',
+          JSON.stringify(mut.map(s => s.heading)));
         /* ⚠️ ET LA « BANQUE CENTRALE » MANQUANTE DES ARCHIVES EST RECONSTITUÉE (même capture :
            l'ancien prompt interdisait ce thème dans la macro, et la section dédiée qui portait la
            matière a été retirée du rendu — les propos des banques ne s'affichaient nulle part).

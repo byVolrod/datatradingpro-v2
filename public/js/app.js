@@ -10017,12 +10017,18 @@ function _renderWeeklyRecap(item) {
        Croissance. Une puce inclassable rejoint « Autres chiffres de la semaine », en QUEUE —
        jamais la poubelle. Une famille recréée FUSIONNE avec sa section native (jamais deux
        en-têtes « Inflation » l'un sous l'autre). Éclater AU RENDU couvre les archives ET
-       l'édition courante en cache, sans régénérer quoi que ce soit. */
+       l'édition courante en cache, sans régénérer quoi que ce soit.
+       ⚠️ CHAQUE FAMILLE PORTE SES MOTS-CLÉS ANGLAIS (30/08, capture user : « Unemployment Rate »,
+       « Ifo Business Climate » et « Personal Income MoM » échouaient TOUS dans « Autres chiffres
+       de la semaine ») : le calendrier livre les noms d'indicateurs en anglais, et « unemployment »
+       ne contient PAS « emploi » (u-n-e-m-p-l-o-y) — les regex françaises ne voyaient donc rien.
+       Classement voulu par le user : Unemployment → Emploi ; Ifo (climat des affaires), revenus et
+       dépenses des ménages → Croissance ; salaires (wages/earnings) → Inflation, comme « salaires ». */
     const _WR_ECLATE_RX = [
       ['Banque centrale', /\b(fed|fomc|bce|ecb|boe|boj|rba|rbnz|snb|bns|banque centrale|taux directeur|d[ée]cision de taux|maintenu son taux|relev[ée] son taux|abaiss[ée] son taux|hawkish|dovish|minutes)\b/i],
-      ['Emploi', /\b(emplois?|nfp|payrolls?|ch[ôo]mage|claims|allocations|jolts|adp|postes|embauches)\b/i],
-      ['Inflation', /\b(inflation|ipc|cpi|pce|ppi|ipp|hicp|prix|salaires?|d[ée]flateur)\b/i],
-      ['Croissance économique', /\b(pib|gdp|pmi|ism|production|ventes|consommation|confiance|immobilier|logements?|permis|croissance|retail|commandes)\b/i],
+      ['Emploi', /\b(emplois?|nfp|payrolls?|ch[ôo]mage|claims|allocations|jolts|adp|postes|embauches|(?:un)?employment|jobless|labou?r)\b/i],
+      ['Inflation', /\b(inflation|ipc|cpi|pce|ppi|ipp|hicp|prix|salaires?|d[ée]flateur|prices?|wages?|earnings)\b/i],
+      ['Croissance économique', /\b(pib|gdp|pmi|ism|production|ventes|consommation|confiance|immobilier|logements?|permis|croissance|retail|commandes|ifo|zew|tankan|business climate|confidence|sentiment|personal (?:income|spending)|durable|housing|homes?|permits?|orders)\b/i],
     ];
     const _wrEclate = (sec) => {
       if (!/inflation.*croiss|croiss.*inflation/i.test(String(sec.heading || ''))) return [sec];
