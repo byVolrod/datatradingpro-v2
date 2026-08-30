@@ -228,6 +228,61 @@ if (SRC_CC && SRC_FIN) {
   ].forEach(([lbl, h]) => v('gardée : ' + lbl, C(h) === false, h.slice(0, 80)));
 }
 
+/* ══ LA MÊME NEWS DEUX FOIS DANS LE FIL ═══════════════════════════════════════════════════════
+   30/08, capture : « Conférence de presse du FOMC », « Communiqué sur les taux et prévisions
+   économiques (SEP) » et « Rapport mensuel de l'AIE » chacun EN DOUBLE, à la même minute. La
+   cause n'était pas la dédup elle-même mais son ANGLE MORT : deux copies de la même dépêche
+   arrivées dans le MÊME lot étaient chacune comparée au fil déjà stocké : jamais aux entrantes
+   acceptées avant elles, versées au fil seulement après la boucle. Les deux passaient.
+   ⚠️ LA MOITIÉ QUI COMPTE : deux ÉVÉNEMENTS distincts de la même minute (conférence FOMC et
+   rapport AIE) ne doivent JAMAIS fusionner, et une « FOMC Press Conference » qui revient six
+   semaines plus tard est une nouvelle édition, pas une jumelle : la purge est bornée à 3 h. */
+console.log('\n── La même news deux fois dans le fil ──');
+const SRC_DD = (() => {
+  const d = SRV.indexOf('function norm(s)');
+  const f = SRV.indexOf('\n}', SRV.indexOf('function findDuplicate'));
+  return (d < 0 || f < 0) ? null : SRV.slice(d, f + 2);
+})();
+v('la dédup est extractible de server.js', !!SRC_DD);
+v('le lot se compare AUSSI à lui-même dans mergeItems',
+  /const prev = findDuplicate\(item, allNews\) \|\| findDuplicate\(item, newItems\);/.test(SRV),
+  'sans cela, deux copies du même lot entrent toutes les deux');
+v('la purge au boot retire les jumelles déjà stockées, bornée à 3 h et hors briefings',
+  /jumelle\(s\) retirée\(s\)/.test(SRV)
+  && /const proches = \(parTitre\.get\(cle\) \|\| \[\]\)\.filter\(g => Math\.abs\(\(g\.timestamp \|\| 0\) - \(i\.timestamp \|\| 0\)\) <= 180 \* 60 \* 1000\);/.test(SRV)
+  && /if \(!i \|\| i\._briefing \|\| i\.source === 'DTP' \|\| !i\.headline\) \{ garder\.push\(i\); continue; \}/.test(SRV));
+if (SRC_DD) {
+  // eslint-disable-next-line no-eval
+  const F = eval('(function(){' + SRC_DD + '\nreturn findDuplicate;})()');
+  const T = Date.now();
+  const stored = [];   // le fil au moment du lot : vide, comme dans l'incident
+  const accepted = [];
+  const lot = [
+    { headline: 'FOMC Press Conference', timestamp: T, source: 'FinancialJuice' },
+    { headline: 'FOMC press conference', timestamp: T + 30000, source: 'ForexLive' },
+    { headline: 'IEA Monthly Oil Market Report', timestamp: T, source: 'FinancialJuice' },
+    { headline: 'IEA monthly oil market report', timestamp: T + 20000, source: 'ForexLive' },
+  ];
+  const entres = [];
+  for (const it of lot) {
+    const prev = F(it, stored) || F(it, accepted);   // la boucle corrigée de mergeItems, rejouée
+    if (prev) continue;
+    accepted.push(it); entres.push(it.headline);
+  }
+  v('rejeu du lot de la capture : chaque dépêche n\'entre qu\'UNE fois', entres.length === 2, JSON.stringify(entres));
+  v('… la copie FOMC est retenue contre le LOT, pas contre le fil', !!F(lot[1], accepted) && !F(lot[1], stored));
+  v('deux événements DISTINCTS de la même minute ne fusionnent jamais',
+    !F({ headline: 'IEA Monthly Oil Market Report', timestamp: T }, [lot[0]]),
+    'le rapport AIE n\'est pas la conférence FOMC');
+  /* Reformulation RÉALISTE (préfixe « Breaking », mention « (SEP) » en fin) : le nettoyage de
+     _normHl doit les ramener au même titre. Un titre COURT (« FOMC Press Conference » + un mot),
+     lui, reste volontairement hors de portée : le garde-fou des 30 caractères protège les titres
+     génériques, c'est un choix, pas un trou. */
+  v('une reformulation proche à moins de 3 h est bien une jumelle',
+    !!F({ headline: 'Breaking: FOMC Rate Statement and Summary of Economic Projections (SEP)', timestamp: T + 3600000 },
+      [{ headline: 'FOMC Rate Statement and Summary of Economic Projections', timestamp: T }]));
+}
+
 /* ══ LE NFP SANS PAYS EN TÊTE EST QUAND MÊME UNE DONNÉE US, ET DU TIER-1 ══════════════════════
    29/08, capture : « Prelim Benchmark Payrolls Revision Actual -79K » sorti en Commentaire
    économique, sans rouge ni tags — le nom n'écrit pas « US », mais NFP, ISM, JOLTS n'existent

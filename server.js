@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-fil-jumelles', ts: Date.UTC(2026, 8, 16, 18, 0), title: 'Fini les dépêches en double dans le fil', desc: 'Vous l’avez capturé : la conférence de presse du FOMC, le communiqué sur les taux et le rapport mensuel de l’AIE apparaissaient chacun deux fois, à la même minute. La cause était un angle mort de la déduplication : quand deux sources livrent la même dépêche dans le même lot d’arrivée, chaque copie n’était comparée qu’aux actualités déjà stockées, jamais à celles acceptées juste avant elle dans le lot : les deux entraient. Le lot se compare désormais aussi à lui-même : la seconde copie fusionne avec la première (ses sources s’ajoutent, son niveau d’importance est conservé), exactement comme si elle était arrivée plus tard. Les doublons déjà présents dans le fil sont retirés au passage, prudemment : seules deux dépêches au même titre à moins de trois heures d’écart sont considérées jumelles : une conférence du FOMC qui revient six semaines plus tard est une nouvelle édition, pas un doublon. Le lot exact de votre capture est rejoué à chaque livraison par les contrôles automatiques.' },
   { id: 'dtpu-20260916-semaine-deux-tetes', ts: Date.UTC(2026, 8, 16, 16, 0), title: 'Semaine à venir : quand deux décisions de taux tombent le même jour, les deux parlent', desc: 'Vous l’avez relevé sur la semaine du 31 août : le mercredi portait la décision de la Banque du Canada ET celle de la RBNZ, mais la carte titrait « BoC » et sa description ne parlait que d’elle : la RBNZ, pourtant présente dans la liste sous la carte, n’apparaissait ni dans le titre ni dans le texte. La règle en cause donnait tout le titre au rendez-vous majeur du jour pour qu’un chiffre secondaire ne le dilue pas ; elle n’avait pas prévu deux majeurs. C’est corrigé : deux têtes d’affiche partagent désormais le titre (« RBNZ + BoC », dans l’ordre de la journée), et la description change de forme ces jours-là, comme demandé : une clause courte par rendez-vous majeur avec son heure de Paris et ses chiffres, un seul « pourquoi ça compte », puis le reste du programme en une ligne : simple et court, fini le paragraphe sur une seule décision qui taisait l’autre. Les journées à un seul grand rendez-vous ne changent pas d’un mot, et le cas exact du mercredi 2 septembre est rejoué à chaque livraison par un contrôle automatique.' },
   { id: 'dtpu-20260916-lecteur-sombre', ts: Date.UTC(2026, 8, 16, 14, 0), title: 'Rapports d’institutions : fini le grand flash blanc au chargement d’un PDF', desc: 'Vous l’avez capturé : ouvrir un rapport d’institution affichait une grande zone blanche le temps du « Chargement du PDF… », étrangère au desk, avec un ascenseur peint en clair sur le côté. La cause : le fond blanc du papier était posé en permanence sur toute la zone de lecture, même quand aucun document n’y était encore. Le blanc n’appartient désormais qu’au document lui-même : pendant un chargement, sur un état d’attente ou dans la visionneuse PDF, la zone reste sur le fond sombre du desk et son ascenseur reste noir ; dès qu’un article s’affiche, son papier blanc revient, identique à avant. Le cas a été rejoué dans un vrai navigateur (rapport MUFG, chargement PDF maintenu ouvert) et un contrôle automatique bascule désormais la vraie règle à chaque livraison : sombre sans document, papier blanc avec.' },
   { id: 'dtpu-20260916-tag-info-propos', ts: Date.UTC(2026, 8, 16, 12, 0), title: 'Les tags du fil rentrent dans le rang : Info, Réaction, Analyse, Impact marché', desc: 'Vous l’avez relevé sur une news de propos rapportés : son bouton affichait « Contexte », un tag qui n’existe pas dans le vocabulaire du desk. Les tags du fil sont au nombre de quatre, et quatre seulement : Info, Réaction, Analyse et Impact marché (plus Décryptage, réservé aux données du calendrier). Une news qui reprend les propos d’un responsable porte donc désormais le tag Info, comme toutes les autres ; ce qui la distingue reste en place au bon endroit : le titre explicatif, la note « Propos personnels repris tels quels, sans portée directe sur les marchés » dans le panneau, et la citation d’origine lisible au déplié. Un contrôle automatique rend désormais une news de propos dans un vrai navigateur à chaque livraison et vérifie que son tag dit Info, et que « Contexte » ne revient jamais, ni en libellé ni en habillage.' },
@@ -10769,6 +10770,45 @@ setTimeout(() => {
   } catch (e) { console.warn('[Fil] purge explainers civiques :', e && e.message); }
 }, 50000);
 
+/* PURGE DES JUMELLES DÉJÀ STOCKÉES (30/08, capture user : trois dépêches FOMC/AIE chacune en
+   DOUBLE à la même minute). Le correctif de mergeItems (le lot se compare aussi à lui-même)
+   empêche les prochaines paires d'entrer ; cette passe retire celles qui sont déjà dans le fil.
+   ⚠️ ÉTROIT EXPRÈS : même titre normalisé (_normHl) ET moins de 3 h d'écart : une « FOMC Press
+   Conference » revient légitimement toutes les six semaines, seule la paire COLLÉE est une
+   jumelle. On garde la copie la plus riche (urgente > haute > description la plus longue), et on
+   lui fusionne les sources de l'autre, comme mergeItems l'aurait fait. Les briefings maison ne
+   sont pas touchés. */
+setTimeout(() => {
+  try {
+    const avant = allNews.length;
+    const parTitre = new Map();   // _normHl -> [items gardés]
+    const garder = [];
+    const richesse = i => (i.urgent ? 4 : 0) + (i.priority === 'high' ? 2 : 0) + Math.min(1, (i.description || '').length / 400);
+    for (const i of allNews) {
+      if (!i || i._briefing || i.source === 'DTP' || !i.headline) { garder.push(i); continue; }
+      const cle = _normHl(i.headline);
+      const proches = (parTitre.get(cle) || []).filter(g => Math.abs((g.timestamp || 0) - (i.timestamp || 0)) <= 180 * 60 * 1000);
+      const jumelle = proches[0];
+      if (!jumelle) { parTitre.set(cle, (parTitre.get(cle) || []).concat(i)); garder.push(i); continue; }
+      // Jumelle trouvée : la plus riche reste (échange sur place si la nouvelle venue l'emporte).
+      const gagnante = richesse(i) > richesse(jumelle) ? i : jumelle;
+      const perdante = gagnante === i ? jumelle : i;
+      if (!Array.isArray(gagnante.sources)) gagnante.sources = (gagnante.source && gagnante.source !== 'Google News') ? [gagnante.source] : [];
+      if (perdante.source && perdante.source !== 'Google News' && !gagnante.sources.includes(perdante.source)) gagnante.sources.push(perdante.source);
+      if (perdante.urgent && !gagnante.urgent) gagnante.urgent = true;
+      if (perdante.priority === 'high' && gagnante.priority !== 'high') gagnante.priority = 'high';
+      if (gagnante === i) { const ix = garder.indexOf(jumelle); if (ix >= 0) garder[ix] = i; const lst = parTitre.get(cle); const jx = lst.indexOf(jumelle); if (jx >= 0) lst[jx] = i; }
+    }
+    allNews = garder;
+    const retires = avant - allNews.length;
+    if (retires > 0) {
+      saveHistory();
+      try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch {}
+      console.log(`[Fil] ${retires} jumelle(s) retirée(s) du fil (même titre à moins de 3 h : doublon de lot).`);
+    }
+  } catch (e) { console.warn('[Fil] purge jumelles :', e && e.message); }
+}, 55000);
+
 const SEANCE_VER = 2;
 
 /* RATTRAPAGE AU DÉMARRAGE. Au boot, on regarde les récaps de séance DU JOUR : ceux qui portent une
@@ -19428,7 +19468,14 @@ function mergeItems(incoming) {
       .map(it => (it._briefing || !it.headline) ? it : { ...it, headline: _stripScrapeMeta(it.headline) })   // purge des métadonnées de page collées au titre (heure+date+tickers) AVANT dédup
       .map(it => it._briefing ? it : { ...it, tags: extractTags(it.category, (it.headline || '') + ' ' + (it.description || '')) })
       .map(upgradeItemPriority)) {
-    const prev = findDuplicate(item, allNews);
+    /* LE LOT SE COMPARE AUSSI À LUI-MÊME (30/08, capture user : « Conférence de presse du FOMC »,
+       « Communiqué sur les taux … (SEP) » et « Rapport mensuel de l'AIE » chacun EN DOUBLE, à la
+       même minute). Deux copies de la même dépêche ARRIVÉES DANS LE MÊME LOT passaient toutes les
+       deux : chacune n'était comparée qu'à `allNews` (le fil déjà stocké), jamais aux entrantes
+       déjà acceptées avant elle : `newItems` n'est versé dans le fil qu'APRÈS la boucle. La
+       seconde copie trouve désormais la première dans `newItems` et fusionne dessus (mêmes
+       promotions de flags que contre le fil stocké). */
+    const prev = findDuplicate(item, allNews) || findDuplicate(item, newItems);
     if (prev) {
       // ── REGROUPEMENT DES SOURCES : 1 seule news qui liste toutes les VRAIES sources l'ayant couverte
       //    (« via FinancialJuice · ForexLive · Reuters »). Google News = SECOURS → jamais créditée ni affichée.
