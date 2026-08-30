@@ -99,6 +99,32 @@ const tj = W.titreJour(jeudi, 'jeudi');
 console.log('  titre  : ' + tj);
 verif('décision BCE → titre unique, non dilué', tj === 'BCE', tj);
 
+console.log('\n── 7c. DEUX décisions de taux le même jour : les deux têtes d\'affiche parlent ──');
+/* 30/08, capture user (semaine du 31/08) : le mercredi 2 septembre portait la décision de la BoC ET
+   celle de la RBNZ ; la carte titrait « BoC » seul et sa description ne parlait que de la BoC — la
+   RBNZ, présente dans la liste, était invisible de tout ce qui se lit d'abord. La règle « un rang
+   ≥ 8 tient le titre seul » visait les sigles mineurs, pas une seconde décision. */
+const mercrediCB = [
+  { currency: 'NZD', ctry: 'NZ', title: 'RBNZ Interest Rate Decision', impact: 'High', forecast: '2.75%', previous: '3%', timestamp: J(2 + 31, 2, 0) },
+  { currency: 'CAD', ctry: 'CA', title: 'BoC Interest Rate Decision', impact: 'High', forecast: '2.25%', previous: '2.25%', timestamp: J(2 + 31, 13, 45) },
+  { currency: 'USD', ctry: 'US', title: 'ISM Services PMI', impact: 'Medium', forecast: '51.2', previous: '50.1', timestamp: J(2 + 31, 14, 0) },
+];
+const tCB = W.titreJour(mercrediCB, 'mercredi');
+const dCB = W.descriptionJour(mercrediCB, 'mercredi');
+console.log('  titre  : ' + tCB);
+console.log('  desc   : ' + dCB);
+verif('le titre nomme LES DEUX banques', /RBNZ/.test(tCB) && /BoC/.test(tCB), tCB);
+verif('… dans l\'ordre de la journée (RBNZ à 04h, BoC à 15h45)', tCB === 'RBNZ + BoC', tCB);
+verif('la description annonce les deux décisions', /Décision de la RBNZ/.test(dCB) && /Décision de la BoC/.test(dCB), dCB);
+verif('… chacune avec ses chiffres', /2\.75%/.test(dCB) && /2\.25%/.test(dCB), dCB);
+verif('… en UNE clause courte par tête (l\'heure devant chaque décision)', /\d{2}h\d{2}, Décision de la RBNZ/.test(dCB) && /\d{2}h\d{2}, Décision de la BoC/.test(dCB), dCB);
+verif('UN seul enjeu, pas un pavé par décision', (dCB.match(/L'essentiel n'est pas le taux annoncé/g) || []).length === 1, dCB);
+verif('le reste du programme est listé en noms nus (pas de glose : court)', /Également au programme : /.test(dCB) && /ISM Services/.test(dCB), dCB);
+verif('la description multi-têtes reste COURTE (la demande : « simplifier et raccourcir »)', dCB.length < 520, String(dCB.length));
+// Mutation : un jour à UNE seule décision garde le comportement d'avant, au mot près.
+const tSolo = W.titreJour(jeudi, 'jeudi');
+verif('un jour à UNE décision garde son titre unique (rien ne bouge pour lui)', tSolo === 'BCE', tSolo);
+
 console.log('\n── 7b. VOCABULAIRE FOREXFACTORY (notre calendrier sert ses noms, pas ceux du flux) ──');
 // La Semaine à Venir lit desormais « notre calendrier », c est-a-dire des lignes RENOMMEES en
 // ForexFactory. Si les regles de themes ne connaissaient que le vocabulaire du fournisseur, la

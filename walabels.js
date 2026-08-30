@@ -534,8 +534,20 @@ function titreJour(events, dowFr, opts) {
     const autre = sigles.find(x => x.sg !== suite.sigle);
     return autre ? `${autre.sg} + ${suite.sigle} (${marque})` : `${suite.sigle} · ${marque}`;
   }
-  // Un rendez-vous de rang ≥ 8 (décision de taux, Jackson Hole, NFP, Powell) tient le titre SEUL :
-  // c'est l'histoire du jour, un second sigle ne fait que la diluer.
+  /* PLUSIEURS TÊTES D'AFFICHE (30/08, capture user : le mercredi portait la décision de la BoC ET
+     celle de la RBNZ, le titre ne disait que « BoC » — la RBNZ était dans la liste de la carte mais
+     invisible du titre et de la description). La règle « un rang ≥ 8 tient le titre seul » avait été
+     écrite pour qu'un sigle MINEUR ne dilue pas l'histoire du jour, jamais pour taire une seconde
+     décision de taux : les rendez-vous de rang ≥ 8 tiennent désormais le titre ENSEMBLE, dans
+     l'ordre où la journée les sert (ths est trié impact puis rang, à égalité l'ordre du jour). */
+  const majeurs = ths.filter(t => t.rang >= 8);
+  if (majeurs.length >= 2) {
+    const sgM = [], vusM = new Set();
+    for (const t of majeurs.slice(0, 3)) { const s = sigleEv(t.src); if (s && !vusM.has(s)) { vusM.add(s); sgM.push(s); } }
+    if (sgM.length >= 2) return sgM.join(' + ');
+  }
+  // Un rendez-vous de rang ≥ 8 (décision de taux, Jackson Hole, NFP, Powell) SEUL de son rang tient
+  // le titre seul : c'est l'histoire du jour, un second sigle mineur ne fait que la diluer.
   const seul = ths.length && ths[0].rang >= 8 && sigles[0].e === ths[0].src;
   return (seul ? sigles.slice(0, 1) : sigles.slice(0, 2)).map(x => x.sg).join(' + ');
 }
@@ -611,6 +623,26 @@ function descriptionJour(events, dowFr, opts) {
   const devs = [...new Set(evs.map(e => e.currency).filter(Boolean))];
   const dev = (opts && opts.devise) || (lead && lead.currency) || devs[0] || 'le marché';
   const phrases = [];
+
+  /* JOURNÉE À PLUSIEURS TÊTES D'AFFICHE (30/08, demande user : « il manque la RBNZ » sur un
+     mercredi BoC + RBNZ, et « lorsqu'il y a plusieurs news importantes … simplifier et raccourcir »).
+     Dès que deux rendez-vous de rang ≥ 8 partagent la journée, la description change de forme :
+     UNE clause courte par tête d'affiche, à l'heure de Paris et dans l'ordre du jour, puis UN seul
+     enjeu (celui de la première), puis le reste du programme en noms nus, sans glose. Le pavé de
+     trois phrases sur un seul événement, qui taisait l'autre décision, ne s'applique plus ici. */
+  const majeurs = enSuite ? [] : ths.filter(t => t.rang >= 8).slice(0, 3);
+  if (majeurs.length >= 2) {
+    const ordonnes = majeurs.slice().sort((a, b) => ((a.src && a.src.timestamp) || 0) - ((b.src && b.src.timestamp) || 0));
+    phrases.push(`${_cap(dow) || 'Au programme'} : ` + ordonnes.map(t => {
+      const hh = heureParis(t.src);
+      return `${hh ? hh + ', ' : ''}${t.lbl}${chiffresEv(t.src)}`;
+    }).join(' ; ') + '.');
+    const enj = enjeuFr(ordonnes[0], (ordonnes[0].src && ordonnes[0].src.currency) || dev);
+    if (enj) phrases.push(enj);
+    const reste = evs.filter(e => !majeurs.some(t => t.src === e)).slice(0, 3);
+    if (reste.length) phrases.push('Également au programme : ' + reste.map(e => nomEv(e)).join(' ; ') + '.');
+    return phrases.join(' ');
+  }
 
   const h = heureParis(lead), g = gloseEv(lead);
   if (enSuite && !neuf) {
