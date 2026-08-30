@@ -990,7 +990,7 @@ function phaseLogique() {
        vaut null et le thème géo RESTE dans `w.macro` : le filtrer sur la seule référence d'objet le
        ferait réapparaître ici, juste sous la section qui vient de le raconter. */
     verif('… en excluant le thème géopolitique par son INTITULÉ, pas par identité d\'objet',
-      /_macroReste = \(w\.macro \|\| \[\]\)\.filter\(sec => sec && sec\.heading[\s\S]{0,540}g\[ée\]opolit/.test(APP3),
+      /\(w\.macro \|\| \[\]\)\.flatMap\(sec[\s\S]{0,300}g\[ée\]opolit/.test(APP3),
       'le thème géo réapparaîtrait sous la section qui vient de le raconter');
     /* ══ LA MACRO DU HEBDO PREND LA GRAMMAIRE DES QUOTIDIENS (29/08, demande user) ═══════════════
        « enlève Performance cross-asset » + « classe d'abord banque centrale, inflation, croissance
@@ -1019,12 +1019,35 @@ function phaseLogique() {
           themes.slice(0, 6).join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Commerce International & Tarifs|Technologie & Innovation',
           themes.join(' | '));
         verif('… et un en-tête inconnu passe en QUEUE, jamais à la poubelle', themes[themes.length - 1] === 'Un thème inconnu', themes.join(' | '));
+        /* ⚠️ L'EN-TÊTE FUSIONNÉ EST ÉCLATÉ, PLUS JAMAIS RENDU (30/08, 2e capture user : « je
+           t'avais dit de séparer les catégories » — la 1re passe le gardait aux archives,
+           seulement reclassé). Chaque puce rejoint SA famille des quotidiens ; l'inclassable va
+           dans « Autres chiffres de la semaine », en queue ; une famille recréée FUSIONNE avec
+           la native. Les puces d'essai sont celles de la capture du user. */
         const vieux = F({ macro: [
+          { heading: 'Inflation', bullets: ['**EUR Inflation :** l’IPC préliminaire accélère à 2,4%.'] },
           { heading: 'Commerce International & Tarifs', bullets: ['x'] },
-          { heading: 'Inflation & Croissance', bullets: ['x'] },
-        ] }).map(t => t.heading);
-        verif('l\'ancien en-tête fusionné des archives garde sa place avant Commerce',
-          vieux.join('|') === 'Inflation & Croissance|Commerce International & Tarifs', vieux.join(' | '));
+          { heading: 'Inflation & Croissance', bullets: [
+            '**USD Core PCE :** l’indice des prix PCE de base ressort à 0,2%.',
+            '**CAD PIB :** le PIB canadien du T2 progresse de 0,8%.',
+            '**USD Emploi :** les révisions des payrolls retirent 79 000 postes.',
+            '**Fed :** a maintenu son taux directeur, ton prudent.',
+            '**Sujet mystère :** un fait qui ne se classe nulle part.',
+          ] },
+        ] });
+        const vT = vieux.map(t => t.heading);
+        verif('l\'en-tête fusionné des archives est ÉCLATÉ, plus jamais rendu',
+          !vT.some(h => /inflation.*croiss|croiss.*inflation/i.test(h)), vT.join(' | '));
+        verif('… chaque puce rejoint SA famille des quotidiens, dans l\'ordre des quotidiens',
+          vT.join('|') === 'Banque centrale|Inflation|Croissance économique|Emploi|Commerce International & Tarifs|Autres chiffres de la semaine',
+          vT.join(' | '));
+        const vInfl = vieux.filter(s => s.heading === 'Inflation');
+        verif('… la famille recréée FUSIONNE avec la native (une seule « Inflation », deux puces)',
+          vInfl.length === 1 && vInfl[0].bullets.length === 2,
+          vInfl.length + ' section(s), ' + (vInfl[0] ? vInfl[0].bullets.length : 0) + ' puce(s)');
+        verif('… et l\'inclassable finit dans « Autres chiffres de la semaine », jamais à la poubelle',
+          vT[vT.length - 1] === 'Autres chiffres de la semaine' && vieux[vieux.length - 1].bullets.length === 1,
+          vT[vT.length - 1]);
       }
       /* Le prompt du serveur suit la même grammaire : plus de cross-asset, banque centrale en tête. */
       const SRV4 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');

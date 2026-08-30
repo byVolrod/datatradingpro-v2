@@ -10001,18 +10001,51 @@ function _renderWeeklyRecap(item) {
     const _WR_MACRO_RANG = [
       [/banque centrale|politique mon[ée]taire/i, 0],
       [/^inflation\b(?!.*croiss)/i, 1],
-      [/inflation.*croiss|croiss.*inflation/i, 1.5],   // l'ancien en-tête fusionné : entre les deux
       [/croissance/i, 2],
       [/emploi/i, 3],
       [/commerce/i, 4],
       [/technologie/i, 5],
     ];
     const _wrRang = h => { for (const [rx, r] of _WR_MACRO_RANG) if (rx.test(h)) return r; return 9; };
-    const _macroReste = (w.macro || []).filter(sec => sec && sec.heading
-      && !/g[ée]opolit/i.test(String(sec.heading))
-      && !/cross[\s-]*asset/i.test(String(sec.heading))
-      && Array.isArray(sec.bullets) && sec.bullets.length)
-      .map((sec, i) => ({ sec, i }))
+    /* ⚠️ L'EN-TÊTE FUSIONNÉ DES ARCHIVES EST ÉCLATÉ, PUCE PAR PUCE (30/08, 2e capture user :
+       « je t'avais dit de séparer les catégories, t'as pas pris en compte » — la première passe
+       du 29/08 laissait aux rapports déjà écrits leur bloc « Inflation & Croissance », seulement
+       reclassé ; la consigne est désormais : la séparation PARTOUT). Chaque puce rejoint SA
+       famille des quotidiens, dans l'ordre de test des familles — Banque centrale d'abord (une
+       décision de la Fed qui parle d'inflation reste une décision), puis Emploi (le NFP parle de
+       « données »), puis Inflation (salaires compris : pression de prix, comme au prompt), puis
+       Croissance. Une puce inclassable rejoint « Autres chiffres de la semaine », en QUEUE —
+       jamais la poubelle. Une famille recréée FUSIONNE avec sa section native (jamais deux
+       en-têtes « Inflation » l'un sous l'autre). Éclater AU RENDU couvre les archives ET
+       l'édition courante en cache, sans régénérer quoi que ce soit. */
+    const _WR_ECLATE_RX = [
+      ['Banque centrale', /\b(fed|fomc|bce|ecb|boe|boj|rba|rbnz|snb|bns|banque centrale|taux directeur|d[ée]cision de taux|maintenu son taux|relev[ée] son taux|abaiss[ée] son taux|hawkish|dovish|minutes)\b/i],
+      ['Emploi', /\b(emplois?|nfp|payrolls?|ch[ôo]mage|claims|allocations|jolts|adp|postes|embauches)\b/i],
+      ['Inflation', /\b(inflation|ipc|cpi|pce|ppi|ipp|hicp|prix|salaires?|d[ée]flateur)\b/i],
+      ['Croissance économique', /\b(pib|gdp|pmi|ism|production|ventes|consommation|confiance|immobilier|logements?|permis|croissance|retail|commandes)\b/i],
+    ];
+    const _wrEclate = (sec) => {
+      if (!/inflation.*croiss|croiss.*inflation/i.test(String(sec.heading || ''))) return [sec];
+      const familles = new Map();
+      for (const b of (sec.bullets || [])) {
+        const fam = (_WR_ECLATE_RX.find(([, rx]) => rx.test(String(b))) || ['Autres chiffres de la semaine'])[0];
+        if (!familles.has(fam)) familles.set(fam, []);
+        familles.get(fam).push(b);
+      }
+      return [...familles.entries()].map(([heading, bullets]) => ({ heading, bullets }));
+    };
+    const _wrFusion = new Map();
+    (w.macro || []).flatMap(sec => (sec && sec.heading ? _wrEclate(sec) : []))
+      .filter(sec => sec && sec.heading
+        && !/g[ée]opolit/i.test(String(sec.heading))
+        && !/cross[\s-]*asset/i.test(String(sec.heading))
+        && Array.isArray(sec.bullets) && sec.bullets.length)
+      .forEach((sec, i) => {
+        const k = String(sec.heading).trim().toLowerCase();
+        if (_wrFusion.has(k)) _wrFusion.get(k).sec.bullets = [..._wrFusion.get(k).sec.bullets, ...sec.bullets];
+        else _wrFusion.set(k, { sec: { heading: sec.heading, bullets: [...sec.bullets] }, i });
+      });
+    const _macroReste = [..._wrFusion.values()]
       .sort((a, b) => (_wrRang(String(a.sec.heading)) - _wrRang(String(b.sec.heading))) || (a.i - b.i))
       .map(x => x.sec);
     if (_macroReste.length) {
