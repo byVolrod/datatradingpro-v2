@@ -3748,9 +3748,13 @@ document.addEventListener('DOMContentLoaded', () => {
       /* La SOURCE, écrite sur la carte (29/08, incident client) : deux banques sur huit sortent du
          modèle DTP faute de flux de marché, et RIEN ne le disait — un client a comparé notre
          estimation à un pricing OIS réel en croyant comparer deux pricings. Le badge tranche. */
+      /* Le survol du badge dit maintenant le POURQUOI (panne exacte côté fournisseur, ex. « abonnement
+         Pro requis ») ou le QUAND (heure de la dernière donnée de marché reçue) — audit du 30/08 :
+         « regarde les sources des autres taux ». Le taux affiché, lui, est recalé en continu sur la
+         dernière décision réelle du calendrier économique, IA ou pas. */
       + (b.source && b.source !== 'market'
-          ? '<span class="rtc-src rtc-src--est" title="Pricing de marché indisponible pour cette banque chez notre fournisseur : scénario estimé par le desk (config vérifiée à la main + calendrier).">estimation DTP</span>'
-          : '<span class="rtc-src" title="Probabilités implicites de marché (OIS/futures), fournisseur rateprobability.">pricing marché</span>')
+          ? '<span class="rtc-src rtc-src--est" title="Pricing de marché indisponible pour cette banque chez notre fournisseur' + (b.panne ? ' (' + b.panne + ')' : '') + ' : scénario estimé par le desk, taux recalé sur la dernière décision réelle du calendrier économique.">estimation DTP</span>'
+          : '<span class="rtc-src" title="Probabilités implicites de marché (OIS/futures), fournisseur rateprobability' + (b.srcAt ? ', dernière donnée reçue à ' + new Date(b.srcAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + '.">pricing marché</span>')
       + '</div>'
       + '<div class="rtc-metrics">'
       + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'

@@ -93,8 +93,9 @@ v('… et la corroboration est BRANCHÉE dans l\'acceptation des taux IA',
    refusées par la corroboration. */
 v('l\'exemple du prompt n\'a plus de valeur plausible à recopier',
   /"NZD":null\}.*9\.99 is a FORMAT placeholder/.test(SRV) && !/\{"USD":3\.75,"EUR":2\.0/.test(SRV));
-v('le ré-ancrage v4 efface la dérive persistée (le 2,25 écrit par l\'IA)',
-  /const RATES_VER = 'v4-/.test(SRV) && !/const RATES_VER = 'v3-/.test(SRV));
+v('le ré-ancrage v5 efface la dérive persistée (le 2,25 encore en prod avant le durcissement)',
+  /const RATES_VER = 'v5-/.test(SRV) && !/const RATES_VER = 'v[34]-/.test(SRV),
+  'sans bump de version, l\'état Supabase/disque garde le taux empoisonné : la correction resterait lettre morte');
 
 /* ══ 3. LA CARTE EST COHÉRENTE AVEC ELLE-MÊME, ET DIT SA SOURCE ═══════════════════════════════ */
 console.log('\n── La carte : un seul couple mouvement/probabilité, et sa source écrite ──');
@@ -169,10 +170,168 @@ console.log('\n── Les textes disent la vraie source ──');
 v('le repli maison se journalise (banque + raison)',
   /servi en ESTIMATION DTP \(pas de pricing marché : \$\{_rpPanne\[slug\]/.test(SRV));
 v('… et _rpFetchBank distingue paywall, HTTP et réseau', /'paywall\/erreur fournisseur'/.test(SRV)
-  && /_rpPanne\[slug\] = 'HTTP ' \+ r\.status/.test(SRV) && /_rpPanne\[slug\] = 'réseau\/timeout'/.test(SRV));
+  && /: 'HTTP ' \+ r\.status/.test(SRV) && /_rpPanne\[slug\] = 'réseau\/timeout'/.test(SRV));
+/* La sonde du 30/08 a PROUVÉ le paywall : rbnz et snb répondent HTTP 401 « Pro subscription
+   required » là où fed répond 200. Un 401 doit donc se nommer par sa vraie cause, pas « HTTP 401 »
+   sec — c'est la réponse à donner au client qui demande pourquoi deux banques sont en estimation. */
+v('un 401 se nomme « abonnement Pro requis » (la cause prouvée par la sonde)',
+  /r\.status === 401 \? 'abonnement Pro requis chez le fournisseur \(HTTP 401\)'/.test(SRV));
+v('les deux replis muets de _rpTransform sont nommés (taux introuvable, zéro réunion)',
+  /'taux actuel introuvable dans la réponse \(clés inattendues\)'/.test(SRV)
+  && /'aucune réunion à venir dans la réponse'/.test(SRV));
+v('le jeton Pro (RATEPROB_TOKEN, .env du VPS uniquement) part sous les deux formes usuelles',
+  /RP_HEADERS\['Authorization'\] = 'Bearer ' \+ process\.env\.RATEPROB_TOKEN/.test(SRV)
+  && /RP_HEADERS\['X-API-Key'\] = process\.env\.RATEPROB_TOKEN/.test(SRV));
+v('/api/rates dit la santé PAR banque : `panne` côté estimation, `srcAt` côté marché',
+  /panne: _rpPanne\[slug\] \|\| 'jamais reçu',/.test(SRV) && /srcAt: _rpBankAt\[b\.code\] \|\| _rpCache\.at \|\| null,/.test(SRV));
+v('… et le badge de la carte les affiche au survol (pourquoi / quand)',
+  /b\.panne \? ' \(' \+ b\.panne \+ '\)'/.test(CHARTS) && /b\.srcAt \? ', dernière donnée reçue à '/.test(CHARTS));
 /* L'ancre vieillit BRUYAMMENT : sans rappel, une config « source de vérité » se périme en silence
    — c'est le défaut symétrique de celui qu'on corrige. */
 v('une ancre de plus de 60 jours réclame sa re-vérification', /_ANCRE_MAX_J = 60/.test(SRV) && /re-vérifier bias\/taux/.test(SRV));
+
+/* ══ 5. LE CALENDRIER ÉCRIT LES TAUX — DÉTERMINISTE, ET LA CORROBORATION NE CROIT QUE LE DERNIER JOUR ══
+   Deuxième incident du MÊME chiffre (30/08) : après le durcissement v4, le 2,25 % RBNZ tenait
+   encore, parce que la corroboration acceptait TOUT actual de 160 jours — la décision de MAI
+   (2,25) « prouvait » l'écho pendant que JUILLET disait 2,50. Ici on rejoue l'incident sur le
+   VRAI code extrait de server.js, puis on MUTE le code pour vérifier que chaque garde-fou est
+   bien celui qui tient la porte (un banc qui passe sur du code muté ne protège rien). */
+console.log('\n── La dernière décision réelle écrit le taux, sans IA ──');
+const SRC_CAL = (() => {
+  const d = SRV.indexOf('const _CAL_TAUX_RX =');
+  const f = SRV.indexOf('\nsetTimeout(() => { try { _calendrierEcritTaux(true); } catch {} }', d);
+  return (d < 0 || f < 0) ? null : SRV.slice(d, f);
+})();
+v('la voie calendrier est extractible (_CAL_TAUX_RX → _calendrierEcritTaux)',
+  !!SRC_CAL && /function _calendrierEcritTaux/.test(SRC_CAL || ''));
+const SRC_APPLY = (() => {
+  const d = SRV.indexOf('function _tauxCorrobore');
+  const f = SRV.indexOf('\n}', SRV.indexOf('function _applyVerifiedRates'));
+  return (d < 0 || f < 0) ? null : SRV.slice(d, f + 2);
+})();
+v('_tauxCorrobore + _applyVerifiedRates sont extractibles ensemble', !!SRC_APPLY && /_applyVerifiedRates/.test(SRC_APPLY || ''));
+if (SRC_CAL && SRC_APPLY) {
+  const MUET = { log() {}, warn() {} };
+  const SBC = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'];
+  /* LE CALENDRIER DE L'INCIDENT : mai 2,25 puis juillet 2,50 (RBNZ), un jour BCE à DEUX mesures
+     (dépôt 2,25 / refi 2,40), une Fed simple, du bruit hors périmètre et hors sujet. */
+  const T_JUIL = Date.UTC(2026, 6, 8, 2, 0), T_MAI = Date.UTC(2026, 4, 28, 2, 0);
+  const CAL_FIX = () => ([
+    { currency: 'NZD', title: 'RBNZ Interest Rate Decision', actual: '2.50%', timestamp: T_JUIL },
+    { currency: 'NZD', title: 'RBNZ Rate Statement', actual: '2.50%', timestamp: T_JUIL },
+    { currency: 'NZD', title: 'RBNZ Interest Rate Decision', actual: '2.25%', timestamp: T_MAI },
+    { currency: 'NZD', title: 'GDT Price Index', actual: '1.2%', timestamp: Date.UTC(2026, 6, 9, 2, 0) },
+    { currency: 'EUR', title: 'ECB Interest Rate Decision', actual: '2.40%', timestamp: Date.UTC(2026, 5, 11, 12, 15) },
+    { currency: 'EUR', title: 'ECB Deposit Facility Rate', actual: '2.25%', timestamp: Date.UTC(2026, 5, 11, 12, 15) },
+    { currency: 'USD', title: 'Fed Interest Rate Decision', actual: '3.75%', timestamp: Date.UTC(2026, 6, 29, 18, 0) },
+    { currency: 'CLP', title: 'Interest Rate Decision', actual: '5.00%', timestamp: T_JUIL },
+  ]);
+  const CB_FIX = () => ([{ code: 'NZD', rate: 2.50 }, { code: 'EUR', rate: 2.25 }, { code: 'USD', rate: 3.75 }]);
+  const MEET_FIX = { NZD: ['2026-07-08', '2026-09-02'], EUR: [], USD: [] };
+  const bac = (src, cal, etat, saves) => new Function(
+    'allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
+    src + '\nreturn { _calDecisionsTaux, _actualsDerniereDecision, _calendrierEcritTaux };'
+  )(cal, SBC, CB_FIX(), etat, () => { saves.n++; }, MEET_FIX, MUET);
+  /* a. La fenêtre de corroboration ne croit QUE le dernier jour de décision. */
+  {
+    const S = bac(SRC_CAL, CAL_FIX(), { banks: {} }, { n: 0 });
+    const evts = S._calDecisionsTaux();
+    v('le filtre décisions écarte devise hors périmètre et titre hors sujet',
+      evts.length === 6 && !evts.some(e => e.currency === 'CLP' || /GDT/.test(e.title)));
+    const a = S._actualsDerniereDecision(evts);
+    v('NZD : la décision de MAI (2,25) ne corrobore PLUS — seul juillet (2,50) compte',
+      a.NZD && a.NZD.size === 1 && a.NZD.has(2.5) && !a.NZD.has(2.25),
+      'c\'est LE trou de v4 : tout actual de 160 j valait preuve');
+    v('EUR : les DEUX mesures du même jour restent (dépôt 2,25 + refi 2,40)',
+      a.EUR && a.EUR.size === 2 && a.EUR.has(2.25) && a.EUR.has(2.4));
+  }
+  /* b. L'incident, rejoué : l'état persisté porte le 2,25 empoisonné → le calendrier le répare. */
+  {
+    const etat = { banks: { NZD: { rate: 2.25, lastMeeting: '2026-07-08' }, EUR: { rate: 2.20, lastMeeting: null }, USD: { rate: 3.75, lastMeeting: null } } }, saves = { n: 0 };
+    const S = bac(SRC_CAL, CAL_FIX(), etat, saves);
+    const chg = S._calendrierEcritTaux(true);
+    v('le 2,25 % persisté est réécrit 2,50 par la décision réelle de juillet (sans IA)',
+      chg === true && etat.banks.NZD.rate === 2.5 && saves.n >= 1,
+      'obtenu : ' + etat.banks.NZD.rate + ' — la réparation ne doit dépendre d\'aucun modèle');
+    v('BCE ambiguë (deux mesures distinctes le même jour) → on s\'abstient',
+      etat.banks.EUR.rate === 2.20, 'obtenu : ' + etat.banks.EUR.rate + ' — écrire au hasard vaudrait pire que ne rien faire');
+    v('USD déjà à jour → aucune écriture superflue', etat.banks.USD.rate === 3.75);
+    const rejoue = S._calendrierEcritTaux(false);
+    v('le throttle (~10 min) absorbe l\'appel suivant : /api/rates toutes les 30 s ne re-scanne pas', rejoue === false);
+  }
+  /* c. Un actual PÉRIMÉ ne défait pas une réunion plus récente (projection en attente d'actual). */
+  {
+    const etat = { banks: { NZD: { rate: 2.75, lastMeeting: '2026-09-02' } } };
+    const S = bac(SRC_CAL, CAL_FIX(), etat, { n: 0 });
+    S._calendrierEcritTaux(true);
+    v('l\'actual de juillet ne ramène pas en arrière une réunion de septembre déjà intégrée',
+      etat.banks.NZD.rate === 2.75, 'obtenu : ' + etat.banks.NZD.rate);
+  }
+  /* d. Une donnée aberrante du calendrier (fournisseur cassé) ne s'écrit pas. */
+  {
+    const cal = CAL_FIX().map(e => e.currency === 'USD' ? { ...e, actual: '13.75%' } : e);
+    const etat = { banks: { USD: { rate: 3.75, lastMeeting: null } } };
+    const S = bac(SRC_CAL, cal, etat, { n: 0 });
+    S._calendrierEcritTaux(true);
+    v('un actual à 10 points de l\'ancre est refusé (±3 pts)', etat.banks.USD.rate === 3.75);
+  }
+  /* e. Le cache IA se re-corrobore À L'APPLICATION : un poison persisté ne repasse plus au boot. */
+  {
+    const fab = (verified, actuals, etat) => new Function(
+      '_aiVerifiedRates', 'CB', '_ratesState', 'CB_MEETINGS', '_saveRatesState', '_actualsDerniereDecision', 'console',
+      SRC_APPLY + '\nreturn _applyVerifiedRates;'
+    )(verified, CB_FIX(), etat, MEET_FIX, () => {}, () => actuals, MUET);
+    const etat1 = { banks: { NZD: { rate: 2.50, lastMeeting: '2026-07-08' } } };
+    fab({ NZD: { rate: 2.25, at: 1 } }, { NZD: new Set([2.5]) }, etat1)();
+    v('le cache empoisonné (2,25) est REFUSÉ à l\'application : le calendrier dit 2,50',
+      etat1.banks.NZD.rate === 2.5, 'obtenu : ' + etat1.banks.NZD.rate + ' — c\'est le chemin exact du retour du poison au démarrage');
+    const etat2 = { banks: { NZD: { rate: 2.25, lastMeeting: null } } };
+    fab({ NZD: { rate: 2.50, at: 1 } }, { NZD: new Set([2.5]) }, etat2)();
+    v('… mais un cache CORROBORÉ s\'applique toujours (2,25 → 2,50)', etat2.banks.NZD.rate === 2.5);
+    const etat3 = { banks: { NZD: { rate: 2.25, lastMeeting: null } } };
+    fab({ NZD: { rate: 2.50, at: 1 } }, {}, etat3)();
+    v('calendrier pas encore chargé → rien n\'est appliqué (le refus est le sens sûr)', etat3.banks.NZD.rate === 2.25);
+  }
+  /* f. MUTATIONS : on retire chaque garde-fou du code extrait et le contrôle correspondant doit
+        BASCULER — sinon le banc « passe » pour de mauvaises raisons. */
+  {
+    const m1 = SRC_CAL.replace('if (jour !== jours[e.currency]) return;', '');
+    v('mutation « fenêtre entière » détectée (sans la borne au dernier jour, mai revient)',
+      m1 !== SRC_CAL && (() => {
+        const a = bac(m1, CAL_FIX(), { banks: {} }, { n: 0 })._actualsDerniereDecision();
+        return a.NZD && a.NZD.has(2.25);
+      })());
+    const m2 = SRC_CAL.replace('if (vals.size !== 1) return;', 'if (!vals.size) return;');
+    v('mutation « ambiguïté ignorée » détectée (la BCE à deux mesures se ferait écrire)',
+      m2 !== SRC_CAL && (() => {
+        const etat = { banks: { EUR: { rate: 2.20, lastMeeting: null } } };
+        bac(m2, CAL_FIX(), etat, { n: 0 })._calendrierEcritTaux(true);
+        return etat.banks.EUR.rate !== 2.20;
+      })());
+    const m3 = SRC_CAL.replace(/\n\s*if \(st\.lastMeeting && Date\.parse\(jour[^\n]*return;\n/, '\n');
+    v('mutation « retour arrière » détectée (l\'actual de juillet défait septembre)',
+      m3 !== SRC_CAL && (() => {
+        const etat = { banks: { NZD: { rate: 2.75, lastMeeting: '2026-09-02' } } };
+        bac(m3, CAL_FIX(), etat, { n: 0 })._calendrierEcritTaux(true);
+        return etat.banks.NZD.rate === 2.5;
+      })());
+    const m4 = SRC_APPLY.replace("\n        && _tauxCorrobore(actuals[b.code], v.rate)", '');
+    v('mutation « application aveugle » détectée (le poison du cache repasserait au boot)',
+      m4 !== SRC_APPLY && (() => {
+        const etat = { banks: { NZD: { rate: 2.50, lastMeeting: null } } };
+        new Function('_aiVerifiedRates', 'CB', '_ratesState', 'CB_MEETINGS', '_saveRatesState', '_actualsDerniereDecision', 'console',
+          m4 + '\nreturn _applyVerifiedRates;')({ NZD: { rate: 2.25, at: 1 } }, CB_FIX(), etat, MEET_FIX, () => {}, () => ({ NZD: new Set([2.5]) }), MUET)();
+        return etat.banks.NZD.rate === 2.25;
+      })());
+  }
+}
+/* La voie IA elle-même est passée sur les mêmes rails : un seul filtre de décisions, une seule
+   fenêtre de corroboration — deux définitions divergeraient tôt ou tard. */
+v('_aiVerifyRates corrobore via _actualsDerniereDecision (une seule définition de la preuve)',
+  /const calActuals = _actualsDerniereDecision\(calEvts\);/.test(SRV)
+  && /const calEvts = _calDecisionsTaux\(\)\.slice\(0, 45\);/.test(SRV));
+v('_buildRatesPayload appelle la voie calendrier (recalage en continu, pas seulement au boot)',
+  /try \{ _calendrierEcritTaux\(\); \} catch \{\}/.test(SRV));
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

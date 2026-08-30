@@ -32,6 +32,7 @@ jobs:
             echo "HTTP $code · $(wc -c </tmp/p.json) octets"
             jq -r '"clés racine : \(keys)"' /tmp/p.json 2>/dev/null || { echo "JSON invalide :"; head -c 400 /tmp/p.json; echo; continue; }
             jq -r '.error // empty | "error : \(.)"' /tmp/p.json
+            jq -r '.upgrade // empty | "upgrade : \(.)"' /tmp/p.json
             jq -r 'select(.today != null) | .today | "clés today : \(keys)"' /tmp/p.json
             jq -r 'select(.today != null) | .today | to_entries[] | select((.value|type) != "array" and (.value|type) != "object") | "  \(.key) = \(.value)"' /tmp/p.json
             echo "nb rows : $(jq -r '.today.rows | length' /tmp/p.json 2>/dev/null)"
