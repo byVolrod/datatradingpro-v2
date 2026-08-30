@@ -10,11 +10,15 @@ name: Déployer le desk
 #   Ce workflow ouvre une SECONDE porte : le bouton « Run workflow » de l'onglet Actions. Depuis un
 #   téléphone, depuis un autre poste, ou depuis un agent qui n'a pas vos clés.
 #
-# ⚠️ IL NE SE DÉCLENCHE PAS AU PUSH, ET C'EST DÉLIBÉRÉ.
-#   CLAUDE.md pose la règle en toutes lettres : « POUSSER NE DÉPLOIE PAS. Le VPS ne bouge que sur
-#   commande explicite. » Ajouter `on: push` ici retournerait cette règle en silence — un correctif
-#   à moitié fini, poussé pour le sauvegarder, partirait chez les clients. Le seul déclencheur est
-#   donc MANUEL. Un banc (scripts/deploiement-verif.js) refuse tout ajout de `push` ou de `schedule`.
+# ⚠️ POUSSER SUR MAIN DÉPLOIE (décision user du 29/08 : « retrouver le push = prod comme sur
+#   Render » — oui explicite, l'ancienne règle « pousser ne déploie pas » du 27/08 est LEVÉE).
+#   Chaque push sur `main` déclenche ce workflow ; le bouton « Run workflow » reste pour relancer
+#   à la main. L'objection qui fondait l'ancienne règle (« un correctif à moitié fini partirait
+#   chez les clients ») est traitée AUTREMENT : le job fait tourner `npm run check` — les 36 bancs
+#   du dépôt — AVANT de toucher au VPS. Un push qui casse un banc est BLOQUÉ, pas déployé.
+#   Ce qui reste interdit : `schedule` (un déploiement à heure fixe sans nouveau code redémarrerait
+#   la prod pour rien) et tout autre déclencheur. Un banc (scripts/deploiement-verif.js) exige
+#   EXACTEMENT { push sur main + workflow_dispatch }, et la présence de la garde npm run check.
 #
 # ⚠️ IL N'Y A QU'UNE IMPLÉMENTATION DU DÉPLOIEMENT, et ce n'est pas celle-ci.
 #   Ce fichier ne réécrit pas les étapes : il appelle `scripts/deploy.sh`, qui accepte déjà ses
@@ -41,6 +45,8 @@ name: Déployer le desk
 #   « ? » — le déploiement se fait, seul l'affichage avant/après est aveugle.
 
 on:
+  push:
+    branches: [main]          # push = prod (et main SEULEMENT : une branche de session ne déploie pas)
   workflow_dispatch:
     inputs:
       raison:
@@ -68,6 +74,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # ═══ LA GARDE QUI REMPLACE L'ANCIENNE RÈGLE ═══════════════════════════════════════════════
+      # Le push déploie, mais JAMAIS un push cassé : les 36 bancs du dépôt tournent d'abord. Les
+      # bancs à navigateur s'abstiennent proprement quand Chromium manque (conçu ainsi) ; tout le
+      # reste — syntaxe, identifiants fantômes, i18n, annonces, taux, pourcent — bloque au rouge.
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: npm run check — un push cassé ne part pas en prod
+        run: npm run check
 
       - name: Vérifier que la clé est posée
         # Un secret absent produirait sinon un fichier vide et une erreur SSH obscure trente
@@ -109,7 +131,7 @@ jobs:
           DTP_DIR: ${{ vars.DTP_DIR }}
           DTP_URL: ${{ vars.DTP_URL }}
         run: |
-          echo "Raison : ${{ inputs.raison }}"
+          echo "Raison : ${{ inputs.raison || 'push sur main (déploiement automatique)' }}"
           # Une variable de dépôt non posée arrive comme chaîne VIDE, pas comme variable absente :
           # `${DTP_HOST:-défaut}` du script ne se déclencherait donc jamais et l'hôte serait vide.
           # On retire ici ce qui est vide, pour rendre au script ses valeurs par défaut.

@@ -14,9 +14,9 @@
 
 ## Workflow (chaque changement)
 - **Commit + push à chaque fois**. Messages FR, finir par `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
-- ⚠️ **POUSSER NE DÉPLOIE PAS.** Il n'y a plus d'auto-déploiement : le VPS ne bouge que sur commande explicite. Tant qu'elle n'est pas passée, le code est sur GitHub et le desk sert encore l'ancienne version — c'est la première chose à vérifier quand un correctif « ne marche pas ».
+- ⚠️ **POUSSER SUR MAIN DÉPLOIE** (décision user du 29/08 : « retrouver le push = prod automatique comme sur Render » — oui explicite ; l'ancienne règle « pousser ne déploie pas » du 27/08 est LEVÉE, et toutes ses traces réécrites dans le même commit). Chaque `git push origin main` déclenche le workflow **« Déployer le desk »**, qui fait tourner **`npm run check` AVANT de toucher au VPS** : un push qui casse un banc est BLOQUÉ, pas déployé — c'est cette garde qui remplace l'ancienne retenue manuelle. **PRÉREQUIS** (tant qu'il manque, chaque push produit un run ROUGE et RIEN ne se déploie) : secret `DTP_SSH_KEY` posé dans les réglages du dépôt (Settings → Secrets and variables → Actions), et variable `DTP_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 149.71.44.90`) pour épingler l'empreinte du VPS. **Recommandé** : brider la clé dans `authorized_keys` du VPS avec `command="…"` pour qu'elle ne puisse RIEN faire d'autre que déployer, même volée — elle sert désormais à chaque push. Quand un correctif « ne marche pas », la première chose à vérifier est le **run Actions du push** (vert ?), puis **Ctrl+F5**.
   ```bash
-  npm run deploy      # = scripts/deploy.sh — équivalent de la commande ci-dessous, avec garde-fous
+  npm run deploy      # = scripts/deploy.sh — le chemin MANUEL depuis une machine qui a la clé, toujours valable
   ```
   Le script PRÉVIENT si des commits ne sont pas poussés (déployer enverrait alors la version de
   GitHub, pas la vôtre), affiche la version avant/après, et attend que `/healthz` réponde avant de
@@ -26,8 +26,7 @@
     'cd /opt/datatradingpro && git fetch origin main && git reset --hard origin/main \
      && docker compose build datatradingpro && docker compose up -d datatradingpro'
   ```
-  **DEPUIS UN TÉLÉPHONE OU SANS LA CLÉ** : onglet **Actions** de GitHub → workflow **« Déployer le desk »** → **Run workflow**. Ce n'est PAS une seconde implémentation : le workflow pose la clé du secret `DTP_SSH_KEY` et **appelle `scripts/deploy.sh`** par ses surcharges d'environnement — un banc (`scripts/deploiement-verif.js`, câblé dans `npm run check`) refuse qu'on y recopie la séquence distante.
-  ⚠️ Il ne se déclenche **QU'À LA MAIN** — jamais au push, jamais sur horaire : la règle « pousser ne déploie pas » vaut aussi pour lui, et le banc exige que le bloc `on:` soit **exactement** `{ workflow_dispatch }` (pas seulement « sans push » : un `schedule` serait la même violation sous un autre nom). À poser une fois dans les réglages du dépôt : secret `DTP_SSH_KEY`, et variable `DTP_KNOWN_HOSTS` (`ssh-keyscan -t ed25519 149.71.44.90`) pour épingler l'empreinte du VPS. **Recommandé** : brider la clé dans `authorized_keys` du VPS avec `command="…"` pour qu'elle ne puisse RIEN faire d'autre que déployer, même volée.
+  Le bouton **Actions → « Déployer le desk » → Run workflow** reste disponible (relance à la main, depuis un téléphone). Ce n'est PAS une seconde implémentation : le workflow pose la clé du secret `DTP_SSH_KEY` et **appelle `scripts/deploy.sh`** par ses surcharges d'environnement — un banc (`scripts/deploiement-verif.js`, câblé dans `npm run check`) refuse qu'on y recopie la séquence distante, exige que les déclencheurs soient **exactement** `{ push sur main + workflow_dispatch }` (un `schedule` déploierait sans nouveau code ; un push sans filtre de branche ferait déployer les branches de session), et que la garde `npm run check` coure AVANT tout contact avec la clé. Le miroir `backup` ne peut pas déployer (garde `if:` sur le nom du dépôt).
   ⚠️ **POURQUOI RECONSTRUIRE ET PAS SEULEMENT RÉCUPÉRER** (vérifié, pas supposé) : `docker-compose.yml`
   ne monte QUE `./data/*` — aucun volume de code source — et le `Dockerfile` fait `COPY . .` au moment
   du build. Un `git pull` sur le disque du VPS ne change donc RIEN à ce qui tourne dans le conteneur.

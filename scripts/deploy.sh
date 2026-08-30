@@ -21,8 +21,11 @@
 #   implémentation : il pose la clé du secret DTP_SSH_KEY dans un fichier et APPELLE CE SCRIPT,
 #   par les surcharges DTP_KEY / DTP_HOST / DTP_DIR / DTP_URL ci-dessous. Ce qui change ici change
 #   donc aux deux endroits, et un banc (scripts/deploiement-verif.js) refuse qu'on l'y recopie.
-#   ⚠️ Il ne se déclenche QU'À LA MAIN : jamais au push, jamais sur horaire. La règle « pousser ne
-#   déploie pas » vaut aussi pour lui, et le même banc la fait respecter.
+#   ⚠️ DEPUIS LE 29/08, CE WORKFLOW SE DÉCLENCHE AUSSI À CHAQUE PUSH SUR MAIN (décision user :
+#   retour au « push = prod » de l'époque Render). Il fait tourner `npm run check` AVANT de
+#   déployer : un push cassé est bloqué, pas livré. Le banc exige exactement { push sur main +
+#   workflow_dispatch } — jamais de schedule. Ce script-ci reste le chemin manuel depuis une
+#   machine qui détient la clé.
 #
 set -euo pipefail
 

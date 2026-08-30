@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /**
- * scripts/deploiement-verif.js — LE DÉPLOIEMENT AUTOMATIQUE NE PEUT PAS PARTIR TOUT SEUL
+ * scripts/deploiement-verif.js — PUSH = PROD, MAIS JAMAIS SANS SES GARDES
  *
- * POURQUOI (27/08). Le desk se déploie par SSH depuis une machine qui détient la clé. Treize
- * commits ont attendu une journée pour cette seule raison — dont la réparation de trente et une
- * annonces fautives que les clients lisaient pendant ce temps. Un workflow GitHub ouvre donc une
- * seconde porte : le bouton « Run workflow ».
+ * HISTORIQUE. 27/08 : « pousser ne déploie pas », déclencheur strictement manuel — ce banc
+ * exigeait l'égalité à { workflow_dispatch }. 29/08 : l'utilisateur lève cette règle en toutes
+ * lettres (« retrouver le push = prod automatique comme sur Render » → « oui ») : chaque push sur
+ * main déploie. La RAISON D'ÊTRE du banc s'inverse avec la règle, elle ne disparaît pas :
  *
- * ⚠️ ET CETTE PORTE EST EXACTEMENT CE QU'IL FAUT SURVEILLER. Le dépôt pose une règle en toutes
- * lettres dans CLAUDE.md : « POUSSER NE DÉPLOIE PAS. Le VPS ne bouge que sur commande explicite. »
- * Trois caractères — `push` — ajoutés un jour dans le bloc `on:` la retourneraient EN SILENCE : un
- * correctif à moitié fini, poussé pour le sauvegarder, partirait chez les clients. Rien dans le
- * dépôt ne le dirait ; on le découvrirait par un client. Ce banc est là pour ça d'abord.
+ * ⚠️ CE QU'IL SURVEILLE DÉSORMAIS. (1) Le jeu de déclencheurs est EXACTEMENT { push sur main +
+ * workflow_dispatch } : retirer `push` réinstallerait l'ancienne règle en silence ; ajouter
+ * `schedule` (ou autre) déploierait sans nouveau code ; un push SANS filtre de branche ferait
+ * déployer les branches de session. (2) La garde `npm run check` court AVANT tout contact avec le
+ * VPS : c'est ELLE qui remplace l'ancienne règle — l'objection historique (« un correctif à moitié
+ * fini, poussé pour le sauvegarder, partirait chez les clients ») reste traitée, par le banc
+ * plutôt que par la retenue manuelle. La retirer rouvrirait exactement ce trou.
  *
  * IL VÉRIFIE AUSSI QU'IL N'Y A QU'UNE IMPLÉMENTATION. Le workflow APPELLE `scripts/deploy.sh` au
  * lieu de recopier la séquence fetch → reset → build → up. Deux copies divergent toujours, et ici
@@ -66,16 +68,35 @@ if (!doc) {
     : (Array.isArray(declench) ? declench : (declench ? [String(declench)] : []));
   v('le bloc des déclencheurs est bien lu', cles.length > 0,
     'clés vues : ' + JSON.stringify(Object.keys(doc)));
-  /* LE CONTRÔLE CENTRAL. On exige l'ÉGALITÉ à { workflow_dispatch }, pas l'absence de « push ».
-     Interdire une liste noire laisserait entrer `schedule`, `pull_request`, `release`,
-     `repository_dispatch` — et un déploiement nocturne automatique serait la même violation de la
-     règle, sous un autre nom. */
-  v('SEUL le bouton manuel déclenche un déploiement',
-    cles.length === 1 && cles[0] === 'workflow_dispatch',
-    'déclencheurs trouvés : ' + cles.join(', ') + ' — CLAUDE.md : « POUSSER NE DÉPLOIE PAS »');
+  /* LE CONTRÔLE CENTRAL. On exige l'ÉGALITÉ au JEU { push, workflow_dispatch } — pas une liste
+     noire, qui laisserait entrer `schedule`, `pull_request`, `release`, `repository_dispatch` :
+     un déploiement sans nouveau code serait une violation sous un autre nom. */
+  v('les déclencheurs sont EXACTEMENT push + bouton manuel (décision user 29/08 : push = prod)',
+    cles.length === 2 && cles.includes('push') && cles.includes('workflow_dispatch'),
+    'déclencheurs trouvés : ' + cles.join(', '));
+  /* Et le push est FILTRÉ sur main : sans le filtre, pousser une branche de session ou de
+     sauvegarde déclencherait aussi — le déploiement fait `reset --hard origin/main`, donc on
+     déploierait main sous le nom d'une autre branche, à un moment que personne n'a choisi. */
+  const pushCfg = declench && typeof declench === 'object' ? declench.push : null;
+  v('… et le push ne déclenche que sur MAIN',
+    !!pushCfg && Array.isArray(pushCfg.branches) && pushCfg.branches.length === 1 && pushCfg.branches[0] === 'main',
+    'push.branches = ' + JSON.stringify(pushCfg && pushCfg.branches));
 
   const job = doc.jobs && doc.jobs.deployer;
   v('le job existe', !!job);
+  /* LA GARDE QUI REMPLACE L'ANCIENNE RÈGLE : les bancs du dépôt tournent AVANT que la clé ne soit
+     même posée. L'ordre compte — un check qui courrait après le déploiement ne bloquerait rien. */
+  if (job && Array.isArray(job.steps)) {
+    const noms = job.steps.map(st => String(st.name || ''));
+    const iCheck = noms.findIndex(n => /npm run check/.test(n));
+    const iCle = noms.findIndex(n => /clé est posée/.test(n));
+    const stCheck = iCheck >= 0 ? job.steps[iCheck] : null;
+    v('npm run check court dans le job, AVANT tout contact avec la clé et le VPS',
+      iCheck >= 0 && iCle > iCheck && !!stCheck && /npm run check/.test(String(stCheck.run || '')),
+      'étapes vues : ' + noms.join(' → '));
+    v('… et son échec BLOQUE (pas de continue-on-error)',
+      !!stCheck && stCheck['continue-on-error'] !== true);
+  }
   if (job) {
     v('le miroir « backup » ne peut pas déployer',
       String(job.if || '').includes("github.repository == 'byVolrod/datatradingpro-v2'"),
