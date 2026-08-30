@@ -1,0 +1,11 @@
+# Toutes les minutes : le tireur regarde si le jalon prod-ready a bougé (no-op silencieux sinon).
+[Unit]
+Description=DTP autodeploiement : verification du jalon prod-ready chaque minute
+
+[Timer]
+OnBootSec=90
+OnUnitActiveSec=60
+AccuracySec=15
+
+[Install]
+WantedBy=timers.target

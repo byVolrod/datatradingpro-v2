@@ -19,6 +19,15 @@
  * lieu de recopier la séquence fetch → reset → build → up. Deux copies divergent toujours, et ici
  * la divergence se paierait sur la machine qui sert les clients.
  *
+ * ⚠️ 30/08 : LE JALON prod-ready (« la méthode à l'ancienne », demande user). La clé SSH n'a
+ * jamais été posée : le déploiement passe désormais par un TAG que le workflow avance APRÈS les
+ * bancs verts, et qu'un minuteur systemd du VPS tire chaque minute (vps-autodeploiement.sh) —
+ * comme Render tirait le dépôt. Ce que le banc verrouille en plus : le jalon n'avance JAMAIS
+ * avant `npm run check` (sinon un push cassé partirait en prod par ce chemin-là) ; le push de tag
+ * est limité à refs/tags/prod-ready (contents: write ne doit servir qu'à ça) ; les étapes SSH se
+ * SAUTENT sans clé au lieu d'échouer (le run doit finir vert) ; et la séquence cœur du tireur
+ * reste IDENTIQUE à celle de deploy.sh — deux chemins, une seule vérité de déploiement.
+ *
  *   node scripts/deploiement-verif.js
  *
  * Sans parseur YAML disponible, les contrôles qui en dépendent S'ABSTIENNENT (les autres tournent).
@@ -151,10 +160,70 @@ const lignesCle = wf.split('\n').filter(l => /secrets\.DTP_SSH_KEY/.test(l));
 v('le secret n’est jamais imprimé',
   lignesCle.every(l => /-z\s+"\$\{\{\s*secrets\.DTP_SSH_KEY/.test(l) || /^\s*CLE:/.test(l)),
   lignesCle.filter(l => !/-z|^\s*CLE:/.test(l)).join(' | '));
-v('un secret absent est dit tout de suite', /::error::/.test(wf) && /DTP_SSH_KEY/.test(wf));
+/* La clé n'est PLUS obligatoire (30/08, jalon) : son absence se DIT (::notice::) mais ne fait
+   plus échouer le run — le jalon déploie. Un `exit 1` qui reviendrait dans cette étape
+   réinstallerait le rouge permanent qu'on vient d'enlever. */
+v('un secret absent est dit tout de suite, SANS faire échouer le run',
+  /::notice::/.test(wf) && /DTP_SSH_KEY absent/.test(wf) && !/::error::.*DTP_SSH_KEY/.test(wf));
 /* L'empreinte du VPS : épinglable, et son absence doit se VOIR dans le journal plutôt que de
    passer pour normale. */
 v('l’absence d’empreinte épinglée est signalée', /::warning::/.test(wf) && /DTP_KNOWN_HOSTS/.test(wf));
+
+/* ── Le jalon prod-ready : le chemin « à la Render » ────────────────────────────────────────── */
+console.log('\n── Le jalon prod-ready (le VPS tire la version validée) ──');
+const AUTO = path.join(RACINE, 'scripts/vps-autodeploiement.sh');
+const auto = fs.existsSync(AUTO) ? fs.readFileSync(AUTO, 'utf8') : '';
+v('le workflow a le droit d’écrire le tag (contents: write)', /permissions:\s*\n\s*contents:\s*write/.test(wf));
+v('le push de tag est LIMITÉ à refs/tags/prod-ready (jamais une branche)',
+  /git push -f origin refs\/tags\/prod-ready/.test(wf) && !/git push -f origin main/.test(wf));
+if (doc && doc.jobs && doc.jobs.deployer && Array.isArray(doc.jobs.deployer.steps)) {
+  const noms = doc.jobs.deployer.steps.map(st => String(st.name || ''));
+  const iCheck2 = noms.findIndex(n => /npm run check/.test(n));
+  const iJalon = noms.findIndex(n => /jalon prod-ready/i.test(n));
+  const iCle2 = noms.findIndex(n => /clé est posée/.test(n));
+  /* L'ORDRE EST LA GARDE : un jalon avancé AVANT les bancs enverrait un push cassé en prod par le
+     chemin du tireur — exactement le trou que `npm run check` est censé fermer. */
+  v('le jalon n’avance qu’APRÈS npm run check (et avant les étapes clé)',
+    iCheck2 >= 0 && iJalon > iCheck2 && (iCle2 < 0 || iJalon < iCle2),
+    'ordre vu : ' + noms.join(' → '));
+  const stSsh = doc.jobs.deployer.steps.filter(st => /Préparer la clé SSH|^Déployer$/.test(String(st.name || '')));
+  v('les étapes SSH se SAUTENT sans clé (conditionnées, le run reste vert)',
+    stSsh.length === 2 && stSsh.every(st => /steps\.cle\.outputs\.presente/.test(String(st.if || ''))),
+    stSsh.map(st => (st.name || '') + ' if=' + (st.if || '(aucun)')).join(' | '));
+} else {
+  sabstient('ordre jalon/check et conditions des étapes SSH', 'parseur YAML indisponible');
+}
+v('le tireur du VPS existe (vps-autodeploiement.sh)', !!auto);
+if (auto) {
+  v('il tire le tag en FORCE (+refspec) — sans le +, un tag avancé ne bouge jamais côté VPS',
+    /git fetch --quiet origin "\+refs\/tags\/\$JALON:refs\/tags\/\$JALON"/.test(auto));
+  v('il ne fait rien tant que le jalon n’a pas bougé (marque persistée dans ./data)',
+    /MARQUE="\$DOSSIER\/data\//.test(auto) && /\[ "\$CIBLE" = "\$\(cat "\$MARQUE"/.test(auto));
+  v('un échec ne se réessaie pas en boucle (au plus 1 tentative / 15 min par version)',
+    /-lt 900 \]/.test(auto) && /ESSAI/.test(auto));
+  v('deux passages ne se chevauchent jamais (flock)', /flock -n 9/.test(auto));
+  v('il attend /healthz avant de déclarer la version déployée',
+    /\$URL\/healthz/.test(auto) && /seq 1 20/.test(auto));
+  /* UNE SEULE VÉRITÉ DE DÉPLOIEMENT : les commandes cœur du tireur (chemin jalon) et de deploy.sh
+     (chemin SSH) doivent être IDENTIQUES — même service, mêmes opérations, même URL de santé. */
+  const coeur = ['git reset --hard', 'docker compose build', 'docker compose up -d'];
+  v('sa séquence cœur est IDENTIQUE à celle de deploy.sh (reset → build → up)',
+    coeur.every(c => auto.includes(c)) && coeur.every(c => sh.includes(c))
+    && /SERVICE="datatradingpro"/.test(auto) && /SERVICE="datatradingpro"/.test(sh),
+    'les deux chemins doivent déployer exactement pareil');
+  v('… et la même URL de santé par défaut', auto.includes('https://desk.datatradingpro.com') && sh.includes('https://desk.datatradingpro.com'));
+}
+const TIMER = path.join(RACINE, 'scripts/dtp-autodeploiement.timer');
+const SVC = path.join(RACINE, 'scripts/dtp-autodeploiement.service');
+const INST = path.join(RACINE, 'scripts/vps-autodeploiement-installer.sh');
+const timer = fs.existsSync(TIMER) ? fs.readFileSync(TIMER, 'utf8') : '';
+const svc = fs.existsSync(SVC) ? fs.readFileSync(SVC, 'utf8') : '';
+const inst = fs.existsSync(INST) ? fs.readFileSync(INST, 'utf8') : '';
+v('le minuteur tourne chaque minute', /OnUnitActiveSec=60/.test(timer));
+v('le service exécute la copie DU DÉPÔT (le tireur se met à jour tout seul)',
+  /ExecStart=\/usr\/bin\/bash \/opt\/datatradingpro\/scripts\/vps-autodeploiement\.sh/.test(svc));
+v('l’installeur (une fois) active le minuteur', /systemctl enable --now dtp-autodeploiement\.timer/.test(inst)
+  && /daemon-reload/.test(inst));
 
 console.log(ko
   ? '\n✗ ' + ko + ' CONTRÔLE(S) AU ROUGE\n'

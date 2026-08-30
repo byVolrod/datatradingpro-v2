@@ -1,0 +1,11 @@
+# Le tireur du VPS : déploie le jalon prod-ready quand il a bougé (voir vps-autodeploiement.sh).
+# ExecStart pointe la COPIE DU DÉPÔT : le tireur se met à jour tout seul à chaque déploiement.
+[Unit]
+Description=DTP autodeploiement (tire le jalon prod-ready valide par les bancs)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/datatradingpro
+ExecStart=/usr/bin/bash /opt/datatradingpro/scripts/vps-autodeploiement.sh

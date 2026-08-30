@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-# ═══ DÉPLOYER LE DESK SUR LE VPS ══════════════════════════════════════════════════════════════
+# ═══ DÉPLOYER LE DESK SUR LE VPS (chemin MANUEL) ══════════════════════════════════════════════
 #
-#   POUSSER SUR GITHUB NE DÉPLOIE RIEN. Le code vit à DEUX endroits :
-#     · GitHub          — le tiroir. `git push` s'arrête là. Vos clients ne voient rien changer.
+#   ⚠️ DEPUIS LE 30/08, CE SCRIPT N'EST PLUS LE CHEMIN PRINCIPAL : une fois le TIREUR posé sur le
+#   VPS (scripts/vps-autodeploiement-installer.sh, une seule fois), chaque push sur main validé
+#   par les bancs avance le jalon `prod-ready` et le VPS se déploie TOUT SEUL dans la minute —
+#   la méthode « à la Render » voulue par l'utilisateur. Ce script reste le chemin manuel
+#   (immédiat, sans attendre le tick) depuis une machine qui détient la clé.
+#
+#   Le code vit à DEUX endroits :
+#     · GitHub          — la référence. `git push` y dépose le code ; le jalon dit au VPS de venir.
 #     · le VPS          — la machine qui sert vraiment le desk. Elle garde SA copie, figée au
-#                         dernier déploiement, et continue de servir l'ancienne version.
+#                         dernier déploiement, jusqu'au prochain jalon (ou à ce script).
 #
 #   ET IL FAUT RECONSTRUIRE, PAS SEULEMENT RÉCUPÉRER. Le serveur tourne dans un conteneur Docker,
 #   et le code est COPIÉ DEDANS au moment de la construction (`COPY . .` du Dockerfile). Aucun

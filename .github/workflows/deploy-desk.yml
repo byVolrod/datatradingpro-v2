@@ -20,29 +20,30 @@ name: Déployer le desk
 #   la prod pour rien) et tout autre déclencheur. Un banc (scripts/deploiement-verif.js) exige
 #   EXACTEMENT { push sur main + workflow_dispatch }, et la présence de la garde npm run check.
 #
-# ⚠️ IL N'Y A QU'UNE IMPLÉMENTATION DU DÉPLOIEMENT, et ce n'est pas celle-ci.
-#   Ce fichier ne réécrit pas les étapes : il appelle `scripts/deploy.sh`, qui accepte déjà ses
-#   réglages par variables d'environnement. Recopier ici la séquence fetch → reset → build → up
-#   aurait créé deux vérités qui divergent au premier changement — le défaut que ce dépôt paie
-#   régulièrement. La ligne de commande et le bouton exécutent le MÊME code.
+# ═══ COMMENT LA PROD REÇOIT LE CODE : LE JALON prod-ready (30/08, « la méthode à l'ancienne ») ═══
+#   L'utilisateur veut le comportement Render : je valide, on pousse, le site se met à jour — sans
+#   manipuler de clé. Render y arrivait parce que c'est LUI qui tirait le dépôt. On refait pareil :
+#     1. ce workflow, une fois `npm run check` VERT, avance le tag `prod-ready` sur le commit
+#        validé (le GITHUB_TOKEN automatique suffit : AUCUN secret à poser) ;
+#     2. sur le VPS, un minuteur systemd (scripts/vps-autodeploiement.sh, posé UNE fois par
+#        scripts/vps-autodeploiement-installer.sh) tire ce tag chaque minute et, quand il a bougé,
+#        rejoue la séquence de déploiement locale (reset → build → up → /healthz).
+#   Résultat : push sur main → bancs verts → prod à jour ~2 min plus tard. Aucune clé nulle part.
 #
-#   CE QU'IL FAUT POSER UNE FOIS (réglages du dépôt → Secrets and variables → Actions) :
-#     · secret DTP_SSH_KEY   — la clé PRIVÉE de déploiement, telle quelle, en-têtes compris.
-#     · variable DTP_KNOWN_HOSTS (recommandée) — la ligne known_hosts du VPS, obtenue par
-#       `ssh-keyscan -t ed25519 149.71.44.90`. Sans elle, la première connexion accepte l'empreinte
-#       sans la vérifier : ça marche, mais ça ne protège de rien.
-#     · variables DTP_HOST / DTP_DIR / DTP_URL — seulement si elles diffèrent des valeurs par
-#       défaut du script.
+#   LE CHEMIN SSH RESTE EN OPTION (plus rapide d'une minute, rien de plus) : si un jour le secret
+#   DTP_SSH_KEY est posé (Réglages → Secrets and variables → Actions ; + variable DTP_KNOWN_HOSTS
+#   via `ssh-keyscan -t ed25519 149.71.44.90`), les étapes SSH ci-dessous s'activent et poussent
+#   directement. SANS le secret, elles se SAUTENT proprement : le run reste VERT, le jalon suffit.
 #
-# ⚠️ SUR LA CLÉ ELLE-MÊME, une recommandation qui ne coûte qu'une ligne sur le VPS :
-#   restreignez-la à la seule commande de déploiement, dans ~/.ssh/authorized_keys :
-#     command="cd /opt/datatradingpro && git fetch origin main && git reset --hard origin/main
-#              && docker compose build datatradingpro && docker compose up -d datatradingpro",
-#     no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA...
-#   Une clé ainsi bridée ne peut RIEN faire d'autre, même volée. Le dépôt a déjà payé une clé
-#   compromise (voir CLAUDE.md) ; une clé root interactive déposée dans un secret serait le même
-#   pari, en plus gros. Note : avec `command=`, les deux lectures de version du script sortent
-#   « ? » — le déploiement se fait, seul l'affichage avant/après est aveugle.
+# ⚠️ IL N'Y A QU'UNE IMPLÉMENTATION PAR CHEMIN, et ce fichier n'en recopie aucune.
+#   Chemin SSH → il appelle `scripts/deploy.sh`. Chemin jalon → la séquence locale vit dans
+#   `scripts/vps-autodeploiement.sh`, et un banc (deploiement-verif) vérifie que les commandes
+#   cœur des deux scripts restent IDENTIQUES : deux vérités qui divergent se paieraient sur la
+#   machine qui sert les clients.
+#
+# ⚠️ SUR LA CLÉ (si elle est posée un jour) : la brider dans ~/.ssh/authorized_keys du VPS avec
+#   command="…séquence de déploiement…",no-agent-forwarding,no-port-forwarding,no-pty — une clé
+#   bridée ne peut RIEN faire d'autre, même volée (le dépôt a déjà payé une clé compromise).
 
 on:
   push:
@@ -55,7 +56,7 @@ on:
         default: "déploiement manuel"
 
 permissions:
-  contents: read
+  contents: write             # nécessaire UNIQUEMENT pour avancer le tag prod-ready (le jalon que le VPS tire)
 
 # Deux déploiements ne doivent JAMAIS se chevaucher : le second ferait un `git reset --hard`
 # pendant que le premier construit son image. `cancel-in-progress: false` — interrompre un
@@ -91,18 +92,31 @@ jobs:
       - name: npm run check — un push cassé ne part pas en prod
         run: npm run check
 
+      # ═══ LE JALON : la version VALIDÉE que le VPS vient tirer tout seul ═══════════════════════
+      # Après les bancs verts SEULEMENT (l'ordre est éprouvé par le banc de déploiement) : le tag
+      # `prod-ready` avance sur ce commit. Le minuteur du VPS le voit bouger dans la minute et
+      # redéploie — c'est LE mécanisme « push = prod » ; aucun secret, aucune clé.
+      - name: Publier le jalon prod-ready — le VPS tire cette version
+        run: |
+          git tag -f prod-ready ${{ github.sha }}
+          git push -f origin refs/tags/prod-ready
+          echo "Jalon prod-ready → ${{ github.sha }} (le VPS le tire dans la minute si le tireur est installé)"
+
       - name: Vérifier que la clé est posée
-        # Un secret absent produirait sinon un fichier vide et une erreur SSH obscure trente
-        # secondes plus tard. On le dit tout de suite, et on dit où le poser.
+        id: cle
+        # La clé n'est PLUS obligatoire (30/08) : sans elle, le déploiement passe par le JALON
+        # ci-dessus — le run reste VERT. Avec elle, les étapes SSH ci-dessous poussent en direct
+        # (gain : ~1 min). On le dit tout de suite, sans échouer.
         run: |
           if [ -z "${{ secrets.DTP_SSH_KEY }}" ]; then
-            echo "::error::Le secret DTP_SSH_KEY n'est pas posé sur ce dépôt."
-            echo "Réglages → Secrets and variables → Actions → New repository secret"
-            echo "Nom : DTP_SSH_KEY — Valeur : la clé PRIVÉE de déploiement, en-têtes compris."
-            exit 1
+            echo "::notice::Secret DTP_SSH_KEY absent — déploiement par le jalon prod-ready (le VPS tire la version validée ; aucune clé requise)."
+            echo "presente=non" >> "$GITHUB_OUTPUT"
+          else
+            echo "presente=oui" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Préparer la clé SSH
+        if: steps.cle.outputs.presente == 'oui'
         env:
           CLE: ${{ secrets.DTP_SSH_KEY }}
           HOTES_CONNUS: ${{ vars.DTP_KNOWN_HOSTS }}
@@ -122,6 +136,7 @@ jobs:
           fi
 
       - name: Déployer
+        if: steps.cle.outputs.presente == 'oui'
         # ⚠️ ON APPELLE LE SCRIPT, ON NE LE RECOPIE PAS. `scripts/deploy.sh` porte la séquence
         #    (fetch → reset → build → up), les garde-fous et l'attente de /healthz. Il lit ses
         #    réglages dans l'environnement : c'est exactement la couture prévue pour ce cas.
