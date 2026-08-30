@@ -5518,15 +5518,27 @@ window._retryCalendar = function() {
     const down = e => {
       e.preventDefault();
       const rect = grid.getBoundingClientRect();
+      /* ⚠️ GLISSEMENT EN DELTA, PLUS EN POSITION ABSOLUE (30/08, demande user « le déplacement doit
+         correspondre exactement au mouvement de la souris »). L'ancien calcul posait la colonne à
+         `clientX − rect.left` : il ignorait le padding de 8px de la grille (décalage constant) et,
+         surtout, faisait SAUTER la ligne sous le curseur au premier mouvement dès qu'on n'avait pas
+         saisi le splitter pile en son centre. On mesure la taille RÉELLE du premier volet au moment
+         de la prise, puis chaque mouvement applique le seul déplacement de la souris : 1 px de
+         souris = 1 px de splitter, zéro saut à la prise. */
+      const p0 = (e.touches ? e.touches[0] : e);
+      const dep = axis === 'x' ? p0.clientX : p0.clientY;
+      const premier = grid.children[0] ? grid.children[0].getBoundingClientRect() : null;
+      const base = premier ? (axis === 'x' ? premier.width : premier.height)
+                           : (axis === 'x' ? rect.width / 2 : rect.height / 2);
       handle.classList.add('dragging'); grid.classList.add('sym-dragging');
       document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize';
       const move = ev => {
         const p = ev.touches ? ev.touches[0] : ev;
         if (axis === 'x') {
-          const v = Math.max(rect.width * 0.22, Math.min(rect.width * 0.78, p.clientX - rect.left));
+          const v = Math.max(rect.width * 0.22, Math.min(rect.width * 0.78, base + (p.clientX - dep)));
           grid.style.setProperty(prop, v + 'px');
         } else {
-          const v = Math.max(rect.height * 0.2, Math.min(rect.height * 0.8, p.clientY - rect.top));
+          const v = Math.max(rect.height * 0.2, Math.min(rect.height * 0.8, base + (p.clientY - dep)));
           grid.style.setProperty(prop, v + 'px');
         }
       };

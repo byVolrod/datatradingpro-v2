@@ -817,6 +817,21 @@ function phaseLogique() {
     verif('plus aucun pouce d\'ascenseur doré au survol dans la feuille',
       !/scrollbar-thumb:hover\{background:var\(--orange-dim/.test(_cssTexte),
       'la règle globale du polish #2 redorait TOUS les ascenseurs survolés');
+    /* Les splitters de la VUE SYMBOLE suivent la même règle (30/08, 2e capture : trait doré pleine
+       hauteur au bord du GRAPHIQUE + coin or à la jonction avec l'horizontal). Plus d'or ; prise
+       ::after asymétrique (2px max côté graphe → un drag sur le graphique ne peut plus attraper le
+       splitter) ; et le glissement se fait en DELTA (1px de souris = 1px de splitter, zéro saut à
+       la prise), plus jamais en position absolue qui ignorait le padding de la grille. */
+    verif('les splitters du graphique (vue symbole) ne passent plus à l\'or',
+      !/sym-[vh]split[^\n{]*(?:hover|dragging)[^{]*\{[^}]*227,\s*178/.test(_cssTexte));
+    verif('… leur prise est élargie par ::after, curseur resize, 2px max côté graphe',
+      /\.sym-vsplit::after \{[^}]*left: -2px; right: -8px; cursor: col-resize;/.test(_cssTexte)
+      && /\.sym-hsplit::after \{[^}]*top: -2px; bottom: -8px; cursor: row-resize;/.test(_cssTexte));
+    const _chartsTexte = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+    verif('le glissement des splitters du graphique est en DELTA (zéro saut à la prise)',
+      /base \+ \(p\.clientX - dep\)/.test(_chartsTexte) && /base \+ \(p\.clientY - dep\)/.test(_chartsTexte)
+      && !/rect\.width \* 0\.78, p\.clientX - rect\.left/.test(_chartsTexte),
+      'le calcul absolu clientX - rect.left faisait sauter la ligne sous le curseur à la prise');
 
     // Retour au viewport historique du banc : les sections suivantes mesurent dans cet état-là.
     await page.setViewport({ width: 800, height: 600 });

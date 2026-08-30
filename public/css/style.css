@@ -549,13 +549,22 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
 .nav-item--symbol .sym-x:hover { color: #fff; background: var(--border); }
 #view-symbol { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .sym-grid { display: grid; grid-template-columns: var(--sym-col, 1fr) 6px minmax(0, 1fr); grid-template-rows: var(--sym-row, 1fr) 6px minmax(0, 1fr); gap: 0; padding: 8px; height: 100%; min-height: 0; box-sizing: border-box; }
-/* Splitters orange draggables (vertical entre colonnes, horizontal entre lignes) — volatils (reset au reload) */
-.sym-vsplit { background: transparent; cursor: col-resize; position: relative; z-index: 30; }
+/* Splitters draggables de la vue symbole (vertical entre colonnes, horizontal entre lignes) — volatils.
+   ⚠️ PLUS D'OR ICI (30/08, capture user : le trait doré pleine hauteur au bord du graphique se
+   lisait comme un « scrollbar doré », et son angle avec le splitter horizontal dessinait un coin
+   or). Repos = quasi invisible (inchangé) ; survol/glissement = NEUTRE clair et un peu plus épais.
+   La ZONE DE PRISE est élargie par ::after SANS toucher à la colonne de 6px (les dimensions du
+   graphique ne bougent pas d'un pixel) — et elle est ASYMÉTRIQUE : 2px seulement côté graphique
+   (un clic ou un drag sur le graphe ne peut plus attraper le splitter par accident), 8px côté
+   volet. Le curseur col-resize/row-resize couvre toute la zone de prise. */
+.sym-vsplit { background: transparent; cursor: col-resize; position: relative; z-index: 30; touch-action: none; }
 .sym-vsplit::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 2px; background: rgba(255,255,255,0.05); transition: background var(--t-fast); }
-.sym-vsplit:hover::before, .sym-vsplit.dragging::before { background: rgba(227,178,58,0.72); }
-.sym-hsplit { background: transparent; cursor: row-resize; position: relative; z-index: 30; }
+.sym-vsplit:hover::before, .sym-vsplit.dragging::before { background: rgba(255,255,255,0.28); width: 3px; }
+.sym-vsplit::after { content: ''; position: absolute; top: 0; bottom: 0; left: -2px; right: -8px; cursor: col-resize; }
+.sym-hsplit { background: transparent; cursor: row-resize; position: relative; z-index: 30; touch-action: none; }
 .sym-hsplit::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 2px; background: rgba(255,255,255,0.05); transition: background var(--t-fast); }
-.sym-hsplit:hover::before, .sym-hsplit.dragging::before { background: rgba(227,178,58,0.72); }
+.sym-hsplit:hover::before, .sym-hsplit.dragging::before { background: rgba(255,255,255,0.28); height: 3px; }
+.sym-hsplit::after { content: ''; position: absolute; left: 0; right: 0; top: -2px; bottom: -8px; cursor: row-resize; }
 .sym-grid.sym-dragging * { pointer-events: none; user-select: none; }
 .sym-grid.sym-dragging .sym-vsplit, .sym-grid.sym-dragging .sym-hsplit { pointer-events: auto; }
 .sym-panel { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; }
