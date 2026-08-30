@@ -21426,3 +21426,38 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
    (hauteur en % sur une base trompée). Borne CIBLÉE au chrono — les sous-widgets hauts d'un
    onglet (jauges, colonnes) doivent au contraire pouvoir dépasser pour que le corps défile. */
 .wdgt-mount > .wdg-rb, .wdg-body > .wdg-rb { max-height: 100%; }
+
+/* ═══ STATISTIQUES PARTICULIERS (30/08, demande user « DMX Statistic table ») ═══════════════════
+   La table statistique de la foule : deux lignes par paire (Short/Long), pourcentages, lots,
+   positions, prix moyens et écart au prix actuel. Grammaire HUD du desk : chiffres tabulaires
+   mono, filets fins --hud-line, en-têtes collants, sémantique vert/rouge sur l'écart et l'or
+   pour le camp majoritaire (la foule). En fin de feuille, règle du projet. */
+.wdg-dmxstats { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-dmxstats-tete { display: flex; align-items: center; gap: 12px; padding: 4px 10px 6px; font-size: 9.5px; color: var(--text3, #9aa1ac); flex: 0 0 auto; }
+.wdg-dmxstats-tete > span { display: inline-flex; align-items: center; gap: 5px; }
+.wdg-dmxstats-tete i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.wdg-dmxstats-vie { margin-left: auto; }
+.wdg-dmxstats-roule { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.wdg-dmxstats-table { width: 100%; min-width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 10px; font-variant-numeric: tabular-nums; }
+.wdg-dmxstats-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--bg2, #0e0e11);
+  font-size: 8.5px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--text3, #6b7280); padding: 4px 7px; text-align: right; white-space: nowrap;
+  border-bottom: 1px solid var(--hud-line, #1c1c20);
+}
+.wdg-dmxstats-table td { padding: 3px 7px; text-align: right; color: var(--text2, #c9ccd4); white-space: nowrap; border-bottom: 1px solid rgba(17, 17, 19, .85); }
+.wdg-dmxstats-table th.est-g, .wdg-dmxstats-table td.est-g { text-align: left; }
+/* Le filet FORT ferme le groupe de la paire (sous la ligne Long) ; le filet faible sépare
+   Short de Long à l'intérieur. La cellule paire (rowspan) hérite du filet fort par collapse. */
+.wdg-dmxstats-table tr.est-bas td { border-bottom: 1px solid var(--hud-line, #1c1c20); }
+.wdg-dmxstats-paire b { display: block; font-size: 10.5px; letter-spacing: .3px; color: var(--text1, #e8e8ec); font-weight: 600; }
+.wdg-dmxstats-paire span { font-size: 9px; color: var(--text3, #6b7280); }
+.wdg-dmxstats-table td i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: 0; }
+.wdg-dmxstats-table td i.est-court { background: #ff3d00; }
+.wdg-dmxstats-table td i.est-long { background: #00e676; }
+.wdg-dmxstats-table td.est-vert { color: #00e676; }
+.wdg-dmxstats-table td.est-rouge { color: #ff3d00; }
+.wdg-dmxstats-table td.est-na { color: var(--text3, #4a4a52); }
+.wdg-dmxstats-table td.est-foule { color: #e3b23a; font-weight: 600; background: rgba(227, 178, 58, .06); }
+.wdg-dmxstats-table tbody tr:hover td { background: rgba(227, 178, 58, .045); }
+.wdg-dmxstats-table tbody tr:hover td.est-foule { background: rgba(227, 178, 58, .1); }

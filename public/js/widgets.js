@@ -1582,7 +1582,8 @@
      Factorisé du widget « DMX par paire » quand le « COT par devise » est arrivé : deux widgets, un
      seul donut. Les corps sont ceux éprouvés du DMX (jour entre segments, pousse à la frame
      suivante, étiquettes bornées et JAMAIS posées sur l'anneau). Les TEXTES d'étiquettes sont des
-     paramètres : le DMX affiche des pourcentages (sa source n'a pas de volumes), le COT affiche les
+     paramètres : le DMX affiche des pourcentages (l'anneau est un partage de 100 % ; les volumes de
+     la source vivent dans Statistiques DMX depuis le 30/08), le COT affiche les
      volumes réels de la CFTC. */
         /* SVG carré, arcs seuls : les étiquettes ne vivent PLUS dans le viewBox. Dedans, elles
      grandissaient avec l'anneau (unités du viewBox : ~36 px sur une grande carte) et
@@ -6197,15 +6198,15 @@
     {
       id: 'dmx-paire', name: 'Particuliers par paire', tag: 'DMX', cat: 'Risque', h: 300,
       desc: 'Le partage long/short de la foule sur UNE paire, en anneau.',
-      aide: "<p>Le partage acheteurs/vendeurs des particuliers sur une paire, en anneau : la source ne publie que des pourcentages, l'anneau ne montre donc rien d'autre. La ligne du haut lit le déséquilibre et son intensité pour l'unité de temps choisie.</p><p>Le sentiment des particuliers se lit à <strong>contre-courant</strong> : une foule très majoritairement acheteuse signale surtout où se massent ses stops, pas où va le prix. C'est aux extrêmes (70/30 et au-delà) que cette lecture a historiquement le plus de valeur.</p>",
-      src: "Positionnement agrégé des particuliers, en pourcentages seuls (la source ne publie aucun volume), relu toutes les 60 secondes ; l'horodatage affiché est celui de la donnée servie.",
+      aide: "<p>Le partage acheteurs/vendeurs des particuliers sur une paire, en anneau : un partage se lit en pourcentages, l'anneau ne montre donc rien d'autre. La ligne du haut lit le déséquilibre et son intensité pour l'unité de temps choisie ; les volumes, positions et prix moyens de la même source vivent dans le widget Statistiques DMX.</p><p>Le sentiment des particuliers se lit à <strong>contre-courant</strong> : une foule très majoritairement acheteuse signale surtout où se massent ses stops, pas où va le prix. C'est aux extrêmes (70/30 et au-delà) que cette lecture a historiquement le plus de valeur.</p>",
+      src: "Positionnement agrégé des particuliers, relu toutes les 60 secondes ; l'horodatage affiché est celui de la donnée servie.",
       watch: "Les déséquilibres extrêmes et leurs bascules : une foule qui change brutalement de camp pendant que le prix ne bouge pas est une information en soi.",
       /* Complément du widget « Aperçu DMX », qui liste toutes les paires : celui-ci en isole UNE et
          la donne à lire d'un coup d'œil. Même source (/api/community-outlook), même cache serveur.
 
-         ⚠️ La source ne publie QUE des pourcentages : `symbol`, `longPct`, `shortPct`, `trend`.
-         Aucun volume, aucun nombre de lots. L'anneau porte donc les pourcentages réels et rien
-         d'autre : afficher des volumes supposerait de les inventer. */
+         L'anneau porte les POURCENTAGES : c'est un partage de 100 %, sa seule lecture honnête.
+         Depuis le 30/08 la voie API du scraper livre AUSSI volumes, positions et prix moyens —
+         ces champs vivent dans « Statistiques DMX » (table), pas dans l'anneau. */
       opts: [
         // cache retire (18/08, demande user) : ce widget n a PAS de barre interne, cache: true
         // masquait la paire du panneau de reglages, seul endroit ou la choisir.
@@ -6245,8 +6246,8 @@
            bibliotheque, donc rien a charger et rien a detruire au demontage. */
         /* Gabarit de la référence (18/08, capture user) : centre VIDE, anneau plein (26), et les
            étiquettes posées SUR les segments avec un trait de rappel, à l'angle médian de chaque
-           arc. La source ne publiant AUCUN volume (seulement des pourcentages), les étiquettes
-           portent les pourcentages réels : afficher des lots supposerait de les inventer.
+           arc. Les étiquettes portent les pourcentages : l'anneau est un partage de 100 %, les
+           volumes réels de la source se lisent dans « Statistiques DMX » (30/08).
            Les arcs sont écrits À ZÉRO (dasharray '0 c') avec leur cible en data-* : dessiner()
            les pousse à la frame suivante et la transition CSS fait « se charger » l'anneau. Le
            vert part collé au rouge (dashoffset 0 -> -aC) : il grandit en le suivant, l'ensemble
@@ -6340,14 +6341,124 @@
       },
     },
     {
+      id: 'dmx-stats', name: 'Statistiques DMX', tag: 'DMX', cat: 'Risque', h: 380,
+      desc: 'La table statistique de la foule : partage, lots, positions, prix moyens et écart au prix.',
+      aide: "<p>La table statistique du positionnement des particuliers, paire par paire : le partage vendeurs/acheteurs, les volumes en lots, le nombre de positions, le prix moyen d'entrée de chaque camp et son écart au prix actuel, en pips. Un écart vert dit que le camp gagne, un rouge qu'il perd. Le pourcentage du camp majoritaire ressort à l'or : c'est la foule.</p><p>La lecture est <strong>contrarienne</strong> : une foule majoritaire ET perdante finit par déboucler, et ses rachats poussent le prix contre elle. Le tri « Foule la plus piégée » fait remonter ces paires d'un geste.</p>",
+      src: "Positionnement agrégé des particuliers (partage, lots, positions, prix moyens d'entrée), relu toutes les 60 secondes ; le prix actuel des paires FX vient des cotations du desk, retimbrées toutes les 2 à 3 minutes côté serveur. Les métaux n'ont pas de cotation attachée : leurs écarts restent vides plutôt qu'inventés.",
+      watch: "Les paires où le camp majoritaire porte un écart rouge : ces positions piégées devront se déboucler, et leurs rachats alimentent le mouvement en cours.",
+      /* La table « Statistics » de la source, en entier (30/08, demande user « DMX Statistic
+         table ») : deux lignes par paire (Short/Long), et par camp le pourcentage, les lots, le
+         nombre de positions, le prix moyen d'entrée et l'ÉCART au prix actuel en pips (signe =
+         camp gagnant/perdant). Les champs statistiques arrivent de la voie API du scraper ; sur
+         un vieux cache ou le repli DOM, les manquants se rendent « -- », jamais des zéros. Le
+         prix actuel est accolé par la route (cache FX List) : absent pour les métaux → « -- ». */
+      opts: [
+        { k: 'tri', lbl: 'Tri', type: 'choix', def: 'az', choix: [['az', 'Paire (A-Z)'], ['za', 'Paire (Z-A)'], ['piege', 'Foule la plus piégée'], ['long', 'Long % (décroissant)'], ['short', 'Short % (décroissant)']] },
+      ],
+      mount: function (host, it) {
+        var W = this, vivant = true, _dern = '';
+        host.innerHTML = '<div class="wdg-dmxstats">'
+          + '<div class="wdg-dmxstats-tete">'
+          + '<span><i style="background:#ff3d00"></i>Vendeurs</span>'
+          + '<span><i style="background:#00e676"></i>Acheteurs</span>'
+          + '<span class="wdg-dmxstats-vie"></span></div>'
+          + '<div class="wdg-dmxstats-roule custom-scrollbar"></div></div>';
+        var zone = host.querySelector('.wdg-dmxstats-roule');
+        var elVie = host.querySelector('.wdg-dmxstats-vie');
+
+        function joli(sym) { return (sym && sym.length === 6) ? sym.slice(0, 3) + '/' + sym.slice(3) : (sym || ''); }
+        function estMetal(sym) { return /^X(?:AU|AG|PT|PD)/.test(sym || ''); }
+        function nb(v) { return v == null ? '--' : Math.round(+v).toLocaleString('fr-FR'); }
+        function pc(v) { return v == null ? '--' : Math.round(+v) + '%'; }
+        function prix(v, sym) {
+          if (v == null) return '--';
+          var dec = /JPY$/.test(sym) ? 3 : (estMetal(sym) ? 2 : 5);
+          return (+v).toFixed(dec);
+        }
+        /* Écart du camp au prix ACTUEL, en pips (JPY : 0,01 ; autres paires FX : 0,0001).
+           Positif = camp gagnant. null quand une jambe manque, ET pour les métaux même si une
+           cotation apparaissait un jour : leur « pip » n'a pas de définition unique, afficher un
+           chiffre serait choisir une convention en silence. */
+        function ecart(avg, last, sym, campCourt) {
+          if (avg == null || last == null || estMetal(sym)) return null;
+          var pip = /JPY$/.test(sym) ? 0.01 : 0.0001;
+          return Math.round((campCourt ? (+avg - +last) : (+last - +avg)) / pip);
+        }
+        function eTd(e) {
+          if (e == null) return '<td class="est-na">--</td>';
+          var cls = e > 0 ? 'est-vert' : (e < 0 ? 'est-rouge' : '');
+          return '<td class="' + cls + '">' + (e > 0 ? '+' : '') + e.toLocaleString('fr-FR') + '</td>';
+        }
+        // Rang « foule piégée » : l'écart du camp MAJORITAIRE, le plus négatif d'abord ;
+        // sans écart calculable (métal, cotation absente), la paire descend en fin de liste.
+        function pieRang(r) {
+          var court = (parseFloat(r.shortPct) || 0) >= (parseFloat(r.longPct) || 0);
+          var e = court ? ecart(r.avgShortPrice, r.last, r.symbol, true) : ecart(r.avgLongPrice, r.last, r.symbol, false);
+          return e == null ? Infinity : e;
+        }
+        function trier(rows, mode) {
+          var r2 = rows.slice(), n = function (v) { var x = parseFloat(v); return isFinite(x) ? x : 0; };
+          if (mode === 'za') r2.sort(function (a, b) { return String(b.symbol).localeCompare(String(a.symbol)); });
+          else if (mode === 'long') r2.sort(function (a, b) { return n(b.longPct) - n(a.longPct); });
+          else if (mode === 'short') r2.sort(function (a, b) { return n(b.shortPct) - n(a.shortPct); });
+          else if (mode === 'piege') r2.sort(function (a, b) { return pieRang(a) - pieRang(b); });
+          else r2.sort(function (a, b) { return String(a.symbol).localeCompare(String(b.symbol)); });
+          return r2;
+        }
+        function rendre(rows) {
+          var h = '<table class="wdg-dmxstats-table"><thead><tr>'
+            + '<th class="est-g">Paire</th><th class="est-g">Camp</th><th>%</th><th>Lots</th><th>Pos.</th><th>Prix moy.</th>'
+            + '<th title="Écart au prix actuel, en pips : positif, le camp gagne ; négatif, il perd.">Écart</th>'
+            + '</tr></thead><tbody>';
+          rows.forEach(function (r) {
+            var domCourt = (parseFloat(r.shortPct) || 0) >= (parseFloat(r.longPct) || 0);
+            h += '<tr class="est-haut">'
+              + '<td class="wdg-dmxstats-paire est-g" rowspan="2"><b>' + joli(r.symbol) + '</b><span>' + prix(r.last, r.symbol) + '</span></td>'
+              + '<td class="est-g"><i class="est-court"></i>Short</td>'
+              + '<td' + (domCourt ? ' class="est-foule"' : '') + '>' + pc(r.shortPct) + '</td>'
+              + '<td>' + nb(r.shortVolume) + '</td><td>' + nb(r.shortPositions) + '</td>'
+              + '<td>' + prix(r.avgShortPrice, r.symbol) + '</td>' + eTd(ecart(r.avgShortPrice, r.last, r.symbol, true)) + '</tr>'
+              + '<tr class="est-bas">'
+              + '<td class="est-g"><i class="est-long"></i>Long</td>'
+              + '<td' + (!domCourt ? ' class="est-foule"' : '') + '>' + pc(r.longPct) + '</td>'
+              + '<td>' + nb(r.longVolume) + '</td><td>' + nb(r.longPositions) + '</td>'
+              + '<td>' + prix(r.avgLongPrice, r.symbol) + '</td>' + eTd(ecart(r.avgLongPrice, r.last, r.symbol, false)) + '</tr>';
+          });
+          zone.innerHTML = h + '</tbody></table>';
+        }
+        function tic() {
+          fetch('/api/community-outlook?period=H1')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!vivant || !host.isConnected) return;
+              if (elVie) elVie.innerHTML = _vieSpan(d && d.updatedTs != null ? +d.updatedTs : 0);
+              var rows = (d && d.symbols || []).filter(function (x) { return x && x.symbol && (typeof _dmxAllowed !== 'function' || _dmxAllowed(x.symbol)); });
+              if (!rows.length) { fallback(zone, 'DMX indisponible.'); _dern = ''; return; }
+              rows = trier(rows, opt(it, W, 'tri') || 'az');
+              // Re-rendu seulement quand la donnée (ou le tri) change : le tic de 60 s ne doit
+              // pas reconstruire une table identique sous les yeux du lecteur.
+              var cle = (opt(it, W, 'tri') || 'az') + '|' + rows.map(function (r) {
+                return r.symbol + ':' + r.shortPct + ':' + (r.avgShortPrice == null ? '' : r.avgShortPrice) + ':' + (r.avgLongPrice == null ? '' : r.avgLongPrice) + ':' + (r.last == null ? '' : r.last);
+              }).join('|');
+              if (cle !== _dern) { _dern = cle; rendre(rows); }
+            })
+            .catch(function () { if (vivant && host.isConnected) { fallback(zone, 'DMX indisponible.'); _dern = ''; } });
+        }
+        tic();
+        var iv = setInterval(tic, 60000);
+        return function () { vivant = false; try { clearInterval(iv); } catch (e) {} };
+      },
+    },
+    {
       id: 'cot-devise', name: 'COT par devise', tag: 'COT', cat: 'Risque', h: 320,
       desc: 'Le positionnement CFTC d\'UNE devise : long/short en volumes réels, et la position nette.',
       aide: "<p>Le positionnement CFTC d'une devise pour une catégorie de fonds : long et short en contrats réels, la position nette, et la date du rapport (arrêté le mardi, publié le vendredi). La ligne du haut lit le donut ; la mention « agrégat calculé » signale l'USD, sur lequel la CFTC ne publie aucun contrat direct.</p><p>Les fonds à levier sont la catégorie spéculative que suivent les desks FX : leur position nette dit de quel côté penche l'argent institutionnel. La donnée est <strong>hebdomadaire et décalée</strong> de plusieurs jours : un contexte de fond, jamais un signal d'entrée.</p>",
       src: "Le rapport hebdomadaire officiel de la CFTC, daté de son mardi d'arrêté ; la fraîcheur affichée est l'âge du rapport, jamais l'heure de service, et la carte se resynchronise toutes les 30 minutes.",
       watch: "Les positions nettes extrêmes (beaucoup d'intervenants à déboucler du même côté) et les inflexions d'un rapport à l'autre, qui précèdent souvent celles des prix.",
-      /* Le donut de référence, INTÉGRALEMENT reproductible ici : contrairement au DMX (pourcentages
-         seuls), la source COT porte les positions ABSOLUES (longPos/shortPos en contrats, net,
-         sentiment, date du rapport CFTC). Même design et mêmes garde-fous que « DMX par paire »
+      /* Le donut de référence, INTÉGRALEMENT reproductible ici : la source COT porte les positions
+         ABSOLUES (longPos/shortPos en contrats, net, sentiment, date du rapport CFTC) — comme le
+         DMX depuis le 30/08 (lots/positions/prix moyens, servis à la table Statistiques
+         particuliers). Même design et mêmes garde-fous que « DMX par paire »
          (donut partagé _donutSvg/_donutEtiquettes), avec le pied à TROIS colonnes de la référence :
          short, long, position nette. */
       opts: [
@@ -6517,7 +6628,7 @@
       id: 'dmx-retail', name: 'Sentiment particuliers', tag: 'DMX', cat: 'Risque', h: 340,
       desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
       aide: "<p>Le positionnement long/short des particuliers sur toutes les paires servies, en barres, avec le choix de l'unité de temps et du tri. Chaque barre partage 100% entre acheteurs et vendeurs : il n'y a ni volume ni direction du prix là-dedans, seulement la foule.</p><p>La lecture est <strong>contrarienne et comparative</strong> : les paires les plus déséquilibrées sont celles où la foule est la plus exposée à un débouclage forcé. Trier par pourcentage long ou short fait remonter ces extrêmes d'un geste.</p>",
-      src: "Positionnement agrégé des particuliers, en pourcentages seuls, relu toutes les 60 secondes.",
+      src: "Positionnement agrégé des particuliers, lu en pourcentages (les volumes et prix moyens de la même source vivent dans Statistiques DMX), relu toutes les 60 secondes.",
       watch: "Les paires au-delà de 65-70% dans un camp, et celles dont le déséquilibre grandit pendant que le prix va dans l'autre sens : la foule y moyenne à contre-tendance.",
       // IDENTIQUE AU DESK (23/07) : réutilise buildDMXChart(force, {wrapId, period, sort}) de charts.js
       // → mêmes barres .dmx2-row, même en-tête (boutons TF 1D/4H/1H + tri) et même légende Long/Short.
@@ -8934,6 +9045,27 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    // Statistiques DMX : la table statistique DMX — deux lignes par paire (point rouge =
+    // Short, vert = Long), colonnes de chiffres estompées, et la colonne Écart qui juge (vert/rouge).
+    'dmx-stats': '<svg ' + _PV + '>'
+      + (function () {
+        var G = [['#00e676', '#ff3d00'], ['#ff3d00', '#00e676'], ['#00e676', '#00e676']], h = '';
+        for (var i = 0; i < 3; i++) {
+          var y = 5 + i * 17;
+          h += '<rect x="8" y="' + (y + 4) + '" width="17" height="4" rx="1.5" fill="#9aa1ac" opacity=".6"/>';
+          for (var l = 0; l < 2; l++) {
+            var ry = y + l * 7;
+            h += '<circle cx="33" cy="' + (ry + 2.2) + '" r="1.8" fill="' + (l ? '#00e676' : '#ff3d00') + '" opacity=".85"/>'
+              + '<rect x="39" y="' + ry + '" width="13" height="4" rx="1.5" fill="#3a3d44" opacity=".85"/>'
+              + '<rect x="56" y="' + ry + '" width="16" height="4" rx="1.5" fill="#3a3d44" opacity=".85"/>'
+              + '<rect x="76" y="' + ry + '" width="14" height="4" rx="1.5" fill="#3a3d44" opacity=".85"/>'
+              + '<rect x="96" y="' + ry + '" width="14" height="4" rx="1.5" fill="' + G[i][l] + '" opacity=".75"/>';
+          }
+          if (i < 2) h += '<line x1="8" y1="' + (y + 15.5) + '" x2="112" y2="' + (y + 15.5) + '" stroke="#1c1c20"/>';
+        }
+        return h;
+      })()
+      + '</svg>',
     // Indices & Matières : SEULE carte du catalogue sans vignette (30/08, capture user « il manque
     // un aperçu ») — deux groupes étiquetés, barres bipolaires sur axe central, l'or en… or.
     'indices-matieres': '<svg ' + _PV + '>'

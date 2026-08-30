@@ -8,10 +8,13 @@
 /**
  * Myfxbook Community Outlook — retail trader sentiment
  *
- * Primary path: Myfxbook REST API (login → session → community-outlook).
+ * Primary path: Myfxbook REST API (login → session → community-outlook) —
+ *               porte AUSSI les champs statistiques (volumes en lots, nombres
+ *               de positions, prix moyens d'entrée par camp).
  * Fallback:     Puppeteer DOM extraction (no API interception — the page's
  *               XHR returns volume %, not position %; DOM tooltip has the
- *               correct "Short 42% ... lots" position percentages).
+ *               correct "Short 42% ... lots" position percentages, plus lots
+ *               et positions ; les prix moyens n'existent que via l'API).
  * Cache TTL: 15 min. Myfxbook ne fournit qu'UN SEUL snapshot live de positionnement
  * retail (pas de variante par timeframe) → H1/H4/D1 partagent ce même jeu de données.
  */
@@ -93,6 +96,15 @@ function loadDisk(period) {
 
 function round1(n) { return Math.round(n * 10) / 10; }
 
+// Champ statistique optionnel : nombre fini ou null (JAMAIS 0 par défaut — un volume à 0
+// serait une information fausse ; null se rend « -- » côté client).
+function statNum(v) { const x = +v; return (v != null && Number.isFinite(x)) ? x : null; }
+
+/* 30/08 — la normalisation gardait UNIQUEMENT les pourcentages : les champs statistiques que
+   l'API REST publie pourtant (volumes en lots, nombres de positions, prix moyens d'entrée de
+   chaque camp) étaient jetés ici. Ils passent désormais, en null quand la voie qui a fourni la
+   donnée ne les porte pas (repli DOM sans prix moyens, vieux caches disque) — c'est la matière
+   du widget « Statistiques particuliers ». Les pourcentages restent calculés comme avant. */
 function normalise(raw) {
   const result = raw
     .filter(s => s && (s.name || s.symbol) &&
@@ -116,6 +128,12 @@ function normalise(raw) {
         shortPct,
         longPct,
         trend:   shortPct > longPct ? 'Short' : 'Long',
+        shortVolume:    statNum(s.shortVolume),
+        longVolume:     statNum(s.longVolume),
+        shortPositions: statNum(s.shortPositions),
+        longPositions:  statNum(s.longPositions),
+        avgShortPrice:  statNum(s.avgShortPrice),
+        avgLongPrice:   statNum(s.avgLongPrice),
       };
     })
     .filter(s => s.symbol.length >= 3);
@@ -269,7 +287,7 @@ async function fetchViaPuppeteer() {
         // Only match cells that contain "lots" — these are the position % cells
         // (volume cells don't mention lots; position tooltip format is:
         //  "Short 42% 8158.16 lots 29978 Long 58% 11244.90 lots 31500")
-        let shortPct = null, longPct = null;
+        let shortPct = null, longPct = null, extra = null;
         for (const cell of cells) {
           const text = cell.textContent;
           if (!text.toLowerCase().includes('lots')) continue;
@@ -278,13 +296,23 @@ async function fetchViaPuppeteer() {
           if (sm && lm) {
             shortPct = parseFloat(sm[1]);
             longPct  = parseFloat(lm[1]);
+            // Volumes (lots) + nombres de positions : captures SÉPARÉES et optionnelles — si le
+            // format du libellé bouge, on perd ces champs-là, jamais les pourcentages.
+            const sv = text.match(/Short\s+\d+(?:\.\d+)?\s*%\s+([\d,]+(?:\.\d+)?)\s*lots\s+([\d,]+)/i);
+            const lv = text.match(/Long\s+\d+(?:\.\d+)?\s*%\s+([\d,]+(?:\.\d+)?)\s*lots\s+([\d,]+)/i);
+            if (sv && lv) {
+              extra = {
+                shortVolume: parseFloat(sv[1].replace(/,/g, '')), shortPositions: parseInt(sv[2].replace(/,/g, ''), 10),
+                longVolume:  parseFloat(lv[1].replace(/,/g, '')), longPositions:  parseInt(lv[2].replace(/,/g, ''), 10),
+              };
+            }
             break;
           }
         }
 
         if (shortPct !== null && longPct !== null) {
           seen.add(symbol);
-          result.push({ name: symbol, shortPercentage: shortPct, longPercentage: longPct });
+          result.push(Object.assign({ name: symbol, shortPercentage: shortPct, longPercentage: longPct }, extra || {}));
         }
       });
 

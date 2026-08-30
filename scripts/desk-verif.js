@@ -147,6 +147,16 @@ function serveur() {
         return j({ events: evts, items: evts });
       }
       if (u === '/api/session-wraps') return j(WRAPS);
+      /* Sentiment particuliers ENRICHI (30/08) : de quoi prouver la table « Statistiques
+         particuliers » — pips à 0,0001 (EURUSD) et 0,01 (JPY), métal SANS cotation (écart --),
+         camp majoritaire marqué. Les valeurs sont choisies pour des écarts ronds vérifiables. */
+      if (u === '/api/community-outlook') {
+        return j({ updatedTs: Date.now() - 120000, symbols: [
+          { symbol: 'EURUSD', shortPct: 42, longPct: 58, trend: 'Long', shortVolume: 8158.16, longVolume: 11244.9, shortPositions: 29978, longPositions: 31500, avgShortPrice: 1.09, avgLongPrice: 1.093, last: 1.085 },
+          { symbol: 'USDJPY', shortPct: 61, longPct: 39, trend: 'Short', shortVolume: 5000, longVolume: 3100, shortPositions: 12000, longPositions: 9000, avgShortPrice: 155.2, avgLongPrice: 154.1, last: 154.6 },
+          { symbol: 'XAUUSD', shortPct: 30, longPct: 70, trend: 'Long', shortVolume: 900, longVolume: 2100, shortPositions: 4000, longPositions: 9000, avgShortPrice: 2350.5, avgLongPrice: 2321.7 },
+        ] });
+      }
       if (u === '/api/bank-research') return j([]);
       if (u === '/api/fx-daily')      return j([]);
       if (u === '/api/weekly-reports') return setTimeout(() => j({ items: [], generating: false }), 3000);
@@ -966,6 +976,75 @@ function phaseLogique() {
         /\.wdg-rb, \.wdg-state, \.wdg-empty, \.wdg-load, \.wdg-blank, \.wdg-jr-empty, \.wdgt-vide,\n\.wdg-dmx1-anneau, \.wdgt-dispo \{ justify-content: safe center; align-items: safe center; \}/.test(CSS5));
       verif('… et la boîte du chrono est bornée à son hôte (onglet ET carte)',
         /\.wdgt-mount > \.wdg-rb, \.wdg-body > \.wdg-rb \{ max-height: 100%; \}/.test(CSS5));
+    }
+
+    /* ── STATISTIQUES PARTICULIERS (30/08, demande user « DMX Statistic table ») : on monte le
+       VRAI widget sur le bouchon enrichi et on vérifie que la table DIT VRAI — l'écart est bien
+       (prix moyen − prix actuel) en pips signés du point de vue du camp, le pip JPY vaut 0,01,
+       un métal sans cotation rend « -- » (jamais un chiffre inventé), et le camp majoritaire
+       (la foule) est marqué du bon côté. Les valeurs du bouchon donnent des écarts RONDS :
+       EUR/USD short +50 / long −80, USD/JPY short +60 / long +50. ── */
+    {
+      const stM = await page.evaluate(async () => {
+        const vw = document.getElementById('view-widgets');
+        if (!vw || !window.DTPWidgets) return { absent: 'vue widgets' };
+        const avantVue = [...document.querySelectorAll('.view-panel')].find(p => !p.classList.contains('hidden'));
+        vw.classList.remove('hidden');
+        document.querySelectorAll('.view-panel').forEach(p => { if (p.id !== 'view-widgets') p.classList.add('hidden'); });
+        window.DTPWidgets.open();
+        await new Promise(r => setTimeout(r, 600));
+        window.DTPWidgets.add('dmx-stats');
+        await new Promise(r => setTimeout(r, 1500));
+        const w = document.querySelector('.wdg-dmxstats');
+        let out;
+        if (!w || !w.querySelector('tbody tr')) out = { absent: 'carte statistiques' };
+        else {
+          // L'espace des milliers varie selon la version d'ICU (fine insécable ou insécable) :
+          // on compare des chiffres NETTOYÉS, jamais un caractère d'espace précis.
+          const net = s => (s || '').replace(/[\s  ]/g, '');
+          const grp = {};
+          [...w.querySelectorAll('.wdg-dmxstats-paire')].forEach(td => {
+            const cel = tr => [...tr.querySelectorAll('td')].map(c => ({ t: net(c.textContent), cls: c.className }));
+            grp[net((td.querySelector('b') || {}).textContent)] = {
+              court: cel(td.parentElement), long: cel(td.parentElement.nextElementSibling),
+              actuel: net((td.querySelector('span') || {}).textContent),
+            };
+          });
+          out = { lignes: w.querySelectorAll('tbody tr').length, grp, vie: !!w.querySelector('.wdg-vie') };
+        }
+        if (avantVue) { document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden')); avantVue.classList.remove('hidden'); }
+        return out;
+      });
+      console.log('\n── Statistiques DMX : la table dit vrai (pips, camps, métaux) ──');
+      if (stM.absent) {
+        console.log('  · non mesurable (' + stM.absent + ') → contrôle abstenu.');
+      } else {
+        // Ligne Short : [paire(rowspan), camp, %, lots, pos., prix moy., écart] ; ligne Long : sans la cellule paire.
+        const eu = stM.grp['EUR/USD'], jp = stM.grp['USD/JPY'], xa = stM.grp['XAU/USD'];
+        verif('la table est montée : trois paires, six lignes de camp',
+          stM.lignes === 6 && !!eu && !!jp && !!xa, JSON.stringify({ lignes: stM.lignes, paires: Object.keys(stM.grp || {}) }));
+        verif('l\'écart juge le camp en pips (EUR/USD : short +50 vert, long -80 rouge)',
+          !!eu && eu.court[6].t === '+50' && /est-vert/.test(eu.court[6].cls)
+          && eu.long[5].t === '-80' && /est-rouge/.test(eu.long[5].cls),
+          eu && JSON.stringify({ court: eu.court[6], long: eu.long[5] }));
+        verif('le pip JPY vaut 0,01 (USD/JPY : +60 et +50)',
+          !!jp && jp.court[6].t === '+60' && jp.long[5].t === '+50',
+          jp && JSON.stringify({ court: jp.court[6], long: jp.long[5] }));
+        verif('un métal sans cotation n\'invente RIEN (XAU/USD : écarts et prix actuel à --)',
+          !!xa && xa.court[6].t === '--' && /est-na/.test(xa.court[6].cls) && xa.long[5].t === '--' && xa.actuel === '--',
+          xa && JSON.stringify({ court: xa.court[6], long: xa.long[5], actuel: xa.actuel }));
+        verif('le camp majoritaire (la foule) est marqué du bon côté',
+          !!eu && !!jp && /est-foule/.test(eu.long[1].cls) && !/est-foule/.test(eu.court[2].cls) && /est-foule/.test(jp.court[2].cls),
+          JSON.stringify({ euLong: eu && eu.long[1].cls, jpCourt: jp && jp.court[2].cls }));
+        verif('lots et positions réels dans la table (EUR/USD short : 8 158 lots, 29 978 pos.)',
+          !!eu && eu.court[3].t === '8158' && eu.court[4].t === '29978',
+          eu && JSON.stringify({ lots: eu.court[3], pos: eu.court[4] }));
+        verif('l\'horodatage de la donnée est affiché', stM.vie === true);
+      }
+      const CSS6 = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
+      verif('la table statistique a son plancher et son en-tête collant (feuille)',
+        /\.wdg-dmxstats-table \{ width: 100%; min-width: 100%;/.test(CSS6)
+        && /\.wdg-dmxstats-table th \{\n  position: sticky; top: 0;/.test(CSS6));
     }
 
     /* ── Deux stabilités visuelles (30/08, captures user) : le calendrier ne bouge pas au

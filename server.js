@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-stats-particuliers', ts: Date.UTC(2026, 8, 16, 8, 0), title: 'Nouveau widget : Statistiques DMX, la table complète du positionnement', desc: 'La bibliothèque de widgets accueille la table statistique du sentiment particuliers, avec sa vignette d’aperçu. Jusqu’ici le desk lisait ce positionnement en pourcentages : l’Aperçu DMX en barres, le widget par paire en anneau. La nouvelle table va au bout de la donnée : pour chaque paire, deux lignes (vendeurs et acheteurs) portent le pourcentage, le volume en lots, le nombre de positions, le prix moyen d’entrée du camp et son écart au prix actuel, en pips : vert quand le camp gagne, rouge quand il perd, et le pourcentage du camp majoritaire ressort à l’or. La lecture reste contrarienne : une foule majoritaire ET perdante devra racheter ses positions, et le tri « Foule la plus piégée » fait remonter ces paires d’un geste. Les métaux, sans cotation attachée, montrent leurs prix moyens mais laissent l’écart vide plutôt que d’inventer un chiffre.' },
   { id: 'dtpu-20260915-rebours-visible', ts: Date.UTC(2026, 8, 15, 22, 0), title: 'Compte à rebours : le chrono reste visible, même dans un panneau à onglets', desc: 'Votre capture montrait un Compte à rebours invisible dans un panneau à onglets : un grand vide, et la première ligne coupée au bord bas de la carte. La cause est un piège de géométrie : le corps de cette carte est centré verticalement, et quand sa boîte se croit plus haute que la carte réellement affichée (un contexte d’onglet ou une carte compressée peut tromper le calcul), le centre de la boîte tombe sous le bord : on ne voit que du vide. Le cas a été rejoué dans un vrai navigateur en doublant artificiellement la boîte, puis fermé par deux gardes : le centrage de toutes les cartes passe en centrage SÛR (centré quand ça tient, calé en haut dès que ça déborde : l’information d’abord), et la boîte du chrono est bornée à son hôte, en carte comme en onglet : elle ne peut plus dépasser. Les états de repli (« Aucune donnée », erreurs, onglets vides) profitent du même centrage sûr. Et l’attaque fait partie des contrôles de livraison : à chaque version, un navigateur monte le vrai widget, double sa boîte, et vérifie que le contenu reste dans la carte.' },
   { id: 'dtpu-20260915-calendrier-pleine-largeur', ts: Date.UTC(2026, 8, 15, 20, 0), title: 'Calendrier : plus de bande noire à droite quand une ligne est déroulée', desc: 'Votre capture le montrait bien : dans un panneau large, les lignes du calendrier s’arrêtaient avant le bord droit pendant que le décryptage déroulé, lui, courait sur toute la largeur : une bande noire vide longeait toutes les lignes. Le cas a été rejoué dans un vrai navigateur, pleine largeur, semaine courante et semaine d’archive, ligne déroulée, largeurs mesurées au pixel. La table du calendrier porte désormais un plancher structurel : elle épouse AU MOINS son panneau, dans tous les modes d’affichage et sur les trois surfaces qui la rendent (la vue Calendrier, le widget de Mon Desk et la page Semaine à venir), sans rien changer au comportement des petits écrans, où la table garde sa tenue. Et ce n’est pas une promesse : à chaque livraison, un contrôle automatique ouvre la vraie vue dans un navigateur, déroule une ligne et mesure que la table touche son panneau et que le déroulé n’en déborde jamais.' },
   { id: 'dtpu-20260915-stabilites', ts: Date.UTC(2026, 8, 15, 18, 0), title: 'Deux stabilités : le calendrier ne bouge plus au déroulé, la Force ne clignote plus au retour', desc: 'Deux agacements visuels fermés. LE CALENDRIER ÉCONOMIQUE d’abord : dérouler le décryptage d’une ligne faisait apparaître l’ascenseur vertical, et tout le tableau glissait vers la gauche en laissant un vide à droite. La place de l’ascenseur est désormais réservée en permanence : ouvrir ou refermer une ligne ne déplace plus rien à l’écran. LA FORCE DES DEVISES ensuite : revenir sur l’onglet FORCE reconstruisait les deux graphiques de zéro, courbes effacées puis redessinées, comme si le desk venait de démarrer. Quand les graphes sont vivants, plus rien ne se détruit : le retour ré-arme seulement la mise à jour silencieuse, les nouvelles valeurs se peignent en place et les courbes ne quittent plus l’écran. Une actualisation ne doit jamais se voir.' },
@@ -9367,8 +9368,23 @@ app.get('/api/community-outlook', async (req, res) => {
   if (force) refreshOutlookBg();
   try {
     const data = await fetchCommunityOutlook(period);   // instantané (cache) ; ne bloque qu'au tout 1er chargement
+    /* 30/08 — PRIX COURANT accolé par paire, pour la table « Statistiques DMX » : l'écart
+       entre le prix moyen d'entrée de la foule et le prix actuel ne se calcule qu'avec une cotation.
+       Source = le cache FX List (Yahoo, retimbré ~150 s par _fxlQuotesTick), 28 paires FX ; les
+       métaux n'y sont pas → pas de champ `last`, le client rend « -- » plutôt qu'un écart inventé.
+       COPIE par étalement, jamais de mutation : les objets du cache Myfxbook sont PARTAGÉS entre
+       les trois périodes (même référence), écrire dessus polluerait tous les appels suivants. */
+    let symbols = data;
+    try {
+      if (_fxlCache && Array.isArray(_fxlCache.pairs)) {
+        const px = new Map(_fxlCache.pairs
+          .filter(r => r && r.last != null && Number.isFinite(+r.last))
+          .map(r => [String(r.base || '') + String(r.quote || ''), +r.last]));
+        symbols = data.map(s => (s && px.has(s.symbol)) ? { ...s, last: px.get(s.symbol) } : s);
+      }
+    } catch {}
     const ts = (typeof outlookTs === 'function' && outlookTs()) || Date.now();
-    res.json({ symbols: data, period, updatedAt: new Date(ts).toISOString(), updatedTs: ts });
+    res.json({ symbols, period, updatedAt: new Date(ts).toISOString(), updatedTs: ts });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
