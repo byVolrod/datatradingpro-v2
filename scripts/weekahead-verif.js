@@ -486,6 +486,56 @@ console.log('\n── 17. LA PAGE PUBLIQUE PARLE FRANÇAIS (audit 28/08 : « MON
     'le jour ou le mois repart en anglais dès que le serveur en envoie');
 }
 
+console.log('\n── 18. JOUR DE DÉCISION DE TAUX : la carte porte le pricing du desk, source honnête ──');
+/* Suite de l'audit taux du 30/08 (« le template semaine à venir aussi, comme le widget ») : quand la
+   journée porte une décision d'une des 8 banques, la carte dit le scénario pricé et le taux actuel,
+   avec sa source (pricing de marché / estimation DTP). On extrait la VRAIE fonction de server.js et
+   on la nourrit d'un payload bouchonné : le banc éprouve la phrase, ses gardes, et la MUTATION qui
+   effacerait l'étiquette de source — le mensonge exact que l'audit vient de corriger sur le badge. */
+{
+  const dW = src.indexOf('const _WA_DECISION_RX =');
+  const fW = src.indexOf('\nasync function generateWeekAhead', dW);
+  const SRC_WPD = (dW < 0 || fW < 0) ? null : src.slice(dW, fW);
+  verif('_waPricingDecision est extractible de server.js', !!SRC_WPD && /function _waPricingDecision/.test(SRC_WPD || ''));
+  if (SRC_WPD) {
+    const PAYLOAD = { banks: [
+      { code: 'USD', rate: 3.63, next: '2026-09-16', source: 'market', scenario: { hold: 42.4, hike: 0, cut: 57.6 } },
+      { code: 'NZD', rate: 2.50, next: '2026-09-02', source: 'maison', scenario: { hold: 40, hike: 60, cut: 0 } },
+      { code: 'GBP', rate: 3.75, next: '2026-10-08', source: 'market', scenario: { hold: 80, hike: 0, cut: 20 } },
+    ] };
+    const fab = (s, payload) => new Function('_buildRatesPayload', s + '\nreturn _waPricingDecision;')(() => payload);
+    const F = fab(SRC_WPD, PAYLOAD);
+    const fed = F([{ currency: 'USD', title: 'Fed Interest Rate Decision', timestamp: 1 }], '2026-09-16');
+    verif('jour de FOMC : la phrase dit le scénario, le taux en virgule française et « pricing de marché »',
+      /décision de la Fed/.test(fed) && /baisse 57,6%/.test(fed) && /taux actuel 3,63%/.test(fed) && /\(pricing de marché\)/.test(fed), fed);
+    verif('… scénario dominant EN PREMIER (baisse avant maintien), les 0% jamais listés',
+      fed.indexOf('baisse') < fed.indexOf('maintien') && !/hausse/.test(fed), fed);
+    const rbnz = F([{ currency: 'NZD', title: 'RBNZ Interest Rate Decision', timestamp: 1 }], '2026-09-02');
+    verif('jour de RBNZ (banque sans flux marché) : la phrase dit « estimation DTP », jamais « marché »',
+      /décision de la RBNZ/.test(rbnz) && /\(estimation DTP\)/.test(rbnz) && !/march[ée]/.test(rbnz.replace('estimation DTP', '')), rbnz);
+    verif('le taux RBNZ affiché est le 2,50% recalé (le chiffre exact de l\'incident client)',
+      /taux actuel 2,5%/.test(rbnz), rbnz);
+    verif('journée sans décision → aucune phrase', F([{ currency: 'USD', title: 'CPI YoY', timestamp: 1 }], '2026-09-16') === '');
+    verif('décision dont la réunion pricée ne tombe PAS ce jour-là (archive, décalage) → silence',
+      F([{ currency: 'GBP', title: 'BoE Interest Rate Decision', timestamp: 1 }], '2026-08-07') === '',
+      'coller à une décision les probabilités d\'une AUTRE réunion serait pire que ne rien dire');
+    verif('devise hors des 8 banques suivies (PBoC) → silence',
+      F([{ currency: 'CNY', title: 'Loan Prime Rate Decision', timestamp: 1 }], '2026-09-16') === '');
+    verif('deux événements de la même décision (décision + statement) → UNE seule phrase',
+      (F([{ currency: 'USD', title: 'Fed Interest Rate Decision', timestamp: 1 },
+           { currency: 'USD', title: 'FOMC Rate Statement', timestamp: 2 }], '2026-09-16').match(/Pricing du desk/g) || []).length === 1);
+    /* LA MUTATION : un futur « nettoyage » qui effacerait l'étiquette de source ferait redire
+       « pricing de marché » sur une estimation — le banc doit le voir. */
+    const mut = SRC_WPD.replace("b.source === 'market' ? 'pricing de marché' : 'estimation DTP'", "'pricing de marché'");
+    verif('mutation « source effacée » détectée (l\'estimation redeviendrait du marché)',
+      mut !== SRC_WPD && /\(pricing de marché\)/.test(fab(mut, PAYLOAD)([{ currency: 'NZD', title: 'RBNZ Interest Rate Decision', timestamp: 1 }], '2026-09-02')));
+  }
+  verif('… et la phrase est BRANCHÉE dans la carte (description du jour)',
+    /_waPricingDecision\(_affiches, k\)/.test(src), 'écrite mais jamais appelée : la carte resterait muette');
+  verif('WA_VER bumpé (v30) : l\'édition courante régénère avec le pricing au prochain démarrage',
+    /const WA_VER = 'v30-/.test(src));
+}
+
 _attente.then(() => {
   console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
   process.exit(ko ? 1 : 0);

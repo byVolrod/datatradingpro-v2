@@ -143,12 +143,18 @@ console.log('\n── Les textes disent la vraie source ──');
   if (d >= 0) {
     const F = new Function('_buildRatesPayload', SRV.slice(d, f + 2) + '\nreturn _recapCcyPricingLine;');
     const fabrique = b => F(() => ({ banks: [b] }));
-    const maison = fabrique({ code: 'NZD', expBps: 13.2, next: '2026-09-02', nextDays: 4, source: 'maison' })('NZD');
-    const marche = fabrique({ code: 'USD', expBps: -9.5, next: '2026-09-16', nextDays: 18, source: 'market' })('USD');
+    const maison = fabrique({ code: 'NZD', rate: 2.50, expBps: 13.2, next: '2026-09-02', nextDays: 4, source: 'maison' })('NZD');
+    const marche = fabrique({ code: 'USD', rate: 3.63, expBps: -9.5, next: '2026-09-16', nextDays: 18, source: 'market' })('USD');
     v('une banque modélisée ne s\'écrit plus « le marché price »',
       /ESTIMATION DTP/.test(maison) && /le modèle DTP anticipe/.test(maison) && !/le marché price/.test(maison), maison);
     v('… et une banque de marché garde sa phrase d\'origine',
       /PRICING MARCHÉ/.test(marche) && /le marché price/.test(marche), marche);
+    /* Le TAUX ACTUEL ouvre la ligne (30/08) : c'est LE chiffre qui était faux sur la carte RBNZ —
+       la puce « Pricing » du rapport doit désormais l'ancrer, recalé sur la dernière décision. */
+    v('la ligne Pricing du rapport porte le taux directeur recalé (2,50 NZD / 3,63 USD)',
+      /taux directeur 2\.5% · /.test(maison) && /taux directeur 3\.63% · /.test(marche), maison);
+    v('… et survit à un payload sans taux (aucun « undefined% » possible)',
+      !/undefined/.test(fabrique({ code: 'NZD', expBps: 13.2, next: '2026-09-02', nextDays: 4, source: 'maison' })('NZD')));
     v('le retrait du préfixe couvre les DEUX têtes',
       /PRICING\(\?:\\s\+MARCHÉ\)\?/.test(SRV.replace(/\n/g, ' ')) || /\^PRICING\(\?\:\\s\+MARCHÉ\)\?/.test(SRV),
       'sinon la puce du desk garderait « PRICING (ESTIMATION… » en préfixe brut');
@@ -165,6 +171,39 @@ console.log('\n── Les textes disent la vraie source ──');
     v('la ligne du Radar dit « estimation DTP » quand c\'en est une', / · estimation DTP$/.test(est || ''), est);
     v('… et « pricing de marché » quand c\'en est un', / · pricing de marché$/.test(mkt || ''), mkt);
   }
+}
+/* ── LES GABARITS DE RAPPORTS BOIVENT À LA MÊME SOURCE (30/08 : « met à jour le template recap
+   hebdo, point marché, semaine à venir ») : le bloc taux par banque porte la SOURCE, le Point
+   Marché reçoit le bloc, et l'ancienne formule « scénario marché » (fausse pour NZD/CHF) a disparu.
+   La Semaine à Venir a son propre banc (weekahead-verif, section 18). ── */
+{
+  const d = SRV.indexOf('function _recapCbRatesCtx()');
+  const f = SRV.indexOf('\n}', d);
+  v('_recapCbRatesCtx est extractible', d >= 0 && f > d);
+  if (d >= 0) {
+    const fab = s => new Function('_buildRatesPayload', s + '\nreturn _recapCbRatesCtx;');
+    const PAYLOAD = { banks: [
+      { code: 'USD', bank: 'Fed', rate: 3.63, move: 'CUT', next: '2026-09-16', nextDays: 18, source: 'market', expBps: -9.5, scenario: { hold: 42.4, hike: 0, cut: 57.6 } },
+      { code: 'NZD', bank: 'RBNZ', rate: 2.50, move: 'HIKE', next: '2026-09-02', nextDays: 4, source: 'maison', expBps: 13.2, scenario: { hold: 40, hike: 60, cut: 0 } },
+    ] };
+    const SRC_CTX = SRV.slice(d, f + 2);
+    const ctx = fab(SRC_CTX)(() => PAYLOAD)();
+    const lUSD = ctx.split('\n').find(l => /^Fed/.test(l)) || '', lNZD = ctx.split('\n').find(l => /RBNZ/.test(l)) || '';
+    v('chaque ligne de banque du contexte Hebdo porte sa SOURCE',
+      / · source : pricing de marché$/.test(lUSD) && /source : estimation DTP \(pas de pricing de marché pour cette banque\)$/.test(lNZD),
+      lNZD || '(ligne RBNZ introuvable)');
+    v('la formule « scénario marché » (fausse une banque sur quatre) a disparu du contexte',
+      !/scénario marché/.test(ctx) && /scénario maintien/.test(ctx), ctx.slice(0, 200));
+    const mut = SRC_CTX.replace("b.source === 'market' ? 'pricing de marché' : 'estimation DTP (pas de pricing de marché pour cette banque)'", "'pricing de marché'");
+    v('mutation « source effacée » détectée (l\'estimation RBNZ redeviendrait du marché)',
+      mut !== SRC_CTX && /RBNZ[^\n]*source : pricing de marché/.test(fab(mut)(() => PAYLOAD)()));
+  }
+  v('le prompt CB du Hebdo impose de respecter l\'étiquette source (HONOR IT)',
+    /Each bank line below ends with its « source » tag\. HONOR IT/.test(SRV) && /NEVER attribute the numbers to « le marché »/.test(SRV));
+  v('le Point Marché reçoit le bloc TAUX DIRECTEURS & PRICING (même source que le Hebdo)',
+    /=== TAUX DIRECTEURS & PRICING \(données desk par banque/.test(SRV) && /ratesLines = _recapCbRatesCtx\(\);/.test(SRV));
+  v('… et sa règle « Banques centrales » interdit « le marché price » sur une estimation',
+    /une ligne « estimation DTP » ne s'écrit JAMAIS « le marché price »/.test(SRV));
 }
 /* Le repli maison n'est plus SILENCIEUX : il se journalise avec la raison du fournisseur. */
 v('le repli maison se journalise (banque + raison)',
