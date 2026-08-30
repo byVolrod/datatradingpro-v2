@@ -281,6 +281,24 @@ if (SRC_DD) {
   v('une reformulation proche à moins de 3 h est bien une jumelle',
     !!F({ headline: 'Breaking: FOMC Rate Statement and Summary of Economic Projections (SEP)', timestamp: T + 3600000 },
       [{ headline: 'FOMC Rate Statement and Summary of Economic Projections', timestamp: T }]));
+  /* 2e capture (30/08, « c très important ») : la VARIANTE d'agenda du même événement : « FOMC
+     Rate Statement » et « FOMC Rate Statement and Economic Projections (SEP) » à la même minute.
+     Préfixe commun de 19 lettres : sous le garde-fou des 30, les deux entraient. La règle ajoutée
+     exige ±10 min ET un préfixe d'au moins trois vrais mots : elle attrape la paire de la capture
+     sans toucher aux titres courts génériques. */
+  v('la variante d\'agenda du même événement est une jumelle (Rate Statement vs + SEP, même minute)',
+    !!F({ headline: 'FOMC Rate Statement and Economic Projections (SEP)', timestamp: T },
+      [{ headline: 'FOMC Rate Statement', timestamp: T }]));
+  v('… mais un titre court générique n\'avale toujours pas son prolongement',
+    !F({ headline: 'Oil rises above $90 a barrel on supply risk', timestamp: T },
+      [{ headline: 'Oil rises', timestamp: T }]),
+    'deux vrais mots seulement : le doute profite à la ligne');
+  v('… et la même variante à 2 h d\'écart n\'est PAS happée par cette règle (agenda = quasi-simultané)',
+    !F({ headline: 'FOMC Rate Statement and Economic Projections (SEP)', timestamp: T + 2 * 3600000 },
+      [{ headline: 'FOMC Rate Statement', timestamp: T }]));
+  v('la purge au boot a sa seconde passe (jumelles par préfixe, ±10 min, 3 vrais mots)',
+    /SECONDE PASSE : les jumelles PAR PRÉFIXE/.test(SRV)
+    && /const gagnant = _normHl\(i\.headline\)\.length > _normHl\(g\.headline\)\.length \? i : g;/.test(SRV));
 }
 
 /* ══ LE NFP SANS PAYS EN TÊTE EST QUAND MÊME UNE DONNÉE US, ET DU TIER-1 ══════════════════════

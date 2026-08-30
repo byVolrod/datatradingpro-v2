@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-jumelles-variantes', ts: Date.UTC(2026, 8, 16, 22, 0), title: 'Doublons du fil : les variantes du même événement fusionnent aussi', desc: 'Suite directe de la correction des dépêches en double, sur votre nouvelle capture : il restait le cas de la VARIANTE : « Communiqué sur les taux du FOMC » et « Communiqué sur les taux et prévisions économiques (SEP) du FOMC » à la même minute : la même échéance, annoncée deux fois par des libellés presque identiques. La déduplication reconnaît désormais ces annonces jumelles : deux titres quasi simultanés (moins de dix minutes d’écart) dont l’un est l’autre plus un complément fusionnent en une seule ligne, qui garde le libellé le plus précis, toutes les sources et le niveau d’importance. La règle est volontairement étroite : il faut un vrai tronc commun d’au moins trois mots pleins, si bien que deux dépêches courtes et distinctes (« Oil rises » et sa suite) ne fusionnent jamais, et au-delà de dix minutes rien ne change. Les paires de ce type déjà stockées sont retirées au démarrage, et votre capture exacte est rejouée par les contrôles automatiques à chaque livraison.' },
   { id: 'dtpu-20260916-rouge-deplie', ts: Date.UTC(2026, 8, 16, 20, 0), title: 'Une news importante dépliée reste rouge de haut en bas', desc: 'Vous l’avez pointé, référence à l’appui : quand on dépliait une news importante, la ligne gardait son fond rouge sombre mais la description en dessous repassait sur le gris des news ordinaires : le bloc se cassait en deux, et l’œil perdait le lien entre le titre et son détail. Le déplié d’une news rouge porte désormais exactement le même fond que sa ligne : le rouge descend d’un seul tenant sur le titre, la description, les puces et la réaction, au repos comme au survol, et la même correction s’applique au thème clair. Les news ordinaires ne changent pas. Un contrôle automatique déplie désormais une vraie news rouge dans un navigateur à chaque livraison et mesure que le fond du détail est bien celui de la ligne.' },
   { id: 'dtpu-20260916-fil-jumelles', ts: Date.UTC(2026, 8, 16, 18, 0), title: 'Fini les dépêches en double dans le fil', desc: 'Vous l’avez capturé : la conférence de presse du FOMC, le communiqué sur les taux et le rapport mensuel de l’AIE apparaissaient chacun deux fois, à la même minute. La cause était un angle mort de la déduplication : quand deux sources livrent la même dépêche dans le même lot d’arrivée, chaque copie n’était comparée qu’aux actualités déjà stockées, jamais à celles acceptées juste avant elle dans le lot : les deux entraient. Le lot se compare désormais aussi à lui-même : la seconde copie fusionne avec la première (ses sources s’ajoutent, son niveau d’importance est conservé), exactement comme si elle était arrivée plus tard. Les doublons déjà présents dans le fil sont retirés au passage, prudemment : seules deux dépêches au même titre à moins de trois heures d’écart sont considérées jumelles : une conférence du FOMC qui revient six semaines plus tard est une nouvelle édition, pas un doublon. Le lot exact de votre capture est rejoué à chaque livraison par les contrôles automatiques.' },
   { id: 'dtpu-20260916-semaine-deux-tetes', ts: Date.UTC(2026, 8, 16, 16, 0), title: 'Semaine à venir : quand deux décisions de taux tombent le même jour, les deux parlent', desc: 'Vous l’avez relevé sur la semaine du 31 août : le mercredi portait la décision de la Banque du Canada ET celle de la RBNZ, mais la carte titrait « BoC » et sa description ne parlait que d’elle : la RBNZ, pourtant présente dans la liste sous la carte, n’apparaissait ni dans le titre ni dans le texte. La règle en cause donnait tout le titre au rendez-vous majeur du jour pour qu’un chiffre secondaire ne le dilue pas ; elle n’avait pas prévu deux majeurs. C’est corrigé : deux têtes d’affiche partagent désormais le titre (« RBNZ + BoC », dans l’ordre de la journée), et la description change de forme ces jours-là, comme demandé : une clause courte par rendez-vous majeur avec son heure de Paris et ses chiffres, un seul « pourquoi ça compte », puis le reste du programme en une ligne : simple et court, fini le paragraphe sur une seule décision qui taisait l’autre. Les journées à un seul grand rendez-vous ne changent pas d’un mot, et le cas exact du mercredi 2 septembre est rejoué à chaque livraison par un contrôle automatique.' },
@@ -10800,7 +10801,33 @@ setTimeout(() => {
       if (perdante.priority === 'high' && gagnante.priority !== 'high') gagnante.priority = 'high';
       if (gagnante === i) { const ix = garder.indexOf(jumelle); if (ix >= 0) garder[ix] = i; const lst = parTitre.get(cle); const jx = lst.indexOf(jumelle); if (jx >= 0) lst[jx] = i; }
     }
-    allNews = garder;
+    /* SECONDE PASSE : les jumelles PAR PRÉFIXE (2e capture user : « Communiqué sur les taux du
+       FOMC » et « … et prévisions économiques (SEP) du FOMC », même minute). Mêmes conditions que
+       la règle d'entrée : ±10 min, préfixe normalisé d'au moins 3 vrais mots et 12 lettres. On
+       garde le titre le plus LONG (l'annonce la plus précise) et on lui fusionne l'autre. */
+    const finaux = [];
+    for (const i of garder) {
+      if (!i || i._briefing || i.source === 'DTP' || !i.headline) { finaux.push(i); continue; }
+      const hn2 = _normHl(i.headline);
+      const jx = finaux.findIndex(g => {
+        if (!g || g._briefing || g.source === 'DTP' || !g.headline) return false;
+        if (Math.abs((g.timestamp || 0) - (i.timestamp || 0)) > 10 * 60 * 1000) return false;
+        const gn = _normHl(g.headline);
+        const court = hn2.length <= gn.length ? hn2 : gn;
+        if (court.length < 12 || !(hn2.startsWith(gn) || gn.startsWith(hn2))) return false;
+        return _hlTokens(hn2.length <= gn.length ? i.headline : g.headline).size >= 3;
+      });
+      if (jx < 0) { finaux.push(i); continue; }
+      const g = finaux[jx];
+      const gagnant = _normHl(i.headline).length > _normHl(g.headline).length ? i : g;
+      const perdant = gagnant === i ? g : i;
+      if (!Array.isArray(gagnant.sources)) gagnant.sources = (gagnant.source && gagnant.source !== 'Google News') ? [gagnant.source] : [];
+      if (perdant.source && perdant.source !== 'Google News' && !gagnant.sources.includes(perdant.source)) gagnant.sources.push(perdant.source);
+      if (perdant.urgent && !gagnant.urgent) gagnant.urgent = true;
+      if (perdant.priority === 'high' && gagnant.priority !== 'high') gagnant.priority = 'high';
+      finaux[jx] = gagnant;
+    }
+    allNews = finaux;
     const retires = avant - allNews.length;
     if (retires > 0) {
       saveHistory();
@@ -19369,6 +19396,17 @@ function findDuplicate(item, list) {
     // Garde-fou 30 caractères : évite qu'un titre court générique (« Oil rises ») n'avale une vraie news distincte.
     const shorter = hn.length <= ehn.length ? hn : ehn;
     if (shorter.length >= 30 && (hn.startsWith(ehn) || ehn.startsWith(hn))) return e;
+    /* ANNONCE D'AGENDA DU MÊME ÉVÉNEMENT (30/08, 2e capture user : « Communiqué sur les taux du
+       FOMC » ET « Communiqué sur les taux et prévisions économiques (SEP) du FOMC », à la même
+       minute) : deux lignes d'agenda de la MÊME échéance, l'une étant l'autre plus un complément.
+       Le préfixe commun fait 19 lettres normalisées : le garde-fou des 30 ci-dessus, taillé pour
+       les titres de NEWS, les laissait passer tous les deux. ÉTROIT, deux conditions de plus :
+       quasi-simultanéité (±10 min : des annonces d'agenda partent dans le même lot) ET un préfixe
+       d'au moins TROIS vrais mots (plus de 3 lettres) : « Oil rises » ou « Fed cuts rates » n'en
+       ont pas trois, ils restent des news distinctes, le doute profite à la ligne. */
+    if (shorter.length >= 12 && (hn.startsWith(ehn) || ehn.startsWith(hn))
+        && Math.abs((e.timestamp || 0) - ts) <= 10 * 60 * 1000
+        && _hlTokens(hn.length <= ehn.length ? item.headline : e.headline).size >= 3) return e;
     if (tk.size >= 4) {
       const et = _hlTokens(e.headline);
       if (et.size >= 4) {
