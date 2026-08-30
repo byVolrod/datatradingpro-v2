@@ -1191,22 +1191,31 @@ async function _sendWithInlineWidgets(to, subject, html, types) {
         const re = new RegExp('https?:\\/\\/[^"]*\\/api\\/email-widget\\/' + wt.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\.png[^"]*', 'g');
         const trouve = html.match(re);
         if (!trouve || !trouve.length) continue;   // widget non reference → NE PAS l'attacher
-        re.lastIndex = 0;
-        // Les paramètres SUPPLÉMENTAIRES posés dans l'URL du HTML (ex. l'identité de l'événement
-        // vedette) doivent suivre jusqu'au rendu, sinon l'image embarquée montrerait autre chose que
-        // ce que le texte annonce. On retire `t` (anti-cache navigateur) et `period` (déjà passé à
-        // part) : les garder ferait exploser la clé de cache et re-rendrait une image par envoi.
-        let extra = '';
-        try {
-          const q = String(trouve[0]).split('?')[1] || '';
-          extra = q.split('&').filter(p => p && !/^t=/.test(p) && !/^period=/.test(p))
-            .filter(p => /^[A-Za-z0-9_.%~-]+=[A-Za-z0-9_.%~+-]*$/.test(p)).join('&');
-        } catch (e) { extra = ''; }
-        const png = await ew.renderWidgetPngSafe(wt, Object.assign({}, period ? { period } : {}, extra ? { extra } : {}));
-        if (png && png.length > 2000) {    // > placeholder 1x1 → vraie image
-          const cid = wt + (period ? '-' + period : '') + '@datatradingpro';
-          att.push({ filename: wt + (period ? '-' + period : '') + '.png', content: png, cid, contentType: 'image/png' });
-          html = html.replace(re, 'cid:' + cid);
+        /* CHAQUE URL DISTINCTE REND SA PROPRE IMAGE (30/08). L'ancien code lisait les paramètres de
+           la PREMIÈRE occurrence puis remplaçait TOUTES les URL du type par UN seul cid : huit
+           courbes de devise du Récap Hebdo seraient toutes devenues la courbe de l'USD, et deux
+           événements vedettes du même type partageaient déjà la même image. On rend désormais un
+           PNG par URL distincte (clé de cache = type + période + paramètres, donc un envoi de
+           campagne ne re-rend pas : la première génération sert à tous). */
+        for (const u of [...new Set(trouve)]) {
+          // Les paramètres SUPPLÉMENTAIRES posés dans l'URL du HTML (ccy de la courbe devise,
+          // identité de l'événement vedette…) doivent suivre jusqu'au rendu, sinon l'image
+          // embarquée montrerait autre chose que ce que le texte annonce. On retire `t`
+          // (anti-cache navigateur) et `period` (déjà passé à part) : les garder ferait exploser
+          // la clé de cache et re-rendrait une image par envoi.
+          let extra = '';
+          try {
+            const q = String(u).split('?')[1] || '';
+            extra = q.split('&').filter(p => p && !/^t=/.test(p) && !/^period=/.test(p))
+              .filter(p => /^[A-Za-z0-9_.%~-]+=[A-Za-z0-9_.%~+-]*$/.test(p)).join('&');
+          } catch (e) { extra = ''; }
+          const png = await ew.renderWidgetPngSafe(wt, Object.assign({}, period ? { period } : {}, extra ? { extra } : {}));
+          if (png && png.length > 2000) {    // > placeholder 1x1 → vraie image
+            const suff = extra ? '-' + extra.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) : '';
+            const cid = wt + (period ? '-' + period : '') + suff + '@datatradingpro';
+            att.push({ filename: wt + (period ? '-' + period : '') + suff + '.png', content: png, cid, contentType: 'image/png' });
+            html = html.split(u).join('cid:' + cid);   // remplacement EXACT de cette URL (pas la regex : elle avalerait les sœurs)
+          }
         }
       } catch (e) { console.warn('[Mailer] widget inline indisponible (' + t + ') → URL distante:', e.message); }
     }
@@ -1910,9 +1919,19 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     // même grammaire juste sous l'intertitre « Moteurs », ils étaient lus comme deux moteurs
     // de plus. Ils regardent devant, ils ont leur propre intertitre.
     const aVenir = (sav || bsc) ? _ssTitre('À venir') + sav + bsc : '';
-    const corps = exec + rubBloc + (drv ? _ssTitre('Moteurs') + drv : '') + aVenir;
+    const suite = rubBloc + (drv ? _ssTitre('Moteurs') + drv : '') + aVenir;
     // Une devise sans la moindre matière ne s'écrit pas : pas de code doré orphelin.
-    return (corps || b || th) ? tete + corps : '';
+    if (!(exec || suite || b || th)) return '';
+    /* MINI-COURBE DE FORCE DE LA DEVISE (30/08, signalement user sur l'aperçu : « il manque le
+       widget force de la devise ici pour USD etc. comme dans le recap hebdo du desk »). Le retrait
+       du 24/08 avait enlevé l'image GLOBALE au motif que « chaque devise porte SA courbe » — mais
+       la courbe par devise n'avait jamais été posée dans le mail : la force avait disparu tout
+       court. La voici, à la position du desk (après le résumé exécutif, avant les rubriques) :
+       le VRAI widget en PNG, période SEMAINE, courbe isolée de LA devise (le paramètre ccy existait
+       pour ça depuis le 15/08). Embarquée inline à l'envoi, une image PAR devise. */
+    const forceImg = _widgetImg('strength', 'Force du ' + c, 532, 'week', c,
+      { alt: `Courbe de force du ${c} sur la semaine (source desk DataTradingPro)` });
+    return tete + exec + forceImg + suite;
   }).join('');
 
   // L'UNIQUE image : la Force des Devises sur LA SEMAINE, juste avant les blocs devise
@@ -1983,9 +2002,10 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const subject = _subsR[_wkR % _subsR.length];
   return { subject, html: _campaignLayout('Votre Récap Hebdo', body, unsub) };
 }
-// UNE image, période SEMAINE. `strength` tout court rendait le widget sur la période par
-// défaut alors que le corps demandait period=week : le type porte désormais sa période, donc
-// l'image embarquée est bien celle que le mail annonce.
+// Les courbes de force PAR DEVISE (jusqu'à 8, période SEMAINE) : l'entrée 'strength:week' couvre
+// toutes les URL strength du corps, et l'embarqueur rend UNE image par URL distincte (donc une par
+// devise), servies du cache après la première génération. `strength` tout court rendait la période
+// par défaut alors que le corps demande period=week : le type porte sa période.
 async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:week']); }
 
 // ── DÉCRYPTAGE — e-mail ÉDUCATIF évergreen (S2 de la séquence). Décode les grandes annonces éco (macro US)

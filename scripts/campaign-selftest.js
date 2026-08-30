@@ -63,6 +63,29 @@ ok('Point marche (SANS donnees) = null (regle: pas de donnees, pas de mail)', pm
 const wk = M.buildWeeklyDigest({ name: '', email: 'a@b.com', campaign: 'st', weekly: WEEKLY });
 ok('Digest hebdo (avec donnees) : rend', !!(wk && wk.html));
 
+// ── Courbe de force PAR devise (30/08, signalement user sur l'apercu : « il manque le widget
+//    force de la devise pour USD etc. comme dans le recap hebdo du desk »). Le retrait du 24/08
+//    promettait « chaque devise porte SA courbe » sans jamais la poser : la force avait disparu
+//    du mail tout court. Controles : une image par devise QUI A DE LA MATIERE, a la position du
+//    desk (apres le resume executif, avant les rubriques), et jamais d'image orpheline. ──
+const WK_CCY = { title: 'Weekly Market Recap : test', weekEnding: '28.08.2026',
+  currencies: {
+    USD: { bias: 'Legerement haussier', thesis: 'Dollar ferme.', execSummary: 'Semaine haussiere pour le dollar.',
+      growthPrints: [{ label: 'GDP QoQ', actual: '1.5%', forecast: '1.5%', previous: '2.1%', date: '26 aout' }], rubriquesVides: [] },
+    NZD: { bias: 'Haussier', execSummary: 'Le kiwi profite du pricing de hausse.', rubriquesVides: ['croissance', 'emploi', 'inflation', 'banque'] },
+    CHF: {},   // aucune matiere → pas de bloc, donc pas d'image
+  } };
+const wkC = M.buildWeeklyDigest({ name: '', email: 'a@b.com', campaign: 'st', weekly: WK_CCY });
+const imgsF = (wkC && wkC.html.match(/api\/email-widget\/strength\.png[^"]*/g)) || [];
+ok('Hebdo : une courbe de force PAR devise avec matiere (USD + NZD = 2)', imgsF.length === 2, 'trouvees=' + imgsF.length);
+ok('Hebdo : chaque courbe est CELLE de sa devise (ccy distincts, periode semaine)',
+  imgsF.some(u => /period=week&ccy=USD/.test(u)) && imgsF.some(u => /period=week&ccy=NZD/.test(u)));
+ok('Hebdo : la courbe est a la position du desk (apres le resume executif, avant les rubriques)',
+  wkC.html.indexOf('Semaine haussiere pour le dollar') < wkC.html.indexOf('period=week&ccy=USD')
+  && wkC.html.indexOf('period=week&ccy=USD') < wkC.html.indexOf('GDP QoQ'));
+ok('Hebdo : une devise sans matiere n\'a NI bloc NI image orpheline', !/ccy=CHF/.test(wkC.html) && !/>CHF</.test(wkC.html));
+ok('Hebdo : l\'alt porte l\'information (messageries qui bloquent les images)', /Courbe de force du USD sur la semaine/.test(wkC.html));
+
 // pre-flight sur un rendu valide
 const pfGood = PF.preflight({ mailHealth: GOOD_HEALTH, recipients: RCP, sample: () => dc, needsData: false });
 ok('Pre-flight sur rendu valide = OK', pfGood.ok && pfGood.level === 'ok', pfGood.summary);
