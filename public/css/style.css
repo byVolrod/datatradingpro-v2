@@ -21409,3 +21409,20 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
    modes ; les règles mobiles de tenue à l'écran (min-width:0 !important, @media 480/560)
    continuent de gagner chez elles, et rien n'empêche la table de DÉPASSER en carte étroite. */
 #cal-table-wrap .cal-table, .wdg-cal-wrap .cal-table, #wa-cal-body .cal-table { min-width: 100%; }
+
+/* ═══ CENTRAGE SÛR DES CARTES (30/08, capture user : « Compte à rebours » invisible dans un
+   panneau à onglets — un vide immense et la première ligne coupée au bord bas de la carte) ═════
+   Le motif en cause : un corps centré (justify-content: center) dans une boîte qui peut se
+   retrouver PLUS HAUTE que la carte visible (chaîne de hauteurs trompée par un contexte d'onglet
+   ou une carte compressée) — le contenu, centré dans la boîte débordante, tombe SOUS le pli : on
+   ne voit que du vide, et la première ligne coupée au bord. Rejoué en Chromium sur une boîte
+   artificiellement doublée. `safe center` : centré quand ça tient, calé au HAUT VISIBLE dès que
+   ça déborde — l'information d'abord. Navigateur qui l'ignore → il garde le center existant.
+   Appliqué à toute la grammaire centrée des cartes (chrono, états de repli, vides, anneaux). */
+.wdg-rb, .wdg-state, .wdg-empty, .wdg-load, .wdg-blank, .wdg-jr-empty, .wdgt-vide,
+.wdg-dmx1-anneau, .wdgt-dispo { justify-content: safe center; align-items: safe center; }
+/* Et la BOÎTE elle-même ne peut plus dépasser son hôte : c'est elle qui coulait. `safe center`
+   protège du contenu plus grand que sa boîte ; ici c'était la BOÎTE plus grande que la carte
+   (hauteur en % sur une base trompée). Borne CIBLÉE au chrono — les sous-widgets hauts d'un
+   onglet (jauges, colonnes) doivent au contraire pouvoir dépasser pour que le corps défile. */
+.wdgt-mount > .wdg-rb, .wdg-body > .wdg-rb { max-height: 100%; }

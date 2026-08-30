@@ -142,6 +142,7 @@ function serveur() {
           evc(20, 'AUD', 'RBA Meeting Minutes', 'High'),
           evc(16, 'EUR', 'Ifo Business Climate', 'High', '88.8', '87.2', '86.7'),
           evc(10, 'USD', 'CB Consumer Confidence', 'Medium', '89.4', '90.2', '90.2'),
+          evc(-2, 'JPY', 'BoJ Core CPI y/y', 'High', '', '2.4%', '2.3%'),   // À VENIR : nourrit le Compte à rebours
         ];
         return j({ events: evts, items: evts });
       }
@@ -916,6 +917,55 @@ function phaseLogique() {
           /#cal-table-wrap \.cal-table, \.wdg-cal-wrap \.cal-table, #wa-cal-body \.cal-table \{ min-width: 100%; \}/
             .test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
       }
+    }
+
+    /* ── COMPTE À REBOURS : le contenu reste VISIBLE, même quand la boîte ment (30/08, capture
+       user : dans un panneau à onglets, un vide immense et la première ligne coupée au bord bas —
+       le corps centré vivait dans une boîte plus haute que la carte, et le centre de cette boîte
+       tombait SOUS le pli). Deux gardes : `safe center` (contenu plus grand que sa boîte → calé au
+       haut visible) et `max-height: 100%` sur la boîte du chrono (elle ne peut plus dépasser son
+       hôte). On monte le VRAI widget, on mesure, puis on REJOUE l'attaque : boîte artificiellement
+       doublée → le contenu doit rester dans la carte. ── */
+    {
+      const rbM = await page.evaluate(async () => {
+        const vw = document.getElementById('view-widgets');
+        if (!vw || !window.DTPWidgets) return { absent: 'vue widgets' };
+        const avantVue = [...document.querySelectorAll('.view-panel')].find(p => !p.classList.contains('hidden'));
+        vw.classList.remove('hidden');
+        document.querySelectorAll('.view-panel').forEach(p => { if (p.id !== 'view-widgets') p.classList.add('hidden'); });
+        window.DTPWidgets.open();
+        await new Promise(r => setTimeout(r, 1200));
+        window.DTPWidgets.add('evenement-rebours');
+        await new Promise(r => setTimeout(r, 1500));
+        const rb = document.querySelector('.wdg-rb');
+        const carte = rb && rb.closest('.wdg-card');
+        let out;
+        if (!rb || !carte || !rb.firstElementChild) out = { absent: 'carte rebours' };
+        else {
+          const rc = () => carte.getBoundingClientRect();
+          const dedans = () => { const r1 = rb.firstElementChild.getBoundingClientRect(), c = rc(); return r1.top >= c.top - 1 && r1.bottom <= c.bottom + 1; };
+          const normal = { jc: getComputedStyle(rb).justifyContent, dedans: dedans() };
+          rb.style.height = Math.round(rc().height * 2) + 'px';   // l'attaque : la boîte se croit 2× plus haute
+          await new Promise(r => setTimeout(r, 120));
+          out = { normal, attaque: { hauteurEffective: Math.round(rb.getBoundingClientRect().height), carte: Math.round(rc().height), dedans: dedans() } };
+        }
+        if (avantVue) { document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden')); avantVue.classList.remove('hidden'); }
+        return out;
+      });
+      console.log('\n── Compte à rebours : visible même quand la boîte ment ──');
+      if (rbM.absent) {
+        console.log('  · non mesurable (' + rbM.absent + ') → contrôle abstenu.');
+      } else {
+        verif('monté normalement, le contenu vit DANS la carte, centrage sûr posé',
+          rbM.normal.dedans && /safe/.test(rbM.normal.jc), JSON.stringify(rbM.normal));
+        verif('(rejeu) boîte doublée → bornée à la carte, contenu toujours visible',
+          rbM.attaque.dedans && rbM.attaque.hauteurEffective <= rbM.attaque.carte + 2, JSON.stringify(rbM.attaque));
+      }
+      const CSS5 = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
+      verif('la grammaire centrée des cartes est en « safe center » (repli inclus)',
+        /\.wdg-rb, \.wdg-state, \.wdg-empty, \.wdg-load, \.wdg-blank, \.wdg-jr-empty, \.wdgt-vide,\n\.wdg-dmx1-anneau, \.wdgt-dispo \{ justify-content: safe center; align-items: safe center; \}/.test(CSS5));
+      verif('… et la boîte du chrono est bornée à son hôte (onglet ET carte)',
+        /\.wdgt-mount > \.wdg-rb, \.wdg-body > \.wdg-rb \{ max-height: 100%; \}/.test(CSS5));
     }
 
     /* ── Deux stabilités visuelles (30/08, captures user) : le calendrier ne bouge pas au
