@@ -10048,6 +10048,26 @@ function _renderWeeklyRecap(item) {
     const _macroReste = [..._wrFusion.values()]
       .sort((a, b) => (_wrRang(String(a.sec.heading)) - _wrRang(String(b.sec.heading))) || (a.i - b.i))
       .map(x => x.sec);
+    /* ⚠️ LA « BANQUE CENTRALE » DES ARCHIVES EST RECONSTITUÉE (30/08, même capture user : « il
+       manquait les catégories politique monétaire genre banque centrale et l'emploi »). Le trou
+       est plus profond que l'en-tête fusionné : l'ANCIEN prompt INTERDISAIT un thème banque
+       centrale dans la macro (« elles ont leur PROPRE section dédiée ») — et cette section dédiée
+       a été RETIRÉE du rendu à la refonte. Sur un vieux rapport, les propos et postures des
+       banques ne s'affichaient donc NULLE PART dans la macro ; seules les décisions de taux,
+       imposées au bloc fusionné, en réchappent par l'éclatement. Quand aucun thème « Banque
+       centrale » n'existe après éclatement mais que la matière dédiée du rapport (w.centralBanks)
+       est là, on la reconstitue en puces déterministes — une puce par banque INTERVENUE (propos
+       relevés ou narratif), en tête de la macro (rang 0). Les rapports NEUFS (v48) portent le
+       thème nativement : la reconstitution ne s'arme jamais chez eux, donc jamais de doublon. */
+    if (!_macroReste.some(s => /banque centrale|politique mon[ée]taire/i.test(String(s.heading || '')))) {
+      const _cbPuces = (Array.isArray(w.centralBanks) ? w.centralBanks : [])
+        .filter(b => b && b.bank && ((Array.isArray(b.quotes) && b.quotes.length) || b.narrative))
+        .slice(0, 5)
+        .map(b => `**${b.bank} :** ${String(b.narrative || (b.quotes && b.quotes[0] && (b.quotes[0].analysis || b.quotes[0].quote)) || '').trim()}`)
+        .filter(t => t.length > 14);
+      if (_cbPuces.length) _macroReste.unshift({ heading: 'Banque centrale', bullets: _cbPuces });
+    }
+    // _macroReste prêt (repère du banc : fin d'extraction)
     if (_macroReste.length) {
       body += `<div class="wr-section-title">Macro</div>`;
       _macroReste.forEach(sec => {

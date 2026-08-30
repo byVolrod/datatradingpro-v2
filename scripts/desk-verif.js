@@ -999,10 +999,10 @@ function phaseLogique() {
        et c'est lui qu'on éprouve — sur la vraie logique extraite, pas une copie. */
     {
       const dR = APP3.indexOf('const _WR_MACRO_RANG = [');
-      const fR = APP3.indexOf('.map(x => x.sec);', dR);
+      const fR = APP3.indexOf('// _macroReste prêt (repère du banc : fin d\'extraction)', dR);
       verif('le rangement macro du Hebdo est extractible', dR > 0 && fR > dR);
       if (dR > 0 && fR > dR) {
-        const F = new Function('w', APP3.slice(dR, fR + 17) + '\nreturn _macroReste;');
+        const F = new Function('w', APP3.slice(dR, fR) + '\nreturn _macroReste;');
         const themes = F({ macro: [
           { heading: 'Technologie & Innovation', bullets: ['x'] },
           { heading: 'Performance Cross-Asset', bullets: ['x'] },
@@ -1048,6 +1048,31 @@ function phaseLogique() {
         verif('… et l\'inclassable finit dans « Autres chiffres de la semaine », jamais à la poubelle',
           vT[vT.length - 1] === 'Autres chiffres de la semaine' && vieux[vieux.length - 1].bullets.length === 1,
           vT[vT.length - 1]);
+        /* ⚠️ ET LA « BANQUE CENTRALE » MANQUANTE DES ARCHIVES EST RECONSTITUÉE (même capture :
+           l'ancien prompt interdisait ce thème dans la macro, et la section dédiée qui portait la
+           matière a été retirée du rendu — les propos des banques ne s'affichaient nulle part).
+           Trois cas : archive sans thème CB mais avec matière dédiée → reconstituée EN TÊTE ;
+           rapport neuf avec thème natif → jamais de doublon ; aucune matière → rien d'inventé. */
+        const _cbData = [
+          { bank: 'Fed (FOMC)', narrative: 'Posture prudente maintenue, réunion de septembre ouverte.', quotes: [{ quote: 'x', analysis: 'y' }] },
+          { bank: 'BCE (ECB)', narrative: '', quotes: [{ quote: 'Le conseil reste vigilant.', analysis: 'Ton mesuré, aucun engagement.' }] },
+          { bank: 'BoJ', narrative: '', quotes: [] },
+        ];
+        const sansCb = F({ macro: [{ heading: 'Inflation', bullets: ['x'] }], centralBanks: _cbData });
+        verif('la « Banque centrale » manquante d\'une archive est reconstituée depuis sa matière dédiée',
+          sansCb[0] && sansCb[0].heading === 'Banque centrale' && sansCb[0].bullets.length === 2
+          && /Fed \(FOMC\)/.test(sansCb[0].bullets[0]) && /Ton mesuré/.test(sansCb[0].bullets[1]),
+          JSON.stringify(sansCb.map(s => s.heading)));
+        verif('… la banque muette (aucun propos ni narratif) n\'y entre pas',
+          !sansCb[0].bullets.some(b => /BoJ/.test(b)));
+        const avecCb = F({ macro: [{ heading: 'Banque centrale', bullets: ['**Fed :** natif.'] }], centralBanks: _cbData });
+        verif('… un rapport NEUF au thème natif ne reçoit JAMAIS de doublon',
+          avecCb.filter(s => /banque centrale/i.test(s.heading)).length === 1
+          && avecCb[0].bullets.length === 1 && /natif/.test(avecCb[0].bullets[0]),
+          JSON.stringify(avecCb.map(s => s.heading)));
+        const sansRien = F({ macro: [{ heading: 'Inflation', bullets: ['x'] }] });
+        verif('… et sans matière dédiée, rien n\'est inventé',
+          !sansRien.some(s => /banque centrale/i.test(s.heading)), JSON.stringify(sansRien.map(s => s.heading)));
       }
       /* Le prompt du serveur suit la même grammaire : plus de cross-asset, banque centrale en tête. */
       const SRV4 = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
