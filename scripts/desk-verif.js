@@ -1088,6 +1088,30 @@ function phaseLogique() {
         && /\.wdg-dmxstats-table th \{\n  position: sticky; top: 0;/.test(CSS6));
     }
 
+    /* ── WIDGET GRAPHIQUE : en-tête façon « Technical Charts » (30/08, référence user). Le VRAI
+       embed est injoignable au banc (service externe) : on épingle la STRUCTURE dans les sources :
+       les 8 unités et leurs libellés exacts (5m…1M, minutes en minuscules CONTRE le mois 1M : la
+       transformation en capitales les confondait), la barre TV du haut masquée, les outils de
+       dessin gardés, drapeaux + chips dans l'en-tête, et le clic d'unité mémorisé puis remonté.
+       Le comportement vivant (clic 4H→1D, config 240→D) est prouvé par sonde interceptée. ── */
+    {
+      const WJS = fs.readFileSync(path.join(RACINE, 'public/js/widgets.js'), 'utf8');
+      const CSS7 = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
+      console.log('\n── Widget Graphique : en-tête « Technical Charts » ──');
+      verif('les 8 unités de la référence, du 5m au mensuel',
+        /var TF = \[\['M5', '5m'\], \['M15', '15m'\], \['M30', '30m'\], \['H1', '1H'\], \['H4', '4H'\], \['D1', '1D'\], \['W1', '1W'\], \['MN', '1M'\]\];/.test(WJS)
+        && /M5: '5', M15: '15', M30: '30', H1: '60', H4: '240', D1: 'D', W1: 'W', MN: 'M'/.test(WJS));
+      verif('la barre TradingView du HAUT est masquée, les outils de DESSIN gardés',
+        /hide_top_toolbar: true, hide_side_toolbar: false,/.test(WJS));
+      verif('l\'en-tête porte drapeaux + sélecteur + chips, et le clic d\'unité est mémorisé puis remonté',
+        /wdg-tv-drapeaux/.test(WJS) && /wdg-tv-tf/.test(WJS)
+        && /_ecrisOpt\(host, it, 'ut', ut\);\s*\n\s*monterTv\(\);/.test(WJS));
+      verif('les minutes restent en minuscules face au mois (text-transform: none épinglé)',
+        /\.wdg-tv-tf \.stf-btn \{ height: 22px; padding: 0 7px; font-size: 10px; text-transform: none; \}/.test(CSS7));
+      verif('le repli DTP rabat les nouvelles unités sur les siennes (5m→15m, 1M→1W)',
+        /if \(ut === 'M5' \|\| ut === 'M30'\) ut = 'M15';\s*\n\s*if \(ut === 'MN'\) ut = 'W1';/.test(WJS));
+    }
+
     /* ── LECTEUR INSTITUTIONS : le blanc n'appartient qu'au DOCUMENT (30/08, capture user :
        « quand on clique sur le pdf ça affiche comme ça » : zone entière blanche pendant
        « Chargement du PDF… », ascenseur peint en clair). On éprouve la VRAIE règle dans le VRAI

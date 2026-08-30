@@ -2130,8 +2130,8 @@
   var CATALOG = [
     {
       id: 'graphique', name: 'Graphique', tag: 'CHART', cat: 'Marchés', h: 340,
-      desc: 'Le graphique TradingView complet : dessin, indicateurs, toutes les unités.',
-      aide: "<p>Un graphique en chandeliers classique : chaque bougie résume une période (ouverture, clôture, extrêmes), la paire se choisit dans la barre de la carte, l'unité de temps dans la barre native du graphique. Les outils de dessin permettent de poser niveaux et lignes de tendance directement sur les cours, et deux cartes peuvent coexister sur des paires différentes.</p><p>Dans une décision, le graphique est le juge de paix du <em>moment</em> : les autres widgets disent le contexte (biais, calendrier, positionnement), lui seul montre où le prix se trouve par rapport aux niveaux où ce contexte peut s'exprimer.</p>",
+      desc: 'Le graphique TradingView : outils de dessin, unités de temps en un clic, du 5m au mensuel.',
+      aide: "<p>Un graphique en chandeliers classique : chaque bougie résume une période (ouverture, clôture, extrêmes). La paire ET l'unité de temps se choisissent dans la barre de la carte : drapeaux + sélecteur à gauche, boutons 5m à 1M à droite, l'unité active à l'or. Les outils de dessin, sur le bord gauche du graphique, permettent de poser niveaux et lignes de tendance directement sur les cours, et deux cartes peuvent coexister sur des paires différentes.</p><p>Dans une décision, le graphique est le juge de paix du <em>moment</em> : les autres widgets disent le contexte (biais, calendrier, positionnement), lui seul montre où le prix se trouve par rapport aux niveaux où ce contexte peut s'exprimer.</p>",
       src: "Cotations en continu du moteur de graphiques embarqué, sur un fournisseur unique pour toutes les cartes (des CFD : quelques points d'écart avec le comptant sont normaux) ; s'il ne répond pas, le moteur DTP prend le relais avec de vraies bougies.",
       watch: "La réaction du prix aux niveaux travaillés (extrêmes de séance, zones de clôture) et le comportement des bougies autour des heures de publication du calendrier.",
       // Le desk avait ses bougies dans l'onglet MARCHÉS uniquement : impossible de garder un graphique
@@ -2168,7 +2168,8 @@
             } catch (e) { return FX28.map(function (n) { return [n, n]; }); }
           })() },
         { k: 'ut', lbl: 'Unité de temps', type: 'choix', def: 'H4', cache: true,
-          choix: [['M15', '15 minutes'], ['H1', '1 heure'], ['H4', '4 heures'], ['D1', '1 jour'], ['W1', '1 semaine']] },
+          // 8 unités, celles de la référence « Technical Charts » (30/08) : 5m → 1 mois.
+          choix: [['M5', '5 minutes'], ['M15', '15 minutes'], ['M30', '30 minutes'], ['H1', '1 heure'], ['H4', '4 heures'], ['D1', '1 jour'], ['W1', '1 semaine'], ['MN', '1 mois']] },
       ],
       /* MOTEUR TRADINGVIEW (18/08, décision user après question posée : « Widget TradingView
          embarqué », sa capture montrant les outils de dessin et la barre d'unités natifs).
@@ -2179,7 +2180,8 @@
          bloque, panne TradingView). Un chien de garde bascule si aucune iframe n'est née en 8 s. */
       mount: function (host, it) {
         var W = this;
-        var TF = [['M15', 'M15'], ['H1', 'H1'], ['H4', 'H4'], ['D1', 'D1'], ['W1', 'W1']];
+        // Les 8 unités de la référence, libellés courts façon « Technical Charts » (5m … 1M).
+        var TF = [['M5', '5m'], ['M15', '15m'], ['M30', '30m'], ['H1', '1H'], ['H4', '4H'], ['D1', '1D'], ['W1', '1W'], ['MN', '1M']];
         var paires = (W.opts[0].choix || []).map(function (c) { return c[0]; });
         var sym = opt(it, W, 'paire'); if (paires.indexOf(sym) < 0) sym = paires[0] || 'EUR/USD';
         var ut  = opt(it, W, 'ut');    if (!TF.some(function (t) { return t[0] === ut; })) ut = 'H4';
@@ -2199,11 +2201,15 @@
           if (n && n.indexOf('/') > 0) return 'FX:' + n.split('/').join('');
           return 'FX:EURUSD';
         }
-        var _TVI = { M15: '15', H1: '60', H4: '240', D1: 'D', W1: 'W' };
+        var _TVI = { M5: '5', M15: '15', M30: '30', H1: '60', H4: '240', D1: 'D', W1: 'W', MN: 'M' };
         var _nettoie = null, _tvTimer = null, _replie = false;
 
         // ── MOTEUR DTP (repli) : l'ancien widget, conservé tel quel. ──
         function monterDtp() {
+        // Le moteur DTP ne connaît que ses 5 unités historiques : les nouvelles (5m/30m/1M) se
+        // rabattent sur la plus proche plutôt que de casser le repli.
+        if (ut === 'M5' || ut === 'M30') ut = 'M15';
+        if (ut === 'MN') ut = 'W1';
         if (typeof buildStockChart !== 'function') { fallback(host, 'Graphique indisponible.'); return null; }
         var id = HOST_ID + '-cdl-' + uid();
         host.innerHTML = '<div class="wdg-cdl">'
@@ -2253,14 +2259,26 @@
           _nettoie = monterDtp() || null;
         }
         function monterTv() {
-          // Notre sélecteur de paire reste LA surface de persistance (le réglage est mémorisé par
-          // compte) : allow_symbol_change est donc coupé côté TradingView, une seule autorité.
-          // L'unité de temps, elle, se change dans la barre native de TradingView : notre réglage
-          // ne fixe que l'unité d'OUVERTURE.
+          /* HABILLAGE FAÇON « TECHNICAL CHARTS » (30/08, référence user : « le widget graphique
+             doit ressembler à ceci ») : drapeaux de la paire + sélecteur en tête, rangée d'unités
+             de temps à chips (5m → 1M, active à l'or DTP), barre du HAUT de TradingView MASQUÉE
+             (elle doublonnerait nos chips), barre d'OUTILS DE DESSIN de gauche conservée.
+             Notre sélecteur de paire reste LA surface de persistance (mémorisé par compte) :
+             allow_symbol_change est coupé côté TradingView, une seule autorité. L'unité de temps
+             se change par NOS chips : chaque clic est mémorisé puis REMONTE l'embed (comme le
+             changement de paire : l'embed ne se pilote pas de l'extérieur). */
+          var codes = /^([A-Z]{3})\/([A-Z]{3})$/.exec(sym || '');
+          var flags = codes ? (_drapeauDev(codes[1]) + _drapeauDev(codes[2])) : '';
           host.innerHTML = '<div class="wdg-tv">'
-            + '<div class="wdg-cdl-bar"><select class="wdg-cdl-sym" aria-label="Choisir la paire">'
+            + '<div class="wdg-cdl-bar wdg-tv-tete">'
+            + '<span class="wdg-tv-drapeaux">' + flags + '</span>'
+            + '<select class="wdg-cdl-sym" aria-label="Choisir la paire">'
             + paires.map(function (p) { return '<option value="' + esc(p) + '"' + (p === sym ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('')
-            + '</select></div>'
+            + '</select>'
+            + '<span class="wdg-tv-tf">'
+            + TF.map(function (t) { return '<button class="stf-btn wdg-tv-b' + (t[0] === ut ? ' stf-btn--active' : '') + '" data-ut="' + t[0] + '">' + t[1] + '</button>'; }).join('')
+            + '</span>'
+            + '</div>'
             + '<div class="wdg-tv-box"><div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div></div></div>'
             + '</div>';
           var boite = host.querySelector('.tradingview-widget-container');
@@ -2274,6 +2292,7 @@
             // par personne, l'embed restait sombre sur desk clair (audit du 18/08).
             theme: (document.documentElement.getAttribute('data-theme') === 'light') ? 'light' : 'dark',
             allow_symbol_change: false, save_image: false,
+            hide_top_toolbar: true, hide_side_toolbar: false,
             support_host: 'https://www.tradingview.com',
           });
           sc.onerror = replisDtp;
@@ -2283,6 +2302,14 @@
             sym = sel.value;
             _ecrisOpt(host, it, 'paire', sym);
             monterTv();                        // l'embed ne sait pas changer de symbole a chaud : on le remonte
+          });
+          host.querySelectorAll('.wdg-tv-b').forEach(function (b) {
+            b.addEventListener('click', function () {
+              if (b.dataset.ut === ut) return;
+              ut = b.dataset.ut;
+              _ecrisOpt(host, it, 'ut', ut);
+              monterTv();                      // même mécanique que la paire : mémorisé, puis remonté
+            });
           });
           clearTimeout(_tvTimer);
           _tvTimer = setTimeout(function () {

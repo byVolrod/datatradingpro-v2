@@ -21472,3 +21472,18 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
 .wdg-dmxstats-table td.est-foule { color: #e3b23a; font-weight: 600; background: rgba(227, 178, 58, .06); }
 .wdg-dmxstats-table tbody tr:hover td { background: rgba(227, 178, 58, .045); }
 .wdg-dmxstats-table tbody tr:hover td.est-foule { background: rgba(227, 178, 58, .1); }
+
+/* ═══ WIDGET GRAPHIQUE : EN-TÊTE FAÇON « TECHNICAL CHARTS » (30/08, référence user) ═════════════
+   Drapeaux de la paire + sélecteur en tête, rangée d'unités de temps à chips (5m → 1M) : les
+   chips reprennent la grammaire .stf-btn du desk (or DTP à l'état actif, jamais d'orange). La
+   barre défile en silence si la carte est étroite : rien ne se replie ni ne s'écrase. */
+.wdg-tv-tete { display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.wdg-tv-tete::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.wdg-tv-drapeaux { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+.wdg-tv-drapeaux .wdg-td-fl { border-radius: 2px; display: block; }
+.wdg-tv-tete .wdg-cdl-sym { flex: 0 1 auto; min-width: 86px; font-weight: var(--fw-semibold, 600); }
+.wdg-tv-tf { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; flex: 0 0 auto; }
+.wdg-tv-tf .stf-btn { height: 22px; padding: 0 7px; font-size: 10px; text-transform: none; }
+/* text-transform: none : la grammaire .stf-btn met tout en capitales : « 5m » (minutes) devenait
+   « 5M », illisible à côté de « 1M » (le mois). La référence écrit 5m/15m/30m contre 1M : on garde
+   cette distinction, c'est elle qui rend la rangée lisible d'un coup d'œil. */

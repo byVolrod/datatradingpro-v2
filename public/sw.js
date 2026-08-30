@@ -37,7 +37,7 @@
        téléphone du client, indéfiniment.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'dtp-sw-20260830bbg1052';
+const VERSION = 'dtp-sw-20260830bbg1053';
 const CACHE_COQUILLE = VERSION + '-coquille';
 
 /* La coquille minimale : de quoi afficher QUELQUE CHOSE de DTP sans réseau. Volontairement courte —
