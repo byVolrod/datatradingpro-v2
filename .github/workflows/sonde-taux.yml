@@ -1,0 +1,39 @@
+name: Sonde taux (diagnostic)
+
+# ═══ POURQUOI CE WORKFLOW EXISTE ═════════════════════════════════════════════════════════════════
+# Le conteneur de développement ne peut PAS joindre rateprobability.com (proxy de sortie), et le
+# VPS n'est pas joignable non plus depuis lui. Or il faut VOIR les payloads réels des slugs rbnz
+# et snb pour comprendre pourquoi ces deux banques retombent en « estimation DTP » quand les six
+# autres ont du pricing de marché (signalement client MaTToKs, 28/08). Le runner GitHub, lui,
+# sort librement : ce workflow interroge l'API publique et imprime la STRUCTURE des réponses
+# (clés, champs scalaires, première ligne) — jamais un dump intégral. Données de marché publiques,
+# aucun secret. Déclenchement MANUEL uniquement : c'est un instrument, pas une tâche.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sonder:
+    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Structure des payloads fed / rbnz / snb
+        run: |
+          for slug in fed rbnz snb; do
+            echo "═══════════ $slug ═══════════"
+            code=$(curl -sS -o /tmp/p.json -w '%{http_code}' \
+              -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36' \
+              -H 'Accept: application/json' \
+              -H 'Referer: https://rateprobability.com/' \
+              "https://rateprobability.com/api/$slug/latest") || { echo "curl KO"; continue; }
+            echo "HTTP $code · $(wc -c </tmp/p.json) octets"
+            jq -r '"clés racine : \(keys)"' /tmp/p.json 2>/dev/null || { echo "JSON invalide :"; head -c 400 /tmp/p.json; echo; continue; }
+            jq -r '.error // empty | "error : \(.)"' /tmp/p.json
+            jq -r 'select(.today != null) | .today | "clés today : \(keys)"' /tmp/p.json
+            jq -r 'select(.today != null) | .today | to_entries[] | select((.value|type) != "array" and (.value|type) != "object") | "  \(.key) = \(.value)"' /tmp/p.json
+            echo "nb rows : $(jq -r '.today.rows | length' /tmp/p.json 2>/dev/null)"
+            echo "row[0] : $(jq -c '.today.rows[0]' /tmp/p.json 2>/dev/null | head -c 600)"
+          done
