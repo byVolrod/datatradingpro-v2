@@ -31,11 +31,30 @@ const _fs = require('fs');
 const _path = require('path');
 const _WCACHE_DIR = _path.join(process.env.DATA_DIR || __dirname, 'wcache');
 try { _fs.mkdirSync(_WCACHE_DIR, { recursive: true }); } catch {}
-const _lastGood = new Map();      // wk -> png Buffer (JAMAIS expire)
+/* ⚠️ INCIDENT DU 30/08 — « JAMAIS expire » a produit l'inverse d'un filet. Le mail « Semaine à
+   venir » annonçait la semaine du 31 août dans son TEXTE et montrait les cartes du 17 AOÛT dans
+   son IMAGE : les rendus frais échouaient depuis deux semaines EN SILENCE (le catch de fond était
+   muet), et la « dernière bonne image », persistée sur le volume, n'avait pas de date de
+   péremption : elle a resservi telle quelle, mail après mail. Une image périmée qui MENT sur des
+   dates est PIRE qu'un espace vide. Le filet est donc borné (par type), et la panne se CRIE. */
+const _lastGood = new Map();      // wk -> { png, ts } — l'âge est porté et BORNÉ par _ageMax
 function _wk(type, period) { return (String(type) + '_' + String(period)).replace(/[^a-z0-9]+/gi, '_'); }
 function _diskPath(wk) { return _path.join(_WCACHE_DIR, wk + '.png'); }
-try { for (const f of _fs.readdirSync(_WCACHE_DIR)) if (f.endsWith('.png')) { try { _lastGood.set(f.slice(0, -4), _fs.readFileSync(_path.join(_WCACHE_DIR, f))); } catch {} } } catch {}
-function _saveLastGood(wk, png) { _lastGood.set(wk, png); try { _fs.writeFile(_diskPath(wk), png, () => {}); } catch {} }
+try { for (const f of _fs.readdirSync(_WCACHE_DIR)) if (f.endsWith('.png')) { try { const p = _path.join(_WCACHE_DIR, f); _lastGood.set(f.slice(0, -4), { png: _fs.readFileSync(p), ts: _fs.statSync(p).mtimeMs }); } catch {} } } catch {}
+function _saveLastGood(wk, png) { _lastGood.set(wk, { png, ts: Date.now() }); try { _fs.writeFile(_diskPath(wk), png, () => {}); } catch {} }
+// Ce qui porte des DATES (agenda, calendrier) périme en 24 h ; le reste tolère 3 jours.
+const _AGE_MAX = { 'week-ahead': 24 * 3600e3, calendar: 24 * 3600e3 };
+const _AGE_MAX_DEFAUT = 72 * 3600e3;
+function _ageMax(type) { return _AGE_MAX[type] || _AGE_MAX_DEFAUT; }
+// La panne de rendu n'est plus silencieuse : une ligne de journal par type, au plus toutes les 10 min.
+const _panneCriee = new Map();
+function _criePanne(type, e, heuresPerimees) {
+  const now = Date.now();
+  if (now - (_panneCriee.get(type) || 0) < 10 * 60 * 1000) return;
+  _panneCriee.set(type, now);
+  console.error(`[email-widget] rendu ${type} en ÉCHEC : ${(e && e.message) || e}`
+    + (heuresPerimees != null ? ` — dernière bonne image périmée (${heuresPerimees} h) : PLACEHOLDER servi, jamais une image qui ment sur ses dates` : ''));
+}
 const _FALLBACK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
 // Catalogue des widgets rendus (chaque type = une route de rendu + un sélecteur + une taille logique).
@@ -149,7 +168,11 @@ async function renderWidgetPng(type, opts = {}) {
       }
       const png = Buffer.from(shot);
       _cache.set(key, { png, ts: Date.now() });
-      _saveLastGood(_wk(type, period), png);   // memorise la derniere BONNE image (memoire + disque)
+      // ⚠️ CLÉ COMPLÈTE (30/08) : la sauvegarde utilisait `_wk(type, period)` SANS ccy/extra alors
+      // que la lecture les inclut — la courbe d'UNE devise écrasait le « dernier bon » générique
+      // du type (un mail pouvait montrer la courbe NZD comme force globale), et les images par
+      // devise n'avaient JAMAIS de secours à elles. Même clé des deux côtés, point.
+      _saveLastGood(_wk(type, period + (ccy ? '_' + ccy : '') + (extra ? '_' + extra : '')), png);
       return png;
     } finally {
       await page.close().catch(() => {});
@@ -178,8 +201,12 @@ async function renderWidgetPngSafe(type, opts = {}) {
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.png;
   const lg = _lastGood.get(wk);
-  if (lg) { renderWidgetPng(type, opts).catch(() => {}); return lg; }   // sert le dernier bon + refresh fond
-  try { return await renderWidgetPng(type, opts); } catch { return _FALLBACK_PNG; }
+  // Dernier bon ENCORE VALIDE → servi, et on rafraîchit en fond (la panne de fond se crie désormais).
+  if (lg && Date.now() - lg.ts <= _ageMax(type)) { renderWidgetPng(type, opts).catch(e => _criePanne(type, e)); return lg.png; }
+  /* Dernier bon PÉRIMÉ (ou absent) : rendu SYNCHRONE, et s'il échoue → PLACEHOLDER, jamais l'image
+     périmée — c'est elle, le mensonge du 30/08 (cartes du 17 août dans le mail du 30). */
+  try { return await renderWidgetPng(type, opts); }
+  catch (e) { _criePanne(type, e, lg ? Math.round((Date.now() - lg.ts) / 3600e3) : null); return _FALLBACK_PNG; }
 }
 // Pre-chauffe (boot + periodique) : garantit qu'une bonne image est TOUJOURS prete (zero rendu a froid en mail).
 async function prewarm(types) {

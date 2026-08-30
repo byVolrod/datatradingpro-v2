@@ -134,6 +134,58 @@ async function attempt(email, week, providerUp, hang) {
   ok('Timeout → echec propre, PAS de marqueur', (await attempt('t@t.com', '2026-W29', true, true)) === 'failed' && !sent.has('drip:loop:2026-W29:t@t.com'));
   ok('Reprise apres correction → envoye (aucun doublon)', (await attempt('z@z.com', '2026-W29', true)) === 'sent');
 
+  // ── [D] FRAICHEUR DES MAILS — plus jamais la semaine du 17 aout dans un mail du 30 (incident user) ──
+  // Le mail « Semaine a venir » du 30/08 annoncait la semaine du 31 dans son TEXTE et montrait les
+  // cartes du 17 AOUT dans son IMAGE : le filet anti-image-cassee servait une « derniere bonne
+  // image » SANS date de peremption pendant que les rendus frais echouaient en silence. On extrait
+  // le VRAI code d'emailWidget.js et on rejoue l'incident, mutation comprise ; puis les gardes de
+  // DONNEES (contexte semaine cible, Recap Hebdo borne) sont epinglees sur les sources.
+  section('[D] Fraicheur des mails — images et donnees datees');
+  const _fsD = require('fs'), _pathD = require('path');
+  const EW = _fsD.readFileSync(_pathD.join(__dirname, '..', 'emailWidget.js'), 'utf8');
+  const SRVD = _fsD.readFileSync(_pathD.join(__dirname, '..', 'server.js'), 'utf8');
+  {
+    const d1 = EW.indexOf('const _AGE_MAX ='), f1 = EW.indexOf('\n}', EW.indexOf('function _criePanne'));
+    const d2 = EW.indexOf('async function renderWidgetPngSafe'), f2 = EW.indexOf('\n}', EW.indexOf('try { return await renderWidgetPng(type, opts); }', d2));
+    const SRC = (d1 >= 0 && f1 > d1 && d2 >= 0 && f2 > d2) ? EW.slice(d1, f1 + 2) + '\n' + EW.slice(d2, f2 + 2) : null;
+    ok('le filet borne est extractible d\'emailWidget.js', !!SRC && /renderWidgetPngSafe/.test(SRC || ''));
+    if (SRC) {
+      const PLACEHOLDER = Buffer.from('1x1');
+      const fab = (src, lastGood, render) => new Function(
+        'SPECS', '_FALLBACK_PNG', '_cache', '_lastGood', '_wk', 'TTL', 'renderWidgetPng', '_extraSain', 'console',
+        src + '\nreturn renderWidgetPngSafe;'
+      )({ 'week-ahead': {}, strength: {} }, PLACEHOLDER, new Map(), lastGood, (t, p) => (t + '_' + p).replace(/[^a-z0-9]+/gi, '_'), 600000, render, () => '', { error() {} });
+      const VIEILLE = Buffer.from('CARTES-DU-17-AOUT');
+      const FRAICHE = Buffer.from('CARTES-DU-31-AOUT');
+      const lgAge = h => new Map([['week_ahead_week', { png: VIEILLE, ts: Date.now() - h * 3600e3 }]]);
+      const KO = () => Promise.reject(new Error('chromium en panne'));
+      ok('derniere bonne image FRAICHE (2 h) + rendu en panne → servie (la resilience reste)',
+        (await fab(SRC, lgAge(2), KO)('week-ahead', {})).equals(VIEILLE));
+      ok('image PERIMEE (48 h) + rendu en panne → PLACEHOLDER, jamais les cartes du 17 aout',
+        (await fab(SRC, lgAge(48), KO)('week-ahead', {})).equals(PLACEHOLDER));
+      ok('image perimee + rendu qui MARCHE → l\'image fraiche du jour',
+        (await fab(SRC, lgAge(48), () => Promise.resolve(FRAICHE))('week-ahead', {})).equals(FRAICHE));
+      const lgStr = h => new Map([['strength_week', { png: VIEILLE, ts: Date.now() - h * 3600e3 }]]);
+      ok('un widget SANS dates (force) tolere 48 h... ', (await fab(SRC, lgStr(48), KO)('strength', {})).equals(VIEILLE));
+      ok('... mais pas 96 h (plafond 3 jours)', (await fab(SRC, lgStr(96), KO)('strength', {})).equals(PLACEHOLDER));
+      const mut = SRC.replace('Date.now() - lg.ts <= _ageMax(type)', 'true');
+      ok('mutation « peremption retiree » detectee (le 17 aout repartirait)',
+        mut !== SRC && (await fab(mut, lgAge(48), KO)('week-ahead', {})).equals(VIEILLE));
+    }
+    ok('la sauvegarde du « dernier bon » porte la CLE COMPLETE (ccy/extra : la courbe NZD n\'ecrase plus le generique)',
+      /_saveLastGood\(_wk\(type, period \+ \(ccy \? '_' \+ ccy : ''\) \+ \(extra \? '_' \+ extra : ''\)\), png\)/.test(EW)
+      && !/_saveLastGood\(_wk\(type, period\), png\)/.test(EW));
+    ok('la panne de rendu se CRIE dans le journal (fini le catch muet)', /_criePanne/.test(EW) && /en ÉCHEC/.test(EW));
+  }
+  ok('le contexte campagne n\'embarque la Semaine a venir QUE si elle couvre le lundi cible',
+    /_weekAhead\.monday === _waLundiCible\(now\)/.test(SRVD) && /weekAhead: _waFrais/.test(SRVD)
+    && /generateWeekAhead\(true\)\.catch/.test(SRVD));
+  ok('le Recap Hebdo des mails est borne (~9 j) sur les DEUX branches (tampon + copie durable)',
+    /function _weeklyRecent/.test(SRVD) && /w && _weeklyRecent\(w\)/.test(SRVD)
+    && (SRVD.match(/_weeklyDurable && _weeklyRecent\(_weeklyDurable\)/g) || []).length === 2);
+  ok('... et la copie durable porte sa date de memorisation (filet quand weekEnding manque)',
+    /w\._memAt = Date\.now\(\)/.test(SRVD));
+
   // ── Bilan ──
   console.log('\n' + '='.repeat(52));
   console.log('RESULTAT : ' + pass + ' PASS / ' + fail + ' FAIL');

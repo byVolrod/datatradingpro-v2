@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260914-mails-jamais-perimes', ts: Date.UTC(2026, 8, 14, 12, 0), title: 'Les e-mails ne peuvent plus montrer une semaine passée', desc: 'Repéré sur l’aperçu du mail Semaine à venir : le texte annonçait la bonne semaine pendant que l’image du calendrier montrait celle d’il y a deux semaines. En cause, le filet anti-image-cassée des e-mails : quand le rendu d’une image échoue, il sert la dernière image réussie ; sans date de péremption, il a resservi une image figée pendant deux semaines, en silence. Le filet est désormais borné : une image qui porte des dates (Semaine à venir, calendrier) périme en 24 heures, les autres en 3 jours ; au-delà, le mail préfère ne rien afficher plutôt qu’afficher faux, et la panne de rendu s’écrit dans le journal au lieu de se taire. La même règle vaut pour les données : le mail Semaine à venir n’embarque l’agenda que s’il couvre bien la semaine cible, et un Récap Hebdo de plus de neuf jours ne part plus jamais comme s’il était neuf. Au passage, chaque courbe de devise garde désormais sa propre image de secours : celle d’une devise ne peut plus remplacer celle d’une autre.' },
   { id: 'dtpu-20260914-taux-calibres', ts: Date.UTC(2026, 8, 14, 9, 0), title: 'Onglet TAUX : les huit banques vérifiées une par une, biais recalés sur le pricing réel', desc: 'Suite de l’audit des taux, chaque devise a été vérifiée sur pièces. Les huit taux directeurs affichés sont confirmés exacts : fourchette Fed 3,50-3,75, dépôt BCE 2,25, BoE 3,75, BoJ 1,00, BoC 2,25, RBA 4,35, RBNZ 2,50, BNS 0,00. En revanche, les biais de secours dataient de juin et disaient « pause, penchant baisse » sur quatre banques alors que le marché price aujourd’hui la hausse : environ 58% pour la Fed, 90% pour la BCE, 74% pour la BoJ et 58% pour la RBA à leur prochaine réunion. Ils sont recalés sur ce pricing réel. Surtout, les deux banques sans flux de marché s’alignent enfin sur les vrais niveaux : la carte RBNZ affiche environ 93% de hausse, comme le marché (93,3%), et la carte BNS environ 95% de maintien, au plus près du marché (99,5%), au lieu des 60% et 65% génériques d’avant.' },
   { id: 'dtpu-20260913-hebdo-force-mail', ts: Date.UTC(2026, 8, 13, 23, 0), title: 'Le mail Récap Hebdo retrouve la force des devises, courbe par courbe', desc: 'Repéré sur l’aperçu du mail Votre Récap Hebdo : les blocs devise n’affichaient plus la force de la devise, alors que le rapport du desk montre une courbe sous chaque bloc. Lors d’une refonte récente, l’image d’ensemble avait été retirée au motif que chaque devise garderait sa propre courbe ; cette courbe n’avait en réalité jamais été posée dans le mail, et la force avait disparu tout court. C’est corrigé : chaque bloc devise porte désormais la courbe de force de SA devise sur la semaine, la même que sur le desk, placée au même endroit (après le résumé, avant les chiffres). Les images sont embarquées dans le mail pour s’afficher partout, y compris dans les messageries qui bloquent les images distantes, et une devise sans publication cette semaine ne reçoit pas de courbe orpheline.' },
   { id: 'dtpu-20260913-rapports-taux', ts: Date.UTC(2026, 8, 13, 22, 0), title: 'Les rapports parlent taux avec les mêmes chiffres que l’onglet TAUX', desc: 'Dans la foulée de la remise à plat de l’onglet TAUX, les trois grands rendez-vous écrits du desk s’alignent sur les mêmes chiffres. Le Récap Hebdo ancrait déjà sa section Banques centrales sur le pricing du desk : chaque banque y porte désormais aussi sa source (pricing de marché ou estimation du desk), et la puce Pricing de chaque devise commence par le taux directeur en vigueur, recalé sur la dernière décision réelle. Le Point Marché de midi reçoit le même bloc de taux et de probabilités : sa section Banques centrales cite des niveaux réels au lieu de broder sur la seule actualité. Et dans la Semaine à Venir, la carte d’un jour de décision de taux annonce maintenant le scénario pricé de la réunion (maintien, hausse, baisse) et le taux actuel, avec sa source. Une règle commune verrouille le tout : une estimation du desk ne peut plus jamais s’écrire comme du pricing de marché.' },
@@ -23099,14 +23100,26 @@ let _weeklyDurable = null;
 function _weeklyMemoriser(w) {
   try {
     if (!w || typeof w !== 'object') return;
+    if (!w._memAt) w._memAt = Date.now();   // date de mémorisation : le filet de _weeklyRecent quand weekEnding manque
     _weeklyDurable = w;
     auth.aiCacheSet('weekly:dernier', w).catch(() => {});
   } catch (e) {}
 }
-function _freshWeekly() { try { const w = ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; if (w) { _weeklyMemoriser(w); return _noDashDeep(w); }
-  // Le tampon ne l a plus (évincé par le volume de news) → copie durable.
-  return _weeklyDurable ? _noDashDeep(_weeklyDurable) : null;
-} catch { return _weeklyDurable ? _noDashDeep(_weeklyDurable) : null; } }
+/* Un Récap Hebdo n'est « frais » pour un MAIL que s'il couvre la semaine en cours ou la précédente
+   (~9 j via son `weekEnding`, sinon la date de mémorisation) : au-delà, mieux vaut AUCUN mail
+   qu'un rapport d'il y a trois semaines envoyé comme neuf — la leçon du mail « Semaine à venir »
+   du 30/08 (image du 17 août), appliquée aux DONNÉES. Sans date lisible : comportement d'avant. */
+function _weeklyRecent(w) {
+  if (!w) return false;
+  const a = String(w.weekEnding || '').split('.').map(Number);   // « JJ.MM.AAAA », le format que le mail lit déjà
+  const fin = (a.length === 3 && a[0] && a[1] && a[2]) ? Date.UTC(a[2], a[1] - 1, a[0]) : (w._memAt || 0);
+  if (!fin) return true;
+  return Date.now() - fin < 9 * 86400000;
+}
+function _freshWeekly() { try { const w = ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; if (w && _weeklyRecent(w)) { _weeklyMemoriser(w); return _noDashDeep(w); }
+  // Le tampon ne l a plus (évincé par le volume de news) → copie durable, elle aussi bornée.
+  return (_weeklyDurable && _weeklyRecent(_weeklyDurable)) ? _noDashDeep(_weeklyDurable) : null;
+} catch { return (_weeklyDurable && _weeklyRecent(_weeklyDurable)) ? _noDashDeep(_weeklyDurable) : null; } }
 
 /* ═══ CONDENSATION DE L'ÉDITION AFFICHÉE (23/08, demande user : « réduit... court, simple et
    clair » — sur l'édition DÉJÀ publiée samedi). RÉGÉNÉRER est interdit par la leçon v40 : le
@@ -23482,7 +23495,18 @@ async function _deskContext() {
   } catch {}
   let risk = null;
   if (_riskData && typeof _riskData.pct === 'number') { const p = _riskData.pct; risk = { pct: p, label: p >= 15 ? 'Risk-on (appétit pour le risque)' : p <= -15 ? 'Risk-off (aversion au risque)' : 'Neutre' }; }
-  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), featured: _calFeatured(upcoming), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), dailyRecap: _freshDaily(true), weekAhead: _weekAhead, bankNotes: _bankNotes(4) };
+  /* ⚠️ SEMAINE CIBLE OBLIGATOIRE (30/08, incident du mail « Semaine à venir » : texte du 31 août,
+     image du 17). `_weekAhead` brut peut être PÉRIMÉ (régénération en échec, boot sur un cache
+     d'une autre semaine) : un agenda d'une vieille semaine envoyé comme neuf est pire qu'aucun
+     agenda. On ne le passe au mail QUE s'il couvre le lundi cible du moment (la même règle que le
+     desk, _waLundiCible) ; sinon null (le mail se rabat sur le calendrier réel) et on relance la
+     génération en fond pour le prochain passage. */
+  let _waFrais = null;
+  try {
+    if (_weekAhead && _weekAhead.monday === _waLundiCible(now)) _waFrais = _weekAhead;
+    else if (_weekAhead) { console.warn('[Campagne] Semaine à venir PÉRIMÉE (couvre ' + (_weekAhead.week || '?') + ') → écartée du mail, régénération relancée'); generateWeekAhead(true).catch(() => {}); }
+  } catch {}
+  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), featured: _calFeatured(upcoming), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), dailyRecap: _freshDaily(true), weekAhead: _waFrais, bankNotes: _bankNotes(4) };
 }
 // Anti-redondance Decryptage : historique durable des concepts couverts (KV campaign:decrypt-history).
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
