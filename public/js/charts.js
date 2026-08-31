@@ -5235,10 +5235,21 @@ async function toggleCalDetailRow(tr, ev) {
   const timeStr = calFormatTime(ev.timestamp) || ev.time || '';
   const detailRow = document.createElement('tr');
   detailRow.className = 'cal-detail-row';
-  // colspan DYNAMIQUE, comme la ligne de séparation de jour (même formule) : figé à 10, il déclarait
-  // deux colonnes inexistantes dès que le lecteur masque Haut et Bas dans les réglages de l'onglet
-  // (la table n'en compte alors que 8) — le navigateur ajoutait au modèle deux colonnes fantômes.
-  const _nbCol = 8 + (_calColVisible('colhigh') ? 1 : 0) + (_calColVisible('collow') ? 1 : 0);
+  /* ⚠️ LE NOMBRE DE COLONNES SE COMPTE SUR LA LIGNE, PAS DANS UN RÉGLAGE (31/08, capture user
+     « il y a un décalage quand on déroule une news »).
+     Ce déroulé est PARTAGÉ par deux rendus qui ne lisent pas le même réglage de colonnes :
+     la vue plein écran suit la préférence globale de l'onglet (`_calColVisible`, DTPPref
+     « calcolhigh »), le panneau à ONGLETS suit une option propre à la carte (widgets.js,
+     `opt(it, W, 'col_high')`). Masquer Haut et Bas sur la carte laissait donc la préférence
+     globale à sa valeur par défaut — visible — et le déroulé annonçait 10 colonnes à une table
+     qui n'en compte que 8. Deux colonnes fantômes entraient au modèle et, dans ce conteneur-là,
+     les colonnes RÉELLES s'effondraient : mesuré au banc, bandeau de jour et dernière cellule
+     tombant de 851 px à 504 px pendant que le déroulé gardait toute la largeur.
+     (D'abord corrigé le même jour par la formule `8 + Haut + Bas` — juste pour la vue plein
+     écran, sans effet dans le panneau à onglets, qui est justement celui de la capture.)
+     La ligne cliquée porte la vérité : autant de colonnes que de cellules, quel que soit le
+     rendu qui l'a produite et quels que soient les réglages de demain. */
+  const _nbCol = tr.children.length || 8;
   detailRow.innerHTML = `<td colspan="${_nbCol}"><div class="cal-detail-inline">
       <div class="cal-detail-inline-head">
         <span class="cal-detail-flag">${CAL_FLAG(ev.currency)}</span>

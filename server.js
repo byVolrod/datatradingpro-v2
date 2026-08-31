@@ -1073,7 +1073,9 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
-  { id: 'dtpu-20260918-calendrier-cadre-et-bande', ts: Date.UTC(2026, 8, 18, 14, 0), title: 'Calendrier : un seul cadre doré, et plus de bande sombre quand on déroule un événement', desc: 'Deux défauts d’affichage de l’onglet CALENDRIER, tous deux visibles sur la ligne de l’événement en cours. D’abord le cadre doré qui la signale : il était peint DEUX FOIS, par deux mécanismes posés à des dates différentes, chacun installé en croyant être le seul. Au grossissement, on lisait deux liserés dorés parallèles séparés par un creux sombre au lieu d’un trait net. Il n’en reste qu’un, et le repère redevient franc — sur ordinateur comme sur téléphone, chacun gardant le mécanisme qui fonctionne chez lui. Ensuite, ouvrir le décryptage d’un événement faisait apparaître une bande sombre le long du bord droit, juste à côté de la barre de défilement : le panneau semblait s’arrêter avant la fin du tableau. La place de la barre de défilement est réservée en permanence depuis une correction précédente, pour que dérouler une ligne ne décale plus tout le tableau vers la gauche. Cette réserve passait inaperçue tant que les lignes partageaient le fond du tableau ; le panneau déroulé, lui, peignait un fond légèrement plus clair, et la réserve se lisait alors comme un vide à sa droite. Le panneau reprend le fond du tableau : la bande disparaît, et le tableau continue de ne plus bouger à l’ouverture. Au passage, ce même panneau annonçait deux colonnes de plus que le tableau n’en compte lorsque vous masquez Haut et Bas dans les réglages de l’onglet.' },
+  { id: 'dtpu-20260918-calendrier-pays-euro', ts: Date.UTC(2026, 8, 18, 16, 0), title: 'Calendrier : les publications de la zone euro portent enfin leur pays', desc: 'Une publication allemande s’affichait « CPI y/y », exactement comme l’agrégat de toute la zone euro publié le même mois : rien ne les distinguait à l’écran alors que ce sont deux chiffres différents, publiés par deux instituts différents. La donnée du desk savait déjà lequel des dix-sept pays avait publié (c’est elle qui évite de confondre l’inflation allemande et l’inflation française tombées le même jour), mais cette information s’arrêtait avant l’affichage. Les publications nationales portent désormais leur pays en tête du libellé, comme sur forexfactory.com : « German CPI m/m », « French Prelim GDP q/q »… L’agrégat de la zone euro entière, lui, garde son nom sans préfixe : c’est aussi la convention de forexfactory.com, et c’est la bonne, puisqu’il ne vient d’aucun pays en particulier.' },
+  { id: 'dtpu-20260918-calendrier-panneau-a-onglets', ts: Date.UTC(2026, 8, 18, 15, 0), title: 'Calendrier en panneau à onglets : le décalage au déroulé d’un événement est corrigé', desc: 'Une correction publiée plus tôt visait le mauvais rendu. Le déroulé d’un événement du calendrier partage son code entre deux affichages qui ne comptent pas les colonnes de la même façon : la vue plein écran de l’onglet CALENDRIER lit le réglage global de l’onglet, le panneau à onglets (celui de la capture) lit un réglage propre à la carte. Masquer les colonnes Haut et Bas dans les réglages de la carte ne change rien au réglage global : le panneau annonçait alors deux colonnes de plus qu’il n’en existe, et le tableau réel s’effondrait de 150 pixels le temps que le déroulé reste sur toute la largeur (le bandeau de la journée et les colonnes RÉEL/PRÉVISION/PRÉCÉDENT glissaient visiblement vers la gauche). Le calcul lit désormais directement le nombre de colonnes de la ligne cliquée, quel que soit l’affichage qui l’a produite : plus de dépendance à un réglage qu’il ne consultait pas. Vérifié aux six largeurs d’écran du desk, colonnes affichées ou masquées.' },
+  { id: 'dtpu-20260918-calendrier-cadre-et-bande', ts: Date.UTC(2026, 8, 18, 14, 0), title: 'Calendrier : un seul cadre doré, et plus de bande sombre quand on déroule un événement', desc: 'Deux défauts d’affichage de l’onglet CALENDRIER, tous deux visibles sur la ligne de l’événement en cours. D’abord le cadre doré qui la signale : il était peint DEUX FOIS, par deux mécanismes posés à des dates différentes, chacun installé en croyant être le seul. Au grossissement, on lisait deux liserés dorés parallèles séparés par un creux sombre au lieu d’un trait net. Il n’en reste qu’un, et le repère redevient franc, sur ordinateur comme sur téléphone : chacun garde le mécanisme qui fonctionne chez lui. Ensuite, ouvrir le décryptage d’un événement faisait apparaître une bande sombre le long du bord droit, juste à côté de la barre de défilement : le panneau semblait s’arrêter avant la fin du tableau. La place de la barre de défilement est réservée en permanence depuis une correction précédente, pour que dérouler une ligne ne décale plus tout le tableau vers la gauche. Cette réserve passait inaperçue tant que les lignes partageaient le fond du tableau ; le panneau déroulé, lui, peignait un fond légèrement plus clair, et la réserve se lisait alors comme un vide à sa droite. Le panneau reprend le fond du tableau : la bande disparaît, et le tableau continue de ne plus bouger à l’ouverture. Au passage, ce même panneau annonçait deux colonnes de plus que le tableau n’en compte lorsque vous masquez Haut et Bas dans les réglages de l’onglet.' },
   { id: 'dtpu-20260918-rail-dore-tactile', ts: Date.UTC(2026, 8, 18, 12, 0), title: 'Plus de trait doré parasite le long des cartes sur téléphone', desc: 'Un fin trait doré vertical apparaissait au bord droit des cartes, juste à gauche de la barre de défilement, au point de se lire comme un second ascenseur. Ce n’était pas une barre de défilement mais le repère de la poignée qui sert à élargir une carte : il s’allume au survol de la souris, et un téléphone garde cet état de survol accroché après le premier appui, sans jamais le retirer. Le repère ne s’affiche donc plus sur les écrans tactiles, où rien ne survole. La poignée reste saisissable et l’élargissement fonctionne comme avant ; sur ordinateur, le repère répond au survol comme toujours.' },
   { id: 'dtpu-20260918-impact-survol', ts: Date.UTC(2026, 8, 18, 10, 0), title: 'Le tag Impact marché suit enfin la même grammaire que ses voisins', desc: 'La pastille « Impact marché » se remplissait de vert dès le survol, quand les pastilles Info, Analyse et Réaction se contentent d’y changer leur couleur et leur contour. Sur téléphone, cet état de survol reste accroché après un appui : la pastille gardait donc son fond vert une fois le panneau refermé, seule de sa rangée. Elle rejoint la règle commune : contour et couleur au survol, fond teinté seulement quand son panneau est ouvert, et la même intensité de teinte que les trois autres lectures.' },
   { id: 'dtpu-20260918-fx-weekly-important', ts: Date.UTC(2026, 8, 18, 8, 0), title: 'FX Weekly et Asia FX Weekly signalés en important', desc: 'Les deux rendez-vous hebdomadaires de la recherche bancaire, FX Weekly et Asia FX Weekly, ressortent désormais en rouge dans la liste de l’onglet INSTITUTIONS, à chaque nouvelle sortie, comme les actualités majeures du fil. Une ligne déjà lue s’assagit mais garde sa couleur : vos hebdos de référence se retrouvent d’un coup d’œil, même au milieu de centaines de documents.' },
@@ -4785,10 +4787,31 @@ const _FF_TAUX = {
   CAD: 'Overnight Rate', CHF: 'SNB Policy Rate', CNY: 'Loan Prime Rate', CNH: 'Loan Prime Rate',
 };
 const _FF_TAUX_RX = /^(?:[a-z]{2,5}\s+)?interest\s+rate\s+decision|^rate\s+decision|^(?:[a-z]{2,5}\s+)?interest\s+rate\s+announcement/i;
-function _ffTitleStatic(t, ccy) {
+/* PAYS D'ORIGINE SOUS EUR (31/08, capture user « c'est marqué EUR CPI mais en fait c'est German
+   CPI » + comparaison directe avec forexfactory.com) : la zone euro n'a pas UN institut de
+   statistiques mais dix-sept, et TradingView le sait — `ctry` (DE/FR/ES/IT…, cf. CC2CCY dans
+   scrapers/tvcalendar.js) distingue déjà le CPI allemand du CPI français DANS LES DONNÉES. Ce que
+   la table de secours ci-dessus ne faisait pas, c'est le RÉPERCUTER à l'affichage : elle rendait
+   « CPI y/y » pour les deux, IDENTIQUE au nom que porte le VRAI agrégat zone euro (ctry vide ou
+   « EU », publié par Eurostat) — la ligne perdait exactement l'information que porte son pays.
+   FF, lui, préfixe toujours la publication nationale (« German Prelim CPI m/m », « French
+   Flash CPI y/y ») et ne laisse un nom nu qu'à l'agrégat zone euro : c'est cette convention qu'on
+   reproduit, avec les MÊMES adjectifs anglais que FF (le reste de cette table est déjà en VO pour
+   la même raison, cf. commentaire plus haut — « le trader lit FF »). Uniquement les membres
+   confirmés par CC2CCY ; l'agrégat (ctry '' ou 'EU') ne reçoit aucun préfixe, comme sur FF. */
+const _FF_EURO_CTRY_ADJ = {
+  DE: 'German', FR: 'French', IT: 'Italian', ES: 'Spanish', NL: 'Dutch', PT: 'Portuguese',
+  GR: 'Greek', IE: 'Irish', BE: 'Belgian', AT: 'Austrian', FI: 'Finnish',
+};
+function _ffTitleStatic(t, ccy, ctry) {
   const s = String(t || '').trim();
-  if (_FF_TAUX_RX.test(s)) return _FF_TAUX[String(ccy || '').toUpperCase()] || null;
-  for (const [re, ff] of _FF_TITLE_RULES) if (re.test(s)) return ff;
+  const CCY = String(ccy || '').toUpperCase();
+  if (_FF_TAUX_RX.test(s)) return _FF_TAUX[CCY] || null;
+  for (const [re, ff] of _FF_TITLE_RULES) {
+    if (!re.test(s)) continue;
+    const adj = CCY === 'EUR' ? _FF_EURO_CTRY_ADJ[String(ctry || '').toUpperCase()] : null;
+    return adj ? adj + ' ' + ff : ff;
+  }
   return null;
 }
 // Index du flux FF par devise, reconstruit au plus une fois par minute (le flux ne bouge pas plus vite).
@@ -4823,7 +4846,7 @@ function _ffDisplayTitle(ev) {
       if (best && bestOv >= 2) return best.title;                    // 2 mots-clés communs = même indicateur
     }
   } catch {}
-  return _ffTitleStatic(ev.title, ev.currency) || ev.title;
+  return _ffTitleStatic(ev.title, ev.currency, ev.ctry) || ev.title;
 }
 /* ── NIVEAUX D'INDICE : à retirer quand le TAUX correspondant sort en même temps ──────────────────
    Constaté le 12/08 sur le CPI américain (deux lignes « CPI » à 14h30, capture user) : TradingView
@@ -12233,7 +12256,18 @@ async function generateWeeklyRecapAI(force = false) {
   // GEW), DATÉES + réel/attendu → garantit que le recap couvre les DÉCISIONS DE TAUX (BoC…) et les gros prints
   // (PIB, CPI, emploi) que l'IA omettait, et fournit la DATE pour horodater chaque puce. (Demande user : BoC/GBP GDP + dates.)
   let _twMajors = [];
-  try { _twMajors = await _buildTVCalendar(); } catch {}
+  try { _twMajors = _calFfNames(await _buildTVCalendar()); } catch {}
+  /* MÊME PASSAGE PAR _calFfNames QUE L'ONGLET CALENDRIER, LA SEMAINE À VENIR ET LES RÉCAPS DE
+     SÉANCE (demande user 31/08, « met à jour le template mail dès que tu fais une mise à jour du
+     récap hebdo du desk pour garder la cohérence et synchro ») : `_buildTVCalendar` rend le flux
+     BRUT TradingView, et le Récap Hebdo (majorReleases, les publications de la semaine, les
+     échéances à venir par devise) le lisait tel quel — seul consommateur de `_buildTVCalendar`
+     dans TOUT le fichier à ne PAS passer par la couche qui donne son nom ForexFactory à chaque
+     ligne (celle qui vient d'apprendre à préfixer les publications nationales de la zone euro,
+     « German CPI » et non « CPI »). Le mail sortait donc le titre brut du fournisseur pendant que
+     le desk affichait déjà le nom ForexFactory — deux vocabulaires pour le même calendrier, sur
+     les deux surfaces que ce ticket demandait explicitement de garder synchrones. Un seul point
+     d'application, avant tout filtrage, comme pour la Semaine à Venir. */
   const majorReleases = (_twMajors || [])
     .filter(e => e && e.impact === 'High' && inWeek(e.timestamp) && e.title)
     .sort((a, b) => a.timestamp - b.timestamp)
@@ -23487,6 +23521,14 @@ async function _buildRecapCalendar(weekStart, weekEnd) {
   let cal = [];
   try { cal = await _buildTVCalendar(); } catch {}
   if (!Array.isArray(cal) || !cal.length) cal = (_tvCalCache && _tvCalCache.items) || [];
+  // MÊME NOM QUE LE CALENDRIER DU DESK (31/08, demande user « pareil pour le calendrier économique
+  // template mail et celui du desk ») : cette fonction alimente directement `weekly.calendar`, le
+  // tableau HTML « Chiffres publiés / À surveiller » du mail Récap Hebdo — le SEUL des trois blocs
+  // calendrier de ce rapport à rester sur le flux brut TradingView pendant que `majorReleases` en
+  // était déjà retiré plus haut dans ce même correctif. Sans ce passage, le tableau du mail aurait
+  // affiché « CPI y/y » pour une publication allemande pendant que le desk affiche « German CPI
+  // y/y » pour le même événement — deux calendriers désynchronisés dans le même rapport.
+  try { cal = _calFfNames(cal); } catch {}
   const _key = e => String(e.currency || '') + '|' + String(e.title || '').toLowerCase().replace(/\s+/g, ' ').trim() + '|' + new Date(e.timestamp || 0).toISOString().slice(0, 10);
   const _dayFr = ts => { const s = new Date(ts).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }); return s.charAt(0).toUpperCase() + s.slice(1); };
   const _ev = e => ({ time: e.time || '', ccy: e.currency || '', title: String(e.title || '').slice(0, 90), actual: e.actual || '', forecast: e.forecast || '', previous: e.previous || '', impact: e.impact || '', major: _isMajorCal(e) });
