@@ -1916,6 +1916,32 @@ function phaseLogique() {
         mob.barreGrille === 'none', 'barre grille : ' + mob.barreGrille);
       verif('… et le fil garde sa barre fine historique dans sa carte',
         mob.barreFil === 'thin', 'barre fil : ' + mob.barreFil);
+
+      /* ── Ligne en cours du CALENDRIER mobile : UN cadre, pas un treillis (31/08, capture user
+         « corrige ce bug de contours ») ──────────────────────────────────────────────────────────
+         Sur mobile chaque ligne devient une carte-grille : l'outline de `.cal-row--next` se peint
+         enfin (cadre extérieur voulu) MAIS les ombres internes par cellule — le remède du BUREAU
+         au collapse de la table — se peignaient aussi : chaque champ (heure, devise, valeurs)
+         portait son trait or haut+bas. Rejoué ici : onglet CALENDRIER à 390px, la ligne à venir
+         du bouchon (BoJ Core CPI) doit porter le cadre SUR LA LIGNE et AUCUNE ombre par cellule. */
+      await pm.evaluate(() => { const t = document.querySelector('.nav-item[data-view="calendar"]'); if (t) t.click(); });
+      await new Promise(r => setTimeout(r, 2200));
+      const calMob = await pm.evaluate(() => {
+        const next = document.querySelector('#view-calendar .cal-row--next');
+        if (!next) return { ko: 'aucune ligne en cours rendue' };
+        const tds = [...next.querySelectorAll(':scope > td')];
+        return {
+          enGrille: getComputedStyle(next).display === 'grid',
+          cadreLigne: getComputedStyle(next).outlineStyle === 'solid',
+          ombresParCellule: tds.filter(td => getComputedStyle(td).boxShadow !== 'none').length,
+          cellules: tds.length,
+        };
+      });
+      verif('calendrier mobile : la ligne en cours est bien une carte-grille avec SON cadre',
+        !calMob.ko && calMob.enGrille && calMob.cadreLigne, JSON.stringify(calMob));
+      verif('… et plus AUCUNE ombre or par cellule (le treillis de la capture)',
+        !calMob.ko && calMob.ombresParCellule === 0,
+        (calMob.ombresParCellule || 0) + ' cellule(s) encore ombrée(s) sur ' + (calMob.cellules || 0));
       await pm.close();
     }
   } catch (e) {

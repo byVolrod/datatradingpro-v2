@@ -16476,6 +16476,12 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
     padding: 0 !important; text-align: left !important; white-space: normal !important;
     overflow: visible !important; border: 0 !important;
   }
+  /* ⚠️ LIGNE EN COURS : le cadre or se peint ICI par l'outline de `.cal-row--next` (sur une grille,
+     contrairement au <tr> de table, il se peint fiablement) — les ombres internes par CELLULE,
+     elles, sont le remède du BUREAU au collapse de la table (29/08) et n'ont pas cours ici : sur
+     la carte empilée, chaque champ peignait son trait haut+bas → un treillis doré autour de
+     chaque champ (31/08, capture user « corrige ce bug de contours »). Un seul cadre, extérieur. */
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row--next > td { box-shadow: none; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-time  { grid-column: 1 / 4;  font-size: 14px !important;
                                       font-weight: var(--fw-bold, 700); }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag  { grid-column: 4 / 5;  font-size: 13px !important; }
