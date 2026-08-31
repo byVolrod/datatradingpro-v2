@@ -5235,7 +5235,11 @@ async function toggleCalDetailRow(tr, ev) {
   const timeStr = calFormatTime(ev.timestamp) || ev.time || '';
   const detailRow = document.createElement('tr');
   detailRow.className = 'cal-detail-row';
-  detailRow.innerHTML = `<td colspan="10"><div class="cal-detail-inline">
+  // colspan DYNAMIQUE, comme la ligne de séparation de jour (même formule) : figé à 10, il déclarait
+  // deux colonnes inexistantes dès que le lecteur masque Haut et Bas dans les réglages de l'onglet
+  // (la table n'en compte alors que 8) — le navigateur ajoutait au modèle deux colonnes fantômes.
+  const _nbCol = 8 + (_calColVisible('colhigh') ? 1 : 0) + (_calColVisible('collow') ? 1 : 0);
+  detailRow.innerHTML = `<td colspan="${_nbCol}"><div class="cal-detail-inline">
       <div class="cal-detail-inline-head">
         <span class="cal-detail-flag">${CAL_FLAG(ev.currency)}</span>
         <div>

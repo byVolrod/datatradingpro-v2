@@ -7505,10 +7505,19 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
 .cal-hist-date { font-size: 10px; color: var(--text3); margin-top: 3px; letter-spacing: .02em; }
 
 /* ── Déroulé INLINE d'un événement (accordéon sous la ligne — remplace la modale) ── */
-.cal-detail-row > td { padding: 0; background: var(--bg); border-bottom: 1px solid #1d1d22; }
+/* ⚠️ FOND TRANSPARENT, PAS `var(--bg)` (31/08, capture user : « quand la news se déroule ça crée un
+   vide noir à droite, à côté du scroller »). La place de l'ascenseur est réservée en permanence sur
+   `.cal-table-wrap` (`scrollbar-gutter: stable`, 30/08, pour que dérouler ne décale plus la table) :
+   une bande de 10 px, mesurée, sépare donc TOUJOURS le bord droit de la table du bord du panneau.
+   Cette bande montre le fond du conteneur (#090909) — invisible tant que les lignes sont
+   transparentes et posent le même fond, mais le déroulé, lui, peignait `var(--bg)` (#0d0e11, plus
+   clair) : la bande devenait un creux sombre le long du panneau, et seulement quand il est ouvert.
+   Le panneau reprend donc le fond de la table ; il reste délimité par son liseré or à gauche, ses
+   filets et ses cartes intérieures (`--bg2`). */
+.cal-detail-row > td { padding: 0; background: transparent; border-bottom: 1px solid #1d1d22; }
 .cal-detail-inline { border-left: 2px solid var(--orange); overflow-x: auto; animation: calDetailIn .16s ease-out; }
 .cal-detail-inline-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px 2px; }
-.cal-detail-row:hover > td { background: var(--bg); }   /* le déroulé n'a pas l'effet hover des lignes */
+.cal-detail-row:hover > td { background: transparent; }   /* le déroulé n'a pas l'effet hover des lignes */
 
 .cal-table thead th {
   position: sticky;
@@ -7781,10 +7790,16 @@ html[data-theme="light"] .cal-day-sep td {
 }
 
 /* Row state variants */
+/* ⚠️ PAS D'`outline` ICI (31/08, capture user « il y a 2 contours dorés », mesurée au grossissement
+   ×4 sur le bord droit : deux liserés or parallèles séparés par un creux sombre). Le cadre était
+   peint DEUX FOIS — l'`outline` du <tr>, posée à l'origine, ET les ombres internes par cellule
+   ajoutées le 29/08 quand on a cru l'`outline` muette dans une table. Elle ne l'est pas : elle se
+   peint, décalée d'un pixel des ombres (l'`outline` suit le bord du <tr>, l'ombre le bord intérieur
+   de la cellule, que sa `border-right` déplace). Un seul cadre par mode, désormais : les OMBRES sur
+   le bureau (table en `border-collapse`, cf. le commentaire ci-dessous), l'`outline` sur téléphone
+   (carte en grille, où les ombres sont éteintes — bloc ≤560px). */
 .cal-row--next {
   background: rgba(227,178,58,0.05);
-  outline: 1px solid rgba(227,178,58,0.6);
-  outline-offset: -1px;
   position: relative;
   z-index: 1;
 }
@@ -16491,7 +16506,13 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      contrairement au <tr> de table, il se peint fiablement) — les ombres internes par CELLULE,
      elles, sont le remède du BUREAU au collapse de la table (29/08) et n'ont pas cours ici : sur
      la carte empilée, chaque champ peignait son trait haut+bas → un treillis doré autour de
-     chaque champ (31/08, capture user « corrige ce bug de contours »). Un seul cadre, extérieur. */
+     chaque champ (31/08, capture user « corrige ce bug de contours »). Un seul cadre, extérieur.
+     L'`outline` est posée ICI et NULLE PART AILLEURS depuis le 31/08 : à la garder aussi dans la
+     règle commune, elle doublait le cadre du bureau (deux liserés or parallèles, mesurés). */
+  :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row--next {
+    outline: 1px solid rgba(227,178,58,0.6);
+    outline-offset: -1px;
+  }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row--next > td { box-shadow: none; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-time  { grid-column: 1 / 4;  font-size: 14px !important;
                                       font-weight: var(--fw-bold, 700); }
