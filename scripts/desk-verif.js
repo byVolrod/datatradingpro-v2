@@ -1133,18 +1133,24 @@ function phaseLogique() {
 
       /* ── FX Weekly / Asia FX Weekly EN IMPORTANT (31/08, demande user « comme sur l'image à
          chaque sortie ») : renderBrList pose `arl-row--imp` sur un motif titre à « asia »
-         OPTIONNEL — un seul motif couvre les deux hebdos, chaque sortie est prise d'office. La
-         feuille peint le titre au rouge d'alerte, thème clair compris. Le rendu a été prouvé en
-         sonde (12 lignes marquées sur 24, titre rgb(255, 90, 61) contre 230, 230, 234) ; ici on
-         épingle les DEUX moitiés écrites, celles dont la disparition ferait tout retomber. */
+         OPTIONNEL — un seul motif couvre les deux hebdos, chaque sortie est prise d'office.
+         ⚠️ LA PEINTURE A CHANGÉ LE MÊME JOUR (2e capture user : « le texte ne doit pas être en
+         rouge, juste le hover, comme pour les news importantes ») : la première version teintait le
+         TITRE en #ff5a3d ; elle suit désormais la grammaire du fil (`.news-item--high`) — teinte de
+         FOND rouge qui se renforce au survol, titre laissé blanc. On épingle donc ce qui fait
+         vraiment la règle aujourd'hui : le marquage côté app.js, et le fond (repos + survol) côté
+         feuille, thème clair compris — ET l'absence de retour du titre rouge. */
       {
         const APPJS = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
         const FEUILLE = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
         verif('renderBrList marque les hebdos FX Weekly (motif à « asia » optionnel → arl-row--imp)',
           /\(asia\\s\+\)\?fx\\s\+weekly/.test(APPJS) && /arl-row--imp/.test(APPJS));
-        verif('… et la feuille peint la ligne importante (titre rouge + variante thème clair)',
-          /\.arl-row--imp \.arl-ttl \{ color: #ff5a3d/.test(FEUILLE)
-          && /body\.theme-light \.arl-row--imp \.arl-ttl/.test(FEUILLE));
+        verif('… et la feuille teinte le FOND de la ligne importante (repos + survol, thème clair compris)',
+          /\.arl-row--imp \{ background: rgba\(220, 38, 38/.test(FEUILLE)
+          && /\.arl-row--imp:hover \{ background: rgba\(220, 38, 38/.test(FEUILLE)
+          && /body\.theme-light \.arl-row--imp \{ background: rgba\(220, 38, 38/.test(FEUILLE));
+        verif('… et le titre n\'est JAMAIS repeint en rouge (grammaire du fil : fond teinté, texte blanc)',
+          !/\.arl-row--imp \.arl-ttl \{ color: #ff5a3d/.test(FEUILLE));
       }
     }
 

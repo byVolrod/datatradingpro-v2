@@ -5558,6 +5558,9 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
    désindentation aurait aussi décalé les lignes qui s'enroulent sur plusieurs lignes). */
 .wr-bullet { color:#e8eaed; font-size:11.5px; line-height:1.55; margin:0 0 10px; padding-left:14px; position:relative; }
 .wr-bullet strong { color:#fff; font-weight:var(--fw-semibold); }
+/* Jour de la chronologie géopolitique : blanc, POIDS NORMAL (31/08, demande user). Il situe la
+   ligne, il ne la hiérarchise pas — d'où ni gras ni or, contrairement aux intitulés de puce. */
+.wr-gt-jour { color:#fff; font-weight:400; }
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }
 /* Weekly Recap — Section BANQUES CENTRALES (synthèse par banque + Interprétation de marché) */
 .wr-cb-grid { display:flex; flex-direction:column; gap:10px; margin:8px 0 4px; }
@@ -21586,18 +21589,20 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
 
 /* ═══ INSTITUTIONS : FX WEEKLY ET ASIA FX WEEKLY EN IMPORTANT (31/08, demande user « comme sur
    l'image à chaque sortie ») ═══════════════════════════════════════════════════════════════════
-   Les deux hebdos de référence ressortent dans la liste comme les news majeures du fil : titre au
-   rouge d'alerte de la charte (#ff3d00, jeton SELL/alerte) + légère teinte de ligne. La classe est
-   posée par renderBrList (motif titre, « asia » optionnel) — voir app.js. */
-.arl-row--imp { background: rgba(220, 38, 38, 0.05); }
-.arl-row--imp:hover { background: rgba(220, 38, 38, 0.1); }
-.arl-row--imp .arl-ttl { color: #ff5a3d; font-weight: var(--fw-semibold, 600); }
-.arl-row--imp .br-doc-ico { color: #ff5a3d; }
-/* Lu : la ligne s'assagit comme les autres, la couleur reste (on doit retrouver l'hebdo d'un œil). */
-.arl-row--imp.arl-row--read .arl-ttl { color: rgba(255, 90, 61, 0.62); font-weight: 400; }
-body.theme-light .arl-row--imp { background: rgba(220, 38, 38, 0.06); }
-body.theme-light .arl-row--imp .arl-ttl, body.theme-light .arl-row--imp .br-doc-ico { color: #c22415; }
-body.theme-light .arl-row--imp.arl-row--read .arl-ttl { color: rgba(194, 36, 21, 0.6); }
+   ⚠️ EXACTEMENT LA GRAMMAIRE DU FIL, PAS UNE VARIANTE (31/08, 2e capture user : « le texte ne doit
+   pas être en rouge, juste le hover, comme pour les news importantes »). Une news majeure du fil
+   (`.news-item--high`, ligne 1427) porte une TEINTE DE FOND rouge qui se renforce au survol, et
+   garde son titre en BLANC — jamais de texte rouge. La première version teintait le titre et
+   l'icône en #ff5a3d : deux surfaces du même desk disaient « important » de deux façons
+   différentes. On reprend les valeurs du fil au centième (0.10 au repos, 0.17 au survol). */
+.arl-row--imp { background: rgba(220, 38, 38, 0.10); }
+.arl-row--imp:hover { background: rgba(220, 38, 38, 0.17); }
+/* Lu : la ligne s'assagit comme les autres — la teinte de fond reste, plus discrète, pour qu'on
+   retrouve l'hebdo d'un œil sans qu'il crie une seconde fois. */
+.arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.05); }
+body.theme-light .arl-row--imp { background: rgba(220, 38, 38, 0.09); }
+body.theme-light .arl-row--imp:hover { background: rgba(220, 38, 38, 0.15); }
+body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.05); }
 
 /* Repère de la poignée d'élargissement (`.wdg-resize-e`) sur écran tactile : voir le contour de
    `.wdg-card` et son `@media (hover: none)`, à côté de la règle `.wdg-card:has(.wdg-resize-e:hover)`

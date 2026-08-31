@@ -9989,7 +9989,10 @@ function _renderWeeklyRecap(item) {
       _gt.jours.forEach(j => {
         const pts = (j.points || []).map(p => _wrInline(String(p).replace(/\s*[;.]\s*$/, ''))).filter(Boolean).join(' ; ');
         if (!pts) return;
-        body += `<div class="wr-bullet"><strong>${_wrEsc(j.jour)} :</strong> ${pts}</div>`;
+        // Jour EN BLANC, SANS GRAS (31/08, demande user « enlève le gras des jours et met en blanc ») :
+        // le nom du jour situe la ligne, il ne la hiérarchise pas — le gras le faisait passer devant
+        // le fait qu'il introduit. Même rendu côté mail (mailer.js, chronologie géopolitique).
+        body += `<div class="wr-bullet"><span class="wr-gt-jour">${_wrEsc(j.jour)} :</span> ${pts}</div>`;
       });
     }
     /* ══ LA MACRO REVIENT, ENTRE LA GÉOPOLITIQUE ET LES DEVISES (04/09, demande user : « il manque

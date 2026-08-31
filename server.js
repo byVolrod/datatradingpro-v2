@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260901-lecture-hebdo', ts: Date.UTC(2026, 7, 31, 23, 58), title: 'Récap Hebdo : le jour de la chronologie passe en blanc, et les hebdos importants ne crient plus en rouge', desc: 'Deux retouches de lecture. Dans la chronologie géopolitique, le nom du jour s’affichait en or et en gras : il passait devant le fait qu’il introduit alors qu’il ne fait que le situer. Il est désormais en blanc, sans gras, sur le desk comme dans le mail. Et dans la liste INSTITUTIONS, FX Weekly et Asia FX Weekly portaient un titre écrit en rouge : ils adoptent la grammaire exacte des actualités majeures du fil — une teinte de fond rouge qui se renforce au survol, et un titre qui reste blanc. Deux surfaces du desk disaient « important » de deux façons différentes.' },
   { id: 'dtpu-20260831-temoignage-decale', ts: Date.UTC(2026, 7, 31, 23, 55), title: 'Plus jamais deux e-mails le même jour : le témoignage mensuel se décale de 2 jours si besoin', desc: 'Le témoignage mensuel part toujours le premier mardi du mois — mais certaines semaines, le contenu hebdomadaire de la rotation tombe lui aussi le mardi. Les deux e-mails partaient alors le même jour, à quelques heures d’écart. Quand ce chevauchement se produit, le témoignage glisse désormais au jeudi suivant : deux jours d’écart garantis entre les deux envois.' },
   { id: 'dtpu-20260831-recaps-sans-puces', ts: Date.UTC(2026, 7, 31, 23, 50), title: 'Récap Quotidien, récaps de séance, Récap Hebdo et Récap Économique perdent leur point doré', desc: 'Chaque ligne de ces quatre rapports s’ouvrait sur une petite pastille dorée. Elle est retirée : le texte garde son retrait, plus rien ne le précède. Même geste sur le desk et dans les mails.' },
   { id: 'dtpu-20260831-poignee-contour', ts: Date.UTC(2026, 7, 31, 23, 45), title: 'Mon Desk : la poignée d’élargissement allume le contour de la carte, sans plus rien ajouter', desc: 'Une première correction avait déjà rendu le rail de la poignée plus discret, mais il restait un second trait fin, distinct de la vraie bordure de la carte : deux lignes proches, encore un peu de confusion. La poignée surligne désormais la bordure DROITE existante de la carte elle-même, rien de plus — un seul trait, celui qui délimitait déjà la carte, qui s’allume au moment précis où on peut tirer le bord pour l’élargir.' },
@@ -21449,6 +21450,100 @@ app.get('/internal/email-widget/risk-history', async (req, res) => {
 <style>html,body{margin:0;padding:0;background:#0d0e11}#box{width:600px;height:200px;box-sizing:border-box}</style>
 </head><body><div id="box"></div>
 <script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildRiskHistoryChart!=='function'){return setTimeout(go,120);}buildRiskHistoryChart('box',window.__DATA);setTimeout(function(){window.__ready=true;},1500);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+</body></html>`);
+});
+
+/* ── VIX (VOLATILITÉ) POUR LE RÉCAP HEBDO (31/08, demande user, capture du rapport de son mentor à
+   l'appui : « j'aimerais un graphique screenshot comme on a fait pour la force des devises mais là
+   pour le VIX, avec les traits comme lui qui séparent les semaines ») ─────────────────────────────
+   MÊME MÉCANIQUE QUE LES AUTRES WIDGETS DE MAIL, et c'est le point : un e-mail n'exécute pas de
+   JavaScript, donc pas d'embed TradingView vivant — la page est capturée en PNG par Puppeteer
+   (emailWidget.renderWidgetPng) puis embarquée en pièce inline. Le mentor colle une capture d'écran
+   à la main ; ici l'image se fabrique toute seule à chaque envoi, sur les vraies bougies.
+   Les données sont injectées SERVEUR (aucun fetch client, comme `strength`) : bougies horaires du
+   ^VIX sur un mois, agrégées en H4 par `_bankGroupe` — assez fin pour montrer la forme de la
+   semaine, assez large pour que les traits de séparation aient un sens.
+   LES TRAITS SÉPARENT LES SEMAINES : une plage d'axe par LUNDI trouvé dans la série (repère lu sur
+   la capture du mentor). Ils ne sont pas décoratifs — ils disent où commence la semaine que le
+   rapport raconte, sinon on lit une courbe sans savoir où poser l'œil. */
+app.get('/internal/email-widget/vix', async (req, res) => {
+  let candles = [];
+  try {
+    const { raw } = await _yfChart('^VIX', '60m', '1mo');
+    // 2 HEURES, pas 4 : c'est l'unité de la capture de référence (« VIX · 2h · TVC »), et c'est ce
+    // que le user appelait « en H2 » depuis le début. Le 60m de la source est donc groupé par 2.
+    candles = _bankGroupe(_reactCandles(raw, false), 2);
+  } catch (e) { console.warn('[email-widget vix]', e.message); }
+  // Dernier niveau + variation sur la fenêtre : la légende du mentor porte le niveau et le %.
+  const _der = candles.length ? candles[candles.length - 1].c : null;
+  const _prem = candles.length ? candles[0].o : null;
+  const _var = (_der != null && _prem) ? ((_der - _prem) / _prem * 100) : null;
+  const data = { candles, dernier: _der, variation: _var };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
+<style>html,body{margin:0;padding:0;background:#0d0e11}#vixwrap{width:600px}#box{width:600px;height:280px}
+.vx-bar{display:flex;align-items:baseline;background:#16171b;padding:6px 10px 5px;font-family:'Inter Tight',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.vx-title{font-size:11.5px;font-weight:600;color:#eceef2;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.vx-sp{flex:1}
+.vx-val{font-size:13px;font-weight:800;color:#fff;margin-right:6px}
+.vx-chg{font-size:11px;font-weight:700}
+.vx-chg.up{color:#ff3d00}.vx-chg.dn{color:#00e676}
+.vx-vide{color:#6f6f79;font-family:'Inter Tight',sans-serif;font-size:12px;padding:26px 10px;text-align:center}</style>
+</head><body><div id="vixwrap"><div class="vx-bar"><span class="vx-title">VIX · Volatilité</span><span class="vx-sp"></span></div><div id="box"></div></div>
+<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){
+function pret(){setTimeout(function(){window.__ready=true;},900);}
+function go(){
+  try{
+    if(typeof am5==='undefined'||typeof am5xy==='undefined'){return setTimeout(go,120);}
+    var D=window.__DATA||{},C=(D.candles||[]).filter(function(x){return x&&x.t&&x.c!=null;});
+    /* Une VOLATILITÉ à la hausse est un signal de RISQUE (charte : risk-off rouge) : la variation de
+       la fenêtre se lit donc en rouge quand le VIX monte, en vert quand il retombe — l'inverse d'un
+       prix d'actif, et c'est voulu. */
+    var bar=document.querySelector('.vx-bar');
+    if(D.dernier!=null&&bar){
+      var s=document.createElement('span');s.className='vx-val';s.textContent=(Math.round(D.dernier*100)/100).toFixed(2);
+      var g=document.createElement('span');g.className='vx-chg '+(D.variation>=0?'up':'dn');
+      g.textContent=(D.variation>=0?'+':'')+(Math.round((D.variation||0)*100)/100).toFixed(2)+'%';
+      bar.appendChild(s);bar.appendChild(g);
+    }
+    if(!C.length){document.getElementById('box').innerHTML='<div class="vx-vide">VIX indisponible.</div>';return pret();}
+    var root=am5.Root.new('box');root.setThemes([am5themes_Dark.new(root)]);root._logo&&root._logo.dispose();
+    var chart=root.container.children.push(am5xy.XYChart.new(root,{panX:false,panY:false,wheelX:'none',wheelY:'none',
+      paddingLeft:2,paddingRight:8,paddingTop:6,paddingBottom:2}));
+    var xAxis=chart.xAxes.push(am5xy.DateAxis.new(root,{baseInterval:{timeUnit:'hour',count:2},
+      renderer:am5xy.AxisRendererX.new(root,{minGridDistance:70}),tooltip:undefined}));
+    var yAxis=chart.yAxes.push(am5xy.ValueAxis.new(root,{renderer:am5xy.AxisRendererY.new(root,{opposite:true})}));
+    xAxis.get('renderer').labels.template.setAll({fill:am5.color(0x6f6f79),fontSize:9});
+    yAxis.get('renderer').labels.template.setAll({fill:am5.color(0x6f6f79),fontSize:9});
+    xAxis.get('renderer').grid.template.setAll({stroke:am5.color(0x1f2027),strokeOpacity:1});
+    yAxis.get('renderer').grid.template.setAll({stroke:am5.color(0x1f2027),strokeOpacity:1});
+    var serie=chart.series.push(am5xy.CandlestickSeries.new(root,{xAxis:xAxis,yAxis:yAxis,
+      valueYField:'c',openValueYField:'o',highValueYField:'h',lowValueYField:'l',valueXField:'t'}));
+    serie.columns.template.states.create('riseFromOpen',{fill:am5.color(0x00e676),stroke:am5.color(0x00e676)});
+    serie.columns.template.states.create('dropFromOpen',{fill:am5.color(0xff3d00),stroke:am5.color(0xff3d00)});
+    serie.data.setAll(C);
+    /* LES TRAITS QUI SÉPARENT LES SEMAINES : un par LUNDI de la série. On les pose sur l'axe (plage
+       de date), pas en dessin libre : ils suivent donc le zoom et l'échelle sans jamais dériver. */
+    var vus={};
+    C.forEach(function(p){
+      var d=new Date(p.t);
+      if(d.getUTCDay()!==1)return;                       // lundi seulement
+      var cle=d.toISOString().slice(0,10);
+      if(vus[cle])return;vus[cle]=1;                     // un seul trait par lundi
+      var rg=xAxis.makeDataItem({value:new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())).getTime()});
+      xAxis.createAxisRange(rg);
+      // ROUGE PLEIN, pas un pointillé doré : c'est le trait de la capture de référence, et il doit
+      // trancher sur les bougies sans se confondre avec la grille.
+      rg.get('grid').setAll({stroke:am5.color(0xff3b30),strokeOpacity:1,strokeWidth:1,visible:true,above:true});
+    });
+    pret();
+  }catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}
+}
+go();})();</script>
 </body></html>`);
 });
 

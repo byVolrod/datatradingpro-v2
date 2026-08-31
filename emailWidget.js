@@ -64,6 +64,7 @@ const SPECS = {
   regime:              { path: '/internal/email-widget/regime',            sel: '#risk-widget',  w: 600, h: 360 },
   'strength-snapshot': { path: '/internal/email-widget/strength-snapshot', sel: '#box',          w: 600, h: 380 },
   'risk-history':      { path: '/internal/email-widget/risk-history',      sel: '#box',          w: 600, h: 210 },
+  vix:                 { path: '/internal/email-widget/vix',               sel: '#vixwrap',      w: 600, h: 310 },
   bias:                { path: '/internal/email-widget/bias',              sel: '#bias-content', w: 640, h: 470 },
   'week-ahead':        { path: '/internal/email-widget/week-ahead',        sel: '.wa-wrap',      w: 640, h: 900, clipLast: '.wa-card' },
   cot:                 { path: '/internal/email-widget/cot',              sel: '#cot-grid',     w: 640, h: 640, clipLast: '.cot-cell' },
