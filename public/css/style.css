@@ -21517,3 +21517,26 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
   .wdg-grid { scrollbar-width: none; }
   .wdg-grid::-webkit-scrollbar { width: 0; height: 0; display: none; }
 }
+
+/* ═══ RECHERCHE SYMBOLE SUR TÉLÉPHONE : LA LOUPE SE DÉPLOIE EN BARRE (31/08, capture user : « il
+   manque la barre de recherche ») ═════════════════════════════════════════════════════════════
+   Sous 768px la case se comprimait à 32px : le champ faisait 30px puis 0 au focus — la liste
+   s'ouvrait mais on tapait à l'aveugle, une recherche de fait absente. Au repos la loupe reste la
+   cible compacte ; au FOCUS (le tap la donne, mesuré en sonde), la case se déploie en barre FIXE
+   par-dessus la topbar, pleine largeur : le champ devient réel, la liste #sym-dd (absolue dans la
+   case, min-width 100%) suit dessous. Au blur, tout se replie — aucun état JS, du :focus-within. */
+@media (max-width: 768px) {
+  .topbar-symbol-search:focus-within {
+    position: fixed;
+    left: 10px; right: 10px;
+    top: calc((var(--topbar-h, 54px) - 36px) / 2);
+    height: 36px;
+    width: auto; max-width: none;
+    z-index: 300;                                 /* au-dessus du contenu de la topbar (z-100) */
+    background: var(--bg2, #101014);
+    border: 1px solid var(--border2, #26262b);
+    border-radius: 6px;
+    padding: 0 10px;
+  }
+  .topbar-symbol-search:focus-within input { width: 100%; flex: 1 1 auto; min-width: 0; }
+}

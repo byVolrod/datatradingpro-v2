@@ -1969,6 +1969,30 @@ function phaseLogique() {
         !calMob.ko && calMob.ombresParCellule === 0,
         (calMob.ombresParCellule || 0) + ' cellule(s) encore ombrée(s) sur ' + (calMob.cellules || 0));
 
+      /* ── Recherche symbole : la loupe se DÉPLOIE au focus (31/08, capture user : « il manque la
+         barre de recherche ») ───────────────────────────────────────────────────────────────────
+         Sous 768px la case se comprimait à 32px et le champ tombait à 0 au focus : la liste
+         s'ouvrait, on tapait à l'aveugle. Le :focus-within la déploie en barre fixe pleine
+         largeur ; le blur la replie. Le tap donne le focus (prouvé en sonde tactile) : ici on
+         éprouve la mécanique CSS par focus(), même chemin. */
+      const rech = await pm.evaluate(async () => {
+        const inp = document.getElementById('topbar-symbol-input');
+        const box = document.querySelector('.topbar-symbol-search');
+        if (!inp || !box) return { ko: 'recherche topbar absente' };
+        const avant = Math.round(box.getBoundingClientRect().width);
+        inp.focus();
+        await new Promise(r => setTimeout(r, 350));
+        const champ = Math.round(inp.getBoundingClientRect().width);
+        const pos = getComputedStyle(box).position;
+        inp.blur();
+        await new Promise(r => setTimeout(r, 350));
+        return { avant, champ, pos, apres: Math.round(box.getBoundingClientRect().width) };
+      });
+      verif('à 390px la recherche se déploie au focus : barre fixe, champ réel (≥ 250px)',
+        !rech.ko && rech.pos === 'fixed' && rech.champ >= 250, JSON.stringify(rech));
+      verif('… et se replie en loupe compacte au blur (la topbar reprend sa place)',
+        !rech.ko && rech.apres <= 48 && rech.avant <= 48, 'repos ' + rech.avant + 'px · après blur ' + rech.apres + 'px');
+
       /* ── Vue adoptée SANS barre d'accueil : les commandes du sous-widget FLOTTENT en haut,
          jamais au pied (31/08, capture user : ↑↓ ? × en bas-gauche sous « Affichage de N sur N »).
          La vue Institutions n'a ni .panel-header ni .panel-toolbar : _poseCommandes retombe sur le
