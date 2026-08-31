@@ -19275,7 +19275,13 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
 /* Pill « Impact » du fil (4e bouton des titres importants, 20/08) : la lecture prospective de
    l'analyse d'événement, élevée au rang d'Info/Analyse/Réaction. Or DTP : c'est un éclairage,
    pas un état de marché (le vert/rouge restent aux directions). */
-.tag--impact { color: #3ddc84; border-color: rgba(61, 220, 132, .5); }
+/* ⚠️ `background: transparent` FAIT PARTIE DE LA STRUCTURE (31/08, capture user : « le fond du tag
+   impact marché doit être le même que celui du tag info »). La base commune (l.~1915) remplit les
+   quatre lectures en var(--bg2) ; Info, Analyse et Réaction s'en délestent chacune par leur
+   surcharge — celle d'Impact ne posait QUE couleur et contour : sa pastille restait remplie plus
+   sombre que ses trois voisines, seule de sa rangée. Contour sur fond transparent, comme les
+   autres : seule la COULEUR distingue une lecture. */
+.tag--impact { background: transparent; color: #3ddc84; border-color: rgba(61, 220, 132, .5); }
 .tag--impact:hover, .tag--impact.tag--active { background: rgba(61, 220, 132, .12); color: #63e89c; }
 html[data-theme="light"] .tag--impact { color: #00783d; border-color: rgba(0, 120, 61, .5); }
 html[data-theme="light"] .tag--impact:hover, html[data-theme="light"] .tag--impact.tag--active { background: rgba(0, 120, 61, .1); color: #005c2e; }

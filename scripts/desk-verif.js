@@ -906,11 +906,16 @@ function phaseLogique() {
     const tg = await page.evaluate(() => {
       const lire = it => {
         const el = window.buildNewsItem(it);
+        /* ATTACHÉ le temps de la lecture : getComputedStyle sur un nœud détaché rend des chaînes
+           vides — le fond des pastilles (contrôle 31/08) serait illisible sans ce passage au DOM. */
+        document.body.appendChild(el);
         const tags = [...el.querySelectorAll('.news-tags .tag')].map(t => ({
           txt: (t.textContent || '').trim(), cls: t.className,
+          fond: getComputedStyle(t).backgroundColor,
           drapeau: !!t.querySelector('.tag-flag'), src: (t.querySelector('.tag-flag') || {}).getAttribute
             ? t.querySelector('.tag-flag').getAttribute('src') : '', titre: t.getAttribute('title') || '',
         }));
+        el.remove();
         return tags;
       };
       return {
@@ -930,6 +935,15 @@ function phaseLogique() {
           category: 'Geopolitical', tags: ['US'], timestamp: Date.now(), priority: 'normal', _infoQuote: true }),
         recap: lire({ id: 'x4', headline: 'Récap de séance — Londres', description: 'Texte.', category: 'Market Analysis',
           tags: ['FX'], timestamp: Date.now(), priority: 'normal', _reportType: 'Session Wrap' }),
+        /* Les QUATRE LECTURES sur une même ligne (31/08, capture user : « le fond du tag impact
+           marché doit être le même que celui du tag info ») : la base commune remplit les pastilles
+           en var(--bg2), chaque lecture doit s'en délester par sa surcharge — Impact ne le faisait
+           pas et restait remplie plus sombre, seule de sa rangée. */
+        lectures: lire({ id: 'x6', headline: 'Inflation PCE : la mesure de la Fed accélère et surprend le marché',
+          description: 'La mesure d\'inflation préférée de la Fed ressort au-dessus des attentes, portée par les services et les loyers.',
+          category: 'markets', tags: ['USD'], timestamp: Date.now(), priority: 'normal',
+          analyse: ['Le chiffre dépasse le consensus de 0,2 point.'],
+          _impact: 'Verdict : dollar recherché tant que la désinflation cale, EUR/USD vendeur.' }),
         // La définition ATTENDUE, lue dans la fiche elle-même : le contrôle compare deux valeurs de
         // la page, il ne re-décrit pas l'indicateur dans le banc (une copie finirait par diverger).
         defPce: (typeof dtpKbParNom === 'function' && (dtpKbParNom('PCE') || {}).what) || '',
@@ -1176,6 +1190,18 @@ function phaseLogique() {
     verif('un récap de séance n\'en gagne pas', !_indicDe(tg.recap), JSON.stringify(tg.recap.map(t => t.txt)));
     /* Le vocabulaire des tags est FERMÉ (30/08) : une news « propos » porte le tag Info standard,
        le rhabillage « Contexte » est retiré — libellé ET classe, dans la ligne comme dans le code. */
+    /* ── Le fond des pastilles de lecture est UNIFORME (31/08, capture user) : contour sur fond
+       transparent pour les quatre — Impact gardait le remplissage var(--bg2) de la base commune,
+       sa surcharge ne posant que couleur et contour. Mesuré au computed style, pastilles au DOM. */
+    {
+      const fondDe = cl => ((tg.lectures || []).find(t => new RegExp('\\b' + cl + '\\b').test(t.cls)) || {}).fond;
+      const fInfo = fondDe('tag--info'), fImp = fondDe('tag--impact'), fAna = fondDe('tag--analyse');
+      verif('la ligne d\'essai porte bien Info, Analyse ET Impact marché',
+        !!(fInfo && fImp && fAna), JSON.stringify((tg.lectures || []).map(t => t.txt)));
+      verif('le fond de la pastille Impact marché est celui d\'Info (transparent, comme les autres)',
+        fInfo === 'rgba(0, 0, 0, 0)' && fImp === fInfo && fAna === fInfo,
+        'info ' + fInfo + ' · analyse ' + fAna + ' · impact ' + fImp);
+    }
     const _tagInfoPropos = (tg.propos || []).find(t => /tag--info/.test(t.cls));
     verif('une news « propos » porte le tag Info, jamais « Contexte »',
       !!_tagInfoPropos && /\bInfo\b/.test(_tagInfoPropos.txt)
