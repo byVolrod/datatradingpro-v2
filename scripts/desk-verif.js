@@ -2090,6 +2090,64 @@ function phaseLogique() {
         !inst.ko && inst.plaqueFond === 'rgba(0, 0, 0, 0)', 'fond : ' + inst.plaqueFond);
       verif('… et la barre d\'onglets réserve toujours la place des commandes (rien ne passe dessous)',
         !inst.ko && inst.reserveActive === true, 'réserve active : ' + inst.reserveActive);
+
+      /* ── LE RAIL DORÉ DE LA POIGNÉE NE SE PEINT PLUS SUR UN ÉCRAN TACTILE (31/08, capture user :
+         « supprime le scroller secondaire doré à gauche du scroller principal ») ─────────────────
+         Ce n'était pas une barre de défilement : c'est le repère de `.wdg-resize-e`. Sa teinte le
+         prouve — (116, 93, 43) sur un fond (33, 21, 21) dans la capture, soit l'or DTP à 45 %,
+         reproduit ici à (120, 92, 38). Il naît du CUMUL de deux survols : `.wdg-resize-e:hover`
+         pose le fond or, tandis que son `opacity: 1` PERD contre `.wdg-card:hover` (.45, plus
+         specifique). Sur iOS le survol s'accroche au premier appui et n'est jamais retire : le
+         repere devenait permanent, decale vers l'interieur par `.wdg-card--barre` donc pile a
+         gauche de la barre — deux traits cote a cote.
+         ⚠️ ON ÉMULE `hover: none` PAR CDP, ET C'EST OBLIGATOIRE : `emulateMediaFeatures` de cette
+         version de puppeteer refuse la feature `hover`. On garde un vrai survol de souris par
+         dessus : c'est exactement l'etat d'iOS — un survol accroche sur un appareil qui ne
+         survole pas. */
+      {
+        const cdp = await pm.createCDPSession();
+        await cdp.send('Emulation.setEmulatedMedia', { media: 'screen', features: [
+          { name: 'hover', value: 'none' }, { name: 'pointer', value: 'coarse' },
+          { name: 'any-hover', value: 'none' }, { name: 'any-pointer', value: 'coarse' },
+        ] });
+        const poi = await pm.$('.wdg-card .wdg-resize-e');
+        if (poi) { await poi.hover(); await new Promise(r => setTimeout(r, 300)); }
+        const rail = await pm.evaluate(() => {
+          const p = [...document.querySelectorAll('.wdg-resize-e')].find(x => x.matches(':hover'))
+                 || document.querySelector('.wdg-card .wdg-resize-e');
+          if (!p) return { ko: 'poignee absente' };
+          const r = p.getBoundingClientRect();
+          /* Le CONFINEMENT se lit au CSSOM : la non-regression au bureau ne se mesure pas ici
+             (Chromium headless rapporte `hover: none` NATIF, l'emulation ne peut pas le
+             contredire), mais une regle enfermee dans `@media (hover: none)` ne s'applique JAMAIS
+             la ou l'on survole — propriete du langage. Ce qui se verifie, c'est qu'elle y est bien
+             enfermee et que la regle d'origine garde .45 EN DEHORS. */
+          let dansMedia = 0, horsMedia = null;
+          for (const f of document.styleSheets) {
+            let regles; try { regles = f.cssRules; } catch (e) { continue; }
+            for (const g of regles) {
+              if (g.type === CSSRule.MEDIA_RULE && /hover:\s*none/.test(g.conditionText || g.media.mediaText)) {
+                for (const s of g.cssRules) if (/wdg-resize-e/.test(s.selectorText || '') && /opacity/.test(s.style.cssText)) dansMedia++;
+              } else if (g.type === CSSRule.STYLE_RULE && /\.wdg-card:hover \.wdg-resize-e::after/.test(g.selectorText || '')) {
+                horsMedia = g.style.opacity;
+              }
+            }
+          }
+          return {
+            survole: p.matches(':hover'), opacite: getComputedStyle(p, '::after').opacity,
+            poigneeVivante: getComputedStyle(p).display !== 'none' && r.width > 0,
+            taille: Math.round(r.width) + '×' + Math.round(r.height),
+            dansMedia, horsMedia,
+          };
+        });
+        verif('sur ecran tactile, le rail dore de la poignee reste ETEINT (survol accroche par iOS)',
+          !rail.ko && rail.survole === true && rail.opacite === '0', JSON.stringify(rail));
+        verif('… l\'extinction est CONFINEE au tactile (le survol du bureau garde son repere a .45)',
+          !rail.ko && rail.dansMedia >= 1 && Number(rail.horsMedia) === 0.45,
+          'regles dans @media (hover:none) : ' + rail.dansMedia + ' · hors media : ' + rail.horsMedia);
+        verif('… et la poignee reste saisissable au doigt (rien touche au comportement)',
+          !rail.ko && rail.poigneeVivante === true, 'poignee : ' + rail.taille);
+      }
       await pm.close();
     }
   } catch (e) {

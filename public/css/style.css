@@ -21570,3 +21570,23 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
 body.theme-light .arl-row--imp { background: rgba(220, 38, 38, 0.06); }
 body.theme-light .arl-row--imp .arl-ttl, body.theme-light .arl-row--imp .br-doc-ico { color: #c22415; }
 body.theme-light .arl-row--imp.arl-row--read .arl-ttl { color: rgba(194, 36, 21, 0.6); }
+
+/* ═══ LE RAIL DE LA POIGNÉE D'ÉLARGISSEMENT NE SE PEINT PLUS SUR UN ÉCRAN TACTILE (31/08, capture
+   user : « supprime le scroller secondaire doré visible à gauche du scroller principal ») ═══════
+   Ce n'était pas une barre de défilement : c'est le repère de `.wdg-resize-e`, et sa teinte le
+   prouve — mesuré sur la capture (116, 93, 43) sur un fond (33, 21, 21), soit l'or DTP à 45 %,
+   reproduit au banc à (120, 92, 38). Il naît du CUMUL de deux survols : `.wdg-resize-e:hover::after`
+   pose `background: var(--orange)` tandis que son `opacity: 1` PERD contre
+   `.wdg-card:hover .wdg-resize-e::after { opacity: .45 }`, plus spécifique (0,3,1 contre 0,2,1).
+   ⚠️ ET SUR iOS LE SURVOL NE SE RETIRE JAMAIS : il s'accroche au premier appui près du bord droit
+   et y reste. Le repère devenait donc permanent — un rail doré de 44 px, décalé vers l'INTÉRIEUR
+   par `.wdg-card--barre .wdg-resize-e { right: 8px }` (le correctif qui lui évite de recouvrir la
+   barre de défilement), c'est-à-dire posé pile à sa gauche : deux traits verticaux côte à côte,
+   qui se lisent comme un second ascenseur.
+   Un repère de survol n'a aucun sens là où rien ne survole : on l'éteint sur ces appareils. On ne
+   touche À RIEN d'autre — la poignée reste saisissable (segment centré de `pointer: coarse`,
+   mesuré 23 × 44 px), le redimensionnement au doigt est inchangé, et le rendu au bureau aussi. */
+@media (hover: none) {
+  .wdg-card:hover .wdg-resize-e::after,
+  .wdg-resize-e:hover::after { opacity: 0; }
+}
