@@ -1,0 +1,327 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<g id="f1" transform="translate(17800,2200)" data-frame="Setup types — Méthode JOT" data-miro-id="3458764682168347889">
+<rect data-type="frame" x="0" y="0" width="3840" height="3800" fill="#ffffff" data-title="Setup types — Méthode JOT" />
+<rect id="legpanel" x="140" y="110" width="3560" height="220" rx="12" fill="#f3f4f6" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168347891" />
+<rect id="chip1" x="320" y="160" width="400" height="120" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION HTF&lt;br&gt;+ REVERSAL LTF" data-text-color="#16181f" data-font-family="formular" data-font-size="20" data-font-weight="bold" data-miro-id="3458764682168347892" />
+<rect id="chip2" x="940" y="160" width="420" height="120" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="REVERSAL HTF +&lt;br&gt;CONTINUATION LTF" data-text-color="#16181f" data-font-family="formular" data-font-size="20" data-font-weight="bold" data-miro-id="3458764682168347893" />
+<rect id="chip3" x="1550" y="175" width="320" height="90" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION" data-text-color="#16181f" data-font-family="formular" data-font-size="22" data-font-weight="bold" data-miro-id="3458764682168347894" />
+<rect id="chip4" x="2075" y="175" width="270" height="90" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="REVERSAL" data-text-color="#16181f" data-font-family="formular" data-font-size="22" data-font-weight="bold" data-miro-id="3458764682168347895" />
+<rect id="chip5" x="2580" y="175" width="300" height="90" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="OPPORTUNITY" data-text-color="#16181f" data-font-family="formular" data-font-size="22" data-font-weight="bold" data-miro-id="3458764682168347896" />
+<rect id="chip6" x="3105" y="175" width="330" height="90" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="ATTENUATION" data-text-color="#16181f" data-font-family="formular" data-font-size="22" data-font-weight="bold" data-miro-id="3458764682168347897" />
+<rect id="c1title" x="1170" y="516" width="390" height="110" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168347898" />
+<rect id="c1panel" x="150" y="660" width="1730" height="860" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168347899" />
+<rect id="c1zb" x="1080" y="700" width="262" height="322" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168347900" />
+<rect id="c1zp" x="1080" y="1022" width="262" height="168" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168347901" />
+<rect id="c1band" x="152" y="1128" width="950" height="28" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168347902" />
+<circle id="c1t1a" cx="330" cy="1455" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347903" />
+<circle id="c1t1b" cx="1650" cy="835" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347904" />
+<line id="c1tl1" x1="330" y1="1455" x2="1650" y2="835" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1t1a" data-end="c1t1b" data-miro-id="3458764682168408127" />
+<circle id="c1t2a" cx="855" cy="850" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347906" />
+<circle id="c1t2b" cx="1195" cy="960" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347907" />
+<line id="c1tl2" x1="855" y1="850" x2="1195" y2="960" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1t2a" data-end="c1t2b" data-miro-id="3458764682168408128" />
+<circle id="c1p1" cx="200" cy="1110" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347908" />
+<circle id="c1p2" cx="285" cy="1345" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347909" />
+<circle id="c1p3" cx="560" cy="1010" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347910" />
+<circle id="c1p4" cx="745" cy="1185" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347911" />
+<circle id="c1p5" cx="865" cy="860" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347913" />
+<circle id="c1p6" cx="925" cy="1015" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347914" />
+<circle id="c1p7" cx="985" cy="905" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347915" />
+<circle id="c1p8" cx="1045" cy="1065" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347916" />
+<circle id="c1p9" cx="1095" cy="935" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347917" />
+<circle id="c1p10" cx="1160" cy="1125" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347918" />
+<circle id="c1p11" cx="1255" cy="875" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347919" />
+<circle id="c1p12" cx="1295" cy="975" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347920" />
+<circle id="c1p13" cx="1415" cy="708" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168347921" />
+<line id="c1s1" x1="200" y1="1110" x2="285" y2="1345" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p1" data-end="c1p2" data-miro-id="3458764682168408129" />
+<line id="c1s2" x1="285" y1="1345" x2="560" y2="1010" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p2" data-end="c1p3" data-miro-id="3458764682168408130" />
+<line id="c1s3" x1="560" y1="1010" x2="745" y2="1185" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p3" data-end="c1p4" data-miro-id="3458764682168408131" />
+<line id="c1s4" x1="745" y1="1185" x2="865" y2="860" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p4" data-end="c1p5" data-miro-id="3458764682168408132" />
+<line id="c1s5" x1="865" y1="860" x2="925" y2="1015" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p5" data-end="c1p6" data-miro-id="3458764682168408135" />
+<line id="c1s6" x1="925" y1="1015" x2="985" y2="905" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p6" data-end="c1p7" data-miro-id="3458764682168408136" />
+<line id="c1s7" x1="985" y1="905" x2="1045" y2="1065" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p7" data-end="c1p8" data-miro-id="3458764682168408137" />
+<line id="c1s8" x1="1045" y1="1065" x2="1095" y2="935" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p8" data-end="c1p9" data-miro-id="3458764682168408138" />
+<line id="c1s9" x1="1095" y1="935" x2="1160" y2="1125" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p9" data-end="c1p10" data-miro-id="3458764682168408139" />
+<line id="c1s10" x1="1160" y1="1125" x2="1255" y2="875" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p10" data-end="c1p11" data-miro-id="3458764682168408140" />
+<line id="c1s11" x1="1255" y1="875" x2="1295" y2="975" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p11" data-end="c1p12" data-miro-id="3458764682168408142" />
+<line id="c1s12" x1="1295" y1="975" x2="1415" y2="708" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c1p12" data-end="c1p13" data-miro-id="3458764682168408144" />
+<text x="180" y="706" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168347922">Méthode JOT · créé avec TradingView.com, Janv 11, 2026 21:04 UTC+1</text>
+<text x="180" y="736" font-size="18" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168347923">NZDUSD · 4h · FXCM  -0,00010 (-0,02%)</text>
+<textArea id="c1yaxis" x="1732" y="690" width="130" font-size="13" fill="#ffffff" font-family="roboto_mono" text-align="right" data-miro-id="3458764682168347924">0,69800<br />0,69600<br />0,69400<br />0,69200<br />0,69000<br />0,68800<br />0,68600<br />0,68400<br />0,68200<br />0,68000<br />0,67800<br />0,67600<br />0,67400<br />0,67200<br />0,67000<br />0,66800<br />0,66600<br />0,66400</textArea>
+<rect id="c1bdg1" x="1720" y="690" width="112" height="30" rx="4" fill="#ffffff" stroke="none" data-content="0,69666" data-text-color="#ffffff" data-font-family="roboto_mono" data-font-size="13" data-miro-id="3458764682168347925" />
+<rect id="c1bdg2" x="1720" y="1000" width="112" height="30" rx="4" fill="#ffffff" stroke="none" data-content="0,68141" data-text-color="#ffffff" data-font-family="roboto_mono" data-font-size="13" data-miro-id="3458764682168347926" />
+<rect id="c1bdg3" x="1720" y="1170" width="112" height="30" rx="4" fill="#ffffff" stroke="none" data-content="0,67365" data-text-color="#ffffff" data-font-family="roboto_mono" data-font-size="13" data-miro-id="3458764682168347927" />
+<text x="1115" y="1080" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168347928">38,20%</text>
+<text x="1115" y="1124" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407929">50,00%</text>
+<text x="1115" y="1168" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407930">61,80%</text>
+<text x="1115" y="1250" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407931">78,60%</text>
+<text x="1015" y="1495" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168407932">16 22 28 Nov 6 12 18 23 Déc 5 11 17 23 2026 8 14 20 25 Févr 5 11 17 22 Mars 5 11</text>
+<text x="185" y="1565" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168407933">TradingView</text>
+<rect id="c1co1" x="540" y="930" width="270" height="54" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Pattern de continuation&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407934" />
+<rect id="c1co2" x="930" y="770" width="200" height="54" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Break + Retest&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407935" />
+<rect id="c1co3" x="1420" y="900" width="180" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Trendline&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407936" />
+<rect id="c1co4" x="1370" y="1120" width="180" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Fibonacci&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407937" />
+<rect id="c1co5" x="1250" y="1230" width="260" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Résistance / Support&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407938" />
+<line id="c1cl1" x1="810" y1="930" x2="865" y2="860" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co1" data-end="c1p5" data-miro-id="3458764682168408145" />
+<line id="c1cl2" x1="1130" y1="824" x2="1255" y2="875" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co2" data-end="c1p11" data-miro-id="3458764682168408148" />
+<line id="c1cl3" x1="1510" y1="900" x2="1650" y2="835" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co3" data-end="c1t1b" data-miro-id="3458764682168408149" />
+<line id="c1cl4" x1="1370" y1="1146" x2="1342" y2="1106" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co4" data-end="c1zp" data-miro-id="3458764682168408150" />
+<line id="c1cl5" x1="1250" y1="1256" x2="1102" y2="1142" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co5" data-end="c1band" data-miro-id="3458764682168408152" />
+<rect id="c2title" x="2610" y="516" width="320" height="110" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="REVERSAL" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168407939" />
+<rect id="c2panel" x="1990" y="660" width="1720" height="860" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168407940" />
+<rect id="c2pkL" x="2546" y="814" width="121" height="159" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407941" />
+<rect id="c2blL" x="2546" y="973" width="121" height="313" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407942" />
+<rect id="c2pkR" x="3095" y="808" width="189" height="82" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407943" />
+<rect id="c2blR" x="3095" y="975" width="189" height="315" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407944" />
+<rect id="c2bandT" x="2066" y="820" width="1364" height="28" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407946" />
+<rect id="c2bandS" x="2066" y="964" width="1364" height="20" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407947" />
+<circle id="c2t1a" cx="2105" cy="1292" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407948" />
+<circle id="c2t1b" cx="2506" cy="858" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407949" />
+<line id="c2tl1" x1="2105" y1="1292" x2="2506" y2="858" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2t1a" data-end="c2t1b" data-miro-id="3458764682168408153" />
+<circle id="c2t2a" cx="2716" cy="1287" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407950" />
+<circle id="c2t2b" cx="3106" cy="858" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407951" />
+<line id="c2tl2" x1="2716" y1="1287" x2="3106" y2="858" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2t2a" data-end="c2t2b" data-miro-id="3458764682168408154" />
+<circle id="c2L1" cx="2107" cy="1283" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407952" />
+<circle id="c2L2" cx="2177" cy="1111" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407953" />
+<circle id="c2L3" cx="2210" cy="1177" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407958" />
+<circle id="c2L4" cx="2281" cy="984" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407959" />
+<circle id="c2L5" cx="2358" cy="896" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407960" />
+<circle id="c2L6" cx="2386" cy="962" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407961" />
+<circle id="c2L7" cx="2427" cy="830" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407962" />
+<circle id="c2L8" cx="2452" cy="896" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407963" />
+<circle id="c2L9" cx="2481" cy="880" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407964" />
+<circle id="c2L10" cx="2523" cy="995" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407965" />
+<line id="c2Ls1" x1="2107" y1="1283" x2="2177" y2="1111" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L1" data-end="c2L2" data-miro-id="3458764682168408155" />
+<line id="c2Ls2" x1="2177" y1="1111" x2="2210" y2="1177" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L2" data-end="c2L3" data-miro-id="3458764682168408156" />
+<line id="c2Ls3" x1="2210" y1="1177" x2="2281" y2="984" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L3" data-end="c2L4" data-miro-id="3458764682168408157" />
+<line id="c2Ls4" x1="2281" y1="984" x2="2358" y2="896" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L4" data-end="c2L5" data-miro-id="3458764682168408158" />
+<line id="c2Ls5" x1="2358" y1="896" x2="2386" y2="962" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L5" data-end="c2L6" data-miro-id="3458764682168408159" />
+<line id="c2Ls6" x1="2386" y1="962" x2="2427" y2="830" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L6" data-end="c2L7" data-miro-id="3458764682168408160" />
+<line id="c2Ls7" x1="2427" y1="830" x2="2452" y2="896" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L7" data-end="c2L8" data-miro-id="3458764682168408161" />
+<line id="c2Ls8" x1="2452" y1="896" x2="2481" y2="880" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L8" data-end="c2L9" data-miro-id="3458764682168408162" />
+<line id="c2Ls9" x1="2481" y1="880" x2="2523" y2="995" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2L9" data-end="c2L10" data-miro-id="3458764682168408163" />
+<circle id="c2R1" cx="2721" cy="1283" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407966" />
+<circle id="c2R2" cx="2776" cy="1116" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407968" />
+<circle id="c2R3" cx="2809" cy="1182" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407969" />
+<circle id="c2R4" cx="2881" cy="973" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407970" />
+<circle id="c2R5" cx="2963" cy="880" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407971" />
+<circle id="c2R6" cx="2996" cy="957" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407972" />
+<circle id="c2R7" cx="3037" cy="827" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407973" />
+<circle id="c2R8" cx="3062" cy="896" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407974" />
+<circle id="c2R9" cx="3095" cy="863" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407975" />
+<circle id="c2R10" cx="3119" cy="978" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407976" />
+<line id="c2Rs1" x1="2721" y1="1283" x2="2776" y2="1116" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R1" data-end="c2R2" data-miro-id="3458764682168408164" />
+<line id="c2Rs2" x1="2776" y1="1116" x2="2809" y2="1182" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R2" data-end="c2R3" data-miro-id="3458764682168408165" />
+<line id="c2Rs3" x1="2809" y1="1182" x2="2881" y2="973" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R3" data-end="c2R4" data-miro-id="3458764682168408166" />
+<line id="c2Rs4" x1="2881" y1="973" x2="2963" y2="880" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R4" data-end="c2R5" data-miro-id="3458764682168408167" />
+<line id="c2Rs5" x1="2963" y1="880" x2="2996" y2="957" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R5" data-end="c2R6" data-miro-id="3458764682168408168" />
+<line id="c2Rs6" x1="2996" y1="957" x2="3037" y2="827" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R6" data-end="c2R7" data-miro-id="3458764682168408169" />
+<line id="c2Rs7" x1="3037" y1="827" x2="3062" y2="896" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R7" data-end="c2R8" data-miro-id="3458764682168408170" />
+<line id="c2Rs8" x1="3062" y1="896" x2="3095" y2="863" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R8" data-end="c2R9" data-miro-id="3458764682168408171" />
+<line id="c2Rs9" x1="3095" y1="863" x2="3119" y2="978" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2R9" data-end="c2R10" data-miro-id="3458764682168408172" />
+<circle id="c2V1" cx="3355" cy="1275" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407977" />
+<circle id="c2V2" cx="3390" cy="1150" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407978" />
+<circle id="c2V3" cx="3427" cy="1085" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407982" />
+<line id="c2Vs1" x1="3355" y1="1275" x2="3390" y2="1150" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2V1" data-end="c2V2" data-miro-id="3458764682168408173" />
+<line id="c2Vs2" x1="3390" y1="1150" x2="3427" y2="1085" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c2V2" data-end="c2V3" data-miro-id="3458764682168408174" />
+<text x="2020" y="706" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407983">Méthode JOT · créé avec TradingView.com, Févr 01, 2026 12:13 UTC+1</text>
+<text x="2020" y="736" font-size="18" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407984">NZDUSD · 4h · FXCM  -0,00157 (-0,26%)</text>
+<textArea id="c2yaxis" x="3575" y="690" width="120" font-size="13" fill="#ffffff" font-family="roboto_mono" text-align="right" data-miro-id="3458764682168407985">0,78600<br />0,78400<br />0,78200<br />0,78000<br />0,77800<br />0,77600<br />0,77400<br />0,77200<br />0,77000<br />0,76800<br />0,76600<br />0,76400<br />0,76200<br />0,76000<br />0,75800<br />0,75600<br />0,75400<br />0,75200<br />0,75000<br />0,74800<br />0,74600<br />0,74400<br />0,74200<br />0,74000<br />0,73800<br />0,73620<br />0,73440</textArea>
+<text x="3180" y="856" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407986">78,60%</text>
+<text x="3180" y="880" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407987">61,80%</text>
+<text x="3180" y="902" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407988">50,00%</text>
+<text x="3180" y="924" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407989">38,20%</text>
+<text x="2850" y="1495" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168407990">Juin 6 12 18 24 Juill 6 11 17 23 Août 7 13 19 24 Sept 5 11 17 23 Oct 7 12 17 23</text>
+<text x="2025" y="1565" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168407991">TradingView</text>
+<rect id="c2co1" x="2330" y="1005" width="250" height="64" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal&lt;br&gt;Entry = Retest&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407992" />
+<rect id="c2co2" x="2890" y="1030" width="290" height="64" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal&lt;br&gt;Entry = Anticipation&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407993" />
+<line id="c2cl1" x1="2580" y1="1030" x2="2523" y2="995" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c2co1" data-end="c2L10" data-miro-id="3458764682168408175" />
+<line id="c2cl2" x1="3120" y1="1030" x2="3119" y2="978" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c2co2" data-end="c2R10" data-miro-id="3458764682168408176" />
+<rect id="c3title" x="860" y="1560" width="420" height="130" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION HTF&lt;br&gt;+ REVERSAL LTF" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168407994" />
+<rect id="c3panel" x="170" y="1710" width="1680" height="830" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168407995" />
+<rect id="c3box" x="428" y="2200" width="1023" height="30" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407996" />
+<circle id="c3d1a" cx="956" cy="2180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407997" />
+<circle id="c3d1b" cx="1396" cy="2180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407998" />
+<line id="c3dl1" x1="956" y1="2180" x2="1396" y2="2180" stroke="#ffffff" stroke-width="1"  data-shape="straight" data-start="c3d1a" data-end="c3d1b" data-miro-id="3458764682168408177" />
+<circle id="c3d2a" cx="956" cy="2284" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407999" />
+<circle id="c3d2b" cx="1396" cy="2284" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408000" />
+<line id="c3dl2" x1="956" y1="2284" x2="1396" y2="2284" stroke="#ffffff" stroke-width="1"  data-shape="straight" data-start="c3d2a" data-end="c3d2b" data-miro-id="3458764682168408178" />
+<circle id="c3d3a" cx="956" cy="2361" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408001" />
+<circle id="c3d3b" cx="1396" cy="2361" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408003" />
+<line id="c3dl3" x1="956" y1="2361" x2="1396" y2="2361" stroke="#ffffff" stroke-width="1"  data-shape="straight" data-start="c3d3a" data-end="c3d3b" data-miro-id="3458764682168408179" />
+<circle id="c3t1a" cx="185" cy="2140" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408004" />
+<circle id="c3t1b" cx="430" cy="2085" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408005" />
+<line id="c3tl1" x1="185" y1="2140" x2="430" y2="2085" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3t1a" data-end="c3t1b" data-miro-id="3458764682168408180" />
+<circle id="c3t2a" cx="767" cy="2003" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408006" />
+<circle id="c3t2b" cx="1424" cy="2116" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408007" />
+<line id="c3tl2" x1="767" y1="2003" x2="1424" y2="2116" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3t2a" data-end="c3t2b" data-miro-id="3458764682168408181" />
+<circle id="c3t3a" cx="576" cy="2498" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408008" />
+<circle id="c3t3b" cx="1424" cy="2042" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408009" />
+<line id="c3tl3" x1="576" y1="2498" x2="1424" y2="2042" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3t3a" data-end="c3t3b" data-miro-id="3458764682168408182" />
+<circle id="c3nka" cx="1011" cy="2154" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408010" />
+<circle id="c3nkb" cx="1165" cy="2154" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408011" />
+<line id="c3nkl" x1="1011" y1="2154" x2="1165" y2="2154" stroke="#ffffff" stroke-width="3" data-shape="straight" data-start="c3nka" data-end="c3nkb" data-miro-id="3458764682168408183" />
+<circle id="c3p1" cx="668" cy="2449" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408012" />
+<circle id="c3p2" cx="769" cy="2009" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408013" />
+<circle id="c3p3" cx="813" cy="2152" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408014" />
+<circle id="c3p4" cx="874" cy="2029" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408015" />
+<circle id="c3p5" cx="929" cy="2190" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408016" />
+<circle id="c3p6" cx="995" cy="2051" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408017" />
+<circle id="c3p7" cx="1039" cy="2212" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408018" />
+<circle id="c3p8" cx="1066" cy="2174" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408019" />
+<circle id="c3p9" cx="1094" cy="2218" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408020" />
+<circle id="c3p10" cx="1319" cy="1790" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408021" />
+<line id="c3s1" x1="668" y1="2449" x2="769" y2="2009" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p1" data-end="c3p2" data-miro-id="3458764682168408184" />
+<line id="c3s2" x1="769" y1="2009" x2="813" y2="2152" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p2" data-end="c3p3" data-miro-id="3458764682168408187" />
+<line id="c3s3" x1="813" y1="2152" x2="874" y2="2029" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p3" data-end="c3p4" data-miro-id="3458764682168408188" />
+<line id="c3s4" x1="874" y1="2029" x2="929" y2="2190" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p4" data-end="c3p5" data-miro-id="3458764682168408189" />
+<line id="c3s5" x1="929" y1="2190" x2="995" y2="2051" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p5" data-end="c3p6" data-miro-id="3458764682168408190" />
+<line id="c3s6" x1="995" y1="2051" x2="1039" y2="2212" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p6" data-end="c3p7" data-miro-id="3458764682168408191" />
+<line id="c3s7" x1="1039" y1="2212" x2="1066" y2="2174" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p7" data-end="c3p8" data-miro-id="3458764682168408193" />
+<line id="c3s8" x1="1066" y1="2174" x2="1094" y2="2218" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p8" data-end="c3p9" data-miro-id="3458764682168408194" />
+<line id="c3s9" x1="1094" y1="2218" x2="1319" y2="1790" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c3p9" data-end="c3p10" data-miro-id="3458764682168408196" />
+<text x="200" y="1756" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408022">Méthode JOT · créé avec TradingView.com, Janv 11, 2026 21:07 UTC+1</text>
+<text x="200" y="1786" font-size="18" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408024">NZDUSD · 4h · FXCM  -0,00010 (-0,02%)</text>
+<textArea id="c3yaxis" x="1700" y="1740" width="120" font-size="13" fill="#ffffff" font-family="roboto_mono" text-align="right" data-miro-id="3458764682168408025">0,70800<br />0,70600<br />0,70400<br />0,70200<br />0,70000<br />0,69800<br />0,69600<br />0,69400<br />0,69200<br />0,69000<br />0,68800<br />0,68600<br />0,68400<br />0,68200<br />0,68000<br />0,67800<br />0,67600<br />0,67400<br />0,67200<br />0,67000<br />0,66800<br />0,66600<br />0,66400<br />0,66200<br />0,66000</textArea>
+<text id="c3fL1" x="185" y="2205" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408026">38,20%</text>
+<text id="c3fL2" x="185" y="2230" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408027">50,00%</text>
+<text id="c3fL3" x="185" y="2255" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408028">61,80%</text>
+<text id="c3fL4" x="185" y="2292" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408029">78,60%</text>
+<text x="1405" y="2186" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408030">38,20%</text>
+<text x="1405" y="2234" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408031">50,00%</text>
+<text x="1405" y="2288" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408032">61,80%</text>
+<text x="1405" y="2364" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408033">78,60%</text>
+<text x="1010" y="2512" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168408034">14 20 25 Févr 5 11 17 22 Mars 5 11 17 22 26 Avr 7 12 16 22 Mai</text>
+<text x="205" y="2578" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168408035">TradingView</text>
+<rect id="c3co1" x="450" y="2095" width="180" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Trendline&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168408036" />
+<rect id="c3co2" x="340" y="2245" width="180" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Fibonacci&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168408037" />
+<rect id="c3co3" x="250" y="2320" width="260" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Résistance / Support&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168408038" />
+<rect id="c3co4" x="1290" y="2108" width="330" height="64" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Pattern de retournement&lt;br&gt;double bottom ou H&amp;S&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168408039" />
+<line id="c3cl1" x1="450" y1="2121" x2="430" y2="2085" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c3co1" data-end="c3t1b" data-miro-id="3458764682168408198" />
+<line id="c3cl2" x1="340" y1="2271" x2="240" y2="2226" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c3co2" data-end="c3fL2" data-miro-id="3458764682168408203" />
+<line id="c3cl3" x1="380" y1="2320" x2="440" y2="2228" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c3co3" data-end="c3box" data-miro-id="3458764682168408205" />
+<line id="c3cl4" x1="1290" y1="2140" x2="1165" y2="2154" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c3co4" data-end="c3nkb" data-miro-id="3458764682168408206" />
+<rect id="c4title" x="2600" y="1560" width="420" height="130" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="REVERSAL HTF +&lt;br&gt;CONTINUATION LTF" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168408040" />
+<rect id="c4panel" x="1970" y="1710" width="1680" height="830" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168408041" />
+<rect id="c4pkL" x="2507" y="1835" width="154" height="108" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408042" />
+<rect id="c4blL" x="2507" y="1943" width="154" height="376" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408043" />
+<rect id="c4pkR" x="3139" y="1899" width="196" height="64" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408048" />
+<rect id="c4blR" x="3139" y="2015" width="196" height="290" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408049" />
+<rect id="c4bandT" x="1990" y="1852" width="1350" height="28" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408050" />
+<rect id="c4bandS" x="1990" y="1996" width="1350" height="22" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408051" />
+<circle id="c4t1a" cx="2017" cy="2306" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408052" />
+<circle id="c4t1b" cx="2460" cy="1890" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408053" />
+<line id="c4tl1" x1="2017" y1="2306" x2="2460" y2="1890" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4t1a" data-end="c4t1b" data-miro-id="3458764682168408207" />
+<circle id="c4t2a" cx="2677" cy="2300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408054" />
+<circle id="c4t2b" cx="3120" cy="1890" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408055" />
+<line id="c4tl2" x1="2677" y1="2300" x2="3120" y2="1890" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4t2a" data-end="c4t2b" data-miro-id="3458764682168408208" />
+<circle id="c4Lp1" cx="2019" cy="2301" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408056" />
+<circle id="c4Lp2" cx="2083" cy="2136" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408057" />
+<circle id="c4Lp3" cx="2177" cy="2026" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408058" />
+<circle id="c4Lp4" cx="2210" cy="2119" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408059" />
+<circle id="c4Lp5" cx="2358" cy="1861" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408060" />
+<circle id="c4Lp6" cx="2430" cy="1960" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408061" />
+<circle id="c4Lp7" cx="2485" cy="1890" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408062" />
+<circle id="c4Lp8" cx="2523" cy="2025" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408063" />
+<line id="c4Lps1" x1="2019" y1="2301" x2="2083" y2="2136" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Lp1" data-end="c4Lp2" data-miro-id="3458764682168408209" />
+<line id="c4Lps2" x1="2083" y1="2136" x2="2177" y2="2026" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Lp2" data-end="c4Lp3" data-miro-id="3458764682168408210" />
+<line id="c4Lps3" x1="2177" y1="2026" x2="2210" y2="2119" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Lp3" data-end="c4Lp4" data-miro-id="3458764682168408211" />
+<line id="c4Lps4" x1="2210" y1="2119" x2="2358" y2="1861" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Lp4" data-end="c4Lp5" data-miro-id="3458764682168408212" />
+<line id="c4Lps5" x1="2358" y1="1861" x2="2430" y2="1960" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Lp5" data-end="c4Lp6" data-miro-id="3458764682168408214" />
+<line id="c4Lps6" x1="2430" y1="1960" x2="2485" y2="1890" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Lp6" data-end="c4Lp7" data-miro-id="3458764682168408215" />
+<line id="c4Lps7" x1="2485" y1="1890" x2="2523" y2="2025" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Lp7" data-end="c4Lp8" data-miro-id="3458764682168408216" />
+<circle id="c4Rp1" cx="2677" cy="2295" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408064" />
+<circle id="c4Rp2" cx="2749" cy="2119" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408065" />
+<circle id="c4Rp3" cx="2778" cy="2180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408067" />
+<circle id="c4Rp4" cx="2853" cy="1998" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408068" />
+<circle id="c4Rp5" cx="2991" cy="1861" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408069" />
+<circle id="c4Rp6" cx="3046" cy="1921" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408070" />
+<circle id="c4Rp7" cx="3084" cy="1998" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408071" />
+<circle id="c4Rp8" cx="3139" cy="2037" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408072" />
+<circle id="c4Rp9" cx="3178" cy="2119" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408073" />
+<line id="c4Rps1" x1="2677" y1="2295" x2="2749" y2="2119" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp1" data-end="c4Rp2" data-miro-id="3458764682168408218" />
+<line id="c4Rps2" x1="2749" y1="2119" x2="2778" y2="2180" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp2" data-end="c4Rp3" data-miro-id="3458764682168408219" />
+<line id="c4Rps3" x1="2778" y1="2180" x2="2853" y2="1998" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp3" data-end="c4Rp4" data-miro-id="3458764682168408220" />
+<line id="c4Rps4" x1="2853" y1="1998" x2="2991" y2="1861" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp4" data-end="c4Rp5" data-miro-id="3458764682168408221" />
+<line id="c4Rps5" x1="2991" y1="1861" x2="3046" y2="1921" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp5" data-end="c4Rp6" data-miro-id="3458764682168408222" />
+<line id="c4Rps6" x1="3046" y1="1921" x2="3084" y2="1998" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp6" data-end="c4Rp7" data-miro-id="3458764682168408223" />
+<line id="c4Rps7" x1="3084" y1="1998" x2="3139" y2="2037" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp7" data-end="c4Rp8" data-miro-id="3458764682168408224" />
+<line id="c4Rps8" x1="3139" y1="2037" x2="3178" y2="2119" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c4Rp8" data-end="c4Rp9" data-miro-id="3458764682168408225" />
+<text x="2000" y="1756" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408074">Méthode JOT · créé avec TradingView.com, Févr 01, 2026 12:13 UTC+1</text>
+<text x="2000" y="1786" font-size="18" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408075">NZDUSD · 4h · FXCM  -0,00157 (-0,26%)</text>
+<textArea id="c4yaxis" x="3495" y="1740" width="120" font-size="13" fill="#ffffff" font-family="roboto_mono" text-align="right" data-miro-id="3458764682168408076">0,78400<br />0,78200<br />0,78000<br />0,77800<br />0,77600<br />0,77400<br />0,77200<br />0,77000<br />0,76800<br />0,76600<br />0,76400<br />0,76200<br />0,76000<br />0,75800<br />0,75600<br />0,75400<br />0,75200<br />0,75000<br />0,74800<br />0,74600<br />0,74400<br />0,74200<br />0,74000<br />0,73800<br />0,73600<br />0,73420<br />0,73240</textArea>
+<text x="2565" y="1892" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408077">78,60%</text>
+<text x="2565" y="1914" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408078">61,80%</text>
+<text x="2565" y="1936" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408079">50,00%</text>
+<text x="2565" y="1958" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408080">38,20%</text>
+<text x="3215" y="1940" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408081">78,60%</text>
+<text x="3215" y="1964" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408082">61,80%</text>
+<text x="3215" y="1988" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408083">50,00%</text>
+<text x="3215" y="2010" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408084">38,20%</text>
+<text x="2810" y="2512" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168408085">23 Nov 7 13 19 25 Déc 5 11 17 23 2026 8 14 20 25 Févr 6 12 18 24 Mars 6 12 18 24</text>
+<text x="2005" y="2578" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168408086">TradingView</text>
+<rect id="c4co1" x="2080" y="2380" width="400" height="68" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal HTF + Continuation LTF&lt;br&gt;Entry = Retest (du pattern de continuation)&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="13" data-miro-id="3458764682168408087" />
+<rect id="c4co2" x="2700" y="2380" width="420" height="68" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal HTF + Continuation LTF&lt;br&gt;Entry = Anticipation (du pattern de continuation)&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="13" data-miro-id="3458764682168408088" />
+<line id="c4cl1" x1="2480" y1="2400" x2="2523" y2="2025" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c4co1" data-end="c4Lp8" data-miro-id="3458764682168408226" />
+<line id="c4cl2" x1="3120" y1="2400" x2="3178" y2="2119" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c4co2" data-end="c4Rp9" data-miro-id="3458764682168408227" />
+<rect id="c5title" x="1740" y="2770" width="360" height="110" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="ATTENUATION" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168408089" />
+<rect id="c5panel" x="1190" y="2910" width="1460" height="760" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168408090" />
+<rect id="c5pkL" x="1646" y="2978" width="175" height="75" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408091" />
+<rect id="c5blL" x="1646" y="3053" width="175" height="193" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408092" />
+<rect id="c5pkR" x="2146" y="2978" width="181" height="72" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408093" />
+<rect id="c5blR" x="2146" y="3050" width="181" height="196" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408094" />
+<rect id="c5box" x="1363" y="3012" width="900" height="26" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168408095" />
+<circle id="c5t1a" cx="1442" cy="3233" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408096" />
+<circle id="c5t1b" cx="1679" cy="3055" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408097" />
+<line id="c5tl1" x1="1442" y1="3233" x2="1679" y2="3055" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5t1a" data-end="c5t1b" data-miro-id="3458764682168408228" />
+<circle id="c5t2a" cx="1907" cy="3233" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408098" />
+<circle id="c5t2b" cx="2152" cy="3055" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408099" />
+<line id="c5tl2" x1="1907" y1="3233" x2="2152" y2="3055" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5t2a" data-end="c5t2b" data-miro-id="3458764682168408230" />
+<circle id="c5Lp1" cx="1336" cy="3410" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408100" />
+<circle id="c5Lp2" cx="1385" cy="3265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408101" />
+<circle id="c5Lp3" cx="1437" cy="3158" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408102" />
+<circle id="c5Lp4" cx="1464" cy="3214" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408103" />
+<circle id="c5Lp5" cx="1486" cy="3106" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408104" />
+<circle id="c5Lp6" cx="1516" cy="3162" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408105" />
+<circle id="c5Lp7" cx="1582" cy="3046" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408106" />
+<circle id="c5Lp8" cx="1604" cy="3088" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408107" />
+<circle id="c5Lp9" cx="1630" cy="3027" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408108" />
+<circle id="c5Lp10" cx="1652" cy="3075" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408109" />
+<line id="c5Lps1" x1="1336" y1="3410" x2="1385" y2="3265" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp1" data-end="c5Lp2" data-miro-id="3458764682168408231" />
+<line id="c5Lps2" x1="1385" y1="3265" x2="1437" y2="3158" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp2" data-end="c5Lp3" data-miro-id="3458764682168408232" />
+<line id="c5Lps3" x1="1437" y1="3158" x2="1464" y2="3214" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp3" data-end="c5Lp4" data-miro-id="3458764682168408233" />
+<line id="c5Lps4" x1="1464" y1="3214" x2="1486" y2="3106" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp4" data-end="c5Lp5" data-miro-id="3458764682168408235" />
+<line id="c5Lps5" x1="1486" y1="3106" x2="1516" y2="3162" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp5" data-end="c5Lp6" data-miro-id="3458764682168408236" />
+<line id="c5Lps6" x1="1516" y1="3162" x2="1582" y2="3046" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp6" data-end="c5Lp7" data-miro-id="3458764682168408237" />
+<line id="c5Lps7" x1="1582" y1="3046" x2="1604" y2="3088" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp7" data-end="c5Lp8" data-miro-id="3458764682168408238" />
+<line id="c5Lps8" x1="1604" y1="3088" x2="1630" y2="3027" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp8" data-end="c5Lp9" data-miro-id="3458764682168408239" />
+<line id="c5Lps9" x1="1630" y1="3027" x2="1652" y2="3075" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Lp9" data-end="c5Lp10" data-miro-id="3458764682168408240" />
+<circle id="c5Rp1" cx="1815" cy="3415" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408110" />
+<circle id="c5Rp2" cx="1863" cy="3265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408111" />
+<circle id="c5Rp3" cx="1907" cy="3158" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408112" />
+<circle id="c5Rp4" cx="1930" cy="3214" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408113" />
+<circle id="c5Rp5" cx="1955" cy="3106" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408114" />
+<circle id="c5Rp6" cx="1981" cy="3162" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408115" />
+<circle id="c5Rp7" cx="2038" cy="3046" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408116" />
+<circle id="c5Rp8" cx="2060" cy="3088" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408117" />
+<circle id="c5Rp9" cx="2086" cy="3027" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408118" />
+<circle id="c5Rp10" cx="2108" cy="3074" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408119" />
+<line id="c5Rps1" x1="1815" y1="3415" x2="1863" y2="3265" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp1" data-end="c5Rp2" data-miro-id="3458764682168408241" />
+<line id="c5Rps2" x1="1863" y1="3265" x2="1907" y2="3158" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp2" data-end="c5Rp3" data-miro-id="3458764682168408242" />
+<line id="c5Rps3" x1="1907" y1="3158" x2="1930" y2="3214" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp3" data-end="c5Rp4" data-miro-id="3458764682168408243" />
+<line id="c5Rps4" x1="1930" y1="3214" x2="1955" y2="3106" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp4" data-end="c5Rp5" data-miro-id="3458764682168408244" />
+<line id="c5Rps5" x1="1955" y1="3106" x2="1981" y2="3162" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp5" data-end="c5Rp6" data-miro-id="3458764682168408245" />
+<line id="c5Rps6" x1="1981" y1="3162" x2="2038" y2="3046" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp6" data-end="c5Rp7" data-miro-id="3458764682168408246" />
+<line id="c5Rps7" x1="2038" y1="3046" x2="2060" y2="3088" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp7" data-end="c5Rp8" data-miro-id="3458764682168408247" />
+<line id="c5Rps8" x1="2060" y1="3088" x2="2086" y2="3027" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp8" data-end="c5Rp9" data-miro-id="3458764682168408248" />
+<line id="c5Rps9" x1="2086" y1="3027" x2="2108" y2="3074" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="c5Rp9" data-end="c5Rp10" data-miro-id="3458764682168408249" />
+<circle id="c5arLtip" cx="1705" cy="3242" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408120" />
+<line id="c5arL" x1="1652" y1="3075" x2="1705" y2="3242" stroke="#ffffff" stroke-width="2" data-arrow="end" data-shape="straight" data-start="c5Lp10" data-end="c5arLtip" data-miro-id="3458764682168408250" />
+<circle id="c5arRtip" cx="2160" cy="3245" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168408121" />
+<line id="c5arR" x1="2108" y1="3074" x2="2160" y2="3245" stroke="#ffffff" stroke-width="2" data-arrow="end" data-shape="straight" data-start="c5Rp10" data-end="c5arRtip" data-miro-id="3458764682168408251" />
+<text x="1220" y="2956" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408122">Méthode JOT · créé avec TradingView.com, Janv 11, 2026 21:51 UTC+1</text>
+<text x="1220" y="2986" font-size="18" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408123">NZDUSD · 4h · FXCM  -0,00010 (-0,02%)</text>
+<textArea id="c5yaxis" x="2500" y="2990" width="130" font-size="13" fill="#ffffff" font-family="roboto_mono" text-align="right" data-miro-id="3458764682168408124">0,84000<br />0,83500<br />0,83000<br />0,82500<br />0,82000<br />0,81500<br />0,81000<br />0,80500<br />0,80000<br />0,79500<br />0,79000<br />0,78500</textArea>
+<text x="1920" y="3632" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168408125">6 11 14 19 24 Déc 4 9 12 17 22 28 2026 8 13 16 21 26 Févr 5 10 13 18 23 Mars 5 10 13 18 23</text>
+<text x="1225" y="3705" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168408126">TradingView</text>
+</g>
+</svg>

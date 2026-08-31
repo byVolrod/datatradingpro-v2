@@ -1,0 +1,378 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<g id="f1" transform="translate(9800,2200)" data-frame="L'Optimisation — Méthode JOT" data-miro-id="3458764682168153356">
+<rect data-type="frame" x="0" y="0" width="2180" height="9290" fill="#ffffff" data-title="L'Optimisation — Méthode JOT" />
+
+<line id="c_se" x1="855" y1="244" x2="885" y2="244" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="bx_sel" data-end="bx_ent" data-start-side="right" data-end-side="left" data-shape="straight" data-miro-id="3458764682168153635" />
+<line id="c_em" x1="1035" y1="244" x2="1065" y2="244" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="bx_ent" data-end="bx_man" data-start-side="right" data-end-side="left" data-shape="straight" data-miro-id="3458764682168153636" />
+<line id="c_mc" x1="1215" y1="244" x2="1245" y2="244" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="bx_man" data-end="bx_clo" data-start-side="right" data-end-side="left" data-shape="straight" data-miro-id="3458764682168153637" />
+<line id="c_cs" x1="1395" y1="230" x2="780" y2="215" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="bx_clo" data-end="bx_sel" data-start-side="right" data-end-side="top" data-shape="curved" data-miro-id="3458764682168153638" />
+<line id="c_eo" x1="960" y1="268" x2="960" y2="304" stroke="#5f626e" stroke-width="2" data-arrow="both" data-start="bx_ent" data-end="bx_opt" data-start-side="bottom" data-end-side="top" data-shape="straight" data-miro-id="3458764682168153639" />
+<rect id="bx_sel" x="705" y="220" width="150" height="48" rx="12" fill="#f6f7f9" stroke="#c9ccd4" stroke-width="2" data-content="Sélection" data-text-color="#16181f" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153358" />
+<rect id="bx_ent" x="885" y="220" width="150" height="48" rx="12" fill="#f6f7f9" stroke="#c9ccd4" stroke-width="2" data-content="Entry" data-text-color="#16181f" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153359" />
+<rect id="bx_man" x="1065" y="220" width="150" height="48" rx="12" fill="#f6f7f9" stroke="#c9ccd4" stroke-width="2" data-content="Management" data-text-color="#16181f" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153360" />
+<rect id="bx_clo" x="1245" y="220" width="150" height="48" rx="12" fill="#f6f7f9" stroke="#c9ccd4" stroke-width="2" data-content="Close" data-text-color="#16181f" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153361" />
+<rect id="bx_opt" x="885" y="304" width="150" height="48" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="Optimisation" data-text-color="#16181f" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153362" />
+
+<textArea id="t_intro1" x="600" y="392" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153363">Le but de l’optimisation : maximiser tes chances de réussite avant d’entrer dans ton trade.</textArea>
+<textArea id="t_intro2" x="600" y="422" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153364">L’optimisation, c’est transformer un bon setup en un trade maîtrisé.</textArea>
+<textArea id="t_intro3" x="600" y="452" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153365">Tu ne veux pas le trade parfait -&gt; tu veux le trade avec le meilleur <b>équilibre entre probabilité et sécurité</b>.</textArea>
+
+<line id="c_rr_sl" x1="960" y1="880" x2="915" y2="940" stroke="#e3b23a" stroke-width="2" data-arrow="end" data-start="mm_rrr" data-end="mm_sl" data-start-side="left" data-end-side="top" data-shape="curved" data-miro-id="3458764682168153640" />
+<line id="c_tp_rr" x1="1172" y1="940" x2="1140" y2="875" stroke="#e3b23a" stroke-width="2" data-arrow="end" data-start="mm_tp" data-end="mm_rrr" data-start-side="top" data-end-side="right" data-shape="curved" data-miro-id="3458764682168153641" />
+<line id="c_en_sl" x1="982" y1="965" x2="950" y2="962" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="mm_ent" data-end="mm_sl" data-start-side="bottom" data-end-side="bottom" data-shape="curved" data-miro-id="3458764682168153642" />
+<line id="c_en_tp" x1="1102" y1="965" x2="1140" y2="962" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="mm_ent" data-end="mm_tp" data-start-side="bottom" data-end-side="bottom" data-shape="curved" data-miro-id="3458764682168153643" />
+<text id="mm_rrr" x="1048" y="880" text-anchor="middle" font-size="20" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168153366">RISK TO REWARD RATIO</text>
+<text id="mm_sl" x="915" y="962" text-anchor="middle" font-size="20" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168153367">STOP LOSS</text>
+<text id="mm_tp" x="1172" y="962" text-anchor="middle" font-size="20" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168153368">TAKE PROFIT</text>
+<rect id="mm_ent" x="982" y="931" width="120" height="44" rx="12" fill="#f6f7f9" stroke="#c9ccd4" stroke-width="2" data-content="Entry" data-text-color="#16181f" data-font-size="13" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153369" />
+
+<rect id="pill_rr" x="897" y="1315" width="300" height="38" rx="6" fill="#e3b23a" stroke="none" data-content="RISK TO REWARD RATIO (RR)" data-text-color="#101014" data-font-size="15" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153370" />
+<textArea id="t_rr1" x="600" y="1386" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153371">Le but n’est pas d’avoir le RR le plus grand, mais le RR le plus réaliste.</textArea>
+<textArea id="t_rr2" x="600" y="1412" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153372">Optimisation pour la sécurité -&gt; higher winrate, lower profit<br />Optimisation pour le profit -&gt; lower winrate, higher profit</textArea>
+<textArea id="t_rr3" x="600" y="1498" width="900" font-size="20" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153373">Minimum acceptable <b>RR = 1:2</b></textArea>
+
+<rect id="rrz_win" x="952" y="1554" width="196" height="160" fill="#ffffff" stroke="none" data-miro-id="3458764682168153374" />
+<rect id="rrz_loss" x="952" y="1714" width="196" height="74" fill="#ffffff" stroke="none" data-miro-id="3458764682168153375" />
+<circle id="anc0a" cx="920" cy="1554" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153376" />
+<circle id="anc0b" cx="1180" cy="1554" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153377" />
+<line id="ancl0" x1="920" y1="1554" x2="1180" y2="1554" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc0a" data-end="anc0b" data-miro-id="3458764682168153644" />
+<circle id="anc1a" cx="920" cy="1714" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153378" />
+<circle id="anc1b" cx="1180" cy="1714" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153379" />
+<line id="ancl1" x1="920" y1="1714" x2="1180" y2="1714" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc1a" data-end="anc1b" data-miro-id="3458764682168153645" />
+<circle id="anc2a" cx="920" cy="1788" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153380" />
+<circle id="anc2b" cx="1180" cy="1788" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153381" />
+<line id="ancl2" x1="920" y1="1788" x2="1180" y2="1788" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc2a" data-end="anc2b" data-miro-id="3458764682168153646" />
+<rect id="rrb_top" x="975" y="1544" width="150" height="20" rx="4" fill="#ffffff" stroke="none" data-content="7.327 (3.55%) 306.01" data-text-color="#ffffff" data-font-size="10" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153382" />
+<rect id="rrb_mid" x="995" y="1704" width="112" height="20" rx="4" fill="#ffffff" stroke="none" data-content="-30.075 ~ 822" data-text-color="#ffffff" data-font-size="10" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153383" />
+<rect id="rrb_bot" x="980" y="1778" width="140" height="20" rx="4" fill="#ffffff" stroke="none" data-content="3.655 (1.77%) 297" data-text-color="#ffffff" data-font-size="10" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153384" />
+
+<textArea id="t_rr4" x="600" y="1844" width="900" font-size="19" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153385">En dessous, le trade n’a pas assez de potentiel.</textArea>
+<textArea id="t_rr5" x="600" y="1906" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153386">Quand tu débutes ou que tu cherches la constance :<br />Vise un RR plus faible (1:2) pour augmenter ton winrate.<br />Ton but = <i>gagner souvent</i> avant de <i>gagner gros</i>.</textArea>
+<textArea id="t_rr6" x="600" y="1970" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153387">Avec le temps, augmente ton RR à mesure que ton entrée et ton timing<br />deviennent plus précis.</textArea>
+<textArea id="t_rr7" x="600" y="2012" width="900" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153388">Si tu veux réduire ton RR, élargis ton SL (plus de sécurité), mais ne touche<br />pas à ton TP. On ne triche pas avec le reward, on ajuste le risque.</textArea>
+
+<rect id="pill_sl" x="897" y="2400" width="300" height="38" rx="6" fill="#e3b23a" stroke="none" data-content="STOP LOSS PLACEMENT (SL)" data-text-color="#101014" data-font-size="15" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153389" />
+<textArea id="t_sl1" x="640" y="2452" width="820" font-size="16" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153390"><i>Ton stop doit invalider ton idée, pas ton ego.</i></textArea>
+<textArea id="t_sl2" x="640" y="2500" width="820" font-size="16" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153391"><i>Supprimer le risque de se faire sortir pour rien.</i></textArea>
+<textArea id="t_sl3" x="640" y="2548" width="820" font-size="16" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153392"><i>Place ton SL à un endroit stratégique.</i></textArea>
+<textArea id="t_sl4" x="640" y="2596" width="820" font-size="16" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153393"><i>Sécuriser son trade.</i></textArea>
+
+<textArea id="t_sc1" x="600" y="3016" width="900" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153394"><b>Le SL doit annuler le scénario</b><br />Si ton SL est touché, le setup ne doit plus avoir de sens.</textArea>
+
+<rect id="p_tl" x="659" y="3160" width="365" height="260" rx="6" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168153395" />
+<rect id="p_tl_zr" x="860" y="3245" width="95" height="81" fill="#ffffff" stroke="none" data-miro-id="3458764682168153396" />
+<rect id="p_tl_zg" x="860" y="3326" width="95" height="84" fill="#ffffff" stroke="none" data-miro-id="3458764682168153397" />
+<rect id="p_tl_nk" x="680" y="3320" width="300" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153399" />
+<circle id="anc3a" cx="700" cy="3200" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153400" />
+<circle id="anc3b" cx="1010" cy="3200" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153401" />
+<line id="ancl3" x1="700" y1="3200" x2="1010" y2="3200" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc3a" data-end="anc3b" data-miro-id="3458764682168153647" />
+<text x="963" y="3228" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153402">78.60%</text>
+<text x="963" y="3246" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153403">61.80%</text>
+<text x="963" y="3264" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153404">50.00%</text>
+<text x="963" y="3282" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153405">38.20%</text>
+<circle id="anc4a" cx="690" cy="3400" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153406" />
+<circle id="anc4b" cx="755" cy="3255" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153407" />
+<line id="ancl4" x1="690" y1="3400" x2="755" y2="3255" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc4a" data-end="anc4b" data-miro-id="3458764682168153648" />
+<circle id="anc5a" cx="755" cy="3255" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153408" />
+<circle id="anc5b" cx="790" cy="3310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153409" />
+<line id="ancl5" x1="755" y1="3255" x2="790" y2="3310" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc5a" data-end="anc5b" data-miro-id="3458764682168153649" />
+<circle id="anc6a" cx="790" cy="3310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153410" />
+<circle id="anc6b" cx="840" cy="3205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153411" />
+<line id="ancl6" x1="790" y1="3310" x2="840" y2="3205" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc6a" data-end="anc6b" data-miro-id="3458764682168153650" />
+<circle id="anc7a" cx="840" cy="3205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153412" />
+<circle id="anc7b" cx="880" cy="3300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153413" />
+<line id="ancl7" x1="840" y1="3205" x2="880" y2="3300" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc7a" data-end="anc7b" data-miro-id="3458764682168153651" />
+<circle id="anc8a" cx="880" cy="3300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153414" />
+<circle id="anc8b" cx="910" cy="3250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153415" />
+<line id="ancl8" x1="880" y1="3300" x2="910" y2="3250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc8a" data-end="anc8b" data-miro-id="3458764682168153653" />
+<circle id="anc9a" cx="910" cy="3250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153416" />
+<circle id="anc9b" cx="935" cy="3370" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153417" />
+<line id="ancl9" x1="910" y1="3250" x2="935" y2="3370" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc9a" data-end="anc9b" data-miro-id="3458764682168153654" />
+
+<rect id="p_tr" x="1089" y="3160" width="365" height="260" rx="6" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168153418" />
+<rect id="p_tr_zr" x="1290" y="3200" width="95" height="126" fill="#ffffff" stroke="none" data-miro-id="3458764682168153419" />
+<rect id="p_tr_zg" x="1290" y="3326" width="95" height="84" fill="#ffffff" stroke="none" data-miro-id="3458764682168153420" />
+<rect id="p_tr_nk" x="1110" y="3320" width="300" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153421" />
+<circle id="anc10a" cx="1130" cy="3200" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153423" />
+<circle id="anc10b" cx="1440" cy="3200" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153424" />
+<line id="ancl10" x1="1130" y1="3200" x2="1440" y2="3200" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc10a" data-end="anc10b" data-miro-id="3458764682168153655" />
+<text x="1393" y="3228" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153425">78.60%</text>
+<text x="1393" y="3246" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153426">61.80%</text>
+<text x="1393" y="3264" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153427">50.00%</text>
+<text x="1393" y="3282" text-anchor="start" font-size="10" fill="#ffffff" font-family="formular" data-miro-id="3458764682168153428">38.20%</text>
+<circle id="anc11a" cx="1120" cy="3400" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153429" />
+<circle id="anc11b" cx="1185" cy="3255" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153430" />
+<line id="ancl11" x1="1120" y1="3400" x2="1185" y2="3255" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc11a" data-end="anc11b" data-miro-id="3458764682168153656" />
+<circle id="anc12a" cx="1185" cy="3255" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153431" />
+<circle id="anc12b" cx="1220" cy="3310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153433" />
+<line id="ancl12" x1="1185" y1="3255" x2="1220" y2="3310" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc12a" data-end="anc12b" data-miro-id="3458764682168153657" />
+<circle id="anc13a" cx="1220" cy="3310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153434" />
+<circle id="anc13b" cx="1270" cy="3205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153435" />
+<line id="ancl13" x1="1220" y1="3310" x2="1270" y2="3205" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc13a" data-end="anc13b" data-miro-id="3458764682168153658" />
+<circle id="anc14a" cx="1270" cy="3205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153436" />
+<circle id="anc14b" cx="1310" cy="3300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153437" />
+<line id="ancl14" x1="1270" y1="3205" x2="1310" y2="3300" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc14a" data-end="anc14b" data-miro-id="3458764682168153659" />
+<circle id="anc15a" cx="1310" cy="3300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153438" />
+<circle id="anc15b" cx="1340" cy="3250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153439" />
+<line id="ancl15" x1="1310" y1="3300" x2="1340" y2="3250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc15a" data-end="anc15b" data-miro-id="3458764682168153660" />
+<circle id="anc16a" cx="1340" cy="3250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153440" />
+<circle id="anc16b" cx="1365" cy="3370" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153441" />
+<line id="ancl16" x1="1340" y1="3250" x2="1365" y2="3370" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc16a" data-end="anc16b" data-miro-id="3458764682168153661" />
+
+<rect id="p_bl" x="659" y="3468" width="371" height="335" rx="6" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168153442" />
+<rect id="p_bl_zr" x="870" y="3600" width="95" height="86" fill="#ffffff" stroke="none" data-miro-id="3458764682168153443" />
+<rect id="p_bl_zg" x="870" y="3686" width="95" height="104" fill="#ffffff" stroke="none" data-miro-id="3458764682168153444" />
+<rect id="p_bl_h1" x="790" y="3540" width="75" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153445" />
+<rect id="p_bl_h2" x="872" y="3575" width="70" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153446" />
+<rect id="p_bl_nk" x="680" y="3680" width="310" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153447" />
+<circle id="anc17a" cx="690" cy="3780" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153448" />
+<circle id="anc17b" cx="745" cy="3640" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153449" />
+<line id="ancl17" x1="690" y1="3780" x2="745" y2="3640" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc17a" data-end="anc17b" data-miro-id="3458764682168153662" />
+<circle id="anc18a" cx="745" cy="3640" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153450" />
+<circle id="anc18b" cx="775" cy="3695" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153451" />
+<line id="ancl18" x1="745" y1="3640" x2="775" y2="3695" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc18a" data-end="anc18b" data-miro-id="3458764682168153663" />
+<circle id="anc19a" cx="775" cy="3695" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153452" />
+<circle id="anc19b" cx="830" cy="3560" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153453" />
+<line id="ancl19" x1="775" y1="3695" x2="830" y2="3560" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc19a" data-end="anc19b" data-miro-id="3458764682168153664" />
+<circle id="anc20a" cx="830" cy="3560" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153454" />
+<circle id="anc20b" cx="870" cy="3690" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153455" />
+<line id="ancl20" x1="830" y1="3560" x2="870" y2="3690" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc20a" data-end="anc20b" data-miro-id="3458764682168153665" />
+<circle id="anc21a" cx="870" cy="3690" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153456" />
+<circle id="anc21b" cx="905" cy="3590" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153457" />
+<line id="ancl21" x1="870" y1="3690" x2="905" y2="3590" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc21a" data-end="anc21b" data-miro-id="3458764682168153666" />
+<circle id="anc22a" cx="905" cy="3590" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153458" />
+<circle id="anc22b" cx="950" cy="3785" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153459" />
+<line id="ancl22" x1="905" y1="3590" x2="950" y2="3785" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc22a" data-end="anc22b" data-miro-id="3458764682168153667" />
+
+<rect id="p_br" x="1067" y="3468" width="388" height="335" rx="6" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168153460" />
+<rect id="p_br_zr" x="1265" y="3575" width="95" height="85" fill="#ffffff" stroke="none" data-miro-id="3458764682168153461" />
+<rect id="p_br_zg" x="1265" y="3660" width="95" height="120" fill="#ffffff" stroke="none" data-miro-id="3458764682168153462" />
+<rect id="p_br_h1" x="1090" y="3660" width="70" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153463" />
+<rect id="p_br_h2" x="1170" y="3585" width="75" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153464" />
+<rect id="p_br_h3" x="1290" y="3520" width="75" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153465" />
+<circle id="anc23a" cx="1160" cy="3575" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153466" />
+<circle id="anc23b" cx="1440" cy="3575" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153467" />
+<line id="ancl23" x1="1160" y1="3575" x2="1440" y2="3575" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc23a" data-end="anc23b" data-miro-id="3458764682168153668" />
+<circle id="anc24a" cx="1095" cy="3780" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153468" />
+<circle id="anc24b" cx="1130" cy="3690" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153469" />
+<line id="ancl24" x1="1095" y1="3780" x2="1130" y2="3690" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc24a" data-end="anc24b" data-miro-id="3458764682168153669" />
+<circle id="anc25a" cx="1130" cy="3690" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153470" />
+<circle id="anc25b" cx="1155" cy="3720" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153471" />
+<line id="ancl25" x1="1130" y1="3690" x2="1155" y2="3720" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc25a" data-end="anc25b" data-miro-id="3458764682168153670" />
+<circle id="anc26a" cx="1155" cy="3720" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153472" />
+<circle id="anc26b" cx="1200" cy="3610" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153473" />
+<line id="ancl26" x1="1155" y1="3720" x2="1200" y2="3610" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc26a" data-end="anc26b" data-miro-id="3458764682168153671" />
+<circle id="anc27a" cx="1200" cy="3610" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153475" />
+<circle id="anc27b" cx="1240" cy="3660" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153476" />
+<line id="ancl27" x1="1200" y1="3610" x2="1240" y2="3660" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc27a" data-end="anc27b" data-miro-id="3458764682168153672" />
+<circle id="anc28a" cx="1240" cy="3660" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153477" />
+<circle id="anc28b" cx="1310" cy="3530" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153478" />
+<line id="ancl28" x1="1240" y1="3660" x2="1310" y2="3530" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc28a" data-end="anc28b" data-miro-id="3458764682168153673" />
+
+<line id="c_sl_space" x1="1048" y1="4160" x2="1048" y2="4210" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="t_sp1" data-end="t_sp2" data-start-side="bottom" data-end-side="top" data-shape="straight" data-miro-id="3458764682168153674" />
+<textArea id="t_sp1" x="600" y="4100" width="900" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153479"><b>Donne de l’espace à ton SL</b><br />→ Ne colle jamais ton SL juste au-dessus du dernier haut/bas.</textArea>
+<textArea id="t_sp2" x="600" y="4212" width="900" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153480"><b>Tu ne dois pas te faire sortir d’un trade si tu avais la bonne direction.</b><br />→ Si ton SL se fait toucher alors que tu avais raison, c’est ton SL qui est mal placé.</textArea>
+<textArea id="t_sp3" x="600" y="4288" width="900" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153481">Car imagine : ton H&amp;S se transforme en double top et tu te fais sortir ?!</textArea>
+
+<rect id="p_hl" x="707" y="4365" width="321" height="269" rx="6" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168153482" />
+<rect id="p_hl_zr" x="880" y="4415" width="95" height="121" fill="#ffffff" stroke="none" data-miro-id="3458764682168153483" />
+<rect id="p_hl_zg" x="880" y="4536" width="95" height="89" fill="#ffffff" stroke="none" data-miro-id="3458764682168153484" />
+<rect id="p_hl_nk" x="720" y="4530" width="290" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153485" />
+<circle id="anc29a" cx="730" cy="4410" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153486" />
+<circle id="anc29b" cx="1010" cy="4410" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153487" />
+<line id="ancl29" x1="730" y1="4410" x2="1010" y2="4410" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc29a" data-end="anc29b" data-miro-id="3458764682168153675" />
+<circle id="anc30a" cx="730" cy="4620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153488" />
+<circle id="anc30b" cx="775" cy="4500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153489" />
+<line id="ancl30" x1="730" y1="4620" x2="775" y2="4500" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc30a" data-end="anc30b" data-miro-id="3458764682168153677" />
+<circle id="anc31a" cx="775" cy="4500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153490" />
+<circle id="anc31b" cx="800" cy="4540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153491" />
+<line id="ancl31" x1="775" y1="4500" x2="800" y2="4540" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc31a" data-end="anc31b" data-miro-id="3458764682168153678" />
+<circle id="anc32a" cx="800" cy="4540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153492" />
+<circle id="anc32b" cx="840" cy="4420" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153493" />
+<line id="ancl32" x1="800" y1="4540" x2="840" y2="4420" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc32a" data-end="anc32b" data-miro-id="3458764682168153679" />
+<circle id="anc33a" cx="840" cy="4420" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153494" />
+<circle id="anc33b" cx="875" cy="4520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153495" />
+<line id="ancl33" x1="840" y1="4420" x2="875" y2="4520" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc33a" data-end="anc33b" data-miro-id="3458764682168153680" />
+<circle id="anc34a" cx="875" cy="4520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153496" />
+<circle id="anc34b" cx="905" cy="4425" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153497" />
+<line id="ancl34" x1="875" y1="4520" x2="905" y2="4425" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc34a" data-end="anc34b" data-miro-id="3458764682168153681" />
+<circle id="anc35a" cx="905" cy="4425" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153498" />
+<circle id="anc35b" cx="945" cy="4615" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153499" />
+<line id="ancl35" x1="905" y1="4425" x2="945" y2="4615" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc35a" data-end="anc35b" data-miro-id="3458764682168153682" />
+
+<rect id="p_hr" x="1067" y="4365" width="322" height="269" rx="6" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168153500" />
+<rect id="p_hr_zr" x="1240" y="4460" width="95" height="76" fill="#ffffff" stroke="none" data-miro-id="3458764682168153501" />
+<rect id="p_hr_zg" x="1240" y="4536" width="95" height="89" fill="#ffffff" stroke="none" data-miro-id="3458764682168153502" />
+<rect id="p_hr_nk" x="1080" y="4530" width="290" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153503" />
+<circle id="anc36a" cx="1090" cy="4400" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153504" />
+<circle id="anc36b" cx="1370" cy="4400" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153505" />
+<line id="ancl36" x1="1090" y1="4400" x2="1370" y2="4400" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc36a" data-end="anc36b" data-miro-id="3458764682168153683" />
+<circle id="anc37a" cx="1090" cy="4620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153506" />
+<circle id="anc37b" cx="1135" cy="4500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153507" />
+<line id="ancl37" x1="1090" y1="4620" x2="1135" y2="4500" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc37a" data-end="anc37b" data-miro-id="3458764682168153684" />
+<circle id="anc38a" cx="1135" cy="4500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153508" />
+<circle id="anc38b" cx="1160" cy="4540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153509" />
+<line id="ancl38" x1="1135" y1="4500" x2="1160" y2="4540" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc38a" data-end="anc38b" data-miro-id="3458764682168153685" />
+<circle id="anc39a" cx="1160" cy="4540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153510" />
+<circle id="anc39b" cx="1200" cy="4415" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153511" />
+<line id="ancl39" x1="1160" y1="4540" x2="1200" y2="4415" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc39a" data-end="anc39b" data-miro-id="3458764682168153686" />
+<circle id="anc40a" cx="1200" cy="4415" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153512" />
+<circle id="anc40b" cx="1235" cy="4520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153513" />
+<line id="ancl40" x1="1200" y1="4415" x2="1235" y2="4520" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc40a" data-end="anc40b" data-miro-id="3458764682168153687" />
+<circle id="anc41a" cx="1235" cy="4520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153514" />
+<circle id="anc41b" cx="1270" cy="4408" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153515" />
+<line id="ancl41" x1="1235" y1="4520" x2="1270" y2="4408" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc41a" data-end="anc41b" data-miro-id="3458764682168153688" />
+<circle id="anc42a" cx="1270" cy="4408" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153516" />
+<circle id="anc42b" cx="1305" cy="4615" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153517" />
+<line id="ancl42" x1="1270" y1="4408" x2="1305" y2="4615" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc42a" data-end="anc42b" data-miro-id="3458764682168153689" />
+
+<textArea id="t_zi1" x="600" y="4928" width="900" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153518"><b>Place ton SL au-dessus d’une zone d’intérêt</b><br />→ Zone où plusieurs confirmations convergent.<br />→ C’est une zone où le prix aura beaucoup de résistance.</textArea>
+
+<rect id="p_zi_zr" x="1090" y="5099" width="140" height="76" fill="#ffffff" stroke="none" data-miro-id="3458764682168153519" />
+<rect id="p_zi_zg" x="1090" y="5175" width="140" height="180" fill="#ffffff" stroke="none" data-miro-id="3458764682168153520" />
+<rect id="p_zi_res" x="855" y="5085" width="395" height="14" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153521" />
+<rect id="p_zi_sup" x="855" y="5270" width="395" height="14" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153523" />
+<circle id="anc43a" cx="960" cy="5030" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153524" />
+<circle id="anc43b" cx="1245" cy="5150" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153525" />
+<line id="ancl43" x1="960" y1="5030" x2="1245" y2="5150" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc43a" data-end="anc43b" data-miro-id="3458764682168153690" />
+<rect id="p_zi_arrow" data-shape="triangle" x="1093" y="5062" width="16" height="14" fill="#ffffff" stroke="none" data-rotation="180" data-miro-id="3458764682168153526" />
+<circle id="anc44a" cx="850" cy="5370" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153527" />
+<circle id="anc44b" cx="890" cy="5250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153528" />
+<line id="ancl44" x1="850" y1="5370" x2="890" y2="5250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc44a" data-end="anc44b" data-miro-id="3458764682168153691" />
+<circle id="anc45a" cx="890" cy="5250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153529" />
+<circle id="anc45b" cx="915" cy="5290" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153530" />
+<line id="ancl45" x1="890" y1="5250" x2="915" y2="5290" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc45a" data-end="anc45b" data-miro-id="3458764682168153692" />
+<circle id="anc46a" cx="915" cy="5290" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153531" />
+<circle id="anc46b" cx="955" cy="5160" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153532" />
+<line id="ancl46" x1="915" y1="5290" x2="955" y2="5160" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc46a" data-end="anc46b" data-miro-id="3458764682168153693" />
+<circle id="anc47a" cx="955" cy="5160" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153533" />
+<circle id="anc47b" cx="985" cy="5215" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153534" />
+<line id="ancl47" x1="955" y1="5160" x2="985" y2="5215" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc47a" data-end="anc47b" data-miro-id="3458764682168153694" />
+<circle id="anc48a" cx="985" cy="5215" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153535" />
+<circle id="anc48b" cx="1030" cy="5100" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153536" />
+<line id="ancl48" x1="985" y1="5215" x2="1030" y2="5100" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc48a" data-end="anc48b" data-miro-id="3458764682168153695" />
+<circle id="anc49a" cx="1060" cy="5115" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153537" />
+<circle id="anc49b" cx="1145" cy="5330" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153538" />
+<line id="ancl49" x1="1060" y1="5115" x2="1145" y2="5330" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc49a" data-end="anc49b" data-miro-id="3458764682168153696" />
+
+<textArea id="t_ch0" x="765" y="5766" width="500" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153539"><b>Choisis entre :</b></textArea>
+<textArea id="t_ch1" x="270" y="5842" width="700" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153540"><b>1 sécurité</b> : SL derrière une seule structure (ex. : résistance).</textArea>
+<textArea id="t_ch2" x="1110" y="5842" width="700" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153541"><b>2 sécurités</b> : SL derrière deux structures.</textArea>
+
+<rect id="d1_zr" x="640" y="6120" width="140" height="75" fill="#ffffff" stroke="none" data-miro-id="3458764682168153542" />
+<rect id="d1_zg" x="640" y="6195" width="140" height="285" fill="#ffffff" stroke="none" data-miro-id="3458764682168153544" />
+<rect id="d1_res" x="290" y="6060" width="610" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153547" />
+<rect id="d1_mid" x="460" y="6195" width="340" height="14" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153550" />
+<circle id="anc50a" cx="300" cy="6470" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153551" />
+<circle id="anc50b" cx="355" cy="6085" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153552" />
+<line id="ancl50" x1="300" y1="6470" x2="355" y2="6085" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc50a" data-end="anc50b" data-miro-id="3458764682168153697" />
+<circle id="anc51a" cx="355" cy="6085" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153553" />
+<circle id="anc51b" cx="400" cy="6250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153554" />
+<line id="ancl51" x1="355" y1="6085" x2="400" y2="6250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc51a" data-end="anc51b" data-miro-id="3458764682168153698" />
+<circle id="anc52a" cx="400" cy="6250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153555" />
+<circle id="anc52b" cx="455" cy="6080" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153556" />
+<line id="ancl52" x1="400" y1="6250" x2="455" y2="6080" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc52a" data-end="anc52b" data-miro-id="3458764682168153699" />
+<circle id="anc53a" cx="455" cy="6080" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153557" />
+<circle id="anc53b" cx="520" cy="6300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153558" />
+<line id="ancl53" x1="455" y1="6080" x2="520" y2="6300" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc53a" data-end="anc53b" data-miro-id="3458764682168153700" />
+<circle id="anc54a" cx="520" cy="6300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153559" />
+<circle id="anc54b" cx="575" cy="6210" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153560" />
+<line id="ancl54" x1="520" y1="6300" x2="575" y2="6210" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc54a" data-end="anc54b" data-miro-id="3458764682168153701" />
+<circle id="anc55a" cx="575" cy="6210" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153561" />
+<circle id="anc55b" cx="610" cy="6290" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153562" />
+<line id="ancl55" x1="575" y1="6210" x2="610" y2="6290" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc55a" data-end="anc55b" data-miro-id="3458764682168153702" />
+<circle id="anc56a" cx="610" cy="6290" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153563" />
+<circle id="anc56b" cx="650" cy="6205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153564" />
+<line id="ancl56" x1="610" y1="6290" x2="650" y2="6205" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc56a" data-end="anc56b" data-miro-id="3458764682168153703" />
+<circle id="anc57a" cx="650" cy="6205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153565" />
+<circle id="anc57b" cx="700" cy="6430" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153566" />
+<line id="ancl57" x1="650" y1="6205" x2="700" y2="6430" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc57a" data-end="anc57b" data-miro-id="3458764682168153704" />
+
+<rect id="d2_zr" x="1480" y="6040" width="140" height="155" fill="#ffffff" stroke="none" data-miro-id="3458764682168153567" />
+<rect id="d2_zg" x="1480" y="6195" width="140" height="285" fill="#ffffff" stroke="none" data-miro-id="3458764682168153572" />
+<rect id="d2_res" x="1130" y="6060" width="610" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153573" />
+<rect id="d2_mid" x="1300" y="6195" width="340" height="14" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153574" />
+<circle id="anc58a" cx="1140" cy="6470" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153575" />
+<circle id="anc58b" cx="1195" cy="6085" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153576" />
+<line id="ancl58" x1="1140" y1="6470" x2="1195" y2="6085" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc58a" data-end="anc58b" data-miro-id="3458764682168153705" />
+<circle id="anc59a" cx="1195" cy="6085" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153577" />
+<circle id="anc59b" cx="1240" cy="6250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153578" />
+<line id="ancl59" x1="1195" y1="6085" x2="1240" y2="6250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc59a" data-end="anc59b" data-miro-id="3458764682168153706" />
+<circle id="anc60a" cx="1240" cy="6250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153579" />
+<circle id="anc60b" cx="1295" cy="6080" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153580" />
+<line id="ancl60" x1="1240" y1="6250" x2="1295" y2="6080" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc60a" data-end="anc60b" data-miro-id="3458764682168153708" />
+<circle id="anc61a" cx="1295" cy="6080" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153581" />
+<circle id="anc61b" cx="1360" cy="6300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153582" />
+<line id="ancl61" x1="1295" y1="6080" x2="1360" y2="6300" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc61a" data-end="anc61b" data-miro-id="3458764682168153709" />
+<circle id="anc62a" cx="1360" cy="6300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153583" />
+<circle id="anc62b" cx="1415" cy="6210" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153584" />
+<line id="ancl62" x1="1360" y1="6300" x2="1415" y2="6210" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc62a" data-end="anc62b" data-miro-id="3458764682168153710" />
+<circle id="anc63a" cx="1415" cy="6210" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153585" />
+<circle id="anc63b" cx="1450" cy="6290" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153586" />
+<line id="ancl63" x1="1415" y1="6210" x2="1450" y2="6290" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc63a" data-end="anc63b" data-miro-id="3458764682168153711" />
+<circle id="anc64a" cx="1450" cy="6290" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153587" />
+<circle id="anc64b" cx="1490" cy="6205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153588" />
+<line id="ancl64" x1="1450" y1="6290" x2="1490" y2="6205" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc64a" data-end="anc64b" data-miro-id="3458764682168153712" />
+<circle id="anc65a" cx="1490" cy="6205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153589" />
+<circle id="anc65b" cx="1540" cy="6430" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153590" />
+<line id="ancl65" x1="1490" y1="6205" x2="1540" y2="6430" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc65a" data-end="anc65b" data-miro-id="3458764682168153713" />
+
+<line id="c_1x" x1="620" y1="6560" x2="780" y2="6205" stroke="#ffffff" stroke-width="2" data-arrow="end" data-start="t_1x" data-end="d1_mid" data-start-side="top" data-end-side="right" data-shape="curved" data-miro-id="3458764682168153714" />
+<line id="c_2xa" x1="1515" y1="6560" x2="1740" y2="6066" stroke="#ffffff" stroke-width="2" data-arrow="end" data-start="t_2x" data-end="d2_res" data-start-side="top" data-end-side="right" data-shape="curved" data-miro-id="3458764682168153715" />
+<line id="c_2xb" x1="1515" y1="6560" x2="1640" y2="6202" stroke="#ffffff" stroke-width="2" data-arrow="end" data-start="t_2x" data-end="d2_mid" data-start-side="right" data-end-side="right" data-shape="curved" data-miro-id="3458764682168153716" />
+<textArea id="t_1x" x="420" y="6570" width="400" font-size="24" fill="#ffffff" text-align="center" data-font-family="formular" data-miro-id="3458764682168153593"><b><i>1 x Résistance</i></b></textArea>
+<textArea id="t_2x" x="1315" y="6570" width="400" font-size="24" fill="#ffffff" text-align="center" data-font-family="formular" data-miro-id="3458764682168153595"><b><i>2 x Résistance</i></b></textArea>
+
+<rect id="pill_tp" x="897" y="7076" width="300" height="38" rx="6" fill="#e3b23a" stroke="none" data-content="TAKE PROFIT (TP)" data-text-color="#101014" data-font-size="15" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153596" />
+<textArea id="t_tp1" x="600" y="7136" width="900" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153597"><i>Le TP n’est pas là pour rêver, il est là pour valider ton RR.</i></textArea>
+<textArea id="t_tp2" x="600" y="7270" width="900" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153598"><b><i>Le TP n’est pas la partie la plus importante du trade.</i></b></textArea>
+<textArea id="t_tp3" x="640" y="7320" width="820" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153599"><i>Tu dois te servir de ton TP comme de l’endroit que le prix a le plus de chances<br />d’atteindre, par exemple une résistance.</i></textArea>
+
+<rect id="p_tp" x="711" y="7420" width="678" height="395" rx="6" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168153600" />
+<rect id="p_tp_zr" x="1180" y="7432" width="150" height="58" fill="#ffffff" stroke="none" data-miro-id="3458764682168153601" />
+<rect id="p_tp_zg" x="1180" y="7490" width="150" height="265" fill="#ffffff" stroke="none" data-miro-id="3458764682168153602" />
+<rect id="p_tp_res" x="900" y="7490" width="400" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153603" />
+<rect id="p_tp_sup" x="725" y="7760" width="655" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168153604" />
+<circle id="anc66a" cx="735" cy="7690" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153605" />
+<circle id="anc66b" cx="770" cy="7620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153606" />
+<line id="ancl66" x1="735" y1="7690" x2="770" y2="7620" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc66a" data-end="anc66b" data-miro-id="3458764682168153717" />
+<circle id="anc67a" cx="770" cy="7620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153607" />
+<circle id="anc67b" cx="800" cy="7745" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153608" />
+<line id="ancl67" x1="770" y1="7620" x2="800" y2="7745" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc67a" data-end="anc67b" data-miro-id="3458764682168153718" />
+<circle id="anc68a" cx="800" cy="7745" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153609" />
+<circle id="anc68b" cx="860" cy="7560" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153610" />
+<line id="ancl68" x1="800" y1="7745" x2="860" y2="7560" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc68a" data-end="anc68b" data-miro-id="3458764682168153719" />
+<circle id="anc69a" cx="860" cy="7560" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153611" />
+<circle id="anc69b" cx="890" cy="7620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153612" />
+<line id="ancl69" x1="860" y1="7560" x2="890" y2="7620" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc69a" data-end="anc69b" data-miro-id="3458764682168153720" />
+<circle id="anc70a" cx="890" cy="7620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153613" />
+<circle id="anc70b" cx="940" cy="7480" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153614" />
+<line id="ancl70" x1="890" y1="7620" x2="940" y2="7480" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc70a" data-end="anc70b" data-miro-id="3458764682168153721" />
+<circle id="anc71a" cx="940" cy="7480" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153615" />
+<circle id="anc71b" cx="975" cy="7540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153616" />
+<line id="ancl71" x1="940" y1="7480" x2="975" y2="7540" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc71a" data-end="anc71b" data-miro-id="3458764682168153722" />
+<circle id="anc72a" cx="975" cy="7540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153617" />
+<circle id="anc72b" cx="1010" cy="7475" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153618" />
+<line id="ancl72" x1="975" y1="7540" x2="1010" y2="7475" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc72a" data-end="anc72b" data-miro-id="3458764682168153723" />
+<circle id="anc73a" cx="1010" cy="7475" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153619" />
+<circle id="anc73b" cx="1040" cy="7590" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168153620" />
+<line id="ancl73" x1="1010" y1="7475" x2="1040" y2="7590" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc73a" data-end="anc73b" data-miro-id="3458764682168153724" />
+
+<textArea id="t_q4" x="754" y="7862" width="620" font-size="14" fill="#16181f" text-align="left" data-font-family="formular" data-miro-id="3458764682168153621">Pose-toi 4 questions :<br />     a. Est-ce que mon <u>TP est logique techniquement</u> ?<br />     b. Est-ce que le <u>RR reste réaliste</u> ?<br />     c. Quelle est la <u>probabilité d’atteindre mon TP</u> ? (sois pessimiste)<br />     d. Combien de <u>temps pour que le prix arrive à mon TP</u> ?</textArea>
+
+<line id="c_ntj" x1="1048" y1="8120" x2="1048" y2="8172" stroke="#5f626e" stroke-width="2" data-arrow="end" data-start="t_ntj" data-end="t_naug" data-start-side="bottom" data-end-side="top" data-shape="straight" data-miro-id="3458764682168153725" />
+<textArea id="t_ntj" x="798" y="8088" width="500" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153622"><b><i>Ne triche jamais</i></b></textArea>
+<textArea id="t_naug" x="598" y="8174" width="900" font-size="15" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153623"><b><i>N’augmente jamais ton TP à un endroit pour que ton RR soit de plus de 1:2R.</i></b></textArea>
+
+<textArea id="t_how" x="802" y="8602" width="600" font-size="20" fill="#b8860b" text-align="center" data-font-family="tiempos_text" data-miro-id="3458764682168153624"><b><i>Comment placer son TP ?</i></b></textArea>
+<rect id="pill_zone" x="798" y="8744" width="250" height="34" rx="6" fill="#e3b23a" stroke="none" data-content="Prochaine zone d'intérêt" data-text-color="#101014" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153625" />
+<rect id="pill_fibo" x="1175" y="8744" width="250" height="34" rx="6" fill="#e3b23a" stroke="none" data-content="Extension Fibonacci" data-text-color="#101014" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153626" />
+<textArea id="t_z90" x="723" y="8806" width="400" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153627"><b><i>90 % du temps</i></b></textArea>
+<textArea id="t_zl1" x="723" y="8854" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153628">Résistance</textArea>
+<textArea id="t_zl2" x="723" y="8902" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153629">Trendline</textArea>
+<textArea id="t_zl3" x="723" y="8950" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153630">Niveau de prix</textArea>
+<textArea id="t_zl4" x="723" y="8998" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153631">Ancienne structure</textArea>
+<textArea id="t_f10" x="1100" y="8806" width="400" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153632"><b><i>10 % du temps</i></b></textArea>
+<textArea id="t_fl1" x="1100" y="8854" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153633">100%, 160%, 200%</textArea>
+</g>
+</svg>

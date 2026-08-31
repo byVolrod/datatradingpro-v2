@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<g data-miro-id="3458764682168659508" transform="translate(27000,2200)" data-frame="Les outils du desk DTP">
+<rect data-type="frame" x="0" y="0" width="2600" height="2700" fill="#ffffff" data-title="Les outils du desk DTP"/>
+<textArea data-miro-id="3458764682168659510" x="100" y="210" width="2300" font-size="18" fill="#5f626e" text-align="left" data-font-family="formular"><i>Les instruments du desk pour appliquer la méthode — force, risque, calendrier et biais en un coup d'œil.</i></textArea>
+<rect data-miro-id="3458764682168659511" x="150" y="1340" width="1100" height="60" rx="8" fill="#f3f4f6" stroke="#e2e3e8" stroke-width="1" data-content="Force des Devises — l'égaliseur bidirectionnel : devises fortes vers le haut (vert), faibles vers le bas (rouge)" data-text-color="#5f626e" data-font-size="14" data-font-family="formular"/>
+<rect data-miro-id="3458764682168659512" x="1350" y="1340" width="1100" height="60" rx="8" fill="#f3f4f6" stroke="#e2e3e8" stroke-width="1" data-content="Baromètre — la lecture risk-on / risk-off du marché en un coup d'œil" data-text-color="#5f626e" data-font-size="14" data-font-family="formular"/>
+<rect data-miro-id="3458764682168659513" x="150" y="2593" width="1100" height="60" rx="8" fill="#f3f4f6" stroke="#e2e3e8" stroke-width="1" data-content="Calendrier du desk — les publications à fort impact de la semaine, heure de Paris" data-text-color="#5f626e" data-font-size="14" data-font-family="formular"/>
+<rect data-miro-id="3458764682168659514" x="1350" y="2085" width="1100" height="60" rx="8" fill="#f3f4f6" stroke="#e2e3e8" stroke-width="1" data-content="Radar de Biais — la matrice des biais par devise, pour croiser vos confluences" data-text-color="#5f626e" data-font-size="14" data-font-family="formular"/>
+</g>
+</svg>

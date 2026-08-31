@@ -1,0 +1,368 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<g id="f1" transform="translate(14700,2200)" data-frame="Stratégie de management — Méthode JOT" data-miro-id="3458764682168300059">
+<rect data-type="frame" x="0" y="0" width="2700" height="6900" fill="#ffffff" data-title="Stratégie de management — Méthode JOT" />
+<rect id="banner" x="950" y="120" width="800" height="74" rx="4" fill="#e3b23a" stroke="none" data-content="Stratégie de management — Méthode JOT" data-text-color="#101014" data-font-size="30" data-font-weight="bold" data-font-family="tiempos_text" data-miro-id="3458764682168300060" />
+<text id="h1" x="1350" y="400" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300061">1re phase</text>
+<textArea id="intro" x="975" y="470" width="750" font-size="18" text-align="center" fill="#16181f" font-family="formular" data-miro-id="3458764682168300062">Début du trade quand le prix commence à être en profit<br /><br />→ Première impulsion<br />→ Pas encore de correction ou de retracement</textArea>
+<text id="keymsg" x="1350" y="690" text-anchor="middle" font-size="26" font-weight="bold" fill="#16181f" font-family="formular" data-miro-id="3458764682168300063">SL very large → Max BE ou POI</text>
+<rect id="ch1" x="950" y="730" width="800" height="470" rx="12" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168300064" />
+<text x="970" y="762" text-anchor="start" font-size="13" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300065">EURJPY · 1h · FXCM — capture TradingView</text>
+<rect x="1370" y="785" width="130" height="143" fill="#ffffff" stroke="none" data-miro-id="3458764682168300066" />
+<rect x="1370" y="944" width="130" height="206" fill="#ffffff" stroke="none" data-miro-id="3458764682168300067" />
+<rect x="1010" y="928" width="640" height="16" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300068" />
+<circle id="anc0a" cx="1310" cy="878" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300069" />
+<circle id="anc0b" cx="1700" cy="878" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300070" />
+<line id="ancl0" x1="1310" y1="878" x2="1700" y2="878" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc0a" data-end="anc0b" data-miro-id="3458764682168300356" />
+<rect x="1600" y="898" width="56" height="26" rx="6" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="POI" data-text-color="#ffffff" data-font-size="12" data-font-family="formular" data-miro-id="3458764682168300071" />
+<circle id="anc1a" cx="1160" cy="795" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300072" />
+<circle id="anc1b" cx="1090" cy="1075" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300073" />
+<line id="ancl1" x1="1160" y1="795" x2="1090" y2="1075" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc1a" data-end="anc1b" data-miro-id="3458764682168300357" />
+<circle id="anc2a" cx="1090" cy="1075" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300074" />
+<circle id="anc2b" cx="1140" cy="1000" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300075" />
+<line id="ancl2" x1="1090" y1="1075" x2="1140" y2="1000" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc2a" data-end="anc2b" data-miro-id="3458764682168300358" />
+<circle id="anc3a" cx="1140" cy="1000" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300076" />
+<circle id="anc3b" cx="1170" cy="1060" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300077" />
+<line id="ancl3" x1="1140" y1="1000" x2="1170" y2="1060" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc3a" data-end="anc3b" data-miro-id="3458764682168300361" />
+<circle id="anc4a" cx="1170" cy="1060" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300078" />
+<circle id="anc4b" cx="1230" cy="965" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300079" />
+<line id="ancl4" x1="1170" y1="1060" x2="1230" y2="965" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc4a" data-end="anc4b" data-miro-id="3458764682168300362" />
+<circle id="anc5a" cx="1230" cy="965" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300081" />
+<circle id="anc5b" cx="1260" cy="1025" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300082" />
+<line id="ancl5" x1="1230" y1="965" x2="1260" y2="1025" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc5a" data-end="anc5b" data-miro-id="3458764682168300363" />
+<circle id="anc6a" cx="1260" cy="1025" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300083" />
+<circle id="anc6b" cx="1320" cy="944" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300084" />
+<line id="ancl6" x1="1260" y1="1025" x2="1320" y2="944" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc6a" data-end="anc6b" data-miro-id="3458764682168300364" />
+<circle id="anc7a" cx="1320" cy="944" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300085" />
+<circle id="anc7b" cx="1370" cy="1015" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300086" />
+<line id="ancl7" x1="1320" y1="944" x2="1370" y2="1015" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc7a" data-end="anc7b" data-miro-id="3458764682168300365" />
+<text id="h2" x="1350" y="1360" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300087">2e phase</text>
+<line id="c1" x1="1350" y1="1500" x2="930" y2="1640" stroke="#5f626e" stroke-width="2" data-arrow="end" data-shape="curved" data-start="corr" data-end="lblclean" data-start-side="bottom" data-end-side="top" data-miro-id="3458764682168300366" />
+<line id="c2" x1="1350" y1="1500" x2="1785" y2="1640" stroke="#5f626e" stroke-width="2" data-arrow="end" data-shape="curved" data-start="corr" data-end="lblrisk" data-start-side="bottom" data-end-side="top" data-miro-id="3458764682168300368" />
+<line id="c3" x1="930" y1="1690" x2="930" y2="1800" stroke="#5f626e" stroke-width="2" data-arrow="end" data-shape="straight" data-start="lblclean" data-end="slLarge" data-start-side="bottom" data-end-side="top" data-miro-id="3458764682168300369" />
+<line id="c4" x1="1785" y1="1690" x2="1785" y2="1800" stroke="#5f626e" stroke-width="2" data-arrow="end" data-shape="straight" data-start="lblrisk" data-end="slTight" data-start-side="bottom" data-end-side="top" data-miro-id="3458764682168300370" />
+<line id="c5" x1="1785" y1="1864" x2="1785" y2="1950" stroke="#5f626e" stroke-width="2" data-arrow="end" data-shape="straight" data-start="slTight" data-end="poiTxt" data-start-side="bottom" data-end-side="top" data-miro-id="3458764682168300371" />
+<textArea id="corr" x="1000" y="1420" width="700" font-size="18" text-align="center" fill="#16181f" font-family="formular" data-miro-id="3458764682168300088">→ 1 ou 2 corrections<br />→ 1R minimum à sécuriser</textArea>
+<textArea id="lblclean" x="700" y="1640" width="460" font-size="18" text-align="center" fill="#16181f" font-family="formular" data-miro-id="3458764682168300089">Si la price action est <b><u>clean</u></b></textArea>
+<textArea id="lblrisk" x="1555" y="1640" width="460" font-size="18" text-align="center" fill="#16181f" font-family="formular" data-miro-id="3458764682168300090">Si la price action est <b><u>risquée</u></b></textArea>
+<rect id="slLarge" x="820" y="1800" width="220" height="64" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="SL Large" data-text-color="#16181f" data-font-size="20" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168300091" />
+<rect id="slTight" x="1675" y="1800" width="220" height="64" rx="12" fill="#ff3d00" stroke="#b02c00" stroke-width="2" data-content="SL Tight" data-text-color="#ffffff" data-font-size="20" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168300092" />
+<textArea id="poiTxt" x="1555" y="1950" width="460" font-size="18" text-align="center" fill="#16181f" font-family="formular" data-miro-id="3458764682168300093">Si le prix arrive sur un <b><u>POI</u></b><br />(potentiel retournement)</textArea>
+<rect id="ch2" x="1385" y="2100" width="800" height="470" rx="12" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168300094" />
+<text x="1405" y="2132" text-anchor="start" font-size="13" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300095">EURJPY · 1h · FXCM — capture TradingView</text>
+<rect x="1695" y="2150" width="200" height="80" fill="#ffffff" stroke="none" data-miro-id="3458764682168300096" />
+<rect x="1695" y="2230" width="200" height="270" fill="#ffffff" stroke="none" data-miro-id="3458764682168300097" />
+<rect x="1455" y="2225" width="620" height="16" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300098" />
+<rect x="1415" y="2505" width="720" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300100" />
+<circle id="anc8a" cx="1795" cy="2300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300101" />
+<circle id="anc8b" cx="2145" cy="2300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300105" />
+<line id="ancl8" x1="1795" y1="2300" x2="2145" y2="2300" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc8a" data-end="anc8b" data-miro-id="3458764682168300372" />
+<circle id="anc9a" cx="1575" cy="2165" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300106" />
+<circle id="anc9b" cx="1505" cy="2330" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300107" />
+<line id="ancl9" x1="1575" y1="2165" x2="1505" y2="2330" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc9a" data-end="anc9b" data-miro-id="3458764682168300373" />
+<circle id="anc10a" cx="1505" cy="2330" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300108" />
+<circle id="anc10b" cx="1550" cy="2265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300109" />
+<line id="ancl10" x1="1505" y1="2330" x2="1550" y2="2265" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc10a" data-end="anc10b" data-miro-id="3458764682168300374" />
+<circle id="anc11a" cx="1550" cy="2265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300110" />
+<circle id="anc11b" cx="1580" cy="2325" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300111" />
+<line id="ancl11" x1="1550" y1="2265" x2="1580" y2="2325" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc11a" data-end="anc11b" data-miro-id="3458764682168300375" />
+<circle id="anc12a" cx="1580" cy="2325" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300112" />
+<circle id="anc12b" cx="1625" cy="2250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300113" />
+<line id="ancl12" x1="1580" y1="2325" x2="1625" y2="2250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc12a" data-end="anc12b" data-miro-id="3458764682168300376" />
+<circle id="anc13a" cx="1625" cy="2250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300114" />
+<circle id="anc13b" cx="1655" cy="2310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300115" />
+<line id="ancl13" x1="1625" y1="2250" x2="1655" y2="2310" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc13a" data-end="anc13b" data-miro-id="3458764682168300377" />
+<circle id="anc14a" cx="1655" cy="2310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300116" />
+<circle id="anc14b" cx="1700" cy="2241" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300117" />
+<line id="ancl14" x1="1655" y1="2310" x2="1700" y2="2241" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc14a" data-end="anc14b" data-miro-id="3458764682168300378" />
+<circle id="anc15a" cx="1700" cy="2241" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300118" />
+<circle id="anc15b" cx="1735" cy="2340" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300119" />
+<line id="ancl15" x1="1700" y1="2241" x2="1735" y2="2340" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc15a" data-end="anc15b" data-miro-id="3458764682168300379" />
+<circle id="anc16a" cx="1735" cy="2340" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300120" />
+<circle id="anc16b" cx="1760" cy="2300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300121" />
+<line id="ancl16" x1="1735" y1="2340" x2="1760" y2="2300" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc16a" data-end="anc16b" data-miro-id="3458764682168300380" />
+<circle id="anc17a" cx="1760" cy="2300" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300123" />
+<circle id="anc17b" cx="1800" cy="2400" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300124" />
+<line id="ancl17" x1="1760" y1="2300" x2="1800" y2="2400" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc17a" data-end="anc17b" data-miro-id="3458764682168300381" />
+<circle id="anc18a" cx="1800" cy="2400" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300125" />
+<circle id="anc18b" cx="1850" cy="2475" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300126" />
+<line id="ancl18" x1="1800" y1="2400" x2="1850" y2="2475" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc18a" data-end="anc18b" data-miro-id="3458764682168300382" />
+<textArea id="quest" x="1235" y="2630" width="1100" font-size="18" text-align="center" fill="#16181f" font-family="formular" data-miro-id="3458764682168300127">Est-ce que ça vaut le coup en termes de risque d'attendre la prochaine correction ?</textArea>
+<textArea id="subq" x="1335" y="2700" width="900" font-size="18" text-align="center" fill="#16181f" font-family="formular" data-miro-id="3458764682168300128">→ s'il y a une zone d'intérêt où le prix peut rejeter ?</textArea>
+<rect id="ch3" x="1385" y="2790" width="800" height="470" rx="12" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168300129" />
+<text x="1405" y="2822" text-anchor="start" font-size="13" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300130">EURJPY · 1h · FXCM — capture TradingView</text>
+<rect x="1695" y="2840" width="200" height="80" fill="#ffffff" stroke="none" data-miro-id="3458764682168300131" />
+<rect x="1695" y="2920" width="200" height="300" fill="#ffffff" stroke="none" data-miro-id="3458764682168300132" />
+<rect x="1455" y="2915" width="620" height="16" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300135" />
+<rect x="1415" y="3215" width="720" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300136" />
+<circle id="anc19a" cx="1935" cy="3000" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300137" />
+<circle id="anc19b" cx="2145" cy="3000" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300138" />
+<line id="ancl19" x1="1935" y1="3000" x2="2145" y2="3000" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc19a" data-end="anc19b" data-miro-id="3458764682168300383" />
+<circle id="anc20a" cx="1575" cy="2855" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300139" />
+<circle id="anc20b" cx="1505" cy="3020" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300140" />
+<line id="ancl20" x1="1575" y1="2855" x2="1505" y2="3020" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc20a" data-end="anc20b" data-miro-id="3458764682168300384" />
+<circle id="anc21a" cx="1505" cy="3020" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300141" />
+<circle id="anc21b" cx="1550" cy="2955" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300142" />
+<line id="ancl21" x1="1505" y1="3020" x2="1550" y2="2955" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc21a" data-end="anc21b" data-miro-id="3458764682168300385" />
+<circle id="anc22a" cx="1550" cy="2955" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300143" />
+<circle id="anc22b" cx="1580" cy="3015" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300144" />
+<line id="ancl22" x1="1550" y1="2955" x2="1580" y2="3015" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc22a" data-end="anc22b" data-miro-id="3458764682168300386" />
+<circle id="anc23a" cx="1580" cy="3015" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300145" />
+<circle id="anc23b" cx="1625" cy="2940" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300146" />
+<line id="ancl23" x1="1580" y1="3015" x2="1625" y2="2940" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc23a" data-end="anc23b" data-miro-id="3458764682168300387" />
+<circle id="anc24a" cx="1625" cy="2940" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300147" />
+<circle id="anc24b" cx="1655" cy="3000" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300150" />
+<line id="ancl24" x1="1625" y1="2940" x2="1655" y2="3000" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc24a" data-end="anc24b" data-miro-id="3458764682168300388" />
+<circle id="anc25a" cx="1655" cy="3000" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300151" />
+<circle id="anc25b" cx="1700" cy="2931" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300152" />
+<line id="ancl25" x1="1655" y1="3000" x2="1700" y2="2931" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc25a" data-end="anc25b" data-miro-id="3458764682168300389" />
+<circle id="anc26a" cx="1700" cy="2931" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300153" />
+<circle id="anc26b" cx="1735" cy="3030" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300154" />
+<line id="ancl26" x1="1700" y1="2931" x2="1735" y2="3030" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc26a" data-end="anc26b" data-miro-id="3458764682168300390" />
+<circle id="anc27a" cx="1735" cy="3030" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300155" />
+<circle id="anc27b" cx="1760" cy="2990" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300156" />
+<line id="ancl27" x1="1735" y1="3030" x2="1760" y2="2990" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc27a" data-end="anc27b" data-miro-id="3458764682168300391" />
+<circle id="anc28a" cx="1760" cy="2990" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300157" />
+<circle id="anc28b" cx="1800" cy="3090" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300158" />
+<line id="ancl28" x1="1760" y1="2990" x2="1800" y2="3090" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc28a" data-end="anc28b" data-miro-id="3458764682168300392" />
+<circle id="anc29a" cx="1800" cy="3090" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300159" />
+<circle id="anc29b" cx="1830" cy="3140" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300160" />
+<line id="ancl29" x1="1800" y1="3090" x2="1830" y2="3140" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc29a" data-end="anc29b" data-miro-id="3458764682168300393" />
+<circle id="anc30a" cx="1830" cy="3140" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300161" />
+<circle id="anc30b" cx="1865" cy="3205" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300162" />
+<line id="ancl30" x1="1830" y1="3140" x2="1865" y2="3205" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc30a" data-end="anc30b" data-miro-id="3458764682168300395" />
+<rect id="ch4" x="1385" y="3320" width="800" height="470" rx="12" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168300163" />
+<text x="1405" y="3352" text-anchor="start" font-size="13" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300164">EURJPY · 1h · FXCM — capture TradingView</text>
+<rect x="1695" y="3370" width="200" height="80" fill="#ffffff" stroke="none" data-miro-id="3458764682168300165" />
+<rect x="1695" y="3450" width="200" height="300" fill="#ffffff" stroke="none" data-miro-id="3458764682168300166" />
+<rect x="1455" y="3445" width="620" height="16" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300167" />
+<rect x="1415" y="3745" width="720" height="12" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300168" />
+<circle id="anc31a" cx="1900" cy="3660" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300169" />
+<circle id="anc31b" cx="2145" cy="3660" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300171" />
+<line id="ancl31" x1="1900" y1="3660" x2="2145" y2="3660" stroke="#ffffff" stroke-width="2"  data-shape="straight" data-start="anc31a" data-end="anc31b" data-miro-id="3458764682168300396" />
+<circle id="anc32a" cx="1575" cy="3385" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300172" />
+<circle id="anc32b" cx="1505" cy="3550" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300173" />
+<line id="ancl32" x1="1575" y1="3385" x2="1505" y2="3550" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc32a" data-end="anc32b" data-miro-id="3458764682168300397" />
+<circle id="anc33a" cx="1505" cy="3550" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300174" />
+<circle id="anc33b" cx="1550" cy="3485" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300175" />
+<line id="ancl33" x1="1505" y1="3550" x2="1550" y2="3485" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc33a" data-end="anc33b" data-miro-id="3458764682168300398" />
+<circle id="anc34a" cx="1550" cy="3485" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300176" />
+<circle id="anc34b" cx="1580" cy="3545" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300177" />
+<line id="ancl34" x1="1550" y1="3485" x2="1580" y2="3545" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc34a" data-end="anc34b" data-miro-id="3458764682168300399" />
+<circle id="anc35a" cx="1580" cy="3545" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300178" />
+<circle id="anc35b" cx="1625" cy="3470" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300179" />
+<line id="ancl35" x1="1580" y1="3545" x2="1625" y2="3470" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc35a" data-end="anc35b" data-miro-id="3458764682168300400" />
+<circle id="anc36a" cx="1625" cy="3470" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300180" />
+<circle id="anc36b" cx="1655" cy="3530" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300181" />
+<line id="ancl36" x1="1625" y1="3470" x2="1655" y2="3530" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc36a" data-end="anc36b" data-miro-id="3458764682168300401" />
+<circle id="anc37a" cx="1655" cy="3530" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300182" />
+<circle id="anc37b" cx="1700" cy="3461" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300183" />
+<line id="ancl37" x1="1655" y1="3530" x2="1700" y2="3461" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc37a" data-end="anc37b" data-miro-id="3458764682168300402" />
+<circle id="anc38a" cx="1700" cy="3461" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300184" />
+<circle id="anc38b" cx="1735" cy="3560" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300185" />
+<line id="ancl38" x1="1700" y1="3461" x2="1735" y2="3560" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc38a" data-end="anc38b" data-miro-id="3458764682168300403" />
+<circle id="anc39a" cx="1735" cy="3560" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300186" />
+<circle id="anc39b" cx="1760" cy="3520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300187" />
+<line id="ancl39" x1="1735" y1="3560" x2="1760" y2="3520" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc39a" data-end="anc39b" data-miro-id="3458764682168300404" />
+<circle id="anc40a" cx="1760" cy="3520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300188" />
+<circle id="anc40b" cx="1800" cy="3620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300189" />
+<line id="ancl40" x1="1760" y1="3520" x2="1800" y2="3620" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc40a" data-end="anc40b" data-miro-id="3458764682168300405" />
+<circle id="anc41a" cx="1800" cy="3620" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300190" />
+<circle id="anc41b" cx="1820" cy="3600" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300193" />
+<line id="ancl41" x1="1800" y1="3620" x2="1820" y2="3600" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc41a" data-end="anc41b" data-miro-id="3458764682168300406" />
+<circle id="anc42a" cx="1820" cy="3600" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300194" />
+<circle id="anc42b" cx="1835" cy="3655" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300195" />
+<line id="ancl42" x1="1820" y1="3600" x2="1835" y2="3655" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc42a" data-end="anc42b" data-miro-id="3458764682168300407" />
+<text id="h3" x="1350" y="4060" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300196">Le SL joue un rôle énorme dans le management :</text>
+<rect x="960" y="4255" width="180" height="95" fill="#ffffff" stroke="none" data-miro-id="3458764682168300197" />
+<rect x="960" y="4350" width="180" height="370" fill="#ffffff" stroke="none" data-miro-id="3458764682168300198" />
+<rect x="2110" y="4200" width="200" height="150" fill="#ffffff" stroke="none" data-miro-id="3458764682168300199" />
+<rect x="2110" y="4350" width="200" height="370" fill="#ffffff" stroke="none" data-miro-id="3458764682168300200" />
+<rect x="320" y="4205" width="840" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300201" />
+<rect x="320" y="4330" width="460" height="16" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300202" />
+<rect x="1470" y="4205" width="840" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300203" />
+<rect x="1470" y="4330" width="460" height="16" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300204" />
+<circle id="anc43a" cx="365" cy="4700" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300205" />
+<circle id="anc43b" cx="560" cy="4265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300206" />
+<line id="ancl43" x1="365" y1="4700" x2="560" y2="4265" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc43a" data-end="anc43b" data-miro-id="3458764682168300410" />
+<circle id="anc44a" cx="560" cy="4265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300207" />
+<circle id="anc44b" cx="615" cy="4385" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300208" />
+<line id="ancl44" x1="560" y1="4265" x2="615" y2="4385" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc44a" data-end="anc44b" data-miro-id="3458764682168300411" />
+<circle id="anc45a" cx="615" cy="4385" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300209" />
+<circle id="anc45b" cx="655" cy="4310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300210" />
+<line id="ancl45" x1="615" y1="4385" x2="655" y2="4310" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc45a" data-end="anc45b" data-miro-id="3458764682168300413" />
+<circle id="anc46a" cx="655" cy="4310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300213" />
+<circle id="anc46b" cx="695" cy="4415" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300214" />
+<line id="ancl46" x1="655" y1="4310" x2="695" y2="4415" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc46a" data-end="anc46b" data-miro-id="3458764682168300414" />
+<circle id="anc47a" cx="695" cy="4415" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300217" />
+<circle id="anc47b" cx="735" cy="4345" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300218" />
+<line id="ancl47" x1="695" y1="4415" x2="735" y2="4345" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc47a" data-end="anc47b" data-miro-id="3458764682168300415" />
+<circle id="anc48a" cx="735" cy="4345" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300219" />
+<circle id="anc48b" cx="785" cy="4455" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300220" />
+<line id="ancl48" x1="735" y1="4345" x2="785" y2="4455" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc48a" data-end="anc48b" data-miro-id="3458764682168300416" />
+<circle id="anc49a" cx="785" cy="4455" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300221" />
+<circle id="anc49b" cx="825" cy="4390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300222" />
+<line id="ancl49" x1="785" y1="4455" x2="825" y2="4390" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc49a" data-end="anc49b" data-miro-id="3458764682168300417" />
+<circle id="anc50a" cx="825" cy="4390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300223" />
+<circle id="anc50b" cx="855" cy="4440" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300224" />
+<line id="ancl50" x1="825" y1="4390" x2="855" y2="4440" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc50a" data-end="anc50b" data-miro-id="3458764682168300418" />
+<circle id="anc51a" cx="855" cy="4440" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300225" />
+<circle id="anc51b" cx="900" cy="4355" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300226" />
+<line id="ancl51" x1="855" y1="4440" x2="900" y2="4355" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc51a" data-end="anc51b" data-miro-id="3458764682168300419" />
+<circle id="anc52a" cx="900" cy="4355" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300227" />
+<circle id="anc52b" cx="965" cy="4565" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300228" />
+<line id="ancl52" x1="900" y1="4355" x2="965" y2="4565" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc52a" data-end="anc52b" data-miro-id="3458764682168300421" />
+<circle id="anc53a" cx="1515" cy="4700" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300229" />
+<circle id="anc53b" cx="1710" cy="4265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300230" />
+<line id="ancl53" x1="1515" y1="4700" x2="1710" y2="4265" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc53a" data-end="anc53b" data-miro-id="3458764682168300422" />
+<circle id="anc54a" cx="1710" cy="4265" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300231" />
+<circle id="anc54b" cx="1765" cy="4385" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300232" />
+<line id="ancl54" x1="1710" y1="4265" x2="1765" y2="4385" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc54a" data-end="anc54b" data-miro-id="3458764682168300423" />
+<circle id="anc55a" cx="1765" cy="4385" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300233" />
+<circle id="anc55b" cx="1805" cy="4310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300234" />
+<line id="ancl55" x1="1765" y1="4385" x2="1805" y2="4310" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc55a" data-end="anc55b" data-miro-id="3458764682168300424" />
+<circle id="anc56a" cx="1805" cy="4310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300235" />
+<circle id="anc56b" cx="1845" cy="4415" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300236" />
+<line id="ancl56" x1="1805" y1="4310" x2="1845" y2="4415" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc56a" data-end="anc56b" data-miro-id="3458764682168300425" />
+<circle id="anc57a" cx="1845" cy="4415" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300237" />
+<circle id="anc57b" cx="1885" cy="4345" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300239" />
+<line id="ancl57" x1="1845" y1="4415" x2="1885" y2="4345" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc57a" data-end="anc57b" data-miro-id="3458764682168300427" />
+<circle id="anc58a" cx="1885" cy="4345" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300240" />
+<circle id="anc58b" cx="1935" cy="4455" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300241" />
+<line id="ancl58" x1="1885" y1="4345" x2="1935" y2="4455" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc58a" data-end="anc58b" data-miro-id="3458764682168300428" />
+<circle id="anc59a" cx="1935" cy="4455" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300242" />
+<circle id="anc59b" cx="1975" cy="4390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300243" />
+<line id="ancl59" x1="1935" y1="4455" x2="1975" y2="4390" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc59a" data-end="anc59b" data-miro-id="3458764682168300429" />
+<circle id="anc60a" cx="1975" cy="4390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300244" />
+<circle id="anc60b" cx="2005" cy="4440" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300246" />
+<line id="ancl60" x1="1975" y1="4390" x2="2005" y2="4440" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc60a" data-end="anc60b" data-miro-id="3458764682168300430" />
+<circle id="anc61a" cx="2005" cy="4440" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300247" />
+<circle id="anc61b" cx="2050" cy="4355" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300248" />
+<line id="ancl61" x1="2005" y1="4440" x2="2050" y2="4355" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc61a" data-end="anc61b" data-miro-id="3458764682168300432" />
+<circle id="anc62a" cx="2050" cy="4355" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300249" />
+<circle id="anc62b" cx="2115" cy="4565" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300250" />
+<line id="ancl62" x1="2050" y1="4355" x2="2115" y2="4565" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc62a" data-end="anc62b" data-miro-id="3458764682168300434" />
+<circle id="anc63a" cx="1020" cy="4310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300251" />
+<circle id="anc63b" cx="2180" cy="4310" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300252" />
+<line id="ancl63" x1="1020" y1="4310" x2="2180" y2="4310" stroke="#ffffff" stroke-width="4" data-shape="straight" data-start="anc63a" data-end="anc63b" data-miro-id="3458764682168300435" />
+<text x="1000" y="4320" text-anchor="end" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300253">-1R</text>
+<text x="2205" y="4320" text-anchor="start" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300254">-0.5R</text>
+<text id="h4" x="1350" y="4950" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300255">L'entrée joue un rôle énorme dans le management :</text>
+<rect x="1085" y="5090" width="135" height="172" fill="#ffffff" stroke="none" data-miro-id="3458764682168300256" />
+<rect x="1085" y="5272" width="135" height="410" fill="#ffffff" stroke="none" data-miro-id="3458764682168300257" />
+<rect x="1790" y="5040" width="170" height="150" fill="#ffffff" stroke="none" data-miro-id="3458764682168300258" />
+<rect x="1790" y="5190" width="170" height="495" fill="#ffffff" stroke="none" data-miro-id="3458764682168300262" />
+<rect x="640" y="5095" width="1500" height="14" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300263" />
+<rect x="730" y="5262" width="1330" height="10" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300264" />
+<circle id="anc64a" cx="700" cy="5700" r="4" fill="#16181f" stroke="none" data-miro-id="3458764682168300265" />
+<circle id="anc64b" cx="775" cy="5180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300266" />
+<line id="ancl64" x1="700" y1="5700" x2="775" y2="5180" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc64a" data-end="anc64b" data-miro-id="3458764682168300436" />
+<circle id="anc65a" cx="775" cy="5180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300267" />
+<circle id="anc65b" cx="805" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300268" />
+<line id="ancl65" x1="775" y1="5180" x2="805" y2="5258" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc65a" data-end="anc65b" data-miro-id="3458764682168300437" />
+<circle id="anc66a" cx="805" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300269" />
+<circle id="anc66b" cx="855" cy="5112" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300270" />
+<line id="ancl66" x1="805" y1="5258" x2="855" y2="5112" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc66a" data-end="anc66b" data-miro-id="3458764682168300438" />
+<circle id="anc67a" cx="855" cy="5112" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300271" />
+<circle id="anc67b" cx="895" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300272" />
+<line id="ancl67" x1="855" y1="5112" x2="895" y2="5258" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc67a" data-end="anc67b" data-miro-id="3458764682168300439" />
+<circle id="anc68a" cx="895" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300273" />
+<circle id="anc68b" cx="925" cy="5175" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300274" />
+<line id="ancl68" x1="895" y1="5258" x2="925" y2="5175" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc68a" data-end="anc68b" data-miro-id="3458764682168300440" />
+<circle id="anc69a" cx="925" cy="5175" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300275" />
+<circle id="anc69b" cx="960" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300276" />
+<line id="ancl69" x1="925" y1="5175" x2="960" y2="5258" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc69a" data-end="anc69b" data-miro-id="3458764682168300441" />
+<circle id="anc70a" cx="960" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300277" />
+<circle id="anc70b" cx="1135" cy="5570" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300278" />
+<line id="ancl70" x1="960" y1="5258" x2="1135" y2="5570" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc70a" data-end="anc70b" data-miro-id="3458764682168300444" />
+<circle id="anc71a" cx="1520" cy="5700" r="4" fill="#16181f" stroke="none" data-miro-id="3458764682168300279" />
+<circle id="anc71b" cx="1595" cy="5180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300280" />
+<line id="ancl71" x1="1520" y1="5700" x2="1595" y2="5180" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc71a" data-end="anc71b" data-miro-id="3458764682168300445" />
+<circle id="anc72a" cx="1595" cy="5180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300281" />
+<circle id="anc72b" cx="1625" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300284" />
+<line id="ancl72" x1="1595" y1="5180" x2="1625" y2="5258" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc72a" data-end="anc72b" data-miro-id="3458764682168300446" />
+<circle id="anc73a" cx="1625" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300285" />
+<circle id="anc73b" cx="1675" cy="5112" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300286" />
+<line id="ancl73" x1="1625" y1="5258" x2="1675" y2="5112" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc73a" data-end="anc73b" data-miro-id="3458764682168300447" />
+<circle id="anc74a" cx="1675" cy="5112" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300287" />
+<circle id="anc74b" cx="1715" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300288" />
+<line id="ancl74" x1="1675" y1="5112" x2="1715" y2="5258" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc74a" data-end="anc74b" data-miro-id="3458764682168300450" />
+<circle id="anc75a" cx="1715" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300289" />
+<circle id="anc75b" cx="1745" cy="5175" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300290" />
+<line id="ancl75" x1="1715" y1="5258" x2="1745" y2="5175" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc75a" data-end="anc75b" data-miro-id="3458764682168300451" />
+<circle id="anc76a" cx="1745" cy="5175" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300291" />
+<circle id="anc76b" cx="1785" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300292" />
+<line id="ancl76" x1="1745" y1="5175" x2="1785" y2="5258" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc76a" data-end="anc76b" data-miro-id="3458764682168300453" />
+<circle id="anc77a" cx="1785" cy="5258" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300293" />
+<circle id="anc77b" cx="1880" cy="5570" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300294" />
+<line id="ancl77" x1="1785" y1="5258" x2="1880" y2="5570" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc77a" data-end="anc77b" data-miro-id="3458764682168300454" />
+<circle id="anc78a" cx="1060" cy="5295" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300295" />
+<circle id="anc78b" cx="2015" cy="5295" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300296" />
+<line id="ancl78" x1="1060" y1="5295" x2="2015" y2="5295" stroke="#ffffff" stroke-width="4" data-shape="straight" data-start="anc78a" data-end="anc78b" data-miro-id="3458764682168300455" />
+<text x="1300" y="5255" text-anchor="middle" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300297">0R</text>
+<text x="2045" y="5255" text-anchor="start" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300298">+1R</text>
+<rect x="1080" y="6165" width="280" height="293" fill="#ffffff" stroke="none" data-miro-id="3458764682168300299" />
+<rect x="1080" y="6460" width="280" height="140" fill="#ffffff" stroke="none" data-miro-id="3458764682168300300" />
+<rect x="1840" y="6165" width="280" height="293" fill="#ffffff" stroke="none" data-miro-id="3458764682168300301" />
+<rect x="1840" y="6460" width="280" height="170" fill="#ffffff" stroke="none" data-miro-id="3458764682168300302" />
+<rect x="580" y="6470" width="1580" height="18" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168300303" />
+<circle id="anc79a" cx="655" cy="6745" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300308" />
+<circle id="anc79b" cx="790" cy="6390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300309" />
+<line id="ancl79" x1="655" y1="6745" x2="790" y2="6390" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc79a" data-end="anc79b" data-miro-id="3458764682168300458" />
+<circle id="anc80a" cx="790" cy="6390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300310" />
+<circle id="anc80b" cx="830" cy="6500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300311" />
+<line id="ancl80" x1="790" y1="6390" x2="830" y2="6500" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc80a" data-end="anc80b" data-miro-id="3458764682168300459" />
+<circle id="anc81a" cx="830" cy="6500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300312" />
+<circle id="anc81b" cx="868" cy="6425" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300313" />
+<line id="ancl81" x1="830" y1="6500" x2="868" y2="6425" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc81a" data-end="anc81b" data-miro-id="3458764682168300460" />
+<circle id="anc82a" cx="868" cy="6425" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300314" />
+<circle id="anc82b" cx="908" cy="6520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300315" />
+<line id="ancl82" x1="868" y1="6425" x2="908" y2="6520" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc82a" data-end="anc82b" data-miro-id="3458764682168300461" />
+<circle id="anc83a" cx="908" cy="6520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300316" />
+<circle id="anc83b" cx="945" cy="6445" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300317" />
+<line id="ancl83" x1="908" y1="6520" x2="945" y2="6445" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc83a" data-end="anc83b" data-miro-id="3458764682168300462" />
+<circle id="anc84a" cx="945" cy="6445" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300318" />
+<circle id="anc84b" cx="990" cy="6540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300319" />
+<line id="ancl84" x1="945" y1="6445" x2="990" y2="6540" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc84a" data-end="anc84b" data-miro-id="3458764682168300463" />
+<circle id="anc85a" cx="990" cy="6540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300320" />
+<circle id="anc85b" cx="1030" cy="6465" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300322" />
+<line id="ancl85" x1="990" y1="6540" x2="1030" y2="6465" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc85a" data-end="anc85b" data-miro-id="3458764682168300465" />
+<circle id="anc86a" cx="1030" cy="6465" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300323" />
+<circle id="anc86b" cx="1048" cy="6552" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300324" />
+<line id="ancl86" x1="1030" y1="6465" x2="1048" y2="6552" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc86a" data-end="anc86b" data-miro-id="3458764682168300466" />
+<circle id="anc87a" cx="1048" cy="6552" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300325" />
+<circle id="anc87b" cx="1160" cy="6250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300326" />
+<line id="ancl87" x1="1048" y1="6552" x2="1160" y2="6250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc87a" data-end="anc87b" data-miro-id="3458764682168300467" />
+<circle id="anc88a" cx="1455" cy="6745" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300327" />
+<circle id="anc88b" cx="1590" cy="6390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300328" />
+<line id="ancl88" x1="1455" y1="6745" x2="1590" y2="6390" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc88a" data-end="anc88b" data-miro-id="3458764682168300470" />
+<circle id="anc89a" cx="1590" cy="6390" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300334" />
+<circle id="anc89b" cx="1630" cy="6500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300335" />
+<line id="ancl89" x1="1590" y1="6390" x2="1630" y2="6500" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc89a" data-end="anc89b" data-miro-id="3458764682168300471" />
+<circle id="anc90a" cx="1630" cy="6500" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300337" />
+<circle id="anc90b" cx="1668" cy="6425" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300338" />
+<line id="ancl90" x1="1630" y1="6500" x2="1668" y2="6425" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc90a" data-end="anc90b" data-miro-id="3458764682168300472" />
+<circle id="anc91a" cx="1668" cy="6425" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300339" />
+<circle id="anc91b" cx="1708" cy="6520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300340" />
+<line id="ancl91" x1="1668" y1="6425" x2="1708" y2="6520" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc91a" data-end="anc91b" data-miro-id="3458764682168300474" />
+<circle id="anc92a" cx="1708" cy="6520" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300341" />
+<circle id="anc92b" cx="1745" cy="6445" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300342" />
+<line id="ancl92" x1="1708" y1="6520" x2="1745" y2="6445" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc92a" data-end="anc92b" data-miro-id="3458764682168300475" />
+<circle id="anc93a" cx="1745" cy="6445" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300343" />
+<circle id="anc93b" cx="1790" cy="6540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300344" />
+<line id="ancl93" x1="1745" y1="6445" x2="1790" y2="6540" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc93a" data-end="anc93b" data-miro-id="3458764682168300476" />
+<circle id="anc94a" cx="1790" cy="6540" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300345" />
+<circle id="anc94b" cx="1830" cy="6465" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300346" />
+<line id="ancl94" x1="1790" y1="6540" x2="1830" y2="6465" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc94a" data-end="anc94b" data-miro-id="3458764682168300477" />
+<circle id="anc95a" cx="1830" cy="6465" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300347" />
+<circle id="anc95b" cx="1848" cy="6552" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300348" />
+<line id="ancl95" x1="1830" y1="6465" x2="1848" y2="6552" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc95a" data-end="anc95b" data-miro-id="3458764682168300479" />
+<circle id="anc96a" cx="1848" cy="6552" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300349" />
+<circle id="anc96b" cx="1960" cy="6250" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300350" />
+<line id="ancl96" x1="1848" y1="6552" x2="1960" y2="6250" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc96a" data-end="anc96b" data-miro-id="3458764682168300480" />
+<circle id="anc97a" cx="1058" cy="6458" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300351" />
+<circle id="anc97b" cx="2010" cy="6458" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300352" />
+<line id="ancl97" x1="1058" y1="6458" x2="2010" y2="6458" stroke="#ffffff" stroke-width="4" data-shape="straight" data-start="anc97a" data-end="anc97b" data-miro-id="3458764682168300481" />
+<text x="1015" y="6420" text-anchor="end" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300353">0R</text>
+<text x="1815" y="6420" text-anchor="end" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300354">+1R</text>
+</g>
+</svg>
