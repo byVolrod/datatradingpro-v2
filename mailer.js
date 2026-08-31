@@ -1055,8 +1055,10 @@ const _paraHtml = (txt, col, size) => _paraBlocs(txt)
 const _ssTitre = t => `<div style="color:#e6e6ea;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 5px;">${_esc(t)}</div>`;
 // Ligne de détail (gris) : le contenu est du HTML DÉJÀ échappé par l'appelant.
 const _puce = h => `<div style="color:#9aa3b2;font-size:12.5px;line-height:1.55;margin:3px 0;">${h}</div>`;
-// Puce de lecture (corps, pastille or) : retrait négatif pour que la 2e ligne s'aligne sous le texte.
-const _puceOr = h => `<div style="color:#cbd5e1;font-size:13.5px;line-height:1.62;margin:0 0 7px;padding-left:13px;text-indent:-13px;"><span style="color:${TOK.or};font-weight:700;">&bull;</span>&nbsp;${h}</div>`;
+/* Puce de lecture (corps) : PLUS DE PASTILLE OR (31/08, demande user : « enlève les puces de tous
+   les récap quotidien, sessions récap, hebdo, économie »). Le retrait négatif de la 2e ligne n'a
+   plus de pastille à compenser : padding-left simple, chaque ligne d'un même point s'aligne pareil. */
+const _puceOr = h => `<div style="color:#cbd5e1;font-size:13.5px;line-height:1.62;margin:0 0 7px;padding-left:13px;">${h}</div>`;
 // Ligne INTITULÉE (« Pricing : … ») : l'intitulé porte le seul accent de la ligne.
 const _ligne = (label, htmlValeur) => _puce(`<span style="color:#cbd5e1;font-weight:600;">${_esc(label)}&nbsp;:</span> ${htmlValeur}`);
 
@@ -2243,10 +2245,12 @@ function _parasDesk(txt, col, size, mb) {
 function _pucesDesk(items, gras) {
   const l = (Array.isArray(items) ? items : []).filter(Boolean);
   if (!l.length) return '';
-  const tds = 'padding:0 0 10px;font-size:13px;line-height:1.7;';
+  const tds = 'padding:0 0 10px 14px;font-size:13px;line-height:1.7;';
+  // PLUS DE COLONNE-PASTILLE (31/08, demande user : « enlève les puces de tous les récap quotidien,
+  // sessions récap, hebdo, économie ») : une seule cellule, le padding-left reprend l'indentation
+  // que portait la colonne dédiée au point, sans plus rien y afficher.
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 4px;">`
-    + l.map(h => `<tr><td width="14" valign="top" style="width:14px;${tds}color:${TOK.or};">&bull;</td>`
-      + `<td valign="top" style="${tds}color:#c9d1d9;${gras ? 'font-weight:600;' : ''}">${h}</td></tr>`).join('')
+    + l.map(h => `<tr><td valign="top" style="${tds}color:#c9d1d9;${gras ? 'font-weight:600;' : ''}">${h}</td></tr>`).join('')
     + `</table>`;
 }
 /* Sous-titre INTERNE = `.fxdr-grp-title` (style.css 6148) : 10 px, capitales, gris #7d7d86,

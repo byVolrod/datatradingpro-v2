@@ -5550,9 +5550,13 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 /* Ligne séparatrice entre les PARTIES des Points Macro Clés (Géopolitique / BC / Inflation & Croissance /
    Cross-Asset / Commerce & Tarifs / Techno…) : le bloc respire (demande user). Fine, très sombre (--hud-line). */
 .wr-sep { border-top: 1px solid var(--hud-line, var(--border)); margin: 24px 0 6px; }
-/* Même alignement : la puce du Quotidien fait 11,5 px et son texte est plus clair (mesuré). */
+/* Même alignement : la puce du Quotidien fait 11,5 px et son texte est plus clair (mesuré).
+   PLUS DE POINT DORÉ (31/08, demande user : « enlève les puces de tous les récap quotidien,
+   sessions récap, hebdo, économie ») : `.wr-bullet` est la classe PARTAGÉE par les quatre — retirer
+   le `::before` ici les couvre tous d'un coup, sans dupliquer le geste par rapport. Le
+   `padding-left` reste : les lignes gardent leur retrait, seul le point disparaît (un
+   désindentation aurait aussi décalé les lignes qui s'enroulent sur plusieurs lignes). */
 .wr-bullet { color:#e8eaed; font-size:11.5px; line-height:1.55; margin:0 0 10px; padding-left:14px; position:relative; }
-.wr-bullet::before { content:"•"; color:#e3b23a; position:absolute; left:0; }
 .wr-bullet strong { color:#fff; font-weight:var(--fw-semibold); }
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }
 /* Weekly Recap — Section BANQUES CENTRALES (synthèse par banque + Interprétation de marché) */
