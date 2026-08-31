@@ -7868,8 +7868,12 @@
               : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) : double-clic pour renommer')
                       : 'Onglet vide : choisis sa disposition dans le corps');
             var _ic = _tabIconSvg(icons[i]);
+            // LE CHEVRON S'EFFACE DÈS QU'UNE ICÔNE EST POSÉE (31/08, demande user : « quand on
+            // ajoute une icône à l'onglet il faut enlever le ›, vu que l'icône prend sa place »).
+            // Les deux disaient la même chose — « ceci est un onglet » — côte à côte : l'icône
+            // choisie par le lecteur remplace le repère générique, elle ne s'y ajoute pas.
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w || estG ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
-              + '<span class="wdgt-chv">›</span>' + (_ic ? '<span class="wdgt-tico">' + _ic + '</span>' : '') + '<span class="wdgt-nm">' + esc(lbl) + '</span></button>';
+              + (_ic ? '<span class="wdgt-tico">' + _ic + '</span>' : '<span class="wdgt-chv">›</span>') + '<span class="wdgt-nm">' + esc(lbl) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
           // La rangée vient de changer de longueur : le fondu doit le savoir, sinon il annonce une
           // suite qui n'existe plus (ou se tait alors qu'il en reste).

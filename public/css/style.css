@@ -12061,7 +12061,16 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
   width: 3px; border-radius: 2px; background: var(--w-f1);
   opacity: 0; transition: opacity .14s, background .12s;
 }
-.wdg-card:hover .wdg-resize-e::after { opacity: .45; }
+/* ⚠️ LE RAIL AMBIANT (carte survolée, hors poignée) EST RETIRÉ (31/08, capture user « on a 2
+   scroller, tu peux enlever le scroller doré » — sur BUREAU cette fois, curseur nulle part près
+   du bord). Il se posait pile à gauche de la vraie barre de défilement (`.wdg-card--barre
+   .wdg-resize-e { right: 8px }`) : deux traits verticaux collés, exactement ce qui avait déjà été
+   coupé sur tactile le même jour pour la même raison. Sur bureau le survol ne s'accroche pas comme
+   sur iOS, mais lire une carte qui défile revient à survoler la carte en continu : le rail restait
+   donc allumé tout le temps qu'on lisait, pas seulement en passant. La poignée elle-même n'est pas
+   touchée : `.wdg-resize-e:hover::after` (ligne suivante) l'allume plein or dès que le curseur est
+   PRÉCISÉMENT dessus — c'est la seule affordance qui reste, et elle suffit : ↔ apparaît au même
+   moment sur le curseur. */
 .wdg-resize-e:hover::after { background: var(--orange); opacity: 1; }
 .wdg-card.wdg-card--locked .wdg-resize-e { display: none; }
 
@@ -21592,22 +21601,22 @@ body.theme-light .arl-row--imp { background: rgba(220, 38, 38, 0.06); }
 body.theme-light .arl-row--imp .arl-ttl, body.theme-light .arl-row--imp .br-doc-ico { color: #c22415; }
 body.theme-light .arl-row--imp.arl-row--read .arl-ttl { color: rgba(194, 36, 21, 0.6); }
 
-/* ═══ LE RAIL DE LA POIGNÉE D'ÉLARGISSEMENT NE SE PEINT PLUS SUR UN ÉCRAN TACTILE (31/08, capture
+/* ═══ SUR ÉCRAN TACTILE, LA POIGNÉE D'ÉLARGISSEMENT NE S'ALLUME JAMAIS TOUTE SEULE (31/08, capture
    user : « supprime le scroller secondaire doré visible à gauche du scroller principal ») ═══════
-   Ce n'était pas une barre de défilement : c'est le repère de `.wdg-resize-e`, et sa teinte le
-   prouve — mesuré sur la capture (116, 93, 43) sur un fond (33, 21, 21), soit l'or DTP à 45 %,
-   reproduit au banc à (120, 92, 38). Il naît du CUMUL de deux survols : `.wdg-resize-e:hover::after`
-   pose `background: var(--orange)` tandis que son `opacity: 1` PERD contre
-   `.wdg-card:hover .wdg-resize-e::after { opacity: .45 }`, plus spécifique (0,3,1 contre 0,2,1).
-   ⚠️ ET SUR iOS LE SURVOL NE SE RETIRE JAMAIS : il s'accroche au premier appui près du bord droit
-   et y reste. Le repère devenait donc permanent — un rail doré de 44 px, décalé vers l'INTÉRIEUR
-   par `.wdg-card--barre .wdg-resize-e { right: 8px }` (le correctif qui lui évite de recouvrir la
-   barre de défilement), c'est-à-dire posé pile à sa gauche : deux traits verticaux côte à côte,
-   qui se lisent comme un second ascenseur.
-   Un repère de survol n'a aucun sens là où rien ne survole : on l'éteint sur ces appareils. On ne
-   touche À RIEN d'autre — la poignée reste saisissable (segment centré de `pointer: coarse`,
-   mesuré 23 × 44 px), le redimensionnement au doigt est inchangé, et le rendu au bureau aussi. */
+   Le repère de `.wdg-resize-e` — pas une barre de défilement — pouvait rester allumé en PERMANENCE
+   sur iOS : le survol s'y accroche au premier appui près du bord droit et n'est jamais retiré, donc
+   `.wdg-resize-e:hover::after` restait déclenché en continu. Décalé vers l'INTÉRIEUR par
+   `.wdg-card--barre .wdg-resize-e { right: 8px }` (le correctif qui lui évite de recouvrir la barre
+   de défilement), c'est-à-dire posé pile à sa gauche : deux traits verticaux côte à côte, qui se
+   lisaient comme un second ascenseur.
+   (Le premier volet de ce même correctif — la règle AMBIANTE `.wdg-card:hover .wdg-resize-e::after`,
+   déclenchée par le simple survol de toute la carte — a depuis été retirée entièrement, bureau
+   compris : cf. commentaire au-dessus de `.wdg-resize-e::after` dans ce fichier. Ce média-ci ne
+   neutralise donc plus qu'UNE chose, le survol PRÉCIS resté accroché sur tactile — toujours
+   nécessaire : sans lui, l'accrochage iOS rallumerait le rail plein or en permanence.)
+   Un repère de survol n'a aucun sens là où rien ne survole : on l'éteint sur ces appareils. La
+   poignée reste saisissable (segment centré de `pointer: coarse`, mesuré 23 × 44 px), le
+   redimensionnement au doigt est inchangé. */
 @media (hover: none) {
-  .wdg-card:hover .wdg-resize-e::after,
   .wdg-resize-e:hover::after { opacity: 0; }
 }

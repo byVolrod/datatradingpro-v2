@@ -10865,18 +10865,10 @@ function _renderFXDailyRecap(item) {
       _macroFam.set('Autres', (_macroFam.get('Autres') || []).concat(_macroFam.get(f) || []));
       _macroFam.delete(f);
     });
-    /* AUTRES ÉLÉMENTS NOTABLES (28/08, en comparant au Récap Quotidien du mentor) : les faits réels
-       de la journée qui ne sont NI le dossier géopolitique NI de la macro — une mesure commerciale
-       annoncée par un pays, un projet d'infrastructure d'État, une rencontre politique programmée.
-       Le mentor leur donne une rubrique à part ; chez nous ils étaient écrasés dans la géopolitique,
-       où ils n'ont rien à faire, ou perdus. La rubrique se pose ENTRE Géopolitique et Macro : c'est
-       leur place de lecture — après le dossier du jour, avant les chiffres. */
-    const _autres = (Array.isArray(w.autres) ? w.autres : []).filter(Boolean);
-    if (_autres.length) {
-      body += _sec('Autres éléments notables') + '<div class="fxdr-bullets">';
-      _autres.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; });
-      body += '</div>';
-    }
+    /* « AUTRES ÉLÉMENTS NOTABLES » RETIRÉE (31/08, demande user) — même traitement que « Commerce
+       International & Tarifs » et « Performance Cross-Asset » avant elle : filtrée au RENDU, jamais
+       au prompt. Le serveur continue de produire `w.autres` (les rapports déjà archivés le portent
+       encore), seul l'affichage change — desk et mail. */
     body += _sec('Macro');
     const _puces = l => { body += '<div class="fxdr-bullets">'; l.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; };
     _ORDRE_MACRO.forEach(fam => {

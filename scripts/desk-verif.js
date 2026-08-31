@@ -2091,62 +2091,65 @@ function phaseLogique() {
       verif('… et la barre d\'onglets réserve toujours la place des commandes (rien ne passe dessous)',
         !inst.ko && inst.reserveActive === true, 'réserve active : ' + inst.reserveActive);
 
-      /* ── LE RAIL DORÉ DE LA POIGNÉE NE SE PEINT PLUS SUR UN ÉCRAN TACTILE (31/08, capture user :
-         « supprime le scroller secondaire doré à gauche du scroller principal ») ─────────────────
-         Ce n'était pas une barre de défilement : c'est le repère de `.wdg-resize-e`. Sa teinte le
-         prouve — (116, 93, 43) sur un fond (33, 21, 21) dans la capture, soit l'or DTP à 45 %,
-         reproduit ici à (120, 92, 38). Il naît du CUMUL de deux survols : `.wdg-resize-e:hover`
-         pose le fond or, tandis que son `opacity: 1` PERD contre `.wdg-card:hover` (.45, plus
-         specifique). Sur iOS le survol s'accroche au premier appui et n'est jamais retire : le
-         repere devenait permanent, decale vers l'interieur par `.wdg-card--barre` donc pile a
-         gauche de la barre — deux traits cote a cote.
-         ⚠️ ON ÉMULE `hover: none` PAR CDP, ET C'EST OBLIGATOIRE : `emulateMediaFeatures` de cette
-         version de puppeteer refuse la feature `hover`. On garde un vrai survol de souris par
-         dessus : c'est exactement l'etat d'iOS — un survol accroche sur un appareil qui ne
-         survole pas. */
+      /* ── LE RAIL DORÉ DE LA POIGNÉE, PLUS AMBIANT DU TOUT (31/08, DEUX captures user le même jour :
+         d'abord « supprime le scroller secondaire doré à gauche du scroller principal » sur écran
+         tactile, puis « on a 2 scroller, tu peux enlever le scroller doré » — cette fois sur BUREAU,
+         curseur nulle part près du bord). Le premier correctif avait confiné l'extinction au tactile
+         par design assumé (`.wdg-card:hover .wdg-resize-e::after { opacity: .45 }` hors media,
+         annulée seulement dans `@media (hover:none)`) : lire une carte qui défile revient à survoler
+         la carte en continu, donc le rail restait allumé tout le temps de la lecture — sur bureau
+         comme sur tactile. La règle ambiante est retirée PARTOUT : seule `.wdg-resize-e:hover::after`
+         (survol PRÉCIS de la poignée, 14 px) allume encore le rail plein or — c'est la seule
+         affordance qui reste, et le curseur ↔ apparaît au même moment. */
       {
-        const cdp = await pm.createCDPSession();
-        await cdp.send('Emulation.setEmulatedMedia', { media: 'screen', features: [
-          { name: 'hover', value: 'none' }, { name: 'pointer', value: 'coarse' },
-          { name: 'any-hover', value: 'none' }, { name: 'any-pointer', value: 'coarse' },
-        ] });
-        const poi = await pm.$('.wdg-card .wdg-resize-e');
-        if (poi) { await poi.hover(); await new Promise(r => setTimeout(r, 300)); }
-        const rail = await pm.evaluate(() => {
-          const p = [...document.querySelectorAll('.wdg-resize-e')].find(x => x.matches(':hover'))
-                 || document.querySelector('.wdg-card .wdg-resize-e');
+        const carte = await pm.$('.wdg-card');
+        const rail = carte ? await pm.evaluate(el => {
+          const p = el.querySelector('.wdg-resize-e');
           if (!p) return { ko: 'poignee absente' };
           const r = p.getBoundingClientRect();
-          /* Le CONFINEMENT se lit au CSSOM : la non-regression au bureau ne se mesure pas ici
-             (Chromium headless rapporte `hover: none` NATIF, l'emulation ne peut pas le
-             contredire), mais une regle enfermee dans `@media (hover: none)` ne s'applique JAMAIS
-             la ou l'on survole — propriete du langage. Ce qui se verifie, c'est qu'elle y est bien
-             enfermee et que la regle d'origine garde .45 EN DEHORS. */
-          let dansMedia = 0, horsMedia = null;
+          // Plus aucune règle ambiante ne doit exister : ni hors media, ni dans @media(hover:none)
+          // (qui n'aurait plus rien à annuler) — la seule règle d'opacité restante est le survol précis.
+          let ambiante = 0;
           for (const f of document.styleSheets) {
             let regles; try { regles = f.cssRules; } catch (e) { continue; }
-            for (const g of regles) {
-              if (g.type === CSSRule.MEDIA_RULE && /hover:\s*none/.test(g.conditionText || g.media.mediaText)) {
-                for (const s of g.cssRules) if (/wdg-resize-e/.test(s.selectorText || '') && /opacity/.test(s.style.cssText)) dansMedia++;
-              } else if (g.type === CSSRule.STYLE_RULE && /\.wdg-card:hover \.wdg-resize-e::after/.test(g.selectorText || '')) {
-                horsMedia = g.style.opacity;
-              }
-            }
+            for (const g of regles) if (g.type === CSSRule.STYLE_RULE
+              && /\.wdg-card:hover \.wdg-resize-e::after/.test(g.selectorText || '')) ambiante++;
           }
           return {
-            survole: p.matches(':hover'), opacite: getComputedStyle(p, '::after').opacity,
+            opaciteAuRepos: getComputedStyle(p, '::after').opacity,
             poigneeVivante: getComputedStyle(p).display !== 'none' && r.width > 0,
             taille: Math.round(r.width) + '×' + Math.round(r.height),
-            dansMedia, horsMedia,
+            ambiante,
           };
-        });
-        verif('sur ecran tactile, le rail dore de la poignee reste ETEINT (survol accroche par iOS)',
-          !rail.ko && rail.survole === true && rail.opacite === '0', JSON.stringify(rail));
-        verif('… l\'extinction est CONFINEE au tactile (le survol du bureau garde son repere a .45)',
-          !rail.ko && rail.dansMedia >= 1 && Number(rail.horsMedia) === 0.45,
-          'regles dans @media (hover:none) : ' + rail.dansMedia + ' · hors media : ' + rail.horsMedia);
-        verif('… et la poignee reste saisissable au doigt (rien touche au comportement)',
-          !rail.ko && rail.poigneeVivante === true, 'poignee : ' + rail.taille);
+        }, carte) : { ko: 'carte absente' };
+        verif('plus de règle de rail AMBIANT (carte survolée) nulle part dans la feuille de style',
+          !rail.ko && rail.ambiante === 0, 'règles restantes : ' + rail.ambiante);
+        // Survole le CENTRE de la carte (lecture normale, pas la poignée) : le rail doit rester éteint.
+        if (carte && !rail.ko) {
+          const box = await carte.boundingBox();
+          await pm.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+          await new Promise(r => setTimeout(r, 250));
+        }
+        const opCentre = !rail.ko ? await pm.evaluate(() => { const p = document.querySelector('.wdg-card .wdg-resize-e'); return p ? getComputedStyle(p, '::after').opacity : null; }) : null;
+        verif('… ETEINT en lecture normale, carte survolée, poignée non visée (bureau ET tactile)',
+          !rail.ko && opCentre === '0', 'opacité : ' + opCentre);
+        /* La règle de survol PRÉCIS elle-même ne se mesure pas dynamiquement ici : ce Chromium
+           headless rapporte `hover: none` en NATIF et `Emulation.setEmulatedMedia` (essayé) ne
+           parvient pas à le faire mentir sur les features hover/pointer dans ce build — exactement
+           la limite déjà posée par l'auteur du test d'origine (« la non-régression au bureau ne se
+           mesure pas ici »). On lit donc la règle au CSSOM, hors de toute media query — c'est ce qui
+           garantit qu'un VRAI navigateur de bureau (hover: hover natif) l'applique sans condition. */
+        const regleVivante = !rail.ko ? await pm.evaluate(() => {
+          for (const f of document.styleSheets) {
+            let regles; try { regles = f.cssRules; } catch (e) { continue; }
+            for (const g of regles) if (g.type === CSSRule.STYLE_RULE
+              && g.selectorText === '.wdg-resize-e:hover::after' && /opacity:\s*1\b/.test(g.style.cssText)) return true;
+          }
+          return false;
+        }) : false;
+        verif('… et la poignee garde sa règle de survol PRÉCIS active (hors media, jamais neutralisée)',
+          !rail.ko && rail.poigneeVivante === true && regleVivante === true,
+          'poignee : ' + (rail.taille || '?') + ' · règle hors media présente : ' + regleVivante);
       }
       await pm.close();
     }

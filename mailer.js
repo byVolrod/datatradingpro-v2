@@ -2696,12 +2696,9 @@ function _recapQuotidienFull(fx) {
       const html = (fam === 'Politique monétaire' ? (_cbP || '') : '') + puces(l);
       return html ? _grpTitre(fam) + html : '';
     }).join('');
-  /* AUTRES ÉLÉMENTS NOTABLES (28/08) : les faits du jour qui ne sont NI le dossier géopolitique NI
-     de la macro. Le mail suit le rapport du desk à la rubrique près — sans quoi le lecteur du Point
-     Marché n'aurait pas la même journée que celui qui ouvre le desk. Posée ENTRE Géopolitique et
-     Macro, comme là-bas. */
-  const _autresHtml = puces((Array.isArray(fx.autres) ? fx.autres : []).filter(t => _md(_txtDe(t))));
-  if (_autresHtml) S('Autres éléments notables', _autresHtml);
+  /* « AUTRES ÉLÉMENTS NOTABLES » RETIRÉE (31/08, demande user) — le mail suit le desk à la
+     rubrique près (public/js/app.js) : filtrée là-bas, filtrée ici, même geste que « Commerce
+     International & Tarifs » avant elle. Le serveur continue de produire `fx.autres`. */
   S('Macro', _macroHtml);
 
   /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user). Duplication
