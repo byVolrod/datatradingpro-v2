@@ -1942,6 +1942,44 @@ function phaseLogique() {
       verif('… et plus AUCUNE ombre or par cellule (le treillis de la capture)',
         !calMob.ko && calMob.ombresParCellule === 0,
         (calMob.ombresParCellule || 0) + ' cellule(s) encore ombrée(s) sur ' + (calMob.cellules || 0));
+
+      /* ── Vue adoptée SANS barre d'accueil : les commandes du sous-widget FLOTTENT en haut,
+         jamais au pied (31/08, capture user : ↑↓ ? × en bas-gauche sous « Affichage de N sur N »).
+         La vue Institutions n'a ni .panel-header ni .panel-toolbar : _poseCommandes retombe sur le
+         repli `--flot`, dont le position:absolute perdait contre `.wdgt-subacts` (règle plus
+         tardive, même spécificité) — la bande partait EN FLUX au pied de la carte. Rejoué sur le
+         vrai desk : onglet INSTITUTIONS du panneau par défaut, la bande doit être ABSOLUE et dans
+         le premier quart de la carte. */
+      await pm.evaluate(async () => {
+        const vw = document.getElementById('view-widgets');
+        if (vw) {
+          vw.classList.remove('hidden');
+          document.querySelectorAll('.view-panel').forEach(p => { if (p.id !== 'view-widgets') p.classList.add('hidden'); });
+          if (window.DTPWidgets) window.DTPWidgets.open();
+        }
+      });
+      await new Promise(r => setTimeout(r, 1800));
+      const inst = await pm.evaluate(async () => {
+        const barre = document.querySelector('.wdgt-bar');
+        if (!barre) return { ko: 'panneau à onglets absent' };
+        const t = [...barre.querySelectorAll('.wdgt-tab')].find(x => /INSTITUTIONS/i.test(x.textContent));
+        if (!t) return { ko: 'onglet INSTITUTIONS absent' };
+        t.click();
+        await new Promise(r => setTimeout(r, 1600));
+        const carte = barre.closest('.wdg-card');
+        const strip = carte.querySelector('.wdgt-subacts');
+        if (!strip) return { ko: 'bande de commandes absente' };
+        const rc = carte.getBoundingClientRect(), rs = strip.getBoundingClientRect();
+        return {
+          position: getComputedStyle(strip).position,
+          enHaut: (rs.top - rc.top) < rc.height * 0.25,
+          yRel: Math.round(rs.top - rc.top), hCarte: Math.round(rc.height),
+        };
+      });
+      verif('la bande ↑↓ ? × de la vue Institutions FLOTTE (position absolue, repli --flot vivant)',
+        !inst.ko && inst.position === 'absolute', JSON.stringify(inst));
+      verif('… dans le premier quart de la carte, plus jamais sous le pied de liste',
+        !inst.ko && inst.enHaut, 'y relatif : ' + (inst.yRel != null ? inst.yRel : '?') + ' / ' + (inst.hCarte || '?') + 'px');
       await pm.close();
     }
   } catch (e) {
