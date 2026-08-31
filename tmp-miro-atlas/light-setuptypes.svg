@@ -8,7 +8,7 @@
 <rect id="chip4" x="2075" y="175" width="270" height="90" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="REVERSAL" data-text-color="#16181f" data-font-family="formular" data-font-size="22" data-font-weight="bold" data-miro-id="3458764682168347895" />
 <rect id="chip5" x="2580" y="175" width="300" height="90" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="OPPORTUNITY" data-text-color="#16181f" data-font-family="formular" data-font-size="22" data-font-weight="bold" data-miro-id="3458764682168347896" />
 <rect id="chip6" x="3105" y="175" width="330" height="90" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="ATTENUATION" data-text-color="#16181f" data-font-family="formular" data-font-size="22" data-font-weight="bold" data-miro-id="3458764682168347897" />
-<rect id="c1title" x="1170" y="516" width="390" height="110" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168347898" />
+<rect id="c1title" x="820" y="516" width="390" height="110" rx="820" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168347898" />
 <rect id="c1panel" x="150" y="660" width="1730" height="860" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168347899" />
 <rect id="c1zb" x="1080" y="700" width="262" height="322" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168347900" />
 <rect id="c1zp" x="1080" y="1022" width="262" height="168" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168347901" />
@@ -55,7 +55,7 @@
 <text x="1115" y="1168" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407930">61,80%</text>
 <text x="1115" y="1250" font-size="15" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407931">78,60%</text>
 <text x="1015" y="1495" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168407932">16 22 28 Nov 6 12 18 23 Déc 5 11 17 23 2026 8 14 20 25 Févr 5 11 17 22 Mars 5 11</text>
-<text x="185" y="1565" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168407933">TradingView</text>
+<text x="185" y="1565" font-size="18" font-weight="bold" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407933">TradingView</text>
 <rect id="c1co1" x="540" y="930" width="270" height="54" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Pattern de continuation&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407934" />
 <rect id="c1co2" x="930" y="770" width="200" height="54" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Break + Retest&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407935" />
 <rect id="c1co3" x="1420" y="900" width="180" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Trendline&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407936" />
@@ -66,7 +66,7 @@
 <line id="c1cl3" x1="1510" y1="900" x2="1650" y2="835" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co3" data-end="c1t1b" data-miro-id="3458764682168408149" />
 <line id="c1cl4" x1="1370" y1="1146" x2="1342" y2="1106" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co4" data-end="c1zp" data-miro-id="3458764682168408150" />
 <line id="c1cl5" x1="1250" y1="1256" x2="1102" y2="1142" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c1co5" data-end="c1band" data-miro-id="3458764682168408152" />
-<rect id="c2title" x="2610" y="516" width="320" height="110" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="REVERSAL" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168407939" />
+<rect id="c2title" x="2690" y="516" width="320" height="110" rx="2690" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="REVERSAL" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168407939" />
 <rect id="c2panel" x="1990" y="660" width="1720" height="860" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168407940" />
 <rect id="c2pkL" x="2546" y="814" width="121" height="159" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407941" />
 <rect id="c2blL" x="2546" y="973" width="121" height="313" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407942" />
@@ -131,12 +131,12 @@
 <text x="3180" y="902" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407988">50,00%</text>
 <text x="3180" y="924" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407989">38,20%</text>
 <text x="2850" y="1495" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168407990">Juin 6 12 18 24 Juill 6 11 17 23 Août 7 13 19 24 Sept 5 11 17 23 Oct 7 12 17 23</text>
-<text x="2025" y="1565" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168407991">TradingView</text>
+<text x="2025" y="1565" font-size="18" font-weight="bold" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168407991">TradingView</text>
 <rect id="c2co1" x="2330" y="1005" width="250" height="64" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal&lt;br&gt;Entry = Retest&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407992" />
 <rect id="c2co2" x="2890" y="1030" width="290" height="64" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal&lt;br&gt;Entry = Anticipation&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168407993" />
 <line id="c2cl1" x1="2580" y1="1030" x2="2523" y2="995" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c2co1" data-end="c2L10" data-miro-id="3458764682168408175" />
 <line id="c2cl2" x1="3120" y1="1030" x2="3119" y2="978" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c2co2" data-end="c2R10" data-miro-id="3458764682168408176" />
-<rect id="c3title" x="860" y="1560" width="420" height="130" rx="12" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION HTF&lt;br&gt;+ REVERSAL LTF" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168407994" />
+<rect id="c3title" x="800" y="1560" width="420" height="130" rx="800" fill="#f6f7f9" stroke="#e3b23a" stroke-width="2" data-content="CONTINUATION HTF&lt;br&gt;+ REVERSAL LTF" data-text-color="#16181f" data-font-family="formular" data-font-size="26" data-font-weight="bold" data-miro-id="3458764682168407994" />
 <rect id="c3panel" x="170" y="1710" width="1680" height="830" rx="8" fill="#f6f7f9" stroke="#e2e3e8" stroke-width="2" data-miro-id="3458764682168407995" />
 <rect id="c3box" x="428" y="2200" width="1023" height="30" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-miro-id="3458764682168407996" />
 <circle id="c3d1a" cx="956" cy="2180" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168407997" />
@@ -191,7 +191,7 @@
 <text x="1405" y="2288" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408032">61,80%</text>
 <text x="1405" y="2364" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408033">78,60%</text>
 <text x="1010" y="2512" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168408034">14 20 25 Févr 5 11 17 22 Mars 5 11 17 22 26 Avr 7 12 16 22 Mai</text>
-<text x="205" y="2578" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168408035">TradingView</text>
+<text x="205" y="2578" font-size="18" font-weight="bold" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408035">TradingView</text>
 <rect id="c3co1" x="450" y="2095" width="180" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Trendline&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168408036" />
 <rect id="c3co2" x="340" y="2245" width="180" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Fibonacci&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168408037" />
 <rect id="c3co3" x="250" y="2320" width="260" height="52" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Résistance / Support&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="14" data-miro-id="3458764682168408038" />
@@ -258,7 +258,7 @@
 <text x="3215" y="1988" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408083">50,00%</text>
 <text x="3215" y="2010" font-size="14" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408084">38,20%</text>
 <text x="2810" y="2512" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168408085">23 Nov 7 13 19 25 Déc 5 11 17 23 2026 8 14 20 25 Févr 6 12 18 24 Mars 6 12 18 24</text>
-<text x="2005" y="2578" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168408086">TradingView</text>
+<text x="2005" y="2578" font-size="18" font-weight="bold" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408086">TradingView</text>
 <rect id="c4co1" x="2080" y="2380" width="400" height="68" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal HTF + Continuation LTF&lt;br&gt;Entry = Retest (du pattern de continuation)&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="13" data-miro-id="3458764682168408087" />
 <rect id="c4co2" x="2700" y="2380" width="420" height="68" data-shape="wedge_round_rectangle_callout" fill="#ffffff" stroke="#ffffff" stroke-width="2" data-content="&lt;i&gt;Setup = Reversal HTF + Continuation LTF&lt;br&gt;Entry = Anticipation (du pattern de continuation)&lt;/i&gt;" data-text-color="#ffffff" data-font-family="formular" data-font-size="13" data-miro-id="3458764682168408088" />
 <line id="c4cl1" x1="2480" y1="2400" x2="2523" y2="2025" stroke="#ffffff" stroke-width="1" data-shape="straight" data-start="c4co1" data-end="c4Lp8" data-miro-id="3458764682168408226" />
@@ -322,6 +322,6 @@
 <text x="1220" y="2986" font-size="18" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408123">NZDUSD · 4h · FXCM  -0,00010 (-0,02%)</text>
 <textArea id="c5yaxis" x="2500" y="2990" width="130" font-size="13" fill="#ffffff" font-family="roboto_mono" text-align="right" data-miro-id="3458764682168408124">0,84000<br />0,83500<br />0,83000<br />0,82500<br />0,82000<br />0,81500<br />0,81000<br />0,80500<br />0,80000<br />0,79500<br />0,79000<br />0,78500</textArea>
 <text x="1920" y="3632" font-size="14" fill="#ffffff" font-family="formular" text-anchor="middle" data-miro-id="3458764682168408125">6 11 14 19 24 Déc 4 9 12 17 22 28 2026 8 13 16 21 26 Févr 5 10 13 18 23 Mars 5 10 13 18 23</text>
-<text x="1225" y="3705" font-size="18" font-weight="bold" fill="#5f626e" font-family="formular" text-anchor="start" data-miro-id="3458764682168408126">TradingView</text>
+<text x="1225" y="3705" font-size="18" font-weight="bold" fill="#ffffff" font-family="formular" text-anchor="start" data-miro-id="3458764682168408126">TradingView</text>
 </g>
 </svg>

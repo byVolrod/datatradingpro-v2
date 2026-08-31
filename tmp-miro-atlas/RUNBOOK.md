@@ -17,7 +17,14 @@ Voir PLAN.md (tableau fichier → cadre/x/y/width). Fichiers dans ce dossier. Fl
 ## Étape 4 — Board macro fond blanc (≈6 appels)
 `canvas_read_as_svg` du board uXjVHsk2b3U= (entier) → découper par cadre → `recolor.py` (boxes=[] partout, les drapeaux sont des images donc ignorés) → un `canvas_update_from_svg` par cadre. Adapter la table de couleurs si le board macro utilise des teintes absentes du mapping (compléter FILL/STROKE/TXT dans recolor.py).
 
-## Étape 5 — Finitions
+## Étape 5 — Audit d'alignement sur l'état réel (les light-*.svg sont déjà audités/corrigés hors-ligne)
+Après application : relire 2-3 cadres échantillons + le board macro entier, et passer `audit.py` dessus
+(adapter le dict IMAGES aux vraies boîtes d'images lues). Critères : aucun texte sur une image, aucun
+chevauchement texte/texte, titres et légendes centrés sur leur schéma (tolérance 18 px), rien hors cadre.
+Corriger les écarts par canvas_update ciblés. Appliquer les mêmes conventions sur le board macro :
+bannières or centrées sur leur section, légendes à ~20 px sous les visuels, colonnes sans chevauchement.
+
+## Étape 6 — Finitions
 - Vérifier 2-3 cadres par canvas_read_as_svg ciblé (échantillon).
 - `board_show` sur chaque board.
 - Supprimer `tmp-miro-atlas/` de la branche (commit + push).

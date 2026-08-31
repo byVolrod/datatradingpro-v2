@@ -172,7 +172,7 @@
 <circle id="anc42a" cx="1820" cy="3600" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300194" />
 <circle id="anc42b" cx="1835" cy="3655" r="4" fill="#ffffff" stroke="none" data-miro-id="3458764682168300195" />
 <line id="ancl42" x1="1820" y1="3600" x2="1835" y2="3655" stroke="#ffffff" stroke-width="2" data-shape="straight" data-start="anc42a" data-end="anc42b" data-miro-id="3458764682168300407" />
-<text id="h3" x="1350" y="4060" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300196">Le SL joue un rôle énorme dans le management :</text>
+<text id="h3" x="1315" y="4060" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300196">Le SL joue un rôle énorme dans le management :</text>
 <rect x="960" y="4255" width="180" height="95" fill="#ffffff" stroke="none" data-miro-id="3458764682168300197" />
 <rect x="960" y="4350" width="180" height="370" fill="#ffffff" stroke="none" data-miro-id="3458764682168300198" />
 <rect x="2110" y="4200" width="200" height="150" fill="#ffffff" stroke="none" data-miro-id="3458764682168300199" />
@@ -246,7 +246,7 @@
 <line id="ancl63" x1="1020" y1="4310" x2="2180" y2="4310" stroke="#ffffff" stroke-width="4" data-shape="straight" data-start="anc63a" data-end="anc63b" data-miro-id="3458764682168300435" />
 <text x="1000" y="4320" text-anchor="end" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300253">-1R</text>
 <text x="2205" y="4320" text-anchor="start" font-size="26" font-weight="bold" fill="#ffffff" font-family="formular" data-miro-id="3458764682168300254">-0.5R</text>
-<text id="h4" x="1350" y="4950" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300255">L'entrée joue un rôle énorme dans le management :</text>
+<text id="h4" x="1390" y="4950" text-anchor="middle" font-size="28" font-weight="bold" fill="#b8860b" font-family="tiempos_text" data-miro-id="3458764682168300255">L'entrée joue un rôle énorme dans le management :</text>
 <rect x="1085" y="5090" width="135" height="172" fill="#ffffff" stroke="none" data-miro-id="3458764682168300256" />
 <rect x="1085" y="5272" width="135" height="410" fill="#ffffff" stroke="none" data-miro-id="3458764682168300257" />
 <rect x="1790" y="5040" width="170" height="150" fill="#ffffff" stroke="none" data-miro-id="3458764682168300258" />

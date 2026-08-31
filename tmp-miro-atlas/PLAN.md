@@ -11,9 +11,9 @@ Méthode : `image_get_upload_url` (avec miro_url `?moveToWidget=<frame>`, title,
 | entree-fakeout-pair.png | 950 | 3295 | 1300 |
 | entree-retest-pair.png | 950 | 3990 | 1300 |
 | entree-02.png (retest éclair/cloche) | 970 | 5310 | 1240 |
-| entree-03.png (2R/4R/-0.5R) | 1000 | 6395 | 1440 |
-| entree-04.png (jumelle 1) | 975 | 7460 | 1290 |
-| entree-05.png (jumelle 2) | 975 | 8280 | 1290 |
+| entree-03.png (2R/4R/-0.5R) | 950 | 6395 | 1440 |
+| entree-04.png (jumelle 1) | 950 | 7460 | 1290 |
+| entree-05.png (jumelle 2) | 950 | 8280 | 1290 |
 
 ## Cadre « Le Management » — 3458764682168034955 (7000,2200 · 2400×5400)
 | fichier | x | y | width |
@@ -38,7 +38,7 @@ Méthode : `image_get_upload_url` (avec miro_url `?moveToWidget=<frame>`, title,
 ## Cadre « Confluences & Filtres » — 3458764682163156267 (2300,2200 · 4300×2260)
 | fichier | x | y | width |
 |---|---|---|---|
-| banques.png (capture desk du widget Banques, produite par l'agent captures — dans scratchpad/captures-desk/ et copiée ici) | 3200 | 1530 | adapter : viser hauteur ≤ 340 (w = 340/ratio, max 600) |
+| banques.png (capture desk, 3840×2010, dans ce dossier) | 3200 | 1530 | 600 |
 
 Le light-confluences.svg supprime déjà l'image Atlas « Bank Trades » (3458764682169244712) et pose la légende (3458764682163156339 → « Banques du desk » à 2900,1710). Appliquer light-confluences.svg AVANT de poser banques.png.
 

@@ -367,12 +367,12 @@
 <textArea id="t_how" x="802" y="8602" width="600" font-size="20" fill="#b8860b" text-align="center" data-font-family="tiempos_text" data-miro-id="3458764682168153624"><b><i>Comment placer son TP ?</i></b></textArea>
 <rect id="pill_zone" x="798" y="8744" width="250" height="34" rx="6" fill="#e3b23a" stroke="none" data-content="Prochaine zone d'intérêt" data-text-color="#101014" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153625" />
 <rect id="pill_fibo" x="1175" y="8744" width="250" height="34" rx="6" fill="#e3b23a" stroke="none" data-content="Extension Fibonacci" data-text-color="#101014" data-font-size="14" data-font-weight="bold" data-font-family="formular" data-miro-id="3458764682168153626" />
-<textArea id="t_z90" x="723" y="8806" width="400" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153627"><b><i>90 % du temps</i></b></textArea>
-<textArea id="t_zl1" x="723" y="8854" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153628">Résistance</textArea>
-<textArea id="t_zl2" x="723" y="8902" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153629">Trendline</textArea>
-<textArea id="t_zl3" x="723" y="8950" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153630">Niveau de prix</textArea>
-<textArea id="t_zl4" x="723" y="8998" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153631">Ancienne structure</textArea>
-<textArea id="t_f10" x="1100" y="8806" width="400" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153632"><b><i>10 % du temps</i></b></textArea>
-<textArea id="t_fl1" x="1100" y="8854" width="400" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153633">100%, 160%, 200%</textArea>
+<textArea id="t_z90" x="733" y="8806" width="380" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153627"><b><i>90 % du temps</i></b></textArea>
+<textArea id="t_zl1" x="733" y="8854" width="380" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153628">Résistance</textArea>
+<textArea id="t_zl2" x="733" y="8902" width="380" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153629">Trendline</textArea>
+<textArea id="t_zl3" x="733" y="8950" width="380" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153630">Niveau de prix</textArea>
+<textArea id="t_zl4" x="733" y="8998" width="380" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153631">Ancienne structure</textArea>
+<textArea id="t_f10" x="1110" y="8806" width="380" font-size="14" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153632"><b><i>10 % du temps</i></b></textArea>
+<textArea id="t_fl1" x="1110" y="8854" width="380" font-size="13" fill="#16181f" text-align="center" data-font-family="formular" data-miro-id="3458764682168153633">100%, 160%, 200%</textArea>
 </g>
 </svg>
