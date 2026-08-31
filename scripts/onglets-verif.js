@@ -357,6 +357,30 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
         v('un glissement franc sur une poignée ne déplace rien (c\'est un défilement)', r.appels.length === 0, JSON.stringify(r.appels));
       }
 
+      /* LE BALAYAGE HORIZONTAL PENDANT LA FENÊTRE D'APPUI (31/08, capture user : « la bande
+         d'onglets glisse sous le doigt », onglets chevauchés). L'annulation de l'appui long ne
+         surveillait que la VERTICALE : balayer la barre d'onglets en X — le geste normal pour
+         parcourir une rangée qui défile horizontalement — gardait clientY constant, le minuteur de
+         450 ms arrivait au bout et la CARTE partait en déplacement sous le doigt, défilement gelé
+         par le touchmove non passif. On échantillonne PENDANT le geste (à la fin, le relâcher
+         nettoie tout et un contrôle après coup serait vert même cassé) : rien ne doit s'armer. */
+      if (tactile) {
+        await page.evaluate(() => { window.__appels.length = 0; });
+        const bx = await cibles(page, 3, 3, false);
+        await page.touchscreen.touchStart(bx.gx, bx.gy);
+        let armeEnX = false;
+        for (let k = 1; k <= 7; k++) {
+          await page.touchscreen.touchMove(bx.gx + k * 12, bx.gy);
+          await new Promise(r2 => setTimeout(r2, 90));
+          if (await page.evaluate(() => !!document.querySelector('.wdg-reord-src'))) armeEnX = true;
+        }
+        await page.touchscreen.touchEnd();
+        r = await lire(page);
+        v('un balayage HORIZONTAL pendant la fenêtre d\'appui n\'arme jamais le déplacement',
+          !armeEnX && r.appels.length === 0, 'armé: ' + armeEnX + ' · appels: ' + JSON.stringify(r.appels));
+        v('… et ne laisse aucun repère affiché après le relâcher', r.restes === 0, String(r.restes));
+      }
+
       /* LÂCHER AU-DESSUS DE LA LISTE VEUT DIRE « EN PREMIER ». Le volet laisse 128 px sans aucune
          ligne au-dessus de la première : un doigt qui remonte le dernier onglet « tout en haut » y
          arrive naturellement, et on abandonnait sans rien dire. */

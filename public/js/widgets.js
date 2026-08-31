@@ -320,7 +320,7 @@
        c'était bien une régression, le glisser natif partait immédiatement. `pointerType` tranche
        geste par geste : le même code sert les deux entrées sans les confondre. */
     var HOLD = opts.appuiLong | 0;
-    var from = null, src = null, actif = false, y0 = 0, minuteur = null, exclus = opts.exclus || null;
+    var from = null, src = null, actif = false, x0 = 0, y0 = 0, minuteur = null, exclus = opts.exclus || null;
     var attente = 0;                                              // délai retenu POUR CE GESTE (0 = immédiat)
     var clear = function () {
       var l2 = hote.querySelectorAll('.wdg-drop-before,.wdg-drop-after,.wdg-reord-src');
@@ -355,7 +355,7 @@
       var l = g && g.closest(selLigne);
       if (l && opts.refuse && opts.refuse(l)) l = null;             // carte verrouillée, ligne unique…
       if (!l) return;
-      from = +l.getAttribute(attr); src = l; actif = false; y0 = e.clientY;
+      from = +l.getAttribute(attr); src = l; actif = false; x0 = e.clientX; y0 = e.clientY;
       // La capture est posée sur la POIGNÉE : les `pointermove` suivants lui sont livrés, et
       // remontent donc jusqu'à cet hôte délégué même quand le doigt a quitté la ligne d'origine.
       try { g.setPointerCapture(e.pointerId); } catch (_) {}
@@ -374,7 +374,13 @@
       if (from == null) return;
       if (!actif) {
         // Armement par appui long : bouger AVANT la fin du délai annule — c'est un défilement.
-        if (attente) { if (Math.abs(e.clientY - y0) > 10) { desarmer(); from = null; src = null; } return; }
+        /* ⚠️ DANS LES DEUX AXES (31/08, capture user « la bande d'onglets glisse sous le doigt »).
+           L'annulation ne surveillait que la VERTICALE : balayer la barre d'onglets à l'HORIZONTALE
+           (le geste normal pour parcourir la rangée, qui défile en X) gardait clientY constant, le
+           minuteur de 450 ms arrivait au bout, et la CARTE partait en déplacement sous le doigt —
+           onglets chevauchés, défilement gelé par le touchmove non passif. Un balayage est un
+           balayage, quel que soit son axe : plus de 10 px de course, on rend le geste au défilement. */
+        if (attente) { if (Math.abs(e.clientY - y0) > 10 || Math.abs(e.clientX - x0) > 10) { desarmer(); from = null; src = null; } return; }
         if (Math.abs(e.clientY - y0) < 4) return;                   // encore un appui, pas un glissement
         actif = true;
         if (src) src.classList.add('wdg-reord-src');                // on voit CE QU'ON déplace — indispensable au doigt
