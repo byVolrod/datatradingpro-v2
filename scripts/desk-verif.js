@@ -673,14 +673,18 @@ function phaseLogique() {
     /* ══ CE QU'ON VOIT EST-IL CE QU'ON PEUT PRENDRE ? ═════════════════════════════════════════
        Capture user (27/08) : « regarde moi ce curseur n'est pas précis je comprends pas ».
        MESURÉ AVANT CORRECTIF, sur une carte de 358 px de haut : la zone qui change le curseur en ↔
-       courait sur 306 px, le repère orange n'en dessinait que 26, CENTRÉS — 8,5 % de la zone, et
-       140 px aveugles de chaque côté. Le geste marchait partout, la marque ne s'allumait qu'au
-       milieu : on survolait le bord, le curseur promettait « redimensionner », et l'œil cherchait
-       une poignée cent quarante pixels plus loin. Ce genre de défaut ne casse rien et déroute tout.
-       ⚠️ CE CONTRÔLE MESURE UN RAPPORT, PAS DES PIXELS. Écrire « le repère fait 306 px » figerait la
-       hauteur d'une carte d'essai ; ce qui doit rester vrai, c'est que le repère ÉPOUSE la zone —
-       sur une carte haute comme sur une carte basse, aujourd'hui comme après un changement de
-       gabarit. On éprouve donc le recouvrement, sur DEUX hauteurs de carte très différentes. */
+       courait sur 306 px, le repère orange n'en dessinait que 26, CENTRÉS — 8,5 % de la zone.
+       Deux corrections se sont succédé : un repère `::after` élargi à la zone entière (dormant
+       01/09 : un `<div class="wdg-resize-e">` sans `.wdg-body` interne rendait `.wdg-body`
+       introuvable dans ce banc et cassait la mesure), puis (31/08, capture user « le rail doit
+       être le contour et non un truc en plus fin ») le repère séparé est retiré : c'est la
+       bordure DROITE de la carte elle-même (`.wdg-card:has(.wdg-resize-e:hover)`, box-shadow inset)
+       qui s'allume. La question « le repère épouse-t-il la zone saisissable ? » ne se pose plus au
+       pixel près — une bordure court PAR CONSTRUCTION sur toute la hauteur de la carte, jamais plus
+       courte ni plus longue que ce qu'elle délimite. Ce que ce contrôle éprouve maintenant, c'est la
+       zone saisissable ELLE-MÊME (`.wdg-resize-e`, invisible, `cursor: ew-resize`) : qu'elle couvre
+       toujours l'essentiel de la carte, sur une carte haute comme sur une carte basse — c'est ELLE
+       qui déclenche le contour, une régression ici referait exactement le défaut du 27/08. */
     const rep = await page.evaluate(() => {
       const box = document.createElement('div');
       box.style.cssText = 'position:fixed;left:0;top:0;width:600px;';
@@ -692,51 +696,24 @@ function phaseLogique() {
       document.body.appendChild(box);
       const mesure = (id) => {
         const c = document.getElementById(id);
+        const carteH = c.getBoundingClientRect().height;
         const h = c.querySelector('.wdg-resize-e');
         const rh = h.getBoundingClientRect();
-        const cs = getComputedStyle(h, '::after');
-        /* ⚠️ DEUX ESPACES DE MESURE. `getComputedStyle` rend des px CSS, `getBoundingClientRect` des
-           px ÉCRAN, et le desk applique un zoom de page : comparer les deux directement se trompe
-           de 10 %. Le même piège que le calcul du pas de grille dans widgets.js. */
-        const zoom = h.offsetHeight ? (rh.height / h.offsetHeight) : 1;
-        const aH = parseFloat(cs.height) * zoom;
-        const centre = !!(cs.transform && cs.transform !== 'none');
-        const y0 = centre ? (rh.top + rh.height / 2 - aH / 2) : (rh.top + parseFloat(cs.top) * zoom);
-        /* Le recouvrement RÉEL : l'intersection des deux segments, pas le rapport des hauteurs —
-           un repère de la bonne taille mais décalé passerait le second et raterait le premier. */
-        const inter = Math.max(0, Math.min(rh.bottom, y0 + aH) - Math.max(rh.top, y0));
-        return { zone: rh.height, repere: aH, couvert: rh.height > 0 ? inter / rh.height : 0,
-                 debord: aH > 0 ? (aH - inter) / aH : 0, opRepos: parseFloat(getComputedStyle(h, '::after').opacity) };
+        return { zone: carteH, saisissable: rh.height, couvert: carteH > 0 ? rh.height / carteH : 0 };
       };
-      const c1 = document.getElementById('r1'), c2 = document.getElementById('r2');
-      // Le repère ne se peint qu'au survol de la carte : la feuille le tient à `opacity: 0` au repos.
-      const dormant = mesure('r1').opRepos;
-      c1.classList.add('wdg-hov-test'); c2.classList.add('wdg-hov-test');
-      const st = document.createElement('style');
-      st.textContent = '.wdg-hov-test .wdg-resize-e::after { opacity: .3 }';
-      document.head.appendChild(st);
-      const r = { haute: mesure('r1'), basse: mesure('r2'), dormant };
-      st.remove(); box.remove();
+      const r = { haute: mesure('r1'), basse: mesure('r2') };
+      box.remove();
       return r;
     });
     console.log('\n── La poignée « Élargir » : ce qu\'on voit est ce qu\'on peut prendre ──');
-    verif('le repère ÉPOUSE la zone saisissable sur une carte haute',
-      rep.haute.couvert > 0.97,
-      'zone ' + rep.haute.zone.toFixed(0) + ' px, repère ' + rep.haute.repere.toFixed(0)
-      + ' px → ' + (rep.haute.couvert * 100).toFixed(1) + ' % couverts (le défaut mesuré valait 8,5 %)');
-    verif('… et sur une carte basse, où la zone est bien plus courte',
-      rep.basse.couvert > 0.97,
-      'zone ' + rep.basse.zone.toFixed(0) + ' px, repère ' + rep.basse.repere.toFixed(0)
-      + ' px → ' + (rep.basse.couvert * 100).toFixed(1) + ' % couverts');
-    /* L'INVERSE COMPTE AUTANT : un repère qui débordait de la zone promettrait une prise là où le
-       curseur ne change pas — le même malentendu, retourné. */
-    verif('… sans déborder de ce qui se saisit vraiment',
-      rep.haute.debord < 0.03 && rep.basse.debord < 0.03,
-      'débord haute ' + (rep.haute.debord * 100).toFixed(1) + ' %, basse ' + (rep.basse.debord * 100).toFixed(1) + ' %');
-    /* LA CONTREPARTIE DU RAIL PLEINE HAUTEUR : il doit rester INVISIBLE au repos. Un trait de 3 px
-       sur toute la hauteur de la carte, peint en permanence, serait une seconde bordure. */
-    verif('… et il ne se peint pas tant que la carte n\'est pas survolée', rep.dormant === 0,
-      'opacité au repos : ' + rep.dormant);
+    verif('la zone saisissable couvre la carte haute presque entièrement',
+      rep.haute.couvert > 0.85,
+      'carte ' + rep.haute.zone.toFixed(0) + ' px, saisissable ' + rep.haute.saisissable.toFixed(0)
+      + ' px → ' + (rep.haute.couvert * 100).toFixed(1) + ' % (le défaut mesuré valait 8,5 %)');
+    verif('… et la carte basse, où la zone totale est bien plus courte',
+      rep.basse.couvert > 0.5,
+      'carte ' + rep.basse.zone.toFixed(0) + ' px, saisissable ' + rep.basse.saisissable.toFixed(0)
+      + ' px → ' + (rep.basse.couvert * 100).toFixed(1) + ' %');
 
     /* ══ CIBLES MORTES (audit 28/08, trois défauts prouvés au clic dans Chromium) ═══════════════
        1. Recherche de la topbar : l'input ne faisait que 12px sur les 34 de la case — la loupe et
@@ -2091,65 +2068,58 @@ function phaseLogique() {
       verif('… et la barre d\'onglets réserve toujours la place des commandes (rien ne passe dessous)',
         !inst.ko && inst.reserveActive === true, 'réserve active : ' + inst.reserveActive);
 
-      /* ── LE RAIL DORÉ DE LA POIGNÉE, PLUS AMBIANT DU TOUT (31/08, DEUX captures user le même jour :
-         d'abord « supprime le scroller secondaire doré à gauche du scroller principal » sur écran
-         tactile, puis « on a 2 scroller, tu peux enlever le scroller doré » — cette fois sur BUREAU,
-         curseur nulle part près du bord). Le premier correctif avait confiné l'extinction au tactile
-         par design assumé (`.wdg-card:hover .wdg-resize-e::after { opacity: .45 }` hors media,
-         annulée seulement dans `@media (hover:none)`) : lire une carte qui défile revient à survoler
-         la carte en continu, donc le rail restait allumé tout le temps de la lecture — sur bureau
-         comme sur tactile. La règle ambiante est retirée PARTOUT : seule `.wdg-resize-e:hover::after`
-         (survol PRÉCIS de la poignée, 14 px) allume encore le rail plein or — c'est la seule
-         affordance qui reste, et le curseur ↔ apparaît au même moment. */
+      /* ── LA POIGNÉE D'ÉLARGISSEMENT SURLIGNE LE CONTOUR DE LA CARTE, PLUS DE RAIL SÉPARÉ (31/08,
+         TROIS captures user le même jour : « scroller secondaire doré » sur tactile, « on a 2
+         scroller » sur bureau, puis « le rail doit être le contour et non un truc en plus fin,
+         faut être simple, intuitif »). Deux versions se sont succédé : un `::after` ambiant (retiré
+         le jour même faute d'être assez discret), puis un `::after` déclenché au survol précis —
+         toujours une SECONDE ligne, distincte de la vraie bordure de la carte à 2 px de distance.
+         La version actuelle n'ajoute plus rien : `.wdg-card:has(.wdg-resize-e:hover)` allume la
+         bordure DROITE EXISTANTE de la carte (`box-shadow: inset -1px 0 0 var(--orange)`, pas de
+         `::after`) — un seul trait, celui qui délimitait déjà la carte. */
       {
         const carte = await pm.$('.wdg-card');
-        const rail = carte ? await pm.evaluate(el => {
+        const etat = carte ? await pm.evaluate(el => {
           const p = el.querySelector('.wdg-resize-e');
           if (!p) return { ko: 'poignee absente' };
           const r = p.getBoundingClientRect();
-          // Plus aucune règle ambiante ne doit exister : ni hors media, ni dans @media(hover:none)
-          // (qui n'aurait plus rien à annuler) — la seule règle d'opacité restante est le survol précis.
-          let ambiante = 0;
+          // Plus AUCUNE règle ne doit viser un `::after` de la poignée : le rail séparé (les deux
+          // générations) doit avoir disparu du CSSOM, media query comprise.
+          let railSepare = 0, contourHorsMedia = 0, contourDansTactile = 0;
           for (const f of document.styleSheets) {
             let regles; try { regles = f.cssRules; } catch (e) { continue; }
-            for (const g of regles) if (g.type === CSSRule.STYLE_RULE
-              && /\.wdg-card:hover \.wdg-resize-e::after/.test(g.selectorText || '')) ambiante++;
+            for (const g of regles) {
+              if (g.type === CSSRule.STYLE_RULE && /wdg-resize-e[^{]*::after/.test(g.selectorText || '')) railSepare++;
+              if (g.type === CSSRule.STYLE_RULE && g.selectorText === '.wdg-card:has(.wdg-resize-e:hover)') contourHorsMedia++;
+              if (g.type === CSSRule.MEDIA_RULE && /hover:\s*none/.test(g.conditionText || g.media.mediaText)) {
+                for (const s of g.cssRules) if (s.selectorText === '.wdg-card:has(.wdg-resize-e:hover)') contourDansTactile++;
+              }
+            }
           }
           return {
-            opaciteAuRepos: getComputedStyle(p, '::after').opacity,
             poigneeVivante: getComputedStyle(p).display !== 'none' && r.width > 0,
             taille: Math.round(r.width) + '×' + Math.round(r.height),
-            ambiante,
+            railSepare, contourHorsMedia, contourDansTactile,
           };
         }, carte) : { ko: 'carte absente' };
-        verif('plus de règle de rail AMBIANT (carte survolée) nulle part dans la feuille de style',
-          !rail.ko && rail.ambiante === 0, 'règles restantes : ' + rail.ambiante);
-        // Survole le CENTRE de la carte (lecture normale, pas la poignée) : le rail doit rester éteint.
-        if (carte && !rail.ko) {
+        verif('aucune règle de rail séparé (::after de la poignée) ne subsiste dans la feuille de style',
+          !etat.ko && etat.railSepare === 0, 'règles ::after restantes : ' + etat.railSepare);
+        verif('le contour de la carte porte bien la règle de survol précis, hors media (bureau)',
+          !etat.ko && etat.contourHorsMedia === 1, 'règles trouvées : ' + etat.contourHorsMedia);
+        verif('… et cette même règle est neutralisée sur tactile (accrochage iOS)',
+          !etat.ko && etat.contourDansTactile === 1, 'règles trouvées : ' + etat.contourDansTactile);
+        // Survole le CENTRE de la carte (lecture normale, pas la poignée) : le contour ne doit PAS s'allumer.
+        if (carte && !etat.ko) {
           const box = await carte.boundingBox();
           await pm.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
           await new Promise(r => setTimeout(r, 250));
         }
-        const opCentre = !rail.ko ? await pm.evaluate(() => { const p = document.querySelector('.wdg-card .wdg-resize-e'); return p ? getComputedStyle(p, '::after').opacity : null; }) : null;
-        verif('… ETEINT en lecture normale, carte survolée, poignée non visée (bureau ET tactile)',
-          !rail.ko && opCentre === '0', 'opacité : ' + opCentre);
-        /* La règle de survol PRÉCIS elle-même ne se mesure pas dynamiquement ici : ce Chromium
-           headless rapporte `hover: none` en NATIF et `Emulation.setEmulatedMedia` (essayé) ne
-           parvient pas à le faire mentir sur les features hover/pointer dans ce build — exactement
-           la limite déjà posée par l'auteur du test d'origine (« la non-régression au bureau ne se
-           mesure pas ici »). On lit donc la règle au CSSOM, hors de toute media query — c'est ce qui
-           garantit qu'un VRAI navigateur de bureau (hover: hover natif) l'applique sans condition. */
-        const regleVivante = !rail.ko ? await pm.evaluate(() => {
-          for (const f of document.styleSheets) {
-            let regles; try { regles = f.cssRules; } catch (e) { continue; }
-            for (const g of regles) if (g.type === CSSRule.STYLE_RULE
-              && g.selectorText === '.wdg-resize-e:hover::after' && /opacity:\s*1\b/.test(g.style.cssText)) return true;
-          }
-          return false;
-        }) : false;
-        verif('… et la poignee garde sa règle de survol PRÉCIS active (hors media, jamais neutralisée)',
-          !rail.ko && rail.poigneeVivante === true && regleVivante === true,
-          'poignee : ' + (rail.taille || '?') + ' · règle hors media présente : ' + regleVivante);
+        const bordCentre = !etat.ko ? await pm.evaluate(() => { const c = document.querySelector('.wdg-card'); return c ? getComputedStyle(c).boxShadow : null; }) : null;
+        verif('… le contour reste NEUTRE en lecture normale, carte survolée, poignée non visée',
+          !etat.ko && (bordCentre === 'none' || !/rgb\(227,\s*178,\s*58/.test(bordCentre || '')),
+          'box-shadow : ' + bordCentre);
+        verif('… et la poignée (zone de saisie invisible) reste vivante, saisissable au clic comme au doigt',
+          !etat.ko && etat.poigneeVivante === true, 'poignee : ' + (etat.taille || '?'));
       }
       await pm.close();
     }
