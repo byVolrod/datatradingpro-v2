@@ -1217,6 +1217,37 @@ function phaseLogique() {
       verif('le fond de la pastille Impact marché est celui d\'Info (transparent, comme les autres)',
         fInfo === 'rgba(0, 0, 0, 0)' && fImp === fInfo && fAna === fInfo,
         'info ' + fInfo + ' · analyse ' + fAna + ' · impact ' + fImp);
+
+      /* ⚠️ LES TROIS ÉTATS, PAS SEULEMENT LE REPOS (31/08, capture user redemandant le meme
+         correctif). Le contrôle ci-dessus ne voyait que le REPOS, et il était vert alors que le
+         défaut vivait ailleurs : `.tag--impact` partageait UNE SEULE règle pour `:hover` et
+         `.tag--active`, donc il se remplissait DÈS LE SURVOL — là où Info, Analyse et Réaction ne
+         changent au survol que couleur et contour (la règle de Réaction le dit noir sur blanc :
+         « jamais de remplissage »). Sur iOS le `:hover` RESTE COLLÉ après un tap : la pastille
+         gardait son fond vert une fois le panneau refermé, seule de sa rangée — invisible en
+         Chromium headless, qui ne survole rien. L'opacité active (.12 contre .14) divergeait aussi.
+         On lit la FEUILLE : aucune règle de survol ne peint un fond, et les quatre états actifs
+         partagent la même opacité. */
+      {
+        const F = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
+        /* ⚠️ FRONTIÈRE DE NOM DE CLASSE : sans le `(?![a-z-])`, le motif attrapait `.tag--infodata`
+           — un AUTRE tag du desk, qui se remplit légitimement au survol — et le contrôle rougissait
+           sur un faux positif. Pris sur le fait à la première exécution. */
+        const survolsAvecFond = [...F.matchAll(/^\.tag--(info|analyse|reaction|impact)(?![a-z-])[^{\n]*:hover[^{\n]*\{([^}]*)\}/gm)]
+          .filter(m => /background\s*:/.test(m[2]))
+          .map(m => m[1]);
+        verif('aucune pastille de lecture ne se REMPLIT au survol (l\'état colle après un tap sur iOS)',
+          survolsAvecFond.length === 0, survolsAvecFond.join(', ') || 'les quatre survols ne posent que couleur et contour');
+        const opacites = ['info', 'analyse', 'reaction', 'impact'].map(k => {
+          const m = new RegExp('\\.tag--' + k + '\\.tag--active(?![a-z-])[^{]*\\{([^}]*)\\}').exec(F);
+          const b2 = m && /background:\s*rgba\([^)]*,\s*([\d.]+)\)/.exec(m[1]);
+          return { k, a: b2 ? Number(b2[1]) : null };
+        });
+        const toutes = opacities => opacities.every(o => o.a !== null);
+        verif('… et les quatre états actifs partagent la MÊME opacité de teinte',
+          toutes(opacites) && opacites.every(o => Math.abs(o.a - opacites[0].a) < 0.005),
+          opacites.map(o => o.k + ' ' + o.a).join(' · '));
+      }
     }
     const _tagInfoPropos = (tg.propos || []).find(t => /tag--info/.test(t.cls));
     verif('une news « propos » porte le tag Info, jamais « Contexte »',

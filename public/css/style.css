@@ -19286,9 +19286,20 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
    sombre que ses trois voisines, seule de sa rangée. Contour sur fond transparent, comme les
    autres : seule la COULEUR distingue une lecture. */
 .tag--impact { background: transparent; color: #3ddc84; border-color: rgba(61, 220, 132, .5); }
-.tag--impact:hover, .tag--impact.tag--active { background: rgba(61, 220, 132, .12); color: #63e89c; }
+/* ⚠️ LE SURVOL NE REMPLIT PAS, SEUL L'ÉTAT ACTIF REMPLIT (31/08, capture user : « le fond du tag
+   impact marché doit être le même que celui du tag info » — redemandé une seconde fois).
+   Impact partageait UNE SEULE règle pour `:hover` et `.tag--active` : il se remplissait donc dès le
+   survol, alors que ses trois voisines ne changent au survol que leur COULEUR et leur CONTOUR
+   (l.1941-1943, dont le commentaire dit déjà « jamais de remplissage »). Et sur iOS l'état :hover
+   RESTE COLLÉ après un tap : la pastille gardait son fond vert une fois le panneau refermé, seule
+   de sa rangée — l'incohérence de la capture, invisible en Chromium sans survol.
+   L'opacité passe aussi de .12 à .14, celle des trois autres : une seule grammaire pour les
+   quatre lectures, à chacun des trois états. */
+.tag--impact:hover { color: #63e89c; border-color: rgba(61, 220, 132, .62); }
+.tag--impact.tag--active { background: rgba(61, 220, 132, .14); border-color: rgba(61, 220, 132, .65); color: #63e89c; }
 html[data-theme="light"] .tag--impact { color: #00783d; border-color: rgba(0, 120, 61, .5); }
-html[data-theme="light"] .tag--impact:hover, html[data-theme="light"] .tag--impact.tag--active { background: rgba(0, 120, 61, .1); color: #005c2e; }
+html[data-theme="light"] .tag--impact:hover { color: #005c2e; border-color: rgba(0, 120, 61, .62); }
+html[data-theme="light"] .tag--impact.tag--active { background: rgba(0, 120, 61, .1); border-color: rgba(0, 120, 61, .65); color: #005c2e; }
 
 /* ═══ MODE CLAIR : fautifs relevés sur capture user (20/08) ═══════════════════════════════════════
    Règle d'audit (17/08) : la couleur contraste avec SON fond. Variantes sombres de la palette
