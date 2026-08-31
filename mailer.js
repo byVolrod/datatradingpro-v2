@@ -1015,6 +1015,15 @@ function _cutTxt(s, n) {
 // nombres et distingue correctement un vrai « 0 » d'un champ absent. Rejeter ici ne perd donc
 // aucune information : cela refuse une structure malformée au lieu de l'afficher.
 const _md = s => (typeof s === 'string' ? s : '').replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
+/* LE GRAS DU DESK, DANS LE MAIL, DE LA MÊME COULEUR (31/08, demande user : « dans le template récap
+   hebdo affiche le gras même couleur que celui du desk récap hebdo, en gras »).
+   `_md` ci-dessus RETIRE les astérisques : le mail rendait donc à plat (« Fed : … ») ce que le desk
+   met en gras blanc (`.wr-bullet strong { color:#fff }`, style.css). Ce n'était pas une différence
+   de couleur, c'était un gras PERDU. On garde donc les astérisques (`_mdG`), on échappe le HTML,
+   PUIS on convertit — l'ordre compte : convertir avant d'échapper laisserait passer du balisage
+   depuis un texte de rapport. Poids 600 = `--fw-semibold` du desk, couleur #fff = la sienne. */
+const _mdG = s => (typeof s === 'string' ? s : '').replace(/[_`#>]+/g, '').replace(/\s+/g, ' ').trim();
+const _mdGras = s => _esc(_mdG(s)).replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#ffffff;font-weight:600;">$1</strong>');
 
 // Valeur CHIFFRÉE d'un print/calendrier. PIÈGE transversal du projet, dans les DEUX sens :
 // une valeur absente n'est pas un zéro (Number(null) === 0), et un vrai « 0 » n'est pas une
@@ -1695,6 +1704,16 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       + gt.map(j => _puce(`<span style="color:#ffffff;">${_esc(j.jour)}</span> : ${_esc(j.pts.join(' ; '))}`)).join('') : '');
   S('Géopolitique', geoHtml);
 
+  /* ── VIX DE LA SEMAINE, JUSTE APRÈS LA GÉOPOLITIQUE (31/08, demande user, rapport de son mentor à
+     l'appui : « un graphique screenshot comme on a fait pour la force des devises mais pour le VIX,
+     en H2, avec les traits qui séparent les semaines du lundi 00h au lundi 00h ») ─────────────────
+     Sa place n'est pas décorative : la géopolitique de la semaine vient d'être racontée, le VIX dit
+     ce que le marché en a fait — la prime de risque, chiffrée, avant d'entrer dans la macro puis
+     dans les devises. Le mentor colle une capture d'écran à la main ; ici l'image se fabrique à
+     chaque envoi sur les vraies bougies (widget `vix`, cf. /internal/email-widget/vix). */
+  S('Volatilité · VIX', _widgetImg('vix', 'VIX de la semaine — bougies 2 h, traits rouges aux lundis',
+    532, null, null, { alt: 'VIX de la semaine (bougies 2 h) — DataTradingPro' }));
+
   // ── BANQUES CENTRALES : la section ABSENTE du mail envoyé jusqu'ici (le bloc existait,
   //    il n'était jamais injecté). Elle porte ce que le desk range par devise plus bas :
   //    posture, décision, orientation, effet devise, probabilités du marché.
@@ -1761,13 +1780,15 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _syntheseIdx = _syntheseCands.findIndex(x => Array.isArray(x) && x.length);
   const _syntheseSrc = _syntheseIdx >= 0 ? _syntheseCands[_syntheseIdx] : [];
   const _titreSynthese = _syntheseIdx === 2 ? 'Points macro clés' : 'Synthèse de la semaine';
+  // Les puces gardent leurs astérisques jusqu'au rendu (`_mdG`), pour que `_mdGras` puisse rendre
+  // le GRAS BLANC du desk au lieu du texte plat qu'imposait `_md` — cf. commentaire de `_mdGras`.
   const macroHtml = _syntheseSrc
-    .map(m => ({ h: _md(m && m.heading), b: (Array.isArray(m && m.bullets) ? m.bullets : []).map(_md).filter(Boolean), d: _md(m && m.detail) }))
+    .map(m => ({ h: _md(m && m.heading), b: (Array.isArray(m && m.bullets) ? m.bullets : []).map(_mdG).filter(Boolean), d: _md(m && m.detail) }))
     .filter(x => x.h && (x.b.length || x.d))
     .filter(x => !(gt.length && /g[ée]opolit/i.test(x.h)))
     // « Commerce International » retiré (30/08, demande user) : filtré comme sur le desk, GEW archivés compris.
     .filter(x => !/commerce international/i.test(x.h))
-    .map(x => _ssTitre(x.h) + x.b.map(b => _puceOr(_esc(b))).join('') + (x.d ? _paraHtml(x.d) : '')).join('');
+    .map(x => _ssTitre(x.h) + x.b.map(b => _puceOr(_mdGras(b))).join('') + (x.d ? _paraHtml(x.d) : '')).join('');
   // GEW UNIQUEMENT. Sur un Weekly Market Recap la source serait `w.macro`, c'est-à-dire les
   // « Points Macro Clés » que le desk a retirés : les rendre ferait diverger les deux surfaces.
   if (_isGew) S(_titreSynthese, macroHtml || _paraHtml(_md(w.highlights)));
@@ -2017,7 +2038,10 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
 // toutes les URL strength du corps, et l'embarqueur rend UNE image par URL distincte (donc une par
 // devise), servies du cache après la première génération. `strength` tout court rendait la période
 // par défaut alors que le corps demande period=week : le type porte sa période.
-async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:week']); }
+// `vix` s'ajoute à `strength:week` (31/08) : le graphique du VIX posé après la Géopolitique doit être
+// EMBARQUÉ en pièce inline comme les autres, sinon Outlook et Gmail bloquent l'image distante — c'est
+// la raison même d'exister de ce mécanisme (preuve par logs du 08/07, cf. commentaire de _sendWithInlineWidgets).
+async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:week', 'vix']); }
 
 // ── DÉCRYPTAGE — e-mail ÉDUCATIF évergreen (S2 de la séquence). Décode les grandes annonces éco (macro US)
 // que les abonnés voient chaque semaine dans le calendrier : sigles (CPI, NFP, PCE, FOMC…) rendus lisibles,
