@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260831-temoignage-decale', ts: Date.UTC(2026, 7, 31, 23, 55), title: 'Plus jamais deux e-mails le même jour : le témoignage mensuel se décale de 2 jours si besoin', desc: 'Le témoignage mensuel part toujours le premier mardi du mois — mais certaines semaines, le contenu hebdomadaire de la rotation tombe lui aussi le mardi. Les deux e-mails partaient alors le même jour, à quelques heures d’écart. Quand ce chevauchement se produit, le témoignage glisse désormais au jeudi suivant : deux jours d’écart garantis entre les deux envois.' },
   { id: 'dtpu-20260831-recaps-sans-puces', ts: Date.UTC(2026, 7, 31, 23, 50), title: 'Récap Quotidien, récaps de séance, Récap Hebdo et Récap Économique perdent leur point doré', desc: 'Chaque ligne de ces quatre rapports s’ouvrait sur une petite pastille dorée. Elle est retirée : le texte garde son retrait, plus rien ne le précède. Même geste sur le desk et dans les mails.' },
   { id: 'dtpu-20260831-poignee-contour', ts: Date.UTC(2026, 7, 31, 23, 45), title: 'Mon Desk : la poignée d’élargissement allume le contour de la carte, sans plus rien ajouter', desc: 'Une première correction avait déjà rendu le rail de la poignée plus discret, mais il restait un second trait fin, distinct de la vraie bordure de la carte : deux lignes proches, encore un peu de confusion. La poignée surligne désormais la bordure DROITE existante de la carte elle-même, rien de plus — un seul trait, celui qui délimitait déjà la carte, qui s’allume au moment précis où on peut tirer le bord pour l’élargir.' },
   { id: 'dtpu-20260831-onglet-icone-chevron', ts: Date.UTC(2026, 7, 31, 23, 0), title: 'Panneau à onglets : l’icône remplace le chevron générique au lieu de s’y ajouter', desc: 'Choisir une icône pour un onglet du panneau à onglets faisait apparaître icône ET chevron « › » côte à côte, alors que l’icône dit déjà « ceci est un onglet » — le chevron générique ne servait plus qu’à répéter la même chose une deuxième fois, plus petit et plus pâle. Il ne s’affiche désormais que sur les onglets sans icône ; un onglet illustré affiche uniquement son icône, comme sur la barre de navigation du desk.' },
@@ -22230,9 +22231,21 @@ app.get('/api/admin/campaign-plan', requireSameOrigin, requireAdmin, async (_req
         }
         return '';
       })();
+      /* DÉCALAGE DE 2 JOURS SI LE MARDI EST DÉJÀ PRIS (31/08, capture user : « n'envoie jamais 2
+         mails en même temps, quand ça arrive comme ceci créer un décalage de 2j entre les deux »).
+         Le témoignage tombe TOUJOURS le 1er mardi du mois — mais certaines semaines, la rotation
+         hebdomadaire (`step`, ligne au-dessus) a ELLE AUSSI son pas sur le mardi (« Comprendre le
+         marché », DRIP_DECRYPT) : les deux partaient le même jour, à 10 h d'écart (8h/18h), ce que
+         montrait le panneau. Le jour du MOIS qui définit « c'est bien LA semaine du témoignage »
+         reste ancré sur le mardi (`_mardi1`, inchangé) — seul le jour d'ENVOI bouge, au jeudi
+         suivant. Même règle exactement dans `_dripTick`, qui envoie pour de vrai. */
+      const _temColl = !!(_mardi1 && step && _jr === 2);
+      const _temoignageLe = _temColl
+        ? new Date(Date.parse(_mardi1 + 'T12:00:00Z') + 2 * 86400000).toISOString().slice(0, 10)
+        : _mardi1;
       semaines.push({
         cle, debut: lundi.toISOString().slice(0, 10),
-        temoignageLe: _mardi1,                                 // '' si le 1er mardi n est pas dans cette semaine
+        temoignageLe: _temoignageLe,                           // '' si le 1er mardi n est pas dans cette semaine ; décalé au jeudi en cas de collision
         contenuId: step ? step.id : '', contenu: step ? step.label : '',
         jour: _jr, heure: step ? (step.hour || 0) : 0,
         force: !!forceId, auto: (_WEEK_ROTATION[_rotIdxForWeek(a)] || {}).label || '',
@@ -24657,11 +24670,20 @@ async function _dripTick() {
     const _plan = await _campPlanGet().catch(() => ({ temoignage: '' }));
     const _pDateNow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const _temProg = !!(_plan && _plan.temoignage && _plan.temoignage === _pDateNow);
+    /* DÉCALÉ AU JEUDI QUAND LE MARDI EST DÉJÀ PRIS PAR LA ROTATION (31/08, capture user : « n'envoie
+       jamais 2 mails en même temps... créer un décalage de 2j entre les deux ») : même règle que le
+       panneau admin (ligne ~22233, _temColl) — si le pas de rotation de CETTE semaine tombe aussi
+       le mardi (DRIP_DECRYPT), le témoignage part le jeudi (`wd` 4) au lieu du mardi. */
+    const _temWd = _stepWd(_rotStepForWeek()) === 2 ? 4 : 2;
     // 1er MARDI du mois (28/08, demande user ; c'etait le 1er lundi) — `wd` : 0 = dimanche, 2 = mardi.
-    if ((wd === 2 || _temProg) && pp.hour >= (_STEP_MINHOUR.temoignage || 18) && pp.hour < (_STEP_MAXHOUR.temoignage || 21)) {
+    if ((wd === _temWd || _temProg) && pp.hour >= (_STEP_MINHOUR.temoignage || 18) && pp.hour < (_STEP_MAXHOUR.temoignage || 21)) {
       try {
         const _pDate = _pDateNow;
-        if (_temProg || parseInt(_pDate.slice(8, 10), 10) <= 7) {
+        // La fenêtre « 1ers 7 jours du mois » reste ancrée sur le MARDI de cette semaine, jamais sur
+        // le jour d'envoi effectif : un mardi tombant le 7 décalerait sinon au jeudi 9, hors
+        // fenêtre, et le témoignage sauterait le mois entier au lieu de glisser de 2 jours.
+        const _mardiJ = new Date(Date.parse(_pDate + 'T12:00:00Z') + (2 - wd) * 86400000).getUTCDate();
+        if (_temProg || _mardiJ <= 7) {
           const mKey = _pDate.slice(0, 7);   // 'AAAA-MM'
           if (_dripState.testMode) {
             const _tk = 'drip:mtem-test:' + mKey + ':' + _CAMP_TEST_TO;

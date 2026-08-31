@@ -1624,7 +1624,12 @@
           + (w.force ? '<span class="camp-plan-badge">forcé</span><span class="camp-plan-auto">rotation : ' + w.auto + '</span>' : '')
           // Le temoignage s AJOUTE a la rotation (1 fois par mois) : il n a pas de ligne a lui, on
           // l affiche donc sur la semaine qui le porte, pour qu il cesse d etre invisible.
-          + (w.temoignageLe ? '<span class="camp-plan-temoin">+ Témoignage membre <em>mardi 18h</em>'
+          // ⚠️ JOUR CALCULÉ DEPUIS LA DATE, PLUS JAMAIS « mardi » EN DUR (31/08, demande user :
+          // « n'envoie jamais 2 mails en même temps... créer un décalage de 2j »). Le serveur décale
+          // le témoignage au jeudi quand le mardi est déjà pris par la rotation hebdomadaire — un
+          // libellé figé aurait continué d'afficher « mardi » alors que l'envoi réel a bougé.
+          + (w.temoignageLe ? '<span class="camp-plan-temoin">+ Témoignage membre <em>'
+              + (JOURS[new Date(w.temoignageLe + 'T12:00:00Z').getUTCDay()] || 'mardi') + ' 18h</em>'
               + (_temLbl ? ' · ' + _temLbl : '') + '</span>' : '')
           + '</div>'
           + '<select class="camp-plan-input" data-wk="' + w.cle + '" onchange="campPlanForcer(this.value, this.dataset.wk)">'
