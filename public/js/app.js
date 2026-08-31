@@ -8105,14 +8105,21 @@ function renderBrList() {
   // le lien. L afficher au format jj/mm/aa faisait passer une note ancienne pour une note du jour.
   // On affiche « n.d. » (non daté) et on reserve la date de decouverte a l infobulle.
   let _rows = '';
+  /* RAPPORTS IMPORTANTS (31/08, demande user « met FX Weekly et Asia FX Weekly en important comme
+     sur l'image à chaque sortie ») : ces deux hebdos sont les rendez-vous que ses clients guettent
+     — leurs lignes ressortent en rouge d'alerte, comme les news majeures du fil. La détection est
+     TITRE-BASÉE (un seul motif, « asia » optionnel) : chaque nouvelle sortie est prise d'office,
+     quelle que soit la banque qui la publie. */
+  const _BR_IMP_RX = /(^|[^a-z])(asia\s+)?fx\s+weekly\b/i;
   for (const item of items) {
     _brRows[item.id] = item;
     const read    = isBrRead(item.id);
+    const imp     = _BR_IMP_RX.test(item.title || '');
     const _nd     = !!item.dateInconnue;
     const dateStr = _nd ? 'n.d.' : new Date(item.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const title   = item.title || '';
     const inst    = _instLogoHtml(_instBadge(item)) || '';
-    _rows += `<tr class="arl-row${read ? ' arl-row--read' : ''}" data-id="${_e(item.id)}">`
+    _rows += `<tr class="arl-row${read ? ' arl-row--read' : ''}${imp ? ' arl-row--imp' : ''}" data-id="${_e(item.id)}">`
       + `<td class="arl-c-bm"><span class="arl-bm">${_BM}</span></td>`
       + `<td class="arl-c-date"${_nd ? ' title="Date de publication non communiquée par la source."' : ''}>${_e(dateStr)}</td>`
       + `<td class="arl-c-title"><div class="arl-tw"><span class="arl-ico br-doc-ico">${_DOC}</span><span class="arl-ttl" title="${_e(title).replace(/"/g, '&quot;')}">${_e(title)}</span></div></td>`

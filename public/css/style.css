@@ -21544,3 +21544,18 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
   }
   .topbar-symbol-search:focus-within input { width: 100%; flex: 1 1 auto; min-width: 0; }
 }
+
+/* ═══ INSTITUTIONS : FX WEEKLY ET ASIA FX WEEKLY EN IMPORTANT (31/08, demande user « comme sur
+   l'image à chaque sortie ») ═══════════════════════════════════════════════════════════════════
+   Les deux hebdos de référence ressortent dans la liste comme les news majeures du fil : titre au
+   rouge d'alerte de la charte (#ff3d00, jeton SELL/alerte) + légère teinte de ligne. La classe est
+   posée par renderBrList (motif titre, « asia » optionnel) — voir app.js. */
+.arl-row--imp { background: rgba(220, 38, 38, 0.05); }
+.arl-row--imp:hover { background: rgba(220, 38, 38, 0.1); }
+.arl-row--imp .arl-ttl { color: #ff5a3d; font-weight: var(--fw-semibold, 600); }
+.arl-row--imp .br-doc-ico { color: #ff5a3d; }
+/* Lu : la ligne s'assagit comme les autres, la couleur reste (on doit retrouver l'hebdo d'un œil). */
+.arl-row--imp.arl-row--read .arl-ttl { color: rgba(255, 90, 61, 0.62); font-weight: 400; }
+body.theme-light .arl-row--imp { background: rgba(220, 38, 38, 0.06); }
+body.theme-light .arl-row--imp .arl-ttl, body.theme-light .arl-row--imp .br-doc-ico { color: #c22415; }
+body.theme-light .arl-row--imp.arl-row--read .arl-ttl { color: rgba(194, 36, 21, 0.6); }

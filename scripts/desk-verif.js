@@ -1153,6 +1153,22 @@ function phaseLogique() {
       }
       verif('la règle du papier est écrite (:has(.br-document) → blanc, base sombre)',
         /#br-rcontent:has\(\.br-document\) \{ background: #fff; \}/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
+
+      /* ── FX Weekly / Asia FX Weekly EN IMPORTANT (31/08, demande user « comme sur l'image à
+         chaque sortie ») : renderBrList pose `arl-row--imp` sur un motif titre à « asia »
+         OPTIONNEL — un seul motif couvre les deux hebdos, chaque sortie est prise d'office. La
+         feuille peint le titre au rouge d'alerte, thème clair compris. Le rendu a été prouvé en
+         sonde (12 lignes marquées sur 24, titre rgb(255, 90, 61) contre 230, 230, 234) ; ici on
+         épingle les DEUX moitiés écrites, celles dont la disparition ferait tout retomber. */
+      {
+        const APPJS = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+        const FEUILLE = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
+        verif('renderBrList marque les hebdos FX Weekly (motif à « asia » optionnel → arl-row--imp)',
+          /\(asia\\s\+\)\?fx\\s\+weekly/.test(APPJS) && /arl-row--imp/.test(APPJS));
+        verif('… et la feuille peint la ligne importante (titre rouge + variante thème clair)',
+          /\.arl-row--imp \.arl-ttl \{ color: #ff5a3d/.test(FEUILLE)
+          && /body\.theme-light \.arl-row--imp \.arl-ttl/.test(FEUILLE));
+      }
     }
 
     /* ── Deux stabilités visuelles (30/08, captures user) : le calendrier ne bouge pas au
