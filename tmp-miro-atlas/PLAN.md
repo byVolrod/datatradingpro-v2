@@ -35,5 +35,12 @@ Méthode : `image_get_upload_url` (avec miro_url `?moveToWidget=<frame>`, title,
 | setupaz-01.png | 1830 | 740 | 475 |
 | setupaz-02-chart.png | 1830 | 1210 | 531 |
 
+## Cadre « Confluences & Filtres » — 3458764682163156267 (2300,2200 · 4300×2260)
+| fichier | x | y | width |
+|---|---|---|---|
+| banques.png (capture desk du widget Banques, produite par l'agent captures — dans scratchpad/captures-desk/ et copiée ici) | 3200 | 1530 | adapter : viser hauteur ≤ 340 (w = 340/ratio, max 600) |
+
+Le light-confluences.svg supprime déjà l'image Atlas « Bank Trades » (3458764682169244712) et pose la légende (3458764682163156339 → « Banques du desk » à 2900,1710). Appliquer light-confluences.svg AVANT de poser banques.png.
+
 Déjà posées (ne pas refaire) : Confluences (5 images Atlas sombres), Stratégie de management (7), Optimisation (6), Setup types (5), plus 7 captures du desk (3 Confluences + 4 galerie « Les outils du desk DTP » 3458764682168659508 à (27000,2200)).
 Après pose : vérifier avec canvas_read_as_svg, faire board_show, puis SUPPRIMER ce dossier tmp-miro-atlas/ de la branche.
