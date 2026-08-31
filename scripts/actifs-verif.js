@@ -265,6 +265,15 @@ function navigateur() {
         + feuilles.map(f => '<link rel="stylesheet" href="/css/' + f + '">').join('')
         + '</head><body><div id="cible" style="width:420px;height:360px"></div>'
         + '<div id="etroit" style="width:280px;height:360px"></div>'
+        /* ⚠️ HORLOGE FIGÉE AU MERCREDI 26/08/2026 12:00 UTC — la semaine des bougies du bouchon.
+           Le banc a POURRI au changement de semaine (rouge le lundi 31/08 à 00h UTC) : la colonne
+           « semaine » court du lundi 00h UTC (helpers _psLundiUTC/_psVarSemaine, défaut Date.now),
+           et un lundi avant la première clôture le produit rend « — » PAR CONCEPTION. Des bougies
+           datées en dur + l'horloge réelle = un banc qui ne teste pas la même chose selon le jour
+           où on le lance. On fige donc le POINT DE RÉFÉRENCE, pas les bougies : sous cette
+           horloge, les bougies 24-26/08 sont « cette semaine » et la colonne est calculable tous
+           les jours de l'année. Décalage (pas valeur fixe) : les minuteries continuent d'avancer. */
+        + '<script>(function () { var T = Date.UTC(2026, 7, 26, 12, 0, 0); var vrai = Date.now.bind(Date); var dec = T - vrai(); Date.now = function () { return vrai() + dec; }; })();</script>'
         + '<script src="/js/widgets.js"></script></body></html>');
     }
     const f = path.join(PUB, u.pathname === '/' ? 'index.html' : u.pathname);

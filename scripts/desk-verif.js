@@ -1884,6 +1884,40 @@ function phaseLogique() {
       + ' · avant le clic ' + JSON.stringify(av.parJour) + ' · du jour ' + av.duJour + ', montrés ' + av.montresDuJour);
     verif('le bouton propose maintenant le jour précédent',
       /^Charger \p{L}+/u.test(ap.libelle) && !/toute la journée/i.test(ap.libelle), ap.libelle);
+
+    /* ══ UN SEUL ASCENSEUR SUR TÉLÉPHONE (31/08, capture user : deux barres fines côte à côte le
+       long du fil, « garde le plus ancien et enlève le deuxième ») ═══════════════════════════════
+       Sur mobile la grille Mon Desk défile (règle ≤900px) ET le fil défile dans sa carte : deux
+       barres stylées l'une contre l'autre. La règle de style.css garde la barre du FIL (la plus
+       ancienne, celle du desk) et rend celle de la GRILLE invisible SANS toucher au défilement.
+       Mesuré dans un vrai Chromium à 390px — les trois moitiés qui comptent : la grille défile
+       ENCORE (couper overflow-y rendrait les cartes du bas inatteignables), sa barre a disparu,
+       et celle du fil est toujours là. */
+    console.log('\n── Un seul ascenseur sur téléphone (barre de grille muette, barre du fil gardée) ──');
+    {
+      const pm = await nav.newPage();
+      await pm.setViewport({ width: 390, height: 844 });
+      await pm.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'networkidle2', timeout: 45000 });
+      await new Promise(r => setTimeout(r, 3200));
+      const mob = await pm.evaluate(() => {
+        const g = document.getElementById('wdg-grid');
+        const fil = document.querySelector('.news-list.wdg-news');
+        if (!g) return { ko: 'grille absente' };
+        const csG = getComputedStyle(g);
+        return {
+          grilleDefile: g.scrollHeight > g.clientHeight + 4 && /auto|scroll/.test(csG.overflowY),
+          barreGrille: csG.scrollbarWidth,
+          barreFil: fil ? getComputedStyle(fil).scrollbarWidth : '(fil absent)',
+        };
+      });
+      verif('à 390px la grille Mon Desk défile toujours (les cartes du bas restent atteignables)',
+        !mob.ko && mob.grilleDefile, JSON.stringify(mob));
+      verif('… mais sa barre est invisible (scrollbar-width: none — plus de double ascenseur)',
+        mob.barreGrille === 'none', 'barre grille : ' + mob.barreGrille);
+      verif('… et le fil garde sa barre fine historique dans sa carte',
+        mob.barreFil === 'thin', 'barre fil : ' + mob.barreFil);
+      await pm.close();
+    }
   } catch (e) {
     ko++; console.log('  ✗ le desk n\'a pas pu être ouvert : ' + e.message);
   } finally {

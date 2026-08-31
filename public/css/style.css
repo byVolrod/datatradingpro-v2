@@ -21487,3 +21487,14 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
 /* text-transform: none : la grammaire .stf-btn met tout en capitales : « 5m » (minutes) devenait
    « 5M », illisible à côté de « 1M » (le mois). La référence écrit 5m/15m/30m contre 1M : on garde
    cette distinction, c'est elle qui rend la rangée lisible d'un coup d'œil. */
+
+/* ═══ UN SEUL ASCENSEUR SUR TÉLÉPHONE (31/08, capture user : « garde le plus ancien et enlève le
+   deuxième ») : sur mobile la grille Mon Desk défile (règle ≤900px plus haut) ET le fil défile
+   dans sa carte — deux barres fines côte à côte le long du fil. On garde la barre du FIL, la
+   plus ancienne (c'est celle du desk), et on rend INVISIBLE la barre de la grille : le
+   défilement tactile de la grille, lui, ne change pas — un téléphone défile sans barre. Ne pas
+   « réparer » en coupant overflow-y : c'est le défilement qui rend les cartes du bas atteignables. */
+@media (max-width: 900px) {
+  .wdg-grid { scrollbar-width: none; }
+  .wdg-grid::-webkit-scrollbar { width: 0; height: 0; display: none; }
+}
