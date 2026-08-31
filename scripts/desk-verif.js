@@ -2020,16 +2020,29 @@ function phaseLogique() {
         const strip = carte.querySelector('.wdgt-subacts');
         if (!strip) return { ko: 'bande de commandes absente' };
         const rc = carte.getBoundingClientRect(), rs = strip.getBoundingClientRect();
+        const plaque = carte.querySelector(':scope > .wdg-head .wdg-actions');
         return {
           position: getComputedStyle(strip).position,
           enHaut: (rs.top - rc.top) < rc.height * 0.25,
           yRel: Math.round(rs.top - rc.top), hCarte: Math.round(rc.height),
+          plaqueFond: plaque ? getComputedStyle(plaque).backgroundColor : '(plaque absente)',
+          reserveActive: barre.getBoundingClientRect().width < rc.width - 40,
         };
       });
       verif('la bande ↑↓ ? × de la vue Institutions FLOTTE (position absolue, repli --flot vivant)',
         !inst.ko && inst.position === 'absolute', JSON.stringify(inst));
       verif('… dans le premier quart de la carte, plus jamais sous le pied de liste',
         !inst.ko && inst.enHaut, 'y relatif : ' + (inst.yRel != null ? inst.yRel : '?') + ' / ' + (inst.hCarte || '?') + 'px');
+      /* ── Boutons INCRUSTÉS (31/08, capture user : « plus foncés que le panneau ») : la plaque
+         des commandes d'une carte à onglets est TRANSPARENTE — le sol réel de la barre est
+         composite, aucun jeton ne l'égale (mesuré au pixel : 18,19,22 contre 16,16,18 pour
+         --head-bg). Transparence sûre : la barre s'arrête AVANT la zone des commandes
+         (width: 100% − --wdgt-cmd, 29/08), aucun onglet ne passe dessous — c'est la seconde
+         moitié du contrôle, celle qui autorise la première. */
+      verif('la plaque ⚙ ↑↓ ? × de la carte à onglets est transparente (incrustée au panneau)',
+        !inst.ko && inst.plaqueFond === 'rgba(0, 0, 0, 0)', 'fond : ' + inst.plaqueFond);
+      verif('… et la barre d\'onglets réserve toujours la place des commandes (rien ne passe dessous)',
+        !inst.ko && inst.reserveActive === true, 'réserve active : ' + inst.reserveActive);
       await pm.close();
     }
   } catch (e) {

@@ -13339,7 +13339,7 @@ html[data-theme="light"] a { color: #b8860b; }
 .wdg-card--tabs > .wdg-head { position: absolute; top: 0; left: 0; right: 0; z-index: 6; min-height: 30px; background: transparent; border-bottom: 0; padding: 0 4px; pointer-events: none; }
 .wdg-card--tabs > .wdg-head .wdg-title { display: none; }
 .wdg-card--tabs > .wdg-head .wdg-grip, .wdg-card--tabs > .wdg-head .wdg-actions { pointer-events: auto; }
-.wdg-card--tabs > .wdg-head .wdg-actions { background: var(--head-bg); border-radius: 3px; padding: 0 2px; opacity: 0; transition: opacity .14s var(--ease); }
+.wdg-card--tabs > .wdg-head .wdg-actions { background: transparent; border-radius: 3px; padding: 0 2px; opacity: 0; transition: opacity .14s var(--ease); }
 .wdg-card--tabs:hover > .wdg-head .wdg-actions, .wdg-card--tabs > .wdg-head .wdg-actions:focus-within { opacity: 1; }
 .wdg-card--tabs .wdgt-bar { padding-left: 26px; }
 /* ⚠️ LE TRAIT DORÉ PASSAIT DERRIÈRE LES COMMANDES (04/09, capture user : « on dirait que c'est un
@@ -15477,9 +15477,13 @@ body.home-mode .view-panel { visibility: hidden; }
 #view-widgets .wdg-ico, #view-widgets .wdg-grip { opacity: .62; }
 #view-widgets .wdg-card:hover .wdg-ico, #view-widgets .wdg-card:focus-within .wdg-ico { opacity: 1; }
 @media (hover: none) { #view-widgets .wdg-ico { opacity: .9; } }
-/* Fond léger sous les icônes d'une carte à onglets : elles se posent sur la barre d'onglets,
-   sans ça le contraste dépend de l'onglet qui passe dessous. */
-#view-widgets .wdg-card--tabs > .wdg-head .wdg-actions { background: var(--bg); border-radius: 4px; padding: 0 2px; }
+/* ⚠️ PLAQUE TRANSPARENTE (31/08, capture user : « les boutons sont plus foncés que le panneau,
+   pas bien incrustés ») : le fond var(--bg) posait un rectangle plus sombre sur la barre — et un
+   jeton « assorti » restait faux d'une nuance, le sol réel de la barre étant composite (mesuré au
+   pixel : 18,19,22 contre 16,16,18). Or ce masque n'a PLUS DE FONCTION : depuis le 29/08 la barre
+   s'arrête AVANT la zone des commandes (width: 100% − var(--wdgt-cmd), + fondu de fin de rangée) —
+   aucun onglet ne passe sous les icônes. Transparent = incrusté, sur n'importe quel sol. */
+#view-widgets .wdg-card--tabs > .wdg-head .wdg-actions { background: transparent; border-radius: 4px; padding: 0 2px; }
 
 /* ══ FIL D'ACTUALITÉ (widget) : recherche seule en haut, LÉGENDE + compteur en bas,
    sections dans les RÉGLAGES (04/08, référence user). ══ */
@@ -15561,7 +15565,7 @@ body.home-mode .view-panel { visibility: hidden; }
    .panel-toolbar) tombait sur ce repli, sa bande de commandes partait EN FLUX, au pied de la
    carte, sous « Affichage de N sur N ». Le composé gagne quel que soit l'ordre de la feuille, et
    le fond revient (le `background: none !important` de .wdgt-subacts l'effaçait aussi). */
-.wdgt-subacts.wdg-subgear--flot { position: absolute; top: 6px; right: 8px; z-index: 7; background: var(--bg) !important; border-radius: 4px; }   /* 7 : devant la poignée Est (z-6) */
+.wdgt-subacts.wdg-subgear--flot { position: absolute; top: 6px; right: 8px; z-index: 7; background: var(--head-bg, var(--bg)) !important; border-radius: 4px; }   /* 7 : devant la poignée Est (z-6) · --head-bg : elle flotte sur la ligne de titre des vues (chart-header, même jeton) — var(--bg) s'y voyait en rectangle plus sombre (31/08) */
 .wdgt-mount { position: relative; }
 
 /* ── TIROIR DE RÉGLAGES : en-tête COLLÉ avec croix (04/08 « je ne peux pas fermer » — une
