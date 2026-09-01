@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260901-calendrier-source-ff', ts: Date.UTC(2026, 8, 1, 12, 0), title: 'Calendrier économique : c’est ForexFactory qui dit ce qui est au programme', desc: 'Vous nous l’avez demandé après avoir cherché une publication sur forexfactory.com sans la retrouver chez nous : « la source du calendrier éco doit être celle de ForexFactory ». Jusqu’ici elle ne l’était qu’à moitié. ForexFactory donnait les NOMS des lignes, mais c’est notre autre fournisseur qui décidait lesquelles existent. Deux écarts en découlaient. Une ligne pouvait s’afficher chez nous sans figurer sur ForexFactory, et vous n’aviez alors aucun moyen de la recouper. Et l’inverse, plus discret : une publication annoncée par ForexFactory et ignorée par l’autre fournisseur n’apparaissait jamais, puisque renommer des lignes ne sait pas en ajouter. Désormais, sur la semaine que ForexFactory couvre, c’est lui qui fait foi : ses publications manquantes sont ajoutées, ses intitulés, ses horaires et ses niveaux d’importance l’emportent, et une ligne qu’il ne liste pas est retirée. Chaque ligne venue de ForexFactory porte aussi le lien vers sa fiche, avec le détail de l’indicateur et son historique au clic. Ce qui ne change pas : les résultats publiés continuent d’être collectés partout où ils se trouvent, et l’historique des mois passés reste servi comme avant, ForexFactory ne diffusant que la semaine en cours. Trois sécurités encadrent le retrait de lignes, pour qu’un flux momentanément indisponible ou incomplet ne puisse jamais vider une journée du calendrier : les grands rendez-vous que ForexFactory classe hors calendrier, comme un symposium de banquiers centraux ou une réunion de l’OPEP, restent affichés en toutes circonstances.' },
   { id: 'dtpu-20260901-rebours-pied', ts: Date.UTC(2026, 8, 1, 9, 0), title: 'Compte à rebours : la prévision et le précédent ne disparaissent plus sur les cartes courtes', desc: 'Vous nous l’avez signalé : toutes les informations du compte à rebours n’étaient pas visibles. La carte effaçait purement et simplement sa dernière ligne, celle qui porte la prévision et le précédent, dès que sa hauteur descendait sous un certain seuil. C’était volontaire au départ, pour garder le chronomètre lisible sur une carte volontairement courte, mais la mesure a montré deux choses : le seuil visait la hauteur de la CARTE alors qu’il s’applique au cadre intérieur, plus court d’une trentaine de pixels, si bien que la ligne disparaissait même à la taille par défaut de la carte ; et dans un panneau à onglets, la barre d’onglets prend sa part de hauteur, ce qui faisait passer sous le seuil sans que la carte paraisse petite. Or ce sont ces deux chiffres qui donnent son sens au décompte : sans eux il ne reste qu’une horloge. La ligne est désormais conservée et resserrée, et si elle ne tient vraiment pas, le corps de la carte défile : l’information reste atteignable, jamais supprimée.' },
   { id: 'dtpu-20260901-fil-francais-seulement', ts: Date.UTC(2026, 8, 1, 8, 0), title: 'Le fil ne peut plus afficher une actualité dans une autre langue', desc: 'Vous nous l’avez montré : cinq lignes du fil s’affichaient EN ITALIEN. La cause n’était pas la source mais le contrôle de ce que rend le traducteur. Avant d’enregistrer une traduction, le desk vérifiait deux choses seulement : que la réponse ne soit pas vide, et qu’elle soit différente du texte d’origine. Une réponse italienne passe ces deux tests sans difficulté : elle n’est ni vide, ni identique à l’anglais de départ. Elle était donc écrite dans le champ d’affichage de la ligne, et y restait pour toujours, puisqu’un champ déjà rempli n’est jamais retraduit. Le desk vérifie désormais que ce qu’il reçoit est bien du français avant de l’enregistrer : dans le cas contraire rien n’est posé, la ligne garde son titre d’origine et repasse au cycle suivant. Les traductions déjà enregistrées dans une autre langue sont retirées automatiquement et retraduites. Un contrôle de livraison rejoue les cinq lignes de votre capture à chaque version, avec des pièges volontaires (« Los Angeles », « Las Vegas », et le mot « mais ») pour qu’aucun titre français correct ne soit refusé au passage.' },
   { id: 'dtpu-20260901-hebdo-chronologie', ts: Date.UTC(2026, 8, 1, 7, 30), title: 'Récap Hebdo : les chiffres de la semaine se lisent enfin dans l’ordre des jours', desc: 'Sous chaque devise, les publications de la semaine se suivaient dans le désordre : mercredi, mercredi, vendredi, puis de nouveau mercredi. Elles héritaient de l’ordre du calendrier après renommage et dédoublonnage, c’est-à-dire d’aucun ordre lisible. Elles sont désormais triées par date, du lundi au vendredi, pour les huit devises et dans les trois rubriques (inflation, emploi, croissance), sur le desk comme dans le mail.' },
@@ -5061,13 +5062,148 @@ function _calVitalLift(e) {
   if (w >= 4) return Object.assign({}, e, { impact: 'High' });
   return e.impact === 'Medium' ? e : Object.assign({}, e, { impact: 'Medium' });
 }
+/* ══ LA SOURCE DU CALENDRIER, C'EST FOREXFACTORY (01/09, décision utilisateur : « la source du
+   calendrier éco doit être celle de forexfactory ») ═══════════════════════════════════════════════
+   CE QUI EXISTAIT. TradingView décidait QUELS rendez-vous existent ; ForexFactory ne servait qu'à
+   les RENOMMER (_ffDisplayTitle, 11/08). L'utilisateur l'avait pourtant énoncé dès le 25/08 — « notre
+   calendrier est basé sur le calendrier ForexFactory » — et le code n'en tenait que la moitié : les
+   noms. Conséquence directe, signalée le 31/08 sur une dépêche introuvable : « je ne la vois pas non
+   plus dans notre calendrier ». Une ligne pouvait exister chez TradingView et NULLE PART chez FF : le
+   desk affichait alors un rendez-vous que le trader ne retrouve pas sur forexfactory.com, la
+   référence qu'il a sous les yeux. Et symétriquement — le défaut le plus silencieux des deux — une
+   ligne présente chez FF et absente de TradingView n'apparaissait JAMAIS : le renommage ne sait
+   qu'habiller les lignes existantes, pas en ajouter.
+   CE QUI CHANGE. Sur la fenêtre que le flux FF couvre RÉELLEMENT, c'est FF qui dit ce qui existe :
+   ses lignes manquantes sont AJOUTÉES, ses libellés / horaires / impacts font foi sur les lignes
+   communes, et une ligne TradingView SANS contrepartie FF est RETIRÉE.
+   CE QUI NE CHANGE PAS, ET POURQUOI (vérifié dans le code, pas supposé). TradingView reste la source
+   des VALEURS — le flux XML de FF ne porte pas les résultats, c'est toute la raison d'être de
+   `_calActualsMap` et de ses trois remplisseurs — et le SEUL fournisseur d'HISTORIQUE : le miroir FF
+   ne sert que la semaine en cours (`ff_calendar_nextweek.xml` répond 404, cf. scrapers/forexfactory.js)
+   quand le Radar de Biais, les fourchettes `_calEnsureRanges` et l'historique d'un indicateur
+   travaillent sur six mois. Substituer purement et simplement aurait éteint ces trois-là.
+   TROIS VERROUS, parce qu'un retrait ne se voit pas — c'est une ligne qui n'est plus là :
+   1. DENSITÉ — une journée n'est arbitrée par FF que si le flux y porte au moins trois rendez-vous,
+      et seulement pour les DEVISES qu'il y couvre. Un flux vide, périmé (429 → cache disque périmé)
+      ou partiel ne peut donc pas vider le calendrier.
+   2. APPARIEMENT SAIN — le retrait ne s'arme que si au moins la moitié des lignes FF de la fenêtre
+      ont trouvé leur jumelle TradingView. Si les deux horloges ou les deux vocabulaires divergent,
+      l'hypothèse de ce code est fausse : il se désarme SEUL et se contente d'ajouter.
+   3. RENDEZ-VOUS VITAUX — jamais retirés. FF exclut de son flux tout ce qu'il classe « Non-Economic »
+      (OPEP, G20, symposium) : les arbitrer sur FF déferait le repêchage du 25/08 qui a remis Jackson
+      Hole dans le calendrier, et rouvrirait le défaut « deux vues, deux verdicts ». */
+const _FF_JOUR_MIN        = 3;          // rendez-vous FF requis dans la journée pour qu'elle fasse foi
+const _FF_APPARIEMENT_MIN = 0.5;        // part des lignes FF devant trouver leur jumelle TV pour armer le retrait
+const _FF_FENETRE_MS      = 90 * 60000; // même tolérance que _ffDisplayTitle (fuseau/arrondi)
+const _calJourUTC = ts => new Date(ts).toISOString().slice(0, 10);
+/* Pays d'origine sous EUR : TradingView le porte dans `ctry` (DE/FR/ES…), ForexFactory le met dans le
+   TITRE (« German Prelim CPI m/m »). Sans cette lecture, une ligne venue de FF perdrait la distinction
+   IPC allemand / IPC français — exactement l'information rétablie le 31/08. */
+const _FF_ADJ_CTRY = Object.fromEntries(Object.entries(_FF_EURO_CTRY_ADJ).map(([k, v]) => [v.toLowerCase(), k]));
+function _ffCtry(title) {
+  const m = String(title || '').trim().match(/^([A-Za-z]+)\b/);
+  return (m && _FF_ADJ_CTRY[m[1].toLowerCase()]) || '';
+}
+function _calFusionFF(tvItems) {
+  const tvIn = Array.isArray(tvItems) ? tvItems : [];
+  let brut = [];
+  try { brut = (getCalendarRaw() || []).filter(e => e && e.title && e.currency && e.timestamp); } catch {}
+  if (!brut.length) return tvIn;
+
+  // VERROU 1 — densité : quelles journées, et quelles devises dans ces journées, FF couvre-t-il ?
+  const parJour = new Map(), couvert = new Set();
+  for (const e of brut) {
+    const j = _calJourUTC(e.timestamp);
+    parJour.set(j, (parJour.get(j) || 0) + 1);
+    couvert.add(j + '|' + e.currency);
+  }
+  const joursFF = new Set([...parJour.entries()].filter(([, n]) => n >= _FF_JOUR_MIN).map(([j]) => j));
+  if (!joursFF.size) return tvIn;
+
+  // Mêmes règles de tradabilité que pour TradingView : on change d'où vient le calendrier, pas ce
+  // qu'un calendrier contient.
+  const ff = brut
+    .filter(e => joursFF.has(_calJourUTC(e.timestamp))
+      && (e.impact === 'High' || e.impact === 'Medium' || _CAL_VITAL_RX.test(e.title)))
+    .map(_calVitalLift)
+    .map(e => ({
+      id: 'ff-' + Buffer.from(e.title + '|' + e.currency + '|' + _calJourUTC(e.timestamp)).toString('base64').slice(0, 18),
+      timestamp: e.timestamp,
+      time: new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+      currency: e.currency, impact: e.impact, title: e.title,
+      actual: e.actual || '', forecast: e.forecast || '', previous: e.previous || '',
+      ctry: _ffCtry(e.title),
+      url: e.url || '',                                    // page FF de l'événement (Specs + History au clic)
+    }));
+  if (!ff.length) return tvIn;
+
+  const tv = tvIn.map(e => ({ e, tok: _calTitleTokens(e && e.title), pris: false }));
+  const sortie = [];
+  let apparies = 0;
+
+  // APPARIEMENT — même devise, ±90 min, 2 mots-clés communs : la règle déjà éprouvée par
+  // _ffDisplayTitle depuis le 11/08. Une jumelle n'est prise qu'une fois (`pris`) : deux lignes FF
+  // voisines ne peuvent pas se réclamer du même événement TradingView.
+  for (const f of ff) {
+    const tok = _calTitleTokens(f.title);
+    let best = null, bestOv = 0, bestD = Infinity;
+    for (const c of tv) {
+      if (c.pris || !c.e || c.e.currency !== f.currency) continue;
+      const d = Math.abs((c.e.timestamp || 0) - f.timestamp);
+      if (d > _FF_FENETRE_MS) continue;
+      const ov = _calOverlap(tok, c.tok);
+      if (ov < 2) continue;
+      if (ov > bestOv || (ov === bestOv && d < bestD)) { bestOv = ov; bestD = d; best = c; }
+    }
+    if (!best) { sortie.push(f); continue; }               // ligne FF que TradingView n'a pas → elle entre
+    best.pris = true; apparies++;
+    const t = best.e;
+    // FF donne l'IDENTITÉ (libellé, horaire, impact, page de détail) ; les VALEURS viennent de qui
+    // les a — le flux XML de FF est le plus souvent muet dessus, TradingView non.
+    sortie.push(Object.assign({}, t, {
+      title: f.title, timestamp: f.timestamp, time: f.time, impact: f.impact,
+      actual:   f.actual   || t.actual   || '',
+      forecast: f.forecast || t.forecast || '',
+      previous: f.previous || t.previous || '',
+      ctry: t.ctry || f.ctry || '',                        // `ctry` de TV d'abord : il vient de la donnée, pas d'un adjectif
+      url: f.url || t.url || '',
+      _tvTitle: t.title,
+    }));
+  }
+
+  // VERROU 2 — appariement sain. Mesuré sur CETTE fenêtre, à chaque construction : si les deux
+  // sources ne se reconnaissent plus, le retrait ne s'arme pas du tout.
+  const sante = apparies / ff.length;
+  const arme  = sante >= _FF_APPARIEMENT_MIN;
+  for (const c of tv) {
+    if (c.pris || !c.e) continue;
+    const j = _calJourUTC(c.e.timestamp);
+    const arbitre = arme && joursFF.has(j) && couvert.has(j + '|' + c.e.currency)
+      && !_CAL_VITAL_RX.test(c.e.title || '');             // VERROU 3 — les vitaux ne sont jamais retirés
+    if (!arbitre) sortie.push(c.e);
+  }
+  /* LES VALEURS NE SE PERDENT PAS EN CHEMIN. Une ligne venue de FF arrive le plus souvent SANS
+     résultat (le flux XML n'en porte pas), et une ligne TradingView retirée emporterait le sien.
+     `_calActualsMap` répond aux deux : elle est indexée par devise + titre FF + jour, et c'est
+     `_refreshTVActuals` qui y recopie justement les résultats de TradingView — l'appariement large
+     qu'il fait pour ça (offset de fuseau estimé, un seul mot-clé commun suffit) rattrape les
+     rendez-vous que les deux sources nomment trop différemment pour s'apparier ici. Il suffit donc
+     de reposer la couche : ce qui vient d'être retiré chez l'un a déjà été versé chez l'autre. */
+  return _overlayActuals(sortie.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)));
+}
 let _tvCalCache = { ts: 0, items: [] };
 async function _buildTVCalendar(force) {
   if (!force && Date.now() - _tvCalCache.ts < 4 * 60 * 1000 && _tvCalCache.items.length) return _tvCalCache.items;
   let evs = null;
   try { evs = await fetchTVCalendarFull(force); } catch {}
-  if (!Array.isArray(evs) || !evs.length) return _tvCalCache.items;   // échec → on garde le dernier bon snapshot
-  const items = evs.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_VITAL_RX.test(e.title || '')).map(_calVitalLift).map(e => ({   // événements tradables + rendez-vous vitaux sous-cotés (cf. _CAL_VITAL_RX)
+  if (!Array.isArray(evs) || !evs.length) {
+    // TradingView muet. On garde le dernier bon instantané ; s'il n'y en a pas (démarrage à froid),
+    // le calendrier peut encore sortir de ForexFactory SEUL — sa fenêtre, la semaine en cours, est
+    // précisément celle que le desk affiche par défaut.
+    if (!_tvCalCache.items.length) { try { const seul = _calFusionFF([]); if (seul.length) return seul; } catch {} }
+    return _tvCalCache.items;
+  }
+  let items = evs.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_VITAL_RX.test(e.title || '')).map(_calVitalLift).map(e => ({   // événements tradables + rendez-vous vitaux sous-cotés (cf. _CAL_VITAL_RX)
     id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + (e.country || '') + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),   // le PAYS fait partie de l'identité : DE et FR publient le MÊME intitulé le MÊME jour sous la devise EUR
     timestamp: e.ts,
     time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
@@ -5076,6 +5212,7 @@ async function _buildTVCalendar(force) {
     ctry: e.country || '',   // pays d'origine (DE/FR/ES… sous EUR) → étiquetage zone euro dans le détail biais
     url: '',
   }));
+  try { items = _calFusionFF(items); } catch {}   // ← la source, c'est ForexFactory (cf. _calFusionFF)
   _tvCalCache = { ts: Date.now(), items };
   return items;
 }
@@ -5112,7 +5249,7 @@ async function _buildTVCalendarRange(backMonths) {
   // Fenêtre HONNÊTE : les tranches de grille débordent [startMs, endMs] → on reclippe exactement sur la plage demandée.
   const raw = [...seen.values()].filter(e => e.ts >= startMs && e.ts <= endMs);
   if (!raw.length) return (hit && hit.items) || [];
-  const items = raw.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_LOW_VITAL_RX.test(e.title || '') || _CAL_VITAL_RX.test(e.title || '')).map(_calVitalLift).map(e => ({
+  let items = raw.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_LOW_VITAL_RX.test(e.title || '') || _CAL_VITAL_RX.test(e.title || '')).map(_calVitalLift).map(e => ({
     id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + (e.country || '') + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),   // le PAYS fait partie de l'identité : DE et FR publient le MÊME intitulé le MÊME jour sous la devise EUR
     timestamp: e.ts,
     time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
@@ -5121,6 +5258,10 @@ async function _buildTVCalendarRange(backMonths) {
     ctry: e.country || '',   // pays d'origine (DE/FR/ES… sous EUR)
     url: '',
   })).sort((a, b) => a.timestamp - b.timestamp);
+  // La fenêtre d'archive contient AUSSI la semaine en cours : elle doit y dire la même chose que la
+  // vue courante, sinon les flèches ‹ › changeraient le calendrier sous les yeux du lecteur. FF n'y
+  // arbitre que les journées qu'il couvre (les mois passés restent intégralement TradingView).
+  try { items = _calFusionFF(items); } catch {}
   _tvRangeCache.set(backMonths, { ts: Date.now(), items });
   return items;
 }

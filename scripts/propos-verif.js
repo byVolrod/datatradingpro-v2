@@ -165,11 +165,20 @@ v('les news importantes passent en premier', /_isImportantNews/.test(CYCLE));
    bouchons à la place de ses dépendances. C'est la seule façon de savoir ce qu'elle POSE — et
    c'est ce qui manquait : le contrôle anti-poison, écrit en cherchant une ligne précise, a viré au
    rouge le jour où cette ligne a été réécrite en mieux. */
+/* LE CONTRÔLE DE SORTIE DU 01/09 FAIT PARTIE DU CYCLE, DONC DE CE BANC. Depuis qu'une traduction
+   n'est posée que si elle est VRAIMENT française (`_traductionFrValide`, cf. langue-verif.js), le
+   cycle appelle une fonction de plus. Elle est EXTRAITE de server.js, jamais recopiée : la doublure
+   dirait « français » là où la production dit « non », et ce banc validerait un comportement que
+   personne n'exécute. Ses seules dépendances sont `_RX_NON_FR` et `_looksFr`, déjà bouchonné. */
+const CTRL_FR = ((SRV.match(/const _RX_NON_FR = [^\n]+/) || [''])[0] + '\n'
+               + (SRV.match(/const _traductionFrValide = [^\n]+/) || [''])[0]);
+v('le contrôle de sortie des traductions est extractible de server.js', /_traductionFrValide/.test(CTRL_FR));
 const jouerCycle = (news, traduire) => {
   const poses = [];
   const F = new Function('ctx', 'return (async function () {'
     + '  const { allNews, _aiDay, _isImportantNews, _proposSansPrefixe, _looksFr, _traduireLot,'
     + '          saveHistory, broadcast, PROPOS_FR_PAR_CYCLE, PROPOS_FR_MAX_JOUR } = ctx;'
+    + CTRL_FR + ';'
     + '  let _proposFrJour = "", _proposFrCount = 0, _proposFrEssais = 0;'
     + CYCLE.replace('async function _prechaufferProposFr()', 'const f = async function ()') + ';'
     + '  await f(); return { _proposFrCount, _proposFrEssais };'
@@ -197,8 +206,12 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
   v('   … et son champ à lui, pas celui des propos', !geo._hlFr);
 
   /* 2. UN PROPOS garde son champ, et son texte ébarbé. */
+  /* La doublure de traduction RECOPIE le texte qu'on lui donne (c'est ainsi qu'on prouve l'ébarbage)
+     mais doit rendre du FRANÇAIS, sinon le contrôle de sortie posé le 01/09 la refuse à bon droit :
+     depuis les cinq lignes italiennes du fil, une traduction qui n'est pas française n'est plus
+     enregistrée. D'où la queue française, qui ne gêne pas l'ancrage en tête. */
   const prop = nouv({ headline: "BoE's Mann: inflation still too high for comfort", _propos: true });
-  await jouerCycle([prop], t => 'FR:' + t);
+  await jouerCycle([prop], t => 'FR:' + t + ' selon la banque centrale');
   v('   un propos remplit _hlFr, jamais _titreFr', !!prop._hlFr && !prop._titreFr,
     '_hlFr = ' + JSON.stringify(prop._hlFr) + ' / _titreFr = ' + JSON.stringify(prop._titreFr));
   v('   … et sur son texte ÉBARBÉ du locuteur', /^FR:inflation/.test(prop._hlFr || ''), prop._hlFr);
@@ -230,6 +243,7 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
     const F = new Function('ctx', 'return (async function () {'
       + '  const { allNews, _aiDay, _isImportantNews, _proposSansPrefixe, _looksFr, _traduireLot,'
       + '          saveHistory, broadcast, PROPOS_FR_PAR_CYCLE, PROPOS_FR_MAX_JOUR } = ctx;'
+      + CTRL_FR + ';'
       + '  let _proposFrJour = "", _proposFrCount = 0, _proposFrEssais = 0;'
       + CYCLE.replace('async function _prechaufferProposFr()', 'const f = async function ()') + ';'
       + '  await f();'
@@ -238,8 +252,12 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
       allNews: news, _aiDay: () => '2026-08-27',
       _isImportantNews: (h, c, p) => p === 'high',
       _proposSansPrefixe: h => String(h || ''),
-      _looksFr: () => false,
-      _traduireLot: async (textes) => ({ translations: textes.map(t => 'FR:' + t) }),
+      // Doublure RÉALISTE, plus un « toujours faux » : depuis le 01/09 `_looksFr` sert AUSSI en aval
+      // (une traduction non française n'est plus posée), et une doublure constante répondrait alors
+      // à une question qu'on ne lui pose pas. Les deux dépêches d'ici sont anglaises, la doublure le
+      // dit ; la traduction rendue, elle, est française, sinon elle serait refusée à bon droit.
+      _looksFr: str => /[àâçéèêëîïôùûüœ]/.test(str) || /\b(le|la|les|des|une?|du|au|aux|est|sont|pour|avec|sur|dans|plus|selon|après|avant)\b/i.test(str),
+      _traduireLot: async (textes) => ({ translations: textes.map(t => 'FR:' + t + ' selon la source') }),
       saveHistory: () => {}, broadcast: () => {},
       PROPOS_FR_PAR_CYCLE: 1, PROPOS_FR_MAX_JOUR: 300,
     });

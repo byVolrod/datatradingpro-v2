@@ -227,7 +227,7 @@ console.log('\n── 9. Repêchage des rendez-vous sous-cotés : appliqué À L
 // Le repêchage a longtemps été du CODE MORT : il testait les vitaux APRÈS le filtre High/Medium,
 // donc sur une liste dont ils avaient déjà été retirés. On vérifie qu'il est bien dans le filtre.
 const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-const filtre = (src.match(/const items = evs\.filter\([^\n]*/) || [''])[0];
+const filtre = (src.match(/(?:const|let) items = evs\.filter\([^\n]*/) || [''])[0];   // `let` depuis le 01/09 : la liste est réassignée par la fusion ForexFactory (_calFusionFF)
 verif('le filtre du calendrier repêche les vitaux (Jackson Hole, discours, minutes, OPEP)',
   /_CAL_VITAL_RX/.test(filtre), filtre.slice(0, 150));
 verif('la Semaine à Venir range les événements au jour civil de PARIS',
