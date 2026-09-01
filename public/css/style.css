@@ -18829,7 +18829,22 @@ html[data-theme="light"] .wdg-mx-c.est-bas .wdg-mx-v { color: #c73000; }
 /* Cartes basses : les pieds explicatifs cèdent avant les chiffres. Seuils distincts : le compte à
    rebours est une carte volontairement courte, son pied doit survivre à sa hauteur par défaut. */
 @container dtpw (max-height: 250px) { .wdg-si-pied { display: none; } }
-@container dtpw (max-height: 158px) { .wdg-rb-pied { display: none; } }
+/* ⚠️ LE PIED DU CHRONO NE DISPARAÎT PLUS, IL SE COMPACTE (01/09, capture user : « on ne voit pas
+   toutes les informations du compte à rebours sur mobile »).
+   Il portait `display: none` sous 158 px de hauteur de carte. Le seuil visait une carte volontairement
+   courte — mais dans un PANNEAU À ONGLETS la barre d'onglets prend sa part de hauteur, et le
+   conteneur passe sous le seuil sans que la carte ait l'air petite : la prévision et le précédent
+   s'effaçaient alors en silence, sans que rien ne signale qu'il manquait quelque chose. Or ce sont
+   les deux chiffres qui donnent son sens au compte à rebours : sans eux, il ne reste qu'une horloge.
+   Ils sont donc CONSERVÉS et resserrés (libellés plus petits, gouttière réduite, filet plus près) ;
+   si même compactés ils ne tiennent pas, le corps défile désormais (règle plus haut) : dans tous
+   les cas l'information reste atteignable, jamais supprimée. */
+@container dtpw (max-height: 158px) {
+  .wdg-rb-pied { gap: 12px; padding-top: 3px; }
+  .wdg-rb-pied i { font-size: 8.5px; }
+  .wdg-rb-pied b { font-size: 11px; }
+  .wdg-rb-pied span { gap: 0; }
+}
 @container dtpw (max-height: 132px) { .wdg-rb-chrono { font-size: 24px; } }
 
 /* ── Chaleur de séance (19/08) ─────────────────────────────────────────────────────────────────
@@ -21502,6 +21517,17 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
    (hauteur en % sur une base trompée). Borne CIBLÉE au chrono — les sous-widgets hauts d'un
    onglet (jauges, colonnes) doivent au contraire pouvoir dépasser pour que le corps défile. */
 .wdgt-mount > .wdg-rb, .wdg-body > .wdg-rb { max-height: 100%; }
+/* ⚠️ ET CE QUI NE TIENT PAS DOIT RESTER ATTEIGNABLE (01/09, demande user : « on ne voit pas toutes
+   les informations du compte à rebours », puis « corrige ce type de problème sur le responsive »).
+   `safe center` et `max-height` empêchent le contenu de couler SOUS le pli — ils ne le rendent pas
+   lisible pour autant : ce qui dépasse était simplement coupé par l'`overflow: hidden` de la carte,
+   silencieusement. Mesuré au banc : à 1280 px la carte du chrono tombe à 99 px et son corps déborde
+   de 4 px — les cinq lignes empilées (devise/heure, chrono, intitulé, prévision, précédent) ne
+   tiennent pas à toutes les hauteurs de grille. On rend donc le corps DÉFILANT plutôt que rogné :
+   à hauteur suffisante rien ne change (aucune barre, le centrage sûr continue de centrer), à
+   hauteur insuffisante l'information reste accessible au lieu de disparaître.
+   `overscroll-behavior: contain` : le geste ne s'échappe pas vers la grille derrière la carte. */
+.wdgt-mount > .wdg-rb, .wdg-body > .wdg-rb { overflow-y: auto; overscroll-behavior: contain; }
 
 /* ═══ STATISTIQUES PARTICULIERS (30/08, demande user « DMX Statistic table ») ═══════════════════
    La table statistique de la foule : deux lignes par paire (Short/Long), pourcentages, lots,
