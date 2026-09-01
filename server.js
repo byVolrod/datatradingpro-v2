@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260901-calendrier-resultat-futur', ts: Date.UTC(2026, 8, 1, 22, 0), title: 'Calendrier : un événement encore à venir ne peut plus afficher un résultat déjà publié', desc: 'Vous nous avez montré une ligne « ISM Manufacturing PMI » prévue à 20h, encore marquée comme le prochain rendez-vous de la journée, qui affichait déjà un résultat réel. La cause : deux lignes du même jour et du même intitulé peuvent partager la même case de mémoire des résultats, sans distinction d’heure, si un fournisseur déclare deux fois le même indicateur à des horaires différents. La ligne réellement publiée y dépose son résultat, et la seconde, pas encore survenue, le récupérait par erreur au tour suivant. Un verrou final ferme désormais la porte, quelle que soit l’origine du résultat mal daté : aucune ligne dont l’horaire est encore à venir ne peut plus porter de résultat publié. Elle garde sa prévision et son précédent, comme toute échéance qui n’a pas encore eu lieu.' },
   { id: 'dtpu-20260901-quotidien-force-devises', ts: Date.UTC(2026, 8, 1, 21, 0), title: 'Récap Quotidien : la Force des Devises de la journée s’affiche après la Synthèse', desc: 'Sur le modèle du rapport de votre mentor, le Récap Quotidien montre désormais un graphique de la Force des Devises juste après la Synthèse, réglé sur la journée en cours plutôt que sur la semaine : c’est la même image que celle déjà posée sous chaque devise du Récap Hebdo et dans le mail hebdomadaire. Deux finitions demandées sur ce même graphique, appliquées partout où il apparaît : la période active de la barre TD TW 8H 1D 7D 1M se voit désormais en pastille pleine dorée, plutôt qu’en simple soulignement, et la grille légère derrière les courbes, déjà posée fin août, reste bien active sur cette image.' },
   { id: 'dtpu-20260901-puces-couleur-courtes', ts: Date.UTC(2026, 8, 1, 20, 0), title: 'Les puces de données courtes se colorent aussi, et trois défauts d’écriture disparaissent au passage', desc: 'Vous nous avez montré deux rapports côte à côte : une même ligne de donnée, colorée vert, rouge ou or dans l’un, blanche dans l’autre. La couleur ne dépendait pas du récap mais de la longueur du paragraphe qui la portait : seuls les textes assez longs pour être découpés en plusieurs puces passaient par le contrôle qui compare le chiffre publié à ce qui était attendu. Or une ligne de donnée tient presque toujours sur une seule puce, courte, c’est justement le cas qui ne recevait jamais la couleur, sur tous les rapports. Elle la reçoit désormais partout. Trois défauts d’écriture ont été trouvés en vérifiant ce correctif sur des cas réels, et corrigés avec lui. Une heure au format 03:30 se scindait en deux, une moitié grasse et l’autre non, comme cela avait déjà été corrigé pour l’écriture 14h30 mais pas pour celle-ci. Un nombre sans unité suivi d’une espace traînait cette espace dans son habillage. Et un montant en milliards, écrit 4,29B, ne gardait que son premier chiffre en gras, le reste ressortant nu.' },
   { id: 'dtpu-20260901-vix-fond-blanc', ts: Date.UTC(2026, 8, 1, 19, 0), title: 'Récap Hebdo : le graphique du VIX passe en fond blanc, sans bandeau de titre', desc: 'Sur sa propre lecture TradingView du VIX, vous nous avez montré ce que vous vouliez : le même type de vue, sans le bandeau de titre et de valeur au-dessus du graphique, et avec un fond blanc plutôt que sombre. Les trois sont faits. Le bandeau disparaît : le titre « Volatilité · VIX » reste au-dessus de l’image, comme pour les autres graphiques du rapport, rien n’est perdu. L’axe du temps ne laisse plus de blancs pendant les heures où le VIX ne cote pas (nuit américaine, week-end) : les bougies s’enchaînent en continu, comme sur votre capture. Même image utilisée par le desk et par le mail, ils restent identiques.' },
@@ -5036,6 +5037,40 @@ function _overlayActuals(events) {
     return ev;
   });
 }
+/* ⚠️ GARDE-FOU D'INTÉGRITÉ : UN ÉVÉNEMENT À VENIR NE PORTE JAMAIS DE RÉSULTAT (01/09, capture
+   utilisateur — un « ISM Manufacturing PMI » à 20h00, encore marqué comme LA PROCHAINE ÉCHÉANCE
+   (`cal-row--next`, posé sur `timestamp >= maintenant`), affichait déjà 53,9 en RÉEL : « Pourquoi
+   on a le résultat réel alors qu'elles ne sont pas passées encore, c'est à 20h ? »).
+   CAUSE RACINE, PROUVÉE PAR LE CODE (pas supposée) : deux mécanismes peuvent poser un `actual` sur
+   une ligne qui n'a pas encore eu lieu.
+   1. `_overlayActuals` ci-dessus complète une ligne SANS résultat en cherchant dans
+      `_calActualsMap` sous la clé `_calKeyDated` — devise + intitulé + JOUR CALENDAIRE, sans
+      l'heure. Deux lignes du MÊME jour pour le MÊME intitulé (une décalée dans le temps, par
+      exemple un désaccord d'horaire entre ForexFactory et TradingView sur la même publication)
+      partagent donc la MÊME clé : la ligne réellement publiée y dépose son résultat, et la
+      seconde — encore à venir — le RÉCUPÈRE À TORT au prochain passage. C'est exactement ce qui
+      produit deux « JOLTS Job Openings » du même jour affichant le MÊME 7,271M à deux heures
+      différentes : un résultat authentique, dupliqué sur une ligne qui ne l'a pas produit.
+   2. Une ligne peut aussi arriver AVEC SON PROPRE `actual` déjà posé par sa source d'origine (le
+      XML ForexFactory ou le flux brut TradingView) — sans jamais passer par `_overlayActuals` —
+      si cette source elle-même s'est trompée d'heure ou a laissé un résultat de contexte
+      (préliminaire, révision) mal daté.
+   Traiter chaque cause une par une reviendrait à courir après la prochaine source d'erreur.
+   Ce garde-fou ferme la porte UNE FOIS, à la sortie, quelle que soit l'origine du résultat :
+   AUCUNE ligne dont l'horodatage est encore dans le futur ne peut porter de résultat publié. Le
+   pire qu'il puisse faire est de retenir un résultat authentique publié quelques secondes en
+   avance sur l'horodatage annoncé (négligeable, et sans conséquence : il réapparaît au relevé
+   suivant, une fois l'horodatage dépassé) ; ce qu'il empêche est de montrer un résultat comme
+   publié pour un événement que le desk annonce lui-même, dans la MÊME ligne, comme pas encore
+   survenu — le contresens signalé. */
+function _calSansResultatFutur(events) {
+  const now = Date.now();
+  return (events || []).map(ev => {
+    if (!ev || !ev.actual || ev.actual === '') return ev;
+    if (!((ev.timestamp || 0) > now)) return ev;                  // déjà passé (ou sans horodatage) → inchangé
+    return { ...ev, actual: '' };                                 // champ vide, comme toute ligne pas encore publiée — jamais retiré (ni `delete`, ni destructuration)
+  });
+}
 // ── Calendrier construit DIRECTEMENT depuis TradingView (events + actual/forecast/previous +
 // importance natifs → aucun matching, colonne ACTUAL exacte en temps réel + anciennes données). ──
 /* RENDEZ-VOUS VITAUX QUE LE CALENDRIER CLASSE « LOW » (correctif 25/08, contrôle du calendrier
@@ -5194,7 +5229,10 @@ function _calFusionFF(tvItems) {
      qu'il fait pour ça (offset de fuseau estimé, un seul mot-clé commun suffit) rattrape les
      rendez-vous que les deux sources nomment trop différemment pour s'apparier ici. Il suffit donc
      de reposer la couche : ce qui vient d'être retiré chez l'un a déjà été versé chez l'autre. */
-  return _overlayActuals(sortie.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)));
+  // `_calSansResultatFutur` ferme la porte en dernier, après l'overlay ci-dessus : quelle que soit la
+  // source d'un `actual` mal daté (overlay day-only, XML FF, flux TV brut), une ligne encore à venir
+  // ne le garde jamais (cf. le commentaire qui l'accompagne, juste avant `_overlayActuals`).
+  return _calSansResultatFutur(_overlayActuals(sortie.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))));
 }
 let _tvCalCache = { ts: 0, items: [] };
 async function _buildTVCalendar(force) {

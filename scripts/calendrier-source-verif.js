@@ -63,6 +63,7 @@ function extraire(nom) {
 
 const NOMS = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_FF_EURO_CTRY_ADJ',
   '_CAL_VITAL_RX', '_calVitalLift', '_calKey', '_calKeyDated', '_calActualsMap', '_overlayActuals',
+  '_calSansResultatFutur',
   '_FF_JOUR_MIN', '_FF_APPARIEMENT_MIN', '_FF_FENETRE_MS', '_calJourUTC', '_FF_ADJ_CTRY', '_ffCtry',
   '_calFusionFF'];
 let bloc;
@@ -79,16 +80,27 @@ try {
   fusion = eval('(function(){' +
     'const getCalendarRaw = () => FLUX;' +
     'const _WA = { poidsMajeur: e => /jackson hole|powell|symposium/i.test(e.title || "") ? 5 : 3 };' +
-    bloc + '\nreturn { _calFusionFF, _ffCtry, _calActualsMap };})()');
+    bloc + '\nreturn { _calFusionFF, _ffCtry, _calActualsMap, _calKeyDated, _calSansResultatFutur };})()');
 } catch (e) {
   verif('il s\'évalue sans erreur', false, e.message);
   console.log('\n✗ ' + ko + ' ÉCHEC(S)\n'); process.exit(1);
 }
-const { _calFusionFF, _ffCtry } = fusion;
+const { _calFusionFF, _ffCtry, _calActualsMap, _calKeyDated, _calSansResultatFutur } = fusion;
 
 // ── Fixture : mercredi 2 septembre 2026, une journée de calendrier ordinaire ────────────────────
 const J = Date.UTC(2026, 8, 2);
 const h = (hh, mm) => J + hh * 3600000 + (mm || 0) * 60000;
+/* « MAINTENANT » FIGÉ EN FIN DE JOURNÉE (01/09, ajout de `_calSansResultatFutur` : la fusion compare
+   désormais chaque horodatage à Date.now() RÉEL avant de laisser passer un résultat). Sans ce
+   verrou, toutes les lignes de la fixture ci-dessus — bâties sur `J`, le 2 septembre 2026, une date
+   future par construction (pour rester stable, jamais rejouée un jour différent) — se seraient vues
+   dépouillées de leur résultat par ce même garde-fou : correct en production, faux ici, puisque la
+   fixture n'a pas de rapport avec l'horloge réelle de la machine qui exécute ce banc. On fige donc
+   « maintenant » à 22h le jour de la fixture, après la dernière heure utilisée par les scénarios
+   1 à 9 (16h) : leurs événements restent au PASSÉ, comme le suppose leur écriture. Les scénarios de
+   la section 10, qui ÉPROUVENT justement ce garde-fou, posent leur propre horloge locale (héritée
+   puis restaurée) autour de la frontière passé/futur qui les intéresse. */
+Date.now = () => h(22, 0);
 const ffEv = (ccy, title, ts, imp, o) => Object.assign({ currency: ccy, title, timestamp: ts, impact: imp, actual: '', forecast: '', previous: '', url: 'https://www.forexfactory.com/calendar/' }, o || {});
 const tvEv = (ccy, title, ts, imp, o) => Object.assign({ id: 'tv-x' + ts + ccy, currency: ccy, title, timestamp: ts, impact: imp, actual: '', forecast: '', previous: '', ctry: '', url: '' }, o || {});
 
@@ -210,7 +222,9 @@ verif('elle l\'est aussi sur la fenêtre d\'archive (`_buildTVCalendarRange`), p
 verif('TradingView muet et sans instantané → le calendrier sort quand même de ForexFactory seul',
   /_calFusionFF\(\[\]\)/.test(srcNu));
 verif('les résultats déjà collectés sont reposés sur la liste fusionnée (`_overlayActuals`)',
-  /return _overlayActuals\(sortie\.sort/.test(srcNu));
+  /_overlayActuals\(sortie\.sort/.test(srcNu));
+verif('… et une ligne encore à venir ne peut pas ressortir avec un résultat publié (`_calSansResultatFutur`)',
+  /return _calSansResultatFutur\(_overlayActuals\(sortie\.sort/.test(srcNu));
 
 // ── 9. Ordre chronologique (le calendrier se lit de haut en bas) ────────────────────────────────
 {
@@ -223,3 +237,75 @@ verif('les résultats déjà collectés sont reposés sur la liste fusionnée (`
 
 if (ko) { console.log('\n✗ ' + ko + ' ÉCHEC(S)\n'); process.exit(1); }
 console.log('\n✓ LA SOURCE DU CALENDRIER EST FOREXFACTORY\n');
+
+// ── 10. GARDE-FOU : UNE LIGNE À VENIR NE PORTE JAMAIS DE RÉSULTAT ────────────────────────────────
+/* 01/09, capture utilisateur : « JOLTS Job Openings » à 16h00 (passé, résultat 7,271M) et une
+   seconde ligne « JOLTS Job Openings » à 20h00 — ENCORE À VENIR, marquée « prochaine échéance »
+   par le rendu (isNext = timestamp >= now) — affichait déjà le MÊME 7,271M en résultat. Preuve par
+   le code : `_overlayActuals` recherche un résultat manquant sous une clé devise+intitulé+JOUR
+   CALENDAIRE (`_calKeyDated`), sans l'heure — deux lignes du même jour partagent donc la même clé,
+   et la ligne publiée dépose un résultat que la ligne à venir récupère à tort au tour suivant.
+   `_calSansResultatFutur` ferme la porte en dernier, quelle que soit la source du résultat mal daté :
+   AUCUNE ligne dont l'horodatage dépasse « maintenant » ne peut porter de résultat publié. */
+console.log('\n── 10. Une ligne à venir ne porte jamais de résultat publié ──');
+{
+  const NOW = Date.UTC(2026, 8, 1, 17, 0);   // 19h Paris (CEST, UTC+2) = 17h UTC — strictement ENTRE les deux JOLTS (16h/20h Paris)
+  const _ancienNow = Date.now;
+  Date.now = () => NOW;
+  try {
+    const H = (hh) => Date.UTC(2026, 8, 1, hh - 2, 0);   // heure Paris → UTC (CEST, +2)
+    /* a. LE SCÉNARIO EXACT DE LA CAPTURE, rejoué sur le VRAI `_calFusionFF`. Le flux XML de
+       ForexFactory NE PORTE PAS D'ACTUALS (cf. scrapers/forexfactory.js) : ses lignes arrivent
+       toujours avec `actual: ''`, remplies ensuite par l'overlay. Ici FF déclare « JOLTS Job
+       Openings » à DEUX horaires du même jour (16h et 20h — un vrai doublon côté fournisseur,
+       largeur bien au-delà des 90 min de tolérance d'appariement : les deux lignes restent
+       distinctes, ni fusionnées ni retirées, exactement le doublon vu sur la capture). TradingView,
+       lui, n'a QU'UNE seule vraie publication, à 16h, avec son résultat. La ligne FF de 16h
+       s'apparie donc avec elle et hérite du résultat authentique ; celle de 20h ne s'apparie à
+       rien (aucune ligne TV à 240 min) et reste sans résultat À SA SORTIE DE FUSION — c'est
+       l'overlay qui, ensuite, la sert à tort (la clé datée ne voit pas l'heure). */
+    FLUX = [
+      ffEv('USD', 'JOLTS Job Openings', H(16), 'High', { forecast: '7.3M', previous: '7.182M' }),
+      ffEv('USD', 'JOLTS Job Openings', H(20), 'High', { forecast: '7.33M', previous: '7.36M' }),
+      ffEv('USD', 'ISM Manufacturing PMI', H(16), 'High', { forecast: '55.2', previous: '55.6' }),
+      ffEv('USD', 'Fed Barr Speech', H(15) + 5 * 60000, 'Medium', {}),
+    ];
+    const tvJour = [
+      tvEv('USD', 'JOLTS Job Openings', H(16), 'High', { actual: '7.271M', forecast: '7.3M', previous: '7.182M' }),
+      tvEv('USD', 'ISM Manufacturing PMI', H(16), 'High', { forecast: '55.2', previous: '55.6' }),
+      tvEv('USD', 'Fed Barr Speech', H(15) + 5 * 60000, 'Medium', {}),
+    ];
+    // On amorce le cache des résultats persistés comme le ferait `_refreshTVActuals` après la
+    // publication de 16h00 : c'est LUI qui pose l'entrée sous la clé datée (jour, sans l'heure).
+    _calActualsMap.set(_calKeyDated('USD', 'JOLTS Job Openings', H(16)), { actual: '7.271M', forecast: '7.3M', previous: '7.182M' });
+    const out = _calFusionFF(tvJour);
+    const j16 = out.find(e => e.currency === 'USD' && e.title === 'JOLTS Job Openings' && e.timestamp === H(16));
+    const j20 = out.find(e => e.currency === 'USD' && e.title === 'JOLTS Job Openings' && e.timestamp === H(20));
+    verif('la ligne PASSÉE (16h) garde son résultat authentique', !!j16 && j16.actual === '7.271M', j16 && j16.actual);
+    verif('la ligne À VENIR (20h) ne récupère PAS le résultat de la ligne passée (le contresens de la capture)',
+      !!j20 && (j20.actual === '' || j20.actual == null), j20 && JSON.stringify(j20.actual));
+    verif('… elle garde sa PRÉVISION, elle', !!j20 && j20.forecast === '7.33M', j20 && j20.forecast);
+  } finally { Date.now = _ancienNow; }
+
+  // b. MÊME GARDE-FOU, APPELÉ DIRECTEMENT (pas au travers de la fusion FF, dont les verrous de
+  //    densité/appariement sont hors sujet ici) : une ligne à venir arrive avec SON PROPRE `actual`
+  //    déjà posé PAR SA SOURCE (le second « ISM Manufacturing PMI » de la capture, à un horaire
+  //    différent — un désaccord d'horaire entre fournisseurs, pas un vide comblé par l'overlay).
+  //    Preuve que le garde-fou agit sur TOUTE origine d'un résultat mal daté, pas seulement celle
+  //    réparée en (a).
+  const _ancienNow2 = Date.now;
+  Date.now = () => Date.UTC(2026, 8, 1, 17, 0);   // 19h Paris, comme en (a) — strictement avant 20h
+  try {
+    const H = (hh) => Date.UTC(2026, 8, 1, hh - 2, 0);
+    const brut = [
+      tvEv('USD', 'ISM Manufacturing PMI', H(16), 'High', { actual: '54.6', forecast: '55.2', previous: '55.6' }),
+      tvEv('USD', 'ISM Manufacturing PMI', H(20), 'High', { actual: '53.9', forecast: '55.2', previous: '55.6' }),   // encore à venir, ET DÉJÀ un résultat à sa propre source
+    ];
+    const out2 = _calSansResultatFutur(brut);
+    const p16 = out2.find(e => e.timestamp === H(16));
+    const p20 = out2.find(e => e.timestamp === H(20));
+    verif('la ligne passée (16h) garde son résultat', !!p16 && p16.actual === '54.6', p16 && p16.actual);
+    verif('la ligne À VENIR (20h) perd le résultat posé par SA PROPRE source (pas un simple vide comblé)',
+      !!p20 && (p20.actual === '' || p20.actual == null), p20 && JSON.stringify(p20.actual));
+  } finally { Date.now = _ancienNow2; }
+}
