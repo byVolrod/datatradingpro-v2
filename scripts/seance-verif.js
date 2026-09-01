@@ -1042,6 +1042,39 @@ v('la version du Quotidien a été bumpée', /const FXR_VER = 2[5-9];/.test(SRV)
    pas une dépêche, il a SA place dans le bloc dédié. Sans cette exclusion il serait compté deux fois. */
 v('le bloc TITRES écarte toujours les rapports internes', /&& !i\._briefing && !i\._marketWrap && !i\._fxr && !i\._weekly && !_isPrimerNews\(i\)\)/.test(SRV));
 
+console.log('\n── 7i. Le champ "cb" suit la vraie FORME du mentor, pas une narration en trois étages ──');
+/* 02/09, extrait FRAIS et récent du mentor fourni par l'utilisateur en réponse à « je parlais + de la
+   manière dont c'est rédigé » : le manque ne portait pas sur la structure (déjà proche depuis v19-v25)
+   mais sur la FORME des puces "cb". Comparé ligne à ligne sur CINQ interventions (Fed Barr, ECB Simkus,
+   ECB Nagel, ECB Kocher, Bessent) : aucune ne sépare fait et interprétation par un second « → », et la
+   plupart n'ont AUCUNE réaction de marché chiffrée. Le prompt exigeait pourtant ce schéma en trois
+   étages — institution → fait → « → » interprétation → « → » réaction. Ce contrôle éprouve le
+   remplacement : l'ancien schéma a disparu, la vraie forme (un seul « → » d'ouverture, puis une liste
+   de clauses courtes séparées par des point-virgules) est en place, et rien du FOND déjà établi n'a
+   été perdu au passage. */
+const CB = (SRV.match(/"cb": \["<puce BANQUES CENTRALES[\s\S]*?; \[\] si aucune intervention notable>"\],/) || [''])[0];
+v('le champ "cb" est retrouvé dans le prompt du Quotidien', !!CB && CB.length > 200, CB.length);
+v('l\'ancien schéma en trois étages (fait, PUIS « → » interprétation, PUIS « → » réaction) a disparu',
+  !/puis le FAIT \(annonce, chiffre, citation\), puis « → » l'INTERPRÉTATION/.test(CB));
+v('… la vraie forme est en place : UN SEUL « → » d\'ouverture', /UN SEUL « → » D'OUVERTURE/.test(CB));
+v('… suivi de clauses COURTES séparées par des point-virgules', /CLAUSES COURTES séparées par des POINT-VIRGULES/.test(CB));
+v('… avec l\'interdiction explicite de redétacher l\'interprétation dans un second « → »',
+  /L'INTERPRÉTATION NE SE DÉTACHE PAS DANS UN « → » SÉPARÉ/.test(CB));
+v('… et la réaction de marché rejoint la même liste au lieu d\'ouvrir une seconde flèche',
+  /rejoint la MÊME liste comme une clause de plus/.test(CB));
+/* Le mode du verbe (indicatif/conditionnel) était déjà une règle du rapport, mais seulement écrite
+   dans "geopolitics" — l'extrait frais montre Bessent rapporté au conditionnel : la même discipline
+   doit être rappelée explicitement là où "cb" est écrit, sinon elle ne s'y applique pas en pratique. */
+v('le mode du verbe (indicatif/conditionnel) est rappelé explicitement dans "cb"',
+  /MÊME DISCIPLINE DE MODE QU'EN GÉOPOLITIQUE/.test(CB));
+/* CE QUI NE DOIT PAS AVOIR BOUGÉ : le fond déjà éprouvé par v19-v25, une règle de FORME ne doit pas
+   effacer une règle de FOND posée sur d'autres captures utilisateur. */
+v('… la règle « une seule institution par puce » tient toujours', /UNE SEULE INSTITUTION PAR PUCE — JAMAIS DEUX/.test(CB));
+v('… la qualité de l\'intervenant reste obligatoire', /QUALITÉ DE L'INTERVENANT OBLIGATOIRE/.test(CB));
+v('… une décision du jour s\'annonce toujours en premier', /SI LA BANQUE A DÉCIDÉ CE JOUR-LÀ, DIS-LE EXPLICITEMENT et en premier/.test(CB));
+v('… et aucune ampleur de mouvement ne doit être inventée', /N'invente jamais l'ampleur d'un mouvement qui n'a pas eu lieu/.test(CB));
+v('la version du Quotidien a été bumpée pour cette réécriture (v26)', /const FXR_VER = 26;/.test(SRV));
+
 console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
 /* Le format de séance porte une version, et les récaps déjà publiés sous une version périmée se
    refont AU DÉMARRAGE. Sans ce mécanisme, une amélioration ne touchait que les récaps à venir et il
