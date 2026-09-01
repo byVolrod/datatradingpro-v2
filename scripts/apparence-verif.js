@@ -71,6 +71,25 @@ function lum(css) {
   v('… et ses styles ont quitté la feuille', !/\.pd-candle-(?:select-wrap|preview)\s*[,{]/.test(css));
   v('… et plus aucune option de bougie ne traîne', html.indexOf('Vert / 🔴 Rouge') < 0);
 
+  /* ── LA BARRE DU LECTEUR DE RAPPORT SUIT LA GRAMMAIRE DES BANDEAUX (02/09) ───────────────────
+     Capture utilisateur sur l'onglet Institutions : « quand j'ouvre un rapport c'est pas pro du
+     tout ». Elle était le SEUL bandeau du desk à ne pas suivre la grammaire commune, sur les deux
+     points qui font qu'un bandeau se lit comme un bandeau : son fond valait `--bg`, la couleur
+     EXACTE du corps qu'elle surmonte, et sa bordure était `1px solid var(--bg)` — une bordure de la
+     même couleur que le fond, donc invisible, qui occupait un pixel sans rien séparer.
+     ⚠️ « UNE BORDURE DE LA COULEUR DU FOND » EST UN DÉFAUT QUI NE SE VOIT PAS EN LISANT : la règle
+     a l'air complète, elle déclare bien une bordure. C'est en la comparant à SON PROPRE fond qu'il
+     apparaît. Ce contrôle-ci fait cette comparaison. */
+  const _rnav = (css.match(/\.arlib-rnav \{[^}]*\}/) || [''])[0];
+  v('la barre du lecteur porte le fond des bandeaux', /background:\s*var\(--head-bg\)/.test(_rnav), _rnav.slice(0, 200));
+  v('… et un filet qui SÉPARE vraiment (jamais la couleur de son propre fond)',
+    /border-bottom:\s*1px solid var\(--border\)/.test(_rnav) && !/border-bottom:[^;]*var\(--bg\)/.test(_rnav), _rnav.slice(0, 200));
+  /* Dans une carte à onglets, l'en-tête est un CALQUE et sa plaque d'icônes flotte à droite : sans
+     réserve, le bouton du lecteur passe dessous. On réutilise `--wdgt-cmd`, publiée par widgets.js
+     d'après la largeur RÉELLE de la plaque, plutôt qu'un second réglage qui divergerait. */
+  v('… et elle réserve la place des commandes flottantes dans une carte à onglets',
+    /\.wdg-card--tabs \.arlib-rnav \{ padding-right: calc\(16px \+ var\(--wdgt-cmd/.test(css));
+
   /* ── LA PÉRIODE ACTIVE SE VOIT (01/09, demande utilisateur, capture à l'appui : « la timeframe
      sélectionnée doit avoir un fond coloré... mais pour le DTP, remplace le fond orange par notre
      doré DTP »). Le modèle unifié des onglets ne posait qu'un soulignement de 2 px : lisible de

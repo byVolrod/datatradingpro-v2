@@ -5189,16 +5189,39 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .arlib-reader-view.hidden { display: none; }
 
 /* Top nav */
+/* ⚠️ LA BARRE DU LECTEUR SUIT ENFIN LA GRAMMAIRE DES BANDEAUX (02/09, capture utilisateur sur
+   l'onglet Institutions : « quand j'ouvre un rapport c'est pas pro du tout »).
+   ELLE ÉTAIT LE SEUL BANDEAU DU DESK À NE PAS LA SUIVRE, sur les deux points qui font qu'un bandeau
+   se lit comme un bandeau. Son FOND valait `--bg`, exactement la couleur du corps qu'elle surmonte :
+   elle n'avait donc aucune existence visuelle, le titre du rapport flottait dans le vide. Et sa
+   BORDURE était `1px solid var(--bg)` — une bordure de la MÊME couleur que le fond, c'est-à-dire
+   une bordure invisible : elle occupait un pixel sans jamais rien séparer. Tous les autres bandeaux
+   (`.panel-header`, `.chart-header`, `.wa3-phead`…) portent `--head-bg` et un filet `--border`.
+   Collée sous une barre d'onglets, cette absence de séparation faisait lire le bouton du lecteur
+   comme s'il appartenait à la barre du dessus : c'est ce que montre la capture.
+   ⚠️ LA HAUTEUR (44 px) EST CONSERVÉE, DÉLIBÉRÉMENT. Les autres bandeaux tiennent en 30 px, et
+   l'aligner serait plus cohérent — mais cette barre-ci porte un bouton de retour, un titre centré et
+   un bouton à droite, et je n'ai pas pu atteindre cet écran avec les données bouchonnées pour
+   mesurer ce que 30 px lui feraient. On corrige ce qui est démontrable sans le voir (deux couleurs
+   fausses) et on laisse ce qui demande l'œil. */
 .arlib-rnav {
   display: flex;
   align-items: center;
   gap: 12px;
   height: 44px;
   padding: 0 16px;
-  border-bottom: 1px solid var(--bg);   /* neutral-950 — bordure ultra-fine sombre */
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: var(--bg);                 /* noir pur DTP */
+  background: var(--head-bg);
 }
+/* ⚠️ ET ELLE RÉSERVE LA PLACE DES COMMANDES FLOTTANTES quand elle vit dans une carte à onglets
+   (Mon Desk). Dans ce cas l'en-tête de la carte est un CALQUE posé par-dessus, et sa plaque
+   d'icônes (↑↓ ? ×) flotte à droite : sans réserve, le bouton « Masquer les éclairages » et le
+   badge DTP passent DESSOUS — c'est la collision de la capture. `--wdgt-cmd` est publiée par
+   widgets.js d'après la largeur RÉELLE de la plaque : une icône de plus un jour, et la réserve
+   suit. C'est exactement le mécanisme qui protège déjà la piste des onglets (`.wdgt-bar`), repris
+   ici plutôt qu'un second réglage qui divergerait. */
+.wdg-card--tabs .arlib-rnav { padding-right: calc(16px + var(--wdgt-cmd, 148px)); }
 .arlib-back-btn {
   font-size: 11px;
   font-weight: var(--fw-medium);

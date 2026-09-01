@@ -47,6 +47,51 @@ const panneau = () => ({
 const contenu = (it, j) => JSON.stringify([it.tabs[j], it.tabLabels[j], it.tabIcons[j], it.tabGrid[j],
   it.tabCfg[String(j)] || null, it.tabCfg[j + '-1'] || null]);
 
+/* ══ LA PALETTE D'ICÔNES D'ONGLET ════════════════════════════════════════════════════════════════
+   02/09, demande utilisateur : « améliore les icônes, augmente légèrement leur visibilité, on voit
+   pas très bien l'icône, et mets-en plus, cohérent avec le desk et en fonction des widgets ».
+   ⚠️ LA VISIBILITÉ ÉTAIT UNE QUESTION DE TAILLE, PAS DE CONTRASTE — et c'est mesuré, pas supposé :
+   l'encre au repos (#9a9aa4) sur le fond de la palette (#16171b) donne un rapport de 6,42:1, très
+   au-dessus du seuil de 3:1 attendu d'une icône. Le défaut venait des 13 px : un trait de 1,7 px
+   sur un dessin de 13 px ne laisse pas assez de matière pour reconnaître une forme. On corrige donc
+   ce qui était en cause (15 px, trait 1,8) au lieu d'éclaircir une couleur qui allait bien.
+   ⚠️ CE QUI CASSE VRAIMENT UNE PALETTE : un slug listé dans l'ORDRE sans icône en face. Le bouton
+   se rend alors VIDE et cliquable — il pose une icône invisible sur l'onglet, et personne ne
+   comprend pourquoi. Le contrôle croise donc les deux listes dans les deux sens. */
+console.log('\n── 0. La palette d\'icônes d\'onglet ──');
+{
+  const d = SRC.indexOf('var _TAB_ICONS = {'), f = SRC.indexOf('};', d) + 2;
+  const o1 = SRC.indexOf('var _TAB_ICON_ORDER'), o2 = SRC.indexOf('];', o1) + 2;
+  v('le catalogue d\'icônes est extractible de widgets.js', d >= 0 && f > d && o1 > 0 && o2 > o1);
+  let ICONS = null, ORDER = null;
+  try {
+    ICONS = eval('(' + SRC.slice(d + 'var _TAB_ICONS = '.length, f - 1) + ')');
+    ORDER = eval('(' + SRC.slice(o1 + 'var _TAB_ICON_ORDER = '.length, o2 - 1) + ')');
+  } catch (e) { v('… et il s\'évalue', false, e.message); }
+  if (ICONS && ORDER) {
+    v('… et il s\'évalue', true);
+    const sansIcone = ORDER.filter(x => !ICONS[x]);
+    v('chaque entrée de la palette a bien son icône (sinon : bouton vide et onglet muet)',
+      sansIcone.length === 0, JSON.stringify(sansIcone));
+    const horsPalette = Object.keys(ICONS).filter(x => !ORDER.includes(x));
+    v('… et aucune icône n\'est définie sans être proposée', horsPalette.length === 0, JSON.stringify(horsPalette));
+    const doublons = ORDER.filter((x, i) => ORDER.indexOf(x) !== i);
+    v('… ni proposée deux fois', doublons.length === 0, JSON.stringify(doublons));
+    /* Le choix s'est ÉTOFFÉ : la demande portait aussi sur le nombre, pour couvrir les familles de
+       widgets du desk (baromètre, COT, saisonnalité, squawk, notes, recherche…). */
+    v('la palette couvre au moins 30 icônes', ORDER.length >= 30, ORDER.length + ' icône(s)');
+    /* Les familles nommées dans la demande doivent exister, sinon « plus de choix » ne veut rien
+       dire : ce sont ces widgets-là qui n'avaient pas d'icône à leur ressembler. */
+    ['egaliseur', 'donut', 'balance', 'sablier', 'cycle', 'onde', 'chat', 'note', 'loupe', 'carte']
+      .forEach(sl => v('… dont « ' + sl +' »', !!ICONS[sl]));
+    /* LA TAILLE, sur le dessin lui-même : c'est elle qui était en cause. */
+    const petites = Object.entries(ICONS).filter(([, svg]) => /width="13"|width=.13./.test(svg)).map(([k]) => k);
+    v('plus aucune icône ne reste dessinée en 13 px', petites.length === 0, JSON.stringify(petites));
+    const bonnes = Object.values(ICONS).filter(svg => /width="15" height="15"/.test(svg)).length;
+    v('… elles sont toutes en 15 px', bonnes === Object.keys(ICONS).length, bonnes + '/' + Object.keys(ICONS).length);
+  }
+}
+
 console.log('\n── 1. Tout ce que porte un onglet le suit ──');
 {
   const av = panneau(), avant = av.tabs.map((_, j) => contenu(av, j));

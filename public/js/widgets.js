@@ -38,26 +38,57 @@
   /* Icones d onglet : slug -> chemin SVG. Jeu volontairement RESTREINT et coherent (trait fin,
      concepts du desk). Le serveur ne stocke que le slug ; le rendu se fait ici. */
   var _TAB_ICONS = {
-    graphique:  '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 19V5\"/><path d=\"M4 15l4-4 3 3 5-6 3 3\"/></svg>',
-    bougies:    '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 4v3M7 15v5M17 4v6M17 18v2\"/><rect x=\"5\" y=\"7\" width=\"4\" height=\"8\" rx=\"1\"/><rect x=\"15\" y=\"10\" width=\"4\" height=\"8\" rx=\"1\"/></svg>',
-    calendrier: '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 9h18M8 3v4M16 3v4\"/></svg>',
-    horloge:    '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 8v4l3 2\"/></svg>',
-    etoile:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4l2.3 4.9 5.2.6-3.9 3.6 1 5.1L12 16.9 7.4 18.8l1-5.1L4.5 10l5.2-.6z\"/></svg>',
-    liste:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01\"/></svg>',
-    filtre:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 5h16l-6 7v6l-4 2v-8z\"/></svg>',
-    dollar:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3v18M8 7.5a3 3 0 0 1 3-2.5h2a2.5 2.5 0 0 1 0 5h-2a2.5 2.5 0 0 0 0 5h2a3 3 0 0 0 3-2.5\"/></svg>',
-    pourcent:   '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 5L5 19\"/><circle cx=\"7.5\" cy=\"7.5\" r=\"2.5\"/><circle cx=\"16.5\" cy=\"16.5\" r=\"2.5\"/></svg>',
-    globe:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M4 12h16M12 4c2.5 2.5 2.5 13 0 16M12 4c-2.5 2.5-2.5 13 0 16\"/></svg>',
-    banque:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 10h16M4 10l8-5 8 5M6 10v7M10 10v7M14 10v7M18 10v7M4 20h16\"/></svg>',
-    cloche:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6\"/><path d=\"M10 20a2 2 0 0 0 4 0\"/></svg>',
-    eclair:     '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M13 3L5 13h6l-1 8 8-11h-6z\"/></svg>',
-    cible:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><circle cx=\"12\" cy=\"12\" r=\"0.6\" fill=\"currentColor\"/></svg>',
-    jauge:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 15a8 8 0 0 1 16 0\"/><path d=\"M12 15l4-4\"/></svg>',
-    drapeau:    '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 21V4M5 4h11l-1.5 4L16 12H5\"/></svg>',
-    livre:      '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 4h10a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2z\"/><path d=\"M5 18a2 2 0 0 1 2-2h10\"/></svg>',
-    tendance:   '<svg viewBox=\"0 0 24 24\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 17l6-6 4 4 8-8\"/><path d=\"M17 7h4v4\"/></svg>',
+    graphique:  '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 19V5\"/><path d=\"M4 15l4-4 3 3 5-6 3 3\"/></svg>',
+    bougies:    '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 4v3M7 15v5M17 4v6M17 18v2\"/><rect x=\"5\" y=\"7\" width=\"4\" height=\"8\" rx=\"1\"/><rect x=\"15\" y=\"10\" width=\"4\" height=\"8\" rx=\"1\"/></svg>',
+    calendrier: '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 9h18M8 3v4M16 3v4\"/></svg>',
+    horloge:    '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 8v4l3 2\"/></svg>',
+    etoile:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4l2.3 4.9 5.2.6-3.9 3.6 1 5.1L12 16.9 7.4 18.8l1-5.1L4.5 10l5.2-.6z\"/></svg>',
+    liste:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01\"/></svg>',
+    filtre:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 5h16l-6 7v6l-4 2v-8z\"/></svg>',
+    dollar:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3v18M8 7.5a3 3 0 0 1 3-2.5h2a2.5 2.5 0 0 1 0 5h-2a2.5 2.5 0 0 0 0 5h2a3 3 0 0 0 3-2.5\"/></svg>',
+    pourcent:   '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 5L5 19\"/><circle cx=\"7.5\" cy=\"7.5\" r=\"2.5\"/><circle cx=\"16.5\" cy=\"16.5\" r=\"2.5\"/></svg>',
+    globe:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M4 12h16M12 4c2.5 2.5 2.5 13 0 16M12 4c-2.5 2.5-2.5 13 0 16\"/></svg>',
+    banque:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 10h16M4 10l8-5 8 5M6 10v7M10 10v7M14 10v7M18 10v7M4 20h16\"/></svg>',
+    cloche:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6\"/><path d=\"M10 20a2 2 0 0 0 4 0\"/></svg>',
+    eclair:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M13 3L5 13h6l-1 8 8-11h-6z\"/></svg>',
+    cible:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><circle cx=\"12\" cy=\"12\" r=\"0.6\" fill=\"currentColor\"/></svg>',
+    jauge:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 15a8 8 0 0 1 16 0\"/><path d=\"M12 15l4-4\"/></svg>',
+    drapeau:    '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 21V4M5 4h11l-1.5 4L16 12H5\"/></svg>',
+    livre:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 4h10a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2z\"/><path d=\"M5 18a2 2 0 0 1 2-2h10\"/></svg>',
+    tendance:   '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 17l6-6 4 4 8-8\"/><path d=\"M17 7h4v4\"/></svg>',
+      egaliseur:  '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 20V10M12 20V4M18 20v-7\"/><path d=\"M4 20h16\"/></svg>',
+    balance:    '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4v16M7 20h10\"/><path d=\"M5 9h14\"/><path d=\"M5 9l-2 5a3 3 0 0 0 4 0z\"/><path d=\"M19 9l2 5a3 3 0 0 1-4 0z\"/></svg>',
+    donut:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"3.2\"/><path d=\"M12 4v5\"/></svg>',
+    sablier:    '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 3h10M7 21h10\"/><path d=\"M8 3c0 4 8 5 8 9s-8 5-8 9\"/><path d=\"M16 3c0 4-8 5-8 9s8 5 8 9\"/></svg>',
+    onde:       '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12h2.5l2-6 3 13 3-9 2 4H21\"/></svg>',
+    chat:       '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 15a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z\"/></svg>',
+    note:       '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 3h9l4 4v14H6z\"/><path d=\"M15 3v4h4\"/><path d=\"M9 12h6M9 16h4\"/></svg>',
+    loupe:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"6\"/><path d=\"M20 20l-4.5-4.5\"/></svg>',
+    carte:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z\"/><path d=\"M9 4v14M15 6v14\"/></svg>',
+    cycle:      '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 12a8 8 0 0 1 13.7-5.7L20 8\"/><path d=\"M20 4v4h-4\"/><path d=\"M20 12a8 8 0 0 1-13.7 5.7L4 16\"/><path d=\"M4 20v-4h4\"/></svg>',
+    bouclier:   '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3l7 3v6c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6z\"/></svg>',
+    flux:       '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 4v12M7 20l-3-4h6z\"/><path d=\"M17 20V8M17 4l3 4h-6z\"/></svg>',
+    goutte:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3s6 6.5 6 10.5A6 6 0 0 1 6 13.5C6 9.5 12 3 12 3z\"/></svg>',
+    lingot:     '<svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 16h14l-2-6H7z\"/><path d=\"M7 10l1.5-3h7L17 10\"/></svg>',
   };
-  var _TAB_ICON_ORDER = ['graphique','bougies','tendance','pourcent','dollar','jauge','cible','filtre','liste','calendrier','horloge','cloche','globe','drapeau','banque','livre','etoile','eclair'];
+  /* ⚠️ L'ORDRE EST LA PALETTE : la grille fait six colonnes, donc six icônes par rangée. On range
+     par FAMILLE plutôt qu'à la suite — marchés, mesures, temps, lieux, contenus, signaux — sinon
+     trente icônes deviennent un mur où l'on ne retrouve rien. Ajouter une icône = l'écrire dans sa
+     famille, pas à la fin. Aucun rapport avec l'indexation POSITIONNELLE des onglets (`tabs`,
+     `tabLabels`, `tabIcons`…) : cette liste-ci est un catalogue clé par SLUG, l'y toucher ne
+     décale aucun onglet. */
+  var _TAB_ICON_ORDER = [
+    // marchés
+    'graphique', 'bougies', 'tendance', 'flux', 'egaliseur', 'donut',
+    // mesures
+    'pourcent', 'dollar', 'jauge', 'cible', 'balance', 'bouclier',
+    // temps
+    'calendrier', 'horloge', 'sablier', 'cycle', 'filtre', 'liste',
+    // lieux
+    'globe', 'carte', 'drapeau', 'banque', 'goutte', 'lingot',
+    // contenus et signaux
+    'livre', 'note', 'chat', 'loupe', 'cloche', 'onde', 'etoile', 'eclair',
+  ];
   function _tabIconSvg(slug) { return (slug && _TAB_ICONS[slug]) ? _TAB_ICONS[slug] : ''; }
   var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
   var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
