@@ -1408,7 +1408,19 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   padding: 9px var(--c-pad);       /* densité accrue (max info, façon salle de marché) tout en restant aéré */
   border-bottom: none;             /* trait des news retiré à la demande */
   border-radius: 0;                /* lignes strictes type table haute densité, jamais d'arrondi */
-  cursor: pointer;
+  /* ⚠️ CURSEUR CLASSIQUE SUR LA LIGNE (02/09, demande utilisateur : « mets pas le curseur doigt,
+     mets le curseur classique quand on glisse le curseur sur le desk »). La ligne portait
+     `cursor: pointer` — donc la main s'affichait sur toute sa surface, 981 x 62 px, soixante fois :
+     en pratique, sur tout le fil, c'est-à-dire sur l'essentiel du desk.
+     ⚠️ ET C'ÉTAIT UNE PROMESSE FAUSSE, pas seulement un choix esthétique. Vérifié : `.news-item`
+     ne porte AUCUN gestionnaire de clic — ni attribut, ni écouteur, ni délégation. Le clic qui
+     déplie la ligne vit sur `.news-headline` (app.js, `headline.onclick = _togglePanel`), qui reçoit
+     pour cela sa propre classe `--clickable` et garde, elle, la main. La ligne annonçait donc un
+     clic qui ne répondait nulle part sauf sur son titre.
+     La main reste ainsi EXACTEMENT là où quelque chose se passe : le titre, les étiquettes, les
+     boutons. Partout ailleurs, la flèche — la convention d'un terminal, et ce que montre la
+     référence fournie. */
+  cursor: default;
   transition: background 0.16s;
   gap: 0;
   background: var(--bg2);              /* anthracite très sombre (standard) */

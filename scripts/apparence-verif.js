@@ -148,7 +148,9 @@ function lum(css) {
           const c = getComputedStyle(e);
           return { h: Math.round(e.getBoundingClientRect().height), bg: c.backgroundColor };
         };
-        return { fil: un('.panel-header'), vue: un('.chart-header') };
+        const cur = (sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e).cursor : null; };
+        return { fil: un('.panel-header'), vue: un('.chart-header'),
+          curseurs: { ligne: cur('.news-item'), titre: cur('.news-headline--clickable'), etiquette: cur('.news-tags .tag') } };
       }).catch(() => null);
       await page.close();
       v('les deux familles de bandeaux sont mesurables', !!(b && b.fil && b.vue), JSON.stringify(b));
@@ -160,6 +162,21 @@ function lum(css) {
         v('… et il porte EXACTEMENT le même fond que les bandeaux de vue',
           b.fil.bg === b.vue.bg, 'fil ' + b.fil.bg + '  ≠  vue ' + b.vue.bg);
         v('… à la même hauteur', b.fil.h === b.vue.h, 'fil ' + b.fil.h + 'px ≠ vue ' + b.vue.h + 'px');
+      }
+      /* ══ LA MAIN NE S'AFFICHE QUE SUR CE QUI RÉPOND (02/09) ═══════════════════════════════════════
+         Demande utilisateur : « mets pas le curseur doigt, mets le curseur classique quand on glisse
+         le curseur sur le desk ». La ligne du fil portait `cursor: pointer` sur toute sa surface —
+         981 x 62 px, soixante fois, donc sur l'essentiel du desk. Et c'était une promesse FAUSSE :
+         `.news-item` ne porte aucun gestionnaire de clic, celui qui déplie la ligne vit sur son
+         TITRE (app.js). La ligne annonçait un clic qui ne répondait nulle part ailleurs.
+         Les trois contrôles vont ensemble : sans les deux derniers, « tout mettre en flèche » ferait
+         disparaître le signal là où il informe vraiment. */
+      if (b && b.curseurs) {
+        v('la ligne du fil rend le curseur classique (elle n\'est pas cliquable)',
+          b.curseurs.ligne === 'default', 'curseur = ' + b.curseurs.ligne);
+        v('… mais le TITRE, lui, garde la main : c\'est lui qui porte le clic',
+          b.curseurs.titre === 'pointer', 'curseur = ' + b.curseurs.titre);
+        v('… et les étiquettes aussi', b.curseurs.etiquette === 'pointer', 'curseur = ' + b.curseurs.etiquette);
       }
     }
 
