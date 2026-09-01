@@ -1585,14 +1585,26 @@ function buildStrengthChart(containerId, data, opts = {}) {
          47 px, et deux d'entre elles sortent du widget. Le pas est donc borné des DEUX côtés : ce
          qu'il faut pour ne pas se recouvrir, et jamais plus que ce qui tient. */
       const pasMin  = HB + 2;                                            // juste de quoi ne pas se recouvrir
-      const pasConf = HB + 8;                                            // un peu d'air quand la place existe
-      const pasDispo = arr.length > 1 ? (h - HB) / (arr.length - 1) : pasConf;
+      const pasDispo = arr.length > 1 ? (h - HB) / (arr.length - 1) : pasMin;
       const GMAX = pasDispo;
-      // ÉCART SELON LA TAILLE DU PAQUET (06/08) : deux étiquettes voisines restent COLLÉES à leurs
-      // courbes (17 px = 2 px de garde, l'intention d'origine) ; un paquet de huit — le cas TW, où
-      // toutes les courbes finissent au même niveau — passe à 23 px, sinon huit blocs colorés
-      // séparés de 2 px se lisent comme un seul pavé. On n'écarte QUE là où c'est illisible.
-      const gapFor = k => Math.min(GMAX, k <= 2 ? pasMin : Math.min(pasConf, pasMin + Math.min(6, k - 2)));
+      /* ⚠️ L'ÉCART EST LE MINIMUM, ET RIEN DE PLUS (02/09, demande utilisateur, référence à l'appui :
+         « c'est pas aligné, ça fait pas pro du tout, regarde la 2ème image comme c'est bien aligné »).
+         CE QUI SE PASSAIT. Un « écart de confort » (HB + 8) s'ajoutait dès qu'un paquet dépassait
+         deux étiquettes, au motif que huit pastilles collées se liraient comme un seul pavé. Sur le
+         cas réel — les huit devises qui finissent dans un mouchoir — ça faisait 25 px de pas là où
+         19 suffisent : SIX pixels d'écartement artificiel par étiquette, sept fois, soit plus de
+         quarante pixels de dérive cumulée entre la première pastille et la dernière. Chacune
+         s'éloignait donc de sa courbe pour une raison qui n'était pas la donnée, et la colonne
+         régulière qui en résultait ne montrait plus rien : c'est exactement ce que l'utilisateur
+         voit, et il a raison.
+         CE QUE MONTRE LA RÉFÉRENCE : chaque étiquette est posée à la hauteur EXACTE de la fin de sa
+         courbe, sans le moindre écartement de confort — la position de l'étiquette EST la donnée.
+         C'est la seule façon d'être « bien aligné ».
+         On garde donc l'anti-collision, mais réduite à ce qu'elle doit être : on ne s'écarte QUE
+         pour ne pas se recouvrir, jamais pour respirer. La lisibilité d'un paquet serré est prise en
+         charge autrement depuis le 01/09 — chaque pastille porte un filet fin jusqu'au POINT posé à
+         la fin réelle de sa courbe : c'est ce point qui désigne, plus l'écartement. */
+      const gapFor = () => Math.min(GMAX, pasMin);
       // ── PLACEMENT PAR PAQUETS CENTRÉS (05/08, demande user : « les étiquettes doivent être bien
       //    alignées avec les courbes ») ────────────────────────────────────────────────────────
       // L'ancienne méthode poussait TOUJOURS vers le bas depuis la première étiquette, puis

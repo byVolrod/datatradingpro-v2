@@ -471,12 +471,26 @@ function _rattacherPastilles() {
   v('… et le point se détache de ses voisins par un halo au fond du panneau',
     /\.cs-link b \{[^}]*box-shadow: 0 0 0 1\.5px var\(--bg/.test(CSS),
     (CSS.match(/\.cs-link b \{[^}]*\}/) || [''])[0]);
-  /* ⚠️ RIEN NE BOUGE : les constantes de placement de `declutter` sont celles d'avant. Si un jour
-     l'envie prend d'« améliorer » l'écart en même temps, ce contrôle le dira — la demande était
-     explicite, et un déplacement se paierait en repères perdus pour l'utilisateur. */
-  v('le placement des pastilles n\'a pas été touché (écarts inchangés)',
-    /const pasMin  = HB \+ 2;/.test(CH) && /const pasConf = HB \+ 8;/.test(CH) && /const GAP_BASE = 17;/.test(CH));
-  v('… ni la largeur de la gouttière', /_avecValeur \? \(_csEtroit \? 84 : 70\) : \(_csEtroit \? 56 : 50\)/.test(CH));
+  /* ⚠️ L'ÉCART EST LE MINIMUM, ET RIEN DE PLUS (02/09, seconde demande sur ce même sujet, référence
+     à l'appui : « c'est pas aligné, ça fait pas pro du tout, regarde la 2ème image comme c'est bien
+     aligné »). Un « écart de confort » (HB + 8) s'ajoutait dès qu'un paquet dépassait deux
+     étiquettes : 25 px de pas là où 19 suffisent, soit SIX pixels d'écartement artificiel par
+     étiquette et plus de quarante pixels de dérive cumulée sur huit devises. Chacune s'éloignait de
+     sa courbe pour une raison qui n'était PAS la donnée.
+     ⚠️ CE CONTRÔLE A CHANGÉ DE SENS, ET C'EST VOULU. Il exigeait auparavant que les constantes de
+     placement ne bougent PAS — c'était la contrainte de la demande précédente (« sans que ça
+     désordonne quoi que ce soit »). La contrainte a changé parce que l'utilisateur l'a changée : il
+     veut désormais l'alignement de la référence, où la position de l'étiquette EST la donnée. On
+     éprouve donc l'inverse : plus aucun écart de confort ne peut revenir. */
+  v('l\'écartement de confort a disparu (plus de `pasConf`)', !/pasConf/.test(CH),
+    (CH.match(/.{0,60}pasConf.{0,40}/) || [''])[0]);
+  v('… l\'écart vaut le MINIMUM qui évite le recouvrement, borné par la place',
+    /const gapFor = \(\) => Math\.min\(GMAX, pasMin\);/.test(CH),
+    (CH.match(/const gapFor[^\n]*/) || [''])[0]);
+  /* Le minimum, lui, reste la hauteur réelle de la pastille + 2 px de garde : descendre en dessous
+     autoriserait le recouvrement par construction, ce que le 29/08 avait déjà mesuré et corrigé. */
+  v('… et ce minimum reste la hauteur mesurée de la pastille + 2 px', /const pasMin  = HB \+ 2;/.test(CH));
+  v('… la largeur de la gouttière, elle, n\'a pas bougé', /_avecValeur \? \(_csEtroit \? 84 : 70\) : \(_csEtroit \? 56 : 50\)/.test(CH));
 }
 
 if (require.main === module) {
