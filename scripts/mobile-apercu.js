@@ -82,6 +82,28 @@ function news(n) {
 }
 const TOUT = news(60);
 
+/* Jeu d'essai LISTE FX (01/09) — voir la route /api/fxlist plus bas.
+   ⚠️ LA FORME COMPTE AUTANT QUE LES VALEURS. `sparkLast`, `trend` et `seasonal` sont des SÉRIES,
+   pas des nombres : un premier jet les avait mis en scalaires, `_fxlPriceSpark` a levé une
+   TypeError au premier `.filter`, et tout le corps du tableau est resté vide. Un jeu d'essai qui ne
+   respecte pas la forme du vrai payload ne prouve rien. Champs recopiés sur ce que sert vraiment
+   server.js (`symbol` porte une barre oblique, `fund`/`research`/`bias` sont ajoutés ensuite). */
+const _serie = (n, base, amp) => Array.from({ length: n }, (_, i) => base + Math.sin(i / 2.5) * amp + i * amp / 40);
+const FXL_ESSAI = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'XAU/USD'].map((sym, i) => ({
+  symbol: sym, base: sym.slice(0, 3), quote: sym.slice(4),
+  last: 1.0842 + i, changePct: (i % 2 ? -1 : 1) * (0.12 + i * 0.07),
+  sparkLast: _serie(24, 1.08 + i, 0.01 * (i + 1)),
+  trend: _serie(48, 1.08 + i, 0.02 * (i + 1)),
+  pattern: _serie(10, 1.08 + i, 0.01),
+  seasonal: _serie(12, 0, 1 + i * 0.3),
+  dmx: 20 + i * 13,
+  fund: ['Bullish', 'Bearish', 'Neutral'][i % 3],
+  research: ['Bearish', 'Neutral', 'Bullish'][i % 3],
+  bias: i === 4 ? null : ['Neutral', 'Bullish', 'Bearish'][i % 3],   // un null : la cellule « - » doit tenir
+  ret1M: (i - 2) * 1.4, ret3M: (2 - i) * 2.1, ret12M: i === 3 ? null : (i - 1) * 3.3,
+  strength: (i - 2.5) * 0.8,
+}));
+
 function serveur() {
   return http.createServer((req, res) => {
     const u = req.url.split('?')[0];
@@ -91,6 +113,12 @@ function serveur() {
       if (u === '/api/news/history') return j({ items: TOUT.slice(30), total: TOUT.length });
       if (u === '/api/session-wraps') return j([]);
       if (u === '/api/weekly-reports') return j({ items: [], generating: false });
+      /* LISTE FX : un vrai payload, sinon la table ne se dessine JAMAIS dans les bancs navigateur.
+         Le fourre-tout plus bas renvoie `{items:[]}` — sans `pairs`, donc le corps du tableau restait
+         sur son squelette et tout contrôle « autant de <td> que de <th> » se faisait sur du vide,
+         au vert. Six paires suffisent à compter des cellules ; les champs sont ceux que lit
+         `_fxlCell` (charts.js), volontairement variés (une valeur nulle, un badge de chaque). */
+      if (u === '/api/fxlist') return j({ updatedAt: new Date().toISOString(), pairs: FXL_ESSAI });
       return j({ items: [], total: 0, ok: true, loggedIn: true, authenticated: true, user: UTIL, ...UTIL });
     }
     const f = path.join(PUB, u === '/' ? 'index.html' : u.replace(/^\/+/, ''));

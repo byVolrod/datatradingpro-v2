@@ -39,7 +39,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260901bbg1092" />
+  <link rel="stylesheet" href="/css/style.css?v=20260901bbg1093" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -92,7 +92,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260901bbg1092"></script>
+  <script defer src="/js/noinspect.js?v=20260901bbg1093"></script>
 </head>
 <body>
 
@@ -524,6 +524,18 @@
              de lui-même, donc rétablir l'affichage ne demande que de remettre ici un élément
              porteur de l'id « fxl-updated ». -->
         <div class="fxl-title chart-header-title">Aperçu</div>
+        <!-- REGLAGES DE COLONNES (01/09, demande user « ajoute un icone reglages pour pouvoir
+             masquer une colonne ou l afficher comme on le souhaite »). Meme grammaire que le volet
+             du calendrier (icone ⚙ dans le bandeau, interrupteurs, memoire par COMPTE) : le desk ne
+             doit pas parler deux langues pour un meme geste. La colonne « Symbole » n y figure pas
+             volontairement : c est l identite de la ligne, la masquer donnerait un tableau de
+             chiffres sans paire en face. -->
+        <div class="fxl-title-icons">
+          <span class="cal-title-icon" title="Colonnes affichées" role="button" tabindex="0"
+                onclick="_fxlToggleReglages()"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxlToggleReglages();}">⚙</span>
+          <div class="fxl-set-pop" id="fxl-set-pop" hidden></div>
+        </div>
       </div>
       <div class="fxl-table-scroll">
         <table class="fxl-table">
@@ -971,16 +983,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260901bbg1092"></script>
-<script defer src="/js/app.js?v=20260901bbg1092"></script>
-<script defer src="/js/charts.js?v=20260901bbg1092"></script>
-<script defer src="/js/sessionmap.js?v=20260901bbg1092"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260901bbg1093"></script>
+<script defer src="/js/app.js?v=20260901bbg1093"></script>
+<script defer src="/js/charts.js?v=20260901bbg1093"></script>
+<script defer src="/js/sessionmap.js?v=20260901bbg1093"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260901bbg1092"></script>
-<script defer src="/js/home.js?v=20260901bbg1092"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260901bbg1092"></script>
-<script defer src="/js/i18n.js?v=20260901bbg1092"></script>
+<script defer src="/js/widgets.js?v=20260901bbg1093"></script>
+<script defer src="/js/home.js?v=20260901bbg1093"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260901bbg1093"></script>
+<script defer src="/js/i18n.js?v=20260901bbg1093"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

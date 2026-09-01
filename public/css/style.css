@@ -17812,13 +17812,16 @@ html[data-theme="light"] .news-grp-cpt {
    dépôt. Elle donne désormais accès aux colonnes affichées. Volet ancré sous l'icône, fermé par
    défaut, et refermé au clic ailleurs (cf. charts.js). Grammaire des interrupteurs recopiée sur
    celle des réglages de widget, pour que le desk ne parle pas deux langues. */
-.cal-title-icons { position: relative; }
-.cal-set-pop {
+.cal-title-icons, .fxl-title-icons { position: relative; }
+.cal-set-pop, .fxl-set-pop {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; min-width: 190px;
   background: var(--bg1, #0c0c0e); border: 1px solid var(--border, #1c1c20); border-radius: var(--radius, 6px);
   padding: 10px 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55);
 }
-.cal-set-pop[hidden] { display: none; }
+.cal-set-pop[hidden], .fxl-set-pop[hidden] { display: none; }
+/* Le volet de la Liste FX porte DOUZE interrupteurs, contre deux au calendrier : sans plafond il
+   descendait plus bas que la fenetre et les dernieres colonnes devenaient inatteignables. */
+.fxl-set-pop { max-height: 60vh; overflow-y: auto; min-width: 208px; }
 .cal-set-t {
   color: var(--text3, #8b93a1); font-size: 10px; font-weight: 700;
   letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;

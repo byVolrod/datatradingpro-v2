@@ -4241,12 +4241,63 @@ function _fxlCell(col, p, maxAbsStr) {
   }
 }
 
+/* ── LISTE FX : COLONNES MASQUABLES (01/09/2026, demande user) ────────────────────────────────
+   « ajoute un icone reglages pour pouvoir masquer une colonne ou l afficher comme on le souhaite ».
+   Treize colonnes tiennent dans ce tableau ; personne ne les lit toutes. Le reglage recopie mot pour
+   mot celui du calendrier (DTPPref, donc par COMPTE et retrouve sur un autre appareil) plutot que
+   d inventer une seconde grammaire — meme icone, meme volet, memes interrupteurs.
+   ⚠️ TROIS PIEGES, tous vus au banc :
+   1. « Symbole » N EST PAS masquable. Sans elle, on lit treize chiffres sans savoir de quelle paire
+      il s agit — et surtout le tableau ne peut plus jamais devenir vide, ce qui evite tout garde-fou
+      « au moins une colonne » et l etat impossible qui va avec.
+   2. Le tri peut porter sur une colonne qu on vient de masquer : la table se reordonnerait selon une
+      donnee INVISIBLE. On retombe alors sur « Symbole », qui est toujours la.
+   3. renderFxList dessine les colonnes a TROIS endroits (en-tete, squelette de chargement, corps).
+      En filtrer deux sur trois decale les cellules d une colonne — c est exactement ce que le banc
+      verifie, en comptant les <th> et les <td> d une meme ligne. */
+function _fxlColVisible(k) {
+  if (k === 'symbol') return true;                                   // piege 1 : jamais masquable
+  try { return window.DTPPref ? DTPPref.get('fxlcol' + k, '1') !== '0' : true; } catch (e) { return true; }
+}
+function _fxlColsVisibles() { return FXL_COLS.filter(c => _fxlColVisible(c.key)); }
+function _fxlColSet(k, on) {
+  if (k === 'symbol') return;
+  try { if (window.DTPPref) DTPPref.set('fxlcol' + k, on ? '1' : '0'); } catch (e) {}
+  // Piege 2 : on triait sur cette colonne, elle disparait → retour au tri par symbole.
+  if (!on && _fxlSort.key === k) {
+    _fxlSort = { key: 'symbol', dir: 1 };
+    try { if (window.DTPPref) DTPPref.set('fxlsort', 'symbol:1'); } catch (e) {}
+  }
+  try { renderFxList(); } catch (e) {}
+  try { _fxlMajReglages(); } catch (e) {}
+}
+window._fxlColSet = _fxlColSet;
+function _fxlMajReglages() {
+  const b = document.getElementById('fxl-set-pop');
+  if (!b) return;
+  const l = (c) => {
+    const on = _fxlColVisible(c.key);
+    return '<label class="cal-set-row"><span>' + c.label + '</span>'
+      + '<button class="cal-set-sw' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '"'
+      + ' onclick="_fxlColSet(\'' + c.key + '\', ' + (!on) + ')"><i></i></button></label>';
+  };
+  b.innerHTML = '<div class="cal-set-t">Colonnes affichées</div>'
+    + FXL_COLS.filter(c => c.key !== 'symbol').map(l).join('');
+}
+window._fxlToggleReglages = function () {
+  const b = document.getElementById('fxl-set-pop');
+  if (!b) return;
+  if (!b.hasAttribute('hidden')) { b.setAttribute('hidden', ''); return; }
+  _fxlMajReglages(); b.removeAttribute('hidden');
+};
+
 function renderFxList() {
   const head = document.getElementById('fxl-head');
   const body = document.getElementById('fxl-body');
   if (!head || !body) return;
 
-  head.innerHTML = FXL_COLS.map(c => {
+  const _cols = _fxlColsVisibles();
+  head.innerHTML = _cols.map(c => {
     const active = _fxlSort.key === c.key;
     // Flèche de tri ⇅ visible sur SYMBOL et STRENGTH (et sur la colonne triée active) ; les autres trient en silence
     const showArrow = c.sortable && (c.key === 'symbol' || c.key === 'strength' || active);
@@ -4262,13 +4313,25 @@ function renderFxList() {
       if (_loader) _loader.style.display = 'none';
       body.innerHTML = Array.from({ length: 12 }).map(() =>
         '<tr class="fxl-row fxl-skel-row" aria-hidden="true">' +
-        FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}"><span class="dtp-skel"></span></td>`).join('') +
+        _cols.map(c => `<td class="fxl-td fxl-td--${c.align}"><span class="dtp-skel"></span></td>`).join('') +
         '</tr>'
       ).join('');
     } else {
       body.innerHTML = '';
       if (_loader) { _loader.innerHTML = '<div class="fxl-msg">Aucune donnée</div>'; _loader.style.display = 'flex'; }
     }
+    return;
+  }
+  /* PAYLOAD SANS `pairs` : LA PANNE MUETTE (01/09). `_fxlData` peut être un objet VALIDE sans
+     tableau `pairs` — une réponse d'erreur applicative, un payload tronqué. `_fxlData.pairs.slice()`
+     levait alors une TypeError APRÈS l'écriture de l'en-tête : la barre de colonnes se redessinait,
+     le corps restait figé sur le squelette de chargement, et l'utilisateur voyait un tableau en
+     attente éternelle. Rien en console de son côté, rien dans les bancs de syntaxe — c'est la forme
+     exacte de l'incident du 25/08 (fil vide, aucune erreur visible). On retombe désormais sur le
+     message « Aucune donnée », qui est la vérité. */
+  if (!_fxlData || !Array.isArray(_fxlData.pairs)) {
+    body.innerHTML = '';
+    if (_loader) { _loader.innerHTML = '<div class="fxl-msg">Aucune donnée</div>'; _loader.style.display = 'flex'; }
     return;
   }
   if (_loader) _loader.style.display = 'none';
@@ -4289,7 +4352,7 @@ function renderFxList() {
 
   body.innerHTML = pairs.map(p =>
     `<tr class="fxl-row">` +
-    FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}${c.heat ? ' fxl-td--heat' : ''}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
+    _cols.map(c => `<td class="fxl-td fxl-td--${c.align}${c.heat ? ' fxl-td--heat' : ''}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
     `</tr>`
   ).join('');
   if (window._dtpDataIn) window._dtpDataIn(body, 'fxl');   // fondu d'arrivee (1re fois seulement, jamais aux refresh silencieux)
@@ -4471,18 +4534,26 @@ window._calToggleReglages = function () {
   _calMajReglages(); b.removeAttribute('hidden');
 };
 // Fermeture au clic AILLEURS et à Échap : sans ça, le volet reste ouvert par-dessus le tableau et
-// il faut retrouver l'icône pour s'en débarrasser. Écouteur unique, posé une seule fois.
+// il faut retrouver l'icône pour s'en débarrasser. Écouteurs uniques, posés une seule fois, et
+// PARTAGÉS par tous les volets de réglages d'onglet (calendrier, Liste FX). Un second volet avait
+// tout pour se voir recopier ces douze lignes en changeant un id ; deux copies dérivent toujours —
+// celle qu'on corrige et l'autre. Ajouter un volet = ajouter son id à cette liste, rien d'autre.
+const _POPS_REGLAGES = ['cal-set-pop', 'fxl-set-pop'];
 document.addEventListener('click', e => {
-  const b = document.getElementById('cal-set-pop');
-  if (!b || b.hasAttribute('hidden')) return;
-  if (b.contains(e.target)) return;                                  // clic DANS le volet : on garde
-  if (e.target.closest && e.target.closest('.cal-title-icon')) return;   // l'icône gère son propre bascule
-  b.setAttribute('hidden', '');
+  for (const id of _POPS_REGLAGES) {
+    const b = document.getElementById(id);
+    if (!b || b.hasAttribute('hidden')) continue;
+    if (b.contains(e.target)) continue;                                // clic DANS le volet : on garde
+    if (e.target.closest && e.target.closest('.cal-title-icon')) continue;   // l'icône gère son propre bascule
+    b.setAttribute('hidden', '');
+  }
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  const b = document.getElementById('cal-set-pop');
-  if (b && !b.hasAttribute('hidden')) b.setAttribute('hidden', '');
+  for (const id of _POPS_REGLAGES) {
+    const b = document.getElementById(id);
+    if (b && !b.hasAttribute('hidden')) b.setAttribute('hidden', '');
+  }
 });
 function renderCalTable() {
   const _vHigh = _calColVisible('colhigh');
