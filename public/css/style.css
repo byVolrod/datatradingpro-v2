@@ -5564,9 +5564,10 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
    (« enlève le gras des jours et met en blanc »). Reste blanc : c'est ce qui distingue le jour du
    texte qui suit, le gras marque en plus le repère de lecture d'une chronologie qu'on parcourt vite. */
 .wr-gt-jour { color:#fff; font-weight:700; }
-/* Image VIX du récap hebdo (01/09, demande user) : même widget que le mail, largeur du bloc, coins
-   doux — cohérent avec .wr-chart juste en dessous (force des devises par bloc devise). */
-.wr-vix-img { display:block; width:100%; max-width:600px; height:auto; border:1px solid var(--border); border-radius:var(--radius); margin:8px 0 16px; }
+/* Image de widget servie dans un rapport (01/09, demande user) : même widget que le mail, largeur
+   du bloc, coins doux. Partagée par le VIX du Récap Hebdo et la Force des Devises du Récap
+   Quotidien — un seul nom pour la même intention plutôt qu'une classe par rapport. */
+.dtp-report-img { display:block; width:100%; max-width:600px; height:auto; border:1px solid var(--border); border-radius:var(--radius); margin:8px 0 16px; }
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }
 /* Weekly Recap — Section BANQUES CENTRALES (synthèse par banque + Interprétation de marché) */
 .wr-cb-grid { display:flex; flex-direction:column; gap:10px; margin:8px 0 4px; }

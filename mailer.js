@@ -2623,6 +2623,13 @@ function _recapQuotidienFull(fx) {
   const _synth = _parasDesk([fx.intro, fx.summary].filter(x => typeof x === 'string' && x.trim()).join('\n\n'), '#e3e3e6', '13px');
   S('Synthèse', _synth ? _blocSynthese(_synth) : '');
 
+  /* FORCE DES DEVISES, JUSTE APRÈS LA SYNTHÈSE (01/09, demande user, capture de référence à
+     l'appui : « ajoute une photo des forces des devises après la synthèse en timeframe TD »).
+     Même image que le desk (app.js, `_renderFXDailyRecap`) : période `today` (« TD »), la séance
+     en cours — le Quotidien raconte LA journée, sa courbe doit être celle du jour, pas de la
+     semaine (le Récap Hebdo, lui, la sert déjà par bloc devise en `period` implicite = semaine). */
+  S('Force des Devises', _widgetImg('strength', 'Force des devises du jour', 532, 'today'));
+
   /* 3) GÉOPOLITIQUE. Le sous-titre « Points clés à retenir » suit le desk, où il vient d'être
         retiré (app.js, 24/08) : il distillait en 3-5 lignes les puces géopolitiques qui le
         précèdent immédiatement — le lecteur relisait la même journée deux fois de suite.

@@ -10031,7 +10031,7 @@ function _renderWeeklyRecap(item) {
        l'épreuve des pannes (`renderWidgetPngSafe` ne jette jamais : cache frais → dernière bonne
        image → placeholder), donc rien à bouchonner côté desk. */
     body += `<div class="wr-macro-heading">Volatilité · VIX</div>`
-      + `<img class="wr-vix-img" src="/api/email-widget/vix.png?t=${w.weekEnding ? _wrEsc(w.weekEnding) : Date.now()}" alt="VIX de la semaine (bougies 2 h) — DataTradingPro" loading="lazy">`;
+      + `<img class="dtp-report-img" src="/api/email-widget/vix.png?t=${w.weekEnding ? _wrEsc(w.weekEnding) : Date.now()}" alt="VIX de la semaine (bougies 2 h) — DataTradingPro" loading="lazy">`;
     /* ══ LA MACRO REVIENT, ENTRE LA GÉOPOLITIQUE ET LES DEVISES (04/09, demande user : « il manque
        la partie macro avant la partie devises ») ══════════════════════════════════════════════════
        Elle avait été retirée du rendu le 11/08 au motif qu'elle répétait les blocs devises. Le motif
@@ -10759,6 +10759,15 @@ function _renderFXDailyRecap(item) {
   //    séparée) : les deux textes sont recollés en un seul bloc, jamais affichés l'un sous l'autre.
   const _lead = [w.intro, w.summary].filter(Boolean).join('\n\n');
   if (_lead) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(_lead)}</div>`;
+
+  /* ══ FORCE DES DEVISES, JUSTE APRÈS LA SYNTHÈSE (01/09, demande user, capture de référence à
+     l'appui : « ajoute une photo des forces des devises après la synthèse en timeframe TD »).
+     Même widget que celui déjà posé sous chaque bloc devise du Récap Hebdo et dans le mail
+     (`/api/email-widget/strength.png`) — période `today` (« TD », la séance en cours), pas
+     `week` : le Quotidien raconte LA journée, sa courbe de force doit être celle du jour, pas
+     celle de la semaine. Route publique, jamais cassée (`renderWidgetPngSafe` ne jette jamais). */
+  body += _sec('Force des Devises')
+    + `<img class="dtp-report-img" src="/api/email-widget/strength.png?period=today&t=${item.timestamp || Date.now()}" alt="Force des devises du jour — DataTradingPro" loading="lazy">`;
 
   /* ── Géopolitique (v19, structure du mentor) : note de renseignement exhaustive. ──
      « POINTS CLÉS À RETENIR » RETIRÉ DU RENDU (24/08, demande user). La rubrique distillait en
