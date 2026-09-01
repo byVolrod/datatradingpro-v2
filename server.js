@@ -1073,6 +1073,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260901-fil-francais-seulement', ts: Date.UTC(2026, 8, 1, 8, 0), title: 'Le fil ne peut plus afficher une actualité dans une autre langue', desc: 'Vous nous l’avez montré : cinq lignes du fil s’affichaient EN ITALIEN. La cause n’était pas la source mais le contrôle de ce que rend le traducteur. Avant d’enregistrer une traduction, le desk vérifiait deux choses seulement : que la réponse ne soit pas vide, et qu’elle soit différente du texte d’origine. Une réponse italienne passe ces deux tests sans difficulté : elle n’est ni vide, ni identique à l’anglais de départ. Elle était donc écrite dans le champ d’affichage de la ligne, et y restait pour toujours, puisqu’un champ déjà rempli n’est jamais retraduit. Le desk vérifie désormais que ce qu’il reçoit est bien du français avant de l’enregistrer : dans le cas contraire rien n’est posé, la ligne garde son titre d’origine et repasse au cycle suivant. Les traductions déjà enregistrées dans une autre langue sont retirées automatiquement et retraduites. Un contrôle de livraison rejoue les cinq lignes de votre capture à chaque version, avec des pièges volontaires (« Los Angeles », « Las Vegas », et le mot « mais ») pour qu’aucun titre français correct ne soit refusé au passage.' },
+  { id: 'dtpu-20260901-hebdo-chronologie', ts: Date.UTC(2026, 8, 1, 7, 30), title: 'Récap Hebdo : les chiffres de la semaine se lisent enfin dans l’ordre des jours', desc: 'Sous chaque devise, les publications de la semaine se suivaient dans le désordre : mercredi, mercredi, vendredi, puis de nouveau mercredi. Elles héritaient de l’ordre du calendrier après renommage et dédoublonnage, c’est-à-dire d’aucun ordre lisible. Elles sont désormais triées par date, du lundi au vendredi, pour les huit devises et dans les trois rubriques (inflation, emploi, croissance), sur le desk comme dans le mail.' },
   { id: 'dtpu-20260901-hebdo-vix-gras', ts: Date.UTC(2026, 8, 1, 0, 30), title: 'Récap Hebdo : le VIX de la semaine en graphique, et le gras retrouve sa place dans le mail', desc: 'Deux ajouts au Récap Hebdo. LE VIX EN IMAGE, juste après la Géopolitique : la semaine vient d’être racontée, ce graphique dit ce que le marché en a fait. Bougies de 2 heures, avec un trait rouge à chaque lundi minuit pour séparer les semaines d’un coup d’œil. L’image est fabriquée à chaque envoi sur les vraies bougies, comme les courbes de force des devises, et embarquée dans le message pour s’afficher même quand la messagerie bloque les images distantes. LE GRAS REVIENT DANS LE MAIL. Les intitulés que le desk met en gras blanc en tête de chaque puce (« Fed : », « CPI zone euro : ») arrivaient à plat dans le courriel : la mise en forme était retirée en même temps que la syntaxe qui la porte. Elle est désormais rendue, dans la même couleur et la même graisse que sur le desk.' },
   { id: 'dtpu-20260901-lecture-hebdo', ts: Date.UTC(2026, 7, 31, 23, 58), title: 'Récap Hebdo : le jour de la chronologie passe en blanc, et les hebdos importants ne crient plus en rouge', desc: 'Deux retouches de lecture. Dans la chronologie géopolitique, le nom du jour s’affichait en or et en gras : il passait devant le fait qu’il introduit alors qu’il ne fait que le situer. Il est désormais en blanc, sans gras, sur le desk comme dans le mail. Et dans la liste INSTITUTIONS, FX Weekly et Asia FX Weekly portaient un titre écrit en rouge : ils adoptent la grammaire exacte des actualités majeures du fil — une teinte de fond rouge qui se renforce au survol, et un titre qui reste blanc. Deux surfaces du desk disaient « important » de deux façons différentes.' },
   { id: 'dtpu-20260831-temoignage-decale', ts: Date.UTC(2026, 7, 31, 23, 55), title: 'Plus jamais deux e-mails le même jour : le témoignage mensuel se décale de 2 jours si besoin', desc: 'Le témoignage mensuel part toujours le premier mardi du mois — mais certaines semaines, le contenu hebdomadaire de la rotation tombe lui aussi le mardi. Les deux e-mails partaient alors le même jour, à quelques heures d’écart. Quand ce chevauchement se produit, le témoignage glisse désormais au jeudi suivant : deux jours d’écart garantis entre les deux envois.' },
@@ -9885,6 +9887,23 @@ Observed moves: ${String(moves).slice(0, 500)}`;
    qui doit éviter de dépenser une requête sur une dépêche déjà française. Elle était locale à la
    fonction de traduction ; l'utiliser ailleurs aurait voulu dire la recopier. */
 const _looksFr = s => /[àâçéèêëîïôùûüœÀÂÇÉÈÊËÎÏÔÙÛ]/.test(s) || /\b(le|la|les|des|une?|du|au|aux|est|sont|pour|avec|sur|dans|plus|selon|après|avant)\b/i.test(s);
+/* ⚠️ CE QUE REND LE TRADUCTEUR N'ÉTAIT VÉRIFIÉ PAR PERSONNE (01/09, capture user : cinq lignes du
+   fil EN ITALIEN, « je veux pas voir ça »). Les deux pré-traductions de fond ne testaient que deux
+   choses avant de STOCKER : que la réponse ne soit pas vide, et qu'elle diffère de la source (le
+   garde-fou « _traduireLot rend la source quand il échoue »). Une réponse italienne passe ces deux
+   tests haut la main — elle n'est ni vide, ni identique à l'anglais d'origine. Elle était donc
+   posée dans `_titreFr` / `_descFr`, qui sont des champs D'AFFICHAGE : la ligne s'affichait en
+   italien, définitivement, puisqu'un champ rempli n'est jamais retenté.
+   `_looksFr` existait déjà — mais seulement EN AMONT (« cette dépêche est-elle déjà française ?
+   alors n'en paie pas la traduction »). Personne ne l'appliquait EN AVAL, à ce qui revient.
+   Le contrôle de sortie ci-dessous ajoute la réciproque : la traduction doit ressembler à du
+   français ET ne porter aucun marqueur d'une AUTRE langue latine. Les marqueurs sont choisis pour
+   ne jamais mordre sur du français réel : on écarte `los`/`las` (« Los Angeles », « Las Vegas »)
+   et `mais`, qui est un mot français. Éprouvé sur les cinq lignes de la capture, leurs équivalents
+   espagnols et huit titres français légitimes — dont la traduction française de la phrase
+   italienne elle-même, qui doit passer. */
+const _RX_NON_FR = /\b(?:della|dello|delle|degli|nella|nello|sono|gli|più|anche|questo|questa|miliardi|milioni|rispetto|precedente|previsto|aumento|crescita|esportazioni|importazioni|sondaggio|superando|provvisorio|lavorativo|coreane?|giorno|annua|según|millones|dólares|exportaciones|importaciones|mercado|precios|aumentó|creció|não|são)\b/i;
+const _traductionFrValide = t => { const s = String(t || '').trim(); return !!s && _looksFr(s) && !_RX_NON_FR.test(s); };
 const TRANSLATE_CACHE_FILE = path.join(_CACHE_DIR, 'cache_translate.json');
 const _trCache = _loadJsonMap(TRANSLATE_CACHE_FILE);
 const _trKey = t => 'tr:' + String(t).slice(0, 200);
@@ -12584,7 +12603,16 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
   try {
     const _INFL_RX = /cpi|inflation|ppi|producer price|\bpce\b|price index|earnings|wage|salaire/i;
     const _GROW_RX = /gdp|gross domestic|retail|\bpmi\b|\bism\b|employment|unemployment|payroll|claims|jobless|confidence|sentiment|production|housing|building|trade balance|balance of trade|durable goods/i;
-    const _prints = (_twMajors || []).filter(e => e && e.title && e.actual && inWeek(e.timestamp) && (e.impact === 'High' || e.impact === 'Medium'));
+    /* ORDRE CHRONOLOGIQUE (01/09, demande user : « et si on mettait dans l'ordre de date
+       chronologique c mieux non ? », capture du Hebdo où se suivaient mercredi 26, mercredi 26,
+       vendredi 28, puis de nouveau mercredi 26). Ces puces héritaient de l'ordre du calendrier
+       après renommage FF et dédup — c'est-à-dire d'aucun ordre lisible. Le tri se fait ICI, à la
+       SOURCE : les trois familles (inflation, emploi, croissance) sont découpées dans ce même
+       tableau et en héritent toutes, pour les huit devises, sans trier trois fois.
+       ⚠️ AVANT le `.slice(0, 6)` de chaque famille, sinon on couperait six lignes au hasard pour
+       ne réordonner qu'elles — le tri doit décider QUI passe, pas seulement dans quel ordre. */
+    const _prints = (_twMajors || []).filter(e => e && e.title && e.actual && inWeek(e.timestamp) && (e.impact === 'High' || e.impact === 'Medium'))
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     const _leanOf = e => {
       const a = parseFloat(String(e.actual).replace(/[^0-9.\-]/g, '')), f = parseFloat(String(e.forecast).replace(/[^0-9.\-]/g, ''));
       if (!isFinite(a) || !isFinite(f)) return '';
@@ -19747,6 +19775,10 @@ const DESC_FR_MAX_JOUR = (function () {
   return Number.isFinite(v) ? v : 400;
 })();
 let _descFrJour = '', _descFrCount = 0, _descFrEssais = 0;
+// Traductions REFUSÉES parce qu'elles ne sont pas en français (contrôle de sortie du 01/09) :
+// compteur commun aux titres et aux descriptions, journalisé — un lot qui part en italien doit se
+// voir dans les logs, pas seulement disparaître en silence.
+let _trNonFr = 0;
 function _descFrStats() {
   return { jour: _descFrJour, traduites: _descFrCount, tentees: _descFrEssais, plafond: DESC_FR_MAX_JOUR };
 }
@@ -19784,7 +19816,9 @@ async function _enrichDescriptionsFr() {
       // On ne pose la traduction que si c'en est une : `_traduireLot` renvoie la SOURCE quand il
       // échoue sur une ligne. La poser telle quelle figerait l'anglais dans `_descFr` et la news
       // ne serait jamais retentée — le défaut exact qu'on a payé sur le cache en juillet.
-      if (c && fr && fr !== c.d) { c.it._descFr = fr; poses++; }
+      // Même contrôle de sortie que les titres (01/09) : une réponse dans une autre langue latine
+      // n'est pas posée — la dépêche garde sa description d'origine et sera retentée.
+      if (c && fr && fr !== c.d) { if (_traductionFrValide(fr)) { c.it._descFr = fr; poses++; } else _trNonFr++; }
     });
     _descFrCount += poses;
     if (poses) {
@@ -19873,6 +19907,26 @@ async function _prechaufferProposFr() {
        importantes d'abord, comme le fait déjà la pré-traduction des descriptions : si la journée se
        coupe en route, ce sont les dépêches qui comptent qui auront été traduites, pas celles qui se
        trouvaient en tête de liste. */
+    /* ── AUTO-RÉPARATION DES TRADUCTIONS DÉJÀ POSÉES (01/09) ────────────────────────────────────
+       Le contrôle de sortie ajouté plus haut protège les traductions À VENIR. Il ne fait rien pour
+       celles DÉJÀ stockées : les cinq lignes italiennes de la capture sont dans l'historique
+       persistant, dans un champ qu'aucun cycle ne revisite jamais (un champ rempli est considéré
+       comme fait). Elles resteraient donc affichées indéfiniment.
+       On balaie donc les champs d'affichage à chaque cycle : celui qui n'est pas du français est
+       VIDÉ. La ligne retombe aussitôt sur son titre d'origine — jamais un blanc — et redevient
+       éligible à la traduction, qu'elle repassera au prochain lot. Aucun accès base requis : le
+       correctif se répare tout seul au premier cycle après déploiement. */
+    let _repares = 0;
+    for (const it of allNews) {
+      if (!it) continue;
+      for (const champ of ['_titreFr', '_hlFr', '_descFr']) {
+        if (it[champ] && !_traductionFrValide(it[champ])) { delete it[champ]; _repares++; }
+      }
+    }
+    if (_repares) {
+      try { saveHistory(); } catch (e) {}
+      console.log('[TitresFR] ' + _repares + ' traduction(s) NON FRANÇAISES retirées de l\'historique (retraduites au prochain lot)');
+    }
     const cibles = [];
     const vus = new Set();
     const _ordre = [...allNews].sort((a, b) =>
@@ -19904,6 +19958,11 @@ async function _prechaufferProposFr() {
          figerait l'anglais dans le champ et la ligne ne serait JAMAIS retentée. Même garde que
          la pré-traduction des descriptions. */
       if (!c || !fr || fr === c.t) return;
+      /* ET LA RÉPONSE DOIT ÊTRE EN FRANÇAIS (01/09) : un lot parti en italien passait les deux
+         gardes ci-dessus et se figeait dans le champ d'affichage. On ne pose rien plutôt que de
+         poser une langue étrangère — la ligne garde son titre d'origine et repassera au cycle
+         suivant, exactement comme un échec de traduction. */
+      if (!_traductionFrValide(fr)) { _trNonFr++; return; }
       if (c.estPropos) c.it._hlFr = fr; else c.it._titreFr = fr;
       poses++;
     });
@@ -19911,7 +19970,8 @@ async function _prechaufferProposFr() {
     if (poses) {
       try { saveHistory(); } catch (e) {}
       try { broadcast({ type: 'news_update', items: cibles.filter(c => c.it._hlFr || c.it._titreFr).map(c => c.it), total: allNews.length }); } catch (e) {}
-      console.log('[TitresFR] ' + poses + ' titre(s) pré-traduit(s) — ' + _proposFrCount + '/' + PROPOS_FR_MAX_JOUR + ' aujourd\'hui');
+      console.log('[TitresFR] ' + poses + ' titre(s) pré-traduit(s) — ' + _proposFrCount + '/' + PROPOS_FR_MAX_JOUR + ' aujourd\'hui'
+        + (_trNonFr ? ' · ' + _trNonFr + ' refusée(s) : pas en français' : ''));
     }
   } catch (e) { console.error('[ProposFR]', e.message); }
 }
