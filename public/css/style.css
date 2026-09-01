@@ -10444,19 +10444,16 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .taux-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(max-content, 1fr); gap: 10px; padding: 10px; overflow-y: auto; align-content: stretch; flex: 1 1 auto; min-height: 0; }
 @media (max-width: 1679px) { .taux-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 1149px) { .taux-grid { grid-template-columns: 1fr; } }
-/* Compaction 4-up (cartes ~400-470px) : tout reste lisible — libellés/valeurs/tableau resserrés d'un cran */
-@media (min-width: 1680px) {
-  .rtc-m { padding: 5px 7px 20px; min-height: 58px; }
-  .rtc-k { font-size: 9.5px; }
-  .rtc-v { font-size: 11px; }
-  .rtc-tbl { font-size: 10.5px; }
-  .rtc-tbl th { font-size: 9.5px; padding: var(--sp-1) 4px; }
-  .rtc-tbl td { padding: var(--sp-05) 4px; }
-  .rtc-pill { min-width: 56px; padding: 2px 4px; font-size: 9.5px; }
-  .rtc-base { min-width: 34px; padding: 2px 5px; }
-  .rtc-bp { width: 46px; }
-  .rtc-axis { padding: 2px 53px 0 39px; }
-}
+/* ⚠️ LE BLOC « COMPACTION 4-UP » A ÉTÉ RETIRÉ LE 01/09 : IL N'A JAMAIS RIEN FAIT. Il était écrit
+   ICI, c'est-à-dire AVANT les règles de base `.rtc-m` / `.rtc-k` / `.rtc-v` / `.rtc-tbl` posées
+   quelques lignes plus bas. Une media query n'ajoute pas de spécificité : à spécificité égale c'est
+   la DERNIÈRE règle qui gagne, donc la base écrasait chacune de ses dix déclarations. Mesuré dans un
+   vrai Chromium à 1920×1000 avec les huit banques : libellés à 10px (la base) et non 9,5, padding-bas
+   à 28px et non 20 — pas une seule de ses lignes n'atteignait l'écran. Et rien ne le réclamait : à
+   cette largeur, la carte fait 469px et AUCUN texte n'est rogné, ni dans les métriques ni dans le
+   tableau des réunions. Le remonter après la base aurait donc rétréci des textes qui vont bien, sur
+   la seule foi d'un commentaire. Une règle morte finit toujours par être lue comme la vérité du
+   rendu : mieux vaut pas de règle qu'une règle qui ment. */
 /* ── Carte « Interest Rate Probability » — clone fidèle haute densité (angles carrés, terminologie EN) ── */
 .rtc { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--panel-depth); display: flex; flex-direction: column; overflow: hidden; min-height: 0; transition: border-color var(--t-fast) ease; }
 .rtc:hover { border-color: rgba(227,178,58,0.20); }
@@ -10466,6 +10463,13 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    jaune-orange est la couleur du neutre/attention, jamais du baissier. */
 .rtc-src { margin-left: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: #6f7480; border: 1px solid #26262c; border-radius: 999px; padding: 1px 7px; white-space: nowrap; flex: 0 0 auto; }
 .rtc-src--est { color: #ffb300; border-color: rgba(255,179,0,.35); background: rgba(255,179,0,.07); }
+/* Pied de carte : la source du TAUX et celle du PRICING, en clair (01/09, « donne des sources qu'on
+   a »). Discret par construction — c'est une mention de provenance, pas une donnée : il ne doit ni
+   concurrencer les métriques, ni pousser le tableau des réunions hors de la carte (flex: 0 0 auto).
+   Il s'enroule sur deux lignes plutôt que de rogner une source : une source coupée ne sert à rien. */
+.rtc-srcs { flex: 0 0 auto; padding: 5px 10px 6px; border-top: 1px solid var(--bg2); background: var(--head-bg); color: #7d838f; font-size: 9.5px; line-height: 1.45; letter-spacing: .01em; }
+.rtc-srcs b { color: #aab3bf; font-family: var(--mono, ui-monospace, monospace); font-weight: var(--fw-bold); }
+@media (max-width: 560px) { .rtc-srcs { padding: 5px 7px 6px; font-size: 9px; } }
 .rtc-flag { width: 17px; height: 17px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
 .rtc-bank { font-size: 12px; font-weight: var(--fw-bold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)
@@ -10473,14 +10477,23 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 /* Bandeau 5 métriques (clone pro) : chaque cellule bordée porte SA mini-courbe décorative
    calée bas-droite DERRIÈRE le texte (z-0), libellé pouvant passer sur 2 lignes. */
 .rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--bg2); flex: 0 0 auto; }
-.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 28px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 70px; justify-content: flex-start; }   /* padding-bas 22→28 = bande sparkline agrandie (23/08), le texte ne passe toujours pas dessus */
+/* LA BANDE DE LA MINI-COURBE ET LA PLACE QU'ON LUI RÉSERVE SONT LE MÊME NOMBRE (01/09, capture
+   user : « corrige ce bug de texte sur la courbe »). Elles étaient posées SÉPARÉMENT — hauteur de
+   la courbe ici, padding-bas de la cellule là, redéclaré dans chaque palier responsive — et le
+   commentaire de cette ligne affirmait « le texte ne passe toujours pas dessus » alors que la
+   mesure disait l'inverse : sous 560px, où le padding-bas tombait à 6px pour une courbe qui occupe
+   encore 25px, les trois valeurs (Prochain mouvement, Probabilité, Δ attendu) écrivaient PAR-DESSUS
+   le tracé sur 15,1px. Deux nombres qu'il faut penser à faire coïncider finissent toujours par
+   diverger : il n'y en a plus qu'UN. Chaque palier ne règle que `--rtc-spk-h`, la place réservée
+   suit toute seule. */
+.rtc-m { --rtc-spk-h: 22px; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; padding: 6px 9px calc(var(--rtc-spk-h) + 6px); border-right: 1px solid var(--bg2); min-width: 0; min-height: 70px; justify-content: flex-start; }
 .rtc-m:last-child { border-right: 0; }
 .rtc-k { position: relative; z-index: 1; font-size: 10px; letter-spacing: .02em; color: #aab3bf; line-height: 1.25; }   /* libellés éclaircis + agrandis (lisibilité) */
 .rtc-v { position: relative; z-index: 1; font-size: var(--fs-title); font-weight: var(--fw-bold); color: var(--text); font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff3d00; } .rtc-v.n { color: var(--text2); } .rtc-v.w { color: var(--text); }
 .rtc-prob { color: var(--orange); }   /* Probability = or (clone pro text-primary) */
 /* La courbe COMBLE le bas de la cellule : étirée sur toute la largeur (preserveAspectRatio none), ~45% de hauteur */
-.rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 3px; width: auto; height: 22px; max-height: 22px; z-index: 0; opacity: .95; pointer-events: none; }   /* 15→22px + opacité .8→.95 (23/08, demande user : courbes quasi invisibles — le viewBox 28 écrasé à 15px rendait un trait de ~0,8px) */
+.rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 3px; width: auto; height: var(--rtc-spk-h, 22px); max-height: var(--rtc-spk-h, 22px); z-index: 0; opacity: .95; pointer-events: none; }   /* hauteur = la variable de .rtc-m : la courbe ne peut plus déborder de la place qu'on lui réserve. 22px de base (23/08, demande user : courbes quasi invisibles — le viewBox 28 écrasé à 15px rendait un trait de ~0,8px) */
 /* ── Scenario Distribution : OCCUPE l'espace libre entre métriques et tableau (plus de vide noir),
       contenu centré verticalement, barres épaisses rounded-sm, % à droite de la barre ── */
 .rtc-dist { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px 8px; flex: 0 0 auto; }   /* COLLÉE sous les métriques (l'ancien flex:1 + centré créait le grand vide) */
@@ -13168,7 +13181,9 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   /* (6) Onglet TAUX — cartes « Interest Rate Probability » : bandeau 5 métriques replié en 3+2
          (fini « +12,00 bp » et « 29/07/202 » rognés), tableau des réunions allégé (Scénario central masqué). */
   .rtc-metrics { display: flex; flex-wrap: wrap; }
-  .rtc-m { flex: 1 1 30%; min-width: 30%; min-height: 46px; padding: 5px 7px 6px; border-bottom: 1px solid var(--bg2); }
+  /* La cellule mobile est courte : on ne peut pas lui réserver les 22px de la courbe de bureau.
+     C'est donc la COURBE qui rétrécit (elle est décorative), pas le texte qui lui passe dessus. */
+  .rtc-m { --rtc-spk-h: 10px; flex: 1 1 30%; min-width: 30%; min-height: 52px; padding: 5px 7px calc(var(--rtc-spk-h) + 6px); border-bottom: 1px solid var(--bg2); }
   .rtc-m:nth-child(3), .rtc-m:last-child { border-right: 0; }
   .rtc-m:nth-child(n+4) { border-bottom: 0; }
   .rtc-k { font-size: 9px; }

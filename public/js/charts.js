@@ -3766,6 +3766,24 @@ document.addEventListener('DOMContentLoaded', () => {
         + '<td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td>'
         + '<td><span class="rtc-base ' + bc + '">' + m.baseCase + '</span></td></tr>';
     }).join('');
+    /* PIED DE CARTE — LA SOURCE DE CHAQUE CHIFFRE, ÉCRITE (01/09, « donne des sources qu'on a »).
+       Deux provenances, jamais confondues : celle du TAUX DIRECTEUR (une décision publiée et sa
+       date, ou le relevé à la main quand aucune décision récente ne porte ce chiffre) et celle du
+       PRICING (marché ou modèle). `rateSrc` vient du serveur ; sans lui, la ligne se tait plutôt que
+       d'affirmer une source qu'elle n'a pas. */
+    const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const srcLine = () => {
+      const rs = b.rateSrc;
+      const taux = 'Taux directeur <b>' + num(b.rate, 2) + '&nbsp;%</b>';
+      let dTaux = '';
+      if (rs && rs.via === 'calendrier') dTaux = ' — décision du ' + fr(rs.date) + (rs.libelle ? ' (' + esc(rs.libelle) + ', calendrier ForexFactory)' : ' (calendrier ForexFactory)');
+      else if (rs && rs.via === 'marche') dTaux = ' — relevé chez notre fournisseur de marché' + (rs.date ? ' le ' + fr(rs.date) : '');
+      else if (rs && rs.via === 'ancre') dTaux = ' — relevé à la main sur le communiqué de la banque' + (rs.date ? ' (' + fr(rs.date) + ')' : '');
+      const pricing = (b.source && b.source !== 'market')
+        ? 'Pricing : modèle DTP' + (b.panne ? ' (pas de pricing de marché chez notre fournisseur : ' + esc(b.panne) + ')' : '')
+        : 'Pricing : marché — probabilités implicites OIS/futures (rateprobability.com)';
+      return '<div class="rtc-srcs">' + taux + dTaux + ' · ' + pricing + '</div>';
+    };
     // data-bank : identifiant stable de la carte (FED/ECB/…) — le widget « Onglet Taux » filtre dessus
     // (réglage « Banque » : une seule banque ou toutes). Sans effet sur l'onglet du desk.
     return '<div class="rtc" data-bank="' + (b.code || '') + '">'
@@ -3778,8 +3796,16 @@ document.addEventListener('DOMContentLoaded', () => {
          Pro requis ») ou le QUAND (heure de la dernière donnée de marché reçue) — audit du 30/08 :
          « regarde les sources des autres taux ». Le taux affiché, lui, est recalé en continu sur la
          dernière décision réelle du calendrier économique, IA ou pas. */
+      /* « ESTIMATION DTP » A ÉTÉ RETIRÉ LE 01/09 (demande user : « enlève estimation DTP, faut les
+         vraies taux pour toutes les banques… et donne des sources qu'on a »). Le badge ne qualifiait
+         QUE le pricing, mais placé seul en tête de carte il se lisait comme un verdict sur tout ce
+         qu'elle affiche, TAUX DIRECTEUR COMPRIS — or ce chiffre-là n'est pas une estimation. Il dit
+         maintenant ce qu'il qualifie (« pricing modélisé »), et la provenance du taux est écrite en
+         toutes lettres en pied de carte, avec sa date. Ce qui ne change pas, parce que c'est la
+         raison d'être de ce badge depuis l'incident du 29/08 : une carte sans pricing de marché ne
+         doit JAMAIS pouvoir se lire comme un pricing de marché. */
       + (b.source && b.source !== 'market'
-          ? '<span class="rtc-src rtc-src--est" title="Pricing de marché indisponible pour cette banque chez notre fournisseur' + (b.panne ? ' (' + b.panne + ')' : '') + ' : scénario estimé par le desk, taux recalé sur la dernière décision réelle du calendrier économique.">estimation DTP</span>'
+          ? '<span class="rtc-src rtc-src--est" title="Pricing de marché indisponible pour cette banque chez notre fournisseur' + (b.panne ? ' (' + b.panne + ')' : '') + ' : les probabilités de réunion viennent du modèle du desk. Le taux directeur, lui, est celui de la dernière décision publiée — sa source est écrite en pied de carte.">pricing modélisé</span>'
           : '<span class="rtc-src" title="Probabilités implicites de marché (OIS/futures), fournisseur rateprobability' + (b.srcAt ? ', dernière donnée reçue à ' + new Date(b.srcAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + '.">pricing marché</span>')
       + '</div>'
       + '<div class="rtc-metrics">'
@@ -3796,6 +3822,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // lignes se répartissent l'espace au lieu de laisser un vide en bas — même parti que la table
       // de saisonnalité, qui remplit son panneau de la même façon.
       + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Date de réunion</th><th>Jours</th><th>Baisse (%)</th><th>Maintien (%)</th><th>Hausse (%)</th><th>Δ implicite (BPS)</th><th>Scénario central</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      + srcLine()
       + '</div>';
   }
 

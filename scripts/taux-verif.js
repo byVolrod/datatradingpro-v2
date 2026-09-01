@@ -133,7 +133,37 @@ if (SRC_CARD) {
   v('la probabilité affichée est CELLE du mouvement affiché (Hausse → 19 %, plus jamais 50)',
     lireMv(incident) === 'Hausse' && lireP(incident) === '19,00%',
     lireMv(incident) + ' · ' + lireP(incident) + ' — le 50,00% était la probabilité du MAINTIEN');
-  v('… et la carte modélisée porte « estimation DTP »', lireSrc(incident) === 'estimation DTP', lireSrc(incident));
+  /* LE BADGE A CHANGÉ DE MOTS LE 01/09, PAS DE RÔLE. « estimation DTP » qualifiait le PRICING mais,
+     seul en tête de carte, se lisait comme un verdict sur tout ce qu'elle affiche — taux directeur
+     compris, alors que ce chiffre-là vient d'une décision publiée. Il dit maintenant ce qu'il
+     qualifie. Ce qu'on éprouve reste l'exigence née de l'incident du 29/08, et elle est écrite
+     comme une PROPRIÉTÉ, pas comme un libellé : une carte sans pricing de marché ne doit jamais
+     pouvoir se lire comme un pricing de marché. */
+  v('… et la carte modélisée dit que son pricing est modélisé, jamais « marché »',
+    /modélis/i.test(lireSrc(incident) || '') && !/march/i.test(lireSrc(incident) || ''), lireSrc(incident));
+  /* LE PIED DE CARTE CITE SA SOURCE (01/09, « donne des sources qu'on a ») — et distingue les deux :
+     d'où vient le TAUX, d'où vient le PRICING. C'est cette séparation qui rend le badge lisible. */
+  const lirePied = h => (h.match(/rtc-srcs">([\s\S]*?)<\/div>/) || [])[1] || '';
+  const pieds = {
+    calendrier: card({ ...base, rate: 2.50, stance: 'HIKE', source: 'maison', panne: 'abonnement Pro requis',
+      scenario: { hold: 50, hike: 19, cut: 31 }, meetings: [{ date: '2026-09-02', days: 5, hold: 50, hike: 19, cut: 31, impliedBps: -3, baseCase: 'HOLD' }],
+      rateSrc: { via: 'calendrier', libelle: 'Official Cash Rate', date: '2026-07-08' } }),
+    ancre: card({ ...base, code: 'CHF', cc: 'ch', rate: 0, stance: 'HOLD', source: 'maison', panne: 'abonnement Pro requis',
+      scenario: { hold: 95, hike: 3, cut: 2 }, meetings: [], rateSrc: { via: 'ancre', libelle: 'Banque nationale suisse', date: '2026-08-30' } }),
+    marche: card({ ...base, code: 'USD', cc: 'us', rate: 3.75, stance: 'HIKE', source: 'market', srcAt: Date.now(),
+      scenario: { hold: 42, hike: 58, cut: 0 }, meetings: [], rateSrc: { via: 'marche', date: '2026-09-01' } }),
+    sansSrc: card({ ...base, code: 'GBP', cc: 'gb', rate: 3.75, stance: 'HOLD', source: 'market', srcAt: Date.now(),
+      scenario: { hold: 80, hike: 20, cut: 0 }, meetings: [] }),
+  };
+  v('le pied cite la DÉCISION qui a écrit le taux, avec sa date',
+    /Taux directeur/.test(pieds.calendrier) && /08\/07\/2026/.test(pieds.calendrier) && /Official Cash Rate/.test(pieds.calendrier), pieds.calendrier);
+  v('… il dit « relevé à la main » quand aucune décision publiée ne porte ce chiffre',
+    /relevé à la main/.test(pieds.ancre) && /30\/08\/2026/.test(pieds.ancre), pieds.ancre);
+  v('… et il sépare toujours la source du TAUX de celle du PRICING',
+    /Pricing : modèle DTP/.test(pieds.calendrier) && /Pricing : marché/.test(pieds.marche), pieds.marche);
+  v('une carte modélisée n\'écrit JAMAIS « Pricing : marché » en pied', !/Pricing : marché/.test(pieds.ancre), pieds.ancre);
+  v('sans provenance connue, le pied se TAIT au lieu d\'affirmer une source',
+    !/décision du|relevé/.test(pieds.sansSrc) && /Taux directeur/.test(pieds.sansSrc), pieds.sansSrc);
   /* Mouvement pricé à 0 % au prochain rendez-vous → repli sur le scénario central, jamais « X · 0,00% ». */
   const zero = card({ ...base, stance: 'HIKE', source: 'market',
     scenario: { hold: 69, hike: 0, cut: 31 },
@@ -147,6 +177,11 @@ if (SRC_CARD) {
     meetings: [{ date: '2026-09-16', days: 18, hold: 38, hike: 0, cut: 62, impliedBps: -9.5, baseCase: 'CUT' }] });
   v('une banque de marché cohérente garde son couple (Baisse · 62 %)',
     lireMv(fed) === 'Baisse' && lireP(fed) === '62,00%', lireMv(fed) + ' · ' + lireP(fed));
+  /* Sur le RENDU, pas sur la source : le commentaire qui explique le retrait cite forcément le
+     libellé retiré. Un banc qui lit le code au lieu de sa sortie confond l'un avec l'autre. */
+  v('le libellé « estimation DTP » a quitté la CARTE (il reste, à raison, dans les textes rédigés)',
+    ![incident, zero, fed].some(h => /estimation DTP/i.test(h)), 'demande user du 01/09 : « enlève estimation DTP »');
+
 }
 
 /* ══ 4. PLUS AUCUN TEXTE NE DIT « MARCHÉ » POUR UNE ESTIMATION ════════════════════════════════ */
@@ -281,11 +316,32 @@ if (SRC_CAL && SRC_APPLY) {
     { currency: 'CLP', title: 'Interest Rate Decision', actual: '5.00%', timestamp: T_JUIL },
   ]);
   const CB_FIX = () => ([{ code: 'NZD', rate: 2.50 }, { code: 'EUR', rate: 2.25 }, { code: 'USD', rate: 3.75 }]);
+  /* VRAIE ambiguïté : deux mesures distinctes le même jour, AUCUNE nommée « deposit ». Rien ne
+     tranche → on ne doit rien écrire. C'est ce cas-là que garde l'abstention, pas la BCE. */
+  const CAL_AMBIGU = () => ([
+    { currency: 'EUR', title: 'ECB Main Refinancing Rate', actual: '2.40%', timestamp: Date.UTC(2026, 5, 11, 12, 15) },
+    { currency: 'EUR', title: 'ECB Interest Rate Decision', actual: '2.65%', timestamp: Date.UTC(2026, 5, 11, 12, 15) },   // reconnu par _CAL_TAUX_RX, comme le refi : deux mesures légitimes et rien pour trancher
+  ]);
   const MEET_FIX = { NZD: ['2026-07-08', '2026-09-02'], EUR: [], USD: [] };
-  const bac = (src, cal, etat, saves) => new Function(
+  /* ⚠️ LE BANC ALIMENTAIT `allCalendar`, ET C'EST PRÉCISÉMENT CE QUI A LAISSÉ PASSER LA PANNE
+     (trouvée le 01/09 sur la demande « faut les vraies taux pour toutes les banques »).
+     `_calDecisionsTaux` filtrait bien `allCalendar` sur currency / title / actual — sauf qu'en
+     PRODUCTION `allCalendar` reçoit les items du FIL ForexFactory, qui n'ont aucun de ces trois
+     champs. Le banc, lui, lui donnait une liste de calendrier bien formée : il éprouvait la
+     fonction sur des données que la production ne lui a jamais servies, et la voie déterministe
+     posée le 30/08 n'a donc jamais écrit un seul taux sans que rien ne rougisse.
+     On alimente désormais par les VRAIS canaux (l'instantané du calendrier fusionné, l'archive
+     `_calHist`, le flux brut), et le contrôle `f.` ci-dessous rejoue la panne : la même fixture
+     posée dans `allCalendar` SEUL, à la forme réelle du fil, ne doit rien produire. */
+  const bac = (src, cal, etat, saves, canaux) => new Function(
     'allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
+    '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw',
     src + '\nreturn { _calDecisionsTaux, _actualsDerniereDecision, _calendrierEcritTaux };'
-  )(cal, SBC, CB_FIX(), etat, () => { saves.n++; }, MEET_FIX, MUET);
+  )((canaux && canaux.allCalendar) || [], SBC, CB_FIX(), etat, () => { saves.n++; }, MEET_FIX, MUET,
+    (canaux && canaux.hist) || new Map(),
+    { ts: Date.now(), items: (canaux && canaux.hist) ? [] : cal },
+    x => x,
+    () => (canaux && canaux.brut) || []);
   /* a. La fenêtre de corroboration ne croit QUE le dernier jour de décision. */
   {
     const S = bac(SRC_CAL, CAL_FIX(), { banks: {} }, { n: 0 });
@@ -299,6 +355,28 @@ if (SRC_CAL && SRC_APPLY) {
     v('EUR : les DEUX mesures du même jour restent (dépôt 2,25 + refi 2,40)',
       a.EUR && a.EUR.size === 2 && a.EUR.has(2.25) && a.EUR.has(2.4));
   }
+  /* f. LA PANNE DU 01/09, REJOUÉE — et les trois canaux qui la réparent.
+     `_calDecisionsTaux` lisait `allCalendar`. En production, `allCalendar` reçoit les items du FIL
+     ForexFactory : { id, timestamp, time, category, source, headline, description, tags, impact,
+     priority }. Pas de `currency`, pas de `title`, pas d'`actual` — les trois champs sur lesquels
+     le filtre s'appuie. Il rendait donc toujours une liste vide, et avec elle « la dernière décision
+     réelle écrit le taux » n'écrivait jamais rien. Le contrôle ci-dessus ne le voyait pas : il
+     servait à la fonction un calendrier bien formé, que la production ne lui donne pas.
+     On éprouve donc les DEUX moitiés : la forme réelle du fil ne doit rien produire, et chacune des
+     trois listes qui portent vraiment ces champs doit être lue. */
+  {
+    const FIL_FF = [{ id: 'ff-cal-1', timestamp: T_JUIL, time: '04:00', category: 'RBNZ', source: 'ForexFactory',
+      headline: 'Official Cash Rate 2.50 ↑ vs. Exp. 2.25 (Prev. 2.25)', description: 'Actual: 2.50 | Expected: 2.25 | Previous: 2.25',
+      tags: ['RBNZ', 'NZD', 'High'], impact: 'High', priority: 'high' }];
+    const parCanal = c => bac(SRC_CAL, [], { banks: {} }, { n: 0 }, c)._calDecisionsTaux().length;
+    v('la forme RÉELLE de `allCalendar` (items du fil) ne donne aucune décision — c\'était la panne',
+      parCanal({ allCalendar: FIL_FF }) === 0);
+    v('… mais l\'archive `_calHist` (≈ 6 mois, persistée) en donne',
+      parCanal({ hist: new Map([['NZD||rbnz interest rate decision', { currency: 'NZD', title: 'RBNZ Interest Rate Decision', actual: '2.50%', timestamp: T_JUIL }]]) }) === 1);
+    v('… le flux ForexFactory brut aussi', parCanal({ hist: new Map(), brut: CAL_FIX() }) > 0);
+    v('… et l\'instantané du calendrier fusionné aussi (canal par défaut de ce banc)',
+      bac(SRC_CAL, CAL_FIX(), { banks: {} }, { n: 0 })._calDecisionsTaux().length === 6);
+  }
   /* b. L'incident, rejoué : l'état persisté porte le 2,25 empoisonné → le calendrier le répare. */
   {
     const etat = { banks: { NZD: { rate: 2.25, lastMeeting: '2026-07-08' }, EUR: { rate: 2.20, lastMeeting: null }, USD: { rate: 3.75, lastMeeting: null } } }, saves = { n: 0 };
@@ -307,9 +385,21 @@ if (SRC_CAL && SRC_APPLY) {
     v('le 2,25 % persisté est réécrit 2,50 par la décision réelle de juillet (sans IA)',
       chg === true && etat.banks.NZD.rate === 2.5 && saves.n >= 1,
       'obtenu : ' + etat.banks.NZD.rate + ' — la réparation ne doit dépendre d\'aucun modèle');
-    v('BCE ambiguë (deux mesures distinctes le même jour) → on s\'abstient',
-      etat.banks.EUR.rate === 2.20, 'obtenu : ' + etat.banks.EUR.rate + ' — écrire au hasard vaudrait pire que ne rien faire');
+    /* LA BCE PUBLIE DEUX MESURES LE MÊME JOUR (dépôt 2,25 + refi 2,40) et la carte EUR affiche la
+       FACILITÉ DE DÉPÔT — le taux directeur que suit le marché depuis 2014, et celui que porte
+       l'ancre de CB[]. S'abstenir, comme jusqu'au 01/09, revenait à ne JAMAIS recaler l'EUR : la
+       seule banque des huit qui tombe systématiquement dans le cas d'abstention. On suit donc le
+       dépôt quand il se nomme, et l'abstention reste entière dès que rien ne tranche (contrôle
+       juste en dessous). */
+    v('BCE : c\'est la facilité de DÉPÔT qui écrit le taux (2,25), pas le refi (2,40)',
+      etat.banks.EUR.rate === 2.25, 'obtenu : ' + etat.banks.EUR.rate);
     v('USD déjà à jour → aucune écriture superflue', etat.banks.USD.rate === 3.75);
+    {
+      const e2 = { banks: { EUR: { rate: 2.20, lastMeeting: null } } };
+      bac(SRC_CAL, CAL_AMBIGU(), e2, { n: 0 })._calendrierEcritTaux(true);
+      v('deux mesures le même jour dont AUCUNE ne se nomme → on s\'abstient toujours',
+        e2.banks.EUR.rate === 2.20, 'obtenu : ' + e2.banks.EUR.rate + ' — écrire au hasard vaudrait pire que ne rien faire');
+    }
     const rejoue = S._calendrierEcritTaux(false);
     v('le throttle (~10 min) absorbe l\'appel suivant : /api/rates toutes les 30 s ne re-scanne pas', rejoue === false);
   }
@@ -355,12 +445,18 @@ if (SRC_CAL && SRC_APPLY) {
         const a = bac(m1, CAL_FIX(), { banks: {} }, { n: 0 })._actualsDerniereDecision();
         return a.NZD && a.NZD.has(2.25);
       })());
-    const m2 = SRC_CAL.replace('if (vals.size !== 1) return;', 'if (!vals.size) return;');
-    v('mutation « ambiguïté ignorée » détectée (la BCE à deux mesures se ferait écrire)',
+    /* La mutation vise LA DÉCISION NOUVELLE : quelle mesure suit la carte EUR quand la BCE en publie
+       deux le même jour. Sur une vraie ambiguïté (CAL_AMBIGU, deux valeurs et rien pour trancher)
+       aucune mutation d'un seul mot ne peut faire écrire quoi que ce soit — l'abstention y est
+       tenue par l'absence de candidat, pas par une comparaison. Ce qui se mute, et donc ce qu'il
+       faut éprouver, c'est le NOM de la mesure retenue : viser l'autre ligne du même jour écrirait
+       2,40 sur une carte qui affiche 2,25. */
+    const m2 = SRC_CAL.replace('/deposit/i.test(e.title || \'\')', '/decision/i.test(e.title || \'\')');
+    v('mutation « mauvaise mesure » détectée (l\'autre ligne du jour s\'écrirait à la place de la facilité de dépôt)',
       m2 !== SRC_CAL && (() => {
         const etat = { banks: { EUR: { rate: 2.20, lastMeeting: null } } };
         bac(m2, CAL_FIX(), etat, { n: 0 })._calendrierEcritTaux(true);
-        return etat.banks.EUR.rate !== 2.20;
+        return etat.banks.EUR.rate === 2.4;
       })());
     const m3 = SRC_CAL.replace(/\n\s*if \(st\.lastMeeting && Date\.parse\(jour[^\n]*return;\n/, '\n');
     v('mutation « retour arrière » détectée (l\'actual de juillet défait septembre)',

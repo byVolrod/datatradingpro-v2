@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260901-taux-sources', ts: Date.UTC(2026, 8, 1, 17, 0), title: 'Onglet Taux : chaque carte cite la source de son taux, et le texte ne passe plus sur la courbe', desc: 'Trois corrections d’un coup sur l’onglet TAUX, toutes venues de votre relecture. LE TAUX N’EST PLUS UNE ESTIMATION, ET IL NE L’ÉTAIT PAS. Deux banques sur huit n’ont pas de pricing de marché chez notre fournisseur, et leur carte portait pour cela un badge « estimation DTP ». Placé seul en tête de carte, il se lisait comme un verdict sur tout ce qu’elle affiche, taux directeur compris. Le badge dit désormais ce qu’il qualifie vraiment, « pricing modélisé », et il reste là parce qu’une carte sans pricing de marché ne doit jamais pouvoir se lire comme un pricing de marché. LES SOURCES SONT ÉCRITES. Chaque carte porte en pied la provenance de son taux directeur et celle de son pricing, séparément : la décision qui a écrit le taux avec sa date et son intitulé de calendrier, ou la mention honnête d’un relevé fait à la main sur le communiqué de la banque quand aucune décision récente ne porte ce chiffre. ET UNE PANNE DE FOND, TROUVÉE EN CHERCHANT CES SOURCES. La voie qui recale le taux sur la dernière décision publiée lisait une liste qui ne contient pas les champs qu’elle cherchait : elle n’avait donc jamais rien écrit, et les huit cartes affichaient toujours la valeur relevée à la main. Elle lit maintenant les listes qui portent réellement ces chiffres, sur six mois d’historique, et le cas particulier de la BCE, qui publie deux taux le même jour, est tranché sur la facilité de dépôt, celle que suit le marché. ENFIN, LE TEXTE SUR LA COURBE. Sous 560 pixels de large, les valeurs Prochain mouvement, Probabilité et Δ attendu s’écrivaient par-dessus la petite courbe de fond, sur quinze pixels. La place réservée à la courbe et la hauteur de la courbe étaient deux réglages séparés qui avaient fini par diverger : ils n’en font plus qu’un, et sur mobile c’est la courbe, décorative, qui se réduit.' },
   { id: 'dtpu-20260901-calendrier-source-ff', ts: Date.UTC(2026, 8, 1, 12, 0), title: 'Calendrier économique : c’est ForexFactory qui dit ce qui est au programme', desc: 'Vous nous l’avez demandé après avoir cherché une publication sur forexfactory.com sans la retrouver chez nous : « la source du calendrier éco doit être celle de ForexFactory ». Jusqu’ici elle ne l’était qu’à moitié. ForexFactory donnait les NOMS des lignes, mais c’est notre autre fournisseur qui décidait lesquelles existent. Deux écarts en découlaient. Une ligne pouvait s’afficher chez nous sans figurer sur ForexFactory, et vous n’aviez alors aucun moyen de la recouper. Et l’inverse, plus discret : une publication annoncée par ForexFactory et ignorée par l’autre fournisseur n’apparaissait jamais, puisque renommer des lignes ne sait pas en ajouter. Désormais, sur la semaine que ForexFactory couvre, c’est lui qui fait foi : ses publications manquantes sont ajoutées, ses intitulés, ses horaires et ses niveaux d’importance l’emportent, et une ligne qu’il ne liste pas est retirée. Chaque ligne venue de ForexFactory porte aussi le lien vers sa fiche, avec le détail de l’indicateur et son historique au clic. Ce qui ne change pas : les résultats publiés continuent d’être collectés partout où ils se trouvent, et l’historique des mois passés reste servi comme avant, ForexFactory ne diffusant que la semaine en cours. Trois sécurités encadrent le retrait de lignes, pour qu’un flux momentanément indisponible ou incomplet ne puisse jamais vider une journée du calendrier : les grands rendez-vous que ForexFactory classe hors calendrier, comme un symposium de banquiers centraux ou une réunion de l’OPEP, restent affichés en toutes circonstances.' },
   { id: 'dtpu-20260901-rebours-pied', ts: Date.UTC(2026, 8, 1, 9, 0), title: 'Compte à rebours : la prévision et le précédent ne disparaissent plus sur les cartes courtes', desc: 'Vous nous l’avez signalé : toutes les informations du compte à rebours n’étaient pas visibles. La carte effaçait purement et simplement sa dernière ligne, celle qui porte la prévision et le précédent, dès que sa hauteur descendait sous un certain seuil. C’était volontaire au départ, pour garder le chronomètre lisible sur une carte volontairement courte, mais la mesure a montré deux choses : le seuil visait la hauteur de la CARTE alors qu’il s’applique au cadre intérieur, plus court d’une trentaine de pixels, si bien que la ligne disparaissait même à la taille par défaut de la carte ; et dans un panneau à onglets, la barre d’onglets prend sa part de hauteur, ce qui faisait passer sous le seuil sans que la carte paraisse petite. Or ce sont ces deux chiffres qui donnent son sens au décompte : sans eux il ne reste qu’une horloge. La ligne est désormais conservée et resserrée, et si elle ne tient vraiment pas, le corps de la carte défile : l’information reste atteignable, jamais supprimée.' },
   { id: 'dtpu-20260901-fil-francais-seulement', ts: Date.UTC(2026, 8, 1, 8, 0), title: 'Le fil ne peut plus afficher une actualité dans une autre langue', desc: 'Vous nous l’avez montré : cinq lignes du fil s’affichaient EN ITALIEN. La cause n’était pas la source mais le contrôle de ce que rend le traducteur. Avant d’enregistrer une traduction, le desk vérifiait deux choses seulement : que la réponse ne soit pas vide, et qu’elle soit différente du texte d’origine. Une réponse italienne passe ces deux tests sans difficulté : elle n’est ni vide, ni identique à l’anglais de départ. Elle était donc écrite dans le champ d’affichage de la ligne, et y restait pour toujours, puisqu’un champ déjà rempli n’est jamais retraduit. Le desk vérifie désormais que ce qu’il reçoit est bien du français avant de l’enregistrer : dans le cas contraire rien n’est posé, la ligne garde son titre d’origine et repasse au cycle suivant. Les traductions déjà enregistrées dans une autre langue sont retirées automatiquement et retraduites. Un contrôle de livraison rejoue les cinq lignes de votre capture à chaque version, avec des pièges volontaires (« Los Angeles », « Las Vegas », et le mot « mais ») pour qu’aucun titre français correct ne soit refusé au passage.' },
@@ -18345,11 +18346,38 @@ setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorça
    (cache 3 j) dont un écho empoisonné pouvait survivre. La voie courte existe désormais : la
    DERNIÈRE décision réelle de chaque devise écrit le taux directement — sans modèle, sans IA. */
 const _CAL_TAUX_RX = /interest rate|rate decision|rate statement|monetary policy|deposit facility|refinanc|cash rate|official cash|bank rate|policy rate|funds rate/i;
+/* ⚠️ CETTE FONCTION LISAIT UNE LISTE QUI N'A PAS SES CHAMPS — MESURÉ LE 01/09, demande utilisateur
+   « faut les vraies taux pr toutes les banques de l'onglet taux ».
+   Elle filtrait `allCalendar` sur `e.actual`, `e.currency` et `e.title`. Or `allCalendar` reçoit les
+   items du FIL ForexFactory (scrapers/forexfactory.js, items.push : id, timestamp, time, category,
+   source, headline, description, tags, impact, priority) : AUCUN de ces trois champs n'y existe. Le
+   filtre rendait donc TOUJOURS une liste vide — vérifié en exécutant la vraie fonction sur les deux
+   formes (0 décision sur la liste réelle, 1 sur une liste qui porte les champs).
+   CE QUE ÇA A COÛTÉ, ET C'EST TOUT LE SUJET DE LA DEMANDE : `_calendrierEcritTaux` n'a JAMAIS écrit
+   un taux, et `_actualsDerniereDecision` rendant {}, `_tauxCorrobore` n'a jamais pu corroborer une
+   valeur venue de l'IA — les deux seules voies par lesquelles une décision réelle pouvait atteindre
+   la carte. Le taux affiché est donc resté, pour les huit banques, l'ANCRE vérifiée à la main dans
+   CB[] : la « voie courte » posée le 30/08 après l'incident RBNZ n'a pas tourné une seule fois.
+   ON LIT DÉSORMAIS LES LISTES QUI PORTENT VRAIMENT CES CHAMPS, par profondeur décroissante :
+   l'archive `_calHist` (≈ 6 mois, persistée en base, une entrée par indicateur), l'instantané du
+   calendrier fusionné (frais, résultats déjà superposés) et le flux ForexFactory brut. Dédoublonnées
+   par devise + intitulé + jour, la plus récente d'abord. */
 function _calDecisionsTaux() {   // décisions de taux RÉELLES (actual publié), plus récentes d'abord
   const cutoff = Date.now() - 160 * 86400000;
-  return (Array.isArray(allCalendar) ? allCalendar : [])
-    .filter(e => e && e.actual && SB_CURRENCIES.includes(e.currency) && e.timestamp > cutoff && _CAL_TAUX_RX.test(e.title || ''))
-    .sort((a, b) => b.timestamp - a.timestamp);
+  const vu = new Map();
+  const verser = liste => {
+    for (const e of (Array.isArray(liste) ? liste : [])) {
+      if (!e || !e.currency || !e.title || e.actual == null || e.actual === '') continue;
+      if (!SB_CURRENCIES.includes(e.currency) || !((e.timestamp || 0) > cutoff)) continue;
+      if (!_CAL_TAUX_RX.test(e.title)) continue;
+      const k = e.currency + '|' + String(e.title).toLowerCase().trim() + '|' + new Date(e.timestamp).toISOString().slice(0, 10);
+      if (!vu.has(k)) vu.set(k, e);
+    }
+  };
+  try { verser([..._calHist.values()]); } catch {}
+  try { verser(_tvCalCache && _tvCalCache.items); } catch {}
+  try { verser(_overlayActuals(getCalendarRaw() || [])); } catch {}
+  return [...vu.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 }
 /* { CCY: Set<nombre> } — les actuals du DERNIER jour de décision par devise, et de lui SEUL.
    Un Set, pas un nombre : un même jour, la BCE publie dépôt ET refi (deux mesures légitimes).
@@ -18389,9 +18417,21 @@ function _calendrierEcritTaux(force = false) {
       .filter(n => isFinite(n) && n >= -1.5 && n <= 25 && Math.abs(n - b.rate) <= 3)   // garde anti-aberration : ±3 pts de l'ancre vérifiée à la main
       .map(n => +n.toFixed(2)));
     /* DEUX valeurs distinctes le même jour (BCE : dépôt + refi) → on ne sait pas laquelle est LA
-       mesure suivie par la carte : on s'abstient, la voie IA corroborée tranche. UNE seule → écrite. */
-    if (vals.size !== 1) return;
-    const n = [...vals][0];
+       mesure suivie par la carte : on s'abstient, la voie IA corroborée tranche. UNE seule → écrite.
+       EXCEPTION BCE (01/09) : là, si — la carte EUR affiche la FACILITÉ DE DÉPÔT (2,25 %, cf. la
+       sonde notée dans CB[]), qui est aussi le taux directeur que suit le marché depuis 2014. Quand
+       les deux mesures tombent ensemble et que l'une porte « deposit » dans son intitulé, on prend
+       celle-là : s'abstenir revenait à ne jamais recaler l'EUR, la seule banque qui publie
+       systématiquement deux chiffres le même jour. */
+    let n;
+    if (vals.size === 1) n = [...vals][0];
+    else {
+      const dep = mine.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === jour && /deposit/i.test(e.title || ''))
+        .map(e => parseFloat(String(e.actual).replace(',', '.')))
+        .filter(x => isFinite(x) && Math.abs(x - b.rate) <= 3).map(x => +x.toFixed(2));
+      if (new Set(dep).size !== 1) return;
+      n = dep[0];
+    }
     if (Math.abs(st.rate - n) < 0.005) return;   // déjà à jour
     console.log(`[Taux calendrier] ${b.code} : ${st.rate} → ${n} (actual du ${jour}, « ${(mine[0].title || '').slice(0, 60)} »)`);
     st.rate = n;
@@ -18405,6 +18445,31 @@ function _calendrierEcritTaux(force = false) {
 }
 setTimeout(() => { try { _calendrierEcritTaux(true); } catch {} }, 45000);   // démarrage, après le chargement du calendrier
 
+/* ══ D'OÙ VIENT LE TAUX AFFICHÉ (01/09, demande utilisateur : « enlève estimation DTP, faut les
+   vraies taux pour toutes les banques de l'onglet taux, et donne des sources qu'on a ») ═══════════
+   La carte ne portait qu'UN badge, et il ne parlait que du PRICING. « estimation DTP » se lisait
+   donc comme un verdict sur TOUTE la carte, taux directeur compris — alors que ce chiffre-là n'est
+   pas une estimation : c'est la dernière décision publiée, ou l'ancre vérifiée à la main sur le
+   communiqué de la banque. Deux choses différentes portaient une seule étiquette.
+   On rend donc la provenance du TAUX séparément de celle du pricing, avec sa date et l'intitulé qui
+   l'a écrite, pour que la carte puisse citer sa source au lieu de laisser deviner. Rien n'est
+   recalculé ni deviné : on relit la décision qui a servi. */
+function _origineTaux(code, rate, srcMarche, srcAt) {
+  const cb = CB.find(x => x.code === code) || {};
+  if (srcMarche) return { via: 'marche', libelle: 'rateprobability.com', date: srcAt ? new Date(srcAt).toISOString().slice(0, 10) : null };
+  try {
+    for (const e of _calDecisionsTaux()) {
+      if (e.currency !== code) continue;
+      const n = parseFloat(String(e.actual).replace(',', '.'));
+      if (isFinite(n) && Math.abs(n - rate) < 0.005) {
+        return { via: 'calendrier', libelle: String(e.title || '').slice(0, 60), date: new Date(e.timestamp).toISOString().slice(0, 10) };
+      }
+    }
+  } catch {}
+  // Aucune décision publiée ne porte ce chiffre : c'est l'ancre relevée à la main qui parle, et elle
+  // le dit — avec la date de son relevé, pour qu'on voie tout de suite si elle a vieilli.
+  return { via: 'ancre', libelle: cb.full || cb.bank || code, date: cb.ancre || null };
+}
 const _maisonLog = {};
 function _buildRatesPayload() {
   try { _refreshRates(); } catch {}
@@ -18424,6 +18489,7 @@ function _buildRatesPayload() {
       next: rp.next, nextDays: rp.nextDays, move: _rpDirMove(rp.meetings, rp.rate), stance, prob: rp.prob, expBps: rp.expBps,
       scenario: rp.scenario, meetings: rp.meetings, source: 'market',
       srcAt: _rpBankAt[b.code] || _rpCache.at || null,   // fraîcheur PAR banque → le badge de la carte peut dire « actualisé à HH:MM »
+      rateSrc: _origineTaux(b.code, rp.rate, true, _rpBankAt[b.code] || _rpCache.at || null),   // provenance du TAUX, distincte de celle du pricing
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null };
     // Repli maison : visible dans le journal (une fois par heure par banque), avec la raison côté
     // fournisseur — un client a découvert AVANT NOUS que deux banques n'étaient pas du marché.
@@ -18452,6 +18518,7 @@ function _buildRatesPayload() {
       prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 10000) / 100, expBps: +sc0.impliedBps.toFixed(1),
       scenario: { hold: Math.round(sc0.hold * 10000) / 100, hike: Math.round(sc0.hike * 10000) / 100, cut: Math.round(sc0.cut * 10000) / 100 },
       meetings, source: 'maison',
+      rateSrc: _origineTaux(b.code, st.rate, false, null),   // le TAUX n'est PAS une estimation : décision publiée, sinon ancre relevée à la main
       panne: _rpPanne[slug] || 'jamais reçu',   // POURQUOI pas de marché (paywall ≠ réseau ≠ format) → badge honnête côté client
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : cross-check proba marché (CME futures)
     };
