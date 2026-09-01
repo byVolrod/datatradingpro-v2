@@ -1073,7 +1073,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
-  { id: 'dtpu-20260901-hebdo-vix-desk-jours-gras', ts: Date.UTC(2026, 8, 1, 18, 0), title: 'Récap Hebdo : le VIX arrive sur le desk, et les jours de la chronologie repassent en gras', desc: 'Le graphique du VIX (bougies 2 heures, traits rouges à chaque lundi) vivait déjà dans le mail hebdomadaire depuis quelques jours, juste après la partie Géopolitique : la semaine géopolitique vient d’être racontée, ce graphique dit ce que le marché en a fait avant d’entrer dans la partie Macro. Il n’avait pas encore rejoint le desk — c’est fait, au même endroit, avec la même image. Et dans la chronologie géopolitique jour par jour, le nom du jour (« Mardi », « Mercredi »…) repasse en gras, sur le desk comme dans le mail : il sert de repère pour parcourir rapidement la semaine.' },
+  { id: 'dtpu-20260901-vix-fond-blanc', ts: Date.UTC(2026, 8, 1, 19, 0), title: 'Récap Hebdo : le graphique du VIX passe en fond blanc, sans bandeau de titre', desc: 'Sur sa propre lecture TradingView du VIX, vous nous avez montré ce que vous vouliez : le même type de vue, sans le bandeau de titre et de valeur au-dessus du graphique, et avec un fond blanc plutôt que sombre. Les trois sont faits. Le bandeau disparaît : le titre « Volatilité · VIX » reste au-dessus de l’image, comme pour les autres graphiques du rapport, rien n’est perdu. L’axe du temps ne laisse plus de blancs pendant les heures où le VIX ne cote pas (nuit américaine, week-end) : les bougies s’enchaînent en continu, comme sur votre capture. Même image utilisée par le desk et par le mail, ils restent identiques.' },
+  { id: 'dtpu-20260901-hebdo-vix-desk-jours-gras', ts: Date.UTC(2026, 8, 1, 18, 0), title: 'Récap Hebdo : le VIX arrive sur le desk, et les jours de la chronologie repassent en gras', desc: 'Le graphique du VIX (bougies 2 heures, traits rouges à chaque lundi) vivait déjà dans le mail hebdomadaire depuis quelques jours, juste après la partie Géopolitique : la semaine géopolitique vient d’être racontée, ce graphique dit ce que le marché en a fait avant d’entrer dans la partie Macro. Il n’avait pas encore rejoint le desk, c’est fait désormais, au même endroit, avec la même image. Et dans la chronologie géopolitique jour par jour, le nom du jour (« Mardi », « Mercredi »…) repasse en gras, sur le desk comme dans le mail : il sert de repère pour parcourir rapidement la semaine.' },
   { id: 'dtpu-20260901-taux-sources', ts: Date.UTC(2026, 8, 1, 17, 0), title: 'Onglet Taux : chaque carte cite la source de son taux, et le texte ne passe plus sur la courbe', desc: 'Trois corrections d’un coup sur l’onglet TAUX, toutes venues de votre relecture. LE TAUX N’EST PLUS UNE ESTIMATION, ET IL NE L’ÉTAIT PAS. Deux banques sur huit n’ont pas de pricing de marché chez notre fournisseur, et leur carte portait pour cela un badge « estimation DTP ». Placé seul en tête de carte, il se lisait comme un verdict sur tout ce qu’elle affiche, taux directeur compris. Le badge dit désormais ce qu’il qualifie vraiment, « pricing modélisé », et il reste là parce qu’une carte sans pricing de marché ne doit jamais pouvoir se lire comme un pricing de marché. LES SOURCES SONT ÉCRITES. Chaque carte porte en pied la provenance de son taux directeur et celle de son pricing, séparément : la décision qui a écrit le taux avec sa date et son intitulé de calendrier, ou la mention honnête d’un relevé fait à la main sur le communiqué de la banque quand aucune décision récente ne porte ce chiffre. ET UNE PANNE DE FOND, TROUVÉE EN CHERCHANT CES SOURCES. La voie qui recale le taux sur la dernière décision publiée lisait une liste qui ne contient pas les champs qu’elle cherchait : elle n’avait donc jamais rien écrit, et les huit cartes affichaient toujours la valeur relevée à la main. Elle lit maintenant les listes qui portent réellement ces chiffres, sur six mois d’historique, et le cas particulier de la BCE, qui publie deux taux le même jour, est tranché sur la facilité de dépôt, celle que suit le marché. ENFIN, LE TEXTE SUR LA COURBE. Sous 560 pixels de large, les valeurs Prochain mouvement, Probabilité et Δ attendu s’écrivaient par-dessus la petite courbe de fond, sur quinze pixels. La place réservée à la courbe et la hauteur de la courbe étaient deux réglages séparés qui avaient fini par diverger : ils n’en font plus qu’un, et sur mobile c’est la courbe, décorative, qui se réduit.' },
   { id: 'dtpu-20260901-calendrier-source-ff', ts: Date.UTC(2026, 8, 1, 12, 0), title: 'Calendrier économique : c’est ForexFactory qui dit ce qui est au programme', desc: 'Vous nous l’avez demandé après avoir cherché une publication sur forexfactory.com sans la retrouver chez nous : « la source du calendrier éco doit être celle de ForexFactory ». Jusqu’ici elle ne l’était qu’à moitié. ForexFactory donnait les NOMS des lignes, mais c’est notre autre fournisseur qui décidait lesquelles existent. Deux écarts en découlaient. Une ligne pouvait s’afficher chez nous sans figurer sur ForexFactory, et vous n’aviez alors aucun moyen de la recouper. Et l’inverse, plus discret : une publication annoncée par ForexFactory et ignorée par l’autre fournisseur n’apparaissait jamais, puisque renommer des lignes ne sait pas en ajouter. Désormais, sur la semaine que ForexFactory couvre, c’est lui qui fait foi : ses publications manquantes sont ajoutées, ses intitulés, ses horaires et ses niveaux d’importance l’emportent, et une ligne qu’il ne liste pas est retirée. Chaque ligne venue de ForexFactory porte aussi le lien vers sa fiche, avec le détail de l’indicateur et son historique au clic. Ce qui ne change pas : les résultats publiés continuent d’être collectés partout où ils se trouvent, et l’historique des mois passés reste servi comme avant, ForexFactory ne diffusant que la semaine en cours. Trois sécurités encadrent le retrait de lignes, pour qu’un flux momentanément indisponible ou incomplet ne puisse jamais vider une journée du calendrier : les grands rendez-vous que ForexFactory classe hors calendrier, comme un symposium de banquiers centraux ou une réunion de l’OPEP, restent affichés en toutes circonstances.' },
   { id: 'dtpu-20260901-rebours-pied', ts: Date.UTC(2026, 8, 1, 9, 0), title: 'Compte à rebours : la prévision et le précédent ne disparaissent plus sur les cartes courtes', desc: 'Vous nous l’avez signalé : toutes les informations du compte à rebours n’étaient pas visibles. La carte effaçait purement et simplement sa dernière ligne, celle qui porte la prévision et le précédent, dès que sa hauteur descendait sous un certain seuil. C’était volontaire au départ, pour garder le chronomètre lisible sur une carte volontairement courte, mais la mesure a montré deux choses : le seuil visait la hauteur de la CARTE alors qu’il s’applique au cadre intérieur, plus court d’une trentaine de pixels, si bien que la ligne disparaissait même à la taille par défaut de la carte ; et dans un panneau à onglets, la barre d’onglets prend sa part de hauteur, ce qui faisait passer sous le seuil sans que la carte paraisse petite. Or ce sont ces deux chiffres qui donnent son sens au décompte : sans eux il ne reste qu’une horloge. La ligne est désormais conservée et resserrée, et si elle ne tient vraiment pas, le corps de la carte défile : l’information reste atteignable, jamais supprimée.' },
@@ -21745,53 +21746,45 @@ app.get('/internal/email-widget/vix', async (req, res) => {
     // que le user appelait « en H2 » depuis le début. Le 60m de la source est donc groupé par 2.
     candles = _bankGroupe(_reactCandles(raw, false), 2);
   } catch (e) { console.warn('[email-widget vix]', e.message); }
-  // Dernier niveau + variation sur la fenêtre : la légende du mentor porte le niveau et le %.
-  const _der = candles.length ? candles[candles.length - 1].c : null;
-  const _prem = candles.length ? candles[0].o : null;
-  const _var = (_der != null && _prem) ? ((_der - _prem) / _prem * 100) : null;
-  const data = { candles, dernier: _der, variation: _var };
+  const data = { candles };
   res.set('Cache-Control', 'no-store');
+  /* ⚠️ REFONTE 01/09 (demande user, capture de sa propre lecture TradingView à l'appui : « on doit
+     avoir ce type de vue sans le texte sur le côté » puis « avec le fond blanc »). TROIS écarts
+     avec sa référence, corrigés ensemble :
+     1. FOND BLANC au lieu du thème sombre du desk — ce widget en particulier calque la lecture
+        TradingView du mentor, pas la charte HUD du reste du produit ; c'est un choix assumé sur CE
+        graphique, pas un changement de charte générale.
+     2. LE BANDEAU DE TITRE/VALEUR (« VIX · Volatilité  18,42  +2,10% ») DISPARAÎT : c'était « le
+        texte » que le user montrait du doigt. Le titre « Volatilité · VIX » vit déjà AU-DESSUS de
+        l'image côté desk (app.js) et côté mail (mailer.js, `S('Volatilité · VIX', …)`) : rien n'est
+        perdu, l'espace libéré revient au graphique.
+     3. AXE SANS TROU : la référence enchaîne ses bougies sans les blancs qu'ouvrait le VIX en
+        dehors des heures de cotation (nuit US, week-end). `GaplessDateAxis` (déjà utilisé pour les
+        graphiques desk, public/js/charts.js) compacte l'axe sur les points réels au lieu du temps
+        calendaire — c'est la lecture "type TradingView" que le user demande, remplace `DateAxis`. */
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
 <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
-<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
-<style>html,body{margin:0;padding:0;background:#0d0e11}#vixwrap{width:600px}#box{width:600px;height:280px}
-.vx-bar{display:flex;align-items:baseline;background:#16171b;padding:6px 10px 5px;font-family:'Inter Tight',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.vx-title{font-size:11.5px;font-weight:600;color:#eceef2;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
-.vx-sp{flex:1}
-.vx-val{font-size:13px;font-weight:800;color:#fff;margin-right:6px}
-.vx-chg{font-size:11px;font-weight:700}
-.vx-chg.up{color:#ff3d00}.vx-chg.dn{color:#00e676}
-.vx-vide{color:#6f6f79;font-family:'Inter Tight',sans-serif;font-size:12px;padding:26px 10px;text-align:center}</style>
-</head><body><div id="vixwrap"><div class="vx-bar"><span class="vx-title">VIX · Volatilité</span><span class="vx-sp"></span></div><div id="box"></div></div>
-<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){
+<style>html,body{margin:0;padding:0;background:#ffffff}#vixwrap{width:640px}#box{width:640px;height:360px;background:#ffffff}
+.vx-vide{color:#8a8f99;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;padding:26px 10px;text-align:center}</style>
+</head><body><div id="vixwrap"><div id="box"></div></div>
+<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\u003c')};(function(){
 function pret(){setTimeout(function(){window.__ready=true;},900);}
 function go(){
   try{
     if(typeof am5==='undefined'||typeof am5xy==='undefined'){return setTimeout(go,120);}
     var D=window.__DATA||{},C=(D.candles||[]).filter(function(x){return x&&x.t&&x.c!=null;});
-    /* Une VOLATILITÉ à la hausse est un signal de RISQUE (charte : risk-off rouge) : la variation de
-       la fenêtre se lit donc en rouge quand le VIX monte, en vert quand il retombe — l'inverse d'un
-       prix d'actif, et c'est voulu. */
-    var bar=document.querySelector('.vx-bar');
-    if(D.dernier!=null&&bar){
-      var s=document.createElement('span');s.className='vx-val';s.textContent=(Math.round(D.dernier*100)/100).toFixed(2);
-      var g=document.createElement('span');g.className='vx-chg '+(D.variation>=0?'up':'dn');
-      g.textContent=(D.variation>=0?'+':'')+(Math.round((D.variation||0)*100)/100).toFixed(2)+'%';
-      bar.appendChild(s);bar.appendChild(g);
-    }
     if(!C.length){document.getElementById('box').innerHTML='<div class="vx-vide">VIX indisponible.</div>';return pret();}
-    var root=am5.Root.new('box');root.setThemes([am5themes_Dark.new(root)]);root._logo&&root._logo.dispose();
+    var root=am5.Root.new('box');root._logo&&root._logo.dispose();
     var chart=root.container.children.push(am5xy.XYChart.new(root,{panX:false,panY:false,wheelX:'none',wheelY:'none',
-      paddingLeft:2,paddingRight:8,paddingTop:6,paddingBottom:2}));
-    var xAxis=chart.xAxes.push(am5xy.DateAxis.new(root,{baseInterval:{timeUnit:'hour',count:2},
+      paddingLeft:2,paddingRight:8,paddingTop:10,paddingBottom:2}));
+    var xAxis=chart.xAxes.push(am5xy.GaplessDateAxis.new(root,{baseInterval:{timeUnit:'hour',count:2},
       renderer:am5xy.AxisRendererX.new(root,{minGridDistance:70}),tooltip:undefined}));
     var yAxis=chart.yAxes.push(am5xy.ValueAxis.new(root,{renderer:am5xy.AxisRendererY.new(root,{opposite:true})}));
-    xAxis.get('renderer').labels.template.setAll({fill:am5.color(0x6f6f79),fontSize:9});
-    yAxis.get('renderer').labels.template.setAll({fill:am5.color(0x6f6f79),fontSize:9});
-    xAxis.get('renderer').grid.template.setAll({stroke:am5.color(0x1f2027),strokeOpacity:1});
-    yAxis.get('renderer').grid.template.setAll({stroke:am5.color(0x1f2027),strokeOpacity:1});
+    xAxis.get('renderer').labels.template.setAll({fill:am5.color(0x5b6170),fontSize:9});
+    yAxis.get('renderer').labels.template.setAll({fill:am5.color(0x5b6170),fontSize:9});
+    xAxis.get('renderer').grid.template.setAll({stroke:am5.color(0xe3e5ea),strokeOpacity:1});
+    yAxis.get('renderer').grid.template.setAll({stroke:am5.color(0xe3e5ea),strokeOpacity:1});
     var serie=chart.series.push(am5xy.CandlestickSeries.new(root,{xAxis:xAxis,yAxis:yAxis,
       valueYField:'c',openValueYField:'o',highValueYField:'h',lowValueYField:'l',valueXField:'t'}));
     serie.columns.template.states.create('riseFromOpen',{fill:am5.color(0x00e676),stroke:am5.color(0x00e676)});
@@ -21808,8 +21801,8 @@ function go(){
       var rg=xAxis.makeDataItem({value:new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())).getTime()});
       xAxis.createAxisRange(rg);
       // ROUGE PLEIN, pas un pointillé doré : c'est le trait de la capture de référence, et il doit
-      // trancher sur les bougies sans se confondre avec la grille.
-      rg.get('grid').setAll({stroke:am5.color(0xff3b30),strokeOpacity:1,strokeWidth:1,visible:true,above:true});
+      // trancher sur les bougies sans se confondre avec la grille (claire, désormais).
+      rg.get('grid').setAll({stroke:am5.color(0xe0281e),strokeOpacity:1,strokeWidth:1,visible:true,above:true});
     });
     pret();
   }catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}
